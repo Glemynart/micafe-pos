@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MiTienda POS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+  <!-- ══ LOGIN SCREEN ══ -->
+  <div id="login-screen" style="
+    position: fixed; inset: 0; z-index: 9999;
+    background: linear-gradient(135deg, #0d0f18 0%, #1a1d2e 50%, #0d0f18 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Inter', system-ui, sans-serif;
+  ">
+    <!-- Fondo decorativo -->
+    <div style="
+      position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+    ">
+      <div style="
+        position: absolute; width: 500px; height: 500px;
+        background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
+        top: -100px; left: -100px;
+      "></div>
+      <div style="
+        position: absolute; width: 400px; height: 400px;
+        background: radial-gradient(circle, rgba(79,70,229,0.1) 0%, transparent 70%);
+        bottom: -80px; right: -80px;
+      "></div>
+    </div>
+
+    <!-- Card de login -->
+    <div style="
+      position: relative; width: 100%; max-width: 400px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 24px;
+      padding: 2.8rem 2.4rem;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 25px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+      animation: loginFadeIn .5s ease;
+    ">
+      <!-- Logo -->
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <div style="
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 68px; height: 68px;
+          background: linear-gradient(135deg, #4f46e5, #6366f1);
+          border-radius: 20px;
+          font-size: 2rem;
+          margin-bottom: 1.1rem;
+          box-shadow: 0 8px 24px rgba(99,102,241,0.4);
+        ">🛒</div>
+        <div style="font-size: 1.5rem; font-weight: 800; color: #f1f5f9; margin-bottom: .3rem;">
+          MiTienda POS
+        </div>
+        <div style="font-size: .82rem; color: rgba(255,255,255,0.35); letter-spacing: .04em;">
+          Sistema Punto de Venta
+        </div>
+      </div>
+
+      <!-- Formulario -->
+      <div style="margin-bottom: 1.1rem;">
+        <label style="display: block; font-size: .78rem; font-weight: 600; color: rgba(255,255,255,0.5); margin-bottom: .45rem; letter-spacing: .04em; text-transform: uppercase;">
+          Usuario
+        </label>
+        <input id="login-user" type="text" placeholder="admin"
+          style="
+            width: 100%; padding: .8rem 1rem;
+            background: rgba(255,255,255,0.06);
+            border: 1.5px solid rgba(255,255,255,0.1);
+            border-radius: 12px; color: #f1f5f9;
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: .95rem; outline: none;
+            transition: all .18s ease;
+          "
+          onfocus="this.style.borderColor='#6366f1';this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.2)'"
+          onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.boxShadow='none'"
+          onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()"
+        />
+      </div>
+
+      <div style="margin-bottom: 1.6rem;">
+        <label style="display: block; font-size: .78rem; font-weight: 600; color: rgba(255,255,255,0.5); margin-bottom: .45rem; letter-spacing: .04em; text-transform: uppercase;">
+          Contraseña
+        </label>
+        <input id="login-pass" type="password" placeholder="••••••••"
+          style="
+            width: 100%; padding: .8rem 1rem;
+            background: rgba(255,255,255,0.06);
+            border: 1.5px solid rgba(255,255,255,0.1);
+            border-radius: 12px; color: #f1f5f9;
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: .95rem; outline: none;
+            transition: all .18s ease;
+          "
+          onfocus="this.style.borderColor='#6366f1';this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.2)'"
+          onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.boxShadow='none'"
+          onkeydown="if(event.key==='Enter')doLogin()"
+        />
+      </div>
+
+      <!-- Error -->
+      <div id="login-error" style="
+        display: none; margin-bottom: 1rem;
+        padding: .65rem .9rem;
+        background: rgba(220,38,38,0.12);
+        border: 1px solid rgba(220,38,38,0.3);
+        border-radius: 10px;
+        font-size: .82rem; color: #fca5a5;
+        text-align: center;
+      ">
+        ❌ Usuario o contraseña incorrectos
+      </div>
+
+      <!-- Botón -->
+      <button onclick="doLogin()" style="
+        width: 100%; padding: .9rem;
+        background: linear-gradient(135deg, #4f46e5, #6366f1);
+        color: #fff; border: none; border-radius: 12px;
+        font-family: 'Inter', system-ui, sans-serif;
+        font-size: 1rem; font-weight: 700;
+        cursor: pointer; transition: all .18s ease;
+        box-shadow: 0 4px 16px rgba(99,102,241,0.4);
+        letter-spacing: .02em;
+      "
+        onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 22px rgba(99,102,241,0.5)'"
+        onmouseout="this.style.transform='';this.style.boxShadow='0 4px 16px rgba(99,102,241,0.4)'"
+      >
+        🔐 Ingresar al Sistema
+      </button>
+
+      <!-- Hint credenciales -->
+      <div style="text-align: center; margin-top: 1.4rem;">
+        <div style="font-size: .72rem; color: rgba(255,255,255,0.2);">
+          Usuario: <strong style="color:rgba(255,255,255,0.4)">admin</strong> &nbsp;·&nbsp; Contraseña: <strong style="color:rgba(255,255,255,0.4)">1234</strong>
+        </div>
+        <div style="font-size: .65rem; color: rgba(255,255,255,0.15); margin-top: .3rem;">
+          Puedes cambiar las credenciales en Configuración
+        </div>
+      </div>
+
+      <!-- Ley 1581 Colombia (Protección de Datos) -->
+      <div style="margin-top: 1.5rem; text-align: center; font-size: 0.6rem; color: rgba(255,255,255,0.2); line-height: 1.4;">
+        Al ingresar, usted acepta nuestra <a href="#" style="color: rgba(99,102,241,0.6); text-decoration: none;" onclick="alert('Aviso de Privacidad (Ley 1581 de 2012): Los datos personales recolectados en este sistema (ventas, clientes, proveedores) son tratados con la finalidad exclusiva de la gestión comercial y contable del establecimiento. El software cuenta con protocolos de cifrado y auditoría para garantizar la integridad y seguridad de la información.')">Política de Tratamiento de Datos</a> bajo la Ley 1581 de 2012.
+      </div>
+    </div>
+  </div>
+
+  <style>
+    @keyframes loginFadeIn {
+      from { opacity: 0; transform: translateY(20px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes loginFadeOut {
+      from { opacity: 1; }
+      to   { opacity: 0; pointer-events: none; }
+    }
+    #login-screen.hidden {
+      animation: loginFadeOut .4s ease forwards;
+    }
+    #login-user::placeholder, #login-pass::placeholder {
+      color: rgba(255,255,255,0.2);
+    }
+  </style>
+
+  <!-- ══ SIDEBAR ══ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-glow">🛒</div>
+      <div>
+        <div class="logo-title" id="sidebar-store-name">MiTienda</div>
+        <div class="logo-sub">Punto de Venta</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-btn active" id="nav-venta" onclick="goTo('venta')">
+        <span class="nav-icon">▶</span><span>Vender</span>
+        <span class="nav-badge" id="nav-badge-carrito" style="display:none">0</span>
+      </button>
+      <button class="nav-btn" id="nav-dashboard" onclick="goTo('dashboard')">
+        <span class="nav-icon">◈</span><span>Resumen</span>
+      </button>
+      <button class="nav-btn" id="nav-inventario" onclick="goTo('inventario')">
+        <span class="nav-icon">⊞</span><span>Inventario</span>
+      </button>
+      <button class="nav-btn" id="nav-proveedores" onclick="goTo('proveedores')">
+        <span class="nav-icon">🏭</span><span>Proveedores</span>
+      </button>
+      <button class="nav-btn" id="nav-historial" onclick="goTo('historial')">
+        <span class="nav-icon">☰</span><span>Historial</span>
+      </button>
+      <button class="nav-btn" id="nav-config" onclick="goTo('config')">
+        <span class="nav-icon">◎</span><span>Configurar</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="store-badge">
+        <div class="store-avatar" id="sidebar-avatar">T</div>
+        <div>
+          <div class="store-name" id="badge-store-name">Mi Tienda</div>
+          <div class="store-date" id="sidebar-date"></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══ MAIN ══ -->
+  <main class="main">
+
+    <!-- ══════════ VENTA (Scanner-first layout) ══════════ -->
+    <section id="page-venta" class="page active">
+      <div class="venta-layout-new">
+
+        <!-- ── Izquierda: Scanner + Carrito ── -->
+        <div class="venta-left">
+          <!-- Hero Scanner -->
+          <div class="scanner-hero">
+            <div class="scanner-status" id="scanner-status">
+              <span class="scanner-dot"></span>Listo para escanear
+            </div>
+            <div class="scanner-field-wrap">
+              <span class="scanner-icon-big">⚡</span>
+              <input id="buscar" type="text" class="scanner-input"
+                placeholder="Escanea el código de barras o escribe el nombre..." oninput="filtrarProductos()"
+                onkeydown="onBarcodeKey(event)" autocomplete="off" />
+              <button class="scanner-browse-btn" onclick="toggleProductGrid()" id="browse-btn"
+                title="Ver catálogo de productos">🛍️</button>
+            </div>
+          </div>
+
+          <!-- Panel colapsable de productos (inline) -->
+          <div class="prod-panel" id="prod-panel">
+            <div class="prod-panel-inner">
+              <div class="cats-bar" id="cats-bar"></div>
+              <div class="prod-grid" id="prod-grid"></div>
+            </div>
+          </div>
+
+          <!-- Carrito items -->
+          <div class="carrito-card">
+            <div class="carrito-hdr">
+              <div style="display:flex;align-items:center;gap:.6rem">
+                <span class="ch-title">Productos en esta venta</span>
+                <span class="ch-badge" id="carrito-count">0</span>
+              </div>
+              <button class="btn-clear-new" onclick="limpiarCarrito()">🗑 Limpiar</button>
+            </div>
+            <div class="carrito-items" id="carrito-items">
+              <div class="empty-cart-new">
+                <div class="empty-art">📡</div>
+                <p>Esperando escaneo...</p>
+                <small>Apunta el lector al código de barras del producto</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- ── Derecha: Resumen y Cobro ── -->
+        <div class="venta-right">
+          <!-- Total grande -->
+          <div class="totales-card">
+            <div class="tc-label">Total a cobrar</div>
+            <div class="tc-amount" id="total-val">$ 0</div>
+            <div class="tc-sub"><span>Subtotal</span><span id="subtotal-val">$ 0</span></div>
+          </div>
+
+          <!-- Método de pago -->
+          <div class="metodo-card-new">
+            <div class="mc-title">Método de pago</div>
+            <div class="metodo-grid-new">
+              <button class="metodo-btn-new active" data-m="Efectivo" onclick="setMetodo(this)">
+                <span class="mb-icon">💵</span><span class="mb-label">Efectivo</span>
+              </button>
+              <button class="metodo-btn-new" data-m="Transferencia" onclick="setMetodo(this)">
+                <span class="mb-icon">📲</span><span class="mb-label">Transfer.</span>
+              </button>
+              <button class="metodo-btn-new" data-m="Débito" onclick="setMetodo(this)">
+                <span class="mb-icon">💳</span><span class="mb-label">Débito</span>
+              </button>
+              <button class="metodo-btn-new" data-m="Crédito" onclick="setMetodo(this)">
+                <span class="mb-icon">🏦</span><span class="mb-label">Crédito</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Pago efectivo -->
+          <div class="pago-card" id="pago-block">
+            <div class="pc-label">Pago recibido</div>
+            <div class="pago-wrap">
+              <span class="pc-currency">$</span>
+              <input id="pago-input" type="number" placeholder="0" min="0" oninput="calcCambio()"
+                class="pago-input-new" />
+            </div>
+            <div class="cambio-display">
+              <span>Cambio</span>
+              <span id="cambio-val" class="cambio-num">$ 0</span>
+            </div>
+          </div>
+
+          <!-- Cobrar -->
+          <button class="btn-cobrar-new" onclick="cobrar()">
+            <span>✅ Cobrar</span>
+            <span class="cobrar-badge" id="cobrar-total-badge">$ 0</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Drawer de productos (toggle) -->
+      <div class="prod-drawer" id="prod-drawer">
+        <div class="drawer-inner">
+          <div class="drawer-hdr">
+            <span style="font-weight:700">🛍️ Catálogo de Productos</span>
+            <button class="drawer-close" onclick="toggleProductGrid()">✕ Cerrar</button>
+          </div>
+          <div class="cats-bar" id="cats-bar"></div>
+          <div class="prod-grid" id="prod-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════ DASHBOARD ══════════ -->
+
+    <section id="page-dashboard" class="page">
+      <div class="page-head">
+        <h1>Resumen</h1>
+        <span id="dash-date" class="page-date"></span>
+      </div>
+
+      <!-- Tabs día/mes -->
+      <div class="dash-tabs">
+        <button class="dash-tab active" id="tab-dia" onclick="setDashTab('dia')">Hoy</button>
+        <button class="dash-tab" id="tab-mes" onclick="setDashTab('mes')">Este Mes</button>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card" style="--c:#4f46e5">
+          <div class="stat-icon-wrap" style="--c:#4f46e5">$</div>
+          <div>
+            <div class="stat-val" id="s-total">$0</div>
+            <div class="stat-lbl" id="s-total-lbl">Ventas del Día</div>
+          </div>
+        </div>
+        <div class="stat-card" style="--c:#16a34a">
+          <div class="stat-icon-wrap" style="--c:#16a34a">#</div>
+          <div>
+            <div class="stat-val" id="s-trans">0</div>
+            <div class="stat-lbl" id="s-trans-lbl">Transacciones</div>
+          </div>
+        </div>
+        <div class="stat-card" style="--c:#d97706">
+          <div class="stat-icon-wrap" style="--c:#d97706">◻</div>
+          <div>
+            <div class="stat-val" id="s-prods">0</div>
+            <div class="stat-lbl">Productos Vendidos</div>
+          </div>
+        </div>
+        <div class="stat-card" style="--c:#db2777">
+          <div class="stat-icon-wrap" style="--c:#db2777">~</div>
+          <div>
+            <div class="stat-val" id="s-avg">$0</div>
+            <div class="stat-lbl" id="s-avg-lbl">Ticket Promedio</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gráfica mensual -->
+      <div id="grafica-mes-section" class="dash-section" style="display:none">
+        <div class="card full-card">
+          <div class="card-title">Ventas Diarias del Mes</div>
+          <div class="chart-wrap">
+            <canvas id="chart-mes"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Métodos de pago del día -->
+      <div id="metodos-hoy-section" class="dash-section">
+        <div class="card">
+          <div class="card-title">Por Método de Pago</div>
+          <div id="metodos-hoy"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Más Vendidos</div>
+          <div id="top-prods"></div>
+        </div>
+      </div>
+
+      <div class="dash-section" id="last-section">
+        <div class="card full-card">
+          <div class="card-title">Últimas Ventas</div>
+          <div id="last-sales"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════ INVENTARIO ══════════ -->
+    <section id="page-inventario" class="page">
+      <div class="page-head">
+        <h1>Inventario</h1>
+        <div style="display:flex;gap:.6rem">
+          <button class="btn-secondary" onclick="exportarInventarioCSV()">Exportar CSV</button>
+          <button class="btn-primary" onclick="openModal()">+ Nuevo Producto</button>
+        </div>
+      </div>
+      <div class="inv-search">
+        <span class="si">🔍</span>
+        <input id="inv-buscar" type="text" placeholder="Buscar producto o código de barras..." oninput="filtrarInv()" />
+      </div>
+      <div class="tabla-wrap">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Producto</th>
+              <th>Categoría</th>
+              <th>Código</th>
+              <th>Precio</th>
+              <th>Stock</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="inv-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ══════════ PROVEEDORES ══════════ -->
+    <section id="page-proveedores" class="page">
+      <div class="page-head">
+        <h1>Proveedores</h1>
+        <div style="display:flex;gap:.6rem">
+          <button class="btn-secondary" id="btn-scan-factura" onclick="openModalScanFactura()">
+            <span>📷 Escanear Factura</span>
+          </button>
+          <button class="btn-secondary" onclick="exportarProveedoresCSV()">Exportar CSV</button>
+          <button class="btn-primary" onclick="openModalProveedor()">+ Nuevo Proveedor</button>
+        </div>
+      </div>
+
+      <div class="inv-search">
+        <span class="si">🔍</span>
+        <input id="prov-buscar" type="text" placeholder="Buscar por nombre, NIT, ciudad..." oninput="filtrarProveedores()" />
+      </div>
+
+      <div id="prov-empty" class="prov-empty" style="display:none">
+        <div class="prov-empty-icon">🏭</div>
+        <div class="prov-empty-title">Sin proveedores registrados</div>
+        <p>Escanea la factura de un proveedor para agregar todos sus datos automáticamente,<br>o usa el botón <strong>+ Nuevo Proveedor</strong> para ingresarlos manualmente.</p>
+        <button class="btn-primary" style="margin-top:1rem" onclick="openModalScanFactura()">📷 Escanear mi primera factura</button>
+      </div>
+
+      <div class="tabla-wrap" id="prov-tabla-wrap">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Proveedor</th>
+              <th>NIT</th>
+              <th>Tipo</th>
+              <th>Ciudad</th>
+              <th>Teléfono</th>
+              <th>Email</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="prov-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ══════════ HISTORIAL ══════════ -->
+    <section id="page-historial" class="page">
+      <div class="page-head">
+        <h1>Historial de Ventas</h1>
+        <div class="hist-tools">
+          <input type="date" id="hist-fecha" onchange="filtrarHist()" />
+          <button class="btn-secondary" onclick="exportCSV()">Exportar CSV</button>
+        </div>
+      </div>
+      <div id="historial-lista"></div>
+    </section>
+
+    <!-- ══════════ CONFIGURACIÓN ══════════ -->
+    <section id="page-config" class="page">
+      <div class="page-head">
+        <h1>Configuración de la Tienda</h1>
+      </div>
+      <div class="config-body">
+        <div class="config-card">
+          <div class="config-section-title">Información de la Tienda</div>
+          <div class="fg">
+            <label>Nombre / Razón Social *</label>
+            <input id="cfg-nombre" type="text" placeholder="Ej: Tienda Don Luis" />
+          </div>
+          <div class="fg">
+            <label>Nombre del Propietario</label>
+            <input id="cfg-propietario" type="text" placeholder="Ej: Luis Pérez" />
+          </div>
+          <div class="frow">
+            <div class="fg">
+              <label>Ciudad</label>
+              <input id="cfg-ciudad" type="text" placeholder="Ej: Bogotá" />
+            </div>
+            <div class="fg">
+              <label>Teléfono</label>
+              <input id="cfg-telefono" type="text" placeholder="Ej: 310 123 4567" />
+            </div>
+          </div>
+          <div class="fg">
+            <label>Dirección del Negocio</label>
+            <input id="cfg-direccion" type="text" placeholder="Ej: Calle 45 # 12-30, Local 5" />
+          </div>
+          <div class="frow">
+            <div class="fg">
+              <label>NIT / Cédula</label>
+              <input id="cfg-nit" type="text" placeholder="Ej: 900.123.456-1" />
+            </div>
+            <div class="fg">
+              <label>Tipo de Contribuyente</label>
+              <select id="cfg-tipo-contribuyente">
+                <option value="Persona Natural">Persona Natural</option>
+                <option value="Persona Jurídica">Persona Jurídica</option>
+                <option value="Gran Contribuyente">Gran Contribuyente</option>
+                <option value="Régimen Simple">Régimen Simple</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="config-section-title" style="margin-top:.9rem">Factura Física (DIAN)</div>
+          <div class="fg">
+            <label>Resolución / Autorización DIAN <span style="color:var(--text3);font-size:.78rem">(Res. DIAN No. XXXX del DD/MM/AAAA)</span></label>
+            <input id="cfg-resolucion" type="text" placeholder="Ej: Res. DIAN No. 18764005123456 del 01/01/2024 — Folios del 1 al 5000" />
+          </div>
+          <div class="frow">
+            <div class="fg">
+              <label>Número de factura actual</label>
+              <input id="cfg-num-factura" type="number" min="1" placeholder="Ej: 1" />
+            </div>
+            <div class="fg" style="display:flex;align-items:flex-end">
+              <label class="toggle-label" style="display:flex;align-items:center;gap:.6rem;padding-bottom:.4rem">
+                <span>Responsable de IVA</span>
+                <label class="toggle">
+                  <input type="checkbox" id="cfg-responsable-iva" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </label>
+            </div>
+          </div>
+
+          <button class="btn-primary" style="margin-top:.5rem" onclick="guardarConfig()">Guardar Cambios</button>
+        </div>
+
+
+        <div class="config-card">
+          <div class="config-section-title">Facturación Electrónica (Matias API)</div>
+          <p class="config-hint">Conecta con <strong>Matias API</strong> para emitir facturas electrónicas ante la DIAN.
+            Requiere cuenta activa en <strong>matias-api.com</strong></p>
+          <div class="matias-toggle-row">
+            <span>Activar Facturación Electrónica</span>
+            <label class="toggle">
+              <input type="checkbox" id="cfg-matias-activo" onchange="toggleMatias(this)" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div id="matias-fields">
+            <div class="fg">
+              <label>Base URL (Matias API)</label>
+              <input id="cfg-matias-base-url" type="text" placeholder="Ej: https://api.matias-api.com/api/v1" autocomplete="off" />
+            </div>
+            <div class="fg">
+              <label>Token (PAT)</label>
+              <input id="cfg-matias-token" type="password" placeholder="••••••••••••" autocomplete="off" />
+            </div>
+            <div class="frow">
+              <div class="fg">
+                <label>Software ID (DIAN)</label>
+                <input id="cfg-matias-software-id" type="text" placeholder="ID entregado por DIAN" autocomplete="off" />
+              </div>
+              <div class="fg">
+                <label>PIN de Seguridad</label>
+                <input id="cfg-matias-software-pin" type="password" placeholder="PIN DIAN" autocomplete="off" />
+              </div>
+            </div>
+            <div class="frow">
+              <div class="fg">
+                <label>Prefijo POS DIAN</label>
+                <input id="cfg-prefijo-dian" type="text" placeholder="Ej: POS" />
+              </div>
+            </div>
+            <div style="display:flex;gap:.6rem;margin-top:.3rem">
+              <button class="btn-secondary" onclick="verificarMatias()">Verificar Conexión</button>
+              <button class="btn-primary" onclick="guardarConfigMatias()">Guardar</button>
+            </div>
+            <div id="matias-status" class="matias-status" style="display:none"></div>
+          </div>
+        </div>
+
+        <div class="config-card">
+          <div class="config-section-title">Impresora Térmica</div>
+          <p class="config-hint">La app envía el ticket al diálogo de impresión del sistema. Asegúrate de tener tu
+            impresora instalada como impresora predeterminada.<br><br>Modelos compatibles: <strong>Epson TM-T20, Bixolon
+              SRP, Sewoo, STAR, POS-8</strong> y cualquier impresora de 58mm u 80mm con driver instalado.</p>
+        </div>
+
+        <div class="config-card">
+          <div class="config-section-title">Escáner de Código de Barras</div>
+          <p class="config-hint">Los escáneres HID (USB o Bluetooth) funcionan automáticamente. Conecta el escáner, ve a
+            la pantalla <strong>Vender</strong> y escanea cualquier producto. La app lo detecta al instante.<br><br>
+            Tip: Registra el código de barras de tus productos en <strong>Inventario → Editar</strong> para que el
+            escáner los encuentre.</p>
+        </div>
+
+        <!-- ══ Credenciales de Acceso ══ -->
+        <div class="config-card">
+          <div class="config-section-title">🔐 Credenciales de Acceso</div>
+          <p class="config-hint">Cambia el usuario y contraseña que se solicitan al abrir el programa.</p>
+          <div class="frow">
+            <div class="fg">
+              <label>Usuario</label>
+              <input id="cfg-login-usuario" type="text" placeholder="admin" autocomplete="off" />
+            </div>
+          </div>
+          <div class="frow">
+            <div class="fg">
+              <label>Contraseña nueva</label>
+              <input id="cfg-login-pass1" type="password" placeholder="Nueva contraseña" autocomplete="new-password" />
+            </div>
+            <div class="fg">
+              <label>Confirmar contraseña</label>
+              <input id="cfg-login-pass2" type="password" placeholder="Repetir contraseña" autocomplete="new-password" />
+            </div>
+          </div>
+          <button class="btn-primary" style="margin-top:.5rem" onclick="guardarCredenciales()">Guardar Credenciales</button>
+          <div id="cfg-login-msg" style="display:none;margin-top:.6rem;padding:.5rem .8rem;border-radius:8px;font-size:.82rem"></div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL PRODUCTO -->
+  <div class="overlay" id="modal-prod">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="modal-title">Nuevo Producto</h2>
+        <button class="modal-x" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="p-id" />
+        <div class="fg">
+          <label>Nombre del producto *</label>
+          <div class="ai-input-wrap">
+            <input id="p-nombre" type="text" placeholder="Ej: Gaseosa Cola 1.5L" oninput="aiDetectarCategoria()" />
+            <div class="ai-badge" id="ai-badge" style="display:none">✨ IA</div>
+          </div>
+          <div class="ai-sugerencia" id="ai-sugerencia" style="display:none"></div>
+        </div>
+        <div class="frow">
+          <div class="fg">
+            <label>Costo de Compra ($)</label>
+            <input id="p-costo" type="number" placeholder="0" min="0" oninput="calcPrecioSugerido()" />
+          </div>
+          <div class="fg">
+            <label>Stock *</label>
+            <input id="p-stock" type="number" placeholder="0" min="0" />
+          </div>
+        </div>
+
+        <div class="frow">
+          <div class="fg">
+            <label>Tarifa IVA</label>
+            <select id="p-iva" onchange="calcPrecioSugerido()">
+              <option value="0">0% (Excluido/Exento)</option>
+              <option value="5">5% (Gravado)</option>
+              <option value="19">19% (Gravado)</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Impoconsumo (%)</label>
+            <input id="p-impoconsumo" type="number" placeholder="0" min="0" max="100" oninput="calcPrecioSugerido()" />
+          </div>
+        </div>
+
+        <div class="frow" style="background: rgba(99, 102, 241, 0.05); padding: 0.5rem; border-radius: 8px; margin-bottom: 0.8rem; border: 1px solid rgba(99, 102, 241, 0.2);">
+          <div class="fg">
+            <label>Utilidad Estimada (%)</label>
+            <input id="p-utilidad" type="number" placeholder="15" min="0" oninput="calcPrecioSugerido()" />
+          </div>
+          <div class="fg">
+            <label>Precio Sugerido</label>
+            <div id="p-precio-sugerido" style="font-weight: 700; font-size: 1.1rem; color: var(--text); padding-top: 0.4rem;">$0</div>
+          </div>
+        </div>
+
+        <div class="frow">
+          <div class="fg">
+            <label>Precio de Venta ($) *</label>
+            <input id="p-precio" type="number" placeholder="0" min="0" style="font-weight: 700; color: var(--accent2);" />
+          </div>
+        </div>
+        <div class="frow">
+          <div class="fg">
+            <label>Categoría</label>
+            <select id="p-cat">
+              <option>General</option>
+              <option>Bebidas</option>
+              <option>Snacks</option>
+              <option>Lácteos</option>
+              <option>Aseo</option>
+              <option>Panadería</option>
+              <option>Frutas y Verduras</option>
+              <option>Licores</option>
+              <option>Carnes</option>
+              <option>Otros</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Emoji</label>
+            <input id="p-emoji" type="text" placeholder="🛍️" maxlength="2" />
+          </div>
+        </div>
+        <div class="fg">
+          <label>Código de Barras (opcional)</label>
+          <input id="p-barcode" type="text" placeholder="Escanea o escribe el código" />
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+        <button class="btn-primary" onclick="guardarProducto()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL TICKET / FACTURA FÍSICA -->
+  <div class="overlay" id="modal-ticket" onclick="overlayClose(event,'modal-ticket')">
+    <div class="modal ticket-modal">
+
+      <!-- Encabezado de la factura -->
+      <div class="ticket-head">
+        <div class="tk-titulo">FACTURA DE VENTA</div>
+        <div class="ticket-logo" id="tk-store-name">MiTienda</div>
+        <div class="ticket-sub" id="tk-propietario"></div>
+        <div class="ticket-sub" id="tk-nit"></div>
+        <div class="ticket-sub" id="tk-direccion"></div>
+        <div class="ticket-sub" id="tk-ciudad-tel"></div>
+        <div class="ticket-sub" id="tk-resolucion" style="margin-top:.3rem;font-style:italic"></div>
+      </div>
+
+      <div class="t-sep">─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─</div>
+
+      <!-- Número y fecha -->
+      <div id="tk-num-fecha" class="tk-num-fecha"></div>
+
+      <!-- Comprador (se muestra solo si hay datos) -->
+      <div id="tk-comprador-section" style="display:none">
+        <div class="t-sep">─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─</div>
+        <div id="tk-comprador"></div>
+      </div>
+
+      <div class="t-sep">─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─</div>
+
+      <!-- Encabezado columnas -->
+      <div class="tk-items-hdr">
+        <span style="flex:1">Descripción</span>
+        <span style="width:70px;text-align:right">Vr.Unit</span>
+        <span style="width:70px;text-align:right">Total</span>
+      </div>
+      <div id="ticket-items"></div>
+
+      <div class="t-sep">─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─</div>
+      <div id="ticket-totales"></div>
+      <div class="t-sep">─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─</div>
+
+      <!-- Nota IVA y pie -->
+      <div id="tk-iva-nota" class="tk-iva-nota"></div>
+      <div class="ticket-gracias">¡Gracias por su compra!</div>
+      <div class="ticket-metodo" id="ticket-metodo"></div>
+
+      <!-- Captura datos comprador antes de imprimir -->
+      <div class="tk-buyer-form">
+        <div class="tk-buyer-title">Datos del comprador (opcional)</div>
+        <div class="frow" style="gap:.5rem">
+          <div class="fg" style="max-width:95px">
+            <label>Tipo Doc.</label>
+            <select id="tk-buyer-tipo">
+              <option value="CC">CC</option>
+              <option value="NIT">NIT</option>
+              <option value="CE">CE</option>
+              <option value="PP">PP</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Número</label>
+            <input id="tk-buyer-num" type="text" placeholder="Ej: 1234567890" />
+          </div>
+        </div>
+        <div class="fg" style="margin-top:.4rem">
+          <label>Nombre / Razón Social</label>
+          <input id="tk-buyer-nombre" type="text" placeholder="Ej: Juan Pérez" />
+        </div>
+      </div>
+
+      <div class="modal-foot" style="margin-top:1rem">
+        <button class="btn-secondary" onclick="closeTicket()">Cerrar</button>
+        <button class="btn-primary" onclick="imprimirTicket()">🖨️ Imprimir Factura</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL FACTURA ELECTRÓNICA -->
+  <div class="overlay" id="modal-fe" onclick="overlayClose(event,'modal-fe')">
+    <div class="modal" style="max-width:420px">
+      <div class="modal-head">
+        <h2>🧾 Factura Electrónica</h2>
+        <button class="modal-x" onclick="closeOverlay('modal-fe')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:.84rem;color:var(--text2);margin-bottom:.2rem">¿A nombre de quién va la factura?</p>
+
+        <!-- Consumidor final rápido -->
+        <button class="fe-consumidor-btn" onclick="emitirFEConsumidor()">
+          👤 Consumidor Final
+          <span class="fe-badge">Más rápido</span>
+        </button>
+
+        <div class="fe-divider"><span>o con datos del cliente</span></div>
+
+        <div class="frow">
+          <div class="fg" style="max-width:110px">
+            <label>Tipo Doc.</label>
+            <select id="fe-tipo">
+              <option value="CC">CC</option>
+              <option value="NIT">NIT</option>
+              <option value="CE">CE</option>
+              <option value="PP">PP</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Número</label>
+            <input id="fe-identificacion" type="text" placeholder="Ej: 1234567890" />
+          </div>
+        </div>
+        <div class="fg">
+          <label>Nombre (opcional)</label>
+          <input id="fe-nombre" type="text" placeholder="Ej: Juan Pérez" />
+        </div>
+        <div class="fg">
+          <label>Email (opcional – para recibir el PDF)</label>
+          <input id="fe-email" type="email" placeholder="Ej: juan@gmail.com" />
+        </div>
+
+        <div id="fe-error"
+          style="display:none;padding:.55rem .8rem;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;font-size:.82rem;color:var(--red)">
+        </div>
+      </div>
+      <div class="modal-foot" style="justify-content:space-between">
+        <button class="btn-ghost" onclick="closeOverlay('modal-fe');mostrarTicket(lastTicketData)">Solo tiquete</button>
+        <div style="display:flex;gap:.6rem">
+          <button class="btn-secondary" onclick="closeOverlay('modal-fe')">Cancelar</button>
+          <button class="btn-primary" id="fe-submit-btn" onclick="emitirFECliente()">🧾 Emitir Factura</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ESCANEAR FACTURA -->
+  <div class="overlay" id="modal-scan-factura" onclick="overlayClose(event,'modal-scan-factura')">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-head">
+        <h2>📷 Escanear Factura del Proveedor</h2>
+        <button class="modal-x" onclick="closeOverlay('modal-scan-factura')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="scan-factura-hero">
+          <div class="sfh-anim" id="sfh-anim">
+            <div class="sfh-beam"></div>
+            <div class="sfh-icon">📄</div>
+          </div>
+          <p class="sfh-instruccion">Apunta el escáner al <strong>código QR o código de barras</strong> de la factura del proveedor</p>
+          <input id="scan-factura-input" type="text" class="scan-factura-input"
+            placeholder="Escanea aquí o pega el texto del código..."
+            oninput="onScanFacturaInput()" autocomplete="off" spellcheck="false" />
+          <div class="sfh-hint">El escáner envía el texto automáticamente al presionar Enter</div>
+        </div>
+
+        <!-- Preview de datos extraídos -->
+        <div id="scan-preview" class="scan-preview" style="display:none">
+          <div class="sp-header">
+            <span class="sp-badge">✅ Datos detectados</span>
+            <button class="sp-edit-btn" onclick="editarDatosEscaneados()">✏️ Editar</button>
+          </div>
+          <div class="sp-grid" id="sp-grid"></div>
+          <p class="sp-note">Verifica los datos antes de guardar. Puedes editarlos si es necesario.</p>
+        </div>
+
+        <div id="scan-no-data" class="scan-no-data" style="display:none">
+          <span>⚠️ No se detectaron datos estructurados.</span>
+          <button class="btn-ghost" onclick="ingresarManualmente()">Ingresar manualmente</button>
+        </div>
+      </div>
+      <div class="modal-foot" id="scan-foot" style="display:none">
+        <button class="btn-secondary" onclick="closeOverlay('modal-scan-factura')">Cancelar</button>
+        <button class="btn-primary" onclick="confirmarProveedorEscaneado()">✅ Guardar Proveedor</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PROVEEDOR (CRUD) -->
+  <div class="overlay" id="modal-proveedor" onclick="overlayClose(event,'modal-proveedor')">
+    <div class="modal" style="max-width:580px">
+      <div class="modal-head">
+        <h2 id="prov-modal-title">Nuevo Proveedor</h2>
+        <button class="modal-x" onclick="closeOverlay('modal-proveedor')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="prov-id" />
+
+        <div class="prov-section-label">Información Principal</div>
+        <div class="fg">
+          <label>Razón Social / Nombre *</label>
+          <input id="prov-nombre" type="text" placeholder="Ej: Distribuidora Colombia S.A.S." />
+        </div>
+        <div class="frow">
+          <div class="fg">
+            <label>NIT</label>
+            <input id="prov-nit" type="text" placeholder="Ej: 900.123.456-1" />
+          </div>
+          <div class="fg">
+            <label>Tipo de Contribuyente</label>
+            <select id="prov-tipo">
+              <option value="">— Seleccionar —</option>
+              <option value="Persona Natural">Persona Natural</option>
+              <option value="Persona Jurídica">Persona Jurídica</option>
+              <option value="Gran Contribuyente">Gran Contribuyente</option>
+              <option value="Régimen Simple">Régimen Simple</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg">
+          <label>Responsabilidad Fiscal / Tributaria</label>
+          <input id="prov-resp-fiscal" type="text" placeholder="Ej: IVA - Responsable, No responsable de IVA..." />
+        </div>
+
+        <div class="prov-section-label" style="margin-top:.9rem">Contacto y Ubicación</div>
+        <div class="frow">
+          <div class="fg">
+            <label>Teléfono</label>
+            <input id="prov-telefono" type="text" placeholder="Ej: 310 123 4567" />
+          </div>
+          <div class="fg">
+            <label>Email</label>
+            <input id="prov-email" type="email" placeholder="Ej: ventas@dist.com" />
+          </div>
+        </div>
+        <div class="fg">
+          <label>Dirección</label>
+          <input id="prov-direccion" type="text" placeholder="Ej: Calle 45 # 12-30, Bodega 3" />
+        </div>
+        <div class="frow">
+          <div class="fg">
+            <label>Ciudad</label>
+            <input id="prov-ciudad" type="text" placeholder="Ej: Bogotá" />
+          </div>
+          <div class="fg">
+            <label>Contacto (persona)</label>
+            <input id="prov-contacto" type="text" placeholder="Ej: Juan Pérez" />
+          </div>
+        </div>
+
+        <div class="prov-section-label" style="margin-top:.9rem">Notas</div>
+        <div class="fg">
+          <textarea id="prov-notas" rows="2" placeholder="Condiciones de pago, días de entrega, descuentos habituales..."></textarea>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn-secondary" onclick="closeOverlay('modal-proveedor')">Cancelar</button>
+        <button class="btn-primary" onclick="guardarProveedor()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast"></div>
+
+  <script src="renderer.js"></script>
+</body>
+
+</html>
