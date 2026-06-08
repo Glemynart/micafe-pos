@@ -20,6 +20,7 @@ import { initializeApp, getApps as getAppsLocal } from "firebase/app";
 import { db, firebaseConfig } from "@/lib/firebase";
 import { usernameToEmail, getPermisosPorRol, type RolUsuario, type Usuario } from "@/lib/auth-service";
 import { getAuth } from "firebase/auth";
+import { registrarAuditoria } from "@/lib/audit-service";
 
 export { type RolUsuario, type Usuario, getPermisosPorRol };
 
@@ -102,6 +103,8 @@ export async function crearUsuario(
 
     await setDoc(doc(db, "usuarios", uid), usuarioData);
 
+    await registrarAuditoria("creacion_usuario", `Usuario ${username} creado con rol ${rol}`);
+
     return {
       ...usuarioData,
       creadoEn: undefined,
@@ -121,6 +124,7 @@ export async function actualizarRolUsuario(uid: string, rol: RolUsuario): Promis
     permisos,
     actualizadoEn: serverTimestamp(),
   });
+  await registrarAuditoria("cambio_rol", `Rol de ${uid} cambiado a ${rol}`);
 }
 
 export async function toggleUsuarioActivo(uid: string, activo: boolean): Promise<void> {
@@ -129,6 +133,7 @@ export async function toggleUsuarioActivo(uid: string, activo: boolean): Promise
     activo,
     actualizadoEn: serverTimestamp(),
   });
+  await registrarAuditoria("toggle_usuario", `Usuario ${uid} ${activo ? "activado" : "desactivado"}`);
 }
 
 export async function actualizarPermisosUsuario(
@@ -140,6 +145,7 @@ export async function actualizarPermisosUsuario(
     permisos,
     actualizadoEn: serverTimestamp(),
   });
+  await registrarAuditoria("cambio_permisos", `Permisos de ${uid} actualizados`);
 }
 
 export interface PermisosRol {
@@ -154,6 +160,7 @@ export async function guardarPermisosRol(rol: string, permisos: string[]): Promi
     { rol, permisos, actualizadoEn: serverTimestamp() },
     { merge: true }
   );
+  await registrarAuditoria("configuracion", `Permisos del rol ${rol} actualizados`);
 }
 
 export async function getPermisosRol(rol: string): Promise<string[]> {
