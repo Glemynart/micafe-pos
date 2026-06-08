@@ -64,30 +64,6 @@ export default function POSApp() {
     }
   }, [usuario])
 
-  // ── Timeout de inactividad (5 min): cierra sesión en terminales compartidos ──
-  useEffect(() => {
-    if (!usuario) return
-    const TIEMPO_INACTIVIDAD = 5 * 60 * 1000
-    let timer: ReturnType<typeof setTimeout>
-
-    const resetTimer = () => {
-      clearTimeout(timer)
-      timer = setTimeout(() => {
-        console.log('Sesión cerrada por inactividad')
-        logout()
-      }, TIEMPO_INACTIVIDAD)
-    }
-
-    const eventos = ['mousedown', 'keydown', 'touchstart', 'scroll']
-    eventos.forEach(e => window.addEventListener(e, resetTimer, { passive: true }))
-    resetTimer()
-
-    return () => {
-      clearTimeout(timer)
-      eventos.forEach(e => window.removeEventListener(e, resetTimer))
-    }
-  }, [usuario, logout])
-
   const setSafeModule = (moduleId: string) => {
     if (userPerms.has(moduleId) && modulosSet.has(moduleId)) {
       setActiveModule(moduleId)
