@@ -96,6 +96,7 @@
     "embla-carousel-react": "8.6.0",
     "exceljs": "^4.4.0",
     "firebase": "^12.14.0",
+    "firebase-admin": "^14.0.0",
     "googleapis": "^171.4.0",
     "input-otp": "1.4.2",
     "jszip": "^3.10.1",
