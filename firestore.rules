@@ -2,13 +2,32 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ─── Auditoría: solo crear (append-only, nadie lee directo) ───
+    match /auditoria_logs/{id} {
+      allow read: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+      allow create: if request.auth != null
+        && request.resource.data.accion is string
+        && request.resource.data.detalle is string
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasAll(["accion", "detalle", "uid", "timestamp"]);
+      allow update, delete: if false;
+    }
+
     // ─── Landing: lectura pública ───
     match /eventos/{id} {
       allow read: if true;
-      allow write: if request.auth != null
+      allow create: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'marketing']
+        && request.resource.data.titulo is string
+        && request.resource.data.fecha is string;
+      allow update: if request.auth != null
         && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'marketing'];
+      allow delete: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
     }
 
+    // ─── Landing: lectura pública ───
     match /configuracion/{id} {
       allow read: if true;
       allow write: if request.auth != null
