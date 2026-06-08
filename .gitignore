@@ -34,6 +34,8 @@ tsconfig.tsbuildinfo
 test_export.xlsx
 .agents/
 src/
+PLAN_*.md
+*.xlsx
 
 # Scratch / test scripts (no necesarios en deploy)
 scratch/
