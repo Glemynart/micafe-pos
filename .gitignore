@@ -9,7 +9,7 @@ __v0_jsx-dev-runtime.ts
 # Environment variables
 .env*.local
 
-# Credenciales y secretos (NUNCA subir a git)
+# Credenciales y secretos
 credentials.json
 *.enc
 .pos_drive_credentials.enc
@@ -20,10 +20,71 @@ out/
 dist/
 .next/
 updates/
+build/
 
 # Dependencies
 node_modules/
+pnpm-lock.yaml
 
 # Temporal
 cors.json
-pnpm-lock.yaml
+tsconfig.tsbuildinfo
+
+# Scratch / test scripts (no necesarios en deploy)
+scratch/
+test_*.js
+check_*.js
+delete_*.js
+get_*.js
+list_*.js
+migrate.js
+parse_log.js
+auto_habilitacion.js
+scratch_*.js
+rewrite_sell.py
+extract.py
+
+# Temp files
+temp.txt
+globals_refs.txt
+vender_head.txt
+*.backup
+skills-lock.json
+
+# Electron / desktop specific (no va en Vercel)
+main.js
+preload.js
+renderer.js
+update-server.js
+build-installer.js
+src/auth-middleware.js
+src/auto-updater.js
+src/backup-manager.js
+src/drive-backup.js
+src/rate-limiter.js
+
+# Legacy POS components (no se usan en la nueva version)
+components/pos/cierre-caja.tsx
+components/pos/clientes.tsx
+components/pos/configuracion.tsx
+components/pos/dashboard.tsx
+components/pos/inventario.tsx
+components/pos/proveedores.tsx
+components/pos/vender.tsx
+components/pos/sidebar-nav.tsx
+components/pos/refactor_sell.js
+components/pos/fix_css.js
+components/pos/fix_modals.js
+components/pos/extract.js
+components/pos/restore_bg.js
+components/pos/cleanup.js
+
+# Old design files
+pos-system-design/
+styles.css
+styles/
+index.html
+desktop.ini
+DOCUMENTACION.md
+scripts/publicar-update.ps1
+scripts/encode-url.js
