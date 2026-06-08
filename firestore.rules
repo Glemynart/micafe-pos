@@ -1,0 +1,141 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Landing: lectura pública ───
+    match /eventos/{id} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'marketing'];
+    }
+
+    match /configuracion/{id} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+
+    // ─── Usuarios: solo admin ───
+    match /usuarios/{uid} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+      allow update, delete: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+
+    match /permisos_roles/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+
+    // ─── Operaciones: autenticados ───
+    match /compras/{id} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    match /mermas/{id} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    match /ventas/{id} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if false;
+    }
+
+    match /turnos/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    match /productos/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+
+    match /insumos/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+
+    match /recetas/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    match /mesas/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    match /pedidos_activos/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    match /comandas_cocina/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    match /clientes/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    match /espacios/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+
+    match /categorias/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    match /consignadores/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    match /liquidaciones/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    match /egresos/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    match /cuentas_bancarias/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    match /transacciones/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    match /reservas/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // ─── Fallback: bloquear todo lo demás ───
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

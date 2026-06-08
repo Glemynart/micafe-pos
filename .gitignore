@@ -30,6 +30,11 @@ pnpm-lock.yaml
 cors.json
 tsconfig.tsbuildinfo
 
+# Archivos temporales
+test_export.xlsx
+.agents/
+src/
+
 # Scratch / test scripts (no necesarios en deploy)
 scratch/
 test_*.js
