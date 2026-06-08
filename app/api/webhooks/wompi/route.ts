@@ -29,28 +29,32 @@ export async function POST(req: Request) {
 
     const transaction = data.transaction
     
-    // Validate signature if secret is provided in .env
     const secret = process.env.WOMPI_EVENTS_SECRET
-    if (secret && signature && signature.properties && signature.checksum) {
-      // Signature is constructed by concatenating the values of the properties + timestamp + secret
-      let stringToHash = ''
-      for (const prop of signature.properties) {
-        // e.g. "transaction.id" -> we need to traverse the body object
-        const parts = prop.split('.')
-        let val: any = body
-        for (const p of parts) val = val[p]
-        stringToHash += val
-      }
-      stringToHash += timestamp
-      stringToHash += secret
-      
-      // Hash with SHA256
-      const hash = crypto.createHash('sha256').update(stringToHash).digest('hex')
-      
-      if (hash !== signature.checksum) {
-        console.error('Invalid Wompi Signature')
-        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
-      }
+    if (!secret) {
+      console.error('WOMPI_EVENTS_SECRET no configurado — rechazando webhook')
+      return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
+    }
+
+    if (!signature || !signature.properties || !signature.checksum) {
+      console.error('Firma ausente en webhook de Wompi')
+      return NextResponse.json({ error: 'Missing signature' }, { status: 401 })
+    }
+
+    let stringToHash = ''
+    for (const prop of signature.properties) {
+      const parts = prop.split('.')
+      let val: any = body
+      for (const p of parts) val = val[p]
+      stringToHash += val
+    }
+    stringToHash += timestamp
+    stringToHash += secret
+
+    const hash = crypto.createHash('sha256').update(stringToHash).digest('hex')
+
+    if (hash !== signature.checksum) {
+      console.error('Firma inválida en webhook de Wompi')
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
     // Process APPROVED transactions
