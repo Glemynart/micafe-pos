@@ -1,0 +1,29 @@
+# v0 sandbox internal files
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+.snowflake/
+.v0-trash/
+.vercel/
+
+# Environment variables
+.env*.local
+
+# Credenciales y secretos (NUNCA subir a git)
+credentials.json
+*.enc
+.pos_drive_credentials.enc
+*.db
+
+# Build
+out/
+dist/
+.next/
+updates/
+
+# Dependencies
+node_modules/
+
+# Temporal
+cors.json
+pnpm-lock.yaml

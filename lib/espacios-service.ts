@@ -1,0 +1,137 @@
+/**
+ * espacios-service.ts
+ *
+ * Funciones Firestore para leer Espacios y Categorías.
+ * Usa la instancia `db` ya inicializada con persistencia offline.
+ */
+
+import {
+  collection,
+  doc,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  getDocs,
+  updateDoc,
+  type Unsubscribe,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+export interface Espacio {
+  id: string;
+  nombre: string;
+  icono: string;
+  color: string;
+  activo: boolean;
+  orden: number;
+  modulos_permitidos?: string[];
+}
+
+export interface Categoria {
+  id: string;
+  nombre: string;
+  espacioId: string;
+  icono: string;
+  activo: boolean;
+  orden: number;
+}
+
+// ─── Espacios ─────────────────────────────────────────────────────────────────
+
+/**
+ * Suscribe a todos los espacios activos en tiempo real.
+ * Retorna una función para cancelar la suscripción.
+ */
+export function suscribirEspacios(
+  callback: (espacios: Espacio[]) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, "espacios"),
+    where("activo", "==", true)
+  );
+
+  return onSnapshot(q, (snap) => {
+    const espacios: Espacio[] = snap.docs.map((doc) => ({
+      id: doc.id,
+      ...(doc.data() as Omit<Espacio, "id">),
+    })).sort((a, b) => a.orden - b.orden);
+    callback(espacios);
+  });
+}
+
+export function suscribirTodosEspacios(
+  callback: (espacios: Espacio[]) => void
+): Unsubscribe {
+  const q = query(collection(db, "espacios"));
+
+  return onSnapshot(q, (snap) => {
+    const espacios: Espacio[] = snap.docs.map((doc) => ({
+      id: doc.id,
+      ...(doc.data() as Omit<Espacio, "id">),
+    })).sort((a, b) => a.orden - b.orden);
+    callback(espacios);
+  });
+}
+
+/**
+ * Lectura única de todos los espacios activos (para seeds y utilidades).
+ */
+export async function obtenerEspacios(): Promise<Espacio[]> {
+  const q = query(
+    collection(db, "espacios"),
+    where("activo", "==", true)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((doc) => ({
+    id: doc.id,
+    ...(doc.data() as Omit<Espacio, "id">),
+  })).sort((a, b) => a.orden - b.orden);
+}
+
+// ─── Categorías ───────────────────────────────────────────────────────────────
+
+/**
+ * Suscribe a las categorías activas de un espacio específico en tiempo real.
+ */
+export function suscribirCategorias(
+  espacioId: string,
+  callback: (categorias: Categoria[]) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, "categorias"),
+    where("espacioId", "==", espacioId),
+    where("activo", "==", true)
+  );
+
+  return onSnapshot(q, (snap) => {
+    const categorias: Categoria[] = snap.docs.map((doc) => ({
+      id: doc.id,
+      ...(doc.data() as Omit<Categoria, "id">),
+    })).sort((a, b) => a.orden - b.orden);
+    callback(categorias);
+  });
+}
+
+/**
+ * Lectura única de categorías activas de un espacio (para seeds y utilidades).
+ */
+export async function obtenerCategorias(espacioId: string): Promise<Categoria[]> {
+  const q = query(
+    collection(db, "categorias"),
+    where("espacioId", "==", espacioId),
+    where("activo", "==", true),
+    orderBy("orden", "asc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((doc) => ({
+    id: doc.id,
+    ...(doc.data() as Omit<Categoria, "id">),
+  }));
+}
+
+export async function guardarModulosEspacio(espacioId: string, modulos: string[]): Promise<void> {
+  await updateDoc(doc(db, "espacios", espacioId), { modulos_permitidos: modulos });
+}
