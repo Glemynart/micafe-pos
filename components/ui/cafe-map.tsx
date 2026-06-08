@@ -3,8 +3,8 @@
 import { APIProvider, Map, AdvancedMarker, Pin, useMap, InfoWindow } from "@vis.gl/react-google-maps"
 import { useState, useCallback } from "react"
 
-const API_KEY = "AIzaSyBq89MRjpxK3i7hOpNC3XyRh7bXqVHzyu0"
-const MAP_ID = "63edc2682a2d191f5151411e"
+const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ""
+const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID || ""
 const CAFE_POS = { lat: 7.757872, lng: -76.659176 }
 
 function CafeMarker() {

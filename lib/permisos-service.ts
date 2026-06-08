@@ -19,8 +19,19 @@ import {
 import { initializeApp, getApps as getAppsLocal } from "firebase/app";
 import { db, firebaseConfig } from "@/lib/firebase";
 import { usernameToEmail, getPermisosPorRol, type RolUsuario, type Usuario } from "@/lib/auth-service";
+import { getAuth } from "firebase/auth";
 
 export { type RolUsuario, type Usuario, getPermisosPorRol };
+
+async function verificarEsAdmin(): Promise<void> {
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) throw new Error("No autenticado");
+  const snap = await getDoc(doc(db, "usuarios", user.uid));
+  if (!snap.exists() || snap.data().rol !== "admin") {
+    throw new Error("Acceso denegado: solo administradores");
+  }
+}
 
 export const MODULOS = [
   "sell", "kitchen", "inventory", "recipes", "purchases",
@@ -56,6 +67,7 @@ export async function crearUsuario(
   nombre: string,
   rol: RolUsuario
 ): Promise<Usuario> {
+  await verificarEsAdmin();
   const email = usernameToEmail(username.toLowerCase().trim());
 
   const secondaryAppName = `secondary-${crypto.randomUUID()}`;
@@ -102,6 +114,7 @@ export async function crearUsuario(
 }
 
 export async function actualizarRolUsuario(uid: string, rol: RolUsuario): Promise<void> {
+  await verificarEsAdmin();
   const permisos = getPermisosPorRol(rol);
   await updateDoc(doc(db, "usuarios", uid), {
     rol,
@@ -111,6 +124,7 @@ export async function actualizarRolUsuario(uid: string, rol: RolUsuario): Promis
 }
 
 export async function toggleUsuarioActivo(uid: string, activo: boolean): Promise<void> {
+  await verificarEsAdmin();
   await updateDoc(doc(db, "usuarios", uid), {
     activo,
     actualizadoEn: serverTimestamp(),
@@ -121,6 +135,7 @@ export async function actualizarPermisosUsuario(
   uid: string,
   permisos: string[]
 ): Promise<void> {
+  await verificarEsAdmin();
   await updateDoc(doc(db, "usuarios", uid), {
     permisos,
     actualizadoEn: serverTimestamp(),
@@ -133,6 +148,7 @@ export interface PermisosRol {
 }
 
 export async function guardarPermisosRol(rol: string, permisos: string[]): Promise<void> {
+  await verificarEsAdmin();
   await setDoc(
     doc(db, "permisos_roles", rol),
     { rol, permisos, actualizadoEn: serverTimestamp() },
