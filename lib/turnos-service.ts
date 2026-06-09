@@ -142,8 +142,19 @@ export function suscribirHistorialTurnos(
     collection(db, 'turnos')
   );
 
-  return onSnapshot(q, (snapshot) => {
-    const turnos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Turno))
+  return onSnapshot(q, async (snapshot) => {
+    const usuariosSnap = await getDocs(query(collection(db, 'usuarios')))
+    const rolesPorUid: Record<string, string> = {}
+    usuariosSnap.docs.forEach(d => {
+      rolesPorUid[d.id] = d.data().rol || ''
+    })
+
+    const turnos = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() } as Turno))
+      .filter(t => {
+        const rol = rolesPorUid[t.cajeroId] || ''
+        return rol !== 'admin' && rol !== 'marketing'
+      })
       .sort((a, b) => {
         const timeA = a.fechaApertura?.toMillis ? a.fechaApertura.toMillis() : 0;
         const timeB = b.fechaApertura?.toMillis ? b.fechaApertura.toMillis() : 0;

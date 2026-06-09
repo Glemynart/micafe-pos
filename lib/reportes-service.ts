@@ -16,6 +16,8 @@ export interface ReporteVentas {
     cash: number
     card: number
     transfer: number
+    efectivoDeclarado: number
+    diferenciaCaja: number
   }[]
   ventasEnElTiempo: {
     fecha: string
@@ -187,11 +189,33 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
   const gananciaBruta = ventasTotales - costoTotal
   const margenBruto = ventasTotales > 0 ? (gananciaBruta / ventasTotales) * 100 : 0
 
+  // Cruce con turnos: efectivo declarado vs efectivo vendido
+  const qTurnos = query(
+    collection(db, 'turnos'),
+    where('fechaApertura', '>=', Timestamp.fromDate(inicio)),
+    where('fechaApertura', '<=', Timestamp.fromDate(fin))
+  )
+  const snapTurnos = await getDocs(qTurnos)
+  const efectivoPorCajero = new Map<string, number>()
+  snapTurnos.docs.forEach(doc => {
+    const t = doc.data()
+    const cajeroId = t.cajeroId
+    if (!cajeroId) return
+    const declarado = t.efectivoCierre || t.montoEfectivoCierre || t.efectivoFinal || 0
+    const existente = efectivoPorCajero.get(cajeroId) || 0
+    efectivoPorCajero.set(cajeroId, existente + Number(declarado))
+  })
+
   // Formatear Vendedores
-  const ventasPorVendedor = Array.from(vendedoresMap.values()).map(v => ({
-    ...v,
-    average: v.ventas > 0 ? v.total / v.ventas : 0
-  })).sort((a, b) => b.total - a.total)
+  const ventasPorVendedor = Array.from(vendedoresMap.values()).map(v => {
+    const declarado = efectivoPorCajero.get(v.id) || 0
+    return {
+      ...v,
+      efectivoDeclarado: declarado,
+      diferenciaCaja: declarado - v.cash,
+      average: v.ventas > 0 ? v.total / v.ventas : 0
+    }
+  }).sort((a, b) => b.total - a.total)
 
   // Formatear Tiempo
   // Generar un rango fijo para fechas sin ventas para que no queden huecos
