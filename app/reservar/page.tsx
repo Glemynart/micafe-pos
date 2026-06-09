@@ -27,20 +27,22 @@ const HORARIOS = [
   '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'
 ]
 
-const HORA_CIERRE = '21:00' // última hora facturable (el bloque 20:00-21:00 cierra a las 21:00)
+// Cada slot representa un PUNTO en el tiempo (no un bloque de 1h).
+// - Seleccionar 08:00 y 09:00 = reserva de 8:00 a 9:00 (1 hora).
+// - Seleccionar 08:00 y 20:00 = reserva de 8:00 a 20:00 (12 horas).
+// - La hora máxima seleccionable es 20:00 (la sala cierra a las 21:00
+//   pero el último slot que el usuario puede "alcanzar" como fin es 20:00).
 const PRECIO_POR_HORA = 35000 // Ejemplo: $35.000 COP por hora
 
-// Calcula la hora de fin (string HH:00) a partir del último bloque seleccionado.
-// Si el último bloque es el de cierre (20:00), devuelve HORA_CIERRE; si no, +1h.
-function calcularHoraFin(ultimoBloque: string): string {
-  if (ultimoBloque === HORARIOS[HORARIOS.length - 1]) return HORA_CIERRE
-  const h = parseInt(ultimoBloque.split(':')[0], 10)
-  return `${String(h + 1).padStart(2, '0')}:00`
-}
-
-// Calcula la hora de inicio (string HH:00) — siempre la primera seleccionada.
-function calcularHoraInicio(primerBloque: string): string {
-  return primerBloque
+// Duración en horas: para N slots consecutivos, la duración es N - 1.
+// Ej: slots [08, 09, 10] = 2 horas (de 8 a 10).
+function duracionHoras(seleccionadas: string[]): number {
+  if (seleccionadas.length < 2) return 0
+  const indices = seleccionadas
+    .map(h => HORARIOS.indexOf(h))
+    .filter(i => i !== -1)
+  if (indices.length < 2) return 0
+  return Math.max(...indices) - Math.min(...indices)
 }
 
 export default function ReservarPage() {
@@ -170,12 +172,12 @@ export default function ReservarPage() {
   }
 
   const calcularTotal = () => {
-    return horasSeleccionadas.length * PRECIO_POR_HORA
+    return duracionHoras(horasSeleccionadas) * PRECIO_POR_HORA
   }
 
   // Calcula el rango visual (inicio / fin) basado en la primera y última hora
   // seleccionadas por índice, no por posición en el array (que puede tener huecos).
-  const calcularRangoVisual = (): { inicio: string; fin: string } | null => {
+  const calcularRangoVisual = (): { inicio: string; fin: string; duracion: number } | null => {
     if (horasSeleccionadas.length < 2) return null
     const todas = [...HORARIOS]
     const indices = horasSeleccionadas
@@ -186,7 +188,8 @@ export default function ReservarPage() {
     const maxIdx = Math.max(...indices)
     return {
       inicio: todas[minIdx],
-      fin: todas[maxIdx]
+      fin: todas[maxIdx],
+      duracion: maxIdx - minIdx
     }
   }
 
@@ -232,17 +235,17 @@ export default function ReservarPage() {
   }
 
   const crearReservaBase = async () => {
-    // Calculamos fecha de inicio usando la primera hora seleccionada
-    const primeraHora = horasSeleccionadas[0]
-    const fechaInicio = new Date(fecha!)
-    fechaInicio.setHours(parseInt(primeraHora.split(':')[0], 10), 0, 0, 0)
+    // Modelo de puntos: cada slot es un PUNTO en el tiempo, no un bloque.
+    // Si el usuario seleccionó [08:00, 09:00], la reserva es 8:00 a 9:00 (1h).
+    const rango = calcularRangoVisual()
+    if (!rango) throw new Error('Debe seleccionar al menos dos horas (inicio y fin).')
 
-    // La hora de fin coincide con la del label: si el último bloque seleccionado es el
-    // de cierre (20:00), fin = 21:00. Si no, fin = bloque + 1h.
-    const ultimoBloque = horasSeleccionadas[horasSeleccionadas.length - 1]
-    const horaFinStr = calcularHoraFin(ultimoBloque)
+    const fechaInicio = new Date(fecha!)
+    fechaInicio.setHours(parseInt(rango.inicio.split(':')[0], 10), 0, 0, 0)
+
+    // La hora de fin es el último slot seleccionado (sin sumar +1).
     const fechaFin = new Date(fecha!)
-    fechaFin.setHours(parseInt(horaFinStr.split(':')[0], 10), 0, 0, 0)
+    fechaFin.setHours(parseInt(rango.fin.split(':')[0], 10), 0, 0, 0)
 
     const reservaData: Omit<Reserva, 'id'> = {
       clienteNombre,
@@ -452,9 +455,9 @@ export default function ReservarPage() {
                                 {(() => {
                                   const rango = calcularRangoVisual()
                                   if (rango) {
-                                    return `${calcularHoraInicio(rango.inicio)} - ${calcularHoraFin(rango.fin)}`
+                                    return `${rango.inicio} - ${rango.fin} · ${rango.duracion}h`
                                   }
-                                  return `${horasSeleccionadas.length} ${horasSeleccionadas.length === 1 ? 'hora' : 'horas'}`
+                                  return 'Selecciona inicio y fin'
                                 })()}
                               </div>
                               <p className="text-xs font-medium" style={{ opacity: 0.6 }}>Impuestos incluidos</p>
@@ -539,9 +542,9 @@ export default function ReservarPage() {
                         <p className="font-medium text-sm text-white">
                           {(() => {
                             const r = calcularRangoVisual()
-                            if (r) return `${calcularHoraInicio(r.inicio)} a ${calcularHoraFin(r.fin)}`
+                            if (r) return `${r.inicio} a ${r.fin} (${r.duracion}h)`
                             const u = horasSeleccionadas[0]
-                            return u ? `${calcularHoraInicio(u)} a ${calcularHoraFin(u)}` : ''
+                            return u ? `${u} (1h)` : ''
                           })()}
                         </p>
                       </div>
@@ -684,9 +687,9 @@ export default function ReservarPage() {
                 <strong style={{ color: '#051D41' }}>
                   {(() => {
                     const r = calcularRangoVisual()
-                    if (r) return `${calcularHoraInicio(r.inicio)} - ${calcularHoraFin(r.fin)}`
+                    if (r) return `${r.inicio} - ${r.fin} (${r.duracion}h)`
                     const u = horasSeleccionadas[0]
-                    return u ? `${calcularHoraInicio(u)} - ${calcularHoraFin(u)}` : ''
+                    return u ? `${u} (1h)` : ''
                   })()}
                 </strong>
               </div>
