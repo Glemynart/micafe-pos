@@ -122,8 +122,18 @@ export default function ReservarPage() {
     if (horasOcupadas.includes(hora)) return
     
     setHorasSeleccionadas(prev => {
-      if (prev.includes(hora)) return prev.filter(h => h !== hora)
-      return [...prev, hora].sort()
+      if (prev.length === 0) return [hora]
+      if (prev.length >= 2) return [hora]
+      
+      const todas = [...HORARIOS]
+      const idxA = todas.indexOf(prev[0])
+      const idxB = todas.indexOf(hora)
+      const inicio = Math.min(idxA, idxB)
+      const fin = Math.max(idxA, idxB)
+      
+      const rango = todas.slice(inicio, fin + 1)
+      if (rango.some(h => horasOcupadas.includes(h))) return [hora]
+      return rango
     })
   }
 
@@ -360,7 +370,9 @@ export default function ReservarPage() {
                             </div>
                             <div className="text-right">
                               <div className="bg-secondary text-primary px-3 py-1 rounded-full text-sm font-bold shadow-sm inline-block mb-1">
-                                {horasSeleccionadas.length} {horasSeleccionadas.length === 1 ? 'hora' : 'horas'}
+                                {horasSeleccionadas.length >= 2
+                                  ? `${horasSeleccionadas[0]} - ${parseInt(horasSeleccionadas[horasSeleccionadas.length-1])+1}:00`
+                                  : `${horasSeleccionadas.length} ${horasSeleccionadas.length === 1 ? 'hora' : 'horas'}`}
                               </div>
                               <p className="text-xs text-primary/60 font-medium">Impuestos incluidos</p>
                             </div>
