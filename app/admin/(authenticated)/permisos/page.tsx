@@ -30,7 +30,7 @@ const MODULE_LABELS: Record<string, string> = {
   purchases: "Compras", reports: "Reportes", shifts: "Turnos", waste: "Mermas",
   permissions: "Permisos", settings: "Configuración", cuentas_cobro: "Cuentas Cobro",
   clientes: "Clientes", consignaciones: "Consignaciones", alquiler_dashboard: "Alquileres",
-  gastos: "Gastos", historial: "Historial",
+  gastos: "Gastos", historial: "Historial", reservas: "Reservas Web",
 }
 
 function buildMatrix(rolesPermisos: PermisosRol[]): Record<string, Record<string, boolean>> {

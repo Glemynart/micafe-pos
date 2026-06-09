@@ -27,6 +27,7 @@ const MODULO_LABELS: Record<string, string> = {
   consignaciones: "Consignaciones",
   alquiler_dashboard: "Alquiler",
   historial: "Historial",
+  reservas: "Reservas Web",
 }
 
 export default function EspaciosPage() {

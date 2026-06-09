@@ -216,16 +216,14 @@ export default function ReservarPage() {
     const checkout = new window.WidgetCheckout({
       currency: 'COP',
       amountInCents: calcularTotal() * 100,
-      reference: `reserva_${reservaId}_${Date.now()}`,
+      reference: reservaId, // ID del doc en Firestore para que el webhook lo encuentre
       publicKey: pubKey,
-      redirectUrl: `${window.location.origin}/reservar/estado` // Opcional, si quieres una landing de estado
+      redirectUrl: `${window.location.origin}/reservar/estado`
     })
 
     checkout.open(function (result: any) {
       const transaction = result.transaction
       if (transaction.status === 'APPROVED') {
-        // En un entorno real, es mejor usar webhooks para actualizar esto.
-        // Pero lo hacemos aquí preventivamente.
         crearReservaEnFirebase(transaction.id, reservaId)
       } else {
         toast({ title: 'Pago Fallido', description: 'La transacción no fue aprobada.', variant: 'destructive' })
@@ -267,14 +265,15 @@ export default function ReservarPage() {
 
   const crearReservaEnFirebase = async (referenciaWompi: string, reservaExistenteId?: string) => {
     try {
-      // En este mock, simplemente actualizamos el estado de la reserva existente, 
-      // pero requeriría llamar a `actualizarEstadoPago` de `reservas-service`.
-      // Como no está expuesto aquí lo hacemos simulado o usamos el web hook.
-      // Para efectos visuales:
-      toast({ title: '¡Reserva Confirmada!', description: 'Tu pago fue exitoso y la sala ha sido reservada.' })
-      setPaso(3) // Mostrar éxito
+      if (reservaExistenteId) {
+        const { actualizarEstadoPago } = await import('@/lib/reservas-service')
+        await actualizarEstadoPago(reservaExistenteId, 'pagado', referenciaWompi)
+      }
+      toast({ title: 'Reserva Confirmada', description: 'Tu pago fue exitoso y la sala ha sido reservada.' })
+      setPaso(3)
     } catch (err) {
-      toast({ title: 'Error', description: 'Hubo un error guardando la confirmación.', variant: 'destructive' })
+      console.error('Error confirmando reserva:', err)
+      toast({ title: 'Error', description: 'El pago se procesó pero hubo un error guardando la confirmación. Te contactaremos.', variant: 'destructive' })
     } finally {
       setCargandoPago(false)
     }
