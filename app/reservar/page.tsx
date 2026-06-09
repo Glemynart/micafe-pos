@@ -318,20 +318,28 @@ export default function ReservarPage() {
                     onSelect={(d) => d && setFecha(d)}
                     className="rounded-xl border border-[#051D41]/10 bg-white p-3 shadow-sm"
                     classNames={{
-                      day: "!text-[#051D41] font-semibold hover:!bg-[#F9B207]/20",
-                      day_outside: "!text-[#051D41]/30",
-                      day_disabled: "!text-[#051D41]/25",
+                      root: "text-[#051D41]",
+                      month_caption: "text-[#051D41] font-bold",
+                      caption_label: "!text-[#051D41] font-bold",
+                      nav: "gap-1",
+                      button_previous: "!text-[#F9B207] hover:!bg-[#051D41]/10",
+                      button_next: "!text-[#F9B207] hover:!bg-[#051D41]/10",
+                      month_grid: "mt-2",
+                      weekdays: "text-[#F9B207] font-bold",
+                      weekday: "!text-[#F9B207] font-bold",
+                      week: "mt-1",
+                      day: "!text-[#051D41] font-semibold hover:!bg-[#F9B207]/20 rounded-lg",
+                      day_outside: "!text-[#051D41]/30 hover:!bg-[#F9B207]/10",
+                      day_disabled: "!text-[#051D41]/20 line-through",
                       day_selected: "font-bold hover:!bg-[#F9B207]/90",
                       day_today: "font-bold",
-                      caption_label: "!text-[#051D41] font-bold",
-                      weekday: "!text-[#F9B207] font-bold",
                     }}
                     modifiers={{
                       selected: fecha ? [fecha] : [],
                     }}
                     modifiersClassNames={{
                       selected: "!bg-[#F9B207] !text-[#051D41] font-black",
-                      today: "!bg-[#051D41]/15 !text-[#051D41] font-black",
+                      today: "!bg-[#051D41]/10 !text-[#051D41] font-black ring-1 !ring-[#051D41]/30",
                     }}
                     disabled={(date) => {
                       const today = new Date()
