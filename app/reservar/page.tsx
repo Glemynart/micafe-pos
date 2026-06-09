@@ -232,7 +232,7 @@ export default function ReservarPage() {
       <div className="absolute top-[-100px] right-[-100px] w-96 h-96 bg-secondary/10 rounded-full blur-3xl z-0 pointer-events-none"></div>
 
       {/* Header simple */}
-      <header className="glass border-b border-border/50 py-3 px-4 md:py-4 md:px-6 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+      <header className="bg-white/90 backdrop-blur-md border-b border-primary/10 py-3 px-4 md:py-4 md:px-6 flex items-center justify-between sticky top-0 z-20 shadow-sm">
         <div className="flex items-center gap-2 md:gap-3">
           <Link href="/" className="text-primary/70 hover:text-primary transition-colors bg-primary/5 p-2 rounded-full hover:bg-primary/10">
             <ArrowLeft className="h-5 w-5" />
@@ -254,7 +254,7 @@ export default function ReservarPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-slide-up" key="step1">
             {/* Selección Sala y Fecha */}
             <div className="lg:col-span-5 space-y-6">
-              <Card className="glass shadow-lg border-primary/10 overflow-hidden">
+              <Card className="bg-white shadow-lg border-primary/10 overflow-hidden">
                 <div className="h-2 w-full bg-gradient-to-r from-primary to-secondary"></div>
                 <CardHeader>
                   <CardTitle className="text-primary text-2xl font-bold flex items-center gap-2">
@@ -277,7 +277,7 @@ export default function ReservarPage() {
                 </CardContent>
               </Card>
 
-              <Card className={`glass shadow-lg border-primary/10 transition-all duration-300 ${!salaSeleccionada ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
+              <Card className={`bg-white shadow-lg border-primary/10 transition-all duration-300 ${!salaSeleccionada ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
                 <CardHeader>
                   <CardTitle className="text-primary text-2xl font-bold flex items-center gap-2">
                     <span className="flex items-center justify-center bg-primary/10 text-primary w-8 h-8 rounded-full text-sm">2</span>
@@ -306,7 +306,7 @@ export default function ReservarPage() {
 
             {/* Agenda (Paso 1.5) */}
             <div className="lg:col-span-7">
-              <Card className={`glass shadow-lg border-primary/10 h-full flex flex-col transition-all duration-300 ${!fecha || !salaSeleccionada ? 'opacity-50 grayscale pointer-events-none translate-y-4' : ''}`}>
+              <Card className={`bg-white shadow-lg border-primary/10 h-full flex flex-col transition-all duration-300 ${!fecha || !salaSeleccionada ? 'opacity-50 grayscale pointer-events-none translate-y-4' : ''}`}>
                 <CardHeader className="pb-4">
                   <div className="flex justify-between items-start">
                     <div>
@@ -398,7 +398,7 @@ export default function ReservarPage() {
 
         {paso === 2 && (
           <div className="max-w-2xl mx-auto animate-slide-right" key="step2">
-            <Card className="glass shadow-2xl border-primary/10 overflow-hidden">
+            <Card className="bg-white shadow-2xl border-primary/10 overflow-hidden">
               <div className="h-2 w-full bg-gradient-to-r from-primary to-secondary"></div>
               <CardHeader className="text-center pb-2">
                 <CardTitle className="text-3xl font-bold text-primary mb-2">Tus Datos</CardTitle>
@@ -407,37 +407,37 @@ export default function ReservarPage() {
               
               <CardContent className="space-y-6 pt-6">
                 {/* Resumen */}
-                <div className="bg-primary p-5 rounded-2xl mb-6 shadow-inner text-white relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-secondary/20 rounded-full blur-2xl transform translate-x-10 -translate-y-10"></div>
+                <div className="bg-gradient-to-br from-primary/5 to-secondary/10 p-5 rounded-2xl mb-6 border border-primary/15 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-secondary/15 rounded-full blur-2xl transform translate-x-10 -translate-y-10"></div>
                   
-                  <h4 className="text-xs text-secondary font-bold uppercase tracking-widest mb-3 relative z-10">Resumen de tu Reserva</h4>
+                  <h4 className="text-xs text-primary font-bold uppercase tracking-widest mb-3 relative z-10">Resumen de tu Reserva</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
                     <div className="flex items-center gap-3">
-                      <div className="bg-white/10 p-2 rounded-lg"><Building className="h-5 w-5 text-secondary" /></div>
+                      <div className="bg-primary/10 p-2 rounded-lg"><Building className="h-5 w-5 text-primary" /></div>
                       <div>
-                        <p className="text-xs text-white/60">Espacio</p>
-                        <p className="font-medium text-sm leading-tight">{salas.find(s => s.id === salaSeleccionada)?.nombre}</p>
+                        <p className="text-xs text-muted-foreground">Espacio</p>
+                        <p className="font-medium text-sm leading-tight text-foreground">{salas.find(s => s.id === salaSeleccionada)?.nombre}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="bg-white/10 p-2 rounded-lg"><CalendarDays className="h-5 w-5 text-secondary" /></div>
+                      <div className="bg-primary/10 p-2 rounded-lg"><CalendarDays className="h-5 w-5 text-primary" /></div>
                       <div>
-                        <p className="text-xs text-white/60">Fecha</p>
-                        <p className="font-medium text-sm capitalize">{fecha?.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
+                        <p className="text-xs text-muted-foreground">Fecha</p>
+                        <p className="font-medium text-sm capitalize text-foreground">{fecha?.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="bg-white/10 p-2 rounded-lg"><Clock className="h-5 w-5 text-secondary" /></div>
+                      <div className="bg-primary/10 p-2 rounded-lg"><Clock className="h-5 w-5 text-primary" /></div>
                       <div>
-                        <p className="text-xs text-white/60">Horario</p>
-                        <p className="font-medium text-sm">{horasSeleccionadas[0]} a {parseInt(horasSeleccionadas[horasSeleccionadas.length-1])+1}:00</p>
+                        <p className="text-xs text-muted-foreground">Horario</p>
+                        <p className="font-medium text-sm text-foreground">{horasSeleccionadas[0]} a {parseInt(horasSeleccionadas[horasSeleccionadas.length-1])+1}:00</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="bg-secondary/20 p-2 rounded-lg"><CreditCard className="h-5 w-5 text-secondary" /></div>
+                      <div className="bg-secondary/30 p-2 rounded-lg"><CreditCard className="h-5 w-5 text-primary" /></div>
                       <div>
-                        <p className="text-xs text-white/60">Total</p>
-                        <p className="font-bold text-secondary text-base">${calcularTotal().toLocaleString('es-CO')}</p>
+                        <p className="text-xs text-muted-foreground">Total</p>
+                        <p className="font-bold text-primary text-base">${calcularTotal().toLocaleString('es-CO')}</p>
                       </div>
                     </div>
                   </div>
