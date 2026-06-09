@@ -15,6 +15,14 @@ const CRITICAL_CSS = `
   .reservar-page {
     background-color: var(--cafe-cream) !important;
   }
+  .rdp-weekday,
+  .rdp .rdp-weekday,
+  [class*="weekday"] {
+    color: var(--cafe-gold) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+  }
   .reservar-card {
     background-color: #ffffff !important;
     box-shadow: 0 10px 25px -5px rgba(5, 29, 65, 0.10), 0 4px 6px -2px rgba(5, 29, 65, 0.05) !important;
