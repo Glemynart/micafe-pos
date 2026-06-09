@@ -216,21 +216,24 @@ export default function ReservarPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#051D41]/95 pb-12 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-[300px] bg-[#F9B207]/5 -skew-y-3 transform origin-top-left z-0"></div>
-      <div className="absolute top-[-100px] right-[-100px] w-96 h-96 bg-[#F9B207]/10 rounded-full blur-3xl z-0 pointer-events-none"></div>
+    <div className="min-h-screen bg-slate-50 pb-12 relative overflow-hidden">
+      {/* Background decorations for a premium look */}
+      <div className="absolute top-0 left-0 w-full h-[300px] bg-primary/5 -skew-y-3 transform origin-top-left z-0"></div>
+      <div className="absolute top-[-100px] right-[-100px] w-96 h-96 bg-secondary/10 rounded-full blur-3xl z-0 pointer-events-none"></div>
 
-      <header className="bg-[#051D41]/80 backdrop-blur-sm border-b border-white/10 py-3 px-4 md:py-4 md:px-6 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+      {/* Header simple */}
+      <header className="glass border-b border-border/50 py-3 px-4 md:py-4 md:px-6 flex items-center justify-between sticky top-0 z-20 shadow-sm">
         <div className="flex items-center gap-2 md:gap-3">
-          <Link href="/" className="text-white/50 hover:text-white transition-colors bg-white/5 p-2 rounded-full hover:bg-white/10">
+          <Link href="/" className="text-primary/70 hover:text-primary transition-colors bg-primary/5 p-2 rounded-full hover:bg-primary/10">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <span className="font-bold text-white text-lg md:text-xl font-sans tracking-tight hidden sm:inline">Reservar Sala</span>
-          <span className="font-bold text-white text-lg font-sans tracking-tight sm:hidden">Reservar</span>
+          <span className="font-bold text-primary text-lg md:text-xl font-sans tracking-tight hidden sm:inline">Reservar Sala</span>
+          <span className="font-bold text-primary text-lg font-sans tracking-tight sm:hidden">Reservar</span>
         </div>
         <div className="flex items-center gap-2">
+          {/* Progress indicators */}
           {[1, 2, 3].map(p => (
-            <div key={p} className={`h-2 w-8 rounded-full transition-all duration-300 ${p === paso ? 'bg-[#F9B207]' : p < paso ? 'bg-white/40' : 'bg-slate-200'}`}></div>
+            <div key={p} className={`h-2 w-8 rounded-full transition-all duration-300 ${p === paso ? 'bg-secondary' : p < paso ? 'bg-primary' : 'bg-slate-200'}`}></div>
           ))}
         </div>
       </header>
