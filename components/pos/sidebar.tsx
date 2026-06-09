@@ -173,19 +173,19 @@ export function Sidebar({ activeModule, onModuleChange, onLogout, usuario, modul
                     className={cn(
                       "w-full flex items-center gap-3 px-3 py-3.5 rounded-xl transition-all duration-200 active:scale-[0.98]",
                       "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                      isActive && "bg-gradient-to-r from-primary/20 to-accent/10 text-primary shadow-inner border-l-4 border-primary font-bold"
+                      isActive && "bg-[#051D41] text-[#F9B207] shadow-md border-l-4 border-[#F9B207] font-bold"
                     )}
                   >
                     <span className={cn(
                       "flex-shrink-0 transition-colors",
-                      isActive ? "text-primary" : "text-muted-foreground"
+                      isActive ? "text-[#F9B207]" : "text-muted-foreground"
                     )}>
                       {getIcon(module.icon)}
                     </span>
                     {!collapsed && (
                       <span className={cn(
                         "text-sm font-medium transition-colors animate-fade-in",
-                        isActive ? "text-primary" : "text-sidebar-foreground"
+                        isActive ? "text-[#F9B207]" : "text-sidebar-foreground"
                       )}>
                         {module.name}
                       </span>
