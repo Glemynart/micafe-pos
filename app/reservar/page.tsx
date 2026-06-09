@@ -287,13 +287,14 @@ export default function ReservarPage() {
                         return date < today
                       }}
                     />
-                </CardContent>
-              </Card>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="lg:col-span-7">
               <div className={`bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl shadow-xl h-full flex flex-col transition-all duration-300 ${!fecha || !salaSeleccionada ? 'opacity-30 pointer-events-none' : ''}`}>
-                <CardHeader className="pb-4">
+                <div className="p-6 pb-4">
                   <div className="flex justify-between items-start">
                     <div>
                       <h2 className="text-white text-2xl font-bold flex items-center gap-2 mb-2">
