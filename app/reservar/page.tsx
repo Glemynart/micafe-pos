@@ -318,11 +318,13 @@ export default function ReservarPage() {
                     onSelect={(d) => d && setFecha(d)}
                     className="rounded-xl border border-[#051D41]/10 bg-white p-3 shadow-sm"
                     classNames={{
-                      day: "font-semibold hover:bg-[#F9B207]/20 rounded-lg",
-                      day_selected: "font-bold hover:opacity-90",
+                      day: "!text-[#051D41] font-semibold hover:!bg-[#F9B207]/20",
+                      day_outside: "!text-[#051D41]/30",
+                      day_disabled: "!text-[#051D41]/25",
+                      day_selected: "font-bold hover:!bg-[#F9B207]/90",
                       day_today: "font-bold",
-                      caption_label: "text-[#051D41] font-bold text-base",
-                      weekday: "text-[#F9B207] font-bold text-xs uppercase tracking-wider",
+                      caption_label: "!text-[#051D41] font-bold",
+                      weekday: "!text-[#F9B207] font-bold",
                     }}
                     modifiers={{
                       selected: fecha ? [fecha] : [],
@@ -335,23 +337,6 @@ export default function ReservarPage() {
                       const today = new Date()
                       today.setHours(0, 0, 0, 0)
                       return date < today
-                    }}
-                    components={{
-                      DayButton: (props) => (
-                        <button
-                          {...props}
-                          style={{
-                            color: props.modifiers?.selected
-                              ? '#051D41'
-                              : props.modifiers?.today
-                                ? '#051D41'
-                                : props.modifiers?.disabled
-                                  ? 'rgba(5, 29, 65, 0.25)'
-                                  : '#051D41',
-                            fontWeight: 600,
-                          }}
-                        />
-                      ),
                     }}
                   />
                 </CardContent>
