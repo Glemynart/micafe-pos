@@ -112,6 +112,9 @@ export function EventosSection() {
               @media (min-width: 1024px) {
                 .eventos-grid { grid-template-columns: repeat(3, 1fr) !important; }
               }
+              @media (max-width: 767px) {
+                .eventos-card-image { height: 180px !important; }
+              }
               @keyframes eventos-card-in {
                 from { opacity: 0; transform: translateY(24px); }
                 to { opacity: 1; transform: translateY(0); }
@@ -150,7 +153,7 @@ export function EventosSection() {
                     e.currentTarget.style.boxShadow = "0 4px 24px -8px rgba(5, 29, 65, 0.08)"
                   }}
                 >
-                  <div style={{ position: "relative", height: "200px", background: s.bg, overflow: "hidden" }}>
+                  <div style={{ position: "relative", height: "220px", background: s.bg, overflow: "hidden" }} className="eventos-card-image">
                     {evento.imagenUrl ? (
                       <img
                         src={evento.imagenUrl}
@@ -260,6 +263,7 @@ export function EventosSection() {
             animation: "fade-in 250ms ease",
           }}
           onClick={() => setSelected(null)}
+          className="eventos-modal-overlay"
         >
           <div
             style={{
@@ -281,9 +285,30 @@ export function EventosSection() {
           >
             <style>{`
               @media (max-width: 767px) {
-                .eventos-modal { flex-direction: column !important; }
-                .eventos-modal .modal-image { height: 240px !important; width: 100% !important; }
-                .eventos-modal .modal-content { width: 100% !important; }
+                .eventos-modal-overlay {
+                  padding: 0 !important;
+                  align-items: stretch !important;
+                  justify-content: stretch !important;
+                }
+                .eventos-modal {
+                  flex-direction: column !important;
+                  max-height: 100dvh !important;
+                  height: 100dvh !important;
+                  border-radius: 0 !important;
+                  max-width: 100% !important;
+                }
+                .eventos-modal .modal-image {
+                  height: 200px !important;
+                  width: 100% !important;
+                  min-height: 200px !important;
+                  flex-shrink: 0 !important;
+                }
+                .eventos-modal .modal-content {
+                  width: 100% !important;
+                  flex: 1 1 auto !important;
+                  min-height: 0 !important;
+                  padding: 1.5rem !important;
+                }
               }
             `}</style>
 
