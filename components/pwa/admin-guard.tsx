@@ -23,12 +23,10 @@ export function AdminGuard({ children }: { children: ReactNode }) {
 
   if (cargando) {
     return (
-      <div className="flex items-center justify-center min-h-[100dvh] bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/20 animate-pulse">
-            <Loader2 className="h-6 w-6 text-primary-foreground animate-spin" />
-          </div>
-          <p className="text-sm text-muted-foreground">Verificando acceso...</p>
+      <div className="flex items-center justify-center min-h-[100dvh] bg-[#060e1a]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-white/20" />
+          <p className="text-sm text-white/30">Verificando acceso...</p>
         </div>
       </div>
     )
@@ -36,18 +34,18 @@ export function AdminGuard({ children }: { children: ReactNode }) {
 
   if (!usuario) {
     return (
-      <div className="flex items-center justify-center min-h-[100dvh] bg-background">
-        <p className="text-muted-foreground">Redirigiendo...</p>
+      <div className="flex items-center justify-center min-h-[100dvh] bg-[#060e1a]">
+        <p className="text-white/30">Redirigiendo...</p>
       </div>
     )
   }
 
   if (usuario.rol !== 'admin' && usuario.rol !== 'marketing') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-background gap-3 p-6">
-        <ShieldAlert className="h-12 w-12 text-destructive" />
-        <p className="text-lg font-semibold text-foreground">Acceso denegado</p>
-        <p className="text-sm text-muted-foreground text-center">
+      <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-[#060e1a] gap-3 p-6">
+        <ShieldAlert className="h-12 w-12 text-red-400" />
+        <p className="text-lg font-semibold text-white">Acceso denegado</p>
+        <p className="text-sm text-white/40 text-center">
           Solo administradores y equipo de marketing pueden acceder.
         </p>
       </div>
