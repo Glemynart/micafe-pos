@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
-import "../../globals.css"
-import "../../landing.css"
+import "../globals.css"
+import "../landing.css"
 
 export const metadata: Metadata = {
   title: "Reservar Sala - Cafe Atrato",
