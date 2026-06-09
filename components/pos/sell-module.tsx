@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useEspacios } from '@/contexts/espacios-context'
 import { useAuthContext } from '@/contexts/auth-context'
 import { suscribirProductos, type Producto } from '@/lib/productos-service'
@@ -26,7 +26,9 @@ import {
   Check,
   Printer,
   X,
-  Clock
+  Clock,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -64,6 +66,48 @@ function productoToCartItem(p: Producto): CartItem {
 
 export function SellModule() {
   const [searchCode, setSearchCode] = useState('')
+  const categoriesRef = useRef<HTMLDivElement | null>(null)
+  const [catScroll, setCatScroll] = useState({ canLeft: false, canRight: false })
+
+  const updateScrollButtons = useCallback(() => {
+    const el = categoriesRef.current
+    if (!el) return
+    setCatScroll({
+      canLeft: el.scrollLeft > 4,
+      canRight: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+    })
+  }, [])
+
+  useEffect(() => {
+    const el = categoriesRef.current
+    if (!el) return
+    updateScrollButtons()
+    el.addEventListener('scroll', updateScrollButtons, { passive: true })
+    window.addEventListener('resize', updateScrollButtons)
+    // Mouse wheel -> scroll horizontal (POS con mouse)
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY === 0 || Math.abs(e.deltaY) < Math.abs(e.deltaX || 0)) return
+      e.preventDefault()
+      el.scrollLeft += e.deltaY
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    // Re-evaluar cuando cambien las categorias
+    const ro = new ResizeObserver(updateScrollButtons)
+    ro.observe(el)
+    return () => {
+      el.removeEventListener('scroll', updateScrollButtons)
+      window.removeEventListener('resize', updateScrollButtons)
+      el.removeEventListener('wheel', onWheel)
+      ro.disconnect()
+    }
+  }, [categorias, updateScrollButtons])
+
+  const scrollCategories = (dir: 'left' | 'right') => {
+    const el = categoriesRef.current
+    if (!el) return
+    const amount = el.clientWidth * 0.6
+    el.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' })
+  }
   const [selectedCartIndex, setSelectedCartIndex] = useState<number>(-1)
   const [selectedCustomer, setSelectedCustomer] = useState<string>('Consumidor Final')
   const [selectedMesaId, setSelectedMesaId] = useState<string | null>(null)
@@ -496,23 +540,55 @@ export function SellModule() {
             else seleccionarCategoria(categorias.find(c => c.id === val) ?? null)
           }}
         >
-          <TabsList className="flex gap-2 overflow-x-auto pb-2 bg-transparent border-none h-auto scrollbar-none snap-x snap-mandatory" style={{ WebkitOverflowScrolling: 'touch', display: 'flex', flexWrap: 'nowrap' }}>
-            <TabsTrigger
-              value="todos"
-              className="px-6 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl font-medium text-sm whitespace-nowrap shadow-sm border border-border data-[state=active]:border-primary flex items-center gap-2 h-[48px] transition-colors snap-start shrink-0"
-            >
-              Todos
-            </TabsTrigger>
-            {categorias.map(cat => (
-              <TabsTrigger
-                key={cat.id}
-                value={cat.id}
-              className="px-6 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl font-medium text-sm whitespace-nowrap shadow-sm border border-border data-[state=active]:border-primary flex items-center gap-2 h-[48px] transition-colors shrink-0"
+          <div className="relative">
+            {catScroll.canLeft && (
+              <button
+                type="button"
+                onClick={() => scrollCategories('left')}
+                className="absolute left-0 top-0 bottom-0 z-10 w-8 flex items-center justify-center bg-gradient-to-r from-background to-transparent text-foreground/60 hover:text-foreground"
+                aria-label="Categorias anteriores"
               >
-                <DynamicIcon name={cat.icono} className="w-5 h-5" /> {cat.nombre}
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
+            {catScroll.canRight && (
+              <button
+                type="button"
+                onClick={() => scrollCategories('right')}
+                className="absolute right-0 top-0 bottom-0 z-10 w-8 flex items-center justify-center bg-gradient-to-l from-background to-transparent text-foreground/60 hover:text-foreground"
+                aria-label="Categorias siguientes"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            )}
+            {catScroll.canRight && (
+              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background/90 to-transparent" />
+            )}
+            {catScroll.canLeft && (
+              <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-background/90 to-transparent" />
+            )}
+            <TabsList
+              ref={categoriesRef}
+              className="flex gap-2 overflow-x-auto pb-2 bg-transparent border-none h-auto scrollbar-none snap-x snap-mandatory"
+              style={{ WebkitOverflowScrolling: 'touch', display: 'flex', flexWrap: 'nowrap' }}
+            >
+              <TabsTrigger
+                value="todos"
+                className="px-6 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl font-medium text-sm whitespace-nowrap shadow-sm border border-border data-[state=active]:border-primary flex items-center gap-2 h-[48px] transition-colors snap-start shrink-0"
+              >
+                Todos
               </TabsTrigger>
-            ))}
-          </TabsList>
+              {categorias.map(cat => (
+                <TabsTrigger
+                  key={cat.id}
+                  value={cat.id}
+                className="px-6 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl font-medium text-sm whitespace-nowrap shadow-sm border border-border data-[state=active]:border-primary flex items-center gap-2 h-[48px] transition-colors shrink-0"
+                >
+                  <DynamicIcon name={cat.icono} className="w-5 h-5" /> {cat.nombre}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
         </Tabs>
 
         {/* Products Grid — datos reales de Firestore */}
