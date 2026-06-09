@@ -44,13 +44,17 @@ export function suscribirReservasActivas(callback: (reservas: Reserva[]) => void
  * Trae las reservas de una mesa específica para verificar disponibilidad.
  */
 export async function getReservasMesa(mesaId: string, fechaDia: string): Promise<Reserva[]> {
-  // Nota: Para verificar horarios en un día específico, traemos las de esa mesa
-  // Y luego filtramos en el cliente por el día. 
-  // En una app más grande haríamos query por rangos de fecha.
+  const inicioDia = new Date(fechaDia)
+  inicioDia.setHours(0, 0, 0, 0)
+  const finDia = new Date(fechaDia)
+  finDia.setHours(23, 59, 59, 999)
+
   const q = query(
     collection(db, COLLECTION_NAME),
     where('mesaId', '==', mesaId),
-    where('estadoReserva', '==', 'activa')
+    where('estadoReserva', '==', 'activa'),
+    where('fechaInicio', '>=', inicioDia.toISOString()),
+    where('fechaInicio', '<=', finDia.toISOString())
   )
   
   const snapshot = await getDocs(q)
