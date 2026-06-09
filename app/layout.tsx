@@ -17,11 +17,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Coworking Cultural y Empresarial — Café Atrato',
-  description: 'Espacio de coworking, café de especialidad, eventos culturales y artesanías en el corazón del Chocó. Trabajá, conectá y crecé con nosotros.',
+  title: 'Café Atrato - Coworking Cultural y Empresarial',
+  description: 'Un espacio premium diseñado para profesionales que buscan productividad, comunidad y el mejor café tradicional',
   openGraph: {
-    title: 'Coworking Cultural y Empresarial',
-    description: 'Espacio de coworking, café de especialidad, eventos culturales y artesanías en el corazón del Chocó.',
+    title: 'Café Atrato - Coworking Cultural y Empresarial',
+    description: 'Un espacio premium diseñado para profesionales que buscan productividad, comunidad y el mejor café tradicional',
     type: 'website',
     locale: 'es_CO',
   },
