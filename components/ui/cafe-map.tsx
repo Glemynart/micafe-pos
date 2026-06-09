@@ -1,11 +1,33 @@
 "use client"
 
-import { APIProvider, Map, AdvancedMarker, Pin, useMap, InfoWindow } from "@vis.gl/react-google-maps"
-import { useState, useCallback } from "react"
+import { APIProvider, Map, AdvancedMarker, useMap, InfoWindow } from "@vis.gl/react-google-maps"
+import { useState, useCallback, Component, useEffect, useRef, type ReactNode } from "react"
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ""
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID
 const CAFE_POS = { lat: 7.757872, lng: -76.659176 }
+
+function SafeMap({ mapProps, children }: { mapProps: any; children: ReactNode }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    return () => {
+      if (containerRef.current) {
+        while (containerRef.current.firstChild) {
+          try { containerRef.current.removeChild(containerRef.current.firstChild) } catch (_) {}
+        }
+      }
+    }
+  }, [])
+
+  return (
+    <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
+      <Map {...mapProps}>
+        {children}
+      </Map>
+    </div>
+  )
+}
 
 function CafeMarker() {
   const [open, setOpen] = useState(false)
@@ -60,6 +82,13 @@ function CafeMarker() {
   )
 }
 
+class MapErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }> {
+  state = { hasError: false }
+  static getDerivedStateFromError() { return { hasError: true } }
+  componentDidCatch(error: Error) { console.warn("Map error boundary caught:", error.message) }
+  render() { return this.state.hasError ? this.props.fallback : this.props.children }
+}
+
 export function CafeMap({ className }: { className?: string }) {
   const mapProps: any = {
     defaultCenter: CAFE_POS,
@@ -72,16 +101,24 @@ export function CafeMap({ className }: { className?: string }) {
     streetViewControl: false,
     fullscreenControl: false,
     zoomControl: false,
-    className,
-    style: { width: "100%" },
+    className: undefined,
+    style: { width: "100%", height: "100%" },
   }
   if (MAP_ID) mapProps.mapId = MAP_ID
 
   return (
-    <APIProvider apiKey={API_KEY}>
-      <Map {...mapProps}>
-        <CafeMarker />
-      </Map>
-    </APIProvider>
+    <MapErrorBoundary fallback={
+      <div className={className} style={{ width: "100%", borderRadius: "1.5rem", overflow: "hidden", background: "linear-gradient(135deg, #051D41, #0a2659)", display: "flex", alignItems: "center", justifyContent: "center", color: "#F9B207", fontWeight: 700, fontSize: "0.9rem", minHeight: "300px" }}>
+        Café Atrato — Carrera 50 #46-35, Apartadó
+      </div>
+    }>
+      <div className={className} style={{ width: "100%" }}>
+        <APIProvider apiKey={API_KEY}>
+          <SafeMap mapProps={mapProps}>
+            <CafeMarker />
+          </SafeMap>
+        </APIProvider>
+      </div>
+    </MapErrorBoundary>
   )
 }
