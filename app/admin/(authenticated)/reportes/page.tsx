@@ -98,23 +98,22 @@ export default function ReportesPage() {
             })}
           </div>
 
-          {/* Top Productos */}
           {reporte.topProductos.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-                <Package className="h-3.5 w-3.5 text-slate-400" />
-                <span className="text-sm font-semibold text-slate-700">Top Productos</span>
+            <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-white/5 flex items-center gap-2">
+                <Package className="h-3.5 w-3.5 text-white/40" />
+                <span className="text-sm font-semibold text-white/70">Top Productos</span>
               </div>
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-white/5">
                 {reporte.topProductos.map((p, i) => (
                   <div key={i} className="flex items-center justify-between px-4 py-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <span className="text-xs font-bold text-slate-300 w-4 shrink-0">#{i + 1}</span>
-                      <span className="text-sm text-slate-700 truncate">{p.name}</span>
+                      <span className="text-xs font-bold text-white/20 w-4 shrink-0">#{i + 1}</span>
+                      <span className="text-sm text-white/70 truncate">{p.name}</span>
                     </div>
                     <div className="text-right shrink-0 ml-2">
-                      <p className="text-sm font-semibold text-slate-900 tabular-nums">{formatCurrency(p.revenue)}</p>
-                      <p className="text-[10px] text-slate-400">{p.sold} uds</p>
+                      <p className="text-sm font-semibold text-white tabular-nums">{formatCurrency(p.revenue)}</p>
+                      <p className="text-[10px] text-white/30">{p.sold} uds</p>
                     </div>
                   </div>
                 ))}
