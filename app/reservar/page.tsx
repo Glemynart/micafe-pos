@@ -226,46 +226,50 @@ export default function ReservarPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-12 relative overflow-hidden">
+    <div className="min-h-screen bg-[#F5F1EA] pb-12 relative overflow-hidden">
       {/* Background decorations for a premium look */}
-      <div className="absolute top-0 left-0 w-full h-[300px] bg-primary/5 -skew-y-3 transform origin-top-left z-0"></div>
-      <div className="absolute top-[-100px] right-[-100px] w-96 h-96 bg-secondary/10 rounded-full blur-3xl z-0 pointer-events-none"></div>
+      <div className="absolute top-0 left-0 w-full h-[300px] bg-[#051D41]/5 -skew-y-3 transform origin-top-left z-0"></div>
+      <div className="absolute top-[-100px] right-[-100px] w-96 h-96 bg-[#F9B207]/15 rounded-full blur-3xl z-0 pointer-events-none"></div>
+      <div className="absolute bottom-[-150px] left-[-100px] w-96 h-96 bg-[#051D41]/8 rounded-full blur-3xl z-0 pointer-events-none"></div>
 
       {/* Header simple */}
-      <header className="bg-white/90 backdrop-blur-md border-b border-primary/10 py-3 px-4 md:py-4 md:px-6 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+      <header className="bg-white/90 backdrop-blur-md border-b border-[#051D41]/10 py-3 px-4 md:py-4 md:px-6 flex items-center justify-between sticky top-0 z-20 shadow-sm">
         <div className="flex items-center gap-2 md:gap-3">
-          <Link href="/" className="text-primary/70 hover:text-primary transition-colors bg-primary/5 p-2 rounded-full hover:bg-primary/10">
+          <Link href="/" className="text-[#051D41]/70 hover:text-[#051D41] transition-colors bg-[#051D41]/5 p-2 rounded-full hover:bg-[#F9B207]/15">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <span className="font-bold text-primary text-lg md:text-xl font-sans tracking-tight hidden sm:inline">Reservar Sala</span>
-          <span className="font-bold text-primary text-lg font-sans tracking-tight sm:hidden">Reservar</span>
+          <span className="font-bold text-[#051D41] text-lg md:text-xl font-sans tracking-tight hidden sm:inline">Reservar Sala</span>
+          <span className="font-bold text-[#051D41] text-lg font-sans tracking-tight sm:hidden">Reservar</span>
         </div>
         <div className="flex items-center gap-2">
           {/* Progress indicators */}
           {[1, 2, 3].map(p => (
-            <div key={p} className={`h-2 w-8 rounded-full transition-all duration-300 ${p === paso ? 'bg-secondary' : p < paso ? 'bg-primary' : 'bg-slate-200'}`}></div>
+            <div
+              key={p}
+              className={`h-2 w-8 rounded-full transition-all duration-300 ${p === paso ? 'bg-[#F9B207]' : p < paso ? 'bg-[#051D41]' : 'bg-slate-200'}`}
+            ></div>
           ))}
         </div>
       </header>
 
       <div className="max-w-5xl mx-auto px-3 sm:px-4 mt-6 md:mt-12 relative z-10">
-        
+
         {paso === 1 && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-slide-up" key="step1">
             {/* Selección Sala y Fecha */}
             <div className="lg:col-span-5 space-y-6">
-              <Card className="bg-white shadow-lg border-primary/10 overflow-hidden">
-                <div className="h-2 w-full bg-gradient-to-r from-primary to-secondary"></div>
+              <Card className="bg-white shadow-xl border-[#051D41]/10 overflow-hidden" style={{ backgroundColor: '#ffffff' }}>
+                <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, #051D41 0%, #F9B207 100%)' }}></div>
                 <CardHeader>
-                  <CardTitle className="text-primary text-2xl font-bold flex items-center gap-2">
-                    <span className="flex items-center justify-center bg-primary/10 text-primary w-8 h-8 rounded-full text-sm">1</span>
+                  <CardTitle className="text-[#051D41] text-2xl font-bold flex items-center gap-2">
+                    <span className="flex items-center justify-center w-9 h-9 rounded-full text-sm font-black" style={{ backgroundColor: '#051D41', color: '#F9B207' }}>1</span>
                     Tu Espacio
                   </CardTitle>
-                  <CardDescription className="text-base">Escoge la sala que mejor se adapte a tu equipo</CardDescription>
+                  <CardDescription className="text-base text-slate-500">Escoge la sala que mejor se adapte a tu equipo</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Select value={salaSeleccionada} onValueChange={setSalaSeleccionada}>
-                    <SelectTrigger className="h-14 text-lg border-primary/20 bg-white hover:border-primary/50 transition-colors focus:ring-secondary">
+                    <SelectTrigger className="h-14 text-lg border-[#051D41]/20 bg-white hover:border-[#F9B207] transition-colors focus:ring-[#F9B207]">
                       <SelectValue placeholder="Elegir sala..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -277,10 +281,13 @@ export default function ReservarPage() {
                 </CardContent>
               </Card>
 
-              <Card className={`bg-white shadow-lg border-primary/10 transition-all duration-300 ${!salaSeleccionada ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
+              <Card
+                className={`shadow-xl border-[#051D41]/10 transition-all duration-300 ${!salaSeleccionada ? 'opacity-50 grayscale pointer-events-none' : ''}`}
+                style={{ backgroundColor: '#ffffff' }}
+              >
                 <CardHeader>
-                  <CardTitle className="text-primary text-2xl font-bold flex items-center gap-2">
-                    <span className="flex items-center justify-center bg-primary/10 text-primary w-8 h-8 rounded-full text-sm">2</span>
+                  <CardTitle className="text-[#051D41] text-2xl font-bold flex items-center gap-2">
+                    <span className="flex items-center justify-center w-9 h-9 rounded-full text-sm font-black" style={{ backgroundColor: '#051D41', color: '#F9B207' }}>2</span>
                     La Fecha
                   </CardTitle>
                 </CardHeader>
@@ -289,14 +296,21 @@ export default function ReservarPage() {
                     mode="single"
                     selected={fecha}
                     onSelect={(d) => d && setFecha(d)}
-                    className="rounded-xl border border-primary/10 bg-white p-3 shadow-sm"
+                    className="rounded-xl border border-[#051D41]/10 bg-white p-3 shadow-sm"
                     classNames={{
-                      day_selected: "bg-secondary text-primary font-bold hover:bg-secondary/90 hover:text-primary",
-                      day_today: "bg-primary/5 text-primary font-bold",
+                      day_selected: "font-bold hover:opacity-90",
+                      day_today: "font-bold",
+                    }}
+                    modifiers={{
+                      selected: fecha ? [fecha] : [],
+                    }}
+                    modifiersClassNames={{
+                      selected: "!bg-[#F9B207] !text-[#051D41]",
+                      today: "!bg-[#051D41]/10 !text-[#051D41]",
                     }}
                     disabled={(date) => {
                       const today = new Date()
-                      today.setHours(0,0,0,0)
+                      today.setHours(0, 0, 0, 0)
                       return date < today
                     }}
                   />
@@ -306,17 +320,20 @@ export default function ReservarPage() {
 
             {/* Agenda (Paso 1.5) */}
             <div className="lg:col-span-7">
-              <Card className={`bg-white shadow-lg border-primary/10 h-full flex flex-col transition-all duration-300 ${!fecha || !salaSeleccionada ? 'opacity-50 grayscale pointer-events-none translate-y-4' : ''}`}>
+              <Card
+                className={`shadow-xl border-[#051D41]/10 h-full flex flex-col transition-all duration-300 ${!fecha || !salaSeleccionada ? 'opacity-50 grayscale pointer-events-none translate-y-4' : ''}`}
+                style={{ backgroundColor: '#ffffff' }}
+              >
                 <CardHeader className="pb-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <CardTitle className="text-primary text-2xl font-bold flex items-center gap-2 mb-2">
-                        <span className="flex items-center justify-center bg-primary/10 text-primary w-8 h-8 rounded-full text-sm">3</span>
+                      <CardTitle className="text-[#051D41] text-2xl font-bold flex items-center gap-2 mb-2">
+                        <span className="flex items-center justify-center w-9 h-9 rounded-full text-sm font-black" style={{ backgroundColor: '#051D41', color: '#F9B207' }}>3</span>
                         El Horario
                       </CardTitle>
-                      <CardDescription className="text-base flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-secondary" />
-                        Valor: <strong className="text-primary">${PRECIO_POR_HORA.toLocaleString('es-CO')} COP/hora</strong>
+                      <CardDescription className="text-base flex items-center gap-2 text-slate-500">
+                        <Clock className="w-4 h-4" style={{ color: '#F9B207' }} />
+                        Valor: <strong className="text-[#051D41]">${PRECIO_POR_HORA.toLocaleString('es-CO')} COP/hora</strong>
                       </CardDescription>
                     </div>
                   </div>
@@ -325,8 +342,8 @@ export default function ReservarPage() {
                   {cargandoHorarios ? (
                     <div className="flex-1 flex flex-col items-center justify-center gap-4 py-12">
                       <div className="relative">
-                        <div className="absolute inset-0 bg-secondary/20 rounded-full blur-xl animate-pulse"></div>
-                        <Loader2 className="h-10 w-10 animate-spin text-primary relative z-10" />
+                        <div className="absolute inset-0 rounded-full blur-xl animate-pulse" style={{ backgroundColor: '#F9B207', opacity: 0.25 }}></div>
+                        <Loader2 className="h-10 w-10 animate-spin relative z-10" style={{ color: '#051D41' }} />
                       </div>
                       <p className="text-sm font-medium text-slate-500 animate-pulse">Sincronizando agenda...</p>
                     </div>
@@ -336,25 +353,45 @@ export default function ReservarPage() {
                         {HORARIOS.map(hora => {
                           const ocupada = horasOcupadas.includes(hora)
                           const seleccionada = horasSeleccionadas.includes(hora)
+                          if (ocupada) {
+                            return (
+                              <button
+                                key={hora}
+                                disabled
+                                className="relative py-3 sm:py-4 px-2 sm:px-3 rounded-xl text-sm sm:text-base font-bold border-2 border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-60 touch-target"
+                              >
+                                <span className="flex flex-col items-center gap-1">
+                                  <span>{hora}</span>
+                                  <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Ocupado</span>
+                                </span>
+                              </button>
+                            )
+                          }
+                          if (seleccionada) {
+                            return (
+                              <button
+                                key={hora}
+                                onClick={() => toggleHora(hora)}
+                                style={{ backgroundColor: '#051D41', borderColor: '#051D41', color: '#F9B207', boxShadow: '0 8px 20px -6px rgba(5, 29, 65, 0.5)' }}
+                                className="relative py-3 sm:py-4 px-2 sm:px-3 rounded-xl text-sm sm:text-base font-black border-2 transition-all duration-200 scale-[0.98] touch-target"
+                              >
+                                <span className="relative z-10 flex flex-col items-center gap-1">
+                                  <span>{hora}</span>
+                                  <span className="text-[10px] uppercase tracking-wider font-bold opacity-90">Seleccionado</span>
+                                </span>
+                              </button>
+                            )
+                          }
                           return (
                             <button
                               key={hora}
-                              disabled={ocupada}
                               onClick={() => toggleHora(hora)}
-                              className={`
-                                relative py-3 sm:py-4 px-2 sm:px-3 rounded-xl text-sm sm:text-base font-bold border-2 transition-all duration-200 overflow-hidden group touch-target
-                                ${ocupada 
-                                  ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed opacity-60' 
-                                  : seleccionada
-                                    ? 'bg-primary border-primary text-white shadow-[0_8px_20px_-6px_rgba(5,29,65,0.4)] scale-[0.98]'
-                                    : 'bg-white border-transparent shadow-sm text-primary hover:border-secondary hover:shadow-md active:scale-95'
-                                }
-                              `}
+                              style={{ borderColor: '#051D41', color: '#051D41' }}
+                              className="relative py-3 sm:py-4 px-2 sm:px-3 rounded-xl text-sm sm:text-base font-bold border-2 bg-white shadow-sm hover:shadow-md active:scale-95 touch-target transition-all duration-200"
                             >
-                              {seleccionada && <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>}
-                              <span className="relative z-10 flex flex-col items-center gap-1">
+                              <span className="flex flex-col items-center gap-1">
                                 <span>{hora}</span>
-                                {ocupada && <span className="text-[10px] uppercase tracking-wider font-bold text-destructive">Ocupado</span>}
+                                <span className="text-[10px] uppercase tracking-wider font-bold" style={{ color: '#F9B207' }}>Libre</span>
                               </span>
                             </button>
                           )
@@ -363,18 +400,24 @@ export default function ReservarPage() {
 
                       <div className="mt-auto">
                         <div className={`transition-all duration-500 overflow-hidden ${horasSeleccionadas.length > 0 ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
-                          <div className="p-5 bg-primary/5 rounded-2xl border border-primary/10 flex items-center justify-between mb-6">
+                          <div
+                            className="p-5 rounded-2xl border flex items-center justify-between mb-6"
+                            style={{ background: 'linear-gradient(135deg, rgba(5, 29, 65, 0.04) 0%, rgba(249, 178, 7, 0.10) 100%)', borderColor: 'rgba(5, 29, 65, 0.10)' }}
+                          >
                             <div>
-                              <p className="text-xs font-bold text-primary/60 uppercase tracking-widest mb-1">Total a pagar</p>
-                              <p className="text-3xl font-black text-primary">${calcularTotal().toLocaleString('es-CO')}</p>
+                              <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#051D41', opacity: 0.6 }}>Total a pagar</p>
+                              <p className="text-3xl font-black" style={{ color: '#051D41' }}>${calcularTotal().toLocaleString('es-CO')}</p>
                             </div>
                             <div className="text-right">
-                              <div className="bg-secondary text-primary px-3 py-1 rounded-full text-sm font-bold shadow-sm inline-block mb-1">
+                              <div
+                                className="px-3 py-1 rounded-full text-sm font-bold shadow-sm inline-block mb-1"
+                                style={{ backgroundColor: '#F9B207', color: '#051D41' }}
+                              >
                                 {horasSeleccionadas.length >= 2
                                   ? `${horasSeleccionadas[0]} - ${parseInt(horasSeleccionadas[horasSeleccionadas.length-1])+1}:00`
                                   : `${horasSeleccionadas.length} ${horasSeleccionadas.length === 1 ? 'hora' : 'horas'}`}
                               </div>
-                              <p className="text-xs text-primary/60 font-medium">Impuestos incluidos</p>
+                              <p className="text-xs font-medium" style={{ color: '#051D41', opacity: 0.6 }}>Impuestos incluidos</p>
                             </div>
                           </div>
                         </div>
@@ -383,8 +426,9 @@ export default function ReservarPage() {
                   )}
                 </CardContent>
                 <CardFooter className="pt-0">
-                  <Button 
-                    className="w-full h-14 text-lg font-bold rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-1" 
+                  <Button
+                    className="w-full h-14 text-lg font-bold rounded-xl shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5"
+                    style={{ backgroundColor: '#F9B207', color: '#051D41' }}
                     disabled={horasSeleccionadas.length === 0}
                     onClick={() => setPaso(2)}
                   >
@@ -398,46 +442,64 @@ export default function ReservarPage() {
 
         {paso === 2 && (
           <div className="max-w-2xl mx-auto animate-slide-right" key="step2">
-            <Card className="bg-white shadow-2xl border-primary/10 overflow-hidden">
-              <div className="h-2 w-full bg-gradient-to-r from-primary to-secondary"></div>
+            <Card className="bg-white shadow-2xl border-[#051D41]/10 overflow-hidden" style={{ backgroundColor: '#ffffff' }}>
+              <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, #051D41 0%, #F9B207 100%)' }}></div>
               <CardHeader className="text-center pb-2">
-                <CardTitle className="text-3xl font-bold text-primary mb-2">Tus Datos</CardTitle>
-                <CardDescription className="text-base">Solo necesitamos esta información para enviar tu comprobante</CardDescription>
+                <CardTitle className="text-3xl font-bold mb-2" style={{ color: '#051D41' }}>Tus Datos</CardTitle>
+                <CardDescription className="text-base text-slate-500">Solo necesitamos esta información para enviar tu comprobante</CardDescription>
               </CardHeader>
-              
+
               <CardContent className="space-y-6 pt-6">
                 {/* Resumen */}
-                <div className="bg-gradient-to-br from-primary/5 to-secondary/10 p-5 rounded-2xl mb-6 border border-primary/15 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-secondary/15 rounded-full blur-2xl transform translate-x-10 -translate-y-10"></div>
-                  
-                  <h4 className="text-xs text-primary font-bold uppercase tracking-widest mb-3 relative z-10">Resumen de tu Reserva</h4>
+                <div
+                  className="p-5 rounded-2xl mb-6 border relative overflow-hidden"
+                  style={{
+                    background: 'linear-gradient(135deg, #051D41 0%, #0a2659 100%)',
+                    borderColor: '#F9B207',
+                    boxShadow: '0 8px 24px -8px rgba(5, 29, 65, 0.3)',
+                  }}
+                >
+                  <div
+                    className="absolute top-0 right-0 w-32 h-32 rounded-full blur-2xl transform translate-x-10 -translate-y-10"
+                    style={{ backgroundColor: 'rgba(249, 178, 7, 0.25)' }}
+                  ></div>
+
+                  <h4 className="text-xs font-bold uppercase tracking-widest mb-3 relative z-10" style={{ color: '#F9B207' }}>Resumen de tu Reserva</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
                     <div className="flex items-center gap-3">
-                      <div className="bg-primary/10 p-2 rounded-lg"><Building className="h-5 w-5 text-primary" /></div>
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(249, 178, 7, 0.20)' }}>
+                        <Building className="h-5 w-5" style={{ color: '#F9B207' }} />
+                      </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Espacio</p>
-                        <p className="font-medium text-sm leading-tight text-foreground">{salas.find(s => s.id === salaSeleccionada)?.nombre}</p>
+                        <p className="text-xs text-white/60">Espacio</p>
+                        <p className="font-medium text-sm leading-tight text-white">{salas.find(s => s.id === salaSeleccionada)?.nombre}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="bg-primary/10 p-2 rounded-lg"><CalendarDays className="h-5 w-5 text-primary" /></div>
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(249, 178, 7, 0.20)' }}>
+                        <CalendarDays className="h-5 w-5" style={{ color: '#F9B207' }} />
+                      </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Fecha</p>
-                        <p className="font-medium text-sm capitalize text-foreground">{fecha?.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
+                        <p className="text-xs text-white/60">Fecha</p>
+                        <p className="font-medium text-sm capitalize text-white">{fecha?.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="bg-primary/10 p-2 rounded-lg"><Clock className="h-5 w-5 text-primary" /></div>
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(249, 178, 7, 0.20)' }}>
+                        <Clock className="h-5 w-5" style={{ color: '#F9B207' }} />
+                      </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Horario</p>
-                        <p className="font-medium text-sm text-foreground">{horasSeleccionadas[0]} a {parseInt(horasSeleccionadas[horasSeleccionadas.length-1])+1}:00</p>
+                        <p className="text-xs text-white/60">Horario</p>
+                        <p className="font-medium text-sm text-white">{horasSeleccionadas[0]} a {parseInt(horasSeleccionadas[horasSeleccionadas.length-1])+1}:00</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="bg-secondary/30 p-2 rounded-lg"><CreditCard className="h-5 w-5 text-primary" /></div>
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(249, 178, 7, 0.20)' }}>
+                        <CreditCard className="h-5 w-5" style={{ color: '#F9B207' }} />
+                      </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Total</p>
-                        <p className="font-bold text-primary text-base">${calcularTotal().toLocaleString('es-CO')}</p>
+                        <p className="text-xs text-white/60">Total</p>
+                        <p className="font-bold text-base" style={{ color: '#F9B207' }}>${calcularTotal().toLocaleString('es-CO')}</p>
                       </div>
                     </div>
                   </div>
@@ -445,44 +507,53 @@ export default function ReservarPage() {
 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-primary font-semibold">Nombre Completo</Label>
-                    <Input 
-                      className="h-12 rounded-xl border-primary/20 bg-slate-50 focus-visible:ring-secondary focus-visible:border-secondary text-base"
-                      value={clienteNombre} 
-                      onChange={e => setClienteNombre(e.target.value)} 
-                      placeholder="Ej. Juan Pérez" 
+                    <Label className="font-semibold" style={{ color: '#051D41' }}>Nombre Completo</Label>
+                    <Input
+                      className="h-12 rounded-xl bg-slate-50 text-base"
+                      style={{ borderColor: 'rgba(5, 29, 65, 0.20)' }}
+                      value={clienteNombre}
+                      onChange={e => setClienteNombre(e.target.value)}
+                      placeholder="Ej. Juan Pérez"
                     />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-primary font-semibold">Correo Electrónico</Label>
-                      <Input 
-                        type="email" 
-                        className="h-12 rounded-xl border-primary/20 bg-slate-50 focus-visible:ring-secondary focus-visible:border-secondary text-base"
-                        value={clienteEmail} 
-                        onChange={e => setClienteEmail(e.target.value)} 
-                        placeholder="juan@ejemplo.com" 
+                      <Label className="font-semibold" style={{ color: '#051D41' }}>Correo Electrónico</Label>
+                      <Input
+                        type="email"
+                        className="h-12 rounded-xl bg-slate-50 text-base"
+                        style={{ borderColor: 'rgba(5, 29, 65, 0.20)' }}
+                        value={clienteEmail}
+                        onChange={e => setClienteEmail(e.target.value)}
+                        placeholder="juan@ejemplo.com"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-primary font-semibold">Teléfono / WhatsApp</Label>
-                      <Input 
-                        type="tel" 
-                        className="h-12 rounded-xl border-primary/20 bg-slate-50 focus-visible:ring-secondary focus-visible:border-secondary text-base"
-                        value={clienteTelefono} 
-                        onChange={e => setClienteTelefono(e.target.value)} 
-                        placeholder="300 123 4567" 
+                      <Label className="font-semibold" style={{ color: '#051D41' }}>Teléfono / WhatsApp</Label>
+                      <Input
+                        type="tel"
+                        className="h-12 rounded-xl bg-slate-50 text-base"
+                        style={{ borderColor: 'rgba(5, 29, 65, 0.20)' }}
+                        value={clienteTelefono}
+                        onChange={e => setClienteTelefono(e.target.value)}
+                        placeholder="300 123 4567"
                       />
                     </div>
                   </div>
                 </div>
               </CardContent>
               <CardFooter className="flex flex-col sm:flex-row gap-3 pt-4">
-                <Button variant="outline" onClick={() => setPaso(1)} className="w-full sm:w-1/3 h-14 rounded-xl border-primary/20 text-primary hover:bg-primary/5">
+                <Button
+                  variant="outline"
+                  onClick={() => setPaso(1)}
+                  className="w-full sm:w-1/3 h-14 rounded-xl font-semibold"
+                  style={{ borderColor: 'rgba(5, 29, 65, 0.20)', color: '#051D41', backgroundColor: 'transparent' }}
+                >
                   Volver
                 </Button>
-                <Button 
-                  className="w-full sm:w-2/3 h-14 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-lg shadow-lg" 
+                <Button
+                  className="w-full sm:w-2/3 h-14 rounded-xl font-bold text-lg shadow-lg"
+                  style={{ backgroundColor: '#F9B207', color: '#051D41' }}
                   disabled={!clienteNombre || !clienteEmail || !clienteTelefono || cargandoPago}
                   onClick={procesarReserva}
                 >
@@ -493,7 +564,10 @@ export default function ReservarPage() {
                   ) : (
                     <div className="flex items-center gap-2 justify-center w-full relative">
                       <span>Pagar Seguro</span>
-                      <span className="absolute right-4 bg-white/20 px-3 py-1 rounded-full text-sm font-black">
+                      <span
+                        className="absolute right-4 px-3 py-1 rounded-full text-sm font-black"
+                        style={{ backgroundColor: 'rgba(5, 29, 65, 0.15)' }}
+                      >
                         ${calcularTotal().toLocaleString('es-CO')}
                       </span>
                     </div>
@@ -501,50 +575,62 @@ export default function ReservarPage() {
                 </Button>
               </CardFooter>
             </Card>
-            
+
             <p className="text-center text-sm font-medium text-slate-500 mt-6 flex items-center justify-center gap-2">
               <LockIcon className="h-4 w-4 text-emerald-600" />
-              Tus pagos están encriptados y procesados por <strong>Wompi Bancolombia</strong>
+              Tus pagos están encriptados y procesados por <strong style={{ color: '#051D41' }}>Wompi Bancolombia</strong>
             </p>
           </div>
         )}
 
         {paso === 3 && (
           <div className="max-w-md mx-auto text-center animate-slide-up pt-8" key="step3">
-            <div className="w-24 h-24 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-[0_0_40px_rgba(52,211,153,0.4)] relative">
-              <div className="absolute inset-0 bg-emerald-400 rounded-full animate-ping opacity-20"></div>
-              <svg className="w-12 h-12 text-white relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div
+              className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 relative"
+              style={{
+                background: 'linear-gradient(135deg, #F9B207 0%, #d99a06 100%)',
+                boxShadow: '0 0 40px rgba(249, 178, 7, 0.4)',
+              }}
+            >
+              <div className="absolute inset-0 rounded-full animate-ping opacity-20" style={{ backgroundColor: '#F9B207' }}></div>
+              <svg className="w-12 h-12 relative z-10" style={{ color: '#051D41' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7"></path>
               </svg>
             </div>
-            <h2 className="text-4xl font-black text-primary mb-4 tracking-tight">¡Reserva Exitosa!</h2>
+            <h2 className="text-4xl font-black mb-4 tracking-tight" style={{ color: '#051D41' }}>¡Reserva Exitosa!</h2>
             <p className="text-slate-600 text-lg mb-8 leading-relaxed">
-              Hemos enviado tu comprobante a <br/><strong className="text-primary">{clienteEmail}</strong>
+              Hemos enviado tu comprobante a <br/><strong style={{ color: '#051D41' }}>{clienteEmail}</strong>
             </p>
-            
-            <div className="bg-white p-8 rounded-3xl shadow-xl border border-primary/10 mb-8 text-left space-y-4 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-bl-full"></div>
-              
+
+            <div
+              className="bg-white p-8 rounded-3xl shadow-xl border mb-8 text-left space-y-4 relative overflow-hidden"
+              style={{ borderColor: 'rgba(5, 29, 65, 0.10)' }}
+            >
+              <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ backgroundColor: 'rgba(249, 178, 7, 0.15)' }}></div>
+
               <div className="flex justify-between items-center pb-4 border-b border-slate-100">
                 <span className="text-slate-500 font-medium">Espacio</span>
-                <strong className="text-primary text-right max-w-[60%]">{salas.find(s => s.id === salaSeleccionada)?.nombre}</strong>
+                <strong className="text-right max-w-[60%]" style={{ color: '#051D41' }}>{salas.find(s => s.id === salaSeleccionada)?.nombre}</strong>
               </div>
               <div className="flex justify-between items-center pb-4 border-b border-slate-100">
                 <span className="text-slate-500 font-medium">Día</span>
-                <strong className="text-primary">{fecha?.toLocaleDateString()}</strong>
+                <strong style={{ color: '#051D41' }}>{fecha?.toLocaleDateString()}</strong>
               </div>
               <div className="flex justify-between items-center pb-4 border-b border-slate-100">
                 <span className="text-slate-500 font-medium">Horario</span>
-                <strong className="text-primary">{horasSeleccionadas[0]} - {parseInt(horasSeleccionadas[horasSeleccionadas.length-1])+1}:00</strong>
+                <strong style={{ color: '#051D41' }}>{horasSeleccionadas[0]} - {parseInt(horasSeleccionadas[horasSeleccionadas.length-1])+1}:00</strong>
               </div>
               <div className="flex justify-between items-center pt-2">
                 <span className="text-slate-500 font-medium">Total</span>
-                <strong className="text-emerald-600 text-xl font-black">${calcularTotal().toLocaleString('es-CO')}</strong>
+                <strong className="text-xl font-black" style={{ color: '#F9B207' }}>${calcularTotal().toLocaleString('es-CO')}</strong>
               </div>
             </div>
 
             <Link href="/">
-              <Button className="w-full h-14 text-lg font-bold rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg">
+              <Button
+                className="w-full h-14 text-lg font-bold rounded-xl shadow-lg"
+                style={{ backgroundColor: '#F9B207', color: '#051D41' }}
+              >
                 Volver al Inicio
               </Button>
             </Link>
