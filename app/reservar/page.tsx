@@ -253,88 +253,24 @@ export default function ReservarPage() {
         </div>
       </header>
 
-      <div
-        className="relative z-10"
-        style={{
-          maxWidth: '64rem',
-          marginLeft: 'auto',
-          marginRight: 'auto',
-          paddingLeft: '0.75rem',
-          paddingRight: '0.75rem',
-          marginTop: '1.5rem',
-        }}
-      >
-
+      <div className="reservar-container">
         {paso === 1 && (
-          <div
-            key="step1"
-            className="reservar-step1-outer"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr',
-              gap: '2rem',
-              animation: 'slide-in-from-bottom 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-            }}
-          >
-            <style>{`
-              @keyframes slide-in-from-bottom {
-                from { transform: translateY(30px); opacity: 0; }
-                to { transform: translateY(0); opacity: 1; }
-              }
-              @media (min-width: 1024px) {
-                .reservar-step1-outer { grid-template-columns: 5fr 7fr !important; }
-                .reservar-hours-grid { grid-template-columns: repeat(4, 1fr) !important; }
-              }
-              @media (min-width: 640px) and (max-width: 1023px) {
-                .reservar-hours-grid { grid-template-columns: repeat(3, 1fr) !important; }
-              }
-            `}</style>
+          <div key="step1" className="reservar-step1-grid">
             {/* Selección Sala y Fecha */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <Card
-                className="overflow-hidden"
-                style={{
-                  backgroundColor: '#ffffff',
-                  boxShadow: '0 10px 25px -5px rgba(5, 29, 65, 0.10), 0 4px 6px -2px rgba(5, 29, 65, 0.05)',
-                  border: '1px solid rgba(5, 29, 65, 0.10)',
-                  color: '#051D41',
-                }}
-              >
+            <div className="reservar-step1-col">
+              <Card className="reservar-card overflow-hidden">
                 <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, #051D41 0%, #F9B207 100%)' }}></div>
-                <CardHeader>
-                  <CardTitle className="text-2xl font-bold flex items-center gap-2" style={{ color: '#051D41' }}>
-                    <span className="flex items-center justify-center w-9 h-9 rounded-full text-sm font-black" style={{ backgroundColor: '#051D41', color: '#F9B207' }}>1</span>
+                <CardHeader style={{ padding: 0 }}>
+                  <CardTitle className="reservar-title">
+                    <span className="reservar-num">1</span>
                     Tu Espacio
                   </CardTitle>
-                  <CardDescription className="text-base" style={{ color: '#64748b' }}>Escoge la sala que mejor se adapte a tu equipo</CardDescription>
+                  <CardDescription className="reservar-desc">Escoge la sala que mejor se adapte a tu equipo</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent style={{ padding: 0 }}>
                   <Select value={salaSeleccionada} onValueChange={setSalaSeleccionada}>
                     <SelectTrigger
-                      style={
-                        salaSeleccionada
-                          ? {
-                              height: '3.5rem',
-                              fontSize: '1.125rem',
-                              borderRadius: '0.75rem',
-                              borderWidth: '2px',
-                              borderStyle: 'solid',
-                              backgroundColor: '#051D41',
-                              borderColor: '#F9B207',
-                              color: '#ffffff',
-                              boxShadow: '0 4px 16px -4px rgba(5, 29, 65, 0.3)',
-                            }
-                          : {
-                              height: '3.5rem',
-                              fontSize: '1.125rem',
-                              borderRadius: '0.75rem',
-                              borderWidth: '2px',
-                              borderStyle: 'solid',
-                              backgroundColor: '#ffffff',
-                              borderColor: 'rgba(5, 29, 65, 0.20)',
-                              color: '#051D41',
-                            }
-                      }
+                      className={salaSeleccionada ? 'reservar-trigger-selected' : 'reservar-trigger-empty'}
                     >
                       <SelectValue placeholder="Elegir sala..." />
                     </SelectTrigger>
@@ -350,27 +286,21 @@ export default function ReservarPage() {
               </Card>
 
               <Card
-                className={`transition-all duration-300 ${!salaSeleccionada ? 'opacity-50 grayscale pointer-events-none' : ''}`}
-                style={{
-                  backgroundColor: '#ffffff',
-                  boxShadow: '0 10px 25px -5px rgba(5, 29, 65, 0.10), 0 4px 6px -2px rgba(5, 29, 65, 0.05)',
-                  border: '1px solid rgba(5, 29, 65, 0.10)',
-                  color: '#051D41',
-                }}
+                className={`reservar-card transition-all duration-300 ${!salaSeleccionada ? 'opacity-50 grayscale pointer-events-none' : ''}`}
               >
-                <CardHeader>
-                  <CardTitle className="text-2xl font-bold flex items-center gap-2" style={{ color: '#051D41' }}>
-                    <span className="flex items-center justify-center w-9 h-9 rounded-full text-sm font-black" style={{ backgroundColor: '#051D41', color: '#F9B207' }}>2</span>
+                <CardHeader style={{ padding: 0 }}>
+                  <CardTitle className="reservar-title">
+                    <span className="reservar-num">2</span>
                     La Fecha
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="flex justify-center pb-6">
+                <CardContent className="flex justify-center" style={{ padding: 0 }}>
                   <Calendar
                     mode="single"
                     selected={fecha}
                     onSelect={(d) => d && setFecha(d)}
-                    className="rounded-xl border p-3 shadow-sm"
-                    style={{ borderColor: 'rgba(5, 29, 65, 0.10)', backgroundColor: '#ffffff' }}
+                    className="rounded-xl p-3 shadow-sm"
+                    style={{ border: '1px solid rgba(5, 29, 65, 0.10)', backgroundColor: '#ffffff' }}
                     locale={es}
                     formatters={{
                       formatWeekdayName: (day) => {
@@ -384,31 +314,26 @@ export default function ReservarPage() {
             </div>
 
             {/* Agenda (Paso 1.5) */}
-            <div style={{ display: 'flex' }}>
+            <div>
               <Card
-                className={`h-full flex flex-col transition-all duration-300 ${!fecha || !salaSeleccionada ? 'opacity-50 grayscale pointer-events-none translate-y-4' : ''}`}
-                style={{
-                  backgroundColor: '#ffffff',
-                  boxShadow: '0 10px 25px -5px rgba(5, 29, 65, 0.10), 0 4px 6px -2px rgba(5, 29, 65, 0.05)',
-                  border: '1px solid rgba(5, 29, 65, 0.10)',
-                  color: '#051D41',
-                }}
+                className={`reservar-card h-full transition-all duration-300 ${!fecha || !salaSeleccionada ? 'opacity-50 grayscale pointer-events-none translate-y-4' : ''}`}
+                style={{ gap: '1rem' }}
               >
-                <CardHeader className="pb-4">
+                <CardHeader style={{ padding: 0 }}>
                   <div className="flex justify-between items-start">
                     <div>
-                      <CardTitle className="text-2xl font-bold flex items-center gap-2 mb-2" style={{ color: '#051D41' }}>
-                        <span className="flex items-center justify-center w-9 h-9 rounded-full text-sm font-black" style={{ backgroundColor: '#051D41', color: '#F9B207' }}>3</span>
+                      <CardTitle className="reservar-title" style={{ marginBottom: '0.5rem' }}>
+                        <span className="reservar-num">3</span>
                         El Horario
                       </CardTitle>
-                      <CardDescription className="text-base flex items-center gap-2" style={{ color: '#64748b' }}>
+                      <CardDescription className="reservar-desc flex items-center gap-2">
                         <Clock className="w-4 h-4" style={{ color: '#F9B207' }} />
-                        Valor: <strong style={{ color: '#051D41' }}>${PRECIO_POR_HORA.toLocaleString('es-CO')} COP/hora</strong>
+                        Valor: <strong className="text-[#051D41]">${PRECIO_POR_HORA.toLocaleString('es-CO')} COP/hora</strong>
                       </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="flex-1 flex flex-col">
+                <CardContent className="flex-1 flex flex-col" style={{ padding: 0 }}>
                   {cargandoHorarios ? (
                     <div className="flex-1 flex flex-col items-center justify-center gap-4 py-12">
                       <div className="relative">
@@ -419,15 +344,7 @@ export default function ReservarPage() {
                     </div>
                   ) : (
                     <>
-                      <div
-                        className="reservar-hours-grid"
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(3, 1fr)',
-                          gap: '0.75rem',
-                          marginBottom: '1.5rem',
-                        }}
-                      >
+                      <div className="reservar-hours-grid">
                         {HORARIOS.map(hora => {
                           const ocupada = horasOcupadas.includes(hora)
                           const seleccionada = horasSeleccionadas.includes(hora)
@@ -436,20 +353,10 @@ export default function ReservarPage() {
                               <button
                                 key={hora}
                                 disabled
-                                style={{
-                                  backgroundColor: '#f8fafc',
-                                  border: '2px solid #e2e8f0',
-                                  color: '#cbd5e1',
-                                  opacity: 0.6,
-                                  borderRadius: '0.75rem',
-                                  cursor: 'not-allowed',
-                                }}
-                                className="relative py-3 sm:py-4 px-2 sm:px-3 text-sm sm:text-base touch-target"
+                                className="reservar-hour-disabled touch-target"
                               >
-                                <span className="flex flex-col items-center gap-1">
-                                  <span>{hora}</span>
-                                  <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Ocupado</span>
-                                </span>
+                                <span>{hora}</span>
+                                <span className="reservar-hour-label">Ocupado</span>
                               </button>
                             )
                           }
@@ -458,20 +365,10 @@ export default function ReservarPage() {
                               <button
                                 key={hora}
                                 onClick={() => toggleHora(hora)}
-                                style={{
-                                  backgroundColor: '#051D41',
-                                  border: '2px solid #051D41',
-                                  color: '#F9B207',
-                                  fontWeight: 900,
-                                  borderRadius: '0.75rem',
-                                  boxShadow: '0 8px 20px -6px rgba(5, 29, 65, 0.5)',
-                                }}
-                                className="relative py-3 sm:py-4 px-2 sm:px-3 text-sm sm:text-base scale-[0.98] transition-all duration-200 touch-target"
+                                className="reservar-hour-selected touch-target"
                               >
-                                <span className="relative z-10 flex flex-col items-center gap-1">
-                                  <span>{hora}</span>
-                                  <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, opacity: 0.9 }}>Seleccionado</span>
-                                </span>
+                                <span>{hora}</span>
+                                <span className="reservar-hour-label" style={{ opacity: 0.9 }}>Seleccionado</span>
                               </button>
                             )
                           }
@@ -479,19 +376,11 @@ export default function ReservarPage() {
                             <button
                               key={hora}
                               onClick={() => toggleHora(hora)}
-                              style={{
-                                backgroundColor: '#ffffff',
-                                border: '2px solid #051D41',
-                                color: '#051D41',
-                                fontWeight: 700,
-                                borderRadius: '0.75rem',
-                              }}
-                              className="relative py-3 sm:py-4 px-2 sm:px-3 text-sm sm:text-base shadow-sm hover:shadow-md active:scale-95 transition-all duration-200 touch-target"
+                              className="reservar-hour-available touch-target"
+                              style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
                             >
-                              <span className="flex flex-col items-center gap-1">
-                                <span>{hora}</span>
-                                <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, color: '#F9B207' }}>Libre</span>
-                              </span>
+                              <span>{hora}</span>
+                              <span className="reservar-hour-label" style={{ color: '#F9B207' }}>Libre</span>
                             </button>
                           )
                         })}
@@ -499,15 +388,7 @@ export default function ReservarPage() {
 
                       <div className="mt-auto">
                         <div className={`transition-all duration-500 overflow-hidden ${horasSeleccionadas.length > 0 ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
-                          <div
-                            className="p-5 flex items-center justify-between mb-6"
-                            style={{
-                              background: 'linear-gradient(135deg, rgba(5, 29, 65, 0.04) 0%, rgba(249, 178, 7, 0.10) 100%)',
-                              border: '1px solid rgba(5, 29, 65, 0.10)',
-                              borderRadius: '1rem',
-                              color: '#051D41',
-                            }}
-                          >
+                          <div className="reservar-total-box">
                             <div>
                               <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ opacity: 0.6 }}>Total a pagar</p>
                               <p className="text-3xl font-black" style={{ color: '#051D41' }}>${calcularTotal().toLocaleString('es-CO')}</p>
@@ -529,19 +410,9 @@ export default function ReservarPage() {
                     </>
                   )}
                 </CardContent>
-                <CardFooter className="pt-0">
+                <CardFooter className="pt-0" style={{ padding: 0 }}>
                   <Button
-                    style={{
-                      width: '100%',
-                      height: '3.5rem',
-                      fontSize: '1.125rem',
-                      fontWeight: 700,
-                      borderRadius: '0.75rem',
-                      boxShadow: '0 10px 25px -5px rgba(249, 178, 7, 0.4)',
-                      backgroundColor: horasSeleccionadas.length === 0 ? 'rgba(249, 178, 7, 0.4)' : '#F9B207',
-                      color: '#051D41',
-                      cursor: horasSeleccionadas.length === 0 ? 'not-allowed' : 'pointer',
-                    }}
+                    className="reservar-btn-primary"
                     disabled={horasSeleccionadas.length === 0}
                     onClick={() => setPaso(2)}
                   >
@@ -559,7 +430,7 @@ export default function ReservarPage() {
             className="animate-slide-right"
             style={{ maxWidth: '42rem', marginLeft: 'auto', marginRight: 'auto' }}
           >
-            <Card className="bg-white shadow-2xl border-[#051D41]/10 overflow-hidden" style={{ backgroundColor: '#ffffff' }}>
+            <Card className="reservar-card overflow-hidden" style={{ gap: '1.5rem' }}>
               <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, #051D41 0%, #F9B207 100%)' }}></div>
               <CardHeader className="text-center pb-2">
                 <CardTitle className="text-3xl font-bold mb-2" style={{ color: '#051D41' }}>Tus Datos</CardTitle>
@@ -733,8 +604,8 @@ export default function ReservarPage() {
             </p>
 
             <div
-              className="bg-white p-8 rounded-3xl shadow-xl border mb-8 text-left space-y-4 relative overflow-hidden"
-              style={{ borderColor: 'rgba(5, 29, 65, 0.10)' }}
+              className="reservar-success-card"
+              style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
             >
               <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ backgroundColor: 'rgba(249, 178, 7, 0.15)' }}></div>
 
