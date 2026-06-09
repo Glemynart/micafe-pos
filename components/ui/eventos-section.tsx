@@ -1,23 +1,29 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { CalendarDays, Clock, Sparkles, X } from "lucide-react"
+import { CalendarDays, Clock, Sparkles, X, MapPin, ArrowRight } from "lucide-react"
 import { collection, query, where, orderBy, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { type Evento } from "@/lib/eventos-service"
 
-const catStyles: Record<string, { gradient: string; badge: string; text: string }> = {
-  "Musica en vivo": { gradient: "from-purple-600 to-indigo-600", badge: "bg-purple-100", text: "text-purple-700" },
-  "Taller": { gradient: "from-emerald-600 to-teal-600", badge: "bg-emerald-100", text: "text-emerald-700" },
-  "Conferencia": { gradient: "from-blue-600 to-cyan-600", badge: "bg-blue-100", text: "text-blue-700" },
-  "Networking": { gradient: "from-amber-500 to-orange-500", badge: "bg-amber-100", text: "text-amber-700" },
-  "Arte y Cultura": { gradient: "from-rose-500 to-pink-500", badge: "bg-rose-100", text: "text-rose-700" },
-  "Gastronomia": { gradient: "from-orange-500 to-red-500", badge: "bg-orange-100", text: "text-orange-700" },
-  "Otro": { gradient: "from-slate-500 to-slate-700", badge: "bg-slate-100", text: "text-slate-700" },
+const NAVY = "#051D41"
+const GOLD = "#F9B207"
+
+const catStyles: Record<string, { accent: string; chip: string; bg: string }> = {
+  "Musica en vivo": { accent: "#7C3AED", chip: "#EDE9FE", bg: "#F5F3FF" },
+  "Taller": { accent: "#0D9488", chip: "#CCFBF1", bg: "#F0FDFA" },
+  "Conferencia": { accent: "#2563EB", chip: "#DBEAFE", bg: "#EFF6FF" },
+  "Networking": { accent: GOLD, chip: "#FEF3C7", bg: "#FFFBEB" },
+  "Arte y Cultura": { accent: "#E11D48", chip: "#FFE4E6", bg: "#FFF1F2" },
+  "Gastronomia": { accent: "#EA580C", chip: "#FFEDD5", bg: "#FFF7ED" },
+  "Otro": { accent: "#64748B", chip: "#E2E8F0", bg: "#F8FAFC" },
 }
 
 const style = (c: string) => catStyles[c] || catStyles["Otro"]
-const fmt = (e: Evento) => new Date(e.fecha + "T" + e.hora).toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "short" })
+const fmt = (e: Evento) => new Date(e.fecha + "T" + e.hora).toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })
+const dayShort = (e: Evento) => new Date(e.fecha + "T" + e.hora).toLocaleDateString("es-CO", { weekday: "short" })
+const dayNum = (e: Evento) => new Date(e.fecha + "T" + e.hora).getDate()
+const monthShort = (e: Evento) => new Date(e.fecha + "T" + e.hora).toLocaleDateString("es-CO", { month: "short" })
 
 export function EventosSection() {
   const [eventos, setEventos] = useState<Evento[]>([])
@@ -37,7 +43,6 @@ export function EventosSection() {
     }).finally(() => setCargando(false))
   }, [])
 
-  // Deshabilitar scroll del body cuando el modal está abierto
   useEffect(() => {
     if (selected) {
       document.body.style.overflow = "hidden"
@@ -48,14 +53,14 @@ export function EventosSection() {
   }, [selected])
 
   if (cargando) return (
-    <section className="py-24" style={{ backgroundColor: "#faf7f2" }}>
+    <section style={{ background: `linear-gradient(180deg, #ffffff 0%, #F5F1EA 100%)`, padding: "5rem 0" }}>
       <div className="container text-center">
-        <div className="flex items-center justify-center gap-2 mb-2 animate-pulse">
-          <Sparkles className="w-5 h-5 text-secondary" />
-          <span className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">Agenda Cultural</span>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem", padding: "0.5rem 1rem", background: "white", borderRadius: "9999px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+          <Sparkles style={{ width: "1rem", height: "1rem", color: GOLD }} />
+          <span style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", color: NAVY }}>Agenda Cultural</span>
         </div>
-        <div className="flex items-center justify-center py-12">
-          <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+        <div style={{ display: "flex", justifyContent: "center", padding: "3rem 0" }}>
+          <div style={{ width: "2.5rem", height: "2.5rem", borderRadius: "50%", border: "3px solid rgba(5, 29, 65, 0.12)", borderTopColor: GOLD, borderRightColor: GOLD, animation: "spin 800ms linear infinite" }}></div>
         </div>
       </div>
     </section>
@@ -65,166 +70,346 @@ export function EventosSection() {
 
   return (
     <>
-      <section className="py-24" style={{ backgroundColor: "#faf7f2" }}>
-        <div className="container mx-auto px-4 md:px-6">
-          <div className="flex flex-col items-center justify-center text-center max-w-2xl mx-auto mb-16">
-            <div className="inline-flex items-center justify-center gap-2 mb-4 px-4 py-1.5 rounded-full bg-white shadow-sm border border-slate-100">
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-700">Agenda Cultural</span>
+      <section
+        style={{
+          background: "linear-gradient(180deg, #ffffff 0%, #F5F1EA 50%, #faf6ee 100%)",
+          padding: "6rem 0",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        <div style={{ position: "absolute", top: "10%", left: "-5%", width: "300px", height: "300px", borderRadius: "50%", background: GOLD, opacity: 0.06, filter: "blur(80px)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", bottom: "20%", right: "-5%", width: "400px", height: "400px", borderRadius: "50%", background: NAVY, opacity: 0.05, filter: "blur(100px)", pointerEvents: "none" }} />
+
+        <div className="container mx-auto px-4 md:px-6" style={{ position: "relative", zIndex: 1 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", maxWidth: "42rem", margin: "0 auto 4rem" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem", padding: "0.5rem 1.25rem", background: "white", borderRadius: "9999px", boxShadow: "0 4px 16px -4px rgba(5, 29, 65, 0.08)", border: `1px solid ${GOLD}33` }}>
+              <Sparkles style={{ width: "1rem", height: "1rem", color: GOLD }} />
+              <span style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", color: NAVY }}>Agenda Cultural</span>
             </div>
-            <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-4 tracking-tight w-full">Próximos Eventos</h2>
-            <p className="text-lg text-slate-500 w-full">Descubre experiencias, talleres y encuentros en Café Atrato.</p>
+            <h2 style={{ fontSize: "clamp(2.25rem, 5vw, 3.5rem)", fontWeight: 900, color: NAVY, marginBottom: "1rem", letterSpacing: "-0.02em", lineHeight: 1.1 }}>
+              Próximos <span style={{ color: GOLD }}>Eventos</span>
+            </h2>
+            <p style={{ fontSize: "1.125rem", color: "#64748B", lineHeight: 1.6, maxWidth: "36rem" }}>
+              Descubre experiencias, talleres y encuentros en Café Atrato.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 max-w-7xl mx-auto">
+          <div
+            className="eventos-grid"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr",
+              gap: "2rem",
+              maxWidth: "80rem",
+              margin: "0 auto",
+            }}
+          >
+            <style>{`
+              @media (min-width: 768px) {
+                .eventos-grid { grid-template-columns: repeat(2, 1fr) !important; }
+              }
+              @media (min-width: 1024px) {
+                .eventos-grid { grid-template-columns: repeat(3, 1fr) !important; }
+              }
+              @keyframes eventos-card-in {
+                from { opacity: 0; transform: translateY(24px); }
+                to { opacity: 1; transform: translateY(0); }
+              }
+              @keyframes eventos-spin {
+                to { transform: rotate(360deg); }
+              }
+            `}</style>
+
             {eventos.slice(0, 6).map((evento, idx) => {
               const s = style(evento.categoria)
+              const cat = evento.categoria || "Otro"
               return (
-                <div
+                <article
                   key={evento.id}
                   onClick={() => setSelected(evento)}
-                  className="group cursor-pointer bg-white rounded-[2rem] p-3 shadow-sm border border-slate-100 overflow-hidden hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-2 transition-all duration-500 flex flex-col"
-                  style={{ animationDelay: `${idx * 100}ms` }}
+                  style={{
+                    cursor: "pointer",
+                    background: "white",
+                    borderRadius: "1.5rem",
+                    overflow: "hidden",
+                    boxShadow: "0 4px 24px -8px rgba(5, 29, 65, 0.08)",
+                    border: "1px solid rgba(5, 29, 65, 0.06)",
+                    transition: "all 400ms cubic-bezier(0.16, 1, 0.3, 1)",
+                    display: "flex",
+                    flexDirection: "column",
+                    animation: `eventos-card-in 600ms cubic-bezier(0.16, 1, 0.3, 1) ${idx * 80}ms both`,
+                    position: "relative",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-6px)"
+                    e.currentTarget.style.boxShadow = "0 20px 40px -12px rgba(5, 29, 65, 0.18)"
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)"
+                    e.currentTarget.style.boxShadow = "0 4px 24px -8px rgba(5, 29, 65, 0.08)"
+                  }}
                 >
-                  <div className="relative h-64 rounded-[1.5rem] overflow-hidden mb-4 bg-slate-50">
+                  <div style={{ position: "relative", height: "200px", background: s.bg, overflow: "hidden" }}>
                     {evento.imagenUrl ? (
-                      <img 
-                        src={evento.imagenUrl} 
-                        alt={evento.titulo} 
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" 
+                      <img
+                        src={evento.imagenUrl}
+                        alt={evento.titulo}
+                        style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 700ms ease" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)" }}
+                        onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)" }}
                       />
                     ) : (
-                      <div className={`w-full h-full bg-gradient-to-br ${s.gradient} flex items-center justify-center group-hover:scale-105 transition-transform duration-700`}>
-                        <CalendarDays className="w-16 h-16 text-white/30" />
+                      <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: `linear-gradient(135deg, ${s.bg} 0%, ${s.accent}22 100%)` }}>
+                        <CalendarDays style={{ width: "4rem", height: "4rem", color: s.accent, opacity: 0.4 }} />
                       </div>
                     )}
-                    {/* Degradado inferior sutil para contraste */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                    
-                    {/* Badge flotante */}
-                    <div className="absolute top-4 left-4">
-                      <span className={`text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-sm backdrop-blur-md bg-white/90 ${s.text}`}>
-                        {evento.categoria}
-                      </span>
+
+                    <div style={{ position: "absolute", top: "1rem", left: "1rem" }}>
+                      <span style={{
+                        display: "inline-block",
+                        fontSize: "0.65rem",
+                        fontWeight: 800,
+                        padding: "0.4rem 0.75rem",
+                        borderRadius: "9999px",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                        background: "white",
+                        color: s.accent,
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                        border: `1.5px solid ${s.accent}33`,
+                      }}>{cat}</span>
+                    </div>
+
+                    <div style={{
+                      position: "absolute",
+                      top: "1rem",
+                      right: "1rem",
+                      background: "white",
+                      borderRadius: "0.75rem",
+                      padding: "0.5rem 0.75rem",
+                      textAlign: "center",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+                      minWidth: "60px",
+                      border: `2px solid ${NAVY}11`,
+                    }}>
+                      <div style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: GOLD }}>{monthShort(evento)}</div>
+                      <div style={{ fontSize: "1.5rem", fontWeight: 900, lineHeight: 1, color: NAVY, marginTop: "0.1rem" }}>{dayNum(evento)}</div>
+                      <div style={{ fontSize: "0.65rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "#94A3B8", marginTop: "0.1rem" }}>{dayShort(evento)}</div>
                     </div>
                   </div>
-                  
-                  <div className="px-4 pb-4 flex flex-col flex-1">
-                    <h3 className="text-xl font-bold text-slate-900 mb-2 leading-tight group-hover:text-primary transition-colors line-clamp-2">
+
+                  <div style={{ padding: "1.5rem", display: "flex", flexDirection: "column", flex: 1 }}>
+                    <h3 style={{
+                      fontSize: "1.125rem",
+                      fontWeight: 800,
+                      color: NAVY,
+                      marginBottom: "0.5rem",
+                      lineHeight: 1.3,
+                      letterSpacing: "-0.01em",
+                    }}>
                       {evento.titulo}
                     </h3>
                     {evento.descripcion && (
-                      <p className="text-sm text-slate-500 mb-6 line-clamp-2 leading-relaxed flex-1">{evento.descripcion}</p>
+                      <p style={{
+                        fontSize: "0.875rem",
+                        color: "#64748B",
+                        marginBottom: "1.25rem",
+                        lineHeight: 1.55,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      }}>{evento.descripcion}</p>
                     )}
-                    
-                    <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 pt-4 border-t border-slate-100/80 mt-auto">
-                      <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg">
-                        <CalendarDays className="w-4 h-4 text-primary" />
-                        <span>{fmt(evento)}</span>
+
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "auto", paddingTop: "1rem", borderTop: "1px solid rgba(5, 29, 65, 0.06)" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", padding: "0.4rem 0.75rem", background: NAVY + "08", borderRadius: "0.5rem" }}>
+                        <Clock style={{ width: "0.8rem", height: "0.8rem", color: GOLD }} />
+                        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: NAVY }}>{evento.hora}</span>
                       </div>
-                      <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg">
-                        <Clock className="w-4 h-4 text-primary" />
-                        <span>{evento.hora}</span>
-                      </div>
+                      {(evento as any).ubicacion && (
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", padding: "0.4rem 0.75rem", background: NAVY + "08", borderRadius: "0.5rem" }}>
+                          <MapPin style={{ width: "0.8rem", height: "0.8rem", color: GOLD }} />
+                          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: NAVY }}>{(evento as any).ubicacion}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: "1rem", fontSize: "0.8rem", fontWeight: 700, color: GOLD, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      Ver detalles
+                      <ArrowRight style={{ width: "0.9rem", height: "0.9rem", transition: "transform 200ms" }} />
                     </div>
                   </div>
-                </div>
+                </article>
               )
             })}
           </div>
         </div>
       </section>
 
-      {/* MODAL PRO MAX (2 Columnas en Desktop) */}
+      {/* MODAL */}
       {selected && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fade-in"
+          style={{
+            position: "fixed", inset: 0, zIndex: 100,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "1rem",
+            background: "rgba(5, 29, 65, 0.65)",
+            backdropFilter: "blur(12px)",
+            animation: "fade-in 250ms ease",
+          }}
           onClick={() => setSelected(null)}
         >
           <div
-            className="bg-white rounded-[2rem] overflow-hidden max-w-4xl w-full max-h-[90vh] shadow-2xl animate-scale-in flex flex-col md:flex-row relative"
+            style={{
+              background: "white",
+              borderRadius: "1.75rem",
+              overflow: "hidden",
+              maxWidth: "64rem",
+              width: "100%",
+              maxHeight: "90vh",
+              boxShadow: "0 40px 80px -20px rgba(5, 29, 65, 0.5)",
+              display: "flex",
+              flexDirection: "row",
+              flexWrap: "wrap",
+              position: "relative",
+              animation: "scale-in 300ms cubic-bezier(0.16, 1, 0.3, 1)",
+            }}
             onClick={e => e.stopPropagation()}
+            className="eventos-modal"
           >
-            {/* Botón Cerrar Flotante Absoluto (Móvil y Desktop) */}
+            <style>{`
+              @media (max-width: 767px) {
+                .eventos-modal { flex-direction: column !important; }
+                .eventos-modal .modal-image { height: 240px !important; width: 100% !important; }
+                .eventos-modal .modal-content { width: 100% !important; }
+              }
+            `}</style>
+
             <button
               onClick={() => setSelected(null)}
-              className="absolute top-4 right-4 z-10 w-10 h-10 bg-white/80 hover:bg-white text-slate-900 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md transition-all active:scale-95"
+              style={{
+                position: "absolute", top: "1rem", right: "1rem", zIndex: 10,
+                width: "2.5rem", height: "2.5rem",
+                background: "rgba(255, 255, 255, 0.95)", color: NAVY,
+                border: "none", borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                cursor: "pointer", transition: "transform 150ms",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)" }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)" }}
+              aria-label="Cerrar"
             >
-              <X className="w-5 h-5" />
+              <X style={{ width: "1.1rem", height: "1.1rem" }} />
             </button>
 
-            {/* Columna Izquierda: Imagen (Poster) */}
-            <div className="w-full md:w-1/2 bg-slate-100 relative h-64 md:h-auto shrink-0 flex items-center justify-center">
+            {/* Imagen */}
+            <div
+              className="modal-image"
+              style={{
+                width: "50%", position: "relative", flexShrink: 0,
+                background: style(selected.categoria).bg,
+                minHeight: "300px",
+              }}
+            >
               {selected.imagenUrl ? (
-                // object-contain para que no se corte el afiche, con altura 100% en desktop
                 <img
                   src={selected.imagenUrl}
                   alt={selected.titulo}
-                  className="w-full h-full object-contain p-4 md:p-8"
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               ) : (
-                <div className={`w-full h-full bg-gradient-to-br ${style(selected.categoria).gradient} flex items-center justify-center`}>
-                  <CalendarDays className="w-24 h-24 text-white/20" />
+                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: `linear-gradient(135deg, ${style(selected.categoria).bg} 0%, ${style(selected.categoria).accent}22 100%)` }}>
+                  <CalendarDays style={{ width: "6rem", height: "6rem", color: style(selected.categoria).accent, opacity: 0.3 }} />
                 </div>
               )}
+              <div style={{ position: "absolute", top: "1rem", left: "1rem" }}>
+                <span style={{
+                  fontSize: "0.7rem", fontWeight: 800,
+                  padding: "0.5rem 0.875rem", borderRadius: "9999px",
+                  textTransform: "uppercase", letterSpacing: "0.1em",
+                  background: "white", color: style(selected.categoria).accent,
+                  border: `1.5px solid ${style(selected.categoria).accent}33`,
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                }}>{selected.categoria}</span>
+              </div>
             </div>
 
-            {/* Columna Derecha: Contenido y Detalles */}
-            <div className="w-full md:w-1/2 p-6 md:p-10 flex flex-col overflow-y-auto custom-scrollbar">
-              <div className="flex items-center gap-3 mb-6">
-                <span className={`text-[11px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest ${style(selected.categoria).badge} ${style(selected.categoria).text}`}>
-                  {selected.categoria}
-                </span>
+            {/* Contenido */}
+            <div
+              className="modal-content"
+              style={{
+                width: "50%", padding: "2.5rem", display: "flex",
+                flexDirection: "column", gap: "1.5rem", overflowY: "auto",
+              }}
+            >
+              <div>
+                <h2 style={{ fontSize: "1.875rem", fontWeight: 900, color: NAVY, lineHeight: 1.2, marginBottom: "0.5rem", letterSpacing: "-0.01em" }}>
+                  {selected.titulo}
+                </h2>
+                <div style={{ width: "60px", height: "4px", background: GOLD, borderRadius: "2px" }} />
               </div>
 
-              <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-6 leading-tight">
-                {selected.titulo}
-              </h2>
-
-              <div className="flex flex-col gap-3 mb-8 p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0 text-primary">
-                    <CalendarDays className="w-5 h-5" />
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", padding: "1.25rem", background: "linear-gradient(135deg, rgba(5, 29, 65, 0.03) 0%, rgba(249, 178, 7, 0.05) 100%)", borderRadius: "1rem", border: "1px solid rgba(5, 29, 65, 0.06)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <div style={{ width: "2.5rem", height: "2.5rem", borderRadius: "50%", background: "white", display: "flex", alignItems: "center", justifyContent: "center", color: NAVY, boxShadow: "0 2px 6px rgba(0,0,0,0.06)" }}>
+                    <CalendarDays style={{ width: "1.1rem", height: "1.1rem" }} />
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Fecha</p>
-                    <p className="text-sm font-semibold text-slate-800">{fmt(selected)}</p>
+                    <p style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#94A3B8" }}>Fecha</p>
+                    <p style={{ fontSize: "0.95rem", fontWeight: 700, color: NAVY }}>{fmt(selected)}</p>
                   </div>
                 </div>
-                
-                <div className="h-px w-full bg-slate-200/60 my-1"></div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0 text-primary">
-                    <Clock className="w-5 h-5" />
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <div style={{ width: "2.5rem", height: "2.5rem", borderRadius: "50%", background: "white", display: "flex", alignItems: "center", justifyContent: "center", color: NAVY, boxShadow: "0 2px 6px rgba(0,0,0,0.06)" }}>
+                    <Clock style={{ width: "1.1rem", height: "1.1rem" }} />
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Hora</p>
-                    <p className="text-sm font-semibold text-slate-800">{selected.hora}</p>
+                    <p style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#94A3B8" }}>Hora</p>
+                    <p style={{ fontSize: "0.95rem", fontWeight: 700, color: NAVY }}>{selected.hora}</p>
                   </div>
                 </div>
-              </div>
-
-              <div className="flex-1">
-                <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Detalles del Evento</h4>
-                {selected.descripcion ? (
-                  <p className="text-slate-600 leading-relaxed text-sm whitespace-pre-wrap">
-                    {selected.descripcion}
-                  </p>
-                ) : (
-                  <p className="text-slate-400 italic text-sm">Sin descripción adicional para este evento.</p>
+                {(selected as any).ubicacion && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <div style={{ width: "2.5rem", height: "2.5rem", borderRadius: "50%", background: "white", display: "flex", alignItems: "center", justifyContent: "center", color: NAVY, boxShadow: "0 2px 6px rgba(0,0,0,0.06)" }}>
+                      <MapPin style={{ width: "1.1rem", height: "1.1rem" }} />
+                    </div>
+                    <div>
+                      <p style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#94A3B8" }}>Ubicación</p>
+                      <p style={{ fontSize: "0.95rem", fontWeight: 700, color: NAVY }}>{(selected as any).ubicacion}</p>
+                    </div>
+                  </div>
                 )}
               </div>
 
-              {/* Espaciador inferior */}
-              <div className="mt-8 pt-6 border-t border-slate-100">
-                <button
-                  onClick={() => setSelected(null)}
-                  className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-sm transition-all active:scale-[0.98] shadow-lg shadow-slate-900/20"
-                >
-                  Entendido
-                </button>
+              <div style={{ flex: 1 }}>
+                <h4 style={{ fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: GOLD, marginBottom: "0.5rem" }}>Detalles del Evento</h4>
+                {selected.descripcion ? (
+                  <p style={{ color: "#475569", lineHeight: 1.7, fontSize: "0.95rem", whiteSpace: "pre-wrap" }}>
+                    {selected.descripcion}
+                  </p>
+                ) : (
+                  <p style={{ color: "#94A3B8", fontStyle: "italic", fontSize: "0.95rem" }}>Sin descripción adicional para este evento.</p>
+                )}
               </div>
+
+              <button
+                onClick={() => setSelected(null)}
+                style={{
+                  width: "100%", padding: "1rem 1.5rem",
+                  background: GOLD, color: NAVY,
+                  border: "none", borderRadius: "0.75rem",
+                  fontWeight: 800, fontSize: "0.95rem",
+                  cursor: "pointer", transition: "filter 200ms",
+                  letterSpacing: "0.02em",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.filter = "brightness(1.08)" }}
+                onMouseLeave={(e) => { e.currentTarget.style.filter = "brightness(1)" }}
+              >
+                Entendido
+              </button>
             </div>
           </div>
         </div>
