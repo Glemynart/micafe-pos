@@ -4,7 +4,7 @@ import { APIProvider, Map, AdvancedMarker, Pin, useMap, InfoWindow } from "@vis.
 import { useState, useCallback } from "react"
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ""
-const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID || ""
+const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID
 const CAFE_POS = { lat: 7.757872, lng: -76.659176 }
 
 function CafeMarker() {
@@ -61,23 +61,25 @@ function CafeMarker() {
 }
 
 export function CafeMap({ className }: { className?: string }) {
+  const mapProps: any = {
+    defaultCenter: CAFE_POS,
+    defaultZoom: 17,
+    defaultTilt: 55,
+    defaultHeading: -20,
+    gestureHandling: "greedy",
+    disableDefaultUI: true,
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: false,
+    zoomControl: false,
+    className,
+    style: { width: "100%" },
+  }
+  if (MAP_ID) mapProps.mapId = MAP_ID
+
   return (
     <APIProvider apiKey={API_KEY}>
-      <Map
-        mapId={MAP_ID}
-        defaultCenter={CAFE_POS}
-        defaultZoom={17}
-        defaultTilt={55}
-        defaultHeading={-20}
-        gestureHandling="greedy"
-        disableDefaultUI
-        mapTypeControl={false}
-        streetViewControl={false}
-        fullscreenControl={false}
-        zoomControl={false}
-        className={className}
-        style={{ width: "100%" }}
-      >
+      <Map {...mapProps}>
         <CafeMarker />
       </Map>
     </APIProvider>
