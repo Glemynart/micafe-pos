@@ -34,11 +34,11 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
     }
 
-    // ─── Usuarios: el propio usuario o admin/marketing pueden leer ───
+    // ─── Usuarios: el propio usuario o admin pueden leer ───
     match /usuarios/{uid} {
       allow read: if request.auth != null && (
         request.auth.uid == uid ||
-        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'marketing']
+        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin'
       );
       allow create: if request.auth != null
         && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';

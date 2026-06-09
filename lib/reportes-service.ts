@@ -115,10 +115,10 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
     const totalVenta = venta.totales?.total || 0
     ventasTotales += totalVenta
 
-    // Procesar Vendedor - filtrar admin/marketing
+    // Procesar Vendedor - filtrar solo admin
     const cajeroId = venta.cajeroId || 'desconocido'
     const rol = rolesUsuarios.get(cajeroId) || ''
-    if (rol === 'admin' || rol === 'marketing') continue
+    if (rol === 'admin') continue
     if (!vendedoresMap.has(cajeroId)) {
       vendedoresMap.set(cajeroId, {
         id: cajeroId,
