@@ -253,12 +253,44 @@ export default function ReservarPage() {
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-3 sm:px-4 mt-6 md:mt-12 relative z-10">
+      <div
+        className="relative z-10"
+        style={{
+          maxWidth: '64rem',
+          marginLeft: 'auto',
+          marginRight: 'auto',
+          paddingLeft: '0.75rem',
+          paddingRight: '0.75rem',
+          marginTop: '1.5rem',
+        }}
+      >
 
         {paso === 1 && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-slide-up" key="step1">
+          <div
+            key="step1"
+            className="reservar-step1-outer"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr',
+              gap: '2rem',
+              animation: 'slide-in-from-bottom 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+            }}
+          >
+            <style>{`
+              @keyframes slide-in-from-bottom {
+                from { transform: translateY(30px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+              }
+              @media (min-width: 1024px) {
+                .reservar-step1-outer { grid-template-columns: 5fr 7fr !important; }
+                .reservar-hours-grid { grid-template-columns: repeat(4, 1fr) !important; }
+              }
+              @media (min-width: 640px) and (max-width: 1023px) {
+                .reservar-hours-grid { grid-template-columns: repeat(3, 1fr) !important; }
+              }
+            `}</style>
             {/* Selección Sala y Fecha */}
-            <div className="lg:col-span-5 space-y-6">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <Card
                 className="overflow-hidden"
                 style={{
@@ -352,7 +384,7 @@ export default function ReservarPage() {
             </div>
 
             {/* Agenda (Paso 1.5) */}
-            <div className="lg:col-span-7">
+            <div style={{ display: 'flex' }}>
               <Card
                 className={`h-full flex flex-col transition-all duration-300 ${!fecha || !salaSeleccionada ? 'opacity-50 grayscale pointer-events-none translate-y-4' : ''}`}
                 style={{
@@ -387,7 +419,15 @@ export default function ReservarPage() {
                     </div>
                   ) : (
                     <>
-                      <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3 mb-6">
+                      <div
+                        className="reservar-hours-grid"
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(3, 1fr)',
+                          gap: '0.75rem',
+                          marginBottom: '1.5rem',
+                        }}
+                      >
                         {HORARIOS.map(hora => {
                           const ocupada = horasOcupadas.includes(hora)
                           const seleccionada = horasSeleccionadas.includes(hora)
@@ -514,7 +554,11 @@ export default function ReservarPage() {
         )}
 
         {paso === 2 && (
-          <div className="max-w-2xl mx-auto animate-slide-right" key="step2">
+          <div
+            key="step2"
+            className="animate-slide-right"
+            style={{ maxWidth: '42rem', marginLeft: 'auto', marginRight: 'auto' }}
+          >
             <Card className="bg-white shadow-2xl border-[#051D41]/10 overflow-hidden" style={{ backgroundColor: '#ffffff' }}>
               <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, #051D41 0%, #F9B207 100%)' }}></div>
               <CardHeader className="text-center pb-2">
@@ -522,7 +566,7 @@ export default function ReservarPage() {
                 <CardDescription className="text-base text-slate-500">Solo necesitamos esta información para enviar tu comprobante</CardDescription>
               </CardHeader>
 
-              <CardContent className="space-y-6 pt-6">
+              <CardContent className="pt-6" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 {/* Resumen */}
                 <div
                   className="p-5 rounded-2xl mb-6 border relative overflow-hidden"
@@ -538,7 +582,10 @@ export default function ReservarPage() {
                   ></div>
 
                   <h4 className="text-xs font-bold uppercase tracking-widest mb-3 relative z-10" style={{ color: '#F9B207' }}>Resumen de tu Reserva</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
+                  <div
+                    className="reservar-summary-grid relative z-10"
+                    style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}
+                  >
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(249, 178, 7, 0.20)' }}>
                         <Building className="h-5 w-5" style={{ color: '#F9B207' }} />
@@ -589,7 +636,10 @@ export default function ReservarPage() {
                       placeholder="Ej. Juan Pérez"
                     />
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div
+                    className="reservar-form-grid"
+                    style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}
+                  >
                     <div className="space-y-2">
                       <Label className="font-semibold" style={{ color: '#051D41' }}>Correo Electrónico</Label>
                       <Input
@@ -615,17 +665,20 @@ export default function ReservarPage() {
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex flex-col sm:flex-row gap-3 pt-4">
+              <CardFooter
+                className="pt-4 reservar-footer-row"
+                style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}
+              >
                 <Button
                   variant="outline"
                   onClick={() => setPaso(1)}
-                  className="w-full sm:w-1/3 h-14 rounded-xl font-semibold"
+                  className="footer-volver w-full h-14 rounded-xl font-semibold"
                   style={{ borderColor: 'rgba(5, 29, 65, 0.20)', color: '#051D41', backgroundColor: 'transparent' }}
                 >
                   Volver
                 </Button>
                 <Button
-                  className="w-full sm:w-2/3 h-14 rounded-xl font-bold text-lg shadow-lg"
+                  className="footer-pagar w-full h-14 rounded-xl font-bold text-lg shadow-lg"
                   style={{ backgroundColor: '#F9B207', color: '#051D41' }}
                   disabled={!clienteNombre || !clienteEmail || !clienteTelefono || cargandoPago}
                   onClick={procesarReserva}
@@ -657,7 +710,11 @@ export default function ReservarPage() {
         )}
 
         {paso === 3 && (
-          <div className="max-w-md mx-auto text-center animate-slide-up pt-8" key="step3">
+          <div
+            key="step3"
+            className="animate-slide-up"
+            style={{ maxWidth: '28rem', marginLeft: 'auto', marginRight: 'auto', textAlign: 'center', paddingTop: '2rem' }}
+          >
             <div
               className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 relative"
               style={{
