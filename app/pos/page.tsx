@@ -7,6 +7,8 @@ import { Sidebar } from '@/components/pos/sidebar'
 import { LoginScreen } from '@/components/pos/login-screen'
 import { useState, useMemo, useEffect } from 'react'
 import { useModulosHabilitados } from '@/contexts/modulos-context'
+import { doc, onSnapshot } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 import dynamic from 'next/dynamic'
 
 // ── Skeleton compartido para todos los módulos mientras cargan ──
@@ -42,8 +44,38 @@ export default function POSApp() {
   const { modulos: modulosHabilitados } = useModulosHabilitados()
   const [activeModule, setActiveModule] = useState('sell')
 
-  // ── Memoizar los Sets para evitar recrearlos en cada render ──
-  const userPerms  = useMemo(() => new Set(usuario?.permisos ?? []), [usuario?.permisos])
+  // Suscripcion reactiva a permisos del rol desde Firestore
+  const [rolePermisos, setRolePermisos] = useState<string[]>([])
+  useEffect(() => {
+    if (!usuario?.rol) return
+    const unsub = onSnapshot(
+      doc(db, "permisos_roles", usuario.rol),
+      (snap) => { setRolePermisos(snap.exists() ? (snap.data().permisos || []) : []) },
+      () => {} // silencioso en error, usa fallback
+    )
+    return unsub
+  }, [usuario?.uid, usuario?.rol])
+
+  // Merge permisos: role doc de Firestore es la fuente autoritativa.
+  // Per-user overrides solo si difieren del role doc.
+  const userPerms = useMemo(() => {
+    const perUser = usuario?.permisos
+    // Fuente 1: role doc de Firestore (se actualiza en tiempo real)
+    if (rolePermisos.length > 0) {
+      // Si el usuario tiene permisos que NO coinciden con el rol → override per-user
+      const roleSet = new Set(rolePermisos)
+      const perUserDiffers = perUser && (
+        perUser.length !== rolePermisos.length ||
+        perUser.some(m => !roleSet.has(m))
+      )
+      return perUserDiffers ? new Set(perUser!) : roleSet
+    }
+    // Fuente 2: permisos del doc del usuario (estáticos hasta refresh)
+    if (perUser && perUser.length > 0) return new Set(perUser)
+    // Fuente 3: fallback hardcoded (solo si no hay nada en Firestore)
+    return new Set(["sell"])
+  }, [usuario?.permisos, rolePermisos])
+
   const modulosSet = useMemo(() => new Set(modulosHabilitados), [modulosHabilitados])
 
   // ── Auto-abrir turno para cajeros al iniciar sesión ──
