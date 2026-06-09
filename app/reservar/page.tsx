@@ -13,6 +13,7 @@ import Link from 'next/link'
 import { getReservasMesa, crearReserva, Reserva } from '@/lib/reservas-service'
 import { db } from '@/lib/firebase'
 import { collection, getDocs } from 'firebase/firestore'
+import { es } from 'date-fns/locale'
 
 // Script definition for Wompi
 declare global {
@@ -300,6 +301,13 @@ export default function ReservarPage() {
                     selected={fecha}
                     onSelect={(d) => d && setFecha(d)}
                     className="rounded-xl border border-[#051D41]/10 bg-white p-3 shadow-sm"
+                    locale={es}
+                    formatters={{
+                      formatWeekdayName: (day) => {
+                        const days = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá']
+                        return days[day.getDay()]
+                      },
+                    }}
                     classNames={{
                       day: "!text-[#051D41] font-semibold hover:!bg-[#F9B207]/20",
                       day_outside: "!text-[#051D41]/30",
@@ -307,7 +315,8 @@ export default function ReservarPage() {
                       day_selected: "font-bold hover:!bg-[#F9B207]/90",
                       day_today: "font-bold",
                       caption_label: "!text-[#051D41] font-bold",
-                      weekday: "!text-[#F9B207] font-bold",
+                      weekday: "!text-[#F9B207] font-bold tracking-normal",
+                      weekdays: "flex justify-around text-xs",
                     }}
                     modifiers={{
                       selected: fecha ? [fecha] : [],
