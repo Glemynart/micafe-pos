@@ -1,15 +1,14 @@
 {
-  "name": "MiCafé Admin",
-  "short_name": "MiCafé",
-  "description": "Panel de administración para MiCafé POS",
-  "start_url": "/admin",
+  "name": "Café Atrato",
+  "short_name": "Café Atrato",
+  "description": "Coworking Cultural y Empresarial",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#f5f0e8",
-  "theme_color": "#6b4c3b",
+  "background_color": "#051D41",
+  "theme_color": "#051D41",
   "orientation": "portrait",
   "icons": [
-    { "src": "/icon-192x192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512x512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+    { "src": "/icon.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon.png", "sizes": "512x512", "type": "image/png" }
   ]
 }
