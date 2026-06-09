@@ -66,6 +66,14 @@ function productoToCartItem(p: Producto): CartItem {
 
 export function SellModule() {
   const [searchCode, setSearchCode] = useState('')
+  const [selectedCartIndex, setSelectedCartIndex] = useState<number>(-1)
+  const [selectedCustomer, setSelectedCustomer] = useState<string>('Consumidor Final')
+  const [selectedMesaId, setSelectedMesaId] = useState<string | null>(null)
+
+  // Datos reales desde Firestore
+  const { usuario } = useAuthContext()
+  const { espacioActivo, categorias, categoriaActiva, seleccionarCategoria } = useEspacios()
+
   const categoriesRef = useRef<HTMLDivElement | null>(null)
   const [catScroll, setCatScroll] = useState({ canLeft: false, canRight: false })
 
@@ -108,13 +116,6 @@ export function SellModule() {
     const amount = el.clientWidth * 0.6
     el.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' })
   }
-  const [selectedCartIndex, setSelectedCartIndex] = useState<number>(-1)
-  const [selectedCustomer, setSelectedCustomer] = useState<string>('Consumidor Final')
-  const [selectedMesaId, setSelectedMesaId] = useState<string | null>(null)
-
-  // Datos reales desde Firestore
-  const { usuario } = useAuthContext()
-  const { espacioActivo, categorias, categoriaActiva, seleccionarCategoria } = useEspacios()
   const [productos, setProductos] = useState<Producto[]>([])
   const [insumos, setInsumos] = useState<Insumo[]>([])
   const [recetas, setRecetas] = useState<Receta[]>([])
