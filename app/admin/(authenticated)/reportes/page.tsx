@@ -17,7 +17,7 @@ export default function ReportesPage() {
   const [periodo, setPeriodo] = useState("today")
   const [reporte, setReporte] = useState<ReporteVentas | null>(null)
   const [cargando, setCargando] = useState(false)
-  const [expandirVendedores, setExpandirVendedores] = useState(false)
+  const [expandirVendedores, setExpandirVendedores] = useState(true)
   const [expandirProductos, setExpandirProductos] = useState(false)
   const [expandirTiempo, setExpandirTiempo] = useState(false)
 
@@ -139,39 +139,44 @@ export default function ReportesPage() {
                   {reporte.ventasPorVendedor.map(v => (
                     <div key={v.id} className="px-4 py-3">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-white/80">{v.nombre}</span>
-                        <span className="text-sm font-semibold text-white tabular-nums">{formatCurrency(v.total)}</span>
+                        <span className="text-sm font-semibold text-white">{v.nombre}</span>
+                        <div className="text-right">
+                          <span className="text-sm font-bold text-white tabular-nums">{formatCurrency(v.total)}</span>
+                          <p className="text-[10px] text-white/30">{v.ventas} ventas · Prom {formatCurrency(v.average)}</p>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 mb-1">
-                        <div className="text-center bg-emerald-500/10 rounded-lg py-1.5">
+                      <div className="grid grid-cols-3 gap-2 mb-2">
+                        <div className="text-center bg-emerald-500/10 rounded-lg py-1.5 px-1">
                           <p className="text-[10px] text-emerald-300 font-medium">Efectivo</p>
-                          <p className="text-xs font-bold text-emerald-200 tabular-nums">{formatCurrency(v.cash)}</p>
+                          <p className="text-xs font-bold text-emerald-200 tabular-nums">{formatCurrency(v.efectivo)}</p>
                         </div>
-                        <div className="text-center bg-blue-500/10 rounded-lg py-1.5">
-                          <p className="text-[10px] text-blue-300 font-medium">Tarjeta</p>
-                          <p className="text-xs font-bold text-blue-200 tabular-nums">{formatCurrency(v.card)}</p>
+                        <div className="text-center bg-blue-500/10 rounded-lg py-1.5 px-1">
+                          <p className="text-[10px] text-blue-300 font-medium">Transferencia</p>
+                          <p className="text-xs font-bold text-blue-200 tabular-nums">{formatCurrency(v.transferencia)}</p>
                         </div>
-                        <div className="text-center bg-purple-500/10 rounded-lg py-1.5">
-                          <p className="text-[10px] text-purple-300 font-medium">Transferencia</p>
-                          <p className="text-xs font-bold text-purple-200 tabular-nums">{formatCurrency(v.transfer)}</p>
+                        <div className="text-center bg-amber-500/10 rounded-lg py-1.5 px-1">
+                          <p className="text-[10px] text-amber-300 font-medium">Cta. Cobro</p>
+                          <p className="text-xs font-bold text-amber-200 tabular-nums">{formatCurrency(v.cuentaCobro)}</p>
                         </div>
                       </div>
-                      {(v.efectivoDeclarado > 0 || v.cash > 0) && (
-                        <div className={cn(
-                          "text-center rounded-lg py-1.5 px-2 mt-2 text-xs",
-                          v.diferenciaCaja < -5000 ? "bg-red-500/15 text-red-300" : v.diferenciaCaja < 0 ? "bg-amber-500/15 text-amber-300" : "bg-emerald-500/15 text-emerald-300"
-                        )}>
-                          <span className="font-medium">Efectivo declarado: {formatCurrency(v.efectivoDeclarado)}</span>
-                          <span className="mx-1">·</span>
-                          <span className={cn("font-bold", v.diferenciaCaja < 0 ? "text-red-400" : "text-emerald-400")}>
-                            {v.diferenciaCaja < 0 ? `Faltante ${formatCurrency(Math.abs(v.diferenciaCaja))}` : `Sobrante ${formatCurrency(v.diferenciaCaja)}`}
+                      <div className={cn(
+                        "rounded-lg p-2.5",
+                        v.diferenciaCaja < -5000 ? "bg-red-500/10 border border-red-500/30" : v.diferenciaCaja < 0 ? "bg-amber-500/10 border border-amber-500/30" : "bg-emerald-500/10 border border-emerald-500/30"
+                      )}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">Cuadre de Caja</span>
+                          <span className={cn(
+                            "text-xs font-black tabular-nums",
+                            v.diferenciaCaja < 0 ? "text-red-400" : "text-emerald-400"
+                          )}>
+                            {v.diferenciaCaja < 0 ? "Faltante " : "Sobrante "}
+                            {formatCurrency(Math.abs(v.diferenciaCaja))}
                           </span>
                         </div>
-                      )}
-                      <div className="flex items-center gap-2 text-[11px] text-white/30 mt-2">
-                        <span>{v.ventas} ventas</span>
-                        <span>·</span>
-                        <span>Prom {formatCurrency(v.average)}</span>
+                        <div className="flex items-center gap-3 text-[11px]">
+                          <span className="text-white/30">Vendido: <strong className="text-white/50">{formatCurrency(v.efectivo)}</strong></span>
+                          <span className="text-white/30">Declarado: <strong className="text-white/50">{formatCurrency(v.efectivoDeclarado)}</strong></span>
+                        </div>
                       </div>
                     </div>
                   ))}

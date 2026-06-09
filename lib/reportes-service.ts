@@ -13,9 +13,9 @@ export interface ReporteVentas {
     ventas: number
     total: number
     average: number
-    cash: number
-    card: number
-    transfer: number
+    efectivo: number
+    transferencia: number
+    cuentaCobro: number
     efectivoDeclarado: number
     diferenciaCaja: number
   }[]
@@ -125,28 +125,30 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
         nombre: mapaUsuarios.get(cajeroId) || 'Desconocido',
         ventas: 0,
         total: 0,
-        cash: 0,
-        card: 0,
-        transfer: 0
+        efectivo: 0,
+        transferencia: 0,
+        cuentaCobro: 0
       })
     }
     const vendorStat = vendedoresMap.get(cajeroId)
     vendorStat.ventas += 1
     vendorStat.total += totalVenta
 
-    // Método de pago (evaluar si es cuenta de cobro pagada)
+    // Metodo de pago: efectivo, transferencia, cuenta de cobro (sin tarjeta)
     const metodoReal = venta.metodoPago === 'cuenta_cobro' && venta.estado === 'pagada'
       ? (venta.metodoPagoFinal || 'efectivo')
       : venta.metodoPago
 
-    if (metodoReal === 'efectivo') vendorStat.cash += totalVenta
-    if (metodoReal === 'transferencia') vendorStat.transfer += totalVenta
-    if (metodoReal === 'tarjeta') vendorStat.card += totalVenta // asumiendo que agreguen tarjeta
+    // Contar como cuenta de cobro tanto si esta pendiente como pagada
+    if (venta.metodoPago === 'cuenta_cobro') vendorStat.cuentaCobro += totalVenta
+    else if (metodoReal === 'efectivo') vendorStat.efectivo += totalVenta
+    else if (metodoReal === 'transferencia') vendorStat.transferencia += totalVenta
+
     if (metodoReal === 'mixto' && venta.pagoMixtoDetalle) {
       venta.pagoMixtoDetalle.forEach((p: any) => {
-        if (p.metodo === 'efectivo') vendorStat.cash += p.monto
-        if (p.metodo === 'transferencia') vendorStat.transfer += p.monto
-        if (p.metodo === 'tarjeta') vendorStat.card += p.monto
+        if (p.metodo === 'efectivo') vendorStat.efectivo += p.monto
+        if (p.metodo === 'transferencia') vendorStat.transferencia += p.monto
+        if (p.metodo === 'cuenta_cobro') vendorStat.cuentaCobro += p.monto
       })
     }
 
@@ -217,7 +219,7 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
     return {
       ...v,
       efectivoDeclarado: declarado,
-      diferenciaCaja: declarado - v.cash,
+      diferenciaCaja: declarado - v.efectivo,
       average: v.ventas > 0 ? v.total / v.ventas : 0
     }
   }).sort((a, b) => b.total - a.total)
