@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import "../globals.css"
 import "./critical.css"
-import Script from "next/script"
+import { SplashOverlay } from "./splash-overlay"
 
 export const metadata: Metadata = {
   title: "Reservar Sala - Cafe Atrato",
@@ -17,23 +17,8 @@ export default function ReservarLayout({ children }: { children: React.ReactNode
         <div className="reservar-splash-text">Cargando reserva</div>
         <div className="reservar-splash-bar"><div className="reservar-splash-bar-inner"></div></div>
       </div>
+      <SplashOverlay />
       {children}
-      <Script id="hide-splash" strategy="afterInteractive">{`
-        (function() {
-          function hideSplash() {
-            var el = document.getElementById('reservar-splash');
-            if (el) {
-              el.classList.add('reservar-splash-hide');
-              setTimeout(function() { el.remove(); }, 400);
-            }
-          }
-          if (document.readyState === 'complete') {
-            setTimeout(hideSplash, 100);
-          } else {
-            window.addEventListener('load', function() { setTimeout(hideSplash, 100); });
-          }
-        })();
-      `}</Script>
     </>
   )
 }
