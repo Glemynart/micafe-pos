@@ -4,18 +4,8 @@ import React, { useEffect, useRef, useState } from 'react'
 import './landing.css'
 import Link from 'next/link'
 import { Wifi, Coffee, Presentation, MapPin, Users, Zap, Clock, Lock, Menu, X } from 'lucide-react'
-import dynamic from 'next/dynamic'
 import { EventosSection } from '@/components/ui/eventos-section'
 import { AdBanner } from '@/components/ui/ad-banner'
-
-const CafeMap = dynamic(() => import('@/components/ui/cafe-map').then(m => ({ default: m.CafeMap })), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full rounded-3xl overflow-hidden shadow-xl mb-12 border-4 border-white/80 h-64 sm:h-96 bg-[#eef8fc] flex items-center justify-center">
-      <MapPin className="w-8 h-8 animate-bounce text-primary/40" />
-    </div>
-  )
-})
 
 export default function LandingPage() {
   const orbitLayerRef = useRef<HTMLDivElement>(null)
@@ -291,7 +281,18 @@ export default function LandingPage() {
               <p className="section-subtitle">Encuentra tu nuevo espacio favorito para trabajar</p>
             </div>
             
-            <CafeMap className="w-full rounded-3xl overflow-hidden shadow-xl mb-12 border-4 border-white/80 h-64 sm:h-96" />
+            <div style={{ position: "relative", borderRadius: "1.5rem", overflow: "hidden", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)", marginBottom: "3rem", border: "4px solid rgba(255,255,255,0.8)" }}>
+              <iframe
+                src="https://maps.google.com/maps?q=7.757872,-76.659176&hl=es&z=17&output=embed"
+                width="100%"
+                height="400"
+                style={{ border: 0, display: "block" }}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Ubicación de Café Atrato"
+                allow="fullscreen"
+              />
+            </div>
             
             <div className="contact-grid">
               <div className="contact-info">
