@@ -660,13 +660,13 @@ function NuevoProductoDialog({
       if (esConsignacion) {
         productData.consignadorId = prodConsignadorId
         productData.stockInicial = stockInicialNum
-        productData.stock = stockInicialNum // For now update stock entirely
       }
+      productData.stock = stockInicialNum
       await editarProducto(productoAEditar.id, productData)
       toast.success('Producto actualizado')
     } else {
       productData.costo = 0
-      productData.stock = esConsignacion ? stockInicialNum : 999
+      productData.stock = stockInicialNum || 0
       productData.stockMinimo = 5
       productData.activo = true
       productData.descripcion = ''
@@ -777,17 +777,20 @@ function NuevoProductoDialog({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">Stock inicial</Label>
-                  <Input
-                    type="number"
-                    className="bg-background/50 focus:bg-background transition-colors"
-                    placeholder="Unidades que dejó"
-                    value={prodStockInicial}
-                    onChange={e => setProdStockInicial(e.target.value)}
-                  />
-                </div>
               </div>
+            </div>
+          )}
+
+          {!esAlquilerOFoto && (
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Stock {productoAEditar ? 'actual' : 'inicial'}</Label>
+              <Input
+                type="number"
+                className="bg-background/50 focus:bg-background transition-colors"
+                placeholder="Cantidad disponible"
+                value={prodStockInicial}
+                onChange={e => setProdStockInicial(e.target.value)}
+              />
             </div>
           )}
         </div>
