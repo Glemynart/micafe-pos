@@ -26,8 +26,8 @@ export const metadata: Metadata = {
     locale: 'es_CO',
   },
   icons: {
-    icon: '/icon.png',
-    apple: '/icon.png',
+    icon: '/cafe-atrato-icon.png',
+    apple: '/cafe-atrato-icon.png',
   },
 }
 import { Toaster } from 'sonner'
