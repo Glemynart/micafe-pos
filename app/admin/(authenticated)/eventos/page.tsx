@@ -160,21 +160,21 @@ export default function EventosPage() {
       )}
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{editing ? "Editar Evento" : "Nuevo Evento"}</DialogTitle></DialogHeader>
+        <DialogContent className="!bg-[#0a1628] !text-white !border-white/10">
+          <DialogHeader><DialogTitle className="!text-white">{editing ? "Editar Evento" : "Nuevo Evento"}</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
-            <div><Label>Titulo</Label><Input value={form.titulo} onChange={e => setForm({ ...form, titulo: e.target.value })} placeholder="Ej: Noche de Jazz en vivo" /></div>
+            <div><Label className="!text-white/80">Titulo</Label><Input className="!bg-[#1a2d4a] !border-white/10 !text-white placeholder:!text-white/30" value={form.titulo} onChange={e => setForm({ ...form, titulo: e.target.value })} placeholder="Ej: Noche de Jazz en vivo" /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Fecha</Label><Input type="date" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} /></div>
-              <div><Label>Hora</Label><Input type="time" value={form.hora} onChange={e => setForm({ ...form, hora: e.target.value })} /></div>
+              <div><Label className="!text-white/80">Fecha</Label><Input type="date" className="!bg-[#1a2d4a] !border-white/10 !text-white [color-scheme:dark]" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} /></div>
+              <div><Label className="!text-white/80">Hora</Label><Input type="time" className="!bg-[#1a2d4a] !border-white/10 !text-white [color-scheme:dark]" value={form.hora} onChange={e => setForm({ ...form, hora: e.target.value })} /></div>
             </div>
-            <div><Label>Categoria</Label>
+            <div><Label className="!text-white/80">Categoria</Label>
               <Select value={form.categoria} onValueChange={v => setForm({ ...form, categoria: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{CATEGORIAS_EVENTOS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                <SelectTrigger className="!bg-[#1a2d4a] !border-white/10 !text-white"><SelectValue /></SelectTrigger>
+                <SelectContent className="!bg-[#0d1f3c] !border-white/10">{CATEGORIAS_EVENTOS.map(c => <SelectItem key={c} value={c} className="!text-white focus:!bg-[#1a2d4a]">{c}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><Label>Descripcion</Label><Textarea value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} placeholder="Detalles del evento..." rows={3} /></div>
+            <div><Label className="!text-white/80">Descripcion</Label><Textarea className="!bg-[#1a2d4a] !border-white/10 !text-white placeholder:!text-white/30" value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} placeholder="Detalles del evento..." rows={3} /></div>
             <div>
               <Label>Imagen</Label>
               {previewUrl ? (
@@ -187,7 +187,7 @@ export default function EventosPage() {
               ) : (
                 <div className="mt-1">
                   <input ref={fileRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
-                  <Button type="button" variant="outline" className="w-full h-20 border-dashed gap-2" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                  <Button type="button" variant="outline" className="w-full h-20 border-dashed gap-2 !border-white/10 !text-white/60 hover:!bg-white/5" onClick={() => fileRef.current?.click()} disabled={uploading}>
                     {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
                     {uploading ? "Subiendo..." : "Subir imagen (JPG, PNG, max 5MB)"}
                   </Button>
@@ -198,8 +198,8 @@ export default function EventosPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={guardando || uploading}>{guardando || uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}Guardar</Button>
+            <Button variant="outline" className="!border-white/10 !text-white/70 hover:!bg-white/5" onClick={() => setShowDialog(false)}>Cancelar</Button>
+            <Button onClick={handleSave} disabled={guardando || uploading} style={{ backgroundColor: '#F9B207', color: '#051D41' }}>{guardando || uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}Guardar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

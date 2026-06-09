@@ -17,12 +17,19 @@ function AdminLoginContent() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [logging, setLogging] = useState(false)
+  const [recordar, setRecordar] = useState(true)
+
+  useEffect(() => {
+    const saved = localStorage.getItem("admin_user")
+    if (saved) setUsername(saved)
+  }, [])
 
   const notAdmin = params.get('error') === 'not_admin'
   const from = params.get('from') ?? '/admin'
 
   useEffect(() => {
     if (!authCargando && usuario) {
+      if (recordar) localStorage.setItem("admin_user", username)
       if (usuario.rol === 'admin' || usuario.rol === 'marketing') {
         router.replace(from)
       }
@@ -121,6 +128,16 @@ function AdminLoginContent() {
                     </button>
                   </div>
                 </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="recordar"
+                    checked={recordar}
+                    onChange={(e) => setRecordar(e.target.checked)}
+                    className="w-4 h-4 rounded border-white/20 bg-white/5 accent-[#F9B207]"
+                  />
+                  <label htmlFor="recordar" className="text-xs text-white/50 cursor-pointer">Recordar usuario</label>
+                </div>
                 {errorLogin && (
                   <p className="text-sm text-red-400 bg-red-500/10 p-3 rounded-lg">{errorLogin}</p>
                 )}
@@ -139,7 +156,7 @@ function AdminLoginContent() {
 
 export default function AdminLoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-[100dvh] bg-background flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
+    <Suspense fallback={<div className="min-h-[100dvh] bg-[#0a1628] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white/20" /></div>}>
       <AdminLoginContent />
     </Suspense>
   )
