@@ -110,26 +110,26 @@ export default function PermisosPage() {
 
   if (cargandoR || cargandoU) return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+      <Loader2 className="h-6 w-6 animate-spin text-white/20" />
     </div>
   )
 
   return (
     <div className="pb-4">
       {/* Header */}
-      <div className="px-4 pt-5 pb-4 border-b border-slate-100 bg-white">
-        <h1 className="text-xl font-bold text-slate-900">Permisos</h1>
-        <p className="text-xs text-slate-400 mt-0.5">Configura quién accede a cada módulo</p>
+      <div className="px-4 pt-5 pb-4 border-b border-white/5 bg-white/5">
+        <h1 className="text-xl font-bold text-white">Permisos</h1>
+        <p className="text-xs text-white/40 mt-0.5">Configura quién accede a cada módulo</p>
       </div>
 
       {/* Tab Selector */}
-      <div className="px-4 pt-4 pb-3 bg-white border-b border-slate-100">
-        <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+      <div className="px-4 pt-4 pb-3 bg-white/5 border-b border-white/5">
+        <div className="flex gap-1 bg-white/5 rounded-lg p-1">
           <button
             onClick={() => setTab("roles")}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-sm font-semibold transition-all",
-              tab === "roles" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              tab === "roles" ? "bg-white/10 text-white shadow-sm" : "text-white/60 hover:text-white/70"
             )}
           >
             <Shield className="h-3.5 w-3.5" />
@@ -139,7 +139,7 @@ export default function PermisosPage() {
             onClick={() => { setTab("users"); setSelUser("") }}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-sm font-semibold transition-all",
-              tab === "users" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              tab === "users" ? "bg-white/10 text-white shadow-sm" : "text-white/60 hover:text-white/70"
             )}
           >
             <Users className="h-3.5 w-3.5" />
@@ -152,23 +152,23 @@ export default function PermisosPage() {
         {/* ── TAB: Por Rol ── */}
         {tab === "roles" && (
           <div className="space-y-3">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
               Toca un check para activar/quitar el módulo del rol
             </p>
 
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
               {/* Table header */}
-              <div className="grid grid-cols-4 gap-0 border-b border-slate-100 bg-slate-50 px-3 py-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider col-span-1">Módulo</span>
+              <div className="grid grid-cols-4 gap-0 border-b border-white/5 bg-white/5 px-3 py-2">
+                <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider col-span-1">Módulo</span>
                 {ROLES.map(r => (
-                  <span key={r.key} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">{r.label}</span>
+                  <span key={r.key} className="text-[10px] font-bold text-white/40 uppercase tracking-wider text-center">{r.label}</span>
                 ))}
               </div>
               {/* Table rows */}
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-white/5">
                 {MODULOS.map(mod => (
-                  <div key={mod} className="grid grid-cols-4 gap-0 px-3 py-2.5 items-center hover:bg-slate-50 transition-colors">
-                    <span className="text-sm text-slate-700 font-medium truncate pr-2">{MODULE_LABELS[mod] || mod}</span>
+                  <div key={mod} className="grid grid-cols-4 gap-0 px-3 py-2.5 items-center hover:bg-white/5 transition-colors">
+                    <span className="text-sm text-white/70 font-medium truncate pr-2">{MODULE_LABELS[mod] || mod}</span>
                     {ROLES.map(rol => (
                       <div key={rol.key} className="flex justify-center">
                         <button
@@ -176,8 +176,8 @@ export default function PermisosPage() {
                           className={cn(
                             "w-7 h-7 rounded-lg flex items-center justify-center transition-all active:scale-90",
                             matrix[mod]?.[rol.key]
-                              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                              : "bg-red-50 text-red-400 hover:bg-red-100"
+                              ? "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30"
+                              : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
                           )}
                         >
                           {matrix[mod]?.[rol.key]
@@ -212,28 +212,28 @@ export default function PermisosPage() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setSelUser("")}
-                    className="w-8 h-8 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-50"
+                    className="w-8 h-8 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center text-white/60 hover:bg-white/5"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">{selUsuario.nombre}</p>
-                    <p className="text-[11px] text-slate-400">@{selUsuario.username} · {selUsuario.rol}</p>
+                    <p className="text-sm font-semibold text-white">{selUsuario.nombre}</p>
+                    <p className="text-[11px] text-white/40">@{selUsuario.username} · {selUsuario.rol}</p>
                   </div>
                 </div>
 
-                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+                <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden divide-y divide-white/5">
                   {MODULOS.map(mod => {
                     const on = activePerms.has(mod)
                     return (
                       <div key={mod} className="flex items-center justify-between px-4 py-3">
-                        <span className="text-sm text-slate-700">{MODULE_LABELS[mod] || mod}</span>
+                        <span className="text-sm text-white/70">{MODULE_LABELS[mod] || mod}</span>
                         <button
                           onClick={() => hGuardarUsuario(selUser, mod, !on)}
                           disabled={gu === selUser}
                           className={cn(
                             "w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-90",
-                            on ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" : "bg-red-50 text-red-400 hover:bg-red-100"
+                            on ? "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30" : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
                           )}
                         >
                           {gu === selUser
@@ -245,7 +245,7 @@ export default function PermisosPage() {
                     )
                   })}
                 </div>
-                <p className="text-xs text-slate-400 text-center pb-2">
+                <p className="text-xs text-white/40 text-center pb-2">
                   Estos permisos sobrescriben los del rol asignado.
                 </p>
               </div>
@@ -253,38 +253,38 @@ export default function PermisosPage() {
               /* Lista de usuarios */
               <div className="space-y-3">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
                   <Input
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     placeholder="Buscar usuario..."
-                    className="pl-9 bg-white border-slate-200 text-sm h-9 rounded-lg"
+                    className="pl-9 bg-white/5 border-white/10 text-sm h-9 rounded-lg"
                   />
                 </div>
-                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+                <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden divide-y divide-white/5">
                   {filtered.length === 0 && (
-                    <p className="text-sm text-slate-400 text-center py-8">Sin resultados</p>
+                    <p className="text-sm text-white/40 text-center py-8">Sin resultados</p>
                   )}
                   {filtered.map(u => (
                     <button
                       key={u.uid}
                       onClick={() => setSelUser(u.uid)}
-                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors text-left"
+                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors text-left"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                          <span className="text-xs font-bold text-slate-500">{u.nombre.charAt(0).toUpperCase()}</span>
+                        <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center shrink-0">
+                          <span className="text-xs font-bold text-white/60">{u.nombre.charAt(0).toUpperCase()}</span>
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-slate-800">{u.nombre}</p>
-                          <p className="text-[11px] text-slate-400">@{u.username}</p>
+                          <p className="text-sm font-semibold text-white/80">{u.nombre}</p>
+                          <p className="text-[11px] text-white/40">@{u.username}</p>
                         </div>
                       </div>
                       <Badge className={cn(
                         "text-[10px] font-semibold border",
-                        u.rol === "admin" ? "bg-amber-50 text-amber-700 border-amber-200" :
-                        u.rol === "cajero" ? "bg-blue-50 text-blue-700 border-blue-200" :
-                        "bg-violet-50 text-violet-700 border-violet-200"
+                        u.rol === "admin" ? "bg-amber-500/20 text-amber-300 border-amber-500/30" :
+                        u.rol === "cajero" ? "bg-blue-500/20 text-blue-300 border-blue-500/30" :
+                        "bg-violet-500/20 text-violet-300 border-violet-500/30"
                       )}>
                         {u.rol}
                       </Badge>
