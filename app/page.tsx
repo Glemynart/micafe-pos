@@ -252,19 +252,24 @@ export default function LandingPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
               {[
-                { Icon: Wifi, color: "from-blue-500 to-cyan-500", bg: "from-blue-500 to-cyan-500", title: "Internet de Alta Velocidad", desc: "Fibra óptica simétrica con respaldo. Nunca te quedes sin conexión en medio de tu trabajo." },
-                { Icon: Coffee, color: "from-amber-600 to-orange-500", bg: "from-amber-600 to-orange-500", title: "Café y Bebidas Premium", desc: "Café de especialidad ilimitado, tés selectos, snacks saludables. Todo incluido en tu membresía." },
-                { Icon: Users, color: "from-purple-500 to-pink-500", bg: "from-purple-500 to-pink-500", title: "Comunidad Profesional", desc: "Conecta con emprendedores, freelancers y equipos innovadores en un ambiente colaborativo." },
-                { Icon: Zap, color: "from-emerald-500 to-teal-500", bg: "from-emerald-500 to-teal-500", title: "Espacios Flexibles", desc: "Escritorios individuales, salas de reunión privadas y áreas abiertas. Elegí dónde trabajar." },
-                { Icon: Clock, color: "from-rose-500 to-red-500", bg: "from-rose-500 to-red-500", title: "Horario Extendido", desc: "Abierto de 7:00 AM a 10:00 PM, los 7 días de la semana. Trabaja a tu ritmo." },
-                { Icon: Lock, color: "from-slate-600 to-slate-800", bg: "from-slate-600 to-slate-800", title: "Ambiente Seguro", desc: "Acceso controlado, lockers personales y seguridad 24/7 para tu tranquilidad." },
+                { Icon: Wifi, title: "Internet de Alta Velocidad", desc: "Fibra óptica simétrica con respaldo. Nunca te quedes sin conexión en medio de tu trabajo." },
+                { Icon: Coffee, title: "Café y Bebidas Premium", desc: "Café de especialidad ilimitado, tés selectos, snacks saludables. Todo incluido en tu membresía." },
+                { Icon: Users, title: "Comunidad Profesional", desc: "Conecta con emprendedores, freelancers y equipos innovadores en un ambiente colaborativo." },
+                { Icon: Zap, title: "Espacios Flexibles", desc: "Escritorios individuales, salas de reunión privadas y áreas abiertas. Elegí dónde trabajar." },
+                { Icon: Clock, title: "Horario Extendido", desc: "Abierto de 7:00 AM a 10:00 PM, los 7 días de la semana. Trabaja a tu ritmo." },
+                { Icon: Lock, title: "Ambiente Seguro", desc: "Acceso controlado, lockers personales y seguridad 24/7 para tu tranquilidad." },
               ].map((item, i) => (
-                <div key={i} className="feature-card group bg-white rounded-2xl shadow-sm border border-slate-100 p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden relative">
-                  <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${item.color} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
+                <div key={i} className="group bg-white rounded-2xl shadow-sm border border-slate-100 p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden relative">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-[#F9B207] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   <div className="flex items-start gap-4">
-                    <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${item.bg} flex items-center justify-center shrink-0 shadow-lg group-hover:shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}
-                      style={{ perspective: "200px" }}>
-                      <item.Icon className="w-7 h-7 text-white drop-shadow-md" style={{ transform: "rotate3d(1, -0.5, 0, 15deg)" }} />
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-all duration-300"
+                      style={{
+                        backgroundColor: "#051D41",
+                        border: "1.5px solid rgba(249, 178, 7, 0.25)",
+                      }}
+                    >
+                      <item.Icon className="w-7 h-7" style={{ color: "#F9B207" }} strokeWidth={1.75} />
                     </div>
                     <div>
                       <h3 className="text-lg font-bold text-primary mb-2">{item.title}</h3>
