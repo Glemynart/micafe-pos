@@ -203,7 +203,7 @@ export default function UsuariosPage() {
 
       {/* Dialog crear usuario */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="bg-white/5 border-white/10 text-white shadow-xl">
+        <DialogContent className="!bg-[#0a1628] !text-white !border-white/10" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle className="text-white font-bold">Nuevo Usuario</DialogTitle>
           </DialogHeader>
@@ -211,7 +211,7 @@ export default function UsuariosPage() {
             <div>
               <Label className="text-xs font-bold text-white/60 uppercase tracking-wider">Usuario (mín. 4 caracteres)</Label>
               <Input
-                className="mt-1.5 bg-white/5 border-white/10 text-white placeholder:text-white/40 focus-visible:ring-amber-500"
+                className="mt-1.5 !bg-[#1a2d4a] !border-white/10 !text-white placeholder:text-white/30 focus-visible:ring-[#F9B207]"
                 placeholder="usuario123"
                 value={form.usuario}
                 onChange={e => setForm({ ...form, usuario: e.target.value })}
@@ -220,7 +220,7 @@ export default function UsuariosPage() {
             <div>
               <Label className="text-xs font-bold text-white/60 uppercase tracking-wider">Nombre completo</Label>
               <Input
-                className="mt-1.5 bg-white/5 border-white/10 text-white placeholder:text-white/40 focus-visible:ring-amber-500"
+                className="mt-1.5 !bg-[#1a2d4a] !border-white/10 !text-white placeholder:text-white/30 focus-visible:ring-[#F9B207]"
                 placeholder="Ej: Carlos López"
                 value={form.nombre}
                 onChange={e => setForm({ ...form, nombre: e.target.value })}
@@ -229,7 +229,7 @@ export default function UsuariosPage() {
             <div>
               <Label className="text-xs font-bold text-white/60 uppercase tracking-wider">Contraseña (mín. 8 caracteres)</Label>
               <Input
-                className="mt-1.5 bg-white/5 border-white/10 text-white placeholder:text-white/40 focus-visible:ring-amber-500"
+                className="mt-1.5 !bg-[#1a2d4a] !border-white/10 !text-white placeholder:text-white/30 focus-visible:ring-[#F9B207]"
                 type="password"
                 placeholder="••••••••"
                 value={form.password}
@@ -239,21 +239,21 @@ export default function UsuariosPage() {
             <div>
               <Label className="text-xs font-bold text-white/60 uppercase tracking-wider">Rol</Label>
               <Select value={form.rol} onValueChange={v => setForm({ ...form, rol: v as RolUsuario })}>
-                <SelectTrigger className="mt-1.5 bg-white/5 border-white/10 text-white">
+                <SelectTrigger className="mt-1.5 !bg-[#1a2d4a] !border-white/10 !text-white">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-white/5 border-white/10 text-white">
-                  <SelectItem value="cocinero" className="focus:bg-white/10">Cocinero</SelectItem>
-                  <SelectItem value="cajero" className="focus:bg-white/10">Cajero</SelectItem>
-                  <SelectItem value="marketing" className="focus:bg-white/10">Marketing</SelectItem>
-                  <SelectItem value="admin" className="focus:bg-white/10">Administrador</SelectItem>
+                <SelectContent className="!bg-[#0d1f3c] !border-white/10">
+                  <SelectItem value="cocinero" className="!text-white focus:!bg-[#1a2d4a]">Cocinero</SelectItem>
+                  <SelectItem value="cajero" className="!text-white focus:!bg-[#1a2d4a]">Cajero</SelectItem>
+                  <SelectItem value="marketing" className="!text-white focus:!bg-[#1a2d4a]">Marketing</SelectItem>
+                  <SelectItem value="admin" className="!text-white focus:!bg-[#1a2d4a]">Administrador</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowCreate(false)} className="border-white/10 text-white/70 hover:bg-white/5">Cancelar</Button>
-            <Button onClick={hCreate} disabled={creando} className="bg-amber-600 hover:bg-amber-700 text-white shadow-none">
+            <Button variant="outline" onClick={() => setShowCreate(false)} className="!border-white/10 !text-white/70 hover:!bg-white/5">Cancelar</Button>
+            <Button onClick={hCreate} disabled={creando} className="!bg-[#F9B207] !text-[#051D41] hover:!bg-[#e6a100] shadow-none font-bold">
               {creando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               Crear usuario
             </Button>
@@ -263,7 +263,7 @@ export default function UsuariosPage() {
 
       {/* Alert dialog desactivar */}
       <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
-        <AlertDialogContent className="bg-white/5 border-white/10 text-white shadow-xl">
+        <AlertDialogContent className="!bg-[#0a1628] !text-white !border-white/10">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-white font-bold">Desactivar usuario</AlertDialogTitle>
             <AlertDialogDescription className="text-white/60">
@@ -271,8 +271,8 @@ export default function UsuariosPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-white/10 text-white/70 hover:bg-white/5">Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={hDelete} className="bg-red-600 hover:bg-red-700 text-white">Desactivar</AlertDialogAction>
+            <AlertDialogCancel className="!border-white/10 !text-white/70 hover:!bg-white/5">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={hDelete} className="!bg-red-600 hover:!bg-red-700 !text-white">Desactivar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
