@@ -19,7 +19,6 @@ import {
 import { initializeApp, getApps as getAppsLocal } from "firebase/app";
 import { db, firebaseConfig } from "@/lib/firebase";
 import { usernameToEmail, getPermisosPorRol, type RolUsuario, type Usuario } from "@/lib/auth-service";
-import { getAuth } from "firebase/auth";
 import { registrarAuditoria } from "@/lib/audit-service";
 
 export { type RolUsuario, type Usuario, getPermisosPorRol };
