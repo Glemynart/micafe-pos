@@ -45,92 +45,92 @@ function AdminLoginContent() {
 
   if (authCargando) {
     return (
-      <div className="flex items-center justify-center min-h-[100dvh] bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex items-center justify-center min-h-[100dvh] bg-[#0a1628]">
+        <Loader2 className="h-8 w-8 animate-spin text-white/20" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background flex flex-col">
+    <div className="min-h-[100dvh] bg-[#0a1628] flex flex-col">
       <div className="flex-1 flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-sm space-y-6">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/20">
-              <Coffee className="h-8 w-8 text-primary-foreground" />
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#F9B207] to-[#e6a100] flex items-center justify-center shadow-lg shadow-[#F9B207]/20">
+              <Coffee className="h-8 w-8 text-[#051D41]" />
             </div>
             <div className="text-center">
-              <h1 className="text-xl font-bold text-foreground">MiCafé Admin</h1>
-              <p className="text-sm text-muted-foreground">Panel de administración remoto</p>
+              <h1 className="text-xl font-bold text-white">Cafe Atrato Admin</h1>
+              <p className="text-sm text-white/40">Panel de administracion remoto</p>
             </div>
           </div>
 
-          <Card className="bg-card border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Iniciar Sesión</CardTitle>
-              <CardDescription>Accede con tu cuenta de administrador</CardDescription>
-            </CardHeader>
-            <CardContent>
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm">
+            <div className="pb-4">
+              <h2 className="text-lg font-bold text-white">Iniciar Sesion</h2>
+              <p className="text-sm text-white/40">Accede con tu cuenta de administrador</p>
+            </div>
+            <div>
               {!sesionNoAdmin && notAdmin && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm mb-4">
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm mb-4">
                   <ShieldAlert className="h-4 w-4 flex-shrink-0" />
                   Tu cuenta no tiene permisos de administrador.
                 </div>
               )}
               {sesionNoAdmin && (
-                <div className="p-3 rounded-lg bg-amber-500/10 text-amber-600 text-sm mb-4">
+                <div className="p-3 rounded-lg bg-amber-500/10 text-amber-300 text-sm mb-4">
                   <p className="font-medium mb-1">Sesion activa: <strong>{usuario?.nombre || usuario?.username}</strong></p>
-                  <p className="text-xs mb-2">Esta cuenta es de cajero/cocinero. Cierra sesion e ingresa con admin o marketing.</p>
+                  <p className="text-xs mb-2 text-amber-300/70">Esta cuenta es de cajero/cocinero. Cierra sesion e ingresa con admin o marketing.</p>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => logout()}>
+                    <button onClick={() => logout()} className="h-8 px-3 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5">
                       Cerrar sesion
-                    </Button>
+                    </button>
                   </div>
                 </div>
               )}
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="user">Usuario</Label>
-                  <Input
+                  <label htmlFor="user" className="text-sm font-medium text-white/70">Usuario</label>
+                  <input
                     id="user"
                     autoComplete="username"
                     placeholder="Tu nombre de usuario"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="bg-input"
+                    className="w-full h-11 px-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-[#F9B207] focus:ring-1 focus:ring-[#F9B207]/50"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="pass">Contraseña</Label>
+                  <label htmlFor="pass" className="text-sm font-medium text-white/70">Contrasena</label>
                   <div className="relative">
-                    <Input
+                    <input
                       id="pass"
                       type={showPassword ? 'text' : 'password'}
                       autoComplete="current-password"
                       placeholder="********"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="bg-input pr-10"
+                      className="w-full h-11 px-4 pr-10 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-[#F9B207] focus:ring-1 focus:ring-[#F9B207]/50"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60"
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
                 {errorLogin && (
-                  <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-lg">{errorLogin}</p>
+                  <p className="text-sm text-red-400 bg-red-500/10 p-3 rounded-lg">{errorLogin}</p>
                 )}
-                <Button type="submit" className="w-full bg-primary text-primary-foreground h-11" disabled={logging}>
-                  {logging ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                <button type="submit" className="w-full h-11 rounded-xl bg-[#F9B207] text-[#051D41] font-bold hover:bg-[#e6a100] transition-colors disabled:opacity-50 flex items-center justify-center gap-2" disabled={logging}>
+                  {logging ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   Ingresar
-                </Button>
+                </button>
               </form>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
     </div>

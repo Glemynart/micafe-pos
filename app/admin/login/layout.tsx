@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next"
+import { SwRegister } from "@/components/pwa/sw-register"
 
 export const viewport: Viewport = {
   themeColor: "#051D41",
@@ -15,5 +16,5 @@ export const metadata: Metadata = {
 }
 
 export default function LoginLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
+  return <><SwRegister />{children}</>
 }
