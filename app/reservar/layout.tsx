@@ -23,6 +23,15 @@ const CRITICAL_CSS = `
     letter-spacing: 0 !important;
     text-transform: none !important;
   }
+  @media (min-width: 640px) {
+    .reservar-summary-grid { grid-template-columns: 1fr 1fr !important; }
+    .reservar-form-grid { grid-template-columns: 1fr 1fr !important; }
+  }
+  @media (min-width: 768px) {
+    .reservar-footer-row { flex-direction: row !important; }
+    .reservar-footer-row .footer-volver { width: 33.333% !important; }
+    .reservar-footer-row .footer-pagar { width: 66.666% !important; }
+  }
   .reservar-card {
     background-color: #ffffff !important;
     box-shadow: 0 10px 25px -5px rgba(5, 29, 65, 0.10), 0 4px 6px -2px rgba(5, 29, 65, 0.05) !important;
