@@ -19,6 +19,10 @@ function getDb() {
 
 export async function POST(req: Request) {
   try {
+    if ((req.headers.get('content-type') || '').split(';')[0] !== 'application/json') {
+      return NextResponse.json({ error: 'Unsupported content type' }, { status: 415 })
+    }
+
     const body = await req.json()
 
     const { event, data, signature, timestamp } = body
@@ -62,18 +66,25 @@ export async function POST(req: Request) {
     if (transaction.status === 'APPROVED') {
       const reservaId = transaction.reference
 
-      if (reservaId) {
-        try {
-          const db = getDb()
-          await db.collection('reservas').doc(reservaId).update({
-            estadoPago: 'pagado',
-            referenciaPago: transaction.id,
-          })
-          console.log(`Reserva ${reservaId} actualizada con exito.`)
-        } catch (dbError) {
-          console.error(`Error actualizando Firebase para la reserva ${reservaId}:`, dbError)
-          return NextResponse.json({ error: 'Failed to update DB' }, { status: 500 })
+      if (typeof reservaId !== 'string' || !reservaId.trim()) {
+        return NextResponse.json({ error: 'Invalid reference' }, { status: 400 })
+      }
+
+      try {
+        const db = getDb()
+        const reservaDoc = await db.collection('reservas').doc(reservaId).get()
+        if (!reservaDoc.exists) {
+          console.error(`Reserva ${reservaId} no encontrada`)
+          return NextResponse.json({ error: 'Reservation not found' }, { status: 404 })
         }
+        await db.collection('reservas').doc(reservaId).update({
+          estadoPago: 'pagado',
+          referenciaPago: transaction.id,
+        })
+        console.log(`Reserva ${reservaId} actualizada con exito.`)
+      } catch (dbError) {
+        console.error(`Error actualizando Firebase para la reserva ${reservaId}:`, dbError)
+        return NextResponse.json({ error: 'Failed to update DB' }, { status: 500 })
       }
     } else {
       console.log(`Transaccion en estado: ${transaction.status}. No se requiere accion.`)
