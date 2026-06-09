@@ -59,8 +59,8 @@ export interface Usuario {
 const EMAIL_DOMAIN = "@micafe-pos.internal";
 
 const PERMISOS_POR_ROL: Record<RolUsuario, string[]> = {
-  admin: ["sell", "inventory", "recipes", "purchases", "reports", "shifts", "waste", "gastos", "permissions", "settings", "historial"],
-  cajero: ["sell", "reports", "gastos"],
+  admin: ["sell", "inventory", "recipes", "purchases", "reports", "shifts", "waste", "gastos", "reservas", "permissions", "settings", "historial"],
+  cajero: ["sell", "reports", "gastos", "reservas"],
   cocinero: ["sell"],
   marketing: [],
 };

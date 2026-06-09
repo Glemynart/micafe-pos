@@ -17,6 +17,7 @@ import {
 const adminTabs = [
   { href: "/admin", label: "Inicio", icon: LayoutDashboard, modulo: "reports" },
   { href: "/admin/reportes", label: "Reportes", icon: BarChart3, modulo: "reports" },
+  { href: "/admin/reservas", label: "Reservas", icon: CalendarDays, modulo: "reservas" },
   { href: "/admin/turnos", label: "Turnos", icon: Clock, modulo: "shifts" },
   { href: "/admin/compras", label: "Compras", icon: Truck, modulo: "purchases" },
 ]

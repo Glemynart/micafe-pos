@@ -30,7 +30,7 @@ const DEFAULT_MODULOS = [
   "sell", "kitchen", "inventory", "recipes", "purchases",
   "reports", "shifts", "waste", "permissions", "settings",
   "cuentas_cobro", "clientes", "consignaciones", "alquiler_dashboard",
-  "gastos", "historial",
+  "gastos", "historial", "reservas",
 ];
 
 const DEFAULT_CONFIG: ConfiguracionGlobal = {
