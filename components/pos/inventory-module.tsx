@@ -656,28 +656,28 @@ function NuevoProductoDialog({
  ...(precioMinuto > 0 ? { precioFraccion: precioMinuto } : {})
  }
 
- if (productoAEditar) {
- if (esConsignacion) {
- productData.consignadorId = prodConsignadorId
- productData.stockInicial = stockInicialNum
- productData.stock = stockInicialNum // For now update stock entirely
- }
- await editarProducto(productoAEditar.id, productData)
- toast.success('Producto actualizado')
- } else {
- productData.costo = 0
- productData.stock = esConsignacion ? stockInicialNum : 999
- productData.stockMinimo = 5
- productData.activo = true
- productData.descripcion = ''
- productData.unidad = 'und'
- if (esConsignacion) {
- productData.consignadorId = prodConsignadorId
- productData.stockInicial = stockInicialNum
- }
- await crearProducto(productData)
- toast.success('Producto creado')
- }
+  if (productoAEditar) {
+  if (esConsignacion) {
+  productData.consignadorId = prodConsignadorId
+  productData.stockInicial = stockInicialNum
+  }
+  productData.stock = stockInicialNum
+  await editarProducto(productoAEditar.id, productData)
+  toast.success('Producto actualizado')
+  } else {
+  productData.costo = 0
+  productData.stock = stockInicialNum || 0
+  productData.stockMinimo = 5
+  productData.activo = true
+  productData.descripcion = ''
+  productData.unidad = 'und'
+  if (esConsignacion) {
+  productData.consignadorId = prodConsignadorId
+  productData.stockInicial = stockInicialNum
+  }
+  await crearProducto(productData)
+  toast.success('Producto creado')
+  }
  }
 
  return (
@@ -758,38 +758,41 @@ function NuevoProductoDialog({
  </>
  )}
 
- {esConsignacion && (
- <div className="sm:col-span-2 mt-2 space-y-4">
- <div className="border-t border-border pt-4">
- <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-3 flex items-center gap-2">🤝 Datos de Consignación</p>
- </div>
- <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
- <div className="space-y-1.5">
- <Label className="text-sm font-medium">Consignador</Label>
- <Select value={prodConsignadorId} onValueChange={setProdConsignadorId}>
- <SelectTrigger className="bg-background/50 focus:bg-background transition-colors">
- <SelectValue placeholder="Seleccionar" />
- </SelectTrigger>
- <SelectContent>
- {consignadores.map((c: any) => (
- <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>
- ))}
- </SelectContent>
- </Select>
- </div>
- <div className="space-y-1.5">
- <Label className="text-sm font-medium">Stock inicial</Label>
- <Input
- type="number"
- className="bg-background/50 focus:bg-background transition-colors"
- placeholder="Unidades que dejó"
- value={prodStockInicial}
- onChange={e => setProdStockInicial(e.target.value)}
- />
- </div>
- </div>
- </div>
- )}
+  {esConsignacion && (
+  <div className="sm:col-span-2 mt-2 space-y-4">
+  <div className="border-t border-border pt-4">
+  <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-3 flex items-center gap-2">🤝 Datos de Consignación</p>
+  </div>
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  <div className="space-y-1.5">
+  <Label className="text-sm font-medium">Consignador</Label>
+  <Select value={prodConsignadorId} onValueChange={setProdConsignadorId}>
+  <SelectTrigger className="bg-background/50 focus:bg-background transition-colors">
+  <SelectValue placeholder="Seleccionar" />
+  </SelectTrigger>
+  <SelectContent>
+  {consignadores.map((c: any) => (
+  <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>
+  ))}
+  </SelectContent>
+  </Select>
+  </div>
+  </div>
+  </div>
+  )}
+
+  {!esAlquilerOFoto && (
+  <div className="space-y-1.5">
+  <Label className="text-sm font-medium">Stock {productoAEditar ? 'actual' : 'inicial'}</Label>
+  <Input
+  type="number"
+  className="bg-background/50 focus:bg-background transition-colors"
+  placeholder="Cantidad disponible"
+  value={prodStockInicial}
+  onChange={e => setProdStockInicial(e.target.value)}
+  />
+  </div>
+  )}
  </div>
  <div className="p-6 pt-4 border-t border-border/50 ">
  <DialogFooter>
