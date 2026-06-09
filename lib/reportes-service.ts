@@ -80,8 +80,11 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
   // Obtener usuarios para cruzar nombres
   const snapUsuarios = await getDocs(collection(db, 'usuarios'))
   const mapaUsuarios = new Map<string, string>()
+  const rolesUsuarios = new Map<string, string>()
   snapUsuarios.docs.forEach(doc => {
-    mapaUsuarios.set(doc.id, doc.data().nombre || 'Usuario Desconocido')
+    const data = doc.data()
+    mapaUsuarios.set(doc.id, data.nombre || 'Usuario Desconocido')
+    rolesUsuarios.set(doc.id, data.rol || '')
   })
 
   // Obtener productos para tener iconos y nombres reales en caso de que falten
@@ -112,8 +115,10 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
     const totalVenta = venta.totales?.total || 0
     ventasTotales += totalVenta
 
-    // Procesar Vendedor
+    // Procesar Vendedor - filtrar admin/marketing
     const cajeroId = venta.cajeroId || 'desconocido'
+    const rol = rolesUsuarios.get(cajeroId) || ''
+    if (rol === 'admin' || rol === 'marketing') continue
     if (!vendedoresMap.has(cajeroId)) {
       vendedoresMap.set(cajeroId, {
         id: cajeroId,
