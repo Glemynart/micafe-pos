@@ -152,12 +152,11 @@ export function onAuthStateChange(
   callback: (usuario: Usuario | null) => void
 ): () => void {
   let unsubUserDoc: (() => void) | null = null;
+  let unsubRoleDoc: (() => void) | null = null;
 
   const unsubAuth = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
-    if (unsubUserDoc) {
-      unsubUserDoc();
-      unsubUserDoc = null;
-    }
+    if (unsubUserDoc) { unsubUserDoc(); unsubUserDoc = null; }
+    if (unsubRoleDoc) { unsubRoleDoc(); unsubRoleDoc = null; }
 
     if (!firebaseUser) {
       callback(null);
@@ -172,17 +171,65 @@ export function onAuthStateChange(
           return;
         }
         const data = snap.data();
-        callback({
-          uid: snap.id,
-          nombre: data.nombre,
-          username: data.username,
-          email: data.email,
-          rol: data.rol,
-          activo: data.activo,
-          permisos: data.permisos ?? PERMISOS_POR_ROL[data.rol as RolUsuario] ?? [],
-          ultimoAcceso: data.ultimoAcceso?.toDate(),
-          creadoEn: data.creadoEn?.toDate(),
-        });
+        const rol = data.rol as RolUsuario;
+        const permisosExplicitos: string[] | undefined = data.permisos;
+
+        // Si el usuario tiene permisos explicitos en su doc, usarlos
+        if (permisosExplicitos && permisosExplicitos.length > 0) {
+          callback({
+            uid: snap.id,
+            nombre: data.nombre,
+            username: data.username,
+            email: data.email,
+            rol,
+            activo: data.activo,
+            permisos: permisosExplicitos,
+            ultimoAcceso: data.ultimoAcceso?.toDate(),
+            creadoEn: data.creadoEn?.toDate(),
+          });
+          return;
+        }
+
+        // Si no tiene permisos explicitos, suscribirse a permisos_roles/{rol}
+        // para leer los permisos de rol en tiempo real desde Firestore
+        if (unsubRoleDoc) unsubRoleDoc();
+        unsubRoleDoc = onSnapshot(
+          doc(db, "permisos_roles", rol),
+          (roleSnap) => {
+            const rolePerms = roleSnap.exists()
+              ? (roleSnap.data().permisos as string[] | undefined)
+              : undefined;
+            const finalPerms = rolePerms && rolePerms.length > 0
+              ? rolePerms
+              : (roleSnap.exists() ? [] : PERMISOS_POR_ROL[rol] ?? []);
+
+            callback({
+              uid: snap.id,
+              nombre: data.nombre,
+              username: data.username,
+              email: data.email,
+              rol,
+              activo: data.activo,
+              permisos: finalPerms,
+              ultimoAcceso: data.ultimoAcceso?.toDate(),
+              creadoEn: data.creadoEn?.toDate(),
+            });
+          },
+          () => {
+            // Fallback: sin conexion al doc de rol, usar hardcoded
+            callback({
+              uid: snap.id,
+              nombre: data.nombre,
+              username: data.username,
+              email: data.email,
+              rol,
+              activo: data.activo,
+              permisos: PERMISOS_POR_ROL[rol] ?? [],
+              ultimoAcceso: data.ultimoAcceso?.toDate(),
+              creadoEn: data.creadoEn?.toDate(),
+            });
+          }
+        );
       },
       () => {
         callback(null);
@@ -193,6 +240,7 @@ export function onAuthStateChange(
   return () => {
     unsubAuth();
     if (unsubUserDoc) unsubUserDoc();
+    if (unsubRoleDoc) unsubRoleDoc();
   };
 }
 
