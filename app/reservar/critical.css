@@ -305,17 +305,41 @@
 
 .rdp .rdp-day_selected,
 .rdp-day_selected button,
-.rdp-day_selected {
-  background-color: #F9B207 !important;
-  color: #051D41 !important;
+.rdp-day_selected,
+.rdp [data-selected-single="true"],
+.rdp button[data-selected-single="true"],
+.rdp button[data-range-start="true"],
+.rdp button[data-range-end="true"],
+.rdp button[data-range-middle="true"] {
+  background-color: #051D41 !important;
+  color: #F9B207 !important;
   font-weight: 900 !important;
+  border-color: #F9B207 !important;
+  box-shadow: 0 4px 12px -4px rgba(5, 29, 65, 0.4);
 }
 
-.rdp .rdp-day_today,
-.rdp-day_today button {
-  background-color: rgba(5, 29, 65, 0.10) !important;
+.rdp .rdp-day_today:not(.rdp-day_selected),
+.rdp-day_today:not(.rdp-day_selected) button,
+.rdp button[data-day]:not([data-selected-single="true"]):not([data-range-start="true"]):not([data-range-end="true"]):not([data-range-middle="true"]):not(:disabled) {
   color: #051D41 !important;
-  font-weight: 900 !important;
+  font-weight: 700 !important;
+}
+
+/* Días fuera del mes */
+.rdp .rdp-day_outside,
+.rdp-day_outside button,
+.rdp button[data-day][data-outside="true"] {
+  color: rgba(5, 29, 65, 0.30) !important;
+  font-weight: 400 !important;
+}
+
+/* Días deshabilitados */
+.rdp .rdp-day_disabled,
+.rdp-day_disabled button,
+.rdp button[data-day]:disabled {
+  color: rgba(5, 29, 65, 0.20) !important;
+  text-decoration: line-through;
+  cursor: not-allowed;
 }
 
 .rdp .rdp-caption_label,
