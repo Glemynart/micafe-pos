@@ -318,20 +318,40 @@ export default function ReservarPage() {
                     onSelect={(d) => d && setFecha(d)}
                     className="rounded-xl border border-[#051D41]/10 bg-white p-3 shadow-sm"
                     classNames={{
+                      day: "font-semibold hover:bg-[#F9B207]/20 rounded-lg",
                       day_selected: "font-bold hover:opacity-90",
                       day_today: "font-bold",
+                      caption_label: "text-[#051D41] font-bold text-base",
+                      weekday: "text-[#F9B207] font-bold text-xs uppercase tracking-wider",
                     }}
                     modifiers={{
                       selected: fecha ? [fecha] : [],
                     }}
                     modifiersClassNames={{
-                      selected: "!bg-[#F9B207] !text-[#051D41]",
-                      today: "!bg-[#051D41]/10 !text-[#051D41]",
+                      selected: "!bg-[#F9B207] !text-[#051D41] font-black",
+                      today: "!bg-[#051D41]/15 !text-[#051D41] font-black",
                     }}
                     disabled={(date) => {
                       const today = new Date()
                       today.setHours(0, 0, 0, 0)
                       return date < today
+                    }}
+                    components={{
+                      DayButton: (props) => (
+                        <button
+                          {...props}
+                          style={{
+                            color: props.modifiers?.selected
+                              ? '#051D41'
+                              : props.modifiers?.today
+                                ? '#051D41'
+                                : props.modifiers?.disabled
+                                  ? 'rgba(5, 29, 65, 0.25)'
+                                  : '#051D41',
+                            fontWeight: 600,
+                          }}
+                        />
+                      ),
                     }}
                   />
                 </CardContent>
