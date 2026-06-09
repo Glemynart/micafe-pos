@@ -14,7 +14,7 @@ const periodos = [
 ]
 
 export default function ReportesPage() {
-  const [periodo, setPeriodo] = useState("month")
+  const [periodo, setPeriodo] = useState("today")
   const [reporte, setReporte] = useState<ReporteVentas | null>(null)
   const [cargando, setCargando] = useState(false)
   const [expandirVendedores, setExpandirVendedores] = useState(false)
