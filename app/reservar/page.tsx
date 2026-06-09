@@ -31,7 +31,7 @@ const PRECIO_POR_HORA = 35000 // Ejemplo: $35.000 COP por hora
 export default function ReservarPage() {
   const [paso, setPaso] = useState<1 | 2 | 3>(1)
   
-  // Paso 1: Selecci+�n
+  // Paso 1: Selección
   const [salas, setSalas] = useState<{id: string, nombre: string}[]>([
     { id: 'sala-ejecutiva', nombre: 'Sala Ejecutiva (hasta 6 personas)' },
     { id: 'sala-creativa', nombre: 'Sala Creativa (hasta 12 personas)' }
@@ -79,7 +79,7 @@ export default function ReservarPage() {
       setCargandoHorarios(true)
       try {
         // En un caso real, filtramos las reservas de esta fecha exacta
-        // Aqu+� traemos todas las de la sala y filtramos en local
+        // Aquí traemos todas las de la sala y filtramos en local
         const reservas = await getReservasMesa(salaSeleccionada, fecha.toISOString())
         
         const fechaSelectStr = fecha.toISOString().split('T')[0]
@@ -92,13 +92,13 @@ export default function ReservarPage() {
           
           if (rFechaStr === fechaSelectStr) {
             const horaStr = rFecha.getHours().toString().padStart(2, '0') + ':00'
-            // Podr+�amos calcular la duraci+�n usando fechaFin tambi+�n
+            // Podríamos calcular la duración usando fechaFin también
             ocupadas.push(horaStr)
           }
         })
         
         setHorasOcupadas(ocupadas)
-        setHorasSeleccionadas([]) // reset selecci+�n si cambia fecha/sala
+        setHorasSeleccionadas([]) // reset selección si cambia fecha/sala
       } catch (error) {
         toast({ title: 'Error', description: 'No se pudo cargar la disponibilidad.', variant: 'destructive' })
       } finally {
@@ -133,13 +133,13 @@ export default function ReservarPage() {
 
   const procesarReserva = async () => {
     if (!window.WidgetCheckout) {
-      toast({ title: 'Error', description: 'El widget de pagos a+�n est+� cargando...', variant: 'destructive' })
+      toast({ title: 'Error', description: 'El widget de pagos aún está cargando...', variant: 'destructive' })
       return
     }
 
     const pubKey = process.env.NEXT_PUBLIC_WOMPI_PUB_KEY
     if (!pubKey) {
-      toast({ title: 'Configuraci+�n faltante', description: 'Falta la llave p+�blica de Wompi. Por ahora la reserva se guardar+� como Pendiente.', variant: 'destructive' })
+      toast({ title: 'Configuración faltante', description: 'Falta la llave pública de Wompi. Por ahora la reserva se guardará como Pendiente.', variant: 'destructive' })
       // Si no hay llave, creamos la reserva pendiente y saltamos
       await crearReservaEnFirebase('pago_test_mock')
       return
@@ -163,10 +163,10 @@ export default function ReservarPage() {
       const transaction = result.transaction
       if (transaction.status === 'APPROVED') {
         // En un entorno real, es mejor usar webhooks para actualizar esto.
-        // Pero lo hacemos aqu+� preventivamente.
+        // Pero lo hacemos aquí preventivamente.
         crearReservaEnFirebase(transaction.id, reservaId)
       } else {
-        toast({ title: 'Pago Fallido', description: 'La transacci+�n no fue aprobada.', variant: 'destructive' })
+        toast({ title: 'Pago Fallido', description: 'La transacción no fue aprobada.', variant: 'destructive' })
         setCargandoPago(false)
       }
     })
@@ -187,7 +187,7 @@ export default function ReservarPage() {
       clienteEmail,
       clienteTelefono,
       mesaId: salaSeleccionada,
-      espacioId: 'salas-coworking', // Mock, en prod vendr+�a de la DB
+      espacioId: 'salas-coworking', // Mock, en prod vendría de la DB
       fechaInicio: fechaInicio.toISOString(),
       fechaFin: fechaFin.toISOString(),
       estadoPago: 'pendiente',
@@ -203,13 +203,13 @@ export default function ReservarPage() {
   const crearReservaEnFirebase = async (referenciaWompi: string, reservaExistenteId?: string) => {
     try {
       // En este mock, simplemente actualizamos el estado de la reserva existente, 
-      // pero requerir+�a llamar a `actualizarEstadoPago` de `reservas-service`.
-      // Como no est+� expuesto aqu+� lo hacemos simulado o usamos el web hook.
+      // pero requeriría llamar a `actualizarEstadoPago` de `reservas-service`.
+      // Como no está expuesto aquí lo hacemos simulado o usamos el web hook.
       // Para efectos visuales:
-      toast({ title: '-�Reserva Confirmada!', description: 'Tu pago fue exitoso y la sala ha sido reservada.' })
-      setPaso(3) // Mostrar +�xito
+      toast({ title: '¡Reserva Confirmada!', description: 'Tu pago fue exitoso y la sala ha sido reservada.' })
+      setPaso(3) // Mostrar éxito
     } catch (err) {
-      toast({ title: 'Error', description: 'Hubo un error guardando la confirmaci+�n.', variant: 'destructive' })
+      toast({ title: 'Error', description: 'Hubo un error guardando la confirmación.', variant: 'destructive' })
     } finally {
       setCargandoPago(false)
     }
@@ -217,11 +217,9 @@ export default function ReservarPage() {
 
   return (
     <div className="min-h-screen bg-[#051D41]/95 pb-12 relative overflow-hidden">
-      {/* Background decorations for a premium look */}
       <div className="absolute top-0 left-0 w-full h-[300px] bg-[#F9B207]/5 -skew-y-3 transform origin-top-left z-0"></div>
       <div className="absolute top-[-100px] right-[-100px] w-96 h-96 bg-[#F9B207]/10 rounded-full blur-3xl z-0 pointer-events-none"></div>
 
-      {/* Header */}
       <header className="bg-[#051D41]/80 backdrop-blur-sm border-b border-white/10 py-3 px-4 md:py-4 md:px-6 flex items-center justify-between sticky top-0 z-20 shadow-sm">
         <div className="flex items-center gap-2 md:gap-3">
           <Link href="/" className="text-white/50 hover:text-white transition-colors bg-white/5 p-2 rounded-full hover:bg-white/10">
@@ -231,9 +229,8 @@ export default function ReservarPage() {
           <span className="font-bold text-white text-lg font-sans tracking-tight sm:hidden">Reservar</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* Progress indicators */}
           {[1, 2, 3].map(p => (
-            <div key={p} className={`h-2 w-8 rounded-full transition-all duration-300 ${p === paso ? 'bg-[#F9B207]' : p < paso ? 'bg-white/40' : 'bg-white/10'}`}></div>
+            <div key={p} className={`h-2 w-8 rounded-full transition-all duration-300 ${p === paso ? 'bg-[#F9B207]' : p < paso ? 'bg-white/40' : 'bg-slate-200'}`}></div>
           ))}
         </div>
       </header>
@@ -242,13 +239,13 @@ export default function ReservarPage() {
         
         {paso === 1 && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-slide-up" key="step1">
-            {/* Selecci+�n Sala y Fecha */}
+            {/* Selección Sala y Fecha */}
             <div className="lg:col-span-5 space-y-6">
               <Card className="glass shadow-lg border-primary/10 overflow-hidden">
                 <div className="h-2 w-full bg-gradient-to-r from-primary to-secondary"></div>
                 <CardHeader>
-                  <CardTitle className="text-white text-2xl font-bold flex items-center gap-2">
-                    <span className="flex items-center justify-center bg-primary/10 text-white w-8 h-8 rounded-full text-sm">1</span>
+                  <CardTitle className="text-primary text-2xl font-bold flex items-center gap-2">
+                    <span className="flex items-center justify-center bg-primary/10 text-primary w-8 h-8 rounded-full text-sm">1</span>
                     Tu Espacio
                   </CardTitle>
                   <CardDescription className="text-base">Escoge la sala que mejor se adapte a tu equipo</CardDescription>
@@ -269,8 +266,8 @@ export default function ReservarPage() {
 
               <Card className={`glass shadow-lg border-primary/10 transition-all duration-300 ${!salaSeleccionada ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
                 <CardHeader>
-                  <CardTitle className="text-white text-2xl font-bold flex items-center gap-2">
-                    <span className="flex items-center justify-center bg-primary/10 text-white w-8 h-8 rounded-full text-sm">2</span>
+                  <CardTitle className="text-primary text-2xl font-bold flex items-center gap-2">
+                    <span className="flex items-center justify-center bg-primary/10 text-primary w-8 h-8 rounded-full text-sm">2</span>
                     La Fecha
                   </CardTitle>
                 </CardHeader>
@@ -281,8 +278,8 @@ export default function ReservarPage() {
                     onSelect={(d) => d && setFecha(d)}
                     className="rounded-xl border border-primary/10 bg-white p-3 shadow-sm"
                     classNames={{
-                      day_selected: "bg-secondary text-white font-bold hover:bg-secondary/90 hover:text-white",
-                      day_today: "bg-primary/5 text-white font-bold",
+                      day_selected: "bg-secondary text-primary font-bold hover:bg-secondary/90 hover:text-primary",
+                      day_today: "bg-primary/5 text-primary font-bold",
                     }}
                     disabled={(date) => {
                       const today = new Date()
@@ -300,13 +297,13 @@ export default function ReservarPage() {
                 <CardHeader className="pb-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <CardTitle className="text-white text-2xl font-bold flex items-center gap-2 mb-2">
-                        <span className="flex items-center justify-center bg-primary/10 text-white w-8 h-8 rounded-full text-sm">3</span>
+                      <CardTitle className="text-primary text-2xl font-bold flex items-center gap-2 mb-2">
+                        <span className="flex items-center justify-center bg-primary/10 text-primary w-8 h-8 rounded-full text-sm">3</span>
                         El Horario
                       </CardTitle>
                       <CardDescription className="text-base flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-[#F9B207]" />
-                        Valor: <strong className="text-white">${PRECIO_POR_HORA.toLocaleString('es-CO')} COP/hora</strong>
+                        <Clock className="w-4 h-4 text-secondary" />
+                        Valor: <strong className="text-primary">${PRECIO_POR_HORA.toLocaleString('es-CO')} COP/hora</strong>
                       </CardDescription>
                     </div>
                   </div>
@@ -316,9 +313,9 @@ export default function ReservarPage() {
                     <div className="flex-1 flex flex-col items-center justify-center gap-4 py-12">
                       <div className="relative">
                         <div className="absolute inset-0 bg-secondary/20 rounded-full blur-xl animate-pulse"></div>
-                        <Loader2 className="h-10 w-10 animate-spin text-white relative z-10" />
+                        <Loader2 className="h-10 w-10 animate-spin text-primary relative z-10" />
                       </div>
-                       <p className="text-sm font-medium text-white/40 animate-pulse">Sincronizando agenda...</p>
+                      <p className="text-sm font-medium text-slate-500 animate-pulse">Sincronizando agenda...</p>
                     </div>
                   ) : (
                     <>
@@ -334,10 +331,10 @@ export default function ReservarPage() {
                               className={`
                                 relative py-3 sm:py-4 px-2 sm:px-3 rounded-xl text-sm sm:text-base font-bold border-2 transition-all duration-200 overflow-hidden group touch-target
                                 ${ocupada 
-                                  ? 'bg-[#051D41]/95 border-slate-200 text-slate-400 cursor-not-allowed opacity-60' 
+                                  ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed opacity-60' 
                                   : seleccionada
                                     ? 'bg-primary border-primary text-white shadow-[0_8px_20px_-6px_rgba(5,29,65,0.4)] scale-[0.98]'
-                                    : 'bg-white border-transparent shadow-sm text-white hover:border-secondary hover:shadow-md active:scale-95'
+                                    : 'bg-white border-transparent shadow-sm text-primary hover:border-secondary hover:shadow-md active:scale-95'
                                 }
                               `}
                             >
@@ -355,14 +352,14 @@ export default function ReservarPage() {
                         <div className={`transition-all duration-500 overflow-hidden ${horasSeleccionadas.length > 0 ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
                           <div className="p-5 bg-primary/5 rounded-2xl border border-primary/10 flex items-center justify-between mb-6">
                             <div>
-                              <p className="text-xs font-bold text-white/60 uppercase tracking-widest mb-1">Total a pagar</p>
-                              <p className="text-3xl font-black text-white">${calcularTotal().toLocaleString('es-CO')}</p>
+                              <p className="text-xs font-bold text-primary/60 uppercase tracking-widest mb-1">Total a pagar</p>
+                              <p className="text-3xl font-black text-primary">${calcularTotal().toLocaleString('es-CO')}</p>
                             </div>
                             <div className="text-right">
-                              <div className="bg-secondary text-white px-3 py-1 rounded-full text-sm font-bold shadow-sm inline-block mb-1">
+                              <div className="bg-secondary text-primary px-3 py-1 rounded-full text-sm font-bold shadow-sm inline-block mb-1">
                                 {horasSeleccionadas.length} {horasSeleccionadas.length === 1 ? 'hora' : 'horas'}
                               </div>
-                              <p className="text-xs text-white/60 font-medium">Impuestos incluidos</p>
+                              <p className="text-xs text-primary/60 font-medium">Impuestos incluidos</p>
                             </div>
                           </div>
                         </div>
@@ -372,7 +369,7 @@ export default function ReservarPage() {
                 </CardContent>
                 <CardFooter className="pt-0">
                   <Button 
-                    className="w-full h-14 text-lg font-bold rounded-xl bg-[#F9B207] text-[#051D41] hover:bg-[#e6a100] shadow-lg hover:shadow-xl transition-all hover:-translate-y-1" 
+                    className="w-full h-14 text-lg font-bold rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-1" 
                     disabled={horasSeleccionadas.length === 0}
                     onClick={() => setPaso(2)}
                   >
@@ -389,8 +386,8 @@ export default function ReservarPage() {
             <Card className="glass shadow-2xl border-primary/10 overflow-hidden">
               <div className="h-2 w-full bg-gradient-to-r from-primary to-secondary"></div>
               <CardHeader className="text-center pb-2">
-                <CardTitle className="text-3xl font-bold text-white mb-2">Tus Datos</CardTitle>
-                <CardDescription className="text-base">Solo necesitamos esta informaci+�n para enviar tu comprobante</CardDescription>
+                <CardTitle className="text-3xl font-bold text-primary mb-2">Tus Datos</CardTitle>
+                <CardDescription className="text-base">Solo necesitamos esta información para enviar tu comprobante</CardDescription>
               </CardHeader>
               
               <CardContent className="space-y-6 pt-6">
@@ -398,34 +395,34 @@ export default function ReservarPage() {
                 <div className="bg-primary p-5 rounded-2xl mb-6 shadow-inner text-white relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-secondary/20 rounded-full blur-2xl transform translate-x-10 -translate-y-10"></div>
                   
-                  <h4 className="text-xs text-[#F9B207] font-bold uppercase tracking-widest mb-3 relative z-10">Resumen de tu Reserva</h4>
+                  <h4 className="text-xs text-secondary font-bold uppercase tracking-widest mb-3 relative z-10">Resumen de tu Reserva</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
                     <div className="flex items-center gap-3">
-                      <div className="bg-white/10 p-2 rounded-lg"><Building className="h-5 w-5 text-[#F9B207]" /></div>
+                      <div className="bg-white/10 p-2 rounded-lg"><Building className="h-5 w-5 text-secondary" /></div>
                       <div>
                         <p className="text-xs text-white/60">Espacio</p>
                         <p className="font-medium text-sm leading-tight">{salas.find(s => s.id === salaSeleccionada)?.nombre}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="bg-white/10 p-2 rounded-lg"><CalendarDays className="h-5 w-5 text-[#F9B207]" /></div>
+                      <div className="bg-white/10 p-2 rounded-lg"><CalendarDays className="h-5 w-5 text-secondary" /></div>
                       <div>
                         <p className="text-xs text-white/60">Fecha</p>
                         <p className="font-medium text-sm capitalize">{fecha?.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="bg-white/10 p-2 rounded-lg"><Clock className="h-5 w-5 text-[#F9B207]" /></div>
+                      <div className="bg-white/10 p-2 rounded-lg"><Clock className="h-5 w-5 text-secondary" /></div>
                       <div>
                         <p className="text-xs text-white/60">Horario</p>
                         <p className="font-medium text-sm">{horasSeleccionadas[0]} a {parseInt(horasSeleccionadas[horasSeleccionadas.length-1])+1}:00</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="bg-secondary/20 p-2 rounded-lg"><CreditCard className="h-5 w-5 text-[#F9B207]" /></div>
+                      <div className="bg-secondary/20 p-2 rounded-lg"><CreditCard className="h-5 w-5 text-secondary" /></div>
                       <div>
                         <p className="text-xs text-white/60">Total</p>
-                        <p className="font-bold text-[#F9B207] text-base">${calcularTotal().toLocaleString('es-CO')}</p>
+                        <p className="font-bold text-secondary text-base">${calcularTotal().toLocaleString('es-CO')}</p>
                       </div>
                     </div>
                   </div>
@@ -433,30 +430,30 @@ export default function ReservarPage() {
 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-white font-semibold">Nombre Completo</Label>
+                    <Label className="text-primary font-semibold">Nombre Completo</Label>
                     <Input 
-                      className="h-12 rounded-xl border-primary/20 bg-[#051D41]/95 focus-visible:ring-secondary focus-visible:border-secondary text-base"
+                      className="h-12 rounded-xl border-primary/20 bg-slate-50 focus-visible:ring-secondary focus-visible:border-secondary text-base"
                       value={clienteNombre} 
                       onChange={e => setClienteNombre(e.target.value)} 
-                      placeholder="Ej. Juan P+�rez" 
+                      placeholder="Ej. Juan Pérez" 
                     />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-white font-semibold">Correo Electr+�nico</Label>
+                      <Label className="text-primary font-semibold">Correo Electrónico</Label>
                       <Input 
                         type="email" 
-                        className="h-12 rounded-xl border-primary/20 bg-[#051D41]/95 focus-visible:ring-secondary focus-visible:border-secondary text-base"
+                        className="h-12 rounded-xl border-primary/20 bg-slate-50 focus-visible:ring-secondary focus-visible:border-secondary text-base"
                         value={clienteEmail} 
                         onChange={e => setClienteEmail(e.target.value)} 
                         placeholder="juan@ejemplo.com" 
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-white font-semibold">Tel+�fono / WhatsApp</Label>
+                      <Label className="text-primary font-semibold">Teléfono / WhatsApp</Label>
                       <Input 
                         type="tel" 
-                        className="h-12 rounded-xl border-primary/20 bg-[#051D41]/95 focus-visible:ring-secondary focus-visible:border-secondary text-base"
+                        className="h-12 rounded-xl border-primary/20 bg-slate-50 focus-visible:ring-secondary focus-visible:border-secondary text-base"
                         value={clienteTelefono} 
                         onChange={e => setClienteTelefono(e.target.value)} 
                         placeholder="300 123 4567" 
@@ -466,11 +463,11 @@ export default function ReservarPage() {
                 </div>
               </CardContent>
               <CardFooter className="flex flex-col sm:flex-row gap-3 pt-4">
-                <Button variant="outline" onClick={() => setPaso(1)} className="w-full sm:w-1/3 h-14 rounded-xl border-primary/20 text-white hover:bg-primary/5">
+                <Button variant="outline" onClick={() => setPaso(1)} className="w-full sm:w-1/3 h-14 rounded-xl border-primary/20 text-primary hover:bg-primary/5">
                   Volver
                 </Button>
                 <Button 
-                  className="w-full sm:w-2/3 h-14 rounded-xl bg-[#F9B207] text-[#051D41] hover:bg-[#e6a100] font-bold text-lg shadow-lg" 
+                  className="w-full sm:w-2/3 h-14 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-lg shadow-lg" 
                   disabled={!clienteNombre || !clienteEmail || !clienteTelefono || cargandoPago}
                   onClick={procesarReserva}
                 >
@@ -490,9 +487,9 @@ export default function ReservarPage() {
               </CardFooter>
             </Card>
             
-            <p className="text-center text-sm font-medium text-white/40 mt-6 flex items-center justify-center gap-2">
-              <LockIcon className="h-4 w-4 text-[#F9B207]" />
-              Tus pagos est+�n encriptados y procesados por <strong>Wompi Bancolombia</strong>
+            <p className="text-center text-sm font-medium text-slate-500 mt-6 flex items-center justify-center gap-2">
+              <LockIcon className="h-4 w-4 text-emerald-600" />
+              Tus pagos están encriptados y procesados por <strong>Wompi Bancolombia</strong>
             </p>
           </div>
         )}
@@ -505,34 +502,34 @@ export default function ReservarPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7"></path>
               </svg>
             </div>
-            <h2 className="text-4xl font-black text-white mb-4 tracking-tight">-�Reserva Exitosa!</h2>
-            <p className="text-white/50 text-lg mb-8 leading-relaxed">
-              Hemos enviado tu comprobante a <br/><strong className="text-white">{clienteEmail}</strong>
+            <h2 className="text-4xl font-black text-primary mb-4 tracking-tight">¡Reserva Exitosa!</h2>
+            <p className="text-slate-600 text-lg mb-8 leading-relaxed">
+              Hemos enviado tu comprobante a <br/><strong className="text-primary">{clienteEmail}</strong>
             </p>
             
             <div className="bg-white p-8 rounded-3xl shadow-xl border border-primary/10 mb-8 text-left space-y-4 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-bl-full"></div>
               
               <div className="flex justify-between items-center pb-4 border-b border-slate-100">
-                <span className="text-white/40 font-medium">Espacio</span>
-                <strong className="text-white text-right max-w-[60%]">{salas.find(s => s.id === salaSeleccionada)?.nombre}</strong>
+                <span className="text-slate-500 font-medium">Espacio</span>
+                <strong className="text-primary text-right max-w-[60%]">{salas.find(s => s.id === salaSeleccionada)?.nombre}</strong>
               </div>
               <div className="flex justify-between items-center pb-4 border-b border-slate-100">
-                <span className="text-white/40 font-medium">D+�a</span>
-                <strong className="text-white">{fecha?.toLocaleDateString()}</strong>
+                <span className="text-slate-500 font-medium">Día</span>
+                <strong className="text-primary">{fecha?.toLocaleDateString()}</strong>
               </div>
               <div className="flex justify-between items-center pb-4 border-b border-slate-100">
-                <span className="text-white/40 font-medium">Horario</span>
-                <strong className="text-white">{horasSeleccionadas[0]} - {parseInt(horasSeleccionadas[horasSeleccionadas.length-1])+1}:00</strong>
+                <span className="text-slate-500 font-medium">Horario</span>
+                <strong className="text-primary">{horasSeleccionadas[0]} - {parseInt(horasSeleccionadas[horasSeleccionadas.length-1])+1}:00</strong>
               </div>
               <div className="flex justify-between items-center pt-2">
-                <span className="text-white/40 font-medium">Total</span>
-                <strong className="text-[#F9B207] text-xl font-black">${calcularTotal().toLocaleString('es-CO')}</strong>
+                <span className="text-slate-500 font-medium">Total</span>
+                <strong className="text-emerald-600 text-xl font-black">${calcularTotal().toLocaleString('es-CO')}</strong>
               </div>
             </div>
 
             <Link href="/">
-              <Button className="w-full h-14 text-lg font-bold rounded-xl bg-[#F9B207] text-[#051D41] hover:bg-[#e6a100] shadow-lg">
+              <Button className="w-full h-14 text-lg font-bold rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg">
                 Volver al Inicio
               </Button>
             </Link>
