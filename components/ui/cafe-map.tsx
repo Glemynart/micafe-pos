@@ -1,32 +1,28 @@
 "use client"
 
 import { APIProvider, Map, AdvancedMarker, useMap, InfoWindow } from "@vis.gl/react-google-maps"
-import { useState, useCallback, Component, useEffect, useRef, type ReactNode } from "react"
+import { useState, useCallback, Component, type ReactNode } from "react"
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ""
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID
 const CAFE_POS = { lat: 7.757872, lng: -76.659176 }
 
-function SafeMap({ mapProps, children }: { mapProps: any; children: ReactNode }) {
-  const containerRef = useRef<HTMLDivElement>(null)
+let _patched = false
+function patchOnce() {
+  if (_patched) return
+  _patched = true
+  const orig = Node.prototype.removeChild
+  Node.prototype.removeChild = function <T extends Node>(child: T): T {
+    try { return orig.call(this, child) as T }
+    catch (_) { return child }
+  }
+}
 
-  useEffect(() => {
-    return () => {
-      if (containerRef.current) {
-        while (containerRef.current.firstChild) {
-          try { containerRef.current.removeChild(containerRef.current.firstChild) } catch (_) {}
-        }
-      }
-    }
-  }, [])
-
-  return (
-    <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
-      <Map {...mapProps}>
-        {children}
-      </Map>
-    </div>
-  )
+class MapErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }> {
+  state = { hasError: false }
+  static getDerivedStateFromError() { return { hasError: true } }
+  componentDidCatch(error: Error) { console.warn("Mapa:", error.message) }
+  render() { return this.state.hasError ? this.props.fallback : this.props.children }
 }
 
 function CafeMarker() {
@@ -82,14 +78,9 @@ function CafeMarker() {
   )
 }
 
-class MapErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }> {
-  state = { hasError: false }
-  static getDerivedStateFromError() { return { hasError: true } }
-  componentDidCatch(error: Error) { console.warn("Map error boundary caught:", error.message) }
-  render() { return this.state.hasError ? this.props.fallback : this.props.children }
-}
-
 export function CafeMap({ className }: { className?: string }) {
+  patchOnce()
+
   const mapProps: any = {
     defaultCenter: CAFE_POS,
     defaultZoom: 17,
@@ -101,7 +92,6 @@ export function CafeMap({ className }: { className?: string }) {
     streetViewControl: false,
     fullscreenControl: false,
     zoomControl: false,
-    className: undefined,
     style: { width: "100%", height: "100%" },
   }
   if (MAP_ID) mapProps.mapId = MAP_ID
@@ -114,9 +104,9 @@ export function CafeMap({ className }: { className?: string }) {
     }>
       <div className={className} style={{ width: "100%" }}>
         <APIProvider apiKey={API_KEY}>
-          <SafeMap mapProps={mapProps}>
+          <Map {...mapProps}>
             <CafeMarker />
-          </SafeMap>
+          </Map>
         </APIProvider>
       </div>
     </MapErrorBoundary>
