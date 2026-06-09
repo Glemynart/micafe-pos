@@ -41,7 +41,7 @@ export function BottomNav() {
   const isMoreActive = usuario?.rol !== "marketing" && moreModulos.some((m) => pathname.includes(m))
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#0a1628]/95 backdrop-blur-sm border-t border-white/5 safe-area-bottom">
       <div className="flex items-center justify-around max-w-lg mx-auto h-16">
         {tabs.map((tab) => {
           const isActive = tab.href === "/admin"
@@ -55,8 +55,8 @@ export function BottomNav() {
               className={cn(
                 "flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-xl transition-colors min-w-0",
                 isActive
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "text-[#F9B207]"
+                  : "text-white/30 hover:text-white/60"
               )}
             >
               <Icon className="h-5 w-5" />
@@ -70,8 +70,8 @@ export function BottomNav() {
             className={cn(
               "flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-xl transition-colors min-w-0",
               isMoreActive
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
+                ? "text-[#F9B207]"
+                : "text-white/30 hover:text-white/60"
             )}
           >
             <Users className="h-5 w-5" />

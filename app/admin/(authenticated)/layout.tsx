@@ -10,17 +10,17 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#6b4c3b",
+  themeColor: "#051D41",
 }
 
 export const metadata: Metadata = {
-  title: "MiCafe Admin",
-  description: "Panel de administracion remoto MiCafe",
+  title: "Cafe Atrato Admin",
+  description: "Panel de administracion de Cafe Atrato",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "MiCafe Admin",
+    statusBarStyle: "black-translucent",
+    title: "Cafe Atrato",
   },
 }
 
@@ -30,8 +30,8 @@ export default function AdminAuthLayout({ children }: { children: React.ReactNod
       <SwRegister />
       <MarketingGuard>
         <AdminHeader />
-        <div className="min-h-[100dvh] bg-background pb-20">
-          <main className="max-w-lg mx-auto">{children}</main>
+        <div className="min-h-[100dvh] bg-[#0a1628] pb-20">
+          <main className="max-w-lg mx-auto px-4 pt-4">{children}</main>
           <BottomNav />
         </div>
       </MarketingGuard>

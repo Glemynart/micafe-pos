@@ -142,11 +142,37 @@ export default function ReportesPage() {
                 <div className="divide-y divide-slate-100">
                   {reporte.ventasPorVendedor.map(v => (
                     <div key={v.id} className="px-4 py-3">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-slate-800">{v.nombre}</span>
                         <span className="text-sm font-semibold text-slate-900 tabular-nums">{formatCurrency(v.total)}</span>
                       </div>
-                      <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
+                      <div className="grid grid-cols-3 gap-2 mb-1">
+                        <div className="text-center bg-emerald-50 rounded-lg py-1.5">
+                          <p className="text-[10px] text-emerald-600 font-medium">Efectivo</p>
+                          <p className="text-xs font-bold text-emerald-700 tabular-nums">{formatCurrency(v.cash)}</p>
+                        </div>
+                        <div className="text-center bg-blue-50 rounded-lg py-1.5">
+                          <p className="text-[10px] text-blue-600 font-medium">Tarjeta</p>
+                          <p className="text-xs font-bold text-blue-700 tabular-nums">{formatCurrency(v.card)}</p>
+                        </div>
+                        <div className="text-center bg-purple-50 rounded-lg py-1.5">
+                          <p className="text-[10px] text-purple-600 font-medium">Transferencia</p>
+                          <p className="text-xs font-bold text-purple-700 tabular-nums">{formatCurrency(v.transfer)}</p>
+                        </div>
+                      </div>
+                      {(v.efectivoDeclarado > 0 || v.cash > 0) && (
+                        <div className={cn(
+                          "text-center rounded-lg py-1.5 px-2 mt-2 text-xs",
+                          v.diferenciaCaja < -5000 ? "bg-red-50 text-red-700" : v.diferenciaCaja < 0 ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"
+                        )}>
+                          <span className="font-medium">Efectivo declarado: {formatCurrency(v.efectivoDeclarado)}</span>
+                          <span className="mx-1">·</span>
+                          <span className={cn("font-bold", v.diferenciaCaja < 0 ? "text-red-600" : "text-emerald-600")}>
+                            {v.diferenciaCaja < 0 ? `Faltante ${formatCurrency(Math.abs(v.diferenciaCaja))}` : `Sobrante ${formatCurrency(v.diferenciaCaja)}`}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-2">
                         <span>{v.ventas} ventas</span>
                         <span>·</span>
                         <span>Prom {formatCurrency(v.average)}</span>
