@@ -1,8 +1,9 @@
 {
-  "name": "Café Atrato",
-  "short_name": "Café Atrato",
-  "description": "Coworking Cultural y Empresarial",
-  "start_url": "/",
+  "name": "Cafe Atrato Admin",
+  "short_name": "Cafe Atrato",
+  "description": "Panel de administracion - Coworking Cultural y Empresarial",
+  "start_url": "/admin",
+  "scope": "/admin",
   "display": "standalone",
   "background_color": "#051D41",
   "theme_color": "#051D41",
