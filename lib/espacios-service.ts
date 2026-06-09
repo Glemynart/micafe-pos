@@ -59,6 +59,8 @@ export function suscribirEspacios(
       ...(doc.data() as Omit<Espacio, "id">),
     })).sort((a, b) => a.orden - b.orden);
     callback(espacios);
+  }, (error) => {
+    console.error("suscribirEspacios error:", error.message);
   });
 }
 
@@ -73,6 +75,8 @@ export function suscribirTodosEspacios(
       ...(doc.data() as Omit<Espacio, "id">),
     })).sort((a, b) => a.orden - b.orden);
     callback(espacios);
+  }, (error) => {
+    console.error("suscribirTodosEspacios error:", error.message);
   });
 }
 
@@ -112,6 +116,8 @@ export function suscribirCategorias(
       ...(doc.data() as Omit<Categoria, "id">),
     })).sort((a, b) => a.orden - b.orden);
     callback(categorias);
+  }, (error) => {
+    console.error("suscribirCategorias error:", error.message);
   });
 }
 
