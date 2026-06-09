@@ -23,11 +23,25 @@ declare global {
 }
 
 const HORARIOS = [
-  '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', 
+  '08:00', '09:00', '10:00', '11:00', '12:00', '13:00',
   '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'
 ]
 
+const HORA_CIERRE = '21:00' // última hora facturable (el bloque 20:00-21:00 cierra a las 21:00)
 const PRECIO_POR_HORA = 35000 // Ejemplo: $35.000 COP por hora
+
+// Calcula la hora de fin (string HH:00) a partir del último bloque seleccionado.
+// Si el último bloque es el de cierre (20:00), devuelve HORA_CIERRE; si no, +1h.
+function calcularHoraFin(ultimoBloque: string): string {
+  if (ultimoBloque === HORARIOS[HORARIOS.length - 1]) return HORA_CIERRE
+  const h = parseInt(ultimoBloque.split(':')[0], 10)
+  return `${String(h + 1).padStart(2, '0')}:00`
+}
+
+// Calcula la hora de inicio (string HH:00) — siempre la primera seleccionada.
+function calcularHoraInicio(primerBloque: string): string {
+  return primerBloque
+}
 
 export default function ReservarPage() {
   const [paso, setPaso] = useState<1 | 2 | 3>(1)
@@ -121,25 +135,59 @@ export default function ReservarPage() {
 
   const toggleHora = (hora: string) => {
     if (horasOcupadas.includes(hora)) return
-    
+
     setHorasSeleccionadas(prev => {
+      // Estado 1: vacío → empezar
       if (prev.length === 0) return [hora]
-      if (prev.length >= 2) return [hora]
-      
-      const todas = [...HORARIOS]
-      const idxA = todas.indexOf(prev[0])
-      const idxB = todas.indexOf(hora)
-      const inicio = Math.min(idxA, idxB)
-      const fin = Math.max(idxA, idxB)
-      
-      const rango = todas.slice(inicio, fin + 1)
-      if (rango.some(h => horasOcupadas.includes(h))) return [hora]
-      return rango
+
+      // Estado 2: un solo bloque seleccionado y el usuario hace clic en otro
+      // → crear el rango entre los dos (si no pisa horas ocupadas)
+      if (prev.length === 1) {
+        if (prev[0] === hora) return [] // deseleccionar el único
+        const todas = [...HORARIOS]
+        const idxA = todas.indexOf(prev[0])
+        const idxB = todas.indexOf(hora)
+        if (idxA === -1 || idxB === -1) return prev
+        const inicio = Math.min(idxA, idxB)
+        const fin = Math.max(idxA, idxB)
+        const rango = todas.slice(inicio, fin + 1)
+        if (rango.some(h => horasOcupadas.includes(h))) return [hora]
+        return rango
+      }
+
+      // Estado 3: ya hay un rango (length >= 2)
+      //  - Si el usuario hace clic en una hora fuera del rango → reset a [hora]
+      //  - Si hace clic en una hora dentro del rango → quitarla del rango
+      if (prev.includes(hora)) {
+        const next = prev.filter(h => h !== hora)
+        // Si el rango queda con un solo bloque, lo dejamos así (1 seleccionado).
+        // Si queda vacío, también está bien.
+        return next
+      }
+      // Click fuera del rango actual → reemplazar
+      return [hora]
     })
   }
 
   const calcularTotal = () => {
     return horasSeleccionadas.length * PRECIO_POR_HORA
+  }
+
+  // Calcula el rango visual (inicio / fin) basado en la primera y última hora
+  // seleccionadas por índice, no por posición en el array (que puede tener huecos).
+  const calcularRangoVisual = (): { inicio: string; fin: string } | null => {
+    if (horasSeleccionadas.length < 2) return null
+    const todas = [...HORARIOS]
+    const indices = horasSeleccionadas
+      .map(h => todas.indexOf(h))
+      .filter(i => i !== -1)
+    if (indices.length < 2) return null
+    const minIdx = Math.min(...indices)
+    const maxIdx = Math.max(...indices)
+    return {
+      inicio: todas[minIdx],
+      fin: todas[maxIdx]
+    }
   }
 
   const procesarReserva = async () => {
@@ -187,11 +235,14 @@ export default function ReservarPage() {
     // Calculamos fecha de inicio usando la primera hora seleccionada
     const primeraHora = horasSeleccionadas[0]
     const fechaInicio = new Date(fecha!)
-    fechaInicio.setHours(parseInt(primeraHora.split(':')[0]), 0, 0, 0)
-    
-    const ultimaHora = horasSeleccionadas[horasSeleccionadas.length - 1]
+    fechaInicio.setHours(parseInt(primeraHora.split(':')[0], 10), 0, 0, 0)
+
+    // La hora de fin coincide con la del label: si el último bloque seleccionado es el
+    // de cierre (20:00), fin = 21:00. Si no, fin = bloque + 1h.
+    const ultimoBloque = horasSeleccionadas[horasSeleccionadas.length - 1]
+    const horaFinStr = calcularHoraFin(ultimoBloque)
     const fechaFin = new Date(fecha!)
-    fechaFin.setHours(parseInt(ultimaHora.split(':')[0]) + 1, 0, 0, 0) // +1 hora por bloque
+    fechaFin.setHours(parseInt(horaFinStr.split(':')[0], 10), 0, 0, 0)
 
     const reservaData: Omit<Reserva, 'id'> = {
       clienteNombre,
@@ -398,9 +449,13 @@ export default function ReservarPage() {
                                 className="px-3 py-1 rounded-full text-sm font-bold shadow-sm inline-block mb-1"
                                 style={{ backgroundColor: '#F9B207', color: '#051D41' }}
                               >
-                                {horasSeleccionadas.length >= 2
-                                  ? `${horasSeleccionadas[0]} - ${parseInt(horasSeleccionadas[horasSeleccionadas.length-1])+1}:00`
-                                  : `${horasSeleccionadas.length} ${horasSeleccionadas.length === 1 ? 'hora' : 'horas'}`}
+                                {(() => {
+                                  const rango = calcularRangoVisual()
+                                  if (rango) {
+                                    return `${calcularHoraInicio(rango.inicio)} - ${calcularHoraFin(rango.fin)}`
+                                  }
+                                  return `${horasSeleccionadas.length} ${horasSeleccionadas.length === 1 ? 'hora' : 'horas'}`
+                                })()}
                               </div>
                               <p className="text-xs font-medium" style={{ opacity: 0.6 }}>Impuestos incluidos</p>
                             </div>
@@ -481,7 +536,14 @@ export default function ReservarPage() {
                       </div>
                       <div>
                         <p className="text-xs text-white/60">Horario</p>
-                        <p className="font-medium text-sm text-white">{horasSeleccionadas[0]} a {parseInt(horasSeleccionadas[horasSeleccionadas.length-1])+1}:00</p>
+                        <p className="font-medium text-sm text-white">
+                          {(() => {
+                            const r = calcularRangoVisual()
+                            if (r) return `${calcularHoraInicio(r.inicio)} a ${calcularHoraFin(r.fin)}`
+                            const u = horasSeleccionadas[0]
+                            return u ? `${calcularHoraInicio(u)} a ${calcularHoraFin(u)}` : ''
+                          })()}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -619,7 +681,14 @@ export default function ReservarPage() {
               </div>
               <div className="flex justify-between items-center pb-4 border-b border-slate-100">
                 <span className="text-slate-500 font-medium">Horario</span>
-                <strong style={{ color: '#051D41' }}>{horasSeleccionadas[0]} - {parseInt(horasSeleccionadas[horasSeleccionadas.length-1])+1}:00</strong>
+                <strong style={{ color: '#051D41' }}>
+                  {(() => {
+                    const r = calcularRangoVisual()
+                    if (r) return `${calcularHoraInicio(r.inicio)} - ${calcularHoraFin(r.fin)}`
+                    const u = horasSeleccionadas[0]
+                    return u ? `${calcularHoraInicio(u)} - ${calcularHoraFin(u)}` : ''
+                  })()}
+                </strong>
               </div>
               <div className="flex justify-between items-center pt-2">
                 <span className="text-slate-500 font-medium">Total</span>
