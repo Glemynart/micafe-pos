@@ -17,9 +17,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'CaféPOS - Sistema de Punto de Venta',
-  description: 'Sistema POS premium para cafeterías colombianas',
-  generator: 'v0.app',
+  title: 'Coworking Cultural y Empresarial — Café Atrato',
+  description: 'Espacio de coworking, café de especialidad, eventos culturales y artesanías en el corazón del Chocó. Trabajá, conectá y crecé con nosotros.',
+  openGraph: {
+    title: 'Coworking Cultural y Empresarial',
+    description: 'Espacio de coworking, café de especialidad, eventos culturales y artesanías en el corazón del Chocó.',
+    type: 'website',
+    locale: 'es_CO',
+  },
   icons: {
     icon: [
       {
