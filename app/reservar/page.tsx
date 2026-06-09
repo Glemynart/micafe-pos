@@ -269,12 +269,32 @@ export default function ReservarPage() {
                 </CardHeader>
                 <CardContent>
                   <Select value={salaSeleccionada} onValueChange={setSalaSeleccionada}>
-                    <SelectTrigger className="h-14 text-lg border-[#051D41]/20 bg-white hover:border-[#F9B207] transition-colors focus:ring-[#F9B207]">
+                    <SelectTrigger
+                      className="h-14 text-lg transition-all"
+                      style={
+                        salaSeleccionada
+                          ? {
+                              backgroundColor: '#051D41',
+                              borderColor: '#F9B207',
+                              borderWidth: '2px',
+                              color: '#ffffff',
+                              boxShadow: '0 4px 16px -4px rgba(5, 29, 65, 0.3)',
+                            }
+                          : {
+                              backgroundColor: '#ffffff',
+                              borderColor: 'rgba(5, 29, 65, 0.20)',
+                              borderWidth: '2px',
+                              color: '#051D41',
+                            }
+                      }
+                    >
                       <SelectValue placeholder="Elegir sala..." />
                     </SelectTrigger>
                     <SelectContent>
                       {salas.map(s => (
-                        <SelectItem key={s.id} value={s.id} className="py-3 text-base cursor-pointer">{s.nombre}</SelectItem>
+                        <SelectItem key={s.id} value={s.id} className="py-3 text-base cursor-pointer">
+                          {s.nombre}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
