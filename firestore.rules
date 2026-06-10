@@ -166,8 +166,8 @@ service cloud.firestore {
     }
 
     match /reservas/{id} {
-      // Lectura y gestión: solo usuarios autenticados (POS / admin)
-      allow read: if request.auth != null;
+      // Lectura: pública para que la web pueda consultar la disponibilidad de la agenda
+      allow read: if true;
       allow update, delete: if request.auth != null;
       // Creación pública: la landing page no tiene Auth, pero validamos campos mínimos
       allow create: if (
