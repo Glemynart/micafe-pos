@@ -60,18 +60,36 @@ export async function getReservasMesa(mesaId: string, fechaDia: string): Promise
   const finDia = new Date(fechaDia)
   finDia.setHours(23, 59, 59, 999)
 
-  // Bloquear slots para reservas activas O completadas (pagadas).
-  // Solo las canceladas liberan el horario.
-  const q = query(
+  // Firebase requiere índice compuesto para (mesaId + estadoReserva + fechaInicio).
+  // Para garantizar que use el índice existente (mesaId, estadoReserva, fechaInicio),
+  // hacemos dos consultas separadas con '==' en vez de 'in' y combinamos los resultados.
+  const qActiva = query(
     collection(db, COLLECTION_NAME),
     where('mesaId', '==', mesaId),
-    where('estadoReserva', 'in', ['activa', 'completada']),
+    where('estadoReserva', '==', 'activa'),
     where('fechaInicio', '>=', inicioDia.toISOString()),
     where('fechaInicio', '<=', finDia.toISOString())
   )
 
-  const snapshot = await getDocs(q)
-  return snapshot.docs.map(d => ({ id: d.id, ...(d.data() as Omit<Reserva, 'id'>) }))
+  const qCompletada = query(
+    collection(db, COLLECTION_NAME),
+    where('mesaId', '==', mesaId),
+    where('estadoReserva', '==', 'completada'),
+    where('fechaInicio', '>=', inicioDia.toISOString()),
+    where('fechaInicio', '<=', finDia.toISOString())
+  )
+
+  const [snapActiva, snapCompletada] = await Promise.all([
+    getDocs(qActiva),
+    getDocs(qCompletada)
+  ])
+
+  const reservas = [...snapActiva.docs, ...snapCompletada.docs].map(d => ({ 
+    id: d.id, 
+    ...(d.data() as Omit<Reserva, 'id'>) 
+  }))
+  
+  return reservas
 }
 
 // ─── ESCRITURA ────────────────────────────────────────────────────────────────

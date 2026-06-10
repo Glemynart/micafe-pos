@@ -96,17 +96,19 @@ export default function ReservarPage() {
         // Aquí traemos todas las de la sala y filtramos en local
         const reservas = await getReservasMesa(salaSeleccionada, fecha.toISOString())
         
-        const fechaSelectStr = fecha.toISOString().split('T')[0]
-        
         // Extraer horas ocupadas considerando el rango de tiempo
         const ocupadas: string[] = []
         reservas.forEach(r => {
           const rInicio = new Date(r.fechaInicio)
           const rFin = new Date(r.fechaFin)
           
-          const rFechaStr = rInicio.toISOString().split('T')[0]
+          // Comparación local para no tener desfase de zona horaria con las 20:00 (que en UTC es el día siguiente)
+          const esMismoDia = 
+            rInicio.getFullYear() === fecha.getFullYear() &&
+            rInicio.getMonth() === fecha.getMonth() &&
+            rInicio.getDate() === fecha.getDate()
           
-          if (rFechaStr === fechaSelectStr) {
+          if (esMismoDia) {
             const horaInicio = rInicio.getHours()
             const horaFin = rFin.getHours()
             
