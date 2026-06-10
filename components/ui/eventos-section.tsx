@@ -82,15 +82,15 @@ export function EventosSection() {
         <div style={{ position: "absolute", bottom: "20%", right: "-5%", width: "400px", height: "400px", borderRadius: "50%", background: NAVY, opacity: 0.05, filter: "blur(100px)", pointerEvents: "none" }} />
 
         <div className="container mx-auto px-4 md:px-6" style={{ position: "relative", zIndex: 1 }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", maxWidth: "42rem", margin: "0 auto 4rem" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem", padding: "0.5rem 1.25rem", background: "white", borderRadius: "9999px", boxShadow: "0 4px 16px -4px rgba(5, 29, 65, 0.08)", border: `1px solid ${GOLD}33` }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", maxWidth: "42rem", width: "100%", margin: "0 auto 4rem" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", marginBottom: "1rem", padding: "0.5rem 1.25rem", background: "white", borderRadius: "9999px", boxShadow: "0 4px 16px -4px rgba(5, 29, 65, 0.08)", border: `1px solid ${GOLD}33` }}>
               <Sparkles style={{ width: "1rem", height: "1rem", color: GOLD }} />
-              <span style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", color: NAVY }}>Agenda Cultural</span>
+              <span style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", color: NAVY, textAlign: "center" }}>Agenda Cultural</span>
             </div>
-            <h2 style={{ fontSize: "clamp(2.25rem, 5vw, 3.5rem)", fontWeight: 900, color: NAVY, marginBottom: "1rem", letterSpacing: "-0.02em", lineHeight: 1.1 }}>
+            <h2 style={{ fontSize: "clamp(2.25rem, 5vw, 3.5rem)", fontWeight: 900, color: NAVY, marginBottom: "1rem", letterSpacing: "-0.02em", lineHeight: 1.1, textAlign: "center", width: "100%" }}>
               Próximos <span style={{ color: GOLD }}>Eventos</span>
             </h2>
-            <p style={{ fontSize: "1.125rem", color: "#64748B", lineHeight: 1.6, maxWidth: "36rem" }}>
+            <p style={{ fontSize: "1.125rem", color: "#64748B", lineHeight: 1.6, maxWidth: "36rem", textAlign: "center", margin: "0 auto" }}>
               Descubre experiencias, talleres y encuentros en Café Atrato.
             </p>
           </div>

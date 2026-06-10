@@ -17,7 +17,9 @@ export function ModulosProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsub = suscribirConfiguracion((config) => {
       if (config.modulos_habilitados?.length > 0) {
-        setModulos(config.modulos_habilitados)
+        const mods = [...config.modulos_habilitados]
+        if (!mods.includes('reservas')) mods.push('reservas')
+        setModulos(mods)
       } else {
         setModulos(DEFAULT_MODULOS)
       }
