@@ -62,24 +62,16 @@ export async function getReservasMesa(mesaId: string, fechaDia: string): Promise
 
   // Bloquear slots para reservas activas O completadas (pagadas).
   // Solo las canceladas liberan el horario.
-  const qActivas = query(
+  const q = query(
     collection(db, COLLECTION_NAME),
     where('mesaId', '==', mesaId),
-    where('estadoReserva', '==', 'activa'),
-    where('fechaInicio', '>=', inicioDia.toISOString()),
-    where('fechaInicio', '<=', finDia.toISOString())
-  )
-  const qCompletadas = query(
-    collection(db, COLLECTION_NAME),
-    where('mesaId', '==', mesaId),
-    where('estadoReserva', '==', 'completada'),
+    where('estadoReserva', 'in', ['activa', 'completada']),
     where('fechaInicio', '>=', inicioDia.toISOString()),
     where('fechaInicio', '<=', finDia.toISOString())
   )
 
-  const [snapActivas, snapCompletadas] = await Promise.all([getDocs(qActivas), getDocs(qCompletadas)])
-  const toReserva = (d: any): Reserva => ({ id: d.id, ...(d.data() as Omit<Reserva, 'id'>) })
-  return [...snapActivas.docs.map(toReserva), ...snapCompletadas.docs.map(toReserva)]
+  const snapshot = await getDocs(q)
+  return snapshot.docs.map(d => ({ id: d.id, ...(d.data() as Omit<Reserva, 'id'>) }))
 }
 
 // ─── ESCRITURA ────────────────────────────────────────────────────────────────
