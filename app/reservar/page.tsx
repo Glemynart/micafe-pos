@@ -237,7 +237,7 @@ export default function ReservarPage() {
       setCargandoPago(true)
       try {
         await crearReservaBase()
-        toast.success('Reserva Confirmada', { description: 'La reserva ha sido guardada en la base de datos.' })
+        toast.success('Reserva Confirmada', { description: 'Tu espacio ha sido reservado con éxito.' })
         setPaso(3)
       } catch (err) {
         console.error('Error guardando reserva mock:', err)
