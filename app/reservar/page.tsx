@@ -95,7 +95,13 @@ export default function ReservarPage() {
       try {
         // En un caso real, filtramos las reservas de esta fecha exacta
         // Aquí traemos todas las de la sala y filtramos en local
-        const reservas = await getReservasMesa(salaSeleccionada, fecha.toISOString())
+        // Extraer 'YYYY-MM-DD' en hora local para evitar desfases de UTC
+        const year = fecha.getFullYear()
+        const month = String(fecha.getMonth() + 1).padStart(2, '0')
+        const day = String(fecha.getDate()).padStart(2, '0')
+        const fechaLocalStr = `${year}-${month}-${day}`
+        
+        const reservas = await getReservasMesa(salaSeleccionada, fechaLocalStr)
         
         // Extraer horas ocupadas considerando el rango de tiempo
         const ocupadas: string[] = []

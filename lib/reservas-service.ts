@@ -59,9 +59,14 @@ export function suscribirReservasActivas(callback: (reservas: Reserva[], nuevas:
  * Trae las reservas de una mesa específica para verificar disponibilidad.
  */
 export async function getReservasMesa(mesaId: string, fechaDia: string): Promise<Reserva[]> {
-  const inicioDia = new Date(fechaDia)
+  // fechaDia es "YYYY-MM-DD". Parsemos explícitamente en la zona horaria local 
+  // para evitar que new Date("YYYY-MM-DD") lo asuma como UTC y nos devuelva el día anterior.
+  const [year, month, day] = fechaDia.split('-').map(Number)
+  
+  const inicioDia = new Date(year, month - 1, day)
   inicioDia.setHours(0, 0, 0, 0)
-  const finDia = new Date(fechaDia)
+  
+  const finDia = new Date(year, month - 1, day)
   finDia.setHours(23, 59, 59, 999)
 
   // Solo usamos un filtro de igualdad (mesaId) para que Firebase use el índice automático
