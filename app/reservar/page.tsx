@@ -139,7 +139,11 @@ export default function ReservarPage() {
     script.src = 'https://checkout.wompi.co/widget.js'
     script.async = true
     document.body.appendChild(script)
-    return () => { document.body.removeChild(script) }
+    return () => { 
+      if (document.body.contains(script)) {
+        document.body.removeChild(script) 
+      }
+    }
   }, [])
 
   const toggleHora = (hora: string) => {
