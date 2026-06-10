@@ -27,22 +27,19 @@ const HORARIOS = [
   '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'
 ]
 
-// Cada slot representa un PUNTO en el tiempo (no un bloque de 1h).
-// - Seleccionar 08:00 y 09:00 = reserva de 8:00 a 9:00 (1 hora).
-// - Seleccionar 08:00 y 20:00 = reserva de 8:00 a 20:00 (12 horas).
-// - La hora máxima seleccionable es 20:00 (la sala cierra a las 21:00
-//   pero el último slot que el usuario puede "alcanzar" como fin es 20:00).
+// Cada slot representa un BLOQUE de 1 hora.
+// - Seleccionar solo 08:00 = reserva de 8:00 a 9:00 (1 hora).
+// - Seleccionar 08:00 y 09:00 = reserva de 8:00 a 10:00 (2 horas).
 const PRECIO_POR_HORA = 35000 // Ejemplo: $35.000 COP por hora
 
-// Duración en horas: para N slots consecutivos, la duración es N - 1.
-// Ej: slots [08, 09, 10] = 2 horas (de 8 a 10).
+// Duración en horas: para N bloques seleccionados, la duración es N.
 function duracionHoras(seleccionadas: string[]): number {
-  if (seleccionadas.length < 2) return 0
+  if (seleccionadas.length === 0) return 0
   const indices = seleccionadas
     .map(h => HORARIOS.indexOf(h))
     .filter(i => i !== -1)
-  if (indices.length < 2) return 0
-  return Math.max(...indices) - Math.min(...indices)
+  if (indices.length === 0) return 0
+  return Math.max(...indices) - Math.min(...indices) + 1
 }
 
 export default function ReservarPage() {
@@ -101,16 +98,24 @@ export default function ReservarPage() {
         
         const fechaSelectStr = fecha.toISOString().split('T')[0]
         
-        // Extraer horas ocupadas
+        // Extraer horas ocupadas considerando el rango de tiempo
         const ocupadas: string[] = []
         reservas.forEach(r => {
-          const rFecha = new Date(r.fechaInicio)
-          const rFechaStr = rFecha.toISOString().split('T')[0]
+          const rInicio = new Date(r.fechaInicio)
+          const rFin = new Date(r.fechaFin)
+          
+          const rFechaStr = rInicio.toISOString().split('T')[0]
           
           if (rFechaStr === fechaSelectStr) {
-            const horaStr = rFecha.getHours().toString().padStart(2, '0') + ':00'
-            // Podríamos calcular la duración usando fechaFin también
-            ocupadas.push(horaStr)
+            const horaInicio = rInicio.getHours()
+            const horaFin = rFin.getHours()
+            
+            // Si la reserva es de 08:00 a 10:00 (horaInicio 8, horaFin 10), 
+            // los bloques ocupados son 08:00 y 09:00.
+            for (let h = horaInicio; h < horaFin; h++) {
+              const horaStr = h.toString().padStart(2, '0') + ':00'
+              ocupadas.push(horaStr)
+            }
           }
         })
         
@@ -175,21 +180,30 @@ export default function ReservarPage() {
     return duracionHoras(horasSeleccionadas) * PRECIO_POR_HORA
   }
 
-  // Calcula el rango visual (inicio / fin) basado en la primera y última hora
-  // seleccionadas por índice, no por posición en el array (que puede tener huecos).
+  // Calcula el rango visual (inicio / fin) basado en los bloques seleccionados.
+  // Ej: si selecciona 08:00 y 09:00, el rango visual es 08:00 - 10:00.
   const calcularRangoVisual = (): { inicio: string; fin: string; duracion: number } | null => {
-    if (horasSeleccionadas.length < 2) return null
+    if (horasSeleccionadas.length === 0) return null
     const todas = [...HORARIOS]
     const indices = horasSeleccionadas
       .map(h => todas.indexOf(h))
       .filter(i => i !== -1)
-    if (indices.length < 2) return null
+    if (indices.length === 0) return null
+    
     const minIdx = Math.min(...indices)
     const maxIdx = Math.max(...indices)
+    const duracion = maxIdx - minIdx + 1
+    
+    const inicioStr = todas[minIdx]
+    // Para el fin, sumamos 1 hora a la última hora seleccionada
+    const [horaMax] = todas[maxIdx].split(':')
+    const finHoraNum = parseInt(horaMax, 10) + 1
+    const finStr = `${finHoraNum.toString().padStart(2, '0')}:00`
+
     return {
-      inicio: todas[minIdx],
-      fin: todas[maxIdx],
-      duracion: maxIdx - minIdx
+      inicio: inicioStr,
+      fin: finStr,
+      duracion
     }
   }
 
@@ -242,15 +256,15 @@ export default function ReservarPage() {
   }
 
   const crearReservaBase = async () => {
-    // Modelo de puntos: cada slot es un PUNTO en el tiempo, no un bloque.
-    // Si el usuario seleccionó [08:00, 09:00], la reserva es 8:00 a 9:00 (1h).
+    // Modelo de bloques: cada slot es un BLOQUE de 1 hora.
+    // Si el usuario seleccionó [08:00, 09:00], la reserva es de 8:00 a 10:00 (2h).
     const rango = calcularRangoVisual()
-    if (!rango) throw new Error('Debe seleccionar al menos dos horas (inicio y fin).')
+    if (!rango) throw new Error('Debe seleccionar al menos un horario.')
 
     const fechaInicio = new Date(fecha!)
     fechaInicio.setHours(parseInt(rango.inicio.split(':')[0], 10), 0, 0, 0)
 
-    // La hora de fin es el último slot seleccionado (sin sumar +1).
+    // La hora de fin ya viene calculada correctamente en el rango (+1 hora)
     const fechaFin = new Date(fecha!)
     fechaFin.setHours(parseInt(rango.fin.split(':')[0], 10), 0, 0, 0)
 
