@@ -140,8 +140,8 @@ export default function ReservarPage() {
     script.async = true
     document.body.appendChild(script)
     return () => { 
-      if (document.body.contains(script)) {
-        document.body.removeChild(script) 
+      if (script.parentNode) {
+        script.parentNode.removeChild(script) 
       }
     }
   }, [])
