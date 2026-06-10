@@ -201,9 +201,18 @@ export default function ReservarPage() {
 
     const pubKey = process.env.NEXT_PUBLIC_WOMPI_PUB_KEY
     if (!pubKey) {
-      toast({ title: 'Configuración faltante', description: 'Falta la llave pública de Wompi. Por ahora la reserva se guardará como Pendiente.', variant: 'destructive' })
-      // Si no hay llave, creamos la reserva pendiente y saltamos
-      await crearReservaEnFirebase('pago_test_mock')
+      toast({ title: 'Modo de Prueba', description: 'No hay llave Wompi. Simulando pago y guardando la reserva (estado: Pendiente).' })
+      setCargandoPago(true)
+      try {
+        await crearReservaBase()
+        toast({ title: 'Reserva Confirmada', description: 'La reserva ha sido guardada en la base de datos.' })
+        setPaso(3)
+      } catch (err) {
+        console.error('Error guardando reserva mock:', err)
+        toast({ title: 'Error', description: 'Hubo un problema guardando la reserva.', variant: 'destructive' })
+      } finally {
+        setCargandoPago(false)
+      }
       return
     }
 

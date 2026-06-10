@@ -49,10 +49,12 @@ export function Sidebar({ activeModule, onModuleChange, onLogout, usuario, modul
     // 2. El usuario debe tener permiso para usarlo
     if (!userPerms.has(m.id)) return false
     // 3. Si el espacio activo tiene módulos permitidos definidos, debe estar en esa lista
-    // (A menos que sea el módulo de ajustes o de cambio de espacio que siempre debería verse, pero
-    // por ahora lo filtramos estricto a lo que diga el espacio).
     if (espacioActivo?.modulos_permitidos && espacioActivo.modulos_permitidos.length > 0) {
-      if (!espacioActivo.modulos_permitidos.includes(m.id)) return false
+      // Inyectar 'reservas' por retrocompatibilidad para que aparezca en espacios existentes
+      const permitidos = [...espacioActivo.modulos_permitidos]
+      if (!permitidos.includes('reservas')) permitidos.push('reservas')
+      
+      if (!permitidos.includes(m.id)) return false
     }
     return true
   })

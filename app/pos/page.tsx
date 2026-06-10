@@ -60,6 +60,7 @@ export default function POSApp() {
   // Per-user overrides solo si difieren del role doc.
   const userPerms = useMemo(() => {
     const perUser = usuario?.permisos
+    let finalPerms = new Set<string>()
     // Fuente 1: role doc de Firestore (se actualiza en tiempo real)
     if (rolePermisos.length > 0) {
       // Si el usuario tiene permisos que NO coinciden con el rol → override per-user
@@ -68,13 +69,22 @@ export default function POSApp() {
         perUser.length !== rolePermisos.length ||
         perUser.some(m => !roleSet.has(m))
       )
-      return perUserDiffers ? new Set(perUser!) : roleSet
+      finalPerms = perUserDiffers ? new Set(perUser!) : roleSet
+    } else if (perUser && perUser.length > 0) {
+      // Fuente 2: permisos del doc del usuario (estáticos hasta refresh)
+      finalPerms = new Set(perUser)
+    } else {
+      // Fuente 3: fallback hardcoded (solo si no hay nada en Firestore)
+      finalPerms = new Set(["sell"])
     }
-    // Fuente 2: permisos del doc del usuario (estáticos hasta refresh)
-    if (perUser && perUser.length > 0) return new Set(perUser)
-    // Fuente 3: fallback hardcoded (solo si no hay nada en Firestore)
-    return new Set(["sell"])
-  }, [usuario?.permisos, rolePermisos])
+    
+    // Inyectar 'reservas' por retrocompatibilidad
+    if (usuario?.rol === 'admin' || usuario?.rol === 'cajero' || usuario?.rol === 'supervisor') {
+      finalPerms.add('reservas')
+    }
+    
+    return finalPerms
+  }, [usuario?.permisos, usuario?.rol, rolePermisos])
 
   const modulosSet = useMemo(() => new Set(modulosHabilitados), [modulosHabilitados])
 
