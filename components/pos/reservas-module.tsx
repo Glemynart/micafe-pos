@@ -7,13 +7,13 @@ import { Badge } from '@/components/ui/badge'
 import { Loader2, Calendar as CalendarIcon, Clock, User, Phone, CheckCircle2, XCircle, DollarSign } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 import { suscribirReservasActivas, marcarReservaCompletada, cancelarReserva, registrarIngresoReserva, Reserva } from '@/lib/reservas-service'
-import { useAuth } from '@/contexts/auth-context'
+import { useAuthContext } from '@/contexts/auth-context'
 
 export function ReservasModule() {
   const [reservas, setReservas] = useState<Reserva[]>([])
   const [cargando, setCargando] = useState(true)
   const [procesando, setProcesando] = useState<string | null>(null)
-  const { usuario } = useAuth()
+  const { usuario } = useAuthContext()
 
   useEffect(() => {
     const unsub = suscribirReservasActivas((data) => {
