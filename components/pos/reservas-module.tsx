@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -14,11 +14,42 @@ export function ReservasModule() {
   const [cargando, setCargando] = useState(true)
   const [procesando, setProcesando] = useState<string | null>(null)
   const { usuario } = useAuthContext()
+  const initialLoadRef = useRef(true)
 
   useEffect(() => {
-    const unsub = suscribirReservasActivas((data) => {
+    const unsub = suscribirReservasActivas((data, nuevas) => {
       setReservas(data)
       setCargando(false)
+
+      if (initialLoadRef.current) {
+        initialLoadRef.current = false
+      } else if (nuevas && nuevas.length > 0) {
+        // Reproducir sonido "ding"
+        try {
+          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+          const osc = ctx.createOscillator()
+          const gain = ctx.createGain()
+          osc.connect(gain)
+          gain.connect(ctx.destination)
+          osc.type = 'sine'
+          osc.frequency.setValueAtTime(880, ctx.currentTime) // Tono A5
+          gain.gain.setValueAtTime(0.1, ctx.currentTime) // Volumen
+          osc.start()
+          gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.5)
+          osc.stop(ctx.currentTime + 0.5)
+        } catch (err) {
+          console.error("Audio no soportado o bloqueado", err)
+        }
+
+        // Mostrar notificación visual
+        nuevas.forEach(n => {
+          toast({
+            title: '🔔 ¡NUEVA RESERVA WEB!',
+            description: `${n.clienteNombre} ha reservado una sala.`,
+            className: 'bg-emerald-500 text-white font-bold border-none'
+          })
+        })
+      }
     })
     return () => unsub()
   }, [])
