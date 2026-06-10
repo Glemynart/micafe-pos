@@ -25,6 +25,17 @@ const dayShort = (e: Evento) => new Date(e.fecha + "T" + e.hora).toLocaleDateStr
 const dayNum = (e: Evento) => new Date(e.fecha + "T" + e.hora).getDate()
 const monthShort = (e: Evento) => new Date(e.fecha + "T" + e.hora).toLocaleDateString("es-CO", { month: "short" })
 
+const formatTime = (hora: string) => {
+  if (!hora) return ""
+  const parts = hora.split(":")
+  if (parts.length < 2) return hora
+  let h = parseInt(parts[0], 10)
+  const m = parts[1]
+  const ampm = h >= 12 ? "p. m." : "a. m."
+  h = h % 12 || 12
+  return `${h}:${m} ${ampm}`
+}
+
 export function EventosSection() {
   const [eventos, setEventos] = useState<Evento[]>([])
   const [cargando, setCargando] = useState(true)
@@ -229,7 +240,7 @@ export function EventosSection() {
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "auto", paddingTop: "1rem", borderTop: "1px solid rgba(5, 29, 65, 0.06)" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", padding: "0.4rem 0.75rem", background: NAVY + "08", borderRadius: "0.5rem" }}>
                         <Clock style={{ width: "0.8rem", height: "0.8rem", color: GOLD }} />
-                        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: NAVY }}>{evento.hora}</span>
+                        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: NAVY }}>{formatTime(evento.hora)}</span>
                       </div>
                       {(evento as any).ubicacion && (
                         <div style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", padding: "0.4rem 0.75rem", background: NAVY + "08", borderRadius: "0.5rem" }}>
@@ -355,7 +366,7 @@ export function EventosSection() {
                 <img
                   src={selected.imagenUrl}
                   alt={selected.titulo}
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  style={{ width: "100%", height: "100%", objectFit: "contain" }}
                 />
               ) : (
                 <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: `linear-gradient(135deg, ${style(selected.categoria).bg} 0%, ${style(selected.categoria).accent}22 100%)` }}>
@@ -405,7 +416,7 @@ export function EventosSection() {
                   </div>
                   <div>
                     <p style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#94A3B8" }}>Hora</p>
-                    <p style={{ fontSize: "0.95rem", fontWeight: 700, color: NAVY }}>{selected.hora}</p>
+                    <p style={{ fontSize: "0.95rem", fontWeight: 700, color: NAVY }}>{formatTime(selected.hora)}</p>
                   </div>
                 </div>
                 {(selected as any).ubicacion && (
