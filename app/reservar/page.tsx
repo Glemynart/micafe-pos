@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, ArrowLeft, CalendarDays, Clock, Users, Building, CreditCard } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { toast } from '@/components/ui/use-toast'
+import { toast } from 'sonner'
 import Link from 'next/link'
 import Script from 'next/script'
 import { getReservasMesa, crearReserva, Reserva } from '@/lib/reservas-service'
@@ -131,7 +131,7 @@ export default function ReservarPage() {
         setHorasOcupadas(ocupadas)
         setHorasSeleccionadas([]) // reset selección si cambia fecha/sala
       } catch (error) {
-        toast({ title: 'Error', description: 'No se pudo cargar la disponibilidad.', variant: 'destructive' })
+        toast.error('Error', { description: 'No se pudo cargar la disponibilidad.' })
       } finally {
         setCargandoHorarios(false)
       }
@@ -211,37 +211,37 @@ export default function ReservarPage() {
 
   const procesarReserva = async () => {
     if (clienteNombre.trim().length < 3) {
-      toast({ title: 'Datos Inválidos', description: 'Por favor ingresa tu nombre completo.', variant: 'destructive' })
+      toast.error('Datos Inválidos', { description: 'Por favor ingresa tu nombre completo.' })
       return
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(clienteEmail)) {
-      toast({ title: 'Datos Inválidos', description: 'Por favor ingresa un correo electrónico válido.', variant: 'destructive' })
+      toast.error('Datos Inválidos', { description: 'Por favor ingresa un correo electrónico válido.' })
       return
     }
 
     const phoneRegex = /^\+?[\d\s-]{7,15}$/
     if (!phoneRegex.test(clienteTelefono.trim())) {
-      toast({ title: 'Datos Inválidos', description: 'Por favor ingresa un número de teléfono o WhatsApp válido.', variant: 'destructive' })
+      toast.error('Datos Inválidos', { description: 'Por favor ingresa un número de teléfono o WhatsApp válido.' })
       return
     }
     if (!window.WidgetCheckout) {
-      toast({ title: 'Error', description: 'El widget de pagos aún está cargando...', variant: 'destructive' })
+      toast.error('Error', { description: 'El widget de pagos aún está cargando...' })
       return
     }
 
     const pubKey = process.env.NEXT_PUBLIC_WOMPI_PUB_KEY
     if (!pubKey) {
-      toast({ title: 'Modo de Prueba', description: 'No hay llave Wompi. Simulando pago y guardando la reserva (estado: Pendiente).' })
+      toast.success('Modo de Prueba', { description: 'No hay llave Wompi. Simulando pago y guardando la reserva (estado: Pendiente).' })
       setCargandoPago(true)
       try {
         await crearReservaBase()
-        toast({ title: 'Reserva Confirmada', description: 'La reserva ha sido guardada en la base de datos.' })
+        toast.success('Reserva Confirmada', { description: 'La reserva ha sido guardada en la base de datos.' })
         setPaso(3)
       } catch (err) {
         console.error('Error guardando reserva mock:', err)
-        toast({ title: 'Error', description: 'Hubo un problema guardando la reserva.', variant: 'destructive' })
+        toast.error('Error', { description: 'Hubo un problema guardando la reserva.' })
       } finally {
         setCargandoPago(false)
       }
@@ -267,7 +267,7 @@ export default function ReservarPage() {
       if (transaction.status === 'APPROVED') {
         crearReservaEnFirebase(transaction.id, reservaId)
       } else {
-        toast({ title: 'Pago Fallido', description: 'La transacción no fue aprobada.', variant: 'destructive' })
+        toast.error('Pago Fallido', { description: 'La transacción no fue aprobada.' })
         setCargandoPago(false)
       }
     })
@@ -310,11 +310,11 @@ export default function ReservarPage() {
         const { actualizarEstadoPago } = await import('@/lib/reservas-service')
         await actualizarEstadoPago(reservaExistenteId, 'pagado', referenciaWompi)
       }
-      toast({ title: 'Reserva Confirmada', description: 'Tu pago fue exitoso y la sala ha sido reservada.' })
+      toast.success('Reserva Confirmada', { description: 'Tu pago fue exitoso y la sala ha sido reservada.' })
       setPaso(3)
     } catch (err) {
       console.error('Error confirmando reserva:', err)
-      toast({ title: 'Error', description: 'El pago se procesó pero hubo un error guardando la confirmación. Te contactaremos.', variant: 'destructive' })
+      toast.error('Error', { description: 'El pago se procesó pero hubo un error guardando la confirmación. Te contactaremos.' })
     } finally {
       setCargandoPago(false)
     }
@@ -789,14 +789,14 @@ export default function ReservarPage() {
               </div>
             </div>
 
-            <Link href="/">
+            <a href="/">
               <Button
                 className="w-full h-14 text-lg font-bold rounded-xl shadow-lg"
                 style={{ backgroundColor: '#F9B207', color: '#051D41' }}
               >
                 Volver al Inicio
               </Button>
-            </Link>
+            </a>
           </div>
         )}
         
