@@ -214,6 +214,22 @@ export default function ReservarPage() {
   }
 
   const procesarReserva = async () => {
+    if (clienteNombre.trim().length < 3) {
+      toast({ title: 'Datos Inválidos', description: 'Por favor ingresa tu nombre completo.', variant: 'destructive' })
+      return
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(clienteEmail)) {
+      toast({ title: 'Datos Inválidos', description: 'Por favor ingresa un correo electrónico válido.', variant: 'destructive' })
+      return
+    }
+
+    const phoneRegex = /^\+?[\d\s-]{7,15}$/
+    if (!phoneRegex.test(clienteTelefono.trim())) {
+      toast({ title: 'Datos Inválidos', description: 'Por favor ingresa un número de teléfono o WhatsApp válido.', variant: 'destructive' })
+      return
+    }
     if (!window.WidgetCheckout) {
       toast({ title: 'Error', description: 'El widget de pagos aún está cargando...', variant: 'destructive' })
       return
