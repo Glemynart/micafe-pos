@@ -35,7 +35,7 @@ const COLLECTION_NAME = 'reservas'
 /**
  * Suscribe a las reservas activas del día actual o futuras.
  */
-export function suscribirReservasActivas(callback: (reservas: Reserva[]) => void) {
+export function suscribirReservasActivas(callback: (reservas: Reserva[], nuevas: Reserva[]) => void) {
   const q = query(
     collection(db, COLLECTION_NAME),
     where('estadoReserva', '==', 'activa')
@@ -47,7 +47,11 @@ export function suscribirReservasActivas(callback: (reservas: Reserva[]) => void
       ...(d.data() as Omit<Reserva, 'id'>) 
     })).sort((a, b) => new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime())
     
-    callback(reservas)
+    const nuevas = snapshot.docChanges()
+      .filter(change => change.type === 'added')
+      .map(change => ({ id: change.doc.id, ...change.doc.data() } as Reserva))
+
+    callback(reservas, nuevas)
   })
 }
 
