@@ -307,19 +307,54 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <h3 className="contact-title">Ubicación</h3>
-                    <p className="contact-text">Calle Principal 123<br/>Colombia</p>
+                    <p className="contact-text">Calle Principal 123<br/>Centro de la Ciudad<br/>Colombia</p>
+                  </div>
+                </div>
+
+                <div className="contact-item">
+                  <div className="contact-icon flex items-center justify-center">
+                    <Clock className="w-6 h-6 text-accent" />
+                  </div>
+                  <div>
+                    <h3 className="contact-title">Horario</h3>
+                    <p className="contact-text">Lunes - Domingo<br/>7:00 AM - 10:00 PM</p>
+                  </div>
+                </div>
+
+                <div className="contact-item">
+                  <div className="contact-icon flex items-center justify-center">
+                    <svg className="w-6 h-6 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                  </div>
+                  <div>
+                    <h3 className="contact-title">Teléfono</h3>
+                    <p className="contact-text">+57 123 456 7890</p>
+                  </div>
+                </div>
+
+                <div className="contact-item">
+                  <div className="contact-icon flex items-center justify-center">
+                    <svg className="w-6 h-6 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                  </div>
+                  <div>
+                    <h3 className="contact-title">Email</h3>
+                    <p className="contact-text">hola@cafeatrato.com</p>
                   </div>
                 </div>
               </div>
               
-              <div className="contact-cta">
-                <h3 className="cta-title">¿Listo para reunirte?</h3>
+              <div className="contact-cta flex flex-col justify-center" style={{ backgroundColor: '#051D41', backgroundImage: 'none' }}>
+                <h3 className="cta-title">¿Listo para comenzar?</h3>
                 <p className="cta-text">
-                  Reserva nuestra sala de juntas ahora mismo, paga en línea de forma segura y recibe tu confirmación al instante.
+                  Ven a conocer nuestro espacio. La primera visita incluye café gratis y un tour completo de nuestras instalaciones.
                 </p>
-                <Link href="/reservar" className="btn btn-secondary text-center">
-                  Agendar Sala
-                </Link>
+                <div className="flex flex-col gap-3">
+                  <Link href="/reservar" className="btn btn-secondary text-center w-full shadow-sm">
+                    Agendar una Visita
+                  </Link>
+                  <a href="#features" className="btn text-center w-full shadow-sm" style={{ backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'white' }}>
+                    Ver Planes y Precios
+                  </a>
+                </div>
               </div>
             </div>
           </div>
