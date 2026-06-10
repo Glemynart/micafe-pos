@@ -103,7 +103,7 @@ export default function LandingPage() {
               <a href="https://www.instagram.com/cafeatrato/" target="_blank" rel="noopener" className="text-white/70 hover:text-pink-400 transition-colors" title="Instagram">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
               </a>
-              <a href="https://wa.me/573102971513" target="_blank" rel="noopener" className="text-white/70 hover:text-green-400 transition-colors" title="WhatsApp">
+              <a href="https://wa.me/573102871513" target="_blank" rel="noopener" className="text-white/70 hover:text-green-400 transition-colors" title="WhatsApp">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l1.65-3.8a9 9 0 1110.1-1.4L3 21z"/><path d="M9 10h.01"/><path d="M15 10h.01"/><path d="M9.5 13.5c.82.83 2.15.85 3 .03"/></svg>
               </a>
               <Link href="/reservar" className="bg-secondary text-primary px-5 py-2 rounded-full font-semibold text-sm hover:bg-secondary/90 transition-all">Reservar</Link>
@@ -123,7 +123,7 @@ export default function LandingPage() {
                 <a href="https://www.instagram.com/cafeatrato/" target="_blank" rel="noopener" className="text-white/60 hover:text-pink-400 transition-colors" onClick={() => setMenuOpen(false)}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
                 </a>
-                <a href="https://wa.me/573102971513" target="_blank" rel="noopener" className="text-white/60 hover:text-green-400 transition-colors" onClick={() => setMenuOpen(false)}>
+                <a href="https://wa.me/573102871513" target="_blank" rel="noopener" className="text-white/60 hover:text-green-400 transition-colors" onClick={() => setMenuOpen(false)}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l1.65-3.8a9 9 0 1110.1-1.4L3 21z"/><path d="M9 10h.01"/><path d="M15 10h.01"/><path d="M9.5 13.5c.82.83 2.15.85 3 .03"/></svg>
                 </a>
               </div>
@@ -327,7 +327,7 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <h3 className="contact-title">Teléfono</h3>
-                    <p className="contact-text">+57 310 2971513</p>
+                    <p className="contact-text">+57 310 2871513</p>
                   </div>
                 </div>
 
@@ -363,7 +363,7 @@ export default function LandingPage() {
                 <a href="https://www.instagram.com/cafeatrato/" target="_blank" rel="noopener" title="Instagram" className="social-link">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
                 </a>
-                <a href="https://wa.me/573102971513" target="_blank" rel="noopener" title="WhatsApp" className="social-link">
+                <a href="https://wa.me/573102871513" target="_blank" rel="noopener" title="WhatsApp" className="social-link">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l1.65-3.8a9 9 0 1110.1-1.4L3 21z"/><path d="M9 10h.01"/><path d="M15 10h.01"/><path d="M9.5 13.5c.82.83 2.15.85 3 .03"/></svg>
                 </a>
               </div>
@@ -376,7 +376,7 @@ export default function LandingPage() {
 
         {/* Floating WhatsApp Button */}
         <a
-          href="https://wa.me/573102971513"
+          href="https://wa.me/573102871513"
           target="_blank"
           rel="noopener"
           className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-[#25D366] rounded-full flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 transition-all duration-300 animate-fade-in"
