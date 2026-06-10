@@ -657,18 +657,38 @@ export default function ReservarPage() {
             className="animate-slide-up"
             style={{ maxWidth: '28rem', marginLeft: 'auto', marginRight: 'auto', textAlign: 'center', paddingTop: '2rem' }}
           >
-            <div
-              className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 relative"
-              style={{
-                background: 'linear-gradient(135deg, #F9B207 0%, #d99a06 100%)',
-                boxShadow: '0 0 40px rgba(249, 178, 7, 0.4)',
-              }}
-            >
-              <div className="absolute inset-0 rounded-full animate-ping opacity-20" style={{ backgroundColor: '#F9B207' }}></div>
-              <svg className="w-12 h-12 relative z-10" style={{ color: '#051D41' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7"></path>
-              </svg>
+            {/* Círculo del chulito - centrado con flex */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem' }}>
+              <div
+                style={{
+                  width: '6rem',
+                  height: '6rem',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #F9B207 0%, #d99a06 100%)',
+                  boxShadow: '0 0 40px rgba(249, 178, 7, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative',
+                  flexShrink: 0,
+                }}
+              >
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: '50%',
+                    backgroundColor: '#F9B207',
+                    opacity: 0.2,
+                    animation: 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite',
+                  }}
+                />
+                <svg style={{ width: '3rem', height: '3rem', color: '#051D41', position: 'relative', zIndex: 10 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
             </div>
+
             <h2 className="text-4xl font-black mb-4 tracking-tight" style={{ color: '#051D41' }}>¡Reserva Exitosa!</h2>
             <p className="text-slate-600 text-lg mb-8 leading-relaxed">
               Hemos enviado tu comprobante a <br/><strong style={{ color: '#051D41' }}>{clienteEmail}</strong>
