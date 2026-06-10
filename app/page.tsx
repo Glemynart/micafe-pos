@@ -342,19 +342,11 @@ export default function LandingPage() {
                 </div>
               </div>
               
-              <div className="contact-cta flex flex-col justify-center" style={{ backgroundColor: '#051D41', backgroundImage: 'none' }}>
+              <div className="contact-cta flex flex-col justify-center items-center text-center p-8 md:p-12" style={{ backgroundColor: '#051D41', backgroundImage: 'none' }}>
                 <h3 className="cta-title">¿Listo para comenzar?</h3>
-                <p className="cta-text">
+                <p className="cta-text" style={{ marginBottom: 0 }}>
                   Ven a conocer nuestro espacio. La primera visita incluye café gratis y un tour completo de nuestras instalaciones.
                 </p>
-                <div className="flex flex-col gap-3">
-                  <Link href="/reservar" className="btn btn-secondary text-center w-full shadow-sm">
-                    Agendar una Visita
-                  </Link>
-                  <a href="#features" className="btn text-center w-full shadow-sm" style={{ backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'white' }}>
-                    Ver Planes y Precios
-                  </a>
-                </div>
               </div>
             </div>
           </div>
