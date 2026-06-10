@@ -60,36 +60,26 @@ export async function getReservasMesa(mesaId: string, fechaDia: string): Promise
   const finDia = new Date(fechaDia)
   finDia.setHours(23, 59, 59, 999)
 
-  // Firebase requiere índice compuesto para (mesaId + estadoReserva + fechaInicio).
-  // Para garantizar que use el índice existente (mesaId, estadoReserva, fechaInicio),
-  // hacemos dos consultas separadas con '==' en vez de 'in' y combinamos los resultados.
-  const qActiva = query(
+  // Solo usamos un filtro de igualdad (mesaId) para que Firebase use el índice automático
+  // de un solo campo. Si mezclamos con fechaInicio (desigualdad) o estadoReserva, Firebase
+  // arrojará un error de "missing composite index" y fallará la consulta, mostrando todo libre.
+  const q = query(
     collection(db, COLLECTION_NAME),
-    where('mesaId', '==', mesaId),
-    where('estadoReserva', '==', 'activa'),
-    where('fechaInicio', '>=', inicioDia.toISOString()),
-    where('fechaInicio', '<=', finDia.toISOString())
+    where('mesaId', '==', mesaId)
   )
 
-  const qCompletada = query(
-    collection(db, COLLECTION_NAME),
-    where('mesaId', '==', mesaId),
-    where('estadoReserva', '==', 'completada'),
-    where('fechaInicio', '>=', inicioDia.toISOString()),
-    where('fechaInicio', '<=', finDia.toISOString())
-  )
-
-  const [snapActiva, snapCompletada] = await Promise.all([
-    getDocs(qActiva),
-    getDocs(qCompletada)
-  ])
-
-  const reservas = [...snapActiva.docs, ...snapCompletada.docs].map(d => ({ 
-    id: d.id, 
-    ...(d.data() as Omit<Reserva, 'id'>) 
-  }))
+  const snapshot = await getDocs(q)
+  const todas = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as Omit<Reserva, 'id'>) }))
   
-  return reservas
+  // Filtramos en memoria el estado y la fecha para reemplazar los índices faltantes
+  const inicioIso = inicioDia.toISOString()
+  const finIso = finDia.toISOString()
+
+  return todas.filter(r => {
+    const esActivaOCompletada = r.estadoReserva === 'activa' || r.estadoReserva === 'completada'
+    const enRangoDeFecha = r.fechaInicio >= inicioIso && r.fechaInicio <= finIso
+    return esActivaOCompletada && enRangoDeFecha
+  })
 }
 
 // ─── ESCRITURA ────────────────────────────────────────────────────────────────
