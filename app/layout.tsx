@@ -31,6 +31,7 @@ export const metadata: Metadata = {
   },
 }
 import { Toaster } from 'sonner'
+import { Toaster as ShadcnToaster } from '@/components/ui/toaster'
 
 import { ThemeProvider } from '@/components/theme-provider'
 
@@ -53,6 +54,7 @@ export default function RootLayout({
               </UIProvider>
             </EspaciosProvider>
           </AuthProvider>
+          <ShadcnToaster />
           <Toaster richColors position="top-center" expand={false} />
           {process.env.NODE_ENV === 'production' && <Analytics />}
         </ThemeProvider>
