@@ -1,5 +1,16 @@
 import { db } from './firebase'
-import { collection, doc, setDoc, onSnapshot, query, where, orderBy, getDocs, updateDoc, deleteDoc } from 'firebase/firestore'
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  onSnapshot, 
+  query, 
+  where, 
+  getDocs, 
+  updateDoc, 
+  serverTimestamp, 
+  runTransaction 
+} from 'firebase/firestore'
 
 export interface Reserva {
   id: string
@@ -49,16 +60,26 @@ export async function getReservasMesa(mesaId: string, fechaDia: string): Promise
   const finDia = new Date(fechaDia)
   finDia.setHours(23, 59, 59, 999)
 
-  const q = query(
+  // Bloquear slots para reservas activas O completadas (pagadas).
+  // Solo las canceladas liberan el horario.
+  const qActivas = query(
     collection(db, COLLECTION_NAME),
     where('mesaId', '==', mesaId),
     where('estadoReserva', '==', 'activa'),
     where('fechaInicio', '>=', inicioDia.toISOString()),
     where('fechaInicio', '<=', finDia.toISOString())
   )
-  
-  const snapshot = await getDocs(q)
-  return snapshot.docs.map(d => ({ id: d.id, ...(d.data() as Omit<Reserva, 'id'>) }))
+  const qCompletadas = query(
+    collection(db, COLLECTION_NAME),
+    where('mesaId', '==', mesaId),
+    where('estadoReserva', '==', 'completada'),
+    where('fechaInicio', '>=', inicioDia.toISOString()),
+    where('fechaInicio', '<=', finDia.toISOString())
+  )
+
+  const [snapActivas, snapCompletadas] = await Promise.all([getDocs(qActivas), getDocs(qCompletadas)])
+  const toReserva = (d: any): Reserva => ({ id: d.id, ...(d.data() as Omit<Reserva, 'id'>) })
+  return [...snapActivas.docs.map(toReserva), ...snapCompletadas.docs.map(toReserva)]
 }
 
 // ─── ESCRITURA ────────────────────────────────────────────────────────────────
@@ -80,5 +101,66 @@ export async function cancelarReserva(reservaId: string) {
 }
 
 export async function marcarReservaCompletada(reservaId: string) {
-  await updateDoc(doc(db, COLLECTION_NAME, reservaId), { estadoReserva: 'completada' })
+  // Marcar como completada y confirmar pago al mismo tiempo
+  await updateDoc(doc(db, COLLECTION_NAME, reservaId), {
+    estadoReserva: 'completada',
+    estadoPago: 'pagado',
+    fechaCompletada: new Date().toISOString(),
+  })
+}
+
+/**
+ * Registra el ingreso de una reserva en la colección ventas,
+ * usando transferencia como método de pago (Wompi web).
+ */
+export async function registrarIngresoReserva(params: {
+  reservaId: string
+  clienteNombre: string
+  mesaId: string
+  espacioId: string
+  montoTotal: number
+  turnoId: string
+  cajeroId: string
+}) {
+  const ventasRef = collection(db, 'ventas')
+  const nuevaVentaDoc = doc(ventasRef)
+
+  await runTransaction(db, async (transaction) => {
+    // Leer y actualizar consecutivo
+    const configRef = doc(db, 'configuracion', 'general')
+    const configSnap = await transaction.get(configRef)
+    const nuevoConsecutivo = (configSnap.exists() ? (configSnap.data().consecutivo_actual || 0) : 0) + 1
+    transaction.set(configRef, { consecutivo_actual: nuevoConsecutivo }, { merge: true })
+
+    // Crear registro de venta
+    transaction.set(nuevaVentaDoc, {
+      consecutivo: nuevoConsecutivo,
+      fecha: serverTimestamp(),
+      turnoId: params.turnoId,
+      cajeroId: params.cajeroId,
+      espacioId: params.espacioId,
+      clienteNombre: params.clienteNombre,
+      metodoPago: 'transferencia',
+      estado: 'pagada',
+      origenReserva: params.reservaId,
+      items: [
+        {
+          id: `reserva-${params.reservaId}`,
+          nombre: `Reserva sala: ${params.mesaId}`,
+          cantidad: 1,
+          precioUnitario: params.montoTotal,
+          costoUnitario: 0,
+          subtotal: params.montoTotal,
+        },
+      ],
+      totales: {
+        subtotal: params.montoTotal,
+        iva: 0,
+        impoconsumo: 0,
+        total: params.montoTotal,
+      },
+    })
+
+    return nuevoConsecutivo
+  })
 }

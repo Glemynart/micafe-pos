@@ -4,13 +4,16 @@ import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Calendar as CalendarIcon, Clock, User, Phone, CheckCircle2, XCircle } from 'lucide-react'
+import { Loader2, Calendar as CalendarIcon, Clock, User, Phone, CheckCircle2, XCircle, DollarSign } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
-import { suscribirReservasActivas, marcarReservaCompletada, cancelarReserva, Reserva } from '@/lib/reservas-service'
+import { suscribirReservasActivas, marcarReservaCompletada, cancelarReserva, registrarIngresoReserva, Reserva } from '@/lib/reservas-service'
+import { useAuth } from '@/contexts/auth-context'
 
 export function ReservasModule() {
   const [reservas, setReservas] = useState<Reserva[]>([])
   const [cargando, setCargando] = useState(true)
+  const [procesando, setProcesando] = useState<string | null>(null)
+  const { usuario } = useAuth()
 
   useEffect(() => {
     const unsub = suscribirReservasActivas((data) => {
@@ -20,22 +23,45 @@ export function ReservasModule() {
     return () => unsub()
   }, [])
 
-  const handleCompletar = async (id: string) => {
+  const handleCompletar = async (reserva: Reserva) => {
+    setProcesando(reserva.id)
     try {
-      await marcarReservaCompletada(id)
-      toast({ title: 'Reserva completada', description: 'La reserva se marcó como completada exitosamente.' })
+      // 1. Marcar reserva como completada + estadoPago = pagado
+      await marcarReservaCompletada(reserva.id)
+
+      // 2. Registrar ingreso en ventas (para que cuadre en caja/reportes)
+      await registrarIngresoReserva({
+        reservaId: reserva.id,
+        clienteNombre: reserva.clienteNombre,
+        mesaId: reserva.mesaId,
+        espacioId: reserva.espacioId || 'salas-coworking',
+        montoTotal: reserva.montoTotal,
+        turnoId: (reserva as any).turnoId || 'sin-turno',
+        cajeroId: usuario?.uid || 'sistema',
+      })
+
+      toast({
+        title: '✅ Reserva completada',
+        description: `Ingreso de $${reserva.montoTotal.toLocaleString('es-CO')} registrado en caja.`,
+      })
     } catch (err) {
+      console.error('Error completando reserva:', err)
       toast({ title: 'Error', description: 'No se pudo completar la reserva.', variant: 'destructive' })
+    } finally {
+      setProcesando(null)
     }
   }
 
   const handleCancelar = async (id: string) => {
     if (!window.confirm('¿Seguro que deseas cancelar esta reserva?')) return
+    setProcesando(id)
     try {
       await cancelarReserva(id)
-      toast({ title: 'Reserva cancelada' })
+      toast({ title: 'Reserva cancelada', description: 'El horario quedó disponible nuevamente.' })
     } catch (err) {
       toast({ title: 'Error', description: 'No se pudo cancelar la reserva.', variant: 'destructive' })
+    } finally {
+      setProcesando(null)
     }
   }
 
@@ -101,11 +127,26 @@ export function ReservasModule() {
                 </div>
               </CardContent>
               <div className="p-4 border-t bg-muted/20 flex gap-2">
-                <Button variant="outline" className="flex-1 bg-white hover:bg-red-50 hover:text-red-600 border-red-200" onClick={() => handleCancelar(reserva.id)}>
-                  <XCircle className="h-4 w-4 mr-2" /> Cancelar
+                <Button
+                  variant="outline"
+                  className="flex-1 bg-white hover:bg-red-50 hover:text-red-600 border-red-200"
+                  disabled={procesando === reserva.id}
+                  onClick={() => handleCancelar(reserva.id)}
+                >
+                  {procesando === reserva.id
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <><XCircle className="h-4 w-4 mr-2" /> Cancelar</>
+                  }
                 </Button>
-                <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" onClick={() => handleCompletar(reserva.id)}>
-                  <CheckCircle2 className="h-4 w-4 mr-2" /> Listo
+                <Button
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                  disabled={procesando === reserva.id}
+                  onClick={() => handleCompletar(reserva)}
+                >
+                  {procesando === reserva.id
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <><CheckCircle2 className="h-4 w-4 mr-2" /> Listo</>
+                  }
                 </Button>
               </div>
             </Card>
