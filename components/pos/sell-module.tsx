@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useEspacios } from '@/contexts/espacios-context'
 import { useAuthContext } from '@/contexts/auth-context'
 import { suscribirProductos, type Producto } from '@/lib/productos-service'
@@ -74,44 +74,54 @@ export function SellModule() {
   const { usuario } = useAuthContext()
   const { espacioActivo, categorias, categoriaActiva, seleccionarCategoria } = useEspacios()
 
-  const categoriesRef = useRef<HTMLDivElement | null>(null)
   const [catScroll, setCatScroll] = useState({ canLeft: false, canRight: false })
 
-  const updateScrollButtons = useCallback(() => {
-    const el = categoriesRef.current
+  // Callback ref: se ejecuta inmediatamente cuando el DOM esta listo
+  const categoriesRef = useCallback((el: HTMLDivElement | null) => {
     if (!el) return
-    setCatScroll({
-      canLeft: el.scrollLeft > 4,
-      canRight: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
-    })
-  }, [])
-
-  useEffect(() => {
-    const el = categoriesRef.current
-    if (!el) return
-    updateScrollButtons()
-    el.addEventListener('scroll', updateScrollButtons, { passive: true })
-    window.addEventListener('resize', updateScrollButtons)
-    // Mouse wheel -> scroll horizontal (POS con mouse)
+    const check = () => {
+      setCatScroll({
+        canLeft: el.scrollLeft > 4,
+        canRight: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+      })
+    }
+    // Esperar al siguiente frame para que el contenido este renderizado
+    requestAnimationFrame(check)
+    el.addEventListener('scroll', check, { passive: true })
+    window.addEventListener('resize', check)
+    // Mouse wheel -> scroll horizontal
     const onWheel = (e: WheelEvent) => {
-      if (e.deltaY === 0 || Math.abs(e.deltaY) < Math.abs(e.deltaX || 0)) return
+      if (e.deltaY === 0 || Math.abs(e.deltaX || 0) > Math.abs(e.deltaY)) return
       e.preventDefault()
       el.scrollLeft += e.deltaY
     }
     el.addEventListener('wheel', onWheel, { passive: false })
-    // Re-evaluar cuando cambien las categorias
-    const ro = new ResizeObserver(updateScrollButtons)
+    const ro = new ResizeObserver(check)
     ro.observe(el)
-    return () => {
-      el.removeEventListener('scroll', updateScrollButtons)
-      window.removeEventListener('resize', updateScrollButtons)
+    // Cleanup
+    const cleanup = () => {
+      el.removeEventListener('scroll', check)
+      window.removeEventListener('resize', check)
       el.removeEventListener('wheel', onWheel)
       ro.disconnect()
     }
-  }, [categorias, updateScrollButtons])
+    ;(el as any).__catCleanup = cleanup
+  }, [])
+
+  // Re-evaluar scroll cuando cambien las categorias (puede haber overflow nuevo)
+  useEffect(() => {
+    const el = document.querySelector('[data-categories-scroller]') as HTMLDivElement | null
+    if (!el) return
+    requestAnimationFrame(() => {
+      setCatScroll({
+        canLeft: el.scrollLeft > 4,
+        canRight: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+      })
+    })
+  }, [categorias])
 
   const scrollCategories = (dir: 'left' | 'right') => {
-    const el = categoriesRef.current
+    const el = document.querySelector('[data-categories-scroller]') as HTMLDivElement | null
     if (!el) return
     const amount = el.clientWidth * 0.6
     el.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' })
@@ -570,6 +580,7 @@ export function SellModule() {
             )}
             <TabsList
               ref={categoriesRef}
+              data-categories-scroller="true"
               className="flex gap-2 overflow-x-auto pb-2 bg-transparent border-none h-auto scrollbar-none snap-x snap-mandatory"
               style={{ WebkitOverflowScrolling: 'touch', display: 'flex', flexWrap: 'nowrap' }}
             >
