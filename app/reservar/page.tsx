@@ -290,6 +290,37 @@ export default function ReservarPage() {
 
   return (
     <div className="reservar-page min-h-screen pb-12 relative overflow-hidden">
+      {/* Botón flotante mobile: aparece cuando sala+fecha seleccionados, invita a ver agenda */}
+      {paso === 1 && salaSeleccionada && fecha && (
+        <div
+          className="lg:hidden fixed bottom-6 left-1/2 z-50 animate-bounce"
+          style={{ transform: 'translateX(-50%)' }}
+        >
+          <button
+            onClick={() => {
+              document.getElementById('horarios-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }}
+            style={{
+              background: 'linear-gradient(135deg, #051D41 0%, #0a2659 100%)',
+              color: '#F9B207',
+              padding: '0.75rem 1.5rem',
+              borderRadius: '9999px',
+              fontWeight: 800,
+              fontSize: '0.9rem',
+              boxShadow: '0 8px 24px -4px rgba(5,29,65,0.5)',
+              border: '2px solid rgba(249,178,7,0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              cursor: 'pointer',
+              letterSpacing: '0.02em',
+            }}
+          >
+            Ver horarios disponibles ↓
+          </button>
+        </div>
+      )}
+
       {/* Background decorations for a premium look */}
       <div className="absolute top-0 left-0 w-full h-[300px] bg-[#051D41]/5 -skew-y-3 transform origin-top-left z-0"></div>
       <div className="absolute top-[-100px] right-[-100px] w-96 h-96 bg-[#F9B207]/15 rounded-full blur-3xl z-0 pointer-events-none"></div>
@@ -376,7 +407,7 @@ export default function ReservarPage() {
             </div>
 
             {/* Agenda (Paso 1.5) */}
-            <div>
+            <div id="horarios-section">
               <Card
                 className={`reservar-card h-full transition-all duration-300 ${!fecha || !salaSeleccionada ? 'opacity-50 grayscale pointer-events-none translate-y-4' : ''}`}
                 style={{ gap: '1rem' }}
