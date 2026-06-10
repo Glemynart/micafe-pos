@@ -504,53 +504,52 @@ export default function ReservarPage() {
               </CardHeader>
 
               <CardContent className="pt-6" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                {/* Resumen */}
+                {/* Resumen — 2×2 grid */}
                 <div
-                  className="p-5 rounded-2xl mb-6 border relative overflow-hidden"
+                  className="p-5 rounded-2xl border relative overflow-hidden"
                   style={{
                     background: 'linear-gradient(135deg, #051D41 0%, #0a2659 100%)',
-                    borderColor: '#F9B207',
-                    boxShadow: '0 8px 24px -8px rgba(5, 29, 65, 0.3)',
+                    borderColor: 'rgba(249,178,7,0.4)',
+                    boxShadow: '0 8px 32px -8px rgba(5, 29, 65, 0.35)',
                   }}
                 >
                   <div
-                    className="absolute top-0 right-0 w-32 h-32 rounded-full blur-2xl transform translate-x-10 -translate-y-10"
-                    style={{ backgroundColor: 'rgba(249, 178, 7, 0.25)' }}
-                  ></div>
-
-                  <h4 className="text-xs font-bold uppercase tracking-widest mb-3 relative z-10" style={{ color: '#F9B207' }}>Resumen de tu Reserva</h4>
+                    className="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl"
+                    style={{ backgroundColor: 'rgba(249, 178, 7, 0.18)', transform: 'translate(30%, -30%)' }}
+                  />
+                  <h4 className="text-xs font-bold uppercase tracking-widest mb-4 relative z-10" style={{ color: '#F9B207' }}>Resumen de tu Reserva</h4>
                   <div
-                    className="reservar-summary-grid relative z-10"
-                    style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}
+                    className="relative z-10"
+                    style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(249, 178, 7, 0.20)' }}>
-                        <Building className="h-5 w-5" style={{ color: '#F9B207' }} />
+                      <div className="p-2 rounded-lg flex-shrink-0" style={{ backgroundColor: 'rgba(249, 178, 7, 0.20)' }}>
+                        <Building className="h-4 w-4" style={{ color: '#F9B207' }} />
                       </div>
-                      <div>
-                        <p className="text-xs text-white/60">Espacio</p>
-                        <p className="font-medium text-sm leading-tight text-white">{salas.find(s => s.id === salaSeleccionada)?.nombre}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(249, 178, 7, 0.20)' }}>
-                        <CalendarDays className="h-5 w-5" style={{ color: '#F9B207' }} />
-                      </div>
-                      <div>
-                        <p className="text-xs text-white/60">Fecha</p>
-                        <p className="font-medium text-sm capitalize text-white">{fecha?.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
+                      <div className="min-w-0">
+                        <p className="text-xs text-white/50 font-medium mb-0.5">Espacio</p>
+                        <p className="font-semibold text-sm text-white leading-tight truncate">{salas.find(s => s.id === salaSeleccionada)?.nombre}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(249, 178, 7, 0.20)' }}>
-                        <Clock className="h-5 w-5" style={{ color: '#F9B207' }} />
+                      <div className="p-2 rounded-lg flex-shrink-0" style={{ backgroundColor: 'rgba(249, 178, 7, 0.20)' }}>
+                        <CalendarDays className="h-4 w-4" style={{ color: '#F9B207' }} />
                       </div>
-                      <div>
-                        <p className="text-xs text-white/60">Horario</p>
-                        <p className="font-medium text-sm text-white">
+                      <div className="min-w-0">
+                        <p className="text-xs text-white/50 font-medium mb-0.5">Fecha</p>
+                        <p className="font-semibold text-sm capitalize text-white leading-tight">{fecha?.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg flex-shrink-0" style={{ backgroundColor: 'rgba(249, 178, 7, 0.20)' }}>
+                        <Clock className="h-4 w-4" style={{ color: '#F9B207' }} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs text-white/50 font-medium mb-0.5">Horario</p>
+                        <p className="font-semibold text-sm text-white leading-tight">
                           {(() => {
                             const r = calcularRangoVisual()
-                            if (r) return `${r.inicio} a ${r.fin} (${r.duracion}h)`
+                            if (r) return `${r.inicio} - ${r.fin} (${r.duracion}h)`
                             const u = horasSeleccionadas[0]
                             return u ? `${u} (1h)` : ''
                           })()}
@@ -558,49 +557,47 @@ export default function ReservarPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(249, 178, 7, 0.20)' }}>
-                        <CreditCard className="h-5 w-5" style={{ color: '#F9B207' }} />
+                      <div className="p-2 rounded-lg flex-shrink-0" style={{ backgroundColor: 'rgba(249, 178, 7, 0.20)' }}>
+                        <CreditCard className="h-4 w-4" style={{ color: '#F9B207' }} />
                       </div>
-                      <div>
-                        <p className="text-xs text-white/60">Total</p>
-                        <p className="font-bold text-base" style={{ color: '#F9B207' }}>${calcularTotal().toLocaleString('es-CO')}</p>
+                      <div className="min-w-0">
+                        <p className="text-xs text-white/50 font-medium mb-0.5">Total</p>
+                        <p className="font-black text-base leading-tight" style={{ color: '#F9B207' }}>${calcularTotal().toLocaleString('es-CO')}</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
+                {/* Campos */}
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="font-semibold" style={{ color: '#051D41' }}>Nombre Completo</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-semibold" style={{ color: '#051D41' }}>Nombre Completo</Label>
                     <Input
-                      className="h-12 rounded-xl bg-slate-50 text-base"
-                      style={{ borderColor: 'rgba(5, 29, 65, 0.20)' }}
+                      className="h-12 rounded-xl text-base border-2 bg-white focus:border-[#F9B207] transition-colors"
+                      style={{ borderColor: 'rgba(5, 29, 65, 0.15)', color: '#051D41' }}
                       value={clienteNombre}
                       onChange={e => setClienteNombre(e.target.value)}
                       placeholder="Ej. Juan Pérez"
                     />
                   </div>
-                  <div
-                    className="reservar-form-grid"
-                    style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}
-                  >
-                    <div className="space-y-2">
-                      <Label className="font-semibold" style={{ color: '#051D41' }}>Correo Electrónico</Label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-semibold" style={{ color: '#051D41' }}>Correo Electrónico</Label>
                       <Input
                         type="email"
-                        className="h-12 rounded-xl bg-slate-50 text-base"
-                        style={{ borderColor: 'rgba(5, 29, 65, 0.20)' }}
+                        className="h-12 rounded-xl text-base border-2 bg-white focus:border-[#F9B207] transition-colors"
+                        style={{ borderColor: 'rgba(5, 29, 65, 0.15)', color: '#051D41' }}
                         value={clienteEmail}
                         onChange={e => setClienteEmail(e.target.value)}
                         placeholder="juan@ejemplo.com"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label className="font-semibold" style={{ color: '#051D41' }}>Teléfono / WhatsApp</Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-semibold" style={{ color: '#051D41' }}>Teléfono / WhatsApp</Label>
                       <Input
                         type="tel"
-                        className="h-12 rounded-xl bg-slate-50 text-base"
-                        style={{ borderColor: 'rgba(5, 29, 65, 0.20)' }}
+                        className="h-12 rounded-xl text-base border-2 bg-white focus:border-[#F9B207] transition-colors"
+                        style={{ borderColor: 'rgba(5, 29, 65, 0.15)', color: '#051D41' }}
                         value={clienteTelefono}
                         onChange={e => setClienteTelefono(e.target.value)}
                         placeholder="300 123 4567"
@@ -609,20 +606,21 @@ export default function ReservarPage() {
                   </div>
                 </div>
               </CardContent>
+
               <CardFooter
-                className="pt-4 reservar-footer-row"
-                style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}
+                className="pt-4"
+                style={{ display: 'flex', flexDirection: 'row', gap: '0.75rem', padding: '1rem 1.5rem 1.5rem' }}
               >
                 <Button
                   variant="outline"
                   onClick={() => setPaso(1)}
-                  className="footer-volver w-full h-14 rounded-xl font-semibold"
+                  className="h-14 rounded-xl font-semibold flex-[1]"
                   style={{ borderColor: 'rgba(5, 29, 65, 0.20)', color: '#051D41', backgroundColor: 'transparent' }}
                 >
                   Volver
                 </Button>
                 <Button
-                  className="footer-pagar w-full h-14 rounded-xl font-bold text-lg shadow-lg"
+                  className="h-14 rounded-xl font-bold text-base shadow-lg flex-[3] relative"
                   style={{ backgroundColor: '#F9B207', color: '#051D41' }}
                   disabled={!clienteNombre || !clienteEmail || !clienteTelefono || cargandoPago}
                   onClick={procesarReserva}
@@ -632,10 +630,10 @@ export default function ReservarPage() {
                       <Loader2 className="h-5 w-5 animate-spin" /> Procesando...
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 justify-center w-full relative">
-                      <span>Pagar Seguro</span>
+                    <div className="flex items-center justify-center gap-3 w-full">
+                      <span className="font-black text-lg">Pagar Seguro</span>
                       <span
-                        className="absolute right-4 px-3 py-1 rounded-full text-sm font-black"
+                        className="px-3 py-1 rounded-full text-sm font-black"
                         style={{ backgroundColor: 'rgba(5, 29, 65, 0.15)' }}
                       >
                         ${calcularTotal().toLocaleString('es-CO')}
