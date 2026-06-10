@@ -10,6 +10,7 @@ import { Loader2, ArrowLeft, CalendarDays, Clock, Users, Building, CreditCard } 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
 import Link from 'next/link'
+import Script from 'next/script'
 import { getReservasMesa, crearReserva, Reserva } from '@/lib/reservas-service'
 import { db } from '@/lib/firebase'
 import { collection, getDocs } from 'firebase/firestore'
@@ -133,18 +134,7 @@ export default function ReservarPage() {
     checkDisponibilidad()
   }, [fecha, salaSeleccionada])
 
-  // Cargar Wompi Script
-  useEffect(() => {
-    const script = document.createElement('script')
-    script.src = 'https://checkout.wompi.co/widget.js'
-    script.async = true
-    document.body.appendChild(script)
-    return () => { 
-      if (script.parentNode) {
-        script.parentNode.removeChild(script) 
-      }
-    }
-  }, [])
+  // Wompi script is now loaded via next/script
 
   const toggleHora = (hora: string) => {
     if (horasOcupadas.includes(hora)) return
@@ -326,6 +316,7 @@ export default function ReservarPage() {
 
   return (
     <div className="reservar-page min-h-screen pb-12 relative overflow-hidden">
+      <Script src="https://checkout.wompi.co/widget.js" strategy="lazyOnload" />
       {/* Botón flotante mobile: aparece cuando sala+fecha seleccionados, invita a ver agenda */}
       {paso === 1 && salaSeleccionada && fecha && (
         <div
