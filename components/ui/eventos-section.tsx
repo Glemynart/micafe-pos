@@ -287,8 +287,7 @@ export function EventosSection() {
               @media (max-width: 767px) {
                 .eventos-modal-overlay {
                   padding: 0 !important;
-                  align-items: stretch !important;
-                  justify-content: stretch !important;
+                  align-items: flex-start !important;
                 }
                 .eventos-modal {
                   flex-direction: column !important;
@@ -296,18 +295,31 @@ export function EventosSection() {
                   height: 100dvh !important;
                   border-radius: 0 !important;
                   max-width: 100% !important;
+                  overflow-y: auto !important;
+                  display: block !important;
                 }
                 .eventos-modal .modal-image {
-                  height: 200px !important;
                   width: 100% !important;
-                  min-height: 200px !important;
-                  flex-shrink: 0 !important;
+                  min-height: auto !important;
+                  height: auto !important;
+                  display: block !important;
+                }
+                .eventos-modal .modal-image img {
+                  height: auto !important;
+                  max-height: 60vh !important;
+                  object-fit: contain !important;
+                  display: block;
+                  margin: 0 auto;
                 }
                 .eventos-modal .modal-content {
                   width: 100% !important;
-                  flex: 1 1 auto !important;
-                  min-height: 0 !important;
                   padding: 1.5rem !important;
+                  overflow-y: visible !important;
+                }
+                .eventos-modal > button {
+                  position: fixed !important;
+                  top: 1rem !important;
+                  right: 1rem !important;
                 }
               }
             `}</style>
