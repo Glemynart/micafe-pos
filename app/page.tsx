@@ -241,9 +241,9 @@ export default function LandingPage() {
             <h2 className="section-title">Nuestra Carta</h2>
             <p className="section-subtitle">Explora nuestro menú digital antes de tu visita</p>
             <div className="menu-preview max-w-5xl mx-auto rounded-3xl overflow-hidden shadow-xl mt-10 hover:shadow-2xl transition-all cursor-pointer">
-              <Link href="#">
+              <a href="https://linktr.ee/cafeatrato?utm_source=qr_code" target="_blank" rel="noopener noreferrer">
                 <img src="/landing-assets/carta-btn.jpg" alt="Nuestra Carta" className="w-full h-auto object-cover" />
-              </Link>
+              </a>
             </div>
           </div>
         </section>
