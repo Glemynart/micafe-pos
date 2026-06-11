@@ -375,6 +375,11 @@ export default function LandingPage() {
               </div>
               <div className="footer-copyright">
                 <p>&copy; 2026 Café Atrato. Todos los derechos reservados.</p>
+                <div style={{ marginTop: "0.5rem" }}>
+                  <Link href="/terminos" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.5)", textDecoration: "underline" }}>
+                    Términos, Condiciones y Privacidad
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
