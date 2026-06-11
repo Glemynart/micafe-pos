@@ -326,47 +326,31 @@ export default function ReservarPage() {
       {/* Botón flotante mobile: aparece cuando sala+fecha seleccionados, invita a ver agenda */}
       {paso === 1 && salaSeleccionada && fecha && (
         <div
-          className="lg:hidden fixed bottom-6 left-1/2 z-50 animate-bounce"
+          className="lg:hidden fixed bottom-6 left-1/2 z-50"
           style={{ transform: 'translateX(-50%)' }}
         >
           <button
+            className="reservar-mobile-jump"
             onClick={() => {
               document.getElementById('horarios-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
             }}
-            style={{
-              background: 'linear-gradient(135deg, #051D41 0%, #0a2659 100%)',
-              color: '#F9B207',
-              padding: '0.75rem 1.5rem',
-              borderRadius: '9999px',
-              fontWeight: 800,
-              fontSize: '0.9rem',
-              boxShadow: '0 8px 24px -4px rgba(5,29,65,0.5)',
-              border: '2px solid rgba(249,178,7,0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              cursor: 'pointer',
-              letterSpacing: '0.02em',
-            }}
           >
-            Ver horarios disponibles ↓
+            Ver horarios disponibles
           </button>
         </div>
       )}
 
-      {/* Background decorations for a premium look */}
-      <div className="absolute top-0 left-0 w-full h-[300px] bg-[#051D41]/5 -skew-y-3 transform origin-top-left z-0"></div>
-      <div className="absolute top-[-100px] right-[-100px] w-96 h-96 bg-[#F9B207]/15 rounded-full blur-3xl z-0 pointer-events-none"></div>
-      <div className="absolute bottom-[-150px] left-[-100px] w-96 h-96 bg-[#051D41]/8 rounded-full blur-3xl z-0 pointer-events-none"></div>
-
       {/* Header simple */}
-      <header className="bg-white/90 backdrop-blur-md border-b border-[#051D41]/10 py-3 px-4 md:py-4 md:px-6 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+      <header className="reservar-header">
         <div className="flex items-center gap-2 md:gap-3">
-          <Link href="/" className="text-[#051D41]/70 hover:text-[#051D41] transition-colors bg-[#051D41]/5 p-2 rounded-full hover:bg-[#F9B207]/15">
+          <Link href="/" className="reservar-back-link" aria-label="Volver al inicio">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <span className="font-bold text-[#051D41] text-lg md:text-xl font-sans tracking-tight hidden sm:inline">Reservar Sala</span>
-          <span className="font-bold text-[#051D41] text-lg font-sans tracking-tight sm:hidden">Reservar</span>
+          <div>
+            <span className="font-bold text-[#051D41] text-lg md:text-xl font-sans tracking-tight hidden sm:inline">Reservar Sala</span>
+            <span className="font-bold text-[#051D41] text-lg font-sans tracking-tight sm:hidden">Reservar</span>
+            <p className="reservar-header-caption hidden sm:block">Café Atrato Coworking</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {/* Progress indicators */}
@@ -380,6 +364,12 @@ export default function ReservarPage() {
       </header>
 
       <div className="reservar-container">
+        <section className="reservar-hero-panel">
+          <p className="reservar-kicker">Reserva en minutos</p>
+          <h1>Elige tu sala, confirma el horario y paga seguro.</h1>
+          <p>Un flujo simple para separar espacios de reunión sin llamadas ni esperas.</p>
+        </section>
+
         {paso === 1 && (
           <div key="step1" className="reservar-step1-grid">
             {/* Selección Sala y Fecha */}
@@ -582,10 +572,7 @@ export default function ReservarPage() {
                     style={{ backgroundColor: 'rgba(249, 178, 7, 0.18)', transform: 'translate(30%, -30%)' }}
                   />
                   <h4 className="text-xs font-bold uppercase tracking-widest mb-4 relative z-10" style={{ color: '#F9B207' }}>Resumen de tu Reserva</h4>
-                  <div
-                    className="relative z-10"
-                    style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}
-                  >
+                  <div className="reservar-summary-grid relative z-10">
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-lg flex-shrink-0" style={{ backgroundColor: 'rgba(249, 178, 7, 0.20)' }}>
                         <Building className="h-4 w-4" style={{ color: '#F9B207' }} />
@@ -644,7 +631,7 @@ export default function ReservarPage() {
                       placeholder="Ej. Juan Pérez"
                     />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="reservar-form-grid">
                     <div className="space-y-1.5">
                       <Label className="text-sm font-semibold" style={{ color: '#051D41' }}>Correo Electrónico</Label>
                       <Input
@@ -672,19 +659,18 @@ export default function ReservarPage() {
               </CardContent>
 
               <CardFooter
-                className="pt-4"
-                style={{ display: 'flex', flexDirection: 'row', gap: '0.75rem', padding: '1rem 1.5rem 1.5rem' }}
+                className="reservar-footer-row"
               >
                 <Button
                   variant="outline"
                   onClick={() => setPaso(1)}
-                  className="h-14 rounded-xl font-semibold flex-[1]"
+                  className="footer-volver h-14 rounded-xl font-semibold"
                   style={{ borderColor: 'rgba(5, 29, 65, 0.20)', color: '#051D41', backgroundColor: 'transparent' }}
                 >
                   Volver
                 </Button>
                 <Button
-                  className="h-14 rounded-xl font-bold text-base shadow-lg flex-[3] relative"
+                  className="footer-pagar h-14 rounded-xl font-bold text-base shadow-lg relative"
                   style={{ backgroundColor: '#F9B207', color: '#051D41' }}
                   disabled={!clienteNombre || !clienteEmail || !clienteTelefono || cargandoPago}
                   onClick={procesarReserva}

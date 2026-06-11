@@ -146,6 +146,7 @@ export default function LandingPage() {
           </div>
 
           <div className="hero-content">
+            <p className="hero-eyebrow">Café, salas privadas y comunidad en un solo lugar</p>
             <div className="hero-brand">
               <img src="/landing-assets/iconpx.png" alt="Logo Café Atrato" className="hero-icon" />
               <h1 className="hero-title pacifico-regular">Café Atrato</h1>
@@ -161,6 +162,12 @@ export default function LandingPage() {
               <Link href="/reservar" className="btn btn-primary btn-3d">
                 Reservar una Sala
               </Link>
+            </div>
+
+            <div className="hero-proof" aria-label="Beneficios principales">
+              <span>Reservas online</span>
+              <span>Pago seguro</span>
+              <span>Ambiente ejecutivo</span>
             </div>
             
             <div className="hero-features">
@@ -194,14 +201,14 @@ export default function LandingPage() {
             
             <div className="about-grid">
               <div className="about-text">
-                <h3 className="about-heading">Excelencia en Cada Taza</h3>
+                <h3 className="about-heading">Excelencia en cada taza</h3>
                 <p className="about-paragraph">
                   En Café Atrato, creemos que el trabajo excepcional comienza con café excepcional. 
-                  Nuestros baristas expertos preparan cada bebida con precisión y pasión.
+                  Nuestros baristas preparan cada bebida con precisión, calma y atención al detalle.
                 </p>
                 <p className="about-paragraph">
-                  Desde espressos perfectamente equilibrados hasta lattes creativos, cada taza 
-                  está diseñada para inspirarte a lo largo de tu jornada.
+                  Desde espressos equilibrados hasta lattes creativos, cada taza está pensada
+                  para acompañar reuniones, concentración y conversaciones importantes.
                 </p>
               </div>
               <div className="about-image">
@@ -214,13 +221,13 @@ export default function LandingPage() {
                 <img src="/landing-assets/audit.png" alt="Espacio de trabajo moderno" />
               </div>
               <div className="about-text">
-                <h3 className="about-heading">Tu Oficina Perfecta</h3>
+                <h3 className="about-heading">Tu oficina perfecta</h3>
                 <p className="about-paragraph">
                   Espacios de trabajo diseñados pensando en tu comodidad y productividad. 
                   Desde mesas individuales hasta sala de reuniones privadas.
                 </p>
                 <p className="about-paragraph">
-                  Conectividad de alta velocidad, enchufes en cada mesa, y un ambiente 
+                  Conectividad de alta velocidad, enchufes cerca y un ambiente
                   que fomenta tanto la concentración profunda como la colaboración creativa.
                 </p>
               </div>
@@ -232,8 +239,8 @@ export default function LandingPage() {
         <section id="menu" className="py-16 bg-white">
           <div className="container mx-auto px-4 text-center">
             <h2 className="section-title">Nuestra Carta</h2>
-            <p className="section-subtitle">Escanea o dale click al código QR para explorar nuestro menú digital</p>
-            <div className="max-w-5xl mx-auto rounded-3xl overflow-hidden shadow-xl mt-10 hover:shadow-2xl transition-all cursor-pointer">
+            <p className="section-subtitle">Explora nuestro menú digital antes de tu visita</p>
+            <div className="menu-preview max-w-5xl mx-auto rounded-3xl overflow-hidden shadow-xl mt-10 hover:shadow-2xl transition-all cursor-pointer">
               <Link href="#">
                 <img src="/landing-assets/carta-btn.jpg" alt="Nuestra Carta" className="w-full h-auto object-cover" />
               </Link>
@@ -251,14 +258,14 @@ export default function LandingPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
               {[
-                { Icon: Wifi, title: "Internet de Alta Velocidad", desc: "Fibra óptica simétrica con respaldo. Nunca te quedes sin conexión en medio de tu trabajo." },
-                { Icon: Coffee, title: "Café y Bebidas Premium", desc: "Café de especialidad ilimitado, tés selectos, snacks saludables. Todo incluido en tu membresía." },
-                { Icon: Users, title: "Comunidad Profesional", desc: "Conecta con emprendedores, freelancers y equipos innovadores en un ambiente colaborativo." },
-                { Icon: Zap, title: "Espacios Flexibles", desc: "Escritorios individuales, salas de reunión privadas y áreas abiertas. Elegí dónde trabajar." },
-                { Icon: Clock, title: "Horario Extendido", desc: "Abierto de 7:00 AM a 10:00 PM, los 7 días de la semana. Trabaja a tu ritmo." },
-                { Icon: Lock, title: "Ambiente Seguro", desc: "Acceso controlado, lockers personales y seguridad 24/7 para tu tranquilidad." },
+                { Icon: Wifi, title: "Internet de alta velocidad", desc: "Fibra óptica simétrica con respaldo para trabajar, presentar y reunirte sin interrupciones." },
+                { Icon: Coffee, title: "Café y bebidas premium", desc: "Café de especialidad, tés selectos y bebidas preparadas para acompañar tu jornada." },
+                { Icon: Users, title: "Comunidad profesional", desc: "Conecta con emprendedores, freelancers y equipos innovadores en un ambiente colaborativo." },
+                { Icon: Zap, title: "Espacios flexibles", desc: "Escritorios individuales, salas de reunión privadas y áreas abiertas. Elige dónde trabajar." },
+                { Icon: Clock, title: "Horario extendido", desc: "Abierto de 7:00 AM a 10:00 PM, los 7 días de la semana. Trabaja a tu ritmo." },
+                { Icon: Lock, title: "Ambiente seguro", desc: "Acceso controlado, lockers personales y seguridad 24/7 para tu tranquilidad." },
               ].map((item, i) => (
-                <div key={i} className="group bg-white rounded-2xl shadow-sm border border-slate-100 p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden relative">
+                <div key={i} className="feature-card group bg-white rounded-2xl shadow-sm border border-slate-100 p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden relative">
                   <div className="absolute top-0 left-0 right-0 h-1 bg-[#F9B207] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   <div className="flex items-start gap-4">
                     <div
