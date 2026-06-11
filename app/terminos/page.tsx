@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowLeft, FileText, CalendarCheck, Wifi, RefreshCcw, Users, ShieldCheck, MessageCircle } from "lucide-react"
+import { ArrowLeft, FileText, CalendarCheck, Wifi, RefreshCcw, Users, ShieldCheck, MessageCircle, CheckCircle2 } from "lucide-react"
 
 export const metadata = {
   title: "Términos y Condiciones - Café Atrato",
@@ -76,20 +76,20 @@ export default function TerminosPage() {
             </h2>
             <ul className="space-y-3 text-slate-600">
               <li className="flex items-start gap-2">
-                <span className="text-[#F9B207] font-bold mt-0.5">•</span>
-                Las reservas deben realizarse con antelación vía web.
+                <CheckCircle2 className="w-5 h-5 text-[#F9B207] shrink-0 mt-0.5" />
+                <span>Las reservas deben realizarse con antelación vía web.</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-[#F9B207] font-bold mt-0.5">•</span>
-                Pagos procesados de forma 100% segura por Wompi.
+                <CheckCircle2 className="w-5 h-5 text-[#F9B207] shrink-0 mt-0.5" />
+                <span>Pagos procesados de forma 100% segura por Wompi.</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-[#F9B207] font-bold mt-0.5">•</span>
-                Reserva confirmada únicamente con el pago exitoso.
+                <CheckCircle2 className="w-5 h-5 text-[#F9B207] shrink-0 mt-0.5" />
+                <span>Reserva confirmada únicamente con el pago exitoso.</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-red-400 font-bold mt-0.5">•</span>
-                <span className="text-slate-700 font-medium">Tiempo de gracia:</span> 30 minutos. Pasado este tiempo, la mesa podrá reasignarse sin reembolso.
+                <CheckCircle2 className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                <span><span className="text-slate-700 font-medium">Tiempo de gracia:</span> 30 minutos. Pasado este tiempo, la mesa podrá reasignarse sin reembolso.</span>
               </li>
             </ul>
           </div>
@@ -105,16 +105,16 @@ export default function TerminosPage() {
             <p className="text-slate-600 mb-4">El respeto es la base de nuestra comunidad:</p>
             <ul className="space-y-3 text-slate-600">
               <li className="flex items-start gap-2">
-                <span className="text-blue-400 font-bold mt-0.5">•</span>
-                Uso obligatorio de auriculares en zonas de trabajo silencioso.
+                <CheckCircle2 className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+                <span>Uso obligatorio de auriculares en zonas de trabajo silencioso.</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-blue-400 font-bold mt-0.5">•</span>
-                Red WiFi exclusiva para actividades lícitas. Prohibida la descarga masiva pirata.
+                <CheckCircle2 className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+                <span>Red WiFi exclusiva para actividades lícitas. Prohibida la descarga masiva pirata.</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-blue-400 font-bold mt-0.5">•</span>
-                Café Atrato no asume responsabilidad por pérdida de objetos personales.
+                <CheckCircle2 className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+                <span>Café Atrato no asume responsabilidad por pérdida de objetos personales.</span>
               </li>
             </ul>
           </div>
