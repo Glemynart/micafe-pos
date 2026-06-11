@@ -5,7 +5,9 @@ export const metadata: Metadata = {
   description: "Sistema de punto de venta para cafeterias",
 }
 
-import { FcmManager } from "@/components/fcm-manager"
+import dynamic from 'next/dynamic'
+
+const FcmManager = dynamic(() => import('@/components/fcm-manager').then(mod => mod.FcmManager), { ssr: false })
 
 export default function PosLayout({ children }: { children: React.ReactNode }) {
   return (
