@@ -311,16 +311,18 @@ export function EventosSection() {
                 }
                 .eventos-modal .modal-image {
                   width: 100% !important;
-                  min-height: auto !important;
+                  min-height: 0 !important;
                   height: auto !important;
                   display: block !important;
+                  background: transparent !important;
                 }
                 .eventos-modal .modal-image img {
+                  width: 100% !important;
                   height: auto !important;
                   max-height: 60vh !important;
                   object-fit: contain !important;
-                  display: block;
-                  margin: 0 auto;
+                  display: block !important;
+                  margin: 0 auto !important;
                 }
                 .eventos-modal .modal-content {
                   width: 100% !important;
