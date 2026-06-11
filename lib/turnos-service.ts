@@ -74,6 +74,19 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
   };
 
   await setDoc(nuevoTurnoRef, nuevoTurno);
+
+  // Trigger notification a los admins (fire and forget)
+  if (typeof window !== 'undefined') {
+    fetch('/api/notifications/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: '¡Nuevo Turno Abierto!',
+        message: `El cajero ${params.cajeroNombre} ha iniciado turno con base de $${params.baseApertura.toLocaleString('es-CO')}.`
+      })
+    }).catch(err => console.error('Error enviando notificación push:', err))
+  }
+
   return nuevoTurnoRef.id;
 }
 
