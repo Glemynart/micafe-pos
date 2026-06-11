@@ -56,6 +56,7 @@ export default function ReservarPage() {
   
   // Agenda / Horarios
   const [horasOcupadas, setHorasOcupadas] = useState<string[]>([])
+  const [horasPasadas, setHorasPasadas] = useState<string[]>([])
   const [horasSeleccionadas, setHorasSeleccionadas] = useState<string[]>([])
   const [cargandoHorarios, setCargandoHorarios] = useState(false)
 
@@ -135,17 +136,19 @@ export default function ReservarPage() {
           ahora.getMonth() === fecha.getMonth() &&
           ahora.getDate() === fecha.getDate()
 
+        const pasadas: string[] = []
         if (esHoy) {
           const horaActual = ahora.getHours()
           HORARIOS.forEach(h => {
             const horaBloque = parseInt(h.split(':')[0], 10)
-            if (horaBloque <= horaActual && !ocupadas.includes(h)) {
-              ocupadas.push(h)
+            if (horaBloque <= horaActual) {
+              pasadas.push(h)
             }
           })
         }
         
         setHorasOcupadas(ocupadas)
+        setHorasPasadas(pasadas)
         setHorasSeleccionadas([]) // reset selección si cambia fecha/sala
       } catch (error) {
         toast.error('Error', { description: 'No se pudo cargar la disponibilidad.' })
@@ -160,7 +163,7 @@ export default function ReservarPage() {
   // Wompi script is now loaded via next/script
 
   const toggleHora = (hora: string) => {
-    if (horasOcupadas.includes(hora)) return
+    if (horasOcupadas.includes(hora) || horasPasadas.includes(hora)) return
 
     setHorasSeleccionadas(prev => {
       // Estado 1: vacío → empezar
@@ -485,8 +488,9 @@ export default function ReservarPage() {
                       <div className="reservar-hours-grid">
                         {HORARIOS.map(hora => {
                           const ocupada = horasOcupadas.includes(hora)
+                          const pasada = horasPasadas.includes(hora)
                           const seleccionada = horasSeleccionadas.includes(hora)
-                          if (ocupada) {
+                          if (ocupada || pasada) {
                             return (
                               <button
                                 key={hora}
@@ -494,7 +498,7 @@ export default function ReservarPage() {
                                 className="reservar-hour-disabled touch-target"
                               >
                                 <span>{hora}</span>
-                                <span className="reservar-hour-label">Ocupado</span>
+                                <span className="reservar-hour-label">{ocupada ? 'Ocupado' : '—'}</span>
                               </button>
                             )
                           }
