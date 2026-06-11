@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter, Geist_Mono } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
+import { Analytics } from '@vercel/analytics/react'
 import { AuthProvider } from '@/contexts/auth-context'
 import { EspaciosProvider } from '@/contexts/espacios-context'
 import { UIProvider } from '@/contexts/ui-context'
