@@ -128,6 +128,23 @@ export default function ReservarPage() {
           }
         })
         
+        // Bloquear horas que ya pasaron si el día seleccionado es hoy
+        const ahora = new Date()
+        const esHoy = 
+          ahora.getFullYear() === fecha.getFullYear() &&
+          ahora.getMonth() === fecha.getMonth() &&
+          ahora.getDate() === fecha.getDate()
+
+        if (esHoy) {
+          const horaActual = ahora.getHours()
+          HORARIOS.forEach(h => {
+            const horaBloque = parseInt(h.split(':')[0], 10)
+            if (horaBloque <= horaActual && !ocupadas.includes(h)) {
+              ocupadas.push(h)
+            }
+          })
+        }
+        
         setHorasOcupadas(ocupadas)
         setHorasSeleccionadas([]) // reset selección si cambia fecha/sala
       } catch (error) {
@@ -415,6 +432,11 @@ export default function ReservarPage() {
                     mode="single"
                     selected={fecha}
                     onSelect={(d) => d && setFecha(d)}
+                    disabled={(date) => {
+                      const today = new Date()
+                      today.setHours(0, 0, 0, 0)
+                      return date < today
+                    }}
                     className="rounded-xl p-3 shadow-sm"
                     style={{ border: '1px solid rgba(5, 29, 65, 0.10)', backgroundColor: '#ffffff' }}
                     locale={es}
