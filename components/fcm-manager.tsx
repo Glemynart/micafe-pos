@@ -48,8 +48,13 @@ export function FcmManager() {
       const permission = await Notification.requestPermission()
       if (permission === 'granted') {
         setNeedsPermission(false)
+        
+        // Registrar el SW manualmente con ?v=2 para saltarse el caché del celular
+        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js?v=2')
+        
         const currentToken = await getToken(messagingInstance, {
-          vapidKey: VAPID_KEY
+          vapidKey: VAPID_KEY,
+          serviceWorkerRegistration: registration
         })
 
         if (currentToken) {
