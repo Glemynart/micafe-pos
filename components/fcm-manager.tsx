@@ -60,12 +60,16 @@ export function FcmManager() {
             })
           }
           if (fromButton) toast.success('Notificaciones activadas')
+        } else {
+          console.error('[FCM] No se pudo obtener token de registro')
+          if (fromButton) toast.error('No se pudo activar las notificaciones. Verifica tu red.')
         }
       } else {
         if (fromButton) toast.error('Permiso de notificaciones denegado')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[FCM] Error:', error)
+      if (fromButton) toast.error('Error: ' + error.message)
     }
   }
 
@@ -86,7 +90,7 @@ export function FcmManager() {
     return () => unsubscribe()
   }, [messagingInstance])
 
-  if (needsPermission && usuario?.rol === 'admin') {
+  if (usuario?.rol === 'admin') {
     return (
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-sm bg-[#051D41]/95 backdrop-blur-md border border-blue-500/30 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-4">
         <div className="bg-blue-500/20 p-2 rounded-full">
