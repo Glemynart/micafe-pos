@@ -36,7 +36,7 @@ export function FcmManager() {
   }, [])
 
   const requestPermissionAndGetToken = async (fromButton: boolean = true) => {
-    if (!usuario || usuario.rol !== 'admin' || !messagingInstance) return
+    if (!messagingInstance) return
     
     try {
       const permission = await Notification.requestPermission()
@@ -47,10 +47,12 @@ export function FcmManager() {
         })
 
         if (currentToken) {
-          const userRef = doc(db, 'usuarios', usuario.uid)
-          await updateDoc(userRef, {
-            fcmTokens: arrayUnion(currentToken)
-          })
+          if (usuario) {
+            const userRef = doc(db, 'usuarios', usuario.uid)
+            await updateDoc(userRef, {
+              fcmTokens: arrayUnion(currentToken)
+            })
+          }
           if (fromButton) toast.success('Notificaciones activadas')
         }
       } else {
@@ -78,31 +80,27 @@ export function FcmManager() {
     return () => unsubscribe()
   }, [messagingInstance])
 
-  if (usuario) {
-    return (
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-sm bg-[#051D41]/95 backdrop-blur-md border border-blue-500/30 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-4">
-        <div className="bg-blue-500/20 p-2 rounded-full">
-          <Bell className="w-5 h-5 text-blue-400" />
-        </div>
-        <div className="flex-1">
-          <h4 className="font-bold text-sm text-white/90">
-            Alertas de Turnos
-          </h4>
-          <p className="text-[11px] text-white/60 leading-tight mt-0.5">
-            Estado: {typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'No Soportado'}
-          </p>
-        </div>
-        {typeof window !== 'undefined' && 'Notification' in window && Notification.permission !== 'granted' && (
-          <button
-            onClick={() => requestPermissionAndGetToken(true)}
-            className="bg-blue-500 hover:bg-blue-600 transition-colors text-white px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap"
-          >
-            Activar
-          </button>
-        )}
+  return (
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-sm bg-[#051D41]/95 backdrop-blur-md border border-blue-500/30 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-4">
+      <div className="bg-blue-500/20 p-2 rounded-full">
+        <Bell className="w-5 h-5 text-blue-400" />
       </div>
-    )
-  }
-
-  return null
+      <div className="flex-1">
+        <h4 className="font-bold text-sm text-white/90">
+          Alertas de Turnos
+        </h4>
+        <p className="text-[11px] text-white/60 leading-tight mt-0.5">
+          Estado: {typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'No Soportado'} | Logeado: {usuario ? 'Si' : 'No'}
+        </p>
+      </div>
+      {typeof window !== 'undefined' && 'Notification' in window && Notification.permission !== 'granted' && (
+        <button
+          onClick={() => requestPermissionAndGetToken(true)}
+          className="bg-blue-500 hover:bg-blue-600 transition-colors text-white px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap"
+        >
+          Activar
+        </button>
+      )}
+    </div>
+  )
 }
