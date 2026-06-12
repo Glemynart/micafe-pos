@@ -80,7 +80,7 @@ export function FcmManager() {
     return () => unsubscribe()
   }, [messagingInstance])
 
-  if (usuario?.rol === 'admin') {
+  if (needsPermission && usuario?.rol === 'admin') {
     return (
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-sm bg-[#051D41]/95 backdrop-blur-md border border-blue-500/30 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-4">
         <div className="bg-blue-500/20 p-2 rounded-full">
