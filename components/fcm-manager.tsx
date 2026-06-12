@@ -19,9 +19,6 @@ export function FcmManager() {
     if (typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission === 'default') {
         setNeedsPermission(true)
-      } else if (Notification.permission === 'granted') {
-        // If already granted, we can try fetching token directly on load
-        requestPermissionAndGetToken(false)
       }
     }
 
@@ -35,8 +32,17 @@ export function FcmManager() {
     }
   }, [])
 
+  // Auto-fetch token when messagingInstance and usuario are ready, if permission is already granted
+  useEffect(() => {
+    if (messagingInstance && usuario?.rol === 'admin' && typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        requestPermissionAndGetToken(false)
+      }
+    }
+  }, [messagingInstance, usuario])
+
   const requestPermissionAndGetToken = async (fromButton: boolean = true) => {
-    if (!messagingInstance) return
+    if (!messagingInstance || !usuario) return
     
     try {
       const permission = await Notification.requestPermission()
