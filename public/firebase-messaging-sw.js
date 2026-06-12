@@ -14,10 +14,20 @@ firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage(function(payload) {
-  const notificationTitle = payload.notification?.title || 'CaféPOS';
-  const notificationOptions = {
-    body: payload.notification?.body,
-    icon: '/cafe-atrato-icon.png',
+  var title = 'CafePOS';
+  if (payload && payload.notification && payload.notification.title) {
+    title = payload.notification.title;
+  }
+  
+  var body = '';
+  if (payload && payload.notification && payload.notification.body) {
+    body = payload.notification.body;
+  }
+
+  var notificationOptions = {
+    body: body,
+    icon: '/cafe-atrato-icon.png'
   };
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  
+  self.registration.showNotification(title, notificationOptions);
 });
