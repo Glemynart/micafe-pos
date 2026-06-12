@@ -34,6 +34,7 @@ import { Toaster } from 'sonner'
 import { Toaster as ShadcnToaster } from '@/components/ui/toaster'
 
 import { ThemeProvider } from '@/components/theme-provider'
+import { FcmManagerWrapper } from "@/components/fcm-manager-wrapper"
 
 export default function RootLayout({
   children,
@@ -49,6 +50,7 @@ export default function RootLayout({
             <EspaciosProvider>
               <UIProvider>
               <ModulosProvider>
+                <FcmManagerWrapper />
                 {children}
               </ModulosProvider>
               </UIProvider>

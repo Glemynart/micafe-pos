@@ -5,12 +5,9 @@ export const metadata: Metadata = {
   description: "Sistema de punto de venta para cafeterias",
 }
 
-import { FcmManagerWrapper } from "@/components/fcm-manager-wrapper"
-
 export default function PosLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <FcmManagerWrapper />
       {children}
     </>
   )
