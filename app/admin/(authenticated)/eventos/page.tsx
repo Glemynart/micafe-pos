@@ -96,7 +96,10 @@ export default function EventosPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Eliminar este evento?")) return
     try { await eliminarEvento(id); toast.success("Eliminado") }
-    catch { toast.error("Error") }
+    catch (e: any) { 
+      toast.error("Error al eliminar");
+      console.error("Error deleting event:", e);
+    }
   }
 
   const eventosFuturos = eventos.filter(e => e.fecha >= new Date().toISOString().split("T")[0])
