@@ -112,17 +112,21 @@ export default function LandingPage() {
             </button>
           </div>
           {menuOpen && (
-            <div className="md:hidden bg-primary/98 border-t border-white/10 px-4 py-4 space-y-3">
-              <a href="#about" onClick={() => setMenuOpen(false)} className="block text-white/70 hover:text-secondary transition-colors text-sm py-2">Sobre Nosotros</a>
-              <a href="#features" onClick={() => setMenuOpen(false)} className="block text-white/70 hover:text-secondary transition-colors text-sm py-2">Servicios</a>
-              <a href="#menu" onClick={() => setMenuOpen(false)} className="block text-white/70 hover:text-secondary transition-colors text-sm py-2">Carta</a>
-              <a href="#contact" onClick={() => setMenuOpen(false)} className="block text-white/70 hover:text-secondary transition-colors text-sm py-2">Ubicación</a>
-              <Link href="/reservar" onClick={() => setMenuOpen(false)} className="block w-full text-center bg-secondary text-primary px-5 py-3 rounded-full font-semibold text-sm">Reservar una Sala</Link>
-              <div className="flex items-center gap-4 pt-2 justify-center">
-                <a href="https://www.instagram.com/cafeatrato/" target="_blank" rel="noopener" className="text-white/60 hover:text-pink-400 transition-colors" onClick={() => setMenuOpen(false)}>
+            <div className="md:hidden absolute top-16 left-0 right-0 bg-[#051D41]/95 backdrop-blur-xl border-b border-white/10 px-6 py-8 shadow-2xl flex flex-col gap-6 animate-in slide-in-from-top-4 fade-in duration-300">
+              <div className="flex flex-col gap-5 text-center">
+                <a href="#about" onClick={() => setMenuOpen(false)} className="block text-white/90 hover:text-secondary transition-colors text-lg font-medium tracking-wide">Sobre Nosotros</a>
+                <a href="#features" onClick={() => setMenuOpen(false)} className="block text-white/90 hover:text-secondary transition-colors text-lg font-medium tracking-wide">Servicios</a>
+                <a href="#menu" onClick={() => setMenuOpen(false)} className="block text-white/90 hover:text-secondary transition-colors text-lg font-medium tracking-wide">Carta</a>
+                <a href="#contact" onClick={() => setMenuOpen(false)} className="block text-white/90 hover:text-secondary transition-colors text-lg font-medium tracking-wide">Ubicación</a>
+              </div>
+              
+              <div className="w-16 h-px bg-white/20 mx-auto my-2 rounded-full"></div>
+              
+              <div className="flex items-center justify-center gap-6">
+                <a href="https://www.instagram.com/cafeatrato/" target="_blank" rel="noopener" className="bg-white/5 p-3.5 rounded-full text-white hover:bg-pink-500/20 hover:text-pink-400 transition-all border border-white/10 shadow-sm" onClick={() => setMenuOpen(false)}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
                 </a>
-                <a href="https://wa.me/573102871513" target="_blank" rel="noopener" className="text-white/60 hover:text-green-400 transition-colors" onClick={() => setMenuOpen(false)}>
+                <a href="https://wa.me/573102871513" target="_blank" rel="noopener" className="bg-white/5 p-3.5 rounded-full text-white hover:bg-green-500/20 hover:text-green-400 transition-all border border-white/10 shadow-sm" onClick={() => setMenuOpen(false)}>
                   <svg width="22" height="22" viewBox="0 0 16 16" fill="currentColor"><path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/></svg>
                 </a>
               </div>
