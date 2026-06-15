@@ -24,7 +24,7 @@ service cloud.firestore {
       allow update: if request.auth != null
         && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'marketing'];
       allow delete: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'marketing'];
     }
 
     // ─── Landing: lectura pública ───
