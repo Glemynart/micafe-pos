@@ -90,8 +90,8 @@ export default function LandingPage() {
       <div className="landing-body">
         {/* Navbar */}
         <nav className="fixed top-0 left-0 right-0 z-50 bg-primary/95 backdrop-blur-md border-b border-white/10">
-          <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-            <a href="#" className="flex items-center gap-2.5">
+          <div className="max-w-6xl mx-auto px-6 md:px-8 h-16 flex items-center justify-between">
+            <a href="#" className="flex items-center gap-3">
               <img src="/landing-assets/iconpx.png" alt="Logo" className="w-8 h-8" />
               <span className="text-white font-bold text-lg pacifico-regular">Café Atrato</span>
             </a>
@@ -112,7 +112,7 @@ export default function LandingPage() {
             </button>
           </div>
           {menuOpen && (
-            <div className="md:hidden absolute top-16 left-0 right-0 bg-[#051D41]/95 backdrop-blur-xl border-b border-white/10 px-6 py-8 shadow-2xl flex flex-col gap-6 animate-in slide-in-from-top-4 fade-in duration-300">
+            <div className="md:hidden absolute top-16 left-0 right-0 bg-[#051D41]/95 backdrop-blur-xl border-b border-white/10 px-8 py-8 shadow-2xl flex flex-col gap-6 animate-in slide-in-from-top-4 fade-in duration-300">
               <div className="flex flex-col gap-5 text-center">
                 <a href="#about" onClick={() => setMenuOpen(false)} className="block text-white/90 hover:text-secondary transition-colors text-lg font-medium tracking-wide">Sobre Nosotros</a>
                 <a href="#features" onClick={() => setMenuOpen(false)} className="block text-white/90 hover:text-secondary transition-colors text-lg font-medium tracking-wide">Servicios</a>
