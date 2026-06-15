@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Loader2, CalendarPlus, Trash2, Edit2, Eye, EyeOff, CalendarDays, Upload, X, ImageIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -24,6 +25,8 @@ export default function EventosPage() {
   const [showDialog, setShowDialog] = useState(false)
   const [editing, setEditing] = useState<Evento | null>(null)
   const [guardando, setGuardando] = useState(false)
+  const [eventToDelete, setEventToDelete] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [form, setForm] = useState<EventoInput>({ titulo: "", descripcion: "", fecha: "", hora: "", imagenUrl: "", categoria: "Otro" })
   const [uploading, setUploading] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string>("")
@@ -93,12 +96,23 @@ export default function EventosPage() {
     catch { toast.error("Error") }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Eliminar este evento?")) return
-    try { await eliminarEvento(id); toast.success("Eliminado") }
+  const handleDelete = (id: string) => {
+    setEventToDelete(id)
+  }
+
+  const confirmDelete = async () => {
+    if (!eventToDelete) return
+    setDeleting(true)
+    try { 
+      await eliminarEvento(eventToDelete); 
+      toast.success("Eliminado") 
+      setEventToDelete(null)
+    }
     catch (e: any) { 
       toast.error("Error al eliminar");
       console.error("Error deleting event:", e);
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -206,6 +220,24 @@ export default function EventosPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!eventToDelete} onOpenChange={(open) => !open && setEventToDelete(null)}>
+        <AlertDialogContent className="bg-[#0A1A30] border-white/10 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar este evento?</AlertDialogTitle>
+            <AlertDialogDescription className="text-white/60">
+              Esta acción no se puede deshacer. El evento desaparecerá de la página principal.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-transparent border-white/10 text-white hover:bg-white/5">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmDelete(); }} disabled={deleting} className="bg-red-500 hover:bg-red-600 text-white border-0">
+              {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
