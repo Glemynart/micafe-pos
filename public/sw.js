@@ -23,7 +23,7 @@ self.addEventListener("fetch", (e) => {
             caches.open(CACHE).then((cache) => cache.put(e.request, clone));
           }
           return response;
-        }).catch(() => cached);
+        }).catch(() => cached || new Response("Offline", { status: 503 }));
         return cached || fetched;
       })
     );
