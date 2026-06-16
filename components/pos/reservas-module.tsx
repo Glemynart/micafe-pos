@@ -60,20 +60,24 @@ export function ReservasModule() {
       // 1. Marcar reserva como completada + estadoPago = pagado
       await marcarReservaCompletada(reserva.id)
 
-      // 2. Registrar ingreso en ventas (para que cuadre en caja/reportes)
-      await registrarIngresoReserva({
-        reservaId: reserva.id,
-        clienteNombre: reserva.clienteNombre,
-        mesaId: reserva.mesaId,
-        espacioId: reserva.espacioId || 'salas-coworking',
-        montoTotal: reserva.montoTotal,
-        turnoId: (reserva as any).turnoId || 'sin-turno',
-        cajeroId: usuario?.uid || 'sistema',
-      })
+      // 2. Registrar ingreso en ventas (SOLO si no estaba pagada por Wompi)
+      if (reserva.estadoPago !== 'pagado') {
+        await registrarIngresoReserva({
+          reservaId: reserva.id,
+          clienteNombre: reserva.clienteNombre,
+          mesaId: reserva.mesaId,
+          espacioId: reserva.espacioId || 'salas-coworking',
+          montoTotal: reserva.montoTotal,
+          turnoId: (reserva as any).turnoId || 'sin-turno',
+          cajeroId: usuario?.uid || 'sistema',
+        })
+      }
 
       toast({
         title: '✅ Reserva completada',
-        description: `Ingreso de $${reserva.montoTotal.toLocaleString('es-CO')} registrado en caja.`,
+        description: reserva.estadoPago === 'pagado' 
+          ? 'Reserva marcada como completada (pago ya registrado).'
+          : `Ingreso de $${reserva.montoTotal.toLocaleString('es-CO')} registrado en caja.`,
       })
     } catch (err) {
       console.error('Error completando reserva:', err)

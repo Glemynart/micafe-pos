@@ -53,7 +53,7 @@ export function ShiftsModule() {
   // Real data state
   const [activeShift, setActiveShift] = useState<Turno | null>(null)
   const [historial, setHistorial] = useState<Turno[]>([])
-  const [ventasTurno, setVentasTurno] = useState({ efectivo: 0, otros: 0, total: 0 })
+  const [ventasTurno, setVentasTurno] = useState({ efectivo: 0, transferencia: 0, tarjeta: 0, otros: 0, total: 0 })
   const [egresosTurno, setEgresosTurno] = useState(0)
   
   // Shift open form
@@ -142,7 +142,7 @@ export function ShiftsModule() {
     cerrarTurno({
       turnoId: activeShift.id,
       ventasEfectivo: ventasTurno.efectivo,
-      ventasOtrosMetodos: ventasTurno.otros,
+      ventasOtrosMetodos: ventasTurno.transferencia + ventasTurno.tarjeta + ventasTurno.otros,
       totalEgresos: egresosTurno,
       totalEsperadoEfectivo: expectedCash,
       totalReportadoEfectivo: totalCashCount,
@@ -157,7 +157,7 @@ export function ShiftsModule() {
       const ventas = await calcularVentasTurno(shift.id)
       const egresos = await calcularEgresosTurno(shift.id)
       detailShift.ventasEfectivo = ventas.efectivo
-      detailShift.ventasOtrosMetodos = ventas.otros
+      detailShift.ventasOtrosMetodos = ventas.transferencia + ventas.tarjeta + ventas.otros
       detailShift.totalEgresos = egresos
     }
     setSelectedShift(detailShift)
