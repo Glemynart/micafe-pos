@@ -179,7 +179,7 @@ service cloud.firestore {
           request.resource.data.fechaInicio is string &&
           request.resource.data.fechaFin is string &&
           request.resource.data.montoTotal is number &&
-          request.resource.data.estadoPago in ['pendiente', 'pagado'] &&
+          request.resource.data.estadoPago == 'pendiente' &&
           request.resource.data.estadoReserva == 'activa'
         )
       );

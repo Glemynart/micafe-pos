@@ -11,7 +11,7 @@ import {
   serverTimestamp,
   Timestamp
 } from 'firebase/firestore'
-import { db } from './firebase'
+import { db, auth } from './firebase'
 
 export interface Turno {
   id: string;
@@ -77,14 +77,19 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
 
   // Trigger notification a los admins (fire and forget)
   if (typeof window !== 'undefined') {
-    fetch('/api/notifications/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: '¡Nuevo Turno Abierto!',
-        message: `El cajero ${params.cajeroNombre} ha iniciado turno con base de $${params.baseApertura.toLocaleString('es-CO')}.`
-      })
-    }).catch(err => console.error('Error enviando notificación push:', err))
+    auth.currentUser?.getIdToken().then(token => {
+      fetch('/api/notifications/send', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          title: '¡Nuevo Turno Abierto!',
+          message: `El cajero ${params.cajeroNombre} ha iniciado turno con base de $${params.baseApertura.toLocaleString('es-CO')}.`
+        })
+      }).catch(err => console.error('Error enviando notificación push:', err))
+    }).catch(err => console.error('Error obteniendo token para notificacion:', err))
   }
 
   return nuevoTurnoRef.id;

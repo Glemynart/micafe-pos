@@ -1,8 +1,24 @@
 import { NextResponse } from 'next/server'
-import { getAdminDb, getAdminMessaging } from '@/lib/firebase-admin'
+import { getAdminDb, getAdminMessaging, getAdminAuth } from '@/lib/firebase-admin'
 
 export async function POST(req: Request) {
   try {
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    const token = authHeader.split('Bearer ')[1]
+    const decoded = await getAdminAuth().verifyIdToken(token)
+
+    const db = getAdminDb()
+    const userDoc = await db.collection('usuarios').doc(decoded.uid).get()
+    const rol = userDoc.data()?.rol
+
+    if (rol !== 'admin' && rol !== 'cajero') {
+      return NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 })
+    }
+
     const body = await req.json()
     const { title, message } = body
 
@@ -10,7 +26,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Faltan campos' }, { status: 400 })
     }
 
-    const db = getAdminDb()
     const messaging = getAdminMessaging()
 
     // Buscar usuarios que sean administradores y tengan fcmTokens
