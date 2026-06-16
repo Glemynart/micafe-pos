@@ -14,7 +14,13 @@ export function MarketingGuard({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (cargando || !usuario) return
     if (usuario.rol === "marketing") {
-      const allowed = MARKETING_ALLOWED.some((p) => pathname.startsWith(p))
+      const allowed = MARKETING_ALLOWED.some((p) => {
+        // Permitir coincidencia exacta con /admin
+        if (p === "/admin" && pathname === "/admin") return true;
+        // Permitir subrutas válidas (ej. /admin/eventos)
+        if (p !== "/admin" && pathname.startsWith(p)) return true;
+        return false;
+      })
       if (!allowed) {
         router.replace("/admin")
       }

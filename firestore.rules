@@ -72,7 +72,8 @@ service cloud.firestore {
 
     match /ventas/{id} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero', 'supervisor'];
       allow update: if request.auth != null
         && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
       allow delete: if false;
@@ -80,9 +81,10 @@ service cloud.firestore {
 
     match /turnos/{id} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero', 'supervisor'];
       allow update: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero'];
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero', 'supervisor'];
       allow delete: if false;
     }
 
@@ -106,7 +108,8 @@ service cloud.firestore {
 
     match /recetas/{id} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero', 'supervisor'];
     }
 
     match /mesas/{id} {
@@ -126,7 +129,8 @@ service cloud.firestore {
 
     match /clientes/{id} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero', 'supervisor'];
     }
 
     match /espacios/{id} {
@@ -137,32 +141,38 @@ service cloud.firestore {
 
     match /categorias/{id} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
     }
 
     match /consignadores/{id} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
     }
 
     match /liquidaciones/{id} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
     }
 
     match /egresos/{id} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero', 'supervisor'];
     }
 
     match /cuentas_bancarias/{id} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
     }
 
     match /transacciones/{id} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
     }
 
     match /reservas/{id} {
