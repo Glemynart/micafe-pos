@@ -27,7 +27,7 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  const [open, setOpen] = useState(false)
  const [activeShift, setActiveShift] = useState<Turno | null>(null)
  
- const [ventasTurno, setVentasTurno] = useState({ total: 0, efectivo: 0, otros: 0 })
+ const [ventasTurno, setVentasTurno] = useState({ total: 0, efectivo: 0, transferencia: 0, tarjeta: 0, otros: 0 })
  const [egresosTurno, setEgresosTurno] = useState(0)
  const [cashCount, setCashCount] = useState<Record<string, number>>({})
  const [closeNotes, setCloseNotes] = useState('')
@@ -39,7 +39,7 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  useEffect(() => {
  if (!usuario) return
  const unsub = suscribirTurnoActivo(usuario.uid, (doc) => {
- setActiveShift(doc ? { id: doc.id, ...doc.data } as Turno : null)
+ setActiveShift(doc ? { id: doc.id, ...doc.data() } as Turno : null)
  })
  return () => unsub()
  }, [usuario])
@@ -93,12 +93,12 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  await cerrarTurno({
  turnoId: activeShift.id,
  ventasEfectivo: ventasTurno.efectivo,
- ventasOtrosMetodos: ventasTurno.otros,
+ ventasOtrosMetodos: ventasTurno.transferencia + ventasTurno.tarjeta + ventasTurno.otros,
  totalEgresos: egresosTurno,
  totalEsperadoEfectivo: expectedCash,
  totalReportadoEfectivo: totalCashCount,
  diferenciaEfectivo: cashDifference,
- notasCierre: closeNotes
+ notasCierre: closeNotes || ''
  })
  setOpen(false)
  toast.success("Turno cerrado correctamente")

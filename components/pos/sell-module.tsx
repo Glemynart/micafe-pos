@@ -429,21 +429,18 @@ export function SellModule() {
         estado: paymentMethod === 'cuenta_cobro' ? 'pendiente' : 'pagada'
       }
 
-      // Optimistic UI: Mostrar recibo instantáneamente
+      await registrarVenta(params)
+
+      if (activePedido) {
+        await eliminarPedido(activePedido.id)
+      }
+
       setShowPayment(false)
       setShowReceipt(true)
       setIsProcessingPayment(false)
-
-      registrarVenta(params).then(async () => {
-        if (activePedido) {
-          await eliminarPedido(activePedido.id)
-        }
-      }).catch(error => {
-        console.error("Error al registrar la venta:", error)
-        toast.warning("Hubo un error de conexión al guardar la venta en la nube, pero puedes seguir operando.")
-      })
-    } catch (error) {
-      console.error("Error:", error)
+    } catch (error: any) {
+      console.error("Error al registrar la venta:", error)
+      toast.error(error?.message || "Error al registrar la venta. Inténtalo de nuevo.")
       setIsProcessingPayment(false)
     }
   }, [usuario, cart, selectedCustomer, subtotal, totalIva, totalImpoconsumo, total, paymentMethod, cashReceived, change, activePedido])

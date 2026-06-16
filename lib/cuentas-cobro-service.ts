@@ -13,6 +13,7 @@ import {
   doc,
   updateDoc,
   serverTimestamp,
+  getDocs,
   type Unsubscribe,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -75,19 +76,32 @@ export function suscribirCuentasPorCobrar(
 }
 
 
-/**
- * Registra el pago de una cuenta pendiente.
- */
 export async function marcarComoPagada(
   ventaId: string,
-  metodoPagoFinal: 'efectivo' | 'transferencia' | 'mixto'
+  metodoPagoFinal: 'efectivo' | 'transferencia' | 'mixto',
+  cajeroUid?: string
 ): Promise<void> {
   const ventaRef = doc(db, 'ventas', ventaId)
-  await updateDoc(ventaRef, {
+  
+  const updateData: any = {
     estado: 'pagada',
     metodoPagoFinal,
     fechaPago: serverTimestamp(),
-  })
+  }
+
+  if (cajeroUid) {
+    const qTurno = query(
+      collection(db, 'turnos'),
+      where('cajeroId', '==', cajeroUid),
+      where('estado', '==', 'abierto')
+    )
+    const snap = await getDocs(qTurno)
+    if (!snap.empty) {
+      updateData.turnoRecaudoId = snap.docs[0].id
+    }
+  }
+
+  await updateDoc(ventaRef, updateData)
 }
 
 /**

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { useAuthContext } from '@/contexts/auth-context'
 import { useEspacios } from '@/contexts/espacios-context'
-import { suscribirHistorialVentas, obtenerVentaPorId, eliminarVenta as eliminarVentaFirebase } from '@/lib/ventas-service'
+import { suscribirHistorialVentas, obtenerVentaPorId, anularVenta as anularVentaFirebase } from '@/lib/ventas-service'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -147,16 +147,16 @@ export function Historial() {
     }).format(value || 0)
   }
 
-  const eliminarVenta = async () => {
+  const anularVenta = async () => {
     if (!idToDelete) return;
     try {
-      await eliminarVentaFirebase(idToDelete);
-      toast.success("Venta eliminada exitosamente.");
+      await anularVentaFirebase(idToDelete);
+      toast.success("Venta anulada exitosamente. El inventario ha sido revertido.");
       setIsDeleteDialogOpen(false);
       setIdToDelete(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Ocurrió un error al intentar eliminar la venta.");
+      toast.error(err.message || "Ocurrió un error al intentar anular la venta.");
     }
   };
 
@@ -508,6 +508,13 @@ export function Historial() {
             Enviado
           </Badge>
         )
+      case "anulada":
+        return (
+          <Badge className="bg-destructive hover:bg-destructive/90 border-0">
+            <Trash2 className="h-3 w-3 mr-1" />
+            Anulada
+          </Badge>
+        )
       case "pendiente":
         return (
           <Badge variant="secondary" className="bg-warning/20 text-warning border-0">
@@ -697,12 +704,12 @@ export function Historial() {
                 </TableRow>
               ) : (
                 ventasFiltradas.map((venta, idx) => {
-                  const estado = venta.cufe ? "enviado" : "pendiente";
+                  const estado = venta.estado === 'anulada' ? 'anulada' : (venta.cufe ? "enviado" : "pendiente");
                   const vFechaObj = new Date(venta.fecha);
                   const fechaFormat = vFechaObj.toLocaleDateString('es-CO');
                   const horaFormat = vFechaObj.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
                   return (
-                  <TableRow key={venta.id} className="border-border/50 hover:bg-secondary/40 transition-colors group" style={{ animationDelay: `${idx * 30}ms` }}>
+                  <TableRow key={venta.id} className={`border-border/50 hover:bg-secondary/40 transition-colors group ${venta.estado === 'anulada' ? 'opacity-50' : ''}`} style={{ animationDelay: `${idx * 30}ms` }}>
                     <TableCell className="font-mono text-[15px] font-black text-primary">
                       #{venta.id.substring(0, 6)}...
                     </TableCell>
@@ -746,12 +753,13 @@ export function Historial() {
                             <Send className="h-4 w-4" />
                           </Button>
                         )}
-                        {usuario?.rol === 'admin' && (
+                        {usuario?.rol === 'admin' && venta.estado !== 'anulada' && (
                           <Button 
                             size="icon" 
                             variant="ghost" 
                             className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10"
                             onClick={() => confirmarEliminar(venta.id)}
+                            title="Anular Venta"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -792,16 +800,15 @@ export function Historial() {
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Seguro que deseas eliminar esta venta?</AlertDialogTitle>
+            <AlertDialogTitle>¿Seguro que deseas anular esta venta?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. Si la venta ya fue enviada a la DIAN, 
-              esta eliminación solo afectará al registro local.
+              Esta acción marcará la venta como anulada y devolverá los productos e insumos al inventario. Si la factura ya fue enviada a la DIAN, recuerda que debes emitir una Nota Crédito además de anularla localmente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={eliminarVenta} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Eliminar
+            <AlertDialogAction onClick={anularVenta} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Anular Venta
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

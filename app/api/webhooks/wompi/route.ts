@@ -72,17 +72,71 @@ export async function POST(req: Request) {
 
       try {
         const db = getDb()
-        const reservaDoc = await db.collection('reservas').doc(reservaId).get()
-        if (!reservaDoc.exists) {
-          console.error(`Reserva ${reservaId} no encontrada`)
+        
+        await db.runTransaction(async (t) => {
+          const reservaRef = db.collection('reservas').doc(reservaId)
+          const reservaDoc = await t.get(reservaRef)
+          
+          if (!reservaDoc.exists) {
+            console.error(`Reserva ${reservaId} no encontrada`)
+            throw new Error('Reservation not found')
+          }
+          
+          const reservaData = reservaDoc.data()
+          
+          if (reservaData?.estadoPago === 'pagado') {
+            console.log(`Reserva ${reservaId} ya estaba pagada. Ignorando webhook por idempotencia.`)
+            return // Idempotencia: Ya pagada
+          }
+
+          // 1. Actualizar Reserva
+          t.update(reservaRef, {
+            estadoPago: 'pagado',
+            referenciaPago: transaction.id,
+          })
+          
+          // 2. Crear Venta
+          const configRef = db.collection('configuracion').doc('general')
+          const configSnap = await t.get(configRef)
+          const nuevoConsecutivo = (configSnap.exists ? (configSnap.data()?.consecutivo_actual || 0) : 0) + 1
+          
+          t.set(configRef, { consecutivo_actual: nuevoConsecutivo }, { merge: true })
+          
+          const nuevaVentaRef = db.collection('ventas').doc()
+          t.set(nuevaVentaRef, {
+            consecutivo: nuevoConsecutivo,
+            fecha: new Date(),
+            turnoId: 'reserva-web',
+            cajeroId: 'wompi',
+            espacioId: reservaData?.espacioId || 'salas-coworking',
+            clienteNombre: reservaData?.clienteNombre || 'Cliente Web',
+            metodoPago: 'transferencia',
+            estado: 'pagada',
+            origenReserva: reservaId,
+            items: [
+              {
+                id: `reserva-${reservaId}`,
+                nombre: `Reserva sala: ${reservaData?.mesaId || 'web'}`,
+                cantidad: 1,
+                precioUnitario: reservaData?.montoTotal || 0,
+                costoUnitario: 0,
+                subtotal: reservaData?.montoTotal || 0,
+              },
+            ],
+            totales: {
+              subtotal: reservaData?.montoTotal || 0,
+              iva: 0,
+              impoconsumo: 0,
+              total: reservaData?.montoTotal || 0,
+            },
+          })
+        })
+        
+        console.log(`Reserva ${reservaId} pagada y Venta generada exitosamente.`)
+      } catch (dbError: any) {
+        if (dbError.message === 'Reservation not found') {
           return NextResponse.json({ error: 'Reservation not found' }, { status: 404 })
         }
-        await db.collection('reservas').doc(reservaId).update({
-          estadoPago: 'pagado',
-          referenciaPago: transaction.id,
-        })
-        console.log(`Reserva ${reservaId} actualizada con exito.`)
-      } catch (dbError) {
         console.error(`Error actualizando Firebase para la reserva ${reservaId}:`, dbError)
         return NextResponse.json({ error: 'Failed to update DB' }, { status: 500 })
       }

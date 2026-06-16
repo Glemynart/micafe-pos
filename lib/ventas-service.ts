@@ -231,6 +231,104 @@ export async function obtenerVentaPorId(id: string): Promise<any> {
   return null;
 }
 
-export async function eliminarVenta(id: string): Promise<void> {
-  await deleteDoc(doc(db, "ventas", id));
+export async function anularVenta(id: string): Promise<void> {
+  const ventaRef = doc(db, "ventas", id);
+
+  await runTransaction(db, async (transaction) => {
+    const ventaSnap = await transaction.get(ventaRef);
+    if (!ventaSnap.exists()) {
+      throw new Error("La venta no existe.");
+    }
+
+    const ventaData = ventaSnap.data();
+    if (ventaData.estado === 'anulada') {
+      throw new Error("La venta ya ha sido anulada previamente.");
+    }
+
+    // 1. LEER TODAS LAS RECETAS DE LOS ITEMS
+    const recetasMap = new Map<string, any>();
+    const items = ventaData.items || [];
+    
+    for (const item of items) {
+      if (item.id.startsWith('quick-')) continue;
+      const recetaRef = doc(db, "recetas", item.id);
+      const recetaSnap = await transaction.get(recetaRef);
+      if (recetaSnap.exists()) {
+        recetasMap.set(item.id, recetaSnap.data());
+      }
+    }
+
+    // 2. LEER INSUMOS Y PRODUCTOS PARA DEVOLVERLOS AL INVENTARIO
+    const insumosToRead = new Set<string>();
+    const productosToRead = new Set<string>();
+
+    for (const item of items) {
+      if (item.id.startsWith('quick-')) continue;
+      const receta = recetasMap.get(item.id);
+      if (receta && receta.ingredientes && receta.ingredientes.length > 0) {
+        for (const ing of receta.ingredientes) {
+          insumosToRead.add(ing.insumoId);
+        }
+      } else {
+        productosToRead.add(item.id);
+      }
+    }
+
+    const insumosMap = new Map<string, any>();
+    for (const insumoId of insumosToRead) {
+      const insumoRef = doc(db, "insumos", insumoId);
+      const insumoSnap = await transaction.get(insumoRef);
+      if (insumoSnap.exists()) {
+        insumosMap.set(insumoId, { ref: insumoRef, data: insumoSnap.data() });
+      }
+    }
+
+    const productosMap = new Map<string, any>();
+    for (const productoId of productosToRead) {
+      const productoRef = doc(db, "productos", productoId);
+      const productoSnap = await transaction.get(productoRef);
+      if (productoSnap.exists()) {
+        productosMap.set(productoId, { ref: productoRef, data: productoSnap.data() });
+      }
+    }
+
+    // 3. FASE DE ESCRITURAS (Writes)
+    const insumosDevoluciones = new Map<string, number>();
+    const productosDevoluciones = new Map<string, number>();
+
+    for (const item of items) {
+      if (item.id.startsWith('quick-')) continue;
+      const receta = recetasMap.get(item.id);
+      
+      if (receta && receta.ingredientes && receta.ingredientes.length > 0) {
+        for (const ing of receta.ingredientes) {
+          const currentDevolucion = insumosDevoluciones.get(ing.insumoId) || 0;
+          insumosDevoluciones.set(ing.insumoId, currentDevolucion + (ing.cantidad * item.cantidad));
+        }
+      } else {
+        const currentDevolucion = productosDevoluciones.get(item.id) || 0;
+        productosDevoluciones.set(item.id, currentDevolucion + item.cantidad);
+      }
+    }
+
+    // Aplicar escrituras para devolver inventario
+    for (const [insumoId, qtyDev] of insumosDevoluciones.entries()) {
+      const insumo = insumosMap.get(insumoId);
+      if (insumo) {
+        const currentStock = insumo.data.stock || 0;
+        transaction.update(insumo.ref, { stock: currentStock + qtyDev });
+      }
+    }
+
+    for (const [productoId, qtyDev] of productosDevoluciones.entries()) {
+      const producto = productosMap.get(productoId);
+      if (producto) {
+        const currentStock = producto.data.stock || 0;
+        transaction.update(producto.ref, { stock: currentStock + qtyDev });
+      }
+    }
+
+    // 4. Actualizar estado de la venta a anulada
+    transaction.update(ventaRef, { estado: 'anulada' });
+  });
 }

@@ -9,7 +9,9 @@ import {
   orderBy, 
   getDocs,
   serverTimestamp,
-  Timestamp
+  Timestamp,
+  runTransaction,
+  getDoc
 } from 'firebase/firestore'
 import { db, auth } from './firebase'
 
@@ -100,16 +102,74 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
  */
 export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
   const turnoRef = doc(db, 'turnos', params.turnoId);
-  await updateDoc(turnoRef, {
-    estado: 'cerrado',
-    fechaCierre: serverTimestamp(),
-    ventasEfectivo: params.ventasEfectivo,
-    ventasOtrosMetodos: params.ventasOtrosMetodos,
-    totalEgresos: params.totalEgresos || 0,
-    totalEsperadoEfectivo: params.totalEsperadoEfectivo,
-    totalReportadoEfectivo: params.totalReportadoEfectivo,
-    diferenciaEfectivo: params.diferenciaEfectivo,
-    notasCierre: params.notasCierre || ''
+
+  await runTransaction(db, async (transaction) => {
+    // 1. Verificar idempotencia
+    const turnoDoc = await transaction.get(turnoRef);
+    if (!turnoDoc.exists() || turnoDoc.data().estado === 'cerrado') {
+      return; // Ya está cerrado o no existe
+    }
+
+    // 2. Marcar como cerrado
+    transaction.update(turnoRef, {
+      estado: 'cerrado',
+      fechaCierre: serverTimestamp(),
+      ventasEfectivo: params.ventasEfectivo,
+      ventasOtrosMetodos: params.ventasOtrosMetodos,
+      totalEgresos: params.totalEgresos || 0,
+      totalEsperadoEfectivo: params.totalEsperadoEfectivo,
+      totalReportadoEfectivo: params.totalReportadoEfectivo,
+      diferenciaEfectivo: params.diferenciaEfectivo,
+      notasCierre: params.notasCierre || ''
+    });
+
+    // 3. Crear transacciones financieras para la Tesorería (Caja Fuerte y Banco)
+    if (params.totalReportadoEfectivo > 0) {
+      const cuentaRefEfectivo = doc(db, 'cuentas_bancarias', 'caja-fuerte');
+      const cuentaDocEf = await transaction.get(cuentaRefEfectivo);
+      if (cuentaDocEf.exists()) {
+        const saldoEfectivo = cuentaDocEf.data().saldo || 0;
+        transaction.update(cuentaRefEfectivo, { saldo: saldoEfectivo + params.totalReportadoEfectivo });
+        
+        const txRefEf = doc(collection(db, 'transacciones_financieras'));
+        transaction.set(txRefEf, {
+          cuentaId: 'caja-fuerte',
+          cuentaNombre: 'Caja Fuerte',
+          tipo: 'ingreso',
+          monto: params.totalReportadoEfectivo,
+          concepto: `Ingreso Cierre de Turno (Efectivo)`,
+          categoria: 'ventas',
+          referencia: params.turnoId,
+          usuarioId: 'sistema',
+          usuarioNombre: 'Cierre Automático',
+          fecha: serverTimestamp()
+        });
+      }
+    }
+
+    if (params.ventasOtrosMetodos > 0) {
+      // Usamos bancolombia por defecto para ventas digitales
+      const cuentaRefBanco = doc(db, 'cuentas_bancarias', 'bancolombia');
+      const cuentaDocBa = await transaction.get(cuentaRefBanco);
+      if (cuentaDocBa.exists()) {
+        const saldoBanco = cuentaDocBa.data().saldo || 0;
+        transaction.update(cuentaRefBanco, { saldo: saldoBanco + params.ventasOtrosMetodos });
+        
+        const txRefBa = doc(collection(db, 'transacciones_financieras'));
+        transaction.set(txRefBa, {
+          cuentaId: 'bancolombia',
+          cuentaNombre: 'Bancolombia',
+          tipo: 'ingreso',
+          monto: params.ventasOtrosMetodos,
+          concepto: `Ingreso Cierre de Turno (Digital)`,
+          categoria: 'ventas',
+          referencia: params.turnoId,
+          usuarioId: 'sistema',
+          usuarioNombre: 'Cierre Automático',
+          fecha: serverTimestamp()
+        });
+      }
+    }
   });
 }
 
@@ -187,24 +247,50 @@ export function suscribirHistorialTurnos(
  * Llama a esta función justo antes de presentar la pantalla de Cierre Ciego para obtener 
  * los totales reales que el cajero debe tener.
  */
-export async function calcularVentasTurno(turnoId: string): Promise<{ efectivo: number, otros: number, total: number }> {
+export async function calcularVentasTurno(turnoId: string): Promise<{ efectivo: number, transferencia: number, tarjeta: number, otros: number, total: number }> {
   const ventasRef = collection(db, 'ventas');
-  const q = query(ventasRef, where('turnoId', '==', turnoId));
-  const snapshot = await getDocs(q);
+  
+  // 1. Ventas normales del turno
+  const qVentas = query(ventasRef, where('turnoId', '==', turnoId));
+  const snapshotVentas = await getDocs(qVentas);
+  
+  // 2. Recaudos de deudas (cuentas por cobrar) realizados en este turno
+  const qRecaudos = query(ventasRef, where('turnoRecaudoId', '==', turnoId));
+  const snapshotRecaudos = await getDocs(qRecaudos);
   
   let efectivo = 0;
+  let transferencia = 0;
+  let tarjeta = 0;
   let otros = 0;
 
-  snapshot.forEach(docSnap => {
-    const venta = docSnap.data();
+  const procesarVenta = (venta: any, esRecaudo: boolean = false) => {
     if (venta.estado === 'pagada') {
-      if (venta.metodoPago === 'efectivo') {
-        efectivo += venta.totales.total;
+      const total = venta.totales?.total || 0;
+      
+      const metodo = esRecaudo ? (venta.metodoPagoFinal || 'efectivo') : venta.metodoPago;
+      
+      if (metodo === 'efectivo') {
+        efectivo += total;
+      } else if (metodo === 'transferencia') {
+        transferencia += total;
+      } else if (metodo === 'tarjeta') {
+        tarjeta += total;
+      } else if (metodo === 'mixto' && Array.isArray(venta.pagoMixtoDetalle) && !esRecaudo) {
+        venta.pagoMixtoDetalle.forEach((detalle: any) => {
+          const monto = detalle.monto || 0;
+          if (detalle.metodo === 'efectivo') efectivo += monto;
+          else if (detalle.metodo === 'transferencia') transferencia += monto;
+          else if (detalle.metodo === 'tarjeta') tarjeta += monto;
+          else otros += monto;
+        });
       } else {
-        otros += venta.totales.total;
+        otros += total;
       }
     }
-  });
+  };
 
-  return { efectivo, otros, total: efectivo + otros };
+  snapshotVentas.forEach(docSnap => procesarVenta(docSnap.data(), false));
+  snapshotRecaudos.forEach(docSnap => procesarVenta(docSnap.data(), true));
+
+  return { efectivo, transferencia, tarjeta, otros, total: efectivo + transferencia + tarjeta + otros };
 }

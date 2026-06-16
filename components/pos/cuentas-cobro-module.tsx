@@ -68,7 +68,7 @@ export function CuentasCobroModule() {
     if (!cuentaSeleccionada) return
     setProcesando(true)
     try {
-      await marcarComoPagada(cuentaSeleccionada.id, metodoPagoFinal)
+      await marcarComoPagada(cuentaSeleccionada.id, metodoPagoFinal, usuario?.uid)
       setShowPagarDialog(false)
       setCuentaSeleccionada(null)
     } catch (e) {

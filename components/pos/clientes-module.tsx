@@ -143,7 +143,8 @@ export function ClientesModule() {
  if (!cuentaACobrar) return
  setProcesandoCobro(true)
  try {
- await marcarComoPagada(cuentaACobrar.id, metodoPagoFiado)
+ await marcarComoPagada(cuentaACobrar.id, metodoPagoFiado, usuario?.uid)
+ toast({ title: 'Pago registrado con éxito' })
  setShowCobrarDialog(false)
  setCuentaACobrar(null)
  } catch (e) {
