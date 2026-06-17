@@ -284,6 +284,10 @@ export async function calcularVentasTurno(turnoId: string): Promise<{ efectivo: 
   let otros = 0;
 
   const procesarVenta = (venta: any, esRecaudo: boolean = false) => {
+    // H-01: la venta a crédito original (cuenta_cobro) no es ingreso del turno donde se vendió;
+    // su realización se contabiliza por la ruta de recaudo (turnoRecaudoId). Evita el doble conteo.
+    if (!esRecaudo && venta.metodoPago === 'cuenta_cobro') return;
+
     if (venta.estado === 'pagada') {
       const total = venta.totales?.total || 0;
       
