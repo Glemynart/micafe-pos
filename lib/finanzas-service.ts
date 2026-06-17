@@ -1,17 +1,18 @@
-import { 
-  collection, 
-  doc, 
-  getDocs, 
-  getDoc, 
-  setDoc, 
-  addDoc, 
-  updateDoc, 
-  query, 
-  where, 
-  orderBy, 
-  onSnapshot, 
+import {
+  collection,
+  doc,
+  getDocs,
+  getDoc,
+  setDoc,
+  addDoc,
+  updateDoc,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
   serverTimestamp,
-  runTransaction
+  runTransaction,
+  Timestamp
 } from 'firebase/firestore'
 import { db } from './firebase'
 
@@ -57,10 +58,12 @@ export function suscribirCuentasBancarias(callback: (cuentas: CuentaBancaria[]) 
 }
 
 export function suscribirTransacciones(mes: number, anio: number, callback: (txs: TransaccionFinanciera[]) => void) {
-  // Filtro básico por ahora traer todo ordenado por fecha desc. 
-  // En producción se deben usar límites o rangos de fechas (requiere índices compuestos).
+  const inicioMes = Timestamp.fromDate(new Date(anio, mes - 1, 1))
+  const finMes = Timestamp.fromDate(new Date(anio, mes, 1))
   const q = query(
-    collection(db, 'transacciones_financieras'), 
+    collection(db, 'transacciones_financieras'),
+    where('fecha', '>=', inicioMes),
+    where('fecha', '<', finMes),
     orderBy('fecha', 'desc')
   )
   
