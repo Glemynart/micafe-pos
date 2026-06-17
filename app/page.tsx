@@ -317,7 +317,7 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <h3 className="contact-title">Ubicación</h3>
-                    <p className="contact-text">Calle Principal 123<br/>Centro de la Ciudad<br/>Colombia</p>
+                    <p className="contact-text">Cl. 80 #79-28<br/>Carepa - Antioquia</p>
                   </div>
                 </div>
 
@@ -327,7 +327,7 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <h3 className="contact-title">Horario</h3>
-                    <p className="contact-text">Lunes - Domingo<br/>7:00 AM - 10:00 PM</p>
+                    <p className="contact-text">Lunes - Domingo<br/>9:00 AM - 10:00 PM</p>
                   </div>
                 </div>
 
