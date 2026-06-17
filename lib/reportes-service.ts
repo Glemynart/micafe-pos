@@ -116,41 +116,43 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
     const totalVenta = venta.totales?.total || 0
     ventasTotales += totalVenta
 
-    // Procesar Vendedor - filtrar solo admin
+    // Procesar Vendedor - excluir admin del desglose por cajero
     const cajeroId = venta.cajeroId || 'desconocido'
     const rol = rolesUsuarios.get(cajeroId) || ''
-    if (rol === 'admin') continue
-    if (!vendedoresMap.has(cajeroId)) {
-      vendedoresMap.set(cajeroId, {
-        id: cajeroId,
-        nombre: mapaUsuarios.get(cajeroId) || 'Desconocido',
-        ventas: 0,
-        total: 0,
-        efectivo: 0,
-        transferencia: 0,
-        cuentaCobro: 0
-      })
-    }
-    const vendorStat = vendedoresMap.get(cajeroId)
-    vendorStat.ventas += 1
-    vendorStat.total += totalVenta
 
-    // Metodo de pago: efectivo, transferencia, cuenta de cobro (sin tarjeta)
-    const metodoReal = venta.metodoPago === 'cuenta_cobro' && venta.estado === 'pagada'
-      ? (venta.metodoPagoFinal || 'efectivo')
-      : venta.metodoPago
+    if (rol !== 'admin') {
+      if (!vendedoresMap.has(cajeroId)) {
+        vendedoresMap.set(cajeroId, {
+          id: cajeroId,
+          nombre: mapaUsuarios.get(cajeroId) || 'Desconocido',
+          ventas: 0,
+          total: 0,
+          efectivo: 0,
+          transferencia: 0,
+          cuentaCobro: 0
+        })
+      }
+      const vendorStat = vendedoresMap.get(cajeroId)
+      vendorStat.ventas += 1
+      vendorStat.total += totalVenta
 
-    // Contar como cuenta de cobro tanto si esta pendiente como pagada
-    if (venta.metodoPago === 'cuenta_cobro') vendorStat.cuentaCobro += totalVenta
-    else if (metodoReal === 'efectivo') vendorStat.efectivo += totalVenta
-    else if (metodoReal === 'transferencia') vendorStat.transferencia += totalVenta
+      // Metodo de pago: efectivo, transferencia, cuenta de cobro (sin tarjeta)
+      const metodoReal = venta.metodoPago === 'cuenta_cobro' && venta.estado === 'pagada'
+        ? (venta.metodoPagoFinal || 'efectivo')
+        : venta.metodoPago
 
-    if (metodoReal === 'mixto' && venta.pagoMixtoDetalle) {
-      venta.pagoMixtoDetalle.forEach((p: any) => {
-        if (p.metodo === 'efectivo') vendorStat.efectivo += p.monto
-        if (p.metodo === 'transferencia') vendorStat.transferencia += p.monto
-        if (p.metodo === 'cuenta_cobro') vendorStat.cuentaCobro += p.monto
-      })
+      // Contar como cuenta de cobro tanto si esta pendiente como pagada
+      if (venta.metodoPago === 'cuenta_cobro') vendorStat.cuentaCobro += totalVenta
+      else if (metodoReal === 'efectivo') vendorStat.efectivo += totalVenta
+      else if (metodoReal === 'transferencia') vendorStat.transferencia += totalVenta
+
+      if (metodoReal === 'mixto' && venta.pagoMixtoDetalle) {
+        venta.pagoMixtoDetalle.forEach((p: any) => {
+          if (p.metodo === 'efectivo') vendorStat.efectivo += p.monto
+          if (p.metodo === 'transferencia') vendorStat.transferencia += p.monto
+          if (p.metodo === 'cuenta_cobro') vendorStat.cuentaCobro += p.monto
+        })
+      }
     }
 
     // Procesar Fechas para gráfico
