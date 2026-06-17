@@ -94,14 +94,73 @@ export async function POST(req: Request) {
             estadoPago: 'pagado',
             referenciaPago: transaction.id,
           })
-          
-          // 2. Crear Venta
+
+          // 2. Confirmar bloques de agenda (fuente autoritativa)
+          const mesaId: string = reservaData?.mesaId || ''
+
+          // fechaLocal y bloques persisten desde el cliente en hora local correcta.
+          // Fallback para reservas creadas antes de este fix: recalcular desde ISO
+          // usando TZ de Colombia (UTC-5) para evitar el mismatch de timezone.
+          let fechaLocal: string = reservaData?.fechaLocal || ''
+          let bloquesReserva: string[] = reservaData?.bloques || []
+
+          if (mesaId && !fechaLocal) {
+            // Fallback: derivar fechaLocal en TZ Colombia (UTC-5) desde el ISO string
+            const fechaInicio: string = reservaData?.fechaInicio || ''
+            if (fechaInicio) {
+              const tsMs = new Date(fechaInicio).getTime()
+              const colombiaOffsetMs = -5 * 60 * 60 * 1000
+              const localMs = tsMs + colombiaOffsetMs
+              const localDate = new Date(localMs)
+              const y = localDate.getUTCFullYear()
+              const mo = String(localDate.getUTCMonth() + 1).padStart(2, '0')
+              const d = String(localDate.getUTCDate()).padStart(2, '0')
+              fechaLocal = `${y}-${mo}-${d}`
+            }
+          }
+
+          if (mesaId && !bloquesReserva.length) {
+            // Fallback: derivar bloques desde ISO strings en TZ Colombia
+            const fechaInicio: string = reservaData?.fechaInicio || ''
+            const fechaFin: string = reservaData?.fechaFin || ''
+            if (fechaInicio && fechaFin) {
+              const colombiaOffsetMs = -5 * 60 * 60 * 1000
+              const hInicio = new Date(new Date(fechaInicio).getTime() + colombiaOffsetMs).getUTCHours()
+              const hFin = new Date(new Date(fechaFin).getTime() + colombiaOffsetMs).getUTCHours()
+              for (let h = hInicio; h < hFin; h++) {
+                bloquesReserva.push(h.toString().padStart(2, '0'))
+              }
+            }
+          }
+
+          if (mesaId && fechaLocal && bloquesReserva.length) {
+            const agendaDocId = `${mesaId}_${fechaLocal}`
+            const agendaRef = db.collection('agendas').doc(agendaDocId)
+            const agendaSnap = await t.get(agendaRef)
+
+            if (agendaSnap.exists) {
+              const agendaData = agendaSnap.data() as any
+              const bloques = { ...(agendaData.bloques || {}) }
+              let cambio = false
+              for (const key of bloquesReserva) {
+                if (bloques[key] && bloques[key].reservaId === reservaId && bloques[key].estado !== 'confirmado') {
+                  bloques[key] = { ...bloques[key], estado: 'confirmado', holdExpira: null }
+                  cambio = true
+                }
+              }
+              if (cambio) {
+                t.set(agendaRef, { ...agendaData, bloques, actualizadoEn: new Date().toISOString() })
+              }
+            }
+          }
+
+          // 3. Crear Venta
           const configRef = db.collection('configuracion').doc('general')
           const configSnap = await t.get(configRef)
           const nuevoConsecutivo = (configSnap.exists ? (configSnap.data()?.consecutivo_actual || 0) : 0) + 1
-          
+
           t.set(configRef, { consecutivo_actual: nuevoConsecutivo }, { merge: true })
-          
+
           const nuevaVentaRef = db.collection('ventas').doc()
           t.set(nuevaVentaRef, {
             consecutivo: nuevoConsecutivo,
