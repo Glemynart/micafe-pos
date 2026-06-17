@@ -429,7 +429,15 @@ export function SellModule() {
         estado: paymentMethod === 'cuenta_cobro' ? 'pendiente' : 'pagada'
       }
 
-      await registrarVenta(params)
+      const { incidenciasInventario } = await registrarVenta(params)
+
+      if (incidenciasInventario.length > 0) {
+        const nombres = incidenciasInventario.map(i => i.itemNombre).join(', ')
+        toast.warning('Venta registrada con faltante de inventario', {
+          description: `Stock insuficiente en: ${nombres}. El inventario fue ajustado a 0.`,
+          duration: 6000,
+        })
+      }
 
       if (activePedido) {
         await eliminarPedido(activePedido.id)
