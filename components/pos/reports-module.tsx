@@ -146,15 +146,15 @@ export function ReportsModule() {
                   <div className="pt-3 border-t border-border space-y-1">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Efectivo</span>
-                      <span className="text-foreground">{formatCurrency(vendor.cash)}</span>
+                      <span className="text-foreground">{formatCurrency(vendor.efectivo)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Tarjeta</span>
-                      <span className="text-foreground">{formatCurrency(vendor.card)}</span>
+                      <span className="text-muted-foreground">Cta. Cobro</span>
+                      <span className="text-foreground">{formatCurrency(vendor.cuentaCobro)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Transferencia</span>
-                      <span className="text-foreground">{formatCurrency(vendor.transfer)}</span>
+                      <span className="text-foreground">{formatCurrency(vendor.transferencia)}</span>
                     </div>
                   </div>
                 </CardContent>
