@@ -1,15 +1,16 @@
 import { db } from './firebase'
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  onSnapshot, 
-  query, 
-  where, 
-  getDocs, 
-  updateDoc, 
-  serverTimestamp, 
-  runTransaction 
+import {
+  collection,
+  doc,
+  setDoc,
+  onSnapshot,
+  query,
+  where,
+  getDocs,
+  updateDoc,
+  serverTimestamp,
+  runTransaction,
+  getDoc,
 } from 'firebase/firestore'
 
 export interface Reserva {
@@ -26,6 +27,231 @@ export interface Reserva {
   montoTotal: number
   referenciaPago: string // Transacción Wompi
   fechaCreacion: string
+  holdExpira?: string  // ISO — solo en reservas con hold activo
+  fechaLocal?: string  // YYYY-MM-DD en TZ local del cliente — evita recálculo TZ en servidor
+  bloques?: string[]   // claves de hora "08","09",... — evita reparse de ISO en servidor
+}
+
+// ─── AGENDA ──────────────────────────────────────────────────────────────────
+
+export interface BloqueAgenda {
+  reservaId: string
+  estado: 'hold' | 'confirmado'
+  holdExpira: string | null // ISO; null cuando estado === 'confirmado'
+  creadoEn: string          // ISO
+}
+
+interface AgendaDoc {
+  mesaId: string
+  espacioId: string
+  fecha: string             // YYYY-MM-DD local
+  materializado: boolean
+  bloques: Record<string, BloqueAgenda>
+  actualizadoEn: string
+}
+
+const HOLD_TTL_MS = 15 * 60 * 1000 // 15 minutos
+
+function agendaId(mesaId: string, fechaLocal: string): string {
+  return `${mesaId}_${fechaLocal}`
+}
+
+function bloquesDeRango(fechaInicio: string, fechaFin: string): string[] {
+  const inicio = new Date(fechaInicio)
+  const fin = new Date(fechaFin)
+  const bloques: string[] = []
+  const h = inicio.getHours()
+  const hFin = fin.getHours()
+  for (let i = h; i < hFin; i++) {
+    bloques.push(i.toString().padStart(2, '0'))
+  }
+  return bloques
+}
+
+function esBloqueOcupado(bloque: BloqueAgenda, ahora: Date): boolean {
+  if (bloque.estado === 'confirmado') return true
+  if (!bloque.holdExpira) return false
+  return new Date(bloque.holdExpira) > ahora
+}
+
+/**
+ * Lee la agenda de una mesa para un día. Si no existe o no está materializada,
+ * la construye a partir de las reservas existentes (materialización perezosa).
+ * Devuelve las claves de hora ocupadas, ej: ["08","09","13"].
+ */
+export async function getBloquesOcupados(mesaId: string, fechaLocal: string): Promise<string[]> {
+  const agendaRef = doc(db, 'agendas', agendaId(mesaId, fechaLocal))
+  const agendaSnap = await getDoc(agendaRef)
+  const ahora = new Date()
+
+  if (agendaSnap.exists() && agendaSnap.data().materializado) {
+    const data = agendaSnap.data() as AgendaDoc
+    return Object.entries(data.bloques)
+      .filter(([, bloque]) => esBloqueOcupado(bloque, ahora))
+      .map(([hora]) => hora)
+  }
+
+  // Materialización perezosa: construir desde reservas existentes
+  const reservasExistentes = await getReservasMesa(mesaId, fechaLocal)
+  const bloquesIniciales: Record<string, BloqueAgenda> = {}
+  const ahora2 = new Date()
+
+  for (const r of reservasExistentes) {
+    const bloquesReserva = r.bloques ?? bloquesDeRango(r.fechaInicio, r.fechaFin)
+    const confirmado = r.estadoPago === 'pagado'
+    // Reutilizar holdExpira original si existe; si no, asignar TTL desde ahora
+    const holdExpiraLegacy = confirmado
+      ? null
+      : (r.holdExpira ?? new Date(ahora2.getTime() + HOLD_TTL_MS).toISOString())
+    for (const b of bloquesReserva) {
+      bloquesIniciales[b] = {
+        reservaId: r.id,
+        estado: confirmado ? 'confirmado' : 'hold',
+        holdExpira: holdExpiraLegacy,
+        creadoEn: r.fechaCreacion,
+      }
+    }
+  }
+
+  await setDoc(agendaRef, {
+    mesaId,
+    espacioId: 'salas-coworking',
+    fecha: fechaLocal,
+    materializado: true,
+    bloques: bloquesIniciales,
+    actualizadoEn: new Date().toISOString(),
+  })
+
+  return Object.entries(bloquesIniciales)
+    .filter(([, bloque]) => esBloqueOcupado(bloque, ahora))
+    .map(([hora]) => hora)
+}
+
+/**
+ * Claim transaccional: crea la reserva y reclama los bloques de agenda
+ * en una sola transacción. Lanza error si algún bloque está ocupado.
+ */
+export async function crearReservaConHold(
+  reservaData: Omit<Reserva, 'id'>,
+  fechaLocal: string,
+  bloquesSolicitados: string[]
+): Promise<string> {
+  const reservaRef = doc(collection(db, 'reservas'))
+  const agendaRef = doc(db, 'agendas', agendaId(reservaData.mesaId, fechaLocal))
+  const holdExpira = new Date(Date.now() + HOLD_TTL_MS).toISOString()
+  const ahora = new Date()
+
+  await runTransaction(db, async (tx) => {
+    const agendaSnap = await tx.get(agendaRef)
+    const bloquesActuales: Record<string, BloqueAgenda> =
+      agendaSnap.exists() ? (agendaSnap.data() as AgendaDoc).bloques : {}
+
+    // Verificar que ningún bloque solicitado esté ocupado
+    for (const b of bloquesSolicitados) {
+      const bloque = bloquesActuales[b]
+      if (bloque && bloque.reservaId !== reservaRef.id && esBloqueOcupado(bloque, ahora)) {
+        throw new Error('BLOQUE_OCUPADO')
+      }
+    }
+
+    // Escribir holds en la agenda
+    const nuevosBloques = { ...bloquesActuales }
+    for (const b of bloquesSolicitados) {
+      nuevosBloques[b] = {
+        reservaId: reservaRef.id,
+        estado: 'hold',
+        holdExpira,
+        creadoEn: new Date().toISOString(),
+      }
+    }
+
+    tx.set(agendaRef, {
+      mesaId: reservaData.mesaId,
+      espacioId: reservaData.espacioId,
+      fecha: fechaLocal,
+      materializado: true,
+      bloques: nuevosBloques,
+      actualizadoEn: new Date().toISOString(),
+    })
+
+    tx.set(reservaRef, {
+      ...reservaData,
+      id: reservaRef.id,
+      holdExpira,
+      fechaLocal,
+      bloques: bloquesSolicitados,
+    })
+  })
+
+  return reservaRef.id
+}
+
+/**
+ * Confirma los bloques de agenda como pagados (idempotente).
+ * Solo actúa sobre bloques que aún pertenecen a esta reserva.
+ */
+export async function confirmarAgenda(
+  reservaId: string,
+  mesaId: string,
+  fechaLocal: string,
+  bloquesSolicitados: string[]
+): Promise<void> {
+  const agendaRef = doc(db, 'agendas', agendaId(mesaId, fechaLocal))
+
+  await runTransaction(db, async (tx) => {
+    const agendaSnap = await tx.get(agendaRef)
+    if (!agendaSnap.exists()) return
+
+    const data = agendaSnap.data() as AgendaDoc
+    const nuevosBloques = { ...data.bloques }
+    let cambio = false
+
+    for (const b of bloquesSolicitados) {
+      const bloque = nuevosBloques[b]
+      if (bloque && bloque.reservaId === reservaId && bloque.estado !== 'confirmado') {
+        nuevosBloques[b] = { ...bloque, estado: 'confirmado', holdExpira: null }
+        cambio = true
+      }
+    }
+
+    if (cambio) {
+      tx.set(agendaRef, { ...data, bloques: nuevosBloques, actualizadoEn: new Date().toISOString() })
+    }
+  })
+}
+
+/**
+ * Libera bloques de agenda (pago fallido / cancelación).
+ * Solo elimina bloques que aún pertenecen a esta reserva y no están confirmados.
+ */
+export async function liberarAgenda(
+  reservaId: string,
+  mesaId: string,
+  fechaLocal: string,
+  bloquesSolicitados: string[]
+): Promise<void> {
+  const agendaRef = doc(db, 'agendas', agendaId(mesaId, fechaLocal))
+
+  await runTransaction(db, async (tx) => {
+    const agendaSnap = await tx.get(agendaRef)
+    if (!agendaSnap.exists()) return
+
+    const data = agendaSnap.data() as AgendaDoc
+    const nuevosBloques = { ...data.bloques }
+    let cambio = false
+
+    for (const b of bloquesSolicitados) {
+      const bloque = nuevosBloques[b]
+      if (bloque && bloque.reservaId === reservaId && bloque.estado === 'hold') {
+        delete nuevosBloques[b]
+        cambio = true
+      }
+    }
+
+    if (cambio) {
+      tx.set(agendaRef, { ...data, bloques: nuevosBloques, actualizadoEn: new Date().toISOString() })
+    }
+  })
 }
 
 const COLLECTION_NAME = 'reservas'

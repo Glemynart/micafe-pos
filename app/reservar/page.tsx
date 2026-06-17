@@ -11,7 +11,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner'
 import Link from 'next/link'
 import Script from 'next/script'
-import { getReservasMesa, crearReserva, Reserva } from '@/lib/reservas-service'
+import {
+  getReservasMesa,
+  getBloquesOcupados,
+  crearReservaConHold,
+  confirmarAgenda,
+  liberarAgenda,
+  actualizarEstadoPago,
+  cancelarReserva,
+  Reserva,
+} from '@/lib/reservas-service'
 import { db } from '@/lib/firebase'
 import { collection, getDocs } from 'firebase/firestore'
 import { es } from 'date-fns/locale'
@@ -91,47 +100,23 @@ export default function ReservarPage() {
   useEffect(() => {
     async function checkDisponibilidad() {
       if (!fecha || !salaSeleccionada) return
-      
+
       setCargandoHorarios(true)
       try {
-        // En un caso real, filtramos las reservas de esta fecha exacta
-        // Aquí traemos todas las de la sala y filtramos en local
-        // Extraer 'YYYY-MM-DD' en hora local para evitar desfases de UTC
         const year = fecha.getFullYear()
         const month = String(fecha.getMonth() + 1).padStart(2, '0')
         const day = String(fecha.getDate()).padStart(2, '0')
         const fechaLocalStr = `${year}-${month}-${day}`
-        
-        const reservas = await getReservasMesa(salaSeleccionada, fechaLocalStr)
-        
-        // Extraer horas ocupadas considerando el rango de tiempo
-        const ocupadas: string[] = []
-        reservas.forEach(r => {
-          const rInicio = new Date(r.fechaInicio)
-          const rFin = new Date(r.fechaFin)
-          
-          // Comparación local para no tener desfase de zona horaria con las 20:00 (que en UTC es el día siguiente)
-          const esMismoDia = 
-            rInicio.getFullYear() === fecha.getFullYear() &&
-            rInicio.getMonth() === fecha.getMonth() &&
-            rInicio.getDate() === fecha.getDate()
-          
-          if (esMismoDia) {
-            const horaInicio = rInicio.getHours()
-            const horaFin = rFin.getHours()
-            
-            // Si la reserva es de 08:00 a 10:00 (horaInicio 8, horaFin 10), 
-            // los bloques ocupados son 08:00 y 09:00.
-            for (let h = horaInicio; h < horaFin; h++) {
-              const horaStr = h.toString().padStart(2, '0') + ':00'
-              ocupadas.push(horaStr)
-            }
-          }
-        })
-        
-        // Bloquear horas que ya pasaron si el día seleccionado es hoy
+
+        // Una sola lectura: agenda por mesa+día (con materialización perezosa legacy)
+        const bloquesOcupados = await getBloquesOcupados(salaSeleccionada, fechaLocalStr)
+
+        // Convertir claves "08" → "08:00" para el estado de UI
+        const ocupadas = bloquesOcupados.map(b => `${b}:00`)
+
+        // Bloquear horas pasadas si es hoy
         const ahora = new Date()
-        const esHoy = 
+        const esHoy =
           ahora.getFullYear() === fecha.getFullYear() &&
           ahora.getMonth() === fecha.getMonth() &&
           ahora.getDate() === fecha.getDate()
@@ -140,23 +125,20 @@ export default function ReservarPage() {
         if (esHoy) {
           const horaActual = ahora.getHours()
           HORARIOS.forEach(h => {
-            const horaBloque = parseInt(h.split(':')[0], 10)
-            if (horaBloque <= horaActual) {
-              pasadas.push(h)
-            }
+            if (parseInt(h.split(':')[0], 10) <= horaActual) pasadas.push(h)
           })
         }
-        
+
         setHorasOcupadas(ocupadas)
         setHorasPasadas(pasadas)
-        setHorasSeleccionadas([]) // reset selección si cambia fecha/sala
+        setHorasSeleccionadas([])
       } catch (error) {
         toast.error('Error', { description: 'No se pudo cargar la disponibilidad.' })
       } finally {
         setCargandoHorarios(false)
       }
     }
-    
+
     checkDisponibilidad()
   }, [fecha, salaSeleccionada])
 
@@ -259,9 +241,16 @@ export default function ReservarPage() {
         await crearReservaBase()
         toast.success('Reserva Confirmada', { description: 'Tu espacio ha sido reservado con éxito.' })
         setPaso(3)
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error guardando reserva mock:', err)
-        toast.error('Error', { description: 'Hubo un problema guardando la reserva.' })
+        if (err?.message === 'BLOQUE_OCUPADO') {
+          toast.error('Horario no disponible', { description: 'Ese horario acaba de ser reservado. Por favor elige otro.' })
+          const bl = await getBloquesOcupados(salaSeleccionada, getFechaLocalStr())
+          setHorasOcupadas(bl.map(b => `${b}:00`))
+          setHorasSeleccionadas([])
+        } else {
+          toast.error('Error', { description: 'Hubo un problema guardando la reserva.' })
+        }
       } finally {
         setCargandoPago(false)
       }
@@ -269,67 +258,122 @@ export default function ReservarPage() {
     }
 
     setCargandoPago(true)
-    
-    // 1. Guardar la reserva inicial en Firebase (Pendiente)
-    const reservaId = await crearReservaBase()
 
-    // 2. Abrir Wompi
+    let reservaId: string
+    let fechaLocal: string
+    let bloques: string[]
+
+    try {
+      // 1. Claim transaccional: crea reserva + hold en una sola transacción
+      const resultado = await crearReservaBase()
+      reservaId = resultado.reservaId
+      fechaLocal = resultado.fechaLocal
+      bloques = resultado.bloques
+    } catch (err: any) {
+      if (err?.message === 'BLOQUE_OCUPADO') {
+        toast.error('Horario no disponible', { description: 'Ese horario acaba de ser reservado. Por favor elige otro.' })
+        const year = fecha!.getFullYear()
+        const month = String(fecha!.getMonth() + 1).padStart(2, '0')
+        const day = String(fecha!.getDate()).padStart(2, '0')
+        const bl = await getBloquesOcupados(salaSeleccionada, `${year}-${month}-${day}`)
+        setHorasOcupadas(bl.map(b => `${b}:00`))
+        setHorasSeleccionadas([])
+      } else {
+        toast.error('Error', { description: 'No se pudo crear la reserva. Intenta de nuevo.' })
+      }
+      setCargandoPago(false)
+      return
+    }
+
+    // 2. Abrir Wompi (hold protege la franja durante el checkout)
     const checkout = new window.WidgetCheckout({
       currency: 'COP',
       amountInCents: calcularTotal() * 100,
-      reference: reservaId, // ID del doc en Firestore para que el webhook lo encuentre
+      reference: reservaId,
       publicKey: pubKey,
       redirectUrl: `${window.location.origin}/reservar/estado`
     })
 
-    checkout.open(function (result: any) {
+    checkout.open(async function (result: any) {
       const transaction = result.transaction
       if (transaction.status === 'APPROVED') {
-        crearReservaEnFirebase(transaction.id, reservaId)
+        crearReservaEnFirebase(transaction.id, reservaId, fechaLocal, bloques)
       } else {
-        toast.error('Pago Fallido', { description: 'La transacción no fue aprobada.' })
+        // Liberar los bloques inmediatamente (no esperar al TTL)
+        try {
+          await liberarAgenda(reservaId, salaSeleccionada, fechaLocal, bloques)
+          await cancelarReserva(reservaId)
+        } catch (releaseErr) {
+          console.error('Error liberando agenda tras pago fallido:', releaseErr)
+        }
+        toast.error('Pago Fallido', { description: 'La transacción no fue aprobada. El horario ha sido liberado.' })
         setCargandoPago(false)
       }
     })
   }
 
-  const crearReservaBase = async () => {
-    // Modelo de bloques: cada slot es un BLOQUE de 1 hora.
-    // Si el usuario seleccionó [08:00, 09:00], la reserva es de 8:00 a 10:00 (2h).
+  const getFechaLocalStr = () => {
+    const d = fecha!
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
+  // Deriva las claves de bloque "08","09",... de las horas seleccionadas
+  const getBloquesSolicitados = (): string[] => {
+    const rango = calcularRangoVisual()
+    if (!rango) return []
+    const inicioH = parseInt(rango.inicio.split(':')[0], 10)
+    const finH = parseInt(rango.fin.split(':')[0], 10)
+    const bloques: string[] = []
+    for (let h = inicioH; h < finH; h++) {
+      bloques.push(h.toString().padStart(2, '0'))
+    }
+    return bloques
+  }
+
+  const crearReservaBase = async (): Promise<{ reservaId: string; fechaLocal: string; bloques: string[] }> => {
     const rango = calcularRangoVisual()
     if (!rango) throw new Error('Debe seleccionar al menos un horario.')
 
     const fechaInicio = new Date(fecha!)
     fechaInicio.setHours(parseInt(rango.inicio.split(':')[0], 10), 0, 0, 0)
-
-    // La hora de fin ya viene calculada correctamente en el rango (+1 hora)
     const fechaFin = new Date(fecha!)
     fechaFin.setHours(parseInt(rango.fin.split(':')[0], 10), 0, 0, 0)
+
+    const fechaLocal = getFechaLocalStr()
+    const bloques = getBloquesSolicitados()
 
     const reservaData: Omit<Reserva, 'id'> = {
       clienteNombre,
       clienteEmail,
       clienteTelefono,
       mesaId: salaSeleccionada,
-      espacioId: 'salas-coworking', // Mock, en prod vendría de la DB
+      espacioId: 'salas-coworking',
       fechaInicio: fechaInicio.toISOString(),
       fechaFin: fechaFin.toISOString(),
       estadoPago: 'pendiente',
       estadoReserva: 'activa',
       montoTotal: calcularTotal(),
       referenciaPago: '',
-      fechaCreacion: new Date().toISOString()
+      fechaCreacion: new Date().toISOString(),
     }
-    
-    return await crearReserva(reservaData)
+
+    const reservaId = await crearReservaConHold(reservaData, fechaLocal, bloques)
+    return { reservaId, fechaLocal, bloques }
   }
 
-  const crearReservaEnFirebase = async (referenciaWompi: string, reservaExistenteId?: string) => {
+  const crearReservaEnFirebase = async (
+    referenciaWompi: string,
+    reservaId: string,
+    fechaLocal: string,
+    bloques: string[]
+  ) => {
     try {
-      if (reservaExistenteId) {
-        const { actualizarEstadoPago } = await import('@/lib/reservas-service')
-        await actualizarEstadoPago(reservaExistenteId, 'pagado', referenciaWompi)
-      }
+      // Confirmar agenda (best-effort; el webhook es la fuente autoritativa)
+      await confirmarAgenda(reservaId, salaSeleccionada, fechaLocal, bloques)
+      await actualizarEstadoPago(reservaId, 'pagado', referenciaWompi)
       toast.success('Reserva Confirmada', { description: 'Tu pago fue exitoso y la sala ha sido reservada.' })
       setPaso(3)
     } catch (err) {
