@@ -39,7 +39,7 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  useEffect(() => {
  if (!usuario) return
  const unsub = suscribirTurnoActivo(usuario.uid, (doc) => {
- setActiveShift(doc ? { id: doc.id, ...doc.data() } as Turno : null)
+ setActiveShift(doc)
  })
  return () => unsub()
  }, [usuario])
