@@ -31,6 +31,7 @@ export interface Turno {
   diferenciaEfectivo: number;
   notasApertura: string;
   notasCierre: string;
+  esCierreDefinitivo?: boolean;
 }
 
 export interface AbrirTurnoParams {
@@ -49,6 +50,7 @@ export interface CerrarTurnoParams {
   totalReportadoEfectivo: number;
   diferenciaEfectivo: number;
   notasCierre?: string;
+  esCierreDefinitivo?: boolean;
 }
 
 /**
@@ -99,18 +101,43 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
 
 /**
  * Cierra un turno existente, guardando el cuadre de caja (Cierre Ciego).
+ *
+ * Lógica de depósito a Caja Fuerte (Modelo B – float fijo):
+ *   - Relevo (esCierreDefinitivo=false): deposita solo el efectivo neto de ventas,
+ *     es decir max(0, totalReportadoEfectivo - baseApertura). La base queda en caja
+ *     para el siguiente cajero.
+ *   - Cierre definitivo (esCierreDefinitivo=true): deposita el total reportado íntegro,
+ *     incluyendo la base, porque no hay turno siguiente.
+ *
+ * La baseApertura se lee desde el documento del turno en Firestore (fuente de verdad),
+ * no desde los parámetros del cliente.
+ *
+ * Estructura: todas las lecturas ocurren antes de cualquier escritura para cumplir
+ * con las restricciones de transacciones de Firestore.
  */
 export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
   const turnoRef = doc(db, 'turnos', params.turnoId);
+  const cuentaRefEfectivo = doc(db, 'cuentas_bancarias', 'caja-fuerte');
+  const cuentaRefBanco = doc(db, 'cuentas_bancarias', 'bancolombia');
 
   await runTransaction(db, async (transaction) => {
-    // 1. Verificar idempotencia
+    // ── FASE DE LECTURAS (todas antes de cualquier escritura) ────────
     const turnoDoc = await transaction.get(turnoRef);
     if (!turnoDoc.exists() || turnoDoc.data().estado === 'cerrado') {
-      return; // Ya está cerrado o no existe
+      return; // Idempotencia: ya cerrado o no existe
     }
 
-    // 2. Marcar como cerrado
+    const baseApertura: number = turnoDoc.data().baseApertura || 0;
+    const esCierreDefinitivo = params.esCierreDefinitivo ?? false;
+
+    const depositoEfectivo = esCierreDefinitivo
+      ? params.totalReportadoEfectivo
+      : Math.max(0, params.totalReportadoEfectivo - baseApertura);
+
+    const cuentaDocEf = await transaction.get(cuentaRefEfectivo);
+    const cuentaDocBa = await transaction.get(cuentaRefBanco);
+
+    // ── FASE DE ESCRITURAS ───────────────────────────────────────────
     transaction.update(turnoRef, {
       estado: 'cerrado',
       fechaCierre: serverTimestamp(),
@@ -120,55 +147,48 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
       totalEsperadoEfectivo: params.totalEsperadoEfectivo,
       totalReportadoEfectivo: params.totalReportadoEfectivo,
       diferenciaEfectivo: params.diferenciaEfectivo,
-      notasCierre: params.notasCierre || ''
+      notasCierre: params.notasCierre || '',
+      esCierreDefinitivo,
     });
 
-    // 3. Crear transacciones financieras para la Tesorería (Caja Fuerte y Banco)
-    if (params.totalReportadoEfectivo > 0) {
-      const cuentaRefEfectivo = doc(db, 'cuentas_bancarias', 'caja-fuerte');
-      const cuentaDocEf = await transaction.get(cuentaRefEfectivo);
-      if (cuentaDocEf.exists()) {
-        const saldoEfectivo = cuentaDocEf.data().saldo || 0;
-        transaction.update(cuentaRefEfectivo, { saldo: saldoEfectivo + params.totalReportadoEfectivo });
-        
-        const txRefEf = doc(collection(db, 'transacciones_financieras'));
-        transaction.set(txRefEf, {
-          cuentaId: 'caja-fuerte',
-          cuentaNombre: 'Caja Fuerte',
-          tipo: 'ingreso',
-          monto: params.totalReportadoEfectivo,
-          concepto: `Ingreso Cierre de Turno (Efectivo)`,
-          categoria: 'ventas',
-          referencia: params.turnoId,
-          usuarioId: 'sistema',
-          usuarioNombre: 'Cierre Automático',
-          fecha: serverTimestamp()
-        });
-      }
+    if (depositoEfectivo > 0 && cuentaDocEf.exists()) {
+      const saldoEfectivo = cuentaDocEf.data().saldo || 0;
+      transaction.update(cuentaRefEfectivo, { saldo: saldoEfectivo + depositoEfectivo });
+
+      const txRefEf = doc(collection(db, 'transacciones_financieras'));
+      transaction.set(txRefEf, {
+        cuentaId: 'caja-fuerte',
+        cuentaNombre: 'Caja Fuerte',
+        tipo: 'ingreso',
+        monto: depositoEfectivo,
+        concepto: esCierreDefinitivo
+          ? 'Ingreso Cierre Definitivo (Efectivo)'
+          : 'Ingreso Relevo de Turno (Efectivo neto)',
+        categoria: 'ventas',
+        referencia: params.turnoId,
+        usuarioId: 'sistema',
+        usuarioNombre: 'Cierre Automático',
+        fecha: serverTimestamp(),
+      });
     }
 
-    if (params.ventasOtrosMetodos > 0) {
-      // Usamos bancolombia por defecto para ventas digitales
-      const cuentaRefBanco = doc(db, 'cuentas_bancarias', 'bancolombia');
-      const cuentaDocBa = await transaction.get(cuentaRefBanco);
-      if (cuentaDocBa.exists()) {
-        const saldoBanco = cuentaDocBa.data().saldo || 0;
-        transaction.update(cuentaRefBanco, { saldo: saldoBanco + params.ventasOtrosMetodos });
-        
-        const txRefBa = doc(collection(db, 'transacciones_financieras'));
-        transaction.set(txRefBa, {
-          cuentaId: 'bancolombia',
-          cuentaNombre: 'Bancolombia',
-          tipo: 'ingreso',
-          monto: params.ventasOtrosMetodos,
-          concepto: `Ingreso Cierre de Turno (Digital)`,
-          categoria: 'ventas',
-          referencia: params.turnoId,
-          usuarioId: 'sistema',
-          usuarioNombre: 'Cierre Automático',
-          fecha: serverTimestamp()
-        });
-      }
+    if (params.ventasOtrosMetodos > 0 && cuentaDocBa.exists()) {
+      const saldoBanco = cuentaDocBa.data().saldo || 0;
+      transaction.update(cuentaRefBanco, { saldo: saldoBanco + params.ventasOtrosMetodos });
+
+      const txRefBa = doc(collection(db, 'transacciones_financieras'));
+      transaction.set(txRefBa, {
+        cuentaId: 'bancolombia',
+        cuentaNombre: 'Bancolombia',
+        tipo: 'ingreso',
+        monto: params.ventasOtrosMetodos,
+        concepto: 'Ingreso Cierre de Turno (Digital)',
+        categoria: 'ventas',
+        referencia: params.turnoId,
+        usuarioId: 'sistema',
+        usuarioNombre: 'Cierre Automático',
+        fecha: serverTimestamp(),
+      });
     }
   });
 }

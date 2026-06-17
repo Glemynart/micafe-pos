@@ -98,7 +98,8 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  totalEsperadoEfectivo: expectedCash,
  totalReportadoEfectivo: totalCashCount,
  diferenciaEfectivo: cashDifference,
- notasCierre: closeNotes || ''
+ notasCierre: closeNotes || '',
+ esCierreDefinitivo: handoverTo === 'none',
  })
  setOpen(false)
  toast.success("Turno cerrado correctamente")

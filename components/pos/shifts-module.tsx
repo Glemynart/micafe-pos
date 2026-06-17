@@ -147,7 +147,8 @@ export function ShiftsModule() {
       totalEsperadoEfectivo: expectedCash,
       totalReportadoEfectivo: totalCashCount,
       diferenciaEfectivo: cashDifference,
-      notasCierre: closeNotes
+      notasCierre: closeNotes,
+      esCierreDefinitivo: handoverTo === 'none',
     }).catch(console.error)
   }
 
