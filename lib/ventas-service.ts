@@ -63,11 +63,22 @@ export interface CrearVentaParams {
  * Registra una venta en Firestore mediante una transacción.
  * Si el producto tiene receta, descuenta de `insumos`. Si no, descuenta de `productos`.
  */
-export async function registrarVenta(params: CrearVentaParams): Promise<{id: string, consecutivo: number}> {
+export interface IncidenciaInventario {
+  tipo: 'stock_insuficiente'
+  itemId: string
+  itemNombre: string
+  stockAnterior: number
+  cantidadSolicitada: number
+}
+
+export async function registrarVenta(params: CrearVentaParams): Promise<{id: string, consecutivo: number, incidenciasInventario: IncidenciaInventario[]}> {
   const ventasRef = collection(db, "ventas");
   const nuevaVentaDoc = doc(ventasRef); // Generar ID para la nueva venta
+  const incidencias: IncidenciaInventario[] = [];
 
   const consecutivoGenerado = await runTransaction(db, async (transaction) => {
+    incidencias.length = 0; // reset en cada reintento; solo persiste el intento exitoso
+
     // 1. LEER TODAS LAS RECETAS PRIMERO
     const recetasMap = new Map<string, any>();
     
@@ -148,7 +159,16 @@ export async function registrarVenta(params: CrearVentaParams): Promise<{id: str
       const insumo = insumosMap.get(insumoId);
       if (insumo) {
         const currentStock = insumo.data.stock || 0;
-        transaction.update(insumo.ref, { stock: currentStock - qtyDesc });
+        if (qtyDesc > currentStock) {
+          incidencias.push({
+            tipo: 'stock_insuficiente',
+            itemId: insumoId,
+            itemNombre: insumo.data.nombre || insumoId,
+            stockAnterior: currentStock,
+            cantidadSolicitada: qtyDesc,
+          });
+        }
+        transaction.update(insumo.ref, { stock: Math.max(0, currentStock - qtyDesc) });
       }
     }
 
@@ -156,7 +176,16 @@ export async function registrarVenta(params: CrearVentaParams): Promise<{id: str
       const producto = productosMap.get(productoId);
       if (producto) {
         const currentStock = producto.data.stock || 0;
-        transaction.update(producto.ref, { stock: currentStock - qtyDesc });
+        if (qtyDesc > currentStock) {
+          incidencias.push({
+            tipo: 'stock_insuficiente',
+            itemId: productoId,
+            itemNombre: producto.data.nombre || productoId,
+            stockAnterior: currentStock,
+            cantidadSolicitada: qtyDesc,
+          });
+        }
+        transaction.update(producto.ref, { stock: Math.max(0, currentStock - qtyDesc) });
       }
     }
 
@@ -181,7 +210,7 @@ export async function registrarVenta(params: CrearVentaParams): Promise<{id: str
     return nuevoConsecutivo;
   });
 
-  return { id: nuevaVentaDoc.id, consecutivo: consecutivoGenerado };
+  return { id: nuevaVentaDoc.id, consecutivo: consecutivoGenerado, incidenciasInventario: incidencias };
 }
 
 export function suscribirHistorialVentas(espacioId: string | undefined, callback: (ventas: any[]) => void): Unsubscribe {
