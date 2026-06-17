@@ -5,6 +5,23 @@
 
 ---
 
+## Historial de correcciones
+
+### 2026-06
+
+#### A-2 Doble reserva — RESUELTO
+
+Implementación:
+- Agenda por mesa+día (`agendas/{mesaId}_{YYYY-MM-DD}`)
+- Hold transaccional de 15 minutos (claim atómico en `crearReservaConHold`)
+- Confirmación idempotente por webhook (fuente autoritativa)
+- Liberación automática de holds expirados (expiración perezosa, sin cron)
+
+Archivos modificados: `lib/reservas-service.ts`, `app/reservar/page.tsx`, `app/api/webhooks/wompi/route.ts`  
+Commit: `399b11e`
+
+---
+
 ## Arquitectura detectada
 
 **Tipo:** Aplicación híbrida Electron + Next.js con landing pública.
