@@ -69,6 +69,7 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
   const ventasRef = collection(db, 'ventas')
   const qVentas = query(
     ventasRef,
+    where('estado', '==', 'pagada'),
     where('fecha', '>=', Timestamp.fromDate(inicio)),
     where('fecha', '<=', Timestamp.fromDate(fin)),
     orderBy('fecha', 'asc')
@@ -208,7 +209,7 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
     const t = doc.data()
     const cajeroId = t.cajeroId
     if (!cajeroId) return
-    const declarado = t.efectivoCierre || t.montoEfectivoCierre || t.efectivoFinal || 0
+    const declarado = t.totalReportadoEfectivo || 0
     const existente = efectivoPorCajero.get(cajeroId) || 0
     efectivoPorCajero.set(cajeroId, existente + Number(declarado))
   })

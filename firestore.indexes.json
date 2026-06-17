@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "ventas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "reservas",
       "queryScope": "COLLECTION",
       "fields": [
