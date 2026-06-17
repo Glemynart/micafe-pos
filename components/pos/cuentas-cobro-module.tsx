@@ -29,8 +29,10 @@ import {
   tiempoRestanteDIAN,
   type CuentaCobro,
 } from '@/lib/cuentas-cobro-service'
+import { useAuthContext } from '@/contexts/auth-context'
 
 export function CuentasCobroModule() {
+  const { usuario } = useAuthContext()
   const [cuentas, setCuentas] = useState<CuentaCobro[]>([])
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState('')
