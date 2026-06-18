@@ -1,9 +1,8 @@
 import { 
-  collection, 
-  doc, 
-  setDoc, 
-  updateDoc, 
-  onSnapshot, 
+  collection,
+  doc,
+  updateDoc,
+  onSnapshot,
   query, 
   where, 
   orderBy, 
@@ -54,37 +53,93 @@ export interface CerrarTurnoParams {
 }
 
 /**
- * Abre un nuevo turno para el cajero en el espacio.
+ * Abre un nuevo turno para el cajero, garantizando unicidad mediante un
+ * documento candado de ID determinista: `turnos_activos/{cajeroId}`.
+ *
+ * La apertura es atómica (runTransaction sobre el candado determinista), lo que
+ * elimina la condición de carrera TOCTOU del antiguo "verificar + crear":
+ *   - Si ya existe candado → idempotente, devuelve el turno activo (no duplica).
+ *   - Compatibilidad hacia atrás: si hay un turno abierto sin candado (creado
+ *     antes de esta corrección), lo "adopta" creando el candado que apunta a él
+ *     en vez de abrir uno nuevo.
+ *   - En el caso normal crea turno + candado en la misma transacción.
+ *
+ * Nota Firestore: las transacciones no admiten queries; por eso la detección de
+ * turnos legacy usa un getDocs previo (best-effort). La unicidad real la asegura
+ * el candado determinista dentro de la transacción.
  */
 export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
   const turnosRef = collection(db, 'turnos');
-  const nuevoTurnoRef = doc(turnosRef);
-  
-  const nuevoTurno = {
-    id: nuevoTurnoRef.id,
-    cajeroId: params.cajeroId,
-    cajeroNombre: params.cajeroNombre,
-    fechaApertura: serverTimestamp(),
-    fechaCierre: null,
-    estado: 'abierto',
-    baseApertura: params.baseApertura,
-    ventasEfectivo: 0,
-    ventasOtrosMetodos: 0,
-    totalEsperadoEfectivo: 0,
-    totalReportadoEfectivo: 0,
-    diferenciaEfectivo: 0,
-    notasApertura: params.notasApertura || '',
-    notasCierre: ''
-  };
+  const lockRef = doc(db, 'turnos_activos', params.cajeroId);
 
-  await setDoc(nuevoTurnoRef, nuevoTurno);
+  // Compatibilidad hacia atrás: detectar turnos abiertos previos sin candado.
+  const legacyQuery = query(
+    turnosRef,
+    where('cajeroId', '==', params.cajeroId),
+    where('estado', '==', 'abierto')
+  );
+  const legacySnap = await getDocs(legacyQuery);
+  const legacyTurnoId = legacySnap.empty ? null : legacySnap.docs[0].id;
 
-  // Trigger notification a los admins (fire and forget)
-  if (typeof window !== 'undefined') {
+  let turnoCreado = false; // se resetea en cada reintento de la transacción
+
+  const turnoId = await runTransaction(db, async (transaction) => {
+    turnoCreado = false;
+
+    // 1. ¿Ya hay candado? → turno activo existente, idempotente.
+    const lockSnap = await transaction.get(lockRef);
+    if (lockSnap.exists()) {
+      return lockSnap.data().turnoId as string;
+    }
+
+    // 2. Sin candado: ¿existe un turno legacy abierto sin candado? → adoptarlo.
+    if (legacyTurnoId) {
+      const legacyRef = doc(db, 'turnos', legacyTurnoId);
+      const legacyTurnoSnap = await transaction.get(legacyRef);
+      if (legacyTurnoSnap.exists() && legacyTurnoSnap.data().estado === 'abierto') {
+        transaction.set(lockRef, {
+          cajeroId: params.cajeroId,
+          turnoId: legacyTurnoId,
+          fechaApertura: legacyTurnoSnap.data().fechaApertura ?? serverTimestamp(),
+        });
+        return legacyTurnoId;
+      }
+    }
+
+    // 3. Caso normal: crear turno nuevo + candado, atómicamente.
+    const nuevoTurnoRef = doc(turnosRef);
+    const nuevoTurno = {
+      id: nuevoTurnoRef.id,
+      cajeroId: params.cajeroId,
+      cajeroNombre: params.cajeroNombre,
+      fechaApertura: serverTimestamp(),
+      fechaCierre: null,
+      estado: 'abierto',
+      baseApertura: params.baseApertura,
+      ventasEfectivo: 0,
+      ventasOtrosMetodos: 0,
+      totalEsperadoEfectivo: 0,
+      totalReportadoEfectivo: 0,
+      diferenciaEfectivo: 0,
+      notasApertura: params.notasApertura || '',
+      notasCierre: ''
+    };
+    transaction.set(nuevoTurnoRef, nuevoTurno);
+    transaction.set(lockRef, {
+      cajeroId: params.cajeroId,
+      turnoId: nuevoTurnoRef.id,
+      fechaApertura: serverTimestamp(),
+    });
+    turnoCreado = true;
+    return nuevoTurnoRef.id;
+  });
+
+  // Notificación push solo cuando se abre un turno NUEVO (no en idempotencia/adopción).
+  if (turnoCreado && typeof window !== 'undefined') {
     auth.currentUser?.getIdToken().then(token => {
       fetch('/api/notifications/send', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
@@ -96,7 +151,7 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
     }).catch(err => console.error('Error obteniendo token para notificacion:', err))
   }
 
-  return nuevoTurnoRef.id;
+  return turnoId;
 }
 
 /**
@@ -136,6 +191,12 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
 
     const cuentaDocEf = await transaction.get(cuentaRefEfectivo);
     const cuentaDocBa = await transaction.get(cuentaRefBanco);
+
+    // Candado de turno activo (turnos_activos/{cajeroId}). Compatible con turnos
+    // antiguos sin candado: si no existe, el delete simplemente se omite.
+    const cajeroId: string | undefined = turnoDoc.data().cajeroId;
+    const lockRef = cajeroId ? doc(db, 'turnos_activos', cajeroId) : null;
+    const lockDoc = lockRef ? await transaction.get(lockRef) : null;
 
     // ── FASE DE ESCRITURAS ───────────────────────────────────────────
     transaction.update(turnoRef, {
@@ -189,6 +250,12 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
         usuarioNombre: 'Cierre Automático',
         fecha: serverTimestamp(),
       });
+    }
+
+    // Liberar el candado solo si apunta a ESTE turno (evita liberar el de otro
+    // turno activo en escenarios legacy con duplicados preexistentes).
+    if (lockRef && lockDoc?.exists() && lockDoc.data().turnoId === params.turnoId) {
+      transaction.delete(lockRef);
     }
   });
 }
