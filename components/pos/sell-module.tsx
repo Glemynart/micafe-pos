@@ -420,6 +420,7 @@ export function SellModule() {
       const params: CrearVentaParams = {
         turnoId: turnoActivo.id,
         cajeroId: usuario.uid,
+        espacioId: espacioActivo?.id,
         clienteId: selectedCustomer === 'generic' ? undefined : selectedCustomer,
         items,
         totales: { subtotal, iva: totalIva, impoconsumo: totalImpoconsumo, total },
@@ -451,7 +452,7 @@ export function SellModule() {
       toast.error(error?.message || "Error al registrar la venta. Inténtalo de nuevo.")
       setIsProcessingPayment(false)
     }
-  }, [usuario, cart, selectedCustomer, subtotal, totalIva, totalImpoconsumo, total, paymentMethod, cashReceived, change, activePedido])
+  }, [usuario, cart, selectedCustomer, subtotal, totalIva, totalImpoconsumo, total, paymentMethod, cashReceived, change, activePedido, espacioActivo])
 
   const handleReceiptClose = useCallback((print: boolean) => {
     if (print) {
