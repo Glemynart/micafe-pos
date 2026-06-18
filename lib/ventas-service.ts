@@ -205,7 +205,11 @@ export async function registrarVenta(params: CrearVentaParams): Promise<{id: str
       fecha: serverTimestamp(),
       ...(fechaLimiteDIAN ? { fechaLimiteDIAN } : {}),
     };
-    transaction.set(nuevaVentaDoc, ventaData);
+    // Firestore rechaza campos con valor undefined; se omiten los opcionales no provistos.
+    const ventaDataClean = Object.fromEntries(
+      Object.entries(ventaData).filter(([, v]) => v !== undefined)
+    );
+    transaction.set(nuevaVentaDoc, ventaDataClean);
     
     return nuevoConsecutivo;
   });
