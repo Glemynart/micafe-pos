@@ -195,6 +195,15 @@ service cloud.firestore {
       );
     }
 
+    // ─── Candado de turno activo: turnos_activos/{cajeroId} ───
+    // Documento de ID determinista por cajero que garantiza un único turno
+    // abierto a la vez (apertura atómica). Mismos roles que /turnos.
+    match /turnos_activos/{cajeroId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero', 'supervisor'];
+    }
+
     // ─── Fallback: bloquear todo lo demás ───
     match /{document=**} {
       allow read, write: if false;
