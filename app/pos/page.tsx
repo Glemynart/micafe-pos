@@ -6,6 +6,7 @@ import { GlobalCloseShift } from '@/components/pos/global-close-shift'
 import { Sidebar } from '@/components/pos/sidebar'
 import { LoginScreen } from '@/components/pos/login-screen'
 import { useState, useMemo, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useModulosHabilitados } from '@/contexts/modulos-context'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -41,6 +42,7 @@ const SettingsModule     = dynamic(() => import('@/components/pos/settings-modul
 
 export default function POSApp() {
   const { usuario, cargando, logout } = useAuthContext()
+  const router = useRouter()
   const { modulos: modulosHabilitados } = useModulosHabilitados()
   const [activeModule, setActiveModule] = useState('sell')
 
@@ -159,6 +161,12 @@ export default function POSApp() {
   // ── Si no hay sesión activa, mostramos el login ──
   if (!usuario) {
     return <LoginScreen />
+  }
+
+  // ── Marketing no tiene acceso al POS ──
+  if (usuario.rol === 'marketing') {
+    router.replace('/admin')
+    return null
   }
 
   // ── Módulo activo: memoizado para no redefinir en cada render ──
