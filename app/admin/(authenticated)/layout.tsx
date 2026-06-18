@@ -5,6 +5,7 @@ import { SwRegister } from "@/components/pwa/sw-register"
 import { MarketingGuard } from "@/components/pwa/marketing-guard"
 import { AdminHeader } from "@/components/pwa/admin-header"
 import { IdleTimer } from "@/components/pwa/idle-timer"
+import { FcmManagerWrapper } from "@/components/fcm-manager-wrapper"
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -30,6 +31,7 @@ export default function AdminAuthLayout({ children }: { children: React.ReactNod
     <AdminGuard>
       <SwRegister />
       <MarketingGuard>
+        <FcmManagerWrapper />
         <IdleTimer />
         <AdminHeader />
         <div className="min-h-[100dvh] bg-[#0a1628] pb-20">
