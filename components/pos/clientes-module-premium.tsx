@@ -24,6 +24,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatCurrency } from '@/lib/demo-data'
+import { toast } from 'sonner'
+import { useAuthContext } from '@/contexts/auth-context'
 import {
   suscribirClientes,
   crearCliente,
@@ -44,6 +46,7 @@ import {
 const CLIENTE_VACIO: ClienteInput = { nombre: '', cedula: '', telefono: '' }
 
 export function ClientesModule() {
+  const { usuario } = useAuthContext()
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [cuentas, setCuentas] = useState<CuentaCobro[]>([])
   const [cargando, setCargando] = useState(true)
@@ -144,7 +147,7 @@ export function ClientesModule() {
     setProcesandoCobro(true)
     try {
       await marcarComoPagada(cuentaACobrar.id, metodoPagoFiado, usuario?.uid)
-      toast({ title: 'Pago registrado con éxito' })
+      toast.success('Pago registrado con éxito')
       setShowCobrarDialog(false)
       setCuentaACobrar(null)
     } catch (e) {
