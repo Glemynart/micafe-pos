@@ -7,6 +7,7 @@ import { suscribirProductos, type Producto } from '@/lib/productos-service'
 import { suscribirInsumos, type Insumo } from '@/lib/insumos-service'
 import { suscribirRecetas, type Receta } from '@/lib/recetas-service'
 import { registrarVenta, type CrearVentaParams } from '@/lib/ventas-service'
+import { suscribirClientes, filtrarClientes, crearCliente, type Cliente } from '@/lib/clientes-service'
 import { suscribirMesas, type Mesa } from '@/lib/mesas-service'
 import { suscribirPedidosActivos, guardarPedido, eliminarPedido, enviarPedidoACocina, type PedidoActivo, type PedidoItem } from '@/lib/pedidos-service'
 import { suscribirTurnoActivo, type Turno } from '@/lib/turnos-service'
@@ -29,6 +30,7 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
+  Search,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -69,6 +71,12 @@ export function SellModule() {
   const [selectedCartIndex, setSelectedCartIndex] = useState<number>(-1)
   const [selectedCustomer, setSelectedCustomer] = useState<string>('Consumidor Final')
   const [selectedMesaId, setSelectedMesaId] = useState<string | null>(null)
+  const [selectedCliente, setSelectedCliente] = useState<{ id: string; nombre: string; documento: string; tipoDocumento: string } | null>(null)
+  const [clientes, setClientes] = useState<Cliente[]>([])
+  const [clienteSearch, setClienteSearch] = useState('')
+  const [showCrearCliente, setShowCrearCliente] = useState(false)
+  const [nuevoCliente, setNuevoCliente] = useState({ tipoDocumento: 'CC', documento: '', nombre: '', telefono: '' })
+  const [creandoCliente, setCreandoCliente] = useState(false)
 
   // Datos reales desde Firestore
   const { usuario } = useAuthContext()
@@ -165,6 +173,8 @@ export function SellModule() {
     return () => { unsubMesas(); unsubPedidos() }
   }, [espacioActivo?.id])
 
+  useEffect(() => suscribirClientes(setClientes), [])
+
   // Obtener el carrito actual basado en la mesa seleccionada
   const activePedido = pedidosActivos.find(p => p.mesaId === selectedMesaId)
   const cart: PedidoItem[] = activePedido?.items || []
@@ -259,6 +269,11 @@ export function SellModule() {
   const filteredProducts = categoriaActiva
     ? productosConStock.filter(p => p.categoriaId === categoriaActiva.id)
     : productosConStock
+
+  const clientesFiltrados = useMemo(
+    () => filtrarClientes(clientes, clienteSearch),
+    [clientes, clienteSearch]
+  )
 
   // Dialogs
   const [showMesasDialog, setShowMesasDialog] = useState(false)
@@ -394,9 +409,36 @@ export function SellModule() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [selectedCartIndex, cart, showPayment, showQuickProduct, showReceipt, removeFromCart])
 
+  const handleCrearCliente = useCallback(async () => {
+    if (!nuevoCliente.nombre.trim() || !nuevoCliente.documento.trim()) return
+    setCreandoCliente(true)
+    try {
+      const id = await crearCliente({
+        nombre: nuevoCliente.nombre.trim(),
+        cedula: nuevoCliente.documento.trim(),
+        telefono: nuevoCliente.telefono.trim(),
+        tipoDocumento: nuevoCliente.tipoDocumento,
+      })
+      setSelectedCliente({ id, nombre: nuevoCliente.nombre.trim(), documento: nuevoCliente.documento.trim(), tipoDocumento: nuevoCliente.tipoDocumento })
+      setShowCrearCliente(false)
+      setClienteSearch('')
+      setNuevoCliente({ tipoDocumento: 'CC', documento: '', nombre: '', telefono: '' })
+      toast.success('Cliente creado y seleccionado.')
+    } catch (e: any) {
+      toast.error('Error al crear el cliente: ' + e.message)
+    } finally {
+      setCreandoCliente(false)
+    }
+  }, [nuevoCliente])
+
   const handlePaymentComplete = useCallback(async () => {
     if (!usuario) {
       toast.error("Error: No hay un usuario activo en la sesión.")
+      return
+    }
+
+    if (paymentMethod === 'cuenta_cobro' && !selectedCliente) {
+      toast.error('Selecciona un cliente para registrar la venta a crédito.')
       return
     }
 
@@ -421,7 +463,11 @@ export function SellModule() {
         turnoId: turnoActivo.id,
         cajeroId: usuario.uid,
         espacioId: espacioActivo?.id,
-        clienteId: selectedCustomer === 'generic' ? undefined : selectedCustomer,
+        clienteId: paymentMethod === 'cuenta_cobro'
+          ? selectedCliente!.id
+          : (selectedCustomer === 'generic' ? undefined : selectedCustomer || undefined),
+        clienteNombre: paymentMethod === 'cuenta_cobro' ? selectedCliente!.nombre : undefined,
+        clienteDocumento: paymentMethod === 'cuenta_cobro' ? selectedCliente!.documento : undefined,
         items,
         totales: { subtotal, iva: totalIva, impoconsumo: totalImpoconsumo, total },
         metodoPago: paymentMethod as 'efectivo' | 'transferencia' | 'cuenta_cobro',
@@ -452,7 +498,7 @@ export function SellModule() {
       toast.error(error?.message || "Error al registrar la venta. Inténtalo de nuevo.")
       setIsProcessingPayment(false)
     }
-  }, [usuario, cart, selectedCustomer, subtotal, totalIva, totalImpoconsumo, total, paymentMethod, cashReceived, change, activePedido, espacioActivo])
+  }, [usuario, cart, selectedCustomer, selectedCliente, subtotal, totalIva, totalImpoconsumo, total, paymentMethod, cashReceived, change, activePedido, espacioActivo, turnoActivo])
 
   const handleReceiptClose = useCallback((print: boolean) => {
     if (print) {
@@ -462,6 +508,10 @@ export function SellModule() {
     setCashReceived(0)
     setPaymentMethod('efectivo')
     setSelectedCustomer('')
+    setSelectedCliente(null)
+    setClienteSearch('')
+    setShowCrearCliente(false)
+    setNuevoCliente({ tipoDocumento: 'CC', documento: '', nombre: '', telefono: '' })
   }, [])
 
   if (!cargandoTurno && !turnoActivo) {
@@ -953,7 +1003,14 @@ export function SellModule() {
               ].map(method => (
                 <button
                   key={method.id}
-                  onClick={() => setPaymentMethod(method.id)}
+                  onClick={() => {
+                    setPaymentMethod(method.id)
+                    if (method.id !== 'cuenta_cobro') {
+                      setSelectedCliente(null)
+                      setClienteSearch('')
+                      setShowCrearCliente(false)
+                    }
+                  }}
                   className={cn(
                     "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all",
                     paymentMethod === method.id 
@@ -974,6 +1031,117 @@ export function SellModule() {
                 </button>
               ))}
             </div>
+
+            {/* Client Selector — obligatorio para cuenta_cobro */}
+            {paymentMethod === 'cuenta_cobro' && (
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold flex items-center gap-1.5">
+                  <User className="h-4 w-4" /> Cliente <span className="text-destructive">*</span>
+                </Label>
+                {selectedCliente ? (
+                  <div className="flex items-center justify-between p-3 rounded-xl border border-primary bg-primary/5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary shrink-0">
+                        <User className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-foreground text-sm">{selectedCliente.nombre}</p>
+                        <p className="text-xs text-muted-foreground">{selectedCliente.tipoDocumento} {selectedCliente.documento}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setSelectedCliente(null)} className="text-muted-foreground hover:text-foreground p-1 rounded">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        value={clienteSearch}
+                        onChange={(e) => { setClienteSearch(e.target.value); setShowCrearCliente(false) }}
+                        placeholder="Buscar por nombre, documento o teléfono..."
+                        className="pl-9 bg-input"
+                        autoFocus
+                      />
+                    </div>
+                    {clienteSearch.length > 0 && !showCrearCliente && (
+                      <div className="border border-border rounded-xl overflow-hidden bg-card divide-y divide-border max-h-44 overflow-y-auto">
+                        {clientesFiltrados.map(c => (
+                          <button
+                            key={c.id}
+                            onClick={() => { setSelectedCliente({ id: c.id, nombre: c.nombre, documento: c.cedula, tipoDocumento: c.tipoDocumento || 'CC' }); setClienteSearch('') }}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted text-left transition-colors"
+                          >
+                            <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div>
+                              <p className="font-medium text-foreground text-sm">{c.nombre}</p>
+                              <p className="text-xs text-muted-foreground">{c.tipoDocumento || 'CC'} {c.cedula}</p>
+                            </div>
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => { setShowCrearCliente(true); setNuevoCliente(prev => ({ ...prev, documento: /^\d+$/.test(clienteSearch.trim()) ? clienteSearch.trim() : '', nombre: /^\d+$/.test(clienteSearch.trim()) ? '' : clienteSearch.trim() })) }}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-muted text-primary text-sm text-left transition-colors"
+                        >
+                          <Plus className="h-4 w-4 shrink-0" />
+                          {clientesFiltrados.length === 0 ? `No encontrado — Crear "${clienteSearch}"` : 'Crear nuevo cliente'}
+                        </button>
+                      </div>
+                    )}
+                    {showCrearCliente && (
+                      <div className="border border-border rounded-xl p-3 bg-card space-y-2">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Nuevo cliente</p>
+                        <div className="grid grid-cols-5 gap-2">
+                          <Select value={nuevoCliente.tipoDocumento} onValueChange={(v) => setNuevoCliente(prev => ({ ...prev, tipoDocumento: v }))}>
+                            <SelectTrigger className="col-span-2 bg-input text-sm h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="CC">CC</SelectItem>
+                              <SelectItem value="NIT">NIT</SelectItem>
+                              <SelectItem value="CE">CE</SelectItem>
+                              <SelectItem value="PP">Pasaporte</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            value={nuevoCliente.documento}
+                            onChange={(e) => setNuevoCliente(prev => ({ ...prev, documento: e.target.value }))}
+                            placeholder="Número *"
+                            className="col-span-3 bg-input text-sm h-9"
+                          />
+                        </div>
+                        <Input
+                          value={nuevoCliente.nombre}
+                          onChange={(e) => setNuevoCliente(prev => ({ ...prev, nombre: e.target.value }))}
+                          placeholder="Nombre o razón social *"
+                          className="bg-input text-sm h-9"
+                        />
+                        <Input
+                          value={nuevoCliente.telefono}
+                          onChange={(e) => setNuevoCliente(prev => ({ ...prev, telefono: e.target.value }))}
+                          placeholder="Teléfono"
+                          className="bg-input text-sm h-9"
+                        />
+                        <div className="flex gap-2 pt-1">
+                          <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => setShowCrearCliente(false)}>
+                            Cancelar
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="flex-1 h-8 text-xs"
+                            disabled={!nuevoCliente.nombre.trim() || !nuevoCliente.documento.trim() || creandoCliente}
+                            onClick={handleCrearCliente}
+                          >
+                            {creandoCliente ? 'Guardando...' : 'Guardar cliente'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Cash Input */}
             {paymentMethod === 'efectivo' && (
@@ -1031,12 +1199,12 @@ export function SellModule() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPayment(false)} disabled={isProcessingPayment}>
+            <Button variant="outline" onClick={() => { setShowPayment(false); setSelectedCliente(null); setClienteSearch(''); setShowCrearCliente(false) }} disabled={isProcessingPayment}>
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={handlePaymentComplete}
-              disabled={(paymentMethod === 'efectivo' && change < 0) || isProcessingPayment}
+              disabled={(paymentMethod === 'efectivo' && change < 0) || (paymentMethod === 'cuenta_cobro' && !selectedCliente) || isProcessingPayment}
               className="bg-gradient-to-r from-primary to-accent hover:opacity-90"
             >
               {isProcessingPayment ? (
