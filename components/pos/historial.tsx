@@ -127,6 +127,10 @@ export function Historial() {
     // Función mantenida por retrocompatibilidad visual en otras funciones
   }
 
+  const debeBloquearDIAN = (v: any): boolean =>
+    v.estado === 'anulada' ||
+    (v.metodo_pago === 'cuenta_cobro' && v.estado === 'pendiente')
+
   const ventasFiltradas = ventas.filter((v) => {
     const vFecha = v.fecha ? v.fecha.split(" ")[0] : "";
     const matchFecha = !filtroFecha || vFecha.startsWith(filtroFecha);
@@ -161,13 +165,21 @@ export function Historial() {
   };
 
   const emitirDian = async (venta: any) => {
+    if (debeBloquearDIAN(venta)) {
+      toast.error(
+        venta.estado === 'anulada'
+          ? 'No se puede emitir DIAN sobre una venta anulada.'
+          : 'No se puede emitir DIAN: la cuenta aún no ha sido recaudada.'
+      )
+      return
+    }
     try {
       toast.loading(`Emitiendo factura a la DIAN para venta #${venta.id}...`, { id: 'dian' });
       let ventaCompleta = venta;
       if (!ventaCompleta.items) {
         ventaCompleta = await obtenerVentaPorId(venta.id);
       }
-      
+
       const clientePayload = ventaCompleta.cliente || { tipo: "CC", identificacion: "222222222222", nombre: "Consumidor Final" };
 
       const factusRes = await (window as any).api.factus.emitir({
@@ -182,7 +194,7 @@ export function Historial() {
         },
         items: ventaCompleta.items,
         total: ventaCompleta.total,
-        metodoPago: ventaCompleta.metodo_pago
+        metodoPago: ventaCompleta.metodoPagoFinal || ventaCompleta.metodo_pago
       });
 
       if (factusRes.ok) {
@@ -201,7 +213,7 @@ export function Historial() {
   };
 
   const emitirPendientes = async () => {
-    const pendientes = ventasFiltradas.filter(v => !v.cufe);
+    const pendientes = ventasFiltradas.filter(v => !v.cufe && !debeBloquearDIAN(v));
     if (pendientes.length === 0) {
       toast.info("No hay facturas pendientes por enviar.");
       return;
@@ -614,7 +626,7 @@ export function Historial() {
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Pendientes DIAN</p>
               <p className="text-2xl font-black text-foreground tracking-tight">
-                {ventas.filter((v) => !v.cufe).length}
+                {ventas.filter((v) => !v.cufe && !debeBloquearDIAN(v)).length}
               </p>
             </div>
           </CardContent>
@@ -748,7 +760,7 @@ export function Historial() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {!venta.cufe && (
+                        {!venta.cufe && !debeBloquearDIAN(venta) && (
                           <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-primary hover:bg-primary/10" onClick={() => emitirDian(venta)}>
                             <Send className="h-4 w-4" />
                           </Button>
@@ -870,7 +882,7 @@ export function Historial() {
                   <Download className="mr-2 h-4 w-4" />
                   Imprimir Ticket
                 </Button>
-                {!ventaDetalle.cufe && (
+                {!ventaDetalle.cufe && !debeBloquearDIAN(ventaDetalle) && (
                   <Button className="flex-1" onClick={() => emitirDian(ventaDetalle)}>
                     <Send className="mr-2 h-4 w-4" />
                     Emitir DIAN
