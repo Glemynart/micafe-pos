@@ -60,7 +60,7 @@ export function ShiftsModule() {
   const [openNotes, setOpenNotes] = useState('')
   
   // Cash count
-  const [cashCount, setCashCount] = useState<Record<number, number>>({})
+  const [cashCount, setCashCount] = useState<Record<string, number>>({})
   const [closeNotes, setCloseNotes] = useState('')
   const [handoverTo, setHandoverTo] = useState('none')
   
