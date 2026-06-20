@@ -162,8 +162,10 @@ export default function POSApp() {
     return <LoginScreen />
   }
 
-  // ── Marketing no tiene acceso al POS ──
-  if (usuario.rol === 'marketing') {
+  // ── Admin y Marketing no tienen acceso al POS (usan la PWA) ──
+  // Si Firebase cambia el usuario a admin en esta pestaña (por login en PWA),
+  // redirigimos para que el POS no quede con sesión de admin sin querer.
+  if (usuario.rol === 'admin' || usuario.rol === 'marketing') {
     router.replace('/admin')
     return null
   }
