@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useEspacios } from '@/contexts/espacios-context'
 import { useAuthContext } from '@/contexts/auth-context'
 import { suscribirProductos, type Producto } from '@/lib/productos-service'
@@ -83,57 +83,56 @@ export function SellModule() {
   const { espacioActivo, categorias, categoriaActiva, seleccionarCategoria } = useEspacios()
 
   const [catScroll, setCatScroll] = useState({ canLeft: false, canRight: false })
+  const categoriesScrollRef = useRef<HTMLDivElement>(null)
 
-  // Callback ref: se ejecuta inmediatamente cuando el DOM esta listo
-  const categoriesRef = useCallback((el: HTMLDivElement | null) => {
+  const checkCatScroll = useCallback(() => {
+    const el = categoriesScrollRef.current
     if (!el) return
-    const check = () => {
-      setCatScroll({
-        canLeft: el.scrollLeft > 4,
-        canRight: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
-      })
-    }
-    // Esperar al siguiente frame para que el contenido este renderizado
-    requestAnimationFrame(check)
-    el.addEventListener('scroll', check, { passive: true })
-    window.addEventListener('resize', check)
-    // Mouse wheel -> scroll horizontal
+    setCatScroll({
+      canLeft: el.scrollLeft > 4,
+      canRight: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+    })
+  }, [])
+
+  // Adjuntar listeners al montar: scroll, resize, wheel y ResizeObserver
+  useEffect(() => {
+    const el = categoriesScrollRef.current
+    if (!el) return
+    // Tres intentos de detección: inmediato, próximo frame, y 300ms (contenido async)
+    checkCatScroll()
+    requestAnimationFrame(checkCatScroll)
+    const timer = setTimeout(checkCatScroll, 300)
+    el.addEventListener('scroll', checkCatScroll, { passive: true })
+    window.addEventListener('resize', checkCatScroll)
+    const ro = new ResizeObserver(checkCatScroll)
+    ro.observe(el)
     const onWheel = (e: WheelEvent) => {
       if (e.deltaY === 0 || Math.abs(e.deltaX || 0) > Math.abs(e.deltaY)) return
       e.preventDefault()
       el.scrollLeft += e.deltaY
     }
     el.addEventListener('wheel', onWheel, { passive: false })
-    const ro = new ResizeObserver(check)
-    ro.observe(el)
-    // Cleanup
-    const cleanup = () => {
-      el.removeEventListener('scroll', check)
-      window.removeEventListener('resize', check)
-      el.removeEventListener('wheel', onWheel)
+    return () => {
+      clearTimeout(timer)
+      el.removeEventListener('scroll', checkCatScroll)
+      window.removeEventListener('resize', checkCatScroll)
       ro.disconnect()
+      el.removeEventListener('wheel', onWheel)
     }
-    ;(el as any).__catCleanup = cleanup
-  }, [])
+  }, [checkCatScroll])
 
-  // Re-evaluar scroll cuando cambien las categorias (puede haber overflow nuevo)
+  // Re-detectar cuando lleguen categorías desde Firestore
   useEffect(() => {
-    const el = document.querySelector('[data-categories-scroller]') as HTMLDivElement | null
-    if (!el) return
-    requestAnimationFrame(() => {
-      setCatScroll({
-        canLeft: el.scrollLeft > 4,
-        canRight: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
-      })
-    })
-  }, [categorias])
+    requestAnimationFrame(checkCatScroll)
+    const timer = setTimeout(checkCatScroll, 300)
+    return () => clearTimeout(timer)
+  }, [categorias, checkCatScroll])
 
-  const scrollCategories = (dir: 'left' | 'right') => {
-    const el = document.querySelector('[data-categories-scroller]') as HTMLDivElement | null
+  const scrollCategories = useCallback((dir: 'left' | 'right') => {
+    const el = categoriesScrollRef.current
     if (!el) return
-    const amount = el.clientWidth * 0.6
-    el.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' })
-  }
+    el.scrollBy({ left: dir === 'left' ? -el.clientWidth * 0.6 : el.clientWidth * 0.6, behavior: 'smooth' })
+  }, [])
   const [productos, setProductos] = useState<Producto[]>([])
   const [insumos, setInsumos] = useState<Insumo[]>([])
   const [recetas, setRecetas] = useState<Receta[]>([])
@@ -609,37 +608,43 @@ export function SellModule() {
           }}
         >
           <div className="relative">
+            {/* Botón izquierda — visible solo cuando hay contenido a la izquierda */}
             {catScroll.canLeft && (
               <button
                 type="button"
                 onClick={() => scrollCategories('left')}
-                className="absolute left-0 top-0 bottom-0 z-10 w-8 flex items-center justify-center bg-gradient-to-r from-background to-transparent text-foreground/60 hover:text-foreground"
-                aria-label="Categorias anteriores"
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-20 h-10 w-10 flex items-center justify-center bg-card border border-border/60 rounded-full shadow-md text-foreground/70 hover:text-foreground hover:border-primary/40 active:scale-95 transition-all touch-target"
+                aria-label="Categorías anteriores"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronLeft className="h-4 w-4" />
               </button>
             )}
+            {/* Botón derecha — visible cuando hay más categorías hacia la derecha */}
             {catScroll.canRight && (
               <button
                 type="button"
                 onClick={() => scrollCategories('right')}
-                className="absolute right-0 top-0 bottom-0 z-10 w-8 flex items-center justify-center bg-gradient-to-l from-background to-transparent text-foreground/60 hover:text-foreground"
-                aria-label="Categorias siguientes"
+                className="absolute right-0 top-1/2 -translate-y-1/2 z-20 h-10 w-10 flex items-center justify-center bg-card border border-border/60 rounded-full shadow-md text-foreground/70 hover:text-foreground hover:border-primary/40 active:scale-95 transition-all touch-target"
+                aria-label="Categorías siguientes"
               >
-                <ChevronRight className="h-5 w-5" />
+                <ChevronRight className="h-4 w-4" />
               </button>
             )}
-            {catScroll.canRight && (
-              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background/90 to-transparent" />
-            )}
+            {/* Gradientes de fade en los bordes */}
             {catScroll.canLeft && (
-              <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-background/90 to-transparent" />
+              <div className="pointer-events-none absolute left-10 top-0 bottom-0 w-6 bg-gradient-to-r from-background/80 to-transparent z-10" />
+            )}
+            {catScroll.canRight && (
+              <div className="pointer-events-none absolute right-10 top-0 bottom-0 w-6 bg-gradient-to-l from-background/80 to-transparent z-10" />
             )}
             <TabsList
-              ref={categoriesRef}
+              ref={categoriesScrollRef}
               data-categories-scroller="true"
               className="flex gap-2 overflow-x-auto pb-2 bg-transparent border-none h-auto scrollbar-none snap-x snap-mandatory"
-              style={{ WebkitOverflowScrolling: 'touch', display: 'flex', flexWrap: 'nowrap' }}
+              style={{ WebkitOverflowScrolling: 'touch', display: 'flex', flexWrap: 'nowrap',
+                paddingLeft: catScroll.canLeft ? '2.75rem' : undefined,
+                paddingRight: catScroll.canRight ? '2.75rem' : undefined,
+              }}
             >
               <TabsTrigger
                 value="todos"
