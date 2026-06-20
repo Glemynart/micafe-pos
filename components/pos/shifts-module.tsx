@@ -36,9 +36,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { 
+import {
   billDenominations,
-  coinDenominations,
   formatCurrency
 } from '@/lib/demo-data'
 
@@ -449,44 +448,56 @@ export function ShiftsModule() {
             {/* Cash count */}
             <div className="space-y-2">
               <Label>Conteo de billetes</Label>
-              <div className="grid grid-cols-4 gap-3">
-                {billDenominations.map(bill => (
-                  <div key={bill.value} className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">{bill.label}</Label>
-                    <Input
-                      type="number"
-                      value={cashCount[bill.value] || ''}
-                      onChange={(e) => setCashCount(prev => ({
-                        ...prev,
-                        [bill.value]: parseInt(e.target.value) || 0
-                      }))}
-                      placeholder="0"
-                      className="bg-input text-center"
-                    />
-                  </div>
-                ))}
+              <div className="space-y-1.5">
+                {billDenominations.map(bill => {
+                  const qty = cashCount[bill.value] || 0
+                  return (
+                    <div key={bill.value} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/30 transition-colors">
+                      <span className="text-sm font-bold text-foreground w-[4.5rem] shrink-0">{bill.label}</span>
+                      <span className="text-muted-foreground/40 text-sm select-none">×</span>
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        min="0"
+                        value={cashCount[bill.value] || ''}
+                        onChange={(e) => setCashCount(prev => ({
+                          ...prev,
+                          [bill.value]: parseInt(e.target.value) || 0
+                        }))}
+                        placeholder="0"
+                        className="w-20 h-10 text-center font-mono font-bold text-base bg-input [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      />
+                      <span className="text-xs text-muted-foreground ml-auto shrink-0 min-w-[5rem] text-right tabular-nums">
+                        {qty > 0 ? formatCurrency(qty * bill.value) : ''}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
-            {/* Coin count */}
+            {/* Total en Monedas */}
             <div className="space-y-2">
-              <Label>Conteo de monedas</Label>
-              <div className="grid grid-cols-5 gap-3">
-                {coinDenominations.map(coin => (
-                  <div key={coin.value} className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">{coin.label}</Label>
-                    <Input
-                      type="number"
-                      value={cashCount[coin.value] || ''}
-                      onChange={(e) => setCashCount(prev => ({
-                        ...prev,
-                        [coin.value]: parseInt(e.target.value) || 0
-                      }))}
-                      placeholder="0"
-                      className="bg-input text-center"
-                    />
-                  </div>
-                ))}
+              <Label>Monedas</Label>
+              <p className="text-xs text-muted-foreground">Total en monedas sin contar por denominación</p>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={cashCount['monedas'] || ''}
+                  onChange={(e) => setCashCount(prev => ({
+                    ...prev,
+                    monedas: parseInt(e.target.value) || 0
+                  }))}
+                  placeholder="Ej: 20000"
+                  className="flex-1 h-11 font-mono text-base bg-input [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+                {(cashCount['monedas'] || 0) > 0 && (
+                  <span className="text-sm font-bold text-foreground shrink-0">
+                    = {formatCurrency(cashCount['monedas'] || 0)}
+                  </span>
+                )}
               </div>
             </div>
 
