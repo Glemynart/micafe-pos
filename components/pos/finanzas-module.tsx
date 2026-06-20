@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAuthContext } from '@/contexts/auth-context'
-import { useUI } from '@/contexts/ui-context'
 import { formatCurrency } from '@/lib/demo-data'
 import { DynamicIcon } from '@/components/ui/dynamic-icon'
 import { toast } from 'sonner'
@@ -38,7 +37,6 @@ import {
 
 export function FinanzasModule() {
   const { usuario } = useAuthContext()
-  const { showMenu } = useUI()
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([])
   const [transacciones, setTransacciones] = useState<TransaccionFinanciera[]>([])
   const [cargando, setCargando] = useState(true)
@@ -173,8 +171,6 @@ export function FinanzasModule() {
   return (
     <div className="flex h-full bg-background overflow-hidden relative">
       <div className="flex-1 flex flex-col h-full relative overflow-y-auto">
-        {showMenu && <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-40 md:hidden" />}
-        
         {/* Header Premium */}
         <header className="flex flex-col md:flex-row flex-shrink-0 bg-card/80 backdrop-blur-xl border border-border/50 shadow-sm p-5 md:px-8 mx-4 mt-4 rounded-[2rem] items-center justify-between z-10 gap-4">
           <div>
