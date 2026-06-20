@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   Coffee, 
   LogOut,
@@ -42,6 +42,11 @@ export function Sidebar({ activeModule, onModuleChange, onLogout, usuario, modul
   const { theme, setTheme } = useTheme()
   const [collapsed, setCollapsed] = useState(false)
   const { espacios, espacioActivo, cargandoEspacios, seleccionarEspacio } = useEspacios()
+
+  // Colapsar automáticamente en pantallas pequeñas (POS terminals, tablets)
+  useEffect(() => {
+    if (window.innerWidth < 1024) setCollapsed(true)
+  }, [])
   
   const userModules = modules.filter(m => {
     // 1. El módulo debe estar habilitado a nivel global (configuración)
