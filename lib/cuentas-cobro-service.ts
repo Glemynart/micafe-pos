@@ -14,6 +14,8 @@ import {
   updateDoc,
   serverTimestamp,
   getDocs,
+  runTransaction,
+  increment,
   type Unsubscribe,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -42,7 +44,7 @@ export interface CuentaCobro {
   // Estado
   estado: 'pendiente' | 'pagada'
   metodoPago: 'cuenta_cobro'
-  metodoPagoFinal?: 'efectivo' | 'transferencia' | 'mixto'
+  metodoPagoFinal?: 'efectivo' | 'transferencia'
   // Fechas
   fecha: { toDate: () => Date } | null
   fechaLimiteDIAN: { toDate: () => Date } | null
@@ -78,17 +80,13 @@ export function suscribirCuentasPorCobrar(
 
 export async function marcarComoPagada(
   ventaId: string,
-  metodoPagoFinal: 'efectivo' | 'transferencia' | 'mixto',
+  metodoPagoFinal: 'efectivo' | 'transferencia',
   cajeroUid?: string
 ): Promise<void> {
   const ventaRef = doc(db, 'ventas', ventaId)
-  
-  const updateData: any = {
-    estado: 'pagada',
-    metodoPagoFinal,
-    fechaPago: serverTimestamp(),
-  }
 
+  // Buscar turno activo fuera de la transacción (solo lectura, no atómica)
+  let turnoRecaudoId: string | undefined
   if (cajeroUid) {
     const qTurno = query(
       collection(db, 'turnos'),
@@ -96,12 +94,49 @@ export async function marcarComoPagada(
       where('estado', '==', 'abierto')
     )
     const snap = await getDocs(qTurno)
-    if (!snap.empty) {
-      updateData.turnoRecaudoId = snap.docs[0].id
-    }
+    if (!snap.empty) turnoRecaudoId = snap.docs[0].id
   }
 
-  await updateDoc(ventaRef, updateData)
+  await runTransaction(db, async (transaction) => {
+    // Leer primero (regla Firestore: reads antes de writes)
+    const ventaSnap = await transaction.get(ventaRef)
+    if (!ventaSnap.exists()) throw new Error('Venta no encontrada')
+
+    const ventaData = ventaSnap.data()
+    const total: number = ventaData.totales?.total ?? 0
+    const cajeroId: string = ventaData.cajeroId ?? cajeroUid ?? 'unknown'
+    const cajeroNombre: string = ventaData.cajeroNombre ?? cajeroId
+
+    // Actualizar la venta
+    const updateData: Record<string, any> = {
+      estado: 'pagada',
+      metodoPagoFinal,
+      fechaPago: serverTimestamp(),
+    }
+    if (turnoRecaudoId) updateData.turnoRecaudoId = turnoRecaudoId
+    transaction.update(ventaRef, updateData)
+
+    // Registrar en Finanzas si hay monto
+    if (total > 0) {
+      const cuentaId = metodoPagoFinal === 'efectivo' ? 'caja-principal' : 'bancolombia'
+      const cuentaNombre = metodoPagoFinal === 'efectivo' ? 'Caja Registradora' : 'Bancolombia'
+
+      transaction.update(doc(db, 'cuentas_bancarias', cuentaId), { saldo: increment(total) })
+      transaction.set(doc(collection(db, 'transacciones_financieras')), {
+        cuentaId,
+        cuentaNombre,
+        tipo: 'ingreso',
+        monto: total,
+        concepto: `Cobro cuenta: venta #${ventaId}`,
+        categoria: 'cuentas_cobro',
+        referencia: ventaId,
+        usuarioId: cajeroId,
+        usuarioNombre: cajeroNombre,
+        espacioId: ventaData.espacioId ?? null,
+        fecha: serverTimestamp(),
+      })
+    }
+  })
 }
 
 /**
