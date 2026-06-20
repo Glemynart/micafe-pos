@@ -643,7 +643,7 @@ export function SellModule() {
             >
               <TabsTrigger
                 value="todos"
-                className="px-6 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl font-medium text-sm whitespace-nowrap shadow-sm border border-border data-[state=active]:border-primary flex items-center gap-2 h-[48px] transition-colors snap-start shrink-0"
+                className="px-6 py-3 bg-card text-foreground/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-gold data-[state=active]:ring-offset-1 data-[state=active]:ring-offset-background rounded-xl font-semibold text-sm whitespace-nowrap shadow-sm border border-border flex items-center gap-2 min-h-[52px] transition-all duration-200 snap-start shrink-0 active:scale-[0.97]"
               >
                 Todos
               </TabsTrigger>
@@ -651,7 +651,7 @@ export function SellModule() {
                 <TabsTrigger
                   key={cat.id}
                   value={cat.id}
-                className="px-6 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-xl font-medium text-sm whitespace-nowrap shadow-sm border border-border data-[state=active]:border-primary flex items-center gap-2 h-[48px] transition-colors shrink-0"
+                className="px-6 py-3 bg-card text-foreground/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-gold data-[state=active]:ring-offset-1 data-[state=active]:ring-offset-background rounded-xl font-semibold text-sm whitespace-nowrap shadow-sm border border-border flex items-center gap-2 min-h-[52px] transition-all duration-200 snap-start shrink-0 active:scale-[0.97]"
                 >
                   <DynamicIcon name={cat.icono} className="w-5 h-5" /> {cat.nombre}
                 </TabsTrigger>
@@ -684,23 +684,33 @@ export function SellModule() {
             </div>
           ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pr-4 pb-8">
-                {filteredProducts.map((product, idx) => (
-                  <Card 
+                {filteredProducts.map((product, idx) => {
+                  const stockBajo = product.stock <= (product.stockMinimo || 5)
+                  const sinStock = product.stock <= 0
+                  return (
+                  <Card
                     key={product.id}
                     onClick={() => addToCart(product)}
                     className={cn(
-                      "bg-card border border-border rounded-xl overflow-hidden cursor-pointer hover:border-primary/50 transition-all group flex flex-col active:scale-[0.97] shadow-md relative h-52 tap-active",
-                      product.stock <= (product.stockMinimo || 5) && "border-destructive/50 hover:border-destructive"
+                      "bg-card border border-border rounded-2xl overflow-hidden cursor-pointer hover:-translate-y-1 hover:border-gold hover:shadow-[0_12px_28px_-12px_color-mix(in_oklch,var(--navy)_45%,transparent)] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group flex flex-col active:scale-[0.97] shadow-[0_2px_10px_-6px_color-mix(in_oklch,var(--navy)_40%,transparent)] relative h-52 animate-fade-up",
+                      stockBajo && "border-destructive/40 hover:border-destructive"
                     )}
-                    style={{ animationDelay: `${idx * 30}ms` }}
+                    style={{ animationDelay: `${Math.min(idx, 12) * 30}ms` }}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none z-10"></div>
-                    <div className="h-28 bg-muted/20 w-full relative overflow-hidden border-b border-border/50">
+                    {stockBajo && (
+                      <Badge className={cn(
+                        "absolute top-2 right-2 z-20 font-bold text-[10px] uppercase tracking-wide border-none shadow-md px-2 py-0.5",
+                        sinStock ? "bg-destructive text-destructive-foreground" : "bg-gold text-navy"
+                      )}>
+                        {sinStock ? 'Agotado' : 'Stock bajo'}
+                      </Badge>
+                    )}
+                    <div className="h-28 bg-secondary/40 w-full relative overflow-hidden border-b border-border/60">
                       {product.imagenUrl ? (
                         <img
                           src={product.imagenUrl}
                           alt={product.nombre}
-                          className="object-cover w-full h-full opacity-80 group-hover:opacity-100 transition-opacity"
+                          className="object-cover w-full h-full opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
@@ -709,16 +719,20 @@ export function SellModule() {
                       )}
                     </div>
                     <CardContent className="p-3 flex flex-col flex-1 justify-between bg-card z-10">
-                      <h3 className="font-bold text-foreground text-sm leading-tight line-clamp-2">{product.nombre}</h3>
-                      <div className="mt-auto pt-2 space-y-1">
-                        <p className="font-black text-primary text-base">{formatCurrency(product.precio)}</p>
-                        <Badge variant="secondary" className="bg-secondary/20 text-secondary-foreground font-bold text-[11px] border-none shadow-none">
-                          Stock: {product.stock}
-                        </Badge>
+                      <h3 className="font-bold text-foreground text-sm leading-tight line-clamp-2 text-balance">{product.nombre}</h3>
+                      <div className="mt-auto pt-2 flex items-end justify-between gap-2">
+                        <p className="font-black text-primary text-lg leading-none">{formatCurrency(product.precio)}</p>
+                        <span className={cn(
+                          "text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full",
+                          stockBajo ? "bg-destructive/10 text-destructive" : "bg-secondary text-secondary-foreground"
+                        )}>
+                          {product.stock} und
+                        </span>
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                  )
+                })}
               </div>
             )}
             </ScrollArea>
@@ -836,9 +850,12 @@ export function SellModule() {
                   }} className="h-16 flex-[1] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95">
                       Cocina
                   </Button>
-                  <Button onClick={() => setShowPayment(true)} className="h-16 flex-[2] rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-black text-xl shadow-[0_4px_14px_rgba(var(--primary),0.3)] transition-all active:scale-95 border-none relative overflow-hidden group">
-                      <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-                      <Banknote className="mr-2 h-6 w-6 relative z-10" /> <span className="relative z-10">COBRAR</span>
+                  <Button
+                    onClick={() => setShowPayment(true)}
+                    disabled={cart.length === 0}
+                    className="gold-cta gold-sheen h-16 flex-[2] rounded-xl bg-gold hover:bg-gold-strong text-navy font-black text-xl tracking-wide transition-all active:scale-95 border-none relative overflow-hidden disabled:opacity-50 disabled:saturate-50 disabled:animate-none"
+                  >
+                      <Banknote className="mr-2 h-6 w-6 relative z-10" strokeWidth={2.5} /> <span className="relative z-10">COBRAR</span>
                   </Button>
               </div>
           </div>
