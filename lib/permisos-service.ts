@@ -36,7 +36,7 @@ async function verificarEsAdmin(): Promise<void> {
 export const MODULOS = [
   "sell", "kitchen", "inventory", "recipes", "purchases",
   "reports", "shifts", "waste", "gastos", "permissions", "settings",
-  "cuentas_cobro", "clientes", "consignaciones", "alquiler_dashboard", "historial", "reservas"
+  "cuentas_cobro", "clientes", "consignaciones", "alquiler_dashboard", "historial", "reservas", "finanzas"
 ];
 
 export function suscribirUsuarios(callback: (usuarios: Usuario[]) => void): Unsubscribe {
