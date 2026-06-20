@@ -114,7 +114,6 @@ export async function inicializarCuentasBancarias() {
   const cuentasBase: CuentaBancaria[] = [
     { id: 'caja-principal', nombre: 'Caja Registradora', tipo: 'efectivo', saldo: 0, icono: 'Banknote', color: '#10b981' },
     { id: 'bancolombia', nombre: 'Bancolombia', tipo: 'banco', saldo: 0, icono: 'Landmark', color: '#3b82f6' },
-    { id: 'nequi', nombre: 'Nequi', tipo: 'banco', saldo: 0, icono: 'Smartphone', color: '#8b5cf6' },
     { id: 'caja-fuerte', nombre: 'Caja Fuerte', tipo: 'efectivo', saldo: 0, icono: 'Lock', color: '#f59e0b' }
   ]
 
