@@ -123,7 +123,7 @@ export default function EspaciosPage() {
                       className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                       style={{ backgroundColor: e.color + "20", border: `1px solid ${e.color}30` }}
                     >
-                      <DynamicIcon name={e.icono} className="h-4.5 w-4.5" style={{ color: e.color }} />
+                      <span style={{ color: e.color }}><DynamicIcon name={e.icono} className="h-4.5 w-4.5" /></span>
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-white/80">{e.nombre}</p>

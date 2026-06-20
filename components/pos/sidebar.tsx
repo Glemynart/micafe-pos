@@ -60,7 +60,7 @@ export function Sidebar({ activeModule, onModuleChange, onLogout, usuario, modul
   })
 
   const getIcon = (iconName: string, className = "h-5 w-5") => {
-    const Icon = (Icons as Record<string, React.ComponentType<{ className?: string }>>)[iconName]
+    const Icon = (Icons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[iconName]
     return Icon ? <Icon className={className} /> : null
   }
 

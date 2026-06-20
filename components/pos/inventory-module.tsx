@@ -207,7 +207,7 @@ export function InventoryModule() {
  Inventario 
  {espacioActivo && (
  <div className="flex items-center justify-center h-10 w-10 shadow-inner" style={{ backgroundColor: `${espacioActivo.color}20` }}>
- <DynamicIcon name={espacioActivo.icono} className="h-6 w-6" style={{ color: espacioActivo.color }} />
+ <span style={{ color: espacioActivo.color }}><DynamicIcon name={espacioActivo.icono} className="h-6 w-6" /></span>
  </div>
  )}
  </h1>

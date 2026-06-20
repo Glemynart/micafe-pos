@@ -13,8 +13,8 @@ async function test() {
     console.log(`Found ${snap.size} turnos for Sebas`);
     snap.forEach(doc => console.log(doc.id, doc.data().estado, doc.data().fechaApertura));
     process.exit(0);
-  } catch (e) {
-    console.log("Error:", e.message);
+  } catch (e: unknown) {
+    console.log("Error:", (e as Error).message);
     process.exit(1);
   }
 }

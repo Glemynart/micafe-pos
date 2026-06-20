@@ -72,7 +72,7 @@ export function suscribirEgresosPorTurno(turnoId: string, callback: (egresos: Eg
     })) as Egreso[]
     
     // Sort localmente por fecha (descendente)
-    egresos.sort((a, b) => b.fecha.getTime() - a.fecha.getTime())
+    egresos.sort((a, b) => (b.fecha as unknown as Date).getTime() - (a.fecha as unknown as Date).getTime())
     
     callback(egresos)
   })
