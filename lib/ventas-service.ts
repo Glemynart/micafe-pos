@@ -403,5 +403,52 @@ export async function anularVenta(id: string): Promise<void> {
 
     // 4. Actualizar estado de la venta a anulada
     transaction.update(ventaRef, { estado: 'anulada' });
+
+    // 5. Revertir movimientos financieros (espejo exacto de la venta original)
+    const cuentaMap: Record<string, { nombre: string }> = {
+      'caja-principal': { nombre: 'Caja Registradora' },
+      'bancolombia':    { nombre: 'Bancolombia' },
+    };
+
+    const revertirMovimiento = (cuentaId: string, monto: number) => {
+      if (monto <= 0 || !cuentaMap[cuentaId]) return;
+      transaction.update(doc(db, 'cuentas_bancarias', cuentaId), { saldo: increment(-monto) });
+      transaction.set(doc(collection(db, 'transacciones_financieras')), {
+        cuentaId,
+        cuentaNombre: cuentaMap[cuentaId].nombre,
+        tipo: 'egreso',
+        monto,
+        concepto: `Anulación venta #${ventaData.consecutivo}`,
+        categoria: 'anulacion_venta',
+        referencia: id,
+        usuarioId: ventaData.cajeroId || '',
+        usuarioNombre: ventaData.cajeroNombre || ventaData.cajeroId || '',
+        espacioId: ventaData.espacioId ?? null,
+        fecha: serverTimestamp(),
+      });
+    };
+
+    const metodoPago: string = ventaData.metodoPago || '';
+    const total: number = ventaData.totales?.total || 0;
+
+    if (metodoPago === 'efectivo') {
+      revertirMovimiento('caja-principal', total);
+    } else if (metodoPago === 'transferencia') {
+      revertirMovimiento('bancolombia', total);
+    } else if (metodoPago === 'mixto') {
+      const detalle: Array<{ metodo: string; monto: number }> = ventaData.pagoMixtoDetalle || [];
+      for (const pago of detalle) {
+        if (pago.metodo === 'efectivo') revertirMovimiento('caja-principal', pago.monto);
+        else if (pago.metodo === 'transferencia') revertirMovimiento('bancolombia', pago.monto);
+      }
+    } else if (metodoPago === 'cuenta_cobro') {
+      // El recaudo (marcarComoPagada) sí registra el ingreso — revertirlo si ya fue cobrado
+      if (ventaData.estado === 'pagada' && ventaData.metodoPagoFinal) {
+        const cuentaId = ventaData.metodoPagoFinal === 'efectivo' ? 'caja-principal' : 'bancolombia';
+        revertirMovimiento(cuentaId, total);
+      }
+      // Si estado === 'pendiente': nunca se contabilizó → sin reversión
+    }
+    // 'tarjeta'/'otros': ninguna cuenta fue acreditada al vender → sin reversión
   });
 }
