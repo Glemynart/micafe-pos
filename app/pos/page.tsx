@@ -67,10 +67,9 @@ export default function POSApp() {
     if (rolePermisos.length > 0) {
       // Si el usuario tiene permisos que NO coinciden con el rol → override per-user
       const roleSet = new Set(rolePermisos)
-      const perUserDiffers = perUser && (
-        perUser.length !== rolePermisos.length ||
-        perUser.some(m => !roleSet.has(m))
-      )
+      // Override per-usuario solo si el usuario tiene permisos FUERA del rol (custom grants).
+      // Si el rol creció (nuevos módulos), todos heredan sin necesidad de actualizar cada usuario.
+      const perUserDiffers = perUser && perUser.some(m => !roleSet.has(m))
       finalPerms = perUserDiffers ? new Set(perUser!) : roleSet
     } else if (perUser && perUser.length > 0) {
       // Fuente 2: permisos del doc del usuario (estáticos hasta refresh)
