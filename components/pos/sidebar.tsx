@@ -74,13 +74,18 @@ export function Sidebar({ activeModule, onModuleChange, onLogout, usuario, modul
       >
         {/* Logo */}
         <div className="h-16 flex items-center gap-3 px-4 border-b border-sidebar-border">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
-            <Coffee className="h-5 w-5 text-primary-foreground" />
+          <div className="w-10 h-10 rounded-xl bg-gold flex items-center justify-center flex-shrink-0 shadow-[0_4px_12px_-3px_color-mix(in_oklch,var(--gold)_60%,transparent)]">
+            <Coffee className="h-5 w-5 text-navy" strokeWidth={2.4} />
           </div>
           {!collapsed && (
-            <span className="font-bold text-lg text-sidebar-foreground animate-fade-in">
-              CaféPOS
-            </span>
+            <div className="flex flex-col leading-none animate-fade-in">
+              <span className="font-bold text-base text-sidebar-foreground tracking-tight">
+                Café Atrato
+              </span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gold">
+                Punto de venta
+              </span>
+            </div>
           )}
         </div>
 
@@ -172,23 +177,26 @@ export function Sidebar({ activeModule, onModuleChange, onLogout, usuario, modul
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => onModuleChange(module.id)}
+                    aria-current={isActive ? 'page' : undefined}
                     className={cn(
-                      "w-full flex items-center gap-3 px-3 py-3.5 rounded-xl transition-all duration-200 active:scale-[0.98]",
-                      "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                      isActive && "bg-accent text-accent-foreground shadow-sm border-l-4 border-[#F9B207] font-semibold"
+                      "relative w-full flex items-center gap-3 rounded-xl min-h-[52px] px-3 py-3 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98]",
+                      collapsed && "justify-center px-0",
+                      isActive
+                        ? "bg-gold text-navy font-bold shadow-[0_6px_18px_-6px_color-mix(in_oklch,var(--gold)_70%,transparent)]"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                     )}
                   >
+                    {isActive && collapsed && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-7 w-1 rounded-r-full bg-gold" />
+                    )}
                     <span className={cn(
                       "flex-shrink-0 transition-colors",
-                      isActive ? "text-accent-foreground" : "text-muted-foreground"
+                      isActive ? "text-navy" : "text-sidebar-foreground/70"
                     )}>
                       {getIcon(module.icon)}
                     </span>
                     {!collapsed && (
-                      <span className={cn(
-                        "text-sm font-medium transition-colors animate-fade-in",
-                        isActive ? "text-accent-foreground" : "text-sidebar-foreground"
-                      )}>
+                      <span className="text-sm transition-colors animate-fade-in">
                         {module.name}
                       </span>
                     )}
