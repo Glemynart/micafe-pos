@@ -10,6 +10,7 @@ import {
   onSnapshot,
   serverTimestamp,
   type Unsubscribe,
+  type QueryConstraint,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -39,7 +40,7 @@ export function suscribirEventos(
   soloActivos: boolean,
   callback: (eventos: Evento[]) => void
 ): Unsubscribe {
-  const constraints = [orderBy("fecha", "asc")];
+  const constraints: QueryConstraint[] = [orderBy("fecha", "asc")];
   if (soloActivos) constraints.unshift(where("activo", "==", true));
 
   const q = query(collection(db, "eventos"), ...constraints);
