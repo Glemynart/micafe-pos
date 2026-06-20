@@ -1,16 +1,17 @@
-import { 
+import {
   collection,
   doc,
   updateDoc,
   onSnapshot,
-  query, 
-  where, 
-  orderBy, 
+  query,
+  where,
+  orderBy,
   getDocs,
   serverTimestamp,
   Timestamp,
   runTransaction,
-  getDoc
+  getDoc,
+  increment,
 } from 'firebase/firestore'
 import { db, auth } from './firebase'
 
@@ -189,9 +190,6 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
       ? params.totalReportadoEfectivo
       : Math.max(0, params.totalReportadoEfectivo - baseApertura);
 
-    const cuentaDocEf = await transaction.get(cuentaRefEfectivo);
-    const cuentaDocBa = await transaction.get(cuentaRefBanco);
-
     // Candado de turno activo (turnos_activos/{cajeroId}). Compatible con turnos
     // antiguos sin candado: si no existe, el delete simplemente se omite.
     const cajeroId: string | undefined = turnoDoc.data().cajeroId;
@@ -212,9 +210,8 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
       esCierreDefinitivo,
     });
 
-    if (depositoEfectivo > 0 && cuentaDocEf.exists()) {
-      const saldoEfectivo = cuentaDocEf.data().saldo || 0;
-      transaction.update(cuentaRefEfectivo, { saldo: saldoEfectivo + depositoEfectivo });
+    if (depositoEfectivo > 0) {
+      transaction.update(cuentaRefEfectivo, { saldo: increment(depositoEfectivo) });
 
       const txRefEf = doc(collection(db, 'transacciones_financieras'));
       transaction.set(txRefEf, {
@@ -233,9 +230,8 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
       });
     }
 
-    if (params.ventasOtrosMetodos > 0 && cuentaDocBa.exists()) {
-      const saldoBanco = cuentaDocBa.data().saldo || 0;
-      transaction.update(cuentaRefBanco, { saldo: saldoBanco + params.ventasOtrosMetodos });
+    if (params.ventasOtrosMetodos > 0) {
+      transaction.update(cuentaRefBanco, { saldo: increment(params.ventasOtrosMetodos) });
 
       const txRefBa = doc(collection(db, 'transacciones_financieras'));
       transaction.set(txRefBa, {
