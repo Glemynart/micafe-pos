@@ -111,7 +111,7 @@ export function AlquileresModule() {
     const itemAlquiler: PedidoItem = {
       id: crypto.randomUUID(),
       name: cobraPorMinuto ? `${producto.nombre} (${minutosExactos} min)` : producto.nombre,
-      code: producto.codigo || '',
+      code: '',
       price: precio,
       cost: producto.costo || 0,
       category: producto.categoriaId || '',
