@@ -2,11 +2,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── Auditoría: solo crear (append-only, nadie lee directo) ───
+    // ─── Helper: obtiene el rol del usuario autenticado ───────────────
+    function rol() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol;
+    }
+    function esAdmin()      { return rol() == 'admin'; }
+    function esFinanzas()   { return rol() in ['admin']; }                        // [NUEVO] tesorería: solo admin
+    function esOperativo()  { return rol() in ['admin', 'cajero', 'supervisor']; }
+    function esAutenticado(){ return request.auth != null; }
+
+    // ─── Auditoría: solo crear (append-only, nadie lee directo) ───────
     match /auditoria_logs/{id} {
-      allow read: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
-      allow create: if request.auth != null
+      allow read: if esAutenticado() && esAdmin();
+      allow create: if esAutenticado()
         && request.resource.data.accion is string
         && request.resource.data.detalle is string
         && request.resource.data.uid == request.auth.uid
@@ -14,174 +22,153 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // ─── Landing: lectura pública ───
+    // ─── Landing: lectura pública ──────────────────────────────────────
     match /eventos/{id} {
       allow read: if true;
-      allow create: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'marketing']
+      allow create: if esAutenticado() && rol() in ['admin', 'marketing']
         && request.resource.data.titulo is string
         && request.resource.data.fecha is string;
-      allow update: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'marketing'];
-      allow delete: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'marketing'];
+      allow update: if esAutenticado() && rol() in ['admin', 'marketing'];
+      allow delete: if esAutenticado() && rol() in ['admin', 'marketing'];
     }
 
-    // ─── Landing: lectura pública ───
+    // ─── Configuración ─────────────────────────────────────────────────
     match /configuracion/{id} {
-      allow read: if true;
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
-      // Cajeros necesitan update para el consecutivo en la transaccion de venta
-      allow update: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero'];
+      allow read: if true;                                    // público: landing lo necesita
+      allow write: if esAutenticado() && esAdmin();
+      allow update: if esAutenticado()
+        && rol() in ['admin', 'cajero'];                      // cajero incrementa consecutivo en venta
     }
 
-    // ─── Usuarios: el propio usuario o admin pueden leer ───
+    // ─── Usuarios ──────────────────────────────────────────────────────
     match /usuarios/{uid} {
-      allow read: if request.auth != null && (
-        request.auth.uid == uid ||
-        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin'
-      );
-      allow create: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
-      allow update, delete: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+      // Cualquier autenticado puede leer la colección completa
+      // (reportes-service cruza nombres de cajeros)       // [MODIFICADO]
+      allow read: if esAutenticado();
+      allow create: if esAutenticado() && esAdmin();
+      allow update, delete: if esAutenticado() && esAdmin();
     }
 
     match /permisos_roles/{id} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+      allow read: if esAutenticado();
+      allow write: if esAutenticado() && esAdmin();
     }
 
-    // ─── Operaciones: solo admin escribe, autenticados leen ───
+    // ─── Operaciones de inventario ─────────────────────────────────────
     match /compras/{id} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
-      allow update, delete: if false;
+      allow read: if esAutenticado();
+      allow create: if esAutenticado() && esAdmin();
+      allow delete: if esAutenticado() && esAdmin();         // [NUEVO] eliminarCompra() requiere delete
+      allow update: if false;
     }
 
     match /mermas/{id} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+      allow read: if esAutenticado();
+      allow create: if esAutenticado() && esAdmin();
       allow update, delete: if false;
     }
 
+    // ─── Ventas ────────────────────────────────────────────────────────
     match /ventas/{id} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero', 'supervisor'];
-      allow update: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+      allow read: if esAutenticado();
+      allow create: if esAutenticado() && esOperativo();
+      allow update: if esAutenticado() && esOperativo();     // [MODIFICADO] cajero/supervisor: marcarComoPagada()
       allow delete: if false;
     }
 
+    // ─── Turnos ────────────────────────────────────────────────────────
     match /turnos/{id} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero', 'supervisor'];
-      allow update: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero', 'supervisor'];
+      allow read: if esAutenticado();
+      allow create: if esAutenticado() && esOperativo();
+      allow update: if esAutenticado() && esOperativo();
       allow delete: if false;
     }
 
     match /productos/{id} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
-      // Cajeros necesitan update para descontar stock en la transaccion de venta
-      allow update: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero'];
+      allow read: if esAutenticado();
+      allow write: if esAutenticado() && esAdmin();
+      allow update: if esAutenticado() && rol() in ['admin', 'cajero']; // descuento de stock en venta
     }
 
     match /insumos/{id} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
-      // Cajeros necesitan update para descontar inventario en la transaccion de venta
-      allow update: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero'];
+      allow read: if esAutenticado();
+      allow write: if esAutenticado() && esAdmin();
+      allow update: if esAutenticado() && rol() in ['admin', 'cajero']; // descuento en venta
     }
 
     match /recetas/{id} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero', 'supervisor'];
+      allow read: if esAutenticado();
+      allow write: if esAutenticado() && esOperativo();
     }
 
     match /mesas/{id} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if esAutenticado();
     }
 
     match /pedidos_activos/{id} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow read: if esAutenticado();
+      allow write: if esAutenticado();
     }
 
     match /comandas_cocina/{id} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow read: if esAutenticado();
+      allow write: if esAutenticado();
     }
 
     match /clientes/{id} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero', 'supervisor'];
+      allow read: if esAutenticado();
+      allow write: if esAutenticado() && esOperativo();
     }
 
     match /espacios/{id} {
       allow read: if true;
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+      allow write: if esAutenticado() && esAdmin();
     }
 
     match /categorias/{id} {
       allow read: if true;
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+      allow write: if esAutenticado() && esAdmin();
     }
 
+    // ─── Módulo consignaciones ─────────────────────────────────────────
     match /consignadores/{id} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+      allow read: if esAutenticado();
+      allow write: if esAutenticado() && esAdmin();
     }
 
     match /liquidaciones/{id} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+      allow read: if esAutenticado();
+      allow write: if esAutenticado() && esAdmin();
     }
 
+    // ─── Gastos operativos por turno ────────────────────────────────────
     match /egresos/{id} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero', 'supervisor'];
+      allow read: if esAutenticado();
+      allow write: if esAutenticado() && esOperativo();
     }
+
+    // ─── Tesorería / Finanzas ──────────────────────────────────────────
 
     match /cuentas_bancarias/{id} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+      allow read: if esAutenticado() && esFinanzas();        // [MODIFICADO] solo admin lee saldos bancarios
+      allow write: if esAutenticado() && esAdmin();
+      allow update: if esAutenticado() && esOperativo();     // [NUEVO] cerrarTurno() actualiza saldo (cajero)
     }
 
-    match /transacciones/{id} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    // ─── CORRECCIÓN C2: colección que usaba el código sin regla ───────
+    match /transacciones_financieras/{id} {                  // [NUEVO — CRÍTICO]
+      allow read: if esAutenticado() && esFinanzas();        // solo admin lee historial tesorería
+      allow create: if esAutenticado() && esOperativo();     // cerrarTurno() (cajero) + registrarTransaccion() (admin)
+      allow update, delete: if false;                        // inmutable: append-only
     }
 
+    // ─── Reservas ──────────────────────────────────────────────────────
     match /reservas/{id} {
-      // Lectura: pública para que la web pueda consultar la disponibilidad de la agenda
       allow read: if true;
-      allow update, delete: if request.auth != null;
-      // Creación pública: la landing page no tiene Auth, pero validamos campos mínimos
+      allow update, delete: if esAutenticado();
       allow create: if (
-        request.auth != null ||
+        esAutenticado() ||
         (
           request.resource.data.clienteNombre is string &&
           request.resource.data.clienteEmail is string &&
@@ -195,16 +182,13 @@ service cloud.firestore {
       );
     }
 
-    // ─── Candado de turno activo: turnos_activos/{cajeroId} ───
-    // Documento de ID determinista por cajero que garantiza un único turno
-    // abierto a la vez (apertura atómica). Mismos roles que /turnos.
+    // ─── Candado de turno activo ───────────────────────────────────────
     match /turnos_activos/{cajeroId} {
-      allow read: if request.auth != null;
-      allow create, update, delete: if request.auth != null
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'cajero', 'supervisor'];
+      allow read: if esAutenticado();
+      allow create, update, delete: if esAutenticado() && esOperativo();
     }
 
-    // ─── Fallback: bloquear todo lo demás ───
+    // ─── Fallback: bloquear todo lo demás ─────────────────────────────
     match /{document=**} {
       allow read, write: if false;
     }
