@@ -80,7 +80,7 @@ export default function POSApp() {
     }
     
     // Inyectar 'reservas' por retrocompatibilidad
-    if (usuario?.rol === 'admin' || usuario?.rol === 'cajero' || usuario?.rol === 'supervisor') {
+    if (usuario?.rol === 'admin' || usuario?.rol === 'cajero') {
       finalPerms.add('reservas')
     }
     
