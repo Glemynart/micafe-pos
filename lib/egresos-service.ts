@@ -1,15 +1,15 @@
 import {
   collection,
   doc,
-  setDoc,
-  deleteDoc,
   onSnapshot,
   query,
   where,
   orderBy,
   Timestamp,
   serverTimestamp,
-  getDocs
+  getDocs,
+  runTransaction,
+  increment,
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { v4 as uuidv4 } from 'uuid'
@@ -27,27 +27,73 @@ export interface Egreso {
 const EGRESOS_COLLECTION = 'egresos'
 
 /**
- * Guarda o actualiza un egreso en Firestore
+ * Guarda un egreso en Firestore y registra el movimiento financiero.
+ * Idempotente: si el documento ya existe (mismo ID), no duplica el movimiento.
  */
 export async function guardarEgreso(egreso: Omit<Egreso, 'id' | 'fecha'> & { id?: string }) {
   const id = egreso.id || uuidv4()
   const docRef = doc(db, EGRESOS_COLLECTION, id)
-  
-  await setDoc(docRef, {
-    ...egreso,
-    id,
-    fecha: serverTimestamp(),
-  }, { merge: true })
-  
+  const cajaPrincipalRef = doc(db, 'cuentas_bancarias', 'caja-principal')
+
+  await runTransaction(db, async (transaction) => {
+    const existing = await transaction.get(docRef)
+    if (existing.exists()) return // idempotente: ya registrado
+
+    const cajaPrincipalSnap = await transaction.get(cajaPrincipalRef)
+    if (!cajaPrincipalSnap.exists()) throw new Error('Cuenta caja-principal no encontrada')
+
+    transaction.set(docRef, { ...egreso, id, fecha: serverTimestamp() })
+    transaction.update(cajaPrincipalRef, { saldo: increment(-egreso.monto) })
+    transaction.set(doc(collection(db, 'transacciones_financieras')), {
+      cuentaId: 'caja-principal',
+      cuentaNombre: 'Caja Registradora',
+      tipo: 'egreso',
+      monto: egreso.monto,
+      concepto: `Gasto: ${egreso.motivo}`,
+      categoria: 'gasto_operativo',
+      referencia: id,
+      usuarioId: egreso.cajeroId,
+      usuarioNombre: egreso.cajeroNombre,
+      fecha: serverTimestamp(),
+    })
+  })
+
   return id
 }
 
 /**
- * Elimina un egreso por su ID
+ * Elimina un egreso y revierte su movimiento financiero en caja-principal.
+ * No-op si el documento no existe.
  */
 export async function eliminarEgreso(id: string) {
   const docRef = doc(db, EGRESOS_COLLECTION, id)
-  await deleteDoc(docRef)
+  const cajaPrincipalRef = doc(db, 'cuentas_bancarias', 'caja-principal')
+
+  await runTransaction(db, async (transaction) => {
+    const egresoSnap = await transaction.get(docRef)
+    if (!egresoSnap.exists()) return // no-op
+
+    const data = egresoSnap.data()
+    const monto: number = data.monto || 0
+
+    transaction.delete(docRef)
+
+    if (monto > 0) {
+      transaction.update(cajaPrincipalRef, { saldo: increment(monto) })
+      transaction.set(doc(collection(db, 'transacciones_financieras')), {
+        cuentaId: 'caja-principal',
+        cuentaNombre: 'Caja Registradora',
+        tipo: 'ingreso',
+        monto,
+        concepto: `Anulación gasto: ${data.motivo || ''}`,
+        categoria: 'anulacion_egreso',
+        referencia: id,
+        usuarioId: data.cajeroId || '',
+        usuarioNombre: data.cajeroNombre || '',
+        fecha: serverTimestamp(),
+      })
+    }
+  })
 }
 
 /**
