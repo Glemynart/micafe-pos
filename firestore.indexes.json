@@ -16,6 +16,14 @@
         { "fieldPath": "estadoReserva", "order": "ASCENDING" },
         { "fieldPath": "fechaInicio", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "eventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "activo", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
