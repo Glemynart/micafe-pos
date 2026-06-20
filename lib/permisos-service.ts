@@ -184,4 +184,3 @@ export function suscribirPermisosRoles(
   });
 }
 
-export { MODULOS };

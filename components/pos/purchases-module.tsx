@@ -35,6 +35,7 @@ import {
 } from '@/lib/compras-service'
 import { suscribirInsumos, type Insumo } from '@/lib/insumos-service'
 import { suscribirProductos, type Producto } from '@/lib/productos-service'
+import { suscribirCuentasBancarias, type CuentaBancaria } from '@/lib/finanzas-service'
 import { formatCurrency } from '@/lib/demo-data'
 
 interface PurchaseItemForm {
@@ -65,6 +66,8 @@ export function PurchasesModule() {
   const [compraAEliminar, setCompraAEliminar] = useState<Compra | null>(null)
   const [eliminando, setEliminando] = useState(false)
 
+  const [cuentas, setCuentas] = useState<CuentaBancaria[]>([])
+  const [cuentaId, setCuentaId] = useState<string>('')
   const [proveedor, setProveedor] = useState('')
   const [itemsForm, setItemsForm] = useState<PurchaseItemForm[]>([
     { insumoId: '', insumoNombre: '', cantidad: 0, unidadMedida: 'g', costoUnitario: 0 },
@@ -78,6 +81,11 @@ export function PurchasesModule() {
     })
     return unsub
   }, [espacioId])
+
+  useEffect(() => {
+    const unsub = suscribirCuentasBancarias(setCuentas)
+    return unsub
+  }, [])
 
   useEffect(() => {
     if (!espacioId) return
@@ -174,16 +182,19 @@ export function PurchasesModule() {
         costoTotal: i.cantidad * i.costoUnitario,
       }))
 
+      const cuentaSeleccionada = cuentas.find(c => c.id === cuentaId)
       await registrarCompra({
         proveedor: proveedor.trim(),
         items,
         total: items.reduce((acc, i) => acc + i.costoTotal, 0),
         espacioId,
+        ...(cuentaId ? { cuentaId, cuentaNombre: cuentaSeleccionada?.nombre } : {}),
       })
 
       toast.success('Compra registrada exitosamente')
       setShowPurchaseDialog(false)
       setProveedor('')
+      setCuentaId('')
       setItemsForm([{ insumoId: '', insumoNombre: '', cantidad: 0, unidadMedida: 'g', costoUnitario: 0 }])
     } catch (err) {
       toast.error('Error al registrar la compra')
@@ -421,6 +432,27 @@ export function PurchasesModule() {
               </div>
 
               <div className="space-y-2">
+                <Label>Cuenta de pago <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                <Select value={cuentaId} onValueChange={setCuentaId}>
+                  <SelectTrigger className="bg-input">
+                    <SelectValue placeholder="Sin descuento en Finanzas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cuentas.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {cuentaId && (
+                  <p className="text-xs text-muted-foreground">
+                    Se descontará {formatCurrency(totalCompra)} de <strong>{cuentas.find(c => c.id === cuentaId)?.nombre}</strong> al registrar.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
                 <Label>Items comprados</Label>
                 <Card className="bg-secondary/30 border-border">
                   <Table>
@@ -538,6 +570,11 @@ export function PurchasesModule() {
                   <span className="font-medium text-foreground">Total</span>
                   <span className="text-2xl font-bold text-primary">{formatCurrency(compraSeleccionada.total)}</span>
                 </div>
+                {compraSeleccionada.cuentaNombre && (
+                  <p className="text-sm text-muted-foreground mt-2 text-right">
+                    Pagado desde: <strong className="text-foreground">{compraSeleccionada.cuentaNombre}</strong>
+                  </p>
+                )}
               </>
             ) : (
               <p className="text-center text-muted-foreground py-8">Seleccione una compra para ver el detalle</p>
