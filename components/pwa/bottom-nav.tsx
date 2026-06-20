@@ -9,9 +9,9 @@ import {
   LayoutDashboard,
   BarChart3,
   Clock,
-  Truck,
   Users,
   CalendarDays,
+  Landmark,
 } from "lucide-react"
 
 const adminTabs = [
@@ -19,7 +19,7 @@ const adminTabs = [
   { href: "/admin/reportes", label: "Reportes", icon: BarChart3, modulo: "reports" },
   { href: "/admin/reservas", label: "Reservas", icon: CalendarDays, modulo: "reservas" },
   { href: "/admin/turnos", label: "Turnos", icon: Clock, modulo: "shifts" },
-  { href: "/admin/compras", label: "Compras", icon: Truck, modulo: "purchases" },
+  { href: "/admin/finanzas", label: "Finanzas", icon: Landmark, modulo: "finanzas" },
 ]
 
 const marketingTabs = [
@@ -27,7 +27,7 @@ const marketingTabs = [
   { href: "/admin/eventos", label: "Eventos", icon: CalendarDays },
 ]
 
-const moreModulos = ["usuarios", "permisos", "mermas", "cuentas_cobro"]
+const moreModulos = ["usuarios", "permisos", "mermas", "cuentas_cobro", "compras"]
 
 export function BottomNav() {
   const pathname = usePathname()
