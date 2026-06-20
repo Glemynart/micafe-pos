@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card"
 import { Square, Banknote, TrendingDown, CreditCard, CheckCircle, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { billDenominations, coinDenominations } from "@/lib/demo-data"
+import { billDenominations } from "@/lib/demo-data"
 import { Turno, calcularVentasTurno, cerrarTurno, suscribirTurnoActivo } from "@/lib/turnos-service"
 import { calcularEgresosTurno } from "@/lib/egresos-service"
 import { toast } from "sonner"
@@ -162,14 +162,16 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  <Banknote className="h-4 w-4 text-muted-foreground" />
  <Label className="text-base font-semibold">Billetes</Label>
  </div>
- <div className="grid grid-cols-2 gap-3">
- {billDenominations.map(bill => (
- <div key={bill.value} className="relative group">
- <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
- <span className="text-sm text-muted-foreground font-semibold">{bill.label.replace('$', '')}</span>
- </div>
+ <div className="space-y-1.5">
+ {billDenominations.map(bill => {
+ const qty = cashCount[bill.value] || 0
+ return (
+ <div key={bill.value} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/30 transition-colors">
+ <span className="text-sm font-bold text-foreground w-[4.5rem] shrink-0">{bill.label}</span>
+ <span className="text-muted-foreground/40 text-sm select-none">×</span>
  <Input
  type="number"
+ inputMode="numeric"
  min="0"
  value={cashCount[bill.value] || ''}
  onChange={(e) => setCashCount(prev => ({
@@ -177,38 +179,44 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  [bill.value]: parseInt(e.target.value) || 0
  }))}
  placeholder="0"
- className="pl-[4.5rem] text-right bg-background border-muted shadow-sm focus:ring-primary focus:border-primary transition-all font-medium text-lg"
+ className="w-20 h-10 text-center font-mono font-bold text-base bg-background border-muted [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
  />
+ <span className="text-xs text-muted-foreground ml-auto shrink-0 min-w-[5rem] text-right tabular-nums">
+ {qty > 0 ? formatCurrency(qty * bill.value) : ''}
+ </span>
  </div>
- ))}
+ )
+ })}
  </div>
  </div>
 
- {/* Conteo de Monedas */}
+ {/* Total en Monedas */}
  <div className="space-y-3">
  <div className="flex items-center gap-2 pb-2 border-b border-border/50">
  <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/60" />
  <Label className="text-base font-semibold">Monedas</Label>
  </div>
- <div className="grid grid-cols-2 gap-3">
- {coinDenominations.map(coin => (
- <div key={coin.value} className="relative group">
- <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
- <span className="text-sm text-muted-foreground font-semibold">{coin.label.replace('$', '')}</span>
- </div>
+ <div className="space-y-2">
+ <p className="text-xs text-muted-foreground">Total en monedas sin contar por denominación</p>
+ <div className="flex items-center gap-2">
  <Input
  type="number"
+ inputMode="numeric"
  min="0"
- value={cashCount[coin.value] || ''}
+ value={cashCount['monedas'] || ''}
  onChange={(e) => setCashCount(prev => ({
  ...prev,
- [coin.value]: parseInt(e.target.value) || 0
+ monedas: parseInt(e.target.value) || 0
  }))}
- placeholder="0"
- className="pl-[3.5rem] text-right bg-background border-muted shadow-sm focus:ring-primary focus:border-primary transition-all font-medium text-lg"
+ placeholder="Ej: 20000"
+ className="flex-1 h-11 font-mono text-base bg-background border-muted [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
  />
+ {(cashCount['monedas'] || 0) > 0 && (
+ <span className="text-sm font-bold text-foreground shrink-0">
+ = {formatCurrency(cashCount['monedas'] || 0)}
+ </span>
+ )}
  </div>
- ))}
  </div>
  </div>
  </div>
