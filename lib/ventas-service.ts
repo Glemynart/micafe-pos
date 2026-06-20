@@ -9,6 +9,7 @@ import {
   doc,
   runTransaction,
   serverTimestamp,
+  increment,
   query,
   orderBy,
   where,
@@ -36,6 +37,7 @@ export interface PagoMixtoDetalle {
 export interface CrearVentaParams {
   turnoId: string;
   cajeroId: string;
+  cajeroNombre?: string;
   espacioId?: string;
   clienteId?: string;
   // Datos de cliente y fiado
@@ -210,7 +212,45 @@ export async function registrarVenta(params: CrearVentaParams): Promise<{id: str
       Object.entries(ventaData).filter(([, v]) => v !== undefined)
     );
     transaction.set(nuevaVentaDoc, ventaDataClean);
-    
+
+    // ── Finanzas en tiempo real (solo ventas pagadas) ─────────────────────────
+    if (params.estado === 'pagada') {
+      const cuentaMap: Record<string, { nombre: string }> = {
+        'caja-principal': { nombre: 'Caja Registradora' },
+        'bancolombia':    { nombre: 'Bancolombia' },
+      };
+
+      const registrarMovimiento = (cuentaId: string, monto: number) => {
+        if (monto <= 0 || !cuentaMap[cuentaId]) return;
+        transaction.update(doc(db, 'cuentas_bancarias', cuentaId), { saldo: increment(monto) });
+        transaction.set(doc(collection(db, 'transacciones_financieras')), {
+          cuentaId,
+          cuentaNombre: cuentaMap[cuentaId].nombre,
+          tipo: 'ingreso',
+          monto,
+          concepto: `Venta #${nuevoConsecutivo}`,
+          categoria: 'ventas',
+          referencia: nuevaVentaDoc.id,
+          usuarioId: params.cajeroId,
+          usuarioNombre: params.cajeroNombre ?? params.cajeroId,
+          espacioId: params.espacioId ?? null,
+          fecha: serverTimestamp(),
+        });
+      };
+
+      if (params.metodoPago === 'efectivo') {
+        registrarMovimiento('caja-principal', params.totales.total);
+      } else if (params.metodoPago === 'transferencia') {
+        registrarMovimiento('bancolombia', params.totales.total);
+      } else if (params.metodoPago === 'mixto' && params.pagoMixtoDetalle) {
+        for (const pago of params.pagoMixtoDetalle) {
+          if (pago.metodo === 'efectivo') registrarMovimiento('caja-principal', pago.monto);
+          else if (pago.metodo === 'transferencia') registrarMovimiento('bancolombia', pago.monto);
+        }
+      }
+      // cuenta_cobro: sin ingreso inmediato, se registra al cobrar la deuda
+    }
+
     return nuevoConsecutivo;
   });
 

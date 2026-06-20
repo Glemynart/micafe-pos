@@ -462,6 +462,7 @@ export function SellModule() {
       const params: CrearVentaParams = {
         turnoId: turnoActivo.id,
         cajeroId: usuario.uid,
+        cajeroNombre: usuario.nombre,
         espacioId: espacioActivo?.id,
         clienteId: paymentMethod === 'cuenta_cobro'
           ? selectedCliente!.id

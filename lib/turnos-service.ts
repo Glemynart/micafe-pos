@@ -11,7 +11,6 @@ import {
   Timestamp,
   runTransaction,
   getDoc,
-  increment,
 } from 'firebase/firestore'
 import { db, auth } from './firebase'
 
@@ -173,8 +172,6 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
  */
 export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
   const turnoRef = doc(db, 'turnos', params.turnoId);
-  const cuentaRefEfectivo = doc(db, 'cuentas_bancarias', 'caja-fuerte');
-  const cuentaRefBanco = doc(db, 'cuentas_bancarias', 'bancolombia');
 
   await runTransaction(db, async (transaction) => {
     // ── FASE DE LECTURAS (todas antes de cualquier escritura) ────────
@@ -209,44 +206,6 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
       notasCierre: params.notasCierre || '',
       esCierreDefinitivo,
     });
-
-    if (depositoEfectivo > 0) {
-      transaction.update(cuentaRefEfectivo, { saldo: increment(depositoEfectivo) });
-
-      const txRefEf = doc(collection(db, 'transacciones_financieras'));
-      transaction.set(txRefEf, {
-        cuentaId: 'caja-fuerte',
-        cuentaNombre: 'Caja Fuerte',
-        tipo: 'ingreso',
-        monto: depositoEfectivo,
-        concepto: esCierreDefinitivo
-          ? 'Ingreso Cierre Definitivo (Efectivo)'
-          : 'Ingreso Relevo de Turno (Efectivo neto)',
-        categoria: 'ventas',
-        referencia: params.turnoId,
-        usuarioId: 'sistema',
-        usuarioNombre: 'Cierre Automático',
-        fecha: serverTimestamp(),
-      });
-    }
-
-    if (params.ventasOtrosMetodos > 0) {
-      transaction.update(cuentaRefBanco, { saldo: increment(params.ventasOtrosMetodos) });
-
-      const txRefBa = doc(collection(db, 'transacciones_financieras'));
-      transaction.set(txRefBa, {
-        cuentaId: 'bancolombia',
-        cuentaNombre: 'Bancolombia',
-        tipo: 'ingreso',
-        monto: params.ventasOtrosMetodos,
-        concepto: 'Ingreso Cierre de Turno (Digital)',
-        categoria: 'ventas',
-        referencia: params.turnoId,
-        usuarioId: 'sistema',
-        usuarioNombre: 'Cierre Automático',
-        fecha: serverTimestamp(),
-      });
-    }
 
     // Liberar el candado solo si apunta a ESTE turno (evita liberar el de otro
     // turno activo en escenarios legacy con duplicados preexistentes).
