@@ -67,7 +67,7 @@ export function PurchasesModule() {
   const [eliminando, setEliminando] = useState(false)
 
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([])
-  const [cuentaId, setCuentaId] = useState<string>('')
+  const [cuentaId, setCuentaId] = useState<string>('caja-principal')
   const [proveedor, setProveedor] = useState('')
   const [itemsForm, setItemsForm] = useState<PurchaseItemForm[]>([
     { insumoId: '', insumoNombre: '', cantidad: 0, unidadMedida: 'g', costoUnitario: 0 },
@@ -194,7 +194,7 @@ export function PurchasesModule() {
       toast.success('Compra registrada exitosamente')
       setShowPurchaseDialog(false)
       setProveedor('')
-      setCuentaId('')
+      setCuentaId('caja-principal')
       setItemsForm([{ insumoId: '', insumoNombre: '', cantidad: 0, unidadMedida: 'g', costoUnitario: 0 }])
     } catch (err) {
       toast.error('Error al registrar la compra')
