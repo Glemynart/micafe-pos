@@ -10,7 +10,6 @@ import {
   AlertCircle,
   Banknote,
   Smartphone,
-  X,
   Search,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -38,7 +37,7 @@ export function CuentasCobroModule() {
   const [busqueda, setBusqueda] = useState('')
   const [cuentaSeleccionada, setCuentaSeleccionada] = useState<CuentaCobro | null>(null)
   const [showPagarDialog, setShowPagarDialog] = useState(false)
-  const [metodoPagoFinal, setMetodoPagoFinal] = useState<'efectivo' | 'transferencia' | 'mixto'>('efectivo')
+  const [metodoPagoFinal, setMetodoPagoFinal] = useState<'efectivo' | 'transferencia'>('efectivo')
   const [procesando, setProcesando] = useState(false)
   // Timer para refrescar el semáforo DIAN cada minuto
   const [tick, setTick] = useState(0)
@@ -330,11 +329,10 @@ export function CuentasCobroModule() {
               {/* Método de pago */}
               <div className="space-y-2">
                 <Label>¿Cómo pagó el cliente?</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {([
                     { id: 'efectivo', label: 'Efectivo', icon: Banknote },
                     { id: 'transferencia', label: 'Transferencia', icon: Smartphone },
-                    { id: 'mixto', label: 'Mixto', icon: X },
                   ] as const).map(m => (
                     <button
                       key={m.id}
