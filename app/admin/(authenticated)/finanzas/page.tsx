@@ -186,12 +186,12 @@ export default function FinanzasPage() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modal — bottom sheet en móvil, dialog centrado en desktop */}
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setModal(null)}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center" onClick={() => setModal(null)}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative w-full max-w-lg mx-auto bg-[#0f1e35] border border-white/10 rounded-t-3xl p-6 space-y-4" onClick={e => e.stopPropagation()}>
-            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto -mt-2 mb-2" />
+          <div className="relative w-full sm:max-w-md sm:rounded-3xl max-w-lg mx-auto bg-[#0f1e35] border border-white/10 rounded-t-3xl sm:rounded-3xl p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto -mt-2 mb-2 sm:hidden" />
             <h3 className="text-lg font-bold text-white">
               {modal === "ingreso" ? "Registrar Ingreso" : modal === "egreso" ? "Registrar Gasto" : "Trasladar Dinero"}
             </h3>
