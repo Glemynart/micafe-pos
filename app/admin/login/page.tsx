@@ -85,17 +85,21 @@ function AdminLoginContent() {
                 </div>
               )}
               {sesionNoAdmin && (
-                <div className="p-3 rounded-lg bg-amber-500/10 text-amber-300 text-sm mb-4">
-                  <p className="font-medium mb-1">Sesion activa: <strong>{usuario?.nombre || usuario?.username}</strong></p>
-                  <p className="text-xs mb-2 text-amber-300/70">Esta cuenta es de cajero/cocinero. Cierra sesion e ingresa con admin o marketing.</p>
-                  <div className="flex gap-2">
-                    <button onClick={() => logout()} className="h-8 px-3 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5">
-                      Cerrar sesion
-                    </button>
-                  </div>
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm mb-4 space-y-3">
+                  <p className="font-semibold">Sesión activa en la caja</p>
+                  <p className="text-xs text-amber-300/70">
+                    <strong>{usuario?.nombre || usuario?.username}</strong> tiene una sesión de cajero activa en este dispositivo.
+                    Debes cerrarla antes de ingresar como administrador.
+                  </p>
+                  <button
+                    onClick={() => logout()}
+                    className="w-full h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold hover:bg-amber-500/30 transition-colors"
+                  >
+                    Cerrar sesión del cajero
+                  </button>
                 </div>
               )}
-              <form onSubmit={handleLogin} className="space-y-4">
+              <form onSubmit={handleLogin} className={`space-y-4 ${sesionNoAdmin ? 'opacity-30 pointer-events-none select-none' : ''}`}>
                 <div className="space-y-2">
                   <label htmlFor="user" className="text-sm font-medium text-white/70">Usuario</label>
                   <input
