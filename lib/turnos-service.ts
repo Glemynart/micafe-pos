@@ -11,6 +11,7 @@ import {
   Timestamp,
   runTransaction,
   getDoc,
+  increment,
 } from 'firebase/firestore'
 import { db, auth } from './firebase'
 
@@ -190,6 +191,7 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
     // Candado de turno activo (turnos_activos/{cajeroId}). Compatible con turnos
     // antiguos sin candado: si no existe, el delete simplemente se omite.
     const cajeroId: string | undefined = turnoDoc.data().cajeroId;
+    const cajeroNombre: string = turnoDoc.data().cajeroNombre || cajeroId || '';
     const lockRef = cajeroId ? doc(db, 'turnos_activos', cajeroId) : null;
     const lockDoc = lockRef ? await transaction.get(lockRef) : null;
 
@@ -211,6 +213,41 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
     // turno activo en escenarios legacy con duplicados preexistentes).
     if (lockRef && lockDoc?.exists() && lockDoc.data().turnoId === params.turnoId) {
       transaction.delete(lockRef);
+    }
+
+    // Traslado efectivo: caja-principal → caja-fuerte (Modelo B – float fijo)
+    if (depositoEfectivo > 0) {
+      const cajaPrincipalRef = doc(db, 'cuentas_bancarias', 'caja-principal');
+      const cajaFuerteRef = doc(db, 'cuentas_bancarias', 'caja-fuerte');
+      const concepto = `Cierre de Turno — ${cajeroNombre}`;
+
+      transaction.update(cajaPrincipalRef, { saldo: increment(-depositoEfectivo) });
+      transaction.set(doc(collection(db, 'transacciones_financieras')), {
+        cuentaId: 'caja-principal',
+        cuentaNombre: 'Caja Registradora',
+        tipo: 'egreso',
+        monto: depositoEfectivo,
+        concepto,
+        categoria: 'traslado',
+        referencia: params.turnoId,
+        usuarioId: cajeroId || '',
+        usuarioNombre: cajeroNombre,
+        fecha: serverTimestamp(),
+      });
+
+      transaction.update(cajaFuerteRef, { saldo: increment(depositoEfectivo) });
+      transaction.set(doc(collection(db, 'transacciones_financieras')), {
+        cuentaId: 'caja-fuerte',
+        cuentaNombre: 'Caja Fuerte',
+        tipo: 'ingreso',
+        monto: depositoEfectivo,
+        concepto,
+        categoria: 'traslado',
+        referencia: params.turnoId,
+        usuarioId: cajeroId || '',
+        usuarioNombre: cajeroNombre,
+        fecha: serverTimestamp(),
+      });
     }
   });
 }
