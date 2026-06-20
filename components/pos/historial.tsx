@@ -240,9 +240,9 @@ export function Historial() {
           },
           items: ventaCompleta.items,
           total: ventaCompleta.total,
-          metodoPago: ventaCompleta.metodo_pago
+          metodoPago: ventaCompleta.metodoPagoFinal || ventaCompleta.metodo_pago
         });
-        
+
         if (factusRes.ok) {
           success++;
         } else {

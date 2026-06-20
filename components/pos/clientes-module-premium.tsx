@@ -60,7 +60,7 @@ export function ClientesModule() {
   const [clienteDetalle, setClienteDetalle] = useState<Cliente | null>(null)
   const [form, setForm] = useState<ClienteInput>(CLIENTE_VACIO)
   const [guardando, setGuardando] = useState(false)
-  const [metodoPagoFiado, setMetodoPagoFiado] = useState<'efectivo' | 'transferencia' | 'mixto'>('efectivo')
+  const [metodoPagoFiado, setMetodoPagoFiado] = useState<'efectivo' | 'transferencia'>('efectivo')
   const [cuentaACobrar, setCuentaACobrar] = useState<CuentaCobro | null>(null)
   const [showCobrarDialog, setShowCobrarDialog] = useState(false)
   const [procesandoCobro, setProcesandoCobro] = useState(false)
@@ -429,8 +429,8 @@ export function ClientesModule() {
           </DialogHeader>
           <div className="py-3 space-y-3">
             <Label>¿Cómo pagó el cliente?</Label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['efectivo', 'transferencia', 'mixto'] as const).map(m => (
+            <div className="grid grid-cols-2 gap-2">
+              {(['efectivo', 'transferencia'] as const).map(m => (
                 <button
                   key={m}
                   onClick={() => setMetodoPagoFiado(m)}
@@ -441,7 +441,6 @@ export function ClientesModule() {
                 >
                   {m === 'efectivo' && '💵'}
                   {m === 'transferencia' && '📲'}
-                  {m === 'mixto' && '🔀'}
                   {m}
                 </button>
               ))}
