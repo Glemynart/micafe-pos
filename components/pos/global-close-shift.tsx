@@ -115,7 +115,7 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
 
  return (
  <Dialog open={open} onOpenChange={setOpen}>
- <DialogContent className="theme-pos bg-background border-border max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden sm:">
+ <DialogContent className="theme-pos bg-background border-border max-w-6xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden sm:rounded-2xl">
  {/* Header con gradiente sutil */}
  <div className="p-6 border-b border-border/50">
  <DialogHeader>
@@ -153,7 +153,7 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  </div>
  </div>
 
- <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+ <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
  {/* Sección Izquierda: Entradas de dinero */}
  <div className="space-y-6">
  {/* Conteo de Billetes */}
@@ -179,7 +179,7 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  [bill.value]: parseInt(e.target.value) || 0
  }))}
  placeholder="0"
- className="w-20 h-10 text-center font-mono font-bold text-base bg-background border-muted [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+ className="w-20 h-10 text-center font-mono font-bold text-base text-foreground bg-muted/40 border-border focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
  />
  <span className="text-xs text-muted-foreground ml-auto shrink-0 min-w-[5rem] text-right tabular-nums">
  {qty > 0 ? formatCurrency(qty * bill.value) : ''}
@@ -209,7 +209,7 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  monedas: parseInt(e.target.value) || 0
  }))}
  placeholder="Ej: 20000"
- className="flex-1 h-11 font-mono text-base bg-background border-muted [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+ className="flex-1 h-11 font-mono text-base text-foreground bg-muted/40 border-border focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
  />
  {(cashCount['monedas'] || 0) > 0 && (
  <span className="text-sm font-bold text-foreground shrink-0">
