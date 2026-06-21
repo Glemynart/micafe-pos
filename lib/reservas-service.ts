@@ -331,8 +331,60 @@ export async function actualizarEstadoPago(reservaId: string, estadoPago: Reserv
   await updateDoc(doc(db, COLLECTION_NAME, reservaId), updateData)
 }
 
-export async function cancelarReserva(reservaId: string) {
-  await updateDoc(doc(db, COLLECTION_NAME, reservaId), { estadoReserva: 'cancelada' })
+export async function cancelarReserva(reservaId: string): Promise<void> {
+  const reservaRef = doc(db, COLLECTION_NAME, reservaId)
+
+  await runTransaction(db, async (tx) => {
+    // ── LECTURAS (todas antes de cualquier escritura) ─────────────────────────
+
+    const reservaSnap = await tx.get(reservaRef)
+    if (!reservaSnap.exists()) throw new Error('Reserva no encontrada')
+
+    const reservaData = reservaSnap.data() as Reserva
+    if (reservaData.estadoReserva === 'cancelada') return // idempotente
+
+    // Derivar coordenadas de agenda con fallback UTC-5 Colombia (igual que el webhook de Wompi)
+    const mesaId = reservaData.mesaId || ''
+    const colombiaOffsetMs = -5 * 60 * 60 * 1000
+
+    let fechaLocal = reservaData.fechaLocal || ''
+    if (mesaId && !fechaLocal && reservaData.fechaInicio) {
+      const d = new Date(new Date(reservaData.fechaInicio).getTime() + colombiaOffsetMs)
+      fechaLocal = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+    }
+
+    let bloques: string[] = reservaData.bloques ? [...reservaData.bloques] : []
+    if (mesaId && !bloques.length && reservaData.fechaInicio && reservaData.fechaFin) {
+      const hInicio = new Date(new Date(reservaData.fechaInicio).getTime() + colombiaOffsetMs).getUTCHours()
+      const hFin    = new Date(new Date(reservaData.fechaFin).getTime()    + colombiaOffsetMs).getUTCHours()
+      for (let h = hInicio; h < hFin; h++) bloques.push(h.toString().padStart(2, '0'))
+    }
+
+    const agendaDocId = mesaId && fechaLocal && bloques.length ? `${mesaId}_${fechaLocal}` : null
+    const agendaRef   = agendaDocId ? doc(db, 'agendas', agendaDocId) : null
+    const agendaSnap  = agendaRef ? await tx.get(agendaRef) : null
+
+    // ── ESCRITURAS ───────────────────────────────────────────────────────────
+
+    tx.update(reservaRef, { estadoReserva: 'cancelada' })
+
+    if (agendaRef && agendaSnap?.exists()) {
+      const agendaData = agendaSnap.data() as AgendaDoc
+      const nuevosBloques: Record<string, BloqueAgenda> = { ...agendaData.bloques }
+      let cambio = false
+
+      for (const b of bloques) {
+        if (nuevosBloques[b]?.reservaId === reservaId) {
+          delete nuevosBloques[b]
+          cambio = true
+        }
+      }
+
+      if (cambio) {
+        tx.set(agendaRef, { ...agendaData, bloques: nuevosBloques, actualizadoEn: new Date().toISOString() })
+      }
+    }
+  })
 }
 
 export async function marcarReservaCompletada(reservaId: string) {
