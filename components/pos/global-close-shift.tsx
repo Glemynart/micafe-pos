@@ -131,44 +131,41 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  </DialogHeader>
  </div>
  
- <div className="px-6 py-5 overflow-y-auto custom-scrollbar flex-1 space-y-6">
- {/* Tarjeta de Resumen del Turno */}
- <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
- <div className="flex flex-col p-4 border border-border/50 bg-card shadow-sm relative overflow-hidden group">
- <div className="absolute inset-0 from-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
- <p className="text-sm font-medium text-muted-foreground mb-1">Entrada</p>
- <p className="text-2xl font-bold text-foreground">{formatTime(activeShift?.fechaApertura)}</p>
+ <div className="px-6 py-5 overflow-y-auto custom-scrollbar flex-1 space-y-5">
+
+ {/* Resumen del Turno */}
+ <div className="grid grid-cols-3 gap-3">
+ <div className="flex flex-col p-3 border border-border/50 bg-card rounded-lg">
+ <p className="text-xs font-medium text-muted-foreground mb-1">Entrada</p>
+ <p className="text-lg font-bold text-foreground leading-tight">{formatTime(activeShift?.fechaApertura)}</p>
  </div>
- <div className="flex flex-col p-4 border border-border/50 bg-card shadow-sm relative overflow-hidden group">
- <div className="absolute inset-0 from-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
- <p className="text-sm font-medium text-muted-foreground mb-1">Base Inicial</p>
- <p className="text-2xl font-bold text-foreground">{formatCurrency(activeShift?.baseApertura || 0)}</p>
+ <div className="flex flex-col p-3 border border-border/50 bg-card rounded-lg">
+ <p className="text-xs font-medium text-muted-foreground mb-1">Base Inicial</p>
+ <p className="text-lg font-bold text-foreground leading-tight">{formatCurrency(activeShift?.baseApertura || 0)}</p>
  </div>
- <div className="flex flex-col p-4 border border-primary/20 bg-primary/5 shadow-sm relative overflow-hidden group">
- <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity" />
- <p className="text-sm font-medium text-primary/80 mb-1">Ventas del Turno</p>
- <p className="text-2xl font-bold text-primary">
- {isLoadingTotals ? <span className="text-lg animate-pulse">Calculando...</span> : (usuario?.rol === 'admin' ? formatCurrency(ventasTurno.total) : '***')}
+ <div className="flex flex-col p-3 border border-primary/20 bg-primary/5 rounded-lg">
+ <p className="text-xs font-medium text-primary/80 mb-1">Ventas del Turno</p>
+ <p className="text-lg font-bold text-primary leading-tight">
+ {isLoadingTotals ? <span className="text-sm animate-pulse">...</span> : (usuario?.rol === 'admin' ? formatCurrency(ventasTurno.total) : '***')}
  </p>
  </div>
  </div>
 
- <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
- {/* Sección Izquierda: Entradas de dinero */}
- <div className="space-y-6">
- {/* Conteo de Billetes */}
+ {/* Conteo de Efectivo */}
  <div className="space-y-3">
- <div className="flex items-center gap-2 pb-2 border-b border-border/50">
+ <div className="flex items-center gap-2 pb-1.5 border-b border-border/50">
  <Banknote className="h-4 w-4 text-muted-foreground" />
- <Label className="text-base font-semibold">Billetes</Label>
+ <Label className="text-sm font-semibold">Conteo de Efectivo</Label>
  </div>
- <div className="space-y-1.5">
+
+ {/* Billetes en grid 2 columnas */}
+ <div className="grid grid-cols-2 gap-2">
  {billDenominations.map(bill => {
  const qty = cashCount[bill.value] || 0
  return (
- <div key={bill.value} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/30 transition-colors">
- <span className="text-sm font-bold text-foreground w-[4.5rem] shrink-0">{bill.label}</span>
- <span className="text-muted-foreground/40 text-sm select-none">×</span>
+ <div key={bill.value} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/20 border border-border/40">
+ <span className="text-sm font-semibold text-foreground w-[4.2rem] shrink-0">{bill.label}</span>
+ <span className="text-muted-foreground/50 text-xs select-none">×</span>
  <Input
  type="number"
  inputMode="numeric"
@@ -179,26 +176,20 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  [bill.value]: parseInt(e.target.value) || 0
  }))}
  placeholder="0"
- className="w-20 h-10 text-center font-mono font-bold text-base text-foreground bg-muted/40 border-border focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+ className="w-14 h-9 text-center font-mono font-bold text-sm text-foreground bg-background border-border rounded focus-visible:ring-1 focus-visible:ring-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
  />
- <span className="text-xs text-muted-foreground ml-auto shrink-0 min-w-[5rem] text-right tabular-nums">
+ <span className="text-xs text-muted-foreground ml-auto shrink-0 tabular-nums">
  {qty > 0 ? formatCurrency(qty * bill.value) : ''}
  </span>
  </div>
  )
  })}
  </div>
- </div>
 
- {/* Total en Monedas */}
- <div className="space-y-3">
- <div className="flex items-center gap-2 pb-2 border-b border-border/50">
- <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/60" />
- <Label className="text-base font-semibold">Monedas</Label>
- </div>
- <div className="space-y-2">
- <p className="text-xs text-muted-foreground">Total en monedas sin contar por denominación</p>
- <div className="flex items-center gap-2">
+ {/* Monedas */}
+ <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/20 border border-border/40">
+ <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/50 shrink-0" />
+ <span className="text-sm font-semibold text-foreground w-[4.2rem] shrink-0">Monedas</span>
  <Input
  type="number"
  inputMode="numeric"
@@ -208,92 +199,73 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  ...prev,
  monedas: parseInt(e.target.value) || 0
  }))}
- placeholder="Ej: 20000"
- className="flex-1 h-11 font-mono text-base text-foreground bg-muted/40 border-border focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+ placeholder="Total en monedas"
+ className="flex-1 h-9 font-mono text-sm text-foreground bg-background border-border rounded focus-visible:ring-1 focus-visible:ring-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
  />
  {(cashCount['monedas'] || 0) > 0 && (
- <span className="text-sm font-bold text-foreground shrink-0">
- = {formatCurrency(cashCount['monedas'] || 0)}
+ <span className="text-sm font-bold text-foreground shrink-0 tabular-nums">
+ {formatCurrency(cashCount['monedas'] || 0)}
  </span>
  )}
  </div>
  </div>
- </div>
- </div>
 
- {/* Sección Derecha: Resultados y Observaciones */}
- <div className="space-y-6 flex flex-col">
- 
- {/* Bloque de Resultados */}
- <div className="bg-card border border-border shadow-sm p-1 space-y-1">
- <div className="flex justify-between items-center p-3 px-4 bg-background/50">
+ {/* Resultados */}
+ <div className="rounded-lg border border-border overflow-hidden">
+ <div className="flex justify-between items-center px-4 py-3 bg-muted/20">
  <span className="text-sm font-medium text-muted-foreground">Total Contado en Caja</span>
- <span className="text-xl font-bold text-foreground">{formatCurrency(totalCashCount)}</span>
+ <span className="text-xl font-bold text-foreground tabular-nums">{formatCurrency(totalCashCount)}</span>
  </div>
- 
- <div className="flex justify-between items-center p-3 px-4 bg-background/50">
+ <div className="flex justify-between items-center px-4 py-3 border-t border-border/50 bg-muted/20">
  <span className="text-sm font-medium text-muted-foreground">Efectivo Esperado</span>
- <span className="text-xl font-bold text-foreground">
+ <span className="text-xl font-bold text-foreground tabular-nums">
  {isLoadingTotals ? <span className="text-sm animate-pulse">...</span> : (usuario?.rol === 'admin' ? formatCurrency(expectedCash) : '***')}
  </span>
  </div>
-
  <div className={cn(
- "flex justify-between items-center p-4 px-4 mt-2 border",
- isLoadingTotals ? "bg-muted border-border/50" : (
- usuario?.rol !== 'admin' 
- ? "bg-muted border-border/50"
- : cashDifference === 0 
- ? "bg-success/10 border-success/20" 
- : cashDifference > 0 
- ? "bg-success/10 border-success/20" 
+ "flex justify-between items-center px-4 py-3 border-t",
+ isLoadingTotals || usuario?.rol !== 'admin'
+ ? "bg-muted/30 border-border/50"
+ : cashDifference >= 0
+ ? "bg-success/10 border-success/20"
  : "bg-destructive/10 border-destructive/20"
- )
  )}>
  <span className="text-sm font-semibold text-foreground">Diferencia Final</span>
  <span className={cn(
- "text-xl font-black flex items-center gap-2",
- isLoadingTotals ? "text-muted-foreground" : (
- usuario?.rol !== 'admin'
- ? "text-foreground"
- : cashDifference === 0 
- ? "text-success" 
- : cashDifference > 0 
- ? "text-success" 
- : "text-destructive"
- )
+ "text-xl font-black flex items-center gap-2 tabular-nums",
+ isLoadingTotals || usuario?.rol !== 'admin'
+ ? "text-muted-foreground"
+ : cashDifference >= 0 ? "text-success" : "text-destructive"
  )}>
- {isLoadingTotals ? <span className="text-sm font-medium animate-pulse">Calculando...</span> : (
- usuario?.rol === 'admin' ? (
- cashDifference === 0 ? (
- <><CheckCircle className="h-5 w-5" /> Cuadrado</>
- ) : cashDifference > 0 ? (
- <>+{formatCurrency(cashDifference)} <span className="text-xs uppercase tracking-wider font-bold">Sobrante</span></>
- ) : (
- <><AlertTriangle className="h-5 w-5" /> {formatCurrency(Math.abs(cashDifference))} <span className="text-xs uppercase tracking-wider font-bold">Faltante</span></>
- )
- ) : '***'
- )}
+ {isLoadingTotals
+ ? <span className="text-sm font-medium animate-pulse">Calculando...</span>
+ : usuario?.rol === 'admin'
+ ? cashDifference === 0
+ ? <><CheckCircle className="h-5 w-5" /> Cuadrado</>
+ : cashDifference > 0
+ ? <>+{formatCurrency(cashDifference)} <span className="text-xs uppercase tracking-wider font-bold">Sobrante</span></>
+ : <><AlertTriangle className="h-5 w-5" /> {formatCurrency(Math.abs(cashDifference))} <span className="text-xs uppercase tracking-wider font-bold">Faltante</span></>
+ : '***'
+ }
  </span>
  </div>
  </div>
 
- {/* Observaciones y Entregas */}
- <div className="space-y-4 flex-1">
+ {/* Observaciones y Entrega */}
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
  <div className="space-y-2">
  <Label className="text-sm font-semibold">Observaciones de Cierre</Label>
  <Textarea
  value={closeNotes}
  onChange={(e) => setCloseNotes(e.target.value)}
- placeholder="Escribe aquí si hubo algún inconveniente, gasto extra o nota importante..."
- className="bg-background border-muted shadow-sm resize-none h-24 focus:ring-primary focus:border-primary transition-all"
+ placeholder="Inconvenientes, gastos extra o notas importantes..."
+ className="bg-background border-border resize-none h-[6rem] text-sm focus-visible:ring-1 focus-visible:ring-primary"
  />
  </div>
-
  <div className="space-y-2">
  <Label className="text-sm font-semibold">Entregar turno a</Label>
  <Select value={handoverTo} onValueChange={setHandoverTo}>
- <SelectTrigger className="bg-background border-muted shadow-sm h-11">
+ <SelectTrigger className="bg-background border-border h-10">
  <SelectValue placeholder="Seleccionar cajero de relevo" />
  </SelectTrigger>
  <SelectContent>
@@ -305,8 +277,6 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  </div>
  </div>
 
- </div>
- </div>
  </div>
 
  {/* Footer */}
