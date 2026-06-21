@@ -46,6 +46,7 @@ export interface RegistrarCompraParams {
   espacioId: string;
   cuentaId?: string;
   cuentaNombre?: string;
+  fechaCompra?: string; // YYYY-MM-DD; si se omite usa serverTimestamp()
 }
 
 async function getCurrentUserInfo(): Promise<{ uid: string; nombre: string }> {
@@ -63,6 +64,12 @@ export async function registrarCompra(params: RegistrarCompraParams): Promise<st
   const { uid, nombre } = await getCurrentUserInfo();
   const comprasRef = collection(db, "compras");
   const nuevaCompraDoc = doc(comprasRef);
+
+  // Parsear YYYY-MM-DD como medianoche local (no UTC) para evitar desfase de timezone.
+  // Compras sin fechaCompra usan el timestamp del servidor como fallback.
+  const fechaDoc = params.fechaCompra
+    ? (() => { const [y, m, d] = params.fechaCompra!.split('-').map(Number); return new Date(y, m - 1, d) })()
+    : serverTimestamp();
 
   await runTransaction(db, async (transaction) => {
     // ── LECTURAS ─────────────────────────────────────────────────────────────
@@ -115,7 +122,8 @@ export async function registrarCompra(params: RegistrarCompraParams): Promise<st
       espacioId: params.espacioId,
       registradoPor: uid,
       registradoPorNombre: nombre,
-      fecha: serverTimestamp(),
+      fecha: fechaDoc,
+      creadoEn: serverTimestamp(),
       ...(params.cuentaId ? { cuentaId: params.cuentaId, cuentaNombre: params.cuentaNombre } : {}),
     });
 
