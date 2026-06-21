@@ -26,13 +26,14 @@ import {
   FileText
 } from 'lucide-react'
 
-import { 
-  suscribirCuentasBancarias, 
-  suscribirTransacciones, 
+import {
+  suscribirCuentasBancarias,
+  suscribirTransacciones,
   registrarTransaccion,
+  trasladarEntreCuentas,
   inicializarCuentasBancarias,
-  type CuentaBancaria, 
-  type TransaccionFinanciera 
+  type CuentaBancaria,
+  type TransaccionFinanciera
 } from '@/lib/finanzas-service'
 
 export function FinanzasModule() {
@@ -115,30 +116,14 @@ export function FinanzasModule() {
           toast.error('La cuenta origen y destino no pueden ser la misma')
           return
         }
-        const cuentaDestino = cuentas.find(c => c.id === formData.cuentaDestinoId)
-        
-        // Retiro
-        await registrarTransaccion({
-          cuentaId: formData.cuentaId,
-          cuentaNombre: cuentaOrigen?.nombre || '',
-          tipo: 'egreso',
-          monto,
-          concepto: `Traslado a ${cuentaDestino?.nombre} - ${formData.concepto}`,
-          categoria: 'traslado',
-          usuarioId: usuario.uid,
-          usuarioNombre: usuario.username
-        })
 
-        // Ingreso
-        await registrarTransaccion({
-          cuentaId: formData.cuentaDestinoId,
-          cuentaNombre: cuentaDestino?.nombre || '',
-          tipo: 'ingreso',
+        await trasladarEntreCuentas({
+          cuentaOrigenId:  formData.cuentaId,
+          cuentaDestinoId: formData.cuentaDestinoId,
           monto,
-          concepto: `Traslado desde ${cuentaOrigen?.nombre} - ${formData.concepto}`,
-          categoria: 'traslado',
-          usuarioId: usuario.uid,
-          usuarioNombre: usuario.username
+          concepto:        formData.concepto,
+          usuarioId:       usuario.uid,
+          usuarioNombre:   usuario.username,
         })
 
         toast.success('Traslado realizado con éxito')
