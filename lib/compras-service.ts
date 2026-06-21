@@ -90,13 +90,19 @@ export async function registrarCompra(params: RegistrarCompraParams): Promise<st
     }
 
     // ── ESCRITURAS ───────────────────────────────────────────────────────────
+    // Acumular cantidades por itemId antes de escribir: si el mismo insumo/producto
+    // aparece en varias filas, un único update suma el total correcto.
+    const cantidadesAlta = new Map<string, number>();
     for (const item of params.items) {
       const itemId = item.itemId || item.insumoId;
       if (!itemId) continue;
+      cantidadesAlta.set(itemId, (cantidadesAlta.get(itemId) ?? 0) + item.cantidad);
+    }
+    for (const [itemId, totalCantidad] of cantidadesAlta.entries()) {
       const itemData = itemsDataMap.get(itemId);
       if (itemData) {
         transaction.update(itemData.ref, {
-          stock: (itemData.data.stock || 0) + item.cantidad,
+          stock: (itemData.data.stock || 0) + totalCantidad,
           actualizadoEn: serverTimestamp(),
         });
       }
@@ -186,21 +192,28 @@ export async function eliminarCompra(compraId: string): Promise<void> {
       if (itemSnap.exists()) itemsDataMap.set(itemId, { ref: itemRef, data: itemSnap.data() });
     }
 
-    // Leer cuenta para validación si aplica
+    // Leer cuenta si aplica. Si ya no existe (fue eliminada), omitir reversión financiera.
     let cuentaRef: any = null;
+    let cuentaExiste = false;
     if (cuentaId) {
       cuentaRef = doc(db, "cuentas_bancarias", cuentaId);
-      await transaction.get(cuentaRef); // lectura requerida antes de la escritura
+      const cuentaSnap = await transaction.get(cuentaRef);
+      cuentaExiste = cuentaSnap.exists();
     }
 
     // ── ESCRITURAS ───────────────────────────────────────────────────────────
+    // Acumular cantidades por itemId: un único update por insumo/producto.
+    const cantidadesBaja = new Map<string, number>();
     for (const item of items) {
       const itemId = item.itemId || item.insumoId;
       if (!itemId) continue;
+      cantidadesBaja.set(itemId, (cantidadesBaja.get(itemId) ?? 0) + item.cantidad);
+    }
+    for (const [itemId, totalCantidad] of cantidadesBaja.entries()) {
       const itemData = itemsDataMap.get(itemId);
       if (itemData) {
         transaction.update(itemData.ref, {
-          stock: Math.max(0, (itemData.data.stock || 0) - item.cantidad),
+          stock: Math.max(0, (itemData.data.stock || 0) - totalCantidad),
           actualizadoEn: serverTimestamp(),
         });
       }
@@ -208,8 +221,8 @@ export async function eliminarCompra(compraId: string): Promise<void> {
 
     transaction.delete(compraRef);
 
-    // Revertir saldo y registrar transacción de reversión (append-only)
-    if (cuentaRef && cuentaId && total > 0) {
+    // Revertir saldo solo si la cuenta aún existe; si fue eliminada se omite sin crash.
+    if (cuentaRef && cuentaExiste && cuentaId && total > 0) {
       transaction.update(cuentaRef, { saldo: increment(total) });
 
       const txRef = doc(collection(db, "transacciones_financieras"));
