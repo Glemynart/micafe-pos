@@ -387,67 +387,89 @@ export async function cancelarReserva(reservaId: string): Promise<void> {
   })
 }
 
-export async function marcarReservaCompletada(reservaId: string) {
-  // Marcar como completada y confirmar pago al mismo tiempo
-  await updateDoc(doc(db, COLLECTION_NAME, reservaId), {
-    estadoReserva: 'completada',
-    estadoPago: 'pagado',
-    fechaCompletada: new Date().toISOString(),
-  })
-}
-
 /**
- * Registra el ingreso de una reserva en la colección ventas,
- * usando transferencia como método de pago (Wompi web).
+ * Completa una reserva de forma atómica e idempotente (fuente única de verdad).
+ *
+ * - Lee la reserva dentro de la transacción y usa `estadoPago` como discriminador:
+ *   solo crea venta cuando la reserva aún NO estaba pagada (las pagadas por Wompi
+ *   ya tienen su venta creada por el webhook).
+ * - Idempotente: si la reserva ya está completada, retorna sin escribir nada.
+ * - Consecutivo y venta se generan en la misma transacción → sin duplicados ante
+ *   doble-click, reintentos de red o carrera con el webhook (todos guardan sobre
+ *   `estadoPago` y escriben `reservas/{id}`, lo que fuerza la serialización).
+ *
+ * MODELO B: cobrar una reserva pendiente exige un turno real. Si se debe crear
+ * venta y no se proveen `turnoId`/`cajeroId`, lanza 'TURNO_REQUERIDO'. El Admin
+ * solo invoca esta función sobre reservas ya pagadas (no crea venta).
  */
-export async function registrarIngresoReserva(params: {
+export async function completarReserva(params: {
   reservaId: string
-  clienteNombre: string
-  mesaId: string
-  espacioId: string
-  montoTotal: number
-  turnoId: string
-  cajeroId: string
-}) {
-  const ventasRef = collection(db, 'ventas')
-  const nuevaVentaDoc = doc(ventasRef)
+  turnoId?: string
+  cajeroId?: string
+}): Promise<void> {
+  const reservaRef = doc(db, COLLECTION_NAME, params.reservaId)
+  const configRef = doc(db, 'configuracion', 'general')
+  const nuevaVentaRef = doc(collection(db, 'ventas'))
 
-  await runTransaction(db, async (transaction) => {
-    // Leer y actualizar consecutivo
-    const configRef = doc(db, 'configuracion', 'general')
-    const configSnap = await transaction.get(configRef)
-    const nuevoConsecutivo = (configSnap.exists() ? (configSnap.data().consecutivo_actual || 0) : 0) + 1
-    transaction.set(configRef, { consecutivo_actual: nuevoConsecutivo }, { merge: true })
+  await runTransaction(db, async (tx) => {
+    // ── LECTURAS (todas antes de cualquier escritura) ─────────────────────────
 
-    // Crear registro de venta
-    transaction.set(nuevaVentaDoc, {
-      consecutivo: nuevoConsecutivo,
-      fecha: serverTimestamp(),
-      turnoId: params.turnoId,
-      cajeroId: params.cajeroId,
-      espacioId: params.espacioId,
-      clienteNombre: params.clienteNombre,
-      metodoPago: 'transferencia',
-      estado: 'pagada',
-      origenReserva: params.reservaId,
-      items: [
-        {
-          id: `reserva-${params.reservaId}`,
-          nombre: `Reserva sala: ${params.mesaId}`,
-          cantidad: 1,
-          precioUnitario: params.montoTotal,
-          costoUnitario: 0,
-          subtotal: params.montoTotal,
+    const reservaSnap = await tx.get(reservaRef)
+    if (!reservaSnap.exists()) throw new Error('Reserva no encontrada')
+
+    const r = reservaSnap.data() as Reserva
+    if (r.estadoReserva === 'completada') return // idempotente
+    if (r.estadoReserva === 'cancelada') throw new Error('No se puede completar una reserva cancelada')
+
+    const necesitaVenta = r.estadoPago !== 'pagado'
+
+    if (necesitaVenta && (!params.turnoId || !params.cajeroId)) {
+      throw new Error('TURNO_REQUERIDO')
+    }
+
+    let nuevoConsecutivo = 0
+    if (necesitaVenta) {
+      const configSnap = await tx.get(configRef)
+      nuevoConsecutivo = (configSnap.exists() ? (configSnap.data().consecutivo_actual || 0) : 0) + 1
+    }
+
+    // ── ESCRITURAS ────────────────────────────────────────────────────────────
+
+    if (necesitaVenta) {
+      tx.set(configRef, { consecutivo_actual: nuevoConsecutivo }, { merge: true })
+      tx.set(nuevaVentaRef, {
+        consecutivo: nuevoConsecutivo,
+        fecha: serverTimestamp(),
+        turnoId: params.turnoId,
+        cajeroId: params.cajeroId,
+        espacioId: r.espacioId || 'salas-coworking',
+        clienteNombre: r.clienteNombre,
+        metodoPago: 'transferencia',
+        estado: 'pagada',
+        origenReserva: params.reservaId,
+        items: [
+          {
+            id: `reserva-${params.reservaId}`,
+            nombre: `Reserva sala: ${r.mesaId}`,
+            cantidad: 1,
+            precioUnitario: r.montoTotal,
+            costoUnitario: 0,
+            subtotal: r.montoTotal,
+          },
+        ],
+        totales: {
+          subtotal: r.montoTotal,
+          iva: 0,
+          impoconsumo: 0,
+          total: r.montoTotal,
         },
-      ],
-      totales: {
-        subtotal: params.montoTotal,
-        iva: 0,
-        impoconsumo: 0,
-        total: params.montoTotal,
-      },
-    })
+      })
+    }
 
-    return nuevoConsecutivo
+    tx.update(reservaRef, {
+      estadoReserva: 'completada',
+      estadoPago: 'pagado',
+      fechaCompletada: new Date().toISOString(),
+    })
   })
 }
