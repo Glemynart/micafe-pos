@@ -412,6 +412,20 @@ export async function completarReserva(params: {
       nuevoConsecutivo = (configSnap.exists() ? (configSnap.data().consecutivo_actual || 0) : 0) + 1
     }
 
+    // Derivar coordenadas de agenda con fallback UTC-5 Colombia (igual que cancelarReserva)
+    const colombiaOffsetMs = -5 * 60 * 60 * 1000
+    const mesaId = r.mesaId ?? ''
+    let fechaLocal = r.fechaLocal ?? ''
+    if (mesaId && !fechaLocal && r.fechaInicio) {
+      const d = new Date(new Date(r.fechaInicio).getTime() + colombiaOffsetMs)
+      fechaLocal = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+    }
+    const bloques = r.bloques ?? []
+
+    const agendaDocId = mesaId && fechaLocal && bloques.length > 0 ? `${mesaId}_${fechaLocal}` : null
+    const agendaRef   = agendaDocId ? doc(db, 'agendas', agendaDocId) : null
+    const agendaSnap  = agendaRef ? await tx.get(agendaRef) : null
+
     // ── ESCRITURAS ────────────────────────────────────────────────────────────
 
     if (necesitaVenta) {
@@ -450,5 +464,24 @@ export async function completarReserva(params: {
       estadoPago: 'pagado',
       fechaCompletada: new Date().toISOString(),
     })
+
+    // Confirmar bloques de agenda (idempotente — no toca bloques ya confirmados ni de otras reservas)
+    if (agendaRef && agendaSnap?.exists()) {
+      const agendaData = agendaSnap.data() as AgendaDoc
+      const nuevosBloques: Record<string, BloqueAgenda> = { ...agendaData.bloques }
+      let cambio = false
+
+      for (const b of bloques) {
+        const bloque = nuevosBloques[b]
+        if (bloque && bloque.reservaId === params.reservaId && bloque.estado !== 'confirmado') {
+          nuevosBloques[b] = { ...bloque, estado: 'confirmado', holdExpira: null }
+          cambio = true
+        }
+      }
+
+      if (cambio) {
+        tx.set(agendaRef, { ...agendaData, bloques: nuevosBloques, actualizadoEn: new Date().toISOString() })
+      }
+    }
   })
 }
