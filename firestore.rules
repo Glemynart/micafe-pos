@@ -46,7 +46,10 @@ service cloud.firestore {
       // (reportes-service cruza nombres de cajeros)       // [MODIFICADO]
       allow read: if esAutenticado();
       allow create: if esAutenticado() && esAdmin();
-      allow update, delete: if esAutenticado() && esAdmin();
+      allow update: if (esAutenticado() && esAdmin())
+        || (esAutenticado() && request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimoAcceso', 'fcmTokens']));
+      allow delete: if esAutenticado() && esAdmin();
     }
 
     match /permisos_roles/{id} {
