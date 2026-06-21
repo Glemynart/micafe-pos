@@ -84,47 +84,26 @@ export async function getBloquesOcupados(mesaId: string, fechaLocal: string): Pr
   const agendaSnap = await getDoc(agendaRef)
   const ahora = new Date()
 
-  if (agendaSnap.exists() && agendaSnap.data().materializado) {
+  if (agendaSnap.exists()) {
     const data = agendaSnap.data() as AgendaDoc
-    return Object.entries(data.bloques)
+    return Object.entries(data.bloques || {})
       .filter(([, bloque]) => esBloqueOcupado(bloque, ahora))
       .map(([hora]) => hora)
   }
 
-  // Materialización perezosa: construir desde reservas existentes
-  const reservasExistentes = await getReservasMesa(mesaId, fechaLocal)
-  const bloquesIniciales: Record<string, BloqueAgenda> = {}
-  const ahora2 = new Date()
-
-  for (const r of reservasExistentes) {
-    const bloquesReserva = r.bloques ?? bloquesDeRango(r.fechaInicio, r.fechaFin)
-    const confirmado = r.estadoPago === 'pagado'
-    // Reutilizar holdExpira original si existe; si no, asignar TTL desde ahora
-    const holdExpiraLegacy = confirmado
-      ? null
-      : (r.holdExpira ?? new Date(ahora2.getTime() + HOLD_TTL_MS).toISOString())
-    for (const b of bloquesReserva) {
-      bloquesIniciales[b] = {
-        reservaId: r.id,
-        estado: confirmado ? 'confirmado' : 'hold',
-        holdExpira: holdExpiraLegacy,
-        creadoEn: r.fechaCreacion,
-      }
-    }
-  }
-
+  // Agenda no existe: combinación mesa+fecha sin reservas previas.
+  // La materializamos vacía para evitar leer la colección reservas (datos PII).
+  // crearReservaConHold materializa la agenda con los bloques reales al crear la primera reserva.
   await setDoc(agendaRef, {
     mesaId,
     espacioId: 'salas-coworking',
     fecha: fechaLocal,
     materializado: true,
-    bloques: bloquesIniciales,
+    bloques: {},
     actualizadoEn: new Date().toISOString(),
   })
 
-  return Object.entries(bloquesIniciales)
-    .filter(([, bloque]) => esBloqueOcupado(bloque, ahora))
-    .map(([hora]) => hora)
+  return []
 }
 
 /**
