@@ -14,6 +14,8 @@ import { billDenominations } from "@/lib/demo-data"
 import { Turno, calcularVentasTurno, cerrarTurno, suscribirTurnoActivo } from "@/lib/turnos-service"
 import { calcularEgresosTurno } from "@/lib/egresos-service"
 import { toast } from "sonner"
+import { collection, getDocs, query, where } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
 const formatCurrency = (val: number) => 
  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val)
@@ -34,6 +36,7 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  const [handoverTo, setHandoverTo] = useState('none')
  const [isClosing, setIsClosing] = useState(false)
  const [isLoadingTotals, setIsLoadingTotals] = useState(false)
+ const [cajeros, setCajeros] = useState<{ uid: string; nombre: string }[]>([])
 
  // Suscribirse al turno activo para tenerlo listo
  useEffect(() => {
@@ -42,6 +45,20 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  setActiveShift(doc)
  })
  return () => unsub()
+ }, [usuario])
+
+ // Cargar cajeros y supervisores para el relevo
+ useEffect(() => {
+ if (!usuario) return
+ getDocs(query(collection(db, 'usuarios'), where('rol', 'in', ['cajero', 'supervisor'])))
+ .then(snap => {
+ setCajeros(
+ snap.docs
+ .map(d => ({ uid: d.id, nombre: (d.data().nombre as string) || d.id }))
+ .filter(c => c.uid !== usuario.uid)
+ )
+ })
+ .catch(() => {})
  }, [usuario])
 
  // Escuchar el evento global
@@ -269,9 +286,10 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  <SelectValue placeholder="Seleccionar cajero de relevo" />
  </SelectTrigger>
  <SelectContent>
- <SelectItem value="carlos">Operador Demo 01</SelectItem>
- <SelectItem value="ana">Operador Demo 02</SelectItem>
  <SelectItem value="none" className="font-medium">Cierre definitivo (Fin de día)</SelectItem>
+ {cajeros.map(c => (
+ <SelectItem key={c.uid} value={c.uid}>{c.nombre}</SelectItem>
+ ))}
  </SelectContent>
  </Select>
  </div>
