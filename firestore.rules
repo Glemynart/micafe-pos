@@ -165,7 +165,8 @@ service cloud.firestore {
 
     // ─── Reservas ──────────────────────────────────────────────────────
     match /reservas/{id} {
-      allow read: if true;
+      allow get: if true;             // lectura individual: cancel flow público necesita leer su propia reserva
+      allow list: if esAutenticado(); // listado: suscribirReservasActivas / getReservasMesa solo desde POS/Admin
       allow update, delete: if esAutenticado();
       allow create: if (
         esAutenticado() ||
@@ -186,6 +187,16 @@ service cloud.firestore {
     match /turnos_activos/{cajeroId} {
       allow read: if esAutenticado();
       allow create, update, delete: if esAutenticado() && esOperativo();
+    }
+
+    // ─── Agenda de disponibilidad de salas ────────────────────────────
+    match /agendas/{id} {
+      allow read: if true;  // disponibilidad pública: getBloquesOcupados
+      allow create, update: if
+        request.resource.data.mesaId is string &&
+        request.resource.data.fecha is string &&
+        request.resource.data.bloques is map;
+      allow delete: if false;
     }
 
     // ─── Fallback: bloquear todo lo demás ─────────────────────────────
