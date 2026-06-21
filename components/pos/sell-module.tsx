@@ -608,60 +608,61 @@ export function SellModule() {
           }}
         >
           <div className="relative">
-            {/* Botón izquierda — visible solo cuando hay contenido a la izquierda */}
-            {catScroll.canLeft && (
-              <button
-                type="button"
-                onClick={() => scrollCategories('left')}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-20 h-10 w-10 flex items-center justify-center bg-card border border-border/60 rounded-full shadow-md text-foreground/70 hover:text-foreground hover:border-primary/40 active:scale-95 transition-all touch-target"
-                aria-label="Categorías anteriores"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-            )}
-            {/* Botón derecha — visible cuando hay más categorías hacia la derecha */}
-            {catScroll.canRight && (
-              <button
-                type="button"
-                onClick={() => scrollCategories('right')}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-20 h-10 w-10 flex items-center justify-center bg-card border border-border/60 rounded-full shadow-md text-foreground/70 hover:text-foreground hover:border-primary/40 active:scale-95 transition-all touch-target"
-                aria-label="Categorías siguientes"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            )}
-            {/* Gradientes de fade en los bordes */}
-            {catScroll.canLeft && (
-              <div className="pointer-events-none absolute left-10 top-0 bottom-0 w-6 bg-gradient-to-r from-background/80 to-transparent z-10" />
-            )}
-            {catScroll.canRight && (
-              <div className="pointer-events-none absolute right-10 top-0 bottom-0 w-6 bg-gradient-to-l from-background/80 to-transparent z-10" />
-            )}
-            <TabsList
+            {/* Botón izquierda */}
+            <button
+              type="button"
+              onClick={() => scrollCategories('left')}
+              className={cn(
+                "absolute left-0 top-1/2 -translate-y-1/2 z-20 h-10 w-10 flex items-center justify-center bg-card border border-border/60 rounded-full shadow-md text-foreground/70 hover:text-foreground hover:border-primary/40 active:scale-95 transition-all",
+                !catScroll.canLeft && "opacity-0 pointer-events-none"
+              )}
+              aria-label="Categorías anteriores"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            {/* Botón derecha */}
+            <button
+              type="button"
+              onClick={() => scrollCategories('right')}
+              className={cn(
+                "absolute right-0 top-1/2 -translate-y-1/2 z-20 h-10 w-10 flex items-center justify-center bg-card border border-border/60 rounded-full shadow-md text-foreground/70 hover:text-foreground hover:border-primary/40 active:scale-95 transition-all",
+                !catScroll.canRight && "opacity-0 pointer-events-none"
+              )}
+              aria-label="Categorías siguientes"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            {/* Gradientes de fade */}
+            {catScroll.canLeft && <div className="pointer-events-none absolute left-10 top-0 bottom-0 w-6 bg-gradient-to-r from-background/80 to-transparent z-10" />}
+            {catScroll.canRight && <div className="pointer-events-none absolute right-10 top-0 bottom-0 w-6 bg-gradient-to-l from-background/80 to-transparent z-10" />}
+            {/* Wrapper con ref — el div maneja el scroll, TabsList solo organiza los triggers */}
+            <div
               ref={categoriesScrollRef}
-              data-categories-scroller="true"
-              className="flex gap-2 overflow-x-auto pb-2 bg-transparent border-none h-auto scrollbar-none snap-x snap-mandatory"
-              style={{ WebkitOverflowScrolling: 'touch', display: 'flex', flexWrap: 'nowrap',
+              className="overflow-x-auto scrollbar-none snap-x snap-mandatory pb-2"
+              style={{
+                WebkitOverflowScrolling: 'touch',
                 paddingLeft: catScroll.canLeft ? '2.75rem' : undefined,
                 paddingRight: catScroll.canRight ? '2.75rem' : undefined,
               }}
             >
-              <TabsTrigger
-                value="todos"
-                className="px-6 py-3 bg-card text-foreground/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-gold data-[state=active]:ring-offset-1 data-[state=active]:ring-offset-background rounded-xl font-semibold text-sm whitespace-nowrap shadow-sm border border-border flex items-center gap-2 min-h-[52px] transition-all duration-200 snap-start shrink-0 active:scale-[0.97]"
-              >
-                Todos
-              </TabsTrigger>
-              {categorias.map(cat => (
+              <TabsList className="flex gap-2 bg-transparent border-none h-auto w-max">
                 <TabsTrigger
-                  key={cat.id}
-                  value={cat.id}
-                className="px-6 py-3 bg-card text-foreground/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-gold data-[state=active]:ring-offset-1 data-[state=active]:ring-offset-background rounded-xl font-semibold text-sm whitespace-nowrap shadow-sm border border-border flex items-center gap-2 min-h-[52px] transition-all duration-200 snap-start shrink-0 active:scale-[0.97]"
+                  value="todos"
+                  className="px-6 py-3 bg-card text-foreground/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-gold data-[state=active]:ring-offset-1 data-[state=active]:ring-offset-background rounded-xl font-semibold text-sm whitespace-nowrap shadow-sm border border-border flex items-center gap-2 min-h-[52px] transition-all duration-200 snap-start shrink-0 active:scale-[0.97]"
                 >
-                  <DynamicIcon name={cat.icono} className="w-5 h-5" /> {cat.nombre}
+                  Todos
                 </TabsTrigger>
-              ))}
-            </TabsList>
+                {categorias.map(cat => (
+                  <TabsTrigger
+                    key={cat.id}
+                    value={cat.id}
+                    className="px-6 py-3 bg-card text-foreground/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-gold data-[state=active]:ring-offset-1 data-[state=active]:ring-offset-background rounded-xl font-semibold text-sm whitespace-nowrap shadow-sm border border-border flex items-center gap-2 min-h-[52px] transition-all duration-200 snap-start shrink-0 active:scale-[0.97]"
+                  >
+                    <DynamicIcon name={cat.icono} className="w-5 h-5" /> {cat.nombre}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
           </div>
         </Tabs>
 
@@ -725,10 +726,10 @@ export function SellModule() {
                     </div>
                     <CardContent className="p-3 flex flex-col flex-1 justify-between bg-card z-10">
                       <h3 className="font-bold text-foreground text-sm leading-tight line-clamp-2 text-balance">{product.nombre}</h3>
-                      <div className="mt-auto pt-2 flex items-end justify-between gap-1 min-w-0">
-                        <p className="font-black text-primary text-base leading-none shrink-0">{formatCurrency(product.precio)}</p>
+                      <div className="mt-auto pt-1 flex flex-col gap-1">
+                        <p className="font-black text-primary text-base leading-none">{formatCurrency(product.precio)}</p>
                         <span className={cn(
-                          "text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full shrink-0",
+                          "text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full w-fit",
                           stockBajo ? "bg-destructive/10 text-destructive" : "bg-secondary text-secondary-foreground"
                         )}>
                           {product.stock} und
@@ -745,7 +746,7 @@ export function SellModule() {
         </div>
 
       {/* Right Column - Cart */}
-      <Card className="w-[300px] lg:w-[380px] flex flex-col bg-card border-l border-border shadow-[-4px_0_15px_rgba(0,0,0,0.1)] overflow-hidden relative z-20 rounded-none border-y-0 border-r-0 min-h-0 h-full shrink-0">
+      <Card className="w-[300px] lg:w-[380px] grid grid-rows-[auto_auto_1fr_auto] bg-card border-l border-border shadow-[-4px_0_15px_rgba(0,0,0,0.1)] overflow-hidden relative z-20 rounded-none border-y-0 border-r-0 shrink-0">
           {/* Selector de Mesas / Cuentas Arriba del Carrito */}
           <div className="p-4 bg-muted/30 border-b border-border">
             <button
@@ -776,7 +777,7 @@ export function SellModule() {
               <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 rounded-full font-bold px-3">{cart.length} ITEMS</Badge>
           </div>
 
-          <div className="flex-1 overflow-y-auto min-h-0">
+          <div className="overflow-y-auto min-h-0">
             <div className="p-4 pt-0 space-y-3">
               {cart.map((item, idx) => (
                   <div key={`${item.id}-${idx}`} className="flex flex-col p-4 rounded-xl border border-border bg-card shadow-sm group">
@@ -818,7 +819,7 @@ export function SellModule() {
           </div>
 
           {/* Footer */}
-          <div className="p-6 bg-muted/20 border-t border-border shrink-0">
+          <div className="p-6 bg-muted/20 border-t border-border">
               <div className="space-y-2 mb-4 text-sm">
                   <div className="flex justify-between text-muted-foreground">
                       <span>Subtotal</span>
