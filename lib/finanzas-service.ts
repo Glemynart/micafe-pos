@@ -106,6 +106,66 @@ export async function registrarTransaccion(tx: Omit<TransaccionFinanciera, 'id' 
   })
 }
 
+/**
+ * Traslado atómico entre dos cuentas bancarias.
+ * Debito de origen + crédito de destino + dos registros de transacción
+ * ocurren en un único runTransaction: si cualquier escritura falla,
+ * Firestore revierte todo sin dejar estados inconsistentes.
+ */
+export async function trasladarEntreCuentas(params: {
+  cuentaOrigenId: string
+  cuentaDestinoId: string
+  monto: number
+  concepto: string
+  usuarioId: string
+  usuarioNombre: string
+}): Promise<void> {
+  const origenRef = doc(db, 'cuentas_bancarias', params.cuentaOrigenId)
+  const destinoRef = doc(db, 'cuentas_bancarias', params.cuentaDestinoId)
+
+  await runTransaction(db, async (transaction) => {
+    // ── Lecturas (todas antes de cualquier escritura) ─────────────────────
+    const origenSnap = await transaction.get(origenRef)
+    if (!origenSnap.exists()) throw new Error('La cuenta de origen no existe.')
+
+    const destinoSnap = await transaction.get(destinoRef)
+    if (!destinoSnap.exists()) throw new Error('La cuenta de destino no existe.')
+
+    const saldoOrigen  = origenSnap.data().saldo  || 0
+    const saldoDestino = destinoSnap.data().saldo || 0
+    const nombreOrigen  = origenSnap.data().nombre  as string
+    const nombreDestino = destinoSnap.data().nombre as string
+
+    // ── Escrituras (commit atómico) ───────────────────────────────────────
+    transaction.update(origenRef,  { saldo: saldoOrigen  - params.monto })
+    transaction.update(destinoRef, { saldo: saldoDestino + params.monto })
+
+    transaction.set(doc(collection(db, 'transacciones_financieras')), {
+      cuentaId:      params.cuentaOrigenId,
+      cuentaNombre:  nombreOrigen,
+      tipo:          'egreso',
+      monto:         params.monto,
+      concepto:      `Traslado a ${nombreDestino} — ${params.concepto}`,
+      categoria:     'traslado',
+      usuarioId:     params.usuarioId,
+      usuarioNombre: params.usuarioNombre,
+      fecha:         serverTimestamp(),
+    })
+
+    transaction.set(doc(collection(db, 'transacciones_financieras')), {
+      cuentaId:      params.cuentaDestinoId,
+      cuentaNombre:  nombreDestino,
+      tipo:          'ingreso',
+      monto:         params.monto,
+      concepto:      `Traslado desde ${nombreOrigen} — ${params.concepto}`,
+      categoria:     'traslado',
+      usuarioId:     params.usuarioId,
+      usuarioNombre: params.usuarioNombre,
+      fecha:         serverTimestamp(),
+    })
+  })
+}
+
 // Seed inicial si no existen cuentas
 export async function inicializarCuentasBancarias() {
   const snapshot = await getDocs(collection(db, 'cuentas_bancarias'))
