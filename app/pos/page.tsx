@@ -89,6 +89,13 @@ export default function POSApp() {
 
   const modulosSet = useMemo(() => new Set(modulosHabilitados), [modulosHabilitados])
 
+  // ── Redirigir solo a marketing fuera del POS (admin puede entrar si lo desea) ──
+  useEffect(() => {
+    if (usuario && usuario.rol === 'marketing') {
+      router.replace('/admin')
+    }
+  }, [usuario, router])
+
   // ── Auto-abrir turno para cajeros al iniciar sesión ──
   useEffect(() => {
     if (usuario && usuario.rol !== 'admin' && usuario.rol !== 'marketing') {
@@ -162,11 +169,8 @@ export default function POSApp() {
     return <LoginScreen />
   }
 
-  // ── Admin y Marketing no tienen acceso al POS (usan la PWA) ──
-  // Si Firebase cambia el usuario a admin en esta pestaña (por login en PWA),
-  // redirigimos para que el POS no quede con sesión de admin sin querer.
-  if (usuario.rol === 'admin' || usuario.rol === 'marketing') {
-    router.replace('/admin')
+  // ── Marketing no tiene acceso al POS — el useEffect ya redirige ──
+  if (usuario.rol === 'marketing') {
     return null
   }
 
