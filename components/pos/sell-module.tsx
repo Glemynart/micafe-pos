@@ -296,7 +296,7 @@ export function SellModule() {
     if (existing) {
       newItems = cart.map(item => item.id === cartItem.id ? { ...item, quantity: item.quantity + 1 } : item)
     } else {
-      newItems = [...cart, { ...cartItem, quantity: 1 }]
+      newItems = [{ ...cartItem, quantity: 1 }, ...cart]
     }
     syncCartWithFirebase(newItems)
   }, [cart, syncCartWithFirebase])
@@ -308,7 +308,7 @@ export function SellModule() {
     if (existing) {
       newItems = cart.map(item => item.id === cartItem.id ? { ...item, quantity: item.quantity + qty } : item)
     } else {
-      newItems = [...cart, { ...cartItem, quantity: qty }]
+      newItems = [{ ...cartItem, quantity: qty }, ...cart]
     }
     syncCartWithFirebase(newItems)
     setQuickCopies(1) // reset after add
@@ -374,7 +374,7 @@ export function SellModule() {
       quantity: 1
     }
     
-    syncCartWithFirebase([...cart, newProduct])
+    syncCartWithFirebase([newProduct, ...cart])
     setShowQuickProduct(false)
     setQuickProductName('')
     setQuickProductPrice('')
@@ -546,58 +546,6 @@ export function SellModule() {
           </div>
         </form>
 
-        {/* Calculadora Rápida - Solo para Fotocopias */}
-        {espacioActivo?.id === 'fotocopias' && productos.length > 0 && (
-          <div className="bg-card border border-primary/20 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-sm relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -z-10 pointer-events-none" />
-            <div className="flex-shrink-0">
-              <label className="text-xs font-bold uppercase tracking-wider text-primary mb-2 block">
-                Calculadora de Copias
-              </label>
-              <div className="flex items-center gap-1 bg-input/50 rounded-lg p-1 border border-border">
-                <button 
-                  onClick={() => setQuickCopies(Math.max(1, quickCopies - 1))} 
-                  type="button" 
-                  className="w-10 h-10 flex items-center justify-center rounded-md bg-background hover:bg-muted text-foreground shadow-sm transition-all active:scale-95"
-                >
-                  <Minus className="h-5 w-5"/>
-                </button>
-                <input 
-                   type="number" 
-                   value={quickCopies}
-                   onChange={(e) => setQuickCopies(Math.max(1, parseInt(e.target.value) || 1))}
-                   className="w-16 h-10 bg-transparent text-center font-black text-primary text-xl focus:outline-none"
-                   min="1"
-                />
-                <button 
-                  onClick={() => setQuickCopies(quickCopies + 1)} 
-                  type="button" 
-                  className="w-10 h-10 flex items-center justify-center rounded-md bg-background hover:bg-muted text-foreground shadow-sm transition-all active:scale-95"
-                >
-                  <Plus className="h-5 w-5"/>
-                </button>
-              </div>
-            </div>
-            
-            <div className="flex-1 flex gap-2 overflow-x-auto pb-1 custom-scrollbar items-center">
-              {productos.slice(0, 6).map(prod => (
-                <button 
-                   key={`calc-${prod.id}`}
-                   onClick={() => addToCartQuantity(prod, quickCopies)}
-                   type="button"
-                   className="flex flex-col items-center justify-center p-3 h-[72px] bg-secondary/40 hover:bg-primary hover:text-primary-foreground border border-transparent rounded-lg transition-all active:scale-95 whitespace-nowrap min-w-[110px] group"
-                >
-                   <span className="text-xs font-semibold truncate w-full text-center mb-1 group-hover:text-primary-foreground">
-                     {prod.nombre}
-                   </span>
-                   <span className="text-sm font-black text-primary group-hover:text-primary-foreground/90">
-                     + {formatCurrency(prod.precio * quickCopies)}
-                   </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Category Tabs — swipeables horizontalmente */}
         <Tabs
@@ -1332,7 +1280,13 @@ function FotocopiasCalculator({
           className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-foreground font-bold text-xl active:scale-90 touch-target"
         >-</button>
         <div className="text-center min-w-[80px]">
-          <p className="text-3xl font-black text-foreground">{fotoCopias}</p>
+          <input
+            type="number"
+            min="1"
+            value={fotoCopias}
+            onChange={(e) => setFotoCopias(Math.max(1, parseInt(e.target.value) || 1))}
+            className="w-20 text-3xl font-black text-foreground text-center bg-transparent border-none outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
           <p className="text-xs text-muted-foreground">copias</p>
         </div>
         <button
