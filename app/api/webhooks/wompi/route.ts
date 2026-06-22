@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { cert, getApps, initializeApp } from 'firebase-admin/app'
-import { getFirestore } from 'firebase-admin/firestore'
+import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 
 const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
   ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
@@ -189,6 +189,26 @@ export async function POST(req: Request) {
               total: reservaData?.montoTotal || 0,
             },
           })
+
+          // 4. Acreditar tesorería — espejo de registrarVenta(transferencia)
+          const montoTotal: number = reservaData?.montoTotal || 0
+          if (montoTotal > 0) {
+            const bancolombiaRef = db.collection('cuentas_bancarias').doc('bancolombia')
+            t.set(bancolombiaRef, { saldo: FieldValue.increment(montoTotal) }, { merge: true })
+            t.set(db.collection('transacciones_financieras').doc(), {
+              cuentaId: 'bancolombia',
+              cuentaNombre: 'Bancolombia',
+              tipo: 'ingreso',
+              monto: montoTotal,
+              concepto: `Venta #${nuevoConsecutivo}`,
+              categoria: 'ventas',
+              referencia: nuevaVentaRef.id,
+              usuarioId: 'wompi',
+              usuarioNombre: 'Wompi (Reserva Web)',
+              espacioId: reservaData?.espacioId || 'salas-coworking',
+              fecha: new Date(),
+            })
+          }
         })
         
         console.log(`Reserva ${reservaId} pagada y Venta generada exitosamente.`)
