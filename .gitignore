@@ -11,6 +11,10 @@ __v0_jsx-dev-runtime.ts
 
 # Credenciales y secretos
 credentials.json
+service-account*.json
+*-firebase-adminsdk-*.json
+audit-fase9c1-report.json
+audit-fase9c2-report.json
 *.enc
 .pos_drive_credentials.enc
 *.db
