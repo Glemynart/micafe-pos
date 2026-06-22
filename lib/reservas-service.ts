@@ -255,13 +255,13 @@ export function suscribirReservasActivas(callback: (reservas: Reserva[], nuevas:
 
   return onSnapshot(q, (snapshot) => {
     const reservas = snapshot.docs.map(d => ({
+      ...(d.data() as Omit<Reserva, 'id'>),
       id: d.id,
-      ...(d.data() as Omit<Reserva, 'id'>)
     })).sort((a, b) => new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime())
 
     const nuevas = snapshot.docChanges()
       .filter(change => change.type === 'added')
-      .map(change => ({ id: change.doc.id, ...change.doc.data() } as Reserva))
+      .map(change => ({ ...change.doc.data(), id: change.doc.id } as Reserva))
 
     // Cancelar holds expirados en cada snapshot.
     // cancelarReserva() es idempotente: si el doc ya está cancelado, no escribe.
