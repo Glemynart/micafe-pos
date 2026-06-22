@@ -236,6 +236,12 @@ export async function liberarAgenda(
 
 const COLLECTION_NAME = 'reservas'
 
+// IDs de reservas cuya cancelación automática ya está en vuelo.
+// Evita lanzar cancelarReserva() dos veces sobre el mismo doc mientras la
+// transacción anterior aún no ha completado (ej: dos snapshots consecutivos
+// o dos tabs con la suscripción activa al mismo tiempo).
+const _cleanupInFlight = new Set<string>()
+
 // ─── LECTURA PARA EL POS ────────────────────────────────────────────────────────
 
 /**
@@ -248,14 +254,31 @@ export function suscribirReservasActivas(callback: (reservas: Reserva[], nuevas:
   )
 
   return onSnapshot(q, (snapshot) => {
-    const reservas = snapshot.docs.map(d => ({ 
-      id: d.id, 
-      ...(d.data() as Omit<Reserva, 'id'>) 
+    const reservas = snapshot.docs.map(d => ({
+      id: d.id,
+      ...(d.data() as Omit<Reserva, 'id'>)
     })).sort((a, b) => new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime())
-    
+
     const nuevas = snapshot.docChanges()
       .filter(change => change.type === 'added')
       .map(change => ({ id: change.doc.id, ...change.doc.data() } as Reserva))
+
+    // Cancelar holds expirados en cada snapshot.
+    // cancelarReserva() es idempotente: si el doc ya está cancelado, no escribe.
+    const ahora = new Date()
+    reservas
+      .filter(r =>
+        r.estadoPago === 'pendiente' &&
+        r.holdExpira != null &&
+        new Date(r.holdExpira) < ahora &&
+        !_cleanupInFlight.has(r.id)
+      )
+      .forEach(r => {
+        _cleanupInFlight.add(r.id)
+        cancelarReserva(r.id)
+          .catch(err => console.warn('[reservas-cleanup]', r.id, err))
+          .finally(() => _cleanupInFlight.delete(r.id))
+      })
 
     callback(reservas, nuevas)
   })
