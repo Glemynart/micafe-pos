@@ -9,6 +9,7 @@ import {
   getDocs,
   updateDoc,
   serverTimestamp,
+  increment,
   runTransaction,
   getDoc,
 } from 'firebase/firestore'
@@ -385,6 +386,8 @@ export async function completarReserva(params: {
   reservaId: string
   turnoId?: string
   cajeroId?: string
+  cajeroNombre?: string
+  metodoPago?: 'efectivo' | 'transferencia'
 }): Promise<void> {
   const reservaRef = doc(db, COLLECTION_NAME, params.reservaId)
   const configRef = doc(db, 'configuracion', 'general')
@@ -429,6 +432,10 @@ export async function completarReserva(params: {
     // ── ESCRITURAS ────────────────────────────────────────────────────────────
 
     if (necesitaVenta) {
+      const metodoPago = params.metodoPago ?? 'transferencia'
+      const cuentaId = metodoPago === 'efectivo' ? 'caja-principal' : 'bancolombia'
+      const cuentaNombre = metodoPago === 'efectivo' ? 'Caja Registradora' : 'Bancolombia'
+
       tx.set(configRef, { consecutivo_actual: nuevoConsecutivo }, { merge: true })
       tx.set(nuevaVentaRef, {
         consecutivo: nuevoConsecutivo,
@@ -437,7 +444,7 @@ export async function completarReserva(params: {
         cajeroId: params.cajeroId,
         espacioId: r.espacioId || 'salas-coworking',
         clienteNombre: r.clienteNombre,
-        metodoPago: 'transferencia',
+        metodoPago,
         estado: 'pagada',
         origenReserva: params.reservaId,
         items: [
@@ -456,6 +463,20 @@ export async function completarReserva(params: {
           impoconsumo: 0,
           total: r.montoTotal,
         },
+      })
+      tx.update(doc(db, 'cuentas_bancarias', cuentaId), { saldo: increment(r.montoTotal) })
+      tx.set(doc(collection(db, 'transacciones_financieras')), {
+        cuentaId,
+        cuentaNombre,
+        tipo: 'ingreso',
+        monto: r.montoTotal,
+        concepto: `Venta #${nuevoConsecutivo}`,
+        categoria: 'ventas',
+        referencia: nuevaVentaRef.id,
+        usuarioId: params.cajeroId,
+        usuarioNombre: params.cajeroNombre ?? params.cajeroId,
+        espacioId: r.espacioId ?? 'salas-coworking',
+        fecha: serverTimestamp(),
       })
     }
 
