@@ -89,14 +89,14 @@ service cloud.firestore {
 
     match /productos/{id} {
       allow read: if esAutenticado();
-      allow write: if esAutenticado() && esAdmin();
-      allow update: if esAutenticado() && rol() in ['admin', 'cajero']; // descuento de stock en venta
+      allow create, update: if esAutenticado() && rol() in ['admin', 'cajero'];
+      allow delete: if esAutenticado() && esAdmin();
     }
 
     match /insumos/{id} {
       allow read: if esAutenticado();
-      allow write: if esAutenticado() && esAdmin();
-      allow update: if esAutenticado() && rol() in ['admin', 'cajero']; // descuento en venta
+      allow create, update: if esAutenticado() && rol() in ['admin', 'cajero'];
+      allow delete: if esAutenticado() && esAdmin();
     }
 
     match /recetas/{id} {
@@ -106,17 +106,20 @@ service cloud.firestore {
 
     match /mesas/{id} {
       allow read: if true;
-      allow write: if esAutenticado();
+      allow create, update, delete: if esAutenticado() && esAdmin();
     }
 
     match /pedidos_activos/{id} {
-      allow read: if esAutenticado();
-      allow write: if esAutenticado();
+      allow read:          if esAutenticado() && rol() in ['admin', 'cajero'];
+      allow create, update: if esAutenticado() && rol() in ['admin', 'cajero'];
+      allow delete:        if esAutenticado() && rol() in ['admin', 'cajero'];
     }
 
     match /comandas_cocina/{id} {
-      allow read: if esAutenticado();
-      allow write: if esAutenticado();
+      allow read:   if esAutenticado() && rol() in ['admin', 'cajero', 'cocinero'];
+      allow create: if esAutenticado() && rol() in ['admin', 'cajero'];
+      allow update: if esAutenticado() && rol() in ['admin', 'cajero', 'cocinero'];
+      allow delete: if false;
     }
 
     match /clientes/{id} {
