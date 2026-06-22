@@ -216,9 +216,10 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
     }
 
     // Traslado efectivo: caja-principal → caja-fuerte (Modelo B – float fijo)
+    const cajaPrincipalRef = doc(db, 'cuentas_bancarias', 'caja-principal');
+    const cajaFuerteRef = doc(db, 'cuentas_bancarias', 'caja-fuerte');
+
     if (depositoEfectivo > 0) {
-      const cajaPrincipalRef = doc(db, 'cuentas_bancarias', 'caja-principal');
-      const cajaFuerteRef = doc(db, 'cuentas_bancarias', 'caja-fuerte');
       const concepto = `Cierre de Turno — ${cajeroNombre}`;
 
       transaction.update(cajaPrincipalRef, { saldo: increment(-depositoEfectivo) });
@@ -243,6 +244,26 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
         monto: depositoEfectivo,
         concepto,
         categoria: 'traslado',
+        referencia: params.turnoId,
+        usuarioId: cajeroId || '',
+        usuarioNombre: cajeroNombre,
+        fecha: serverTimestamp(),
+      });
+    }
+
+    // Ajuste por diferencia de caja: tras el depósito, caja-principal queda con
+    // un residual de -diferenciaEfectivo (definitivo) o base-diferenciaEfectivo (relevo).
+    // increment(diferencia) anula ese residual dejando 0 (definitivo) o base (relevo).
+    const diferencia = params.diferenciaEfectivo;
+    if (diferencia !== 0) {
+      transaction.update(cajaPrincipalRef, { saldo: increment(diferencia) });
+      transaction.set(doc(collection(db, 'transacciones_financieras')), {
+        cuentaId: 'caja-principal',
+        cuentaNombre: 'Caja Registradora',
+        tipo: diferencia < 0 ? 'egreso' : 'ingreso',
+        monto: Math.abs(diferencia),
+        concepto: `${diferencia < 0 ? 'Faltante' : 'Sobrante'} de Caja — ${cajeroNombre}`,
+        categoria: 'ajuste_caja',
         referencia: params.turnoId,
         usuarioId: cajeroId || '',
         usuarioNombre: cajeroNombre,
