@@ -11,7 +11,8 @@ import {
   Save,
   Upload,
   Check,
-  X
+  X,
+  Banknote
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -144,6 +145,10 @@ export function SettingsModule() {
           <TabsTrigger value="backup" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-2">
             <Database className="h-4 w-4" />
             Backup
+          </TabsTrigger>
+          <TabsTrigger value="caja" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-2">
+            <Banknote className="h-4 w-4" />
+            Caja
           </TabsTrigger>
         </TabsList>
 
@@ -505,6 +510,52 @@ export function SettingsModule() {
                   Restaurar
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Caja Tab */}
+        <TabsContent value="caja" className="flex-1 mt-4">
+          <Card className="bg-card border-border max-w-2xl">
+            <CardHeader>
+              <CardTitle className="text-foreground">Configuración de Caja</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Parámetros de apertura de turno y alertas de arqueo
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label>Base de caja sugerida</Label>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  className="bg-input"
+                  value={config?.baseCajaSugerida ?? 200000}
+                  onChange={(e) => handleConfigChange('baseCajaSugerida', Math.max(0, parseInt(e.target.value) || 0))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Monto que se prellena al abrir turno. El cajero puede modificarlo.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Umbral de alerta por faltante</Label>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  className="bg-input"
+                  value={config?.umbralAlertaFaltante ?? 20000}
+                  onChange={(e) => handleConfigChange('umbralAlertaFaltante', Math.max(0, parseInt(e.target.value) || 0))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Si el faltante de caja supera este monto, el turno se marca con alerta para revisión del admin.
+                </p>
+              </div>
+              <Button onClick={handleSaveConfig} disabled={savingConfig} className="w-full">
+                <Save className="h-4 w-4 mr-2" />
+                {savingConfig ? 'Guardando...' : 'Guardar Configuración'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

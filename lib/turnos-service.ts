@@ -34,6 +34,8 @@ export interface Turno {
   esCierreDefinitivo?: boolean;
   turnoAnteriorId?: string | null;
   relevadoA?: string | null;
+  alertaFaltante?: boolean;
+  conteoDetalle?: Record<string, number>;
 }
 
 export interface AbrirTurnoParams {
@@ -56,6 +58,8 @@ export interface CerrarTurnoParams {
   esCierreDefinitivo?: boolean;
   relevoCajeroId?: string;
   relevoCajeroNombre?: string;
+  umbralAlertaFaltante?: number;
+  conteoDetalle?: Record<string, number>;
 }
 
 /**
@@ -240,6 +244,10 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
       }
     }
 
+    // FASE-10E: alertaFaltante + conteoDetalle
+    const umbral = params.umbralAlertaFaltante ?? 20000;
+    const alertaFaltante = params.diferenciaEfectivo < -umbral;
+
     // ── FASE DE ESCRITURAS ───────────────────────────────────────────
     transaction.update(turnoRef, {
       estado: 'cerrado',
@@ -252,6 +260,8 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
       diferenciaEfectivo: params.diferenciaEfectivo,
       notasCierre: params.notasCierre || '',
       esCierreDefinitivo,
+      alertaFaltante,
+      ...(params.conteoDetalle ? { conteoDetalle: params.conteoDetalle } : {}),
       ...(esRelevo ? { relevadoA: params.relevoCajeroId } : {}),
     });
 

@@ -16,6 +16,7 @@ import { calcularEgresosTurno } from "@/lib/egresos-service"
 import { toast } from "sonner"
 import { collection, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { suscribirConfiguracion, type ConfiguracionGlobal } from "@/lib/configuracion-service"
 
 const formatCurrency = (val: number) => 
  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val)
@@ -37,6 +38,9 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  const [isClosing, setIsClosing] = useState(false)
  const [isLoadingTotals, setIsLoadingTotals] = useState(false)
  const [cajeros, setCajeros] = useState<{ uid: string; nombre: string }[]>([])
+ const [config, setConfig] = useState<ConfiguracionGlobal | null>(null)
+
+ useEffect(() => { const u = suscribirConfiguracion(setConfig); return u }, [])
 
  // Suscribirse al turno activo para tenerlo listo
  useEffect(() => {
@@ -126,6 +130,8 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  diferenciaEfectivo: cashDifference,
  notasCierre: closeNotes || '',
  esCierreDefinitivo: handoverTo === 'none',
+ conteoDetalle: cashCount,
+ umbralAlertaFaltante: config?.umbralAlertaFaltante,
  ...(cajeroRelevo ? { relevoCajeroId: cajeroRelevo.uid, relevoCajeroNombre: cajeroRelevo.nombre } : {}),
  })
  setOpen(false)

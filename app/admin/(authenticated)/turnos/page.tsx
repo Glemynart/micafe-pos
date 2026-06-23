@@ -86,10 +86,17 @@ export default function TurnosPage() {
                           {t.fechaApertura?.toDate?.().toLocaleDateString("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                         </p>
                       </div>
-                      <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-white/60 bg-white/5 rounded-full px-2.5 py-1">
-                        <XCircle className="h-3 w-3" />
-                        CERRADO
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {(t as any).alertaFaltante && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-300 bg-red-500/20 border border-red-500/30 rounded-full px-2 py-1">
+                            FALTANTE
+                          </span>
+                        )}
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-white/60 bg-white/5 rounded-full px-2.5 py-1">
+                          <XCircle className="h-3 w-3" />
+                          CERRADO
+                        </span>
+                      </div>
                     </div>
                     <div className="grid grid-cols-4 gap-1.5">
                       {[
