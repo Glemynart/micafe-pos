@@ -1,20 +1,10 @@
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { cert, getApps, initializeApp } from 'firebase-admin/app'
-import { getFirestore, FieldValue } from 'firebase-admin/firestore'
-
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
-  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-  : undefined
+import { FieldValue } from 'firebase-admin/firestore'
+import { getAdminDb } from '@/lib/firebase-admin'
 
 function getDb() {
-  if (!getApps().length) {
-    if (!serviceAccount) {
-      throw new Error('FIREBASE_SERVICE_ACCOUNT no configurado')
-    }
-    initializeApp({ credential: cert(serviceAccount) })
-  }
-  return getFirestore()
+  return getAdminDb()
 }
 
 export async function POST(req: Request) {
