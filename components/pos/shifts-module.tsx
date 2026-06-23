@@ -40,6 +40,9 @@ import {
   billDenominations,
   formatCurrency
 } from '@/lib/demo-data'
+import { toast } from 'sonner'
+import { collection, getDocs, query, where } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 
 export function ShiftsModule() {
   const { usuario } = useAuthContext()
@@ -63,6 +66,7 @@ export function ShiftsModule() {
   const [cashCount, setCashCount] = useState<Record<string, number>>({})
   const [closeNotes, setCloseNotes] = useState('')
   const [handoverTo, setHandoverTo] = useState('none')
+  const [cajeros, setCajeros] = useState<{ uid: string; nombre: string }[]>([])
   
   // Fetch real data
   useEffect(() => {
@@ -70,6 +74,20 @@ export function ShiftsModule() {
     const unsubActivo = suscribirTurnoActivo(usuario.uid, setActiveShift)
     const unsubHistorial = suscribirHistorialTurnos(setHistorial)
     return () => { unsubActivo(); unsubHistorial() }
+  }, [usuario?.uid])
+
+  // FASE-10C: cargar cajeros/supervisores reales para el relevo (no hardcodear).
+  useEffect(() => {
+    if (!usuario) return
+    getDocs(query(collection(db, 'usuarios'), where('rol', 'in', ['cajero', 'supervisor'])))
+      .then(snap => {
+        setCajeros(
+          snap.docs
+            .map(d => ({ uid: d.id, nombre: (d.data().nombre as string) || d.id }))
+            .filter(c => c.uid !== usuario.uid)
+        )
+      })
+      .catch(() => {})
   }, [usuario?.uid])
 
   // Auto-open modal if redirected from logout or event
@@ -99,6 +117,9 @@ export function ShiftsModule() {
   // Expected cash = Base + Ventas en Efectivo - Gastos
   const expectedCash = activeShift ? (activeShift.baseApertura + ventasTurno.efectivo - egresosTurno) : 0
   const cashDifference = totalCashCount - expectedCash
+
+  // FASE-10C: no se permite cerrar con conteo vacío, salvo cierre forzado del admin.
+  const puedeCerrar = totalCashCount > 0 || usuario?.rol === 'admin'
 
   const handleOpenShift = async () => {
     if (!usuario) return
@@ -133,6 +154,10 @@ export function ShiftsModule() {
 
   const handleCloseShift = async () => {
     if (!activeShift) return
+    if (!puedeCerrar) {
+      toast.error("Debes contar el efectivo de la caja antes de cerrar el turno.")
+      return
+    }
     // Optimistic UI
     setShowCloseShift(false)
     setCashCount({})
@@ -564,9 +589,10 @@ export function ShiftsModule() {
                     <SelectValue placeholder="Seleccionar cajero" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="carlos">Carlos Rodríguez</SelectItem>
-                    <SelectItem value="ana">Ana Martínez</SelectItem>
                     <SelectItem value="none">Sin entrega (cierre de día)</SelectItem>
+                    {cajeros.map(c => (
+                      <SelectItem key={c.uid} value={c.uid}>{c.nombre}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -578,7 +604,12 @@ export function ShiftsModule() {
               <Button variant="outline" onClick={() => setShowCloseShift(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleCloseShift} variant="destructive">
+              <Button
+                onClick={handleCloseShift}
+                variant="destructive"
+                disabled={!puedeCerrar}
+                title={!puedeCerrar ? 'Cuenta el efectivo de la caja antes de cerrar' : undefined}
+              >
                 <Square className="h-4 w-4 mr-2" />
                 Cerrar Turno
               </Button>

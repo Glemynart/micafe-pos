@@ -98,6 +98,10 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  const expectedCash = activeShift ? (activeShift.baseApertura + ventasTurno.efectivo - egresosTurno) : 0
  const cashDifference = totalCashCount - expectedCash
 
+ // FASE-10C: no se permite cerrar con conteo vacío, salvo cierre forzado del admin.
+ const esAdmin = usuario?.rol === 'admin'
+ const puedeCerrar = totalCashCount > 0 || esAdmin
+
  const formatTime = (date: any) => {
  if (!date) return '-'
  return date.toDate().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
@@ -105,6 +109,10 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
 
  const handleCloseShift = async () => {
  if (!activeShift) return
+ if (!puedeCerrar) {
+ toast.error("Debes contar el efectivo de la caja antes de cerrar el turno.")
+ return
+ }
  setIsClosing(true)
  try {
  await cerrarTurno({
@@ -302,10 +310,11 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  <Button variant="ghost" className="hover:bg-muted font-medium" onClick={() => setOpen(false)} disabled={isClosing}>
  Cancelar
  </Button>
- <Button 
- onClick={handleCloseShift} 
- variant="destructive" 
- disabled={isClosing}
+ <Button
+ onClick={handleCloseShift}
+ variant="destructive"
+ disabled={isClosing || !puedeCerrar}
+ title={!puedeCerrar ? 'Cuenta el efectivo de la caja antes de cerrar' : undefined}
  className="px-6 font-bold shadow-md hover:shadow-lg transition-all"
  >
  <Square className="h-4 w-4 mr-2" fill="currentColor" />
