@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { suscribirTurnoActivo, abrirTurno, type Turno } from '@/lib/turnos-service'
+import { suscribirConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
 import { formatCurrency } from '@/lib/demo-data'
 import { toast } from 'sonner'
 import type { Usuario } from '@/lib/auth-service'
@@ -35,6 +36,7 @@ export function TurnoGate({ usuario, children }: TurnoGateProps) {
   const [turno, setTurno] = useState<Turno | null>(null)
   const [cargando, setCargando] = useState(true)
   const [base, setBase] = useState('')
+  const [basePrellenada, setBasePrellenada] = useState(false)
   const [notas, setNotas] = useState('')
   const [abriendo, setAbriendo] = useState(false)
 
@@ -50,6 +52,17 @@ export function TurnoGate({ usuario, children }: TurnoGateProps) {
     })
     return unsub
   }, [usuario.uid, requiereTurno])
+
+  useEffect(() => {
+    if (!requiereTurno || basePrellenada) return
+    const unsub = suscribirConfiguracion((cfg) => {
+      if (cfg.baseCajaSugerida > 0 && !basePrellenada) {
+        setBase(cfg.baseCajaSugerida.toString())
+        setBasePrellenada(true)
+      }
+    })
+    return unsub
+  }, [requiereTurno, basePrellenada])
 
   // Roles sin arqueo: acceso directo.
   if (!requiereTurno) return <>{children}</>
