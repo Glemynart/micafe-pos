@@ -115,6 +115,7 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  }
  setIsClosing(true)
  try {
+ const cajeroRelevo = cajeros.find(c => c.uid === handoverTo)
  await cerrarTurno({
  turnoId: activeShift.id,
  ventasEfectivo: ventasTurno.efectivo,
@@ -125,6 +126,7 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  diferenciaEfectivo: cashDifference,
  notasCierre: closeNotes || '',
  esCierreDefinitivo: handoverTo === 'none',
+ ...(cajeroRelevo ? { relevoCajeroId: cajeroRelevo.uid, relevoCajeroNombre: cajeroRelevo.nombre } : {}),
  })
  setOpen(false)
  toast.success("Turno cerrado correctamente")
