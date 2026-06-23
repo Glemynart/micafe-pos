@@ -158,12 +158,16 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
 /**
  * Cierra un turno existente, guardando el cuadre de caja (Cierre Ciego).
  *
- * Lógica de depósito a Caja Fuerte (Modelo B – float fijo):
- *   - Relevo (esCierreDefinitivo=false): deposita solo el efectivo neto de ventas,
- *     es decir max(0, totalReportadoEfectivo - baseApertura). La base queda en caja
- *     para el siguiente cajero.
- *   - Cierre definitivo (esCierreDefinitivo=true): deposita el total reportado íntegro,
- *     incluyendo la base, porque no hay turno siguiente.
+ * Lógica de depósito a Caja Fuerte (Modelo B – float fijo) [FASE-10C]:
+ *   Fórmula unificada para relevo y cierre definitivo:
+ *     depositoEfectivo = max(0, totalReportadoEfectivo - baseApertura)
+ *   Solo se deposita el efectivo NETO de ventas; la base nunca se traslada
+ *   digitalmente porque tampoco se acredita a caja-principal al abrir el turno.
+ *   - Relevo: la base queda físicamente en caja para el siguiente cajero.
+ *   - Cierre definitivo: la base se devuelve físicamente a la caja fuerte, sin
+ *     movimiento digital (nunca tuvo registro de entrada).
+ *   Depositar el reportado íntegro en cierre definitivo (comportamiento anterior)
+ *   dejaba caja-principal en negativo cuando baseApertura > 0 — corregido aquí.
  *
  * La baseApertura se lee desde el documento del turno en Firestore (fuente de verdad),
  * no desde los parámetros del cliente.
@@ -184,9 +188,9 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
     const baseApertura: number = turnoDoc.data().baseApertura || 0;
     const esCierreDefinitivo = params.esCierreDefinitivo ?? false;
 
-    const depositoEfectivo = esCierreDefinitivo
-      ? params.totalReportadoEfectivo
-      : Math.max(0, params.totalReportadoEfectivo - baseApertura);
+    // FASE-10C: fórmula unificada (relevo y cierre definitivo depositan el mismo
+    // neto de ventas). esCierreDefinitivo queda solo como metadata semántica.
+    const depositoEfectivo = Math.max(0, params.totalReportadoEfectivo - baseApertura);
 
     // Candado de turno activo (turnos_activos/{cajeroId}). Compatible con turnos
     // antiguos sin candado: si no existe, el delete simplemente se omite.
