@@ -138,9 +138,9 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  toast.success("Turno cerrado correctamente")
  // Llamamos a logout
  onCloseSuccess()
- } catch (err) {
+ } catch (err: any) {
  console.error(err)
- toast.error("Hubo un error al cerrar el turno")
+ toast.error(err?.message || "Hubo un error al cerrar el turno")
  } finally {
  setIsClosing(false)
  }

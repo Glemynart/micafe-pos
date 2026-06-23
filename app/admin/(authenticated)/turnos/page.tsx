@@ -87,7 +87,7 @@ export default function TurnosPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        {(t as any).alertaFaltante && (
+                        {t.alertaFaltante && (
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-300 bg-red-500/20 border border-red-500/30 rounded-full px-2 py-1">
                             FALTANTE
                           </span>
