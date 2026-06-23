@@ -158,22 +158,42 @@ export function ShiftsModule() {
       toast.error("Debes contar el efectivo de la caja antes de cerrar el turno.")
       return
     }
-    // Optimistic UI
-    setShowCloseShift(false)
-    setCashCount({})
-    setCloseNotes('')
-    
-    cerrarTurno({
-      turnoId: activeShift.id,
-      ventasEfectivo: ventasTurno.efectivo,
-      ventasOtrosMetodos: ventasTurno.transferencia + ventasTurno.tarjeta + ventasTurno.otros,
-      totalEgresos: egresosTurno,
-      totalEsperadoEfectivo: expectedCash,
-      totalReportadoEfectivo: totalCashCount,
-      diferenciaEfectivo: cashDifference,
-      notasCierre: closeNotes,
-      esCierreDefinitivo: handoverTo === 'none',
-    }).catch(console.error)
+    const cajeroRelevo = cajeros.find(c => c.uid === handoverTo)
+    const esRelevo = !!cajeroRelevo
+
+    if (!esRelevo) {
+      // Cierre definitivo: optimistic UI (sin riesgo de turno B)
+      setShowCloseShift(false)
+      setCashCount({})
+      setCloseNotes('')
+    }
+
+    try {
+      await cerrarTurno({
+        turnoId: activeShift.id,
+        ventasEfectivo: ventasTurno.efectivo,
+        ventasOtrosMetodos: ventasTurno.transferencia + ventasTurno.tarjeta + ventasTurno.otros,
+        totalEgresos: egresosTurno,
+        totalEsperadoEfectivo: expectedCash,
+        totalReportadoEfectivo: totalCashCount,
+        diferenciaEfectivo: cashDifference,
+        notasCierre: closeNotes,
+        esCierreDefinitivo: handoverTo === 'none',
+        ...(cajeroRelevo ? { relevoCajeroId: cajeroRelevo.uid, relevoCajeroNombre: cajeroRelevo.nombre } : {}),
+      })
+      if (esRelevo) {
+        toast.success(`Turno entregado a ${cajeroRelevo.nombre}`)
+        setShowCloseShift(false)
+        setCashCount({})
+        setCloseNotes('')
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Error al cerrar el turno')
+      if (!esRelevo) {
+        // Reabrir modal si falla un cierre definitivo (UI optimista)
+        setShowCloseShift(true)
+      }
+    }
   }
 
   const handleViewDetail = async (shift: Turno) => {

@@ -99,3 +99,8 @@ desktop.ini
 DOCUMENTACION.md
 scripts/publicar-update.ps1
 scripts/encode-url.js
+
+# Audit artifacts
+audit-*.txt
+audit-*.json
+fase9c-post-execute.txt

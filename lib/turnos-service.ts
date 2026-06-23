@@ -32,6 +32,8 @@ export interface Turno {
   notasApertura: string;
   notasCierre: string;
   esCierreDefinitivo?: boolean;
+  turnoAnteriorId?: string | null;
+  relevadoA?: string | null;
 }
 
 export interface AbrirTurnoParams {
@@ -39,6 +41,7 @@ export interface AbrirTurnoParams {
   cajeroNombre: string;
   baseApertura: number;
   notasApertura?: string;
+  turnoAnteriorId?: string | null;
 }
 
 export interface CerrarTurnoParams {
@@ -51,6 +54,8 @@ export interface CerrarTurnoParams {
   diferenciaEfectivo: number;
   notasCierre?: string;
   esCierreDefinitivo?: boolean;
+  relevoCajeroId?: string;
+  relevoCajeroNombre?: string;
 }
 
 /**
@@ -123,7 +128,8 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
       totalReportadoEfectivo: 0,
       diferenciaEfectivo: 0,
       notasApertura: params.notasApertura || '',
-      notasCierre: ''
+      notasCierre: '',
+      ...(params.turnoAnteriorId ? { turnoAnteriorId: params.turnoAnteriorId } : {}),
     };
     transaction.set(nuevoTurnoRef, nuevoTurno);
     transaction.set(lockRef, {
@@ -199,6 +205,41 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
     const lockRef = cajeroId ? doc(db, 'turnos_activos', cajeroId) : null;
     const lockDoc = lockRef ? await transaction.get(lockRef) : null;
 
+    // FASE-10D: lecturas de validación para relevo automático.
+    const esRelevo = !!params.relevoCajeroId;
+    let relevoCajeroNombreAuth = '';
+    let relevoLockRef: ReturnType<typeof doc> | null = null;
+
+    if (esRelevo) {
+      const relevoCajeroId = params.relevoCajeroId!;
+
+      if (relevoCajeroId === cajeroId) {
+        throw new Error('No puedes entregarte el turno a ti mismo.');
+      }
+
+      const usuarioBRef = doc(db, 'usuarios', relevoCajeroId);
+      const usuarioBDoc = await transaction.get(usuarioBRef);
+
+      if (!usuarioBDoc.exists()) {
+        throw new Error('El cajero de relevo no fue encontrado.');
+      }
+      const usuarioB = usuarioBDoc.data() as { nombre?: string; activo?: boolean; rol?: string };
+      if (!usuarioB.activo) {
+        throw new Error('El cajero de relevo está deshabilitado.');
+      }
+      const rolB = usuarioB.rol || '';
+      if (rolB !== 'cajero' && rolB !== 'supervisor') {
+        throw new Error(`El rol "${rolB}" no es válido para recibir un relevo.`);
+      }
+      relevoCajeroNombreAuth = usuarioB.nombre || relevoCajeroId;
+
+      relevoLockRef = doc(db, 'turnos_activos', relevoCajeroId);
+      const relevoLockDoc = await transaction.get(relevoLockRef);
+      if (relevoLockDoc.exists()) {
+        throw new Error(`${relevoCajeroNombreAuth} ya tiene un turno abierto.`);
+      }
+    }
+
     // ── FASE DE ESCRITURAS ───────────────────────────────────────────
     transaction.update(turnoRef, {
       estado: 'cerrado',
@@ -211,12 +252,41 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
       diferenciaEfectivo: params.diferenciaEfectivo,
       notasCierre: params.notasCierre || '',
       esCierreDefinitivo,
+      ...(esRelevo ? { relevadoA: params.relevoCajeroId } : {}),
     });
 
     // Liberar el candado solo si apunta a ESTE turno (evita liberar el de otro
     // turno activo en escenarios legacy con duplicados preexistentes).
     if (lockRef && lockDoc?.exists() && lockDoc.data().turnoId === params.turnoId) {
       transaction.delete(lockRef);
+    }
+
+    // FASE-10D: crear turno + candado para el cajero de relevo.
+    if (esRelevo && relevoLockRef) {
+      const turnosRef = collection(db, 'turnos');
+      const nuevoTurnoRef = doc(turnosRef);
+      transaction.set(nuevoTurnoRef, {
+        id: nuevoTurnoRef.id,
+        cajeroId: params.relevoCajeroId,
+        cajeroNombre: relevoCajeroNombreAuth,
+        fechaApertura: serverTimestamp(),
+        fechaCierre: null,
+        estado: 'abierto',
+        baseApertura: baseApertura,
+        ventasEfectivo: 0,
+        ventasOtrosMetodos: 0,
+        totalEsperadoEfectivo: 0,
+        totalReportadoEfectivo: 0,
+        diferenciaEfectivo: 0,
+        notasApertura: `Relevo automático de ${cajeroNombre}`,
+        notasCierre: '',
+        turnoAnteriorId: params.turnoId,
+      });
+      transaction.set(relevoLockRef, {
+        cajeroId: params.relevoCajeroId,
+        turnoId: nuevoTurnoRef.id,
+        fechaApertura: serverTimestamp(),
+      });
     }
 
     // Traslado efectivo: caja-principal → caja-fuerte (Modelo B – float fijo)
