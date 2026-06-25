@@ -1,7 +1,7 @@
 importScripts('/firebase-app-compat.js');
 importScripts('/firebase-messaging-compat.js');
 
-const firebaseConfig = {
+var firebaseConfig = {
   apiKey: "AIzaSyCVTjnTrEpRCSHWdN0g5-TKJfVDNUIOvD8",
   authDomain: "micafe-pos.firebaseapp.com",
   projectId: "micafe-pos",
@@ -13,23 +13,48 @@ const firebaseConfig = {
 if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
-const messaging = firebase.messaging();
+var messaging = firebase.messaging();
 
 messaging.onBackgroundMessage(function(payload) {
   var title = 'CafePOS';
-  if (payload && payload.notification && payload.notification.title) {
-    title = payload.notification.title;
-  }
-  
   var body = '';
-  if (payload && payload.notification && payload.notification.body) {
-    body = payload.notification.body;
+  var url = '/admin';
+
+  if (payload && payload.notification) {
+    if (payload.notification.title) title = payload.notification.title;
+    if (payload.notification.body) body = payload.notification.body;
+  }
+
+  if (payload && payload.data && payload.data.url) {
+    url = payload.data.url;
   }
 
   var notificationOptions = {
     body: body,
-    icon: '/cafe-atrato-icon.png'
+    icon: '/cafe-atrato-icon.png',
+    data: { url: url }
   };
-  
+
   self.registration.showNotification(title, notificationOptions);
+});
+
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+
+  var targetUrl = (event.notification.data && event.notification.data.url) || '/admin';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+      for (var i = 0; i < clientList.length; i++) {
+        var client = clientList[i];
+        var clientUrl = new URL(client.url);
+        if (clientUrl.pathname.startsWith('/admin') && 'focus' in client) {
+          client.focus();
+          client.navigate(targetUrl);
+          return;
+        }
+      }
+      return clients.openWindow(targetUrl);
+    })
+  );
 });
