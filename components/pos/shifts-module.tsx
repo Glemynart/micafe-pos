@@ -64,7 +64,7 @@ export function ShiftsModule() {
   const [openNotes, setOpenNotes] = useState('')
   
   // Cash count
-  const [cashCount, setCashCount] = useState<Record<string, number>>({})
+  const [cashCount, setCashCount] = useState<Record<string, string>>({})
   const [closeNotes, setCloseNotes] = useState('')
   const [handoverTo, setHandoverTo] = useState('none')
   const [cajeros, setCajeros] = useState<{ uid: string; nombre: string }[]>([])
@@ -117,8 +117,9 @@ export function ShiftsModule() {
     return () => window.removeEventListener('request_close_shift', handleEvent)
   }, [activeShift])
 
-  const totalCashCount = Object.entries(cashCount).reduce((total, [denom, cant]) => {
-    if (denom === 'monedas') return total + cant;
+  const totalCashCount = Object.entries(cashCount).reduce((total, [denom, raw]) => {
+    const cant = parseInt(raw, 10) || 0
+    if (denom === 'monedas') return total + cant
     return total + (Number(denom) * cant)
   }, 0)
 
@@ -187,7 +188,7 @@ export function ShiftsModule() {
         diferenciaEfectivo: cashDifference,
         notasCierre: closeNotes,
         esCierreDefinitivo: handoverTo === 'none',
-        conteoDetalle: cashCount,
+        conteoDetalle: Object.fromEntries(Object.entries(cashCount).map(([k, v]) => [k, parseInt(v, 10) || 0])),
         umbralAlertaFaltante: config?.umbralAlertaFaltante,
         ...(cajeroRelevo ? { relevoCajeroId: cajeroRelevo.uid, relevoCajeroNombre: cajeroRelevo.nombre } : {}),
       })
@@ -505,7 +506,7 @@ export function ShiftsModule() {
               <Label>Conteo de billetes</Label>
               <div className="space-y-1.5">
                 {billDenominations.map(bill => {
-                  const qty = cashCount[bill.value] || 0
+                  const qty = parseInt(cashCount[bill.value], 10) || 0
                   return (
                     <div key={bill.value} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/30 transition-colors">
                       <span className="text-sm font-bold text-foreground w-[4.5rem] shrink-0">{bill.label}</span>
@@ -513,10 +514,9 @@ export function ShiftsModule() {
                       <Input
                         type="text"
                         inputMode="numeric"
-                        value={cashCount[bill.value] ? String(cashCount[bill.value]) : ''}
+                        value={cashCount[bill.value] ?? ''}
                         onChange={(e) => {
-                          const n = parseInt(e.target.value.replace(/\D/g, ''), 10)
-                          setCashCount(prev => ({ ...prev, [bill.value]: Number.isFinite(n) ? n : 0 }))
+                          setCashCount(prev => ({ ...prev, [bill.value]: e.target.value.replace(/\D/g, '') }))
                         }}
                         placeholder="0"
                         className="w-20 h-10 text-center font-mono font-bold text-base bg-input"
@@ -538,19 +538,13 @@ export function ShiftsModule() {
                 <Input
                   type="text"
                   inputMode="numeric"
-                  value={cashCount['monedas'] ? String(cashCount['monedas']) : ''}
+                  value={cashCount['monedas'] ? Number(cashCount['monedas']).toLocaleString('es-CO') : ''}
                   onChange={(e) => {
-                    const n = parseInt(e.target.value.replace(/\D/g, ''), 10)
-                    setCashCount(prev => ({ ...prev, monedas: Number.isFinite(n) ? n : 0 }))
+                    setCashCount(prev => ({ ...prev, monedas: e.target.value.replace(/\D/g, '') }))
                   }}
-                  placeholder="Ej: 20000"
+                  placeholder="Ej: 20.000"
                   className="flex-1 h-11 font-mono text-base bg-input"
                 />
-                {(cashCount['monedas'] || 0) > 0 && (
-                  <span className="text-sm font-bold text-foreground shrink-0">
-                    = {formatCurrency(cashCount['monedas'] || 0)}
-                  </span>
-                )}
               </div>
             </div>
 
