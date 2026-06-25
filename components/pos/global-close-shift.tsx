@@ -200,16 +200,15 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  <span className="text-sm font-semibold text-foreground w-[4.2rem] shrink-0">{bill.label}</span>
  <span className="text-muted-foreground/50 text-xs select-none">×</span>
  <Input
- type="number"
+ type="text"
  inputMode="numeric"
- min="0"
- value={cashCount[bill.value] || ''}
- onChange={(e) => setCashCount(prev => ({
- ...prev,
- [bill.value]: parseInt(e.target.value) || 0
- }))}
+ value={cashCount[bill.value] ? String(cashCount[bill.value]) : ''}
+ onChange={(e) => {
+ const n = parseInt(e.target.value.replace(/\D/g, ''), 10)
+ setCashCount(prev => ({ ...prev, [bill.value]: Number.isFinite(n) ? n : 0 }))
+ }}
  placeholder="0"
- className="w-14 h-9 text-center font-mono font-bold text-sm text-foreground bg-background border-border rounded focus-visible:ring-1 focus-visible:ring-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+ className="w-16 h-9 text-center font-mono font-bold text-sm text-foreground bg-background border-border rounded focus-visible:ring-1 focus-visible:ring-primary"
  />
  <span className="text-xs text-muted-foreground ml-auto shrink-0 tabular-nums">
  {qty > 0 ? formatCurrency(qty * bill.value) : ''}
@@ -224,16 +223,15 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/50 shrink-0" />
  <span className="text-sm font-semibold text-foreground w-[4.2rem] shrink-0">Monedas</span>
  <Input
- type="number"
+ type="text"
  inputMode="numeric"
- min="0"
- value={cashCount['monedas'] || ''}
- onChange={(e) => setCashCount(prev => ({
- ...prev,
- monedas: parseInt(e.target.value) || 0
- }))}
+ value={cashCount['monedas'] ? String(cashCount['monedas']) : ''}
+ onChange={(e) => {
+ const n = parseInt(e.target.value.replace(/\D/g, ''), 10)
+ setCashCount(prev => ({ ...prev, monedas: Number.isFinite(n) ? n : 0 }))
+ }}
  placeholder="Total en monedas"
- className="flex-1 h-9 font-mono text-sm text-foreground bg-background border-border rounded focus-visible:ring-1 focus-visible:ring-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+ className="flex-1 h-9 font-mono text-sm text-foreground bg-background border-border rounded focus-visible:ring-1 focus-visible:ring-primary"
  />
  {(cashCount['monedas'] || 0) > 0 && (
  <span className="text-sm font-bold text-foreground shrink-0 tabular-nums">

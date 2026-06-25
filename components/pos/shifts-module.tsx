@@ -511,16 +511,15 @@ export function ShiftsModule() {
                       <span className="text-sm font-bold text-foreground w-[4.5rem] shrink-0">{bill.label}</span>
                       <span className="text-muted-foreground/40 text-sm select-none">×</span>
                       <Input
-                        type="number"
+                        type="text"
                         inputMode="numeric"
-                        min="0"
-                        value={cashCount[bill.value] || ''}
-                        onChange={(e) => setCashCount(prev => ({
-                          ...prev,
-                          [bill.value]: parseInt(e.target.value) || 0
-                        }))}
+                        value={cashCount[bill.value] ? String(cashCount[bill.value]) : ''}
+                        onChange={(e) => {
+                          const n = parseInt(e.target.value.replace(/\D/g, ''), 10)
+                          setCashCount(prev => ({ ...prev, [bill.value]: Number.isFinite(n) ? n : 0 }))
+                        }}
                         placeholder="0"
-                        className="w-20 h-10 text-center font-mono font-bold text-base bg-input [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        className="w-20 h-10 text-center font-mono font-bold text-base bg-input"
                       />
                       <span className="text-xs text-muted-foreground ml-auto shrink-0 min-w-[5rem] text-right tabular-nums">
                         {qty > 0 ? formatCurrency(qty * bill.value) : ''}
@@ -537,16 +536,15 @@ export function ShiftsModule() {
               <p className="text-xs text-muted-foreground">Total en monedas sin contar por denominación</p>
               <div className="flex items-center gap-2">
                 <Input
-                  type="number"
+                  type="text"
                   inputMode="numeric"
-                  min="0"
-                  value={cashCount['monedas'] || ''}
-                  onChange={(e) => setCashCount(prev => ({
-                    ...prev,
-                    monedas: parseInt(e.target.value) || 0
-                  }))}
+                  value={cashCount['monedas'] ? String(cashCount['monedas']) : ''}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value.replace(/\D/g, ''), 10)
+                    setCashCount(prev => ({ ...prev, monedas: Number.isFinite(n) ? n : 0 }))
+                  }}
                   placeholder="Ej: 20000"
-                  className="flex-1 h-11 font-mono text-base bg-input [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  className="flex-1 h-11 font-mono text-base bg-input"
                 />
                 {(cashCount['monedas'] || 0) > 0 && (
                   <span className="text-sm font-bold text-foreground shrink-0">
