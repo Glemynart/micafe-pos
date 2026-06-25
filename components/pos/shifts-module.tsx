@@ -40,6 +40,10 @@ import {
   billDenominations,
   formatCurrency
 } from '@/lib/demo-data'
+import { toast } from 'sonner'
+import { collection, getDocs, query, where } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { suscribirConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
 
 export function ShiftsModule() {
   const { usuario } = useAuthContext()
@@ -60,16 +64,38 @@ export function ShiftsModule() {
   const [openNotes, setOpenNotes] = useState('')
   
   // Cash count
-  const [cashCount, setCashCount] = useState<Record<string, number>>({})
+  const [cashCount, setCashCount] = useState<Record<string, string>>({})
   const [closeNotes, setCloseNotes] = useState('')
   const [handoverTo, setHandoverTo] = useState('none')
-  
+  const [cajeros, setCajeros] = useState<{ uid: string; nombre: string }[]>([])
+  const [config, setConfig] = useState<ConfiguracionGlobal | null>(null)
+
+  // Suscribir configuración
+  useEffect(() => {
+    const unsub = suscribirConfiguracion(setConfig)
+    return unsub
+  }, [])
+
   // Fetch real data
   useEffect(() => {
     if (!usuario) return
     const unsubActivo = suscribirTurnoActivo(usuario.uid, setActiveShift)
     const unsubHistorial = suscribirHistorialTurnos(setHistorial)
     return () => { unsubActivo(); unsubHistorial() }
+  }, [usuario?.uid])
+
+  // FASE-10C: cargar cajeros/supervisores reales para el relevo (no hardcodear).
+  useEffect(() => {
+    if (!usuario) return
+    getDocs(query(collection(db, 'usuarios'), where('rol', 'in', ['cajero', 'supervisor'])))
+      .then(snap => {
+        setCajeros(
+          snap.docs
+            .map(d => ({ uid: d.id, nombre: (d.data().nombre as string) || d.id }))
+            .filter(c => c.uid !== usuario.uid)
+        )
+      })
+      .catch(() => {})
   }, [usuario?.uid])
 
   // Auto-open modal if redirected from logout or event
@@ -91,14 +117,18 @@ export function ShiftsModule() {
     return () => window.removeEventListener('request_close_shift', handleEvent)
   }, [activeShift])
 
-  const totalCashCount = Object.entries(cashCount).reduce((total, [denom, cant]) => {
-    if (denom === 'monedas') return total + cant;
+  const totalCashCount = Object.entries(cashCount).reduce((total, [denom, raw]) => {
+    const cant = parseInt(raw, 10) || 0
+    if (denom === 'monedas') return total + cant
     return total + (Number(denom) * cant)
   }, 0)
 
   // Expected cash = Base + Ventas en Efectivo - Gastos
   const expectedCash = activeShift ? (activeShift.baseApertura + ventasTurno.efectivo - egresosTurno) : 0
   const cashDifference = totalCashCount - expectedCash
+
+  // FASE-10C: no se permite cerrar con conteo vacío, salvo cierre forzado del admin.
+  const puedeCerrar = totalCashCount > 0 || usuario?.rol === 'admin'
 
   const handleOpenShift = async () => {
     if (!usuario) return
@@ -133,22 +163,48 @@ export function ShiftsModule() {
 
   const handleCloseShift = async () => {
     if (!activeShift) return
-    // Optimistic UI
-    setShowCloseShift(false)
-    setCashCount({})
-    setCloseNotes('')
-    
-    cerrarTurno({
-      turnoId: activeShift.id,
-      ventasEfectivo: ventasTurno.efectivo,
-      ventasOtrosMetodos: ventasTurno.transferencia + ventasTurno.tarjeta + ventasTurno.otros,
-      totalEgresos: egresosTurno,
-      totalEsperadoEfectivo: expectedCash,
-      totalReportadoEfectivo: totalCashCount,
-      diferenciaEfectivo: cashDifference,
-      notasCierre: closeNotes,
-      esCierreDefinitivo: handoverTo === 'none',
-    }).catch(console.error)
+    if (!puedeCerrar) {
+      toast.error("Debes contar el efectivo de la caja antes de cerrar el turno.")
+      return
+    }
+    const cajeroRelevo = cajeros.find(c => c.uid === handoverTo)
+    const esRelevo = !!cajeroRelevo
+
+    if (!esRelevo) {
+      // Cierre definitivo: optimistic UI (sin riesgo de turno B)
+      setShowCloseShift(false)
+      setCashCount({})
+      setCloseNotes('')
+    }
+
+    try {
+      await cerrarTurno({
+        turnoId: activeShift.id,
+        ventasEfectivo: ventasTurno.efectivo,
+        ventasOtrosMetodos: ventasTurno.transferencia + ventasTurno.tarjeta + ventasTurno.otros,
+        totalEgresos: egresosTurno,
+        totalEsperadoEfectivo: expectedCash,
+        totalReportadoEfectivo: totalCashCount,
+        diferenciaEfectivo: cashDifference,
+        notasCierre: closeNotes,
+        esCierreDefinitivo: handoverTo === 'none',
+        conteoDetalle: Object.fromEntries(Object.entries(cashCount).map(([k, v]) => [k, parseInt(v, 10) || 0])),
+        umbralAlertaFaltante: config?.umbralAlertaFaltante,
+        ...(cajeroRelevo ? { relevoCajeroId: cajeroRelevo.uid, relevoCajeroNombre: cajeroRelevo.nombre } : {}),
+      })
+      if (esRelevo) {
+        toast.success(`Turno entregado a ${cajeroRelevo.nombre}`)
+        setShowCloseShift(false)
+        setCashCount({})
+        setCloseNotes('')
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Error al cerrar el turno')
+      if (!esRelevo) {
+        // Reabrir modal si falla un cierre definitivo (UI optimista)
+        setShowCloseShift(true)
+      }
+    }
   }
 
   const handleViewDetail = async (shift: Turno) => {
@@ -192,7 +248,7 @@ export function ShiftsModule() {
               Cerrar Turno
             </Button>
           ) : (
-            <Button onClick={() => setShowOpenShift(true)} className="bg-primary text-primary-foreground">
+            <Button onClick={() => { if (config?.baseCajaSugerida && !initialCash) setInitialCash(config.baseCajaSugerida.toString()); setShowOpenShift(true) }} className="bg-primary text-primary-foreground">
               <Play className="h-4 w-4 mr-2" />
               Abrir Turno
             </Button>
@@ -450,22 +506,20 @@ export function ShiftsModule() {
               <Label>Conteo de billetes</Label>
               <div className="space-y-1.5">
                 {billDenominations.map(bill => {
-                  const qty = cashCount[bill.value] || 0
+                  const qty = parseInt(cashCount[bill.value], 10) || 0
                   return (
                     <div key={bill.value} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/30 transition-colors">
                       <span className="text-sm font-bold text-foreground w-[4.5rem] shrink-0">{bill.label}</span>
                       <span className="text-muted-foreground/40 text-sm select-none">×</span>
                       <Input
-                        type="number"
+                        type="text"
                         inputMode="numeric"
-                        min="0"
-                        value={cashCount[bill.value] || ''}
-                        onChange={(e) => setCashCount(prev => ({
-                          ...prev,
-                          [bill.value]: parseInt(e.target.value) || 0
-                        }))}
+                        value={cashCount[bill.value] ?? ''}
+                        onChange={(e) => {
+                          setCashCount(prev => ({ ...prev, [bill.value]: e.target.value.replace(/\D/g, '') }))
+                        }}
                         placeholder="0"
-                        className="w-20 h-10 text-center font-mono font-bold text-base bg-input [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        className="w-20 h-10 text-center font-mono font-bold text-base bg-input"
                       />
                       <span className="text-xs text-muted-foreground ml-auto shrink-0 min-w-[5rem] text-right tabular-nums">
                         {qty > 0 ? formatCurrency(qty * bill.value) : ''}
@@ -482,22 +536,15 @@ export function ShiftsModule() {
               <p className="text-xs text-muted-foreground">Total en monedas sin contar por denominación</p>
               <div className="flex items-center gap-2">
                 <Input
-                  type="number"
+                  type="text"
                   inputMode="numeric"
-                  min="0"
-                  value={cashCount['monedas'] || ''}
-                  onChange={(e) => setCashCount(prev => ({
-                    ...prev,
-                    monedas: parseInt(e.target.value) || 0
-                  }))}
-                  placeholder="Ej: 20000"
-                  className="flex-1 h-11 font-mono text-base bg-input [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  value={cashCount['monedas'] ? Number(cashCount['monedas']).toLocaleString('es-CO') : ''}
+                  onChange={(e) => {
+                    setCashCount(prev => ({ ...prev, monedas: e.target.value.replace(/\D/g, '') }))
+                  }}
+                  placeholder="Ej: 20.000"
+                  className="flex-1 h-11 font-mono text-base bg-input"
                 />
-                {(cashCount['monedas'] || 0) > 0 && (
-                  <span className="text-sm font-bold text-foreground shrink-0">
-                    = {formatCurrency(cashCount['monedas'] || 0)}
-                  </span>
-                )}
               </div>
             </div>
 
@@ -564,9 +611,10 @@ export function ShiftsModule() {
                     <SelectValue placeholder="Seleccionar cajero" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="carlos">Carlos Rodríguez</SelectItem>
-                    <SelectItem value="ana">Ana Martínez</SelectItem>
                     <SelectItem value="none">Sin entrega (cierre de día)</SelectItem>
+                    {cajeros.map(c => (
+                      <SelectItem key={c.uid} value={c.uid}>{c.nombre}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -578,7 +626,12 @@ export function ShiftsModule() {
               <Button variant="outline" onClick={() => setShowCloseShift(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleCloseShift} variant="destructive">
+              <Button
+                onClick={handleCloseShift}
+                variant="destructive"
+                disabled={!puedeCerrar}
+                title={!puedeCerrar ? 'Cuenta el efectivo de la caja antes de cerrar' : undefined}
+              >
                 <Square className="h-4 w-4 mr-2" />
                 Cerrar Turno
               </Button>

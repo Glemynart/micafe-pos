@@ -16,6 +16,7 @@ import { calcularEgresosTurno } from "@/lib/egresos-service"
 import { toast } from "sonner"
 import { collection, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { suscribirConfiguracion, type ConfiguracionGlobal } from "@/lib/configuracion-service"
 
 const formatCurrency = (val: number) => 
  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val)
@@ -31,12 +32,15 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  
  const [ventasTurno, setVentasTurno] = useState({ total: 0, efectivo: 0, transferencia: 0, tarjeta: 0, otros: 0 })
  const [egresosTurno, setEgresosTurno] = useState(0)
- const [cashCount, setCashCount] = useState<Record<string, number>>({})
+ const [cashCount, setCashCount] = useState<Record<string, string>>({})
  const [closeNotes, setCloseNotes] = useState('')
  const [handoverTo, setHandoverTo] = useState('none')
  const [isClosing, setIsClosing] = useState(false)
  const [isLoadingTotals, setIsLoadingTotals] = useState(false)
  const [cajeros, setCajeros] = useState<{ uid: string; nombre: string }[]>([])
+ const [config, setConfig] = useState<ConfiguracionGlobal | null>(null)
+
+ useEffect(() => { const u = suscribirConfiguracion(setConfig); return u }, [])
 
  // Suscribirse al turno activo para tenerlo listo
  useEffect(() => {
@@ -90,13 +94,18 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  return () => window.removeEventListener('request_close_shift', handleRequest)
  }, [activeShift, onCloseSuccess])
 
- const totalCashCount = Object.entries(cashCount).reduce((total, [denom, cant]) => {
- if (denom === 'monedas') return total + cant;
+ const totalCashCount = Object.entries(cashCount).reduce((total, [denom, raw]) => {
+ const cant = parseInt(raw, 10) || 0
+ if (denom === 'monedas') return total + cant
  return total + (Number(denom) * cant)
  }, 0)
 
  const expectedCash = activeShift ? (activeShift.baseApertura + ventasTurno.efectivo - egresosTurno) : 0
  const cashDifference = totalCashCount - expectedCash
+
+ // FASE-10C: no se permite cerrar con conteo vacío, salvo cierre forzado del admin.
+ const esAdmin = usuario?.rol === 'admin'
+ const puedeCerrar = totalCashCount > 0 || esAdmin
 
  const formatTime = (date: any) => {
  if (!date) return '-'
@@ -105,8 +114,13 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
 
  const handleCloseShift = async () => {
  if (!activeShift) return
+ if (!puedeCerrar) {
+ toast.error("Debes contar el efectivo de la caja antes de cerrar el turno.")
+ return
+ }
  setIsClosing(true)
  try {
+ const cajeroRelevo = cajeros.find(c => c.uid === handoverTo)
  await cerrarTurno({
  turnoId: activeShift.id,
  ventasEfectivo: ventasTurno.efectivo,
@@ -117,14 +131,17 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  diferenciaEfectivo: cashDifference,
  notasCierre: closeNotes || '',
  esCierreDefinitivo: handoverTo === 'none',
+ conteoDetalle: Object.fromEntries(Object.entries(cashCount).map(([k, v]) => [k, parseInt(v, 10) || 0])),
+ umbralAlertaFaltante: config?.umbralAlertaFaltante,
+ ...(cajeroRelevo ? { relevoCajeroId: cajeroRelevo.uid, relevoCajeroNombre: cajeroRelevo.nombre } : {}),
  })
  setOpen(false)
  toast.success("Turno cerrado correctamente")
  // Llamamos a logout
  onCloseSuccess()
- } catch (err) {
+ } catch (err: any) {
  console.error(err)
- toast.error("Hubo un error al cerrar el turno")
+ toast.error(err?.message || "Hubo un error al cerrar el turno")
  } finally {
  setIsClosing(false)
  }
@@ -178,26 +195,28 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  {/* Billetes en grid 2 columnas */}
  <div className="grid grid-cols-2 gap-2">
  {billDenominations.map(bill => {
- const qty = cashCount[bill.value] || 0
+ const qty = parseInt(cashCount[bill.value], 10) || 0
  return (
- <div key={bill.value} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/20 border border-border/40">
+ <div key={bill.value} className="flex flex-col px-3 py-2 rounded-lg bg-muted/20 border border-border/40">
+ <div className="flex items-center gap-2">
  <span className="text-sm font-semibold text-foreground w-[4.2rem] shrink-0">{bill.label}</span>
  <span className="text-muted-foreground/50 text-xs select-none">×</span>
  <Input
- type="number"
+ type="text"
  inputMode="numeric"
- min="0"
- value={cashCount[bill.value] || ''}
- onChange={(e) => setCashCount(prev => ({
- ...prev,
- [bill.value]: parseInt(e.target.value) || 0
- }))}
+ value={cashCount[bill.value] ?? ''}
+ onChange={(e) => {
+ setCashCount(prev => ({ ...prev, [bill.value]: e.target.value.replace(/\D/g, '') }))
+ }}
  placeholder="0"
- className="w-14 h-9 text-center font-mono font-bold text-sm text-foreground bg-background border-border rounded focus-visible:ring-1 focus-visible:ring-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+ className="w-20 shrink-0 h-9 text-center font-mono font-bold text-sm text-foreground bg-background border-border rounded focus-visible:ring-1 focus-visible:ring-primary"
  />
- <span className="text-xs text-muted-foreground ml-auto shrink-0 tabular-nums">
- {qty > 0 ? formatCurrency(qty * bill.value) : ''}
+ </div>
+ {qty > 0 && (
+ <span className="text-xs text-muted-foreground tabular-nums text-right mt-1">
+ {formatCurrency(qty * bill.value)}
  </span>
+ )}
  </div>
  )
  })}
@@ -208,22 +227,15 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/50 shrink-0" />
  <span className="text-sm font-semibold text-foreground w-[4.2rem] shrink-0">Monedas</span>
  <Input
- type="number"
+ type="text"
  inputMode="numeric"
- min="0"
- value={cashCount['monedas'] || ''}
- onChange={(e) => setCashCount(prev => ({
- ...prev,
- monedas: parseInt(e.target.value) || 0
- }))}
+ value={cashCount['monedas'] ? Number(cashCount['monedas']).toLocaleString('es-CO') : ''}
+ onChange={(e) => {
+ setCashCount(prev => ({ ...prev, monedas: e.target.value.replace(/\D/g, '') }))
+ }}
  placeholder="Total en monedas"
- className="flex-1 h-9 font-mono text-sm text-foreground bg-background border-border rounded focus-visible:ring-1 focus-visible:ring-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+ className="flex-1 h-9 font-mono text-sm text-foreground bg-background border-border rounded focus-visible:ring-1 focus-visible:ring-primary"
  />
- {(cashCount['monedas'] || 0) > 0 && (
- <span className="text-sm font-bold text-foreground shrink-0 tabular-nums">
- {formatCurrency(cashCount['monedas'] || 0)}
- </span>
- )}
  </div>
  </div>
 
@@ -302,10 +314,11 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  <Button variant="ghost" className="hover:bg-muted font-medium" onClick={() => setOpen(false)} disabled={isClosing}>
  Cancelar
  </Button>
- <Button 
- onClick={handleCloseShift} 
- variant="destructive" 
- disabled={isClosing}
+ <Button
+ onClick={handleCloseShift}
+ variant="destructive"
+ disabled={isClosing || !puedeCerrar}
+ title={!puedeCerrar ? 'Cuenta el efectivo de la caja antes de cerrar' : undefined}
  className="px-6 font-bold shadow-md hover:shadow-lg transition-all"
  >
  <Square className="h-4 w-4 mr-2" fill="currentColor" />

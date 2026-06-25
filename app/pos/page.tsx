@@ -3,6 +3,7 @@
 import { Loader2 } from 'lucide-react'
 import { useAuthContext } from '@/contexts/auth-context'
 import { GlobalCloseShift } from '@/components/pos/global-close-shift'
+import { TurnoGate } from '@/components/pos/turno-gate'
 import { Sidebar } from '@/components/pos/sidebar'
 import { LoginScreen } from '@/components/pos/login-screen'
 import { useState, useMemo, useEffect } from 'react'
@@ -10,6 +11,7 @@ import { useRouter } from 'next/navigation'
 import { useModulosHabilitados } from '@/contexts/modulos-context'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { ReservasBanner } from '@/components/pos/reservas-banner'
 import dynamic from 'next/dynamic'
 
 // ── Skeleton compartido para todos los módulos mientras cargan ──
@@ -96,23 +98,9 @@ export default function POSApp() {
     }
   }, [usuario, router])
 
-  // ── Auto-abrir turno para cajeros al iniciar sesión ──
-  useEffect(() => {
-    if (usuario && usuario.rol !== 'admin' && usuario.rol !== 'marketing') {
-      import('@/lib/turnos-service').then(async ({ verificarTurnoActivo, abrirTurno }) => {
-        const tieneTurno = await verificarTurnoActivo(usuario.uid)
-        if (!tieneTurno) {
-          // No tiene turno activo, se lo abrimos automáticamente con base 0
-          await abrirTurno({
-            cajeroId: usuario.uid,
-            cajeroNombre: usuario.nombre || 'Cajero',
-            baseApertura: 0,
-            notasApertura: 'Apertura automática al iniciar sesión'
-          })
-        }
-      }).catch(console.error)
-    }
-  }, [usuario])
+  // FASE-10C: se eliminó la auto-apertura de turno con base 0. El cajero ahora
+  // debe abrir turno explícitamente con una base real (ver TurnoGate). Sin turno
+  // abierto, el contenido del POS queda bloqueado.
 
   const setSafeModule = (moduleId: string) => {
     if (userPerms.has(moduleId) && modulosSet.has(moduleId)) {
@@ -210,8 +198,11 @@ export default function POSApp() {
         userPerms={userPerms}
       />
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <ReservasBanner setSafeModule={setSafeModule} userPerms={userPerms} />
         <div className="flex-1 flex flex-col min-h-0 relative animate-fade-in" key={activeModule}>
-          {renderModule()}
+          <TurnoGate usuario={usuario}>
+            {renderModule()}
+          </TurnoGate>
         </div>
       </main>
       <GlobalCloseShift usuario={usuario} onCloseSuccess={logout} />
