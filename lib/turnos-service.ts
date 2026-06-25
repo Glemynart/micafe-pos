@@ -32,6 +32,10 @@ export interface Turno {
   notasApertura: string;
   notasCierre: string;
   esCierreDefinitivo?: boolean;
+  turnoAnteriorId?: string | null;
+  relevadoA?: string | null;
+  alertaFaltante?: boolean;
+  conteoDetalle?: Record<string, number>;
 }
 
 export interface AbrirTurnoParams {
@@ -39,6 +43,7 @@ export interface AbrirTurnoParams {
   cajeroNombre: string;
   baseApertura: number;
   notasApertura?: string;
+  turnoAnteriorId?: string | null;
 }
 
 export interface CerrarTurnoParams {
@@ -51,6 +56,10 @@ export interface CerrarTurnoParams {
   diferenciaEfectivo: number;
   notasCierre?: string;
   esCierreDefinitivo?: boolean;
+  relevoCajeroId?: string;
+  relevoCajeroNombre?: string;
+  umbralAlertaFaltante?: number;
+  conteoDetalle?: Record<string, number>;
 }
 
 /**
@@ -123,7 +132,8 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
       totalReportadoEfectivo: 0,
       diferenciaEfectivo: 0,
       notasApertura: params.notasApertura || '',
-      notasCierre: ''
+      notasCierre: '',
+      ...(params.turnoAnteriorId ? { turnoAnteriorId: params.turnoAnteriorId } : {}),
     };
     transaction.set(nuevoTurnoRef, nuevoTurno);
     transaction.set(lockRef, {
@@ -158,12 +168,16 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
 /**
  * Cierra un turno existente, guardando el cuadre de caja (Cierre Ciego).
  *
- * Lógica de depósito a Caja Fuerte (Modelo B – float fijo):
- *   - Relevo (esCierreDefinitivo=false): deposita solo el efectivo neto de ventas,
- *     es decir max(0, totalReportadoEfectivo - baseApertura). La base queda en caja
- *     para el siguiente cajero.
- *   - Cierre definitivo (esCierreDefinitivo=true): deposita el total reportado íntegro,
- *     incluyendo la base, porque no hay turno siguiente.
+ * Lógica de depósito a Caja Fuerte (Modelo B – float fijo) [FASE-10C]:
+ *   Fórmula unificada para relevo y cierre definitivo:
+ *     depositoEfectivo = max(0, totalReportadoEfectivo - baseApertura)
+ *   Solo se deposita el efectivo NETO de ventas; la base nunca se traslada
+ *   digitalmente porque tampoco se acredita a caja-principal al abrir el turno.
+ *   - Relevo: la base queda físicamente en caja para el siguiente cajero.
+ *   - Cierre definitivo: la base se devuelve físicamente a la caja fuerte, sin
+ *     movimiento digital (nunca tuvo registro de entrada).
+ *   Depositar el reportado íntegro en cierre definitivo (comportamiento anterior)
+ *   dejaba caja-principal en negativo cuando baseApertura > 0 — corregido aquí.
  *
  * La baseApertura se lee desde el documento del turno en Firestore (fuente de verdad),
  * no desde los parámetros del cliente.
@@ -184,9 +198,9 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
     const baseApertura: number = turnoDoc.data().baseApertura || 0;
     const esCierreDefinitivo = params.esCierreDefinitivo ?? false;
 
-    const depositoEfectivo = esCierreDefinitivo
-      ? params.totalReportadoEfectivo
-      : Math.max(0, params.totalReportadoEfectivo - baseApertura);
+    // FASE-10C: fórmula unificada (relevo y cierre definitivo depositan el mismo
+    // neto de ventas). esCierreDefinitivo queda solo como metadata semántica.
+    const depositoEfectivo = Math.max(0, params.totalReportadoEfectivo - baseApertura);
 
     // Candado de turno activo (turnos_activos/{cajeroId}). Compatible con turnos
     // antiguos sin candado: si no existe, el delete simplemente se omite.
@@ -194,6 +208,45 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
     const cajeroNombre: string = turnoDoc.data().cajeroNombre || cajeroId || '';
     const lockRef = cajeroId ? doc(db, 'turnos_activos', cajeroId) : null;
     const lockDoc = lockRef ? await transaction.get(lockRef) : null;
+
+    // FASE-10D: lecturas de validación para relevo automático.
+    const esRelevo = !!params.relevoCajeroId;
+    let relevoCajeroNombreAuth = '';
+    let relevoLockRef: ReturnType<typeof doc> | null = null;
+
+    if (esRelevo) {
+      const relevoCajeroId = params.relevoCajeroId!;
+
+      if (relevoCajeroId === cajeroId) {
+        throw new Error('No puedes entregarte el turno a ti mismo.');
+      }
+
+      const usuarioBRef = doc(db, 'usuarios', relevoCajeroId);
+      const usuarioBDoc = await transaction.get(usuarioBRef);
+
+      if (!usuarioBDoc.exists()) {
+        throw new Error('El cajero de relevo no fue encontrado.');
+      }
+      const usuarioB = usuarioBDoc.data() as { nombre?: string; activo?: boolean; rol?: string };
+      if (!usuarioB.activo) {
+        throw new Error('El cajero de relevo está deshabilitado.');
+      }
+      const rolB = usuarioB.rol || '';
+      if (rolB !== 'cajero' && rolB !== 'supervisor') {
+        throw new Error(`El rol "${rolB}" no es válido para recibir un relevo.`);
+      }
+      relevoCajeroNombreAuth = usuarioB.nombre || relevoCajeroId;
+
+      relevoLockRef = doc(db, 'turnos_activos', relevoCajeroId);
+      const relevoLockDoc = await transaction.get(relevoLockRef);
+      if (relevoLockDoc.exists()) {
+        throw new Error(`${relevoCajeroNombreAuth} ya tiene un turno abierto.`);
+      }
+    }
+
+    // FASE-10E: alertaFaltante + conteoDetalle
+    const umbral = params.umbralAlertaFaltante ?? 20000;
+    const alertaFaltante = params.diferenciaEfectivo < -umbral;
 
     // ── FASE DE ESCRITURAS ───────────────────────────────────────────
     transaction.update(turnoRef, {
@@ -207,12 +260,43 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
       diferenciaEfectivo: params.diferenciaEfectivo,
       notasCierre: params.notasCierre || '',
       esCierreDefinitivo,
+      alertaFaltante,
+      ...(params.conteoDetalle ? { conteoDetalle: params.conteoDetalle } : {}),
+      ...(esRelevo ? { relevadoA: params.relevoCajeroId } : {}),
     });
 
     // Liberar el candado solo si apunta a ESTE turno (evita liberar el de otro
     // turno activo en escenarios legacy con duplicados preexistentes).
     if (lockRef && lockDoc?.exists() && lockDoc.data().turnoId === params.turnoId) {
       transaction.delete(lockRef);
+    }
+
+    // FASE-10D: crear turno + candado para el cajero de relevo.
+    if (esRelevo && relevoLockRef) {
+      const turnosRef = collection(db, 'turnos');
+      const nuevoTurnoRef = doc(turnosRef);
+      transaction.set(nuevoTurnoRef, {
+        id: nuevoTurnoRef.id,
+        cajeroId: params.relevoCajeroId,
+        cajeroNombre: relevoCajeroNombreAuth,
+        fechaApertura: serverTimestamp(),
+        fechaCierre: null,
+        estado: 'abierto',
+        baseApertura: baseApertura,
+        ventasEfectivo: 0,
+        ventasOtrosMetodos: 0,
+        totalEsperadoEfectivo: 0,
+        totalReportadoEfectivo: 0,
+        diferenciaEfectivo: 0,
+        notasApertura: `Relevo automático de ${cajeroNombre}`,
+        notasCierre: '',
+        turnoAnteriorId: params.turnoId,
+      });
+      transaction.set(relevoLockRef, {
+        cajeroId: params.relevoCajeroId,
+        turnoId: nuevoTurnoRef.id,
+        fechaApertura: serverTimestamp(),
+      });
     }
 
     // Traslado efectivo: caja-principal → caja-fuerte (Modelo B – float fijo)

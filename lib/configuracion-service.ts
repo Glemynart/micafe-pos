@@ -24,6 +24,9 @@ export interface ConfiguracionGlobal {
   mensaje_ticket: string;
 
   modulos_habilitados: string[];
+
+  baseCajaSugerida: number;
+  umbralAlertaFaltante: number;
 }
 
 const DEFAULT_MODULOS = [
@@ -46,6 +49,8 @@ const DEFAULT_CONFIG: ConfiguracionGlobal = {
   responsable_iva: "0",
   mensaje_ticket: "GRACIAS POR SU COMPRA!",
   modulos_habilitados: [...DEFAULT_MODULOS],
+  baseCajaSugerida: 200000,
+  umbralAlertaFaltante: 20000,
 };
 
 export function suscribirConfiguracion(

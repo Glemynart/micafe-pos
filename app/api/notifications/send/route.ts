@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getAdminDb, getAdminMessaging, getAdminAuth } from '@/lib/firebase-admin'
+import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin'
+import { enviarPushAdmins } from '@/lib/notificaciones-push'
 
 export async function POST(req: Request) {
   try {
@@ -8,8 +9,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const token = authHeader.split('Bearer ')[1]
-    const decoded = await getAdminAuth().verifyIdToken(token)
+    const idToken = authHeader.split('Bearer ')[1]
+    const decoded = await getAdminAuth().verifyIdToken(idToken)
 
     const db = getAdminDb()
     const userDoc = await db.collection('usuarios').doc(decoded.uid).get()
@@ -20,45 +21,19 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { title, message } = body
+    const { title, message, url } = body
 
-    if (!title || !message) {
-      return NextResponse.json({ error: 'Faltan campos' }, { status: 400 })
+    if (!title || typeof title !== 'string' || !message || typeof message !== 'string') {
+      return NextResponse.json({ error: 'Se requieren title y message (string)' }, { status: 400 })
     }
 
-    const messaging = getAdminMessaging()
+    const result = await enviarPushAdmins({
+      title,
+      body: message,
+      url: typeof url === 'string' ? url : undefined,
+    })
 
-    // Buscar usuarios que sean administradores y tengan fcmTokens
-    const adminsSnapshot = await db.collection('usuarios')
-      .where('rol', '==', 'admin')
-      .get()
-
-    let tokensEnviados = 0
-
-    for (const doc of adminsSnapshot.docs) {
-      const data = doc.data()
-      const tokens = data.fcmTokens || []
-
-      if (tokens.length > 0) {
-        // Enviar a todos los tokens del admin
-        for (const token of tokens) {
-          try {
-            await messaging.send({
-              token,
-              notification: {
-                title,
-                body: message,
-              },
-            })
-            tokensEnviados++
-          } catch (error) {
-            console.error(`Error enviando a token ${token}:`, error)
-          }
-        }
-      }
-    }
-
-    return NextResponse.json({ success: true, tokensEnviados })
+    return NextResponse.json({ success: true, ...result })
   } catch (error: any) {
     console.error('Error enviando notificacion:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
