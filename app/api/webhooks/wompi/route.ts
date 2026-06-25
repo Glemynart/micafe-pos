@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { getAdminDb } from '@/lib/firebase-admin'
+import { enviarPushAdmins } from '@/lib/notificaciones-push'
 
 function getDb() {
   return getAdminDb()
@@ -62,21 +63,29 @@ export async function POST(req: Request) {
 
       try {
         const db = getDb()
-        
+        let pushData: { clienteNombre: string; fechaInicio: string; fechaFin: string } | null = null
+
         await db.runTransaction(async (t) => {
           const reservaRef = db.collection('reservas').doc(reservaId)
           const reservaDoc = await t.get(reservaRef)
-          
+
           if (!reservaDoc.exists) {
             console.error(`Reserva ${reservaId} no encontrada`)
             throw new Error('Reservation not found')
           }
-          
+
           const reservaData = reservaDoc.data()
-          
+
           if (reservaData?.estadoPago === 'pagado') {
             console.log(`Reserva ${reservaId} ya estaba pagada. Ignorando webhook por idempotencia.`)
-            return // Idempotencia: Ya pagada
+            pushData = null
+            return
+          }
+
+          pushData = {
+            clienteNombre: reservaData?.clienteNombre || 'Cliente',
+            fechaInicio: reservaData?.fechaInicio || '',
+            fechaFin: reservaData?.fechaFin || '',
           }
 
           // 1. Actualizar Reserva
@@ -202,6 +211,28 @@ export async function POST(req: Request) {
         })
         
         console.log(`Reserva ${reservaId} pagada y Venta generada exitosamente.`)
+
+        if (pushData) {
+          const pd = pushData as { clienteNombre: string; fechaInicio: string; fechaFin: string }
+          const colombiaOffsetMs = -5 * 60 * 60 * 1000
+          let fechaHora = ''
+          if (pd.fechaInicio) {
+            const d = new Date(new Date(pd.fechaInicio).getTime() + colombiaOffsetMs)
+            const dia = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
+            const hInicio = `${String(d.getUTCHours()).padStart(2, '0')}:00`
+            let hFin = ''
+            if (pd.fechaFin) {
+              const dFin = new Date(new Date(pd.fechaFin).getTime() + colombiaOffsetMs)
+              hFin = `${String(dFin.getUTCHours()).padStart(2, '0')}:00`
+            }
+            fechaHora = hFin ? `${dia} ${hInicio}-${hFin}` : `${dia} ${hInicio}`
+          }
+          enviarPushAdmins({
+            title: 'Nueva reserva recibida',
+            body: `${pd.clienteNombre} — ${fechaHora}`,
+            url: '/admin/reservas',
+          }).catch(err => console.error('[push] Error notificando reserva:', err))
+        }
       } catch (dbError: any) {
         if (dbError.message === 'Reservation not found') {
           return NextResponse.json({ error: 'Reservation not found' }, { status: 404 })
