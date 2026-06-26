@@ -9,6 +9,22 @@
 
 ### 2026-06
 
+#### FASE-13 PR2 — Refactor estructural para múltiples cuentas — COMPLETADO
+
+Implementación:
+- `InfoMesa` extendido con `pedidos: PedidoActivo[]` y `displayName` (preparación para N cuentas por mesa)
+- `estadoMesa()` agrega ítems y comandas de todos los pedidos de la mesa
+- `selectedPedidoId` introducido en `sell-module` junto a `selectedMesaId` con auto-sync
+- Bridge desacoplado Salón → POS vía callback props a través de `page.tsx` (consume-once ref pattern)
+- Compatibilidad total con el modelo 1 mesa = 1 pedido (sin cambios visibles para el usuario)
+
+Archivos modificados: `lib/salon-service.ts`, `components/pos/salon-module.tsx`, `components/pos/sell-module.tsx`, `app/pos/page.tsx`
+
+Deuda técnica identificada para PR 3 (múltiples cuentas):
+- **BR-1:** `pendingNavRef` no tiene invalidación ni expiración. Si el pedido objetivo desaparece (cobrado/eliminado/cambio de espacio) antes de que Firestore lo entregue, el ref queda zombi e inhibe el auto-sync. Enmascarado actualmente por el fallback de `activePedido` por `mesaId`, pero ese fallback deja de cubrir con N cuentas.
+- **BR-2:** `pendingPedidoId` en `page.tsx` no se limpia tras el consumo en `SellModule`. Un remount inesperado de `SellModule` (sin cambio de módulo) re-sembraría una navegación stale. Hoy casi inalcanzable; relevante si `TurnoGate` re-alterna sin logout.
+- **IMP-1 (auditoría previa):** La limpieza de `selectedPedidoId` en el auto-sync no contempla el caso N>1 pedidos. Si desaparece el pedido apuntado con 2+ cuentas activas, `selectedPedidoId` queda colgante.
+
 #### A-2 Doble reserva — RESUELTO
 
 Implementación:
