@@ -6,19 +6,19 @@ import { useAuthContext } from '@/contexts/auth-context'
 import { suscribirProductos, type Producto } from '@/lib/productos-service'
 import { suscribirInsumos, type Insumo } from '@/lib/insumos-service'
 import { suscribirRecetas, type Receta } from '@/lib/recetas-service'
-import { registrarVenta, type CrearVentaParams } from '@/lib/ventas-service'
+import { registrarVenta, cobrarPedido, type CrearVentaParams } from '@/lib/ventas-service'
 import { suscribirClientes, filtrarClientes, crearCliente, type Cliente } from '@/lib/clientes-service'
 import { suscribirMesas, type Mesa } from '@/lib/mesas-service'
-import { suscribirPedidosActivos, guardarPedido, eliminarPedido, enviarPedidoACocina, type PedidoActivo, type PedidoItem } from '@/lib/pedidos-service'
+import { suscribirPedidosActivos, guardarPedido, agregarItemPedido, enviarPedidoACocina, modificarItemPedido, suscribirComandasActivas, type PedidoActivo, type PedidoItem, type ComandaCocina } from '@/lib/pedidos-service'
 import { suscribirTurnoActivo, type Turno } from '@/lib/turnos-service'
 import { DynamicIcon } from '@/components/ui/dynamic-icon'
 
 import { toast } from 'sonner'
 import { 
-  Barcode, 
-  Plus, 
-  Minus, 
-  Trash2, 
+  Barcode,
+  Plus,
+  Minus,
+  Trash2,
   ShoppingCart,
   User,
   Banknote,
@@ -31,6 +31,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
+  ChefHat,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -172,45 +173,81 @@ export function SellModule() {
     return () => { unsubMesas(); unsubPedidos() }
   }, [espacioActivo?.id])
 
+  const [comandasActivas, setComandasActivas] = useState<ComandaCocina[]>([])
+
+  useEffect(() => {
+    if (!espacioActivo) {
+      setComandasActivas([])
+      return
+    }
+    return suscribirComandasActivas(espacioActivo.id, setComandasActivas)
+  }, [espacioActivo?.id])
+
   useEffect(() => suscribirClientes(setClientes), [])
 
   // Obtener el carrito actual basado en la mesa seleccionada
   const activePedido = pedidosActivos.find(p => p.mesaId === selectedMesaId)
   const cart: PedidoItem[] = activePedido?.items || []
 
-  const syncCartWithFirebase = useCallback(async (newItems: PedidoItem[]) => {
-    if (newItems.length === 0) {
-      if (activePedido) await eliminarPedido(activePedido.id)
-      return
-    }
-    
-    if (activePedido) {
-      await guardarPedido({ ...activePedido, items: newItems })
-    } else {
-      if (!usuario || !espacioActivo) return
-      const nombreMesa = selectedMesaId ? mesas.find(m => m.id === selectedMesaId)?.nombre || 'Mesa' : 'Mostrador / Para llevar'
-      await guardarPedido({
-        mesaId: selectedMesaId,
-        nombreMesa,
-        espacioId: espacioActivo.id,
-        cajeroId: usuario.uid,
-        items: newItems,
-        estado: 'abierto'
+  const estadoCocina = useMemo(() => {
+    if (!activePedido) return null
+    const comandasPedido = comandasActivas.filter(
+      c => c.pedidoId === activePedido.id && c.tipo !== 'cancelacion'
+    )
+    if (comandasPedido.length === 0) return null
+    const pendientes = comandasPedido.filter(c => c.estado !== 'listo')
+    const listos = comandasPedido.filter(c => c.estado === 'listo')
+    if (pendientes.length === 0 && listos.length > 0) return 'listo' as const
+    if (listos.length > 0) return 'parcial' as const
+    return 'en_cocina' as const
+  }, [activePedido, comandasActivas])
+
+  const prevCocinaRef = useRef<{ pedidoId?: string; estado: string | null }>({ estado: null })
+  useEffect(() => {
+    const prev = prevCocinaRef.current
+    if (
+      estadoCocina === 'listo' &&
+      prev.estado !== 'listo' &&
+      activePedido?.id === prev.pedidoId
+    ) {
+      toast.success('¡Pedido listo en cocina!', {
+        description: activePedido?.nombreMesa,
+        duration: 8000,
       })
     }
-  }, [activePedido, selectedMesaId, mesas, usuario, espacioActivo])
+    prevCocinaRef.current = { pedidoId: activePedido?.id, estado: estadoCocina }
+  }, [estadoCocina, activePedido?.id, activePedido?.nombreMesa])
 
-  const addCustomPhotoCopyToCart = useCallback((nombre: string, copias: number) => {
+  const crearPedidoConItem = useCallback(async (item: PedidoItem) => {
+    if (!usuario || !espacioActivo) return
+    const nombreMesa = selectedMesaId ? mesas.find(m => m.id === selectedMesaId)?.nombre || 'Mesa' : 'Mostrador / Para llevar'
+    await guardarPedido({
+      mesaId: selectedMesaId,
+      nombreMesa,
+      espacioId: espacioActivo.id,
+      cajeroId: usuario.uid,
+      items: [item],
+      estado: 'abierto'
+    })
+  }, [selectedMesaId, mesas, usuario, espacioActivo])
+
+  const addCustomPhotoCopyToCart = useCallback(async (nombre: string, copias: number) => {
     const precio = fotoTipo === 'bn' ? 200 : 800
-    const existing = cart.find(item => item.id === `foto-${fotoTipo}`)
-    let newItems: PedidoItem[]
-    if (existing) {
-      newItems = cart.map(item => item.id === `foto-${fotoTipo}` ? { ...item, quantity: item.quantity + copias, price: precio } : item)
-    } else {
-      newItems = [...cart, { id: `foto-${fotoTipo}`, name: nombre, code: `foto-${fotoTipo}`, price: precio, cost: 50, category: 'Fotocopias', emoji: 'Printer', stock: 999, iva: 0, impoconsumo: 0, hasRecipe: false, quantity: copias } as PedidoItem]
+    const item: PedidoItem = {
+      id: `foto-${fotoTipo}`, uid: crypto.randomUUID(), name: nombre, code: `foto-${fotoTipo}`,
+      price: precio, cost: 50, category: 'Fotocopias', emoji: 'Printer',
+      stock: 999, iva: 0, impoconsumo: 0, hasRecipe: false, quantity: copias,
     }
-    syncCartWithFirebase(newItems)
-  }, [cart, syncCartWithFirebase, fotoTipo])
+    try {
+      if (activePedido) {
+        await agregarItemPedido(activePedido.id, item)
+      } else {
+        await crearPedidoConItem(item)
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Error al agregar fotocopia')
+    }
+  }, [activePedido, crearPedidoConItem, fotoTipo])
 
   // Suscribir a recetas (todas)
   useEffect(() => {
@@ -281,6 +318,8 @@ export function SellModule() {
   const [paymentMethod, setPaymentMethod] = useState<string>('efectivo')
   const [cashReceived, setCashReceived] = useState<number>(0)
   const [showReceipt, setShowReceipt] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const pendingRemoveUid = useRef<string | null>(null)
   
   // Quick product form
   const [quickProductName, setQuickProductName] = useState('')
@@ -289,48 +328,74 @@ export function SellModule() {
   // Calculadora Rápida para Fotocopias
   const [quickCopies, setQuickCopies] = useState<number>(1)
 
-  const addToCart = useCallback((product: Producto) => {
+  const addToCart = useCallback(async (product: Producto) => {
     const cartItem = productoToCartItem(product)
-    const existing = cart.find(item => item.id === cartItem.id)
-    let newItems = []
-    if (existing) {
-      newItems = cart.map(item => item.id === cartItem.id ? { ...item, quantity: item.quantity + 1 } : item)
-    } else {
-      newItems = [{ ...cartItem, quantity: 1 }, ...cart]
-    }
-    syncCartWithFirebase(newItems)
-  }, [cart, syncCartWithFirebase])
-
-  const addToCartQuantity = useCallback((product: Producto, qty: number) => {
-    const cartItem = productoToCartItem(product)
-    const existing = cart.find(item => item.id === cartItem.id)
-    let newItems = []
-    if (existing) {
-      newItems = cart.map(item => item.id === cartItem.id ? { ...item, quantity: item.quantity + qty } : item)
-    } else {
-      newItems = [{ ...cartItem, quantity: qty }, ...cart]
-    }
-    syncCartWithFirebase(newItems)
-    setQuickCopies(1) // reset after add
-  }, [cart, syncCartWithFirebase])
-
-  const updateQuantity = useCallback((productId: string, delta: number) => {
-    const newItems = cart.map(item => {
-      if (item.id === productId) {
-        const newQty = item.quantity + delta
-        if (newQty <= 0) return item
-        return { ...item, quantity: newQty }
+    const item: PedidoItem = { ...cartItem, uid: crypto.randomUUID(), quantity: 1 }
+    try {
+      if (activePedido) {
+        await agregarItemPedido(activePedido.id, item)
+      } else {
+        await crearPedidoConItem(item)
       }
-      return item
-    }).filter(item => item.quantity > 0)
-    syncCartWithFirebase(newItems)
-  }, [cart, syncCartWithFirebase])
+    } catch (e: any) {
+      toast.error(e.message || 'Error al agregar producto')
+    }
+  }, [activePedido, crearPedidoConItem])
 
-  const removeFromCart = useCallback((productId: string) => {
-    const newItems = cart.filter(item => item.id !== productId)
-    syncCartWithFirebase(newItems)
+  const addToCartQuantity = useCallback(async (product: Producto, qty: number) => {
+    const cartItem = productoToCartItem(product)
+    const item: PedidoItem = { ...cartItem, uid: crypto.randomUUID(), quantity: qty }
+    try {
+      if (activePedido) {
+        await agregarItemPedido(activePedido.id, item)
+      } else {
+        await crearPedidoConItem(item)
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Error al agregar producto')
+    }
+    setQuickCopies(1)
+  }, [activePedido, crearPedidoConItem])
+
+  const updateQuantity = useCallback(async (itemUid: string, delta: number) => {
+    if (!activePedido) return
+    const item = cart.find(i => (i.uid || i.id) === itemUid)
+    if (!item) return
+    const newQty = item.quantity + delta
+    if (newQty <= 0) return
+    try {
+      await modificarItemPedido(activePedido.id, itemUid, newQty)
+    } catch (e: any) {
+      toast.error(e.message || 'Error al actualizar cantidad')
+    }
+  }, [activePedido, cart])
+
+  const removeFromCart = useCallback(async (itemUid: string) => {
+    if (!activePedido) return
+    if (cart.length === 1) {
+      pendingRemoveUid.current = itemUid
+      setShowCancelConfirm(true)
+      return
+    }
+    try {
+      await modificarItemPedido(activePedido.id, itemUid, 0)
+    } catch (e: any) {
+      toast.error(e.message || 'Error al eliminar item')
+    }
     setSelectedCartIndex(-1)
-  }, [cart, syncCartWithFirebase])
+  }, [activePedido, cart.length])
+
+  const confirmCancelPedido = useCallback(async () => {
+    if (!activePedido || !pendingRemoveUid.current) return
+    try {
+      await modificarItemPedido(activePedido.id, pendingRemoveUid.current, 0)
+    } catch (e: any) {
+      toast.error(e.message || 'Error al cancelar pedido')
+    }
+    pendingRemoveUid.current = null
+    setShowCancelConfirm(false)
+    setSelectedCartIndex(-1)
+  }, [activePedido])
 
   const handleSearch = useCallback((e: React.FormEvent) => {
     e.preventDefault()
@@ -356,11 +421,12 @@ export function SellModule() {
     }
   }, [searchCode, addToCart, productosConStock])
 
-  const handleQuickProductSubmit = useCallback(() => {
+  const handleQuickProductSubmit = useCallback(async () => {
     if (!quickProductName || !quickProductPrice) return
-    
+
     const newProduct: PedidoItem = {
       id: `quick-${Date.now()}`,
+      uid: crypto.randomUUID(),
       name: quickProductName,
       code: searchCode || '1000',
       price: parseInt(quickProductPrice),
@@ -373,13 +439,21 @@ export function SellModule() {
       hasRecipe: false,
       quantity: 1
     }
-    
-    syncCartWithFirebase([newProduct, ...cart])
+
+    try {
+      if (activePedido) {
+        await agregarItemPedido(activePedido.id, newProduct)
+      } else {
+        await crearPedidoConItem(newProduct)
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Error al agregar producto rápido')
+    }
     setShowQuickProduct(false)
     setQuickProductName('')
     setQuickProductPrice('')
     setSearchCode('')
-  }, [quickProductName, quickProductPrice, searchCode])
+  }, [quickProductName, quickProductPrice, searchCode, activePedido, crearPedidoConItem])
 
   // Calculations
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)
@@ -398,7 +472,7 @@ export function SellModule() {
       } else if (e.key === 'ArrowDown' && selectedCartIndex < cart.length - 1) {
         setSelectedCartIndex(prev => prev + 1)
       } else if (e.key === 'Delete' && selectedCartIndex >= 0) {
-        removeFromCart(cart[selectedCartIndex].id)
+        removeFromCart(cart[selectedCartIndex].uid || cart[selectedCartIndex].id)
       } else if (e.key === 'Enter' && cart.length > 0 && document.activeElement?.tagName !== 'INPUT') {
         setShowPayment(true)
       }
@@ -444,7 +518,7 @@ export function SellModule() {
     setIsProcessingPayment(true)
     try {
       const items = cart.map(item => ({
-        id: item.code, // Usamos el código o ID real del producto
+        id: item.code,
         nombre: item.name,
         cantidad: item.quantity,
         precioUnitario: item.price,
@@ -476,7 +550,21 @@ export function SellModule() {
         estado: paymentMethod === 'cuenta_cobro' ? 'pendiente' : 'pagada'
       }
 
-      const { incidenciasInventario } = await registrarVenta(params)
+      let incidenciasInventario: { itemNombre: string }[] = []
+
+      if (activePedido) {
+        const result = await cobrarPedido(params, activePedido.id)
+        if (result.status === 'already_paid') {
+          toast.info('Este pedido ya fue cobrado.', { duration: 4000 })
+          setShowPayment(false)
+          setIsProcessingPayment(false)
+          return
+        }
+        incidenciasInventario = result.incidenciasInventario
+      } else {
+        const result = await registrarVenta(params)
+        incidenciasInventario = result.incidenciasInventario
+      }
 
       if (incidenciasInventario.length > 0) {
         const nombres = incidenciasInventario.map(i => i.itemNombre).join(', ')
@@ -484,10 +572,6 @@ export function SellModule() {
           description: `Stock insuficiente en: ${nombres}. El inventario fue ajustado a 0.`,
           duration: 6000,
         })
-      }
-
-      if (activePedido) {
-        await eliminarPedido(activePedido.id)
       }
 
       setShowPayment(false)
@@ -728,7 +812,7 @@ export function SellModule() {
           <div className="overflow-y-auto min-h-0">
             <div className="p-4 pt-0 space-y-3">
               {cart.map((item, idx) => (
-                  <div key={`${item.id}-${idx}`} className="flex flex-col p-4 rounded-xl border border-border bg-card shadow-sm group">
+                  <div key={item.uid || `${item.id}-${idx}`} className="flex flex-col p-4 rounded-xl border border-border bg-card shadow-sm group">
                       <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
@@ -737,11 +821,11 @@ export function SellModule() {
                               <div>
                                   <p className="font-semibold text-foreground text-sm leading-tight flex items-center flex-wrap gap-2">
                                       {item.name}
-                                      {((item as any).cantidadEnviada || 0) > 0 && (
+                                      {(item.cantidadEnviada || 0) > 0 && (
                                         <Badge variant="outline" className="text-[10px] h-5 bg-orange-500/10 text-orange-600 border-orange-500/20 px-1.5 font-bold">
-                                          {((item as any).cantidadEnviada || 0) === item.quantity 
-                                            ? 'En Cocina' 
-                                            : `${(item as any).cantidadEnviada} en Cocina`
+                                          {(item.cantidadEnviada || 0) === item.quantity
+                                            ? 'En Cocina'
+                                            : `${item.cantidadEnviada} en Cocina`
                                           }
                                         </Badge>
                                       )}
@@ -752,13 +836,13 @@ export function SellModule() {
                       </div>
                       <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 border border-border">
-                              <button onClick={() => updateQuantity(item.id, -1)} className="w-12 h-12 flex items-center justify-center rounded-md hover:bg-background text-foreground shadow-sm transition-all active:scale-90 touch-target"><Minus className="h-5 w-5"/></button>
+                              <button onClick={() => updateQuantity(item.uid || item.id, -1)} className="w-12 h-12 flex items-center justify-center rounded-md hover:bg-background text-foreground shadow-sm transition-all active:scale-90 touch-target"><Minus className="h-5 w-5"/></button>
                               <span className="w-10 text-center font-bold text-foreground text-lg">{item.quantity}</span>
-                              <button onClick={() => updateQuantity(item.id, 1)} className="w-12 h-12 flex items-center justify-center rounded-md hover:bg-background text-foreground shadow-sm transition-all active:scale-90 touch-target"><Plus className="h-5 w-5"/></button>
+                              <button onClick={() => updateQuantity(item.uid || item.id, 1)} className="w-12 h-12 flex items-center justify-center rounded-md hover:bg-background text-foreground shadow-sm transition-all active:scale-90 touch-target"><Plus className="h-5 w-5"/></button>
                           </div>
                           <div className="flex items-center gap-4">
                               <p className="font-black text-primary text-lg">{formatCurrency(item.price * item.quantity)}</p>
-                              <button onClick={() => removeFromCart(item.id)} className="text-muted-foreground hover:text-destructive transition-colors active:scale-95 p-2"><Trash2 className="h-5 w-5"/></button>
+                              <button onClick={() => removeFromCart(item.uid || item.id)} className="text-muted-foreground hover:text-destructive transition-colors active:scale-95 p-2"><Trash2 className="h-5 w-5"/></button>
                           </div>
                       </div>
                   </div>
@@ -768,6 +852,28 @@ export function SellModule() {
 
           {/* Footer */}
           <div className="p-6 bg-muted/20 border-t border-border">
+              {estadoCocina === 'listo' && (
+                <div className="mb-4 p-3 rounded-xl bg-success/10 border border-success/30 flex items-center gap-3 animate-fade-in">
+                  <div className="w-8 h-8 rounded-full bg-success/20 flex items-center justify-center shrink-0">
+                    <ChefHat className="h-4 w-4 text-success" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-success text-sm">Pedido listo en cocina</p>
+                    <p className="text-[11px] text-muted-foreground">Listo para entregar al cliente</p>
+                  </div>
+                </div>
+              )}
+              {estadoCocina === 'parcial' && (
+                <div className="mb-4 p-3 rounded-xl bg-warning/10 border border-warning/30 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-warning/20 flex items-center justify-center shrink-0">
+                    <ChefHat className="h-4 w-4 text-warning" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-warning text-sm">Parcialmente listo</p>
+                    <p className="text-[11px] text-muted-foreground">Algunos items siguen en preparación</p>
+                  </div>
+                </div>
+              )}
               <div className="space-y-2 mb-4 text-sm">
                   <div className="flex justify-between text-muted-foreground">
                       <span>Subtotal</span>
@@ -796,8 +902,12 @@ export function SellModule() {
               <div className="flex gap-3">
                   <Button variant="outline" onClick={async () => {
                     if (activePedido) {
-                      await enviarPedidoACocina(activePedido.id)
-                      toast.success('Pedido enviado a cocina')
+                      try {
+                        await enviarPedidoACocina(activePedido.id)
+                        toast.success('Pedido enviado a cocina')
+                      } catch (e: any) {
+                        toast.error(e.message || 'Error al enviar a cocina')
+                      }
                     }
                   }} className="h-16 flex-[1] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95">
                       Cocina
@@ -854,7 +964,11 @@ export function SellModule() {
                 const mesaTienePedido = pedidosActivos.some(p => p.mesaId === mesa.id)
                 const pedidoMesa = pedidosActivos.find(p => p.mesaId === mesa.id)
                 const isActive = selectedMesaId === mesa.id
-                
+                const mesaComandasNoCancelacion = pedidoMesa
+                  ? comandasActivas.filter(c => c.pedidoId === pedidoMesa.id && c.tipo !== 'cancelacion')
+                  : []
+                const mesaListaEnCocina = mesaComandasNoCancelacion.length > 0 && mesaComandasNoCancelacion.every(c => c.estado === 'listo')
+
                 return (
                   <button
                     key={mesa.id}
@@ -862,29 +976,34 @@ export function SellModule() {
                     className={cn(
                       "relative flex items-center gap-4 p-4 rounded-2xl border transition-all text-left focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/30",
                       isActive ? "ring-4 ring-primary/20" : "",
-                      mesaTienePedido 
-                        ? "bg-primary/10 border-primary/50 hover:border-primary shadow-sm hover:shadow-md hover:-translate-y-1" 
-                        : "bg-card border-border hover:border-primary/50 hover:shadow-md hover:-translate-y-1",
-                      mesaTienePedido && isActive && "bg-primary/20 border-primary"
+                      mesaListaEnCocina
+                        ? "bg-success/10 border-success/50 hover:border-success shadow-sm hover:shadow-md hover:-translate-y-1"
+                        : mesaTienePedido
+                          ? "bg-primary/10 border-primary/50 hover:border-primary shadow-sm hover:shadow-md hover:-translate-y-1"
+                          : "bg-card border-border hover:border-primary/50 hover:shadow-md hover:-translate-y-1",
+                      mesaTienePedido && isActive && !mesaListaEnCocina && "bg-primary/20 border-primary",
+                      mesaListaEnCocina && isActive && "bg-success/20 border-success"
                     )}
                   >
                     {/* Left Icon */}
                     <div className={cn(
                         "w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl shadow-inner shrink-0",
-                        mesaTienePedido ? "bg-gradient-to-br from-secondary to-primary text-primary-foreground" : "bg-muted text-muted-foreground/50"
+                        mesaListaEnCocina ? "bg-gradient-to-br from-success/80 to-success text-success-foreground" : mesaTienePedido ? "bg-gradient-to-br from-secondary to-primary text-primary-foreground" : "bg-muted text-muted-foreground/50"
                     )}>
-                      {mesaTienePedido ? 'M' : '+'}
+                      {mesaListaEnCocina ? '✓' : mesaTienePedido ? 'M' : '+'}
                     </div>
-                    
+
                     {/* Right Content */}
                     <div className="flex flex-col flex-1 h-full justify-center">
                       <div className="flex items-center justify-between w-full mb-1 gap-2">
                         <p className="font-black text-foreground text-base truncate">{mesa.nombre}</p>
                         <Badge variant="secondary" className={cn(
                             "text-[9px] font-black px-2 py-0.5 rounded-full tracking-wider shrink-0",
-                            mesaTienePedido ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground"
+                            mesaListaEnCocina
+                              ? "bg-success text-success-foreground shadow-sm"
+                              : mesaTienePedido ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground"
                         )}>
-                          {mesaTienePedido ? 'OCUPADA' : 'LIBRE'}
+                          {mesaListaEnCocina ? 'LISTO ✓' : mesaTienePedido ? 'OCUPADA' : 'LIBRE'}
                         </Badge>
                       </div>
                       
@@ -1188,6 +1307,26 @@ export function SellModule() {
                   Confirmar Pago
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Confirmation Dialog */}
+      <Dialog open={showCancelConfirm} onOpenChange={(open) => { if (!open) { pendingRemoveUid.current = null; setShowCancelConfirm(false) } }}>
+        <DialogContent className="bg-card border-border max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Cancelar pedido completo</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Este es el último producto del pedido. Al eliminarlo se cancelará la cuenta completa de <strong>{activePedido?.nombreMesa}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { pendingRemoveUid.current = null; setShowCancelConfirm(false) }}>
+              Volver
+            </Button>
+            <Button variant="destructive" onClick={confirmCancelPedido}>
+              Cancelar pedido
             </Button>
           </DialogFooter>
         </DialogContent>
