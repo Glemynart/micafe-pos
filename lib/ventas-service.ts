@@ -17,6 +17,8 @@ import {
   getDoc,
   deleteDoc,
   type Unsubscribe,
+  type Transaction,
+  type DocumentReference,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -73,188 +75,236 @@ export interface IncidenciaInventario {
   cantidadSolicitada: number
 }
 
-export async function registrarVenta(params: CrearVentaParams): Promise<{id: string, consecutivo: number, incidenciasInventario: IncidenciaInventario[]}> {
-  const ventasRef = collection(db, "ventas");
-  const nuevaVentaDoc = doc(ventasRef); // Generar ID para la nueva venta
+async function _ejecutarVenta(
+  transaction: Transaction,
+  params: CrearVentaParams,
+  ventaDocRef: DocumentReference,
+  extraVentaFields?: Record<string, unknown>,
+): Promise<{ consecutivo: number, incidencias: IncidenciaInventario[] }> {
   const incidencias: IncidenciaInventario[] = [];
 
-  const consecutivoGenerado = await runTransaction(db, async (transaction) => {
-    incidencias.length = 0; // reset en cada reintento; solo persiste el intento exitoso
+  const recetasMap = new Map<string, any>();
+  for (const item of params.items) {
+    if (item.id.startsWith('quick-')) continue;
+    const recetaRef = doc(db, "recetas", item.id);
+    const recetaSnap = await transaction.get(recetaRef);
+    if (recetaSnap.exists()) {
+      recetasMap.set(item.id, recetaSnap.data());
+    }
+  }
 
-    // 1. LEER TODAS LAS RECETAS PRIMERO
-    const recetasMap = new Map<string, any>();
-    
-    for (const item of params.items) {
-      if (item.id.startsWith('quick-')) continue;
-      const recetaRef = doc(db, "recetas", item.id);
-      const recetaSnap = await transaction.get(recetaRef);
-      if (recetaSnap.exists()) {
-        recetasMap.set(item.id, recetaSnap.data());
+  const insumosToRead = new Set<string>();
+  const productosToRead = new Set<string>();
+  for (const item of params.items) {
+    if (item.id.startsWith('quick-')) continue;
+    const receta = recetasMap.get(item.id);
+    if (receta && receta.ingredientes && receta.ingredientes.length > 0) {
+      for (const ing of receta.ingredientes) {
+        insumosToRead.add(ing.insumoId);
       }
+    } else {
+      productosToRead.add(item.id);
     }
+  }
 
-    // 2. LEER TODOS LOS INSUMOS Y PRODUCTOS NECESARIOS (Fase de Reads puros)
-    const insumosToRead = new Set<string>();
-    const productosToRead = new Set<string>();
+  const insumosMap = new Map<string, any>();
+  for (const insumoId of insumosToRead) {
+    const insumoRef = doc(db, "insumos", insumoId);
+    const insumoSnap = await transaction.get(insumoRef);
+    if (insumoSnap.exists()) {
+      insumosMap.set(insumoId, { ref: insumoRef, data: insumoSnap.data() });
+    }
+  }
 
-    for (const item of params.items) {
-      if (item.id.startsWith('quick-')) continue;
-      const receta = recetasMap.get(item.id);
-      if (receta && receta.ingredientes && receta.ingredientes.length > 0) {
-        for (const ing of receta.ingredientes) {
-          insumosToRead.add(ing.insumoId);
-        }
-      } else {
-        productosToRead.add(item.id);
+  const productosMap = new Map<string, any>();
+  for (const productoId of productosToRead) {
+    const productoRef = doc(db, "productos", productoId);
+    const productoSnap = await transaction.get(productoRef);
+    if (productoSnap.exists()) {
+      productosMap.set(productoId, { ref: productoRef, data: productoSnap.data() });
+    }
+  }
+
+  const configRef = doc(db, "configuracion", "general");
+  const configSnap = await transaction.get(configRef);
+  let nuevoConsecutivo = 1;
+  if (configSnap.exists()) {
+    nuevoConsecutivo = (configSnap.data().consecutivo_actual || 0) + 1;
+  }
+
+  const insumosDescuentos = new Map<string, number>();
+  const productosDescuentos = new Map<string, number>();
+  for (const item of params.items) {
+    if (item.id.startsWith('quick-')) continue;
+    const receta = recetasMap.get(item.id);
+    if (receta && receta.ingredientes && receta.ingredientes.length > 0) {
+      for (const ing of receta.ingredientes) {
+        const currentDescuento = insumosDescuentos.get(ing.insumoId) || 0;
+        insumosDescuentos.set(ing.insumoId, currentDescuento + (ing.cantidad * item.cantidad));
       }
+    } else {
+      const currentDescuento = productosDescuentos.get(item.id) || 0;
+      productosDescuentos.set(item.id, currentDescuento + item.cantidad);
     }
+  }
 
-    const insumosMap = new Map<string, any>();
-    for (const insumoId of insumosToRead) {
-      const insumoRef = doc(db, "insumos", insumoId);
-      const insumoSnap = await transaction.get(insumoRef);
-      if (insumoSnap.exists()) {
-        insumosMap.set(insumoId, { ref: insumoRef, data: insumoSnap.data() });
-      }
-    }
-
-    const productosMap = new Map<string, any>();
-    for (const productoId of productosToRead) {
-      const productoRef = doc(db, "productos", productoId);
-      const productoSnap = await transaction.get(productoRef);
-      if (productoSnap.exists()) {
-        productosMap.set(productoId, { ref: productoRef, data: productoSnap.data() });
-      }
-    }
-
-    // LEER CONSECUTIVO ACTUAL (Fase de Reads)
-    const configRef = doc(db, "configuracion", "general");
-    const configSnap = await transaction.get(configRef);
-    let nuevoConsecutivo = 1;
-    if (configSnap.exists()) {
-      nuevoConsecutivo = (configSnap.data().consecutivo_actual || 0) + 1;
-    }
-
-    // 3. FASE DE ESCRITURAS (Writes - Ya no se puede hacer ningún GET después de esto)
-    
-    // Preparar los descuentos
-    const insumosDescuentos = new Map<string, number>();
-    const productosDescuentos = new Map<string, number>();
-
-    for (const item of params.items) {
-      if (item.id.startsWith('quick-')) continue;
-      const receta = recetasMap.get(item.id);
-      
-      if (receta && receta.ingredientes && receta.ingredientes.length > 0) {
-        for (const ing of receta.ingredientes) {
-          const currentDescuento = insumosDescuentos.get(ing.insumoId) || 0;
-          insumosDescuentos.set(ing.insumoId, currentDescuento + (ing.cantidad * item.cantidad));
-        }
-      } else {
-        const currentDescuento = productosDescuentos.get(item.id) || 0;
-        productosDescuentos.set(item.id, currentDescuento + item.cantidad);
-      }
-    }
-
-    // Aplicar escrituras de inventario
-    for (const [insumoId, qtyDesc] of insumosDescuentos.entries()) {
-      const insumo = insumosMap.get(insumoId);
-      if (insumo) {
-        const currentStock = insumo.data.stock || 0;
-        if (qtyDesc > currentStock) {
-          incidencias.push({
-            tipo: 'stock_insuficiente',
-            itemId: insumoId,
-            itemNombre: insumo.data.nombre || insumoId,
-            stockAnterior: currentStock,
-            cantidadSolicitada: qtyDesc,
-          });
-        }
-        transaction.update(insumo.ref, { stock: Math.max(0, currentStock - qtyDesc) });
-      }
-    }
-
-    for (const [productoId, qtyDesc] of productosDescuentos.entries()) {
-      const producto = productosMap.get(productoId);
-      if (producto) {
-        const currentStock = producto.data.stock || 0;
-        if (qtyDesc > currentStock) {
-          incidencias.push({
-            tipo: 'stock_insuficiente',
-            itemId: productoId,
-            itemNombre: producto.data.nombre || productoId,
-            stockAnterior: currentStock,
-            cantidadSolicitada: qtyDesc,
-          });
-        }
-        transaction.update(producto.ref, { stock: Math.max(0, currentStock - qtyDesc) });
-      }
-    }
-
-    // ACTUALIZAR CONSECUTIVO (Fase de Writes)
-    transaction.set(configRef, { consecutivo_actual: nuevoConsecutivo }, { merge: true });
-
-    // 4. Escribir la venta
-    const ahora = new Date();
-    const fechaLimiteDIAN =
-      params.metodoPago === 'cuenta_cobro'
-        ? new Date(ahora.getTime() + 24 * 60 * 60 * 1000)
-        : null;
-
-    const ventaData = {
-      ...params,
-      consecutivo: nuevoConsecutivo,
-      fecha: serverTimestamp(),
-      ...(fechaLimiteDIAN ? { fechaLimiteDIAN } : {}),
-    };
-    // Firestore rechaza campos con valor undefined; se omiten los opcionales no provistos.
-    const ventaDataClean = Object.fromEntries(
-      Object.entries(ventaData).filter(([, v]) => v !== undefined)
-    );
-    transaction.set(nuevaVentaDoc, ventaDataClean);
-
-    // ── Finanzas en tiempo real (solo ventas pagadas) ─────────────────────────
-    if (params.estado === 'pagada') {
-      const cuentaMap: Record<string, { nombre: string }> = {
-        'caja-principal': { nombre: 'Caja Registradora' },
-        'bancolombia':    { nombre: 'Bancolombia' },
-      };
-
-      const registrarMovimiento = (cuentaId: string, monto: number) => {
-        if (monto <= 0 || !cuentaMap[cuentaId]) return;
-        transaction.update(doc(db, 'cuentas_bancarias', cuentaId), { saldo: increment(monto) });
-        transaction.set(doc(collection(db, 'transacciones_financieras')), {
-          cuentaId,
-          cuentaNombre: cuentaMap[cuentaId].nombre,
-          tipo: 'ingreso',
-          monto,
-          concepto: `Venta #${nuevoConsecutivo}`,
-          categoria: 'ventas',
-          referencia: nuevaVentaDoc.id,
-          usuarioId: params.cajeroId,
-          usuarioNombre: params.cajeroNombre ?? params.cajeroId,
-          espacioId: params.espacioId ?? null,
-          fecha: serverTimestamp(),
+  for (const [insumoId, qtyDesc] of insumosDescuentos.entries()) {
+    const insumo = insumosMap.get(insumoId);
+    if (insumo) {
+      const currentStock = insumo.data.stock || 0;
+      if (qtyDesc > currentStock) {
+        incidencias.push({
+          tipo: 'stock_insuficiente',
+          itemId: insumoId,
+          itemNombre: insumo.data.nombre || insumoId,
+          stockAnterior: currentStock,
+          cantidadSolicitada: qtyDesc,
         });
-      };
-
-      if (params.metodoPago === 'efectivo') {
-        registrarMovimiento('caja-principal', params.totales.total);
-      } else if (params.metodoPago === 'transferencia') {
-        registrarMovimiento('bancolombia', params.totales.total);
-      } else if (params.metodoPago === 'mixto' && params.pagoMixtoDetalle) {
-        for (const pago of params.pagoMixtoDetalle) {
-          if (pago.metodo === 'efectivo') registrarMovimiento('caja-principal', pago.monto);
-          else if (pago.metodo === 'transferencia') registrarMovimiento('bancolombia', pago.monto);
-        }
       }
-      // cuenta_cobro: sin ingreso inmediato, se registra al cobrar la deuda
+      transaction.update(insumo.ref, { stock: Math.max(0, currentStock - qtyDesc) });
     }
+  }
 
-    return nuevoConsecutivo;
+  for (const [productoId, qtyDesc] of productosDescuentos.entries()) {
+    const producto = productosMap.get(productoId);
+    if (producto) {
+      const currentStock = producto.data.stock || 0;
+      if (qtyDesc > currentStock) {
+        incidencias.push({
+          tipo: 'stock_insuficiente',
+          itemId: productoId,
+          itemNombre: producto.data.nombre || productoId,
+          stockAnterior: currentStock,
+          cantidadSolicitada: qtyDesc,
+        });
+      }
+      transaction.update(producto.ref, { stock: Math.max(0, currentStock - qtyDesc) });
+    }
+  }
+
+  transaction.set(configRef, { consecutivo_actual: nuevoConsecutivo }, { merge: true });
+
+  const ahora = new Date();
+  const fechaLimiteDIAN =
+    params.metodoPago === 'cuenta_cobro'
+      ? new Date(ahora.getTime() + 24 * 60 * 60 * 1000)
+      : null;
+
+  const ventaData = {
+    ...params,
+    ...extraVentaFields,
+    consecutivo: nuevoConsecutivo,
+    fecha: serverTimestamp(),
+    ...(fechaLimiteDIAN ? { fechaLimiteDIAN } : {}),
+  };
+  const ventaDataClean = Object.fromEntries(
+    Object.entries(ventaData).filter(([, v]) => v !== undefined)
+  );
+  transaction.set(ventaDocRef, ventaDataClean);
+
+  if (params.estado === 'pagada') {
+    const cuentaMap: Record<string, { nombre: string }> = {
+      'caja-principal': { nombre: 'Caja Registradora' },
+      'bancolombia':    { nombre: 'Bancolombia' },
+    };
+
+    const registrarMovimiento = (cuentaId: string, monto: number) => {
+      if (monto <= 0 || !cuentaMap[cuentaId]) return;
+      transaction.update(doc(db, 'cuentas_bancarias', cuentaId), { saldo: increment(monto) });
+      transaction.set(doc(collection(db, 'transacciones_financieras')), {
+        cuentaId,
+        cuentaNombre: cuentaMap[cuentaId].nombre,
+        tipo: 'ingreso',
+        monto,
+        concepto: `Venta #${nuevoConsecutivo}`,
+        categoria: 'ventas',
+        referencia: ventaDocRef.id,
+        usuarioId: params.cajeroId,
+        usuarioNombre: params.cajeroNombre ?? params.cajeroId,
+        espacioId: params.espacioId ?? null,
+        fecha: serverTimestamp(),
+      });
+    };
+
+    if (params.metodoPago === 'efectivo') {
+      registrarMovimiento('caja-principal', params.totales.total);
+    } else if (params.metodoPago === 'transferencia') {
+      registrarMovimiento('bancolombia', params.totales.total);
+    } else if (params.metodoPago === 'mixto' && params.pagoMixtoDetalle) {
+      for (const pago of params.pagoMixtoDetalle) {
+        if (pago.metodo === 'efectivo') registrarMovimiento('caja-principal', pago.monto);
+        else if (pago.metodo === 'transferencia') registrarMovimiento('bancolombia', pago.monto);
+      }
+    }
+  }
+
+  return { consecutivo: nuevoConsecutivo, incidencias };
+}
+
+export async function registrarVenta(params: CrearVentaParams): Promise<{id: string, consecutivo: number, incidenciasInventario: IncidenciaInventario[]}> {
+  const nuevaVentaDoc = doc(collection(db, "ventas"));
+  let resultado: { consecutivo: number, incidencias: IncidenciaInventario[] };
+
+  await runTransaction(db, async (transaction) => {
+    resultado = await _ejecutarVenta(transaction, params, nuevaVentaDoc);
   });
 
-  return { id: nuevaVentaDoc.id, consecutivo: consecutivoGenerado, incidenciasInventario: incidencias };
+  return { id: nuevaVentaDoc.id, consecutivo: resultado!.consecutivo, incidenciasInventario: resultado!.incidencias };
+}
+
+export type CobrarPedidoResult =
+  | { status: 'ok', ventaId: string, consecutivo: number, incidenciasInventario: IncidenciaInventario[] }
+  | { status: 'already_paid', ventaId: string }
+
+export async function cobrarPedido(
+  params: CrearVentaParams,
+  pedidoId: string,
+): Promise<CobrarPedidoResult> {
+  const nuevaVentaDoc = doc(collection(db, "ventas"));
+  let resultado: CobrarPedidoResult;
+
+  await runTransaction(db, async (transaction) => {
+    const pedidoRef = doc(db, 'pedidos_activos', pedidoId);
+    const pedidoSnap = await transaction.get(pedidoRef);
+    if (!pedidoSnap.exists()) throw new Error('Pedido no encontrado');
+
+    const pedido = pedidoSnap.data();
+    if (!pedido.activo || pedido.estado !== 'abierto') {
+      resultado = { status: 'already_paid', ventaId: pedido.ventaId || '' };
+      return;
+    }
+
+    const comandaIds: string[] = pedido.comandaIds || [];
+    const comandaSnaps = await Promise.all(
+      comandaIds.map(id => transaction.get(doc(db, 'comandas_cocina', id)))
+    );
+
+    const { consecutivo, incidencias } = await _ejecutarVenta(
+      transaction, params, nuevaVentaDoc, { pedidoId }
+    );
+
+    transaction.update(pedidoRef, {
+      estado: 'pagado',
+      activo: false,
+      fechaPago: serverTimestamp(),
+      ventaId: nuevaVentaDoc.id,
+    });
+
+    for (const snap of comandaSnaps) {
+      if (snap.exists() && snap.data().estado !== 'entregado') {
+        transaction.update(snap.ref, { estado: 'entregado', completadoEn: serverTimestamp() });
+      }
+    }
+
+    resultado = {
+      status: 'ok',
+      ventaId: nuevaVentaDoc.id,
+      consecutivo,
+      incidenciasInventario: incidencias,
+    };
+  });
+
+  return resultado!;
 }
 
 export function suscribirHistorialVentas(espacioId: string | undefined, callback: (ventas: any[]) => void): Unsubscribe {
