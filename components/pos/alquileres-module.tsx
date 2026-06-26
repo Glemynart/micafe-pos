@@ -20,11 +20,13 @@ import { useEspacios } from '@/contexts/espacios-context'
 import { formatCurrency } from '@/lib/demo-data'
 
 import { suscribirMesas, type Mesa } from '@/lib/mesas-service'
-import { 
-  suscribirPedidosActivos, 
-  guardarPedido, 
-  type PedidoActivo, 
-  type PedidoItem 
+import {
+  suscribirPedidosActivos,
+  guardarPedido,
+  agregarItemPedido,
+  detenerCronometroAlquiler,
+  type PedidoActivo,
+  type PedidoItem
 } from '@/lib/pedidos-service'
 import { suscribirProductos, type Producto } from '@/lib/productos-service'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -101,8 +103,7 @@ export function AlquileresModule() {
 
     const horasDecimales = calcularHorasDecimales(recursoSeleccionado.pedido.inicioAlquiler)
     const minutosExactos = Math.floor(horasDecimales * 60)
-    
-    // Si tiene precio por minuto explícito, cobramos por minuto. Si no, por fracción de hora.
+
     const cobraPorMinuto = (producto as any).precioFraccion && (producto as any).precioFraccion > 0
 
     const cantidad = cobraPorMinuto ? Math.max(1, minutosExactos) : Number(Math.max(0.1, horasDecimales).toFixed(2))
@@ -110,6 +111,7 @@ export function AlquileresModule() {
 
     const itemAlquiler: PedidoItem = {
       id: crypto.randomUUID(),
+      uid: crypto.randomUUID(),
       name: cobraPorMinuto ? `${producto.nombre} (${minutosExactos} min)` : producto.nombre,
       code: '',
       price: precio,
@@ -123,13 +125,8 @@ export function AlquileresModule() {
       quantity: cantidad
     }
 
-    const pedidoActualizado = {
-      ...recursoSeleccionado.pedido,
-      inicioAlquiler: null, // Detenemos el cronómetro
-      items: [...recursoSeleccionado.pedido.items, itemAlquiler]
-    }
-
-    await guardarPedido(pedidoActualizado)
+    await agregarItemPedido(recursoSeleccionado.pedido.id, itemAlquiler)
+    await detenerCronometroAlquiler(recursoSeleccionado.pedido.id)
     setShowStopDialog(false)
     setRecursoSeleccionado(null)
     setProductoSeleccionadoId('')

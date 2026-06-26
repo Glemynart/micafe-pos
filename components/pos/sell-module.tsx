@@ -6,10 +6,10 @@ import { useAuthContext } from '@/contexts/auth-context'
 import { suscribirProductos, type Producto } from '@/lib/productos-service'
 import { suscribirInsumos, type Insumo } from '@/lib/insumos-service'
 import { suscribirRecetas, type Receta } from '@/lib/recetas-service'
-import { registrarVenta, type CrearVentaParams } from '@/lib/ventas-service'
+import { registrarVenta, cobrarPedido, type CrearVentaParams } from '@/lib/ventas-service'
 import { suscribirClientes, filtrarClientes, crearCliente, type Cliente } from '@/lib/clientes-service'
 import { suscribirMesas, type Mesa } from '@/lib/mesas-service'
-import { suscribirPedidosActivos, guardarPedido, eliminarPedido, archivarPedidoConComandas, enviarPedidoACocina, modificarItemPedido, suscribirComandasActivas, type PedidoActivo, type PedidoItem, type ComandaCocina } from '@/lib/pedidos-service'
+import { suscribirPedidosActivos, guardarPedido, agregarItemPedido, enviarPedidoACocina, modificarItemPedido, suscribirComandasActivas, type PedidoActivo, type PedidoItem, type ComandaCocina } from '@/lib/pedidos-service'
 import { suscribirTurnoActivo, type Turno } from '@/lib/turnos-service'
 import { DynamicIcon } from '@/components/ui/dynamic-icon'
 
@@ -218,39 +218,36 @@ export function SellModule() {
     prevCocinaRef.current = { pedidoId: activePedido?.id, estado: estadoCocina }
   }, [estadoCocina, activePedido?.id, activePedido?.nombreMesa])
 
-  const syncCartWithFirebase = useCallback(async (newItems: PedidoItem[]) => {
-    if (newItems.length === 0) {
-      if (activePedido) await eliminarPedido(activePedido.id)
-      return
-    }
-    
-    if (activePedido) {
-      await guardarPedido({ ...activePedido, items: newItems })
-    } else {
-      if (!usuario || !espacioActivo) return
-      const nombreMesa = selectedMesaId ? mesas.find(m => m.id === selectedMesaId)?.nombre || 'Mesa' : 'Mostrador / Para llevar'
-      await guardarPedido({
-        mesaId: selectedMesaId,
-        nombreMesa,
-        espacioId: espacioActivo.id,
-        cajeroId: usuario.uid,
-        items: newItems,
-        estado: 'abierto'
-      })
-    }
-  }, [activePedido, selectedMesaId, mesas, usuario, espacioActivo])
+  const crearPedidoConItem = useCallback(async (item: PedidoItem) => {
+    if (!usuario || !espacioActivo) return
+    const nombreMesa = selectedMesaId ? mesas.find(m => m.id === selectedMesaId)?.nombre || 'Mesa' : 'Mostrador / Para llevar'
+    await guardarPedido({
+      mesaId: selectedMesaId,
+      nombreMesa,
+      espacioId: espacioActivo.id,
+      cajeroId: usuario.uid,
+      items: [item],
+      estado: 'abierto'
+    })
+  }, [selectedMesaId, mesas, usuario, espacioActivo])
 
-  const addCustomPhotoCopyToCart = useCallback((nombre: string, copias: number) => {
+  const addCustomPhotoCopyToCart = useCallback(async (nombre: string, copias: number) => {
     const precio = fotoTipo === 'bn' ? 200 : 800
-    const existing = cart.find(item => item.id === `foto-${fotoTipo}`)
-    let newItems: PedidoItem[]
-    if (existing) {
-      newItems = cart.map(item => item.id === `foto-${fotoTipo}` ? { ...item, quantity: item.quantity + copias, price: precio } : item)
-    } else {
-      newItems = [...cart, { id: `foto-${fotoTipo}`, uid: crypto.randomUUID(), name: nombre, code: `foto-${fotoTipo}`, price: precio, cost: 50, category: 'Fotocopias', emoji: 'Printer', stock: 999, iva: 0, impoconsumo: 0, hasRecipe: false, quantity: copias } as PedidoItem]
+    const item: PedidoItem = {
+      id: `foto-${fotoTipo}`, uid: crypto.randomUUID(), name: nombre, code: `foto-${fotoTipo}`,
+      price: precio, cost: 50, category: 'Fotocopias', emoji: 'Printer',
+      stock: 999, iva: 0, impoconsumo: 0, hasRecipe: false, quantity: copias,
     }
-    syncCartWithFirebase(newItems)
-  }, [cart, syncCartWithFirebase, fotoTipo])
+    try {
+      if (activePedido) {
+        await agregarItemPedido(activePedido.id, item)
+      } else {
+        await crearPedidoConItem(item)
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Error al agregar fotocopia')
+    }
+  }, [activePedido, crearPedidoConItem, fotoTipo])
 
   // Suscribir a recetas (todas)
   useEffect(() => {
@@ -321,6 +318,8 @@ export function SellModule() {
   const [paymentMethod, setPaymentMethod] = useState<string>('efectivo')
   const [cashReceived, setCashReceived] = useState<number>(0)
   const [showReceipt, setShowReceipt] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const pendingRemoveUid = useRef<string | null>(null)
   
   // Quick product form
   const [quickProductName, setQuickProductName] = useState('')
@@ -329,30 +328,34 @@ export function SellModule() {
   // Calculadora Rápida para Fotocopias
   const [quickCopies, setQuickCopies] = useState<number>(1)
 
-  const addToCart = useCallback((product: Producto) => {
+  const addToCart = useCallback(async (product: Producto) => {
     const cartItem = productoToCartItem(product)
-    const existing = cart.find(item => item.id === cartItem.id)
-    let newItems = []
-    if (existing) {
-      newItems = cart.map(item => item.id === cartItem.id ? { ...item, quantity: item.quantity + 1 } : item)
-    } else {
-      newItems = [{ ...cartItem, uid: crypto.randomUUID(), quantity: 1 }, ...cart]
+    const item: PedidoItem = { ...cartItem, uid: crypto.randomUUID(), quantity: 1 }
+    try {
+      if (activePedido) {
+        await agregarItemPedido(activePedido.id, item)
+      } else {
+        await crearPedidoConItem(item)
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Error al agregar producto')
     }
-    syncCartWithFirebase(newItems)
-  }, [cart, syncCartWithFirebase])
+  }, [activePedido, crearPedidoConItem])
 
-  const addToCartQuantity = useCallback((product: Producto, qty: number) => {
+  const addToCartQuantity = useCallback(async (product: Producto, qty: number) => {
     const cartItem = productoToCartItem(product)
-    const existing = cart.find(item => item.id === cartItem.id)
-    let newItems = []
-    if (existing) {
-      newItems = cart.map(item => item.id === cartItem.id ? { ...item, quantity: item.quantity + qty } : item)
-    } else {
-      newItems = [{ ...cartItem, uid: crypto.randomUUID(), quantity: qty }, ...cart]
+    const item: PedidoItem = { ...cartItem, uid: crypto.randomUUID(), quantity: qty }
+    try {
+      if (activePedido) {
+        await agregarItemPedido(activePedido.id, item)
+      } else {
+        await crearPedidoConItem(item)
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Error al agregar producto')
     }
-    syncCartWithFirebase(newItems)
-    setQuickCopies(1) // reset after add
-  }, [cart, syncCartWithFirebase])
+    setQuickCopies(1)
+  }, [activePedido, crearPedidoConItem])
 
   const updateQuantity = useCallback(async (itemUid: string, delta: number) => {
     if (!activePedido) return
@@ -369,11 +372,28 @@ export function SellModule() {
 
   const removeFromCart = useCallback(async (itemUid: string) => {
     if (!activePedido) return
+    if (cart.length === 1) {
+      pendingRemoveUid.current = itemUid
+      setShowCancelConfirm(true)
+      return
+    }
     try {
       await modificarItemPedido(activePedido.id, itemUid, 0)
     } catch (e: any) {
       toast.error(e.message || 'Error al eliminar item')
     }
+    setSelectedCartIndex(-1)
+  }, [activePedido, cart.length])
+
+  const confirmCancelPedido = useCallback(async () => {
+    if (!activePedido || !pendingRemoveUid.current) return
+    try {
+      await modificarItemPedido(activePedido.id, pendingRemoveUid.current, 0)
+    } catch (e: any) {
+      toast.error(e.message || 'Error al cancelar pedido')
+    }
+    pendingRemoveUid.current = null
+    setShowCancelConfirm(false)
     setSelectedCartIndex(-1)
   }, [activePedido])
 
@@ -401,9 +421,9 @@ export function SellModule() {
     }
   }, [searchCode, addToCart, productosConStock])
 
-  const handleQuickProductSubmit = useCallback(() => {
+  const handleQuickProductSubmit = useCallback(async () => {
     if (!quickProductName || !quickProductPrice) return
-    
+
     const newProduct: PedidoItem = {
       id: `quick-${Date.now()}`,
       uid: crypto.randomUUID(),
@@ -419,13 +439,21 @@ export function SellModule() {
       hasRecipe: false,
       quantity: 1
     }
-    
-    syncCartWithFirebase([newProduct, ...cart])
+
+    try {
+      if (activePedido) {
+        await agregarItemPedido(activePedido.id, newProduct)
+      } else {
+        await crearPedidoConItem(newProduct)
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Error al agregar producto rápido')
+    }
     setShowQuickProduct(false)
     setQuickProductName('')
     setQuickProductPrice('')
     setSearchCode('')
-  }, [quickProductName, quickProductPrice, searchCode])
+  }, [quickProductName, quickProductPrice, searchCode, activePedido, crearPedidoConItem])
 
   // Calculations
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)
@@ -490,7 +518,7 @@ export function SellModule() {
     setIsProcessingPayment(true)
     try {
       const items = cart.map(item => ({
-        id: item.code, // Usamos el código o ID real del producto
+        id: item.code,
         nombre: item.name,
         cantidad: item.quantity,
         precioUnitario: item.price,
@@ -522,7 +550,21 @@ export function SellModule() {
         estado: paymentMethod === 'cuenta_cobro' ? 'pendiente' : 'pagada'
       }
 
-      const { id: ventaId, incidenciasInventario } = await registrarVenta(params)
+      let incidenciasInventario: { itemNombre: string }[] = []
+
+      if (activePedido) {
+        const result = await cobrarPedido(params, activePedido.id)
+        if (result.status === 'already_paid') {
+          toast.info('Este pedido ya fue cobrado.', { duration: 4000 })
+          setShowPayment(false)
+          setIsProcessingPayment(false)
+          return
+        }
+        incidenciasInventario = result.incidenciasInventario
+      } else {
+        const result = await registrarVenta(params)
+        incidenciasInventario = result.incidenciasInventario
+      }
 
       if (incidenciasInventario.length > 0) {
         const nombres = incidenciasInventario.map(i => i.itemNombre).join(', ')
@@ -530,10 +572,6 @@ export function SellModule() {
           description: `Stock insuficiente en: ${nombres}. El inventario fue ajustado a 0.`,
           duration: 6000,
         })
-      }
-
-      if (activePedido) {
-        await archivarPedidoConComandas(activePedido.id, ventaId)
       }
 
       setShowPayment(false)
@@ -864,8 +902,12 @@ export function SellModule() {
               <div className="flex gap-3">
                   <Button variant="outline" onClick={async () => {
                     if (activePedido) {
-                      await enviarPedidoACocina(activePedido.id)
-                      toast.success('Pedido enviado a cocina')
+                      try {
+                        await enviarPedidoACocina(activePedido.id)
+                        toast.success('Pedido enviado a cocina')
+                      } catch (e: any) {
+                        toast.error(e.message || 'Error al enviar a cocina')
+                      }
                     }
                   }} className="h-16 flex-[1] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95">
                       Cocina
@@ -1265,6 +1307,26 @@ export function SellModule() {
                   Confirmar Pago
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Confirmation Dialog */}
+      <Dialog open={showCancelConfirm} onOpenChange={(open) => { if (!open) { pendingRemoveUid.current = null; setShowCancelConfirm(false) } }}>
+        <DialogContent className="bg-card border-border max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Cancelar pedido completo</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Este es el último producto del pedido. Al eliminarlo se cancelará la cuenta completa de <strong>{activePedido?.nombreMesa}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { pendingRemoveUid.current = null; setShowCancelConfirm(false) }}>
+              Volver
+            </Button>
+            <Button variant="destructive" onClick={confirmCancelPedido}>
+              Cancelar pedido
             </Button>
           </DialogFooter>
         </DialogContent>

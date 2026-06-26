@@ -1,5 +1,5 @@
 import { db } from './firebase'
-import { collection, doc, setDoc, onSnapshot, query, where, deleteDoc, serverTimestamp, runTransaction, getDocs, writeBatch } from 'firebase/firestore'
+import { collection, doc, setDoc, onSnapshot, query, where, deleteDoc, serverTimestamp, runTransaction, arrayUnion } from 'firebase/firestore'
 
 export interface PedidoItem {
   id: string // Product ID
@@ -28,6 +28,7 @@ export interface PedidoActivo {
   items: PedidoItem[]
   estado: 'abierto' | 'pagado' | 'cancelado'
   activo: boolean
+  comandaIds?: string[]
   inicioAlquiler?: number | null // Timestamp en ms para alquileres
   fechaPago?: any
   ventaId?: string
@@ -71,14 +72,46 @@ export function suscribirPedidosActivos(espacioId: string, callback: (pedidos: P
   })
 }
 
-export async function guardarPedido(pedido: Omit<PedidoActivo, 'actualizadoEn' | 'id' | 'activo'> & { id?: string }) {
+export async function guardarPedido(pedido: Omit<PedidoActivo, 'actualizadoEn' | 'id' | 'activo' | 'comandaIds'> & { id?: string }) {
   const pedidoId = pedido.id || doc(collection(db, COLLECTION_NAME)).id
   await setDoc(doc(db, COLLECTION_NAME, pedidoId), {
     ...pedido,
     id: pedidoId,
     activo: true,
+    comandaIds: [],
     actualizadoEn: serverTimestamp()
   }, { merge: true })
+}
+
+export async function agregarItemPedido(
+  pedidoId: string,
+  newItem: PedidoItem,
+) {
+  await runTransaction(db, async (transaction) => {
+    const docRef = doc(db, COLLECTION_NAME, pedidoId)
+    const snap = await transaction.get(docRef)
+    if (!snap.exists()) throw new Error('Pedido no encontrado')
+
+    const pedido = snap.data() as PedidoActivo
+    if (!pedido.activo) throw new Error('Pedido no está activo')
+
+    const existingIndex = pedido.items.findIndex(i => i.id === newItem.id)
+    let updatedItems: PedidoItem[]
+
+    if (existingIndex !== -1) {
+      updatedItems = pedido.items.map((it, idx) => {
+        if (idx !== existingIndex) return it
+        return { ...it, quantity: it.quantity + newItem.quantity }
+      })
+    } else {
+      updatedItems = [{ ...newItem, uid: newItem.uid || crypto.randomUUID() }, ...pedido.items]
+    }
+
+    transaction.update(docRef, {
+      items: updatedItems,
+      actualizadoEn: serverTimestamp(),
+    })
+  })
 }
 
 export async function enviarPedidoACocina(pedidoId: string) {
@@ -127,6 +160,7 @@ export async function enviarPedidoACocina(pedidoId: string) {
 
     transaction.update(docRef, {
       items: updatedItems,
+      comandaIds: arrayUnion(comandaId),
       actualizadoEn: serverTimestamp()
     });
   });
@@ -166,10 +200,11 @@ export async function modificarItemPedido(
       )
     }
 
+    let cancelacionComandaId: string | undefined
     if (deltaCancelar > 0) {
-      const comandaId = doc(collection(db, COMANDAS_COLLECTION)).id
-      transaction.set(doc(db, COMANDAS_COLLECTION, comandaId), {
-        id: comandaId,
+      cancelacionComandaId = doc(collection(db, COMANDAS_COLLECTION)).id
+      transaction.set(doc(db, COMANDAS_COLLECTION, cancelacionComandaId), {
+        id: cancelacionComandaId,
         pedidoId: pedido.id,
         mesaId: pedido.mesaId,
         nombreMesa: pedido.nombreMesa,
@@ -206,14 +241,23 @@ export async function modificarItemPedido(
         estado: 'cancelado',
         activo: false,
         actualizadoEn: serverTimestamp(),
+        ...(cancelacionComandaId ? { comandaIds: arrayUnion(cancelacionComandaId) } : {}),
       })
     } else {
       transaction.update(docRef, {
         items: updatedItems,
         actualizadoEn: serverTimestamp(),
+        ...(cancelacionComandaId ? { comandaIds: arrayUnion(cancelacionComandaId) } : {}),
       })
     }
   })
+}
+
+export async function detenerCronometroAlquiler(pedidoId: string) {
+  await setDoc(doc(db, COLLECTION_NAME, pedidoId), {
+    inicioAlquiler: null,
+    actualizadoEn: serverTimestamp()
+  }, { merge: true })
 }
 
 export async function eliminarPedido(pedidoId: string) {
@@ -221,28 +265,34 @@ export async function eliminarPedido(pedidoId: string) {
 }
 
 export async function archivarPedidoConComandas(pedidoId: string, ventaId: string) {
-  const q = query(
-    collection(db, COMANDAS_COLLECTION),
-    where('pedidoId', '==', pedidoId)
-  )
-  const snapshot = await getDocs(q)
+  await runTransaction(db, async (transaction) => {
+    const pedidoRef = doc(db, COLLECTION_NAME, pedidoId)
+    const pedidoSnap = await transaction.get(pedidoRef)
+    if (!pedidoSnap.exists()) throw new Error('Pedido no encontrado')
 
-  const batch = writeBatch(db)
+    const pedido = pedidoSnap.data() as PedidoActivo
+    if (!pedido.activo || pedido.estado !== 'abierto') {
+      throw new Error('Pedido ya no está activo')
+    }
 
-  batch.update(doc(db, COLLECTION_NAME, pedidoId), {
-    estado: 'pagado',
-    activo: false,
-    fechaPago: serverTimestamp(),
-    ventaId,
-  })
+    const ids = pedido.comandaIds || []
+    const comandaSnaps = await Promise.all(
+      ids.map(id => transaction.get(doc(db, COMANDAS_COLLECTION, id)))
+    )
 
-  snapshot.docs.forEach(d => {
-    if (d.data().estado !== 'entregado') {
-      batch.update(d.ref, { estado: 'entregado', completadoEn: serverTimestamp() })
+    transaction.update(pedidoRef, {
+      estado: 'pagado',
+      activo: false,
+      fechaPago: serverTimestamp(),
+      ventaId,
+    })
+
+    for (const snap of comandaSnaps) {
+      if (snap.exists() && snap.data().estado !== 'entregado') {
+        transaction.update(snap.ref, { estado: 'entregado', completadoEn: serverTimestamp() })
+      }
     }
   })
-
-  await batch.commit()
 }
 
 // --- COMANDAS KDS (Kitchen Display System) ---
