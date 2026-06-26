@@ -253,11 +253,26 @@ export async function modificarItemPedido(
   })
 }
 
-export async function detenerCronometroAlquiler(pedidoId: string) {
-  await setDoc(doc(db, COLLECTION_NAME, pedidoId), {
-    inicioAlquiler: null,
-    actualizadoEn: serverTimestamp()
-  }, { merge: true })
+export async function finalizarAlquiler(pedidoId: string, itemAlquiler: PedidoItem) {
+  await runTransaction(db, async (transaction) => {
+    const docRef = doc(db, COLLECTION_NAME, pedidoId)
+    const snap = await transaction.get(docRef)
+    if (!snap.exists()) throw new Error('Pedido no encontrado')
+
+    const pedido = snap.data() as PedidoActivo
+    if (!pedido.inicioAlquiler) return
+
+    const existingIndex = pedido.items.findIndex(i => i.id === itemAlquiler.id)
+    const updatedItems = existingIndex !== -1
+      ? pedido.items
+      : [...pedido.items, itemAlquiler]
+
+    transaction.update(docRef, {
+      items: updatedItems,
+      inicioAlquiler: null,
+      actualizadoEn: serverTimestamp(),
+    })
+  })
 }
 
 export async function eliminarPedido(pedidoId: string) {

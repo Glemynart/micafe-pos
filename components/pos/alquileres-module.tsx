@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
+import { toast } from 'sonner'
 import { useEspacios } from '@/contexts/espacios-context'
 import { formatCurrency } from '@/lib/demo-data'
 
@@ -23,8 +24,7 @@ import { suscribirMesas, type Mesa } from '@/lib/mesas-service'
 import {
   suscribirPedidosActivos,
   guardarPedido,
-  agregarItemPedido,
-  detenerCronometroAlquiler,
+  finalizarAlquiler,
   type PedidoActivo,
   type PedidoItem
 } from '@/lib/pedidos-service'
@@ -101,7 +101,8 @@ export function AlquileresModule() {
     const producto = productos.find(p => p.id === productoSeleccionadoId)
     if (!producto) return
 
-    const horasDecimales = calcularHorasDecimales(recursoSeleccionado.pedido.inicioAlquiler)
+    const pedido = recursoSeleccionado.pedido
+    const horasDecimales = calcularHorasDecimales(pedido.inicioAlquiler!)
     const minutosExactos = Math.floor(horasDecimales * 60)
 
     const cobraPorMinuto = (producto as any).precioFraccion && (producto as any).precioFraccion > 0
@@ -110,8 +111,8 @@ export function AlquileresModule() {
     const precio = cobraPorMinuto ? (producto as any).precioFraccion : producto.precio
 
     const itemAlquiler: PedidoItem = {
-      id: crypto.randomUUID(),
-      uid: crypto.randomUUID(),
+      id: `alquiler-${pedido.id}`,
+      uid: `alquiler-${pedido.id}`,
       name: cobraPorMinuto ? `${producto.nombre} (${minutosExactos} min)` : producto.nombre,
       code: '',
       price: precio,
@@ -125,8 +126,12 @@ export function AlquileresModule() {
       quantity: cantidad
     }
 
-    await agregarItemPedido(recursoSeleccionado.pedido.id, itemAlquiler)
-    await detenerCronometroAlquiler(recursoSeleccionado.pedido.id)
+    try {
+      await finalizarAlquiler(pedido.id, itemAlquiler)
+    } catch (e: any) {
+      toast.error(e.message || 'Error al finalizar alquiler')
+      return
+    }
     setShowStopDialog(false)
     setRecursoSeleccionado(null)
     setProductoSeleccionadoId('')
