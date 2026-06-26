@@ -24,6 +24,7 @@ const ModuleSkeleton = () => (
 // ── Dynamic imports: cada módulo se descarga SOLO cuando el cajero lo abre ──
 // El módulo de ventas carga primero (ssr:false porque usa Firebase client-side)
 const SellModule         = dynamic(() => import('@/components/pos/sell-module').then(m => ({ default: m.SellModule })), { loading: () => <ModuleSkeleton />, ssr: false })
+const SalonModule        = dynamic(() => import('@/components/pos/salon-module').then(m => ({ default: m.SalonModule })), { loading: () => <ModuleSkeleton />, ssr: false })
 const KitchenModule      = dynamic(() => import('@/components/pos/kitchen-module').then(m => ({ default: m.KitchenModule })), { loading: () => <ModuleSkeleton />, ssr: false })
 const InventoryModule    = dynamic(() => import('@/components/pos/inventory-module').then(m => ({ default: m.InventoryModule })), { loading: () => <ModuleSkeleton />, ssr: false })
 const RecipesModule      = dynamic(() => import('@/components/pos/recipes-module').then(m => ({ default: m.RecipesModule })), { loading: () => <ModuleSkeleton />, ssr: false })
@@ -166,6 +167,7 @@ export default function POSApp() {
   const renderModule = () => {
     switch (activeModule) {
       case 'sell':             return <SellModule />
+      case 'salon':            return <SalonModule />
       case 'kitchen':          return <KitchenModule />
       case 'inventory':        return <InventoryModule />
       case 'recipes':          return <RecipesModule />

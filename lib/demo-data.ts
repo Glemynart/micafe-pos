@@ -200,6 +200,7 @@ export const coinDenominations = [
 
 export const modules = [
   { id: 'sell', name: 'Vender', icon: 'ShoppingCart', roles: ['admin', 'cashier', 'supervisor'] },
+  { id: 'salon', name: 'Salón', icon: 'Armchair', roles: ['admin', 'cashier', 'supervisor'] },
   { id: 'kitchen', name: 'Cocina (KDS)', icon: 'ChefHat', roles: ['admin', 'cashier', 'supervisor'] },
   { id: 'alquiler_dashboard', name: 'Alquileres', icon: 'Timer', roles: ['admin', 'cashier', 'supervisor'] },
   { id: 'reservas', name: 'Reservas Web', icon: 'CalendarDays', roles: ['admin', 'cashier', 'supervisor'] },
