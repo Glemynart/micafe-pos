@@ -67,11 +67,16 @@ function productoToCartItem(p: Producto): CartItem {
   }
 }
 
-export function SellModule() {
+export interface SellModuleProps {
+  initialPedidoId?: string | null
+}
+
+export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   const [searchCode, setSearchCode] = useState('')
   const [selectedCartIndex, setSelectedCartIndex] = useState<number>(-1)
   const [selectedCustomer, setSelectedCustomer] = useState<string>('Consumidor Final')
   const [selectedMesaId, setSelectedMesaId] = useState<string | null>(null)
+  const [selectedPedidoId, setSelectedPedidoId] = useState<string | null>(null)
   const [selectedCliente, setSelectedCliente] = useState<{ id: string; nombre: string; documento: string; tipoDocumento: string } | null>(null)
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [clienteSearch, setClienteSearch] = useState('')
@@ -185,8 +190,47 @@ export function SellModule() {
 
   useEffect(() => suscribirClientes(setClientes), [])
 
-  // Obtener el carrito actual basado en la mesa seleccionada
-  const activePedido = pedidosActivos.find(p => p.mesaId === selectedMesaId)
+  // Bridge salon → sell: intent de navegación pendiente (consume-once).
+  // Se inicializa con initialPedidoId al montar. El efecto lo consume
+  // cuando pedidosActivos contiene el pedido objetivo. Tras consumirlo,
+  // el ref queda null y nunca vuelve a interferir.
+  const pendingNavRef = useRef<string | null>(initialPedidoId ?? null)
+
+  useEffect(() => {
+    const targetId = pendingNavRef.current
+    if (!targetId) return
+
+    const pedido = pedidosActivos.find(p => p.id === targetId && p.activo)
+    if (!pedido) return
+
+    pendingNavRef.current = null
+    setSelectedPedidoId(pedido.id)
+    setSelectedMesaId(pedido.mesaId)
+  }, [pedidosActivos])
+
+  // Auto-sync: al cambiar de mesa, seleccionar su pedido (si hay exactamente uno)
+  useEffect(() => {
+    if (pendingNavRef.current) return
+    if (selectedMesaId === null) {
+      setSelectedPedidoId(null)
+      return
+    }
+    const pedidosMesa = pedidosActivos.filter(p => p.mesaId === selectedMesaId && p.activo && p.estado === 'abierto')
+    if (pedidosMesa.length === 1) {
+      setSelectedPedidoId(pedidosMesa[0].id)
+    } else if (pedidosMesa.length === 0) {
+      setSelectedPedidoId(null)
+    }
+  }, [selectedMesaId, pedidosActivos])
+
+  // Obtener el pedido activo: por selectedPedidoId (preciso) o fallback por mesa
+  const activePedido = useMemo(() => {
+    if (selectedPedidoId) {
+      return pedidosActivos.find(p => p.id === selectedPedidoId && p.activo) ?? null
+    }
+    return pedidosActivos.find(p => p.mesaId === selectedMesaId && p.activo && p.estado === 'abierto') ?? null
+  }, [selectedPedidoId, selectedMesaId, pedidosActivos])
+
   const cart: PedidoItem[] = activePedido?.items || []
 
   const estadoCocina = useMemo(() => {

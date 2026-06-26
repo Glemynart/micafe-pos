@@ -87,7 +87,11 @@ function MesaCard({ info, selected, onSelect }: { info: InfoMesa; selected: bool
   )
 }
 
-export function SalonModule() {
+export interface SalonModuleProps {
+  onAbrirPedido?: (pedidoId: string) => void
+}
+
+export function SalonModule({ onAbrirPedido }: SalonModuleProps = {}) {
   const { espacioActivo } = useEspacios()
 
   const [mesas, setMesas] = useState<Mesa[]>([])
@@ -236,6 +240,15 @@ export function SalonModule() {
                   <CheckCircle2 className="h-3 w-3" />
                   {selectedInfo.comandasListas} lista{selectedInfo.comandasListas !== 1 && 's'}
                 </Badge>
+              )}
+              {onAbrirPedido && selectedInfo.pedidoActivo && (
+                <button
+                  onClick={() => onAbrirPedido(selectedInfo.pedidoActivo!.id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors active:scale-95"
+                >
+                  <ShoppingCart className="h-3 w-3" />
+                  Ir al pedido
+                </button>
               )}
             </div>
           </div>

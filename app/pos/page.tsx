@@ -6,7 +6,7 @@ import { GlobalCloseShift } from '@/components/pos/global-close-shift'
 import { TurnoGate } from '@/components/pos/turno-gate'
 import { Sidebar } from '@/components/pos/sidebar'
 import { LoginScreen } from '@/components/pos/login-screen'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useModulosHabilitados } from '@/contexts/modulos-context'
 import { doc, onSnapshot } from 'firebase/firestore'
@@ -48,6 +48,7 @@ export default function POSApp() {
   const router = useRouter()
   const { modulos: modulosHabilitados } = useModulosHabilitados()
   const [activeModule, setActiveModule] = useState('sell')
+  const [pendingPedidoId, setPendingPedidoId] = useState<string | null>(null)
 
   // Suscripcion reactiva a permisos del rol desde Firestore
   const [rolePermisos, setRolePermisos] = useState<string[]>([])
@@ -106,8 +107,14 @@ export default function POSApp() {
   const setSafeModule = (moduleId: string) => {
     if (userPerms.has(moduleId) && modulosSet.has(moduleId)) {
       setActiveModule(moduleId)
+      setPendingPedidoId(null)
     }
   }
+
+  const handleAbrirPedido = useCallback((pedidoId: string) => {
+    setPendingPedidoId(pedidoId)
+    setActiveModule('sell')
+  }, [])
 
   // ── Interceptar el cierre de sesión ──
   const handleLogoutAttempt = async () => {
@@ -166,8 +173,8 @@ export default function POSApp() {
   // ── Módulo activo: memoizado para no redefinir en cada render ──
   const renderModule = () => {
     switch (activeModule) {
-      case 'sell':             return <SellModule />
-      case 'salon':            return <SalonModule />
+      case 'sell':             return <SellModule initialPedidoId={pendingPedidoId} />
+      case 'salon':            return <SalonModule onAbrirPedido={handleAbrirPedido} />
       case 'kitchen':          return <KitchenModule />
       case 'inventory':        return <InventoryModule />
       case 'recipes':          return <RecipesModule />
