@@ -82,7 +82,7 @@ export function AlquileresModule() {
 
   const iniciarTiempo = async (mesa: Mesa) => {
     if (!espacioActivo) return
-    const nuevoPedido: Omit<PedidoActivo, 'actualizadoEn' | 'id'> = {
+    const nuevoPedido: Omit<PedidoActivo, 'actualizadoEn' | 'id' | 'activo'> = {
       mesaId: mesa.id,
       nombreMesa: mesa.nombre,
       espacioId: espacioActivo.id,
