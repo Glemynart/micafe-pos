@@ -1,5 +1,5 @@
 import { db } from './firebase'
-import { collection, doc, setDoc, onSnapshot, query, where, deleteDoc, serverTimestamp, getDoc, orderBy } from 'firebase/firestore'
+import { collection, doc, setDoc, onSnapshot, query, where, deleteDoc, serverTimestamp, runTransaction, arrayUnion } from 'firebase/firestore'
 
 export interface PedidoItem {
   id: string // Product ID
@@ -15,7 +15,8 @@ export interface PedidoItem {
   impoconsumo: number
   hasRecipe: boolean
   quantity: number
-  enviadoCocina?: boolean // True if this exact item has been sent to the kitchen
+  cantidadEnviada?: number
+  enviadoCocina?: boolean // Deprecated — usar cantidadEnviada
 }
 
 export interface PedidoActivo {
@@ -25,8 +26,12 @@ export interface PedidoActivo {
   espacioId: string
   cajeroId: string
   items: PedidoItem[]
-  estado: 'abierto' | 'en_preparacion'
+  estado: 'abierto' | 'pagado' | 'cancelado'
+  activo: boolean
+  comandaIds?: string[]
   inicioAlquiler?: number | null // Timestamp en ms para alquileres
+  fechaPago?: any
+  ventaId?: string
   actualizadoEn: any
 }
 
@@ -57,7 +62,8 @@ const COMANDAS_COLLECTION = 'comandas_cocina'
 export function suscribirPedidosActivos(espacioId: string, callback: (pedidos: PedidoActivo[]) => void) {
   const q = query(
     collection(db, COLLECTION_NAME),
-    where('espacioId', '==', espacioId)
+    where('espacioId', '==', espacioId),
+    where('activo', '==', true)
   )
 
   return onSnapshot(q, (snapshot) => {
@@ -66,68 +72,242 @@ export function suscribirPedidosActivos(espacioId: string, callback: (pedidos: P
   })
 }
 
-export async function guardarPedido(pedido: Omit<PedidoActivo, 'actualizadoEn' | 'id'> & { id?: string }) {
+export async function guardarPedido(pedido: Omit<PedidoActivo, 'actualizadoEn' | 'id' | 'activo' | 'comandaIds'> & { id?: string }) {
   const pedidoId = pedido.id || doc(collection(db, COLLECTION_NAME)).id
   await setDoc(doc(db, COLLECTION_NAME, pedidoId), {
     ...pedido,
     id: pedidoId,
+    activo: true,
+    comandaIds: [],
     actualizadoEn: serverTimestamp()
   }, { merge: true })
 }
 
-export async function enviarPedidoACocina(pedidoId: string) {
-  const docRef = doc(db, COLLECTION_NAME, pedidoId);
-  const snap = await getDoc(docRef);
-  if (!snap.exists()) return;
+export async function agregarItemPedido(
+  pedidoId: string,
+  newItem: PedidoItem,
+) {
+  await runTransaction(db, async (transaction) => {
+    const docRef = doc(db, COLLECTION_NAME, pedidoId)
+    const snap = await transaction.get(docRef)
+    if (!snap.exists()) throw new Error('Pedido no encontrado')
 
-  const pedido = snap.data() as PedidoActivo;
-  const itemsToSend: ComandaItem[] = [];
-  
-  const isAdicion = pedido.items.some((i: any) => (i.cantidadEnviada || 0) > 0);
+    const pedido = snap.data() as PedidoActivo
+    if (!pedido.activo) throw new Error('Pedido no está activo')
 
-  const updatedItems = pedido.items.map(item => {
-    const cantidadEnviada = (item as any).cantidadEnviada || 0;
-    const difference = item.quantity - cantidadEnviada;
-    
-    // Solo si es un producto que se prepara (hasRecipe o bebidas, etc, pero por ahora enviaremos todo lo nuevo)
-    if (difference > 0) {
-      itemsToSend.push({
-        uid: item.uid || item.id,
-        name: item.name,
-        quantity: difference,
-      });
-      return { ...item, cantidadEnviada: item.quantity };
+    const existingIndex = pedido.items.findIndex(i => i.id === newItem.id)
+    let updatedItems: PedidoItem[]
+
+    if (existingIndex !== -1) {
+      updatedItems = pedido.items.map((it, idx) => {
+        if (idx !== existingIndex) return it
+        return { ...it, quantity: it.quantity + newItem.quantity }
+      })
+    } else {
+      updatedItems = [{ ...newItem, uid: newItem.uid || crypto.randomUUID() }, ...pedido.items]
     }
-    return item;
+
+    transaction.update(docRef, {
+      items: updatedItems,
+      actualizadoEn: serverTimestamp(),
+    })
+  })
+}
+
+export async function enviarPedidoACocina(pedidoId: string) {
+  await runTransaction(db, async (transaction) => {
+    const docRef = doc(db, COLLECTION_NAME, pedidoId);
+    const snap = await transaction.get(docRef);
+    if (!snap.exists()) return;
+
+    const pedido = snap.data() as PedidoActivo;
+    if (!pedido.activo) return;
+
+    const itemsToSend: ComandaItem[] = [];
+
+    const isAdicion = pedido.items.some(i => (i.cantidadEnviada || 0) > 0);
+
+    const updatedItems = pedido.items.map(item => {
+      const cantidadEnviada = item.cantidadEnviada || 0;
+      const difference = item.quantity - cantidadEnviada;
+
+      if (difference > 0) {
+        itemsToSend.push({
+          uid: item.uid || item.id,
+          name: item.name,
+          quantity: difference,
+        });
+        return { ...item, cantidadEnviada: item.quantity };
+      }
+      return item;
+    });
+
+    if (itemsToSend.length === 0) return;
+
+    const comandaId = doc(collection(db, COMANDAS_COLLECTION)).id;
+    transaction.set(doc(db, COMANDAS_COLLECTION, comandaId), {
+      id: comandaId,
+      pedidoId: pedido.id,
+      mesaId: pedido.mesaId,
+      nombreMesa: pedido.nombreMesa,
+      espacioId: pedido.espacioId,
+      cajeroId: pedido.cajeroId,
+      items: itemsToSend,
+      estado: 'pendiente',
+      tipo: isAdicion ? 'adicion' : 'nuevo',
+      creadoEn: serverTimestamp()
+    });
+
+    transaction.update(docRef, {
+      items: updatedItems,
+      comandaIds: arrayUnion(comandaId),
+      actualizadoEn: serverTimestamp()
+    });
   });
+}
 
-  if (itemsToSend.length === 0) return; // No hay nada nuevo para enviar
+export async function modificarItemPedido(
+  pedidoId: string,
+  itemUid: string,
+  newQuantity: number,
+) {
+  if (newQuantity < 0) {
+    throw new Error(`Cantidad inválida: ${newQuantity}`)
+  }
 
-  // 1. Crear la comanda para KDS
-  const comandaId = doc(collection(db, COMANDAS_COLLECTION)).id;
-  await setDoc(doc(db, COMANDAS_COLLECTION, comandaId), {
-    id: comandaId,
-    pedidoId: pedido.id,
-    mesaId: pedido.mesaId,
-    nombreMesa: pedido.nombreMesa,
-    espacioId: pedido.espacioId,
-    cajeroId: pedido.cajeroId,
-    items: itemsToSend,
-    estado: 'pendiente',
-    tipo: isAdicion ? 'adicion' : 'nuevo',
-    creadoEn: serverTimestamp()
-  });
+  await runTransaction(db, async (transaction) => {
+    const docRef = doc(db, COLLECTION_NAME, pedidoId)
+    const snap = await transaction.get(docRef)
+    if (!snap.exists()) throw new Error('Pedido no encontrado')
 
-  // 2. Actualizar el pedido
-  await setDoc(docRef, {
-    items: updatedItems,
-    estado: 'en_preparacion',
-    actualizadoEn: serverTimestamp()
-  }, { merge: true });
+    const pedido = snap.data() as PedidoActivo
+    if (!pedido.activo) throw new Error('Pedido no está activo')
+
+    const itemIndex = pedido.items.findIndex(i => (i.uid || i.id) === itemUid)
+    if (itemIndex === -1) throw new Error('Item no encontrado en el pedido')
+
+    const item = pedido.items[itemIndex]
+    const cantidadEnviada = item.cantidadEnviada || 0
+    const isRemoval = newQuantity === 0
+
+    const deltaCancelar = isRemoval
+      ? cantidadEnviada
+      : Math.max(0, cantidadEnviada - newQuantity)
+
+    if (deltaCancelar > cantidadEnviada) {
+      throw new Error(
+        `Cancelación imposible: deltaCancelar (${deltaCancelar}) > cantidadEnviada (${cantidadEnviada})`
+      )
+    }
+
+    let cancelacionComandaId: string | undefined
+    if (deltaCancelar > 0) {
+      cancelacionComandaId = doc(collection(db, COMANDAS_COLLECTION)).id
+      transaction.set(doc(db, COMANDAS_COLLECTION, cancelacionComandaId), {
+        id: cancelacionComandaId,
+        pedidoId: pedido.id,
+        mesaId: pedido.mesaId,
+        nombreMesa: pedido.nombreMesa,
+        espacioId: pedido.espacioId,
+        cajeroId: pedido.cajeroId,
+        items: [{
+          uid: item.uid || item.id,
+          name: item.name,
+          quantity: deltaCancelar,
+        }],
+        estado: 'pendiente',
+        tipo: 'cancelacion',
+        creadoEn: serverTimestamp(),
+      })
+    }
+
+    let updatedItems: PedidoItem[]
+    if (isRemoval) {
+      updatedItems = pedido.items.filter((_, idx) => idx !== itemIndex)
+    } else {
+      updatedItems = pedido.items.map((it, idx) => {
+        if (idx !== itemIndex) return it
+        return {
+          ...it,
+          quantity: newQuantity,
+          cantidadEnviada: Math.min(cantidadEnviada, newQuantity),
+        }
+      })
+    }
+
+    if (updatedItems.length === 0) {
+      transaction.update(docRef, {
+        items: [],
+        estado: 'cancelado',
+        activo: false,
+        actualizadoEn: serverTimestamp(),
+        ...(cancelacionComandaId ? { comandaIds: arrayUnion(cancelacionComandaId) } : {}),
+      })
+    } else {
+      transaction.update(docRef, {
+        items: updatedItems,
+        actualizadoEn: serverTimestamp(),
+        ...(cancelacionComandaId ? { comandaIds: arrayUnion(cancelacionComandaId) } : {}),
+      })
+    }
+  })
+}
+
+export async function finalizarAlquiler(pedidoId: string, itemAlquiler: PedidoItem) {
+  await runTransaction(db, async (transaction) => {
+    const docRef = doc(db, COLLECTION_NAME, pedidoId)
+    const snap = await transaction.get(docRef)
+    if (!snap.exists()) throw new Error('Pedido no encontrado')
+
+    const pedido = snap.data() as PedidoActivo
+    if (!pedido.inicioAlquiler) return
+
+    const existingIndex = pedido.items.findIndex(i => i.id === itemAlquiler.id)
+    const updatedItems = existingIndex !== -1
+      ? pedido.items
+      : [...pedido.items, itemAlquiler]
+
+    transaction.update(docRef, {
+      items: updatedItems,
+      inicioAlquiler: null,
+      actualizadoEn: serverTimestamp(),
+    })
+  })
 }
 
 export async function eliminarPedido(pedidoId: string) {
   await deleteDoc(doc(db, COLLECTION_NAME, pedidoId))
+}
+
+export async function archivarPedidoConComandas(pedidoId: string, ventaId: string) {
+  await runTransaction(db, async (transaction) => {
+    const pedidoRef = doc(db, COLLECTION_NAME, pedidoId)
+    const pedidoSnap = await transaction.get(pedidoRef)
+    if (!pedidoSnap.exists()) throw new Error('Pedido no encontrado')
+
+    const pedido = pedidoSnap.data() as PedidoActivo
+    if (!pedido.activo || pedido.estado !== 'abierto') {
+      throw new Error('Pedido ya no está activo')
+    }
+
+    const ids = pedido.comandaIds || []
+    const comandaSnaps = await Promise.all(
+      ids.map(id => transaction.get(doc(db, COMANDAS_COLLECTION, id)))
+    )
+
+    transaction.update(pedidoRef, {
+      estado: 'pagado',
+      activo: false,
+      fechaPago: serverTimestamp(),
+      ventaId,
+    })
+
+    for (const snap of comandaSnaps) {
+      if (snap.exists() && snap.data().estado !== 'entregado') {
+        transaction.update(snap.ref, { estado: 'entregado', completadoEn: serverTimestamp() })
+      }
+    }
+  })
 }
 
 // --- COMANDAS KDS (Kitchen Display System) ---
@@ -152,19 +332,34 @@ export function suscribirComandasCocina(espacioId: string, callback: (comandas: 
   })
 }
 
-export async function crearComanda(comanda: Omit<ComandaCocina, 'id' | 'creadoEn'>) {
-  const comandaId = doc(collection(db, COMANDAS_COLLECTION)).id
-  await setDoc(doc(db, COMANDAS_COLLECTION, comandaId), {
-    ...comanda,
-    id: comandaId,
-    creadoEn: serverTimestamp()
+export async function actualizarEstadoComanda(comandaId: string, nuevoEstado: ComandaCocina['estado']) {
+  await runTransaction(db, async (transaction) => {
+    const ref = doc(db, COMANDAS_COLLECTION, comandaId)
+    const snap = await transaction.get(ref)
+    if (!snap.exists()) return
+
+    const comanda = snap.data() as ComandaCocina
+    if (comanda.estado === 'entregado') return
+
+    transaction.update(ref, {
+      estado: nuevoEstado,
+      ...(nuevoEstado === 'listo' || nuevoEstado === 'entregado'
+        ? { completadoEn: serverTimestamp() }
+        : {}),
+    })
   })
 }
 
-export async function actualizarEstadoComanda(comandaId: string, nuevoEstado: ComandaCocina['estado']) {
-  const data: any = { estado: nuevoEstado }
-  if (nuevoEstado === 'listo' || nuevoEstado === 'entregado') {
-    data.completadoEn = serverTimestamp()
-  }
-  await setDoc(doc(db, COMANDAS_COLLECTION, comandaId), data, { merge: true })
+export function suscribirComandasActivas(espacioId: string, callback: (comandas: ComandaCocina[]) => void) {
+  const q = query(
+    collection(db, COMANDAS_COLLECTION),
+    where('espacioId', '==', espacioId),
+    where('estado', 'in', ['pendiente', 'en_preparacion', 'listo'])
+  )
+
+  return onSnapshot(q, (snapshot) => {
+    const comandas = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ComandaCocina))
+    callback(comandas)
+  })
 }
+

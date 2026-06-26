@@ -104,3 +104,6 @@ scripts/encode-url.js
 audit-*.txt
 audit-*.json
 fase9c-post-execute.txt
+
+# Claude Code local session state
+.claude/
