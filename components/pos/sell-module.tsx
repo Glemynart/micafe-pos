@@ -11,6 +11,8 @@ import { suscribirClientes, filtrarClientes, crearCliente, type Cliente } from '
 import { suscribirMesas, type Mesa } from '@/lib/mesas-service'
 import { suscribirPedidosActivos, guardarPedido, agregarItemPedido, enviarPedidoACocina, modificarItemPedido, suscribirComandasActivas, type PedidoActivo, type PedidoItem, type ComandaCocina } from '@/lib/pedidos-service'
 import { suscribirTurnoActivo, type Turno } from '@/lib/turnos-service'
+import { separarCuenta, type ItemSeparacion } from '@/lib/separar-cuenta-service'
+import { SepararCuentaDialog } from '@/components/pos/separar-cuenta-dialog'
 import { DynamicIcon } from '@/components/ui/dynamic-icon'
 
 import { toast } from 'sonner'
@@ -32,6 +34,7 @@ import {
   ChevronRight,
   Search,
   ChefHat,
+  SplitSquareHorizontal,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -233,6 +236,24 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
 
   const cart: PedidoItem[] = activePedido?.items || []
 
+  const pedidosMesaActual = useMemo(
+    () => selectedMesaId
+      ? pedidosActivos.filter(p => p.mesaId === selectedMesaId && p.activo && p.estado === 'abierto')
+      : [],
+    [selectedMesaId, pedidosActivos],
+  )
+
+  const handleSepararCuenta = useCallback(async (items: ItemSeparacion[]) => {
+    if (!activePedido || !usuario) return
+    try {
+      const nuevoId = await separarCuenta(activePedido.id, items, usuario.uid)
+      toast.success('Cuenta separada correctamente')
+      setSelectedPedidoId(nuevoId)
+    } catch (e: any) {
+      toast.error(e.message || 'Error al separar cuenta')
+    }
+  }, [activePedido, usuario])
+
   const estadoCocina = useMemo(() => {
     if (!activePedido) return null
     const comandasPedido = comandasActivas.filter(
@@ -357,6 +378,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
 
   // Dialogs
   const [showMesasDialog, setShowMesasDialog] = useState(false)
+  const [showSepararCuenta, setShowSepararCuenta] = useState(false)
   const [showQuickProduct, setShowQuickProduct] = useState(false)
   const [showPayment, setShowPayment] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<string>('efectivo')
@@ -844,6 +866,24 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                     {formatCurrency(subtotal)}
                 </div>
             </button>
+            {pedidosMesaActual.length > 1 && (
+              <div className="flex gap-1.5 mt-2">
+                {pedidosMesaActual.map((p, idx) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setSelectedPedidoId(p.id)}
+                    className={cn(
+                      'flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all active:scale-95',
+                      selectedPedidoId === p.id
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80',
+                    )}
+                  >
+                    Cuenta {idx + 1}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between px-6 py-4">
@@ -956,6 +996,16 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                   }} className="h-16 flex-[1] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95">
                       Cocina
                   </Button>
+                  {activePedido && activePedido.mesaId && cart.length >= 2 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowSepararCuenta(true)}
+                      className="h-16 flex-[1] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95"
+                    >
+                      <SplitSquareHorizontal className="mr-1.5 h-4 w-4" />
+                      Separar
+                    </Button>
+                  )}
                   <Button
                     onClick={() => setShowPayment(true)}
                     disabled={cart.length === 0}
@@ -1415,6 +1465,16 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {activePedido && (
+        <SepararCuentaDialog
+          open={showSepararCuenta}
+          onOpenChange={setShowSepararCuenta}
+          items={cart}
+          nombreMesa={activePedido.nombreMesa}
+          onConfirm={handleSepararCuenta}
+        />
+      )}
     </div>
   )
 }
