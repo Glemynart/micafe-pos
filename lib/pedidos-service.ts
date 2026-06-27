@@ -22,6 +22,8 @@ export interface PedidoItem {
 export type TipoMovimiento =
   | 'separacion_origen'
   | 'separacion_destino'
+  | 'union_origen'
+  | 'union_destino'
 
 export interface MovimientoCuenta {
   tipo: TipoMovimiento
@@ -38,13 +40,14 @@ export interface PedidoActivo {
   espacioId: string
   cajeroId: string
   items: PedidoItem[]
-  estado: 'abierto' | 'pagado' | 'cancelado'
+  estado: 'abierto' | 'pagado' | 'cancelado' | 'unificado'
   activo: boolean
   comandaIds?: string[]
   movimientos?: MovimientoCuenta[]
   inicioAlquiler?: number | null // Timestamp en ms para alquileres
   fechaPago?: any
   ventaId?: string
+  unionDestinoId?: string
   actualizadoEn: any
 }
 
