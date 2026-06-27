@@ -985,12 +985,12 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
             <div className="p-4 pt-0 space-y-3">
               {cart.map((item, idx) => (
                   <div key={item.uid || `${item.id}-${idx}`} className="flex flex-col p-4 rounded-xl border border-border bg-card shadow-sm group">
-                      <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
+                      <div className="flex items-start justify-between mb-3 gap-2">
+                          <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground shrink-0">
                                   <DynamicIcon name={item.emoji} className="w-5 h-5" />
                               </div>
-                              <div>
+                              <div className="min-w-0">
                                   <p className="font-semibold text-foreground text-sm leading-tight flex items-center flex-wrap gap-2">
                                       {item.name}
                                       {(item.cantidadEnviada || 0) > 0 && (
@@ -1005,17 +1005,15 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                                   <p className="text-[10px] text-muted-foreground">{item.id.substring(0, 15)}</p>
                               </div>
                           </div>
+                          <button onClick={() => removeFromCart(item.uid || item.id)} className="text-muted-foreground hover:text-destructive transition-colors active:scale-95 p-2 shrink-0 -mt-1 -mr-1"><Trash2 className="h-5 w-5"/></button>
                       </div>
-                      <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 border border-border">
+                      <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 border border-border shrink-0">
                               <button onClick={() => updateQuantity(item.uid || item.id, -1)} className="w-12 h-12 flex items-center justify-center rounded-md hover:bg-background text-foreground shadow-sm transition-all active:scale-90 touch-target"><Minus className="h-5 w-5"/></button>
                               <span className="w-10 text-center font-bold text-foreground text-lg">{item.quantity}</span>
                               <button onClick={() => updateQuantity(item.uid || item.id, 1)} className="w-12 h-12 flex items-center justify-center rounded-md hover:bg-background text-foreground shadow-sm transition-all active:scale-90 touch-target"><Plus className="h-5 w-5"/></button>
                           </div>
-                          <div className="flex items-center gap-4">
-                              <p className="font-black text-primary text-lg">{formatCurrency(item.price * item.quantity)}</p>
-                              <button onClick={() => removeFromCart(item.uid || item.id)} className="text-muted-foreground hover:text-destructive transition-colors active:scale-95 p-2"><Trash2 className="h-5 w-5"/></button>
-                          </div>
+                          <p className="font-black text-primary text-lg truncate">{formatCurrency(item.price * item.quantity)}</p>
                       </div>
                   </div>
               ))}
@@ -1071,7 +1069,8 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                   />
               </div>
 
-              <div className="flex gap-3">
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-3">
                   <Button variant="outline" onClick={async () => {
                     if (activePedido) {
                       try {
@@ -1081,14 +1080,14 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                         toast.error(e.message || 'Error al enviar a cocina')
                       }
                     }
-                  }} className="h-16 flex-[1] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95">
+                  }} className="h-16 flex-1 min-w-[100px] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95">
                       Cocina
                   </Button>
                   {activePedido && activePedido.mesaId && cart.length >= 2 && (
                     <Button
                       variant="outline"
                       onClick={() => setShowSepararCuenta(true)}
-                      className="h-16 flex-[1] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95"
+                      className="h-16 flex-1 min-w-[100px] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95"
                     >
                       <SplitSquareHorizontal className="mr-1.5 h-4 w-4" />
                       Separar
@@ -1098,7 +1097,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                     <Button
                       variant="outline"
                       onClick={() => setShowUnirCuentas(true)}
-                      className="h-16 flex-[1] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95"
+                      className="h-16 flex-1 min-w-[100px] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95"
                     >
                       <Merge className="mr-1.5 h-4 w-4" />
                       Unir
@@ -1108,19 +1107,20 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                     <Button
                       variant="outline"
                       onClick={() => setShowTrasladarCuenta(true)}
-                      className="h-16 flex-[1] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95"
+                      className="h-16 flex-1 min-w-[100px] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95"
                     >
                       <ArrowRightLeft className="mr-1.5 h-4 w-4" />
                       Trasladar
                     </Button>
                   )}
-                  <Button
-                    onClick={() => setShowPayment(true)}
-                    disabled={cart.length === 0}
-                    className="gold-cta gold-sheen h-16 flex-[2] rounded-xl bg-gold hover:bg-gold-strong text-navy font-black text-xl tracking-wide transition-all active:scale-95 border-none relative overflow-hidden disabled:opacity-50 disabled:saturate-50 disabled:animate-none"
-                  >
-                      <Banknote className="mr-2 h-6 w-6 relative z-10" strokeWidth={2.5} /> <span className="relative z-10">COBRAR</span>
-                  </Button>
+                </div>
+                <Button
+                  onClick={() => setShowPayment(true)}
+                  disabled={cart.length === 0}
+                  className="gold-cta gold-sheen h-16 w-full rounded-xl bg-gold hover:bg-gold-strong text-navy font-black text-xl tracking-wide transition-all active:scale-95 border-none relative overflow-hidden disabled:opacity-50 disabled:saturate-50 disabled:animate-none"
+                >
+                    <Banknote className="mr-2 h-6 w-6 relative z-10" strokeWidth={2.5} /> <span className="relative z-10">COBRAR</span>
+                </Button>
               </div>
           </div>
         </Card>
