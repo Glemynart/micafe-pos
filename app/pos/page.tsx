@@ -62,32 +62,26 @@ export default function POSApp() {
     return unsub
   }, [usuario?.uid, usuario?.rol])
 
-  // Merge permisos: role doc de Firestore es la fuente autoritativa.
-  // Per-user overrides solo si difieren del role doc.
   const userPerms = useMemo(() => {
     const perUser = usuario?.permisos
-    let finalPerms = new Set<string>()
-    // Fuente 1: role doc de Firestore (se actualiza en tiempo real)
+    const finalPerms = new Set<string>()
+
     if (rolePermisos.length > 0) {
-      // Si el usuario tiene permisos que NO coinciden con el rol → override per-user
-      const roleSet = new Set(rolePermisos)
-      // Override per-usuario solo si el usuario tiene permisos FUERA del rol (custom grants).
-      // Si el rol creció (nuevos módulos), todos heredan sin necesidad de actualizar cada usuario.
-      const perUserDiffers = perUser && perUser.some(m => !roleSet.has(m))
-      finalPerms = perUserDiffers ? new Set(perUser!) : roleSet
-    } else if (perUser && perUser.length > 0) {
-      // Fuente 2: permisos del doc del usuario (estáticos hasta refresh)
-      finalPerms = new Set(perUser)
-    } else {
-      // Fuente 3: fallback hardcoded (solo si no hay nada en Firestore)
-      finalPerms = new Set(["sell"])
+      for (const p of rolePermisos) finalPerms.add(p)
     }
-    
-    // Inyectar 'reservas' por retrocompatibilidad
+
+    if (perUser && perUser.length > 0) {
+      for (const p of perUser) finalPerms.add(p)
+    }
+
+    if (finalPerms.size === 0) {
+      finalPerms.add('sell')
+    }
+
     if (usuario?.rol === 'admin' || usuario?.rol === 'cajero') {
       finalPerms.add('reservas')
     }
-    
+
     return finalPerms
   }, [usuario?.permisos, usuario?.rol, rolePermisos])
 
