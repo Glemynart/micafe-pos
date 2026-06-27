@@ -1163,11 +1163,11 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
 
               {/* Mesas List */}
               {mesas.map(mesa => {
-                const mesaTienePedido = pedidosActivos.some(p => p.mesaId === mesa.id)
-                const pedidoMesa = pedidosActivos.find(p => p.mesaId === mesa.id)
+                const pedidosMesa = pedidosActivos.filter(p => p.mesaId === mesa.id && p.activo && p.estado === 'abierto')
+                const mesaTienePedido = pedidosMesa.length > 0
                 const isActive = selectedMesaId === mesa.id
-                const mesaComandasNoCancelacion = pedidoMesa
-                  ? comandasActivas.filter(c => c.pedidoId === pedidoMesa.id && c.tipo !== 'cancelacion')
+                const mesaComandasNoCancelacion = mesaTienePedido
+                  ? comandasActivas.filter(c => pedidosMesa.some(p => p.id === c.pedidoId) && c.tipo !== 'cancelacion')
                   : []
                 const mesaListaEnCocina = mesaComandasNoCancelacion.length > 0 && mesaComandasNoCancelacion.every(c => c.estado === 'listo')
 
@@ -1212,10 +1212,10 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                       {mesaTienePedido ? (
                         <div className="flex items-center w-full mt-1">
                           <span className="text-[11px] font-bold text-muted-foreground">
-                            {pedidoMesa?.items.length || 0} ITEMS 🍽️
+                            {pedidosMesa.reduce((acc, p) => acc + p.items.length, 0)} ITEMS 🍽️
                           </span>
                           <span className="font-black text-primary text-sm ml-auto">
-                            {formatCurrency(pedidoMesa?.items.reduce((acc, i) => acc + (i.price * i.quantity), 0) || 0)}
+                            {formatCurrency(pedidosMesa.reduce((acc, p) => acc + p.items.reduce((s, i) => s + (i.price * i.quantity), 0), 0))}
                           </span>
                         </div>
                       ) : (
