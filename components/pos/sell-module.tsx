@@ -12,7 +12,9 @@ import { suscribirMesas, type Mesa } from '@/lib/mesas-service'
 import { suscribirPedidosActivos, guardarPedido, agregarItemPedido, enviarPedidoACocina, modificarItemPedido, suscribirComandasActivas, type PedidoActivo, type PedidoItem, type ComandaCocina } from '@/lib/pedidos-service'
 import { suscribirTurnoActivo, type Turno } from '@/lib/turnos-service'
 import { separarCuenta, type ItemSeparacion } from '@/lib/separar-cuenta-service'
+import { unirCuentas } from '@/lib/unir-cuentas-service'
 import { SepararCuentaDialog } from '@/components/pos/separar-cuenta-dialog'
+import { UnirCuentasDialog } from '@/components/pos/unir-cuentas-dialog'
 import { DynamicIcon } from '@/components/ui/dynamic-icon'
 
 import { toast } from 'sonner'
@@ -35,6 +37,7 @@ import {
   Search,
   ChefHat,
   SplitSquareHorizontal,
+  Merge,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -254,6 +257,17 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
     }
   }, [activePedido, usuario])
 
+  const handleUnirCuentas = useCallback(async (destinoId: string, origenIds: string[]) => {
+    if (!usuario) return
+    try {
+      await unirCuentas(destinoId, origenIds, usuario.uid)
+      toast.success('Cuentas unidas correctamente')
+      setSelectedPedidoId(destinoId)
+    } catch (e: any) {
+      toast.error(e.message || 'Error al unir cuentas')
+    }
+  }, [usuario])
+
   const estadoCocina = useMemo(() => {
     if (!activePedido) return null
     const comandasPedido = comandasActivas.filter(
@@ -379,6 +393,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   // Dialogs
   const [showMesasDialog, setShowMesasDialog] = useState(false)
   const [showSepararCuenta, setShowSepararCuenta] = useState(false)
+  const [showUnirCuentas, setShowUnirCuentas] = useState(false)
   const [showQuickProduct, setShowQuickProduct] = useState(false)
   const [showPayment, setShowPayment] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<string>('efectivo')
@@ -1027,6 +1042,16 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                       Separar
                     </Button>
                   )}
+                  {activePedido && activePedido.mesaId && pedidosMesaActual.length >= 2 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowUnirCuentas(true)}
+                      className="h-16 flex-[1] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95"
+                    >
+                      <Merge className="mr-1.5 h-4 w-4" />
+                      Unir
+                    </Button>
+                  )}
                   <Button
                     onClick={() => setShowPayment(true)}
                     disabled={cart.length === 0}
@@ -1494,6 +1519,18 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
           items={cart}
           nombreMesa={activePedido.nombreMesa}
           onConfirm={handleSepararCuenta}
+        />
+      )}
+
+      {activePedido && activePedido.mesaId && pedidosMesaActual.length >= 2 && (
+        <UnirCuentasDialog
+          open={showUnirCuentas}
+          onOpenChange={setShowUnirCuentas}
+          pedidos={pedidosMesaActual}
+          comandas={comandasActivas}
+          pedidoDestinoIdInicial={selectedPedidoId}
+          nombreMesa={activePedido.nombreMesa}
+          onConfirm={handleUnirCuentas}
         />
       )}
     </div>
