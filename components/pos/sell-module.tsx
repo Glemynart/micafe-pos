@@ -426,7 +426,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
 
     const existing = addToCartTimers.current.get(product.id)
     if (existing) clearTimeout(existing)
-    addToCartTimers.current.set(product.id, setTimeout(() => flushAddToCart(product.id), 300))
+    addToCartTimers.current.set(product.id, setTimeout(() => flushAddToCart(product.id), 150))
   }, [flushAddToCart])
 
   const addToCartQuantity = useCallback(async (product: Producto, qty: number) => {
