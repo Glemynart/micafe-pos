@@ -1,6 +1,6 @@
 # PROJECT_DISCOVERY.md
 
-> Estado actual del repositorio relevado el 2026-06-25.  
+> Estado actual del repositorio relevado el 2026-06-26.  
 > Solo documenta lo que existe — sin propuestas de cambio.
 
 ---
@@ -8,6 +8,28 @@
 ## Historial de correcciones
 
 ### 2026-06
+
+#### FASE-13 PR3 — Separación de cuentas — COMPLETADO
+
+Implementación:
+- `separarCuenta()` en `lib/separar-cuenta-service.ts`: transacción atómica que mueve items (totales o parciales) de un pedido a un nuevo pedido en la misma mesa
+- Algoritmo de reparto de `cantidadEnviada` que prioriza mover items no enviados a cocina, preservando el invariante `0 ≤ cantidadEnviada ≤ quantity` en ambos pedidos
+- Modelo `MovimientoCuenta` (inmutable) embebido en `PedidoActivo.movimientos[]` para trazabilidad de separaciones, con tipos extensibles (`separacion_origen`, `separacion_destino`)
+- `comandaIds` mantiene semántica estricta de relación de creación; las comandas existentes no se modifican durante la separación (cocina completamente desacoplada)
+- `SepararCuentaDialog` con selección por item y cantidades parciales (+/-), badges de estado de cocina, validaciones (mínimo 1 item en origen, mínimo 1 seleccionado)
+- Selector de cuentas por tabs en `sell-module` (visible solo con 2+ pedidos activos por mesa)
+- Panel multi-cuenta en `salon-module` con badges de cocina y botón "Ir" por cada cuenta
+
+Archivos nuevos: `lib/separar-cuenta-service.ts`, `components/pos/separar-cuenta-dialog.tsx`
+Archivos modificados: `lib/pedidos-service.ts`, `components/pos/sell-module.tsx`, `components/pos/salon-module.tsx`
+
+Decisiones arquitectónicas:
+- **Comandas intactas:** la separación es una operación de facturación, no de cocina. No se crean, modifican ni eliminan comandas.
+- **`Timestamp.now()` para `MovimientoCuenta.fecha`:** Firestore prohíbe `serverTimestamp()` dentro de arrays; `actualizadoEn` sigue usando `serverTimestamp()` a nivel superior.
+- **Trazabilidad vía `movimientos[]`:** cadena bidireccional recorrible (A.movimientos → B, B.movimientos → A) sin sobrecargar `comandaIds`.
+
+Deuda técnica identificada para PR 4:
+- **IMP-1:** Las comandas de items ya enviados que se mueven quedan ancladas al pedido origen. Si PR 4 implementa "trasladar cuenta" a otra mesa, debe diseñar cómo manejar comandas con `nombreMesa` del origen.
 
 #### FASE-13 PR2 — Refactor estructural para múltiples cuentas — COMPLETADO
 
@@ -155,6 +177,7 @@ Cada módulo se carga dinámicamente (`next/dynamic`, `ssr: false`) desde `/pos`
 | Inventario | `inventory-module.tsx` | Control de stock |
 | Recetas | `recipes-module.tsx` | Combos / recetas con insumos |
 | Compras | `purchases-module.tsx` | Órdenes a proveedores |
+| Salón | `salon-module.tsx` | Mapa de mesas con estado derivado y multi-cuenta |
 | Cocina | `kitchen-module.tsx` | Pantalla de órdenes para cocina |
 | Turnos | `shifts-module.tsx` | Apertura y cierre de caja |
 | Mermas | `waste-module.tsx` | Registro de pérdidas |
@@ -175,6 +198,7 @@ Cada módulo se carga dinámicamente (`next/dynamic`, `ssr: false`) desde `/pos`
 | TurnoGate | `turno-gate.tsx` | Bloquea POS hasta que cajero/supervisor abra turno con base declarada |
 | Reservas Banner | `reservas-banner.tsx` | Banner persistente en POS con reservas activas/próximas |
 | Cierre de Turno | `global-close-shift.tsx` | Modal de cierre de turno al cerrar sesión |
+| Separar Cuenta | `separar-cuenta-dialog.tsx` | Diálogo de separación de items entre cuentas |
 
 ### Módulos de administración web (`app/admin/`)
 Rutas protegidas bajo `/admin/(authenticated)/`.
@@ -205,6 +229,7 @@ productos-service.ts      eventos-service.ts
 insumos-service.ts        consignadores-service.ts
 recetas-service.ts        clientes-service.ts
 mesas-service.ts          proveedores-service.ts
+salon-service.ts          separar-cuenta-service.ts
 ventas-service.ts         compras-service.ts
 turnos-service.ts         mermas-service.ts
 reservas-service.ts       egresos-service.ts
@@ -287,9 +312,9 @@ notificaciones-push.ts
 {
   id: string
   nombre: string
-  capacidad: number
   espacioId: string
-  activo: boolean
+  activa: boolean
+  orden: number
 }
 ```
 
@@ -318,6 +343,54 @@ notificaciones-push.ts
   precio: number
   costo: number
   activo: boolean
+}
+```
+
+### PedidoActivo (cuenta de mesa)
+```typescript
+{
+  id: string
+  mesaId: string | null            // null = Mostrador/Para llevar
+  nombreMesa: string
+  espacioId: string
+  cajeroId: string
+  items: PedidoItem[]              // uid, name, quantity, cantidadEnviada, price, cost...
+  estado: "abierto" | "pagado" | "cancelado"
+  activo: boolean
+  comandaIds?: string[]            // relación estricta: comandas creadas por este pedido
+  movimientos?: MovimientoCuenta[] // historial inmutable de separaciones
+  inicioAlquiler?: number | null
+  fechaPago?: Timestamp
+  ventaId?: string
+  actualizadoEn: Timestamp
+}
+```
+
+### MovimientoCuenta (registro inmutable de separación)
+```typescript
+{
+  tipo: "separacion_origen" | "separacion_destino"
+  pedidoRelacionadoId: string
+  items: Array<{ uid: string; name: string; quantity: number }>
+  fecha: Timestamp                 // Timestamp.now() — no serverTimestamp (prohibido en arrays)
+  cajeroId: string
+}
+```
+
+### ComandaCocina (instrucción de cocina)
+```typescript
+{
+  id: string
+  pedidoId: string                 // FK al pedido que la creó
+  mesaId: string | null
+  nombreMesa: string
+  espacioId: string
+  cajeroId: string
+  items: Array<{ uid: string; name: string; quantity: number; notas?: string }>
+  estado: "pendiente" | "en_preparacion" | "listo" | "entregado"
+  tipo: "nuevo" | "adicion" | "cancelacion"
+  creadoEn: Timestamp
+  completadoEn?: Timestamp
 }
 ```
 
@@ -650,6 +723,14 @@ Espacio (venue)
 
 ### Operaciones
 ```
+Mesa
+  └── PedidoActivo (1:N — múltiples cuentas por mesa)
+        ├── Items (con cantidadEnviada para trazabilidad de cocina)
+        ├── ComandaCocina (1:N — creadas al enviar a cocina)
+        │     └── Items (snapshot del envío)
+        ├── MovimientoCuenta[] (historial de separaciones)
+        └── Venta (1:1 al cobrar)
+
 Turno
   ├── Venta
   │     └── Items (Producto o Receta)
@@ -719,6 +800,8 @@ Configuración
 | `insumos` | Insumos / ingredientes |
 | `recetas` | Recetas y combos |
 | `mesas` | Mesas y salas |
+| `pedidos_activos` | Pedidos/cuentas activos por mesa (con movimientos de separación) |
+| `comandas_cocina` | Instrucciones de cocina (KDS) vinculadas a pedidos |
 | `ventas` | Transacciones de venta |
 | `turnos` | Turnos de caja |
 | `turnos_activos` | Lock de turno activo por cajero (1 doc = 1 cajero) |
