@@ -204,6 +204,9 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   // cuando pedidosActivos contiene el pedido objetivo. Tras consumirlo,
   // el ref queda null y nunca vuelve a interferir.
   const pendingNavRef = useRef<string | null>(initialPedidoId ?? null)
+  // Consume-once: consume-effect lo activa tras navegar; auto-sync lo lee en el
+  // mismo flush para no pisar la selección con la heurística de mesa vacía.
+  const justNavigatedRef = useRef(false)
 
   useEffect(() => {
     const targetId = pendingNavRef.current
@@ -213,6 +216,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
     if (!pedido) return
 
     pendingNavRef.current = null
+    justNavigatedRef.current = true
     setSelectedPedidoId(pedido.id)
     setSelectedMesaId(pedido.mesaId)
   }, [pedidosActivos])
@@ -220,6 +224,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   // Auto-sync: al cambiar de mesa, seleccionar su pedido (si hay exactamente uno)
   useEffect(() => {
     if (pendingNavRef.current) return
+    if (justNavigatedRef.current) { justNavigatedRef.current = false; return }
     if (selectedMesaId === null) {
       setSelectedPedidoId(null)
       return
