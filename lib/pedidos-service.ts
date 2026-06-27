@@ -19,6 +19,18 @@ export interface PedidoItem {
   enviadoCocina?: boolean // Deprecated — usar cantidadEnviada
 }
 
+export type TipoMovimiento =
+  | 'separacion_origen'
+  | 'separacion_destino'
+
+export interface MovimientoCuenta {
+  tipo: TipoMovimiento
+  pedidoRelacionadoId: string
+  items: Array<{ uid: string; name: string; quantity: number }>
+  fecha: any
+  cajeroId: string
+}
+
 export interface PedidoActivo {
   id: string
   mesaId: string | null // null = Mostrador/Para llevar
@@ -29,6 +41,7 @@ export interface PedidoActivo {
   estado: 'abierto' | 'pagado' | 'cancelado'
   activo: boolean
   comandaIds?: string[]
+  movimientos?: MovimientoCuenta[]
   inicioAlquiler?: number | null // Timestamp en ms para alquileres
   fechaPago?: any
   ventaId?: string
