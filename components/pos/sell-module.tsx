@@ -394,9 +394,17 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   // Calculadora Rápida para Fotocopias
   const [quickCopies, setQuickCopies] = useState<number>(1)
 
-  const addToCart = useCallback(async (product: Producto) => {
-    const cartItem = productoToCartItem(product)
-    const item: PedidoItem = { ...cartItem, uid: crypto.randomUUID(), quantity: 1 }
+  const addToCartPending = useRef<Map<string, { product: Producto; qty: number }>>(new Map())
+  const addToCartTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+
+  const flushAddToCart = useCallback(async (productId: string) => {
+    const pending = addToCartPending.current.get(productId)
+    addToCartPending.current.delete(productId)
+    addToCartTimers.current.delete(productId)
+    if (!pending) return
+
+    const cartItem = productoToCartItem(pending.product)
+    const item: PedidoItem = { ...cartItem, uid: crypto.randomUUID(), quantity: pending.qty }
     try {
       if (activePedido) {
         await agregarItemPedido(activePedido.id, item)
@@ -407,6 +415,19 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
       toast.error(e.message || 'Error al agregar producto')
     }
   }, [activePedido, crearPedidoConItem])
+
+  const addToCart = useCallback((product: Producto) => {
+    const entry = addToCartPending.current.get(product.id)
+    if (entry) {
+      entry.qty += 1
+    } else {
+      addToCartPending.current.set(product.id, { product, qty: 1 })
+    }
+
+    const existing = addToCartTimers.current.get(product.id)
+    if (existing) clearTimeout(existing)
+    addToCartTimers.current.set(product.id, setTimeout(() => flushAddToCart(product.id), 300))
+  }, [flushAddToCart])
 
   const addToCartQuantity = useCallback(async (product: Producto, qty: number) => {
     const cartItem = productoToCartItem(product)
