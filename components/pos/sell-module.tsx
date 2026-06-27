@@ -13,8 +13,10 @@ import { suscribirPedidosActivos, guardarPedido, agregarItemPedido, enviarPedido
 import { suscribirTurnoActivo, type Turno } from '@/lib/turnos-service'
 import { separarCuenta, type ItemSeparacion } from '@/lib/separar-cuenta-service'
 import { unirCuentas } from '@/lib/unir-cuentas-service'
+import { trasladarCuenta } from '@/lib/trasladar-cuenta-service'
 import { SepararCuentaDialog } from '@/components/pos/separar-cuenta-dialog'
 import { UnirCuentasDialog } from '@/components/pos/unir-cuentas-dialog'
+import { TrasladarCuentaDialog } from '@/components/pos/trasladar-cuenta-dialog'
 import { DynamicIcon } from '@/components/ui/dynamic-icon'
 
 import { toast } from 'sonner'
@@ -38,6 +40,7 @@ import {
   ChefHat,
   SplitSquareHorizontal,
   Merge,
+  ArrowRightLeft,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -237,7 +240,24 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
     return pedidosActivos.find(p => p.mesaId === selectedMesaId && p.activo && p.estado === 'abierto') ?? null
   }, [selectedPedidoId, selectedMesaId, pedidosActivos])
 
-  const cart: PedidoItem[] = activePedido?.items || []
+  // Optimistic cart: muestra el cambio local de inmediato mientras la
+  // transacción de Firestore confirma en background. Se limpia cuando
+  // llega el snapshot actualizado (actualizadoEn cambia tras cada write).
+  const [optimisticItems, setOptimisticItems] = useState<{ pedidoId: string; items: PedidoItem[] } | null>(null)
+
+  const actualizadoEnMs: number = (() => {
+    const ts = activePedido?.actualizadoEn
+    return typeof ts?.toMillis === 'function' ? ts.toMillis() : 0
+  })()
+
+  useEffect(() => {
+    setOptimisticItems(null)
+  }, [actualizadoEnMs, activePedido?.id])
+
+  const cart: PedidoItem[] =
+    optimisticItems !== null && optimisticItems.pedidoId === activePedido?.id
+      ? optimisticItems.items
+      : (activePedido?.items || [])
 
   const pedidosMesaActual = useMemo(
     () => selectedMesaId
@@ -267,6 +287,22 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
       toast.error(e.message || 'Error al unir cuentas')
     }
   }, [usuario])
+
+  const handleTrasladarCuenta = useCallback(async (mesaDestinoId: string) => {
+    if (!activePedido || !usuario) return
+    try {
+      const pedidoId = activePedido.id
+      await trasladarCuenta(pedidoId, mesaDestinoId, usuario.uid)
+      toast.success('Cuenta trasladada correctamente')
+      // Delegar la selección al consume-effect: cuando llegue el snapshot
+      // con el pedido en su nueva mesa, el effect fija selectedPedidoId y
+      // selectedMesaId desde datos frescos, sin que el auto-sync por mesa
+      // pueda pisar la selección si el destino ya tenía otra cuenta.
+      pendingNavRef.current = pedidoId
+    } catch (e: any) {
+      toast.error(e.message || 'Error al trasladar cuenta')
+    }
+  }, [activePedido, usuario])
 
   const estadoCocina = useMemo(() => {
     if (!activePedido) return null
@@ -394,6 +430,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   const [showMesasDialog, setShowMesasDialog] = useState(false)
   const [showSepararCuenta, setShowSepararCuenta] = useState(false)
   const [showUnirCuentas, setShowUnirCuentas] = useState(false)
+  const [showTrasladarCuenta, setShowTrasladarCuenta] = useState(false)
   const [showQuickProduct, setShowQuickProduct] = useState(false)
   const [showPayment, setShowPayment] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<string>('efectivo')
@@ -465,9 +502,14 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
     if (!item) return
     const newQty = item.quantity + delta
     if (newQty <= 0) return
+    setOptimisticItems({
+      pedidoId: activePedido.id,
+      items: cart.map(i => (i.uid || i.id) === itemUid ? { ...i, quantity: newQty } : i),
+    })
     try {
       await modificarItemPedido(activePedido.id, itemUid, newQty)
     } catch (e: any) {
+      setOptimisticItems(null)
       toast.error(e.message || 'Error al actualizar cantidad')
     }
   }, [activePedido, cart])
@@ -479,13 +521,18 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
       setShowCancelConfirm(true)
       return
     }
+    setOptimisticItems({
+      pedidoId: activePedido.id,
+      items: cart.filter(i => (i.uid || i.id) !== itemUid),
+    })
+    setSelectedCartIndex(-1)
     try {
       await modificarItemPedido(activePedido.id, itemUid, 0)
     } catch (e: any) {
+      setOptimisticItems(null)
       toast.error(e.message || 'Error al eliminar item')
     }
-    setSelectedCartIndex(-1)
-  }, [activePedido, cart.length])
+  }, [activePedido, cart])
 
   const confirmCancelPedido = useCallback(async () => {
     if (!activePedido || !pendingRemoveUid.current) return
@@ -1052,6 +1099,16 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                       Unir
                     </Button>
                   )}
+                  {activePedido && activePedido.mesaId && !activePedido.inicioAlquiler && mesas.length >= 2 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowTrasladarCuenta(true)}
+                      className="h-16 flex-[1] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95"
+                    >
+                      <ArrowRightLeft className="mr-1.5 h-4 w-4" />
+                      Trasladar
+                    </Button>
+                  )}
                   <Button
                     onClick={() => setShowPayment(true)}
                     disabled={cart.length === 0}
@@ -1531,6 +1588,17 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
           pedidoDestinoIdInicial={selectedPedidoId}
           nombreMesa={activePedido.nombreMesa}
           onConfirm={handleUnirCuentas}
+        />
+      )}
+
+      {activePedido && activePedido.mesaId && (
+        <TrasladarCuentaDialog
+          open={showTrasladarCuenta}
+          onOpenChange={setShowTrasladarCuenta}
+          mesas={mesas}
+          mesaOrigenId={activePedido.mesaId}
+          nombreMesaOrigen={activePedido.nombreMesa}
+          onConfirm={handleTrasladarCuenta}
         />
       )}
     </div>
