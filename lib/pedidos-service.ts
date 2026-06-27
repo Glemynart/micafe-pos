@@ -24,10 +24,17 @@ export type TipoMovimiento =
   | 'separacion_destino'
   | 'union_origen'
   | 'union_destino'
+  | 'traslado'
 
 export interface MovimientoCuenta {
   tipo: TipoMovimiento
-  pedidoRelacionadoId: string
+  // Otro pedido involucrado (separar/unir). Undefined en traslados: el pedido es el mismo.
+  pedidoRelacionadoId?: string
+  // Solo en traslados: ubicación antes/después del cambio de mesa.
+  mesaOrigenId?: string
+  mesaDestinoId?: string
+  nombreMesaOrigen?: string
+  nombreMesaDestino?: string
   items: Array<{ uid: string; name: string; quantity: number }>
   fecha: any
   cajeroId: string
