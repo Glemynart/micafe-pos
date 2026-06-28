@@ -1,9 +1,11 @@
 'use client'
 
-import { useRef, useEffect, useCallback, useState } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import type { InfoMesa } from '@/lib/salon-service'
 import type { Viewport } from '@/lib/hooks/useSalonViewport'
+import type { MesaTransformPatch } from '@/lib/mesas-service'
 import { useMesaDrag } from '@/lib/hooks/useMesaDrag'
+import { useMesaTransform } from '@/lib/hooks/useMesaTransform'
 import { MesaVisual } from './MesaVisual'
 
 export const MESA_W = 120
@@ -15,6 +17,15 @@ export const DEFAULT_WORLD_H = 1000
 const ZOOM_STEP = 1.2
 const ZOOM_MIN = 0.15
 const ZOOM_MAX = 4
+
+// Partial geometry that can be pending optimistically for any mesa.
+interface OptimisticGeometry {
+  posX?: number
+  posY?: number
+  width?: number
+  height?: number
+  rotation?: number
+}
 
 interface SalonCanvasProps {
   mapa: InfoMesa[]
@@ -30,6 +41,7 @@ interface SalonCanvasProps {
   onViewportChange: (next: Viewport | ((prev: Viewport) => Viewport)) => void
   onSelectMesa: (mesaId: string | null) => void
   onCommitPosition: (mesaId: string, posX: number, posY: number) => void
+  onCommitTransform: (mesaId: string, patch: MesaTransformPatch) => void
 }
 
 function worldToScreen(wx: number, wy: number, mesaW: number, mesaH: number, vp: Viewport) {
@@ -111,29 +123,36 @@ export function SalonCanvas({
   onViewportChange,
   onSelectMesa,
   onCommitPosition,
+  onCommitTransform,
 }: SalonCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const panStartRef = useRef<{ px: number; py: number; panX: number; panY: number } | null>(null)
+  // IMP-2: single source of truth for the active pointer across drag and transform hooks.
+  const activePointerRef = useRef<number | null>(null)
 
-  // I1: posiciones optimistas para evitar revert de drag mientras llega el eco de Firestore.
-  // Llave = mesaId, valor = {posX, posY} confirmado en pointerup pero aún no reflejado en mapa.
-  const optimisticPositions = useRef<Record<string, { posX: number; posY: number }>>({})
+  // Generalized optimistic geometry: Partial per mesa, cleared field-by-field as Firestore echoes arrive.
+  const optimisticGeometry = useRef<Record<string, OptimisticGeometry>>({})
 
-  // Limpia entradas optimistas cuyo eco ya llegó (posX/posY coincide con el valor committeado)
+  // Clear optimistic fields whose Firestore echo has arrived (field-by-field to avoid clearing unrelated pending fields).
   useEffect(() => {
-    const entries = Object.entries(optimisticPositions.current)
-    if (entries.length === 0) return
-    for (const [mesaId, opt] of entries) {
+    for (const [mesaId, opt] of Object.entries(optimisticGeometry.current)) {
       const mesa = mapa.find(m => m.mesa.id === mesaId)?.mesa
-      if (mesa && mesa.posX === opt.posX && mesa.posY === opt.posY) {
-        delete optimisticPositions.current[mesaId]
+      if (!mesa) continue
+      const remaining: OptimisticGeometry = {}
+      if (opt.posX !== undefined && mesa.posX !== opt.posX) remaining.posX = opt.posX
+      if (opt.posY !== undefined && mesa.posY !== opt.posY) remaining.posY = opt.posY
+      if (opt.width !== undefined && mesa.width !== opt.width) remaining.width = opt.width
+      if (opt.height !== undefined && mesa.height !== opt.height) remaining.height = opt.height
+      if (opt.rotation !== undefined && mesa.rotation !== opt.rotation) remaining.rotation = opt.rotation
+      if (Object.keys(remaining).length === 0) {
+        delete optimisticGeometry.current[mesaId]
+      } else {
+        optimisticGeometry.current[mesaId] = remaining
       }
     }
   }, [mapa])
 
-  // C1/I4: zoom-to-fit solo cuando fitPending=true (no hay viewport guardado).
-  // El efecto sin deps corre tras cada render; la guardia fitPending lo hace inocuo
-  // en cuanto se complete, evitando sobrescribir un viewport restaurado desde localStorage.
+  // C1/I4: zoom-to-fit solo cuando fitPending=true.
   useEffect(() => {
     if (!fitPending) return
     if (!containerRef.current) return
@@ -143,11 +162,22 @@ export function SalonCanvas({
     onFitComplete()
   })
 
-  // I1: wrapper de commit que registra la posición optimista antes de que llegue el eco
   const handleCommitPosition = useCallback((mesaId: string, posX: number, posY: number) => {
-    optimisticPositions.current[mesaId] = { posX, posY }
+    optimisticGeometry.current[mesaId] = {
+      ...optimisticGeometry.current[mesaId],
+      posX,
+      posY,
+    }
     onCommitPosition(mesaId, posX, posY)
   }, [onCommitPosition])
+
+  const handleCommitTransform = useCallback((mesaId: string, patch: MesaTransformPatch) => {
+    optimisticGeometry.current[mesaId] = {
+      ...optimisticGeometry.current[mesaId],
+      ...patch,
+    }
+    onCommitTransform(mesaId, patch)
+  }, [onCommitTransform])
 
   const { onMesaPointerDown, onPointerMove: onDragMove, onPointerUp: onDragUp, onPointerCancel: onDragCancel } = useMesaDrag({
     viewport,
@@ -155,9 +185,22 @@ export function SalonCanvas({
     worldHeight,
     isAdmin,
     editMode,
-    mesaWidth: MESA_W,
-    mesaHeight: MESA_H,
     onCommit: handleCommitPosition,
+    sharedActivePointer: activePointerRef,
+  })
+
+  const {
+    onResizePointerDown,
+    onRotatePointerDown,
+    onPointerMove: onTransformMove,
+    onPointerUp: onTransformUp,
+    onPointerCancel: onTransformCancel,
+  } = useMesaTransform({
+    viewport,
+    isAdmin,
+    editMode,
+    onCommit: handleCommitTransform,
+    sharedActivePointer: activePointerRef,
   })
 
   const onCanvasPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -183,7 +226,6 @@ export function SalonCanvas({
     panStartRef.current = null
   }, [])
 
-  // I2: cancela el pan si el sistema interrumpe el puntero durante un arrastre del canvas
   const onCanvasPointerCancel = useCallback(() => {
     panStartRef.current = null
   }, [])
@@ -228,14 +270,17 @@ export function SalonCanvas({
         }}
       />
 
-      {/* Mesas — camino de render único; fallback de orden para mesas sin posX/posY */}
+      {/* Mesas — single render path; fallback coords for mesas without posX/posY */}
       {mapa.map((info, idx) => {
-        // I1: la posición optimista tiene prioridad hasta que llegue el eco de Firestore
-        const opt = optimisticPositions.current[info.mesa.id]
-        const posX = opt?.posX ?? info.mesa.posX ?? fallbackWorldCoords(idx, mapa.length, worldWidth, worldHeight).posX
-        const posY = opt?.posY ?? info.mesa.posY ?? fallbackWorldCoords(idx, mapa.length, worldWidth, worldHeight).posY
-        const mesaW = info.mesa.width ?? MESA_W
-        const mesaH = info.mesa.height ?? MESA_H
+        // Optimistic geometry takes priority over Firestore data, which takes priority over defaults.
+        const opt = optimisticGeometry.current[info.mesa.id]
+        const fallback = fallbackWorldCoords(idx, mapa.length, worldWidth, worldHeight)
+        const posX   = opt?.posX     ?? info.mesa.posX     ?? fallback.posX
+        const posY   = opt?.posY     ?? info.mesa.posY     ?? fallback.posY
+        const mesaW  = opt?.width    ?? info.mesa.width    ?? MESA_W
+        const mesaH  = opt?.height   ?? info.mesa.height   ?? MESA_H
+        const rot    = opt?.rotation ?? info.mesa.rotation ?? 0
+
         const { screenX, screenY, screenW, screenH } = worldToScreen(posX, posY, mesaW, mesaH, viewport)
 
         return (
@@ -244,15 +289,27 @@ export function SalonCanvas({
             info={info}
             selected={selectedMesaId === info.mesa.id}
             editMode={editMode}
+            rotation={rot}
             screenX={screenX}
             screenY={screenY}
             screenW={screenW}
             screenH={screenH}
             onSelect={() => onSelectMesa(selectedMesaId === info.mesa.id ? null : info.mesa.id)}
-            onPointerDown={e => onMesaPointerDown(e, info.mesa.id, posX, posY)}
-            onPointerMove={onDragMove}
-            onPointerUp={onDragUp}
-            onPointerCancel={onDragCancel}
+            // Body drag handlers — pass per-mesa dims so clamp is correct.
+            onBodyPointerDown={e => onMesaPointerDown(e, info.mesa.id, posX, posY, mesaW, mesaH)}
+            onBodyPointerMove={onDragMove}
+            onBodyPointerUp={onDragUp}
+            onBodyPointerCancel={onDragCancel}
+            // Transform (resize / rotate) handlers.
+            onResizePointerDown={(e, handle, outerEl, innerEl) =>
+              onResizePointerDown(e, handle, info.mesa.id, mesaW, mesaH, rot, outerEl, innerEl)
+            }
+            onRotatePointerDown={(e, outerEl, innerEl) =>
+              onRotatePointerDown(e, info.mesa.id, rot, outerEl, innerEl)
+            }
+            onTransformPointerMove={onTransformMove}
+            onTransformPointerUp={onTransformUp}
+            onTransformPointerCancel={onTransformCancel}
           />
         )
       })}

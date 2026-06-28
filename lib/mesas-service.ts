@@ -50,3 +50,14 @@ export async function eliminarMesa(mesaId: string) {
 export async function actualizarPosicionMesa(mesaId: string, posX: number, posY: number) {
   await updateDoc(doc(db, COLLECTION_NAME, mesaId), { posX, posY })
 }
+
+export interface MesaTransformPatch {
+  width?: number
+  height?: number
+  rotation?: number
+}
+
+export async function actualizarTransformMesa(mesaId: string, patch: MesaTransformPatch) {
+  const update: { width?: number; height?: number; rotation?: number } = { ...patch }
+  await updateDoc(doc(db, COLLECTION_NAME, mesaId), update)
+}

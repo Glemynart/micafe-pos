@@ -26,7 +26,7 @@ export function SalonModule({ onAbrirPedido }: SalonModuleProps = {}) {
 
   const { mesas, pedidos, comandas, cargando } = useSalonData(espacioActivo?.id ?? null)
   const { viewport, updateViewport, fitPending, clearFitPending } = useSalonViewport(espacioActivo?.id ?? null)
-  const { commitMesaPosition } = useSalonLayout(isAdmin)
+  const { commitMesaPosition, commitMesaTransform } = useSalonLayout(isAdmin)
 
   const [selectedMesaId, setSelectedMesaId] = useState<string | null>(null)
   const [editMode, setEditMode] = useState(false)
@@ -142,6 +142,7 @@ export function SalonModule({ onAbrirPedido }: SalonModuleProps = {}) {
             onViewportChange={updateViewport}
             onSelectMesa={setSelectedMesaId}
             onCommitPosition={commitMesaPosition}
+            onCommitTransform={commitMesaTransform}
           />
 
           {/* Toolbar overlay — bottom-left */}
