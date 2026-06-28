@@ -9,17 +9,20 @@ interface DragOptions {
   worldHeight: number
   isAdmin: boolean
   editMode: boolean
-  mesaWidth: number
-  mesaHeight: number
   onCommit: (mesaId: string, posX: number, posY: number) => void
+  // IMP-2: shared across useMesaDrag and useMesaTransform to enforce global single-pointer policy.
+  sharedActivePointer: React.MutableRefObject<number | null>
 }
 
 interface DragState {
   mesaId: string
+  pointerId: number
   startPointerX: number
   startPointerY: number
   startWorldX: number
   startWorldY: number
+  mesaWidth: number
+  mesaHeight: number
   el: HTMLElement
 }
 
@@ -36,18 +39,32 @@ export function useMesaDrag(options: DragOptions) {
 
   const dragRef = useRef<DragState | null>(null)
 
-  const onMesaPointerDown = useCallback((e: React.PointerEvent<HTMLElement>, mesaId: string, currentX: number, currentY: number) => {
-    const { isAdmin, editMode } = optsRef.current
+  // IMP-2: dims por-mesa recibidas en el pointerdown (no constantes globales).
+  const onMesaPointerDown = useCallback((
+    e: React.PointerEvent<HTMLElement>,
+    mesaId: string,
+    currentX: number,
+    currentY: number,
+    mesaWidth: number,
+    mesaHeight: number,
+  ) => {
+    const { isAdmin, editMode, sharedActivePointer } = optsRef.current
     if (!isAdmin || !editMode) return
+    // IMP-2 global: reject if any gesture is active across either hook.
+    if (sharedActivePointer.current !== null) return
     e.stopPropagation()
     e.currentTarget.setPointerCapture(e.pointerId)
+    sharedActivePointer.current = e.pointerId
 
     dragRef.current = {
       mesaId,
+      pointerId: e.pointerId,
       startPointerX: e.clientX,
       startPointerY: e.clientY,
       startWorldX: currentX,
       startWorldY: currentY,
+      mesaWidth,
+      mesaHeight,
       el: e.currentTarget,
     }
 
@@ -58,8 +75,11 @@ export function useMesaDrag(options: DragOptions) {
   const onPointerMove = useCallback((e: React.PointerEvent<HTMLElement>) => {
     const drag = dragRef.current
     if (!drag) return
+    // IMP-2: solo el puntero capturado procesa move.
+    if (e.pointerId !== drag.pointerId) return
 
-    const { viewport, mesaWidth, mesaHeight, worldWidth, worldHeight } = optsRef.current
+    const { viewport, worldWidth, worldHeight } = optsRef.current
+    const { mesaWidth, mesaHeight } = drag
     const dx = (e.clientX - drag.startPointerX) / viewport.zoom
     const dy = (e.clientY - drag.startPointerY) / viewport.zoom
 
@@ -75,9 +95,11 @@ export function useMesaDrag(options: DragOptions) {
     drag.el.dataset.pendingY = String(newY)
   }, [])
 
-  const onPointerUp = useCallback((_e: React.PointerEvent<HTMLElement>) => {
+  const onPointerUp = useCallback((e: React.PointerEvent<HTMLElement>) => {
     const drag = dragRef.current
     if (!drag) return
+    // IMP-2: solo el puntero capturado cierra el gesto.
+    if (e.pointerId !== drag.pointerId) return
 
     const el = drag.el
     const pendingX = parseFloat(el.dataset.pendingX ?? '')
@@ -85,28 +107,32 @@ export function useMesaDrag(options: DragOptions) {
 
     cleanupDragElement(el)
     dragRef.current = null
+    optsRef.current.sharedActivePointer.current = null
 
     if (!isNaN(pendingX) && !isNaN(pendingY)) {
       optsRef.current.onCommit(drag.mesaId, pendingX, pendingY)
     }
   }, [])
 
-  // I2: limpieza completa en cancelación del puntero (gesto táctil interrumpido, SO, etc.)
+  // I2: limpieza completa en cancelación del puntero.
   // Restaura la mesa a su posición pre-drag sin llamar onCommit.
-  const onPointerCancel = useCallback((_e: React.PointerEvent<HTMLElement>) => {
+  const onPointerCancel = useCallback((e: React.PointerEvent<HTMLElement>) => {
     const drag = dragRef.current
     if (!drag) return
+    // IMP-2: solo el puntero capturado cancela.
+    if (e.pointerId !== drag.pointerId) return
 
     const el = drag.el
     cleanupDragElement(el)
 
-    // Restaurar transform a la posición de mundo original (antes del drag)
-    const { viewport, mesaWidth, mesaHeight } = optsRef.current
+    const { viewport, sharedActivePointer } = optsRef.current
+    const { mesaWidth, mesaHeight } = drag
     const screenX = drag.startWorldX * viewport.zoom + viewport.panX - (mesaWidth * viewport.zoom) / 2
     const screenY = drag.startWorldY * viewport.zoom + viewport.panY - (mesaHeight * viewport.zoom) / 2
     el.style.transform = `translate(${screenX}px, ${screenY}px)`
 
     dragRef.current = null
+    sharedActivePointer.current = null
   }, [])
 
   return { onMesaPointerDown, onPointerMove, onPointerUp, onPointerCancel }
