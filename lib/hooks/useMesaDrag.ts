@@ -23,12 +23,17 @@ interface DragState {
   startWorldY: number
   mesaWidth: number
   mesaHeight: number
+  // FASE-14 PR3 CRIT-1: saved before lift so it can be restored on pointerup/cancel.
+  preGestureZIndex: string
   el: HTMLElement
 }
 
-function cleanupDragElement(el: HTMLElement) {
+function cleanupDragElement(el: HTMLElement, preGestureZIndex: string) {
   el.style.cursor = ''
-  el.style.zIndex = ''
+  // FASE-14 PR3 CRIT-1 fix: restore exact pre-gesture zIndex, not ''.
+  // Setting '' would leave React's prop-managed value out of sync when the
+  // prop value hasn't changed, causing a permanent loss of the CSS z-index.
+  el.style.zIndex = preGestureZIndex
   delete el.dataset.pendingX
   delete el.dataset.pendingY
 }
@@ -56,6 +61,9 @@ export function useMesaDrag(options: DragOptions) {
     e.currentTarget.setPointerCapture(e.pointerId)
     sharedActivePointer.current = e.pointerId
 
+    // FASE-14 PR3 CRIT-1: save the React-managed zIndex before imperatively lifting.
+    const preGestureZIndex = e.currentTarget.style.zIndex
+
     dragRef.current = {
       mesaId,
       pointerId: e.pointerId,
@@ -65,6 +73,7 @@ export function useMesaDrag(options: DragOptions) {
       startWorldY: currentY,
       mesaWidth,
       mesaHeight,
+      preGestureZIndex,
       el: e.currentTarget,
     }
 
@@ -105,7 +114,7 @@ export function useMesaDrag(options: DragOptions) {
     const pendingX = parseFloat(el.dataset.pendingX ?? '')
     const pendingY = parseFloat(el.dataset.pendingY ?? '')
 
-    cleanupDragElement(el)
+    cleanupDragElement(el, drag.preGestureZIndex)
     dragRef.current = null
     optsRef.current.sharedActivePointer.current = null
 
@@ -123,7 +132,7 @@ export function useMesaDrag(options: DragOptions) {
     if (e.pointerId !== drag.pointerId) return
 
     const el = drag.el
-    cleanupDragElement(el)
+    cleanupDragElement(el, drag.preGestureZIndex)
 
     const { viewport, sharedActivePointer } = optsRef.current
     const { mesaWidth, mesaHeight } = drag

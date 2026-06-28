@@ -65,6 +65,10 @@ interface MesaVisualProps {
   selected: boolean
   editMode: boolean
   rotation: number
+  // FASE-14 PR3: shape affects inner border-radius; zIndex applied to outer; dimmed by sector filter.
+  shape?: 'rect' | 'square' | 'circle'
+  zIndex?: number
+  dimmed?: boolean
   // Screen-space position (px) calculated by SalonCanvas
   screenX: number
   screenY: number
@@ -90,6 +94,9 @@ export const MesaVisual = React.memo(function MesaVisual({
   selected,
   editMode,
   rotation,
+  shape = 'rect',
+  zIndex,
+  dimmed,
   screenX,
   screenY,
   screenW,
@@ -110,9 +117,11 @@ export const MesaVisual = React.memo(function MesaVisual({
   const innerRef = useRef<HTMLDivElement>(null)
 
   const showHandles = editMode && selected
+  // FASE-14 PR3: circle → rounded-full; rect/square → rounded-2xl.
+  const shapeClass = shape === 'circle' ? 'rounded-full' : 'rounded-2xl'
 
   return (
-    // OUTER: owns translate + width/height. Never rotates.
+    // OUTER: owns translate + width/height + zIndex (persistent). Never rotates.
     <div
       ref={outerRef}
       data-mesa-id={info.mesa.id}
@@ -124,6 +133,8 @@ export const MesaVisual = React.memo(function MesaVisual({
         width: screenW,
         height: screenH,
         willChange: 'transform',
+        zIndex: zIndex,
+        opacity: dimmed ? 0.25 : undefined,
       }}
       onPointerDown={e => {
         // Handles stop propagation before this fires; this is the body handler.
@@ -166,7 +177,7 @@ export const MesaVisual = React.memo(function MesaVisual({
         ref={innerRef}
         className={cn(
           'relative w-full h-full flex flex-col items-center justify-center gap-1',
-          'rounded-2xl border-2 transition-colors',
+          shapeClass, 'border-2 transition-colors',
           config.bg, config.border,
           selected && 'ring-4 ring-primary/40 shadow-lg',
           editMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',

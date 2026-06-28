@@ -61,3 +61,13 @@ export async function actualizarTransformMesa(mesaId: string, patch: MesaTransfo
   const update: { width?: number; height?: number; rotation?: number } = { ...patch }
   await updateDoc(doc(db, COLLECTION_NAME, mesaId), update)
 }
+
+// FASE-14 PR3: IMP-1 — timersZ independientes; IMP-3 — entra a optimisticGeometry sweep.
+export async function actualizarZIndexMesa(mesaId: string, zIndex: number): Promise<void> {
+  await updateDoc(doc(db, COLLECTION_NAME, mesaId), { zIndex })
+}
+
+// FASE-14 PR3: I-12 — sectorId fuera de commitMesaTransform; escritura propia.
+export async function actualizarSectorMesa(mesaId: string, sectorId: string | null): Promise<void> {
+  await updateDoc(doc(db, COLLECTION_NAME, mesaId), { sectorId })
+}
