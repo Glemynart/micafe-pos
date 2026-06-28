@@ -1,91 +1,19 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
+import { Armchair, Loader2, ShoppingCart, ChefHat, CheckCircle2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { ShoppingCart, ChefHat, CheckCircle2, Armchair, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEspacios } from '@/contexts/espacios-context'
-import { suscribirMesas, type Mesa } from '@/lib/mesas-service'
-import { suscribirPedidosActivos, suscribirComandasActivas, type PedidoActivo, type ComandaCocina } from '@/lib/pedidos-service'
-import { derivarMapa, type InfoMesa, type EstadoMesa } from '@/lib/salon-service'
-
-const ESTADO_CONFIG: Record<EstadoMesa, {
-  label: string
-  bg: string
-  border: string
-  iconBg: string
-  badgeClass: string
-  icon: React.ReactNode
-}> = {
-  libre: {
-    label: 'Libre',
-    bg: 'bg-card',
-    border: 'border-border hover:border-primary/40',
-    iconBg: 'bg-muted text-muted-foreground/50',
-    badgeClass: '',
-    icon: null,
-  },
-  ocupada: {
-    label: 'Ocupada',
-    bg: 'bg-primary/10',
-    border: 'border-primary/50 hover:border-primary',
-    iconBg: 'bg-gradient-to-br from-secondary to-primary text-primary-foreground',
-    badgeClass: 'bg-primary/15 text-primary border-primary/30',
-    icon: <ShoppingCart className="h-3.5 w-3.5" />,
-  },
-  en_cocina: {
-    label: 'En cocina',
-    bg: 'bg-warning/10',
-    border: 'border-warning/50 hover:border-warning',
-    iconBg: 'bg-gradient-to-br from-warning/80 to-warning text-warning-foreground',
-    badgeClass: 'bg-warning/15 text-warning-foreground border-warning/30',
-    icon: <ChefHat className="h-3.5 w-3.5" />,
-  },
-  lista: {
-    label: 'Lista',
-    bg: 'bg-success/10',
-    border: 'border-success/50 hover:border-success',
-    iconBg: 'bg-gradient-to-br from-success/80 to-success text-success-foreground',
-    badgeClass: 'bg-success/15 text-success border-success/30',
-    icon: <CheckCircle2 className="h-3.5 w-3.5" />,
-  },
-}
-
-function MesaCard({ info, selected, onSelect }: { info: InfoMesa; selected: boolean; onSelect: () => void }) {
-  const config = ESTADO_CONFIG[info.estado]
-
-  return (
-    <button
-      onClick={onSelect}
-      className={cn(
-        "relative flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all",
-        "focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/30",
-        "hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98]",
-        config.bg, config.border,
-        selected && "ring-4 ring-primary/20 shadow-lg"
-      )}
-    >
-      <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl shadow-inner", config.iconBg)}>
-        {info.estado === 'libre' ? <Armchair className="h-6 w-6" /> : info.mesa.nombre.charAt(0)}
-      </div>
-
-      <p className="font-bold text-sm text-foreground truncate max-w-full">{info.mesa.nombre}</p>
-
-      {info.estado !== 'libre' && (
-        <Badge variant="outline" className={cn("text-[10px] gap-1", config.badgeClass)}>
-          {config.icon}
-          {config.label}
-        </Badge>
-      )}
-
-      {info.totalItems > 0 && (
-        <span className="text-[10px] text-muted-foreground">
-          {info.totalItems} {info.totalItems === 1 ? 'ítem' : 'ítems'}
-        </span>
-      )}
-    </button>
-  )
-}
+import { useAuthContext } from '@/contexts/auth-context'
+import { derivarMapa } from '@/lib/salon-service'
+import { useSalonData } from '@/lib/hooks/useSalonData'
+import { useSalonViewport } from '@/lib/hooks/useSalonViewport'
+import { useSalonLayout } from '@/lib/hooks/useSalonLayout'
+import { SalonCanvas, DEFAULT_WORLD_W, DEFAULT_WORLD_H, calcFitViewport } from './salon/SalonCanvas'
+import { SalonToolbar } from './salon/SalonToolbar'
+import { SalonDetailPanel } from './salon/SalonDetailPanel'
+import { ESTADO_CONFIG } from './salon/MesaVisual'
 
 export interface SalonModuleProps {
   onAbrirPedido?: (pedidoId: string) => void
@@ -93,31 +21,21 @@ export interface SalonModuleProps {
 
 export function SalonModule({ onAbrirPedido }: SalonModuleProps = {}) {
   const { espacioActivo } = useEspacios()
+  const { usuario } = useAuthContext()
+  const isAdmin = usuario?.rol === 'admin'
 
-  const [mesas, setMesas] = useState<Mesa[]>([])
-  const [pedidos, setPedidos] = useState<PedidoActivo[]>([])
-  const [comandas, setComandas] = useState<ComandaCocina[]>([])
-  const [cargando, setCargando] = useState(true)
+  const { mesas, pedidos, comandas, cargando } = useSalonData(espacioActivo?.id ?? null)
+  const { viewport, updateViewport, fitPending, clearFitPending } = useSalonViewport(espacioActivo?.id ?? null)
+  const { commitMesaPosition } = useSalonLayout(isAdmin)
+
   const [selectedMesaId, setSelectedMesaId] = useState<string | null>(null)
+  const [editMode, setEditMode] = useState(false)
 
-  useEffect(() => {
-    if (!espacioActivo) {
-      setMesas([])
-      setPedidos([])
-      setComandas([])
-      setCargando(false)
-      return
-    }
-    setCargando(true)
-    let loaded = 0
-    const check = () => { if (++loaded >= 3) setCargando(false) }
+  // containerRef: solo para el botón "Ajustar" manual del toolbar (getBoundingClientRect)
+  const containerRef = useRef<HTMLDivElement>(null)
 
-    const unsubMesas = suscribirMesas(espacioActivo.id, (data) => { setMesas(data); check() })
-    const unsubPedidos = suscribirPedidosActivos(espacioActivo.id, (data) => { setPedidos(data); check() })
-    const unsubComandas = suscribirComandasActivas(espacioActivo.id, (data) => { setComandas(data); check() })
-
-    return () => { unsubMesas(); unsubPedidos(); unsubComandas() }
-  }, [espacioActivo?.id])
+  const worldWidth = espacioActivo?.salonWorldWidth ?? DEFAULT_WORLD_W
+  const worldHeight = espacioActivo?.salonWorldHeight ?? DEFAULT_WORLD_H
 
   const mapa = useMemo(() => derivarMapa(mesas, pedidos, comandas), [mesas, pedidos, comandas])
 
@@ -132,6 +50,26 @@ export function SalonModule({ onAbrirPedido }: SalonModuleProps = {}) {
     return c
   }, [mapa])
 
+  const handleFit = useCallback(() => {
+    if (!containerRef.current) return
+    const { width, height } = containerRef.current.getBoundingClientRect()
+    updateViewport(calcFitViewport(mapa, worldWidth, worldHeight, width, height))
+  }, [mapa, worldWidth, worldHeight, updateViewport])
+
+  const handleZoomIn = useCallback(() => {
+    updateViewport(prev => {
+      const newZoom = Math.min(4, prev.zoom * 1.2)
+      return { ...prev, zoom: newZoom }
+    })
+  }, [updateViewport])
+
+  const handleZoomOut = useCallback(() => {
+    updateViewport(prev => {
+      const newZoom = Math.max(0.15, prev.zoom / 1.2)
+      return { ...prev, zoom: newZoom }
+    })
+  }, [updateViewport])
+
   if (cargando) {
     return (
       <div className="flex items-center justify-center h-full min-h-[60vh]">
@@ -141,9 +79,9 @@ export function SalonModule({ onAbrirPedido }: SalonModuleProps = {}) {
   }
 
   return (
-    <div className="flex flex-col h-full p-4 gap-4 overflow-hidden">
+    <div className="flex flex-col h-full p-4 gap-3 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      <div className="flex items-center justify-between flex-wrap gap-2 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
             <Armchair className="h-5 w-5 text-primary" />
@@ -163,19 +101,19 @@ export function SalonModule({ onAbrirPedido }: SalonModuleProps = {}) {
             </Badge>
           )}
           {conteo.ocupada > 0 && (
-            <Badge variant="outline" className={cn("text-xs gap-1", ESTADO_CONFIG.ocupada.badgeClass)}>
+            <Badge variant="outline" className={cn('text-xs gap-1', ESTADO_CONFIG.ocupada.badgeClass)}>
               <ShoppingCart className="h-3 w-3" />
               {conteo.ocupada}
             </Badge>
           )}
           {conteo.en_cocina > 0 && (
-            <Badge variant="outline" className={cn("text-xs gap-1", ESTADO_CONFIG.en_cocina.badgeClass)}>
+            <Badge variant="outline" className={cn('text-xs gap-1', ESTADO_CONFIG.en_cocina.badgeClass)}>
               <ChefHat className="h-3 w-3" />
               {conteo.en_cocina}
             </Badge>
           )}
           {conteo.lista > 0 && (
-            <Badge variant="outline" className={cn("text-xs gap-1", ESTADO_CONFIG.lista.badgeClass)}>
+            <Badge variant="outline" className={cn('text-xs gap-1', ESTADO_CONFIG.lista.badgeClass)}>
               <CheckCircle2 className="h-3 w-3" />
               {conteo.lista}
             </Badge>
@@ -183,122 +121,52 @@ export function SalonModule({ onAbrirPedido }: SalonModuleProps = {}) {
         </div>
       </div>
 
-      {/* Mapa de mesas */}
+      {/* Canvas area */}
       {mesas.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-2">
           <Armchair className="h-12 w-12 opacity-30" />
           <p className="text-sm">No hay mesas configuradas en este espacio.</p>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-            {mapa.map(info => (
-              <MesaCard
-                key={info.mesa.id}
-                info={info}
-                selected={selectedMesaId === info.mesa.id}
-                onSelect={() => setSelectedMesaId(prev => prev === info.mesa.id ? null : info.mesa.id)}
-              />
-            ))}
+        <div ref={containerRef} className="flex-1 relative min-h-0">
+          <SalonCanvas
+            mapa={mapa}
+            worldWidth={worldWidth}
+            worldHeight={worldHeight}
+            viewport={viewport}
+            selectedMesaId={selectedMesaId}
+            editMode={editMode}
+            isAdmin={isAdmin}
+            fitPending={fitPending}
+            onFitComplete={clearFitPending}
+            onViewportChange={updateViewport}
+            onSelectMesa={setSelectedMesaId}
+            onCommitPosition={commitMesaPosition}
+          />
+
+          {/* Toolbar overlay — bottom-left */}
+          <div className="absolute bottom-3 left-3 z-10">
+            <SalonToolbar
+              zoom={viewport.zoom}
+              editMode={editMode}
+              isAdmin={isAdmin}
+              onZoomIn={handleZoomIn}
+              onZoomOut={handleZoomOut}
+              onFit={handleFit}
+              onToggleEdit={() => setEditMode(v => !v)}
+            />
           </div>
         </div>
       )}
 
-      {/* Panel de detalle de mesa seleccionada */}
+      {/* Detail panel */}
       {selectedInfo && (
-        <div className={cn(
-          "rounded-2xl border p-4 transition-all animate-fade-in",
-          ESTADO_CONFIG[selectedInfo.estado].bg,
-          ESTADO_CONFIG[selectedInfo.estado].border
-        )}>
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className={cn(
-                "w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg shadow-inner",
-                ESTADO_CONFIG[selectedInfo.estado].iconBg
-              )}>
-                {selectedInfo.mesa.nombre.charAt(0)}
-              </div>
-              <div>
-                <p className="font-bold text-foreground">{selectedInfo.mesa.nombre}</p>
-                <p className="text-xs text-muted-foreground">
-                  {ESTADO_CONFIG[selectedInfo.estado].label}
-                  {selectedInfo.totalItems > 0 && ` · ${selectedInfo.totalItems} ítems`}
-                  {selectedInfo.pedidos.length > 1 && ` · ${selectedInfo.pedidos.length} cuentas`}
-                </p>
-              </div>
-            </div>
-
-            {selectedInfo.pedidos.length <= 1 && (
-              <div className="flex items-center gap-2">
-                {selectedInfo.comandasPendientes > 0 && (
-                  <Badge variant="outline" className={cn("text-xs gap-1", ESTADO_CONFIG.en_cocina.badgeClass)}>
-                    <ChefHat className="h-3 w-3" />
-                    {selectedInfo.comandasPendientes} en cocina
-                  </Badge>
-                )}
-                {selectedInfo.comandasListas > 0 && (
-                  <Badge variant="outline" className={cn("text-xs gap-1", ESTADO_CONFIG.lista.badgeClass)}>
-                    <CheckCircle2 className="h-3 w-3" />
-                    {selectedInfo.comandasListas} lista{selectedInfo.comandasListas !== 1 && 's'}
-                  </Badge>
-                )}
-                {onAbrirPedido && selectedInfo.pedidoActivo && (
-                  <button
-                    onClick={() => onAbrirPedido(selectedInfo.pedidoActivo!.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors active:scale-95"
-                  >
-                    <ShoppingCart className="h-3 w-3" />
-                    Ir al pedido
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {selectedInfo.pedidos.length > 1 && (
-            <div className="mt-3 space-y-2">
-              {selectedInfo.pedidos.map((pedido, idx) => {
-                const itemCount = pedido.items.reduce((s, i) => s + i.quantity, 0)
-                const pedidoComandas = comandas.filter(c => c.pedidoId === pedido.id && c.tipo !== 'cancelacion')
-                const pendientes = pedidoComandas.filter(c => c.estado === 'pendiente' || c.estado === 'en_preparacion').length
-                const listos = pedidoComandas.filter(c => c.estado === 'listo').length
-
-                return (
-                  <div key={pedido.id} className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-background/60 border border-border/50">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs font-bold text-foreground shrink-0">Cuenta {idx + 1}</span>
-                      <span className="text-[10px] text-muted-foreground truncate">
-                        {itemCount} ítem{itemCount !== 1 && 's'}
-                      </span>
-                      {pendientes > 0 && (
-                        <Badge variant="outline" className={cn("text-[10px] h-4 gap-0.5 px-1.5", ESTADO_CONFIG.en_cocina.badgeClass)}>
-                          <ChefHat className="h-2.5 w-2.5" />
-                          {pendientes}
-                        </Badge>
-                      )}
-                      {listos > 0 && (
-                        <Badge variant="outline" className={cn("text-[10px] h-4 gap-0.5 px-1.5", ESTADO_CONFIG.lista.badgeClass)}>
-                          <CheckCircle2 className="h-2.5 w-2.5" />
-                          {listos}
-                        </Badge>
-                      )}
-                    </div>
-                    {onAbrirPedido && (
-                      <button
-                        onClick={() => onAbrirPedido(pedido.id)}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary text-primary-foreground text-[10px] font-bold hover:bg-primary/90 transition-colors active:scale-95 shrink-0"
-                      >
-                        <ShoppingCart className="h-2.5 w-2.5" />
-                        Ir
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+        <SalonDetailPanel
+          info={selectedInfo}
+          comandas={comandas}
+          onAbrirPedido={onAbrirPedido}
+          onClose={() => setSelectedMesaId(null)}
+        />
       )}
     </div>
   )
