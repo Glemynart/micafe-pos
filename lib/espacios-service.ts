@@ -28,6 +28,9 @@ export interface Espacio {
   activo: boolean;
   orden: number;
   modulos_permitidos?: string[];
+  // FASE-14 PR1: dimensiones del mundo lógico del lienzo (ul). Default 1600×1000.
+  salonWorldWidth?: number;
+  salonWorldHeight?: number;
 }
 
 export interface Categoria {
