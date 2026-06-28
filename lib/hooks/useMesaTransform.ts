@@ -30,9 +30,13 @@ interface ResizeState {
   startWidth: number
   startHeight: number
   startRotation: number
+  // FASE-14 PR3: lockAspect = square | circle.
+  lockAspect: boolean
   // Screen-space center of the mesa at gesture start (for projection).
   centerScreenX: number
   centerScreenY: number
+  // FASE-14 PR3 IMP-2: pre-gesture zIndex saved for lift restoration.
+  preGestureZIndex: string
   // Outer element (data-mesa-id div).
   outerEl: HTMLElement
   // Inner element (rotator div).
@@ -49,6 +53,10 @@ interface RotateState {
   centerScreenY: number
   // Angle from center to the initial pointer position, used to compute delta.
   startAngle: number
+  // FASE-14 PR3 IMP-2: pre-gesture zIndex saved for lift restoration.
+  preGestureZIndex: string
+  // Outer element — needed to restore the lift.
+  outerEl: HTMLElement
   // Inner element (rotator div).
   innerEl: HTMLElement
 }
@@ -99,6 +107,7 @@ export function useMesaTransform(options: TransformOptions) {
     currentWidth: number,
     currentHeight: number,
     currentRotation: number,
+    lockAspect: boolean,
     outerEl: HTMLElement,
     innerEl: HTMLElement,
   ) => {
@@ -111,6 +120,11 @@ export function useMesaTransform(options: TransformOptions) {
     sharedActivePointer.current = e.pointerId
 
     const outerRect = outerEl.getBoundingClientRect()
+
+    // FASE-14 PR3: lift visual — save current zIndex and elevate imperatively.
+    const preGestureZIndex = outerEl.style.zIndex
+    outerEl.style.zIndex = '9999'
+
     gestureRef.current = {
       kind: 'resize',
       handle,
@@ -121,8 +135,10 @@ export function useMesaTransform(options: TransformOptions) {
       startWidth: currentWidth,
       startHeight: currentHeight,
       startRotation: currentRotation,
+      lockAspect,
       centerScreenX: outerRect.left + outerRect.width / 2,
       centerScreenY: outerRect.top  + outerRect.height / 2,
+      preGestureZIndex,
       outerEl,
       innerEl,
     }
@@ -148,6 +164,11 @@ export function useMesaTransform(options: TransformOptions) {
     const outerRect = outerEl.getBoundingClientRect()
     const cx = outerRect.left + outerRect.width / 2
     const cy = outerRect.top  + outerRect.height / 2
+
+    // FASE-14 PR3: lift visual — save current zIndex and elevate imperatively.
+    const preGestureZIndex = outerEl.style.zIndex
+    outerEl.style.zIndex = '9999'
+
     gestureRef.current = {
       kind: 'rotate',
       mesaId,
@@ -156,6 +177,8 @@ export function useMesaTransform(options: TransformOptions) {
       centerScreenX: cx,
       centerScreenY: cy,
       startAngle: radToDeg(Math.atan2(e.clientY - cy, e.clientX - cx)),
+      preGestureZIndex,
+      outerEl,
       innerEl,
     }
   }, [])
@@ -178,9 +201,24 @@ export function useMesaTransform(options: TransformOptions) {
       const { localDx, localDy } = projectDeltaToLocal(clientDx, clientDy, g.startRotation)
 
       const axis = HANDLE_AXIS[g.handle]
-      // Symmetric resize: multiply by 2 (both sides from center).
-      const newW = Math.max(RESIZE_MIN, Math.min(RESIZE_MAX, g.startWidth  + axis.sx * localDx * 2 / viewport.zoom))
-      const newH = Math.max(RESIZE_MIN, Math.min(RESIZE_MAX, g.startHeight + axis.sy * localDy * 2 / viewport.zoom))
+      let newW = Math.max(RESIZE_MIN, Math.min(RESIZE_MAX, g.startWidth  + axis.sx * localDx * 2 / viewport.zoom))
+      let newH = Math.max(RESIZE_MIN, Math.min(RESIZE_MAX, g.startHeight + axis.sy * localDy * 2 / viewport.zoom))
+
+      // FASE-14 PR3: lockAspect constraint for square/circle (CONTRATO AABB I-14).
+      if (g.lockAspect) {
+        if (axis.sx === 0) {
+          // Height-only handle: width follows height.
+          newW = newH
+        } else if (axis.sy === 0) {
+          // Width-only handle: height follows width.
+          newH = newW
+        } else {
+          // Corner handle: use the larger of both dimensions.
+          const size = Math.max(newW, newH)
+          newW = size
+          newH = size
+        }
+      }
 
       // Keep center fixed: recalculate screenX/Y from center minus half the new screen size.
       const screenW = newW * viewport.zoom
@@ -221,6 +259,8 @@ export function useMesaTransform(options: TransformOptions) {
       const pendingH = parseFloat(g.outerEl.dataset.pendingH ?? '')
       delete g.outerEl.dataset.pendingW
       delete g.outerEl.dataset.pendingH
+      // FASE-14 PR3: restore lift — never persisted, always restored on pointerup.
+      g.outerEl.style.zIndex = g.preGestureZIndex
       gestureRef.current = null
       optsRef.current.sharedActivePointer.current = null
       if (!isNaN(pendingW) && !isNaN(pendingH)) {
@@ -229,6 +269,8 @@ export function useMesaTransform(options: TransformOptions) {
     } else {
       const pendingRot = parseFloat(g.innerEl.dataset.pendingRot ?? '')
       delete g.innerEl.dataset.pendingRot
+      // FASE-14 PR3: restore lift.
+      g.outerEl.style.zIndex = g.preGestureZIndex
       gestureRef.current = null
       optsRef.current.sharedActivePointer.current = null
       if (!isNaN(pendingRot)) {
@@ -256,10 +298,14 @@ export function useMesaTransform(options: TransformOptions) {
       g.outerEl.style.transform = `translate(${g.centerScreenX - screenW / 2}px, ${g.centerScreenY - screenH / 2}px)`
       delete g.outerEl.dataset.pendingW
       delete g.outerEl.dataset.pendingH
+      // FASE-14 PR3: restore lift — always restored on pointercancel.
+      g.outerEl.style.zIndex = g.preGestureZIndex
     } else {
       // Restore original rotation.
       g.innerEl.style.transform = `rotate(${g.startRotation}deg)`
       delete g.innerEl.dataset.pendingRot
+      // FASE-14 PR3: restore lift.
+      g.outerEl.style.zIndex = g.preGestureZIndex
     }
     gestureRef.current = null
     sharedActivePointer.current = null
