@@ -4,6 +4,7 @@ import { useRef, useEffect, useCallback } from 'react'
 import type { InfoMesa } from '@/lib/salon-service'
 import type { Viewport } from '@/lib/hooks/useSalonViewport'
 import type { MesaTransformPatch } from '@/lib/mesas-service'
+import type { Sector } from '@/lib/espacios-service'
 import { useMesaDrag } from '@/lib/hooks/useMesaDrag'
 import { useMesaTransform } from '@/lib/hooks/useMesaTransform'
 import { MesaVisual } from './MesaVisual'
@@ -19,12 +20,14 @@ const ZOOM_MIN = 0.15
 const ZOOM_MAX = 4
 
 // Partial geometry that can be pending optimistically for any mesa.
+// FASE-14 PR3 IMP-3: zIndex added — must be included in the field-by-field sweep below.
 interface OptimisticGeometry {
   posX?: number
   posY?: number
   width?: number
   height?: number
   rotation?: number
+  zIndex?: number
 }
 
 interface SalonCanvasProps {
@@ -35,6 +38,9 @@ interface SalonCanvasProps {
   selectedMesaId: string | null
   editMode: boolean
   isAdmin: boolean
+  // FASE-14 PR3: sector backdrops + filter attenuation.
+  sectors: Sector[]
+  activeSectorFilter: string | null
   // C1/I4: true cuando no hay viewport guardado y debe ejecutarse zoom-to-fit
   fitPending: boolean
   onFitComplete: () => void
@@ -118,6 +124,8 @@ export function SalonCanvas({
   selectedMesaId,
   editMode,
   isAdmin,
+  sectors,
+  activeSectorFilter,
   fitPending,
   onFitComplete,
   onViewportChange,
@@ -131,6 +139,7 @@ export function SalonCanvas({
   const activePointerRef = useRef<number | null>(null)
 
   // Generalized optimistic geometry: Partial per mesa, cleared field-by-field as Firestore echoes arrive.
+  // IMP-3: zIndex included — sweep below must cover all fields declared here.
   const optimisticGeometry = useRef<Record<string, OptimisticGeometry>>({})
 
   // Clear optimistic fields whose Firestore echo has arrived (field-by-field to avoid clearing unrelated pending fields).
@@ -139,11 +148,13 @@ export function SalonCanvas({
       const mesa = mapa.find(m => m.mesa.id === mesaId)?.mesa
       if (!mesa) continue
       const remaining: OptimisticGeometry = {}
-      if (opt.posX !== undefined && mesa.posX !== opt.posX) remaining.posX = opt.posX
-      if (opt.posY !== undefined && mesa.posY !== opt.posY) remaining.posY = opt.posY
-      if (opt.width !== undefined && mesa.width !== opt.width) remaining.width = opt.width
-      if (opt.height !== undefined && mesa.height !== opt.height) remaining.height = opt.height
+      if (opt.posX     !== undefined && mesa.posX     !== opt.posX)     remaining.posX     = opt.posX
+      if (opt.posY     !== undefined && mesa.posY     !== opt.posY)     remaining.posY     = opt.posY
+      if (opt.width    !== undefined && mesa.width    !== opt.width)    remaining.width    = opt.width
+      if (opt.height   !== undefined && mesa.height   !== opt.height)   remaining.height   = opt.height
       if (opt.rotation !== undefined && mesa.rotation !== opt.rotation) remaining.rotation = opt.rotation
+      // FASE-14 PR3 IMP-3: zIndex barrido campo a campo.
+      if (opt.zIndex   !== undefined && mesa.zIndex   !== opt.zIndex)   remaining.zIndex   = opt.zIndex
       if (Object.keys(remaining).length === 0) {
         delete optimisticGeometry.current[mesaId]
       } else {
@@ -270,6 +281,41 @@ export function SalonCanvas({
         }}
       />
 
+      {/* FASE-14 PR3: Sector backdrops — rendered before mesas (behind all mesas in DOM order).
+          Only sectors with explicit bounds get a backdrop; pointer-events-none always. */}
+      {sectors.filter(s => s.boundsX !== undefined).map(s => {
+        const bx = (s.boundsX ?? 0) * viewport.zoom + viewport.panX
+        const by = (s.boundsY ?? 0) * viewport.zoom + viewport.panY
+        const bw = (s.boundsWidth ?? 200) * viewport.zoom
+        const bh = (s.boundsHeight ?? 200) * viewport.zoom
+        return (
+          <div
+            key={s.id}
+            className="absolute rounded-xl pointer-events-none"
+            style={{
+              left: bx,
+              top: by,
+              width: bw,
+              height: bh,
+              backgroundColor: s.color ? `${s.color}18` : 'rgba(100,100,200,0.06)',
+              border: `2px dashed ${s.color ?? 'hsl(var(--border))'}`,
+            }}
+          >
+            <span style={{
+              position: 'absolute',
+              top: 4,
+              left: 8,
+              fontSize: 11,
+              fontWeight: 700,
+              color: s.color ?? 'hsl(var(--muted-foreground))',
+              userSelect: 'none',
+            }}>
+              {s.nombre}
+            </span>
+          </div>
+        )
+      })}
+
       {/* Mesas — single render path; fallback coords for mesas without posX/posY */}
       {mapa.map((info, idx) => {
         // Optimistic geometry takes priority over Firestore data, which takes priority over defaults.
@@ -280,6 +326,12 @@ export function SalonCanvas({
         const mesaW  = opt?.width    ?? info.mesa.width    ?? MESA_W
         const mesaH  = opt?.height   ?? info.mesa.height   ?? MESA_H
         const rot    = opt?.rotation ?? info.mesa.rotation ?? 0
+        // FASE-14 PR3: shape + effective zIndex (I-11: persistido ?? derivadoPorOrden).
+        const shape  = info.mesa.shape ?? 'rect'
+        const effectiveZIdx = opt?.zIndex ?? info.mesa.zIndex ?? info.mesa.orden
+        const lockAspect = shape === 'square' || shape === 'circle'
+        // Sector filter attenuation: dimmed when a filter is active and mesa doesn't match.
+        const dimmed = activeSectorFilter !== null && info.mesa.sectorId !== activeSectorFilter
 
         const { screenX, screenY, screenW, screenH } = worldToScreen(posX, posY, mesaW, mesaH, viewport)
 
@@ -290,6 +342,9 @@ export function SalonCanvas({
             selected={selectedMesaId === info.mesa.id}
             editMode={editMode}
             rotation={rot}
+            shape={shape}
+            zIndex={effectiveZIdx}
+            dimmed={dimmed}
             screenX={screenX}
             screenY={screenY}
             screenW={screenW}
@@ -302,7 +357,7 @@ export function SalonCanvas({
             onBodyPointerCancel={onDragCancel}
             // Transform (resize / rotate) handlers.
             onResizePointerDown={(e, handle, outerEl, innerEl) =>
-              onResizePointerDown(e, handle, info.mesa.id, mesaW, mesaH, rot, outerEl, innerEl)
+              onResizePointerDown(e, handle, info.mesa.id, mesaW, mesaH, rot, lockAspect, outerEl, innerEl)
             }
             onRotatePointerDown={(e, outerEl, innerEl) =>
               onRotatePointerDown(e, info.mesa.id, rot, outerEl, innerEl)
