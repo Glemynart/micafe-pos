@@ -20,6 +20,19 @@ import { db } from "@/lib/firebase";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
+// FASE-14 PR3: sector embebido en el doc espacio (cero colección nueva).
+export interface Sector {
+  id: string;
+  nombre: string;
+  color?: string;
+  orden?: number;
+  // Bounds opcionales en coords de mundo (para backdrop visual).
+  boundsX?: number;
+  boundsY?: number;
+  boundsWidth?: number;
+  boundsHeight?: number;
+}
+
 export interface Espacio {
   id: string;
   nombre: string;
@@ -31,6 +44,8 @@ export interface Espacio {
   // FASE-14 PR1: dimensiones del mundo lógico del lienzo (ul). Default 1600×1000.
   salonWorldWidth?: number;
   salonWorldHeight?: number;
+  // FASE-14 PR3: sectores embebidos (sub-zonas del espacio).
+  sectores?: Sector[];
 }
 
 export interface Categoria {
@@ -143,4 +158,9 @@ export async function obtenerCategorias(espacioId: string): Promise<Categoria[]>
 
 export async function guardarModulosEspacio(espacioId: string, modulos: string[]): Promise<void> {
   await updateDoc(doc(db, "espacios", espacioId), { modulos_permitidos: modulos });
+}
+
+// FASE-14 PR3: I-13 — usa updateDoc parcial para no borrar otros campos del espacio.
+export async function actualizarSectoresEspacio(espacioId: string, sectores: Sector[]): Promise<void> {
+  await updateDoc(doc(db, "espacios", espacioId), { sectores });
 }
