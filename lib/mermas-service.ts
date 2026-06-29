@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { db } from "@/lib/firebase";
+import { aplicarMovimientoEnTransaccion } from "@/lib/inventario-ledger";
 
 export interface Merma {
   id: string;
@@ -56,14 +57,27 @@ export async function registrarMerma(params: RegistrarMermaParams): Promise<stri
   const nuevaMermaDoc = doc(mermasRef);
 
   await runTransaction(db, async (transaction) => {
-    const insumoRef = doc(db, "insumos", params.insumoId);
-    const insumoSnap = await transaction.get(insumoRef);
-
-    if (insumoSnap.exists()) {
-      const stockActual = insumoSnap.data().stock || 0;
-      const nuevoStock = Math.max(0, stockActual - params.cantidad);
-      transaction.update(insumoRef, { stock: nuevoStock, actualizadoEn: serverTimestamp() });
-    }
+    // Ledger: emitir movimiento merma y actualizar stock co-atómicamente (I5).
+    // El helper hace lecturas (idempotencia + artículo) antes de cualquier escritura.
+    await aplicarMovimientoEnTransaccion(transaction, {
+      articuloTipo:        "insumo",
+      articuloId:          params.insumoId,
+      articuloNombre:      params.insumoNombre,
+      unidad:              params.unidadMedida,
+      tipo:                "merma",
+      cantidad:            -params.cantidad,   // salida → negativo (I13)
+      // params.costo es el costo TOTAL de la merma (cantidad × costo unitario del
+      // insumo, calculado en waste-module). El ledger espera costo POR UNIDAD y
+      // recalcula costoTotal = |cantidad| × costoUnitario. Derivar el unitario.
+      costoUnitario:       params.cantidad > 0 ? params.costo / params.cantidad : 0,
+      espacioId:           params.espacioId,
+      usuarioId:           uid,
+      usuarioNombre:       nombre,
+      claveIdempotencia:   `merma:${nuevaMermaDoc.id}:insumo:${params.insumoId}:0`,
+      referenciaColeccion: "mermas",
+      referenciaId:        nuevaMermaDoc.id,
+      motivo:              params.motivo,
+    });
 
     transaction.set(nuevaMermaDoc, {
       insumoId: params.insumoId,
