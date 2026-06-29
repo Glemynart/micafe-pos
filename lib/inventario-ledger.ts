@@ -249,12 +249,20 @@ export async function aplicarMovimientosEnTransaccion(
   // Ninguna escritura ocurre aquí: mutations.length === 0 durante todos los
   // transaction.get(), cumpliendo el invariante del SDK.
   const lote: Array<{
-    params:          EmitirMovimientoParams;
-    catalogEntry:    EntradaCatalogo;
+    params:                EmitirMovimientoParams;
+    catalogEntry:          EntradaCatalogo;
     /** null = movimiento nuevo; non-null = ya existe (reintento idempotente, I10). */
-    existente:       Omit<MovimientoInventario, "id"> | null;
-    saldoActual:     number;
-    secuenciaActual: number;
+    existente:             Omit<MovimientoInventario, "id"> | null;
+    saldoActual:           number;
+    secuenciaActual:       number;
+    /** Costo unitario leído del doc del artículo en Fase 1 — snapshot para inventario_inicial. */
+    costoUnitarioApertura: number;
+    /**
+     * true cuando el artículo nunca tuvo movimientos (secuenciaActual === 0)
+     * y su stock cache es estrictamente positivo: el núcleo emitirá inventario_inicial
+     * en Fase 2 antes del primer movimiento real. Stock ≤ 0 se omite (evita violar I13).
+     */
+    necesitaApertura:      boolean;
   }> = [];
 
   for (const params of paramsArray) {
@@ -269,10 +277,12 @@ export async function aplicarMovimientosEnTransaccion(
       // La Fase 2 no escribirá nada para esta entrada ni consumirá secuencia (I12).
       lote.push({
         params,
-        catalogEntry:    CATALOGO_TIPOS[params.tipo],
-        existente:       movSnap.data() as Omit<MovimientoInventario, "id">,
-        saldoActual:     0,
-        secuenciaActual: 0,
+        catalogEntry:          CATALOGO_TIPOS[params.tipo],
+        existente:             movSnap.data() as Omit<MovimientoInventario, "id">,
+        saldoActual:           0,
+        secuenciaActual:       0,
+        costoUnitarioApertura: 0,
+        necesitaApertura:      false,
       });
       continue;
     }
@@ -286,12 +296,16 @@ export async function aplicarMovimientosEnTransaccion(
     }
     const articuloData = articuloSnap.data();
 
+    const saldoActual     = (articuloData.stock           as number | undefined) ?? 0;
+    const secuenciaActual = (articuloData.secuenciaLedger as number | undefined) ?? 0;
     lote.push({
       params,
-      catalogEntry:    CATALOGO_TIPOS[params.tipo],
-      existente:       null,
-      saldoActual:     (articuloData.stock           as number | undefined) ?? 0,
-      secuenciaActual: (articuloData.secuenciaLedger as number | undefined) ?? 0,
+      catalogEntry:          CATALOGO_TIPOS[params.tipo],
+      existente:             null,
+      saldoActual,
+      secuenciaActual,
+      costoUnitarioApertura: (articuloData.costo         as number | undefined) ?? 0,
+      necesitaApertura:      secuenciaActual === 0 && saldoActual > 0,
     });
   }
 
@@ -313,8 +327,46 @@ export async function aplicarMovimientosEnTransaccion(
     const movimientoRef     = doc(db, "movimientos_inventario", params.claveIdempotencia);
     const articuloRef       = doc(db, articuloColeccion, params.articuloId);
 
-    // Paso 4: Calcular saldo, secuencia y costo (I8, I12)
-    const secuenciaArticulo    = entrada.secuenciaActual + 1;
+    // Paso 4a: Apertura lazy — emitir inventario_inicial si el artículo nunca ha tenido
+    // movimientos (secuenciaActual === 0) y stock cache > 0 (stock ≤ 0 omitido por I13).
+    // Toda la información necesaria está en datos ya leídos en Fase 1: cero lecturas nuevas.
+    let secuenciaBase = entrada.secuenciaActual;
+    if (entrada.necesitaApertura) {
+      secuenciaBase += 1;
+      const claveApertura = `inventario_inicial:${params.articuloTipo}:${params.articuloId}`;
+      const aperturaRef   = doc(db, "movimientos_inventario", claveApertura);
+      const aperturaData: Omit<MovimientoInventario, "id"> = {
+        empresaId:               "default",
+        espacioId:               params.espacioId,
+        articuloTipo:            params.articuloTipo,
+        articuloId:              params.articuloId,
+        articuloNombre:          params.articuloNombre,
+        unidad:                  params.unidad,
+        tipo:                    "inventario_inicial",
+        clase:                   "entrada",
+        signo:                   1,
+        cantidad:                entrada.saldoActual,
+        costoUnitario:           entrada.costoUnitarioApertura,
+        costoTotal:              entrada.saldoActual * entrada.costoUnitarioApertura,
+        saldoCantidadDespues:    entrada.saldoActual,
+        saldoValorDespues:       null,
+        referenciaColeccion:     null,
+        referenciaId:            null,
+        movimientoRelacionadoId: null,
+        loteId:                  null,
+        capasConsumidasDetalle:  null,
+        usuarioId:               params.usuarioId,
+        usuarioNombre:           params.usuarioNombre,
+        fecha:                   serverTimestamp(),
+        secuenciaArticulo:       secuenciaBase,
+        claveIdempotencia:       claveApertura,
+        motivo:                  "apertura_lazy",
+      };
+      transaction.set(aperturaRef, aperturaData);
+    }
+
+    // Paso 4b: Calcular saldo, secuencia y costo del movimiento real (I8, I12)
+    const secuenciaArticulo    = secuenciaBase + 1;
     const saldoCantidadDespues = entrada.saldoActual + params.cantidad; // I6: sin recorte a cero
     const costoTotal           = Math.abs(params.cantidad) * params.costoUnitario;
 
