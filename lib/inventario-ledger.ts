@@ -199,24 +199,182 @@ export interface EmitirMovimientoParams {
 // ─── Núcleo transaccional ─────────────────────────────────────────────────────
 
 /**
- * Núcleo del ledger: toda la lógica de emisión operando sobre una transacción
- * ya abierta por el llamador.
+ * Núcleo del ledger por lote — garantiza el orden reads-before-writes del SDK
+ * de Firestore cuando la operación afecta múltiples artículos en la misma
+ * transacción (compras multi-artículo, producciones, traslados, etc.).
  *
- * Uso principal — escritores de PR2+ que necesitan incluir el movimiento dentro
- * de su propia operación atómica (ventas, compras, mermas, etc.):
+ * Uso:
+ *   await runTransaction(db, async (t) => {
+ *     // ... lógica propia del escritor ...
+ *     await aplicarMovimientosEnTransaccion(t, [params1, params2]);
+ *   });
  *
+ * Estructura de ejecución:
+ *   Fase 0 — Validaciones I13 de todos los movimientos (sin ops de Firestore).
+ *   Fase 1 — TODAS las lecturas (idempotencia + artículo) de cada movimiento.
+ *   Fase 2 — TODAS las escrituras de cada movimiento.
+ *
+ * El SDK exige mutations.length === 0 al iniciar cualquier transaction.get().
+ * Al separar lectura y escritura en las fases 1 y 2, ese invariante se cumple
+ * para cualquier número de artículos.
+ *
+ * Precondición: cada (articuloTipo, articuloId) debe ser único en paramsArray.
+ * El llamador es responsable de consolidar filas del mismo artículo antes de invocar.
+ *
+ * Invariantes garantizados: I1 I2 I5 I6 I7 I8 I10 I11 I12 I13.
+ */
+export async function aplicarMovimientosEnTransaccion(
+  transaction: Transaction,
+  paramsArray: EmitirMovimientoParams[],
+): Promise<MovimientoInventario[]> {
+  // ── Fase 0: Validaciones I13 — sin ops de Firestore ─────────────────────
+  for (const params of paramsArray) {
+    const catalogEntry = CATALOGO_TIPOS[params.tipo];
+    if (params.cantidad === 0) {
+      throw new Error(
+        `Ledger I13: cantidad no puede ser cero (tipo="${params.tipo}", artículo="${params.articuloId}")`,
+      );
+    }
+    const signoCalculado = (params.cantidad > 0 ? 1 : -1) as 1 | -1;
+    if (signoCalculado !== catalogEntry.signo) {
+      throw new Error(
+        `Ledger I13: signo de cantidad incoherente con tipo "${params.tipo}". ` +
+          `Esperado ${catalogEntry.signo > 0 ? "positivo" : "negativo"}, ` +
+          `recibido ${signoCalculado > 0 ? "positivo" : "negativo"}.`,
+      );
+    }
+  }
+
+  // ── Fase 1: TODAS las lecturas ────────────────────────────────────────────
+  // Ninguna escritura ocurre aquí: mutations.length === 0 durante todos los
+  // transaction.get(), cumpliendo el invariante del SDK.
+  const lote: Array<{
+    params:          EmitirMovimientoParams;
+    catalogEntry:    EntradaCatalogo;
+    /** null = movimiento nuevo; non-null = ya existe (reintento idempotente, I10). */
+    existente:       Omit<MovimientoInventario, "id"> | null;
+    saldoActual:     number;
+    secuenciaActual: number;
+  }> = [];
+
+  for (const params of paramsArray) {
+    const articuloColeccion = params.articuloTipo === "producto" ? "productos" : "insumos";
+    const movimientoRef     = doc(db, "movimientos_inventario", params.claveIdempotencia);
+    const articuloRef       = doc(db, articuloColeccion, params.articuloId);
+
+    // Paso 2: Verificar idempotencia (I10) — dentro de la transacción
+    const movSnap = await transaction.get(movimientoRef);
+    if (movSnap.exists()) {
+      // Reintento detectado: guardar el existente y omitir la lectura del artículo.
+      // La Fase 2 no escribirá nada para esta entrada ni consumirá secuencia (I12).
+      lote.push({
+        params,
+        catalogEntry:    CATALOGO_TIPOS[params.tipo],
+        existente:       movSnap.data() as Omit<MovimientoInventario, "id">,
+        saldoActual:     0,
+        secuenciaActual: 0,
+      });
+      continue;
+    }
+
+    // Paso 3: Leer el artículo — saldo cache y contador de secuencia (I8, I12)
+    const articuloSnap = await transaction.get(articuloRef);
+    if (!articuloSnap.exists()) {
+      throw new Error(
+        `Ledger: artículo "${params.articuloId}" (${params.articuloTipo}) no encontrado`,
+      );
+    }
+    const articuloData = articuloSnap.data();
+
+    lote.push({
+      params,
+      catalogEntry:    CATALOGO_TIPOS[params.tipo],
+      existente:       null,
+      saldoActual:     (articuloData.stock           as number | undefined) ?? 0,
+      secuenciaActual: (articuloData.secuenciaLedger as number | undefined) ?? 0,
+    });
+  }
+
+  // ── Fase 2: TODAS las escrituras ──────────────────────────────────────────
+  // Ninguna lectura ocurre en esta fase.
+  const resultados: MovimientoInventario[] = [];
+
+  for (const entrada of lote) {
+    if (entrada.existente !== null) {
+      // Idempotente: retornar el movimiento original sin escribir nada (I10).
+      resultados.push({ id: entrada.params.claveIdempotencia, ...entrada.existente });
+      continue;
+    }
+
+    const { params, catalogEntry } = entrada;
+
+    // doc() es pura (sin coste de red): los refs se reconstruyen desde params.
+    const articuloColeccion = params.articuloTipo === "producto" ? "productos" : "insumos";
+    const movimientoRef     = doc(db, "movimientos_inventario", params.claveIdempotencia);
+    const articuloRef       = doc(db, articuloColeccion, params.articuloId);
+
+    // Paso 4: Calcular saldo, secuencia y costo (I8, I12)
+    const secuenciaArticulo    = entrada.secuenciaActual + 1;
+    const saldoCantidadDespues = entrada.saldoActual + params.cantidad; // I6: sin recorte a cero
+    const costoTotal           = Math.abs(params.cantidad) * params.costoUnitario;
+
+    const movimientoData: Omit<MovimientoInventario, "id"> = {
+      empresaId:               "default",
+      espacioId:               params.espacioId,
+      articuloTipo:            params.articuloTipo,
+      articuloId:              params.articuloId,
+      articuloNombre:          params.articuloNombre,
+      unidad:                  params.unidad,
+      tipo:                    params.tipo,
+      clase:                   catalogEntry.clase,
+      signo:                   catalogEntry.signo,
+      cantidad:                params.cantidad,
+      costoUnitario:           params.costoUnitario,
+      costoTotal,
+      saldoCantidadDespues,
+      saldoValorDespues:       null,
+      referenciaColeccion:     params.referenciaColeccion     ?? null,
+      referenciaId:            params.referenciaId            ?? null,
+      movimientoRelacionadoId: params.movimientoRelacionadoId ?? null,
+      loteId:                  params.loteId                  ?? null,
+      capasConsumidasDetalle:  params.capasConsumidasDetalle  ?? null,
+      usuarioId:               params.usuarioId,
+      usuarioNombre:           params.usuarioNombre,
+      fecha:                   serverTimestamp(),
+      secuenciaArticulo,
+      claveIdempotencia:       params.claveIdempotencia,
+      motivo:                  params.motivo ?? null,
+    };
+
+    // Paso 5: Anexar movimiento (I1, I2, I5-A)
+    transaction.set(movimientoRef, movimientoData);
+
+    // Paso 6: Actualizar cache y secuencia (I5-B — co-atómica con paso 5)
+    transaction.update(articuloRef, {
+      stock:           saldoCantidadDespues,
+      secuenciaLedger: secuenciaArticulo,
+    });
+
+    resultados.push({ id: params.claveIdempotencia, ...movimientoData });
+  }
+
+  return resultados;
+}
+
+// ─── Núcleo transaccional (elemento único) ────────────────────────────────────
+
+/**
+ * Wrapper de un elemento sobre `aplicarMovimientosEnTransaccion`.
+ *
+ * Para escritores que afectan un único artículo por transacción. Cuando la
+ * operación afecta varios artículos, usar directamente
+ * `aplicarMovimientosEnTransaccion` para garantizar reads-before-writes.
+ *
+ * Uso:
  *   await runTransaction(db, async (t) => {
  *     // ... lógica propia del escritor ...
  *     await aplicarMovimientoEnTransaccion(t, params);
  *   });
- *
- * Flujo obligatorio (§4 del diseño):
- *   1. Validaciones I13                    — lanzar antes de tocar Firestore.
- *   2. Verificación de idempotencia (I10)  — dentro de la transacción; si ya existe, retornar sin escribir.
- *   3. Lectura del artículo                — saldo cache y contador de secuencia.
- *   4. Cálculo de saldo, secuencia y costo — dentro de la transacción (I8, I12).
- *   5. Anexar el movimiento                — append-only (I1, I2, I5-A).
- *   6. Actualizar cache y secuencia        — co-atómica con el paso 5 (I5-B).
  *
  * Invariantes garantizados: I1 I2 I5 I6 I7 I8 I10 I11 I12 I13.
  */
@@ -224,94 +382,8 @@ export async function aplicarMovimientoEnTransaccion(
   transaction: Transaction,
   params: EmitirMovimientoParams,
 ): Promise<MovimientoInventario> {
-  const catalogEntry = CATALOGO_TIPOS[params.tipo];
-
-  // ── Validaciones I13 ─────────────────────────────────────────────────────
-  if (params.cantidad === 0) {
-    throw new Error(
-      `Ledger I13: cantidad no puede ser cero (tipo="${params.tipo}", artículo="${params.articuloId}")`,
-    );
-  }
-  const signoCalculado = (params.cantidad > 0 ? 1 : -1) as 1 | -1;
-  if (signoCalculado !== catalogEntry.signo) {
-    throw new Error(
-      `Ledger I13: signo de cantidad incoherente con tipo "${params.tipo}". ` +
-        `Esperado ${catalogEntry.signo > 0 ? "positivo" : "negativo"}, ` +
-        `recibido ${signoCalculado > 0 ? "positivo" : "negativo"}.`,
-    );
-  }
-
-  const articuloColeccion = params.articuloTipo === "producto" ? "productos" : "insumos";
-  const movimientoRef = doc(db, "movimientos_inventario", params.claveIdempotencia);
-  const articuloRef   = doc(db, articuloColeccion, params.articuloId);
-
-  // ── Paso 2: Verificar idempotencia (I10) ─────────────────────────────────
-  // La verificación ocurre DENTRO de la transacción: no hay ventana de carrera.
-  const movExistente = await transaction.get(movimientoRef);
-  if (movExistente.exists()) {
-    // Reintento detectado: retornar el movimiento original sin escribir nada.
-    // No se consume número de secuencia (I12).
-    return {
-      id: movExistente.id,
-      ...(movExistente.data() as Omit<MovimientoInventario, "id">),
-    };
-  }
-
-  // ── Paso 3: Leer el artículo ──────────────────────────────────────────────
-  const articuloSnap = await transaction.get(articuloRef);
-  if (!articuloSnap.exists()) {
-    throw new Error(
-      `Ledger: artículo "${params.articuloId}" (${params.articuloTipo}) no encontrado`,
-    );
-  }
-  const articuloData = articuloSnap.data();
-
-  // ── Paso 4: Calcular saldo, secuencia y costo (I8, I12) ──────────────────
-  // Todos los cálculos ocurren DENTRO de la transacción para evitar carreras.
-  const saldoActual: number      = (articuloData.stock as number | undefined) ?? 0;
-  const secuenciaActual: number  = (articuloData.secuenciaLedger as number | undefined) ?? 0;
-  const secuenciaArticulo        = secuenciaActual + 1;
-  const saldoCantidadDespues     = saldoActual + params.cantidad; // I6: sin recorte a cero
-  const costoTotal               = Math.abs(params.cantidad) * params.costoUnitario;
-
-  const movimientoData: Omit<MovimientoInventario, "id"> = {
-    empresaId:               "default",
-    espacioId:               params.espacioId,
-    articuloTipo:            params.articuloTipo,
-    articuloId:              params.articuloId,
-    articuloNombre:          params.articuloNombre,
-    unidad:                  params.unidad,
-    tipo:                    params.tipo,
-    clase:                   catalogEntry.clase,
-    signo:                   catalogEntry.signo,
-    cantidad:                params.cantidad,
-    costoUnitario:           params.costoUnitario,
-    costoTotal,
-    saldoCantidadDespues,
-    saldoValorDespues:       null,
-    referenciaColeccion:     params.referenciaColeccion     ?? null,
-    referenciaId:            params.referenciaId            ?? null,
-    movimientoRelacionadoId: params.movimientoRelacionadoId ?? null,
-    loteId:                  params.loteId                  ?? null,
-    capasConsumidasDetalle:  params.capasConsumidasDetalle  ?? null,
-    usuarioId:               params.usuarioId,
-    usuarioNombre:           params.usuarioNombre,
-    fecha:                   serverTimestamp(),
-    secuenciaArticulo,
-    claveIdempotencia:       params.claveIdempotencia,
-    motivo:                  params.motivo ?? null,
-  };
-
-  // ── Paso 5: Anexar movimiento (I1, I2, I5-A) ─────────────────────────────
-  transaction.set(movimientoRef, movimientoData);
-
-  // ── Paso 6: Actualizar cache y secuencia (I5-B — co-atómica con paso 5) ──
-  transaction.update(articuloRef, {
-    stock:           saldoCantidadDespues,
-    secuenciaLedger: secuenciaArticulo,
-  });
-
-  return { id: params.claveIdempotencia, ...movimientoData };
+  const [resultado] = await aplicarMovimientosEnTransaccion(transaction, [params]);
+  return resultado!;
 }
 
 // ─── Wrapper público (uso aislado) ────────────────────────────────────────────

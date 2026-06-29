@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { db } from "@/lib/firebase";
+import { aplicarMovimientosEnTransaccion, type EmitirMovimientoParams } from "@/lib/inventario-ledger";
 
 export interface CompraItem {
   tipo?: 'insumo' | 'producto';
@@ -96,24 +97,62 @@ export async function registrarCompra(params: RegistrarCompraParams): Promise<st
       if (!cuentaSnap.exists()) throw new Error("La cuenta bancaria no existe.");
     }
 
-    // ── ESCRITURAS ───────────────────────────────────────────────────────────
-    // Acumular cantidades por itemId antes de escribir: si el mismo insumo/producto
-    // aparece en varias filas, un único update suma el total correcto.
-    const cantidadesAlta = new Map<string, number>();
+    // ── LEDGER: consolidar por artículo y emitir movimiento compra ───────────
+    // Si el mismo artículo aparece en varias filas se consolida en un único
+    // movimiento (misma semántica que el stock anterior). El ledger actualiza
+    // stock y secuenciaLedger co-atómicamente dentro de esta transacción (I5).
+    interface AgregadoItem {
+      tipo: 'insumo' | 'producto';
+      cantidadTotal: number;
+      costoTotal: number;
+      nombre: string;
+      unidad: string;
+    }
+    const itemsAgregados = new Map<string, AgregadoItem>();
     for (const item of params.items) {
       const itemId = item.itemId || item.insumoId;
-      if (!itemId) continue;
-      cantidadesAlta.set(itemId, (cantidadesAlta.get(itemId) ?? 0) + item.cantidad);
-    }
-    for (const [itemId, totalCantidad] of cantidadesAlta.entries()) {
-      const itemData = itemsDataMap.get(itemId);
-      if (itemData) {
-        transaction.update(itemData.ref, {
-          stock: (itemData.data.stock || 0) + totalCantidad,
-          actualizadoEn: serverTimestamp(),
+      if (!itemId || !itemsDataMap.has(itemId)) continue;
+      const tipo = item.tipo ?? 'insumo';
+      const artData = itemsDataMap.get(itemId)!.data;
+      const prev = itemsAgregados.get(itemId);
+      if (prev) {
+        prev.cantidadTotal += item.cantidad;
+        prev.costoTotal    += item.costoTotal;
+      } else {
+        itemsAgregados.set(itemId, {
+          tipo,
+          cantidadTotal: item.cantidad,
+          costoTotal:    item.costoTotal,
+          nombre: artData.nombre ?? item.itemNombre ?? item.insumoNombre ?? itemId,
+          unidad: artData.unidadMedida ?? item.unidadMedida,
         });
       }
     }
+
+    // ── ESCRITURAS ───────────────────────────────────────────────────────────
+    // Se construye primero el array completo de params y luego se invoca el
+    // helper por lote una única vez: todas las lecturas del ledger ocurren en
+    // la Fase 1 del helper antes de cualquier escritura (reads-before-writes).
+    const paramsMovimientos: EmitirMovimientoParams[] = [];
+    for (const [itemId, agr] of itemsAgregados.entries()) {
+      const costoUnitario = agr.cantidadTotal > 0 ? agr.costoTotal / agr.cantidadTotal : 0;
+      paramsMovimientos.push({
+        articuloTipo:        agr.tipo,
+        articuloId:          itemId,
+        articuloNombre:      agr.nombre,
+        unidad:              agr.unidad,
+        tipo:                'compra',
+        cantidad:            agr.cantidadTotal,
+        costoUnitario,
+        espacioId:           params.espacioId,
+        usuarioId:           uid,
+        usuarioNombre:       nombre,
+        claveIdempotencia:   `compra:${nuevaCompraDoc.id}:${agr.tipo}:${itemId}:0`,
+        referenciaColeccion: 'compras',
+        referenciaId:        nuevaCompraDoc.id,
+      });
+    }
+    await aplicarMovimientosEnTransaccion(transaction, paramsMovimientos);
 
     transaction.set(nuevaCompraDoc, {
       proveedor: params.proveedor,
