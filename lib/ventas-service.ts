@@ -21,6 +21,7 @@ import {
   type DocumentReference,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { aplicarMovimientosEnTransaccion, type EmitirMovimientoParams } from "@/lib/inventario-ledger";
 
 export interface VentaItem {
   id: string; // ID del producto
@@ -148,7 +149,14 @@ async function _ejecutarVenta(
     }
   }
 
+  // ── Detectar incidencias y construir lote Ledger (I15) ────────────────────
+  // Items efímeros (foto-*, quick-*) nunca resuelven a un documento real en
+  // insumosMap / productosMap, por lo que la guarda `if (insumo)` / `if (producto)`
+  // los excluye automáticamente del lote; ningún movimiento de Ledger se emite.
+  const paramsMovimientos: EmitirMovimientoParams[] = [];
+
   for (const [insumoId, qtyDesc] of insumosDescuentos.entries()) {
+    if (qtyDesc <= 0) continue;
     const insumo = insumosMap.get(insumoId);
     if (insumo) {
       const currentStock = insumo.data.stock || 0;
@@ -161,11 +169,28 @@ async function _ejecutarVenta(
           cantidadSolicitada: qtyDesc,
         });
       }
-      transaction.update(insumo.ref, { stock: Math.max(0, currentStock - qtyDesc) });
+      // consumo_receta: insumo descargado por receta de un producto vendido.
+      // costoUnitario = costo vigente del insumo en el instante de la venta (I7).
+      paramsMovimientos.push({
+        articuloTipo:        "insumo",
+        articuloId:          insumoId,
+        articuloNombre:      insumo.data.nombre ?? insumoId,
+        unidad:              insumo.data.unidadMedida ?? "und",
+        tipo:                "consumo_receta",
+        cantidad:            -qtyDesc,
+        costoUnitario:       insumo.data.costo ?? 0,
+        espacioId:           params.espacioId ?? "",
+        usuarioId:           params.cajeroId,
+        usuarioNombre:       params.cajeroNombre ?? params.cajeroId,
+        claveIdempotencia:   `consumo_receta:${ventaDocRef.id}:insumo:${insumoId}:0`,
+        referenciaColeccion: "ventas",
+        referenciaId:        ventaDocRef.id,
+      });
     }
   }
 
   for (const [productoId, qtyDesc] of productosDescuentos.entries()) {
+    if (qtyDesc <= 0) continue;
     const producto = productosMap.get(productoId);
     if (producto) {
       const currentStock = producto.data.stock || 0;
@@ -178,8 +203,31 @@ async function _ejecutarVenta(
           cantidadSolicitada: qtyDesc,
         });
       }
-      transaction.update(producto.ref, { stock: Math.max(0, currentStock - qtyDesc) });
+      // venta: descuento directo de producto (sin receta).
+      // costoUnitario = costo vigente del producto en el instante de la venta (I7).
+      paramsMovimientos.push({
+        articuloTipo:        "producto",
+        articuloId:          productoId,
+        articuloNombre:      producto.data.nombre ?? productoId,
+        unidad:              producto.data.unidad ?? "und",
+        tipo:                "venta",
+        cantidad:            -qtyDesc,
+        costoUnitario:       producto.data.costo ?? 0,
+        espacioId:           params.espacioId ?? "",
+        usuarioId:           params.cajeroId,
+        usuarioNombre:       params.cajeroNombre ?? params.cajeroId,
+        claveIdempotencia:   `venta:${ventaDocRef.id}:producto:${productoId}:0`,
+        referenciaColeccion: "ventas",
+        referenciaId:        ventaDocRef.id,
+      });
     }
+  }
+
+  // El Ledger actualiza stock y secuenciaLedger co-atómicamente (I5).
+  // Todas las lecturas del helper ocurren en su Fase 1, antes de cualquier
+  // escritura; reads-before-writes se mantiene para toda la transacción.
+  if (paramsMovimientos.length > 0) {
+    await aplicarMovimientosEnTransaccion(transaction, paramsMovimientos);
   }
 
   transaction.set(configRef, { consecutivo_actual: nuevoConsecutivo }, { merge: true });
