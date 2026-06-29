@@ -1,6 +1,15 @@
 {
   "indexes": [
     {
+      "collectionGroup": "movimientos_inventario",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "articuloTipo",       "order": "ASCENDING" },
+        { "fieldPath": "articuloId",         "order": "ASCENDING" },
+        { "fieldPath": "secuenciaArticulo",  "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "ventas",
       "queryScope": "COLLECTION",
       "fields": [

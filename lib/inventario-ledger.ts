@@ -458,7 +458,171 @@ export async function emitirMovimientoInventario(
   );
 }
 
-// ─── Reconciliación (solo lectura) ───────────────────────────────────────────
+// ─── Reconciliación autoritativa (Fase 4) ────────────────────────────────────
+
+// ── Capa 1: replay puro ──────────────────────────────────────────────────────
+
+/** Movimiento inválido detectado durante el replay. */
+export interface MovimientoInvalido {
+  /** Document ID / claveIdempotencia del movimiento con problema. */
+  movimientoId: string;
+  secuenciaArticulo: number;
+  razon:
+    | "i13_signo_incoherente"      // sign(cantidad) ≠ signo (I13)
+    | "i13_clase_incoherente"      // clase no corresponde al tipo (I13)
+    | "i8_saldo_encadenado_roto";  // saldoCantidadDespues ≠ acumulado replay (I8)
+  detalles: string;
+}
+
+/**
+ * Resultado del replay puro del ledger para un artículo (Capa 1).
+ *
+ * Calculado exclusivamente a partir de los movimientos; no lee el cache del artículo.
+ * Autoritativo por I4: el stock es Σ(cantidad) de los movimientos, comenzando desde 0.
+ */
+export interface ReplayArticuloResult {
+  articuloTipo: ArticuloTipo;
+  articuloId: string;
+  /** Σ(cantidad) de todos los movimientos, empezando desde 0 — autoridad del ledger (I4). */
+  stockLedger: number;
+  /** Número de secuencia más alto encontrado en los movimientos leídos. */
+  secuenciaMax: number;
+  totalMovimientos: number;
+  /** Secuencias ausentes en la serie 1..secuenciaMax. */
+  huecos: number[];
+  /** Movimientos que violan I13 o cuyo saldoCantidadDespues no coincide con el acumulado (I8). */
+  movimientosInvalidos: MovimientoInvalido[];
+}
+
+/**
+ * Reconstruye el stock de un artículo recorriendo sus movimientos en orden de secuencia.
+ *
+ * CAPA 1 — SOLO LECTURA. No escribe nada. No lee el campo `stock` del artículo.
+ * Recibe los movimientos ya leídos (en orden secuenciaArticulo asc) para desacoplar
+ * la lógica de reconstrucción de las lecturas de Firestore.
+ *
+ * Invariantes verificados: I4, I8, I13.
+ */
+export function replayLedgerArticulo(
+  articuloTipo: ArticuloTipo,
+  articuloId: string,
+  movimientos: Pick<
+    MovimientoInventario,
+    | "id"
+    | "secuenciaArticulo"
+    | "cantidad"
+    | "signo"
+    | "clase"
+    | "tipo"
+    | "saldoCantidadDespues"
+  >[],
+): ReplayArticuloResult {
+  let acumulado = 0;       // empieza en 0, autoritativo (I4)
+  let expectedSeq = 1;
+  const huecos: number[] = [];
+  const movimientosInvalidos: MovimientoInvalido[] = [];
+
+  for (const m of movimientos) {
+    // Detectar huecos antes de procesar
+    while (expectedSeq < m.secuenciaArticulo) {
+      huecos.push(expectedSeq);
+      expectedSeq++;
+    }
+
+    // Validar I13: coherencia de signo
+    const signoCalculado = m.cantidad > 0 ? 1 : m.cantidad < 0 ? -1 : 0;
+    if (signoCalculado !== m.signo) {
+      movimientosInvalidos.push({
+        movimientoId: m.id,
+        secuenciaArticulo: m.secuenciaArticulo,
+        razon: "i13_signo_incoherente",
+        detalles: `cantidad=${m.cantidad} → signo esperado=${signoCalculado}, persistido=${m.signo}`,
+      });
+    }
+
+    // Validar I13: coherencia de clase con signo
+    const claseEsperada = CATALOGO_TIPOS[m.tipo]?.clase;
+    if (claseEsperada !== undefined && claseEsperada !== m.clase) {
+      movimientosInvalidos.push({
+        movimientoId: m.id,
+        secuenciaArticulo: m.secuenciaArticulo,
+        razon: "i13_clase_incoherente",
+        detalles: `tipo="${m.tipo}" → clase esperada="${claseEsperada}", persistida="${m.clase}"`,
+      });
+    }
+
+    // Acumular (siempre, incluso si hay inválidos — para seguir detectando rotura de saldo)
+    acumulado += m.cantidad;
+
+    // Validar I8: saldo encadenado (tolerancia para aritmética flotante)
+    const diff = Math.abs(m.saldoCantidadDespues - acumulado);
+    if (diff > 1e-9) {
+      movimientosInvalidos.push({
+        movimientoId: m.id,
+        secuenciaArticulo: m.secuenciaArticulo,
+        razon: "i8_saldo_encadenado_roto",
+        detalles: `saldoCantidadDespues=${m.saldoCantidadDespues}, acumulado_replay=${acumulado}, diff=${diff}`,
+      });
+    }
+
+    expectedSeq = m.secuenciaArticulo + 1;
+  }
+
+  const secuenciaMax = movimientos.length > 0
+    ? movimientos[movimientos.length - 1]!.secuenciaArticulo
+    : 0;
+
+  return {
+    articuloTipo,
+    articuloId,
+    stockLedger: acumulado,
+    secuenciaMax,
+    totalMovimientos: movimientos.length,
+    huecos,
+    movimientosInvalidos,
+  };
+}
+
+// ── Capa 2: diagnóstico / clasificación ──────────────────────────────────────
+
+/**
+ * Estado del artículo según la reconciliación.
+ *
+ * - `no_migrado`          : secuenciaLedger===0 — apertura lazy pendiente. I9 no aplica.
+ * - `corrupto`            : huecos en secuencia, inválidos I13/I8, o pérdida de cola
+ *                           (secuenciaLedger > secuenciaMax). Nunca se repara automáticamente.
+ * - `divergente_reparable`: P1∧P2∧P3 y |Σ−cache| > ε. Solo estado que acepta reparación.
+ * - `consistente`         : P1∧P2∧P3 y |Σ−cache| ≤ ε. Nada que hacer.
+ */
+export type EstadoReconciliacion =
+  | "no_migrado"
+  | "corrupto"
+  | "divergente_reparable"
+  | "consistente";
+
+/** Resultado de la capa de diagnóstico para un artículo. */
+export interface DiagnosticoArticulo {
+  articuloTipo: ArticuloTipo;
+  articuloId: string;
+  estado: EstadoReconciliacion;
+  /** Cache leído del documento del artículo. */
+  stockCache: number;
+  /** Σ(cantidad) del replay. undefined para no_migrado. */
+  stockLedger: number | undefined;
+  /** stockLedger − stockCache. undefined para no_migrado o corrupto. */
+  divergencia: number | undefined;
+  /** secuenciaLedger leída del documento del artículo. */
+  secuenciaLedger: number;
+  /** secuenciaMax del replay. */
+  secuenciaMax: number;
+  totalMovimientos: number;
+  huecos: number[];
+  movimientosInvalidos: MovimientoInvalido[];
+  /** Motivo adicional cuando estado === 'corrupto'. */
+  motivoCorrupcion: string | undefined;
+}
+
+// ── Resultado legacy (mantenido para no romper consumidores existentes) ───────
 
 export interface ReconciliacionResult {
   articuloTipo: ArticuloTipo;
@@ -473,64 +637,365 @@ export interface ReconciliacionResult {
   totalMovimientos: number;
   /** Números de secuencia ausentes en la serie esperada 1..N. Un hueco delata un movimiento perdido. */
   huecos: number[];
+  /** Extensión aditiva Fase 4: clasificación del estado del artículo. */
+  estado: EstadoReconciliacion;
+  /** Extensión aditiva Fase 4: movimientos que violan I13 o I8. */
+  movimientosInvalidos: MovimientoInvalido[];
+}
+
+/**
+ * Diagnóstica el estado de un artículo respecto a la reconciliación (I9).
+ *
+ * CAPA 2 — SOLO LECTURA. Lee artículo + movimientos; llama replayLedgerArticulo;
+ * clasifica en uno de los 4 estados: no_migrado / corrupto / divergente_reparable / consistente.
+ *
+ * I9 está activo a partir de Fase 4 (FASE-15 PR9): una divergencia ya no es un
+ * artefacto de migración sino un defecto reparable, salvo que el artículo esté
+ * no_migrado o corrupto.
+ *
+ * Tolerancia flotante: |Σ − cache| ≤ 1e-6 se considera consistente (insumos en g/ml
+ * acumulan error de representación).
+ */
+export async function diagnosticarArticulo(
+  articuloTipo: ArticuloTipo,
+  articuloId: string,
+): Promise<DiagnosticoArticulo> {
+  const articuloColeccion = articuloTipo === "producto" ? "productos" : "insumos";
+
+  // Paso 1: leer SOLO el artículo. La colección movimientos_inventario no se
+  // consulta hasta confirmar que el artículo está migrado (secuenciaLedger > 0).
+  // Esta función no abre transacción ni escribe: el orden reads-before-writes
+  // del SDK no aplica, por lo que secuencializar las lecturas es seguro y deja
+  // a los artículos no_migrado completamente fuera del replay (coherente con la
+  // máquina de estados).
+  const articuloSnap    = await getDoc(doc(db, articuloColeccion, articuloId));
+  const articuloData     = articuloSnap.exists() ? articuloSnap.data() : null;
+  const stockCache       = (articuloData?.stock           as number | undefined) ?? 0;
+  const secuenciaLedger  = (articuloData?.secuenciaLedger as number | undefined) ?? 0;
+
+  // P1: no migrado → clasificar y retornar SIN tocar movimientos_inventario.
+  if (secuenciaLedger === 0) {
+    return {
+      articuloTipo,
+      articuloId,
+      estado:               "no_migrado",
+      stockCache,
+      stockLedger:          undefined,
+      divergencia:          undefined,
+      secuenciaLedger:      0,
+      secuenciaMax:         0,
+      totalMovimientos:     0,
+      huecos:               [],
+      movimientosInvalidos: [],
+      motivoCorrupcion:     undefined,
+    };
+  }
+
+  // Paso 2: solo para artículos migrados, leer sus movimientos para el replay.
+  const movimientosSnap = await getDocs(
+    query(
+      collection(db, "movimientos_inventario"),
+      where("articuloTipo", "==", articuloTipo),
+      where("articuloId",   "==", articuloId),
+      orderBy("secuenciaArticulo", "asc"),
+    ),
+  );
+
+  const movimientosRaw = movimientosSnap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id:                   d.id,
+      secuenciaArticulo:    data.secuenciaArticulo    as number,
+      cantidad:             data.cantidad             as number,
+      signo:                data.signo                as 1 | -1,
+      clase:                data.clase                as ClaseMovimiento,
+      tipo:                 data.tipo                 as TipoMovimientoInventario,
+      saldoCantidadDespues: data.saldoCantidadDespues as number,
+    };
+  });
+
+  const replay = replayLedgerArticulo(articuloTipo, articuloId, movimientosRaw);
+
+  // P2: pérdida de cola — el contador del artículo dice más que el replay encontró
+  const perdidaDeCola = secuenciaLedger > replay.secuenciaMax;
+
+  // P2 o P3: corrupción → no reparar
+  if (replay.huecos.length > 0 || replay.movimientosInvalidos.length > 0 || perdidaDeCola) {
+    const motivos: string[] = [];
+    if (replay.huecos.length > 0)
+      motivos.push(`huecos_secuencia: [${replay.huecos.join(",")}]`);
+    if (replay.movimientosInvalidos.length > 0)
+      motivos.push(`movimientos_invalidos: ${replay.movimientosInvalidos.length}`);
+    if (perdidaDeCola)
+      motivos.push(`perdida_de_cola: secuenciaLedger=${secuenciaLedger} > secuenciaMax=${replay.secuenciaMax}`);
+
+    return {
+      articuloTipo,
+      articuloId,
+      estado:               "corrupto",
+      stockCache,
+      stockLedger:          replay.stockLedger,
+      divergencia:          undefined,
+      secuenciaLedger,
+      secuenciaMax:         replay.secuenciaMax,
+      totalMovimientos:     replay.totalMovimientos,
+      huecos:               replay.huecos,
+      movimientosInvalidos: replay.movimientosInvalidos,
+      motivoCorrupcion:     motivos.join("; "),
+    };
+  }
+
+  // P1∧P2∧P3 — clasificar por divergencia
+  const divergencia   = replay.stockLedger - stockCache;
+  const esConsistente = Math.abs(divergencia) <= 1e-6;
+
+  return {
+    articuloTipo,
+    articuloId,
+    estado:               esConsistente ? "consistente" : "divergente_reparable",
+    stockCache,
+    stockLedger:          replay.stockLedger,
+    divergencia,
+    secuenciaLedger,
+    secuenciaMax:         replay.secuenciaMax,
+    totalMovimientos:     replay.totalMovimientos,
+    huecos:               [],
+    movimientosInvalidos: [],
+    motivoCorrupcion:     undefined,
+  };
 }
 
 /**
  * Compara el stock cache del artículo contra la suma del ledger (I9).
  *
- * SOLO LECTURA — no modifica datos, no regenera cache.
- * I9 está explícitamente suspendido durante la migración Fase 0–3: la divergencia
- * es esperada mientras existan escritores no conmutados al ledger.
- * Esta función es de reporte; la acción sobre divergencias queda para Fase 4.
+ * SOLO LECTURA — no modifica datos, no regenera cache. Conserva la firma original
+ * para compatibilidad; internamente delega en diagnosticarArticulo (Capa 2) y
+ * proyecta al formato ReconciliacionResult.
+ *
+ * I9 está activo desde Fase 4 (FASE-15 PR9). La divergencia ahora es un defecto
+ * reparable (si estado === 'divergente_reparable') o un incidente (si 'corrupto').
+ * Los artículos no_migrados no representan una divergencia; se reportan aparte.
  */
 export async function reconciliarArticulo(
   articuloTipo: ArticuloTipo,
   articuloId: string,
 ): Promise<ReconciliacionResult> {
-  const articuloColeccion = articuloTipo === "producto" ? "productos" : "insumos";
+  const diag = await diagnosticarArticulo(articuloTipo, articuloId);
 
-  const [articuloSnap, movimientosSnap] = await Promise.all([
-    getDoc(doc(db, articuloColeccion, articuloId)),
-    getDocs(
-      query(
-        collection(db, "movimientos_inventario"),
-        where("articuloTipo", "==", articuloTipo),
-        where("articuloId",   "==", articuloId),
-        orderBy("secuenciaArticulo", "asc"),
-      ),
-    ),
-  ]);
+  const stockLedger = diag.stockLedger ?? 0;
+  const divergencia = diag.divergencia ?? (stockLedger - diag.stockCache);
 
-  const stockCache: number = articuloSnap.exists()
-    ? ((articuloSnap.data()?.stock as number | undefined) ?? 0)
-    : 0;
+  return {
+    articuloTipo,
+    articuloId,
+    stockCache:           diag.stockCache,
+    stockLedger,
+    divergencia,
+    coherente:            diag.estado === "consistente",
+    totalMovimientos:     diag.totalMovimientos,
+    huecos:               diag.huecos,
+    estado:               diag.estado,
+    movimientosInvalidos: diag.movimientosInvalidos,
+  };
+}
 
-  const movimientos = movimientosSnap.docs.map((d) => ({
-    secuenciaArticulo: d.data().secuenciaArticulo as number,
-    cantidad:          d.data().cantidad          as number,
-  }));
+// ── Capa 3: reparación autoritativa ──────────────────────────────────────────
 
-  const stockLedger = movimientos.reduce((sum, m) => sum + m.cantidad, 0);
+/** Resultado de intentar reparar el cache de un artículo. */
+export interface ReparacionResult {
+  articuloTipo: ArticuloTipo;
+  articuloId: string;
+  /** Estado observado antes de intentar la reparación. */
+  estadoPrevio: EstadoReconciliacion;
+  reparado: boolean;
+  /** Stock que tenía el cache antes de la corrección. */
+  stockCacheAntes: number | undefined;
+  /** Stock escrito por la reparación (= Σ(ledger)). */
+  stockCacheDespues: number | undefined;
+  /** Motivo si no se reparó (estado no elegible, corrupción, guarda optimista activada). */
+  motivoNoReparado: string | undefined;
+}
 
-  // Detectar huecos en la secuencia 1..N (un hueco indica movimiento perdido)
-  const huecos: number[] = [];
-  let expectedSeq = 1;
-  for (const m of movimientos) {
-    while (expectedSeq < m.secuenciaArticulo) {
-      huecos.push(expectedSeq);
-      expectedSeq++;
+/**
+ * Repara el cache `stock` de un artículo si y solo si su estado es `divergente_reparable`.
+ *
+ * CAPA 3 — ÚNICA FUNCIÓN CON ESCRITURA DE FASE 4.
+ * Solo escribe el campo `stock` en el documento del artículo; jamás toca
+ * `movimientos_inventario` (I1/I2 — append-only garantizado por construcción).
+ *
+ * Guarda optimista: dentro del runTransaction se relee `secuenciaLedger`; si avanzó
+ * respecto al valor observado en el diagnóstico, la transacción aborta para evitar
+ * fijar un cache calculado sobre un snapshot obsoleto del ledger (I5/I8).
+ *
+ * Idempotencia: si después de reparar se llama de nuevo, el diagnóstico re-ejecutado
+ * dentro de la transacción encontrará |Σ−cache| ≤ ε → no escribe nada → `reparado=false`.
+ * La reconciliación converge en una sola ejecución (propiedad garantizada).
+ *
+ * Artículos no_migrados (secuenciaLedger===0): excluidos por precondición — I9 no rige.
+ * Artículos corruptos: excluidos — no se lava corrupción del ledger (I1/I2).
+ */
+export async function repararCacheArticulo(
+  articuloTipo: ArticuloTipo,
+  articuloId: string,
+): Promise<ReparacionResult> {
+  // Diagnóstico previo fuera de la transacción (lectura sin costo transaccional)
+  const diagPrevio = await diagnosticarArticulo(articuloTipo, articuloId);
+
+  if (diagPrevio.estado !== "divergente_reparable") {
+    return {
+      articuloTipo,
+      articuloId,
+      estadoPrevio:      diagPrevio.estado,
+      reparado:          false,
+      stockCacheAntes:   diagPrevio.stockCache,
+      stockCacheDespues: undefined,
+      motivoNoReparado:  `estado_no_elegible: ${diagPrevio.estado}`,
+    };
+  }
+
+  const secuenciaLedgerObservada = diagPrevio.secuenciaLedger;
+  const stockLedgerCalculado     = diagPrevio.stockLedger!;
+  const stockCacheAntes          = diagPrevio.stockCache;
+  const articuloColeccion        = articuloTipo === "producto" ? "productos" : "insumos";
+  const articuloRef              = doc(db, articuloColeccion, articuloId);
+
+  const resultado = await runTransaction(db, async (transaction) => {
+    const articuloSnap = await transaction.get(articuloRef);
+    if (!articuloSnap.exists()) {
+      return { abortada: true, motivo: "articulo_no_encontrado" };
     }
-    expectedSeq = m.secuenciaArticulo + 1;
+
+    const data = articuloSnap.data();
+    const secuenciaActual = (data.secuenciaLedger as number | undefined) ?? 0;
+    const cacheActual     = (data.stock           as number | undefined) ?? 0;
+
+    // Guarda optimista: si el ledger avanzó desde el diagnóstico, abortar
+    if (secuenciaActual !== secuenciaLedgerObservada) {
+      return {
+        abortada: true,
+        motivo: `guarda_optimista: secuenciaLedger cambió de ${secuenciaLedgerObservada} a ${secuenciaActual}`,
+      };
+    }
+
+    // Verificar idempotencia dentro de la transacción: si ya es consistente, no escribir
+    if (Math.abs(stockLedgerCalculado - cacheActual) <= 1e-6) {
+      return { abortada: false, yaConsistente: true };
+    }
+
+    // Única escritura de Fase 4: corregir solo el cache stock
+    transaction.update(articuloRef, { stock: stockLedgerCalculado });
+    return { abortada: false, yaConsistente: false };
+  });
+
+  if (resultado.abortada) {
+    return {
+      articuloTipo,
+      articuloId,
+      estadoPrevio:      diagPrevio.estado,
+      reparado:          false,
+      stockCacheAntes,
+      stockCacheDespues: undefined,
+      motivoNoReparado:  resultado.motivo,
+    };
+  }
+
+  if (resultado.yaConsistente) {
+    return {
+      articuloTipo,
+      articuloId,
+      estadoPrevio:      diagPrevio.estado,
+      reparado:          false,
+      stockCacheAntes,
+      stockCacheDespues: undefined,
+      motivoNoReparado:  "ya_consistente_al_momento_de_escribir",
+    };
   }
 
   return {
     articuloTipo,
     articuloId,
-    stockCache,
-    stockLedger,
-    divergencia:      stockLedger - stockCache,
-    coherente:        stockLedger === stockCache,
-    totalMovimientos: movimientos.length,
-    huecos,
+    estadoPrevio:      diagPrevio.estado,
+    reparado:          true,
+    stockCacheAntes,
+    stockCacheDespues: stockLedgerCalculado,
+    motivoNoReparado:  undefined,
   };
+}
+
+// ── Orquestador global ────────────────────────────────────────────────────────
+
+/** Reporte agregado del barrido global de reconciliación. */
+export interface ReporteGlobalReconciliacion {
+  totalArticulos:       number;
+  noMigrados:           number;
+  consistentes:         number;
+  divergentesReparables: number;
+  corruptos:            number;
+  /** Artículos divergentes_reparable o corrupto — para revisión inmediata. */
+  articulosConProblema: DiagnosticoArticulo[];
+  /** Artículos no_migrado — apertura lazy pendiente, no son defectos. */
+  articulosPendientes:  DiagnosticoArticulo[];
+}
+
+/**
+ * Barre todos los artículos activos (productos + insumos) y clasifica su estado.
+ *
+ * SOLO LECTURA por defecto. Con `opts.aplicar = true` invoca repararCacheArticulo
+ * para cada artículo en estado divergente_reparable. Los artículos corruptos
+ * y no_migrados nunca se tocan.
+ *
+ * I9 aplica a cada artículo individualmente: la atomicidad vive en repararCacheArticulo,
+ * nunca en un batch global (un batch global violaría I5 y no escala con el catálogo).
+ */
+export async function reconciliarGlobal(
+  opts: { aplicar?: boolean } = {},
+): Promise<ReporteGlobalReconciliacion> {
+  const [productosSnap, insumosSnap] = await Promise.all([
+    getDocs(query(collection(db, "productos"), where("activo", "==", true))),
+    getDocs(query(collection(db, "insumos"),   where("activo", "==", true))),
+  ]);
+
+  const articulos: Array<{ tipo: ArticuloTipo; id: string }> = [
+    ...productosSnap.docs.map((d) => ({ tipo: "producto" as ArticuloTipo, id: d.id })),
+    ...insumosSnap.docs.map((d)   => ({ tipo: "insumo"   as ArticuloTipo, id: d.id })),
+  ];
+
+  const reporte: ReporteGlobalReconciliacion = {
+    totalArticulos:        articulos.length,
+    noMigrados:            0,
+    consistentes:          0,
+    divergentesReparables: 0,
+    corruptos:             0,
+    articulosConProblema:  [],
+    articulosPendientes:   [],
+  };
+
+  for (const { tipo, id } of articulos) {
+    const diag = await diagnosticarArticulo(tipo, id);
+
+    switch (diag.estado) {
+      case "no_migrado":
+        reporte.noMigrados++;
+        reporte.articulosPendientes.push(diag);
+        break;
+      case "consistente":
+        reporte.consistentes++;
+        break;
+      case "divergente_reparable":
+        reporte.divergentesReparables++;
+        reporte.articulosConProblema.push(diag);
+        if (opts.aplicar) {
+          // repararCacheArticulo re-diagnostica internamente con guarda optimista
+          await repararCacheArticulo(tipo, id);
+        }
+        break;
+      case "corrupto":
+        reporte.corruptos++;
+        reporte.articulosConProblema.push(diag);
+        // Nunca se repara automáticamente: corrupción del ledger requiere investigación
+        break;
+    }
+  }
+
+  return reporte;
 }
