@@ -482,21 +482,57 @@ export async function anularVenta(id: string): Promise<void> {
       }
     }
 
-    // Aplicar escrituras para devolver inventario
+    // Contramovimientos Ledger (I3, PR5) — devolucion_venta para productos e insumos.
+    const paramsMovimientos: EmitirMovimientoParams[] = [];
+
     for (const [insumoId, qtyDev] of insumosDevoluciones.entries()) {
+      if (qtyDev <= 0) continue;
       const insumo = insumosMap.get(insumoId);
       if (insumo) {
-        const currentStock = insumo.data.stock || 0;
-        transaction.update(insumo.ref, { stock: currentStock + qtyDev });
+        paramsMovimientos.push({
+          articuloTipo:            "insumo",
+          articuloId:              insumoId,
+          articuloNombre:          insumo.data.nombre ?? insumoId,
+          unidad:                  insumo.data.unidadMedida ?? "und",
+          tipo:                    "devolucion_venta",
+          cantidad:                qtyDev,
+          costoUnitario:           insumo.data.costo ?? 0,
+          espacioId:               ventaData.espacioId ?? "",
+          usuarioId:               ventaData.cajeroId || "",
+          usuarioNombre:           ventaData.cajeroNombre ?? ventaData.cajeroId ?? "",
+          claveIdempotencia:       `devolucion_venta:${id}:insumo:${insumoId}:0`,
+          referenciaColeccion:     "ventas",
+          referenciaId:            id,
+          movimientoRelacionadoId: `consumo_receta:${id}:insumo:${insumoId}:0`,
+        });
       }
     }
 
     for (const [productoId, qtyDev] of productosDevoluciones.entries()) {
+      if (qtyDev <= 0) continue;
       const producto = productosMap.get(productoId);
       if (producto) {
-        const currentStock = producto.data.stock || 0;
-        transaction.update(producto.ref, { stock: currentStock + qtyDev });
+        paramsMovimientos.push({
+          articuloTipo:            "producto",
+          articuloId:              productoId,
+          articuloNombre:          producto.data.nombre ?? productoId,
+          unidad:                  producto.data.unidad ?? "und",
+          tipo:                    "devolucion_venta",
+          cantidad:                qtyDev,
+          costoUnitario:           producto.data.costo ?? 0,
+          espacioId:               ventaData.espacioId ?? "",
+          usuarioId:               ventaData.cajeroId || "",
+          usuarioNombre:           ventaData.cajeroNombre ?? ventaData.cajeroId ?? "",
+          claveIdempotencia:       `devolucion_venta:${id}:producto:${productoId}:0`,
+          referenciaColeccion:     "ventas",
+          referenciaId:            id,
+          movimientoRelacionadoId: `venta:${id}:producto:${productoId}:0`,
+        });
       }
+    }
+
+    if (paramsMovimientos.length > 0) {
+      await aplicarMovimientosEnTransaccion(transaction, paramsMovimientos);
     }
 
     // 4. Actualizar estado de la venta a anulada
