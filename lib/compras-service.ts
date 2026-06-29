@@ -210,8 +210,7 @@ export function suscribirCompras(
 }
 
 export async function eliminarCompra(compraId: string): Promise<void> {
-  const auth = getAuth();
-  const currentUser = auth.currentUser;
+  const { uid, nombre: usuarioNombre } = await getCurrentUserInfo();
   const compraRef = doc(db, "compras", compraId);
 
   await runTransaction(db, async (transaction) => {
@@ -223,21 +222,7 @@ export async function eliminarCompra(compraId: string): Promise<void> {
     const cuentaId: string | undefined = compraData.cuentaId;
     const cuentaNombre: string | undefined = compraData.cuentaNombre;
     const total: number = compraData.total || 0;
-
-    const itemsToRead = new Map<string, { tipo: 'insumo' | 'producto', id: string }>();
-    items.forEach((item) => {
-      const itemTipo = item.tipo || 'insumo';
-      const itemId = item.itemId || item.insumoId;
-      if (itemId) itemsToRead.set(itemId, { tipo: itemTipo, id: itemId });
-    });
-
-    const itemsDataMap = new Map<string, { ref: any; data: any }>();
-    for (const [itemId, info] of itemsToRead.entries()) {
-      const collectionName = info.tipo === 'insumo' ? "insumos" : "productos";
-      const itemRef = doc(db, collectionName, itemId);
-      const itemSnap = await transaction.get(itemRef);
-      if (itemSnap.exists()) itemsDataMap.set(itemId, { ref: itemRef, data: itemSnap.data() });
-    }
+    const espacioId: string = (compraData.espacioId as string) || "";
 
     // Leer cuenta si aplica. Si ya no existe (fue eliminada), omitir reversión financiera.
     let cuentaRef: any = null;
@@ -248,24 +233,70 @@ export async function eliminarCompra(compraId: string): Promise<void> {
       cuentaExiste = cuentaSnap.exists();
     }
 
-    // ── ESCRITURAS ───────────────────────────────────────────────────────────
-    // Acumular cantidades por itemId: un único update por insumo/producto.
-    const cantidadesBaja = new Map<string, number>();
+    // ── LEDGER: consolidar por artículo y emitir devolucion_compra ────────────
+    // Espejo exacto de registrarCompra: misma lógica de agregación y misma clave
+    // base (compraId:tipo:itemId:0), con prefijo devolucion_compra y cantidad
+    // negativa — I13: devolucion_compra es salida (signo -1).
+    // articuloNombre y unidad se toman del snapshot almacenado en la compra
+    // (no es necesario releer los artículos desde Firestore).
+    interface AgregadoBaja {
+      tipo: 'insumo' | 'producto';
+      cantidadTotal: number;
+      costoTotal: number;
+      nombre: string;
+      unidad: string;
+    }
+    const itemsAgregados = new Map<string, AgregadoBaja>();
     for (const item of items) {
       const itemId = item.itemId || item.insumoId;
       if (!itemId) continue;
-      cantidadesBaja.set(itemId, (cantidadesBaja.get(itemId) ?? 0) + item.cantidad);
-    }
-    for (const [itemId, totalCantidad] of cantidadesBaja.entries()) {
-      const itemData = itemsDataMap.get(itemId);
-      if (itemData) {
-        transaction.update(itemData.ref, {
-          stock: Math.max(0, (itemData.data.stock || 0) - totalCantidad),
-          actualizadoEn: serverTimestamp(),
+      const tipo = item.tipo ?? 'insumo';
+      const nombre = item.itemNombre ?? item.insumoNombre ?? itemId;
+      const prev = itemsAgregados.get(itemId);
+      if (prev) {
+        prev.cantidadTotal += item.cantidad;
+        prev.costoTotal    += item.costoTotal;
+      } else {
+        itemsAgregados.set(itemId, {
+          tipo,
+          cantidadTotal: item.cantidad,
+          costoTotal:    item.costoTotal,
+          nombre,
+          unidad: item.unidadMedida,
         });
       }
     }
 
+    const paramsMovimientos: EmitirMovimientoParams[] = [];
+    for (const [itemId, agr] of itemsAgregados.entries()) {
+      if (agr.cantidadTotal <= 0) continue;
+      const costoUnitario = agr.costoTotal / agr.cantidadTotal;
+      paramsMovimientos.push({
+        articuloTipo:            agr.tipo,
+        articuloId:              itemId,
+        articuloNombre:          agr.nombre,
+        unidad:                  agr.unidad,
+        tipo:                    'devolucion_compra',
+        cantidad:                -agr.cantidadTotal,
+        costoUnitario,
+        espacioId,
+        usuarioId:               uid,
+        usuarioNombre,
+        claveIdempotencia:       `devolucion_compra:${compraId}:${agr.tipo}:${itemId}:0`,
+        movimientoRelacionadoId: `compra:${compraId}:${agr.tipo}:${itemId}:0`,
+        referenciaColeccion:     'compras',
+        referenciaId:            compraId,
+        motivo:                  'eliminacion_compra',
+      });
+    }
+
+    // Fase 1 interna del ledger (idempotencia + artículo) ocurre aquí, antes de
+    // cualquier escritura — reads-before-writes preservado a nivel de transacción.
+    if (paramsMovimientos.length > 0) {
+      await aplicarMovimientosEnTransaccion(transaction, paramsMovimientos);
+    }
+
+    // ── ESCRITURAS ────────────────────────────────────────────────────────────
     transaction.delete(compraRef);
 
     // Revertir saldo solo si la cuenta aún existe; si fue eliminada se omite sin crash.
@@ -281,8 +312,9 @@ export async function eliminarCompra(compraId: string): Promise<void> {
         concepto: `Reversión de compra eliminada: ${compraData.proveedor}`,
         categoria: 'compras',
         referencia: compraId,
-        usuarioId: currentUser?.uid ?? 'sistema',
-        usuarioNombre: 'Reversión Automática',
+        usuarioId: uid,
+        usuarioNombre,
+        espacioId,
         fecha: serverTimestamp(),
       });
     }
