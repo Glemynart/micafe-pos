@@ -1,8 +1,12 @@
 /**
  * inventario-kardex.ts
  *
- * Capa de lectura del Kardex de Inventario — FASE-19 PR1.
+ * Capa de lectura del Kardex de Inventario — FASE-19 PR1 + PR2.
  * Proyección de solo-lectura del Ledger; no escribe, no recalcula, no duplica lógica.
+ *
+ * PR2 activa los filtros de presentación (§9) en memoria sobre la página ya
+ * obtenida: no añade where(...), no reconsulta Firestore, no altera cursores,
+ * paginación ni orden, y no recalcula saldos.
  *
  * Diseño: FASE-19-PR1-kardex-diseno.md
  * Fuente del Ledger: lib/inventario-ledger.ts
@@ -42,7 +46,7 @@ export type CursorKardex = number;
 
 /**
  * Filtros en memoria sobre la página actual.
- * PR1: el parámetro se acepta en la firma pero se ignora — PR2 lo implementa (§6, §17).
+ * PR2 implementa su lógica (§9) sin cambiar esta interfaz definida en PR1 (§6, §17).
  */
 export interface FiltrosKardex {
   tipos?:           TipoMovimientoInventario[];
@@ -116,6 +120,81 @@ export interface PaginaKardex {
   cursorSiguiente:  CursorKardex | null;
 }
 
+// ─── Filtros en memoria sobre la página (§9) — PR2 ───────────────────────────
+
+/**
+ * Convierte el campo `fecha` (Firestore Timestamp en lectura) a milisegundos
+ * para comparación en memoria. Devuelve null si no es convertible: una línea sin
+ * fecha comparable nunca puede afirmarse dentro de un rango, por lo que se excluye
+ * cuando un corte por fecha está activo. No muta nada (K1).
+ */
+function fechaAMillis(fecha: unknown): number | null {
+  if (fecha == null) return null;
+  if (
+    typeof fecha === "object" &&
+    typeof (fecha as { toMillis?: unknown }).toMillis === "function"
+  ) {
+    return (fecha as { toMillis: () => number }).toMillis();
+  }
+  if (fecha instanceof Date) return fecha.getTime();
+  if (typeof fecha === "number") return fecha;
+  return null;
+}
+
+/**
+ * Aplica los filtros documentados (§9) en memoria sobre la página actual.
+ *
+ * Reglas (§9):
+ *  - Opera SOLO sobre las líneas de esta página; nunca sobre la serie completa.
+ *  - Oculta filas; jamás reescribe `saldoCantidadDespues` ni recalcula nada (K2).
+ *  - No reordena: preserva el orden de la página tal cual llegó del Ledger (K3).
+ *  - No reconsulta Firestore ni añade where(...): es puro filtrado en memoria.
+ *
+ * Un filtro ausente no restringe. `tipos` filtra por pertenencia (vacío → ningún
+ * tipo coincide); los rangos de secuencia/fecha son inclusivos en ambos extremos
+ * y se comparan con `!= null` para admitir el valor 0.
+ */
+function aplicarFiltros(
+  lineas:  LineaKardex[],
+  filtros: FiltrosKardex | undefined,
+): LineaKardex[] {
+  if (!filtros) return lineas;
+
+  const {
+    tipos,
+    clase,
+    desdeFecha,
+    hastaFecha,
+    desdeSecuencia,
+    hastaSecuencia,
+  } = filtros;
+
+  const desdeMillis = desdeFecha != null ? desdeFecha.getTime() : null;
+  const hastaMillis = hastaFecha != null ? hastaFecha.getTime() : null;
+
+  return lineas.filter((linea) => {
+    // tipo — pertenencia al conjunto de tipos pedido
+    if (tipos != null && !tipos.includes(linea.tipo)) return false;
+
+    // clase — entrada | salida
+    if (clase != null && linea.clase !== clase) return false;
+
+    // rango de secuencia (corte histórico canónico, inclusivo)
+    if (desdeSecuencia != null && linea.secuenciaArticulo < desdeSecuencia) return false;
+    if (hastaSecuencia != null && linea.secuenciaArticulo > hastaSecuencia) return false;
+
+    // rango de fecha (conveniencia en memoria, inclusivo)
+    if (desdeMillis != null || hastaMillis != null) {
+      const millis = fechaAMillis(linea.fecha);
+      if (millis == null) return false;
+      if (desdeMillis != null && millis < desdeMillis) return false;
+      if (hastaMillis != null && millis > hastaMillis) return false;
+    }
+
+    return true;
+  });
+}
+
 // ─── API pública (§6) ────────────────────────────────────────────────────────
 
 /**
@@ -138,7 +217,9 @@ export async function consultarKardexArticulo(
   const orden  = opciones.orden  ?? "desc";
   const limite = Math.min(opciones.limite ?? LIMITE_DEFAULT, LIMITE_MAXIMO);
   const cursor = opciones.cursor ?? null;
-  // opciones.filtros: aceptado, ignorado en PR1 — PR2 implementa la lógica (§6, §17, D4)
+  // opciones.filtros (§9): se aplican en memoria sobre la página, al final (PR2, D4).
+  // No intervienen en la consulta, ni en hayMas/cursorSiguiente, que describen la
+  // página SIN filtrar (§9).
 
   // ── Lectura (a): página de movimientos — índice canónico (§7) ─────────────
   const constraints: QueryConstraint[] = [
@@ -211,6 +292,11 @@ export async function consultarKardexArticulo(
     }
   }
 
+  // ── Filtros en memoria sobre la página (§9, PR2) ─────────────────────────
+  // Solo ocultan filas de ESTA página; no alteran el saldo (K2) ni el orden (K3).
+  // hayMas / cursorSiguiente se calculan sobre la página SIN filtrar (§9).
+  const lineasFiltradas = aplicarFiltros(lineas, opciones.filtros);
+
   // ── Construcción del contenedor (§5) ─────────────────────────────────────
   const articulo: KardexArticulo = {
     articuloTipo,
@@ -219,10 +305,11 @@ export async function consultarKardexArticulo(
     unidad,
     estado:      diagnostico.estado,
     saldoActual: diagnostico.stockLedger ?? null,
-    lineas,
+    lineas:      lineasFiltradas,
   };
 
   // ── Cursor de paginación — secuenciaArticulo del último elemento (§8, K10) ─
+  // Basado en `docs` (página SIN filtrar): los filtros no tocan la paginación (§9).
   const cursorSiguiente: CursorKardex | null =
     hayMas && docs.length > 0
       ? (docs[docs.length - 1]!.data()["secuenciaArticulo"] as number)
