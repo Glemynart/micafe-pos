@@ -157,6 +157,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   const [cargandoTurno, setCargandoTurno] = useState(true)
   const [cargandoProductos, setCargandoProductos] = useState(true)
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
+  const isProcessingRef = useRef(false)
   const [fotoTipo, setFotoTipo] = useState<'bn' | 'color'>('bn')
   const [fotoCopias, setFotoCopias] = useState(1)
   const esFotocopias = espacioActivo?.nombre?.toLowerCase().includes('fotocop') ?? false
@@ -669,6 +670,8 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
       return
     }
 
+    if (isProcessingRef.current) return
+    isProcessingRef.current = true
     setIsProcessingPayment(true)
     try {
       const items = cart.map(item => ({
@@ -682,6 +685,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
 
       if (!turnoActivo) {
         toast.error("Error: No tienes un turno abierto para registrar ventas.")
+        isProcessingRef.current = false
         setIsProcessingPayment(false)
         return
       }
@@ -711,6 +715,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
         if (result.status === 'already_paid') {
           toast.info('Este pedido ya fue cobrado.', { duration: 4000 })
           setShowPayment(false)
+          isProcessingRef.current = false
           setIsProcessingPayment(false)
           return
         }
@@ -730,10 +735,12 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
 
       setShowPayment(false)
       setShowReceipt(true)
+      isProcessingRef.current = false
       setIsProcessingPayment(false)
     } catch (error: any) {
       console.error("Error al registrar la venta:", error)
       toast.error(error?.message || "Error al registrar la venta. Inténtalo de nuevo.")
+      isProcessingRef.current = false
       setIsProcessingPayment(false)
     }
   }, [usuario, cart, selectedCustomer, selectedCliente, subtotal, totalIva, totalImpoconsumo, total, paymentMethod, cashReceived, change, activePedido, espacioActivo, turnoActivo])
