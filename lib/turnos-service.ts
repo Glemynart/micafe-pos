@@ -14,6 +14,7 @@ import {
   increment,
 } from 'firebase/firestore'
 import { db, auth } from './firebase'
+import { calcularEgresosTurno } from './egresos-service'
 
 export interface Turno {
   id: string;
@@ -188,6 +189,11 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
 export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
   const turnoRef = doc(db, 'turnos', params.turnoId);
 
+  // IMP-2: recalcular ventas y egresos desde la fuente de verdad antes de la transacción.
+  // Los valores equivalentes en params se ignoran (pueden seguir enviándose por compatibilidad).
+  const ventasRecalculadas = await calcularVentasTurno(params.turnoId);
+  const egresosRecalculados = await calcularEgresosTurno(params.turnoId);
+
   await runTransaction(db, async (transaction) => {
     // ── FASE DE LECTURAS (todas antes de cualquier escritura) ────────
     const turnoDoc = await transaction.get(turnoRef);
@@ -197,6 +203,14 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
 
     const baseApertura: number = turnoDoc.data().baseApertura || 0;
     const esCierreDefinitivo = params.esCierreDefinitivo ?? false;
+
+    // IMP-2: cifras derivadas calculadas desde la fuente de verdad (ventas/egresos reales).
+    // Los campos equivalentes de params son ignorados intencionalmente.
+    const ventasEfectivo = ventasRecalculadas.efectivo;
+    const ventasOtrosMetodos = ventasRecalculadas.transferencia + ventasRecalculadas.tarjeta + ventasRecalculadas.otros;
+    const totalEgresos = egresosRecalculados;
+    const totalEsperadoEfectivo = baseApertura + ventasEfectivo - totalEgresos;
+    const diferenciaEfectivo = params.totalReportadoEfectivo - totalEsperadoEfectivo;
 
     // FASE-10C: fórmula unificada (relevo y cierre definitivo depositan el mismo
     // neto de ventas). esCierreDefinitivo queda solo como metadata semántica.
@@ -246,18 +260,18 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
 
     // FASE-10E: alertaFaltante + conteoDetalle
     const umbral = params.umbralAlertaFaltante ?? 20000;
-    const alertaFaltante = params.diferenciaEfectivo < -umbral;
+    const alertaFaltante = diferenciaEfectivo < -umbral;
 
     // ── FASE DE ESCRITURAS ───────────────────────────────────────────
     transaction.update(turnoRef, {
       estado: 'cerrado',
       fechaCierre: serverTimestamp(),
-      ventasEfectivo: params.ventasEfectivo,
-      ventasOtrosMetodos: params.ventasOtrosMetodos,
-      totalEgresos: params.totalEgresos || 0,
-      totalEsperadoEfectivo: params.totalEsperadoEfectivo,
+      ventasEfectivo: ventasEfectivo,
+      ventasOtrosMetodos: ventasOtrosMetodos,
+      totalEgresos: totalEgresos,
+      totalEsperadoEfectivo: totalEsperadoEfectivo,
       totalReportadoEfectivo: params.totalReportadoEfectivo,
-      diferenciaEfectivo: params.diferenciaEfectivo,
+      diferenciaEfectivo: diferenciaEfectivo,
       notasCierre: params.notasCierre || '',
       esCierreDefinitivo,
       alertaFaltante,
@@ -338,7 +352,7 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
     // Ajuste por diferencia de caja: tras el depósito, caja-principal queda con
     // un residual de -diferenciaEfectivo (definitivo) o base-diferenciaEfectivo (relevo).
     // increment(diferencia) anula ese residual dejando 0 (definitivo) o base (relevo).
-    const diferencia = params.diferenciaEfectivo;
+    const diferencia = diferenciaEfectivo;
     if (diferencia !== 0) {
       transaction.update(cajaPrincipalRef, { saldo: increment(diferencia) });
       transaction.set(doc(collection(db, 'transacciones_financieras')), {
