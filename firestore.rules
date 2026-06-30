@@ -99,6 +99,13 @@ service cloud.firestore {
       allow delete: if esAutenticado() && esAdmin();
     }
 
+    // ─── Ledger de inventario (append-only) ────────────────────────────
+    match /movimientos_inventario/{id} {                     // [C1] colección que usaba el ledger sin regla
+      allow read: if esAutenticado();
+      allow create: if esAutenticado() && esOperativo();     // venta (cajero) + compra/merma/ajuste
+      allow update, delete: if false;                        // inmutable: append-only (I1/I2)
+    }
+
     match /recetas/{id} {
       allow read: if esAutenticado();
       allow write: if esAutenticado() && esOperativo();
@@ -157,7 +164,7 @@ service cloud.firestore {
     // ─── Tesorería / Finanzas ──────────────────────────────────────────
 
     match /cuentas_bancarias/{id} {
-      allow read: if esAutenticado() && esFinanzas();        // [MODIFICADO] solo admin lee saldos bancarios
+      allow read: if esAutenticado() && esOperativo();       // [C1] guardarEgreso (cajero) lee caja-principal en su transacción
       allow write: if esAutenticado() && esAdmin();
       allow update: if esAutenticado() && esOperativo();     // [NUEVO] cerrarTurno() actualiza saldo (cajero)
     }
