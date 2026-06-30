@@ -75,7 +75,11 @@ service cloud.firestore {
     match /ventas/{id} {
       allow read: if esAutenticado();
       allow create: if esAutenticado() && esOperativo();
-      allow update: if esAutenticado() && esOperativo();     // [MODIFICADO] cajero/supervisor: marcarComoPagada()
+      // Updates: operativo normal | transición→anulada solo admin | anulada=congelada
+      allow update: if esAutenticado() && esOperativo() && (
+        (resource.data.estado != 'anulada' && request.resource.data.estado != 'anulada')
+        || (resource.data.estado != 'anulada' && request.resource.data.estado == 'anulada' && esAdmin())
+      );
       allow delete: if false;
     }
 

@@ -21,6 +21,7 @@ import {
   type DocumentReference,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { getAuth } from "firebase/auth";
 import { aplicarMovimientosEnTransaccion, type EmitirMovimientoParams } from "@/lib/inventario-ledger";
 
 export interface VentaItem {
@@ -405,6 +406,11 @@ export async function obtenerVentaPorId(id: string): Promise<any> {
 export async function anularVenta(id: string): Promise<void> {
   const ventaRef = doc(db, "ventas", id);
 
+  const auth = getAuth();
+  const anulador = auth.currentUser;
+  const anuladorId = anulador?.uid ?? '';
+  const anuladorNombre = anulador?.displayName ?? anulador?.email ?? anuladorId;
+
   await runTransaction(db, async (transaction) => {
     const ventaSnap = await transaction.get(ventaRef);
     if (!ventaSnap.exists()) {
@@ -535,8 +541,13 @@ export async function anularVenta(id: string): Promise<void> {
       await aplicarMovimientosEnTransaccion(transaction, paramsMovimientos);
     }
 
-    // 4. Actualizar estado de la venta a anulada
-    transaction.update(ventaRef, { estado: 'anulada' });
+    // 4. Actualizar estado de la venta a anulada (con rastro inmutable del anulador)
+    transaction.update(ventaRef, {
+      estado: 'anulada',
+      anuladaPor: anuladorId,
+      anuladaPorNombre: anuladorNombre,
+      anuladaEn: serverTimestamp(),
+    });
 
     // 5. Revertir movimientos financieros (espejo exacto de la venta original)
     const cuentaMap: Record<string, { nombre: string }> = {
@@ -555,8 +566,8 @@ export async function anularVenta(id: string): Promise<void> {
         concepto: `Anulación venta #${ventaData.consecutivo}`,
         categoria: 'anulacion_venta',
         referencia: id,
-        usuarioId: ventaData.cajeroId || '',
-        usuarioNombre: ventaData.cajeroNombre || ventaData.cajeroId || '',
+        usuarioId: anuladorId,
+        usuarioNombre: anuladorNombre,
         espacioId: ventaData.espacioId ?? null,
         fecha: serverTimestamp(),
       });
