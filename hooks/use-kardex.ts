@@ -53,61 +53,88 @@ export function useKardex(articulo: ArticuloKardex | null): UseKardexReturn {
  // Stack de cursores: [null] = página 1, [null, c1] = página 2, etc.
  // El cursor activo es el último elemento; null implica sin startAfter.
  const [cursorStack, setCursorStack] = useState<(CursorKardex | null)[]>([null])
- const [cargando, setCargando] = useState(false)
- const [error, setError] = useState<string | null>(null)
+ const [cargandoPagina, setCargandoPagina] = useState(false)
+ const [errorPagina, setErrorPagina] = useState<string | null>(null)
+ const [cargandoDiagnostico, setCargandoDiagnostico] = useState(false)
+ const [errorDiagnostico, setErrorDiagnostico] = useState<string | null>(null)
  const [contadorRecarga, setContadorRecarga] = useState(0)
 
  const cursorActual: CursorKardex | null = cursorStack[cursorStack.length - 1] ?? null
  const hasPrev = cursorStack.length > 1
  const numeroPagina = cursorStack.length
+ // Interfaz pública sin cambios: combina los dos estados internos.
+ const cargando = cargandoPagina || cargandoDiagnostico
+ const error = errorPagina ?? errorDiagnostico
 
  // Limpiar estado al cambiar de artículo para no mostrar datos del anterior.
  useEffect(() => {
   setPagina(null)
   setDiagnostico(null)
-  setError(null)
+  setErrorPagina(null)
+  setErrorDiagnostico(null)
   setCursorStack([null])
  }, [articuloTipo, articuloId])
 
- // Carga principal: re-ejecuta al cambiar artículo, página, orden o filtros.
+ // Diagnóstico: solo al cambiar artículo o recargar.
+ // obtenerEstadoKardex → diagnosticarArticulo lee TODOS los movimientos sin limit (§6);
+ // no debe re-ejecutarse por cambios de cursor/orden/filtros.
  useEffect(() => {
   if (!articuloTipo || !articuloId) {
-   setCargando(false)
+   setCargandoDiagnostico(false)
    return
   }
 
   let cancelado = false
-  setCargando(true)
-  setError(null)
+  setCargandoDiagnostico(true)
+  setErrorDiagnostico(null)
 
   ;(async () => {
    try {
-    const [nuevaPagina, nuevoDiagnostico] = await Promise.all([
-     consultarKardexArticulo(articuloTipo, articuloId, {
-      cursor: cursorActual,
-      orden,
-      filtros,
-     }),
-     obtenerEstadoKardex(articuloTipo, articuloId),
-    ])
-    if (!cancelado) {
-     setPagina(nuevaPagina)
-     setDiagnostico(nuevoDiagnostico)
-    }
+    const nuevoDiagnostico = await obtenerEstadoKardex(articuloTipo, articuloId)
+    if (!cancelado) setDiagnostico(nuevoDiagnostico)
    } catch (err) {
     if (!cancelado) {
-     setError(err instanceof Error ? err.message : 'Error al cargar movimientos')
-     setPagina(null)
+     setErrorDiagnostico(err instanceof Error ? err.message : 'Error al cargar diagnóstico')
      setDiagnostico(null)
     }
    } finally {
-    if (!cancelado) setCargando(false)
+    if (!cancelado) setCargandoDiagnostico(false)
    }
   })()
 
-  return () => {
-   cancelado = true
+  return () => { cancelado = true }
+ }, [articuloTipo, articuloId, contadorRecarga])
+
+ // Página: re-ejecuta al cambiar artículo, cursor, orden, filtros o recargar.
+ useEffect(() => {
+  if (!articuloTipo || !articuloId) {
+   setCargandoPagina(false)
+   return
   }
+
+  let cancelado = false
+  setCargandoPagina(true)
+  setErrorPagina(null)
+
+  ;(async () => {
+   try {
+    const nuevaPagina = await consultarKardexArticulo(articuloTipo, articuloId, {
+     cursor: cursorActual,
+     orden,
+     filtros,
+    })
+    if (!cancelado) setPagina(nuevaPagina)
+   } catch (err) {
+    if (!cancelado) {
+     setErrorPagina(err instanceof Error ? err.message : 'Error al cargar movimientos')
+     setPagina(null)
+    }
+   } finally {
+    if (!cancelado) setCargandoPagina(false)
+   }
+  })()
+
+  return () => { cancelado = true }
  }, [articuloTipo, articuloId, cursorActual, orden, filtros, contadorRecarga])
 
  // ── Acciones de paginación ────────────────────────────────────────────────
