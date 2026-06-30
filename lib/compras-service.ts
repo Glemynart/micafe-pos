@@ -89,12 +89,18 @@ export async function registrarCompra(params: RegistrarCompraParams): Promise<st
       if (itemSnap.exists()) itemsDataMap.set(itemId, { ref: itemRef, data: itemSnap.data() });
     }
 
-    // Leer la cuenta bancaria si se especificó (validación)
+    // Leer la cuenta bancaria si se especificó (validación de existencia y fondos)
     let cuentaRef: any = null;
     if (params.cuentaId) {
       cuentaRef = doc(db, "cuentas_bancarias", params.cuentaId);
       const cuentaSnap = await transaction.get(cuentaRef);
       if (!cuentaSnap.exists()) throw new Error("La cuenta bancaria no existe.");
+      const saldoDisponible = Number((cuentaSnap.data() as { saldo?: number } | undefined)?.saldo ?? 0);
+      if (saldoDisponible < params.total) {
+        throw new Error(
+          `Fondos insuficientes en la cuenta seleccionada. Saldo disponible: $${saldoDisponible.toLocaleString('es-CO')} — Total de la compra: $${params.total.toLocaleString('es-CO')}.`
+        );
+      }
     }
 
     // ── LEDGER: consolidar por artículo y emitir movimiento compra ───────────
