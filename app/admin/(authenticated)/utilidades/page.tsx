@@ -7,9 +7,10 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthContext } from '@/contexts/auth-context'
+import { reconciliarGlobal, type ReporteGlobalReconciliacion } from '@/lib/inventario-ledger'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { AlertTriangle, CheckCircle, Loader2, Search, Play, ShieldAlert } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Loader2, Search, Play, ShieldAlert, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -46,6 +47,10 @@ export default function UtilidadesPage() {
   const [estado, setEstado] = useState<EstadoMigracion>('idle')
   const [casos, setCasos] = useState<CasoInfo[]>([])
   const [resumen, setResumen] = useState<{ cerrados: number; omitidos: number; candados: number } | null>(null)
+
+  // ── Reconciliación de inventario (I9) — IMP-3 ──
+  const [estadoRecon, setEstadoRecon] = useState<EstadoMigracion>('idle')
+  const [reporteRecon, setReporteRecon] = useState<ReporteGlobalReconciliacion | null>(null)
 
   if (usuario?.rol !== 'admin') {
     return (
@@ -184,6 +189,40 @@ export default function UtilidadesPage() {
     }
   }
 
+  // ── Reconciliación de inventario (I9) — IMP-3 ──
+  async function analizarInventario() {
+    setEstadoRecon('analizando')
+    try {
+      const rep = await reconciliarGlobal({ aplicar: false })
+      setReporteRecon(rep)
+      setEstadoRecon('listo')
+      if (rep.divergentesReparables === 0 && rep.corruptos === 0) {
+        toast.success('Inventario consistente con el Ledger (I9 satisfecho). Nada que reparar.')
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Error al analizar el inventario')
+      setEstadoRecon('idle')
+    }
+  }
+
+  async function repararInventario() {
+    if (!reporteRecon) return
+    setEstadoRecon('ejecutando')
+    try {
+      const rep = await reconciliarGlobal({ aplicar: true })
+      toast.success(`Reconciliación completada: ${rep.divergentesReparables} artículo(s) reparado(s)`)
+      // Re-analizar para confirmar convergencia
+      await analizarInventario()
+    } catch (err) {
+      console.error(err)
+      toast.error('Error al reparar el inventario')
+      setEstadoRecon('listo')
+    }
+  }
+
+  const ocupadoRecon = estadoRecon === 'analizando' || estadoRecon === 'ejecutando'
+
   const ocupado = estado === 'analizando' || estado === 'ejecutando'
   const totalHuerfanos = casos.reduce((sum, c) => sum + c.turnos.filter(t => !t.esCanónico).length, 0)
   const huerfanosConVentas = casos.reduce((sum, c) => sum + c.turnos.filter(t => !t.esCanónico && t.ventasCount > 0).length, 0)
@@ -316,6 +355,124 @@ export default function UtilidadesPage() {
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* Tarjeta de reconciliación de inventario (I9) — IMP-3 */}
+      <div className="border border-border rounded-xl overflow-hidden">
+        <div className="p-4 border-b border-border bg-card flex items-start gap-3">
+          <div className="p-2 bg-blue-500/10 rounded-lg mt-0.5">
+            <Wrench className="h-5 w-5 text-blue-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-foreground">IMP-3 — Reconciliación de inventario (I9)</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Compara el caché de <code className="text-xs bg-muted px-1 rounded">stock</code> de productos e insumos
+              contra el Ledger (<code className="text-xs bg-muted px-1 rounded">movimientos_inventario</code>) y repara
+              las divergencias. Los artículos corruptos o no migrados nunca se modifican automáticamente.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* Botones */}
+          <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={analizarInventario}
+              disabled={ocupadoRecon}
+              variant="outline"
+              className="gap-2"
+            >
+              {estadoRecon === 'analizando'
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <Search className="h-4 w-4" />}
+              {estadoRecon === 'analizando' ? 'Analizando...' : 'Analizar (dry-run)'}
+            </Button>
+
+            {reporteRecon && reporteRecon.divergentesReparables > 0 && (
+              <Button
+                onClick={repararInventario}
+                disabled={ocupadoRecon}
+                variant="destructive"
+                className="gap-2"
+              >
+                {estadoRecon === 'ejecutando'
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <Play className="h-4 w-4" />}
+                {estadoRecon === 'ejecutando'
+                  ? 'Reparando...'
+                  : `Reparar divergencias (${reporteRecon.divergentesReparables})`}
+              </Button>
+            )}
+          </div>
+
+          {/* Resumen del reporte */}
+          {reporteRecon && (
+            <>
+              <div className="flex flex-wrap gap-3 text-sm">
+                <span className="text-muted-foreground">Total: <span className="font-semibold text-foreground">{reporteRecon.totalArticulos}</span></span>
+                <span className="flex items-center gap-1.5 text-success font-medium">
+                  <CheckCircle className="h-4 w-4" /> {reporteRecon.consistentes} consistentes
+                </span>
+                {reporteRecon.divergentesReparables > 0 && (
+                  <span className="flex items-center gap-1.5 text-amber-500 font-medium">
+                    <AlertTriangle className="h-4 w-4" /> {reporteRecon.divergentesReparables} divergentes reparables
+                  </span>
+                )}
+                {reporteRecon.corruptos > 0 && (
+                  <span className="flex items-center gap-1.5 text-destructive font-medium">
+                    <ShieldAlert className="h-4 w-4" /> {reporteRecon.corruptos} corruptos (investigar manualmente)
+                  </span>
+                )}
+                {reporteRecon.noMigrados > 0 && (
+                  <span className="text-muted-foreground">{reporteRecon.noMigrados} no migrados (apertura pendiente)</span>
+                )}
+              </div>
+
+              {reporteRecon.divergentesReparables === 0 && reporteRecon.corruptos === 0 && (
+                <div className="flex items-center gap-2 text-success text-sm font-medium py-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Inventario consistente con el Ledger (I9 satisfecho).
+                </div>
+              )}
+
+              {/* Lista de artículos con problema */}
+              {reporteRecon.articulosConProblema.length > 0 && (
+                <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
+                  {reporteRecon.articulosConProblema.map((a) => (
+                    <div
+                      key={`${a.articuloTipo}-${a.articuloId}`}
+                      className="px-4 py-2.5 flex items-center gap-3 text-sm bg-background"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs text-muted-foreground">[{a.articuloTipo}]</span>{' '}
+                        <span className="font-mono text-xs text-muted-foreground truncate">{a.articuloId}</span>
+                        {a.estado === 'divergente_reparable' && (
+                          <span className="block text-xs text-muted-foreground">
+                            caché={a.stockCache} · ledger={a.stockLedger} · Δ={a.divergencia}
+                          </span>
+                        )}
+                        {a.estado === 'corrupto' && a.motivoCorrupcion && (
+                          <span className="block text-xs text-destructive/80">{a.motivoCorrupcion}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {a.estado === 'divergente_reparable' ? (
+                          <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[10px]">
+                            Divergente reparable
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-destructive/10 text-destructive border-destructive/20 text-[10px]">
+                            Corrupto
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
