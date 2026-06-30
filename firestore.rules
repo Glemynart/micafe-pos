@@ -170,7 +170,8 @@ service cloud.firestore {
     match /cuentas_bancarias/{id} {
       allow read: if esAutenticado() && esOperativo();       // [C1] guardarEgreso (cajero) lee caja-principal en su transacción
       allow write: if esAutenticado() && esAdmin();
-      allow update: if esAutenticado() && esOperativo();     // [NUEVO] cerrarTurno() actualiza saldo (cajero)
+      allow update: if esAutenticado() && esOperativo()      // [IMP-4] cerrarTurno()/ventas/egresos (cajero) solo pueden tocar saldo
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['saldo']);
     }
 
     // ─── CORRECCIÓN C2: colección que usaba el código sin regla ───────
@@ -184,7 +185,8 @@ service cloud.firestore {
     match /reservas/{id} {
       allow get: if true;             // lectura individual: cancel flow público necesita leer su propia reserva
       allow list: if esAutenticado(); // listado: suscribirReservasActivas / getReservasMesa solo desde POS/Admin
-      allow update, delete: if esAutenticado();
+      allow update: if esAutenticado() && esOperativo(); // [IMP-5] solo personal POS/Admin; público pasa por webhook admin
+      allow delete: if false;                            // [IMP-5] sin consumidor en el código
       allow create: if (
         esAutenticado() ||
         (
