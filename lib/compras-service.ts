@@ -154,6 +154,15 @@ export async function registrarCompra(params: RegistrarCompraParams): Promise<st
     }
     await aplicarMovimientosEnTransaccion(transaction, paramsMovimientos);
 
+    // Fix C-5: propagar el último costo de compra al campo cache del artículo.
+    // costoUnitario ya calculado en el loop anterior; doc() es pura (sin red).
+    for (const pm of paramsMovimientos) {
+      if (pm.costoUnitario > 0) {
+        const col = pm.articuloTipo === 'producto' ? 'productos' : 'insumos';
+        transaction.update(doc(db, col, pm.articuloId), { costo: pm.costoUnitario });
+      }
+    }
+
     transaction.set(nuevaCompraDoc, {
       proveedor: params.proveedor,
       items: params.items,
