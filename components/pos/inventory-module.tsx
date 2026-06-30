@@ -6,7 +6,7 @@ import { suscribirProductos, crearProducto, editarProducto, desactivarProducto, 
 import { suscribirInsumos, crearInsumo, editarInsumo, desactivarInsumo, type Insumo } from '@/lib/insumos-service'
 import { suscribirConsignadores, type Consignador } from '@/lib/consignadores-service'
 import { sugerirIconoBasadoEnNombre } from '@/lib/ai-icons'
-import { 
+import {
  Plus,
  Search,
  Edit2,
@@ -15,7 +15,9 @@ import {
  Beaker,
  AlertTriangle,
  CheckCircle,
- AlertCircle
+ AlertCircle,
+ History,
+ RotateCcw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -35,6 +37,15 @@ import {
 } from '@/lib/demo-data'
 import { DynamicIcon } from '@/components/ui/dynamic-icon'
 import { IconPicker } from '@/components/ui/icon-picker'
+import {
+ Sheet,
+ SheetContent,
+ SheetHeader,
+ SheetTitle,
+} from '@/components/ui/sheet'
+import { KardexVista } from '@/components/pos/kardex-vista'
+import { useKardex } from '@/hooks/use-kardex'
+import { type ArticuloTipo } from '@/lib/inventario-ledger'
 
 export function InventoryModule() {
  const [activeTab, setActiveTab] = useState('products')
@@ -59,6 +70,16 @@ export function InventoryModule() {
  const esFotocopia = espacioActivo?.nombre.toLowerCase().includes('fotocopia') ?? false
  const esCafeteria = espacioActivo?.nombre.toLowerCase().includes('cafeter') ?? false
  const esAlquilerOFoto = esAlquiler || esFotocopia
+
+ // ── Kardex Sheet ──────────────────────────────────────────────────────────
+ const [kardexArticulo, setKardexArticulo] = useState<{
+  tipo: ArticuloTipo
+  id: string
+  nombre: string
+  stock: number
+  unidad: string
+ } | null>(null)
+ const kardex = useKardex(kardexArticulo)
 
  // Form states Insumo
  const [nuevoInsumoNombre, setNuevoInsumoNombre] = useState('')
@@ -359,13 +380,22 @@ export function InventoryModule() {
  <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" onClick={() => { setProductoAEditar(product); setShowProductDialog(true); }}>
  <Edit2 className="h-4 w-4" />
  </Button>
- <Button 
- variant="ghost" 
- size="icon" 
+ <Button
+ variant="ghost"
+ size="icon"
  className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
  onClick={() => handleDeleteProducto(product.id)}
  >
  <Trash2 className="h-4 w-4" />
+ </Button>
+ <Button
+ variant="ghost"
+ size="icon"
+ className="h-9 w-9 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+ title="Ver movimientos"
+ onClick={() => setKardexArticulo({ tipo: 'producto', id: product.id, nombre: product.nombre, stock: product.stock, unidad: 'und' })}
+ >
+ <History className="h-4 w-4" />
  </Button>
  </div>
  </TableCell>
@@ -449,13 +479,22 @@ export function InventoryModule() {
  <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" onClick={() => { setInsumoAEditar(insumo); setShowIngredientDialog(true); }}>
  <Edit2 className="h-4 w-4" />
  </Button>
- <Button 
- variant="ghost" 
- size="icon" 
+ <Button
+ variant="ghost"
+ size="icon"
  className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
  onClick={() => handleDeleteInsumo(insumo.id)}
  >
  <Trash2 className="h-4 w-4" />
+ </Button>
+ <Button
+ variant="ghost"
+ size="icon"
+ className="h-9 w-9 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+ title="Ver movimientos"
+ onClick={() => setKardexArticulo({ tipo: 'insumo', id: insumo.id, nombre: insumo.nombre, stock: insumo.stock, unidad: insumo.unidadMedida })}
+ >
+ <History className="h-4 w-4" />
  </Button>
  </div>
  </TableCell>
@@ -583,6 +622,63 @@ export function InventoryModule() {
  </AlertDialogFooter>
  </AlertDialogContent>
  </AlertDialog>
+
+ {/* ── Kardex Sheet ── */}
+ <Sheet open={kardexArticulo !== null} onOpenChange={(open) => { if (!open) setKardexArticulo(null) }}>
+  <SheetContent side="right" className="sm:max-w-4xl p-0 flex flex-col">
+   <SheetHeader className="px-4 pt-4 pb-2 border-b border-border/50 flex-shrink-0">
+    <SheetTitle className="text-base font-bold truncate">
+     Movimientos — {kardexArticulo?.nombre ?? ''}
+    </SheetTitle>
+   </SheetHeader>
+   {kardexArticulo !== null && (
+    <div className="flex-1 min-h-0 overflow-hidden">
+     {kardex.error ? (
+      <div className="flex flex-col items-center justify-center py-16 gap-3 px-6" role="alert">
+       <AlertCircle className="h-8 w-8 text-destructive/60" aria-hidden="true" />
+       <div className="text-center space-y-1">
+        <p className="text-sm font-medium text-destructive">Error al cargar movimientos</p>
+        <p className="text-xs text-muted-foreground">{kardex.error}</p>
+       </div>
+       <Button
+        variant="outline"
+        size="sm"
+        className="gap-2 mt-1"
+        onClick={kardex.recargar}
+       >
+        <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+        Reintentar
+       </Button>
+      </div>
+     ) : !kardex.pagina || !kardex.diagnostico ? (
+      <div
+       className="flex items-center justify-center py-16 text-muted-foreground text-sm"
+       role="status"
+       aria-label="Cargando movimientos"
+      >
+       <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin mr-3" aria-hidden="true" />
+       Cargando movimientos…
+      </div>
+     ) : (
+      <KardexVista
+       pagina={kardex.pagina}
+       diagnostico={kardex.diagnostico}
+       filtros={kardex.filtros}
+       onFiltrosChange={kardex.setFiltros}
+       orden={kardex.orden}
+       onCambiarOrden={kardex.cambiarOrden}
+       hasPrev={kardex.hasPrev}
+       onSiguiente={kardex.irSiguiente}
+       onAnterior={kardex.irAnterior}
+       cargando={kardex.cargando}
+       nombreFallback={kardexArticulo.nombre}
+       numeroPagina={kardex.numeroPagina}
+      />
+     )}
+    </div>
+   )}
+  </SheetContent>
+ </Sheet>
  </div>
  )
 }
