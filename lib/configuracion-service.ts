@@ -7,6 +7,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { REGIMEN_TRIBUTARIO_DEFAULT, type RegimenTributario } from "@/lib/impuestos-service";
 
 export interface ConfiguracionGlobal {
   nombre_tienda: string;
@@ -21,6 +22,10 @@ export interface ConfiguracionGlobal {
   resolucion_dian: string;
   tipo_contribuyente: string;
   responsable_iva: string;
+  // ADR-TRIB-001 D2/D7: régimen tributario de la Empresa. Fuente única del
+  // cálculo de impuesto y del rótulo fiscal del ticket. `responsable_iva`
+  // (arriba) queda vestigial: no se lee para calcular ni para el rótulo.
+  regimenTributario?: RegimenTributario;
   mensaje_ticket: string;
 
   modulos_habilitados: string[];
@@ -47,6 +52,7 @@ const DEFAULT_CONFIG: ConfiguracionGlobal = {
   resolucion_dian: "",
   tipo_contribuyente: "Regimen Simplificado",
   responsable_iva: "0",
+  regimenTributario: REGIMEN_TRIBUTARIO_DEFAULT,
   mensaje_ticket: "GRACIAS POR SU COMPRA!",
   modulos_habilitados: [...DEFAULT_MODULOS],
   baseCajaSugerida: 200000,
@@ -60,7 +66,10 @@ export function suscribirConfiguracion(
 
   return onSnapshot(docRef, (snap) => {
     if (snap.exists()) {
-      callback(snap.data() as ConfiguracionGlobal);
+      const data = snap.data() as ConfiguracionGlobal;
+      // Documentos existentes anteriores a ADR-TRIB-001 no tienen el campo;
+      // el default se aplica en este único punto de lectura (INV-7).
+      callback({ ...data, regimenTributario: data.regimenTributario ?? REGIMEN_TRIBUTARIO_DEFAULT });
     } else {
       callback(DEFAULT_CONFIG);
     }

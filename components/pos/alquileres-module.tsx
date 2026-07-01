@@ -120,8 +120,7 @@ export function AlquileresModule() {
       category: producto.categoriaId || '',
       emoji: producto.imagenUrl || '⏱️',
       stock: 999,
-      iva: 0,
-      impoconsumo: 0,
+      impuestoTipo: 'excluido',
       hasRecipe: false,
       quantity: cantidad
     }
