@@ -727,8 +727,8 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
 
       if (incidenciasInventario.length > 0) {
         const nombres = incidenciasInventario.map(i => i.itemNombre).join(', ')
-        toast.warning('Venta registrada con faltante de inventario', {
-          description: `Stock insuficiente en: ${nombres}. El inventario fue ajustado a 0.`,
+        toast.warning('Venta registrada correctamente', {
+          description: `Inventario negativo en: ${nombres}. Verifica compras o ajustes pendientes.`,
           duration: 6000,
         })
       }
