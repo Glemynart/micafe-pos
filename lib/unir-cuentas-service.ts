@@ -66,7 +66,9 @@ export async function unirCuentas(
     // --- FASE DE ESCRITURAS ---
     const fechaMovimiento = Timestamp.now()
 
-    let itemsConsolidados = [...destino.items]
+    // IMP-11: garantizar uid presente en todo item que entra al consolidado
+    // (solo afecta items legacy sin uid; con uid ya asignado es un no-op).
+    let itemsConsolidados = destino.items.map(item => ({ ...item, uid: item.uid || crypto.randomUUID() }))
     let comandaIdsConsolidados = [...(destino.comandaIds || [])]
     const movimientosDestino = [...(destino.movimientos || [])]
 
@@ -77,8 +79,11 @@ export async function unirCuentas(
         quantity: item.quantity,
       }))
 
-      // Anexar items preservando uid y cantidadEnviada
-      itemsConsolidados = [...itemsConsolidados, ...origen.data.items]
+      // Anexar items preservando uid y cantidadEnviada (IMP-11: sanear uid si falta)
+      itemsConsolidados = [
+        ...itemsConsolidados,
+        ...origen.data.items.map(item => ({ ...item, uid: item.uid || crypto.randomUUID() })),
+      ]
 
       // Consolidar comandaIds (solo las que existen)
       const origenComandaIds = comandasPorOrigen.get(origen.id) || []
