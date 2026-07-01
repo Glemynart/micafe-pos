@@ -1,6 +1,8 @@
 import { db } from './firebase'
 import { collection, doc, runTransaction, serverTimestamp, Timestamp } from 'firebase/firestore'
-import type { PedidoActivo, PedidoItem, MovimientoCuenta } from './pedidos-service'
+import type { PedidoActivo, PedidoItem, MovimientoCuenta, ComandaCocina } from './pedidos-service'
+
+const COMANDAS_COLLECTION = 'comandas_cocina'
 
 export interface ItemSeparacion {
   uid: string
@@ -29,6 +31,11 @@ export async function separarCuenta(
     const itemsOrigenActualizados: PedidoItem[] = []
     const itemsNuevoPedido: PedidoItem[] = []
     const itemsLog: Array<{ uid: string; name: string; quantity: number }> = []
+    // IMP-10: uids cuya línea completa se movió al pedido nuevo. Una comanda
+    // (documento-lote) solo se repunta si TODOS los uids que contiene están
+    // en este set; si contiene algún uid que se quedó en el origen (lote
+    // mixto o movimiento parcial), la comanda permanece en el origen.
+    const fullyMovedUids = new Set<string>()
 
     for (const item of origen.items) {
       const itemUid = item.uid || item.id
@@ -49,6 +56,7 @@ export async function separarCuenta(
       const moverEnviados = cantidadMover - moverNoEnviados
 
       if (cantidadMover === item.quantity) {
+        fullyMovedUids.add(itemUid)
         itemsNuevoPedido.push({
           ...item,
           uid: item.uid || crypto.randomUUID(),
@@ -83,6 +91,20 @@ export async function separarCuenta(
       throw new Error('Debe seleccionar al menos un item para separar')
     }
 
+    // --- FASE DE LECTURAS (comandas, antes de cualquier escritura) ---
+    const comandaIdsOrigen = origen.comandaIds || []
+    const comandaIdsAMover: string[] = []
+    for (const comandaId of comandaIdsOrigen) {
+      const comandaSnap = await transaction.get(doc(db, COMANDAS_COLLECTION, comandaId))
+      if (!comandaSnap.exists()) continue
+      const comanda = comandaSnap.data() as ComandaCocina
+      const uidsComanda = comanda.items.map(i => i.uid)
+      if (uidsComanda.length > 0 && uidsComanda.every(uid => fullyMovedUids.has(uid))) {
+        comandaIdsAMover.push(comandaId)
+      }
+    }
+    const comandaIdsOrigenRestantes = comandaIdsOrigen.filter(id => !comandaIdsAMover.includes(id))
+
     const nuevoPedidoId = doc(collection(db, 'pedidos_activos')).id
     const fechaMovimiento = Timestamp.now()
 
@@ -104,9 +126,16 @@ export async function separarCuenta(
 
     transaction.update(origenRef, {
       items: itemsOrigenActualizados,
+      comandaIds: comandaIdsOrigenRestantes,
       movimientos: [...(origen.movimientos || []), movOrigen],
       actualizadoEn: serverTimestamp(),
     })
+
+    for (const comandaId of comandaIdsAMover) {
+      transaction.update(doc(db, COMANDAS_COLLECTION, comandaId), {
+        pedidoId: nuevoPedidoId,
+      })
+    }
 
     transaction.set(doc(db, 'pedidos_activos', nuevoPedidoId), {
       id: nuevoPedidoId,
@@ -117,7 +146,7 @@ export async function separarCuenta(
       items: itemsNuevoPedido,
       estado: 'abierto',
       activo: true,
-      comandaIds: [],
+      comandaIds: comandaIdsAMover,
       movimientos: [movDestino],
       actualizadoEn: serverTimestamp(),
     })
