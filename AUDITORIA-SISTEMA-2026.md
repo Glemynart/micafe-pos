@@ -32,14 +32,24 @@
 | IMP-7 | Sin validación servidor de suma `pagoMixtoDetalle` == total | ⬜ Pendiente |
 | IMP-8 | Stock insuficiente no bloquea la venta; toast "ajustado a 0" es falso | ⬜ Pendiente |
 | IMP-9 | Stock solo se descuenta al cobrar, no al enviar a cocina | ⬜ Pendiente |
-| IMP-10 | Separar cuenta no repunta `comandaIds`/`pedidoId` | ⬜ Pendiente |
-| IMP-11 | Unir cuentas concatena ítems sin des-duplicar uids | ⬜ Pendiente |
-| IMP-12 | Anular venta no reabre pedido/comandas asociadas | ⬜ Pendiente |
+| IMP-10 | Separar cuenta no repunta `comandaIds`/`pedidoId` | ✅ **Corregido** (PR #56) |
+| IMP-11 | Unir cuentas concatena ítems sin des-duplicar uids | ✅ **Corregido** (PR #56) |
+| IMP-12 | Anular venta no reabre pedido/comandas asociadas | 🚫 **Cerrado (No aplica)** |
 | IMP-13 | Queries sin límite sobre historial de ventas y turnos | ⬜ Pendiente |
 | IMP-14 | Carrera no atómica al marcar fiado como pagado | ⬜ Pendiente |
 | IMP-15 | Páginas historial compras/mermas no filtran por `espacioId` | ⬜ Pendiente |
 | IMP-16 | Duplicación de lógica (agregación, `getCurrentUserInfo`) | ⬜ Pendiente |
 | IMP-17 | Código muerto commiteado: componentes `-premium` (eran 4, no 5) | ✅ **Cerrado** |
+
+---
+
+## IMP-12 — Investigado y cerrado como No aplica (2026-07-01)
+
+`anularVenta` (`lib/ventas-service.ts:468-661`) revierte venta, inventario y tesorería, pero nunca lee `ventaData.pedidoId` ni toca `pedidos_activos`/`comandas_cocina`. El síntoma es cierto, pero coincide exactamente con el diseño aprobado de FASE-13 (decisión #2: reabrir mesa = nueva cuenta; pedido pagado inmutable; corregir cobro errado = `anularVenta`). No reabrir es el comportamiento correcto y requerido, no un defecto.
+
+Sin corrupción activa: el único residuo es una referencia cruzada obsoleta e inerte (`venta.pedidoId ↔ pedido.ventaId`) que ningún consumidor lee; el arqueo se autoexcluye la venta anulada (filtra `estado==='pagada'`, IMP-2).
+
+Implementar la reapertura introduciría regresiones activas: reabriría el guard de idempotencia de `cobrarPedido` (riesgo de doble cobro sobre el mismo pedido), reinyectaría al KDS comandas ya `entregado` sin estado de reversión definido, y descuadraría el arqueo con una venta `pagada` fantasma. Mismo criterio que C-2/IMP-9/IMP-15: premisa del hallazgo invalidada por decisión de producto definitiva. Sin cambio de código.
 
 ---
 
