@@ -103,6 +103,10 @@ export async function marcarComoPagada(
     if (!ventaSnap.exists()) throw new Error('Venta no encontrada')
 
     const ventaData = ventaSnap.data()
+    if (ventaData.estado !== 'pendiente') {
+      throw new Error('Esta cuenta ya fue procesada')
+    }
+
     const total: number = ventaData.totales?.total ?? 0
     const cajeroId: string = ventaData.cajeroId ?? cajeroUid ?? 'unknown'
     const cajeroNombre: string = ventaData.cajeroNombre ?? cajeroId
