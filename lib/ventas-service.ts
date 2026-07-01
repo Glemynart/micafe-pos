@@ -36,9 +36,11 @@ export interface VentaItem {
 }
 
 export interface PagoMixtoDetalle {
-  metodo: 'efectivo' | 'transferencia';
+  metodo: 'efectivo' | 'transferencia' | 'tarjeta';
   monto: number;
 }
+
+const METODOS_MIXTO_PERMITIDOS: readonly PagoMixtoDetalle['metodo'][] = ['efectivo', 'transferencia', 'tarjeta'];
 
 export interface CrearVentaParams {
   turnoId: string;
@@ -86,6 +88,31 @@ async function _ejecutarVenta(
   extraVentaFields?: Record<string, unknown>,
 ): Promise<{ consecutivo: number, incidencias: IncidenciaInventario[] }> {
   const incidencias: IncidenciaInventario[] = [];
+
+  // I7: pago mixto debe conciliar exactamente contra el total antes de tocar
+  // inventario o tesorería — ninguna pierna fuera de {efectivo,transferencia,tarjeta}
+  // (cuenta_cobro explícitamente excluida) y Σ(monto) === totales.total.
+  // Dominio COP entero: igualdad exacta, sin tolerancias.
+  if (params.metodoPago === 'mixto') {
+    const detalle = params.pagoMixtoDetalle;
+    if (!detalle || detalle.length === 0) {
+      throw new Error('Pago mixto requiere pagoMixtoDetalle con al menos una pierna.');
+    }
+    for (const pago of detalle) {
+      if (!METODOS_MIXTO_PERMITIDOS.includes(pago.metodo)) {
+        throw new Error(`Método de pago mixto no permitido: ${pago.metodo}`);
+      }
+      if (!Number.isFinite(pago.monto) || pago.monto <= 0) {
+        throw new Error('Cada pierna del pago mixto debe tener un monto positivo.');
+      }
+    }
+    const sumaDetalle = detalle.reduce((acc, pago) => acc + pago.monto, 0);
+    if (sumaDetalle !== params.totales.total) {
+      throw new Error(
+        `La suma del pago mixto (${sumaDetalle}) no coincide con el total de la venta (${params.totales.total}).`
+      );
+    }
+  }
 
   const recetasMap = new Map<string, any>();
   for (const item of params.items) {
