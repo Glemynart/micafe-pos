@@ -16,6 +16,8 @@ import {
   onSnapshot,
   getDoc,
   deleteDoc,
+  limit,
+  Timestamp,
   type Unsubscribe,
   type Transaction,
   type DocumentReference,
@@ -356,14 +358,31 @@ export async function cobrarPedido(
   return resultado!;
 }
 
-export function suscribirHistorialVentas(espacioId: string | undefined, callback: (ventas: any[]) => void): Unsubscribe {
-  let q;
-  if (espacioId) {
-    q = query(collection(db, "ventas"), where("espacioId", "==", espacioId), orderBy("fecha", "desc"));
-  } else {
-    q = query(collection(db, "ventas"), orderBy("fecha", "desc"));
-  }
-  
+const HISTORIAL_VENTAS_LIMIT = 100;
+
+/**
+ * Sin `rangoFecha`: acota a las HISTORIAL_VENTAS_LIMIT ventas más recientes.
+ * Con `rangoFecha`: filtra por ese rango (sin límite de conteo) para preservar
+ * la búsqueda de cualquier fecha histórica.
+ */
+export function suscribirHistorialVentas(
+  espacioId: string | undefined,
+  callback: (ventas: any[]) => void,
+  rangoFecha?: { desde: Date; hasta: Date }
+): Unsubscribe {
+  const filtros = [
+    ...(espacioId ? [where("espacioId", "==", espacioId)] : []),
+    ...(rangoFecha
+      ? [
+          where("fecha", ">=", Timestamp.fromDate(rangoFecha.desde)),
+          where("fecha", "<=", Timestamp.fromDate(rangoFecha.hasta)),
+        ]
+      : []),
+    orderBy("fecha", "desc"),
+    ...(rangoFecha ? [] : [limit(HISTORIAL_VENTAS_LIMIT)]),
+  ];
+  const q = query(collection(db, "ventas"), ...filtros);
+
   return onSnapshot(q, (snap) => {
     const ventas = snap.docs.map((d) => {
       const data = d.data();

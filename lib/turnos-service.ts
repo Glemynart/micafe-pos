@@ -12,6 +12,7 @@ import {
   runTransaction,
   getDoc,
   increment,
+  limit,
 } from 'firebase/firestore'
 import { db, auth } from './firebase'
 import { calcularEgresosTurno } from './egresos-service'
@@ -408,36 +409,47 @@ export async function verificarTurnoActivo(cajeroId: string): Promise<boolean> {
   return !snap.empty;
 }
 
+const HISTORIAL_TURNOS_LIMIT = 100;
+
 /**
- * Escucha el historial completo de turnos de un espacio.
+ * Escucha el historial de los HISTORIAL_TURNOS_LIMIT turnos más recientes.
+ * Los roles (para excluir admin/marketing) se leen una sola vez al suscribir,
+ * no en cada evento de snapshot.
  */
 export function suscribirHistorialTurnos(
   callback: (turnos: Turno[]) => void
 ) {
   const q = query(
-    collection(db, 'turnos')
+    collection(db, 'turnos'),
+    orderBy('fechaApertura', 'desc'),
+    limit(HISTORIAL_TURNOS_LIMIT)
   );
 
-  return onSnapshot(q, async (snapshot) => {
-    const usuariosSnap = await getDocs(query(collection(db, 'usuarios')))
+  let unsubscribeTurnos = () => {};
+  let cancelado = false;
+
+  getDocs(query(collection(db, 'usuarios'))).then((usuariosSnap) => {
+    if (cancelado) return;
     const rolesPorUid: Record<string, string> = {}
     usuariosSnap.docs.forEach(d => {
       rolesPorUid[d.id] = d.data().rol || ''
     })
 
-    const turnos = snapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() } as Turno))
-      .filter(t => {
-        const rol = rolesPorUid[t.cajeroId] || ''
-        return rol !== 'admin' && rol !== 'marketing'
-      })
-      .sort((a, b) => {
-        const timeA = a.fechaApertura?.toMillis ? a.fechaApertura.toMillis() : 0;
-        const timeB = b.fechaApertura?.toMillis ? b.fechaApertura.toMillis() : 0;
-        return timeB - timeA;
-      });
-    callback(turnos);
+    unsubscribeTurnos = onSnapshot(q, (snapshot) => {
+      const turnos = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Turno))
+        .filter(t => {
+          const rol = rolesPorUid[t.cajeroId] || ''
+          return rol !== 'admin' && rol !== 'marketing'
+        });
+      callback(turnos);
+    });
   });
+
+  return () => {
+    cancelado = true;
+    unsubscribeTurnos();
+  };
 }
 
 /**
