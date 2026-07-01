@@ -25,6 +25,7 @@ import {
 import { db } from "@/lib/firebase";
 import { getAuth } from "firebase/auth";
 import { aplicarMovimientosEnTransaccion, type EmitirMovimientoParams } from "@/lib/inventario-ledger";
+import type { ImpuestoTipo, RegimenTributario } from "@/lib/impuestos-service";
 
 export interface VentaItem {
   id: string; // ID del producto
@@ -33,6 +34,12 @@ export interface VentaItem {
   precioUnitario: number;
   costoUnitario: number;
   subtotal: number;
+  // ADR-TRIB-001 D6/INV-5: snapshot tributario congelado de la línea.
+  // Opcionales: ventas anteriores a ADR-TRIB-001 no los tienen (dual-shape).
+  base?: number;
+  impuestoTipo?: ImpuestoTipo;
+  impuestoTarifa?: number;
+  impuestoValor?: number;
 }
 
 export interface PagoMixtoDetalle {
@@ -53,12 +60,15 @@ export interface CrearVentaParams {
   clienteDocumento?: string;
   notasFiado?: string;
   items: VentaItem[];
+  // ADR-TRIB-001 D6: desglose por tipo (reemplaza {subtotal, iva, impoconsumo}).
   totales: {
-    subtotal: number;
-    iva: number;
-    impoconsumo: number;
+    subtotalBase: number;
+    totalINC: number;
+    totalExcluido: number;
     total: number;
   };
+  // ADR-TRIB-001 D6: régimen tributario vigente al momento de la venta.
+  regimenAlMomento: RegimenTributario;
   metodoPago: 'efectivo' | 'transferencia' | 'cuenta_cobro' | 'mixto';
   // Pago simple
   dineroRecibido?: number;
@@ -430,9 +440,15 @@ export function suscribirHistorialVentas(
         ...data,
         fecha: fechaFormat, 
         resumen,
+        // Shape histórico (pre ADR-TRIB-001): {subtotal, iva, impoconsumo}.
         subtotal_ventas: data.totales?.subtotal || data.totales?.total || 0,
         iva_total: data.totales?.iva || 0,
         impoconsumo_total: data.totales?.impoconsumo || 0,
+        // Shape nuevo (ADR-TRIB-001 D6): {subtotalBase, totalINC, totalExcluido}.
+        // Ambos coexisten (dual-shape): una venta solo tiene uno u otro poblado.
+        subtotal_base: data.totales?.subtotalBase ?? 0,
+        total_inc: data.totales?.totalINC ?? 0,
+        total_excluido: data.totales?.totalExcluido ?? 0,
         total: data.totales?.total || 0,
         metodo_pago: data.metodoPago || 'efectivo',
       };
