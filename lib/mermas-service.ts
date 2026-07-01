@@ -1,7 +1,6 @@
 import {
   collection,
   doc,
-  getDoc,
   runTransaction,
   query,
   where,
@@ -10,9 +9,9 @@ import {
   serverTimestamp,
   type Unsubscribe,
 } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
 import { db } from "@/lib/firebase";
 import { aplicarMovimientoEnTransaccion } from "@/lib/inventario-ledger";
+import { getCurrentUserInfo } from "@/lib/auth-service";
 
 export interface Merma {
   id: string;
@@ -40,19 +39,8 @@ export interface RegistrarMermaParams {
   espacioId: string;
 }
 
-async function getCurrentUserInfo(): Promise<{ uid: string; nombre: string }> {
-  const auth = getAuth();
-  const currentUser = auth.currentUser;
-  if (!currentUser) throw new Error("Debe iniciar sesión para registrar una merma");
-
-  const userSnap = await getDoc(doc(db, "usuarios", currentUser.uid));
-  const nombre = userSnap.exists() ? userSnap.data().nombre : currentUser.uid;
-
-  return { uid: currentUser.uid, nombre };
-}
-
 export async function registrarMerma(params: RegistrarMermaParams): Promise<string> {
-  const { uid, nombre } = await getCurrentUserInfo();
+  const { uid, nombre } = await getCurrentUserInfo("Debe iniciar sesión para registrar una merma");
   const mermasRef = collection(db, "mermas");
   const nuevaMermaDoc = doc(mermasRef);
 

@@ -16,15 +16,14 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
-  getDoc,
   runTransaction,
   serverTimestamp,
   type Unsubscribe,
 } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
 import { db } from "@/lib/firebase";
 import { aplicarMovimientoEnTransaccion } from "@/lib/inventario-ledger";
 import { IMPUESTO_TIPO_DEFAULT, type ImpuestoTipo } from "@/lib/impuestos-service";
+import { getCurrentUserInfo } from "@/lib/auth-service";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -119,14 +118,7 @@ export async function editarProducto(
   }
 
   // Stock cambió: transacción atómica + Ledger (I11).
-  const auth = getAuth();
-  const currentUser = auth.currentUser;
-  if (!currentUser) throw new Error("Debe iniciar sesión para ajustar el stock");
-
-  const userSnap = await getDoc(doc(db, "usuarios", currentUser.uid));
-  const usuarioNombre = userSnap.exists()
-    ? (userSnap.data().nombre as string)
-    : currentUser.uid;
+  const { uid, nombre: usuarioNombre } = await getCurrentUserInfo("Debe iniciar sesión para ajustar el stock");
 
   // Clave de idempotencia estable: generada fuera del callback de runTransaction
   // para sobrevivir reintentos automáticos del SDK sin duplicar el movimiento (I10).
@@ -156,7 +148,7 @@ export async function editarProducto(
         cantidad:            delta,
         costoUnitario:       (d.costo as number | undefined) ?? 0,
         espacioId:           (d.espacioId as string) ?? "",
-        usuarioId:           currentUser.uid,
+        usuarioId:           uid,
         usuarioNombre,
         claveIdempotencia:   `${tipo}:edicion:producto:${id}:${ajusteId}`,
         referenciaColeccion: "productos",
