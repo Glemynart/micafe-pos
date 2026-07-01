@@ -1,7 +1,6 @@
 import {
   collection,
   doc,
-  getDoc,
   runTransaction,
   query,
   where,
@@ -11,9 +10,9 @@ import {
   increment,
   type Unsubscribe,
 } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
 import { db } from "@/lib/firebase";
 import { aplicarMovimientosEnTransaccion, type EmitirMovimientoParams } from "@/lib/inventario-ledger";
+import { getCurrentUserInfo } from "@/lib/auth-service";
 
 export interface CompraItem {
   tipo?: 'insumo' | 'producto';
@@ -50,19 +49,8 @@ export interface RegistrarCompraParams {
   fechaCompra?: string; // YYYY-MM-DD; si se omite usa serverTimestamp()
 }
 
-async function getCurrentUserInfo(): Promise<{ uid: string; nombre: string }> {
-  const auth = getAuth();
-  const currentUser = auth.currentUser;
-  if (!currentUser) throw new Error("Debe iniciar sesión para registrar una compra");
-
-  const userSnap = await getDoc(doc(db, "usuarios", currentUser.uid));
-  const nombre = userSnap.exists() ? userSnap.data().nombre : currentUser.uid;
-
-  return { uid: currentUser.uid, nombre };
-}
-
 export async function registrarCompra(params: RegistrarCompraParams): Promise<string> {
-  const { uid, nombre } = await getCurrentUserInfo();
+  const { uid, nombre } = await getCurrentUserInfo("Debe iniciar sesión para registrar una compra");
   const comprasRef = collection(db, "compras");
   const nuevaCompraDoc = doc(comprasRef);
 
@@ -225,7 +213,7 @@ export function suscribirCompras(
 }
 
 export async function eliminarCompra(compraId: string): Promise<void> {
-  const { uid, nombre: usuarioNombre } = await getCurrentUserInfo();
+  const { uid, nombre: usuarioNombre } = await getCurrentUserInfo("Debe iniciar sesión para registrar una compra");
   const compraRef = doc(db, "compras", compraId);
 
   await runTransaction(db, async (transaction) => {

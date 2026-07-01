@@ -145,6 +145,23 @@ export async function getUsuarioFirestore(uid: string): Promise<Usuario | null> 
 }
 
 /**
+ * Resuelve el usuario autenticado actual delegando en getUsuarioFirestore.
+ * Lanza mensajeSinSesion si no hay sesión activa; usa el uid como nombre
+ * de respaldo si el documento de Firestore no existe.
+ */
+export async function getCurrentUserInfo(
+  mensajeSinSesion: string
+): Promise<{ uid: string; nombre: string }> {
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error(mensajeSinSesion);
+
+  const usuario = await getUsuarioFirestore(currentUser.uid);
+  const nombre = usuario ? usuario.nombre : currentUser.uid;
+
+  return { uid: currentUser.uid, nombre };
+}
+
+/**
  * Suscripción reactiva al estado de autenticación de Firebase.
  * Útil para inicializar el contexto al recargar la página.
  */
