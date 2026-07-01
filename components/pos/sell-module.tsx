@@ -11,6 +11,15 @@ import { suscribirClientes, filtrarClientes, crearCliente, type Cliente } from '
 import { suscribirMesas, type Mesa } from '@/lib/mesas-service'
 import { suscribirPedidosActivos, guardarPedido, agregarItemPedido, enviarPedidoACocina, modificarItemPedido, suscribirComandasActivas, type PedidoActivo, type PedidoItem, type ComandaCocina } from '@/lib/pedidos-service'
 import { suscribirTurnoActivo, type Turno } from '@/lib/turnos-service'
+import { suscribirConfiguracion } from '@/lib/configuracion-service'
+import {
+  resolverLineaImpuesto,
+  agregarTotalesImpuesto,
+  tarifaVigente,
+  REGIMEN_TRIBUTARIO_DEFAULT,
+  IMPUESTO_TIPO_DEFAULT,
+  type RegimenTributario,
+} from '@/lib/impuestos-service'
 import { separarCuenta, type ItemSeparacion } from '@/lib/separar-cuenta-service'
 import { unirCuentas } from '@/lib/unir-cuentas-service'
 import { trasladarCuenta } from '@/lib/trasladar-cuenta-service'
@@ -69,8 +78,7 @@ function productoToCartItem(p: Producto): CartItem {
     category: p.categoriaId,
     emoji: p.icono ?? '📦',
     stock: p.stock,
-    iva: 19,
-    impoconsumo: 0,
+    impuestoTipo: p.impuestoTipo ?? IMPUESTO_TIPO_DEFAULT,
     hasRecipe: false,
     quantity: 1,
   }
@@ -199,6 +207,13 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   }, [espacioActivo?.id])
 
   useEffect(() => suscribirClientes(setClientes), [])
+
+  // ADR-TRIB-001 D2/D7: régimen tributario de la Empresa — único driver del
+  // cálculo de impuesto (INV-6/INV-7). Default en el punto de lectura.
+  const [regimenTributario, setRegimenTributario] = useState<RegimenTributario>(REGIMEN_TRIBUTARIO_DEFAULT)
+  useEffect(() => suscribirConfiguracion((config) => {
+    setRegimenTributario(config.regimenTributario ?? REGIMEN_TRIBUTARIO_DEFAULT)
+  }), [])
 
   // Bridge salon → sell: intent de navegación pendiente (consume-once).
   // Se inicializa con initialPedidoId al montar. El efecto lo consume
@@ -357,7 +372,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
     const item: PedidoItem = {
       id: `foto-${fotoTipo}`, uid: crypto.randomUUID(), name: nombre, code: `foto-${fotoTipo}`,
       price: precio, cost: 50, category: 'Fotocopias', emoji: 'Printer',
-      stock: 999, iva: 0, impoconsumo: 0, hasRecipe: false, quantity: copias,
+      stock: 999, impuestoTipo: 'excluido', hasRecipe: false, quantity: copias,
     }
     try {
       if (activePedido) {
@@ -589,8 +604,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
       category: 'Otros',
       emoji: '📦',
       stock: 999,
-      iva: 19,
-      impoconsumo: 0,
+      impuestoTipo: IMPUESTO_TIPO_DEFAULT,
       hasRecipe: false,
       quantity: 1
     }
@@ -610,12 +624,21 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
     setSearchCode('')
   }, [quickProductName, quickProductPrice, searchCode, activePedido, crearPedidoConItem])
 
-  // Calculations
-  const subtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)
-  const totalIva = cart.reduce((acc, item) => acc + (item.price * item.quantity * item.iva / 100), 0)
-  const totalImpoconsumo = cart.reduce((acc, item) => acc + (item.price * item.quantity * item.impoconsumo / 100), 0)
-  const total = subtotal + totalIva + totalImpoconsumo
+  // Calculations — ADR-TRIB-001: precios inclusive (D5), impuesto resuelto
+  // por línea (D3/D8) y agregado en el módulo tributario canónico (D4).
+  const lineasResueltas = cart.map((item) => {
+    const precioLinea = item.price * item.quantity
+    const resuelto = resolverLineaImpuesto(precioLinea, item.impuestoTipo ?? IMPUESTO_TIPO_DEFAULT, regimenTributario)
+    return { precioLinea, ...resuelto }
+  })
+  const totalesImpuesto = agregarTotalesImpuesto(lineasResueltas)
+  const subtotal = totalesImpuesto.subtotalBase
+  const totalINC = totalesImpuesto.totalINC
+  const total = totalesImpuesto.total
   const change = cashReceived - total
+  // Tarifa a mostrar: la de la línea que realmente aportó el INC; si no hay
+  // ninguna (no debería ocurrir cuando totalINC > 0), la vigente del catálogo.
+  const tarifaINC = lineasResueltas.find((l) => l.impuestoTipo === 'inc_8')?.impuestoTarifa ?? tarifaVigente('inc_8')
 
   // Keyboard navigation
   useEffect(() => {
@@ -674,14 +697,22 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
     isProcessingRef.current = true
     setIsProcessingPayment(true)
     try {
-      const items = cart.map(item => ({
-        id: item.code,
-        nombre: item.name,
-        cantidad: item.quantity,
-        precioUnitario: item.price,
-        costoUnitario: item.cost,
-        subtotal: item.price * item.quantity
-      }))
+      const items = cart.map((item, idx) => {
+        const linea = lineasResueltas[idx]
+        return {
+          id: item.code,
+          nombre: item.name,
+          cantidad: item.quantity,
+          precioUnitario: item.price,
+          costoUnitario: item.cost,
+          subtotal: linea.precioLinea,
+          // ADR-TRIB-001 D6/INV-5: snapshot congelado por línea.
+          base: linea.base,
+          impuestoTipo: linea.impuestoTipo,
+          impuestoTarifa: linea.impuestoTarifa,
+          impuestoValor: linea.impuestoValor,
+        }
+      })
 
       if (!turnoActivo) {
         toast.error("Error: No tienes un turno abierto para registrar ventas.")
@@ -701,7 +732,14 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
         clienteNombre: paymentMethod === 'cuenta_cobro' ? selectedCliente!.nombre : undefined,
         clienteDocumento: paymentMethod === 'cuenta_cobro' ? selectedCliente!.documento : undefined,
         items,
-        totales: { subtotal, iva: totalIva, impoconsumo: totalImpoconsumo, total },
+        totales: {
+          subtotalBase: totalesImpuesto.subtotalBase,
+          totalINC: totalesImpuesto.totalINC,
+          totalExcluido: totalesImpuesto.totalExcluido,
+          total,
+        },
+        // ADR-TRIB-001 D6: cabecera del snapshot — régimen vigente al cobrar.
+        regimenAlMomento: regimenTributario,
         metodoPago: paymentMethod as 'efectivo' | 'transferencia' | 'cuenta_cobro',
         dineroRecibido: paymentMethod === 'efectivo' ? cashReceived : undefined,
         cambio: paymentMethod === 'efectivo' ? Math.max(0, change) : undefined,
@@ -743,7 +781,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
       isProcessingRef.current = false
       setIsProcessingPayment(false)
     }
-  }, [usuario, cart, selectedCustomer, selectedCliente, subtotal, totalIva, totalImpoconsumo, total, paymentMethod, cashReceived, change, activePedido, espacioActivo, turnoActivo])
+  }, [usuario, cart, selectedCustomer, selectedCliente, subtotal, totalesImpuesto, lineasResueltas, regimenTributario, total, paymentMethod, cashReceived, change, activePedido, espacioActivo, turnoActivo])
 
   const handleReceiptClose = useCallback((print: boolean) => {
     if (print) {
@@ -1056,10 +1094,12 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                       <span>Subtotal</span>
                       <span className="font-bold text-foreground">{formatCurrency(subtotal)}</span>
                   </div>
-                  <div className="flex justify-between text-muted-foreground">
-                      <span>IVA (19%)</span>
-                      <span className="font-bold text-foreground">{formatCurrency(totalIva)}</span>
-                  </div>
+                  {totalINC > 0 && (
+                    <div className="flex justify-between text-muted-foreground">
+                        <span>INC ({tarifaINC}%)</span>
+                        <span className="font-bold text-foreground">{formatCurrency(totalINC)}</span>
+                    </div>
+                  )}
               </div>
               <div className="flex justify-between items-center mb-6">
                   <span className="text-xl font-bold text-foreground tracking-wide">TOTAL</span>

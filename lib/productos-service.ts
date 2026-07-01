@@ -24,6 +24,7 @@ import {
 import { getAuth } from "firebase/auth";
 import { db } from "@/lib/firebase";
 import { aplicarMovimientoEnTransaccion } from "@/lib/inventario-ledger";
+import { IMPUESTO_TIPO_DEFAULT, type ImpuestoTipo } from "@/lib/impuestos-service";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,9 @@ export interface Producto {
   descripcion: string;
   unidad: string;
   icono?: string;
+  // ADR-TRIB-001 D3: clasificación tributaria del ítem. Sin tarifa (INV-8):
+  // la tarifa vigente vive únicamente en el catálogo de impuestos-service.
+  impuestoTipo?: ImpuestoTipo;
   // Consignación
   consignadorId?: string;   // quién dejó el producto
   stockInicial?: number;    // unidades originales entregadas
@@ -76,10 +80,12 @@ export function suscribirProductos(
   );
 
   return onSnapshot(q, (snap) => {
-    const productos: Producto[] = snap.docs.map((d) => ({
-      id: d.id,
-      ...(d.data() as Omit<Producto, "id">),
-    })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+    const productos: Producto[] = snap.docs.map((d) => {
+      const data = d.data() as Omit<Producto, "id">;
+      // Productos existentes anteriores a ADR-TRIB-001 no tienen el campo;
+      // el default se aplica en este único punto de lectura (§5, D3).
+      return { id: d.id, ...data, impuestoTipo: data.impuestoTipo ?? IMPUESTO_TIPO_DEFAULT };
+    }).sort((a, b) => a.nombre.localeCompare(b.nombre));
     callback(productos);
   });
 }
