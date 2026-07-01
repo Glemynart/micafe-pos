@@ -116,12 +116,35 @@ export function Historial() {
     }
   }
 
+  // Deriva el rango [desde, hasta] correspondiente al filtro de fecha activo
+  // (día/mes/año). Devuelve undefined si no hay filtro, para conservar la
+  // suscripción acotada por defecto.
+  const calcularRangoFecha = (): { desde: Date; hasta: Date } | undefined => {
+    if (!filtroFecha) return undefined;
+
+    if (tipoPeriodo === "dia") {
+      const [y, m, d] = filtroFecha.split("-").map(Number);
+      if (!y || !m || !d) return undefined;
+      return { desde: new Date(y, m - 1, d, 0, 0, 0, 0), hasta: new Date(y, m - 1, d, 23, 59, 59, 999) };
+    }
+    if (tipoPeriodo === "mes") {
+      const [y, m] = filtroFecha.split("-").map(Number);
+      if (!y || !m) return undefined;
+      return { desde: new Date(y, m - 1, 1, 0, 0, 0, 0), hasta: new Date(y, m, 0, 23, 59, 59, 999) };
+    }
+    // tipoPeriodo === "ano"
+    const y = Number(filtroFecha);
+    if (!y) return undefined;
+    return { desde: new Date(y, 0, 1, 0, 0, 0, 0), hasta: new Date(y, 11, 31, 23, 59, 59, 999) };
+  };
+
   useEffect(() => {
+    const rangoFecha = calcularRangoFecha();
     const unsubscribe = suscribirHistorialVentas(espacioActivo?.id, (data) => {
       setVentas(data || []);
-    });
+    }, rangoFecha);
     return () => unsubscribe();
-  }, [espacioActivo?.id])
+  }, [espacioActivo?.id, tipoPeriodo, filtroFecha])
 
   const loadVentas = async () => {
     // Función mantenida por retrocompatibilidad visual en otras funciones
