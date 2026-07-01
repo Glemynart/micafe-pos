@@ -1,5 +1,6 @@
 import { db } from './firebase'
 import { collection, doc, setDoc, onSnapshot, query, where, deleteDoc, serverTimestamp, runTransaction, arrayUnion } from 'firebase/firestore'
+import type { ImpuestoTipo } from '@/lib/impuestos-service'
 
 export interface PedidoItem {
   id: string // Product ID
@@ -11,8 +12,12 @@ export interface PedidoItem {
   category: string
   emoji: string
   stock: number
-  iva: number
-  impoconsumo: number
+  // ADR-TRIB-001 D3: clasificación tributaria del ítem (reemplaza iva/impoconsumo).
+  impuestoTipo?: ImpuestoTipo
+  // Legado (IMP-6): ya no se leen para calcular impuesto; opcionales por
+  // compatibilidad con pedidos_activos abiertos antes del despliegue.
+  iva?: number
+  impoconsumo?: number
   hasRecipe: boolean
   quantity: number
   cantidadEnviada?: number

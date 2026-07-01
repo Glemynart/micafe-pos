@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { useAuthContext } from '@/contexts/auth-context'
 import { useEspacios } from '@/contexts/espacios-context'
 import { suscribirHistorialVentas, obtenerVentaPorId, anularVenta as anularVentaFirebase } from '@/lib/ventas-service'
+import { REGIMEN_TRIBUTARIO_DEFAULT, tarifaVigente } from '@/lib/impuestos-service'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -316,7 +317,14 @@ export function Historial() {
     const ciudad      = config.ciudad               || '';
     const tel         = config.telefono             || '';
     const resolucion  = config.resolucion_dian      || '';
-    const respIva     = config.responsable_iva === '1';
+    // ADR-TRIB-001 D2/INV-7: el rótulo fiscal deriva únicamente del régimen
+    // congelado en el snapshot de la venta (o el default canónico si la
+    // venta es anterior al ADR) — nunca del flag legado `responsable_iva`.
+    const regimenTicket = data.regimenAlMomento ?? REGIMEN_TRIBUTARIO_DEFAULT;
+    const rotuloFiscal =
+      regimenTicket === 'responsable_inc' ? 'Responsable de INC' :
+      regimenTicket === 'responsable_iva' ? 'Responsable de IVA' :
+      'No Responsable de INC';
     const tipoContr   = config.tipo_contribuyente   || '';
 
     const prefijo = config.prefijo_dian || config.prefijo_factura || 'SETT';
@@ -349,9 +357,19 @@ export function Historial() {
     const compradorNombre = data.cliente?.nombre || "CONSUMIDOR FINAL";
     const compradorDoc = data.cliente?.identificacion || "222222222222";
 
-    const subtotalVal = data.subtotal_ventas || total;
-    const ivaVal = data.iva_total || 0;
-    const impoVal = data.impoconsumo_total || 0;
+    // ADR-TRIB-001 D6: dual-shape. `data` puede venir del doc crudo de venta
+    // (totales.subtotalBase = shape nuevo) o de una venta anterior al ADR
+    // (totales.subtotal/iva/impoconsumo = shape histórico, `data.iva_total`
+    // etc. si viene de la lista de historial). Cada venta solo tiene un shape.
+    const esShapeNuevo = data.totales?.subtotalBase !== undefined;
+    const subtotalVal = esShapeNuevo ? data.totales.subtotalBase : (data.subtotal_ventas || total);
+    const ivaVal = esShapeNuevo ? 0 : (data.iva_total || 0);
+    const impoVal = esShapeNuevo ? 0 : (data.impoconsumo_total || 0);
+    // INC del shape nuevo: monto agregado en totales.totalINC; la tarifa
+    // congelada se lee del snapshot de línea (INV-5), nunca recalculada aquí.
+    const incVal = esShapeNuevo ? (data.totales?.totalINC || 0) : 0;
+    const incItem = esShapeNuevo ? items.find((i: any) => i.impuestoTipo === 'inc_8') : undefined;
+    const incTarifa = incItem?.impuestoTarifa ?? tarifaVigente('inc_8');
 
     const itemsHtml = items.map((i: any) => {
       const nombre = (i.nombre || i.descripcion || '').toUpperCase();
@@ -378,7 +396,10 @@ export function Historial() {
       if (impoVal > 0) {
         taxesHtml += `<tr><td>INC</td><td>8%</td><td>$${Math.round(subtotalVal).toLocaleString('es-CO')}</td><td>$${Math.round(impoVal).toLocaleString('es-CO')}</td></tr>`;
       }
-      if (ivaVal === 0 && impoVal === 0) {
+      if (incVal > 0) {
+        taxesHtml += `<tr><td>INC</td><td>${incTarifa}%</td><td>$${Math.round(subtotalVal).toLocaleString('es-CO')}</td><td>$${Math.round(incVal).toLocaleString('es-CO')}</td></tr>`;
+      }
+      if (ivaVal === 0 && impoVal === 0 && incVal === 0) {
         taxesHtml += `<tr><td>EXENTO</td><td>0%</td><td>$${Math.round(total).toLocaleString('es-CO')}</td><td>$0</td></tr>`;
       }
     }
@@ -437,7 +458,7 @@ export function Historial() {
       ${direccion ? `<div class="sub uppercase">${direccion}</div>` : ''}
       ${ciudad ? `<div class="sub uppercase">${ciudad} - COLOMBIA</div>` : ''}
       ${tel ? `<div class="sub">TEL: ${tel}</div>` : ''}
-      <div class="sub">${tipoContr ? tipoContr : (respIva ? 'Responsable de IVA' : 'No Responsable de IVA')}</div>
+      <div class="sub">${tipoContr ? tipoContr : rotuloFiscal}</div>
       
       <div class="titulo">${isDian ? 'FACTURA ELECTRÓNICA DE VENTA' : 'TICKET DE VENTA'}</div>
       
@@ -464,6 +485,7 @@ export function Historial() {
       <div class="total-row"><span>SUBTOTAL:</span><span>$${Math.round(subtotalVal).toLocaleString('es-CO')}</span></div>
       ${ivaVal > 0 ? `<div class="total-row"><span>IVA:</span><span>$${Math.round(ivaVal).toLocaleString('es-CO')}</span></div>` : ''}
       ${impoVal > 0 ? `<div class="total-row"><span>IMPOCONSUMO:</span><span>$${Math.round(impoVal).toLocaleString('es-CO')}</span></div>` : ''}
+      ${incVal > 0 ? `<div class="total-row"><span>INC:</span><span>$${Math.round(incVal).toLocaleString('es-CO')}</span></div>` : ''}
       <div class="total-row total-main"><span>TOTAL A PAGAR:</span><span>$${Math.round(total).toLocaleString('es-CO')}</span></div>
       
       <div class="row2" style="margin-top: 6px;"><span class="bold">FORMA PAGO:</span><span class="bold uppercase">${mp}</span></div>
