@@ -15,6 +15,7 @@ import {
   where,
   onSnapshot,
   getDoc,
+  setDoc,
   deleteDoc,
   limit,
   Timestamp,
@@ -463,6 +464,34 @@ export async function obtenerVentaPorId(id: string): Promise<any> {
     return { id: snap.id, ...snap.data() };
   }
   return null;
+}
+
+// Metadatos de emisión electrónica congelados en la propia Venta (bloque
+// `dian`), fuente única para la reimpresión fiel de una Factura Electrónica
+// de Venta — reemplaza la dependencia de SQLite (facturas_electronicas).
+export interface DianMetadata {
+  cufe: string;
+  qr: string;
+  numero: string;
+  prefijo: string;
+  pdfUrl: string;
+  resolucion: string;
+  emitidoEn: Timestamp;
+}
+
+/**
+ * Congela los metadatos DIAN en `ventas/{id}.dian` tras una emisión exitosa
+ * de Factus. Merge-only sobre el bloque `dian`: no toca `estado`, por lo que
+ * permanece dentro de la rama "operativo normal" de las reglas Firestore
+ * (no requiere cambio de reglas). Idempotente: reescribir el mismo bloque
+ * produce el mismo estado, seguro ante reintentos.
+ */
+export async function guardarMetadatosDian(
+  ventaId: string,
+  dian: Omit<DianMetadata, "emitidoEn">
+): Promise<void> {
+  const ventaRef = doc(db, "ventas", ventaId);
+  await setDoc(ventaRef, { dian: { ...dian, emitidoEn: serverTimestamp() } }, { merge: true });
 }
 
 export async function anularVenta(id: string): Promise<void> {
