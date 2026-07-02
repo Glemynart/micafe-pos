@@ -4,8 +4,9 @@ import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { useAuthContext } from '@/contexts/auth-context'
 import { useEspacios } from '@/contexts/espacios-context'
-import { suscribirHistorialVentas, obtenerVentaPorId, anularVenta as anularVentaFirebase } from '@/lib/ventas-service'
+import { suscribirHistorialVentas, obtenerVentaPorId, anularVenta as anularVentaFirebase, guardarMetadatosDian } from '@/lib/ventas-service'
 import { REGIMEN_TRIBUTARIO_DEFAULT, tarifaVigente } from '@/lib/impuestos-service'
+import { suscribirConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -75,17 +76,25 @@ export function Historial() {
     motivo: 'Nota de ajuste',
   })
 
+  // Identidad del negocio para el ticket (fuente única: configuracion/general
+  // en Firestore, no SQLite — ver diseño "Unificar fuente de verdad reimpresión").
+  const [config, setConfig] = useState<ConfiguracionGlobal | null>(null)
+  useEffect(() => {
+    const unsubConfig = suscribirConfiguracion(setConfig)
+    return () => unsubConfig()
+  }, [])
+
   const handleEmitirNota = async () => {
-    if (!notaState.venta || !notaState.venta.cufe) return;
-    
+    if (!notaState.venta || !notaState.venta.dian?.cufe) return;
+
     toast.loading(`Emitiendo Nota ${notaState.type === 'credito' ? 'Crédito' : 'Débito'}...`, { id: 'dian-nota' });
     try {
       // Necesitamos los items de la venta
       let ventaCompleta = await obtenerVentaPorId(notaState.venta.id);
-      
+
       const payload = {
-        numeroFacturaRef: ventaCompleta.numero_electronico || notaState.venta.numero || `SETP${notaState.venta.id}`,
-        cufeRef: notaState.venta.cufe,
+        numeroFacturaRef: ventaCompleta.dian?.numero || notaState.venta.numero || `SETP${notaState.venta.id}`,
+        cufeRef: notaState.venta.dian.cufe,
         motivo: notaState.motivo,
         items: ventaCompleta.items,
         total: ventaCompleta.total,
@@ -159,8 +168,8 @@ export function Historial() {
     const vFecha = v.fecha ? v.fecha.split(" ")[0] : "";
     const matchFecha = !filtroFecha || vFecha.startsWith(filtroFecha);
     
-    // Si la venta tiene CUFE o qr_dian es "enviado", sino "pendiente"
-    const estadoDian = v.cufe ? "enviado" : "pendiente";
+    // Si la venta tiene el bloque `dian` congelado, fue emitida; sino "pendiente"
+    const estadoDian = v.dian?.cufe ? "enviado" : "pendiente";
     const matchEstado = filtroEstado === "todos" || estadoDian === filtroEstado;
     return matchFecha && matchEstado;
   })
@@ -185,6 +194,33 @@ export function Historial() {
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Ocurrió un error al intentar anular la venta.");
+    }
+  };
+
+  // Congela el bloque `dian` en la Venta tras una emisión exitosa de Factus
+  // (ver diseño "Persistencia de metadatos DIAN en el modelo Venta"). Un
+  // reintento (merge idempotente) mitiga un fallo transitorio de escritura;
+  // si persiste, se reporta explícitamente en vez de fallar en silencio.
+  const persistirMetadatosDian = async (ventaId: string, factusRes: any): Promise<boolean> => {
+    const dian = {
+      cufe: factusRes.cufe,
+      qr: factusRes.qr,
+      numero: factusRes.numero,
+      prefijo: factusRes.prefijo || '',
+      pdfUrl: factusRes.pdf || '',
+      resolucion: config?.resolucion_dian || '',
+    };
+    try {
+      await guardarMetadatosDian(ventaId, dian);
+      return true;
+    } catch {
+      try {
+        await guardarMetadatosDian(ventaId, dian); // reintento (R1)
+        return true;
+      } catch (err) {
+        console.error(err);
+        return false;
+      }
     }
   };
 
@@ -222,7 +258,12 @@ export function Historial() {
       });
 
       if (factusRes.ok) {
-        toast.success(`Factura emitida exitosamente.`, { id: 'dian' });
+        const persistido = await persistirMetadatosDian(ventaCompleta.id, factusRes);
+        if (persistido) {
+          toast.success(`Factura emitida exitosamente.`, { id: 'dian' });
+        } else {
+          toast.error('Factura emitida en la DIAN, pero no se pudo registrar en el sistema. Contacte soporte antes de reimprimir.', { id: 'dian' });
+        }
         loadVentas();
         if (ventaDetalle && ventaDetalle.id === venta.id) {
           verDetalle(venta.id);
@@ -237,17 +278,18 @@ export function Historial() {
   };
 
   const emitirPendientes = async () => {
-    const pendientes = ventasFiltradas.filter(v => !v.cufe && !debeBloquearDIAN(v));
+    const pendientes = ventasFiltradas.filter(v => !v.dian?.cufe && !debeBloquearDIAN(v));
     if (pendientes.length === 0) {
       toast.info("No hay facturas pendientes por enviar.");
       return;
     }
-    
+
     let success = 0;
     let failed = 0;
-    
+    let sinRegistrar = 0;
+
     toast.loading(`Enviando ${pendientes.length} facturas a la DIAN...`, { id: 'dian-batch' });
-    
+
     for (const venta of pendientes) {
       try {
         let ventaCompleta = await obtenerVentaPorId(venta.id);
@@ -269,6 +311,8 @@ export function Historial() {
 
         if (factusRes.ok) {
           success++;
+          const persistido = await persistirMetadatosDian(ventaCompleta.id, factusRes);
+          if (!persistido) sinRegistrar++;
         } else {
           failed++;
         }
@@ -276,8 +320,11 @@ export function Historial() {
         failed++;
       }
     }
-    
-    toast.success(`Proceso finalizado. Exitosas: ${success}, Fallidas: ${failed}`, { id: 'dian-batch' });
+
+    toast.success(
+      `Proceso finalizado. Exitosas: ${success}, Fallidas: ${failed}${sinRegistrar ? `, sin registrar: ${sinRegistrar}` : ''}`,
+      { id: 'dian-batch' }
+    );
     loadVentas();
   };
 
@@ -292,13 +339,16 @@ export function Historial() {
   };
 
   const imprimirReimpresion = async (venta: any) => {
+    if (!config) {
+      toast.error("Configuración aún no disponible. Intente de nuevo en un momento.");
+      return;
+    }
     try {
-      const config = await (window as any).api.config.get();
       // En el historial la venta ya viene con items detallados si usamos ventas.get()
       await imprimirTicketHTML({
         ...venta,
         metodoPago: venta.metodo_pago,
-        numFactura: venta.numero_electronico || venta.id, // Usar número electrónico si existe
+        numFactura: venta.dian?.numero || venta.id, // Usar número electrónico si existe
       }, config);
     } catch (err) {
       console.error(err);
@@ -316,7 +366,15 @@ export function Historial() {
     const direccion   = config.direccion_tienda     || '';
     const ciudad      = config.ciudad               || '';
     const tel         = config.telefono             || '';
-    const resolucion  = config.resolucion_dian      || '';
+
+    // Bloque DIAN congelado en la propia Venta al momento de la emisión (ver
+    // diseño "Persistencia de metadatos DIAN en el modelo Venta"). Su
+    // presencia es lo que determina si la venta fue emitida como Factura
+    // Electrónica; ausencia = ticket simple. Nunca se fabrica un CUFE local.
+    const dian = data.dian;
+    const isDian = !!dian?.cufe;
+    const resolucion = dian?.resolucion || config.resolucion_dian || '';
+
     // ADR-TRIB-001 D2/INV-7: el rótulo fiscal deriva únicamente del régimen
     // congelado en el snapshot de la venta (o el default canónico si la
     // venta es anterior al ADR) — nunca del flag legado `responsable_iva`.
@@ -327,7 +385,7 @@ export function Historial() {
       'No Responsable de INC';
     const tipoContr   = config.tipo_contribuyente   || '';
 
-    const prefijo = config.prefijo_dian || config.prefijo_factura || 'SETT';
+    const prefijo = (isDian && dian.prefijo) || config.prefijo_dian || config.prefijo_factura || 'SETT';
     let cleanNum = numFactura;
     if (typeof cleanNum === 'string') {
       const cleanPref = prefijo.trim().toUpperCase();
@@ -337,21 +395,13 @@ export function Historial() {
       }
     }
     const numStr = cleanNum ? String(cleanNum).padStart(6, '0') : '';
-    
-    // Si es Factura Electrónica (DIAN habilitada, Factus configurado, o CUFE/QR presentes)
-    const isDian = !!data.cufe || !!data.qr
-               || config.facturacion_dian === 'true' || config.facturacion_dian === true
-               || (!!config.factus_client_id && config.factus_client_id.length > 10);
-    
+
     let cufe = '';
     let qrData = '';
-    
+
     if (isDian) {
-      cufe = data.cufe || 
-             Array.from(`${prefijo}${numStr}${fechaStr}${total}${nit}`)
-                  .reduce((a,b)=>(((a<<5)-a)+b.charCodeAt(0))|0,0)
-                  .toString(16).padStart(40, '0');
-      qrData = data.qr || `https://catalogo-vpfe.dian.gov.co/document/searchqr?documentKey=${cufe}`;
+      cufe = dian.cufe;
+      qrData = dian.qr || `https://catalogo-vpfe.dian.gov.co/document/searchqr?documentKey=${cufe}`;
     }
 
     const compradorNombre = data.cliente?.nombre || "CONSUMIDOR FINAL";
@@ -515,7 +565,7 @@ export function Historial() {
         </div>
         
         <div class="res">
-          <div>Resolución DIAN N° ${config.resolucion_dian || '187640000001'} Prefijo: ${prefijo} Habilitada del ${config.rango_inicio || '1'} al ${config.rango_fin || '10000'}</div>
+          <div>Resolución DIAN N° ${resolucion || '187640000001'} Prefijo: ${prefijo} Habilitada del ${config.rango_inicio || '1'} al ${config.rango_fin || '10000'}</div>
           ${config.resolucion_vigencia ? `<div>Vigencia: ${config.resolucion_vigencia}</div>` : ''}
           <div class="bold" style="margin-top:4px">Proveedor Tecnológico: Proveedor fiscal de pruebas [REDACTED]</div>
         </div>
@@ -657,7 +707,7 @@ export function Historial() {
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Enviados DIAN</p>
               <p className="text-2xl font-black text-foreground tracking-tight">
-                {ventas.filter((v) => !!v.cufe).length}
+                {ventas.filter((v) => !!v.dian?.cufe).length}
               </p>
             </div>
           </CardContent>
@@ -671,7 +721,7 @@ export function Historial() {
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Pendientes DIAN</p>
               <p className="text-2xl font-black text-foreground tracking-tight">
-                {ventas.filter((v) => !v.cufe && !debeBloquearDIAN(v)).length}
+                {ventas.filter((v) => !v.dian?.cufe && !debeBloquearDIAN(v)).length}
               </p>
             </div>
           </CardContent>
@@ -761,7 +811,7 @@ export function Historial() {
                 </TableRow>
               ) : (
                 ventasFiltradas.map((venta, idx) => {
-                  const estado = venta.estado === 'anulada' ? 'anulada' : (venta.cufe ? "enviado" : "pendiente");
+                  const estado = venta.estado === 'anulada' ? 'anulada' : (venta.dian?.cufe ? "enviado" : "pendiente");
                   const vFechaObj = new Date(venta.fecha);
                   const fechaFormat = vFechaObj.toLocaleDateString('es-CO');
                   const horaFormat = vFechaObj.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
@@ -805,7 +855,7 @@ export function Historial() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {!venta.cufe && !debeBloquearDIAN(venta) && (
+                        {!venta.dian?.cufe && !debeBloquearDIAN(venta) && (
                           <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-primary hover:bg-primary/10" onClick={() => emitirDian(venta)}>
                             <Send className="h-4 w-4" />
                           </Button>
@@ -821,7 +871,7 @@ export function Historial() {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
-                        {venta.cufe && (
+                        {venta.dian?.cufe && (
                           <>
                             <Button 
                               size="icon" 
@@ -914,7 +964,7 @@ export function Historial() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Estado DIAN</p>
-                  <div className="mt-1">{getEstadoDianBadge(ventaDetalle.cufe ? "enviado" : "pendiente")}</div>
+                  <div className="mt-1">{getEstadoDianBadge(ventaDetalle.dian?.cufe ? "enviado" : "pendiente")}</div>
                 </div>
               </div>
 
@@ -927,7 +977,7 @@ export function Historial() {
                   <Download className="mr-2 h-4 w-4" />
                   Imprimir Ticket
                 </Button>
-                {!ventaDetalle.cufe && !debeBloquearDIAN(ventaDetalle) && (
+                {!ventaDetalle.dian?.cufe && !debeBloquearDIAN(ventaDetalle) && (
                   <Button className="flex-1" onClick={() => emitirDian(ventaDetalle)}>
                     <Send className="mr-2 h-4 w-4" />
                     Emitir DIAN
