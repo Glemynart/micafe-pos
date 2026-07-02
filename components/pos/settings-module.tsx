@@ -27,6 +27,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useEspacios } from '@/contexts/espacios-context'
 import { suscribirMesas, guardarMesa, eliminarMesa, type Mesa } from '@/lib/mesas-service'
 import { suscribirConfiguracion, guardarConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
+import { regimenesTributariosVisibles, REGIMEN_TRIBUTARIO_DEFAULT } from '@/lib/impuestos-service'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
 
@@ -347,7 +348,7 @@ export function SettingsModule() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Tipo de Contribuyente</Label>
+                  <Label>Tipo de Contribuyente (informativo)</Label>
                   <Select value={config?.tipo_contribuyente || "Régimen Simplificado"} onValueChange={(val) => handleConfigChange('tipo_contribuyente', val)}>
                     <SelectTrigger className="bg-input">
                       <SelectValue />
@@ -358,18 +359,21 @@ export function SettingsModule() {
                       <SelectItem value="Gran Contribuyente">Gran Contribuyente</SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">Dato descriptivo para el ticket. No afecta el cálculo de impuestos.</p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Responsable de IVA</Label>
-                  <Select value={config?.responsable_iva || "0"} onValueChange={(val) => handleConfigChange('responsable_iva', val)}>
+                  <Label>Régimen Tributario</Label>
+                  <Select value={config?.regimenTributario || REGIMEN_TRIBUTARIO_DEFAULT} onValueChange={(val) => handleConfigChange('regimenTributario', val)}>
                     <SelectTrigger className="bg-input">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">Sí (Responsable)</SelectItem>
-                      <SelectItem value="0">No (No Responsable)</SelectItem>
+                      {regimenesTributariosVisibles().map((opcion) => (
+                        <SelectItem key={opcion.value} value={opcion.value}>{opcion.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">Determina el cálculo de impuestos en las ventas nuevas.</p>
                 </div>
               </div>
               <div className="space-y-2">
