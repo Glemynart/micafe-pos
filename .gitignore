@@ -37,7 +37,6 @@ tsconfig.tsbuildinfo
 # Archivos temporales
 test_export.xlsx
 .agents/
-src/
 PLAN_*.md
 *.xlsx
 
@@ -61,18 +60,6 @@ globals_refs.txt
 vender_head.txt
 *.backup
 skills-lock.json
-
-# Electron / desktop specific (no va en Vercel)
-main.js
-preload.js
-renderer.js
-update-server.js
-build-installer.js
-src/auth-middleware.js
-src/auto-updater.js
-src/backup-manager.js
-src/drive-backup.js
-src/rate-limiter.js
 
 # Legacy POS components (no se usan en la nueva version)
 components/pos/cierre-caja.tsx
