@@ -18,6 +18,28 @@ export type RegimenTributario = 'no_responsable' | 'responsable_inc' | 'responsa
 export const REGIMEN_TRIBUTARIO_DEFAULT: RegimenTributario = 'no_responsable';
 export const IMPUESTO_TIPO_DEFAULT: ImpuestoTipo = 'inc_8';
 
+export interface RegimenTributarioOpcion {
+  value: RegimenTributario;
+  label: string;
+  visible: boolean;
+}
+
+/**
+ * Catálogo canónico de regímenes tributarios (D2/D3) — única fuente de las
+ * etiquetas mostradas en UI. `visible` controla la disponibilidad en
+ * selectores sin alterar esta estructura (p. ej. activar `responsable_iva`
+ * en V2 es un cambio de dato, no de forma).
+ */
+export const CATALOGO_REGIMENES_TRIBUTARIOS: ReadonlyArray<RegimenTributarioOpcion> = [
+  { value: 'no_responsable', label: 'No responsable', visible: true },
+  { value: 'responsable_inc', label: 'Responsable de INC (8%)', visible: true },
+  { value: 'responsable_iva', label: 'Responsable de IVA (reservado V2)', visible: false },
+];
+
+export function regimenesTributariosVisibles(): RegimenTributarioOpcion[] {
+  return CATALOGO_REGIMENES_TRIBUTARIOS.filter((r) => r.visible);
+}
+
 /**
  * Catálogo canónico de tasas (D4). Fechado por vigencia: un cambio de tarifa
  * se añade como entrada nueva, sin migrar datos existentes (la Venta ya
