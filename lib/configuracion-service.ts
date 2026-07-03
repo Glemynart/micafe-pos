@@ -11,8 +11,10 @@ import { REGIMEN_TRIBUTARIO_DEFAULT, type RegimenTributario } from "@/lib/impues
 
 export interface ConfiguracionGlobal {
   nombre_tienda: string;
+  razonSocial?: string;
   nit_tienda: string;
   direccion_tienda: string;
+  ciudad?: string;
   telefono: string;
   email: string;
   logoUrl?: string;
@@ -20,6 +22,9 @@ export interface ConfiguracionGlobal {
   prefijo_factura: string;
   consecutivo_actual: number;
   resolucion_dian: string;
+  rangoInicio?: string;
+  rangoFin?: string;
+  resolucionVigencia?: string;
   tipo_contribuyente: string;
   responsable_iva: string;
   // ADR-TRIB-001 D2/D7: régimen tributario de la Empresa. Fuente única del
@@ -43,13 +48,18 @@ const DEFAULT_MODULOS = [
 
 const DEFAULT_CONFIG: ConfiguracionGlobal = {
   nombre_tienda: "Mi Cafe Especial",
+  razonSocial: "",
   nit_tienda: "900.123.456-7",
   direccion_tienda: "Calle 123 #45-67, Bogota",
+  ciudad: "",
   telefono: "+57 300 123 4567",
   email: "demo@example.com",
   prefijo_factura: "POS",
   consecutivo_actual: 0,
   resolucion_dian: "",
+  rangoInicio: "",
+  rangoFin: "",
+  resolucionVigencia: "",
   tipo_contribuyente: "Regimen Simplificado",
   responsable_iva: "0",
   regimenTributario: REGIMEN_TRIBUTARIO_DEFAULT,

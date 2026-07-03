@@ -183,8 +183,18 @@ export function SettingsModule() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Dirección</Label>
-                <Input className="bg-input" value={config?.direccion_tienda || ''} onChange={(e) => handleConfigChange('direccion_tienda', e.target.value)} />
+                <Label>Razón Social</Label>
+                <Input className="bg-input" value={config?.razonSocial || ''} onChange={(e) => handleConfigChange('razonSocial', e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Dirección</Label>
+                  <Input className="bg-input" value={config?.direccion_tienda || ''} onChange={(e) => handleConfigChange('direccion_tienda', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Ciudad</Label>
+                  <Input className="bg-input" value={config?.ciudad || ''} onChange={(e) => handleConfigChange('ciudad', e.target.value)} />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -345,6 +355,20 @@ export function SettingsModule() {
               <div className="space-y-2">
                 <Label>Resolución DIAN (Mensaje en el ticket)</Label>
                 <Input className="bg-input" placeholder="Ej: Autorización N° 187640..." value={config?.resolucion_dian || ''} onChange={(e) => handleConfigChange('resolucion_dian', e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Rango Inicio (texto informativo del ticket)</Label>
+                  <Input className="bg-input" placeholder="Ej: 1" value={config?.rangoInicio || ''} onChange={(e) => handleConfigChange('rangoInicio', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Rango Fin (texto informativo del ticket)</Label>
+                  <Input className="bg-input" placeholder="Ej: 10000" value={config?.rangoFin || ''} onChange={(e) => handleConfigChange('rangoFin', e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Vigencia Resolución (texto informativo del ticket)</Label>
+                <Input className="bg-input" placeholder="Ej: 24 meses desde su expedición" value={config?.resolucionVigencia || ''} onChange={(e) => handleConfigChange('resolucionVigencia', e.target.value)} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
