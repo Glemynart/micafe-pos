@@ -361,6 +361,7 @@ export function Historial() {
     
     const fechaStr    = new Date(fecha).toLocaleString('es-CO');
     const storeName   = config.nombre_tienda        || 'MiTienda';
+    const razonSocial = config.razonSocial          || '';
     const propietario = config.nombre_propietario   || '';
     const nit         = config.nit_tienda           || '';
     const direccion   = config.direccion_tienda     || '';
@@ -503,6 +504,7 @@ export function Historial() {
       </style></head><body>
       
       <div class="store uppercase">${storeName}</div>
+      ${razonSocial ? `<div class="sub uppercase">${razonSocial}</div>` : ''}
       ${propietario ? `<div class="sub uppercase">${propietario}</div>` : ''}
       ${nit ? `<div class="sub">NIT: ${nit}</div>` : ''}
       ${direccion ? `<div class="sub uppercase">${direccion}</div>` : ''}
@@ -565,8 +567,8 @@ export function Historial() {
         </div>
         
         <div class="res">
-          <div>Resolución DIAN N° ${resolucion || '187640000001'} Prefijo: ${prefijo} Habilitada del ${config.rango_inicio || '1'} al ${config.rango_fin || '10000'}</div>
-          ${config.resolucion_vigencia ? `<div>Vigencia: ${config.resolucion_vigencia}</div>` : ''}
+          <div>Resolución DIAN N° ${resolucion || '187640000001'} Prefijo: ${prefijo} Habilitada del ${config.rangoInicio || '1'} al ${config.rangoFin || '10000'}</div>
+          ${config.resolucionVigencia ? `<div>Vigencia: ${config.resolucionVigencia}</div>` : ''}
           <div class="bold" style="margin-top:4px">Proveedor Tecnológico: FACTUS S.A.S. NIT: 901724254-1</div>
         </div>
       ` : ''}
