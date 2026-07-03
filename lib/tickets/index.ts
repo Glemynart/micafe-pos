@@ -34,3 +34,6 @@ export type {
 
 export { formatMoney, formatFecha } from './format'
 export type { FechaFormateada } from './format'
+
+export { generateQrDataUri, QrGenerator, DEFAULT_QR_OPTIONS } from './qr-generator'
+export type { QrOptions, QrErrorCorrectionLevel } from './qr-generator'
