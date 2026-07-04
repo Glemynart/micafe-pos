@@ -5,8 +5,9 @@ import { toast } from "sonner"
 import { useAuthContext } from '@/contexts/auth-context'
 import { useEspacios } from '@/contexts/espacios-context'
 import { suscribirHistorialVentas, obtenerVentaPorId, anularVenta as anularVentaFirebase, guardarMetadatosDian } from '@/lib/ventas-service'
-import { REGIMEN_TRIBUTARIO_DEFAULT, tarifaVigente } from '@/lib/impuestos-service'
 import { suscribirConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
+import { TicketBuilder, generateQrDataUri, renderTicket, DEFAULT_RENDER_OPTIONS } from '@/lib/tickets'
+import { adaptarVentaAModeloTicket } from '@/lib/reimpresion/venta-ticket-adapter'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -344,242 +345,23 @@ export function Historial() {
       return;
     }
     try {
-      // En el historial la venta ya viene con items detallados si usamos ventas.get()
-      await imprimirTicketHTML({
-        ...venta,
-        metodoPago: venta.metodo_pago,
-        numFactura: venta.dian?.numero || venta.id, // Usar número electrónico si existe
-      }, config);
+      await imprimirTicketConMotor(venta, config);
     } catch (err) {
       console.error(err);
       toast.error("Error al imprimir el ticket.");
     }
   };
 
-  const imprimirTicketHTML = async (data: any, config: any) => {
-    const { items, total, pago, cambio, metodoPago: mp, fecha, numFactura } = data;
-    
-    const fechaStr    = new Date(fecha).toLocaleString('es-CO');
-    const storeName   = config.nombre_tienda        || 'MiTienda';
-    const razonSocial = config.razonSocial          || '';
-    const propietario = config.nombre_propietario   || '';
-    const nit         = config.nit_tienda           || '';
-    const direccion   = config.direccion_tienda     || '';
-    const ciudad      = config.ciudad               || '';
-    const tel         = config.telefono             || '';
-
-    // Bloque DIAN congelado en la propia Venta al momento de la emisión (ver
-    // diseño "Persistencia de metadatos DIAN en el modelo Venta"). Su
-    // presencia es lo que determina si la venta fue emitida como Factura
-    // Electrónica; ausencia = ticket simple. Nunca se fabrica un CUFE local.
-    const dian = data.dian;
-    const isDian = !!dian?.cufe;
-    const resolucion = dian?.resolucion || config.resolucion_dian || '';
-
-    // ADR-TRIB-001 D2/INV-7: el rótulo fiscal deriva únicamente del régimen
-    // congelado en el snapshot de la venta (o el default canónico si la
-    // venta es anterior al ADR) — nunca del flag legado `responsable_iva`.
-    const regimenTicket = data.regimenAlMomento ?? REGIMEN_TRIBUTARIO_DEFAULT;
-    const rotuloFiscal =
-      regimenTicket === 'responsable_inc' ? 'Responsable de INC' :
-      regimenTicket === 'responsable_iva' ? 'Responsable de IVA' :
-      'No Responsable de INC';
-    const tipoContr   = config.tipo_contribuyente   || '';
-
-    const prefijo = (isDian && dian.prefijo) || config.prefijo_dian || config.prefijo_factura || 'SETT';
-    let cleanNum = numFactura;
-    if (typeof cleanNum === 'string') {
-      const cleanPref = prefijo.trim().toUpperCase();
-      const cleanVal = cleanNum.trim().toUpperCase();
-      if (cleanVal.startsWith(cleanPref)) {
-        cleanNum = cleanNum.trim().substring(cleanPref.length).trim();
-      }
-    }
-    const numStr = cleanNum ? String(cleanNum).padStart(6, '0') : '';
-
-    let cufe = '';
-    let qrData = '';
-
-    if (isDian) {
-      cufe = dian.cufe;
-      qrData = dian.qr || `https://catalogo-vpfe.dian.gov.co/document/searchqr?documentKey=${cufe}`;
-    }
-
-    const compradorNombre = data.cliente?.nombre || "CONSUMIDOR FINAL";
-    const compradorDoc = data.cliente?.identificacion || "222222222222";
-
-    // ADR-TRIB-001 D6: dual-shape. `data` puede venir del doc crudo de venta
-    // (totales.subtotalBase = shape nuevo) o de una venta anterior al ADR
-    // (totales.subtotal/iva/impoconsumo = shape histórico, `data.iva_total`
-    // etc. si viene de la lista de historial). Cada venta solo tiene un shape.
-    const esShapeNuevo = data.totales?.subtotalBase !== undefined;
-    const subtotalVal = esShapeNuevo ? data.totales.subtotalBase : (data.subtotal_ventas || total);
-    const ivaVal = esShapeNuevo ? 0 : (data.iva_total || 0);
-    const impoVal = esShapeNuevo ? 0 : (data.impoconsumo_total || 0);
-    // INC del shape nuevo: monto agregado en totales.totalINC; la tarifa
-    // congelada se lee del snapshot de línea (INV-5), nunca recalculada aquí.
-    const incVal = esShapeNuevo ? (data.totales?.totalINC || 0) : 0;
-    const incItem = esShapeNuevo ? items.find((i: any) => i.impuestoTipo === 'inc_8') : undefined;
-    const incTarifa = incItem?.impuestoTarifa ?? tarifaVigente('inc_8');
-
-    const itemsHtml = items.map((i: any) => {
-      const nombre = (i.nombre || i.descripcion || '').toUpperCase();
-      const cant = i.cantidad || 1;
-      const precioVal = Math.round(i.precio || i.precio_unitario || 0);
-      const subtotalVal = Math.round(i.subtotal || (cant * precioVal));
-      const cod = i.codigo || i.barcode || i.producto_id || i.id || '';
-      return `
-        <div class="row3">
-          <span class="desc">${nombre}<br>
-            <span style="font-size: 11.5px; font-weight: bold; color: #000;">Cod: ${cod} | CANT: ${cant}</span>
-          </span>
-          <span class="unit">$${precioVal.toLocaleString('es-CO')}</span>
-          <span class="sub">$${subtotalVal.toLocaleString('es-CO')}</span>
-        </div>
-      `;
-    }).join('');
-
-    let taxesHtml = '';
-    if (isDian) {
-      if (ivaVal > 0) {
-        taxesHtml += `<tr><td>IVA</td><td>19%</td><td>$${Math.round(subtotalVal).toLocaleString('es-CO')}</td><td>$${Math.round(ivaVal).toLocaleString('es-CO')}</td></tr>`;
-      }
-      if (impoVal > 0) {
-        taxesHtml += `<tr><td>INC</td><td>8%</td><td>$${Math.round(subtotalVal).toLocaleString('es-CO')}</td><td>$${Math.round(impoVal).toLocaleString('es-CO')}</td></tr>`;
-      }
-      if (incVal > 0) {
-        taxesHtml += `<tr><td>INC</td><td>${incTarifa}%</td><td>$${Math.round(subtotalVal).toLocaleString('es-CO')}</td><td>$${Math.round(incVal).toLocaleString('es-CO')}</td></tr>`;
-      }
-      if (ivaVal === 0 && impoVal === 0 && incVal === 0) {
-        taxesHtml += `<tr><td>EXENTO</td><td>0%</td><td>$${Math.round(total).toLocaleString('es-CO')}</td><td>$0</td></tr>`;
-      }
-    }
-
-    const html = `<html><head>
-      <meta charset="UTF-8">
-      <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-          font-family: Arial, Helvetica, sans-serif;
-          font-size: 13px;
-          line-height: 1.35;
-          width: 280px;
-          margin: 0;
-          padding: 0 4px;
-          color: #000;
-        }
-        .center  { text-align: center; }
-        .bold    { font-weight: bold; }
-        .uppercase { text-transform: uppercase; }
-        .titulo  {
-          text-align: center;
-          font-size: 13px;
-          font-weight: bold;
-          margin: 8px 0;
-          border-top: 1.5px dashed #000;
-          border-bottom: 1.5px dashed #000;
-          padding: 6px 0;
-        }
-        .store   { text-align: center; font-size: 15px; font-weight: bold; margin: 6px 0 2px 0; }
-        .sub     { text-align: center; font-size: 11px; margin: 2px 0; line-height: 1.25; }
-        .sep     { text-align: center; margin: 8px 0; border-top: 1.5px dashed #000; }
-        .row2    { display: flex; justify-content: space-between; margin: 3px 0; }
-        .row3    { display: flex; margin: 6px 0; border-bottom: 0.5px solid #ddd; padding-bottom: 4px; }
-        .row3 .desc { flex: 1; padding-right: 4px; }
-        .row3 .unit { width: 70px; text-align: right; font-size: 12px; }
-        .row3 .sub  { width: 75px; text-align: right; font-size: 12px; font-weight: bold; }
-        .hdr3    { display: flex; font-weight: bold; border-bottom: 1.5px dashed #000; padding-bottom: 5px; margin-bottom: 6px; font-size: 12px; }
-        .hdr3 .desc { flex: 1; }
-        .hdr3 .unit, .hdr3 .sub { width: 75px; text-align: right; }
-        .total-row { display: flex; justify-content: space-between; margin: 4px 0; font-size: 13px; }
-        .total-main{ font-weight: bold; font-size: 15px; border-top: 1.5px dashed #000; padding-top: 6px; margin-top: 6px; }
-        .tax-table { width: 100%; font-size: 11px; margin-top: 8px; border-collapse: collapse; }
-        .tax-table th { border-bottom: 1.5px dashed #000; text-align: left; font-weight: bold; padding-bottom: 4px; }
-        .tax-table td { padding: 4px 0; }
-        .cufe    { font-size: 10px; word-break: break-all; text-align: justify; margin: 6px 0; line-height: 1.2; font-family: monospace; }
-        .qr-container { text-align: center; margin: 12px 0; }
-        .qr-image { display: inline-block; width: 140px; height: 140px; }
-        .res     { font-size: 10px; line-height: 1.4; margin-top: 8px; border-top: 1.5px dashed #000; padding-top: 6px; }
-        .footer  { text-align: center; margin-top: 15px; font-size: 11px; line-height: 1.4; }
-      </style></head><body>
-      
-      <div class="store uppercase">${storeName}</div>
-      ${razonSocial ? `<div class="sub uppercase">${razonSocial}</div>` : ''}
-      ${propietario ? `<div class="sub uppercase">${propietario}</div>` : ''}
-      ${nit ? `<div class="sub">NIT: ${nit}</div>` : ''}
-      ${direccion ? `<div class="sub uppercase">${direccion}</div>` : ''}
-      ${ciudad ? `<div class="sub uppercase">${ciudad} - COLOMBIA</div>` : ''}
-      ${tel ? `<div class="sub">TEL: ${tel}</div>` : ''}
-      <div class="sub">${tipoContr ? tipoContr : rotuloFiscal}</div>
-      
-      <div class="titulo">${isDian ? 'FACTURA ELECTRÓNICA DE VENTA' : 'TICKET DE VENTA'}</div>
-      
-      <div class="row2"><span class="bold">N° ${isDian ? 'FACTURA' : 'TICKET'}:</span><span class="bold">${isDian ? prefijo + ' ' : ''}${numStr}</span></div>
-      <div class="row2"><span>FECHA:</span><span>${fechaStr.split(',')[0]}</span></div>
-      <div class="row2"><span>HORA:</span><span>${fechaStr.split(',')[1] || ''}</span></div>
-      
-      ${isDian ? `
-        <div class="sep"></div>
-        <div class="sub" style="text-align:left"><span class="bold">ADQUIRIENTE:</span> ${compradorNombre.toUpperCase()}</div>
-        <div class="sub" style="text-align:left"><span class="bold">NIT/CC:</span> ${compradorDoc}</div>
-      ` : ''}
-      
-      <div class="sep"></div>
-      <div class="hdr3">
-        <span class="desc">DESCRIPCIÓN</span>
-        <span class="unit">UNIT.</span>
-        <span class="sub">TOTAL</span>
-      </div>
-      
-      ${itemsHtml}
-      
-      <div class="sep"></div>
-      <div class="total-row"><span>SUBTOTAL:</span><span>$${Math.round(subtotalVal).toLocaleString('es-CO')}</span></div>
-      ${ivaVal > 0 ? `<div class="total-row"><span>IVA:</span><span>$${Math.round(ivaVal).toLocaleString('es-CO')}</span></div>` : ''}
-      ${impoVal > 0 ? `<div class="total-row"><span>IMPOCONSUMO:</span><span>$${Math.round(impoVal).toLocaleString('es-CO')}</span></div>` : ''}
-      ${incVal > 0 ? `<div class="total-row"><span>INC:</span><span>$${Math.round(incVal).toLocaleString('es-CO')}</span></div>` : ''}
-      <div class="total-row total-main"><span>TOTAL A PAGAR:</span><span>$${Math.round(total).toLocaleString('es-CO')}</span></div>
-      
-      <div class="row2" style="margin-top: 6px;"><span class="bold">FORMA PAGO:</span><span class="bold uppercase">${mp}</span></div>
-      ${pago > 0 && cambio >= 0 ? `
-        <div class="row2"><span>RECIBIDO:</span><span>$${Math.round(pago).toLocaleString('es-CO')}</span></div>
-        <div class="row2"><span class="bold">CAMBIO:</span><span class="bold">$${Math.round(cambio).toLocaleString('es-CO')}</span></div>
-      ` : ''}
-      
-      ${isDian ? `
-        <div class="sep"></div>
-        <div class="bold center" style="font-size:11px;">DETALLE DE IMPUESTOS</div>
-        <table class="tax-table">
-          <thead>
-            <tr><th>TIPO</th><th>TASA</th><th>BASE</th><th>VALOR</th></tr>
-          </thead>
-          <tbody>
-            ${taxesHtml}
-          </tbody>
-        </table>
-        
-        <div class="sep"></div>
-        <div class="bold">CUFE:</div>
-        <div class="cufe">${cufe}</div>
-        
-        <div class="qr-container">
-          <img class="qr-image" src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}" />
-        </div>
-        
-        <div class="res">
-          <div>Resolución DIAN N° ${resolucion || '187640000001'} Prefijo: ${prefijo} Habilitada del ${config.rangoInicio || '1'} al ${config.rangoFin || '10000'}</div>
-          ${config.resolucionVigencia ? `<div>Vigencia: ${config.resolucionVigencia}</div>` : ''}
-          <div class="bold" style="margin-top:4px">Proveedor Tecnológico: Proveedor fiscal de pruebas [REDACTED]</div>
-        </div>
-      ` : ''}
-      
-      <div class="footer">
-        <p class="bold">MiTienda POS</p>
-        <p>Desarrollado por SaaS POS [REDACTED]</p>
-        <p style="margin-top:6px; font-weight: bold;">¡GRACIAS POR SU COMPRA!</p>
-      </div>
-      <div style="height:35px"></div>
-    </body></html>`;
+  // Orquestación del motor de tickets (H3): el adaptador traduce el doc de venta
+  // + config al contrato del motor; el builder arma el modelo de dominio; el QR
+  // se genera localmente (H2) solo si la venta es DIAN; el renderer produce el
+  // HTML; la salida a impresión no cambia. Toda la lógica de datos vive en el
+  // adaptador puro (`lib/reimpresion/venta-ticket-adapter`); aquí solo se encadena.
+  const imprimirTicketConMotor = async (venta: any, config: ConfiguracionGlobal) => {
+    const { input, empresa } = adaptarVentaAModeloTicket(venta, config);
+    const model = TicketBuilder.fromVenta(input, empresa);
+    const qrDataUri = model.dian ? await generateQrDataUri(model.dian.qrPayload) : undefined;
+    const html = renderTicket(model, DEFAULT_RENDER_OPTIONS, { qrDataUri });
 
     if (typeof window !== 'undefined' && (window as any).api) {
       if (typeof (window as any).api.print.toPrinter === 'function') {
