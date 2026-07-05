@@ -112,6 +112,7 @@ Estos principios rigen este diseño y **cualquier evento de notificación futuro
 - **R-a2 — Doble notificación:** cajero inicia sesión e inmediatamente abre turno → dos push seguidos. Aceptado por diseño (Principio 11); vigilable.
 - **R-a3 — Envío token-a-token:** ~44 `send` por push con la implementación actual del motor. Aceptado en MVP (no se toca el motor).
 - **R-a4 — Capacidades de recepción por plataforma:** iOS exige **PWA instalada + iOS ≥16.4**; Electron no es receptor de push (solo emisor). Se aceptan como **diferencias de capacidad de plataforma** (Principio 9); **no afectan al pipeline emisor**, idéntico en todas.
+- **R-a5 — Limpieza de token en logout es best-effort:** la eliminación del token FCM en `logout()` depende de poder **re-derivar el token actual** vía `getToken()` (D7 / `lib/fcm-token-helper.ts`). Si en el momento del logout el token no es derivable —navegador **offline**, **permiso revocado** tras haberse concedido, Messaging no soportado o `getToken()` nulo— **no se ejecuta el `arrayRemove` y el token permanece registrado**. Casos: con permiso revocado o token inválido, la **purga server-side existente** (`notificaciones-push.ts`) lo elimina en el próximo envío fallido; **offline con token aún válido** es el peor caso, donde el token puede seguir recibiendo push hasta su **rotación/expiración natural**. Aceptado en MVP: no se introduce persistencia local del token ni mecanismo adicional (la mitigación —recordar el token almacenado en el alta— queda como mejora futura, ver §11).
 
 ---
 
@@ -153,6 +154,7 @@ Fuera del MVP, candidatas a trabajo posterior:
 
 - **Segmentación de destinatarios por rol** (cocina, marketing, supervisores) — cambio solo de backend, sin tocar emisor ni consumidores.
 - **Purga inicial de tokens muertos** (limpieza única de los ~44 `fcmTokens` acumulados en el admin).
+- **Limpieza de token en logout robusta ante offline (mitiga R-a5)** — persistir el token en el alta (p. ej. `localStorage`) para que `logout()` pueda hacer `arrayRemove` sin depender de red ni de `getToken()`.
 - **`sendEachForMulticast`** en el motor de envío (reemplaza el bucle token-a-token).
 - **Deduplicación de dispositivos** (un token efectivo por dispositivo).
 - **Métricas de entrega** (enviados / purgados / fallidos).

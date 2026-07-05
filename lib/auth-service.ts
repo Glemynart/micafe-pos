@@ -22,8 +22,10 @@ import {
   where,
   getDocs,
   serverTimestamp,
+  arrayRemove,
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
+import { obtenerTokenActual } from "./fcm-token-helper";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -119,8 +121,31 @@ export async function loginConUsername(
 
 /**
  * Cierra la sesión del cajero actual.
+ *
+ * Limpia el token FCM del usuario antes de signOut (D-NOTIF-02 D7). Esta limpieza
+ * es **best-effort** (R-a5): depende de re-derivar el token vía `obtenerTokenActual()`.
+ * Si el token no es derivable (offline, permiso revocado, Messaging no soportado o
+ * `getToken()` nulo) NO se ejecuta el `arrayRemove` y el token puede permanecer
+ * registrado hasta su purga server-side o expiración natural. El logout procede
+ * igualmente; un fallo en la limpieza nunca bloquea el cierre de sesión.
  */
 export async function logout(): Promise<void> {
+  const currentUser = auth.currentUser;
+  if (currentUser) {
+    try {
+      const token = await obtenerTokenActual();
+      if (token) {
+        const userRef = doc(db, "usuarios", currentUser.uid);
+        await setDoc(
+          userRef,
+          { fcmTokens: arrayRemove(token) },
+          { merge: true }
+        );
+      }
+    } catch (err) {
+      console.error('[auth] Error limpiando token en logout:', err);
+    }
+  }
   await firebaseSignOut(auth);
 }
 
