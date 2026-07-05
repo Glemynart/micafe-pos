@@ -11,7 +11,7 @@ import { suscribirClientes, filtrarClientes, crearCliente, type Cliente } from '
 import { suscribirMesas, type Mesa } from '@/lib/mesas-service'
 import { suscribirPedidosActivos, guardarPedido, agregarItemPedido, enviarPedidoACocina, modificarItemPedido, suscribirComandasActivas, type PedidoActivo, type PedidoItem, type ComandaCocina } from '@/lib/pedidos-service'
 import { suscribirTurnoActivo, type Turno } from '@/lib/turnos-service'
-import { suscribirConfiguracion } from '@/lib/configuracion-service'
+import { suscribirConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
 import {
   resolverLineaImpuesto,
   agregarTotalesImpuesto,
@@ -20,6 +20,8 @@ import {
   IMPUESTO_TIPO_DEFAULT,
   type RegimenTributario,
 } from '@/lib/impuestos-service'
+import { TicketBuilder, generateQrDataUri, renderTicket, DEFAULT_RENDER_OPTIONS } from '@/lib/tickets'
+import { adaptarCheckoutAModeloTicket, type CheckoutTicketInput } from '@/lib/tickets/adapters/checkout-adapter'
 import { separarCuenta, type ItemSeparacion } from '@/lib/separar-cuenta-service'
 import { unirCuentas } from '@/lib/unir-cuentas-service'
 import { trasladarCuenta } from '@/lib/trasladar-cuenta-service'
@@ -211,8 +213,12 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   // ADR-TRIB-001 D2/D7: régimen tributario de la Empresa — único driver del
   // cálculo de impuesto (INV-6/INV-7). Default en el punto de lectura.
   const [regimenTributario, setRegimenTributario] = useState<RegimenTributario>(REGIMEN_TRIBUTARIO_DEFAULT)
+  // H4: config completa (no solo el régimen) — el encabezado de empresa del
+  // ticket la necesita entera, igual que Historial.
+  const [config, setConfig] = useState<ConfiguracionGlobal | null>(null)
   useEffect(() => suscribirConfiguracion((config) => {
     setRegimenTributario(config.regimenTributario ?? REGIMEN_TRIBUTARIO_DEFAULT)
+    setConfig(config)
   }), [])
 
   // Bridge salon → sell: intent de navegación pendiente (consume-once).
@@ -457,6 +463,10 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   const [paymentMethod, setPaymentMethod] = useState<string>('efectivo')
   const [cashReceived, setCashReceived] = useState<number>(0)
   const [showReceipt, setShowReceipt] = useState(false)
+  // H4: fuente única para el ticket — CrearVentaParams tal cual se persistió,
+  // más los dos datos que solo existen tras persistir (consecutivo, fecha).
+  // Ningún modelo paralelo.
+  const [ventaParaImprimir, setVentaParaImprimir] = useState<CheckoutTicketInput | null>(null)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const pendingRemoveUid = useRef<string | null>(null)
   
@@ -747,6 +757,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
       }
 
       let incidenciasInventario: { itemNombre: string }[] = []
+      let consecutivo: number
 
       if (activePedido) {
         const result = await cobrarPedido(params, activePedido.id)
@@ -758,9 +769,11 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
           return
         }
         incidenciasInventario = result.incidenciasInventario
+        consecutivo = result.consecutivo
       } else {
         const result = await registrarVenta(params)
         incidenciasInventario = result.incidenciasInventario
+        consecutivo = result.consecutivo
       }
 
       if (incidenciasInventario.length > 0) {
@@ -770,6 +783,16 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
           duration: 6000,
         })
       }
+
+      // H4: fuente única para el ticket — el mismo `params` persistido, más
+      // consecutivo (retorno del servicio) y fecha (sello de cliente). El
+      // ticket se imprime en la misma sesión, de inmediato tras la venta: un
+      // Date() de cliente ya es exacto para ese instante. No se lee el
+      // `serverTimestamp()` de Firestore porque (a) es un sentinel que solo
+      // se resuelve tras el commit — leerlo obligaría a un round-trip extra
+      // solo para imprimir, y (b) el Checkout nunca emite DIAN (esa fecha
+      // oficial, si aplica, la sella Factus después, desde Historial).
+      setVentaParaImprimir({ ...params, consecutivo, fecha: new Date() })
 
       setShowPayment(false)
       setShowReceipt(true)
@@ -783,9 +806,43 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
     }
   }, [usuario, cart, selectedCustomer, selectedCliente, subtotal, totalesImpuesto, lineasResueltas, regimenTributario, total, paymentMethod, cashReceived, change, activePedido, espacioActivo, turnoActivo])
 
-  const handleReceiptClose = useCallback((print: boolean) => {
-    if (print) {
-      console.log('[v0] Imprimiendo ticket...')
+  // Orquestación del motor de tickets (H4): el adaptador traduce la venta del
+  // Checkout (CrearVentaParams + consecutivo + fecha) + config al contrato del
+  // motor; el builder arma el modelo de dominio; el renderer produce el HTML;
+  // la salida a impresión replica exactamente el patrón de Historial (H3). El
+  // Checkout nunca emite DIAN, así que `model.dian` siempre es undefined y no
+  // se genera QR — misma cadena, mismo guard, sin flujo de impresión distinto.
+  const imprimirTicketConMotor = async (venta: CheckoutTicketInput, config: ConfiguracionGlobal) => {
+    const { input, empresa } = adaptarCheckoutAModeloTicket(venta, config)
+    const model = TicketBuilder.fromVenta(input, empresa)
+    const qrDataUri = model.dian ? await generateQrDataUri(model.dian.qrPayload) : undefined
+    const html = renderTicket(model, DEFAULT_RENDER_OPTIONS, { qrDataUri })
+
+    if (typeof window !== 'undefined' && (window as any).api) {
+      if (typeof (window as any).api.print.toPrinter === 'function') {
+        await (window as any).api.print.toPrinter(html)
+      } else {
+        await (window as any).api.print.ticket(html)
+      }
+    }
+  }
+
+  const imprimirTicketCheckout = async (venta: CheckoutTicketInput) => {
+    if (!config) {
+      toast.error("Configuración aún no disponible. Intente de nuevo en un momento.")
+      return
+    }
+    try {
+      await imprimirTicketConMotor(venta, config)
+    } catch (err) {
+      console.error(err)
+      toast.error("Error al imprimir el ticket.")
+    }
+  }
+
+  const handleReceiptClose = useCallback(async (print: boolean) => {
+    if (print && ventaParaImprimir) {
+      await imprimirTicketCheckout(ventaParaImprimir)
     }
     setShowReceipt(false)
     setCashReceived(0)
@@ -795,7 +852,8 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
     setClienteSearch('')
     setShowCrearCliente(false)
     setNuevoCliente({ tipoDocumento: 'CC', documento: '', nombre: '', telefono: '' })
-  }, [])
+    setVentaParaImprimir(null)
+  }, [ventaParaImprimir, config])
 
   if (!cargandoTurno && !turnoActivo) {
     return (
