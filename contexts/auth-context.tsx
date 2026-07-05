@@ -23,6 +23,7 @@ import {
   onAuthStateChange,
   type Usuario,
 } from "@/lib/auth-service";
+import { notificar } from "@/lib/notificaciones-cliente";
 
 // ─── Tipos del Contexto ───────────────────────────────────────────────────────
 
@@ -88,6 +89,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const usuarioAutenticado = await loginConUsername(username, password);
       setUsuario(usuarioAutenticado);
+      if (usuarioAutenticado.rol === 'cajero') {
+        notificar({
+          title: 'Cajero inició sesión',
+          message: `${usuarioAutenticado.nombre} inició sesión`,
+          url: '/admin/turnos',
+        });
+      }
     } catch (error: unknown) {
       const mensaje = error instanceof Error
         ? error.message

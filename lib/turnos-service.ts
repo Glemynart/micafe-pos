@@ -14,8 +14,9 @@ import {
   increment,
   limit,
 } from 'firebase/firestore'
-import { db, auth } from './firebase'
+import { db } from './firebase'
 import { calcularEgresosTurno } from './egresos-service'
+import { notificar } from './notificaciones-cliente'
 
 export interface Turno {
   id: string;
@@ -148,20 +149,12 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
   });
 
   // Notificación push solo cuando se abre un turno NUEVO (no en idempotencia/adopción).
-  if (turnoCreado && typeof window !== 'undefined') {
-    auth.currentUser?.getIdToken().then(token => {
-      fetch('/api/notifications/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          title: '¡Nuevo Turno Abierto!',
-          message: `El cajero ${params.cajeroNombre} ha iniciado turno con base de $${params.baseApertura.toLocaleString('es-CO')}.`
-        })
-      }).catch(err => console.error('Error enviando notificación push:', err))
-    }).catch(err => console.error('Error obteniendo token para notificacion:', err))
+  if (turnoCreado) {
+    notificar({
+      title: '¡Nuevo turno abierto!',
+      message: `${params.cajeroNombre} abrió con base de $${params.baseApertura.toLocaleString('es-CO')}.`,
+      url: '/admin/turnos',
+    })
   }
 
   return turnoId;
