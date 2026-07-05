@@ -1,4 +1,4 @@
-# D-NOTIF-02 — Diseño de Notificaciones Push del Admin (login + apertura de turno)
+# D-NOTIF-02 — Diseño de Notificaciones Push del Admin (apertura de turno)
 
 **Rama:** `research/notificaciones-mvp` · **Estado:** diseño aprobado, pendiente de implementar · **Fecha:** 2026-07-05
 
@@ -6,7 +6,7 @@
 
 ## 1. Contexto
 
-El panel Admin debe recibir notificaciones push cuando un cajero (1) **inicia sesión** y (2) **abre un turno**. Existe infraestructura FCM parcial pero el flujo no entrega notificaciones en producción.
+El panel Admin debe recibir notificaciones push cuando un cajero **abre un turno**, indicando que la operación comenzó. Existe infraestructura FCM parcial pero el flujo no entrega notificaciones en producción. La emisión en login fue descartada del MVP por no aportar valor operativo (genera ruido sin beneficio para el administrador).
 
 Topología confirmada — **dos despliegues del mismo código Next.js sobre el mismo proyecto Firebase (`micafe-pos`)**:
 
@@ -21,8 +21,7 @@ Ambos hablan con Firestore por el SDK cliente. **El emisor puede ejecutarse en c
 
 ## 2. Problema actual
 
-- **Login:** no llega ninguna notificación porque **no existe código emisor** en el flujo de login.
-- **Apertura de turno:** el emisor existe pero hace un `fetch` **relativo** que, desde un origen empaquetado sin API server (caso confirmado: Electron), es **inalcanzable**; el error se traga silenciosamente. En `dev` (localhost con API) sí funciona — de ahí que el síntoma sea "no funciona en la app instalada".
+- **Apertura de turno:** el emisor existente hace un `fetch` **relativo** que, desde un origen empaquetado sin API server (caso confirmado: Electron), es **inalcanzable**; el error se traga silenciosamente. En `dev` (localhost con API) sí funciona — de ahí que el síntoma sea "no funciona en la app instalada".
 
 ---
 
@@ -30,7 +29,7 @@ Ambos hablan con Firestore por el SDK cliente. **El emisor puede ejecutarse en c
 
 | ID | Hallazgo | Evidencia |
 |---|---|---|
-| **C-1 (Crítico)** | El login no emite push: `loginConUsername` solo hace `signIn` + `setDoc({ultimoAcceso})`. No hay `fetch` ni `enviarPushAdmins`. | `lib/auth-service.ts:74-118` |
+| **C-1 (Descartado)** | El login no emite push. **Fuera de alcance del MVP**: la emisión en login se descartó por no aportar valor operativo. La arquitectura (emisor genérico) lo soporta si se reconsidera en el futuro. | `lib/auth-service.ts:74-118` |
 | **C-2 (Crítico)** | El emisor de turno usa URL **relativa** `fetch('/api/notifications/send')`, inalcanzable desde un origen empaquetado sin servidor (Electron); error tragado en `.catch`. | `lib/turnos-service.ts:151-165`; `main.js:8,68`; `out/` export estático |
 | **M-1 (Mayor)** | El endpoint no expone CORS ni handler `OPTIONS`; solo `POST`. Consumo cross-origin quedaría bloqueado por preflight. | `app/api/notifications/send/route.ts` |
 | **M-3 (Mayor)** | Sin renovación (`onTokenRefresh`) ni des-registro en logout. Verificado en Firestore: **1 admin con 44 `fcmTokens`** acumulados (mayoría presumiblemente muertos). Con envío token-a-token, cada push hace ~44 `send`. | Verificación M-2 (solo lectura); `components/fcm-manager.tsx:36-65`; `lib/notificaciones-push.ts:33-49` |
@@ -43,7 +42,7 @@ La cadena de **recepción** del admin (SW, foreground `onMessage`, background `o
 
 ## 4. Arquitectura aprobada
 
-- **Un único emisor cliente, genérico y platform-agnostic:** módulo nuevo `lib/notificaciones-cliente.ts` con una sola función `notificar({ title, message, url? })`. **Describe un evento**, no destinatarios. Login y turno lo invocan; **sin segundo pipeline**. Abstrae completamente el origen del evento y la plataforma: cualquier consumidor (Electron, Web de escritorio, PWA Android/iOS) usa exactamente el mismo camino.
+- **Un único emisor cliente, genérico y platform-agnostic:** módulo nuevo `lib/notificaciones-cliente.ts` con una sola función `notificar({ title, message, url? })`. **Describe un evento**, no destinatarios. La apertura de turno lo invoca; futuros eventos lo reutilizarán. **Sin segundo pipeline**. Abstrae completamente el origen del evento y la plataforma: cualquier consumidor (Electron, Web de escritorio, PWA Android/iOS) usa exactamente el mismo camino.
 - **La selección de destinatarios pertenece al backend.** El emisor y el endpoint no deciden roles en el cliente. En el **MVP**, el backend (`enviarPushAdmins`) envía **únicamente a usuarios con rol administrador**; ampliar a otros roles (cocina, marketing, supervisores…) será un cambio **solo de backend**, sin rediseñar el emisor ni los consumidores.
 - **Endpoint existente reutilizado:** `/api/notifications/send` **forma parte de la infraestructura existente y permanece como único punto de entrada al backend de notificaciones** (`app/api/notifications/send/route.ts` → `enviarPushAdmins` → FCM). **No se crea otro backend**; solo se le añade CORS/`OPTIONS`.
 - **FCM se mantiene** como tecnología.
@@ -75,7 +74,7 @@ Estos principios rigen este diseño y **cualquier evento de notificación futuro
 
 ## 6. Decisiones arquitectónicas (D-NOTIF-02)
 
-**D1 · Emisor único.** `lib/notificaciones-cliente.ts` centraliza: resolución de origen, `idToken`, `POST`, errores/retry. Único punto de entrada para ambos eventos, en cualquier plataforma. Firma genérica `notificar({ title, message, url? })`.
+**D1 · Emisor único.** `lib/notificaciones-cliente.ts` centraliza: resolución de origen, `idToken`, `POST`, errores/retry. Único punto de entrada para eventos de notificación, en cualquier plataforma. Firma genérica `notificar({ title, message, url? })`.
 *Archivos:* crear `lib/notificaciones-cliente.ts`; editar `lib/turnos-service.ts`, `contexts/auth-context.tsx`.
 
 **D2 · Origen de la API sin hardcode.** Variable pública `NEXT_PUBLIC_APP_URL` inlinada en build. Base = `NEXT_PUBLIC_APP_URL || ''` (vacío ⇒ relativo). Un build **same-origin** (Vercel PWA/web, dev) la deja vacía; un build **empaquetado/cross-origin** (p. ej. Electron) inyecta la URL de Vercel. Guardia platform-neutral: en contexto **cross-origin** con base vacía → **log de error explícito** de configuración (no fetch condenado).
@@ -84,10 +83,10 @@ Estos principios rigen este diseño y **cualquier evento de notificación futuro
 **D3 · CORS + OPTIONS.** En `route.ts`: `Access-Control-Allow-Origin: *`, `Access-Control-Allow-Methods: POST, OPTIONS`, `Access-Control-Allow-Headers: Authorization, Content-Type`, y handler `OPTIONS`→`204`. `*` es seguro porque la auth es Bearer idToken (no cookies), sin `Allow-Credentials`.
 *Archivos:* `app/api/notifications/send/route.ts`.
 
-**D4 · Emisión en login.** Tras `loginConUsername` OK en `auth-context.tsx`, si `rol === 'cajero'` → `notificar({ title:'Cajero inició sesión', message:'{nombre} inició sesión', url:'/admin/turnos' })`. (El gate `rol==='cajero'` es del **emisor del evento**; la selección de **destinatarios** —admins en el MVP— la hace el backend.)
-*Archivos:* `contexts/auth-context.tsx`.
+**D4 · Emisión en login — RETIRADO del MVP (2026-07-05).** La emisión de push en login de cajero fue descartada por no aportar valor operativo. La arquitectura (emisor genérico `notificar()`) lo soporta sin cambios si se reconsidera en el futuro; requeriría únicamente agregar la llamada en `auth-context.tsx` con el gate `rol === 'cajero'`. El hallazgo C-1 pasa a ser "fuera de alcance", no un defecto.
+*Archivos:* ninguno en el MVP actual.
 
-**D5 · Emisión en apertura de turno.** En `abrirTurno`, si `turnoCreado` → mismo `notificar({ title:'¡Nuevo turno abierto!', message:'{cajeroNombre} abrió con base ${base}', url:'/admin/turnos' })`. Se elimina el `fetch` inline.
+**D5 · Emisión en apertura de turno.** En `abrirTurno`, si `turnoCreado` → `notificar({ title:'¡Nuevo turno abierto!', message:'{cajeroNombre} abrió con base ${base}', url:'/admin/turnos' })`. Se elimina el `fetch` inline.
 *Archivos:* `lib/turnos-service.ts`.
 
 **D6 · Manejo de errores (sin silencios).** Fire-and-forget en beneficio del destinatario, disparado por el cajero:
@@ -108,10 +107,11 @@ Estos principios rigen este diseño y **cualquier evento de notificación futuro
 
 ## 7. Riesgos aceptados
 
-- **R-a1 — Pérdida offline:** si el cajero está sin red al abrir turno/iniciar sesión, el push se pierde (best-effort, sin cola). Aceptado en MVP.
-- **R-a2 — Doble notificación:** cajero inicia sesión e inmediatamente abre turno → dos push seguidos. Aceptado por diseño (Principio 11); vigilable.
+- **R-a1 — Pérdida offline:** si el cajero está sin red al abrir turno, el push se pierde (best-effort, sin cola). Aceptado en MVP.
+- **R-a2 — Doble notificación: ELIMINADO.** Con la retirada de la emisión en login (D4), solo existe un evento de push (apertura de turno). Si en el futuro se reintroduce login, R-a2 volvería a aplicar.
 - **R-a3 — Envío token-a-token:** ~44 `send` por push con la implementación actual del motor. Aceptado en MVP (no se toca el motor).
 - **R-a4 — Capacidades de recepción por plataforma:** iOS exige **PWA instalada + iOS ≥16.4**; Electron no es receptor de push (solo emisor). Se aceptan como **diferencias de capacidad de plataforma** (Principio 9); **no afectan al pipeline emisor**, idéntico en todas.
+- **R-a5 — Limpieza de token en logout es best-effort:** la eliminación del token FCM en `logout()` depende de poder **re-derivar el token actual** vía `getToken()` (D7 / `lib/fcm-token-helper.ts`). Si en el momento del logout el token no es derivable —navegador **offline**, **permiso revocado** tras haberse concedido, Messaging no soportado o `getToken()` nulo— **no se ejecuta el `arrayRemove` y el token permanece registrado**. Casos: con permiso revocado o token inválido, la **purga server-side existente** (`notificaciones-push.ts`) lo elimina en el próximo envío fallido; **offline con token aún válido** es el peor caso, donde el token puede seguir recibiendo push hasta su **rotación/expiración natural**. Aceptado en MVP: no se introduce persistencia local del token ni mecanismo adicional (la mitigación —recordar el token almacenado en el alta— queda como mejora futura, ver §11).
 
 ---
 
@@ -129,11 +129,9 @@ Estos principios rigen este diseño y **cualquier evento de notificación futuro
 
 **PR-2 · CORS + OPTIONS.** Objetivo: habilitar el emisor desde **cualquier contexto cross-origin** (apps empaquetadas como Electron y cualquier origen distinto al del endpoint). Archivos: `app/api/notifications/send/route.ts`. Pruebas: `OPTIONS`→204 con cabeceras; `POST` cross-origin 200; same-origin (Web/PWA en Vercel) sigue OK. Riesgo: bajo (no cambia lógica de envío).
 
-**PR-3 · Emisión en login.** Objetivo: push en login de cajero reutilizando el emisor, en cualquier plataforma. Archivos: `contexts/auth-context.tsx`. Pruebas: cajero→POST; admin→no emite; login fallido→no emite. Riesgo: bajo.
+**PR-3 · Ciclo de vida de tokens.** Objetivo: VAPID-env, renovación, `arrayRemove` en logout. Contempla las diferencias de obtención de token por plataforma (Android PWA, iOS PWA instalada, navegador de escritorio, Electron), manteniendo idéntico el almacenamiento/eliminación. Archivos: `components/fcm-manager.tsx`, `lib/auth-service.ts`. Pruebas: alta en grant; token renovado se añade; logout elimina el token del `uid`. Riesgo: bajo/medio.
 
-**PR-4 · Ciclo de vida de tokens.** Objetivo: VAPID-env, renovación, `arrayRemove` en logout. Contempla las diferencias de obtención de token por plataforma (Android PWA, iOS PWA instalada, navegador de escritorio, Electron), manteniendo idéntico el almacenamiento/eliminación. Archivos: `components/fcm-manager.tsx`, `lib/auth-service.ts`. Pruebas: alta en grant; token renovado se añade; logout elimina el token del `uid`. Riesgo: bajo/medio.
-
-**Justificación del orden:** el emisor compartido (PR-1) es refactor interno que funciona same-origin (dev/Vercel) sin CORS; PR-2 lo habilita desde contextos cross-origin (Electron y otros); PR-3 y PR-4 se apoyan en el emisor ya establecido. PRs pequeños, de objetivo único y fáciles de revisar. Ningún PR toca archivos protegidos. Nota: el turno solo entrega **end-to-end desde un consumidor empaquetado (Electron)** una vez mergeados PR-1 **y** PR-2.
+**Justificación del orden:** el emisor compartido (PR-1) es refactor interno que funciona same-origin (dev/Vercel) sin CORS; PR-2 lo habilita desde contextos cross-origin (Electron y otros); PR-3 se apoya en el emisor ya establecido. PRs pequeños, de objetivo único y fáciles de revisar. Ningún PR toca archivos protegidos. Nota: el turno solo entrega **end-to-end desde un consumidor empaquetado (Electron)** una vez mergeados PR-1 **y** PR-2.
 
 ---
 
@@ -143,7 +141,7 @@ Estos principios rigen este diseño y **cualquier evento de notificación futuro
 - Cola offline durable con reintentos.
 - Deduplicación / supresión de eventos repetidos (ver Principio 11).
 - UX avanzada de error / centro de notificaciones.
-- Eventos adicionales (venta, pedidos, cambios de estado, cierre de turno) — otros documentos.
+- Eventos adicionales (venta, pedidos, cambios de estado, cierre de turno, **login**) — otros documentos.
 
 ---
 
@@ -153,6 +151,7 @@ Fuera del MVP, candidatas a trabajo posterior:
 
 - **Segmentación de destinatarios por rol** (cocina, marketing, supervisores) — cambio solo de backend, sin tocar emisor ni consumidores.
 - **Purga inicial de tokens muertos** (limpieza única de los ~44 `fcmTokens` acumulados en el admin).
+- **Limpieza de token en logout robusta ante offline (mitiga R-a5)** — persistir el token en el alta (p. ej. `localStorage`) para que `logout()` pueda hacer `arrayRemove` sin depender de red ni de `getToken()`.
 - **`sendEachForMulticast`** en el motor de envío (reemplaza el bucle token-a-token).
 - **Deduplicación de dispositivos** (un token efectivo por dispositivo).
 - **Métricas de entrega** (enviados / purgados / fallidos).
@@ -166,16 +165,15 @@ Fuera del MVP, candidatas a trabajo posterior:
 - [ ] Confirmado que el build empaquetado (Electron, `npm run dist`) puede inyectar esa env pública.
 - [x] Existencia de tokens de admin (M-2: 44 tokens).
 - [ ] Valor de `Access-Control-Allow-Origin` (`*` recomendado) aceptado bajo auth Bearer.
-- [ ] Textos y `url` de cada push aprobados; gate de login `rol==='cajero'` confirmado.
+- [ ] Textos y `url` del push de turno aprobados.
 
 **Definición de terminado (por PR):**
 - [ ] PR-1: turno abre → POST a base resuelta (relativa same-origin, absoluta en build empaquetado); `turnoCreado=false` no emite; errores con causa en log; guardia cross-origin activa.
 - [ ] PR-2: preflight `OPTIONS`→204; POST cross-origin 200; same-origin intacto.
-- [ ] PR-3: login cajero emite; admin no; login fallido no.
-- [ ] PR-4: token en alta/renovación (`arrayUnion`) y eliminado en logout (`arrayRemove`); VAPID desde env.
+- [ ] PR-3: token en alta/renovación (`arrayUnion`) y eliminado en logout (`arrayRemove`); VAPID desde env.
 
 **Validación end-to-end (multiplataforma, mismo pipeline):**
-- [ ] **Navegador de escritorio:** cajero abre turno / inicia sesión → admin recibe push.
+- [ ] **Navegador de escritorio:** cajero abre turno → admin recibe push.
 - [ ] **PWA Android (instalada):** recepción foreground y background + `notificationclick`.
 - [ ] **PWA iOS (instalada, iOS ≥16.4):** recepción (aceptando la capability de plataforma).
 - [ ] **Electron (paquete real):** cajero abre turno → POST a URL absoluta → admin recibe **en su plataforma** (no en el POS).

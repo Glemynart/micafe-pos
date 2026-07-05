@@ -8,8 +8,6 @@ import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
 import { toast } from 'sonner'
 import { Bell } from 'lucide-react'
 
-const VAPID_KEY = 'BCXrfXDchBreItMWiwD6Zb3EDPynDGDfKY7rybkrtjFBbJVqk8BrdYJFEo1PniSoqWE_b3D28LftB5zB-ehN_m0'
-
 export function FcmManager() {
   const { usuario } = useAuthContext()
   const [messagingInstance, setMessagingInstance] = useState<any>(null)
@@ -43,7 +41,14 @@ export function FcmManager() {
 
   const requestPermissionAndGetToken = async (fromButton: boolean = true) => {
     if (!messagingInstance || !usuario) return
-    
+
+    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
+    if (!vapidKey) {
+      console.error('[FCM] config: falta NEXT_PUBLIC_FIREBASE_VAPID_KEY en env')
+      if (fromButton) toast.error('Error de configuración: falta VAPID key.')
+      return
+    }
+
     try {
       const permission = await Notification.requestPermission()
       if (permission === 'granted') {
@@ -51,9 +56,9 @@ export function FcmManager() {
         // Registrar el SW manualmente con un nombre nuevo para romper cualquier caché
         const registration = await navigator.serviceWorker.register('/firebase-push-sw.js')
         await navigator.serviceWorker.ready
-        
+
         const currentToken = await getToken(messagingInstance, {
-          vapidKey: VAPID_KEY,
+          vapidKey,
           serviceWorkerRegistration: registration
         })
 
