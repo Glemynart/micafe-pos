@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "main": "main.js",
   "private": true,
+  "overrides": {
+    "jose": "4.15.9"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Glemynart/Mi-Tienda.git"
