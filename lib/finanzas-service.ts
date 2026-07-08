@@ -91,6 +91,13 @@ export async function registrarTransaccion(tx: Omit<TransaccionFinanciera, 'id' 
     }
 
     const saldoActual = cuentaDoc.data().saldo || 0
+
+    if (tx.tipo === 'egreso' && saldoActual < tx.monto) {
+      throw new Error(
+        `Fondos insuficientes en ${cuentaDoc.data().nombre || tx.cuentaId}. Saldo disponible: $${saldoActual.toLocaleString('es-CO')} — Monto de la transacción: $${tx.monto.toLocaleString('es-CO')}.`
+      )
+    }
+
     const nuevoSaldo = tx.tipo === 'ingreso' 
       ? saldoActual + tx.monto 
       : saldoActual - tx.monto
@@ -135,6 +142,12 @@ export async function trasladarEntreCuentas(params: {
     const saldoDestino = destinoSnap.data().saldo || 0
     const nombreOrigen  = origenSnap.data().nombre  as string
     const nombreDestino = destinoSnap.data().nombre as string
+
+    if (saldoOrigen < params.monto) {
+      throw new Error(
+        `Fondos insuficientes en ${nombreOrigen}. Saldo disponible: $${saldoOrigen.toLocaleString('es-CO')} — Monto a trasladar: $${params.monto.toLocaleString('es-CO')}.`
+      )
+    }
 
     // ── Escrituras (commit atómico) ───────────────────────────────────────
     transaction.update(origenRef,  { saldo: saldoOrigen  - params.monto })
