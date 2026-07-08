@@ -94,3 +94,6 @@ fase9c-post-execute.txt
 
 # Claude Code local session state
 .claude/
+
+# Dev server logs
+next-dev.log

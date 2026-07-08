@@ -42,6 +42,13 @@ export async function guardarEgreso(egreso: Omit<Egreso, 'id' | 'fecha'> & { id?
     const cajaPrincipalSnap = await transaction.get(cajaPrincipalRef)
     if (!cajaPrincipalSnap.exists()) throw new Error('Cuenta caja-principal no encontrada')
 
+    const saldoDisponible = Number(cajaPrincipalSnap.data().saldo ?? 0)
+    if (saldoDisponible < egreso.monto) {
+      throw new Error(
+        `Fondos insuficientes en Caja Registradora. Saldo disponible: $${saldoDisponible.toLocaleString('es-CO')} — Monto del egreso: $${egreso.monto.toLocaleString('es-CO')}.`
+      )
+    }
+
     transaction.set(docRef, { ...egreso, id, fecha: serverTimestamp() })
     transaction.update(cajaPrincipalRef, { saldo: increment(-egreso.monto) })
     transaction.set(doc(collection(db, 'transacciones_financieras')), {
