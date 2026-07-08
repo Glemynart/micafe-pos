@@ -664,8 +664,42 @@ export async function anularVenta(id: string): Promise<void> {
       });
     };
 
+    // Validar fondos antes de revertir: acumular débitos por cuenta y verificar
     const metodoPago: string = ventaData.metodoPago || '';
     const total: number = ventaData.totales?.total || 0;
+    const debitosPorCuenta = new Map<string, number>();
+
+    if (metodoPago === 'efectivo') {
+      debitosPorCuenta.set('caja-principal', total);
+    } else if (metodoPago === 'transferencia') {
+      debitosPorCuenta.set('bancolombia', total);
+    } else if (metodoPago === 'mixto') {
+      const detalle: Array<{ metodo: string; monto: number }> = ventaData.pagoMixtoDetalle || [];
+      for (const pago of detalle) {
+        if (pago.metodo === 'efectivo') {
+          debitosPorCuenta.set('caja-principal', (debitosPorCuenta.get('caja-principal') || 0) + pago.monto);
+        } else if (pago.metodo === 'transferencia') {
+          debitosPorCuenta.set('bancolombia', (debitosPorCuenta.get('bancolombia') || 0) + pago.monto);
+        }
+      }
+    } else if (metodoPago === 'cuenta_cobro') {
+      if (ventaData.estado === 'pagada' && ventaData.metodoPagoFinal) {
+        const cuentaId = ventaData.metodoPagoFinal === 'efectivo' ? 'caja-principal' : 'bancolombia';
+        debitosPorCuenta.set(cuentaId, total);
+      }
+    }
+
+    for (const [cuentaId, montoADebitar] of debitosPorCuenta.entries()) {
+      if (montoADebitar <= 0 || !cuentaMap[cuentaId]) continue;
+      const cuentaSnap = await transaction.get(doc(db, 'cuentas_bancarias', cuentaId));
+      if (!cuentaSnap.exists()) throw new Error(`La cuenta ${cuentaMap[cuentaId].nombre} no existe.`);
+      const saldoDisponible = Number(cuentaSnap.data().saldo ?? 0);
+      if (saldoDisponible < montoADebitar) {
+        throw new Error(
+          `Fondos insuficientes en ${cuentaMap[cuentaId].nombre} para anular la venta #${ventaData.consecutivo}. Saldo disponible: $${saldoDisponible.toLocaleString('es-CO')} — Monto a revertir: $${montoADebitar.toLocaleString('es-CO')}.`
+        );
+      }
+    }
 
     if (metodoPago === 'efectivo') {
       revertirMovimiento('caja-principal', total);
