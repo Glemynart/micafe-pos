@@ -256,6 +256,24 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
     const umbral = params.umbralAlertaFaltante ?? 20000;
     const alertaFaltante = diferenciaEfectivo < -umbral;
 
+    // ── Validación de fondos (IMP-4) ──────────────────────────────────
+    // caja-principal debe cubrir el depósito + faltante antes de iniciar
+    // cualquier escritura. En un futuro módulo de conciliación esta
+    // validación podrá relajarse.
+    const cajaPrincipalRef = doc(db, 'cuentas_bancarias', 'caja-principal');
+    const cajaPrincipalSnap = await transaction.get(cajaPrincipalRef);
+    if (!cajaPrincipalSnap.exists()) throw new Error('Cuenta caja-principal no encontrada.');
+
+    const saldoDisponible = Number(cajaPrincipalSnap.data().saldo ?? 0);
+    const faltanteAbsoluto = diferenciaEfectivo < 0 ? Math.abs(diferenciaEfectivo) : 0;
+    const totalADebitar = depositoEfectivo + faltanteAbsoluto;
+
+    if (totalADebitar > 0 && saldoDisponible < totalADebitar) {
+      throw new Error(
+        `Fondos insuficientes en Caja Registradora para completar el cierre. Saldo disponible: $${saldoDisponible.toLocaleString('es-CO')} — Depósito requerido: $${depositoEfectivo.toLocaleString('es-CO')}${faltanteAbsoluto > 0 ? ` + Faltante: $${faltanteAbsoluto.toLocaleString('es-CO')}` : ''}. Registre los ingresos faltantes o contacte al administrador.`
+      );
+    }
+
     // ── FASE DE ESCRITURAS ───────────────────────────────────────────
     transaction.update(turnoRef, {
       estado: 'cerrado',
@@ -308,7 +326,6 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
     }
 
     // Traslado efectivo: caja-principal → caja-fuerte (Modelo B – float fijo)
-    const cajaPrincipalRef = doc(db, 'cuentas_bancarias', 'caja-principal');
     const cajaFuerteRef = doc(db, 'cuentas_bancarias', 'caja-fuerte');
 
     if (depositoEfectivo > 0) {
