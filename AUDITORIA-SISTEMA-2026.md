@@ -26,7 +26,7 @@
 | IMP-1 | Saldo bancario en compras sin validar fondos | ⬜ Pendiente |
 | IMP-2 | Arqueo de turno confía en el cliente sin recalcular | ⬜ Pendiente |
 | IMP-3 | Reconciliación de inventario (I9) inactiva en la app | ⬜ Pendiente |
-| IMP-4 | `update` de `cuentas_bancarias` abierto a operativos sin validar monto | ⬜ Pendiente |
+| IMP-4 | `update` de `cuentas_bancarias` abierto a operativos sin validar monto | ✅ **Corregido** (PR #74, #75, #76) |
 | IMP-5 | Regla `reservas` update/delete abierta a cualquier autenticado | ⬜ Pendiente |
 | IMP-6 | IVA hardcodeado al 19% para todo producto | ⬜ Pendiente |
 | IMP-7 | Sin validación servidor de suma `pagoMixtoDetalle` == total | ⬜ Pendiente |
