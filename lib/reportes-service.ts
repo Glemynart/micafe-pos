@@ -69,6 +69,7 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
   const ventasRef = collection(db, 'ventas')
   const qVentas = query(
     ventasRef,
+    ...(espacioId ? [where('espacioId', '==', espacioId)] : []),
     where('estado', '==', 'pagada'),
     where('fecha', '>=', Timestamp.fromDate(inicio)),
     where('fecha', '<=', Timestamp.fromDate(fin)),
@@ -109,10 +110,6 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
   const productosMap = new Map<string, any>()
 
   for (const venta of ventas) {
-    // Si queremos filtrar por espacio específico (ej. "Cafetería" vs "Librería")
-    // asumiendo que los items en su mayoría pertenecen al espacio activo, o la venta tiene un espacioId
-    // Nota: El sistema de ventas actual de pronto no guarda espacioId en la cabecera.
-
     const totalVenta = venta.totales?.total || 0
     ventasTotales += totalVenta
 
