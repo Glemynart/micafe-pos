@@ -41,6 +41,7 @@ import {
   billDenominations,
 } from '@/lib/demo-data'
 import { toast } from 'sonner'
+import { CloseShiftForm } from '@/components/pos/close-shift-form'
 import { collection, getDocs, query, where } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { suscribirConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
@@ -492,141 +493,23 @@ export function ShiftsModule() {
               </div>
             )}
 
-            {/* Cash count */}
-            <div className="space-y-2">
-              <Label>Conteo de billetes</Label>
-              <div className="space-y-1.5">
-                {billDenominations.map(bill => {
-                  const qty = parseInt(cashCount[bill.value], 10) || 0
-                  return (
-                    <div key={bill.value} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/30 transition-colors">
-                      <span className="text-sm font-bold text-foreground w-[4.5rem] shrink-0">{bill.label}</span>
-                      <span className="text-muted-foreground/40 text-sm select-none">×</span>
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        value={cashCount[bill.value] ?? ''}
-                        onChange={(e) => {
-                          setCashCount(prev => ({ ...prev, [bill.value]: e.target.value.replace(/\D/g, '') }))
-                        }}
-                        placeholder="0"
-                        className="w-20 h-10 text-center font-mono font-bold text-base bg-input"
-                      />
-                      <span className="text-xs text-muted-foreground ml-auto shrink-0 min-w-[5rem] text-right tabular-nums">
-                        {qty > 0 ? formatCurrency(qty * bill.value) : ''}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Total en Monedas */}
-            <div className="space-y-2">
-              <Label>Monedas</Label>
-              <p className="text-xs text-muted-foreground">Total en monedas sin contar por denominación</p>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  value={cashCount['monedas'] ? Number(cashCount['monedas']).toLocaleString('es-CO') : ''}
-                  onChange={(e) => {
-                    setCashCount(prev => ({ ...prev, monedas: e.target.value.replace(/\D/g, '') }))
-                  }}
-                  placeholder="Ej: 20.000"
-                  className="flex-1 h-11 font-mono text-base bg-input"
-                />
-              </div>
-            </div>
-
-            {/* Cash difference */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="p-4 bg-secondary/30 rounded-lg text-center">
-                <p className="text-sm text-muted-foreground">Total contado</p>
-                <p className="text-xl font-bold text-foreground">{formatCurrency(totalCashCount)}</p>
-              </div>
-              <div className="p-4 bg-secondary/30 rounded-lg text-center">
-                <p className="text-sm text-muted-foreground">Esperado</p>
-                <p className="text-xl font-bold text-foreground">{usuario?.rol === 'admin' ? formatCurrency(expectedCash) : '***'}</p>
-              </div>
-              <div className={cn(
-                "p-4 rounded-lg text-center",
-                usuario?.rol !== 'admin' 
-                  ? "bg-secondary/30"
-                  : cashDifference === 0 
-                    ? "bg-success/20" 
-                    : cashDifference > 0 
-                      ? "bg-success/20" 
-                      : "bg-destructive/20"
-              )}>
-                <p className="text-sm text-muted-foreground">Diferencia</p>
-                <p className={cn(
-                  "text-xl font-bold flex items-center justify-center gap-1",
-                  usuario?.rol !== 'admin'
-                    ? "text-foreground"
-                    : cashDifference === 0 
-                      ? "text-success" 
-                      : cashDifference > 0 
-                        ? "text-success" 
-                        : "text-destructive"
-                )}>
-                  {usuario?.rol === 'admin' ? (
-                    cashDifference === 0 ? (
-                      <><CheckCircle className="h-5 w-5" /> Cuadrado</>
-                    ) : cashDifference > 0 ? (
-                      <>+{formatCurrency(cashDifference)} Sobrante</>
-                    ) : (
-                      <><AlertTriangle className="h-5 w-5" /> {formatCurrency(Math.abs(cashDifference))} Faltante</>
-                    )
-                  ) : '***'}
-                </p>
-              </div>
-            </div>
-
-            {/* Notes and handover */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label>Observaciones</Label>
-                <Textarea
-                  value={closeNotes}
-                  onChange={(e) => setCloseNotes(e.target.value)}
-                  placeholder="Notas sobre el turno..."
-                  className="bg-input resize-none h-10 min-h-[40px]"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label>Entregar turno a</Label>
-                <Select value={handoverTo} onValueChange={setHandoverTo}>
-                  <SelectTrigger className="bg-input h-10">
-                    <SelectValue placeholder="Seleccionar cajero" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin entrega (cierre de día)</SelectItem>
-                    {cajeros.map(c => (
-                      <SelectItem key={c.uid} value={c.uid}>{c.nombre}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6 pt-4 border-t border-border mt-auto">
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCloseShift(false)}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleCloseShift}
-                variant="destructive"
-                disabled={!puedeCerrar}
-                title={!puedeCerrar ? 'Cuenta el efectivo de la caja antes de cerrar' : undefined}
-              >
-                <Square className="h-4 w-4 mr-2" />
-                Cerrar Turno
-              </Button>
-            </DialogFooter>
+            <CloseShiftForm
+              variant="compact"
+              cashCount={cashCount}
+              setCashCount={setCashCount}
+              totalCashCount={totalCashCount}
+              expectedCash={expectedCash}
+              cashDifference={cashDifference}
+              closeNotes={closeNotes}
+              setCloseNotes={setCloseNotes}
+              handoverTo={handoverTo}
+              setHandoverTo={setHandoverTo}
+              cajeros={cajeros}
+              usuario={usuario}
+              puedeCerrar={puedeCerrar}
+              onSubmit={handleCloseShift}
+              onCancel={() => setShowCloseShift(false)}
+            />
           </div>
         </DialogContent>
       </Dialog>
