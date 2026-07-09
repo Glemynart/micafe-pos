@@ -1,16 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent } from "@/components/ui/card"
-import { Square, Banknote, TrendingDown, CreditCard, CheckCircle, AlertTriangle } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { billDenominations } from "@/lib/demo-data"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Square } from "lucide-react"
 import { Turno, calcularVentasTurno, cerrarTurno, suscribirTurnoActivo } from "@/lib/turnos-service"
 import { calcularEgresosTurno } from "@/lib/egresos-service"
 import { toast } from "sonner"
@@ -18,6 +10,7 @@ import { collection, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { suscribirConfiguracion, type ConfiguracionGlobal } from "@/lib/configuracion-service"
 import { formatCurrency, formatTime } from "@/lib/format-utils"
+import { CloseShiftForm } from '@/components/pos/close-shift-form'
 
 interface GlobalCloseShiftProps {
  usuario: any
@@ -176,149 +169,29 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  {isLoadingTotals ? <span className="text-sm animate-pulse">...</span> : (usuario?.rol === 'admin' ? formatCurrency(ventasTurno.total) : '***')}
  </p>
  </div>
- </div>
+  </div>
 
- {/* Conteo de Efectivo */}
- <div className="space-y-3">
- <div className="flex items-center gap-2 pb-1.5 border-b border-border/50">
- <Banknote className="h-4 w-4 text-muted-foreground" />
- <Label className="text-sm font-semibold">Conteo de Efectivo</Label>
- </div>
-
- {/* Billetes en grid 2 columnas */}
- <div className="grid grid-cols-2 gap-2">
- {billDenominations.map(bill => {
- const qty = parseInt(cashCount[bill.value], 10) || 0
- return (
- <div key={bill.value} className="flex flex-col px-3 py-2 rounded-lg bg-muted/20 border border-border/40">
- <div className="flex items-center gap-2">
- <span className="text-sm font-semibold text-foreground w-[4.2rem] shrink-0">{bill.label}</span>
- <span className="text-muted-foreground/50 text-xs select-none">×</span>
- <Input
- type="text"
- inputMode="numeric"
- value={cashCount[bill.value] ?? ''}
- onChange={(e) => {
- setCashCount(prev => ({ ...prev, [bill.value]: e.target.value.replace(/\D/g, '') }))
- }}
- placeholder="0"
- className="w-20 shrink-0 h-9 text-center font-mono font-bold text-sm text-foreground bg-background border-border rounded focus-visible:ring-1 focus-visible:ring-primary"
- />
- </div>
- {qty > 0 && (
- <span className="text-xs text-muted-foreground tabular-nums text-right mt-1">
- {formatCurrency(qty * bill.value)}
- </span>
- )}
- </div>
- )
- })}
- </div>
-
- {/* Monedas */}
- <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/20 border border-border/40">
- <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/50 shrink-0" />
- <span className="text-sm font-semibold text-foreground w-[4.2rem] shrink-0">Monedas</span>
- <Input
- type="text"
- inputMode="numeric"
- value={cashCount['monedas'] ? Number(cashCount['monedas']).toLocaleString('es-CO') : ''}
- onChange={(e) => {
- setCashCount(prev => ({ ...prev, monedas: e.target.value.replace(/\D/g, '') }))
- }}
- placeholder="Total en monedas"
- className="flex-1 h-9 font-mono text-sm text-foreground bg-background border-border rounded focus-visible:ring-1 focus-visible:ring-primary"
- />
- </div>
- </div>
-
- {/* Resultados */}
- <div className="rounded-lg border border-border overflow-hidden">
- <div className="flex justify-between items-center px-4 py-3 bg-muted/20">
- <span className="text-sm font-medium text-muted-foreground">Total Contado en Caja</span>
- <span className="text-xl font-bold text-foreground tabular-nums">{formatCurrency(totalCashCount)}</span>
- </div>
- <div className="flex justify-between items-center px-4 py-3 border-t border-border/50 bg-muted/20">
- <span className="text-sm font-medium text-muted-foreground">Efectivo Esperado</span>
- <span className="text-xl font-bold text-foreground tabular-nums">
- {isLoadingTotals ? <span className="text-sm animate-pulse">...</span> : (usuario?.rol === 'admin' ? formatCurrency(expectedCash) : '***')}
- </span>
- </div>
- <div className={cn(
- "flex justify-between items-center px-4 py-3 border-t",
- isLoadingTotals || usuario?.rol !== 'admin'
- ? "bg-muted/30 border-border/50"
- : cashDifference >= 0
- ? "bg-success/10 border-success/20"
- : "bg-destructive/10 border-destructive/20"
- )}>
- <span className="text-sm font-semibold text-foreground">Diferencia Final</span>
- <span className={cn(
- "text-xl font-black flex items-center gap-2 tabular-nums",
- isLoadingTotals || usuario?.rol !== 'admin'
- ? "text-muted-foreground"
- : cashDifference >= 0 ? "text-success" : "text-destructive"
- )}>
- {isLoadingTotals
- ? <span className="text-sm font-medium animate-pulse">Calculando...</span>
- : usuario?.rol === 'admin'
- ? cashDifference === 0
- ? <><CheckCircle className="h-5 w-5" /> Cuadrado</>
- : cashDifference > 0
- ? <>+{formatCurrency(cashDifference)} <span className="text-xs uppercase tracking-wider font-bold">Sobrante</span></>
- : <><AlertTriangle className="h-5 w-5" /> {formatCurrency(Math.abs(cashDifference))} <span className="text-xs uppercase tracking-wider font-bold">Faltante</span></>
- : '***'
- }
- </span>
- </div>
- </div>
-
- {/* Observaciones y Entrega */}
- <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
- <div className="space-y-2">
- <Label className="text-sm font-semibold">Observaciones de Cierre</Label>
- <Textarea
- value={closeNotes}
- onChange={(e) => setCloseNotes(e.target.value)}
- placeholder="Inconvenientes, gastos extra o notas importantes..."
- className="bg-background border-border resize-none h-[6rem] text-sm focus-visible:ring-1 focus-visible:ring-primary"
- />
- </div>
- <div className="space-y-2">
- <Label className="text-sm font-semibold">Entregar turno a</Label>
- <Select value={handoverTo} onValueChange={setHandoverTo}>
- <SelectTrigger className="bg-background border-border h-10">
- <SelectValue placeholder="Seleccionar cajero de relevo" />
- </SelectTrigger>
- <SelectContent>
- <SelectItem value="none" className="font-medium">Cierre definitivo (Fin de día)</SelectItem>
- {cajeros.map(c => (
- <SelectItem key={c.uid} value={c.uid}>{c.nombre}</SelectItem>
- ))}
- </SelectContent>
- </Select>
- </div>
- </div>
-
- </div>
-
- {/* Footer */}
- <div className="p-4 px-6 border-t border-border bg-muted/30 flex items-center justify-end gap-3">
- <Button variant="ghost" className="hover:bg-muted font-medium" onClick={() => setOpen(false)} disabled={isClosing}>
- Cancelar
- </Button>
- <Button
- onClick={handleCloseShift}
- variant="destructive"
- disabled={isClosing || !puedeCerrar}
- title={!puedeCerrar ? 'Cuenta el efectivo de la caja antes de cerrar' : undefined}
- className="px-6 font-bold shadow-md hover:shadow-lg transition-all"
- >
- <Square className="h-4 w-4 mr-2" fill="currentColor" />
- {isClosing ? 'Cerrando...' : 'Confirmar Cierre'}
- </Button>
- </div>
- </DialogContent>
- </Dialog>
- )
+  <CloseShiftForm
+    variant="standalone"
+    cashCount={cashCount}
+    setCashCount={setCashCount}
+    totalCashCount={totalCashCount}
+    expectedCash={expectedCash}
+    cashDifference={cashDifference}
+    closeNotes={closeNotes}
+    setCloseNotes={setCloseNotes}
+    handoverTo={handoverTo}
+    setHandoverTo={setHandoverTo}
+    cajeros={cajeros}
+    usuario={usuario}
+    puedeCerrar={puedeCerrar}
+    isLoadingTotals={isLoadingTotals}
+    isSubmitting={isClosing}
+    onSubmit={handleCloseShift}
+    onCancel={() => setOpen(false)}
+  />
+</div>
+  </DialogContent>
+  </Dialog>
+  )
 }
