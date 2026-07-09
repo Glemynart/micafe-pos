@@ -17,9 +17,7 @@ import { toast } from "sonner"
 import { collection, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { suscribirConfiguracion, type ConfiguracionGlobal } from "@/lib/configuracion-service"
-
-const formatCurrency = (val: number) => 
- new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val)
+import { formatCurrency, formatTime } from "@/lib/format-utils"
 
 interface GlobalCloseShiftProps {
  usuario: any
@@ -106,11 +104,6 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  // FASE-10C: no se permite cerrar con conteo vacío, salvo cierre forzado del admin.
  const esAdmin = usuario?.rol === 'admin'
  const puedeCerrar = totalCashCount > 0 || esAdmin
-
- const formatTime = (date: any) => {
- if (!date) return '-'
- return date.toDate().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
- }
 
  const handleCloseShift = async () => {
  if (!activeShift) return

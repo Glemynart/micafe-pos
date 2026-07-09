@@ -20,9 +20,7 @@ import { useEspacios } from '@/contexts/espacios-context'
 import { suscribirProductos, type Producto } from '@/lib/productos-service'
 import { suscribirInsumos, type Insumo } from '@/lib/insumos-service'
 import { suscribirRecetas, guardarReceta, eliminarReceta, type Receta, type Ingrediente } from '@/lib/recetas-service'
-
-const formatCurrency = (val: number) => 
- new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val)
+import { formatCurrency } from '@/lib/format-utils'
 
 export function RecipesModule() {
  const [searchTerm, setSearchTerm] = useState('')
