@@ -12,6 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { formatCurrency } from '@/lib/format-utils'
 import type { LineaKardex, KardexArticulo } from '@/lib/inventario-kardex'
 import type { TipoMovimientoInventario } from '@/lib/inventario-ledger'
 
@@ -78,15 +79,6 @@ function formatearNumero(n: number, decimales = 2): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: decimales,
   })
-}
-
-function formatearMoneda(n: number): string {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(n)
 }
 
 // Trunca un id de referencia para caber en la celda.
@@ -243,12 +235,12 @@ export function KardexTabla({ lineas, unidad, hayFiltrosActivos, cargando, class
 
                   {/* Costo unitario — capturado en origen, no es modelo de costeo (K7) */}
                   <TableCell className="text-right font-mono text-muted-foreground tabular-nums">
-                    {formatearMoneda(linea.costoUnitario)}
+                    {formatCurrency(linea.costoUnitario)}
                   </TableCell>
 
                   {/* Costo total */}
                   <TableCell className="text-right font-mono text-muted-foreground tabular-nums">
-                    {formatearMoneda(linea.costoTotal)}
+                    {formatCurrency(linea.costoTotal)}
                   </TableCell>
 
                   {/* Saldo corrido congelado (K2) — negativo si aplica (K6) */}
