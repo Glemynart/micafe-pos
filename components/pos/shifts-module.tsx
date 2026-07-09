@@ -27,6 +27,7 @@ import {
   User
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { formatDate, formatTime, formatCurrency } from '@/lib/format-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -38,7 +39,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import {
   billDenominations,
-  formatCurrency
 } from '@/lib/demo-data'
 import { toast } from 'sonner'
 import { collection, getDocs, query, where } from 'firebase/firestore'
@@ -220,15 +220,6 @@ export function ShiftsModule() {
     setShowShiftDetail(true)
   }
 
-  const formatDate = (date: any) => {
-    if (!date) return '-'
-    return date.toDate().toLocaleDateString('es-CO')
-  }
-
-  const formatTime = (date: any) => {
-    if (!date) return '-'
-    return date.toDate().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
-  }
 
   return (
     <div className="flex flex-col h-full p-4 gap-4">

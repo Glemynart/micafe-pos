@@ -8,6 +8,7 @@ import { suscribirHistorialVentas, obtenerVentaPorId, anularVenta as anularVenta
 import { suscribirConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
 import { TicketBuilder, generateQrDataUri, renderTicket, DEFAULT_RENDER_OPTIONS } from '@/lib/tickets'
 import { adaptarVentaAModeloTicket } from '@/lib/reimpresion/venta-ticket-adapter'
+import { formatCurrency } from '@/lib/format-utils'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -176,14 +177,6 @@ export function Historial() {
   })
 
   const totalVentas = ventasFiltradas.reduce((acc, v) => acc + (v.total || 0), 0)
-
-  const formatCOP = (value: number) => {
-    return new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: "COP",
-      minimumFractionDigits: 0,
-    }).format(value || 0)
-  }
 
   const anularVenta = async () => {
     if (!idToDelete) return;
@@ -478,7 +471,7 @@ export function Historial() {
             </div>
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Total Ventas</p>
-              <p className="text-2xl font-black text-foreground tracking-tight">{formatCOP(totalVentas)}</p>
+              <p className="text-2xl font-black text-foreground tracking-tight">{formatCurrency(totalVentas)}</p>
             </div>
           </CardContent>
         </Card>
@@ -620,7 +613,7 @@ export function Historial() {
                       {venta.resumen}
                     </TableCell>
                     <TableCell className="font-black text-foreground text-[15px]">
-                      {formatCOP(venta.total)}
+                      {formatCurrency(venta.total)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-secondary/30 w-fit">
@@ -734,7 +727,7 @@ export function Historial() {
               <div className="space-y-2 p-4 rounded-lg bg-secondary/50">
                 <div className="flex justify-between text-lg font-bold pt-2 border-t border-border">
                   <span className="text-foreground">Total Pagado</span>
-                  <span className="text-primary">{formatCOP(ventaDetalle.total)}</span>
+                  <span className="text-primary">{formatCurrency(ventaDetalle.total)}</span>
                 </div>
               </div>
 
