@@ -870,18 +870,18 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   }
 
   return (
-    <div className="flex-1 flex gap-0 p-0 bg-background min-h-0 overflow-hidden">
+    <div className="flex-1 flex gap-0 p-0 bg-background min-h-0 min-w-0 overflow-hidden">
       {/* Left Column - Products */}
-      <div className="flex-1 flex flex-col gap-3 min-h-0 p-3 md:p-4 min-w-0">
+      <div className="flex-1 flex flex-col gap-2 min-h-0 p-2 min-w-0 min-[1366px]:gap-3 min-[1366px]:p-3 min-[1600px]:p-4">
         {/* Search Bar */}
         <form onSubmit={handleSearch}>
           <div className="relative">
-            <Barcode className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Barcode className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground min-[1366px]:left-4" />
             <Input
               value={searchCode}
               onChange={(e) => setSearchCode(e.target.value)}
               placeholder="Escanear código de barras o buscar producto..."
-              className="pl-12 h-14 text-lg bg-card border-input focus:border-primary shadow-sm rounded-xl"
+              className="pl-11 h-12 text-base bg-card border-input focus:border-primary shadow-sm rounded-xl min-[1366px]:pl-12 min-[1366px]:h-14 min-[1366px]:text-lg"
               autoFocus
             />
           </div>
@@ -927,17 +927,17 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
             {/* Wrapper con ref — el div maneja el scroll, TabsList solo organiza los triggers */}
             <div
               ref={categoriesScrollRef}
-              className="overflow-x-auto scrollbar-none snap-x snap-mandatory pb-2"
+              className="overflow-x-auto scrollbar-none snap-x snap-mandatory pb-1.5 min-[1366px]:pb-2"
               style={{
                 WebkitOverflowScrolling: 'touch',
                 paddingLeft: catScroll.canLeft ? '2.75rem' : undefined,
                 paddingRight: catScroll.canRight ? '2.75rem' : undefined,
               }}
             >
-              <TabsList className="flex gap-2 bg-transparent border-none h-auto w-max">
+              <TabsList className="flex gap-1.5 bg-transparent border-none h-auto w-max min-[1366px]:gap-2">
                 <TabsTrigger
                   value="todos"
-                  className="px-6 py-3 bg-card text-foreground/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-gold data-[state=active]:ring-offset-1 data-[state=active]:ring-offset-background rounded-xl font-semibold text-sm whitespace-nowrap shadow-sm border border-border flex items-center gap-2 min-h-[52px] transition-all duration-200 snap-start shrink-0 active:scale-[0.97]"
+                  className="px-4 py-2.5 bg-card text-foreground/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-gold data-[state=active]:ring-offset-1 data-[state=active]:ring-offset-background rounded-xl font-semibold text-sm whitespace-nowrap shadow-sm border border-border flex items-center gap-2 min-h-[48px] transition-all duration-200 snap-start shrink-0 active:scale-[0.97] min-[1366px]:px-6 min-[1366px]:py-3 min-[1366px]:min-h-[52px]"
                 >
                   Todos
                 </TabsTrigger>
@@ -945,7 +945,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                   <TabsTrigger
                     key={cat.id}
                     value={cat.id}
-                    className="px-6 py-3 bg-card text-foreground/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-gold data-[state=active]:ring-offset-1 data-[state=active]:ring-offset-background rounded-xl font-semibold text-sm whitespace-nowrap shadow-sm border border-border flex items-center gap-2 min-h-[52px] transition-all duration-200 snap-start shrink-0 active:scale-[0.97]"
+                    className="px-4 py-2.5 bg-card text-foreground/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-gold data-[state=active]:ring-offset-1 data-[state=active]:ring-offset-background rounded-xl font-semibold text-sm whitespace-nowrap shadow-sm border border-border flex items-center gap-2 min-h-[48px] transition-all duration-200 snap-start shrink-0 active:scale-[0.97] min-[1366px]:px-6 min-[1366px]:py-3 min-[1366px]:min-h-[52px]"
                   >
                     <DynamicIcon name={cat.icono} className="w-5 h-5" /> {cat.nombre}
                   </TabsTrigger>
@@ -978,7 +978,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
               <p className="text-sm">Sin productos en este espacio</p>
             </div>
           ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pr-4 pb-8">
+              <div className="grid grid-cols-2 min-[1180px]:grid-cols-3 min-[1500px]:grid-cols-4 min-[1850px]:grid-cols-5 gap-2.5 pr-2 pb-6 min-[1366px]:gap-3 min-[1366px]:pr-3 min-[1600px]:gap-4 min-[1600px]:pr-4 min-[1600px]:pb-8">
                 {filteredProducts.map((product, idx) => {
                   const stockBajo = product.stock <= (product.stockMinimo || 5)
                   const sinStock = product.stock <= 0
@@ -987,7 +987,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                     key={product.id}
                     onClick={() => addToCart(product)}
                     className={cn(
-                      "bg-card border border-border rounded-2xl overflow-hidden cursor-pointer hover:-translate-y-1 hover:border-gold hover:shadow-[0_12px_28px_-12px_color-mix(in_oklch,var(--navy)_45%,transparent)] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group flex flex-col active:scale-[0.97] shadow-[0_2px_10px_-6px_color-mix(in_oklch,var(--navy)_40%,transparent)] relative h-52 animate-fade-up",
+                      "bg-card border border-border rounded-2xl overflow-hidden cursor-pointer hover:-translate-y-1 hover:border-gold hover:shadow-[0_12px_28px_-12px_color-mix(in_oklch,var(--navy)_45%,transparent)] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group flex flex-col active:scale-[0.97] shadow-[0_2px_10px_-6px_color-mix(in_oklch,var(--navy)_40%,transparent)] relative h-[180px] animate-fade-up min-[1280px]:h-48 min-[1600px]:h-52",
                       stockBajo && "border-destructive/40 hover:border-destructive"
                     )}
                     style={{ animationDelay: `${Math.min(idx, 12) * 30}ms` }}
@@ -1000,25 +1000,25 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                         {sinStock ? 'Agotado' : 'Stock bajo'}
                       </Badge>
                     )}
-                    <div className="h-28 bg-secondary/40 w-full relative overflow-hidden border-b border-border/60">
+                    <div className="h-28 bg-secondary/40 w-full relative overflow-hidden border-b border-border/60 min-[1280px]:h-32 min-[1600px]:h-36">
                       {product.imagenUrl ? (
                         <img
                           src={product.imagenUrl}
                           alt={product.nombre}
-                          className="object-cover w-full h-full opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300"
+                          className="object-cover object-center w-full h-full scale-[1.1] group-hover:scale-[1.14] transition-transform duration-300"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
-                          <DynamicIcon name={product.icono} className="w-14 h-14" />
+                          <DynamicIcon name={product.icono} className="w-12 h-12 min-[1280px]:w-14 min-[1280px]:h-14 min-[1600px]:w-16 min-[1600px]:h-16" />
                         </div>
                       )}
                     </div>
-                    <CardContent className="p-3 flex flex-col flex-1 justify-between bg-card z-10">
-                      <h3 className="font-bold text-foreground text-sm leading-tight line-clamp-2 text-balance">{product.nombre}</h3>
-                      <div className="mt-auto pt-1 flex flex-col gap-1">
-                        <p className="font-black text-primary text-base leading-none">{formatCurrency(product.precio)}</p>
+                    <CardContent className="px-2.5 py-1.5 flex flex-col flex-1 justify-between bg-card z-10">
+                      <h3 className="font-bold text-foreground text-xs leading-tight line-clamp-2 text-balance min-[1280px]:text-[13px] min-[1600px]:text-sm">{product.nombre}</h3>
+                      <div className="mt-auto flex flex-col gap-0.5">
+                        <p className="font-black text-primary text-[15px] leading-none min-[1280px]:text-base">{formatCurrency(product.precio)}</p>
                         <span className={cn(
-                          "text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full w-fit",
+                          "text-[9px] font-bold tabular-nums px-1.5 py-0.5 rounded-full w-fit min-[1280px]:text-[10px]",
                           stockBajo ? "bg-destructive/10 text-destructive" : "bg-secondary text-secondary-foreground"
                         )}>
                           {product.stock} und
@@ -1035,25 +1035,25 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
         </div>
 
       {/* Right Column - Cart */}
-      <Card className="w-[300px] lg:w-[380px] grid grid-rows-[auto_auto_1fr_auto] bg-card border-l border-border shadow-[-4px_0_15px_rgba(0,0,0,0.1)] overflow-hidden relative z-20 rounded-none border-y-0 border-r-0 shrink-0">
+      <Card className="w-[280px] min-[1180px]:w-[320px] min-[1440px]:w-[360px] min-[1800px]:w-[380px] grid grid-rows-[auto_auto_1fr_auto] bg-card border-l border-border shadow-[-4px_0_15px_rgba(0,0,0,0.1)] overflow-hidden relative z-20 rounded-none border-y-0 border-r-0 shrink-0">
           {/* Selector de Mesas / Cuentas Arriba del Carrito */}
-          <div className="p-4 bg-muted/30 border-b border-border">
+          <div className="p-3 bg-muted/30 border-b border-border min-[1600px]:p-4">
             <button
-                className="w-full flex items-center justify-between p-3 rounded-xl border border-border hover:border-primary/50 transition-colors bg-card shadow-sm group active:scale-[0.98]"
+                className="w-full flex items-center justify-between gap-2 p-2.5 rounded-xl border border-border hover:border-primary/50 transition-colors bg-card shadow-sm group active:scale-[0.98] min-[1600px]:p-3"
                 onClick={() => setShowMesasDialog(true)}
             >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 min-w-0 min-[1600px]:gap-3">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                         <ShoppingCart className="h-5 w-5" />
                     </div>
-                    <div className="text-left">
-                        <p className="font-bold text-foreground text-sm">
+                    <div className="text-left min-w-0">
+                        <p className="font-bold text-foreground text-sm truncate">
                             {selectedMesaId ? mesas.find(m => m.id === selectedMesaId)?.nombre : 'Mostrador'}
                         </p>
                         <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Cambiar Mesa</p>
                     </div>
                 </div>
-                <div className="bg-primary/10 px-3 py-1 rounded-full border border-primary/20 text-primary font-bold text-sm">
+                <div className="shrink-0 bg-primary/10 px-2.5 py-1 rounded-full border border-primary/20 text-primary font-bold text-xs min-[1440px]:text-sm min-[1600px]:px-3">
                     {formatCurrency(subtotal)}
                 </div>
             </button>
@@ -1077,7 +1077,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
             )}
           </div>
 
-          <div className="flex items-center justify-between px-6 py-4">
+          <div className="flex items-center justify-between px-4 py-3 min-[1600px]:px-6 min-[1600px]:py-4">
               <h2 className="text-lg font-extrabold text-foreground flex items-center gap-2">
                   <ShoppingCart className="h-5 w-5 text-primary" /> Tu Orden
               </h2>
@@ -1085,11 +1085,11 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
           </div>
 
           <div className="overflow-y-auto min-h-0">
-            <div className="p-4 pt-0 space-y-3">
+            <div className="p-3 pt-0 space-y-2.5 min-[1600px]:p-4 min-[1600px]:pt-0 min-[1600px]:space-y-3">
               {cart.map((item, idx) => (
-                  <div key={item.uid || `${item.id}-${idx}`} className="flex flex-col p-4 rounded-xl border border-border bg-card shadow-sm group">
-                      <div className="flex items-start justify-between mb-3 gap-2">
-                          <div className="flex items-center gap-3 min-w-0">
+                  <div key={item.uid || `${item.id}-${idx}`} className="flex flex-col p-3 rounded-xl border border-border bg-card shadow-sm group min-[1600px]:p-4">
+                      <div className="flex items-start justify-between mb-2.5 gap-2 min-[1600px]:mb-3">
+                          <div className="flex items-center gap-2 min-w-0 min-[1600px]:gap-3">
                               <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground shrink-0">
                                   <DynamicIcon name={item.emoji} className="w-5 h-5" />
                               </div>
@@ -1124,7 +1124,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
           </div>
 
           {/* Footer */}
-          <div className="p-6 bg-muted/20 border-t border-border">
+          <div className="p-4 bg-muted/20 border-t border-border min-[1600px]:p-6">
               {estadoCocina === 'listo' && (
                 <div className="mb-4 p-3 rounded-xl bg-success/10 border border-success/30 flex items-center gap-3 animate-fade-in">
                   <div className="w-8 h-8 rounded-full bg-success/20 flex items-center justify-center shrink-0">
@@ -1147,7 +1147,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                   </div>
                 </div>
               )}
-              <div className="space-y-2 mb-4 text-sm">
+              <div className="space-y-1.5 mb-3 text-sm min-[1600px]:space-y-2 min-[1600px]:mb-4">
                   <div className="flex justify-between text-muted-foreground">
                       <span>Subtotal</span>
                       <span className="font-bold text-foreground">{formatCurrency(subtotal)}</span>
@@ -1159,23 +1159,23 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                     </div>
                   )}
               </div>
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex justify-between items-center gap-3 mb-4 min-[1600px]:mb-6">
                   <span className="text-xl font-bold text-foreground tracking-wide">TOTAL</span>
-                  <span className="text-4xl font-black text-primary">{formatCurrency(total)}</span>
+                  <span className="text-3xl font-black text-primary min-[1600px]:text-4xl">{formatCurrency(total)}</span>
               </div>
 
-              <div className="relative mb-4 group">
+              <div className="relative mb-3 group min-[1600px]:mb-4">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input 
                     value={selectedCustomer}
                     onChange={(e) => setSelectedCustomer(e.target.value)}
                     placeholder="C.C. o NIT (Consumidor Final)..." 
-                    className="pl-12 bg-card border-input focus:border-primary focus-visible:ring-primary h-14 rounded-xl text-foreground font-medium" 
+                    className="pl-12 bg-card border-input focus:border-primary focus-visible:ring-primary h-12 rounded-xl text-foreground font-medium min-[1600px]:h-14"
                   />
               </div>
 
-              <div className="space-y-3">
-                <div className="flex flex-wrap gap-3">
+              <div className="space-y-2.5 min-[1600px]:space-y-3">
+                <div className="flex flex-wrap gap-2 min-[1600px]:gap-3">
                   <Button variant="outline" onClick={async () => {
                     if (activePedido) {
                       try {
