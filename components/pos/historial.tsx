@@ -448,12 +448,12 @@ export function Historial() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden p-3 gap-3 sm:p-4 sm:gap-4">
       {/* Header Stats Premium */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="shrink-0 grid grid-cols-1 min-[900px]:grid-cols-2 min-[1400px]:grid-cols-4 gap-3 sm:gap-4">
         <Card className="bg-gradient-to-br from-primary/10 via-background to-background border-border/50 rounded-[2rem] shadow-sm relative overflow-hidden">
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-primary/10 rounded-full blur-2xl"></div>
-          <CardContent className="p-5 relative z-10 flex items-center gap-4">
+          <CardContent className="p-4 sm:p-5 relative z-10 flex items-center gap-4">
             <div className="h-14 w-14 rounded-2xl bg-primary/20 flex items-center justify-center shadow-inner">
               <Receipt className="h-7 w-7 text-primary" />
             </div>
@@ -465,7 +465,7 @@ export function Historial() {
         </Card>
         <Card className="bg-gradient-to-br from-success/10 via-background to-background border-border/50 rounded-[2rem] shadow-sm relative overflow-hidden">
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-success/10 rounded-full blur-2xl"></div>
-          <CardContent className="p-5 relative z-10 flex items-center gap-4">
+          <CardContent className="p-4 sm:p-5 relative z-10 flex items-center gap-4">
             <div className="h-14 w-14 rounded-2xl bg-success/20 flex items-center justify-center shadow-inner">
               <Banknote className="h-7 w-7 text-success" />
             </div>
@@ -477,7 +477,7 @@ export function Historial() {
         </Card>
         <Card className="bg-gradient-to-br from-emerald-500/10 via-background to-background border-border/50 rounded-[2rem] shadow-sm relative overflow-hidden">
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl"></div>
-          <CardContent className="p-5 relative z-10 flex items-center gap-4">
+          <CardContent className="p-4 sm:p-5 relative z-10 flex items-center gap-4">
             <div className="h-14 w-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center shadow-inner">
               <CheckCircle2 className="h-7 w-7 text-emerald-500" />
             </div>
@@ -491,7 +491,7 @@ export function Historial() {
         </Card>
         <Card className="bg-gradient-to-br from-warning/10 via-background to-background border-border/50 rounded-[2rem] shadow-sm relative overflow-hidden">
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-warning/10 rounded-full blur-2xl"></div>
-          <CardContent className="p-5 relative z-10 flex items-center gap-4">
+          <CardContent className="p-4 sm:p-5 relative z-10 flex items-center gap-4">
             <div className="h-14 w-14 rounded-2xl bg-warning/20 flex items-center justify-center shadow-inner">
               <AlertCircle className="h-7 w-7 text-warning" />
             </div>
@@ -506,10 +506,10 @@ export function Historial() {
       </div>
 
       {/* Filters and Actions Premium */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-card/80 backdrop-blur-xl p-4 rounded-[2rem] border border-border/50 shadow-sm mt-2">
-        <div className="flex flex-wrap gap-4 items-center">
+      <div className="shrink-0 flex flex-col min-[1180px]:flex-row gap-3 sm:gap-4 items-stretch min-[1180px]:items-center justify-between bg-card/80 backdrop-blur-xl p-4 rounded-[2rem] border border-border/50 shadow-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 min-[1180px]:flex gap-3 sm:gap-4 items-stretch min-[1180px]:items-center">
           <Select value={tipoPeriodo} onValueChange={(val: any) => { setTipoPeriodo(val); setFiltroFecha(""); }}>
-            <SelectTrigger className="w-32 bg-background border-border/50 rounded-xl h-11 focus:ring-primary/50 font-medium">
+            <SelectTrigger className="w-full min-[1180px]:w-32 bg-background border-border/50 rounded-xl h-11 focus:ring-primary/50 font-medium">
               <SelectValue placeholder="Período" />
             </SelectTrigger>
             <SelectContent>
@@ -521,17 +521,17 @@ export function Historial() {
           <div className="relative">
             <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             {tipoPeriodo === 'dia' && (
-              <Input type="date" value={filtroFecha} onChange={(e) => setFiltroFecha(e.target.value)} className="pl-11 w-44 bg-background border-border/50 rounded-xl h-11 font-medium shadow-sm focus:ring-primary/50" />
+              <Input type="date" value={filtroFecha} onChange={(e) => setFiltroFecha(e.target.value)} className="pl-11 w-full min-[1180px]:w-44 bg-background border-border/50 rounded-xl h-11 font-medium shadow-sm focus:ring-primary/50" />
             )}
             {tipoPeriodo === 'mes' && (
-              <Input type="month" value={filtroFecha} onChange={(e) => setFiltroFecha(e.target.value)} className="pl-11 w-44 bg-background border-border/50 rounded-xl h-11 font-medium shadow-sm focus:ring-primary/50" />
+              <Input type="month" value={filtroFecha} onChange={(e) => setFiltroFecha(e.target.value)} className="pl-11 w-full min-[1180px]:w-44 bg-background border-border/50 rounded-xl h-11 font-medium shadow-sm focus:ring-primary/50" />
             )}
             {tipoPeriodo === 'ano' && (
-              <Input type="number" min="2020" max="2100" placeholder="Ej: 2024" value={filtroFecha} onChange={(e) => setFiltroFecha(e.target.value)} className="pl-11 w-44 bg-background border-border/50 rounded-xl h-11 font-medium shadow-sm focus:ring-primary/50" />
+              <Input type="number" min="2020" max="2100" placeholder="Ej: 2024" value={filtroFecha} onChange={(e) => setFiltroFecha(e.target.value)} className="pl-11 w-full min-[1180px]:w-44 bg-background border-border/50 rounded-xl h-11 font-medium shadow-sm focus:ring-primary/50" />
             )}
           </div>
           <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-            <SelectTrigger className="w-48 bg-background border-border/50 rounded-xl h-11 focus:ring-primary/50 font-medium shadow-sm">
+            <SelectTrigger className="w-full min-[1180px]:w-48 bg-background border-border/50 rounded-xl h-11 focus:ring-primary/50 font-medium shadow-sm">
               <SelectValue placeholder="Estado DIAN" />
             </SelectTrigger>
             <SelectContent>
@@ -541,12 +541,12 @@ export function Historial() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Button variant="outline" onClick={exportarExcel} className="h-11 rounded-xl font-bold border-border/50 shadow-sm hover:bg-secondary/40">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+          <Button variant="outline" onClick={exportarExcel} className="h-11 rounded-xl font-bold border-border/50 shadow-sm hover:bg-secondary/40 w-full sm:w-auto">
             <Download className="mr-2 h-4 w-4" />
             Exportar a Excel
           </Button>
-          <Button onClick={emitirPendientes} className="h-11 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-md shadow-primary/20">
+          <Button onClick={emitirPendientes} className="h-11 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-md shadow-primary/20 w-full sm:w-auto">
             <Send className="mr-2 h-4 w-4" />
             Emitir Pendientes
           </Button>
@@ -554,15 +554,15 @@ export function Historial() {
       </div>
 
       {/* Table Premium */}
-      <Card className="flex-1 flex flex-col bg-card/50 backdrop-blur-md border-border/50 rounded-[2rem] shadow-sm overflow-hidden mt-4">
-        <CardHeader className="border-b border-border/50 py-5 bg-card/80">
+      <Card className="flex-1 min-h-0 flex flex-col bg-card/50 backdrop-blur-md border-border/50 rounded-[2rem] shadow-sm overflow-hidden">
+        <CardHeader className="shrink-0 border-b border-border/50 py-4 sm:py-5 bg-card/80">
           <CardTitle className="text-xl font-bold text-foreground flex items-center gap-2">
             <Receipt className="h-5 w-5 text-primary" />
             Registro de Operaciones
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex-1 p-0 overflow-auto">
-          <Table>
+        <CardContent className="flex-1 min-h-0 p-0 overflow-auto touch-pan-y overscroll-contain">
+          <Table className="min-w-[900px]">
             <TableHeader className="bg-secondary/20">
               <TableRow className="border-border/50 hover:bg-transparent">
                 <TableHead className="text-muted-foreground font-bold h-12 w-[120px]">Factura N°</TableHead>

@@ -160,10 +160,10 @@ export function WasteModule() {
   }
 
   return (
-    <div className="flex flex-col h-full p-4 gap-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card/80 backdrop-blur-xl p-6 rounded-[2rem] border border-border/50 shadow-sm">
+      <div className="flex flex-col h-full min-h-0 overflow-hidden p-3 gap-3 sm:p-4 sm:gap-4">
+      <div className="shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card/80 backdrop-blur-xl p-4 sm:p-6 rounded-[2rem] border border-border/50 shadow-sm">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-foreground flex items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground flex items-center gap-3">
             <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-destructive/10 shadow-inner">
               <Trash2 className="h-6 w-6 text-destructive" />
             </div>
@@ -171,7 +171,7 @@ export function WasteModule() {
           </h1>
           <p className="text-muted-foreground font-medium mt-1">Registra y controla las pérdidas de insumos y productos</p>
         </div>
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
           <div className="relative w-full md:w-auto">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -181,38 +181,38 @@ export function WasteModule() {
               className="pl-10 w-full md:w-72 bg-background border-border/50 rounded-2xl h-12 shadow-sm focus:ring-primary/50 font-medium transition-all"
             />
           </div>
-          <Button onClick={() => setShowWasteDialog(true)} className="h-12 rounded-2xl bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold px-6 shadow-lg shadow-destructive/20 transition-all active:scale-95">
+          <Button onClick={() => setShowWasteDialog(true)} className="h-12 rounded-2xl bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold px-6 shadow-lg shadow-destructive/20 transition-all active:scale-95 w-full sm:w-auto">
             <Plus className="h-5 w-5 mr-2" />
             Registrar Merma
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+      <div className="shrink-0 grid grid-cols-1 min-[900px]:grid-cols-3 gap-3 sm:gap-4 mt-1 sm:mt-2">
         <Card className="bg-gradient-to-br from-destructive/10 via-background to-background border-border/50 rounded-[2rem] shadow-sm relative overflow-hidden">
           <div className="absolute -right-10 -top-10 w-32 h-32 bg-destructive/10 rounded-full blur-3xl"></div>
-          <CardContent className="p-6 relative z-10">
+          <CardContent className="p-4 sm:p-6 relative z-10">
             <div className="flex items-center gap-4">
               <div className="p-4 rounded-2xl bg-destructive/20 shadow-inner">
                 <TrendingDown className="h-7 w-7 text-destructive" />
               </div>
               <div>
                 <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">Pérdida Hoy</p>
-                <p className="text-3xl font-black text-destructive tracking-tight">{formatCurrency(costoHoy)}</p>
+                <p className="text-2xl sm:text-3xl font-black text-destructive tracking-tight">{formatCurrency(costoHoy)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-bl from-warning/10 via-background to-background border-border/50 rounded-[2rem] shadow-sm relative overflow-hidden">
           <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-warning/10 rounded-full blur-3xl"></div>
-          <CardContent className="p-6 relative z-10">
+          <CardContent className="p-4 sm:p-6 relative z-10">
             <div className="flex items-center gap-4">
               <div className="p-4 rounded-2xl bg-warning/20 shadow-inner">
                 <Calendar className="h-7 w-7 text-warning" />
               </div>
               <div>
                 <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">Este Periodo</p>
-                <p className="text-3xl font-black text-warning tracking-tight">{formatCurrency(mesActual)}</p>
+                <p className="text-2xl sm:text-3xl font-black text-warning tracking-tight">{formatCurrency(mesActual)}</p>
               </div>
             </div>
           </CardContent>
@@ -221,7 +221,7 @@ export function WasteModule() {
           "rounded-[2rem] shadow-sm border-border/50 relative overflow-hidden",
           mesActual > monthGoal ? "bg-gradient-to-r from-destructive/20 to-destructive/5 border-destructive/30" : "bg-gradient-to-r from-success/20 to-success/5 border-success/30"
         )}>
-          <CardContent className="p-6 relative z-10 h-full flex flex-col justify-center">
+          <CardContent className="p-4 sm:p-6 relative z-10 h-full flex flex-col justify-center">
             <div className="flex items-center gap-4">
               <div className={cn(
                 "p-4 rounded-2xl shadow-inner",
@@ -235,7 +235,7 @@ export function WasteModule() {
               <div>
                 <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">Meta Mensual</p>
                 <p className={cn(
-                  "text-3xl font-black tracking-tight",
+                  "text-2xl sm:text-3xl font-black tracking-tight",
                   mesActual > monthGoal ? "text-destructive" : "text-success"
                 )}>
                   {formatCurrency(monthGoal)}
@@ -254,15 +254,15 @@ export function WasteModule() {
         </Card>
       </div>
 
-      <Card className="flex-1 flex flex-col bg-card/50 backdrop-blur-md border-border/50 rounded-[2rem] shadow-sm overflow-hidden mt-4">
-        <CardHeader className="border-b border-border/50 py-5 bg-card/80">
+      <Card className="flex-1 min-h-0 flex flex-col bg-card/50 backdrop-blur-md border-border/50 rounded-[2rem] shadow-sm overflow-hidden mt-2 sm:mt-4">
+        <CardHeader className="shrink-0 border-b border-border/50 py-4 sm:py-5 bg-card/80">
           <CardTitle className="text-xl font-bold text-foreground flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-warning" />
             Registro de Mermas
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex-1 p-0 overflow-auto">
-          <Table>
+        <CardContent className="flex-1 min-h-0 p-0 overflow-auto touch-pan-y overscroll-contain">
+          <Table className="min-w-[760px]">
             <TableHeader className="bg-secondary/20">
               <TableRow className="border-border/50 hover:bg-transparent">
                 <TableHead className="text-muted-foreground font-bold h-12">Fecha</TableHead>
