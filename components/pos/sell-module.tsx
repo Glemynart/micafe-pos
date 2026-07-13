@@ -1000,25 +1000,25 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                         {sinStock ? 'Agotado' : 'Stock bajo'}
                       </Badge>
                     )}
-                    <div className="h-20 bg-secondary/40 w-full relative overflow-hidden border-b border-border/60 min-[1280px]:h-24 min-[1600px]:h-28">
+                    <div className="h-28 bg-secondary/40 w-full relative overflow-hidden border-b border-border/60 min-[1280px]:h-32 min-[1600px]:h-36">
                       {product.imagenUrl ? (
                         <img
                           src={product.imagenUrl}
                           alt={product.nombre}
-                          className="object-cover w-full h-full opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300"
+                          className="object-cover object-center w-full h-full scale-[1.1] group-hover:scale-[1.14] transition-transform duration-300"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
-                          <DynamicIcon name={product.icono} className="w-10 h-10 min-[1280px]:w-12 min-[1280px]:h-12 min-[1600px]:w-14 min-[1600px]:h-14" />
+                          <DynamicIcon name={product.icono} className="w-12 h-12 min-[1280px]:w-14 min-[1280px]:h-14 min-[1600px]:w-16 min-[1600px]:h-16" />
                         </div>
                       )}
                     </div>
-                    <CardContent className="p-2.5 flex flex-col flex-1 justify-between bg-card z-10 min-[1600px]:p-3">
-                      <h3 className="font-bold text-foreground text-sm leading-tight line-clamp-2 text-balance">{product.nombre}</h3>
-                      <div className="mt-auto pt-1 flex flex-col gap-1">
-                        <p className="font-black text-primary text-base leading-none">{formatCurrency(product.precio)}</p>
+                    <CardContent className="px-2.5 py-1.5 flex flex-col flex-1 justify-between bg-card z-10">
+                      <h3 className="font-bold text-foreground text-xs leading-tight line-clamp-2 text-balance min-[1280px]:text-[13px] min-[1600px]:text-sm">{product.nombre}</h3>
+                      <div className="mt-auto flex flex-col gap-0.5">
+                        <p className="font-black text-primary text-[15px] leading-none min-[1280px]:text-base">{formatCurrency(product.precio)}</p>
                         <span className={cn(
-                          "text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full w-fit",
+                          "text-[9px] font-bold tabular-nums px-1.5 py-0.5 rounded-full w-fit min-[1280px]:text-[10px]",
                           stockBajo ? "bg-destructive/10 text-destructive" : "bg-secondary text-secondary-foreground"
                         )}>
                           {product.stock} und
