@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, type ChangeEvent } from 'react'
 import { useEspacios } from '@/contexts/espacios-context'
 import { suscribirProductos, crearProducto, editarProducto, desactivarProducto, type Producto } from '@/lib/productos-service'
 import { suscribirInsumos, crearInsumo, editarInsumo, desactivarInsumo, type Insumo } from '@/lib/insumos-service'
 import { suscribirConsignadores, type Consignador } from '@/lib/consignadores-service'
 import { sugerirIconoBasadoEnNombre } from '@/lib/ai-icons'
+import { storage } from '@/lib/firebase'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import {
  Plus,
  Search,
@@ -18,6 +20,10 @@ import {
  AlertCircle,
  History,
  RotateCcw,
+ Loader2,
+ Upload,
+ X,
+ ImageIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -46,6 +52,15 @@ import {
 import { KardexVista } from '@/components/pos/kardex-vista'
 import { useKardex } from '@/hooks/use-kardex'
 import { type ArticuloTipo } from '@/lib/inventario-ledger'
+
+const PRODUCT_IMAGE_MAX_BYTES = 5 * 1024 * 1024
+const PRODUCT_IMAGE_ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+
+function getProductImageExtension(file: File) {
+ const extensionFromName = file.name.split('.').pop()?.toLowerCase()
+ if (extensionFromName && /^[a-z0-9]+$/.test(extensionFromName)) return extensionFromName
+ return file.type.split('/')[1] || 'jpg'
+}
 
 export function InventoryModule() {
  const [activeTab, setActiveTab] = useState('products')
@@ -336,7 +351,11 @@ export function InventoryModule() {
  <TableCell className="py-4">
  <div className="flex items-center gap-3">
  <div className="w-12 h-12 bg-background border border-border/50 flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+ {product.imagenUrl ? (
+ <img src={product.imagenUrl} alt={product.nombre} className="h-full w-full object-cover" />
+ ) : (
  <DynamicIcon name={product.icono ?? 'Package'} className="h-6 w-6 text-muted-foreground" />
+ )}
  </div>
  <span className="font-bold text-foreground text-[15px]">{product.nombre}</span>
  </div>
@@ -703,6 +722,11 @@ function NuevoProductoDialog({
  const [nuevoProdIva, setNuevoProdIva] = useState('19')
  const [prodConsignadorId, setProdConsignadorId] = useState('')
  const [prodStockInicial, setProdStockInicial] = useState('')
+ const [imagenArchivo, setImagenArchivo] = useState<File | null>(null)
+ const [imagenPreviewUrl, setImagenPreviewUrl] = useState('')
+ const [imagenRemovida, setImagenRemovida] = useState(false)
+ const [guardandoProducto, setGuardandoProducto] = useState(false)
+ const imagenInputRef = useRef<HTMLInputElement>(null)
 
  useEffect(() => {
  if (open && productoAEditar) {
@@ -717,6 +741,15 @@ function NuevoProductoDialog({
  setProdConsignadorId(productoAEditar.consignadorId)
  }
  setProdStockInicial(String(productoAEditar.stock))
+ setImagenArchivo(null)
+ setImagenPreviewUrl(productoAEditar.imagenUrl || '')
+ setImagenRemovida(false)
+ if (imagenInputRef.current) imagenInputRef.current.value = ''
+ } else if (open) {
+ setImagenArchivo(null)
+ setImagenPreviewUrl('')
+ setImagenRemovida(false)
+ if (imagenInputRef.current) imagenInputRef.current.value = ''
  } else if (!open) {
  setTimeout(() => {
  setNuevoProdNombre('')
@@ -728,18 +761,80 @@ function NuevoProductoDialog({
  setNuevoProdIva('19')
  setProdConsignadorId('')
  setProdStockInicial('')
+ setImagenArchivo(null)
+ setImagenPreviewUrl('')
+ setImagenRemovida(false)
+ setGuardandoProducto(false)
+ if (imagenInputRef.current) imagenInputRef.current.value = ''
  }, 200)
  }
  }, [open, productoAEditar])
 
+ useEffect(() => {
+ return () => {
+ if (imagenPreviewUrl.startsWith('blob:')) URL.revokeObjectURL(imagenPreviewUrl)
+ }
+ }, [imagenPreviewUrl])
+
+ const handleSeleccionarImagen = (event: ChangeEvent<HTMLInputElement>) => {
+ const file = event.target.files?.[0]
+ if (!file) return
+
+ if (!PRODUCT_IMAGE_ACCEPTED_TYPES.includes(file.type)) {
+ toast.error('Selecciona una imagen JPG, PNG, WebP o GIF')
+ if (imagenInputRef.current) imagenInputRef.current.value = ''
+ return
+ }
+
+ if (file.size <= 0) {
+ toast.error('La imagen seleccionada está vacía')
+ if (imagenInputRef.current) imagenInputRef.current.value = ''
+ return
+ }
+
+ if (file.size > PRODUCT_IMAGE_MAX_BYTES) {
+ toast.error('La imagen no puede superar 5MB')
+ if (imagenInputRef.current) imagenInputRef.current.value = ''
+ return
+ }
+
+ setImagenArchivo(file)
+ setImagenPreviewUrl(URL.createObjectURL(file))
+ setImagenRemovida(false)
+ }
+
+ const handleQuitarImagen = () => {
+ setImagenArchivo(null)
+ setImagenPreviewUrl('')
+ setImagenRemovida(true)
+ if (imagenInputRef.current) imagenInputRef.current.value = ''
+ }
+
+ const subirImagenProducto = async (file: File, espacioId: string) => {
+ const extension = getProductImageExtension(file)
+ const fileRef = ref(storage, `productos/${espacioId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`)
+ await uploadBytes(fileRef, file, { contentType: file.type })
+ return getDownloadURL(fileRef)
+ }
+
  const handleCrearProducto = async () => {
- if (!espacioActivo || !nuevoProdNombre || !nuevoProdPrecio || !nuevoProdCategoria) return
+ if (guardandoProducto) return
+ if (!espacioActivo || !nuevoProdNombre || !nuevoProdPrecio || !nuevoProdCategoria) {
+ toast.error('Completa nombre, precio y categoria')
+ return
+ }
  
  const precio = parseFloat(nuevoProdPrecio) || 0
  const precioMinuto = parseFloat(nuevoProdPrecioMinuto) || 0
  const stockInicialNum = parseFloat(prodStockInicial) || 0
 
- onOpenChange(false)
+ setGuardandoProducto(true)
+
+ try {
+ let imagenUrl: string | null = imagenRemovida ? null : (productoAEditar?.imagenUrl || null)
+ if (imagenArchivo) {
+ imagenUrl = await subirImagenProducto(imagenArchivo, espacioActivo.id)
+ }
 
  const productData: any = {
  nombre: nuevoProdNombre,
@@ -747,6 +842,7 @@ function NuevoProductoDialog({
  categoriaId: nuevoProdCategoria,
  espacioId: espacioActivo.id,
  icono: nuevoProdIcono,
+ imagenUrl,
  ...(nuevoProdCodigo ? { codigo: nuevoProdCodigo } : {}),
  ...(nuevoProdIva ? { iva: parseFloat(nuevoProdIva) || 0 } : {}),
  ...(precioMinuto > 0 ? { precioFraccion: precioMinuto } : {})
@@ -774,10 +870,16 @@ function NuevoProductoDialog({
   await crearProducto(productData)
   toast.success('Producto creado')
   }
+  onOpenChange(false)
+ } catch (error: any) {
+ toast.error(error?.message || 'No se pudo guardar el producto')
+ } finally {
+ setGuardandoProducto(false)
+ }
  }
 
  return (
- <Dialog open={open} onOpenChange={onOpenChange}>
+ <Dialog open={open} onOpenChange={(nextOpen) => { if (!guardandoProducto) onOpenChange(nextOpen) }}>
  <DialogContent className="theme-pos bg-background border-border max-w-lg p-0 gap-0 overflow-hidden sm:">
  <div className="p-6 border-b border-border/50">
  <DialogHeader>
@@ -838,6 +940,66 @@ function NuevoProductoDialog({
  </Select>
  </div>
 
+ <div className="space-y-2 sm:col-span-2">
+ <Label className="text-sm font-medium">Imagen (Opcional)</Label>
+ <input
+ ref={imagenInputRef}
+ type="file"
+ accept="image/jpeg,image/png,image/webp,image/gif"
+ className="hidden"
+ onChange={handleSeleccionarImagen}
+ disabled={guardandoProducto}
+ />
+ {imagenPreviewUrl ? (
+ <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/50 p-3">
+ <div className="h-20 w-20 overflow-hidden rounded-lg border border-border/50 bg-secondary/40 flex-shrink-0">
+ <img src={imagenPreviewUrl} alt="Vista previa del producto" className="h-full w-full object-cover" />
+ </div>
+ <div className="min-w-0 flex-1">
+ <p className="truncate text-sm font-semibold text-foreground">
+ {imagenArchivo?.name || 'Imagen actual'}
+ </p>
+ <p className="text-xs text-muted-foreground">JPG, PNG, WebP o GIF. Max 5MB.</p>
+ <div className="mt-2 flex flex-wrap gap-2">
+ <Button
+ type="button"
+ variant="outline"
+ size="sm"
+ className="gap-2"
+ onClick={() => imagenInputRef.current?.click()}
+ disabled={guardandoProducto}
+ >
+ <Upload className="h-3.5 w-3.5" />
+ Cambiar
+ </Button>
+ <Button
+ type="button"
+ variant="ghost"
+ size="sm"
+ className="gap-2 text-destructive hover:text-destructive"
+ onClick={handleQuitarImagen}
+ disabled={guardandoProducto}
+ >
+ <X className="h-3.5 w-3.5" />
+ Quitar
+ </Button>
+ </div>
+ </div>
+ </div>
+ ) : (
+ <Button
+ type="button"
+ variant="outline"
+ className="h-20 w-full border-dashed gap-2 text-muted-foreground"
+ onClick={() => imagenInputRef.current?.click()}
+ disabled={guardandoProducto}
+ >
+ <ImageIcon className="h-5 w-5" />
+ Seleccionar imagen
+ </Button>
+ )}
+ </div>
+
  {!esAlquilerOFoto && (
  <>
  <div className="grid gap-2 col-span-1">
@@ -892,11 +1054,16 @@ function NuevoProductoDialog({
  </div>
  <div className="p-6 pt-4 border-t border-border/50 ">
  <DialogFooter>
- <Button variant="outline" onClick={() => onOpenChange(false)} className="">
+ <Button variant="outline" onClick={() => onOpenChange(false)} disabled={guardandoProducto} className="">
  Cancelar
  </Button>
- <Button className="bg-primary text-primary-foreground shadow-lg transition-all" onClick={handleCrearProducto}>
- {productoAEditar ? 'Guardar Cambios' : 'Guardar Producto'}
+ <Button className="bg-primary text-primary-foreground shadow-lg transition-all" onClick={handleCrearProducto} disabled={guardandoProducto}>
+ {guardandoProducto ? (
+ <>
+ <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+ Guardando...
+ </>
+ ) : productoAEditar ? 'Guardar Cambios' : 'Guardar Producto'}
  </Button>
  </DialogFooter>
  </div>
