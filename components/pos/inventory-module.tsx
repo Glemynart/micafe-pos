@@ -55,11 +55,70 @@ import { type ArticuloTipo } from '@/lib/inventario-ledger'
 
 const PRODUCT_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 const PRODUCT_IMAGE_ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const PRODUCT_IMAGE_NORMALIZED_SIZE = 400
+const PRODUCT_IMAGE_OUTPUT_TYPE = 'image/webp'
+const PRODUCT_IMAGE_OUTPUT_QUALITY = 0.88
 
 function getProductImageExtension(file: File) {
  const extensionFromName = file.name.split('.').pop()?.toLowerCase()
  if (extensionFromName && /^[a-z0-9]+$/.test(extensionFromName)) return extensionFromName
  return file.type.split('/')[1] || 'jpg'
+}
+
+function getNormalizedProductImageName(file: File) {
+ const baseName = file.name.replace(/\.[^/.]+$/, '') || 'producto'
+ return `${baseName}.webp`
+}
+
+function loadProductImage(file: File) {
+ return new Promise<HTMLImageElement>((resolve, reject) => {
+ const imageUrl = URL.createObjectURL(file)
+ const image = new Image()
+ image.onload = () => {
+ URL.revokeObjectURL(imageUrl)
+ resolve(image)
+ }
+ image.onerror = () => {
+ URL.revokeObjectURL(imageUrl)
+ reject(new Error('No se pudo leer la imagen seleccionada'))
+ }
+ image.src = imageUrl
+ })
+}
+
+async function normalizeProductImage(file: File) {
+ const image = await loadProductImage(file)
+ const canvas = document.createElement('canvas')
+ canvas.width = PRODUCT_IMAGE_NORMALIZED_SIZE
+ canvas.height = PRODUCT_IMAGE_NORMALIZED_SIZE
+
+ const context = canvas.getContext('2d')
+ if (!context) throw new Error('No se pudo preparar la imagen')
+
+ const scale = Math.max(
+ PRODUCT_IMAGE_NORMALIZED_SIZE / image.naturalWidth,
+ PRODUCT_IMAGE_NORMALIZED_SIZE / image.naturalHeight
+ )
+ const width = Math.round(image.naturalWidth * scale)
+ const height = Math.round(image.naturalHeight * scale)
+ const x = Math.round((PRODUCT_IMAGE_NORMALIZED_SIZE - width) / 2)
+ const y = Math.round((PRODUCT_IMAGE_NORMALIZED_SIZE - height) / 2)
+
+ context.imageSmoothingEnabled = true
+ context.imageSmoothingQuality = 'high'
+ context.drawImage(image, x, y, width, height)
+
+ const blob = await new Promise<Blob>((resolve, reject) => {
+ canvas.toBlob((result) => {
+ if (result) resolve(result)
+ else reject(new Error('No se pudo normalizar la imagen'))
+ }, PRODUCT_IMAGE_OUTPUT_TYPE, PRODUCT_IMAGE_OUTPUT_QUALITY)
+ })
+
+ return new File([blob], getNormalizedProductImageName(file), {
+ type: PRODUCT_IMAGE_OUTPUT_TYPE,
+ lastModified: Date.now(),
+ })
 }
 
 export function InventoryModule() {
@@ -235,11 +294,11 @@ export function InventoryModule() {
  }
 
  return (
- <div className="flex flex-col h-full p-4 gap-4">
+<div className="flex flex-col h-full min-h-0 overflow-hidden p-3 gap-3 sm:p-4 sm:gap-4">
  {/* Header */}
- <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-[2rem] border border-border/50 shadow-sm">
+<div className="shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 sm:p-6 rounded-[2rem] border border-border/50 shadow-sm">
  <div>
- <h1 className="text-3xl font-black tracking-tight text-foreground flex items-center gap-3">
+<h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground flex items-center gap-3">
  Inventario 
  {espacioActivo && (
  <div className="flex items-center justify-center h-10 w-10 shadow-inner" style={{ backgroundColor: `${espacioActivo.color}20` }}>
@@ -251,7 +310,7 @@ export function InventoryModule() {
  {espacioActivo ? `Gestionando productos de ${espacioActivo.nombre}` : 'Cargando espacio...'}
  </p>
  </div>
- <div className="flex items-center gap-3 w-full md:w-auto">
+<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
  {/* Filtro por categoría */}
  <Select value={categoriaFiltro} onValueChange={setCategoriaFiltro}>
  <SelectTrigger className="w-full md:w-48 bg-background border-border/50 h-12 shadow-sm focus:ring-primary/50 font-medium">
@@ -282,15 +341,15 @@ export function InventoryModule() {
  </div>
 
  {/* Tabs */}
- <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+<Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 flex flex-col">
  {esCafeteria && (
- <div className="px-1 mt-2">
- <TabsList className="bg-secondary/40 p-1.5 border border-border/30 inline-flex shadow-inner">
- <TabsTrigger value="products" className="px-6 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md gap-2 font-bold transition-all">
+<div className="shrink-0 px-1 mt-1 sm:mt-2 overflow-x-auto touch-pan-x">
+<TabsList className="bg-secondary/40 p-1.5 border border-border/30 inline-flex shadow-inner min-w-max">
+<TabsTrigger value="products" className="px-4 sm:px-6 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md gap-2 font-bold transition-all">
  <Package className="h-4 w-4" />
  Productos
  </TabsTrigger>
- <TabsTrigger value="ingredients" className="px-6 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md gap-2 font-bold transition-all">
+<TabsTrigger value="ingredients" className="px-4 sm:px-6 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md gap-2 font-bold transition-all">
  <Beaker className="h-4 w-4" />
  Insumos / Ingredientes
  </TabsTrigger>
@@ -299,19 +358,19 @@ export function InventoryModule() {
  )}
 
  {/* Products Tab */}
- <TabsContent value="products" className="flex-1 mt-6 animate-fade-in">
- <Card className="bg-card h-full flex flex-col border-border/50 rounded-[2rem] shadow-lg overflow-hidden">
- <div className="flex justify-between items-center p-5 border-b border-border/50">
+<TabsContent value="products" className="flex-1 min-h-0 mt-3 sm:mt-6 animate-fade-in">
+<Card className="bg-card h-full min-h-0 flex flex-col border-border/50 rounded-[2rem] shadow-lg overflow-hidden">
+<div className="shrink-0 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 sm:p-5 border-b border-border/50">
  <h3 className="font-bold tracking-tight text-xl flex items-center gap-2 text-foreground">
  <Package className="h-6 w-6 text-primary" />
  {esConsignacion ? 'Productos en Consignación' : esAlquiler ? 'Tiempos de Alquiler' : esAlquilerOFoto ? 'Servicios de Fotografía' : 'Tus Productos'}
  </h3>
- <Button onClick={() => { setProductoAEditar(null); setShowProductDialog(true); }} className="h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 shadow-lg transition-all ">
+<Button onClick={() => { setProductoAEditar(null); setShowProductDialog(true); }} className="h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 shadow-lg transition-all w-full sm:w-auto">
  <Plus className="h-5 w-5 mr-2" />
  Nuevo Producto
  </Button>
  </div>
- <CardContent className="flex-1 p-0 overflow-auto">
+<CardContent className="flex-1 min-h-0 p-0 overflow-auto touch-pan-y overscroll-contain">
  {(cargandoProductos || cargandoEspacios) ? (
  <div className="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground">
  <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
@@ -323,7 +382,7 @@ export function InventoryModule() {
  <p className="text-sm">No hay productos en este espacio</p>
  </div>
  ) : (
- <Table>
+<Table className="min-w-[760px]">
  <TableHeader className="bg-secondary/20">
  <TableRow className="border-border/50 hover:bg-transparent">
  <TableHead className="text-muted-foreground font-bold h-12">Producto</TableHead>
@@ -429,19 +488,19 @@ export function InventoryModule() {
  </TabsContent>
 
  {/* Ingredients Tab */}
- <TabsContent value="ingredients" className="flex-1 mt-6 animate-fade-in">
- <Card className="bg-card h-full flex flex-col border-border/50 rounded-[2rem] shadow-lg overflow-hidden">
- <div className="flex justify-between items-center p-5 border-b border-border/50">
+<TabsContent value="ingredients" className="flex-1 min-h-0 mt-3 sm:mt-6 animate-fade-in">
+<Card className="bg-card h-full min-h-0 flex flex-col border-border/50 rounded-[2rem] shadow-lg overflow-hidden">
+<div className="shrink-0 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 sm:p-5 border-b border-border/50">
  <h3 className="font-bold tracking-tight text-xl flex items-center gap-2 text-foreground">
  <Beaker className="h-6 w-6 text-primary" />
  Ingredientes y Materia Prima
  </h3>
- <Button onClick={() => { setInsumoAEditar(null); setShowIngredientDialog(true); }} className="h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 shadow-lg transition-all ">
+<Button onClick={() => { setInsumoAEditar(null); setShowIngredientDialog(true); }} className="h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 shadow-lg transition-all w-full sm:w-auto">
  <Plus className="h-5 w-5 mr-2" />
  Nuevo Insumo
  </Button>
  </div>
- <CardContent className="flex-1 p-0 overflow-auto">
+<CardContent className="flex-1 min-h-0 p-0 overflow-auto touch-pan-y overscroll-contain">
  {(cargandoInsumos || cargandoEspacios) ? (
  <div className="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground">
  <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
@@ -453,7 +512,7 @@ export function InventoryModule() {
  <p className="text-sm">No hay insumos registrados en este espacio</p>
  </div>
  ) : (
- <Table>
+<Table className="min-w-[720px]">
  <TableHeader className="bg-secondary/20">
  <TableRow className="border-border/50 hover:bg-transparent">
  <TableHead className="text-muted-foreground font-bold h-12">Insumo</TableHead>
@@ -725,6 +784,7 @@ function NuevoProductoDialog({
  const [imagenArchivo, setImagenArchivo] = useState<File | null>(null)
  const [imagenPreviewUrl, setImagenPreviewUrl] = useState('')
  const [imagenRemovida, setImagenRemovida] = useState(false)
+ const [procesandoImagen, setProcesandoImagen] = useState(false)
  const [guardandoProducto, setGuardandoProducto] = useState(false)
  const imagenInputRef = useRef<HTMLInputElement>(null)
 
@@ -744,11 +804,13 @@ function NuevoProductoDialog({
  setImagenArchivo(null)
  setImagenPreviewUrl(productoAEditar.imagenUrl || '')
  setImagenRemovida(false)
+ setProcesandoImagen(false)
  if (imagenInputRef.current) imagenInputRef.current.value = ''
  } else if (open) {
  setImagenArchivo(null)
  setImagenPreviewUrl('')
  setImagenRemovida(false)
+ setProcesandoImagen(false)
  if (imagenInputRef.current) imagenInputRef.current.value = ''
  } else if (!open) {
  setTimeout(() => {
@@ -764,6 +826,7 @@ function NuevoProductoDialog({
  setImagenArchivo(null)
  setImagenPreviewUrl('')
  setImagenRemovida(false)
+ setProcesandoImagen(false)
  setGuardandoProducto(false)
  if (imagenInputRef.current) imagenInputRef.current.value = ''
  }, 200)
@@ -776,7 +839,7 @@ function NuevoProductoDialog({
  }
  }, [imagenPreviewUrl])
 
- const handleSeleccionarImagen = (event: ChangeEvent<HTMLInputElement>) => {
+ const handleSeleccionarImagen = async (event: ChangeEvent<HTMLInputElement>) => {
  const file = event.target.files?.[0]
  if (!file) return
 
@@ -798,15 +861,25 @@ function NuevoProductoDialog({
  return
  }
 
- setImagenArchivo(file)
- setImagenPreviewUrl(URL.createObjectURL(file))
+ setProcesandoImagen(true)
+ try {
+ const normalizedFile = await normalizeProductImage(file)
+ setImagenArchivo(normalizedFile)
+ setImagenPreviewUrl(URL.createObjectURL(normalizedFile))
  setImagenRemovida(false)
+ } catch (error: any) {
+ toast.error(error?.message || 'No se pudo preparar la imagen')
+ if (imagenInputRef.current) imagenInputRef.current.value = ''
+ } finally {
+ setProcesandoImagen(false)
+ }
  }
 
  const handleQuitarImagen = () => {
  setImagenArchivo(null)
  setImagenPreviewUrl('')
  setImagenRemovida(true)
+ setProcesandoImagen(false)
  if (imagenInputRef.current) imagenInputRef.current.value = ''
  }
 
@@ -819,6 +892,10 @@ function NuevoProductoDialog({
 
  const handleCrearProducto = async () => {
  if (guardandoProducto) return
+ if (procesandoImagen) {
+ toast.error('Espera a que termine de prepararse la imagen')
+ return
+ }
  if (!espacioActivo || !nuevoProdNombre || !nuevoProdPrecio || !nuevoProdCategoria) {
  toast.error('Completa nombre, precio y categoria')
  return
@@ -879,7 +956,7 @@ function NuevoProductoDialog({
  }
 
  return (
- <Dialog open={open} onOpenChange={(nextOpen) => { if (!guardandoProducto) onOpenChange(nextOpen) }}>
+ <Dialog open={open} onOpenChange={(nextOpen) => { if (!guardandoProducto && !procesandoImagen) onOpenChange(nextOpen) }}>
  <DialogContent className="theme-pos bg-background border-border max-w-lg p-0 gap-0 overflow-hidden sm:">
  <div className="p-6 border-b border-border/50">
  <DialogHeader>
@@ -948,7 +1025,7 @@ function NuevoProductoDialog({
  accept="image/jpeg,image/png,image/webp,image/gif"
  className="hidden"
  onChange={handleSeleccionarImagen}
- disabled={guardandoProducto}
+ disabled={guardandoProducto || procesandoImagen}
  />
  {imagenPreviewUrl ? (
  <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/50 p-3">
@@ -959,7 +1036,7 @@ function NuevoProductoDialog({
  <p className="truncate text-sm font-semibold text-foreground">
  {imagenArchivo?.name || 'Imagen actual'}
  </p>
- <p className="text-xs text-muted-foreground">JPG, PNG, WebP o GIF. Max 5MB.</p>
+ <p className="text-xs text-muted-foreground">Se guarda como WebP 400x400. Max 5MB.</p>
  <div className="mt-2 flex flex-wrap gap-2">
  <Button
  type="button"
@@ -967,7 +1044,7 @@ function NuevoProductoDialog({
  size="sm"
  className="gap-2"
  onClick={() => imagenInputRef.current?.click()}
- disabled={guardandoProducto}
+ disabled={guardandoProducto || procesandoImagen}
  >
  <Upload className="h-3.5 w-3.5" />
  Cambiar
@@ -978,7 +1055,7 @@ function NuevoProductoDialog({
  size="sm"
  className="gap-2 text-destructive hover:text-destructive"
  onClick={handleQuitarImagen}
- disabled={guardandoProducto}
+ disabled={guardandoProducto || procesandoImagen}
  >
  <X className="h-3.5 w-3.5" />
  Quitar
@@ -992,10 +1069,10 @@ function NuevoProductoDialog({
  variant="outline"
  className="h-20 w-full border-dashed gap-2 text-muted-foreground"
  onClick={() => imagenInputRef.current?.click()}
- disabled={guardandoProducto}
+ disabled={guardandoProducto || procesandoImagen}
  >
  <ImageIcon className="h-5 w-5" />
- Seleccionar imagen
+ {procesandoImagen ? 'Preparando imagen...' : 'Seleccionar imagen'}
  </Button>
  )}
  </div>
@@ -1054,14 +1131,14 @@ function NuevoProductoDialog({
  </div>
  <div className="p-6 pt-4 border-t border-border/50 ">
  <DialogFooter>
- <Button variant="outline" onClick={() => onOpenChange(false)} disabled={guardandoProducto} className="">
+ <Button variant="outline" onClick={() => onOpenChange(false)} disabled={guardandoProducto || procesandoImagen} className="">
  Cancelar
  </Button>
- <Button className="bg-primary text-primary-foreground shadow-lg transition-all" onClick={handleCrearProducto} disabled={guardandoProducto}>
- {guardandoProducto ? (
+ <Button className="bg-primary text-primary-foreground shadow-lg transition-all" onClick={handleCrearProducto} disabled={guardandoProducto || procesandoImagen}>
+ {guardandoProducto || procesandoImagen ? (
  <>
  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
- Guardando...
+ {procesandoImagen ? 'Preparando...' : 'Guardando...'}
  </>
  ) : productoAEditar ? 'Guardar Cambios' : 'Guardar Producto'}
  </Button>

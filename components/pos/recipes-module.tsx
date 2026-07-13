@@ -139,11 +139,11 @@ export function RecipesModule() {
  const productosSinReceta = productos.filter(p => !recetas.some(r => r.productoId === p.id))
 
  return (
- <div className="flex flex-col h-full p-4 gap-4">
+<div className="flex flex-col h-full min-h-0 overflow-hidden p-3 gap-3 sm:p-4 sm:gap-4">
  {/* Header */}
- <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-[2rem] border border-border/50 shadow-sm">
+<div className="shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 sm:p-6 rounded-[2rem] border border-border/50 shadow-sm">
  <div>
- <h1 className="text-3xl font-black tracking-tight text-foreground flex items-center gap-3">
+<h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground flex items-center gap-3">
  <div className="flex items-center justify-center h-10 w-10 bg-primary/10 shadow-inner">
  <ChefHat className="h-6 w-6 text-primary" />
  </div>
@@ -151,7 +151,7 @@ export function RecipesModule() {
  </h1>
  <p className="text-muted-foreground font-medium mt-1">Gestiona las recetas y calcula costos automáticamente</p>
  </div>
- <div className="flex items-center gap-3 w-full md:w-auto">
+<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
  <div className="relative w-full md:w-auto">
  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
  <Input
@@ -161,7 +161,7 @@ export function RecipesModule() {
  className="pl-10 w-full md:w-72 bg-background border-border/50 h-12 shadow-sm focus:ring-primary/50 font-medium transition-all"
  />
  </div>
- <Button onClick={handleOpenNewRecipe} className="h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 shadow-lg transition-all ">
+<Button onClick={handleOpenNewRecipe} className="h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 shadow-lg transition-all w-full sm:w-auto">
  <Plus className="h-5 w-5 mr-2" />
  Nueva Receta
  </Button>
@@ -169,7 +169,7 @@ export function RecipesModule() {
  </div>
 
  {/* Recipes Grid */}
- <ScrollArea className="flex-1">
+<ScrollArea className="flex-1 min-h-0 touch-pan-y overscroll-contain">
  {recetasMapeadas.length === 0 ? (
  <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground bg-card/30 rounded-[2rem] border border-border/50 border-dashed mt-4">
  <div className="p-4 rounded-full bg-secondary/30">
@@ -178,19 +178,19 @@ export function RecipesModule() {
  <p className="font-medium">No hay recetas configuradas en este espacio</p>
  </div>
  ) : (
- <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pr-4 mt-4 pb-10">
+<div className="grid grid-cols-1 min-[1180px]:grid-cols-2 min-[1600px]:grid-cols-3 gap-4 sm:gap-6 pr-3 sm:pr-4 mt-3 sm:mt-4 pb-8 sm:pb-10">
  {recetasMapeadas.map((recipe, idx) => {
  const production = getMinProduction(recipe)
  return (
  <Card 
  key={recipe.id}
- className="backdrop-blur-sm border-border/50 shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-300 rounded-[2rem] overflow-hidden group animate-fade-in flex flex-col"
+className="backdrop-blur-sm border-border/50 shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-300 rounded-[2rem] overflow-hidden group animate-fade-in flex flex-col"
  style={{ animationDelay: `${idx * 50}ms` }}
  >
- <CardHeader className="pb-4 bg-gradient-to-b from-secondary/20 ">
+<CardHeader className="pb-3 sm:pb-4 bg-gradient-to-b from-secondary/20 ">
  <div className="flex items-start justify-between">
  <div>
- <CardTitle className="text-xl font-bold text-foreground mb-1 group-hover:text-primary transition-colors">{recipe.productoNombre}</CardTitle>
+<CardTitle className="text-lg sm:text-xl font-bold text-foreground mb-1 group-hover:text-primary transition-colors line-clamp-2">{recipe.productoNombre}</CardTitle>
  <CardDescription className="text-muted-foreground font-medium flex items-center gap-1.5">
  <Beaker className="h-3.5 w-3.5" />
  {recipe.ingredientes.length} ingredientes
@@ -206,7 +206,7 @@ export function RecipesModule() {
  </div>
  </div>
  </CardHeader>
- <CardContent className="space-y-5 flex-1 flex flex-col">
+<CardContent className="space-y-4 sm:space-y-5 flex-1 flex flex-col">
   <div className="space-y-2.5 flex-1">
   {recipe.ingredientes.slice(0, 3).map((ing, i) => (
   <div key={i} className="flex items-center justify-between text-sm bg-secondary/20 px-3 py-2.5 rounded-lg">
