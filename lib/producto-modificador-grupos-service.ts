@@ -166,6 +166,15 @@ function construirRelacionId(productoId: string, grupoId: string): string {
   return `${productoId}_${grupoId}`;
 }
 
+function mapearRelaciones(snap: Awaited<ReturnType<typeof getDocs>>): ProductoModificadorGrupo[] {
+  return snap.docs
+    .map((relDoc) => ({
+      id: relDoc.id,
+      ...(relDoc.data() as Omit<ProductoModificadorGrupo, "id">),
+    }))
+    .sort((a, b) => a.orden - b.orden || a.grupoId.localeCompare(b.grupoId));
+}
+
 export function suscribirProductoModificadorGrupos(
   productoId: string,
   callback: (relaciones: ProductoModificadorGrupo[]) => void
@@ -177,15 +186,37 @@ export function suscribirProductoModificadorGrupos(
   );
 
   return onSnapshot(q, (snap) => {
-    const relaciones: ProductoModificadorGrupo[] = snap.docs
-      .map((relDoc) => ({
-        id: relDoc.id,
-        ...(relDoc.data() as Omit<ProductoModificadorGrupo, "id">),
-      }))
-      .sort((a, b) => a.orden - b.orden || a.grupoId.localeCompare(b.grupoId));
-
-    callback(relaciones);
+    callback(mapearRelaciones(snap));
   });
+}
+
+/** Suscripción administrativa: incluye relaciones activas e inactivas. */
+export function suscribirTodosProductoModificadorGrupos(
+  productoId: string,
+  callback: (relaciones: ProductoModificadorGrupo[]) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, COLLECTION_NAME),
+    where("productoId", "==", productoId)
+  );
+
+  return onSnapshot(q, (snap) => callback(mapearRelaciones(snap)));
+}
+
+/**
+ * Suscripción administrativa agregada por espacio. Evita abrir una consulta
+ * por cada fila de productos al mostrar el resumen de modificadores.
+ */
+export function suscribirProductoModificadorGruposPorEspacio(
+  espacioId: string,
+  callback: (relaciones: ProductoModificadorGrupo[]) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, COLLECTION_NAME),
+    where("espacioId", "==", espacioId)
+  );
+
+  return onSnapshot(q, (snap) => callback(mapearRelaciones(snap)));
 }
 
 export async function listarProductoModificadorGrupos(
@@ -198,12 +229,80 @@ export async function listarProductoModificadorGrupos(
   );
   const snap = await getDocs(q);
 
-  return snap.docs
-    .map((relDoc) => ({
-      id: relDoc.id,
-      ...(relDoc.data() as Omit<ProductoModificadorGrupo, "id">),
-    }))
-    .sort((a, b) => a.orden - b.orden || a.grupoId.localeCompare(b.grupoId));
+  return mapearRelaciones(snap);
+}
+
+/** Reactiva una relación existente sin sobrescribir sus overrides o límites. */
+export async function reactivarGrupoEnProducto(
+  productoId: string,
+  grupoId: string
+): Promise<void> {
+  const productoNormalizado = validarTextoObligatorio(productoId, "productoId");
+  const grupoNormalizado = validarTextoObligatorio(grupoId, "grupoId");
+  const relacionId = construirRelacionId(
+    productoNormalizado,
+    grupoNormalizado
+  );
+  const relacionRef = doc(db, COLLECTION_NAME, relacionId);
+  const grupoRef = doc(db, "modificador_grupos", grupoNormalizado);
+
+  await runTransaction(db, async (transaction) => {
+    const [relacionSnap, grupoSnap] = await Promise.all([
+      transaction.get(relacionRef),
+      transaction.get(grupoRef),
+    ]);
+    if (!relacionSnap.exists()) {
+      throw new Error("Relacion producto-grupo no encontrada.");
+    }
+    if (relacionSnap.data().productoId !== productoNormalizado) {
+      throw new Error("La relacion no pertenece al producto indicado.");
+    }
+    if (!grupoSnap.exists() || !grupoSnap.data().activo) {
+      throw new Error("No se puede reactivar un grupo de modificadores inactivo.");
+    }
+    transaction.update(relacionRef, {
+      activo: true,
+      actualizadoEn: serverTimestamp(),
+    });
+  });
+}
+
+/**
+ * Normaliza el orden de relaciones de un producto en una única transacción.
+ * `grupoIdsOrdenados` no admite duplicados y debe referenciar relaciones del
+ * producto indicado.
+ */
+export async function reordenarProductoModificadorGrupos(
+  productoId: string,
+  grupoIdsOrdenados: string[]
+): Promise<void> {
+  const productoNormalizado = validarTextoObligatorio(productoId, "productoId");
+  const grupoIds = validarOpcionesUnicas(grupoIdsOrdenados, "grupoIdsOrdenados");
+  if (grupoIds.length === 0) return;
+
+  await runTransaction(db, async (transaction) => {
+    const referencias = grupoIds.map((grupoId) => ({
+      grupoId,
+      ref: doc(db, COLLECTION_NAME, construirRelacionId(productoNormalizado, grupoId)),
+    }));
+    const snapshots = await Promise.all(referencias.map(({ ref }) => transaction.get(ref)));
+
+    snapshots.forEach((snap, index) => {
+      if (!snap.exists()) {
+        throw new Error(`Relacion producto-grupo no encontrada para "${referencias[index].grupoId}".`);
+      }
+      if (snap.data().productoId !== productoNormalizado) {
+        throw new Error("Una relacion no pertenece al producto indicado.");
+      }
+    });
+
+    referencias.forEach(({ ref }, orden) => {
+      transaction.update(ref, {
+        orden,
+        actualizadoEn: serverTimestamp(),
+      });
+    });
+  });
 }
 
 export async function asignarGrupoAProducto(
