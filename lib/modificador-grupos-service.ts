@@ -11,6 +11,7 @@ import {
   deleteField,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   query,
   serverTimestamp,
@@ -141,6 +142,35 @@ function normalizarGrupo(data: ModificadorGrupoInput): ModificadorGrupoInput {
   };
 }
 
+async function validarOpcionesNoReferenciadas(
+  grupoId: string,
+  opcionesEliminadas: string[]
+): Promise<void> {
+  if (opcionesEliminadas.length === 0) return;
+
+  const relacionesSnap = await getDocs(query(
+    collection(db, "producto_modificador_grupos"),
+    where("grupoId", "==", grupoId)
+  ));
+
+  const relacionadas = relacionesSnap.docs.filter((relacionDoc) => {
+    const relacion = relacionDoc.data() as {
+      opcionesPermitidas?: string[];
+      opcionOverrides?: Record<string, unknown>;
+    };
+    return opcionesEliminadas.some((opcionId) =>
+      relacion.opcionesPermitidas?.includes(opcionId) ||
+      Object.prototype.hasOwnProperty.call(relacion.opcionOverrides ?? {}, opcionId)
+    );
+  });
+
+  if (relacionadas.length > 0) {
+    throw new Error(
+      "No se puede eliminar una opción mientras existan productos con restricciones u overrides para ella. Ajusta primero esas relaciones."
+    );
+  }
+}
+
 export function suscribirModificadorGrupos(
   espacioId: string,
   callback: (grupos: ModificadorGrupo[]) => void
@@ -230,6 +260,13 @@ export async function editarModificadorGrupo(
     orden: data.orden ?? actual.orden,
     opciones: data.opciones ?? actual.opciones ?? [],
   });
+
+  if (data.opciones !== undefined) {
+    const opcionesActuales = new Set((actual.opciones ?? []).map((opcion) => opcion.id));
+    const opcionesNuevas = new Set(payload.opciones.map((opcion) => opcion.id));
+    const opcionesEliminadas = [...opcionesActuales].filter((opcionId) => !opcionesNuevas.has(opcionId));
+    await validarOpcionesNoReferenciadas(grupoId, opcionesEliminadas);
+  }
 
   await updateDoc(grupoRef, {
     ...payload,

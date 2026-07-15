@@ -24,6 +24,7 @@ import {
  Upload,
  X,
  ImageIcon,
+ SlidersHorizontal,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -52,6 +53,10 @@ import {
 import { KardexVista } from '@/components/pos/kardex-vista'
 import { useKardex } from '@/hooks/use-kardex'
 import { type ArticuloTipo } from '@/lib/inventario-ledger'
+import { ModifierGroupsTab } from '@/components/pos/modifier-groups-tab'
+import { ProductModifierGroupsSheet } from '@/components/pos/product-modifier-groups-sheet'
+import { suscribirTodosModificadorGrupos, type ModificadorGrupo } from '@/lib/modificador-grupos-service'
+import { suscribirProductoModificadorGruposPorEspacio, type ProductoModificadorGrupo } from '@/lib/producto-modificador-grupos-service'
 
 const PRODUCT_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 const PRODUCT_IMAGE_ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
@@ -127,6 +132,7 @@ export function InventoryModule() {
  const [categoriaFiltro, setCategoriaFiltro] = useState<string>('todos')
  const [showProductDialog, setShowProductDialog] = useState(false)
  const [productoAEditar, setProductoAEditar] = useState<Producto | null>(null)
+ const [productoModificadores, setProductoModificadores] = useState<Producto | null>(null)
  const [showIngredientDialog, setShowIngredientDialog] = useState(false)
  const [insumoAEditar, setInsumoAEditar] = useState<Insumo | null>(null)
  const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'producto' | 'insumo' } | null>(null)
@@ -138,6 +144,8 @@ export function InventoryModule() {
  const [cargandoProductos, setCargandoProductos] = useState(true)
  const [cargandoInsumos, setCargandoInsumos] = useState(true)
  const [consignadores, setConsignadores] = useState<Consignador[]>([])
+ const [gruposModificadores, setGruposModificadores] = useState<ModificadorGrupo[]>([])
+ const [relacionesModificadores, setRelacionesModificadores] = useState<ProductoModificadorGrupo[]>([])
 
  const esConsignacion = espacioActivo?.nombre.toLowerCase().includes('consign') ?? false
  const esAlquiler = espacioActivo?.nombre.toLowerCase().includes('alquiler') ?? false
@@ -187,6 +195,21 @@ export function InventoryModule() {
  unsubIns()
  }
  }, [espacioActivo?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+ useEffect(() => {
+  setProductoModificadores(null)
+ }, [espacioActivo?.id])
+
+ useEffect(() => {
+  if (!espacioActivo) {
+   setGruposModificadores([])
+   setRelacionesModificadores([])
+   return
+  }
+  const unsubGrupos = suscribirTodosModificadorGrupos(espacioActivo.id, setGruposModificadores)
+  const unsubRelaciones = suscribirProductoModificadorGruposPorEspacio(espacioActivo.id, setRelacionesModificadores)
+  return () => { unsubGrupos(); unsubRelaciones() }
+ }, [espacioActivo?.id])
 
  // Suscribir consignadores (solo se usa si el espacio es consignación)
  useEffect(() => {
@@ -310,6 +333,7 @@ export function InventoryModule() {
  {espacioActivo ? `Gestionando productos de ${espacioActivo.nombre}` : 'Cargando espacio...'}
  </p>
  </div>
+{activeTab !== 'modifiers' && (
 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
  {/* Filtro por categoría */}
  <Select value={categoriaFiltro} onValueChange={setCategoriaFiltro}>
@@ -338,24 +362,29 @@ export function InventoryModule() {
  />
  </div>
  </div>
+)}
  </div>
 
  {/* Tabs */}
 <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 flex flex-col">
- {esCafeteria && (
 <div className="shrink-0 px-1 mt-1 sm:mt-2 overflow-x-auto touch-pan-x">
 <TabsList className="bg-secondary/40 p-1.5 border border-border/30 inline-flex shadow-inner min-w-max">
 <TabsTrigger value="products" className="px-4 sm:px-6 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md gap-2 font-bold transition-all">
  <Package className="h-4 w-4" />
  Productos
  </TabsTrigger>
+<TabsTrigger value="modifiers" className="px-4 sm:px-6 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md gap-2 font-bold transition-all">
+ <SlidersHorizontal className="h-4 w-4" />
+ Modificadores
+ </TabsTrigger>
+{esCafeteria && (
 <TabsTrigger value="ingredients" className="px-4 sm:px-6 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md gap-2 font-bold transition-all">
  <Beaker className="h-4 w-4" />
  Insumos / Ingredientes
  </TabsTrigger>
+)}
  </TabsList>
  </div>
- )}
 
  {/* Products Tab */}
 <TabsContent value="products" className="flex-1 min-h-0 mt-3 sm:mt-6 animate-fade-in">
@@ -382,12 +411,13 @@ export function InventoryModule() {
  <p className="text-sm">No hay productos en este espacio</p>
  </div>
  ) : (
-<Table className="min-w-[760px]">
+<Table className="min-w-[880px]">
  <TableHeader className="bg-secondary/20">
  <TableRow className="border-border/50 hover:bg-transparent">
  <TableHead className="text-muted-foreground font-bold h-12">Producto</TableHead>
  <TableHead className="text-muted-foreground font-bold h-12">Categoría</TableHead>
  <TableHead className="text-muted-foreground font-bold h-12 text-right">{esAlquiler ? 'Precio/Hora' : 'Precio'}</TableHead>
+ <TableHead className="text-muted-foreground font-bold h-12">Modificadores</TableHead>
  {!esAlquilerOFoto && (
  <>
  <TableHead className="text-muted-foreground font-bold h-12 text-right">Costo</TableHead>
@@ -402,6 +432,10 @@ export function InventoryModule() {
  {filteredProducts.map((product, idx) => {
  const margin = calculateMargin(product.precio, product.costo)
  const cat = categorias.find(c => c.id === product.categoriaId)
+ const gruposAsignados = relacionesModificadores
+  .filter((relacion) => relacion.productoId === product.id && relacion.activo)
+  .map((relacion) => gruposModificadores.find((grupo) => grupo.id === relacion.grupoId))
+  .filter((grupo): grupo is ModificadorGrupo => !!grupo)
  return (
  <TableRow 
  key={product.id} 
@@ -427,6 +461,17 @@ export function InventoryModule() {
  </TableCell>
  <TableCell className="text-right font-black text-primary text-[15px]">
  {formatCurrency(product.precio)} {esAlquiler && <span className="text-xs text-muted-foreground font-normal">/hr</span>}
+ </TableCell>
+ <TableCell>
+  <div className="flex flex-wrap items-center gap-1.5 max-w-52">
+   {gruposAsignados.length === 0 ? <span className="text-xs text-muted-foreground">Sin grupos</span> : <>
+    {gruposAsignados.slice(0, 2).map((grupo) => <Badge key={grupo.id} variant="secondary" className="max-w-28 truncate">{grupo.nombre}</Badge>)}
+    {gruposAsignados.length > 2 && <Badge variant="outline">+{gruposAsignados.length - 2}</Badge>}
+   </>}
+   <Button variant="ghost" size="sm" className="h-7 px-2 gap-1" onClick={() => setProductoModificadores(product)}>
+    <SlidersHorizontal className="h-3.5 w-3.5" />Gestionar
+   </Button>
+  </div>
  </TableCell>
  {!esAlquilerOFoto && (
  <>
@@ -485,6 +530,10 @@ export function InventoryModule() {
  )}
  </CardContent>
  </Card>
+ </TabsContent>
+
+ <TabsContent value="modifiers" className="flex-1 min-h-0 mt-3 sm:mt-6 animate-fade-in">
+  <ModifierGroupsTab espacioId={espacioActivo?.id ?? null} />
  </TabsContent>
 
  {/* Ingredients Tab */}
@@ -598,6 +647,12 @@ export function InventoryModule() {
  esAlquiler={esAlquiler}
  esAlquilerOFoto={esAlquilerOFoto}
  productoAEditar={productoAEditar}
+ />
+
+ <ProductModifierGroupsSheet
+  open={productoModificadores !== null}
+  onOpenChange={(open) => { if (!open) setProductoModificadores(null) }}
+  producto={productoModificadores}
  />
 
  {/* New Ingredient Dialog */}
