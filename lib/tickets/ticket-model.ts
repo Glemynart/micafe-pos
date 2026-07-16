@@ -54,12 +54,19 @@ export interface TicketPie {
 
 export type TicketImpuestoTipo = 'excluido' | 'inc_8' | 'iva_19'
 
+/** Modificador comercial ya proyectado desde el snapshot U4 de la venta. */
+export interface TicketModificador {
+  nombre: string
+  precioDelta: number
+}
+
 export interface TicketItem {
   descripcion: string
   codigo?: string
   cantidad: number
   precioUnitario: number
   subtotal: number
+  modificadores?: TicketModificador[]
   /** Reservado: el dominio de ventas aún no produce descuentos por línea. */
   descuento?: number
   impuestoTipo?: TicketImpuestoTipo

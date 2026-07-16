@@ -161,6 +161,34 @@ test('Items: excluido se preserva tal cual', () => {
   assert.equal(input.items[0].impuestoTipo, 'excluido')
 })
 
+test('Items: proyecta modificadores exclusivamente desde el snapshot U4', () => {
+  const { input } = adaptarCheckoutAModeloTicket(venta({
+    items: [{
+      ...BASE_VENTA.items[0],
+      modificadores: [{
+        grupoId: 'tamano',
+        opcionIds: ['grande'],
+        nombreGrupo: 'TamaÃ±o',
+        opciones: [{ opcionId: 'grande', nombre: 'Grande', precioDelta: 0, cocinaNombre: 'VASO GRANDE' }],
+      }, {
+        grupoId: 'leche',
+        opcionIds: ['almendra', 'canela'],
+        nombreGrupo: 'Leche y extras',
+        opciones: [
+          { opcionId: 'almendra', nombre: 'Leche Almendra', precioDelta: 1500, cocinaNombre: 'ALMENDRA' },
+          { opcionId: 'canela', nombre: 'Canela', precioDelta: 0 },
+        ],
+      }],
+    }],
+  }), cfg())
+
+  assert.deepEqual(input.items[0].modificadores, [
+    { nombre: 'Grande', precioDelta: 0 },
+    { nombre: 'Leche Almendra', precioDelta: 1500 },
+    { nombre: 'Canela', precioDelta: 0 },
+  ])
+})
+
 // ── Empresa / regimen ────────────────────────────────────────────────────────
 
 test('Empresa: regimen desde regimenAlMomento (snapshot)', () => {

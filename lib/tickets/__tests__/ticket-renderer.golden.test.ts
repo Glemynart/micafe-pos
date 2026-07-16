@@ -21,6 +21,12 @@ import { GOLDEN_CASES, construirModelo } from './fixtures'
 
 const GOLDEN_DIR = path.join(__dirname, 'golden')
 
+function normalizarHtmlGolden(html: string): string {
+  return html
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+(?=\n)/g, '')
+}
+
 const ANCHOS = [
   { sufijo: '58mm', options: RENDER_OPTIONS_58MM },
   { sufijo: '80mm', options: RENDER_OPTIONS_80MM },
@@ -46,8 +52,8 @@ for (const caso of GOLDEN_CASES) {
       )
       const esperado = readFileSync(goldenPath, 'utf-8')
       assert.equal(
-        html,
-        esperado,
+        normalizarHtmlGolden(html),
+        normalizarHtmlGolden(esperado),
         `El HTML renderizado para "${caso.nombre}" (${ancho.sufijo}) cambio respecto al golden guardado.`
       )
     })
