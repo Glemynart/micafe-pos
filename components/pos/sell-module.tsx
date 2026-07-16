@@ -443,10 +443,14 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
 
     let gruposListos = false
     let relacionesListas = false
+    let catalogoConError = false
     const actualizarCarga = () => {
-      if (gruposListos && relacionesListas) setEstadoCatalogoModificadores('ready')
+      if (!catalogoConError && gruposListos && relacionesListas) {
+        setEstadoCatalogoModificadores('ready')
+      }
     }
     const manejarError = (error: { code?: string }) => {
+      catalogoConError = true
       setEstadoCatalogoModificadores('error')
       setErrorCatalogoModificadores(error.code === 'permission-denied'
         ? 'No tienes permisos para cargar los modificadores. Contacta a un administrador.'
