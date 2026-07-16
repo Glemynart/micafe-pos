@@ -7,7 +7,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const nextConfig = {
   images: { unoptimized: true },
   typescript: {
-    ignoreBuildErrors: true,
+    // MT-U0: el gate de CI (tsc --noEmit) y `next build` validan tipos.
+    // No se silencian errores de tipo en el build.
+    ignoreBuildErrors: false,
   },
   turbopack: {
     root: __dirname,
