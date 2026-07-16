@@ -17,6 +17,7 @@ import {
   serverTimestamp,
   updateDoc,
   where,
+  type FirestoreError,
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -173,7 +174,8 @@ async function validarOpcionesNoReferenciadas(
 
 export function suscribirModificadorGrupos(
   espacioId: string,
-  callback: (grupos: ModificadorGrupo[]) => void
+  callback: (grupos: ModificadorGrupo[]) => void,
+  onError?: (error: FirestoreError) => void,
 ): Unsubscribe {
   const q = query(
     collection(db, COLLECTION_NAME),
@@ -181,16 +183,20 @@ export function suscribirModificadorGrupos(
     where("activo", "==", true)
   );
 
-  return onSnapshot(q, (snap) => {
-    const grupos: ModificadorGrupo[] = snap.docs
-      .map((grupoDoc) => ({
-        id: grupoDoc.id,
-        ...(grupoDoc.data() as Omit<ModificadorGrupo, "id">),
-      }))
-      .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const grupos: ModificadorGrupo[] = snap.docs
+        .map((grupoDoc) => ({
+          id: grupoDoc.id,
+          ...(grupoDoc.data() as Omit<ModificadorGrupo, "id">),
+        }))
+        .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
 
-    callback(grupos);
-  });
+      callback(grupos);
+    },
+    onError,
+  );
 }
 
 export function suscribirTodosModificadorGrupos(
