@@ -112,7 +112,7 @@ export function AlquileresModule() {
     const precio = cobraPorMinuto ? (producto as any).precioFraccion : producto.precio
 
     const itemAlquiler: PedidoItem = {
-      id: `alquiler-${pedido.id}`,
+      id: producto.id,
       uid: `alquiler-${pedido.id}`,
       name: cobraPorMinuto ? `${producto.nombre} (${minutosExactos} min)` : producto.nombre,
       code: '',
@@ -124,7 +124,7 @@ export function AlquileresModule() {
       impuestoTipo: 'excluido',
       hasRecipe: false,
       quantity: cantidad,
-      ...crearConfiguracionSimple(`alquiler-${pedido.id}`, precio),
+      ...crearConfiguracionSimple(producto.id, precio),
     }
 
     try {
