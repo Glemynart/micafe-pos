@@ -44,6 +44,25 @@ export const VENTA_SIMPLE_INPUT: VentaBuilderInput = {
   pago: { metodo: 'efectivo', recibido: 20000, cambio: 4000 },
 }
 
+export const VENTA_CON_MODIFICADORES_INPUT: VentaBuilderInput = {
+  numero: 43,
+  fecha: FECHA_FIJA,
+  items: [{
+    descripcion: 'Cafe Latte',
+    codigo: 'LAT-001',
+    cantidad: 1,
+    precioUnitario: 8000,
+    subtotal: 8000,
+    modificadores: [
+      { nombre: 'Grande', precioDelta: 0 },
+      { nombre: 'Leche Almendra', precioDelta: 1500 },
+      { nombre: 'Canela', precioDelta: 0 },
+    ],
+  }],
+  totales: { subtotalBase: 8000, totalINC: 0, total: 8000 },
+  pago: { metodo: 'tarjeta' },
+}
+
 export const CONSUMIDOR_FINAL_DIAN_INPUT: VentaBuilderInput = {
   numero: 101,
   fecha: FECHA_FIJA,
@@ -170,6 +189,7 @@ export const VENTA_MIXTA_DIAN_INPUT: VentaBuilderInput = {
 
 export const GOLDEN_CASES = [
   { nombre: 'venta-simple', input: VENTA_SIMPLE_INPUT, empresa: EMPRESA_BASE, assets: STUB_ASSETS_SIN_QR },
+  { nombre: 'venta-con-modificadores', input: VENTA_CON_MODIFICADORES_INPUT, empresa: EMPRESA_BASE, assets: STUB_ASSETS_SIN_QR },
   {
     nombre: 'consumidor-final-dian',
     input: CONSUMIDOR_FINAL_DIAN_INPUT,

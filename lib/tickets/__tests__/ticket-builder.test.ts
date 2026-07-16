@@ -66,3 +66,20 @@ test('fromVenta: cliente registrado sobreescribe los defaults de Consumidor Fina
   assert.equal(modelo.cliente.nombre, 'JUAN PEREZ')
   assert.equal(modelo.cliente.documento, '1020304050')
 })
+
+test('fromVenta: conserva el detalle comercial de modificadores en orden', () => {
+  const input = {
+    ...VENTA_SIMPLE_INPUT,
+    items: [{
+      ...VENTA_SIMPLE_INPUT.items[0],
+      modificadores: [
+        { nombre: 'Grande', precioDelta: 0 },
+        { nombre: 'Leche Almendra', precioDelta: 1500 },
+        { nombre: 'Canela', precioDelta: 0 },
+      ],
+    }],
+  }
+
+  const modelo = TicketBuilder.fromVenta(input, EMPRESA_BASE)
+  assert.deepEqual(modelo.items[0].modificadores, input.items[0].modificadores)
+})
