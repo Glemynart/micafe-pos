@@ -6,6 +6,7 @@ import type {
   VentaBuilderInputTotales,
 } from '../tickets'
 import type { ConfiguracionGlobal } from '../configuracion-service'
+import { proyectarModificadoresTicket } from '../modifier-snapshot-projection'
 
 /**
  * Adaptador de reimpresión (H3).
@@ -110,6 +111,7 @@ function mapearItems(items: any): VentaBuilderInputItem[] {
       cantidad,
       precioUnitario,
       subtotal: Number(i?.subtotal ?? cantidad * precioUnitario),
+      modificadores: proyectarModificadoresTicket(i?.modificadores),
       impuestoTipo: i?.impuestoTipo,
       impuestoTarifa: i?.impuestoTarifa,
       impuestoValor: i?.impuestoValor,

@@ -10,6 +10,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { 
   type ComandaCocina, 
+  obtenerModificadoresComandaCocina,
   suscribirComandasCocina, 
   actualizarEstadoComanda 
 } from '@/lib/pedidos-service'
@@ -194,6 +195,11 @@ function ComandaCard({ comanda, onPreparar, onCompletar }: {
                 <p className={cn("font-bold text-lg leading-tight", isCancelacion && "line-through text-destructive")}>
                   {item.name}
                 </p>
+                {obtenerModificadoresComandaCocina(item).map((modificador, modifierIndex) => (
+                  <p key={`${modifierIndex}-${modificador}`} className={cn("mt-1 pl-2 text-sm font-semibold leading-tight", isCancelacion && "line-through text-destructive")}>
+                    + {modificador}
+                  </p>
+                ))}
                 {item.notas && (
                   <p className="text-sm text-muted-foreground mt-1 flex items-start gap-1">
                     <span className="text-xs font-bold uppercase text-warning">Notas:</span> {item.notas}

@@ -1,5 +1,6 @@
 import type { CrearVentaParams, VentaItem } from '../../ventas-service'
 import type { ConfiguracionGlobal } from '../../configuracion-service'
+import { proyectarModificadoresTicket } from '../../modifier-snapshot-projection'
 import type {
   TicketEmpresaConfig,
   VentaBuilderInput,
@@ -107,6 +108,7 @@ function mapearItems(items: VentaItem[]): VentaBuilderInputItem[] {
     cantidad: i.cantidad,
     precioUnitario: i.precioUnitario,
     subtotal: i.subtotal,
+    modificadores: proyectarModificadoresTicket(i.modificadores),
     impuestoTipo: i.impuestoTipo,
     impuestoTarifa: i.impuestoTarifa,
     impuestoValor: i.impuestoValor,

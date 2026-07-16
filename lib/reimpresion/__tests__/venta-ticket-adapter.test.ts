@@ -118,6 +118,28 @@ test('items: subtotal se deriva de cantidad*precio si falta', () => {
   assert.equal(input.items[0].subtotal, 3000)
 })
 
+test('items: proyecta modificadores del snapshot persistido sin consultar catÃ¡logo', () => {
+  const venta = {
+    ...ventaNueva(),
+    items: [{
+      ...ventaNueva().items[0],
+      modificadores: [{
+        grupoId: 'leche',
+        opcionIds: ['almendra'],
+        opciones: [{ opcionId: 'almendra', nombre: 'Leche Almendra', precioDelta: 1500, cocinaNombre: 'ALMENDRA' }],
+      }],
+    }],
+  }
+
+  const { input } = adaptarVentaAModeloTicket(venta, cfg())
+  assert.deepEqual(input.items[0].modificadores, [{ nombre: 'Leche Almendra', precioDelta: 1500 }])
+})
+
+test('items legacy: sin snapshot de modificadores conserva la lÃ­nea normal', () => {
+  const { input } = adaptarVentaAModeloTicket(ventaNueva(), cfg())
+  assert.equal(input.items[0].modificadores, undefined)
+})
+
 test('sin DIAN: input.dian es undefined', () => {
   const { input } = adaptarVentaAModeloTicket(ventaNueva(), cfg())
   assert.equal(input.dian, undefined)
