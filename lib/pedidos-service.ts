@@ -20,8 +20,16 @@ export interface PedidoItem {
   impoconsumo?: number
   hasRecipe: boolean
   quantity: number
+  // Contrato temporal U3: conserva la selección mientras el pedido está abierto.
+  // No es un snapshot de venta ni participa aún en tickets o KDS.
+  modificadores?: PedidoItemModificador[]
   cantidadEnviada?: number
   enviadoCocina?: boolean // Deprecated — usar cantidadEnviada
+}
+
+export interface PedidoItemModificador {
+  grupoId: string
+  opcionIds: string[]
 }
 
 export type TipoMovimiento =
@@ -123,7 +131,13 @@ export async function agregarItemPedido(
     const pedido = snap.data() as PedidoActivo
     if (!pedido.activo) throw new Error('Pedido no está activo')
 
-    const existingIndex = pedido.items.findIndex(i => i.id === newItem.id)
+    // Las líneas configuradas son instancias independientes. U3 no introduce
+    // configurationKey ni fusión de configuraciones; las líneas simples
+    // conservan la fusión histórica por producto.
+    const tieneModificadores = newItem.modificadores !== undefined
+    const existingIndex = tieneModificadores
+      ? -1
+      : pedido.items.findIndex(i => i.id === newItem.id)
     let updatedItems: PedidoItem[]
 
     if (existingIndex !== -1) {

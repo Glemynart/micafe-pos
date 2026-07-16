@@ -17,6 +17,7 @@ import {
   serverTimestamp,
   updateDoc,
   where,
+  type FirestoreError,
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -209,14 +210,15 @@ export function suscribirTodosProductoModificadorGrupos(
  */
 export function suscribirProductoModificadorGruposPorEspacio(
   espacioId: string,
-  callback: (relaciones: ProductoModificadorGrupo[]) => void
+  callback: (relaciones: ProductoModificadorGrupo[]) => void,
+  onError?: (error: FirestoreError) => void,
 ): Unsubscribe {
   const q = query(
     collection(db, COLLECTION_NAME),
     where("espacioId", "==", espacioId)
   );
 
-  return onSnapshot(q, (snap) => callback(mapearRelaciones(snap)));
+  return onSnapshot(q, (snap) => callback(mapearRelaciones(snap)), onError);
 }
 
 export async function listarProductoModificadorGrupos(
