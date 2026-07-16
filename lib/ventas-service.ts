@@ -27,6 +27,7 @@ import { db } from "@/lib/firebase";
 import { getAuth } from "firebase/auth";
 import { aplicarMovimientosEnTransaccion, type EmitirMovimientoParams } from "@/lib/inventario-ledger";
 import type { ImpuestoTipo, RegimenTributario } from "@/lib/impuestos-service";
+import type { ModificadorGrupoSnapshot } from '@/lib/configured-line';
 
 export interface VentaItem {
   id: string; // ID del producto
@@ -35,6 +36,13 @@ export interface VentaItem {
   precioUnitario: number;
   costoUnitario: number;
   subtotal: number;
+  // Contrato U4 de línea configurada. Opcional para ventas históricas.
+  schemaVersion?: 1;
+  configurationKey?: string;
+  precioBaseUnitario?: number;
+  codigo?: string;
+  categoria?: string;
+  modificadores?: ModificadorGrupoSnapshot[];
   // ADR-TRIB-001 D6/INV-5: snapshot tributario congelado de la línea.
   // Opcionales: ventas anteriores a ADR-TRIB-001 no los tienen (dual-shape).
   base?: number;

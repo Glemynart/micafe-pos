@@ -29,6 +29,7 @@ import {
   type PedidoItem
 } from '@/lib/pedidos-service'
 import { suscribirProductos, type Producto } from '@/lib/productos-service'
+import { crearConfiguracionSimple } from '@/lib/configured-line'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 
@@ -111,7 +112,7 @@ export function AlquileresModule() {
     const precio = cobraPorMinuto ? (producto as any).precioFraccion : producto.precio
 
     const itemAlquiler: PedidoItem = {
-      id: `alquiler-${pedido.id}`,
+      id: producto.id,
       uid: `alquiler-${pedido.id}`,
       name: cobraPorMinuto ? `${producto.nombre} (${minutosExactos} min)` : producto.nombre,
       code: '',
@@ -122,7 +123,8 @@ export function AlquileresModule() {
       stock: 999,
       impuestoTipo: 'excluido',
       hasRecipe: false,
-      quantity: cantidad
+      quantity: cantidad,
+      ...crearConfiguracionSimple(producto.id, precio),
     }
 
     try {
