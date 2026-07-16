@@ -35,10 +35,18 @@ function renderVenta(model: VentaTicketModel, options: RenderOptions, assets: Ti
   const itemsHtml = items
     .map((item) => {
       const codigoLinea = item.codigo ? ` | COD: ${item.codigo}` : ''
+      const modificadoresHtml = item.modificadores
+        ?.map((modificador) => {
+          const adicional = modificador.precioDelta === 0
+            ? ''
+            : ` (${modificador.precioDelta > 0 ? '+' : '-'}${money(Math.abs(modificador.precioDelta))})`
+          return `\n            <span class="modifier-line">&bull; ${modificador.nombre}${adicional}</span>`
+        })
+        .join('') ?? ''
       return `
         <div class="row3">
           <span class="desc">${item.descripcion}<br>
-            <span class="line-meta">CANT: ${item.cantidad}${codigoLinea}</span>
+            <span class="line-meta">CANT: ${item.cantidad}${codigoLinea}</span>${modificadoresHtml}
           </span>
           <span class="unit">${money(item.precioUnitario)}</span>
           <span class="sub">${money(item.subtotal)}</span>
@@ -112,6 +120,7 @@ function renderVenta(model: VentaTicketModel, options: RenderOptions, assets: Ti
       .row3 .unit { width: ${options.columnas.unitPx}px; text-align: right; font-size: ${options.fuenteBasePx - 1}px; }
       .row3 .sub  { width: ${options.columnas.totalPx}px; text-align: right; font-size: ${options.fuenteBasePx - 1}px; font-weight: bold; }
       .line-meta { font-size: ${options.fuenteBasePx - 1.5}px; font-weight: bold; color: #000; }
+      .modifier-line { display: block; font-size: ${options.fuenteBasePx - 1.5}px; font-weight: normal; line-height: 1.3; margin-top: 2px; padding-left: 8px; }
       .hdr3    { display: flex; font-weight: bold; border-bottom: 1.5px dashed #000; padding-bottom: 5px; margin-bottom: 6px; font-size: ${options.fuenteBasePx - 1}px; }
       .hdr3 .desc { flex: 1; }
       .hdr3 .unit { width: ${options.columnas.unitPx}px; text-align: right; }

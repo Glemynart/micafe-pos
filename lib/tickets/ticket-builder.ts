@@ -3,6 +3,7 @@ import type {
   TicketImpuestoLinea,
   TicketImpuestoTipo,
   TicketItem,
+  TicketModificador,
   VentaTicketModel,
 } from './ticket-model'
 
@@ -59,6 +60,7 @@ export interface VentaBuilderInputItem {
   cantidad: number
   precioUnitario: number
   subtotal: number
+  modificadores?: TicketModificador[]
   impuestoTipo?: TicketImpuestoTipo
   impuestoTarifa?: number
   impuestoValor?: number
@@ -144,6 +146,7 @@ function construirItems(items: VentaBuilderInputItem[]): TicketItem[] {
     cantidad: item.cantidad,
     precioUnitario: Math.round(item.precioUnitario),
     subtotal: Math.round(item.subtotal),
+    modificadores: item.modificadores,
     impuestoTipo: item.impuestoTipo,
     impuestoTarifa: item.impuestoTarifa,
     impuestoValor: item.impuestoValor,

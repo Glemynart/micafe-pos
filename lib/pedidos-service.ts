@@ -2,6 +2,7 @@ import { db } from './firebase'
 import { collection, doc, setDoc, onSnapshot, query, where, deleteDoc, serverTimestamp, runTransaction, arrayUnion } from 'firebase/firestore'
 import type { ImpuestoTipo } from '@/lib/impuestos-service'
 import { sonLineasComercialmenteEquivalentes, type ModificadorGrupoSnapshot } from '@/lib/configured-line'
+import { proyectarModificadoresCocina } from '@/lib/modifier-snapshot-projection'
 
 export interface PedidoItem {
   id: string // Product ID
@@ -76,6 +77,13 @@ export interface ComandaItem {
   name: string
   quantity: number
   notas?: string
+  /** Snapshot U4 transportado desde PedidoItem; opcional para comandas legacy. */
+  modificadores?: PedidoItemModificador[]
+}
+
+/** Solo para presentación KDS; no consulta catálogo ni servicios administrativos. */
+export function obtenerModificadoresComandaCocina(item: ComandaItem): string[] {
+  return proyectarModificadoresCocina(item.modificadores)
 }
 
 export interface ComandaCocina {
@@ -175,6 +183,7 @@ export async function enviarPedidoACocina(pedidoId: string) {
           uid: item.uid || item.id,
           name: item.name,
           quantity: difference,
+          ...(item.modificadores !== undefined ? { modificadores: item.modificadores } : {}),
         });
         return { ...item, cantidadEnviada: item.quantity };
       }
@@ -253,6 +262,7 @@ export async function modificarItemPedido(
           uid: item.uid || item.id,
           name: item.name,
           quantity: deltaCancelar,
+          ...(item.modificadores !== undefined ? { modificadores: item.modificadores } : {}),
         }],
         estado: 'pendiente',
         tipo: 'cancelacion',
