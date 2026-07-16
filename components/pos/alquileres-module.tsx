@@ -29,6 +29,7 @@ import {
   type PedidoItem
 } from '@/lib/pedidos-service'
 import { suscribirProductos, type Producto } from '@/lib/productos-service'
+import { crearConfiguracionSimple } from '@/lib/configured-line'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 
@@ -122,7 +123,8 @@ export function AlquileresModule() {
       stock: 999,
       impuestoTipo: 'excluido',
       hasRecipe: false,
-      quantity: cantidad
+      quantity: cantidad,
+      ...crearConfiguracionSimple(`alquiler-${pedido.id}`, precio),
     }
 
     try {

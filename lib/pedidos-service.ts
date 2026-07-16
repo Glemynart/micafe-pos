@@ -1,6 +1,7 @@
 import { db } from './firebase'
 import { collection, doc, setDoc, onSnapshot, query, where, deleteDoc, serverTimestamp, runTransaction, arrayUnion } from 'firebase/firestore'
 import type { ImpuestoTipo } from '@/lib/impuestos-service'
+import { sonLineasComercialmenteEquivalentes, type ModificadorGrupoSnapshot } from '@/lib/configured-line'
 
 export interface PedidoItem {
   id: string // Product ID
@@ -20,17 +21,16 @@ export interface PedidoItem {
   impoconsumo?: number
   hasRecipe: boolean
   quantity: number
-  // Contrato temporal U3: conserva la selección mientras el pedido está abierto.
-  // No es un snapshot de venta ni participa aún en tickets o KDS.
+  /** Contrato de línea U4. Ausente en documentos legacy. */
+  schemaVersion?: 1
+  configurationKey?: string
+  precioBaseUnitario?: number
   modificadores?: PedidoItemModificador[]
   cantidadEnviada?: number
   enviadoCocina?: boolean // Deprecated — usar cantidadEnviada
 }
 
-export interface PedidoItemModificador {
-  grupoId: string
-  opcionIds: string[]
-}
+export type PedidoItemModificador = ModificadorGrupoSnapshot
 
 export type TipoMovimiento =
   | 'separacion_origen'
@@ -131,13 +131,10 @@ export async function agregarItemPedido(
     const pedido = snap.data() as PedidoActivo
     if (!pedido.activo) throw new Error('Pedido no está activo')
 
-    // Las líneas configuradas son instancias independientes. U3 no introduce
-    // configurationKey ni fusión de configuraciones; las líneas simples
-    // conservan la fusión histórica por producto.
-    const tieneModificadores = newItem.modificadores !== undefined
-    const existingIndex = tieneModificadores
-      ? -1
-      : pedido.items.findIndex(i => i.id === newItem.id)
+    const esLineaU4 = newItem.schemaVersion === 1 && typeof newItem.configurationKey === 'string'
+    const existingIndex = esLineaU4
+      ? pedido.items.findIndex((item) => sonLineasComercialmenteEquivalentes(item, newItem))
+      : pedido.items.findIndex((item) => item.schemaVersion !== 1 && item.id === newItem.id)
     let updatedItems: PedidoItem[]
 
     if (existingIndex !== -1) {
