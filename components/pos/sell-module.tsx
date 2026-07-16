@@ -33,6 +33,7 @@ import { DynamicIcon } from '@/components/ui/dynamic-icon'
 import { suscribirModificadorGrupos, type ModificadorGrupo } from '@/lib/modificador-grupos-service'
 import { suscribirProductoModificadorGruposPorEspacio, type ProductoModificadorGrupo } from '@/lib/producto-modificador-grupos-service'
 import { resolverGruposProducto, type SeleccionModificadorTemporal } from '@/lib/modifier-selection'
+import { crearConfiguracionModificadores, crearConfiguracionSimple } from '@/lib/configured-line'
 
 import { toast } from 'sonner'
 import { 
@@ -391,6 +392,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
       id: `foto-${fotoTipo}`, uid: crypto.randomUUID(), name: nombre, code: `foto-${fotoTipo}`,
       price: precio, cost: 50, category: 'Fotocopias', emoji: 'Printer',
       stock: 999, impuestoTipo: 'excluido', hasRecipe: false, quantity: copias,
+      ...crearConfiguracionSimple(`foto-${fotoTipo}`, precio),
     }
     try {
       if (activePedido) {
@@ -540,7 +542,12 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
     if (!pending) return
 
     const cartItem = productoToCartItem(pending.product)
-    const item: PedidoItem = { ...cartItem, uid: crypto.randomUUID(), quantity: pending.qty }
+    const item: PedidoItem = {
+      ...cartItem,
+      uid: crypto.randomUUID(),
+      quantity: pending.qty,
+      ...crearConfiguracionSimple(cartItem.id, cartItem.price),
+    }
     try {
       if (activePedido) {
         await agregarItemPedido(activePedido.id, item)
@@ -601,7 +608,12 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
       uid: crypto.randomUUID(),
       quantity: 1,
       price: precioFinal,
-      modificadores,
+      ...crearConfiguracionModificadores(
+        productoConModificadores.id,
+        productoConModificadores.precio,
+        gruposSelector,
+        modificadores,
+      ),
     }
 
     try {
@@ -617,10 +629,14 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
       toast.error(e.message || 'Error al agregar producto configurado')
       return false
     }
-  }, [activePedido, crearPedidoConItem, productoConModificadores])
+  }, [activePedido, crearPedidoConItem, gruposSelector, productoConModificadores])
 
   const obtenerResumenModificadores = useCallback((item: PedidoItem) => {
     if (item.modificadores === undefined) return []
+    const resumenSnapshot = item.modificadores.flatMap((seleccion) =>
+      seleccion.opciones?.map((opcion) => opcion.nombre) ?? [],
+    )
+    if (resumenSnapshot.length > 0) return resumenSnapshot
     const gruposPorId = new Map(gruposModificadores.map((grupo) => [grupo.id, grupo]))
     return item.modificadores.flatMap((seleccion) => {
       const grupo = gruposPorId.get(seleccion.grupoId)
@@ -634,7 +650,12 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
 
   const addToCartQuantity = useCallback(async (product: Producto, qty: number) => {
     const cartItem = productoToCartItem(product)
-    const item: PedidoItem = { ...cartItem, uid: crypto.randomUUID(), quantity: qty }
+    const item: PedidoItem = {
+      ...cartItem,
+      uid: crypto.randomUUID(),
+      quantity: qty,
+      ...crearConfiguracionSimple(cartItem.id, cartItem.price),
+    }
     try {
       if (activePedido) {
         await agregarItemPedido(activePedido.id, item)
@@ -724,19 +745,22 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   const handleQuickProductSubmit = useCallback(async () => {
     if (!quickProductName || !quickProductPrice) return
 
+    const quickProductId = `quick-${Date.now()}`
+    const precioProductoRapido = parseInt(quickProductPrice)
     const newProduct: PedidoItem = {
-      id: `quick-${Date.now()}`,
+      id: quickProductId,
       uid: crypto.randomUUID(),
       name: quickProductName,
       code: searchCode || '1000',
-      price: parseInt(quickProductPrice),
+      price: precioProductoRapido,
       cost: 0,
       category: 'Otros',
       emoji: '📦',
       stock: 999,
       impuestoTipo: IMPUESTO_TIPO_DEFAULT,
       hasRecipe: false,
-      quantity: 1
+      quantity: 1,
+      ...crearConfiguracionSimple(quickProductId, precioProductoRapido)
     }
 
     try {
@@ -830,12 +854,18 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
       const items = cart.map((item, idx) => {
         const linea = lineasResueltas[idx]
         return {
-          id: item.code,
+          id: item.id,
           nombre: item.name,
           cantidad: item.quantity,
           precioUnitario: item.price,
           costoUnitario: item.cost,
           subtotal: linea.precioLinea,
+          ...(item.schemaVersion !== undefined ? { schemaVersion: item.schemaVersion } : {}),
+          ...(item.configurationKey !== undefined ? { configurationKey: item.configurationKey } : {}),
+          ...(item.precioBaseUnitario !== undefined ? { precioBaseUnitario: item.precioBaseUnitario } : {}),
+          codigo: item.code,
+          categoria: item.category,
+          ...(item.modificadores !== undefined ? { modificadores: item.modificadores } : {}),
           // ADR-TRIB-001 D6/INV-5: snapshot congelado por línea.
           base: linea.base,
           impuestoTipo: linea.impuestoTipo,
