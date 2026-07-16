@@ -301,7 +301,8 @@ export async function finalizarAlquiler(pedidoId: string, itemAlquiler: PedidoIt
     const pedido = snap.data() as PedidoActivo
     if (!pedido.inicioAlquiler) return
 
-    const existingIndex = pedido.items.findIndex(i => i.id === itemAlquiler.id)
+    const itemAlquilerUid = itemAlquiler.uid || itemAlquiler.id
+    const existingIndex = pedido.items.findIndex((item) => (item.uid || item.id) === itemAlquilerUid)
     const updatedItems = existingIndex !== -1
       ? pedido.items
       : [...pedido.items, itemAlquiler]
