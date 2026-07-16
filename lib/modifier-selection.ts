@@ -6,6 +6,7 @@ export interface OpcionModificadorResuelta {
   nombre: string
   precioDelta: number
   default: boolean
+  cocinaNombre?: string
 }
 
 export interface GrupoModificadorResuelto {
@@ -64,6 +65,7 @@ export function resolverGruposProducto(
           nombre: opcion.nombre,
           precioDelta: relacion.opcionOverrides?.[opcion.id]?.precioDelta ?? opcion.precioDelta,
           default: opcion.default === true,
+          ...(opcion.cocinaNombre ? { cocinaNombre: opcion.cocinaNombre } : {}),
         }))
 
       const minSeleccion = relacion.minSeleccion ?? grupo.minSeleccion
