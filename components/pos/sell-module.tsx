@@ -28,7 +28,11 @@ import { trasladarCuenta } from '@/lib/trasladar-cuenta-service'
 import { SepararCuentaDialog } from '@/components/pos/separar-cuenta-dialog'
 import { UnirCuentasDialog } from '@/components/pos/unir-cuentas-dialog'
 import { TrasladarCuentaDialog } from '@/components/pos/trasladar-cuenta-dialog'
+import { ModifierSelectorDialog } from '@/components/pos/modifier-selector-dialog'
 import { DynamicIcon } from '@/components/ui/dynamic-icon'
+import { suscribirModificadorGrupos, type ModificadorGrupo } from '@/lib/modificador-grupos-service'
+import { suscribirProductoModificadorGruposPorEspacio, type ProductoModificadorGrupo } from '@/lib/producto-modificador-grupos-service'
+import { resolverGruposProducto, type SeleccionModificadorTemporal } from '@/lib/modifier-selection'
 
 import { toast } from 'sonner'
 import { 
@@ -52,6 +56,7 @@ import {
   SplitSquareHorizontal,
   Merge,
   ArrowRightLeft,
+  AlertTriangle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -89,6 +94,8 @@ function productoToCartItem(p: Producto): CartItem {
 export interface SellModuleProps {
   initialPedidoId?: string | null
 }
+
+type EstadoCatalogoModificadores = 'loading' | 'ready' | 'error'
 
 export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   const [searchCode, setSearchCode] = useState('')
@@ -159,6 +166,11 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
     el.scrollBy({ left: dir === 'left' ? -el.clientWidth * 0.6 : el.clientWidth * 0.6, behavior: 'smooth' })
   }, [])
   const [productos, setProductos] = useState<Producto[]>([])
+  const [gruposModificadores, setGruposModificadores] = useState<ModificadorGrupo[]>([])
+  const [relacionesModificadores, setRelacionesModificadores] = useState<ProductoModificadorGrupo[]>([])
+  const [estadoCatalogoModificadores, setEstadoCatalogoModificadores] = useState<EstadoCatalogoModificadores>('loading')
+  const [errorCatalogoModificadores, setErrorCatalogoModificadores] = useState<string | null>(null)
+  const [productoConModificadores, setProductoConModificadores] = useState<Producto | null>(null)
   const [insumos, setInsumos] = useState<Insumo[]>([])
   const [recetas, setRecetas] = useState<Receta[]>([])
   const [mesas, setMesas] = useState<Mesa[]>([])
@@ -419,6 +431,47 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
     }
   }, [espacioActivo?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!espacioActivo) {
+      setGruposModificadores([])
+      setRelacionesModificadores([])
+      setProductoConModificadores(null)
+      setEstadoCatalogoModificadores('ready')
+      setErrorCatalogoModificadores(null)
+      return
+    }
+
+    let gruposListos = false
+    let relacionesListas = false
+    let catalogoConError = false
+    const actualizarCarga = () => {
+      if (!catalogoConError && gruposListos && relacionesListas) {
+        setEstadoCatalogoModificadores('ready')
+      }
+    }
+    const manejarError = (error: { code?: string }) => {
+      catalogoConError = true
+      setEstadoCatalogoModificadores('error')
+      setErrorCatalogoModificadores(error.code === 'permission-denied'
+        ? 'No tienes permisos para cargar los modificadores. Contacta a un administrador.'
+        : 'No se pudo cargar la configuración de modificadores. Intenta nuevamente.')
+    }
+    setEstadoCatalogoModificadores('loading')
+    setErrorCatalogoModificadores(null)
+    const unsubGrupos = suscribirModificadorGrupos(espacioActivo.id, (grupos) => {
+      gruposListos = true
+      setGruposModificadores(grupos)
+      actualizarCarga()
+    }, manejarError)
+    const unsubRelaciones = suscribirProductoModificadorGruposPorEspacio(espacioActivo.id, (relaciones) => {
+      relacionesListas = true
+      setRelacionesModificadores(relaciones)
+      actualizarCarga()
+    }, manejarError)
+
+    return () => { unsubGrupos(); unsubRelaciones() }
+  }, [espacioActivo?.id])
+
   // Calcular el stock dinámico si tiene receta
   const productosConStock = useMemo(() => {
     return productos.map(p => {
@@ -512,6 +565,73 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
     addToCartTimers.current.set(product.id, setTimeout(() => flushAddToCart(product.id), 150))
   }, [flushAddToCart])
 
+  const gruposSelector = useMemo(
+    () => productoConModificadores
+      ? resolverGruposProducto(productoConModificadores.id, gruposModificadores, relacionesModificadores)
+      : [],
+    [productoConModificadores, gruposModificadores, relacionesModificadores],
+  )
+
+  const seleccionarProducto = useCallback((product: Producto) => {
+    if (estadoCatalogoModificadores === 'loading') {
+      toast.info('Cargando configuración de modificadores…')
+      return
+    }
+    if (estadoCatalogoModificadores === 'error') {
+      toast.error(errorCatalogoModificadores ?? 'No se pudo verificar la configuración de modificadores.')
+      return
+    }
+
+    const grupos = resolverGruposProducto(product.id, gruposModificadores, relacionesModificadores)
+    if (grupos.length === 0) {
+      addToCart(product)
+      return
+    }
+    setProductoConModificadores(product)
+  }, [addToCart, errorCatalogoModificadores, estadoCatalogoModificadores, gruposModificadores, relacionesModificadores])
+
+  const confirmarProductoConModificadores = useCallback(async (
+    modificadores: SeleccionModificadorTemporal[],
+    precioFinal: number,
+  ) => {
+    if (!productoConModificadores) return false
+    const cartItem = productoToCartItem(productoConModificadores)
+    const item: PedidoItem = {
+      ...cartItem,
+      uid: crypto.randomUUID(),
+      quantity: 1,
+      price: precioFinal,
+      modificadores,
+    }
+
+    try {
+      if (activePedido) {
+        await agregarItemPedido(activePedido.id, item)
+      } else {
+        await crearPedidoConItem(item)
+      }
+      toast.success(`${productoConModificadores.nombre} agregado al pedido`)
+      setProductoConModificadores(null)
+      return true
+    } catch (e: any) {
+      toast.error(e.message || 'Error al agregar producto configurado')
+      return false
+    }
+  }, [activePedido, crearPedidoConItem, productoConModificadores])
+
+  const obtenerResumenModificadores = useCallback((item: PedidoItem) => {
+    if (item.modificadores === undefined) return []
+    const gruposPorId = new Map(gruposModificadores.map((grupo) => [grupo.id, grupo]))
+    return item.modificadores.flatMap((seleccion) => {
+      const grupo = gruposPorId.get(seleccion.grupoId)
+      if (!grupo) return [`Grupo ${seleccion.grupoId}`]
+      const nombres = seleccion.opcionIds
+        .map((opcionId) => grupo.opciones.find((opcion) => opcion.id === opcionId)?.nombre)
+        .filter((nombre): nombre is string => !!nombre)
+      return nombres.length > 0 ? nombres : [grupo.nombre]
+    })
+  }, [gruposModificadores])
+
   const addToCartQuantity = useCallback(async (product: Producto, qty: number) => {
     const cartItem = productoToCartItem(product)
     const item: PedidoItem = { ...cartItem, uid: crypto.randomUUID(), quantity: qty }
@@ -594,12 +714,12 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
       p.nombre.toLowerCase().includes(searchCode.toLowerCase())
     )
     if (product) {
-      addToCart(product)
+      seleccionarProducto(product)
       setSearchCode('')
     } else {
       setShowQuickProduct(true)
     }
-  }, [searchCode, addToCart, productosConStock])
+  }, [searchCode, seleccionarProducto, productosConStock])
 
   const handleQuickProductSubmit = useCallback(async () => {
     if (!quickProductName || !quickProductPrice) return
@@ -957,6 +1077,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
 
         {/* Products Grid — datos reales de Firestore */}
         <div className="flex-1 min-h-0">
+          {estadoCatalogoModificadores === 'error' && <div className="mx-2 mt-2 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" role="alert"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{errorCatalogoModificadores}</div>}
           <ScrollArea className="h-full">
           {esFotocopias ? (
             <FotocopiasCalculator
@@ -985,7 +1106,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                   return (
                   <Card
                     key={product.id}
-                    onClick={() => addToCart(product)}
+                    onClick={() => seleccionarProducto(product)}
                     className={cn(
                       "bg-card border border-border rounded-2xl overflow-hidden cursor-pointer hover:-translate-y-1 hover:border-gold hover:shadow-[0_12px_28px_-12px_color-mix(in_oklch,var(--navy)_45%,transparent)] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group flex flex-col active:scale-[0.97] shadow-[0_2px_10px_-6px_color-mix(in_oklch,var(--navy)_40%,transparent)] relative h-[180px] animate-fade-up min-[1280px]:h-48 min-[1600px]:h-52",
                       stockBajo && "border-destructive/40 hover:border-destructive"
@@ -1124,6 +1245,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                                       )}
                                   </p>
                                   <p className="text-[10px] text-muted-foreground">{item.id.substring(0, 15)}</p>
+                                  {item.modificadores !== undefined && <p className="mt-1 text-[10px] text-primary line-clamp-2">{obtenerResumenModificadores(item).join(' · ') || 'Configuración personalizada'}</p>}
                               </div>
                           </div>
                           <button onClick={() => removeFromCart(item.uid || item.id)} className="text-muted-foreground hover:text-destructive transition-colors active:scale-95 p-2 shrink-0 -mt-1 -mr-1"><Trash2 className="h-5 w-5"/></button>
@@ -1246,7 +1368,15 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
                 </Button>
               </div>
           </div>
-        </Card>
+      </Card>
+
+      <ModifierSelectorDialog
+        open={productoConModificadores !== null}
+        onOpenChange={(open) => { if (!open) setProductoConModificadores(null) }}
+        producto={productoConModificadores}
+        grupos={gruposSelector}
+        onConfirm={confirmarProductoConModificadores}
+      />
 
       <Dialog open={showMesasDialog} onOpenChange={setShowMesasDialog}>
         <DialogContent className="sm:max-w-5xl w-[95vw] bg-card border-none h-[85vh] flex flex-col p-0 overflow-hidden shadow-2xl rounded-3xl">
