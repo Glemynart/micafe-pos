@@ -24,7 +24,11 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Alineado con el Node de desarrollo (22.x): los golden de test:tickets
+          # embeben tiempos formateados con Intl, cuyo separador (U+00A0) depende
+          # de la versión de ICU del runtime. Node 20 trae un ICU distinto y los
+          # golden (generados bajo Node 22) fallaban en CI por ese carácter.
+          node-version: 22
           cache: npm
 
       - name: Instalar dependencias
