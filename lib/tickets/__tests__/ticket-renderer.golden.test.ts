@@ -21,9 +21,18 @@ import { GOLDEN_CASES, construirModelo } from './fixtures'
 
 const GOLDEN_DIR = path.join(__dirname, 'golden')
 
+// El separador de hora AM/PM que produce Intl (U+00A0 vs U+202F) depende de la
+// version de ICU del runtime (dev vs CI). Los golden se generaron con un ICU y
+// el runner puede usar otro; se normalizan ambos espacios duros a un espacio
+// normal para que la comparacion sea agnostica al ICU y no fragil entre entornos.
+const NBSP = String.fromCharCode(0x00a0)   // no-break space
+const NNBSP = String.fromCharCode(0x202f)  // narrow no-break space
+
 function normalizarHtmlGolden(html: string): string {
   return html
     .replace(/\r\n/g, '\n')
+    .split(NBSP).join(' ')
+    .split(NNBSP).join(' ')
     .replace(/[ \t]+(?=\n)/g, '')
 }
 
