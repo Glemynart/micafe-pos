@@ -1,6 +1,11 @@
 # MT-U2 — Runtime SaaS (contexto de empresa activa + custom claims) · Especificación definitiva
 
-> **Estado:** ✅ Especificación definitiva, lista para implementar (pendiente solo de escribir código).
+> **Estado:** ✅ Implementada — Capas 0–4 completas, auditadas y aprobadas. PR #96 abierto
+> (`feat(saas): MT-U2 runtime SaaS (custom claims + SaaSContext)`), pendiente de merge.
+> **Nota de sincronización (post-implementación):** este documento fue actualizado tras el cierre de
+> la Capa 4 para describir el **estado final realmente implementado** — algunas secciones (§3, §5, §7,
+> §9) difieren de su redacción original pre-código en nombres de campos y mecanismos concretos; las
+> decisiones (D-U2-1..4) no cambiaron, solo su forma de implementación.
 > **Rama:** `feature/saas-mt-u2`
 > **Deriva de:** documento maestro `MT-ARQUITECTURA-SAAS-MULTIEMPRESA.md` (§6, §7, §13),
 > `ADR-SAAS-001` (tenancy/claims), `ADR-SAAS-002` (identidad/rol), `ADR-SAAS-004` (modelo empresarial).
@@ -65,6 +70,15 @@ permanece **inerte** (nadie lo obedece todavía).
    - **MT-U11** (multi-empresa): "descubrir la única empresa" deja de ser válido conceptualmente; el
      fallback debe estar retirado antes.
 
+**Nota de implementación (decidida en la auditoría de Capa 3):** el punto 3 exige *distinguir* el
+origen (claim vs. fallback) y *marcarlo* como anómalo — no exige necesariamente **exponerlo** en el
+estado público del contexto. La implementación final reduce el estado expuesto a
+`{empresaId, empresa, rolClaim, loading, refresh}` (ver §3): el origen se rastrea **internamente**
+dentro de `resolver()` únicamente para decidir si emitir el `console.warn` de la rama fallback: no
+existe un campo `origen`/`claimsListos` en el tipo público `SaaSContextValue`. Esto satisface la
+intención de D-U2-1 (nunca tratar el fallback como camino feliz, dejar rastro observable) sin ampliar
+la superficie que los futuros consumidores (MT-U3+) podrían llegar a leer.
+
 **Por qué así (y por qué no viola la regla de oro):** la regla de oro (maestro §6 / ADR-SAAS-001) es
 *"el cliente nunca decide su `empresaId`; lo impone el claim"*. El fallback **no decide** nada: lee el único
 tenant existente de una colección autoritativa, y solo cuando el claim aún no ha propagado. Bounded como
@@ -127,23 +141,47 @@ descarta como mecanismo único porque no corre en el artefacto de escritorio.
 
 ---
 
-## 3. Diseño del `SaaSContext`
+## 3. Diseño del `SaaSContext` (estado final implementado)
 
-**Archivo nuevo:** `contexts/saas-context.tsx`.
+**Archivo nuevo:** `contexts/saas-context.tsx` — `SaaSProvider` + hook `useSaaS()`.
 
 - **Responsabilidad:** única fuente de verdad en cliente de *"en qué empresa opero y con qué rol según el
-  token"*. Resuelve `empresaActivaId` desde el **claim** (D-U2-1) y lo enriquece con `empresas/{id}` vía
-  helper (§5). Es el *seam* donde MT-U3+ engancharán el `empresaId` del helper de tenant.
+  token"*. Resuelve `empresaId` desde el **claim** (D-U2-1) y lo enriquece con el documento
+  `empresas/{empresaId}` vía **lectura directa por id** (`obtenerEmpresaPorId`, §5) — nunca por
+  descubrimiento. Es el *seam* donde MT-U3+ engancharán el `empresaId` del helper de tenant.
+- **Mecanismo de detección de sesión/token:** se suscribe directamente a
+  `onIdTokenChanged(auth, ...)` del SDK cliente de Firebase — **no** lee `useAuthContext()`. Es el
+  patrón recomendado por Firebase para reaccionar a custom claims (dispara en login, logout y
+  refresh de token) y evita cualquier acoplamiento con `contexts/auth-context.tsx`, que **no se
+  modificó** (ver §5).
 - **Ciclo de vida:** montado **bajo `AuthProvider`** y por encima de los proveedores de datos
-  (`EspaciosProvider`, `ModulosProvider`). Con sesión → `getIdTokenResult()` para leer
-  `token.claims.empresaId`/`rol`. Si el claim falta → fallback transitorio (D-U2-1) marcando `origen:'fallback'`.
-  Se limpia en logout. `refresh()` fuerza `getIdToken(true)`.
-- **Datos mínimos expuestos:**
-  `{ empresaActivaId: string | null, empresaNombre: string | null, rolClaim: RolUsuario | null,
-  origen: 'claim' | 'fallback' | null, claimsListos: boolean, cargando: boolean, refresh: () => Promise<void> }`.
-- **Consumidores (MT-U2):** **ninguno que cambie comportamiento.** Opcional: *assert de paridad solo-dev*
-  `rolClaim === usuario.rol` (log si divergen). Consumidores reales: MT-U3 (helper de tenant lee
-  `empresaActivaId`) y MT-U5b (autorización lee el rol).
+  (`EspaciosProvider`, `ModulosProvider`). Al recibir un `firebaseUser`:
+  1. Lee el token **cacheado** (`getIdTokenResult()`, sin forzar red).
+  2. Si `claims.empresaId` está ausente, fuerza **un único** refresh (`getIdTokenResult(true)`) —
+     así se implementa "refrescar el token cuando corresponda" sin forzar red en cada carga.
+  3. Si el claim está presente → camino normal: `empresaId`/`rolClaim` desde el claim;
+     `empresa` vía `obtenerEmpresaPorId(empresaId)`.
+  4. Si sigue ausente tras el refresh → fallback transitorio (D-U2-1): `console.warn` +
+     `empresaId`/`empresa` resueltos vía `obtenerEmpresaFundacional()` (reservado exclusivamente a
+     esta rama); `rolClaim = null`.
+  Al perder la sesión (`firebaseUser == null`) se resetea todo el estado. `refresh()` fuerza
+  `getIdToken(true)` y re-ejecuta la misma resolución.
+- **Datos expuestos (tipo público `SaaSContextValue`, exactamente estos 5 campos):**
+  ```ts
+  {
+    empresaId: string | null;
+    empresa: Empresa | null;
+    rolClaim: RolUsuario | null;
+    loading: boolean;
+    refresh: () => Promise<void>;
+  }
+  ```
+  No existe `origen`/`claimsListos`/`empresaActivaId`/`empresaNombre`/`cargando` en el tipo público —
+  ver nota de implementación en D-U2-1.
+- **Consumidores (MT-U2):** **ninguno que cambie comportamiento** (verificado: cero imports de
+  `useSaaS`/`SaaSProvider` fuera de su propia definición y del punto de montaje en `app/layout.tsx`).
+  Consumidores reales previstos: MT-U3 (helper de tenant lee `empresaId`) y MT-U5b (autorización lee
+  el rol).
 - **Límites de responsabilidad:** (a) **no** decide el `empresaId` (D-U2-1); (b) **no** autoriza (D-U2-2);
   (c) **no** lee colecciones operativas; (d) **no** escribe claims (eso es el backend); (e) **no** conoce
   suscripciones/planes (MT-U8).
@@ -165,22 +203,27 @@ dejen de usar `get()`.
 
 ---
 
-## 5. Alcance exacto de archivos
+## 5. Alcance exacto de archivos (estado final)
 
 **Se crean/modifican en MT-U2:**
 
 | Archivo | Cambio | Por qué |
 |---|---|---|
-| `lib/empresas-service.ts` | **Añadir** `obtenerEmpresaFundacional()` (query `esFundacional==true`, `limit(1)`) | MT-U1 difirió los helpers de lectura a "el primer consumidor (MT-U2)". |
-| `lib/membresias-service.ts` | **Añadir** `obtenerMembresia(empresaId, uid)` / `obtenerMembresiasDeUsuario(uid)` | El acuñador y la paridad necesitan resolver la pertenencia. |
+| `lib/empresas-service.ts` | **Añadir** `obtenerEmpresaFundacional()` (fallback, query `esFundacional==true`/`limit(1)`) **y** `obtenerEmpresaPorId(id)` (camino normal, `getDoc` directo por id) | `obtenerEmpresaPorId` se añadió durante la auditoría de Capa 3 al detectarse que el camino con claim usaba indebidamente el helper de descubrimiento; ver [[saas-regla-esfundacional-vs-empresaid]]. |
+| `lib/membresias-service.ts` | **Añadir** `obtenerMembresia(empresaId, uid)` / `obtenerMembresiasDeUsuario(uid)` | Añadidos en Capa 1 como aditivo puro (helpers de lectura previstos por MT-U1 §3). **Estado final: sin consumidor en MT-U2** — ni `scripts/set-claims-mt-u2.ts` ni `contexts/saas-context.tsx` los llaman (el acuñador resuelve el rol leyendo `usuarios` directamente; `SaaSContext` no consulta membresías). Quedan listos, inertes, para el primer consumidor real en una unidad posterior. |
 | `contexts/saas-context.tsx` | **Nuevo** (§3) | Seam de empresa activa. |
 | `app/layout.tsx` | **1 línea:** montar `<SaaSProvider>` bajo `AuthProvider` | Ubicación del contexto. |
-| `contexts/auth-context.tsx` | **Toque mínimo:** `getIdToken(true)` tras login para refrescar claims (o delegarlo al `SaaSContext`) | Los claims no llegan al token vivo sin refresh. |
 | `scripts/set-claims-mt-u2.ts` | **Nuevo** (Admin SDK, dry-run/execute, idempotente) | Acuñar `{empresaId, rol}` a cada usuario (D-U2-4). |
 
+**Corrección respecto a la versión pre-código de este documento:** `contexts/auth-context.tsx`
+**NO se modificó** — la versión original de esta tabla preveía un "toque mínimo" (`getIdToken(true)`
+tras login) ahí. La implementación final resolvió el refresh de claims **enteramente dentro de
+`SaaSContext`** vía `onIdTokenChanged` (§3), evitando tocar el archivo compartido de autenticación.
+
 **NO se modifican en MT-U2 (explícito, anti scope-creep):** los 25 servicios operativos, `firestore.rules`,
-`auth-service` (lectores de autorización), `permisos-service`, los ~23 gates de rol, `configuracion-service`,
-**`inventario-ledger.ts`** (D-U2-3), y todo `components/`/`app/` salvo la línea de `app/layout.tsx`.
+`auth-service` (lectores de autorización), **`auth-context.tsx`**, `permisos-service`, los ~23 gates de
+rol, `configuracion-service`, **`inventario-ledger.ts`** (D-U2-3), y todo `components/`/`app/` salvo la
+línea de `app/layout.tsx`.
 
 ---
 
@@ -189,8 +232,9 @@ dejen de usar `get()`.
 **Técnicos**
 - **R1 — Backend de acuñación:** el `.exe` es estático (`out/**`) y no ejecuta API routes → resuelto por
   D-U2-4 (script Admin SDK).
-- **R2 — Claims perezosos:** un claim solo aparece tras `getIdToken(true)`/re-login. Mitigación: refresh en
-  login (§5); el `SaaSContext` degrada al fallback transitorio (D-U2-1) sin romper sesión.
+- **R2 — Claims perezosos:** un claim solo aparece tras un refresh forzado del token. Mitigación: el propio
+  `SaaSContext` fuerza un único `getIdTokenResult(true)` cuando el claim cacheado falta (§3); si aun así no
+  aparece, degrada al fallback transitorio (D-U2-1) sin romper sesión.
 - **R3 — Desincronización claim↔`usuarios`:** cosmética en MT-U2 por D-U2-2; documentada; re-acuñada por
   script; endurecida en MT-U5a.
 - **R4 — `'supervisor'` fuera del tipo `RolUsuario`:** el acuñador y el tipado del claim deben contemplarlo
@@ -225,15 +269,19 @@ idempotente): por cada `usuarios/{uid}` → `setCustomUserClaims(uid, {empresaId
 de la fundacional (nunca hardcodeado), `rol` espejo del doc (D-U2-2). Reporte de divergencias/roles no
 tipados (R4). *Aceptación:* dry-run revisado; ejecución acuña N usuarios; token inspeccionado muestra `{empresaId, rol}`.
 
-**Capa 3 — `SaaSContext` + refresh (cliente).** `contexts/saas-context.tsx` (§3) montado en `app/layout.tsx`;
-refresh de token en login; expone `empresaActivaId`/`rolClaim`/`origen`. Sin consumidores que cambien
-comportamiento; opcional assert de paridad solo-dev. *Aceptación:* `useSaaS()` devuelve el `empresaActivaId`
-correcto vía claim (`origen:'claim'`) tras login; POS idéntico.
+**Capa 3 — `SaaSContext` (cliente).** `contexts/saas-context.tsx` (§3) montado en `app/layout.tsx`; se
+suscribe a `onIdTokenChanged` y refresca el token cuando el claim cacheado falta; expone
+`{empresaId, empresa, rolClaim, loading, refresh}`. Sin consumidores que cambien comportamiento.
+*Aceptación (cumplida):* `useSaaS()` devuelve el `empresaId` correcto (vía claim, resuelto por
+`obtenerEmpresaPorId`) tras login; POS idéntico — verificado en navegador real (login sin cambios,
+consola/servidor sin errores).
 
 **Capa 4 — Verificación de compatibilidad.** Regresión manual (venta, turno, KDS, salón) → cero cambio
-observable; token con claims presentes; paridad `claim.rol === usuarios.rol` en toda la base; confirmar que
-`origen` es `'claim'` (no `'fallback'`) en régimen permanente. *Aceptación:* MT-U2 mergeado sin tocar
-servicios operativos, rules, ni la fuente de autorización.
+observable; claims presentes y verificados en producción (7/7 usuarios, `empresaId`/`rol` exactos);
+confirmado por código que el fallback (`obtenerEmpresaFundacional`) solo es alcanzable si el claim sigue
+ausente tras el refresh forzado — nunca en régimen permanente con claims acuñados. *Aceptación (cumplida):*
+informe de Capa 4 sin hallazgos bloqueantes; MT-U2 recomendada para merge sin tocar servicios operativos,
+rules, ni la fuente de autorización.
 
 ---
 
@@ -287,8 +335,9 @@ La especificación de MT-U2 queda **coherente y lista para congelarse como defin
 
 1. Claim `{empresaId, rol}` acuñado en **todos** los usuarios; `empresaId` = id opaco fundacional (resuelto,
    nunca hardcodeado); `rol` = espejo de `usuarios.rol` (D-U2-2).
-2. `SaaSContext` resuelve `empresaActivaId` desde el **claim** (`origen:'claim'`) tras login; el fallback
-   (D-U2-1) solo actúa como red transitoria y queda marcado como anómalo en régimen permanente.
+2. `SaaSContext` resuelve `empresaId` desde el **claim**, leyendo el documento vía `obtenerEmpresaPorId`
+   (nunca por descubrimiento); el fallback (D-U2-1, `obtenerEmpresaFundacional`) solo actúa como red
+   transitoria y emite `console.warn` cuando se usa — nunca como camino feliz.
 3. **Autoridad de autorización intacta:** `usuarios`, `auth-service`, `permisos-service`, los ~23 gates y
    `firestore.rules` **sin cambios**; ningún consumidor confía en el claim (D-U2-2).
 4. `inventario-ledger.ts` **sin tocar**; `empresaId:"default"` registrado como precondición de MT-U3 (D-U2-3).
