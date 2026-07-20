@@ -2,6 +2,7 @@ import { getAdminDb, getAdminMessaging } from './firebase-admin'
 import { FieldValue } from 'firebase-admin/firestore'
 
 interface PushParams {
+  empresaId: string
   title: string
   body: string
   url?: string
@@ -17,15 +18,31 @@ export async function enviarPushAdmins(params: PushParams): Promise<{ enviados: 
   const db = getAdminDb()
   const messaging = getAdminMessaging()
 
-  const adminsSnap = await db.collection('usuarios')
-    .where('rol', '==', 'admin')
+  // La membresía activa decide quién administra este tenant. El perfil global
+  // solo aporta los tokens FCM que necesita el envío.
+  const membresiasSnap = await db.collection('membresias')
+    .where('empresaId', '==', params.empresaId)
     .get()
+  const adminUids = membresiasSnap.docs
+    .map((doc) => doc.data())
+    .filter((membresia) => membresia.rol === 'admin'
+      && membresia.estado === 'activa'
+      && membresia.activo === true
+      && typeof membresia.uid === 'string')
+    .map((membresia) => membresia.uid as string)
+
+  const admins = adminUids.length > 0
+    ? await db.getAll(...adminUids.map((uid) => db.collection('usuarios').doc(uid)))
+    : []
 
   let enviados = 0
   let purgados = 0
 
-  for (const userDoc of adminsSnap.docs) {
-    const tokens: string[] = userDoc.data().fcmTokens || []
+  for (const userDoc of admins) {
+    const perfil = userDoc.data()
+    const tokens = Array.isArray(perfil?.fcmTokens)
+      ? perfil.fcmTokens.filter((token): token is string => typeof token === 'string')
+      : []
     if (tokens.length === 0) continue
 
     const tokensInvalidos: string[] = []

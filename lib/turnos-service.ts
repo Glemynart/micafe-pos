@@ -14,7 +14,7 @@ import {
   increment,
   limit,
 } from 'firebase/firestore'
-import { db } from './firebase'
+import { auth, db } from './firebase'
 import { calcularEgresosTurno } from './egresos-service'
 import { notificar } from './notificaciones-cliente'
 import { tenantQuery, getEmpresaId, withEmpresaId } from '@/lib/tenant'
@@ -64,6 +64,31 @@ export interface CerrarTurnoParams {
   relevoCajeroNombre?: string;
   umbralAlertaFaltante?: number;
   conteoDetalle?: Record<string, number>;
+}
+
+export interface CandidatoRelevo {
+  uid: string;
+  nombre: string;
+}
+
+/** Obtiene candidatos activos del tenant mediante el backend privilegiado. */
+export async function obtenerCandidatosRelevo(): Promise<CandidatoRelevo[]> {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("No hay una sesión activa.");
+
+  const response = await fetch("/api/turnos/candidatos-relevo", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error("No fue posible cargar candidatos de relevo.");
+
+  const data = await response.json() as { candidatos?: unknown };
+  if (!Array.isArray(data.candidatos)) throw new Error("Respuesta de relevo inválida.");
+  return data.candidatos.filter((candidato): candidato is CandidatoRelevo =>
+    !!candidato
+    && typeof candidato === "object"
+    && typeof (candidato as CandidatoRelevo).uid === "string"
+    && typeof (candidato as CandidatoRelevo).nombre === "string"
+  );
 }
 
 /**
@@ -240,16 +265,21 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
       }
 
       const usuarioBRef = doc(db, 'usuarios', relevoCajeroId);
-      const usuarioBDoc = await transaction.get(usuarioBRef);
+      const membresiaBRef = doc(db, 'membresias', `${empresaId}_${relevoCajeroId}`);
+      const [usuarioBDoc, membresiaBDoc] = await Promise.all([
+        transaction.get(usuarioBRef),
+        transaction.get(membresiaBRef),
+      ]);
 
       if (!usuarioBDoc.exists()) {
         throw new Error('El cajero de relevo no fue encontrado.');
       }
-      const usuarioB = usuarioBDoc.data() as { nombre?: string; activo?: boolean; rol?: string };
-      if (!usuarioB.activo) {
+      const usuarioB = usuarioBDoc.data() as { nombre?: string };
+      const membresiaB = membresiaBDoc.data() as { activo?: boolean; estado?: string; rol?: string } | undefined;
+      if (!membresiaB || membresiaB.estado !== 'activa' || membresiaB.activo !== true) {
         throw new Error('El cajero de relevo está deshabilitado.');
       }
-      const rolB = usuarioB.rol || '';
+      const rolB = membresiaB.rol || '';
       if (rolB !== 'cajero' && rolB !== 'supervisor') {
         throw new Error(`El rol "${rolB}" no es válido para recibir un relevo.`);
       }
@@ -451,19 +481,20 @@ export function suscribirHistorialTurnos(
   let unsubscribeTurnos = () => {};
   let cancelado = false;
 
-  // `usuarios` es global (§7.2 del diseño), sin empresaId.
+  // Roles y estados provienen de membresías del tenant activo.
   Promise.all([
     tenantQuery(
       collection(db, 'turnos'),
       orderBy('fechaApertura', 'desc'),
       limit(HISTORIAL_TURNOS_LIMIT)
     ),
-    getDocs(query(collection(db, 'usuarios'))),
-  ]).then(([q, usuariosSnap]) => {
+    tenantQuery(collection(db, 'membresias')).then((q) => getDocs(q)),
+  ]).then(([q, membresiasSnap]) => {
     if (cancelado) return;
     const rolesPorUid: Record<string, string> = {}
-    usuariosSnap.docs.forEach(d => {
-      rolesPorUid[d.id] = d.data().rol || ''
+    membresiasSnap.docs.forEach(d => {
+      const data = d.data()
+      if (data.estado === 'activa' && data.activo === true) rolesPorUid[data.uid] = data.rol || ''
     })
 
     unsubscribeTurnos = onSnapshot(q, (snapshot) => {

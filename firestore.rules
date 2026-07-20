@@ -2,8 +2,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // MT-U4: Firebase Auth + Custom Claims exclusivamente. Ningún helper
-    // consulta Firestore durante la evaluación de una regla.
+    // El claim tenant es emitido exclusivamente por Functions desde la
+    // membresía canónica. Ningún cliente puede escribir roles o permisos.
     function esAutenticado() { return request.auth != null; }
     function rol() { return request.auth.token.rol; }
     function esAdmin() { return esAutenticado() && rol() == 'admin'; }
@@ -202,8 +202,7 @@ service cloud.firestore {
       allow delete: if puedeEliminarEnTenant() && esAdminOCajero();
     }
 
-    // Colecciones globales legacy. `configuracion` y `permisos_roles` se
-    // reemplazarÃ¡n por configuraciones/membresÃ­as en iniciativas posteriores.
+    // Colecciones globales de perfil y transición.
     match /eventos/{id} {
       allow read: if true;
       allow create, update, delete: if esAutenticado() && rol() in ['admin', 'marketing'];
@@ -214,18 +213,15 @@ service cloud.firestore {
       allow update: if esAdminOCajero();
     }
     match /usuarios/{uid} {
-      // MT-U4 transitorio: `usuarios` conserva su política global legacy hasta
-      // MT-U5b, cuando rol/permisos migren a `membresias`.
+      // Perfil global: nunca contiene ni decide rol, permisos o estado.
       allow read: if esAutenticado();
-      allow create, delete: if esAdmin();
-      allow update: if esAdmin()
-        || (esUsuarioPropio(uid)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimoAcceso', 'fcmTokens']));
+      allow create, delete: if false;
+      allow update: if esUsuarioPropio(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimoAcceso', 'fcmTokens']);
     }
     match /permisos_roles/{id} {
-      // Plantilla global legacy administrada por el admin hasta MT-U5b.
-      allow read: if esAutenticado();
-      allow create, update, delete: if esAdmin();
+      // Plantillas: solo base de alta/sincronización por backend Admin SDK.
+      allow read, write: if false;
     }
 
     // Plano SaaS: las operaciones se reservan al claim de plataforma; el
@@ -237,7 +233,13 @@ service cloud.firestore {
       allow create, update, delete: if esSuperadmin();
     }
     match /membresias/{id} {
-      allow read, write: if esSuperadmin();
+      // La membresía es la autoridad tenant. Cada usuario solo lee la propia;
+      // un admin lista las de su empresa. Toda escritura pasa por Functions para
+      // sincronizar/revocar custom claims.
+      allow get: if perteneceTenantDelRecurso()
+        && (resource.data.uid == request.auth.uid || esAdmin());
+      allow list: if perteneceTenantDelRecurso() && esAdmin();
+      allow create, update, delete: if false;
     }
     match /planes/{id} {
       allow read, write: if esSuperadmin();

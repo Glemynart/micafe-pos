@@ -9,8 +9,6 @@ import { LoginScreen } from '@/components/pos/login-screen'
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useModulosHabilitados } from '@/contexts/modulos-context'
-import { doc, onSnapshot } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
 import { ReservasBanner } from '@/components/pos/reservas-banner'
 import dynamic from 'next/dynamic'
 
@@ -50,40 +48,10 @@ export default function POSApp() {
   const [activeModule, setActiveModule] = useState('sell')
   const [pendingPedidoId, setPendingPedidoId] = useState<string | null>(null)
 
-  // Suscripcion reactiva a permisos del rol desde Firestore
-  const [rolePermisos, setRolePermisos] = useState<string[]>([])
-  useEffect(() => {
-    if (!usuario?.rol) return
-    const unsub = onSnapshot(
-      doc(db, "permisos_roles", usuario.rol),
-      (snap) => { setRolePermisos(snap.exists() ? (snap.data().permisos || []) : []) },
-      () => {} // silencioso en error, usa fallback
-    )
-    return unsub
-  }, [usuario?.uid, usuario?.rol])
-
+  // La membresía ya contiene el conjunto efectivo; no se consulta la plantilla.
   const userPerms = useMemo(() => {
-    const perUser = usuario?.permisos
-    const finalPerms = new Set<string>()
-
-    if (rolePermisos.length > 0) {
-      for (const p of rolePermisos) finalPerms.add(p)
-    }
-
-    if (perUser && perUser.length > 0) {
-      for (const p of perUser) finalPerms.add(p)
-    }
-
-    if (finalPerms.size === 0) {
-      finalPerms.add('sell')
-    }
-
-    if (usuario?.rol === 'admin' || usuario?.rol === 'cajero') {
-      finalPerms.add('reservas')
-    }
-
-    return finalPerms
-  }, [usuario?.permisos, usuario?.rol, rolePermisos])
+    return new Set(usuario?.permisos ?? [])
+  }, [usuario?.permisos])
 
   const modulosSet = useMemo(() => new Set(modulosHabilitados), [modulosHabilitados])
 

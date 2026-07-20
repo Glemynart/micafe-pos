@@ -1,15 +1,13 @@
 /**
  * set-claims-mt-u2.ts — MT-U2: acuñación de custom claims {empresaId, rol}
  *
- * Lee `usuarios/{uid}.rol` (fuente única de autorización, D-U2-2) y la
- * empresa fundacional (`empresas` con `esFundacional==true`, sin hardcodear
- * su id opaco — MT-U1 D-U1-1) y acuña en Firebase Auth el custom claim
+ * Lee la membresía canónica de la empresa fundacional (`empresas` con
+ * `esFundacional==true`, sin hardcodear su id opaco — MT-U1 D-U1-1) y acuña
+ * en Firebase Auth el custom claim
  * `{ empresaId, rol }` para cada usuario existente.
  *
- * El claim es EXCLUSIVAMENTE una copia de `usuarios.rol` (D-U2-2 de
- * MT-U2-runtime-saas-diseno.md): la autoridad de autorización sigue siendo
- * `usuarios` hasta MT-U5b. Este script NO cambia ningún guard, provider,
- * servicio ni regla de Firestore — solo escribe el claim en Firebase Auth.
+ * Desde MT-U5B, el claim es un espejo de `membresias/{empresaId}_{uid}.rol`.
+ * Este script no cambia ningún guard, provider, servicio ni regla de Firestore.
  *
  * SEGURIDAD:
  *   • DRY-RUN por defecto. Solo escribe con el flag explícito --execute.
@@ -21,7 +19,7 @@
  *     reemplaza el objeto entero por diseño del SDK).
  *   • Aborta sin escribir nada si no existe la empresa fundacional
  *     (`esFundacional==true`) — precondición de MT-U1 (R6, ya cerrada).
- *   • Roles fuera del tipo `RolUsuario` conocido se omiten (no se acuña su
+ *   • Roles fuera del contrato de membresía conocido se omiten (no se acuña su
  *     claim) y se reportan como advertencia, sin abortar el resto de la
  *     corrida.
  *
@@ -41,13 +39,13 @@ import { cert, initializeApp, getApps } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getAuth } from 'firebase-admin/auth'
 import { EMPRESAS_COLLECTION } from '../lib/empresas-service'
-import type { RolUsuario } from '../lib/auth-service'
+import type { RolMembresia } from '../lib/membresias-service'
 
 const argv = process.argv.slice(2)
 // --dry-run gana si se combinan ambos flags por error: seguro por defecto.
 const EXECUTE = argv.includes('--execute') && !argv.includes('--dry-run')
 
-const ROLES_CONOCIDOS: readonly RolUsuario[] = ['admin', 'supervisor', 'cajero', 'cocinero', 'marketing']
+const ROLES_CONOCIDOS: readonly RolMembresia[] = ['admin', 'supervisor', 'cajero', 'cocinero', 'marketing']
 
 // ─── Service account (mismo patrón que scripts/migrate-mt-u1-fundacional.ts) ──
 function loadServiceAccount(): any {
@@ -71,9 +69,11 @@ if (!getApps().length) initializeApp({ credential: cert(loadServiceAccount()) })
 const db = getFirestore()
 const auth = getAuth()
 
-interface UsuarioMin {
+interface MembresiaMin {
   uid: string
   rol?: string
+  estado?: string
+  activo?: boolean
 }
 
 interface ClaimsActuales {
@@ -84,7 +84,7 @@ interface ClaimsActuales {
 
 interface ReporteUsuario {
   uid: string
-  rolFirestore: string | null
+  rolMembresia: string | null
   accion: 'creado' | 'actualizado' | 'sin_cambios' | 'omitido_rol_invalido' | 'omitido_sin_auth'
 }
 
@@ -101,12 +101,12 @@ async function resolverEmpresaFundacional(): Promise<string | null> {
   return snap.empty ? null : snap.docs[0].id
 }
 
-async function obtenerUsuarios(): Promise<UsuarioMin[]> {
-  const snap = await db.collection('usuarios').get()
-  return snap.docs.map((d) => ({ uid: d.id, rol: d.data().rol }))
+async function obtenerMembresias(empresaId: string): Promise<MembresiaMin[]> {
+  const snap = await db.collection('membresias').where('empresaId', '==', empresaId).get()
+  return snap.docs.map((d) => ({ uid: d.data().uid, rol: d.data().rol, estado: d.data().estado, activo: d.data().activo }))
 }
 
-function esRolValido(rol: string | undefined): rol is RolUsuario {
+function esRolValido(rol: string | undefined): rol is RolMembresia {
   return !!rol && (ROLES_CONOCIDOS as readonly string[]).includes(rol)
 }
 
@@ -120,7 +120,7 @@ function imprimirReporte(r: Reporte) {
   console.log('')
   console.log(`Usuarios procesados: ${r.usuarios.length}`)
   for (const u of r.usuarios) {
-    console.log(`  - uid=${u.uid} rol(Firestore)=${u.rolFirestore ?? '(sin rol)'} → ${u.accion}`)
+    console.log(`  - uid=${u.uid} rol(membresía)=${u.rolMembresia ?? '(sin rol)'} → ${u.accion}`)
   }
   console.log('')
   console.log(`Errores/advertencias: ${r.errores.length === 0 ? 'ninguno' : ''}`)
@@ -151,39 +151,39 @@ async function main() {
     process.exit(1)
   }
 
-  const usuarios = await obtenerUsuarios()
+  const membresias = await obtenerMembresias(empresaId)
 
-  for (const usuario of usuarios) {
-    if (!esRolValido(usuario.rol)) {
-      reporte.usuarios.push({ uid: usuario.uid, rolFirestore: usuario.rol ?? null, accion: 'omitido_rol_invalido' })
+  for (const membresia of membresias) {
+    if (membresia.estado !== 'activa' || membresia.activo !== true || !esRolValido(membresia.rol)) {
+      reporte.usuarios.push({ uid: membresia.uid, rolMembresia: membresia.rol ?? null, accion: 'omitido_rol_invalido' })
       reporte.errores.push(
-        `uid=${usuario.uid}: rol="${usuario.rol ?? '(vacío)'}" no está en el tipo RolUsuario conocido (${ROLES_CONOCIDOS.join(', ')}). Claim NO acuñado.`
+        `uid=${membresia.uid}: membresía activa con rol="${membresia.rol ?? '(vacío)'}" inválido o estado inactivo. Claim NO acuñado.`
       )
       continue
     }
 
     let claimsActuales: ClaimsActuales = {}
     try {
-      const authUser = await auth.getUser(usuario.uid)
+      const authUser = await auth.getUser(membresia.uid)
       claimsActuales = (authUser.customClaims as ClaimsActuales) ?? {}
     } catch (err) {
-      reporte.usuarios.push({ uid: usuario.uid, rolFirestore: usuario.rol, accion: 'omitido_sin_auth' })
-      reporte.errores.push(`uid=${usuario.uid}: no existe en Firebase Auth (${(err as Error).message}). Claim NO acuñado.`)
+      reporte.usuarios.push({ uid: membresia.uid, rolMembresia: membresia.rol, accion: 'omitido_sin_auth' })
+      reporte.errores.push(`uid=${membresia.uid}: no existe en Firebase Auth (${(err as Error).message}). Claim NO acuñado.`)
       continue
     }
 
-    const sinCambios = claimsActuales.empresaId === empresaId && claimsActuales.rol === usuario.rol
+    const sinCambios = claimsActuales.empresaId === empresaId && claimsActuales.rol === membresia.rol
     const accion: ReporteUsuario['accion'] = sinCambios
       ? 'sin_cambios'
       : claimsActuales.empresaId === undefined
         ? 'creado'
         : 'actualizado'
 
-    reporte.usuarios.push({ uid: usuario.uid, rolFirestore: usuario.rol, accion })
+    reporte.usuarios.push({ uid: membresia.uid, rolMembresia: membresia.rol, accion })
 
     if (EXECUTE && !sinCambios) {
-      const nuevosClaims: ClaimsActuales = { ...claimsActuales, empresaId, rol: usuario.rol }
-      await auth.setCustomUserClaims(usuario.uid, nuevosClaims)
+      const nuevosClaims: ClaimsActuales = { ...claimsActuales, empresaId, rol: membresia.rol }
+      await auth.setCustomUserClaims(membresia.uid, nuevosClaims)
     }
   }
 
