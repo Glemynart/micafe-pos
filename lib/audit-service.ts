@@ -3,14 +3,13 @@ import {
   addDoc,
   serverTimestamp,
   getDocs,
-  query,
-  where,
   orderBy,
   limit,
   type Timestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { getAuth } from "firebase/auth";
+import { tenantQuery, stampEmpresaId } from "@/lib/tenant";
 
 export type AccionAuditable =
   | "login"
@@ -46,12 +45,12 @@ export async function registrarAuditoria(
   if (!user) return;
 
   try {
-    await addDoc(collection(db, "auditoria_logs"), {
+    await addDoc(collection(db, "auditoria_logs"), await stampEmpresaId({
       accion,
       detalle,
       uid: user.uid,
       timestamp: serverTimestamp(),
-    });
+    }));
   } catch {
     // fallback silencioso: la auditoría no debe bloquear la app
   }
@@ -60,7 +59,7 @@ export async function registrarAuditoria(
 export async function obtenerLogsAuditoria(
   maxRegistros = 100
 ): Promise<RegistroAuditoria[]> {
-  const q = query(
+  const q = await tenantQuery(
     collection(db, "auditoria_logs"),
     orderBy("timestamp", "desc"),
     limit(maxRegistros)

@@ -19,6 +19,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { tenantQuery, stampEmpresaId } from '@/lib/tenant'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -53,42 +54,59 @@ export function suscribirLiquidaciones(
   consignadorId: string,
   callback: (liquidaciones: Liquidacion[]) => void
 ): Unsubscribe {
-  const q = query(
-    collection(db, 'liquidaciones'),
-    where('consignadorId', '==', consignadorId)
-  )
-  return onSnapshot(q, (snap) => {
-    const data: Liquidacion[] = snap.docs
-      .map((d) => ({ id: d.id, ...(d.data() as Omit<Liquidacion, 'id'>) }))
-      .sort((a, b) => {
-        const ta = a.creadoEn instanceof Object && 'toDate' in (a.creadoEn as object)
-          ? (a.creadoEn as { toDate: () => Date }).toDate().getTime() : 0
-        const tb = b.creadoEn instanceof Object && 'toDate' in (b.creadoEn as object)
-          ? (b.creadoEn as { toDate: () => Date }).toDate().getTime() : 0
-        return tb - ta
-      })
-    callback(data)
+  let unsubscribe = () => {}
+  let cancelado = false
+
+  tenantQuery(collection(db, 'liquidaciones'), where('consignadorId', '==', consignadorId)).then((q) => {
+    if (cancelado) return
+    unsubscribe = onSnapshot(q, (snap) => {
+      const data: Liquidacion[] = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as Omit<Liquidacion, 'id'>) }))
+        .sort((a, b) => {
+          const ta = a.creadoEn instanceof Object && 'toDate' in (a.creadoEn as object)
+            ? (a.creadoEn as { toDate: () => Date }).toDate().getTime() : 0
+          const tb = b.creadoEn instanceof Object && 'toDate' in (b.creadoEn as object)
+            ? (b.creadoEn as { toDate: () => Date }).toDate().getTime() : 0
+          return tb - ta
+        })
+      callback(data)
+    })
   })
+
+  return () => {
+    cancelado = true
+    unsubscribe()
+  }
 }
 
 export function suscribirTodasLiquidaciones(
   callback: (liquidaciones: Liquidacion[]) => void
 ): Unsubscribe {
-  const q = query(collection(db, 'liquidaciones'))
-  return onSnapshot(q, (snap) => {
-    const data: Liquidacion[] = snap.docs
-      .map((d) => ({ id: d.id, ...(d.data() as Omit<Liquidacion, 'id'>) }))
-    callback(data)
+  let unsubscribe = () => {}
+  let cancelado = false
+
+  tenantQuery(collection(db, 'liquidaciones')).then((q) => {
+    if (cancelado) return
+    unsubscribe = onSnapshot(q, (snap) => {
+      const data: Liquidacion[] = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as Omit<Liquidacion, 'id'>) }))
+      callback(data)
+    })
   })
+
+  return () => {
+    cancelado = true
+    unsubscribe()
+  }
 }
 
 // ─── Escritura ────────────────────────────────────────────────────────────────
 
 export async function crearLiquidacion(data: LiquidacionInput): Promise<string> {
-  const ref = await addDoc(collection(db, 'liquidaciones'), {
+  const ref = await addDoc(collection(db, 'liquidaciones'), await stampEmpresaId({
     ...data,
     creadoEn: serverTimestamp(),
-  })
+  }))
   return ref.id
 }
 

@@ -28,6 +28,7 @@ import { getAuth } from "firebase/auth";
 import { aplicarMovimientosEnTransaccion, type EmitirMovimientoParams } from "@/lib/inventario-ledger";
 import type { ImpuestoTipo, RegimenTributario } from "@/lib/impuestos-service";
 import type { ModificadorGrupoSnapshot } from '@/lib/configured-line';
+import { getEmpresaId, tenantQuery, withEmpresaId } from "@/lib/tenant";
 
 export interface VentaItem {
   id: string; // ID del producto
@@ -104,6 +105,7 @@ async function _ejecutarVenta(
   transaction: Transaction,
   params: CrearVentaParams,
   ventaDocRef: DocumentReference,
+  empresaId: string,
   extraVentaFields?: Record<string, unknown>,
 ): Promise<{ consecutivo: number, incidencias: IncidenciaInventario[] }> {
   const incidencias: IncidenciaInventario[] = [];
@@ -221,6 +223,7 @@ async function _ejecutarVenta(
       // consumo_receta: insumo descargado por receta de un producto vendido.
       // costoUnitario = costo vigente del insumo en el instante de la venta (I7).
       paramsMovimientos.push({
+        empresaId,
         articuloTipo:        "insumo",
         articuloId:          insumoId,
         articuloNombre:      insumo.data.nombre ?? insumoId,
@@ -255,6 +258,7 @@ async function _ejecutarVenta(
       // venta: descuento directo de producto (sin receta).
       // costoUnitario = costo vigente del producto en el instante de la venta (I7).
       paramsMovimientos.push({
+        empresaId,
         articuloTipo:        "producto",
         articuloId:          productoId,
         articuloNombre:      producto.data.nombre ?? productoId,
@@ -297,7 +301,7 @@ async function _ejecutarVenta(
   const ventaDataClean = Object.fromEntries(
     Object.entries(ventaData).filter(([, v]) => v !== undefined)
   );
-  transaction.set(ventaDocRef, ventaDataClean);
+  transaction.set(ventaDocRef, withEmpresaId(empresaId, ventaDataClean));
 
   if (params.estado === 'pagada') {
     const cuentaMap: Record<string, { nombre: string }> = {
@@ -308,7 +312,7 @@ async function _ejecutarVenta(
     const registrarMovimiento = (cuentaId: string, monto: number) => {
       if (monto <= 0 || !cuentaMap[cuentaId]) return;
       transaction.update(doc(db, 'cuentas_bancarias', cuentaId), { saldo: increment(monto) });
-      transaction.set(doc(collection(db, 'transacciones_financieras')), {
+      transaction.set(doc(collection(db, 'transacciones_financieras')), withEmpresaId(empresaId, {
         cuentaId,
         cuentaNombre: cuentaMap[cuentaId].nombre,
         tipo: 'ingreso',
@@ -320,7 +324,7 @@ async function _ejecutarVenta(
         usuarioNombre: params.cajeroNombre ?? params.cajeroId,
         espacioId: params.espacioId ?? null,
         fecha: serverTimestamp(),
-      });
+      }));
     };
 
     if (params.metodoPago === 'efectivo') {
@@ -341,9 +345,11 @@ async function _ejecutarVenta(
 export async function registrarVenta(params: CrearVentaParams): Promise<{id: string, consecutivo: number, incidenciasInventario: IncidenciaInventario[]}> {
   const nuevaVentaDoc = doc(collection(db, "ventas"));
   let resultado: { consecutivo: number, incidencias: IncidenciaInventario[] };
+  // MT-U3 Capa 2: resuelto antes de runTransaction (§2.5).
+  const empresaId = await getEmpresaId();
 
   await runTransaction(db, async (transaction) => {
-    resultado = await _ejecutarVenta(transaction, params, nuevaVentaDoc);
+    resultado = await _ejecutarVenta(transaction, params, nuevaVentaDoc, empresaId);
   });
 
   return { id: nuevaVentaDoc.id, consecutivo: resultado!.consecutivo, incidenciasInventario: resultado!.incidencias };
@@ -359,6 +365,8 @@ export async function cobrarPedido(
 ): Promise<CobrarPedidoResult> {
   const nuevaVentaDoc = doc(collection(db, "ventas"));
   let resultado: CobrarPedidoResult;
+  // MT-U3 Capa 2: resuelto antes de runTransaction (§2.5).
+  const empresaId = await getEmpresaId();
 
   await runTransaction(db, async (transaction) => {
     const pedidoRef = doc(db, 'pedidos_activos', pedidoId);
@@ -377,7 +385,7 @@ export async function cobrarPedido(
     );
 
     const { consecutivo, incidencias } = await _ejecutarVenta(
-      transaction, params, nuevaVentaDoc, { pedidoId }
+      transaction, params, nuevaVentaDoc, empresaId, { pedidoId }
     );
 
     transaction.update(pedidoRef, {
@@ -405,11 +413,15 @@ export async function cobrarPedido(
 }
 
 const HISTORIAL_VENTAS_LIMIT = 100;
+// IMP-13 (MT-U3 §10 R7): el rango de fechas no tenía cota — a escala N-tenant
+// una query sin límite es un incidente de costo. Cota generosa que no cambia
+// el resultado observado hoy (volumen actual muy por debajo de este umbral).
+const HISTORIAL_VENTAS_RANGO_LIMIT = 5000;
 
 /**
  * Sin `rangoFecha`: acota a las HISTORIAL_VENTAS_LIMIT ventas más recientes.
- * Con `rangoFecha`: filtra por ese rango (sin límite de conteo) para preservar
- * la búsqueda de cualquier fecha histórica.
+ * Con `rangoFecha`: filtra por ese rango, acotado a HISTORIAL_VENTAS_RANGO_LIMIT
+ * para preservar la búsqueda de cualquier fecha histórica sin dejar la query sin cota.
  */
 export function suscribirHistorialVentas(
   espacioId: string | undefined,
@@ -425,45 +437,55 @@ export function suscribirHistorialVentas(
         ]
       : []),
     orderBy("fecha", "desc"),
-    ...(rangoFecha ? [] : [limit(HISTORIAL_VENTAS_LIMIT)]),
+    limit(rangoFecha ? HISTORIAL_VENTAS_RANGO_LIMIT : HISTORIAL_VENTAS_LIMIT),
   ];
-  const q = query(collection(db, "ventas"), ...filtros);
 
-  return onSnapshot(q, (snap) => {
-    const ventas = snap.docs.map((d) => {
-      const data = d.data();
-      const items = data.items || [];
-      const resumen = items.map((i: any) => `${i.cantidad}x ${i.nombre}`).join(', ');
-      
-      let fechaFormat = "";
-      if (data.fecha?.toDate) {
-        const dateObj = data.fecha.toDate();
-        const pad = (n: number) => n.toString().padStart(2, '0');
-        fechaFormat = `${dateObj.getFullYear()}-${pad(dateObj.getMonth()+1)}-${pad(dateObj.getDate())} ${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
-      } else if (typeof data.fecha === 'string') {
-        fechaFormat = data.fecha;
-      }
-      
-      return {
-        id: d.id,
-        ...data,
-        fecha: fechaFormat, 
-        resumen,
-        // Shape histórico (pre ADR-TRIB-001): {subtotal, iva, impoconsumo}.
-        subtotal_ventas: data.totales?.subtotal || data.totales?.total || 0,
-        iva_total: data.totales?.iva || 0,
-        impoconsumo_total: data.totales?.impoconsumo || 0,
-        // Shape nuevo (ADR-TRIB-001 D6): {subtotalBase, totalINC, totalExcluido}.
-        // Ambos coexisten (dual-shape): una venta solo tiene uno u otro poblado.
-        subtotal_base: data.totales?.subtotalBase ?? 0,
-        total_inc: data.totales?.totalINC ?? 0,
-        total_excluido: data.totales?.totalExcluido ?? 0,
-        total: data.totales?.total || 0,
-        metodo_pago: data.metodoPago || 'efectivo',
-      };
+  let unsubscribe = () => {};
+  let cancelado = false;
+
+  tenantQuery(collection(db, "ventas"), ...filtros).then((q) => {
+    if (cancelado) return;
+    unsubscribe = onSnapshot(q, (snap) => {
+      const ventas = snap.docs.map((d) => {
+        const data = d.data();
+        const items = data.items || [];
+        const resumen = items.map((i: any) => `${i.cantidad}x ${i.nombre}`).join(', ');
+
+        let fechaFormat = "";
+        if (data.fecha?.toDate) {
+          const dateObj = data.fecha.toDate();
+          const pad = (n: number) => n.toString().padStart(2, '0');
+          fechaFormat = `${dateObj.getFullYear()}-${pad(dateObj.getMonth()+1)}-${pad(dateObj.getDate())} ${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
+        } else if (typeof data.fecha === 'string') {
+          fechaFormat = data.fecha;
+        }
+
+        return {
+          id: d.id,
+          ...data,
+          fecha: fechaFormat,
+          resumen,
+          // Shape histórico (pre ADR-TRIB-001): {subtotal, iva, impoconsumo}.
+          subtotal_ventas: data.totales?.subtotal || data.totales?.total || 0,
+          iva_total: data.totales?.iva || 0,
+          impoconsumo_total: data.totales?.impoconsumo || 0,
+          // Shape nuevo (ADR-TRIB-001 D6): {subtotalBase, totalINC, totalExcluido}.
+          // Ambos coexisten (dual-shape): una venta solo tiene uno u otro poblado.
+          subtotal_base: data.totales?.subtotalBase ?? 0,
+          total_inc: data.totales?.totalINC ?? 0,
+          total_excluido: data.totales?.totalExcluido ?? 0,
+          total: data.totales?.total || 0,
+          metodo_pago: data.metodoPago || 'efectivo',
+        };
+      });
+      callback(ventas);
     });
-    callback(ventas);
   });
+
+  return () => {
+    cancelado = true;
+    unsubscribe();
+  };
 }
 
 export async function obtenerVentaPorId(id: string): Promise<any> {
@@ -509,6 +531,8 @@ export async function anularVenta(id: string): Promise<void> {
   const anulador = auth.currentUser;
   const anuladorId = anulador?.uid ?? '';
   const anuladorNombre = anulador?.displayName ?? anulador?.email ?? anuladorId;
+  // MT-U3 Capa 2: resuelto antes de runTransaction (§2.5).
+  const empresaId = await getEmpresaId();
 
   await runTransaction(db, async (transaction) => {
     const ventaSnap = await transaction.get(ventaRef);
@@ -595,6 +619,7 @@ export async function anularVenta(id: string): Promise<void> {
       const insumo = insumosMap.get(insumoId);
       if (insumo) {
         paramsMovimientos.push({
+          empresaId,
           articuloTipo:            "insumo",
           articuloId:              insumoId,
           articuloNombre:          insumo.data.nombre ?? insumoId,
@@ -618,6 +643,7 @@ export async function anularVenta(id: string): Promise<void> {
       const producto = productosMap.get(productoId);
       if (producto) {
         paramsMovimientos.push({
+          empresaId,
           articuloTipo:            "producto",
           articuloId:              productoId,
           articuloNombre:          producto.data.nombre ?? productoId,
@@ -657,7 +683,7 @@ export async function anularVenta(id: string): Promise<void> {
     const revertirMovimiento = (cuentaId: string, monto: number) => {
       if (monto <= 0 || !cuentaMap[cuentaId]) return;
       transaction.update(doc(db, 'cuentas_bancarias', cuentaId), { saldo: increment(-monto) });
-      transaction.set(doc(collection(db, 'transacciones_financieras')), {
+      transaction.set(doc(collection(db, 'transacciones_financieras')), withEmpresaId(empresaId, {
         cuentaId,
         cuentaNombre: cuentaMap[cuentaId].nombre,
         tipo: 'egreso',
@@ -669,7 +695,7 @@ export async function anularVenta(id: string): Promise<void> {
         usuarioNombre: anuladorNombre,
         espacioId: ventaData.espacioId ?? null,
         fecha: serverTimestamp(),
-      });
+      }));
     };
 
     // Validar fondos antes de revertir: acumular débitos por cuenta y verificar

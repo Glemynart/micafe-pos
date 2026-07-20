@@ -13,6 +13,7 @@ import {
 import { db } from "@/lib/firebase";
 import { aplicarMovimientosEnTransaccion, type EmitirMovimientoParams } from "@/lib/inventario-ledger";
 import { getCurrentUserInfo } from "@/lib/auth-service";
+import { getEmpresaId, tenantQuery, withEmpresaId } from "@/lib/tenant";
 
 export interface CompraItem {
   tipo?: 'insumo' | 'producto';
@@ -51,6 +52,8 @@ export interface RegistrarCompraParams {
 
 export async function registrarCompra(params: RegistrarCompraParams): Promise<string> {
   const { uid, nombre } = await getCurrentUserInfo("Debe iniciar sesión para registrar una compra");
+  // MT-U3 Capa 2: resuelto antes de runTransaction (§2.5).
+  const empresaId = await getEmpresaId();
   const comprasRef = collection(db, "compras");
   const nuevaCompraDoc = doc(comprasRef);
 
@@ -131,6 +134,7 @@ export async function registrarCompra(params: RegistrarCompraParams): Promise<st
     for (const [itemId, agr] of itemsAgregados.entries()) {
       const costoUnitario = agr.cantidadTotal > 0 ? agr.costoTotal / agr.cantidadTotal : 0;
       paramsMovimientos.push({
+        empresaId,
         articuloTipo:        agr.tipo,
         articuloId:          itemId,
         articuloNombre:      agr.nombre,
@@ -157,7 +161,7 @@ export async function registrarCompra(params: RegistrarCompraParams): Promise<st
       }
     }
 
-    transaction.set(nuevaCompraDoc, {
+    transaction.set(nuevaCompraDoc, withEmpresaId(empresaId, {
       proveedor: params.proveedor,
       items: params.items,
       total: params.total,
@@ -167,14 +171,14 @@ export async function registrarCompra(params: RegistrarCompraParams): Promise<st
       fecha: fechaDoc,
       creadoEn: serverTimestamp(),
       ...(params.cuentaId ? { cuentaId: params.cuentaId, cuentaNombre: params.cuentaNombre } : {}),
-    });
+    }));
 
     // Descontar de la cuenta bancaria y registrar transacción financiera
     if (cuentaRef && params.cuentaId) {
       transaction.update(cuentaRef, { saldo: increment(-params.total) });
 
       const txRef = doc(collection(db, "transacciones_financieras"));
-      transaction.set(txRef, {
+      transaction.set(txRef, withEmpresaId(empresaId, {
         cuentaId: params.cuentaId,
         cuentaNombre: params.cuentaNombre ?? params.cuentaId,
         tipo: 'egreso',
@@ -186,7 +190,7 @@ export async function registrarCompra(params: RegistrarCompraParams): Promise<st
         usuarioNombre: nombre,
         espacioId: params.espacioId,
         fecha: serverTimestamp(),
-      });
+      }));
     }
   });
 
@@ -197,23 +201,34 @@ export function suscribirCompras(
   espacioId: string,
   callback: (compras: Compra[]) => void
 ): Unsubscribe {
-  const q = query(
+  let unsubscribe = () => {};
+  let cancelado = false;
+
+  tenantQuery(
     collection(db, "compras"),
     where("espacioId", "==", espacioId),
     orderBy("fecha", "desc")
-  );
-
-  return onSnapshot(q, (snap) => {
-    const compras: Compra[] = snap.docs.map((d) => ({
-      id: d.id,
-      ...(d.data() as Omit<Compra, "id">),
-    }));
-    callback(compras);
+  ).then((q) => {
+    if (cancelado) return;
+    unsubscribe = onSnapshot(q, (snap) => {
+      const compras: Compra[] = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as Omit<Compra, "id">),
+      }));
+      callback(compras);
+    });
   });
+
+  return () => {
+    cancelado = true;
+    unsubscribe();
+  };
 }
 
 export async function eliminarCompra(compraId: string): Promise<void> {
   const { uid, nombre: usuarioNombre } = await getCurrentUserInfo("Debe iniciar sesión para registrar una compra");
+  // MT-U3 Capa 2: resuelto antes de runTransaction (§2.5).
+  const empresaId = await getEmpresaId();
   const compraRef = doc(db, "compras", compraId);
 
   await runTransaction(db, async (transaction) => {
@@ -275,6 +290,7 @@ export async function eliminarCompra(compraId: string): Promise<void> {
       if (agr.cantidadTotal <= 0) continue;
       const costoUnitario = agr.costoTotal / agr.cantidadTotal;
       paramsMovimientos.push({
+        empresaId,
         articuloTipo:            agr.tipo,
         articuloId:              itemId,
         articuloNombre:          agr.nombre,
@@ -307,7 +323,7 @@ export async function eliminarCompra(compraId: string): Promise<void> {
       transaction.update(cuentaRef, { saldo: increment(total) });
 
       const txRef = doc(collection(db, "transacciones_financieras"));
-      transaction.set(txRef, {
+      transaction.set(txRef, withEmpresaId(empresaId, {
         cuentaId,
         cuentaNombre: cuentaNombre ?? cuentaId,
         tipo: 'ingreso',
@@ -319,7 +335,7 @@ export async function eliminarCompra(compraId: string): Promise<void> {
         usuarioNombre,
         espacioId,
         fecha: serverTimestamp(),
-      });
+      }));
     }
   });
 }

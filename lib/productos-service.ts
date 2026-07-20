@@ -24,6 +24,7 @@ import { db } from "@/lib/firebase";
 import { aplicarMovimientoEnTransaccion } from "@/lib/inventario-ledger";
 import { IMPUESTO_TIPO_DEFAULT, type ImpuestoTipo } from "@/lib/impuestos-service";
 import { getCurrentUserInfo } from "@/lib/auth-service";
+import { getEmpresaId, tenantQuery, stampEmpresaId } from "@/lib/tenant";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -73,30 +74,36 @@ export function suscribirProductos(
     filtros.push(where("categoriaId", "==", categoriaId));
   }
 
-  const q = query(
-    collection(db, "productos"),
-    ...filtros
-  );
+  let unsubscribe = () => {};
+  let cancelado = false;
 
-  return onSnapshot(q, (snap) => {
-    const productos: Producto[] = snap.docs.map((d) => {
-      const data = d.data() as Omit<Producto, "id">;
-      // Productos existentes anteriores a ADR-TRIB-001 no tienen el campo;
-      // el default se aplica en este único punto de lectura (§5, D3).
-      return { id: d.id, ...data, impuestoTipo: data.impuestoTipo ?? IMPUESTO_TIPO_DEFAULT };
-    }).sort((a, b) => a.nombre.localeCompare(b.nombre));
-    callback(productos);
+  tenantQuery(collection(db, "productos"), ...filtros).then((q) => {
+    if (cancelado) return;
+    unsubscribe = onSnapshot(q, (snap) => {
+      const productos: Producto[] = snap.docs.map((d) => {
+        const data = d.data() as Omit<Producto, "id">;
+        // Productos existentes anteriores a ADR-TRIB-001 no tienen el campo;
+        // el default se aplica en este único punto de lectura (§5, D3).
+        return { id: d.id, ...data, impuestoTipo: data.impuestoTipo ?? IMPUESTO_TIPO_DEFAULT };
+      }).sort((a, b) => a.nombre.localeCompare(b.nombre));
+      callback(productos);
+    });
   });
+
+  return () => {
+    cancelado = true;
+    unsubscribe();
+  };
 }
 
 // ─── Crear ────────────────────────────────────────────────────────────────────
 
 export async function crearProducto(data: ProductoInput): Promise<string> {
-  const ref = await addDoc(collection(db, "productos"), {
+  const ref = await addDoc(collection(db, "productos"), await stampEmpresaId({
     ...data,
     creadoEn: serverTimestamp(),
     actualizadoEn: serverTimestamp(),
-  });
+  }));
   return ref.id;
 }
 
@@ -119,6 +126,9 @@ export async function editarProducto(
 
   // Stock cambió: transacción atómica + Ledger (I11).
   const { uid, nombre: usuarioNombre } = await getCurrentUserInfo("Debe iniciar sesión para ajustar el stock");
+  // MT-U3 Capa 2: resuelto antes de runTransaction (§2.5) — dentro de una
+  // transacción no puede leerse el token de forma limpia.
+  const empresaId = await getEmpresaId();
 
   // Clave de idempotencia estable: generada fuera del callback de runTransaction
   // para sobrevivir reintentos automáticos del SDK sin duplicar el movimiento (I10).
@@ -140,6 +150,7 @@ export async function editarProducto(
     if (delta !== 0) {
       const tipo = delta > 0 ? "ajuste_positivo" : "ajuste_negativo";
       await aplicarMovimientoEnTransaccion(transaction, {
+        empresaId,
         articuloTipo:        "producto",
         articuloId:          id,
         articuloNombre:      (d.nombre as string) ?? id,

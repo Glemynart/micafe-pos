@@ -1,6 +1,7 @@
 import { db } from './firebase'
 import { collection, doc, runTransaction, serverTimestamp, Timestamp } from 'firebase/firestore'
 import type { PedidoActivo, PedidoItem, MovimientoCuenta, ComandaCocina } from './pedidos-service'
+import { getEmpresaId, withEmpresaId } from '@/lib/tenant'
 
 const COMANDAS_COLLECTION = 'comandas_cocina'
 
@@ -14,6 +15,9 @@ export async function separarCuenta(
   itemsToMove: ItemSeparacion[],
   cajeroId: string,
 ): Promise<string> {
+  // MT-U3 Capa 3: resuelto antes de runTransaction (§2.5).
+  const empresaId = await getEmpresaId()
+
   return runTransaction(db, async (transaction) => {
     const origenRef = doc(db, 'pedidos_activos', pedidoOrigenId)
     const origenSnap = await transaction.get(origenRef)
@@ -137,7 +141,7 @@ export async function separarCuenta(
       })
     }
 
-    transaction.set(doc(db, 'pedidos_activos', nuevoPedidoId), {
+    transaction.set(doc(db, 'pedidos_activos', nuevoPedidoId), withEmpresaId(empresaId, {
       id: nuevoPedidoId,
       mesaId: origen.mesaId,
       nombreMesa: origen.nombreMesa,
@@ -149,7 +153,7 @@ export async function separarCuenta(
       comandaIds: comandaIdsAMover,
       movimientos: [movDestino],
       actualizadoEn: serverTimestamp(),
-    })
+    }))
 
     return nuevoPedidoId
   })

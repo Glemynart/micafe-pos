@@ -16,6 +16,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { tenantQuery, stampEmpresaId } from '@/lib/tenant'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -40,26 +41,33 @@ export type ConsignadorInput = Pick<
 export function suscribirConsignadores(
   callback: (consignadores: Consignador[]) => void
 ): Unsubscribe {
-  const q = query(
-    collection(db, 'consignadores'),
-    where('activo', '==', true)
-  )
-  return onSnapshot(q, (snap) => {
-    const data: Consignador[] = snap.docs
-      .map((d) => ({ id: d.id, ...(d.data() as Omit<Consignador, 'id'>) }))
-      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-    callback(data)
+  let unsubscribe = () => {}
+  let cancelado = false
+
+  tenantQuery(collection(db, 'consignadores'), where('activo', '==', true)).then((q) => {
+    if (cancelado) return
+    unsubscribe = onSnapshot(q, (snap) => {
+      const data: Consignador[] = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as Omit<Consignador, 'id'>) }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+      callback(data)
+    })
   })
+
+  return () => {
+    cancelado = true
+    unsubscribe()
+  }
 }
 
 // ─── Escritura ────────────────────────────────────────────────────────────────
 
 export async function crearConsignador(data: ConsignadorInput): Promise<string> {
-  const ref = await addDoc(collection(db, 'consignadores'), {
+  const ref = await addDoc(collection(db, 'consignadores'), await stampEmpresaId({
     ...data,
     activo: true,
     creadoEn: serverTimestamp(),
-  })
+  }))
   return ref.id
 }
 
