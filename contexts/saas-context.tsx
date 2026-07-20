@@ -33,16 +33,16 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { onIdTokenChanged, type User as FirebaseUser } from "firebase/auth";
+import { onIdTokenChanged, signOut, type User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { obtenerEmpresaPorId, type Empresa } from "@/lib/empresas-service";
 import { resolverEmpresaIdActivo, TenantSinSesionError } from "@/lib/tenant-context";
-import type { RolUsuario } from "@/lib/auth-service";
+import { esRolUsuario, type RolUsuario } from "@/lib/auth-service";
 
 // ─── Tipos del Contexto ───────────────────────────────────────────────────────
 
 interface SaaSContextValue {
-  /** empresaId activo, resuelto desde el claim (o el fallback transitorio de D-U2-1) */
+  /** empresaId activo, resuelto exclusivamente desde el claim del token. */
   empresaId: string | null;
   /** Documento de la empresa activa (enriquece empresaId con nombre/estado) */
   empresa: Empresa | null;
@@ -68,37 +68,36 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
 
   const resolver = useCallback(async (firebaseUser: FirebaseUser) => {
     try {
-      // Resolución compartida (claim → fallback D-U2-1, incl. el warn de
-      // anomalía) — misma ruta que usa lib/tenant.ts para servicios planos.
-      const { empresaId: empresaIdResuelto, empresa: empresaDelFallback } =
-        await resolverEmpresaIdActivo();
+       // Resolución exclusiva desde claim — misma ruta que usa lib/tenant.ts
+       // para servicios planos. MT-U5a eliminó el fallback transitorio.
+       const { empresaId: empresaIdResuelto } =
+         await resolverEmpresaIdActivo();
 
       // rolClaim es exclusivo de este contexto (D-U2-2, solo informativo) —
       // se lee del mismo token ya cacheado por el SDK, sin red adicional.
       const tokenResult = await firebaseUser.getIdTokenResult();
-      const huboClaim = tokenResult.claims.empresaId !== undefined;
-      const rolDelClaim = huboClaim ? (tokenResult.claims.rol as RolUsuario | undefined) ?? null : null;
+       const rolDelClaim = esRolUsuario(tokenResult.claims.rol) ? tokenResult.claims.rol : null;
+       if (!rolDelClaim) throw new TenantSinSesionError("La sesión no contiene un rol tenant válido.");
 
       // Camino normal (claim): el resolvedor no trae el doc (evita una
       // lectura que solo este contexto necesita) — se obtiene aquí, igual
       // que antes. Camino de fallback: el resolvedor YA lo trae (lo obtuvo
       // como parte de la propia consulta de descubrimiento) — no se repite
       // la lectura.
-      const empresaDoc = empresaDelFallback ?? (await obtenerEmpresaPorId(empresaIdResuelto));
+       const empresaDoc = await obtenerEmpresaPorId(empresaIdResuelto);
 
       setEmpresaId(empresaIdResuelto);
       setRolClaim(rolDelClaim);
       setEmpresa(empresaDoc);
     } catch (err) {
       if (err instanceof TenantSinSesionError) {
-        // No debería alcanzarse aquí por "sin sesión" (onIdTokenChanged ya
-        // garantiza firebaseUser no nulo), pero SÍ puede ocurrir si el
-        // fallback tampoco encuentra ninguna empresa fundacional — mismo
-        // estado que el código anterior toleraba (empresaId/empresa null).
-        setEmpresaId(null);
-        setRolClaim(null);
-        setEmpresa(null);
-        return;
+         // Token sin claims tras el refresh = sesión inválida de MT-U5a.
+         // Se cierra la sesión en vez de descubrir un tenant por fallback.
+         setEmpresaId(null);
+         setRolClaim(null);
+         setEmpresa(null);
+         await signOut(auth);
+         return;
       }
       throw err;
     }

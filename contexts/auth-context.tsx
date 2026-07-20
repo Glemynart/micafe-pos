@@ -19,6 +19,7 @@ import {
 } from "react";
 import {
   loginConUsername,
+  loginConCodigoYPin,
   logout as authLogout,
   onAuthStateChange,
   type Usuario,
@@ -35,8 +36,10 @@ interface AuthContextValue {
   iniciandoSesion: boolean;
   /** Mensaje de error del último intento de login */
   errorLogin: string | null;
-  /** Inicia sesión con username y contraseña */
-  login: (username: string, password: string) => Promise<void>;
+  /** Ruta primaria MT-U5a: código operativo + PIN. */
+  login: (codigo: string, pin: string) => Promise<void>;
+  /** Compatibilidad temporal: username + contraseña Firebase legacy. */
+  loginLegacy: (username: string, password: string) => Promise<void>;
   /** Cierra la sesión del cajero actual */
   logout: () => Promise<void>;
   /** Limpia el mensaje de error de login */
@@ -82,11 +85,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = useCallback(async (username: string, password: string) => {
+  const manejarLogin = useCallback(async (
+    operacion: (identificador: string, secreto: string) => Promise<Usuario>,
+    identificador: string,
+    secreto: string
+  ) => {
     setIniciandoSesion(true);
     setErrorLogin(null);
     try {
-      const usuarioAutenticado = await loginConUsername(username, password);
+      const usuarioAutenticado = await operacion(identificador, secreto);
       setUsuario(usuarioAutenticado);
     } catch (error: unknown) {
       const mensaje = error instanceof Error
@@ -97,6 +104,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIniciandoSesion(false);
     }
   }, []);
+
+  const login = useCallback(
+    (codigo: string, pin: string) => manejarLogin(loginConCodigoYPin, codigo, pin),
+    [manejarLogin]
+  );
+
+  const loginLegacy = useCallback(
+    (username: string, password: string) => manejarLogin(loginConUsername, username, password),
+    [manejarLogin]
+  );
 
   const logout = useCallback(async () => {
     await authLogout();
@@ -114,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         iniciandoSesion,
         errorLogin,
         login,
+        loginLegacy,
         logout,
         limpiarError,
       }}

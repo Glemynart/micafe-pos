@@ -24,6 +24,8 @@
     "test:tickets": "tsx --test lib/tickets/__tests__/*.test.ts",
     "test:reimpresion": "tsx --test lib/reimpresion/__tests__/*.test.ts",
     "test:tenant": "tsx --test lib/__tests__/tenant.test.ts",
+    "build:functions": "npm.cmd run build --prefix functions",
+    "test:auth-foundation": "npm.cmd test --prefix functions",
     "test:rules:raw": "node --import tsx firestore-rules/run-tests.ts",
     "test:rules": "firebase --project demo-mt-u4-rules emulators:exec --only firestore \"node --import tsx firestore-rules/run-tests.ts\""
   },

@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Coffee, Loader2, ShieldAlert, Eye, EyeOff } from 'lucide-react'
 
 function AdminLoginContent() {
-  const { usuario, cargando: authCargando, login, errorLogin, limpiarError, logout } = useAuthContext()
+  const { usuario, cargando: authCargando, login, loginLegacy, errorLogin, limpiarError, logout } = useAuthContext()
   const router = useRouter()
   const params = useSearchParams()
   const [username, setUsername] = useState('')
@@ -18,6 +18,7 @@ function AdminLoginContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [logging, setLogging] = useState(false)
   const [recordar, setRecordar] = useState(true)
+  const [usarLegacy, setUsarLegacy] = useState(false)
 
   useEffect(() => {
     const saved = localStorage.getItem("admin_user")
@@ -44,7 +45,7 @@ function AdminLoginContent() {
     if (!username.trim() || !password.trim()) return
     setLogging(true)
     try {
-      await login(username.trim(), password)
+      await (usarLegacy ? loginLegacy(username.trim(), password) : login(username.trim(), password))
     } finally {
       setLogging(false)
     }
@@ -101,26 +102,28 @@ function AdminLoginContent() {
               )}
               <form onSubmit={handleLogin} className={`space-y-4 ${sesionNoAdmin ? 'opacity-30 pointer-events-none select-none' : ''}`}>
                 <div className="space-y-2">
-                  <label htmlFor="user" className="text-sm font-medium text-white/70">Usuario</label>
+                  <label htmlFor="user" className="text-sm font-medium text-white/70">{usarLegacy ? 'Usuario' : 'Código operativo'}</label>
                   <input
                     id="user"
                     autoComplete="username"
-                    placeholder="Tu nombre de usuario"
+                    placeholder={usarLegacy ? 'Tu nombre de usuario' : 'Ej. caja-01'}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="w-full h-11 px-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-[#F9B207] focus:ring-1 focus:ring-[#F9B207]/50"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label htmlFor="pass" className="text-sm font-medium text-white/70">Contrasena</label>
+                  <label htmlFor="pass" className="text-sm font-medium text-white/70">{usarLegacy ? 'Contraseña' : 'PIN de 6 dígitos'}</label>
                   <div className="relative">
                     <input
                       id="pass"
                       type={showPassword ? 'text' : 'password'}
                       autoComplete="current-password"
                       placeholder="********"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    inputMode={usarLegacy ? undefined : 'numeric'}
+                    maxLength={usarLegacy ? undefined : 6}
                       className="w-full h-11 px-4 pr-10 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-[#F9B207] focus:ring-1 focus:ring-[#F9B207]/50"
                     />
                     <button
@@ -148,6 +151,18 @@ function AdminLoginContent() {
                 <button type="submit" className="w-full h-11 rounded-xl bg-[#F9B207] text-[#051D41] font-bold hover:bg-[#e6a100] transition-colors disabled:opacity-50 flex items-center justify-center gap-2" disabled={logging}>
                   {logging ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   Ingresar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUsarLegacy((actual) => !actual)
+                    setPassword('')
+                    limpiarError()
+                  }}
+                  disabled={logging}
+                  className="w-full text-xs text-white/45 hover:text-white/75 transition-colors"
+                >
+                  {usarLegacy ? 'Usar código operativo y PIN' : 'Usar acceso legacy con contraseña'}
                 </button>
               </form>
             </div>

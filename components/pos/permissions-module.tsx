@@ -33,6 +33,7 @@ import {
 
 const ROLES: { key: string; label: string }[] = [
   { key: 'admin', label: 'Admin' },
+  { key: 'supervisor', label: 'Supervisor' },
   { key: 'cajero', label: 'Cajero' },
   { key: 'cocinero', label: 'Cocinero' },
   { key: 'marketing', label: 'Marketing' },
@@ -181,6 +182,7 @@ export function PermissionsModule() {
   const rolBadge = (rol: string) => {
     switch (rol) {
       case 'admin': return 'Administrador'
+      case 'supervisor': return 'Supervisor'
       case 'cajero': return 'Cajero'
       case 'cocinero': return 'Cocinero'
       case 'marketing': return 'Marketing'

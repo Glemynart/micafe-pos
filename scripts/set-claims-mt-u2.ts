@@ -47,7 +47,7 @@ const argv = process.argv.slice(2)
 // --dry-run gana si se combinan ambos flags por error: seguro por defecto.
 const EXECUTE = argv.includes('--execute') && !argv.includes('--dry-run')
 
-const ROLES_CONOCIDOS: readonly RolUsuario[] = ['admin', 'cajero', 'cocinero', 'marketing']
+const ROLES_CONOCIDOS: readonly RolUsuario[] = ['admin', 'supervisor', 'cajero', 'cocinero', 'marketing']
 
 // ─── Service account (mismo patrón que scripts/migrate-mt-u1-fundacional.ts) ──
 function loadServiceAccount(): any {

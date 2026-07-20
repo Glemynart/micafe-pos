@@ -115,6 +115,9 @@ export function UserManagement() {
     if (rol === "cajero") {
       return <Badge variant="secondary" className="bg-muted text-muted-foreground">Cajero</Badge>
     }
+    if (rol === "supervisor") {
+      return <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">Supervisor</Badge>
+    }
     return <Badge variant="outline" className="bg-muted text-muted-foreground">Cocinero</Badge>
   }
 
@@ -171,6 +174,7 @@ export function UserManagement() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="admin">Administrador</SelectItem>
+                          <SelectItem value="supervisor">Supervisor</SelectItem>
                           <SelectItem value="cajero">Cajero</SelectItem>
                           <SelectItem value="cocinero">Cocinero</SelectItem>
                           <SelectItem value="marketing">Marketing</SelectItem>
@@ -268,6 +272,7 @@ export function UserManagement() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="supervisor">Supervisor (operación ampliada)</SelectItem>
                   <SelectItem value="cocinero">Cocinero (solo cocina)</SelectItem>
                   <SelectItem value="cajero">Cajero (solo ventas)</SelectItem>
                   <SelectItem value="marketing">Marketing (eventos y promos)</SelectItem>
