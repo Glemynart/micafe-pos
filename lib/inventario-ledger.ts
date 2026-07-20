@@ -24,6 +24,7 @@ import {
   type Transaction,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { getEmpresaId } from "@/lib/tenant";
 
 // ─── Tipos fundamentales ──────────────────────────────────────────────────────
 
@@ -72,7 +73,7 @@ export interface CapaConsumoDetalle {
 export interface MovimientoInventario {
   // ── Identidad y aislamiento ──────────────────────────────────────────────
   id: string;
-  /** Reservado multiempresa. Siempre "default" en instalación mono-empresa. */
+  /** Tenant propietario del movimiento (MT-U3 Capa 2). Estampado por el llamador vía `EmitirMovimientoParams.empresaId`. */
   empresaId: string;
   espacioId: string;
 
@@ -163,6 +164,12 @@ const CATALOGO_TIPOS: Record<TipoMovimientoInventario, EntradaCatalogo> = {
 // ─── Parámetros de emisión ────────────────────────────────────────────────────
 
 export interface EmitirMovimientoParams {
+  /**
+   * MT-U3 Capa 2 (D-U2-3): resuelto por el llamador con `getEmpresaId()`
+   * ANTES de abrir su `runTransaction` (dentro de una transacción no puede
+   * leerse el token de forma limpia; el valor es de sesión y estable).
+   */
+  empresaId: string;
   articuloTipo: ArticuloTipo;
   articuloId: string;
   /** Capturar el nombre actual antes de llamar — se persiste como snapshot. */
@@ -336,7 +343,7 @@ export async function aplicarMovimientosEnTransaccion(
       const claveApertura = `inventario_inicial:${params.articuloTipo}:${params.articuloId}`;
       const aperturaRef   = doc(db, "movimientos_inventario", claveApertura);
       const aperturaData: Omit<MovimientoInventario, "id"> = {
-        empresaId:               "default",
+        empresaId:               params.empresaId,
         espacioId:               params.espacioId,
         articuloTipo:            params.articuloTipo,
         articuloId:              params.articuloId,
@@ -371,7 +378,7 @@ export async function aplicarMovimientosEnTransaccion(
     const costoTotal           = Math.abs(params.cantidad) * params.costoUnitario;
 
     const movimientoData: Omit<MovimientoInventario, "id"> = {
-      empresaId:               "default",
+      empresaId:               params.empresaId,
       espacioId:               params.espacioId,
       articuloTipo:            params.articuloTipo,
       articuloId:              params.articuloId,
@@ -655,11 +662,19 @@ export interface ReconciliacionResult {
  *
  * Tolerancia flotante: |Σ − cache| ≤ 1e-6 se considera consistente (insumos en g/ml
  * acumulan error de representación).
+ *
+ * MT-U3 Capa 2: filtra `movimientos_inventario` por `empresaId`. El parámetro
+ * es opcional — si el llamador ya lo resolvió (p. ej. `reconciliarGlobal`
+ * reutilizándolo dentro de su bucle, para no resolverlo una vez por artículo)
+ * lo pasa; si se omite (llamada standalone, p. ej. `hooks/use-kardex.ts` vía
+ * `obtenerEstadoKardex`), se resuelve aquí con `getEmpresaId()`.
  */
 export async function diagnosticarArticulo(
   articuloTipo: ArticuloTipo,
   articuloId: string,
+  empresaId?: string,
 ): Promise<DiagnosticoArticulo> {
+  const empresaIdResuelto = empresaId ?? (await getEmpresaId());
   const articuloColeccion = articuloTipo === "producto" ? "productos" : "insumos";
 
   // Paso 1: leer SOLO el artículo. La colección movimientos_inventario no se
@@ -695,6 +710,7 @@ export async function diagnosticarArticulo(
   const movimientosSnap = await getDocs(
     query(
       collection(db, "movimientos_inventario"),
+      where("empresaId",    "==", empresaIdResuelto),
       where("articuloTipo", "==", articuloTipo),
       where("articuloId",   "==", articuloId),
       orderBy("secuenciaArticulo", "asc"),
@@ -775,12 +791,15 @@ export async function diagnosticarArticulo(
  * I9 está activo desde Fase 4 (FASE-15 PR9). La divergencia ahora es un defecto
  * reparable (si estado === 'divergente_reparable') o un incidente (si 'corrupto').
  * Los artículos no_migrados no representan una divergencia; se reportan aparte.
+ *
+ * MT-U3 Capa 2: `empresaId` opcional — ver `diagnosticarArticulo`.
  */
 export async function reconciliarArticulo(
   articuloTipo: ArticuloTipo,
   articuloId: string,
+  empresaId?: string,
 ): Promise<ReconciliacionResult> {
-  const diag = await diagnosticarArticulo(articuloTipo, articuloId);
+  const diag = await diagnosticarArticulo(articuloTipo, articuloId, empresaId);
 
   const stockLedger = diag.stockLedger ?? 0;
   const divergencia = diag.divergencia ?? (stockLedger - diag.stockCache);
@@ -833,13 +852,18 @@ export interface ReparacionResult {
  *
  * Artículos no_migrados (secuenciaLedger===0): excluidos por precondición — I9 no rige.
  * Artículos corruptos: excluidos — no se lava corrupción del ledger (I1/I2).
+ *
+ * MT-U3 Capa 2: `empresaId` opcional — ver `diagnosticarArticulo`. La reparación
+ * en sí (campo `stock` de `productos`/`insumos`) no estampa `empresaId`: esas
+ * colecciones son alcance de Capa 3.
  */
 export async function repararCacheArticulo(
   articuloTipo: ArticuloTipo,
   articuloId: string,
+  empresaId?: string,
 ): Promise<ReparacionResult> {
   // Diagnóstico previo fuera de la transacción (lectura sin costo transaccional)
-  const diagPrevio = await diagnosticarArticulo(articuloTipo, articuloId);
+  const diagPrevio = await diagnosticarArticulo(articuloTipo, articuloId, empresaId);
 
   if (diagPrevio.estado !== "divergente_reparable") {
     return {
@@ -946,10 +970,15 @@ export interface ReporteGlobalReconciliacion {
  *
  * I9 aplica a cada artículo individualmente: la atomicidad vive en repararCacheArticulo,
  * nunca en un batch global (un batch global violaría I5 y no escala con el catálogo).
+ *
+ * MT-U3 Capa 2: `empresaId` se resuelve UNA sola vez aquí (§2.5) y se reutiliza
+ * en cada iteración del bucle de abajo — nunca se resuelve dentro del bucle.
  */
 export async function reconciliarGlobal(
   opts: { aplicar?: boolean } = {},
 ): Promise<ReporteGlobalReconciliacion> {
+  const empresaId = await getEmpresaId();
+
   const [productosSnap, insumosSnap] = await Promise.all([
     getDocs(query(collection(db, "productos"), where("activo", "==", true))),
     getDocs(query(collection(db, "insumos"),   where("activo", "==", true))),
@@ -971,7 +1000,7 @@ export async function reconciliarGlobal(
   };
 
   for (const { tipo, id } of articulos) {
-    const diag = await diagnosticarArticulo(tipo, id);
+    const diag = await diagnosticarArticulo(tipo, id, empresaId);
 
     switch (diag.estado) {
       case "no_migrado":
@@ -986,7 +1015,7 @@ export async function reconciliarGlobal(
         reporte.articulosConProblema.push(diag);
         if (opts.aplicar) {
           // repararCacheArticulo re-diagnostica internamente con guarda optimista
-          await repararCacheArticulo(tipo, id);
+          await repararCacheArticulo(tipo, id, empresaId);
         }
         break;
       case "corrupto":

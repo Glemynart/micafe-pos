@@ -21,6 +21,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { tenantQuery, stampEmpresaId } from "@/lib/tenant";
 
 export interface ModificadorOpcion {
   id: string;
@@ -149,7 +150,7 @@ async function validarOpcionesNoReferenciadas(
 ): Promise<void> {
   if (opcionesEliminadas.length === 0) return;
 
-  const relacionesSnap = await getDocs(query(
+  const relacionesSnap = await getDocs(await tenantQuery(
     collection(db, "producto_modificador_grupos"),
     where("grupoId", "==", grupoId)
   ));
@@ -177,15 +178,50 @@ export function suscribirModificadorGrupos(
   callback: (grupos: ModificadorGrupo[]) => void,
   onError?: (error: FirestoreError) => void,
 ): Unsubscribe {
-  const q = query(
+  let unsubscribe = () => {};
+  let cancelado = false;
+
+  tenantQuery(
     collection(db, COLLECTION_NAME),
     where("espacioId", "==", espacioId),
     where("activo", "==", true)
-  );
+  ).then((q) => {
+    if (cancelado) return;
+    unsubscribe = onSnapshot(
+      q,
+      (snap) => {
+        const grupos: ModificadorGrupo[] = snap.docs
+          .map((grupoDoc) => ({
+            id: grupoDoc.id,
+            ...(grupoDoc.data() as Omit<ModificadorGrupo, "id">),
+          }))
+          .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
 
-  return onSnapshot(
-    q,
-    (snap) => {
+        callback(grupos);
+      },
+      onError,
+    );
+  });
+
+  return () => {
+    cancelado = true;
+    unsubscribe();
+  };
+}
+
+export function suscribirTodosModificadorGrupos(
+  espacioId: string,
+  callback: (grupos: ModificadorGrupo[]) => void
+): Unsubscribe {
+  let unsubscribe = () => {};
+  let cancelado = false;
+
+  tenantQuery(
+    collection(db, COLLECTION_NAME),
+    where("espacioId", "==", espacioId)
+  ).then((q) => {
+    if (cancelado) return;
+    unsubscribe = onSnapshot(q, (snap) => {
       const grupos: ModificadorGrupo[] = snap.docs
         .map((grupoDoc) => ({
           id: grupoDoc.id,
@@ -194,30 +230,13 @@ export function suscribirModificadorGrupos(
         .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
 
       callback(grupos);
-    },
-    onError,
-  );
-}
-
-export function suscribirTodosModificadorGrupos(
-  espacioId: string,
-  callback: (grupos: ModificadorGrupo[]) => void
-): Unsubscribe {
-  const q = query(
-    collection(db, COLLECTION_NAME),
-    where("espacioId", "==", espacioId)
-  );
-
-  return onSnapshot(q, (snap) => {
-    const grupos: ModificadorGrupo[] = snap.docs
-      .map((grupoDoc) => ({
-        id: grupoDoc.id,
-        ...(grupoDoc.data() as Omit<ModificadorGrupo, "id">),
-      }))
-      .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
-
-    callback(grupos);
+    });
   });
+
+  return () => {
+    cancelado = true;
+    unsubscribe();
+  };
 }
 
 export async function obtenerModificadorGrupo(
@@ -236,11 +255,11 @@ export async function crearModificadorGrupo(
   data: ModificadorGrupoInput
 ): Promise<string> {
   const payload = normalizarGrupo(data);
-  const ref = await addDoc(collection(db, COLLECTION_NAME), {
+  const ref = await addDoc(collection(db, COLLECTION_NAME), await stampEmpresaId({
     ...payload,
     creadoEn: serverTimestamp(),
     actualizadoEn: serverTimestamp(),
-  });
+  }));
   return ref.id;
 }
 

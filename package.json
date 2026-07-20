@@ -22,7 +22,8 @@
     "lint": "eslint .",
     "seed:usuarios": "tsx scripts/seed-usuarios.ts",
     "test:tickets": "tsx --test lib/tickets/__tests__/*.test.ts",
-    "test:reimpresion": "tsx --test lib/reimpresion/__tests__/*.test.ts"
+    "test:reimpresion": "tsx --test lib/reimpresion/__tests__/*.test.ts",
+    "test:tenant": "tsx --test lib/__tests__/tenant.test.ts"
   },
   "build": {
     "appId": "com.pos.cafe",

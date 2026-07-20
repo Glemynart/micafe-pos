@@ -20,6 +20,7 @@ import {
 import { db } from "@/lib/firebase";
 import { aplicarMovimientoEnTransaccion } from "@/lib/inventario-ledger";
 import { getCurrentUserInfo } from "@/lib/auth-service";
+import { getEmpresaId, tenantQuery, stampEmpresaId } from "@/lib/tenant";
 
 export interface Insumo {
   id: string;
@@ -40,27 +41,36 @@ export function suscribirInsumos(
   espacioId: string,
   callback: (insumos: Insumo[]) => void
 ): Unsubscribe {
-  const q = query(
+  let unsubscribe = () => {};
+  let cancelado = false;
+
+  tenantQuery(
     collection(db, "insumos"),
     where("espacioId", "==", espacioId),
     where("activo", "==", true)
-  );
-
-  return onSnapshot(q, (snap) => {
-    const insumos: Insumo[] = snap.docs.map((d) => ({
-      id: d.id,
-      ...(d.data() as Omit<Insumo, "id">),
-    })).sort((a, b) => a.nombre.localeCompare(b.nombre));
-    callback(insumos);
+  ).then((q) => {
+    if (cancelado) return;
+    unsubscribe = onSnapshot(q, (snap) => {
+      const insumos: Insumo[] = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as Omit<Insumo, "id">),
+      })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+      callback(insumos);
+    });
   });
+
+  return () => {
+    cancelado = true;
+    unsubscribe();
+  };
 }
 
 export async function crearInsumo(data: InsumoInput): Promise<string> {
-  const ref = await addDoc(collection(db, "insumos"), {
+  const ref = await addDoc(collection(db, "insumos"), await stampEmpresaId({
     ...data,
     creadoEn: serverTimestamp(),
     actualizadoEn: serverTimestamp(),
-  });
+  }));
   return ref.id;
 }
 
@@ -78,6 +88,8 @@ export async function editarInsumo(id: string, data: Partial<InsumoInput>): Prom
 
   // Stock cambió: transacción atómica + Ledger (I11).
   const { uid, nombre: usuarioNombre } = await getCurrentUserInfo("Debe iniciar sesión para ajustar el stock");
+  // MT-U3 Capa 2: resuelto antes de runTransaction (§2.5).
+  const empresaId = await getEmpresaId();
 
   // Clave de idempotencia estable: generada fuera del callback de runTransaction
   // para sobrevivir reintentos automáticos del SDK sin duplicar el movimiento (I10).
@@ -99,6 +111,7 @@ export async function editarInsumo(id: string, data: Partial<InsumoInput>): Prom
     if (delta !== 0) {
       const tipo = delta > 0 ? "ajuste_positivo" : "ajuste_negativo";
       await aplicarMovimientoEnTransaccion(transaction, {
+        empresaId,
         articuloTipo:        "insumo",
         articuloId:          id,
         articuloNombre:      (d.nombre as string) ?? id,

@@ -12,6 +12,7 @@ import {
 import { db } from "@/lib/firebase";
 import { aplicarMovimientoEnTransaccion } from "@/lib/inventario-ledger";
 import { getCurrentUserInfo } from "@/lib/auth-service";
+import { getEmpresaId, tenantQuery, withEmpresaId } from "@/lib/tenant";
 
 export interface Merma {
   id: string;
@@ -41,6 +42,8 @@ export interface RegistrarMermaParams {
 
 export async function registrarMerma(params: RegistrarMermaParams): Promise<string> {
   const { uid, nombre } = await getCurrentUserInfo("Debe iniciar sesión para registrar una merma");
+  // MT-U3 Capa 2: resuelto antes de runTransaction (§2.5).
+  const empresaId = await getEmpresaId();
   const mermasRef = collection(db, "mermas");
   const nuevaMermaDoc = doc(mermasRef);
 
@@ -48,6 +51,7 @@ export async function registrarMerma(params: RegistrarMermaParams): Promise<stri
     // Ledger: emitir movimiento merma y actualizar stock co-atómicamente (I5).
     // El helper hace lecturas (idempotencia + artículo) antes de cualquier escritura.
     await aplicarMovimientoEnTransaccion(transaction, {
+      empresaId,
       articuloTipo:        "insumo",
       articuloId:          params.insumoId,
       articuloNombre:      params.insumoNombre,
@@ -67,7 +71,7 @@ export async function registrarMerma(params: RegistrarMermaParams): Promise<stri
       motivo:              params.motivo,
     });
 
-    transaction.set(nuevaMermaDoc, {
+    transaction.set(nuevaMermaDoc, withEmpresaId(empresaId, {
       insumoId: params.insumoId,
       insumoNombre: params.insumoNombre,
       cantidad: params.cantidad,
@@ -79,7 +83,7 @@ export async function registrarMerma(params: RegistrarMermaParams): Promise<stri
       registradoPor: uid,
       registradoPorNombre: nombre,
       fecha: serverTimestamp(),
-    });
+    }));
   });
 
   return nuevaMermaDoc.id;
@@ -89,17 +93,26 @@ export function suscribirMermas(
   espacioId: string,
   callback: (mermas: Merma[]) => void
 ): Unsubscribe {
-  const q = query(
+  let unsubscribe = () => {};
+  let cancelado = false;
+
+  tenantQuery(
     collection(db, "mermas"),
     where("espacioId", "==", espacioId),
     orderBy("fecha", "desc")
-  );
-
-  return onSnapshot(q, (snap) => {
-    const mermas: Merma[] = snap.docs.map((d) => ({
-      id: d.id,
-      ...(d.data() as Omit<Merma, "id">),
-    }));
-    callback(mermas);
+  ).then((q) => {
+    if (cancelado) return;
+    unsubscribe = onSnapshot(q, (snap) => {
+      const mermas: Merma[] = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as Omit<Merma, "id">),
+      }));
+      callback(mermas);
+    });
   });
+
+  return () => {
+    cancelado = true;
+    unsubscribe();
+  };
 }

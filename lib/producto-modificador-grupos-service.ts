@@ -22,6 +22,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { ModificadorGrupo } from "@/lib/modificador-grupos-service";
+import { tenantQuery, getEmpresaId, withEmpresaId } from "@/lib/tenant";
 
 export interface ProductoModificadorGrupoOverride {
   precioDelta?: number;
@@ -180,15 +181,24 @@ export function suscribirProductoModificadorGrupos(
   productoId: string,
   callback: (relaciones: ProductoModificadorGrupo[]) => void
 ): Unsubscribe {
-  const q = query(
+  let unsubscribe = () => {};
+  let cancelado = false;
+
+  tenantQuery(
     collection(db, COLLECTION_NAME),
     where("productoId", "==", productoId),
     where("activo", "==", true)
-  );
-
-  return onSnapshot(q, (snap) => {
-    callback(mapearRelaciones(snap));
+  ).then((q) => {
+    if (cancelado) return;
+    unsubscribe = onSnapshot(q, (snap) => {
+      callback(mapearRelaciones(snap));
+    });
   });
+
+  return () => {
+    cancelado = true;
+    unsubscribe();
+  };
 }
 
 /** Suscripción administrativa: incluye relaciones activas e inactivas. */
@@ -196,12 +206,21 @@ export function suscribirTodosProductoModificadorGrupos(
   productoId: string,
   callback: (relaciones: ProductoModificadorGrupo[]) => void
 ): Unsubscribe {
-  const q = query(
+  let unsubscribe = () => {};
+  let cancelado = false;
+
+  tenantQuery(
     collection(db, COLLECTION_NAME),
     where("productoId", "==", productoId)
-  );
+  ).then((q) => {
+    if (cancelado) return;
+    unsubscribe = onSnapshot(q, (snap) => callback(mapearRelaciones(snap)));
+  });
 
-  return onSnapshot(q, (snap) => callback(mapearRelaciones(snap)));
+  return () => {
+    cancelado = true;
+    unsubscribe();
+  };
 }
 
 /**
@@ -213,18 +232,27 @@ export function suscribirProductoModificadorGruposPorEspacio(
   callback: (relaciones: ProductoModificadorGrupo[]) => void,
   onError?: (error: FirestoreError) => void,
 ): Unsubscribe {
-  const q = query(
+  let unsubscribe = () => {};
+  let cancelado = false;
+
+  tenantQuery(
     collection(db, COLLECTION_NAME),
     where("espacioId", "==", espacioId)
-  );
+  ).then((q) => {
+    if (cancelado) return;
+    unsubscribe = onSnapshot(q, (snap) => callback(mapearRelaciones(snap)), onError);
+  }).catch((error) => onError?.(error));
 
-  return onSnapshot(q, (snap) => callback(mapearRelaciones(snap)), onError);
+  return () => {
+    cancelado = true;
+    unsubscribe();
+  };
 }
 
 export async function listarProductoModificadorGrupos(
   productoId: string
 ): Promise<ProductoModificadorGrupo[]> {
-  const q = query(
+  const q = await tenantQuery(
     collection(db, COLLECTION_NAME),
     where("productoId", "==", productoId),
     where("activo", "==", true)
@@ -317,6 +345,10 @@ export async function asignarGrupoAProducto(
   const grupoId = data.grupoId.trim();
   const relacionId = construirRelacionId(productoId, grupoId);
 
+  // MT-U3 Capa 3: resuelto antes de runTransaction (§2.5) — dentro de una
+  // transacción no puede leerse el token de forma limpia.
+  const empresaId = await getEmpresaId();
+
   await runTransaction(db, async (transaction) => {
     const productoRef = doc(db, "productos", productoId);
     const grupoRef = doc(db, "modificador_grupos", grupoId);
@@ -370,7 +402,7 @@ export async function asignarGrupoAProducto(
       ? (relacionSnap.data().creadoEn ?? serverTimestamp())
       : serverTimestamp();
 
-    transaction.set(relacionRef, {
+    transaction.set(relacionRef, withEmpresaId(empresaId, {
       id: relacionId,
       espacioId,
       productoId,
@@ -383,7 +415,7 @@ export async function asignarGrupoAProducto(
       ...(opcionOverrides ? { opcionOverrides } : {}),
       creadoEn: creadoEnExistente,
       actualizadoEn: serverTimestamp(),
-    });
+    }));
   });
 
   return relacionId;

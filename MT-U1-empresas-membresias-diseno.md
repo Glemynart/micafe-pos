@@ -27,6 +27,16 @@ Inventario de colecciones verificado contra el código real (`grep` de `collecti
 no registrada en `PROJECT_DISCOVERY.md`. Es catálogo ligado a `productos` → empresa-scoped. El total real
 es **25 colecciones operativas**, no 24.
 
+> **Nota de reconciliación (MT-U3, 2026-07-17):** la auditoría de preparación de MT-U3 encontró que este
+> conteo, aunque coincide en el total (25), seguía teniendo el conjunto incorrecto: (a) `modificador_grupos`
+> —colección hermana de `producto_modificador_grupos`, usa la misma constante `COLLECTION_NAME` y por eso
+> se escapó también de este hallazgo— **faltaba**; (b) `proveedores` y `cuentas_cobro`, presentes en la
+> lista original de `ADR-SAAS-004`/documento maestro, **nunca fueron colecciones reales** (el primero es un
+> campo embebido en `compras`; el segundo es el valor `metodoPago=='cuenta_cobro'` sobre `ventas`). El total
+> de 25 se mantiene por coincidencia (−2, +2). La lista oficial, ya corregida, vive en
+> `MT-U3-helper-tenant-diseno.md` §7 y es la fuente a usar para el backfill de MT-U3. Esta nota no altera
+> el alcance ya ejecutado de MT-U1 (que no tocó ninguna colección operativa).
+
 **Hallazgo #2 — `permisos_roles`:** documento por rol con permisos default; es plantilla de plataforma,
 no dato transaccional de un negocio. **Permanece global en MT-U1**, sin tocar. Su eventual
 personalización por empresa es una unidad posterior fuera de este alcance.

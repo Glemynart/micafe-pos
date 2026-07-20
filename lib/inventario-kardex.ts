@@ -31,6 +31,7 @@ import {
   type DiagnosticoArticulo,
   diagnosticarArticulo,
 } from "@/lib/inventario-ledger";
+import { getEmpresaId } from "@/lib/tenant";
 
 // ─── Constantes de paginación (§8) ───────────────────────────────────────────
 
@@ -207,7 +208,11 @@ function aplicarFiltros(
  *       consulta dedicada orderBy secuenciaArticulo desc limit 1 sobre el índice ya desplegado (§5).
  *
  * K1 Solo lectura. K2 Saldo no recalculado. K3 Orden por secuenciaArticulo.
- * K5 Estado declarado. K9 empresaId no filtra. K10 Paginación estable.
+ * K5 Estado declarado. K9 filtra por empresaId (MT-U3 Capa 2). K10 Paginación estable.
+ *
+ * MT-U3 Capa 2: `empresaId` se resuelve UNA sola vez aquí (§2.5) y se reutiliza
+ * en las tres lecturas de esta función (incluida la delegada a
+ * `diagnosticarArticulo`) — nunca se resuelve más de una vez por llamada.
  */
 export async function consultarKardexArticulo(
   articuloTipo: ArticuloTipo,
@@ -217,12 +222,14 @@ export async function consultarKardexArticulo(
   const orden  = opciones.orden  ?? "desc";
   const limite = Math.min(opciones.limite ?? LIMITE_DEFAULT, LIMITE_MAXIMO);
   const cursor = opciones.cursor ?? null;
+  const empresaId = await getEmpresaId();
   // opciones.filtros (§9): se aplican en memoria sobre la página, al final (PR2, D4).
   // No intervienen en la consulta, ni en hayMas/cursorSiguiente, que describen la
   // página SIN filtrar (§9).
 
   // ── Lectura (a): página de movimientos — índice canónico (§7) ─────────────
   const constraints: QueryConstraint[] = [
+    where("empresaId",    "==", empresaId),
     where("articuloTipo", "==", articuloTipo),
     where("articuloId",   "==", articuloId),
     orderBy("secuenciaArticulo", orden),
@@ -238,7 +245,7 @@ export async function consultarKardexArticulo(
   const docs   = hayMas ? paginaSnap.docs.slice(0, limite) : paginaSnap.docs;
 
   // ── Lectura (b): estado vía diagnosticarArticulo (K5) ────────────────────
-  const diagnostico = await diagnosticarArticulo(articuloTipo, articuloId);
+  const diagnostico = await diagnosticarArticulo(articuloTipo, articuloId, empresaId);
 
   // ── Proyección de líneas (§5) — cero recálculo, cero escritura (K1, K2) ──
   const lineas: LineaKardex[] = docs.map((d) => {
@@ -278,6 +285,7 @@ export async function consultarKardexArticulo(
       const snapMax = await getDocs(
         query(
           collection(db, "movimientos_inventario"),
+          where("empresaId",    "==", empresaId),
           where("articuloTipo", "==", articuloTipo),
           where("articuloId",   "==", articuloId),
           orderBy("secuenciaArticulo", "desc"),
@@ -321,10 +329,13 @@ export async function consultarKardexArticulo(
 /**
  * Estado de reconciliación del artículo.
  * Reexportado / compuesto del Ledger — no reimplementa el replay (D7, Principio 6).
+ *
+ * MT-U3 Capa 2: `empresaId` se resuelve aquí (única resolución de esta llamada).
  */
 export async function obtenerEstadoKardex(
   articuloTipo: ArticuloTipo,
   articuloId:   string,
 ): Promise<DiagnosticoArticulo> {
-  return diagnosticarArticulo(articuloTipo, articuloId);
+  const empresaId = await getEmpresaId();
+  return diagnosticarArticulo(articuloTipo, articuloId, empresaId);
 }
