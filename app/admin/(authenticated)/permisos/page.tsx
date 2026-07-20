@@ -21,8 +21,10 @@ import {
 
 const ROLES: { key: string; label: string }[] = [
   { key: "admin", label: "Admin" },
+  { key: "supervisor", label: "Supervisor" },
   { key: "cajero", label: "Cajero" },
   { key: "cocinero", label: "Cocinero" },
+  { key: "marketing", label: "Marketing" },
 ]
 
 const MODULE_LABELS: Record<string, string> = {

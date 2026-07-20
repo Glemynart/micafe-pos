@@ -28,6 +28,7 @@ build/
 
 # Dependencies
 node_modules/
+functions/lib/
 pnpm-lock.yaml
 
 # Temporal

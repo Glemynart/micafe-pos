@@ -26,10 +26,11 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { obtenerTokenActual } from "./fcm-token-helper";
+import { iniciarSesionOperativa } from "./operational-auth-service";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-export type RolUsuario = "admin" | "cajero" | "cocinero" | "marketing";
+export type RolUsuario = "admin" | "supervisor" | "cajero" | "cocinero" | "marketing";
 
 export interface Usuario {
   /** UID de Firebase Auth */
@@ -62,6 +63,7 @@ const EMAIL_DOMAIN = "@micafe-pos.internal";
 
 const PERMISOS_POR_ROL: Record<RolUsuario, string[]> = {
   admin: ["sell", "inventory", "recipes", "purchases", "reports", "shifts", "waste", "gastos", "reservas", "permissions", "settings", "historial", "finanzas"],
+  supervisor: ["sell", "inventory", "recipes", "purchases", "reports", "shifts", "waste", "gastos", "reservas", "historial", "finanzas"],
   cajero: ["sell", "reports", "gastos", "reservas"],
   cocinero: ["sell"],
   marketing: [],
@@ -117,6 +119,28 @@ export async function loginConUsername(
     // Re-lanzar si ya es un Error nuestro con mensaje claro
     throw error;
   }
+}
+
+/**
+ * Inicia la ruta operativa MT-U5a: código + PIN independiente de Firebase
+ * Email/Password. La Function emite el custom token y sus claims tenant.
+ */
+export async function loginConCodigoYPin(codigo: string, pin: string): Promise<Usuario> {
+  const firebaseUser = await iniciarSesionOperativa(codigo.trim(), pin);
+  const usuario = await getUsuarioFirestore(firebaseUser.uid);
+
+  if (!usuario || !usuario.activo) {
+    await firebaseSignOut(auth);
+    throw new Error("Credenciales operativas inválidas.");
+  }
+
+  await setDoc(
+    doc(db, "usuarios", usuario.uid),
+    { ultimoAcceso: serverTimestamp() },
+    { merge: true }
+  );
+
+  return usuario;
 }
 
 /**
@@ -268,6 +292,14 @@ export async function buscarUsuarioPorUsername(username: string): Promise<Usuari
 /** Convierte un username corto en email para Firebase Auth */
 export function usernameToEmail(username: string): string {
   return `${username}${EMAIL_DOMAIN}`;
+}
+
+export function esRolUsuario(rol: unknown): rol is RolUsuario {
+  return rol === "admin"
+    || rol === "supervisor"
+    || rol === "cajero"
+    || rol === "cocinero"
+    || rol === "marketing";
 }
 
 /** Retorna los permisos por defecto según el rol */

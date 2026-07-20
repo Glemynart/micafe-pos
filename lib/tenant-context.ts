@@ -21,14 +21,12 @@
  * autoriza (no expone rol); NO lee colecciones operativas; NO escribe claims.
  */
 
-import { obtenerEmpresaFundacional, type Empresa } from "@/lib/empresas-service";
+import type { Empresa } from "@/lib/empresas-service";
 
 /**
  * Lanzado cuando no puede resolverse un empresaId para el llamador: (a) no
- * hay usuario autenticado, o (b) el token no trae claim y el fallback de
- * descubrimiento (D-U2-1) tampoco encuentra ninguna empresa fundacional en
- * Firestore. Ambos casos son "no hay tenant que resolver" desde la
- * perspectiva del llamador.
+ * hay usuario autenticado, o (b) el token no trae el claim tenant canónico
+ * después de un refresh. Desde MT-U5a ambos casos invalidan la sesión.
  */
 export class TenantSinSesionError extends Error {
   constructor(mensaje = "No hay sesión activa: no se puede resolver el empresaId del tenant.") {
@@ -51,14 +49,10 @@ export interface ResolucionTenant {
 }
 
 /**
- * Resuelve el empresaId activo: claim del token (camino normal) → fallback
- * transitorio de descubrimiento por `esFundacional` (D-U2-1) si el claim aún
- * no existe/propaga.
+ * Resuelve el empresaId activo exclusivamente desde el claim del token.
  *
  * Lanza `TenantSinSesionError` si no hay usuario autenticado, o si el
- * fallback tampoco encuentra ninguna empresa fundacional (estado sin tenant
- * resoluble — no se puede satisfacer el contrato `Promise<string>` de
- * `getEmpresaId()`).
+ * el refresh. No existe fallback de descubrimiento desde MT-U5a.
  */
 export async function resolverEmpresaIdActivo(): Promise<ResolucionTenant> {
   // `db`/`auth` se importan dinámicamente (no en el top-level del módulo):
@@ -88,24 +82,7 @@ export async function resolverEmpresaIdActivo(): Promise<ResolucionTenant> {
     return { empresaId: empresaIdClaim, empresa: null };
   }
 
-  // Fallback transitorio (D-U2-1): SOLO válido mientras el claim no
-  // existe/propaga. En régimen permanente es un ESTADO INVÁLIDO — se marca
-  // como anomalía (nunca como camino feliz), nunca se trata en silencio.
-  console.warn(
-    "[tenant-context] Token sin claim 'empresaId' — usando fallback de " +
-      "descubrimiento de la empresa fundacional (D-U2-1). Esperado solo " +
-      "durante la transición de MT-U2; si persiste después de que todos " +
-      "los usuarios tengan su claim acuñado, es una anomalía a investigar."
+  throw new TenantSinSesionError(
+    "La sesión no contiene el claim 'empresaId' requerido tras renovar el token."
   );
-
-  const empresaFundacional = await obtenerEmpresaFundacional();
-  if (!empresaFundacional) {
-    throw new TenantSinSesionError(
-      "No hay claim 'empresaId' en el token y no existe ninguna empresa " +
-        "fundacional en Firestore (esFundacional==true). No se puede " +
-        "resolver ningún tenant."
-    );
-  }
-
-  return { empresaId: empresaFundacional.id, empresa: empresaFundacional };
 }
