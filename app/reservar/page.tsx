@@ -12,17 +12,10 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import Script from 'next/script'
 import {
-  getReservasMesa,
   getBloquesOcupados,
   crearReservaConHold,
-  confirmarAgenda,
-  liberarAgenda,
-  actualizarEstadoPago,
-  cancelarReserva,
   Reserva,
 } from '@/lib/reservas-service'
-import { db } from '@/lib/firebase'
-import { collection, getDocs } from 'firebase/firestore'
 import { es } from 'date-fns/locale'
 
 // Script definition for Wompi
@@ -77,20 +70,19 @@ export default function ReservarPage() {
   // Paso 3: Checkout
   const [cargandoPago, setCargandoPago] = useState(false)
 
-  // Cargar salas desde Firebase si existen (fallback a mock)
+  // Cargar salas mediante el backend (fallback a mock).
   useEffect(() => {
     async function loadSalas() {
       try {
-        const snap = await getDocs(collection(db, 'mesas'))
-        const salasFirebase = snap.docs
-          .map(d => ({ id: d.id, nombre: d.data().nombre }))
-          .filter(s => s.nombre.toLowerCase().includes('sala')) // asume que las mesas que son salas tienen "sala" en el nombre
+        const response = await fetch('/api/reservas/salas')
+        if (!response.ok) throw new Error('No se pudieron cargar las salas')
+        const { salas: salasFirebase } = await response.json() as { salas: { id: string; nombre: string }[] }
         
         if (salasFirebase.length > 0) {
           setSalas(salasFirebase)
         }
       } catch (err) {
-        console.error("Error al cargar salas de firebase", err)
+        console.error("Error al cargar salas", err)
       }
     }
     loadSalas()
@@ -260,15 +252,11 @@ export default function ReservarPage() {
     setCargandoPago(true)
 
     let reservaId: string
-    let fechaLocal: string
-    let bloques: string[]
 
     try {
       // 1. Claim transaccional: crea reserva + hold en una sola transacción
       const resultado = await crearReservaBase()
       reservaId = resultado.reservaId
-      fechaLocal = resultado.fechaLocal
-      bloques = resultado.bloques
     } catch (err: any) {
       if (err?.message === 'BLOQUE_OCUPADO') {
         toast.error('Horario no disponible', { description: 'Ese horario acaba de ser reservado. Por favor elige otro.' })
@@ -297,12 +285,20 @@ export default function ReservarPage() {
     checkout.open(async function (result: any) {
       const transaction = result.transaction
       if (transaction.status === 'APPROVED') {
-        crearReservaEnFirebase(transaction.id, reservaId, fechaLocal, bloques)
+        // El webhook de Wompi confirma la reserva y la agenda mediante Admin SDK.
+        // El retorno del widget solo actualiza la UI; no escribe en Firestore.
+        toast.success('Reserva Confirmada', { description: 'Tu pago fue exitoso y la sala ha sido reservada.' })
+        setPaso(3)
+        setCargandoPago(false)
       } else {
         // Liberar los bloques inmediatamente (no esperar al TTL)
         try {
-          await liberarAgenda(reservaId, salaSeleccionada, fechaLocal, bloques)
-          await cancelarReserva(reservaId)
+          const response = await fetch('/api/reservas/cancelar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reservaId }),
+          })
+          if (!response.ok) throw new Error('No se pudo cancelar la reserva')
         } catch (releaseErr) {
           console.error('Error liberando agenda tras pago fallido:', releaseErr)
         }
@@ -362,26 +358,6 @@ export default function ReservarPage() {
 
     const reservaId = await crearReservaConHold(reservaData, fechaLocal, bloques)
     return { reservaId, fechaLocal, bloques }
-  }
-
-  const crearReservaEnFirebase = async (
-    referenciaWompi: string,
-    reservaId: string,
-    fechaLocal: string,
-    bloques: string[]
-  ) => {
-    try {
-      // Confirmar agenda (best-effort; el webhook es la fuente autoritativa)
-      await confirmarAgenda(reservaId, salaSeleccionada, fechaLocal, bloques)
-      await actualizarEstadoPago(reservaId, 'pagado', referenciaWompi)
-      toast.success('Reserva Confirmada', { description: 'Tu pago fue exitoso y la sala ha sido reservada.' })
-      setPaso(3)
-    } catch (err) {
-      console.error('Error confirmando reserva:', err)
-      toast.error('Error', { description: 'El pago se procesó pero hubo un error guardando la confirmación. Te contactaremos.' })
-    } finally {
-      setCargandoPago(false)
-    }
   }
 
   return (

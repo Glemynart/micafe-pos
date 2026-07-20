@@ -1,10 +1,9 @@
 # MT-U3 — Capa 6: cierre técnico
 
-> **Estado:** implementación completa (Capas 0–5), cada una auditada y aprobada de forma
-> independiente. Este documento es el "informe de cierre" que exige §9 Capa 6 del diseño
+> **Estado:** iniciativa completada y cerrada oficialmente (Capas 0–6, auditadas y aprobadas).
+> Este documento es el "informe de cierre" que exige §9 Capa 6 del diseño
 > (`MT-U3-helper-tenant-diseno.md`).
-> **Rama:** `feature/saas-mt-u3`. **Nada se ha commiteado** — todo el trabajo de MT-U3 (Capas
-> 0 a 6) permanece en el árbol de trabajo, sin `commit`/`push`/`PR`/`merge`.
+> **Git:** trabajo consolidado y mergeado mediante el PR #98.
 
 ---
 
@@ -42,7 +41,7 @@ Lo que **sí** corresponde a esta sesión, y es lo que se hizo:
 | 3 | 22 servicios (`lib/*-service.ts`) estampan/filtran; IMP-13 cerrado en `ventas-service` | ✅ Aprobada |
 | 4 | Webhook Wompi deriva/propaga `empresaId`; rutas Admin SDK para reservas públicas (§4.5) | ✅ Aprobada |
 | 5 | Script de verificación pre/post-activación + runbook de despliegue | ✅ Aprobada |
-| 6 | Este cierre | En curso — cierra con este documento |
+| 6 | Este cierre | ✅ Aprobada |
 
 Detalle de decisiones y hallazgos de cada capa: ver el propio `MT-U3-helper-tenant-diseno.md`
 (§1–§14) y `MT-U3-CAPA5-runbook-activacion.md`. No se repiten aquí.
@@ -68,7 +67,8 @@ buscando contradicciones y referencias obsoletas.
    índices, auditados sin duplicados).
 3. **`MT-U3-helper-tenant-diseno.md` §14:** el "siguiente paso" decía "iniciar la Capa 0"
    — obsoleto. Reemplazado por el estado real: implementación completa, siguiente paso es
-   la activación real (Capa 6 / runbook), nada commiteado todavía.
+   la activación real mediante el runbook. Posteriormente, MT-U3 fue consolidado y mergeado mediante el
+   PR #98.
 
 **Verificado sin necesidad de corrección** (consistentes):
 - La lista de 25 colecciones oficiales (§7.1) coincide exactamente entre
@@ -120,7 +120,7 @@ npm run test:reimpresion  → 16 pass, 0 fail
 
 - **Código:** 43 archivos tocados/creados en total a través de Capas 0–5 (servicios,
   helper de tenant, webhook, rutas Admin nuevas, scripts de backfill/rollback/verificación,
-  índices). Ninguno commiteado.
+  índices). Consolidado, publicado y mergeado mediante el PR #98.
 - **Arquitectura:** sin decisiones abiertas (§13 del diseño). Los únicos ajustes al
   documento de diseño a lo largo de la implementación fueron aditivos (§4.5, §4.6, R13) o
   correcciones de referencia (§13, cierre §14) — nunca una revisión de una decisión ya
@@ -150,5 +150,4 @@ npm run test:reimpresion  → 16 pass, 0 fail
 - Que la decisión de no tocar `G1-IMP5-agendas-firestore-rules-diseno.md` sea la correcta
   (alternativa: sí corregirlo, si se considera que su alcance solapa lo suficiente con
   MT-U3 como para requerir actualización aunque pertenezca a otra iniciativa).
-- Que el estado "nada commiteado" siga siendo cierto al momento de la auditoría (verificar
-  con `git status` en vivo, no confiar en este documento si ha pasado tiempo).
+- Que el estado de Git refleje el merge del PR #98 si se vuelve a auditar el historial de MT-U3.
