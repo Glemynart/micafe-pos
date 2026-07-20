@@ -15,6 +15,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { tenantQuery, stampEmpresaId } from "@/lib/tenant";
 
 export interface Ingrediente {
   insumoId: string;
@@ -31,15 +32,24 @@ export interface Receta {
  * Suscribe a todas las recetas (útil para cargar en memoria y hacer cruces rápidos en el POS)
  */
 export function suscribirRecetas(callback: (recetas: Receta[]) => void): Unsubscribe {
-  const q = collection(db, "recetas");
+  let unsubscribe = () => {};
+  let cancelado = false;
 
-  return onSnapshot(q, (snap) => {
-    const recetas: Receta[] = snap.docs.map((d) => ({
-      id: d.id,
-      ...(d.data() as Omit<Receta, "id">),
-    }));
-    callback(recetas);
+  tenantQuery(collection(db, "recetas")).then((q) => {
+    if (cancelado) return;
+    unsubscribe = onSnapshot(q, (snap) => {
+      const recetas: Receta[] = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as Omit<Receta, "id">),
+      }));
+      callback(recetas);
+    });
   });
+
+  return () => {
+    cancelado = true;
+    unsubscribe();
+  };
 }
 
 /**
@@ -47,10 +57,10 @@ export function suscribirRecetas(callback: (recetas: Receta[]) => void): Unsubsc
  */
 export async function guardarReceta(productoId: string, ingredientes: Ingrediente[]): Promise<void> {
   const ref = doc(db, "recetas", productoId);
-  await setDoc(ref, {
+  await setDoc(ref, await stampEmpresaId({
     productoId,
     ingredientes
-  });
+  }));
 }
 
 /**

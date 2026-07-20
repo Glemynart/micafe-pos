@@ -3,6 +3,7 @@ import { collection, doc, setDoc, onSnapshot, query, where, deleteDoc, serverTim
 import type { ImpuestoTipo } from '@/lib/impuestos-service'
 import { sonLineasComercialmenteEquivalentes, type ModificadorGrupoSnapshot } from '@/lib/configured-line'
 import { proyectarModificadoresCocina } from '@/lib/modifier-snapshot-projection'
+import { tenantQuery, getEmpresaId, stampEmpresaId, withEmpresaId } from '@/lib/tenant'
 
 export interface PedidoItem {
   id: string // Product ID
@@ -104,27 +105,36 @@ const COLLECTION_NAME = 'pedidos_activos'
 const COMANDAS_COLLECTION = 'comandas_cocina'
 
 export function suscribirPedidosActivos(espacioId: string, callback: (pedidos: PedidoActivo[]) => void) {
-  const q = query(
+  let unsubscribe = () => {}
+  let cancelado = false
+
+  tenantQuery(
     collection(db, COLLECTION_NAME),
     where('espacioId', '==', espacioId),
     where('activo', '==', true)
-  )
-
-  return onSnapshot(q, (snapshot) => {
-    const pedidos = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as PedidoActivo))
-    callback(pedidos)
+  ).then((q) => {
+    if (cancelado) return
+    unsubscribe = onSnapshot(q, (snapshot) => {
+      const pedidos = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as PedidoActivo))
+      callback(pedidos)
+    })
   })
+
+  return () => {
+    cancelado = true
+    unsubscribe()
+  }
 }
 
 export async function guardarPedido(pedido: Omit<PedidoActivo, 'actualizadoEn' | 'id' | 'activo' | 'comandaIds'> & { id?: string }) {
   const pedidoId = pedido.id || doc(collection(db, COLLECTION_NAME)).id
-  await setDoc(doc(db, COLLECTION_NAME, pedidoId), {
+  await setDoc(doc(db, COLLECTION_NAME, pedidoId), await stampEmpresaId({
     ...pedido,
     id: pedidoId,
     activo: true,
     comandaIds: [],
     actualizadoEn: serverTimestamp()
-  }, { merge: true })
+  }), { merge: true })
 }
 
 export async function agregarItemPedido(
@@ -162,6 +172,9 @@ export async function agregarItemPedido(
 }
 
 export async function enviarPedidoACocina(pedidoId: string) {
+  // MT-U3 Capa 3: resuelto antes de runTransaction (§2.5).
+  const empresaId = await getEmpresaId()
+
   await runTransaction(db, async (transaction) => {
     const docRef = doc(db, COLLECTION_NAME, pedidoId);
     const snap = await transaction.get(docRef);
@@ -193,7 +206,7 @@ export async function enviarPedidoACocina(pedidoId: string) {
     if (itemsToSend.length === 0) return;
 
     const comandaId = doc(collection(db, COMANDAS_COLLECTION)).id;
-    transaction.set(doc(db, COMANDAS_COLLECTION, comandaId), {
+    transaction.set(doc(db, COMANDAS_COLLECTION, comandaId), withEmpresaId(empresaId, {
       id: comandaId,
       pedidoId: pedido.id,
       mesaId: pedido.mesaId,
@@ -204,7 +217,7 @@ export async function enviarPedidoACocina(pedidoId: string) {
       estado: 'pendiente',
       tipo: isAdicion ? 'adicion' : 'nuevo',
       creadoEn: serverTimestamp()
-    });
+    }));
 
     transaction.update(docRef, {
       items: updatedItems,
@@ -222,6 +235,9 @@ export async function modificarItemPedido(
   if (newQuantity < 0) {
     throw new Error(`Cantidad inválida: ${newQuantity}`)
   }
+
+  // MT-U3 Capa 3: resuelto antes de runTransaction (§2.5).
+  const empresaId = await getEmpresaId()
 
   await runTransaction(db, async (transaction) => {
     const docRef = doc(db, COLLECTION_NAME, pedidoId)
@@ -251,7 +267,7 @@ export async function modificarItemPedido(
     let cancelacionComandaId: string | undefined
     if (deltaCancelar > 0) {
       cancelacionComandaId = doc(collection(db, COMANDAS_COLLECTION)).id
-      transaction.set(doc(db, COMANDAS_COLLECTION, cancelacionComandaId), {
+      transaction.set(doc(db, COMANDAS_COLLECTION, cancelacionComandaId), withEmpresaId(empresaId, {
         id: cancelacionComandaId,
         pedidoId: pedido.id,
         mesaId: pedido.mesaId,
@@ -267,7 +283,7 @@ export async function modificarItemPedido(
         estado: 'pendiente',
         tipo: 'cancelacion',
         creadoEn: serverTimestamp(),
-      })
+      }))
     }
 
     let updatedItems: PedidoItem[]
@@ -364,22 +380,31 @@ export async function archivarPedidoConComandas(pedidoId: string, ventaId: strin
 
 export function suscribirComandasCocina(espacioId: string, callback: (comandas: ComandaCocina[]) => void) {
   // Traemos comandas pendientes o en preparación. Las 'listo' ya salieron de cocina.
-  const q = query(
+  let unsubscribe = () => {}
+  let cancelado = false
+
+  tenantQuery(
     collection(db, COMANDAS_COLLECTION),
     where('espacioId', '==', espacioId),
     where('estado', 'in', ['pendiente', 'en_preparacion'])
-  )
-
-  return onSnapshot(q, (snapshot) => {
-    const comandas = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ComandaCocina))
-    // Ordenamos las más antiguas primero
-    comandas.sort((a, b) => {
-      const ta = a.creadoEn?.toDate().getTime() || 0
-      const tb = b.creadoEn?.toDate().getTime() || 0
-      return ta - tb
+  ).then((q) => {
+    if (cancelado) return
+    unsubscribe = onSnapshot(q, (snapshot) => {
+      const comandas = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ComandaCocina))
+      // Ordenamos las más antiguas primero
+      comandas.sort((a, b) => {
+        const ta = a.creadoEn?.toDate().getTime() || 0
+        const tb = b.creadoEn?.toDate().getTime() || 0
+        return ta - tb
+      })
+      callback(comandas)
     })
-    callback(comandas)
   })
+
+  return () => {
+    cancelado = true
+    unsubscribe()
+  }
 }
 
 export async function actualizarEstadoComanda(comandaId: string, nuevoEstado: ComandaCocina['estado']) {
@@ -401,15 +426,24 @@ export async function actualizarEstadoComanda(comandaId: string, nuevoEstado: Co
 }
 
 export function suscribirComandasActivas(espacioId: string, callback: (comandas: ComandaCocina[]) => void) {
-  const q = query(
+  let unsubscribe = () => {}
+  let cancelado = false
+
+  tenantQuery(
     collection(db, COMANDAS_COLLECTION),
     where('espacioId', '==', espacioId),
     where('estado', 'in', ['pendiente', 'en_preparacion', 'listo'])
-  )
-
-  return onSnapshot(q, (snapshot) => {
-    const comandas = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ComandaCocina))
-    callback(comandas)
+  ).then((q) => {
+    if (cancelado) return
+    unsubscribe = onSnapshot(q, (snapshot) => {
+      const comandas = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ComandaCocina))
+      callback(comandas)
+    })
   })
+
+  return () => {
+    cancelado = true
+    unsubscribe()
+  }
 }
 

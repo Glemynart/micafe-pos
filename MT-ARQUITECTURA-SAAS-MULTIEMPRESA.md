@@ -138,9 +138,17 @@ cambio de forma en una entidad existente y es inevitable para que una persona tr
 
 **Colecciones existentes que incorporan `empresaId`** (todas las operativas):
 `espacios, categorias, productos, insumos, recetas, mesas, pedidos_activos, comandas_cocina, ventas,
-turnos, turnos_activos, reservas, agendas, compras, proveedores, mermas, egresos, clientes,
-cuentas_cobro, cuentas_bancarias, transacciones_financieras, liquidaciones, consignadores,
-movimientos_inventario, auditoria_logs`.
+turnos, turnos_activos, reservas, agendas, compras, mermas, egresos, clientes, cuentas_bancarias,
+transacciones_financieras, liquidaciones, consignadores, movimientos_inventario, auditoria_logs,
+modificador_grupos, producto_modificador_grupos`.
+
+> **Nota de reconciliación (MT-U3, 2026-07-17):** esta lista se corrigió contra el inventario verificado
+> en código. Se retiran `proveedores` y `cuentas_cobro` (nunca fueron colecciones: el primero es un campo
+> embebido en `compras`; el segundo es el valor `metodoPago=='cuenta_cobro'` sobre `ventas`) y se añaden
+> `modificador_grupos` y `producto_modificador_grupos` (colecciones reales omitidas por usar una constante
+> `COLLECTION_NAME` en vez de un literal). El total se mantiene en 25. La lista oficial y su justificación
+> viven en `MT-U3-helper-tenant-diseno.md` §7; ésta se corrige aquí solo para no dejar una fuente
+> contradictoria en el documento maestro.
 
 > `movimientos_inventario` **ya tiene `empresaId` reservado** (FASE-15): primer consumidor natural del
 > modelo, valida el enfoque.

@@ -11,8 +11,8 @@ import {
   serverTimestamp,
   increment,
   runTransaction,
-  getDoc,
 } from 'firebase/firestore'
+import { tenantQuery, getEmpresaId, stampEmpresaId, withEmpresaId } from '@/lib/tenant'
 
 export interface Reserva {
   id: string
@@ -51,8 +51,6 @@ interface AgendaDoc {
   actualizadoEn: string
 }
 
-const HOLD_TTL_MS = 15 * 60 * 1000 // 15 minutos
-
 function agendaId(mesaId: string, fechaLocal: string): string {
   return `${mesaId}_${fechaLocal}`
 }
@@ -69,101 +67,60 @@ function bloquesDeRango(fechaInicio: string, fechaFin: string): string[] {
   return bloques
 }
 
-function esBloqueOcupado(bloque: BloqueAgenda, ahora: Date): boolean {
-  if (bloque.estado === 'confirmado') return true
-  if (!bloque.holdExpira) return false
-  return new Date(bloque.holdExpira) > ahora
-}
+// MT-U3 Capa 4 (§4.5) — getBloquesOcupados y crearReservaConHold corren desde
+// la landing pública `/reservar` SIN sesión de Firebase Auth. El helper de
+// tenant ambiental (`lib/tenant.ts`) exige `auth.currentUser` y lanzaría en
+// cada visitante anónimo — por eso estas dos funciones ya NO tocan Firestore
+// directo: delegan a rutas server-side (`/api/reservas/disponibilidad`,
+// `/api/reservas/hold`) que corren con Admin SDK y resuelven el tenant de
+// forma explícita (§3.6: esFundacional==true), igual que el webhook de Wompi
+// y los scripts de migración. El contrato público de ambas funciones
+// (firma, tipos, mensaje de error 'BLOQUE_OCUPADO') no cambia — cero cambios
+// en `app/reservar/page.tsx`.
+//
+// confirmarAgenda/liberarAgenda (abajo) SÍ siguen escribiendo Firestore
+// directo desde el cliente: solo actualizan bloques de una agenda que ya
+// existe (creada por /api/reservas/hold, ya con empresaId) preservándolo vía
+// spread — no crean documentos nuevos, así que no necesitan resolver tenant.
 
 /**
- * Lee la agenda de una mesa para un día. Si no existe o no está materializada,
- * la construye a partir de las reservas existentes (materialización perezosa).
- * Devuelve las claves de hora ocupadas, ej: ["08","09","13"].
+ * Lee la agenda de una mesa para un día. Si no existe, el servidor la
+ * materializa vacía y estampada. Devuelve las claves de hora ocupadas,
+ * ej: ["08","09","13"].
  */
 export async function getBloquesOcupados(mesaId: string, fechaLocal: string): Promise<string[]> {
-  const agendaRef = doc(db, 'agendas', agendaId(mesaId, fechaLocal))
-  const agendaSnap = await getDoc(agendaRef)
-  const ahora = new Date()
-
-  if (agendaSnap.exists()) {
-    const data = agendaSnap.data() as AgendaDoc
-    return Object.entries(data.bloques || {})
-      .filter(([, bloque]) => esBloqueOcupado(bloque, ahora))
-      .map(([hora]) => hora)
+  const params = new URLSearchParams({ mesaId, fechaLocal })
+  const res = await fetch(`/api/reservas/disponibilidad?${params.toString()}`)
+  if (!res.ok) {
+    throw new Error('No se pudo consultar la disponibilidad de la agenda.')
   }
-
-  // Agenda no existe: combinación mesa+fecha sin reservas previas.
-  // La materializamos vacía para evitar leer la colección reservas (datos PII).
-  // crearReservaConHold materializa la agenda con los bloques reales al crear la primera reserva.
-  await setDoc(agendaRef, {
-    mesaId,
-    espacioId: 'salas-coworking',
-    fecha: fechaLocal,
-    materializado: true,
-    bloques: {},
-    actualizadoEn: new Date().toISOString(),
-  })
-
-  return []
+  const data = (await res.json()) as { bloquesOcupados: string[] }
+  return data.bloquesOcupados
 }
 
 /**
  * Claim transaccional: crea la reserva y reclama los bloques de agenda
- * en una sola transacción. Lanza error si algún bloque está ocupado.
+ * en una sola transacción server-side. Lanza `Error('BLOQUE_OCUPADO')` si
+ * algún bloque está ocupado (mismo contrato que la versión previa).
  */
 export async function crearReservaConHold(
   reservaData: Omit<Reserva, 'id'>,
   fechaLocal: string,
   bloquesSolicitados: string[]
 ): Promise<string> {
-  const reservaRef = doc(collection(db, 'reservas'))
-  const agendaRef = doc(db, 'agendas', agendaId(reservaData.mesaId, fechaLocal))
-  const holdExpira = new Date(Date.now() + HOLD_TTL_MS).toISOString()
-  const ahora = new Date()
-
-  await runTransaction(db, async (tx) => {
-    const agendaSnap = await tx.get(agendaRef)
-    const bloquesActuales: Record<string, BloqueAgenda> =
-      agendaSnap.exists() ? (agendaSnap.data() as AgendaDoc).bloques : {}
-
-    // Verificar que ningún bloque solicitado esté ocupado
-    for (const b of bloquesSolicitados) {
-      const bloque = bloquesActuales[b]
-      if (bloque && bloque.reservaId !== reservaRef.id && esBloqueOcupado(bloque, ahora)) {
-        throw new Error('BLOQUE_OCUPADO')
-      }
-    }
-
-    // Escribir holds en la agenda
-    const nuevosBloques = { ...bloquesActuales }
-    for (const b of bloquesSolicitados) {
-      nuevosBloques[b] = {
-        reservaId: reservaRef.id,
-        estado: 'hold',
-        holdExpira,
-        creadoEn: new Date().toISOString(),
-      }
-    }
-
-    tx.set(agendaRef, {
-      mesaId: reservaData.mesaId,
-      espacioId: reservaData.espacioId,
-      fecha: fechaLocal,
-      materializado: true,
-      bloques: nuevosBloques,
-      actualizadoEn: new Date().toISOString(),
-    })
-
-    tx.set(reservaRef, {
-      ...reservaData,
-      id: reservaRef.id,
-      holdExpira,
-      fechaLocal,
-      bloques: bloquesSolicitados,
-    })
+  const res = await fetch('/api/reservas/hold', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reservaData, fechaLocal, bloquesSolicitados }),
   })
 
-  return reservaRef.id
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(body?.error === 'BLOQUE_OCUPADO' ? 'BLOQUE_OCUPADO' : 'No se pudo crear la reserva.')
+  }
+
+  const data = (await res.json()) as { reservaId: string }
+  return data.reservaId
 }
 
 /**
@@ -248,40 +205,49 @@ const _cleanupInFlight = new Set<string>()
  * Suscribe a las reservas activas del día actual o futuras.
  */
 export function suscribirReservasActivas(callback: (reservas: Reserva[], nuevas: Reserva[]) => void) {
-  const q = query(
+  let unsubscribe = () => {}
+  let cancelado = false
+
+  tenantQuery(
     collection(db, COLLECTION_NAME),
     where('estadoReserva', '==', 'activa')
-  )
+  ).then((q) => {
+    if (cancelado) return
+    unsubscribe = onSnapshot(q, (snapshot) => {
+      const reservas = snapshot.docs.map(d => ({
+        ...(d.data() as Omit<Reserva, 'id'>),
+        id: d.id,
+      })).sort((a, b) => new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime())
 
-  return onSnapshot(q, (snapshot) => {
-    const reservas = snapshot.docs.map(d => ({
-      ...(d.data() as Omit<Reserva, 'id'>),
-      id: d.id,
-    })).sort((a, b) => new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime())
+      const nuevas = snapshot.docChanges()
+        .filter(change => change.type === 'added')
+        .map(change => ({ ...change.doc.data(), id: change.doc.id } as Reserva))
 
-    const nuevas = snapshot.docChanges()
-      .filter(change => change.type === 'added')
-      .map(change => ({ ...change.doc.data(), id: change.doc.id } as Reserva))
+      // Cancelar holds expirados en cada snapshot.
+      // cancelarReserva() es idempotente: si el doc ya está cancelado, no escribe.
+      const ahora = new Date()
+      reservas
+        .filter(r =>
+          r.estadoPago === 'pendiente' &&
+          r.holdExpira != null &&
+          new Date(r.holdExpira) < ahora &&
+          !_cleanupInFlight.has(r.id)
+        )
+        .forEach(r => {
+          _cleanupInFlight.add(r.id)
+          cancelarReserva(r.id)
+            .catch(err => console.warn('[reservas-cleanup]', r.id, err))
+            .finally(() => _cleanupInFlight.delete(r.id))
+        })
 
-    // Cancelar holds expirados en cada snapshot.
-    // cancelarReserva() es idempotente: si el doc ya está cancelado, no escribe.
-    const ahora = new Date()
-    reservas
-      .filter(r =>
-        r.estadoPago === 'pendiente' &&
-        r.holdExpira != null &&
-        new Date(r.holdExpira) < ahora &&
-        !_cleanupInFlight.has(r.id)
-      )
-      .forEach(r => {
-        _cleanupInFlight.add(r.id)
-        cancelarReserva(r.id)
-          .catch(err => console.warn('[reservas-cleanup]', r.id, err))
-          .finally(() => _cleanupInFlight.delete(r.id))
-      })
-
-    callback(reservas, nuevas)
+      callback(reservas, nuevas)
+    })
   })
+
+  return () => {
+    cancelado = true
+    unsubscribe()
+  }
 }
 
 /**
@@ -301,7 +267,7 @@ export async function getReservasMesa(mesaId: string, fechaDia: string): Promise
   // Solo usamos un filtro de igualdad (mesaId) para que Firebase use el índice automático
   // de un solo campo. Si mezclamos con fechaInicio (desigualdad) o estadoReserva, Firebase
   // arrojará un error de "missing composite index" y fallará la consulta, mostrando todo libre.
-  const q = query(
+  const q = await tenantQuery(
     collection(db, COLLECTION_NAME),
     where('mesaId', '==', mesaId)
   )
@@ -324,7 +290,7 @@ export async function getReservasMesa(mesaId: string, fechaDia: string): Promise
 
 export async function crearReserva(reserva: Omit<Reserva, 'id'>): Promise<string> {
   const newRef = doc(collection(db, COLLECTION_NAME))
-  await setDoc(newRef, { ...reserva, id: newRef.id })
+  await setDoc(newRef, await stampEmpresaId({ ...reserva, id: newRef.id }))
   return newRef.id
 }
 
@@ -416,6 +382,10 @@ export async function completarReserva(params: {
   const configRef = doc(db, 'configuracion', 'general')
   const nuevaVentaRef = doc(collection(db, 'ventas'))
 
+  // MT-U3 Capa 3: resuelto antes de runTransaction (§2.5) — llamada desde
+  // POS/Admin autenticado (completarReserva no corre en la landing pública).
+  const empresaId = await getEmpresaId()
+
   await runTransaction(db, async (tx) => {
     // ── LECTURAS (todas antes de cualquier escritura) ─────────────────────────
 
@@ -460,7 +430,7 @@ export async function completarReserva(params: {
       const cuentaNombre = metodoPago === 'efectivo' ? 'Caja Registradora' : 'Bancolombia'
 
       tx.set(configRef, { consecutivo_actual: nuevoConsecutivo }, { merge: true })
-      tx.set(nuevaVentaRef, {
+      tx.set(nuevaVentaRef, withEmpresaId(empresaId, {
         consecutivo: nuevoConsecutivo,
         fecha: serverTimestamp(),
         turnoId: params.turnoId,
@@ -486,9 +456,9 @@ export async function completarReserva(params: {
           impoconsumo: 0,
           total: r.montoTotal,
         },
-      })
+      }))
       tx.update(doc(db, 'cuentas_bancarias', cuentaId), { saldo: increment(r.montoTotal) })
-      tx.set(doc(collection(db, 'transacciones_financieras')), {
+      tx.set(doc(collection(db, 'transacciones_financieras')), withEmpresaId(empresaId, {
         cuentaId,
         cuentaNombre,
         tipo: 'ingreso',
@@ -500,7 +470,7 @@ export async function completarReserva(params: {
         usuarioNombre: params.cajeroNombre ?? params.cajeroId,
         espacioId: r.espacioId ?? 'salas-coworking',
         fecha: serverTimestamp(),
-      })
+      }))
     }
 
     tx.update(reservaRef, {

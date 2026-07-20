@@ -17,6 +17,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { tenantQuery } from "@/lib/tenant";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -66,43 +67,58 @@ export interface Categoria {
 export function suscribirEspacios(
   callback: (espacios: Espacio[]) => void
 ): Unsubscribe {
-  const q = query(
-    collection(db, "espacios"),
-    where("activo", "==", true)
-  );
+  let unsubscribe = () => {};
+  let cancelado = false;
 
-  return onSnapshot(q, (snap) => {
-    const espacios: Espacio[] = snap.docs.map((doc) => ({
-      id: doc.id,
-      ...(doc.data() as Omit<Espacio, "id">),
-    })).sort((a, b) => a.orden - b.orden);
-    callback(espacios);
-  }, (error) => {
-    console.error("suscribirEspacios error:", error.message);
+  tenantQuery(collection(db, "espacios"), where("activo", "==", true)).then((q) => {
+    if (cancelado) return;
+    unsubscribe = onSnapshot(q, (snap) => {
+      const espacios: Espacio[] = snap.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as Omit<Espacio, "id">),
+      })).sort((a, b) => a.orden - b.orden);
+      callback(espacios);
+    }, (error) => {
+      console.error("suscribirEspacios error:", error.message);
+    });
   });
+
+  return () => {
+    cancelado = true;
+    unsubscribe();
+  };
 }
 
 export function suscribirTodosEspacios(
   callback: (espacios: Espacio[]) => void
 ): Unsubscribe {
-  const q = query(collection(db, "espacios"));
+  let unsubscribe = () => {};
+  let cancelado = false;
 
-  return onSnapshot(q, (snap) => {
-    const espacios: Espacio[] = snap.docs.map((doc) => ({
-      id: doc.id,
-      ...(doc.data() as Omit<Espacio, "id">),
-    })).sort((a, b) => a.orden - b.orden);
-    callback(espacios);
-  }, (error) => {
-    console.error("suscribirTodosEspacios error:", error.message);
+  tenantQuery(collection(db, "espacios")).then((q) => {
+    if (cancelado) return;
+    unsubscribe = onSnapshot(q, (snap) => {
+      const espacios: Espacio[] = snap.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as Omit<Espacio, "id">),
+      })).sort((a, b) => a.orden - b.orden);
+      callback(espacios);
+    }, (error) => {
+      console.error("suscribirTodosEspacios error:", error.message);
+    });
   });
+
+  return () => {
+    cancelado = true;
+    unsubscribe();
+  };
 }
 
 /**
  * Lectura única de todos los espacios activos (para seeds y utilidades).
  */
 export async function obtenerEspacios(): Promise<Espacio[]> {
-  const q = query(
+  const q = await tenantQuery(
     collection(db, "espacios"),
     where("activo", "==", true)
   );
@@ -122,28 +138,37 @@ export function suscribirCategorias(
   espacioId: string,
   callback: (categorias: Categoria[]) => void
 ): Unsubscribe {
-  const q = query(
+  let unsubscribe = () => {};
+  let cancelado = false;
+
+  tenantQuery(
     collection(db, "categorias"),
     where("espacioId", "==", espacioId),
     where("activo", "==", true)
-  );
-
-  return onSnapshot(q, (snap) => {
-    const categorias: Categoria[] = snap.docs.map((doc) => ({
-      id: doc.id,
-      ...(doc.data() as Omit<Categoria, "id">),
-    })).sort((a, b) => a.orden - b.orden);
-    callback(categorias);
-  }, (error) => {
-    console.error("suscribirCategorias error:", error.message);
+  ).then((q) => {
+    if (cancelado) return;
+    unsubscribe = onSnapshot(q, (snap) => {
+      const categorias: Categoria[] = snap.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as Omit<Categoria, "id">),
+      })).sort((a, b) => a.orden - b.orden);
+      callback(categorias);
+    }, (error) => {
+      console.error("suscribirCategorias error:", error.message);
+    });
   });
+
+  return () => {
+    cancelado = true;
+    unsubscribe();
+  };
 }
 
 /**
  * Lectura única de categorías activas de un espacio (para seeds y utilidades).
  */
 export async function obtenerCategorias(espacioId: string): Promise<Categoria[]> {
-  const q = query(
+  const q = await tenantQuery(
     collection(db, "categorias"),
     where("espacioId", "==", espacioId),
     where("activo", "==", true),
