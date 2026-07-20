@@ -9,6 +9,7 @@ import {
   abrirTurno, 
   cerrarTurno, 
   calcularVentasTurno,
+  obtenerCandidatosRelevo,
   type Turno 
 } from '@/lib/turnos-service'
 import { calcularEgresosTurno } from '@/lib/egresos-service'
@@ -42,8 +43,6 @@ import {
 } from '@/lib/demo-data'
 import { toast } from 'sonner'
 import { CloseShiftForm } from '@/components/pos/close-shift-form'
-import { collection, getDocs, query, where } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
 import { suscribirConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
 
 export function ShiftsModule() {
@@ -85,18 +84,10 @@ export function ShiftsModule() {
     return () => { unsubActivo(); unsubHistorial() }
   }, [usuario?.uid])
 
-  // FASE-10C: cargar cajeros/supervisores reales para el relevo (no hardcodear).
+  // Cargar candidatos activos desde las membresías del tenant.
   useEffect(() => {
     if (!usuario) return
-    getDocs(query(collection(db, 'usuarios'), where('rol', 'in', ['cajero', 'supervisor'])))
-      .then(snap => {
-        setCajeros(
-          snap.docs
-            .map(d => ({ uid: d.id, nombre: (d.data().nombre as string) || d.id }))
-            .filter(c => c.uid !== usuario.uid)
-        )
-      })
-      .catch(() => {})
+    obtenerCandidatosRelevo().then(setCajeros).catch(() => setCajeros([]))
   }, [usuario?.uid])
 
   // Auto-open modal if redirected from logout or event

@@ -22,9 +22,13 @@ const MAX_FALLOS = 5;
 const BLOQUEO_MS = 15 * 60 * 1000;
 const ERROR_CREDENCIALES = "Credenciales operativas inválidas.";
 
-interface UsuarioLegacy {
-  activo?: boolean;
+interface MembresiaCanonica {
+  empresaId?: unknown;
+  uid?: unknown;
   rol?: unknown;
+  permisos?: unknown;
+  estado?: unknown;
+  activo?: unknown;
 }
 
 interface EmpresaFundacional {
@@ -43,6 +47,21 @@ interface SolicitudProvisionamiento extends SolicitudAutenticacion {
 interface SolicitudRotacion {
   pinActual?: unknown;
   pinNuevo?: unknown;
+}
+
+interface SolicitudCrearUsuario {
+  uid?: unknown;
+  nombre?: unknown;
+  username?: unknown;
+  email?: unknown;
+  rol?: unknown;
+}
+
+interface SolicitudActualizarMembresia {
+  uid?: unknown;
+  rol?: unknown;
+  permisos?: unknown;
+  estado?: unknown;
 }
 
 function errorCredenciales(): HttpsError {
@@ -99,25 +118,30 @@ async function obtenerCredencialDelUid(empresaId: string, uid: string) {
   return snap.docs[0] ?? null;
 }
 
-async function validarUsuarioYMembership(empresaId: string, uid: string): Promise<RolTenant> {
+function esMembresiaActivaYValida(data: MembresiaCanonica | undefined, empresaId: string, uid: string): data is MembresiaCanonica & { rol: RolTenant; permisos: string[] } {
+  return !!data
+    && data.empresaId === empresaId
+    && data.uid === uid
+    && data.estado === "activa"
+    && data.activo === true
+    && esRolTenant(data.rol)
+    && Array.isArray(data.permisos)
+    && data.permisos.every((permiso) => typeof permiso === "string" && permiso.length > 0);
+}
+
+/** La membresía, no `usuarios`, decide rol, permisos y estado. */
+async function validarMembresiaActiva(empresaId: string, uid: string): Promise<RolTenant> {
   const db = getFirestore();
-  const [usuarioSnap, membresiaSnap] = await Promise.all([
-    db.collection("usuarios").doc(uid).get(),
+  const [membresiaSnap] = await Promise.all([
     db.collection("membresias").doc(`${empresaId}_${uid}`).get(),
     getAuth().getUser(uid),
   ]);
 
-  if (!usuarioSnap.exists || !membresiaSnap.exists || membresiaSnap.data()?.activo !== true) {
+  const membresia = membresiaSnap.data() as MembresiaCanonica | undefined;
+  if (!membresiaSnap.exists || !esMembresiaActivaYValida(membresia, empresaId, uid)) {
     throw errorCredenciales();
   }
-
-  const usuario = usuarioSnap.data() as UsuarioLegacy;
-  if (usuario.activo !== true || !esRolTenant(usuario.rol)) {
-    logger.warn("operational_auth_legacy_user_invalid", { empresaId, uid });
-    throw errorCredenciales();
-  }
-
-  return usuario.rol;
+  return membresia.rol;
 }
 
 async function registrarFallo(ref: FirebaseFirestore.DocumentReference): Promise<void> {
@@ -163,6 +187,32 @@ async function acuñarSesionTenant(uid: string, empresaId: string, rol: RolTenan
   return auth.createCustomToken(uid);
 }
 
+async function actualizarClaimsTenant(uid: string, empresaId: string, rol: RolTenant | null): Promise<void> {
+  const auth = getAuth();
+  const existente = (await auth.getUser(uid)).customClaims ?? {};
+  const platformClaims = {
+    ...(existente.superadmin === true ? { superadmin: true } : {}),
+    ...(existente.soporte === true ? { soporte: true } : {}),
+  };
+  await auth.setCustomUserClaims(uid, rol ? { ...platformClaims, empresaId, rol } : platformClaims);
+  await auth.revokeRefreshTokens(uid);
+}
+
+function normalizarPermisosEfectivos(valor: unknown): string[] | null {
+  if (!Array.isArray(valor) || valor.some((permiso) => typeof permiso !== "string" || !permiso)) return null;
+  return [...new Set(valor)].sort();
+}
+
+async function permisosPredeterminados(rol: RolTenant): Promise<string[]> {
+  const snap = await getFirestore().collection("permisos_roles").doc(rol).get();
+  const permisos = normalizarPermisosEfectivos(snap.data()?.permisos);
+  if (!snap.exists || !permisos) {
+    logger.error("membership_default_template_invalid", { rol });
+    throw new HttpsError("failed-precondition", "La plantilla de permisos no está disponible.");
+  }
+  return permisos;
+}
+
 async function exigirAdminFundacional(request: { auth?: { uid: string; token: Record<string, unknown> } }) {
   if (!request.auth || request.auth.token.rol !== "admin") {
     throw new HttpsError("permission-denied", "Acceso denegado.");
@@ -173,7 +223,7 @@ async function exigirAdminFundacional(request: { auth?: { uid: string; token: Re
     throw new HttpsError("permission-denied", "Acceso denegado.");
   }
 
-  const rolActual = await validarUsuarioYMembership(empresa.id, request.auth.uid);
+  const rolActual = await validarMembresiaActiva(empresa.id, request.auth.uid);
   if (rolActual !== "admin") {
     throw new HttpsError("permission-denied", "Acceso denegado.");
   }
@@ -200,7 +250,7 @@ export const autenticarOperativo = onCall(
         throw errorCredenciales();
       }
 
-      const rol = await validarUsuarioYMembership(empresa.id, credencial.uid);
+      const rol = await validarMembresiaActiva(empresa.id, credencial.uid);
       await limpiarFallos(ref);
       const customToken = await acuñarSesionTenant(credencial.uid, empresa.id, rol);
       logger.info("operational_auth_succeeded", { empresaId: empresa.id, uid: credencial.uid });
@@ -225,7 +275,7 @@ export const provisionarCredencialOperativa = onCall(
       throw new HttpsError("invalid-argument", "Datos de credencial inválidos.");
     }
 
-    await validarUsuarioYMembership(empresa.id, uid);
+    await validarMembresiaActiva(empresa.id, uid);
     const hash = await hashearPin(pin, obtenerPepper());
     const db = getFirestore();
     const destino = referenciaCredencial(empresa.id, codigo);
@@ -278,7 +328,7 @@ export const rotarPinOperativo = onCall(
 
     const empresa = await obtenerEmpresaFundacional();
     if (request.auth.token.empresaId !== empresa.id) throw new HttpsError("permission-denied", "Acceso denegado.");
-    await validarUsuarioYMembership(empresa.id, request.auth.uid);
+    await validarMembresiaActiva(empresa.id, request.auth.uid);
     const credencial = await obtenerCredencialDelUid(empresa.id, request.auth.uid);
     if (!credencial || await estaBloqueada(credencial.ref)) throw errorCredenciales();
 
@@ -297,5 +347,105 @@ export const rotarPinOperativo = onCall(
     });
     await getAuth().revokeRefreshTokens(request.auth.uid);
     logger.info("operational_pin_rotated", { empresaId: empresa.id, uid: request.auth.uid });
+  }
+);
+
+/**
+ * Crea el perfil global y la membresía inicial en una sola transacción. La
+ * plantilla solo se consulta como base de alta: el resultado guardado en la
+ * membresía es el conjunto efectivo de autoridad.
+ */
+export const crearUsuarioConMembresia = onCall(
+  { region: REGION },
+  async (request): Promise<void> => {
+    const empresa = await exigirAdminFundacional(request);
+    const data = request.data as SolicitudCrearUsuario | undefined;
+    const uid = typeof data?.uid === "string" ? data.uid : null;
+    const nombre = typeof data?.nombre === "string" ? data.nombre.trim() : "";
+    const username = typeof data?.username === "string" ? data.username.trim().toLowerCase() : "";
+    const email = typeof data?.email === "string" ? data.email.trim().toLowerCase() : "";
+    if (!uid || !nombre || !username || !email || !esRolTenant(data?.rol)) {
+      throw new HttpsError("invalid-argument", "Datos de usuario inválidos.");
+    }
+
+    await getAuth().getUser(uid);
+    const permisos = await permisosPredeterminados(data.rol);
+    const db = getFirestore();
+    const miembroRef = db.collection("membresias").doc(`${empresa.id}_${uid}`);
+    const usuarioRef = db.collection("usuarios").doc(uid);
+    await db.runTransaction(async (transaction) => {
+      const [existente, usuarioExistente] = await Promise.all([
+        transaction.get(miembroRef),
+        transaction.get(usuarioRef),
+      ]);
+      if (existente.exists || usuarioExistente.exists) {
+        throw new HttpsError("already-exists", "El usuario ya existe.");
+      }
+      transaction.create(usuarioRef, {
+        uid,
+        nombre,
+        username,
+        email,
+        creadoEn: FieldValue.serverTimestamp(),
+      });
+      transaction.create(miembroRef, {
+        empresaId: empresa.id,
+        uid,
+        rol: data.rol,
+        permisos,
+        estado: "activa",
+        activo: true,
+        creadaEn: FieldValue.serverTimestamp(),
+        actualizadaEn: FieldValue.serverTimestamp(),
+      });
+    });
+    await actualizarClaimsTenant(uid, empresa.id, data.rol);
+    logger.info("membership_user_created", { empresaId: empresa.id, uid, rol: data.rol });
+  }
+);
+
+/** Actualiza la autoridad efectiva y reemite/revoca la sesión afectada. */
+export const actualizarMembresia = onCall(
+  { region: REGION },
+  async (request): Promise<void> => {
+    const empresa = await exigirAdminFundacional(request);
+    const data = request.data as SolicitudActualizarMembresia | undefined;
+    const uid = typeof data?.uid === "string" ? data.uid : null;
+    if (!uid || uid === request.auth!.uid) {
+      throw new HttpsError("invalid-argument", "No se puede modificar la membresía propia.");
+    }
+    const estado = data?.estado;
+    if (estado !== undefined && estado !== "activa" && estado !== "inactiva") {
+      throw new HttpsError("invalid-argument", "Estado de membresía inválido.");
+    }
+    if (data?.rol !== undefined && !esRolTenant(data.rol)) {
+      throw new HttpsError("invalid-argument", "Rol de membresía inválido.");
+    }
+    const permisosSolicitados = data?.permisos === undefined ? undefined : normalizarPermisosEfectivos(data.permisos);
+    if (data?.permisos !== undefined && !permisosSolicitados) {
+      throw new HttpsError("invalid-argument", "Permisos de membresía inválidos.");
+    }
+
+    const ref = getFirestore().collection("membresias").doc(`${empresa.id}_${uid}`);
+    const snap = await ref.get();
+    const actual = snap.data() as MembresiaCanonica | undefined;
+    if (!snap.exists || !actual || !esRolTenant(actual.rol) || !Array.isArray(actual.permisos)) {
+      throw new HttpsError("not-found", "Membresía no encontrada.");
+    }
+    const rol = data?.rol === undefined ? actual.rol : data.rol;
+    const permisos = permisosSolicitados ?? (data?.rol === undefined
+      ? normalizarPermisosEfectivos(actual.permisos)
+      : await permisosPredeterminados(rol));
+    if (!permisos) throw new HttpsError("failed-precondition", "Permisos de membresía inválidos.");
+    const estadoFinal = estado ?? actual.estado;
+    await ref.update({
+      rol,
+      permisos,
+      estado: estadoFinal,
+      activo: estadoFinal === "activa",
+      actualizadaEn: FieldValue.serverTimestamp(),
+    });
+    await actualizarClaimsTenant(uid, empresa.id, estadoFinal === "activa" ? rol : null);
+    logger.info("membership_updated", { empresaId: empresa.id, uid, rol, estado: estadoFinal });
   }
 );
