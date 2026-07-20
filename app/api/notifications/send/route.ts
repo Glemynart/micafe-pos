@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin'
+import { getAdminAuth } from '@/lib/firebase-admin'
 import { enviarPushAdmins } from '@/lib/notificaciones-push'
 
 // D-NOTIF-02 D3: '*' es seguro porque la auth es Bearer idToken (no cookies),
@@ -28,11 +28,9 @@ export async function POST(req: Request) {
     const idToken = authHeader.split('Bearer ')[1]
     const decoded = await getAdminAuth().verifyIdToken(idToken)
 
-    const db = getAdminDb()
-    const userDoc = await db.collection('usuarios').doc(decoded.uid).get()
-    const rol = userDoc.data()?.rol
+    const rol = decoded.rol
 
-    if (rol !== 'admin' && rol !== 'cajero') {
+    if ((rol !== 'admin' && rol !== 'cajero' && rol !== 'supervisor') || typeof decoded.empresaId !== 'string') {
       return jsonCors({ error: 'Permisos insuficientes' }, 403)
     }
 
@@ -44,6 +42,7 @@ export async function POST(req: Request) {
     }
 
     const result = await enviarPushAdmins({
+      empresaId: decoded.empresaId,
       title,
       body: message,
       url: typeof url === 'string' ? url : undefined,

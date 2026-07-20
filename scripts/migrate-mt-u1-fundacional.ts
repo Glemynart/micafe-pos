@@ -3,8 +3,8 @@
  *
  * Crea la Empresa fundacional (D-U1-1: id opaco, sin connotación de
  * temporalidad — nunca `empresa-default`) y una Membresia pura (D-U1-2: sin
- * rol/permisos) por cada usuario existente en `usuarios`. `usuarios.rol` y
- * `usuarios.permisos` siguen siendo la única fuente de autorización.
+ * rol/permisos) por cada usuario existente en `usuarios`. Es un script
+ * histórico: tras MT-U5B la autoridad pertenece exclusivamente a membresías.
  *
  * NO toca ninguna de las 25 colecciones operativas del POS. Ese backfill
  * pertenece a MT-U3 (paso 0 de su propio despliegue, D-U1-3).
@@ -36,7 +36,7 @@ dotenv.config({ path: '.env.local' })
 import { cert, initializeApp, getApps } from 'firebase-admin/app'
 import { getFirestore, Timestamp } from 'firebase-admin/firestore'
 import { type Empresa, EMPRESAS_COLLECTION } from '../lib/empresas-service'
-import { type Membresia, MEMBRESIAS_COLLECTION } from '../lib/membresias-service'
+import { type MembresiaLegacy, MEMBRESIAS_COLLECTION, idMembresia } from '../lib/membresias-service'
 
 const argv = process.argv.slice(2)
 // --dry-run gana si se combinan ambos flags por error: seguro por defecto.
@@ -70,7 +70,7 @@ const BATCH_LIMIT = 500
 // en forma) de la que tipan Empresa/Membresia en Capa 1 para el SDK cliente.
 // Se reutiliza el resto del contrato vía Omit para no duplicar los campos.
 type EmpresaDoc = Omit<Empresa, 'creadaEn'> & { creadaEn: Timestamp }
-type MembresiaDoc = Omit<Membresia, 'creadaEn'> & { creadaEn: Timestamp }
+type MembresiaDoc = Omit<MembresiaLegacy, 'creadaEn'> & { creadaEn: Timestamp }
 
 interface UsuarioMin {
   uid: string
@@ -223,7 +223,7 @@ async function main() {
   let opsEnBatch = 0
 
   for (const usuario of usuarios) {
-    const membresiaId = `${empresaId}_${usuario.uid}`
+    const membresiaId = idMembresia(empresaId, usuario.uid)
     const ref = db.collection(MEMBRESIAS_COLLECTION).doc(membresiaId)
     const existente = await ref.get()
 

@@ -18,7 +18,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  loginConUsername,
   loginConCodigoYPin,
   logout as authLogout,
   onAuthStateChange,
@@ -38,8 +37,6 @@ interface AuthContextValue {
   errorLogin: string | null;
   /** Ruta primaria MT-U5a: código operativo + PIN. */
   login: (codigo: string, pin: string) => Promise<void>;
-  /** Compatibilidad temporal: username + contraseña Firebase legacy. */
-  loginLegacy: (username: string, password: string) => Promise<void>;
   /** Cierra la sesión del cajero actual */
   logout: () => Promise<void>;
   /** Limpia el mensaje de error de login */
@@ -110,11 +107,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [manejarLogin]
   );
 
-  const loginLegacy = useCallback(
-    (username: string, password: string) => manejarLogin(loginConUsername, username, password),
-    [manejarLogin]
-  );
-
   const logout = useCallback(async () => {
     await authLogout();
     setUsuario(null);
@@ -131,7 +123,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         iniciandoSesion,
         errorLogin,
         login,
-        loginLegacy,
         logout,
         limpiarError,
       }}

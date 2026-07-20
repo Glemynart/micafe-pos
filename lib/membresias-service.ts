@@ -1,10 +1,8 @@
 /**
  * membresias-service.ts
  *
- * MT-U1 — Capa 1 (infraestructura de datos). Contiene únicamente el
- * contrato de tipo de `Membresia` y la constante de colección. Sin
- * consultas Firestore, sin suscripciones, sin helpers de lectura/escritura:
- * eso pertenece a MT-U2, primer consumidor real de este módulo.
+ * MT-U5B — Bloque 2. Contrato y lectores de la autoridad canónica de una
+ * pertenencia Usuario × Empresa.
  *
  * Ver MT-U1-empresas-membresias-diseno.md (D-U1-2) y ADR-SAAS-002/004.
  */
@@ -19,24 +17,92 @@ import {
   type Timestamp,
 } from "firebase/firestore";
 
-/**
- * Membresia: arista pura de pertenencia Usuario × Empresa (MT-U1 D-U1-2).
- *
- * Deliberadamente NO duplica `rol` ni `permisos`: `usuarios.rol` y
- * `usuarios.permisos` siguen siendo la única fuente de autorización hasta
- * MT-U5b (ADR-SAAS-002), que moverá la fuente de lectura en un único paso
- * atómico. No copiarlos aquí evita cualquier desincronización entre esta
- * colección y `usuarios` mientras tanto.
- */
 export interface Membresia {
+  empresaId: string;
+  uid: string;
+  activo: boolean;
+  creadaEn: Timestamp;
+  rol: RolMembresia;
+  permisos: string[];
+  estado: EstadoMembresia;
+  actualizadaEn: Timestamp;
+}
+
+/** Forma histórica conservada exclusivamente para scripts de migración/rollback. */
+export interface MembresiaLegacy {
   empresaId: string;
   uid: string;
   activo: boolean;
   creadaEn: Timestamp;
 }
 
+/** Vocabulario único de roles tenant aprobado para MT-U5. */
+export const ROLES_MEMBRESIA = [
+  "admin",
+  "supervisor",
+  "cajero",
+  "cocinero",
+  "marketing",
+] as const;
+
+export type RolMembresia = (typeof ROLES_MEMBRESIA)[number];
+
+/** Estados de acceso de una membresía dentro de una empresa. */
+export const ESTADOS_MEMBRESIA = ["activa", "inactiva"] as const;
+
+export type EstadoMembresia = (typeof ESTADOS_MEMBRESIA)[number];
+
+
 /** Nombre de la colección Firestore de membresías. */
 export const MEMBRESIAS_COLLECTION = "membresias" as const;
+
+/** Id determinístico que garantiza una única membresía por Empresa × Usuario. */
+export function idMembresia(empresaId: string, uid: string): string {
+  return `${empresaId}_${uid}`;
+}
+
+export function esRolMembresia(valor: unknown): valor is RolMembresia {
+  return typeof valor === "string" && (ROLES_MEMBRESIA as readonly string[]).includes(valor);
+}
+
+export function esEstadoMembresia(valor: unknown): valor is EstadoMembresia {
+  return typeof valor === "string" && (ESTADOS_MEMBRESIA as readonly string[]).includes(valor);
+}
+
+export function estadoMembresiaDesdeActivo(activo: boolean): EstadoMembresia {
+  return activo ? "activa" : "inactiva";
+}
+
+/**
+ * Valida y normaliza un conjunto de permisos sin cambiar su semántica:
+ * elimina duplicados y fija un orden estable para comparaciones auditables.
+ */
+export function normalizarPermisos(permisos: unknown): string[] | null {
+  if (!Array.isArray(permisos) || permisos.some((permiso) => typeof permiso !== "string" || !permiso)) {
+    return null;
+  }
+  return [...new Set(permisos)].sort();
+}
+
+export function permisosSonIguales(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((permiso, index) => permiso === b[index]);
+}
+
+export function esMembresiaActiva(membresia: Pick<Membresia, "estado" | "activo">): boolean {
+  return membresia.estado === "activa" && membresia.activo === true;
+}
+
+export function esMembresiaCanonica(valor: unknown): valor is Membresia {
+  if (!valor || typeof valor !== "object") return false;
+  const data = valor as Partial<Membresia>;
+  return typeof data.empresaId === "string"
+    && typeof data.uid === "string"
+    && esRolMembresia(data.rol)
+    && esEstadoMembresia(data.estado)
+    && typeof data.activo === "boolean"
+    && normalizarPermisos(data.permisos) !== null;
+}
 
 /**
  * Obtiene la Membresia de un usuario en una empresa dada, por su id
@@ -56,9 +122,10 @@ export async function obtenerMembresia(
   uid: string
 ): Promise<Membresia | null> {
   const { db } = await import("@/lib/firebase");
-  const ref = doc(db, MEMBRESIAS_COLLECTION, `${empresaId}_${uid}`);
+  const ref = doc(db, MEMBRESIAS_COLLECTION, idMembresia(empresaId, uid));
   const snap = await getDoc(ref);
-  return snap.exists() ? (snap.data() as Membresia) : null;
+  const data = snap.data();
+  return snap.exists() && esMembresiaCanonica(data) ? data : null;
 }
 
 /**
@@ -70,5 +137,5 @@ export async function obtenerMembresiasDeUsuario(uid: string): Promise<Membresia
   const { db } = await import("@/lib/firebase");
   const q = query(collection(db, MEMBRESIAS_COLLECTION), where("uid", "==", uid));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => d.data() as Membresia);
+  return snap.docs.map((d) => d.data()).filter(esMembresiaCanonica);
 }

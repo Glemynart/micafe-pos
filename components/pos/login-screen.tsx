@@ -18,11 +18,10 @@ const PARTICULAS = [
 ]
 
 export function LoginScreen() {
-  const { login, loginLegacy, iniciandoSesion, errorLogin, limpiarError } = useAuthContext()
+  const { login, iniciandoSesion, errorLogin, limpiarError } = useAuthContext()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [usarLegacy, setUsarLegacy] = useState(false)
 
   useEffect(() => {
     if (errorLogin && (username || password)) limpiarError()
@@ -31,7 +30,7 @@ export function LoginScreen() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!username.trim() || !password) return
-    await (usarLegacy ? loginLegacy(username, password) : login(username, password))
+    await login(username, password)
   }
 
   return (
@@ -82,13 +81,13 @@ export function LoginScreen() {
         <CardContent className="px-8 pb-8 pt-6">
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <div className="space-y-2">
-              <Label htmlFor="username" className="text-sm font-medium text-[#051D41]/70">{usarLegacy ? 'Usuario' : 'Código operativo'}</Label>
+              <Label htmlFor="username" className="text-sm font-medium text-[#051D41]/70">Código operativo</Label>
               <Input
                 id="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder={usarLegacy ? 'Tu nombre de usuario' : 'Ej. caja-01'}
+                placeholder="Ej. caja-01"
                 className="h-12 bg-[#051D41]/5 border-[#051D41]/15 focus:border-[#F9B207] focus:ring-[#F9B207]/20 rounded-xl text-[#051D41] placeholder:text-[#051D41]/30 transition-all duration-200"
                 autoComplete="username"
                 disabled={iniciandoSesion}
@@ -97,16 +96,16 @@ export function LoginScreen() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium text-[#051D41]/70">{usarLegacy ? 'Contraseña' : 'PIN de 6 dígitos'}</Label>
+              <Label htmlFor="password" className="text-sm font-medium text-[#051D41]/70">PIN de 6 dígitos</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={usarLegacy ? '········' : '••••••'}
-                  inputMode={usarLegacy ? undefined : 'numeric'}
-                  maxLength={usarLegacy ? undefined : 6}
+                  placeholder="••••••"
+                  inputMode="numeric"
+                  maxLength={6}
                   className="h-12 pr-12 bg-[#051D41]/5 border-[#051D41]/15 focus:border-[#F9B207] focus:ring-[#F9B207]/20 rounded-xl text-[#051D41] placeholder:text-[#051D41]/30 transition-all duration-200"
                   autoComplete="current-password"
                   disabled={iniciandoSesion}
@@ -146,19 +145,6 @@ export function LoginScreen() {
                 'Iniciar Sesión'
               )}
             </Button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setUsarLegacy((actual) => !actual)
-                setPassword('')
-                limpiarError()
-              }}
-              disabled={iniciandoSesion}
-              className="w-full text-center text-xs text-[#051D41]/45 hover:text-[#051D41]/75 transition-colors"
-            >
-              {usarLegacy ? 'Usar código operativo y PIN' : 'Usar acceso legacy con contraseña'}
-            </button>
 
             <p className="text-center text-[11px] text-[#051D41]/30 pt-1">
               Café Atrato POS v1.0

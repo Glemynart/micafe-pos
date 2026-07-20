@@ -3,11 +3,9 @@
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Square } from "lucide-react"
-import { Turno, calcularVentasTurno, cerrarTurno, suscribirTurnoActivo } from "@/lib/turnos-service"
+import { Turno, calcularVentasTurno, cerrarTurno, obtenerCandidatosRelevo, suscribirTurnoActivo } from "@/lib/turnos-service"
 import { calcularEgresosTurno } from "@/lib/egresos-service"
 import { toast } from "sonner"
-import { collection, getDocs, query, where } from "firebase/firestore"
-import { db } from "@/lib/firebase"
 import { suscribirConfiguracion, type ConfiguracionGlobal } from "@/lib/configuracion-service"
 import { formatCurrency, formatTime } from "@/lib/format-utils"
 import { CloseShiftForm } from '@/components/pos/close-shift-form'
@@ -42,18 +40,10 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  return () => unsub()
  }, [usuario])
 
- // Cargar cajeros y supervisores para el relevo
+ // Cargar candidatos activos desde las membresías del tenant.
  useEffect(() => {
  if (!usuario) return
- getDocs(query(collection(db, 'usuarios'), where('rol', 'in', ['cajero', 'supervisor'])))
- .then(snap => {
- setCajeros(
- snap.docs
- .map(d => ({ uid: d.id, nombre: (d.data().nombre as string) || d.id }))
- .filter(c => c.uid !== usuario.uid)
- )
- })
- .catch(() => {})
+ obtenerCandidatosRelevo().then(setCajeros).catch(() => setCajeros([]))
  }, [usuario])
 
  // Escuchar el evento global

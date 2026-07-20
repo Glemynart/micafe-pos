@@ -89,11 +89,15 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
   // Obtener usuarios para cruzar nombres (global, sin empresaId)
   const snapUsuarios = await getDocs(collection(db, 'usuarios'))
   const mapaUsuarios = new Map<string, string>()
-  const rolesUsuarios = new Map<string, string>()
   snapUsuarios.docs.forEach(doc => {
     const data = doc.data()
     mapaUsuarios.set(doc.id, data.nombre || 'Usuario Desconocido')
-    rolesUsuarios.set(doc.id, data.rol || '')
+  })
+  const snapMembresias = await getDocs(query(collection(db, 'membresias'), where('empresaId', '==', empresaId)))
+  const rolesUsuarios = new Map<string, string>()
+  snapMembresias.docs.forEach((doc) => {
+    const data = doc.data()
+    if (data.estado === 'activa' && data.activo === true) rolesUsuarios.set(data.uid, data.rol || '')
   })
 
   // Obtener productos para tener iconos y nombres reales en caso de que falten
