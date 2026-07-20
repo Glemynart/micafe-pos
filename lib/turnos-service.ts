@@ -17,6 +17,7 @@ import {
 import { db } from './firebase'
 import { calcularEgresosTurno } from './egresos-service'
 import { notificar } from './notificaciones-cliente'
+import { tenantQuery, getEmpresaId, withEmpresaId } from '@/lib/tenant'
 
 export interface Turno {
   id: string;
@@ -85,9 +86,14 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
   const turnosRef = collection(db, 'turnos');
   const lockRef = doc(db, 'turnos_activos', params.cajeroId);
 
+  // MT-U3 Capa 3: resuelto UNA sola vez (§2.5) — reutilizado en la consulta
+  // legacy y en el estampado dentro de la transacción.
+  const empresaId = await getEmpresaId();
+
   // Compatibilidad hacia atrás: detectar turnos abiertos previos sin candado.
   const legacyQuery = query(
     turnosRef,
+    where('empresaId', '==', empresaId),
     where('cajeroId', '==', params.cajeroId),
     where('estado', '==', 'abierto')
   );
@@ -110,18 +116,18 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
       const legacyRef = doc(db, 'turnos', legacyTurnoId);
       const legacyTurnoSnap = await transaction.get(legacyRef);
       if (legacyTurnoSnap.exists() && legacyTurnoSnap.data().estado === 'abierto') {
-        transaction.set(lockRef, {
+        transaction.set(lockRef, withEmpresaId(empresaId, {
           cajeroId: params.cajeroId,
           turnoId: legacyTurnoId,
           fechaApertura: legacyTurnoSnap.data().fechaApertura ?? serverTimestamp(),
-        });
+        }));
         return legacyTurnoId;
       }
     }
 
     // 3. Caso normal: crear turno nuevo + candado, atómicamente.
     const nuevoTurnoRef = doc(turnosRef);
-    const nuevoTurno = {
+    const nuevoTurno = withEmpresaId(empresaId, {
       id: nuevoTurnoRef.id,
       cajeroId: params.cajeroId,
       cajeroNombre: params.cajeroNombre,
@@ -137,13 +143,13 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
       notasApertura: params.notasApertura || '',
       notasCierre: '',
       ...(params.turnoAnteriorId ? { turnoAnteriorId: params.turnoAnteriorId } : {}),
-    };
+    });
     transaction.set(nuevoTurnoRef, nuevoTurno);
-    transaction.set(lockRef, {
+    transaction.set(lockRef, withEmpresaId(empresaId, {
       cajeroId: params.cajeroId,
       turnoId: nuevoTurnoRef.id,
       fechaApertura: serverTimestamp(),
-    });
+    }));
     turnoCreado = true;
     return nuevoTurnoRef.id;
   });
@@ -183,10 +189,14 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
 export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
   const turnoRef = doc(db, 'turnos', params.turnoId);
 
+  // MT-U3 Capa 3: resuelto UNA sola vez (§2.5) y reutilizado en el recálculo
+  // de ventas/egresos y en el estampado dentro de la transacción.
+  const empresaId = await getEmpresaId();
+
   // IMP-2: recalcular ventas y egresos desde la fuente de verdad antes de la transacción.
   // Los valores equivalentes en params se ignoran (pueden seguir enviándose por compatibilidad).
-  const ventasRecalculadas = await calcularVentasTurno(params.turnoId);
-  const egresosRecalculados = await calcularEgresosTurno(params.turnoId);
+  const ventasRecalculadas = await calcularVentasTurno(params.turnoId, empresaId);
+  const egresosRecalculados = await calcularEgresosTurno(params.turnoId, empresaId);
 
   await runTransaction(db, async (transaction) => {
     // ── FASE DE LECTURAS (todas antes de cualquier escritura) ────────
@@ -301,7 +311,7 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
     if (esRelevo && relevoLockRef) {
       const turnosRef = collection(db, 'turnos');
       const nuevoTurnoRef = doc(turnosRef);
-      transaction.set(nuevoTurnoRef, {
+      transaction.set(nuevoTurnoRef, withEmpresaId(empresaId, {
         id: nuevoTurnoRef.id,
         cajeroId: params.relevoCajeroId,
         cajeroNombre: relevoCajeroNombreAuth,
@@ -317,12 +327,12 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
         notasApertura: `Relevo automático de ${cajeroNombre}`,
         notasCierre: '',
         turnoAnteriorId: params.turnoId,
-      });
-      transaction.set(relevoLockRef, {
+      }));
+      transaction.set(relevoLockRef, withEmpresaId(empresaId, {
         cajeroId: params.relevoCajeroId,
         turnoId: nuevoTurnoRef.id,
         fechaApertura: serverTimestamp(),
-      });
+      }));
     }
 
     // Traslado efectivo: caja-principal → caja-fuerte (Modelo B – float fijo)
@@ -332,7 +342,7 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
       const concepto = `Cierre de Turno — ${cajeroNombre}`;
 
       transaction.update(cajaPrincipalRef, { saldo: increment(-depositoEfectivo) });
-      transaction.set(doc(collection(db, 'transacciones_financieras')), {
+      transaction.set(doc(collection(db, 'transacciones_financieras')), withEmpresaId(empresaId, {
         cuentaId: 'caja-principal',
         cuentaNombre: 'Caja Registradora',
         tipo: 'egreso',
@@ -343,10 +353,10 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
         usuarioId: cajeroId || '',
         usuarioNombre: cajeroNombre,
         fecha: serverTimestamp(),
-      });
+      }));
 
       transaction.update(cajaFuerteRef, { saldo: increment(depositoEfectivo) });
-      transaction.set(doc(collection(db, 'transacciones_financieras')), {
+      transaction.set(doc(collection(db, 'transacciones_financieras')), withEmpresaId(empresaId, {
         cuentaId: 'caja-fuerte',
         cuentaNombre: 'Caja Fuerte',
         tipo: 'ingreso',
@@ -357,7 +367,7 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
         usuarioId: cajeroId || '',
         usuarioNombre: cajeroNombre,
         fecha: serverTimestamp(),
-      });
+      }));
     }
 
     // Ajuste por diferencia de caja: tras el depósito, caja-principal queda con
@@ -366,7 +376,7 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
     const diferencia = diferenciaEfectivo;
     if (diferencia !== 0) {
       transaction.update(cajaPrincipalRef, { saldo: increment(diferencia) });
-      transaction.set(doc(collection(db, 'transacciones_financieras')), {
+      transaction.set(doc(collection(db, 'transacciones_financieras')), withEmpresaId(empresaId, {
         cuentaId: 'caja-principal',
         cuentaNombre: 'Caja Registradora',
         tipo: diferencia < 0 ? 'egreso' : 'ingreso',
@@ -377,7 +387,7 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
         usuarioId: cajeroId || '',
         usuarioNombre: cajeroNombre,
         fecha: serverTimestamp(),
-      });
+      }));
     }
   });
 }
@@ -386,31 +396,40 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
  * Escucha el turno activo (abierto) de un cajero específico en un espacio específico.
  */
 export function suscribirTurnoActivo(
-  cajeroId: string, 
+  cajeroId: string,
   callback: (turno: Turno | null) => void
 ) {
-  const q = query(
+  let unsubscribe = () => {};
+  let cancelado = false;
+
+  tenantQuery(
     collection(db, 'turnos'),
     where('cajeroId', '==', cajeroId),
     where('estado', '==', 'abierto')
-  );
-
-  return onSnapshot(q, (snapshot) => {
-    if (snapshot.empty) {
-      callback(null);
-    } else {
-      // Debería haber solo un turno abierto por cajero/espacio
-      const doc = snapshot.docs[0];
-      callback({ id: doc.id, ...doc.data() } as Turno);
-    }
+  ).then((q) => {
+    if (cancelado) return;
+    unsubscribe = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
+        callback(null);
+      } else {
+        // Debería haber solo un turno abierto por cajero/espacio
+        const doc = snapshot.docs[0];
+        callback({ id: doc.id, ...doc.data() } as Turno);
+      }
+    });
   });
+
+  return () => {
+    cancelado = true;
+    unsubscribe();
+  };
 }
 
 /**
  * Verifica una sola vez si hay un turno activo para un cajero. Útil para acciones puntuales como cerrar sesión.
  */
 export async function verificarTurnoActivo(cajeroId: string): Promise<boolean> {
-  const q = query(
+  const q = await tenantQuery(
     collection(db, 'turnos'),
     where('cajeroId', '==', cajeroId),
     where('estado', '==', 'abierto')
@@ -429,16 +448,18 @@ const HISTORIAL_TURNOS_LIMIT = 100;
 export function suscribirHistorialTurnos(
   callback: (turnos: Turno[]) => void
 ) {
-  const q = query(
-    collection(db, 'turnos'),
-    orderBy('fechaApertura', 'desc'),
-    limit(HISTORIAL_TURNOS_LIMIT)
-  );
-
   let unsubscribeTurnos = () => {};
   let cancelado = false;
 
-  getDocs(query(collection(db, 'usuarios'))).then((usuariosSnap) => {
+  // `usuarios` es global (§7.2 del diseño), sin empresaId.
+  Promise.all([
+    tenantQuery(
+      collection(db, 'turnos'),
+      orderBy('fechaApertura', 'desc'),
+      limit(HISTORIAL_TURNOS_LIMIT)
+    ),
+    getDocs(query(collection(db, 'usuarios'))),
+  ]).then(([q, usuariosSnap]) => {
     if (cancelado) return;
     const rolesPorUid: Record<string, string> = {}
     usuariosSnap.docs.forEach(d => {
@@ -467,15 +488,20 @@ export function suscribirHistorialTurnos(
  * Llama a esta función justo antes de presentar la pantalla de Cierre Ciego para obtener 
  * los totales reales que el cajero debe tener.
  */
-export async function calcularVentasTurno(turnoId: string): Promise<{ efectivo: number, transferencia: number, tarjeta: number, otros: number, total: number }> {
+export async function calcularVentasTurno(turnoId: string, empresaId?: string): Promise<{ efectivo: number, transferencia: number, tarjeta: number, otros: number, total: number }> {
   const ventasRef = collection(db, 'ventas');
-  
+
+  // MT-U3 Capa 3: `empresaId` opcional — si el llamador ya lo resolvió como
+  // parte de una operación más amplia (p. ej. `cerrarTurno`), lo reutiliza en
+  // ambas consultas en vez de resolverlo de nuevo (§2.5).
+  const empresaIdResuelto = empresaId ?? (await getEmpresaId());
+
   // 1. Ventas normales del turno
-  const qVentas = query(ventasRef, where('turnoId', '==', turnoId));
+  const qVentas = query(ventasRef, where('empresaId', '==', empresaIdResuelto), where('turnoId', '==', turnoId));
   const snapshotVentas = await getDocs(qVentas);
-  
+
   // 2. Recaudos de deudas (cuentas por cobrar) realizados en este turno
-  const qRecaudos = query(ventasRef, where('turnoRecaudoId', '==', turnoId));
+  const qRecaudos = query(ventasRef, where('empresaId', '==', empresaIdResuelto), where('turnoRecaudoId', '==', turnoId));
   const snapshotRecaudos = await getDocs(qRecaudos);
   
   let efectivo = 0;

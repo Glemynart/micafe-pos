@@ -6,6 +6,7 @@ import {
   doc, updateDoc, setDoc, getDoc, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { getEmpresaId, withEmpresaId } from '@/lib/tenant'
 import { useAuthContext } from '@/contexts/auth-context'
 import { reconciliarGlobal, type ReporteGlobalReconciliacion } from '@/lib/inventario-ledger'
 import { Button } from '@/components/ui/button'
@@ -66,8 +67,13 @@ export default function UtilidadesPage() {
     setCasos([])
     setResumen(null)
     try {
+      const empresaId = await getEmpresaId()
       const snap = await getDocs(
-        query(collection(db, 'turnos'), where('estado', '==', 'abierto'))
+        query(
+          collection(db, 'turnos'),
+          where('empresaId', '==', empresaId),
+          where('estado', '==', 'abierto')
+        )
       )
 
       // Agrupar por cajeroId
@@ -99,7 +105,11 @@ export default function UtilidadesPage() {
         const turnosConInfo: TurnoInfo[] = []
         for (const t of turnos) {
           const ventasSnap = await getDocs(
-            query(collection(db, 'ventas'), where('turnoId', '==', t.id))
+            query(
+              collection(db, 'ventas'),
+              where('empresaId', '==', empresaId),
+              where('turnoId', '==', t.id)
+            )
           )
           turnosConInfo.push({
             id: t.id,
@@ -140,13 +150,15 @@ export default function UtilidadesPage() {
     let candados = 0
 
     try {
+      const empresaId = await getEmpresaId()
+
       for (const caso of casos) {
         // Crear/asegurar candado apuntando al canónico
         if (!caso.teniaCandado || !caso.candapoApuntabaCanonico) {
-          await setDoc(doc(db, 'turnos_activos', caso.cajeroId), {
+          await setDoc(doc(db, 'turnos_activos', caso.cajeroId), withEmpresaId(empresaId, {
             cajeroId: caso.cajeroId,
             turnoId: caso.canonicoId,
-          })
+          }))
           candados++
         }
 

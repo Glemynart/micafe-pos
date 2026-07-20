@@ -1,5 +1,6 @@
 import { db } from './firebase'
 import { collection, doc, setDoc, onSnapshot, query, where, deleteDoc, orderBy, updateDoc } from 'firebase/firestore'
+import { tenantQuery, stampEmpresaId } from '@/lib/tenant'
 
 export interface Mesa {
   id: string
@@ -23,24 +24,33 @@ export interface Mesa {
 const COLLECTION_NAME = 'mesas'
 
 export function suscribirMesas(espacioId: string, callback: (mesas: Mesa[]) => void) {
-  const q = query(
+  let unsubscribe = () => {}
+  let cancelado = false
+
+  tenantQuery(
     collection(db, COLLECTION_NAME),
     where('espacioId', '==', espacioId),
     where('activa', '==', true)
-  )
-
-  return onSnapshot(q, (snapshot) => {
-    const mesas = snapshot.docs.map(d => ({ 
-      id: d.id, 
-      ...(d.data() as Omit<Mesa, 'id'>) 
-    })).sort((a, b) => a.orden - b.orden)
-    callback(mesas)
+  ).then((q) => {
+    if (cancelado) return
+    unsubscribe = onSnapshot(q, (snapshot) => {
+      const mesas = snapshot.docs.map(d => ({
+        id: d.id,
+        ...(d.data() as Omit<Mesa, 'id'>)
+      })).sort((a, b) => a.orden - b.orden)
+      callback(mesas)
+    })
   })
+
+  return () => {
+    cancelado = true
+    unsubscribe()
+  }
 }
 
 export async function guardarMesa(mesa: Omit<Mesa, 'id'> & { id?: string }) {
   const mesaId = mesa.id || doc(collection(db, COLLECTION_NAME)).id
-  await setDoc(doc(db, COLLECTION_NAME, mesaId), { ...mesa, id: mesaId }, { merge: true })
+  await setDoc(doc(db, COLLECTION_NAME, mesaId), await stampEmpresaId({ ...mesa, id: mesaId }), { merge: true })
 }
 
 export async function eliminarMesa(mesaId: string) {

@@ -65,6 +65,15 @@ export async function POST(req: Request) {
         const db = getDb()
         let pushData: { clienteNombre: string; fechaInicio: string; fechaFin: string } | null = null
 
+        // MT-U3 Capa 4 (§2.5, §4.2, §4.5): candidato de fallback resuelto UNA
+        // sola vez, ANTES de la transacción — nunca dentro. Se usa solo si la
+        // reserva (leída dentro de la transacción) no trae `empresaId` propio
+        // (reserva legacy, creada antes de que `/api/reservas/hold` empezara
+        // a estampar). Con un solo tenant este fallback es correcto; deja de
+        // serlo en cuanto exista una segunda empresa (MT-U11).
+        const fundacionalSnap = await db.collection('empresas').where('esFundacional', '==', true).limit(1).get()
+        const empresaIdFundacional = fundacionalSnap.empty ? null : fundacionalSnap.docs[0].id
+
         await db.runTransaction(async (t) => {
           const reservaRef = db.collection('reservas').doc(reservaId)
           const reservaDoc = await t.get(reservaRef)
@@ -80,6 +89,20 @@ export async function POST(req: Request) {
             console.log(`Reserva ${reservaId} ya estaba pagada. Ignorando webhook por idempotencia.`)
             pushData = null
             return
+          }
+
+          // El tenant se deriva de la reserva (§4.2): es la fuente autoritativa,
+          // no una sesión. Fallback a la fundacional solo para reservas legacy.
+          const empresaId: string | null = reservaData?.empresaId ?? empresaIdFundacional
+          if (!empresaId) {
+            throw new Error(
+              `No se pudo resolver empresaId para la reserva ${reservaId}: no tiene el campo y no existe ninguna empresa fundacional.`
+            )
+          }
+          if (!reservaData?.empresaId) {
+            console.warn(
+              `[wompi-webhook] Reserva ${reservaId} sin empresaId propio — usando fallback a la empresa fundacional (legacy).`
+            )
           }
 
           pushData = {
@@ -148,7 +171,13 @@ export async function POST(req: Request) {
                 }
               }
               if (cambio) {
-                t.set(agendaRef, { ...agendaData, bloques, actualizadoEn: new Date().toISOString() })
+                // Defensivo: si la agenda es legacy y no trae empresaId, se ancla aquí.
+                t.set(agendaRef, {
+                  ...agendaData,
+                  bloques,
+                  actualizadoEn: new Date().toISOString(),
+                  empresaId: agendaData.empresaId ?? empresaId,
+                })
               }
             }
           }
@@ -162,6 +191,7 @@ export async function POST(req: Request) {
 
           const nuevaVentaRef = db.collection('ventas').doc()
           t.set(nuevaVentaRef, {
+            empresaId,
             consecutivo: nuevoConsecutivo,
             fecha: new Date(),
             turnoId: 'reserva-web',
@@ -195,6 +225,7 @@ export async function POST(req: Request) {
             const bancolombiaRef = db.collection('cuentas_bancarias').doc('bancolombia')
             t.set(bancolombiaRef, { saldo: FieldValue.increment(montoTotal) }, { merge: true })
             t.set(db.collection('transacciones_financieras').doc(), {
+              empresaId,
               cuentaId: 'bancolombia',
               cuentaNombre: 'Bancolombia',
               tipo: 'ingreso',

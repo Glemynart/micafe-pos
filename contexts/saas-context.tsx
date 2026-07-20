@@ -6,8 +6,13 @@
  * MT-U2 — Capa 3 (runtime SaaS en cliente). Única fuente de verdad de "en
  * qué empresa opero y con qué rol según el token". Resuelve la empresa
  * activa desde el custom claim `{empresaId, rol}` acuñado en la Capa 2
- * (scripts/set-claims-mt-u2.ts); es el seam donde MT-U3+ engancharán el
- * `empresaId` del helper de tenant.
+ * (scripts/set-claims-mt-u2.ts).
+ *
+ * MT-U3 Capa 1: la resolución claim→fallback (incl. el `console.warn` de
+ * anomalía) se delegó a `resolverEmpresaIdActivo()` (`lib/tenant-context.ts`)
+ * — el mismo resolvedor que usa `lib/tenant.ts` para servicios planos. Una
+ * sola ruta de resolución en todo el sistema. La API pública de este
+ * contexto (`SaaSContextValue`) no cambió.
  *
  * Límites de responsabilidad (ver MT-U2-runtime-saas-diseno.md §3):
  *   (a) NO decide el `empresaId` — lo impone el claim (D-U2-1); el fallback
@@ -30,11 +35,8 @@ import {
 } from "react";
 import { onIdTokenChanged, type User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import {
-  obtenerEmpresaFundacional,
-  obtenerEmpresaPorId,
-  type Empresa,
-} from "@/lib/empresas-service";
+import { obtenerEmpresaPorId, type Empresa } from "@/lib/empresas-service";
+import { resolverEmpresaIdActivo, TenantSinSesionError } from "@/lib/tenant-context";
 import type { RolUsuario } from "@/lib/auth-service";
 
 // ─── Tipos del Contexto ───────────────────────────────────────────────────────
@@ -65,46 +67,40 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const resolver = useCallback(async (firebaseUser: FirebaseUser) => {
-    // Camino normal: leer el claim del token ya cacheado (sin forzar red).
-    let tokenResult = await firebaseUser.getIdTokenResult();
+    try {
+      // Resolución compartida (claim → fallback D-U2-1, incl. el warn de
+      // anomalía) — misma ruta que usa lib/tenant.ts para servicios planos.
+      const { empresaId: empresaIdResuelto, empresa: empresaDelFallback } =
+        await resolverEmpresaIdActivo();
 
-    // "Refrescar el token cuando corresponda": si el claim aún no aparece,
-    // puede ser que se acuñó server-side (Capa 2) después de emitido el
-    // token cacheado. Un único refresh forzado basta para ver el claim
-    // recién propagado, sin forzar red en cada carga.
-    if (tokenResult.claims.empresaId === undefined) {
-      tokenResult = await firebaseUser.getIdTokenResult(true);
-    }
+      // rolClaim es exclusivo de este contexto (D-U2-2, solo informativo) —
+      // se lee del mismo token ya cacheado por el SDK, sin red adicional.
+      const tokenResult = await firebaseUser.getIdTokenResult();
+      const huboClaim = tokenResult.claims.empresaId !== undefined;
+      const rolDelClaim = huboClaim ? (tokenResult.claims.rol as RolUsuario | undefined) ?? null : null;
 
-    const empresaIdClaim = tokenResult.claims.empresaId as string | undefined;
-    const rolDelClaim = tokenResult.claims.rol as RolUsuario | undefined;
+      // Camino normal (claim): el resolvedor no trae el doc (evita una
+      // lectura que solo este contexto necesita) — se obtiene aquí, igual
+      // que antes. Camino de fallback: el resolvedor YA lo trae (lo obtuvo
+      // como parte de la propia consulta de descubrimiento) — no se repite
+      // la lectura.
+      const empresaDoc = empresaDelFallback ?? (await obtenerEmpresaPorId(empresaIdResuelto));
 
-    if (empresaIdClaim) {
-      // Camino normal (D-U2-1/D-U2-2): el empresaId del claim ES la fuente
-      // de verdad. Se lee su documento directamente por id — nunca se
-      // vuelve a "descubrir" la empresa por otra vía. Válido sin cambios
-      // cuando exista más de una empresa (MT-U11).
-      const empresaDoc = await obtenerEmpresaPorId(empresaIdClaim);
-      setEmpresaId(empresaIdClaim);
-      setRolClaim(rolDelClaim ?? null);
+      setEmpresaId(empresaIdResuelto);
+      setRolClaim(rolDelClaim);
       setEmpresa(empresaDoc);
-    } else {
-      // Fallback transitorio (D-U2-1): SOLO válido mientras el claim aún
-      // no existe/propaga. En régimen permanente esto es un ESTADO
-      // INVÁLIDO, no comportamiento normal — se marca como anomalía, nunca
-      // como camino feliz. obtenerEmpresaFundacional() queda reservado
-      // EXCLUSIVAMENTE a esta rama.
-      console.warn(
-        "[SaaSContext] Token sin claim 'empresaId' — usando fallback de " +
-          "descubrimiento de la empresa fundacional (D-U2-1). Esperado " +
-          "solo durante la transición de MT-U2; si persiste después de " +
-          "que todos los usuarios tengan su claim acuñado, es una " +
-          "anomalía a investigar."
-      );
-      const empresaFundacional = await obtenerEmpresaFundacional();
-      setEmpresaId(empresaFundacional?.id ?? null);
-      setRolClaim(null);
-      setEmpresa(empresaFundacional);
+    } catch (err) {
+      if (err instanceof TenantSinSesionError) {
+        // No debería alcanzarse aquí por "sin sesión" (onIdTokenChanged ya
+        // garantiza firebaseUser no nulo), pero SÍ puede ocurrir si el
+        // fallback tampoco encuentra ninguna empresa fundacional — mismo
+        // estado que el código anterior toleraba (empresaId/empresa null).
+        setEmpresaId(null);
+        setRolClaim(null);
+        setEmpresa(null);
+        return;
+      }
+      throw err;
     }
   }, []);
 
