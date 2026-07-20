@@ -30,15 +30,34 @@ jobs:
           # golden (generados bajo Node 22) fallaban en CI por ese carácter.
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
 
-      - name: Instalar dependencias
+      - name: Instalar dependencias de aplicaciÃ³n
         run: npm ci
 
-      - name: Chequeo de tipos (tsc --noEmit)
+      - name: Instalar dependencias de Functions
+        run: npm ci
+        working-directory: functions
+
+      - name: Chequeo de tipos de aplicaciÃ³n
         run: npx tsc --noEmit
+
+      - name: Build de aplicaciÃ³n
+        run: npm run build
+
+      - name: Build de Functions
+        run: npm run build:functions
 
       - name: Pruebas de tickets
         run: npm run test:tickets
 
       - name: Pruebas de reimpresión
         run: npm run test:reimpresion
+
+      - name: Pruebas de tenant
+        run: npm run test:tenant
+
+      - name: Pruebas de Functions
+        run: npm run test:auth-foundation
