@@ -174,6 +174,7 @@ export default function UsuariosPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="admin" className="text-xs">Admin</SelectItem>
+                        <SelectItem value="supervisor" className="text-xs">Supervisor</SelectItem>
                         <SelectItem value="cajero" className="text-xs">Cajero</SelectItem>
                         <SelectItem value="cocinero" className="text-xs">Cocinero</SelectItem>
                         <SelectItem value="marketing" className="text-xs">Marketing</SelectItem>
@@ -243,6 +244,7 @@ export default function UsuariosPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="!bg-[#0d1f3c] !border-white/10">
+                  <SelectItem value="supervisor" className="!text-white focus:!bg-[#1a2d4a]">Supervisor</SelectItem>
                   <SelectItem value="cocinero" className="!text-white focus:!bg-[#1a2d4a]">Cocinero</SelectItem>
                   <SelectItem value="cajero" className="!text-white focus:!bg-[#1a2d4a]">Cajero</SelectItem>
                   <SelectItem value="marketing" className="!text-white focus:!bg-[#1a2d4a]">Marketing</SelectItem>
