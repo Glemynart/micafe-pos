@@ -1,8 +1,8 @@
 # MT-U3 — Helper de Tenant en la capa de servicios (Arquitectura definitiva)
 
-> **Estado:** ✅ Diseño congelado. Implementación por capas completa (Capa 0 a Capa 5, cada una
-> auditada y aprobada). Capa 6 (verificación de compatibilidad, §9) en curso.
-> **Rama:** `feature/saas-mt-u3`
+> **Estado:** ✅ Completado y cerrado oficialmente. Implementación por capas (Capa 0 a Capa 6)
+> auditada y aprobada. Mergeado mediante el PR #98.
+> **Rama de implementación:** `feature/saas-mt-u3` (mergeada)
 > **Deriva de:** documento maestro `MT-ARQUITECTURA-SAAS-MULTIEMPRESA.md` (§6 Capa 3 y 4, §13),
 > `ADR-SAAS-001` (tenancy: colecciones planas + `empresaId` + claims + rules), `ADR-SAAS-004`
 > (pertenencia de datos por plano).
@@ -680,8 +680,6 @@ la corrección de referencia de §13 (índices cerrados en Capa 3, no en Capa 1)
 decisión de un ADR-SAAS existente. Cualquier cambio que sí lo hiciera exigiría justificación explícita y,
 si toca una decisión de un ADR-SAAS, un nuevo ADR que lo supere.
 
-> **Siguiente paso:** Capa 6 (verificación de compatibilidad, §9) — regresión manual completa y
-> verificación en navegador real, a ejecutar cuando se active MT-U3 en el entorno correspondiente (ver
-> `MT-U3-CAPA5-runbook-activacion.md`). No se ha hecho commit/push/PR/merge de ninguna capa — todo el
-> trabajo de MT-U3 permanece en el árbol de trabajo de `feature/saas-mt-u3`, pendiente de autorización
-> explícita para confirmar.
+> **Estado final:** MT-U3 fue consolidado en el PR #98 y mergeado. La regresión manual completa y la
+> verificación en navegador real corresponden a la activación operativa mediante
+> `MT-U3-CAPA5-runbook-activacion.md`; no son trabajo pendiente de implementación ni de cierre documental.

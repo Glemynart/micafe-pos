@@ -97,3 +97,5 @@ fase9c-post-execute.txt
 
 # Dev server logs
 next-dev.log
+firebase-debug.log
+firestore-debug.log
