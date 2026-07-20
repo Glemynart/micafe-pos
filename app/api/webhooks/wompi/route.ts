@@ -63,7 +63,7 @@ export async function POST(req: Request) {
 
       try {
         const db = getDb()
-        let pushData: { clienteNombre: string; fechaInicio: string; fechaFin: string } | null = null
+        let pushData: { empresaId: string; clienteNombre: string; fechaInicio: string; fechaFin: string } | null = null
 
         // MT-U3 Capa 4 (§2.5, §4.2, §4.5): candidato de fallback resuelto UNA
         // sola vez, ANTES de la transacción — nunca dentro. Se usa solo si la
@@ -106,6 +106,7 @@ export async function POST(req: Request) {
           }
 
           pushData = {
+            empresaId,
             clienteNombre: reservaData?.clienteNombre || 'Cliente',
             fechaInicio: reservaData?.fechaInicio || '',
             fechaFin: reservaData?.fechaFin || '',
@@ -244,7 +245,7 @@ export async function POST(req: Request) {
         console.log(`Reserva ${reservaId} pagada y Venta generada exitosamente.`)
 
         if (pushData) {
-          const pd = pushData as { clienteNombre: string; fechaInicio: string; fechaFin: string }
+          const pd = pushData as { empresaId: string; clienteNombre: string; fechaInicio: string; fechaFin: string }
           const colombiaOffsetMs = -5 * 60 * 60 * 1000
           let fechaHora = ''
           if (pd.fechaInicio) {
@@ -259,6 +260,7 @@ export async function POST(req: Request) {
             fechaHora = hFin ? `${dia} ${hInicio}-${hFin}` : `${dia} ${hInicio}`
           }
           enviarPushAdmins({
+            empresaId: pd.empresaId,
             title: 'Nueva reserva recibida',
             body: `${pd.clienteNombre} — ${fechaHora}`,
             url: '/admin/reservas',

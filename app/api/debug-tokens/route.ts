@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
 import { getAdminAuth } from '@/lib/firebase-admin';
 
 export async function GET(req: Request) {
@@ -17,14 +16,11 @@ export async function GET(req: Request) {
     const token = authHeader.split('Bearer ')[1];
     const decoded = await getAdminAuth().verifyIdToken(token);
 
-    const db = getAdminDb();
-    const userDoc = await db.collection('usuarios').doc(decoded.uid).get();
-
-    if (userDoc.data()?.rol !== 'admin') {
+    if (decoded.rol !== 'admin' || typeof decoded.empresaId !== 'string') {
       return NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 });
     }
 
-    const snapshot = await db.collection('usuarios').get();
+    const snapshot = await (await import('@/lib/firebase-admin')).getAdminDb().collection('usuarios').get();
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     return NextResponse.json(data);
   } catch (error: any) {

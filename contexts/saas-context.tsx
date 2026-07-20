@@ -17,9 +17,8 @@
  * Límites de responsabilidad (ver MT-U2-runtime-saas-diseno.md §3):
  *   (a) NO decide el `empresaId` — lo impone el claim (D-U2-1); el fallback
  *       de descubrimiento solo lee la empresa fundacional ya existente.
- *   (b) NO autoriza — `rolClaim` es informativo. La autoridad de
- *       autorización sigue siendo `usuarios` hasta MT-U5b (D-U2-2). Ningún
- *       guard/servicio/regla debe leer `rolClaim` todavía.
+ *   (b) La membresía canónica decide rol, permisos y estado. El claim es una
+ *       proyección emitida por Functions que se verifica contra ella.
  *   (c) NO lee colecciones operativas.
  *   (d) NO escribe claims (eso es el backend/script de Capa 2).
  *   (e) NO conoce suscripciones ni planes (MT-U8).
@@ -38,6 +37,7 @@ import { auth } from "@/lib/firebase";
 import { obtenerEmpresaPorId, type Empresa } from "@/lib/empresas-service";
 import { resolverEmpresaIdActivo, TenantSinSesionError } from "@/lib/tenant-context";
 import { esRolUsuario, type RolUsuario } from "@/lib/auth-service";
+import { esMembresiaActiva, obtenerMembresia, type Membresia } from "@/lib/membresias-service";
 
 // ─── Tipos del Contexto ───────────────────────────────────────────────────────
 
@@ -46,8 +46,10 @@ interface SaaSContextValue {
   empresaId: string | null;
   /** Documento de la empresa activa (enriquece empresaId con nombre/estado) */
   empresa: Empresa | null;
-  /** rol tal como viaja en el claim del token — solo informativo (D-U2-2) */
-  rolClaim: RolUsuario | null;
+  /** Membresía canónica de la sesión activa; fuente de rol, permisos y estado. */
+  membresia: Membresia | null;
+  /** Rol efectivo proyectado desde la membresía. */
+  rol: RolUsuario | null;
   /** true mientras se resuelve el claim/la empresa */
   loading: boolean;
   /** Fuerza un refresh del token (getIdToken(true)) y re-resuelve el estado */
@@ -63,7 +65,7 @@ const SaaSContext = createContext<SaaSContextValue | null>(null);
 export function SaaSProvider({ children }: { children: ReactNode }) {
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
-  const [rolClaim, setRolClaim] = useState<RolUsuario | null>(null);
+  const [membresia, setMembresia] = useState<Membresia | null>(null);
   const [loading, setLoading] = useState(true);
 
   const resolver = useCallback(async (firebaseUser: FirebaseUser) => {
@@ -73,11 +75,15 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
        const { empresaId: empresaIdResuelto } =
          await resolverEmpresaIdActivo();
 
-      // rolClaim es exclusivo de este contexto (D-U2-2, solo informativo) —
-      // se lee del mismo token ya cacheado por el SDK, sin red adicional.
+      // El claim se lee del mismo token cacheado por el SDK y se contrasta con
+      // la membresía canónica antes de exponer la sesión tenant.
       const tokenResult = await firebaseUser.getIdTokenResult();
        const rolDelClaim = esRolUsuario(tokenResult.claims.rol) ? tokenResult.claims.rol : null;
        if (!rolDelClaim) throw new TenantSinSesionError("La sesión no contiene un rol tenant válido.");
+       const membresiaActual = await obtenerMembresia(empresaIdResuelto, firebaseUser.uid);
+       if (!membresiaActual || !esMembresiaActiva(membresiaActual) || membresiaActual.rol !== rolDelClaim) {
+         throw new TenantSinSesionError("La membresía activa no coincide con la sesión tenant.");
+       }
 
       // Camino normal (claim): el resolvedor no trae el doc (evita una
       // lectura que solo este contexto necesita) — se obtiene aquí, igual
@@ -87,14 +93,14 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
        const empresaDoc = await obtenerEmpresaPorId(empresaIdResuelto);
 
       setEmpresaId(empresaIdResuelto);
-      setRolClaim(rolDelClaim);
+      setMembresia(membresiaActual);
       setEmpresa(empresaDoc);
     } catch (err) {
       if (err instanceof TenantSinSesionError) {
          // Token sin claims tras el refresh = sesión inválida de MT-U5a.
          // Se cierra la sesión en vez de descubrir un tenant por fallback.
          setEmpresaId(null);
-         setRolClaim(null);
+         setMembresia(null);
          setEmpresa(null);
          await signOut(auth);
          return;
@@ -108,7 +114,7 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
       if (!firebaseUser) {
         setEmpresaId(null);
         setEmpresa(null);
-        setRolClaim(null);
+        setMembresia(null);
         setLoading(false);
         return;
       }
@@ -130,7 +136,7 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
   }, [resolver]);
 
   return (
-    <SaaSContext.Provider value={{ empresaId, empresa, rolClaim, loading, refresh }}>
+    <SaaSContext.Provider value={{ empresaId, empresa, membresia, rol: membresia?.rol ?? null, loading, refresh }}>
       {children}
     </SaaSContext.Provider>
   );

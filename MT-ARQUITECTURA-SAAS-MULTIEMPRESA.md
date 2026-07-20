@@ -469,7 +469,7 @@ Responsabilidades:
 | **MT-U3** | Helper de tenant en capa de servicios: escritura estampa `empresaId`, lectura filtra. | Con un tenant, el filtro es transparente. Cierra IMP-13 de paso. |
 | **MT-U4** | Firestore rules exigen `empresaId` (defensa en profundidad). | Los claims ya coinciden; nada cambia para el usuario. |
 | **MT-U5a** — **COMPLETADO** | Autenticación operativa (§7.2): código+PIN → custom token, namespaced por empresa. | Reposiciona el login actual; la compatibilidad legacy es temporal y queda acotada por `MT-U5-CAPA0-preflight-arquitectonico.md`. |
-| **MT-U5b** | Identidad SaaS (§7.1): email real + membresías como fuente de rol e invitación técnica para empresa existente. | Aditivo para la vía operativa; elimina la autoridad legacy de `usuarios.rol`/`usuarios.permisos`. Ver contrato de Capa 0. |
+| **MT-U5b** | Identidad SaaS (§7.1): email real + membresías como fuente de rol e invitación técnica para empresa existente. **Bloque 1 — Preparación de la migración de autoridad: COMPLETADO.** | Aditivo para la vía operativa; elimina la autoridad legacy de `usuarios.rol`/`usuarios.permisos`. Ver contrato de Capa 0. |
 | **MT-U6** | Configuración por empresa (§8) + numeración fiscal por empresa/sucursal/resolución (§9). | Migración del tenant existente a su config y numeración propias. |
 | **MT-U7** | Onboarding: crear empresa → config → primer espacio → admin → empleados → POS. | Orquesta la invitación técnica de MT-U5b, sin redefinirla. Feature nueva y aislada. |
 | **MT-U8** | Billing: `planes`/`suscripciones` + máquina de estados (§11), **sin** pasarela ni dimensiones monetizadas, gating en solo-lectura. | La empresa por defecto entra como `active` grandfathered. |
