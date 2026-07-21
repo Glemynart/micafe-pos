@@ -62,6 +62,16 @@ Se adopta un **modelo de identidad de dos capas**, ambas sobre Firebase Auth.
    escribe. La validación de código + PIN, su rate-limiting y su auditoría también son
    responsabilidad del backend.
 
+## Extension: incorporacion por empresa
+
+La identidad de dos capas admite dos mecanismos oficiales de incorporacion a una
+empresa existente: `DIRECTA` para personal operativo sin email y `EMAIL` para identidad
+SaaS por correo real. Ambos usan el mismo principal global Firebase Auth, perfil global
+`usuarios`, membresia tenant y claims. Una identidad existente nunca recibe una
+contrasena ni otra credencial reemplazada por un administrador tenant. El ciclo de
+estados, activacion de membresia y emision de claims se define en
+`ADR-SAAS-006-incorporacion-usuarios.md`.
+
 ## Consecuencias
 
 - Una persona opera de forma natural en varias empresas mediante re-emisión de token.

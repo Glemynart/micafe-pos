@@ -256,6 +256,29 @@ usuario** (`cajeroId` real) y las rules per-tenant/per-user intactas.
   token** con el nuevo `empresaId`/`rol`; el cliente refresca claims. El `empresaId` jamás lo fija el
   frontend.
 
+### 7.4.1 Actualizacion del contrato de incorporacion MT-U5B
+
+El ciclo pendiente de MT-U5B se amplia de invitacion por email a **incorporacion de
+usuarios en una empresa existente**. Esta actualizacion supersede las referencias
+anteriores de esta seccion a `invitaciones/{token}` como unico mecanismo: el nombre
+canonico del contrato pasa a ser `incorporaciones/{id}` y sus dos mecanismos oficiales
+son los definidos en `ADR-SAAS-006-incorporacion-usuarios.md`.
+
+- **DIRECTA:** para personal operativo sin email. Un administrador inicia una
+  incorporacion con credencial operativa temporal. Solo puede crear una identidad
+  Firebase Auth si no existe una; nunca puede reemplazar la contrasena o credencial de
+  una identidad global existente. La persona debe sustituir la credencial temporal antes
+  de obtener acceso operativo.
+- **EMAIL:** para un email real. La invitacion se crea, acepta, expira, cancela y reenvia
+  dentro de la incorporacion; es de uso unico y crea o reutiliza la identidad Firebase
+  Auth sin cambiar credenciales existentes.
+
+Ninguna incorporacion concede autoridad por si sola. Antes de `ACTIVE` no existe una
+membresia activa ni se emiten claims tenant. En `ACTIVE` el backend privilegiado crea o
+activa la membresia, fija los permisos efectivos y proyecta unicamente
+`{ empresaId, rol }` al token. `usuarios` sigue siendo perfil global y `membresias`
+sigue siendo la unica autoridad de rol, permisos y estado.
+
 ### 7.5 Compatibilidad
 
 Los usuarios legacy `@micafe-pos.internal` de la única empresa actual se migran a la **empresa por
@@ -469,7 +492,7 @@ Responsabilidades:
 | **MT-U3** | Helper de tenant en capa de servicios: escritura estampa `empresaId`, lectura filtra. | Con un tenant, el filtro es transparente. Cierra IMP-13 de paso. |
 | **MT-U4** | Firestore rules exigen `empresaId` (defensa en profundidad). | Los claims ya coinciden; nada cambia para el usuario. |
 | **MT-U5a** — **COMPLETADO** | Autenticación operativa (§7.2): código+PIN → custom token, namespaced por empresa. | Reposiciona el login actual; la compatibilidad legacy es temporal y queda acotada por `MT-U5-CAPA0-preflight-arquitectonico.md`. |
-| **MT-U5b** | Identidad SaaS (§7.1): email real + membresías como fuente de rol e invitación técnica para empresa existente. **Bloque 1 — Preparación de la migración de autoridad: COMPLETADO.** | Aditivo para la vía operativa; elimina la autoridad legacy de `usuarios.rol`/`usuarios.permisos`. Ver contrato de Capa 0. |
+| **MT-U5b** — **EN CURSO** | Identidad SaaS (§7.1): email real + membresías como fuente de rol e invitación técnica para empresa existente. **Bloques 1 (preparación) y 2 (cambio definitivo de autoridad): COMPLETADOS.** Pendiente: ciclo técnico de invitaciones para empresa existente. | La autoridad runtime ya depende exclusivamente de `membresias`; queda pendiente implementar las invitaciones definidas en Capa 0 antes del cierre integral de U5b. |
 | **MT-U6** | Configuración por empresa (§8) + numeración fiscal por empresa/sucursal/resolución (§9). | Migración del tenant existente a su config y numeración propias. |
 | **MT-U7** | Onboarding: crear empresa → config → primer espacio → admin → empleados → POS. | Orquesta la invitación técnica de MT-U5b, sin redefinirla. Feature nueva y aislada. |
 | **MT-U8** | Billing: `planes`/`suscripciones` + máquina de estados (§11), **sin** pasarela ni dimensiones monetizadas, gating en solo-lectura. | La empresa por defecto entra como `active` grandfathered. |
@@ -481,6 +504,16 @@ Responsabilidades:
 Cada unidad tendrá su criterio de aceptación y no romperá dependencias hacia atrás.
 
 ---
+
+### 13.1 Actualizacion de alcance de MT-U5B
+
+Los Bloques 1 y 2 de MT-U5B estan completados. El trabajo pendiente es implementar
+ambos mecanismos de incorporacion establecidos por ADR-SAAS-006: creacion directa con
+credencial temporal e invitacion por email. La tabla de roadmap anterior conserva su
+redaccion historica de "invitacion tecnica"; para todos los efectos de alcance debe
+interpretarse como este ciclo unificado de incorporacion. MT-U7 solo podra orquestarlo
+despues de crear una empresa; no es propietario de sus estados, credenciales, tokens ni
+reglas.
 
 ## 14. Riesgos
 

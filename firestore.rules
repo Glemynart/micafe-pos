@@ -4,7 +4,13 @@ service cloud.firestore {
 
     // El claim tenant es emitido exclusivamente por Functions desde la
     // membresía canónica. Ningún cliente puede escribir roles o permisos.
-    function esAutenticado() { return request.auth != null; }
+    function haySesion() { return request.auth != null; }
+    function esSesionActivacion() {
+      return haySesion()
+        && request.auth.token.keys().hasAll(['authStage'])
+        && request.auth.token.authStage == 'DIRECTA_TEMP';
+    }
+    function esAutenticado() { return haySesion() && !esSesionActivacion(); }
     function rol() { return request.auth.token.rol; }
     function esAdmin() { return esAutenticado() && rol() == 'admin'; }
     function esCajero() { return esAutenticado() && rol() == 'cajero'; }
@@ -249,6 +255,9 @@ service cloud.firestore {
     }
     match /invitaciones/{id} {
       allow read, write: if esSuperadmin();
+    }
+    match /incorporaciones/{id} {
+      allow read, write: if false;
     }
     match /consumo/{id} {
       allow read, write: if esSuperadmin();
