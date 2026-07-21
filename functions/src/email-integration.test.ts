@@ -5,11 +5,16 @@ import { getAuth } from "firebase-admin/auth";
 import {
   aceptarIncorporacionEmail,
   cancelarIncorporacionEmail,
+  crearIncorporacionDirecta,
   crearIncorporacionEmail,
+  activarIncorporacionDirecta,
   reenviarIncorporacionEmail,
 } from "./incorporaciones-service";
+import { autenticarOperativo } from "./operational-auth";
 
 const PEPPER = "email-test-pepper";
+const PIN_PEPPER = "directa-test-pepper";
+process.env.OPERATIONAL_PIN_PEPPER = PIN_PEPPER;
 let contador = 0;
 
 async function preparar(empresaId: string) {
@@ -109,4 +114,34 @@ test("EMAIL recupera sincronizacion de claims tras un fallo posterior a ACTIVE",
   const reintento = await aceptarIncorporacionEmail({ incorporacionId: emitida.incorporacionId, token: "invalido", password: undefined, uid: principal.uid, emailSesion: correo, tokenSecret: PEPPER });
   assert.equal(reintento.idempotente, true);
   assert.equal((await getAuth().getUser(principal.uid)).customClaims?.empresaId, empresaId);
+});
+
+test("DIRECTA permite reingresar con PIN definitivo en un tenant no fundacional", async () => {
+  const empresaFundacionalId = `empresa-fundacional-${Date.now()}`;
+  const empresaId = `empresa-directa-${Date.now()}`;
+  const codigo = `caja-${Date.now()}`;
+  const db = getFirestore();
+  await db.collection("empresas").doc(empresaFundacionalId).set({ estado: "activa", esFundacional: true });
+  await preparar(empresaId);
+
+  const incorporacion = await crearIncorporacionDirecta({
+    empresaId,
+    emisorUid: "admin",
+    data: { nombre: "Operadora Directa", codigo, pinTemporal: "123456", rol: "cajero" },
+    pepper: PIN_PEPPER,
+  });
+  const temporal = await autenticarOperativo.run({ data: { codigo, pin: "123456" } } as never);
+  assert.equal(temporal.requiereCambio, true);
+  assert.equal(temporal.incorporacionId, incorporacion.incorporacionId);
+
+  await activarIncorporacionDirecta({
+    incorporacionId: incorporacion.incorporacionId,
+    uid: incorporacion.uid,
+    data: { pinActual: "123456", pinNuevo: "654321" },
+    pepper: PIN_PEPPER,
+  });
+
+  const definitiva = await autenticarOperativo.run({ data: { codigo, pin: "654321" } } as never);
+  assert.equal(definitiva.requiereCambio, undefined);
+  assert.equal(typeof definitiva.customToken, "string");
 });

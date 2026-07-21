@@ -121,15 +121,14 @@ async function resolverCredencialOperativa(
   const db = getFirestore();
   const empresaFundacional = await obtenerEmpresaFundacional();
   const refFundacional = referenciaCredencial(empresaFundacional.id, codigo);
-  const [fundacionalSnap, temporalesSnap] = await Promise.all([
+  const [fundacionalSnap, credencialesConCodigo] = await Promise.all([
     refFundacional.get(),
     db.collection("credenciales_operativas").where("codigo", "==", codigo).get(),
   ]);
 
   const candidatas = [
     ...(fundacionalSnap.exists ? [fundacionalSnap] : []),
-    ...temporalesSnap.docs.filter((snap) =>
-      snap.ref.path !== refFundacional.path && snap.data()?.requiereCambio === true),
+    ...credencialesConCodigo.docs.filter((snap) => snap.ref.path !== refFundacional.path),
   ];
   const coincidencias = (await Promise.all(candidatas.map(async (snap) => {
     const credencial = snap.data() as CredencialOperativa;
