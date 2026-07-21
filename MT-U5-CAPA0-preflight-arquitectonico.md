@@ -261,6 +261,29 @@ solapamiento: U5b posee el ciclo de vida de una invitación; U7 solo lo orquesta
 No se diseñan archivos, APIs ni migraciones en esta Capa 0. Cada capa posterior debe producir su propio
 diseño de implementación antes de modificar runtime, Rules o datos.
 
+### Estado de ejecución
+
+- **Capa 4 — MT-U5b: identidad/membresía:** ✅ **COMPLETADA.** La autoridad runtime de rol, permisos efectivos y estado fue migrada a `membresias`; las correcciones posteriores de notificaciones y selectores de relevo eliminaron sus últimas dependencias runtime de `usuarios.rol`.
+- **Capa 5 — MT-U5b: invitaciones existentes:** ⏳ **PENDIENTE.** Es el único alcance restante de MT-U5b.
+- **Capa 6 — Cierre MT-U5:** ⏳ **PENDIENTE**, dependiente de completar la Capa 5.
+
+### Actualizacion normativa: incorporacion de usuarios
+
+La Capa 5 de MT-U5b queda ampliada por `ADR-SAAS-006-incorporacion-usuarios.md`.
+Las referencias anteriores a una unica invitacion por email se interpretan como el
+subflujo `EMAIL` del ciclo comun `incorporaciones`. MT-U5b es propietario de dos
+mecanismos reutilizables para empresas existentes:
+
+- `DIRECTA`: personal operativo sin email, con credencial temporal operativa y cambio
+  obligatorio antes de acceso operativo;
+- `EMAIL`: invitacion por email real, con aceptacion, expiracion, cancelacion, reenvio
+  y uso unico.
+
+Ambos crean o reutilizan Firebase Auth, conservan `usuarios` como perfil global y
+convergen solamente al activar la membresia y emitir claims tenant. Un administrador
+tenant nunca puede sustituir una contrasena o credencial de una identidad global ya
+existente. MT-U7 solo invoca este contrato durante el onboarding; no lo redefine.
+
 ## 8. Evidencia y trazabilidad
 
 - El documento maestro ya reconoce cinco roles de membresía, incluido `supervisor`
