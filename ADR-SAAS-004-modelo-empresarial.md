@@ -77,6 +77,14 @@ factura electrónica), cada una con su propio rango y consecutivo.
   seguridad independiente: la frontera de aislamiento es la empresa; el espacio es una
   partición interna.
 
+## Extension: registro tenant de incorporacion
+
+El contrato no implementado `invitaciones` se supersede arquitectonicamente por
+`incorporaciones/{id}` conforme a ADR-SAAS-006. Pertenece a la empresa mediante
+`empresaId`; no es un perfil global ni una fuente de autorizacion. La autoridad sigue
+en `membresias` y solo una incorporacion que llegue a `ACTIVE` puede producir una
+membresia activa.
+
 ## Consecuencias
 
 - La configuración global desaparece; cada empresa tiene la suya, aislada.

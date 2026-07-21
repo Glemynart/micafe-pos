@@ -98,6 +98,7 @@ test("las colecciones SaaS quedan denegadas para clientes de tenant", async () =
     "planes/basico",
     "suscripciones/empresa-a",
     "invitaciones/token-prueba",
+    "incorporaciones/incorporacion-prueba",
     "consumo/empresa-a_2026-07",
     "saas_operadores/operador-1",
     "saas_auditoria/evento-1",
@@ -108,5 +109,27 @@ test("las colecciones SaaS quedan denegadas para clientes de tenant", async () =
   for (const path of coleccionesSaas) {
     await expectDenied(adminA.firestore().doc(path).set({ empresaId: "empresa-a" }));
   }
+});
+
+test("incorporaciones: ningun tenant puede leer o escribir incorporaciones de otra empresa", async () => {
+  const adminA = await contextFor(fixtures.tenantA.admin);
+  const adminB = await contextFor(fixtures.tenantB.admin);
+  const path = "incorporaciones/incorporacion-a";
+  await seedDocument(path, { empresaId: "empresa-a", estado: "INVITED" });
+
+  await expectDenied(adminA.firestore().doc(path).get());
+  await expectDenied(adminB.firestore().doc(path).get());
+  await expectDenied(adminB.firestore().doc(path).update({ estado: "CANCELLED" }));
+});
+
+test("la sesion DIRECTA_TEMP no puede leer perfiles ni datos tenant aunque conserve claims antiguos", async () => {
+  const temporal = await contextFor({
+    uid: "uid-directa-temporal",
+    claims: { authStage: "DIRECTA_TEMP", empresaId: "empresa-a", rol: "admin" },
+  });
+
+  await expectDenied(temporal.firestore().doc("usuarios/uid-directa-temporal").get());
+  await expectDenied(temporal.firestore().doc("configuracion/general").get());
+  await expectDenied(temporal.firestore().doc("membresias/empresa-a_uid-directa-temporal").get());
 });
 });

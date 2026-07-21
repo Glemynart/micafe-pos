@@ -18,6 +18,7 @@ initializeApp();
 
 const REGION = "us-central1";
 const PIN_PEPPER = defineSecret("OPERATIONAL_PIN_PEPPER");
+const INCORPORACIONES_COLLECTION = "incorporaciones";
 const MAX_FALLOS = 5;
 const BLOQUEO_MS = 15 * 60 * 1000;
 const ERROR_CREDENCIALES = "Credenciales operativas inválidas.";
@@ -102,6 +103,57 @@ function referenciaCredencial(empresaId: string, codigo: string) {
   return getFirestore().collection("credenciales_operativas").doc(idCredencialOperativa(empresaId, codigo));
 }
 
+interface CredencialOperativaResuelta {
+  empresa: { id: string; estado: string };
+  ref: FirebaseFirestore.DocumentReference;
+  credencial: CredencialOperativa;
+}
+
+/**
+ * La credencial temporal no recibe empresaId del cliente. El backend identifica
+ * su tenant comparando el PIN contra las incorporaciones DIRECTA temporales que
+ * comparten el código y rechaza cualquier resultado ambiguo.
+ */
+async function resolverCredencialOperativa(
+  codigo: string,
+  pin: string,
+): Promise<CredencialOperativaResuelta> {
+  const db = getFirestore();
+  const empresaFundacional = await obtenerEmpresaFundacional();
+  const refFundacional = referenciaCredencial(empresaFundacional.id, codigo);
+  const [fundacionalSnap, temporalesSnap] = await Promise.all([
+    refFundacional.get(),
+    db.collection("credenciales_operativas").where("codigo", "==", codigo).get(),
+  ]);
+
+  const candidatas = [
+    ...(fundacionalSnap.exists ? [fundacionalSnap] : []),
+    ...temporalesSnap.docs.filter((snap) =>
+      snap.ref.path !== refFundacional.path && snap.data()?.requiereCambio === true),
+  ];
+  const coincidencias = (await Promise.all(candidatas.map(async (snap) => {
+    const credencial = snap.data() as CredencialOperativa;
+    if (credencial.activo !== true || await estaBloqueada(snap.ref) || !credencial.pinHash) return null;
+    return await verificarPin(pin, credencial.pinHash, obtenerPepper())
+      ? { ref: snap.ref, credencial }
+      : null;
+  }))).filter((candidata): candidata is { ref: FirebaseFirestore.DocumentReference; credencial: CredencialOperativa } => candidata !== null);
+
+  if (coincidencias.length !== 1) {
+    if (candidatas.length === 1) await registrarFallo(candidatas[0].ref);
+    throw errorCredenciales();
+  }
+
+  const { ref, credencial } = coincidencias[0];
+  if (typeof credencial.empresaId !== "string" || credencial.empresaId.trim().length === 0) {
+    throw errorCredenciales();
+  }
+  const empresaSnap = await db.collection("empresas").doc(credencial.empresaId).get();
+  const estado = empresaSnap.data()?.estado;
+  if (!empresaSnap.exists || (estado !== "activa" && estado !== "trial")) throw errorCredenciales();
+  return { empresa: { id: empresaSnap.id, estado: estado as string }, ref, credencial };
+}
+
 async function obtenerCredencialDelUid(empresaId: string, uid: string) {
   const snap = await getFirestore()
     .collection("credenciales_operativas")
@@ -144,7 +196,54 @@ async function validarMembresiaActiva(empresaId: string, uid: string): Promise<R
   return membresia.rol;
 }
 
-async function registrarFallo(ref: FirebaseFirestore.DocumentReference): Promise<void> {
+async function obtenerIncorporacionDirectaTemporal(
+  empresaId: string,
+  credencial: CredencialOperativa,
+): Promise<FirebaseFirestore.QueryDocumentSnapshot | null> {
+  const db = getFirestore();
+  if (credencial.incorporacionId) {
+    const snap = await db.collection(INCORPORACIONES_COLLECTION).doc(credencial.incorporacionId).get();
+    return snap.exists ? snap as FirebaseFirestore.QueryDocumentSnapshot : null;
+  }
+  const snap = await db.collection(INCORPORACIONES_COLLECTION)
+    .where("empresaId", "==", empresaId)
+    .where("mecanismo", "==", "DIRECTA")
+    .where("uid", "==", credencial.uid)
+    .limit(2)
+    .get();
+  if (snap.size > 1) {
+    logger.error("operational_auth_duplicate_direct_incorporations", { empresaId, uid: credencial.uid });
+    throw new HttpsError("internal", "No se pudo procesar la autenticacion.");
+  }
+  return snap.docs[0] ?? null;
+}
+
+export function extraerEmpresaIdTenant(request: { auth?: { token: Record<string, unknown> } }): string {
+  if (!request.auth || request.auth.token.rol !== "admin") {
+    throw new HttpsError("permission-denied", "Acceso denegado.");
+  }
+  const empresaId = request.auth.token.empresaId;
+  if (typeof empresaId !== "string" || empresaId.trim().length === 0) {
+    throw new HttpsError("permission-denied", "Acceso denegado.");
+  }
+  return empresaId;
+}
+
+export async function exigirAdminTenant(request: { auth?: { uid: string; token: Record<string, unknown> } }) {
+  const empresaId = extraerEmpresaIdTenant(request);
+  const snap = await getFirestore().collection("empresas").doc(empresaId).get();
+  const estado = snap.data()?.estado;
+  if (!snap.exists || (estado !== "activa" && estado !== "trial")) {
+    throw new HttpsError("permission-denied", "Acceso denegado.");
+  }
+  const rolActual = await validarMembresiaActiva(empresaId, request.auth!.uid);
+  if (rolActual !== "admin") {
+    throw new HttpsError("permission-denied", "Acceso denegado.");
+  }
+  return { id: empresaId, estado: estado as string };
+}
+
+export async function registrarFallo(ref: FirebaseFirestore.DocumentReference): Promise<void> {
   await getFirestore().runTransaction(async (transaction) => {
     const snap = await transaction.get(ref);
     if (!snap.exists) return;
@@ -161,7 +260,7 @@ async function registrarFallo(ref: FirebaseFirestore.DocumentReference): Promise
   });
 }
 
-async function estaBloqueada(ref: FirebaseFirestore.DocumentReference): Promise<boolean> {
+export async function estaBloqueada(ref: FirebaseFirestore.DocumentReference): Promise<boolean> {
   const snap = await ref.get();
   const bloqueadoHasta = (snap.data() as CredencialOperativa | undefined)?.bloqueadoHasta;
   return !!bloqueadoHasta && bloqueadoHasta.toMillis() > Date.now();
@@ -187,7 +286,23 @@ async function acuñarSesionTenant(uid: string, empresaId: string, rol: RolTenan
   return auth.createCustomToken(uid);
 }
 
-async function actualizarClaimsTenant(uid: string, empresaId: string, rol: RolTenant | null): Promise<void> {
+/**
+ * Emite una sesión de bootstrap sin dejar claims tenant persistentes. Esto
+ * también revoca tokens previos del UID si una reparación reutilizó el principal.
+ */
+export async function emitirSesionActivacionDirecta(uid: string, incorporacionId: string): Promise<string> {
+  const auth = getAuth();
+  const existente = (await auth.getUser(uid)).customClaims ?? {};
+  const platformClaims = {
+    ...(existente.superadmin === true ? { superadmin: true } : {}),
+    ...(existente.soporte === true ? { soporte: true } : {}),
+  };
+  await auth.setCustomUserClaims(uid, platformClaims);
+  await auth.revokeRefreshTokens(uid);
+  return auth.createCustomToken(uid, { authStage: "DIRECTA_TEMP", incorporacionId });
+}
+
+export async function actualizarClaimsTenant(uid: string, empresaId: string, rol: RolTenant | null): Promise<void> {
   const auth = getAuth();
   const existente = (await auth.getUser(uid)).customClaims ?? {};
   const platformClaims = {
@@ -198,12 +313,19 @@ async function actualizarClaimsTenant(uid: string, empresaId: string, rol: RolTe
   await auth.revokeRefreshTokens(uid);
 }
 
-function normalizarPermisosEfectivos(valor: unknown): string[] | null {
+export function normalizarPermisosEfectivos(valor: unknown): string[] | null {
   if (!Array.isArray(valor) || valor.some((permiso) => typeof permiso !== "string" || !permiso)) return null;
   return [...new Set(valor)].sort();
 }
 
-async function permisosPredeterminados(rol: RolTenant): Promise<string[]> {
+/** Sincroniza la proyección tenant y emite una sesión posterior a una activación. */
+export async function emitirSesionTenant(uid: string, empresaId: string, rol: string): Promise<string> {
+  if (!esRolTenant(rol)) throw new HttpsError("failed-precondition", "Rol de membresia invalido.");
+  await actualizarClaimsTenant(uid, empresaId, rol);
+  return getAuth().createCustomToken(uid);
+}
+
+export async function permisosPredeterminados(rol: RolTenant): Promise<string[]> {
   const snap = await getFirestore().collection("permisos_roles").doc(rol).get();
   const permisos = normalizarPermisosEfectivos(snap.data()?.permisos);
   if (!snap.exists || !permisos) {
@@ -213,7 +335,7 @@ async function permisosPredeterminados(rol: RolTenant): Promise<string[]> {
   return permisos;
 }
 
-async function exigirAdminFundacional(request: { auth?: { uid: string; token: Record<string, unknown> } }) {
+export async function exigirAdminFundacional(request: { auth?: { uid: string; token: Record<string, unknown> } }) {
   if (!request.auth || request.auth.token.rol !== "admin") {
     throw new HttpsError("permission-denied", "Acceso denegado.");
   }
@@ -233,21 +355,32 @@ async function exigirAdminFundacional(request: { auth?: { uid: string; token: Re
 
 export const autenticarOperativo = onCall(
   { region: REGION, secrets: [PIN_PEPPER] },
-  async (request): Promise<{ customToken: string }> => {
+  async (request): Promise<{ customToken: string; requiereCambio?: boolean; incorporacionId?: string }> => {
     const codigo = normalizarCodigo((request.data as SolicitudAutenticacion | undefined)?.codigo);
     const pin = (request.data as SolicitudAutenticacion | undefined)?.pin;
     if (!codigo || !esPinValido(pin)) throw errorCredenciales();
 
     try {
-      const empresa = await obtenerEmpresaFundacional();
-      const ref = referenciaCredencial(empresa.id, codigo);
-      const snap = await ref.get();
-      if (!snap.exists || await estaBloqueada(ref)) throw errorCredenciales();
+      const { empresa, ref, credencial } = await resolverCredencialOperativa(codigo, pin);
 
-      const credencial = snap.data() as CredencialOperativa;
-      if (credencial.activo !== true || !await verificarPin(pin, credencial.pinHash, obtenerPepper())) {
-        await registrarFallo(ref);
-        throw errorCredenciales();
+      if (credencial.requiereCambio === true) {
+        const incorporacion = await obtenerIncorporacionDirectaTemporal(empresa.id, credencial);
+        const incorporacionData = incorporacion?.data();
+        if (!incorporacion || incorporacionData?.mecanismo !== "DIRECTA"
+          || incorporacionData.empresaId !== empresa.id
+          || incorporacionData.estado !== "TEMP_CREDENTIAL"
+          || incorporacionData.uid !== credencial.uid
+          || incorporacionData.codigo !== credencial.codigo) {
+          throw errorCredenciales();
+        }
+        await limpiarFallos(ref);
+        const customToken = await emitirSesionActivacionDirecta(credencial.uid, incorporacion.id);
+        logger.info("operational_auth_direct_activation_required", {
+          empresaId: empresa.id,
+          uid: credencial.uid,
+          incorporacionId: incorporacion.id,
+        });
+        return { customToken, requiereCambio: true, incorporacionId: incorporacion.id };
       }
 
       const rol = await validarMembresiaActiva(empresa.id, credencial.uid);

@@ -29,7 +29,8 @@
     "build:functions": "npm --prefix functions run build",
     "test:auth-foundation": "npm --prefix functions test",
     "test:rules:raw": "node --import tsx firestore-rules/run-tests.ts",
-    "test:rules": "firebase --project demo-mt-u4-rules emulators:exec --only firestore \"node --import tsx firestore-rules/run-tests.ts\""
+    "test:rules": "firebase --project demo-mt-u4-rules emulators:exec --only firestore \"node --import tsx firestore-rules/run-tests.ts\"",
+    "test:email:integration": "cross-env GCLOUD_PROJECT=demo-mt-u4-rules FIRESTORE_EMULATOR_HOST=127.0.0.1:8085 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 firebase --project demo-mt-u4-rules emulators:exec --only firestore,auth \"npm --prefix functions run test:email:integration\""
   },
   "build": {
     "appId": "com.pos.cafe",

@@ -9,7 +9,9 @@ El cambio definitivo de autoridad no se ejecuta en este bloque. Antes de iniciar
 3. Verificar que todo `usuarios/{uid}` tenga una identidad correspondiente en Firebase Authentication.
 4. Ejecutar el cambio único de autoridad en el Bloque 2.
 
-`scripts/migrate-mt-u5b-membresias.ts --verify` es solo lectura y falla ante cualquiera de esas inconsistencias. `usuarios.rol`, `usuarios.permisos` y `permisos_roles` siguen siendo autoridad hasta que el Bloque 2 se complete.
+`scripts/migrate-mt-u5b-membresias.ts --verify` es solo lectura y falla ante cualquiera de esas inconsistencias.
+
+> **Actualización de estado:** el Bloque 2 se completó posteriormente. La autoridad runtime de rol, permisos y estado ahora proviene exclusivamente de `membresias`. Este documento conserva el flujo de preparación como evidencia histórica del gate previo al cambio.
 
 ## Plantillas globales de transición
 
