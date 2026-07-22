@@ -10,6 +10,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useModulosHabilitados } from '@/contexts/modulos-context'
 import { ReservasBanner } from '@/components/pos/reservas-banner'
+import { OnboardingGate } from '@/components/onboarding/onboarding-gate'
 import dynamic from 'next/dynamic'
 
 // ── Skeleton compartido para todos los módulos mientras cargan ──
@@ -178,9 +179,11 @@ export default function POSApp() {
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <ReservasBanner setSafeModule={setSafeModule} userPerms={userPerms} />
         <div className="flex-1 flex flex-col min-h-0 relative animate-fade-in" key={activeModule}>
-          <TurnoGate usuario={usuario}>
-            {renderModule()}
-          </TurnoGate>
+          <OnboardingGate usuario={usuario}>
+            <TurnoGate usuario={usuario}>
+              {renderModule()}
+            </TurnoGate>
+          </OnboardingGate>
         </div>
       </main>
       <GlobalCloseShift usuario={usuario} onCloseSuccess={logout} />
