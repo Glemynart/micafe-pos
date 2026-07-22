@@ -41,12 +41,34 @@ service cloud.firestore {
       return perteneceTenantDelRecurso()
         && request.resource.data.empresaId == resource.data.empresaId;
     }
-    function puedeLeerTenant() { return perteneceTenantDelRecurso(); }
-    function puedeCrearEnTenant() { return perteneceTenantDeLaEscritura(); }
-    function puedeActualizarEnTenant() {
-      return perteneceTenantDeLaEscritura() && conservaEmpresaId();
+
+    // Directiva B4 — Enforcement Canónico de Empresa.estado
+    // La autoridad única para conceder o denegar acceso operacional es Empresa.estado.
+    function estadoEmpresa() {
+      return get(/databases/$(database)/documents/empresas/$(request.auth.token.empresaId)).data.estado;
     }
-    function puedeEliminarEnTenant() { return perteneceTenantDelRecurso(); }
+    function empresaEscribible() {
+      return tieneEmpresaId() && estadoEmpresa() in ['trial', 'activa'];
+    }
+    function empresaLecturaAdmin() {
+      return tieneEmpresaId() && (
+        estadoEmpresa() in ['trial', 'activa'] ||
+        (estadoEmpresa() == 'suspendida' && esAdmin())
+      );
+    }
+
+    function puedeLeerTenant() {
+      return perteneceTenantDelRecurso() && empresaLecturaAdmin();
+    }
+    function puedeCrearEnTenant() {
+      return perteneceTenantDeLaEscritura() && empresaEscribible();
+    }
+    function puedeActualizarEnTenant() {
+      return perteneceTenantDeLaEscritura() && conservaEmpresaId() && empresaEscribible();
+    }
+    function puedeEliminarEnTenant() {
+      return perteneceTenantDelRecurso() && empresaEscribible();
+    }
     function esUsuarioPropio(uid) {
       return esAutenticado() && request.auth.uid == uid;
     }
@@ -214,9 +236,10 @@ service cloud.firestore {
       allow create, update, delete: if esAutenticado() && rol() in ['admin', 'marketing'];
     }
     match /configuracion/{id} {
-      allow read: if esAutenticado();
-      allow create, delete: if esAdmin();
-      allow update: if esAdminOCajero();
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esAdmin();
+      allow update: if puedeActualizarEnTenant() && esAdminOCajero();
+      allow delete: if puedeEliminarEnTenant() && esAdmin();
     }
     match /usuarios/{uid} {
       // Perfil global: nunca contiene ni decide rol, permisos o estado.
