@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { adaptarVentaAModeloTicket } from '../venta-ticket-adapter'
+import { adaptarVentaAModeloTicket, adaptarVentaB2AModeloTicket } from '../venta-ticket-adapter'
 import type { ConfiguracionGlobal } from '../../configuracion-service'
 
 // Config mínima válida; los tests sobreescriben lo relevante.
@@ -169,6 +169,20 @@ test('DIAN con config vacia: resolucion/rangos undefined (sin placeholders ficti
   assert.equal(input.dian!.rangoFin, undefined)
   assert.equal(input.dian!.vigencia, undefined)
   assert.equal(input.dian!.qrPayload, undefined) // builder derivara la URL DIAN
+})
+
+test('B2: reimpresión usa exclusivamente snapshotFiscal y no acepta configuración vigente', () => {
+  const snapshot = {
+    schemaVersion: 1 as const, configuracionRevision: 7,
+    identidadFiscal: { nombreComercial: 'Cafe Snapshot', razonSocial: 'Snapshot SAS', numeroDocumento: '900373913', digitoVerificacion: '4', regimenTributario: 'no_responsable', direccion: 'Calle Snapshot', ciudad: 'Bogota', telefono: '3001112233' },
+    paisFiscal: 'CO', moneda: 'COP', emitidaEn: '2026-07-03T15:30:00.000Z',
+    impuestosLineas: [{ itemId: 'p1', impuestoTipo: 'inc_8', impuestoTarifa: 8, impuestoValor: 74, base: 926 }],
+    documento: { items: [{ id: 'p1', nombre: 'Cafe', cantidad: 1, precioUnitario: 1000, subtotal: 1000, impuestoTipo: 'inc_8', impuestoTarifa: 8, impuestoValor: 74, base: 926 }], totales: { subtotalBase: 926, totalINC: 74, total: 1000 }, pago: { metodo: 'efectivo', recibido: 1000, cambio: 0 } },
+    numeracion: { numeracionId: 'n1', revision: 3, tipoDocumento: 'pos' as const, scope: 'EMPRESA' as const, numero: 42, prefijo: 'B2', resolucion: 'RES-SNAPSHOT', rangoInicio: 10, rangoFin: 99, vigenciaDesde: '2026-01-01', vigenciaHasta: '2030-12-31' },
+  }
+  const { input, empresa } = adaptarVentaB2AModeloTicket(snapshot)
+  assert.equal(input.numero, 42); assert.equal(input.items[0].descripcion, 'Cafe'); assert.equal(empresa.nombreComercial, 'Cafe Snapshot'); assert.equal(empresa.direccion, 'Calle Snapshot')
+  assert.equal(adaptarVentaB2AModeloTicket.length, 1)
 })
 
 test('empresa: regimen desde venta.regimenAlMomento y fallback de nombre', () => {
