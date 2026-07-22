@@ -4,7 +4,11 @@ import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { useAuthContext } from '@/contexts/auth-context'
 import { useEspacios } from '@/contexts/espacios-context'
-import { suscribirHistorialVentas, obtenerVentaPorId, anularVenta as anularVentaFirebase } from '@/lib/ventas-service'
+import { suscribirHistorialVentas, obtenerVentaPorId, anularVenta as anularVentaFirebase, guardarMetadatosDian } from '@/lib/ventas-service'
+import { suscribirConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
+import { TicketBuilder, generateQrDataUri, renderTicket, DEFAULT_RENDER_OPTIONS } from '@/lib/tickets'
+import { adaptarVentaAModeloTicket } from '@/lib/reimpresion/venta-ticket-adapter'
+import { formatCurrency } from '@/lib/format-utils'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -74,17 +78,25 @@ export function Historial() {
     motivo: 'Nota de ajuste',
   })
 
+  // Identidad del negocio para el ticket (fuente única: configuracion/general
+  // en Firestore, no SQLite — ver diseño "Unificar fuente de verdad reimpresión").
+  const [config, setConfig] = useState<ConfiguracionGlobal | null>(null)
+  useEffect(() => {
+    const unsubConfig = suscribirConfiguracion(setConfig)
+    return () => unsubConfig()
+  }, [])
+
   const handleEmitirNota = async () => {
-    if (!notaState.venta || !notaState.venta.cufe) return;
-    
+    if (!notaState.venta || !notaState.venta.dian?.cufe) return;
+
     toast.loading(`Emitiendo Nota ${notaState.type === 'credito' ? 'Crédito' : 'Débito'}...`, { id: 'dian-nota' });
     try {
       // Necesitamos los items de la venta
       let ventaCompleta = await obtenerVentaPorId(notaState.venta.id);
-      
+
       const payload = {
-        numeroFacturaRef: ventaCompleta.numero_electronico || notaState.venta.numero || `SETP${notaState.venta.id}`,
-        cufeRef: notaState.venta.cufe,
+        numeroFacturaRef: ventaCompleta.dian?.numero || notaState.venta.numero || `SETP${notaState.venta.id}`,
+        cufeRef: notaState.venta.dian.cufe,
         motivo: notaState.motivo,
         items: ventaCompleta.items,
         total: ventaCompleta.total,
@@ -116,12 +128,35 @@ export function Historial() {
     }
   }
 
+  // Deriva el rango [desde, hasta] correspondiente al filtro de fecha activo
+  // (día/mes/año). Devuelve undefined si no hay filtro, para conservar la
+  // suscripción acotada por defecto.
+  const calcularRangoFecha = (): { desde: Date; hasta: Date } | undefined => {
+    if (!filtroFecha) return undefined;
+
+    if (tipoPeriodo === "dia") {
+      const [y, m, d] = filtroFecha.split("-").map(Number);
+      if (!y || !m || !d) return undefined;
+      return { desde: new Date(y, m - 1, d, 0, 0, 0, 0), hasta: new Date(y, m - 1, d, 23, 59, 59, 999) };
+    }
+    if (tipoPeriodo === "mes") {
+      const [y, m] = filtroFecha.split("-").map(Number);
+      if (!y || !m) return undefined;
+      return { desde: new Date(y, m - 1, 1, 0, 0, 0, 0), hasta: new Date(y, m, 0, 23, 59, 59, 999) };
+    }
+    // tipoPeriodo === "ano"
+    const y = Number(filtroFecha);
+    if (!y) return undefined;
+    return { desde: new Date(y, 0, 1, 0, 0, 0, 0), hasta: new Date(y, 11, 31, 23, 59, 59, 999) };
+  };
+
   useEffect(() => {
+    const rangoFecha = calcularRangoFecha();
     const unsubscribe = suscribirHistorialVentas(espacioActivo?.id, (data) => {
       setVentas(data || []);
-    });
+    }, rangoFecha);
     return () => unsubscribe();
-  }, [espacioActivo?.id])
+  }, [espacioActivo?.id, tipoPeriodo, filtroFecha])
 
   const loadVentas = async () => {
     // Función mantenida por retrocompatibilidad visual en otras funciones
@@ -135,21 +170,13 @@ export function Historial() {
     const vFecha = v.fecha ? v.fecha.split(" ")[0] : "";
     const matchFecha = !filtroFecha || vFecha.startsWith(filtroFecha);
     
-    // Si la venta tiene CUFE o qr_dian es "enviado", sino "pendiente"
-    const estadoDian = v.cufe ? "enviado" : "pendiente";
+    // Si la venta tiene el bloque `dian` congelado, fue emitida; sino "pendiente"
+    const estadoDian = v.dian?.cufe ? "enviado" : "pendiente";
     const matchEstado = filtroEstado === "todos" || estadoDian === filtroEstado;
     return matchFecha && matchEstado;
   })
 
   const totalVentas = ventasFiltradas.reduce((acc, v) => acc + (v.total || 0), 0)
-
-  const formatCOP = (value: number) => {
-    return new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: "COP",
-      minimumFractionDigits: 0,
-    }).format(value || 0)
-  }
 
   const anularVenta = async () => {
     if (!idToDelete) return;
@@ -161,6 +188,33 @@ export function Historial() {
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Ocurrió un error al intentar anular la venta.");
+    }
+  };
+
+  // Congela el bloque `dian` en la Venta tras una emisión exitosa de Factus
+  // (ver diseño "Persistencia de metadatos DIAN en el modelo Venta"). Un
+  // reintento (merge idempotente) mitiga un fallo transitorio de escritura;
+  // si persiste, se reporta explícitamente en vez de fallar en silencio.
+  const persistirMetadatosDian = async (ventaId: string, factusRes: any): Promise<boolean> => {
+    const dian = {
+      cufe: factusRes.cufe,
+      qr: factusRes.qr,
+      numero: factusRes.numero,
+      prefijo: factusRes.prefijo || '',
+      pdfUrl: factusRes.pdf || '',
+      resolucion: config?.resolucion_dian || '',
+    };
+    try {
+      await guardarMetadatosDian(ventaId, dian);
+      return true;
+    } catch {
+      try {
+        await guardarMetadatosDian(ventaId, dian); // reintento (R1)
+        return true;
+      } catch (err) {
+        console.error(err);
+        return false;
+      }
     }
   };
 
@@ -198,7 +252,12 @@ export function Historial() {
       });
 
       if (factusRes.ok) {
-        toast.success(`Factura emitida exitosamente.`, { id: 'dian' });
+        const persistido = await persistirMetadatosDian(ventaCompleta.id, factusRes);
+        if (persistido) {
+          toast.success(`Factura emitida exitosamente.`, { id: 'dian' });
+        } else {
+          toast.error('Factura emitida en la DIAN, pero no se pudo registrar en el sistema. Contacte soporte antes de reimprimir.', { id: 'dian' });
+        }
         loadVentas();
         if (ventaDetalle && ventaDetalle.id === venta.id) {
           verDetalle(venta.id);
@@ -213,17 +272,18 @@ export function Historial() {
   };
 
   const emitirPendientes = async () => {
-    const pendientes = ventasFiltradas.filter(v => !v.cufe && !debeBloquearDIAN(v));
+    const pendientes = ventasFiltradas.filter(v => !v.dian?.cufe && !debeBloquearDIAN(v));
     if (pendientes.length === 0) {
       toast.info("No hay facturas pendientes por enviar.");
       return;
     }
-    
+
     let success = 0;
     let failed = 0;
-    
+    let sinRegistrar = 0;
+
     toast.loading(`Enviando ${pendientes.length} facturas a la DIAN...`, { id: 'dian-batch' });
-    
+
     for (const venta of pendientes) {
       try {
         let ventaCompleta = await obtenerVentaPorId(venta.id);
@@ -245,6 +305,8 @@ export function Historial() {
 
         if (factusRes.ok) {
           success++;
+          const persistido = await persistirMetadatosDian(ventaCompleta.id, factusRes);
+          if (!persistido) sinRegistrar++;
         } else {
           failed++;
         }
@@ -252,8 +314,11 @@ export function Historial() {
         failed++;
       }
     }
-    
-    toast.success(`Proceso finalizado. Exitosas: ${success}, Fallidas: ${failed}`, { id: 'dian-batch' });
+
+    toast.success(
+      `Proceso finalizado. Exitosas: ${success}, Fallidas: ${failed}${sinRegistrar ? `, sin registrar: ${sinRegistrar}` : ''}`,
+      { id: 'dian-batch' }
+    );
     loadVentas();
   };
 
@@ -268,221 +333,28 @@ export function Historial() {
   };
 
   const imprimirReimpresion = async (venta: any) => {
+    if (!config) {
+      toast.error("Configuración aún no disponible. Intente de nuevo en un momento.");
+      return;
+    }
     try {
-      const config = await (window as any).api.config.get();
-      // En el historial la venta ya viene con items detallados si usamos ventas.get()
-      await imprimirTicketHTML({
-        ...venta,
-        metodoPago: venta.metodo_pago,
-        numFactura: venta.numero_electronico || venta.id, // Usar número electrónico si existe
-      }, config);
+      await imprimirTicketConMotor(venta, config);
     } catch (err) {
       console.error(err);
       toast.error("Error al imprimir el ticket.");
     }
   };
 
-  const imprimirTicketHTML = async (data: any, config: any) => {
-    const { items, total, pago, cambio, metodoPago: mp, fecha, numFactura } = data;
-    
-    const fechaStr    = new Date(fecha).toLocaleString('es-CO');
-    const storeName   = config.nombre_tienda        || 'MiTienda';
-    const propietario = config.nombre_propietario   || '';
-    const nit         = config.nit_tienda           || '';
-    const direccion   = config.direccion_tienda     || '';
-    const ciudad      = config.ciudad               || '';
-    const tel         = config.telefono             || '';
-    const resolucion  = config.resolucion_dian      || '';
-    const respIva     = config.responsable_iva === '1';
-    const tipoContr   = config.tipo_contribuyente   || '';
-
-    const prefijo = config.prefijo_dian || config.prefijo_factura || 'SETT';
-    let cleanNum = numFactura;
-    if (typeof cleanNum === 'string') {
-      const cleanPref = prefijo.trim().toUpperCase();
-      const cleanVal = cleanNum.trim().toUpperCase();
-      if (cleanVal.startsWith(cleanPref)) {
-        cleanNum = cleanNum.trim().substring(cleanPref.length).trim();
-      }
-    }
-    const numStr = cleanNum ? String(cleanNum).padStart(6, '0') : '';
-    
-    // Si es Factura Electrónica (DIAN habilitada, Factus configurado, o CUFE/QR presentes)
-    const isDian = !!data.cufe || !!data.qr
-               || config.facturacion_dian === 'true' || config.facturacion_dian === true
-               || (!!config.factus_client_id && config.factus_client_id.length > 10);
-    
-    let cufe = '';
-    let qrData = '';
-    
-    if (isDian) {
-      cufe = data.cufe || 
-             Array.from(`${prefijo}${numStr}${fechaStr}${total}${nit}`)
-                  .reduce((a,b)=>(((a<<5)-a)+b.charCodeAt(0))|0,0)
-                  .toString(16).padStart(40, '0');
-      qrData = data.qr || `https://catalogo-vpfe.dian.gov.co/document/searchqr?documentKey=${cufe}`;
-    }
-
-    const compradorNombre = data.cliente?.nombre || "CONSUMIDOR FINAL";
-    const compradorDoc = data.cliente?.identificacion || "222222222222";
-
-    const subtotalVal = data.subtotal_ventas || total;
-    const ivaVal = data.iva_total || 0;
-    const impoVal = data.impoconsumo_total || 0;
-
-    const itemsHtml = items.map((i: any) => {
-      const nombre = (i.nombre || i.descripcion || '').toUpperCase();
-      const cant = i.cantidad || 1;
-      const precioVal = Math.round(i.precio || i.precio_unitario || 0);
-      const subtotalVal = Math.round(i.subtotal || (cant * precioVal));
-      const cod = i.codigo || i.barcode || i.producto_id || i.id || '';
-      return `
-        <div class="row3">
-          <span class="desc">${nombre}<br>
-            <span style="font-size: 11.5px; font-weight: bold; color: #000;">Cod: ${cod} | CANT: ${cant}</span>
-          </span>
-          <span class="unit">$${precioVal.toLocaleString('es-CO')}</span>
-          <span class="sub">$${subtotalVal.toLocaleString('es-CO')}</span>
-        </div>
-      `;
-    }).join('');
-
-    let taxesHtml = '';
-    if (isDian) {
-      if (ivaVal > 0) {
-        taxesHtml += `<tr><td>IVA</td><td>19%</td><td>$${Math.round(subtotalVal).toLocaleString('es-CO')}</td><td>$${Math.round(ivaVal).toLocaleString('es-CO')}</td></tr>`;
-      }
-      if (impoVal > 0) {
-        taxesHtml += `<tr><td>INC</td><td>8%</td><td>$${Math.round(subtotalVal).toLocaleString('es-CO')}</td><td>$${Math.round(impoVal).toLocaleString('es-CO')}</td></tr>`;
-      }
-      if (ivaVal === 0 && impoVal === 0) {
-        taxesHtml += `<tr><td>EXENTO</td><td>0%</td><td>$${Math.round(total).toLocaleString('es-CO')}</td><td>$0</td></tr>`;
-      }
-    }
-
-    const html = `<html><head>
-      <meta charset="UTF-8">
-      <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-          font-family: Arial, Helvetica, sans-serif;
-          font-size: 13px;
-          line-height: 1.35;
-          width: 280px;
-          margin: 0;
-          padding: 0 4px;
-          color: #000;
-        }
-        .center  { text-align: center; }
-        .bold    { font-weight: bold; }
-        .uppercase { text-transform: uppercase; }
-        .titulo  {
-          text-align: center;
-          font-size: 13px;
-          font-weight: bold;
-          margin: 8px 0;
-          border-top: 1.5px dashed #000;
-          border-bottom: 1.5px dashed #000;
-          padding: 6px 0;
-        }
-        .store   { text-align: center; font-size: 15px; font-weight: bold; margin: 6px 0 2px 0; }
-        .sub     { text-align: center; font-size: 11px; margin: 2px 0; line-height: 1.25; }
-        .sep     { text-align: center; margin: 8px 0; border-top: 1.5px dashed #000; }
-        .row2    { display: flex; justify-content: space-between; margin: 3px 0; }
-        .row3    { display: flex; margin: 6px 0; border-bottom: 0.5px solid #ddd; padding-bottom: 4px; }
-        .row3 .desc { flex: 1; padding-right: 4px; }
-        .row3 .unit { width: 70px; text-align: right; font-size: 12px; }
-        .row3 .sub  { width: 75px; text-align: right; font-size: 12px; font-weight: bold; }
-        .hdr3    { display: flex; font-weight: bold; border-bottom: 1.5px dashed #000; padding-bottom: 5px; margin-bottom: 6px; font-size: 12px; }
-        .hdr3 .desc { flex: 1; }
-        .hdr3 .unit, .hdr3 .sub { width: 75px; text-align: right; }
-        .total-row { display: flex; justify-content: space-between; margin: 4px 0; font-size: 13px; }
-        .total-main{ font-weight: bold; font-size: 15px; border-top: 1.5px dashed #000; padding-top: 6px; margin-top: 6px; }
-        .tax-table { width: 100%; font-size: 11px; margin-top: 8px; border-collapse: collapse; }
-        .tax-table th { border-bottom: 1.5px dashed #000; text-align: left; font-weight: bold; padding-bottom: 4px; }
-        .tax-table td { padding: 4px 0; }
-        .cufe    { font-size: 10px; word-break: break-all; text-align: justify; margin: 6px 0; line-height: 1.2; font-family: monospace; }
-        .qr-container { text-align: center; margin: 12px 0; }
-        .qr-image { display: inline-block; width: 140px; height: 140px; }
-        .res     { font-size: 10px; line-height: 1.4; margin-top: 8px; border-top: 1.5px dashed #000; padding-top: 6px; }
-        .footer  { text-align: center; margin-top: 15px; font-size: 11px; line-height: 1.4; }
-      </style></head><body>
-      
-      <div class="store uppercase">${storeName}</div>
-      ${propietario ? `<div class="sub uppercase">${propietario}</div>` : ''}
-      ${nit ? `<div class="sub">NIT: ${nit}</div>` : ''}
-      ${direccion ? `<div class="sub uppercase">${direccion}</div>` : ''}
-      ${ciudad ? `<div class="sub uppercase">${ciudad} - COLOMBIA</div>` : ''}
-      ${tel ? `<div class="sub">TEL: ${tel}</div>` : ''}
-      <div class="sub">${tipoContr ? tipoContr : (respIva ? 'Responsable de IVA' : 'No Responsable de IVA')}</div>
-      
-      <div class="titulo">${isDian ? 'FACTURA ELECTRÓNICA DE VENTA' : 'TICKET DE VENTA'}</div>
-      
-      <div class="row2"><span class="bold">N° ${isDian ? 'FACTURA' : 'TICKET'}:</span><span class="bold">${isDian ? prefijo + ' ' : ''}${numStr}</span></div>
-      <div class="row2"><span>FECHA:</span><span>${fechaStr.split(',')[0]}</span></div>
-      <div class="row2"><span>HORA:</span><span>${fechaStr.split(',')[1] || ''}</span></div>
-      
-      ${isDian ? `
-        <div class="sep"></div>
-        <div class="sub" style="text-align:left"><span class="bold">ADQUIRIENTE:</span> ${compradorNombre.toUpperCase()}</div>
-        <div class="sub" style="text-align:left"><span class="bold">NIT/CC:</span> ${compradorDoc}</div>
-      ` : ''}
-      
-      <div class="sep"></div>
-      <div class="hdr3">
-        <span class="desc">DESCRIPCIÓN</span>
-        <span class="unit">UNIT.</span>
-        <span class="sub">TOTAL</span>
-      </div>
-      
-      ${itemsHtml}
-      
-      <div class="sep"></div>
-      <div class="total-row"><span>SUBTOTAL:</span><span>$${Math.round(subtotalVal).toLocaleString('es-CO')}</span></div>
-      ${ivaVal > 0 ? `<div class="total-row"><span>IVA:</span><span>$${Math.round(ivaVal).toLocaleString('es-CO')}</span></div>` : ''}
-      ${impoVal > 0 ? `<div class="total-row"><span>IMPOCONSUMO:</span><span>$${Math.round(impoVal).toLocaleString('es-CO')}</span></div>` : ''}
-      <div class="total-row total-main"><span>TOTAL A PAGAR:</span><span>$${Math.round(total).toLocaleString('es-CO')}</span></div>
-      
-      <div class="row2" style="margin-top: 6px;"><span class="bold">FORMA PAGO:</span><span class="bold uppercase">${mp}</span></div>
-      ${pago > 0 && cambio >= 0 ? `
-        <div class="row2"><span>RECIBIDO:</span><span>$${Math.round(pago).toLocaleString('es-CO')}</span></div>
-        <div class="row2"><span class="bold">CAMBIO:</span><span class="bold">$${Math.round(cambio).toLocaleString('es-CO')}</span></div>
-      ` : ''}
-      
-      ${isDian ? `
-        <div class="sep"></div>
-        <div class="bold center" style="font-size:11px;">DETALLE DE IMPUESTOS</div>
-        <table class="tax-table">
-          <thead>
-            <tr><th>TIPO</th><th>TASA</th><th>BASE</th><th>VALOR</th></tr>
-          </thead>
-          <tbody>
-            ${taxesHtml}
-          </tbody>
-        </table>
-        
-        <div class="sep"></div>
-        <div class="bold">CUFE:</div>
-        <div class="cufe">${cufe}</div>
-        
-        <div class="qr-container">
-          <img class="qr-image" src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}" />
-        </div>
-        
-        <div class="res">
-          <div>Resolución DIAN N° ${config.resolucion_dian || '187640000001'} Prefijo: ${prefijo} Habilitada del ${config.rango_inicio || '1'} al ${config.rango_fin || '10000'}</div>
-          ${config.resolucion_vigencia ? `<div>Vigencia: ${config.resolucion_vigencia}</div>` : ''}
-          <div class="bold" style="margin-top:4px">Proveedor Tecnológico: Proveedor fiscal de pruebas [REDACTED]</div>
-        </div>
-      ` : ''}
-      
-      <div class="footer">
-        <p class="bold">MiTienda POS</p>
-        <p>Desarrollado por SaaS POS [REDACTED]</p>
-        <p style="margin-top:6px; font-weight: bold;">¡GRACIAS POR SU COMPRA!</p>
-      </div>
-      <div style="height:35px"></div>
-    </body></html>`;
+  // Orquestación del motor de tickets (H3): el adaptador traduce el doc de venta
+  // + config al contrato del motor; el builder arma el modelo de dominio; el QR
+  // se genera localmente (H2) solo si la venta es DIAN; el renderer produce el
+  // HTML; la salida a impresión no cambia. Toda la lógica de datos vive en el
+  // adaptador puro (`lib/reimpresion/venta-ticket-adapter`); aquí solo se encadena.
+  const imprimirTicketConMotor = async (venta: any, config: ConfiguracionGlobal) => {
+    const { input, empresa } = adaptarVentaAModeloTicket(venta, config);
+    const model = TicketBuilder.fromVenta(input, empresa);
+    const qrDataUri = model.dian ? await generateQrDataUri(model.dian.qrPayload) : undefined;
+    const html = renderTicket(model, DEFAULT_RENDER_OPTIONS, { qrDataUri });
 
     if (typeof window !== 'undefined' && (window as any).api) {
       if (typeof (window as any).api.print.toPrinter === 'function') {
@@ -576,12 +448,12 @@ export function Historial() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden p-3 gap-3 sm:p-4 sm:gap-4">
       {/* Header Stats Premium */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="shrink-0 grid grid-cols-1 min-[900px]:grid-cols-2 min-[1400px]:grid-cols-4 gap-3 sm:gap-4">
         <Card className="bg-gradient-to-br from-primary/10 via-background to-background border-border/50 rounded-[2rem] shadow-sm relative overflow-hidden">
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-primary/10 rounded-full blur-2xl"></div>
-          <CardContent className="p-5 relative z-10 flex items-center gap-4">
+          <CardContent className="p-4 sm:p-5 relative z-10 flex items-center gap-4">
             <div className="h-14 w-14 rounded-2xl bg-primary/20 flex items-center justify-center shadow-inner">
               <Receipt className="h-7 w-7 text-primary" />
             </div>
@@ -593,40 +465,40 @@ export function Historial() {
         </Card>
         <Card className="bg-gradient-to-br from-success/10 via-background to-background border-border/50 rounded-[2rem] shadow-sm relative overflow-hidden">
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-success/10 rounded-full blur-2xl"></div>
-          <CardContent className="p-5 relative z-10 flex items-center gap-4">
+          <CardContent className="p-4 sm:p-5 relative z-10 flex items-center gap-4">
             <div className="h-14 w-14 rounded-2xl bg-success/20 flex items-center justify-center shadow-inner">
               <Banknote className="h-7 w-7 text-success" />
             </div>
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Total Ventas</p>
-              <p className="text-2xl font-black text-foreground tracking-tight">{formatCOP(totalVentas)}</p>
+              <p className="text-2xl font-black text-foreground tracking-tight">{formatCurrency(totalVentas)}</p>
             </div>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-emerald-500/10 via-background to-background border-border/50 rounded-[2rem] shadow-sm relative overflow-hidden">
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl"></div>
-          <CardContent className="p-5 relative z-10 flex items-center gap-4">
+          <CardContent className="p-4 sm:p-5 relative z-10 flex items-center gap-4">
             <div className="h-14 w-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center shadow-inner">
               <CheckCircle2 className="h-7 w-7 text-emerald-500" />
             </div>
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Enviados DIAN</p>
               <p className="text-2xl font-black text-foreground tracking-tight">
-                {ventas.filter((v) => !!v.cufe).length}
+                {ventas.filter((v) => !!v.dian?.cufe).length}
               </p>
             </div>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-warning/10 via-background to-background border-border/50 rounded-[2rem] shadow-sm relative overflow-hidden">
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-warning/10 rounded-full blur-2xl"></div>
-          <CardContent className="p-5 relative z-10 flex items-center gap-4">
+          <CardContent className="p-4 sm:p-5 relative z-10 flex items-center gap-4">
             <div className="h-14 w-14 rounded-2xl bg-warning/20 flex items-center justify-center shadow-inner">
               <AlertCircle className="h-7 w-7 text-warning" />
             </div>
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Pendientes DIAN</p>
               <p className="text-2xl font-black text-foreground tracking-tight">
-                {ventas.filter((v) => !v.cufe && !debeBloquearDIAN(v)).length}
+                {ventas.filter((v) => !v.dian?.cufe && !debeBloquearDIAN(v)).length}
               </p>
             </div>
           </CardContent>
@@ -634,10 +506,10 @@ export function Historial() {
       </div>
 
       {/* Filters and Actions Premium */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-card/80 backdrop-blur-xl p-4 rounded-[2rem] border border-border/50 shadow-sm mt-2">
-        <div className="flex flex-wrap gap-4 items-center">
+      <div className="shrink-0 flex flex-col min-[1180px]:flex-row gap-3 sm:gap-4 items-stretch min-[1180px]:items-center justify-between bg-card/80 backdrop-blur-xl p-4 rounded-[2rem] border border-border/50 shadow-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 min-[1180px]:flex gap-3 sm:gap-4 items-stretch min-[1180px]:items-center">
           <Select value={tipoPeriodo} onValueChange={(val: any) => { setTipoPeriodo(val); setFiltroFecha(""); }}>
-            <SelectTrigger className="w-32 bg-background border-border/50 rounded-xl h-11 focus:ring-primary/50 font-medium">
+            <SelectTrigger className="w-full min-[1180px]:w-32 bg-background border-border/50 rounded-xl h-11 focus:ring-primary/50 font-medium">
               <SelectValue placeholder="Período" />
             </SelectTrigger>
             <SelectContent>
@@ -649,17 +521,17 @@ export function Historial() {
           <div className="relative">
             <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             {tipoPeriodo === 'dia' && (
-              <Input type="date" value={filtroFecha} onChange={(e) => setFiltroFecha(e.target.value)} className="pl-11 w-44 bg-background border-border/50 rounded-xl h-11 font-medium shadow-sm focus:ring-primary/50" />
+              <Input type="date" value={filtroFecha} onChange={(e) => setFiltroFecha(e.target.value)} className="pl-11 w-full min-[1180px]:w-44 bg-background border-border/50 rounded-xl h-11 font-medium shadow-sm focus:ring-primary/50" />
             )}
             {tipoPeriodo === 'mes' && (
-              <Input type="month" value={filtroFecha} onChange={(e) => setFiltroFecha(e.target.value)} className="pl-11 w-44 bg-background border-border/50 rounded-xl h-11 font-medium shadow-sm focus:ring-primary/50" />
+              <Input type="month" value={filtroFecha} onChange={(e) => setFiltroFecha(e.target.value)} className="pl-11 w-full min-[1180px]:w-44 bg-background border-border/50 rounded-xl h-11 font-medium shadow-sm focus:ring-primary/50" />
             )}
             {tipoPeriodo === 'ano' && (
-              <Input type="number" min="2020" max="2100" placeholder="Ej: 2024" value={filtroFecha} onChange={(e) => setFiltroFecha(e.target.value)} className="pl-11 w-44 bg-background border-border/50 rounded-xl h-11 font-medium shadow-sm focus:ring-primary/50" />
+              <Input type="number" min="2020" max="2100" placeholder="Ej: 2024" value={filtroFecha} onChange={(e) => setFiltroFecha(e.target.value)} className="pl-11 w-full min-[1180px]:w-44 bg-background border-border/50 rounded-xl h-11 font-medium shadow-sm focus:ring-primary/50" />
             )}
           </div>
           <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-            <SelectTrigger className="w-48 bg-background border-border/50 rounded-xl h-11 focus:ring-primary/50 font-medium shadow-sm">
+            <SelectTrigger className="w-full min-[1180px]:w-48 bg-background border-border/50 rounded-xl h-11 focus:ring-primary/50 font-medium shadow-sm">
               <SelectValue placeholder="Estado DIAN" />
             </SelectTrigger>
             <SelectContent>
@@ -669,12 +541,12 @@ export function Historial() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Button variant="outline" onClick={exportarExcel} className="h-11 rounded-xl font-bold border-border/50 shadow-sm hover:bg-secondary/40">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+          <Button variant="outline" onClick={exportarExcel} className="h-11 rounded-xl font-bold border-border/50 shadow-sm hover:bg-secondary/40 w-full sm:w-auto">
             <Download className="mr-2 h-4 w-4" />
             Exportar a Excel
           </Button>
-          <Button onClick={emitirPendientes} className="h-11 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-md shadow-primary/20">
+          <Button onClick={emitirPendientes} className="h-11 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-md shadow-primary/20 w-full sm:w-auto">
             <Send className="mr-2 h-4 w-4" />
             Emitir Pendientes
           </Button>
@@ -682,15 +554,15 @@ export function Historial() {
       </div>
 
       {/* Table Premium */}
-      <Card className="flex-1 flex flex-col bg-card/50 backdrop-blur-md border-border/50 rounded-[2rem] shadow-sm overflow-hidden mt-4">
-        <CardHeader className="border-b border-border/50 py-5 bg-card/80">
+      <Card className="flex-1 min-h-0 flex flex-col bg-card/50 backdrop-blur-md border-border/50 rounded-[2rem] shadow-sm overflow-hidden">
+        <CardHeader className="shrink-0 border-b border-border/50 py-4 sm:py-5 bg-card/80">
           <CardTitle className="text-xl font-bold text-foreground flex items-center gap-2">
             <Receipt className="h-5 w-5 text-primary" />
             Registro de Operaciones
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex-1 p-0 overflow-auto">
-          <Table>
+        <CardContent className="flex-1 min-h-0 p-0 overflow-auto touch-pan-y overscroll-contain">
+          <Table className="min-w-[900px]">
             <TableHeader className="bg-secondary/20">
               <TableRow className="border-border/50 hover:bg-transparent">
                 <TableHead className="text-muted-foreground font-bold h-12 w-[120px]">Factura N°</TableHead>
@@ -716,7 +588,7 @@ export function Historial() {
                 </TableRow>
               ) : (
                 ventasFiltradas.map((venta, idx) => {
-                  const estado = venta.estado === 'anulada' ? 'anulada' : (venta.cufe ? "enviado" : "pendiente");
+                  const estado = venta.estado === 'anulada' ? 'anulada' : (venta.dian?.cufe ? "enviado" : "pendiente");
                   const vFechaObj = new Date(venta.fecha);
                   const fechaFormat = vFechaObj.toLocaleDateString('es-CO');
                   const horaFormat = vFechaObj.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
@@ -741,7 +613,7 @@ export function Historial() {
                       {venta.resumen}
                     </TableCell>
                     <TableCell className="font-black text-foreground text-[15px]">
-                      {formatCOP(venta.total)}
+                      {formatCurrency(venta.total)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-secondary/30 w-fit">
@@ -760,7 +632,7 @@ export function Historial() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {!venta.cufe && !debeBloquearDIAN(venta) && (
+                        {!venta.dian?.cufe && !debeBloquearDIAN(venta) && (
                           <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-primary hover:bg-primary/10" onClick={() => emitirDian(venta)}>
                             <Send className="h-4 w-4" />
                           </Button>
@@ -776,7 +648,7 @@ export function Historial() {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
-                        {venta.cufe && (
+                        {venta.dian?.cufe && (
                           <>
                             <Button 
                               size="icon" 
@@ -855,7 +727,7 @@ export function Historial() {
               <div className="space-y-2 p-4 rounded-lg bg-secondary/50">
                 <div className="flex justify-between text-lg font-bold pt-2 border-t border-border">
                   <span className="text-foreground">Total Pagado</span>
-                  <span className="text-primary">{formatCOP(ventaDetalle.total)}</span>
+                  <span className="text-primary">{formatCurrency(ventaDetalle.total)}</span>
                 </div>
               </div>
 
@@ -869,7 +741,7 @@ export function Historial() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Estado DIAN</p>
-                  <div className="mt-1">{getEstadoDianBadge(ventaDetalle.cufe ? "enviado" : "pendiente")}</div>
+                  <div className="mt-1">{getEstadoDianBadge(ventaDetalle.dian?.cufe ? "enviado" : "pendiente")}</div>
                 </div>
               </div>
 
@@ -882,7 +754,7 @@ export function Historial() {
                   <Download className="mr-2 h-4 w-4" />
                   Imprimir Ticket
                 </Button>
-                {!ventaDetalle.cufe && !debeBloquearDIAN(ventaDetalle) && (
+                {!ventaDetalle.dian?.cufe && !debeBloquearDIAN(ventaDetalle) && (
                   <Button className="flex-1" onClick={() => emitirDian(ventaDetalle)}>
                     <Send className="mr-2 h-4 w-4" />
                     Emitir DIAN

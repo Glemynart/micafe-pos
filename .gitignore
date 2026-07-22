@@ -11,6 +11,10 @@ __v0_jsx-dev-runtime.ts
 
 # Credenciales y secretos
 credentials.json
+service-account*.json
+*-firebase-adminsdk-*.json
+audit-fase9c1-report.json
+audit-fase9c2-report.json
 *.enc
 .pos_drive_credentials.enc
 *.db
@@ -24,6 +28,7 @@ build/
 
 # Dependencies
 node_modules/
+functions/lib/
 pnpm-lock.yaml
 
 # Temporal
@@ -33,7 +38,6 @@ tsconfig.tsbuildinfo
 # Archivos temporales
 test_export.xlsx
 .agents/
-src/
 PLAN_*.md
 *.xlsx
 
@@ -57,18 +61,6 @@ globals_refs.txt
 vender_head.txt
 *.backup
 skills-lock.json
-
-# Electron / desktop specific (no va en Vercel)
-main.js
-preload.js
-renderer.js
-update-server.js
-build-installer.js
-src/auth-middleware.js
-src/auto-updater.js
-src/backup-manager.js
-src/drive-backup.js
-src/rate-limiter.js
 
 # Legacy POS components (no se usan en la nueva version)
 components/pos/cierre-caja.tsx
@@ -95,3 +87,16 @@ desktop.ini
 DOCUMENTACION.md
 scripts/publicar-update.ps1
 scripts/encode-url.js
+
+# Audit artifacts
+audit-*.txt
+audit-*.json
+fase9c-post-execute.txt
+
+# Claude Code local session state
+.claude/
+
+# Dev server logs
+next-dev.log
+firebase-debug.log
+firestore-debug.log

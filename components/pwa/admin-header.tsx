@@ -3,7 +3,7 @@
 import { useAuthContext } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Coffee, LogOut } from "lucide-react"
+import { Store, LogOut } from "lucide-react"
 
 export function AdminHeader() {
   const { usuario, logout } = useAuthContext()
@@ -22,14 +22,14 @@ export function AdminHeader() {
     .slice(0, 2) || "?"
 
   return (
-    <header className="sticky top-0 z-40 bg-[#0a1628]/95 backdrop-blur-sm border-b border-white/5 px-4 h-14 flex items-center justify-between">
+    <header className="sticky top-0 z-40 bg-card/95 backdrop-blur-sm border-b border-border px-4 h-14 flex items-center justify-between">
       <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#F9B207] to-[#e6a100] flex items-center justify-center shadow-lg shadow-[#F9B207]/20">
-          <Coffee className="h-4 w-4 text-[#051D41]" />
+        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-sm">
+          <Store className="h-4 w-4 text-primary-foreground" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-white leading-none">Cafe Atrato</p>
-          <p className="text-[10px] text-white/50">
+          <p className="text-sm font-semibold text-foreground leading-none">Cafe Atrato</p>
+          <p className="text-[10px] text-muted-foreground">
             {usuario?.rol === "admin" ? "Admin" : usuario?.rol === "marketing" ? "Marketing" : usuario?.rol}
           </p>
         </div>
@@ -37,14 +37,14 @@ export function AdminHeader() {
 
       <div className="flex items-center gap-3">
         <div className="hidden sm:flex items-center gap-2">
-          <Avatar className="h-7 w-7 ring-1 ring-white/10">
-            <AvatarFallback className="text-[10px] bg-white/10 text-white font-bold">{initials}</AvatarFallback>
+          <Avatar className="h-7 w-7 ring-1 ring-border">
+            <AvatarFallback className="text-[10px] bg-muted text-foreground font-bold">{initials}</AvatarFallback>
           </Avatar>
-          <span className="text-xs text-white/60 font-medium">{usuario?.nombre || usuario?.username}</span>
+          <span className="text-xs text-muted-foreground font-medium">{usuario?.nombre || usuario?.username}</span>
         </div>
         <button
           onClick={handleLogout}
-          className="h-8 w-8 flex items-center justify-center rounded-lg text-white/40 hover:text-red-400 hover:bg-white/5 transition-colors"
+          className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted transition-colors"
           title="Cerrar sesion"
         >
           <LogOut className="h-4 w-4" />

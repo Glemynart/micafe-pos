@@ -1,24 +1,47 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useEspacios } from '@/contexts/espacios-context'
 import { useAuthContext } from '@/contexts/auth-context'
 import { suscribirProductos, type Producto } from '@/lib/productos-service'
 import { suscribirInsumos, type Insumo } from '@/lib/insumos-service'
 import { suscribirRecetas, type Receta } from '@/lib/recetas-service'
-import { registrarVenta, type CrearVentaParams } from '@/lib/ventas-service'
+import { registrarVenta, cobrarPedido, type CrearVentaParams } from '@/lib/ventas-service'
 import { suscribirClientes, filtrarClientes, crearCliente, type Cliente } from '@/lib/clientes-service'
 import { suscribirMesas, type Mesa } from '@/lib/mesas-service'
-import { suscribirPedidosActivos, guardarPedido, eliminarPedido, enviarPedidoACocina, type PedidoActivo, type PedidoItem } from '@/lib/pedidos-service'
+import { suscribirPedidosActivos, guardarPedido, agregarItemPedido, enviarPedidoACocina, modificarItemPedido, suscribirComandasActivas, type PedidoActivo, type PedidoItem, type ComandaCocina } from '@/lib/pedidos-service'
 import { suscribirTurnoActivo, type Turno } from '@/lib/turnos-service'
+import { suscribirConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
+import type { CheckoutConfiguracionEmpresa } from '@/lib/tickets/adapters/checkout-adapter'
+import {
+  resolverLineaImpuesto,
+  agregarTotalesImpuesto,
+  tarifaVigente,
+  REGIMEN_TRIBUTARIO_DEFAULT,
+  IMPUESTO_TIPO_DEFAULT,
+  type RegimenTributario,
+} from '@/lib/impuestos-service'
+import { TicketBuilder, generateQrDataUri, renderTicket, DEFAULT_RENDER_OPTIONS } from '@/lib/tickets'
+import { adaptarCheckoutAModeloTicket, type CheckoutTicketInput } from '@/lib/tickets/adapters/checkout-adapter'
+import { separarCuenta, type ItemSeparacion } from '@/lib/separar-cuenta-service'
+import { unirCuentas } from '@/lib/unir-cuentas-service'
+import { trasladarCuenta } from '@/lib/trasladar-cuenta-service'
+import { SepararCuentaDialog } from '@/components/pos/separar-cuenta-dialog'
+import { UnirCuentasDialog } from '@/components/pos/unir-cuentas-dialog'
+import { TrasladarCuentaDialog } from '@/components/pos/trasladar-cuenta-dialog'
+import { ModifierSelectorDialog } from '@/components/pos/modifier-selector-dialog'
 import { DynamicIcon } from '@/components/ui/dynamic-icon'
+import { suscribirModificadorGrupos, type ModificadorGrupo } from '@/lib/modificador-grupos-service'
+import { suscribirProductoModificadorGruposPorEspacio, type ProductoModificadorGrupo } from '@/lib/producto-modificador-grupos-service'
+import { resolverGruposProducto, type SeleccionModificadorTemporal } from '@/lib/modifier-selection'
+import { crearConfiguracionModificadores, crearConfiguracionSimple } from '@/lib/configured-line'
 
 import { toast } from 'sonner'
 import { 
-  Barcode, 
-  Plus, 
-  Minus, 
-  Trash2, 
+  Barcode,
+  Plus,
+  Minus,
+  Trash2,
   ShoppingCart,
   User,
   Banknote,
@@ -31,6 +54,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
+  ChefHat,
+  SplitSquareHorizontal,
+  Merge,
+  ArrowRightLeft,
+  AlertTriangle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -59,18 +87,24 @@ function productoToCartItem(p: Producto): CartItem {
     category: p.categoriaId,
     emoji: p.icono ?? '📦',
     stock: p.stock,
-    iva: 19,
-    impoconsumo: 0,
+    impuestoTipo: p.impuestoTipo ?? IMPUESTO_TIPO_DEFAULT,
     hasRecipe: false,
     quantity: 1,
   }
 }
 
-export function SellModule() {
+export interface SellModuleProps {
+  initialPedidoId?: string | null
+}
+
+type EstadoCatalogoModificadores = 'loading' | 'ready' | 'error'
+
+export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   const [searchCode, setSearchCode] = useState('')
   const [selectedCartIndex, setSelectedCartIndex] = useState<number>(-1)
   const [selectedCustomer, setSelectedCustomer] = useState<string>('Consumidor Final')
   const [selectedMesaId, setSelectedMesaId] = useState<string | null>(null)
+  const [selectedPedidoId, setSelectedPedidoId] = useState<string | null>(null)
   const [selectedCliente, setSelectedCliente] = useState<{ id: string; nombre: string; documento: string; tipoDocumento: string } | null>(null)
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [clienteSearch, setClienteSearch] = useState('')
@@ -83,58 +117,62 @@ export function SellModule() {
   const { espacioActivo, categorias, categoriaActiva, seleccionarCategoria } = useEspacios()
 
   const [catScroll, setCatScroll] = useState({ canLeft: false, canRight: false })
+  const categoriesScrollRef = useRef<HTMLDivElement>(null)
 
-  // Callback ref: se ejecuta inmediatamente cuando el DOM esta listo
-  const categoriesRef = useCallback((el: HTMLDivElement | null) => {
+  const checkCatScroll = useCallback(() => {
+    const el = categoriesScrollRef.current
     if (!el) return
-    const check = () => {
-      setCatScroll({
-        canLeft: el.scrollLeft > 4,
-        canRight: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
-      })
-    }
-    // Esperar al siguiente frame para que el contenido este renderizado
-    requestAnimationFrame(check)
-    el.addEventListener('scroll', check, { passive: true })
-    window.addEventListener('resize', check)
-    // Mouse wheel -> scroll horizontal
+    setCatScroll({
+      canLeft: el.scrollLeft > 4,
+      canRight: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+    })
+  }, [])
+
+  // Adjuntar listeners al montar: scroll, resize, wheel y ResizeObserver
+  useEffect(() => {
+    const el = categoriesScrollRef.current
+    if (!el) return
+    // Tres intentos de detección: inmediato, próximo frame, y 300ms (contenido async)
+    checkCatScroll()
+    requestAnimationFrame(checkCatScroll)
+    const timer = setTimeout(checkCatScroll, 300)
+    el.addEventListener('scroll', checkCatScroll, { passive: true })
+    window.addEventListener('resize', checkCatScroll)
+    const ro = new ResizeObserver(checkCatScroll)
+    ro.observe(el)
     const onWheel = (e: WheelEvent) => {
       if (e.deltaY === 0 || Math.abs(e.deltaX || 0) > Math.abs(e.deltaY)) return
       e.preventDefault()
       el.scrollLeft += e.deltaY
     }
     el.addEventListener('wheel', onWheel, { passive: false })
-    const ro = new ResizeObserver(check)
-    ro.observe(el)
-    // Cleanup
-    const cleanup = () => {
-      el.removeEventListener('scroll', check)
-      window.removeEventListener('resize', check)
-      el.removeEventListener('wheel', onWheel)
+    return () => {
+      clearTimeout(timer)
+      el.removeEventListener('scroll', checkCatScroll)
+      window.removeEventListener('resize', checkCatScroll)
       ro.disconnect()
+      el.removeEventListener('wheel', onWheel)
     }
-    ;(el as any).__catCleanup = cleanup
-  }, [])
+  }, [checkCatScroll])
 
-  // Re-evaluar scroll cuando cambien las categorias (puede haber overflow nuevo)
+  // Re-detectar cuando lleguen categorías desde Firestore
   useEffect(() => {
-    const el = document.querySelector('[data-categories-scroller]') as HTMLDivElement | null
-    if (!el) return
-    requestAnimationFrame(() => {
-      setCatScroll({
-        canLeft: el.scrollLeft > 4,
-        canRight: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
-      })
-    })
-  }, [categorias])
+    requestAnimationFrame(checkCatScroll)
+    const timer = setTimeout(checkCatScroll, 300)
+    return () => clearTimeout(timer)
+  }, [categorias, checkCatScroll])
 
-  const scrollCategories = (dir: 'left' | 'right') => {
-    const el = document.querySelector('[data-categories-scroller]') as HTMLDivElement | null
+  const scrollCategories = useCallback((dir: 'left' | 'right') => {
+    const el = categoriesScrollRef.current
     if (!el) return
-    const amount = el.clientWidth * 0.6
-    el.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' })
-  }
+    el.scrollBy({ left: dir === 'left' ? -el.clientWidth * 0.6 : el.clientWidth * 0.6, behavior: 'smooth' })
+  }, [])
   const [productos, setProductos] = useState<Producto[]>([])
+  const [gruposModificadores, setGruposModificadores] = useState<ModificadorGrupo[]>([])
+  const [relacionesModificadores, setRelacionesModificadores] = useState<ProductoModificadorGrupo[]>([])
+  const [estadoCatalogoModificadores, setEstadoCatalogoModificadores] = useState<EstadoCatalogoModificadores>('loading')
+  const [errorCatalogoModificadores, setErrorCatalogoModificadores] = useState<string | null>(null)
+  const [productoConModificadores, setProductoConModificadores] = useState<Producto | null>(null)
   const [insumos, setInsumos] = useState<Insumo[]>([])
   const [recetas, setRecetas] = useState<Receta[]>([])
   const [mesas, setMesas] = useState<Mesa[]>([])
@@ -143,6 +181,7 @@ export function SellModule() {
   const [cargandoTurno, setCargandoTurno] = useState(true)
   const [cargandoProductos, setCargandoProductos] = useState(true)
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
+  const isProcessingRef = useRef(false)
   const [fotoTipo, setFotoTipo] = useState<'bn' | 'color'>('bn')
   const [fotoCopias, setFotoCopias] = useState(1)
   const esFotocopias = espacioActivo?.nombre?.toLowerCase().includes('fotocop') ?? false
@@ -173,45 +212,199 @@ export function SellModule() {
     return () => { unsubMesas(); unsubPedidos() }
   }, [espacioActivo?.id])
 
-  useEffect(() => suscribirClientes(setClientes), [])
+  const [comandasActivas, setComandasActivas] = useState<ComandaCocina[]>([])
 
-  // Obtener el carrito actual basado en la mesa seleccionada
-  const activePedido = pedidosActivos.find(p => p.mesaId === selectedMesaId)
-  const cart: PedidoItem[] = activePedido?.items || []
-
-  const syncCartWithFirebase = useCallback(async (newItems: PedidoItem[]) => {
-    if (newItems.length === 0) {
-      if (activePedido) await eliminarPedido(activePedido.id)
+  useEffect(() => {
+    if (!espacioActivo) {
+      setComandasActivas([])
       return
     }
-    
-    if (activePedido) {
-      await guardarPedido({ ...activePedido, items: newItems })
-    } else {
-      if (!usuario || !espacioActivo) return
-      const nombreMesa = selectedMesaId ? mesas.find(m => m.id === selectedMesaId)?.nombre || 'Mesa' : 'Mostrador / Para llevar'
-      await guardarPedido({
-        mesaId: selectedMesaId,
-        nombreMesa,
-        espacioId: espacioActivo.id,
-        cajeroId: usuario.uid,
-        items: newItems,
-        estado: 'abierto'
+    return suscribirComandasActivas(espacioActivo.id, setComandasActivas)
+  }, [espacioActivo?.id])
+
+  useEffect(() => suscribirClientes(setClientes), [])
+
+  // ADR-TRIB-001 D2/D7: régimen tributario de la Empresa — único driver del
+  // cálculo de impuesto (INV-6/INV-7). Default en el punto de lectura.
+  const [regimenTributario, setRegimenTributario] = useState<RegimenTributario>(REGIMEN_TRIBUTARIO_DEFAULT)
+  // H4: config completa (no solo el régimen) — el encabezado de empresa del
+  // ticket la necesita entera, igual que Historial.
+  const [config, setConfig] = useState<ConfiguracionGlobal | null>(null)
+  useEffect(() => suscribirConfiguracion((config) => {
+    setRegimenTributario(config.regimenTributario ?? REGIMEN_TRIBUTARIO_DEFAULT)
+    setConfig(config)
+  }), [])
+
+  // Bridge salon → sell: intent de navegación pendiente (consume-once).
+  // Se inicializa con initialPedidoId al montar. El efecto lo consume
+  // cuando pedidosActivos contiene el pedido objetivo. Tras consumirlo,
+  // el ref queda null y nunca vuelve a interferir.
+  const pendingNavRef = useRef<string | null>(initialPedidoId ?? null)
+  // Consume-once: consume-effect lo activa tras navegar; auto-sync lo lee en el
+  // mismo flush para no pisar la selección con la heurística de mesa vacía.
+  const justNavigatedRef = useRef(false)
+
+  useEffect(() => {
+    const targetId = pendingNavRef.current
+    if (!targetId) return
+
+    const pedido = pedidosActivos.find(p => p.id === targetId && p.activo)
+    if (!pedido) return
+
+    pendingNavRef.current = null
+    justNavigatedRef.current = true
+    setSelectedPedidoId(pedido.id)
+    setSelectedMesaId(pedido.mesaId)
+  }, [pedidosActivos])
+
+  // Auto-sync: al cambiar de mesa, seleccionar su pedido (si hay exactamente uno)
+  useEffect(() => {
+    if (pendingNavRef.current) return
+    if (justNavigatedRef.current) { justNavigatedRef.current = false; return }
+    if (selectedMesaId === null) {
+      setSelectedPedidoId(null)
+      return
+    }
+    const pedidosMesa = pedidosActivos.filter(p => p.mesaId === selectedMesaId && p.activo && p.estado === 'abierto')
+    if (pedidosMesa.length === 1) {
+      setSelectedPedidoId(pedidosMesa[0].id)
+    } else if (pedidosMesa.length === 0) {
+      setSelectedPedidoId(null)
+    }
+  }, [selectedMesaId, pedidosActivos])
+
+  // Obtener el pedido activo: por selectedPedidoId (preciso) o fallback por mesa
+  const activePedido = useMemo(() => {
+    if (selectedPedidoId) {
+      return pedidosActivos.find(p => p.id === selectedPedidoId && p.activo) ?? null
+    }
+    return pedidosActivos.find(p => p.mesaId === selectedMesaId && p.activo && p.estado === 'abierto') ?? null
+  }, [selectedPedidoId, selectedMesaId, pedidosActivos])
+
+  // Optimistic cart: muestra el cambio local de inmediato mientras la
+  // transacción de Firestore confirma en background. Se limpia cuando
+  // llega el snapshot actualizado (actualizadoEn cambia tras cada write).
+  const [optimisticItems, setOptimisticItems] = useState<{ pedidoId: string; items: PedidoItem[] } | null>(null)
+
+  const actualizadoEnMs: number = (() => {
+    const ts = activePedido?.actualizadoEn
+    return typeof ts?.toMillis === 'function' ? ts.toMillis() : 0
+  })()
+
+  useEffect(() => {
+    setOptimisticItems(null)
+  }, [actualizadoEnMs, activePedido?.id])
+
+  const cart: PedidoItem[] =
+    optimisticItems !== null && optimisticItems.pedidoId === activePedido?.id
+      ? optimisticItems.items
+      : (activePedido?.items || [])
+
+  const pedidosMesaActual = useMemo(
+    () => selectedMesaId
+      ? pedidosActivos.filter(p => p.mesaId === selectedMesaId && p.activo && p.estado === 'abierto')
+      : [],
+    [selectedMesaId, pedidosActivos],
+  )
+
+  const handleSepararCuenta = useCallback(async (items: ItemSeparacion[]) => {
+    if (!activePedido || !usuario) return
+    try {
+      const nuevoId = await separarCuenta(activePedido.id, items, usuario.uid)
+      toast.success('Cuenta separada correctamente')
+      setSelectedPedidoId(nuevoId)
+    } catch (e: any) {
+      toast.error(e.message || 'Error al separar cuenta')
+    }
+  }, [activePedido, usuario])
+
+  const handleUnirCuentas = useCallback(async (destinoId: string, origenIds: string[]) => {
+    if (!usuario) return
+    try {
+      await unirCuentas(destinoId, origenIds, usuario.uid)
+      toast.success('Cuentas unidas correctamente')
+      setSelectedPedidoId(destinoId)
+    } catch (e: any) {
+      toast.error(e.message || 'Error al unir cuentas')
+    }
+  }, [usuario])
+
+  const handleTrasladarCuenta = useCallback(async (mesaDestinoId: string) => {
+    if (!activePedido || !usuario) return
+    try {
+      const pedidoId = activePedido.id
+      await trasladarCuenta(pedidoId, mesaDestinoId, usuario.uid)
+      toast.success('Cuenta trasladada correctamente')
+      // Delegar la selección al consume-effect: cuando llegue el snapshot
+      // con el pedido en su nueva mesa, el effect fija selectedPedidoId y
+      // selectedMesaId desde datos frescos, sin que el auto-sync por mesa
+      // pueda pisar la selección si el destino ya tenía otra cuenta.
+      pendingNavRef.current = pedidoId
+    } catch (e: any) {
+      toast.error(e.message || 'Error al trasladar cuenta')
+    }
+  }, [activePedido, usuario])
+
+  const estadoCocina = useMemo(() => {
+    if (!activePedido) return null
+    const comandasPedido = comandasActivas.filter(
+      c => c.pedidoId === activePedido.id && c.tipo !== 'cancelacion'
+    )
+    if (comandasPedido.length === 0) return null
+    const pendientes = comandasPedido.filter(c => c.estado !== 'listo')
+    const listos = comandasPedido.filter(c => c.estado === 'listo')
+    if (pendientes.length === 0 && listos.length > 0) return 'listo' as const
+    if (listos.length > 0) return 'parcial' as const
+    return 'en_cocina' as const
+  }, [activePedido, comandasActivas])
+
+  const prevCocinaRef = useRef<{ pedidoId?: string; estado: string | null }>({ estado: null })
+  useEffect(() => {
+    const prev = prevCocinaRef.current
+    if (
+      estadoCocina === 'listo' &&
+      prev.estado !== 'listo' &&
+      activePedido?.id === prev.pedidoId
+    ) {
+      toast.success('¡Pedido listo en cocina!', {
+        description: activePedido?.nombreMesa,
+        duration: 8000,
       })
     }
-  }, [activePedido, selectedMesaId, mesas, usuario, espacioActivo])
+    prevCocinaRef.current = { pedidoId: activePedido?.id, estado: estadoCocina }
+  }, [estadoCocina, activePedido?.id, activePedido?.nombreMesa])
 
-  const addCustomPhotoCopyToCart = useCallback((nombre: string, copias: number) => {
+  const crearPedidoConItem = useCallback(async (item: PedidoItem) => {
+    if (!usuario || !espacioActivo) return
+    const nombreMesa = selectedMesaId ? mesas.find(m => m.id === selectedMesaId)?.nombre || 'Mesa' : 'Mostrador / Para llevar'
+    await guardarPedido({
+      mesaId: selectedMesaId,
+      nombreMesa,
+      espacioId: espacioActivo.id,
+      cajeroId: usuario.uid,
+      items: [item],
+      estado: 'abierto'
+    })
+  }, [selectedMesaId, mesas, usuario, espacioActivo])
+
+  const addCustomPhotoCopyToCart = useCallback(async (nombre: string, copias: number) => {
     const precio = fotoTipo === 'bn' ? 200 : 800
-    const existing = cart.find(item => item.id === `foto-${fotoTipo}`)
-    let newItems: PedidoItem[]
-    if (existing) {
-      newItems = cart.map(item => item.id === `foto-${fotoTipo}` ? { ...item, quantity: item.quantity + copias, price: precio } : item)
-    } else {
-      newItems = [...cart, { id: `foto-${fotoTipo}`, name: nombre, code: `foto-${fotoTipo}`, price: precio, cost: 50, category: 'Fotocopias', emoji: 'Printer', stock: 999, iva: 0, impoconsumo: 0, hasRecipe: false, quantity: copias } as PedidoItem]
+    const item: PedidoItem = {
+      id: `foto-${fotoTipo}`, uid: crypto.randomUUID(), name: nombre, code: `foto-${fotoTipo}`,
+      price: precio, cost: 50, category: 'Fotocopias', emoji: 'Printer',
+      stock: 999, impuestoTipo: 'excluido', hasRecipe: false, quantity: copias,
+      ...crearConfiguracionSimple(`foto-${fotoTipo}`, precio),
     }
-    syncCartWithFirebase(newItems)
-  }, [cart, syncCartWithFirebase, fotoTipo])
+    try {
+      if (activePedido) {
+        await agregarItemPedido(activePedido.id, item)
+      } else {
+        await crearPedidoConItem(item)
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Error al agregar fotocopia')
+    }
+  }, [activePedido, crearPedidoConItem, fotoTipo])
 
   // Suscribir a recetas (todas)
   useEffect(() => {
@@ -240,6 +433,47 @@ export function SellModule() {
       unsubInsumos()
     }
   }, [espacioActivo?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!espacioActivo) {
+      setGruposModificadores([])
+      setRelacionesModificadores([])
+      setProductoConModificadores(null)
+      setEstadoCatalogoModificadores('ready')
+      setErrorCatalogoModificadores(null)
+      return
+    }
+
+    let gruposListos = false
+    let relacionesListas = false
+    let catalogoConError = false
+    const actualizarCarga = () => {
+      if (!catalogoConError && gruposListos && relacionesListas) {
+        setEstadoCatalogoModificadores('ready')
+      }
+    }
+    const manejarError = (error: { code?: string }) => {
+      catalogoConError = true
+      setEstadoCatalogoModificadores('error')
+      setErrorCatalogoModificadores(error.code === 'permission-denied'
+        ? 'No tienes permisos para cargar los modificadores. Contacta a un administrador.'
+        : 'No se pudo cargar la configuración de modificadores. Intenta nuevamente.')
+    }
+    setEstadoCatalogoModificadores('loading')
+    setErrorCatalogoModificadores(null)
+    const unsubGrupos = suscribirModificadorGrupos(espacioActivo.id, (grupos) => {
+      gruposListos = true
+      setGruposModificadores(grupos)
+      actualizarCarga()
+    }, manejarError)
+    const unsubRelaciones = suscribirProductoModificadorGruposPorEspacio(espacioActivo.id, (relaciones) => {
+      relacionesListas = true
+      setRelacionesModificadores(relaciones)
+      actualizarCarga()
+    }, manejarError)
+
+    return () => { unsubGrupos(); unsubRelaciones() }
+  }, [espacioActivo?.id])
 
   // Calcular el stock dinámico si tiene receta
   const productosConStock = useMemo(() => {
@@ -277,11 +511,21 @@ export function SellModule() {
 
   // Dialogs
   const [showMesasDialog, setShowMesasDialog] = useState(false)
+  const [showSepararCuenta, setShowSepararCuenta] = useState(false)
+  const [showUnirCuentas, setShowUnirCuentas] = useState(false)
+  const [showTrasladarCuenta, setShowTrasladarCuenta] = useState(false)
   const [showQuickProduct, setShowQuickProduct] = useState(false)
   const [showPayment, setShowPayment] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<string>('efectivo')
   const [cashReceived, setCashReceived] = useState<number>(0)
   const [showReceipt, setShowReceipt] = useState(false)
+  // H4: fuente única para el ticket — CrearVentaParams tal cual se persistió,
+  // más los dos datos que solo existen tras persistir (consecutivo, fecha).
+  // Ningún modelo paralelo.
+  const [ventaParaImprimir, setVentaParaImprimir] = useState<CheckoutTicketInput | null>(null)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const pendingRemoveUid = useRef<string | null>(null)
+
   
   // Quick product form
   const [quickProductName, setQuickProductName] = useState('')
@@ -290,48 +534,191 @@ export function SellModule() {
   // Calculadora Rápida para Fotocopias
   const [quickCopies, setQuickCopies] = useState<number>(1)
 
-  const addToCart = useCallback((product: Producto) => {
-    const cartItem = productoToCartItem(product)
-    const existing = cart.find(item => item.id === cartItem.id)
-    let newItems = []
-    if (existing) {
-      newItems = cart.map(item => item.id === cartItem.id ? { ...item, quantity: item.quantity + 1 } : item)
-    } else {
-      newItems = [...cart, { ...cartItem, quantity: 1 }]
-    }
-    syncCartWithFirebase(newItems)
-  }, [cart, syncCartWithFirebase])
+  const addToCartPending = useRef<Map<string, { product: Producto; qty: number }>>(new Map())
+  const addToCartTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
-  const addToCartQuantity = useCallback((product: Producto, qty: number) => {
-    const cartItem = productoToCartItem(product)
-    const existing = cart.find(item => item.id === cartItem.id)
-    let newItems = []
-    if (existing) {
-      newItems = cart.map(item => item.id === cartItem.id ? { ...item, quantity: item.quantity + qty } : item)
-    } else {
-      newItems = [...cart, { ...cartItem, quantity: qty }]
-    }
-    syncCartWithFirebase(newItems)
-    setQuickCopies(1) // reset after add
-  }, [cart, syncCartWithFirebase])
+  const flushAddToCart = useCallback(async (productId: string) => {
+    const pending = addToCartPending.current.get(productId)
+    addToCartPending.current.delete(productId)
+    addToCartTimers.current.delete(productId)
+    if (!pending) return
 
-  const updateQuantity = useCallback((productId: string, delta: number) => {
-    const newItems = cart.map(item => {
-      if (item.id === productId) {
-        const newQty = item.quantity + delta
-        if (newQty <= 0) return item
-        return { ...item, quantity: newQty }
+    const cartItem = productoToCartItem(pending.product)
+    const item: PedidoItem = {
+      ...cartItem,
+      uid: crypto.randomUUID(),
+      quantity: pending.qty,
+      ...crearConfiguracionSimple(cartItem.id, cartItem.price),
+    }
+    try {
+      if (activePedido) {
+        await agregarItemPedido(activePedido.id, item)
+      } else {
+        await crearPedidoConItem(item)
       }
-      return item
-    }).filter(item => item.quantity > 0)
-    syncCartWithFirebase(newItems)
-  }, [cart, syncCartWithFirebase])
+    } catch (e: any) {
+      toast.error(e.message || 'Error al agregar producto')
+    }
+  }, [activePedido, crearPedidoConItem])
 
-  const removeFromCart = useCallback((productId: string) => {
-    const newItems = cart.filter(item => item.id !== productId)
-    syncCartWithFirebase(newItems)
+  const addToCart = useCallback((product: Producto) => {
+    const entry = addToCartPending.current.get(product.id)
+    if (entry) {
+      entry.qty += 1
+    } else {
+      addToCartPending.current.set(product.id, { product, qty: 1 })
+    }
+
+    const existing = addToCartTimers.current.get(product.id)
+    if (existing) clearTimeout(existing)
+    addToCartTimers.current.set(product.id, setTimeout(() => flushAddToCart(product.id), 150))
+  }, [flushAddToCart])
+
+  const gruposSelector = useMemo(
+    () => productoConModificadores
+      ? resolverGruposProducto(productoConModificadores.id, gruposModificadores, relacionesModificadores)
+      : [],
+    [productoConModificadores, gruposModificadores, relacionesModificadores],
+  )
+
+  const seleccionarProducto = useCallback((product: Producto) => {
+    if (estadoCatalogoModificadores === 'loading') {
+      toast.info('Cargando configuración de modificadores…')
+      return
+    }
+    if (estadoCatalogoModificadores === 'error') {
+      toast.error(errorCatalogoModificadores ?? 'No se pudo verificar la configuración de modificadores.')
+      return
+    }
+
+    const grupos = resolverGruposProducto(product.id, gruposModificadores, relacionesModificadores)
+    if (grupos.length === 0) {
+      addToCart(product)
+      return
+    }
+    setProductoConModificadores(product)
+  }, [addToCart, errorCatalogoModificadores, estadoCatalogoModificadores, gruposModificadores, relacionesModificadores])
+
+  const confirmarProductoConModificadores = useCallback(async (
+    modificadores: SeleccionModificadorTemporal[],
+    precioFinal: number,
+  ) => {
+    if (!productoConModificadores) return false
+    const cartItem = productoToCartItem(productoConModificadores)
+    const item: PedidoItem = {
+      ...cartItem,
+      uid: crypto.randomUUID(),
+      quantity: 1,
+      price: precioFinal,
+      ...crearConfiguracionModificadores(
+        productoConModificadores.id,
+        productoConModificadores.precio,
+        gruposSelector,
+        modificadores,
+      ),
+    }
+
+    try {
+      if (activePedido) {
+        await agregarItemPedido(activePedido.id, item)
+      } else {
+        await crearPedidoConItem(item)
+      }
+      toast.success(`${productoConModificadores.nombre} agregado al pedido`)
+      setProductoConModificadores(null)
+      return true
+    } catch (e: any) {
+      toast.error(e.message || 'Error al agregar producto configurado')
+      return false
+    }
+  }, [activePedido, crearPedidoConItem, gruposSelector, productoConModificadores])
+
+  const obtenerResumenModificadores = useCallback((item: PedidoItem) => {
+    if (item.modificadores === undefined) return []
+    const resumenSnapshot = item.modificadores.flatMap((seleccion) =>
+      seleccion.opciones?.map((opcion) => opcion.nombre) ?? [],
+    )
+    if (resumenSnapshot.length > 0) return resumenSnapshot
+    const gruposPorId = new Map(gruposModificadores.map((grupo) => [grupo.id, grupo]))
+    return item.modificadores.flatMap((seleccion) => {
+      const grupo = gruposPorId.get(seleccion.grupoId)
+      if (!grupo) return [`Grupo ${seleccion.grupoId}`]
+      const nombres = seleccion.opcionIds
+        .map((opcionId) => grupo.opciones.find((opcion) => opcion.id === opcionId)?.nombre)
+        .filter((nombre): nombre is string => !!nombre)
+      return nombres.length > 0 ? nombres : [grupo.nombre]
+    })
+  }, [gruposModificadores])
+
+  const addToCartQuantity = useCallback(async (product: Producto, qty: number) => {
+    const cartItem = productoToCartItem(product)
+    const item: PedidoItem = {
+      ...cartItem,
+      uid: crypto.randomUUID(),
+      quantity: qty,
+      ...crearConfiguracionSimple(cartItem.id, cartItem.price),
+    }
+    try {
+      if (activePedido) {
+        await agregarItemPedido(activePedido.id, item)
+      } else {
+        await crearPedidoConItem(item)
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Error al agregar producto')
+    }
+    setQuickCopies(1)
+  }, [activePedido, crearPedidoConItem])
+
+  const updateQuantity = useCallback(async (itemUid: string, delta: number) => {
+    if (!activePedido) return
+    const item = cart.find(i => (i.uid || i.id) === itemUid)
+    if (!item) return
+    const newQty = item.quantity + delta
+    if (newQty <= 0) return
+    setOptimisticItems({
+      pedidoId: activePedido.id,
+      items: cart.map(i => (i.uid || i.id) === itemUid ? { ...i, quantity: newQty } : i),
+    })
+    try {
+      await modificarItemPedido(activePedido.id, itemUid, newQty)
+    } catch (e: any) {
+      setOptimisticItems(null)
+      toast.error(e.message || 'Error al actualizar cantidad')
+    }
+  }, [activePedido, cart])
+
+  const removeFromCart = useCallback(async (itemUid: string) => {
+    if (!activePedido) return
+    if (cart.length === 1) {
+      pendingRemoveUid.current = itemUid
+      setShowCancelConfirm(true)
+      return
+    }
+    setOptimisticItems({
+      pedidoId: activePedido.id,
+      items: cart.filter(i => (i.uid || i.id) !== itemUid),
+    })
     setSelectedCartIndex(-1)
-  }, [cart, syncCartWithFirebase])
+    try {
+      await modificarItemPedido(activePedido.id, itemUid, 0)
+    } catch (e: any) {
+      setOptimisticItems(null)
+      toast.error(e.message || 'Error al eliminar item')
+    }
+  }, [activePedido, cart])
+
+  const confirmCancelPedido = useCallback(async () => {
+    if (!activePedido || !pendingRemoveUid.current) return
+    try {
+      await modificarItemPedido(activePedido.id, pendingRemoveUid.current, 0)
+    } catch (e: any) {
+      toast.error(e.message || 'Error al cancelar pedido')
+    }
+    pendingRemoveUid.current = null
+    setShowCancelConfirm(false)
+    setSelectedCartIndex(-1)
+  }, [activePedido])
 
   const handleSearch = useCallback((e: React.FormEvent) => {
     e.preventDefault()
@@ -350,44 +737,64 @@ export function SellModule() {
       p.nombre.toLowerCase().includes(searchCode.toLowerCase())
     )
     if (product) {
-      addToCart(product)
+      seleccionarProducto(product)
       setSearchCode('')
     } else {
       setShowQuickProduct(true)
     }
-  }, [searchCode, addToCart, productosConStock])
+  }, [searchCode, seleccionarProducto, productosConStock])
 
-  const handleQuickProductSubmit = useCallback(() => {
+  const handleQuickProductSubmit = useCallback(async () => {
     if (!quickProductName || !quickProductPrice) return
-    
+
+    const quickProductId = `quick-${Date.now()}`
+    const precioProductoRapido = parseInt(quickProductPrice)
     const newProduct: PedidoItem = {
-      id: `quick-${Date.now()}`,
+      id: quickProductId,
+      uid: crypto.randomUUID(),
       name: quickProductName,
       code: searchCode || '1000',
-      price: parseInt(quickProductPrice),
+      price: precioProductoRapido,
       cost: 0,
       category: 'Otros',
       emoji: '📦',
       stock: 999,
-      iva: 19,
-      impoconsumo: 0,
+      impuestoTipo: IMPUESTO_TIPO_DEFAULT,
       hasRecipe: false,
-      quantity: 1
+      quantity: 1,
+      ...crearConfiguracionSimple(quickProductId, precioProductoRapido)
     }
-    
-    syncCartWithFirebase([...cart, newProduct])
+
+    try {
+      if (activePedido) {
+        await agregarItemPedido(activePedido.id, newProduct)
+      } else {
+        await crearPedidoConItem(newProduct)
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Error al agregar producto rápido')
+    }
     setShowQuickProduct(false)
     setQuickProductName('')
     setQuickProductPrice('')
     setSearchCode('')
-  }, [quickProductName, quickProductPrice, searchCode])
+  }, [quickProductName, quickProductPrice, searchCode, activePedido, crearPedidoConItem])
 
-  // Calculations
-  const subtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)
-  const totalIva = cart.reduce((acc, item) => acc + (item.price * item.quantity * item.iva / 100), 0)
-  const totalImpoconsumo = cart.reduce((acc, item) => acc + (item.price * item.quantity * item.impoconsumo / 100), 0)
-  const total = subtotal + totalIva + totalImpoconsumo
+  // Calculations — ADR-TRIB-001: precios inclusive (D5), impuesto resuelto
+  // por línea (D3/D8) y agregado en el módulo tributario canónico (D4).
+  const lineasResueltas = cart.map((item) => {
+    const precioLinea = item.price * item.quantity
+    const resuelto = resolverLineaImpuesto(precioLinea, item.impuestoTipo ?? IMPUESTO_TIPO_DEFAULT, regimenTributario)
+    return { precioLinea, ...resuelto }
+  })
+  const totalesImpuesto = agregarTotalesImpuesto(lineasResueltas)
+  const subtotal = totalesImpuesto.subtotalBase
+  const totalINC = totalesImpuesto.totalINC
+  const total = totalesImpuesto.total
   const change = cashReceived - total
+  // Tarifa a mostrar: la de la línea que realmente aportó el INC; si no hay
+  // ninguna (no debería ocurrir cuando totalINC > 0), la vigente del catálogo.
+  const tarifaINC = lineasResueltas.find((l) => l.impuestoTipo === 'inc_8')?.impuestoTarifa ?? tarifaVigente('inc_8')
 
   // Keyboard navigation
   useEffect(() => {
@@ -399,7 +806,7 @@ export function SellModule() {
       } else if (e.key === 'ArrowDown' && selectedCartIndex < cart.length - 1) {
         setSelectedCartIndex(prev => prev + 1)
       } else if (e.key === 'Delete' && selectedCartIndex >= 0) {
-        removeFromCart(cart[selectedCartIndex].id)
+        removeFromCart(cart[selectedCartIndex].uid || cart[selectedCartIndex].id)
       } else if (e.key === 'Enter' && cart.length > 0 && document.activeElement?.tagName !== 'INPUT') {
         setShowPayment(true)
       }
@@ -442,19 +849,36 @@ export function SellModule() {
       return
     }
 
+    if (isProcessingRef.current) return
+    isProcessingRef.current = true
     setIsProcessingPayment(true)
     try {
-      const items = cart.map(item => ({
-        id: item.code, // Usamos el código o ID real del producto
-        nombre: item.name,
-        cantidad: item.quantity,
-        precioUnitario: item.price,
-        costoUnitario: item.cost,
-        subtotal: item.price * item.quantity
-      }))
+      const items = cart.map((item, idx) => {
+        const linea = lineasResueltas[idx]
+        return {
+          id: item.id,
+          nombre: item.name,
+          cantidad: item.quantity,
+          precioUnitario: item.price,
+          costoUnitario: item.cost,
+          subtotal: linea.precioLinea,
+          ...(item.schemaVersion !== undefined ? { schemaVersion: item.schemaVersion } : {}),
+          ...(item.configurationKey !== undefined ? { configurationKey: item.configurationKey } : {}),
+          ...(item.precioBaseUnitario !== undefined ? { precioBaseUnitario: item.precioBaseUnitario } : {}),
+          codigo: item.code,
+          categoria: item.category,
+          ...(item.modificadores !== undefined ? { modificadores: item.modificadores } : {}),
+          // ADR-TRIB-001 D6/INV-5: snapshot congelado por línea.
+          base: linea.base,
+          impuestoTipo: linea.impuestoTipo,
+          impuestoTarifa: linea.impuestoTarifa,
+          impuestoValor: linea.impuestoValor,
+        }
+      })
 
       if (!turnoActivo) {
         toast.error("Error: No tienes un turno abierto para registrar ventas.")
+        isProcessingRef.current = false
         setIsProcessingPayment(false)
         return
       }
@@ -470,40 +894,113 @@ export function SellModule() {
         clienteNombre: paymentMethod === 'cuenta_cobro' ? selectedCliente!.nombre : undefined,
         clienteDocumento: paymentMethod === 'cuenta_cobro' ? selectedCliente!.documento : undefined,
         items,
-        totales: { subtotal, iva: totalIva, impoconsumo: totalImpoconsumo, total },
+        totales: {
+          subtotalBase: totalesImpuesto.subtotalBase,
+          totalINC: totalesImpuesto.totalINC,
+          totalExcluido: totalesImpuesto.totalExcluido,
+          total,
+        },
+        // ADR-TRIB-001 D6: cabecera del snapshot — régimen vigente al cobrar.
+        regimenAlMomento: regimenTributario,
         metodoPago: paymentMethod as 'efectivo' | 'transferencia' | 'cuenta_cobro',
         dineroRecibido: paymentMethod === 'efectivo' ? cashReceived : undefined,
         cambio: paymentMethod === 'efectivo' ? Math.max(0, change) : undefined,
         estado: paymentMethod === 'cuenta_cobro' ? 'pendiente' : 'pagada'
       }
 
-      const { incidenciasInventario } = await registrarVenta(params)
+      let incidenciasInventario: { itemNombre: string }[] = []
+      let consecutivo: number
+
+      if (activePedido) {
+        const result = await cobrarPedido(params, activePedido.id)
+        if (result.status === 'already_paid') {
+          toast.info('Este pedido ya fue cobrado.', { duration: 4000 })
+          setShowPayment(false)
+          isProcessingRef.current = false
+          setIsProcessingPayment(false)
+          return
+        }
+        incidenciasInventario = result.incidenciasInventario
+        consecutivo = result.consecutivo
+      } else {
+        const result = await registrarVenta(params)
+        incidenciasInventario = result.incidenciasInventario
+        consecutivo = result.consecutivo
+      }
 
       if (incidenciasInventario.length > 0) {
         const nombres = incidenciasInventario.map(i => i.itemNombre).join(', ')
-        toast.warning('Venta registrada con faltante de inventario', {
-          description: `Stock insuficiente en: ${nombres}. El inventario fue ajustado a 0.`,
+        toast.warning('Venta registrada correctamente', {
+          description: `Inventario negativo en: ${nombres}. Verifica compras o ajustes pendientes.`,
           duration: 6000,
         })
       }
 
-      if (activePedido) {
-        await eliminarPedido(activePedido.id)
-      }
+      // H4: fuente única para el ticket — el mismo `params` persistido, más
+      // consecutivo (retorno del servicio) y fecha (sello de cliente). El
+      // ticket se imprime en la misma sesión, de inmediato tras la venta: un
+      // Date() de cliente ya es exacto para ese instante. No se lee el
+      // `serverTimestamp()` de Firestore porque (a) es un sentinel que solo
+      // se resuelve tras el commit — leerlo obligaría a un round-trip extra
+      // solo para imprimir, y (b) el Checkout nunca emite DIAN (esa fecha
+      // oficial, si aplica, la sella Factus después, desde Historial).
+      setVentaParaImprimir({ ...params, consecutivo, fecha: new Date() })
 
       setShowPayment(false)
       setShowReceipt(true)
+      isProcessingRef.current = false
       setIsProcessingPayment(false)
     } catch (error: any) {
       console.error("Error al registrar la venta:", error)
       toast.error(error?.message || "Error al registrar la venta. Inténtalo de nuevo.")
+      isProcessingRef.current = false
       setIsProcessingPayment(false)
     }
-  }, [usuario, cart, selectedCustomer, selectedCliente, subtotal, totalIva, totalImpoconsumo, total, paymentMethod, cashReceived, change, activePedido, espacioActivo, turnoActivo])
+  }, [usuario, cart, selectedCustomer, selectedCliente, subtotal, totalesImpuesto, lineasResueltas, regimenTributario, total, paymentMethod, cashReceived, change, activePedido, espacioActivo, turnoActivo])
 
-  const handleReceiptClose = useCallback((print: boolean) => {
-    if (print) {
-      console.log('[v0] Imprimiendo ticket...')
+  // Orquestación del motor de tickets (H4): el adaptador traduce la venta del
+  // Checkout (CrearVentaParams + consecutivo + fecha) + config al contrato del
+  // motor; el builder arma el modelo de dominio; el renderer produce el HTML;
+  // la salida a impresión replica exactamente el patrón de Historial (H3). El
+  // Checkout nunca emite DIAN, así que `model.dian` siempre es undefined y no
+  // se genera QR — misma cadena, mismo guard, sin flujo de impresión distinto.
+  const imprimirTicketConMotor = async (venta: CheckoutTicketInput, config: ConfiguracionGlobal) => {
+    const [numeroDocumento, digitoVerificacion] = (config.nit_tienda ?? '').split('-', 2)
+    const configuracionTicket: CheckoutConfiguracionEmpresa = {
+      identidad: { nombreComercial: config.nombre_tienda, razonSocial: config.razonSocial, tipoPersona: undefined, tipoDocumento: 'NIT', numeroDocumento: numeroDocumento || undefined, digitoVerificacion: digitoVerificacion || undefined, regimenTributario: config.regimenTributario, responsabilidadesFiscales: undefined, actividadEconomicaPrincipal: undefined, contacto: { email: config.email, telefono: config.telefono } },
+      localizacion: { paisFiscal: 'CO', moneda: 'COP', idioma: 'es-CO', zonaHoraria: 'America/Bogota', direccion: { linea1: config.direccion_tienda, municipioNombre: config.ciudad } },
+      ticket: { mensajePie: config.mensaje_ticket, mostrarLogoDocumento: false, mostrarRazonSocial: true, mostrarDireccion: true, mostrarTelefono: true, mostrarDesgloseImpuestos: true },
+    }
+    const { input, empresa } = adaptarCheckoutAModeloTicket(venta, configuracionTicket)
+    const model = TicketBuilder.fromVenta(input, empresa)
+    const qrDataUri = model.dian ? await generateQrDataUri(model.dian.qrPayload) : undefined
+    const html = renderTicket(model, DEFAULT_RENDER_OPTIONS, { qrDataUri })
+
+    if (typeof window !== 'undefined' && (window as any).api) {
+      if (typeof (window as any).api.print.toPrinter === 'function') {
+        await (window as any).api.print.toPrinter(html)
+      } else {
+        await (window as any).api.print.ticket(html)
+      }
+    }
+  }
+
+  const imprimirTicketCheckout = async (venta: CheckoutTicketInput) => {
+    if (!config) {
+      toast.error("Configuración aún no disponible. Intente de nuevo en un momento.")
+      return
+    }
+    try {
+      await imprimirTicketConMotor(venta, config)
+    } catch (err) {
+      console.error(err)
+      toast.error("Error al imprimir el ticket.")
+    }
+  }
+
+  const handleReceiptClose = useCallback(async (print: boolean) => {
+    if (print && ventaParaImprimir) {
+      await imprimirTicketCheckout(ventaParaImprimir)
     }
     setShowReceipt(false)
     setCashReceived(0)
@@ -513,7 +1010,8 @@ export function SellModule() {
     setClienteSearch('')
     setShowCrearCliente(false)
     setNuevoCliente({ tipoDocumento: 'CC', documento: '', nombre: '', telefono: '' })
-  }, [])
+    setVentaParaImprimir(null)
+  }, [ventaParaImprimir, config])
 
   if (!cargandoTurno && !turnoActivo) {
     return (
@@ -530,75 +1028,23 @@ export function SellModule() {
   }
 
   return (
-    <div className="flex-1 flex gap-0 p-0 bg-background min-h-0 overflow-hidden">
+    <div className="flex-1 flex gap-0 p-0 bg-background min-h-0 min-w-0 overflow-hidden">
       {/* Left Column - Products */}
-      <div className="flex-1 flex flex-col gap-3 min-h-0 p-3 md:p-4 min-w-0">
+      <div className="flex-1 flex flex-col gap-2 min-h-0 p-2 min-w-0 min-[1366px]:gap-3 min-[1366px]:p-3 min-[1600px]:p-4">
         {/* Search Bar */}
         <form onSubmit={handleSearch}>
           <div className="relative">
-            <Barcode className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Barcode className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground min-[1366px]:left-4" />
             <Input
               value={searchCode}
               onChange={(e) => setSearchCode(e.target.value)}
               placeholder="Escanear código de barras o buscar producto..."
-              className="pl-12 h-14 text-lg bg-card border-input focus:border-primary shadow-sm rounded-xl"
+              className="pl-11 h-12 text-base bg-card border-input focus:border-primary shadow-sm rounded-xl min-[1366px]:pl-12 min-[1366px]:h-14 min-[1366px]:text-lg"
               autoFocus
             />
           </div>
         </form>
 
-        {/* Calculadora Rápida - Solo para Fotocopias */}
-        {espacioActivo?.id === 'fotocopias' && productos.length > 0 && (
-          <div className="bg-card border border-primary/20 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-sm relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -z-10 pointer-events-none" />
-            <div className="flex-shrink-0">
-              <label className="text-xs font-bold uppercase tracking-wider text-primary mb-2 block">
-                Calculadora de Copias
-              </label>
-              <div className="flex items-center gap-1 bg-input/50 rounded-lg p-1 border border-border">
-                <button 
-                  onClick={() => setQuickCopies(Math.max(1, quickCopies - 1))} 
-                  type="button" 
-                  className="w-10 h-10 flex items-center justify-center rounded-md bg-background hover:bg-muted text-foreground shadow-sm transition-all active:scale-95"
-                >
-                  <Minus className="h-5 w-5"/>
-                </button>
-                <input 
-                   type="number" 
-                   value={quickCopies}
-                   onChange={(e) => setQuickCopies(Math.max(1, parseInt(e.target.value) || 1))}
-                   className="w-16 h-10 bg-transparent text-center font-black text-primary text-xl focus:outline-none"
-                   min="1"
-                />
-                <button 
-                  onClick={() => setQuickCopies(quickCopies + 1)} 
-                  type="button" 
-                  className="w-10 h-10 flex items-center justify-center rounded-md bg-background hover:bg-muted text-foreground shadow-sm transition-all active:scale-95"
-                >
-                  <Plus className="h-5 w-5"/>
-                </button>
-              </div>
-            </div>
-            
-            <div className="flex-1 flex gap-2 overflow-x-auto pb-1 custom-scrollbar items-center">
-              {productos.slice(0, 6).map(prod => (
-                <button 
-                   key={`calc-${prod.id}`}
-                   onClick={() => addToCartQuantity(prod, quickCopies)}
-                   type="button"
-                   className="flex flex-col items-center justify-center p-3 h-[72px] bg-secondary/40 hover:bg-primary hover:text-primary-foreground border border-transparent rounded-lg transition-all active:scale-95 whitespace-nowrap min-w-[110px] group"
-                >
-                   <span className="text-xs font-semibold truncate w-full text-center mb-1 group-hover:text-primary-foreground">
-                     {prod.nombre}
-                   </span>
-                   <span className="text-sm font-black text-primary group-hover:text-primary-foreground/90">
-                     + {formatCurrency(prod.precio * quickCopies)}
-                   </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Category Tabs — swipeables horizontalmente */}
         <Tabs
@@ -609,59 +1055,67 @@ export function SellModule() {
           }}
         >
           <div className="relative">
-            {catScroll.canLeft && (
-              <button
-                type="button"
-                onClick={() => scrollCategories('left')}
-                className="absolute left-0 top-0 bottom-0 z-10 w-8 flex items-center justify-center bg-gradient-to-r from-background to-transparent text-foreground/60 hover:text-foreground"
-                aria-label="Categorias anteriores"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-            )}
-            {catScroll.canRight && (
-              <button
-                type="button"
-                onClick={() => scrollCategories('right')}
-                className="absolute right-0 top-0 bottom-0 z-10 w-8 flex items-center justify-center bg-gradient-to-l from-background to-transparent text-foreground/60 hover:text-foreground"
-                aria-label="Categorias siguientes"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            )}
-            {catScroll.canRight && (
-              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background/90 to-transparent" />
-            )}
-            {catScroll.canLeft && (
-              <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-background/90 to-transparent" />
-            )}
-            <TabsList
-              ref={categoriesRef}
-              data-categories-scroller="true"
-              className="flex gap-2 overflow-x-auto pb-2 bg-transparent border-none h-auto scrollbar-none snap-x snap-mandatory"
-              style={{ WebkitOverflowScrolling: 'touch', display: 'flex', flexWrap: 'nowrap' }}
+            {/* Botón izquierda */}
+            <button
+              type="button"
+              onClick={() => scrollCategories('left')}
+              className={cn(
+                "absolute left-0 top-1/2 -translate-y-1/2 z-20 h-10 w-10 flex items-center justify-center bg-card border border-border/60 rounded-full shadow-md text-foreground/70 hover:text-foreground hover:border-primary/40 active:scale-95 transition-all",
+                !catScroll.canLeft && "opacity-0 pointer-events-none"
+              )}
+              aria-label="Categorías anteriores"
             >
-              <TabsTrigger
-                value="todos"
-                className="px-6 py-3 bg-card text-foreground/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-gold data-[state=active]:ring-offset-1 data-[state=active]:ring-offset-background rounded-xl font-semibold text-sm whitespace-nowrap shadow-sm border border-border flex items-center gap-2 min-h-[52px] transition-all duration-200 snap-start shrink-0 active:scale-[0.97]"
-              >
-                Todos
-              </TabsTrigger>
-              {categorias.map(cat => (
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            {/* Botón derecha */}
+            <button
+              type="button"
+              onClick={() => scrollCategories('right')}
+              className={cn(
+                "absolute right-0 top-1/2 -translate-y-1/2 z-20 h-10 w-10 flex items-center justify-center bg-card border border-border/60 rounded-full shadow-md text-foreground/70 hover:text-foreground hover:border-primary/40 active:scale-95 transition-all",
+                !catScroll.canRight && "opacity-0 pointer-events-none"
+              )}
+              aria-label="Categorías siguientes"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            {/* Gradientes de fade */}
+            {catScroll.canLeft && <div className="pointer-events-none absolute left-10 top-0 bottom-0 w-6 bg-gradient-to-r from-background/80 to-transparent z-10" />}
+            {catScroll.canRight && <div className="pointer-events-none absolute right-10 top-0 bottom-0 w-6 bg-gradient-to-l from-background/80 to-transparent z-10" />}
+            {/* Wrapper con ref — el div maneja el scroll, TabsList solo organiza los triggers */}
+            <div
+              ref={categoriesScrollRef}
+              className="overflow-x-auto scrollbar-none snap-x snap-mandatory pb-1.5 min-[1366px]:pb-2"
+              style={{
+                WebkitOverflowScrolling: 'touch',
+                paddingLeft: catScroll.canLeft ? '2.75rem' : undefined,
+                paddingRight: catScroll.canRight ? '2.75rem' : undefined,
+              }}
+            >
+              <TabsList className="flex gap-1.5 bg-transparent border-none h-auto w-max min-[1366px]:gap-2">
                 <TabsTrigger
-                  key={cat.id}
-                  value={cat.id}
-                className="px-6 py-3 bg-card text-foreground/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-gold data-[state=active]:ring-offset-1 data-[state=active]:ring-offset-background rounded-xl font-semibold text-sm whitespace-nowrap shadow-sm border border-border flex items-center gap-2 min-h-[52px] transition-all duration-200 snap-start shrink-0 active:scale-[0.97]"
+                  value="todos"
+                  className="px-4 py-2.5 bg-card text-foreground/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-gold data-[state=active]:ring-offset-1 data-[state=active]:ring-offset-background rounded-xl font-semibold text-sm whitespace-nowrap shadow-sm border border-border flex items-center gap-2 min-h-[48px] transition-all duration-200 snap-start shrink-0 active:scale-[0.97] min-[1366px]:px-6 min-[1366px]:py-3 min-[1366px]:min-h-[52px]"
                 >
-                  <DynamicIcon name={cat.icono} className="w-5 h-5" /> {cat.nombre}
+                  Todos
                 </TabsTrigger>
-              ))}
-            </TabsList>
+                {categorias.map(cat => (
+                  <TabsTrigger
+                    key={cat.id}
+                    value={cat.id}
+                    className="px-4 py-2.5 bg-card text-foreground/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-gold data-[state=active]:ring-offset-1 data-[state=active]:ring-offset-background rounded-xl font-semibold text-sm whitespace-nowrap shadow-sm border border-border flex items-center gap-2 min-h-[48px] transition-all duration-200 snap-start shrink-0 active:scale-[0.97] min-[1366px]:px-6 min-[1366px]:py-3 min-[1366px]:min-h-[52px]"
+                  >
+                    <DynamicIcon name={cat.icono} className="w-5 h-5" /> {cat.nombre}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
           </div>
         </Tabs>
 
         {/* Products Grid — datos reales de Firestore */}
         <div className="flex-1 min-h-0">
+          {estadoCatalogoModificadores === 'error' && <div className="mx-2 mt-2 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" role="alert"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{errorCatalogoModificadores}</div>}
           <ScrollArea className="h-full">
           {esFotocopias ? (
             <FotocopiasCalculator
@@ -683,16 +1137,16 @@ export function SellModule() {
               <p className="text-sm">Sin productos en este espacio</p>
             </div>
           ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pr-4 pb-8">
+              <div className="grid grid-cols-2 min-[1180px]:grid-cols-3 min-[1500px]:grid-cols-4 min-[1850px]:grid-cols-5 gap-2.5 pr-2 pb-6 min-[1366px]:gap-3 min-[1366px]:pr-3 min-[1600px]:gap-4 min-[1600px]:pr-4 min-[1600px]:pb-8">
                 {filteredProducts.map((product, idx) => {
                   const stockBajo = product.stock <= (product.stockMinimo || 5)
                   const sinStock = product.stock <= 0
                   return (
                   <Card
                     key={product.id}
-                    onClick={() => addToCart(product)}
+                    onClick={() => seleccionarProducto(product)}
                     className={cn(
-                      "bg-card border border-border rounded-2xl overflow-hidden cursor-pointer hover:-translate-y-1 hover:border-gold hover:shadow-[0_12px_28px_-12px_color-mix(in_oklch,var(--navy)_45%,transparent)] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group flex flex-col active:scale-[0.97] shadow-[0_2px_10px_-6px_color-mix(in_oklch,var(--navy)_40%,transparent)] relative h-52 animate-fade-up",
+                      "bg-card border border-border rounded-2xl overflow-hidden cursor-pointer hover:-translate-y-1 hover:border-gold hover:shadow-[0_12px_28px_-12px_color-mix(in_oklch,var(--navy)_45%,transparent)] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group flex flex-col active:scale-[0.97] shadow-[0_2px_10px_-6px_color-mix(in_oklch,var(--navy)_40%,transparent)] relative h-[180px] animate-fade-up min-[1280px]:h-48 min-[1600px]:h-52",
                       stockBajo && "border-destructive/40 hover:border-destructive"
                     )}
                     style={{ animationDelay: `${Math.min(idx, 12) * 30}ms` }}
@@ -705,31 +1159,49 @@ export function SellModule() {
                         {sinStock ? 'Agotado' : 'Stock bajo'}
                       </Badge>
                     )}
-                    <div className="h-28 bg-secondary/40 w-full relative overflow-hidden border-b border-border/60">
-                      {product.imagenUrl ? (
-                        <img
-                          src={product.imagenUrl}
-                          alt={product.nombre}
-                          className="object-cover w-full h-full opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
-                          <DynamicIcon name={product.icono} className="w-14 h-14" />
+                    {product.imagenUrl ? (
+                      <>
+                        <div className="absolute inset-0 bg-secondary/40">
+                          <img
+                            src={product.imagenUrl}
+                            alt={product.nombre}
+                            className="object-cover object-center w-full h-full"
+                          />
                         </div>
-                      )}
-                    </div>
-                    <CardContent className="p-3 flex flex-col flex-1 justify-between bg-card z-10">
-                      <h3 className="font-bold text-foreground text-sm leading-tight line-clamp-2 text-balance">{product.nombre}</h3>
-                      <div className="mt-auto pt-2 flex items-end justify-between gap-2">
-                        <p className="font-black text-primary text-lg leading-none">{formatCurrency(product.precio)}</p>
-                        <span className={cn(
-                          "text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full",
-                          stockBajo ? "bg-destructive/10 text-destructive" : "bg-secondary text-secondary-foreground"
-                        )}>
-                          {product.stock} und
-                        </span>
-                      </div>
-                    </CardContent>
+                        <CardContent className="absolute inset-x-0 bottom-0 z-10 px-2.5 py-2 bg-card/95 border-t border-border/50 shadow-[0_-10px_24px_-18px_color-mix(in_oklch,var(--navy)_55%,transparent)]">
+                          <h3 className="font-bold text-foreground text-xs leading-tight line-clamp-1 min-[1280px]:text-[13px] min-[1600px]:text-sm">{product.nombre}</h3>
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <p className="font-black text-primary text-[15px] leading-none min-[1280px]:text-base">{formatCurrency(product.precio)}</p>
+                            <span className={cn(
+                              "text-[9px] font-bold tabular-nums px-1.5 py-0.5 rounded-full w-fit min-[1280px]:text-[10px]",
+                              stockBajo ? "bg-destructive/10 text-destructive" : "bg-secondary text-secondary-foreground"
+                            )}>
+                              {product.stock} und
+                            </span>
+                          </div>
+                        </CardContent>
+                      </>
+                    ) : (
+                      <>
+                        <div className="h-[120px] bg-secondary/40 w-full relative overflow-hidden border-b border-border/60 min-[1280px]:h-[132px] min-[1600px]:h-36">
+                          <div className="w-full h-full flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
+                            <DynamicIcon name={product.icono} className="w-12 h-12 min-[1280px]:w-14 min-[1280px]:h-14 min-[1600px]:w-16 min-[1600px]:h-16" />
+                          </div>
+                        </div>
+                        <CardContent className="px-2.5 py-1.5 flex flex-col flex-1 justify-start gap-0.5 bg-card z-10">
+                          <h3 className="font-bold text-foreground text-xs leading-tight line-clamp-1 min-[1280px]:text-[13px] min-[1600px]:text-sm">{product.nombre}</h3>
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <p className="font-black text-primary text-[15px] leading-none min-[1280px]:text-base">{formatCurrency(product.precio)}</p>
+                            <span className={cn(
+                              "text-[9px] font-bold tabular-nums px-1.5 py-0.5 rounded-full w-fit min-[1280px]:text-[10px]",
+                              stockBajo ? "bg-destructive/10 text-destructive" : "bg-secondary text-secondary-foreground"
+                            )}>
+                              {product.stock} und
+                            </span>
+                          </div>
+                        </CardContent>
+                      </>
+                    )}
                   </Card>
                   )
                 })}
@@ -740,126 +1212,209 @@ export function SellModule() {
         </div>
 
       {/* Right Column - Cart */}
-      <Card className="w-[300px] lg:w-[380px] flex flex-col bg-card border-l border-border shadow-[-4px_0_15px_rgba(0,0,0,0.1)] overflow-hidden relative z-20 rounded-none border-y-0 border-r-0 min-h-0 shrink-0">
+      <Card className="w-[280px] min-[1180px]:w-[320px] min-[1440px]:w-[360px] min-[1800px]:w-[380px] grid grid-rows-[auto_auto_1fr_auto] bg-card border-l border-border shadow-[-4px_0_15px_rgba(0,0,0,0.1)] overflow-hidden relative z-20 rounded-none border-y-0 border-r-0 shrink-0">
           {/* Selector de Mesas / Cuentas Arriba del Carrito */}
-          <div className="p-4 bg-muted/30 border-b border-border">
+          <div className="p-3 bg-muted/30 border-b border-border min-[1600px]:p-4">
             <button
-                className="w-full flex items-center justify-between p-3 rounded-xl border border-border hover:border-primary/50 transition-colors bg-card shadow-sm group active:scale-[0.98]"
+                className="w-full flex items-center justify-between gap-2 p-2.5 rounded-xl border border-border hover:border-primary/50 transition-colors bg-card shadow-sm group active:scale-[0.98] min-[1600px]:p-3"
                 onClick={() => setShowMesasDialog(true)}
             >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 min-w-0 min-[1600px]:gap-3">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                         <ShoppingCart className="h-5 w-5" />
                     </div>
-                    <div className="text-left">
-                        <p className="font-bold text-foreground text-sm">
+                    <div className="text-left min-w-0">
+                        <p className="font-bold text-foreground text-sm truncate">
                             {selectedMesaId ? mesas.find(m => m.id === selectedMesaId)?.nombre : 'Mostrador'}
                         </p>
                         <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Cambiar Mesa</p>
                     </div>
                 </div>
-                <div className="bg-primary/10 px-3 py-1 rounded-full border border-primary/20 text-primary font-bold text-sm">
+                <div className="shrink-0 bg-primary/10 px-2.5 py-1 rounded-full border border-primary/20 text-primary font-bold text-xs min-[1440px]:text-sm min-[1600px]:px-3">
                     {formatCurrency(subtotal)}
                 </div>
             </button>
+            {pedidosMesaActual.length > 1 && (
+              <div className="flex gap-1.5 mt-2">
+                {pedidosMesaActual.map((p, idx) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setSelectedPedidoId(p.id)}
+                    className={cn(
+                      'flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all active:scale-95',
+                      selectedPedidoId === p.id
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80',
+                    )}
+                  >
+                    Cuenta {idx + 1}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center justify-between px-6 py-4">
+          <div className="flex items-center justify-between px-4 py-3 min-[1600px]:px-6 min-[1600px]:py-4">
               <h2 className="text-lg font-extrabold text-foreground flex items-center gap-2">
                   <ShoppingCart className="h-5 w-5 text-primary" /> Tu Orden
               </h2>
               <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 rounded-full font-bold px-3">{cart.length} ITEMS</Badge>
           </div>
 
-          <div className="flex-1 min-h-0">
-            <ScrollArea className="h-full">
-            <div className="p-4 pt-0 space-y-3">
+          <div className="overflow-y-auto min-h-0">
+            <div className="p-3 pt-0 space-y-2.5 min-[1600px]:p-4 min-[1600px]:pt-0 min-[1600px]:space-y-3">
               {cart.map((item, idx) => (
-                  <div key={`${item.id}-${idx}`} className="flex flex-col p-4 rounded-xl border border-border bg-card shadow-sm group">
-                      <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
+                  <div key={item.uid || `${item.id}-${idx}`} className="flex flex-col p-3 rounded-xl border border-border bg-card shadow-sm group min-[1600px]:p-4">
+                      <div className="flex items-start justify-between mb-2.5 gap-2 min-[1600px]:mb-3">
+                          <div className="flex items-center gap-2 min-w-0 min-[1600px]:gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground shrink-0">
                                   <DynamicIcon name={item.emoji} className="w-5 h-5" />
                               </div>
-                              <div>
+                              <div className="min-w-0">
                                   <p className="font-semibold text-foreground text-sm leading-tight flex items-center flex-wrap gap-2">
                                       {item.name}
-                                      {((item as any).cantidadEnviada || 0) > 0 && (
+                                      {(item.cantidadEnviada || 0) > 0 && (
                                         <Badge variant="outline" className="text-[10px] h-5 bg-orange-500/10 text-orange-600 border-orange-500/20 px-1.5 font-bold">
-                                          {((item as any).cantidadEnviada || 0) === item.quantity 
-                                            ? 'En Cocina' 
-                                            : `${(item as any).cantidadEnviada} en Cocina`
+                                          {(item.cantidadEnviada || 0) === item.quantity
+                                            ? 'En Cocina'
+                                            : `${item.cantidadEnviada} en Cocina`
                                           }
                                         </Badge>
                                       )}
                                   </p>
                                   <p className="text-[10px] text-muted-foreground">{item.id.substring(0, 15)}</p>
+                                  {item.modificadores !== undefined && <p className="mt-1 text-[10px] text-primary line-clamp-2">{obtenerResumenModificadores(item).join(' · ') || 'Configuración personalizada'}</p>}
                               </div>
                           </div>
+                          <button onClick={() => removeFromCart(item.uid || item.id)} className="text-muted-foreground hover:text-destructive transition-colors active:scale-95 p-2 shrink-0 -mt-1 -mr-1"><Trash2 className="h-5 w-5"/></button>
                       </div>
-                      <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 border border-border">
-                              <button onClick={() => updateQuantity(item.id, -1)} className="w-12 h-12 flex items-center justify-center rounded-md hover:bg-background text-foreground shadow-sm transition-all active:scale-90 touch-target"><Minus className="h-5 w-5"/></button>
+                      <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 border border-border shrink-0">
+                              <button onClick={() => updateQuantity(item.uid || item.id, -1)} className="w-12 h-12 flex items-center justify-center rounded-md hover:bg-background text-foreground shadow-sm transition-all active:scale-90 touch-target"><Minus className="h-5 w-5"/></button>
                               <span className="w-10 text-center font-bold text-foreground text-lg">{item.quantity}</span>
-                              <button onClick={() => updateQuantity(item.id, 1)} className="w-12 h-12 flex items-center justify-center rounded-md hover:bg-background text-foreground shadow-sm transition-all active:scale-90 touch-target"><Plus className="h-5 w-5"/></button>
+                              <button onClick={() => updateQuantity(item.uid || item.id, 1)} className="w-12 h-12 flex items-center justify-center rounded-md hover:bg-background text-foreground shadow-sm transition-all active:scale-90 touch-target"><Plus className="h-5 w-5"/></button>
                           </div>
-                          <div className="flex items-center gap-4">
-                              <p className="font-black text-primary text-lg">{formatCurrency(item.price * item.quantity)}</p>
-                              <button onClick={() => removeFromCart(item.id)} className="text-muted-foreground hover:text-destructive transition-colors active:scale-95 p-2"><Trash2 className="h-5 w-5"/></button>
-                          </div>
+                          <p className="font-black text-primary text-lg truncate">{formatCurrency(item.price * item.quantity)}</p>
                       </div>
                   </div>
               ))}
             </div>
-              </ScrollArea>
           </div>
 
           {/* Footer */}
-          <div className="mt-auto p-6 bg-muted/20 border-t border-border">
-              <div className="space-y-2 mb-4 text-sm">
+          <div className="p-4 bg-muted/20 border-t border-border min-[1600px]:p-6">
+              {estadoCocina === 'listo' && (
+                <div className="mb-4 p-3 rounded-xl bg-success/10 border border-success/30 flex items-center gap-3 animate-fade-in">
+                  <div className="w-8 h-8 rounded-full bg-success/20 flex items-center justify-center shrink-0">
+                    <ChefHat className="h-4 w-4 text-success" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-success text-sm">Pedido listo en cocina</p>
+                    <p className="text-[11px] text-muted-foreground">Listo para entregar al cliente</p>
+                  </div>
+                </div>
+              )}
+              {estadoCocina === 'parcial' && (
+                <div className="mb-4 p-3 rounded-xl bg-warning/10 border border-warning/30 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-warning/20 flex items-center justify-center shrink-0">
+                    <ChefHat className="h-4 w-4 text-warning" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-warning text-sm">Parcialmente listo</p>
+                    <p className="text-[11px] text-muted-foreground">Algunos items siguen en preparación</p>
+                  </div>
+                </div>
+              )}
+              <div className="space-y-1.5 mb-3 text-sm min-[1600px]:space-y-2 min-[1600px]:mb-4">
                   <div className="flex justify-between text-muted-foreground">
                       <span>Subtotal</span>
                       <span className="font-bold text-foreground">{formatCurrency(subtotal)}</span>
                   </div>
-                  <div className="flex justify-between text-muted-foreground">
-                      <span>IVA (19%)</span>
-                      <span className="font-bold text-foreground">{formatCurrency(totalIva)}</span>
-                  </div>
+                  {totalINC > 0 && (
+                    <div className="flex justify-between text-muted-foreground">
+                        <span>INC ({tarifaINC}%)</span>
+                        <span className="font-bold text-foreground">{formatCurrency(totalINC)}</span>
+                    </div>
+                  )}
               </div>
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex justify-between items-center gap-3 mb-4 min-[1600px]:mb-6">
                   <span className="text-xl font-bold text-foreground tracking-wide">TOTAL</span>
-                  <span className="text-4xl font-black text-primary">{formatCurrency(total)}</span>
+                  <span className="text-3xl font-black text-primary min-[1600px]:text-4xl">{formatCurrency(total)}</span>
               </div>
 
-              <div className="relative mb-4 group">
+              <div className="relative mb-3 group min-[1600px]:mb-4">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input 
                     value={selectedCustomer}
                     onChange={(e) => setSelectedCustomer(e.target.value)}
                     placeholder="C.C. o NIT (Consumidor Final)..." 
-                    className="pl-12 bg-card border-input focus:border-primary focus-visible:ring-primary h-14 rounded-xl text-foreground font-medium" 
+                    className="pl-12 bg-card border-input focus:border-primary focus-visible:ring-primary h-12 rounded-xl text-foreground font-medium min-[1600px]:h-14"
                   />
               </div>
 
-              <div className="flex gap-3">
+              <div className="space-y-2.5 min-[1600px]:space-y-3">
+                <div className="flex flex-wrap gap-2 min-[1600px]:gap-3">
                   <Button variant="outline" onClick={async () => {
                     if (activePedido) {
-                      await enviarPedidoACocina(activePedido.id)
-                      toast.success('Pedido enviado a cocina')
+                      try {
+                        await enviarPedidoACocina(activePedido.id)
+                        toast.success('Pedido enviado a cocina')
+                      } catch (e: any) {
+                        toast.error(e.message || 'Error al enviar a cocina')
+                      }
                     }
-                  }} className="h-16 flex-[1] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95">
+                  }} className="h-16 flex-1 min-w-[100px] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95">
                       Cocina
                   </Button>
-                  <Button
-                    onClick={() => setShowPayment(true)}
-                    disabled={cart.length === 0}
-                    className="gold-cta gold-sheen h-16 flex-[2] rounded-xl bg-gold hover:bg-gold-strong text-navy font-black text-xl tracking-wide transition-all active:scale-95 border-none relative overflow-hidden disabled:opacity-50 disabled:saturate-50 disabled:animate-none"
-                  >
-                      <Banknote className="mr-2 h-6 w-6 relative z-10" strokeWidth={2.5} /> <span className="relative z-10">COBRAR</span>
-                  </Button>
+                  {activePedido && activePedido.mesaId && cart.length >= 2 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowSepararCuenta(true)}
+                      className="h-16 flex-1 min-w-[100px] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95"
+                    >
+                      <SplitSquareHorizontal className="mr-1.5 h-4 w-4" />
+                      Separar
+                    </Button>
+                  )}
+                  {activePedido && activePedido.mesaId && pedidosMesaActual.length >= 2 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowUnirCuentas(true)}
+                      className="h-16 flex-1 min-w-[100px] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95"
+                    >
+                      <Merge className="mr-1.5 h-4 w-4" />
+                      Unir
+                    </Button>
+                  )}
+                  {activePedido && activePedido.mesaId && !activePedido.inicioAlquiler && mesas.length >= 2 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowTrasladarCuenta(true)}
+                      className="h-16 flex-1 min-w-[100px] rounded-xl border-input font-bold text-muted-foreground hover:bg-muted hover:text-foreground bg-card shadow-sm active:scale-95"
+                    >
+                      <ArrowRightLeft className="mr-1.5 h-4 w-4" />
+                      Trasladar
+                    </Button>
+                  )}
+                </div>
+                <Button
+                  onClick={() => setShowPayment(true)}
+                  disabled={cart.length === 0}
+                  className="gold-cta gold-sheen h-16 w-full rounded-xl bg-gold hover:bg-gold-strong text-navy font-black text-xl tracking-wide transition-all active:scale-95 border-none relative overflow-hidden disabled:opacity-50 disabled:saturate-50 disabled:animate-none"
+                >
+                    <Banknote className="mr-2 h-6 w-6 relative z-10" strokeWidth={2.5} /> <span className="relative z-10">COBRAR</span>
+                </Button>
               </div>
           </div>
-        </Card>
+      </Card>
+
+      <ModifierSelectorDialog
+        open={productoConModificadores !== null}
+        onOpenChange={(open) => { if (!open) setProductoConModificadores(null) }}
+        producto={productoConModificadores}
+        grupos={gruposSelector}
+        onConfirm={confirmarProductoConModificadores}
+      />
 
       <Dialog open={showMesasDialog} onOpenChange={setShowMesasDialog}>
         <DialogContent className="sm:max-w-5xl w-[95vw] bg-card border-none h-[85vh] flex flex-col p-0 overflow-hidden shadow-2xl rounded-3xl">
@@ -899,10 +1454,14 @@ export function SellModule() {
 
               {/* Mesas List */}
               {mesas.map(mesa => {
-                const mesaTienePedido = pedidosActivos.some(p => p.mesaId === mesa.id)
-                const pedidoMesa = pedidosActivos.find(p => p.mesaId === mesa.id)
+                const pedidosMesa = pedidosActivos.filter(p => p.mesaId === mesa.id && p.activo && p.estado === 'abierto')
+                const mesaTienePedido = pedidosMesa.length > 0
                 const isActive = selectedMesaId === mesa.id
-                
+                const mesaComandasNoCancelacion = mesaTienePedido
+                  ? comandasActivas.filter(c => pedidosMesa.some(p => p.id === c.pedidoId) && c.tipo !== 'cancelacion')
+                  : []
+                const mesaListaEnCocina = mesaComandasNoCancelacion.length > 0 && mesaComandasNoCancelacion.every(c => c.estado === 'listo')
+
                 return (
                   <button
                     key={mesa.id}
@@ -910,39 +1469,44 @@ export function SellModule() {
                     className={cn(
                       "relative flex items-center gap-4 p-4 rounded-2xl border transition-all text-left focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/30",
                       isActive ? "ring-4 ring-primary/20" : "",
-                      mesaTienePedido 
-                        ? "bg-primary/10 border-primary/50 hover:border-primary shadow-sm hover:shadow-md hover:-translate-y-1" 
-                        : "bg-card border-border hover:border-primary/50 hover:shadow-md hover:-translate-y-1",
-                      mesaTienePedido && isActive && "bg-primary/20 border-primary"
+                      mesaListaEnCocina
+                        ? "bg-success/10 border-success/50 hover:border-success shadow-sm hover:shadow-md hover:-translate-y-1"
+                        : mesaTienePedido
+                          ? "bg-primary/10 border-primary/50 hover:border-primary shadow-sm hover:shadow-md hover:-translate-y-1"
+                          : "bg-card border-border hover:border-primary/50 hover:shadow-md hover:-translate-y-1",
+                      mesaTienePedido && isActive && !mesaListaEnCocina && "bg-primary/20 border-primary",
+                      mesaListaEnCocina && isActive && "bg-success/20 border-success"
                     )}
                   >
                     {/* Left Icon */}
                     <div className={cn(
                         "w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl shadow-inner shrink-0",
-                        mesaTienePedido ? "bg-gradient-to-br from-secondary to-primary text-primary-foreground" : "bg-muted text-muted-foreground/50"
+                        mesaListaEnCocina ? "bg-gradient-to-br from-success/80 to-success text-success-foreground" : mesaTienePedido ? "bg-gradient-to-br from-secondary to-primary text-primary-foreground" : "bg-muted text-muted-foreground/50"
                     )}>
-                      {mesaTienePedido ? 'M' : '+'}
+                      {mesaListaEnCocina ? '✓' : mesaTienePedido ? 'M' : '+'}
                     </div>
-                    
+
                     {/* Right Content */}
                     <div className="flex flex-col flex-1 h-full justify-center">
                       <div className="flex items-center justify-between w-full mb-1 gap-2">
                         <p className="font-black text-foreground text-base truncate">{mesa.nombre}</p>
                         <Badge variant="secondary" className={cn(
                             "text-[9px] font-black px-2 py-0.5 rounded-full tracking-wider shrink-0",
-                            mesaTienePedido ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground"
+                            mesaListaEnCocina
+                              ? "bg-success text-success-foreground shadow-sm"
+                              : mesaTienePedido ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground"
                         )}>
-                          {mesaTienePedido ? 'OCUPADA' : 'LIBRE'}
+                          {mesaListaEnCocina ? 'LISTO ✓' : mesaTienePedido ? 'OCUPADA' : 'LIBRE'}
                         </Badge>
                       </div>
                       
                       {mesaTienePedido ? (
                         <div className="flex items-center w-full mt-1">
                           <span className="text-[11px] font-bold text-muted-foreground">
-                            {pedidoMesa?.items.length || 0} ITEMS 🍽️
+                            {pedidosMesa.reduce((acc, p) => acc + p.items.length, 0)} ITEMS 🍽️
                           </span>
                           <span className="font-black text-primary text-sm ml-auto">
-                            {formatCurrency(pedidoMesa?.items.reduce((acc, i) => acc + (i.price * i.quantity), 0) || 0)}
+                            {formatCurrency(pedidosMesa.reduce((acc, p) => acc + p.items.reduce((s, i) => s + (i.price * i.quantity), 0), 0))}
                           </span>
                         </div>
                       ) : (
@@ -1241,6 +1805,26 @@ export function SellModule() {
         </DialogContent>
       </Dialog>
 
+      {/* Cancel Confirmation Dialog */}
+      <Dialog open={showCancelConfirm} onOpenChange={(open) => { if (!open) { pendingRemoveUid.current = null; setShowCancelConfirm(false) } }}>
+        <DialogContent className="bg-card border-border max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Cancelar pedido completo</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Este es el último producto del pedido. Al eliminarlo se cancelará la cuenta completa de <strong>{activePedido?.nombreMesa}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { pendingRemoveUid.current = null; setShowCancelConfirm(false) }}>
+              Volver
+            </Button>
+            <Button variant="destructive" onClick={confirmCancelPedido}>
+              Cancelar pedido
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Receipt Dialog */}
       <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
         <DialogContent className="bg-card border-border">
@@ -1280,6 +1864,39 @@ export function SellModule() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {activePedido && (
+        <SepararCuentaDialog
+          open={showSepararCuenta}
+          onOpenChange={setShowSepararCuenta}
+          items={cart}
+          nombreMesa={activePedido.nombreMesa}
+          onConfirm={handleSepararCuenta}
+        />
+      )}
+
+      {activePedido && activePedido.mesaId && pedidosMesaActual.length >= 2 && (
+        <UnirCuentasDialog
+          open={showUnirCuentas}
+          onOpenChange={setShowUnirCuentas}
+          pedidos={pedidosMesaActual}
+          comandas={comandasActivas}
+          pedidoDestinoIdInicial={selectedPedidoId}
+          nombreMesa={activePedido.nombreMesa}
+          onConfirm={handleUnirCuentas}
+        />
+      )}
+
+      {activePedido && activePedido.mesaId && (
+        <TrasladarCuentaDialog
+          open={showTrasladarCuenta}
+          onOpenChange={setShowTrasladarCuenta}
+          mesas={mesas}
+          mesaOrigenId={activePedido.mesaId}
+          nombreMesaOrigen={activePedido.nombreMesa}
+          onConfirm={handleTrasladarCuenta}
+        />
+      )}
     </div>
   )
 }
@@ -1328,7 +1945,13 @@ function FotocopiasCalculator({
           className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-foreground font-bold text-xl active:scale-90 touch-target"
         >-</button>
         <div className="text-center min-w-[80px]">
-          <p className="text-3xl font-black text-foreground">{fotoCopias}</p>
+          <input
+            type="number"
+            min="1"
+            value={fotoCopias}
+            onChange={(e) => setFotoCopias(Math.max(1, parseInt(e.target.value) || 1))}
+            className="w-20 text-3xl font-black text-foreground text-center bg-transparent border-none outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
           <p className="text-xs text-muted-foreground">copias</p>
         </div>
         <button

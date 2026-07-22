@@ -1,5 +1,7 @@
 // Datos demo para el sistema POS
 
+import type { ImpuestoTipo } from '@/lib/impuestos-service'
+
 export interface Product {
   id: string
   name: string
@@ -9,8 +11,12 @@ export interface Product {
   category: string
   emoji: string
   stock: number
-  iva: number
-  impoconsumo: number
+  // ADR-TRIB-001 D3: clasificación tributaria del ítem (reemplaza iva/impoconsumo).
+  impuestoTipo: ImpuestoTipo
+  // Legado (IMP-6): ya no se leen para calcular impuesto; opcionales por
+  // compatibilidad con datos/tipos preexistentes.
+  iva?: number
+  impoconsumo?: number
   hasRecipe: boolean
 }
 
@@ -90,21 +96,21 @@ export const currentUser: User = {
 }
 
 export const products: Product[] = [
-  { id: '1', name: 'Café Americano', code: '100001', price: 4500, cost: 1200, category: 'Bebidas', emoji: 'Coffee', stock: 50, iva: 19, impoconsumo: 8, hasRecipe: true },
-  { id: '2', name: 'Cappuccino', code: '100002', price: 6500, cost: 1800, category: 'Bebidas', emoji: 'Coffee', stock: 45, iva: 19, impoconsumo: 8, hasRecipe: true },
-  { id: '3', name: 'Latte', code: '100003', price: 7000, cost: 2000, category: 'Bebidas', emoji: 'CupSoda', stock: 40, iva: 19, impoconsumo: 8, hasRecipe: true },
-  { id: '4', name: 'Espresso', code: '100004', price: 3500, cost: 900, category: 'Bebidas', emoji: 'Coffee', stock: 60, iva: 19, impoconsumo: 8, hasRecipe: true },
-  { id: '5', name: 'Mocaccino', code: '100005', price: 7500, cost: 2200, category: 'Bebidas', emoji: 'CupSoda', stock: 35, iva: 19, impoconsumo: 8, hasRecipe: true },
-  { id: '6', name: 'Sándwich Jamón y Queso', code: '200001', price: 12000, cost: 4500, category: 'Sándwiches', emoji: 'Sandwich', stock: 20, iva: 19, impoconsumo: 0, hasRecipe: true },
-  { id: '7', name: 'Sándwich Pollo', code: '200002', price: 14000, cost: 5200, category: 'Sándwiches', emoji: 'Sandwich', stock: 18, iva: 19, impoconsumo: 0, hasRecipe: true },
-  { id: '8', name: 'Croissant', code: '200003', price: 5500, cost: 1800, category: 'Sándwiches', emoji: 'Croissant', stock: 25, iva: 19, impoconsumo: 0, hasRecipe: true },
-  { id: '9', name: 'Torta de Chocolate', code: '300001', price: 8000, cost: 2800, category: 'Postres', emoji: 'CakeSlice', stock: 15, iva: 19, impoconsumo: 0, hasRecipe: true },
-  { id: '10', name: 'Cheesecake', code: '300002', price: 9000, cost: 3200, category: 'Postres', emoji: 'CakeSlice', stock: 12, iva: 19, impoconsumo: 0, hasRecipe: true },
-  { id: '11', name: 'Brownie', code: '300003', price: 6000, cost: 2000, category: 'Postres', emoji: 'IceCream', stock: 22, iva: 19, impoconsumo: 0, hasRecipe: true },
-  { id: '12', name: 'Combo Desayuno', code: '400001', price: 18000, cost: 6500, category: 'Combos', emoji: 'Utensils', stock: 30, iva: 19, impoconsumo: 8, hasRecipe: true },
-  { id: '13', name: 'Combo Almuerzo', code: '400002', price: 22000, cost: 8000, category: 'Combos', emoji: 'Utensils', stock: 25, iva: 19, impoconsumo: 8, hasRecipe: true },
-  { id: '14', name: 'Jugo Natural', code: '100006', price: 5000, cost: 1500, category: 'Bebidas', emoji: 'CupSoda', stock: 40, iva: 19, impoconsumo: 0, hasRecipe: true },
-  { id: '15', name: 'Agua Mineral', code: '100007', price: 3000, cost: 800, category: 'Bebidas', emoji: 'GlassWater', stock: 100, iva: 19, impoconsumo: 0, hasRecipe: false },
+  { id: '1', name: 'Café Americano', code: '100001', price: 4500, cost: 1200, category: 'Bebidas', emoji: 'Coffee', stock: 50, impuestoTipo: 'inc_8', iva: 19, impoconsumo: 8, hasRecipe: true },
+  { id: '2', name: 'Cappuccino', code: '100002', price: 6500, cost: 1800, category: 'Bebidas', emoji: 'Coffee', stock: 45, impuestoTipo: 'inc_8', iva: 19, impoconsumo: 8, hasRecipe: true },
+  { id: '3', name: 'Latte', code: '100003', price: 7000, cost: 2000, category: 'Bebidas', emoji: 'CupSoda', stock: 40, impuestoTipo: 'inc_8', iva: 19, impoconsumo: 8, hasRecipe: true },
+  { id: '4', name: 'Espresso', code: '100004', price: 3500, cost: 900, category: 'Bebidas', emoji: 'Coffee', stock: 60, impuestoTipo: 'inc_8', iva: 19, impoconsumo: 8, hasRecipe: true },
+  { id: '5', name: 'Mocaccino', code: '100005', price: 7500, cost: 2200, category: 'Bebidas', emoji: 'CupSoda', stock: 35, impuestoTipo: 'inc_8', iva: 19, impoconsumo: 8, hasRecipe: true },
+  { id: '6', name: 'Sándwich Jamón y Queso', code: '200001', price: 12000, cost: 4500, category: 'Sándwiches', emoji: 'Sandwich', stock: 20, impuestoTipo: 'inc_8', iva: 19, impoconsumo: 0, hasRecipe: true },
+  { id: '7', name: 'Sándwich Pollo', code: '200002', price: 14000, cost: 5200, category: 'Sándwiches', emoji: 'Sandwich', stock: 18, impuestoTipo: 'inc_8', iva: 19, impoconsumo: 0, hasRecipe: true },
+  { id: '8', name: 'Croissant', code: '200003', price: 5500, cost: 1800, category: 'Sándwiches', emoji: 'Croissant', stock: 25, impuestoTipo: 'inc_8', iva: 19, impoconsumo: 0, hasRecipe: true },
+  { id: '9', name: 'Torta de Chocolate', code: '300001', price: 8000, cost: 2800, category: 'Postres', emoji: 'CakeSlice', stock: 15, impuestoTipo: 'inc_8', iva: 19, impoconsumo: 0, hasRecipe: true },
+  { id: '10', name: 'Cheesecake', code: '300002', price: 9000, cost: 3200, category: 'Postres', emoji: 'CakeSlice', stock: 12, impuestoTipo: 'inc_8', iva: 19, impoconsumo: 0, hasRecipe: true },
+  { id: '11', name: 'Brownie', code: '300003', price: 6000, cost: 2000, category: 'Postres', emoji: 'IceCream', stock: 22, impuestoTipo: 'inc_8', iva: 19, impoconsumo: 0, hasRecipe: true },
+  { id: '12', name: 'Combo Desayuno', code: '400001', price: 18000, cost: 6500, category: 'Combos', emoji: 'Utensils', stock: 30, impuestoTipo: 'inc_8', iva: 19, impoconsumo: 8, hasRecipe: true },
+  { id: '13', name: 'Combo Almuerzo', code: '400002', price: 22000, cost: 8000, category: 'Combos', emoji: 'Utensils', stock: 25, impuestoTipo: 'inc_8', iva: 19, impoconsumo: 8, hasRecipe: true },
+  { id: '14', name: 'Jugo Natural', code: '100006', price: 5000, cost: 1500, category: 'Bebidas', emoji: 'CupSoda', stock: 40, impuestoTipo: 'inc_8', iva: 19, impoconsumo: 0, hasRecipe: true },
+  { id: '15', name: 'Agua Mineral', code: '100007', price: 3000, cost: 800, category: 'Bebidas', emoji: 'GlassWater', stock: 100, impuestoTipo: 'inc_8', iva: 19, impoconsumo: 0, hasRecipe: false },
 ]
 
 export const ingredients: Ingredient[] = [
@@ -200,6 +206,7 @@ export const coinDenominations = [
 
 export const modules = [
   { id: 'sell', name: 'Vender', icon: 'ShoppingCart', roles: ['admin', 'cashier', 'supervisor'] },
+  { id: 'salon', name: 'Salón', icon: 'Armchair', roles: ['admin', 'cashier', 'supervisor'] },
   { id: 'kitchen', name: 'Cocina (KDS)', icon: 'ChefHat', roles: ['admin', 'cashier', 'supervisor'] },
   { id: 'alquiler_dashboard', name: 'Alquileres', icon: 'Timer', roles: ['admin', 'cashier', 'supervisor'] },
   { id: 'reservas', name: 'Reservas Web', icon: 'CalendarDays', roles: ['admin', 'cashier', 'supervisor'] },

@@ -11,7 +11,8 @@ import {
   Save,
   Upload,
   Check,
-  X
+  X,
+  Banknote
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -26,6 +27,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useEspacios } from '@/contexts/espacios-context'
 import { suscribirMesas, guardarMesa, eliminarMesa, type Mesa } from '@/lib/mesas-service'
 import { suscribirConfiguracion, guardarConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
+import { regimenesTributariosVisibles, REGIMEN_TRIBUTARIO_DEFAULT } from '@/lib/impuestos-service'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
 
@@ -43,7 +45,6 @@ export function SettingsModule() {
   useEffect(() => {
     const unsubMesas = espacioActivo ? suscribirMesas(espacioActivo.id, setMesas) : () => setMesas([])
     const unsubConfig = suscribirConfiguracion(setConfig)
-    
     return () => {
       unsubMesas()
       unsubConfig()
@@ -64,9 +65,7 @@ export function SettingsModule() {
       toast.success("Configuración guardada correctamente")
     } catch (e) {
       toast.error("Error al guardar la configuración")
-    } finally {
-      setSavingConfig(false)
-    }
+    } finally { setSavingConfig(false) }
   }
 
   const handleCrearMesa = async () => {
@@ -145,6 +144,10 @@ export function SettingsModule() {
             <Database className="h-4 w-4" />
             Backup
           </TabsTrigger>
+          <TabsTrigger value="caja" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-2">
+            <Banknote className="h-4 w-4" />
+            Caja
+          </TabsTrigger>
         </TabsList>
 
         {/* Business Tab */}
@@ -177,8 +180,18 @@ export function SettingsModule() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Dirección</Label>
-                <Input className="bg-input" value={config?.direccion_tienda || ''} onChange={(e) => handleConfigChange('direccion_tienda', e.target.value)} />
+                <Label>Razón Social</Label>
+                <Input className="bg-input" value={config?.razonSocial || ''} onChange={(e) => handleConfigChange('razonSocial', e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Dirección</Label>
+                  <Input className="bg-input" value={config?.direccion_tienda || ''} onChange={(e) => handleConfigChange('direccion_tienda', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Ciudad</Label>
+                  <Input className="bg-input" value={config?.ciudad || ''} onChange={(e) => handleConfigChange('ciudad', e.target.value)} />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -329,42 +342,60 @@ export function SettingsModule() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Prefijo (Ej: POS)</Label>
-                  <Input className="bg-input" value={config?.prefijo_factura || ''} onChange={(e) => handleConfigChange('prefijo_factura', e.target.value)} />
+                  <Input disabled className="bg-input" value="" readOnly />
                 </div>
                 <div className="space-y-2">
                   <Label>Consecutivo Actual</Label>
-                  <Input className="bg-input" type="number" value={config?.consecutivo_actual || 0} onChange={(e) => handleConfigChange('consecutivo_actual', parseInt(e.target.value) || 0)} />
+                  <Input disabled className="bg-input" type="number" value={0} readOnly />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Resolución DIAN (Mensaje en el ticket)</Label>
-                <Input className="bg-input" placeholder="Ej: Autorización N° 187640..." value={config?.resolucion_dian || ''} onChange={(e) => handleConfigChange('resolucion_dian', e.target.value)} />
+                <Input disabled className="bg-input" value="" readOnly />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Tipo de Contribuyente</Label>
-                  <Select value={config?.tipo_contribuyente || "Régimen Simplificado"} onValueChange={(val) => handleConfigChange('tipo_contribuyente', val)}>
+                  <Label>Rango Inicio (texto informativo del ticket)</Label>
+                  <Input disabled className="bg-input" value="" readOnly />
+                </div>
+                <div className="space-y-2">
+                  <Label>Rango Fin (texto informativo del ticket)</Label>
+                  <Input disabled className="bg-input" value="" readOnly />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Vigencia Resolución (texto informativo del ticket)</Label>
+                <Input disabled className="bg-input" value="" readOnly />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Tipo de Contribuyente (informativo)</Label>
+                  <Select disabled value="pendiente">
                     <SelectTrigger className="bg-input">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="pendiente">Reservado para B2</SelectItem>
                       <SelectItem value="Régimen Simplificado">Régimen Simplificado</SelectItem>
                       <SelectItem value="Régimen Común">Régimen Común</SelectItem>
                       <SelectItem value="Gran Contribuyente">Gran Contribuyente</SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">Dato descriptivo para el ticket. No afecta el cálculo de impuestos.</p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Responsable de IVA</Label>
-                  <Select value={config?.responsable_iva || "0"} onValueChange={(val) => handleConfigChange('responsable_iva', val)}>
+                  <Label>Régimen Tributario</Label>
+                  <Select value={config?.regimenTributario || REGIMEN_TRIBUTARIO_DEFAULT} onValueChange={(val) => handleConfigChange('regimenTributario', val)}>
                     <SelectTrigger className="bg-input">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">Sí (Responsable)</SelectItem>
-                      <SelectItem value="0">No (No Responsable)</SelectItem>
+                      {regimenesTributariosVisibles().map((opcion) => (
+                        <SelectItem key={opcion.value} value={opcion.value}>{opcion.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">Determina el cálculo de impuestos en las ventas nuevas.</p>
                 </div>
               </div>
               <div className="space-y-2">
@@ -505,6 +536,52 @@ export function SettingsModule() {
                   Restaurar
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Caja Tab */}
+        <TabsContent value="caja" className="flex-1 mt-4">
+          <Card className="bg-card border-border max-w-2xl">
+            <CardHeader>
+              <CardTitle className="text-foreground">Configuración de Caja</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Parámetros de apertura de turno y alertas de arqueo
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label>Base de caja sugerida</Label>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  className="bg-input"
+                  value={config?.baseCajaSugerida ?? 200000}
+                  onChange={(e) => handleConfigChange('baseCajaSugerida', Math.max(0, parseInt(e.target.value) || 0))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Monto que se prellena al abrir turno. El cajero puede modificarlo.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Umbral de alerta por faltante</Label>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  className="bg-input"
+                  value={config?.umbralAlertaFaltante ?? 20000}
+                  onChange={(e) => handleConfigChange('umbralAlertaFaltante', Math.max(0, parseInt(e.target.value) || 0))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Si el faltante de caja supera este monto, el turno se marca con alerta para revisión del admin.
+                </p>
+              </div>
+              <Button onClick={handleSaveConfig} disabled={savingConfig} className="w-full">
+                <Save className="h-4 w-4 mr-2" />
+                {savingConfig ? 'Guardando...' : 'Guardar Configuración'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

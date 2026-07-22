@@ -3,13 +3,14 @@
 import { Loader2 } from 'lucide-react'
 import { useAuthContext } from '@/contexts/auth-context'
 import { GlobalCloseShift } from '@/components/pos/global-close-shift'
+import { TurnoGate } from '@/components/pos/turno-gate'
 import { Sidebar } from '@/components/pos/sidebar'
 import { LoginScreen } from '@/components/pos/login-screen'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useModulosHabilitados } from '@/contexts/modulos-context'
-import { doc, onSnapshot } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { ReservasBanner } from '@/components/pos/reservas-banner'
+import { OnboardingGate } from '@/components/onboarding/onboarding-gate'
 import dynamic from 'next/dynamic'
 
 // ── Skeleton compartido para todos los módulos mientras cargan ──
@@ -22,6 +23,7 @@ const ModuleSkeleton = () => (
 // ── Dynamic imports: cada módulo se descarga SOLO cuando el cajero lo abre ──
 // El módulo de ventas carga primero (ssr:false porque usa Firebase client-side)
 const SellModule         = dynamic(() => import('@/components/pos/sell-module').then(m => ({ default: m.SellModule })), { loading: () => <ModuleSkeleton />, ssr: false })
+const SalonModule        = dynamic(() => import('@/components/pos/salon-module').then(m => ({ default: m.SalonModule })), { loading: () => <ModuleSkeleton />, ssr: false })
 const KitchenModule      = dynamic(() => import('@/components/pos/kitchen-module').then(m => ({ default: m.KitchenModule })), { loading: () => <ModuleSkeleton />, ssr: false })
 const InventoryModule    = dynamic(() => import('@/components/pos/inventory-module').then(m => ({ default: m.InventoryModule })), { loading: () => <ModuleSkeleton />, ssr: false })
 const RecipesModule      = dynamic(() => import('@/components/pos/recipes-module').then(m => ({ default: m.RecipesModule })), { loading: () => <ModuleSkeleton />, ssr: false })
@@ -43,75 +45,46 @@ const SettingsModule     = dynamic(() => import('@/components/pos/settings-modul
 export default function POSApp() {
   const { usuario, cargando, logout } = useAuthContext()
   const router = useRouter()
-  const { modulos: modulosHabilitados } = useModulosHabilitados()
+  const { modulos: modulosHabilitados, cargando: cargandoModulos } = useModulosHabilitados()
   const [activeModule, setActiveModule] = useState('sell')
+  const [pendingPedidoId, setPendingPedidoId] = useState<string | null>(null)
 
-  // Suscripcion reactiva a permisos del rol desde Firestore
-  const [rolePermisos, setRolePermisos] = useState<string[]>([])
-  useEffect(() => {
-    if (!usuario?.rol) return
-    const unsub = onSnapshot(
-      doc(db, "permisos_roles", usuario.rol),
-      (snap) => { setRolePermisos(snap.exists() ? (snap.data().permisos || []) : []) },
-      () => {} // silencioso en error, usa fallback
-    )
-    return unsub
-  }, [usuario?.uid, usuario?.rol])
-
-  // Merge permisos: role doc de Firestore es la fuente autoritativa.
-  // Per-user overrides solo si difieren del role doc.
+  // La membresía ya contiene el conjunto efectivo; no se consulta la plantilla.
   const userPerms = useMemo(() => {
-    const perUser = usuario?.permisos
-    let finalPerms = new Set<string>()
-    // Fuente 1: role doc de Firestore (se actualiza en tiempo real)
-    if (rolePermisos.length > 0) {
-      // Si el usuario tiene permisos que NO coinciden con el rol → override per-user
-      const roleSet = new Set(rolePermisos)
-      // Override per-usuario solo si el usuario tiene permisos FUERA del rol (custom grants).
-      // Si el rol creció (nuevos módulos), todos heredan sin necesidad de actualizar cada usuario.
-      const perUserDiffers = perUser && perUser.some(m => !roleSet.has(m))
-      finalPerms = perUserDiffers ? new Set(perUser!) : roleSet
-    } else if (perUser && perUser.length > 0) {
-      // Fuente 2: permisos del doc del usuario (estáticos hasta refresh)
-      finalPerms = new Set(perUser)
-    } else {
-      // Fuente 3: fallback hardcoded (solo si no hay nada en Firestore)
-      finalPerms = new Set(["sell"])
-    }
-    
-    // Inyectar 'reservas' por retrocompatibilidad
-    if (usuario?.rol === 'admin' || usuario?.rol === 'cajero') {
-      finalPerms.add('reservas')
-    }
-    
-    return finalPerms
-  }, [usuario?.permisos, usuario?.rol, rolePermisos])
+    return new Set(usuario?.permisos ?? [])
+  }, [usuario?.permisos])
 
   const modulosSet = useMemo(() => new Set(modulosHabilitados), [modulosHabilitados])
 
-  // ── Auto-abrir turno para cajeros al iniciar sesión ──
   useEffect(() => {
-    if (usuario && usuario.rol !== 'admin' && usuario.rol !== 'marketing') {
-      import('@/lib/turnos-service').then(async ({ verificarTurnoActivo, abrirTurno }) => {
-        const tieneTurno = await verificarTurnoActivo(usuario.uid)
-        if (!tieneTurno) {
-          // No tiene turno activo, se lo abrimos automáticamente con base 0
-          await abrirTurno({
-            cajeroId: usuario.uid,
-            cajeroNombre: usuario.nombre || 'Cajero',
-            baseApertura: 0,
-            notasApertura: 'Apertura automática al iniciar sesión'
-          })
-        }
-      }).catch(console.error)
+    if (!usuario || cargandoModulos) return
+    const permitidos = modulosHabilitados.filter((modulo) => userPerms.has(modulo))
+    if (!permitidos.includes(activeModule)) setActiveModule(permitidos[0] ?? '')
+  }, [activeModule, cargandoModulos, modulosHabilitados, userPerms, usuario])
+
+  // ── Redirigir solo a marketing fuera del POS (admin puede entrar si lo desea) ──
+  useEffect(() => {
+    if (usuario && usuario.rol === 'marketing') {
+      router.replace('/admin')
     }
-  }, [usuario])
+  }, [usuario, router])
+
+  // FASE-10C: se eliminó la auto-apertura de turno con base 0. El cajero ahora
+  // debe abrir turno explícitamente con una base real (ver TurnoGate). Sin turno
+  // abierto, el contenido del POS queda bloqueado.
 
   const setSafeModule = (moduleId: string) => {
     if (userPerms.has(moduleId) && modulosSet.has(moduleId)) {
       setActiveModule(moduleId)
+      setPendingPedidoId(null)
     }
   }
+
+  const handleAbrirPedido = useCallback((pedidoId: string) => {
+    if (!userPerms.has('sell') || !modulosSet.has('sell')) return
+    setPendingPedidoId(pedidoId)
+    setActiveModule('sell')
+  }, [modulosSet, userPerms])
 
   // ── Interceptar el cierre de sesión ──
   const handleLogoutAttempt = async () => {
@@ -162,18 +135,16 @@ export default function POSApp() {
     return <LoginScreen />
   }
 
-  // ── Admin y Marketing no tienen acceso al POS (usan la PWA) ──
-  // Si Firebase cambia el usuario a admin en esta pestaña (por login en PWA),
-  // redirigimos para que el POS no quede con sesión de admin sin querer.
-  if (usuario.rol === 'admin' || usuario.rol === 'marketing') {
-    router.replace('/admin')
+  // ── Marketing no tiene acceso al POS — el useEffect ya redirige ──
+  if (usuario.rol === 'marketing') {
     return null
   }
 
   // ── Módulo activo: memoizado para no redefinir en cada render ──
   const renderModule = () => {
     switch (activeModule) {
-      case 'sell':             return <SellModule />
+      case 'sell':             return <SellModule initialPedidoId={pendingPedidoId} />
+      case 'salon':            return <SalonModule onAbrirPedido={handleAbrirPedido} />
       case 'kitchen':          return <KitchenModule />
       case 'inventory':        return <InventoryModule />
       case 'recipes':          return <RecipesModule />
@@ -191,7 +162,7 @@ export default function POSApp() {
       case 'historial':        return <Historial />
       case 'permissions':      return <PermissionsModule />
       case 'settings':         return <SettingsModule />
-      default:                 return <SellModule />
+      default:                 return <ModuleSkeleton />
     }
   }
 
@@ -206,8 +177,13 @@ export default function POSApp() {
         userPerms={userPerms}
       />
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <ReservasBanner setSafeModule={setSafeModule} userPerms={userPerms} />
         <div className="flex-1 flex flex-col min-h-0 relative animate-fade-in" key={activeModule}>
-          {renderModule()}
+          <OnboardingGate usuario={usuario}>
+            <TurnoGate usuario={usuario}>
+              {renderModule()}
+            </TurnoGate>
+          </OnboardingGate>
         </div>
       </main>
       <GlobalCloseShift usuario={usuario} onCloseSuccess={logout} />

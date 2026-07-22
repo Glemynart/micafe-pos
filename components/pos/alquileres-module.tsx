@@ -16,17 +16,20 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
+import { toast } from 'sonner'
 import { useEspacios } from '@/contexts/espacios-context'
 import { formatCurrency } from '@/lib/demo-data'
 
 import { suscribirMesas, type Mesa } from '@/lib/mesas-service'
-import { 
-  suscribirPedidosActivos, 
-  guardarPedido, 
-  type PedidoActivo, 
-  type PedidoItem 
+import {
+  suscribirPedidosActivos,
+  guardarPedido,
+  finalizarAlquiler,
+  type PedidoActivo,
+  type PedidoItem
 } from '@/lib/pedidos-service'
 import { suscribirProductos, type Producto } from '@/lib/productos-service'
+import { crearConfiguracionSimple } from '@/lib/configured-line'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 
@@ -82,7 +85,7 @@ export function AlquileresModule() {
 
   const iniciarTiempo = async (mesa: Mesa) => {
     if (!espacioActivo) return
-    const nuevoPedido: Omit<PedidoActivo, 'actualizadoEn' | 'id'> = {
+    const nuevoPedido: Omit<PedidoActivo, 'actualizadoEn' | 'id' | 'activo'> = {
       mesaId: mesa.id,
       nombreMesa: mesa.nombre,
       espacioId: espacioActivo.id,
@@ -99,17 +102,18 @@ export function AlquileresModule() {
     const producto = productos.find(p => p.id === productoSeleccionadoId)
     if (!producto) return
 
-    const horasDecimales = calcularHorasDecimales(recursoSeleccionado.pedido.inicioAlquiler)
+    const pedido = recursoSeleccionado.pedido
+    const horasDecimales = calcularHorasDecimales(pedido.inicioAlquiler!)
     const minutosExactos = Math.floor(horasDecimales * 60)
-    
-    // Si tiene precio por minuto explícito, cobramos por minuto. Si no, por fracción de hora.
+
     const cobraPorMinuto = (producto as any).precioFraccion && (producto as any).precioFraccion > 0
 
     const cantidad = cobraPorMinuto ? Math.max(1, minutosExactos) : Number(Math.max(0.1, horasDecimales).toFixed(2))
     const precio = cobraPorMinuto ? (producto as any).precioFraccion : producto.precio
 
     const itemAlquiler: PedidoItem = {
-      id: crypto.randomUUID(),
+      id: producto.id,
+      uid: `alquiler-${pedido.id}`,
       name: cobraPorMinuto ? `${producto.nombre} (${minutosExactos} min)` : producto.nombre,
       code: '',
       price: precio,
@@ -117,19 +121,18 @@ export function AlquileresModule() {
       category: producto.categoriaId || '',
       emoji: producto.imagenUrl || '⏱️',
       stock: 999,
-      iva: 0,
-      impoconsumo: 0,
+      impuestoTipo: 'excluido',
       hasRecipe: false,
-      quantity: cantidad
+      quantity: cantidad,
+      ...crearConfiguracionSimple(producto.id, precio),
     }
 
-    const pedidoActualizado = {
-      ...recursoSeleccionado.pedido,
-      inicioAlquiler: null, // Detenemos el cronómetro
-      items: [...recursoSeleccionado.pedido.items, itemAlquiler]
+    try {
+      await finalizarAlquiler(pedido.id, itemAlquiler)
+    } catch (e: any) {
+      toast.error(e.message || 'Error al finalizar alquiler')
+      return
     }
-
-    await guardarPedido(pedidoActualizado)
     setShowStopDialog(false)
     setRecursoSeleccionado(null)
     setProductoSeleccionadoId('')

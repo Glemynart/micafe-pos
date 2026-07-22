@@ -43,7 +43,7 @@ export function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#0a1628]/95 backdrop-blur-sm border-t border-white/5 safe-area-bottom">
-      <div className="flex items-center justify-around max-w-lg mx-auto h-16">
+      <div className="flex items-center justify-around max-w-lg mx-auto h-16 px-1">
         {tabs.map((tab) => {
           const isActive = tab.href === "/admin"
             ? pathname === "/admin"
@@ -54,14 +54,25 @@ export function BottomNav() {
               key={tab.href}
               href={tab.href}
               className={cn(
-                "flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-xl transition-colors min-w-0",
-                isActive
-                  ? "text-[#F9B207]"
-                  : "text-white/30 hover:text-white/60"
+                "relative flex flex-col items-center justify-center gap-1 flex-1 h-full py-2 transition-colors duration-200 min-w-0",
+                isActive ? "text-[#F9B207]" : "text-white/30 hover:text-white/50"
               )}
             >
-              <Icon className="h-5 w-5" />
-              <span className="text-[10px] font-medium leading-none">{tab.label}</span>
+              {isActive && (
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-[#F9B207]" />
+              )}
+              <span className={cn(
+                "flex items-center justify-center w-10 h-7 rounded-xl transition-all duration-200",
+                isActive ? "bg-[#F9B207]/10" : ""
+              )}>
+                <Icon className="h-5 w-5" />
+              </span>
+              <span className={cn(
+                "text-[10px] leading-none transition-all",
+                isActive ? "font-bold" : "font-medium"
+              )}>
+                {tab.label}
+              </span>
             </Link>
           )
         })}
@@ -69,14 +80,25 @@ export function BottomNav() {
           <Link
             href="/admin/usuarios"
             className={cn(
-              "flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-xl transition-colors min-w-0",
-              isMoreActive
-                ? "text-[#F9B207]"
-                : "text-white/30 hover:text-white/60"
+              "relative flex flex-col items-center justify-center gap-1 flex-1 h-full py-2 transition-colors duration-200 min-w-0",
+              isMoreActive ? "text-[#F9B207]" : "text-white/30 hover:text-white/50"
             )}
           >
-            <Users className="h-5 w-5" />
-            <span className="text-[10px] font-medium leading-none">Mas</span>
+            {isMoreActive && (
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-[#F9B207]" />
+            )}
+            <span className={cn(
+              "flex items-center justify-center w-10 h-7 rounded-xl transition-all duration-200",
+              isMoreActive ? "bg-[#F9B207]/10" : ""
+            )}>
+              <Users className="h-5 w-5" />
+            </span>
+            <span className={cn(
+              "text-[10px] leading-none transition-all",
+              isMoreActive ? "font-bold" : "font-medium"
+            )}>
+              Más
+            </span>
           </Link>
         )}
       </div>

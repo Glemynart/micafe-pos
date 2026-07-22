@@ -9,6 +9,7 @@ import {
   abrirTurno, 
   cerrarTurno, 
   calcularVentasTurno,
+  obtenerCandidatosRelevo,
   type Turno 
 } from '@/lib/turnos-service'
 import { calcularEgresosTurno } from '@/lib/egresos-service'
@@ -27,6 +28,7 @@ import {
   User
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { formatDate, formatTime, formatCurrency } from '@/lib/format-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -36,11 +38,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { 
+import {
   billDenominations,
-  coinDenominations,
-  formatCurrency
 } from '@/lib/demo-data'
+import { toast } from 'sonner'
+import { CloseShiftForm } from '@/components/pos/close-shift-form'
+import { suscribirConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
 
 export function ShiftsModule() {
   const { usuario } = useAuthContext()
@@ -61,16 +64,29 @@ export function ShiftsModule() {
   const [openNotes, setOpenNotes] = useState('')
   
   // Cash count
-  const [cashCount, setCashCount] = useState<Record<number, number>>({})
+  const [cashCount, setCashCount] = useState<Record<string, string>>({})
   const [closeNotes, setCloseNotes] = useState('')
   const [handoverTo, setHandoverTo] = useState('none')
-  
+  const [cajeros, setCajeros] = useState<{ uid: string; nombre: string }[]>([])
+  const [config, setConfig] = useState<ConfiguracionGlobal | null>(null)
+
+  // Suscribir configuración
+  useEffect(() => {
+    const unsub = suscribirConfiguracion(setConfig)
+    return unsub
+  }, [])
   // Fetch real data
   useEffect(() => {
     if (!usuario) return
     const unsubActivo = suscribirTurnoActivo(usuario.uid, setActiveShift)
     const unsubHistorial = suscribirHistorialTurnos(setHistorial)
     return () => { unsubActivo(); unsubHistorial() }
+  }, [usuario?.uid])
+
+  // Cargar candidatos activos desde las membresías del tenant.
+  useEffect(() => {
+    if (!usuario) return
+    obtenerCandidatosRelevo().then(setCajeros).catch(() => setCajeros([]))
   }, [usuario?.uid])
 
   // Auto-open modal if redirected from logout or event
@@ -92,14 +108,18 @@ export function ShiftsModule() {
     return () => window.removeEventListener('request_close_shift', handleEvent)
   }, [activeShift])
 
-  const totalCashCount = Object.entries(cashCount).reduce((total, [denom, cant]) => {
-    if (denom === 'monedas') return total + cant;
+  const totalCashCount = Object.entries(cashCount).reduce((total, [denom, raw]) => {
+    const cant = parseInt(raw, 10) || 0
+    if (denom === 'monedas') return total + cant
     return total + (Number(denom) * cant)
   }, 0)
 
   // Expected cash = Base + Ventas en Efectivo - Gastos
   const expectedCash = activeShift ? (activeShift.baseApertura + ventasTurno.efectivo - egresosTurno) : 0
   const cashDifference = totalCashCount - expectedCash
+
+  // FASE-10C: no se permite cerrar con conteo vacío, salvo cierre forzado del admin.
+  const puedeCerrar = totalCashCount > 0 || usuario?.rol === 'admin'
 
   const handleOpenShift = async () => {
     if (!usuario) return
@@ -134,22 +154,48 @@ export function ShiftsModule() {
 
   const handleCloseShift = async () => {
     if (!activeShift) return
-    // Optimistic UI
-    setShowCloseShift(false)
-    setCashCount({})
-    setCloseNotes('')
-    
-    cerrarTurno({
-      turnoId: activeShift.id,
-      ventasEfectivo: ventasTurno.efectivo,
-      ventasOtrosMetodos: ventasTurno.transferencia + ventasTurno.tarjeta + ventasTurno.otros,
-      totalEgresos: egresosTurno,
-      totalEsperadoEfectivo: expectedCash,
-      totalReportadoEfectivo: totalCashCount,
-      diferenciaEfectivo: cashDifference,
-      notasCierre: closeNotes,
-      esCierreDefinitivo: handoverTo === 'none',
-    }).catch(console.error)
+    if (!puedeCerrar) {
+      toast.error("Debes contar el efectivo de la caja antes de cerrar el turno.")
+      return
+    }
+    const cajeroRelevo = cajeros.find(c => c.uid === handoverTo)
+    const esRelevo = !!cajeroRelevo
+
+    if (!esRelevo) {
+      // Cierre definitivo: optimistic UI (sin riesgo de turno B)
+      setShowCloseShift(false)
+      setCashCount({})
+      setCloseNotes('')
+    }
+
+    try {
+      await cerrarTurno({
+        turnoId: activeShift.id,
+        ventasEfectivo: ventasTurno.efectivo,
+        ventasOtrosMetodos: ventasTurno.transferencia + ventasTurno.tarjeta + ventasTurno.otros,
+        totalEgresos: egresosTurno,
+        totalEsperadoEfectivo: expectedCash,
+        totalReportadoEfectivo: totalCashCount,
+        diferenciaEfectivo: cashDifference,
+        notasCierre: closeNotes,
+        esCierreDefinitivo: handoverTo === 'none',
+        conteoDetalle: Object.fromEntries(Object.entries(cashCount).map(([k, v]) => [k, parseInt(v, 10) || 0])),
+        umbralAlertaFaltante: config?.umbralAlertaFaltante,
+        ...(cajeroRelevo ? { relevoCajeroId: cajeroRelevo.uid, relevoCajeroNombre: cajeroRelevo.nombre } : {}),
+      })
+      if (esRelevo) {
+        toast.success(`Turno entregado a ${cajeroRelevo.nombre}`)
+        setShowCloseShift(false)
+        setCashCount({})
+        setCloseNotes('')
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Error al cerrar el turno')
+      if (!esRelevo) {
+        // Reabrir modal si falla un cierre definitivo (UI optimista)
+        setShowCloseShift(true)
+      }
+    }
   }
 
   const handleViewDetail = async (shift: Turno) => {
@@ -165,15 +211,6 @@ export function ShiftsModule() {
     setShowShiftDetail(true)
   }
 
-  const formatDate = (date: any) => {
-    if (!date) return '-'
-    return date.toDate().toLocaleDateString('es-CO')
-  }
-
-  const formatTime = (date: any) => {
-    if (!date) return '-'
-    return date.toDate().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
-  }
 
   return (
     <div className="flex flex-col h-full p-4 gap-4">
@@ -193,7 +230,7 @@ export function ShiftsModule() {
               Cerrar Turno
             </Button>
           ) : (
-            <Button onClick={() => setShowOpenShift(true)} className="bg-primary text-primary-foreground">
+            <Button onClick={() => { if (config?.baseCajaSugerida && !initialCash) setInitialCash(config.baseCajaSugerida.toString()); setShowOpenShift(true) }} className="bg-primary text-primary-foreground">
               <Play className="h-4 w-4 mr-2" />
               Abrir Turno
             </Button>
@@ -446,132 +483,23 @@ export function ShiftsModule() {
               </div>
             )}
 
-            {/* Cash count */}
-            <div className="space-y-2">
-              <Label>Conteo de billetes</Label>
-              <div className="grid grid-cols-4 gap-3">
-                {billDenominations.map(bill => (
-                  <div key={bill.value} className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">{bill.label}</Label>
-                    <Input
-                      type="number"
-                      value={cashCount[bill.value] || ''}
-                      onChange={(e) => setCashCount(prev => ({
-                        ...prev,
-                        [bill.value]: parseInt(e.target.value) || 0
-                      }))}
-                      placeholder="0"
-                      className="bg-input text-center"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Coin count */}
-            <div className="space-y-2">
-              <Label>Conteo de monedas</Label>
-              <div className="grid grid-cols-5 gap-3">
-                {coinDenominations.map(coin => (
-                  <div key={coin.value} className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">{coin.label}</Label>
-                    <Input
-                      type="number"
-                      value={cashCount[coin.value] || ''}
-                      onChange={(e) => setCashCount(prev => ({
-                        ...prev,
-                        [coin.value]: parseInt(e.target.value) || 0
-                      }))}
-                      placeholder="0"
-                      className="bg-input text-center"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Cash difference */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="p-4 bg-secondary/30 rounded-lg text-center">
-                <p className="text-sm text-muted-foreground">Total contado</p>
-                <p className="text-xl font-bold text-foreground">{formatCurrency(totalCashCount)}</p>
-              </div>
-              <div className="p-4 bg-secondary/30 rounded-lg text-center">
-                <p className="text-sm text-muted-foreground">Esperado</p>
-                <p className="text-xl font-bold text-foreground">{usuario?.rol === 'admin' ? formatCurrency(expectedCash) : '***'}</p>
-              </div>
-              <div className={cn(
-                "p-4 rounded-lg text-center",
-                usuario?.rol !== 'admin' 
-                  ? "bg-secondary/30"
-                  : cashDifference === 0 
-                    ? "bg-success/20" 
-                    : cashDifference > 0 
-                      ? "bg-success/20" 
-                      : "bg-destructive/20"
-              )}>
-                <p className="text-sm text-muted-foreground">Diferencia</p>
-                <p className={cn(
-                  "text-xl font-bold flex items-center justify-center gap-1",
-                  usuario?.rol !== 'admin'
-                    ? "text-foreground"
-                    : cashDifference === 0 
-                      ? "text-success" 
-                      : cashDifference > 0 
-                        ? "text-success" 
-                        : "text-destructive"
-                )}>
-                  {usuario?.rol === 'admin' ? (
-                    cashDifference === 0 ? (
-                      <><CheckCircle className="h-5 w-5" /> Cuadrado</>
-                    ) : cashDifference > 0 ? (
-                      <>+{formatCurrency(cashDifference)} Sobrante</>
-                    ) : (
-                      <><AlertTriangle className="h-5 w-5" /> {formatCurrency(Math.abs(cashDifference))} Faltante</>
-                    )
-                  ) : '***'}
-                </p>
-              </div>
-            </div>
-
-            {/* Notes and handover */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label>Observaciones</Label>
-                <Textarea
-                  value={closeNotes}
-                  onChange={(e) => setCloseNotes(e.target.value)}
-                  placeholder="Notas sobre el turno..."
-                  className="bg-input resize-none h-10 min-h-[40px]"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label>Entregar turno a</Label>
-                <Select value={handoverTo} onValueChange={setHandoverTo}>
-                  <SelectTrigger className="bg-input h-10">
-                    <SelectValue placeholder="Seleccionar cajero" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="carlos">Operador Demo 01</SelectItem>
-                    <SelectItem value="ana">Operador Demo 02</SelectItem>
-                    <SelectItem value="none">Sin entrega (cierre de día)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6 pt-4 border-t border-border mt-auto">
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCloseShift(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleCloseShift} variant="destructive">
-                <Square className="h-4 w-4 mr-2" />
-                Cerrar Turno
-              </Button>
-            </DialogFooter>
+            <CloseShiftForm
+              variant="compact"
+              cashCount={cashCount}
+              setCashCount={setCashCount}
+              totalCashCount={totalCashCount}
+              expectedCash={expectedCash}
+              cashDifference={cashDifference}
+              closeNotes={closeNotes}
+              setCloseNotes={setCloseNotes}
+              handoverTo={handoverTo}
+              setHandoverTo={setHandoverTo}
+              cajeros={cajeros}
+              usuario={usuario}
+              puedeCerrar={puedeCerrar}
+              onSubmit={handleCloseShift}
+              onCancel={() => setShowCloseShift(false)}
+            />
           </div>
         </DialogContent>
       </Dialog>

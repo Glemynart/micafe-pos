@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "lib",
+    "rootDir": "..",
+    "declaration": true
+  },
+    "include": ["src/**/*.ts", "../lib/configuracion/**/*.ts", "../lib/fiscal/**/*.ts", "../lib/suscripciones/**/*.ts", "../lib/impuestos-service.ts", "../lib/tenant-roles.ts"],
+  "exclude": ["src/**/*.test.ts", "../lib/configuracion/__tests__/**", "lib", "node_modules"]
+}

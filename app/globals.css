@@ -4,13 +4,13 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ──────────────────────────────────────────────────────────────
-   Café Atrato — Sistema de marca
+   Referencia visual legacy desactivada; la base activa es SaaS neutral.
    Navy  #051D41  → oklch(0.24 0.075 262)
    Gold  #F9B207  → oklch(0.79 0.155 80)
    Cream #F5F1EA  → oklch(0.96 0.009 85)
    ────────────────────────────────────────────────────────────── */
-:root {
-  /* Tokens crudos de marca */
+.legacy-theme-disabled {
+  /* Referencia inactiva conservada para evitar afectar estilos no incluidos en B1.7. */
   --navy: oklch(0.24 0.075 262);
   --navy-soft: oklch(0.31 0.066 264);
   --gold: oklch(0.79 0.155 80);
@@ -56,7 +56,7 @@
   --warning-foreground: oklch(0.24 0.075 262);
 }
 
-.dark {
+.legacy-theme-disabled.dark {
   --navy: oklch(0.20 0.06 262);
   --navy-soft: oklch(0.27 0.06 264);
   --gold: oklch(0.80 0.155 80);
@@ -99,6 +99,82 @@
   --success-foreground: oklch(0.15 0.02 262);
   --warning: oklch(0.80 0.155 80);
   --warning-foreground: oklch(0.18 0.05 262);
+}
+
+/* Base SaaS neutral. El Branding tenant solo sobreescribe tokens semánticos
+   validados en runtime; nunca se materializan estilos empresariales aquí. */
+:root {
+  --navy: #334155;
+  --navy-soft: #475569;
+  --gold: #64748b;
+  --gold-strong: #475569;
+  --cream: #f8fafc;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #334155;
+  --primary-foreground: #ffffff;
+  --secondary: #e2e8f0;
+  --secondary-foreground: #0f172a;
+  --muted: #e2e8f0;
+  --muted-foreground: #475569;
+  --accent: #cbd5e1;
+  --accent-foreground: #0f172a;
+  --border: #cbd5e1;
+  --input: #f1f5f9;
+  --ring: #64748b;
+  --sidebar: #f1f5f9;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #334155;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e2e8f0;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: #cbd5e1;
+  --sidebar-ring: #64748b;
+  --success: #15803d;
+  --success-foreground: #ffffff;
+  --warning: #a16207;
+  --warning-foreground: #ffffff;
+}
+
+.dark {
+  --navy: #cbd5e1;
+  --navy-soft: #94a3b8;
+  --gold: #94a3b8;
+  --gold-strong: #cbd5e1;
+  --cream: #f8fafc;
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  --card: #1e293b;
+  --card-foreground: #f8fafc;
+  --popover: #1e293b;
+  --popover-foreground: #f8fafc;
+  --primary: #cbd5e1;
+  --primary-foreground: #0f172a;
+  --secondary: #334155;
+  --secondary-foreground: #f8fafc;
+  --muted: #334155;
+  --muted-foreground: #cbd5e1;
+  --accent: #475569;
+  --accent-foreground: #ffffff;
+  --border: #475569;
+  --input: #1e293b;
+  --ring: #94a3b8;
+  --sidebar: #111827;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-primary: #cbd5e1;
+  --sidebar-primary-foreground: #0f172a;
+  --sidebar-accent: #334155;
+  --sidebar-accent-foreground: #f8fafc;
+  --sidebar-border: #334155;
+  --sidebar-ring: #94a3b8;
+  --success: #22c55e;
+  --success-foreground: #052e16;
+  --warning: #f59e0b;
+  --warning-foreground: #451a03;
 }
 
 @theme inline {

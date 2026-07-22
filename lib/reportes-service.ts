@@ -1,6 +1,7 @@
 import { collection, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore'
 import { db } from './firebase'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, format } from 'date-fns'
+import { getEmpresaId } from '@/lib/tenant'
 
 export interface ReporteVentas {
   ventasTotales: number
@@ -66,9 +67,16 @@ export function obtenerRangoFechas(periodo: string, fechasPersonalizadas?: { ini
 export async function generarReporteVentas(periodo: string, fechasPersonalizadas?: { inicio: Date, fin: Date }, espacioId?: string): Promise<ReporteVentas> {
   const { inicio, fin } = obtenerRangoFechas(periodo, fechasPersonalizadas)
 
+  // MT-U3 Capa 3: resuelto UNA sola vez (§2.5) y reutilizado en las
+  // consultas de esta operación (ventas, productos, turnos). `usuarios` es
+  // global (§7.2 del diseño) y no lleva `empresaId`.
+  const empresaId = await getEmpresaId()
+
   const ventasRef = collection(db, 'ventas')
   const qVentas = query(
     ventasRef,
+    where('empresaId', '==', empresaId),
+    ...(espacioId ? [where('espacioId', '==', espacioId)] : []),
     where('estado', '==', 'pagada'),
     where('fecha', '>=', Timestamp.fromDate(inicio)),
     where('fecha', '<=', Timestamp.fromDate(fin)),
@@ -78,18 +86,22 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
   const snapVentas = await getDocs(qVentas)
   const ventas = snapVentas.docs.map(doc => ({ id: doc.id, ...doc.data() } as any))
 
-  // Obtener usuarios para cruzar nombres
+  // Obtener usuarios para cruzar nombres (global, sin empresaId)
   const snapUsuarios = await getDocs(collection(db, 'usuarios'))
   const mapaUsuarios = new Map<string, string>()
-  const rolesUsuarios = new Map<string, string>()
   snapUsuarios.docs.forEach(doc => {
     const data = doc.data()
     mapaUsuarios.set(doc.id, data.nombre || 'Usuario Desconocido')
-    rolesUsuarios.set(doc.id, data.rol || '')
+  })
+  const snapMembresias = await getDocs(query(collection(db, 'membresias'), where('empresaId', '==', empresaId)))
+  const rolesUsuarios = new Map<string, string>()
+  snapMembresias.docs.forEach((doc) => {
+    const data = doc.data()
+    if (data.estado === 'activa' && data.activo === true) rolesUsuarios.set(data.uid, data.rol || '')
   })
 
   // Obtener productos para tener iconos y nombres reales en caso de que falten
-  const snapProductos = await getDocs(collection(db, 'productos'))
+  const snapProductos = await getDocs(query(collection(db, 'productos'), where('empresaId', '==', empresaId)))
   const mapaProductos = new Map<string, any>()
   snapProductos.docs.forEach(doc => {
     mapaProductos.set(doc.id, doc.data())
@@ -109,10 +121,6 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
   const productosMap = new Map<string, any>()
 
   for (const venta of ventas) {
-    // Si queremos filtrar por espacio específico (ej. "Cafetería" vs "Librería")
-    // asumiendo que los items en su mayoría pertenecen al espacio activo, o la venta tiene un espacioId
-    // Nota: El sistema de ventas actual de pronto no guarda espacioId en la cabecera.
-
     const totalVenta = venta.totales?.total || 0
     ventasTotales += totalVenta
 
@@ -202,6 +210,7 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
   // Cruce con turnos: efectivo declarado vs efectivo vendido
   const qTurnos = query(
     collection(db, 'turnos'),
+    where('empresaId', '==', empresaId),
     where('fechaApertura', '>=', Timestamp.fromDate(inicio)),
     where('fechaApertura', '<=', Timestamp.fromDate(fin))
   )

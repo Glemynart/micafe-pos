@@ -1,20 +1,11 @@
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { cert, getApps, initializeApp } from 'firebase-admin/app'
-import { getFirestore } from 'firebase-admin/firestore'
-
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
-  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-  : undefined
+import { FieldValue } from 'firebase-admin/firestore'
+import { getAdminDb } from '@/lib/firebase-admin'
+import { enviarPushAdmins } from '@/lib/notificaciones-push'
 
 function getDb() {
-  if (!getApps().length) {
-    if (!serviceAccount) {
-      throw new Error('FIREBASE_SERVICE_ACCOUNT no configurado')
-    }
-    initializeApp({ credential: cert(serviceAccount) })
-  }
-  return getFirestore()
+  return getAdminDb()
 }
 
 export async function POST(req: Request) {
@@ -72,21 +63,53 @@ export async function POST(req: Request) {
 
       try {
         const db = getDb()
-        
+        let pushData: { empresaId: string; clienteNombre: string; fechaInicio: string; fechaFin: string } | null = null
+
+        // MT-U3 Capa 4 (§2.5, §4.2, §4.5): candidato de fallback resuelto UNA
+        // sola vez, ANTES de la transacción — nunca dentro. Se usa solo si la
+        // reserva (leída dentro de la transacción) no trae `empresaId` propio
+        // (reserva legacy, creada antes de que `/api/reservas/hold` empezara
+        // a estampar). Con un solo tenant este fallback es correcto; deja de
+        // serlo en cuanto exista una segunda empresa (MT-U11).
+        const fundacionalSnap = await db.collection('empresas').where('esFundacional', '==', true).limit(1).get()
+        const empresaIdFundacional = fundacionalSnap.empty ? null : fundacionalSnap.docs[0].id
+
         await db.runTransaction(async (t) => {
           const reservaRef = db.collection('reservas').doc(reservaId)
           const reservaDoc = await t.get(reservaRef)
-          
+
           if (!reservaDoc.exists) {
             console.error(`Reserva ${reservaId} no encontrada`)
             throw new Error('Reservation not found')
           }
-          
+
           const reservaData = reservaDoc.data()
-          
+
           if (reservaData?.estadoPago === 'pagado') {
             console.log(`Reserva ${reservaId} ya estaba pagada. Ignorando webhook por idempotencia.`)
-            return // Idempotencia: Ya pagada
+            pushData = null
+            return
+          }
+
+          // El tenant se deriva de la reserva (§4.2): es la fuente autoritativa,
+          // no una sesión. Fallback a la fundacional solo para reservas legacy.
+          const empresaId: string | null = reservaData?.empresaId ?? empresaIdFundacional
+          if (!empresaId) {
+            throw new Error(
+              `No se pudo resolver empresaId para la reserva ${reservaId}: no tiene el campo y no existe ninguna empresa fundacional.`
+            )
+          }
+          if (!reservaData?.empresaId) {
+            console.warn(
+              `[wompi-webhook] Reserva ${reservaId} sin empresaId propio — usando fallback a la empresa fundacional (legacy).`
+            )
+          }
+
+          pushData = {
+            empresaId,
+            clienteNombre: reservaData?.clienteNombre || 'Cliente',
+            fechaInicio: reservaData?.fechaInicio || '',
+            fechaFin: reservaData?.fechaFin || '',
           }
 
           // 1. Actualizar Reserva
@@ -149,7 +172,13 @@ export async function POST(req: Request) {
                 }
               }
               if (cambio) {
-                t.set(agendaRef, { ...agendaData, bloques, actualizadoEn: new Date().toISOString() })
+                // Defensivo: si la agenda es legacy y no trae empresaId, se ancla aquí.
+                t.set(agendaRef, {
+                  ...agendaData,
+                  bloques,
+                  actualizadoEn: new Date().toISOString(),
+                  empresaId: agendaData.empresaId ?? empresaId,
+                })
               }
             }
           }
@@ -163,6 +192,7 @@ export async function POST(req: Request) {
 
           const nuevaVentaRef = db.collection('ventas').doc()
           t.set(nuevaVentaRef, {
+            empresaId,
             consecutivo: nuevoConsecutivo,
             fecha: new Date(),
             turnoId: 'reserva-web',
@@ -189,9 +219,53 @@ export async function POST(req: Request) {
               total: reservaData?.montoTotal || 0,
             },
           })
+
+          // 4. Acreditar tesorería — espejo de registrarVenta(transferencia)
+          const montoTotal: number = reservaData?.montoTotal || 0
+          if (montoTotal > 0) {
+            const bancolombiaRef = db.collection('cuentas_bancarias').doc('bancolombia')
+            t.set(bancolombiaRef, { saldo: FieldValue.increment(montoTotal) }, { merge: true })
+            t.set(db.collection('transacciones_financieras').doc(), {
+              empresaId,
+              cuentaId: 'bancolombia',
+              cuentaNombre: 'Bancolombia',
+              tipo: 'ingreso',
+              monto: montoTotal,
+              concepto: `Venta #${nuevoConsecutivo}`,
+              categoria: 'ventas',
+              referencia: nuevaVentaRef.id,
+              usuarioId: 'wompi',
+              usuarioNombre: 'Wompi (Reserva Web)',
+              espacioId: reservaData?.espacioId || 'salas-coworking',
+              fecha: new Date(),
+            })
+          }
         })
         
         console.log(`Reserva ${reservaId} pagada y Venta generada exitosamente.`)
+
+        if (pushData) {
+          const pd = pushData as { empresaId: string; clienteNombre: string; fechaInicio: string; fechaFin: string }
+          const colombiaOffsetMs = -5 * 60 * 60 * 1000
+          let fechaHora = ''
+          if (pd.fechaInicio) {
+            const d = new Date(new Date(pd.fechaInicio).getTime() + colombiaOffsetMs)
+            const dia = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
+            const hInicio = `${String(d.getUTCHours()).padStart(2, '0')}:00`
+            let hFin = ''
+            if (pd.fechaFin) {
+              const dFin = new Date(new Date(pd.fechaFin).getTime() + colombiaOffsetMs)
+              hFin = `${String(dFin.getUTCHours()).padStart(2, '0')}:00`
+            }
+            fechaHora = hFin ? `${dia} ${hInicio}-${hFin}` : `${dia} ${hInicio}`
+          }
+          enviarPushAdmins({
+            empresaId: pd.empresaId,
+            title: 'Nueva reserva recibida',
+            body: `${pd.clienteNombre} — ${fechaHora}`,
+            url: '/admin/reservas',
+          }).catch(err => console.error('[push] Error notificando reserva:', err))
+        }
       } catch (dbError: any) {
         if (dbError.message === 'Reservation not found') {
           return NextResponse.json({ error: 'Reservation not found' }, { status: 404 })
