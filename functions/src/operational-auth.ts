@@ -229,17 +229,28 @@ export function extraerEmpresaIdTenant(request: { auth?: { token: Record<string,
 }
 
 export async function exigirAdminTenant(request: { auth?: { uid: string; token: Record<string, unknown> } }) {
-  const empresaId = extraerEmpresaIdTenant(request);
+  const tenant = await exigirTenantActivo(request);
+  if (tenant.rol !== "admin") {
+    throw new HttpsError("permission-denied", "Acceso denegado.");
+  }
+  return { id: tenant.id, estado: tenant.estado };
+}
+
+/** Revalida claim, Empresa y membresía para lecturas tenant de backend. */
+export async function exigirTenantActivo(request: { auth?: { uid: string; token: Record<string, unknown> } }) {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Autenticación requerida.");
+  const empresaId = request.auth.token.empresaId;
+  if (typeof empresaId !== "string" || !empresaId.trim()) throw new HttpsError("permission-denied", "Acceso denegado.");
   const snap = await getFirestore().collection("empresas").doc(empresaId).get();
   const estado = snap.data()?.estado;
   if (!snap.exists || (estado !== "activa" && estado !== "trial")) {
     throw new HttpsError("permission-denied", "Acceso denegado.");
   }
   const rolActual = await validarMembresiaActiva(empresaId, request.auth!.uid);
-  if (rolActual !== "admin") {
+  if (request.auth.token.rol !== rolActual) {
     throw new HttpsError("permission-denied", "Acceso denegado.");
   }
-  return { id: empresaId, estado: estado as string };
+  return { id: empresaId, estado: estado as string, rol: rolActual };
 }
 
 export async function registrarFallo(ref: FirebaseFirestore.DocumentReference): Promise<void> {

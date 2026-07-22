@@ -44,7 +44,7 @@ const SettingsModule     = dynamic(() => import('@/components/pos/settings-modul
 export default function POSApp() {
   const { usuario, cargando, logout } = useAuthContext()
   const router = useRouter()
-  const { modulos: modulosHabilitados } = useModulosHabilitados()
+  const { modulos: modulosHabilitados, cargando: cargandoModulos } = useModulosHabilitados()
   const [activeModule, setActiveModule] = useState('sell')
   const [pendingPedidoId, setPendingPedidoId] = useState<string | null>(null)
 
@@ -54,6 +54,12 @@ export default function POSApp() {
   }, [usuario?.permisos])
 
   const modulosSet = useMemo(() => new Set(modulosHabilitados), [modulosHabilitados])
+
+  useEffect(() => {
+    if (!usuario || cargandoModulos) return
+    const permitidos = modulosHabilitados.filter((modulo) => userPerms.has(modulo))
+    if (!permitidos.includes(activeModule)) setActiveModule(permitidos[0] ?? '')
+  }, [activeModule, cargandoModulos, modulosHabilitados, userPerms, usuario])
 
   // ── Redirigir solo a marketing fuera del POS (admin puede entrar si lo desea) ──
   useEffect(() => {
@@ -74,9 +80,10 @@ export default function POSApp() {
   }
 
   const handleAbrirPedido = useCallback((pedidoId: string) => {
+    if (!userPerms.has('sell') || !modulosSet.has('sell')) return
     setPendingPedidoId(pedidoId)
     setActiveModule('sell')
-  }, [])
+  }, [modulosSet, userPerms])
 
   // ── Interceptar el cierre de sesión ──
   const handleLogoutAttempt = async () => {
@@ -154,7 +161,7 @@ export default function POSApp() {
       case 'historial':        return <Historial />
       case 'permissions':      return <PermissionsModule />
       case 'settings':         return <SettingsModule />
-      default:                 return <SellModule />
+      default:                 return <ModuleSkeleton />
     }
   }
 

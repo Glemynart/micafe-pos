@@ -75,7 +75,6 @@ export function ShiftsModule() {
     const unsub = suscribirConfiguracion(setConfig)
     return unsub
   }, [])
-
   // Fetch real data
   useEffect(() => {
     if (!usuario) return
