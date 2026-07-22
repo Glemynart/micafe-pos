@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "tsx --test src/contracts.test.ts src/incorporaciones-service.test.ts src/pin-security.test.ts src/configuracion/*.test.ts",
+    "test": "tsx --test src/contracts.test.ts src/incorporaciones-service.test.ts src/pin-security.test.ts src/configuracion/*.test.ts src/fiscal/*.test.ts",
     "test:email:integration": "tsx --test src/email-integration.test.ts"
   },
   "dependencies": {

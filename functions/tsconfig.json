@@ -11,6 +11,6 @@
     "rootDir": "..",
     "declaration": true
   },
-  "include": ["src/**/*.ts", "../lib/configuracion/**/*.ts", "../lib/impuestos-service.ts", "../lib/tenant-roles.ts"],
+    "include": ["src/**/*.ts", "../lib/configuracion/**/*.ts", "../lib/fiscal/**/*.ts", "../lib/impuestos-service.ts", "../lib/tenant-roles.ts"],
   "exclude": ["src/**/*.test.ts", "../lib/configuracion/__tests__/**", "lib", "node_modules"]
 }
