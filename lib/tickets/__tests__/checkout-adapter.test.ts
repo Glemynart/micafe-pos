@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { adaptarCheckoutAModeloTicket, type CheckoutTicketInput } from '../adapters/checkout-adapter'
+import { adaptarCheckoutAModeloTicket, type CheckoutConfiguracionEmpresa, type CheckoutTicketInput } from '../adapters/checkout-adapter'
 import type { ConfiguracionGlobal } from '../../configuracion-service'
 
 // Venta canónica del Checkout: CrearVentaParams + { consecutivo, fecha }.
@@ -57,10 +57,7 @@ const BASE_CONFIG: ConfiguracionGlobal = {
   umbralAlertaFaltante: 0,
 }
 
-const cfg = (overrides: Partial<ConfiguracionGlobal> = {}): ConfiguracionGlobal => ({
-  ...BASE_CONFIG,
-  ...overrides,
-})
+const cfg = (overrides: Partial<ConfiguracionGlobal> = {}): CheckoutConfiguracionEmpresa => { const c = { ...BASE_CONFIG, ...overrides }; const [numeroDocumento, digitoVerificacion] = c.nit_tienda.split('-'); return { identidad: { nombreComercial: c.nombre_tienda, razonSocial: c.razonSocial, tipoPersona: undefined, tipoDocumento: 'NIT', numeroDocumento, digitoVerificacion, regimenTributario: undefined, responsabilidadesFiscales: undefined, actividadEconomicaPrincipal: undefined, contacto: { email: c.email, telefono: c.telefono } }, localizacion: { paisFiscal: 'CO', moneda: 'COP', idioma: 'es-CO', zonaHoraria: 'America/Bogota', direccion: { linea1: c.direccion_tienda, municipioNombre: c.ciudad } }, ticket: { mensajePie: c.mensaje_ticket, mostrarLogoDocumento: false, mostrarRazonSocial: true, mostrarDireccion: true, mostrarTelefono: true, mostrarDesgloseImpuestos: true } } }
 
 // ── D-PAGO ──────────────────────────────────────────────────────────────────
 
@@ -196,7 +193,7 @@ test('Empresa: regimen desde regimenAlMomento (snapshot)', () => {
   assert.equal(empresa.regimenTributario, 'responsable_iva')
 })
 
-test('Empresa: mapeo de campos y fallback de nombre a MiTienda', () => {
+test('Empresa: mapeo canónico sin fallback de identidad', () => {
   const { empresa } = adaptarCheckoutAModeloTicket(venta(), cfg())
   assert.equal(empresa.nombreComercial, 'Cafe Central')
   assert.equal(empresa.razonSocial, 'Cafe Central SAS')
@@ -205,7 +202,7 @@ test('Empresa: mapeo de campos y fallback de nombre a MiTienda', () => {
   assert.equal(empresa.telefono, '3000000000')
 
   const sinNombre = adaptarCheckoutAModeloTicket(venta(), cfg({ nombre_tienda: '' }))
-  assert.equal(sinNombre.empresa.nombreComercial, 'MiTienda')
+  assert.equal(sinNombre.empresa.nombreComercial, '')
 })
 
 // ── Numero / fecha ───────────────────────────────────────────────────────────

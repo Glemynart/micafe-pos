@@ -3,7 +3,9 @@
 ## Estado
 
 Aceptado. Deriva del documento maestro `MT-ARQUITECTURA-SAAS-MULTIEMPRESA.md`
-(§10 y §11).
+(§10 y §11). ADR-SAAS-009 supersede únicamente la política abierta de `Suspendida`
+y el uso de claims como enforcement suficiente; la separación entre empresa y
+suscripción definida aquí permanece vigente.
 
 ## Contexto
 
@@ -107,4 +109,6 @@ datos; la suscripción describe el cobro.
 - **ADR-SAAS-004** define la entidad `Empresa` sobre la que operan estos estados y la
   separación de planos que autoriza quién puede archivar/eliminar.
 - **ADR-SAAS-002** provee la identidad usada para el acceso según estado.
+- **ADR-SAAS-009** fija la política de suspensión y el enforcement canónico del
+  lifecycle, supersediendo parcialmente los puntos indicados en el estado de este ADR.
 - Documento maestro: `MT-ARQUITECTURA-SAAS-MULTIEMPRESA.md` (§10, §11).

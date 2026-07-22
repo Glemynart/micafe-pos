@@ -8,24 +8,18 @@ interface ModulosContextValue {
   cargando: boolean
 }
 
-const ModulosContext = createContext<ModulosContextValue>({ modulos: DEFAULT_MODULOS, cargando: true })
+const ModulosContext = createContext<ModulosContextValue>({ modulos: [], cargando: true })
 
 export function ModulosProvider({ children }: { children: ReactNode }) {
-  const [modulos, setModulos] = useState<string[]>(DEFAULT_MODULOS)
+  const [modulos, setModulos] = useState<string[]>([])
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
-    const unsub = suscribirConfiguracion((config) => {
-      if (config.modulos_habilitados?.length > 0) {
-        const mods = [...config.modulos_habilitados]
-        if (!mods.includes('reservas')) mods.push('reservas')
-        setModulos(mods)
-      } else {
-        setModulos(DEFAULT_MODULOS)
-      }
+    const unsubscribe = suscribirConfiguracion((configuracion) => {
+      setModulos(configuracion.modulos_habilitados ?? DEFAULT_MODULOS)
       setCargando(false)
     })
-    return unsub
+    return unsubscribe
   }, [])
 
   return <ModulosContext.Provider value={{ modulos, cargando }}>{children}</ModulosContext.Provider>

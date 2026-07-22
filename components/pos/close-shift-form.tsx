@@ -20,6 +20,7 @@ interface CloseShiftFormProps {
   handoverTo: string
   setHandoverTo: (v: string) => void
   cajeros: { uid: string; nombre: string }[]
+  permitirRelevo?: boolean
   usuario: any
   puedeCerrar: boolean
   isLoadingTotals?: boolean
@@ -40,6 +41,7 @@ export function CloseShiftForm({
   handoverTo,
   setHandoverTo,
   cajeros,
+  permitirRelevo = true,
   usuario,
   puedeCerrar,
   isLoadingTotals,
@@ -240,7 +242,7 @@ export function CloseShiftForm({
       )}
 
       {/* Observations and handover */}
-      <div className={isCompact ? "grid grid-cols-2 gap-4" : "grid grid-cols-1 sm:grid-cols-2 gap-4"}>
+      <div className={permitirRelevo ? (isCompact ? "grid grid-cols-2 gap-4" : "grid grid-cols-1 sm:grid-cols-2 gap-4") : "grid grid-cols-1 gap-4"}>
         <div className="space-y-2">
           <Label className={isCompact ? "" : "text-sm font-semibold"}>
             {isCompact ? "Observaciones" : "Observaciones de Cierre"}
@@ -255,7 +257,7 @@ export function CloseShiftForm({
             }
           />
         </div>
-        <div className="space-y-2">
+        {permitirRelevo && <div className="space-y-2">
           <Label className={isCompact ? "" : "text-sm font-semibold"}>Entregar turno a</Label>
           <Select value={handoverTo} onValueChange={setHandoverTo}>
             <SelectTrigger className={isCompact ? "bg-input h-10" : "bg-background border-border h-10"}>
@@ -270,7 +272,7 @@ export function CloseShiftForm({
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </div>}
       </div>
 
       {/* Footer */}

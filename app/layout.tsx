@@ -18,17 +18,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Café Atrato - Coworking Cultural y Empresarial',
-  description: 'Un espacio premium diseñado para profesionales que buscan productividad, comunidad y el mejor café tradicional',
+  title: 'POS Empresarial',
+  description: 'Plataforma empresarial de punto de venta',
   openGraph: {
-    title: 'Café Atrato - Coworking Cultural y Empresarial',
-    description: 'Un espacio premium diseñado para profesionales que buscan productividad, comunidad y el mejor café tradicional',
+    title: 'POS Empresarial',
+    description: 'Plataforma empresarial de punto de venta',
     type: 'website',
     locale: 'es_CO',
-  },
-  icons: {
-    icon: '/cafe-atrato-icon.png',
-    apple: '/cafe-atrato-icon.png',
   },
 }
 import { Toaster } from 'sonner'
@@ -44,7 +40,7 @@ export default function RootLayout({
   return (
     <html lang="es" className="bg-background" suppressHydrationWarning>
       <body className={`${inter.variable} ${geistMono.variable} font-sans antialiased`} suppressHydrationWarning>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AuthProvider>
             {/* SaaSProvider: runtime SaaS (MT-U2) — inmediatamente bajo AuthProvider */}
             <SaaSProvider>

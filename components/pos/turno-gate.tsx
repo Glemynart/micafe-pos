@@ -15,7 +15,6 @@ import type { Usuario } from '@/lib/auth-service'
 // Roles que manejan efectivo y por tanto REQUIEREN un turno abierto para operar.
 // admin / marketing / cocinero no pasan por el arqueo de caja.
 const ROLES_CON_TURNO = new Set(['cajero', 'supervisor'])
-
 interface TurnoGateProps {
   usuario: Usuario
   children: React.ReactNode
@@ -56,10 +55,7 @@ export function TurnoGate({ usuario, children }: TurnoGateProps) {
   useEffect(() => {
     if (!requiereTurno || basePrellenada) return
     const unsub = suscribirConfiguracion((cfg) => {
-      if (cfg.baseCajaSugerida > 0 && !basePrellenada) {
-        setBase(cfg.baseCajaSugerida.toString())
-        setBasePrellenada(true)
-      }
+      if (cfg.baseCajaSugerida > 0 && !basePrellenada) { setBase(cfg.baseCajaSugerida.toString()); setBasePrellenada(true) }
     })
     return unsub
   }, [requiereTurno, basePrellenada])
