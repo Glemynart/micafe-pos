@@ -1,0 +1,105 @@
+<html><head>
+    <meta charset="UTF-8">
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 11px;
+        line-height: 1.35;
+        width: 210px;
+        margin: 0;
+        padding: 0 4px;
+        color: #000;
+      }
+      .center  { text-align: center; }
+      .bold    { font-weight: bold; }
+      .uppercase { text-transform: uppercase; }
+      .titulo  {
+        text-align: center;
+        font-size: 11px;
+        font-weight: bold;
+        margin: 8px 0;
+        border-top: 1.5px dashed #000;
+        border-bottom: 1.5px dashed #000;
+        padding: 6px 0;
+      }
+      .store   { text-align: center; font-size: 13px; font-weight: bold; margin: 6px 0 2px 0; }
+      .sub     { text-align: center; font-size: 9px; margin: 2px 0; line-height: 1.25; }
+      .sep     { text-align: center; margin: 8px 0; border-top: 1.5px dashed #000; }
+      .row2    { display: flex; justify-content: space-between; margin: 3px 0; }
+      .row3    { display: flex; margin: 6px 0; border-bottom: 0.5px solid #ddd; padding-bottom: 4px; }
+      .row3 .desc { flex: 1; padding-right: 4px; }
+      .row3 .unit { width: 55px; text-align: right; font-size: 10px; }
+      .row3 .sub  { width: 58px; text-align: right; font-size: 10px; font-weight: bold; }
+      .line-meta { font-size: 9.5px; font-weight: bold; color: #000; }
+      .modifier-line { display: block; font-size: 9.5px; font-weight: normal; line-height: 1.3; margin-top: 2px; padding-left: 8px; }
+      .hdr3    { display: flex; font-weight: bold; border-bottom: 1.5px dashed #000; padding-bottom: 5px; margin-bottom: 6px; font-size: 10px; }
+      .hdr3 .desc { flex: 1; }
+      .hdr3 .unit { width: 55px; text-align: right; }
+      .hdr3 .sub  { width: 58px; text-align: right; }
+      .total-row { display: flex; justify-content: space-between; margin: 4px 0; font-size: 11px; }
+      .total-main{ font-weight: bold; font-size: 13px; border-top: 1.5px dashed #000; padding-top: 6px; margin-top: 6px; }
+      .tax-table { width: 100%; font-size: 9px; margin-top: 8px; border-collapse: collapse; }
+      .tax-table th { border-bottom: 1.5px dashed #000; text-align: left; font-weight: bold; padding-bottom: 4px; }
+      .tax-table td { padding: 4px 0; }
+      .cufe    { font-size: 8px; word-break: break-all; text-align: justify; margin: 6px 0; line-height: 1.2; font-family: monospace; }
+      .qr-container { text-align: center; margin: 12px 0; }
+      .qr-image { display: inline-block; width: 120px; height: 120px; }
+      .res     { font-size: 8px; line-height: 1.4; margin-top: 8px; border-top: 1.5px dashed #000; padding-top: 6px; }
+      .footer  { text-align: center; margin-top: 15px; font-size: 9px; line-height: 1.4; }
+    </style></head><body>
+
+    <div class="store uppercase">Mi Cafe Especial</div>
+    <div class="sub uppercase">Mi Cafe Especial S.A.S.</div>
+    <div class="sub">NIT: 900.123.456-7</div>
+    <div class="sub uppercase">Calle 123 #45-67</div>
+    <div class="sub uppercase">Bogota - COLOMBIA</div>
+    <div class="sub">TEL: +57 300 123 4567</div>
+    <div class="sub">No Responsable de INC</div>
+
+    <div class="titulo">TICKET DE VENTA</div>
+
+    <div class="row2"><span class="bold">N° TICKET:</span><span class="bold">000043</span></div>
+    <div class="row2"><span>FECHA:</span><span>03/07/2026</span></div>
+    <div class="row2"><span>HORA:</span><span>03:30 p. m.</span></div>
+
+
+
+    <div class="sep"></div>
+    <div class="hdr3">
+      <span class="desc">DESCRIPCIÓN</span>
+      <span class="unit">UNIT.</span>
+      <span class="sub">TOTAL</span>
+    </div>
+
+
+        <div class="row3">
+          <span class="desc">CAFE LATTE<br>
+            <span class="line-meta">CANT: 1 | COD: LAT-001</span>
+            <span class="modifier-line">&bull; Grande</span>
+            <span class="modifier-line">&bull; Leche Almendra (+$1.500)</span>
+            <span class="modifier-line">&bull; Canela</span>
+          </span>
+          <span class="unit">$8.000</span>
+          <span class="sub">$8.000</span>
+        </div>
+
+
+    <div class="sep"></div>
+    <div class="total-row"><span>SUBTOTAL:</span><span>$8.000</span></div>
+
+
+    <div class="total-row total-main"><span>TOTAL A PAGAR:</span><span>$8.000</span></div>
+
+    <div class="row2" style="margin-top: 6px;"><span class="bold">FORMA PAGO:</span><span class="bold uppercase">tarjeta</span></div>
+
+
+
+
+    <div class="footer">
+      <p class="bold">Mi Cafe Especial</p>
+      <p>Desarrollado por Sebastian Agudelo Muñoz - NIT: 1000292576-3</p>
+      <p style="margin-top:6px; font-weight: bold;">¡GRACIAS POR SU COMPRA!</p>
+    </div>
+    <div style="height:35px"></div>
+  </body></html>

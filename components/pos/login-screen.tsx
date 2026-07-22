@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Coffee, Eye, EyeOff, Loader2, AlertCircle, Sparkles } from 'lucide-react'
+import { Store, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,11 +35,11 @@ export function LoginScreen() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
-      {/* Background gradient orbs */}
+      {/* Orbes de fondo derivados del tema SaaS neutral. */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-32 -left-32 w-[32rem] h-[32rem] bg-primary/4 rounded-full blur-[120px]" />
-        <div className="absolute -bottom-40 -right-40 w-[36rem] h-[36rem] bg-accent/4 rounded-full blur-[130px]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[28rem] h-[28rem] bg-primary/3 rounded-full blur-[100px]" />
+        <div className="absolute -top-40 -left-40 w-[36rem] h-[36rem] bg-primary/10 rounded-full blur-[140px]" />
+        <div className="absolute -bottom-40 -right-40 w-[40rem] h-[40rem] bg-secondary/70 rounded-full blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[30rem] h-[30rem] bg-accent/10 rounded-full blur-[100px]" />
       </div>
 
       {/* Steam particles */}
@@ -57,74 +57,64 @@ export function LoginScreen() {
               opacity: 0,
             }}
           >
-            <div className="w-2 h-10 bg-gradient-to-t from-primary/30 via-primary/15 to-transparent rounded-full blur-[2px]" />
+            <div className="w-2 h-10 bg-gradient-to-t from-primary/25 via-primary/10 to-transparent rounded-full blur-[2px]" />
           </div>
         ))}
       </div>
 
-      {/* Subtle noise texture overlay */}
-      <div className="absolute inset-0 opacity-[0.015] pointer-events-none" style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E")`,
-        backgroundSize: '256px 256px',
-      }} />
-
-      <Card className="w-full max-w-md bg-card/70 backdrop-blur-2xl border-border/50 shadow-2xl shadow-primary/5 animate-scale-in relative z-10">
+      <Card className="w-full max-w-sm mx-4 bg-card border-border shadow-2xl animate-scale-in relative z-10 rounded-2xl">
         <CardHeader className="text-center pb-1 pt-8">
           {/* Logo mark */}
           <div className="mx-auto mb-5 relative">
-            <div className="absolute inset-0 bg-accent/20 rounded-full blur-2xl scale-150" />
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary via-primary to-accent flex items-center justify-center shadow-xl shadow-primary/25 relative">
-              <Coffee className="h-10 w-10 text-primary-foreground" />
+            <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl scale-150" />
+            <div className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center shadow-xl relative">
+              <Store className="h-10 w-10 text-primary-foreground" strokeWidth={2.2} />
             </div>
           </div>
 
-          <div className="space-y-1">
-            <div className="flex items-center justify-center gap-2">
-              <Sparkles className="h-4 w-4 text-accent" />
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">MiCafé</h1>
-              <Sparkles className="h-4 w-4 text-accent" />
-            </div>
-            <p className="text-sm text-muted-foreground font-medium">Sistema de Punto de Venta</p>
+          <div className="space-y-0.5">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">POS Empresarial</h1>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Punto de venta</p>
           </div>
         </CardHeader>
 
         <CardContent className="px-8 pb-8 pt-6">
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <div className="space-y-2">
-              <Label htmlFor="username" className="text-sm font-medium text-foreground/80">Usuario</Label>
-              <div className="relative">
-                <Input
-                  id="username"
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Tu nombre de usuario"
-                  className="h-12 pl-4 bg-secondary/50 border-border/80 focus:border-primary/60 rounded-xl text-foreground placeholder:text-muted-foreground/50 transition-all duration-200 focus:ring-2 focus:ring-primary/10"
-                  autoComplete="username"
-                  disabled={iniciandoSesion}
-                  autoFocus
-                />
-              </div>
+              <Label htmlFor="username" className="text-sm font-medium text-muted-foreground">Código operativo</Label>
+              <Input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Ej. caja-01"
+                className="h-12 bg-input border-border focus:border-primary focus:ring-primary/20 rounded-xl text-foreground placeholder:text-muted-foreground transition-all duration-200"
+                autoComplete="username"
+                disabled={iniciandoSesion}
+                autoFocus
+              />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium text-foreground/80">Contrasena</Label>
+              <Label htmlFor="password" className="text-sm font-medium text-muted-foreground">PIN de 6 dígitos</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="········"
-                  className="h-12 pl-4 pr-12 bg-secondary/50 border-border/80 focus:border-primary/60 rounded-xl text-foreground placeholder:text-muted-foreground/50 transition-all duration-200 focus:ring-2 focus:ring-primary/10"
+                  placeholder="••••••"
+                  inputMode="numeric"
+                  maxLength={6}
+                  className="h-12 pr-12 bg-input border-border focus:border-primary focus:ring-primary/20 rounded-xl text-foreground placeholder:text-muted-foreground transition-all duration-200"
                   autoComplete="current-password"
                   disabled={iniciandoSesion}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-secondary/80"
-                  aria-label={showPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg"
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -134,7 +124,7 @@ export function LoginScreen() {
             {errorLogin && (
               <div
                 role="alert"
-                className="flex items-start gap-2.5 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive animate-scale-in"
+                className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 animate-scale-in"
               >
                 <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                 <span className="font-medium">{errorLogin}</span>
@@ -143,7 +133,7 @@ export function LoginScreen() {
 
             <Button
               type="submit"
-              className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/95 hover:to-primary/85 rounded-xl shadow-lg shadow-primary/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/25 hover:-translate-y-0.5 active:translate-y-0"
+              className="w-full h-12 text-base font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 border-none"
               disabled={iniciandoSesion || !username.trim() || !password}
             >
               {iniciandoSesion ? (
@@ -152,12 +142,12 @@ export function LoginScreen() {
                   Ingresando...
                 </span>
               ) : (
-                'Iniciar Sesion'
+                'Iniciar Sesión'
               )}
             </Button>
 
-            <p className="text-center text-[11px] text-muted-foreground/60 pt-1">
-              MiCafe POS v1.0
+            <p className="text-center text-[11px] text-muted-foreground pt-1">
+              POS Empresarial
             </p>
           </form>
         </CardContent>
@@ -166,8 +156,8 @@ export function LoginScreen() {
       <style>{`
         @keyframes steam {
           0%, 100% { transform: translateY(0) scale(var(--steam-scale, 1)); opacity: 0; }
-          20% { opacity: 0.18; }
-          50% { transform: translateY(-120px) scale(calc(var(--steam-scale, 1) * 0.7)); opacity: 0.06; }
+          20% { opacity: 0.22; }
+          50% { transform: translateY(-120px) scale(calc(var(--steam-scale, 1) * 0.7)); opacity: 0.08; }
           80% { opacity: 0; }
         }
       `}</style>

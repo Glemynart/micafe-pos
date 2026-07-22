@@ -13,10 +13,14 @@ import {
   doc,
   addDoc,
   updateDoc,
+  runTransaction,
   serverTimestamp,
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { aplicarMovimientoEnTransaccion } from "@/lib/inventario-ledger";
+import { getCurrentUserInfo } from "@/lib/auth-service";
+import { getEmpresaId, tenantQuery, stampEmpresaId } from "@/lib/tenant";
 
 export interface Insumo {
   id: string;
@@ -37,34 +41,99 @@ export function suscribirInsumos(
   espacioId: string,
   callback: (insumos: Insumo[]) => void
 ): Unsubscribe {
-  const q = query(
+  let unsubscribe = () => {};
+  let cancelado = false;
+
+  tenantQuery(
     collection(db, "insumos"),
     where("espacioId", "==", espacioId),
     where("activo", "==", true)
-  );
-
-  return onSnapshot(q, (snap) => {
-    const insumos: Insumo[] = snap.docs.map((d) => ({
-      id: d.id,
-      ...(d.data() as Omit<Insumo, "id">),
-    })).sort((a, b) => a.nombre.localeCompare(b.nombre));
-    callback(insumos);
+  ).then((q) => {
+    if (cancelado) return;
+    unsubscribe = onSnapshot(q, (snap) => {
+      const insumos: Insumo[] = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as Omit<Insumo, "id">),
+      })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+      callback(insumos);
+    });
   });
+
+  return () => {
+    cancelado = true;
+    unsubscribe();
+  };
 }
 
 export async function crearInsumo(data: InsumoInput): Promise<string> {
-  const ref = await addDoc(collection(db, "insumos"), {
+  const ref = await addDoc(collection(db, "insumos"), await stampEmpresaId({
     ...data,
     creadoEn: serverTimestamp(),
     actualizadoEn: serverTimestamp(),
-  });
+  }));
   return ref.id;
 }
 
 export async function editarInsumo(id: string, data: Partial<InsumoInput>): Promise<void> {
-  await updateDoc(doc(db, "insumos", id), {
-    ...data,
-    actualizadoEn: serverTimestamp(),
+  const { stock: nuevoStock, ...dataSinStock } = data;
+
+  // Sin cambio de stock: actualización simple de metadatos.
+  if (nuevoStock === undefined) {
+    await updateDoc(doc(db, "insumos", id), {
+      ...dataSinStock,
+      actualizadoEn: serverTimestamp(),
+    });
+    return;
+  }
+
+  // Stock cambió: transacción atómica + Ledger (I11).
+  const { uid, nombre: usuarioNombre } = await getCurrentUserInfo("Debe iniciar sesión para ajustar el stock");
+  // MT-U3 Capa 2: resuelto antes de runTransaction (§2.5).
+  const empresaId = await getEmpresaId();
+
+  // Clave de idempotencia estable: generada fuera del callback de runTransaction
+  // para sobrevivir reintentos automáticos del SDK sin duplicar el movimiento (I10).
+  const ajusteId = doc(collection(db, "movimientos_inventario")).id;
+
+  await runTransaction(db, async (transaction) => {
+    // ── LECTURAS ──────────────────────────────────────────────────────────────
+    const insumoRef = doc(db, "insumos", id);
+    const insumoSnap = await transaction.get(insumoRef);
+    if (!insumoSnap.exists()) throw new Error("Insumo no encontrado");
+
+    const d = insumoSnap.data();
+    const stockActual = (d.stock as number | undefined) ?? 0;
+    const delta = nuevoStock - stockActual;
+
+    // ── ESCRITURAS ────────────────────────────────────────────────────────────
+    // El ledger hace su Fase 1 (lecturas: idempotencia + artículo) antes de
+    // escribir nada — reads-before-writes preservado.
+    if (delta !== 0) {
+      const tipo = delta > 0 ? "ajuste_positivo" : "ajuste_negativo";
+      await aplicarMovimientoEnTransaccion(transaction, {
+        empresaId,
+        articuloTipo:        "insumo",
+        articuloId:          id,
+        articuloNombre:      (d.nombre as string) ?? id,
+        unidad:              (d.unidadMedida as string | undefined) ?? "und",
+        tipo,
+        cantidad:            delta,
+        costoUnitario:       (d.costo as number | undefined) ?? 0,
+        espacioId:           (d.espacioId as string) ?? "",
+        usuarioId:           uid,
+        usuarioNombre,
+        claveIdempotencia:   `${tipo}:edicion:insumo:${id}:${ajusteId}`,
+        referenciaColeccion: "insumos",
+        referenciaId:        id,
+        motivo:              "ajuste_administrativo",
+      });
+    }
+
+    // Actualiza campos no-stock (ledger ya actualizó stock + secuenciaLedger).
+    transaction.update(insumoRef, {
+      ...dataSinStock,
+      actualizadoEn: serverTimestamp(),
+    });
   });
 }
 

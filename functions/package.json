@@ -1,0 +1,23 @@
+{
+  "name": "micafe-pos-saas-auth-functions",
+  "private": true,
+  "main": "lib/functions/src/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "tsx --test src/contracts.test.ts src/incorporaciones-service.test.ts src/pin-security.test.ts src/configuracion/*.test.ts src/fiscal/*.test.ts src/suscripciones/*.test.ts src/bootstrap/*.test.ts src/onboarding/*.test.ts",
+    "test:email:integration": "tsx --test src/email-integration.test.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "firebase-admin": "^14.0.0",
+    "firebase-functions": "^7.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.22.4",
+    "typescript": "^5.7.3"
+  }
+}

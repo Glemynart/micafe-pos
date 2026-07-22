@@ -2,193 +2,305 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── Helper: obtiene el rol del usuario autenticado ───────────────
-    function rol() {
-      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol;
+    // El claim tenant es emitido exclusivamente por Functions desde la
+    // membresía canónica. Ningún cliente puede escribir roles o permisos.
+    function haySesion() { return request.auth != null; }
+    function esSesionActivacion() {
+      return haySesion()
+        && request.auth.token.keys().hasAll(['authStage'])
+        && request.auth.token.authStage == 'DIRECTA_TEMP';
     }
-    function esAdmin()      { return rol() == 'admin'; }
-    function esFinanzas()   { return rol() in ['admin']; }                        // [NUEVO] tesorería: solo admin
-    function esOperativo()  { return rol() in ['admin', 'cajero', 'supervisor']; }
-    function esAutenticado(){ return request.auth != null; }
-
-    // ─── Auditoría: solo crear (append-only, nadie lee directo) ───────
-    match /auditoria_logs/{id} {
-      allow read: if esAutenticado() && esAdmin();
-      allow create: if esAutenticado()
-        && request.resource.data.accion is string
-        && request.resource.data.detalle is string
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.keys().hasAll(["accion", "detalle", "uid", "timestamp"]);
-      allow update, delete: if false;
+    function esAutenticado() { return haySesion() && !esSesionActivacion(); }
+    function rol() { return request.auth.token.rol; }
+    function esAdmin() { return esAutenticado() && rol() == 'admin'; }
+    function esCajero() { return esAutenticado() && rol() == 'cajero'; }
+    function esSupervisor() { return esAutenticado() && rol() == 'supervisor'; }
+    function esCocinero() { return esAutenticado() && rol() == 'cocinero'; }
+    function esMarketing() { return esAutenticado() && rol() == 'marketing'; }
+    function esSuperadmin() {
+      return esAutenticado()
+        && request.auth.token.keys().hasAll(['superadmin'])
+        && request.auth.token.superadmin == true;
     }
+    function esAdminOCajero() { return esAdmin() || esCajero(); }
+    function esOperativo() { return esAdmin() || esCajero() || esSupervisor(); }
+    function esCocina() { return esAdmin() || esCajero() || esCocinero(); }
 
-    // ─── Landing: lectura pública ──────────────────────────────────────
-    match /eventos/{id} {
-      allow read: if true;
-      allow create: if esAutenticado() && rol() in ['admin', 'marketing']
-        && request.resource.data.titulo is string
-        && request.resource.data.fecha is string;
-      allow update: if esAutenticado() && rol() in ['admin', 'marketing'];
-      allow delete: if esAutenticado() && rol() in ['admin', 'marketing'];
+    function tieneEmpresaId() {
+      return esAutenticado() && request.auth.token.empresaId is string;
     }
-
-    // ─── Configuración ─────────────────────────────────────────────────
-    match /configuracion/{id} {
-      allow read: if true;                                    // público: landing lo necesita
-      allow write: if esAutenticado() && esAdmin();
-      allow update: if esAutenticado()
-        && rol() in ['admin', 'cajero'];                      // cajero incrementa consecutivo en venta
+    function perteneceTenantDelRecurso() {
+      return tieneEmpresaId()
+        && resource.data.empresaId == request.auth.token.empresaId;
     }
-
-    // ─── Usuarios ──────────────────────────────────────────────────────
-    match /usuarios/{uid} {
-      // Cualquier autenticado puede leer la colección completa
-      // (reportes-service cruza nombres de cajeros)       // [MODIFICADO]
-      allow read: if esAutenticado();
-      allow create: if esAutenticado() && esAdmin();
-      allow update, delete: if esAutenticado() && esAdmin();
+    function perteneceTenantDeLaEscritura() {
+      return tieneEmpresaId()
+        && request.resource.data.empresaId == request.auth.token.empresaId;
+    }
+    function conservaEmpresaId() {
+      return perteneceTenantDelRecurso()
+        && request.resource.data.empresaId == resource.data.empresaId;
     }
 
-    match /permisos_roles/{id} {
-      allow read: if esAutenticado();
-      allow write: if esAutenticado() && esAdmin();
+    // Directiva B4 — Enforcement Canónico de Empresa.estado
+    // La autoridad única para conceder o denegar acceso operacional es Empresa.estado.
+    function estadoEmpresa() {
+      return get(/databases/$(database)/documents/empresas/$(request.auth.token.empresaId)).data.estado;
     }
-
-    // ─── Operaciones de inventario ─────────────────────────────────────
-    match /compras/{id} {
-      allow read: if esAutenticado();
-      allow create: if esAutenticado() && esAdmin();
-      allow delete: if esAutenticado() && esAdmin();         // [NUEVO] eliminarCompra() requiere delete
-      allow update: if false;
+    function empresaEscribible() {
+      return tieneEmpresaId() && estadoEmpresa() in ['trial', 'activa'];
     }
-
-    match /mermas/{id} {
-      allow read: if esAutenticado();
-      allow create: if esAutenticado() && esAdmin();
-      allow update, delete: if false;
-    }
-
-    // ─── Ventas ────────────────────────────────────────────────────────
-    match /ventas/{id} {
-      allow read: if esAutenticado();
-      allow create: if esAutenticado() && esOperativo();
-      allow update: if esAutenticado() && esOperativo();     // [MODIFICADO] cajero/supervisor: marcarComoPagada()
-      allow delete: if false;
-    }
-
-    // ─── Turnos ────────────────────────────────────────────────────────
-    match /turnos/{id} {
-      allow read: if esAutenticado();
-      allow create: if esAutenticado() && esOperativo();
-      allow update: if esAutenticado() && esOperativo();
-      allow delete: if false;
-    }
-
-    match /productos/{id} {
-      allow read: if esAutenticado();
-      allow write: if esAutenticado() && esAdmin();
-      allow update: if esAutenticado() && rol() in ['admin', 'cajero']; // descuento de stock en venta
-    }
-
-    match /insumos/{id} {
-      allow read: if esAutenticado();
-      allow write: if esAutenticado() && esAdmin();
-      allow update: if esAutenticado() && rol() in ['admin', 'cajero']; // descuento en venta
-    }
-
-    match /recetas/{id} {
-      allow read: if esAutenticado();
-      allow write: if esAutenticado() && esOperativo();
-    }
-
-    match /mesas/{id} {
-      allow read: if true;
-      allow write: if esAutenticado();
-    }
-
-    match /pedidos_activos/{id} {
-      allow read: if esAutenticado();
-      allow write: if esAutenticado();
-    }
-
-    match /comandas_cocina/{id} {
-      allow read: if esAutenticado();
-      allow write: if esAutenticado();
-    }
-
-    match /clientes/{id} {
-      allow read: if esAutenticado();
-      allow write: if esAutenticado() && esOperativo();
-    }
-
-    match /espacios/{id} {
-      allow read: if true;
-      allow write: if esAutenticado() && esAdmin();
-    }
-
-    match /categorias/{id} {
-      allow read: if true;
-      allow write: if esAutenticado() && esAdmin();
-    }
-
-    // ─── Módulo consignaciones ─────────────────────────────────────────
-    match /consignadores/{id} {
-      allow read: if esAutenticado();
-      allow write: if esAutenticado() && esAdmin();
-    }
-
-    match /liquidaciones/{id} {
-      allow read: if esAutenticado();
-      allow write: if esAutenticado() && esAdmin();
-    }
-
-    // ─── Gastos operativos por turno ────────────────────────────────────
-    match /egresos/{id} {
-      allow read: if esAutenticado();
-      allow write: if esAutenticado() && esOperativo();
-    }
-
-    // ─── Tesorería / Finanzas ──────────────────────────────────────────
-
-    match /cuentas_bancarias/{id} {
-      allow read: if esAutenticado() && esFinanzas();        // [MODIFICADO] solo admin lee saldos bancarios
-      allow write: if esAutenticado() && esAdmin();
-      allow update: if esAutenticado() && esOperativo();     // [NUEVO] cerrarTurno() actualiza saldo (cajero)
-    }
-
-    // ─── CORRECCIÓN C2: colección que usaba el código sin regla ───────
-    match /transacciones_financieras/{id} {                  // [NUEVO — CRÍTICO]
-      allow read: if esAutenticado() && esFinanzas();        // solo admin lee historial tesorería
-      allow create: if esAutenticado() && esOperativo();     // cerrarTurno() (cajero) + registrarTransaccion() (admin)
-      allow update, delete: if false;                        // inmutable: append-only
-    }
-
-    // ─── Reservas ──────────────────────────────────────────────────────
-    match /reservas/{id} {
-      allow read: if true;
-      allow update, delete: if esAutenticado();
-      allow create: if (
-        esAutenticado() ||
-        (
-          request.resource.data.clienteNombre is string &&
-          request.resource.data.clienteEmail is string &&
-          request.resource.data.mesaId is string &&
-          request.resource.data.fechaInicio is string &&
-          request.resource.data.fechaFin is string &&
-          request.resource.data.montoTotal is number &&
-          request.resource.data.estadoPago == 'pendiente' &&
-          request.resource.data.estadoReserva == 'activa'
-        )
+    function empresaLecturaAdmin() {
+      return tieneEmpresaId() && (
+        estadoEmpresa() in ['trial', 'activa'] ||
+        (estadoEmpresa() == 'suspendida' && esAdmin())
       );
     }
 
-    // ─── Candado de turno activo ───────────────────────────────────────
-    match /turnos_activos/{cajeroId} {
-      allow read: if esAutenticado();
-      allow create, update, delete: if esAutenticado() && esOperativo();
+    function puedeLeerTenant() {
+      return perteneceTenantDelRecurso() && empresaLecturaAdmin();
+    }
+    function puedeCrearEnTenant() {
+      return perteneceTenantDeLaEscritura() && empresaEscribible();
+    }
+    function puedeActualizarEnTenant() {
+      return perteneceTenantDeLaEscritura() && conservaEmpresaId() && empresaEscribible();
+    }
+    function puedeEliminarEnTenant() {
+      return perteneceTenantDelRecurso() && empresaEscribible();
+    }
+    function esUsuarioPropio(uid) {
+      return esAutenticado() && request.auth.uid == uid;
     }
 
-    // ─── Fallback: bloquear todo lo demás ─────────────────────────────
+    match /espacios/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esAdmin();
+      allow update: if puedeActualizarEnTenant() && esAdmin();
+      allow delete: if puedeEliminarEnTenant() && esAdmin();
+    }
+    match /categorias/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esAdmin();
+      allow update: if puedeActualizarEnTenant() && esAdmin();
+      allow delete: if puedeEliminarEnTenant() && esAdmin();
+    }
+    match /productos/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esAdminOCajero();
+      allow update: if puedeActualizarEnTenant() && esAdminOCajero();
+      allow delete: if puedeEliminarEnTenant() && esAdmin();
+    }
+    match /insumos/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esAdminOCajero();
+      allow update: if puedeActualizarEnTenant() && esAdminOCajero();
+      allow delete: if puedeEliminarEnTenant() && esAdmin();
+    }
+    match /recetas/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esOperativo();
+      allow update: if puedeActualizarEnTenant() && esOperativo();
+      allow delete: if puedeEliminarEnTenant() && esOperativo();
+    }
+    match /mesas/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esAdmin();
+      allow update: if puedeActualizarEnTenant() && esAdmin();
+      allow delete: if puedeEliminarEnTenant() && esAdmin();
+    }
+    match /pedidos_activos/{id} {
+      allow read: if puedeLeerTenant() && esAdminOCajero();
+      allow create: if puedeCrearEnTenant() && esAdminOCajero();
+      allow update: if puedeActualizarEnTenant() && esAdminOCajero();
+      allow delete: if puedeEliminarEnTenant() && esAdminOCajero();
+    }
+    match /comandas_cocina/{id} {
+      allow read: if puedeLeerTenant() && esCocina();
+      allow create: if puedeCrearEnTenant() && esAdminOCajero();
+      allow update: if puedeActualizarEnTenant() && esCocina();
+      allow delete: if false;
+    }
+    match /ventas/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esOperativo();
+      allow update: if puedeActualizarEnTenant() && esOperativo() && (
+        (resource.data.estado != 'anulada' && request.resource.data.estado != 'anulada')
+        || (resource.data.estado != 'anulada' && request.resource.data.estado == 'anulada' && esAdmin())
+      );
+      allow delete: if false;
+    }
+    match /turnos/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esOperativo();
+      allow update: if puedeActualizarEnTenant() && esOperativo();
+      allow delete: if false;
+    }
+    match /turnos_activos/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esOperativo();
+      allow update: if puedeActualizarEnTenant() && esOperativo();
+      allow delete: if puedeEliminarEnTenant() && esOperativo();
+    }
+
+    // Reservas públicas: la landing opera exclusivamente por rutas Admin SDK.
+    match /reservas/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esOperativo();
+      allow update: if puedeActualizarEnTenant() && esOperativo();
+      allow delete: if false;
+    }
+    match /agendas/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if false;
+      allow update: if puedeActualizarEnTenant() && esOperativo();
+      allow delete: if false;
+    }
+
+    match /compras/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esAdmin();
+      allow update: if false;
+      allow delete: if puedeEliminarEnTenant() && esAdmin();
+    }
+    match /mermas/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esAdmin();
+      allow update, delete: if false;
+    }
+    match /egresos/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esOperativo();
+      allow update: if puedeActualizarEnTenant() && esOperativo();
+      allow delete: if puedeEliminarEnTenant() && esOperativo();
+    }
+    match /clientes/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esOperativo();
+      allow update: if puedeActualizarEnTenant() && esOperativo();
+      allow delete: if puedeEliminarEnTenant() && esOperativo();
+    }
+    match /cuentas_bancarias/{id} {
+      allow read: if puedeLeerTenant() && esOperativo();
+      allow create: if puedeCrearEnTenant() && esAdmin();
+      allow update: if puedeActualizarEnTenant() && (
+        esAdmin() || (esOperativo()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['saldo']))
+      );
+      allow delete: if puedeEliminarEnTenant() && esAdmin();
+    }
+    match /transacciones_financieras/{id} {
+      allow read: if puedeLeerTenant() && esAdmin();
+      allow create: if puedeCrearEnTenant() && esOperativo();
+      allow update, delete: if false;
+    }
+    match /liquidaciones/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esAdmin();
+      allow update: if puedeActualizarEnTenant() && esAdmin();
+      allow delete: if puedeEliminarEnTenant() && esAdmin();
+    }
+    match /consignadores/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esAdmin();
+      allow update: if puedeActualizarEnTenant() && esAdmin();
+      allow delete: if puedeEliminarEnTenant() && esAdmin();
+    }
+    match /movimientos_inventario/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esOperativo();
+      allow update, delete: if false;
+    }
+    match /auditoria_logs/{id} {
+      allow read: if puedeLeerTenant() && esAdmin();
+      allow create: if puedeCrearEnTenant()
+        && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /modificador_grupos/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esAdminOCajero();
+      allow update: if puedeActualizarEnTenant() && esAdminOCajero();
+      allow delete: if puedeEliminarEnTenant() && esAdminOCajero();
+    }
+    match /producto_modificador_grupos/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esAdminOCajero();
+      allow update: if puedeActualizarEnTenant() && esAdminOCajero();
+      allow delete: if puedeEliminarEnTenant() && esAdminOCajero();
+    }
+
+    // Colecciones globales de perfil y transición.
+    match /eventos/{id} {
+      allow read: if true;
+      allow create, update, delete: if esAutenticado() && rol() in ['admin', 'marketing'];
+    }
+    match /configuracion/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create: if puedeCrearEnTenant() && esAdmin();
+      allow update: if puedeActualizarEnTenant() && esAdminOCajero();
+      allow delete: if puedeEliminarEnTenant() && esAdmin();
+    }
+    match /usuarios/{uid} {
+      // Perfil global: nunca contiene ni decide rol, permisos o estado.
+      allow read: if esAutenticado();
+      allow create, delete: if false;
+      allow update: if esUsuarioPropio(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimoAcceso', 'fcmTokens']);
+    }
+    match /permisos_roles/{id} {
+      // Plantillas: solo base de alta/sincronización por backend Admin SDK.
+      allow read, write: if false;
+    }
+
+    // Plano SaaS: las operaciones se reservan al claim de plataforma; el
+    // backend Admin SDK lo administra sin depender de Rules.
+    match /empresas/{empresaId} {
+      allow get: if (tieneEmpresaId() && request.auth.token.empresaId == empresaId)
+        || esSuperadmin();
+      allow list: if esSuperadmin();
+      allow create, update, delete: if esSuperadmin();
+    }
+    match /membresias/{id} {
+      // La membresía es la autoridad tenant. Cada usuario solo lee la propia;
+      // un admin lista las de su empresa. Toda escritura pasa por Functions para
+      // sincronizar/revocar custom claims.
+      allow get: if perteneceTenantDelRecurso()
+        && (resource.data.uid == request.auth.uid || esAdmin());
+      allow list: if perteneceTenantDelRecurso() && esAdmin();
+      allow create, update, delete: if false;
+    }
+    match /planes/{id} {
+      allow read, write: if esSuperadmin();
+    }
+    match /suscripciones/{id} {
+      allow read, write: if esSuperadmin();
+    }
+    match /invitaciones/{id} {
+      allow read, write: if esSuperadmin();
+    }
+    match /incorporaciones/{id} {
+      allow read, write: if false;
+    }
+    match /consumo/{id} {
+      allow read, write: if esSuperadmin();
+    }
+    match /saas_operadores/{uid} {
+      allow read, write: if esSuperadmin();
+    }
+    match /saas_auditoria/{id} {
+      allow read, write: if esSuperadmin();
+    }
+
+    // Colecciones futuras de MT-U6: no tienen consumidor cliente todavÃ­a.
+    // Se bloquean para tenants y quedan disponibles solo al plano plataforma.
+    match /configuraciones/{empresaId} {
+      allow read, write: if esSuperadmin();
+    }
+    match /numeraciones/{id} {
+      allow read, write: if esSuperadmin();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

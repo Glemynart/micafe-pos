@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/react'
 import { AuthProvider } from '@/contexts/auth-context'
+import { SaaSProvider } from '@/contexts/saas-context'
 import { EspaciosProvider } from '@/contexts/espacios-context'
 import { UIProvider } from '@/contexts/ui-context'
 import { ModulosProvider } from '@/contexts/modulos-context'
@@ -17,17 +18,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Café Atrato - Coworking Cultural y Empresarial',
-  description: 'Un espacio premium diseñado para profesionales que buscan productividad, comunidad y el mejor café tradicional',
+  title: 'POS Empresarial',
+  description: 'Plataforma empresarial de punto de venta',
   openGraph: {
-    title: 'Café Atrato - Coworking Cultural y Empresarial',
-    description: 'Un espacio premium diseñado para profesionales que buscan productividad, comunidad y el mejor café tradicional',
+    title: 'POS Empresarial',
+    description: 'Plataforma empresarial de punto de venta',
     type: 'website',
     locale: 'es_CO',
-  },
-  icons: {
-    icon: '/cafe-atrato-icon.png',
-    apple: '/cafe-atrato-icon.png',
   },
 }
 import { Toaster } from 'sonner'
@@ -42,17 +39,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className="bg-background" suppressHydrationWarning>
-      <body className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${geistMono.variable} font-sans antialiased`} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AuthProvider>
-            {/* EspaciosProvider: gestiona el espacio activo del POS (dentro de AuthProvider) */}
-            <EspaciosProvider>
-              <UIProvider>
-              <ModulosProvider>
-                {children}
-              </ModulosProvider>
-              </UIProvider>
-            </EspaciosProvider>
+            {/* SaaSProvider: runtime SaaS (MT-U2) — inmediatamente bajo AuthProvider */}
+            <SaaSProvider>
+              {/* EspaciosProvider: gestiona el espacio activo del POS (dentro de AuthProvider) */}
+              <EspaciosProvider>
+                <UIProvider>
+                <ModulosProvider>
+                  {children}
+                </ModulosProvider>
+                </UIProvider>
+              </EspaciosProvider>
+            </SaaSProvider>
           </AuthProvider>
           <ShadcnToaster />
           <Toaster richColors position="top-center" expand={false} />

@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { 
-  Coffee, 
+  Store,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -42,6 +42,11 @@ export function Sidebar({ activeModule, onModuleChange, onLogout, usuario, modul
   const { theme, setTheme } = useTheme()
   const [collapsed, setCollapsed] = useState(false)
   const { espacios, espacioActivo, cargandoEspacios, seleccionarEspacio } = useEspacios()
+
+  // Colapsar automáticamente en pantallas pequeñas (POS terminals, tablets)
+  useEffect(() => {
+    if (window.innerWidth < 1024) setCollapsed(true)
+  }, [])
   
   const userModules = modules.filter(m => {
     // 1. El módulo debe estar habilitado a nivel global (configuración)
@@ -49,12 +54,10 @@ export function Sidebar({ activeModule, onModuleChange, onLogout, usuario, modul
     // 2. El usuario debe tener permiso para usarlo
     if (!userPerms.has(m.id)) return false
     // 3. Si el espacio activo tiene módulos permitidos definidos, debe estar en esa lista
+    //    Los módulos administrativos y globales siempre pasan este filtro.
+    const modulosGlobales = ['permissions', 'settings', 'historial', 'salon', 'reservas']
     if (espacioActivo?.modulos_permitidos && espacioActivo.modulos_permitidos.length > 0) {
-      // Inyectar 'reservas' por retrocompatibilidad para que aparezca en espacios existentes
-      const permitidos = [...espacioActivo.modulos_permitidos]
-      if (!permitidos.includes('reservas')) permitidos.push('reservas')
-      
-      if (!permitidos.includes(m.id)) return false
+      if (!espacioActivo.modulos_permitidos.includes(m.id) && !modulosGlobales.includes(m.id)) return false
     }
     return true
   })
@@ -74,15 +77,15 @@ export function Sidebar({ activeModule, onModuleChange, onLogout, usuario, modul
       >
         {/* Logo */}
         <div className="h-16 flex items-center gap-3 px-4 border-b border-sidebar-border">
-          <div className="w-10 h-10 rounded-xl bg-gold flex items-center justify-center flex-shrink-0 shadow-[0_4px_12px_-3px_color-mix(in_oklch,var(--gold)_60%,transparent)]">
-            <Coffee className="h-5 w-5 text-navy" strokeWidth={2.4} />
+          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center flex-shrink-0 shadow-sm">
+            <Store className="h-5 w-5 text-primary-foreground" strokeWidth={2.4} />
           </div>
           {!collapsed && (
             <div className="flex flex-col leading-none animate-fade-in">
               <span className="font-bold text-base text-sidebar-foreground tracking-tight">
                 Café Atrato
               </span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gold">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">
                 Punto de venta
               </span>
             </div>
@@ -182,16 +185,16 @@ export function Sidebar({ activeModule, onModuleChange, onLogout, usuario, modul
                       "relative w-full flex items-center gap-3 rounded-xl min-h-[52px] px-3 py-3 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98]",
                       collapsed && "justify-center px-0",
                       isActive
-                        ? "bg-gold text-navy font-bold shadow-[0_6px_18px_-6px_color-mix(in_oklch,var(--gold)_70%,transparent)]"
+                        ? "bg-primary text-primary-foreground font-bold shadow-sm"
                         : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                     )}
                   >
                     {isActive && collapsed && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-7 w-1 rounded-r-full bg-gold" />
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-7 w-1 rounded-r-full bg-primary" />
                     )}
                     <span className={cn(
                       "flex-shrink-0 transition-colors",
-                      isActive ? "text-navy" : "text-sidebar-foreground/70"
+                      isActive ? "text-primary-foreground" : "text-sidebar-foreground/70"
                     )}>
                       {getIcon(module.icon)}
                     </span>

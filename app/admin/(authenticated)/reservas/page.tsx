@@ -5,7 +5,7 @@ import { Loader2, CalendarDays, Clock, User, Phone, Mail, CreditCard, Ban, Check
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { formatCurrency } from "@/lib/demo-data"
-import { suscribirReservasActivas, cancelarReserva, marcarReservaCompletada, type Reserva } from "@/lib/reservas-service"
+import { suscribirReservasActivas, cancelarReserva, completarReserva, type Reserva } from "@/lib/reservas-service"
 
 export default function ReservasPage() {
   const [reservas, setReservas] = useState<Reserva[]>([])
@@ -23,9 +23,15 @@ export default function ReservasPage() {
   const handleCompletar = async (id: string) => {
     setProcesando(id)
     try {
-      await marcarReservaCompletada(id)
+      // MODELO B: el Admin no tiene turno de caja, por lo que solo puede completar
+      // reservas ya pagadas (no se crea venta). Las pendientes se cobran desde el POS.
+      await completarReserva({ reservaId: id })
       toast.success("Reserva completada")
-    } catch { toast.error("Error al completar") }
+    } catch (err: any) {
+      toast.error(err?.message === 'TURNO_REQUERIDO'
+        ? "Las reservas pendientes deben cobrarse desde el POS"
+        : "Error al completar")
+    }
     finally { setProcesando(null) }
   }
 
@@ -138,13 +144,19 @@ export default function ReservasPage() {
                   </button>
                   <button
                     onClick={() => handleCompletar(r.id)}
-                    disabled={!!procesando}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                    disabled={!!procesando || r.estadoPago !== "pagado"}
+                    title={r.estadoPago !== "pagado" ? "Las reservas pendientes deben cobrarse desde el POS" : undefined}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {procesando === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
                     Completar
                   </button>
                 </div>
+                {r.estadoPago !== "pagado" && (
+                  <p className="text-[10px] text-amber-300/60 mt-2 text-center">
+                    Reserva pendiente de pago — debe cobrarse y completarse desde el POS (turno de caja).
+                  </p>
+                )}
               </div>
             </div>
           ))

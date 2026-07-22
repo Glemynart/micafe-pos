@@ -46,6 +46,11 @@ interface PurchaseItemForm {
   costoUnitario: number
 }
 
+function getHoy(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function PurchasesModule() {
   const { usuario } = useAuthContext()
   const { espacioActivo, cargandoEspacios } = useEspacios()
@@ -67,6 +72,7 @@ export function PurchasesModule() {
   const [eliminando, setEliminando] = useState(false)
 
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([])
+  const [fechaCompra, setFechaCompra] = useState<string>(getHoy())
   const [cuentaId, setCuentaId] = useState<string>('caja-principal')
   const [proveedor, setProveedor] = useState('')
   const [itemsForm, setItemsForm] = useState<PurchaseItemForm[]>([
@@ -188,12 +194,14 @@ export function PurchasesModule() {
         items,
         total: items.reduce((acc, i) => acc + i.costoTotal, 0),
         espacioId,
+        fechaCompra,
         ...(cuentaId ? { cuentaId, cuentaNombre: cuentaSeleccionada?.nombre } : {}),
       })
 
       toast.success('Compra registrada exitosamente')
       setShowPurchaseDialog(false)
       setProveedor('')
+      setFechaCompra(getHoy())
       setCuentaId('caja-principal')
       setItemsForm([{ insumoId: '', insumoNombre: '', cantidad: 0, unidadMedida: 'g', costoUnitario: 0 }])
     } catch (err) {
@@ -427,7 +435,12 @@ export function PurchasesModule() {
                 </div>
                 <div className="space-y-2">
                   <Label>Fecha de compra</Label>
-                  <Input type="date" className="bg-input" defaultValue={new Date().toISOString().split('T')[0]} />
+                  <Input
+                    type="date"
+                    className="bg-input"
+                    value={fechaCompra}
+                    onChange={(e) => setFechaCompra(e.target.value)}
+                  />
                 </div>
               </div>
 

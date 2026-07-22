@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { SwRegister } from "@/components/pwa/sw-register"
 
 export const viewport: Viewport = {
-  themeColor: "#051D41",
+  themeColor: "#334155",
 }
 
 export const metadata: Metadata = {
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Cafe Atrato",
+    title: "POS Empresarial",
   },
 }
 

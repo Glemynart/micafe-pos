@@ -1,0 +1,63 @@
+name: CI
+
+# MT-U0 — Gate de calidad: condición de merge hacia main.
+# Valida tipos y pruebas antes de integrar. No despliega ni construye artefactos.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Tipos y pruebas
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # Alineado con el Node de desarrollo (22.x): los golden de test:tickets
+          # embeben tiempos formateados con Intl, cuyo separador (U+00A0) depende
+          # de la versión de ICU del runtime. Node 20 trae un ICU distinto y los
+          # golden (generados bajo Node 22) fallaban en CI por ese carácter.
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+
+      - name: Instalar dependencias de aplicaciÃ³n
+        run: npm ci
+
+      - name: Instalar dependencias de Functions
+        run: npm ci
+        working-directory: functions
+
+      - name: Chequeo de tipos de aplicaciÃ³n
+        run: npx tsc --noEmit
+
+      - name: Build de aplicaciÃ³n
+        run: npm run build
+
+      - name: Build de Functions
+        run: npm run build:functions
+
+      - name: Pruebas de tickets
+        run: npm run test:tickets
+
+      - name: Pruebas de reimpresión
+        run: npm run test:reimpresion
+
+      - name: Pruebas de tenant
+        run: npm run test:tenant
+
+      - name: Pruebas de Functions
+        run: npm run test:auth-foundation

@@ -10,6 +10,7 @@ import {
   suscribirCuentasBancarias,
   suscribirTransacciones,
   registrarTransaccion,
+  trasladarEntreCuentas,
   inicializarCuentasBancarias,
   type CuentaBancaria,
   type TransaccionFinanciera,
@@ -71,8 +72,14 @@ export default function FinanzasPage() {
       const destino = cuentas.find(c => c.id === form.cuentaDestinoId)
 
       if (modal === "traslado") {
-        await registrarTransaccion({ cuentaId: form.cuentaId, cuentaNombre: origen?.nombre ?? "", tipo: "egreso", monto, concepto: `Traslado a ${destino?.nombre} — ${form.concepto || "traslado"}`, categoria: "traslado", usuarioId: usuario.uid, usuarioNombre: usuario.nombre })
-        await registrarTransaccion({ cuentaId: form.cuentaDestinoId, cuentaNombre: destino?.nombre ?? "", tipo: "ingreso", monto, concepto: `Traslado desde ${origen?.nombre} — ${form.concepto || "traslado"}`, categoria: "traslado", usuarioId: usuario.uid, usuarioNombre: usuario.nombre })
+        await trasladarEntreCuentas({
+          cuentaOrigenId:  form.cuentaId,
+          cuentaDestinoId: form.cuentaDestinoId,
+          monto,
+          concepto:        form.concepto || "traslado",
+          usuarioId:       usuario.uid,
+          usuarioNombre:   usuario.nombre,
+        })
         toast.success("Traslado registrado")
       } else {
         await registrarTransaccion({ cuentaId: form.cuentaId, cuentaNombre: origen?.nombre ?? "", tipo: modal, monto, concepto: form.concepto, categoria: form.categoria, referencia: form.referencia, usuarioId: usuario.uid, usuarioNombre: usuario.nombre })

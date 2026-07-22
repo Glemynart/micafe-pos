@@ -19,6 +19,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { tenantQuery, getEmpresaId, withEmpresaId } from '@/lib/tenant'
 
 export interface CuentaCobro {
   id: string
@@ -57,24 +58,33 @@ export interface CuentaCobro {
 export function suscribirCuentasPorCobrar(
   callback: (cuentas: CuentaCobro[]) => void
 ): Unsubscribe {
-  const q = query(
+  let unsubscribe = () => {}
+  let cancelado = false
+
+  // orderBy omitido: requeriría índice compuesto de 3 campos en Firestore.
+  // Se ordena localmente por fecha descendente.
+  tenantQuery(
     collection(db, 'ventas'),
     where('estado', '==', 'pendiente'),
     where('metodoPago', '==', 'cuenta_cobro')
-    // orderBy omitido: requeriría índice compuesto de 3 campos en Firestore.
-    // Se ordena localmente por fecha descendente.
-  )
-
-  return onSnapshot(q, (snap) => {
-    const cuentas: CuentaCobro[] = snap.docs
-      .map((d) => ({ id: d.id, ...(d.data() as Omit<CuentaCobro, 'id'>) }))
-      .sort((a, b) => {
-        const ta = a.fecha?.toDate().getTime() ?? 0
-        const tb = b.fecha?.toDate().getTime() ?? 0
-        return tb - ta // más reciente primero
-      })
-    callback(cuentas)
+  ).then((q) => {
+    if (cancelado) return
+    unsubscribe = onSnapshot(q, (snap) => {
+      const cuentas: CuentaCobro[] = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as Omit<CuentaCobro, 'id'>) }))
+        .sort((a, b) => {
+          const ta = a.fecha?.toDate().getTime() ?? 0
+          const tb = b.fecha?.toDate().getTime() ?? 0
+          return tb - ta // más reciente primero
+        })
+      callback(cuentas)
+    })
   })
+
+  return () => {
+    cancelado = true
+    unsubscribe()
+  }
 }
 
 
@@ -85,11 +95,16 @@ export async function marcarComoPagada(
 ): Promise<void> {
   const ventaRef = doc(db, 'ventas', ventaId)
 
+  // MT-U3 Capa 3: resuelto UNA sola vez (§2.5) y reutilizado en la consulta
+  // de turno y en el estampado dentro de la transacción.
+  const empresaId = await getEmpresaId()
+
   // Buscar turno activo fuera de la transacción (solo lectura, no atómica)
   let turnoRecaudoId: string | undefined
   if (cajeroUid) {
     const qTurno = query(
       collection(db, 'turnos'),
+      where('empresaId', '==', empresaId),
       where('cajeroId', '==', cajeroUid),
       where('estado', '==', 'abierto')
     )
@@ -103,6 +118,10 @@ export async function marcarComoPagada(
     if (!ventaSnap.exists()) throw new Error('Venta no encontrada')
 
     const ventaData = ventaSnap.data()
+    if (ventaData.estado !== 'pendiente') {
+      throw new Error('Esta cuenta ya fue procesada')
+    }
+
     const total: number = ventaData.totales?.total ?? 0
     const cajeroId: string = ventaData.cajeroId ?? cajeroUid ?? 'unknown'
     const cajeroNombre: string = ventaData.cajeroNombre ?? cajeroId
@@ -122,7 +141,7 @@ export async function marcarComoPagada(
       const cuentaNombre = metodoPagoFinal === 'efectivo' ? 'Caja Registradora' : 'Bancolombia'
 
       transaction.update(doc(db, 'cuentas_bancarias', cuentaId), { saldo: increment(total) })
-      transaction.set(doc(collection(db, 'transacciones_financieras')), {
+      transaction.set(doc(collection(db, 'transacciones_financieras')), withEmpresaId(empresaId, {
         cuentaId,
         cuentaNombre,
         tipo: 'ingreso',
@@ -134,7 +153,7 @@ export async function marcarComoPagada(
         usuarioNombre: cajeroNombre,
         espacioId: ventaData.espacioId ?? null,
         fecha: serverTimestamp(),
-      })
+      }))
     }
   })
 }

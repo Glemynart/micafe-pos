@@ -24,6 +24,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatCurrency } from '@/lib/demo-data'
+import { formatDateTime } from '@/lib/format-utils'
 import { toast } from 'sonner'
 import { useAuthContext } from '@/contexts/auth-context'
 import {
@@ -158,10 +159,7 @@ export function ClientesModule() {
  }
  }
 
- const formatFecha = (ts: { toDate: () => Date } | null) => {
- if (!ts) return '—'
- return ts.toDate().toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
- }
+ const formatFecha = (ts: { toDate: () => Date } | null) => formatDateTime(ts)
 
  const totalDeudaGeneral = Array.from(deudaPorCliente.values()).reduce((a, b) => a + b, 0)
 

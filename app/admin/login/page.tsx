@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Coffee, Loader2, ShieldAlert, Eye, EyeOff } from 'lucide-react'
+import { Store, Loader2, ShieldAlert, Eye, EyeOff } from 'lucide-react'
 
 function AdminLoginContent() {
   const { usuario, cargando: authCargando, login, errorLogin, limpiarError, logout } = useAuthContext()
@@ -52,30 +52,30 @@ function AdminLoginContent() {
 
   if (authCargando) {
     return (
-      <div className="flex items-center justify-center min-h-[100dvh] bg-[#0a1628]">
-        <Loader2 className="h-8 w-8 animate-spin text-white/20" />
+      <div className="flex items-center justify-center min-h-[100dvh] bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#0a1628] flex flex-col">
+    <div className="min-h-[100dvh] bg-background flex flex-col">
       <div className="flex-1 flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-sm space-y-6">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#F9B207] to-[#e6a100] flex items-center justify-center shadow-lg shadow-[#F9B207]/20">
-              <Coffee className="h-8 w-8 text-[#051D41]" />
+            <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg">
+              <Store className="h-8 w-8 text-primary-foreground" />
             </div>
             <div className="text-center">
-              <h1 className="text-xl font-bold text-white">Cafe Atrato Admin</h1>
-              <p className="text-sm text-white/40">Panel de administracion remoto</p>
+              <h1 className="text-xl font-bold text-foreground">POS Empresarial Admin</h1>
+              <p className="text-sm text-muted-foreground">Panel de administracion remoto</p>
             </div>
           </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-2xl p-6 backdrop-blur-sm">
             <div className="pb-4">
-              <h2 className="text-lg font-bold text-white">Iniciar Sesion</h2>
-              <p className="text-sm text-white/40">Accede con tu cuenta de administrador</p>
+              <h2 className="text-lg font-bold text-foreground">Iniciar Sesion</h2>
+              <p className="text-sm text-muted-foreground">Accede con tu cuenta de administrador</p>
             </div>
             <div>
               {!sesionNoAdmin && notAdmin && (
@@ -101,32 +101,34 @@ function AdminLoginContent() {
               )}
               <form onSubmit={handleLogin} className={`space-y-4 ${sesionNoAdmin ? 'opacity-30 pointer-events-none select-none' : ''}`}>
                 <div className="space-y-2">
-                  <label htmlFor="user" className="text-sm font-medium text-white/70">Usuario</label>
+                  <label htmlFor="user" className="text-sm font-medium text-muted-foreground">Código operativo</label>
                   <input
                     id="user"
                     autoComplete="username"
-                    placeholder="Tu nombre de usuario"
+                    placeholder="Ej. caja-01"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="w-full h-11 px-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-[#F9B207] focus:ring-1 focus:ring-[#F9B207]/50"
+                    className="w-full h-11 px-4 rounded-xl bg-input border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label htmlFor="pass" className="text-sm font-medium text-white/70">Contrasena</label>
+                  <label htmlFor="pass" className="text-sm font-medium text-muted-foreground">PIN de 6 dígitos</label>
                   <div className="relative">
                     <input
                       id="pass"
                       type={showPassword ? 'text' : 'password'}
                       autoComplete="current-password"
                       placeholder="********"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full h-11 px-4 pr-10 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-[#F9B207] focus:ring-1 focus:ring-[#F9B207]/50"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    inputMode="numeric"
+                    maxLength={6}
+                      className="w-full h-11 px-4 pr-10 rounded-xl bg-input border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -138,14 +140,14 @@ function AdminLoginContent() {
                     id="recordar"
                     checked={recordar}
                     onChange={(e) => setRecordar(e.target.checked)}
-                    className="w-4 h-4 rounded border-white/20 bg-white/5 accent-[#F9B207]"
+                    className="w-4 h-4 rounded border-border bg-input accent-primary"
                   />
-                  <label htmlFor="recordar" className="text-xs text-white/50 cursor-pointer">Recordar usuario</label>
+                  <label htmlFor="recordar" className="text-xs text-muted-foreground cursor-pointer">Recordar usuario</label>
                 </div>
                 {errorLogin && (
                   <p className="text-sm text-red-400 bg-red-500/10 p-3 rounded-lg">{errorLogin}</p>
                 )}
-                <button type="submit" className="w-full h-11 rounded-xl bg-[#F9B207] text-[#051D41] font-bold hover:bg-[#e6a100] transition-colors disabled:opacity-50 flex items-center justify-center gap-2" disabled={logging}>
+                <button type="submit" className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2" disabled={logging}>
                   {logging ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   Ingresar
                 </button>
@@ -160,7 +162,7 @@ function AdminLoginContent() {
 
 export default function AdminLoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-[100dvh] bg-[#0a1628] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white/20" /></div>}>
+    <Suspense fallback={<div className="min-h-[100dvh] bg-background flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
       <AdminLoginContent />
     </Suspense>
   )

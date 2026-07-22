@@ -1,186 +1,142 @@
 import {
   collection,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
+  onSnapshot,
   query,
   where,
-  onSnapshot,
-  serverTimestamp,
-  getDocs,
   type Unsubscribe,
 } from "firebase/firestore";
 import {
   createUserWithEmailAndPassword,
-  signOut,
+  deleteUser,
   getAuth,
+  signOut,
 } from "firebase/auth";
-import { initializeApp, getApps as getAppsLocal } from "firebase/app";
-import { db, firebaseConfig } from "@/lib/firebase";
-import { usernameToEmail, getPermisosPorRol, type RolUsuario, type Usuario } from "@/lib/auth-service";
-import { registrarAuditoria } from "@/lib/audit-service";
+import { initializeApp } from "firebase/app";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { db, firebaseConfig, app } from "@/lib/firebase";
+import { usernameToEmail, type RolUsuario, type Usuario } from "@/lib/auth-service";
+import { esMembresiaCanonica, normalizarPermisos, type Membresia } from "@/lib/membresias-service";
+import { getEmpresaId } from "@/lib/tenant";
 
-export { type RolUsuario, type Usuario, getPermisosPorRol };
-
-async function verificarEsAdmin(): Promise<void> {
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) throw new Error("No autenticado");
-  const snap = await getDoc(doc(db, "usuarios", user.uid));
-  if (!snap.exists() || snap.data().rol !== "admin") {
-    throw new Error("Acceso denegado: solo administradores");
-  }
-}
+export { type RolUsuario, type Usuario };
 
 export const MODULOS = [
-  "sell", "kitchen", "inventory", "recipes", "purchases",
+  "sell", "salon", "kitchen", "inventory", "recipes", "purchases",
   "reports", "shifts", "waste", "gastos", "permissions", "settings",
-  "cuentas_cobro", "clientes", "consignaciones", "alquiler_dashboard", "historial", "reservas", "finanzas"
+  "cuentas_cobro", "clientes", "consignaciones", "alquiler_dashboard", "historial", "reservas", "finanzas",
 ];
 
-export function suscribirUsuarios(callback: (usuarios: Usuario[]) => void): Unsubscribe {
-  const q = query(collection(db, "usuarios"));
+type ActualizacionMembresia = {
+  uid: string;
+  rol?: RolUsuario;
+  permisos?: string[];
+  estado?: "activa" | "inactiva";
+};
 
-  return onSnapshot(q, (snap) => {
-    const usuarios: Usuario[] = snap.docs.map((d) => {
-      const data = d.data();
-      return {
-        uid: d.id,
-        nombre: data.nombre,
-        username: data.username,
-        email: data.email,
-        rol: data.rol,
-        activo: data.activo,
-        permisos: data.permisos ?? getPermisosPorRol(data.rol as RolUsuario),
-        ultimoAcceso: data.ultimoAcceso?.toDate?.(),
-        creadoEn: data.creadoEn?.toDate?.(),
-      } as Usuario;
-    });
-    callback(usuarios);
-  });
+function functionsCliente() {
+  const region = process.env.NEXT_PUBLIC_FIREBASE_FUNCTIONS_REGION || "us-central1";
+  return getFunctions(app, region);
 }
 
-export async function crearUsuario(
-  username: string,
-  password: string,
-  nombre: string,
-  rol: RolUsuario
-): Promise<Usuario> {
-  await verificarEsAdmin();
+async function llamarActualizacion(data: ActualizacionMembresia): Promise<void> {
+  const callable = httpsCallable<ActualizacionMembresia, void>(functionsCliente(), "actualizarMembresia");
+  await callable(data);
+}
+
+function proyectarUsuario(uid: string, perfil: Record<string, unknown>, membresia: Membresia): Usuario {
+  return {
+    uid,
+    nombre: typeof perfil.nombre === "string" ? perfil.nombre : uid,
+    username: typeof perfil.username === "string" ? perfil.username : "",
+    email: typeof perfil.email === "string" ? perfil.email : "",
+    rol: membresia.rol,
+    activo: membresia.estado === "activa" && membresia.activo === true,
+    permisos: membresia.permisos,
+    ultimoAcceso: (perfil.ultimoAcceso as { toDate?: () => Date } | undefined)?.toDate?.(),
+    creadoEn: (perfil.creadoEn as { toDate?: () => Date } | undefined)?.toDate?.(),
+  };
+}
+
+/** Lista perfiles globales enriquecidos exclusivamente con su membresía tenant. */
+export function suscribirUsuarios(callback: (usuarios: Usuario[]) => void): Unsubscribe {
+  let cerrar = () => {};
+  let cancelado = false;
+  void (async () => {
+    try {
+      const empresaId = await getEmpresaId();
+      const perfiles = new Map<string, Record<string, unknown>>();
+      const membresias = new Map<string, Membresia>();
+      const emitir = () => {
+        callback([...membresias.values()]
+          .filter((membresia) => membresia.estado === "activa" || membresia.estado === "inactiva")
+          .map((membresia) => {
+            const perfil = perfiles.get(membresia.uid);
+            return perfil ? proyectarUsuario(membresia.uid, perfil, membresia) : null;
+          })
+          .filter((usuario): usuario is Usuario => usuario !== null)
+          .sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      };
+      const cerrarPerfiles = onSnapshot(collection(db, "usuarios"), (snap) => {
+        perfiles.clear();
+        snap.docs.forEach((doc) => perfiles.set(doc.id, doc.data()));
+        emitir();
+      }, () => callback([]));
+      const cerrarMembresias = onSnapshot(query(collection(db, "membresias"), where("empresaId", "==", empresaId)), (snap) => {
+        membresias.clear();
+        snap.docs.forEach((doc) => {
+          const data = doc.data();
+          if (esMembresiaCanonica(data)) membresias.set(data.uid, data);
+        });
+        emitir();
+      }, () => callback([]));
+      cerrar = () => { cerrarPerfiles(); cerrarMembresias(); };
+      if (cancelado) cerrar();
+    } catch {
+      callback([]);
+    }
+  })();
+  return () => { cancelado = true; cerrar(); };
+}
+
+export async function crearUsuario(username: string, password: string, nombre: string, rol: RolUsuario): Promise<Usuario> {
   const email = usernameToEmail(username.toLowerCase().trim());
-
-  const secondaryAppName = `secondary-${crypto.randomUUID()}`;
-  const secondaryApps = getAppsLocal();
-  const existingNames = new Set(secondaryApps.map((a) => a.name));
-  let appName = secondaryAppName;
-  let counter = 0;
-  while (existingNames.has(appName)) {
-    appName = `${secondaryAppName}-${++counter}`;
-  }
-
+  const appName = `membership-create-${crypto.randomUUID()}`;
   const secondaryApp = initializeApp(firebaseConfig, appName);
   const secondaryAuth = getAuth(secondaryApp);
-
+  let creado: Awaited<ReturnType<typeof createUserWithEmailAndPassword>> | null = null;
   try {
-    const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
-    const uid = userCredential.user.uid;
-
-    await signOut(secondaryAuth);
-
-    const permisos = getPermisosPorRol(rol);
-    const usuarioData = {
-      uid,
+    creado = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    const callable = httpsCallable<{
+      uid: string; nombre: string; username: string; email: string; rol: RolUsuario;
+    }, void>(functionsCliente(), "crearUsuarioConMembresia");
+    await callable({ uid: creado.user.uid, nombre, username: username.toLowerCase().trim(), email, rol });
+    return {
+      uid: creado.user.uid,
       nombre,
       username: username.toLowerCase().trim(),
       email,
       rol,
       activo: true,
-      permisos,
-      creadoEn: serverTimestamp(),
+      permisos: [],
     };
-
-    await setDoc(doc(db, "usuarios", uid), usuarioData);
-
-    await registrarAuditoria("creacion_usuario", `Usuario ${username} creado con rol ${rol}`);
-
-    return {
-      ...usuarioData,
-      creadoEn: undefined,
-      ultimoAcceso: undefined,
-    } as Usuario;
   } catch (error) {
-    await signOut(secondaryAuth).catch(() => {});
+    if (creado) await deleteUser(creado.user).catch(() => {});
     throw error;
+  } finally {
+    await signOut(secondaryAuth).catch(() => {});
   }
 }
 
 export async function actualizarRolUsuario(uid: string, rol: RolUsuario): Promise<void> {
-  await verificarEsAdmin();
-  const permisos = getPermisosPorRol(rol);
-  await updateDoc(doc(db, "usuarios", uid), {
-    rol,
-    permisos,
-    actualizadoEn: serverTimestamp(),
-  });
-  await registrarAuditoria("cambio_rol", `Rol de ${uid} cambiado a ${rol}`);
+  await llamarActualizacion({ uid, rol });
 }
 
 export async function toggleUsuarioActivo(uid: string, activo: boolean): Promise<void> {
-  await verificarEsAdmin();
-  await updateDoc(doc(db, "usuarios", uid), {
-    activo,
-    actualizadoEn: serverTimestamp(),
-  });
-  await registrarAuditoria("toggle_usuario", `Usuario ${uid} ${activo ? "activado" : "desactivado"}`);
+  await llamarActualizacion({ uid, estado: activo ? "activa" : "inactiva" });
 }
 
-export async function actualizarPermisosUsuario(
-  uid: string,
-  permisos: string[]
-): Promise<void> {
-  await verificarEsAdmin();
-  await updateDoc(doc(db, "usuarios", uid), {
-    permisos,
-    actualizadoEn: serverTimestamp(),
-  });
-  await registrarAuditoria("cambio_permisos", `Permisos de ${uid} actualizados`);
+export async function actualizarPermisosUsuario(uid: string, permisos: string[]): Promise<void> {
+  const normalizados = normalizarPermisos(permisos);
+  if (!normalizados) throw new Error("Permisos inválidos.");
+  await llamarActualizacion({ uid, permisos: normalizados });
 }
-
-export interface PermisosRol {
-  rol: string;
-  permisos: string[];
-}
-
-export async function guardarPermisosRol(rol: string, permisos: string[]): Promise<void> {
-  await verificarEsAdmin();
-  await setDoc(
-    doc(db, "permisos_roles", rol),
-    { rol, permisos, actualizadoEn: serverTimestamp() },
-    { merge: true }
-  );
-  await registrarAuditoria("configuracion", `Permisos del rol ${rol} actualizados`);
-}
-
-export async function getPermisosRol(rol: string): Promise<string[]> {
-  const snap = await getDoc(doc(db, "permisos_roles", rol));
-  if (snap.exists()) {
-    return snap.data().permisos as string[];
-  }
-  return getPermisosPorRol(rol as RolUsuario);
-}
-
-export function suscribirPermisosRoles(
-  callback: (permisosRoles: PermisosRol[]) => void
-): Unsubscribe {
-  const q = query(collection(db, "permisos_roles"));
-
-  return onSnapshot(q, (snap) => {
-    const roles: PermisosRol[] = snap.docs.map((d) => ({
-      rol: d.id,
-      ...(d.data() as Omit<PermisosRol, "rol">),
-    }));
-    callback(roles);
-  });
-}
-

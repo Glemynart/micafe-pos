@@ -6,15 +6,25 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Calendar as CalendarIcon, Clock, User, Phone, CheckCircle2, XCircle, DollarSign } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
-import { suscribirReservasActivas, marcarReservaCompletada, cancelarReserva, registrarIngresoReserva, Reserva } from '@/lib/reservas-service'
+import { suscribirReservasActivas, completarReserva, cancelarReserva, Reserva } from '@/lib/reservas-service'
+import { suscribirTurnoActivo, type Turno } from '@/lib/turnos-service'
 import { useAuthContext } from '@/contexts/auth-context'
 
 export function ReservasModule() {
   const [reservas, setReservas] = useState<Reserva[]>([])
   const [cargando, setCargando] = useState(true)
   const [procesando, setProcesando] = useState<string | null>(null)
+  const [turnoActivo, setTurnoActivo] = useState<Turno | null>(null)
   const { usuario } = useAuthContext()
   const initialLoadRef = useRef(true)
+
+  useEffect(() => {
+    if (!usuario?.uid) {
+      setTurnoActivo(null)
+      return
+    }
+    return suscribirTurnoActivo(usuario.uid, setTurnoActivo)
+  }, [usuario?.uid])
 
   useEffect(() => {
     const unsub = suscribirReservasActivas((data, nuevas) => {
@@ -55,27 +65,28 @@ export function ReservasModule() {
   }, [])
 
   const handleCompletar = async (reserva: Reserva) => {
+    // MODELO B: cobrar una reserva pendiente exige un turno real abierto.
+    const necesitaCobro = reserva.estadoPago !== 'pagado'
+    if (necesitaCobro && !turnoActivo) {
+      toast({
+        title: 'Turno requerido',
+        description: 'Abre un turno de caja para cobrar y completar esta reserva.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setProcesando(reserva.id)
     try {
-      // 1. Marcar reserva como completada + estadoPago = pagado
-      await marcarReservaCompletada(reserva.id)
-
-      // 2. Registrar ingreso en ventas (SOLO si no estaba pagada por Wompi)
-      if (reserva.estadoPago !== 'pagado') {
-        await registrarIngresoReserva({
-          reservaId: reserva.id,
-          clienteNombre: reserva.clienteNombre,
-          mesaId: reserva.mesaId,
-          espacioId: reserva.espacioId || 'salas-coworking',
-          montoTotal: reserva.montoTotal,
-          turnoId: (reserva as any).turnoId || 'sin-turno',
-          cajeroId: usuario?.uid || 'sistema',
-        })
-      }
+      await completarReserva({
+        reservaId: reserva.id,
+        turnoId: turnoActivo?.id,
+        cajeroId: usuario?.uid,
+      })
 
       toast({
         title: '✅ Reserva completada',
-        description: reserva.estadoPago === 'pagado' 
+        description: reserva.estadoPago === 'pagado'
           ? 'Reserva marcada como completada (pago ya registrado).'
           : `Ingreso de $${reserva.montoTotal.toLocaleString('es-CO')} registrado en caja.`,
       })
