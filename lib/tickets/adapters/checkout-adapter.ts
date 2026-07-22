@@ -1,5 +1,5 @@
 import type { CrearVentaParams, VentaItem } from '../../ventas-service'
-import type { ConfiguracionGlobal } from '../../configuracion-service'
+import type { proyectarIdentidadConfiguracion, proyectarLocalizacionConfiguracion, proyectarTicketConfiguracion } from '../../configuracion/proyecciones'
 import { proyectarModificadoresTicket } from '../../modifier-snapshot-projection'
 import type {
   TicketEmpresaConfig,
@@ -117,15 +117,17 @@ function mapearItems(items: VentaItem[]): VentaBuilderInputItem[] {
 }
 
 /** Encabezado/pie de empresa. El régimen sale del snapshot de la venta (ADR-TRIB-001 D6). */
-function mapearEmpresa(venta: CheckoutTicketInput, config: ConfiguracionGlobal): TicketEmpresaConfig {
+export interface CheckoutConfiguracionEmpresa { identidad: ReturnType<typeof proyectarIdentidadConfiguracion>; localizacion: ReturnType<typeof proyectarLocalizacionConfiguracion>; ticket: ReturnType<typeof proyectarTicketConfiguracion> }
+function mapearEmpresa(venta: CheckoutTicketInput, config: CheckoutConfiguracionEmpresa): TicketEmpresaConfig {
   return {
-    nombreComercial: config.nombre_tienda || 'MiTienda',
-    razonSocial: config.razonSocial || undefined,
-    nit: config.nit_tienda || '',
-    direccion: config.direccion_tienda || undefined,
-    ciudad: config.ciudad || undefined,
-    telefono: config.telefono || undefined,
+    nombreComercial: config.identidad.nombreComercial,
+    razonSocial: config.identidad.razonSocial,
+    nit: config.identidad.numeroDocumento ? `${config.identidad.numeroDocumento}${config.identidad.digitoVerificacion ? `-${config.identidad.digitoVerificacion}` : ''}` : '',
+    direccion: config.localizacion.direccion.linea1,
+    ciudad: config.localizacion.direccion.municipioNombre,
+    telefono: config.identidad.contacto.telefono,
     regimenTributario: venta.regimenAlMomento,
+    mensajeTicket: config.ticket.mensajePie,
   }
 }
 
@@ -136,7 +138,7 @@ function mapearEmpresa(venta: CheckoutTicketInput, config: ConfiguracionGlobal):
  */
 export function adaptarCheckoutAModeloTicket(
   venta: CheckoutTicketInput,
-  config: ConfiguracionGlobal
+  config: CheckoutConfiguracionEmpresa
 ): { input: VentaBuilderInput; empresa: TicketEmpresaConfig } {
   const input: VentaBuilderInput = {
     numero: venta.consecutivo,

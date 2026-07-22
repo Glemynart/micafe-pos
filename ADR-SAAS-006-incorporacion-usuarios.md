@@ -114,3 +114,5 @@ registro, estados, reglas, credenciales ni tokens.
 - ADR-SAAS-001-tenancy.md.
 - ADR-SAAS-002-identidad.md.
 - ADR-SAAS-004-modelo-empresarial.md.
+- ADR-SAAS-007-bootstrap-empresarial.md, que crea el owner y delimita cuándo el
+  onboarding puede invocar este contrato para empleados.

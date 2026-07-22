@@ -4,7 +4,8 @@
 
 Aceptado. Deriva del documento maestro `MT-ARQUITECTURA-SAAS-MULTIEMPRESA.md`
 (§4, §5, §8, §9). Extiende `ADR-TRIB-001` (modelo tributario V1) en lo referente a
-numeración fiscal.
+numeración fiscal. ADR-SAAS-008 extiende la selección, estados y frontera de emisión
+sin alterar la decisión base de numeración por empresa/sucursal/resolución.
 
 ## Contexto
 
@@ -123,4 +124,6 @@ membresia activa.
   numeración por empresa/sucursal/resolución.
 - **ADR-MOD-001** comparte la filosofía de snapshot que aquí se aplica a configuración y
   numeración.
+- **ADR-SAAS-008** precisa la asignación determinista, los estados y la autoridad de
+  emisión fiscal que este ADR dejó a nivel conceptual.
 - Documento maestro: `MT-ARQUITECTURA-SAAS-MULTIEMPRESA.md` (§4, §5, §8, §9).

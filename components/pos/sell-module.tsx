@@ -12,6 +12,7 @@ import { suscribirMesas, type Mesa } from '@/lib/mesas-service'
 import { suscribirPedidosActivos, guardarPedido, agregarItemPedido, enviarPedidoACocina, modificarItemPedido, suscribirComandasActivas, type PedidoActivo, type PedidoItem, type ComandaCocina } from '@/lib/pedidos-service'
 import { suscribirTurnoActivo, type Turno } from '@/lib/turnos-service'
 import { suscribirConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
+import type { CheckoutConfiguracionEmpresa } from '@/lib/tickets/adapters/checkout-adapter'
 import {
   resolverLineaImpuesto,
   agregarTotalesImpuesto,
@@ -524,6 +525,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   const [ventaParaImprimir, setVentaParaImprimir] = useState<CheckoutTicketInput | null>(null)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const pendingRemoveUid = useRef<string | null>(null)
+
   
   // Quick product form
   const [quickProductName, setQuickProductName] = useState('')
@@ -963,7 +965,13 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   // Checkout nunca emite DIAN, así que `model.dian` siempre es undefined y no
   // se genera QR — misma cadena, mismo guard, sin flujo de impresión distinto.
   const imprimirTicketConMotor = async (venta: CheckoutTicketInput, config: ConfiguracionGlobal) => {
-    const { input, empresa } = adaptarCheckoutAModeloTicket(venta, config)
+    const [numeroDocumento, digitoVerificacion] = (config.nit_tienda ?? '').split('-', 2)
+    const configuracionTicket: CheckoutConfiguracionEmpresa = {
+      identidad: { nombreComercial: config.nombre_tienda, razonSocial: config.razonSocial, tipoPersona: undefined, tipoDocumento: 'NIT', numeroDocumento: numeroDocumento || undefined, digitoVerificacion: digitoVerificacion || undefined, regimenTributario: config.regimenTributario, responsabilidadesFiscales: undefined, actividadEconomicaPrincipal: undefined, contacto: { email: config.email, telefono: config.telefono } },
+      localizacion: { paisFiscal: 'CO', moneda: 'COP', idioma: 'es-CO', zonaHoraria: 'America/Bogota', direccion: { linea1: config.direccion_tienda, municipioNombre: config.ciudad } },
+      ticket: { mensajePie: config.mensaje_ticket, mostrarLogoDocumento: false, mostrarRazonSocial: true, mostrarDireccion: true, mostrarTelefono: true, mostrarDesgloseImpuestos: true },
+    }
+    const { input, empresa } = adaptarCheckoutAModeloTicket(venta, configuracionTicket)
     const model = TicketBuilder.fromVenta(input, empresa)
     const qrDataUri = model.dian ? await generateQrDataUri(model.dian.qrPayload) : undefined
     const html = renderTicket(model, DEFAULT_RENDER_OPTIONS, { qrDataUri })
