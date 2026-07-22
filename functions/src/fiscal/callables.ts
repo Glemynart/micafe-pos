@@ -1,0 +1,11 @@
+import { onCall } from "firebase-functions/v2/https";
+import { getFirestore } from "firebase-admin/firestore";
+import { exigirAdminTenant, exigirTenantActivo } from "../operational-auth";
+import { actualizarNumeracionBorrador, confirmarVentaFiscal, crearNumeracion, establecerAsignacion, retirarAsignacion, transicionarNumeracion } from "./service";
+const ctx = (empresaId: string, actorId: string, origen: "ADMIN" | "SYSTEM" = "ADMIN") => ({ empresaId, actorId, paisFiscal: "CO", origen });
+export const crearNumeracionFiscal = onCall({ region: "us-central1" }, async request => { const e = await exigirAdminTenant(request); return crearNumeracion(getFirestore(), request.data, ctx(e.id, request.auth!.uid)); });
+export const actualizarNumeracionFiscal = onCall({ region: "us-central1" }, async request => { const e = await exigirAdminTenant(request); return actualizarNumeracionBorrador(getFirestore(), request.data, ctx(e.id, request.auth!.uid)); });
+export const transicionarNumeracionFiscal = onCall({ region: "us-central1" }, async request => { const e = await exigirAdminTenant(request); return transicionarNumeracion(getFirestore(), request.data, ctx(e.id, request.auth!.uid)); });
+export const establecerAsignacionFiscal = onCall({ region: "us-central1" }, async request => { const e = await exigirAdminTenant(request); return establecerAsignacion(getFirestore(), request.data, ctx(e.id, request.auth!.uid)); });
+export const retirarAsignacionFiscal = onCall({ region: "us-central1" }, async request => { const e = await exigirAdminTenant(request); return retirarAsignacion(getFirestore(), request.data, ctx(e.id, request.auth!.uid)); });
+export const confirmarVentaFiscalCallable = onCall({ region: "us-central1" }, async request => { const e = await exigirTenantActivo(request); return confirmarVentaFiscal(getFirestore(), request.data, ctx(e.id, request.auth!.uid)); });

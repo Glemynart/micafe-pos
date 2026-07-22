@@ -7,6 +7,7 @@ import type {
 } from '../tickets'
 import type { ConfiguracionGlobal } from '../configuracion-service'
 import { proyectarModificadoresTicket } from '../modifier-snapshot-projection'
+import type { SnapshotFiscal } from '../fiscal/contrato'
 
 /**
  * Adaptador de reimpresión (H3).
@@ -186,3 +187,36 @@ export function adaptarVentaAModeloTicket(
 
   return { input, empresa: mapearEmpresa(venta, config) }
 }
+
+/** Adaptador exclusivo B2: no recibe ni consulta configuración o autoridades vigentes. */
+export function adaptarVentaB2AModeloTicket(snapshot: SnapshotFiscal): { input: VentaBuilderInput; empresa: TicketEmpresaConfig } {
+  const d = snapshot.documento
+  const identidad = snapshot.identidadFiscal
+  return {
+    input: {
+      numero: snapshot.numeracion.numero,
+      fecha: normalizarFecha(snapshot.emitidaEn),
+      cliente: d.cliente,
+      items: d.items.map((item) => ({
+        descripcion: item.nombre, codigo: item.codigo ?? item.id, cantidad: item.cantidad,
+        precioUnitario: item.precioUnitario, subtotal: item.subtotal,
+        impuestoTipo: item.impuestoTipo as VentaBuilderInputItem['impuestoTipo'],
+        impuestoTarifa: item.impuestoTarifa, impuestoValor: item.impuestoValor, base: item.base,
+      })),
+      totales: d.totales,
+      pago: d.pago,
+    },
+    empresa: {
+      nombreComercial: identidad.nombreComercial,
+      razonSocial: identidad.razonSocial,
+      nit: identidad.numeroDocumento ? `${identidad.numeroDocumento}${identidad.digitoVerificacion ? `-${identidad.digitoVerificacion}` : ''}` : '',
+      direccion: identidad.direccion,
+      ciudad: identidad.ciudad,
+      telefono: identidad.telefono,
+      regimenTributario: identidad.regimenTributario as TicketEmpresaConfig['regimenTributario'],
+    },
+  }
+}
+
+/** Nombre explícito para el camino histórico; conserva exactamente su autoridad legacy. */
+export const adaptarVentaLegacyAModeloTicket = adaptarVentaAModeloTicket
