@@ -12,17 +12,17 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#051D41",
+  themeColor: "#334155",
 }
 
 export const metadata: Metadata = {
-  title: "Cafe Atrato Admin",
-  description: "Panel de administracion de Cafe Atrato",
+  title: "POS Empresarial Admin",
+  description: "Panel de administración empresarial",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Cafe Atrato",
+    title: "POS Empresarial",
   },
 }
 

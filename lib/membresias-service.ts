@@ -16,6 +16,7 @@ import {
   where,
   type Timestamp,
 } from "firebase/firestore";
+import { ROLES_TENANT, type RolTenant } from "@/lib/tenant-roles";
 
 export interface Membresia {
   empresaId: string;
@@ -37,15 +38,9 @@ export interface MembresiaLegacy {
 }
 
 /** Vocabulario único de roles tenant aprobado para MT-U5. */
-export const ROLES_MEMBRESIA = [
-  "admin",
-  "supervisor",
-  "cajero",
-  "cocinero",
-  "marketing",
-] as const;
+export const ROLES_MEMBRESIA = ROLES_TENANT;
 
-export type RolMembresia = (typeof ROLES_MEMBRESIA)[number];
+export type RolMembresia = RolTenant;
 
 /** Estados de acceso de una membresía dentro de una empresa. */
 export const ESTADOS_MEMBRESIA = ["activa", "inactiva"] as const;

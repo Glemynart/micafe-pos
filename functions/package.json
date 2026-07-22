@@ -1,13 +1,13 @@
 {
   "name": "micafe-pos-saas-auth-functions",
   "private": true,
-  "main": "lib/index.js",
+  "main": "lib/functions/src/index.js",
   "engines": {
     "node": "22"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "tsx --test src/contracts.test.ts src/incorporaciones-service.test.ts src/pin-security.test.ts",
+    "test": "tsx --test src/contracts.test.ts src/incorporaciones-service.test.ts src/pin-security.test.ts src/configuracion/*.test.ts",
     "test:email:integration": "tsx --test src/email-integration.test.ts"
   },
   "dependencies": {

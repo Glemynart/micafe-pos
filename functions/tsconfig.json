@@ -8,9 +8,9 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "outDir": "lib",
-    "rootDir": "src",
+    "rootDir": "..",
     "declaration": true
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.test.ts", "lib", "node_modules"]
+  "include": ["src/**/*.ts", "../lib/configuracion/**/*.ts", "../lib/impuestos-service.ts", "../lib/tenant-roles.ts"],
+  "exclude": ["src/**/*.test.ts", "../lib/configuracion/__tests__/**", "lib", "node_modules"]
 }

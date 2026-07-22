@@ -14,3 +14,4 @@ export {
   cancelarIncorporacionEmail,
   aceptarIncorporacionEmail,
 } from "./incorporaciones";
+export { actualizarConfiguracionEmpresa, actualizarParametrosFiscales, actualizarPreferenciasImpresion, actualizarPoliticasOperativas, obtenerConfiguracionEmpresa } from "./configuracion/callables";
