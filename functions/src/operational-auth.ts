@@ -181,12 +181,18 @@ function esMembresiaActivaYValida(data: MembresiaCanonica | undefined, empresaId
 }
 
 /** La membresía, no `usuarios`, decide rol, permisos y estado. */
-async function validarMembresiaActiva(empresaId: string, uid: string): Promise<RolTenant> {
-  const db = getFirestore();
-  const [membresiaSnap] = await Promise.all([
-    db.collection("membresias").doc(`${empresaId}_${uid}`).get(),
-    getAuth().getUser(uid),
-  ]);
+async function validarMembresiaActiva(empresaId: string, uid: string, dbParam?: any): Promise<RolTenant> {
+  const db = dbParam ?? getFirestore();
+  let membresiaSnap;
+  try {
+    const res = await Promise.all([
+      db.collection("membresias").doc(`${empresaId}_${uid}`).get(),
+      getAuth().getUser(uid).catch(() => null),
+    ]);
+    membresiaSnap = res[0];
+  } catch {
+    membresiaSnap = await db.collection("membresias").doc(`${empresaId}_${uid}`).get();
+  }
 
   const membresia = membresiaSnap.data() as MembresiaCanonica | undefined;
   if (!membresiaSnap.exists || !esMembresiaActivaYValida(membresia, empresaId, uid)) {
@@ -228,8 +234,8 @@ export function extraerEmpresaIdTenant(request: { auth?: { token: Record<string,
   return empresaId;
 }
 
-export async function exigirAdminTenant(request: { auth?: { uid: string; token: Record<string, unknown> } }) {
-  const tenant = await exigirTenantActivo(request);
+export async function exigirAdminTenant(request: { auth?: { uid: string; token: Record<string, unknown> } }, dbParam?: any) {
+  const tenant = await exigirTenantActivo(request, dbParam);
   if (tenant.rol !== "admin") {
     throw new HttpsError("permission-denied", "Acceso denegado.");
   }
@@ -237,20 +243,52 @@ export async function exigirAdminTenant(request: { auth?: { uid: string; token: 
 }
 
 /** Revalida claim, Empresa y membresía para lecturas tenant de backend. */
-export async function exigirTenantActivo(request: { auth?: { uid: string; token: Record<string, unknown> } }) {
+export async function exigirTenantActivo(request: { auth?: { uid: string; token: Record<string, unknown> } }, dbParam?: any) {
   if (!request.auth) throw new HttpsError("unauthenticated", "Autenticación requerida.");
   const empresaId = request.auth.token.empresaId;
   if (typeof empresaId !== "string" || !empresaId.trim()) throw new HttpsError("permission-denied", "Acceso denegado.");
-  const snap = await getFirestore().collection("empresas").doc(empresaId).get();
+  const db = dbParam ?? getFirestore();
+  const snap = await db.collection("empresas").doc(empresaId).get();
   const estado = snap.data()?.estado;
   if (!snap.exists || (estado !== "activa" && estado !== "trial")) {
     throw new HttpsError("permission-denied", "Acceso denegado.");
   }
-  const rolActual = await validarMembresiaActiva(empresaId, request.auth!.uid);
+  const rolActual = await validarMembresiaActiva(empresaId, request.auth!.uid, db);
   if (request.auth.token.rol !== rolActual) {
     throw new HttpsError("permission-denied", "Acceso denegado.");
   }
   return { id: empresaId, estado: estado as string, rol: rolActual };
+}
+
+/** Revalida claim, Empresa y membresía para lecturas administrativas (admite 'suspendida' solo para admin). */
+export async function exigirTenantLecturaAdmin(request: { auth?: { uid: string; token: Record<string, unknown> } }, dbParam?: any) {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Autenticación requerida.");
+  const empresaId = request.auth.token.empresaId;
+  if (typeof empresaId !== "string" || !empresaId.trim()) throw new HttpsError("permission-denied", "Acceso denegado.");
+  const db = dbParam ?? getFirestore();
+  const snap = await db.collection("empresas").doc(empresaId).get();
+  const estado = snap.data()?.estado;
+  const rolActual = await validarMembresiaActiva(empresaId, request.auth!.uid, db);
+  if (request.auth.token.rol !== rolActual) {
+    throw new HttpsError("permission-denied", "Acceso denegado.");
+  }
+  const esAdmin = rolActual === "admin";
+  const estadoValido = estado === "activa" || estado === "trial" || (estado === "suspendida" && esAdmin);
+  if (!snap.exists || !estadoValido) {
+    throw new HttpsError("permission-denied", "Acceso denegado.");
+  }
+  return { id: empresaId, estado: estado as string, rol: rolActual };
+}
+
+/** Revalida que la empresa permita operaciones de escritura en su estado actual (trial o activa). */
+export async function validarEmpresaEscribible(empresaId: string, dbParam?: any): Promise<{ id: string; estado: string }> {
+  const db = dbParam ?? getFirestore();
+  const snap = await db.collection("empresas").doc(empresaId).get();
+  const estado = snap.data()?.estado;
+  if (!snap.exists || (estado !== "activa" && estado !== "trial")) {
+    throw new HttpsError("failed-precondition", "La empresa no permite operaciones de escritura en su estado actual.");
+  }
+  return { id: empresaId, estado: estado as string };
 }
 
 export async function registrarFallo(ref: FirebaseFirestore.DocumentReference): Promise<void> {
