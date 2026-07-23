@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { ShieldAlert, Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { OnboardingWizard } from './onboarding-wizard'
+import { useSaaS } from '@/contexts/saas-context'
 import type { Usuario } from '@/lib/auth-service'
 import type { EstadoReadinessTotal } from '@/lib/onboarding/contrato'
 
@@ -13,13 +14,14 @@ interface OnboardingGateProps {
 }
 
 export function OnboardingGate({ usuario, children }: OnboardingGateProps) {
-  const [cargando, setCargando] = useState(true)
+  const { empresaId, loading: saasLoading } = useSaaS()
+  const [cargandoReadiness, setCargandoReadiness] = useState(true)
   const [readinessTotal, setReadinessTotal] = useState<EstadoReadinessTotal | null>(null)
   const [numeracionBorradorId, setNumeracionBorradorId] = useState<string>('num_pos_1')
   const [errorText, setErrorText] = useState<string | null>(null)
 
   const cargarReadiness = useCallback(async () => {
-    setCargando(true)
+    setCargandoReadiness(true)
     setErrorText(null)
     try {
       const { httpsCallable, getFunctions } = await import('firebase/functions')
@@ -35,7 +37,7 @@ export function OnboardingGate({ usuario, children }: OnboardingGateProps) {
       console.error('Error al cargar readiness de onboarding:', err)
       setErrorText(err.message || 'No se pudo consultar la disponibilidad del negocio.')
     } finally {
-      setCargando(false)
+      setCargandoReadiness(false)
     }
   }, [])
 
@@ -43,7 +45,7 @@ export function OnboardingGate({ usuario, children }: OnboardingGateProps) {
     cargarReadiness()
   }, [cargarReadiness])
 
-  if (cargando) {
+  if (cargandoReadiness || saasLoading) {
     return (
       <div className="flex items-center justify-center h-full min-h-[60vh]">
         <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/50" />
@@ -71,10 +73,19 @@ export function OnboardingGate({ usuario, children }: OnboardingGateProps) {
 
   // Si el readiness no está listo y el usuario es admin / owner -> Mostrar Wizard
   if (usuario.rol === 'admin' || usuario.rol === 'supervisor') {
+    if (!empresaId) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full p-6 text-center gap-4">
+          <ShieldAlert className="w-12 h-12 text-destructive" />
+          <p className="text-muted-foreground">Sesión no asociada a una empresa válida. Por favor, vuelve a iniciar sesión.</p>
+        </div>
+      )
+    }
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-secondary/10 p-4">
         <OnboardingWizard
-          empresaId={usuario.empresaId || ''}
+          empresaId={empresaId}
           readinessTotal={readinessTotal!}
           numeracionBorradorId={numeracionBorradorId}
           onCompletado={cargarReadiness}

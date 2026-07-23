@@ -8,7 +8,6 @@ const baseConfig = () =>
   crearPlantillaConfiguracionRevision1({
     empresaId: "empresa_b6_test",
     nombreComercial: "Café Onboarding Test",
-    paisFiscal: "CO",
     creadaEn: {},
     actualizadaEn: {},
     ultimaMutacion: {
