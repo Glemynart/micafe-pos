@@ -76,6 +76,7 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
   const qVentas = query(
     ventasRef,
     where('empresaId', '==', empresaId),
+    where('estadoOperativo', '==', 'COMPLETO'),
     ...(espacioId ? [where('espacioId', '==', espacioId)] : []),
     where('estado', '==', 'pagada'),
     where('fecha', '>=', Timestamp.fromDate(inicio)),

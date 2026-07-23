@@ -86,28 +86,12 @@ export function suscribirConfiguracion(
   });
 }
 
-export async function guardarConfiguracion(config: Partial<ConfiguracionGlobal>): Promise<void> {
-  const docRef = doc(db, "configuracion", "general");
-  await setDoc(docRef, config, { merge: true });
+export async function guardarConfiguracion(_config: Partial<ConfiguracionGlobal>): Promise<void> {
+  throw new Error("B7 Cutover: Las escrituras a configuracion/general están desactivadas. Utilice los callables B1 de configuración empresarial.");
 }
 
 export async function incrementarConsecutivoTicket(): Promise<number> {
-  const docRef = doc(db, "configuracion", "general");
-
-  return await runTransaction(db, async (transaction) => {
-    const snap = await transaction.get(docRef);
-
-    let nuevoConsecutivo = 1;
-
-    if (snap.exists()) {
-      const data = snap.data() as ConfiguracionGlobal;
-      nuevoConsecutivo = (data.consecutivo_actual || 0) + 1;
-    }
-
-    transaction.set(docRef, { consecutivo_actual: nuevoConsecutivo }, { merge: true });
-
-    return nuevoConsecutivo;
-  });
+  throw new Error("B7 Cutover: El consecutivo legacy está desactivado. Utilice la autoridad B2 de emisión fiscal.");
 }
 
 export { DEFAULT_MODULOS };

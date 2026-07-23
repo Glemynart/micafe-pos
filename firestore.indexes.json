@@ -66,6 +66,33 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "estadoOperativo", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "ventas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "turnoId", "order": "ASCENDING" },
+        { "fieldPath": "estadoOperativo", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "ventas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "turnoRecaudoId", "order": "ASCENDING" },
+        { "fieldPath": "estadoOperativo", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "ventas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
         { "fieldPath": "espacioId", "order": "ASCENDING" },
         { "fieldPath": "estado", "order": "ASCENDING" },
         { "fieldPath": "fecha", "order": "ASCENDING" }

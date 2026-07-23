@@ -65,6 +65,7 @@ export function suscribirCuentasPorCobrar(
   // Se ordena localmente por fecha descendente.
   tenantQuery(
     collection(db, 'ventas'),
+    where('estadoOperativo', '==', 'COMPLETO'),
     where('estado', '==', 'pendiente'),
     where('metodoPago', '==', 'cuenta_cobro')
   ).then((q) => {

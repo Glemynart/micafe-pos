@@ -123,10 +123,28 @@ service cloud.firestore {
     }
     match /ventas/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
-      allow create: if puedeCrearEnTenant() && esOperativo();
+      allow create: if false;
       allow update: if puedeActualizarEnTenant() && esOperativo() && (
-        (resource.data.estado != 'anulada' && request.resource.data.estado != 'anulada')
-        || (resource.data.estado != 'anulada' && request.resource.data.estado == 'anulada' && esAdmin())
+        // 1. Transición Fase 2: PENDIENTE_EFECTOS -> COMPLETO
+        (
+          resource.data.estadoOperativo == 'PENDIENTE_EFECTOS' &&
+          request.resource.data.estadoOperativo == 'COMPLETO' &&
+          request.resource.data.snapshotFiscal == resource.data.snapshotFiscal &&
+          request.resource.data.consecutivo == resource.data.consecutivo
+        ) ||
+        // 2. Anulación Pre-Efectos: PENDIENTE_EFECTOS -> ANULADA_SIN_EFECTOS
+        (
+          resource.data.estadoOperativo == 'PENDIENTE_EFECTOS' &&
+          request.resource.data.estadoOperativo == 'ANULADA_SIN_EFECTOS' &&
+          request.resource.data.estado == 'anulada'
+        ) ||
+        // 3. Anulación Post-Efectos: COMPLETO -> ANULADA_CON_EFECTOS
+        (
+          resource.data.estadoOperativo == 'COMPLETO' &&
+          request.resource.data.estadoOperativo == 'ANULADA_CON_EFECTOS' &&
+          request.resource.data.estado == 'anulada' &&
+          esAdmin()
+        )
       );
       allow delete: if false;
     }
@@ -236,10 +254,8 @@ service cloud.firestore {
       allow create, update, delete: if esAutenticado() && rol() in ['admin', 'marketing'];
     }
     match /configuracion/{id} {
-      allow read: if puedeLeerTenant() && esAutenticado();
-      allow create: if puedeCrearEnTenant() && esAdmin();
-      allow update: if puedeActualizarEnTenant() && esAdminOCajero();
-      allow delete: if puedeEliminarEnTenant() && esAdmin();
+      allow read: if esAutenticado();
+      allow create, update, delete: if false;
     }
     match /usuarios/{uid} {
       // Perfil global: nunca contiene ni decide rol, permisos o estado.
@@ -298,7 +314,12 @@ service cloud.firestore {
       allow read, write: if esSuperadmin();
     }
     match /numeraciones/{id} {
-      allow read, write: if esSuperadmin();
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow write: if esSuperadmin();
+    }
+    match /asignaciones_numeracion/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow write: if esSuperadmin();
     }
 
     match /{document=**} {

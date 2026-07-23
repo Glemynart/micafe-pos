@@ -528,11 +528,11 @@ export async function calcularVentasTurno(turnoId: string, empresaId?: string): 
   const empresaIdResuelto = empresaId ?? (await getEmpresaId());
 
   // 1. Ventas normales del turno
-  const qVentas = query(ventasRef, where('empresaId', '==', empresaIdResuelto), where('turnoId', '==', turnoId));
+  const qVentas = query(ventasRef, where('empresaId', '==', empresaIdResuelto), where('turnoId', '==', turnoId), where('estadoOperativo', '==', 'COMPLETO'));
   const snapshotVentas = await getDocs(qVentas);
 
   // 2. Recaudos de deudas (cuentas por cobrar) realizados en este turno
-  const qRecaudos = query(ventasRef, where('empresaId', '==', empresaIdResuelto), where('turnoRecaudoId', '==', turnoId));
+  const qRecaudos = query(ventasRef, where('empresaId', '==', empresaIdResuelto), where('turnoRecaudoId', '==', turnoId), where('estadoOperativo', '==', 'COMPLETO'));
   const snapshotRecaudos = await getDocs(qRecaudos);
   
   let efectivo = 0;
