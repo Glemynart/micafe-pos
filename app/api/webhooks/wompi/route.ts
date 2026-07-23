@@ -183,21 +183,70 @@ export async function POST(req: Request) {
             }
           }
 
-          // 3. Crear Venta B7 (Autoridad B2)
-          const asignacionSnap = await t.get(db.collection("asignaciones_numeracion").doc(`${empresaId}_empresa_pos`))
-          const expectedAsignacionRevision = asignacionSnap.exists ? (asignacionSnap.data()?.revision || 1) : 1
-          const numeracionId = asignacionSnap.exists ? asignacionSnap.data()?.numeracionId : "fundacional_pos"
-          const numSnap = await t.get(db.collection("numeraciones").doc(`${empresaId}_${numeracionId}`))
-          const expectedRevision = numSnap.exists ? (numSnap.data()?.revision || 1) : 1
+          // 3. Crear Venta B7 (Autoridad B2 - ADR-SAAS-008)
+          const asignacionRef = db.collection("asignaciones_numeracion").doc(`${empresaId}_empresa_pos`)
+          const asignacionSnap = await t.get(asignacionRef)
+
+          if (!asignacionSnap.exists) {
+            console.error(`[wompi-webhook] No existe asignación de numeración para la empresa ${empresaId}`)
+            throw new Error(`Asignación de numeración no encontrada para la empresa ${empresaId}`)
+          }
+
+          const asignacionData = asignacionSnap.data()
+          if (asignacionData?.estado !== 'VIGENTE') {
+            console.error(`[wompi-webhook] Asignación de numeración no está VIGENTE (estado: ${asignacionData?.estado})`)
+            throw new Error(`Asignación de numeración no está VIGENTE para la empresa ${empresaId}`)
+          }
+
+          const numeracionId = asignacionData?.numeracionId || "fundacional_pos"
+          const numRef = db.collection("numeraciones").doc(`${empresaId}_${numeracionId}`)
+          const numSnap = await t.get(numRef)
+
+          if (!numSnap.exists) {
+            console.error(`[wompi-webhook] No existe el documento de numeración ${empresaId}_${numeracionId}`)
+            throw new Error(`Numeración ${numeracionId} no encontrada`)
+          }
+
+          const numData = numSnap.data() || {}
+
+          // ADR-SAAS-008 §3: Validaciones autoritativas de emisión
+          // 1. Estado de numeración (solo HABILITADA puede emitir)
+          if (numData.estado !== 'HABILITADA') {
+            console.error(`[wompi-webhook] Numeración ${numeracionId} no está HABILITADA (estado: ${numData.estado})`)
+            throw new Error(`Numeración ${numeracionId} no está HABILITADA (estado actual: ${numData.estado || 'sin_estado'})`)
+          }
+
+          // 2. Vigencia fiscal (reloj UTC YYYY-MM-DD)
+          const hoyUtc = new Date().toISOString().slice(0, 10)
+          if (numData.vigenciaHasta && hoyUtc > numData.vigenciaHasta) {
+            console.error(`[wompi-webhook] Numeración ${numeracionId} vencida (vigenciaHasta: ${numData.vigenciaHasta}, hoy: ${hoyUtc})`)
+            throw new Error(`Numeración ${numeracionId} vencida (vigenciaHasta: ${numData.vigenciaHasta})`)
+          }
+          if (numData.vigenciaDesde && hoyUtc < numData.vigenciaDesde) {
+            console.error(`[wompi-webhook] Numeración ${numeracionId} no vigente aún (vigenciaDesde: ${numData.vigenciaDesde}, hoy: ${hoyUtc})`)
+            throw new Error(`Numeración ${numeracionId} no vigente (vigenciaDesde: ${numData.vigenciaDesde})`)
+          }
+
+          // 3. Rango disponible
+          const ultimoAsignado = typeof numData.ultimoAsignado === 'number' ? numData.ultimoAsignado : 0
+          const nuevoConsecutivo = ultimoAsignado + 1
+          if (typeof numData.rangoFin === 'number' && nuevoConsecutivo > numData.rangoFin) {
+            console.error(`[wompi-webhook] Numeración ${numeracionId} agotada (rangoFin: ${numData.rangoFin}, consecutivo solicitado: ${nuevoConsecutivo})`)
+            throw new Error(`Numeración ${numeracionId} agotada (rangoFin: ${numData.rangoFin})`)
+          }
+
+          // Actualizar contador y estado si se alcanza el fin del rango (ADR-SAAS-008 §3)
+          const siguienteEstado = (typeof numData.rangoFin === 'number' && nuevoConsecutivo === numData.rangoFin)
+            ? 'AGOTADA'
+            : 'HABILITADA'
+
+          t.update(numRef, {
+            ultimoAsignado: nuevoConsecutivo,
+            estado: siguienteEstado,
+            actualizadaEn: FieldValue.serverTimestamp(),
+          })
 
           const nuevaVentaRef = db.collection('ventas').doc()
-          const ventaId = nuevaVentaRef.id
-          const ultimoAsignado = numSnap.exists ? (numSnap.data()?.ultimoAsignado || 0) : 0
-          const nuevoConsecutivo = ultimoAsignado + 1
-
-          if (numSnap.exists) {
-            t.update(numSnap.ref, { ultimoAsignado: nuevoConsecutivo, actualizadaEn: FieldValue.serverTimestamp() })
-          }
 
           t.set(nuevaVentaRef, {
             empresaId,
