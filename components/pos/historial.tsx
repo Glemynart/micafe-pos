@@ -7,7 +7,7 @@ import { useEspacios } from '@/contexts/espacios-context'
 import { suscribirHistorialVentas, obtenerVentaPorId, anularVenta as anularVentaFirebase, guardarMetadatosDian } from '@/lib/ventas-service'
 import { suscribirConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
 import { TicketBuilder, generateQrDataUri, renderTicket, DEFAULT_RENDER_OPTIONS } from '@/lib/tickets'
-import { adaptarVentaAModeloTicket } from '@/lib/reimpresion/venta-ticket-adapter'
+import { adaptarVentaB2AModeloTicket, adaptarVentaLegacyAModeloTicket } from '@/lib/reimpresion/venta-ticket-adapter'
 import { formatCurrency } from '@/lib/format-utils'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -345,13 +345,13 @@ export function Historial() {
     }
   };
 
-  // Orquestación del motor de tickets (H3): el adaptador traduce el doc de venta
-  // + config al contrato del motor; el builder arma el modelo de dominio; el QR
-  // se genera localmente (H2) solo si la venta es DIAN; el renderer produce el
-  // HTML; la salida a impresión no cambia. Toda la lógica de datos vive en el
-  // adaptador puro (`lib/reimpresion/venta-ticket-adapter`); aquí solo se encadena.
+  // Orquestación del motor de tickets (B7): Si la venta posee snapshotFiscal (B2),
+  // se invoca adaptarVentaB2AModeloTicket de forma pura sin consultar configuracion/general.
+  // Si es una venta histórica pre-cutover, se invoca adaptarVentaLegacyAModeloTicket.
   const imprimirTicketConMotor = async (venta: any, config: ConfiguracionGlobal) => {
-    const { input, empresa } = adaptarVentaAModeloTicket(venta, config);
+    const { input, empresa } = venta?.snapshotFiscal
+      ? adaptarVentaB2AModeloTicket(venta.snapshotFiscal)
+      : adaptarVentaLegacyAModeloTicket(venta, config);
     const model = TicketBuilder.fromVenta(input, empresa);
     const qrDataUri = model.dian ? await generateQrDataUri(model.dian.qrPayload) : undefined;
     const html = renderTicket(model, DEFAULT_RENDER_OPTIONS, { qrDataUri });

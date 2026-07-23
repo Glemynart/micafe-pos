@@ -183,17 +183,26 @@ export async function POST(req: Request) {
             }
           }
 
-          // 3. Crear Venta
-          const configRef = db.collection('configuracion').doc('general')
-          const configSnap = await t.get(configRef)
-          const nuevoConsecutivo = (configSnap.exists ? (configSnap.data()?.consecutivo_actual || 0) : 0) + 1
-
-          t.set(configRef, { consecutivo_actual: nuevoConsecutivo }, { merge: true })
+          // 3. Crear Venta B7 (Autoridad B2)
+          const asignacionSnap = await t.get(db.collection("asignaciones_numeracion").doc(`${empresaId}_empresa_pos`))
+          const expectedAsignacionRevision = asignacionSnap.exists ? (asignacionSnap.data()?.revision || 1) : 1
+          const numeracionId = asignacionSnap.exists ? asignacionSnap.data()?.numeracionId : "fundacional_pos"
+          const numSnap = await t.get(db.collection("numeraciones").doc(`${empresaId}_${numeracionId}`))
+          const expectedRevision = numSnap.exists ? (numSnap.data()?.revision || 1) : 1
 
           const nuevaVentaRef = db.collection('ventas').doc()
+          const ventaId = nuevaVentaRef.id
+          const ultimoAsignado = numSnap.exists ? (numSnap.data()?.ultimoAsignado || 0) : 0
+          const nuevoConsecutivo = ultimoAsignado + 1
+
+          if (numSnap.exists) {
+            t.update(numSnap.ref, { ultimoAsignado: nuevoConsecutivo, actualizadaEn: FieldValue.serverTimestamp() })
+          }
+
           t.set(nuevaVentaRef, {
             empresaId,
             consecutivo: nuevoConsecutivo,
+            estadoOperativo: 'COMPLETO',
             fecha: new Date(),
             turnoId: 'reserva-web',
             cajeroId: 'wompi',

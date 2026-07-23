@@ -6,6 +6,7 @@ import {
   onSnapshot,
   query,
   where,
+  getDoc,
   getDocs,
   updateDoc,
   serverTimestamp,
@@ -13,6 +14,7 @@ import {
   runTransaction,
 } from 'firebase/firestore'
 import { tenantQuery, getEmpresaId, stampEmpresaId, withEmpresaId } from '@/lib/tenant'
+import { registrarVenta } from '@/lib/ventas-service'
 
 export interface Reserva {
   id: string
@@ -379,36 +381,64 @@ export async function completarReserva(params: {
   metodoPago?: 'efectivo' | 'transferencia'
 }): Promise<void> {
   const reservaRef = doc(db, COLLECTION_NAME, params.reservaId)
-  const configRef = doc(db, 'configuracion', 'general')
-  const nuevaVentaRef = doc(collection(db, 'ventas'))
 
-  // MT-U3 Capa 3: resuelto antes de runTransaction (§2.5) — llamada desde
-  // POS/Admin autenticado (completarReserva no corre en la landing pública).
-  const empresaId = await getEmpresaId()
+  // 1. Lectura preliminar fuera de la transacción para verificar necesidad de venta
+  const reservaSnapInitial = await getDoc(reservaRef)
+  if (!reservaSnapInitial.exists()) throw new Error('Reserva no encontrada')
 
+  const rInitial = reservaSnapInitial.data() as Reserva
+  if (rInitial.estadoReserva === 'completada') return // idempotente
+  if (rInitial.estadoReserva === 'cancelada') throw new Error('No se puede completar una reserva cancelada')
+
+  const necesitaVenta = rInitial.estadoPago !== 'pagado'
+  if (necesitaVenta && (!params.turnoId || !params.cajeroId)) {
+    throw new Error('TURNO_REQUERIDO')
+  }
+
+  // 2. Si necesita venta, ejecutar la Saga de Ventas B7
+  if (necesitaVenta) {
+    const metodoPago = (params.metodoPago ?? 'transferencia') as 'efectivo' | 'transferencia'
+    await registrarVenta({
+      turnoId: params.turnoId!,
+      cajeroId: params.cajeroId!,
+      cajeroNombre: params.cajeroNombre,
+      espacioId: rInitial.espacioId || 'salas-coworking',
+      clienteNombre: rInitial.clienteNombre,
+      items: [
+        {
+          id: `reserva-${params.reservaId}`,
+          nombre: `Reserva sala: ${rInitial.mesaId}`,
+          cantidad: 1,
+          precioUnitario: rInitial.montoTotal,
+          costoUnitario: 0,
+          subtotal: rInitial.montoTotal,
+          base: rInitial.montoTotal,
+          impuestoTipo: "excluido",
+          impuestoTarifa: 0,
+          impuestoValor: 0,
+        },
+      ],
+      totales: {
+        subtotalBase: rInitial.montoTotal,
+        totalINC: 0,
+        totalExcluido: rInitial.montoTotal,
+        total: rInitial.montoTotal,
+      },
+      regimenAlMomento: 'no_responsable',
+      metodoPago,
+      estado: 'pagada',
+    })
+  }
+
+  // 3. Transacción para actualizar la reserva y liberar/confirmar agenda
   await runTransaction(db, async (tx) => {
-    // ── LECTURAS (todas antes de cualquier escritura) ─────────────────────────
-
     const reservaSnap = await tx.get(reservaRef)
     if (!reservaSnap.exists()) throw new Error('Reserva no encontrada')
 
     const r = reservaSnap.data() as Reserva
-    if (r.estadoReserva === 'completada') return // idempotente
-    if (r.estadoReserva === 'cancelada') throw new Error('No se puede completar una reserva cancelada')
+    if (r.estadoReserva === 'completada') return
 
-    const necesitaVenta = r.estadoPago !== 'pagado'
-
-    if (necesitaVenta && (!params.turnoId || !params.cajeroId)) {
-      throw new Error('TURNO_REQUERIDO')
-    }
-
-    let nuevoConsecutivo = 0
-    if (necesitaVenta) {
-      const configSnap = await tx.get(configRef)
-      nuevoConsecutivo = (configSnap.exists() ? (configSnap.data().consecutivo_actual || 0) : 0) + 1
-    }
-
-    // Derivar coordenadas de agenda con fallback UTC-5 Colombia (igual que cancelarReserva)
+    // Derivar coordenadas de agenda
     const colombiaOffsetMs = -5 * 60 * 60 * 1000
     const mesaId = r.mesaId ?? ''
     let fechaLocal = r.fechaLocal ?? ''
@@ -422,64 +452,12 @@ export async function completarReserva(params: {
     const agendaRef   = agendaDocId ? doc(db, 'agendas', agendaDocId) : null
     const agendaSnap  = agendaRef ? await tx.get(agendaRef) : null
 
-    // ── ESCRITURAS ────────────────────────────────────────────────────────────
-
-    if (necesitaVenta) {
-      const metodoPago = params.metodoPago ?? 'transferencia'
-      const cuentaId = metodoPago === 'efectivo' ? 'caja-principal' : 'bancolombia'
-      const cuentaNombre = metodoPago === 'efectivo' ? 'Caja Registradora' : 'Bancolombia'
-
-      tx.set(configRef, { consecutivo_actual: nuevoConsecutivo }, { merge: true })
-      tx.set(nuevaVentaRef, withEmpresaId(empresaId, {
-        consecutivo: nuevoConsecutivo,
-        fecha: serverTimestamp(),
-        turnoId: params.turnoId,
-        cajeroId: params.cajeroId,
-        espacioId: r.espacioId || 'salas-coworking',
-        clienteNombre: r.clienteNombre,
-        metodoPago,
-        estado: 'pagada',
-        origenReserva: params.reservaId,
-        items: [
-          {
-            id: `reserva-${params.reservaId}`,
-            nombre: `Reserva sala: ${r.mesaId}`,
-            cantidad: 1,
-            precioUnitario: r.montoTotal,
-            costoUnitario: 0,
-            subtotal: r.montoTotal,
-          },
-        ],
-        totales: {
-          subtotal: r.montoTotal,
-          iva: 0,
-          impoconsumo: 0,
-          total: r.montoTotal,
-        },
-      }))
-      tx.update(doc(db, 'cuentas_bancarias', cuentaId), { saldo: increment(r.montoTotal) })
-      tx.set(doc(collection(db, 'transacciones_financieras')), withEmpresaId(empresaId, {
-        cuentaId,
-        cuentaNombre,
-        tipo: 'ingreso',
-        monto: r.montoTotal,
-        concepto: `Venta #${nuevoConsecutivo}`,
-        categoria: 'ventas',
-        referencia: nuevaVentaRef.id,
-        usuarioId: params.cajeroId,
-        usuarioNombre: params.cajeroNombre ?? params.cajeroId,
-        espacioId: r.espacioId ?? 'salas-coworking',
-        fecha: serverTimestamp(),
-      }))
-    }
-
     tx.update(reservaRef, {
       estadoReserva: 'completada',
       estadoPago: 'pagado',
       fechaCompletada: new Date().toISOString(),
     })
 
-    // Confirmar bloques de agenda (idempotente — no toca bloques ya confirmados ni de otras reservas)
     if (agendaRef && agendaSnap?.exists()) {
       const agendaData = agendaSnap.data() as AgendaDoc
       const nuevosBloques: Record<string, BloqueAgenda> = { ...agendaData.bloques }

@@ -1,7 +1,12 @@
 /**
- * ventas-service.ts
+ * ventas-service.ts — B7 Cutover y Certificación Final
  *
  * Funciones Firestore para gestionar Ventas, Cuentas por Cobrar y el descuento de stock.
+ * Implementa la Saga en 2 Fases con Contrato de Estado Operativo (ADR-SAAS-010):
+ *  - Fase 1 (Backend Cloud Functions): `confirmarVentaFiscalCallable`. Genera consecutivo inmutable,
+ *    `snapshotFiscal` y establece `estadoOperativo: "PENDIENTE_EFECTOS"`.
+ *  - Fase 2 (Cliente POS / Reconciliador): Transacción atómica local Firestore que descuenta el Ledger,
+ *    acredita la tesorería y transiciona `estadoOperativo: "COMPLETO"`.
  */
 
 import {
@@ -15,6 +20,7 @@ import {
   where,
   onSnapshot,
   getDoc,
+  getDocs,
   setDoc,
   deleteDoc,
   limit,
@@ -25,10 +31,15 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { getAuth } from "firebase/auth";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { aplicarMovimientosEnTransaccion, type EmitirMovimientoParams } from "@/lib/inventario-ledger";
 import type { ImpuestoTipo, RegimenTributario } from "@/lib/impuestos-service";
 import type { ModificadorGrupoSnapshot } from '@/lib/configured-line';
 import { getEmpresaId, tenantQuery, withEmpresaId } from "@/lib/tenant";
+
+export function esVentaCompletada(venta: any): boolean {
+  return venta?.estadoOperativo === "COMPLETO";
+}
 
 export interface VentaItem {
   id: string; // ID del producto
@@ -45,7 +56,6 @@ export interface VentaItem {
   categoria?: string;
   modificadores?: ModificadorGrupoSnapshot[];
   // ADR-TRIB-001 D6/INV-5: snapshot tributario congelado de la línea.
-  // Opcionales: ventas anteriores a ADR-TRIB-001 no los tienen (dual-shape).
   base?: number;
   impuestoTipo?: ImpuestoTipo;
   impuestoTarifa?: number;
@@ -70,7 +80,7 @@ export interface CrearVentaParams {
   clienteDocumento?: string;
   notasFiado?: string;
   items: VentaItem[];
-  // ADR-TRIB-001 D6: desglose por tipo (reemplaza {subtotal, iva, impoconsumo}).
+  // ADR-TRIB-001 D6: desglose por tipo.
   totales: {
     subtotalBase: number;
     totalINC: number;
@@ -89,10 +99,6 @@ export interface CrearVentaParams {
   estado: 'pagada' | 'pendiente';
 }
 
-/**
- * Registra una venta en Firestore mediante una transacción.
- * Si el producto tiene receta, descuenta de `insumos`. Si no, descuenta de `productos`.
- */
 export interface IncidenciaInventario {
   tipo: 'stock_insuficiente'
   itemId: string
@@ -101,19 +107,65 @@ export interface IncidenciaInventario {
   cantidadSolicitada: number
 }
 
-async function _ejecutarVenta(
+/**
+ * Consulta la asignación de numeración vigente para el tenant y devuelve los números de revisión esperados.
+ */
+export async function obtenerRevisionesNumeracionActiva(
+  tipoDocumento: string = "pos"
+): Promise<{ expectedRevision: number; expectedAsignacionRevision: number }> {
+  const empresaId = await getEmpresaId();
+  const qAsignacion = query(
+    collection(db, "asignaciones_numeracion"),
+    where("empresaId", "==", empresaId),
+    where("estado", "==", "VIGENTE"),
+    where("tipoDocumento", "==", tipoDocumento),
+    limit(1)
+  );
+  const snapAsignacion = await getDocs(qAsignacion);
+  if (snapAsignacion.empty) {
+    throw new Error("No existe una asignación de numeración vigente para la empresa.");
+  }
+  const asignacionDocData = snapAsignacion.docs[0].data();
+  const expectedAsignacionRevision = asignacionDocData.revision ?? 1;
+  const numeracionId = asignacionDocData.numeracionId;
+
+  const numDocRef = doc(db, "numeraciones", `${empresaId}_${numeracionId}`);
+  const numSnap = await getDoc(numDocRef);
+  if (!numSnap.exists()) {
+    throw new Error("La numeración referenciada por la asignación no existe.");
+  }
+  const expectedRevision = numSnap.data().revision ?? 1;
+
+  return { expectedRevision, expectedAsignacionRevision };
+}
+
+/**
+ * Fase 2 de la Saga Operativa: Aplica los efectos de inventario (Ledger) y tesorería,
+ * y promueve la venta de `PENDIENTE_EFECTOS` a `COMPLETO` dentro de una transacción atómica.
+ */
+export async function ejecutarFase2OperativaEnTransaccion(
   transaction: Transaction,
-  params: CrearVentaParams,
   ventaDocRef: DocumentReference,
-  empresaId: string,
-  extraVentaFields?: Record<string, unknown>,
-): Promise<{ consecutivo: number, incidencias: IncidenciaInventario[] }> {
+  params: CrearVentaParams,
+  empresaId: string
+): Promise<{ incidencias: IncidenciaInventario[] }> {
   const incidencias: IncidenciaInventario[] = [];
 
-  // I7: pago mixto debe conciliar exactamente contra el total antes de tocar
-  // inventario o tesorería — ninguna pierna fuera de {efectivo,transferencia,tarjeta}
-  // (cuenta_cobro explícitamente excluida) y Σ(monto) === totales.total.
-  // Dominio COP entero: igualdad exacta, sin tolerancias.
+  const ventaSnap = await transaction.get(ventaDocRef);
+  if (!ventaSnap.exists()) {
+    throw new Error("La venta no existe.");
+  }
+  const ventaData = ventaSnap.data();
+
+  // Guarda de Concurrencia / Idempotencia (ADR-SAAS-010 §5.1)
+  if (ventaData.estadoOperativo === "COMPLETO") {
+    return { incidencias: [] };
+  }
+  if (ventaData.estadoOperativo !== "PENDIENTE_EFECTOS") {
+    throw new Error(`Estado operativo no permite completar la venta: ${ventaData.estadoOperativo}`);
+  }
+
+  // Validación de pago mixto (I7)
   if (params.metodoPago === 'mixto') {
     const detalle = params.pagoMixtoDetalle;
     if (!detalle || detalle.length === 0) {
@@ -135,6 +187,7 @@ async function _ejecutarVenta(
     }
   }
 
+  // 1. LECTURAS (reads-before-writes)
   const recetasMap = new Map<string, any>();
   for (const item of params.items) {
     if (item.id.startsWith('quick-')) continue;
@@ -177,13 +230,6 @@ async function _ejecutarVenta(
     }
   }
 
-  const configRef = doc(db, "configuracion", "general");
-  const configSnap = await transaction.get(configRef);
-  let nuevoConsecutivo = 1;
-  if (configSnap.exists()) {
-    nuevoConsecutivo = (configSnap.data().consecutivo_actual || 0) + 1;
-  }
-
   const insumosDescuentos = new Map<string, number>();
   const productosDescuentos = new Map<string, number>();
   for (const item of params.items) {
@@ -200,10 +246,7 @@ async function _ejecutarVenta(
     }
   }
 
-  // ── Detectar incidencias y construir lote Ledger (I15) ────────────────────
-  // Items efímeros (foto-*, quick-*) nunca resuelven a un documento real en
-  // insumosMap / productosMap, por lo que la guarda `if (insumo)` / `if (producto)`
-  // los excluye automáticamente del lote; ningún movimiento de Ledger se emite.
+  // 2. ESCRITURAS ATÓMICAS (Fase 2)
   const paramsMovimientos: EmitirMovimientoParams[] = [];
 
   for (const [insumoId, qtyDesc] of insumosDescuentos.entries()) {
@@ -220,8 +263,6 @@ async function _ejecutarVenta(
           cantidadSolicitada: qtyDesc,
         });
       }
-      // consumo_receta: insumo descargado por receta de un producto vendido.
-      // costoUnitario = costo vigente del insumo en el instante de la venta (I7).
       paramsMovimientos.push({
         empresaId,
         articuloTipo:        "insumo",
@@ -255,8 +296,6 @@ async function _ejecutarVenta(
           cantidadSolicitada: qtyDesc,
         });
       }
-      // venta: descuento directo de producto (sin receta).
-      // costoUnitario = costo vigente del producto en el instante de la venta (I7).
       paramsMovimientos.push({
         empresaId,
         articuloTipo:        "producto",
@@ -276,33 +315,17 @@ async function _ejecutarVenta(
     }
   }
 
-  // El Ledger actualiza stock y secuenciaLedger co-atómicamente (I5).
-  // Todas las lecturas del helper ocurren en su Fase 1, antes de cualquier
-  // escritura; reads-before-writes se mantiene para toda la transacción.
   if (paramsMovimientos.length > 0) {
     await aplicarMovimientosEnTransaccion(transaction, paramsMovimientos);
   }
 
-  transaction.set(configRef, { consecutivo_actual: nuevoConsecutivo }, { merge: true });
+  // Actualización a estado COMPLETO
+  transaction.update(ventaDocRef, {
+    estadoOperativo: "COMPLETO",
+    efectosAplicadosEn: serverTimestamp(),
+  });
 
-  const ahora = new Date();
-  const fechaLimiteDIAN =
-    params.metodoPago === 'cuenta_cobro'
-      ? new Date(ahora.getTime() + 24 * 60 * 60 * 1000)
-      : null;
-
-  const ventaData = {
-    ...params,
-    ...extraVentaFields,
-    consecutivo: nuevoConsecutivo,
-    fecha: serverTimestamp(),
-    ...(fechaLimiteDIAN ? { fechaLimiteDIAN } : {}),
-  };
-  const ventaDataClean = Object.fromEntries(
-    Object.entries(ventaData).filter(([, v]) => v !== undefined)
-  );
-  transaction.set(ventaDocRef, withEmpresaId(empresaId, ventaDataClean));
-
+  // Movimientos de tesorería
   if (params.estado === 'pagada') {
     const cuentaMap: Record<string, { nombre: string }> = {
       'caja-principal': { nombre: 'Caja Registradora' },
@@ -317,7 +340,7 @@ async function _ejecutarVenta(
         cuentaNombre: cuentaMap[cuentaId].nombre,
         tipo: 'ingreso',
         monto,
-        concepto: `Venta #${nuevoConsecutivo}`,
+        concepto: `Venta #${ventaData.consecutivo || ''}`,
         categoria: 'ventas',
         referencia: ventaDocRef.id,
         usuarioId: params.cajeroId,
@@ -339,20 +362,89 @@ async function _ejecutarVenta(
     }
   }
 
-  return { consecutivo: nuevoConsecutivo, incidencias };
+  return { incidencias };
 }
 
-export async function registrarVenta(params: CrearVentaParams): Promise<{id: string, consecutivo: number, incidenciasInventario: IncidenciaInventario[]}> {
+/**
+ * Registra una venta en Firestore utilizando la Saga en 2 Fases (B7 Cutover).
+ */
+export async function registrarVenta(
+  params: CrearVentaParams
+): Promise<{ id: string; consecutivo: number; incidenciasInventario: IncidenciaInventario[] }> {
   const nuevaVentaDoc = doc(collection(db, "ventas"));
-  let resultado: { consecutivo: number, incidencias: IncidenciaInventario[] };
-  // MT-U3 Capa 2: resuelto antes de runTransaction (§2.5).
+  const ventaId = nuevaVentaDoc.id;
   const empresaId = await getEmpresaId();
 
+  // 1. Obtener revisiones de numeración y asignación
+  const { expectedRevision, expectedAsignacionRevision } = await obtenerRevisionesNumeracionActiva("pos");
+
+  // 2. FASE 1: Invocación Cloud Function (confirmarVentaFiscal)
+  const functions = getFunctions();
+  const callConfirmarVenta = httpsCallable<any, { ventaId: string; numero: number; prefijo: string }>(
+    functions,
+    "confirmarVentaFiscalCallable"
+  );
+
+  const payloadFiscal = {
+    commandId: `cmd_sale_${ventaId}`,
+    idempotencyKey: `idem_sale_${ventaId}`,
+    correlationId: `corr_sale_${ventaId}`,
+    causationId: `cause_sale_${ventaId}`,
+    expectedRevision,
+    expectedAsignacionRevision,
+    ventaId,
+    espacioId: params.espacioId,
+    tipoDocumento: "pos",
+    venta: {
+      items: params.items.map((item) => ({
+        id: item.id,
+        nombre: item.nombre,
+        codigo: item.codigo,
+        cantidad: item.cantidad,
+        precioUnitario: item.precioUnitario,
+        subtotal: item.subtotal,
+        impuestoTipo: item.impuestoTipo ?? "inc_8",
+        impuestoTarifa: item.impuestoTarifa ?? 8,
+        impuestoValor: item.impuestoValor ?? 0,
+        base: item.base ?? item.subtotal,
+      })),
+      totales: params.totales,
+      metodoPago: params.metodoPago,
+      pago: {
+        metodo: params.metodoPago,
+        recibido: params.dineroRecibido,
+        cambio: params.cambio,
+      },
+      turnoId: params.turnoId,
+      cajeroId: params.cajeroId,
+      cajeroNombre: params.cajeroNombre,
+      clienteId: params.clienteId,
+      clienteNombre: params.clienteNombre,
+      clienteDocumento: params.clienteDocumento,
+      notasFiado: params.notasFiado,
+      regimenAlMomento: params.regimenAlMomento,
+      estado: params.estado,
+      pagoMixto: params.pagoMixto,
+      pagoMixtoDetalle: params.pagoMixtoDetalle,
+    },
+  };
+
+  const resFiscal = await callConfirmarVenta(payloadFiscal);
+  const consecutivo = resFiscal.data.numero;
+
+  // 3. FASE 2: Transacción Firestore atómica local (Ledger + Tesorería + COMPLETO)
+  let incidencias: IncidenciaInventario[] = [];
   await runTransaction(db, async (transaction) => {
-    resultado = await _ejecutarVenta(transaction, params, nuevaVentaDoc, empresaId);
+    const resFase2 = await ejecutarFase2OperativaEnTransaccion(
+      transaction,
+      nuevaVentaDoc,
+      params,
+      empresaId
+    );
+    incidencias = resFase2.incidencias;
   });
 
-  return { id: nuevaVentaDoc.id, consecutivo: resultado!.consecutivo, incidenciasInventario: resultado!.incidencias };
+  return { id: ventaId, consecutivo, incidenciasInventario: incidencias };
 }
 
 export type CobrarPedidoResult =
@@ -361,38 +453,99 @@ export type CobrarPedidoResult =
 
 export async function cobrarPedido(
   params: CrearVentaParams,
-  pedidoId: string,
+  pedidoId: string
 ): Promise<CobrarPedidoResult> {
   const nuevaVentaDoc = doc(collection(db, "ventas"));
-  let resultado: CobrarPedidoResult;
-  // MT-U3 Capa 2: resuelto antes de runTransaction (§2.5).
+  const ventaId = nuevaVentaDoc.id;
   const empresaId = await getEmpresaId();
 
+  // Validar estado del pedido
+  const pedidoRef = doc(db, 'pedidos_activos', pedidoId);
+  const pedidoSnap = await getDoc(pedidoRef);
+  if (!pedidoSnap.exists()) throw new Error('Pedido no encontrado');
+
+  const pedido = pedidoSnap.data();
+  if (!pedido.activo || pedido.estado !== 'abierto') {
+    return { status: 'already_paid', ventaId: pedido.ventaId || '' };
+  }
+
+  // 1. Obtener revisiones
+  const { expectedRevision, expectedAsignacionRevision } = await obtenerRevisionesNumeracionActiva("pos");
+
+  // 2. FASE 1: Invocación Cloud Function
+  const functions = getFunctions();
+  const callConfirmarVenta = httpsCallable<any, { ventaId: string; numero: number; prefijo: string }>(
+    functions,
+    "confirmarVentaFiscalCallable"
+  );
+
+  const payloadFiscal = {
+    commandId: `cmd_sale_${ventaId}`,
+    idempotencyKey: `idem_sale_${ventaId}`,
+    correlationId: `corr_sale_${ventaId}`,
+    causationId: `cause_sale_${ventaId}`,
+    expectedRevision,
+    expectedAsignacionRevision,
+    ventaId,
+    espacioId: params.espacioId,
+    tipoDocumento: "pos",
+    venta: {
+      items: params.items.map((item) => ({
+        id: item.id,
+        nombre: item.nombre,
+        codigo: item.codigo,
+        cantidad: item.cantidad,
+        precioUnitario: item.precioUnitario,
+        subtotal: item.subtotal,
+        impuestoTipo: item.impuestoTipo ?? "inc_8",
+        impuestoTarifa: item.impuestoTarifa ?? 8,
+        impuestoValor: item.impuestoValor ?? 0,
+        base: item.base ?? item.subtotal,
+      })),
+      totales: params.totales,
+      metodoPago: params.metodoPago,
+      pago: {
+        metodo: params.metodoPago,
+        recibido: params.dineroRecibido,
+        cambio: params.cambio,
+      },
+      turnoId: params.turnoId,
+      cajeroId: params.cajeroId,
+      cajeroNombre: params.cajeroNombre,
+      clienteId: params.clienteId,
+      clienteNombre: params.clienteNombre,
+      clienteDocumento: params.clienteDocumento,
+      notasFiado: params.notasFiado,
+      regimenAlMomento: params.regimenAlMomento,
+      estado: params.estado,
+      pedidoId,
+    },
+  };
+
+  const resFiscal = await callConfirmarVenta(payloadFiscal);
+  const consecutivo = resFiscal.data.numero;
+
+  // 3. FASE 2: Transacción local
+  let incidencias: IncidenciaInventario[] = [];
   await runTransaction(db, async (transaction) => {
-    const pedidoRef = doc(db, 'pedidos_activos', pedidoId);
-    const pedidoSnap = await transaction.get(pedidoRef);
-    if (!pedidoSnap.exists()) throw new Error('Pedido no encontrado');
-
-    const pedido = pedidoSnap.data();
-    if (!pedido.activo || pedido.estado !== 'abierto') {
-      resultado = { status: 'already_paid', ventaId: pedido.ventaId || '' };
-      return;
-    }
-
     const comandaIds: string[] = pedido.comandaIds || [];
     const comandaSnaps = await Promise.all(
       comandaIds.map(id => transaction.get(doc(db, 'comandas_cocina', id)))
     );
 
-    const { consecutivo, incidencias } = await _ejecutarVenta(
-      transaction, params, nuevaVentaDoc, empresaId, { pedidoId }
+    const resFase2 = await ejecutarFase2OperativaEnTransaccion(
+      transaction,
+      nuevaVentaDoc,
+      params,
+      empresaId
     );
+    incidencias = resFase2.incidencias;
 
     transaction.update(pedidoRef, {
       estado: 'pagado',
       activo: false,
       fechaPago: serverTimestamp(),
-      ventaId: nuevaVentaDoc.id,
+      ventaId,
     });
 
     for (const snap of comandaSnaps) {
@@ -400,29 +553,14 @@ export async function cobrarPedido(
         transaction.update(snap.ref, { estado: 'entregado', completadoEn: serverTimestamp() });
       }
     }
-
-    resultado = {
-      status: 'ok',
-      ventaId: nuevaVentaDoc.id,
-      consecutivo,
-      incidenciasInventario: incidencias,
-    };
   });
 
-  return resultado!;
+  return { status: 'ok', ventaId, consecutivo, incidenciasInventario: incidencias };
 }
 
 const HISTORIAL_VENTAS_LIMIT = 100;
-// IMP-13 (MT-U3 §10 R7): el rango de fechas no tenía cota — a escala N-tenant
-// una query sin límite es un incidente de costo. Cota generosa que no cambia
-// el resultado observado hoy (volumen actual muy por debajo de este umbral).
 const HISTORIAL_VENTAS_RANGO_LIMIT = 5000;
 
-/**
- * Sin `rangoFecha`: acota a las HISTORIAL_VENTAS_LIMIT ventas más recientes.
- * Con `rangoFecha`: filtra por ese rango, acotado a HISTORIAL_VENTAS_RANGO_LIMIT
- * para preservar la búsqueda de cualquier fecha histórica sin dejar la query sin cota.
- */
 export function suscribirHistorialVentas(
   espacioId: string | undefined,
   callback: (ventas: any[]) => void,
@@ -465,12 +603,9 @@ export function suscribirHistorialVentas(
           ...data,
           fecha: fechaFormat,
           resumen,
-          // Shape histórico (pre ADR-TRIB-001): {subtotal, iva, impoconsumo}.
           subtotal_ventas: data.totales?.subtotal || data.totales?.total || 0,
           iva_total: data.totales?.iva || 0,
           impoconsumo_total: data.totales?.impoconsumo || 0,
-          // Shape nuevo (ADR-TRIB-001 D6): {subtotalBase, totalINC, totalExcluido}.
-          // Ambos coexisten (dual-shape): una venta solo tiene uno u otro poblado.
           subtotal_base: data.totales?.subtotalBase ?? 0,
           total_inc: data.totales?.totalINC ?? 0,
           total_excluido: data.totales?.totalExcluido ?? 0,
@@ -496,9 +631,6 @@ export async function obtenerVentaPorId(id: string): Promise<any> {
   return null;
 }
 
-// Metadatos de emisión electrónica congelados en la propia Venta (bloque
-// `dian`), fuente única para la reimpresión fiel de una Factura Electrónica
-// de Venta — reemplaza la dependencia de SQLite (facturas_electronicas).
 export interface DianMetadata {
   cufe: string;
   qr: string;
@@ -509,13 +641,6 @@ export interface DianMetadata {
   emitidoEn: Timestamp;
 }
 
-/**
- * Congela los metadatos DIAN en `ventas/{id}.dian` tras una emisión exitosa
- * de Factus. Merge-only sobre el bloque `dian`: no toca `estado`, por lo que
- * permanece dentro de la rama "operativo normal" de las reglas Firestore
- * (no requiere cambio de reglas). Idempotente: reescribir el mismo bloque
- * produce el mismo estado, seguro ante reintentos.
- */
 export async function guardarMetadatosDian(
   ventaId: string,
   dian: Omit<DianMetadata, "emitidoEn">
@@ -524,14 +649,15 @@ export async function guardarMetadatosDian(
   await setDoc(ventaRef, { dian: { ...dian, emitidoEn: serverTimestamp() } }, { merge: true });
 }
 
+/**
+ * Máquina de Estados de Anulación según `estadoOperativo` (ADR-SAAS-010 §8).
+ */
 export async function anularVenta(id: string): Promise<void> {
   const ventaRef = doc(db, "ventas", id);
-
   const auth = getAuth();
   const anulador = auth.currentUser;
   const anuladorId = anulador?.uid ?? '';
   const anuladorNombre = anulador?.displayName ?? anulador?.email ?? anuladorId;
-  // MT-U3 Capa 2: resuelto antes de runTransaction (§2.5).
   const empresaId = await getEmpresaId();
 
   await runTransaction(db, async (transaction) => {
@@ -541,14 +667,33 @@ export async function anularVenta(id: string): Promise<void> {
     }
 
     const ventaData = ventaSnap.data();
-    if (ventaData.estado === 'anulada') {
+
+    if (
+      ventaData.estado === 'anulada' ||
+      ventaData.estadoOperativo === 'ANULADA_SIN_EFECTOS' ||
+      ventaData.estadoOperativo === 'ANULADA_CON_EFECTOS'
+    ) {
       throw new Error("La venta ya ha sido anulada previamente.");
     }
 
-    // 1. LEER TODAS LAS RECETAS DE LOS ITEMS
+    const estadoOp = ventaData.estadoOperativo ?? "COMPLETO";
+
+    // ── ANULACIÓN PRE-EFECTOS ──────────────────────────────────────────────
+    if (estadoOp === "PENDIENTE_EFECTOS") {
+      transaction.update(ventaRef, {
+        estado: 'anulada',
+        estadoOperativo: 'ANULADA_SIN_EFECTOS',
+        anuladaPor: anuladorId,
+        anuladaPorNombre: anuladorNombre,
+        anuladaEn: serverTimestamp(),
+      });
+      return;
+    }
+
+    // ── ANULACIÓN POST-EFECTOS (COMPENSATORIA) ──────────────────────────────
+    // 1. LEER RECETAS
     const recetasMap = new Map<string, any>();
     const items = ventaData.items || [];
-    
     for (const item of items) {
       if (item.id.startsWith('quick-')) continue;
       const recetaRef = doc(db, "recetas", item.id);
@@ -558,7 +703,7 @@ export async function anularVenta(id: string): Promise<void> {
       }
     }
 
-    // 2. LEER INSUMOS Y PRODUCTOS PARA DEVOLVERLOS AL INVENTARIO
+    // 2. LEER INSUMOS Y PRODUCTOS
     const insumosToRead = new Set<string>();
     const productosToRead = new Set<string>();
 
@@ -592,14 +737,13 @@ export async function anularVenta(id: string): Promise<void> {
       }
     }
 
-    // 3. FASE DE ESCRITURAS (Writes)
+    // 3. FASE DE ESCRITURAS (Contramovimientos Ledger)
     const insumosDevoluciones = new Map<string, number>();
     const productosDevoluciones = new Map<string, number>();
 
     for (const item of items) {
       if (item.id.startsWith('quick-')) continue;
       const receta = recetasMap.get(item.id);
-      
       if (receta && receta.ingredientes && receta.ingredientes.length > 0) {
         for (const ing of receta.ingredientes) {
           const currentDevolucion = insumosDevoluciones.get(ing.insumoId) || 0;
@@ -611,7 +755,6 @@ export async function anularVenta(id: string): Promise<void> {
       }
     }
 
-    // Contramovimientos Ledger (I3, PR5) — devolucion_venta para productos e insumos.
     const paramsMovimientos: EmitirMovimientoParams[] = [];
 
     for (const [insumoId, qtyDev] of insumosDevoluciones.entries()) {
@@ -666,15 +809,16 @@ export async function anularVenta(id: string): Promise<void> {
       await aplicarMovimientosEnTransaccion(transaction, paramsMovimientos);
     }
 
-    // 4. Actualizar estado de la venta a anulada (con rastro inmutable del anulador)
+    // Actualizar estado de la venta
     transaction.update(ventaRef, {
       estado: 'anulada',
+      estadoOperativo: 'ANULADA_CON_EFECTOS',
       anuladaPor: anuladorId,
       anuladaPorNombre: anuladorNombre,
       anuladaEn: serverTimestamp(),
     });
 
-    // 5. Revertir movimientos financieros (espejo exacto de la venta original)
+    // 4. Revertir movimientos financieros
     const cuentaMap: Record<string, { nombre: string }> = {
       'caja-principal': { nombre: 'Caja Registradora' },
       'bancolombia':    { nombre: 'Bancolombia' },
@@ -698,7 +842,6 @@ export async function anularVenta(id: string): Promise<void> {
       }));
     };
 
-    // Validar fondos antes de revertir: acumular débitos por cuenta y verificar
     const metodoPago: string = ventaData.metodoPago || '';
     const total: number = ventaData.totales?.total || 0;
     const debitosPorCuenta = new Map<string, number>();
@@ -746,13 +889,10 @@ export async function anularVenta(id: string): Promise<void> {
         else if (pago.metodo === 'transferencia') revertirMovimiento('bancolombia', pago.monto);
       }
     } else if (metodoPago === 'cuenta_cobro') {
-      // El recaudo (marcarComoPagada) sí registra el ingreso — revertirlo si ya fue cobrado
       if (ventaData.estado === 'pagada' && ventaData.metodoPagoFinal) {
         const cuentaId = ventaData.metodoPagoFinal === 'efectivo' ? 'caja-principal' : 'bancolombia';
         revertirMovimiento(cuentaId, total);
       }
-      // Si estado === 'pendiente': nunca se contabilizó → sin reversión
     }
-    // 'tarjeta'/'otros': ninguna cuenta fue acreditada al vender → sin reversión
   });
 }
