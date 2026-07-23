@@ -26,7 +26,6 @@ export const completarPasoFiscalOnboardingCallable = onCall({ region: REGION }, 
   return completarPasoConfiguracionFiscalOnboarding(db, data, {
     empresaId: empresa.id,
     actorId: request.auth!.uid,
-    origen: "ONBOARDING",
     paisFiscal: empresa.paisFiscal ?? "CO",
   });
 });

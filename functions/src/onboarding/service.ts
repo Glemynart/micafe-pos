@@ -1,7 +1,7 @@
 import { HttpsError } from "firebase-functions/v2/https";
 import type { Firestore } from "firebase-admin/firestore";
 import { evaluarReadinessTotal, type EstadoReadinessTotal } from "../../../lib/onboarding/contrato";
-import type { ConfiguracionEmpresa, OperacionConfiguracion } from "../../../lib/configuracion/contrato";
+import type { ConfiguracionEmpresa, OperacionConfiguracion } from "../../../lib/configuracion";
 import type { Asignacion, Numeracion, ScopeFiscal } from "../../../lib/fiscal/contrato";
 import {
   actualizarNumeracionBorrador,
