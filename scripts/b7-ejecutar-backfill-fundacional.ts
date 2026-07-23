@@ -53,6 +53,8 @@ function loadServiceAccount(): any {
 if (!getApps().length) initializeApp({ credential: cert(loadServiceAccount()) })
 const db = getFirestore()
 
+/** Tamaño de página para lectura paginada mediante cursores en Firestore */
+const PAGE_SIZE = 500
 const BATCH_LIMIT = 500
 
 interface Reporte {
@@ -67,14 +69,29 @@ interface Reporte {
 }
 
 async function verificarHuerfanos(): Promise<number> {
-  const snapshot = await db.collection('ventas').get()
   let count = 0
-  for (const doc of snapshot.docs) {
-    const data = doc.data()
-    if (data.estadoOperativo === undefined || data.estadoOperativo === null) {
-      count++
+  let lastDoc: FirebaseFirestore.QueryDocumentSnapshot | null = null
+
+  while (true) {
+    let q = db.collection('ventas').orderBy('__name__').limit(PAGE_SIZE)
+    if (lastDoc) {
+      q = q.startAfter(lastDoc)
     }
+
+    const snapshot = await q.get()
+    if (snapshot.empty) break
+
+    for (const doc of snapshot.docs) {
+      const data = doc.data()
+      if (data.estadoOperativo === undefined || data.estadoOperativo === null) {
+        count++
+      }
+    }
+
+    lastDoc = snapshot.docs[snapshot.docs.length - 1]
+    if (snapshot.docs.length < PAGE_SIZE) break
   }
+
   return count
 }
 
@@ -96,7 +113,7 @@ async function main() {
   console.log('='.repeat(70))
 
   if (VERIFY) {
-    console.log('Escaneando base de datos de ventas para verificación...')
+    console.log('Escaneando base de datos de ventas para verificación (paginado)...')
     reporte.huerfanosRestantes = await verificarHuerfanos()
     console.log(`Ventas sin estadoOperativo encontradas: ${reporte.huerfanosRestantes}`)
     if (reporte.huerfanosRestantes > 0) {
@@ -108,41 +125,54 @@ async function main() {
     process.exit(reporte.resultado === 'FAILED' ? 1 : 0)
   }
 
-  const snapshot = await db.collection('ventas').get()
-  reporte.totalEscaneados = snapshot.size
-
   let batch = db.batch()
   let opsEnBatch = 0
+  let lastDoc: FirebaseFirestore.QueryDocumentSnapshot | null = null
 
-  for (const doc of snapshot.docs) {
-    const data = doc.data()
-    if (data.estadoOperativo !== undefined && data.estadoOperativo !== null) {
-      reporte.yaMigrados++
-      continue
+  while (true) {
+    let q = db.collection('ventas').orderBy('__name__').limit(PAGE_SIZE)
+    if (lastDoc) {
+      q = q.startAfter(lastDoc)
     }
 
-    const esAnulada = data.estado === 'anulada'
-    const nuevoEstado = esAnulada ? 'ANULADA_CON_EFECTOS' : 'COMPLETO'
+    const snapshot = await q.get()
+    if (snapshot.empty) break
 
-    if (esAnulada) {
-      reporte.anuladosAsignados++
-    } else {
-      reporte.completadosAsignados++
-    }
+    reporte.totalEscaneados += snapshot.size
 
-    if (EXECUTE) {
-      batch.update(doc.ref, {
-        estadoOperativo: nuevoEstado,
-        backfillB7En: Timestamp.now(),
-      })
-      opsEnBatch++
+    for (const doc of snapshot.docs) {
+      const data = doc.data()
+      if (data.estadoOperativo !== undefined && data.estadoOperativo !== null) {
+        reporte.yaMigrados++
+        continue
+      }
 
-      if (opsEnBatch >= BATCH_LIMIT) {
-        await batch.commit()
-        batch = db.batch()
-        opsEnBatch = 0
+      const esAnulada = data.estado === 'anulada'
+      const nuevoEstado = esAnulada ? 'ANULADA_CON_EFECTOS' : 'COMPLETO'
+
+      if (esAnulada) {
+        reporte.anuladosAsignados++
+      } else {
+        reporte.completadosAsignados++
+      }
+
+      if (EXECUTE) {
+        batch.update(doc.ref, {
+          estadoOperativo: nuevoEstado,
+          backfillB7En: Timestamp.now(),
+        })
+        opsEnBatch++
+
+        if (opsEnBatch >= BATCH_LIMIT) {
+          await batch.commit()
+          batch = db.batch()
+          opsEnBatch = 0
+        }
       }
     }
+
+    lastDoc = snapshot.docs[snapshot.docs.length - 1]
+    if (snapshot.docs.length < PAGE_SIZE) break
   }
 
   if (EXECUTE && opsEnBatch > 0) {
