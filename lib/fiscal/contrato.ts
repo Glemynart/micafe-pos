@@ -3,6 +3,10 @@ export type TipoDocumentoFiscal = "pos" | "electronica" | "contingencia";
 export type EstadoNumeracion = "BORRADOR" | "HABILITADA" | "PAUSADA" | "AGOTADA" | "VENCIDA" | "REVOCADA";
 export type ScopeFiscal = "EMPRESA" | `ESPACIO:${string}`;
 
+export interface Numeracion { empresaId: string; numeracionId: string; paisFiscal: string; tipoDocumento: TipoDocumentoFiscal; scope: ScopeFiscal; prefijo: string; resolucion: string; rangoInicio: number; rangoFin: number; ultimoAsignado: number; vigenciaDesde: string; vigenciaHasta: string; estado: EstadoNumeracion; revision: number; schemaVersion: 1; creadaEn: unknown; actualizadaEn: unknown; }
+
+export interface Asignacion { empresaId: string; scope: ScopeFiscal; tipoDocumento: TipoDocumentoFiscal; numeracionId: string; estado: "VIGENTE" | "RETIRADA"; revision: number; schemaVersion: 1; actualizadaEn: unknown; }
+
 export interface SnapshotFiscal {
   schemaVersion: 1;
   configuracionRevision: number;

@@ -239,7 +239,7 @@ export async function exigirAdminTenant(request: { auth?: { uid: string; token: 
   if (tenant.rol !== "admin") {
     throw new HttpsError("permission-denied", "Acceso denegado.");
   }
-  return { id: tenant.id, estado: tenant.estado };
+  return { id: tenant.id, estado: tenant.estado, paisFiscal: tenant.paisFiscal };
 }
 
 /** Revalida claim, Empresa y membresía para lecturas tenant de backend. */
@@ -250,6 +250,7 @@ export async function exigirTenantActivo(request: { auth?: { uid: string; token:
   const db = dbParam ?? getFirestore();
   const snap = await db.collection("empresas").doc(empresaId).get();
   const estado = snap.data()?.estado;
+  const paisFiscal = snap.data()?.paisFiscal;
   if (!snap.exists || (estado !== "activa" && estado !== "trial")) {
     throw new HttpsError("permission-denied", "Acceso denegado.");
   }
@@ -257,7 +258,12 @@ export async function exigirTenantActivo(request: { auth?: { uid: string; token:
   if (request.auth.token.rol !== rolActual) {
     throw new HttpsError("permission-denied", "Acceso denegado.");
   }
-  return { id: empresaId, estado: estado as string, rol: rolActual };
+  return {
+    id: empresaId,
+    estado: estado as string,
+    rol: rolActual,
+    paisFiscal: typeof paisFiscal === "string" ? paisFiscal : undefined,
+  };
 }
 
 /** Revalida claim, Empresa y membresía para lecturas administrativas (admite 'suspendida' solo para admin). */

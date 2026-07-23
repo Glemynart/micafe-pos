@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { evaluarReadinessConfiguracion, type ConfiguracionEmpresa } from "../../../lib/configuracion";
-import { fechaFiscalActualUtc, fechaFiscalEnRango, rangoVigenciaFiscalValido, scopeEmpresa, scopeEspacio, validarIdFiscal, validarScopeFiscal, type EstadoNumeracion, type ScopeFiscal, type SnapshotFiscal, type TipoDocumentoFiscal } from "../../../lib/fiscal/contrato";
+import { fechaFiscalActualUtc, fechaFiscalEnRango, rangoVigenciaFiscalValido, scopeEmpresa, scopeEspacio, validarIdFiscal, validarScopeFiscal, type EstadoNumeracion, type ScopeFiscal, type SnapshotFiscal, type TipoDocumentoFiscal, type Numeracion, type Asignacion } from "../../../lib/fiscal/contrato";
 
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const id = (prefix: string, empresaId: string, value: string) => `${prefix}_${empresaId}_${hash(value)}`;
@@ -12,8 +12,6 @@ const estados: readonly EstadoNumeracion[] = ["BORRADOR", "HABILITADA", "PAUSADA
 const tipos: readonly TipoDocumentoFiscal[] = ["pos", "electronica", "contingencia"];
 export interface ContextoFiscal { empresaId: string; actorId: string; paisFiscal: string; origen: "ADMIN" | "SYSTEM"; }
 export interface Envelope { commandId: string; idempotencyKey: string; correlationId: string; causationId: string; expectedRevision: number; motivo?: string; }
-export interface Numeracion { empresaId: string; numeracionId: string; paisFiscal: string; tipoDocumento: TipoDocumentoFiscal; scope: ScopeFiscal; prefijo: string; resolucion: string; rangoInicio: number; rangoFin: number; ultimoAsignado: number; vigenciaDesde: string; vigenciaHasta: string; estado: EstadoNumeracion; revision: number; schemaVersion: 1; creadaEn: unknown; actualizadaEn: unknown; }
-export interface Asignacion { empresaId: string; scope: ScopeFiscal; tipoDocumento: TipoDocumentoFiscal; numeracionId: string; estado: "VIGENTE" | "RETIRADA"; revision: number; schemaVersion: 1; actualizadaEn: unknown; }
 export interface CrearNumeracion extends Envelope { numeracionId: string; tipoDocumento: TipoDocumentoFiscal; scope: ScopeFiscal; prefijo: string; resolucion: string; rangoInicio: number; rangoFin: number; vigenciaDesde: string; vigenciaHasta: string; }
 export interface ConfirmarVentaFiscal extends Envelope { ventaId: string; espacioId?: string; tipoDocumento: TipoDocumentoFiscal; expectedAsignacionRevision: number; venta: Record<string, unknown> & { items: Array<Record<string, unknown>> }; }
 
@@ -92,7 +90,7 @@ export async function confirmarVentaFiscal(db: Firestore, entrada: ConfirmarVent
     const siguienteEstado: EstadoNumeracion = numero === n.rangoFin ? "AGOTADA" : "HABILITADA";
     const fiscalSnapshot = snapshot(config, n, numero, entrada.venta.items, entrada.venta);
     tx.update(nRef, { ultimoAsignado: numero, estado: siguienteEstado, revision: n.revision + 1, actualizadaEn: FieldValue.serverTimestamp() });
-    tx.create(db.collection("ventas").doc(entrada.ventaId), sinUndefined({ ...entrada.venta, empresaId: contexto.empresaId, espacioId: entrada.espacioId ?? null, consecutivo: numero, snapshotFiscal: fiscalSnapshot, fecha: FieldValue.serverTimestamp() }));
+    tx.create(db.collection("ventas").doc(entrada.ventaId), sinUndefined({ ...entrada.venta, empresaId: contexto.empresaId, espacioId: entrada.espacioId ?? null, consecutivo: numero, snapshotFiscal: fiscalSnapshot, estadoOperativo: "PENDIENTE_EFECTOS", fecha: FieldValue.serverTimestamp() }));
     const confirmado: ResultadoConfirmacion = { estado: "CONFIRMADA", ventaId: entrada.ventaId, numero, prefijo: n.prefijo };
     registrar(db, tx, contexto, entrada, fingerprint, confirmado, "VentaFiscalConfirmada", "VENTA", 0, 1);
     if (siguienteEstado === "AGOTADA") registrarHecho(db, tx, contexto, entrada, "NumeracionAgotada", "NUMERACION", n.revision, n.revision + 1, ":agotada");
