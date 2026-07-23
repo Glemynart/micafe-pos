@@ -61,10 +61,23 @@ export function SettingsModule() {
     if (!config) return
     setSavingConfig(true)
     try {
-      await guardarConfiguracion(config)
-      toast.success("Configuración guardada correctamente")
+      const { ejecutarComandoConfiguracionCliente } = await import('@/lib/configuracion/client-repository')
+      const { getEmpresaId } = await import('@/lib/tenant')
+      const empresaId = await getEmpresaId()
+      await ejecutarComandoConfiguracionCliente('actualizarConfiguracionEmpresa', empresaId, {
+        expectedRevision: 1,
+        idempotencyKey: `idemp_${Date.now()}`,
+        commandId: `cmd_${Date.now()}`,
+        correlationId: `corr_${Date.now()}`,
+        operaciones: [
+          { tipo: 'SET', ruta: 'identidadFiscal.nombreComercial', valor: config.nombre_tienda },
+          { tipo: 'SET', ruta: 'identidadFiscal.contacto.email', valor: config.email },
+          { tipo: 'SET', ruta: 'identidadFiscal.contacto.telefono', valor: config.telefono },
+        ]
+      })
+      toast.success("Configuración empresarial B1 guardada correctamente")
     } catch (e) {
-      toast.error("Error al guardar la configuración")
+      toast.error("Error al guardar la configuración empresarial B1")
     } finally { setSavingConfig(false) }
   }
 
