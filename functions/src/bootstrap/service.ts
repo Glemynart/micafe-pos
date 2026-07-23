@@ -41,7 +41,7 @@ export async function ejecutarBootstrapEmpresarial(
   customClaimsEmitter?: ClaimsEmitter
 ): Promise<ResultadoBootstrapEmpresarial> {
   const db = dbParam ?? getFirestore();
-  if (!entrada) fail("invalid-argument", "ENTRADA_REQUERIDA");
+  if (!entrada) return fail("invalid-argument", "ENTRADA_REQUERIDA");
   validarEntradaBootstrap(entrada);
 
   const fingerprint = hash({
