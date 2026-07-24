@@ -61,3 +61,6 @@ jobs:
 
       - name: Pruebas de Functions
         run: npm run test:auth-foundation
+
+      - name: Pruebas de integración Auth y Firestore
+        run: npm run test:email:integration
