@@ -79,10 +79,15 @@ export async function ejecutarComandoConfiguracion(db: Firestore, entrada: Entra
 
 export interface EntradaInicializacionConfiguracion { empresaId: string; nombreComercial: string; paisFiscal: string; commandId: string; correlationId: string; origen: "BOOTSTRAP" | "BACKFILL" }
 /** Operación interna, componible en la transacción de Bootstrap; no es callable. */
-export async function inicializarConfiguracionEmpresaEnTransaccion(db: Firestore, tx: Transaction, entrada: EntradaInicializacionConfiguracion): Promise<{ idempotente: boolean; configuracion: ConfiguracionEmpresa }> {
-  const configRef = db.collection(CONFIGURACIONES_COLLECTION).doc(entrada.empresaId); const empresaRef = db.collection("empresas").doc(entrada.empresaId);
-  const [empresaSnap, existente] = await Promise.all([tx.get(empresaRef), tx.get(configRef)]);
-  documentoEmpresaValido(empresaSnap.data(), entrada.empresaId, entrada.paisFiscal);
+function inicializarConfiguracionConEstadoPreleidoEnTransaccion(
+  db: Firestore,
+  tx: Transaction,
+  entrada: EntradaInicializacionConfiguracion,
+  empresa: FirebaseFirestore.DocumentData | undefined,
+  existente: FirebaseFirestore.DocumentSnapshot,
+): { idempotente: boolean; configuracion: ConfiguracionEmpresa } {
+  const configRef = db.collection(CONFIGURACIONES_COLLECTION).doc(entrada.empresaId);
+  documentoEmpresaValido(empresa, entrada.empresaId, entrada.paisFiscal);
   const plantilla = prepararInicializacionConfiguracion(entrada);
   if (existente.exists) { const actual = existente.data() as ConfiguracionEmpresa; if (actual.empresaId === plantilla.empresaId && actual.schemaVersion === 1 && actual.revision === 1 && actual.localizacion.paisFiscal === entrada.paisFiscal && validarConfiguracionEmpresa(actual, { empresaId: entrada.empresaId, paisFiscalEmpresa: entrada.paisFiscal }).valida) return { idempotente: true, configuracion: actual }; fallo("already-exists", "Inicialización incompatible."); }
   if (!validarConfiguracionEmpresa(plantilla, { empresaId: entrada.empresaId, paisFiscalEmpresa: entrada.paisFiscal }).valida) fallo("failed-precondition", "Plantilla inválida.");
@@ -91,6 +96,29 @@ export async function inicializarConfiguracionEmpresaEnTransaccion(db: Firestore
   tx.create(db.collection("auditoria_logs").doc(id("cfgaudit", entrada.empresaId, entrada.commandId)), { empresaId: entrada.empresaId, agregado: "CONFIGURACION", revisionAnterior: 0, revisionNueva: 1, comando: "InicializarConfiguracionEmpresa", commandId: entrada.commandId, correlationId: entrada.correlationId, actorTipo: "SYSTEM", actorId: "system", origen: entrada.origen, schemaVersion: 1, seccionesAfectadas, creadoEn: FieldValue.serverTimestamp() });
   tx.create(db.collection("eventos_dominio").doc(eventId), { eventId, tipo: "ConfiguracionEmpresaInicializada", version: 1, agregado: "CONFIGURACION", empresaId: entrada.empresaId, revisionAnterior: 0, revisionNueva: 1, schemaVersion: 1, origen: entrada.origen, commandId: entrada.commandId, correlationId: entrada.correlationId, seccionesAfectadas, creadoEn: FieldValue.serverTimestamp() });
   return { idempotente: false, configuracion: plantilla };
+}
+
+/**
+ * Inicializa la configuración dentro de una transacción que ya leyó Empresa y
+ * Configuración. Bootstrap la usa para conservar la regla Firestore de leer
+ * todo antes de escribir el núcleo atómico.
+ */
+export function inicializarConfiguracionEmpresaConEstadoPreleidoEnTransaccion(
+  db: Firestore,
+  tx: Transaction,
+  entrada: EntradaInicializacionConfiguracion,
+  empresa: FirebaseFirestore.DocumentData,
+  existente: FirebaseFirestore.DocumentSnapshot,
+): { idempotente: boolean; configuracion: ConfiguracionEmpresa } {
+  return inicializarConfiguracionConEstadoPreleidoEnTransaccion(db, tx, entrada, empresa, existente);
+}
+
+/** Operación interna, componible en una transacción aislada de configuración. */
+export async function inicializarConfiguracionEmpresaEnTransaccion(db: Firestore, tx: Transaction, entrada: EntradaInicializacionConfiguracion): Promise<{ idempotente: boolean; configuracion: ConfiguracionEmpresa }> {
+  const configRef = db.collection(CONFIGURACIONES_COLLECTION).doc(entrada.empresaId);
+  const empresaRef = db.collection("empresas").doc(entrada.empresaId);
+  const [empresaSnap, existente] = await Promise.all([tx.get(empresaRef), tx.get(configRef)]);
+  return inicializarConfiguracionConEstadoPreleidoEnTransaccion(db, tx, entrada, empresaSnap.data(), existente);
 }
 
 export async function inicializarConfiguracionEmpresa(entrada: EntradaInicializacionConfiguracion) { const db = getFirestore(); return db.runTransaction((tx) => inicializarConfiguracionEmpresaEnTransaccion(db, tx, entrada)); }
