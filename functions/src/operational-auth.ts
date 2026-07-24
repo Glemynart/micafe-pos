@@ -356,15 +356,36 @@ export async function emitirSesionActivacionDirecta(uid: string, incorporacionId
   return auth.createCustomToken(uid, { authStage: "DIRECTA_TEMP", incorporacionId });
 }
 
-export async function actualizarClaimsTenant(uid: string, empresaId: string, rol: RolTenant | null): Promise<void> {
+export async function actualizarClaimsTenant(
+  uid: string,
+  empresaId: string,
+  rol: RolTenant | null,
+  claimsActuales?: Record<string, unknown>,
+): Promise<void> {
   const auth = getAuth();
-  const existente = (await auth.getUser(uid)).customClaims ?? {};
+  const existente = claimsActuales ?? (await auth.getUser(uid)).customClaims ?? {};
   const platformClaims = {
     ...(existente.superadmin === true ? { superadmin: true } : {}),
     ...(existente.soporte === true ? { soporte: true } : {}),
   };
   await auth.setCustomUserClaims(uid, rol ? { ...platformClaims, empresaId, rol } : platformClaims);
   await auth.revokeRefreshTokens(uid);
+}
+
+/**
+ * Una edición de membresía solo puede proyectar o revocar el contexto que el
+ * usuario ya tiene activo. A diferencia de bootstrap e incorporaciones, esta
+ * operación no selecciona tenant para el usuario objetivo.
+ */
+async function actualizarClaimsMembresiaSiTenantActivo(
+  uid: string,
+  empresaId: string,
+  rol: RolTenant | null,
+): Promise<void> {
+  const auth = getAuth();
+  const claimsActuales = (await auth.getUser(uid)).customClaims ?? {};
+  if (claimsActuales.empresaId !== empresaId) return;
+  await actualizarClaimsTenant(uid, empresaId, rol, claimsActuales);
 }
 
 export function normalizarPermisosEfectivos(valor: unknown): string[] | null {
@@ -631,7 +652,7 @@ export const actualizarMembresia = onCall(
       activo: estadoFinal === "activa",
       actualizadaEn: FieldValue.serverTimestamp(),
     });
-    await actualizarClaimsTenant(uid, empresa.id, estadoFinal === "activa" ? rol : null);
+    await actualizarClaimsMembresiaSiTenantActivo(uid, empresa.id, estadoFinal === "activa" ? rol : null);
     logger.info("membership_updated", { empresaId: empresa.id, uid, rol, estado: estadoFinal });
   }
 );
