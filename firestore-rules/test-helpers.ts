@@ -44,6 +44,12 @@ export async function contextFor(fixture: Fixture): Promise<RulesTestContext> {
 export async function clearRulesData(): Promise<void> {
   const env = await rulesTestEnvironment();
   await env.clearFirestore();
+  await env.withSecurityRulesDisabled(async (context) => {
+    await Promise.all([
+      context.firestore().doc("empresas/empresa-a").set({ estado: "trial" }),
+      context.firestore().doc("empresas/empresa-b").set({ estado: "trial" }),
+    ]);
+  });
 }
 
 /** Siembra datos sin Rules para preparar precondiciones de un caso de prueba. */
