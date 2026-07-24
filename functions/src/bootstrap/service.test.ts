@@ -22,6 +22,9 @@ class Snap {
 class Db {
   docs = new Map<string, any>();
   private queue = Promise.resolve();
+  constructor() {
+    this.seed("permisos_roles/admin", { permisos: ["configuracion", "pos"] });
+  }
   collection(n: string) { return new Ref(n, this); }
   seed(k: string, v: any) { this.docs.set(k, structuredClone(v)); }
   read(k: string) { return this.docs.get(k); }
@@ -42,16 +45,23 @@ class Db {
     this.queue = new Promise((r) => (release = r));
     await before;
     const w = new Map([...this.docs].map(([k, v]) => [k, structuredClone(v)]));
+    let hasWritten = false;
     const tx = {
-      get: async (r: Ref) => new Snap(w.get(r.path)),
+      get: async (r: Ref) => {
+        if (hasWritten) throw new Error("TRANSACTION_READ_AFTER_WRITE");
+        return new Snap(w.get(r.path));
+      },
       create: (r: Ref, v: any) => {
+        hasWritten = true;
         if (w.has(r.path)) throw new Error("EXISTS");
         w.set(r.path, structuredClone(v));
       },
       set: (r: Ref, v: any) => {
+        hasWritten = true;
         w.set(r.path, structuredClone(v));
       },
       update: (r: Ref, v: any) => {
+        hasWritten = true;
         if (!w.has(r.path)) throw new Error("MISSING");
         const cur = { ...w.get(r.path) };
         for (const [k, val] of Object.entries(v)) {
@@ -85,6 +95,8 @@ const entradaBase: EntradaBootstrapEmpresarial = {
   trialDias: 30,
 };
 
+const ownerExistente = async () => {};
+
 test("B5 Bootstrap — Ejecución exitosa completa y atómica del núcleo", async () => {
   const db = new Db();
   // Sembrar versión de plan publicada
@@ -106,7 +118,7 @@ test("B5 Bootstrap — Ejecución exitosa completa y atómica del núcleo", asyn
     claimsEmitidosLog.push({ uid, empresaId, rol });
   };
 
-  const res = await ejecutarBootstrapEmpresarial(db as any, entradaBase, mockEmitter);
+  const res = await ejecutarBootstrapEmpresarial(db as any, entradaBase, mockEmitter, ownerExistente);
 
   assert.equal(res.estado, "COMPLETED");
   assert.equal(res.claimsEmitidos, true);
@@ -118,6 +130,8 @@ test("B5 Bootstrap — Ejecución exitosa completa y atómica del núcleo", asyn
   const empresa = db.read("empresas/empresa_test_b5");
   assert.equal(empresa.estado, "trial");
   assert.equal(empresa.ownerUid, "owner_usr_99");
+  assert.equal(empresa.nombre, "Café B5 Central");
+  assert.equal(empresa.esFundacional, false);
 
   const config = db.read("configuraciones/empresa_test_b5");
   assert.equal(config.revision, 1);
@@ -138,6 +152,26 @@ test("B5 Bootstrap — Ejecución exitosa completa y atómica del núcleo", asyn
   assert.equal(sub.planId, "plan_pos_pro");
 });
 
+test("Bootstrap rejects a non-existent owner before committing the core", async () => {
+  const db = new Db();
+  db.seed("planes/plan_pos_pro/versiones/1", {
+    planId: "plan_pos_pro",
+    planVersion: 1,
+    estado: "PUBLICADA",
+  });
+
+  await assert.rejects(
+    ejecutarBootstrapEmpresarial(
+      db as any,
+      entradaBase,
+      async () => {},
+      async () => { throw new Error("OWNER_NOT_FOUND"); },
+    ),
+    /OWNER_NOT_FOUND/
+  );
+  assert.equal(db.read("empresas/empresa_test_b5"), undefined);
+});
+
 test("B5 Bootstrap — Rechazo si la versión del Plan no está PUBLICADA", async () => {
   const db = new Db();
   db.seed("planes/plan_pos_pro/versiones/1", {
@@ -147,7 +181,7 @@ test("B5 Bootstrap — Rechazo si la versión del Plan no está PUBLICADA", asyn
   });
 
   await assert.rejects(
-    ejecutarBootstrapEmpresarial(db as any, entradaBase, async () => {}),
+    ejecutarBootstrapEmpresarial(db as any, entradaBase, async () => {}, ownerExistente),
     /PLAN_NOT_PUBLISHED/
   );
 });
@@ -165,7 +199,7 @@ test("B5 Bootstrap — Fallo de Auth posterior al commit ejecuta Forward Recover
     throw new Error("AUTH_NETWORK_TIMEOUT");
   };
 
-  const res = await ejecutarBootstrapEmpresarial(db as any, entradaBase, failingEmitter);
+  const res = await ejecutarBootstrapEmpresarial(db as any, entradaBase, failingEmitter, ownerExistente);
 
   assert.equal(res.estado, "RETRYABLE_FAILURE");
   assert.equal(res.claimsEmitidos, false);
@@ -180,7 +214,7 @@ test("B5 Bootstrap — Fallo de Auth posterior al commit ejecuta Forward Recover
     claimsExitosos = true;
   };
 
-  const res2 = await ejecutarBootstrapEmpresarial(db as any, entradaBase, workingEmitter);
+  const res2 = await ejecutarBootstrapEmpresarial(db as any, entradaBase, workingEmitter, ownerExistente);
 
   assert.equal(res2.estado, "COMPLETED");
   assert.equal(res2.claimsEmitidos, true);
@@ -196,7 +230,7 @@ test("B5 Bootstrap — Conflicto de idempotencia si se reutiliza idempotencyKey 
     estado: "PUBLICADA",
   });
 
-  await ejecutarBootstrapEmpresarial(db as any, entradaBase, async () => {});
+  await ejecutarBootstrapEmpresarial(db as any, entradaBase, async () => {}, ownerExistente);
 
   // Intentar reutilizar la misma clave de idempotencia pero modificando el nombre comercial
   const entradaIncompatible: EntradaBootstrapEmpresarial = {
@@ -205,7 +239,7 @@ test("B5 Bootstrap — Conflicto de idempotencia si se reutiliza idempotencyKey 
   };
 
   await assert.rejects(
-    ejecutarBootstrapEmpresarial(db as any, entradaIncompatible, async () => {}),
+    ejecutarBootstrapEmpresarial(db as any, entradaIncompatible, async () => {}, ownerExistente),
     /IDEMPOTENCY_CONFLICT/
   );
 });

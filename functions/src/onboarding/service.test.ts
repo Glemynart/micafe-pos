@@ -108,6 +108,7 @@ class Db {
 
 test("B6 Onboarding — Flujo completo de reanudación y completitud del Onboarding (B1 + B2 + B5)", async () => {
   const db = new Db();
+  db.seed("permisos_roles/admin", { permisos: ["configuracion", "pos"] });
   db.seed("planes/plan_pos_pro/versiones/1", {
     planId: "plan_pos_pro",
     planVersion: 1,
@@ -126,7 +127,7 @@ test("B6 Onboarding — Flujo completo de reanudación y completitud del Onboard
     paisFiscal: "CO",
     planId: "plan_pos_pro",
     planVersion: 1,
-  }, async () => {});
+  }, async () => {}, async () => {});
 
   assert.equal(bootRes.estado, "COMPLETED");
 

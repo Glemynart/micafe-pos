@@ -275,7 +275,8 @@ service cloud.firestore {
       allow get: if (tieneEmpresaId() && request.auth.token.empresaId == empresaId)
         || esSuperadmin();
       allow list: if esSuperadmin();
-      allow create, update, delete: if esSuperadmin();
+      // Empresa.estado solo transiciona mediante el servicio backend canónico.
+      allow create, update, delete: if false;
     }
     match /membresias/{id} {
       // La membresía es la autoridad tenant. Cada usuario solo lee la propia;
@@ -290,7 +291,8 @@ service cloud.firestore {
       allow read, write: if esSuperadmin();
     }
     match /suscripciones/{id} {
-      allow read, write: if esSuperadmin();
+      allow read: if esSuperadmin();
+      allow write: if false;
     }
     match /invitaciones/{id} {
       allow read, write: if esSuperadmin();

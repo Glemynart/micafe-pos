@@ -10,7 +10,7 @@ import {
   activarIncorporacionDirecta,
   reenviarIncorporacionEmail,
 } from "./incorporaciones-service";
-import { autenticarOperativo } from "./operational-auth";
+import { actualizarMembresia, autenticarOperativo } from "./operational-auth";
 
 const PEPPER = "email-test-pepper";
 const PIN_PEPPER = "directa-test-pepper";
@@ -28,6 +28,27 @@ async function emitir(empresaId: string, correo: string) {
 }
 
 function email() { contador += 1; return `email-${Date.now()}-${contador}@cafe.test`; }
+
+async function prepararMembresiaMultiempresa() {
+  const empresaA = `empresa-contexto-a-${Date.now()}`;
+  const empresaB = `empresa-contexto-b-${Date.now()}`;
+  const auth = getAuth();
+  const [adminB, objetivo] = await Promise.all([
+    auth.createUser({ email: email(), password: "ClaveSegura123" }),
+    auth.createUser({ email: email(), password: "ClaveSegura123" }),
+  ]);
+  const db = getFirestore();
+  await Promise.all([
+    db.collection("empresas").doc(empresaA).set({ estado: "activa" }),
+    db.collection("empresas").doc(empresaB).set({ estado: "activa" }),
+    db.collection("permisos_roles").doc("supervisor").set({ permisos: ["sell", "reportes"] }),
+    db.collection("membresias").doc(`${empresaA}_${objetivo.uid}`).set({ empresaId: empresaA, uid: objetivo.uid, rol: "cajero", permisos: ["sell"], estado: "activa", activo: true }),
+    db.collection("membresias").doc(`${empresaB}_${objetivo.uid}`).set({ empresaId: empresaB, uid: objetivo.uid, rol: "cajero", permisos: ["sell"], estado: "activa", activo: true }),
+    db.collection("membresias").doc(`${empresaB}_${adminB.uid}`).set({ empresaId: empresaB, uid: adminB.uid, rol: "admin", permisos: ["sell"], estado: "activa", activo: true }),
+  ]);
+  await auth.setCustomUserClaims(objetivo.uid, { empresaId: empresaA, rol: "cajero" });
+  return { adminB, empresaA, empresaB, objetivo };
+}
 
 test("EMAIL crea nueva generacion tras CANCELLED y EXPIRED", async () => {
   const empresaId = `empresa-email-${Date.now()}`;
@@ -114,6 +135,32 @@ test("EMAIL recupera sincronizacion de claims tras un fallo posterior a ACTIVE",
   const reintento = await aceptarIncorporacionEmail({ incorporacionId: emitida.incorporacionId, token: "invalido", password: undefined, uid: principal.uid, emailSesion: correo, tokenSecret: PEPPER });
   assert.equal(reintento.idempotente, true);
   assert.equal((await getAuth().getUser(principal.uid)).customClaims?.empresaId, empresaId);
+});
+
+test("MEMBRESIA actualizar en B preserva el contexto activo A del usuario", async () => {
+  const { adminB, empresaA, empresaB, objetivo } = await prepararMembresiaMultiempresa();
+
+  await actualizarMembresia.run({
+    auth: { uid: adminB.uid, token: { empresaId: empresaB, rol: "admin" } },
+    data: { uid: objetivo.uid, rol: "supervisor" },
+  } as never);
+
+  assert.equal((await getFirestore().collection("membresias").doc(`${empresaB}_${objetivo.uid}`).get()).data()?.rol, "supervisor");
+  assert.deepEqual((await getAuth().getUser(objetivo.uid)).customClaims, { empresaId: empresaA, rol: "cajero" });
+});
+
+test("MEMBRESIA desactivar en B preserva el contexto activo A del usuario", async () => {
+  const { adminB, empresaA, empresaB, objetivo } = await prepararMembresiaMultiempresa();
+
+  await actualizarMembresia.run({
+    auth: { uid: adminB.uid, token: { empresaId: empresaB, rol: "admin" } },
+    data: { uid: objetivo.uid, estado: "inactiva" },
+  } as never);
+
+  const membresia = (await getFirestore().collection("membresias").doc(`${empresaB}_${objetivo.uid}`).get()).data();
+  assert.equal(membresia?.estado, "inactiva");
+  assert.equal(membresia?.activo, false);
+  assert.deepEqual((await getAuth().getUser(objetivo.uid)).customClaims, { empresaId: empresaA, rol: "cajero" });
 });
 
 test("DIRECTA permite reingresar con PIN definitivo en un tenant no fundacional", async () => {
