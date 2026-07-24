@@ -217,6 +217,114 @@
         { "fieldPath": "empresaId", "order": "ASCENDING" },
         { "fieldPath": "fechaApertura", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "saas_operadores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "actualizadoEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "saas_operadores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "facultades", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "actualizadoEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "saas_auditoria",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "comando.id", "order": "ASCENDING" },
+        { "fieldPath": "registradoEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "saas_auditoria",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "agregado.tipo", "order": "ASCENDING" },
+        { "fieldPath": "agregado.id", "order": "ASCENDING" },
+        { "fieldPath": "registradoEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "saas_auditoria",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaObjetivoId", "order": "ASCENDING" },
+        { "fieldPath": "tipo", "order": "ASCENDING" },
+        { "fieldPath": "registradoEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "saas_auditoria",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "actor.uid", "order": "ASCENDING" },
+        { "fieldPath": "tipo", "order": "ASCENDING" },
+        { "fieldPath": "registradoEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "saas_auditoria",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tipo", "order": "ASCENDING" },
+        { "fieldPath": "registradoEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "saas_auditoria",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "correlacionId", "order": "ASCENDING" },
+        { "fieldPath": "registradoEn", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "saas_auditoria_obligaciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "creadaEn", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "saas_soporte_autorizaciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaObjetivoId", "order": "ASCENDING" },
+        { "fieldPath": "actualizadaEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "saas_soporte_autorizaciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "operadorUid", "order": "ASCENDING" },
+        { "fieldPath": "actualizadaEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "saas_soporte_autorizaciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "expiraEn", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "empresas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "actualizadoEn", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore, type Firestore, type Transaction } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { esIdComercial, fechaComercialUtc, type PlanVersion } from "../../../lib/suscripciones/contrato";
 import type { EntradaBootstrapEmpresarial, ProvisionamientoEmpresarial, ResultadoBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
@@ -35,12 +35,17 @@ function validarEntradaBootstrap(e: EntradaBootstrapEmpresarial): void {
 
 export type ClaimsEmitter = (uid: string, empresaId: string, rol: "admin") => Promise<void>;
 export type OwnerIdentityVerifier = (uid: string) => Promise<void>;
+export type BootstrapCoreCommitObserver = (
+  tx: Transaction,
+  provisionamiento: Pick<ProvisionamientoEmpresarial, "provisionamientoId" | "empresaId">,
+) => void;
 
 export async function ejecutarBootstrapEmpresarial(
   dbParam?: Firestore,
   entrada?: EntradaBootstrapEmpresarial,
   customClaimsEmitter?: ClaimsEmitter,
   ownerIdentityVerifier?: OwnerIdentityVerifier,
+  coreCommitObserver?: BootstrapCoreCommitObserver,
 ): Promise<ResultadoBootstrapEmpresarial> {
   const db = dbParam ?? getFirestore();
   if (!entrada) return fail("invalid-argument", "ENTRADA_REQUERIDA");
@@ -220,6 +225,10 @@ export async function ejecutarBootstrapEmpresarial(
       actualizadoEn: FieldValue.serverTimestamp(),
     };
     tx.create(provRef, prov);
+    coreCommitObserver?.(tx, {
+      provisionamientoId: prov.provisionamientoId,
+      empresaId: prov.empresaId,
+    });
 
     return { yaCometido: false, prov };
   });

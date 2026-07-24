@@ -3,7 +3,8 @@
 import { useAuthContext } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Store, LogOut } from "lucide-react"
+import { Store, LogOut, Headphones } from "lucide-react"
+import Link from "next/link"
 
 export function AdminHeader() {
   const { usuario, logout } = useAuthContext()
@@ -36,6 +37,15 @@ export function AdminHeader() {
       </div>
 
       <div className="flex items-center gap-3">
+        {usuario?.rol === "admin" && (
+          <Link
+            href="/admin/soporte-saas"
+            className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="Autorizaciones de soporte SaaS"
+          >
+            <Headphones className="h-4 w-4" />
+          </Link>
+        )}
         <div className="hidden sm:flex items-center gap-2">
           <Avatar className="h-7 w-7 ring-1 ring-border">
             <AvatarFallback className="text-[10px] bg-muted text-foreground font-bold">{initials}</AvatarFallback>

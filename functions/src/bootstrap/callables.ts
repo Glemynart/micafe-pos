@@ -10,7 +10,7 @@ export const bootstrapEmpresarialCallable = onCall(
     if (!request.auth) throw new HttpsError("unauthenticated", "Autenticación requerida.");
     const data = request.data as EntradaBootstrapEmpresarial | undefined;
     if (!data) throw new HttpsError("invalid-argument", "Datos de bootstrap requeridos.");
-    if (data.ownerUid !== request.auth.uid && request.auth.token.superadmin !== true) {
+    if (data.ownerUid !== request.auth.uid) {
       throw new HttpsError("permission-denied", "Acceso denegado.");
     }
     return ejecutarBootstrapEmpresarial(undefined, data);

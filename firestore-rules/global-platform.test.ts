@@ -83,16 +83,17 @@ test("configuraciÃ³n exige autenticaciÃ³n y eventos mantienen lectura pÃºb
 
 test("un tenant solo puede leer su empresa y no puede listarlas", async () => {
   const adminA = await contextFor(fixtures.tenantA.admin);
-  const superadmin = await contextFor(fixtures.superadmin);
+  const claimLegado = await contextFor(fixtures.superadmin);
 
   await expectAllowed(adminA.firestore().doc("empresas/empresa-a").get());
   await expectDenied(adminA.firestore().doc("empresas/empresa-b").get());
   await expectDenied(adminA.firestore().collection("empresas").get());
-  await expectAllowed(superadmin.firestore().collection("empresas").get());
+  await expectDenied(claimLegado.firestore().collection("empresas").get());
 });
 
-test("las colecciones SaaS quedan denegadas para clientes de tenant", async () => {
+test("las colecciones SaaS quedan denegadas para todo cliente, incluso claims legados", async () => {
   const adminA = await contextFor(fixtures.tenantA.admin);
+  const claimLegado = await contextFor(fixtures.superadmin);
   const coleccionesSaas = [
     "membresias/empresa-a_usuario-a",
     "planes/basico",
@@ -102,12 +103,18 @@ test("las colecciones SaaS quedan denegadas para clientes de tenant", async () =
     "consumo/empresa-a_2026-07",
     "saas_operadores/operador-1",
     "saas_auditoria/evento-1",
+    "saas_auditoria_obligaciones/obligacion-1",
+    "saas_soporte_autorizaciones/autorizacion-1",
+    "saas_comandos/comando-1",
+    "provisionamientos_empresariales/provisionamiento-1",
     "configuraciones/empresa-a",
     "numeraciones/empresa-a_factura",
   ];
 
   for (const path of coleccionesSaas) {
     await expectDenied(adminA.firestore().doc(path).set({ empresaId: "empresa-a" }));
+    await expectDenied(claimLegado.firestore().doc(path).get());
+    await expectDenied(claimLegado.firestore().doc(path).set({ empresaId: "empresa-a" }));
   }
 });
 
