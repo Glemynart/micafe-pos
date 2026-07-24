@@ -3,8 +3,8 @@ import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firesto
 import { HttpsError } from "firebase-functions/v2/https";
 import { esIdComercial, fechaComercialUtc, type PlanVersion } from "../../../lib/suscripciones/contrato";
 import type { EntradaBootstrapEmpresarial, ProvisionamientoEmpresarial, ResultadoBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
-import { inicializarConfiguracionEmpresaEnTransaccion } from "../configuracion/service";
-import { crearSuscripcionTrialEnTransaccion } from "../suscripciones/service";
+import { inicializarConfiguracionEmpresaConEstadoPreleidoEnTransaccion } from "../configuracion/service";
+import { crearSuscripcionTrialEnTransaccion, referenciasTrial } from "../suscripciones/service";
 import { actualizarClaimsTenant, permisosPredeterminados } from "../operational-auth";
 
 export const PROVISIONAMIENTOS_COLLECTION = "provisionamientos_empresariales";
@@ -34,11 +34,13 @@ function validarEntradaBootstrap(e: EntradaBootstrapEmpresarial): void {
 }
 
 export type ClaimsEmitter = (uid: string, empresaId: string, rol: "admin") => Promise<void>;
+export type OwnerIdentityVerifier = (uid: string) => Promise<void>;
 
 export async function ejecutarBootstrapEmpresarial(
   dbParam?: Firestore,
   entrada?: EntradaBootstrapEmpresarial,
-  customClaimsEmitter?: ClaimsEmitter
+  customClaimsEmitter?: ClaimsEmitter,
+  ownerIdentityVerifier?: OwnerIdentityVerifier,
 ): Promise<ResultadoBootstrapEmpresarial> {
   const db = dbParam ?? getFirestore();
   if (!entrada) return fail("invalid-argument", "ENTRADA_REQUERIDA");
@@ -56,18 +58,39 @@ export async function ejecutarBootstrapEmpresarial(
   const provisionamientoId = id("prov", entrada.idempotencyKey);
   const provRef = db.collection(PROVISIONAMIENTOS_COLLECTION).doc(provisionamientoId);
 
+  const verificarOwner = ownerIdentityVerifier ?? (async (uid: string) => {
+    const { getAuth } = await import("firebase-admin/auth");
+    await getAuth().getUser(uid);
+  });
+  await verificarOwner(entrada.ownerUid);
+
   // 1. Verificación pre-transaccional: El plan debe existir y estar en estado PUBLICADA
   const planVersionRef = db.collection("planes").doc(entrada.planId).collection("versiones").doc(String(entrada.planVersion));
   const planSnap = await planVersionRef.get();
   if (!planSnap.exists || (planSnap.data() as PlanVersion).estado !== "PUBLICADA") {
     fail("failed-precondition", "PLAN_NOT_PUBLISHED");
   }
+  const permisos = await permisosPredeterminados("admin", db);
 
   // 2. Commit atómico del núcleo (Transacción Firestore)
   const trialDias = entrada.trialDias ?? 14;
   const hoyMs = Date.now();
   const trialInicio = fechaComercialUtc(new Date(hoyMs));
   const trialFin = fechaComercialUtc(new Date(hoyMs + trialDias * 86400000));
+  const entradaTrial = {
+    commandId: entrada.commandId,
+    idempotencyKey: `sub_${entrada.idempotencyKey}`,
+    correlationId: entrada.correlationId,
+    causationId: entrada.causationId,
+    expectedRevision: 1,
+    motivo: "BOOTSTRAP_TRIAL",
+    empresaId: entrada.empresaId,
+    planId: entrada.planId,
+    planVersion: entrada.planVersion,
+    trialInicio,
+    trialFin,
+  };
+  const refsTrial = referenciasTrial(db, entradaTrial);
 
   const transaccionResultado = await db.runTransaction(async (tx) => {
     const provSnap = await tx.get(provRef);
@@ -81,35 +104,45 @@ export async function ejecutarBootstrapEmpresarial(
 
     const empresaRef = db.collection("empresas").doc(entrada.empresaId);
     const subRef = db.collection("suscripciones").doc(entrada.empresaId);
-    const [empresaSnap, subSnap] = await Promise.all([tx.get(empresaRef), tx.get(subRef)]);
+    const configRef = db.collection("configuraciones").doc(entrada.empresaId);
+    const [empresaSnap, subSnap, configSnap, comandoTrialSnap, commandIdTrialSnap, planTrialSnap] = await Promise.all([
+      tx.get(empresaRef),
+      tx.get(subRef),
+      tx.get(configRef),
+      tx.get(refsTrial.comando),
+      tx.get(refsTrial.commandId),
+      tx.get(refsTrial.plan),
+    ]);
 
     if (empresaSnap.exists || subSnap.exists) {
       fail("already-exists", "EMPRESA_ALREADY_EXISTS");
     }
 
-    // A. Empresa (estado: trial)
-    tx.create(empresaRef, {
+    const empresaInicial = {
       id: entrada.empresaId,
       empresaId: entrada.empresaId,
+      nombre: entrada.nombreComercial.trim(),
       nombreComercial: entrada.nombreComercial.trim(),
       ownerUid: entrada.ownerUid,
       paisFiscal: entrada.paisFiscal.trim(),
       estado: "trial",
+      esFundacional: false,
       revision: 1,
       schemaVersion: 1,
       creadaEn: FieldValue.serverTimestamp(),
       actualizadaEn: FieldValue.serverTimestamp(),
-    });
+    };
+    tx.create(empresaRef, empresaInicial);
 
     // B. Configuración inicial (B1)
-    await inicializarConfiguracionEmpresaEnTransaccion(db, tx, {
+    inicializarConfiguracionEmpresaConEstadoPreleidoEnTransaccion(db, tx, {
       empresaId: entrada.empresaId,
       nombreComercial: entrada.nombreComercial.trim(),
       paisFiscal: entrada.paisFiscal.trim(),
       commandId: entrada.commandId,
       correlationId: entrada.correlationId,
       origen: "BOOTSTRAP",
-    });
+    }, empresaInicial, configSnap);
 
     // C. Espacio inicial
     const espacioId = `esp_${entrada.empresaId}_1`;
@@ -144,12 +177,6 @@ export async function ejecutarBootstrapEmpresarial(
     });
 
     // E. Membresía ADMIN del owner
-    let permisos: string[];
-    try {
-      permisos = await permisosPredeterminados("admin");
-    } catch {
-      permisos = ["pos", "configuracion", "reportes", "usuarios", "inventario", "caja"];
-    }
     tx.create(db.collection("membresias").doc(`${entrada.empresaId}_${entrada.ownerUid}`), {
       empresaId: entrada.empresaId,
       uid: entrada.ownerUid,
@@ -165,20 +192,14 @@ export async function ejecutarBootstrapEmpresarial(
     await crearSuscripcionTrialEnTransaccion(
       db,
       tx,
+      entradaTrial,
+      { actorId: entrada.ownerUid, origen: "SYSTEM" },
       {
-        commandId: entrada.commandId,
-        idempotencyKey: `sub_${entrada.idempotencyKey}`,
-        correlationId: entrada.correlationId,
-        causationId: entrada.causationId,
-        expectedRevision: 1,
-        motivo: "BOOTSTRAP_TRIAL",
-        empresaId: entrada.empresaId,
-        planId: entrada.planId,
-        planVersion: entrada.planVersion,
-        trialInicio,
-        trialFin,
+        comando: comandoTrialSnap,
+        commandId: commandIdTrialSnap,
+        plan: planTrialSnap,
+        suscripcion: subSnap,
       },
-      { actorId: entrada.ownerUid, origen: "SYSTEM" }
     );
 
     // G. Registro de Provisionamiento (CORE_COMMITTED)
@@ -215,8 +236,38 @@ export async function ejecutarBootstrapEmpresarial(
 
   // 3. Paso recuperable de emisión de Custom Claims
   const emitter = customClaimsEmitter ?? (async (u, e, r) => actualizarClaimsTenant(u, e, r));
+  const claimsYaEmitidos = transaccionResultado.prov.estado === "CLAIMS_ISSUED"
+    || (transaccionResultado.prov.estado === "RETRYABLE_FAILURE"
+      && transaccionResultado.prov.ultimoPasoConfirmado === "CLAIMS_ISSUED");
+
+  if (!claimsYaEmitidos) {
+    try {
+      await emitter(entrada.ownerUid, entrada.empresaId, "admin");
+      await provRef.update({
+        estado: "CLAIMS_ISSUED",
+        ultimoPasoConfirmado: "CLAIMS_ISSUED",
+        errorRecuperable: null,
+        actualizadoEn: FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "AUTH_CLAIMS_FAILED";
+      await provRef.update({
+        estado: "RETRYABLE_FAILURE",
+        ultimoPasoConfirmado: "CORE_COMMITTED",
+        errorRecuperable: errorMsg,
+        actualizadoEn: FieldValue.serverTimestamp(),
+      });
+      return {
+        provisionamientoId,
+        empresaId: entrada.empresaId,
+        estado: "RETRYABLE_FAILURE",
+        claimsEmitidos: false,
+        idempotente: transaccionResultado.yaCometido,
+      };
+    }
+  }
+
   try {
-    await emitter(entrada.ownerUid, entrada.empresaId, "admin");
     await provRef.update({
       estado: "COMPLETED",
       ultimoPasoConfirmado: "COMPLETED",
@@ -231,9 +282,10 @@ export async function ejecutarBootstrapEmpresarial(
       idempotente: transaccionResultado.yaCometido,
     };
   } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : "AUTH_CLAIMS_FAILED";
+    const errorMsg = err instanceof Error ? err.message : "COMPLETION_PERSISTENCE_FAILED";
     await provRef.update({
       estado: "RETRYABLE_FAILURE",
+      ultimoPasoConfirmado: "CLAIMS_ISSUED",
       errorRecuperable: errorMsg,
       actualizadoEn: FieldValue.serverTimestamp(),
     });
@@ -241,7 +293,7 @@ export async function ejecutarBootstrapEmpresarial(
       provisionamientoId,
       empresaId: entrada.empresaId,
       estado: "RETRYABLE_FAILURE",
-      claimsEmitidos: false,
+      claimsEmitidos: true,
       idempotente: transaccionResultado.yaCometido,
     };
   }

@@ -379,8 +379,9 @@ export async function emitirSesionTenant(uid: string, empresaId: string, rol: st
   return getAuth().createCustomToken(uid);
 }
 
-export async function permisosPredeterminados(rol: RolTenant): Promise<string[]> {
-  const snap = await getFirestore().collection("permisos_roles").doc(rol).get();
+export async function permisosPredeterminados(rol: RolTenant, dbParam?: any): Promise<string[]> {
+  const db = dbParam ?? getFirestore();
+  const snap = await db.collection("permisos_roles").doc(rol).get();
   const permisos = normalizarPermisosEfectivos(snap.data()?.permisos);
   if (!snap.exists || !permisos) {
     logger.error("membership_default_template_invalid", { rol });
@@ -453,7 +454,7 @@ export const autenticarOperativo = onCall(
 export const provisionarCredencialOperativa = onCall(
   { region: REGION, secrets: [PIN_PEPPER] },
   async (request): Promise<{ codigo: string }> => {
-    const empresa = await exigirAdminFundacional(request);
+    const empresa = await exigirAdminTenant(request);
     const data = request.data as SolicitudProvisionamiento | undefined;
     const codigo = normalizarCodigo(data?.codigo);
     const pin = data?.pin;
@@ -513,9 +514,7 @@ export const rotarPinOperativo = onCall(
       throw new HttpsError("invalid-argument", "PIN inválido.");
     }
 
-    const empresa = await obtenerEmpresaFundacional();
-    if (request.auth.token.empresaId !== empresa.id) throw new HttpsError("permission-denied", "Acceso denegado.");
-    await validarMembresiaActiva(empresa.id, request.auth.uid);
+    const empresa = await exigirTenantActivo(request);
     const credencial = await obtenerCredencialDelUid(empresa.id, request.auth.uid);
     if (!credencial || await estaBloqueada(credencial.ref)) throw errorCredenciales();
 
@@ -545,7 +544,7 @@ export const rotarPinOperativo = onCall(
 export const crearUsuarioConMembresia = onCall(
   { region: REGION },
   async (request): Promise<void> => {
-    const empresa = await exigirAdminFundacional(request);
+    const empresa = await exigirAdminTenant(request);
     const data = request.data as SolicitudCrearUsuario | undefined;
     const uid = typeof data?.uid === "string" ? data.uid : null;
     const nombre = typeof data?.nombre === "string" ? data.nombre.trim() : "";
@@ -595,7 +594,7 @@ export const crearUsuarioConMembresia = onCall(
 export const actualizarMembresia = onCall(
   { region: REGION },
   async (request): Promise<void> => {
-    const empresa = await exigirAdminFundacional(request);
+    const empresa = await exigirAdminTenant(request);
     const data = request.data as SolicitudActualizarMembresia | undefined;
     const uid = typeof data?.uid === "string" ? data.uid : null;
     if (!uid || uid === request.auth!.uid) {
