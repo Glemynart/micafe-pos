@@ -7,8 +7,9 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "tsx --test src/contracts.test.ts src/incorporaciones-service.test.ts src/pin-security.test.ts src/configuracion/*.test.ts src/fiscal/*.test.ts src/suscripciones/*.test.ts src/bootstrap/*.test.ts src/onboarding/*.test.ts",
-    "test:email:integration": "tsx --test src/email-integration.test.ts"
+    "test": "tsx --test src/contracts.test.ts src/incorporaciones-service.test.ts src/pin-security.test.ts src/configuracion/*.test.ts src/fiscal/*.test.ts src/suscripciones/*.test.ts src/bootstrap/*.test.ts src/onboarding/*.test.ts src/platform/*.test.ts",
+    "test:email:integration": "tsx --test src/email-integration.test.ts",
+    "bootstrap:operator-saas": "tsx src/platform/initial-bootstrap-cli.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

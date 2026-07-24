@@ -2,7 +2,7 @@
 
 ## Estado
 
-**Propuesto para aprobación.** Complementa ADR-SAAS-011 y materializa exclusivamente el contrato de evidencia global requerido por MT-U9 B3 y B4.
+**Aceptado.** Complementa ADR-SAAS-011 y materializa exclusivamente el contrato de evidencia global requerido por MT-U9 B3 y B4.
 
 No modifica `saas_operadores`, autorización, facultades, claims, Bootstrap, lifecycle, Empresa, Suscripción, tenant activo, Electron ni multiempresa. `saas_auditoria` no es una fuente de permisos, estado, soporte ni ejecución.
 
@@ -75,6 +75,7 @@ Campos no enumerados se rechazan. Cambiar el esquema requiere ADR posterior y `s
 | Operadores | `OPERADOR_INCORPORADO`, `OPERADOR_FACULTADES_CAMBIADAS`, `OPERADOR_SUSPENDIDO`, `OPERADOR_REACTIVADO`, `OPERADOR_REVOCADO` |
 | Oferta | `PLAN_CREADO`, `PLAN_VERSION_CREADA`, `PLAN_BORRADOR_ACTUALIZADO`, `PLAN_VERSION_PUBLICADA`, `PLAN_VERSION_RETIRADA` |
 | Suscripción | `SUSCRIPCION_CREADA`, `SUSCRIPCION_ACTIVADA`, `SUSCRIPCION_RENOVADA`, `SUSCRIPCION_PLAN_CAMBIADO`, `SUSCRIPCION_MORA_MARCADA`, `SUSCRIPCION_SUSPENDIDA`, `SUSCRIPCION_CANCELACION_PROGRAMADA`, `SUSCRIPCION_CANCELACION_REVOCADA`, `SUSCRIPCION_CANCELADA`, `SUSCRIPCION_REACTIVADA` |
+| Provisionamiento empresarial | `BOOTSTRAP_EMPRESARIAL_SOLICITADO`, `BOOTSTRAP_EMPRESARIAL_COMPLETADO` |
 | Lifecycle/conservación | `EMPRESA_ACTIVADA`, `EMPRESA_SUSPENDIDA`, `EMPRESA_CANCELADA`, `EMPRESA_REACTIVADA`, `EMPRESA_ARCHIVADA`, `EMPRESA_RESTAURADA`, `EMPRESA_ELIMINADA`, `EXPORTACION_SOLICITADA`, `EXPORTACION_COMPLETADA`, `EXPORTACION_RECHAZADA`, `EXPORTACION_FALLIDA` |
 | Seguridad | `AUTORIZACION_DENEGADA`, `FACULTAD_AUSENTE`, `OPERADOR_INACTIVO`, `AUTOESCALAMIENTO_DENEGADO`, `ALCANCE_DENEGADO`, `CONTEXTO_PLATAFORMA_OBSOLETO`, `CONFLICTO_IDEMPOTENCIA`, `CONFLICTO_REVISION` |
 | Soporte B4 | `SOPORTE_SOLICITADO`, `SOPORTE_RECHAZADO`, `SOPORTE_AUTORIZADO`, `SOPORTE_REVOCADO`, `SOPORTE_EXPIRADO`, `SOPORTE_INICIADO`, `SOPORTE_FINALIZADO`, `SOPORTE_ALCANCE_RECHAZADO`, `SOPORTE_ACCESO_FUERA_DE_ALCANCE_DENEGADO`, `SOPORTE_DIAGNOSTICO_ALTO_RIESGO` |
@@ -83,7 +84,7 @@ Las lecturas ordinarias del panel no se auditan. Solo se registran decisiones se
 
 ### 3.2 Valores de `agregado.tipo`
 
-Solo: `OPERADOR`, `PLAN`, `SUSCRIPCION`, `EMPRESA`, `CONSERVACION`, `SOPORTE_AUTORIZACION`, `SOPORTE_SESION`, `SEGURIDAD_PLATAFORMA`. No se admiten `VENTA`, `NUMERACION`, `ASIGNACION`, `LEDGER`, `TESORERIA` ni otro agregado operativo/fiscal tenant.
+Solo: `OPERADOR`, `PLAN`, `SUSCRIPCION`, `EMPRESA`, `PROVISIONAMIENTO_EMPRESARIAL`, `CONSERVACION`, `SOPORTE_AUTORIZACION`, `SOPORTE_SESION`, `SEGURIDAD_PLATAFORMA`. `PROVISIONAMIENTO_EMPRESARIAL` referencia exclusivamente el registro canónico ya definido por ADR-SAAS-007; no crea un agregado nuevo ni convierte la evidencia en autoridad del Bootstrap. No se admiten `VENTA`, `NUMERACION`, `ASIGNACION`, `LEDGER`, `TESORERIA` ni otro agregado operativo/fiscal tenant.
 
 ## 4. Append-only formal
 

@@ -2,13 +2,59 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { FieldValue } from "firebase-admin/firestore";
 import { esFechaComercial, fechaComercialUtc, readinessComercial, type Suscripcion } from "../../../lib/suscripciones/contrato";
-import { crearPlan, crearNuevaVersionPlan, crearSuscripcionActiva, crearSuscripcionTrialEnTransaccion, publicarPlan, transicionarEmpresa, transicionarSuscripcion } from "./service";
+import { actualizarBorradorPlan, cambiarPlanSuscripcion, crearPlan, crearNuevaVersionPlan, crearSuscripcionActiva, crearSuscripcionTrialEnTransaccion, programarCancelacionSuscripcion, publicarPlan, renovarSuscripcion, retirarVersionPlan, revocarCancelacionSuscripcion, transicionarEmpresa, transicionarSuscripcion } from "./service";
 
 class Ref { constructor(public path: string) {} collection(id: string) { return new Ref(`${this.path}/${id}`); } doc(id: string) { return new Ref(`${this.path}/${id}`); } }
 class Snap { constructor(private readonly v: any) {} get exists() { return this.v !== undefined; } data() { return structuredClone(this.v); } }
 class Db { docs = new Map<string, any>(); private queue = Promise.resolve(); collection(n: string) { return new Ref(n); } seed(k: string, v: any) { this.docs.set(k, structuredClone(v)); } read(k: string) { return this.docs.get(k); } async runTransaction<T>(cb: (tx: any) => Promise<T>) { let release!: () => void; const before = this.queue; this.queue = new Promise(r => release = r); await before; const w = new Map([...this.docs].map(([k,v]) => [k, structuredClone(v)])); const tx = { get: async (r: Ref) => new Snap(w.get(r.path)), create: (r: Ref, v: any) => { if (w.has(r.path)) throw new Error("EXISTS"); w.set(r.path, structuredClone(v)); }, update: (r: Ref, v: any) => { if (!w.has(r.path)) throw new Error("MISSING"); const cur = { ...w.get(r.path) }; for (const [k, val] of Object.entries(v)) { if (val && (val === FieldValue.delete() || (val as any)._methodName === "delete" || (typeof val === "object" && Object.keys(val as object).length === 0))) { delete cur[k]; } else { cur[k] = structuredClone(val); } } w.set(r.path, cur); } }; try { const r = await cb(tx); this.docs = w; return r; } finally { release(); } } }
 const ctx = { actorId: "operator_1", origen: "PLATFORM" as const };
 const env = (n: string, rev = 1) => ({ commandId: `cmd_${n}`, idempotencyKey: `idem_${n}`, correlationId: `corr_${n}`, causationId: `cause_${n}`, expectedRevision: rev, motivo: "operacion administrativa" });
+
+test("B3 confirms a platform audit obligation in the commercial transaction", async () => {
+  const db = new Db();
+  const contextoConObligacion = {
+    ...ctx,
+    registrarResultadoEnTransaccion: (tx: any) => tx.create(
+      db.collection("saas_auditoria_obligaciones").doc("plan_atomic"),
+      { estado: "PENDIENTE" },
+    ),
+  };
+
+  await crearPlan(db as any, {
+    ...env("plan_atomic"),
+    planId: "plan_atomic",
+    codigo: "ATOMIC",
+    capacidades: [],
+    limites: {},
+    periodicidad: "MENSUAL",
+    grandfathered: false,
+  }, contextoConObligacion);
+
+  assert.equal(db.read("planes/plan_atomic").planId, "plan_atomic");
+  assert.equal(db.read("saas_auditoria_obligaciones/plan_atomic").estado, "PENDIENTE");
+});
+
+test("B3 aborts the aggregate commit when its durable audit obligation cannot be created", async () => {
+  const db = new Db();
+  await assert.rejects(
+    crearPlan(db as any, {
+      ...env("plan_atomic_failure"),
+      planId: "plan_atomic_failure",
+      codigo: "ATOMIC_FAIL",
+      capacidades: [],
+      limites: {},
+      periodicidad: "MENSUAL",
+      grandfathered: false,
+    }, {
+      ...ctx,
+      registrarResultadoEnTransaccion: () => { throw new Error("AUDIT_OBLIGATION_WRITE_FAILED"); },
+    }),
+    /AUDIT_OBLIGATION_WRITE_FAILED/,
+  );
+
+  assert.equal(db.read("planes/plan_atomic_failure"), undefined);
+  assert.equal(db.read("comandos_comerciales/com_"), undefined);
+});
 async function planPublicado(db: Db) { await crearPlan(db as any, { ...env("plan"), planId: "plan_base", codigo: "BASE", capacidades: ["pos"], limites: {}, periodicidad: "MENSUAL", grandfathered: false }, ctx); await publicarPlan(db as any, { ...env("publicar"), planId: "plan_base", planVersion: 1 }, ctx); }
 
 test("B3 valida fechas comerciales canónicas y readiness con límites inclusivos", () => {
@@ -31,6 +77,27 @@ test("B3 publica versiones inmutables, permite crear versiones superiores y mant
   await publicarPlan(db as any, { ...env("publicar_ver2"), planId: "plan_legacy", planVersion: 2 }, ctx);
   assert.equal(db.read("planes/plan_legacy/versiones/2").estado, "PUBLICADA");
   assert.equal(db.read("planes/plan_legacy/versiones/1").estado, "PUBLICADA"); // Versión 1 permanece inalterada
+});
+
+test("B2 completa lifecycle comercial sin alterar referencias publicadas o lifecycle Empresa", async () => {
+  const db = new Db();
+  await crearPlan(db as any, { ...env("plan_editable"), planId: "plan_editable", codigo: "EDITABLE", capacidades: ["pos"], limites: {}, periodicidad: "MENSUAL", grandfathered: false }, ctx);
+  await actualizarBorradorPlan(db as any, { ...env("editar_plan"), planId: "plan_editable", planVersion: 1, capacidades: ["pos", "reportes"], limites: {}, periodicidad: "ANUAL", grandfathered: false }, ctx);
+  assert.deepEqual(db.read("planes/plan_editable/versiones/1").capacidades, ["pos", "reportes"]);
+  await publicarPlan(db as any, { ...env("publicar_editado", 2), planId: "plan_editable", planVersion: 1 }, ctx);
+
+  db.seed("empresas/empresa_comercial", { empresaId: "empresa_comercial", estado: "suspendida", revision: 1 });
+  await crearSuscripcionActiva(db as any, { ...env("alta_comercial"), empresaId: "empresa_comercial", planId: "plan_editable", planVersion: 1, periodoInicio: "2026-01-01", periodoFin: "2026-12-31" }, ctx);
+  await renovarSuscripcion(db as any, { ...env("renovar_comercial"), empresaId: "empresa_comercial", periodoInicio: "2027-01-01", periodoFin: "2027-12-31" }, ctx);
+  await programarCancelacionSuscripcion(db as any, { ...env("programar_cancelacion", 2), empresaId: "empresa_comercial", cancelacionProgramadaPara: "2027-12-31" }, ctx);
+  await revocarCancelacionSuscripcion(db as any, { ...env("revocar_cancelacion", 3), empresaId: "empresa_comercial" }, ctx);
+  await cambiarPlanSuscripcion(db as any, { ...env("cambiar_plan", 4), empresaId: "empresa_comercial", planId: "plan_editable", planVersion: 1 }, ctx);
+  assert.equal(db.read("suscripciones/empresa_comercial").revision, 5);
+  assert.equal(db.read("empresas/empresa_comercial").estado, "suspendida");
+
+  await retirarVersionPlan(db as any, { ...env("retirar_plan", 3), planId: "plan_editable", planVersion: 1 }, ctx);
+  assert.equal(db.read("planes/plan_editable/versiones/1").estado, "RETIRADA");
+  assert.equal(db.read("suscripciones/empresa_comercial").planVersion, 1);
 });
 
 test("B3 crea una suscripción comercial única, idempotente y auditada con eventos PascalCase", async () => {

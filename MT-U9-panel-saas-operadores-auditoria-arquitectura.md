@@ -1,6 +1,6 @@
 # MT-U9 — Panel SaaS, operadores y auditoría de plataforma
 
-> **Estado:** análisis arquitectónico y planificación para aprobación previa.  
+> **Estado:** aprobado.
 > **Alcance:** solo arquitectura y contratos; no autoriza UI, componentes, Functions, Rules, APIs, migraciones ni cambios de código.  
 > **Jerarquía:** ADR SaaS aceptados → `MT-ARQUITECTURA-SAAS-MULTIEMPRESA.md` → este documento.  
 > **Fuentes revisadas:** Maestro SaaS; ADR-SAAS-001 a ADR-SAAS-010; `MASTER-SECURITY-PLAN.md`; contratos B0 y especificaciones/checkpoint B1–B3; documentación U1–U5B relevante para tenancy, claims, membresías y Rules.
