@@ -88,6 +88,7 @@ import {
   type QueryDocumentSnapshot,
 } from 'firebase-admin/firestore'
 import { EMPRESAS_COLLECTION } from '../lib/empresas-service'
+import { drenarPagina } from './lib/drenar-pagina'
 import {
   type ColeccionConfig,
   COLECCIONES_OFICIALES,
@@ -204,7 +205,10 @@ async function procesarColeccion(config: ColeccionConfig, empresaId: string): Pr
         }
       }
 
-      if (escriturasPagina.length > 0) await Promise.all(escriturasPagina)
+      // Mismo drenado que el backfill: BulkWriter bufferiza, y esperar las
+      // promesas sin llamar antes a `flush()` cuelga cuando las escrituras
+      // pendientes no completan un lote interno (ver scripts/lib/drenar-pagina.ts).
+      await drenarPagina(bulkWriter, escriturasPagina)
 
       cursor = snap.docs[snap.docs.length - 1]
       if (snap.docs.length < PAGE_SIZE) break
