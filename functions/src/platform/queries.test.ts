@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { consultarAuditoriaPlataforma, validarFiltroAuditoria } from "./queries";
+import { consultarAuditoriaPlataforma, listarRecursosPlataforma, validarFiltroAuditoria } from "./queries";
 
 test("la auditoría exige un filtro selectivo aprobado", () => {
   assert.throws(() => validarFiltroAuditoria(undefined), /FILTRO_AUDITORIA_INVALIDO/);
@@ -70,4 +70,37 @@ test("H8 — los demás patrones conservan el límite máximo de 100", async () 
   await consultarAuditoriaPlataforma(db as never, { por: "correlacion", valor: "corr-1" }, 500);
   const limitCall = db.llamadas.find((l) => l.metodo === "limit");
   assert.equal(limitCall?.args[0], 100);
+});
+
+// El campo de ordenación de cada recurso debe coincidir con el que su agregado
+// persiste realmente. Un `orderBy` sobre un campo inexistente no lanza error:
+// Firestore excluye los documentos que no lo tienen y el listado se vacía en
+// silencio (o exige un índice imposible cuando además hay un `where`).
+test("cada recurso ordena por el campo que su modelo de datos persiste", async () => {
+  const esperado: Record<string, string> = {
+    empresas: "actualizadaEn",
+    planes: "creadaEn",
+    suscripciones: "creadaEn",
+    operadores: "actualizadoEn",
+    soporte: "actualizadaEn",
+    provisionamientos: "actualizadoEn",
+  };
+  for (const [recurso, campo] of Object.entries(esperado)) {
+    const db = fakeQueryDb();
+    await listarRecursosPlataforma(db as never, recurso as never);
+    const orderBy = db.llamadas.find((l) => l.metodo === "orderBy");
+    assert.equal(orderBy?.args[0], campo, `el recurso ${recurso} debe ordenar por ${campo}`);
+  }
+});
+
+// Reproduce la forma exacta que falló en producción: el callable inyecta siempre
+// operadorUid para `soporte`, de modo que la consulta combina where + orderBy y
+// necesita un índice compuesto con el nombre correcto del campo.
+test("el listado de soporte filtrado por operadorUid ordena por actualizadaEn", async () => {
+  const db = fakeQueryDb();
+  await listarRecursosPlataforma(db as never, "soporte", { operadorUid: "operador-1" });
+  const where = db.llamadas.find((l) => l.metodo === "where");
+  const orderBy = db.llamadas.find((l) => l.metodo === "orderBy");
+  assert.equal(where?.args[0], "operadorUid");
+  assert.equal(orderBy?.args[0], "actualizadaEn");
 });

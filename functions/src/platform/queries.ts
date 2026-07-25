@@ -38,13 +38,30 @@ const COLECCIONES: Record<RecursoPlataforma, string> = {
   provisionamientos: "provisionamientos_empresariales",
 };
 
+// El campo de ordenación se declara por recurso porque el modelo de datos no usa
+// un nombre único: los agregados femeninos (Empresa, Suscripción, Plan,
+// autorización de soporte) persisten `creadaEn`/`actualizadaEn` y los masculinos
+// (Operador, provisionamiento) `creadoEn`/`actualizadoEn`. Un `orderBy` sobre un
+// campo que el documento no tiene no falla: Firestore excluye esos documentos y
+// la consulta devuelve cero resultados en silencio, así que el nombre debe
+// declararse junto a la colección y no derivarse de una condición.
+const CAMPO_ORDEN: Record<RecursoPlataforma, string> = {
+  empresas: "actualizadaEn",
+  planes: "creadaEn",
+  suscripciones: "creadaEn",
+  operadores: "actualizadoEn",
+  soporte: "actualizadaEn",
+  provisionamientos: "actualizadoEn",
+};
+
 function sanitizar(data: Record<string, any>) {
   const permitido = [
     "id", "empresaId", "nombre", "nombreComercial", "estado", "paisFiscal",
     "ownerUid", "revision", "planId", "planVersion", "trialInicio", "trialFin",
     "periodoInicio", "periodoFin", "graceFin", "uid", "facultades",
     "cancelacionProgramadaPara", "capacidades", "limites", "periodicidad", "grandfathered",
-    "versionAutorizacion", "actualizadoEn", "creadoEn", "tipo", "resultado",
+    "versionAutorizacion", "actualizadoEn", "creadoEn", "actualizadaEn", "creadaEn",
+    "tipo", "resultado",
     "origen", "actor", "facultad", "comando", "agregado", "empresaObjetivoId",
     "correlacionId", "motivo", "registradoEn", "autorizacionId", "operadorUid",
     "solicitante", "alcanceCodigo", "expiraEn", "version", "provisionamientoId",
@@ -69,10 +86,7 @@ export async function listarRecursosPlataforma(
   if (recurso === "soporte" && opciones.operadorUid) {
     q = q.where("operadorUid", "==", opciones.operadorUid);
   }
-  const orden = recurso === "planes" || recurso === "suscripciones"
-      ? "creadaEn"
-      : "actualizadoEn";
-  q = q.orderBy(orden, "desc").limit(limite);
+  q = q.orderBy(CAMPO_ORDEN[recurso], "desc").limit(limite);
   if (opciones.cursor) {
     const cursor = await db.collection(COLECCIONES[recurso]).doc(opciones.cursor).get();
     if (!cursor.exists) throw new HttpsError("invalid-argument", "CURSOR_INVALIDO");
