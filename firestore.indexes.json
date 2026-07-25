@@ -323,7 +323,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "estado", "order": "ASCENDING" },
-        { "fieldPath": "actualizadoEn", "order": "DESCENDING" }
+        { "fieldPath": "actualizadaEn", "order": "DESCENDING" }
       ]
     }
   ],
