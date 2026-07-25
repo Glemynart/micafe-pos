@@ -1,6 +1,6 @@
 # MT-U9 — U9-B2 y U9-B3: comandos administrativos y auditoría de plataforma
 
-> **Estado:** especificación arquitectónica para revisión.  
+> **Estado:** especificación arquitectónica aprobada.
 > **Alcance:** U9-B2, comandos administrativos de plataforma; U9-B3, auditoría de plataforma.  
 > **Precondición:** U9-B0 y U9-B1 aprobados. Este documento no redefine sus autoridades, facultades, perfiles, fronteras ni invariantes.  
 > **Fuera de alcance:** soporte e impersonación (U9-B4), Panel SaaS (U9-B5), certificación (U9-B6), MT-U10, MT-U11, MT-U12 y toda implementación.
@@ -40,7 +40,7 @@ Antes de que un comando pueda llegar al agregado objetivo deben cumplirse todas 
 2. El actor mantiene pertenencia canónica activa en `saas_operadores/{uid}`.
 3. El actor tiene la facultad B0 explícita correspondiente y su perfil B1 puede recibirla.
 4. El comando pertenece a la clasificación permitida para dicha facultad.
-5. El agregado objetivo existe y su operación es admisible por sus contratos, estado, revisión y tiempo canónico.
+5. El agregado objetivo existe y su operación es admisible por sus contratos, estado, revisión y tiempo canónico. Exclusivamente para `SolicitarBootstrapEmpresarial`, el objetivo es el registro canónico de provisionamiento que el servicio de ADR-SAAS-007 crea o reutiliza mediante la clave de idempotencia; el operador no lo materializa.
 6. La solicitud no intenta crear contexto tenant, soporte, impersonación, cambio de tenant, consumo o límites medidos.
 7. La intención no modifica datos fiscales, operativos o históricos prohibidos por PLT-B0-06 y OPR-B1-05.
 
@@ -55,10 +55,27 @@ U9-B2 reconoce únicamente las siguientes familias. Los nombres expresan intenci
 | Gobernanza de operadores | Gobernanza de operadores | Asignar facultades, retirar facultades, activar o desactivar pertenencia de plataforma, cuando sea admisible. | `saas_operadores/{uid}`. |
 | Oferta comercial | Gobernanza comercial | Crear o versionar Plan en borrador, actualizar borrador, publicar o retirar versión, conforme a la máquina de estados comercial. | Plan y versión publicada. |
 | Relación comercial | Gobernanza comercial | Crear suscripción administrativa permitida, activar, renovar, cambiar plan, marcar mora, suspender, programar/revocar cancelación, cancelar o reactivar, conforme a la Suscripción. | `suscripciones/{empresaId}`. |
+| Provisionamiento empresarial | Solicitud de Bootstrap empresarial | `SolicitarBootstrapEmpresarial` para un `ownerUid` verificado, exclusivamente mediante el servicio canónico idempotente y recuperable de ADR-SAAS-007. | Registro de provisionamiento y servicio canónico de Bootstrap de ADR-SAAS-007. |
 | Lifecycle empresarial | Gobernanza de lifecycle | Activar, suspender, cancelar, reactivar, archivar, restaurar o eliminar Empresa exclusivamente en las transiciones admisibles. | `empresas/{empresaId}.estado` y servicio único de lifecycle. |
 | Conservación y exportación controlada | Conservación de plataforma | Solicitar archivo, restauración, eliminación o exportación únicamente cuando lifecycle, retención y autorización de plataforma lo permitan. | Lifecycle, conservación legal y proceso controlado correspondiente. |
 
-No se define en B2 un comando para crear empresas fuera de Bootstrap, cambiar owner, emitir o alterar claims tenant, incorporar usuarios, manejar soporte, consumir métricas, imponer límites, cambiar tenant activo, modificar configuración, gestionar numeraciones, confirmar/anular ventas ni aplicar efectos operativos.
+No se define en B2 un comando para crear empresas fuera de Bootstrap, cambiar owner, emitir o alterar claims tenant, incorporar usuarios, manejar soporte, consumir métricas, imponer límites, cambiar tenant activo, modificar configuración, gestionar numeraciones, confirmar/anular ventas ni aplicar efectos operativos. `SolicitarBootstrapEmpresarial` no crea directamente ninguno de esos recursos: solo invoca el servicio canónico de ADR-SAAS-007.
+
+### B2.4.1 Contrato de `SolicitarBootstrapEmpresarial`
+
+El comando identifica como agregado objetivo el registro canónico de provisionamiento empresarial de ADR-SAAS-007, determinado por la clave de idempotencia. Para este caso, el registro puede ser creado o reutilizado exclusivamente por el servicio canónico de Bootstrap; el operador y el Panel no crean ni escriben ese registro.
+
+Precondiciones acumulativas:
+
+1. El actor satisface B2.3 y posee explícitamente la facultad de Solicitud de Bootstrap empresarial.
+2. El `ownerUid` corresponde a una identidad SaaS global existente y verificada conforme a ADR-SAAS-007.
+3. La solicitud contiene clave de idempotencia, huella de intención, motivo y correlación; una clave reutilizada con carga incompatible se rechaza.
+4. La carga pertenece al contrato ya admitido por ADR-SAAS-007 y no intenta redefinir Empresa, owner, núcleo, estados, pasos, Membresía inicial, Suscripción, claims ni readiness.
+5. No existe escritura administrativa directa sobre `empresas`, `membresias`, `configuraciones`, `espacios`, `numeraciones`, `suscripciones` o claims.
+
+El único comando autorizado es solicitar al servicio canónico existente que inicie o reanude el Bootstrap. ADR-SAAS-007 conserva la validación y reserva del `empresaId`, la creación o reutilización del registro durable, el commit atómico del núcleo y la saga recuperable de claims.
+
+El resultado esperado es el estado durable del mismo provisionamiento —incluidos conflicto, progreso recuperable o finalización— sin duplicar Empresa, trial, espacio, Membresía o Suscripción. El Panel solo proyecta ese resultado. La solicitud aceptada y la finalización del provisionamiento generan la evidencia mínima, posterior al hecho y no autorizante definida por ADR-SAAS-012.
 
 ## B2.5 Postcondiciones comunes
 
@@ -68,7 +85,7 @@ Si un comando es aceptado y confirmado:
 2. Los demás agregados solo cambian cuando la transición canónica ya exige coordinación entre ellos; B2 no inventa efectos laterales.
 3. La respuesta observable del reintento equivalente es el resultado durable ya confirmado; no se repite el efecto autoritativo.
 4. Se conserva la correlación necesaria para que B3 pueda registrar evidencia posterior al hecho confirmado.
-5. No se crea una Membresía, tenant activo, sesión de soporte, autoridad fiscal, autoridad operativa ni excepción de retención como efecto colateral.
+5. No se crea una Membresía, tenant activo, sesión de soporte, autoridad fiscal, autoridad operativa ni excepción de retención como efecto colateral de B2. En `SolicitarBootstrapEmpresarial`, la Membresía inicial y los claims son exclusivamente efectos internos del Bootstrap canónico de ADR-SAAS-007, no del operador ni del comando de plataforma.
 
 Si el comando se rechaza, entra en conflicto, expira o falla antes de confirmar, no modifica el agregado, no consume recursos fiscales ni habilita una operación alternativa. El detalle de la respuesta técnica queda fuera de B2.
 
@@ -142,10 +159,11 @@ U9-B2 está completo solo si:
 1. Cada comando pertenece a una facultad B0 y puede ser ejercido solo por un perfil B1 compatible.
 2. Cada comando identifica un agregado canónico y respeta su estado, transición, revisión, tiempo e idempotencia.
 3. Los comandos comerciales y de lifecycle mantienen separadas Suscripción y Empresa.
-4. No existe comando de B2 que cree acceso tenant, soporte, impersonación, cambio de tenant, consumo/límites, Electron o una autoridad nueva.
+4. No existe comando de B2 que cree directamente acceso tenant, soporte, impersonación, cambio de tenant, consumo/límites, Electron o una autoridad nueva. Los efectos de acceso inicial de `SolicitarBootstrapEmpresarial` pertenecen exclusivamente al Bootstrap canónico de ADR-SAAS-007.
 5. Ningún comando toca Configuración, Numeración, Asignación, Venta, Snapshot, estado operativo, ledger, tesorería ni datos históricos.
 6. La conservación respeta lifecycle y retención sin convertirse en lectura interactiva general ni en soporte.
 7. Todo resultado confirmado conserva correlación suficiente para B3, sin que B2 defina el registro de auditoría.
+8. `SolicitarBootstrapEmpresarial` solo invoca ADR-SAAS-007; no crea directamente Empresa, Membresía, claims, Suscripción ni ningún documento tenant.
 
 **Cierre de B2:** con los comandos clasificados y acotados, B3 puede registrar sus hechos confirmados sin determinar facultades, perfiles, transiciones ni efectos de dominio.
 
@@ -199,6 +217,7 @@ Solo son auditables los hechos definidos por las facultades y comandos de B2, m�
 | Gobernanza de operadores | Facultad asignada, retirada; pertenencia de plataforma activada o desactivada. | Confirmado, rechazado, conflicto. |
 | Oferta comercial | Plan creado; versión creada, actualizada en borrador, publicada o retirada. | Confirmado, rechazado, conflicto. |
 | Relación comercial | Suscripción creada, activada, renovada, cambiada de plan, marcada en mora, suspendida, cancelación programada/revocada, cancelada o reactivada. | Confirmado, rechazado, conflicto. |
+| Provisionamiento empresarial | Bootstrap empresarial solicitado o completado mediante ADR-SAAS-007. | Confirmado, rechazado, conflicto o fallo recuperable. |
 | Lifecycle empresarial | Empresa activada, suspendida, cancelada, reactivada, archivada, restaurada o eliminada. | Confirmado, rechazado, conflicto. |
 | Conservación | Exportación controlada solicitada, completada, rechazada o fallida; operación de conservación confirmada o rechazada. | Confirmado, rechazado, conflicto o fallo recuperable. |
 | Seguridad de plataforma | Autorización de plataforma denegada, facultad ausente, pertenencia inactiva, intento de autoescalamiento o intento de acceso fuera de alcance. | Denegado o conflicto; nunca mutación confirmada. |

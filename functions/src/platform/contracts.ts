@@ -1,0 +1,121 @@
+export const FACULTADES_PLATAFORMA = [
+  "OPERADORES_GOBERNAR",
+  "COMERCIAL_GOBERNAR",
+  "BOOTSTRAP_EMPRESARIAL_SOLICITAR",
+  "LIFECYCLE_GOBERNAR",
+  "CONSERVACION_GOBERNAR",
+  "PLATAFORMA_CONSULTAR",
+] as const;
+
+export type FacultadPlataforma = (typeof FACULTADES_PLATAFORMA)[number];
+export type EstadoOperador = "ACTIVO" | "SUSPENDIDO" | "REVOCADO";
+
+export interface OperadorSaas {
+  schemaVersion: 1;
+  uid: string;
+  estado: EstadoOperador;
+  facultades: FacultadPlataforma[];
+  versionAutorizacion: number;
+  creadoEn: unknown;
+  actualizadoEn: unknown;
+  creadoPor: { tipo: "BOOTSTRAP" | "OPERADOR"; uid: string | null };
+  ultimoCambioPorUid: string;
+  motivoCambioCodigo: string;
+}
+
+export interface ClaimsSaas {
+  operador: boolean;
+  versionAutorizacion: number;
+  facultades: FacultadPlataforma[];
+}
+
+export interface EnvelopePlataforma {
+  commandId: string;
+  idempotencyKey: string;
+  correlationId: string;
+  causationId: string | null;
+  motivoCodigo: string;
+}
+
+export type ResultadoAuditoria =
+  | "CONFIRMADO"
+  | "DENEGADO"
+  | "CONFLICTO"
+  | "FALLO_RECUPERABLE";
+
+export type TipoAuditoria =
+  | "OPERADOR_INCORPORADO"
+  | "OPERADOR_FACULTADES_CAMBIADAS"
+  | "OPERADOR_SUSPENDIDO"
+  | "OPERADOR_REACTIVADO"
+  | "OPERADOR_REVOCADO"
+  | "PLAN_CREADO"
+  | "PLAN_VERSION_CREADA"
+  | "PLAN_BORRADOR_ACTUALIZADO"
+  | "PLAN_VERSION_PUBLICADA"
+  | "PLAN_VERSION_RETIRADA"
+  | "SUSCRIPCION_CREADA"
+  | "SUSCRIPCION_ACTIVADA"
+  | "SUSCRIPCION_RENOVADA"
+  | "SUSCRIPCION_PLAN_CAMBIADO"
+  | "SUSCRIPCION_MORA_MARCADA"
+  | "SUSCRIPCION_SUSPENDIDA"
+  | "SUSCRIPCION_CANCELACION_PROGRAMADA"
+  | "SUSCRIPCION_CANCELACION_REVOCADA"
+  | "SUSCRIPCION_CANCELADA"
+  | "SUSCRIPCION_REACTIVADA"
+  | "BOOTSTRAP_EMPRESARIAL_SOLICITADO"
+  | "BOOTSTRAP_EMPRESARIAL_COMPLETADO"
+  | "EMPRESA_ACTIVADA"
+  | "EMPRESA_SUSPENDIDA"
+  | "EMPRESA_CANCELADA"
+  | "EMPRESA_REACTIVADA"
+  | "EMPRESA_ARCHIVADA"
+  | "EMPRESA_RESTAURADA"
+  | "EMPRESA_ELIMINADA"
+  | "EXPORTACION_SOLICITADA"
+  | "EXPORTACION_COMPLETADA"
+  | "EXPORTACION_RECHAZADA"
+  | "EXPORTACION_FALLIDA"
+  | "AUTORIZACION_DENEGADA"
+  | "FACULTAD_AUSENTE"
+  | "OPERADOR_INACTIVO"
+  | "AUTOESCALAMIENTO_DENEGADO"
+  | "ALCANCE_DENEGADO"
+  | "CONTEXTO_PLATAFORMA_OBSOLETO"
+  | "CONFLICTO_IDEMPOTENCIA"
+  | "CONFLICTO_REVISION"
+  | "SOPORTE_SOLICITADO"
+  | "SOPORTE_RECHAZADO"
+  | "SOPORTE_AUTORIZADO"
+  | "SOPORTE_REVOCADO"
+  | "SOPORTE_EXPIRADO"
+  | "SOPORTE_INICIADO"
+  | "SOPORTE_FINALIZADO"
+  | "SOPORTE_ALCANCE_RECHAZADO"
+  | "SOPORTE_ACCESO_FUERA_DE_ALCANCE_DENEGADO"
+  | "SOPORTE_DIAGNOSTICO_ALTO_RIESGO";
+
+export type TipoAgregadoAuditoria =
+  | "OPERADOR"
+  | "PLAN"
+  | "SUSCRIPCION"
+  | "EMPRESA"
+  | "PROVISIONAMIENTO_EMPRESARIAL"
+  | "CONSERVACION"
+  | "SOPORTE_AUTORIZACION"
+  | "SOPORTE_SESION"
+  | "SEGURIDAD_PLATAFORMA";
+
+export function esFacultadPlataforma(value: unknown): value is FacultadPlataforma {
+  return typeof value === "string"
+    && (FACULTADES_PLATAFORMA as readonly string[]).includes(value);
+}
+
+export function facultadesValidas(value: unknown): value is FacultadPlataforma[] {
+  return Array.isArray(value)
+    && value.length > 0
+    && value.every(esFacultadPlataforma)
+    && new Set(value).size === value.length;
+}
+

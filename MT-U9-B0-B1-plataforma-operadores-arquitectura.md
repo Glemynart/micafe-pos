@@ -1,6 +1,6 @@
 # MT-U9 — U9-B0 y U9-B1: plataforma y operadores SaaS
 
-> **Estado:** especificación arquitectónica para revisión.  
+> **Estado:** especificación arquitectónica aprobada.
 > **Alcance:** contratos e invariantes de plataforma (U9-B0) y modelo conceptual de operador/autorización (U9-B1).  
 > **Fuera de alcance:** comandos administrativos (U9-B2), auditoría de plataforma (U9-B3), soporte e impersonación (U9-B4), Panel SaaS (U9-B5), certificación (U9-B6), y toda implementación.  
 > **Autoridad:** `MT-U9-panel-saas-operadores-auditoria-arquitectura.md`, subordinado al Documento Maestro, ADR-SAAS-001→010 y `MASTER-SECURITY-PLAN.md`.
@@ -65,6 +65,7 @@ Una facultad es una autorización de dominio del plano plataforma, no un rol ten
 |---|---|---|
 | Gobernanza de operadores | Administrar la pertenencia y facultades del plano plataforma. | No concede acceso tenant ni modifica `usuarios` o `membresias` como vía de autorización. |
 | Gobernanza comercial | Administrar la oferta comercial y la relación comercial conforme a sus contratos existentes. | No usa Suscripción como autoridad de acceso ni define límites/consumo de MT-U10. |
+| Solicitud de Bootstrap empresarial | Solicitar al servicio canónico de ADR-SAAS-007 el provisionamiento de una Empresa para un `ownerUid` verificado. | No crea directamente Empresa, Membresía, claims, Configuración, Espacio, Numeración, Suscripción ni registro de provisionamiento; no altera los pasos o efectos del Bootstrap. |
 | Gobernanza de lifecycle | Solicitar o ejecutar transiciones empresariales admisibles por la autoridad de lifecycle. | No salta la máquina de estados, revisión, motivo, retención ni el servicio único de lifecycle. |
 | Conservación de plataforma | Intervenir en archivo, restauración, eliminación o exportación solo cuando el lifecycle y la retención lo permitan. | No borra por conveniencia ni altera datos fiscales, operativos o históricos. |
 | Consulta de plataforma | Consultar el mínimo estado canónico y evidencia necesarios para una responsabilidad de plataforma. | No equivale a operación tenant, exportación indiscriminada ni soporte. |
@@ -101,6 +102,7 @@ La clasificación no adelanta el esquema de auditoría de B3 ni los datos de con
 
 - Reconocer y limitar facultades de plataforma sin convertirlas en membresías tenant.
 - Administrar conceptualmente la oferta, suscripción, lifecycle y conservación solo a través de las autoridades y transiciones ya aceptadas.
+- Solicitar el Bootstrap empresarial exclusivamente mediante el servicio canónico de ADR-SAAS-007, sin ejecutar ni reproducir sus escrituras o efectos.
 - Consultar datos mínimos que permitan ejercer una facultad de plataforma.
 - Identificar una empresa objetivo para un proceso de plataforma sin crear un tenant activo.
 - Preservar la trazabilidad como obligación de los procesos sensibles, sin diseñar aún su modelo de auditoría.
@@ -128,6 +130,7 @@ La clasificación no adelanta el esquema de auditoría de B3 ni los datos de con
 - **PLT-B0-09 — Contexto temporal.** Claims y sesión proyectan contexto; no reemplazan la autoridad canónica de facultades, lifecycle o datos empresariales.
 - **PLT-B0-10 — Trazabilidad sin autoridad.** Los hechos trazables derivados de acciones sensibles no conceden permisos ni preceden al hecho confirmado; su contrato persistente queda reservado a B3.
 - **PLT-B0-11 — Límites de unidad.** B0 no define ni habilita consumo/límites, cambio de tenant, Electron, soporte/impersonación, comandos ni auditoría de plataforma.
+- **PLT-B0-12 — Bootstrap canónico no sustituible.** La facultad de solicitud de Bootstrap solo autoriza expresar la intención de provisionamiento; ADR-SAAS-007 y su servicio canónico conservan en exclusiva la creación del registro de provisionamiento, Empresa, núcleo tenant, Membresía inicial y claims recuperables.
 
 ## B0.9 Riesgos arquitectónicos
 
@@ -189,7 +192,7 @@ Los tipos son perfiles de facultades B0. No son roles tenant, no forman una jera
 |---|---|---|---|
 | Administrador de plataforma | Gobernanza de operadores. | Mantener la pertenencia y asignación de facultades del plano plataforma. | No obtiene gobernanza comercial, lifecycle, conservación, soporte ni acceso tenant por defecto. |
 | Operador comercial | Gobernanza comercial y consulta de plataforma necesaria para ella. | Administrar oferta comercial y relación comercial conforme a las autoridades existentes. | No impone lifecycle, no mide/ejecuta límites de MT-U10, no opera tenant. |
-| Operador de lifecycle | Gobernanza de lifecycle, conservación de plataforma y consulta mínima necesaria. | Intervenir en transiciones empresariales admisibles y conservación conforme a lifecycle/retención. | No administra operadores, no altera fiscalidad/operación, no confunde Suscripción con acceso. |
+| Operador de lifecycle | Solicitud de Bootstrap empresarial, gobernanza de lifecycle, conservación de plataforma y consulta mínima necesaria. | Solicitar el Bootstrap canónico y, sobre Empresas ya existentes, intervenir en transiciones admisibles y conservación conforme a lifecycle/retención. | No administra operadores, no crea directamente recursos tenant, no altera fiscalidad/operación y no confunde Suscripción con acceso. |
 | Observador de plataforma | Consulta de plataforma. | Consultar el mínimo estado/evidencia de plataforma para seguimiento autorizado. | No muta agregados, no exporta datos tenant por defecto y no brinda soporte. |
 
 No existe en B1 un tipo “superadmin”, “soporte”, “impersonador”, “operador POS”, “administrador tenant”, “operador de consumo” ni “cambiador de tenant”. Cualquier necesidad de esos dominios permanece en su bloque o unidad reservada.
@@ -200,6 +203,7 @@ No existe en B1 un tipo “superadmin”, “soporte”, “impersonador”, “
 |---|---|---|---|
 | Gobernanza de operadores | Asignar, retirar o revisar facultades de plataforma bajo el modelo B1. | `saas_operadores/{uid}`. | No puede autoatribuirse facultades ni cambiar Membresías tenant. |
 | Gobernanza comercial | Gestionar el Plan publicado/versionado y Suscripción a través de las transiciones permitidas por esos agregados. | Plan/version y `suscripciones/{empresaId}`. | No autoriza Empresa ni habilita límites/consumo. |
+| Solicitud de Bootstrap empresarial | Solicitar el provisionamiento para un `ownerUid` verificado mediante el contrato idempotente y recuperable de ADR-SAAS-007. | Registro de provisionamiento y servicio canónico de Bootstrap de ADR-SAAS-007. | No ejecuta directamente el Bootstrap, no escribe recursos tenant, no crea Membresías ni emite claims. |
 | Gobernanza de lifecycle | Actuar sobre transiciones empresariales admisibles según `Empresa.estado`. | `empresas/{empresaId}.estado`. | No escribe una transición fuera del servicio canónico ni reactiva por regularizar una Suscripción. |
 | Conservación de plataforma | Intervenir en archivo, restauración, eliminación o exportación cuando su precondición canónica exista. | Lifecycle, retención y autorización de plataforma. | No elimina datos ni expone acceso interactivo por decisión del operador. |
 | Consulta de plataforma | Leer el mínimo estado canónico asociado a su responsabilidad. | El agregado consultado. | No muta, no crea contexto tenant ni se convierte en soporte. |
@@ -247,7 +251,7 @@ La separación se define por fuente de autoridad y ámbito, no por una multiplic
 - La autorización de plataforma no permite acceso interactivo a una empresa `cancelada`; la exportación sigue siendo un flujo backend controlado por lifecycle.
 - Una empresa `archivada` sigue accesible solo a plataforma o soporte autorizado conforme al Maestro; B1 no convierte esa excepción de lifecycle en soporte, operación tenant o acceso a datos sin facultad.
 - La suspensión mantiene la matriz de ADR-SAAS-009: owner/admin tenant tienen solo lectura administrativa y los roles operativos no operan POS. B1 no la amplía ni la reemplaza.
-- Ningún tipo de B1 puede crear empresa fuera de Bootstrap, alterar sus pasos, emitir claims tenant, incorporar empleados ni completar onboarding.
+- Ningún tipo de B1 puede crear empresa fuera de Bootstrap, alterar sus pasos, emitir claims tenant, incorporar empleados ni completar onboarding. El Operador de lifecycle que posea la facultad de solicitud de Bootstrap solo puede remitir la intención al servicio canónico de ADR-SAAS-007.
 - Ningún tipo de B1 puede seleccionar/consumir numeración, emitir/anular ventas, aplicar efectos operativos o reescribir evidencia histórica.
 - B1 no autoriza acceso a secretos, credenciales fiscales, PIN, tokens ni PII que no sea estrictamente necesaria para la facultad, conforme al límite B0.3.4.
 
@@ -263,6 +267,7 @@ La separación se define por fuente de autoridad y ámbito, no por una multiplic
 - **OPR-B1-08 — Consulta no mutante.** La facultad de consulta no concede mutación, exportación general ni soporte.
 - **OPR-B1-09 — Revocación canónica.** Una proyección de sesión o claim no mantiene una facultad retirada canónicamente.
 - **OPR-B1-10 — Fuera de alcance protegido.** Tipos B1 no habilitan MT-U10, MT-U11, MT-U12, B2, B3, B4, B5 o B6.
+- **OPR-B1-11 — Provisionamiento delegado al dominio.** Solicitar Bootstrap no convierte al operador en creador de Empresa, owner, miembro tenant ni emisor de claims; todos los efectos permanecen exclusivamente en ADR-SAAS-007.
 
 ## B1.10 Riesgos arquitectónicos
 
@@ -287,5 +292,6 @@ U9-B1 está completo solo si:
 5. Ningún tipo de operador habilita consumo/límites, cambio de tenant, Electron, comandos, auditoría, soporte/impersonación, panel o certificación.
 6. Todas las restricciones de acceso preservan la matriz de ADR-SAAS-009, Bootstrap de ADR-SAAS-007, fiscalidad de ADR-SAAS-008 y estado operativo de ADR-SAAS-010.
 7. Los riesgos de B1 quedan cubiertos por una regla o invariante B0/B1, sin definir implementación.
+8. La solicitud de Bootstrap se limita a invocar el servicio canónico de ADR-SAAS-007 y no autoriza escrituras directas, creación de Membresías, emisión de claims ni modificación del flujo de provisionamiento.
 
 **Cierre de B1:** con B0 y B1 aprobados, U9-B2 puede definir comandos administrativos sin rediseñar autoridades, perfiles, facultades, fronteras de confianza o separación de funciones.

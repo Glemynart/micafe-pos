@@ -97,6 +97,51 @@ const entradaBase: EntradaBootstrapEmpresarial = {
 
 const ownerExistente = async () => {};
 
+test("Bootstrap creates the audit obligation in the same core commit", async () => {
+  const db = new Db();
+  db.seed("planes/plan_pos_pro/versiones/1", {
+    planId: "plan_pos_pro",
+    planVersion: 1,
+    estado: "PUBLICADA",
+  });
+
+  await ejecutarBootstrapEmpresarial(
+    db as any,
+    entradaBase,
+    async () => {},
+    ownerExistente,
+    (tx) => tx.create(db.collection("saas_auditoria_obligaciones").doc("bootstrap_atomic"), {
+      estado: "PENDIENTE",
+    }),
+  );
+
+  assert.equal(db.read("empresas/empresa_test_b5").estado, "trial");
+  assert.equal(db.read("saas_auditoria_obligaciones/bootstrap_atomic").estado, "PENDIENTE");
+});
+
+test("Bootstrap does not publish its core when the durable audit obligation cannot be created", async () => {
+  const db = new Db();
+  db.seed("planes/plan_pos_pro/versiones/1", {
+    planId: "plan_pos_pro",
+    planVersion: 1,
+    estado: "PUBLICADA",
+  });
+
+  await assert.rejects(
+    ejecutarBootstrapEmpresarial(
+      db as any,
+      entradaBase,
+      async () => {},
+      ownerExistente,
+      () => { throw new Error("AUDIT_OBLIGATION_WRITE_FAILED"); },
+    ),
+    /AUDIT_OBLIGATION_WRITE_FAILED/,
+  );
+
+  assert.equal(db.read("empresas/empresa_test_b5"), undefined);
+  assert.equal(db.read("provisionamientos_empresariales/prov_"), undefined);
+});
+
 test("B5 Bootstrap — Ejecución exitosa completa y atómica del núcleo", async () => {
   const db = new Db();
   // Sembrar versión de plan publicada

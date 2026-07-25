@@ -46,7 +46,8 @@ async function prepararMembresiaMultiempresa() {
     db.collection("membresias").doc(`${empresaB}_${objetivo.uid}`).set({ empresaId: empresaB, uid: objetivo.uid, rol: "cajero", permisos: ["sell"], estado: "activa", activo: true }),
     db.collection("membresias").doc(`${empresaB}_${adminB.uid}`).set({ empresaId: empresaB, uid: adminB.uid, rol: "admin", permisos: ["sell"], estado: "activa", activo: true }),
   ]);
-  await auth.setCustomUserClaims(objetivo.uid, { empresaId: empresaA, rol: "cajero" });
+  const saas = { operador: true, versionAutorizacion: 3, facultades: ["PLATAFORMA_CONSULTAR"] };
+  await auth.setCustomUserClaims(objetivo.uid, { empresaId: empresaA, rol: "cajero", saas });
   return { adminB, empresaA, empresaB, objetivo };
 }
 
@@ -146,7 +147,11 @@ test("MEMBRESIA actualizar en B preserva el contexto activo A del usuario", asyn
   } as never);
 
   assert.equal((await getFirestore().collection("membresias").doc(`${empresaB}_${objetivo.uid}`).get()).data()?.rol, "supervisor");
-  assert.deepEqual((await getAuth().getUser(objetivo.uid)).customClaims, { empresaId: empresaA, rol: "cajero" });
+  assert.deepEqual((await getAuth().getUser(objetivo.uid)).customClaims, {
+    empresaId: empresaA,
+    rol: "cajero",
+    saas: { operador: true, versionAutorizacion: 3, facultades: ["PLATAFORMA_CONSULTAR"] },
+  });
 });
 
 test("MEMBRESIA desactivar en B preserva el contexto activo A del usuario", async () => {
@@ -160,7 +165,11 @@ test("MEMBRESIA desactivar en B preserva el contexto activo A del usuario", asyn
   const membresia = (await getFirestore().collection("membresias").doc(`${empresaB}_${objetivo.uid}`).get()).data();
   assert.equal(membresia?.estado, "inactiva");
   assert.equal(membresia?.activo, false);
-  assert.deepEqual((await getAuth().getUser(objetivo.uid)).customClaims, { empresaId: empresaA, rol: "cajero" });
+  assert.deepEqual((await getAuth().getUser(objetivo.uid)).customClaims, {
+    empresaId: empresaA,
+    rol: "cajero",
+    saas: { operador: true, versionAutorizacion: 3, facultades: ["PLATAFORMA_CONSULTAR"] },
+  });
 });
 
 test("DIRECTA permite reingresar con PIN definitivo en un tenant no fundacional", async () => {

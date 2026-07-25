@@ -2,7 +2,7 @@
 
 ## Estado
 
-**Propuesto para aprobación.** Complementa MT-U9 y materializa, sin sustituirlas, las
+**Aceptado.** Complementa MT-U9 y materializa, sin sustituirlas, las
 autoridades de plataforma reservadas en el Documento Maestro y especificadas en
 U9-B0 a U9-B5.
 
@@ -124,6 +124,7 @@ este contrato.
 |---|---|---|---|
 | `OPERADORES_GOBERNAR` | Gobernanza de operadores | Incorporar, suspender, reactivar, revocar y cambiar facultades de otro operador. | Autoasignación, auto-reactivación, modificación de Membresías o acceso tenant. |
 | `COMERCIAL_GOBERNAR` | Gobernanza comercial | Comandos B2 sobre Planes y Suscripciones. | Lifecycle de Empresa, consumo/límites, tenant activo u operación POS. |
+| `BOOTSTRAP_EMPRESARIAL_SOLICITAR` | Solicitud de Bootstrap empresarial | Solicitar `SolicitarBootstrapEmpresarial` para un `ownerUid` verificado mediante el servicio canónico de ADR-SAAS-007. | Crear directamente Empresa, registro de provisionamiento, Membresía, claims, Configuración, Espacio, Numeración o Suscripción; alterar el Bootstrap o escribir datos tenant. |
 | `LIFECYCLE_GOBERNAR` | Gobernanza de lifecycle | Solicitar transiciones empresariales admisibles al servicio único de lifecycle. | Escribir `Empresa.estado` directamente, reactivar por Suscripción o modificar datos tenant. |
 | `CONSERVACION_GOBERNAR` | Conservación de plataforma | Solicitar archivo, restauración, eliminación o exportación cuando lifecycle y retención lo permitan. | Borrar por conveniencia, lectura interactiva general o soporte. |
 | `PLATAFORMA_CONSULTAR` | Consulta de plataforma | Leer la proyección mínima de agregados y evidencia necesaria para otra responsabilidad autorizada. | Mutar, exportar indiscriminadamente, operar tenant o soporte. |
@@ -134,7 +135,7 @@ No existen valores equivalentes, aliases, perfiles persistidos, `superadmin`,
 presentación de estas facultades; el conjunto `facultades` es la única representación
 persistida y decisoria.
 
-La combinación de facultades es aditiva únicamente respecto de las cinco capacidades
+La combinación de facultades es aditiva únicamente respecto de las seis capacidades
 enumeradas. Nunca crea una facultad residual, acceso a soporte, un tenant implícito ni
 autorización sobre fiscalidad u operación.
 
@@ -353,6 +354,9 @@ servicios canónicos existentes:
   otros operadores.
 - `COMERCIAL_GOBERNAR`: administrar Planes y Suscripciones conforme a su máquina de
   estados, versionado, periodos, gracia y grandfathering.
+- `BOOTSTRAP_EMPRESARIAL_SOLICITAR`: solicitar el Bootstrap empresarial canónico para
+  un `ownerUid` verificado; ADR-SAAS-007 conserva en exclusiva la creación del registro
+  de provisionamiento, Empresa, núcleo tenant, Membresía inicial y claims recuperables.
 - `LIFECYCLE_GOBERNAR`: solicitar transiciones admisibles de Empresa por el servicio
   único de lifecycle, con revisión, motivo e idempotencia.
 - `CONSERVACION_GOBERNAR`: solicitar archivo, restauración, eliminación o exportación
@@ -370,7 +374,9 @@ Un operador SaaS no puede, por su condición de operador:
 
 - obtener, seleccionar o cambiar un tenant activo; crear una Membresía; actuar como
   owner; modificar `usuarios`; cambiar roles, permisos o estado tenant; emitir claims
-  tenant; incorporar empleados ni completar Bootstrap empresarial;
+  tenant; incorporar empleados ni ejecutar o completar directamente Bootstrap
+  empresarial. La facultad `BOOTSTRAP_EMPRESARIAL_SOLICITAR` solo permite solicitarlo
+  al servicio canónico de ADR-SAAS-007;
 - operar POS, caja, turnos, pedidos, cocina, reservas, clientes, inventario, gastos,
   reportes, tesorería o cualquier recurso operativo de una Empresa;
 - crear, editar o eliminar configuración, espacios, numeraciones, asignaciones,
@@ -402,6 +408,7 @@ framework, UI, Function concreta ni esquema de auditoría físico.
 | `ReactivarOperador` | `OPERADORES_GOBERNAR` | Actor distinto, objetivo `SUSPENDIDO`, facultades nuevas explícitas, motivo y versión esperada. | Estado activo; no restaura privilegios implícitos. |
 | `RevocarOperador` | `OPERADORES_GOBERNAR` | Actor distinto, objetivo no revocado, motivo y versión esperada. | Estado terminal, facultades vacías, sesión invalidada; sin borrado. |
 | `ConsultarContextoPlataforma` | Documento activo propio; no concede facultad adicional | Revalida §5.1 y devuelve solo proyección mínima de facultades actuales. | No cambia autoridad ni crea tenant activo. |
+| `SolicitarBootstrapEmpresarial` | `BOOTSTRAP_EMPRESARIAL_SOLICITAR` | Actor autorizado; `ownerUid` SaaS existente y verificado; clave de idempotencia y huella compatibles; motivo y correlación. Invoca exclusivamente el servicio canónico de ADR-SAAS-007. | Devuelve el estado durable del provisionamiento. El operador no crea Empresa, Membresía, claims ni documentos tenant y no modifica el Bootstrap. |
 | Comandos comerciales B2 | `COMERCIAL_GOBERNAR` | Conservan agregado Plan/Suscripción, sus estados, revisiones, periodo, idempotencia y reloj servidor. | Suscripción nunca decide acceso ni reactiva Empresa automáticamente. |
 | Comandos de lifecycle B2 | `LIFECYCLE_GOBERNAR` | Invocan el servicio único y respetan transición, `expectedRevision`, motivo, retención y estado canónico. | No escriben `Empresa.estado` directamente ni modifican operación tenant. |
 | Comandos de conservación B2 | `CONSERVACION_GOBERNAR` | Requieren proceso canónico, lifecycle y base de retención aplicable. | No son soporte ni lectura interactiva general; no alteran hechos históricos. |
@@ -434,9 +441,12 @@ cualquier implementación posterior:
    POS, caja, inventario, fiscalidad, configuración, Membresías, credenciales, claims
    tenant, lifecycle, Plan, Suscripción, Bootstrap, numeraciones, snapshots, ledger,
    tesorería ni comandos B2 en nombre del tenant.
-6. `trial` y `activa` solo admiten soporte bajo esos requisitos; `suspendida` no lo
-   amplía; `cancelada` no admite acceso interactivo de soporte; `archivada` requiere
-   además la excepción de lifecycle; `eliminada` no admite soporte.
+6. En `trial` y `activa`, el soporte solo existe bajo los requisitos de esta sección.
+   En `suspendida`, el soporte no amplía la lectura administrativa propia de
+   owner/admin ni habilita POS; una sesión de soporte sigue requiriendo autorización
+   separada y previa conforme a MT-U9 B4. En `cancelada`, no existe acceso interactivo
+   de soporte; en `archivada`, se requiere además la excepción de lifecycle; en
+   `eliminada`, no existe soporte.
 7. Vencimiento, revocación o discrepancia de estado bloquean de inmediato la sesión;
    un token, claim, cookie, evidencia o caché anterior no la mantiene.
 8. Las acciones y denegaciones de soporte deben producir la evidencia requerida por
@@ -516,6 +526,9 @@ Consecuencias deliberadas:
   `estadoOperativo`, ledger, tesorería o auditoría histórica.
 - **OPR-011-11:** `saas_auditoria` no decide permisos y su modelo físico no se define
   en este ADR.
+- **OPR-011-12:** `BOOTSTRAP_EMPRESARIAL_SOLICITAR` autoriza únicamente solicitar el
+  servicio canónico de ADR-SAAS-007; no concede autoridad para crear o escribir
+  directamente Empresa, provisionamiento, Membresía, claims ni recursos tenant.
 
 ## Relación con otros ADR
 

@@ -332,8 +332,7 @@ async function acuñarSesionTenant(uid: string, empresaId: string, rol: RolTenan
   const auth = getAuth();
   const existente = (await auth.getUser(uid)).customClaims ?? {};
   const platformClaims = {
-    ...(existente.superadmin === true ? { superadmin: true } : {}),
-    ...(existente.soporte === true ? { soporte: true } : {}),
+    ...(existente.saas && typeof existente.saas === "object" ? { saas: existente.saas } : {}),
   };
 
   await auth.setCustomUserClaims(uid, { ...platformClaims, empresaId, rol });
@@ -348,8 +347,7 @@ export async function emitirSesionActivacionDirecta(uid: string, incorporacionId
   const auth = getAuth();
   const existente = (await auth.getUser(uid)).customClaims ?? {};
   const platformClaims = {
-    ...(existente.superadmin === true ? { superadmin: true } : {}),
-    ...(existente.soporte === true ? { soporte: true } : {}),
+    ...(existente.saas && typeof existente.saas === "object" ? { saas: existente.saas } : {}),
   };
   await auth.setCustomUserClaims(uid, platformClaims);
   await auth.revokeRefreshTokens(uid);
@@ -365,8 +363,7 @@ export async function actualizarClaimsTenant(
   const auth = getAuth();
   const existente = claimsActuales ?? (await auth.getUser(uid)).customClaims ?? {};
   const platformClaims = {
-    ...(existente.superadmin === true ? { superadmin: true } : {}),
-    ...(existente.soporte === true ? { soporte: true } : {}),
+    ...(existente.saas && typeof existente.saas === "object" ? { saas: existente.saas } : {}),
   };
   await auth.setCustomUserClaims(uid, rol ? { ...platformClaims, empresaId, rol } : platformClaims);
   await auth.revokeRefreshTokens(uid);
