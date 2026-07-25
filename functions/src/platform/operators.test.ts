@@ -106,6 +106,21 @@ test("reintento compatible recupera resultado sin duplicar operador ni evidencia
   assert.equal([...db.docs.keys()].filter((key) => key.startsWith("saas_auditoria/")).length, 1);
 });
 
+test("H9 — un reintento idempotente no reproyecta claims ni vuelve a revocar refresh tokens", async () => {
+  const db = new FakeDb();
+  const auth = new FakeAuth();
+  await ejecutarComandoOperador(db as never, "operador_actor", "IncorporarOperador", entrada, auth as never);
+  assert.equal(auth.revocados.length, 1);
+  const proyectadosTrasPrimero = auth.proyectados;
+
+  const second = await ejecutarComandoOperador(db as never, "operador_actor", "IncorporarOperador", entrada, auth as never);
+
+  assert.equal(second.idempotente, true);
+  // Ni la revocación de tokens ni la proyección de claims se repiten en el reintento.
+  assert.equal(auth.revocados.length, 1);
+  assert.equal(auth.proyectados, proyectadosTrasPrimero);
+});
+
 test("un operador no puede modificar su propia autoridad", async () => {
   const db = new FakeDb();
   const auth = new FakeAuth();

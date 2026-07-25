@@ -4,7 +4,7 @@ import { autorizarPlataforma } from "./authorization";
 import type { EnvelopePlataforma, FacultadPlataforma } from "./contracts";
 import { ejecutarComandoOperador } from "./operators";
 import { ejecutarComandoComercial, solicitarBootstrapEmpresarial } from "./operations";
-import { obtenerComandoComercial } from "./command-catalog";
+import { facultadTransicionEmpresa, obtenerComandoComercial } from "./command-catalog";
 import { consultarAuditoriaPlataforma, listarRecursosPlataforma, obtenerDetalleEmpresaPlataforma, validarFiltroAuditoria, type RecursoPlataforma } from "./queries";
 import { listarSoporteTenant, solicitarSoporte, transicionarSoporte } from "./support";
 
@@ -64,7 +64,13 @@ export const ejecutarComandoComercialSaas = onCall({ region: REGION }, async (re
     throw new HttpsError("invalid-argument", "ENTRADA_COMANDO_INVALIDA");
   }
   const db = getFirestore();
-  await autorizarPlataforma(db, auth.uid, auth.token, comando.facultad);
+  const entrada = data.entrada as { destino?: unknown; empresaId?: unknown };
+  // Archivar, restaurar y eliminar Empresa exigen CONSERVACION_GOBERNAR, separada de
+  // LIFECYCLE_GOBERNAR (ADR-SAAS-011 §3.3, MT-U9 §B2.7); ver command-catalog.ts.
+  const facultad = comando.tipo === "TransicionarEmpresa"
+    ? await facultadTransicionEmpresa(db, entrada.destino, entrada.empresaId)
+    : comando.facultad;
+  await autorizarPlataforma(db, auth.uid, auth.token, facultad);
   return ejecutarComandoComercial(db, auth.uid, comando.tipo, data.entrada as never);
 });
 

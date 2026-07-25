@@ -8,11 +8,18 @@ export type ContextoComercial = {
   actorId: string;
   origen: "PLATFORM" | "SYSTEM" | "COMMERCIAL";
   /**
+   * Identificador ya asignado (ADR-SAAS-012 Anexo A) de la obligación de auditoría
+   * que la capa orquestadora crea en la misma transacción vía
+   * `registrarResultadoEnTransaccion`. Se persiste junto al resultado durable para
+   * que un reintento idempotente lo recupere en vez de perderlo.
+   */
+  obligacionId?: string;
+  /**
    * Extensión interna para que una capa orquestadora registre sus obligaciones
    * en la misma transacción que confirma el agregado. No concede capacidades
    * ni reemplaza la auditoría canónica comercial.
    */
-  registrarResultadoEnTransaccion?: (tx: any, resultado: unknown) => void;
+  registrarResultadoEnTransaccion?: (tx: any, resultado: unknown) => { obligacionId: string } | void;
 };
 const hash = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).digest("hex");
 const id = (p: string, k: string) => `${p}_${hash(k)}`;
@@ -20,9 +27,9 @@ const fail = (code: "invalid-argument" | "already-exists" | "failed-precondition
 function validar(e: Envelope) { if (!e || !esIdComercial(e.commandId) || !esIdComercial(e.idempotencyKey) || !esIdComercial(e.correlationId) || !esIdComercial(e.causationId) || !Number.isInteger(e.expectedRevision) || e.expectedRevision < 1 || !e.motivo.trim()) fail("invalid-argument", "ENVELOPE_COMERCIAL_INVALIDO"); }
 function comandoRef(db: Firestore, e: Envelope) { return db.collection("comandos_comerciales").doc(id("com", e.idempotencyKey)); }
 function commandIdRef(db: Firestore, e: Envelope) { return db.collection("configuracion_command_ids").doc(`cfgcmdid_${hash(e.commandId)}`); }
-async function previo(tx: any, db: Firestore, e: Envelope, empresaId: string, fingerprint: string) { const [a, b] = await Promise.all([tx.get(comandoRef(db, e)), tx.get(commandIdRef(db, e))]); for (const s of [b, a]) if (s.exists) { const d = s.data(); if (d.commandId !== e.commandId || d.idempotencyKey !== e.idempotencyKey || d.fingerprint !== fingerprint || d.empresaId !== empresaId) fail("already-exists", s === b ? "COMMAND_ID_CONFLICT" : "IDEMPOTENCY_CONFLICT"); return d.resultado; } }
+async function previo(tx: any, db: Firestore, e: Envelope, empresaId: string, fingerprint: string) { const [a, b] = await Promise.all([tx.get(comandoRef(db, e)), tx.get(commandIdRef(db, e))]); for (const s of [b, a]) if (s.exists) { const d = s.data(); if (d.commandId !== e.commandId || d.idempotencyKey !== e.idempotencyKey || d.fingerprint !== fingerprint || d.empresaId !== empresaId) fail("already-exists", s === b ? "COMMAND_ID_CONFLICT" : "IDEMPOTENCY_CONFLICT"); return { ...d.resultado, obligacionId: d.obligacionId ?? undefined }; } }
 function registrar(tx: any, db: Firestore, e: Envelope, empresaId: string, fingerprint: string, resultado: unknown, tipo: string, agregado: string, anterior: number, nueva: number, ctx: ContextoComercial) {
-  const base = { empresaId, commandId: e.commandId, idempotencyKey: e.idempotencyKey, fingerprint, resultado, creadoEn: FieldValue.serverTimestamp() };
+  const base = { empresaId, commandId: e.commandId, idempotencyKey: e.idempotencyKey, fingerprint, resultado, obligacionId: ctx.obligacionId ?? null, creadoEn: FieldValue.serverTimestamp() };
   tx.create(comandoRef(db, e), base); tx.create(commandIdRef(db, e), base);
   tx.create(db.collection("auditoria_logs").doc(id("comaudit", e.commandId)), { ...base, comando: tipo, agregado, revisionAnterior: anterior, revisionNueva: nueva, actorId: ctx.actorId, origen: ctx.origen, motivo: e.motivo });
   tx.create(db.collection("eventos_dominio").doc(id("comevent", e.commandId)), { eventId: id("comevent", e.commandId), tipo, version: 1, agregado, empresaId, revisionAnterior: anterior, revisionNueva: nueva, actorId: ctx.actorId, origen: ctx.origen, commandId: e.commandId, correlationId: e.correlationId, causationId: e.causationId, creadoEn: FieldValue.serverTimestamp() });

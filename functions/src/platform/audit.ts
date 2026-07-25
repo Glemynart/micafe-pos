@@ -122,32 +122,40 @@ export async function reconciliarObligacionesAuditoria(
   db: Firestore,
   limite = 100,
 ): Promise<number> {
-  const pendientes = await db.collection(OBLIGACIONES_COLLECTION)
-    .where("estado", "==", "PENDIENTE")
-    .orderBy("creadaEn", "asc")
-    .limit(limite)
-    .get();
   let emitidas = 0;
-  for (const obligacion of pendientes.docs) {
-    try {
-      await emitirObligacionAuditoria(db, obligacion.id);
-      emitidas += 1;
-    } catch (error) {
-      const codigo = error instanceof Error && error.message
-        ? error.message.slice(0, 128)
-        : "AUDIT_EMISSION_FAILED";
-      await db.runTransaction(async (tx) => {
-        const ref = db.collection(OBLIGACIONES_COLLECTION).doc(obligacion.id);
-        const actual = await tx.get(ref);
-        if (actual.exists && actual.data()!.estado === "PENDIENTE") {
-          tx.update(ref, {
-            intentos: FieldValue.increment(1),
-            ultimoErrorCodigo: codigo,
-          });
-        }
-      });
+  // Cursor por página (índice `estado ASC, creadaEn ASC` de ADR-SAAS-012 Anexo A.1): una
+  // obligación permanentemente fallida solo incrementa sus propios `intentos` y nunca
+  // bloquea el avance hacia obligaciones más recientes dentro de la misma reconciliación.
+  let cursor: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+  do {
+    let consulta = db.collection(OBLIGACIONES_COLLECTION)
+      .where("estado", "==", "PENDIENTE")
+      .orderBy("creadaEn", "asc")
+      .limit(limite);
+    if (cursor) consulta = consulta.startAfter(cursor);
+    const pendientes = await consulta.get();
+    for (const obligacion of pendientes.docs) {
+      try {
+        await emitirObligacionAuditoria(db, obligacion.id);
+        emitidas += 1;
+      } catch (error) {
+        const codigo = error instanceof Error && error.message
+          ? error.message.slice(0, 128)
+          : "AUDIT_EMISSION_FAILED";
+        await db.runTransaction(async (tx) => {
+          const ref = db.collection(OBLIGACIONES_COLLECTION).doc(obligacion.id);
+          const actual = await tx.get(ref);
+          if (actual.exists && actual.data()!.estado === "PENDIENTE") {
+            tx.update(ref, {
+              intentos: FieldValue.increment(1),
+              ultimoErrorCodigo: codigo,
+            });
+          }
+        });
+      }
     }
-  }
+    cursor = pendientes.docs.at(-1);
+  } while (cursor);
   return emitidas;
 }
 

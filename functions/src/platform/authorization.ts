@@ -1,4 +1,4 @@
-import type { Firestore } from "firebase-admin/firestore";
+import type { Firestore, Transaction } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import type { FacultadPlataforma, OperadorSaas } from "./contracts";
 import { randomUUID } from "node:crypto";
@@ -19,6 +19,11 @@ export async function autorizarPlataforma(
   uid: string,
   token: TokenPlataforma,
   facultad?: FacultadPlataforma,
+  // Cuando el llamador ya está dentro de una transacción (p. ej. para revalidar una
+  // autoridad decisiva junto al resto de sus lecturas, sin ventana entre la
+  // verificación y el commit), la lectura del operador se hace con `tx.get` en vez de
+  // una lectura suelta, preservando el resto del predicado sin cambios.
+  tx?: Transaction,
 ): Promise<OperadorSaas> {
   const denegar = async (
     codigo: "AUTORIZACION_DENEGADA" | "OPERADOR_INACTIVO" | "FACULTAD_AUSENTE" | "CONTEXTO_PLATAFORMA_OBSOLETO",
@@ -44,7 +49,8 @@ export async function autorizarPlataforma(
     }
     throw new HttpsError(error === "PLATFORM_CONTEXT_STALE" ? "failed-precondition" : "permission-denied", error);
   };
-  const snap = await db.collection(OPERADORES_COLLECTION).doc(uid).get();
+  const ref = db.collection(OPERADORES_COLLECTION).doc(uid);
+  const snap = tx ? await tx.get(ref) : await ref.get();
   if (!snap.exists) return denegar("AUTORIZACION_DENEGADA", "PLATFORM_ACCESS_DENIED");
   const operador = snap.data() as OperadorSaas;
   if (
