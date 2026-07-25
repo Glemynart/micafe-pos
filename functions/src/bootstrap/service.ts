@@ -35,10 +35,17 @@ function validarEntradaBootstrap(e: EntradaBootstrapEmpresarial): void {
 
 export type ClaimsEmitter = (uid: string, empresaId: string, rol: "admin") => Promise<void>;
 export type OwnerIdentityVerifier = (uid: string) => Promise<void>;
+/**
+ * Observador opcional de la capa de plataforma (ADR-SAAS-012 Anexo A). Puede registrar,
+ * dentro de la misma transacción del hecho durable, una obligación de auditoría ya
+ * identificada y devolver su `obligacionId` para que quede persistido junto al registro
+ * de provisionamiento y un reintento idempotente lo recupere en vez de perderlo. No crea
+ * Empresa, Membresía, claims ni ningún recurso tenant; ADR-SAAS-007 no se altera.
+ */
 export type BootstrapCoreCommitObserver = (
   tx: Transaction,
   provisionamiento: Pick<ProvisionamientoEmpresarial, "provisionamientoId" | "empresaId">,
-) => void;
+) => { obligacionId: string } | void;
 
 export async function ejecutarBootstrapEmpresarial(
   dbParam?: Firestore,
@@ -46,6 +53,7 @@ export async function ejecutarBootstrapEmpresarial(
   customClaimsEmitter?: ClaimsEmitter,
   ownerIdentityVerifier?: OwnerIdentityVerifier,
   coreCommitObserver?: BootstrapCoreCommitObserver,
+  completionObserver?: BootstrapCoreCommitObserver,
 ): Promise<ResultadoBootstrapEmpresarial> {
   const db = dbParam ?? getFirestore();
   if (!entrada) return fail("invalid-argument", "ENTRADA_REQUERIDA");
@@ -208,6 +216,10 @@ export async function ejecutarBootstrapEmpresarial(
     );
 
     // G. Registro de Provisionamiento (CORE_COMMITTED)
+    const observadoCore = coreCommitObserver?.(tx, {
+      provisionamientoId,
+      empresaId: entrada.empresaId,
+    });
     const prov: ProvisionamientoEmpresarial = {
       provisionamientoId,
       idempotencyKey: entrada.idempotencyKey,
@@ -220,15 +232,12 @@ export async function ejecutarBootstrapEmpresarial(
       planVersion: entrada.planVersion,
       estado: "CORE_COMMITTED",
       ultimoPasoConfirmado: "CORE_COMMITTED",
+      obligacionId: observadoCore?.obligacionId ?? null,
       schemaVersion: 1,
       creadoEn: FieldValue.serverTimestamp(),
       actualizadoEn: FieldValue.serverTimestamp(),
     };
     tx.create(provRef, prov);
-    coreCommitObserver?.(tx, {
-      provisionamientoId: prov.provisionamientoId,
-      empresaId: prov.empresaId,
-    });
 
     return { yaCometido: false, prov };
   });
@@ -239,6 +248,8 @@ export async function ejecutarBootstrapEmpresarial(
       empresaId: entrada.empresaId,
       estado: "COMPLETED",
       claimsEmitidos: true,
+      obligacionId: transaccionResultado.prov.obligacionId ?? null,
+      obligacionCompletadoId: transaccionResultado.prov.obligacionCompletadoId ?? null,
       idempotente: true,
     };
   }
@@ -277,17 +288,33 @@ export async function ejecutarBootstrapEmpresarial(
   }
 
   try {
-    await provRef.update({
-      estado: "COMPLETED",
-      ultimoPasoConfirmado: "COMPLETED",
-      errorRecuperable: null,
-      actualizadoEn: FieldValue.serverTimestamp(),
+    const obligacionCompletadoId = await db.runTransaction(async (tx) => {
+      // Lectura transaccional previa a cualquier escritura: si un commit concurrente ya
+      // completó este mismo provisionamiento (reintento de Firestore tras conflicto de
+      // versión), se reutiliza su obligacionCompletadoId ya persistido en vez de invocar
+      // de nuevo el observador y generar una segunda obligación para el mismo hecho
+      // (ADR-SAAS-012 §2.1: nunca un segundo CONFIRMADO del mismo hecho).
+      const previo = (await tx.get(provRef)).data() as ProvisionamientoEmpresarial | undefined;
+      if (previo?.estado === "COMPLETED") {
+        return previo.obligacionCompletadoId ?? null;
+      }
+      const observadoCompletado = completionObserver?.(tx, { provisionamientoId, empresaId: entrada.empresaId });
+      tx.update(provRef, {
+        estado: "COMPLETED",
+        ultimoPasoConfirmado: "COMPLETED",
+        errorRecuperable: null,
+        obligacionCompletadoId: observadoCompletado?.obligacionId ?? null,
+        actualizadoEn: FieldValue.serverTimestamp(),
+      });
+      return observadoCompletado?.obligacionId ?? null;
     });
     return {
       provisionamientoId,
       empresaId: entrada.empresaId,
       estado: "COMPLETED",
       claimsEmitidos: true,
+      obligacionId: transaccionResultado.prov.obligacionId ?? null,
+      obligacionCompletadoId,
       idempotente: transaccionResultado.yaCometido,
     };
   } catch (err) {

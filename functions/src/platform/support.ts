@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { FieldValue, Timestamp, type Firestore } from "firebase-admin/firestore";
+import { FieldValue, Timestamp, type Firestore, type Transaction } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { autorizarPlataforma, type TokenPlataforma } from "./authorization";
 import { crearObligacionAuditoria, emitirObligacionAuditoria } from "./audit";
@@ -23,8 +23,9 @@ interface EntradaSoporte extends EnvelopePlataforma {
   expectedVersion?: number;
 }
 
-async function membresiaAdminActiva(db: Firestore, empresaId: string, uid: string) {
-  const snap = await db.collection("membresias").doc(`${empresaId}_${uid}`).get();
+async function membresiaAdminActiva(db: Firestore, empresaId: string, uid: string, tx?: Transaction) {
+  const ref = db.collection("membresias").doc(`${empresaId}_${uid}`);
+  const snap = tx ? await tx.get(ref) : await ref.get();
   const data = snap.data();
   return snap.exists && data?.rol === "admin" && data?.estado === "activa" && data?.activo === true;
 }
@@ -108,6 +109,16 @@ export async function solicitarSoporte(
   return { autorizacionId, estado: "SOLICITADA", version: 1 };
 }
 
+const TRANSICIONES_SOPORTE: Record<EstadoSoporte, readonly EstadoSoporte[]> = {
+  SOLICITADA: ["AUTORIZADA", "RECHAZADA"],
+  AUTORIZADA: ["EN_SESION", "REVOCADA"],
+  EN_SESION: ["FINALIZADA", "REVOCADA"],
+  FINALIZADA: [],
+  RECHAZADA: [],
+  REVOCADA: [],
+  EXPIRADA: [],
+};
+
 export async function transicionarSoporte(
   db: Firestore,
   actor: { uid: string; token: TokenPlataforma },
@@ -120,52 +131,46 @@ export async function transicionarSoporte(
     throw new HttpsError("invalid-argument", "EXPECTED_VERSION_INVALIDA");
   }
   const ref = db.collection(SOPORTE_COLLECTION).doc(autorizacionId);
-  const previa = await ref.get();
-  if (!previa.exists) throw new HttpsError("not-found", "SOPORTE_NOT_FOUND");
-  const actual = previa.data()!;
-  const esAdmin = await membresiaAdminActiva(db, actual.empresaObjetivoId, actor.uid);
-  const esOperador = actual.operadorUid === actor.uid;
 
-  if (["AUTORIZADA", "RECHAZADA", "REVOCADA"].includes(destino) && !esAdmin) {
-    throw new HttpsError("permission-denied", "CONSENTIMIENTO_ADMIN_REQUERIDO");
-  }
-  if (["EN_SESION", "FINALIZADA"].includes(destino)) {
-    if (!esOperador) throw new HttpsError("permission-denied", "OPERADOR_SOPORTE_REQUERIDO");
-    await autorizarPlataforma(db, actor.uid, actor.token);
-  }
-
-  const permitidas: Record<EstadoSoporte, readonly EstadoSoporte[]> = {
-    SOLICITADA: ["AUTORIZADA", "RECHAZADA"],
-    AUTORIZADA: ["EN_SESION", "REVOCADA"],
-    EN_SESION: ["FINALIZADA", "REVOCADA"],
-    FINALIZADA: [],
-    RECHAZADA: [],
-    REVOCADA: [],
-    EXPIRADA: [],
-  };
-  if (!permitidas[actual.estado as EstadoSoporte]?.includes(destino)) {
-    throw new HttpsError("failed-precondition", "TRANSICION_SOPORTE_INVALIDA");
-  }
-  if (actual.expiraEn.toMillis() <= Date.now()) {
-    throw new HttpsError("failed-precondition", "SOPORTE_EXPIRADO");
-  }
-  if (destino === "EN_SESION") {
-    if (!actual.consentimientoPorUid || !await membresiaAdminActiva(db, actual.empresaObjetivoId, actual.consentimientoPorUid)) {
-      throw new HttpsError("failed-precondition", "CONSENTIMIENTO_NO_VIGENTE");
-    }
-    const empresa = await db.collection("empresas").doc(actual.empresaObjetivoId).get();
-    if (!empresa.exists || !["trial", "activa", "suspendida"].includes(empresa.data()?.estado)) {
-      throw new HttpsError("failed-precondition", "LIFECYCLE_NO_ADMITE_SOPORTE");
-    }
-  }
-
+  // Las autoridades decisivas (membresía admin, operador de plataforma activo, lifecycle
+  // de la Empresa) se leen y revalidan dentro de la misma transacción que confirma la
+  // transición, no antes: así una revocación concurrente durante la ventana de decisión
+  // hace que Firestore reintente/aborte en vez de confirmar sobre una autoridad obsoleta.
   const resultado = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists) throw new HttpsError("not-found", "SOPORTE_NOT_FOUND");
     const data = snap.data()!;
-    if (data.version !== entrada.expectedVersion || data.estado !== actual.estado) {
+    if (data.version !== entrada.expectedVersion) {
       throw new HttpsError("failed-precondition", "CONFLICTO_REVISION");
     }
+    if (!TRANSICIONES_SOPORTE[data.estado as EstadoSoporte]?.includes(destino)) {
+      throw new HttpsError("failed-precondition", "TRANSICION_SOPORTE_INVALIDA");
+    }
+    if (data.expiraEn.toMillis() <= Date.now()) {
+      throw new HttpsError("failed-precondition", "SOPORTE_EXPIRADO");
+    }
+
+    if (["AUTORIZADA", "RECHAZADA", "REVOCADA"].includes(destino)) {
+      if (!await membresiaAdminActiva(db, data.empresaObjetivoId, actor.uid, tx)) {
+        throw new HttpsError("permission-denied", "CONSENTIMIENTO_ADMIN_REQUERIDO");
+      }
+    }
+    if (["EN_SESION", "FINALIZADA"].includes(destino)) {
+      if (data.operadorUid !== actor.uid) {
+        throw new HttpsError("permission-denied", "OPERADOR_SOPORTE_REQUERIDO");
+      }
+      await autorizarPlataforma(db, actor.uid, actor.token, undefined, tx);
+    }
+    if (destino === "EN_SESION") {
+      if (!data.consentimientoPorUid || !await membresiaAdminActiva(db, data.empresaObjetivoId, data.consentimientoPorUid, tx)) {
+        throw new HttpsError("failed-precondition", "CONSENTIMIENTO_NO_VIGENTE");
+      }
+      const empresa = await tx.get(db.collection("empresas").doc(data.empresaObjetivoId));
+      if (!empresa.exists || !["trial", "activa", "suspendida"].includes(empresa.data()?.estado)) {
+        throw new HttpsError("failed-precondition", "LIFECYCLE_NO_ADMITE_SOPORTE");
+      }
+    }
+
     const nuevaVersion = data.version + 1;
     const sesionId = destino === "EN_SESION" ? randomUUID() : data.sesionId;
     const cambios: Record<string, unknown> = {

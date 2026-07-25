@@ -1,0 +1,295 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { FieldValue } from "firebase-admin/firestore";
+import { ejecutarComandoComercial, solicitarBootstrapEmpresarial } from "./operations";
+import { ejecutarBootstrapEmpresarial } from "../bootstrap/service";
+import type { EntradaBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
+
+// Réplica del fake usado en functions/src/bootstrap/service.test.ts, extendida con un
+// mecanismo de fallo de una sola vez para simular una emisión de evidencia que falla
+// después de que el hecho de dominio ya quedó confirmado de forma durable.
+class Ref {
+  constructor(public path: string, private db: Db) {}
+  collection(id: string) { return new Ref(`${this.path}/${id}`, this.db); }
+  doc(id: string) { return new Ref(`${this.path}/${id}`, this.db); }
+  async get() { return new Snap(this.db.docs.get(this.path)); }
+  async update(data: any) { this.db.update(this.path, data); }
+  async set(data: any) { this.db.seed(this.path, data); }
+}
+
+class Snap {
+  constructor(private readonly v: any) {}
+  get exists() { return this.v !== undefined; }
+  data() { return structuredClone(this.v); }
+}
+
+class Db {
+  docs = new Map<string, any>();
+  private queue = Promise.resolve();
+  /** Prefijo de colección cuyo próximo `create` debe fallar exactamente una vez. */
+  failCreateOnce: string | null = null;
+  constructor() {
+    this.seed("permisos_roles/admin", { permisos: ["configuracion", "pos"] });
+  }
+  collection(n: string) { return new Ref(n, this); }
+  seed(k: string, v: any) { this.docs.set(k, structuredClone(v)); }
+  read(k: string) { return this.docs.get(k); }
+  countByPrefix(prefix: string) { return [...this.docs.keys()].filter((k) => k.startsWith(prefix)).length; }
+  docsByPrefix(prefix: string) { return [...this.docs.entries()].filter(([k]) => k.startsWith(prefix)).map(([, v]) => v); }
+  update(k: string, v: any) {
+    const cur = { ...this.docs.get(k) };
+    for (const [key, val] of Object.entries(v)) {
+      if (val === FieldValue.delete()) delete cur[key];
+      else cur[key] = structuredClone(val);
+    }
+    this.docs.set(k, cur);
+  }
+  async runTransaction<T>(cb: (tx: any) => Promise<T>) {
+    let release!: () => void;
+    const before = this.queue;
+    this.queue = new Promise((r) => (release = r));
+    await before;
+    const w = new Map([...this.docs].map(([k, v]) => [k, structuredClone(v)]));
+    let hasWritten = false;
+    const tx = {
+      get: async (r: Ref) => {
+        if (hasWritten) throw new Error("TRANSACTION_READ_AFTER_WRITE");
+        return new Snap(w.get(r.path));
+      },
+      create: (r: Ref, v: any) => {
+        if (this.failCreateOnce && r.path.startsWith(this.failCreateOnce)) {
+          this.failCreateOnce = null;
+          throw new Error("SIMULATED_EVIDENCE_WRITE_FAILURE");
+        }
+        hasWritten = true;
+        if (w.has(r.path)) throw new Error("EXISTS");
+        w.set(r.path, structuredClone(v));
+      },
+      set: (r: Ref, v: any) => { hasWritten = true; w.set(r.path, structuredClone(v)); },
+      update: (r: Ref, v: any) => {
+        hasWritten = true;
+        if (!w.has(r.path)) throw new Error("MISSING");
+        const cur = { ...w.get(r.path) };
+        for (const [k, val] of Object.entries(v)) {
+          if (val === FieldValue.delete()) delete cur[k];
+          else cur[k] = structuredClone(val);
+        }
+        w.set(r.path, cur);
+      },
+    };
+    try {
+      const r = await cb(tx);
+      this.docs = w;
+      return r;
+    } finally {
+      release();
+    }
+  }
+}
+
+function entradaBackoffice(overrides: Partial<EntradaBootstrapEmpresarial> = {}) {
+  // Forma exacta que envía components/backoffice/bootstrap-form.tsx a través de
+  // lib/platform/client.ts#envelope(): causationId siempre null en un comando raíz.
+  return {
+    commandId: "cmd_backoffice_1",
+    idempotencyKey: "idem_backoffice_1",
+    correlationId: "corr_backoffice_1",
+    causationId: null as unknown as string,
+    motivoCodigo: "BACKOFFICE_BOOTSTRAP_EMPRESARIAL",
+    ownerUid: "owner_backoffice_1",
+    empresaId: "empresa_backoffice_1",
+    nombreComercial: "Café Backoffice",
+    paisFiscal: "CO",
+    planId: "plan_pos_pro",
+    planVersion: 1,
+    trialDias: 14,
+    ...overrides,
+  };
+}
+
+function seedPlanPublicado(db: Db) {
+  db.seed("planes/plan_pos_pro/versiones/1", {
+    planId: "plan_pos_pro",
+    planVersion: 1,
+    estado: "PUBLICADA",
+  });
+}
+
+test("H1 — el Backoffice crea la empresa de extremo a extremo con causationId nulo en el envelope", async () => {
+  const db = new Db();
+  seedPlanPublicado(db);
+
+  const resultado = await solicitarBootstrapEmpresarial(db as never, "operador_1", entradaBackoffice(), async () => {}, async () => {});
+
+  assert.equal(resultado.estado, "COMPLETED");
+  assert.equal(db.read("empresas/empresa_backoffice_1")?.estado, "trial");
+  assert.equal(db.read("membresias/empresa_backoffice_1_owner_backoffice_1")?.rol, "admin");
+});
+
+test("H2 + H5 — un reintento tras fallar la emisión de evidencia recupera el mismo obligacionId y no duplica evidencia", async () => {
+  const db = new Db();
+  seedPlanPublicado(db);
+  const entrada = entradaBackoffice({ empresaId: "empresa_backoffice_2", idempotencyKey: "idem_backoffice_2", commandId: "cmd_backoffice_2" });
+
+  db.failCreateOnce = "saas_auditoria/";
+  await assert.rejects(
+    solicitarBootstrapEmpresarial(db as never, "operador_1", entrada, async () => {}, async () => {}),
+    /SIMULATED_EVIDENCE_WRITE_FAILURE/,
+  );
+
+  // El hecho de dominio ya es durable pese al fallo de evidencia. Tanto la obligación de
+  // SOLICITADO (creada en el commit del núcleo) como la de COMPLETADO (creada en la
+  // transacción de finalización, que tampoco toca `saas_auditoria/`) ya nacieron; solo
+  // falta su emisión — nunca intentada para COMPLETADO porque el comando entero rechazó
+  // antes de llegar a esa rama.
+  assert.equal(db.read("empresas/empresa_backoffice_2")?.estado, "trial");
+  assert.equal(db.countByPrefix("saas_auditoria/"), 0);
+  const obligacionesPendientes = db.docsByPrefix("saas_auditoria_obligaciones/").filter((o) => o.estado === "PENDIENTE");
+  assert.equal(obligacionesPendientes.length, 2);
+  const obligacionSolicitud = obligacionesPendientes.find((o) => o.evidencia.tipo === "BOOTSTRAP_EMPRESARIAL_SOLICITADO");
+  assert.ok(obligacionSolicitud);
+  const obligacionIdOriginal = obligacionSolicitud.obligacionId;
+
+  const resultado = await solicitarBootstrapEmpresarial(db as never, "operador_1", entrada, async () => {}, async () => {});
+
+  assert.equal(resultado.estado, "COMPLETED");
+  assert.equal(resultado.idempotente, true);
+  assert.equal(resultado.obligacionId, obligacionIdOriginal);
+
+  // No se crea una segunda empresa ni una segunda evidencia CONFIRMADO del mismo hecho.
+  assert.equal(db.countByPrefix("empresas/"), 1);
+  const evidencias = db.docsByPrefix("saas_auditoria/");
+  assert.equal(evidencias.length, 2);
+  assert.equal(evidencias.filter((e) => e.tipo === "BOOTSTRAP_EMPRESARIAL_SOLICITADO").length, 1);
+  assert.equal(evidencias.filter((e) => e.tipo === "BOOTSTRAP_EMPRESARIAL_COMPLETADO").length, 1);
+  assert.equal(evidencias.find((e) => e.tipo === "BOOTSTRAP_EMPRESARIAL_SOLICITADO")?.evidenciaId, obligacionSolicitud.evidenciaId);
+  assert.ok(evidencias.every((e) => e.empresaObjetivoId === "empresa_backoffice_2"));
+  assert.ok(db.docsByPrefix("saas_auditoria_obligaciones/").every((o) => o.estado === "EMITIDA"));
+});
+
+test("H5 — BOOTSTRAP_EMPRESARIAL_COMPLETADO referencia el agregado de provisionamiento, con actor de sistema", async () => {
+  const db = new Db();
+  seedPlanPublicado(db);
+  const entrada = entradaBackoffice({ empresaId: "empresa_backoffice_3", idempotencyKey: "idem_backoffice_3", commandId: "cmd_backoffice_3" });
+
+  await solicitarBootstrapEmpresarial(db as never, "operador_1", entrada, async () => {}, async () => {});
+
+  const completado = db.docsByPrefix("saas_auditoria/").find((e) => e.tipo === "BOOTSTRAP_EMPRESARIAL_COMPLETADO");
+  assert.ok(completado);
+  assert.equal(completado.agregado.tipo, "PROVISIONAMIENTO_EMPRESARIAL");
+  assert.equal(completado.actor.tipo, "SISTEMA");
+  assert.equal(completado.actor.uid, null);
+  assert.equal(completado.facultad, null);
+  assert.equal(completado.empresaObjetivoId, "empresa_backoffice_3");
+});
+
+test("H2 — un comando comercial reutiliza el obligacionId original tras un reintento", async () => {
+  const db = new Db();
+  db.seed("planes/plan_reintento", { planId: "plan_reintento", codigo: "PLAN_REINTENTO", revision: 1, versionActual: 1 });
+  db.seed("planes/plan_reintento/versiones/1", {
+    planId: "plan_reintento", planVersion: 1, estado: "BORRADOR", codigo: "PLAN_REINTENTO",
+    capacidades: ["pos"], limites: {}, periodicidad: "MENSUAL", grandfathered: false, revision: 1, schemaVersion: 1,
+  });
+  const entrada = {
+    commandId: "cmd_comercial_1",
+    idempotencyKey: "idem_comercial_1",
+    correlationId: "corr_comercial_1",
+    causationId: null as unknown as string,
+    motivoCodigo: "BACKOFFICE_PLAN_PUBLICAR",
+    planId: "plan_reintento",
+    planVersion: 1,
+    expectedRevision: 1,
+  };
+
+  db.failCreateOnce = "saas_auditoria/";
+  await assert.rejects(
+    ejecutarComandoComercial(db as never, "operador_1", "PublicarPlan", entrada),
+    /SIMULATED_EVIDENCE_WRITE_FAILURE/,
+  );
+  assert.equal(db.read("planes/plan_reintento/versiones/1")?.estado, "PUBLICADA");
+  const pendiente = db.docsByPrefix("saas_auditoria_obligaciones/").find((o) => o.estado === "PENDIENTE");
+  assert.ok(pendiente);
+
+  const resultado = await ejecutarComandoComercial(db as never, "operador_1", "PublicarPlan", entrada);
+
+  assert.equal((resultado as any).idempotente, true);
+  assert.equal((resultado as any).obligacionId, pendiente.obligacionId);
+  const evidencias = db.docsByPrefix("saas_auditoria/");
+  assert.equal(evidencias.length, 1);
+  assert.equal(evidencias[0].tipo, "PLAN_VERSION_PUBLICADA");
+});
+
+test("M-1 — un provisionamiento COMPLETED sin obligacionCompletadoId (ruta de autoservicio) no revienta al solicitarse por plataforma", async () => {
+  const db = new Db();
+  seedPlanPublicado(db);
+  // La ruta de autoservicio (bootstrapEmpresarialCallable) recibe causationId real del
+  // cliente, no el envelope de plataforma con causationId nulo.
+  const entrada = entradaBackoffice({ empresaId: "empresa_m1", idempotencyKey: "idem_m1", commandId: "cmd_m1", causationId: "cause_m1" });
+
+  // Ruta de autoservicio (bootstrapEmpresarialCallable): sin observador de plataforma,
+  // por lo que el provisionamiento completa con obligacionCompletadoId: null.
+  const directo = await ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {});
+  assert.equal(directo.estado, "COMPLETED");
+  assert.equal(directo.obligacionCompletadoId, null);
+
+  // La misma clave de idempotencia, ahora solicitada por un operador de plataforma, no
+  // debe fallar ni intentar emitir una obligación que nunca existió.
+  const resultado = await solicitarBootstrapEmpresarial(
+    db as never,
+    "operador_1",
+    entrada,
+    async () => {},
+    async () => {},
+  );
+
+  assert.equal(resultado.estado, "COMPLETED");
+  assert.equal(resultado.idempotente, true);
+  assert.equal(db.countByPrefix("saas_auditoria/"), 0);
+});
+
+test("M-2 — dos transacciones de finalización concurrentes sobre el mismo provisionamiento no duplican la obligación", async () => {
+  const db = new Db();
+  seedPlanPublicado(db);
+  const entrada = entradaBackoffice({ empresaId: "empresa_m2", idempotencyKey: "idem_m2", commandId: "cmd_m2", causationId: "cause_m2" });
+
+  let invocacionesObservador = 0;
+  const completionObserver = (tx: any) => {
+    invocacionesObservador += 1;
+    const evidenciaId = `evidencia_completado_${invocacionesObservador}`;
+    tx.create(db.collection("saas_auditoria_obligaciones").doc(evidenciaId), {
+      schemaVersion: 1, obligacionId: evidenciaId, estado: "PENDIENTE", evidenciaId,
+      dedupeKey: evidenciaId, evidencia: { tipo: "BOOTSTRAP_EMPRESARIAL_COMPLETADO" }, creadaEn: Date.now(),
+      emitidaEn: null, intentos: 0, ultimoErrorCodigo: null,
+    });
+    return { obligacionId: evidenciaId };
+  };
+
+  // Llevar el provisionamiento hasta COMPLETED una vez para obtener un doc válido
+  // (idempotencyKey/fingerprint correctos), luego retrocederlo a CLAIMS_ISSUED sin
+  // obligacionCompletadoId: así se simulan dos intentos que aún NO comprometieron el
+  // cierre, el escenario real donde la carrera puede ocurrir (p. ej. dos reintentos del
+  // mismo comando de plataforma tras una caída antes de la finalización).
+  await ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {}, undefined, completionObserver);
+  const provPath = [...db.docs.keys()].find((k) => k.startsWith("provisionamientos_empresariales/"))!;
+  const provCompletado = db.read(provPath);
+  db.seed(provPath, { ...provCompletado, estado: "CLAIMS_ISSUED", ultimoPasoConfirmado: "CLAIMS_ISSUED", obligacionCompletadoId: null });
+  const invocacionesAntesDeLaCarrera = invocacionesObservador;
+
+  const [r1, r2] = await Promise.all([
+    ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {}, undefined, completionObserver),
+    ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {}, undefined, completionObserver),
+  ]);
+
+  assert.equal(r1.estado, "COMPLETED");
+  assert.equal(r2.estado, "COMPLETED");
+  assert.equal(
+    invocacionesObservador - invocacionesAntesDeLaCarrera,
+    1,
+    "el observador de finalización solo debe invocarse una vez pese a dos intentos concurrentes",
+  );
+  assert.equal(r1.obligacionCompletadoId, r2.obligacionCompletadoId);
+  assert.ok(r1.obligacionCompletadoId);
+  // Solo existe un documento de obligación para el obligacionCompletadoId ganador: la
+  // rama que perdió la carrera no creó una obligación propia, solo leyó y reutilizó.
+  assert.equal(db.docsByPrefix(`saas_auditoria_obligaciones/${r1.obligacionCompletadoId}`).length, 1);
+});

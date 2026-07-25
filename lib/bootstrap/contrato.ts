@@ -24,6 +24,15 @@ export interface ProvisionamientoEmpresarial {
   estado: EstadoProvisionamiento;
   ultimoPasoConfirmado?: "REQUESTED" | "CORE_COMMITTED" | "CLAIMS_ISSUED" | "COMPLETED";
   errorRecuperable?: string | null;
+  /**
+   * Referencia opaca a la obligación de auditoría de plataforma (ADR-SAAS-012 Anexo A)
+   * asociada a la solicitud/finalización de este provisionamiento. No es autoridad de
+   * dominio: permite que un reintento idempotente recupere el mismo identificador ya
+   * generado en lugar de perderlo. `null` cuando el provisionamiento no fue solicitado
+   * por la capa de plataforma (p. ej. bootstrap de autoservicio).
+   */
+  obligacionId?: string | null;
+  obligacionCompletadoId?: string | null;
   schemaVersion: 1;
   creadoEn: unknown;
   actualizadoEn: unknown;
@@ -49,4 +58,7 @@ export interface ResultadoBootstrapEmpresarial {
   estado: EstadoProvisionamiento;
   claimsEmitidos: boolean;
   idempotente: boolean;
+  /** Ver `ProvisionamientoEmpresarial.obligacionId`/`obligacionCompletadoId`. */
+  obligacionId?: string | null;
+  obligacionCompletadoId?: string | null;
 }

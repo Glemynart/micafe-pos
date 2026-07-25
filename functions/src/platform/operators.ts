@@ -179,8 +179,14 @@ export async function ejecutarComandoOperador(
     return { ...durable, obligacionId, idempotente: false };
   });
 
-  const operadorSnap = await objetivoRef.get();
-  await proyectarClaims(auth, operadorSnap.data() as OperadorSaas);
+  // El commit ya es el corte efectivo de autorización (ADR-SAAS-011 §4.2). Un reintento
+  // idempotente recupera el mismo resultado sin que haya ocurrido un cambio real de
+  // versionAutorizacion, así que reproyectar claims y revocar refresh tokens de nuevo
+  // sería un efecto secundario innecesario sobre el operador objetivo.
+  if (!resultado.idempotente) {
+    const operadorSnap = await objetivoRef.get();
+    await proyectarClaims(auth, operadorSnap.data() as OperadorSaas);
+  }
   await emitirObligacionAuditoria(db, resultado.obligacionId);
   return resultado;
 }
