@@ -75,6 +75,7 @@ dotenv.config({ path: '.env.local' })
 import { cert, initializeApp, getApps } from 'firebase-admin/app'
 import { getFirestore, GrpcStatus, type QueryDocumentSnapshot } from 'firebase-admin/firestore'
 import { EMPRESAS_COLLECTION } from '../lib/empresas-service'
+import { drenarPagina } from './lib/drenar-pagina'
 import {
   type ColeccionConfig,
   COLECCIONES_OFICIALES,
@@ -221,7 +222,12 @@ async function procesarColeccion(config: ColeccionConfig, empresaId: string): Pr
       // el trabajo en vuelo a una página a la vez (misma cadencia que el
       // WriteBatch anterior), sin la atomicidad que hacía fallar la página
       // entera por un solo documento desaparecido.
-      if (escriturasPagina.length > 0) await Promise.all(escriturasPagina)
+      //
+      // El drenado va por `drenarPagina` porque BulkWriter bufferiza: esperar
+      // las promesas sin llamar antes a `flush()` cuelga cuando las escrituras
+      // pendientes no completan un lote interno (ver justificación completa en
+      // scripts/lib/drenar-pagina.ts).
+      await drenarPagina(bulkWriter, escriturasPagina)
 
       cursor = snap.docs[snap.docs.length - 1]
       if (snap.docs.length < PAGE_SIZE) break

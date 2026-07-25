@@ -65,6 +65,9 @@ jobs:
       - name: Pruebas de tenant
         run: npm run test:tenant
 
+      - name: Pruebas del backfill operativo
+        run: npm run test:backfill
+
       - name: Pruebas de Functions
         run: npm run test:auth-foundation
 
