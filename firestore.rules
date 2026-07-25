@@ -17,11 +17,6 @@ service cloud.firestore {
     function esSupervisor() { return esAutenticado() && rol() == 'supervisor'; }
     function esCocinero() { return esAutenticado() && rol() == 'cocinero'; }
     function esMarketing() { return esAutenticado() && rol() == 'marketing'; }
-    function esSuperadmin() {
-      return esAutenticado()
-        && request.auth.token.keys().hasAll(['superadmin'])
-        && request.auth.token.superadmin == true;
-    }
     function esAdminOCajero() { return esAdmin() || esCajero(); }
     function esOperativo() { return esAdmin() || esCajero() || esSupervisor(); }
     function esCocina() { return esAdmin() || esCajero() || esCocinero(); }
@@ -272,9 +267,8 @@ service cloud.firestore {
     // Plano SaaS: las operaciones se reservan al claim de plataforma; el
     // backend Admin SDK lo administra sin depender de Rules.
     match /empresas/{empresaId} {
-      allow get: if (tieneEmpresaId() && request.auth.token.empresaId == empresaId)
-        || esSuperadmin();
-      allow list: if esSuperadmin();
+      allow get: if tieneEmpresaId() && request.auth.token.empresaId == empresaId;
+      allow list: if false;
       // Empresa.estado solo transiciona mediante el servicio backend canónico.
       allow create, update, delete: if false;
     }
@@ -288,40 +282,52 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
     match /planes/{id} {
-      allow read, write: if esSuperadmin();
+      allow read, write: if false;
     }
     match /suscripciones/{id} {
-      allow read: if esSuperadmin();
+      allow read: if false;
       allow write: if false;
     }
     match /invitaciones/{id} {
-      allow read, write: if esSuperadmin();
+      allow read, write: if false;
     }
     match /incorporaciones/{id} {
       allow read, write: if false;
     }
     match /consumo/{id} {
-      allow read, write: if esSuperadmin();
+      allow read, write: if false;
     }
     match /saas_operadores/{uid} {
-      allow read, write: if esSuperadmin();
+      allow read, write: if false;
     }
     match /saas_auditoria/{id} {
-      allow read, write: if esSuperadmin();
+      allow read, write: if false;
+    }
+    match /saas_auditoria_obligaciones/{id} {
+      allow read, write: if false;
+    }
+    match /saas_soporte_autorizaciones/{id} {
+      allow read, write: if false;
+    }
+    match /saas_comandos/{id} {
+      allow read, write: if false;
+    }
+    match /provisionamientos_empresariales/{id} {
+      allow read, write: if false;
     }
 
     // Colecciones futuras de MT-U6: no tienen consumidor cliente todavÃ­a.
     // Se bloquean para tenants y quedan disponibles solo al plano plataforma.
     match /configuraciones/{empresaId} {
-      allow read, write: if esSuperadmin();
+      allow read, write: if false;
     }
     match /numeraciones/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
-      allow write: if esSuperadmin();
+      allow write: if false;
     }
     match /asignaciones_numeracion/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
-      allow write: if esSuperadmin();
+      allow write: if false;
     }
 
     match /{document=**} {

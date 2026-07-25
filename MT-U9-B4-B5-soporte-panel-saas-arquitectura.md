@@ -1,6 +1,6 @@
 # MT-U9 — U9-B4 y U9-B5: soporte, impersonación y Panel SaaS
 
-> **Estado:** especificación arquitectónica para revisión.  
+> **Estado:** especificación arquitectónica aprobada.
 > **Alcance:** U9-B4, soporte e impersonación; U9-B5, Panel SaaS.  
 > **Precondición:** U9-B0, U9-B1, U9-B2 y U9-B3 aprobados. Este documento solo los aplica.  
 > **Fuera de alcance:** U9-B6, MT-U10, MT-U11, MT-U12 y toda implementación.

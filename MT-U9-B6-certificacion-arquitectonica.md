@@ -1,6 +1,6 @@
 # MT-U9 — U9-B6: certificación arquitectónica
 
-> **Estado:** gate arquitectónico de cierre para revisión.  
+> **Estado:** gate arquitectónico de cierre aprobado.
 > **Precondición:** U9-B0, U9-B1, U9-B2, U9-B3, U9-B4 y U9-B5 aprobados.  
 > **Naturaleza:** consolidación y verificación documental. No introduce autoridades, facultades, perfiles, comandos, procesos, agregados, flujos ni implementación.
 

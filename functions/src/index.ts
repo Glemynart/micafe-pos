@@ -18,5 +18,42 @@ export { actualizarConfiguracionEmpresa, actualizarParametrosFiscales, actualiza
 export { crearNumeracionFiscal, actualizarNumeracionFiscal, transicionarNumeracionFiscal, establecerAsignacionFiscal, retirarAsignacionFiscal, confirmarVentaFiscalCallable } from "./fiscal/callables";
 export { bootstrapEmpresarialCallable } from "./bootstrap/callables";
 export { obtenerEstadoOnboarding, completarPasoFiscalOnboardingCallable, completarPasoNumeracionOnboardingCallable } from "./onboarding/callables";
+export {
+  consultarContextoPlataforma,
+  incorporarOperadorSaas,
+  cambiarFacultadesOperadorSaas,
+  suspenderOperadorSaas,
+  reactivarOperadorSaas,
+  revocarOperadorSaas,
+  solicitarBootstrapEmpresarialSaas,
+  ejecutarComandoComercialSaas,
+  listarRecursosPlataformaSaas,
+  obtenerDetalleEmpresaPlataformaSaas,
+  solicitarSoporteSaas,
+  transicionarSoporteSaas,
+  listarSoporteTenantSaas,
+  consultarAuditoriaPlataformaSaas,
+} from "./platform/callables";
+
+import { onSchedule } from "firebase-functions/v2/scheduler";
+import { getFirestore } from "firebase-admin/firestore";
+import { expirarSoportesVencidos } from "./platform/support";
+import { reconciliarClaimsOperadores } from "./platform/initial-bootstrap";
+import { reconciliarObligacionesAuditoria } from "./platform/audit";
+
+export const expirarSoportesSaas = onSchedule(
+  { region: "us-central1", schedule: "every 5 minutes", timeZone: "UTC" },
+  async () => { await expirarSoportesVencidos(getFirestore()); },
+);
+
+export const reconciliarClaimsOperadoresSaas = onSchedule(
+  { region: "us-central1", schedule: "every 10 minutes", timeZone: "UTC" },
+  async () => { await reconciliarClaimsOperadores(getFirestore()); },
+);
+
+export const reconciliarAuditoriaPlataformaSaas = onSchedule(
+  { region: "us-central1", schedule: "every 5 minutes", timeZone: "UTC" },
+  async () => { await reconciliarObligacionesAuditoria(getFirestore()); },
+);
 
 
