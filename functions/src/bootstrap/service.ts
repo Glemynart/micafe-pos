@@ -1,11 +1,22 @@
 import { createHash } from "node:crypto";
 import { FieldValue, getFirestore, type Firestore, type Transaction } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
+import { defineSecret } from "firebase-functions/params";
 import { esIdComercial, fechaComercialUtc, type PlanVersion } from "../../../lib/suscripciones/contrato";
 import type { EntradaBootstrapEmpresarial, ProvisionamientoEmpresarial, ResultadoBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
 import { inicializarConfiguracionEmpresaConEstadoPreleidoEnTransaccion } from "../configuracion/service";
 import { crearSuscripcionTrialEnTransaccion, referenciasTrial } from "../suscripciones/service";
 import { actualizarClaimsTenant, permisosPredeterminados } from "../operational-auth";
+import { emitirCredencialInicial } from "../platform/emitir-credencial-inicial";
+
+/**
+ * Mismo secreto que declaran `operational-auth.ts`/`incorporaciones.ts` —
+ * `defineSecret` se resuelve por nombre en runtime; cada módulo que lo
+ * necesita declara su propia referencia (patrón ya establecido en este
+ * repo). La función Cloud que envuelva `ejecutarBootstrapEmpresarial` debe
+ * declarar `secrets: [PIN_PEPPER]` para que `.value()` resuelva en runtime.
+ */
+const PIN_PEPPER = defineSecret("OPERATIONAL_PIN_PEPPER");
 
 export const PROVISIONAMIENTOS_COLLECTION = "provisionamientos_empresariales";
 const hash = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).digest("hex");
@@ -36,6 +47,21 @@ function validarEntradaBootstrap(e: EntradaBootstrapEmpresarial): void {
 export type ClaimsEmitter = (uid: string, empresaId: string, rol: "admin") => Promise<void>;
 export type OwnerIdentityVerifier = (uid: string) => Promise<void>;
 /**
+ * Paso H (ADR-SAAS-013): emite la credencial operativa inicial del owner.
+ * Único punto de integración con `emitirCredencialInicial` — Capa 3
+ * (`ProvisionarCredencialInicialTenant`) invoca esa misma función
+ * directamente para tenants preexistentes, sin pasar por este tipo ni por
+ * `ejecutarBootstrapEmpresarial`. Inyectable por la misma razón que
+ * `ClaimsEmitter`: permite probar la orquestación de estados sin tocar
+ * Firestore/Auth reales.
+ */
+export type CredentialIssuer = (params: {
+  empresaId: string;
+  uid: string;
+  permisos: string[];
+  nombreComercial: string;
+}) => Promise<{ incorporacionId: string; codigo: string; pinTemporal: string | null; estado: "EMITIDA" | "YA_EXISTENTE" }>;
+/**
  * Observador opcional de la capa de plataforma (ADR-SAAS-012 Anexo A). Puede registrar,
  * dentro de la misma transacción del hecho durable, una obligación de auditoría ya
  * identificada y devolver su `obligacionId` para que quede persistido junto al registro
@@ -54,6 +80,7 @@ export async function ejecutarBootstrapEmpresarial(
   ownerIdentityVerifier?: OwnerIdentityVerifier,
   coreCommitObserver?: BootstrapCoreCommitObserver,
   completionObserver?: BootstrapCoreCommitObserver,
+  credentialIssuer?: CredentialIssuer,
 ): Promise<ResultadoBootstrapEmpresarial> {
   const db = dbParam ?? getFirestore();
   if (!entrada) return fail("invalid-argument", "ENTRADA_REQUERIDA");
@@ -251,10 +278,94 @@ export async function ejecutarBootstrapEmpresarial(
       obligacionId: transaccionResultado.prov.obligacionId ?? null,
       obligacionCompletadoId: transaccionResultado.prov.obligacionCompletadoId ?? null,
       idempotente: true,
+      credencialInicial: transaccionResultado.prov.credencialInicial
+        ? { codigo: transaccionResultado.prov.credencialInicial.codigo, pinTemporal: null }
+        : null,
     };
   }
 
-  // 3. Paso recuperable de emisión de Custom Claims
+  // 3. Paso recuperable de emisión de la credencial operativa inicial
+  // (ADR-SAAS-013, paso H — entre CORE_COMMITTED y CLAIMS_ISSUED). Único
+  // consumidor de `emitirCredencialInicial` en este flujo: no reimplementa
+  // generación de código/PIN, verificación de identidad ni la transacción
+  // de escritura — todo eso vive exclusivamente en ese servicio, que
+  // Capa 3 (`ProvisionarCredencialInicialTenant`) reutilizará sin cambios.
+  const issuer = credentialIssuer ?? (async (p) => emitirCredencialInicial(db, {
+    empresaId: p.empresaId,
+    uid: p.uid,
+    rol: "admin",
+    permisos: p.permisos,
+    origen: "PLATAFORMA",
+    // El bootstrap no tiene, en Capa 2, un "operador" distinto del propio
+    // owner que lo solicita (self-service) o del sistema que lo ejecuta en
+    // nombre del operador de plataforma (Backoffice) — en ambos casos, a
+    // nivel del tenant recién creado, no hay todavía un admin distinto que
+    // pudiera figurar como emisor. El actor real de la solicitud (el
+    // operador de plataforma, cuando aplica) ya queda registrado en la
+    // auditoría de plataforma de BOOTSTRAP_EMPRESARIAL_SOLICITADO.
+    emisorUid: p.uid,
+    nombreComercial: p.nombreComercial,
+    pepper: PIN_PEPPER.value(),
+  }));
+  // Defensivo, igual que `claimsYaEmitidos` más abajo comprueba también su
+  // propio estado directo: un provisionamiento leído ya en CLAIMS_ISSUED es
+  // evidencia de que el paso H, anterior en la secuencia, tuvo que
+  // completarse. (No se comprueba "COMPLETED": el chequeo de arriba ya
+  // retorna en ese caso, así que aquí es inalcanzable — TS lo marca como
+  // comparación imposible si se deja.)
+  const credencialYaEmitida = transaccionResultado.prov.estado === "CREDENTIAL_ISSUED"
+    || transaccionResultado.prov.estado === "CLAIMS_ISSUED"
+    || (transaccionResultado.prov.estado === "RETRYABLE_FAILURE"
+      && transaccionResultado.prov.ultimoPasoConfirmado !== undefined
+      && transaccionResultado.prov.ultimoPasoConfirmado !== "CORE_COMMITTED");
+
+  let credencialInicialResultado: { codigo: string; pinTemporal: string | null } | null = null;
+
+  if (!credencialYaEmitida) {
+    try {
+      const emitida = await issuer({
+        empresaId: entrada.empresaId,
+        uid: entrada.ownerUid,
+        permisos,
+        nombreComercial: entrada.nombreComercial.trim(),
+      });
+      credencialInicialResultado = { codigo: emitida.codigo, pinTemporal: emitida.pinTemporal };
+      await provRef.update({
+        estado: "CREDENTIAL_ISSUED",
+        ultimoPasoConfirmado: "CREDENTIAL_ISSUED",
+        errorRecuperable: null,
+        credencialInicial: {
+          codigo: emitida.codigo,
+          incorporacionId: emitida.incorporacionId,
+          entregadaEn: FieldValue.serverTimestamp(),
+        },
+        actualizadoEn: FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "CREDENCIAL_INICIAL_FAILED";
+      await provRef.update({
+        estado: "RETRYABLE_FAILURE",
+        ultimoPasoConfirmado: "CORE_COMMITTED",
+        errorRecuperable: errorMsg,
+        actualizadoEn: FieldValue.serverTimestamp(),
+      });
+      return {
+        provisionamientoId,
+        empresaId: entrada.empresaId,
+        estado: "RETRYABLE_FAILURE",
+        claimsEmitidos: false,
+        idempotente: transaccionResultado.yaCometido,
+        credencialInicial: null,
+      };
+    }
+  } else if (transaccionResultado.prov.credencialInicial) {
+    // Reintento tras un fallo posterior a este paso: la credencial ya fue
+    // emitida antes. No se reexpone el PIN —nunca se persistió—, pero sí el
+    // código, para que el llamador sepa cuál es.
+    credencialInicialResultado = { codigo: transaccionResultado.prov.credencialInicial.codigo, pinTemporal: null };
+  }
+
+  // 4. Paso recuperable de emisión de Custom Claims
   const emitter = customClaimsEmitter ?? (async (u, e, r) => actualizarClaimsTenant(u, e, r));
   const claimsYaEmitidos = transaccionResultado.prov.estado === "CLAIMS_ISSUED"
     || (transaccionResultado.prov.estado === "RETRYABLE_FAILURE"
@@ -273,7 +384,13 @@ export async function ejecutarBootstrapEmpresarial(
       const errorMsg = err instanceof Error ? err.message : "AUTH_CLAIMS_FAILED";
       await provRef.update({
         estado: "RETRYABLE_FAILURE",
-        ultimoPasoConfirmado: "CORE_COMMITTED",
+        // El último paso confirmado es CREDENTIAL_ISSUED, no CORE_COMMITTED:
+        // para llegar aquí, el paso H (arriba) ya tuvo que completarse —
+        // directamente o por replay idempotente de un intento anterior. Si
+        // este campo quedara en CORE_COMMITTED, un reintento repetiría
+        // innecesariamente el paso H (inocuo por su propia idempotencia,
+        // pero no es el paso que realmente falló).
+        ultimoPasoConfirmado: "CREDENTIAL_ISSUED",
         errorRecuperable: errorMsg,
         actualizadoEn: FieldValue.serverTimestamp(),
       });
@@ -283,6 +400,7 @@ export async function ejecutarBootstrapEmpresarial(
         estado: "RETRYABLE_FAILURE",
         claimsEmitidos: false,
         idempotente: transaccionResultado.yaCometido,
+        credencialInicial: credencialInicialResultado,
       };
     }
   }
@@ -316,6 +434,7 @@ export async function ejecutarBootstrapEmpresarial(
       obligacionId: transaccionResultado.prov.obligacionId ?? null,
       obligacionCompletadoId,
       idempotente: transaccionResultado.yaCometido,
+      credencialInicial: credencialInicialResultado,
     };
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "COMPLETION_PERSISTENCE_FAILED";
@@ -331,6 +450,7 @@ export async function ejecutarBootstrapEmpresarial(
       estado: "RETRYABLE_FAILURE",
       claimsEmitidos: true,
       idempotente: transaccionResultado.yaCometido,
+      credencialInicial: credencialInicialResultado,
     };
   }
 }

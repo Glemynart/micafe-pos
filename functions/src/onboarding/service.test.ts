@@ -127,7 +127,15 @@ test("B6 Onboarding — Flujo completo de reanudación y completitud del Onboard
     paisFiscal: "CO",
     planId: "plan_pos_pro",
     planVersion: 1,
-  }, async () => {}, async () => {});
+  }, async () => {}, async () => {}, undefined, undefined, async (p) => ({
+    // ADR-SAAS-013 paso H: el fake `Db` de este archivo no soporta `.where()`;
+    // se inyecta un emisor mínimo, ya que esta prueba cubre el flujo de
+    // Onboarding (B6), no la credencial inicial en sí.
+    incorporacionId: `inc_${p.empresaId}_${p.uid}`,
+    codigo: `codigo-${p.empresaId}`,
+    pinTemporal: "123456",
+    estado: "EMITIDA" as const,
+  }));
 
   assert.equal(bootRes.estado, "COMPLETED");
 

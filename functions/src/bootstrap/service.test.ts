@@ -11,6 +11,10 @@ class Ref {
   async get() { return new Snap(this.db.docs.get(this.path)); }
   async update(data: any) { this.db.update(this.path, data); }
   async set(data: any) { this.db.seed(this.path, data); }
+  async create(data: any) {
+    if (this.db.docs.has(this.path)) throw new Error(`EXISTS:${this.path}`);
+    this.db.seed(this.path, data);
+  }
 }
 
 class Snap {
@@ -97,6 +101,17 @@ const entradaBase: EntradaBootstrapEmpresarial = {
 
 const ownerExistente = async () => {};
 
+let credencialEmitidaLog: Array<{ empresaId: string; uid: string; permisos: string[]; nombreComercial: string }>;
+const credencialIssuerExitoso = async (p: { empresaId: string; uid: string; permisos: string[]; nombreComercial: string }) => {
+  credencialEmitidaLog.push(p);
+  return {
+    incorporacionId: `inc_${p.empresaId}_${p.uid}`,
+    codigo: `codigo-${p.empresaId}`,
+    pinTemporal: "123456",
+    estado: "EMITIDA" as const,
+  };
+};
+
 test("Bootstrap creates the audit obligation in the same core commit", async () => {
   const db = new Db();
   db.seed("planes/plan_pos_pro/versiones/1", {
@@ -113,6 +128,8 @@ test("Bootstrap creates the audit obligation in the same core commit", async () 
     (tx) => tx.create(db.collection("saas_auditoria_obligaciones").doc("bootstrap_atomic"), {
       estado: "PENDIENTE",
     }),
+    undefined,
+    credencialIssuerExitoso,
   );
 
   assert.equal(db.read("empresas/empresa_test_b5").estado, "trial");
@@ -134,6 +151,8 @@ test("Bootstrap does not publish its core when the durable audit obligation cann
       async () => {},
       ownerExistente,
       () => { throw new Error("AUDIT_OBLIGATION_WRITE_FAILED"); },
+      undefined,
+      credencialIssuerExitoso,
     ),
     /AUDIT_OBLIGATION_WRITE_FAILED/,
   );
@@ -162,14 +181,31 @@ test("B5 Bootstrap — Ejecución exitosa completa y atómica del núcleo", asyn
   const mockEmitter = async (uid: string, empresaId: string, rol: "admin") => {
     claimsEmitidosLog.push({ uid, empresaId, rol });
   };
+  credencialEmitidaLog = [];
 
-  const res = await ejecutarBootstrapEmpresarial(db as any, entradaBase, mockEmitter, ownerExistente);
+  const res = await ejecutarBootstrapEmpresarial(
+    db as any, entradaBase, mockEmitter, ownerExistente, undefined, undefined, credencialIssuerExitoso,
+  );
 
   assert.equal(res.estado, "COMPLETED");
   assert.equal(res.claimsEmitidos, true);
   assert.equal(res.idempotente, false);
   assert.equal(claimsEmitidosLog.length, 1);
   assert.equal(claimsEmitidosLog[0].uid, "owner_usr_99");
+
+  // ADR-SAAS-013 paso H: la credencial inicial se emite antes que los claims,
+  // una sola vez, para el owner del bootstrap.
+  assert.equal(credencialEmitidaLog.length, 1);
+  assert.equal(credencialEmitidaLog[0].uid, "owner_usr_99");
+  assert.equal(credencialEmitidaLog[0].empresaId, "empresa_test_b5");
+  assert.deepEqual(res.credencialInicial, { codigo: "codigo-empresa_test_b5", pinTemporal: "123456" });
+  // El provisionamientoId real depende del hash de idempotencyKey; se
+  // localiza por búsqueda en vez de precalcularlo aquí.
+  const provDoc = [...db.docs.entries()].find(([k]) => k.startsWith("provisionamientos_empresariales/"));
+  assert.ok(provDoc, "debe existir un documento de provisionamiento");
+  const credencialInicialPersistida = provDoc![1].credencialInicial;
+  assert.equal(credencialInicialPersistida.codigo, "codigo-empresa_test_b5");
+  assert.equal("pinTemporal" in credencialInicialPersistida, false, "el provisionamiento NUNCA guarda el PIN");
 
   // Verificar que el núcleo completo fue creado en la transacción
   const empresa = db.read("empresas/empresa_test_b5");
@@ -239,32 +275,79 @@ test("B5 Bootstrap — Fallo de Auth posterior al commit ejecuta Forward Recover
     estado: "PUBLICADA",
   });
 
-  // 1. Simular error de red al emitir Custom Claims
+  // 1. Simular error de red al emitir Custom Claims (la credencial inicial
+  // — paso H, previo — se emite sin problema)
   const failingEmitter = async () => {
     throw new Error("AUTH_NETWORK_TIMEOUT");
   };
+  credencialEmitidaLog = [];
 
-  const res = await ejecutarBootstrapEmpresarial(db as any, entradaBase, failingEmitter, ownerExistente);
+  const res = await ejecutarBootstrapEmpresarial(
+    db as any, entradaBase, failingEmitter, ownerExistente, undefined, undefined, credencialIssuerExitoso,
+  );
 
   assert.equal(res.estado, "RETRYABLE_FAILURE");
   assert.equal(res.claimsEmitidos, false);
+  // La credencial ya se había emitido cuando falló el paso de claims: el
+  // resultado debe seguir exponiendo su código (nunca un PIN reexpuesto).
+  assert.deepEqual(res.credencialInicial, { codigo: "codigo-empresa_test_b5", pinTemporal: "123456" });
+  assert.equal(credencialEmitidaLog.length, 1, "el paso H debe haberse ejecutado exactamente una vez");
 
   // El núcleo Firestore PERMANECE consistente e intacto (sin rollback destructivo)
   assert.equal(db.read("empresas/empresa_test_b5").estado, "trial");
   assert.equal(db.read("suscripciones/empresa_test_b5").estado, "trialing");
 
-  // 2. Reintento transparente con emisor funcional reanuda y completa la emisión de claims
+  // 2. Reintento transparente con emisor funcional reanuda y completa la
+  // emisión de claims — y NO repite el paso H, ya confirmado.
   let claimsExitosos = false;
   const workingEmitter = async () => {
     claimsExitosos = true;
   };
 
-  const res2 = await ejecutarBootstrapEmpresarial(db as any, entradaBase, workingEmitter, ownerExistente);
+  const res2 = await ejecutarBootstrapEmpresarial(
+    db as any, entradaBase, workingEmitter, ownerExistente, undefined, undefined, credencialIssuerExitoso,
+  );
 
   assert.equal(res2.estado, "COMPLETED");
   assert.equal(res2.claimsEmitidos, true);
   assert.equal(res2.idempotente, true);
   assert.equal(claimsExitosos, true);
+  assert.equal(credencialEmitidaLog.length, 1, "el reintento no debe volver a invocar el emisor de credencial");
+  assert.deepEqual(res2.credencialInicial, { codigo: "codigo-empresa_test_b5", pinTemporal: null }, "el reintento no reexpone el PIN");
+});
+
+test("B5 Bootstrap — Fallo al emitir la credencial inicial (paso H) ejecuta Forward Recovery sin tocar claims", async () => {
+  const db = new Db();
+  db.seed("planes/plan_pos_pro/versiones/1", {
+    planId: "plan_pos_pro",
+    planVersion: 1,
+    estado: "PUBLICADA",
+  });
+
+  let claimsInvocado = false;
+  const emitterQueNoDeberiaLlamarse = async () => { claimsInvocado = true; };
+  const issuerQueFalla = async () => { throw new Error("CODIGO_OPERATIVO_NO_DISPONIBLE"); };
+
+  const res = await ejecutarBootstrapEmpresarial(
+    db as any, entradaBase, emitterQueNoDeberiaLlamarse, ownerExistente, undefined, undefined, issuerQueFalla,
+  );
+
+  assert.equal(res.estado, "RETRYABLE_FAILURE");
+  assert.equal(res.claimsEmitidos, false);
+  assert.equal(res.credencialInicial, null);
+  assert.equal(claimsInvocado, false, "los claims no deben emitirse si la credencial inicial falló primero");
+
+  // El núcleo permanece intacto — mismo Forward Recovery que el resto de pasos.
+  assert.equal(db.read("empresas/empresa_test_b5").estado, "trial");
+
+  // Reintento con un emisor funcional retoma exactamente en el paso H.
+  credencialEmitidaLog = [];
+  const res2 = await ejecutarBootstrapEmpresarial(
+    db as any, entradaBase, emitterQueNoDeberiaLlamarse, ownerExistente, undefined, undefined, credencialIssuerExitoso,
+  );
+  assert.equal(res2.estado, "COMPLETED");
+  assert.equal(credencialEmitidaLog.length, 1);
+  assert.equal(claimsInvocado, true, "en el reintento, los claims sí deben emitirse tras completarse el paso H");
 });
 
 test("B5 Bootstrap — Conflicto de idempotencia si se reutiliza idempotencyKey con fingerprint distinto", async () => {
@@ -275,7 +358,9 @@ test("B5 Bootstrap — Conflicto de idempotencia si se reutiliza idempotencyKey 
     estado: "PUBLICADA",
   });
 
-  await ejecutarBootstrapEmpresarial(db as any, entradaBase, async () => {}, ownerExistente);
+  await ejecutarBootstrapEmpresarial(
+    db as any, entradaBase, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso,
+  );
 
   // Intentar reutilizar la misma clave de idempotencia pero modificando el nombre comercial
   const entradaIncompatible: EntradaBootstrapEmpresarial = {
@@ -284,7 +369,9 @@ test("B5 Bootstrap — Conflicto de idempotencia si se reutiliza idempotencyKey 
   };
 
   await assert.rejects(
-    ejecutarBootstrapEmpresarial(db as any, entradaIncompatible, async () => {}, ownerExistente),
+    ejecutarBootstrapEmpresarial(
+      db as any, entradaIncompatible, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso,
+    ),
     /IDEMPOTENCY_CONFLICT/
   );
 });

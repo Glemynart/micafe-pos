@@ -1,5 +1,6 @@
 import { getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { defineSecret } from "firebase-functions/params";
 import { autorizarPlataforma } from "./authorization";
 import type { EnvelopePlataforma, FacultadPlataforma } from "./contracts";
 import { ejecutarComandoOperador } from "./operators";
@@ -9,6 +10,9 @@ import { consultarAuditoriaPlataforma, listarRecursosPlataforma, obtenerDetalleE
 import { listarSoporteTenant, solicitarSoporte, transicionarSoporte } from "./support";
 
 const REGION = "us-central1";
+// ADR-SAAS-013 — el paso H de ejecutarBootstrapEmpresarial (invocado por
+// solicitarBootstrapEmpresarialSaas) hashea el PIN temporal con este secreto.
+const PIN_PEPPER = defineSecret("OPERATIONAL_PIN_PEPPER");
 
 function exigirAuth(request: { auth?: { uid: string; token: Record<string, unknown> } | null }) {
   if (!request.auth) throw new HttpsError("unauthenticated", "AUTENTICACION_REQUERIDA");
@@ -49,7 +53,7 @@ export const suspenderOperadorSaas = callableOperador("SuspenderOperador");
 export const reactivarOperadorSaas = callableOperador("ReactivarOperador");
 export const revocarOperadorSaas = callableOperador("RevocarOperador");
 
-export const solicitarBootstrapEmpresarialSaas = onCall({ region: REGION }, async (request) => {
+export const solicitarBootstrapEmpresarialSaas = onCall({ region: REGION, secrets: [PIN_PEPPER] }, async (request) => {
   const auth = exigirAuth(request);
   const db = getFirestore();
   await autorizarPlataforma(db, auth.uid, auth.token, "BOOTSTRAP_EMPRESARIAL_SOLICITAR");
