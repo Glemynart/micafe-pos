@@ -23,6 +23,7 @@ import {
   type Espacio,
   type Categoria,
 } from "@/lib/espacios-service";
+import { useSaaS } from "@/contexts/saas-context";
 
 // ─── Tipos del Contexto ───────────────────────────────────────────────────────
 
@@ -50,14 +51,27 @@ const EspaciosContext = createContext<EspaciosContextValue | null>(null);
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function EspaciosProvider({ children }: { children: ReactNode }) {
+  const { empresaId, loading } = useSaaS();
   const [espacios, setEspacios] = useState<Espacio[]>([]);
   const [espacioActivo, setEspacioActivo] = useState<Espacio | null>(null);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [categoriaActiva, setCategoriaActiva] = useState<Categoria | null>(null);
   const [cargandoEspacios, setCargandoEspacios] = useState(true);
 
-  // Suscribir a espacios activos
+  // Los espacios solo existen dentro de una sesión tenant resuelta. Durante
+  // DIRECTA_TEMP no se consulta Firestore; al completar la activación,
+  // empresaId cambia y este efecto crea el listener correspondiente.
   useEffect(() => {
+    if (loading || !empresaId) {
+      setEspacios([]);
+      setEspacioActivo(null);
+      setCategorias([]);
+      setCategoriaActiva(null);
+      setCargandoEspacios(false);
+      return;
+    }
+
+    setCargandoEspacios(true);
     const unsub = suscribirEspacios((nuevosEspacios) => {
       setEspacios(nuevosEspacios);
       setCargandoEspacios(false);
@@ -72,7 +86,7 @@ export function EspaciosProvider({ children }: { children: ReactNode }) {
       });
     });
     return unsub;
-  }, []);
+  }, [empresaId, loading]);
 
   // Cuando cambia el espacio activo, suscribir a sus categorías
   useEffect(() => {
