@@ -12,6 +12,9 @@
   },
   "scripts": {
     "dev:next": "next dev -H 0.0.0.0",
+    "dev:emu": "cross-env NEXT_PUBLIC_USE_EMULATORS=1 next dev -H 0.0.0.0 -p 3002",
+    "emu": "firebase emulators:start --only functions,firestore,auth --project micafe-pos",
+    "seed:emu-capa4": "node scripts/seed-emulador-capa4.js",
     "dev:electron": "cross-env NODE_ENV=development electron .",
     "dev": "concurrently -k \"npm run dev:next\" \"npm run dev:electron\"",
     "build": "next build",
