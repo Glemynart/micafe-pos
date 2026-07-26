@@ -35,7 +35,7 @@ import {
 import { onIdTokenChanged, signOut, type User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { obtenerEmpresaPorId, type Empresa } from "@/lib/empresas-service";
-import { resolverEmpresaIdActivo, TenantSinSesionError } from "@/lib/tenant-context";
+import { esSesionTransicionDirecta, resolverEmpresaIdActivo, TenantSinSesionError } from "@/lib/tenant-context";
 import { esRolUsuario, type RolUsuario } from "@/lib/auth-service";
 import { esMembresiaActiva, obtenerMembresia, type Membresia } from "@/lib/membresias-service";
 
@@ -118,6 +118,23 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         return;
       }
+
+      // Ver `esSesionTransicionDirecta` (lib/tenant-context.ts): una sesión
+      // `DIRECTA_TEMP` es una sesión de Auth válida que aún no es tenant.
+      // Este provider no tiene contexto SaaS que ofrecerle (no hay empresa
+      // ni membresía que resolver todavía) pero tampoco debe tratarla como
+      // inválida — se mantiene estable, sin resolver ni cerrar sesión, hasta
+      // que la activación (fuera de este provider) la reemplace por una
+      // sesión tenant y este mismo listener vuelva a disparar.
+      const tokenCacheado = await firebaseUser.getIdTokenResult();
+      if (esSesionTransicionDirecta(tokenCacheado.claims)) {
+        setEmpresaId(null);
+        setEmpresa(null);
+        setMembresia(null);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       await resolver(firebaseUser);
       setLoading(false);
@@ -131,6 +148,14 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
     if (!firebaseUser) return;
     setLoading(true);
     await firebaseUser.getIdToken(true);
+    const tokenCacheado = await firebaseUser.getIdTokenResult();
+    if (esSesionTransicionDirecta(tokenCacheado.claims)) {
+      setEmpresaId(null);
+      setEmpresa(null);
+      setMembresia(null);
+      setLoading(false);
+      return;
+    }
     await resolver(firebaseUser);
     setLoading(false);
   }, [resolver]);

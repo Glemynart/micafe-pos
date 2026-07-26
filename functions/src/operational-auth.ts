@@ -13,6 +13,7 @@ import {
   normalizarCodigo,
 } from "./contracts";
 import { hashearPin, verificarPin } from "./pin-security";
+import { esCredencialTemporalPlataformaVencidaOInvalida } from "./platform/vigencia-credencial-temporal";
 
 initializeApp();
 
@@ -340,8 +341,21 @@ async function acuñarSesionTenant(uid: string, empresaId: string, rol: RolTenan
 }
 
 /**
- * Emite una sesión de bootstrap sin dejar claims tenant persistentes. Esto
- * también revoca tokens previos del UID si una reparación reutilizó el principal.
+ * Emite una sesión de bootstrap sin dejar claims tenant persistentes.
+ *
+ * CORRECCIÓN ARQUITECTÓNICA (Capa 5, derivada del E2E): antes revocaba los
+ * refresh tokens del uid antes de emitir el customToken, para invalidar una
+ * sesión previa en caso de que una reparación reutilizara el principal. Se
+ * eliminó tras auditar que ninguna invariante depende de ella: el uid llega
+ * aquí recién creado (sin sesión previa) en el camino normal, y el único
+ * caso real de invalidación —una credencial reemitida— ya se protege por su
+ * cuenta en `emitirCredencialInicial` (incorporación anterior a `EXPIRED` en
+ * la misma transacción), verificado por `activarIncorporacionDirecta` contra
+ * el estado de Firestore, no contra la validez del token. Mantenerla creaba
+ * una carrera real: `revokeRefreshTokens` fija `validSince` con resolución
+ * de segundo, y el customToken emitido a continuación podía nacer con un
+ * `iat` dentro del mismo segundo, autoinvalidando la sesión `DIRECTA_TEMP`
+ * recién creada antes de que el cliente pudiera usarla.
  */
 export async function emitirSesionActivacionDirecta(uid: string, incorporacionId: string): Promise<string> {
   const auth = getAuth();
@@ -350,7 +364,6 @@ export async function emitirSesionActivacionDirecta(uid: string, incorporacionId
     ...(existente.saas && typeof existente.saas === "object" ? { saas: existente.saas } : {}),
   };
   await auth.setCustomUserClaims(uid, platformClaims);
-  await auth.revokeRefreshTokens(uid);
   return auth.createCustomToken(uid, { authStage: "DIRECTA_TEMP", incorporacionId });
 }
 
@@ -443,7 +456,8 @@ export const autenticarOperativo = onCall(
           || incorporacionData.empresaId !== empresa.id
           || incorporacionData.estado !== "TEMP_CREDENTIAL"
           || incorporacionData.uid !== credencial.uid
-          || incorporacionData.codigo !== credencial.codigo) {
+          || incorporacionData.codigo !== credencial.codigo
+          || esCredencialTemporalPlataformaVencidaOInvalida(incorporacionData, credencial)) {
           throw errorCredenciales();
         }
         await limpiarFallos(ref);

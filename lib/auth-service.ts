@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { obtenerTokenActual } from "./fcm-token-helper";
-import { iniciarSesionOperativa } from "./operational-auth-service";
+import { activarSesionOperativa, iniciarSesionOperativa } from "./operational-auth-service";
 import {
   esMembresiaActiva,
   esRolMembresia,
@@ -25,7 +25,11 @@ import {
   type Membresia,
   type RolMembresia,
 } from "./membresias-service";
-import { resolverEmpresaIdActivo } from "./tenant-context";
+import {
+  esSesionTransicionDirecta,
+  obtenerIncorporacionSesionTransicionDirecta,
+  resolverEmpresaIdActivo,
+} from "./tenant-context";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -62,12 +66,42 @@ const EMAIL_DOMAIN = "@micafe-pos.internal";
 
 // ─── Funciones Públicas ───────────────────────────────────────────────────────
 
+/** ADR-SAAS-013 §9 — resultado de `loginConCodigoYPin` cuando la credencial requiere activación. */
+export interface ActivacionRequerida {
+  requiereActivacion: true;
+  incorporacionId: string;
+  /** El PIN temporal que el usuario acaba de usar para entrar; lo exige `activarCredencial`. */
+  pinTemporal: string;
+}
+
+export type ResultadoLoginOperativo = { requiereActivacion: false; usuario: Usuario } | ActivacionRequerida;
+
 /**
  * Inicia la ruta operativa MT-U5a: código + PIN independiente de Firebase
  * Email/Password. La Function emite el custom token y sus claims tenant.
+ *
+ * ADR-SAAS-013 §9 — si la credencial es la inicial y aún no fue activada,
+ * no lanza: devuelve `requiereActivacion: true` con la sesión `DIRECTA_TEMP`
+ * ya iniciada (sin claims tenant), a la espera de `activarCredencial`.
  */
-export async function loginConCodigoYPin(codigo: string, pin: string): Promise<Usuario> {
-  const firebaseUser = await iniciarSesionOperativa(codigo.trim(), pin);
+export async function loginConCodigoYPin(codigo: string, pin: string): Promise<ResultadoLoginOperativo> {
+  const resultado = await iniciarSesionOperativa(codigo.trim(), pin);
+  if (resultado.requiereCambio) {
+    return { requiereActivacion: true, incorporacionId: resultado.incorporacionId, pinTemporal: pin };
+  }
+  return { requiereActivacion: false, usuario: await materializarSesionOperativa(resultado.user) };
+}
+
+/**
+ * Completa la activación de la credencial inicial: fija el PIN definitivo y
+ * canjea la sesión `DIRECTA_TEMP` por una sesión tenant plena.
+ */
+export async function activarCredencial(pinTemporal: string, pinNuevo: string): Promise<Usuario> {
+  const firebaseUser = await activarSesionOperativa(pinTemporal, pinNuevo);
+  return materializarSesionOperativa(firebaseUser);
+}
+
+async function materializarSesionOperativa(firebaseUser: FirebaseUser): Promise<Usuario> {
   const usuario = await getUsuarioFirestore(firebaseUser.uid);
 
   if (!usuario || !usuario.activo) {
@@ -162,27 +196,66 @@ export async function getCurrentUserInfo(
  * Suscripción reactiva al estado de autenticación de Firebase.
  * Útil para inicializar el contexto al recargar la página.
  */
+export interface ActivacionDirectaRestaurada {
+  tipo: "DIRECTA_TEMP";
+  incorporacionId: string;
+}
+
+export type EstadoAuth = Usuario | ActivacionDirectaRestaurada | null;
+
+export interface SuscripcionAuth {
+  cancelar: () => void;
+  invalidarPendientes: () => void;
+}
+
+export function esActivacionDirectaRestaurada(
+  estado: EstadoAuth,
+): estado is ActivacionDirectaRestaurada {
+  return estado !== null && "tipo" in estado && estado.tipo === "DIRECTA_TEMP";
+}
+
 export function onAuthStateChange(
-  callback: (usuario: Usuario | null) => void
-): () => void {
+  callback: (estado: EstadoAuth) => void
+): SuscripcionAuth {
   let unsubUserDoc: (() => void) | null = null;
+  let generacion = 0;
 
   const unsubAuth = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+    const generacionEvento = ++generacion;
     if (unsubUserDoc) {
       unsubUserDoc();
       unsubUserDoc = null;
     }
 
     if (!firebaseUser) {
-      callback(null);
+      if (generacionEvento === generacion) callback(null);
+      return;
+    }
+
+    // Ver `esSesionTransicionDirecta` — una sesión `DIRECTA_TEMP` no tiene
+    // (ni debe adquirir) claims tenant. `resolverEmpresaIdActivo` fuerza una
+    // renovación de red del ID token cuando no encuentra `empresaId`, algo
+    // que aquí SIEMPRE ocurre por diseño; esa renovación forzada, justo
+    // después del canje del customToken, corre en carrera con la propia
+    // renovación interna del SDK tras `signInWithCustomToken` y puede
+    // invalidar la sesión recién creada antes de que la activación llegue a
+    // usarla (H-4). Se corta aquí con la lectura cacheada del token (sin
+    // red) — no hay `usuario` que proyectar para esta sesión de todas formas.
+    const tokenCacheado = await firebaseUser.getIdTokenResult();
+    if (generacionEvento !== generacion) return;
+    if (esSesionTransicionDirecta(tokenCacheado.claims)) {
+      const incorporacionId = obtenerIncorporacionSesionTransicionDirecta(tokenCacheado.claims);
+      callback(incorporacionId ? { tipo: "DIRECTA_TEMP", incorporacionId } : null);
       return;
     }
 
     try {
       const { empresaId } = await resolverEmpresaIdActivo();
+      if (generacionEvento !== generacion) return;
       let perfil: Record<string, unknown> | null = null;
       let membresia: Membresia | null = null;
       const emitir = () => {
+        if (generacionEvento !== generacion) return;
         if (!perfil || !membresia || !esMembresiaActiva(membresia)) {
           callback(null);
           return;
@@ -192,21 +265,31 @@ export function onAuthStateChange(
       const unsubPerfil = onSnapshot(doc(db, "usuarios", firebaseUser.uid), (snap) => {
         perfil = snap.exists() ? snap.data() : null;
         emitir();
-      }, () => callback(null));
+      }, () => { if (generacionEvento === generacion) callback(null); });
       const unsubMembresia = onSnapshot(doc(db, "membresias", `${empresaId}_${firebaseUser.uid}`), (snap) => {
         const data = snap.data();
         membresia = data && esMembresiaCanonicaLocal(data) ? data : null;
         emitir();
-      }, () => callback(null));
+      }, () => { if (generacionEvento === generacion) callback(null); });
       unsubUserDoc = () => { unsubPerfil(); unsubMembresia(); };
     } catch {
-      callback(null);
+      if (generacionEvento === generacion) callback(null);
     }
   });
 
-  return () => {
-    unsubAuth();
-    if (unsubUserDoc) unsubUserDoc();
+  return {
+    cancelar: () => {
+      generacion += 1;
+      unsubAuth();
+      if (unsubUserDoc) unsubUserDoc();
+    },
+    invalidarPendientes: () => {
+      generacion += 1;
+      if (unsubUserDoc) {
+        unsubUserDoc();
+        unsubUserDoc = null;
+      }
+    },
   };
 }
 

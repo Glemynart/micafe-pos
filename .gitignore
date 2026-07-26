@@ -10,6 +10,8 @@ __v0_jsx-dev-runtime.ts
 .env*.local
 
 # Credenciales y secretos
+.secret.local
+functions/.secret.local
 credentials.json
 service-account*.json
 *-firebase-adminsdk-*.json

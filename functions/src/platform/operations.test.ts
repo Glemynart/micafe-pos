@@ -4,6 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { ejecutarComandoComercial, solicitarBootstrapEmpresarial } from "./operations";
 import { ejecutarBootstrapEmpresarial } from "../bootstrap/service";
 import type { EntradaBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
+import { crearPlantillaConfiguracionRevision1 } from "../../../lib/configuracion";
 
 // Réplica del fake usado en functions/src/bootstrap/service.test.ts, extendida con un
 // mecanismo de fallo de una sola vez para simular una emisión de evidencia que falla
@@ -12,9 +13,18 @@ class Ref {
   constructor(public path: string, private db: Db) {}
   collection(id: string) { return new Ref(`${this.path}/${id}`, this.db); }
   doc(id: string) { return new Ref(`${this.path}/${id}`, this.db); }
+  where(campo: string, op: "==" | "!=", valor: unknown) { return new Query(this.path, [[campo, op, valor]]); }
   async get() { return new Snap(this.db.docs.get(this.path)); }
   async update(data: any) { this.db.update(this.path, data); }
   async set(data: any) { this.db.seed(this.path, data); }
+}
+
+/** Soporta las consultas por-igualdad usadas por `ejecutarComandoConfiguracion` (p. ej. la comprobación de emisiones DIAN). */
+class Query {
+  readonly __isQuery = true;
+  constructor(public readonly coleccion: string, public readonly filtros: [string, "==" | "!=", unknown][] = []) {}
+  where(campo: string, op: "==" | "!=", valor: unknown) { return new Query(this.coleccion, [...this.filtros, [campo, op, valor]]); }
+  limit(_n: number) { return this; }
 }
 
 class Snap {
@@ -52,8 +62,19 @@ class Db {
     const w = new Map([...this.docs].map(([k, v]) => [k, structuredClone(v)]));
     let hasWritten = false;
     const tx = {
-      get: async (r: Ref) => {
+      get: async (r: Ref | Query) => {
         if (hasWritten) throw new Error("TRANSACTION_READ_AFTER_WRITE");
+        if (r instanceof Query) {
+          const leerCampo = (data: any, campo: string) => campo.split(".").reduce((v, k) => v?.[k], data);
+          const docs = [...w.entries()]
+            .filter(([path]) => path.startsWith(`${r.coleccion}/`))
+            .filter(([, data]) => r.filtros.every(([campo, op, valor]) => {
+              const v = leerCampo(data, campo);
+              return op === "!=" ? v !== valor && v !== undefined : v === valor;
+            }))
+            .map(([path, data]) => ({ id: path.split("/").pop()!, data: () => structuredClone(data) }));
+          return { size: docs.length, empty: docs.length === 0, docs };
+        }
         return new Snap(w.get(r.path));
       },
       create: (r: Ref, v: any) => {
@@ -107,6 +128,18 @@ function entradaBackoffice(overrides: Partial<EntradaBootstrapEmpresarial> = {})
   };
 }
 
+// ADR-SAAS-013 paso H: el fake `Db` de este archivo no soporta `.where()`,
+// así que el emisor real de `emitirCredencialInicial` no puede ejecutarse
+// contra él (igual que en bootstrap/service.test.ts). Se inyecta un emisor
+// mínimo para que las pruebas de este archivo —centradas en auditoría e
+// idempotencia del comando, no en la credencial en sí— no dependan de él.
+const credencialIssuerMock = async (p: { empresaId: string; uid: string }) => ({
+  incorporacionId: `inc_${p.empresaId}_${p.uid}`,
+  codigo: `codigo-${p.empresaId}`,
+  pinTemporal: "123456",
+  estado: "EMITIDA" as const,
+});
+
 function seedPlanPublicado(db: Db) {
   db.seed("planes/plan_pos_pro/versiones/1", {
     planId: "plan_pos_pro",
@@ -119,7 +152,7 @@ test("H1 — el Backoffice crea la empresa de extremo a extremo con causationId 
   const db = new Db();
   seedPlanPublicado(db);
 
-  const resultado = await solicitarBootstrapEmpresarial(db as never, "operador_1", entradaBackoffice(), async () => {}, async () => {});
+  const resultado = await solicitarBootstrapEmpresarial(db as never, "operador_1", entradaBackoffice(), async () => {}, async () => {}, credencialIssuerMock);
 
   assert.equal(resultado.estado, "COMPLETED");
   assert.equal(db.read("empresas/empresa_backoffice_1")?.estado, "trial");
@@ -133,7 +166,7 @@ test("H2 + H5 — un reintento tras fallar la emisión de evidencia recupera el 
 
   db.failCreateOnce = "saas_auditoria/";
   await assert.rejects(
-    solicitarBootstrapEmpresarial(db as never, "operador_1", entrada, async () => {}, async () => {}),
+    solicitarBootstrapEmpresarial(db as never, "operador_1", entrada, async () => {}, async () => {}, credencialIssuerMock),
     /SIMULATED_EVIDENCE_WRITE_FAILURE/,
   );
 
@@ -150,7 +183,7 @@ test("H2 + H5 — un reintento tras fallar la emisión de evidencia recupera el 
   assert.ok(obligacionSolicitud);
   const obligacionIdOriginal = obligacionSolicitud.obligacionId;
 
-  const resultado = await solicitarBootstrapEmpresarial(db as never, "operador_1", entrada, async () => {}, async () => {});
+  const resultado = await solicitarBootstrapEmpresarial(db as never, "operador_1", entrada, async () => {}, async () => {}, credencialIssuerMock);
 
   assert.equal(resultado.estado, "COMPLETED");
   assert.equal(resultado.idempotente, true);
@@ -172,7 +205,7 @@ test("H5 — BOOTSTRAP_EMPRESARIAL_COMPLETADO referencia el agregado de provisio
   seedPlanPublicado(db);
   const entrada = entradaBackoffice({ empresaId: "empresa_backoffice_3", idempotencyKey: "idem_backoffice_3", commandId: "cmd_backoffice_3" });
 
-  await solicitarBootstrapEmpresarial(db as never, "operador_1", entrada, async () => {}, async () => {});
+  await solicitarBootstrapEmpresarial(db as never, "operador_1", entrada, async () => {}, async () => {}, credencialIssuerMock);
 
   const completado = db.docsByPrefix("saas_auditoria/").find((e) => e.tipo === "BOOTSTRAP_EMPRESARIAL_COMPLETADO");
   assert.ok(completado);
@@ -228,7 +261,9 @@ test("M-1 — un provisionamiento COMPLETED sin obligacionCompletadoId (ruta de 
 
   // Ruta de autoservicio (bootstrapEmpresarialCallable): sin observador de plataforma,
   // por lo que el provisionamiento completa con obligacionCompletadoId: null.
-  const directo = await ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {});
+  const directo = await ejecutarBootstrapEmpresarial(
+    db as never, entrada, async () => {}, async () => {}, undefined, undefined, credencialIssuerMock,
+  );
   assert.equal(directo.estado, "COMPLETED");
   assert.equal(directo.obligacionCompletadoId, null);
 
@@ -240,6 +275,7 @@ test("M-1 — un provisionamiento COMPLETED sin obligacionCompletadoId (ruta de 
     entrada,
     async () => {},
     async () => {},
+    credencialIssuerMock,
   );
 
   assert.equal(resultado.estado, "COMPLETED");
@@ -269,15 +305,17 @@ test("M-2 — dos transacciones de finalización concurrentes sobre el mismo pro
   // obligacionCompletadoId: así se simulan dos intentos que aún NO comprometieron el
   // cierre, el escenario real donde la carrera puede ocurrir (p. ej. dos reintentos del
   // mismo comando de plataforma tras una caída antes de la finalización).
-  await ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {}, undefined, completionObserver);
+  await ejecutarBootstrapEmpresarial(
+    db as never, entrada, async () => {}, async () => {}, undefined, completionObserver, credencialIssuerMock,
+  );
   const provPath = [...db.docs.keys()].find((k) => k.startsWith("provisionamientos_empresariales/"))!;
   const provCompletado = db.read(provPath);
   db.seed(provPath, { ...provCompletado, estado: "CLAIMS_ISSUED", ultimoPasoConfirmado: "CLAIMS_ISSUED", obligacionCompletadoId: null });
   const invocacionesAntesDeLaCarrera = invocacionesObservador;
 
   const [r1, r2] = await Promise.all([
-    ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {}, undefined, completionObserver),
-    ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {}, undefined, completionObserver),
+    ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {}, undefined, completionObserver, credencialIssuerMock),
+    ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {}, undefined, completionObserver, credencialIssuerMock),
   ]);
 
   assert.equal(r1.estado, "COMPLETED");
@@ -292,4 +330,148 @@ test("M-2 — dos transacciones de finalización concurrentes sobre el mismo pro
   // Solo existe un documento de obligación para el obligacionCompletadoId ganador: la
   // rama que perdió la carrera no creó una obligación propia, solo leyó y reutilizó.
   assert.equal(db.docsByPrefix(`saas_auditoria_obligaciones/${r1.obligacionCompletadoId}`).length, 1);
+});
+
+test("ActualizarDatosAdministrativosEmpresa (ADR-SAAS-013 §5.3) — renombra por revisión, audita, no toca paisFiscal ni estado", async () => {
+  const db = new Db();
+  db.seed("empresas/empresa_rename", { estado: "activa", nombre: "Mi Café Especial", nombreComercial: "Mi Café Especial", paisFiscal: "CO", revision: 3 });
+  // La propagación a `configuraciones/{empresaId}` (ADR-SAAS-013 §5.3) reutiliza
+  // ejecutarComandoConfiguracion — necesita una configuración ya inicializada.
+  db.seed("configuraciones/empresa_rename", crearPlantillaConfiguracionRevision1({
+    empresaId: "empresa_rename", nombreComercial: "Mi Café Especial",
+    creadaEn: "2026-01-01", actualizadaEn: "2026-01-01",
+    ultimaMutacion: { actorTipo: "SYSTEM", actorId: "system", origen: "BOOTSTRAP", commandId: "cmd", correlationId: "corr" },
+  }));
+  const entrada = {
+    commandId: "cmd_rename_1",
+    idempotencyKey: "idem_rename_1",
+    correlationId: "corr_rename_1",
+    causationId: null as unknown as string,
+    motivoCodigo: "BACKOFFICE_RENOMBRAR_EMPRESA",
+    empresaId: "empresa_rename",
+    nombreComercial: "Café Atrato",
+    expectedRevision: 3,
+  };
+
+  const resultado = await ejecutarComandoComercial(db as never, "operador_1", "ActualizarDatosAdministrativosEmpresa", entrada);
+
+  assert.equal((resultado as any).nombreComercial, "Café Atrato");
+  assert.equal((resultado as any).revision, 4);
+  const empresa = db.read("empresas/empresa_rename");
+  assert.equal(empresa.nombre, "Café Atrato");
+  assert.equal(empresa.nombreComercial, "Café Atrato");
+  assert.equal(empresa.paisFiscal, "CO", "paisFiscal no debe tocarse — excluido explícitamente por el ADR");
+  assert.equal(empresa.estado, "activa", "estado pertenece a lifecycle, no a este comando");
+  assert.equal(empresa.revision, 4);
+
+  const evidencia = db.docsByPrefix("saas_auditoria/").find((e) => e.tipo === "EMPRESA_DATOS_ADMINISTRATIVOS_ACTUALIZADOS");
+  assert.ok(evidencia, "debe auditarse en la plataforma");
+  assert.equal(evidencia.facultad, "LIFECYCLE_GOBERNAR");
+
+  const configuracion = db.read("configuraciones/empresa_rename");
+  assert.equal(configuracion.identidadFiscal.nombreComercial, "Café Atrato", "debe propagarse a configuraciones/{empresaId}, no solo a empresas");
+  assert.equal(configuracion.revision, 2, "el comando de configuración compuesto también avanza su propia revisión");
+  assert.equal(configuracion.ultimaMutacion.origen, "PLATFORM");
+  assert.equal(configuracion.ultimaMutacion.actorTipo, "PLATFORM");
+});
+
+test("ActualizarDatosAdministrativosEmpresa — corrige el nombre de una empresa suspendida (conservación, no operatividad, es la barrera de plataforma)", async () => {
+  const db = new Db();
+  db.seed("empresas/empresa_suspendida", { estado: "suspendida", nombre: "Café Viejo", nombreComercial: "Café Viejo", paisFiscal: "CO", revision: 2 });
+  db.seed("configuraciones/empresa_suspendida", crearPlantillaConfiguracionRevision1({
+    empresaId: "empresa_suspendida", nombreComercial: "Café Viejo",
+    creadaEn: "2026-01-01", actualizadaEn: "2026-01-01",
+    ultimaMutacion: { actorTipo: "SYSTEM", actorId: "system", origen: "BOOTSTRAP", commandId: "cmd", correlationId: "corr" },
+  }));
+  const entrada = {
+    commandId: "cmd_rename_susp",
+    idempotencyKey: "idem_rename_susp",
+    correlationId: "corr_rename_susp",
+    causationId: null as unknown as string,
+    motivoCodigo: "BACKOFFICE_RENOMBRAR_EMPRESA",
+    empresaId: "empresa_suspendida",
+    nombreComercial: "Café Corregido",
+    expectedRevision: 2,
+  };
+
+  const resultado = await ejecutarComandoComercial(db as never, "operador_1", "ActualizarDatosAdministrativosEmpresa", entrada);
+
+  assert.equal((resultado as any).nombreComercial, "Café Corregido");
+  assert.equal(db.read("empresas/empresa_suspendida").estado, "suspendida", "la corrección no cambia el lifecycle");
+  assert.equal(db.read("configuraciones/empresa_suspendida").identidadFiscal.nombreComercial, "Café Corregido");
+});
+
+test("ActualizarDatosAdministrativosEmpresa — sigue bloqueado para una empresa archivada (frontera de conservación)", async () => {
+  const db = new Db();
+  db.seed("empresas/empresa_archivada", { estado: "archivada", nombre: "Café Cerrado", nombreComercial: "Café Cerrado", paisFiscal: "CO", revision: 4 });
+  db.seed("configuraciones/empresa_archivada", crearPlantillaConfiguracionRevision1({
+    empresaId: "empresa_archivada", nombreComercial: "Café Cerrado",
+    creadaEn: "2026-01-01", actualizadaEn: "2026-01-01",
+    ultimaMutacion: { actorTipo: "SYSTEM", actorId: "system", origen: "BOOTSTRAP", commandId: "cmd", correlationId: "corr" },
+  }));
+  const entrada = {
+    commandId: "cmd_rename_arch",
+    idempotencyKey: "idem_rename_arch",
+    correlationId: "corr_rename_arch",
+    causationId: null as unknown as string,
+    motivoCodigo: "BACKOFFICE_RENOMBRAR_EMPRESA",
+    empresaId: "empresa_archivada",
+    nombreComercial: "Café Nuevo",
+    expectedRevision: 4,
+  };
+
+  await assert.rejects(
+    ejecutarComandoComercial(db as never, "operador_1", "ActualizarDatosAdministrativosEmpresa", entrada),
+    /Lifecycle no escribible/,
+  );
+  assert.equal(db.read("empresas/empresa_archivada").nombreComercial, "Café Cerrado");
+});
+
+test("ActualizarDatosAdministrativosEmpresa — si el tenant ya emitió documentos DIAN, la precondición fiscal de configuración bloquea el renombre y no escribe nada", async () => {
+  const db = new Db();
+  db.seed("empresas/empresa_dian", { estado: "activa", nombre: "Café Sur", nombreComercial: "Café Sur", paisFiscal: "CO", revision: 1 });
+  db.seed("configuraciones/empresa_dian", crearPlantillaConfiguracionRevision1({
+    empresaId: "empresa_dian", nombreComercial: "Café Sur",
+    creadaEn: "2026-01-01", actualizadaEn: "2026-01-01",
+    ultimaMutacion: { actorTipo: "SYSTEM", actorId: "system", origen: "BOOTSTRAP", commandId: "cmd", correlationId: "corr" },
+  }));
+  db.seed("ventas/venta_1", { empresaId: "empresa_dian", dian: { emitidoEn: "2026-02-01" } });
+  const entrada = {
+    commandId: "cmd_rename_dian",
+    idempotencyKey: "idem_rename_dian",
+    correlationId: "corr_rename_dian",
+    causationId: null as unknown as string,
+    motivoCodigo: "BACKOFFICE_RENOMBRAR_EMPRESA",
+    empresaId: "empresa_dian",
+    nombreComercial: "Café Nuevo Nombre",
+    expectedRevision: 1,
+  };
+
+  await assert.rejects(
+    ejecutarComandoComercial(db as never, "operador_1", "ActualizarDatosAdministrativosEmpresa", entrada),
+    /IDENTIDAD_FISCAL_BLOQUEADA_POR_EMISION/,
+  );
+  assert.equal(db.read("empresas/empresa_dian").nombreComercial, "Café Sur", "empresas no debe cambiar si configuraciones rechaza la precondición fiscal");
+  assert.equal(db.read("configuraciones/empresa_dian").identidadFiscal.nombreComercial, "Café Sur");
+});
+
+test("ActualizarDatosAdministrativosEmpresa rechaza por conflicto de revisión, sin escribir nada", async () => {
+  const db = new Db();
+  db.seed("empresas/empresa_rename2", { estado: "activa", nombre: "X", nombreComercial: "X", paisFiscal: "CO", revision: 5 });
+  const entrada = {
+    commandId: "cmd_rename_2",
+    idempotencyKey: "idem_rename_2",
+    correlationId: "corr_rename_2",
+    causationId: null as unknown as string,
+    motivoCodigo: "BACKOFFICE_RENOMBRAR_EMPRESA",
+    empresaId: "empresa_rename2",
+    nombreComercial: "Y",
+    expectedRevision: 2,
+  };
+
+  await assert.rejects(
+    ejecutarComandoComercial(db as never, "operador_1", "ActualizarDatosAdministrativosEmpresa", entrada),
+    /EMPRESA_REVISION_CONFLICT/,
+  );
+  assert.equal(db.read("empresas/empresa_rename2").nombre, "X");
 });

@@ -1,14 +1,18 @@
 import { getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { defineSecret } from "firebase-functions/params";
 import { autorizarPlataforma } from "./authorization";
 import type { EnvelopePlataforma, FacultadPlataforma } from "./contracts";
 import { ejecutarComandoOperador } from "./operators";
-import { ejecutarComandoComercial, solicitarBootstrapEmpresarial } from "./operations";
+import { ejecutarComandoComercial, provisionarCredencialInicialTenant, solicitarBootstrapEmpresarial } from "./operations";
 import { facultadTransicionEmpresa, obtenerComandoComercial } from "./command-catalog";
 import { consultarAuditoriaPlataforma, listarRecursosPlataforma, obtenerDetalleEmpresaPlataforma, validarFiltroAuditoria, type RecursoPlataforma } from "./queries";
 import { listarSoporteTenant, solicitarSoporte, transicionarSoporte } from "./support";
 
 const REGION = "us-central1";
+// ADR-SAAS-013 — el paso H de ejecutarBootstrapEmpresarial (invocado por
+// solicitarBootstrapEmpresarialSaas) hashea el PIN temporal con este secreto.
+const PIN_PEPPER = defineSecret("OPERATIONAL_PIN_PEPPER");
 
 function exigirAuth(request: { auth?: { uid: string; token: Record<string, unknown> } | null }) {
   if (!request.auth) throw new HttpsError("unauthenticated", "AUTENTICACION_REQUERIDA");
@@ -49,11 +53,25 @@ export const suspenderOperadorSaas = callableOperador("SuspenderOperador");
 export const reactivarOperadorSaas = callableOperador("ReactivarOperador");
 export const revocarOperadorSaas = callableOperador("RevocarOperador");
 
-export const solicitarBootstrapEmpresarialSaas = onCall({ region: REGION }, async (request) => {
+export const solicitarBootstrapEmpresarialSaas = onCall({ region: REGION, secrets: [PIN_PEPPER] }, async (request) => {
   const auth = exigirAuth(request);
   const db = getFirestore();
   await autorizarPlataforma(db, auth.uid, auth.token, "BOOTSTRAP_EMPRESARIAL_SOLICITAR");
   return solicitarBootstrapEmpresarial(db, auth.uid, request.data as never);
+});
+
+// ADR-SAAS-013 §4.2 — misma facultad que gobierna el resto del ciclo de vida
+// operativo del tenant (activar/suspender/reactivar): "poder ser usada por
+// primera vez" pertenece a esa misma categoría, sin crear una facultad nueva.
+export const provisionarCredencialInicialTenantSaas = onCall({ region: REGION, secrets: [PIN_PEPPER] }, async (request) => {
+  const auth = exigirAuth(request);
+  const db = getFirestore();
+  await autorizarPlataforma(db, auth.uid, auth.token, "LIFECYCLE_GOBERNAR");
+  const data = request.data as (EnvelopePlataforma & { empresaId?: unknown }) | undefined;
+  if (!data || typeof data.empresaId !== "string") {
+    throw new HttpsError("invalid-argument", "EMPRESA_ID_INVALIDO");
+  }
+  return provisionarCredencialInicialTenant(db, auth.uid, data as EnvelopePlataforma & { empresaId: string });
 });
 
 export const ejecutarComandoComercialSaas = onCall({ region: REGION }, async (request) => {
