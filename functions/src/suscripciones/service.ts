@@ -2,6 +2,13 @@ import { createHash } from "node:crypto";
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { esFechaComercial, esIdComercial, fechaComercialUtc, readinessComercial, transicionesEmpresa, transicionesSuscripcion, type EmpresaLifecycle, type PlanVersion, type Suscripcion } from "../../../lib/suscripciones/contrato";
+import {
+  ejecutarComandoConfiguracionConEstadoPreleidoEnTransaccion,
+  leerComandoConfiguracionEnTransaccion,
+  referenciasComandoConfiguracion,
+  type ContextoComandoConfiguracion,
+  type EntradaComandoConfiguracion,
+} from "../configuracion/service";
 
 type Envelope = { commandId: string; idempotencyKey: string; correlationId: string; causationId: string; expectedRevision: number; motivo: string };
 export type ContextoComercial = {
@@ -162,5 +169,61 @@ export async function transicionarEmpresa(db: Firestore, entrada: Envelope & { e
     await revocarSesionesEmpresa(db, entrada.empresaId);
   }
   return res;
+}
+
+/**
+ * ADR-SAAS-013 §5.3 — edición administrativa desde el Backoffice, acotada
+ * deliberadamente a la denominación comercial. `paisFiscal` queda excluido
+ * (implicaciones sobre numeraciones fiscales ya emitidas) y `estado`
+ * pertenece a lifecycle (`transicionarEmpresa`, arriba). Ampliar esta
+ * superficie exige un ADR, no un PR (ADR-SAAS-013 §5.4).
+ *
+ * Escribe `empresas` Y propaga a `configuraciones/{empresaId}.identidadFiscal.nombreComercial`
+ * en la MISMA transacción, componiendo el núcleo de
+ * `ejecutarComandoConfiguracion` (origen "PLATFORM") en vez de escribir el
+ * documento de configuración directamente: la precondición que bloquea
+ * cambios de identidad fiscal tras la primera emisión DIAN
+ * (`IDENTIDAD_FISCAL_BLOQUEADA_POR_EMISION`) sigue aplicando sin
+ * duplicarla aquí. Si esa precondición rechaza el cambio, toda la
+ * transacción aborta — `empresas` y `configuraciones` nunca divergen.
+ */
+export async function actualizarDatosAdministrativosEmpresa(db: Firestore, entrada: Envelope & { empresaId: string; nombreComercial: string }, ctx: ContextoComercial) {
+  validar(entrada);
+  if (!esIdComercial(entrada.empresaId) || typeof entrada.nombreComercial !== "string" || !entrada.nombreComercial.trim()) fail("invalid-argument", "DATOS_ADMINISTRATIVOS_INVALIDOS");
+  const nombreComercial = entrada.nombreComercial.trim();
+  const f = hash(entrada);
+  return db.runTransaction(async tx => {
+    const p = await previo(tx, db, entrada, entrada.empresaId, f); if (p) return { ...p, idempotente: true };
+    const ref = db.collection("empresas").doc(entrada.empresaId);
+    const snap = await tx.get(ref);
+    if (!snap.exists) fail("not-found", "EMPRESA_NOT_FOUND");
+    const empresa = snap.data() as { revision: number; paisFiscal: string };
+    if (!Number.isInteger(empresa.revision) || empresa.revision !== entrada.expectedRevision) fail("failed-precondition", "EMPRESA_REVISION_CONFLICT");
+
+    // Lecturas del comando de configuración compuesto — deben resolverse
+    // antes de cualquier escritura (regla de transacciones de Firestore).
+    const entradaConfig: EntradaComandoConfiguracion = {
+      comando: "ActualizarConfiguracionEmpresa",
+      expectedRevision: 1, // placeholder — se fija con la revisión real leída dos líneas abajo, en la misma transacción
+      idempotencyKey: `${entrada.idempotencyKey}:cfg`,
+      commandId: `${entrada.commandId}:cfg`,
+      correlationId: entrada.correlationId,
+      motivo: entrada.motivo,
+      operaciones: [{ tipo: "SET", ruta: "identidadFiscal.nombreComercial", valor: nombreComercial }],
+    };
+    const contextoConfig: ContextoComandoConfiguracion = { empresaId: entrada.empresaId, actorId: ctx.actorId, origen: "PLATFORM", paisFiscal: empresa.paisFiscal };
+    const refsConfig = referenciasComandoConfiguracion(db, entradaConfig, contextoConfig);
+    const lecturasConfig = await leerComandoConfiguracionEnTransaccion(tx, entradaConfig, refsConfig);
+    if (!lecturasConfig.configSnap.exists) fail("failed-precondition", "CONFIGURACION_INEXISTENTE");
+    entradaConfig.expectedRevision = (lecturasConfig.configSnap.data() as { revision: number }).revision;
+
+    ejecutarComandoConfiguracionConEstadoPreleidoEnTransaccion(db, tx, entradaConfig, contextoConfig, refsConfig, lecturasConfig);
+
+    const revision = empresa.revision + 1;
+    tx.update(ref, { nombre: nombreComercial, nombreComercial, revision, actualizadaEn: FieldValue.serverTimestamp() });
+    const r = { empresaId: entrada.empresaId, nombreComercial, revision };
+    registrar(tx, db, entrada, entrada.empresaId, f, r, "EmpresaDatosAdministrativosActualizados", "EMPRESA", empresa.revision, revision, ctx);
+    return { ...r, idempotente: false };
+  });
 }
 

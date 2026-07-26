@@ -46,14 +46,32 @@ export const listarRecursos = (
   { recurso, ...opciones },
 );
 
+export type EstadoCredencialInicial = "SIN_PROVISIONAR" | "PENDIENTE_ACTIVACION" | "EXPIRADA" | "ACTIVA";
+
 export const obtenerDetalleEmpresa = (empresaId: string) =>
-  invocar<{ empresa: Record<string, any>; suscripcion: Record<string, any> | null; provisionamiento: Record<string, any> | null }>(
+  invocar<{
+    empresa: Record<string, any>;
+    suscripcion: Record<string, any> | null;
+    provisionamiento: Record<string, any> | null;
+    adminInicial: { uid: string; rol: string | null; estado: string | null; activo: boolean | null } | null;
+    credencialInicial: { estado: EstadoCredencialInicial; codigo: string | null };
+  }>(
     "obtenerDetalleEmpresaPlataformaSaas",
     { empresaId },
   );
 
 export const solicitarBootstrap = (entrada: Record<string, unknown>) =>
-  invocar<Record<string, unknown>>("solicitarBootstrapEmpresarialSaas", entrada);
+  invocar<{ estado: string; empresaId: string; credencialInicial: { codigo: string; pinTemporal: string | null } | null }>(
+    "solicitarBootstrapEmpresarialSaas",
+    entrada,
+  );
+
+/** ADR-SAAS-013 §4 — primera emisión o reemisión (§4.4) de la credencial operativa inicial del admin de un tenant ya existente. */
+export const provisionarCredencialInicial = (empresaId: string) =>
+  invocar<{ estado: "EMITIDA" | "REEMITIDA" | "YA_EXISTENTE"; codigo: string; pinTemporal: string | null }>(
+    "provisionarCredencialInicialTenantSaas",
+    { ...envelope("BACKOFFICE_PROVISIONAR_CREDENCIAL_INICIAL"), empresaId },
+  );
 
 export const comandoOperador = (
   accion: "incorporar" | "facultades" | "suspender" | "reactivar" | "revocar",
