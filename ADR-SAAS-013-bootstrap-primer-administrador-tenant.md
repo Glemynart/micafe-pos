@@ -2,6 +2,7 @@
 
 - **Estado:** PROPUESTO (pendiente de aprobación)
 - **Fecha:** 2026-07-25
+- **Adenda A-1 (2026-07-26):** reemisión administrativa de una credencial inicial temporal cuya entrega se interrumpió.
 - **Contexto arquitectónico:** MT-U9 (plano plataforma), ADR-SAAS-007 (bootstrap empresarial), ADR-SAAS-011 (operadores y facultades), ADR-SAAS-012 (auditoría), MT-U5a (autenticación operativa)
 - **Sustituye/complementa:** ninguno. Cierra el hueco de arranque del plano tenant, equivalente al que `initial-bootstrap` cerró en el plano plataforma (IMP-002).
 
@@ -158,19 +159,19 @@ No se crea facultad nueva: obligaría a reproyectar los claims de los operadores
 
 ### 4.3 Si ya existe una credencial operativa activa
 
-**Falla con `PRIMERA_CREDENCIAL_YA_EXISTE`.** Sin excepción, sin bandera de forzado, sin parámetro `override`.
+**`ProvisionarCredencialInicialTenant` falla con `PRIMERA_CREDENCIAL_YA_EXISTE`.** No admite bandera de forzado, parámetro `override` ni sustitución de una credencial ya usada. La única excepción es la operación separada y explícita de §4.4.1, limitada a una credencial inicial temporal de plataforma que nunca se activó.
 
 Ésta es la garantía central contra el abuso: la operación no puede reemplazar la credencial de nadie. Si el admin de un tenant pierde su PIN, **este comando no es la solución** — la recuperación de acceso es un problema distinto, con requisitos de verificación de identidad distintos, y se aborda en el §4.7.
 
-### 4.4 Si la credencial temporal expiró o nunca se activó
+### 4.4 Reprovisionamiento por expiración
 
-Único caso de reemisión admitido, y solo cuando **todas** se cumplen:
+El comando `ProvisionarCredencialInicialTenant` conserva su semántica idempotente mientras una credencial temporal esté vigente. Solo reprovisiona cuando la incorporación temporal venció por TTL o ya está `EXPIRED`, y solo cuando **todas** se cumplen:
 
 - existe una incorporación `mecanismo=DIRECTA`, `origen=PLATAFORMA`, para el `ownerUid`;
 - su estado es `TEMP_CREDENTIAL` (nunca se activó) o `EXPIRED`;
 - la credencial asociada tiene `requiereCambio=true` — **jamás se ha usado para operar**.
 
-La reemisión, en una transacción:
+El reprovisionamiento, en una transacción:
 1. marca la incorporación anterior `EXPIRED`;
 2. desactiva la credencial anterior (`activo=false`) — no la borra, para conservar la traza;
 3. emite código y PIN temporal nuevos;
@@ -178,13 +179,69 @@ La reemisión, en una transacción:
 
 Si la credencial **ya fue activada** (`requiereCambio` ausente o `false`), el estado es indistinguible de una credencial normal en uso y aplica el §4.3: rechazo.
 
+### 4.4.1 Adenda A-1 — Reemisión administrativa de una temporal vigente cuya entrega se interrumpió
+
+#### Motivación
+
+Puede ocurrir que la plataforma confirme la emisión, pero el operador no alcance a copiar el PIN antes de perder la sesión, cerrar la pestaña o sufrir una interrupción. La credencial queda temporalmente vigente, el PIN no puede recuperarse y esperar el TTL bloquea innecesariamente la puesta en marcha del tenant. Este caso **no** es recuperación de acceso ni recuperación de un secreto: es la sustitución de una credencial inicial que nunca se utilizó.
+
+#### Principio de seguridad
+
+El PIN temporal sigue siendo de revelación única: se genera server-side, se almacena solo como bcrypt+pepper y nunca se persiste ni deriva en claro. No existe una lectura administrativa del PIN anterior. La única recuperación admitida es **rotar** la credencial completa: invalidar código y PIN anteriores y emitir un código y PIN nuevos.
+
+#### Operación y precondiciones
+
+Se añade la operación administrativa explícita `ReemitirCredencialInicialTemporalTenant`. No es una variante ni una bandera de `ProvisionarCredencialInicialTenant`; exige confirmación consciente y recibe el `incorporacionId` esperado que la ficha está mostrando.
+
+Solo puede ejecutarla un operador de plataforma `ACTIVO` con `LIFECYCLE_GOBERNAR`, y únicamente si, dentro de la misma transacción:
+
+1. la empresa existe y está en `trial` o `activa`;
+2. el destino es exactamente `empresa.ownerUid`, con membresía `admin`, `activa` y `activo=true`;
+3. la incorporación más reciente de ese owner es exactamente el `incorporacionId` esperado, con `mecanismo=DIRECTA`, `origen=PLATAFORMA`, `estado=TEMP_CREDENTIAL` y TTL aún vigente;
+4. la credencial asociada corresponde a la misma empresa, UID, código e incorporación, tiene `activo=true` y `requiereCambio=true`;
+5. no existe una incorporación `ACTIVE`, una credencial definitiva ni una credencial operativa activa del tenant distinta de la temporal asociada que pueda representar acceso ya utilizado.
+
+Documentos heredados sin `origen` no satisfacen esta operación: se tratan como origen tenant y quedan fuera de esta vía. Las credenciales expiradas siguen usando exclusivamente el reprovisionamiento de §4.4.
+
+#### Flujo y estado resultante
+
+```
+TEMP_CREDENTIAL vigente de plataforma
+  + credencial activa / requiereCambio=true
+        ↓ confirmación administrativa explícita
+rotación transaccional única
+        ↓
+incorporación anterior: EXPIRED
+credencial anterior:    activo=false
+incorporación nueva:    TEMP_CREDENTIAL, TTL nuevo
+credencial nueva:       activo=true, requiereCambio=true
+        ↓
+revelación única del código y PIN nuevos
+```
+
+`EXPIRED` conserva aquí su significado de incorporación sin validez para activar, también cuando la causa es sustitución administrativa y no el reloj. La auditoría registra el motivo `REEMISION_ADMINISTRATIVA_PIN_NO_ENTREGADO`; no se introduce el estado `CANCELLED` ni se borra la traza anterior.
+
+#### Concurrencia e idempotencia
+
+La incorporación anterior, su credencial, la reserva global del código y los documentos nuevos se leen/escriben en una sola transacción. Por tanto, en cualquier estado observable existe como máximo una credencial inicial activa y una incorporación `TEMP_CREDENTIAL` para el owner.
+
+- Dos reemisiones sobre el mismo `incorporacionId` compiten sobre los mismos documentos: una gana; la otra relee el estado y no vuelve a sustituir.
+- Si la activación gana primero, deja la incorporación `ACTIVE` y la credencial definitiva; la reemisión se rechaza o converge sin escribir.
+- Si la reemisión gana primero, la incorporación anterior queda `EXPIRED` y su credencial inactiva; una activación concurrente o una sesión `DIRECTA_TEMP` anterior fallan y nunca obtienen claims tenant.
+- Un reintento con el mismo `idempotencyKey` y el mismo `incorporacionId` no rota la incorporación nueva ni reexpone un PIN. Si la respuesta que contenía el PIN se perdió tras el commit, el resultado repetido no contiene secreto; una pérdida posterior requiere una nueva acción administrativa explícita sobre la incorporación vigente.
+
+#### Compatibilidad
+
+Esta adenda no modifica la emisión inicial ni el reprovisionamiento por expiración de §4.4. Tampoco modifica `DIRECTA_TEMP`, Bootstrap, autenticación operativa, claims, TTL, reservas globales de códigos ni el flujo de activación; únicamente agrega la rotación administrativa explícita de una temporal válida de plataforma.
+
 ### 4.5 Por qué no puede degenerar en un gestor general de credenciales
 
 | Vector de abuso | Barrera |
 |---|---|
 | Reemplazar la credencial de un cajero | Solo admite `empresa.ownerUid` (§4.1.2) |
 | Reemplazar la credencial del admin en uso | `PRIMERA_CREDENCIAL_YA_EXISTE` (§4.3) |
-| Reemitir repetidamente para obtener acceso | Solo sobre credenciales `requiereCambio=true` nunca usadas (§4.4) |
+| Reemitir repetidamente para obtener acceso | Solo sobre credenciales `requiereCambio=true` nunca usadas (§4.4 y §4.4.1) |
+| Convertir una reemisión en reintento destructivo | Operación separada, `incorporacionId` esperado y confirmación explícita (§4.4.1) |
 | Usarla sobre un tenant suspendido | Estado ∈ {trial, activa} (§4.1.1) |
 | Ejecutarla sin ser operador | `autorizarPlataforma` + operador `ACTIVO` |
 | Ejecutarla sin dejar rastro | Auditoría obligatoria (§4.6) |
@@ -201,7 +258,7 @@ Conforme a ADR-SAAS-012, con obligación append-only en dos fases:
 |---|---|---|
 | `CREDENCIAL_INICIAL_SOLICITADA` | Antes del commit, con obligación `SOLICITADO` | Operador |
 | `CREDENCIAL_INICIAL_EMITIDA` | Confirmación en la misma transacción del hecho durable | Sistema |
-| `CREDENCIAL_INICIAL_REEMITIDA` | Solo en el caso §4.4 | Operador |
+| `CREDENCIAL_INICIAL_REEMITIDA` | Reprovisionamiento por expiración (§4.4) o rotación administrativa (§4.4.1) | Operador |
 | `CREDENCIAL_INICIAL_ACTIVADA` | Cuando el admin fija su PIN definitivo | Admin del tenant |
 
 Restricciones adicionales:
@@ -210,6 +267,7 @@ Restricciones adicionales:
 - Ni el PIN ni el código aparecen en logs. Los eventos registran `incorporacionId` y `codigo`, nunca el PIN.
 - TTL de 72 h (**D-3**). Vencido → `EXPIRED`, reprovisionable por §4.4.
 - Bloqueo por fuerza bruta heredado del mecanismo existente: 5 fallos → 15 min.
+- La reemisión administrativa de §4.4.1 registra `CREDENCIAL_INICIAL_REEMITIDA` con actor, facultad, comando, empresa, `incorporacionId` anterior y nuevo, código anterior y nuevo, correlación, causación y motivo `REEMISION_ADMINISTRATIVA_PIN_NO_ENTREGADO`. Nunca registra PIN ni hash.
 
 ### 4.7 Fuera de alcance (explícito)
 
@@ -246,7 +304,8 @@ Además obliga a definir la frontera de planos de forma explícita, que es valor
 | Archivar / restaurar / eliminar | ✅ existe | `CONSERVACION_GOBERNAR` |
 | **Ver administrador inicial** | 🆕 | `PLATAFORMA_CONSULTAR` |
 | **Ver estado de la credencial inicial** | 🆕 | `PLATAFORMA_CONSULTAR` |
-| **Provisionar / reprovisionar credencial inicial** | 🆕 | `LIFECYCLE_GOBERNAR` |
+| **Provisionar / reprovisionar por expiración** | 🆕 | `LIFECYCLE_GOBERNAR` |
+| **Reemitir credencial temporal no entregada** | 🆕 | `LIFECYCLE_GOBERNAR` |
 | **Editar nombre comercial** | 🆕 | `LIFECYCLE_GOBERNAR` |
 
 **Estado de la credencial inicial** — proyección derivada, sin campo nuevo:
@@ -254,9 +313,11 @@ Además obliga a definir la frontera de planos de forma explícita, que es valor
 | Estado | Significado |
 |---|---|
 | `SIN_PROVISIONAR` | No hay credencial. Acción disponible: provisionar |
-| `PENDIENTE_ACTIVACION` | Emitida, `requiereCambio=true`, dentro del TTL |
+| `PENDIENTE_ACTIVACION` | Emitida, `requiereCambio=true`, dentro del TTL. Acción disponible: **Reemitir credencial**, solo tras confirmación explícita y bajo §4.4.1 |
 | `EXPIRADA` | TTL vencido sin activar. Acción disponible: reprovisionar |
 | `ACTIVA` | El admin fijó su PIN. **Sin acciones** |
+
+`Reemitir credencial` no reutiliza el botón ni el contrato de `Emitir credencial inicial`: antes de invocar la operación muestra una confirmación explícita de que invalidará el código y PIN anteriores. Cancelar no escribe; solo la respuesta que creó la sustitución abre el diálogo de revelación única.
 
 **Edición del nombre comercial** — comando `ActualizarDatosAdministrativosEmpresa` con `expectedRevision`, que escribe `nombre`/`nombreComercial` en `empresas` y propaga a `configuraciones/{empresaId}`. Alcance limitado a la denominación comercial: `paisFiscal` queda **excluido** por sus implicaciones fiscales sobre numeraciones ya emitidas, y `estado` pertenece a lifecycle. Esto convierte el renombrado del tenant fundacional (§8, D-6) en el primer uso de un mecanismo general, no en un script.
 
@@ -271,7 +332,7 @@ El propietario pidió fijar esta frontera ahora para que no crezca por decisione
 | `nombre` / `nombreComercial` | `empresas` | Editar (`ActualizarDatosAdministrativosEmpresa`, §5.5) |
 | `estado` (trial/activa/suspendida/cancelada/archivada/eliminada) | `empresas` | Transicionar (lifecycle/conservación, ya existente) |
 | `ownerUid` y su membresía (`rol=admin`, `estado`) | `empresas` / `membresias` | Consultar. Ver §4.7 — no se reasigna aquí |
-| Estado y ciclo de vida de la credencial inicial | `credenciales_operativas` (proyección) | Provisionar / reprovisionar (§4) |
+| Estado y ciclo de vida de la credencial inicial | `credenciales_operativas` (proyección) | Provisionar / reprovisionar / reemitir (§4) |
 | `planId`, `planVersion`, estado de suscripción, fechas de trial | `suscripciones` | Consultar y comandar (`ejecutarComandoComercialSaas`, ya existente) |
 | Estado del provisionamiento (`CORE_COMMITTED`/`CLAIMS_ISSUED`/`COMPLETED`/...) | `provisionamientos_empresariales` | Consultar |
 | `revision`, `schemaVersion`, `creadaEn`, `actualizadaEn` | `empresas` | Consultar (metadatos de sistema, nunca editables a mano) |
@@ -333,16 +394,17 @@ Plataforma (Backoffice)                        Tenant (POS)
                                         8. El admin da de alta a su equipo  [EXISTE]
 ```
 
-### 6.1 Una sola implementación, dos puntos de entrada
+### 6.1 Una primitiva de emisión, tres puntos de entrada
 
 La emisión de credencial inicial se extrae a un servicio único, invocado desde:
 
 | Entrada | Caso | Facultad |
 |---|---|---|
 | Paso **H** de `ejecutarBootstrapEmpresarial` | Tenant nuevo, atómico con su creación | `BOOTSTRAP_EMPRESARIAL_SOLICITAR` |
-| Comando `ProvisionarCredencialInicialTenant` | Tenant preexistente sin credencial (**fundacional**) o reprovisionamiento §4.4 | `LIFECYCLE_GOBERNAR` |
+| Comando `ProvisionarCredencialInicialTenant` | Tenant preexistente sin credencial (**fundacional**) o reprovisionamiento por expiración (§4.4) | `LIFECYCLE_GOBERNAR` |
+| Operación `ReemitirCredencialInicialTemporalTenant` | PIN de una temporal vigente perdido antes de uso; rotación dirigida (§4.4.1) | `LIFECYCLE_GOBERNAR` |
 
-La empresa fundacional no puede pasar por la primera entrada: `ejecutarBootstrapEmpresarial` falla con `EMPRESA_ALREADY_EXISTS` y crearía una suscripción trial improcedente. Usa la segunda, que es **la misma operación** que cualquier tenant futuro empleará para reprovisionar. **No hay flujo separado ni parche temporal** (§8).
+La empresa fundacional no puede pasar por la primera entrada: `ejecutarBootstrapEmpresarial` falla con `EMPRESA_ALREADY_EXISTS` y crearía una suscripción trial improcedente. Usa la segunda, que es **la misma operación** que cualquier tenant futuro empleará para reprovisionar. Para el provisionamiento fundacional no hay flujo separado ni parche temporal (§8); la tercera entrada queda reservada exclusivamente a la rotación excepcional de §4.4.1.
 
 ---
 
@@ -355,17 +417,17 @@ La empresa fundacional no puede pasar por la primera entrada: `ejecutarBootstrap
 | `functions/src/contracts.ts` | `generarCodigoOperativo(slug)`, `generarPinTemporal()` (CSPRNG). `CredencialOperativa.origen`, `expiraEn` |
 | `functions/src/incorporaciones-service.ts` | Extraer `emitirCredencialInicial()` del cuerpo de `crearIncorporacionDirecta`, parametrizado por origen. Comportamiento del llamador actual sin cambios |
 | `functions/src/bootstrap/service.ts` | Paso **H** tras la membresía admin. Estado `CREDENTIAL_ISSUED` entre `CORE_COMMITTED` y `CLAIMS_ISSUED`, con la misma semántica recuperable ya existente |
-| `functions/src/platform/callables.ts` | `provisionarCredencialInicialTenantSaas`, `actualizarDatosAdministrativosEmpresaSaas` |
-| `functions/src/platform/operations.ts` | Ambos comandos con envelope, idempotencia y auditoría ADR-SAAS-012 |
+| `functions/src/platform/callables.ts` | `provisionarCredencialInicialTenantSaas`, `reemitirCredencialInicialTemporalSaas`, `actualizarDatosAdministrativosEmpresaSaas` |
+| `functions/src/platform/operations.ts` | Comandos con envelope, idempotencia y auditoría ADR-SAAS-012; la reemisión valida la incorporación esperada dentro de la transacción |
 | `functions/src/platform/command-catalog.ts` | Registro de comandos y facultades |
-| `functions/src/platform/queries.ts` | `obtenerDetalleEmpresaPlataforma` devuelve `adminInicial` y `credencialInicial` (proyección §5.3). **Nunca el `pinHash`** |
+| `functions/src/platform/queries.ts` | `obtenerDetalleEmpresaPlataforma` devuelve `adminInicial`, `credencialInicial` (proyección §5.3) e `incorporacionId` como precondición compare-and-swap de §4.4.1. **Nunca `pinHash` ni PIN** |
 
 ### 7.2 Backoffice
 
 | Componente | Cambio |
 |---|---|
 | `components/backoffice/bootstrap-form.tsx` | `ownerUid` deja de ser obligatorio (hoy exige un UID de Firebase que nadie puede crear desde el Backoffice: hueco real). Se añade "Nombre del administrador" |
-| `components/backoffice/company-detail.tsx` | Tarjeta "Acceso inicial": administrador, estado de credencial, acciones según facultad. Reutiliza `Card`/`Datum`/`EstadoBadge` existentes |
+| `components/backoffice/company-detail.tsx` | Tarjeta "Acceso inicial": administrador, estado de credencial y acciones según facultad. En `PENDIENTE_ACTIVACION` ofrece "Reemitir credencial" como acción distinta, con confirmación, nunca como "Emitir" |
 | Componente nuevo | Diálogo de entrega única de credenciales |
 
 ### 7.3 POS — ver §9
@@ -450,12 +512,13 @@ Cualquier necesidad de modificar otra pantalla del POS **detiene la implementaci
 | # | Decisión | Resolución |
 |---|---|---|
 | D-1 | Generación del código operativo | **Automática**, formato `<slug>-<4 base32>`, unicidad global verificada (§3). Confirmado como corrección mínima suficiente, no como fijación permanente del modelo de resolución (§3.3) |
-| D-2 | Alcance de `ProvisionarCredencialInicialTenant` | Estrecho: solo `ownerUid`, solo sin credencial activa, sin forzado (§4) |
+| D-2 | Alcance de `ProvisionarCredencialInicialTenant` | Estrecho: solo `ownerUid`, primera emisión o reprovisionamiento por expiración; permanece idempotente ante una temporal vigente (§4) |
 | D-3 | TTL de la credencial temporal | **72 h** → `EXPIRED`, reprovisionable |
 | D-4 | Superficie en el Backoffice | Integrada en la ficha de empresa, con frontera de planos explícita y alcance campo por campo (§5) |
-| D-5 | Implementación | Servicio único, dos puntos de entrada (§6.1) |
+| D-5 | Implementación | Primitiva única de emisión, tres puntos de entrada (§6.1) |
 | D-6 | Empresa fundacional | Primer uso del mecanismo definitivo, sin script (§8) |
 | D-7 | Impacto en el POS | Cuatro archivos, rama condicional, invariancia verificada (§9) |
+| A-1 | Reemisión administrativa de temporal vigente | Operación separada, confirmada y transaccional para pérdida de entrega; rota solo una inicial de plataforma nunca usada, sin recuperar PIN (§4.4.1) |
 
 ## 11. Deuda registrada
 
@@ -470,6 +533,6 @@ Cualquier necesidad de modificar otra pantalla del POS **detiene la implementaci
 
 **Positivas.** Todo tenant nace utilizable. Se cierra el defecto §1.2 que dejaba muerta el alta de usuarios por código+PIN. Se elimina la colisión global de códigos en credenciales iniciales. El Backoffice gana una superficie coherente de administración de empresas con frontera de planos explícita. No se necesitan scripts ni claves de servicio para operar el SaaS.
 
-**Negativas.** El PIN temporal se transmite fuera de banda (mitigado: alcance nulo, cambio obligatorio, TTL 72 h). El operador de plataforma gana la capacidad de conceder el primer acceso a un tenant — inevitable en cualquier diseño con arranque delegado, y acotada por §4.5 y la auditoría de §4.6.
+**Negativas.** El PIN temporal se transmite fuera de banda (mitigado: alcance nulo, cambio obligatorio, TTL 72 h). El operador de plataforma gana la capacidad de conceder el primer acceso a un tenant — inevitable en cualquier diseño con arranque delegado, y acotada por §4.5 y la auditoría de §4.6. Si la entrega se interrumpe, la nueva credencial tampoco puede recuperarse: solo puede rotarse otra vez con la acción explícita y auditada de §4.4.1.
 
 **Neutras.** Cuatro archivos del POS cambian, ninguno visible para usuarios existentes.
