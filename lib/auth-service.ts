@@ -25,7 +25,7 @@ import {
   type Membresia,
   type RolMembresia,
 } from "./membresias-service";
-import { resolverEmpresaIdActivo } from "./tenant-context";
+import { esSesionTransicionDirecta, resolverEmpresaIdActivo } from "./tenant-context";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -208,6 +208,21 @@ export function onAuthStateChange(
     unsubAuth();
     if (unsubUserDoc) unsubUserDoc();
   };
+    // Ver `esSesionTransicionDirecta` ? una sesi?n `DIRECTA_TEMP` no tiene
+    // (ni debe adquirir) claims tenant. `resolverEmpresaIdActivo` fuerza una
+    // renovaci?n de red del ID token cuando no encuentra `empresaId`, algo
+    // que aqu? SIEMPRE ocurre por dise?o; esa renovaci?n forzada, justo
+    // despu?s del canje del customToken, corre en carrera con la propia
+    // renovaci?n interna del SDK tras `signInWithCustomToken` y puede
+    // invalidar la sesi?n reci?n creada antes de que la activaci?n llegue a
+    // usarla (H-4). Se corta aqu? con la lectura cacheada del token (sin
+    // red) ? no hay `usuario` que proyectar para esta sesi?n de todas formas.
+    const tokenCacheado = await firebaseUser.getIdTokenResult();
+    if (esSesionTransicionDirecta(tokenCacheado.claims)) {
+      callback(null);
+      return;
+    }
+
 }
 
 // ─── Helpers Internos ─────────────────────────────────────────────────────────
