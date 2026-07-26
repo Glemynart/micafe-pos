@@ -18,13 +18,22 @@ import {
   type ReactNode,
 } from "react";
 import {
+  activarCredencial as activarCredencialServicio,
   loginConCodigoYPin,
   logout as authLogout,
   onAuthStateChange,
   type Usuario,
 } from "@/lib/auth-service";
+import { auth } from "@/lib/firebase";
+import { signOut as firebaseSignOut } from "firebase/auth";
 
 // ─── Tipos del Contexto ───────────────────────────────────────────────────────
+
+/** ADR-SAAS-013 §9 — credencial inicial pendiente de fijar PIN definitivo. */
+interface ActivacionPendiente {
+  incorporacionId: string;
+  pinTemporal: string;
+}
 
 interface AuthContextValue {
   /** Cajero actualmente autenticado, o null si no hay sesión */
@@ -41,6 +50,18 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   /** Limpia el mensaje de error de login */
   limpiarError: () => void;
+  /**
+   * No nulo cuando `login` encontró una credencial inicial sin activar
+   * (ADR-SAAS-013 §9). La UI debe renderizar el paso "define tu PIN" en vez
+   * del error genérico; no afecta a ningún login con credencial normal.
+   */
+  activacionPendiente: ActivacionPendiente | null;
+  /** true mientras se procesa `activarCredencial` */
+  activandoCredencial: boolean;
+  /** Fija el PIN definitivo y completa el login con la sesión tenant resultante. */
+  activarCredencial: (pinNuevo: string) => Promise<void>;
+  /** Descarta la activación pendiente y cierra la sesión temporal DIRECTA_TEMP. */
+  cancelarActivacion: () => Promise<void>;
 }
 
 // ─── Contexto ─────────────────────────────────────────────────────────────────
@@ -54,6 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [cargando, setCargando] = useState(true);
   const [iniciandoSesion, setIniciandoSesion] = useState(false);
   const [errorLogin, setErrorLogin] = useState<string | null>(null);
+  const [activacionPendiente, setActivacionPendiente] = useState<ActivacionPendiente | null>(null);
+  const [activandoCredencial, setActivandoCredencial] = useState(false);
 
   // Suscripción reactiva: restaura la sesión al recargar la página
   useEffect(() => {
@@ -82,16 +105,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const manejarLogin = useCallback(async (
-    operacion: (identificador: string, secreto: string) => Promise<Usuario>,
-    identificador: string,
-    secreto: string
-  ) => {
+  const login = useCallback(async (codigo: string, pin: string) => {
     setIniciandoSesion(true);
     setErrorLogin(null);
     try {
-      const usuarioAutenticado = await operacion(identificador, secreto);
-      setUsuario(usuarioAutenticado);
+      const resultado = await loginConCodigoYPin(codigo, pin);
+      if (resultado.requiereActivacion) {
+        setActivacionPendiente({ incorporacionId: resultado.incorporacionId, pinTemporal: resultado.pinTemporal });
+        return;
+      }
+      setUsuario(resultado.usuario);
     } catch (error: unknown) {
       const mensaje = error instanceof Error
         ? error.message
@@ -102,10 +125,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = useCallback(
-    (codigo: string, pin: string) => manejarLogin(loginConCodigoYPin, codigo, pin),
-    [manejarLogin]
-  );
+  const activarCredencial = useCallback(async (pinNuevo: string) => {
+    if (!activacionPendiente) return;
+    setActivandoCredencial(true);
+    setErrorLogin(null);
+    try {
+      const usuarioAutenticado = await activarCredencialServicio(activacionPendiente.pinTemporal, pinNuevo);
+      setActivacionPendiente(null);
+      setUsuario(usuarioAutenticado);
+    } catch (error: unknown) {
+      const mensaje = error instanceof Error
+        ? error.message
+        : "Ocurrió un error inesperado. Intenta de nuevo.";
+      setErrorLogin(mensaje);
+    } finally {
+      setActivandoCredencial(false);
+    }
+  }, [activacionPendiente]);
+
+  const cancelarActivacion = useCallback(async () => {
+    setActivacionPendiente(null);
+    setErrorLogin(null);
+    // La sesión DIRECTA_TEMP no lleva claims tenant: cerrarla aquí no afecta
+    // ninguna sesión operativa real, solo descarta el intento de activación.
+    if (auth.currentUser) await firebaseSignOut(auth).catch(() => {});
+  }, []);
 
   const logout = useCallback(async () => {
     await authLogout();
@@ -125,6 +169,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         limpiarError,
+        activacionPendiente,
+        activandoCredencial,
+        activarCredencial,
+        cancelarActivacion,
       }}
     >
       {children}

@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { obtenerTokenActual } from "./fcm-token-helper";
-import { iniciarSesionOperativa } from "./operational-auth-service";
+import { activarSesionOperativa, iniciarSesionOperativa } from "./operational-auth-service";
 import {
   esMembresiaActiva,
   esRolMembresia,
@@ -62,12 +62,42 @@ const EMAIL_DOMAIN = "@micafe-pos.internal";
 
 // ─── Funciones Públicas ───────────────────────────────────────────────────────
 
+/** ADR-SAAS-013 §9 — resultado de `loginConCodigoYPin` cuando la credencial requiere activación. */
+export interface ActivacionRequerida {
+  requiereActivacion: true;
+  incorporacionId: string;
+  /** El PIN temporal que el usuario acaba de usar para entrar; lo exige `activarCredencial`. */
+  pinTemporal: string;
+}
+
+export type ResultadoLoginOperativo = { requiereActivacion: false; usuario: Usuario } | ActivacionRequerida;
+
 /**
  * Inicia la ruta operativa MT-U5a: código + PIN independiente de Firebase
  * Email/Password. La Function emite el custom token y sus claims tenant.
+ *
+ * ADR-SAAS-013 §9 — si la credencial es la inicial y aún no fue activada,
+ * no lanza: devuelve `requiereActivacion: true` con la sesión `DIRECTA_TEMP`
+ * ya iniciada (sin claims tenant), a la espera de `activarCredencial`.
  */
-export async function loginConCodigoYPin(codigo: string, pin: string): Promise<Usuario> {
-  const firebaseUser = await iniciarSesionOperativa(codigo.trim(), pin);
+export async function loginConCodigoYPin(codigo: string, pin: string): Promise<ResultadoLoginOperativo> {
+  const resultado = await iniciarSesionOperativa(codigo.trim(), pin);
+  if (resultado.requiereCambio) {
+    return { requiereActivacion: true, incorporacionId: resultado.incorporacionId, pinTemporal: pin };
+  }
+  return { requiereActivacion: false, usuario: await materializarSesionOperativa(resultado.user) };
+}
+
+/**
+ * Completa la activación de la credencial inicial: fija el PIN definitivo y
+ * canjea la sesión `DIRECTA_TEMP` por una sesión tenant plena.
+ */
+export async function activarCredencial(pinTemporal: string, pinNuevo: string): Promise<Usuario> {
+  const firebaseUser = await activarSesionOperativa(pinTemporal, pinNuevo);
+  return materializarSesionOperativa(firebaseUser);
+}
+
+async function materializarSesionOperativa(firebaseUser: FirebaseUser): Promise<Usuario> {
   const usuario = await getUsuarioFirestore(firebaseUser.uid);
 
   if (!usuario || !usuario.activo) {
@@ -178,6 +208,21 @@ export function onAuthStateChange(
       return;
     }
 
+    // Ver `esSesionTransicionDirecta` — una sesión `DIRECTA_TEMP` no tiene
+    // (ni debe adquirir) claims tenant. `resolverEmpresaIdActivo` fuerza una
+    // renovación de red del ID token cuando no encuentra `empresaId`, algo
+    // que aquí SIEMPRE ocurre por diseño; esa renovación forzada, justo
+    // después del canje del customToken, corre en carrera con la propia
+    // renovación interna del SDK tras `signInWithCustomToken` y puede
+    // invalidar la sesión recién creada antes de que la activación llegue a
+    // usarla (H-4). Se corta aquí con la lectura cacheada del token (sin
+    // red) — no hay `usuario` que proyectar para esta sesión de todas formas.
+    const tokenCacheado = await firebaseUser.getIdTokenResult();
+    if (esSesionTransicionDirecta(tokenCacheado.claims)) {
+      callback(null);
+      return;
+    }
+
     try {
       const { empresaId } = await resolverEmpresaIdActivo();
       let perfil: Record<string, unknown> | null = null;
@@ -208,21 +253,6 @@ export function onAuthStateChange(
     unsubAuth();
     if (unsubUserDoc) unsubUserDoc();
   };
-    // Ver `esSesionTransicionDirecta` ? una sesi?n `DIRECTA_TEMP` no tiene
-    // (ni debe adquirir) claims tenant. `resolverEmpresaIdActivo` fuerza una
-    // renovaci?n de red del ID token cuando no encuentra `empresaId`, algo
-    // que aqu? SIEMPRE ocurre por dise?o; esa renovaci?n forzada, justo
-    // despu?s del canje del customToken, corre en carrera con la propia
-    // renovaci?n interna del SDK tras `signInWithCustomToken` y puede
-    // invalidar la sesi?n reci?n creada antes de que la activaci?n llegue a
-    // usarla (H-4). Se corta aqu? con la lectura cacheada del token (sin
-    // red) ? no hay `usuario` que proyectar para esta sesi?n de todas formas.
-    const tokenCacheado = await firebaseUser.getIdTokenResult();
-    if (esSesionTransicionDirecta(tokenCacheado.claims)) {
-      callback(null);
-      return;
-    }
-
 }
 
 // ─── Helpers Internos ─────────────────────────────────────────────────────────
