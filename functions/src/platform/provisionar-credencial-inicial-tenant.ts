@@ -1,4 +1,4 @@
-import type { Firestore } from "firebase-admin/firestore";
+import type { Firestore, Transaction } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { esIdComercial } from "../../../lib/suscripciones/contrato";
 import { consultarIncorporacionDirectaMasReciente } from "../incorporaciones-service";
@@ -31,6 +31,53 @@ function fail(code: "not-found" | "failed-precondition" | "already-exists" | "in
   throw new HttpsError(code, mensaje);
 }
 
+type EmpresaProvisionable = {
+  ownerUid: string;
+  nombreComercial?: unknown;
+  nombre?: unknown;
+};
+
+type SnapLectura = {
+  exists: boolean;
+  data(): unknown;
+};
+
+function validarEmpresaProvisionable(empresaSnap: SnapLectura): EmpresaProvisionable {
+  if (!empresaSnap.exists) fail("not-found", "EMPRESA_NOT_FOUND");
+  const empresa = empresaSnap.data() as { estado?: unknown; ownerUid?: unknown; nombreComercial?: unknown; nombre?: unknown };
+  if (empresa.estado !== "trial" && empresa.estado !== "activa") {
+    fail("failed-precondition", "EMPRESA_NO_PROVISIONABLE");
+  }
+  if (typeof empresa.ownerUid !== "string" || !empresa.ownerUid.trim()) {
+    fail("failed-precondition", "EMPRESA_SIN_OWNER");
+  }
+  return empresa as EmpresaProvisionable;
+}
+
+function validarMembresiaAdminActiva(membresiaSnap: SnapLectura): void {
+  const membresia = membresiaSnap.data() as { rol?: unknown; estado?: unknown; activo?: unknown } | undefined;
+  if (!membresiaSnap.exists || membresia?.rol !== "admin" || membresia.estado !== "activa" || membresia.activo !== true) {
+    fail("failed-precondition", "OWNER_SIN_MEMBRESIA_ADMIN_ACTIVA");
+  }
+}
+
+export async function revalidarDestinoProvisionableEnTransaccion(
+  db: Firestore,
+  tx: Transaction,
+  empresaId: string,
+  ownerUidEsperado: string,
+): Promise<void> {
+  const [empresaSnap, membresiaSnap] = await Promise.all([
+    tx.get(db.collection("empresas").doc(empresaId)),
+    tx.get(db.collection("membresias").doc(`${empresaId}_${ownerUidEsperado}`)),
+  ]);
+  const empresa = validarEmpresaProvisionable(empresaSnap);
+  if (empresa.ownerUid !== ownerUidEsperado) {
+    fail("failed-precondition", "OWNER_SIN_MEMBRESIA_ADMIN_ACTIVA");
+  }
+  validarMembresiaAdminActiva(membresiaSnap);
+}
+
 export async function resolverPlanEmisionCredencialInicial(
   db: Firestore,
   empresaId: unknown,
@@ -39,26 +86,16 @@ export async function resolverPlanEmisionCredencialInicial(
 
   // §4.1.1 — la empresa debe existir y estar en un estado que admita operar.
   const empresaSnap = await db.collection("empresas").doc(empresaId).get();
-  if (!empresaSnap.exists) fail("not-found", "EMPRESA_NOT_FOUND");
-  const empresa = empresaSnap.data() as { estado?: unknown; ownerUid?: unknown; nombreComercial?: unknown; nombre?: unknown };
-  if (empresa.estado !== "trial" && empresa.estado !== "activa") {
-    fail("failed-precondition", "EMPRESA_NO_PROVISIONABLE");
-  }
+  const empresa = validarEmpresaProvisionable(empresaSnap);
 
   // §4.1.2 — el destino es EXACTAMENTE empresa.ownerUid. Esta función no
   // acepta ningún uid del llamador: estructuralmente no puede apuntar a
   // otro miembro del tenant.
   const ownerUid = empresa.ownerUid;
-  if (typeof ownerUid !== "string" || !ownerUid.trim()) {
-    fail("failed-precondition", "EMPRESA_SIN_OWNER");
-  }
 
   // §4.1.3 — el owner debe tener ya una membresía admin activa.
   const membresiaSnap = await db.collection("membresias").doc(`${empresaId}_${ownerUid}`).get();
-  const membresia = membresiaSnap.data() as { rol?: unknown; estado?: unknown; activo?: unknown } | undefined;
-  if (!membresiaSnap.exists || membresia?.rol !== "admin" || membresia.estado !== "activa" || membresia.activo !== true) {
-    fail("failed-precondition", "OWNER_SIN_MEMBRESIA_ADMIN_ACTIVA");
-  }
+  validarMembresiaAdminActiva(membresiaSnap);
 
   const nombreComercial = typeof empresa.nombreComercial === "string" && empresa.nombreComercial.trim()
     ? empresa.nombreComercial

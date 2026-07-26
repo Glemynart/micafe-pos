@@ -28,7 +28,7 @@ import type {
 import { validarEnvelope } from "./validation";
 import { obtenerComandoComercial, type TipoComandoComercial } from "./command-catalog";
 import { emitirCredencialInicial, type ResolverPrincipal } from "./emitir-credencial-inicial";
-import { resolverPlanEmisionCredencialInicial } from "./provisionar-credencial-inicial-tenant";
+import { resolverPlanEmisionCredencialInicial, revalidarDestinoProvisionableEnTransaccion } from "./provisionar-credencial-inicial-tenant";
 import { permisosPredeterminados } from "../operational-auth";
 
 const hash = (value: unknown) =>
@@ -257,6 +257,12 @@ export async function provisionarCredencialInicialTenant(
     reemplazarIncorporacionId: plan.reemplazarIncorporacionId,
     resolverPrincipal,
     auditObserver: confirmacion.registrarEnTransaccion,
+    validarAntesDeEmitirEnTransaccion: (tx) => revalidarDestinoProvisionableEnTransaccion(
+      db,
+      tx,
+      entrada.empresaId,
+      plan.ownerUid,
+    ),
   });
 
   const resultado = {
