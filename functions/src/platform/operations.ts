@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { type Firestore } from "firebase-admin/firestore";
 import { defineSecret } from "firebase-functions/params";
 import type { EntradaBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
-import { ejecutarBootstrapEmpresarial, type ClaimsEmitter, type CredentialIssuer, type OwnerIdentityVerifier } from "../bootstrap/service";
+import { ejecutarBootstrapEmpresarial, type ClaimsEmitter, type CredentialIssuer, type OwnerIdentityEnabler, type OwnerIdentityResolver, type OwnerIdentityVerifier } from "../bootstrap/service";
 import {
   crearNuevaVersionPlan,
   crearPlan,
@@ -139,6 +139,8 @@ export async function solicitarBootstrapEmpresarial(
   customClaimsEmitter?: ClaimsEmitter,
   ownerIdentityVerifier?: OwnerIdentityVerifier,
   credentialIssuer?: CredentialIssuer,
+  ownerIdentityResolver?: OwnerIdentityResolver,
+  ownerIdentityEnabler?: OwnerIdentityEnabler,
 ) {
   validarEnvelope(entrada);
   const agregadoProvisionamiento = {
@@ -176,6 +178,8 @@ export async function solicitarBootstrapEmpresarial(
     solicitud.registrarEnTransaccion,
     completado.registrarEnTransaccion,
     credentialIssuer,
+    ownerIdentityResolver,
+    ownerIdentityEnabler,
   );
   const resultadoRecord = resultado as unknown as Record<string, unknown>;
   await finalizarResultadoAuditable(db, resultadoRecord, solicitud);

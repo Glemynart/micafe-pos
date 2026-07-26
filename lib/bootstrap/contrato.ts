@@ -51,7 +51,17 @@ export interface EntradaBootstrapEmpresarial {
   idempotencyKey: string;
   correlationId: string;
   causationId: string;
-  ownerUid: string;
+  /**
+   * ADR-SAAS-013 (Capa 4) — exactamente uno de `ownerUid`/`nombreAdministrador`.
+   * `ownerUid`: reutiliza un principal de Firebase Auth ya existente (p. ej.
+   * alguien que ya es operador de plataforma). `nombreAdministrador`: no
+   * existe ningún UID todavía — el propio Bootstrap crea el principal ancla
+   * (sin email/password, deshabilitado hasta que el paso de claims lo
+   * habilite) y lo persiste para que un reintento lo reutilice en vez de
+   * crear uno nuevo.
+   */
+  ownerUid?: string;
+  nombreAdministrador?: string;
   empresaId: string;
   nombreComercial: string;
   paisFiscal: string;

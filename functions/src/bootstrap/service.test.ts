@@ -375,3 +375,196 @@ test("B5 Bootstrap — Conflicto de idempotencia si se reutiliza idempotencyKey 
     /IDEMPOTENCY_CONFLICT/
   );
 });
+
+// ADR-SAAS-013 (Capa 4) — resolución de identidad del administrador cuando
+// el Backoffice no provee un `ownerUid` preexistente.
+
+const entradaSinOwner: EntradaBootstrapEmpresarial = {
+  commandId: "cmd_boot_sinowner",
+  idempotencyKey: "idem_boot_sinowner",
+  correlationId: "corr_boot_sinowner",
+  causationId: "cause_boot_sinowner",
+  nombreAdministrador: "Ana Admin",
+  empresaId: "empresa_test_sinowner",
+  nombreComercial: "Café Sin Owner",
+  paisFiscal: "CO",
+  planId: "plan_pos_pro",
+  planVersion: 1,
+  trialDias: 30,
+};
+
+test("B5 Bootstrap Capa 4 — sin ownerUid, crea el ancla vía resolver (disabled) y la habilita solo al emitir claims", async () => {
+  const db = new Db();
+  db.seed("planes/plan_pos_pro/versiones/1", { planId: "plan_pos_pro", planVersion: 1, estado: "PUBLICADA" });
+
+  let resolverInvocaciones = 0;
+  const resolver = async (nombre: string) => {
+    resolverInvocaciones += 1;
+    assert.equal(nombre, "Ana Admin");
+    return { uid: "uid_generado_por_firebase" };
+  };
+  const habilitados: string[] = [];
+  const enabler = async (uid: string) => { habilitados.push(uid); };
+  const claimsLog: Array<{ uid: string }> = [];
+  credencialEmitidaLog = [];
+
+  const res = await ejecutarBootstrapEmpresarial(
+    db as any,
+    entradaSinOwner,
+    async (uid) => { claimsLog.push({ uid }); },
+    ownerExistente,
+    undefined,
+    undefined,
+    credencialIssuerExitoso,
+    resolver,
+    enabler,
+  );
+
+  assert.equal(res.estado, "COMPLETED");
+  assert.equal(resolverInvocaciones, 1);
+  assert.equal(db.read("empresas/empresa_test_sinowner").ownerUid, "uid_generado_por_firebase");
+  assert.equal(db.read("membresias/empresa_test_sinowner_uid_generado_por_firebase").rol, "admin");
+  assert.equal(credencialEmitidaLog[0].uid, "uid_generado_por_firebase");
+  assert.equal(claimsLog[0].uid, "uid_generado_por_firebase");
+  assert.deepEqual(habilitados, ["uid_generado_por_firebase"], "el ancla creada por Bootstrap debe habilitarse exactamente una vez, en el paso de claims");
+
+  const identidad = db.read("bootstrap_identidades_owner/" + [...db.docs.keys()].find((k) => k.startsWith("bootstrap_identidades_owner/"))!.split("/")[1]);
+  assert.equal(identidad.ownerUid, "uid_generado_por_firebase");
+});
+
+test("B5 Bootstrap Capa 4 — un reintento tras fallo de claims no vuelve a crear el ancla, reutiliza el UID persistido", async () => {
+  const db = new Db();
+  db.seed("planes/plan_pos_pro/versiones/1", { planId: "plan_pos_pro", planVersion: 1, estado: "PUBLICADA" });
+
+  let resolverInvocaciones = 0;
+  const resolver = async () => {
+    resolverInvocaciones += 1;
+    return { uid: `uid_intento_${resolverInvocaciones}` };
+  };
+  const enabler = async () => {};
+  credencialEmitidaLog = [];
+
+  const res1 = await ejecutarBootstrapEmpresarial(
+    db as any,
+    entradaSinOwner,
+    async () => { throw new Error("AUTH_NETWORK_TIMEOUT"); },
+    ownerExistente,
+    undefined,
+    undefined,
+    credencialIssuerExitoso,
+    resolver,
+    enabler,
+  );
+  assert.equal(res1.estado, "RETRYABLE_FAILURE");
+  assert.equal(resolverInvocaciones, 1);
+  const ownerUidTrasIntento1 = db.read("empresas/empresa_test_sinowner").ownerUid;
+  assert.equal(ownerUidTrasIntento1, "uid_intento_1");
+
+  const res2 = await ejecutarBootstrapEmpresarial(
+    db as any,
+    entradaSinOwner,
+    async () => {},
+    ownerExistente,
+    undefined,
+    undefined,
+    credencialIssuerExitoso,
+    resolver,
+    enabler,
+  );
+  assert.equal(res2.estado, "COMPLETED");
+  assert.equal(resolverInvocaciones, 1, "el reintento no debe invocar auth.createUser() de nuevo — reutiliza el UID ya persistido");
+  assert.equal(db.read("empresas/empresa_test_sinowner").ownerUid, "uid_intento_1", "el owner no cambia entre intentos");
+});
+
+test("B5 Bootstrap Capa 4 — un rechazo por plan no publicado no crea ningún ancla de identidad (D2: se resuelve DESPUÉS de las verificaciones baratas)", async () => {
+  const db = new Db();
+  db.seed("planes/plan_pos_pro/versiones/1", { planId: "plan_pos_pro", planVersion: 1, estado: "BORRADOR" });
+  let resolverInvocado = false;
+  const resolver = async () => { resolverInvocado = true; return { uid: "no-deberia-crearse" }; };
+
+  await assert.rejects(
+    ejecutarBootstrapEmpresarial(
+      db as any, entradaSinOwner, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso, resolver,
+    ),
+    /PLAN_NOT_PUBLISHED/,
+  );
+  assert.equal(resolverInvocado, false, "el rechazo por plan debe ocurrir antes de tocar Auth");
+  const identidades = [...db.docs.keys()].filter((k) => k.startsWith("bootstrap_identidades_owner/"));
+  assert.equal(identidades.length, 0, "ningún ancla debe crearse si el bootstrap se rechaza antes de llegar a la identidad");
+});
+
+test("B5 Bootstrap Capa 4 — un reintento con OTRO envelope sobre la MISMA empresa reutiliza el ancla, no acumula identidades huérfanas (D2)", async () => {
+  // Regresión del defecto hallado en la validación E2E: el ancla estaba
+  // keyed por `provisionamientoId` (derivado del idempotencyKey), así que
+  // cada reintento con un envelope nuevo — el caso típico cuando el
+  // operador reenvía el formulario del Backoffice tras un rechazo — fallaba
+  // en encontrar el ancla anterior y creaba un principal de Auth adicional.
+  const db = new Db();
+  db.seed("planes/plan_pos_pro/versiones/1", { planId: "plan_pos_pro", planVersion: 1, estado: "PUBLICADA" });
+
+  let resolverInvocaciones = 0;
+  const resolver = async () => {
+    resolverInvocaciones += 1;
+    return { uid: `uid_intento_${resolverInvocaciones}` };
+  };
+  const enabler = async () => {};
+
+  const res1 = await ejecutarBootstrapEmpresarial(
+    db as any, entradaSinOwner, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso, resolver, enabler,
+  );
+  assert.equal(res1.estado, "COMPLETED");
+  assert.equal(resolverInvocaciones, 1);
+
+  // Segundo intento: envelope enteramente distinto, misma empresa. La
+  // empresa ya existe (el primer intento la completó), así que este debe
+  // rechazarse — pero SIN haber creado una segunda identidad para llegar a
+  // ese rechazo.
+  const entradaSegundoIntento: EntradaBootstrapEmpresarial = {
+    ...entradaSinOwner,
+    commandId: "cmd_boot_sinowner_2",
+    idempotencyKey: "idem_boot_sinowner_2",
+    correlationId: "corr_boot_sinowner_2",
+    causationId: "cause_boot_sinowner_2",
+  };
+  await assert.rejects(
+    ejecutarBootstrapEmpresarial(
+      db as any, entradaSegundoIntento, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso, resolver, enabler,
+    ),
+    /EMPRESA_ALREADY_EXISTS/,
+  );
+  assert.equal(resolverInvocaciones, 1, "debe reutilizar el ancla ya persistida para esta empresa — nunca una segunda identidad por reintentar con otro envelope");
+
+  const identidades = [...db.docs.keys()].filter((k) => k.startsWith("bootstrap_identidades_owner/"));
+  assert.equal(identidades.length, 1, "una sola ancla de identidad por empresa, sin importar cuántos envelopes distintos se hayan intentado");
+});
+
+test("B5 Bootstrap Capa 4 — con ownerUid explícito, el enabler nunca se invoca (no se toca el disabled de un principal ajeno)", async () => {
+  const db = new Db();
+  db.seed("planes/plan_pos_pro/versiones/1", { planId: "plan_pos_pro", planVersion: 1, estado: "PUBLICADA" });
+  const habilitados: string[] = [];
+  const enabler = async (uid: string) => { habilitados.push(uid); };
+  credencialEmitidaLog = [];
+
+  const res = await ejecutarBootstrapEmpresarial(
+    db as any, entradaBase, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso, undefined, enabler,
+  );
+
+  assert.equal(res.estado, "COMPLETED");
+  assert.deepEqual(habilitados, [], "ownerUid provisto por el llamador: su disabled no es responsabilidad de Bootstrap");
+});
+
+test("B5 Bootstrap Capa 4 — rechaza si se proveen ownerUid y nombreAdministrador a la vez, o ninguno", async () => {
+  const db = new Db();
+  db.seed("planes/plan_pos_pro/versiones/1", { planId: "plan_pos_pro", planVersion: 1, estado: "PUBLICADA" });
+
+  await assert.rejects(
+    ejecutarBootstrapEmpresarial(db as any, { ...entradaBase, nombreAdministrador: "Ana Admin" }, async () => {}, ownerExistente),
+    /ENTRADA_BOOTSTRAP_INVALIDA/,
+  );
+
+  const { ownerUid, ...sinOwnerUid } = entradaBase;
+  await assert.rejects(
+    ejecutarBootstrapEmpresarial(db as any, sinOwnerUid as EntradaBootstrapEmpresarial, async () => {}, ownerExistente),
+    /ENTRADA_BOOTSTRAP_INVALIDA/,
+  );
+});
