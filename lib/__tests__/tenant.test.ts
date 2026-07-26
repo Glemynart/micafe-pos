@@ -1,7 +1,24 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { withEmpresaId } from '@/lib/tenant'
-import { TenantSinSesionError } from '@/lib/tenant-context'
+import {
+  obtenerIncorporacionSesionTransicionDirecta,
+  TenantSinSesionError,
+} from '@/lib/tenant-context'
+
+test('obtiene la incorporacion de una sesion DIRECTA_TEMP restaurable', () => {
+  assert.equal(
+    obtenerIncorporacionSesionTransicionDirecta({ authStage: 'DIRECTA_TEMP', incorporacionId: 'incorporacion-1' }),
+    'incorporacion-1',
+  )
+})
+
+test('no restaura una sesion sin incorporacion DIRECTA_TEMP valida', () => {
+  assert.equal(obtenerIncorporacionSesionTransicionDirecta({}), null)
+  assert.equal(obtenerIncorporacionSesionTransicionDirecta({ authStage: 'DIRECTA_TEMP' }), null)
+  assert.equal(obtenerIncorporacionSesionTransicionDirecta({ authStage: 'DIRECTA_TEMP', incorporacionId: '  ' }), null)
+  assert.equal(obtenerIncorporacionSesionTransicionDirecta({ authStage: 'DIRECTA_TEMP', incorporacionId: 1 }), null)
+})
 
 // ─── Estampado (withEmpresaId) ─────────────────────────────────────────────
 //

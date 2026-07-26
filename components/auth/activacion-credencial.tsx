@@ -16,19 +16,22 @@ import { Button } from '@/components/ui/button'
 import { useAuthContext } from '@/contexts/auth-context'
 
 export function ActivacionCredencial() {
-  const { activandoCredencial, errorLogin, limpiarError, activarCredencial, cancelarActivacion } = useAuthContext()
+  const { activacionPendiente, activandoCredencial, errorLogin, limpiarError, activarCredencial, cancelarActivacion } = useAuthContext()
+  const [pinTemporal, setPinTemporal] = useState('')
   const [pinNuevo, setPinNuevo] = useState('')
   const [confirmarPin, setConfirmarPin] = useState('')
 
   const soloDigitos = (valor: string) => /^\d{0,6}$/.test(valor)
+  const requierePinTemporal = activacionPendiente?.pinTemporal === null
+  const pinTemporalValido = !requierePinTemporal || /^\d{6}$/.test(pinTemporal)
   const pinValido = /^\d{6}$/.test(pinNuevo)
   const coinciden = pinNuevo === confirmarPin
-  const puedeEnviar = pinValido && coinciden && !activandoCredencial
+  const puedeEnviar = pinTemporalValido && pinValido && coinciden && !activandoCredencial
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!puedeEnviar) return
-    await activarCredencial(pinNuevo)
+    await activarCredencial(pinNuevo, requierePinTemporal ? pinTemporal : undefined)
   }
 
   return (
@@ -42,6 +45,24 @@ export function ActivacionCredencial() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {requierePinTemporal && (
+          <div className="space-y-2">
+            <label htmlFor="pin-temporal" className="text-sm font-medium text-muted-foreground">PIN temporal</label>
+            <input
+              id="pin-temporal"
+              type="password"
+              inputMode="numeric"
+              maxLength={6}
+              autoComplete="current-password"
+              autoFocus
+              value={pinTemporal}
+              onChange={(e) => { if (soloDigitos(e.target.value)) { setPinTemporal(e.target.value); if (errorLogin) limpiarError() } }}
+              placeholder="******"
+              disabled={activandoCredencial}
+              className="w-full h-11 px-4 rounded-xl bg-input border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50"
+            />
+          </div>
+        )}
         <div className="space-y-2">
           <label htmlFor="pin-nuevo" className="text-sm font-medium text-muted-foreground">Nuevo PIN</label>
           <input
@@ -50,7 +71,7 @@ export function ActivacionCredencial() {
             inputMode="numeric"
             maxLength={6}
             autoComplete="new-password"
-            autoFocus
+            autoFocus={!requierePinTemporal}
             value={pinNuevo}
             onChange={(e) => { if (soloDigitos(e.target.value)) { setPinNuevo(e.target.value); if (errorLogin) limpiarError() } }}
             placeholder="******"

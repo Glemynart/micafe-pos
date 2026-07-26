@@ -25,7 +25,11 @@ import {
   type Membresia,
   type RolMembresia,
 } from "./membresias-service";
-import { esSesionTransicionDirecta, resolverEmpresaIdActivo } from "./tenant-context";
+import {
+  esSesionTransicionDirecta,
+  obtenerIncorporacionSesionTransicionDirecta,
+  resolverEmpresaIdActivo,
+} from "./tenant-context";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -192,19 +196,39 @@ export async function getCurrentUserInfo(
  * Suscripción reactiva al estado de autenticación de Firebase.
  * Útil para inicializar el contexto al recargar la página.
  */
+export interface ActivacionDirectaRestaurada {
+  tipo: "DIRECTA_TEMP";
+  incorporacionId: string;
+}
+
+export type EstadoAuth = Usuario | ActivacionDirectaRestaurada | null;
+
+export interface SuscripcionAuth {
+  cancelar: () => void;
+  invalidarPendientes: () => void;
+}
+
+export function esActivacionDirectaRestaurada(
+  estado: EstadoAuth,
+): estado is ActivacionDirectaRestaurada {
+  return estado !== null && "tipo" in estado && estado.tipo === "DIRECTA_TEMP";
+}
+
 export function onAuthStateChange(
-  callback: (usuario: Usuario | null) => void
-): () => void {
+  callback: (estado: EstadoAuth) => void
+): SuscripcionAuth {
   let unsubUserDoc: (() => void) | null = null;
+  let generacion = 0;
 
   const unsubAuth = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+    const generacionEvento = ++generacion;
     if (unsubUserDoc) {
       unsubUserDoc();
       unsubUserDoc = null;
     }
 
     if (!firebaseUser) {
-      callback(null);
+      if (generacionEvento === generacion) callback(null);
       return;
     }
 
@@ -218,16 +242,20 @@ export function onAuthStateChange(
     // usarla (H-4). Se corta aquí con la lectura cacheada del token (sin
     // red) — no hay `usuario` que proyectar para esta sesión de todas formas.
     const tokenCacheado = await firebaseUser.getIdTokenResult();
+    if (generacionEvento !== generacion) return;
     if (esSesionTransicionDirecta(tokenCacheado.claims)) {
-      callback(null);
+      const incorporacionId = obtenerIncorporacionSesionTransicionDirecta(tokenCacheado.claims);
+      callback(incorporacionId ? { tipo: "DIRECTA_TEMP", incorporacionId } : null);
       return;
     }
 
     try {
       const { empresaId } = await resolverEmpresaIdActivo();
+      if (generacionEvento !== generacion) return;
       let perfil: Record<string, unknown> | null = null;
       let membresia: Membresia | null = null;
       const emitir = () => {
+        if (generacionEvento !== generacion) return;
         if (!perfil || !membresia || !esMembresiaActiva(membresia)) {
           callback(null);
           return;
@@ -237,21 +265,31 @@ export function onAuthStateChange(
       const unsubPerfil = onSnapshot(doc(db, "usuarios", firebaseUser.uid), (snap) => {
         perfil = snap.exists() ? snap.data() : null;
         emitir();
-      }, () => callback(null));
+      }, () => { if (generacionEvento === generacion) callback(null); });
       const unsubMembresia = onSnapshot(doc(db, "membresias", `${empresaId}_${firebaseUser.uid}`), (snap) => {
         const data = snap.data();
         membresia = data && esMembresiaCanonicaLocal(data) ? data : null;
         emitir();
-      }, () => callback(null));
+      }, () => { if (generacionEvento === generacion) callback(null); });
       unsubUserDoc = () => { unsubPerfil(); unsubMembresia(); };
     } catch {
-      callback(null);
+      if (generacionEvento === generacion) callback(null);
     }
   });
 
-  return () => {
-    unsubAuth();
-    if (unsubUserDoc) unsubUserDoc();
+  return {
+    cancelar: () => {
+      generacion += 1;
+      unsubAuth();
+      if (unsubUserDoc) unsubUserDoc();
+    },
+    invalidarPendientes: () => {
+      generacion += 1;
+      if (unsubUserDoc) {
+        unsubUserDoc();
+        unsubUserDoc = null;
+      }
+    },
   };
 }
 
