@@ -32,7 +32,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { onIdTokenChanged, signOut, type User as FirebaseUser } from "firebase/auth";
+import { onIdTokenChanged, type User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { obtenerEmpresaPorId, type Empresa } from "@/lib/empresas-service";
 import { esSesionTransicionDirecta, resolverEmpresaIdActivo, TenantSinSesionError } from "@/lib/tenant-context";
@@ -52,6 +52,8 @@ interface SaaSContextValue {
   rol: RolUsuario | null;
   /** true mientras se resuelve el claim/la empresa */
   loading: boolean;
+  /** La identidad Firebase es válida, pero no posee una sesión tenant autorizada. */
+  accesoTenantDenegado: boolean;
   /** Fuerza un refresh del token (getIdToken(true)) y re-resuelve el estado */
   refresh: () => Promise<void>;
 }
@@ -67,6 +69,7 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
   const [membresia, setMembresia] = useState<Membresia | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accesoTenantDenegado, setAccesoTenantDenegado] = useState(false);
 
   const resolver = useCallback(async (firebaseUser: FirebaseUser) => {
     try {
@@ -95,14 +98,17 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
       setEmpresaId(empresaIdResuelto);
       setMembresia(membresiaActual);
       setEmpresa(empresaDoc);
+      setAccesoTenantDenegado(false);
     } catch (err) {
       if (err instanceof TenantSinSesionError) {
-         // Token sin claims tras el refresh = sesión inválida de MT-U5a.
-         // Se cierra la sesión en vez de descubrir un tenant por fallback.
+         // La identidad Firebase puede ser válida para otro plano (por
+         // ejemplo, Backoffice SaaS) aunque no tenga sesión tenant. Se limpia
+         // solo este contexto y el guard del plano tenant rechaza la vista;
+         // cerrar Auth aquí afectaría todas las pestañas del mismo origen.
          setEmpresaId(null);
          setMembresia(null);
          setEmpresa(null);
-         await signOut(auth);
+         setAccesoTenantDenegado(true);
          return;
       }
       throw err;
@@ -115,6 +121,7 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
         setEmpresaId(null);
         setEmpresa(null);
         setMembresia(null);
+        setAccesoTenantDenegado(false);
         setLoading(false);
         return;
       }
@@ -131,10 +138,12 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
         setEmpresaId(null);
         setEmpresa(null);
         setMembresia(null);
+        setAccesoTenantDenegado(false);
         setLoading(false);
         return;
       }
 
+      setAccesoTenantDenegado(false);
       setLoading(true);
       await resolver(firebaseUser);
       setLoading(false);
@@ -153,15 +162,17 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
       setEmpresaId(null);
       setEmpresa(null);
       setMembresia(null);
+      setAccesoTenantDenegado(false);
       setLoading(false);
       return;
     }
+    setAccesoTenantDenegado(false);
     await resolver(firebaseUser);
     setLoading(false);
   }, [resolver]);
 
   return (
-    <SaaSContext.Provider value={{ empresaId, empresa, membresia, rol: membresia?.rol ?? null, loading, refresh }}>
+    <SaaSContext.Provider value={{ empresaId, empresa, membresia, rol: membresia?.rol ?? null, loading, accesoTenantDenegado, refresh }}>
       {children}
     </SaaSContext.Provider>
   );
