@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
-import { provisionarCredencialInicialTenant } from "./operations";
+import { provisionarCredencialInicialTenant, reemitirCredencialInicialTemporalTenant } from "./operations";
 
 /**
  * `FieldValue.serverTimestamp()` es un singleton (misma referencia en cada
@@ -136,6 +136,9 @@ function sembrarBase(db: FakeDb) {
   db.seed(`empresas/${EMPRESA_ID}`, { estado: "activa", ownerUid: OWNER_UID, nombreComercial: "Café Atrato" });
   db.seed(`membresias/${EMPRESA_ID}_${OWNER_UID}`, { rol: "admin", estado: "activa", activo: true });
   db.seed("permisos_roles/admin", { permisos: ["configuracion", "pos"] });
+  db.seed("saas_operadores/operador-1", {
+    uid: "operador-1", estado: "ACTIVO", facultades: ["LIFECYCLE_GOBERNAR"], versionAutorizacion: 1,
+  });
 }
 
 function envelope(idempotencyKey: string) {
@@ -150,6 +153,7 @@ function envelope(idempotencyKey: string) {
 }
 
 const resolverPrincipal = async (_uid: string) => ({ displayName: "Ana Admin" });
+const tokenOperador = { saas: { operador: true, versionAutorizacion: 1, facultades: ["LIFECYCLE_GOBERNAR"] } };
 
 function mutarAntesDeLaTransaccion(db: FakeDb, mutar: () => void): void {
   const runTransactionOriginal = db.runTransaction.bind(db);
@@ -198,6 +202,7 @@ test("emisión inicial: crea la credencial, confirma y emite la obligación de a
   assert.equal(evidencia![1].actor.tipo, "OPERADOR");
   assert.equal(evidencia![1].actor.uid, "operador-1");
   assert.equal(evidencia![1].facultad, "LIFECYCLE_GOBERNAR");
+  assert.equal(Object.hasOwn(evidencia![1], "detalle"), false, "la auditoría ordinaria no debe escribir detalle: undefined");
 });
 
 test("empresa suspendida: rechaza antes de crear cualquier obligación de auditoría", async () => {
@@ -349,4 +354,107 @@ test("credencial temporal vigente sin activar: idempotente, no genera una segund
   assert.equal(resultado.idempotente, true);
   const obligaciones = [...db.docs.keys()].filter((k) => k.startsWith("saas_auditoria_obligaciones/"));
   assert.equal(obligaciones.length, 0, "un reintento sobre una credencial pendiente no es un hecho nuevo: no debe auditarse como si lo fuera");
+});
+
+function envelopeReemision(idempotencyKey: string, incorporacionId: string) {
+  return {
+    ...envelope(idempotencyKey),
+    incorporacionId,
+    motivoCodigo: "REEMISION_ADMINISTRATIVA_PIN_NO_ENTREGADO",
+  };
+}
+
+async function emitirTemporalVigente(db: FakeDb) {
+  return provisionarCredencialInicialTenant(
+    db as any, "operador-1", envelope("base-reemision"), resolverPrincipal, "pepper",
+  ) as Promise<any>;
+}
+
+test("reemisión administrativa: rota exclusivamente la temporal vigente, conserva una sola activa y audita sin PIN", async () => {
+  const db = new FakeDb();
+  sembrarBase(db);
+  const inicial = await emitirTemporalVigente(db);
+  const resultado = await reemitirCredencialInicialTemporalTenant(
+    db as any, "operador-1", envelopeReemision("reemision-1", inicial.incorporacionId), tokenOperador, resolverPrincipal, "pepper",
+  ) as any;
+
+  assert.equal(resultado.estado, "REEMITIDA");
+  assert.ok(resultado.pinTemporal);
+  assert.notEqual(resultado.incorporacionId, inicial.incorporacionId);
+  assert.equal(db.docs.get(`incorporaciones/${inicial.incorporacionId}`).estado, "EXPIRED");
+  const activas = [...db.docs.entries()].filter(([path, data]) => path.startsWith("credenciales_operativas/") && data.activo === true);
+  assert.equal(activas.length, 1, "la rotación debe dejar exactamente una credencial activa");
+  const evidencia = [...db.docs.entries()].find(([path, data]) => path.startsWith("saas_auditoria/") && data.tipo === "CREDENCIAL_INICIAL_REEMITIDA")?.[1];
+  assert.equal(evidencia.tipo, "CREDENCIAL_INICIAL_REEMITIDA");
+  assert.equal(evidencia.motivo.codigo, "REEMISION_ADMINISTRATIVA_PIN_NO_ENTREGADO");
+  assert.deepEqual(evidencia.detalle, {
+    rotacionAdministrativa: true,
+    incorporacionAnteriorId: inicial.incorporacionId,
+    incorporacionNuevaId: resultado.incorporacionId,
+    codigoAnterior: inicial.codigo,
+    codigoNuevo: resultado.codigo,
+  });
+  assert.equal(JSON.stringify(evidencia).includes(resultado.pinTemporal), false, "la auditoría nunca puede contener el PIN");
+});
+
+test("reemisión repetida con la misma incorporación no revela ni rota otra credencial", async () => {
+  const db = new FakeDb();
+  sembrarBase(db);
+  const inicial = await emitirTemporalVigente(db);
+  await reemitirCredencialInicialTemporalTenant(
+    db as any, "operador-1", envelopeReemision("reemision-primera", inicial.incorporacionId), tokenOperador, resolverPrincipal, "pepper",
+  );
+  const docsTrasPrimera = new Map(db.docs);
+  const reintento = await reemitirCredencialInicialTemporalTenant(
+    db as any, "operador-1", envelopeReemision("reemision-reintento", inicial.incorporacionId), tokenOperador, resolverPrincipal, "pepper",
+  ) as any;
+  assert.equal(reintento.estado, "YA_EXISTENTE");
+  assert.equal(reintento.pinTemporal, null, "un reintento no puede recuperar ni revelar el PIN previo");
+  assert.deepEqual(db.docs, docsTrasPrimera, "el reintento no debe escribir ni revelar un nuevo PIN");
+});
+
+test("dos reemisiones concurrentes sobre la misma incorporación dejan una única credencial activa", async () => {
+  const db = new FakeDb();
+  sembrarBase(db);
+  const inicial = await emitirTemporalVigente(db);
+  const resultados = await Promise.allSettled([
+    reemitirCredencialInicialTemporalTenant(
+      db as any, "operador-1", envelopeReemision("reemision-concurrente-a", inicial.incorporacionId), tokenOperador, resolverPrincipal, "pepper",
+    ),
+    reemitirCredencialInicialTemporalTenant(
+      db as any, "operador-1", envelopeReemision("reemision-concurrente-b", inicial.incorporacionId), tokenOperador, resolverPrincipal, "pepper",
+    ),
+  ]);
+  const resueltos = resultados
+    .filter((resultado): resultado is PromiseFulfilledResult<any> => resultado.status === "fulfilled")
+    .map((resultado) => resultado.value);
+  assert.equal(resueltos.filter((resultado) => resultado.estado === "REEMITIDA" && typeof resultado.pinTemporal === "string").length, 1);
+  assert.ok(
+    resultados.some((resultado) => resultado.status === "rejected")
+      || resueltos.some((resultado) => resultado.estado === "YA_EXISTENTE" && resultado.pinTemporal === null),
+    "la solicitud perdedora debe rechazarse o converger sin revelar un PIN",
+  );
+  const activas = [...db.docs.entries()].filter(([path, data]) => path.startsWith("credenciales_operativas/") && data.activo === true);
+  assert.equal(activas.length, 1);
+  assert.equal(db.docs.get(`incorporaciones/${inicial.incorporacionId}`).estado, "EXPIRED");
+});
+
+test("activación ganadora bloquea la reemisión administrativa", async () => {
+  const db = new FakeDb();
+  sembrarBase(db);
+  const inicial = await emitirTemporalVigente(db);
+  db.docs.set(`incorporaciones/${inicial.incorporacionId}`, {
+    ...db.docs.get(`incorporaciones/${inicial.incorporacionId}`), estado: "ACTIVE",
+  });
+  db.docs.set(`credenciales_operativas/${EMPRESA_ID}_${inicial.codigo}`, {
+    ...db.docs.get(`credenciales_operativas/${EMPRESA_ID}_${inicial.codigo}`), requiereCambio: false,
+  });
+  const docsAntes = new Map(db.docs);
+  await assert.rejects(
+    reemitirCredencialInicialTemporalTenant(
+      db as any, "operador-1", envelopeReemision("activacion-gana", inicial.incorporacionId), tokenOperador, resolverPrincipal, "pepper",
+    ),
+    (error: unknown) => error instanceof HttpsError && error.message === "CREDENCIAL_INICIAL_REEMISION_NO_DISPONIBLE",
+  );
+  assert.deepEqual(db.docs, docsAntes, "una credencial activada no puede sustituirse por esta vía");
 });

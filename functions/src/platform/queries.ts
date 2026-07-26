@@ -141,7 +141,9 @@ export async function obtenerDetalleEmpresaPlataforma(db: Firestore, empresaId: 
   const ownerUid = typeof empresaData.ownerUid === "string" ? empresaData.ownerUid : null;
 
   let adminInicial: { uid: string; rol: string | null; estado: string | null; activo: boolean | null } | null = null;
-  let credencialInicial: { estado: EstadoCredencialInicialProyectado; codigo: string | null } = { estado: "SIN_PROVISIONAR", codigo: null };
+  let credencialInicial: { estado: EstadoCredencialInicialProyectado; codigo: string | null; incorporacionId: string | null; puedeReemitir: boolean } = {
+    estado: "SIN_PROVISIONAR", codigo: null, incorporacionId: null, puedeReemitir: false,
+  };
 
   if (ownerUid) {
     const [membresiaSnap, incorporacionesSnap] = await Promise.all([
@@ -158,9 +160,17 @@ export async function obtenerDetalleEmpresaPlataforma(db: Firestore, empresaId: 
       activo: typeof membresiaData?.activo === "boolean" ? membresiaData.activo : null,
     };
     const incorporacionData = incorporacionesSnap.empty ? undefined : incorporacionesSnap.docs[0].data();
+    const estado = proyectarEstadoCredencial(incorporacionData);
+    const expiraEn = incorporacionData?.expiraEn as { toMillis?: () => number } | undefined;
+    const puedeReemitir = estado === "PENDIENTE_ACTIVACION"
+      && incorporacionData?.origen === "PLATAFORMA"
+      && typeof expiraEn?.toMillis === "function"
+      && expiraEn.toMillis() > Date.now();
     credencialInicial = {
-      estado: proyectarEstadoCredencial(incorporacionData),
+      estado,
       codigo: typeof incorporacionData?.codigo === "string" ? incorporacionData.codigo : null,
+      incorporacionId: incorporacionesSnap.empty ? null : incorporacionesSnap.docs[0].id,
+      puedeReemitir,
     };
   }
 

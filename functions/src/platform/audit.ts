@@ -23,6 +23,8 @@ export interface HechoAuditable {
   correlacionId: string;
   causacionId: string | null;
   motivo: { codigo: string; resumen: string | null };
+  /** Evidencia específica del hecho, sin secretos recuperables. */
+  detalle?: Record<string, unknown>;
   soporte?: { autorizacionId: string; sesionId: string | null; alcanceCodigo: string } | null;
 }
 

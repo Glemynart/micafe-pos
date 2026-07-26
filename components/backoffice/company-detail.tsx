@@ -4,12 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, KeyRound, LoaderCircle, PauseCircle, PlayCircle } from "lucide-react";
 import { toast } from "sonner";
-import { comandoComercial, envelope, mensajeError, obtenerDetalleEmpresa, provisionarCredencialInicial } from "@/lib/platform/client";
+import { comandoComercial, envelope, mensajeError, obtenerDetalleEmpresa, provisionarCredencialInicial, reemitirCredencialInicialTemporal } from "@/lib/platform/client";
 import { EmptyState, ErrorState, EstadoBadge, LoadingState, PageIntro } from "./ui";
 import { CredentialRevealDialog, type CredencialEntrega } from "./credential-reveal-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { usePlatform } from "@/contexts/platform-context";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export function CompanyDetail({ empresaId }: { empresaId: string }) {
   const [data, setData] = useState<Awaited<ReturnType<typeof obtenerDetalleEmpresa>> | null>(null);
@@ -18,6 +19,7 @@ export function CompanyDetail({ empresaId }: { empresaId: string }) {
   const [accion, setAccion] = useState(false);
   const [credencialAccion, setCredencialAccion] = useState(false);
   const [credencial, setCredencial] = useState<CredencialEntrega | null>(null);
+  const [confirmarReemision, setConfirmarReemision] = useState(false);
   const { tiene } = usePlatform();
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -36,6 +38,21 @@ export function CompanyDetail({ empresaId }: { empresaId: string }) {
       }
       await load();
     } catch (cause) { toast.error(mensajeError(cause)); } finally { setCredencialAccion(false); }
+  }
+
+  async function reemitirCredencial() {
+    const incorporacionId = data?.credencialInicial.incorporacionId;
+    if (!incorporacionId) return;
+    setCredencialAccion(true);
+    try {
+      const resultado = await reemitirCredencialInicialTemporal(empresaId, incorporacionId);
+      if (resultado.pinTemporal) setCredencial({ codigo: resultado.codigo, pinTemporal: resultado.pinTemporal });
+      else toast.info("La credencial temporal ya cambió; no se reveló ningún PIN.");
+      await load();
+    } catch (cause) { toast.error(mensajeError(cause)); } finally {
+      setCredencialAccion(false);
+      setConfirmarReemision(false);
+    }
   }
 
   async function transition(destino: string) {
@@ -65,9 +82,15 @@ export function CompanyDetail({ empresaId }: { empresaId: string }) {
         <Card><CardHeader><CardTitle>Acciones de lifecycle</CardTitle></CardHeader><CardContent className="space-y-3">{tiene("LIFECYCLE_GOBERNAR") ? <><Button className="w-full justify-start" variant="outline" disabled={accion || !["trial", "activa"].includes(empresa.estado)} onClick={() => void transition("suspendida")}>{accion ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <PauseCircle className="mr-2 size-4" />}Suspender</Button><Button className="w-full justify-start" variant="outline" disabled={accion || empresa.estado !== "suspendida"} onClick={() => void transition("activa")}><PlayCircle className="mr-2 size-4" />Reactivar</Button></> : <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">Tu contexto no posee gobernanza de lifecycle.</p>}<p className="text-xs leading-relaxed text-slate-400">Cada acción invoca el servicio único de lifecycle con revisión esperada; no escribe el documento directamente.</p></CardContent></Card>
         <Card><CardHeader><CardTitle>Suscripción</CardTitle></CardHeader><CardContent>{data.suscripcion ? <div className="grid gap-4 sm:grid-cols-3"><Datum label="Estado"><EstadoBadge estado={data.suscripcion.estado} /></Datum><Datum label="Plan">{data.suscripcion.planId} · v{data.suscripcion.planVersion}</Datum><Datum label="Revisión">{data.suscripcion.revision}</Datum></div> : <p className="text-sm text-slate-500">Sin suscripción materializada.</p>}</CardContent></Card>
         <Card><CardHeader><CardTitle>Provisionamiento</CardTitle></CardHeader><CardContent>{data.provisionamiento ? <div className="space-y-3"><EstadoBadge estado={data.provisionamiento.estado} /><p className="font-mono text-xs text-slate-400">{data.provisionamiento.provisionamientoId}</p>{data.provisionamiento.errorRecuperable && <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">{data.provisionamiento.errorRecuperable}</p>}</div> : <p className="text-sm text-slate-500">Sin registro visible.</p>}</CardContent></Card>
-        <AccesoInicialCard data={data} accion={credencialAccion} onEmitir={emitirCredencial} puede={tiene("LIFECYCLE_GOBERNAR")} />
+        <AccesoInicialCard data={data} accion={credencialAccion} onEmitir={emitirCredencial} onSolicitarReemision={() => setConfirmarReemision(true)} puede={tiene("LIFECYCLE_GOBERNAR")} />
       </div>
       <CredentialRevealDialog credencial={credencial} onClose={() => { setCredencial(null); }} />
+      <AlertDialog open={confirmarReemision} onOpenChange={setConfirmarReemision}>
+        <AlertDialogContent>
+          <AlertDialogHeader><AlertDialogTitle>¿Reemitir credencial temporal?</AlertDialogTitle><AlertDialogDescription>El código y PIN temporales actuales se invalidarán de inmediato. Solo se mostrará una vez el nuevo PIN.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel disabled={credencialAccion}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={credencialAccion} onClick={(event) => { event.preventDefault(); void reemitirCredencial(); }}>{credencialAccion && <LoaderCircle className="mr-2 size-4 animate-spin" />}Reemitir credencial</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -76,16 +99,19 @@ function AccesoInicialCard({
   data,
   accion,
   onEmitir,
+  onSolicitarReemision,
   puede,
 }: {
   data: NonNullable<Awaited<ReturnType<typeof obtenerDetalleEmpresa>>>;
   accion: boolean;
   onEmitir: () => void;
+  onSolicitarReemision: () => void;
   puede: boolean;
 }) {
   const estadoCredencial = data.credencialInicial.estado;
-  const reemitir = estadoCredencial === "EXPIRADA";
-  const emitible = estadoCredencial === "SIN_PROVISIONAR" || reemitir;
+  const reprovisionar = estadoCredencial === "EXPIRADA";
+  const emitible = estadoCredencial === "SIN_PROVISIONAR" || reprovisionar;
+  const puedeReemitir = data.credencialInicial.puedeReemitir && !!data.credencialInicial.incorporacionId;
   return (
     <Card className="lg:col-span-2">
       <CardHeader><CardTitle>Acceso inicial</CardTitle></CardHeader>
@@ -100,15 +126,18 @@ function AccesoInicialCard({
         {data.credencialInicial.codigo && <Datum label="Código">{data.credencialInicial.codigo}</Datum>}
         <div className="sm:col-span-3">
           {puede ? (
-            <Button variant="outline" disabled={accion || !emitible || !data.adminInicial} onClick={onEmitir}>
-              {accion ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <KeyRound className="mr-2 size-4" />}
-              {reemitir ? "Reemitir credencial" : "Emitir credencial inicial"}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {emitible && <Button variant="outline" disabled={accion || !data.adminInicial} onClick={onEmitir}>
+                {accion ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <KeyRound className="mr-2 size-4" />}
+                {reprovisionar ? "Reprovisionar credencial" : "Emitir credencial inicial"}
+              </Button>}
+              {puedeReemitir && <Button variant="outline" disabled={accion || !data.adminInicial} onClick={onSolicitarReemision}><KeyRound className="mr-2 size-4" />Reemitir credencial</Button>}
+            </div>
           ) : (
             <p className="text-sm text-slate-500">Tu contexto no posee gobernanza de lifecycle.</p>
           )}
           {estadoCredencial === "ACTIVA" && <p className="mt-2 text-xs text-slate-400">Ya existe una credencial activa; no puede reemitirse desde aquí.</p>}
-          {estadoCredencial === "PENDIENTE_ACTIVACION" && <p className="mt-2 text-xs text-slate-400">Hay una credencial temporal vigente, aún no activada por el administrador.</p>}
+          {estadoCredencial === "PENDIENTE_ACTIVACION" && <p className="mt-2 text-xs text-slate-400">Hay una credencial temporal vigente, aún no activada por el administrador. Reemitir invalida la entrega actual.</p>}
         </div>
       </CardContent>
     </Card>
