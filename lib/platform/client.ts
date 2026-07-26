@@ -1,7 +1,7 @@
 'use client'
 
-import { getFunctions, httpsCallable } from "firebase/functions";
-import { getFirebaseApp } from "@/lib/firebase";
+import { httpsCallable } from "firebase/functions";
+import { getFirebaseFunctions } from "@/lib/firebase";
 
 export const FACULTADES_PLATAFORMA = [
   "OPERADORES_GOBERNAR",
@@ -28,7 +28,7 @@ export interface ContextoPlataforma {
   versionAutorizacion: number;
 }
 
-const functions = () => getFunctions(getFirebaseApp(), "us-central1");
+const functions = () => getFirebaseFunctions("us-central1");
 
 async function invocar<T>(nombre: string, data: unknown = {}): Promise<T> {
   const result = await httpsCallable(functions(), nombre)(data);

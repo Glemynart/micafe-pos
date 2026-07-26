@@ -5,7 +5,9 @@ import {
   persistentMultipleTabManager,
   type Firestore,
 } from "firebase/firestore";
-import { getAuth, type Auth } from "firebase/auth";
+import { connectFirestoreEmulator } from "firebase/firestore";
+import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
+import { connectFunctionsEmulator, getFunctions, type Functions } from "firebase/functions";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 export const firebaseConfig = {
@@ -21,6 +23,14 @@ function getFirebaseApp(): FirebaseApp {
   return getApps().length ? getApp() : initializeApp(firebaseConfig);
 }
 
+/**
+ * Modo emulador: exclusivo para validación funcional local. Los puertos
+ * replican `firebase.json`. Sin `NEXT_PUBLIC_USE_EMULATORS=1` este módulo se
+ * comporta exactamente como antes y nunca importa una ruta de emulador.
+ */
+const USANDO_EMULADORES = process.env.NEXT_PUBLIC_USE_EMULATORS === "1";
+const EMULADOR_HOST = "127.0.0.1";
+
 let firestore: Firestore | null = null;
 
 function getFirebaseDb(): Firestore {
@@ -28,12 +38,31 @@ function getFirebaseDb(): Firestore {
     firestore = initializeFirestore(getFirebaseApp(), {
       localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
     });
+    if (USANDO_EMULADORES) connectFirestoreEmulator(firestore, EMULADOR_HOST, 8085);
   }
   return firestore;
 }
 
+let authInstance: Auth | null = null;
+
 function getFirebaseAuth(): Auth {
-  return getAuth(getFirebaseApp());
+  if (!authInstance) {
+    authInstance = getAuth(getFirebaseApp());
+    if (USANDO_EMULADORES) {
+      connectAuthEmulator(authInstance, `http://${EMULADOR_HOST}:9099`, { disableWarnings: true });
+    }
+  }
+  return authInstance;
+}
+
+let functionsInstance: Functions | null = null;
+
+function getFirebaseFunctions(region = "us-central1"): Functions {
+  if (!functionsInstance) {
+    functionsInstance = getFunctions(getFirebaseApp(), region);
+    if (USANDO_EMULADORES) connectFunctionsEmulator(functionsInstance, EMULADOR_HOST, 5001);
+  }
+  return functionsInstance;
 }
 
 function getFirebaseStorage(): FirebaseStorage {
@@ -69,4 +98,4 @@ export const db = lazyFirebase(getFirebaseDb);
 export const auth = lazyFirebase(getFirebaseAuth);
 export const storage = lazyFirebase(getFirebaseStorage);
 
-export { getFirebaseApp, getFirebaseDb, getFirebaseAuth, getFirebaseStorage };
+export { getFirebaseApp, getFirebaseDb, getFirebaseAuth, getFirebaseFunctions, getFirebaseStorage };
