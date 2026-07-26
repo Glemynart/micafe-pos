@@ -57,6 +57,17 @@ export function esSesionTransicionDirecta(claims: Record<string, unknown>): bool
   return claims.authStage === AUTH_STAGE_TRANSICION_DIRECTA;
 }
 
+/** Obtiene la incorporación que una sesión DIRECTA_TEMP puede continuar. */
+export function obtenerIncorporacionSesionTransicionDirecta(
+  claims: Record<string, unknown>,
+): string | null {
+  if (!esSesionTransicionDirecta(claims)) return null;
+  const incorporacionId = claims.incorporacionId;
+  return typeof incorporacionId === "string" && incorporacionId.trim()
+    ? incorporacionId
+    : null;
+}
+
 export interface ResolucionTenant {
   empresaId: string;
   /**

@@ -15,10 +15,12 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import {
   activarCredencial as activarCredencialServicio,
+  esActivacionDirectaRestaurada,
   loginConCodigoYPin,
   logout as authLogout,
   onAuthStateChange,
@@ -32,7 +34,8 @@ import { signOut as firebaseSignOut } from "firebase/auth";
 /** ADR-SAAS-013 §9 — credencial inicial pendiente de fijar PIN definitivo. */
 interface ActivacionPendiente {
   incorporacionId: string;
-  pinTemporal: string;
+  /** Solo vive en memoria; nunca se restaura ni se deriva desde Firebase. */
+  pinTemporal: string | null;
 }
 
 interface AuthContextValue {
@@ -59,7 +62,7 @@ interface AuthContextValue {
   /** true mientras se procesa `activarCredencial` */
   activandoCredencial: boolean;
   /** Fija el PIN definitivo y completa el login con la sesión tenant resultante. */
-  activarCredencial: (pinNuevo: string) => Promise<void>;
+  activarCredencial: (pinNuevo: string, pinTemporalRestaurado?: string) => Promise<void>;
   /** Descarta la activación pendiente y cierra la sesión temporal DIRECTA_TEMP. */
   cancelarActivacion: () => Promise<void>;
 }
@@ -77,6 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [errorLogin, setErrorLogin] = useState<string | null>(null);
   const [activacionPendiente, setActivacionPendiente] = useState<ActivacionPendiente | null>(null);
   const [activandoCredencial, setActivandoCredencial] = useState(false);
+  const restauracionInicialPendienteRef = useRef(true);
+  const invalidarAuthPendienteRef = useRef<() => void>(() => {});
 
   // Suscripción reactiva: restaura la sesión al recargar la página
   useEffect(() => {
@@ -91,21 +96,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }, 8000);
 
-    const unsubscribe = onAuthStateChange((usuarioActual) => {
+    const unsubscribe = onAuthStateChange((estadoAuth) => {
       if (!isMounted) return;
       clearTimeout(fallbackTimer);
-      setUsuario(usuarioActual);
+      if (esActivacionDirectaRestaurada(estadoAuth)) {
+        if (!restauracionInicialPendienteRef.current) {
+          setCargando(false);
+          return;
+        }
+        restauracionInicialPendienteRef.current = false;
+        setUsuario(null);
+        // Si el login ya guardó el PIN temporal, esta restauración tardía no
+        // puede reemplazarlo. Si no existe, solo se reconstruye el id no secreto.
+        setActivacionPendiente((actual) => actual?.pinTemporal
+          ? actual
+          : { incorporacionId: estadoAuth.incorporacionId, pinTemporal: null });
+      } else {
+        restauracionInicialPendienteRef.current = false;
+        setUsuario(estadoAuth);
+        setActivacionPendiente(null);
+      }
       setCargando(false);
     });
+    invalidarAuthPendienteRef.current = unsubscribe.invalidarPendientes;
 
     return () => {
       isMounted = false;
       clearTimeout(fallbackTimer);
-      unsubscribe();
+      invalidarAuthPendienteRef.current = () => {};
+      unsubscribe.cancelar();
     };
   }, []);
 
   const login = useCallback(async (codigo: string, pin: string) => {
+    restauracionInicialPendienteRef.current = false;
+    invalidarAuthPendienteRef.current();
     setIniciandoSesion(true);
     setErrorLogin(null);
     try {
@@ -125,12 +150,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const activarCredencial = useCallback(async (pinNuevo: string) => {
+  const activarCredencial = useCallback(async (pinNuevo: string, pinTemporalRestaurado?: string) => {
     if (!activacionPendiente) return;
+    const pinTemporal = activacionPendiente.pinTemporal ?? pinTemporalRestaurado;
+    if (!pinTemporal) return;
+    invalidarAuthPendienteRef.current();
     setActivandoCredencial(true);
     setErrorLogin(null);
     try {
-      const usuarioAutenticado = await activarCredencialServicio(activacionPendiente.pinTemporal, pinNuevo);
+      const usuarioAutenticado = await activarCredencialServicio(pinTemporal, pinNuevo);
       setActivacionPendiente(null);
       setUsuario(usuarioAutenticado);
     } catch (error: unknown) {
@@ -144,6 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [activacionPendiente]);
 
   const cancelarActivacion = useCallback(async () => {
+    invalidarAuthPendienteRef.current();
     setActivacionPendiente(null);
     setErrorLogin(null);
     // La sesión DIRECTA_TEMP no lleva claims tenant: cerrarla aquí no afecta
@@ -152,6 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    invalidarAuthPendienteRef.current();
     await authLogout();
     setUsuario(null);
     setErrorLogin(null);
