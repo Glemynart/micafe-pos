@@ -372,6 +372,50 @@ test("reemplazarIncorporacionId que ya NO coincide con la incorporación actual 
   assert.equal(incorporacionOriginal.estado, "TEMP_CREDENTIAL", "no debe haberse tocado: no era la incorporación que el llamador pidió reemplazar");
 });
 
+test("un reemplazo cuyo mismo documento deja de ser reemplazable converge sin emitir", async () => {
+  for (const estadoActual of ["ACTIVE", "CANCELLED", "ESTADO_DESCONOCIDO"]) {
+    const db = crearDb() as any;
+    const primera = await emitirCredencialInicial(db, parametrosBase);
+    const runTransactionOriginal = db.runTransaction.bind(db);
+    const observaciones: Array<{ reemplazo: boolean }> = [];
+    let mutarAntesDeLectura = true;
+
+    db.runTransaction = (async (cb: any) => {
+      if (mutarAntesDeLectura) {
+        mutarAntesDeLectura = false;
+        db.docs.set(`incorporaciones/${primera.incorporacionId}`, {
+          ...db.docs.get(`incorporaciones/${primera.incorporacionId}`),
+          estado: estadoActual,
+        });
+        db.docs.set(`credenciales_operativas/empresa-1_${primera.codigo}`, {
+          ...db.docs.get(`credenciales_operativas/empresa-1_${primera.codigo}`),
+          activo: true,
+          requiereCambio: false,
+        });
+      }
+      return runTransactionOriginal(cb);
+    }) as any;
+
+    const resultado = await emitirCredencialInicial(db, {
+      ...parametrosBase,
+      reemplazarIncorporacionId: primera.incorporacionId,
+      auditObserver: (_tx, contexto) => {
+        observaciones.push({ reemplazo: contexto.reemplazo });
+        return { obligacionId: "no-debe-crearse" };
+      },
+    });
+
+    assert.equal(resultado.estado, "YA_EXISTENTE", estadoActual);
+    assert.equal(resultado.pinTemporal, null, estadoActual);
+    assert.equal(resultado.incorporacionId, primera.incorporacionId, estadoActual);
+    assert.equal(db.docs.get(`incorporaciones/${primera.incorporacionId}`).estado, estadoActual, estadoActual);
+    assert.equal(db.docs.get(`credenciales_operativas/empresa-1_${primera.codigo}`).activo, true, estadoActual);
+    assert.equal([...db.docs.keys()].filter((key: string) => key.startsWith("incorporaciones/")).length, 1, estadoActual);
+    assert.equal([...db.docs.keys()].filter((key: string) => key.startsWith("credenciales_operativas/")).length, 1, estadoActual);
+    assert.deepEqual(observaciones, [], estadoActual);
+  }
+});
+
 test("auditObserver se invoca solo cuando la transacción crea o reemplaza, nunca en el camino YA_EXISTENTE", async () => {
   const invocaciones: Array<{ reemplazo: boolean }> = [];
   const observer = (_tx: any, contexto: { reemplazo: boolean }) => {

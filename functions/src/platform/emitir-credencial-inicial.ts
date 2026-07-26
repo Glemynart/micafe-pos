@@ -170,7 +170,9 @@ export async function emitirCredencialInicial(
       // llamador validó y pidió reemplazar. Si cambió (activación
       // concurrente, otro reemplazo que ya ganó), se trata como cualquier
       // otra emisión existente: se devuelve tal cual, sin tocar nada.
-      if (doc.id !== reemplazarIncorporacionId) {
+      const estadoActual = doc.get("estado");
+      if (doc.id !== reemplazarIncorporacionId
+        || (estadoActual !== "TEMP_CREDENTIAL" && estadoActual !== "EXPIRED")) {
         const codigoExistente = doc.get("codigo");
         if (typeof codigoExistente !== "string") {
           throw new HttpsError("internal", "CREDENCIAL_INICIAL_ESTADO_INCONSISTENTE");
