@@ -8,7 +8,7 @@
 
 import { httpsCallable } from "firebase/functions";
 import { signInWithCustomToken, signOut, type User } from "firebase/auth";
-import { app, auth } from "@/lib/firebase";
+import { auth, getFirebaseFunctions } from "@/lib/firebase";
 
 export type RolOperativo = "admin" | "supervisor" | "cajero" | "cocinero" | "marketing";
 
@@ -19,6 +19,10 @@ const ROLES_OPERATIVOS: readonly RolOperativo[] = [
   "cocinero",
   "marketing",
 ];
+
+function region(): string {
+  return process.env.NEXT_PUBLIC_FIREBASE_FUNCTIONS_REGION || "us-central1";
+}
 
 interface RespuestaAutenticacionOperativa {
   customToken: string;
@@ -45,11 +49,8 @@ function errorOperativo(error: unknown): Error {
  */
 export async function iniciarSesionOperativa(codigo: string, pin: string): Promise<User> {
   try {
-    const { getFunctions } = await import("firebase/functions");
-    const region = process.env.NEXT_PUBLIC_FIREBASE_FUNCTIONS_REGION || "us-central1";
-    const functions = getFunctions(app, region);
     const autenticar = httpsCallable<{ codigo: string; pin: string }, RespuestaAutenticacionOperativa>(
-      functions,
+      getFirebaseFunctions(region()),
       "autenticarOperativo"
     );
     const response = await autenticar({ codigo, pin });
