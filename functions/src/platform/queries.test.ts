@@ -168,6 +168,7 @@ test("obtenerDetalleEmpresaPlataforma: sin historial, proyecta SIN_PROVISIONAR",
   const detalle = await obtenerDetalleEmpresaPlataforma(db as never, "empresa-1");
   assert.equal(detalle.credencialInicial.estado, "SIN_PROVISIONAR");
   assert.equal(detalle.credencialInicial.codigo, null);
+  assert.equal(detalle.credencialInicial.incorporacionId, null);
 });
 
 test("obtenerDetalleEmpresaPlataforma: con una reemisión (2 incorporaciones DIRECTA), proyecta la MÁS RECIENTE — no el orden de inserción", async () => {
@@ -184,12 +185,28 @@ test("obtenerDetalleEmpresaPlataforma: con una reemisión (2 incorporaciones DIR
   });
   db.seed("incorporaciones/inc-nueva", {
     empresaId: "empresa-1", mecanismo: "DIRECTA", uid: "owner-1",
-    estado: "TEMP_CREDENTIAL", codigo: "cafeat-nuev", creadaEn: 2000,
+    estado: "TEMP_CREDENTIAL", origen: "PLATAFORMA", codigo: "cafeat-nuev", creadaEn: 2000,
+    expiraEn: { toMillis: () => Date.now() + 60 * 60 * 1000 },
   });
 
   const detalle = await obtenerDetalleEmpresaPlataforma(db as never, "empresa-1");
   assert.equal(detalle.credencialInicial.estado, "PENDIENTE_ACTIVACION");
   assert.equal(detalle.credencialInicial.codigo, "cafeat-nuev", "debe mostrar la reemitida, no la EXPIRED que la precede");
+  assert.equal(detalle.credencialInicial.incorporacionId, "inc-nueva", "la UI debe usar el objetivo compare-and-swap más reciente");
+  assert.equal(detalle.credencialInicial.puedeReemitir, true);
+});
+
+test("obtenerDetalleEmpresaPlataforma: una DIRECTA heredada no habilita la reemisión administrativa", async () => {
+  const db = fakeDetalleDb();
+  db.seed("empresas/empresa-1", { estado: "activa", ownerUid: "owner-1" });
+  db.seed("membresias/empresa-1_owner-1", { rol: "admin", estado: "activa", activo: true });
+  db.seed("incorporaciones/inc-heredada", {
+    empresaId: "empresa-1", mecanismo: "DIRECTA", uid: "owner-1",
+    estado: "TEMP_CREDENTIAL", codigo: "cafeat-old", creadaEn: 1000,
+  });
+  const detalle = await obtenerDetalleEmpresaPlataforma(db as never, "empresa-1");
+  assert.equal(detalle.credencialInicial.estado, "PENDIENTE_ACTIVACION");
+  assert.equal(detalle.credencialInicial.puedeReemitir, false);
 });
 
 test("obtenerDetalleEmpresaPlataforma: la más reciente EXPIRED (sin reemitir aún) proyecta EXPIRADA", async () => {
@@ -204,4 +221,16 @@ test("obtenerDetalleEmpresaPlataforma: la más reciente EXPIRED (sin reemitir a�
   const detalle = await obtenerDetalleEmpresaPlataforma(db as never, "empresa-1");
   assert.equal(detalle.credencialInicial.estado, "EXPIRADA");
   assert.equal(detalle.credencialInicial.codigo, "cafeat-unic");
+});
+
+test("obtenerDetalleEmpresaPlataforma: una temporal de plataforma sin TTL no habilita reemisión", async () => {
+  const db = fakeDetalleDb();
+  db.seed("empresas/empresa-1", { estado: "activa", ownerUid: "owner-1" });
+  db.seed("membresias/empresa-1_owner-1", { rol: "admin", estado: "activa", activo: true });
+  db.seed("incorporaciones/inc-sin-ttl", {
+    empresaId: "empresa-1", mecanismo: "DIRECTA", uid: "owner-1",
+    estado: "TEMP_CREDENTIAL", origen: "PLATAFORMA", codigo: "cafeat-sin", creadaEn: 1000,
+  });
+  const detalle = await obtenerDetalleEmpresaPlataforma(db as never, "empresa-1");
+  assert.equal(detalle.credencialInicial.puedeReemitir, false);
 });

@@ -54,7 +54,7 @@ export const obtenerDetalleEmpresa = (empresaId: string) =>
     suscripcion: Record<string, any> | null;
     provisionamiento: Record<string, any> | null;
     adminInicial: { uid: string; rol: string | null; estado: string | null; activo: boolean | null } | null;
-    credencialInicial: { estado: EstadoCredencialInicial; codigo: string | null };
+    credencialInicial: { estado: EstadoCredencialInicial; codigo: string | null; incorporacionId: string | null; puedeReemitir: boolean };
   }>(
     "obtenerDetalleEmpresaPlataformaSaas",
     { empresaId },
@@ -71,6 +71,17 @@ export const provisionarCredencialInicial = (empresaId: string) =>
   invocar<{ estado: "EMITIDA" | "REEMITIDA" | "YA_EXISTENTE"; codigo: string; pinTemporal: string | null }>(
     "provisionarCredencialInicialTenantSaas",
     { ...envelope("BACKOFFICE_PROVISIONAR_CREDENCIAL_INICIAL"), empresaId },
+  );
+
+/** ADR-SAAS-013 §4.4.1 — rotación explícita de una temporal vigente sin reexponer su PIN. */
+export const reemitirCredencialInicialTemporal = (empresaId: string, incorporacionId: string) =>
+  invocar<{ estado: "REEMITIDA" | "YA_EXISTENTE"; codigo: string; pinTemporal: string | null }>(
+    "reemitirCredencialInicialTemporalSaas",
+    {
+      ...envelope("REEMISION_ADMINISTRATIVA_PIN_NO_ENTREGADO"),
+      empresaId,
+      incorporacionId,
+    },
   );
 
 export const comandoOperador = (

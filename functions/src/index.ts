@@ -27,6 +27,7 @@ export {
   revocarOperadorSaas,
   solicitarBootstrapEmpresarialSaas,
   provisionarCredencialInicialTenantSaas,
+  reemitirCredencialInicialTemporalSaas,
   ejecutarComandoComercialSaas,
   listarRecursosPlataformaSaas,
   obtenerDetalleEmpresaPlataformaSaas,
