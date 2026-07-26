@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { ActivacionCredencial } from '@/components/auth/activacion-credencial'
 import { Store, Loader2, ShieldAlert, Eye, EyeOff } from 'lucide-react'
 
 function AdminLoginContent() {
-  const { usuario, cargando: authCargando, login, errorLogin, limpiarError, logout } = useAuthContext()
+  const { usuario, cargando: authCargando, login, errorLogin, limpiarError, logout, activacionPendiente } = useAuthContext()
   const router = useRouter()
   const params = useSearchParams()
   const [username, setUsername] = useState('')
@@ -78,6 +79,10 @@ function AdminLoginContent() {
               <p className="text-sm text-muted-foreground">Accede con tu cuenta de administrador</p>
             </div>
             <div>
+              {activacionPendiente ? (
+                <ActivacionCredencial />
+              ) : (
+              <>
               {!sesionNoAdmin && notAdmin && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm mb-4">
                   <ShieldAlert className="h-4 w-4 flex-shrink-0" />
@@ -152,6 +157,8 @@ function AdminLoginContent() {
                   Ingresar
                 </button>
               </form>
+              </>
+              )}
             </div>
           </div>
         </div>
