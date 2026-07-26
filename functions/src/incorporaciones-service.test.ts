@@ -39,6 +39,8 @@ const credencialTemporal = (requiereCambio = true) => ({
   requiereCambio,
 });
 
+const timestamp = (millis: number) => ({ toMillis: () => millis });
+
 const membresiaActiva = () => ({
   empresaId: "empresa-a",
   uid: "uid-directo",
@@ -203,6 +205,59 @@ test("la activacion exitosa planifica el cambio de PIN y copia permisos efectivo
     pinActual: "123456",
     pinNuevo: "654321",
   });
+});
+
+test("la activacion rechaza una temporal de plataforma vencida o sin TTL válido", () => {
+  const ahora = Date.now();
+  const incorporacionVencida = {
+    ...incorporacionDirecta(),
+    origen: "PLATAFORMA",
+    expiraEn: timestamp(ahora),
+  };
+  const credencialVencida = {
+    ...credencialTemporal(),
+    origen: "PLATAFORMA",
+    expiraEn: timestamp(ahora),
+  };
+
+  assert.throws(
+    () => planificarActivacionDirecta({
+      incorporacion: incorporacionVencida,
+      credencial: credencialVencida,
+      uid: "uid-directo",
+      empresaId: "empresa-a",
+    }),
+    { code: "failed-precondition" },
+  );
+
+  assert.throws(
+    () => planificarActivacionDirecta({
+      incorporacion: { ...incorporacionVencida, expiraEn: undefined },
+      credencial: { ...credencialVencida, expiraEn: timestamp(ahora + 1) },
+      uid: "uid-directo",
+      empresaId: "empresa-a",
+    }),
+    { code: "failed-precondition" },
+  );
+});
+
+test("la activacion conserva las temporales de plataforma vigentes y las DIRECTA heredadas", () => {
+  const ahora = Date.now();
+  const plataformaVigente = planificarActivacionDirecta({
+    incorporacion: { ...incorporacionDirecta(), origen: "PLATAFORMA", expiraEn: timestamp(ahora + 60_000) },
+    credencial: { ...credencialTemporal(), origen: "PLATAFORMA", expiraEn: timestamp(ahora + 60_000) },
+    uid: "uid-directo",
+    empresaId: "empresa-a",
+  });
+  assert.equal(plataformaVigente.tipo, "ACTIVAR");
+
+  const heredada = planificarActivacionDirecta({
+    incorporacion: incorporacionDirecta(),
+    credencial: credencialTemporal(),
+    uid: "uid-directo",
+    empresaId: "empresa-a",
+  });
+  assert.equal(heredada.tipo, "ACTIVAR");
 });
 
 test("un reintento o doble activacion sobre ACTIVE es idempotente", () => {

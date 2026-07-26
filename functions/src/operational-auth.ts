@@ -13,6 +13,7 @@ import {
   normalizarCodigo,
 } from "./contracts";
 import { hashearPin, verificarPin } from "./pin-security";
+import { esCredencialTemporalPlataformaVencidaOInvalida } from "./platform/vigencia-credencial-temporal";
 
 initializeApp();
 
@@ -455,7 +456,8 @@ export const autenticarOperativo = onCall(
           || incorporacionData.empresaId !== empresa.id
           || incorporacionData.estado !== "TEMP_CREDENTIAL"
           || incorporacionData.uid !== credencial.uid
-          || incorporacionData.codigo !== credencial.codigo) {
+          || incorporacionData.codigo !== credencial.codigo
+          || esCredencialTemporalPlataformaVencidaOInvalida(incorporacionData, credencial)) {
           throw errorCredenciales();
         }
         await limpiarFallos(ref);

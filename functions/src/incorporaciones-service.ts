@@ -22,6 +22,7 @@ import {
   registrarFallo,
 } from "./operational-auth";
 import { crearObligacionAuditoria, emitirObligacionAuditoria } from "./platform/audit";
+import { esCredencialTemporalPlataformaVencidaOInvalida } from "./platform/vigencia-credencial-temporal";
 
 export const INCORPORACIONES_COLLECTION = "incorporaciones";
 
@@ -311,6 +312,11 @@ export function planificarActivacionDirecta({
   }
   if (incorporacion.estado !== "TEMP_CREDENTIAL" && incorporacion.estado !== "ACTIVE") {
     throw new HttpsError("failed-precondition", "La incorporacion directa no esta lista para activarse.");
+  }
+
+  if (incorporacion.estado === "TEMP_CREDENTIAL"
+    && esCredencialTemporalPlataformaVencidaOInvalida(incorporacion, credencial)) {
+    throw new HttpsError("failed-precondition", "La credencial temporal ya no esta disponible.");
   }
 
   const permisosEfectivos = normalizarPermisosEfectivos(incorporacion.permisosEfectivos);

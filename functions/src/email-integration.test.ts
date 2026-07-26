@@ -11,6 +11,7 @@ import {
   reenviarIncorporacionEmail,
 } from "./incorporaciones-service";
 import { actualizarMembresia, autenticarOperativo } from "./operational-auth";
+import { emitirCredencialInicial } from "./platform/emitir-credencial-inicial";
 
 const PEPPER = "email-test-pepper";
 const PIN_PEPPER = "directa-test-pepper";
@@ -21,6 +22,13 @@ async function preparar(empresaId: string) {
   const db = getFirestore();
   await db.collection("permisos_roles").doc("cajero").set({ permisos: ["sell"] });
   await db.collection("empresas").doc(empresaId).set({ estado: "activa" });
+}
+
+async function prepararEmpresaFundacionalUnica(empresaId: string) {
+  const db = getFirestore();
+  const fundacionalesPrevias = await db.collection("empresas").where("esFundacional", "==", true).get();
+  await Promise.all(fundacionalesPrevias.docs.map((doc) => doc.ref.delete()));
+  await db.collection("empresas").doc(empresaId).set({ estado: "activa", esFundacional: true });
 }
 
 async function emitir(empresaId: string, correo: string) {
@@ -177,7 +185,7 @@ test("DIRECTA permite reingresar con PIN definitivo en un tenant no fundacional"
   const empresaId = `empresa-directa-${Date.now()}`;
   const codigo = `caja-${Date.now()}`;
   const db = getFirestore();
-  await db.collection("empresas").doc(empresaFundacionalId).set({ estado: "activa", esFundacional: true });
+  await prepararEmpresaFundacionalUnica(empresaFundacionalId);
   await preparar(empresaId);
 
   const incorporacion = await crearIncorporacionDirecta({
@@ -200,4 +208,54 @@ test("DIRECTA permite reingresar con PIN definitivo en un tenant no fundacional"
   const definitiva = await autenticarOperativo.run({ data: { codigo, pin: "654321" } } as never);
   assert.equal(definitiva.requiereCambio, undefined);
   assert.equal(typeof definitiva.customToken, "string");
+});
+
+test("la credencial inicial de plataforma vencida no emite DIRECTA_TEMP ni puede activarse", async () => {
+  const empresaFundacionalId = `empresa-fundacional-ttl-${Date.now()}`;
+  const empresaId = `empresa-inicial-ttl-${Date.now()}`;
+  const db = getFirestore();
+  await prepararEmpresaFundacionalUnica(empresaFundacionalId);
+  await preparar(empresaId);
+
+  const principal = await getAuth().createUser({ displayName: "Admin Inicial TTL" });
+  const emitida = await emitirCredencialInicial(db, {
+    empresaId,
+    uid: principal.uid,
+    rol: "admin",
+    permisos: ["sell"],
+    origen: "PLATAFORMA",
+    emisorUid: "operador-plataforma",
+    nombreComercial: "Café TTL",
+    pepper: PIN_PEPPER,
+  });
+  const vencida = Timestamp.fromMillis(Date.now() - 1);
+  await Promise.all([
+    db.collection("incorporaciones").doc(emitida.incorporacionId).update({ expiraEn: vencida }),
+    db.collection("credenciales_operativas").doc(`${empresaId}_${emitida.codigo}`).update({ expiraEn: vencida }),
+  ]);
+
+  await assert.rejects(
+    () => autenticarOperativo.run({ data: { codigo: emitida.codigo, pin: emitida.pinTemporal } } as never),
+    { code: "unauthenticated" },
+  );
+  await assert.rejects(
+    () => activarIncorporacionDirecta({
+      incorporacionId: emitida.incorporacionId,
+      uid: principal.uid,
+      data: { pinActual: emitida.pinTemporal, pinNuevo: "654321" },
+      pepper: PIN_PEPPER,
+    }),
+    { code: "failed-precondition" },
+  );
+
+  const [incorporacion, credencial, membresia, usuarioAuth] = await Promise.all([
+    db.collection("incorporaciones").doc(emitida.incorporacionId).get(),
+    db.collection("credenciales_operativas").doc(`${empresaId}_${emitida.codigo}`).get(),
+    db.collection("membresias").doc(`${empresaId}_${principal.uid}`).get(),
+    getAuth().getUser(principal.uid),
+  ]);
+  assert.equal(incorporacion.data()?.estado, "TEMP_CREDENTIAL");
+  assert.equal(credencial.data()?.requiereCambio, true);
+  assert.equal(membresia.exists, false);
+  assert.deepEqual(usuarioAuth.customClaims ?? {}, {});
 });
