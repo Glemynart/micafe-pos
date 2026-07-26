@@ -1,5 +1,4 @@
 import { randomInt } from "node:crypto";
-import type { Firestore } from "firebase-admin/firestore";
 
 /**
  * credencial-inicial.ts — primitivas de generación para la credencial
@@ -18,13 +17,13 @@ import type { Firestore } from "firebase-admin/firestore";
  * excepción, y deja solo 10^6 PINs para separarlas — con ~1200 tenants
  * usando `admin` la probabilidad de al menos una colisión (código, PIN)
  * supera el 50% (problema del cumpleaños). Un código con entropía propia,
- * verificado único antes de escribir, elimina el riesgo por construcción.
+ * reservado transaccionalmente al emitirlo, elimina el riesgo por construcción.
  */
 
 const ALFABETO_CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz"; // sin i,l,o,u
 const LONGITUD_SUFIJO = 4;
 const LONGITUD_SLUG = 6;
-const MAX_INTENTOS_UNICIDAD = 5;
+export const MAX_INTENTOS_UNICIDAD = 5;
 
 /** Genera un PIN temporal de 6 dígitos con un generador criptográfico. */
 export function generarPinTemporal(): string {
@@ -62,44 +61,4 @@ export function derivarSlugParaCodigo(nombreComercial: string): string {
 export function generarCodigoOperativo(slugEmpresa: string): string {
   const slug = slugEmpresa || derivarSlugParaCodigo("empresa");
   return `${slug}-${sufijoAleatorio(LONGITUD_SUFIJO)}`;
-}
-
-/**
- * Verifica que un código no exista ya en NINGÚN tenant. Reutiliza la misma
- * consulta que `resolverCredencialOperativa` usa para desambiguar en login
- * (`credenciales_operativas.where('codigo','==',codigo)`), así que si esta
- * verificación pasa, el login no podrá colisionar sobre ese código.
- */
-export async function codigoOperativoDisponibleGlobalmente(
-  db: Firestore,
-  codigo: string,
-): Promise<boolean> {
-  const snap = await db
-    .collection("credenciales_operativas")
-    .where("codigo", "==", codigo)
-    .limit(1)
-    .get();
-  return snap.empty;
-}
-
-/**
- * Genera un código operativo con unicidad global verificada antes de
- * devolverlo (ADR-SAAS-013 §3.2). Hasta `MAX_INTENTOS_UNICIDAD` intentos;
- * con 32^4 ≈ 1.05M combinaciones por slug, agotar los intentos por
- * colisión genuina es estadísticamente insignificante — si ocurre, es más
- * probable que señale un problema real (p. ej. `codigoOperativoDisponibleGlobalmente`
- * mal invocado) que mala suerte, y por eso se falla explícito en vez de
- * reintentar indefinidamente.
- */
-export async function generarCodigoOperativoUnico(
-  db: Firestore,
-  slugEmpresa: string,
-): Promise<string> {
-  for (let intento = 0; intento < MAX_INTENTOS_UNICIDAD; intento++) {
-    const candidato = generarCodigoOperativo(slugEmpresa);
-    if (await codigoOperativoDisponibleGlobalmente(db, candidato)) {
-      return candidato;
-    }
-  }
-  throw new Error("CODIGO_OPERATIVO_NO_DISPONIBLE");
 }

@@ -174,6 +174,10 @@ test("emite una credencial nueva: código único, PIN de 6 dígitos, requiereCam
   assert.equal(incorporacion.rol, "admin");
   assert.deepEqual(incorporacion.permisosEfectivos, ["configuracion", "pos"]);
   assert.equal(incorporacion.emitidaPorUid, "owner-uid-1");
+
+  const reservas = [...db.docs.entries()].filter(([path]) => path.startsWith("reservas_codigos_operativos/"));
+  assert.equal(reservas.length, 1, "la emisión debe reservar su código en el mismo commit");
+  assert.equal((reservas[0][1] as { codigo: string }).codigo, resultado.codigo);
 });
 
 test("crea el perfil global 'usuarios' si no existe, con el nombre del principal de Auth", async () => {

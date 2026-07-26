@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  codigoOperativoDisponibleGlobalmente,
   derivarSlugParaCodigo,
   generarCodigoOperativo,
-  generarCodigoOperativoUnico,
   generarPinTemporal,
 } from "./credencial-inicial";
 
@@ -43,60 +41,4 @@ test("generarCodigoOperativo excluye los caracteres ambiguos i, l, o, u", () => 
   for (const ambiguo of ["i", "l", "o", "u"]) {
     assert.equal(sufijos.includes(ambiguo), false, `carácter ambiguo '${ambiguo}' apareció en un código generado`);
   }
-});
-
-function dbFalso(codigosExistentes: Set<string>) {
-  return {
-    collection: () => ({
-      where: (_campo: string, _op: string, valor: string) => ({
-        limit: () => ({
-          get: async () => ({ empty: !codigosExistentes.has(valor) }),
-        }),
-      }),
-    }),
-  } as unknown as FirebaseFirestore.Firestore;
-}
-
-test("codigoOperativoDisponibleGlobalmente consulta por 'codigo' sin filtrar por empresaId", async () => {
-  const db = dbFalso(new Set(["atrato-7k2m"]));
-  assert.equal(await codigoOperativoDisponibleGlobalmente(db, "atrato-7k2m"), false);
-  assert.equal(await codigoOperativoDisponibleGlobalmente(db, "atrato-9xq4"), true);
-});
-
-test("generarCodigoOperativoUnico reintenta hasta obtener un código disponible", async () => {
-  let intentos = 0;
-  const dbConColisionesForzadas = {
-    collection: () => ({
-      where: () => ({
-        limit: () => ({
-          get: async () => {
-            intentos++;
-            // Las dos primeras consultas "colisionan"; la tercera está libre.
-            return { empty: intentos > 2 };
-          },
-        }),
-      }),
-    }),
-  } as unknown as FirebaseFirestore.Firestore;
-
-  const codigo = await generarCodigoOperativoUnico(dbConColisionesForzadas, "atrato");
-  assert.match(codigo, CODIGO_REGEX);
-  assert.equal(intentos, 3, "debe haber verificado exactamente 3 veces antes de aceptar el código");
-});
-
-test("generarCodigoOperativoUnico falla explícito si agota los intentos", async () => {
-  const dbSiempreColisiona = {
-    collection: () => ({
-      where: () => ({
-        limit: () => ({
-          get: async () => ({ empty: false }),
-        }),
-      }),
-    }),
-  } as unknown as FirebaseFirestore.Firestore;
-
-  await assert.rejects(
-    () => generarCodigoOperativoUnico(dbSiempreColisiona, "atrato"),
-    /CODIGO_OPERATIVO_NO_DISPONIBLE/,
-  );
 });
