@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { consultarAuditoriaPlataforma, listarRecursosPlataforma, validarFiltroAuditoria } from "./queries";
+import { consultarAuditoriaPlataforma, listarRecursosPlataforma, obtenerDetalleEmpresaPlataforma, validarFiltroAuditoria } from "./queries";
 
 test("la auditoría exige un filtro selectivo aprobado", () => {
   assert.throws(() => validarFiltroAuditoria(undefined), /FILTRO_AUDITORIA_INVALIDO/);
@@ -103,4 +103,105 @@ test("el listado de soporte filtrado por operadorUid ordena por actualizadaEn", 
   const orderBy = db.llamadas.find((l) => l.metodo === "orderBy");
   assert.equal(where?.args[0], "operadorUid");
   assert.equal(orderBy?.args[0], "actualizadaEn");
+});
+
+// ── obtenerDetalleEmpresaPlataforma — proyección de la ficha del Backoffice ──
+
+function valorDeOrden(v: unknown): number {
+  if (v === undefined || v === null) return 0;
+  if (typeof v === "number") return v;
+  return Number.POSITIVE_INFINITY;
+}
+
+class DetalleQuery {
+  constructor(
+    private readonly coleccion: string,
+    private readonly docs: Map<string, any>,
+    private readonly filtros: [string, unknown][] = [],
+    private readonly orden: string | null = null,
+  ) {}
+  where(campo: string, _op: "==", valor: unknown) {
+    return new DetalleQuery(this.coleccion, this.docs, [...this.filtros, [campo, valor]], this.orden);
+  }
+  orderBy(campo: string, _dir: "asc" | "desc" = "asc") {
+    return new DetalleQuery(this.coleccion, this.docs, this.filtros, campo);
+  }
+  limit(n: number) {
+    const limitada = new DetalleQuery(this.coleccion, this.docs, this.filtros, this.orden);
+    (limitada as any).__limite = n;
+    return limitada;
+  }
+  async get() {
+    let encontrados = [...this.docs.entries()]
+      .filter(([path]) => path.startsWith(`${this.coleccion}/`))
+      .filter(([, data]) => this.filtros.every(([campo, valor]) => data?.[campo] === valor))
+      .map(([path, data]) => ({ id: path.split("/").pop()!, data: () => data, get: (c: string) => data?.[c] }));
+    if (this.orden) {
+      const campo = this.orden;
+      encontrados = encontrados.sort((a, b) => valorDeOrden(b.get(campo)) - valorDeOrden(a.get(campo)));
+    }
+    const tope = (this as any).__limite as number | undefined;
+    if (typeof tope === "number") encontrados = encontrados.slice(0, tope);
+    return { size: encontrados.length, docs: encontrados, empty: encontrados.length === 0 };
+  }
+}
+
+function fakeDetalleDb() {
+  const docs = new Map<string, any>();
+  return {
+    docs,
+    seed(path: string, data: any) { docs.set(path, data); },
+    collection(nombre: string) {
+      return {
+        doc: (id: string) => ({ get: async () => ({ id, exists: docs.has(`${nombre}/${id}`), data: () => docs.get(`${nombre}/${id}`) }) }),
+        where: (campo: string, op: "==", valor: unknown) => new DetalleQuery(nombre, docs).where(campo, op, valor),
+      };
+    },
+  };
+}
+
+test("obtenerDetalleEmpresaPlataforma: sin historial, proyecta SIN_PROVISIONAR", async () => {
+  const db = fakeDetalleDb();
+  db.seed("empresas/empresa-1", { estado: "activa", ownerUid: "owner-1" });
+  db.seed("membresias/empresa-1_owner-1", { rol: "admin", estado: "activa", activo: true });
+
+  const detalle = await obtenerDetalleEmpresaPlataforma(db as never, "empresa-1");
+  assert.equal(detalle.credencialInicial.estado, "SIN_PROVISIONAR");
+  assert.equal(detalle.credencialInicial.codigo, null);
+});
+
+test("obtenerDetalleEmpresaPlataforma: con una reemisión (2 incorporaciones DIRECTA), proyecta la MÁS RECIENTE — no el orden de inserción", async () => {
+  // Regresión del defecto hallado en la validación E2E de la Capa 4: la
+  // consulta original no llevaba `orderBy`, así que un `limit(1)` sobre 2+
+  // documentos devolvía el primero que el fake (o Firestore real) entregara
+  // — en este caso, deliberadamente, la EXPIRED antigua, sembrada primero.
+  const db = fakeDetalleDb();
+  db.seed("empresas/empresa-1", { estado: "activa", ownerUid: "owner-1" });
+  db.seed("membresias/empresa-1_owner-1", { rol: "admin", estado: "activa", activo: true });
+  db.seed("incorporaciones/inc-vieja", {
+    empresaId: "empresa-1", mecanismo: "DIRECTA", uid: "owner-1",
+    estado: "EXPIRED", codigo: "cafeat-viej", creadaEn: 1000,
+  });
+  db.seed("incorporaciones/inc-nueva", {
+    empresaId: "empresa-1", mecanismo: "DIRECTA", uid: "owner-1",
+    estado: "TEMP_CREDENTIAL", codigo: "cafeat-nuev", creadaEn: 2000,
+  });
+
+  const detalle = await obtenerDetalleEmpresaPlataforma(db as never, "empresa-1");
+  assert.equal(detalle.credencialInicial.estado, "PENDIENTE_ACTIVACION");
+  assert.equal(detalle.credencialInicial.codigo, "cafeat-nuev", "debe mostrar la reemitida, no la EXPIRED que la precede");
+});
+
+test("obtenerDetalleEmpresaPlataforma: la más reciente EXPIRED (sin reemitir aún) proyecta EXPIRADA", async () => {
+  const db = fakeDetalleDb();
+  db.seed("empresas/empresa-1", { estado: "activa", ownerUid: "owner-1" });
+  db.seed("membresias/empresa-1_owner-1", { rol: "admin", estado: "activa", activo: true });
+  db.seed("incorporaciones/inc-1", {
+    empresaId: "empresa-1", mecanismo: "DIRECTA", uid: "owner-1",
+    estado: "EXPIRED", codigo: "cafeat-unic", creadaEn: 1000,
+  });
+
+  const detalle = await obtenerDetalleEmpresaPlataforma(db as never, "empresa-1");
+  assert.equal(detalle.credencialInicial.estado, "EXPIRADA");
+  assert.equal(detalle.credencialInicial.codigo, "cafeat-unic");
 });

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { ActivacionCredencial } from '@/components/auth/activacion-credencial'
 import { useAuthContext } from '@/contexts/auth-context'
 
 const PARTICULAS = [
@@ -18,7 +19,7 @@ const PARTICULAS = [
 ]
 
 export function LoginScreen() {
-  const { login, iniciandoSesion, errorLogin, limpiarError } = useAuthContext()
+  const { login, iniciandoSesion, errorLogin, limpiarError, activacionPendiente } = useAuthContext()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -79,6 +80,9 @@ export function LoginScreen() {
         </CardHeader>
 
         <CardContent className="px-8 pb-8 pt-6">
+          {activacionPendiente ? (
+            <ActivacionCredencial />
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <div className="space-y-2">
               <Label htmlFor="username" className="text-sm font-medium text-muted-foreground">Código operativo</Label>
@@ -150,6 +154,7 @@ export function LoginScreen() {
               POS Empresarial
             </p>
           </form>
+          )}
         </CardContent>
       </Card>
 

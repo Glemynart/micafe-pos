@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { getAuth, type Auth, type UserRecord } from "firebase-admin/auth";
-import { FieldValue, Timestamp, getFirestore } from "firebase-admin/firestore";
+import { FieldValue, Timestamp, getFirestore, type Firestore, type Query } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import {
@@ -21,8 +21,42 @@ import {
   permisosPredeterminados,
   registrarFallo,
 } from "./operational-auth";
+import { crearObligacionAuditoria, emitirObligacionAuditoria } from "./platform/audit";
+import { esCredencialTemporalPlataformaVencidaOInvalida } from "./platform/vigencia-credencial-temporal";
+import { reservarCodigoOperativoEnTransaccion } from "./platform/reserva-codigo-operativo";
 
 export const INCORPORACIONES_COLLECTION = "incorporaciones";
+
+/**
+ * La incorporación DIRECTA más reciente para (empresaId, uid) — el único
+ * registro que gobierna la credencial inicial de ese usuario en ese tenant.
+ * ADR-SAAS-013 §4.4 conserva el historial de reemisiones (las incorporaciones
+ * superadas quedan `EXPIRED`, nunca se borran ni se sobrescriben), así que
+ * "cuántas incorporaciones DIRECTA existen para este par" no es una señal de
+ * corrupción — solo la más reciente es vigente. `orderBy("creadaEn","desc")`
+ * hace esa noción explícita en la propia consulta, en vez de dejar que cada
+ * consumidor infiera "la última" filtrando por estado (una politica que
+ * divergiría con el tiempo).
+ *
+ * Único punto que define "cuál incorporación DIRECTA importa" — compartido
+ * por `emitir-credencial-inicial.ts` (crear/reemplazar), por
+ * `provisionar-credencial-inicial-tenant.ts` (decidir EMITIR/REEMITIR/
+ * RECHAZAR) y por la proyección de la ficha en `platform/queries.ts`
+ * (qué mostrar). Los tres deben ver siempre el mismo registro — divergir
+ * aquí es exactamente el defecto que esta función existe para prevenir.
+ */
+export function consultarIncorporacionDirectaMasReciente(
+  db: Firestore,
+  empresaId: string,
+  uid: string,
+): Query {
+  return db.collection(INCORPORACIONES_COLLECTION)
+    .where("empresaId", "==", empresaId)
+    .where("mecanismo", "==", "DIRECTA")
+    .where("uid", "==", uid)
+    .orderBy("creadaEn", "desc")
+    .limit(1);
+}
 
 export interface SolicitudIncorporacionDirecta {
   nombre?: unknown;
@@ -180,6 +214,8 @@ export async function crearIncorporacionDirecta({
         throw new HttpsError("already-exists", "La identidad ya tiene credencial operativa en esta empresa.");
       }
 
+      await reservarCodigoOperativoEnTransaccion(db, transaction, codigo);
+
       transaction.create(usuarioRef, {
         uid: principal.uid,
         nombre,
@@ -279,6 +315,11 @@ export function planificarActivacionDirecta({
   }
   if (incorporacion.estado !== "TEMP_CREDENTIAL" && incorporacion.estado !== "ACTIVE") {
     throw new HttpsError("failed-precondition", "La incorporacion directa no esta lista para activarse.");
+  }
+
+  if (incorporacion.estado === "TEMP_CREDENTIAL"
+    && esCredencialTemporalPlataformaVencidaOInvalida(incorporacion, credencial)) {
+    throw new HttpsError("failed-precondition", "La credencial temporal ya no esta disponible.");
   }
 
   const permisosEfectivos = normalizarPermisosEfectivos(incorporacion.permisosEfectivos);
@@ -400,6 +441,7 @@ export async function activarIncorporacionDirecta({
   }
 
   let idempotente = planInicial.tipo === "REINTENTO";
+  let obligacionActivacionId: string | null = null;
   await db.runTransaction(async (transaction) => {
     const [incorporacionSnap, credencialActualSnap, membresiaActualSnap, auditoriaSnap] = await Promise.all([
       transaction.get(incorporacionRef),
@@ -465,6 +507,27 @@ export async function activarIncorporacionDirecta({
         rol: plan.rol,
         creadoEn: FieldValue.serverTimestamp(),
       });
+      // ADR-SAAS-013 §4.6 — obligación de auditoría de plataforma (ADR-SAAS-012),
+      // creada en la misma transacción que el hecho durable. Actor "ADMIN_TENANT":
+      // a diferencia de EMITIDA/REEMITIDA, este evento no lo produce un operador de
+      // plataforma sino el propio admin del tenant fijando su PIN definitivo.
+      crearObligacionAuditoria(db, transaction, {
+        tipo: "CREDENCIAL_INICIAL_ACTIVADA",
+        resultado: "CONFIRMADO",
+        actor: { tipo: "ADMIN_TENANT", uid: plan.uid },
+        facultad: null,
+        comando: null,
+        agregado: { tipo: "EMPRESA", id: plan.empresaId },
+        empresaObjetivoId: plan.empresaId,
+        revision: { esperada: null, resultante: null },
+        correlacionId: incorporacionId,
+        causacionId: null,
+        motivo: { codigo: "TENANT_ADMIN_ACTIVACION_CREDENCIAL_INICIAL", resumen: null },
+      }, {
+        obligacionId: idObligacionAuditoriaActivacion(incorporacionId),
+        evidenciaId: idEvidenciaAuditoriaActivacion(incorporacionId),
+      });
+      obligacionActivacionId = idObligacionAuditoriaActivacion(incorporacionId);
     }
     if (incorporacion?.estado !== "ACTIVE") {
       transaction.update(incorporacionRef, {
@@ -474,6 +537,11 @@ export async function activarIncorporacionDirecta({
       });
     }
   });
+
+  // La obligación se creó en la misma transacción que el hecho durable; su
+  // emisión (append-only, ADR-SAAS-012) puede intentarse fuera de ella. Si
+  // falla aquí, `reconciliarObligacionesAuditoria` la recoge más tarde.
+  if (obligacionActivacionId) await emitirObligacionAuditoria(db, obligacionActivacionId);
 
   const membresiaFinalSnap = await membresiaRef.get();
   const credencialFinalSnap = await credencialRef.get();
@@ -504,6 +572,15 @@ export async function activarIncorporacionDirecta({
 
 export function idAuditoriaActivacion(incorporacionId: string): string {
   return createHash("sha256").update(`incorporacion-directa:activada:${incorporacionId}`).digest("hex");
+}
+
+/** ADR-SAAS-013 §4.6 — ids deterministas para que la obligación de plataforma de CREDENCIAL_INICIAL_ACTIVADA sea idempotente, igual que `idAuditoriaActivacion` lo es para el registro tenant. */
+export function idObligacionAuditoriaActivacion(incorporacionId: string): string {
+  return createHash("sha256").update(`obligacion:incorporacion-directa:activada:${incorporacionId}`).digest("hex");
+}
+
+export function idEvidenciaAuditoriaActivacion(incorporacionId: string): string {
+  return createHash("sha256").update(`evidencia:incorporacion-directa:activada:${incorporacionId}`).digest("hex");
 }
 
 export function idIncorporacionDirecta(empresaId: string, codigo: string): string {

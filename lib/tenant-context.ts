@@ -35,6 +35,39 @@ export class TenantSinSesionError extends Error {
   }
 }
 
+/** Valor del claim `authStage` que identifica una sesión de transición (ver `esSesionTransicionDirecta`). */
+export const AUTH_STAGE_TRANSICION_DIRECTA = "DIRECTA_TEMP" as const;
+
+/**
+ * ADR-SAAS-013 §9 — una sesión con `authStage: "DIRECTA_TEMP"` es una sesión
+ * de Firebase Auth autenticada y válida (el customToken se canjeó con
+ * éxito), pero todavía NO es una sesión tenant: nunca tiene, ni debe
+ * adquirir, el claim `empresaId` — permanece así hasta que el cliente
+ * complete la activación de su credencial inicial y reciba el customToken
+ * tenant definitivo.
+ *
+ * Es el único caso en el que "sin claim tenant" no implica "sesión
+ * inválida" (contraste con `TenantSinSesionError`, que sí trata la ausencia
+ * del claim como invalidez tras un refresh). Todo consumidor de sesión que
+ * reaccione automáticamente a cambios de auth (`onAuthStateChanged`,
+ * `onIdTokenChanged`) debe reconocer este estado ANTES de invocar cualquier
+ * resolución de tenant, para no tratarlo como una sesión corrupta.
+ */
+export function esSesionTransicionDirecta(claims: Record<string, unknown>): boolean {
+  return claims.authStage === AUTH_STAGE_TRANSICION_DIRECTA;
+}
+
+/** Obtiene la incorporación que una sesión DIRECTA_TEMP puede continuar. */
+export function obtenerIncorporacionSesionTransicionDirecta(
+  claims: Record<string, unknown>,
+): string | null {
+  if (!esSesionTransicionDirecta(claims)) return null;
+  const incorporacionId = claims.incorporacionId;
+  return typeof incorporacionId === "string" && incorporacionId.trim()
+    ? incorporacionId
+    : null;
+}
+
 export interface ResolucionTenant {
   empresaId: string;
   /**

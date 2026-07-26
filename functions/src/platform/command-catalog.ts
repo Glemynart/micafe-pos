@@ -15,6 +15,7 @@ export const COMANDOS_COMERCIALES = {
   ProgramarCancelacionSuscripcion: "COMERCIAL_GOBERNAR",
   RevocarCancelacionSuscripcion: "COMERCIAL_GOBERNAR",
   TransicionarEmpresa: "LIFECYCLE_GOBERNAR",
+  ActualizarDatosAdministrativosEmpresa: "LIFECYCLE_GOBERNAR",
 } as const satisfies Record<string, FacultadPlataforma>;
 
 export type TipoComandoComercial = keyof typeof COMANDOS_COMERCIALES;
