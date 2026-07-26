@@ -22,6 +22,8 @@ const colores: Record<string, string> = {
   REVOCADO: "bg-rose-100 text-rose-800", cancelada: "bg-rose-100 text-rose-800", canceled: "bg-rose-100 text-rose-800",
   AUTORIZADA: "bg-indigo-100 text-indigo-800", EN_SESION: "bg-violet-100 text-violet-800",
   CONFIRMADO: "bg-emerald-100 text-emerald-800", DENEGADO: "bg-rose-100 text-rose-800", CONFLICTO: "bg-amber-100 text-amber-800",
+  ACTIVA: "bg-emerald-100 text-emerald-800", PENDIENTE_ACTIVACION: "bg-cyan-100 text-cyan-800",
+  EXPIRADA: "bg-amber-100 text-amber-800", SIN_PROVISIONAR: "bg-slate-100 text-slate-600",
 };
 
 export function EstadoBadge({ estado }: { estado?: unknown }) {

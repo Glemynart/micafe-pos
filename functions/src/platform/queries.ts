@@ -1,5 +1,6 @@
 import { Timestamp, type Firestore, type Query } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
+import { consultarIncorporacionDirectaMasReciente } from "../incorporaciones-service";
 
 // ADR-SAAS-012 §3.1: familias Seguridad y Soporte B4. Consultarlas por `tipo` sin acotar
 // a una Empresa o actor específico exige la ventana temporal obligatoria de §7.
@@ -109,17 +110,66 @@ export async function listarRecursosPlataforma(
   };
 }
 
+export type EstadoCredencialInicialProyectado = "SIN_PROVISIONAR" | "PENDIENTE_ACTIVACION" | "EXPIRADA" | "ACTIVA";
+
+/**
+ * ADR-SAAS-013 §5.3 — proyección derivada para la ficha de empresa del
+ * Backoffice, SIN campo nuevo: se lee de `incorporaciones` (nunca de
+ * `credenciales_operativas`, que es la única colección con `pinHash` — así
+ * es estructuralmente imposible que esta consulta lo exponga).
+ */
+function proyectarEstadoCredencial(data: FirebaseFirestore.DocumentData | undefined): EstadoCredencialInicialProyectado {
+  if (!data) return "SIN_PROVISIONAR";
+  if (data.estado === "ACTIVE") return "ACTIVA";
+  if (data.estado === "EXPIRED") return "EXPIRADA";
+  if (data.estado === "TEMP_CREDENTIAL") {
+    const expiraEn = data.expiraEn as { toMillis?: () => number } | undefined;
+    const vencida = typeof expiraEn?.toMillis === "function" && expiraEn.toMillis() <= Date.now();
+    return vencida ? "EXPIRADA" : "PENDIENTE_ACTIVACION";
+  }
+  return "SIN_PROVISIONAR";
+}
+
 export async function obtenerDetalleEmpresaPlataforma(db: Firestore, empresaId: string) {
-  const [empresa, suscripcion, provisionamientos] = await Promise.all([
+  const [empresaSnap, suscripcion, provisionamientos] = await Promise.all([
     db.collection("empresas").doc(empresaId).get(),
     db.collection("suscripciones").doc(empresaId).get(),
     db.collection("provisionamientos_empresariales").where("empresaId", "==", empresaId).limit(1).get(),
   ]);
-  if (!empresa.exists) throw new HttpsError("not-found", "EMPRESA_NOT_FOUND");
+  if (!empresaSnap.exists) throw new HttpsError("not-found", "EMPRESA_NOT_FOUND");
+  const empresaData = empresaSnap.data()!;
+  const ownerUid = typeof empresaData.ownerUid === "string" ? empresaData.ownerUid : null;
+
+  let adminInicial: { uid: string; rol: string | null; estado: string | null; activo: boolean | null } | null = null;
+  let credencialInicial: { estado: EstadoCredencialInicialProyectado; codigo: string | null } = { estado: "SIN_PROVISIONAR", codigo: null };
+
+  if (ownerUid) {
+    const [membresiaSnap, incorporacionesSnap] = await Promise.all([
+      db.collection("membresias").doc(`${empresaId}_${ownerUid}`).get(),
+      // Misma consulta compartida que gobierna emisión/reemisión — así la
+      // ficha nunca muestra una credencial superada por una reemisión.
+      consultarIncorporacionDirectaMasReciente(db, empresaId, ownerUid).get(),
+    ]);
+    const membresiaData = membresiaSnap.data();
+    adminInicial = {
+      uid: ownerUid,
+      rol: typeof membresiaData?.rol === "string" ? membresiaData.rol : null,
+      estado: typeof membresiaData?.estado === "string" ? membresiaData.estado : null,
+      activo: typeof membresiaData?.activo === "boolean" ? membresiaData.activo : null,
+    };
+    const incorporacionData = incorporacionesSnap.empty ? undefined : incorporacionesSnap.docs[0].data();
+    credencialInicial = {
+      estado: proyectarEstadoCredencial(incorporacionData),
+      codigo: typeof incorporacionData?.codigo === "string" ? incorporacionData.codigo : null,
+    };
+  }
+
   return {
-    empresa: { id: empresa.id, ...sanitizar(empresa.data()!) },
+    empresa: { id: empresaSnap.id, ...sanitizar(empresaData) },
     suscripcion: suscripcion.exists ? sanitizar(suscripcion.data()!) : null,
     provisionamiento: provisionamientos.empty ? null : sanitizar(provisionamientos.docs[0].data()),
+    adminInicial,
+    credencialInicial,
   };
 }
 

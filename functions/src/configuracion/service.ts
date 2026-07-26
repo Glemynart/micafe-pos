@@ -5,6 +5,7 @@ import {
   aplicarOperacionesConfiguracion,
   crearPlantillaConfiguracionRevision1,
   validarConfiguracionEmpresa,
+  type ActorTipoConfiguracion,
   type ConfiguracionEmpresa,
   type OperacionConfiguracion,
   type RutaHojaEditableConfiguracion,
@@ -14,7 +15,13 @@ export const CONFIGURACIONES_COLLECTION = "configuraciones";
 const COMANDOS = ["ActualizarConfiguracionEmpresa", "ActualizarParametrosFiscales", "ActualizarPreferenciasImpresion", "ActualizarPoliticasOperativas"] as const;
 type Comando = (typeof COMANDOS)[number];
 export interface EntradaComandoConfiguracion { comando: Comando; expectedRevision: number; idempotencyKey: string; commandId: string; correlationId: string; motivo?: string; operaciones: OperacionConfiguracion[] }
-export interface ContextoComandoConfiguracion { empresaId: string; actorId: string; origen: "ADMIN" | "RECOVERY"; paisFiscal: string; modulosPermitidos?: readonly string[]; metodosPagoPermitidos?: readonly string[] }
+/**
+ * ADR-SAAS-013 §5.3 — "PLATFORM" habilita que el Backoffice reutilice este
+ * mismo comando (nunca escribe `configuraciones/{empresaId}` por fuera de
+ * él) para mutaciones administrativas acotadas como el nombre comercial. El
+ * `actorTipo` de la auditoría se deriva de este origen, nunca al revés.
+ */
+export interface ContextoComandoConfiguracion { empresaId: string; actorId: string; origen: "ADMIN" | "RECOVERY" | "PLATFORM"; paisFiscal: string; modulosPermitidos?: readonly string[]; metodosPagoPermitidos?: readonly string[] }
 export interface ResultadoComandoConfiguracion { revision: number; idempotente: boolean; noOp: boolean }
 
 const PREFIJOS: Record<Comando, readonly string[]> = {
@@ -39,41 +46,111 @@ export function prepararInicializacionConfiguracion(entrada: EntradaInicializaci
   if (!entrada.empresaId || !entrada.nombreComercial || !entrada.commandId || !entrada.correlationId || (entrada.origen !== "BOOTSTRAP" && entrada.origen !== "BACKFILL")) fallo("invalid-argument", "Contexto de inicialización inválido.");
   return crearPlantillaConfiguracionRevision1({ empresaId: entrada.empresaId, nombreComercial: entrada.nombreComercial, creadaEn: FieldValue.serverTimestamp(), actualizadaEn: FieldValue.serverTimestamp(), ultimaMutacion: { actorTipo: "SYSTEM", actorId: "system", origen: entrada.origen, commandId: entrada.commandId, correlationId: entrada.correlationId } });
 }
-function documentoEmpresaValido(data: FirebaseFirestore.DocumentData | undefined, empresaId: string, pais: string): void {
+/**
+ * `permitirNoOperativa` distingue dos autoridades distintas sobre la misma
+ * escritura (ADR-SAAS-013 §5.3, aclarado tras revisión de Capa 3):
+ * - Autoservicio del tenant (ADMIN/RECOVERY, `false`): solo trial/activa —
+ *   un tenant suspendido o cancelado no debe seguir autoeditando su propia
+ *   configuración operativa.
+ * - Corrección administrativa de plataforma (PLATFORM, `true`): la barrera
+ *   real es de CONSERVACIÓN, no de operatividad — coherente con que
+ *   archivar/restaurar/eliminar ya son la única frontera protegida por
+ *   `CONSERVACION_GOBERNAR` (H4). Un operador puede corregir datos de una
+ *   empresa suspendida o cancelada; nunca de una archivada o eliminada.
+ */
+function documentoEmpresaValido(data: FirebaseFirestore.DocumentData | undefined, empresaId: string, pais: string, permitirNoOperativa = false): void {
   if (!data || data.estado === undefined || data.paisFiscal !== pais || data.id === "") fallo("failed-precondition", "Empresa o país incompatibles.");
-  if (data.estado !== "trial" && data.estado !== "activa") fallo("failed-precondition", "Lifecycle no escribible.");
+  const escribible = permitirNoOperativa ? data.estado !== "archivada" && data.estado !== "eliminada" : data.estado === "trial" || data.estado === "activa";
+  if (!escribible) fallo("failed-precondition", "Lifecycle no escribible.");
   if (data.empresaId !== undefined && data.empresaId !== empresaId) fallo("failed-precondition", "Tenant inconsistente.");
 }
 
-/** Única orquestación Admin SDK: dominio puro + commit de configuración, auditoría y evento. */
-export async function ejecutarComandoConfiguracion(db: Firestore, entrada: EntradaComandoConfiguracion, contexto: ContextoComandoConfiguracion): Promise<ResultadoComandoConfiguracion> {
+export interface ReferenciasComandoConfiguracion {
+  configRef: FirebaseFirestore.DocumentReference;
+  empresaRef: FirebaseFirestore.DocumentReference;
+  comandoRef: FirebaseFirestore.DocumentReference;
+  commandIdRef: FirebaseFirestore.DocumentReference;
+  emisionesRef: FirebaseFirestore.Query;
+}
+
+/** Referencias de lectura/escritura de un comando de configuración; componible por un orquestador externo (ADR-SAAS-013 §5.3). */
+export function referenciasComandoConfiguracion(db: Firestore, entrada: EntradaComandoConfiguracion, contexto: ContextoComandoConfiguracion): ReferenciasComandoConfiguracion {
+  return {
+    configRef: db.collection(CONFIGURACIONES_COLLECTION).doc(contexto.empresaId),
+    empresaRef: db.collection("empresas").doc(contexto.empresaId),
+    comandoRef: db.collection("configuracion_comandos").doc(id("cfgcmd", contexto.empresaId, entrada.idempotencyKey)),
+    commandIdRef: db.collection("configuracion_command_ids").doc(`cfgcmdid_${hash(entrada.commandId)}`),
+    emisionesRef: db.collection("ventas").where("empresaId", "==", contexto.empresaId).where("dian.emitidoEn", "!=", null).limit(1),
+  };
+}
+
+export interface LecturasComandoConfiguracion {
+  empresaSnap: FirebaseFirestore.DocumentSnapshot;
+  configSnap: FirebaseFirestore.DocumentSnapshot;
+  previoSnap: FirebaseFirestore.DocumentSnapshot;
+  commandIdSnap: FirebaseFirestore.DocumentSnapshot;
+  emisionesSnap?: FirebaseFirestore.QuerySnapshot;
+}
+
+/** Ejecuta las lecturas del comando dentro de una transacción ya abierta por el llamador. */
+export async function leerComandoConfiguracionEnTransaccion(tx: Transaction, entrada: EntradaComandoConfiguracion, refs: ReferenciasComandoConfiguracion): Promise<LecturasComandoConfiguracion> {
+  const [empresaSnap, configSnap, previoSnap, commandIdSnap, emisionesSnap] = await Promise.all([
+    tx.get(refs.empresaRef), tx.get(refs.configRef), tx.get(refs.comandoRef), tx.get(refs.commandIdRef),
+    modificaIdentidadFiscal(entrada) ? tx.get(refs.emisionesRef) : Promise.resolve(undefined),
+  ]);
+  return { empresaSnap, configSnap, previoSnap, commandIdSnap, emisionesSnap };
+}
+
+/**
+ * Núcleo puro-en-transacción: dominio + commit de configuración, auditoría y
+ * evento, a partir de lecturas ya resueltas. Componible por un orquestador
+ * externo (p. ej. `actualizarDatosAdministrativosEmpresa`, en
+ * `suscripciones/service.ts`) que necesite confirmar `configuraciones/{empresaId}`
+ * en la MISMA transacción que otro agregado, sin reimplementar sus reglas ni
+ * escribir el documento por fuera de este comando (ADR-SAAS-013 §5.3).
+ */
+export function ejecutarComandoConfiguracionConEstadoPreleidoEnTransaccion(
+  db: Firestore,
+  tx: Transaction,
+  entrada: EntradaComandoConfiguracion,
+  contexto: ContextoComandoConfiguracion,
+  refs: ReferenciasComandoConfiguracion,
+  lecturas: LecturasComandoConfiguracion,
+): ResultadoComandoConfiguracion {
   if (!COMANDOS.includes(entrada.comando) || !Number.isInteger(entrada.expectedRevision) || entrada.expectedRevision < 1 || !entrada.idempotencyKey || !entrada.commandId || !entrada.correlationId) fallo("invalid-argument", "Envelope de comando inválido.");
   const permitidas = rutasPermitidas(entrada); const fingerprint = hash({ comando: entrada.comando, expectedRevision: entrada.expectedRevision, operaciones: entrada.operaciones, motivo: entrada.motivo });
   if (requiereCapacidadesPlan(entrada) && (!contexto.modulosPermitidos || !contexto.metodosPagoPermitidos)) fallo("failed-precondition", "PLAN_CAPABILITY_UNAVAILABLE");
-  const configRef = db.collection(CONFIGURACIONES_COLLECTION).doc(contexto.empresaId); const empresaRef = db.collection("empresas").doc(contexto.empresaId); const comandoRef = db.collection("configuracion_comandos").doc(id("cfgcmd", contexto.empresaId, entrada.idempotencyKey)); const commandIdRef = db.collection("configuracion_command_ids").doc(`cfgcmdid_${hash(entrada.commandId)}`);
-  const emisionesRef = db.collection("ventas").where("empresaId", "==", contexto.empresaId).where("dian.emitidoEn", "!=", null).limit(1);
+  const { empresaSnap, configSnap, previoSnap, commandIdSnap, emisionesSnap } = lecturas;
+  const { configRef, comandoRef, commandIdRef } = refs;
+  documentoEmpresaValido(empresaSnap.data(), contexto.empresaId, contexto.paisFiscal, contexto.origen === "PLATFORM");
+  if (commandIdSnap.exists) { const previo = commandIdSnap.data()!; if (previo.empresaId !== contexto.empresaId || previo.idempotencyKey !== entrada.idempotencyKey || previo.fingerprint !== fingerprint) fallo("already-exists", "COMMAND_ID_CONFLICT"); return { ...(previo.resultado as ResultadoComandoConfiguracion), idempotente: true }; }
+  if (previoSnap.exists) { const previo = previoSnap.data()!; if (previo.commandId !== entrada.commandId || previo.fingerprint !== fingerprint) fallo("already-exists", "IDEMPOTENCY_CONFLICT"); return { ...(previo.resultado as ResultadoComandoConfiguracion), idempotente: true }; }
+  if (!configSnap.exists) fallo("failed-precondition", "Configuración inexistente.");
+  if (emisionesSnap && !emisionesSnap.empty) fallo("failed-precondition", "IDENTIDAD_FISCAL_BLOQUEADA_POR_EMISION");
+  const actual = configSnap.data() as ConfiguracionEmpresa;
+  if (actual.revision !== entrada.expectedRevision) fallo("failed-precondition", "CONFIG_REVISION_CONFLICT");
+  const contextoValidacion = { empresaId: contexto.empresaId, paisFiscalEmpresa: contexto.paisFiscal, modulosPermitidos: contexto.modulosPermitidos, metodosPagoPermitidos: contexto.metodosPagoPermitidos };
+  const aplicado = aplicarOperacionesConfiguracion(actual, entrada.operaciones, permitidas, contextoValidacion);
+  const resultado: ResultadoComandoConfiguracion = aplicado.tipo === "NO_OP" ? { revision: actual.revision, idempotente: false, noOp: true } : { revision: actual.revision + 1, idempotente: false, noOp: false };
+  if (resultado.noOp) return resultado;
+  const actorTipo: ActorTipoConfiguracion = contexto.origen === "PLATFORM" ? "PLATFORM" : "USER";
+  const siguiente = { ...aplicado.configuracion, revision: resultado.revision, actualizadaEn: FieldValue.serverTimestamp(), ultimaMutacion: { actorTipo, actorId: contexto.actorId, origen: contexto.origen, commandId: entrada.commandId, correlationId: entrada.correlationId, ...(entrada.motivo ? { motivo: entrada.motivo } : {}) } };
+  if (!validarConfiguracionEmpresa(siguiente, contextoValidacion).valida) fallo("failed-precondition", "Configuración resultante inválida.");
+  tx.set(configRef, siguiente);
+  tx.create(comandoRef, { empresaId: contexto.empresaId, idempotencyKey: entrada.idempotencyKey, fingerprint, resultado, commandId: entrada.commandId, creadoEn: FieldValue.serverTimestamp() });
+  tx.create(commandIdRef, { empresaId: contexto.empresaId, idempotencyKey: entrada.idempotencyKey, fingerprint, resultado, commandId: entrada.commandId, creadoEn: FieldValue.serverTimestamp() });
+  const auditId = id("cfgaudit", contexto.empresaId, entrada.commandId); const eventId = id("cfgevent", contexto.empresaId, entrada.commandId); const rutas = entrada.operaciones.map((operacion) => operacion.ruta); const seccionesAfectadas = [...new Set(rutas.map((ruta) => ruta.split(".")[0]))];
+  tx.create(db.collection("auditoria_logs").doc(auditId), { empresaId: contexto.empresaId, agregado: "CONFIGURACION", revisionAnterior: actual.revision, revisionNueva: resultado.revision, comando: entrada.comando, commandId: entrada.commandId, idempotencyKey: entrada.idempotencyKey, correlationId: entrada.correlationId, actorId: contexto.actorId, actorTipo, origen: contexto.origen, motivo: entrada.motivo ?? null, rutas, seccionesAfectadas, impactoFiscal: modificaIdentidadFiscal(entrada), creadoEn: FieldValue.serverTimestamp() });
+  tx.create(db.collection("eventos_dominio").doc(eventId), { eventId, tipo: "ConfiguracionEmpresaActualizada", version: 1, agregado: "CONFIGURACION", empresaId: contexto.empresaId, revisionAnterior: actual.revision, revisionNueva: resultado.revision, actorId: contexto.actorId, actorTipo, origen: contexto.origen, correlationId: entrada.correlationId, commandId: entrada.commandId, idempotencyKey: entrada.idempotencyKey, motivo: entrada.motivo ?? null, rutas, seccionesAfectadas, impactoFiscal: modificaIdentidadFiscal(entrada), creadoEn: FieldValue.serverTimestamp() });
+  return resultado;
+}
+
+/** Única orquestación Admin SDK autocontenida: abre su propia transacción y delega en el núcleo componible. */
+export async function ejecutarComandoConfiguracion(db: Firestore, entrada: EntradaComandoConfiguracion, contexto: ContextoComandoConfiguracion): Promise<ResultadoComandoConfiguracion> {
+  const refs = referenciasComandoConfiguracion(db, entrada, contexto);
   return db.runTransaction(async (tx) => {
-    const [empresaSnap, configSnap, previoSnap, commandIdSnap, emisionesSnap] = await Promise.all([tx.get(empresaRef), tx.get(configRef), tx.get(comandoRef), tx.get(commandIdRef), modificaIdentidadFiscal(entrada) ? tx.get(emisionesRef) : Promise.resolve(undefined)]);
-    documentoEmpresaValido(empresaSnap.data(), contexto.empresaId, contexto.paisFiscal);
-    if (commandIdSnap.exists) { const previo = commandIdSnap.data()!; if (previo.empresaId !== contexto.empresaId || previo.idempotencyKey !== entrada.idempotencyKey || previo.fingerprint !== fingerprint) fallo("already-exists", "COMMAND_ID_CONFLICT"); return { ...(previo.resultado as ResultadoComandoConfiguracion), idempotente: true }; }
-    if (previoSnap.exists) { const previo = previoSnap.data()!; if (previo.commandId !== entrada.commandId || previo.fingerprint !== fingerprint) fallo("already-exists", "IDEMPOTENCY_CONFLICT"); return { ...(previo.resultado as ResultadoComandoConfiguracion), idempotente: true }; }
-    if (!configSnap.exists) fallo("failed-precondition", "Configuración inexistente.");
-    if (emisionesSnap && !emisionesSnap.empty) fallo("failed-precondition", "IDENTIDAD_FISCAL_BLOQUEADA_POR_EMISION");
-    const actual = configSnap.data() as ConfiguracionEmpresa;
-    if (actual.revision !== entrada.expectedRevision) fallo("failed-precondition", "CONFIG_REVISION_CONFLICT");
-    const contextoValidacion = { empresaId: contexto.empresaId, paisFiscalEmpresa: contexto.paisFiscal, modulosPermitidos: contexto.modulosPermitidos, metodosPagoPermitidos: contexto.metodosPagoPermitidos };
-    const aplicado = aplicarOperacionesConfiguracion(actual, entrada.operaciones, permitidas, contextoValidacion);
-    const resultado: ResultadoComandoConfiguracion = aplicado.tipo === "NO_OP" ? { revision: actual.revision, idempotente: false, noOp: true } : { revision: actual.revision + 1, idempotente: false, noOp: false };
-    if (resultado.noOp) return resultado;
-    const siguiente = { ...aplicado.configuracion, revision: resultado.revision, actualizadaEn: FieldValue.serverTimestamp(), ultimaMutacion: { actorTipo: "USER" as const, actorId: contexto.actorId, origen: contexto.origen, commandId: entrada.commandId, correlationId: entrada.correlationId, ...(entrada.motivo ? { motivo: entrada.motivo } : {}) } };
-    if (!validarConfiguracionEmpresa(siguiente, contextoValidacion).valida) fallo("failed-precondition", "Configuración resultante inválida.");
-    tx.set(configRef, siguiente);
-    tx.create(comandoRef, { empresaId: contexto.empresaId, idempotencyKey: entrada.idempotencyKey, fingerprint, resultado, commandId: entrada.commandId, creadoEn: FieldValue.serverTimestamp() });
-    tx.create(commandIdRef, { empresaId: contexto.empresaId, idempotencyKey: entrada.idempotencyKey, fingerprint, resultado, commandId: entrada.commandId, creadoEn: FieldValue.serverTimestamp() });
-    const auditId = id("cfgaudit", contexto.empresaId, entrada.commandId); const eventId = id("cfgevent", contexto.empresaId, entrada.commandId); const rutas = entrada.operaciones.map((operacion) => operacion.ruta); const seccionesAfectadas = [...new Set(rutas.map((ruta) => ruta.split(".")[0]))];
-    tx.create(db.collection("auditoria_logs").doc(auditId), { empresaId: contexto.empresaId, agregado: "CONFIGURACION", revisionAnterior: actual.revision, revisionNueva: resultado.revision, comando: entrada.comando, commandId: entrada.commandId, idempotencyKey: entrada.idempotencyKey, correlationId: entrada.correlationId, actorId: contexto.actorId, actorTipo: "USER", origen: contexto.origen, motivo: entrada.motivo ?? null, rutas, seccionesAfectadas, impactoFiscal: modificaIdentidadFiscal(entrada), creadoEn: FieldValue.serverTimestamp() });
-    tx.create(db.collection("eventos_dominio").doc(eventId), { eventId, tipo: "ConfiguracionEmpresaActualizada", version: 1, agregado: "CONFIGURACION", empresaId: contexto.empresaId, revisionAnterior: actual.revision, revisionNueva: resultado.revision, actorId: contexto.actorId, actorTipo: "USER", origen: contexto.origen, correlationId: entrada.correlationId, commandId: entrada.commandId, idempotencyKey: entrada.idempotencyKey, motivo: entrada.motivo ?? null, rutas, seccionesAfectadas, impactoFiscal: modificaIdentidadFiscal(entrada), creadoEn: FieldValue.serverTimestamp() });
-    return resultado;
+    const lecturas = await leerComandoConfiguracionEnTransaccion(tx, entrada, refs);
+    return ejecutarComandoConfiguracionConEstadoPreleidoEnTransaccion(db, tx, entrada, contexto, refs, lecturas);
   });
 }
 
