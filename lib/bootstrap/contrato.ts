@@ -6,6 +6,7 @@
 export type EstadoProvisionamiento =
   | "REQUESTED"
   | "CORE_COMMITTED"
+  | "CREDENTIAL_ISSUED"
   | "CLAIMS_ISSUED"
   | "COMPLETED"
   | "RETRYABLE_FAILURE"
@@ -22,8 +23,15 @@ export interface ProvisionamientoEmpresarial {
   planId: string;
   planVersion: number;
   estado: EstadoProvisionamiento;
-  ultimoPasoConfirmado?: "REQUESTED" | "CORE_COMMITTED" | "CLAIMS_ISSUED" | "COMPLETED";
+  ultimoPasoConfirmado?: "REQUESTED" | "CORE_COMMITTED" | "CREDENTIAL_ISSUED" | "CLAIMS_ISSUED" | "COMPLETED";
   errorRecuperable?: string | null;
+  /**
+   * ADR-SAAS-013 §7.4 — registro de la credencial operativa inicial emitida
+   * en el paso H (entre CORE_COMMITTED y CLAIMS_ISSUED). Nunca guarda el
+   * PIN: solo la referencia necesaria para trazabilidad y para que un
+   * reintento idempotente confirme que ya se emitió, sin poder reexponerlo.
+   */
+  credencialInicial?: { codigo: string; incorporacionId: string; entregadaEn: unknown } | null;
   /**
    * Referencia opaca a la obligación de auditoría de plataforma (ADR-SAAS-012 Anexo A)
    * asociada a la solicitud/finalización de este provisionamiento. No es autoridad de
@@ -61,4 +69,12 @@ export interface ResultadoBootstrapEmpresarial {
   /** Ver `ProvisionamientoEmpresarial.obligacionId`/`obligacionCompletadoId`. */
   obligacionId?: string | null;
   obligacionCompletadoId?: string | null;
+  /**
+   * ADR-SAAS-013 — credencial operativa inicial del admin. `pinTemporal` es
+   * `null` en cualquier respuesta que no sea la emisión original: nunca se
+   * reexpone un PIN ya entregado (ni en reintentos ni en réplicas
+   * idempotentes). El llamador que necesite recuperar el acceso usa el
+   * comando de reprovisionamiento (ADR-SAAS-013 §4.4), no este resultado.
+   */
+  credencialInicial?: { codigo: string; pinTemporal: string | null } | null;
 }

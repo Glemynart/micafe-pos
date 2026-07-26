@@ -115,11 +115,23 @@ function seedPlanPublicado(db: Db) {
   });
 }
 
+// ADR-SAAS-013 paso H: el fake `Db` de este archivo no soporta `.where()`,
+// así que el emisor real de `emitirCredencialInicial` no puede ejecutarse
+// contra él (igual que en bootstrap/service.test.ts). Se inyecta un emisor
+// mínimo para que las pruebas de este archivo —centradas en auditoría e
+// idempotencia del comando, no en la credencial en sí— no dependan de él.
+const credencialIssuerMock = async (p: { empresaId: string; uid: string }) => ({
+  incorporacionId: `inc_${p.empresaId}_${p.uid}`,
+  codigo: `codigo-${p.empresaId}`,
+  pinTemporal: "123456",
+  estado: "EMITIDA" as const,
+});
+
 test("H1 — el Backoffice crea la empresa de extremo a extremo con causationId nulo en el envelope", async () => {
   const db = new Db();
   seedPlanPublicado(db);
 
-  const resultado = await solicitarBootstrapEmpresarial(db as never, "operador_1", entradaBackoffice(), async () => {}, async () => {});
+  const resultado = await solicitarBootstrapEmpresarial(db as never, "operador_1", entradaBackoffice(), async () => {}, async () => {}, credencialIssuerMock);
 
   assert.equal(resultado.estado, "COMPLETED");
   assert.equal(db.read("empresas/empresa_backoffice_1")?.estado, "trial");
@@ -133,7 +145,7 @@ test("H2 + H5 — un reintento tras fallar la emisión de evidencia recupera el 
 
   db.failCreateOnce = "saas_auditoria/";
   await assert.rejects(
-    solicitarBootstrapEmpresarial(db as never, "operador_1", entrada, async () => {}, async () => {}),
+    solicitarBootstrapEmpresarial(db as never, "operador_1", entrada, async () => {}, async () => {}, credencialIssuerMock),
     /SIMULATED_EVIDENCE_WRITE_FAILURE/,
   );
 
@@ -150,7 +162,7 @@ test("H2 + H5 — un reintento tras fallar la emisión de evidencia recupera el 
   assert.ok(obligacionSolicitud);
   const obligacionIdOriginal = obligacionSolicitud.obligacionId;
 
-  const resultado = await solicitarBootstrapEmpresarial(db as never, "operador_1", entrada, async () => {}, async () => {});
+  const resultado = await solicitarBootstrapEmpresarial(db as never, "operador_1", entrada, async () => {}, async () => {}, credencialIssuerMock);
 
   assert.equal(resultado.estado, "COMPLETED");
   assert.equal(resultado.idempotente, true);
@@ -172,7 +184,7 @@ test("H5 — BOOTSTRAP_EMPRESARIAL_COMPLETADO referencia el agregado de provisio
   seedPlanPublicado(db);
   const entrada = entradaBackoffice({ empresaId: "empresa_backoffice_3", idempotencyKey: "idem_backoffice_3", commandId: "cmd_backoffice_3" });
 
-  await solicitarBootstrapEmpresarial(db as never, "operador_1", entrada, async () => {}, async () => {});
+  await solicitarBootstrapEmpresarial(db as never, "operador_1", entrada, async () => {}, async () => {}, credencialIssuerMock);
 
   const completado = db.docsByPrefix("saas_auditoria/").find((e) => e.tipo === "BOOTSTRAP_EMPRESARIAL_COMPLETADO");
   assert.ok(completado);
@@ -228,7 +240,7 @@ test("M-1 — un provisionamiento COMPLETED sin obligacionCompletadoId (ruta de 
 
   // Ruta de autoservicio (bootstrapEmpresarialCallable): sin observador de plataforma,
   // por lo que el provisionamiento completa con obligacionCompletadoId: null.
-  const directo = await ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {});
+  const directo = await ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {}, undefined, undefined, credencialIssuerMock);
   assert.equal(directo.estado, "COMPLETED");
   assert.equal(directo.obligacionCompletadoId, null);
 
@@ -269,15 +281,15 @@ test("M-2 — dos transacciones de finalización concurrentes sobre el mismo pro
   // obligacionCompletadoId: así se simulan dos intentos que aún NO comprometieron el
   // cierre, el escenario real donde la carrera puede ocurrir (p. ej. dos reintentos del
   // mismo comando de plataforma tras una caída antes de la finalización).
-  await ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {}, undefined, completionObserver);
+  await ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {}, undefined, completionObserver, credencialIssuerMock);
   const provPath = [...db.docs.keys()].find((k) => k.startsWith("provisionamientos_empresariales/"))!;
   const provCompletado = db.read(provPath);
   db.seed(provPath, { ...provCompletado, estado: "CLAIMS_ISSUED", ultimoPasoConfirmado: "CLAIMS_ISSUED", obligacionCompletadoId: null });
   const invocacionesAntesDeLaCarrera = invocacionesObservador;
 
   const [r1, r2] = await Promise.all([
-    ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {}, undefined, completionObserver),
-    ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {}, undefined, completionObserver),
+    ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {}, undefined, completionObserver, credencialIssuerMock),
+    ejecutarBootstrapEmpresarial(db as never, entrada, async () => {}, async () => {}, undefined, completionObserver, credencialIssuerMock),
   ]);
 
   assert.equal(r1.estado, "COMPLETED");
