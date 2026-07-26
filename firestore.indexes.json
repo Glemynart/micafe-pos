@@ -1,6 +1,16 @@
 {
   "indexes": [
     {
+      "collectionGroup": "incorporaciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId",  "order": "ASCENDING" },
+        { "fieldPath": "mecanismo", "order": "ASCENDING" },
+        { "fieldPath": "uid",        "order": "ASCENDING" },
+        { "fieldPath": "creadaEn",   "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "movimientos_inventario",
       "queryScope": "COLLECTION",
       "fields": [

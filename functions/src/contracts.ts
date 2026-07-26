@@ -11,6 +11,14 @@ export type RolTenant = (typeof ROLES_TENANT)[number];
 const CODIGO_REGEX = /^[a-z0-9._-]{3,32}$/;
 const PIN_REGEX = /^[0-9]{6}$/;
 
+/**
+ * Quién emitió la incorporación/credencial (ADR-SAAS-013 §7.4). Aditivo:
+ * ausente en todo documento preexistente, que se sigue leyendo como si
+ * fuera "TENANT" (el único origen posible antes de este campo).
+ */
+export const ORIGENES_INCORPORACION = ["PLATAFORMA", "TENANT"] as const;
+export type OrigenIncorporacion = (typeof ORIGENES_INCORPORACION)[number];
+
 export interface CredencialOperativa {
   empresaId: string;
   uid: string;
@@ -24,6 +32,10 @@ export interface CredencialOperativa {
   actualizadaEn: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
   pinActualizadoEn: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
   requiereCambio?: boolean;
+  /** ADR-SAAS-013: quién emitió esta credencial. Ausente en documentos previos a §7.4. */
+  origen?: OrigenIncorporacion;
+  /** ADR-SAAS-013 D-3: TTL de 72h para credenciales temporales (`requiereCambio=true`). */
+  expiraEn?: FirebaseFirestore.Timestamp;
 }
 
 export const MECANISMOS_INCORPORACION = ["DIRECTA", "EMAIL"] as const;
@@ -45,6 +57,8 @@ export interface Incorporacion {
   rol: RolTenant;
   permisosEfectivos: string[];
   emitidaPorUid: string;
+  /** ADR-SAAS-013 §7.4: quién la emitió. Ausente en incorporaciones previas al ADR (equivale a "TENANT"). */
+  origen?: OrigenIncorporacion;
   uid?: string;
   nombre?: string;
   codigo?: string;
