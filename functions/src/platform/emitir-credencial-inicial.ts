@@ -4,7 +4,8 @@ import { HttpsError } from "firebase-functions/v2/https";
 import { idCredencialOperativa, type OrigenIncorporacion, type RolTenant } from "../contracts";
 import { consultarIncorporacionDirectaMasReciente, idIncorporacionDirecta, INCORPORACIONES_COLLECTION } from "../incorporaciones-service";
 import { hashearPin } from "../pin-security";
-import { derivarSlugParaCodigo, generarCodigoOperativoUnico, generarPinTemporal } from "./credencial-inicial";
+import { derivarSlugParaCodigo, generarCodigoOperativo, generarPinTemporal, MAX_INTENTOS_UNICIDAD } from "./credencial-inicial";
+import { CODIGO_OPERATIVO_GLOBAL_YA_ASIGNADO, reservarCodigoOperativoEnTransaccion } from "./reserva-codigo-operativo";
 
 /**
  * emitir-credencial-inicial.ts — servicio único de emisión de la credencial
@@ -139,14 +140,15 @@ export async function emitirCredencialInicial(
   const nombre = principal.displayName?.trim() || "Administrador";
 
   const slug = derivarSlugParaCodigo(nombreComercial);
-  const codigo = await generarCodigoOperativoUnico(db, slug);
-  const pinTemporal = generarPinTemporal();
-  const pinHash = await hashearPin(pinTemporal, pepper);
-  const expiraEn = Timestamp.fromMillis(Date.now() + ttlMs);
-
-  const incorporacionRef = db.collection(INCORPORACIONES_COLLECTION).doc(idIncorporacionDirecta(empresaId, codigo));
-  const credencialRef = db.collection(CREDENCIALES_COLLECTION).doc(idCredencialOperativa(empresaId, codigo));
   const usuarioRef = db.collection(USUARIOS_COLLECTION).doc(uid);
+
+  for (let intento = 0; intento < MAX_INTENTOS_UNICIDAD; intento++) {
+    const codigo = generarCodigoOperativo(slug);
+    const pinTemporal = generarPinTemporal();
+    const pinHash = await hashearPin(pinTemporal, pepper);
+    const expiraEn = Timestamp.fromMillis(Date.now() + ttlMs);
+    const incorporacionRef = db.collection(INCORPORACIONES_COLLECTION).doc(idIncorporacionDirecta(empresaId, codigo));
+    const credencialRef = db.collection(CREDENCIALES_COLLECTION).doc(idCredencialOperativa(empresaId, codigo));
 
   // La transacción es la única fuente de verdad de si esta llamada CREÓ la
   // credencial o encontró una ya creada por una escritura concurrente entre
@@ -163,10 +165,10 @@ export async function emitirCredencialInicial(
   // ellas. Indexar por (empresaId, uid) sí la detecta, porque ambas
   // invocaciones consultan exactamente el mismo conjunto de documentos
   // dentro de sus respectivas transacciones.
-  const resultado = await db.runTransaction(async (tx) => {
-    const [porUidSnap, credencialSnap, usuarioSnap] = await Promise.all([
+  try {
+    const resultado = await db.runTransaction(async (tx) => {
+    const [porUidSnap, usuarioSnap] = await Promise.all([
       tx.get(consultarIncorporacionDirectaMasReciente(db, empresaId, uid)),
-      tx.get(credencialRef),
       tx.get(usuarioRef),
       validarAntesDeEmitirEnTransaccion?.(tx),
     ]);
@@ -189,14 +191,7 @@ export async function emitirCredencialInicial(
       }
       reemplazo = true;
     }
-    if (credencialSnap.exists) {
-      // El código, verificado único momentos antes, colisionó con una
-      // escritura concurrente entre esa verificación y esta transacción.
-      // Estadísticamente insignificante (ver credencial-inicial.ts) — se
-      // falla explícito para que el llamador reintente con un código nuevo,
-      // en vez de encubrirlo con un reintento silencioso aquí.
-      throw new HttpsError("aborted", "CODIGO_OPERATIVO_COLISION_CONCURRENTE");
-    }
+    await reservarCodigoOperativoEnTransaccion(db, tx, codigo);
 
     if (reemplazo) {
       const anterior = porUidSnap.docs[0];
@@ -262,14 +257,25 @@ export async function emitirCredencialInicial(
     };
   });
 
-  if (!resultado.creada) {
-    return { incorporacionId: resultado.incorporacionId, codigo: resultado.codigo, pinTemporal: null, estado: "YA_EXISTENTE", obligacionId: null };
+    if (!resultado.creada) {
+      return { incorporacionId: resultado.incorporacionId, codigo: resultado.codigo, pinTemporal: null, estado: "YA_EXISTENTE", obligacionId: null };
+    }
+    return {
+      incorporacionId: resultado.incorporacionId,
+      codigo: resultado.codigo,
+      pinTemporal,
+      estado: resultado.reemplazo ? "REEMITIDA" : "EMITIDA",
+      obligacionId: resultado.obligacionId,
+    };
+  } catch (error) {
+    if (error instanceof HttpsError
+      && error.code === "already-exists"
+      && error.message === CODIGO_OPERATIVO_GLOBAL_YA_ASIGNADO) {
+      continue;
+    }
+    throw error;
   }
-  return {
-    incorporacionId: resultado.incorporacionId,
-    codigo: resultado.codigo,
-    pinTemporal,
-    estado: resultado.reemplazo ? "REEMITIDA" : "EMITIDA",
-    obligacionId: resultado.obligacionId,
-  };
+  }
+
+  throw new HttpsError("aborted", "CODIGO_OPERATIVO_NO_DISPONIBLE");
 }

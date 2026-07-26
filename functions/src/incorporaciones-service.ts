@@ -23,6 +23,7 @@ import {
 } from "./operational-auth";
 import { crearObligacionAuditoria, emitirObligacionAuditoria } from "./platform/audit";
 import { esCredencialTemporalPlataformaVencidaOInvalida } from "./platform/vigencia-credencial-temporal";
+import { reservarCodigoOperativoEnTransaccion } from "./platform/reserva-codigo-operativo";
 
 export const INCORPORACIONES_COLLECTION = "incorporaciones";
 
@@ -212,6 +213,8 @@ export async function crearIncorporacionDirecta({
       if (credencialesUidSnap.size > 0) {
         throw new HttpsError("already-exists", "La identidad ya tiene credencial operativa en esta empresa.");
       }
+
+      await reservarCodigoOperativoEnTransaccion(db, transaction, codigo);
 
       transaction.create(usuarioRef, {
         uid: principal.uid,
