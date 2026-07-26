@@ -32,7 +32,7 @@ import { derivarSlugParaCodigo, generarCodigoOperativoUnico, generarPinTemporal 
  * una decisión explícita, todavía pendiente, que se registra en el cierre
  * de esta capa — no se decide implícitamente aquí.
  *
- * EXTENSIÓN (Capa 3, ADR-SAAS-013 §4.4 y §4.6): dos parámetros opcionales,
+ * EXTENSIÓN (Capa 3, ADR-SAAS-013 §4.4 y §4.6): tres parámetros opcionales,
  * sin efecto sobre el llamador de Capa 2 (paso H del bootstrap), que nunca
  * los pasa:
  *   - `reemplazarIncorporacionId`: habilita el ÚNICO caso de reemisión
@@ -48,6 +48,9 @@ import { derivarSlugParaCodigo, generarCodigoOperativoUnico, generarPinTemporal 
  *     invoca cuando la transacción realmente crea o reemplaza una
  *     credencial (nunca en el camino idempotente `YA_EXISTENTE`, que no es
  *     un hecho nuevo).
+ *   - `validarAntesDeEmitirEnTransaccion`: permite que un llamador incorpore
+ *     sus propias invariantes al mismo commit, sin que este servicio conozca
+ *     su modelo de autorización.
  */
 
 const CREDENCIALES_COLLECTION = "credenciales_operativas";
@@ -62,6 +65,8 @@ export type AuditObserverCredencialInicial = (
   tx: Transaction,
   contexto: { empresaId: string; uid: string; incorporacionId: string; codigo: string; reemplazo: boolean },
 ) => { obligacionId: string } | void;
+
+export type ValidadorTransaccionalEmisionCredencialInicial = (tx: Transaction) => Promise<void>;
 
 export interface ParametrosEmitirCredencialInicial {
   empresaId: string;
@@ -87,6 +92,8 @@ export interface ParametrosEmitirCredencialInicial {
   reemplazarIncorporacionId?: string;
   /** Ver documentación del módulo. */
   auditObserver?: AuditObserverCredencialInicial;
+  /** Invariante opcional del llamador, ejecutada antes de escribir. */
+  validarAntesDeEmitirEnTransaccion?: ValidadorTransaccionalEmisionCredencialInicial;
 }
 
 export interface CredencialInicialEmitida {
@@ -103,7 +110,7 @@ export async function emitirCredencialInicial(
   db: Firestore,
   params: ParametrosEmitirCredencialInicial,
 ): Promise<CredencialInicialEmitida> {
-  const { empresaId, uid, rol, permisos, origen, emisorUid, nombreComercial, pepper, reemplazarIncorporacionId, auditObserver } = params;
+  const { empresaId, uid, rol, permisos, origen, emisorUid, nombreComercial, pepper, reemplazarIncorporacionId, auditObserver, validarAntesDeEmitirEnTransaccion } = params;
   const ttlMs = params.ttlMs ?? TTL_CREDENCIAL_INICIAL_MS;
   const resolverPrincipal = params.resolverPrincipal ?? ((u: string) => getAuth().getUser(u));
 
@@ -161,6 +168,7 @@ export async function emitirCredencialInicial(
       tx.get(consultarIncorporacionDirectaMasReciente(db, empresaId, uid)),
       tx.get(credencialRef),
       tx.get(usuarioRef),
+      validarAntesDeEmitirEnTransaccion?.(tx),
     ]);
     let reemplazo = false;
     if (porUidSnap.size === 1) {

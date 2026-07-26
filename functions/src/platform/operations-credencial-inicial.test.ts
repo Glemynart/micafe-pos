@@ -151,6 +151,25 @@ function envelope(idempotencyKey: string) {
 
 const resolverPrincipal = async (_uid: string) => ({ displayName: "Ana Admin" });
 
+function mutarAntesDeLaTransaccion(db: FakeDb, mutar: () => void): void {
+  const runTransactionOriginal = db.runTransaction.bind(db);
+  let pendiente = true;
+  (db as any).runTransaction = async (cb: (tx: any) => Promise<unknown>) => {
+    if (pendiente) {
+      pendiente = false;
+      mutar();
+    }
+    return runTransactionOriginal(cb);
+  };
+}
+
+function assertNoSeEmitio(db: FakeDb, docsAntes: number): void {
+  assert.equal(db.docs.size, docsAntes, "el rechazo no debe crear credencial, incorporación ni auditoría");
+  assert.equal([...db.docs.keys()].some((path) => path.startsWith("credenciales_operativas/")), false);
+  assert.equal([...db.docs.keys()].some((path) => path.startsWith("incorporaciones/")), false);
+  assert.equal([...db.docs.keys()].some((path) => path.startsWith("saas_auditoria")), false);
+}
+
 test("emisión inicial: crea la credencial, confirma y emite la obligación de auditoría", async () => {
   const db = new FakeDb();
   sembrarBase(db);
@@ -204,6 +223,51 @@ test("credencial ya activa: rechaza con PRIMERA_CREDENCIAL_YA_EXISTE, no reempla
     (err: unknown) => err instanceof HttpsError && err.code === "already-exists" && err.message === "PRIMERA_CREDENCIAL_YA_EXISTE",
   );
   assert.equal(db.docs.size, docsAntes, "el rechazo no debe escribir nada");
+});
+
+test("TOCTOU: empresa suspendida tras planificar bloquea la emisión", async () => {
+  const db = new FakeDb();
+  sembrarBase(db);
+  const docsAntes = db.docs.size;
+  mutarAntesDeLaTransaccion(db, () => {
+    db.docs.set(`empresas/${EMPRESA_ID}`, { ...db.docs.get(`empresas/${EMPRESA_ID}`), estado: "suspendida" });
+  });
+
+  await assert.rejects(
+    provisionarCredencialInicialTenant(db as any, "operador-1", envelope("toctou-empresa"), resolverPrincipal, "pepper"),
+    (err: unknown) => err instanceof HttpsError && err.message === "EMPRESA_NO_PROVISIONABLE",
+  );
+  assertNoSeEmitio(db, docsAntes);
+});
+
+test("TOCTOU: cambio de owner tras planificar bloquea la emisión para el owner anterior", async () => {
+  const db = new FakeDb();
+  sembrarBase(db);
+  const docsAntes = db.docs.size;
+  mutarAntesDeLaTransaccion(db, () => {
+    db.docs.set(`empresas/${EMPRESA_ID}`, { ...db.docs.get(`empresas/${EMPRESA_ID}`), ownerUid: "owner-nuevo" });
+  });
+
+  await assert.rejects(
+    provisionarCredencialInicialTenant(db as any, "operador-1", envelope("toctou-owner"), resolverPrincipal, "pepper"),
+    (err: unknown) => err instanceof HttpsError && err.message === "OWNER_SIN_MEMBRESIA_ADMIN_ACTIVA",
+  );
+  assertNoSeEmitio(db, docsAntes);
+});
+
+test("TOCTOU: revocar la membresía del owner tras planificar bloquea la emisión", async () => {
+  const db = new FakeDb();
+  sembrarBase(db);
+  const docsAntes = db.docs.size;
+  mutarAntesDeLaTransaccion(db, () => {
+    db.docs.set(`membresias/${EMPRESA_ID}_${OWNER_UID}`, { rol: "admin", estado: "inactiva", activo: false });
+  });
+
+  await assert.rejects(
+    provisionarCredencialInicialTenant(db as any, "operador-1", envelope("toctou-membresia"), resolverPrincipal, "pepper"),
+    (err: unknown) => err instanceof HttpsError && err.message === "OWNER_SIN_MEMBRESIA_ADMIN_ACTIVA",
+  );
+  assertNoSeEmitio(db, docsAntes);
 });
 
 test("reprovisionamiento (§4.4): expira la anterior, emite una nueva, audita como REEMITIDA", async () => {
