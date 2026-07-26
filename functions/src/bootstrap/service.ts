@@ -19,18 +19,46 @@ import { emitirCredencialInicial } from "../platform/emitir-credencial-inicial";
 const PIN_PEPPER = defineSecret("OPERATIONAL_PIN_PEPPER");
 
 export const PROVISIONAMIENTOS_COLLECTION = "provisionamientos_empresariales";
+/**
+ * ADR-SAAS-013 (Capa 4) — ancla de idempotencia para la creación del
+ * principal de Auth cuando el llamador no provee `ownerUid` (`resolverIdentidadOwner`).
+ * Permanente, no efímera: mismo ciclo de vida que `provisionamientos_empresariales`
+ * (tampoco se borra al completar). Responsabilidad única y acotada —
+ * proveniencia de una identidad creada por Bootstrap: qué UID, para qué
+ * empresa, cuándo. Nunca leída fuera de `resolverIdentidadOwner`; exige
+ * regla de acceso denegado a clientes, igual que `credenciales_operativas`/
+ * `incorporaciones` (§7.5 del ADR).
+ *
+ * Clave = `empresaId`, no `provisionamientoId`: el administrador inicial
+ * pertenece conceptualmente a la empresa (a lo sumo uno por tenant), no al
+ * intento de provisioning que lo originó. Con clave por intento, cada
+ * reintento con un envelope nuevo (idempotencyKey distinto — el caso típico
+ * cuando el operador reenvía el formulario tras un rechazo) fallaba en
+ * encontrar el ancla anterior y creaba un principal de Auth adicional; ese
+ * huérfano quedaba contenido (`disabled: true`, sin claims) pero se
+ * acumulaba indefinidamente. Con clave por empresa, cualquier reintento
+ * sobre la misma empresa — con el envelope que sea — encuentra y reutiliza
+ * el mismo ancla.
+ */
+export const IDENTIDADES_OWNER_COLLECTION = "bootstrap_identidades_owner";
 const hash = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).digest("hex");
 const id = (prefix: string, key: string) => `${prefix}_${hash(key)}`;
 const fail = (code: "invalid-argument" | "already-exists" | "failed-precondition" | "not-found", msg: string): never => { throw new HttpsError(code, msg); };
 
 function validarEntradaBootstrap(e: EntradaBootstrapEmpresarial): void {
+  const tieneOwnerUid = e?.ownerUid !== undefined;
+  const tieneNombreAdministrador = typeof e?.nombreAdministrador === "string" && e.nombreAdministrador.trim().length > 0;
   if (
     !e ||
     !esIdComercial(e.commandId) ||
     !esIdComercial(e.idempotencyKey) ||
     !esIdComercial(e.correlationId) ||
     !esIdComercial(e.causationId) ||
-    !esIdComercial(e.ownerUid) ||
+    // Exactamente uno: ownerUid (reutilizar un principal existente) o
+    // nombreAdministrador (que Bootstrap cree el ancla). Ninguno de los dos,
+    // o los dos a la vez, es una entrada ambigua — se rechaza (ADR-SAAS-013 Capa 4).
+    tieneOwnerUid === tieneNombreAdministrador ||
+    (tieneOwnerUid && !esIdComercial(e.ownerUid as string)) ||
     !esIdComercial(e.empresaId) ||
     typeof e.nombreComercial !== "string" ||
     !e.nombreComercial.trim() ||
@@ -46,6 +74,56 @@ function validarEntradaBootstrap(e: EntradaBootstrapEmpresarial): void {
 
 export type ClaimsEmitter = (uid: string, empresaId: string, rol: "admin") => Promise<void>;
 export type OwnerIdentityVerifier = (uid: string) => Promise<void>;
+/**
+ * ADR-SAAS-013 (Capa 4) — crea el principal de Auth ancla cuando el llamador
+ * no provee `ownerUid`. Se crea `disabled: true`: es un ancla de
+ * claims/membresía, no un mecanismo de login (el admin siempre entra por
+ * código+PIN); `ejecutarBootstrapEmpresarial` lo habilita recién en el paso
+ * de claims, para que un intento nunca completado no deje una cuenta viva.
+ */
+export type OwnerIdentityResolver = (nombreAdministrador: string) => Promise<{ uid: string }>;
+export type OwnerIdentityEnabler = (uid: string) => Promise<void>;
+
+/**
+ * Resuelve el `ownerUid` cuando el llamador no lo provee, de forma segura
+ * ante reintentos: `auth.createUser()` no es transaccional, así que la
+ * idempotencia no viene de recalcular el UID (Firebase lo asigna), sino de
+ * persistir el UID devuelto en un documento determinístico por `empresaId`
+ * ANTES de continuar, y consultarlo primero en cada reintento — con ese
+ * mismo `empresaId`, cualquiera que sea el envelope del reintento. Si el
+ * proceso se interrumpe entre `resolver()` y ese `create()`, el intento
+ * anterior queda huérfano en Auth — pero inerte (sin claims, sin membresía,
+ * sin credencial, `disabled: true`), un riesgo acotado y aceptado de la
+ * misma clase que otros ya documentados en este flujo. Esa ventana es,
+ * deliberadamente, el ÚNICO caso que puede seguir produciendo un huérfano:
+ * `create()` es atómico en Firestore, así que dos resoluciones concurrentes
+ * para la misma empresa (dos invocaciones simultáneas, no una tras otra)
+ * solo pueden dejar como mucho una perdedora — nunca una acumulación sin
+ * límite por reintentos ordinarios.
+ */
+async function resolverIdentidadOwner(
+  db: Firestore,
+  empresaId: string,
+  nombreAdministrador: string,
+  resolver: OwnerIdentityResolver,
+): Promise<string> {
+  const identidadRef = db.collection(IDENTIDADES_OWNER_COLLECTION).doc(empresaId);
+  const existente = await identidadRef.get();
+  if (existente.exists) return (existente.data() as { ownerUid: string }).ownerUid;
+  const { uid } = await resolver(nombreAdministrador);
+  try {
+    await identidadRef.create({ ownerUid: uid, nombreAdministrador, creadoEn: FieldValue.serverTimestamp() });
+  } catch {
+    // Perdió la carrera contra una resolución concurrente para la misma
+    // empresa: el ancla ganadora ya está persistida. Se adopta esa, no la
+    // recién creada — el `uid` de esta invocación queda como el único
+    // huérfano posible de esta función, ya inerte por diseño.
+    const ganadora = await identidadRef.get();
+    if (!ganadora.exists) throw new HttpsError("internal", "IDENTIDAD_OWNER_ESTADO_INCONSISTENTE");
+    return (ganadora.data() as { ownerUid: string }).ownerUid;
+  }
+  return uid;
+}
 /**
  * Paso H (ADR-SAAS-013): emite la credencial operativa inicial del owner.
  * Único punto de integración con `emitirCredencialInicial` — Capa 3
@@ -81,30 +159,21 @@ export async function ejecutarBootstrapEmpresarial(
   coreCommitObserver?: BootstrapCoreCommitObserver,
   completionObserver?: BootstrapCoreCommitObserver,
   credentialIssuer?: CredentialIssuer,
+  ownerIdentityResolver?: OwnerIdentityResolver,
+  ownerIdentityEnabler?: OwnerIdentityEnabler,
 ): Promise<ResultadoBootstrapEmpresarial> {
   const db = dbParam ?? getFirestore();
   if (!entrada) return fail("invalid-argument", "ENTRADA_REQUERIDA");
   validarEntradaBootstrap(entrada);
 
-  const fingerprint = hash({
-    ownerUid: entrada.ownerUid,
-    empresaId: entrada.empresaId,
-    nombreComercial: entrada.nombreComercial.trim(),
-    paisFiscal: entrada.paisFiscal.trim(),
-    planId: entrada.planId,
-    planVersion: entrada.planVersion,
-  });
-
   const provisionamientoId = id("prov", entrada.idempotencyKey);
   const provRef = db.collection(PROVISIONAMIENTOS_COLLECTION).doc(provisionamientoId);
 
-  const verificarOwner = ownerIdentityVerifier ?? (async (uid: string) => {
-    const { getAuth } = await import("firebase-admin/auth");
-    await getAuth().getUser(uid);
-  });
-  await verificarOwner(entrada.ownerUid);
-
-  // 1. Verificación pre-transaccional: El plan debe existir y estar en estado PUBLICADA
+  // 1. Verificaciones pre-transaccionales baratas, ANTES de tocar Auth: un
+  // rechazo aquí (plan no publicado, plantilla de permisos ausente) no debe
+  // crear ni consultar ninguna identidad. Este orden es deliberado — ver
+  // nota en `resolverIdentidadOwner` sobre por qué la creación del ancla se
+  // pospone hasta el último momento posible antes de la transacción.
   const planVersionRef = db.collection("planes").doc(entrada.planId).collection("versiones").doc(String(entrada.planVersion));
   const planSnap = await planVersionRef.get();
   if (!planSnap.exists || (planSnap.data() as PlanVersion).estado !== "PUBLICADA") {
@@ -112,7 +181,38 @@ export async function ejecutarBootstrapEmpresarial(
   }
   const permisos = await permisosPredeterminados("admin", db);
 
-  // 2. Commit atómico del núcleo (Transacción Firestore)
+  // 2. Identidad del owner: reutilizar un principal existente (ownerUid) o
+  // crear el ancla (nombreAdministrador) — nunca ambos, validado arriba. La
+  // creación es idempotente por `empresaId`, no por un UID derivado (ver
+  // `resolverIdentidadOwner`).
+  const identidadCreadaPorBootstrap = entrada.ownerUid === undefined;
+  let ownerUid: string;
+  if (entrada.ownerUid !== undefined) {
+    ownerUid = entrada.ownerUid;
+    const verificarOwner = ownerIdentityVerifier ?? (async (uid: string) => {
+      const { getAuth } = await import("firebase-admin/auth");
+      await getAuth().getUser(uid);
+    });
+    await verificarOwner(ownerUid);
+  } else {
+    const resolver = ownerIdentityResolver ?? (async (nombreAdministrador: string) => {
+      const { getAuth } = await import("firebase-admin/auth");
+      const usuario = await getAuth().createUser({ displayName: nombreAdministrador, disabled: true });
+      return { uid: usuario.uid };
+    });
+    ownerUid = await resolverIdentidadOwner(db, entrada.empresaId, entrada.nombreAdministrador as string, resolver);
+  }
+
+  const fingerprint = hash({
+    ownerUid,
+    empresaId: entrada.empresaId,
+    nombreComercial: entrada.nombreComercial.trim(),
+    paisFiscal: entrada.paisFiscal.trim(),
+    planId: entrada.planId,
+    planVersion: entrada.planVersion,
+  });
+
+  // 3. Commit atómico del núcleo (Transacción Firestore)
   const trialDias = entrada.trialDias ?? 14;
   const hoyMs = Date.now();
   const trialInicio = fechaComercialUtc(new Date(hoyMs));
@@ -163,7 +263,7 @@ export async function ejecutarBootstrapEmpresarial(
       empresaId: entrada.empresaId,
       nombre: entrada.nombreComercial.trim(),
       nombreComercial: entrada.nombreComercial.trim(),
-      ownerUid: entrada.ownerUid,
+      ownerUid,
       paisFiscal: entrada.paisFiscal.trim(),
       estado: "trial",
       esFundacional: false,
@@ -217,9 +317,9 @@ export async function ejecutarBootstrapEmpresarial(
     });
 
     // E. Membresía ADMIN del owner
-    tx.create(db.collection("membresias").doc(`${entrada.empresaId}_${entrada.ownerUid}`), {
+    tx.create(db.collection("membresias").doc(`${entrada.empresaId}_${ownerUid}`), {
       empresaId: entrada.empresaId,
-      uid: entrada.ownerUid,
+      uid: ownerUid,
       rol: "admin",
       permisos,
       estado: "activa",
@@ -233,7 +333,7 @@ export async function ejecutarBootstrapEmpresarial(
       db,
       tx,
       entradaTrial,
-      { actorId: entrada.ownerUid, origen: "SYSTEM" },
+      { actorId: ownerUid, origen: "SYSTEM" },
       {
         comando: comandoTrialSnap,
         commandId: commandIdTrialSnap,
@@ -251,7 +351,7 @@ export async function ejecutarBootstrapEmpresarial(
       provisionamientoId,
       idempotencyKey: entrada.idempotencyKey,
       fingerprint,
-      ownerUid: entrada.ownerUid,
+      ownerUid,
       empresaId: entrada.empresaId,
       nombreComercial: entrada.nombreComercial.trim(),
       paisFiscal: entrada.paisFiscal.trim(),
@@ -284,7 +384,7 @@ export async function ejecutarBootstrapEmpresarial(
     };
   }
 
-  // 3. Paso recuperable de emisión de la credencial operativa inicial
+  // 4. Paso recuperable de emisión de la credencial operativa inicial
   // (ADR-SAAS-013, paso H — entre CORE_COMMITTED y CLAIMS_ISSUED). Único
   // consumidor de `emitirCredencialInicial` en este flujo: no reimplementa
   // generación de código/PIN, verificación de identidad ni la transacción
@@ -325,7 +425,7 @@ export async function ejecutarBootstrapEmpresarial(
     try {
       const emitida = await issuer({
         empresaId: entrada.empresaId,
-        uid: entrada.ownerUid,
+        uid: ownerUid,
         permisos,
         nombreComercial: entrada.nombreComercial.trim(),
       });
@@ -365,15 +465,28 @@ export async function ejecutarBootstrapEmpresarial(
     credencialInicialResultado = { codigo: transaccionResultado.prov.credencialInicial.codigo, pinTemporal: null };
   }
 
-  // 4. Paso recuperable de emisión de Custom Claims
+  // 5. Paso recuperable de emisión de Custom Claims
   const emitter = customClaimsEmitter ?? (async (u, e, r) => actualizarClaimsTenant(u, e, r));
   const claimsYaEmitidos = transaccionResultado.prov.estado === "CLAIMS_ISSUED"
     || (transaccionResultado.prov.estado === "RETRYABLE_FAILURE"
       && transaccionResultado.prov.ultimoPasoConfirmado === "CLAIMS_ISSUED");
 
+  const habilitarIdentidad = ownerIdentityEnabler ?? (async (uid: string) => {
+    const { getAuth } = await import("firebase-admin/auth");
+    await getAuth().updateUser(uid, { disabled: false });
+  });
+
   if (!claimsYaEmitidos) {
     try {
-      await emitter(entrada.ownerUid, entrada.empresaId, "admin");
+      await emitter(ownerUid, entrada.empresaId, "admin");
+      // El ancla creada por este mismo Bootstrap nace `disabled: true`
+      // (nunca es un mecanismo de login, solo un anclaje de claims); recién
+      // aquí, con claims ya emitidos, se habilita — así un intento que nunca
+      // llega a este punto no deja una cuenta utilizable. Si `ownerUid` fue
+      // provisto por el llamador, su estado `disabled` no se toca: pudo
+      // haber sido deshabilitado deliberadamente por una razón ajena a este
+      // tenant.
+      if (identidadCreadaPorBootstrap) await habilitarIdentidad(ownerUid);
       await provRef.update({
         estado: "CLAIMS_ISSUED",
         ultimoPasoConfirmado: "CLAIMS_ISSUED",
