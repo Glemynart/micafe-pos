@@ -21,6 +21,7 @@ import {
   permisosPredeterminados,
   registrarFallo,
 } from "./operational-auth";
+import { crearObligacionAuditoria, emitirObligacionAuditoria } from "./platform/audit";
 
 export const INCORPORACIONES_COLLECTION = "incorporaciones";
 
@@ -431,6 +432,7 @@ export async function activarIncorporacionDirecta({
   }
 
   let idempotente = planInicial.tipo === "REINTENTO";
+  let obligacionActivacionId: string | null = null;
   await db.runTransaction(async (transaction) => {
     const [incorporacionSnap, credencialActualSnap, membresiaActualSnap, auditoriaSnap] = await Promise.all([
       transaction.get(incorporacionRef),
@@ -496,6 +498,27 @@ export async function activarIncorporacionDirecta({
         rol: plan.rol,
         creadoEn: FieldValue.serverTimestamp(),
       });
+      // ADR-SAAS-013 §4.6 — obligación de auditoría de plataforma (ADR-SAAS-012),
+      // creada en la misma transacción que el hecho durable. Actor "ADMIN_TENANT":
+      // a diferencia de EMITIDA/REEMITIDA, este evento no lo produce un operador de
+      // plataforma sino el propio admin del tenant fijando su PIN definitivo.
+      crearObligacionAuditoria(db, transaction, {
+        tipo: "CREDENCIAL_INICIAL_ACTIVADA",
+        resultado: "CONFIRMADO",
+        actor: { tipo: "ADMIN_TENANT", uid: plan.uid },
+        facultad: null,
+        comando: null,
+        agregado: { tipo: "EMPRESA", id: plan.empresaId },
+        empresaObjetivoId: plan.empresaId,
+        revision: { esperada: null, resultante: null },
+        correlacionId: incorporacionId,
+        causacionId: null,
+        motivo: { codigo: "TENANT_ADMIN_ACTIVACION_CREDENCIAL_INICIAL", resumen: null },
+      }, {
+        obligacionId: idObligacionAuditoriaActivacion(incorporacionId),
+        evidenciaId: idEvidenciaAuditoriaActivacion(incorporacionId),
+      });
+      obligacionActivacionId = idObligacionAuditoriaActivacion(incorporacionId);
     }
     if (incorporacion?.estado !== "ACTIVE") {
       transaction.update(incorporacionRef, {
@@ -505,6 +528,11 @@ export async function activarIncorporacionDirecta({
       });
     }
   });
+
+  // La obligación se creó en la misma transacción que el hecho durable; su
+  // emisión (append-only, ADR-SAAS-012) puede intentarse fuera de ella. Si
+  // falla aquí, `reconciliarObligacionesAuditoria` la recoge más tarde.
+  if (obligacionActivacionId) await emitirObligacionAuditoria(db, obligacionActivacionId);
 
   const membresiaFinalSnap = await membresiaRef.get();
   const credencialFinalSnap = await credencialRef.get();
@@ -535,6 +563,15 @@ export async function activarIncorporacionDirecta({
 
 export function idAuditoriaActivacion(incorporacionId: string): string {
   return createHash("sha256").update(`incorporacion-directa:activada:${incorporacionId}`).digest("hex");
+}
+
+/** ADR-SAAS-013 §4.6 — ids deterministas para que la obligación de plataforma de CREDENCIAL_INICIAL_ACTIVADA sea idempotente, igual que `idAuditoriaActivacion` lo es para el registro tenant. */
+export function idObligacionAuditoriaActivacion(incorporacionId: string): string {
+  return createHash("sha256").update(`obligacion:incorporacion-directa:activada:${incorporacionId}`).digest("hex");
+}
+
+export function idEvidenciaAuditoriaActivacion(incorporacionId: string): string {
+  return createHash("sha256").update(`evidencia:incorporacion-directa:activada:${incorporacionId}`).digest("hex");
 }
 
 export function idIncorporacionDirecta(empresaId: string, codigo: string): string {
