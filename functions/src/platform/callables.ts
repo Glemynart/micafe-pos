@@ -1,10 +1,10 @@
 import { getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
-import { autorizarPlataforma } from "./authorization";
+import { autorizarPlataforma, type TokenPlataforma } from "./authorization";
 import type { EnvelopePlataforma, FacultadPlataforma } from "./contracts";
 import { ejecutarComandoOperador } from "./operators";
-import { ejecutarComandoComercial, provisionarCredencialInicialTenant, solicitarBootstrapEmpresarial } from "./operations";
+import { ejecutarComandoComercial, provisionarCredencialInicialTenant, reemitirCredencialInicialTemporalTenant, solicitarBootstrapEmpresarial } from "./operations";
 import { facultadTransicionEmpresa, obtenerComandoComercial } from "./command-catalog";
 import { consultarAuditoriaPlataforma, listarRecursosPlataforma, obtenerDetalleEmpresaPlataforma, validarFiltroAuditoria, type RecursoPlataforma } from "./queries";
 import { listarSoporteTenant, solicitarSoporte, transicionarSoporte } from "./support";
@@ -72,6 +72,23 @@ export const provisionarCredencialInicialTenantSaas = onCall({ region: REGION, s
     throw new HttpsError("invalid-argument", "EMPRESA_ID_INVALIDO");
   }
   return provisionarCredencialInicialTenant(db, auth.uid, data as EnvelopePlataforma & { empresaId: string });
+});
+
+export const reemitirCredencialInicialTemporalSaas = onCall({ region: REGION, secrets: [PIN_PEPPER] }, async (request) => {
+  const auth = exigirAuth(request);
+  const db = getFirestore();
+  await autorizarPlataforma(db, auth.uid, auth.token, "LIFECYCLE_GOBERNAR");
+  const data = request.data as (EnvelopePlataforma & { empresaId?: unknown; incorporacionId?: unknown }) | undefined;
+  if (!data || typeof data.empresaId !== "string") throw new HttpsError("invalid-argument", "EMPRESA_ID_INVALIDO");
+  if (typeof data.incorporacionId !== "string" || !data.incorporacionId.trim()) {
+    throw new HttpsError("invalid-argument", "INCORPORACION_ID_INVALIDO");
+  }
+  return reemitirCredencialInicialTemporalTenant(
+    db,
+    auth.uid,
+    data as EnvelopePlataforma & { empresaId: string; incorporacionId: string },
+    auth.token as TokenPlataforma,
+  );
 });
 
 export const ejecutarComandoComercialSaas = onCall({ region: REGION }, async (request) => {
