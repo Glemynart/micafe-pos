@@ -14,7 +14,7 @@ export interface HechoAuditable {
   tipo: TipoAuditoria;
   resultado: ResultadoAuditoria;
   origen?: "PLATAFORMA" | "SISTEMA" | "SOPORTE";
-  actor: { tipo: "OPERADOR" | "SISTEMA"; uid: string | null };
+  actor: { tipo: "OPERADOR" | "SISTEMA" | "ADMIN_TENANT"; uid: string | null };
   facultad: FacultadPlataforma | null;
   comando: { id: string; tipo: string } | null;
   agregado: { tipo: TipoAgregadoAuditoria; id: string };
