@@ -185,10 +185,10 @@ export async function ejecutarBootstrapEmpresarial(
   // crear el ancla (nombreAdministrador) — nunca ambos, validado arriba. La
   // creación es idempotente por `empresaId`, no por un UID derivado (ver
   // `resolverIdentidadOwner`).
-  const identidadCreadaPorBootstrap = entrada.ownerUid === undefined;
+  const ownerUidFueAportado = entrada.ownerUid !== undefined;
   let ownerUid: string;
-  if (entrada.ownerUid !== undefined) {
-    ownerUid = entrada.ownerUid;
+  if (ownerUidFueAportado) {
+    ownerUid = entrada.ownerUid as string;
     const verificarOwner = ownerIdentityVerifier ?? (async (uid: string) => {
       const { getAuth } = await import("firebase-admin/auth");
       await getAuth().getUser(uid);
@@ -202,6 +202,17 @@ export async function ejecutarBootstrapEmpresarial(
     });
     ownerUid = await resolverIdentidadOwner(db, entrada.empresaId, entrada.nombreAdministrador as string, resolver);
   }
+
+  // La procedencia se toma del ancla durable, no de la forma de este
+  // reintento. Así un bootstrap que creó una identidad conserva sus claims y
+  // su habilitación incluso si un reintento posterior aporta el mismo UID.
+  const identidadAncla = await db.collection(IDENTIDADES_OWNER_COLLECTION).doc(entrada.empresaId).get();
+  const identidadCreadaPorBootstrap = identidadAncla.exists
+    && (identidadAncla.data() as { ownerUid?: string }).ownerUid === ownerUid;
+  // Un principal aportado por el llamador debe completar la credencial
+  // temporal antes de recibir el contexto del tenant. Las identidades que
+  // crea Bootstrap conservan la emisión de claims y su habilitación actual.
+  const debeEmitirClaims = identidadCreadaPorBootstrap;
 
   const fingerprint = hash({
     ownerUid,
@@ -374,7 +385,7 @@ export async function ejecutarBootstrapEmpresarial(
       provisionamientoId,
       empresaId: entrada.empresaId,
       estado: "COMPLETED",
-      claimsEmitidos: true,
+      claimsEmitidos: debeEmitirClaims,
       obligacionId: transaccionResultado.prov.obligacionId ?? null,
       obligacionCompletadoId: transaccionResultado.prov.obligacionCompletadoId ?? null,
       idempotente: true,
@@ -478,7 +489,9 @@ export async function ejecutarBootstrapEmpresarial(
 
   if (!claimsYaEmitidos) {
     try {
-      await emitter(ownerUid, entrada.empresaId, "admin");
+      if (debeEmitirClaims) {
+        await emitter(ownerUid, entrada.empresaId, "admin");
+      }
       // El ancla creada por este mismo Bootstrap nace `disabled: true`
       // (nunca es un mecanismo de login, solo un anclaje de claims); recién
       // aquí, con claims ya emitidos, se habilita — así un intento que nunca
@@ -543,7 +556,7 @@ export async function ejecutarBootstrapEmpresarial(
       provisionamientoId,
       empresaId: entrada.empresaId,
       estado: "COMPLETED",
-      claimsEmitidos: true,
+      claimsEmitidos: debeEmitirClaims,
       obligacionId: transaccionResultado.prov.obligacionId ?? null,
       obligacionCompletadoId,
       idempotente: transaccionResultado.yaCometido,
@@ -561,7 +574,7 @@ export async function ejecutarBootstrapEmpresarial(
       provisionamientoId,
       empresaId: entrada.empresaId,
       estado: "RETRYABLE_FAILURE",
-      claimsEmitidos: true,
+      claimsEmitidos: debeEmitirClaims,
       idempotente: transaccionResultado.yaCometido,
       credencialInicial: credencialInicialResultado,
     };
