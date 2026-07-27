@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   construirConsultaRepresentativa,
   describirCamposIndice,
+  type CampoIndice,
   type ConsultaIndiceFirestore,
   VALOR_SONDA_ARRAY_CONTAINS,
 } from '../consulta-indice-firestore'
@@ -50,4 +51,21 @@ test('representa arrayConfig CONTAINS con array-contains y ordena solo los campo
     describirCamposIndice(fields),
     'facultades array-contains, estado asc, actualizadoEn desc',
   )
+})
+
+// Caracterización, no aprobación: documenta que hoy una forma de campo que no
+// declara `order` ni `arrayConfig` se trata como orden ascendente. La unión
+// `CampoIndice` no admite esa forma, de modo que construirla exige un escape de
+// tipos — y ese escape es justamente la evidencia de que el tipo estático no
+// protege este camino: los campos llegan de `firestore.indexes.json` mediante un
+// `JSON.parse(...) as ...` sin validar. Si alguna vez aparece un campo así (p. ej.
+// `vectorConfig`), el índice se probaría con la consulta equivocada y el gate
+// volvería a dar un falso negativo. Endurecerlo es una decisión aparte: este test
+// solo fija el comportamiento actual para que el cambio sea visible cuando llegue.
+test('documenta el fallback actual: una forma de campo desconocida se trata como orden ascendente', () => {
+  const campoDesconocido = { fieldPath: 'embedding' } as unknown as CampoIndice
+  const consulta = construirConsultaRepresentativa(new ConsultaFalsa(), [campoDesconocido])
+
+  assert.deepEqual(consulta.operaciones, ['orderBy:embedding:asc'])
+  assert.equal(describirCamposIndice([campoDesconocido]), 'embedding asc')
 })
