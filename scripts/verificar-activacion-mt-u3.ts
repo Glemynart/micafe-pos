@@ -20,9 +20,10 @@
  *       `not-in`, sin paginar toda la colección (más barato que el dry-run
  *       completo, que si necesita paginar porque además simula escrituras).
  *   (c) Los índices compuestos de `firestore.indexes.json` están `Enabled`:
- *       se prueba cada uno ejecutando una query real con el mismo orden de
- *       campos (vía `orderBy` encadenado, sin necesidad de valores de
- *       ejemplo) y `limit(1)`. Si Firestore responde con éxito, el índice
+ *       se prueba cada uno ejecutando una query real equivalente: `orderBy`
+ *       para campos ordenados y `array-contains` para los campos con
+ *       `arrayConfig: "CONTAINS"`, seguida de `limit(1)`. Si Firestore
+ *       responde con éxito, el índice
  *       existe y está listo; si responde `FAILED_PRECONDITION`, no lo está
  *       (aún construyéndose o no desplegado). Se lee el índice directamente
  *       de `firestore.indexes.json` — no hay una lista separada que pueda
@@ -57,6 +58,11 @@ import { cert, initializeApp, getApps } from 'firebase-admin/app'
 import { getFirestore, type Firestore } from 'firebase-admin/firestore'
 import { EMPRESAS_COLLECTION } from '../lib/empresas-service'
 import { COLECCIONES_OFICIALES, verificarColeccionesContraFirestore } from './mt-u3-colecciones-oficiales'
+import {
+  construirConsultaRepresentativa,
+  describirCamposIndice,
+  type IndiceDefinicion,
+} from './lib/consulta-indice-firestore'
 
 const argv = process.argv.slice(2)
 const MODO_POST = argv.includes('--post')
@@ -104,11 +110,6 @@ async function contarAnomalias(nombreColeccion: string, empresaId: string, esLed
 
 // ─── MODO PRE: (c) índices ──────────────────────────────────────────────────
 
-interface IndiceDefinicion {
-  collectionGroup: string
-  fields: { fieldPath: string; order: 'ASCENDING' | 'DESCENDING' }[]
-}
-
 function cargarIndicesDefinidos(): IndiceDefinicion[] {
   const raw = fs.readFileSync(path.join(__dirname, '..', 'firestore.indexes.json'), 'utf8')
   const parsed = JSON.parse(raw) as { indexes: IndiceDefinicion[] }
@@ -118,9 +119,7 @@ function cargarIndicesDefinidos(): IndiceDefinicion[] {
 async function probarIndice(idx: IndiceDefinicion): Promise<'enabled' | 'no_listo' | 'error'> {
   try {
     let q: FirebaseFirestore.Query = db.collection(idx.collectionGroup)
-    for (const f of idx.fields) {
-      q = q.orderBy(f.fieldPath, f.order === 'DESCENDING' ? 'desc' : 'asc')
-    }
+    q = construirConsultaRepresentativa(q, idx.fields)
     await q.limit(1).get()
     return 'enabled'
   } catch (err: any) {
@@ -163,7 +162,7 @@ async function modoPre(empresa: { id: string; nombre: string }): Promise<boolean
   console.log('── (c) Índices compuestos (firestore.indexes.json) ──')
   const indices = cargarIndicesDefinidos()
   for (const idx of indices) {
-    const campos = idx.fields.map((f) => `${f.fieldPath} ${f.order === 'DESCENDING' ? 'desc' : 'asc'}`).join(', ')
+    const campos = describirCamposIndice(idx.fields)
     const estado = await probarIndice(idx)
     if (estado === 'enabled') {
       console.log(`   ✅ ${idx.collectionGroup.padEnd(28)} (${campos})`)
