@@ -98,6 +98,13 @@ fase9c-post-execute.txt
 # Claude Code local session state
 .claude/
 
+# Codex CLI local state
+.codex/
+
+# Syncthing (sincronización local del directorio de trabajo)
+.stfolder/
+.stignore
+
 # Dev server logs
 next-dev.log
 firebase-debug.log
