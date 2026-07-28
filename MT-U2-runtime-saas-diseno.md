@@ -164,6 +164,10 @@ descarta como mecanismo único porque no corre en el artefacto de escritorio.
   4. Si sigue ausente tras el refresh → fallback transitorio (D-U2-1): `console.warn` +
      `empresaId`/`empresa` resueltos vía `obtenerEmpresaFundacional()` (reservado exclusivamente a
      esta rama); `rolClaim = null`.
+     > **R-6 (2026-07-26):** `obtenerEmpresaFundacional()` fue marcada `@deprecated`. El flujo de
+     > login ya no depende de esta función. El fallback D-U2-1 sigue vigente en el
+     > `SaaSContext`/`tenant-context.ts` únicamente para el resolvedor de sesión React, no para
+     > la autenticación operativa. Ver `INVESTIGACION-R6-ESFUNDACIONAL.md`.
   Al perder la sesión (`firebaseUser == null`) se resetea todo el estado. `refresh()` fuerza
   `getIdToken(true)` y re-ejecuta la misma resolución.
 - **Datos expuestos (tipo público `SaaSContextValue`, exactamente estos 5 campos):**
