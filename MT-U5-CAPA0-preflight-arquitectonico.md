@@ -76,6 +76,9 @@ reconocen las Rules; nunca se asume equivalente a `admin`.
   principal, establecer claims y emitir un custom token. El cliente jamás realiza esas acciones.
 - MT-U5a opera contra la empresa fundacional. La Function resuelve `empresaId` en servidor; el
   frontend no lo propone ni lo persiste.
+  > **R-6 (2026-07-26):** La dependencia del campo `esFundacional` fue eliminada del flujo de
+  > autenticación. `resolverCredencialOperativa()` ahora usa búsqueda global por código en
+  > `credenciales_operativas`, sin prefiltro por empresa fundacional. Ver `INVESTIGACION-R6-ESFUNDACIONAL.md`.
 - El custom token siempre representa un `uid` humano real y un rol del conjunto canónico. No existe
   principal de dispositivo, UID compartido ni claim de estación.
 - El claim de tenant es exclusivamente `{ empresaId, rol }`. No lleva arrays de permisos, PIN, email,
@@ -158,6 +161,8 @@ compara ni se deriva como PIN operativo.
    guardar el hash.
 2. La Function nunca acepta que el cliente asigne `empresaId`, rol ni UID de otro tenant. En MT-U5a el
    tenant se resuelve en servidor como empresa fundacional.
+   > **R-6 (2026-07-26):** El mecanismo de resolución por empresa fundacional fue reemplazado por
+   > búsqueda global de credenciales por código. Ver `INVESTIGACION-R6-ESFUNDACIONAL.md`.
 3. La rotación ordinaria exige el PIN actual y permite al titular cambiar solo su propio PIN. Un `admin`
    puede hacer un reset administrativo sin conocer el PIN anterior. Ambos caminos reemplazan el hash,
    reinician contadores, actualizan `pinActualizadoEn`, auditan la acción y revocan sesiones del UID.

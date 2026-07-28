@@ -33,10 +33,6 @@ interface MembresiaCanonica {
   activo?: unknown;
 }
 
-interface EmpresaFundacional {
-  estado?: unknown;
-}
-
 interface SolicitudAutenticacion {
   codigo?: unknown;
   pin?: unknown;
@@ -79,27 +75,6 @@ function obtenerPepper(): string {
   return pepper;
 }
 
-async function obtenerEmpresaFundacional(): Promise<{ id: string; estado: string }> {
-  const snap = await getFirestore()
-    .collection("empresas")
-    .where("esFundacional", "==", true)
-    .limit(2)
-    .get();
-
-  if (snap.size !== 1) {
-    logger.error("operational_auth_fundational_tenant_invalid", { count: snap.size });
-    throw new HttpsError("internal", "No se pudo procesar la autenticación.");
-  }
-
-  const empresa = snap.docs[0];
-  const data = empresa.data() as EmpresaFundacional;
-  if (data.estado !== "activa" && data.estado !== "trial") {
-    throw errorCredenciales();
-  }
-
-  return { id: empresa.id, estado: data.estado as string };
-}
-
 function referenciaCredencial(empresaId: string, codigo: string) {
   return getFirestore().collection("credenciales_operativas").doc(idCredencialOperativa(empresaId, codigo));
 }
@@ -111,26 +86,21 @@ interface CredencialOperativaResuelta {
 }
 
 /**
- * La credencial temporal no recibe empresaId del cliente. El backend identifica
- * su tenant comparando el PIN contra las incorporaciones DIRECTA temporales que
- * comparten el código y rechaza cualquier resultado ambiguo.
+ * R-6 — La credencial no recibe empresaId del cliente. El backend identifica
+ * su tenant mediante búsqueda global por código en `credenciales_operativas`
+ * y desambigua por PIN, sin depender de una empresa fundacional.
  */
 async function resolverCredencialOperativa(
   codigo: string,
   pin: string,
 ): Promise<CredencialOperativaResuelta> {
   const db = getFirestore();
-  const empresaFundacional = await obtenerEmpresaFundacional();
-  const refFundacional = referenciaCredencial(empresaFundacional.id, codigo);
-  const [fundacionalSnap, credencialesConCodigo] = await Promise.all([
-    refFundacional.get(),
-    db.collection("credenciales_operativas").where("codigo", "==", codigo).get(),
-  ]);
+  const credencialesConCodigo = await db
+    .collection("credenciales_operativas")
+    .where("codigo", "==", codigo)
+    .get();
 
-  const candidatas = [
-    ...(fundacionalSnap.exists ? [fundacionalSnap] : []),
-    ...credencialesConCodigo.docs.filter((snap) => snap.ref.path !== refFundacional.path),
-  ];
+  const candidatas = credencialesConCodigo.docs;
   const coincidencias = (await Promise.all(candidatas.map(async (snap) => {
     const credencial = snap.data() as CredencialOperativa;
     if (credencial.activo !== true || await estaBloqueada(snap.ref) || !credencial.pinHash) return null;
@@ -419,24 +389,6 @@ export async function permisosPredeterminados(rol: RolTenant, dbParam?: any): Pr
     throw new HttpsError("failed-precondition", "La plantilla de permisos no está disponible.");
   }
   return permisos;
-}
-
-export async function exigirAdminFundacional(request: { auth?: { uid: string; token: Record<string, unknown> } }) {
-  if (!request.auth || request.auth.token.rol !== "admin") {
-    throw new HttpsError("permission-denied", "Acceso denegado.");
-  }
-
-  const empresa = await obtenerEmpresaFundacional();
-  if (request.auth.token.empresaId !== empresa.id) {
-    throw new HttpsError("permission-denied", "Acceso denegado.");
-  }
-
-  const rolActual = await validarMembresiaActiva(empresa.id, request.auth.uid);
-  if (rolActual !== "admin") {
-    throw new HttpsError("permission-denied", "Acceso denegado.");
-  }
-
-  return empresa;
 }
 
 export const autenticarOperativo = onCall(

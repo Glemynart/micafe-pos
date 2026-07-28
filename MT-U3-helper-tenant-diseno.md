@@ -96,6 +96,9 @@ entre `SaaSContext` y el helper de tenant.**
   4. Si ausente → **fallback transitorio D-U2-1**: `obtenerEmpresaFundacional()` + `console.warn`
      (idéntico criterio que `saas-context.tsx:91-108`). En régimen permanente esto es un estado anómalo,
      nunca el camino feliz.
+     > **R-6 (2026-07-26):** `obtenerEmpresaFundacional()` fue marcada `@deprecated` en
+     > `lib/empresas-service.ts`. El flujo de login ya no depende de esta función. Ver
+     > `INVESTIGACION-R6-ESFUNDACIONAL.md`.
 - **`SaaSContext` se refactoriza (aditivamente) para consumir el mismo `resolverEmpresaIdActivo()`**, de
   modo que exista **una sola** ruta de resolución + fallback en todo el sistema (cliente-React y
   cliente-servicios). No cambia su API pública `{empresaId, empresa, rolClaim, loading, refresh}`.
