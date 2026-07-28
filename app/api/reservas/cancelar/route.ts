@@ -5,7 +5,7 @@ interface BloqueAgenda {
   reservaId: string
 }
 
-type ResultadoCancelacion = 'CANCELABLE' | 'YA_CANCELADA' | 'RESERVA_AJENA' | 'RESERVA_NO_CANCELABLE'
+type ResultadoCancelacion = 'CANCELABLE' | 'YA_CANCELADA' | 'RESERVA_AJENA' | 'RESERVA_NO_CANCELABLE' | 'RESERVA_INCONSISTENTE' | 'EMPRESA_NO_OPERATIVA'
 
 function esInputValido(body: unknown): body is { reservaId: string } {
   return !!body
@@ -13,18 +13,11 @@ function esInputValido(body: unknown): body is { reservaId: string } {
     && (body as { reservaId: string }).reservaId.trim().length > 0
 }
 
-async function resolverEmpresaIdFundacional(db: FirebaseFirestore.Firestore): Promise<string> {
-  const snap = await db.collection('empresas').where('esFundacional', '==', true).limit(1).get()
-  if (snap.empty) throw new Error('EMPRESA_FUNDACIONAL_NO_ENCONTRADA')
-  return snap.docs[0].id
-}
-
 export function evaluarCancelacionPublica(
   reserva: Record<string, unknown>,
-  empresaIdFundacional: string,
   ahora: Date
 ): ResultadoCancelacion {
-  if (reserva.empresaId !== empresaIdFundacional) return 'RESERVA_AJENA'
+  if (typeof reserva.empresaId !== 'string' || !reserva.empresaId) return 'RESERVA_AJENA'
   if (reserva.estadoReserva === 'cancelada') return 'YA_CANCELADA'
 
   const holdExpira = typeof reserva.holdExpira === 'string' ? new Date(reserva.holdExpira) : null
@@ -41,29 +34,41 @@ export async function cancelarHoldPendiente(
   reservaId: string,
   ahora: Date = new Date()
 ): Promise<ResultadoCancelacion | 'RESERVA_NO_ENCONTRADA'> {
-  const empresaIdFundacional = await resolverEmpresaIdFundacional(db)
-
   return db.runTransaction(async (tx) => {
     const reservaRef = db.collection('reservas').doc(reservaId)
     const reservaSnap = await tx.get(reservaRef)
     if (!reservaSnap.exists) return 'RESERVA_NO_ENCONTRADA'
 
     const reserva = reservaSnap.data() as Record<string, unknown>
-    const resultadoCancelacion = evaluarCancelacionPublica(reserva, empresaIdFundacional, ahora)
+    const resultadoCancelacion = evaluarCancelacionPublica(reserva, ahora)
     if (resultadoCancelacion !== 'CANCELABLE') return resultadoCancelacion
+
+    const empresaSnap = await tx.get(db.collection('empresas').doc(reserva.empresaId as string))
+    const estadoEmpresa = empresaSnap.exists ? empresaSnap.data()?.estado : undefined
+    if (estadoEmpresa !== 'trial' && estadoEmpresa !== 'activa') return 'EMPRESA_NO_OPERATIVA'
 
     const mesaId = typeof reserva.mesaId === 'string' ? reserva.mesaId : ''
     const fechaLocal = typeof reserva.fechaLocal === 'string' ? reserva.fechaLocal : ''
     const bloques = Array.isArray(reserva.bloques) ? reserva.bloques.filter((b): b is string => typeof b === 'string') : []
 
-    tx.update(reservaRef, { estadoReserva: 'cancelada' })
-    if (!mesaId || !fechaLocal || bloques.length === 0) return 'CANCELABLE'
+    if (!mesaId || !fechaLocal || bloques.length === 0) return 'RESERVA_INCONSISTENTE'
+
+    const mesaRef = db.collection('mesas').doc(mesaId)
+    const mesaSnap = await tx.get(mesaRef)
+    if (!mesaSnap.exists) return 'RESERVA_INCONSISTENTE'
+    const mesa = mesaSnap.data() as { empresaId?: unknown, espacioId?: unknown }
+    if (mesa.empresaId !== reserva.empresaId || mesa.espacioId !== reserva.espacioId) return 'RESERVA_INCONSISTENTE'
 
     const agendaRef = db.collection('agendas').doc(`${mesaId}_${fechaLocal}`)
     const agendaSnap = await tx.get(agendaRef)
-    if (!agendaSnap.exists) return 'CANCELABLE'
+    if (!agendaSnap.exists) return 'RESERVA_INCONSISTENTE'
 
-    const agenda = agendaSnap.data() as { bloques?: Record<string, BloqueAgenda> }
+    const agenda = agendaSnap.data() as { empresaId?: unknown, mesaId?: unknown, espacioId?: unknown, bloques?: Record<string, BloqueAgenda> }
+    if (agenda.empresaId !== reserva.empresaId || agenda.mesaId !== mesaId || agenda.espacioId !== reserva.espacioId) {
+      return 'RESERVA_INCONSISTENTE'
+    }
+
+    tx.update(reservaRef, { estadoReserva: 'cancelada' })
     const nuevosBloques = { ...(agenda.bloques || {}) }
     let cambio = false
     for (const bloque of bloques) {
@@ -90,7 +95,7 @@ export async function POST(req: Request) {
     if (resultado === 'RESERVA_AJENA' || resultado === 'RESERVA_NO_ENCONTRADA') {
       return NextResponse.json({ error: 'Reserva no encontrada' }, { status: 404 })
     }
-    if (resultado === 'RESERVA_NO_CANCELABLE') {
+    if (resultado === 'RESERVA_NO_CANCELABLE' || resultado === 'RESERVA_INCONSISTENTE' || resultado === 'EMPRESA_NO_OPERATIVA') {
       return NextResponse.json({ error: 'La reserva ya no puede cancelarse' }, { status: 409 })
     }
 

@@ -10,13 +10,8 @@
  */
 
 import {
-  collection,
   doc as docRef,
   getDoc,
-  getDocs,
-  limit,
-  query,
-  where,
   type Timestamp,
 } from "firebase/firestore";
 
@@ -77,29 +72,15 @@ export const EMPRESAS_COLLECTION = "empresas" as const;
  * cargara el módulo — antes de que un script pueda cargar sus propias
  * variables de entorno — rompiendo scripts que solo necesitan la constante.
  */
-export async function obtenerEmpresaFundacional(): Promise<Empresa | null> {
-  const { db } = await import("@/lib/firebase");
-  const q = query(
-    collection(db, EMPRESAS_COLLECTION),
-    where("esFundacional", "==", true),
-    limit(1)
-  );
-  const snap = await getDocs(q);
-  if (snap.empty) return null;
-  const doc = snap.docs[0];
-  return { id: doc.id, ...(doc.data() as Omit<Empresa, "id">) };
-}
-
 /**
  * Obtiene una empresa por su id opaco (lectura directa de documento).
  *
  * Es la fuente de verdad cuando `empresaId` proviene del claim del token
- * (D-U2-1/D-U2-2): a diferencia de `obtenerEmpresaFundacional()`, NO asume
+ * (D-U2-1/D-U2-2): NO asume
  * "la única empresa existente" — resuelve exactamente el documento que el
  * claim declara, sin volver a "descubrir" nada. Sigue siendo correcto sin
  * cambios cuando exista más de una empresa (MT-U11).
  *
- * `obtenerEmpresaFundacional()` queda reservado exclusivamente al camino de
  * fallback transitorio (D-U2-1) cuando el claim aún no existe/propaga.
  *
  * Devuelve `null` si el documento no existe.

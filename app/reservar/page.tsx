@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner'
 import Link from 'next/link'
 import Script from 'next/script'
+import { useParams } from 'next/navigation'
 import {
   getBloquesOcupados,
   crearReservaConHold,
@@ -46,6 +47,8 @@ function duracionHoras(seleccionadas: string[]): number {
 }
 
 export default function ReservarPage() {
+  const params = useParams<{ slug?: string }>()
+  const slug = typeof params.slug === 'string' ? params.slug : ''
   const [paso, setPaso] = useState<1 | 2 | 3>(1)
   
   // Paso 1: Selección
@@ -74,7 +77,8 @@ export default function ReservarPage() {
   useEffect(() => {
     async function loadSalas() {
       try {
-        const response = await fetch('/api/reservas/salas')
+        if (!slug) return
+        const response = await fetch(`/api/reservas/salas?${new URLSearchParams({ slug })}`)
         if (!response.ok) throw new Error('No se pudieron cargar las salas')
         const { salas: salasFirebase } = await response.json() as { salas: { id: string; nombre: string }[] }
         
@@ -86,7 +90,7 @@ export default function ReservarPage() {
       }
     }
     loadSalas()
-  }, [])
+  }, [slug])
 
   // Cargar disponibilidad de agenda al cambiar fecha o sala
   useEffect(() => {
@@ -101,7 +105,7 @@ export default function ReservarPage() {
         const fechaLocalStr = `${year}-${month}-${day}`
 
         // Una sola lectura: agenda por mesa+día (con materialización perezosa legacy)
-        const bloquesOcupados = await getBloquesOcupados(salaSeleccionada, fechaLocalStr)
+        const bloquesOcupados = await getBloquesOcupados(salaSeleccionada, fechaLocalStr, slug)
 
         // Convertir claves "08" → "08:00" para el estado de UI
         const ocupadas = bloquesOcupados.map(b => `${b}:00`)
@@ -132,7 +136,7 @@ export default function ReservarPage() {
     }
 
     checkDisponibilidad()
-  }, [fecha, salaSeleccionada])
+  }, [fecha, salaSeleccionada, slug])
 
   // Wompi script is now loaded via next/script
 
@@ -237,7 +241,7 @@ export default function ReservarPage() {
         console.error('Error guardando reserva mock:', err)
         if (err?.message === 'BLOQUE_OCUPADO') {
           toast.error('Horario no disponible', { description: 'Ese horario acaba de ser reservado. Por favor elige otro.' })
-          const bl = await getBloquesOcupados(salaSeleccionada, getFechaLocalStr())
+          const bl = await getBloquesOcupados(salaSeleccionada, getFechaLocalStr(), slug)
           setHorasOcupadas(bl.map(b => `${b}:00`))
           setHorasSeleccionadas([])
         } else {
@@ -263,7 +267,7 @@ export default function ReservarPage() {
         const year = fecha!.getFullYear()
         const month = String(fecha!.getMonth() + 1).padStart(2, '0')
         const day = String(fecha!.getDate()).padStart(2, '0')
-        const bl = await getBloquesOcupados(salaSeleccionada, `${year}-${month}-${day}`)
+        const bl = await getBloquesOcupados(salaSeleccionada, `${year}-${month}-${day}`, slug)
         setHorasOcupadas(bl.map(b => `${b}:00`))
         setHorasSeleccionadas([])
       } else {
@@ -296,7 +300,7 @@ export default function ReservarPage() {
           const response = await fetch('/api/reservas/cancelar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reservaId }),
+            body: JSON.stringify({ reservaId, slug }),
           })
           if (!response.ok) throw new Error('No se pudo cancelar la reserva')
         } catch (releaseErr) {
@@ -356,8 +360,12 @@ export default function ReservarPage() {
       fechaCreacion: new Date().toISOString(),
     }
 
-    const reservaId = await crearReservaConHold(reservaData, fechaLocal, bloques)
+    const reservaId = await crearReservaConHold(reservaData, fechaLocal, bloques, slug)
     return { reservaId, fechaLocal, bloques }
+  }
+
+  if (!slug) {
+    return <main className="p-8 text-center"><h1>Enlace de reserva incompleto</h1><p>Usa el enlace de reserva específico de tu empresa.</p></main>
   }
 
   return (

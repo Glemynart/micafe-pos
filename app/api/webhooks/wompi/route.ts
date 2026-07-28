@@ -8,7 +8,31 @@ function getDb() {
   return getAdminDb()
 }
 
-export async function POST(req: Request) {
+/** La referencia de Wompi identifica la reserva; solo la reserva autoriza el tenant. */
+export function resolverEmpresaIdDeReserva(reserva: unknown): string | null {
+  const empresaId = (reserva as { empresaId?: unknown } | null)?.empresaId
+  return typeof empresaId === 'string' && empresaId.trim() ? empresaId : null
+}
+
+export function validarAgendaDeReserva(reserva: unknown, agenda: unknown): boolean {
+  const r = reserva as { empresaId?: unknown; mesaId?: unknown; espacioId?: unknown } | null
+  const a = agenda as { empresaId?: unknown; mesaId?: unknown; espacioId?: unknown } | null
+  return typeof r?.empresaId === 'string' && typeof r?.mesaId === 'string' && typeof r?.espacioId === 'string'
+    && a?.empresaId === r.empresaId && a?.mesaId === r.mesaId && a?.espacioId === r.espacioId
+}
+
+export function evaluarPropiedadWebhook(reserva: unknown, agenda?: unknown): { empresaId: string } | { error: 'RESERVA_SIN_EMPRESA' | 'AGENDA_INCONSISTENTE' } {
+  const empresaId = resolverEmpresaIdDeReserva(reserva)
+  if (!empresaId) return { error: 'RESERVA_SIN_EMPRESA' }
+  if (agenda !== undefined && !validarAgendaDeReserva(reserva, agenda)) return { error: 'AGENDA_INCONSISTENTE' }
+  return { empresaId }
+}
+
+export async function procesarWebhookWompi(
+  req: Request,
+  db: FirebaseFirestore.Firestore = getDb(),
+  notificarAdmins: typeof enviarPushAdmins = enviarPushAdmins,
+) {
   try {
     if ((req.headers.get('content-type') || '').split(';')[0] !== 'application/json') {
       return NextResponse.json({ error: 'Unsupported content type' }, { status: 415 })
@@ -62,17 +86,7 @@ export async function POST(req: Request) {
       }
 
       try {
-        const db = getDb()
         let pushData: { empresaId: string; clienteNombre: string; fechaInicio: string; fechaFin: string } | null = null
-
-        // MT-U3 Capa 4 (§2.5, §4.2, §4.5): candidato de fallback resuelto UNA
-        // sola vez, ANTES de la transacción — nunca dentro. Se usa solo si la
-        // reserva (leída dentro de la transacción) no trae `empresaId` propio
-        // (reserva legacy, creada antes de que `/api/reservas/hold` empezara
-        // a estampar). Con un solo tenant este fallback es correcto; deja de
-        // serlo en cuanto exista una segunda empresa (MT-U11).
-        const fundacionalSnap = await db.collection('empresas').where('esFundacional', '==', true).limit(1).get()
-        const empresaIdFundacional = fundacionalSnap.empty ? null : fundacionalSnap.docs[0].id
 
         await db.runTransaction(async (t) => {
           const reservaRef = db.collection('reservas').doc(reservaId)
@@ -85,26 +99,18 @@ export async function POST(req: Request) {
 
           const reservaData = reservaDoc.data()
 
+          const propiedad = evaluarPropiedadWebhook(reservaData)
+          if ('error' in propiedad) throw new Error(propiedad.error)
+          const empresaId = propiedad.empresaId
+
           if (reservaData?.estadoPago === 'pagado') {
             console.log(`Reserva ${reservaId} ya estaba pagada. Ignorando webhook por idempotencia.`)
             pushData = null
             return
           }
 
-          // El tenant se deriva de la reserva (§4.2): es la fuente autoritativa,
-          // no una sesión. Fallback a la fundacional solo para reservas legacy.
-          const empresaId: string | null = reservaData?.empresaId ?? empresaIdFundacional
-          if (!empresaId) {
-            throw new Error(
-              `No se pudo resolver empresaId para la reserva ${reservaId}: no tiene el campo y no existe ninguna empresa fundacional.`
-            )
-          }
-          if (!reservaData?.empresaId) {
-            console.warn(
-              `[wompi-webhook] Reserva ${reservaId} sin empresaId propio — usando fallback a la empresa fundacional (legacy).`
-            )
-          }
-
+          // El tenant se deriva exclusivamente de la reserva, validada antes de
+          // la rama de idempotencia.
           pushData = {
             empresaId,
             clienteNombre: reservaData?.clienteNombre || 'Cliente',
@@ -163,6 +169,8 @@ export async function POST(req: Request) {
 
             if (agendaSnap.exists) {
               const agendaData = agendaSnap.data() as any
+              const propiedadAgenda = evaluarPropiedadWebhook(reservaData, agendaData)
+              if ('error' in propiedadAgenda) throw new Error(propiedadAgenda.error)
               const bloques = { ...(agendaData.bloques || {}) }
               let cambio = false
               for (const key of bloquesReserva) {
@@ -177,7 +185,7 @@ export async function POST(req: Request) {
                   ...agendaData,
                   bloques,
                   actualizadoEn: new Date().toISOString(),
-                  empresaId: agendaData.empresaId ?? empresaId,
+                  empresaId,
                 })
               }
             }
@@ -317,7 +325,7 @@ export async function POST(req: Request) {
             }
             fechaHora = hFin ? `${dia} ${hInicio}-${hFin}` : `${dia} ${hInicio}`
           }
-          enviarPushAdmins({
+          notificarAdmins({
             empresaId: pd.empresaId,
             title: 'Nueva reserva recibida',
             body: `${pd.clienteNombre} — ${fechaHora}`,
@@ -327,6 +335,9 @@ export async function POST(req: Request) {
       } catch (dbError: any) {
         if (dbError.message === 'Reservation not found') {
           return NextResponse.json({ error: 'Reservation not found' }, { status: 404 })
+        }
+        if (dbError.message === 'RESERVA_SIN_EMPRESA' || dbError.message === 'AGENDA_INCONSISTENTE') {
+          return NextResponse.json({ error: 'Reservation ownership unavailable' }, { status: 503 })
         }
         console.error(`Error actualizando Firebase para la reserva ${reservaId}:`, dbError)
         return NextResponse.json({ error: 'Failed to update DB' }, { status: 500 })
@@ -340,4 +351,8 @@ export async function POST(req: Request) {
     console.error('Webhook error:', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
+}
+
+export async function POST(req: Request) {
+  return procesarWebhookWompi(req)
 }

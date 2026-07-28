@@ -1,80 +1,43 @@
 import { NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/firebase-admin'
 
-/**
- * MT-U3 Capa 4 (§4.5) — disponibilidad de agenda para la landing pública `/reservar`.
- *
- * Corre server-side con Admin SDK porque el visitante no tiene sesión de
- * Firebase Auth (no hay `auth.currentUser` del que leer un claim `empresaId`):
- * el helper de tenant ambiental (`lib/tenant.ts`) no aplica aquí — es la vía
- * explícita de §3.6, igual que el webhook de Wompi y los scripts de
- * migración: resuelve el tenant por `esFundacional==true`, nunca lo decide el
- * cliente.
- *
- * Reemplaza la lectura/materialización que antes hacía `getBloquesOcupados`
- * directo contra Firestore desde el navegador (ver `lib/reservas-service.ts`).
- */
+interface BloqueAgenda { reservaId: string; estado: 'hold' | 'confirmado'; holdExpira: string | null; creadoEn: string }
+function esBloqueOcupado(bloque: BloqueAgenda, ahora: Date) { return bloque.estado === 'confirmado' || (!!bloque.holdExpira && new Date(bloque.holdExpira) > ahora) }
 
-interface BloqueAgenda {
-  reservaId: string
-  estado: 'hold' | 'confirmado'
-  holdExpira: string | null
-  creadoEn: string
-}
-
-function esBloqueOcupado(bloque: BloqueAgenda, ahora: Date): boolean {
-  if (bloque.estado === 'confirmado') return true
-  if (!bloque.holdExpira) return false
-  return new Date(bloque.holdExpira) > ahora
-}
-
-async function resolverEmpresaIdFundacional(db: FirebaseFirestore.Firestore): Promise<string> {
-  const snap = await db.collection('empresas').where('esFundacional', '==', true).limit(1).get()
-  if (snap.empty) {
-    throw new Error('No existe ninguna empresa con esFundacional==true.')
-  }
-  return snap.docs[0].id
-}
-
-export async function GET(req: Request) {
+export async function consultarDisponibilidad(req: Request, db: FirebaseFirestore.Firestore = getAdminDb()) {
   try {
     const { searchParams } = new URL(req.url)
     const mesaId = searchParams.get('mesaId')
     const fechaLocal = searchParams.get('fechaLocal')
-
-    if (!mesaId || !fechaLocal) {
-      return NextResponse.json({ error: 'mesaId y fechaLocal son obligatorios' }, { status: 400 })
-    }
-
-    const db = getAdminDb()
+    if (!mesaId || !fechaLocal) return NextResponse.json({ error: 'mesaId y fechaLocal son obligatorios' }, { status: 400 })
+    const mesaRef = db.collection('mesas').doc(mesaId)
     const agendaRef = db.collection('agendas').doc(`${mesaId}_${fechaLocal}`)
-    const snap = await agendaRef.get()
-    const ahora = new Date()
-
-    if (snap.exists) {
-      const data = snap.data() as { bloques?: Record<string, BloqueAgenda> }
-      const bloquesOcupados = Object.entries(data.bloques || {})
-        .filter(([, bloque]) => esBloqueOcupado(bloque, ahora))
-        .map(([hora]) => hora)
-      return NextResponse.json({ bloquesOcupados })
-    }
-
-    // Agenda no existe: combinación mesa+fecha sin reservas previas. Se
-    // materializa vacía y estampada — evita que quede huérfana (MT-U3 §3.2).
-    const empresaId = await resolverEmpresaIdFundacional(db)
-    await agendaRef.set({
-      mesaId,
-      espacioId: 'salas-coworking',
-      fecha: fechaLocal,
-      materializado: true,
-      bloques: {},
-      actualizadoEn: new Date().toISOString(),
-      empresaId,
+    const result = await db.runTransaction(async (tx) => {
+      const mesaSnap = await tx.get(mesaRef)
+      if (!mesaSnap.exists) throw new Error('MESA_NO_ENCONTRADA')
+      const mesa = mesaSnap.data() as { empresaId?: unknown; espacioId?: unknown }
+      if (typeof mesa.empresaId !== 'string' || !mesa.empresaId || typeof mesa.espacioId !== 'string') throw new Error('MESA_INCONSISTENTE')
+      const empresaSnap = await tx.get(db.collection('empresas').doc(mesa.empresaId))
+      const estadoEmpresa = empresaSnap.exists ? empresaSnap.data()?.estado : undefined
+      if (estadoEmpresa !== 'trial' && estadoEmpresa !== 'activa') throw new Error('EMPRESA_NO_OPERATIVA')
+      const agendaSnap = await tx.get(agendaRef)
+      const ahora = new Date()
+      if (agendaSnap.exists) {
+        const agenda = agendaSnap.data() as { empresaId?: unknown; mesaId?: unknown; espacioId?: unknown; bloques?: Record<string, BloqueAgenda> }
+        if (agenda.empresaId !== mesa.empresaId || agenda.mesaId !== mesaId || agenda.espacioId !== mesa.espacioId) throw new Error('AGENDA_INCONSISTENTE')
+        return Object.entries(agenda.bloques || {}).filter(([, bloque]) => esBloqueOcupado(bloque, ahora)).map(([hora]) => hora)
+      }
+      tx.set(agendaRef, { mesaId, espacioId: mesa.espacioId, fecha: fechaLocal, materializado: true, bloques: {}, actualizadoEn: ahora.toISOString(), empresaId: mesa.empresaId })
+      return []
     })
-
-    return NextResponse.json({ bloquesOcupados: [] })
-  } catch (error) {
+    return NextResponse.json({ bloquesOcupados: result })
+  } catch (error: any) {
+    if (['MESA_NO_ENCONTRADA', 'MESA_INCONSISTENTE', 'AGENDA_INCONSISTENTE', 'EMPRESA_NO_OPERATIVA'].includes(error?.message)) return NextResponse.json({ error: 'Agenda no disponible' }, { status: 409 })
     console.error('Error en /api/reservas/disponibilidad:', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
+}
+
+export async function GET(req: Request) {
+  return consultarDisponibilidad(req)
 }
