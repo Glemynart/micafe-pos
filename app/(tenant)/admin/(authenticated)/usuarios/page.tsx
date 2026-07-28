@@ -170,7 +170,6 @@ export default function UsuariosPage() {
                     <p className="text-sm font-semibold text-white/80 truncate">{u.nombre}</p>
                     {!u.activo && <Badge className="text-[9px] bg-red-500/20 text-red-300 border-red-500/30 py-0 px-1.5 h-4">Inactivo</Badge>}
                   </div>
-                  <p className="text-[11px] text-white/40">@{u.username}</p>
                 </div>
                 {/* Role selector */}
                 <div className="shrink-0">
