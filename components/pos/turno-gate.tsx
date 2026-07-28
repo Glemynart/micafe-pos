@@ -7,14 +7,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { suscribirTurnoActivo, abrirTurno, type Turno } from '@/lib/turnos-service'
-import { suscribirConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
+import { useConfiguracionEmpresa } from '@/contexts/configuracion-empresa-context'
 import { formatCurrency } from '@/lib/demo-data'
 import { toast } from 'sonner'
 import type { Usuario } from '@/lib/auth-service'
 
-// Roles que manejan efectivo y por tanto REQUIEREN un turno abierto para operar.
-// admin / marketing / cocinero no pasan por el arqueo de caja.
-const ROLES_CON_TURNO = new Set(['cajero', 'supervisor'])
 interface TurnoGateProps {
   usuario: Usuario
   children: React.ReactNode
@@ -30,7 +27,8 @@ interface TurnoGateProps {
  * Otros roles (admin, marketing, cocinero) pasan sin restricción.
  */
 export function TurnoGate({ usuario, children }: TurnoGateProps) {
-  const requiereTurno = ROLES_CON_TURNO.has(usuario.rol)
+  const { proyecciones } = useConfiguracionEmpresa()
+  const requiereTurno = proyecciones?.caja.rolesConTurnoObligatorio.includes(usuario.rol) ?? false
 
   const [turno, setTurno] = useState<Turno | null>(null)
   const [cargando, setCargando] = useState(true)
@@ -40,6 +38,7 @@ export function TurnoGate({ usuario, children }: TurnoGateProps) {
   const [abriendo, setAbriendo] = useState(false)
 
   useEffect(() => {
+    if (!proyecciones) return
     if (!requiereTurno) {
       setCargando(false)
       return
@@ -50,15 +49,18 @@ export function TurnoGate({ usuario, children }: TurnoGateProps) {
       setCargando(false)
     })
     return unsub
-  }, [usuario.uid, requiereTurno])
+  }, [usuario.uid, requiereTurno, proyecciones])
 
   useEffect(() => {
-    if (!requiereTurno || basePrellenada) return
-    const unsub = suscribirConfiguracion((cfg) => {
-      if (cfg.baseCajaSugerida > 0 && !basePrellenada) { setBase(cfg.baseCajaSugerida.toString()); setBasePrellenada(true) }
-    })
-    return unsub
-  }, [requiereTurno, basePrellenada])
+    const sugerida = proyecciones?.caja.baseAperturaSugerida
+    if (!requiereTurno || basePrellenada || !sugerida || sugerida <= 0) return
+    setBase(sugerida.toString())
+    setBasePrellenada(true)
+  }, [requiereTurno, basePrellenada, proyecciones?.caja.baseAperturaSugerida])
+
+  if (!proyecciones) {
+    return <div className="flex items-center justify-center h-full min-h-[60vh]"><Loader2 className="h-7 w-7 animate-spin text-muted-foreground/50" /></div>
+  }
 
   // Roles sin arqueo: acceso directo.
   if (!requiereTurno) return <>{children}</>

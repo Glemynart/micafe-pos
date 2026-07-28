@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { FieldValue } from "firebase-admin/firestore";
-import { exigirTenantActivo, exigirTenantLecturaAdmin, validarEmpresaEscribible } from "../operational-auth";
+import { exigirAdminTenant, exigirTenantActivo, exigirTenantLecturaAdmin, validarEmpresaEscribible } from "../operational-auth";
 import { transicionarEmpresa } from "./service";
 
 class Ref {
@@ -115,4 +115,18 @@ test("B4 Enforcement — Transición de lifecycle ejecuta revocación de tokens 
   // Reintento idempotente no vuelve a revocar
   const res2 = await transicionarEmpresa(db as any, e, ctx);
   assert.equal(res2.idempotente, true);
+});
+
+test("MT-B7 - cajero activo lee configuración canónica y solo admin conserva comandos de escritura", async () => {
+  const db = new Db();
+  db.seed("empresas/empresa_b7", { estado: "activa", paisFiscal: "CO" });
+  db.seed("membresias/empresa_b7_admin_b7", { empresaId: "empresa_b7", uid: "admin_b7", rol: "admin", permisos: [], estado: "activa", activo: true });
+  db.seed("membresias/empresa_b7_cajero_b7", { empresaId: "empresa_b7", uid: "cajero_b7", rol: "cajero", permisos: [], estado: "activa", activo: true });
+
+  const admin = { auth: { uid: "admin_b7", token: { empresaId: "empresa_b7", rol: "admin" } } };
+  const cajero = { auth: { uid: "cajero_b7", token: { empresaId: "empresa_b7", rol: "cajero" } } };
+
+  assert.equal((await exigirTenantActivo(cajero, db as any)).id, "empresa_b7");
+  assert.equal((await exigirAdminTenant(admin, db as any)).id, "empresa_b7");
+  await assert.rejects(exigirAdminTenant(cajero, db as any), /Acceso denegado/);
 });

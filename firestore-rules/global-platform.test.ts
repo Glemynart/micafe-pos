@@ -75,7 +75,7 @@ test("configuraciÃ³n exige autenticaciÃ³n y eventos mantienen lectura pÃºb
   const marketingA = await contextFor(fixtures.tenantA.marketing);
 
   await expectDenied(anonimo.firestore().doc("configuracion/general").get());
-  await expectAllowed(cajeroA.firestore().doc("configuracion/general").get());
+  await expectDenied(cajeroA.firestore().doc("configuracion/general").get());
   await expectAllowed(anonimo.firestore().doc("eventos/evento-publico").get());
   await expectAllowed(marketingA.firestore().doc("eventos/nuevo-evento").set({ titulo: "Nuevo" }));
   await expectDenied(anonimo.firestore().doc("eventos/no-autorizado").set({ titulo: "No" }));

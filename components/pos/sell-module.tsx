@@ -11,8 +11,8 @@ import { suscribirClientes, filtrarClientes, crearCliente, type Cliente } from '
 import { suscribirMesas, type Mesa } from '@/lib/mesas-service'
 import { suscribirPedidosActivos, guardarPedido, agregarItemPedido, enviarPedidoACocina, modificarItemPedido, suscribirComandasActivas, type PedidoActivo, type PedidoItem, type ComandaCocina } from '@/lib/pedidos-service'
 import { suscribirTurnoActivo, type Turno } from '@/lib/turnos-service'
-import { suscribirConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
 import type { CheckoutConfiguracionEmpresa } from '@/lib/tickets/adapters/checkout-adapter'
+import { useConfiguracionEmpresa } from '@/contexts/configuracion-empresa-context'
 import {
   resolverLineaImpuesto,
   agregarTotalesImpuesto,
@@ -115,6 +115,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   // Datos reales desde Firestore
   const { usuario } = useAuthContext()
   const { espacioActivo, categorias, categoriaActiva, seleccionarCategoria } = useEspacios()
+  const { proyecciones } = useConfiguracionEmpresa()
 
   const [catScroll, setCatScroll] = useState({ canLeft: false, canRight: false })
   const categoriesScrollRef = useRef<HTMLDivElement>(null)
@@ -227,13 +228,13 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   // ADR-TRIB-001 D2/D7: régimen tributario de la Empresa — único driver del
   // cálculo de impuesto (INV-6/INV-7). Default en el punto de lectura.
   const [regimenTributario, setRegimenTributario] = useState<RegimenTributario>(REGIMEN_TRIBUTARIO_DEFAULT)
-  // H4: config completa (no solo el régimen) — el encabezado de empresa del
-  // ticket la necesita entera, igual que Historial.
-  const [config, setConfig] = useState<ConfiguracionGlobal | null>(null)
-  useEffect(() => suscribirConfiguracion((config) => {
-    setRegimenTributario(config.regimenTributario ?? REGIMEN_TRIBUTARIO_DEFAULT)
-    setConfig(config)
-  }), [])
+  // La configuración canónica se carga una sola vez en ConfiguracionEmpresaProvider.
+  const config: CheckoutConfiguracionEmpresa | null = proyecciones
+    ? { identidad: proyecciones.identidad, localizacion: proyecciones.localizacion, ticket: proyecciones.ticket }
+    : null
+  useEffect(() => {
+    setRegimenTributario(proyecciones?.identidad.regimenTributario ?? REGIMEN_TRIBUTARIO_DEFAULT)
+  }, [proyecciones])
 
   // Bridge salon → sell: intent de navegación pendiente (consume-once).
   // Se inicializa con initialPedidoId al montar. El efecto lo consume
@@ -964,13 +965,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   // la salida a impresión replica exactamente el patrón de Historial (H3). El
   // Checkout nunca emite DIAN, así que `model.dian` siempre es undefined y no
   // se genera QR — misma cadena, mismo guard, sin flujo de impresión distinto.
-  const imprimirTicketConMotor = async (venta: CheckoutTicketInput, config: ConfiguracionGlobal) => {
-    const [numeroDocumento, digitoVerificacion] = (config.nit_tienda ?? '').split('-', 2)
-    const configuracionTicket: CheckoutConfiguracionEmpresa = {
-      identidad: { nombreComercial: config.nombre_tienda, razonSocial: config.razonSocial, tipoPersona: undefined, tipoDocumento: 'NIT', numeroDocumento: numeroDocumento || undefined, digitoVerificacion: digitoVerificacion || undefined, regimenTributario: config.regimenTributario, responsabilidadesFiscales: undefined, actividadEconomicaPrincipal: undefined, contacto: { email: config.email, telefono: config.telefono } },
-      localizacion: { paisFiscal: 'CO', moneda: 'COP', idioma: 'es-CO', zonaHoraria: 'America/Bogota', direccion: { linea1: config.direccion_tienda, municipioNombre: config.ciudad } },
-      ticket: { mensajePie: config.mensaje_ticket, mostrarLogoDocumento: false, mostrarRazonSocial: true, mostrarDireccion: true, mostrarTelefono: true, mostrarDesgloseImpuestos: true },
-    }
+  const imprimirTicketConMotor = async (venta: CheckoutTicketInput, configuracionTicket: CheckoutConfiguracionEmpresa) => {
     const { input, empresa } = adaptarCheckoutAModeloTicket(venta, configuracionTicket)
     const model = TicketBuilder.fromVenta(input, empresa)
     const qrDataUri = model.dian ? await generateQrDataUri(model.dian.qrPayload) : undefined
