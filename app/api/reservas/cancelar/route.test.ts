@@ -12,6 +12,7 @@ function reservaHold(overrides: Record<string, unknown> = {}): Record<string, un
     estadoPago: 'pendiente',
     holdExpira: '2026-07-20T12:15:00.000Z',
     mesaId: 'sala-a',
+    espacioId: 'salas-coworking',
     fechaLocal: '2026-07-20',
     bloques: ['08'],
     ...overrides,
@@ -20,9 +21,13 @@ function reservaHold(overrides: Record<string, unknown> = {}): Record<string, un
 
 function dbDePrueba(reserva?: Record<string, unknown>) {
   const datos: Record<string, Record<string, Record<string, unknown>>> = {
+    empresas: { [empresaId]: { estado: 'activa' } },
     reservas: reserva ? { 'reserva-1': reserva } : {},
+    mesas: {
+      'sala-a': { empresaId, espacioId: 'salas-coworking' },
+    },
     agendas: {
-      'sala-a_2026-07-20': { bloques: { '08': { reservaId: 'reserva-1' } } },
+      'sala-a_2026-07-20': { empresaId, mesaId: 'sala-a', espacioId: 'salas-coworking', bloques: { '08': { reservaId: 'reserva-1' } } },
     },
   }
   const escrituras: Array<{ coleccion: string, id: string }> = []
@@ -32,17 +37,6 @@ function dbDePrueba(reserva?: Record<string, unknown>) {
       return {
         doc(id: string) {
           return { coleccion, id }
-        },
-        where() {
-          return {
-            limit() {
-              return {
-                async get() {
-                  return { empty: false, docs: [{ id: empresaId }] }
-                },
-              }
-            },
-          }
         },
       }
     },
@@ -69,6 +63,22 @@ test('cancelación pública: cancela un hold pendiente vigente de Café Atrato',
   assert.equal(await cancelarHoldPendiente(prueba.db, 'reserva-1', ahora), 'CANCELABLE')
   assert.equal(prueba.datos.reservas['reserva-1'].estadoReserva, 'cancelada')
   assert.equal(prueba.escrituras.length, 2)
+})
+
+test('cancelaci\u00f3n p\u00fablica: no libera la agenda si mesa o agenda pertenecen a otro tenant', async () => {
+  const prueba = dbDePrueba(reservaHold())
+  prueba.datos.mesas['sala-a'].empresaId = 'cafe-otro'
+
+  assert.equal(await cancelarHoldPendiente(prueba.db, 'reserva-1', ahora), 'RESERVA_INCONSISTENTE')
+  assert.equal(prueba.escrituras.length, 0)
+})
+
+test('cancelacion publica: no libera un hold de una empresa suspendida', async () => {
+  const prueba = dbDePrueba(reservaHold())
+  prueba.datos.empresas[empresaId].estado = 'suspendida'
+
+  assert.equal(await cancelarHoldPendiente(prueba.db, 'reserva-1', ahora), 'EMPRESA_NO_OPERATIVA')
+  assert.equal(prueba.escrituras.length, 0)
 })
 
 test('cancelación pública: rechaza una reserva confirmada o pagada', async () => {
