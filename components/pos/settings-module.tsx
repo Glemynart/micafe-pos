@@ -26,34 +26,55 @@ import { Switch } from '@/components/ui/switch'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { useEspacios } from '@/contexts/espacios-context'
 import { suscribirMesas, guardarMesa, eliminarMesa, type Mesa } from '@/lib/mesas-service'
-import { suscribirConfiguracion, guardarConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
+import { useConfiguracionEmpresa } from '@/contexts/configuracion-empresa-context'
 import { regimenesTributariosVisibles, REGIMEN_TRIBUTARIO_DEFAULT } from '@/lib/impuestos-service'
+import { crearOperacionesSettings, type ConfiguracionSettingsEditable } from '@/lib/configuracion/settings-operations'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
+
+type ConfiguracionSettings = ConfiguracionSettingsEditable
 
 export function SettingsModule() {
   const [activeTab, setActiveTab] = useState('business')
   const { espacioActivo } = useEspacios()
+  const { proyecciones, revision, ejecutar } = useConfiguracionEmpresa()
   const [mesas, setMesas] = useState<Mesa[]>([])
   const [nuevaMesa, setNuevaMesa] = useState('')
   const [mesaToDelete, setMesaToDelete] = useState<Mesa | null>(null)
   
   // Configuración
-  const [config, setConfig] = useState<ConfiguracionGlobal | null>(null)
+  const [config, setConfig] = useState<ConfiguracionSettings | null>(null)
   const [savingConfig, setSavingConfig] = useState(false)
 
   useEffect(() => {
     const unsubMesas = espacioActivo ? suscribirMesas(espacioActivo.id, setMesas) : () => setMesas([])
-    const unsubConfig = suscribirConfiguracion(setConfig)
-    return () => {
-      unsubMesas()
-      unsubConfig()
-    }
+    return unsubMesas
   }, [espacioActivo?.id])
 
-  const handleConfigChange = (field: keyof ConfiguracionGlobal, value: string | number | boolean) => {
+  useEffect(() => {
+    if (!proyecciones) {
+      setConfig(null)
+      return
+    }
+    const { identidad, localizacion, ticket, caja } = proyecciones
+    setConfig({
+      nombre_tienda: identidad.nombreComercial,
+      nit_tienda: identidad.numeroDocumento ? `${identidad.numeroDocumento}${identidad.digitoVerificacion ? `-${identidad.digitoVerificacion}` : ''}` : '',
+      razonSocial: identidad.razonSocial ?? '',
+      direccion_tienda: localizacion.direccion.linea1 ?? '',
+      ciudad: localizacion.direccion.municipioNombre ?? '',
+      telefono: identidad.contacto.telefono ?? '',
+      email: identidad.contacto.email ?? '',
+      regimenTributario: identidad.regimenTributario ?? REGIMEN_TRIBUTARIO_DEFAULT,
+      mensaje_ticket: ticket.mensajePie,
+      baseCajaSugerida: caja.baseAperturaSugerida,
+      umbralAlertaFaltante: caja.umbralAlertaFaltante,
+    })
+  }, [proyecciones])
+
+  const handleConfigChange = (field: keyof ConfiguracionSettings, value: string | number) => {
     if (config) {
-      setConfig({ ...config, [field]: value } as ConfiguracionGlobal)
+      setConfig({ ...config, [field]: value } as ConfiguracionSettings)
     }
   }
 
@@ -61,20 +82,19 @@ export function SettingsModule() {
     if (!config) return
     setSavingConfig(true)
     try {
-      const { ejecutarComandoConfiguracionCliente } = await import('@/lib/configuracion/client-repository')
-      const { getEmpresaId } = await import('@/lib/tenant')
-      const empresaId = await getEmpresaId()
-      await ejecutarComandoConfiguracionCliente('actualizarConfiguracionEmpresa', empresaId, {
-        expectedRevision: 1,
-        idempotencyKey: `idemp_${Date.now()}`,
-        commandId: `cmd_${Date.now()}`,
-        correlationId: `corr_${Date.now()}`,
-        operaciones: [
-          { tipo: 'SET', ruta: 'identidadFiscal.nombreComercial', valor: config.nombre_tienda },
-          { tipo: 'SET', ruta: 'identidadFiscal.contacto.email', valor: config.email },
-          { tipo: 'SET', ruta: 'identidadFiscal.contacto.telefono', valor: config.telefono },
-        ]
-      })
+      if (revision === null) throw new Error('La configuración empresarial aún no está disponible.')
+      let expectedRevision = revision
+      const marca = Date.now()
+      for (const [indice, plan] of crearOperacionesSettings(config).entries()) {
+        const resultado = await ejecutar(plan.comando, {
+          expectedRevision,
+          idempotencyKey: `idemp_${marca}_${indice}`,
+          commandId: `cmd_${marca}_${indice}`,
+          correlationId: `corr_${marca}`,
+          operaciones: plan.operaciones,
+        })
+        expectedRevision = resultado.revision
+      }
       toast.success("Configuración empresarial B1 guardada correctamente")
     } catch (e) {
       toast.error("Error al guardar la configuración empresarial B1")
@@ -177,7 +197,7 @@ export function SettingsModule() {
                 <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-3xl">
                   <Store className="h-10 w-10 text-primary-foreground" />
                 </div>
-                <Button variant="outline">
+                <Button variant="outline" disabled title="La carga de logos se habilitará con el flujo de activos de branding aprobado.">
                   <Upload className="h-4 w-4 mr-2" />
                   Cambiar Logo
                 </Button>
@@ -236,7 +256,7 @@ export function SettingsModule() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>Impresora térmica</Label>
-                <Select defaultValue="epson">
+                <Select defaultValue="epson" disabled>
                   <SelectTrigger className="bg-input">
                     <SelectValue />
                   </SelectTrigger>
@@ -250,7 +270,7 @@ export function SettingsModule() {
               </div>
               <div className="space-y-2">
                 <Label>Ancho del papel</Label>
-                <Select defaultValue="80">
+                <Select defaultValue="80" disabled>
                   <SelectTrigger className="bg-input">
                     <SelectValue />
                   </SelectTrigger>
@@ -265,16 +285,16 @@ export function SettingsModule() {
                   <p className="font-medium text-foreground">Auto-imprimir al vender</p>
                   <p className="text-sm text-muted-foreground">Imprime automáticamente el ticket al completar una venta</p>
                 </div>
-                <Switch defaultChecked />
+                <Switch defaultChecked disabled />
               </div>
               <div className="flex items-center justify-between p-4 bg-secondary/30 rounded-lg">
                 <div>
                   <p className="font-medium text-foreground">Imprimir copia para cocina</p>
                   <p className="text-sm text-muted-foreground">Genera una copia adicional para preparación</p>
                 </div>
-                <Switch />
+                <Switch disabled />
               </div>
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full" disabled>
                 <Printer className="h-4 w-4 mr-2" />
                 Imprimir prueba
               </Button>
@@ -420,7 +440,7 @@ export function SettingsModule() {
                   <p className="font-medium text-foreground">Modo de pruebas</p>
                   <p className="text-sm text-muted-foreground">Usa el ambiente sandbox de Factus</p>
                 </div>
-                <Switch />
+                <Switch disabled />
               </div>
               <Button onClick={handleSaveConfig} disabled={savingConfig || !config} className="bg-primary text-primary-foreground">
                 <Save className="h-4 w-4 mr-2" />
@@ -570,7 +590,7 @@ export function SettingsModule() {
                   inputMode="numeric"
                   min="0"
                   className="bg-input"
-                  value={config?.baseCajaSugerida ?? 200000}
+                  value={config?.baseCajaSugerida ?? ''}
                   onChange={(e) => handleConfigChange('baseCajaSugerida', Math.max(0, parseInt(e.target.value) || 0))}
                 />
                 <p className="text-xs text-muted-foreground">
@@ -584,7 +604,7 @@ export function SettingsModule() {
                   inputMode="numeric"
                   min="0"
                   className="bg-input"
-                  value={config?.umbralAlertaFaltante ?? 20000}
+                  value={config?.umbralAlertaFaltante ?? ''}
                   onChange={(e) => handleConfigChange('umbralAlertaFaltante', Math.max(0, parseInt(e.target.value) || 0))}
                 />
                 <p className="text-xs text-muted-foreground">

@@ -5,9 +5,8 @@ import { toast } from "sonner"
 import { useAuthContext } from '@/contexts/auth-context'
 import { useEspacios } from '@/contexts/espacios-context'
 import { suscribirHistorialVentas, obtenerVentaPorId, anularVenta as anularVentaFirebase, guardarMetadatosDian } from '@/lib/ventas-service'
-import { suscribirConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
 import { TicketBuilder, generateQrDataUri, renderTicket, DEFAULT_RENDER_OPTIONS } from '@/lib/tickets'
-import { adaptarVentaB2AModeloTicket, adaptarVentaLegacyAModeloTicket } from '@/lib/reimpresion/venta-ticket-adapter'
+import { adaptarVentaB2AModeloTicket } from '@/lib/reimpresion/venta-ticket-adapter'
 import { formatCurrency } from '@/lib/format-utils'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -77,14 +76,6 @@ export function Historial() {
     venta: null,
     motivo: 'Nota de ajuste',
   })
-
-  // Identidad del negocio para el ticket (fuente única: configuracion/general
-  // en Firestore, no SQLite — ver diseño "Unificar fuente de verdad reimpresión").
-  const [config, setConfig] = useState<ConfiguracionGlobal | null>(null)
-  useEffect(() => {
-    const unsubConfig = suscribirConfiguracion(setConfig)
-    return () => unsubConfig()
-  }, [])
 
   const handleEmitirNota = async () => {
     if (!notaState.venta || !notaState.venta.dian?.cufe) return;
@@ -195,21 +186,21 @@ export function Historial() {
   // (ver diseño "Persistencia de metadatos DIAN en el modelo Venta"). Un
   // reintento (merge idempotente) mitiga un fallo transitorio de escritura;
   // si persiste, se reporta explícitamente en vez de fallar en silencio.
-  const persistirMetadatosDian = async (ventaId: string, factusRes: any): Promise<boolean> => {
+  const persistirMetadatosDian = async (venta: any, factusRes: any): Promise<boolean> => {
     const dian = {
       cufe: factusRes.cufe,
       qr: factusRes.qr,
       numero: factusRes.numero,
       prefijo: factusRes.prefijo || '',
       pdfUrl: factusRes.pdf || '',
-      resolucion: config?.resolucion_dian || '',
+      resolucion: factusRes.resolucion || venta?.snapshotFiscal?.numeracion?.resolucion || '',
     };
     try {
-      await guardarMetadatosDian(ventaId, dian);
+      await guardarMetadatosDian(venta.id, dian);
       return true;
     } catch {
       try {
-        await guardarMetadatosDian(ventaId, dian); // reintento (R1)
+        await guardarMetadatosDian(venta.id, dian); // reintento (R1)
         return true;
       } catch (err) {
         console.error(err);
@@ -252,7 +243,7 @@ export function Historial() {
       });
 
       if (factusRes.ok) {
-        const persistido = await persistirMetadatosDian(ventaCompleta.id, factusRes);
+        const persistido = await persistirMetadatosDian(ventaCompleta, factusRes);
         if (persistido) {
           toast.success(`Factura emitida exitosamente.`, { id: 'dian' });
         } else {
@@ -305,7 +296,7 @@ export function Historial() {
 
         if (factusRes.ok) {
           success++;
-          const persistido = await persistirMetadatosDian(ventaCompleta.id, factusRes);
+          const persistido = await persistirMetadatosDian(ventaCompleta, factusRes);
           if (!persistido) sinRegistrar++;
         } else {
           failed++;
@@ -333,25 +324,23 @@ export function Historial() {
   };
 
   const imprimirReimpresion = async (venta: any) => {
-    if (!config) {
-      toast.error("Configuración aún no disponible. Intente de nuevo en un momento.");
+    if (!venta?.snapshotFiscal) {
+      toast.error("Esta venta histórica no tiene snapshot fiscal certificado para reimpresión.");
       return;
     }
     try {
-      await imprimirTicketConMotor(venta, config);
+      await imprimirTicketConMotor(venta);
     } catch (err) {
       console.error(err);
       toast.error("Error al imprimir el ticket.");
     }
   };
 
-  // Orquestación del motor de tickets (B7): Si la venta posee snapshotFiscal (B2),
-  // se invoca adaptarVentaB2AModeloTicket de forma pura sin consultar configuracion/general.
-  // Si es una venta histórica pre-cutover, se invoca adaptarVentaLegacyAModeloTicket.
-  const imprimirTicketConMotor = async (venta: any, config: ConfiguracionGlobal) => {
-    const { input, empresa } = venta?.snapshotFiscal
-      ? adaptarVentaB2AModeloTicket(venta.snapshotFiscal)
-      : adaptarVentaLegacyAModeloTicket(venta, config);
+  // B7: un ticket reimpreso es evidencia histórica y se materializa únicamente
+  // desde el snapshot fiscal inmutable de la venta. Las ventas sin evidencia
+  // certificada permanecen bloqueadas hasta su migración histórica aprobada.
+  const imprimirTicketConMotor = async (venta: any) => {
+    const { input, empresa } = adaptarVentaB2AModeloTicket(venta.snapshotFiscal);
     const model = TicketBuilder.fromVenta(input, empresa);
     const qrDataUri = model.dian ? await generateQrDataUri(model.dian.qrPayload) : undefined;
     const html = renderTicket(model, DEFAULT_RENDER_OPTIONS, { qrDataUri });

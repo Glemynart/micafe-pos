@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { adaptarCheckoutAModeloTicket, type CheckoutConfiguracionEmpresa, type CheckoutTicketInput } from '../adapters/checkout-adapter'
-import type { ConfiguracionGlobal } from '../../configuracion-service'
+import type { ConfiguracionHistoricaTicket } from '../../reimpresion/legacy-ticket-config'
 
 // Venta canónica del Checkout: CrearVentaParams + { consecutivo, fecha }.
 // Es EXACTAMENTE el objeto que registrarVenta/cobrarPedido persisten (fuente única).
@@ -38,7 +38,7 @@ const venta = (overrides: Partial<CheckoutTicketInput> = {}): CheckoutTicketInpu
   ...overrides,
 })
 
-const BASE_CONFIG: ConfiguracionGlobal = {
+const BASE_CONFIG: ConfiguracionHistoricaTicket = {
   nombre_tienda: 'Cafe Central',
   razonSocial: 'Cafe Central SAS',
   nit_tienda: '900123456-7',
@@ -47,17 +47,11 @@ const BASE_CONFIG: ConfiguracionGlobal = {
   telefono: '3000000000',
   email: 'a@b.co',
   prefijo_factura: 'SETP',
-  consecutivo_actual: 44,
   resolucion_dian: '',
-  tipo_contribuyente: 'Regimen Simplificado',
-  responsable_iva: '0',
   mensaje_ticket: 'Gracias',
-  modulos_habilitados: [],
-  baseCajaSugerida: 0,
-  umbralAlertaFaltante: 0,
 }
 
-const cfg = (overrides: Partial<ConfiguracionGlobal> = {}): CheckoutConfiguracionEmpresa => { const c = { ...BASE_CONFIG, ...overrides }; const [numeroDocumento, digitoVerificacion] = c.nit_tienda.split('-'); return { identidad: { nombreComercial: c.nombre_tienda, razonSocial: c.razonSocial, tipoPersona: undefined, tipoDocumento: 'NIT', numeroDocumento, digitoVerificacion, regimenTributario: undefined, responsabilidadesFiscales: undefined, actividadEconomicaPrincipal: undefined, contacto: { email: c.email, telefono: c.telefono } }, localizacion: { paisFiscal: 'CO', moneda: 'COP', idioma: 'es-CO', zonaHoraria: 'America/Bogota', direccion: { linea1: c.direccion_tienda, municipioNombre: c.ciudad } }, ticket: { mensajePie: c.mensaje_ticket, mostrarLogoDocumento: false, mostrarRazonSocial: true, mostrarDireccion: true, mostrarTelefono: true, mostrarDesgloseImpuestos: true } } }
+const cfg = (overrides: Partial<ConfiguracionHistoricaTicket> = {}): CheckoutConfiguracionEmpresa => { const c = { ...BASE_CONFIG, ...overrides }; const [numeroDocumento, digitoVerificacion] = c.nit_tienda.split('-'); return { identidad: { nombreComercial: c.nombre_tienda, razonSocial: c.razonSocial, tipoPersona: undefined, tipoDocumento: 'NIT', numeroDocumento, digitoVerificacion, regimenTributario: undefined, responsabilidadesFiscales: undefined, actividadEconomicaPrincipal: undefined, contacto: { email: c.email, telefono: c.telefono } }, localizacion: { paisFiscal: 'CO', moneda: 'COP', idioma: 'es-CO', zonaHoraria: 'America/Bogota', direccion: { linea1: c.direccion_tienda, municipioNombre: c.ciudad } }, ticket: { mensajePie: c.mensaje_ticket, mostrarLogoDocumento: false, mostrarRazonSocial: true, mostrarDireccion: true, mostrarTelefono: true, mostrarDesgloseImpuestos: true } } }
 
 // ── D-PAGO ──────────────────────────────────────────────────────────────────
 
