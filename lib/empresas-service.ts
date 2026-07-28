@@ -60,11 +60,14 @@ export interface Empresa {
 export const EMPRESAS_COLLECTION = "empresas" as const;
 
 /**
- * Resuelve la empresa fundacional sin hardcodear su id opaco (MT-U1 D-U1-1):
- * hasta MT-U11 existe exactamente una empresa, descubrible por
- * `esFundacional == true`. Devuelve `null` si aún no se ejecutó el backfill
- * de MT-U1. Primer consumidor real de este módulo (MT-U2); ver
- * MT-U2-runtime-saas-diseno.md §5.
+ * Resuelve la empresa fundacional sin hardcodear su id opaco (MT-U1 D-U1-1).
+ *
+ * @deprecated Desde R-6. El flujo de autenticación ya no depende de una
+ * empresa fundacional. Usar `obtenerEmpresaPorId(id)` con el `empresaId`
+ * del claim para caminos autenticados, o resolver por otro criterio en
+ * rutas Admin sin sesión (ese caso pertenece a MT-U11).
+ * Se conserva exclusivamente para compatibilidad con scripts históricos
+ * ya ejecutados y para trazabilidad del campo.
  *
  * `db` se importa dinámicamente (no en el top-level del módulo): así este
  * archivo permanece inerte para cualquier import que solo necesite
