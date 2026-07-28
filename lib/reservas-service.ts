@@ -90,8 +90,8 @@ function bloquesDeRango(fechaInicio: string, fechaFin: string): string[] {
  * materializa vacía y estampada. Devuelve las claves de hora ocupadas,
  * ej: ["08","09","13"].
  */
-export async function getBloquesOcupados(mesaId: string, fechaLocal: string): Promise<string[]> {
-  const params = new URLSearchParams({ mesaId, fechaLocal })
+export async function getBloquesOcupados(mesaId: string, fechaLocal: string, slug: string): Promise<string[]> {
+  const params = new URLSearchParams({ mesaId, fechaLocal, slug })
   const res = await fetch(`/api/reservas/disponibilidad?${params.toString()}`)
   if (!res.ok) {
     throw new Error('No se pudo consultar la disponibilidad de la agenda.')
@@ -108,12 +108,13 @@ export async function getBloquesOcupados(mesaId: string, fechaLocal: string): Pr
 export async function crearReservaConHold(
   reservaData: Omit<Reserva, 'id'>,
   fechaLocal: string,
-  bloquesSolicitados: string[]
+  bloquesSolicitados: string[],
+  slug: string
 ): Promise<string> {
   const res = await fetch('/api/reservas/hold', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ reservaData, fechaLocal, bloquesSolicitados }),
+    body: JSON.stringify({ reservaData, fechaLocal, bloquesSolicitados, slug }),
   })
 
   if (!res.ok) {

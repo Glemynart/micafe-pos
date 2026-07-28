@@ -17,6 +17,11 @@ const CafeMap = dynamic(() => import('@/components/ui/cafe-map').then(m => ({ de
   )
 })
 
+const publicReservationSlug = process.env.NEXT_PUBLIC_RESERVATION_SLUG?.trim()
+const publicReservationHref = publicReservationSlug
+  ? `/reservar/${encodeURIComponent(publicReservationSlug)}`
+  : null
+
 export default function LandingPage() {
   const orbitLayerRef = useRef<HTMLDivElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -163,9 +168,15 @@ export default function LandingPage() {
             </p>
             
             <div className="hero-buttons">
-              <Link href="/reservar" className="btn btn-primary btn-3d">
-                Reservar una Sala
-              </Link>
+              {publicReservationHref ? (
+                <Link href={publicReservationHref} className="btn btn-primary btn-3d">
+                  Reservar una Sala
+                </Link>
+              ) : (
+                <span className="btn btn-primary btn-3d opacity-60 cursor-not-allowed" aria-disabled="true">
+                  Reservas no disponibles
+                </span>
+              )}
             </div>
 
             <div className="hero-proof" aria-label="Beneficios principales">
