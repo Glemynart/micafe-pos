@@ -24,11 +24,12 @@ import { Badge } from "@/components/ui/badge"
 import { UserPlus, Trash2, Shield, Users, Loader2 } from "lucide-react"
 import {
   suscribirUsuarios,
-  crearUsuario,
+  crearOperador,
   actualizarRolUsuario,
   toggleUsuarioActivo,
   type Usuario,
   type RolUsuario,
+  type ResultadoCreacionOperador,
 } from "@/lib/permisos-service"
 
 export function UserManagement() {
@@ -37,9 +38,12 @@ export function UserManagement() {
   const [showCreate, setShowCreate] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [usuarioADesactivar, setUsuarioADesactivar] = useState<Usuario | null>(null)
-  const [newUser, setNewUser] = useState({ usuario: "", password: "", nombre: "", rol: "cajero" as RolUsuario })
+  const [newUser, setNewUser] = useState({ nombre: "", rol: "cajero" as RolUsuario })
   const [creando, setCreando] = useState(false)
   const [guardandoRol, setGuardandoRol] = useState<string | null>(null)
+  const [showCredential, setShowCredential] = useState(false)
+  const [credentialData, setCredentialData] = useState<ResultadoCreacionOperador | null>(null)
+  const [showPin, setShowPin] = useState(false)
 
   useEffect(() => {
     const unsub = suscribirUsuarios((data) => {
@@ -50,14 +54,6 @@ export function UserManagement() {
   }, [])
 
   const handleCreateUser = async () => {
-    if (newUser.usuario.length < 4) {
-      toast.error("El usuario debe tener al menos 4 caracteres")
-      return
-    }
-    if (newUser.password.length < 8) {
-      toast.error("La contrasena debe tener al menos 8 caracteres")
-      return
-    }
     if (!newUser.nombre.trim()) {
       toast.error("El nombre es obligatorio")
       return
@@ -65,18 +61,23 @@ export function UserManagement() {
 
     setCreando(true)
     try {
-      await crearUsuario(newUser.usuario, newUser.password, newUser.nombre.trim(), newUser.rol)
-      toast.success("Usuario creado exitosamente")
+      const result = await crearOperador(newUser.nombre.trim(), newUser.rol)
+      setCredentialData(result)
+      setShowCredential(true)
       setShowCreate(false)
-      setNewUser({ usuario: "", password: "", nombre: "", rol: "cajero" })
+      setNewUser({ nombre: "", rol: "cajero" })
     } catch (err: any) {
-      const msg = err?.code === "auth/email-already-in-use"
-        ? "El nombre de usuario ya está en uso"
-        : err?.message || "Error al crear usuario"
-      toast.error(msg)
+      toast.error(err?.message || "Error al crear operador")
     } finally {
       setCreando(false)
     }
+  }
+
+  const handleCloseCredential = () => {
+    setShowCredential(false)
+    setCredentialData(null)
+    setShowPin(false)
+    toast.success("Operador creado. Entrega el código y PIN al operador.")
   }
 
   const confirmDeleteUser = (user: Usuario) => {
@@ -135,17 +136,16 @@ export function UserManagement() {
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-lg flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Gestion de Usuarios
+            Gestion de Operadores
           </CardTitle>
           <Button size="sm" onClick={() => setShowCreate(true)}>
-            <UserPlus className="mr-1 h-4 w-4" /> Nuevo Usuario
+            <UserPlus className="mr-1 h-4 w-4" /> Nuevo Operador
           </Button>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Usuario</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Rol</TableHead>
                 <TableHead>Estado</TableHead>
@@ -155,15 +155,14 @@ export function UserManagement() {
             <TableBody>
               {usuarios.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    No hay usuarios registrados
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    No hay operadores registrados
                   </TableCell>
                 </TableRow>
               )}
               {usuarios.map((u) => (
                 <TableRow key={u.uid}>
-                  <TableCell className="font-medium">{u.username}</TableCell>
-                  <TableCell className="text-muted-foreground">{u.nombre}</TableCell>
+                  <TableCell className="font-medium">{u.nombre}</TableCell>
                   <TableCell>
                     {guardandoRol === u.uid ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -214,11 +213,11 @@ export function UserManagement() {
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <div className="flex items-start gap-2">
             <Shield className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" />
-            <p>Las contrasenas se almacenan con Firebase Authentication de forma segura.</p>
+            <p>Los operadores usan código + PIN para iniciar sesión. El PIN temporal debe cambiarse en el primer ingreso.</p>
           </div>
           <div className="flex items-start gap-2">
             <Shield className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" />
-            <p>Los roles determinan los modulos y permisos del usuario en el sistema.</p>
+            <p>Los roles determinan los modulos y permisos del operador en el sistema.</p>
           </div>
           <div className="flex items-start gap-2">
             <Shield className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" />
@@ -226,26 +225,17 @@ export function UserManagement() {
           </div>
           <div className="flex items-start gap-2">
             <Shield className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" />
-            <p>Desactivar un usuario no elimina sus datos, solo impide que inicie sesion.</p>
+            <p>Desactivar un operador no elimina sus datos, solo impide que inicie sesion.</p>
           </div>
         </CardContent>
       </Card>
 
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog open={showCreate} onOpenChange={(open) => { if (!open) setShowCreate(false) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nuevo Usuario</DialogTitle>
+            <DialogTitle>Nuevo Operador</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="new-username">Usuario</Label>
-              <Input
-                id="new-username"
-                placeholder="Minimo 4 caracteres"
-                value={newUser.usuario}
-                onChange={(e) => setNewUser({ ...newUser, usuario: e.target.value })}
-              />
-            </div>
             <div className="space-y-2">
               <Label htmlFor="new-nombre">Nombre completo</Label>
               <Input
@@ -256,27 +246,17 @@ export function UserManagement() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="new-password">Contrasena</Label>
-              <Input
-                id="new-password"
-                type="password"
-                placeholder="Minimo 8 caracteres"
-                value={newUser.password}
-                onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="new-role">Rol</Label>
               <Select value={newUser.rol} onValueChange={(v) => setNewUser({ ...newUser, rol: v as RolUsuario })}>
                 <SelectTrigger id="new-role">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="supervisor">Supervisor (operación ampliada)</SelectItem>
-                  <SelectItem value="cocinero">Cocinero (solo cocina)</SelectItem>
-                  <SelectItem value="cajero">Cajero (solo ventas)</SelectItem>
-                  <SelectItem value="marketing">Marketing (eventos y promos)</SelectItem>
                   <SelectItem value="admin">Administrador (acceso total)</SelectItem>
+                  <SelectItem value="supervisor">Supervisor (operación ampliada)</SelectItem>
+                  <SelectItem value="cajero">Cajero (solo ventas)</SelectItem>
+                  <SelectItem value="cocinero">Cocinero (solo cocina)</SelectItem>
+                  <SelectItem value="marketing">Marketing (eventos y promos)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -285,7 +265,58 @@ export function UserManagement() {
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancelar</Button>
             <Button onClick={handleCreateUser} disabled={creando}>
               {creando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              Crear Usuario
+              Crear Operador
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCredential} onOpenChange={() => {}}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Credencial del operador</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-amber-600 dark:text-amber-400 font-semibold">Estos datos no se volverán a mostrar. Entrégalos al operador ahora. El operador deberá cambiar su PIN en el primer ingreso.</p>
+            <div className="space-y-1">
+              <Label>Código operativo</Label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 border rounded-lg px-3 py-2 text-sm font-mono bg-muted">{credentialData?.codigo}</code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { if (credentialData?.codigo) navigator.clipboard.writeText(credentialData.codigo); toast.success("Código copiado") }}
+                >
+                  Copiar
+                </Button>
+              </div>
+            </div>
+            {credentialData?.pinTemporal && (
+              <div className="space-y-1">
+                <Label>PIN temporal</Label>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 border rounded-lg px-3 py-2 text-sm font-mono tracking-widest bg-muted">{showPin ? credentialData.pinTemporal : "••••••"}</code>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowPin(!showPin)}
+                  >
+                    {showPin ? "Ocultar" : "Mostrar"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { if (credentialData?.pinTemporal) navigator.clipboard.writeText(credentialData.pinTemporal); toast.success("PIN copiado") }}
+                  >
+                    Copiar
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={handleCloseCredential} variant="default">
+              Entendido, ya los guardé
             </Button>
           </DialogFooter>
         </DialogContent>
