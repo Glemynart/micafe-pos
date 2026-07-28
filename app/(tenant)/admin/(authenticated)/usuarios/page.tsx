@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import Link from "next/link"
 import { Loader2, UserPlus, Trash2, Shield, ArrowRight, ClipboardList, LayoutGrid, ChevronRight, Lock, Truck, CalendarDays } from "lucide-react"
 import { toast } from "sonner"
-import { suscribirUsuarios, crearUsuario, actualizarRolUsuario, toggleUsuarioActivo, type Usuario, type RolUsuario } from "@/lib/permisos-service"
+import { suscribirUsuarios, crearOperador, actualizarRolUsuario, toggleUsuarioActivo, type Usuario, type RolUsuario, type ResultadoCreacionOperador } from "@/lib/permisos-service"
 
 export default function UsuariosPage() {
   const { usuario: cu } = useAuthContext()
@@ -21,25 +21,34 @@ export default function UsuariosPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [uDel, setUDel] = useState<Usuario | null>(null)
-  const [form, setForm] = useState({ usuario: "", password: "", nombre: "", rol: "cajero" as RolUsuario })
+  const [form, setForm] = useState({ nombre: "", rol: "cajero" as RolUsuario })
   const [creando, setCreando] = useState(false)
   const [gr, setGr] = useState<string | null>(null)
+  const [showCredential, setShowCredential] = useState(false)
+  const [credentialData, setCredentialData] = useState<ResultadoCreacionOperador | null>(null)
+  const [showPin, setShowPin] = useState(false)
 
   useEffect(() => { const u = suscribirUsuarios(d => { setUsuarios(d); setCargando(false) }); return u }, [])
 
   const hCreate = async () => {
-    if (form.usuario.length < 4) { toast.error("Mínimo 4 caracteres"); return }
-    if (form.password.length < 8) { toast.error("Mínimo 8 caracteres"); return }
     if (!form.nombre.trim()) { toast.error("Nombre requerido"); return }
     setCreando(true)
     try {
-      await crearUsuario(form.usuario, form.password, form.nombre.trim(), form.rol)
-      toast.success("Usuario creado")
+      const result = await crearOperador(form.nombre.trim(), form.rol)
+      setCredentialData(result)
+      setShowCredential(true)
       setShowCreate(false)
-      setForm({ usuario: "", password: "", nombre: "", rol: "cajero" })
+      setForm({ nombre: "", rol: "cajero" })
     } catch (err: any) {
-      toast.error(err?.code === "auth/email-already-in-use" ? "Usuario ya existe" : err?.message || "Error al crear")
+      toast.error(err?.message || "Error al crear operador")
     } finally { setCreando(false) }
+  }
+
+  const hCloseCredential = () => {
+    setShowCredential(false)
+    setCredentialData(null)
+    setShowPin(false)
+    toast.success("Operador creado. Entrega el código y PIN al operador.")
   }
 
   const hDelete = async () => {
@@ -77,7 +86,7 @@ export default function UsuariosPage() {
           className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 px-3 rounded-lg shadow-none"
         >
           <UserPlus className="h-3.5 w-3.5 mr-1.5" />
-          Nuevo usuario
+          Nuevo operador
         </Button>
       </div>
 
@@ -161,7 +170,6 @@ export default function UsuariosPage() {
                     <p className="text-sm font-semibold text-white/80 truncate">{u.nombre}</p>
                     {!u.activo && <Badge className="text-[9px] bg-red-500/20 text-red-300 border-red-500/30 py-0 px-1.5 h-4">Inactivo</Badge>}
                   </div>
-                  <p className="text-[11px] text-white/40">@{u.username}</p>
                 </div>
                 {/* Role selector */}
                 <div className="shrink-0">
@@ -198,26 +206,17 @@ export default function UsuariosPage() {
         {/* Security note */}
         <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 flex items-start gap-3">
           <Lock className="h-4 w-4 text-white/40 shrink-0 mt-0.5" />
-          <p className="text-xs text-white/60">Las contraseñas están protegidas con Firebase Authentication. Desactivar un usuario impide su acceso inmediatamente.</p>
+          <p className="text-xs text-white/60">Los operadores usan código + PIN para iniciar sesión. Desactivar un operador impide su acceso inmediatamente. El PIN temporal debe cambiarse en el primer ingreso.</p>
         </div>
       </div>
 
-      {/* Dialog crear usuario */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      {/* Dialog crear operador */}
+      <Dialog open={showCreate} onOpenChange={(open) => { if (!open) setShowCreate(false) }}>
         <DialogContent className="!bg-[#0a1628] !text-white !border-white/10" showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle className="text-white font-bold">Nuevo Usuario</DialogTitle>
+            <DialogTitle className="text-white font-bold">Nuevo Operador</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div>
-              <Label className="text-xs font-bold text-white/60 uppercase tracking-wider">Usuario (mín. 4 caracteres)</Label>
-              <Input
-                className="mt-1.5 !bg-[#1a2d4a] !border-white/10 !text-white placeholder:text-white/30 focus-visible:ring-[#F9B207]"
-                placeholder="usuario123"
-                value={form.usuario}
-                onChange={e => setForm({ ...form, usuario: e.target.value })}
-              />
-            </div>
             <div>
               <Label className="text-xs font-bold text-white/60 uppercase tracking-wider">Nombre completo</Label>
               <Input
@@ -228,27 +227,17 @@ export default function UsuariosPage() {
               />
             </div>
             <div>
-              <Label className="text-xs font-bold text-white/60 uppercase tracking-wider">Contraseña (mín. 8 caracteres)</Label>
-              <Input
-                className="mt-1.5 !bg-[#1a2d4a] !border-white/10 !text-white placeholder:text-white/30 focus-visible:ring-[#F9B207]"
-                type="password"
-                placeholder="••••••••"
-                value={form.password}
-                onChange={e => setForm({ ...form, password: e.target.value })}
-              />
-            </div>
-            <div>
               <Label className="text-xs font-bold text-white/60 uppercase tracking-wider">Rol</Label>
               <Select value={form.rol} onValueChange={v => setForm({ ...form, rol: v as RolUsuario })}>
                 <SelectTrigger className="mt-1.5 !bg-[#1a2d4a] !border-white/10 !text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="!bg-[#0d1f3c] !border-white/10">
-                  <SelectItem value="supervisor" className="!text-white focus:!bg-[#1a2d4a]">Supervisor</SelectItem>
-                  <SelectItem value="cocinero" className="!text-white focus:!bg-[#1a2d4a]">Cocinero</SelectItem>
-                  <SelectItem value="cajero" className="!text-white focus:!bg-[#1a2d4a]">Cajero</SelectItem>
-                  <SelectItem value="marketing" className="!text-white focus:!bg-[#1a2d4a]">Marketing</SelectItem>
                   <SelectItem value="admin" className="!text-white focus:!bg-[#1a2d4a]">Administrador</SelectItem>
+                  <SelectItem value="supervisor" className="!text-white focus:!bg-[#1a2d4a]">Supervisor</SelectItem>
+                  <SelectItem value="cajero" className="!text-white focus:!bg-[#1a2d4a]">Cajero</SelectItem>
+                  <SelectItem value="cocinero" className="!text-white focus:!bg-[#1a2d4a]">Cocinero</SelectItem>
+                  <SelectItem value="marketing" className="!text-white focus:!bg-[#1a2d4a]">Marketing</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -257,7 +246,62 @@ export default function UsuariosPage() {
             <Button variant="outline" onClick={() => setShowCreate(false)} className="!border-white/10 !text-white/70 hover:!bg-white/5">Cancelar</Button>
             <Button onClick={hCreate} disabled={creando} className="!bg-[#F9B207] !text-[#051D41] hover:!bg-[#e6a100] shadow-none font-bold">
               {creando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              Crear usuario
+              Crear operador
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog entrega de credencial */}
+      <Dialog open={showCredential} onOpenChange={() => {}}>
+        <DialogContent className="!bg-[#0a1628] !text-white !border-white/10 [&>button]:hidden" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle className="text-white font-bold">Credencial del operador</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-xs text-amber-400 font-semibold">Estos datos no se volverán a mostrar. Entrégalos al operador ahora. El operador deberá cambiar su PIN en el primer ingreso.</p>
+            <div className="space-y-1">
+              <Label className="text-xs font-bold text-white/60 uppercase tracking-wider">Código operativo</Label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-[#1a2d4a] border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono">{credentialData?.codigo}</code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="!border-white/10 !text-white/70 hover:!bg-white/5 h-9"
+                  onClick={() => { if (credentialData?.codigo) navigator.clipboard.writeText(credentialData.codigo); toast.success("Código copiado") }}
+                >
+                  Copiar
+                </Button>
+              </div>
+            </div>
+            {credentialData?.pinTemporal && (
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-white/60 uppercase tracking-wider">PIN temporal</Label>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-[#1a2d4a] border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono tracking-widest">{showPin ? credentialData.pinTemporal : "••••••"}</code>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="!border-white/10 !text-white/70 hover:!bg-white/5 h-9"
+                    onClick={() => setShowPin(!showPin)}
+                  >
+                    {showPin ? "Ocultar" : "Mostrar"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="!border-white/10 !text-white/70 hover:!bg-white/5 h-9"
+                    onClick={() => { if (credentialData?.pinTemporal) navigator.clipboard.writeText(credentialData.pinTemporal); toast.success("PIN copiado") }}
+                  >
+                    Copiar
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={hCloseCredential} className="!bg-[#F9B207] !text-[#051D41] hover:!bg-[#e6a100] shadow-none font-bold">
+              Entendido, ya los guardé
             </Button>
           </DialogFooter>
         </DialogContent>
