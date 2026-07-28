@@ -98,6 +98,30 @@ export function suscribirUsuarios(callback: (usuarios: Usuario[]) => void): Unsu
   return () => { cancelado = true; cerrar(); };
 }
 
+export type ResultadoCreacionOperador = {
+  incorporacionId: string;
+  estado: string;
+  uid: string;
+  codigo: string;
+  pinTemporal?: string;
+};
+
+export async function crearOperador(nombre: string, rol: RolUsuario): Promise<ResultadoCreacionOperador> {
+  const callable = httpsCallable<{
+    nombre: string;
+    rol: RolUsuario;
+    codigo?: null;
+    pinTemporal?: null;
+  }, ResultadoCreacionOperador>(functionsCliente(), "crearIncorporacionDirecta");
+  const result = await callable({ nombre, rol });
+  return result.data as ResultadoCreacionOperador;
+}
+
+/**
+ * @deprecated Usar `crearOperador(nombre, rol)` en su lugar. El modelo de
+ * usuario+contraseña quedó obsoleto y no produce credenciales operativas
+ * utilizables. Se conserva para compatibilidad durante la transición.
+ */
 export async function crearUsuario(username: string, password: string, nombre: string, rol: RolUsuario): Promise<Usuario> {
   const email = usernameToEmail(username.toLowerCase().trim());
   const appName = `membership-create-${crypto.randomUUID()}`;
