@@ -6,7 +6,7 @@ import { Square } from "lucide-react"
 import { Turno, calcularVentasTurno, cerrarTurno, obtenerCandidatosRelevo, suscribirTurnoActivo } from "@/lib/turnos-service"
 import { calcularEgresosTurno } from "@/lib/egresos-service"
 import { toast } from "sonner"
-import { suscribirConfiguracion, type ConfiguracionGlobal } from "@/lib/configuracion-service"
+import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
 import { formatCurrency, formatTime } from "@/lib/format-utils"
 import { CloseShiftForm } from '@/components/pos/close-shift-form'
 
@@ -16,6 +16,7 @@ interface GlobalCloseShiftProps {
 }
 
 export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftProps) {
+ const { proyecciones } = useConfiguracionEmpresa()
  const [open, setOpen] = useState(false)
  const [activeShift, setActiveShift] = useState<Turno | null>(null)
  
@@ -27,9 +28,6 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  const [isClosing, setIsClosing] = useState(false)
  const [isLoadingTotals, setIsLoadingTotals] = useState(false)
  const [cajeros, setCajeros] = useState<{ uid: string; nombre: string }[]>([])
- const [config, setConfig] = useState<ConfiguracionGlobal | null>(null)
-
- useEffect(() => { const u = suscribirConfiguracion(setConfig); return u }, [])
 
  // Suscribirse al turno activo para tenerlo listo
  useEffect(() => {
@@ -108,7 +106,7 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  notasCierre: closeNotes || '',
  esCierreDefinitivo: handoverTo === 'none',
  conteoDetalle: Object.fromEntries(Object.entries(cashCount).map(([k, v]) => [k, parseInt(v, 10) || 0])),
- umbralAlertaFaltante: config?.umbralAlertaFaltante,
+ umbralAlertaFaltante: proyecciones?.caja.umbralAlertaFaltante,
  ...(cajeroRelevo ? { relevoCajeroId: cajeroRelevo.uid, relevoCajeroNombre: cajeroRelevo.nombre } : {}),
  })
  setOpen(false)

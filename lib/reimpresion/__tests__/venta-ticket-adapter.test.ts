@@ -1,10 +1,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { adaptarVentaAModeloTicket, adaptarVentaB2AModeloTicket } from '../venta-ticket-adapter'
-import type { ConfiguracionGlobal } from '../../configuracion-service'
+import type { ConfiguracionHistoricaTicket } from '../legacy-ticket-config'
 
 // Config mínima válida; los tests sobreescriben lo relevante.
-const BASE_CONFIG: ConfiguracionGlobal = {
+const BASE_CONFIG: ConfiguracionHistoricaTicket = {
   nombre_tienda: 'Cafe Central',
   razonSocial: 'Cafe Central SAS',
   nit_tienda: '900123456-7',
@@ -13,20 +15,23 @@ const BASE_CONFIG: ConfiguracionGlobal = {
   telefono: '3000000000',
   email: 'a@b.co',
   prefijo_factura: 'SETP',
-  consecutivo_actual: 10,
   resolucion_dian: 'RES-123',
   rangoInicio: '1',
   rangoFin: '5000',
   resolucionVigencia: '2027-01-01',
-  tipo_contribuyente: 'Regimen Simplificado',
-  responsable_iva: '',
   mensaje_ticket: 'Gracias',
-  modulos_habilitados: [],
-  baseCajaSugerida: 0,
-  umbralAlertaFaltante: 0,
 }
 
-const cfg = (overrides: Partial<ConfiguracionGlobal> = {}): ConfiguracionGlobal => ({
+test('B7: Historial reimprime solo desde snapshotFiscal y no importa el singleton legacy', () => {
+  const historial = readFileSync(resolve(process.cwd(), 'components/pos/historial.tsx'), 'utf8')
+
+  assert.doesNotMatch(historial, /configuracion-service/)
+  assert.doesNotMatch(historial, /suscribirConfiguracion/)
+  assert.doesNotMatch(historial, /adaptarVentaLegacyAModeloTicket/)
+  assert.match(historial, /snapshotFiscal/)
+})
+
+const cfg = (overrides: Partial<ConfiguracionHistoricaTicket> = {}): ConfiguracionHistoricaTicket => ({
   ...BASE_CONFIG,
   ...overrides,
 })

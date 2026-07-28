@@ -43,10 +43,11 @@ import {
 } from '@/lib/demo-data'
 import { toast } from 'sonner'
 import { CloseShiftForm } from '@/components/pos/close-shift-form'
-import { suscribirConfiguracion, type ConfiguracionGlobal } from '@/lib/configuracion-service'
+import { useConfiguracionEmpresa } from '@/contexts/configuracion-empresa-context'
 
 export function ShiftsModule() {
   const { usuario } = useAuthContext()
+  const { proyecciones } = useConfiguracionEmpresa()
   
   const [showOpenShift, setShowOpenShift] = useState(false)
   const [showCloseShift, setShowCloseShift] = useState(false)
@@ -68,13 +69,6 @@ export function ShiftsModule() {
   const [closeNotes, setCloseNotes] = useState('')
   const [handoverTo, setHandoverTo] = useState('none')
   const [cajeros, setCajeros] = useState<{ uid: string; nombre: string }[]>([])
-  const [config, setConfig] = useState<ConfiguracionGlobal | null>(null)
-
-  // Suscribir configuración
-  useEffect(() => {
-    const unsub = suscribirConfiguracion(setConfig)
-    return unsub
-  }, [])
   // Fetch real data
   useEffect(() => {
     if (!usuario) return
@@ -180,7 +174,7 @@ export function ShiftsModule() {
         notasCierre: closeNotes,
         esCierreDefinitivo: handoverTo === 'none',
         conteoDetalle: Object.fromEntries(Object.entries(cashCount).map(([k, v]) => [k, parseInt(v, 10) || 0])),
-        umbralAlertaFaltante: config?.umbralAlertaFaltante,
+        umbralAlertaFaltante: proyecciones?.caja.umbralAlertaFaltante,
         ...(cajeroRelevo ? { relevoCajeroId: cajeroRelevo.uid, relevoCajeroNombre: cajeroRelevo.nombre } : {}),
       })
       if (esRelevo) {
@@ -230,7 +224,7 @@ export function ShiftsModule() {
               Cerrar Turno
             </Button>
           ) : (
-            <Button onClick={() => { if (config?.baseCajaSugerida && !initialCash) setInitialCash(config.baseCajaSugerida.toString()); setShowOpenShift(true) }} className="bg-primary text-primary-foreground">
+            <Button onClick={() => { if (proyecciones?.caja.baseAperturaSugerida && !initialCash) setInitialCash(proyecciones.caja.baseAperturaSugerida.toString()); setShowOpenShift(true) }} className="bg-primary text-primary-foreground">
               <Play className="h-4 w-4 mr-2" />
               Abrir Turno
             </Button>

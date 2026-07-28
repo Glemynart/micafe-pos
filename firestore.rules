@@ -249,7 +249,9 @@ service cloud.firestore {
       allow create, update, delete: if esAutenticado() && rol() in ['admin', 'marketing'];
     }
     match /configuracion/{id} {
-      allow read: if esAutenticado();
+      // MT-B7: archivo histórico. Ningún cliente puede resolver configuración
+      // tenant mediante el singleton legacy.
+      allow read: if false;
       allow create, update, delete: if false;
     }
     match /usuarios/{uid} {
