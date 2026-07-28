@@ -167,6 +167,7 @@ export async function crearIncorporacionDirecta({
   const preparado = prepararIncorporacionDirecta(data);
   const { nombre, rol } = preparado;
   let { codigo, pinTemporal } = preparado;
+  const codigoFueProvisto = codigo !== null;
   const pinTemporalGenerada = pinTemporal === null;
 
   const db = getFirestore();
@@ -278,7 +279,18 @@ export async function crearIncorporacionDirecta({
 
       if (resultadoExistente) return resultadoExistente;
     } catch (error) {
-      if (error instanceof HttpsError && error.message === CODIGO_OPERATIVO_GLOBAL_YA_ASIGNADO && intento < MAX_INTENTOS_UNICIDAD) {
+      if (error instanceof HttpsError
+        && error.message === CODIGO_OPERATIVO_GLOBAL_YA_ASIGNADO
+        && !codigoFueProvisto
+        && intento < MAX_INTENTOS_UNICIDAD) {
+        if (creadaAhora) {
+          try {
+            await auth.deleteUser(principal.uid);
+          } catch {
+            logger.error("incorporacion_directa_auth_cleanup_failed", { empresaId, uid: principal.uid });
+            throw error;
+          }
+        }
         intento++;
         codigo = null;
         continue;
