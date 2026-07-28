@@ -60,7 +60,7 @@ interface SaaSContextValue {
 
 // ─── Contexto ─────────────────────────────────────────────────────────────────
 
-const SaaSContext = createContext<SaaSContextValue | null>(null);
+export const SaaSContext = createContext<SaaSContextValue | null>(null);
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 

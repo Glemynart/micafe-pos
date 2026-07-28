@@ -5,14 +5,15 @@ import type {
   VentaBuilderInputItem,
   VentaBuilderInputTotales,
 } from '../tickets'
-import type { ConfiguracionGlobal } from '../configuracion-service'
+import type { ConfiguracionHistoricaTicket } from './legacy-ticket-config'
 import { proyectarModificadoresTicket } from '../modifier-snapshot-projection'
 import type { SnapshotFiscal } from '../fiscal/contrato'
 
 /**
  * Adaptador de reimpresión (H3).
  *
- * Traduce el documento crudo de una Venta de Firestore + la ConfiguracionGlobal
+ * Traduce el documento crudo de una Venta de Firestore + la configuración
+ * histórica explícita del ticket.
  * al contrato de entrada del motor de tickets (`VentaBuilderInput` +
  * `TicketEmpresaConfig`). Convierte a Historial en el primer consumidor del
  * motor introducido en H1/H2 sin modificar el motor.
@@ -62,7 +63,7 @@ function resolverMetodoPago(venta: any): string {
 }
 
 /** Resuelve el prefijo de facturación (idéntico al que usaba Historial). */
-function resolverPrefijo(venta: any, config: ConfiguracionGlobal): string {
+function resolverPrefijo(venta: any, config: ConfiguracionHistoricaTicket): string {
   return venta?.dian?.prefijo || config.prefijo_factura || PREFIJO_DEFAULT
 }
 
@@ -129,7 +130,7 @@ function mapearItems(items: any): VentaBuilderInputItem[] {
  */
 function mapearDian(
   venta: any,
-  config: ConfiguracionGlobal,
+  config: ConfiguracionHistoricaTicket,
   prefijo: string
 ): VentaBuilderInputDian | undefined {
   const d = venta?.dian
@@ -147,7 +148,7 @@ function mapearDian(
 }
 
 /** Encabezado/pie de empresa. El régimen sale del snapshot de la venta (ADR). */
-function mapearEmpresa(venta: any, config: ConfiguracionGlobal): TicketEmpresaConfig {
+function mapearEmpresa(venta: any, config: ConfiguracionHistoricaTicket): TicketEmpresaConfig {
   return {
     nombreComercial: config.nombre_tienda || 'MiTienda',
     razonSocial: config.razonSocial || undefined,
@@ -166,7 +167,7 @@ function mapearEmpresa(venta: any, config: ConfiguracionGlobal): TicketEmpresaCo
  */
 export function adaptarVentaAModeloTicket(
   venta: any,
-  config: ConfiguracionGlobal
+  config: ConfiguracionHistoricaTicket
 ): { input: VentaBuilderInput; empresa: TicketEmpresaConfig } {
   const prefijo = resolverPrefijo(venta, config)
 
@@ -218,5 +219,5 @@ export function adaptarVentaB2AModeloTicket(snapshot: SnapshotFiscal): { input: 
   }
 }
 
-/** Nombre explícito para el camino histórico; conserva exactamente su autoridad legacy. */
+/** Nombre explícito para el camino histórico; no consulta una autoridad vigente. */
 export const adaptarVentaLegacyAModeloTicket = adaptarVentaAModeloTicket

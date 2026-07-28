@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, useEffect, createContext, useContext, type ReactNode } from "react"
-import { suscribirConfiguracion, DEFAULT_MODULOS } from "@/lib/configuracion-service"
-import { useSaaS } from "@/contexts/saas-context"
+import { createContext, useContext, type ReactNode } from "react"
+import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
 
 interface ModulosContextValue {
   modulos: string[]
@@ -12,24 +11,9 @@ interface ModulosContextValue {
 const ModulosContext = createContext<ModulosContextValue>({ modulos: [], cargando: true })
 
 export function ModulosProvider({ children }: { children: ReactNode }) {
-  const { empresaId, loading } = useSaaS()
-  const [modulos, setModulos] = useState<string[]>([])
-  const [cargando, setCargando] = useState(true)
-
-  useEffect(() => {
-    if (loading || !empresaId) {
-      setModulos([])
-      setCargando(false)
-      return
-    }
-
-    setCargando(true)
-    const unsubscribe = suscribirConfiguracion((configuracion) => {
-      setModulos(configuracion.modulos_habilitados ?? DEFAULT_MODULOS)
-      setCargando(false)
-    })
-    return unsubscribe
-  }, [empresaId, loading])
+  const { estado, proyecciones } = useConfiguracionEmpresa()
+  const cargando = estado !== "LISTA"
+  const modulos = proyecciones?.modulos.habilitados ?? []
 
   return <ModulosContext.Provider value={{ modulos, cargando }}>{children}</ModulosContext.Provider>
 }
