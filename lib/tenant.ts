@@ -45,9 +45,9 @@ export async function getEmpresaId(): Promise<string> {
 /**
  * Estampado explícito para rutas Admin (webhook, scripts). NO lee
  * `auth.currentUser` — el llamador ya resolvió el `empresaId` de forma
- * autoritativa (p. ej. derivado del dato, o por `esFundacional`). Es la
- * única función pura y síncrona del módulo: el mismo merge que usa
- * `stampEmpresaId` por debajo, sin la resolución ambiental.
+ * autoritativa (p. ej. derivado del dato, o por consulta directa a
+ * `empresas`). Es la única función pura y síncrona del módulo: el mismo
+ * merge que usa `stampEmpresaId` por debajo, sin la resolución ambiental.
  */
 export function withEmpresaId<T extends object>(
   empresaId: string,

@@ -75,7 +75,7 @@ function bloquesDeRango(fechaInicio: string, fechaFin: string): string[] {
 // cada visitante anónimo — por eso estas dos funciones ya NO tocan Firestore
 // directo: delegan a rutas server-side (`/api/reservas/disponibilidad`,
 // `/api/reservas/hold`) que corren con Admin SDK y resuelven el tenant de
-// forma explícita (§3.6: esFundacional==true), igual que el webhook de Wompi
+// forma explícita (§3.6), igual que el webhook de Wompi (deuda de MT-U11)
 // y los scripts de migración. El contrato público de ambas funciones
 // (firma, tipos, mensaje de error 'BLOQUE_OCUPADO') no cambia — cero cambios
 // en `app/reservar/page.tsx`.
