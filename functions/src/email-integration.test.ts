@@ -128,6 +128,147 @@ test("EMAIL compensa Auth si Firestore falla antes de activar", async () => {
   await assert.rejects(() => getAuth().getUserByEmail(correo), { code: "auth/user-not-found" });
 });
 
+test("EMAIL no activa una invitacion expirada ni una membresia incompatible", async () => {
+  const empresaId = `empresa-email-validaciones-${Date.now()}`;
+  const db = getFirestore();
+  await preparar(empresaId);
+
+  const vencida = await emitir(empresaId, email());
+  await db.collection("incorporaciones").doc(vencida.incorporacionId).update({ expiraEn: Timestamp.fromMillis(Date.now() - 1) });
+  await assert.rejects(
+    () => aceptarIncorporacionEmail({ incorporacionId: vencida.incorporacionId, token: vencida.entrega!.token, password: "ClaveSegura123", tokenSecret: PEPPER }),
+    { code: "failed-precondition" },
+  );
+  assert.equal((await db.collection("incorporaciones").doc(vencida.incorporacionId).get()).data()?.estado, "EXPIRED");
+
+  const correo = email();
+  const principal = await getAuth().createUser({ email: correo, password: "ClaveSegura123" });
+  const incompatible = await emitir(empresaId, correo);
+  await db.collection("membresias").doc(`${empresaId}_${principal.uid}`).set({
+    empresaId, uid: principal.uid, rol: "admin", permisos: ["sell"], estado: "activa", activo: true,
+  });
+  await assert.rejects(
+    () => aceptarIncorporacionEmail({ incorporacionId: incompatible.incorporacionId, token: incompatible.entrega!.token, password: undefined, uid: principal.uid, emailSesion: correo, tokenSecret: PEPPER }),
+    { code: "already-exists" },
+  );
+  assert.equal((await db.collection("incorporaciones").doc(incompatible.incorporacionId).get()).data()?.estado, "INVITED");
+});
+
+test("DIRECTA rechaza la activacion y el reintento ACTIVE cuando el lifecycle deja de ser operativo", async () => {
+  const empresaFundacionalId = `empresa-fundacional-${Date.now()}`;
+  const empresaId = `empresa-directa-lifecycle-${Date.now()}`;
+  const db = getFirestore();
+  await prepararEmpresaFundacionalUnica(empresaFundacionalId);
+  await preparar(empresaId);
+  for (const estado of ["suspendida", "cancelada", "archivada", "eliminada"]) {
+    const incorporacion = await crearIncorporacionDirecta({
+      empresaId,
+      emisorUid: "admin",
+      data: { nombre: "Operadora lifecycle", codigo: `caja-lifecycle-${estado}-${Date.now()}`, pinTemporal: "123456", rol: "cajero" },
+      pepper: PIN_PEPPER,
+    });
+    await db.collection("empresas").doc(empresaId).update({ estado });
+    await assert.rejects(
+      () => activarIncorporacionDirecta({ incorporacionId: incorporacion.incorporacionId, uid: incorporacion.uid, data: { pinActual: "123456", pinNuevo: "654321" }, pepper: PIN_PEPPER }),
+      { code: "failed-precondition" },
+    );
+    assert.equal((await db.collection("incorporaciones").doc(incorporacion.incorporacionId).get()).data()?.estado, "TEMP_CREDENTIAL");
+    assert.equal((await db.collection("membresias").doc(`${empresaId}_${incorporacion.uid}`).get()).exists, false);
+    await db.collection("empresas").doc(empresaId).update({ estado: "activa" });
+  }
+
+  const reintento = await crearIncorporacionDirecta({ empresaId, emisorUid: "admin", data: { nombre: "Operadora reintento", codigo: `caja-reintento-${Date.now()}`, pinTemporal: "123456", rol: "cajero" }, pepper: PIN_PEPPER });
+  await activarIncorporacionDirecta({ incorporacionId: reintento.incorporacionId, uid: reintento.uid, data: { pinActual: "123456", pinNuevo: "654321" }, pepper: PIN_PEPPER });
+  await db.collection("empresas").doc(empresaId).update({ estado: "cancelada" });
+  await assert.rejects(
+    () => activarIncorporacionDirecta({ incorporacionId: reintento.incorporacionId, uid: reintento.uid, data: { pinDefinitivo: "654321" }, pepper: PIN_PEPPER }),
+    { code: "failed-precondition" },
+  );
+});
+
+test("EMAIL rechaza la aceptacion y el reintento ACTIVE cuando el lifecycle deja de ser operativo", async () => {
+  const empresaId = `empresa-email-lifecycle-${Date.now()}`;
+  const db = getFirestore();
+  await preparar(empresaId);
+  for (const estado of ["suspendida", "cancelada", "archivada", "eliminada"]) {
+    const correo = email();
+    const emitida = await emitir(empresaId, correo);
+    await db.collection("empresas").doc(empresaId).update({ estado });
+    await assert.rejects(
+      () => aceptarIncorporacionEmail({ incorporacionId: emitida.incorporacionId, token: emitida.entrega!.token, password: "ClaveSegura123", tokenSecret: PEPPER }),
+      { code: "failed-precondition" },
+    );
+    assert.equal((await db.collection("incorporaciones").doc(emitida.incorporacionId).get()).data()?.estado, "INVITED");
+    await assert.rejects(() => getAuth().getUserByEmail(correo), { code: "auth/user-not-found" });
+    await db.collection("empresas").doc(empresaId).update({ estado: "activa" });
+  }
+
+  const correo = email();
+  const emitida = await emitir(empresaId, correo);
+  await db.collection("empresas").doc(empresaId).update({ estado: "trial" });
+  const activa = await aceptarIncorporacionEmail({ incorporacionId: emitida.incorporacionId, token: emitida.entrega!.token, password: "ClaveSegura123", tokenSecret: PEPPER });
+  const uid = (await getAuth().getUserByEmail(correo)).uid;
+  await db.collection("empresas").doc(empresaId).update({ estado: "eliminada" });
+  await assert.rejects(
+    () => aceptarIncorporacionEmail({ incorporacionId: activa.incorporacionId, token: "invalido", password: undefined, uid, emailSesion: correo, tokenSecret: PEPPER }),
+    { code: "failed-precondition" },
+  );
+});
+
+test("DIRECTA no materializa activacion cuando la transicion de lifecycle gana antes de la lectura transaccional", async () => {
+  const empresaFundacionalId = `empresa-fundacional-carrera-${Date.now()}`;
+  const empresaId = `empresa-directa-carrera-${Date.now()}`;
+  const codigo = `caja-carrera-${Date.now()}`;
+  const db = getFirestore();
+  await prepararEmpresaFundacionalUnica(empresaFundacionalId);
+  await preparar(empresaId);
+  const incorporacion = await crearIncorporacionDirecta({ empresaId, emisorUid: "admin", data: { nombre: "Operadora Carrera", codigo, pinTemporal: "123456", rol: "cajero" }, pepper: PIN_PEPPER });
+  const originalRunTransaction = db.runTransaction.bind(db);
+  const mutableDb = db as unknown as { runTransaction: (callback: (transaction: { get: (ref: { path: string; get: () => Promise<unknown> }) => Promise<unknown> }) => Promise<unknown>) => Promise<unknown> };
+  mutableDb.runTransaction = async (callback) => callback({
+    get: async (ref) => ref.path === `empresas/${empresaId}`
+      ? { exists: true, id: empresaId, data: () => ({ estado: "suspendida" }) }
+      : ref.get(),
+  });
+  try {
+    await assert.rejects(
+      () => activarIncorporacionDirecta({ incorporacionId: incorporacion.incorporacionId, uid: incorporacion.uid, data: { pinActual: "123456", pinNuevo: "654321" }, pepper: PIN_PEPPER }),
+      { code: "failed-precondition" },
+    );
+  } finally {
+    mutableDb.runTransaction = originalRunTransaction as never;
+  }
+  assert.equal((await db.collection("incorporaciones").doc(incorporacion.incorporacionId).get()).data()?.estado, "TEMP_CREDENTIAL");
+  assert.equal((await db.collection("membresias").doc(`${empresaId}_${incorporacion.uid}`).get()).exists, false);
+  assert.deepEqual((await getAuth().getUser(incorporacion.uid)).customClaims ?? {}, {});
+});
+
+test("EMAIL no materializa aceptacion cuando la transicion de lifecycle gana antes de la lectura transaccional", async () => {
+  const empresaId = `empresa-email-carrera-${Date.now()}`;
+  const correo = email();
+  const db = getFirestore();
+  await preparar(empresaId);
+  const invitacion = await emitir(empresaId, correo);
+  const originalRunTransaction = db.runTransaction.bind(db);
+  const mutableDb = db as unknown as { runTransaction: (callback: (transaction: { get: (ref: { path: string; get: () => Promise<unknown> }) => Promise<unknown> }) => Promise<unknown>) => Promise<unknown> };
+  mutableDb.runTransaction = async (callback) => callback({
+    get: async (ref) => ref.path === `empresas/${empresaId}`
+      ? { exists: true, id: empresaId, data: () => ({ estado: "cancelada" }) }
+      : ref.get(),
+  });
+  try {
+    await assert.rejects(
+      () => aceptarIncorporacionEmail({ incorporacionId: invitacion.incorporacionId, token: invitacion.entrega!.token, password: "ClaveSegura123", tokenSecret: PEPPER }),
+      { code: "failed-precondition" },
+    );
+  } finally {
+    mutableDb.runTransaction = originalRunTransaction as never;
+  }
+  assert.equal((await db.collection("incorporaciones").doc(invitacion.incorporacionId).get()).data()?.estado, "INVITED");
+  assert.equal((await db.collection("membresias").where("empresaId", "==", empresaId).get()).empty, true);
+  await assert.rejects(() => getAuth().getUserByEmail(correo), { code: "auth/user-not-found" });
+});
+
 test("EMAIL recupera sincronizacion de claims tras un fallo posterior a ACTIVE", async () => {
   const empresaId = `empresa-email-${Date.now()}`;
   const correo = email();
@@ -211,6 +352,33 @@ test("DIRECTA permite reingresar con PIN definitivo en un tenant no fundacional"
   const definitiva = await autenticarOperativo.run({ data: { codigo, pin: "654321" } } as never);
   assert.equal(definitiva.requiereCambio, undefined);
   assert.equal(typeof definitiva.customToken, "string");
+});
+
+test("DIRECTA activa y emite sesion tenant cuando la empresa esta en trial", async () => {
+  const empresaFundacionalId = `empresa-fundacional-trial-${Date.now()}`;
+  const empresaId = `empresa-directa-trial-${Date.now()}`;
+  const codigo = `caja-trial-${Date.now()}`;
+  const db = getFirestore();
+  await prepararEmpresaFundacionalUnica(empresaFundacionalId);
+  await preparar(empresaId);
+  await db.collection("empresas").doc(empresaId).update({ estado: "trial" });
+  const incorporacion = await crearIncorporacionDirecta({
+    empresaId,
+    emisorUid: "admin",
+    data: { nombre: "Operadora Trial", codigo, pinTemporal: "123456", rol: "cajero" },
+    pepper: PIN_PEPPER,
+  });
+
+  const activacion = await activarIncorporacionDirecta({
+    incorporacionId: incorporacion.incorporacionId,
+    uid: incorporacion.uid,
+    data: { pinActual: "123456", pinNuevo: "654321" },
+    pepper: PIN_PEPPER,
+  });
+
+  assert.equal(activacion.estado, "ACTIVE");
+  assert.equal(typeof activacion.customToken, "string");
+  assert.equal((await db.collection("membresias").doc(`${empresaId}_${incorporacion.uid}`).get()).data()?.estado, "activa");
 });
 
 test("DIRECTA legacy conserva el codigo explicito cuando la reserva global colisiona", async () => {

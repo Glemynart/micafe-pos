@@ -20,6 +20,7 @@ import {
   normalizarPermisosEfectivos,
   permisosPredeterminados,
   registrarFallo,
+  validarSnapshotEmpresaEscribible,
 } from "./operational-auth";
 import { crearObligacionAuditoria, emitirObligacionAuditoria } from "./platform/audit";
 import { esCredencialTemporalPlataformaVencidaOInvalida } from "./platform/vigencia-credencial-temporal";
@@ -458,6 +459,7 @@ export async function activarIncorporacionDirecta({
 
   const credencialRef = db.collection("credenciales_operativas")
     .doc(idCredencialOperativa(initialData.empresaId, initialData.codigo));
+  const empresaRef = db.collection("empresas").doc(initialData.empresaId);
   const membresiaRef = db.collection("membresias").doc(`${initialData.empresaId}_${uid}`);
   const auditoriaRef = db.collection("auditoria_logs").doc(idAuditoriaActivacion(incorporacionId));
   const [credencialSnap, membresiaSnap] = await Promise.all([credencialRef.get(), membresiaRef.get()]);
@@ -492,9 +494,10 @@ export async function activarIncorporacionDirecta({
   let idempotente = planInicial.tipo === "REINTENTO";
   let obligacionActivacionId: string | null = null;
   await db.runTransaction(async (transaction) => {
-    const [incorporacionSnap, credencialActualSnap, membresiaActualSnap, auditoriaSnap] = await Promise.all([
+    const [incorporacionSnap, credencialActualSnap, empresaSnap, membresiaActualSnap, auditoriaSnap] = await Promise.all([
       transaction.get(incorporacionRef),
       transaction.get(credencialRef),
+      transaction.get(empresaRef),
       transaction.get(membresiaRef),
       transaction.get(auditoriaRef),
     ]);
@@ -508,6 +511,7 @@ export async function activarIncorporacionDirecta({
       empresaId: initialData.empresaId,
     });
     idempotente = plan.tipo === "REINTENTO";
+    validarSnapshotEmpresaEscribible(empresaSnap);
 
     if (plan.tipo === "REINTENTO" && (!credencialActualSnap.exists
       || credencialActual?.empresaId !== plan.empresaId
@@ -821,12 +825,16 @@ export async function aceptarIncorporacionEmail({ incorporacionId, token, passwo
       principal = await auth.createUser({ email: invitacion.email, password: password as string }); creadaAhora = true;
     }
     const membresiaRef = db.collection("membresias").doc(`${invitacion.empresaId}_${principal.uid}`);
+    const empresaRef = db.collection("empresas").doc(invitacion.empresaId);
     const usuarioRef = db.collection("usuarios").doc(principal.uid);
     const auditoriaRef = db.collection("auditoria_logs").doc(idAuditoriaEmail("activada", incorporacionId, 0));
     await db.runTransaction(async (transaction) => {
-      const [actualSnap, membresiaSnap, usuarioSnap, auditoriaSnap] = await Promise.all([transaction.get(ref), transaction.get(membresiaRef), transaction.get(usuarioRef), transaction.get(auditoriaRef)]);
+      const [actualSnap, empresaSnap, membresiaSnap, usuarioSnap, auditoriaSnap] = await Promise.all([transaction.get(ref), transaction.get(empresaRef), transaction.get(membresiaRef), transaction.get(usuarioRef), transaction.get(auditoriaRef)]);
       const actual = actualSnap.data();
-      if (actual?.estado === "ACTIVE") { validarActivacionEmailExistente(actual, membresiaSnap.data(), principal.uid); idempotente = true; return; }
+      if (actual?.estado === "ACTIVE") {
+        validarSnapshotEmpresaEscribible(empresaSnap);
+        validarActivacionEmailExistente(actual, membresiaSnap.data(), principal.uid); idempotente = true; return;
+      }
       if (!actual) throw new HttpsError("not-found", "La incorporacion no esta disponible.");
       if (estaIncorporacionEmailVencida(actual, new Date())) {
         materializarExpiracionEmail(transaction, ref, actual);
@@ -834,6 +842,7 @@ export async function aceptarIncorporacionEmail({ incorporacionId, token, passwo
         return;
       }
       validarTokenEmail(actual, token, tokenSecret, new Date());
+      validarSnapshotEmpresaEscribible(empresaSnap);
       const permisos = normalizarPermisosEfectivos(actual.permisosEfectivos);
       if (!permisos || !esRolTenant(actual.rol)) throw new HttpsError("failed-precondition", "La incorporacion es invalida.");
       if (!usuarioSnap.exists) transaction.create(usuarioRef, { uid: principal.uid, email: actual.email, creadoEn: FieldValue.serverTimestamp() });
@@ -946,7 +955,12 @@ function validarActivacionEmailExistente(invitacion: FirebaseFirestore.DocumentD
 
 async function reintentarActivacionEmail(invitacion: FirebaseFirestore.DocumentData, incorporacionId: string, uid?: string): Promise<ActivacionEmailCompletada> {
   if (!uid) throw new HttpsError("permission-denied", "Acceso denegado.");
-  const membresia = await getFirestore().collection("membresias").doc(`${invitacion.empresaId}_${uid}`).get();
+  const db = getFirestore();
+  const [empresa, membresia] = await Promise.all([
+    db.collection("empresas").doc(invitacion.empresaId).get(),
+    db.collection("membresias").doc(`${invitacion.empresaId}_${uid}`).get(),
+  ]);
+  validarSnapshotEmpresaEscribible(empresa);
   validarActivacionEmailExistente(invitacion, membresia.data(), uid);
   return { incorporacionId, estado: "ACTIVE", customToken: await emitirSesionTenant(uid, invitacion.empresaId, invitacion.rol), idempotente: true };
 }
