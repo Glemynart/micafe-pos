@@ -85,6 +85,17 @@ interface CredencialOperativaResuelta {
   credencial: CredencialOperativa;
 }
 
+/** Contrato canónico de lifecycle para operaciones tenant que requieren escritura. */
+export function validarSnapshotEmpresaEscribible(
+  snap: { exists: boolean; id: string; data(): FirebaseFirestore.DocumentData | undefined },
+): { id: string; estado: string } {
+  const estado = snap.data()?.estado;
+  if (!snap.exists || (estado !== "activa" && estado !== "trial")) {
+    throw new HttpsError("failed-precondition", "La empresa no permite operaciones de escritura en su estado actual.");
+  }
+  return { id: snap.id, estado };
+}
+
 /**
  * R-6 — La credencial no recibe empresaId del cliente. El backend identifica
  * su tenant mediante búsqueda global por código en `credenciales_operativas`
@@ -119,9 +130,12 @@ async function resolverCredencialOperativa(
     throw errorCredenciales();
   }
   const empresaSnap = await db.collection("empresas").doc(credencial.empresaId).get();
-  const estado = empresaSnap.data()?.estado;
-  if (!empresaSnap.exists || (estado !== "activa" && estado !== "trial")) throw errorCredenciales();
-  return { empresa: { id: empresaSnap.id, estado: estado as string }, ref, credencial };
+  try {
+    const empresa = validarSnapshotEmpresaEscribible(empresaSnap);
+    return { empresa, ref, credencial };
+  } catch {
+    throw errorCredenciales();
+  }
 }
 
 async function obtenerCredencialDelUid(empresaId: string, uid: string) {
@@ -261,11 +275,7 @@ export async function exigirTenantLecturaAdmin(request: { auth?: { uid: string; 
 export async function validarEmpresaEscribible(empresaId: string, dbParam?: any): Promise<{ id: string; estado: string }> {
   const db = dbParam ?? getFirestore();
   const snap = await db.collection("empresas").doc(empresaId).get();
-  const estado = snap.data()?.estado;
-  if (!snap.exists || (estado !== "activa" && estado !== "trial")) {
-    throw new HttpsError("failed-precondition", "La empresa no permite operaciones de escritura en su estado actual.");
-  }
-  return { id: empresaId, estado: estado as string };
+  return validarSnapshotEmpresaEscribible(snap);
 }
 
 export async function registrarFallo(ref: FirebaseFirestore.DocumentReference): Promise<void> {
