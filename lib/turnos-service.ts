@@ -14,10 +14,21 @@ import {
   increment,
   limit,
 } from 'firebase/firestore'
-import { auth, db } from './firebase'
+import { httpsCallable } from 'firebase/functions'
+import { onAuthStateChanged } from 'firebase/auth'
+import { auth, db, getFirebaseFunctions } from './firebase'
 import { calcularEgresosTurno } from './egresos-service'
-import { notificar } from './notificaciones-cliente'
 import { tenantQuery, getEmpresaId, withEmpresaId } from '@/lib/tenant'
+import {
+  ABRIR_TURNO_OPERATIVO_V1,
+  ErrorAperturaTurnoCliente,
+  ejecutarAperturaPendiente,
+  limpiarAperturaPendiente,
+  limpiarYRechazarAperturaSinSesion,
+  type AdaptadoresAperturaPendiente,
+  type EnvelopeAbrirTurnoOperativo,
+  type ResultadoAbrirTurnoOperativo,
+} from '@/lib/turnos-apertura-r1a'
 
 export interface Turno {
   id: string;
@@ -43,10 +54,13 @@ export interface Turno {
 }
 
 export interface AbrirTurnoParams {
-  cajeroId: string;
-  cajeroNombre: string;
+  /** @deprecated La autoridad procede de la sesión; se ignora. */
+  cajeroId?: string;
+  /** @deprecated El nombre procede del perfil canónico; se ignora. */
+  cajeroNombre?: string;
   baseApertura: number;
   notasApertura?: string;
+  /** @deprecated El relevo no forma parte de R1-A; se ignora. */
   turnoAnteriorId?: string | null;
 }
 
@@ -91,104 +105,82 @@ export async function obtenerCandidatosRelevo(): Promise<CandidatoRelevo[]> {
   );
 }
 
-/**
- * Abre un nuevo turno para el cajero, garantizando unicidad mediante un
- * documento candado de ID determinista: `turnos_activos/{cajeroId}`.
- *
- * La apertura es atómica (runTransaction sobre el candado determinista), lo que
- * elimina la condición de carrera TOCTOU del antiguo "verificar + crear":
- *   - Si ya existe candado → idempotente, devuelve el turno activo (no duplica).
- *   - Compatibilidad hacia atrás: si hay un turno abierto sin candado (creado
- *     antes de esta corrección), lo "adopta" creando el candado que apunta a él
- *     en vez de abrir uno nuevo.
- *   - En el caso normal crea turno + candado en la misma transacción.
- *
- * Nota Firestore: las transacciones no admiten queries; por eso la detección de
- * turnos legacy usa un getDocs previo (best-effort). La unicidad real la asegura
- * el candado determinista dentro de la transacción.
- */
-export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
-  const turnosRef = collection(db, 'turnos');
-  const lockRef = doc(db, 'turnos_activos', params.cajeroId);
+let ultimoContextoApertura: { uid: string; empresaId: string } | null = null;
+let desuscribirVigilanteApertura: (() => void) | null = null;
 
-  // MT-U3 Capa 3: resuelto UNA sola vez (§2.5) — reutilizado en la consulta
-  // legacy y en el estampado dentro de la transacción.
-  const empresaId = await getEmpresaId();
+function adaptadoresAperturaNavegador(): AdaptadoresAperturaPendiente {
+  let storage: AdaptadoresAperturaPendiente['storage'] = null;
+  let locks: AdaptadoresAperturaPendiente['locks'] = null;
+  try {
+    const local = globalThis.localStorage;
+    storage = {
+      getItem: (key) => local.getItem(key),
+      setItem: (key, value) => local.setItem(key, value),
+      removeItem: (key) => local.removeItem(key),
+      keys: () => Array.from({ length: local.length }, (_, index) => local.key(index)).filter((key): key is string => key !== null),
+    };
+  } catch { /* El helper convierte la ausencia en CLIENT_STORAGE_UNAVAILABLE. */ }
+  try {
+    locks = (globalThis.navigator as unknown as { locks?: AdaptadoresAperturaPendiente['locks'] }).locks ?? null;
+  } catch { /* El helper convierte la ausencia en CLIENT_STORAGE_UNAVAILABLE. */ }
+  return {
+    storage,
+    locks,
+    now: () => Date.now(),
+    generarId: () => globalThis.crypto?.randomUUID?.() ?? '',
+    dormir: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  };
+}
 
-  // Compatibilidad hacia atrás: detectar turnos abiertos previos sin candado.
-  const legacyQuery = query(
-    turnosRef,
-    where('empresaId', '==', empresaId),
-    where('cajeroId', '==', params.cajeroId),
-    where('estado', '==', 'abierto')
-  );
-  const legacySnap = await getDocs(legacyQuery);
-  const legacyTurnoId = legacySnap.empty ? null : legacySnap.docs[0].id;
-
-  let turnoCreado = false; // se resetea en cada reintento de la transacción
-
-  const turnoId = await runTransaction(db, async (transaction) => {
-    turnoCreado = false;
-
-    // 1. ¿Ya hay candado? → turno activo existente, idempotente.
-    const lockSnap = await transaction.get(lockRef);
-    if (lockSnap.exists()) {
-      return lockSnap.data().turnoId as string;
-    }
-
-    // 2. Sin candado: ¿existe un turno legacy abierto sin candado? → adoptarlo.
-    if (legacyTurnoId) {
-      const legacyRef = doc(db, 'turnos', legacyTurnoId);
-      const legacyTurnoSnap = await transaction.get(legacyRef);
-      if (legacyTurnoSnap.exists() && legacyTurnoSnap.data().estado === 'abierto') {
-        transaction.set(lockRef, withEmpresaId(empresaId, {
-          cajeroId: params.cajeroId,
-          turnoId: legacyTurnoId,
-          fechaApertura: legacyTurnoSnap.data().fechaApertura ?? serverTimestamp(),
-        }));
-        return legacyTurnoId;
-      }
-    }
-
-    // 3. Caso normal: crear turno nuevo + candado, atómicamente.
-    const nuevoTurnoRef = doc(turnosRef);
-    const nuevoTurno = withEmpresaId(empresaId, {
-      id: nuevoTurnoRef.id,
-      cajeroId: params.cajeroId,
-      cajeroNombre: params.cajeroNombre,
-      fechaApertura: serverTimestamp(),
-      fechaCierre: null,
-      estado: 'abierto',
-      baseApertura: params.baseApertura,
-      ventasEfectivo: 0,
-      ventasOtrosMetodos: 0,
-      totalEsperadoEfectivo: 0,
-      totalReportadoEfectivo: 0,
-      diferenciaEfectivo: 0,
-      notasApertura: params.notasApertura || '',
-      notasCierre: '',
-      ...(params.turnoAnteriorId ? { turnoAnteriorId: params.turnoAnteriorId } : {}),
-    });
-    transaction.set(nuevoTurnoRef, nuevoTurno);
-    transaction.set(lockRef, withEmpresaId(empresaId, {
-      cajeroId: params.cajeroId,
-      turnoId: nuevoTurnoRef.id,
-      fechaApertura: serverTimestamp(),
-    }));
-    turnoCreado = true;
-    return nuevoTurnoRef.id;
+function vigilarLogoutCanonico(): void {
+  if (desuscribirVigilanteApertura) return;
+  desuscribirVigilanteApertura = onAuthStateChanged(auth, (usuario) => {
+    if (usuario || !ultimoContextoApertura) return;
+    const contextoPerdido = ultimoContextoApertura;
+    ultimoContextoApertura = null;
+    // `logout()` canónico concluye con Firebase signOut; este observador limpia la intención sin tocar UI.
+    void limpiarAperturaPendiente(contextoPerdido, adaptadoresAperturaNavegador()).catch(() => undefined);
   });
+}
 
-  // Notificación push solo cuando se abre un turno NUEVO (no en idempotencia/adopción).
-  if (turnoCreado) {
-    notificar({
-      title: '¡Nuevo turno abierto!',
-      message: `${params.cajeroNombre} abrió con base de $${params.baseApertura.toLocaleString('es-CO')}.`,
-      url: '/admin/turnos',
-    })
+/** Solicita la apertura al servidor; el cliente nunca crea ni adopta turnos. */
+export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
+  const adaptadores = adaptadoresAperturaNavegador();
+  const uid = auth.currentUser?.uid;
+  if (!uid) {
+    const contextoPerdido = ultimoContextoApertura;
+    ultimoContextoApertura = null;
+    return limpiarYRechazarAperturaSinSesion(contextoPerdido, adaptadores);
   }
-
-  return turnoId;
+  let empresaId: string;
+  try {
+    empresaId = await getEmpresaId();
+  } catch (error) {
+    if (ultimoContextoApertura?.uid === uid) {
+      const contextoPerdido = ultimoContextoApertura;
+      ultimoContextoApertura = null;
+      await limpiarAperturaPendiente(contextoPerdido, adaptadores);
+    }
+    throw error;
+  }
+  const contexto = { uid, empresaId };
+  if (ultimoContextoApertura
+    && (ultimoContextoApertura.uid !== contexto.uid || ultimoContextoApertura.empresaId !== contexto.empresaId)) {
+    await limpiarAperturaPendiente(ultimoContextoApertura, adaptadores);
+  }
+  ultimoContextoApertura = contexto;
+  vigilarLogoutCanonico();
+  const callable = httpsCallable<EnvelopeAbrirTurnoOperativo, ResultadoAbrirTurnoOperativo>(
+    getFirebaseFunctions(),
+    ABRIR_TURNO_OPERATIVO_V1,
+  );
+  const resultado = await ejecutarAperturaPendiente(
+    contexto,
+    { baseApertura: params.baseApertura, notasApertura: params.notasApertura },
+    async (envelope) => (await callable(envelope)).data,
+    adaptadores,
+  );
+  return resultado.turnoId;
 }
 
 /**
