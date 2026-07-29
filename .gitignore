@@ -25,6 +25,7 @@ audit-fase9c2-report.json
 out/
 dist/
 .next/
+artifacts/
 updates/
 build/
 

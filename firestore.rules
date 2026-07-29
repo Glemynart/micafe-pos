@@ -156,6 +156,18 @@ service cloud.firestore {
       allow delete: if puedeEliminarEnTenant() && esOperativo();
     }
 
+    // R1-A: evidencia de comandos y auditoría crítica. Estas colecciones son
+    // exclusivas del backend Admin SDK durante la transición de turnos.
+    match /operaciones_comandos/{id} {
+      allow read, write: if false;
+    }
+    match /operaciones_command_idempotency/{id} {
+      allow read, write: if false;
+    }
+    match /operaciones_auditoria/{id} {
+      allow read, write: if false;
+    }
+
     // Reservas públicas: la landing opera exclusivamente por rutas Admin SDK.
     match /reservas/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
