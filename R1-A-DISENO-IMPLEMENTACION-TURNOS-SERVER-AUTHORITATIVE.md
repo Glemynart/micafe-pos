@@ -75,7 +75,7 @@ El envelope no acepta `empresaId`, `actorUid`, `cajeroId`, `cajeroNombre`, rol, 
 | Campo | Tipo conceptual | Obligatorio | Validación servidor |
 |---|---|---:|---|
 | `baseApertura` | Dinero entero no negativo en unidad mínima | Sí | Entero seguro, mayor o igual a cero y compatible con moneda/localización vigente. Se persiste como declaración congelada; no genera movimiento financiero. |
-| `notasApertura` | Texto | No | Texto normalizado, longitud máxima definida por el validador compartido; vacío si se omite. Sin HTML ni secretos. |
+| `notasApertura` | Texto | No | Tras `normalizarTexto`, frontend y backend Functions DEBEN reutilizar exactamente `lib/configuracion/normalizacion.ts::esTextoCanonico(notasNormalizadas, 0, 240)`; límite máximo 240 y ningún límite local ni duplicado. Omitir notas equivale a vacío permitido. No permite HTML ni secretos. |
 
 No se acepta `turnoAnteriorId`: solo tiene semántica de relevo y ese flujo está diferido. El servidor obtiene `cajeroId` desde el actor autenticado y `cajeroNombre` desde su identidad/membresía canónica, nunca desde la interfaz.
 
@@ -199,7 +199,30 @@ No se guardan tokens, PIN, secretos, datos de pago ni stack traces. La auditorí
 | `lib/turnos-service.ts::calcularVentasTurno` | No es parte de R1-A. Conserva su consulta B7 de ventas `COMPLETO` hasta que la fase posterior de cierre sea diseñada. | No se invoca desde la nueva Callable de apertura. |
 | `lib/turnos-service.ts::cerrarTurno` y `obtenerCandidatosRelevo` | Sin cambio funcional ni migración en R1-A. Se declaran escritores/flujo pendientes del corte posterior. | No se llaman desde `abrirTurnoOperativoV1`. |
 
-El servicio cliente genera una intención una sola vez por acción explícita de apertura. Conserva el envelope pendiente hasta recibir una respuesta final; ante `UNAVAILABLE`, timeout o `ABORTED` reintenta el mismo envelope con backoff. Solo después de éxito o error no reintentable descarta esa intención. La persistencia concreta del envelope entre recargas debe ser común a navegador, PWA y Electron, sin incluir datos sensibles.
+El servicio cliente genera una intención una sola vez por acción explícita de apertura. Conserva el envelope pendiente hasta recibir una respuesta final; ante `UNAVAILABLE`, timeout o `ABORTED` reintenta el mismo envelope con backoff. Solo después de éxito o error no reintentable descarta esa intención. La persistencia entre recargas se rige exclusivamente por el contrato de §4.1.1.
+
+#### 4.1.1 Persistencia y recuperación del envelope pendiente
+
+La implementación usa un único adaptador de `localStorage` con alcance de origen. El mismo adaptador se utiliza sin variante entre web, PWA y el renderer de Electron; no se admite un almacenamiento alterno, sincronización remota ni persistencia en Firestore.
+
+Para el contexto autenticado exacto `(uid, empresaId)`, el adaptador usa estas claves:
+
+```text
+r1a:abrirTurnoOperativoV1:<uid>:<empresaId>:<commandId>
+r1a:abrirTurnoOperativoV1:index:<uid>:<empresaId>
+```
+
+La primera clave contiene un solo registro por `commandId`. Su valor persiste únicamente la forma canónica de los seis campos del envelope (`commandId`, `idempotencyKey`, `correlationId`, `causationId`, `motivo`, `payload`), el `uid` y `empresaId` de enlace, `createdAt`, `updatedAt` y `retryCount`. Los opcionales se conservan como `null` u omitidos únicamente conforme al contrato de §2.2; en particular, `motivo` no recibe significado adicional. No se persisten tokens, claims, rol, membresía, lifecycle, perfil, nombre, referencias o datos de Firestore, respuestas, errores, trazas, stacks ni ningún dato de autoridad.
+
+La clave de índice contiene como máximo una entrada, formada solo por `commandId` y `createdAt`. Por tanto está acotada a una intención pendiente por contexto y solo puede recuperar el registro cuya clave coincide exactamente con ese `commandId`, `uid` y `empresaId`; no busca ni adopta registros de otros contextos.
+
+Todo registro vence 15 minutos después de su `createdAt`. Al cargar, al recuperar y antes de enviar, el adaptador elimina el registro y la entrada de índice si cualquiera es malformado, está vencido o no coincide exactamente con el `uid` y `empresaId` activos. Un cambio de UID o tenant, cierre de sesión o pérdida de contexto limpia el contexto actual conocido y nunca transporta una intención al contexto siguiente. El arranque de web, PWA, una pestaña nueva o el reinicio del renderer de Electron solo recupera la intención del contexto exacto; no invoca la Callable automáticamente.
+
+Antes de la primera llamada se valida la entrada de la interfaz y se normaliza el payload. Si es inválido, no se crea registro ni índice. Si es válido, se crea primero el registro y después su índice, antes de invocar la Callable. Cada reintento del mismo envelope actualiza únicamente `retryCount` y `updatedAt`. Una nueva acción explícita con el mismo payload canónico recupera y reutiliza el mismo envelope. Si el payload canónico difiere, se descartan el registro y el índice pendientes y se crea un envelope nuevo, sin tocar recibos ni otros hechos del servidor.
+
+Éxito y todo error final —autorización, lifecycle, validación, idempotencia o precondición— eliminan registro e índice. Solo `UNAVAILABLE`, timeout y `ABORTED` conservan el registro y permiten reintentar exactamente el mismo envelope con backoff, exclusivamente mientras siga activo el mismo `(uid, empresaId)`.
+
+La exclusión mutua entre pestañas es obligatoria. Antes de consultar, crear, sustituir, limpiar o enviar una intención, el adaptador adquiere un bloqueo exclusivo origin-wide de Web Locks API llamado `r1a:abrirTurnoOperativoV1:<uid>:<empresaId>`. El bloqueo cubre la decisión de recuperar, reutilizar o sustituir el registro y el envío correspondiente. Una segunda pestaña con el mismo payload canónico reutiliza el registro existente; con payload distinto lo sustituye conforme al párrafo anterior. Así no existen dos envelopes pendientes para el mismo contexto. Si Web Locks API o `localStorage` no están disponibles, el servicio devuelve `CLIENT_STORAGE_UNAVAILABLE` antes de enviar; no hay fallback ni llamada sin bloqueo.
 
 ### 4.2 Componentes React afectados
 
@@ -291,6 +314,7 @@ El rollback no reescribe ni elimina datos. Si se detecta un defecto de la Callab
 | Contexto canónico | Rechaza sesión, membresía, permiso o lifecycle no válidos. |
 | Huella | Misma intención produce misma huella; cualquier diferencia permitida produce conflicto de identidad. |
 | Idempotencia | Recibo e índice coincidentes devuelven la misma respuesta sin planificar escrituras. |
+| Persistencia cliente | El adaptador de §4.1.1 usa solo las claves y campos permitidos, limita el índice a una entrada, expira a los 15 minutos y solo cambia `retryCount`/`updatedAt` al reenviar el mismo envelope. |
 | Auditoría | El primer éxito crea solo `operaciones_auditoria/{empresaId}_{commandId}` con referencias correctas y un reintento no genera otro evento. |
 | Error mapping | Cada precondición se traduce al código de dominio y comportamiento cliente de §2.5. |
 
@@ -317,7 +341,9 @@ El rollback no reescribe ni elimina datos. Si se detecta un defecto de la Callab
 | Cajero/supervisor autorizado abre desde TurnoGate | El POS deja de estar bloqueado al recibir el turno por listener. |
 | Apertura desde Shifts Module | Se muestra el mismo turno y no aparece una segunda apertura. |
 | Doble clic, pérdida de red o retry | El cliente reutiliza la intención; se muestra el turno único confirmado. |
-| Dos pestañas/dispositivos del mismo actor | No existen dos turnos abiertos; el segundo flujo recarga el estado ante conflicto. |
+| Recarga, PWA o reinicio de renderer | Solo recupera el registro vigente del mismo UID y tenant; no envía la Callable durante bootstrap y descarta el registro vencido, malformado o de otro contexto. |
+| Dos pestañas del mismo actor y tenant | El bloqueo Web Locks de §4.1.1 deja un solo envelope pendiente; el mismo payload lo reutiliza y uno distinto lo sustituye sin doble envío no bloqueado. |
+| Dos dispositivos del mismo actor | No existen dos turnos abiertos; el segundo flujo recarga el estado ante conflicto. |
 | Empresa suspendida o permiso retirado durante la acción | La UI informa rechazo y no se crea turno. |
 | Cliente Electron | Llama a la misma Callable y recibe el mismo contrato que web/PWA. |
 | Historial de turnos | Muestra el documento nuevo sin cambio de esquema ni filtración cross-tenant. |
@@ -335,11 +361,13 @@ R1-A queda listo para implementación solo cuando se demuestre que:
 3. Actor (`request.auth.uid`), tenant (sesión autenticada), rol/permisos (membresía canónica activa) y lifecycle (`empresas/{empresaId}` en `trial`/`activa`) se verifican antes y dentro de la transacción; ninguno procede del payload.
 4. Cada apertura confirmada crea co-atómicamente turno, lock, recibo, índice y auditoría.
 5. Un reintento con el mismo envelope devuelve exactamente el resultado original y no duplica hechos ni auditoría.
-6. Un segundo intento independiente del mismo actor no crea un turno paralelo.
-7. La forma de `turnos` y `turnos_activos`, sus IDs, sus listeners y sus lectores tenant-scoped siguen siendo compatibles.
-8. No se modifican B1, B2, B7, `estadoOperativo`, ventas, inventario, cuentas, transacciones financieras, caja ni notificaciones.
-9. Las Rules backend-only de recibos, índice y `operaciones_auditoria` están activas; no se activa la denegación final de `turnos`/`turnos_activos` mientras cierre/relevo dependan de escrituras directas.
-10. Las pruebas unitarias, de emulador y E2E de apertura descritas en §7 pasan en web, PWA y Electron; las pruebas negativas de las Rules destino quedan como gate explícito del corte posterior completo de turnos.
+6. El servicio cliente cumple íntegramente §4.1.1: persiste y recupera solo el envelope permitido para el mismo UID/tenant, respeta el TTL de 15 minutos, limpia los casos prescritos y no ejecuta recuperación automática.
+7. La exclusión entre pestañas usa obligatoriamente el bloqueo Web Locks prescrito; ante su ausencia o la de `localStorage` devuelve `CLIENT_STORAGE_UNAVAILABLE` antes de enviar.
+8. Un segundo intento independiente del mismo actor no crea un turno paralelo.
+9. La forma de `turnos` y `turnos_activos`, sus IDs, sus listeners y sus lectores tenant-scoped siguen siendo compatibles.
+10. No se modifican B1, B2, B7, `estadoOperativo`, ventas, inventario, cuentas, transacciones financieras, caja ni notificaciones.
+11. Las Rules backend-only de recibos, índice y `operaciones_auditoria` están activas; no se activa la denegación final de `turnos`/`turnos_activos` mientras cierre/relevo dependan de escrituras directas.
+12. Las pruebas unitarias, de emulador y E2E de apertura descritas en §7 pasan en web, PWA y Electron; las pruebas negativas de las Rules destino quedan como gate explícito del corte posterior completo de turnos.
 
 ### 8.1 Condiciones de rechazo
 
@@ -350,6 +378,8 @@ Debe rechazarse cualquier implementación que:
 - use una query cliente previa como garantía de unicidad;
 - continúe el despliegue si el preflight detecta un turno abierto sin candado coincidente, un candado huérfano o una inconsistencia de tenant/cajero/turno;
 - devuelva un resultado distinto en un reintento idempotente;
+- persista fuera de `localStorage` origin-scoped, guarde campos excluidos por §4.1.1, recupere una intención de otro UID/tenant o invoque la Callable automáticamente al arrancar;
+- envíe una apertura sin el bloqueo Web Locks obligatorio, use un fallback cuando Web Locks o `localStorage` no estén disponibles, o permita dos envelopes pendientes para el mismo contexto;
 - cree o modifique ventas, egresos, cuentas, transacciones financieras, caja, inventario, cierre o relevo;
 - active Rules finales para `turnos` mientras exista un escritor directo de cierre/relevo;
 - borre, reabra o modifique un turno cerrado;
