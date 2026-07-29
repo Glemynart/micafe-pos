@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuthContext } from '@/contexts/auth-context'
 import { useEspacios } from '@/contexts/espacios-context'
 import { 
@@ -25,7 +25,8 @@ import {
   TrendingDown,
   AlertTriangle,
   CheckCircle,
-  User
+  User,
+  Loader2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate, formatTime, formatCurrency } from '@/lib/format-utils'
@@ -44,25 +45,94 @@ import {
 import { toast } from 'sonner'
 import { CloseShiftForm } from '@/components/pos/close-shift-form'
 import { useConfiguracionEmpresa } from '@/contexts/configuracion-empresa-context'
+import { mensajeErrorApertura } from '@/components/pos/apertura-turno-mensajes'
 
 export function ShiftsModule() {
   const { usuario } = useAuthContext()
-  const { proyecciones } = useConfiguracionEmpresa()
+  const { proyecciones, empresaId } = useConfiguracionEmpresa()
   
   const [showOpenShift, setShowOpenShift] = useState(false)
   const [showCloseShift, setShowCloseShift] = useState(false)
   const [showShiftDetail, setShowShiftDetail] = useState(false)
   const [selectedShift, setSelectedShift] = useState<Turno | null>(null)
+  const contextoDetalleRef = useRef<{ uid: string; empresaId: string } | null>(null)
   
   // Real data state
   const [activeShift, setActiveShift] = useState<Turno | null>(null)
+  const contextoTurnoActivoRef = useRef<{ uid: string; empresaId: string } | null>(null)
   const [historial, setHistorial] = useState<Turno[]>([])
+  const contextoHistorialRef = useRef<{ uid: string; empresaId: string } | null>(null)
   const [ventasTurno, setVentasTurno] = useState({ efectivo: 0, transferencia: 0, tarjeta: 0, otros: 0, total: 0 })
   const [egresosTurno, setEgresosTurno] = useState(0)
   
   // Shift open form
   const [initialCash, setInitialCash] = useState('')
   const [openNotes, setOpenNotes] = useState('')
+  const [abriendoTurno, setAbriendoTurno] = useState(false)
+  const contextoFormularioAperturaRef = useRef<{ uid: string; empresaId: string } | null>(null)
+  const aperturaContextoRef = useRef<{ uid: string; empresaId: string } | null>(null)
+  const preparandoAperturaRef = useRef(false)
+  const preparandoContextoRef = useRef<{ uid: string; empresaId: string } | null>(null)
+  const usuarioUidActualRef = useRef<string | null>(usuario?.uid ?? null)
+  usuarioUidActualRef.current = usuario?.uid ?? null
+  const contextoActualRef = useRef<{ uid: string; empresaId: string } | null>(null)
+  contextoActualRef.current = usuario && empresaId ? { uid: usuario.uid, empresaId } : null
+
+  const esContextoActual = (contexto: { uid: string; empresaId: string }) =>
+    contextoActualRef.current?.uid === contexto.uid && contextoActualRef.current.empresaId === contexto.empresaId
+
+  const turnoActivoVisible = contextoTurnoActivoRef.current && esContextoActual(contextoTurnoActivoRef.current)
+    ? activeShift
+    : null
+  const historialVisible = contextoHistorialRef.current && esContextoActual(contextoHistorialRef.current)
+    ? historial
+    : []
+  const detalleVisible = contextoDetalleRef.current && esContextoActual(contextoDetalleRef.current)
+    ? selectedShift
+    : null
+  const formularioAperturaVisible = contextoFormularioAperturaRef.current !== null
+    && esContextoActual(contextoFormularioAperturaRef.current)
+  const efectivoInicialVisible = formularioAperturaVisible ? initialCash : ''
+  const notasAperturaVisibles = formularioAperturaVisible ? openNotes : ''
+  const abriendoTurnoVisible = abriendoTurno
+    && aperturaContextoRef.current !== null
+    && esContextoActual(aperturaContextoRef.current)
+  const preparandoAperturaVisible = preparandoAperturaRef.current
+    && preparandoContextoRef.current !== null
+    && esContextoActual(preparandoContextoRef.current)
+  const dialogoCierreVisible = showCloseShift && turnoActivoVisible !== null
+  const dialogoDetalleVisible = showShiftDetail && detalleVisible !== null
+
+  useEffect(() => {
+    const contexto = usuario && empresaId ? { uid: usuario.uid, empresaId } : null
+    contextoTurnoActivoRef.current = null
+    contextoHistorialRef.current = null
+    contextoDetalleRef.current = null
+    contextoFormularioAperturaRef.current = null
+    setActiveShift(null)
+    setHistorial([])
+    setSelectedShift(null)
+    setShowOpenShift(false)
+    setShowCloseShift(false)
+    setShowShiftDetail(false)
+    return () => {
+      const contextoApertura = aperturaContextoRef.current
+      const preparandoContexto = preparandoContextoRef.current
+      const contextoFormulario = contextoFormularioAperturaRef.current
+      if (contexto && contextoFormulario?.uid === contexto.uid && contextoFormulario.empresaId === contexto.empresaId) {
+        contextoFormularioAperturaRef.current = null
+        setShowOpenShift(false)
+        setInitialCash('')
+        setOpenNotes('')
+      }
+      if (contexto && ((contextoApertura?.uid === contexto.uid && contextoApertura.empresaId === contexto.empresaId) || (preparandoContexto?.uid === contexto.uid && preparandoContexto.empresaId === contexto.empresaId))) {
+        aperturaContextoRef.current = null
+        preparandoContextoRef.current = null
+        preparandoAperturaRef.current = false
+        setAbriendoTurno(false)
+      }
+    }
+  }, [usuario?.uid, empresaId])
   
   // Cash count
   const [cashCount, setCashCount] = useState<Record<string, string>>({})
@@ -71,11 +141,31 @@ export function ShiftsModule() {
   const [cajeros, setCajeros] = useState<{ uid: string; nombre: string }[]>([])
   // Fetch real data
   useEffect(() => {
-    if (!usuario) return
-    const unsubActivo = suscribirTurnoActivo(usuario.uid, setActiveShift)
-    const unsubHistorial = suscribirHistorialTurnos(setHistorial)
-    return () => { unsubActivo(); unsubHistorial() }
-  }, [usuario?.uid])
+    if (!usuario || !empresaId) return
+    const contextoSuscripcion = { uid: usuario.uid, empresaId }
+    let cancelado = false
+    const unsubActivo = suscribirTurnoActivo(contextoSuscripcion.uid, (turno) => {
+      if (cancelado || !esContextoActual(contextoSuscripcion)) return
+      contextoTurnoActivoRef.current = contextoSuscripcion
+      setActiveShift(turno)
+      if (turno && aperturaContextoRef.current?.uid === contextoSuscripcion.uid && aperturaContextoRef.current.empresaId === contextoSuscripcion.empresaId) {
+        aperturaContextoRef.current = null
+        contextoFormularioAperturaRef.current = null
+        preparandoContextoRef.current = null
+        preparandoAperturaRef.current = false
+        setAbriendoTurno(false)
+        setInitialCash('')
+        setOpenNotes('')
+        setShowOpenShift(false)
+      }
+    })
+    const unsubHistorial = suscribirHistorialTurnos((turnos) => {
+      if (cancelado || !esContextoActual(contextoSuscripcion)) return
+      contextoHistorialRef.current = contextoSuscripcion
+      setHistorial(turnos)
+    })
+    return () => { cancelado = true; unsubActivo(); unsubHistorial() }
+  }, [usuario?.uid, empresaId])
 
   // Cargar candidatos activos desde las membresías del tenant.
   useEffect(() => {
@@ -86,7 +176,7 @@ export function ShiftsModule() {
   // Auto-open modal if redirected from logout or event
   useEffect(() => {
     const checkAndOpen = () => {
-      if (activeShift && sessionStorage.getItem('pending_close_shift') === 'true') {
+      if (turnoActivoVisible && sessionStorage.getItem('pending_close_shift') === 'true') {
         sessionStorage.removeItem('pending_close_shift')
         handleOpenCloseModal()
       }
@@ -94,13 +184,13 @@ export function ShiftsModule() {
     checkAndOpen()
     
     const handleEvent = () => {
-      if (activeShift) {
+      if (turnoActivoVisible) {
         handleOpenCloseModal()
       }
     }
     window.addEventListener('request_close_shift', handleEvent)
     return () => window.removeEventListener('request_close_shift', handleEvent)
-  }, [activeShift])
+  }, [turnoActivoVisible])
 
   const totalCashCount = Object.entries(cashCount).reduce((total, [denom, raw]) => {
     const cant = parseInt(raw, 10) || 0
@@ -109,33 +199,71 @@ export function ShiftsModule() {
   }, 0)
 
   // Expected cash = Base + Ventas en Efectivo - Gastos
-  const expectedCash = activeShift ? (activeShift.baseApertura + ventasTurno.efectivo - egresosTurno) : 0
+  const expectedCash = turnoActivoVisible ? (turnoActivoVisible.baseApertura + ventasTurno.efectivo - egresosTurno) : 0
   const cashDifference = totalCashCount - expectedCash
 
   // FASE-10C: no se permite cerrar con conteo vacío, salvo cierre forzado del admin.
   const puedeCerrar = totalCashCount > 0 || usuario?.rol === 'admin'
 
   const handleOpenShift = async () => {
-    if (!usuario) return
-    const base = parseInt(initialCash) || 0
-    // Optimistic UI
+    if (!usuario || !formularioAperturaVisible || abriendoTurnoVisible || preparandoAperturaVisible) return
+    const base = parseInt(efectivoInicialVisible) || 0
+    const contextoApertura = contextoActualRef.current
+    if (!contextoApertura || contextoApertura.uid !== usuario.uid) return
+    preparandoAperturaRef.current = true
+    preparandoContextoRef.current = contextoApertura
+    if (!esContextoActual(contextoApertura)) {
+      preparandoAperturaRef.current = false
+      preparandoContextoRef.current = null
+      return
+    }
+    aperturaContextoRef.current = contextoApertura
+    setAbriendoTurno(true)
+    preparandoAperturaRef.current = false
+    preparandoContextoRef.current = null
+    try {
+      await abrirTurno({
+        baseApertura: base,
+        notasApertura: notasAperturaVisibles,
+      })
+      if (!esContextoActual(contextoApertura)) return
+    } catch (err) {
+      if (!esContextoActual(contextoApertura)) return
+      toast.error(mensajeErrorApertura(err))
+      if (aperturaContextoRef.current === contextoApertura) {
+        aperturaContextoRef.current = null
+        setAbriendoTurno(false)
+      }
+    }
+  }
+
+  const abrirFormularioApertura = () => {
+    const contextoFormulario = contextoActualRef.current
+    if (!contextoFormulario) return
+    const formularioPerteneceAlContexto = contextoFormularioAperturaRef.current?.uid === contextoFormulario.uid
+      && contextoFormularioAperturaRef.current.empresaId === contextoFormulario.empresaId
+    contextoFormularioAperturaRef.current = contextoFormulario
+    if (!formularioPerteneceAlContexto) {
+      setInitialCash(proyecciones?.caja.baseAperturaSugerida?.toString() ?? '')
+      setOpenNotes('')
+    }
+    setShowOpenShift(true)
+  }
+
+  const cerrarFormularioApertura = (abierto: boolean) => {
+    if (abierto) {
+      abrirFormularioApertura()
+      return
+    }
+    if (abriendoTurnoVisible || !formularioAperturaVisible) return
     setShowOpenShift(false)
-    setInitialCash('')
-    setOpenNotes('')
-    
-    abrirTurno({
-      cajeroId: usuario.uid,
-      cajeroNombre: usuario.nombre || 'Cajero',
-      baseApertura: base,
-      notasApertura: openNotes
-    }).catch(console.error)
   }
 
   const handleOpenCloseModal = async () => {
-    if (!activeShift) return
+    if (!turnoActivoVisible) return
     try {
-      const ventas = await calcularVentasTurno(activeShift.id)
-      const egresos = await calcularEgresosTurno(activeShift.id)
+      const ventas = await calcularVentasTurno(turnoActivoVisible.id)
+      const egresos = await calcularEgresosTurno(turnoActivoVisible.id)
       setVentasTurno(ventas)
       setEgresosTurno(egresos)
       setShowCloseShift(true)
@@ -147,7 +275,7 @@ export function ShiftsModule() {
   }
 
   const handleCloseShift = async () => {
-    if (!activeShift) return
+    if (!turnoActivoVisible) return
     if (!puedeCerrar) {
       toast.error("Debes contar el efectivo de la caja antes de cerrar el turno.")
       return
@@ -164,7 +292,7 @@ export function ShiftsModule() {
 
     try {
       await cerrarTurno({
-        turnoId: activeShift.id,
+        turnoId: turnoActivoVisible.id,
         ventasEfectivo: ventasTurno.efectivo,
         ventasOtrosMetodos: ventasTurno.transferencia + ventasTurno.tarjeta + ventasTurno.otros,
         totalEgresos: egresosTurno,
@@ -193,6 +321,8 @@ export function ShiftsModule() {
   }
 
   const handleViewDetail = async (shift: Turno) => {
+    const contextoDetalle = contextoActualRef.current
+    if (!contextoDetalle) return
     let detailShift = { ...shift }
     if (shift.estado === 'abierto') {
       const ventas = await calcularVentasTurno(shift.id)
@@ -201,6 +331,7 @@ export function ShiftsModule() {
       detailShift.ventasOtrosMetodos = ventas.transferencia + ventas.tarjeta + ventas.otros
       detailShift.totalEgresos = egresos
     }
+    contextoDetalleRef.current = contextoDetalle
     setSelectedShift(detailShift)
     setShowShiftDetail(true)
   }
@@ -218,13 +349,13 @@ export function ShiftsModule() {
           <p className="text-muted-foreground">Gestiona la apertura y cierre de turnos</p>
         </div>
         <div className="flex items-center gap-3">
-          {activeShift ? (
+          {turnoActivoVisible ? (
             <Button onClick={handleOpenCloseModal} variant="destructive">
               <Square className="h-4 w-4 mr-2" />
               Cerrar Turno
             </Button>
           ) : (
-            <Button onClick={() => { if (proyecciones?.caja.baseAperturaSugerida && !initialCash) setInitialCash(proyecciones.caja.baseAperturaSugerida.toString()); setShowOpenShift(true) }} className="bg-primary text-primary-foreground">
+            <Button disabled={abriendoTurnoVisible} onClick={abrirFormularioApertura} className="bg-primary text-primary-foreground">
               <Play className="h-4 w-4 mr-2" />
               Abrir Turno
             </Button>
@@ -233,7 +364,7 @@ export function ShiftsModule() {
       </div>
 
       {/* Active Shift Card */}
-      {activeShift && (
+      {turnoActivoVisible && (
         <Card className="bg-primary/10 border-primary/30 animate-pulse-amber">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -243,16 +374,16 @@ export function ShiftsModule() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Turno activo</p>
-                  <p className="text-xl font-bold text-foreground">{activeShift.cajeroNombre}</p>
+                  <p className="text-xl font-bold text-foreground">{turnoActivoVisible.cajeroNombre}</p>
                 </div>
               </div>
               <div className="text-center">
                 <p className="text-sm text-muted-foreground">Inicio</p>
-                <p className="text-lg font-bold text-foreground">{formatTime(activeShift.fechaApertura)}</p>
+                <p className="text-lg font-bold text-foreground">{formatTime(turnoActivoVisible.fechaApertura)}</p>
               </div>
               <div className="text-center">
                 <p className="text-sm text-muted-foreground">Base</p>
-                <p className="text-lg font-bold text-foreground">{formatCurrency(activeShift.baseApertura)}</p>
+                <p className="text-lg font-bold text-foreground">{formatCurrency(turnoActivoVisible.baseApertura)}</p>
               </div>
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Estado</p>
@@ -290,7 +421,7 @@ export function ShiftsModule() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {historial.map((shift, idx) => (
+              {historialVisible.map((shift, idx) => (
                 <TableRow 
                   key={shift.id}
                   className="border-border hover:bg-secondary/30 animate-fade-in"
@@ -364,7 +495,7 @@ export function ShiftsModule() {
       </Card>
 
       {/* Open Shift Dialog */}
-      <Dialog open={showOpenShift} onOpenChange={setShowOpenShift}>
+      <Dialog open={showOpenShift && formularioAperturaVisible} onOpenChange={cerrarFormularioApertura}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
             <DialogTitle className="text-foreground flex items-center gap-2">
@@ -381,10 +512,11 @@ export function ShiftsModule() {
               <Input
                 type="text"
                 inputMode="numeric"
-                value={initialCash ? new Intl.NumberFormat('es-CO').format(parseInt(initialCash, 10)) : ''}
+                value={efectivoInicialVisible ? new Intl.NumberFormat('es-CO').format(parseInt(efectivoInicialVisible, 10)) : ''}
                 onChange={(e) => setInitialCash(e.target.value.replace(/\D/g, ''))}
                 placeholder="0"
                 className="h-14 text-2xl text-center font-bold bg-input"
+                disabled={abriendoTurnoVisible}
               />
               <div className="grid grid-cols-4 gap-2 mt-2">
                 {[100000, 200000, 300000, 500000].map(amount => (
@@ -393,6 +525,7 @@ export function ShiftsModule() {
                     variant="outline"
                     onClick={() => setInitialCash(amount.toString())}
                     className="text-xs"
+                    disabled={abriendoTurnoVisible}
                   >
                     {formatCurrency(amount)}
                   </Button>
@@ -402,26 +535,27 @@ export function ShiftsModule() {
             <div className="space-y-2">
               <Label>Notas (opcional)</Label>
               <Textarea
-                value={openNotes}
+                value={notasAperturaVisibles}
                 onChange={(e) => setOpenNotes(e.target.value)}
                 placeholder="Observaciones al iniciar el turno..."
                 className="bg-input"
+                disabled={abriendoTurnoVisible}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowOpenShift(false)}>
+            <Button variant="outline" onClick={() => cerrarFormularioApertura(false)} disabled={abriendoTurnoVisible}>
               Cancelar
             </Button>
-            <Button onClick={handleOpenShift} className="bg-primary text-primary-foreground">
-              <Play className="h-4 w-4 mr-2" />
-              Iniciar Turno
+            <Button onClick={handleOpenShift} disabled={abriendoTurnoVisible} className="bg-primary text-primary-foreground">
+              {abriendoTurnoVisible ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
+              {abriendoTurnoVisible ? 'Abriendo turno...' : 'Iniciar Turno'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showCloseShift} onOpenChange={setShowCloseShift}>
+      <Dialog open={dialogoCierreVisible} onOpenChange={setShowCloseShift}>
         <DialogContent className="bg-card border-border max-w-2xl max-h-[95vh] flex flex-col p-0 gap-0">
           <div className="p-6 pb-4">
             <DialogHeader>
@@ -442,11 +576,11 @@ export function ShiftsModule() {
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
                     <p className="text-sm text-muted-foreground">Entrada</p>
-                    <p className="text-lg font-bold text-foreground">{formatTime(activeShift?.fechaApertura)}</p>
+                    <p className="text-lg font-bold text-foreground">{formatTime(turnoActivoVisible?.fechaApertura)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Base</p>
-                    <p className="text-lg font-bold text-foreground">{formatCurrency(activeShift?.baseApertura || 0)}</p>
+                    <p className="text-lg font-bold text-foreground">{formatCurrency(turnoActivoVisible?.baseApertura || 0)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Ventas</p>
@@ -499,34 +633,34 @@ export function ShiftsModule() {
       </Dialog>
 
       {/* Shift Detail Dialog */}
-      <Dialog open={showShiftDetail} onOpenChange={setShowShiftDetail}>
+      <Dialog open={dialogoDetalleVisible} onOpenChange={setShowShiftDetail}>
         <DialogContent className="bg-card border-border max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-foreground">Detalle del Turno</DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              {selectedShift?.cajeroNombre} - {formatDate(selectedShift?.fechaApertura)}
+              {detalleVisible?.cajeroNombre} - {formatDate(detalleVisible?.fechaApertura)}
             </DialogDescription>
           </DialogHeader>
           
-          {selectedShift && (
+          {detalleVisible && (
             <div className="space-y-4 py-4">
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="p-3 bg-secondary/30 rounded-lg text-center flex flex-col justify-center">
                     <p className="text-xs text-muted-foreground mb-1">Base</p>
-                    <p className="text-lg font-bold text-foreground">{formatCurrency(selectedShift.baseApertura)}</p>
+                    <p className="text-lg font-bold text-foreground">{formatCurrency(detalleVisible.baseApertura)}</p>
                   </div>
                   <div className="p-3 bg-secondary/30 rounded-lg text-center flex flex-col justify-center">
                     <p className="text-xs text-muted-foreground mb-1">Vendido (Efectivo)</p>
-                    <p className="text-lg font-bold text-success">{usuario?.rol === 'admin' ? `+${formatCurrency(selectedShift.ventasEfectivo)}` : '***'}</p>
+                    <p className="text-lg font-bold text-success">{usuario?.rol === 'admin' ? `+${formatCurrency(detalleVisible.ventasEfectivo)}` : '***'}</p>
                   </div>
                   <div className="p-3 bg-secondary/30 rounded-lg text-center flex flex-col justify-center">
                     <p className="text-xs text-muted-foreground mb-1">Gastos (Egresos)</p>
-                    <p className="text-lg font-bold text-destructive">{usuario?.rol === 'admin' ? `-${formatCurrency(selectedShift.totalEgresos || 0)}` : '***'}</p>
+                    <p className="text-lg font-bold text-destructive">{usuario?.rol === 'admin' ? `-${formatCurrency(detalleVisible.totalEgresos || 0)}` : '***'}</p>
                   </div>
                   <div className="p-3 bg-primary/10 rounded-lg text-center flex flex-col justify-center">
                     <p className="text-xs text-primary/80 mb-1">Total Ventas</p>
-                    <p className="text-lg font-bold text-primary">{usuario?.rol === 'admin' ? formatCurrency(selectedShift.ventasEfectivo + selectedShift.ventasOtrosMetodos) : '***'}</p>
+                    <p className="text-lg font-bold text-primary">{usuario?.rol === 'admin' ? formatCurrency(detalleVisible.ventasEfectivo + detalleVisible.ventasOtrosMetodos) : '***'}</p>
                   </div>
                 </div>
   
@@ -534,12 +668,12 @@ export function ShiftsModule() {
                   <div className="p-3 bg-secondary/30 rounded-lg text-center">
                     <Banknote className="h-5 w-5 mx-auto mb-1 text-success" />
                     <p className="text-xs text-muted-foreground">Efectivo Esperado en Caja</p>
-                    <p className="font-bold text-foreground text-lg">{usuario?.rol === 'admin' ? formatCurrency(selectedShift.baseApertura + selectedShift.ventasEfectivo - (selectedShift.totalEgresos || 0)) : '***'}</p>
+                    <p className="font-bold text-foreground text-lg">{usuario?.rol === 'admin' ? formatCurrency(detalleVisible.baseApertura + detalleVisible.ventasEfectivo - (detalleVisible.totalEgresos || 0)) : '***'}</p>
                   </div>
                   <div className="p-3 bg-secondary/30 rounded-lg text-center">
                     <CreditCard className="h-5 w-5 mx-auto mb-1 text-primary" />
                     <p className="text-xs text-muted-foreground">Otros Medios (Tarjetas, Transf)</p>
-                    <p className="font-bold text-foreground text-lg">{usuario?.rol === 'admin' ? formatCurrency(selectedShift.ventasOtrosMetodos) : '***'}</p>
+                    <p className="font-bold text-foreground text-lg">{usuario?.rol === 'admin' ? formatCurrency(detalleVisible.ventasOtrosMetodos) : '***'}</p>
                   </div>
                 </div>
               </CardContent>

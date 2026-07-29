@@ -93,3 +93,23 @@ test("núcleo tenant-aware: eliminación se limita al tenant propietario", async
     tenantA.firestore().doc("producto_modificador_grupos/eliminar-ajeno").delete()
   );
 });
+
+test("R1-A: command receipts, idempotency index, and critical audit are backend-only", async () => {
+  const tenantA = await contextFor(fixtures.tenantA.admin);
+  const coleccionesBackendOnly = [
+    "operaciones_comandos",
+    "operaciones_command_idempotency",
+    "operaciones_auditoria",
+  ];
+
+  for (const collection of coleccionesBackendOnly) {
+    const existente = `${collection}/existente`;
+    const nuevo = `${collection}/nuevo`;
+    await seedDocument(existente, { empresaId: "empresa-a" });
+
+    await expectDenied(tenantA.firestore().doc(existente).get());
+    await expectDenied(tenantA.firestore().doc(nuevo).set({ empresaId: "empresa-a" }));
+    await expectDenied(tenantA.firestore().doc(existente).update({ marcador: "cliente" }));
+    await expectDenied(tenantA.firestore().doc(existente).delete());
+  }
+});
