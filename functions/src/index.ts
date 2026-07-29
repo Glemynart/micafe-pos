@@ -17,6 +17,7 @@ export {
 export { actualizarConfiguracionEmpresa, actualizarParametrosFiscales, actualizarPreferenciasImpresion, actualizarPoliticasOperativas, obtenerConfiguracionEmpresa } from "./configuracion/callables";
 export { abrirTurnoOperativoV1 } from "./turnos/callable";
 export { anularVentaOperativaV1 } from "./finanzas/anulaciones";
+export { aplicarEfectosVentaOperativaV1 } from "./finanzas/callables";
 export { crearNumeracionFiscal, actualizarNumeracionFiscal, transicionarNumeracionFiscal, establecerAsignacionFiscal, retirarAsignacionFiscal, confirmarVentaFiscalCallable } from "./fiscal/callables";
 export { bootstrapEmpresarialCallable } from "./bootstrap/callables";
 export { obtenerEstadoOnboarding, completarPasoFiscalOnboardingCallable, completarPasoNumeracionOnboardingCallable } from "./onboarding/callables";
@@ -44,6 +45,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { expirarSoportesVencidos } from "./platform/support";
 import { reconciliarClaimsOperadores } from "./platform/initial-bootstrap";
 import { reconciliarObligacionesAuditoria } from "./platform/audit";
+import { reconciliarVentasPendientes } from "./finanzas/reconciliador";
 
 export const expirarSoportesSaas = onSchedule(
   { region: "us-central1", schedule: "every 5 minutes", timeZone: "UTC" },
@@ -58,6 +60,11 @@ export const reconciliarClaimsOperadoresSaas = onSchedule(
 export const reconciliarAuditoriaPlataformaSaas = onSchedule(
   { region: "us-central1", schedule: "every 5 minutes", timeZone: "UTC" },
   async () => { await reconciliarObligacionesAuditoria(getFirestore()); },
+);
+
+export const reconciliarVentasPendientesOperativas = onSchedule(
+  { region: "us-central1", schedule: "every 5 minutes", timeZone: "UTC" },
+  async () => { await reconciliarVentasPendientes(getFirestore()); },
 );
 
 

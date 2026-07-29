@@ -1,0 +1,174 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { HttpsError } from "firebase-functions/v2/https";
+import { crearIdentificadorInterno } from "../turnos/identificadores";
+import { ejecutarCerrarTurnoOperativoV1, type ContextoFinancieroOperativo } from "./callables";
+
+type Data = Record<string, any>;
+
+class Snapshot {
+  constructor(readonly id: string, readonly ref: Ref, private readonly value: Data | undefined) {}
+  get exists() { return this.value !== undefined; }
+  data() { return this.value; }
+}
+class Ref {
+  constructor(readonly path: string, private readonly db: FakeFirestore) {}
+  get id() { return this.path.split("/").at(-1)!; }
+}
+class Query {
+  constructor(private readonly name: string, private readonly db: FakeFirestore, private readonly filters: Array<[string, unknown]> = []) {}
+  where(field: string, op: "==", value: unknown) {
+    assert.equal(op, "==");
+    return new Query(this.name, this.db, [...this.filters, [field, value]]);
+  }
+  snapshot() {
+    const prefix = `${this.name}/`;
+    const docs = [...this.db.docs.entries()]
+      .filter(([path, data]) => path.startsWith(prefix) && this.filters.every(([field, value]) => data[field] === value))
+      .map(([path, data]) => new Snapshot(path.slice(prefix.length), new Ref(path, this.db), data));
+    return { docs, size: docs.length, empty: docs.length === 0 };
+  }
+}
+class Collection extends Query {
+  constructor(private readonly name: string, private readonly db: FakeFirestore) { super(name, db); }
+  doc(id?: string) { return new Ref(`${this.name}/${id ?? `${this.name}-${this.db.nextId()}`}`, this.db); }
+}
+class Transaction {
+  private readonly creates: Array<[Ref, Data]> = [];
+  private readonly updates: Array<[Ref, Data]> = [];
+  private readonly deletes: Ref[] = [];
+  constructor(private readonly db: FakeFirestore) {}
+  async get(ref: Ref | Query) {
+    if (ref instanceof Query) return ref.snapshot();
+    return new Snapshot(ref.id, ref, this.db.docs.get(ref.path));
+  }
+  create(ref: Ref, data: Data) {
+    if (this.db.docs.has(ref.path) || this.creates.some(([pending]) => pending.path === ref.path)) throw new Error("already-exists");
+    this.creates.push([ref, data]);
+  }
+  update(ref: Ref, data: Data) {
+    if (!this.db.docs.has(ref.path)) throw new Error("not-found");
+    this.updates.push([ref, data]);
+  }
+  delete(ref: Ref) { this.deletes.push(ref); }
+  commit() {
+    for (const [ref, data] of this.creates) this.db.docs.set(ref.path, structuredClone(data));
+    for (const [ref, data] of this.updates) this.db.docs.set(ref.path, { ...this.db.docs.get(ref.path), ...structuredClone(data) });
+    for (const ref of this.deletes) this.db.docs.delete(ref.path);
+  }
+}
+class FakeFirestore {
+  readonly docs = new Map<string, Data>();
+  private sequence = 0;
+  private queue: Promise<void> = Promise.resolve();
+  nextId() { this.sequence += 1; return String(this.sequence); }
+  collection(name: string) { return new Collection(name, this); }
+  async runTransaction<T>(work: (tx: Transaction) => Promise<T>) {
+    const previous = this.queue;
+    let release!: () => void;
+    this.queue = new Promise<void>(resolve => { release = resolve; });
+    await previous;
+    try { const tx = new Transaction(this); const result = await work(tx); tx.commit(); return result; }
+    finally { release(); }
+  }
+}
+
+const empresaId = "empresa-cierre";
+const actor: ContextoFinancieroOperativo = { empresaId, actorUid: "cajero-a", rol: "cajero" };
+const cierre = (suffix = "1", payload: Record<string, unknown> = {}) => ({
+  commandId: `cierre-${suffix}`, idempotencyKey: `idem-cierre-${suffix}`, correlationId: `corr-cierre-${suffix}`,
+  payload: { turnoId: "turno-a", efectivoContado: 130, ...payload },
+});
+const domain = (error: unknown, code: string) => error instanceof HttpsError && (error.details as { code?: string }).code === code;
+const count = (db: FakeFirestore, collection: string) => [...db.docs.keys()].filter(path => path.startsWith(`${collection}/`)).length;
+
+function seed(db: FakeFirestore, options: { relevo?: boolean; efectivo?: boolean } = {}) {
+  db.docs.set(`empresas/${empresaId}`, { estado: "activa", esFundacional: false });
+  db.docs.set(`membresias/${empresaId}_${actor.actorUid}`, {
+    empresaId, uid: actor.actorUid, rol: actor.rol, permisos: ["shifts"], estado: "activa", activo: true,
+  });
+  const cajaId = crearIdentificadorInterno(empresaId, "cuenta:caja-principal");
+  const fuerteId = crearIdentificadorInterno(empresaId, "cuenta:caja-fuerte");
+  db.docs.set(`cuentas_bancarias/${cajaId}`, { id: cajaId, empresaId, claveOperativa: "caja-principal", saldo: 160, nombre: "Caja" });
+  db.docs.set(`cuentas_bancarias/${fuerteId}`, { id: fuerteId, empresaId, claveOperativa: "caja-fuerte", saldo: 50, nombre: "Fuerte" });
+  db.docs.set("turnos/turno-a", { id: "turno-a", empresaId, cajeroId: actor.actorUid, cajeroNombre: "Cajero A", estado: "abierto", baseApertura: 100 });
+  db.docs.set(`turnos_activos/${crearIdentificadorInterno(empresaId, actor.actorUid)}`, { empresaId, cajeroId: actor.actorUid, turnoId: "turno-a" });
+  const movimiento = (id: string, tipo: "ingreso" | "egreso", monto: number, categoria: string, turnoId = "turno-a", cuentaDocumentoId = cajaId) => db.docs.set(`transacciones_financieras/${id}`, { id, empresaId, tipo, monto, categoria, turnoId, cuentaDocumentoId });
+  movimiento("venta-efectivo", "ingreso", 40, "ventas");
+  movimiento("egreso-caja", "egreso", 10, "egreso");
+  movimiento("ajeno", "ingreso", 999, "ventas", "otro-turno");
+  movimiento("banco", "ingreso", 999, "ventas", "turno-a", "otra-cuenta");
+  db.docs.set("ventas/venta-efectivo", { empresaId, turnoId: "turno-a", estadoOperativo: "COMPLETO", metodoPago: "efectivo", totales: { total: 40 } });
+  db.docs.set("ventas/venta-tarjeta", { empresaId, turnoId: "turno-a", estadoOperativo: "COMPLETO", metodoPago: "tarjeta", totales: { total: 70 } });
+  db.docs.set("egresos/egreso-caja", { empresaId, turnoId: "turno-a", monto: 10, estado: "confirmado" });
+  if (options.relevo) {
+    db.docs.set(`membresias/${empresaId}_cajero-b`, { empresaId, uid: "cajero-b", rol: "cajero", permisos: ["shifts"], estado: "activa", activo: true });
+    db.docs.set("usuarios/cajero-b", { nombre: "Cajero B" });
+  }
+  return { cajaId, fuerteId };
+}
+
+test("R1-B.3: reconstruye el arqueo del ledger de caja tenant-safe y congela los totales", async () => {
+  const db = new FakeFirestore(); const { cajaId, fuerteId } = seed(db);
+  const result = await ejecutarCerrarTurnoOperativoV1(db, actor, cierre());
+  const turno = db.docs.get("turnos/turno-a")!;
+  assert.equal(result.efectivoEsperado, 130);
+  assert.deepEqual({ ventasEfectivo: turno.ventasEfectivo, ventasOtrosMetodos: turno.ventasOtrosMetodos, totalEgresos: turno.totalEgresos, totalEsperadoEfectivo: turno.totalEsperadoEfectivo, diferenciaEfectivo: turno.diferenciaEfectivo, depositoNeto: turno.depositoNeto }, { ventasEfectivo: 40, ventasOtrosMetodos: 70, totalEgresos: 10, totalEsperadoEfectivo: 130, diferenciaEfectivo: 0, depositoNeto: 30 });
+  assert.equal(db.docs.get(`cuentas_bancarias/${cajaId}`)?.saldo, 130);
+  assert.equal(db.docs.get(`cuentas_bancarias/${fuerteId}`)?.saldo, 80);
+  assert.equal(count(db, "transacciones_financieras"), 6);
+  assert.equal(db.docs.has(`turnos_activos/${crearIdentificadorInterno(empresaId, actor.actorUid)}`), false);
+});
+
+test("R1-B.3: depósito y sobrante se validan por saldo final, no por un débito intermedio", async () => {
+  const db = new FakeFirestore(); const { cajaId } = seed(db);
+  const result = await ejecutarCerrarTurnoOperativoV1(db, actor, cierre("sobrante", { efectivoContado: 250 }));
+  assert.equal(result.diferenciaEfectivo, 120);
+  assert.equal(db.docs.get(`cuentas_bancarias/${cajaId}`)?.saldo, 130);
+  assert.equal([...db.docs.values()].filter(data => data.categoria === "sobrante_caja").length, 1);
+});
+
+test("R1-B.3: exige el candado coherente y un relevo elegible sin turno ni candado", async () => {
+  const db = new FakeFirestore(); seed(db, { relevo: true });
+  const result = await ejecutarCerrarTurnoOperativoV1(db, actor, cierre("relevo", { relevoCajeroId: "cajero-b" }));
+  const relevo = db.docs.get(`turnos/${result.relevoTurnoId}`)!;
+  assert.equal(relevo.cajeroId, "cajero-b");
+  assert.equal(relevo.baseApertura, 100);
+  assert.equal(db.docs.get(`turnos_activos/${crearIdentificadorInterno(empresaId, "cajero-b")}`)?.turnoId, result.relevoTurnoId);
+  assert.equal(count(db, "transacciones_financieras"), 6);
+});
+
+test("R1-B.3: candado incoherente y reintento no producen un segundo cierre", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`turnos_activos/${crearIdentificadorInterno(empresaId, actor.actorUid)}`, { empresaId, cajeroId: actor.actorUid, turnoId: "otro" });
+  await assert.rejects(ejecutarCerrarTurnoOperativoV1(db, actor, cierre("lock")), error => domain(error, "LOCK_CONFLICT"));
+  const clean = new FakeFirestore(); seed(clean); const data = cierre("idem");
+  const [first, second] = await Promise.all([ejecutarCerrarTurnoOperativoV1(clean, actor, data), ejecutarCerrarTurnoOperativoV1(clean, actor, data)]);
+  assert.deepEqual(second, first);
+  assert.equal(count(clean, "transacciones_financieras"), 6);
+  assert.equal(count(clean, "operaciones_comandos"), 1);
+});
+
+test("R1-B.3: revalida empresa, membresía y capacidad shifts dentro de la transacción", async () => {
+  const casos: Array<{ nombre: string; code: string; mutar(db: FakeFirestore): void }> = [
+    {
+      nombre: "empresa suspendida", code: "EMPRESA_NO_OPERATIVA",
+      mutar: db => db.docs.set(`empresas/${empresaId}`, { estado: "suspendida", esFundacional: false }),
+    },
+    {
+      nombre: "membresía revocada", code: "TENANT_ACCESS_DENIED",
+      mutar: db => db.docs.set(`membresias/${empresaId}_${actor.actorUid}`, { empresaId, uid: actor.actorUid, rol: actor.rol, permisos: ["shifts"], estado: "revocada", activo: false }),
+    },
+    {
+      nombre: "permiso shifts retirado", code: "ROLE_FORBIDDEN",
+      mutar: db => db.docs.set(`membresias/${empresaId}_${actor.actorUid}`, { empresaId, uid: actor.actorUid, rol: actor.rol, permisos: [], estado: "activa", activo: true }),
+    },
+  ];
+
+  for (const escenario of casos) {
+    const db = new FakeFirestore(); seed(db); escenario.mutar(db);
+    const before = structuredClone([...db.docs]);
+    await assert.rejects(ejecutarCerrarTurnoOperativoV1(db, actor, cierre(escenario.nombre)), error => domain(error, escenario.code));
+    assert.deepEqual([...db.docs], before, escenario.nombre);
+  }
+});
