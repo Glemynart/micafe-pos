@@ -92,11 +92,17 @@ test("invariantes: auditoría y movimientos son append-only", async () => {
   await expectDenied(cajeroTenantA.firestore().doc(movimientoPath).update({ cantidad: 2 }));
 });
 
-test("invariantes: un operativo solo actualiza el saldo bancario", async () => {
+test("R1-B.1: el cliente no puede alterar saldos ni anular una venta", async () => {
   const cajeroTenantA = await contextFor(fixtures.tenantA.cajero);
+  const adminTenantA = await contextFor(fixtures.tenantA.admin);
   const path = "cuentas_bancarias/caja-principal";
   await seedDocument(path, { empresaId: "empresa-a", saldo: 100, nombre: "Caja principal" });
+  await seedDocument("ventas/venta-pendiente", {
+    empresaId: "empresa-a", estado: "pagada", estadoOperativo: "PENDIENTE_EFECTOS", snapshotFiscal: { id: "fiscal" }, consecutivo: 1,
+  });
 
-  await expectAllowed(cajeroTenantA.firestore().doc(path).update({ saldo: 150 }));
+  await expectDenied(cajeroTenantA.firestore().doc(path).update({ saldo: 150 }));
   await expectDenied(cajeroTenantA.firestore().doc(path).update({ nombre: "Cuenta alterada" }));
+  await expectDenied(cajeroTenantA.firestore().doc("ventas/venta-pendiente").update({ estado: "anulada", estadoOperativo: "ANULADA_SIN_EFECTOS" }));
+  await expectDenied(adminTenantA.firestore().doc("ventas/venta-pendiente").update({ estado: "anulada", estadoOperativo: "ANULADA_SIN_EFECTOS" }));
 });
