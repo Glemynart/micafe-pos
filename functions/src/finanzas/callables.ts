@@ -8,6 +8,8 @@ import { crearIdentificadorInterno } from "../turnos/identificadores";
 const REGION = "us-central1";
 const MOVIMIENTOS = "transacciones_financieras";
 type Tipo = "ingreso" | "egreso";
+const CLAVE_CAJA_PRINCIPAL = "caja-principal";
+const CLAVE_CUENTA_ELECTRONICA = "bancolombia";
 
 interface Envelope {
   commandId: string;
@@ -24,7 +26,15 @@ const fail = (code: HttpsError["code"], dominio: string): never => {
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 const text = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
 const money = (value: unknown): value is number => typeof value === "number" && Number.isSafeInteger(value) && value > 0;
-const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value, Object.keys(object(value) ? value : {}).sort())).digest("hex");
+function canonizarHuella(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonizarHuella);
+  if (object(value)) return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonizarHuella(value[key])]));
+  return value;
+}
+
+export function crearHuellaSemantica(value: unknown) {
+  return createHash("sha256").update(JSON.stringify(canonizarHuella(value))).digest("hex");
+}
 
 function envelope(value: unknown): Envelope {
   if (!object(value) || !text(value.commandId) || !text(value.idempotencyKey) || !text(value.correlationId) || !object(value.payload)) {
@@ -60,6 +70,29 @@ async function cuentaReservada(tx: any, db: any, empresaId: string, claveOperati
   const cuenta = await account(tx, db, empresaId, cuentaDocumentoId);
   if (cuenta.data.id !== cuentaDocumentoId || cuenta.data.claveOperativa !== claveOperativa) fail("failed-precondition", "CUENTA_INVALIDA");
   return cuenta;
+}
+
+/** Resuelve la identidad lógica de una cuenta sin aceptar un ID físico como autoridad. */
+async function resolverCuentaOperativa(tx: any, db: any, empresaId: string, claveOperativa: string) {
+  if (claveOperativa === "caja-principal" || claveOperativa === "caja-fuerte") {
+    return cuentaReservada(tx, db, empresaId, claveOperativa);
+  }
+  const candidatas = await tx.get(db.collection("cuentas_bancarias")
+    .where("empresaId", "==", empresaId)
+    .where("claveOperativa", "==", claveOperativa));
+  if (candidatas.size !== 1) fail("failed-precondition", "CUENTA_INVALIDA");
+  const snap = candidatas.docs[0];
+  const data = snap.data() as Record<string, unknown>;
+  const saldo = data.saldo;
+  if (data.id !== snap.id || data.empresaId !== empresaId || data.claveOperativa !== claveOperativa || !Number.isSafeInteger(saldo) || (saldo as number) < 0) {
+    fail("failed-precondition", "CUENTA_INVALIDA");
+  }
+  return { ref: snap.ref, snap, data, saldo: saldo as number };
+}
+
+function claveCuentaPorMedioPago(medio: unknown) {
+  if (!text(medio)) fail("invalid-argument", "PAGO_INVALIDO");
+  return medio === "efectivo" ? CLAVE_CAJA_PRINCIPAL : CLAVE_CUENTA_ELECTRONICA;
 }
 
 async function turnoAbierto(tx: any, db: any, empresaId: string, turnoId: unknown) {
@@ -119,9 +152,23 @@ export interface ContextoFinancieroOperativo {
   ejecutorTecnico?: string;
 }
 
+/** Relee autoridad canónica en la misma transacción que materializa el efecto. */
+export async function revalidarAutoridadFinancieraEnTransaccion(tx: any, db: any, contexto: ContextoFinancieroOperativo, capacidad: string) {
+  const [empresa, membresiaSnap] = await Promise.all([
+    tx.get(db.collection("empresas").doc(contexto.empresaId)),
+    tx.get(db.collection("membresias").doc(`${contexto.empresaId}_${contexto.actorUid}`)),
+  ]);
+  if (!empresa.exists || !["trial", "activa"].includes(empresa.data()?.estado)) fail("failed-precondition", "EMPRESA_NO_OPERATIVA");
+  const membresia = membresiaSnap.data() as Record<string, unknown> | undefined;
+  if (!esMembresiaAutorizada(membresia, contexto)) fail("permission-denied", "TENANT_ACCESS_DENIED");
+  const membresiaVigente = membresia as Record<string, unknown> & { rol: string; permisos: unknown[] };
+  if (membresiaVigente.rol !== contexto.rol) fail("permission-denied", "TENANT_ACCESS_DENIED");
+  if (!membresiaVigente.permisos.includes(capacidad)) fail("permission-denied", "ROLE_FORBIDDEN");
+}
+
 async function executeConContexto(db: any, contexto: ContextoFinancieroOperativo, data: unknown, tipo: string, effect: (tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope) => Promise<Record<string, unknown>>) {
   const input = envelope(data);
-  const fingerprint = hash({ tipo, causationId: input.causationId ?? null, motivo: input.motivo ?? null, payload: input.payload });
+  const fingerprint = crearHuellaSemantica({ tipo, causationId: input.causationId ?? null, motivo: input.motivo ?? null, payload: input.payload });
   const refs = operationRefs(db, contexto.empresaId, input);
   return db.runTransaction(async (tx: any) => {
     const [recibo, indice] = await Promise.all([tx.get(refs.recibo), tx.get(refs.indice)]);
@@ -167,19 +214,20 @@ export const trasladarEntreCuentasV1 = onCall({ region: REGION }, async request 
 }));
 
 async function efectoAplicarEfectosVentaOperativa(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<Record<string, unknown>> {
+  await revalidarAutoridadFinancieraEnTransaccion(tx, db, { empresaId, actorUid, rol }, "pos");
   const ventaId = input.payload.ventaId;
   if (!text(ventaId)) fail("invalid-argument", "PAYLOAD_INVALID");
   const ventaRef = db.collection("ventas").doc(ventaId as string); const venta = await tx.get(ventaRef);
   if (!venta.exists || venta.data()?.empresaId !== empresaId || venta.data()?.estadoOperativo !== "PENDIENTE_EFECTOS") fail("failed-precondition", "VENTA_NO_PENDIENTE");
   const data = venta.data() as Record<string, any>; const total = Number(data.totales?.total ?? 0); const metodo = data.metodoPago ?? data.pago?.metodo;
   if (!money(total) || !text(metodo)) fail("invalid-argument", "PAGO_INVALIDO");
-  const legs: Array<{ cuentaId: string; monto: number; turnoId: string | null }> = metodo === "mixto" ? (Array.isArray(data.pagoMixtoDetalle) ? data.pagoMixtoDetalle.map((p: any) => ({ cuentaId: p.metodo === "efectivo" ? "caja-principal" : "bancolombia", monto: p.monto, turnoId: p.metodo === "efectivo" ? data.turnoId ?? null : null })) : []) : [{ cuentaId: metodo === "efectivo" ? "caja-principal" : "bancolombia", monto: total, turnoId: metodo === "efectivo" ? data.turnoId ?? null : null }];
+  const legs: Array<{ claveOperativa: string; monto: number; turnoId: string | null }> = metodo === "mixto" ? (Array.isArray(data.pagoMixtoDetalle) ? data.pagoMixtoDetalle.map((p: any) => ({ claveOperativa: claveCuentaPorMedioPago(p.metodo), monto: p.monto, turnoId: p.metodo === "efectivo" ? data.turnoId ?? null : null })) : []) : [{ claveOperativa: claveCuentaPorMedioPago(metodo), monto: total, turnoId: metodo === "efectivo" ? data.turnoId ?? null : null }];
   if (!legs.length || legs.some(leg => !money(leg.monto))) fail("invalid-argument", "PAGO_INVALIDO");
   if (legs.reduce((sum, leg) => sum + leg.monto, 0) !== total) fail("invalid-argument", "PAGO_INVALIDO");
-  const cuentas = await Promise.all([...new Set(legs.map(leg => leg.cuentaId))].map(id => account(tx, db, empresaId, id)));
+  const cuentas = await Promise.all([...new Set(legs.map(leg => leg.claveOperativa))].map(clave => resolverCuentaOperativa(tx, db, empresaId, clave)));
   const porId = new Map(cuentas.map(cuenta => [cuenta.ref.id, cuenta]));
-  if (legs.some(leg => leg.cuentaId === "caja-principal")) {
-    const turnoId = legs.find(leg => leg.cuentaId === "caja-principal")!.turnoId;
+  if (legs.some(leg => leg.claveOperativa === CLAVE_CAJA_PRINCIPAL)) {
+    const turnoId = legs.find(leg => leg.claveOperativa === CLAVE_CAJA_PRINCIPAL)!.turnoId;
     if (!text(turnoId)) fail("failed-precondition", "TURNO_CERRADO");
     const turno = await tx.get(db.collection("turnos").doc(turnoId));
     if (!turno.exists || turno.data()?.empresaId !== empresaId) fail("failed-precondition", "TURNO_CERRADO");
@@ -223,7 +271,7 @@ async function efectoAplicarEfectosVentaOperativa(tx: any, db: any, empresaId: s
   if (lineasExistentes.some(linea => linea.exists)) fail("failed-precondition", "EFECTOS_VENTA_INCONSISTENTES");
   const saldos = new Map(cuentas.map(cuenta => [cuenta.ref.id, cuenta.saldo]));
   const movementIds: string[] = [];
-  for (const [ordinal, leg] of legs.entries()) { const a = porId.get(leg.cuentaId)!; const saldo = saldos.get(leg.cuentaId)!; const m = writeMovement(tx, db, { empresaId, command: input, key: `venta:${ventaId as string}:pago:${ordinal}`, account: { ...a, saldo }, tipo: "ingreso", monto: leg.monto, categoria: "ventas", actorUid, rol, turnoId: leg.turnoId, ventaId: ventaId as string, actualizarSaldo: false }); saldos.set(leg.cuentaId, m.saldo); movementIds.push(m.id); }
+  for (const [ordinal, leg] of legs.entries()) { const a = cuentas.find(cuenta => cuenta.data.claveOperativa === leg.claveOperativa)!; const saldo = saldos.get(a.ref.id)!; const m = writeMovement(tx, db, { empresaId, command: input, key: `venta:${ventaId as string}:pago:${ordinal}`, account: { ...a, saldo }, tipo: "ingreso", monto: leg.monto, categoria: "ventas", actorUid, rol, turnoId: leg.turnoId, ventaId: ventaId as string, actualizarSaldo: false }); saldos.set(a.ref.id, m.saldo); movementIds.push(m.id); }
   for (const cuenta of cuentas) tx.update(cuenta.ref, { saldo: saldos.get(cuenta.ref.id)! });
   for (const entrada of inventario) {
     const articulo = entrada.articulo.data(); const stock = Number(articulo.stock ?? 0); const secuencia = Number(articulo.secuenciaLedger ?? 0);

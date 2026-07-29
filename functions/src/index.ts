@@ -17,7 +17,13 @@ export {
 export { actualizarConfiguracionEmpresa, actualizarParametrosFiscales, actualizarPreferenciasImpresion, actualizarPoliticasOperativas, obtenerConfiguracionEmpresa } from "./configuracion/callables";
 export { abrirTurnoOperativoV1 } from "./turnos/callable";
 export { anularVentaOperativaV1 } from "./finanzas/anulaciones";
-export { aplicarEfectosVentaOperativaV1 } from "./finanzas/callables";
+export {
+  aplicarEfectosVentaOperativaV1,
+  cerrarTurnoOperativoV1,
+  registrarEgresoOperativoV1,
+  registrarMovimientoFinancieroV1,
+  trasladarEntreCuentasV1,
+} from "./finanzas/callables";
 export { crearNumeracionFiscal, actualizarNumeracionFiscal, transicionarNumeracionFiscal, establecerAsignacionFiscal, retirarAsignacionFiscal, confirmarVentaFiscalCallable } from "./fiscal/callables";
 export { bootstrapEmpresarialCallable } from "./bootstrap/callables";
 export { obtenerEstadoOnboarding, completarPasoFiscalOnboardingCallable, completarPasoNumeracionOnboardingCallable } from "./onboarding/callables";
