@@ -163,7 +163,7 @@ test("B6 Onboarding — Flujo completo de reanudación y completitud del Onboard
           pago: { metodo: "efectivo", recibido: 5000, cambio: 0 },
         },
       },
-      { empresaId: "empresa_b6_flow", actorId: "owner_usr_77", paisFiscal: "CO", origen: "ADMIN" }
+      { empresaId: "empresa_b6_flow", actorId: "owner_usr_77", paisFiscal: "CO", origen: "ADMIN", rolEfectivo: "admin" }
     ),
     /ASIGNACION_NOT_FOUND|READINESS_FISCAL_INCOMPLETA|NUMERACION_INVALIDA/
   );
@@ -251,7 +251,7 @@ test("B6 Onboarding — Flujo completo de reanudación y completitud del Onboard
         pago: { metodo: "efectivo", recibido: 5000, cambio: 500 },
       },
     },
-    { empresaId: "empresa_b6_flow", actorId: "owner_usr_77", paisFiscal: "CO", origen: "ADMIN" }
+    { empresaId: "empresa_b6_flow", actorId: "owner_usr_77", paisFiscal: "CO", origen: "ADMIN", rolEfectivo: "admin" }
   );
 
   assert.equal(ventaOk.numero, 1);

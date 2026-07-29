@@ -15,6 +15,8 @@ import {
   Timestamp
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { getFirebaseFunctions } from './firebase'
+import { httpsCallable } from 'firebase/functions'
 import { tenantQuery, getEmpresaId, withEmpresaId } from '@/lib/tenant'
 
 export interface CuentaBancaria {
@@ -100,6 +102,11 @@ export function suscribirTransacciones(mes: number, anio: number, callback: (txs
 // ----------------------------------------------------------------------------
 
 export async function registrarTransaccion(tx: Omit<TransaccionFinanciera, 'id' | 'fecha'>) {
+  await httpsCallable(getFirebaseFunctions(), 'registrarMovimientoFinancieroV1')({
+    commandId: crypto.randomUUID(), idempotencyKey: crypto.randomUUID(), correlationId: crypto.randomUUID(), causationId: null,
+    motivo: tx.concepto, payload: { cuentaId: tx.cuentaId, monto: tx.monto, tipo: tx.tipo, categoria: tx.categoria, turnoId: null },
+  })
+  return
   const cuentaRef = doc(db, 'cuentas_bancarias', tx.cuentaId)
   const nuevaTxRef = doc(collection(db, 'transacciones_financieras'))
 
@@ -149,6 +156,11 @@ export async function trasladarEntreCuentas(params: {
   usuarioId: string
   usuarioNombre: string
 }): Promise<void> {
+  await httpsCallable(getFirebaseFunctions(), 'trasladarEntreCuentasV1')({
+    commandId: crypto.randomUUID(), idempotencyKey: crypto.randomUUID(), correlationId: crypto.randomUUID(), causationId: null,
+    motivo: params.concepto, payload: { cuentaOrigenId: params.cuentaOrigenId, cuentaDestinoId: params.cuentaDestinoId, monto: params.monto, turnoId: null },
+  })
+  return
   const origenRef = doc(db, 'cuentas_bancarias', params.cuentaOrigenId)
   const destinoRef = doc(db, 'cuentas_bancarias', params.cuentaDestinoId)
 

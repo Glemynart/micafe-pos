@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { FieldValue } from "firebase-admin/firestore";
 import { ejecutarBootstrapEmpresarial } from "./service";
+import { crearIdentificadorInterno } from "../turnos/identificadores";
 import type { EntradaBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
 
 class Ref {
@@ -214,6 +215,15 @@ test("B5 Bootstrap — ownerUid existente completa sin emitir claims tenant", as
   assert.equal(empresa.ownerUid, "owner_usr_99");
   assert.equal(empresa.nombre, "Café B5 Central");
   assert.equal(empresa.esFundacional, false);
+
+  for (const claveOperativa of ["caja-principal", "caja-fuerte"] as const) {
+    const cuentaId = crearIdentificadorInterno("empresa_test_b5", `cuenta:${claveOperativa}`);
+    const cuenta = db.read(`cuentas_bancarias/${cuentaId}`);
+    assert.deepEqual(
+      { id: cuenta.id, empresaId: cuenta.empresaId, claveOperativa: cuenta.claveOperativa, saldo: cuenta.saldo },
+      { id: cuentaId, empresaId: "empresa_test_b5", claveOperativa, saldo: 0 },
+    );
+  }
 
   const config = db.read("configuraciones/empresa_test_b5");
   assert.equal(config.revision, 1);

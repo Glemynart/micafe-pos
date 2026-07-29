@@ -9,6 +9,7 @@ Implementación de la autoridad fiscal nueva definida por ADR-SAAS-008 y B0. Est
 - `numeraciones/{empresaId}_{numeracionId}` conserva exclusivamente resolución, prefijo, rango, vigencia, scope, tipo, contador, estado y revisión.
 - `asignaciones_numeracion/{empresaId}_{scopeCanonico}_{tipoDocumento}` conserva exclusivamente la selección vigente.
 - `ventas/{ventaId}.snapshotFiscal` es la evidencia inmutable de una emisión nueva.
+- `fiscal_comandos/{reciboId}` es el recibo canónico e inmutable de cada comando fiscal. Para `ConfirmarVentaFiscal`, además de la identidad idempotente del comando, conserva el vínculo único con `ventaId` y el contexto histórico resuelto por servidor: `empresaId`, `actorOriginal.uid`, `actorOriginal.rolEfectivo`, `commandId`, `idempotencyKey`, `correlationId` y `causationId`.
 
 Los scopes canónicos son `EMPRESA` y `ESPACIO:<espacioId>`. La selección se hace solo en backend: espacio/tipo, empresa/tipo, o rechazo explícito.
 
@@ -16,7 +17,13 @@ Los scopes canónicos son `EMPRESA` y `ESPACIO:<espacioId>`. La selección se ha
 
 `CrearNumeracion`, las transiciones habilitar/pausar/reanudar/revocar, `EstablecerAsignacionNumeracion` y `ConfirmarVentaFiscal` se ejecutan desde Functions privilegiadas. Todo comando transporta commandId, idempotencyKey, correlationId, causationId y expectedRevision; reintentos equivalentes recuperan el resultado durable y una clave reutilizada con otra carga se rechaza. La unicidad global de `commandId` reutiliza el índice canónico introducido por B1.
 
-`ConfirmarVentaFiscal` no acepta numeración ni número del cliente. En una transacción valida Empresa, readiness fiscal mediante el validador B1, líneas/impuestos, asignación, tipo, scope, estado, país, vigencia y rango; incrementa un único contador, crea la venta y congela `snapshotFiscal`, auditoría y evento. No existe comando independiente de incremento o snapshot. Los estados terminales detectados se confirman y auditan antes de devolver el rechazo de emisión.
+`ConfirmarVentaFiscal` no acepta numeración ni número del cliente. En una transacción valida Empresa, readiness fiscal mediante el validador B1, líneas/impuestos, asignación, tipo, scope, estado, país, vigencia y rango; incrementa un único contador, crea la venta y congela `snapshotFiscal`, auditoría, evento y recibo fiscal canónico. No existe comando independiente de incremento o snapshot. Los estados terminales detectados se confirman y auditan antes de devolver el rechazo de emisión.
+
+El recibo de una confirmación se crea en ese mismo commit con el `empresaId`, actor y rol efectivo que la Function ya resolvió desde la sesión y membresía vigentes; nunca los toma de `entrada.venta`. `ventaId` es único dentro de `fiscal_comandos` para una confirmación fiscal y permite localizar el recibo mediante consulta por ese campo. La dupla de identidad y la huella ya definidas para el comando permanecen sin cambios; un reintento devuelve ese mismo recibo y no crea otra relación ni otro contexto.
+
+R1-B.2 localiza el recibo por `ventaId` antes de aplicar los efectos de una venta `PENDIENTE_EFECTOS`. Ese recibo es la única fuente canónica para reconstruir `empresaId`, `actorOriginal.uid` y `actorOriginal.rolEfectivo` históricos; `ventas/{ventaId}` se usa exclusivamente como hecho fiscal y fuente de los efectos, nunca como autoridad de tenant, actor o rol. El reconciliador registra su identidad separada como ejecutor técnico, sin reemplazar al actor original.
+
+El cambio es aditivo sobre el recibo B2 existente: no agrega contexto a la venta, no modifica `snapshotFiscal` ni crea una segunda fuente de verdad. Los recibos y ventas ya confirmados conservan su forma histórica; una venta pendiente sin recibo con este vínculo no es elegible para el reconciliador R1-B.2 hasta que una iniciativa de compatibilidad explícita defina su tratamiento, sin inferir identidad desde la venta.
 
 ## Snapshot y reimpresión
 

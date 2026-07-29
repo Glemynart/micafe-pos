@@ -26,7 +26,7 @@ class FakeFirestore {
 }
 
 const empresaId = "empresa_1";
-const contexto = { empresaId, actorId: "admin_1", paisFiscal: "CO", origen: "ADMIN" as const };
+const contexto = { empresaId, actorId: "admin_1", paisFiscal: "CO", origen: "ADMIN" as const, rolEfectivo: "admin" };
 const fecha = (offset: number) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
 function configFiscal() {
   const c = crearPlantillaConfiguracionRevision1({ empresaId, nombreComercial: "Cafe", creadaEn: {}, actualizadaEn: {}, ultimaMutacion: { actorTipo: "SYSTEM", actorId: "system", origen: "BACKFILL", commandId: "init", correlationId: "init" } });
@@ -52,6 +52,9 @@ test("ConfirmarVentaFiscal selecciona espacio antes de empresa y persiste snapsh
   assert.equal(contieneUndefined(venta), false);
   const audit = [...db.docs.values()].find(v => v.comando === "VentaFiscalConfirmada"); const event = [...db.docs.values()].find(v => v.tipo === "VentaFiscalConfirmada");
   assert.equal(audit.causationId, "cause_1"); assert.equal(event.revisionAnterior, 0); assert.equal(event.revisionNueva, 1); assert.equal(event.actorId, "admin_1");
+  const recibo = [...db.docs.values()].find(v => v.ventaId === "venta_1");
+  assert.deepEqual({ ventaId: recibo.ventaId, empresaId: recibo.empresaId, actorOriginal: recibo.actorOriginal, commandId: recibo.commandId, idempotencyKey: recibo.idempotencyKey, correlationId: recibo.correlationId, causationId: recibo.causationId }, { ventaId: "venta_1", empresaId, actorOriginal: { uid: "admin_1", rolEfectivo: "admin" }, commandId: "cmd_1", idempotencyKey: "idem_cmd_1", correlationId: "corr_1", causationId: "cause_1" });
+  assert.equal("actorOriginal" in venta, false);
 });
 
 test("B2 acepta exclusivamente fechas fiscales gregorianas canonicas y rangos ordenados", () => {
