@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { HttpsError } from "firebase-functions/v2/https";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
-import { ejecutarCerrarTurnoOperativoV1, type ContextoFinancieroOperativo } from "./callables";
+import { ejecutarAplicarEfectosVentaOperativaV1, ejecutarCerrarTurnoOperativoV1, type ContextoFinancieroOperativo } from "./callables";
 
 type Data = Record<string, any>;
 
@@ -85,7 +85,7 @@ const count = (db: FakeFirestore, collection: string) => [...db.docs.keys()].fil
 function seed(db: FakeFirestore, options: { relevo?: boolean; efectivo?: boolean } = {}) {
   db.docs.set(`empresas/${empresaId}`, { estado: "activa", esFundacional: false });
   db.docs.set(`membresias/${empresaId}_${actor.actorUid}`, {
-    empresaId, uid: actor.actorUid, rol: actor.rol, permisos: ["shifts"], estado: "activa", activo: true,
+    empresaId, uid: actor.actorUid, rol: actor.rol, permisos: ["shifts", "pos"], estado: "activa", activo: true,
   });
   const cajaId = crearIdentificadorInterno(empresaId, "cuenta:caja-principal");
   const fuerteId = crearIdentificadorInterno(empresaId, "cuenta:caja-fuerte");
@@ -171,4 +171,23 @@ test("R1-B.3: revalida empresa, membresía y capacidad shifts dentro de la trans
     await assert.rejects(ejecutarCerrarTurnoOperativoV1(db, actor, cierre(escenario.nombre)), error => domain(error, escenario.code));
     assert.deepEqual([...db.docs], before, escenario.nombre);
   }
+});
+
+test("R1-B.2: una empresa no fundacional acredita la cuenta reservada mediante su clave lÃ³gica", async () => {
+  const db = new FakeFirestore(); const { cajaId } = seed(db);
+  db.docs.set("ventas/venta-pendiente", {
+    empresaId,
+    turnoId: "turno-a",
+    estadoOperativo: "PENDIENTE_EFECTOS",
+    metodoPago: "efectivo",
+    totales: { total: 40 },
+    items: [{ id: "quick-efectivo", cantidad: 1 }],
+  });
+  const result = await ejecutarAplicarEfectosVentaOperativaV1(db, actor, {
+    commandId: "efectos-tenant-safe", idempotencyKey: "idem-efectos-tenant-safe", correlationId: "corr-efectos-tenant-safe",
+    payload: { ventaId: "venta-pendiente" },
+  });
+  assert.equal(result.ventaId, "venta-pendiente");
+  assert.equal(db.docs.get(`cuentas_bancarias/${cajaId}`)?.saldo, 200);
+  assert.equal(db.docs.has("cuentas_bancarias/caja-principal"), false);
 });

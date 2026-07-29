@@ -41,8 +41,12 @@ class Transaction {
 class FakeFirestore {
   readonly docs = new Map<string, Data>();
   private cola: Promise<void> = Promise.resolve();
+  beforeNextTransaction: (() => void) | null = null;
   collection(name: string) { return new Collection(name, this); }
   async runTransaction<T>(work: (tx: Transaction) => Promise<T>) {
+    const before = this.beforeNextTransaction;
+    this.beforeNextTransaction = null;
+    before?.();
     const previa = this.cola;
     let liberar!: () => void;
     this.cola = new Promise<void>((resolve) => { liberar = resolve; });
@@ -114,6 +118,46 @@ test("R1-B.1: reintento y concurrencia devuelven un solo resultado y efecto", as
   assert.equal(count(db, "transacciones_financieras"), 2);
   assert.equal(count(db, "operaciones_comandos"), 1);
   assert.equal(db.docs.get("cuentas_bancarias/bancolombia")?.saldo, 0);
+});
+
+test("R1-B.1: payload distinto con la misma identidad idempotente se rechaza", async () => {
+  const db = new FakeFirestore();
+  db.docs.set("ventas/payload-a", { empresaId, estado: "pagada", estadoOperativo: "PENDIENTE_EFECTOS" });
+  db.docs.set("ventas/payload-b", { empresaId, estado: "pagada", estadoOperativo: "PENDIENTE_EFECTOS" });
+  const primero = envelope("payload-a", "conflicto");
+  await anular(db, actor, primero);
+  await assert.rejects(anular(db, actor, { ...primero, payload: { ventaId: "payload-b" } }), error => domain(error, "COMMAND_ID_CONFLICT"));
+  assert.equal(db.docs.get("ventas/payload-b")?.estadoOperativo, "PENDIENTE_EFECTOS");
+});
+
+test("R1-B.1: revalida empresa, membresÃ­a y permiso pos dentro de la transacciÃ³n", async () => {
+  const casos: Array<{ codigo: string; mutar(db: FakeFirestore): void }> = [
+    { codigo: "EMPRESA_NO_OPERATIVA", mutar: db => db.docs.set(`empresas/${empresaId}`, { estado: "suspendida" }) },
+    { codigo: "TENANT_ACCESS_DENIED", mutar: db => db.docs.set(`membresias/${empresaId}_${actor.actorUid}`, { empresaId, uid: actor.actorUid, rol: actor.rol, permisos: ["pos"], estado: "revocada", activo: false }) },
+    { codigo: "ROLE_FORBIDDEN", mutar: db => db.docs.set(`membresias/${empresaId}_${actor.actorUid}`, { empresaId, uid: actor.actorUid, rol: actor.rol, permisos: [], estado: "activa", activo: true }) },
+  ];
+  for (const escenario of casos) {
+    const db = new FakeFirestore();
+    db.docs.set("ventas/pendiente", { empresaId, estado: "pagada", estadoOperativo: "PENDIENTE_EFECTOS" });
+    seedAuth(db);
+    db.beforeNextTransaction = () => escenario.mutar(db);
+    await assert.rejects(manejarAnularVentaOperativaV1(db, { auth: { uid: actor.actorUid, token: { empresaId, rol: actor.rol } }, data: envelope("pendiente", escenario.codigo) }), error => domain(error, escenario.codigo));
+    assert.equal(db.docs.get("ventas/pendiente")?.estadoOperativo, "PENDIENTE_EFECTOS");
+    assert.equal(count(db, "operaciones_comandos"), 0);
+  }
+});
+
+test("R1-B.1: la ruta publicada conserva causationId en recibo, auditorÃ­a y movimiento", async () => {
+  const db = new FakeFirestore(); seedCompleta(db, "trazable");
+  const data = { ...envelope("trazable"), causationId: "causa-trazable" };
+  await anular(db, actor, data);
+  const recibo = [...db.docs.entries()].find(([path]) => path.startsWith("operaciones_comandos/"))?.[1];
+  const auditoria = [...db.docs.entries()].find(([path]) => path.startsWith("operaciones_auditoria/"))?.[1];
+  const movimiento = [...db.docs.entries()].find(([path, value]) => path.startsWith("transacciones_financieras/") && value.categoria === "anulacion_venta")?.[1];
+  assert.equal(recibo?.causationId, "causa-trazable");
+  assert.equal(auditoria?.causationId, "causa-trazable");
+  assert.equal(auditoria?.comando?.causationId, "causa-trazable");
+  assert.equal(movimiento?.causationId, "causa-trazable");
 });
 
 test("R1-B.1: tenant ajeno y rol no autorizado no pueden anular", async () => {

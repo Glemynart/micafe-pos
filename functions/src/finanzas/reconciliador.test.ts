@@ -29,8 +29,9 @@ class FakeFirestore {
 
 const empresaId = "empresa-a";
 function seed(db: FakeFirestore, ventaId: string, total = 100) {
-  db.docs.set(`empresas/${empresaId}`, { estado: "activa" });
-  db.docs.set("cuentas_bancarias/caja-principal", { empresaId, saldo: 0, claveOperativa: "caja-principal", nombre: "Caja" });
+  db.docs.set(`empresas/${empresaId}`, { estado: "activa", esFundacional: true });
+  db.docs.set(`membresias/${empresaId}_cajero-a`, { empresaId, uid: "cajero-a", rol: "cajero", permisos: ["pos"], estado: "activa", activo: true });
+  db.docs.set("cuentas_bancarias/caja-principal", { id: "caja-principal", empresaId, saldo: 0, claveOperativa: "caja-principal", nombre: "Caja" });
   db.docs.set("turnos/turno-1", { empresaId, estado: "cerrado" });
   db.docs.set("productos/cafe", { empresaId, nombre: "Café", stock: 5, secuenciaLedger: 0, costo: 10 });
   db.docs.set(`ventas/${ventaId}`, { empresaId, cajeroId: "no-es-actor-autoritativo", rolCajeroSnapshot: "admin", estado: "pagada", estadoOperativo: "PENDIENTE_EFECTOS", turnoId: "turno-1", metodoPago: "efectivo", totales: { total }, items: [{ id: "cafe", cantidad: 1 }] });
