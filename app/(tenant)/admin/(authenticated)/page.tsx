@@ -6,6 +6,7 @@ import { Loader2, ShoppingCart, Trash2, Clock, ClipboardList, TrendingUp, AlertC
 import { formatCurrency } from "@/lib/demo-data"
 import { collection, query, orderBy, getDocs, limit, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { getEmpresaId } from "@/lib/tenant"
 import Link from "next/link"
 import { suscribirEventos, type Evento, CATEGORIAS_EVENTOS } from "@/lib/eventos-service"
 
@@ -29,11 +30,12 @@ export default function DashboardPage() {
   useEffect(() => {
     (async () => {
       try {
+        const empresaId = await getEmpresaId()
         const [cSnap, mSnap, tSnap, ctSnap] = await Promise.all([
-          getDocs(query(collection(db, "compras"), orderBy("fecha", "desc"), limit(20))),
-          getDocs(query(collection(db, "mermas"), orderBy("fecha", "desc"), limit(20))),
-          getDocs(query(collection(db, "turnos"), orderBy("fechaApertura", "desc"), limit(10))),
-          getDocs(query(collection(db, "ventas"), where("metodoPago", "==", "cuenta_cobro"), where("estado", "==", "pendiente"), limit(20))),
+          getDocs(query(collection(db, "compras"), where("empresaId", "==", empresaId), orderBy("fecha", "desc"), limit(20))),
+          getDocs(query(collection(db, "mermas"), where("empresaId", "==", empresaId), orderBy("fecha", "desc"), limit(20))),
+          getDocs(query(collection(db, "turnos"), where("empresaId", "==", empresaId), orderBy("fechaApertura", "desc"), limit(10))),
+          getDocs(query(collection(db, "ventas"), where("empresaId", "==", empresaId), where("metodoPago", "==", "cuenta_cobro"), where("estado", "==", "pendiente"), limit(20))),
         ])
         setCompras(cSnap.docs.map(d => ({ id: d.id, ...d.data() } as CompraRaw)))
         setMermas(mSnap.docs.map(d => ({ id: d.id, ...d.data() } as MermaRaw)))
