@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { formatCurrency } from "@/lib/demo-data"
 import { collection, query, where, getDocs, limit } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { getEmpresaId } from "@/lib/tenant"
 
 interface CRaw { id: string; clienteNombre: string; notasFiado?: string; totales: { total: number }; items?: { nombre: string; cantidad: number }[]; estado: string; fecha: { toDate: () => Date } | null }
 
@@ -18,7 +19,7 @@ export default function CuentasCobroPage() {
 
   useEffect(() => {
     (async () => {
-      try { const s = await getDocs(query(collection(db, "ventas"), where("metodoPago", "==", "cuenta_cobro"), limit(50))); setCuentas(s.docs.map(d => ({ id: d.id, ...d.data() } as CRaw)).sort((a, b) => (b.fecha?.toDate().getTime() ?? 0) - (a.fecha?.toDate().getTime() ?? 0))) }
+      try { const empresaId = await getEmpresaId(); const s = await getDocs(query(collection(db, "ventas"), where("empresaId", "==", empresaId), where("metodoPago", "==", "cuenta_cobro"), limit(50))); setCuentas(s.docs.map(d => ({ id: d.id, ...d.data() } as CRaw)).sort((a, b) => (b.fecha?.toDate().getTime() ?? 0) - (a.fecha?.toDate().getTime() ?? 0))) }
       catch {} finally { setCargando(false) }
     })()
   }, [])

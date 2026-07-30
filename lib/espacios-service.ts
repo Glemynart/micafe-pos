@@ -41,7 +41,6 @@ export interface Espacio {
   color: string;
   activo: boolean;
   orden: number;
-  modulos_permitidos?: string[];
   // FASE-14 PR1: dimensiones del mundo lógico del lienzo (ul). Default 1600×1000.
   salonWorldWidth?: number;
   salonWorldHeight?: number;
@@ -179,10 +178,6 @@ export async function obtenerCategorias(espacioId: string): Promise<Categoria[]>
     id: doc.id,
     ...(doc.data() as Omit<Categoria, "id">),
   }));
-}
-
-export async function guardarModulosEspacio(espacioId: string, modulos: string[]): Promise<void> {
-  await updateDoc(doc(db, "espacios", espacioId), { modulos_permitidos: modulos });
 }
 
 // FASE-14 PR3: I-13 — usa updateDoc parcial para no borrar otros campos del espacio.
