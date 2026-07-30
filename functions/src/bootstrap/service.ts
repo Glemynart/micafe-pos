@@ -8,6 +8,7 @@ import { inicializarConfiguracionEmpresaConEstadoPreleidoEnTransaccion } from ".
 import { crearSuscripcionTrialEnTransaccion, referenciasTrial } from "../suscripciones/service";
 import { actualizarClaimsTenant, permisosPredeterminados } from "../operational-auth";
 import { emitirCredencialInicial } from "../platform/emitir-credencial-inicial";
+import { crearIdentificadorInterno } from "../turnos/identificadores";
 
 /**
  * Mismo secreto que declaran `operational-auth.ts`/`incorporaciones.ts` —
@@ -256,13 +257,23 @@ export async function ejecutarBootstrapEmpresarial(
     const empresaRef = db.collection("empresas").doc(entrada.empresaId);
     const subRef = db.collection("suscripciones").doc(entrada.empresaId);
     const configRef = db.collection("configuraciones").doc(entrada.empresaId);
-    const [empresaSnap, subSnap, configSnap, comandoTrialSnap, commandIdTrialSnap, planTrialSnap] = await Promise.all([
+    const cuentaReservadaId = (claveOperativa: "caja-principal" | "caja-fuerte") => crearIdentificadorInterno(
+      entrada.empresaId,
+      `cuenta:${claveOperativa}`,
+    );
+    const cuentaReservadaRef = (claveOperativa: "caja-principal" | "caja-fuerte") => db.collection("cuentas_bancarias")
+      .doc(cuentaReservadaId(claveOperativa));
+    const cajaPrincipalRef = cuentaReservadaRef("caja-principal");
+    const cajaFuerteRef = cuentaReservadaRef("caja-fuerte");
+    const [empresaSnap, subSnap, configSnap, comandoTrialSnap, commandIdTrialSnap, planTrialSnap, cajaPrincipalSnap, cajaFuerteSnap] = await Promise.all([
       tx.get(empresaRef),
       tx.get(subRef),
       tx.get(configRef),
       tx.get(refsTrial.comando),
       tx.get(refsTrial.commandId),
       tx.get(refsTrial.plan),
+      tx.get(cajaPrincipalRef),
+      tx.get(cajaFuerteRef),
     ]);
 
     if (empresaSnap.exists || subSnap.exists) {
@@ -284,6 +295,24 @@ export async function ejecutarBootstrapEmpresarial(
       actualizadaEn: FieldValue.serverTimestamp(),
     };
     tx.create(empresaRef, empresaInicial);
+
+    // R1-B §5.1: el bootstrap de un tenant no fundacional materializa las
+    // dos claves reservadas con IDs internos tenant-scoped, sin ledger ni
+    // réplica de los IDs legacy de la empresa fundacional.
+    if (cajaPrincipalSnap.exists || cajaFuerteSnap.exists) fail("already-exists", "CUENTAS_RESERVADAS_INCONSISTENTES");
+    for (const [claveOperativa, ref] of [["caja-principal", cajaPrincipalRef], ["caja-fuerte", cajaFuerteRef]] as const) {
+      tx.create(ref, {
+        id: cuentaReservadaId(claveOperativa),
+        empresaId: entrada.empresaId,
+        claveOperativa,
+        nombre: claveOperativa === "caja-principal" ? "Caja principal" : "Caja fuerte",
+        tipo: "efectivo",
+        saldo: 0,
+        estado: "activa",
+        creadaEn: FieldValue.serverTimestamp(),
+        actualizadaEn: FieldValue.serverTimestamp(),
+      });
+    }
 
     // B. Configuración inicial (B1)
     inicializarConfiguracionEmpresaConEstadoPreleidoEnTransaccion(db, tx, {
