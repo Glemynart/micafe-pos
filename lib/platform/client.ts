@@ -52,9 +52,18 @@ export const obtenerDetalleEmpresa = (empresaId: string) =>
   invocar<{
     empresa: Record<string, any>;
     suscripcion: Record<string, any> | null;
+    versionPlan: { planId: string; planVersion: number; codigo: string | null; estado: string | null } | null;
+    diagnosticoConfiguracion: {
+      disponible: boolean;
+      readiness: {
+        operativa: { lista: boolean; causas: readonly string[] };
+        fiscal: { lista: boolean; causas: readonly string[] };
+      } | null;
+      modulosHabilitados: string[];
+    };
     provisionamiento: Record<string, any> | null;
     adminInicial: { uid: string; rol: string | null; estado: string | null; activo: boolean | null } | null;
-    credencialInicial: { estado: EstadoCredencialInicial; codigo: string | null; incorporacionId: string | null; puedeReemitir: boolean };
+    credencialInicial: { estado: EstadoCredencialInicial; incorporacionId: string | null; puedeReemitir: boolean };
   }>(
     "obtenerDetalleEmpresaPlataformaSaas",
     { empresaId },

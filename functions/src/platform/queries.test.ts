@@ -152,8 +152,19 @@ function fakeDetalleDb() {
     docs,
     seed(path: string, data: any) { docs.set(path, data); },
     collection(nombre: string) {
+      const referencia = (path: string) => ({
+        id: path.split("/").pop()!,
+        get: async () => ({
+          id: path.split("/").pop()!,
+          exists: docs.has(path),
+          data: () => docs.get(path),
+        }),
+        collection: (subcoleccion: string) => ({
+          doc: (id: string) => referencia(`${path}/${subcoleccion}/${id}`),
+        }),
+      });
       return {
-        doc: (id: string) => ({ get: async () => ({ id, exists: docs.has(`${nombre}/${id}`), data: () => docs.get(`${nombre}/${id}`) }) }),
+        doc: (id: string) => referencia(`${nombre}/${id}`),
         where: (campo: string, op: "==", valor: unknown) => new DetalleQuery(nombre, docs).where(campo, op, valor),
       };
     },
@@ -167,7 +178,6 @@ test("obtenerDetalleEmpresaPlataforma: sin historial, proyecta SIN_PROVISIONAR",
 
   const detalle = await obtenerDetalleEmpresaPlataforma(db as never, "empresa-1");
   assert.equal(detalle.credencialInicial.estado, "SIN_PROVISIONAR");
-  assert.equal(detalle.credencialInicial.codigo, null);
   assert.equal(detalle.credencialInicial.incorporacionId, null);
 });
 
@@ -191,7 +201,6 @@ test("obtenerDetalleEmpresaPlataforma: con una reemisión (2 incorporaciones DIR
 
   const detalle = await obtenerDetalleEmpresaPlataforma(db as never, "empresa-1");
   assert.equal(detalle.credencialInicial.estado, "PENDIENTE_ACTIVACION");
-  assert.equal(detalle.credencialInicial.codigo, "cafeat-nuev", "debe mostrar la reemitida, no la EXPIRED que la precede");
   assert.equal(detalle.credencialInicial.incorporacionId, "inc-nueva", "la UI debe usar el objetivo compare-and-swap más reciente");
   assert.equal(detalle.credencialInicial.puedeReemitir, true);
 });
@@ -220,7 +229,6 @@ test("obtenerDetalleEmpresaPlataforma: la más reciente EXPIRED (sin reemitir a�
 
   const detalle = await obtenerDetalleEmpresaPlataforma(db as never, "empresa-1");
   assert.equal(detalle.credencialInicial.estado, "EXPIRADA");
-  assert.equal(detalle.credencialInicial.codigo, "cafeat-unic");
 });
 
 test("obtenerDetalleEmpresaPlataforma: una temporal de plataforma sin TTL no habilita reemisión", async () => {
@@ -233,4 +241,84 @@ test("obtenerDetalleEmpresaPlataforma: una temporal de plataforma sin TTL no hab
   });
   const detalle = await obtenerDetalleEmpresaPlataforma(db as never, "empresa-1");
   assert.equal(detalle.credencialInicial.puedeReemitir, false);
+});
+
+test("detalle diagnóstico reutiliza B1, módulos y versión contratada del plan", async () => {
+  const db = fakeDetalleDb();
+  db.seed("empresas/empresa-1", { estado: "trial", ownerUid: "owner-1", paisFiscal: "CO" });
+  db.seed("suscripciones/empresa-1", {
+    empresaId: "empresa-1", planId: "basico", planVersion: 2, estado: "trialing",
+    trialInicio: "2026-01-01", trialFin: "2026-01-14", revision: 3,
+  });
+  db.seed("planes/basico/versiones/2", {
+    planId: "basico", planVersion: 2, codigo: "BASICO", estado: "PUBLICADA",
+    capacidades: ["pos"], limites: { usuarios: { unidad: "USUARIOS", valor: 5 } }, precioInterno: 99999,
+  });
+  db.seed("configuraciones/empresa-1", {
+    empresaId: "empresa-1", modulos: { habilitados: ["pos"] },
+    identidadFiscal: { nombreComercial: "Café A", contacto: { email: "privado@example.com" } },
+    localizacion: { paisFiscal: "CO", moneda: "COP", idioma: "es-CO", zonaHoraria: "America/Bogota", direccion: {} },
+    secretoIntegracion: "nunca-visible",
+  });
+
+  const detalle = await obtenerDetalleEmpresaPlataforma(db as never, "empresa-1");
+
+  assert.deepEqual(detalle.versionPlan, {
+    planId: "basico", planVersion: 2, codigo: "BASICO", estado: "PUBLICADA",
+  });
+  assert.deepEqual(detalle.diagnosticoConfiguracion.modulosHabilitados, ["pos"]);
+  assert.equal(detalle.diagnosticoConfiguracion.disponible, true);
+  assert.equal(detalle.diagnosticoConfiguracion.readiness?.operativa.lista, false);
+  assert.ok(detalle.diagnosticoConfiguracion.readiness?.operativa.causas.includes("CONFIGURACION_INVALIDA"));
+});
+
+test("el DTO de diagnóstico excluye secretos, PII y detalles recuperables", async () => {
+  const db = fakeDetalleDb();
+  db.seed("empresas/empresa-1", {
+    estado: "activa", ownerUid: "owner-1", nombre: "Café A", secretoEmpresa: "no-visible",
+  });
+  db.seed("suscripciones/empresa-1", {
+    empresaId: "empresa-1", planId: "basico", planVersion: 1, estado: "active", proveedorPayload: "no-visible",
+  });
+  db.seed("planes/basico/versiones/1", {
+    planId: "basico", planVersion: 1, codigo: "BASICO", estado: "PUBLICADA", limites: { oculto: true },
+  });
+  db.seed("configuraciones/empresa-1", {
+    empresaId: "empresa-1", modulos: { habilitados: ["pos"] }, secretoConfiguracion: "no-visible",
+  });
+  db.seed("provisionamientos_empresariales/prov-1", {
+    empresaId: "empresa-1", provisionamientoId: "prov-1", estado: "RETRYABLE_FAILURE",
+    ultimoPasoConfirmado: "CORE_COMMITTED", errorRecuperable: "token=secreto-no-visible",
+  });
+  db.seed("membresias/empresa-1_owner-1", { rol: "admin", estado: "activa", activo: true, email: "privado@example.com" });
+  db.seed("incorporaciones/inc-1", {
+    empresaId: "empresa-1", mecanismo: "DIRECTA", uid: "owner-1", estado: "TEMP_CREDENTIAL",
+    origen: "PLATAFORMA", codigo: "codigo-no-visible", pinHash: "hash-no-visible", tokenDigest: "digest-no-visible",
+    expiraEn: { toMillis: () => Date.now() + 60_000 }, creadaEn: 1,
+  });
+
+  const detalle = await obtenerDetalleEmpresaPlataforma(db as never, "empresa-1");
+  const serializado = JSON.stringify(detalle);
+
+  for (const secreto of [
+    "no-visible", "privado@example.com", "codigo-no-visible", "hash-no-visible", "digest-no-visible", "token=secreto-no-visible",
+  ]) {
+    assert.equal(serializado.includes(secreto), false, `no debe exponer ${secreto}`);
+  }
+  assert.equal(detalle.provisionamiento?.requiereRecuperacion, true);
+  assert.equal("errorRecuperable" in (detalle.provisionamiento ?? {}), false);
+  assert.equal("codigo" in detalle.credencialInicial, false);
+});
+
+test("configuración ausente se expresa como diagnóstico, no como error", async () => {
+  const db = fakeDetalleDb();
+  db.seed("empresas/empresa-1", { estado: "activa" });
+
+  const detalle = await obtenerDetalleEmpresaPlataforma(db as never, "empresa-1");
+
+  assert.deepEqual(detalle.diagnosticoConfiguracion, {
+    disponible: false,
+    readiness: null,
+    modulosHabilitados: [],
+  });
 });
