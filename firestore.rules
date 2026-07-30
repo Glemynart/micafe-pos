@@ -126,19 +126,6 @@ service cloud.firestore {
           request.resource.data.estadoOperativo == 'COMPLETO' &&
           request.resource.data.snapshotFiscal == resource.data.snapshotFiscal &&
           request.resource.data.consecutivo == resource.data.consecutivo
-        ) ||
-        // 2. Anulación Pre-Efectos: PENDIENTE_EFECTOS -> ANULADA_SIN_EFECTOS
-        (
-          resource.data.estadoOperativo == 'PENDIENTE_EFECTOS' &&
-          request.resource.data.estadoOperativo == 'ANULADA_SIN_EFECTOS' &&
-          request.resource.data.estado == 'anulada'
-        ) ||
-        // 3. Anulación Post-Efectos: COMPLETO -> ANULADA_CON_EFECTOS
-        (
-          resource.data.estadoOperativo == 'COMPLETO' &&
-          request.resource.data.estadoOperativo == 'ANULADA_CON_EFECTOS' &&
-          request.resource.data.estado == 'anulada' &&
-          esAdmin()
         )
       );
       allow delete: if false;
@@ -207,16 +194,11 @@ service cloud.firestore {
     }
     match /cuentas_bancarias/{id} {
       allow read: if puedeLeerTenant() && esOperativo();
-      allow create: if puedeCrearEnTenant() && esAdmin();
-      allow update: if puedeActualizarEnTenant() && (
-        esAdmin() || (esOperativo()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['saldo']))
-      );
-      allow delete: if puedeEliminarEnTenant() && esAdmin();
+      allow create, update, delete: if false;
     }
     match /transacciones_financieras/{id} {
       allow read: if puedeLeerTenant() && esAdmin();
-      allow create: if puedeCrearEnTenant() && esOperativo();
+      allow create: if false;
       allow update, delete: if false;
     }
     match /liquidaciones/{id} {

@@ -653,6 +653,13 @@ export async function guardarMetadatosDian(
  * Máquina de Estados de Anulación según `estadoOperativo` (ADR-SAAS-010 §8).
  */
 export async function anularVenta(id: string): Promise<void> {
+  const ejecutar = httpsCallable<{ commandId: string; idempotencyKey: string; correlationId: string; causationId: string; payload: { ventaId: string } }, unknown>(getFunctions(), "anularVentaOperativaV1");
+  const clave = `anulacion:${id}`;
+  await ejecutar({ commandId: clave, idempotencyKey: clave, correlationId: id, causationId: id, payload: { ventaId: id } });
+}
+
+/** Ruta histórica sin exportar; la anulación operativa usa exclusivamente la Callable. */
+async function anularVentaLegacyNoUsar(id: string): Promise<void> {
   const ventaRef = doc(db, "ventas", id);
   const auth = getAuth();
   const anulador = auth.currentUser;

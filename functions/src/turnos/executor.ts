@@ -27,7 +27,7 @@ function errorDominio(codigo: HttpsError["code"], code: string): never {
   throw new HttpsError(codigo, "No fue posible abrir el turno.", { code });
 }
 
-function esMembresiaAutorizada(data: Record<string, unknown> | undefined, contexto: ContextoAperturaTurno): data is Record<string, unknown> & { rol: string; permisos: unknown[] } {
+export function esMembresiaAutorizada(data: Record<string, unknown> | undefined, contexto: ContextoAperturaTurno): data is Record<string, unknown> & { rol: string; permisos: unknown[] } {
   return !!data
     && data.empresaId === contexto.empresaId
     && data.uid === contexto.actorUid

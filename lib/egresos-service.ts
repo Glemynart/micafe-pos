@@ -12,6 +12,8 @@ import {
   increment,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { getFirebaseFunctions } from './firebase'
+import { httpsCallable } from 'firebase/functions'
 import { v4 as uuidv4 } from 'uuid'
 import { tenantQuery, getEmpresaId, withEmpresaId } from '@/lib/tenant'
 
@@ -32,6 +34,11 @@ const EGRESOS_COLLECTION = 'egresos'
  * Idempotente: si el documento ya existe (mismo ID), no duplica el movimiento.
  */
 export async function guardarEgreso(egreso: Omit<Egreso, 'id' | 'fecha'> & { id?: string }) {
+  const response = await httpsCallable(getFirebaseFunctions(), 'registrarEgresoOperativoV1')({
+    commandId: crypto.randomUUID(), idempotencyKey: crypto.randomUUID(), correlationId: crypto.randomUUID(), causationId: null,
+    motivo: egreso.motivo, payload: { cuentaId: 'caja-principal', turnoId: egreso.turnoId, monto: egreso.monto },
+  })
+  return (response.data as { egresoId: string }).egresoId
   const id = egreso.id || uuidv4()
   const docRef = doc(db, EGRESOS_COLLECTION, id)
   const cajaPrincipalRef = doc(db, 'cuentas_bancarias', 'caja-principal')

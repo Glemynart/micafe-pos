@@ -204,6 +204,12 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
  * con las restricciones de transacciones de Firestore.
  */
 export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
+  await httpsCallable(getFirebaseFunctions(), 'cerrarTurnoOperativoV1')({
+    commandId: crypto.randomUUID(), idempotencyKey: crypto.randomUUID(), correlationId: crypto.randomUUID(), causationId: null,
+    motivo: params.notasCierre ?? null,
+    payload: { turnoId: params.turnoId, efectivoContado: params.totalReportadoEfectivo, relevoCajeroId: params.relevoCajeroId ?? null, conteoDetalle: params.conteoDetalle ?? null },
+  })
+  return
   const turnoRef = doc(db, 'turnos', params.turnoId);
 
   // MT-U3 Capa 3: resuelto UNA sola vez (§2.5) y reutilizado en el recálculo
