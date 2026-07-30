@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Check, Loader2, Building2, Receipt, Users, ArrowRight, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +13,18 @@ interface OnboardingWizardProps {
   readinessTotal: EstadoReadinessTotal
   numeracionBorradorId?: string
   onCompletado: () => void
+}
+
+function calcularDigitoVerificacionNIT(nit: string): string | null {
+  if (!/^\d{6,15}$/.test(nit)) return null
+
+  const pesos = [71, 67, 59, 53, 47, 43, 41, 37, 29, 23, 19, 17, 13, 7, 3]
+  const suma = [...nit].reduce((total, digito, indice) => (
+    total + Number(digito) * pesos[pesos.length - nit.length + indice]
+  ), 0)
+  const residuo = suma % 11
+
+  return String(residuo > 1 ? 11 - residuo : residuo)
 }
 
 export function OnboardingWizard({
@@ -29,6 +41,8 @@ export function OnboardingWizard({
   const [numeroDocumento, setNumeroDocumento] = useState('')
   const [digitoVerificacion, setDigitoVerificacion] = useState('')
   const [direccion, setDireccion] = useState('')
+  const [errorFiscal, setErrorFiscal] = useState<string | null>(null)
+  const nitInputRef = useRef<HTMLInputElement>(null)
 
   // Paso 2: Numeración Fiscal POS
   const [prefijo, setPrefijo] = useState('POS')
@@ -42,9 +56,17 @@ export function OnboardingWizard({
 
   const handlePasoFiscal = async () => {
     if (!razonSocial.trim() || !numeroDocumento.trim() || !direccion.trim()) {
+      setErrorFiscal('Completa la razón social, el NIT y la dirección fiscal para continuar.')
       toast.error('Por favor completa todos los campos fiscales obligatorios.')
       return
     }
+    const dvCalculado = calcularDigitoVerificacionNIT(numeroDocumento)
+    if (!dvCalculado) {
+      setErrorFiscal('El NIT debe contener entre 6 y 15 dígitos. El dígito de verificación se calcula automáticamente.')
+      nitInputRef.current?.focus()
+      return
+    }
+    setErrorFiscal(null)
     setGuardando(true)
     try {
       // Simular / Invocación de Callable para guardar paso fiscal (B1)
@@ -64,7 +86,7 @@ export function OnboardingWizard({
           tipoPersona: 'JURIDICA',
           tipoDocumento: 'NIT',
           numeroDocumento: numeroDocumento.trim(),
-          digitoVerificacion: digitoVerificacion.trim() || '0',
+          digitoVerificacion: dvCalculado,
           regimenTributario: 'responsable_iva',
           actividadEconomicaPrincipal: '5611',
           responsabilidadFiscal: 'R-99-PN',
@@ -187,37 +209,66 @@ export function OnboardingWizard({
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label>Razón Social *</Label>
+              <Label htmlFor="razon-social">Razón Social *</Label>
               <Input
+                id="razon-social"
                 value={razonSocial}
-                onChange={(e) => setRazonSocial(e.target.value)}
+                onChange={(e) => {
+                  setRazonSocial(e.target.value)
+                  setErrorFiscal(null)
+                }}
                 placeholder="Mi Negocio S.A.S."
               />
             </div>
             <div className="grid grid-cols-3 gap-2 space-y-1">
               <div className="col-span-2 space-y-1">
-                <Label>NIT / Documento *</Label>
+                <Label htmlFor="nit">NIT *</Label>
                 <Input
+                  ref={nitInputRef}
+                  id="nit"
                   value={numeroDocumento}
-                  onChange={(e) => setNumeroDocumento(e.target.value)}
+                  onChange={(e) => {
+                    const nit = e.target.value.replace(/\D/g, '')
+                    setNumeroDocumento(nit)
+                    setDigitoVerificacion(calcularDigitoVerificacionNIT(nit) ?? '')
+                    setErrorFiscal(null)
+                  }}
                   placeholder="900123456"
+                  inputMode="numeric"
+                  maxLength={15}
+                  aria-invalid={Boolean(errorFiscal)}
+                  aria-describedby={errorFiscal ? 'nit-error' : 'nit-help'}
                 />
               </div>
               <div className="space-y-1">
-                <Label>DV</Label>
+                <Label htmlFor="dv">DV</Label>
                 <Input
+                  id="dv"
                   value={digitoVerificacion}
-                  onChange={(e) => setDigitoVerificacion(e.target.value)}
-                  placeholder="7"
+                  readOnly
+                  aria-readonly="true"
+                  placeholder="—"
                 />
               </div>
             </div>
           </div>
+          <p id="nit-help" className="text-xs text-muted-foreground">
+            El dígito de verificación se calcula automáticamente a partir del NIT.
+          </p>
+          {errorFiscal ? (
+            <p id="nit-error" role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {errorFiscal}
+            </p>
+          ) : null}
           <div className="space-y-1">
-            <Label>Dirección Comercial / Fiscal *</Label>
+            <Label htmlFor="direccion-fiscal">Dirección Comercial / Fiscal *</Label>
             <Input
+              id="direccion-fiscal"
               value={direccion}
-              onChange={(e) => setDireccion(e.target.value)}
+              onChange={(e) => {
+                setDireccion(e.target.value)
+                setErrorFiscal(null)
+              }}
               placeholder="Calle 100 # 15-20, Bogotá"
             />
           </div>

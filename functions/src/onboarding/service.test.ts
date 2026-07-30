@@ -7,7 +7,7 @@ import {
   obtenerEstadoOnboardingTenant,
 } from "./service";
 import { ejecutarBootstrapEmpresarial } from "../bootstrap/service";
-import { evaluarReadinessConfiguracion } from "../../../lib/configuracion";
+import { crearPlantillaConfiguracionRevision1, evaluarReadinessConfiguracion } from "../../../lib/configuracion";
 import { confirmarVentaFiscal } from "../fiscal/service";
 
 function getProp(obj: any, path: string) {
@@ -113,6 +113,7 @@ test("B6 Onboarding — Flujo completo de reanudación y completitud del Onboard
     planId: "plan_pos_pro",
     planVersion: 1,
     estado: "PUBLICADA",
+    capacidades: ["sell"],
   });
 
   // 1. Ejecutar Bootstrap (B5) — El tenant nace en trial con numeración en BORRADOR y config básica
@@ -199,6 +200,11 @@ test("B6 Onboarding — Flujo completo de reanudación y completitud del Onboard
     },
     { empresaId: "empresa_b6_flow", actorId: "owner_usr_77", origen: "ONBOARDING", paisFiscal: "CO" }
   );
+  assert.deepEqual(
+    db.read("configuraciones/empresa_b6_flow").modulos.habilitados,
+    ["sell"],
+    "onboarding persiste el módulo operativo; readiness no puede simularlo en memoria"
+  );
 
   // 4. Paso 2 Onboarding: Configurar, Habilitar y Asignar Numeración Pos (B2)
   const borradorId = estado1.numeracionBorrador!.numeracionId;
@@ -256,4 +262,29 @@ test("B6 Onboarding — Flujo completo de reanudación y completitud del Onboard
 
   assert.equal(ventaOk.numero, 1);
   assert.equal(ventaOk.prefijo, "POS");
+});
+
+test("B6 Onboarding persiste solo módulos contratados y nunca agrega sell", async () => {
+  const db = new Db();
+  const empresaId = "empresa_sin_sell";
+  db.seed(`empresas/${empresaId}`, { id: empresaId, empresaId, paisFiscal: "CO", estado: "trial" });
+  db.seed(`configuraciones/${empresaId}`, crearPlantillaConfiguracionRevision1({
+    empresaId,
+    nombreComercial: "Tenant sin POS",
+    creadaEn: "t",
+    actualizadaEn: "t",
+    ultimaMutacion: { actorTipo: "SYSTEM", actorId: "system", origen: "BOOTSTRAP", commandId: "cmd_init", correlationId: "corr_init" },
+  }));
+  db.seed(`suscripciones/${empresaId}`, { empresaId, planId: "plan_reportes", planVersion: 1, estado: "trialing" });
+  db.seed("planes/plan_reportes/versiones/1", {
+    planId: "plan_reportes", planVersion: 1, estado: "PUBLICADA", capacidades: ["reports", "capacidad_no_soportada"],
+  });
+
+  await completarPasoConfiguracionFiscalOnboarding(db as any, {
+    commandId: "cmd_onb_sin_sell", idempotencyKey: "idem_onb_sin_sell", correlationId: "corr_onb_sin_sell", causationId: "cause_onb_sin_sell", expectedRevision: 1,
+    identidadFiscal: { razonSocial: "Tenant sin POS SAS", tipoPersona: "JURIDICA", tipoDocumento: "NIT", numeroDocumento: "900999888", digitoVerificacion: "5", regimenTributario: "responsable_iva", actividadEconomicaPrincipal: "5611" },
+    direccionFiscal: { linea1: "Calle 1", departamentoCodigo: "11", departamentoNombre: "Bogotá", municipioCodigo: "11001", municipioNombre: "Bogotá" },
+  }, { empresaId, actorId: "owner_sin_sell", origen: "ONBOARDING", paisFiscal: "CO" });
+
+  assert.deepEqual(db.read(`configuraciones/${empresaId}`).modulos.habilitados, ["reports"]);
 });

@@ -5,6 +5,7 @@ import { ShieldAlert, Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { OnboardingWizard } from './onboarding-wizard'
 import { useSaaS } from '@/contexts/saas-context'
+import { useConfiguracionEmpresa } from '@/contexts/configuracion-empresa-context'
 import type { Usuario } from '@/lib/auth-service'
 import type { EstadoReadinessTotal } from '@/lib/onboarding/contrato'
 
@@ -15,6 +16,7 @@ interface OnboardingGateProps {
 
 export function OnboardingGate({ usuario, children }: OnboardingGateProps) {
   const { empresaId, loading: saasLoading } = useSaaS()
+  const { refrescar: refrescarConfiguracion } = useConfiguracionEmpresa()
   const [cargandoReadiness, setCargandoReadiness] = useState(true)
   const [readinessTotal, setReadinessTotal] = useState<EstadoReadinessTotal | null>(null)
   const [numeracionBorradorId, setNumeracionBorradorId] = useState<string>('num_pos_1')
@@ -88,7 +90,10 @@ export function OnboardingGate({ usuario, children }: OnboardingGateProps) {
           empresaId={empresaId}
           readinessTotal={readinessTotal!}
           numeracionBorradorId={numeracionBorradorId}
-          onCompletado={cargarReadiness}
+          onCompletado={async () => {
+            await refrescarConfiguracion()
+            await cargarReadiness()
+          }}
         />
       </div>
     )

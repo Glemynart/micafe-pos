@@ -4,8 +4,9 @@ import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Truck, Calendar, Package2 } from "lucide-react"
 import { formatCurrency } from "@/lib/demo-data"
-import { collection, query, orderBy, getDocs, limit } from "firebase/firestore"
+import { collection, query, orderBy, getDocs, limit, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { getEmpresaId } from "@/lib/tenant"
 
 interface CompraRaw {
   id: string
@@ -23,7 +24,8 @@ export default function ComprasPage() {
   useEffect(() => {
     (async () => {
       try {
-        const s = await getDocs(query(collection(db, "compras"), orderBy("fecha", "desc"), limit(50)))
+        const empresaId = await getEmpresaId()
+        const s = await getDocs(query(collection(db, "compras"), where("empresaId", "==", empresaId), orderBy("fecha", "desc"), limit(50)))
         setCompras(s.docs.map(d => ({ id: d.id, ...d.data() } as CompraRaw)))
       } catch {} finally { setCargando(false) }
     })()

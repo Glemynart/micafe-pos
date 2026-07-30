@@ -87,13 +87,6 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
   const snapVentas = await getDocs(qVentas)
   const ventas = snapVentas.docs.map(doc => ({ id: doc.id, ...doc.data() } as any))
 
-  // Obtener usuarios para cruzar nombres (global, sin empresaId)
-  const snapUsuarios = await getDocs(collection(db, 'usuarios'))
-  const mapaUsuarios = new Map<string, string>()
-  snapUsuarios.docs.forEach(doc => {
-    const data = doc.data()
-    mapaUsuarios.set(doc.id, data.nombre || 'Usuario Desconocido')
-  })
   const snapMembresias = await getDocs(query(collection(db, 'membresias'), where('empresaId', '==', empresaId)))
   const rolesUsuarios = new Map<string, string>()
   snapMembresias.docs.forEach((doc) => {
@@ -133,7 +126,9 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
       if (!vendedoresMap.has(cajeroId)) {
         vendedoresMap.set(cajeroId, {
           id: cajeroId,
-          nombre: mapaUsuarios.get(cajeroId) || 'Desconocido',
+          nombre: typeof venta.cajeroNombre === 'string' && venta.cajeroNombre.trim()
+            ? venta.cajeroNombre.trim()
+            : cajeroId,
           ventas: 0,
           total: 0,
           efectivo: 0,

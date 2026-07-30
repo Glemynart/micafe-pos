@@ -25,7 +25,7 @@ export interface ContextoComandoConfiguracion { empresaId: string; actorId: stri
 export interface ResultadoComandoConfiguracion { revision: number; idempotente: boolean; noOp: boolean }
 
 const PREFIJOS: Record<Comando, readonly string[]> = {
-  ActualizarConfiguracionEmpresa: ["identidadFiscal.", "localizacion.", "impuestos.", "branding.", "ticket.", "preferencias."],
+  ActualizarConfiguracionEmpresa: ["identidadFiscal.", "localizacion.", "impuestos.", "branding.", "ticket.", "preferencias.", "modulos."],
   ActualizarParametrosFiscales: ["identidadFiscal.", "localizacion.", "impuestos."],
   ActualizarPreferenciasImpresion: ["impresion."],
   ActualizarPoliticasOperativas: ["pos.", "caja.", "modulos.", "kds."],

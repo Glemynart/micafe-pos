@@ -5,8 +5,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Trash2, Calendar } from "lucide-react"
 import { formatCurrency } from "@/lib/demo-data"
-import { collection, query, orderBy, getDocs, limit } from "firebase/firestore"
+import { collection, query, orderBy, getDocs, limit, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { getEmpresaId } from "@/lib/tenant"
 
 interface MermaRaw { id: string; insumoNombre: string; cantidad: number; unidadMedida: string; motivo: string; costo: number; notas?: string; registradoPorNombre: string; fecha: { toDate: () => Date } | null }
 const reasons: Record<string, string> = { expired: "Vencido", damaged: "Danado", spilled: "Derramado", burned: "Quemado", other: "Otro" }
@@ -17,7 +18,7 @@ export default function MermasPage() {
 
   useEffect(() => {
     (async () => {
-      try { const s = await getDocs(query(collection(db, "mermas"), orderBy("fecha", "desc"), limit(50))); setMermas(s.docs.map(d => ({ id: d.id, ...d.data() } as MermaRaw))) }
+      try { const empresaId = await getEmpresaId(); const s = await getDocs(query(collection(db, "mermas"), where("empresaId", "==", empresaId), orderBy("fecha", "desc"), limit(50))); setMermas(s.docs.map(d => ({ id: d.id, ...d.data() } as MermaRaw))) }
       catch {} finally { setCargando(false) }
     })()
   }, [])

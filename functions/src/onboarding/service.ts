@@ -11,6 +11,7 @@ import {
   type Envelope,
 } from "../fiscal/service";
 import { ejecutarComandoConfiguracion } from "../configuracion/service";
+import { resolverModulosInicialesDelPlan } from "../configuracion/capacidades-plan";
 
 const fail = (code: "invalid-argument" | "failed-precondition" | "not-found", msg: string): never => {
   throw new HttpsError(code, msg);
@@ -44,13 +45,7 @@ export async function obtenerEstadoOnboardingTenant(
   const numeraciones = numeracionesSnap.docs.map((d) => d.data() as Numeracion);
   const asignaciones = asignacionesSnap.docs.map((d) => d.data() as Asignacion);
 
-  // Asegurarse de que si los módulos habilitados están vacíos en Bootstrap, 'sell' esté habilitado para permitir readiness operativa
-  const configAjustada: ConfiguracionEmpresa = {
-    ...configData,
-    modulos: configData.modulos?.habilitados?.length ? configData.modulos : { habilitados: ["sell"] },
-  };
-
-  const readinessTotal = evaluarReadinessTotal(configAjustada, numeraciones, asignaciones, {
+  const readinessTotal = evaluarReadinessTotal(configData, numeraciones, asignaciones, {
     empresaId,
     paisFiscalEmpresa: paisFiscal,
   });
@@ -96,6 +91,7 @@ export async function completarPasoConfiguracionFiscalOnboarding(
   const configSnap = await db.collection("configuraciones").doc(contexto.empresaId).get();
   if (!configSnap.exists) fail("not-found", "CONFIG_NOT_FOUND");
   const actual = configSnap.data() as ConfiguracionEmpresa;
+  const modulosIniciales = await resolverModulosInicialesDelPlan(db, contexto.empresaId);
 
   // Aplicar actualización de datos fiscales y dirección mediante comando B1 (ActualizarParametrosFiscales)
   const operaciones: OperacionConfiguracion[] = [
@@ -112,6 +108,7 @@ export async function completarPasoConfiguracionFiscalOnboarding(
     { tipo: "SET", ruta: "localizacion.direccion.departamentoNombre", valor: entrada.direccionFiscal.departamentoNombre },
     { tipo: "SET", ruta: "localizacion.direccion.municipioCodigo", valor: entrada.direccionFiscal.municipioCodigo },
     { tipo: "SET", ruta: "localizacion.direccion.municipioNombre", valor: entrada.direccionFiscal.municipioNombre },
+    { tipo: "SET", ruta: "modulos.habilitados", valor: modulosIniciales },
   ];
 
   if (entrada.identidadFiscal.contactoEmail) {
@@ -124,7 +121,7 @@ export async function completarPasoConfiguracionFiscalOnboarding(
   return ejecutarComandoConfiguracion(
     db,
     {
-      comando: "ActualizarParametrosFiscales",
+      comando: "ActualizarConfiguracionEmpresa",
       expectedRevision: actual.revision,
       idempotencyKey: entrada.idempotencyKey,
       commandId: entrada.commandId,
@@ -132,7 +129,7 @@ export async function completarPasoConfiguracionFiscalOnboarding(
       motivo: entrada.motivo ?? "ONBOARDING_PASO_FISCAL",
       operaciones,
     },
-    { empresaId: contexto.empresaId, actorId: contexto.actorId, origen: "ADMIN", paisFiscal: contexto.paisFiscal }
+    { empresaId: contexto.empresaId, actorId: contexto.actorId, origen: "ADMIN", paisFiscal: contexto.paisFiscal, modulosPermitidos: modulosIniciales, metodosPagoPermitidos: ["efectivo", "transferencia", "cuenta_cobro", "mixto"] }
   );
 }
 
