@@ -57,7 +57,8 @@ ejecutar la migración de datos para el tenant fundacional.
 | Callables B1 de escritura | ✅ Implementados (`functions/src/configuracion/service.ts`) |
 | Escrituras al singleton legacy | ✅ Ya desactivadas — `lib/configuracion-service.ts:90` lanza *"B7 Cutover: Las escrituras a configuracion/general están desactivadas"* |
 | Analizador de paridad legacy→B1 | ✅ Construido (`lib/configuracion/legado-paridad.ts`, `scripts/analizar-configuracion-legacy.ts`, solo dry-run) |
-| **Migración de datos ejecutada** | ❌ **No** — `configuraciones` está vacía |
+| Migración controlada implementada | ✅ `functions/src/configuracion/migrar-fundacional-cli.ts` reutiliza `InicializarConfiguracionEmpresa` con origen `BACKFILL` |
+| **Migración de datos ejecutada en producción** | ❌ **Pendiente** — requiere ejecutar el script con cuenta de servicio autorizada |
 
 Es decir: el sistema está en un **cutover a medias**. El legacy es de solo lectura
 y el modelo nuevo es la autoridad, pero el dato nunca se movió.
@@ -93,20 +94,22 @@ Acciones que el propio analizador exige antes de migrar:
 nuevo: `configuraciones/{empresaId}` como autoridad única ya es una decisión
 aceptada (B1 §2.1), no se está proponiendo nada que la contradiga.
 
-**Precondición:** los 4 campos en `CONFLICTO` exigen resolución humana antes de
-cualquier escritura. El analizador se niega a inferirlos, y con razón: `nit_tienda`
-y `tipo_contribuyente` determinan obligaciones fiscales reales. Esto **no es
-automatizable** y es el verdadero bloqueante.
+**Precondición fiscal posterior:** los 4 campos en `CONFLICTO` exigen resolución
+humana antes de declarar readiness fiscal o trasladar esos datos. El inicializador
+B1 puede crear una plantilla estructuralmente válida e incompleta, igual a la de
+Bootstrap, sin inferir ni copiar esos valores legacy.
 
 **Pasos propuestos:**
 
-1. **Resolver los 4 conflictos** con el responsable del negocio: NIT + dígito de
+1. **Crear `configuraciones/{empresaId}`** con
+   `npx tsx functions/src/configuracion/migrar-fundacional-cli.ts --execute`. El script
+   reutiliza el inicializador B1 compartido con Bootstrap, crea exclusivamente la
+   revisión 1 ausente y es no-op si el documento ya existe. No copia campos legacy:
+   conserva `configuracion/general` intacto como evidencia histórica.
+2. **Resolver los 4 conflictos** con el responsable del negocio: NIT + dígito de
    verificación, `responsable_iva`, `tipo_contribuyente`, y teléfono en E.164.
    Registrar las decisiones por escrito — alimentan el snapshot fiscal.
-2. **Ejecutar el analizador** de nuevo hasta `bloqueaReadinessFiscal: false`.
-3. **Crear `configuraciones/{empresaId}`** mediante los callables B1 ya existentes
-   (no con escritura directa: los callables aplican validación, revisión e
-   idempotencia). Solo los 5 campos `CONFIGURACION_B1`.
+3. **Ejecutar el analizador** de nuevo hasta `bloqueaReadinessFiscal: false`.
 4. **Dejar los 6 campos `RESERVADO_B2`** en la autoridad de numeración fiscal, sin
    copiarlos a Configuración — B1 §2.3 lo prohíbe explícitamente.
 5. **Conservar `configuracion/general` como archivo histórico de solo lectura.**

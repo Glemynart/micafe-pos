@@ -31,6 +31,7 @@
     "test:configuracion": "tsx --test lib/configuracion/__tests__/*.test.ts",
     "test:onboarding": "tsx --test lib/__tests__/onboarding.test.ts",
     "test:backfill": "tsx --test scripts/lib/__tests__/*.test.ts",
+    "migrate:configuracion-fundacional": "tsx functions/src/configuracion/migrar-fundacional-cli.ts",
     "analyze:configuracion-legacy": "tsx scripts/analizar-configuracion-legacy.ts --dry-run",
     "install:functions": "npm --prefix functions ci",
     "build:functions": "npm --prefix functions run build",
