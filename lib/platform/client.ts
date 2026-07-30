@@ -47,6 +47,30 @@ export const listarRecursos = (
 );
 
 export type EstadoCredencialInicial = "SIN_PROVISIONAR" | "PENDIENTE_ACTIVACION" | "EXPIRADA" | "ACTIVA";
+export type TipoAlertaOperador =
+  | "BOOTSTRAP_RECUPERABLE"
+  | "ADMINISTRADOR_PENDIENTE_ACTIVAR"
+  | "CREDENCIAL_TEMPORAL_EXPIRADA"
+  | "EMPRESA_SIN_SUSCRIPCION"
+  | "TRIAL_PROXIMO_VENCER"
+  | "ONBOARDING_DETENIDO"
+  | "READINESS_OPERATIVO_INCOMPLETO"
+  | "EMPRESA_SUSPENDIDA"
+  | "INCONSISTENCIA_CANONICA";
+
+export interface ResumenOperadorSaas {
+  empresasTotal: number;
+  alertas: Array<{
+    tipo: TipoAlertaOperador;
+    empresaId: string;
+    empresaNombre: string;
+    severidad: "CRITICA" | "ADVERTENCIA";
+  }>;
+  fuentesDegradadas: Array<{ empresaId: string; fuente: "DETALLE_EMPRESA" | "ONBOARDING" }>;
+}
+
+export const obtenerResumenOperador = () =>
+  invocar<ResumenOperadorSaas>("obtenerResumenOperadorSaas");
 
 export const obtenerDetalleEmpresa = (empresaId: string) =>
   invocar<{

@@ -5,7 +5,9 @@ import {
   type ConfiguracionEmpresa,
   type ReadinessConfiguracion,
 } from "../../../lib/configuracion";
+import { fechaComercialUtc } from "../../../lib/suscripciones/contrato";
 import { consultarIncorporacionDirectaMasReciente } from "../incorporaciones-service";
+import { obtenerEstadoOnboardingTenant } from "../onboarding/service";
 
 // ADR-SAAS-012 §3.1: familias Seguridad y Soporte B4. Consultarlas por `tipo` sin acotar
 // a una Empresa o actor específico exige la ventana temporal obligatoria de §7.
@@ -129,6 +131,37 @@ export interface VersionPlanDiagnostica {
   codigo: string | null;
   estado: string | null;
 }
+
+export const TIPOS_ALERTA_OPERADOR = [
+  "BOOTSTRAP_RECUPERABLE",
+  "ADMINISTRADOR_PENDIENTE_ACTIVAR",
+  "CREDENCIAL_TEMPORAL_EXPIRADA",
+  "EMPRESA_SIN_SUSCRIPCION",
+  "TRIAL_PROXIMO_VENCER",
+  "ONBOARDING_DETENIDO",
+  "READINESS_OPERATIVO_INCOMPLETO",
+  "EMPRESA_SUSPENDIDA",
+  "INCONSISTENCIA_CANONICA",
+] as const;
+
+export type TipoAlertaOperador = (typeof TIPOS_ALERTA_OPERADOR)[number];
+export interface AlertaOperador {
+  tipo: TipoAlertaOperador;
+  empresaId: string;
+  empresaNombre: string;
+  severidad: "CRITICA" | "ADVERTENCIA";
+}
+export interface FuenteResumenDegradada {
+  empresaId: string;
+  fuente: "DETALLE_EMPRESA" | "ONBOARDING";
+}
+export interface ResumenOperadorSaas {
+  empresasTotal: number;
+  alertas: AlertaOperador[];
+  fuentesDegradadas: FuenteResumenDegradada[];
+}
+
+const DIAS_ALERTA_TRIAL = 3;
 
 /**
  * ADR-SAAS-013 §5.3 — proyección derivada para la ficha de empresa del
@@ -284,6 +317,105 @@ export async function obtenerDetalleEmpresaPlataforma(db: Firestore, empresaId: 
     adminInicial,
     credencialInicial,
   };
+}
+
+type DetalleEmpresaPlataforma = Awaited<ReturnType<typeof obtenerDetalleEmpresaPlataforma>>;
+type EstadoOnboardingPlataforma = Awaited<ReturnType<typeof obtenerEstadoOnboardingTenant>>;
+
+interface DependenciasResumenOperador {
+  ahoraMs?: () => number;
+  obtenerDetalle?: (db: Firestore, empresaId: string) => Promise<DetalleEmpresaPlataforma>;
+  obtenerOnboarding?: (db: Firestore, empresaId: string, paisFiscal: string) => Promise<EstadoOnboardingPlataforma>;
+}
+
+/**
+ * Proyección read-only del estado operativo SaaS. Cada alerta se recalcula de
+ * los agregados canónicos; no se materializa ni reemplaza ninguna autoridad.
+ */
+export async function obtenerResumenOperadorSaas(
+  db: Firestore,
+  dependencias: DependenciasResumenOperador = {},
+): Promise<ResumenOperadorSaas> {
+  const empresasSnap = await db.collection("empresas").get();
+  const obtenerDetalle = dependencias.obtenerDetalle ?? obtenerDetalleEmpresaPlataforma;
+  const obtenerOnboarding = dependencias.obtenerOnboarding ?? obtenerEstadoOnboardingTenant;
+  const ahora = dependencias.ahoraMs?.() ?? Date.now();
+  const hoy = fechaComercialUtc(new Date(ahora));
+  const limiteTrial = fechaComercialUtc(new Date(ahora + DIAS_ALERTA_TRIAL * 86_400_000));
+  const alertas: AlertaOperador[] = [];
+  const fuentesDegradadas: FuenteResumenDegradada[] = [];
+
+  await Promise.all(empresasSnap.docs.map(async (empresaSnap) => {
+    const empresa = empresaSnap.data();
+    const empresaId = empresaSnap.id;
+    const empresaNombre = typeof empresa.nombre === "string"
+      ? empresa.nombre
+      : typeof empresa.nombreComercial === "string" ? empresa.nombreComercial : empresaId;
+    const tipos = new Set<TipoAlertaOperador>();
+    const agregar = (tipo: TipoAlertaOperador) => tipos.add(tipo);
+
+    if (empresa.estado === "suspendida") agregar("EMPRESA_SUSPENDIDA");
+
+    const [detalleResultado, onboardingResultado] = await Promise.allSettled([
+      obtenerDetalle(db, empresaId),
+      obtenerOnboarding(db, empresaId, typeof empresa.paisFiscal === "string" ? empresa.paisFiscal : "CO"),
+    ]);
+
+    if (detalleResultado.status === "fulfilled") {
+      const detalle = detalleResultado.value;
+      const provisionamiento = detalle.provisionamiento;
+      if (provisionamiento?.estado === "RETRYABLE_FAILURE" || provisionamiento?.estado === "REJECTED") {
+        agregar("BOOTSTRAP_RECUPERABLE");
+      }
+      if (detalle.credencialInicial.estado === "PENDIENTE_ACTIVACION") agregar("ADMINISTRADOR_PENDIENTE_ACTIVAR");
+      if (detalle.credencialInicial.estado === "EXPIRADA") agregar("CREDENCIAL_TEMPORAL_EXPIRADA");
+      if (!detalle.suscripcion) {
+        agregar("EMPRESA_SIN_SUSCRIPCION");
+      } else {
+        if (
+          detalle.suscripcion.estado === "trialing"
+          && typeof detalle.suscripcion.trialFin === "string"
+          && detalle.suscripcion.trialFin >= hoy
+          && detalle.suscripcion.trialFin <= limiteTrial
+        ) {
+          agregar("TRIAL_PROXIMO_VENCER");
+        }
+        if (detalle.suscripcion.empresaId !== empresaId || !detalle.versionPlan) agregar("INCONSISTENCIA_CANONICA");
+      }
+      if (!detalle.diagnosticoConfiguracion.readiness?.operativa.lista) agregar("READINESS_OPERATIVO_INCOMPLETO");
+      if (
+        !detalle.diagnosticoConfiguracion.disponible
+        || !detalle.empresa.ownerUid
+        || !detalle.adminInicial
+        || detalle.adminInicial.rol !== "admin"
+        || detalle.adminInicial.estado !== "activa"
+        || detalle.adminInicial.activo !== true
+      ) {
+        agregar("INCONSISTENCIA_CANONICA");
+      }
+    } else {
+      fuentesDegradadas.push({ empresaId, fuente: "DETALLE_EMPRESA" });
+    }
+
+    if (onboardingResultado.status === "fulfilled") {
+      if (!onboardingResultado.value.readinessTotal.listo) agregar("ONBOARDING_DETENIDO");
+    } else {
+      fuentesDegradadas.push({ empresaId, fuente: "ONBOARDING" });
+    }
+
+    for (const tipo of tipos) {
+      alertas.push({
+        tipo,
+        empresaId,
+        empresaNombre,
+        severidad: tipo === "BOOTSTRAP_RECUPERABLE" || tipo === "INCONSISTENCIA_CANONICA" ? "CRITICA" : "ADVERTENCIA",
+      });
+    }
+  }));
+
+  alertas.sort((a, b) => a.empresaNombre.localeCompare(b.empresaNombre) || a.tipo.localeCompare(b.tipo));
+  fuentesDegradadas.sort((a, b) => a.empresaId.localeCompare(b.empresaId) || a.fuente.localeCompare(b.fuente));
+  return { empresasTotal: empresasSnap.size, alertas, fuentesDegradadas };
 }
 
 export type FiltroAuditoria =

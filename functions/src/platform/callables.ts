@@ -6,7 +6,7 @@ import type { EnvelopePlataforma, FacultadPlataforma } from "./contracts";
 import { ejecutarComandoOperador } from "./operators";
 import { ejecutarComandoComercial, provisionarCredencialInicialTenant, reemitirCredencialInicialTemporalTenant, solicitarBootstrapEmpresarial } from "./operations";
 import { facultadTransicionEmpresa, obtenerComandoComercial } from "./command-catalog";
-import { consultarAuditoriaPlataforma, listarRecursosPlataforma, obtenerDetalleEmpresaPlataforma, validarFiltroAuditoria, type RecursoPlataforma } from "./queries";
+import { consultarAuditoriaPlataforma, listarRecursosPlataforma, obtenerDetalleEmpresaPlataforma, obtenerResumenOperadorSaas as consultarResumenOperadorSaas, validarFiltroAuditoria, type RecursoPlataforma } from "./queries";
 import { listarSoporteTenant, solicitarSoporte, transicionarSoporte } from "./support";
 
 const REGION = "us-central1";
@@ -130,6 +130,13 @@ export const obtenerDetalleEmpresaPlataformaSaas = onCall({ region: REGION }, as
   const data = request.data as { empresaId?: unknown };
   if (typeof data.empresaId !== "string") throw new HttpsError("invalid-argument", "EMPRESA_ID_INVALIDO");
   return obtenerDetalleEmpresaPlataforma(db, data.empresaId);
+});
+
+export const obtenerResumenOperadorSaas = onCall({ region: REGION }, async (request) => {
+  const auth = exigirAuth(request);
+  const db = getFirestore();
+  await autorizarPlataforma(db, auth.uid, auth.token, "PLATAFORMA_CONSULTAR");
+  return consultarResumenOperadorSaas(db);
 });
 
 export const solicitarSoporteSaas = onCall({ region: REGION }, async (request) => {
