@@ -53,12 +53,6 @@ export function Sidebar({ activeModule, onModuleChange, onLogout, usuario, modul
     if (!modulosSet.has(m.id)) return false
     // 2. El usuario debe tener permiso para usarlo
     if (!userPerms.has(m.id)) return false
-    // 3. Si el espacio activo tiene módulos permitidos definidos, debe estar en esa lista
-    //    Los módulos administrativos y globales siempre pasan este filtro.
-    const modulosGlobales = ['permissions', 'settings', 'historial', 'salon', 'reservas']
-    if (espacioActivo?.modulos_permitidos && espacioActivo.modulos_permitidos.length > 0) {
-      if (!espacioActivo.modulos_permitidos.includes(m.id) && !modulosGlobales.includes(m.id)) return false
-    }
     return true
   })
 

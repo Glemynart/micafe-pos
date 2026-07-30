@@ -980,8 +980,8 @@ export async function reconciliarGlobal(
   const empresaId = await getEmpresaId();
 
   const [productosSnap, insumosSnap] = await Promise.all([
-    getDocs(query(collection(db, "productos"), where("activo", "==", true))),
-    getDocs(query(collection(db, "insumos"),   where("activo", "==", true))),
+    getDocs(query(collection(db, "productos"), where("empresaId", "==", empresaId), where("activo", "==", true))),
+    getDocs(query(collection(db, "insumos"),   where("empresaId", "==", empresaId), where("activo", "==", true))),
   ]);
 
   const articulos: Array<{ tipo: ArticuloTipo; id: string }> = [

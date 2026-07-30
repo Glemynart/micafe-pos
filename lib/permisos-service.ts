@@ -64,23 +64,13 @@ export function suscribirUsuarios(callback: (usuarios: Usuario[]) => void): Unsu
   void (async () => {
     try {
       const empresaId = await getEmpresaId();
-      const perfiles = new Map<string, Record<string, unknown>>();
       const membresias = new Map<string, Membresia>();
       const emitir = () => {
         callback([...membresias.values()]
           .filter((membresia) => membresia.estado === "activa" || membresia.estado === "inactiva")
-          .map((membresia) => {
-            const perfil = perfiles.get(membresia.uid);
-            return perfil ? proyectarUsuario(membresia.uid, perfil, membresia) : null;
-          })
-          .filter((usuario): usuario is Usuario => usuario !== null)
+          .map((membresia) => proyectarUsuario(membresia.uid, {}, membresia))
           .sort((a, b) => a.nombre.localeCompare(b.nombre)));
       };
-      const cerrarPerfiles = onSnapshot(collection(db, "usuarios"), (snap) => {
-        perfiles.clear();
-        snap.docs.forEach((doc) => perfiles.set(doc.id, doc.data()));
-        emitir();
-      }, () => callback([]));
       const cerrarMembresias = onSnapshot(query(collection(db, "membresias"), where("empresaId", "==", empresaId)), (snap) => {
         membresias.clear();
         snap.docs.forEach((doc) => {
@@ -89,7 +79,7 @@ export function suscribirUsuarios(callback: (usuarios: Usuario[]) => void): Unsu
         });
         emitir();
       }, () => callback([]));
-      cerrar = () => { cerrarPerfiles(); cerrarMembresias(); };
+      cerrar = cerrarMembresias;
       if (cancelado) cerrar();
     } catch {
       callback([]);
