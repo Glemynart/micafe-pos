@@ -26,6 +26,7 @@ out/
 dist/
 .next/
 artifacts/
+test-results/
 updates/
 build/
 

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, LoaderCircle, Rocket } from 'lucide-react'
 import { toast } from 'sonner'
-import { envelope, mensajeError, solicitarBootstrap } from '@/lib/platform/client'
+import { envelope, mensajeError, solicitarBootstrap, type ResultadoBootstrapEmpresarial, type SolicitudBootstrap } from '@/lib/platform/client'
 import { PageIntro } from './ui'
 import { usePlatformList } from './use-platform-list'
 import { CredentialRevealDialog, type CredencialEntrega } from './credential-reveal-dialog'
@@ -22,6 +22,9 @@ export function BootstrapForm() {
   const [credencial, setCredencial] = useState<CredencialEntrega | null>(null)
   const [empresaCreada, setEmpresaCreada] = useState<string | null>(null)
   const [planId, setPlanId] = useState('')
+  const [solicitud, setSolicitud] = useState<ReturnType<typeof envelope> | null>(null)
+  const [entradaBootstrap, setEntradaBootstrap] = useState<SolicitudBootstrap | null>(null)
+  const [resultado, setResultado] = useState<ResultadoBootstrapEmpresarial | null>(null)
   const planes = usePlatformList('planes')
   const router = useRouter()
   const planesPublicados = planes.items.filter((plan) => plan.estado === 'PUBLICADA')
@@ -30,7 +33,7 @@ export function BootstrapForm() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    if (!planSeleccionado) {
+    if (!entradaBootstrap && !planSeleccionado) {
       setError('Selecciona un plan publicado para continuar.')
       return
     }
@@ -38,26 +41,40 @@ export function BootstrapForm() {
     setLoading(true)
     setError(null)
     try {
-      const empresaId = String(form.get('empresaId'))
-      const identidad = ownerConocido
-        ? { ownerUid: String(form.get('ownerUid')) }
-        : { nombreAdministrador: String(form.get('nombreAdministrador')) }
-      const result = await solicitarBootstrap({
-        ...envelope('BACKOFFICE_BOOTSTRAP_EMPRESARIAL'),
-        ...identidad,
-        empresaId,
+      const solicitudActual = solicitud ?? envelope('BACKOFFICE_BOOTSTRAP_EMPRESARIAL')
+      const entrada = entradaBootstrap ?? {
+        ...solicitudActual,
+        ...(ownerConocido
+          ? { ownerUid: String(form.get('ownerUid')) }
+          : { nombreAdministrador: String(form.get('nombreAdministrador')) }),
+        empresaId: String(form.get('empresaId')),
         nombreComercial: String(form.get('nombreComercial')),
         paisFiscal: String(form.get('paisFiscal')).toUpperCase(),
-        planId: planSeleccionado.id,
-        planVersion: Number(planSeleccionado.planVersion ?? planSeleccionado.versionActual),
+        planId: planSeleccionado!.id,
+        planVersion: Number(planSeleccionado!.planVersion ?? planSeleccionado!.versionActual),
         trialDias: Number(form.get('trialDias')),
-      })
-      toast.success(result.estado === 'COMPLETED' ? 'Bootstrap empresarial completado' : 'Solicitud registrada para recuperación')
+      }
+      if (!solicitud) setSolicitud(solicitudActual)
+      if (!entradaBootstrap) setEntradaBootstrap(entrada)
+
+      const result = await solicitarBootstrap(entrada)
+      const empresaId = String(entrada.empresaId)
+      const pinTemporal = result.credencialInicial?.pinTemporal ?? null
+      if (pinTemporal) {
+        setCredencial({ codigo: result.credencialInicial!.codigo, pinTemporal })
+      }
+      // El PIN vive únicamente en `credencial` (memoria; se limpia al cerrar el
+      // diálogo). `resultado` no lo retiene ni siquiera mientras el diálogo
+      // sigue abierto — nada más lo necesita: el estado se decide con `.estado`.
+      setResultado(pinTemporal ? { ...result, credencialInicial: { ...result.credencialInicial!, pinTemporal: null } } : result)
       setEmpresaCreada(empresaId)
-      if (result.credencialInicial?.pinTemporal) {
-        setCredencial({ codigo: result.credencialInicial.codigo, pinTemporal: result.credencialInicial.pinTemporal })
+      if (result.estado === 'COMPLETED') {
+        toast.success('Bootstrap empresarial completado')
+        if (!pinTemporal) router.push(`/backoffice/empresas/${empresaId}`)
+      } else if (result.estado === 'RETRYABLE_FAILURE') {
+        toast.warning('El Bootstrap quedó pendiente de recuperación. Reintenta esta misma solicitud.')
       } else {
-        router.push(`/backoffice/empresas/${empresaId}`)
+        toast.message('El Bootstrap sigue en proceso.')
       }
     } catch (cause) {
       setError(mensajeError(cause))
@@ -76,28 +93,28 @@ export function BootstrapForm() {
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
-            <Field name="empresaId" label="ID opaco de Empresa" placeholder="empresa_acme_01" required />
-            <div className="sm:col-span-2"><Field name="nombreComercial" label="Nombre comercial" placeholder="Café Central" required /></div>
+            <Field name="empresaId" label="ID opaco de Empresa" placeholder="empresa_acme_01" required disabled={Boolean(entradaBootstrap)} />
+            <div className="sm:col-span-2"><Field name="nombreComercial" label="Nombre comercial" placeholder="Café Central" required disabled={Boolean(entradaBootstrap)} /></div>
 
             <div className="sm:col-span-2 space-y-3 rounded-xl border border-slate-200 p-4">
               <div className="flex items-center justify-between">
                 <Label htmlFor="ownerConocido" className="text-sm font-medium">El administrador ya tiene una cuenta de Firebase Auth</Label>
-                <input id="ownerConocido" type="checkbox" checked={ownerConocido} onChange={(event) => setOwnerConocido(event.target.checked)} className="size-4" />
+                <input id="ownerConocido" type="checkbox" checked={ownerConocido} onChange={(event) => setOwnerConocido(event.target.checked)} className="size-4" disabled={Boolean(entradaBootstrap)} />
               </div>
               {ownerConocido ? (
-                <Field name="ownerUid" label="UID del administrador inicial" placeholder="UID de Firebase Auth" required />
+                <Field name="ownerUid" label="UID del administrador inicial" placeholder="UID de Firebase Auth" required disabled={Boolean(entradaBootstrap)} />
               ) : (
                 <>
-                  <Field name="nombreAdministrador" label="Nombre del administrador" placeholder="Ana Pérez" required />
+                  <Field name="nombreAdministrador" label="Nombre del administrador" placeholder="Ana Pérez" required disabled={Boolean(entradaBootstrap)} />
                   <p className="text-xs leading-relaxed text-slate-400">Bootstrap crea la identidad ancla automáticamente (sin email ni contraseña); el administrador entra siempre por código + PIN, nunca por esta cuenta directamente.</p>
                 </>
               )}
             </div>
 
-            <Field name="paisFiscal" label="País fiscal" defaultValue="CO" required />
+            <Field name="paisFiscal" label="País fiscal" defaultValue="CO" required disabled={Boolean(entradaBootstrap)} />
             <div className="space-y-2">
               <Label htmlFor="planId">Plan publicado</Label>
-              <Select value={planId} onValueChange={setPlanId} disabled={planes.loading || planesPublicados.length === 0}>
+              <Select value={planId} onValueChange={setPlanId} disabled={Boolean(entradaBootstrap) || planes.loading || planesPublicados.length === 0}>
                 <SelectTrigger id="planId" className="w-full">
                   <SelectValue placeholder={planes.loading ? 'Cargando planes publicados...' : 'Selecciona un plan'} />
                 </SelectTrigger>
@@ -118,13 +135,14 @@ export function BootstrapForm() {
                 {planSeleccionado ? `Versión ${planSeleccionado.planVersion ?? planSeleccionado.versionActual}` : 'Se asigna al seleccionar un plan'}
               </div>
             </div>
-            <Field name="trialDias" label="Días de trial" type="number" defaultValue="14" min="1" required />
+            <Field name="trialDias" label="Días de trial" type="number" defaultValue="14" min="1" required disabled={Boolean(entradaBootstrap)} />
+            <BootstrapStatus loading={loading} resultado={resultado} />
             {error && <p role="alert" className="sm:col-span-2 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-            <div className="sm:col-span-2 flex justify-end"><Button disabled={loading || planes.loading || !planSeleccionado}>{loading ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <Rocket className="mr-2 size-4" />}Solicitar Bootstrap canónico</Button></div>
+            <div className="sm:col-span-2 flex justify-end"><Button disabled={loading || (!entradaBootstrap && (planes.loading || !planSeleccionado))}>{loading ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <Rocket className="mr-2 size-4" />}{resultado?.estado === 'RETRYABLE_FAILURE' ? 'Reintentar Bootstrap canónico' : 'Solicitar Bootstrap canónico'}</Button></div>
           </form>
         </CardContent>
       </Card>
-      <CredentialRevealDialog credencial={credencial} onClose={() => { setCredencial(null); if (empresaCreada) router.push(`/backoffice/empresas/${empresaCreada}`) }} />
+      <CredentialRevealDialog credencial={credencial} onClose={() => { setCredencial(null); if (empresaCreada && resultado?.estado === 'COMPLETED') router.push(`/backoffice/empresas/${empresaCreada}`) }} />
     </>
   )
 }
@@ -132,4 +150,12 @@ export function BootstrapForm() {
 function Field(props: React.ComponentProps<typeof Input> & { label: string; name: string }) {
   const { label, ...input } = props
   return <div className="space-y-2"><Label htmlFor={props.name}>{label}</Label><Input id={props.name} {...input} /></div>
+}
+
+function BootstrapStatus({ loading, resultado }: { loading: boolean; resultado: ResultadoBootstrapEmpresarial | null }) {
+  if (loading) return <p role="status" className="sm:col-span-2 rounded-xl bg-sky-50 p-3 text-sm text-sky-800">Procesando el Bootstrap canónico…</p>
+  if (!resultado) return null
+  if (resultado.estado === 'COMPLETED') return <p role="status" className="sm:col-span-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">Bootstrap completado.</p>
+  if (resultado.estado === 'RETRYABLE_FAILURE') return <p role="status" className="sm:col-span-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">El Bootstrap requiere recuperación. Reintenta sin modificar la solicitud.</p>
+  return <p role="status" className="sm:col-span-2 rounded-xl bg-sky-50 p-3 text-sm text-sky-800">Estado actual del Bootstrap: {resultado.estado}.</p>
 }
