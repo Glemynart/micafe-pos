@@ -2,6 +2,7 @@
 
 import { httpsCallable } from "firebase/functions";
 import { getFirebaseFunctions } from "@/lib/firebase";
+import type { EntradaBootstrapEmpresarial, ResultadoBootstrapEmpresarial } from "@/lib/bootstrap/contrato";
 
 export const FACULTADES_PLATAFORMA = [
   "OPERADORES_GOBERNAR",
@@ -47,6 +48,10 @@ export const listarRecursos = (
 );
 
 export type EstadoCredencialInicial = "SIN_PROVISIONAR" | "PENDIENTE_ACTIVACION" | "EXPIRADA" | "ACTIVA";
+// Contrato reutilizado tal cual desde `lib/bootstrap/contrato.ts` — el mismo
+// que valida `functions/src/bootstrap/service.ts` — para que un cambio de
+// payload en el Bootstrap canónico lo detecte el compilador aquí, no un E2E.
+export type { ResultadoBootstrapEmpresarial };
 export type TipoAlertaOperador =
   | "BOOTSTRAP_RECUPERABLE"
   | "ADMINISTRADOR_PENDIENTE_ACTIVAR"
@@ -93,8 +98,18 @@ export const obtenerDetalleEmpresa = (empresaId: string) =>
     { empresaId },
   );
 
-export const solicitarBootstrap = (entrada: Record<string, unknown>) =>
-  invocar<{ estado: string; empresaId: string; credencialInicial: { codigo: string; pinTemporal: string | null } | null }>(
+// Campos de negocio del contrato canónico (`EntradaBootstrapEmpresarial`) más
+// el envelope de plataforma que ya produce `envelope()` — sin redeclarar
+// ninguno de los dos. El envelope de dominio exige `causationId: string`,
+// pero `envelope()` emite `causationId: null` para un comando raíz (lo
+// normaliza `solicitarBootstrapEmpresarial` en el backend, ver
+// functions/src/platform/operations.ts), así que se compone en vez de
+// intersectar con el contrato de dominio completo.
+export type SolicitudBootstrap = ReturnType<typeof envelope>
+  & Omit<EntradaBootstrapEmpresarial, "commandId" | "idempotencyKey" | "correlationId" | "causationId">;
+
+export const solicitarBootstrap = (entrada: SolicitudBootstrap) =>
+  invocar<ResultadoBootstrapEmpresarial>(
     "solicitarBootstrapEmpresarialSaas",
     entrada,
   );

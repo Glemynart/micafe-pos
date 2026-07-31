@@ -36,7 +36,7 @@ const requireFunctions = createRequire(
 
 const { initializeApp } = requireFunctions("firebase-admin/app");
 const { getAuth } = requireFunctions("firebase-admin/auth");
-const { getFirestore } = requireFunctions("firebase-admin/firestore");
+const { getFirestore, FieldValue } = requireFunctions("firebase-admin/firestore");
 const {
   bootstrapOperadorInicial,
 } = require("../functions/lib/functions/src/platform/initial-bootstrap");
@@ -81,6 +81,27 @@ async function main() {
     );
     console.log(`✓ operador de plataforma: ${JSON.stringify(resultado)}`);
   }
+
+  // El documento raíz del Plan es obligatorio, no decorativo: escribir solo la
+  // subcolección `versiones` deja `planes/{planId}` como documento fantasma, y
+  // una consulta sobre `planes` no devuelve fantasmas. Además
+  // `listarRecursosPlataforma` ordena por `creadaEn` (un `orderBy` sobre un
+  // campo ausente excluye el documento en silencio) y solo fusiona la versión
+  // publicada cuando `versionActual` es entero. Sin los tres, el Backoffice
+  // recibe `items: []` y el selector de plan queda deshabilitado.
+  //
+  // Campos exactos del comando canónico `crearPlan`
+  // (functions/src/suscripciones/service.ts) — la fixture no inventa forma
+  // propia del documento raíz: `planId`, `codigo`, `revision`, `versionActual`,
+  // `creadaEn`. Sin `schemaVersion` ni `actualizadaEn`: ese comando tampoco los
+  // escribe en la raíz.
+  await db.collection("planes").doc(PLAN.planId).set({
+    planId: PLAN.planId,
+    codigo: "PROFESIONAL",
+    revision: 1,
+    versionActual: PLAN.planVersion,
+    creadaEn: FieldValue.serverTimestamp(),
+  });
 
   const planRef = db
     .collection("planes")
