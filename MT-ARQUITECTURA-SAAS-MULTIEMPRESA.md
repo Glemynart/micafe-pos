@@ -415,7 +415,7 @@ dependencias:
 | **B4 — Enforcement** | Backend, Rules, sesiones existentes y matriz de acceso. | B3 |
 | **B5 — Bootstrap empresarial** | Provisionamiento durable, commit del núcleo y claims recuperables. | B1–B4 |
 | **B6 — Onboarding** | Wizard, readiness, primer acceso y orquestación opcional de MT-U5B. | B5 |
-| **B7 — Cutover y certificación** | Backfills, contador legacy, retiro del singleton y validación integral. | B2–B6 |
+| **B7 — Cutover y certificación** | **Completado** — PR #135 integrado a `main` el 2026-07-28; cutover a configuración tenant canónica y certificación integral finalizados. | B2–B6 |
 
 B2 y B3 pueden avanzar después de cerrar B0 y la base necesaria de B1. No se habilita una segunda
 empresa para vender hasta certificar numeración, snapshot y enforcement.
