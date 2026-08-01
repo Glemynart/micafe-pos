@@ -55,8 +55,8 @@ test("la ficha de empresa permite editar el nombre comercial y lo refleja de inm
   await input.fill("Café PR4 Renombrado");
   await dialogo.getByRole("button", { name: "Guardar cambios" }).click();
 
-  await expect(page.getByRole("heading", { name: "Café PR4 Renombrado" })).toBeVisible();
   await expect(page.getByText("Nombre comercial actualizado")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Café PR4 Renombrado" })).toBeVisible();
 });
 
 test("el lifecycle permite suspender, reactivar y cancelar reutilizando TransicionarEmpresa; el historial registra cada hecho", async ({ page }) => {

@@ -118,6 +118,7 @@ export async function listarRecursosPlataforma(
 }
 
 export type EstadoCredencialInicialProyectado = "SIN_PROVISIONAR" | "PENDIENTE_ACTIVACION" | "EXPIRADA" | "ACTIVA";
+export type EstadoAccesoAdministradorInicial = "DISPONIBLE" | "ACTIVO" | "BLOQUEADO" | "CREDENCIAL_TEMPORAL_PENDIENTE" | "CREDENCIAL_EXPIRADA";
 
 export interface DiagnosticoConfiguracionEmpresa {
   disponible: boolean;
@@ -211,7 +212,6 @@ function proyectarEmpresaDetalle(id: string, data: FirebaseFirestore.DocumentDat
     nombreComercial: typeof data.nombreComercial === "string" ? data.nombreComercial : null,
     estado: typeof data.estado === "string" ? data.estado : null,
     paisFiscal: typeof data.paisFiscal === "string" ? data.paisFiscal : null,
-    ownerUid: typeof data.ownerUid === "string" ? data.ownerUid : null,
     revision: Number.isInteger(data.revision) ? data.revision : null,
   };
 }
@@ -275,7 +275,7 @@ export async function obtenerDetalleEmpresaPlataforma(db: Firestore, empresaId: 
     ? await db.collection("planes").doc(suscripcion.planId).collection("versiones").doc(String(suscripcion.planVersion)).get()
     : null;
 
-  let adminInicial: { uid: string; rol: string | null; estado: string | null; activo: boolean | null } | null = null;
+  let adminInicial: { rol: string | null; estado: string | null; activo: boolean | null } | null = null;
   let credencialInicial: { estado: EstadoCredencialInicialProyectado; incorporacionId: string | null; puedeReemitir: boolean } = {
     estado: "SIN_PROVISIONAR", incorporacionId: null, puedeReemitir: false,
   };
@@ -289,7 +289,6 @@ export async function obtenerDetalleEmpresaPlataforma(db: Firestore, empresaId: 
     ]);
     const membresiaData = membresiaSnap.data();
     adminInicial = {
-      uid: ownerUid,
       rol: typeof membresiaData?.rol === "string" ? membresiaData.rol : null,
       estado: typeof membresiaData?.estado === "string" ? membresiaData.estado : null,
       activo: typeof membresiaData?.activo === "boolean" ? membresiaData.activo : null,
@@ -307,6 +306,20 @@ export async function obtenerDetalleEmpresaPlataforma(db: Firestore, empresaId: 
       puedeReemitir,
     };
   }
+  let estadoAccesoInicial: EstadoAccesoAdministradorInicial = credencialInicial.estado === "EXPIRADA"
+    ? "CREDENCIAL_EXPIRADA"
+    : credencialInicial.estado === "PENDIENTE_ACTIVACION"
+      ? "CREDENCIAL_TEMPORAL_PENDIENTE"
+      : credencialInicial.estado === "ACTIVA" ? "ACTIVO" : "DISPONIBLE";
+  if (ownerUid && credencialInicial.incorporacionId) {
+    const incorporacion = await db.collection("incorporaciones").doc(credencialInicial.incorporacionId).get();
+    const codigo = incorporacion.data()?.codigo;
+    if (typeof codigo === "string") {
+      const credencial = await db.collection("credenciales_operativas").doc(`${empresaId}_${codigo}`).get();
+      const bloqueadoHasta = credencial.data()?.bloqueadoHasta as { toMillis?: () => number } | undefined;
+      if (typeof bloqueadoHasta?.toMillis === "function" && bloqueadoHasta.toMillis() > Date.now()) estadoAccesoInicial = "BLOQUEADO";
+    }
+  }
 
   return {
     empresa: proyectarEmpresaDetalle(empresaSnap.id, empresaData),
@@ -316,6 +329,7 @@ export async function obtenerDetalleEmpresaPlataforma(db: Firestore, empresaId: 
     provisionamiento: provisionamientos.empty ? null : proyectarProvisionamientoDetalle(provisionamientos.docs[0].data()),
     adminInicial,
     credencialInicial,
+    estadoAccesoInicial,
   };
 }
 
@@ -385,7 +399,6 @@ export async function obtenerResumenOperadorSaas(
       if (!detalle.diagnosticoConfiguracion.readiness?.operativa.lista) agregar("READINESS_OPERATIVO_INCOMPLETO");
       if (
         !detalle.diagnosticoConfiguracion.disponible
-        || !detalle.empresa.ownerUid
         || !detalle.adminInicial
         || detalle.adminInicial.rol !== "admin"
         || detalle.adminInicial.estado !== "activa"

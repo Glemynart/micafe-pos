@@ -48,6 +48,7 @@ export const listarRecursos = (
 );
 
 export type EstadoCredencialInicial = "SIN_PROVISIONAR" | "PENDIENTE_ACTIVACION" | "EXPIRADA" | "ACTIVA";
+export type EstadoAccesoAdministradorInicial = "DISPONIBLE" | "ACTIVO" | "BLOQUEADO" | "CREDENCIAL_TEMPORAL_PENDIENTE" | "CREDENCIAL_EXPIRADA";
 // Contrato reutilizado tal cual desde `lib/bootstrap/contrato.ts` — el mismo
 // que valida `functions/src/bootstrap/service.ts` — para que un cambio de
 // payload en el Bootstrap canónico lo detecte el compilador aquí, no un E2E.
@@ -91,8 +92,9 @@ export const obtenerDetalleEmpresa = (empresaId: string) =>
       modulosHabilitados: string[];
     };
     provisionamiento: Record<string, any> | null;
-    adminInicial: { uid: string; rol: string | null; estado: string | null; activo: boolean | null } | null;
+    adminInicial: { rol: string | null; estado: string | null; activo: boolean | null } | null;
     credencialInicial: { estado: EstadoCredencialInicial; incorporacionId: string | null; puedeReemitir: boolean };
+    estadoAccesoInicial: EstadoAccesoAdministradorInicial;
   }>(
     "obtenerDetalleEmpresaPlataformaSaas",
     { empresaId },
@@ -130,6 +132,12 @@ export const reemitirCredencialInicialTemporal = (empresaId: string, incorporaci
       empresaId,
       incorporacionId,
     },
+  );
+
+export const desbloquearAdministradorInicial = (empresaId: string) =>
+  invocar<{ empresaId: string; estado: "DESBLOQUEADA"; idempotente: boolean }>(
+    "desbloquearAdministradorInicialTenantSaas",
+    { ...envelope("BACKOFFICE_DESBLOQUEAR_ADMINISTRADOR_INICIAL"), empresaId },
   );
 
 export const comandoOperador = (

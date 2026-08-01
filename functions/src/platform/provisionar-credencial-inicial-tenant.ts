@@ -88,6 +88,29 @@ export async function revalidarDestinoProvisionableEnTransaccion(
   validarMembresiaAdminActiva(membresiaSnap);
 }
 
+/** Corrección administrativa de plataforma: conserva acceso en suspendida/cancelada,
+ * pero nunca interviene agregados de conservación. */
+export async function revalidarDestinoAdministrableEnTransaccion(
+  db: Firestore,
+  tx: Transaction,
+  empresaId: string,
+  ownerUidEsperado: string,
+): Promise<void> {
+  const [empresaSnap, membresiaSnap] = await Promise.all([
+    tx.get(db.collection("empresas").doc(empresaId)),
+    tx.get(db.collection("membresias").doc(`${empresaId}_${ownerUidEsperado}`)),
+  ]);
+  if (!empresaSnap.exists) fail("not-found", "EMPRESA_NOT_FOUND");
+  const empresa = empresaSnap.data() as EmpresaProvisionable & { estado?: unknown };
+  if (empresa.estado === "archivada" || empresa.estado === "eliminada") {
+    fail("failed-precondition", "EMPRESA_NO_ADMINISTRABLE");
+  }
+  if (typeof empresa.ownerUid !== "string" || empresa.ownerUid !== ownerUidEsperado) {
+    fail("failed-precondition", "OWNER_SIN_MEMBRESIA_ADMIN_ACTIVA");
+  }
+  validarMembresiaAdminActiva(membresiaSnap);
+}
+
 export async function resolverPlanEmisionCredencialInicial(
   db: Firestore,
   empresaId: unknown,
