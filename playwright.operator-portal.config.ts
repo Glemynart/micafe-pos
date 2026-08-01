@@ -5,6 +5,7 @@ const baseURL = "http://127.0.0.1:3001";
 export default defineConfig({
   testDir: "./tests/e2e/operator-portal/specs",
   fullyParallel: false,
+  workers: 1,
   forbidOnly: !!process.env.CI,
   // Márgenes dimensionados sobre el coste real del entorno, no sobre el de la
   // aplicación: `next dev` compila cada ruta la primera vez que se visita y el
