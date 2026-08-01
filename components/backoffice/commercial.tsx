@@ -1,14 +1,15 @@
 'use client'
 
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import { LoaderCircle, Plus, RefreshCw } from "lucide-react";
+import { ArrowRight, LoaderCircle, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { comandoComercial, envelope, mensajeError } from "@/lib/platform/client";
 import { usePlatform } from "@/contexts/platform-context";
 import { usePlatformList } from "./use-platform-list";
 import { EmptyState, ErrorState, EstadoBadge, LoadingState, PageIntro } from "./ui";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,67 +64,60 @@ export function PlansPage() {
   );
 }
 
+/**
+ * Listado de Suscripciones — puramente informativo. Las mutaciones (cambio de
+ * plan, renovación, suspensión/reactivación, cancelación) viven en la Ficha
+ * de Suscripción (`/backoffice/suscripciones/{empresaId}`), igual que el
+ * listado de Empresas es de solo lectura y sus acciones viven en su ficha.
+ */
 export function SubscriptionsPage() {
   const query = usePlatformList("suscripciones");
-  const { tiene } = usePlatform();
-  const [busy, setBusy] = useState<string | null>(null);
-  const [modal, setModal] = useState<{ item: Record<string, any>; tipo: "RenovarSuscripcion" | "CambiarPlanSuscripcion" | "ProgramarCancelacionSuscripcion" } | null>(null);
-  async function transition(item: Record<string, any>, destino: string) {
-    setBusy(item.id);
-    try {
-      const extra = destino === "active" ? {
-        periodoInicio: new Date().toISOString().slice(0, 10),
-        periodoFin: new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10),
-      } : {};
-      await comandoComercial("TransicionarSuscripcion", {
-        ...envelope(`BACKOFFICE_SUSCRIPCION_${destino.toUpperCase()}`),
-        empresaId: item.empresaId ?? item.id,
-        destino,
-        expectedRevision: item.revision,
-        ...extra,
-      });
-      toast.success("Suscripción actualizada");
-      await query.reload();
-    } catch (cause) { toast.error(mensajeError(cause)); } finally { setBusy(null); }
-  }
-  async function submitCommercial(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!modal) return;
-    const form = new FormData(event.currentTarget);
-    const item = modal.item;
-    setBusy(item.id);
-    try {
-      const extra = modal.tipo === "RenovarSuscripcion"
-        ? { periodoInicio: String(form.get("periodoInicio")), periodoFin: String(form.get("periodoFin")) }
-        : modal.tipo === "CambiarPlanSuscripcion"
-          ? { planId: String(form.get("planId")), planVersion: Number(form.get("planVersion")) }
-          : { cancelacionProgramadaPara: String(form.get("cancelacionProgramadaPara")) };
-      await comandoComercial(modal.tipo, {
-        ...envelope(`BACKOFFICE_${modal.tipo.toUpperCase()}`),
-        empresaId: item.empresaId ?? item.id,
-        expectedRevision: item.revision,
-        ...extra,
-      });
-      toast.success("Referencia contractual actualizada");
-      setModal(null); await query.reload();
-    } catch (cause) { toast.error(mensajeError(cause)); } finally { setBusy(null); }
-  }
-  async function revokeCancellation(item: Record<string, any>) {
-    setBusy(item.id);
-    try {
-      await comandoComercial("RevocarCancelacionSuscripcion", {
-        ...envelope("BACKOFFICE_SUSCRIPCION_CANCELACION_REVOCAR"),
-        empresaId: item.empresaId ?? item.id,
-        expectedRevision: item.revision,
-      });
-      toast.success("Cancelación programada revocada"); await query.reload();
-    } catch (cause) { toast.error(mensajeError(cause)); } finally { setBusy(null); }
-  }
   return (
     <>
       <PageIntro eyebrow="Relación comercial" title="Suscripciones" description="Estado comercial separado del lifecycle de Empresa. Ninguna transición reactiva por sí sola el acceso tenant." />
-      {query.loading ? <LoadingState /> : query.error ? <ErrorState message={query.error} retry={query.reload} /> : query.items.length === 0 ? <EmptyState title="No existen suscripciones" /> : <Card><CardContent><Table><TableHeader><TableRow><TableHead>Empresa</TableHead><TableHead>Plan</TableHead><TableHead>Estado</TableHead><TableHead>Revisión</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader><TableBody>{query.items.map((s) => <TableRow key={s.id}><TableCell className="font-mono">{s.empresaId ?? s.id}</TableCell><TableCell>{s.planId} · v{s.planVersion}</TableCell><TableCell><EstadoBadge estado={s.estado} />{s.cancelacionProgramadaPara && <p className="mt-1 text-[10px] text-amber-700">Cancela {s.cancelacionProgramadaPara}</p>}</TableCell><TableCell>{s.revision}</TableCell><TableCell><div className="flex flex-wrap justify-end gap-1">{tiene("COMERCIAL_GOBERNAR") && <><Button size="sm" variant="outline" disabled={busy === s.id} onClick={() => void transition(s, s.estado === "suspended" ? "active" : "suspended")}>{busy === s.id ? <LoaderCircle className="size-4 animate-spin" /> : <><RefreshCw className="mr-1 size-3" />{s.estado === "suspended" ? "Reactivar" : "Suspender"}</>}</Button>{s.estado === "active" && <><Button size="sm" variant="ghost" onClick={() => setModal({ item: s, tipo: "RenovarSuscripcion" })}>Renovar</Button><Button size="sm" variant="ghost" onClick={() => setModal({ item: s, tipo: "CambiarPlanSuscripcion" })}>Cambiar plan</Button>{s.cancelacionProgramadaPara ? <Button size="sm" variant="ghost" onClick={() => void revokeCancellation(s)}>Revocar cancelación</Button> : <Button size="sm" variant="ghost" onClick={() => setModal({ item: s, tipo: "ProgramarCancelacionSuscripcion" })}>Programar cancelación</Button>}</>}</>}</div></TableCell></TableRow>)}</TableBody></Table></CardContent></Card>}
-      <Dialog open={!!modal} onOpenChange={(value) => { if (!value) setModal(null); }}><DialogContent><DialogHeader><DialogTitle>{modal?.tipo === "RenovarSuscripcion" ? "Renovar período" : modal?.tipo === "CambiarPlanSuscripcion" ? "Cambiar referencia de plan" : "Programar cancelación"}</DialogTitle><DialogDescription>La operación conserva revisión, idempotencia y la separación entre Suscripción y lifecycle empresarial.</DialogDescription></DialogHeader><form className="space-y-4" onSubmit={submitCommercial}>{modal?.tipo === "RenovarSuscripcion" && <><Field name="periodoInicio" label="Inicio del período" type="date" required /><Field name="periodoFin" label="Fin del período" type="date" required /></>}{modal?.tipo === "CambiarPlanSuscripcion" && <><Field name="planId" label="Plan publicado" required /><Field name="planVersion" label="Versión" type="number" min="1" required /></>}{modal?.tipo === "ProgramarCancelacionSuscripcion" && <Field name="cancelacionProgramadaPara" label="Fecha de cancelación" type="date" required />}<Button className="w-full" disabled={busy === modal?.item.id}>Confirmar comando</Button></form></DialogContent></Dialog>
+      {query.loading ? <LoadingState /> : query.error ? <ErrorState message={query.error} retry={query.reload} /> : query.items.length === 0 ? <EmptyState title="No existen suscripciones" /> : (
+        <Card>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Empresa</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Plan contratado</TableHead>
+                  <TableHead>Versión</TableHead>
+                  <TableHead>Inicio</TableHead>
+                  <TableHead>Vencimiento</TableHead>
+                  <TableHead>Trial</TableHead>
+                  <TableHead>Renovación</TableHead>
+                  <TableHead className="text-right">Ficha</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {query.items.map((s) => {
+                  const empresaId = s.empresaId ?? s.id;
+                  return (
+                    <TableRow key={s.id}>
+                      <TableCell className="font-mono text-xs">{empresaId}</TableCell>
+                      <TableCell><EstadoBadge estado={s.estado} /></TableCell>
+                      <TableCell>{s.planId ?? "—"}</TableCell>
+                      <TableCell>{s.planVersion ? `v${s.planVersion}` : "—"}</TableCell>
+                      <TableCell className="text-xs text-slate-500">{s.periodoInicio ?? "—"}</TableCell>
+                      <TableCell className="text-xs text-slate-500">{s.periodoFin ?? "—"}</TableCell>
+                      <TableCell className="text-xs text-slate-500">{s.trialFin ?? "—"}</TableCell>
+                      <TableCell className="text-xs text-slate-500">{s.cancelacionProgramadaPara ? <span className="text-amber-700">Cancela {s.cancelacionProgramadaPara}</span> : "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" variant="ghost" asChild>
+                          <Link href={`/backoffice/suscripciones/${empresaId}`}>Ver<ArrowRight className="ml-1 size-3" /></Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 }
