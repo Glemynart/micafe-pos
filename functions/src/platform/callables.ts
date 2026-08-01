@@ -5,6 +5,7 @@ import { autorizarPlataforma, type TokenPlataforma } from "./authorization";
 import type { EnvelopePlataforma, FacultadPlataforma } from "./contracts";
 import { ejecutarComandoOperador } from "./operators";
 import { ejecutarComandoComercial, provisionarCredencialInicialTenant, reemitirCredencialInicialTemporalTenant, solicitarBootstrapEmpresarial } from "./operations";
+import { desbloquearAdministradorInicialTenant } from "./desbloquear-administrador-inicial-tenant";
 import { facultadTransicionEmpresa, obtenerComandoComercial } from "./command-catalog";
 import { consultarAuditoriaPlataforma, listarRecursosPlataforma, obtenerDetalleEmpresaPlataforma, obtenerResumenOperadorSaas as consultarResumenOperadorSaas, validarFiltroAuditoria, type RecursoPlataforma } from "./queries";
 import { listarSoporteTenant, solicitarSoporte, transicionarSoporte } from "./support";
@@ -89,6 +90,15 @@ export const reemitirCredencialInicialTemporalSaas = onCall({ region: REGION, se
     data as EnvelopePlataforma & { empresaId: string; incorporacionId: string },
     auth.token as TokenPlataforma,
   );
+});
+
+export const desbloquearAdministradorInicialTenantSaas = onCall({ region: REGION }, async (request) => {
+  const auth = exigirAuth(request);
+  const db = getFirestore();
+  await autorizarPlataforma(db, auth.uid, auth.token, "LIFECYCLE_GOBERNAR");
+  const data = request.data as (EnvelopePlataforma & { empresaId?: unknown }) | undefined;
+  if (!data || typeof data.empresaId !== "string") throw new HttpsError("invalid-argument", "EMPRESA_ID_INVALIDO");
+  return desbloquearAdministradorInicialTenant(db, auth.uid, data as EnvelopePlataforma & { empresaId: string }, auth.token as TokenPlataforma);
 });
 
 export const ejecutarComandoComercialSaas = onCall({ region: REGION }, async (request) => {

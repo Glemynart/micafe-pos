@@ -37,6 +37,7 @@ export {
   solicitarBootstrapEmpresarialSaas,
   provisionarCredencialInicialTenantSaas,
   reemitirCredencialInicialTemporalSaas,
+  desbloquearAdministradorInicialTenantSaas,
   ejecutarComandoComercialSaas,
   listarRecursosPlataformaSaas,
   obtenerDetalleEmpresaPlataformaSaas,
