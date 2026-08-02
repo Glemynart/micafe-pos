@@ -1,10 +1,27 @@
 # ADR-SAAS-013 — Bootstrap del primer administrador de un tenant
 
-- **Estado:** PROPUESTO (pendiente de aprobación)
+- **Estado:** ACEPTADO
 - **Fecha:** 2026-07-25
+- **Fecha de aceptación:** 2026-08-01
 - **Adenda A-1 (2026-07-26):** reemisión administrativa de una credencial inicial temporal cuya entrega se interrumpió.
 - **Contexto arquitectónico:** MT-U9 (plano plataforma), ADR-SAAS-007 (bootstrap empresarial), ADR-SAAS-011 (operadores y facultades), ADR-SAAS-012 (auditoría), MT-U5a (autenticación operativa)
 - **Sustituye/complementa:** ninguno. Cierra el hueco de arranque del plano tenant, equivalente al que `initial-bootstrap` cerró en el plano plataforma (IMP-002).
+
+---
+
+## Estado de implementación y reconciliación
+
+Revisión contra `main @ 65f697e` realizada el 2026-08-01. La decisión de este ADR está implementada y mergeada en:
+
+- PR #123: emisión inicial, activación obligatoria `DIRECTA_TEMP` y flujo de entrega en Bootstrap/Backoffice.
+- PR #125: provisionamiento de un tenant preexistente y reemisión transaccional de una temporal no activada.
+- PR #146: desbloqueo administrativo de la credencial inicial sin modificar PIN ni credencial.
+
+La implementación vigente conserva la frontera decidida aquí: la plataforma emite la primera credencial; el tenant activa su PIN y obtiene los claims; el resto de operadores se incorpora por `crearIncorporacionDirecta` y el flujo de activación obligatoria. La alta por `crearUsuarioConMembresia` queda limitada a la autoridad de membresía y no se considera un mecanismo de acceso operativo.
+
+La reserva global de códigos también cubre hoy `crearIncorporacionDirecta` mediante `functions/src/platform/reserva-codigo-operativo.ts`. Por tanto, `TECH-DEBT-COD-001` queda reducido a `provisionarCredencialOperativa`, que todavía acepta códigos manuales fuera del emisor canónico; no permanece como deuda de `crearIncorporacionDirecta`.
+
+La configuración B1 del tenant fundacional tiene una ruta separada en `functions/src/configuracion/migrar-fundacional-cli.ts`. Su ejecución sobre producción y la resolución de los datos fiscales no forman parte de este ADR ni de su emisión de credencial; permanecen como dependencia de datos de P0-01 bajo `TECH-DEBT-CONFIG-001`.
 
 ---
 
@@ -132,9 +149,9 @@ Este ADR solo toca la segunda. La primera —cómo un navegador nuevo sabe a qu�
 
 ### 3.4 Consecuencia sobre H-COD-001
 
-Este ADR **elimina** el riesgo de colisión para credenciales iniciales, pero **no** para las que un admin de tenant crea después con `provisionarCredencialOperativa`, que sigue aceptando código manual.
+Este ADR **elimina** el riesgo de colisión para credenciales iniciales y la incorporación directa: ambas rutas reservan el código globalmente dentro de la transacción que crea la credencial. Permanece la vía heredada `provisionarCredencialOperativa`, que todavía acepta código manual sin esa reserva.
 
-Se registra como deuda **TECH-DEBT-COD-001**: extender la verificación de unicidad global a `provisionarCredencialOperativa` y `crearIncorporacionDirecta`. No se aborda aquí para no ampliar el alcance, pero es un fallo latente con impacto de bloqueo mutuo — y, a la luz de §3.3, no es una deuda cosmética: mientras exista una vía de creación de credenciales sin la misma verificación de unicidad, la garantía "la resolución global es segura porque el código no colisiona" queda incompleta. Se recomienda priorizarla antes de que el número de tenants activos haga la colisión probable en la práctica (estimado en la introducción de §1.3: riesgo material a partir de ~cientos de tenants con convención de códigos compartida).
+Se conserva **TECH-DEBT-COD-001** únicamente para extender la verificación de unicidad global a `provisionarCredencialOperativa`. No se abre ese alcance en este ADR: la emisión inicial y la incorporación directa ya tienen la garantía decidida en §3.3.
 
 ---
 
@@ -306,6 +323,7 @@ Además obliga a definir la frontera de planos de forma explícita, que es valor
 | **Ver estado de la credencial inicial** | 🆕 | `PLATAFORMA_CONSULTAR` |
 | **Provisionar / reprovisionar por expiración** | 🆕 | `LIFECYCLE_GOBERNAR` |
 | **Reemitir credencial temporal no entregada** | 🆕 | `LIFECYCLE_GOBERNAR` |
+| **Desbloquear la credencial inicial bloqueada** | ✅ implementado (PR #146) | `LIFECYCLE_GOBERNAR` |
 | **Editar nombre comercial** | 🆕 | `LIFECYCLE_GOBERNAR` |
 
 **Estado de la credencial inicial** — proyección derivada, sin campo nuevo:
@@ -319,11 +337,13 @@ Además obliga a definir la frontera de planos de forma explícita, que es valor
 
 `Reemitir credencial` no reutiliza el botón ni el contrato de `Emitir credencial inicial`: antes de invocar la operación muestra una confirmación explícita de que invalidará el código y PIN anteriores. Cancelar no escribe; solo la respuesta que creó la sustitución abre el diálogo de revelación única.
 
+El desbloqueo es una operación distinta: solo limpia `fallosConsecutivos` y `bloqueadoHasta` de la credencial inicial asociada, exige las mismas precondiciones de plataforma y no modifica el PIN, el código ni el estado de activación.
+
 **Edición del nombre comercial** — comando `ActualizarDatosAdministrativosEmpresa` con `expectedRevision`, que escribe `nombre`/`nombreComercial` en `empresas` y propaga a `configuraciones/{empresaId}`. Alcance limitado a la denominación comercial: `paisFiscal` queda **excluido** por sus implicaciones fiscales sobre numeraciones ya emitidas, y `estado` pertenece a lifecycle. Esto convierte el renombrado del tenant fundacional (§8, D-6) en el primer uso de un mecanismo general, no en un script.
 
 ### 5.4 Alcance administrativo, campo por campo
 
-El propietario pidió fijar esta frontera ahora para que no crezca por decisiones puntuales. Se enumera contra los contratos de datos reales (`lib/empresas-service.ts:48` y `lib/configuracion-service.ts:12`, más `suscripciones`/`planes`), no en abstracto.
+El propietario pidió fijar esta frontera ahora para que no crezca por decisiones puntuales. Se enumera contra los contratos de datos reales (`lib/empresas-service.ts:48` y `lib/configuracion/contrato.ts`, más `suscripciones`/`planes`), no en abstracto.
 
 **Administrado por el Backoffice SaaS** (documentos `empresas`, `suscripciones`, `provisionamientos_empresariales`, `membresias` — solo lectura del rol/estado del admin inicial, `credenciales_operativas` — solo estado derivado):
 
@@ -348,7 +368,7 @@ El propietario pidió fijar esta frontera ahora para que no crezca por decisione
 | `mensaje_ticket`, `modulos_habilitados` | `configuracion/general` | Preferencia operativa diaria del negocio, sin relevancia para el gobierno de la cuenta SaaS |
 | `baseCajaSugerida`, `umbralAlertaFaltante` | idem | Parámetro de caja, exclusivamente operativo |
 | `paisFiscal` | `empresas` | **Caso límite, decidido explícitamente:** vive en `empresas` (plataforma), pero se excluye de edición en el Backoffice (§5.5) por sus implicaciones sobre numeraciones fiscales ya emitidas bajo ese país. Se fija en el bootstrap y requeriría, si alguna vez cambia, un procedimiento propio con migración de numeración — fuera de este ADR |
-| Miembros del equipo distintos del admin inicial (cajeros, cocineros...) | `membresias` | Los crea y gestiona el admin del tenant vía `crearUsuarioConMembresia`/`actualizarMembresia`, ya existentes. El Backoffice no lista ni edita membresías no-admin |
+| Miembros del equipo distintos del admin inicial (cajeros, cocineros...) | `membresias` / `incorporaciones` | El admin gestiona la autoridad de membresía mediante `crearUsuarioConMembresia`/`actualizarMembresia` y el acceso operativo mediante `crearIncorporacionDirecta` → `TEMP_CREDENTIAL` → activación. El Backoffice no lista ni edita membresías no-admin |
 | Cualquiera de las 25 colecciones oficiales de MT-U3 | `ventas`, `productos`, `turnos`, etc. | Dato operativo del negocio, cubierto por la regla de §5.2 |
 
 **Regla de cierre, para que la superficie no crezca por goteo:** un campo entra en la columna "Backoffice" únicamente si describe **la relación comercial/contractual entre la plataforma y el tenant** (quién es el tenant, en qué estado está su cuenta, qué plan paga, quién es su administrador, si puede entrar). Todo lo que describe **cómo el tenant opera su propio negocio** —así sea un dato "administrativo" en sentido coloquial, como el NIT o la razón social— queda en el plano tenant. Ampliar la columna izquierda exige un ADR, no un PR.
@@ -414,10 +434,11 @@ La empresa fundacional no puede pasar por la primera entrada: `ejecutarBootstrap
 
 | Archivo | Cambio |
 |---|---|
-| `functions/src/contracts.ts` | `generarCodigoOperativo(slug)`, `generarPinTemporal()` (CSPRNG). `CredencialOperativa.origen`, `expiraEn` |
-| `functions/src/incorporaciones-service.ts` | Extraer `emitirCredencialInicial()` del cuerpo de `crearIncorporacionDirecta`, parametrizado por origen. Comportamiento del llamador actual sin cambios |
+| `functions/src/platform/credencial-inicial.ts` | `generarCodigoOperativo(slug)` y `generarPinTemporal()` (CSPRNG), con formato y unicidad global decididos en §3 |
+| `functions/src/platform/emitir-credencial-inicial.ts` | Servicio único de emisión inicial, reutilizado por Bootstrap y `ProvisionarCredencialInicialTenant` |
+| `functions/src/incorporaciones-service.ts` | Incorporación directa tenant con PIN temporal server-side, `requiereCambio=true` y reserva global de código |
 | `functions/src/bootstrap/service.ts` | Paso **H** tras la membresía admin. Estado `CREDENTIAL_ISSUED` entre `CORE_COMMITTED` y `CLAIMS_ISSUED`, con la misma semántica recuperable ya existente |
-| `functions/src/platform/callables.ts` | `provisionarCredencialInicialTenantSaas`, `reemitirCredencialInicialTemporalSaas`, `actualizarDatosAdministrativosEmpresaSaas` |
+| `functions/src/platform/callables.ts` | `provisionarCredencialInicialTenantSaas`, `reemitirCredencialInicialTemporalSaas` y `desbloquearAdministradorInicialTenantSaas`; la edición de datos administrativos entra por `ejecutarComandoComercialSaas` |
 | `functions/src/platform/operations.ts` | Comandos con envelope, idempotencia y auditoría ADR-SAAS-012; la reemisión valida la incorporación esperada dentro de la transacción |
 | `functions/src/platform/command-catalog.ts` | Registro de comandos y facultades |
 | `functions/src/platform/queries.ts` | `obtenerDetalleEmpresaPlataforma` devuelve `adminInicial`, `credencialInicial` (proyección §5.3) e `incorporacionId` como precondición compare-and-swap de §4.4.1. **Nunca `pinHash` ni PIN** |
@@ -428,7 +449,7 @@ La empresa fundacional no puede pasar por la primera entrada: `ejecutarBootstrap
 |---|---|
 | `components/backoffice/bootstrap-form.tsx` | `ownerUid` deja de ser obligatorio (hoy exige un UID de Firebase que nadie puede crear desde el Backoffice: hueco real). Se añade "Nombre del administrador" |
 | `components/backoffice/company-detail.tsx` | Tarjeta "Acceso inicial": administrador, estado de credencial y acciones según facultad. En `PENDIENTE_ACTIVACION` ofrece "Reemitir credencial" como acción distinta, con confirmación, nunca como "Emitir" |
-| Componente nuevo | Diálogo de entrega única de credenciales |
+| `components/backoffice/credential-reveal-dialog.tsx` | Diálogo de entrega única de credenciales |
 
 ### 7.3 POS — ver §9
 
@@ -453,11 +474,15 @@ Una colección nueva, `bootstrap_identidades_owner` — ver §7.6.
 
 `bootstrap_identidades_owner` es **permanente**, no efímera — mismo ciclo de vida que `provisionamientos_empresariales` (tampoco se borra al completar). Responsabilidad única: proveniencia de una identidad creada por Bootstrap (qué UID, para qué intento, cuándo). Nunca leída fuera de la resolución de identidad.
 
-### 7.5 Verificación bloqueante previa al despliegue de reglas
+### 7.5 Verificación de reglas y secretos
 
-`credenciales_operativas` e `incorporaciones` **no** están entre las 25 colecciones oficiales de MT-U3 (llevan `empresaId` de nacimiento, por eso el backfill no las tocó). **Antes** de desplegar `firestore.rules` hay que confirmar que están cubiertas por reglas de aislamiento por tenant y que `pinHash` no es legible desde el cliente. Si no lo estuvieran, sería un hueco de aislamiento de severidad alta.
+Verificación realizada contra `firestore.rules` y las suites de Rules del repositorio el 2026-08-01:
 
-`bootstrap_identidades_owner` (§7.6) se suma a esta misma verificación bloqueante: es de plataforma, no de tenant, y exige acceso denegado a clientes.
+- `incorporaciones`, `provisionamientos_empresariales` y `configuraciones` tienen `allow read, write: if false` explícito.
+- `credenciales_operativas` y `bootstrap_identidades_owner` no tienen una ruta cliente permitida y caen en el `match /{document=**}` final, que deniega lectura y escritura.
+- `firestore-rules/global-platform.test.ts` cubre las colecciones SaaS y `incorporaciones`; `functions/src/platform/queries.test.ts` verifica que la proyección de Backoffice no expone `pinHash` ni secretos, y las pruebas del emisor verifican que el PIN no se persiste en claro.
+
+La frontera es coherente con este ADR: el backend Admin SDK es la autoridad de esas colecciones y el cliente solo recibe estado derivado. La ausencia de acceso cliente a `credenciales_operativas` es intencional, no una regla de aislamiento tenant que deba exponerse al POS.
 
 ---
 
@@ -470,7 +495,7 @@ El desbloqueo del tenant fundacional será **el primer uso del mecanismo definit
 3. El admin activa su PIN por el flujo del §6, idéntico al de cualquier tenant futuro.
 4. Se ejecuta entonces la regresión funcional de §9 Capa 5 de MT-U3.
 
-No se escribe ningún script, ni se usa la clave de servicio, ni se introduce código con fecha de caducidad.
+No se escribe ningún script ni se usa la clave de servicio **para emitir la credencial inicial**; tampoco se introduce código con fecha de caducidad. Esta restricción no impide la ruta separada de inicialización B1 documentada en `TECH-DEBT-CONFIG-001`, cuyo objetivo es materializar `configuraciones/{empresaId}` para un tenant preexistente.
 
 Pendiente de confirmación: si el nombre correcto del tenant es "Café Atrato" y no "Mi Café Especial", se corrige con `ActualizarDatosAdministrativosEmpresa` (§5.3) sobre el mismo documento — de nuevo, primer uso de un mecanismo general.
 
@@ -517,14 +542,14 @@ Cualquier necesidad de modificar otra pantalla del POS **detiene la implementaci
 | D-4 | Superficie en el Backoffice | Integrada en la ficha de empresa, con frontera de planos explícita y alcance campo por campo (§5) |
 | D-5 | Implementación | Primitiva única de emisión, tres puntos de entrada (§6.1) |
 | D-6 | Empresa fundacional | Primer uso del mecanismo definitivo, sin script (§8) |
-| D-7 | Impacto en el POS | Cuatro archivos, rama condicional, invariancia verificada (§9) |
+| D-7 | Impacto en el POS | Rama condicional de activación dentro del login operativo existente, con invariancia para credenciales normales (§9; PR #123) |
 | A-1 | Reemisión administrativa de temporal vigente | Operación separada, confirmada y transaccional para pérdida de entrega; rota solo una inicial de plataforma nunca usada, sin recuperar PIN (§4.4.1) |
 
 ## 11. Deuda registrada
 
 | Id | Descripción |
 |---|---|
-| **TECH-DEBT-COD-001** | Extender la verificación de unicidad global de códigos a `provisionarCredencialOperativa` y `crearIncorporacionDirecta` (H-COD-001, §3.4). Priorizar: sin esto, la garantía de §3.3 sobre la resolución global queda incompleta |
+| **TECH-DEBT-COD-001** | Extender la verificación de unicidad global de códigos a `provisionarCredencialOperativa` (H-COD-001, §3.4). Las rutas inicial y de incorporación directa ya reservan globalmente el código |
 | **TECH-DEBT-CONFIG-001** | (ya registrada, referenciada en §5.4) migración de `configuracion/general` a `configuraciones/{empresaId}` |
 | **D-013-1** | Recuperación de acceso de un admin con credencial ya activada (§4.7) |
 | **D-013-2** | Identidad del tenant a nivel de dispositivo/sesión (subdominio o vinculación en primer arranque), evaluada y descartada de este ADR por pertenecer a MT-U7 (§3.3) |
