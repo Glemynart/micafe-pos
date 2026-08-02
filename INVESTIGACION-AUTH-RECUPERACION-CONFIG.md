@@ -8,6 +8,11 @@
 > explícitamente con **[DIVERGENCIA]**.
 > **No modifica** ningún documento existente. **No ejecuta** ninguna migración ni lectura de producción.
 >
+> **Nota de vigencia:** las secciones originales son un corte de investigación del 2026-07-26 sobre
+> la rama indicada arriba. El estado actual de `main`, las correcciones posteriores y la clasificación
+> de los bloqueos previos a P0-01 están en el addendum final de reconciliación; ese addendum prevalece
+> sobre cualquier afirmación histórica que contradiga la implementación vigente.
+>
 > ⚠️ **Leer primero el [Anexo B](#anexo-b--clasificación-de-hallazgos-pendiente-de-implementación-vs-vacío-arquitectónico).**
 > Clasifica cada hallazgo según si la arquitectura **ya define** cómo resolverlo (entregable
 > pendiente) o **aún no lo define** (vacío arquitectónico). Esa distinción corrige la lectura de
@@ -761,3 +766,33 @@ TECH-DEBT-CONFIG-001 §2 (fuga de frontera de tenant en datos fiscales).
 | D-4 | ADR-SAAS-013 §6.1: la vía fundacional es "la misma operación que cualquier tenant futuro empleará para reprovisionar" | Cierto para credenciales, pero **no** inicializa configuración, espacio ni numeración — que Bootstrap sí crea. El tenant fundacional queda a medio nacer | **Alta** |
 | D-5 | Regla de proyecto: el código nuevo usa solo `empresaId`; `esFundacional` queda para bootstrap y scripts | `resolverCredencialOperativa` consulta `esFundacional` en **cada login** y falla con `internal` si no hay exactamente uno (`operational-auth.ts:124-151, 174`) | Media (crítica al crear la 2ª empresa) |
 | D-6 | TECH-DEBT-CONFIG-001 §3: cutover B7 completado, `configuraciones/{empresaId}` es la autoridad | La colección estaba **vacía**: la autoridad nueva no tiene datos y la vieja es de solo lectura | **Alta** |
+
+---
+
+## Reconciliación vigente — 2026-08-01
+
+Este addendum actualiza únicamente los hallazgos que cambiaron después del corte de investigación.
+No convierte una implementación mergeada en evidencia de producción: el acceso controlado a Firebase,
+los datos corporativos aprobados y la ejecución de migraciones siguen siendo evidencias separadas.
+
+### Correcciones confirmadas contra `main @ 65f697e`
+
+| Hallazgo histórico | Estado vigente | Evidencia |
+|---|---|---|
+| El alta directa no tenía superficie de cliente | **Resuelto** | `app/(tenant)/admin/(authenticated)/usuarios/page.tsx` y `components/pos/user-management.tsx` usan `crearOperador` → `crearIncorporacionDirecta` |
+| La incorporación directa no generaba PIN/código canónico ni verificaba unicidad global | **Resuelto** | `functions/src/incorporaciones-service.ts` genera el PIN server-side, marca `requiereCambio=true` y usa `reservarCodigoOperativoEnTransaccion` |
+| El login dependía de `esFundacional` | **Resuelto en el código vigente** | `functions/src/operational-auth.ts` resuelve por `credencial.empresaId`; la empresa debe estar `trial` o `activa` |
+| El código operativo aparecía en logs | **No reproducido en `main` vigente** | Los eventos actuales registran empresa, UID e incorporación, no el código ni el PIN |
+| La ficha no podía desbloquear una credencial bloqueada | **Resuelto como desbloqueo de lockout** | PR #146, `desbloquearAdministradorInicialTenant`; limpia contadores y bloqueo, sin cambiar PIN ni credencial |
+| El punto de entrada de migración B1 no existía | **Resuelto en código; ejecución productiva pendiente** | PR #139, `functions/src/configuracion/fundacional-migration.ts` y `migrar-fundacional-cli.ts`; `TECH-DEBT-CONFIG-001` mantiene la dependencia de datos |
+
+La premisa de ADR-SAAS-013 §5.4 quedó corregida: `crearUsuarioConMembresia` administra membresía,
+pero el acceso operativo se entrega por `crearIncorporacionDirecta` y activación `DIRECTA_TEMP`.
+La recuperación de un PIN ya activado sigue fuera de alcance como D-013-1; desbloquear un lockout no
+es recuperación de secreto.
+
+### Estado de bloqueos previos a P0-01
+
+- **Bloqueos documentales/arquitectónicos:** resueltos con la aceptación y reconciliación de ADR-SAAS-013.
+- **Bloqueos de datos/operación:** permanecen fuera de este cambio documental: ejecutar la inicialización B1 del tenant fundacional, resolver los campos fiscales en conflicto y certificar configuración, módulos y espacios con acceso controlado a Firebase.
+- **No se identifica otro vacío arquitectónico previo a P0-01** en las superficies revisadas. La migración B1 no requiere un ADR nuevo porque la autoridad `configuraciones/{empresaId}` ya está aceptada en B1 y su punto de entrada ya existe.
