@@ -35,13 +35,12 @@
 | Reemisión de una temporal **vigente nunca usada** | ✅ | `ibid.:166-242`, ADR-SAAS-013 §4.4.1 |
 | Rotación de PIN por el propio titular (conociendo el PIN actual) | ✅ | `functions/src/operational-auth.ts:734-763` |
 
-### 1.2 Lo que no existe
+### 1.2 Lo que sigue pendiente
 
-| Capacidad ausente | Consecuencia inmediata |
+| Capacidad pendiente | Consecuencia inmediata |
 |---|---|
-| Recuperación de acceso de una credencial **ya activada** | Bloqueo permanente ante PIN olvidado |
-| Cualquier superficie de UI que emita una credencial operativa a un miembro del equipo | El admin del tenant **no puede dar de alta operadores utilizables** |
-| Inicialización de `configuraciones/{empresaId}` para tenants creados antes del Bootstrap | `CONFIG_NOT_FOUND` post-login en el tenant fundacional |
+| Recuperación de acceso de una credencial **ya activada** | Bloqueo permanente ante PIN olvidado; sigue siendo D-013-1 |
+| Ejecución productiva de la inicialización B1 para tenants creados antes del Bootstrap | `CONFIG_NOT_FOUND` post-login en el tenant fundacional mientras no se ejecute la ruta controlada |
 | Numeración fiscal BORRADOR para tenants preexistentes | El wizard de onboarding tampoco podría completarse aunque la configuración existiera |
 
 ---
@@ -92,10 +91,10 @@ lib/operational-auth-service.ts:82  iniciarSesionOperativa
 callable  autenticarOperativo          functions/src/operational-auth.ts:589
    ├─ normalizarCodigo + esPinValido
    ├─ resolverCredencialOperativa      :168-267
-   │    ├─ obtenerEmpresaFundacional() ← lee empresas where esFundacional==true, exige EXACTAMENTE 1
    │    ├─ query GLOBAL  credenciales_operativas where codigo == <codigo>
    │    ├─ bcrypt+pepper contra cada candidata
-   │    └─ exige EXACTAMENTE 1 coincidencia (si no → CREDENTIAL_MATCH_AMBIGUOUS)
+   │    ├─ exige EXACTAMENTE 1 coincidencia (si no → CREDENTIAL_MATCH_AMBIGUOUS)
+   │    └─ valida la empresa desde credencial.empresaId y su estado operativo
    ├─ si credencial.requiereCambio === true
    │    └─ valida incorporación DIRECTA/TEMP_CREDENTIAL/TTL → emitirSesionActivacionDirecta
    │         customToken con { authStage: "DIRECTA_TEMP", incorporacionId }, SIN claims tenant
@@ -114,7 +113,7 @@ y es la razón de que exista la deuda **D-013-2** (identidad de tenant a nivel d
 | Login operativo POS | `components/pos/login-screen.tsx` | Código + PIN. Rama de activación condicional (`:83`) |
 | Login admin tenant | `app/(tenant)/admin/login/page.tsx` | Idéntico contrato |
 | Gate de onboarding | `components/onboarding/onboarding-gate.tsx:29` | Llama `obtenerEstadoOnboarding` inmediatamente después del login |
-| Gestión de usuarios (tenant) | `components/pos/user-management.tsx` | Formulario "Nuevo Usuario": usuario + **contraseña** + nombre + rol |
+| Gestión de usuarios (tenant) | `components/pos/user-management.tsx` | Alta canónica mediante `crearOperador`: nombre + rol, con código y PIN temporal de incorporación |
 | Ficha de empresa (Backoffice) | `components/backoffice/company-detail.tsx` | Tarjeta "Acceso inicial": provisionar / reemitir |
 
 ---
@@ -178,24 +177,14 @@ export async function crearUsuario(username, password, nombre, rol) {
 `crearUsuarioConMembresia` (`operational-auth.ts:770-817`) crea `usuarios/{uid}` +
 `membresias/{empresaId}_{uid}` y **emite claims inmediatamente** (`:814`).
 
-**El defecto crítico:** este camino **nunca crea un documento en `credenciales_operativas`**. Como
-el único login existente pide código + PIN, **todo usuario creado desde "Permisos → Nuevo Usuario"
-es estructuralmente incapaz de iniciar sesión.** La contraseña se escribe en Firebase Auth y
-ninguna pantalla del sistema la consume jamás.
+**El camino legacy** `crearUsuarioConMembresia` **no crea** un documento en
+`credenciales_operativas`; por eso permanece deprecated y no es la ruta canónica de acceso. La UI
+vigente ya usa `crearOperador` → `crearIncorporacionDirecta`, que crea la credencial temporal, exige
+el cambio de PIN y tiene activación `DIRECTA_TEMP`.
 
-Y no hay forma de repararlo desde la UI: ni `provisionarCredencialOperativa` ni
-`crearIncorporacionDirecta` tienen consumidor de cliente (verificado por búsqueda exhaustiva en
-`app/`, `components/`, `lib/`; `crearIncorporacionDirecta` solo aparece en `functions/src/index.ts`).
-
-**Conclusión funcional: hoy el administrador de un tenant no puede incorporar a ningún operador
-utilizable.** El único acceso operativo existente en cualquier tenant es el del admin inicial
-emitido por la plataforma.
-
-**[DIVERGENCIA]** ADR-SAAS-002 §5 dice que los usuarios `@micafe-pos.internal` "se migran […] y
-quedan clasificados como autenticación operativa", y ADR-SAAS-006 §Contexto dice que ese alta
-"está programada para desaparecer". La implementación no solo no la retiró: la mantiene como el
-**único** camino de alta expuesto en la UI del tenant, mientras el camino canónico
-(`crearIncorporacionDirecta`) está implementado pero desconectado.
+La alta legacy por email interno sigue existiendo como compatibilidad técnica hasta su retiro
+planificado, pero no es el único camino expuesto en la UI ni representa una divergencia del flujo
+canónico vigente. Su limpieza e inventario histórico no bloquean la reconciliación de ADR-SAAS-013.
 
 **Sobre la hipótesis del propietario (código = empresa, PIN = operador):** ver §6.2. Es la respuesta
 correcta a un problema real de UX, pero la mecánica propuesta colisiona frontalmente con el
@@ -225,8 +214,9 @@ configuraciones          0 docs   (colección vacía)
 ```
 
 y la fila de la tabla de estado: **"Migración de datos ejecutada — ❌ No — `configuraciones` está
-vacía"**. Nada en el historial posterior (`git log`, PR #123..#126) ejecuta esa migración: esos PR
-tocan credenciales, permisos y aislamiento de sesión, no configuración.
+vacía"**. El dato de producción sigue sin estar materializado, pero PR #139 ya incorporó la ruta
+controlada `functions/src/configuracion/migrar-fundacional-cli.ts`; lo pendiente es su ejecución
+autorizada y la resolución de los datos fiscales, no el diseño de un nuevo punto de entrada.
 
 **Por qué la empresa fundacional quedó sin configuración.** Bootstrap **sí** crea el documento
 (`bootstrap/service.ts:258` reserva la ref y `:289` invoca
@@ -280,15 +270,14 @@ No, y no ocurrió. Tres razones documentadas:
 | Caso | Causa raíz | Naturaleza |
 |---|---|---|
 | **1** | El ciclo de vida de la credencial operativa se diseñó completo para la **incorporación** (emisión → temporal → activación) y **truncado** para la **operación continua**. `ACTIVE` es un estado terminal sin salida de recuperación. La decisión fue consciente (§4.7) y la deuda quedó abierta (D-013-1), pero el sistema ya está en producción con un único admin por tenant | Alcance diferido, hoy vencido |
-| **2** | La migración de identidad de ADR-SAAS-002 se hizo **por debajo** (backend, claims, membresías, credenciales) y **no por arriba** (la UI de alta de usuarios sigue siendo la legacy). Se sustituyó el mecanismo de *login* sin sustituir el mecanismo de *alta*, dejando los dos extremos desconectados | Migración parcial: backend migrado, superficie no |
+| **2** | La migración de identidad de ADR-SAAS-002 mantiene un helper legacy de membresía, pero la superficie vigente de alta usa la incorporación directa (`crearOperador` → `TEMP_CREDENTIAL` → activación). El camino canónico ya está conectado; el retiro del helper legacy queda para su unidad correspondiente | Convivencia transitoria, no bloqueo arquitectónico de ADR-SAAS-013 |
 | **3** | Existen **dos caminos de nacimiento de tenant** (Bootstrap completo / provisionamiento fundacional) y solo uno inicializa el estado que el runtime exige. `ProvisionarCredencialInicialTenant` se diseñó, correctamente, como operación estrecha de credenciales; nadie asumió la responsabilidad complementaria de inicializar el resto del tenant preexistente | Hueco de responsabilidad entre dos operaciones |
 
-**Patrón común a los tres:** el bloque SaaS construyó los mecanismos canónicos con rigor
-(idempotencia, transacciones, auditoría, TTL) y **dejó sin conectar los puntos de entrada**. Las tres
-piezas que faltan ya tienen su primitiva implementada: `crearIncorporacionDirecta` existe sin UI,
-`emitirCredencialInicial` existe sin caso de recuperación,
-`inicializarConfiguracionEmpresaConEstadoPreleidoEnTransaccion` existe sin invocador para tenants
-preexistentes.
+**Patrón común del corte histórico:** el bloque SaaS construyó los mecanismos canónicos con rigor
+(idempotencia, transacciones, auditoría, TTL) y dejó algunos puntos de entrada pendientes. En el estado
+vigente, `crearIncorporacionDirecta` ya tiene UI y `inicializarConfiguracionEmpresaConEstadoPreleidoEnTransaccion`
+ya tiene una ruta de migración controlada; permanecen la recuperación de una credencial activada y la
+ejecución productiva de la migración B1.
 
 ---
 
@@ -297,14 +286,14 @@ preexistentes.
 | # | Riesgo | Prob. | Impacto | Notas |
 |---|---|---|---|---|
 | R-1 | Bloqueo permanente del único admin de un tenant | Alta (a 6-12 meses) | **Crítico** | Sin salida técnica. Obligaría a escritura directa con clave de servicio, violando ADR-SAAS-013 §8 |
-| R-2 | El tenant no puede incorporar operadores | **Ya materializado** | **Crítico** | Bloquea la operación real del negocio (cajeros, cocina) |
-| R-3 | Usuarios fantasma en Firebase Auth (`@micafe-pos.internal`) con membresía activa, claims emitidos y sin capacidad de login | **Ya materializado** | Alto | Contaminan `usuarios`, `membresias` y el namespace global de Auth. Su limpieza requerirá inventario |
-| R-4 | El tenant fundacional no puede completar onboarding | **Ya materializado** | Alto | `CONFIG_NOT_FOUND`, y detrás `NUMERACION_NOT_FOUND` |
-| R-5 | Fuga de frontera de tenant en datos fiscales al crear la 2ª empresa | Media | **Crítico** | TECH-DEBT-CONFIG-001 §2. `configuracion/general` sigue siendo global |
-| R-6 | El login depende de `esFundacional` en el camino caliente | Alta al crear la 2ª empresa | Alto | `operational-auth.ts:124-151` exige `esFundacional == true` con `size === 1`; si no, `internal`. Contradice la regla de memoria "código nuevo SOLO usa `empresaId`" |
-| R-7 | `CREDENTIAL_MATCH_AMBIGUOUS` por colisión de códigos entre tenants | Media | Alto | La resolución es global (`:178`) y `provisionarCredencialOperativa`/`crearIncorporacionDirecta` no verifican unicidad global (TECH-DEBT-COD-001) |
+| R-2 | El tenant no puede incorporar operadores | **Resuelto en `main`; falta certificación productiva** | Alto | La UI vigente usa incorporación directa; P0-01 debe certificar el flujo con datos reales |
+| R-3 | Usuarios fantasma en Firebase Auth (`@micafe-pos.internal`) con membresía activa, claims emitidos y sin capacidad de login | **Pendiente de inventario productivo** | Alto | La limpieza, si el inventario la confirma, requiere una operación separada; no bloquea la reconciliación de ADR-013 |
+| R-4 | El tenant fundacional no puede completar onboarding | **Pendiente de ejecución de datos** | Alto | La ruta controlada B1 existe; mientras no se ejecute pueden aparecer `CONFIG_NOT_FOUND` y `NUMERACION_NOT_FOUND` |
+| R-5 | Fuga de frontera de tenant en datos fiscales al crear la 2ª empresa | **Control de runtime resuelto; falta certificación productiva** | **Crítico** | `configuraciones/{empresaId}` es la autoridad vigente y `configuracion/general` es solo lectura; P0-01 debe certificar datos y conflictos fiscales |
+| R-6 | El login depende de `esFundacional` en el camino caliente | **Resuelto en `main`** | — | `operational-auth.ts` resuelve por `credencial.empresaId` y valida el estado de la empresa; no usa `esFundacional` para autenticar |
+| R-7 | `CREDENTIAL_MATCH_AMBIGUOUS` por colisión de códigos entre tenants | Media | Medio | La reserva global cubre emisión inicial e incorporación directa; la deuda restante se limita a `provisionarCredencialOperativa` |
 | R-8 | Un admin de tenant conoce el PIN de sus operadores | Alta si se conecta `provisionarCredencialOperativa` tal cual | Medio | Recibe el PIN en claro y no fuerza cambio. Rompe el no-repudio de la atribución por `cajeroId` |
-| R-9 | Código operativo escrito en logs | **Ya materializado** | Bajo-Medio | `operational-auth.ts:650` (`logger.info` con `codigo`) y `lib/operational-auth-service.ts:103` (`console.info` con `codigo`). **[DIVERGENCIA]** con ADR-SAAS-013 §4.6: *"Ni el PIN ni el código aparecen en logs"*. El PIN sí se respeta; el código no. La instrumentación del cliente pertenece a la rama de debug `197b686` |
+| R-9 | Código operativo escrito en logs | **Cerrado en `main`** | — | La instrumentación vigente registra empresa, UID e incorporación, no código ni PIN; la divergencia solo pertenecía al snapshot de la rama de investigación |
 
 ---
 
@@ -423,16 +412,18 @@ Restablec.: RestablecerCredencialOperativa Nivel 1 → PIN temporal → activaci
 Dos entregas distintas que no deben confundirse:
 
 **(a) Inicialización estructural — automatizable, sin decisión humana.**
-Una operación de plataforma `CompletarInicializacionTenant`, idempotente y transaccional, que
-ejecute para un tenant preexistente los mismos pasos B/C/D de Bootstrap que le faltan, reutilizando
-las mismas funciones (`inicializarConfiguracionEmpresaConEstadoPreleidoEnTransaccion` + espacio +
-numeración BORRADOR), **sin** crear empresa ni suscripción (ya existen). Deja el tenant en el mismo
-estado que uno recién creado por Bootstrap: con configuración inicial en su plantilla y con el
-wizard de onboarding operable.
+En el corte de investigación se proponía una operación de plataforma
+`CompletarInicializacionTenant`, idempotente y transaccional, que ejecutara para un tenant
+preexistente los mismos pasos B/C/D de Bootstrap que le faltan. Esa propuesta quedó sustituida por
+la ruta controlada B1 implementada posteriormente en
+`functions/src/configuracion/fundacional-migration.ts` y
+`functions/src/configuracion/migrar-fundacional-cli.ts`, que reutiliza la misma primitiva de
+inicialización, espacio y numeración BORRADOR sin crear empresa ni suscripción.
 
-Esto respeta ADR-SAAS-013 §8 (nada de scripts ni clave de servicio) y convierte el desbloqueo del
-tenant fundacional en el primer uso de un mecanismo general, exactamente como se hizo con la
-credencial inicial.
+La restricción de ADR-SAAS-013 §8 aplica a la emisión de credenciales operativas; la inicialización
+B1 es una migración de configuración separada y controlada. La ruta implementada reutiliza las
+primitivas de Bootstrap sin convertir la operación de credenciales en una puerta administrativa
+universal.
 
 **(b) Migración del contenido histórico — requiere decisión humana.**
 Ruta ya especificada en TECH-DEBT-CONFIG-001 §5, sin cambios: resolver los 4 conflictos con el
@@ -532,21 +523,22 @@ llegar crudos a un usuario final.
 | ADR-SAAS-006 — incorporación | **Se respeta y se refuerza.** El restablecimiento se mantiene deliberadamente **fuera** de `incorporaciones` para no crear una segunda fuente de autoridad — el mismo razonamiento con el que ADR-006 excluyó `DISABLED` |
 | ADR-SAAS-011 — frontera de soporte | **Se apoya en él.** El Nivel 2 es el primer consumidor real del requisito de verificación fuera de banda |
 | ADR-SAAS-012 — auditoría de plataforma | **Se apoya en él** sin extensión del contrato |
-| ADR-SAAS-013 — bootstrap del primer admin | **Se completa.** Cierra D-013-1 (§4.7) sin tocar §4.3: `Provisionar` sigue negándose a reemplazar una credencial activada; lo hace una operación distinta, con autoridad distinta |
+| ADR-SAAS-013 — bootstrap del primer admin | **Aceptado y reconciliado.** Mantiene D-013-1 (§4.7) fuera de alcance: `Provisionar` sigue negándose a reemplazar una credencial activada y el desbloqueo de lockout no recupera un PIN olvidado |
 | MT-U3 — helper de tenant | Sin impacto. La colección nueva no entra en las 25 oficiales (nace con `empresaId`, como `credenciales_operativas`) |
 | MT-U6→U8 B1 — configuración empresarial | **Se apoya en él.** La migración usa sus callables; no se redefine el contrato |
 | MT-U7 | Recibe D-013-2 sin cambios. §7.2 evita explícitamente adelantarlo |
 
-**Se necesitarán ADR nuevos** para: (1) el modelo de restablecimiento y su facultad dedicada
-(cerraría D-013-1); (2) la retirada del alta legacy por contraseña, si se considera que enmienda la
+**Se necesitará un ADR nuevo** para: (1) el modelo de restablecimiento y su facultad dedicada
+(cerraría D-013-1); la retirada del alta legacy por contraseña, si se considera que enmienda la
 transición descrita en ADR-SAAS-002 §5. **No** se necesita ADR para completar la inicialización del
 tenant preexistente ni para la migración de configuración: ambas están cubiertas por decisiones ya
 aceptadas.
 
-## 14. Cambios necesarios
+## 14. Cambios necesarios (inventario histórico)
 
 Inventario, sin implementar. Los archivos son los puntos de intervención identificados en la
-investigación.
+investigación del 2026-07-26. No es un backlog vivo: las tareas ya resueltas o reclasificadas se
+mantienen como trazabilidad histórica; el siguiente trabajo autorizado está en el Goal vivo.
 
 **CASO 1 — restablecimiento**
 - `functions/src/` — servicio de restablecimiento (reutiliza `emitir-credencial-inicial.ts` como
@@ -562,11 +554,10 @@ investigación.
 - `firestore.indexes.json` — índice `(empresaId, uid, creadoEn desc)`.
 
 **CASO 2 — modelo único**
-- `lib/permisos-service.ts:101-128` — sustituir `crearUsuario` por invocación de
-  `crearIncorporacionDirecta`; eliminar `createUserWithEmailAndPassword`, `initializeApp` secundaria
-  y `deleteUser`.
-- `components/pos/user-management.tsx` — retirar el campo Contraseña; añadir el diálogo de entrega
-  única de código + PIN temporal.
+- La superficie canónica ya está conectada: `lib/permisos-service.ts` expone `crearOperador` y
+  `components/pos/user-management.tsx` usa la entrega de código + PIN temporal.
+- El helper legacy `crearUsuario` permanece deprecated; su retiro e inventario son trabajo posterior
+  de la unidad de limpieza legacy, no un bloqueo de ADR-SAAS-013.
 - `lib/auth-service.ts:307` — retirar `usernameToEmail` una vez sin consumidores.
 - `functions/src/operational-auth.ts:770` — `crearUsuarioConMembresia` deja de exigir `email` y
   deja de emitir claims en el alta (los emite la activación). Evaluar su retirada completa una vez
@@ -574,18 +565,19 @@ investigación.
 - Inventario y saneamiento de los usuarios `@micafe-pos.internal` ya creados (R-3).
 
 **CASO 3 — inicialización y configuración**
-- `functions/src/platform/` — operación `CompletarInicializacionTenant` (pasos B/C/D reutilizados de
-  `bootstrap/service.ts:288-328`).
+- `functions/src/configuracion/fundacional-migration.ts` y
+  `functions/src/configuracion/migrar-fundacional-cli.ts` — ruta controlada B1 para reutilizar los
+  pasos B/C/D de Bootstrap; falta su ejecución productiva autorizada.
 - `components/backoffice/company-detail.tsx` — acción y estado derivado "Tenant inicializado".
 - `components/onboarding/onboarding-gate.tsx:38` — traducir códigos de error de backend.
-- `components/pos/historial.tsx:81` — último lector del singleton legacy, a migrar al modelo B1.
+- `components/pos/historial.tsx` — la prueba de cutover confirma que ya no lee el singleton; queda
+  conservar `configuracion/general` como evidencia histórica.
 
 **Transversal**
-- R-6: eliminar la dependencia de `esFundacional` del camino caliente de login
-  (`operational-auth.ts:124-151`).
-- R-7 / TECH-DEBT-COD-001: extender la verificación de unicidad global de códigos a
-  `provisionarCredencialOperativa` y `crearIncorporacionDirecta`.
-- R-9: retirar la instrumentación de debug de la rama `197b686` antes de integrar.
+- R-6: resuelto en `main`; el login vigente resuelve por `credencial.empresaId`.
+- R-7 / TECH-DEBT-COD-001: queda limitado a `provisionarCredencialOperativa`; las rutas inicial y
+  directa ya usan reserva global.
+- R-9: cerrado en `main`; no se debe reintroducir logging de código o PIN.
 
 ## 15. Estrategia de migración
 
@@ -595,8 +587,8 @@ investigación.
 1. Verificar en producción el estado real de `configuraciones/1ae0rD9H8t3ZFSBKrrHR`,
    `numeraciones` y `espacios` para `empresaId = 1ae0rD9H8t3ZFSBKrrHR` — solo lectura. La evidencia
    de TECH-DEBT-CONFIG-001 es del 2026-07-25 y debe confirmarse antes de actuar.
-2. Ejecutar `CompletarInicializacionTenant` (idempotente). El tenant queda con configuración en
-   plantilla y numeración BORRADOR.
+2. Ejecutar la ruta controlada B1 (`migrar-fundacional-cli.ts`, idempotente). El tenant queda con
+   configuración en plantilla y numeración BORRADOR.
 3. Resolver los 4 campos en `CONFLICTO` con el responsable del negocio y **registrar las decisiones
    por escrito** — alimentan el snapshot fiscal.
 4. Reejecutar el analizador de paridad hasta `bloqueaReadinessFiscal: false`.
@@ -630,13 +622,13 @@ anterior.
 | Fase | Alcance | Desbloquea | Precede a |
 |---|---|---|---|
 | **F0 — Verificación** | Confirmar en producción (solo lectura) el estado de `configuraciones`, `numeraciones`, `espacios` del tenant fundacional; inventariar usuarios `@micafe-pos.internal`. Retirar la instrumentación de debug (R-9) | Evidencia fresca para F1 y F3 | Todas |
-| **F1 — Inicialización del tenant preexistente** | `CompletarInicializacionTenant` + acción en la ficha + traducción de errores en el gate. Desbloquea Café Atrato | CASO 3 (a) | F2 |
+| **F1 — Inicialización del tenant preexistente** | Ejecutar la ruta B1 controlada y certificar configuración, módulos y espacios de Café Atrato | CASO 3 (a) | F2 |
 | **F2 — Configuración fiscal real** | Resolución humana de los 4 conflictos, analizador en verde, carga por callables B1, migración de `historial.tsx`, cierre de TECH-DEBT-CONFIG-001 | CASO 3 (b) y **la segunda empresa** | F5 |
-| **F3 — Alta de operadores por incorporación directa** | Conectar `crearIncorporacionDirecta` a la UI; retirar el campo Contraseña; diálogo de entrega única | **CASO 2 / R-2** — el bloqueo operativo más urgente | F4 |
+| **F3 — Alta de operadores por incorporación directa** | **Resuelto en `main`:** UI canónica, entrega única y activación obligatoria | Certificación productiva del flujo | F4 |
 | **F4 — Restablecimiento Nivel 1** | Operación intra-tenant, registro `restablecimientos_credencial`, Rules, índice, auditoría tenant, UI en Permisos | Recuperación de operadores | F6 |
 | **F5 — Restablecimiento Nivel 2** | ADR que cierra D-013-1; facultad dedicada; verificación fuera de banda con evidencia; demora y notificación; auditoría de plataforma; UI en la ficha | **CASO 1 / R-1** | — |
 | **F6 — Limpieza de la vía legacy** | Retirar `usernameToEmail`, el alta por email interno y sanear los principales huérfanos; evaluar la retirada de `crearUsuarioConMembresia` | Cierre del modelo dual | — |
-| **F7 — Deudas transversales** | R-6 (`esFundacional` fuera del login) y TECH-DEBT-COD-001 (unicidad global de códigos) | **Precondición de la segunda empresa**, junto con F2 | — |
+| **F7 — Deudas transversales** | R-6 está resuelto; TECH-DEBT-COD-001 queda limitado a `provisionarCredencialOperativa` | Precondición futura de la segunda empresa | — |
 
 **Orden recomendado por urgencia real:** F0 → **F3** (bloqueo operativo ya materializado) → F1 →
 **F5** (riesgo crítico latente) → F4 → F2 → F7 → F6.
@@ -676,15 +668,15 @@ peligrosa de todas porque no tiene dueño.
 | **Restablecimiento de credencial de un operador no-admin** (lo que §7.1 llamaba "Nivel 1") | **A** | **MT-U5-CAPA0 §3.5, punto 3**: *"Un `admin` puede hacer un reset administrativo sin conocer el PIN anterior. Ambos caminos reemplazan el hash, reinician contadores, actualizan `pinActualizadoEn`, auditan la acción y revocan sesiones del UID."* Está diseñado **y ya implementado** en `provisionarCredencialOperativa` (`operational-auth.ts:714-728`, que hace exactamente esas cuatro cosas). **Solo falta la UI y dos correcciones** (generar el PIN server-side y marcar `requiereCambio`) |
 | **Restablecimiento del admin/owner del tenant** ("Nivel 2") | **C** | ADR-SAAS-013 §4.7: *"Se registra como deuda **D-013-1**, **sin diseño en este ADR**"*. Y §3.5 de MT-U5-CAPA0 presupone que existe un admin que ejecute el reset — precisamente el supuesto que falla. **Único vacío arquitectónico de primer orden de esta investigación** |
 | **Coexistencia de los dos modelos de autenticación** | **A** | MT-U5-CAPA0 §4, fila MT-U11: *"Se retira definitivamente la compatibilidad de credencial `username@micafe-pos.internal`"*, y §4 nota 2: *"El legacy de credencial username/email interno desaparece al iniciar **MT-U11**"*. MT-U11 no está ejecutado (roadmap §13.3). La coexistencia **es el estado planificado**, no un defecto |
-| **El alta legacy produce usuarios incapaces de iniciar sesión** | **B** | Distinto del anterior y **no planificado**. El plan (MT-U5-CAPA0 §4, fila MT-U5b) preveía que el legacy siguiera *funcionando* como compatibilidad hasta MT-U11. ADR-SAAS-006 asigna la creación directa a **MT-U5B**, declarado *"Completado y aprobado"* (roadmap §13.1) — pero `crearIncorporacionDirecta` se entregó **sin superficie de UI** y el formulario legacy nunca se sustituyó. Resultado: se retiró el *login* legacy sin retirar el *alta* legacy. **Alcance de una unidad cerrada, no trabajo futuro** |
-| **ADR-SAAS-013 §5.4 afirma que el admin gestiona su equipo "vía `crearUsuarioConMembresia`/`actualizarMembresia`, ya existentes"** | **C** | Premisa incorrecta en un ADR aceptado: ese camino no crea credencial operativa, luego el equipo así creado no puede entrar. Requiere corregir el ADR, no solo el código |
-| **`CONFIG_NOT_FOUND` — `configuraciones/{empresaId}` vacía** | **B + implementación pendiente** | **El desarrollo de B7 fue implementado y mergeado (PR #108). Sin embargo, el backfill y la migración de datos sobre producción no fueron ejecutados, por lo que el resultado esperado de B7 no llegó a materializarse en el entorno productivo.** Con una precisión decisiva verificada después: el único backfill que B7 entregó es `scripts/b7-ejecutar-backfill-fundacional.ts`, que asigna **`ventas.estadoOperativo`** (ADR-SAAS-010) y **no tiene relación con `configuracion/general`**. La migración de configuración **no está implementada**: `inicializarConfiguracionEmpresa` (`functions/src/configuracion/service.ts:201`) no se exporta como callable y su único invocador es `bootstrap/service.ts:289`. Ver la nota de corrección al final de este anexo |
-| **Escrituras al singleton legacy desactivadas sin backfill** | **B** | El corte de escritura de B7 **sí** llegó a producción (`lib/configuracion-service.ts:90`, que se autodenomina "B7 Cutover") pero su contrapartida —mover el dato— no existe ni como script ni como callable. La autoridad vieja quedó de solo lectura y la nueva sin datos ni forma de poblarlos |
+| **El alta legacy produce usuarios incapaces de iniciar sesión** | **A / legacy en retirada** | El helper legacy todavía no crea credencial operativa, pero ya no es la ruta de UI: `crearIncorporacionDirecta` está conectada y el retiro del helper pertenece a la limpieza legacy futura |
+| **ADR-SAAS-013 §5.4 afirma que el admin gestiona su equipo "vía `crearUsuarioConMembresia`/`actualizarMembresia`, ya existentes"** | **Resuelto documentalmente** | PR #147 distingue autoridad de membresía y acceso operativo, y ADR-SAAS-013 quedó aceptado |
+| **`CONFIG_NOT_FOUND` — `configuraciones/{empresaId}` vacía** | **B + ejecución de datos pendiente** | El entrypoint controlado existe desde PR #139; la migración productiva y los datos fiscales aprobados siguen pendientes |
+| **Escrituras al singleton legacy desactivadas sin backfill** | **Ejecución de datos pendiente** | El cutover está cubierto por pruebas y el singleton es de solo lectura; falta materializar el documento B1 en producción |
 | **Falta numeración BORRADOR y espacio para el tenant preexistente** | **C (estrecho)** | Bootstrap/B5 los crea solo para tenants nuevos (`bootstrap/service.ts:299-328`); ADR-SAAS-013 §8 cubre **solo** la credencial. B7 —ya mergeado— cubre el backfill de configuración, no la creación de numeración ni espacio para un tenant preexistente. Ninguna unidad reclama esa inicialización estructural |
-| **R-6 — `esFundacional` en el camino caliente del login** | **A** | MT-U5-CAPA0 §3.5, punto 2: *"En MT-U5a el tenant se resuelve en servidor como empresa fundacional"* — declarado explícitamente transitorio en el propio diseño. Su sustitución es precondición de MT-U11 |
-| **R-7 — unicidad global de códigos (TECH-DEBT-COD-001)** | **A** | ADR-SAAS-013 §11: deuda registrada con solución definida (*"extender la verificación de unicidad global a `provisionarCredencialOperativa` y `crearIncorporacionDirecta`"*) |
+| **R-6 — `esFundacional` en el camino caliente del login** | **Resuelto en `main`** | El login vigente resuelve por `credencial.empresaId`; no usa `esFundacional` |
+| **R-7 — unicidad global de códigos (TECH-DEBT-COD-001)** | **A, acotado** | La deuda restante es `provisionarCredencialOperativa`; las rutas inicial y directa ya reservan globalmente |
 | **Ergonomía del código operativo (hipótesis del propietario)** | **A** | D-013-2, registrada en ADR-SAAS-013 §11 y asignada a MT-U7 |
-| **R-9 — el código operativo aparece en logs** | **Defecto de cumplimiento** | No es ninguna de las tres clases: contradice una norma ya aceptada y vigente (ADR-SAAS-013 §4.6). Corrección directa |
+| **R-9 — el código operativo aparece en logs** | **Resuelto en `main`** | La instrumentación vigente no registra código ni PIN |
 
 ### Qué cambia respecto a §5, §6, §7 y §16
 
@@ -718,45 +710,54 @@ la evidencia que las desmiente:
 | Afirmación anterior | Evidencia que la desmiente | Estado real |
 |---|---|---|
 | *"El PR #122 (`fix/backfill-bulkwriter-flush`) confirma que el script de backfill de B7 existe y se estuvo depurando"* | `gh pr view 122 --json files`: toca `scripts/migrate-mt-u3-operativo.ts`, `scripts/rollback-mt-u3-operativo.ts` y `scripts/lib/drenar-pagina.ts`. **Es el backfill de MT-U3**, no el de B7. El script de B7 ni siquiera usa `BulkWriter`: usa `db.batch()` (`b7-ejecutar-backfill-fundacional.ts:128`) | El PR #122 **no tiene relación con B7** |
-| *"Falta ejecutar el backfill de B7 (migración de configuración)"* | `scripts/b7-ejecutar-backfill-fundacional.ts:4-10`: su objeto es asignar `estadoOperativo` a `ventas` (`COMPLETO` / `ANULADA_CON_EFECTOS`) conforme a ADR-SAAS-010. **No lee ni escribe `configuracion/general` ni `configuraciones`** | Son **dos migraciones distintas**: la de ventas (implementada, ejecución no demostrada) y la de configuración (**no implementada**) |
+| *"Falta ejecutar el backfill de B7 (migración de configuración)"* | `scripts/b7-ejecutar-backfill-fundacional.ts:4-10` es la migración de `ventas.estadoOperativo`, mientras que PR #139 añadió la ruta B1 controlada para configuración | Son **dos migraciones distintas**: la de ventas (implementada, ejecución no demostrada) y la de configuración (entrypoint implementado; ejecución y datos productivos pendientes) |
 
-**Consecuencia sobre TECH-DEBT-CONFIG-001 §5.** Su paso 3 indica *"Crear `configuraciones/{empresaId}`
-mediante los callables B1 ya existentes (no con escritura directa: los callables aplican validación,
-revisión e idempotencia)"*. Ese paso **no es ejecutable con la superficie desplegada hoy**:
+**Estado reconciliado de TECH-DEBT-CONFIG-001 §5.** Su paso 3 indica *"Crear
+`configuraciones/{empresaId}` mediante los callables B1 ya existentes (no con escritura directa:
+los callables aplican validación, revisión e idempotencia)"*. La superficie de actualización exige
+que el documento exista, por lo que la creación inicial debe pasar por la ruta controlada B1 de PR
+#139; no se debe improvisar un callable ni una escritura directa:
 
 - Los cuatro callables de escritura (`actualizarConfiguracionEmpresa`, `actualizarParametrosFiscales`,
   `actualizarPreferenciasImpresion`, `actualizarPoliticasOperativas`) **exigen que el documento ya
   exista**: `functions/src/configuracion/service.ts:128` → `if (!configSnap.exists) fallo("failed-precondition", "Configuración inexistente.")`.
-- La primitiva que sí crea el documento —`inicializarConfiguracionEmpresa`, idempotente
-  (`service.ts:169,201`)— **no está expuesta como callable** (`functions/src/configuracion/callables.ts`
-  exporta solo los cuatro `actualizar*` y `obtenerConfiguracionEmpresa`) y su único invocador en todo
-  el repositorio es `bootstrap/service.ts:289`.
+- La primitiva que crea el documento —`inicializarConfiguracionEmpresa`, idempotente
+  (`service.ts:169,201`)— no está expuesta como callable; la ruta controlada de PR #139 la invoca
+  desde `fundacional-migration.ts` con autoridad de cuenta de servicio y después permite usar los
+  callables B1. La ejecución productiva y la resolución de los datos fiscales siguen pendientes.
 
-Es decir: la migración de configuración no es solo una **operación pendiente**; le falta además la
-**implementación** de un punto de entrada. TECH-DEBT-CONFIG-001 §5 describe una ruta que asume una
-capacidad que no existe.
+Por tanto, la divergencia de arquitectura quedó resuelta documentalmente: TECH-DEBT-CONFIG-001 §5
+describe una operación de datos pendiente cuyo punto de entrada ya existe. No hace falta un ADR
+nuevo para esta ejecución.
 
-### Priorización corregida
+### Priorización del corte histórico y estado vigente
+
+La tabla conserva el orden del corte de investigación del 2026-07-26, pero sus estados se actualizan
+para no presentar como trabajo pendiente la reconciliación ya mergeada. El siguiente paso aprobado es
+P0-01 y las actividades de datos/producción que allí se certifiquen.
 
 | Prioridad | Trabajo | Clase | Por qué aquí |
 |---|---|---|---|
-| **1** | Conectar la UI de incorporación DIRECTA y retirar el campo Contraseña | **B** | Bloqueo operativo ya materializado, alcance de una unidad cerrada, sin dueño que lo recoja |
-| **2** | UI de reset administrativo + PIN server-side + `requiereCambio` | **A** (adelanto justificado) | Coste bajo, ya diseñado e implementado; cubre la recuperación de todos los operadores salvo el admin |
+| **1** | Certificar la UI de incorporación DIRECTA y retirar el campo Contraseña del camino canónico | **P0-01** | La superficie está conectada; falta evidencia controlada sobre los datos aprobados |
+| **2** | Diseñar recuperación de una credencial ya activada | **D-013-1** | Vacío de producto/arquitectura todavía fuera de P0-01; el desbloqueo de lockout no recupera un PIN olvidado |
 | **3** | Decisión de propietario sobre verificación de identidad → ADR que cierra **D-013-1** | **C** | Único vacío real. Bloquea el diseño, no la implementación |
-| **4** | **Implementar** el punto de entrada de inicialización de configuración y luego ejecutarlo (desbloquea Café Atrato) | **B + impl.** | No basta con "correr B7": el backfill de B7 es el de `ventas.estadoOperativo`. La migración de configuración carece de superficie ejecutable (ver nota de corrección) |
-| **5** | Resolver los 4 campos en `CONFLICTO` con el negocio | **A** | Precondición humana de B7, no de ingeniería |
-| **6** | Corregir la premisa de ADR-SAAS-013 §5.4 | **C** (menor) | Un ADR aceptado afirma una capacidad que no existe |
-| **7** | R-9 (código en logs) | Defecto | Corrección directa, antes de integrar la rama de debug |
-| **8** | R-6 y R-7 | **A** | Precondiciones de la segunda empresa y de MT-U11. Siguen su calendario |
+| **4** | Ejecutar la ruta B1 controlada y resolver los 4 campos en `CONFLICTO` | **P0-01** | Precondición de datos/operación para el tenant fundacional, no una nueva implementación |
+| **5** | Resolver los 4 campos en `CONFLICTO` con el negocio | **P0-01** | Precondición humana del snapshot fiscal, no de ingeniería |
+| **6** | Reconciliar ADR-SAAS-013 §5.4 | **Completado** | PR #147 aceptó el ADR y distinguió autoridad de membresía frente a acceso operativo |
+| **7** | R-9 (código en logs) | **Completado** | La instrumentación vigente no registra código ni PIN |
+| **8** | R-6 y R-7 | **Parcialmente completado** | R-6 quedó resuelto; R-7 queda limitado a `provisionarCredencialOperativa` |
 
-**Comparado con §16**, esto adelanta la recuperación de operadores (era F4, ahora prioridad 2, y
-mucho más barata) y **reencuadra F1/F2**: no son construcción de software sino la ejecución de una
-migración ya construida. Si dar de alta la segunda empresa es inminente, suben a bloqueantes por
-TECH-DEBT-CONFIG-001 §2 (fuga de frontera de tenant en datos fiscales).
+La comparación con §16 conserva la lectura del corte histórico. En el estado vigente, la
+reconciliación documental está cerrada; el trabajo aprobado es P0-01 y la ejecución controlada de
+datos que certifique la configuración, numeración y fiscalidad del tenant fundacional.
 
 ---
 
-## Anexo — Divergencias entre documentación e implementación
+## Anexo — Divergencias entre documentación e implementación (corte histórico)
+
+La siguiente tabla conserva los hallazgos del corte 2026-07-26 para trazabilidad. No representa el
+estado vigente por sí sola; las correcciones y el cierre de cada hallazgo están en la
+[Reconciliación vigente](#reconciliación-vigente--2026-08-01).
 
 | # | Documentación | Implementación | Severidad |
 |---|---|---|---|
@@ -775,7 +776,7 @@ Este addendum actualiza únicamente los hallazgos que cambiaron después del cor
 No convierte una implementación mergeada en evidencia de producción: el acceso controlado a Firebase,
 los datos corporativos aprobados y la ejecución de migraciones siguen siendo evidencias separadas.
 
-### Correcciones confirmadas contra `main @ 65f697e`
+### Correcciones confirmadas contra `main @ 104c599`
 
 | Hallazgo histórico | Estado vigente | Evidencia |
 |---|---|---|
