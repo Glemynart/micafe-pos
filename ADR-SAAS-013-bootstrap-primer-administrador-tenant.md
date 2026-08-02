@@ -11,7 +11,7 @@
 
 ## Estado de implementación y reconciliación
 
-Revisión contra `main @ 65f697e` realizada el 2026-08-01. La decisión de este ADR está implementada y mergeada en:
+Revisión contra `main @ 310a7b8` realizada el 2026-08-01. La decisión de este ADR está implementada y mergeada en:
 
 - PR #123: emisión inicial, activación obligatoria `DIRECTA_TEMP` y flujo de entrega en Bootstrap/Backoffice.
 - PR #125: provisionamiento de un tenant preexistente y reemisión transaccional de una temporal no activada.
