@@ -55,7 +55,7 @@ ejecutar la migración de datos para el tenant fundacional.
 |---|---|
 | Contrato destino `configuraciones/{empresaId}` | ✅ Especificado en `MT-U6-U8-B1-configuracion-empresarial.md` §2.1: *"única autoridad de configuración editable después del cutover"*, un documento por Empresa con clave lógica `empresaId` |
 | Callables B1 de escritura | ✅ Implementados (`functions/src/configuracion/service.ts`) |
-| Escrituras al singleton legacy | ✅ Ya desactivadas — `lib/configuracion-service.ts:90` lanza *"B7 Cutover: Las escrituras a configuracion/general están desactivadas"* |
+| Escrituras al singleton legacy | ✅ Ya desactivadas; la ruta legacy fue retirada del runtime en PR #135 y está cubierta por `lib/configuracion/__tests__/runtime-consumer-cutover.test.ts` |
 | Analizador de paridad legacy→B1 | ✅ Construido (`lib/configuracion/legado-paridad.ts`, `scripts/analizar-configuracion-legacy.ts`, solo dry-run) |
 | Migración controlada implementada | ✅ `functions/src/configuracion/migrar-fundacional-cli.ts` reutiliza `InicializarConfiguracionEmpresa` con origen `BACKFILL` |
 | **Migración de datos ejecutada en producción** | ❌ **Pendiente** — requiere ejecutar el script con cuenta de servicio autorizada |
@@ -113,10 +113,10 @@ Bootstrap, sin inferir ni copiar esos valores legacy.
 4. **Dejar los 6 campos `RESERVADO_B2`** en la autoridad de numeración fiscal, sin
    copiarlos a Configuración — B1 §2.3 lo prohíbe explícitamente.
 5. **Conservar `configuracion/general` como archivo histórico de solo lectura.**
-   Las escrituras ya están desactivadas; **no borrarlo** hasta verificar que
-   ningún consumidor lo lee (`components/pos/historial.tsx` aún lo referencia
-   para la identidad del ticket).
-6. **Migrar los consumidores de lectura** restantes al modelo B1.
+   Las escrituras ya están desactivadas y la prueba de cutover confirma que
+   `components/pos/historial.tsx` ya no lo consume.
+6. **Mantener el gate de consumidores** mediante la prueba de cutover; no se
+   identifica otro consumidor de runtime del singleton en el estado vigente.
 
 **Gate de cierre:** ningún camino de lectura o escritura de configuración
 resuelve por id fijo `general`; toda configuración se resuelve por `empresaId`.
