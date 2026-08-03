@@ -2,7 +2,9 @@
 
 ## Estado
 
-**Propuesto — pendiente de aprobación explícita**
+**Aceptado**
+
+**Fecha de aceptación:** 2026-08-03
 
 Este ADR documenta la decisión necesaria antes de implementar `P0-05 / E2.2`.
 No autoriza código, cambios de Rules, migraciones, despliegues ni escrituras en
@@ -102,7 +104,7 @@ reescribe la identidad histórica.
 
 ## 4. Decisión propuesta
 
-Se adopta la alternativa C, pendiente de aprobación.
+Se adopta la alternativa C.
 
 Las operaciones financieras nuevas utilizarán claves lógicas en sus contratos:
 
@@ -147,6 +149,8 @@ una cuenta lógica ni un alias global que oculte la divergencia.
 
 - `empresaId` siempre procede de la sesión/contexto server-side.
 - Una clave lógica debe resolver exactamente a una cuenta del tenant.
+- Las `claveOperativa` reservadas forman parte del contrato canónico del dominio; una cuenta definida por un tenant no puede reutilizarlas ni sobrescribirlas.
+- La resolución nunca depende del nombre visible de la cuenta; se basa únicamente en `empresaId` y `claveOperativa`.
 - Una cuenta resuelta debe pertenecer al tenant y coincidir con su identidad
   física canónica.
 - Una cuenta reservada nunca se resuelve por búsqueda global de su ID legacy.
@@ -236,8 +240,8 @@ usar un ID histórico como fallback.
 - No modifica ADR-SAAS-016 sobre ventas DEMO ni ADR-SAAS-018 sobre eventos
   operativos confiables.
 
-## 11. Decisión pendiente
+## 11. Decisión
 
-Se solicita aprobación explícita de la alternativa C y de las invariantes de
-este ADR. Hasta entonces, `P0-05` permanece en análisis y no se implementa
-código funcional.
+La alternativa C y las invariantes descritas quedan aceptadas. La
+implementación queda limitada al PR P0-05 y a los límites declarados en este
+documento.
