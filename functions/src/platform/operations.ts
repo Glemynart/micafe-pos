@@ -8,6 +8,7 @@ import {
   crearNuevaVersionPlan,
   crearPlan,
   crearSuscripcionActiva,
+  crearSuscripcionTrial,
   actualizarBorradorPlan,
   actualizarDatosAdministrativosEmpresa,
   retirarVersionPlan,
@@ -431,6 +432,12 @@ export async function ejecutarComandoComercial(
     agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
     plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, () => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: 1 }));
     resultado = await crearSuscripcionActiva(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
+  } else if (tipo === "CrearSuscripcionTrial") {
+    facultad = "COMERCIAL_GOBERNAR";
+    evento = "SUSCRIPCION_CREADA";
+    agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
+    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, () => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: 1 }));
+    resultado = await crearSuscripcionTrial(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
   } else if (tipo === "TransicionarSuscripcion") {
     facultad = "COMERCIAL_GOBERNAR";
     const eventos: Record<string, TipoAuditoria> = {

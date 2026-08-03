@@ -95,6 +95,18 @@ test("valid tenant passes automated checks but remains blocked on manual login a
   assert.equal(JSON.stringify(report).includes("redacted"), false);
 });
 
+test("tenant name comparison tolerates accents without accepting a different name", async () => {
+  const equivalent = await verifyTenant(validSource({
+    [`empresas/${tenantId}`]: { empresaId: tenantId, nombre: "Cafe Atrato", estado: "activa", paisFiscal: "CO", ownerUid },
+  }), expectations(), { projectId: "demo-p0-01" });
+  assert.equal(equivalent.checks.find((item) => item.code === "TENANT_ACTIVE_AND_EXPECTED")?.status, "PASS");
+
+  const different = await verifyTenant(validSource({
+    [`empresas/${tenantId}`]: { empresaId: tenantId, nombre: "Mi Cafe Especial", estado: "activa", paisFiscal: "CO", ownerUid },
+  }), expectations(), { projectId: "demo-p0-01" });
+  assert.equal(different.checks.find((item) => item.code === "TENANT_ACTIVE_AND_EXPECTED")?.status, "FAIL");
+});
+
 test("claims and membership mismatch cannot certify the administrator", async () => {
   const report = await verifyTenant(source({
     [`empresas/${tenantId}`]: { empresaId: tenantId, nombre: "Café Atrato", estado: "activa", paisFiscal: "CO", ownerUid },
