@@ -84,9 +84,9 @@ Este Goal se marca `COMPLETADO` solo cuando:
 
 > Esta sección solo se actualiza ante un evento oficial: merge de un PR, aprobación de un ADR o cambio de planificación aprobado. Mantén los seis campos; no agregues diarios, narrativas ni listas paralelas durante la implementación.
 
-- **Progreso:** ADR-SAAS-013 aceptado y documentación de los bloqueos previos a P0-01 reconciliada en `main @ cc228fd`; ningún criterio de datos P0 se da por certificado solo por existir implementación previa.
+- **Progreso:** ADR-SAAS-013 aceptado, bloqueos previos a P0-01 reconciliados y verificador read-only de certificación integrado en `main @ ede0a8d`; ningún criterio de datos P0 se da por certificado sin ejecución real.
 - **Estado:** ACTIVO.
-- **PR completados:** PR #147, PR #149 y PR #151 — reconciliación, cierre documental y referencia vigente de ADR-SAAS-013 antes de P0-01.
+- **PR completados:** PR #147, PR #149, PR #151 y PR #153 — reconciliación, cierre documental, referencia vigente de ADR-SAAS-013 y tooling read-only reutilizable para P0-01.
 - **Siguiente PR esperado:** `P0-01 / E1.1 — certificación de datos iniciales de Café Atrato`.
 - **Milestone activo:** `M1 — Tenant y fiscalidad listos para operar`.
 - **Epic activo:** `E1.1 — Tenant operativo`.
