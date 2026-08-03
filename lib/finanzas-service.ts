@@ -3,7 +3,6 @@ import {
   doc,
   getDocs,
   getDoc,
-  setDoc,
   addDoc,
   updateDoc,
   query,
@@ -216,19 +215,13 @@ export async function trasladarEntreCuentas(params: {
   })
 }
 
-// Seed inicial si no existen cuentas
-export async function inicializarCuentasBancarias() {
+/**
+ * Verifica la existencia de cuentas del tenant sin mutar Firestore.
+ *
+ * La provisión de cuentas pertenece a Bootstrap/backend. El cliente no puede
+ * crear cuentas ni usar IDs históricos como fallback, porque Rules lo bloquea.
+ */
+export async function inicializarCuentasBancarias(): Promise<void> {
   const snapshot = await getDocs(await tenantQuery(collection(db, 'cuentas_bancarias')))
-  if (!snapshot.empty) return // Ya hay cuentas
-
-  const cuentasBase: CuentaBancaria[] = [
-    { id: 'caja-principal', nombre: 'Caja Registradora', tipo: 'efectivo', saldo: 0, icono: 'Banknote', color: '#10b981' },
-    { id: 'bancolombia', nombre: 'Bancolombia', tipo: 'banco', saldo: 0, icono: 'Landmark', color: '#3b82f6' },
-    { id: 'caja-fuerte', nombre: 'Caja Fuerte', tipo: 'efectivo', saldo: 0, icono: 'Lock', color: '#f59e0b' }
-  ]
-
-  // MT-U3 Capa 3: resuelto una sola vez (§2.5), no dentro de cada map/setDoc.
-  const empresaId = await getEmpresaId()
-  const batch = cuentasBase.map(c => setDoc(doc(db, 'cuentas_bancarias', c.id), withEmpresaId(empresaId, { ...c, creadoEn: serverTimestamp() })))
-  await Promise.all(batch)
+  if (snapshot.empty) return
 }

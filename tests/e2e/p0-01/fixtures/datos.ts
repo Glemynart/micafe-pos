@@ -38,6 +38,9 @@ async function borrarFixture(fixture: Pick<FixtureP001, "empresaId" | "admin">, 
   await Promise.all([
     borrarPorEmpresa(db.collection("espacios"), fixture.empresaId),
     borrarPorEmpresa(db.collection("categorias"), fixture.empresaId),
+    borrarPorEmpresa(db.collection("cuentas_bancarias"), fixture.empresaId),
+    borrarPorEmpresa(db.collection("numeraciones"), fixture.empresaId),
+    borrarPorEmpresa(db.collection("asignaciones_numeracion"), fixture.empresaId),
     borrarPorEmpresa(db.collection("credenciales_operativas"), fixture.empresaId),
     borrarPorEmpresa(db.collection("membresias"), fixture.empresaId),
     borrarPorEmpresa(db.collection("usuarios"), fixture.empresaId),
@@ -119,7 +122,57 @@ export async function prepararFixtureP001(nombre: string): Promise<FixtureP001> 
     ...configuracion.modulos,
     habilitados: [...P0_01_MODULES] as typeof configuracion.modulos.habilitados,
   };
+  configuracion.identidadFiscal = {
+    ...configuracion.identidadFiscal,
+    razonSocial: "Tenant E2E P0-01 S.A.S.",
+    tipoPersona: "JURIDICA",
+    tipoDocumento: "NIT",
+    numeroDocumento: "900373913",
+    digitoVerificacion: "4",
+    regimenTributario: "no_responsable",
+    actividadEconomicaPrincipal: "5610",
+  };
+  configuracion.localizacion = {
+    ...configuracion.localizacion,
+    direccion: {
+      linea1: "Carrera 1 # 1-1",
+      departamentoCodigo: "11",
+      departamentoNombre: "Bogotá D.C.",
+      municipioCodigo: "11001",
+      municipioNombre: "Bogotá D.C.",
+    },
+  };
   await db.collection("configuraciones").doc(empresaId).set(configuracion);
+
+  await db.collection("numeraciones").doc(`${empresaId}_num_pos_1`).set({
+    empresaId,
+    numeracionId: "num_pos_1",
+    paisFiscal: "CO",
+    tipoDocumento: "pos",
+    scope: "EMPRESA",
+    prefijo: "POS",
+    resolucion: "18760000001",
+    rangoInicio: 1,
+    rangoFin: 5000,
+    ultimoAsignado: 0,
+    vigenciaDesde: "2026-01-01",
+    vigenciaHasta: "2099-12-31",
+    estado: "HABILITADA",
+    revision: 2,
+    schemaVersion: 1,
+    creadaEn: FieldValue.serverTimestamp(),
+    actualizadaEn: FieldValue.serverTimestamp(),
+  });
+  await db.collection("asignaciones_numeracion").doc(`${empresaId}_EMPRESA_pos`).set({
+    empresaId,
+    scope: "EMPRESA",
+    tipoDocumento: "pos",
+    numeracionId: "num_pos_1",
+    estado: "VIGENTE",
+    revision: 1,
+    schemaVersion: 1,
+    actualizadaEn: FieldValue.serverTimestamp(),
+  });
 
   await db.collection("planes").doc(planId).set({
     planId,
