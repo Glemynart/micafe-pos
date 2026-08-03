@@ -16,6 +16,7 @@ export const MVP_COMERCIAL_CAPACIDADES = [
   "finanzas",
   "reservas",
   "waste",
+  "shifts",
 ] as const;
 
 export const MVP_COMERCIAL_PLAN = {
@@ -91,7 +92,6 @@ export function validarPlanMvp(plan: PlanMvpSpec): ResultadoValidacionPlanMvp {
   if (new Set(capacidades).size !== capacidades.length) errors.push("PLAN_CAPACIDADES_DUPLICADAS");
   if (capacidades.some((capacidad) => !modulosB1.has(capacidad))) errors.push("PLAN_CAPACIDAD_FUERA_DE_B1");
   if (JSON.stringify(capacidades) !== JSON.stringify(capacidadesEsperadas)) errors.push("PLAN_CAPACIDADES_NO_APROBADAS");
-  if (capacidades.includes("shifts")) errors.push("PLAN_INCLUYE_TURNOS_FUERA_DE_MVP");
   if (Object.keys(plan.limites).length !== 0) errors.push("PLAN_LIMITES_NO_APROBADOS");
 
   return { valid: errors.length === 0, errors };
