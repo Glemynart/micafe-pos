@@ -72,9 +72,13 @@ export default function FinanzasPage() {
       const destino = cuentas.find(c => c.id === form.cuentaDestinoId)
 
       if (modal === "traslado") {
+        if (!origen?.claveOperativa || !destino?.claveOperativa) {
+          toast.error("La cuenta seleccionada no tiene una clave operativa válida")
+          return
+        }
         await trasladarEntreCuentas({
-          cuentaOrigenId:  form.cuentaId,
-          cuentaDestinoId: form.cuentaDestinoId,
+          cuentaOrigenClaveOperativa: origen.claveOperativa,
+          cuentaDestinoClaveOperativa: destino.claveOperativa,
           monto,
           concepto:        form.concepto || "traslado",
           usuarioId:       usuario.uid,
@@ -82,7 +86,11 @@ export default function FinanzasPage() {
         })
         toast.success("Traslado registrado")
       } else {
-        await registrarTransaccion({ cuentaId: form.cuentaId, cuentaNombre: origen?.nombre ?? "", tipo: modal, monto, concepto: form.concepto, categoria: form.categoria, referencia: form.referencia, usuarioId: usuario.uid, usuarioNombre: usuario.nombre })
+        if (!origen?.claveOperativa) {
+          toast.error("La cuenta seleccionada no tiene una clave operativa válida")
+          return
+        }
+        await registrarTransaccion({ cuentaClaveOperativa: origen.claveOperativa, cuentaNombre: origen.nombre ?? "", tipo: modal, monto, concepto: form.concepto, categoria: form.categoria, referencia: form.referencia, usuarioId: usuario.uid, usuarioNombre: usuario.nombre })
         toast.success(modal === "ingreso" ? "Ingreso registrado" : "Gasto registrado")
       }
       setModal(null)
