@@ -31,6 +31,7 @@ interface RespuestaAutenticacionOperativa {
   customToken: string;
   requiereCambio?: boolean;
   incorporacionId?: string;
+  restablecimientoId?: string;
 }
 
 interface RespuestaActivacionDirecta {
@@ -42,7 +43,8 @@ interface RespuestaActivacionDirecta {
 
 export type ResultadoSesionOperativa =
   | { requiereCambio: false; user: User }
-  | { requiereCambio: true; incorporacionId: string };
+  | { requiereCambio: true; modo: "DIRECTA"; incorporacionId: string }
+  | { requiereCambio: true; modo: "RESTABLECIMIENTO"; restablecimientoId: string };
 
 function region(): string {
   return process.env.NEXT_PUBLIC_FIREBASE_FUNCTIONS_REGION || "us-central1";
@@ -92,12 +94,16 @@ export async function iniciarSesionOperativa(codigo: string, pin: string): Promi
     }
 
     if (response.data?.requiereCambio === true) {
+      if (typeof response.data.restablecimientoId === "string" && response.data.restablecimientoId) {
+        await signInWithCustomToken(auth, customToken);
+        return { requiereCambio: true, modo: "RESTABLECIMIENTO", restablecimientoId: response.data.restablecimientoId };
+      }
       const incorporacionId = response.data.incorporacionId;
       if (typeof incorporacionId !== "string" || !incorporacionId) {
         throw new Error("El servicio de autenticación devolvió una respuesta inválida.");
       }
       await signInWithCustomToken(auth, customToken);
-      return { requiereCambio: true, incorporacionId };
+      return { requiereCambio: true, modo: "DIRECTA", incorporacionId };
     }
 
     return { requiereCambio: false, user: await canjearSesionTenant(customToken) };
@@ -114,9 +120,14 @@ export async function iniciarSesionOperativa(codigo: string, pin: string): Promi
  */
 export async function activarSesionOperativa(pinTemporal: string, pinNuevo: string): Promise<User> {
   try {
+    const usuarioActual = auth.currentUser;
+    const claims = usuarioActual ? (await usuarioActual.getIdTokenResult()).claims : {};
+    const nombreCallable = claims.authStage === "RESTABLECIMIENTO_TEMP"
+      ? "activarRestablecimientoCredencial"
+      : "activarIncorporacionDirecta";
     const activar = httpsCallable<{ pinActual: string; pinNuevo: string }, RespuestaActivacionDirecta>(
       getFirebaseFunctions(region()),
-      "activarIncorporacionDirecta"
+      nombreCallable
     );
     const response = await activar({ pinActual: pinTemporal, pinNuevo });
     const customToken = response.data?.customToken;

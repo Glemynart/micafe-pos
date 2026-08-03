@@ -21,12 +21,13 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import { UserPlus, Trash2, Shield, Users, Loader2 } from "lucide-react"
+import { UserPlus, Trash2, Shield, Users, Loader2, KeyRound } from "lucide-react"
 import {
   suscribirUsuarios,
   crearOperador,
   actualizarRolUsuario,
   toggleUsuarioActivo,
+  restablecerOperador,
   type Usuario,
   type RolUsuario,
   type ResultadoCreacionOperador,
@@ -38,12 +39,14 @@ export function UserManagement() {
   const [showCreate, setShowCreate] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [usuarioADesactivar, setUsuarioADesactivar] = useState<Usuario | null>(null)
+  const [usuarioARecuperar, setUsuarioARecuperar] = useState<Usuario | null>(null)
   const [newUser, setNewUser] = useState({ nombre: "", rol: "cajero" as RolUsuario })
   const [creando, setCreando] = useState(false)
   const [guardandoRol, setGuardandoRol] = useState<string | null>(null)
   const [showCredential, setShowCredential] = useState(false)
   const [credentialData, setCredentialData] = useState<ResultadoCreacionOperador | null>(null)
   const [showPin, setShowPin] = useState(false)
+  const [restableciendoUid, setRestableciendoUid] = useState<string | null>(null)
 
   useEffect(() => {
     const unsub = suscribirUsuarios((data) => {
@@ -78,6 +81,22 @@ export function UserManagement() {
     setCredentialData(null)
     setShowPin(false)
     toast.success("Operador creado. Entrega el código y PIN al operador.")
+  }
+
+  const handleResetCredential = async (usuario: Usuario) => {
+    if (usuario.rol === "admin") return
+    setRestableciendoUid(usuario.uid)
+    try {
+      const result = await restablecerOperador(usuario.uid)
+      setCredentialData(result)
+      setShowCredential(true)
+      toast.success("Credencial restablecida. Entrega el nuevo código y PIN una sola vez.")
+    } catch (err: any) {
+      toast.error(err?.message || "No fue posible restablecer la credencial")
+    } finally {
+      setRestableciendoUid(null)
+      setUsuarioARecuperar(null)
+    }
   }
 
   const confirmDeleteUser = (user: Usuario) => {
@@ -185,6 +204,18 @@ export function UserManagement() {
                     {u.activo ? roleBadge(u.rol) : <Badge variant="destructive">Inactivo</Badge>}
                   </TableCell>
                   <TableCell className="text-right">
+                    {u.activo && u.rol !== "admin" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-primary"
+                        onClick={() => setUsuarioARecuperar(u)}
+                        disabled={restableciendoUid === u.uid}
+                        title="Restablecer credencial"
+                      >
+                        {restableciendoUid === u.uid ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -335,6 +366,20 @@ export function UserManagement() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Desactivar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={!!usuarioARecuperar} onOpenChange={(open) => { if (!open) setUsuarioARecuperar(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restablecer credencial</AlertDialogTitle>
+            <AlertDialogDescription>Se invalidará el código y PIN actuales de <strong>{usuarioARecuperar?.nombre}</strong>. El nuevo PIN solo se mostrará una vez y el operador deberá definir uno definitivo al ingresar.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!restableciendoUid}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={!!restableciendoUid || !usuarioARecuperar} onClick={(event) => { event.preventDefault(); if (usuarioARecuperar) void handleResetCredential(usuarioARecuperar) }}>
+              {restableciendoUid && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Restablecer credencial
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

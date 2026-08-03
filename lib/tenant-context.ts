@@ -37,6 +37,7 @@ export class TenantSinSesionError extends Error {
 
 /** Valor del claim `authStage` que identifica una sesión de transición (ver `esSesionTransicionDirecta`). */
 export const AUTH_STAGE_TRANSICION_DIRECTA = "DIRECTA_TEMP" as const;
+export const AUTH_STAGE_RESTABLECIMIENTO = "RESTABLECIMIENTO_TEMP" as const;
 
 /**
  * ADR-SAAS-013 §9 — una sesión con `authStage: "DIRECTA_TEMP"` es una sesión
@@ -57,6 +58,14 @@ export function esSesionTransicionDirecta(claims: Record<string, unknown>): bool
   return claims.authStage === AUTH_STAGE_TRANSICION_DIRECTA;
 }
 
+export function esSesionRestablecimientoTemporal(claims: Record<string, unknown>): boolean {
+  return claims.authStage === AUTH_STAGE_RESTABLECIMIENTO;
+}
+
+export function esSesionTemporalSinTenant(claims: Record<string, unknown>): boolean {
+  return esSesionTransicionDirecta(claims) || esSesionRestablecimientoTemporal(claims);
+}
+
 /** Obtiene la incorporación que una sesión DIRECTA_TEMP puede continuar. */
 export function obtenerIncorporacionSesionTransicionDirecta(
   claims: Record<string, unknown>,
@@ -66,6 +75,14 @@ export function obtenerIncorporacionSesionTransicionDirecta(
   return typeof incorporacionId === "string" && incorporacionId.trim()
     ? incorporacionId
     : null;
+}
+
+export function obtenerRestablecimientoSesionTemporal(
+  claims: Record<string, unknown>,
+): string | null {
+  if (!esSesionRestablecimientoTemporal(claims)) return null;
+  const id = claims.restablecimientoId;
+  return typeof id === "string" && id.trim() ? id : null;
 }
 
 export interface ResolucionTenant {

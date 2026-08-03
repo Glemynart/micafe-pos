@@ -35,7 +35,7 @@ import {
 import { onIdTokenChanged, type User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { obtenerEmpresaPorId, type Empresa } from "@/lib/empresas-service";
-import { esSesionTransicionDirecta, resolverEmpresaIdActivo, TenantSinSesionError } from "@/lib/tenant-context";
+import { esSesionTemporalSinTenant, resolverEmpresaIdActivo, TenantSinSesionError } from "@/lib/tenant-context";
 import { esRolUsuario, type RolUsuario } from "@/lib/auth-service";
 import { esMembresiaActiva, obtenerMembresia, type Membresia } from "@/lib/membresias-service";
 
@@ -126,7 +126,7 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Ver `esSesionTransicionDirecta` (lib/tenant-context.ts): una sesión
+      // Ver `esSesionTemporalSinTenant` (lib/tenant-context.ts): una sesión
       // `DIRECTA_TEMP` es una sesión de Auth válida que aún no es tenant.
       // Este provider no tiene contexto SaaS que ofrecerle (no hay empresa
       // ni membresía que resolver todavía) pero tampoco debe tratarla como
@@ -134,7 +134,7 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
       // que la activación (fuera de este provider) la reemplace por una
       // sesión tenant y este mismo listener vuelva a disparar.
       const tokenCacheado = await firebaseUser.getIdTokenResult();
-      if (esSesionTransicionDirecta(tokenCacheado.claims)) {
+      if (esSesionTemporalSinTenant(tokenCacheado.claims)) {
         setEmpresaId(null);
         setEmpresa(null);
         setMembresia(null);
@@ -158,7 +158,7 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     await firebaseUser.getIdToken(true);
     const tokenCacheado = await firebaseUser.getIdTokenResult();
-    if (esSesionTransicionDirecta(tokenCacheado.claims)) {
+    if (esSesionTemporalSinTenant(tokenCacheado.claims)) {
       setEmpresaId(null);
       setEmpresa(null);
       setMembresia(null);

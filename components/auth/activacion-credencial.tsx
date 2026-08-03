@@ -23,6 +23,7 @@ export function ActivacionCredencial() {
 
   const soloDigitos = (valor: string) => /^\d{0,6}$/.test(valor)
   const requierePinTemporal = activacionPendiente?.pinTemporal === null
+  const esRecuperacion = activacionPendiente?.modo === "RESTABLECIMIENTO"
   const pinTemporalValido = !requierePinTemporal || /^\d{6}$/.test(pinTemporal)
   const pinValido = /^\d{6}$/.test(pinNuevo)
   const coinciden = pinNuevo === confirmarPin
@@ -39,8 +40,8 @@ export function ActivacionCredencial() {
       <div className="flex items-center gap-2 text-foreground">
         <KeyRound className="h-4 w-4 text-primary flex-shrink-0" />
         <div>
-          <p className="text-sm font-semibold">Define tu PIN definitivo</p>
-          <p className="text-xs text-muted-foreground">Este es tu primer ingreso. Elige un PIN de 6 dígitos distinto del temporal.</p>
+          <p className="text-sm font-semibold">{esRecuperacion ? "Completa la recuperación de acceso" : "Define tu PIN definitivo"}</p>
+          <p className="text-xs text-muted-foreground">{esRecuperacion ? "Elige un PIN de 6 dígitos distinto del temporal para volver a operar." : "Este es tu primer ingreso. Elige un PIN de 6 dígitos distinto del temporal."}</p>
         </div>
       </div>
 

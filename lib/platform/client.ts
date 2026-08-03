@@ -11,6 +11,7 @@ export const FACULTADES_PLATAFORMA = [
   "LIFECYCLE_GOBERNAR",
   "CONSERVACION_GOBERNAR",
   "PLATAFORMA_CONSULTAR",
+  "ACCESO_RESTABLECER",
 ] as const;
 
 export type FacultadPlataforma = (typeof FACULTADES_PLATAFORMA)[number];
@@ -139,6 +140,15 @@ export const desbloquearAdministradorInicial = (empresaId: string) =>
     "desbloquearAdministradorInicialTenantSaas",
     { ...envelope("BACKOFFICE_DESBLOQUEAR_ADMINISTRADOR_INICIAL"), empresaId },
   );
+
+/** ADR-SAAS-017 — recuperación de administrador por operador SaaS con evidencia fuera de banda. */
+export const restablecerCredencialAdministrador = (
+  empresaId: string,
+  evidenciaVerificacion: { metodo: "CONFIRMACION_PROPIETARIO" | "TICKET_SOPORTE" | "VERIFICACION_PRESENCIAL"; referencia: string },
+) => invocar<{ restablecimientoId: string; empresaId: string; uid: string; estado: "PENDIENTE_ACTIVACION"; codigo: string; pinTemporal: string; idempotente: boolean }>(
+  "restablecerCredencialAdministradorTenantSaas",
+  { ...envelope("SAAS_RESTABLECER_CREDENCIAL_ADMINISTRADOR"), empresaId, evidenciaVerificacion },
+);
 
 export const comandoOperador = (
   accion: "incorporar" | "facultades" | "suspender" | "reactivar" | "revocar",
