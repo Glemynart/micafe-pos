@@ -167,6 +167,12 @@ El verificador read-only está implementado en `scripts/p0-01/verify-tenant.ts` 
 
 ### Entrada
 
+- `categoriesPolicy` puede ser `"exact"` (predeterminado) o
+  `"tenant-scoped"`. El segundo modo se usa cuando las categorias definitivas
+  estan fuera de P0-01: verifica aislamiento por `empresaId` y consistencia de
+  las categorias activas con los espacios aprobados, sin certificar nombres ni
+  un catalogo definitivo.
+
 - proyecto Firebase explícito;
 - `empresaId` explícito y aprobado;
 - credencial administrativa suministrada fuera de Git;
@@ -185,6 +191,10 @@ npx tsx scripts/p0-01/verify-tenant.ts `
 También está disponible `npm run verify:p0-01 -- ...`. El archivo de expectativas no debe contener PINs, tokens, secretos, credenciales ni PII.
 
 ### Comportamiento obligatorio
+
+- Cuando el manifiesto use `categoriesPolicy: "tenant-scoped"`, el resultado
+  de categorias demuestra aislamiento y consistencia, pero no aprueba el
+  catalogo comercial definitivo.
 
 - no aceptar `--execute`;
 - no descubrir tenants ni seleccionar uno por defecto;
