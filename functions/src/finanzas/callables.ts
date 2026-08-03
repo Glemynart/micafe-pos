@@ -10,6 +10,8 @@ const MOVIMIENTOS = "transacciones_financieras";
 type Tipo = "ingreso" | "egreso";
 const CLAVE_CAJA_PRINCIPAL = "caja-principal";
 const CLAVE_CUENTA_ELECTRONICA = "bancolombia";
+export const CLAVES_OPERATIVAS_RESERVADAS = ["caja-principal", "caja-fuerte"] as const;
+type ClaveOperativaReservada = typeof CLAVES_OPERATIVAS_RESERVADAS[number];
 
 interface Envelope {
   commandId: string;
@@ -61,7 +63,7 @@ async function account(tx: any, db: any, empresaId: string, id: string) {
 }
 
 /** R1-B §5.1: las claves reservadas son lógicas; el ID físico depende del tenant. */
-async function cuentaReservada(tx: any, db: any, empresaId: string, claveOperativa: "caja-principal" | "caja-fuerte") {
+async function cuentaReservada(tx: any, db: any, empresaId: string, claveOperativa: ClaveOperativaReservada) {
   const empresa = await tx.get(db.collection("empresas").doc(empresaId));
   if (!empresa.exists || typeof empresa.data()?.esFundacional !== "boolean") fail("failed-precondition", "CUENTA_INVALIDA");
   const cuentaDocumentoId = empresa.data()?.esFundacional === true
@@ -74,8 +76,8 @@ async function cuentaReservada(tx: any, db: any, empresaId: string, claveOperati
 
 /** Resuelve la identidad lógica de una cuenta sin aceptar un ID físico como autoridad. */
 async function resolverCuentaOperativa(tx: any, db: any, empresaId: string, claveOperativa: string) {
-  if (claveOperativa === "caja-principal" || claveOperativa === "caja-fuerte") {
-    return cuentaReservada(tx, db, empresaId, claveOperativa);
+  if ((CLAVES_OPERATIVAS_RESERVADAS as readonly string[]).includes(claveOperativa)) {
+    return cuentaReservada(tx, db, empresaId, claveOperativa as ClaveOperativaReservada);
   }
   const candidatas = await tx.get(db.collection("cuentas_bancarias")
     .where("empresaId", "==", empresaId)
@@ -88,6 +90,20 @@ async function resolverCuentaOperativa(tx: any, db: any, empresaId: string, clav
     fail("failed-precondition", "CUENTA_INVALIDA");
   }
   return { ref: snap.ref, snap, data, saldo: saldo as number };
+}
+
+/**
+ * Los comandos financieros aceptan únicamente la identidad lógica. Mantener
+ * el rechazo explícito de los nombres físicos evita que un cliente antiguo
+ * convierta accidentalmente un document ID en autoridad financiera.
+ */
+function requerirClaveOperativa(payload: Record<string, unknown>, claveCampo: string, camposFisicos: string[]) {
+  if (camposFisicos.some(campo => Object.prototype.hasOwnProperty.call(payload, campo))) {
+    fail("invalid-argument", "CUENTA_CLAVE_REQUERIDA");
+  }
+  const clave = payload[claveCampo];
+  if (!text(clave)) fail("invalid-argument", "PAYLOAD_INVALID");
+  return clave;
 }
 
 function claveCuentaPorMedioPago(medio: unknown) {
@@ -180,20 +196,32 @@ async function executeConContexto(db: any, contexto: ContextoFinancieroOperativo
   });
 }
 
-export const registrarMovimientoFinancieroV1 = onCall({ region: REGION }, async request => execute(request, "registrarMovimientoFinancieroV1", async (tx, db, empresaId, actorUid, rol, input) => {
-  const { cuentaId, monto, tipo, categoria, turnoId } = input.payload;
-  if (!text(cuentaId) || !money(monto) || (tipo !== "ingreso" && tipo !== "egreso") || !text(categoria) || !text(input.motivo)) fail("invalid-argument", "PAYLOAD_INVALID");
-  const cuenta = await account(tx, db, empresaId, cuentaId as string);
-  if (cuenta.data.claveOperativa === "caja-principal" || cuenta.ref.id === "caja-principal") await turnoAbierto(tx, db, empresaId, turnoId);
+async function efectoRegistrarMovimientoFinancieroV1(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<Record<string, unknown>> {
+  const { monto, tipo, categoria, turnoId } = input.payload;
+  const cuentaClaveOperativa = requerirClaveOperativa(input.payload, "cuentaClaveOperativa", ["cuentaId"]);
+  if (!money(monto) || (tipo !== "ingreso" && tipo !== "egreso") || !text(categoria) || !text(input.motivo)) fail("invalid-argument", "PAYLOAD_INVALID");
+  const cuenta = await resolverCuentaOperativa(tx, db, empresaId, cuentaClaveOperativa as string);
+  if (cuenta.data.claveOperativa === CLAVE_CAJA_PRINCIPAL) await turnoAbierto(tx, db, empresaId, turnoId);
   const movement = writeMovement(tx, db, { empresaId, command: input, key: `movimiento_manual:${input.commandId}`, account: cuenta, tipo: tipo as Tipo, monto: monto as number, categoria: categoria as string, actorUid, rol, turnoId: text(turnoId) ? turnoId : null });
   return { commandId: input.commandId, movimientoId: movement.id };
-}));
+}
 
-export const registrarEgresoOperativoV1 = onCall({ region: REGION }, async request => execute(request, "registrarEgresoOperativoV1", async (tx, db, empresaId, actorUid, rol, input) => {
-  const { cuentaId, turnoId, monto } = input.payload;
-  if (!text(cuentaId) || !text(turnoId) || !money(monto) || !text(input.motivo)) fail("invalid-argument", "PAYLOAD_INVALID");
+export async function ejecutarRegistrarMovimientoFinancieroV1(db: any, contexto: ContextoFinancieroOperativo, data: unknown) {
+  return executeConContexto(db, contexto, data, "registrarMovimientoFinancieroV1", efectoRegistrarMovimientoFinancieroV1);
+}
+
+export const registrarMovimientoFinancieroV1 = onCall({ region: REGION }, async request => {
+  const db = getFirestore();
+  const tenant = await exigirTenantActivo(request, db);
+  return ejecutarRegistrarMovimientoFinancieroV1(db, { empresaId: tenant.id, actorUid: request.auth!.uid, rol: tenant.rol }, request.data);
+});
+
+async function efectoRegistrarEgresoOperativoV1(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<Record<string, unknown>> {
+  const { turnoId, monto } = input.payload;
+  const cuentaClaveOperativa = requerirClaveOperativa(input.payload, "cuentaClaveOperativa", ["cuentaId"]);
+  if (!text(turnoId) || !money(monto) || !text(input.motivo)) fail("invalid-argument", "PAYLOAD_INVALID");
   await turnoAbierto(tx, db, empresaId, turnoId);
-  const cuenta = await account(tx, db, empresaId, cuentaId as string);
+  const cuenta = await resolverCuentaOperativa(tx, db, empresaId, cuentaClaveOperativa as string);
   const egresoId = crearIdentificadorInterno(empresaId, `egreso:${input.commandId}`);
   const egresoRef = db.collection("egresos").doc(egresoId);
   const existing = await tx.get(egresoRef);
@@ -201,17 +229,42 @@ export const registrarEgresoOperativoV1 = onCall({ region: REGION }, async reque
   const movement = writeMovement(tx, db, { empresaId, command: input, key: `egreso:${input.commandId}`, account: cuenta, tipo: "egreso", monto: monto as number, categoria: "egreso", actorUid, rol, turnoId: turnoId as string, egresoId });
   tx.create(egresoRef, { id: egresoId, empresaId, turnoId: turnoId as string, cajeroId: actorUid, monto: monto as number, motivo: input.motivo, fecha: FieldValue.serverTimestamp(), movimientoId: movement.id });
   return { commandId: input.commandId, egresoId, movimientoId: movement.id };
-}));
+}
 
-export const trasladarEntreCuentasV1 = onCall({ region: REGION }, async request => execute(request, "trasladarEntreCuentasV1", async (tx, db, empresaId, actorUid, rol, input) => {
-  const { cuentaOrigenId, cuentaDestinoId, monto, turnoId } = input.payload;
-  if (!text(cuentaOrigenId) || !text(cuentaDestinoId) || cuentaOrigenId === cuentaDestinoId || !money(monto)) fail("invalid-argument", "PAYLOAD_INVALID");
-  const [origin, destination] = await Promise.all([account(tx, db, empresaId, cuentaOrigenId as string), account(tx, db, empresaId, cuentaDestinoId as string)]);
-  if ((origin.data.claveOperativa === "caja-principal" || origin.ref.id === "caja-principal") && text(turnoId)) await turnoAbierto(tx, db, empresaId, turnoId);
+export async function ejecutarRegistrarEgresoOperativoV1(db: any, contexto: ContextoFinancieroOperativo, data: unknown) {
+  return executeConContexto(db, contexto, data, "registrarEgresoOperativoV1", efectoRegistrarEgresoOperativoV1);
+}
+
+export const registrarEgresoOperativoV1 = onCall({ region: REGION }, async request => {
+  const db = getFirestore();
+  const tenant = await exigirTenantActivo(request, db);
+  return ejecutarRegistrarEgresoOperativoV1(db, { empresaId: tenant.id, actorUid: request.auth!.uid, rol: tenant.rol }, request.data);
+});
+
+async function efectoTrasladarEntreCuentasV1(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<Record<string, unknown>> {
+  const { monto, turnoId } = input.payload;
+  const cuentaOrigenClaveOperativa = requerirClaveOperativa(input.payload, "cuentaOrigenClaveOperativa", ["cuentaOrigenId"]);
+  const cuentaDestinoClaveOperativa = requerirClaveOperativa(input.payload, "cuentaDestinoClaveOperativa", ["cuentaDestinoId"]);
+  if (cuentaOrigenClaveOperativa === cuentaDestinoClaveOperativa || !money(monto)) fail("invalid-argument", "PAYLOAD_INVALID");
+  const [origin, destination] = await Promise.all([
+    resolverCuentaOperativa(tx, db, empresaId, cuentaOrigenClaveOperativa as string),
+    resolverCuentaOperativa(tx, db, empresaId, cuentaDestinoClaveOperativa as string),
+  ]);
+  if (origin.data.claveOperativa === CLAVE_CAJA_PRINCIPAL && text(turnoId)) await turnoAbierto(tx, db, empresaId, turnoId);
   const out = writeMovement(tx, db, { empresaId, command: input, key: `traslado:${input.commandId}:origen`, account: origin, tipo: "egreso", monto: monto as number, categoria: "traslado_salida", actorUid, rol, turnoId: text(turnoId) ? turnoId : null });
   const inn = writeMovement(tx, db, { empresaId, command: input, key: `traslado:${input.commandId}:destino`, account: destination, tipo: "ingreso", monto: monto as number, categoria: "traslado_entrada", actorUid, rol, turnoId: text(turnoId) ? turnoId : null, movimientoRelacionadoId: out.id });
   return { commandId: input.commandId, movimientos: [out.id, inn.id] };
-}));
+}
+
+export async function ejecutarTrasladarEntreCuentasV1(db: any, contexto: ContextoFinancieroOperativo, data: unknown) {
+  return executeConContexto(db, contexto, data, "trasladarEntreCuentasV1", efectoTrasladarEntreCuentasV1);
+}
+
+export const trasladarEntreCuentasV1 = onCall({ region: REGION }, async request => {
+  const db = getFirestore();
+  const tenant = await exigirTenantActivo(request, db);
+  return ejecutarTrasladarEntreCuentasV1(db, { empresaId: tenant.id, actorUid: request.auth!.uid, rol: tenant.rol }, request.data);
+});
 
 async function efectoAplicarEfectosVentaOperativa(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<Record<string, unknown>> {
   await revalidarAutoridadFinancieraEnTransaccion(tx, db, { empresaId, actorUid, rol }, "sell");

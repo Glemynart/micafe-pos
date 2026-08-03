@@ -116,10 +116,15 @@ export function FinanzasModule() {
           toast.error('La cuenta origen y destino no pueden ser la misma')
           return
         }
+        const cuentaDestino = cuentas.find(c => c.id === formData.cuentaDestinoId)
+        if (!cuentaOrigen?.claveOperativa || !cuentaDestino?.claveOperativa) {
+          toast.error('La cuenta seleccionada no tiene una clave operativa válida')
+          return
+        }
 
         await trasladarEntreCuentas({
-          cuentaOrigenId:  formData.cuentaId,
-          cuentaDestinoId: formData.cuentaDestinoId,
+          cuentaOrigenClaveOperativa: cuentaOrigen.claveOperativa,
+          cuentaDestinoClaveOperativa: cuentaDestino.claveOperativa,
           monto,
           concepto:        formData.concepto,
           usuarioId:       usuario.uid,
@@ -129,8 +134,12 @@ export function FinanzasModule() {
         toast.success('Traslado realizado con éxito')
 
       } else {
+        if (!cuentaOrigen?.claveOperativa) {
+          toast.error('La cuenta seleccionada no tiene una clave operativa válida')
+          return
+        }
         await registrarTransaccion({
-          cuentaId: formData.cuentaId,
+          cuentaClaveOperativa: cuentaOrigen.claveOperativa,
           cuentaNombre: cuentaOrigen?.nombre || '',
           tipo: txTipo,
           monto,
