@@ -1,9 +1,10 @@
 /**
  * reconciliador-operativo-service.ts — Service de Reconciliación Operativa B7
  *
- * Auto-healing client-side & Alerta Visual tras 15 minutos de inconsistencia (ADR-SAAS-010 §3).
+ * Solicitud de retry server-authoritative & Alerta Visual tras 15 minutos de
+ * inconsistencia (ADR-SAAS-010 §3).
  * Busca ventas en `PENDIENTE_EFECTOS` y:
- *   1. Reintenta ejecutar la Fase 2 atómica (Ledger + Tesorería + `estadoOperativo: "COMPLETO"`).
+ *   1. Solicita a la Callable la Fase 2 atómica (Ledger + Tesorería + `estadoOperativo: "COMPLETO"`).
  *   2. Despliega alerta visual en el POS tras 15 minutos de permanencia en `PENDIENTE_EFECTOS`.
  *   3. Jamás anula facturas fiscales emitidas por paso del tiempo (ADR-SAAS-010 §3.1).
  */
@@ -13,17 +14,11 @@ import {
   query,
   where,
   getDocs,
-  doc,
-  runTransaction,
-  Timestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { tenantQuery, getEmpresaId } from "@/lib/tenant";
-import {
-  ejecutarFase2OperativaEnTransaccion,
-  type CrearVentaParams,
-  type IncidenciaInventario,
-} from "@/lib/ventas-service";
+import { tenantQuery } from "@/lib/tenant";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import type { IncidenciaInventario } from "@/lib/ventas-service";
 
 export interface VentaPendienteConciliacion {
   ventaId: string;
@@ -46,7 +41,6 @@ const MINUTOS_ALERTA_VISUAL = 15;
  * Escanea y reconcilia ventas en estado `PENDIENTE_EFECTOS` para el tenant activo.
  */
 export async function reconciliarVentasPendientes(): Promise<ResultadoReconciliacion> {
-  const empresaId = await getEmpresaId();
   const qPendientes = await tenantQuery(
     collection(db, "ventas"),
     where("estadoOperativo", "==", "PENDIENTE_EFECTOS")
@@ -65,6 +59,13 @@ export async function reconciliarVentasPendientes(): Promise<ResultadoReconcilia
   }
 
   const ahoraMs = Date.now();
+  const ejecutarFase2 = httpsCallable<{
+    commandId: string;
+    idempotencyKey: string;
+    correlationId: string;
+    causationId: string;
+    payload: { ventaId: string };
+  }, { incidenciasInventario?: IncidenciaInventario[] }>(getFunctions(), "aplicarEfectosVentaOperativaV1");
 
   for (const docSnap of snapPendientes.docs) {
     const ventaData = docSnap.data();
@@ -84,33 +85,18 @@ export async function reconciliarVentasPendientes(): Promise<ResultadoReconcilia
     const minutosTranscurridos = Math.floor(diffMs / (1000 * 60));
     const requiereAlertaVisual = minutosTranscurridos >= MINUTOS_ALERTA_VISUAL;
 
-    // Intentar ejecutar la Fase 2 atómica
+    // Solicitar la Fase 2 atómica al backend. El cliente no escribe hechos
+    // críticos ni calcula efectos derivados.
     try {
-      const paramsVenta: CrearVentaParams = {
-        turnoId: ventaData.turnoId || "",
-        cajeroId: ventaData.cajeroId || "",
-        cajeroNombre: ventaData.cajeroNombre,
-        espacioId: ventaData.espacioId,
-        items: ventaData.items || [],
-        totales: ventaData.totales || { subtotalBase: 0, totalINC: 0, totalExcluido: 0, total: 0 },
-        regimenAlMomento: ventaData.regimenAlMomento || "no_responsable",
-        metodoPago: ventaData.metodoPago || "efectivo",
-        dineroRecibido: ventaData.pago?.recibido,
-        cambio: ventaData.pago?.cambio,
-        pagoMixto: ventaData.pagoMixto,
-        pagoMixtoDetalle: ventaData.pagoMixtoDetalle,
-        estado: ventaData.estado || "pagada",
-      };
-
-      await runTransaction(db, async (tx) => {
-        const resFase2 = await ejecutarFase2OperativaEnTransaccion(
-          tx,
-          doc(db, "ventas", ventaId),
-          paramsVenta,
-          empresaId
-        );
-        resultado.incidencias.push(...resFase2.incidencias);
+      const commandId = `efectos-venta:${ventaId}`;
+      const resFase2 = await ejecutarFase2({
+        commandId,
+        idempotencyKey: commandId,
+        correlationId: `corr-efectos-venta:${ventaId}`,
+        causationId: `cmd_sale_${ventaId}`,
+        payload: { ventaId },
       });
+      resultado.incidencias.push(...(resFase2.data.incidenciasInventario ?? []));
 
       resultado.ventasCompletadas++;
     } catch (err) {
