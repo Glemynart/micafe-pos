@@ -9,6 +9,7 @@ export const COMANDOS_COMERCIALES = {
   ActualizarBorradorPlan: "COMERCIAL_GOBERNAR",
   RetirarVersionPlan: "COMERCIAL_GOBERNAR",
   CrearSuscripcionActiva: "COMERCIAL_GOBERNAR",
+  CrearSuscripcionTrial: "COMERCIAL_GOBERNAR",
   TransicionarSuscripcion: "COMERCIAL_GOBERNAR",
   RenovarSuscripcion: "COMERCIAL_GOBERNAR",
   CambiarPlanSuscripcion: "COMERCIAL_GOBERNAR",

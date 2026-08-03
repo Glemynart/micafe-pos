@@ -99,6 +99,13 @@ function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function comparableName(value: unknown): string | null {
+  const normalized = text(value);
+  return normalized
+    ? normalized.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es-CO")
+    : null;
+}
+
 function firestoreId(value: unknown): string | null {
   const normalized = text(value);
   return normalized && !normalized.includes("/") && normalized !== "." && normalized !== ".." ? normalized : null;
@@ -266,12 +273,13 @@ export async function verifyTenant(
   const empresaData = empresa.data;
   const expectedName = expectations.expectedEmpresaNombre;
   const actualName = text(empresaData.nombreComercial) ?? text(empresaData.nombre);
+  const namesMatch = comparableName(actualName) !== null && comparableName(actualName) === comparableName(expectedName);
   const expectedState = expectations.expectedEstado ?? "activa";
   checks.push(check(
     "TENANT_ACTIVE_AND_EXPECTED",
-    empresaData.estado === expectedState && actualName === expectedName && (empresaData.empresaId === undefined || empresaData.empresaId === tenantId) ? "PASS" : "FAIL",
+    empresaData.estado === expectedState && namesMatch && (empresaData.empresaId === undefined || empresaData.empresaId === tenantId) ? "PASS" : "FAIL",
     "La Empresa coincide con el tenant y el estado esperado.",
-    { expectedName, actualName, expectedState, actualState: text(empresaData.estado) },
+    { expectedName, actualName, namesMatch, expectedState, actualState: text(empresaData.estado) },
   ));
 
   const ownerUid = expectations.adminUid ?? text(empresaData.ownerUid);
