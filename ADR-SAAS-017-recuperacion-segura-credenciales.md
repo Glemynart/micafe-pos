@@ -1,15 +1,15 @@
 # ADR-SAAS-017 — Recuperación segura de credenciales del administrador y operadores
 
-- **Estado:** PROPUESTO
+- **Estado:** ACEPTADO
 - **Fecha:** 2026-08-03
-- **Decision makers:** Lead Engineer; propietario del Goal pendiente de aceptación formal
+- **Fecha de aceptación:** 2026-08-03
+- **Decision makers:** Lead Engineer; propietario del Goal
 - **Alcance:** MVP comercial transversal del SaaS; no requiere datos ni escrituras de producción
 - **Relacionados:** ADR-SAAS-006, ADR-SAAS-011, ADR-SAAS-012, ADR-SAAS-013
 - **Cierra:** D-013-1 para la recuperación del administrador del tenant
 
-> Este ADR documenta la decisión arquitectónica. Mientras permanezca en estado
-> `PROPUESTO` no se implementa el comando, la persistencia, la nueva facultad ni
-> la UI descritos aquí.
+> La decisión queda aceptada. La implementación se realizará únicamente en el
+> PR específico P0-11, manteniendo fuera de alcance Bootstrap, Rules y producción.
 
 ---
 
@@ -309,7 +309,7 @@ implementación y retirar la UI. Los documentos de recuperación ya emitidos no 
 borran: se cancelan o expiran mediante una operación backend auditable. Nunca se
 restaura una credencial anterior sin una nueva operación de recuperación validada.
 
-## 9. Criterio de aceptación del ADR
+## 9. Criterios verificados para la aceptación
 
 La decisión queda lista para pasar a `ACEPTADO` cuando se confirme explícitamente:
 
@@ -320,3 +320,10 @@ La decisión queda lista para pasar a `ACEPTADO` cuando se confirme explícitame
 - la verificación fuera de banda para el administrador;
 - la prohibición de PIN/código/hash/token en persistencia y auditoría;
 - la ausencia de cambios en Rules, Bootstrap y producción.
+
+## 10. Decisión
+
+Se aceptan los criterios anteriores y la separación de autoridad propuesta. La
+recuperación segura de credenciales queda incorporada como capacidad reusable del
+MVP comercial, sin convertir la provisión inicial en una ruta de toma de control
+ni introducir una autoridad nueva sobre el dominio operativo.
