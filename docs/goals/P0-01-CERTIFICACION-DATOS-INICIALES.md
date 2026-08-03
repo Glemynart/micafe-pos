@@ -1,6 +1,6 @@
 # P0-01 — Runbook de certificación de datos iniciales
 
-> **Estado del documento:** CERTIFICACIÓN DOCUMENTADA — EN REVISIÓN. La evidencia real está registrada en este documento y en el artefacto de cierre asociado; el resultado final queda sujeto a la auditoría y al merge del PR.
+> **Estado del documento:** CERTIFICADO — P0-01 APROBADO. La evidencia real está registrada en este documento y en el artefacto de cierre asociado; el PR de certificación fue auditado y fusionado.
 >
 > Este documento registra la ejecución controlada del PR de certificación de P0-01. No reemplaza el acceso aprobado a Firebase, los datos corporativos aprobados ni la evidencia obtenida en el entorno real.
 
@@ -275,10 +275,10 @@ Evidencia redactada adjunta: SÍ
 
 Desviaciones: ninguna. No se realizaron escrituras productivas.
 Rollback aplicado o disponible: no aplica; la certificación fue read-only.
-Resultado de certificación: APTO PARA REVISIÓN
+Resultado de certificación: APROBADO
 ```
 
-El registro anterior se basa en la lectura productiva y en la evidencia manual recibida. El estado `APROBADO` se emitirá únicamente después de la auditoría y del merge de este PR.
+El registro anterior se basa en la lectura productiva y en la evidencia manual recibida. La auditoría concluyó `APROBADO PARA MERGE` y el PR de certificación quedó integrado en `main`.
 
 ### 11.1 Evidencia manual recibida
 
