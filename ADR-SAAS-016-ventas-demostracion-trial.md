@@ -2,7 +2,7 @@
 
 ## Estado
 
-Propuesto. Pendiente de aprobación explícita antes de implementar.
+Aceptado por aprobación explícita del usuario el 2026-08-03.
 
 ## Fecha
 
@@ -163,12 +163,17 @@ Una venta DEMO:
 - no se publica en proyecciones de documentos fiscales;
 - no genera efectos tributarios;
 - queda identificada de manera visible como `DEMO` o “venta de demostración”;
-- no puede convertirse retroactivamente en una venta fiscal por retry,
-  edición cliente o cambio posterior de configuración.
+- nunca puede convertirse posteriormente en una venta `FISCAL`, ni por retry,
+  edición cliente, cambio de configuración fiscal, proceso de migración o
+  cualquier otro comando posterior;
+- permanece excluida de toda proyección, índice, documento o reporte fiscal.
 
 El servidor podrá conservar un snapshot comercial de los artículos, cantidades,
 precios y totales para reproducibilidad, auditoría y soporte. Ese snapshot no
 será un snapshot fiscal ni contendrá campos presentados como autoridad fiscal.
+Las ventas DEMO podrán aparecer en reportes operativos cuando corresponda,
+siempre que conserven su identificación DEMO y no se mezclen con métricas o
+proyecciones fiscales.
 
 ### 5.2 Efectos operativos
 
@@ -269,6 +274,7 @@ operativo vigente:
 | El Trial expira con una pantalla abierta | Revalidación canónica en cada callable; no confiar en claims antiguos. |
 | Falta una cuenta operativa para efectos de caja | Error explícito y operación atómica; nunca crear cuentas desde el cliente. |
 | Datos DEMO contaminan reportes oficiales | Filtros/proyecciones explícitos y pruebas de exclusión fiscal. |
+| Un proceso posterior intenta convertir una venta DEMO | Invariante persistente de irreversibilidad, comandos separados y pruebas de rechazo. |
 | Se amplía inadvertidamente el alcance de P0-05 | No se cambia el modelo contable; solo se reutiliza la autoridad existente. |
 
 ## 8. Rollback
@@ -297,7 +303,11 @@ requiere una decisión posterior y un PR propio.
 8. Firestore Rules no se relajan ni se modifican para abrir esta ruta.
 9. “Configurar más tarde” no escribe datos fiscales ni crea una autoridad
    persistida ficticia.
-10. La prueba local reproduce el flujo y genera evidencia de ausencia de
+10. Una venta DEMO no puede transformarse en `FISCAL` mediante ningún comando,
+    retry, migración o cambio posterior de configuración.
+11. Las ventas DEMO quedan fuera de proyecciones y reportes fiscales, pero
+    pueden aparecer identificadas en reportes operativos autorizados.
+12. La prueba local reproduce el flujo y genera evidencia de ausencia de
     efectos fiscales.
 
 ## 10. Relación con otros ADR
@@ -313,9 +323,8 @@ requiere una decisión posterior y un PR propio.
   auditoría y transacciones.
 - **Goal:** `docs/goals/GOAL-MVP-COMERCIAL.md`, M1/E1.2/P0-02.
 
-## 11. Gate de aprobación
+## 11. Aprobación
 
-Este documento permanece en estado **Propuesto**. No se debe cambiar a
-**Aceptado**, modificar el dominio, crear la callable ni cambiar el gate de
-onboarding hasta que exista aprobación explícita de esta decisión
-arquitectónica.
+El usuario aprobó explícitamente esta decisión arquitectónica el 2026-08-03.
+La implementación puede comenzar únicamente manteniendo el alcance, los
+invariantes y las exclusiones definidos en este documento.
