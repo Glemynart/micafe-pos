@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { appendFileSync } from "node:fs";
 import { prepararFixtureP001, limpiarFixtureP001 } from "../fixtures/datos";
-import { verificarSaludP001 } from "../fixtures/entorno";
+import { adminP001, verificarSaludP001 } from "../fixtures/entorno";
 
 test.describe("P0-01 — certificación operativa en emuladores", () => {
   test("inicia sesión, resuelve el tenant y muestra espacios y módulos explícitos", async ({ page }, testInfo) => {
@@ -11,6 +11,7 @@ test.describe("P0-01 — certificación operativa en emuladores", () => {
     const pageErrors: string[] = [];
     const notFoundResponses: string[] = [];
     const unauthorizedResponses: string[] = [];
+    const forbiddenResponses: string[] = [];
 
     page.on("console", (message) => {
       if (message.type() === "error") consoleErrors.push(message.text());
@@ -19,6 +20,7 @@ test.describe("P0-01 — certificación operativa en emuladores", () => {
     page.on("response", (response) => {
       if (response.status() === 404) notFoundResponses.push(response.url());
       if (response.status() === 401) unauthorizedResponses.push(`${response.request().method()} ${response.url()}`);
+      if (response.status() === 403) forbiddenResponses.push(`${response.request().method()} ${response.url()}`);
     });
 
     try {
@@ -61,6 +63,22 @@ test.describe("P0-01 — certificación operativa en emuladores", () => {
         const activeSpaceButton = page.locator("aside").getByRole("button").filter({ hasText: fixture.espacios[0].nombre });
         await activeSpaceButton.click();
         await expect(page.getByRole("menuitem", { name: fixture.espacios[1].nombre })).toBeVisible();
+        await page.keyboard.press("Escape");
+      });
+
+      await test.step("activación de Finanzas en el POS/PWA", async () => {
+        await page.getByRole("button", { name: "Finanzas", exact: true }).click();
+        await expect(page.getByRole("heading", { name: "Finanzas y Tesorería", exact: true })).toBeVisible();
+
+        const cuentas = await adminP001().db.collection("cuentas_bancarias")
+          .where("empresaId", "==", fixture.empresaId)
+          .get();
+        expect(cuentas.empty, "Finanzas no debe crear cuentas desde el cliente").toBe(true);
+      });
+
+      await test.step("activación de Finanzas en Backoffice tenant-aware", async () => {
+        await page.goto("/admin/finanzas");
+        await expect(page.getByRole("heading", { name: "Finanzas", exact: true })).toBeVisible();
       });
     } finally {
       await page.close();
@@ -70,10 +88,15 @@ test.describe("P0-01 — certificación operativa en emuladores", () => {
         pageErrors,
         notFoundResponses,
         unauthorizedResponses,
+        forbiddenResponses,
       }, null, 2)}\n`);
-      expect(consoleErrors, `no debe haber errores de consola; 401=${unauthorizedResponses.join(", ")}`).toEqual([]);
+      const ruleErrors = consoleErrors.filter((message) => /PERMISSION_DENIED|permission-denied|Missing or insufficient permissions/i.test(message));
+      expect(consoleErrors, `no debe haber errores de consola; 401=${unauthorizedResponses.join(", ")}; 403=${forbiddenResponses.join(", ")}`).toEqual([]);
+      expect(ruleErrors, "no debe haber errores de Rules").toEqual([]);
       expect(pageErrors, "no debe haber errores de página").toEqual([]);
       expect(notFoundResponses, "no debe haber respuestas 404").toEqual([]);
+      expect(unauthorizedResponses, "no debe haber respuestas 401").toEqual([]);
+      expect(forbiddenResponses, "no debe haber respuestas 403").toEqual([]);
       await limpiarFixtureP001(fixture);
     }
   });
