@@ -30,7 +30,7 @@ class FakeFirestore {
 const empresaId = "empresa-a";
 function seed(db: FakeFirestore, ventaId: string, total = 100) {
   db.docs.set(`empresas/${empresaId}`, { estado: "activa", esFundacional: true });
-  db.docs.set(`membresias/${empresaId}_cajero-a`, { empresaId, uid: "cajero-a", rol: "cajero", permisos: ["pos"], estado: "activa", activo: true });
+  db.docs.set(`membresias/${empresaId}_cajero-a`, { empresaId, uid: "cajero-a", rol: "cajero", permisos: ["sell"], estado: "activa", activo: true });
   db.docs.set("cuentas_bancarias/caja-principal", { id: "caja-principal", empresaId, saldo: 0, claveOperativa: "caja-principal", nombre: "Caja" });
   db.docs.set("turnos/turno-1", { empresaId, estado: "cerrado" });
   db.docs.set("productos/cafe", { empresaId, nombre: "Café", stock: 5, secuenciaLedger: 0, costo: 10 });
@@ -54,14 +54,14 @@ test("R1-B.2: el reconciliador real aplica efectos, recibo, auditoría y ledger 
   const auditoria = [...db.docs.entries()].find(([path]) => path.startsWith("operaciones_auditoria/"))?.[1];
   assert.equal(movimiento.usuarioId, "cajero-a");
   assert.equal(movimiento.rolEfectivoSnapshot, "cajero");
-  assert.equal(movimiento.commandId, "confirmar-venta-ok");
+  assert.equal(movimiento.commandId, "efectos-venta:venta-ok");
   assert.deepEqual(auditoria.actor, { uid: "cajero-a", rolEfectivo: "cajero" });
-  assert.equal(auditoria.comando.id, "confirmar-venta-ok");
+  assert.equal(auditoria.comando.id, "efectos-venta:venta-ok");
   assert.equal(auditoria.comando.correlationId, "corr-venta-ok");
   assert.equal(auditoria.causationId, "causa-venta-ok");
   assert.equal(auditoria.ejecutorTecnico, "reconciliarVentasPendientesOperativas");
   const reciboOperativo = [...db.docs.entries()].find(([path]) => path.startsWith("operaciones_comandos/"))?.[1];
-  assert.equal(reciboOperativo.commandId, "confirmar-venta-ok");
+  assert.equal(reciboOperativo.commandId, "efectos-venta:venta-ok");
   assert.equal(reciboOperativo.causationId, "causa-venta-ok");
 });
 

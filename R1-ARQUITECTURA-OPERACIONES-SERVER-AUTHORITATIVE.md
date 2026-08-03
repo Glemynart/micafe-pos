@@ -2,6 +2,10 @@
 
 > **Estado:** DISEÑO PROPUESTO — solo arquitectura. No implementa ni autoriza código, Rules, migraciones ejecutables ni PR.
 >
+> **Decisión aplicada:** la Fase 2 de ventas queda aceptada y acotada por
+> `ADR-SAAS-015`; esta aceptación no convierte el resto de R1 en arquitectura
+> aceptada ni autoriza otras operaciones server-authoritative.
+>
 > **Alcance:** autoridad de escritura para turnos, caja, cuentas, ledger financiero, ledger de inventario, efectos de ventas, anulaciones, compras, ajustes, **traslados financieros entre cuentas**, producción y devoluciones. El traslado de inventario entre ubicaciones no forma parte de R1.
 >
 > **Precondición:** arquitectura SaaS vigente; B1 de configuración empresarial canónica; B2 Fiscal Core y `snapshotFiscal`; y el cutover operativo B7 con su backfill de `estadoOperativo`, ya certificados conforme a sus autoridades. Estos nombres no se refieren al documento conceptual `MT-U10-B6-B7-cierre-arquitectonico.md`.

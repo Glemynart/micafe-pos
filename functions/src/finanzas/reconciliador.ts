@@ -53,8 +53,9 @@ export async function reconciliarVentasPendientes(db: any, ejecutar = ejecutarAp
     }
     try {
       await validarEmpresaEscribible(recibo.empresaId, db);
+      const commandId = `efectos-venta:${venta.id}`;
       await ejecutar(db, { empresaId: recibo.empresaId, actorUid: recibo.actorOriginal.uid, rol: recibo.actorOriginal.rolEfectivo, ejecutorTecnico: "reconciliarVentasPendientesOperativas" }, {
-        commandId: recibo.commandId, idempotencyKey: `efectos-venta:${venta.id}`,
+        commandId, idempotencyKey: commandId,
         correlationId: recibo.correlationId,
         causationId: recibo.causationId, payload: { ventaId: venta.id },
       });
