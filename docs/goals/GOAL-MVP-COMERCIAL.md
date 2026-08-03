@@ -84,10 +84,10 @@ Este Goal se marca `COMPLETADO` solo cuando:
 
 > Esta sección solo se actualiza ante un evento oficial: merge de un PR, aprobación de un ADR o cambio de planificación aprobado. Mantén los seis campos; no agregues diarios, narrativas ni listas paralelas durante la implementación.
 
-- **Progreso:** ADR-SAAS-013 y ADR-SAAS-014 aceptados; PR #157 integrado en `main @ 6df0c75` con `CrearSuscripcionTrial`, verificador read-only y smoke E2E reutilizable; ningún criterio de datos P0 se da por certificado sin ejecución real.
+- **Progreso:** ADR-SAAS-013 y ADR-SAAS-014 aceptados; PR #157 integrado en `main @ 6df0c75` con `CrearSuscripcionTrial`, verificador read-only y smoke E2E reutilizable; PR #159 integrado en `main @ 2a0d508` con el plan SaaS genérico `mvp_comercial` y su validación local reusable; ningún criterio de datos P0 se da por certificado sin ejecución real.
 - **Estado:** ACTIVO.
-- **PR completados:** PR #147, PR #149, PR #151, PR #153, PR #155 y PR #157 — reconciliación, cierre documental, referencia vigente de ADR-SAAS-013, tooling de certificación P0-01 y comando Trial para una Empresa existente.
-- **Siguiente PR esperado:** `P0-01 / E1.1 — certificación de datos iniciales de Café Atrato, condicionada al plan comercial aprobado y al acceso controlado a Firebase`.
+- **PR completados:** PR #147, PR #149, PR #151, PR #153, PR #155, PR #157 y PR #159 — reconciliación, cierre documental, referencia vigente de ADR-SAAS-013, tooling de certificación P0-01, comando Trial para una Empresa existente y plan SaaS genérico reusable del MVP.
+- **Siguiente PR esperado:** `P0-01 / E1.1 — certificación de datos iniciales de Café Atrato con el plan mvp_comercial, condicionada a confirmación explícita para las escrituras productivas, login manual y acceso controlado a Firebase`.
 - **Milestone activo:** `M1 — Tenant y fiscalidad listos para operar`.
 - **Epic activo:** `E1.1 — Tenant operativo`.
 
