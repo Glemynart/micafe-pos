@@ -3,20 +3,35 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 import { crearPlantillaConfiguracionRevision1 } from "../../../lib/configuracion";
 import { fechaFiscalActualUtc, fechaFiscalEnRango, rangoVigenciaFiscalValido, scopeEmpresa, scopeEspacio, validarFechaFiscal, validarIdFiscal, validarScopeFiscal } from "../../../lib/fiscal/contrato";
-import { actualizarNumeracionBorrador, confirmarVentaFiscal, crearNumeracion, establecerAsignacion, retirarAsignacion, transicionarNumeracion, type Asignacion, type Numeracion } from "./service";
+import { actualizarNumeracionBorrador, confirmarVentaFiscal, crearNumeracion, crearVentaDemostracion, establecerAsignacion, retirarAsignacion, transicionarNumeracion, type Asignacion, type Numeracion } from "./service";
 
-class Ref { constructor(public path: string) {} }
+class Query {
+  constructor(private readonly prefix: string, private readonly db: FakeFirestore, private readonly filters: Array<[string, unknown]> = []) {}
+  where(field: string, op: string, value: unknown) { return op === "==" ? new Query(this.prefix, this.db, [...this.filters, [field, value]]) : this; }
+  read(working: Map<string, any>) {
+    const docs = [...working.entries()]
+      .filter(([path, value]) => path.startsWith(`${this.prefix}/`) && !path.slice(this.prefix.length + 1).includes("/") && this.filters.every(([field, expected]) => value?.[field] === expected))
+      .map(([, value]) => new Snap(value));
+    return { docs, size: docs.length, empty: docs.length === 0 };
+  }
+}
+class Ref {
+  constructor(public path: string, private readonly db: FakeFirestore) {}
+  doc(id: string) { return new Ref(`${this.path}/${id}`, this.db) }
+  collection(id: string) { return new Ref(`${this.path}/${id}`, this.db) }
+  where(field: string, op: string, value: unknown) { return new Query(this.path, this.db, [[field, value]]) }
+}
 class Snap { constructor(private value: any) {} get exists() { return this.value !== undefined } data() { return structuredClone(this.value) } }
 class FakeFirestore {
   docs = new Map<string, any>(); private queue = Promise.resolve();
-  collection(name: string) { return { doc: (id: string) => new Ref(`${name}/${id}`) } }
+  collection(name: string) { return new Ref(name, this) }
   seed(path: string, value: any) { this.docs.set(path, structuredClone(value)) }
   read(path: string) { return this.docs.get(path) }
   async runTransaction<T>(callback: (tx: any) => Promise<T>): Promise<T> {
     let release!: () => void; const previous = this.queue; this.queue = new Promise<void>(resolve => { release = resolve }); await previous;
     const working = new Map([...this.docs].map(([k, v]) => [k, structuredClone(v)]));
     const tx = {
-      get: async (ref: Ref) => new Snap(working.get(ref.path)),
+      get: async (ref: Ref | Query) => ref instanceof Query ? ref.read(working) : new Snap(working.get(ref.path)),
       create: (ref: Ref, value: any) => { if (working.has(ref.path)) throw new Error("ALREADY_EXISTS"); working.set(ref.path, structuredClone(value)) },
       set: (ref: Ref, value: any) => working.set(ref.path, structuredClone(value)),
       update: (ref: Ref, value: any) => { if (!working.has(ref.path)) throw new Error("NOT_FOUND"); working.set(ref.path, { ...working.get(ref.path), ...structuredClone(value) }) },
@@ -151,4 +166,69 @@ test("commands administrativos cubren borrador, transición, asignación y retir
   await establecerAsignacion(db as any, { ...env, commandId: "admin_cmd_4", idempotencyKey: "admin_4", scope: "EMPRESA", tipoDocumento: "pos", numeracionId: "serie_1" }, contexto);
   const retirada = await retirarAsignacion(db as any, { ...env, commandId: "admin_cmd_5", idempotencyKey: "admin_5", scope: "EMPRESA", tipoDocumento: "pos" }, contexto); assert.equal(retirada.revision, 2);
   const noop = await retirarAsignacion(db as any, { ...env, commandId: "admin_cmd_6", idempotencyKey: "admin_6", expectedRevision: 2, scope: "EMPRESA", tipoDocumento: "pos" }, contexto); assert.equal(noop.idempotente, true);
+});
+function entradaDemo(commandId: string, ventaId: string) {
+  return {
+    commandId,
+    idempotencyKey: `idem_${commandId}`,
+    correlationId: `corr_${commandId}`,
+    causationId: `cause_${commandId}`,
+    expectedRevision: 1,
+    ventaId,
+    venta: {
+      turnoId: "turno_demo",
+      cajeroId: "admin_1",
+      cajeroNombre: "Administrador",
+      items: [{ id: "p_demo", nombre: "Cafe demo", cantidad: 1, precioUnitario: 1000, costoUnitario: 200, subtotal: 1000, codigo: "p_demo", categoria: "cafeteria" }],
+      metodoPago: "efectivo",
+      dineroRecibido: 1000,
+      cambio: 0,
+    },
+  };
+}
+
+function prepararTrialDemo(db: FakeFirestore, fiscalCompleta = false) {
+  db.seed(`empresas/${empresaId}`, { paisFiscal: "CO", estado: "trial" });
+  db.seed(`configuraciones/${empresaId}`, fiscalCompleta ? configFiscal() : crearPlantillaConfiguracionRevision1({ empresaId, nombreComercial: "Cafe", creadaEn: {}, actualizadaEn: {}, ultimaMutacion: { actorTipo: "SYSTEM", actorId: "system", origen: "BACKFILL", commandId: "init", correlationId: "init" } }));
+  db.seed(`suscripciones/${empresaId}`, { empresaId, planId: "mvp_comercial", planVersion: 1, estado: "trialing", trialInicio: fecha(-1), trialFin: fecha(10), revision: 1, schemaVersion: 1 });
+  db.seed("planes/mvp_comercial/versiones/1", { planId: "mvp_comercial", planVersion: 1, estado: "PUBLICADA", capacidades: ["sell"], limites: {}, periodicidad: "MENSUAL", grandfathered: false, revision: 1, schemaVersion: 1 });
+  db.seed(`productos/p_demo`, { empresaId, nombre: "Cafe demo", precio: 1000, costo: 200, activo: true, categoriaId: "cafeteria", stock: 10 });
+  if (fiscalCompleta) {
+    const n = numeracion("demo_ready", "EMPRESA");
+    seedFiscal(db, n, asignacion("EMPRESA", "demo_ready"));
+  }
+}
+
+test("P0-02 crea una venta DEMO sin numeración, snapshot fiscal ni campos tributarios", async () => {
+  const db = new FakeFirestore(); prepararTrialDemo(db);
+  const result = await crearVentaDemostracion(db as any, entradaDemo("cmd_demo_1", "venta_demo_1"), contexto);
+  assert.equal(result.modoOperacion, "DEMO");
+  assert.equal(result.referenciaOperacion, "DEMO-venta_demo_1");
+  const venta = db.read("ventas/venta_demo_1");
+  assert.equal(venta.modoOperacion, "DEMO");
+  assert.equal(venta.estadoOperativo, "PENDIENTE_EFECTOS");
+  assert.equal("consecutivo" in venta, false);
+  assert.equal("snapshotFiscal" in venta, false);
+  assert.equal("dian" in venta, false);
+  assert.equal("impuestoTipo" in venta.items[0], false);
+  assert.deepEqual(venta.totales, { subtotalBase: 1000, totalINC: 0, totalExcluido: 1000, total: 1000 });
+  assert.ok([...db.docs.values()].some((v) => v.tipo === "VentaDemostracionCreada"));
+});
+
+test("P0-02 conserva idempotencia y no duplica la venta DEMO", async () => {
+  const db = new FakeFirestore(); prepararTrialDemo(db); const entrada = entradaDemo("cmd_demo_idem", "venta_demo_idem");
+  assert.equal((await crearVentaDemostracion(db as any, entrada, contexto)).idempotente, false);
+  assert.equal((await crearVentaDemostracion(db as any, entrada, contexto)).idempotente, true);
+  assert.equal([...db.docs.keys()].filter((path) => path === "ventas/venta_demo_idem").length, 1);
+});
+
+test("P0-02 rechaza DEMO cuando la fiscalidad ya está lista", async () => {
+  const db = new FakeFirestore(); prepararTrialDemo(db, true);
+  await assert.rejects(crearVentaDemostracion(db as any, entradaDemo("cmd_demo_ready", "venta_demo_ready"), contexto), /VENTA_DEMO_NO_DISPONIBLE:READINESS_FISCAL_COMPLETA/);
+});
+
+test("P0-02 impide convertir una venta DEMO en FISCAL", async () => {
+  const db = base(); seedFiscal(db, numeracion("general", "EMPRESA"), asignacion("EMPRESA", "general"));
+  db.seed("ventas/venta_demo_no_fiscal", { empresaId, modoOperacion: "DEMO" });
+  await assert.rejects(confirmarVentaFiscal(db as any, entrada("cmd_demo_fiscal", "venta_demo_no_fiscal"), contexto), /VENTA_DEMO_NO_FISCALIZABLE/);
 });
