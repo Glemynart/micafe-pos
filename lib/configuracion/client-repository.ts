@@ -1,7 +1,7 @@
 "use client";
 
-import { getFunctions, httpsCallable } from "firebase/functions";
-import { app } from "../firebase";
+import { httpsCallable } from "firebase/functions";
+import { getFirebaseFunctions } from "../firebase";
 import type { ConfiguracionEmpresa } from "./contrato";
 import type { OperacionConfiguracion } from "./operaciones";
 import { validarConfiguracionEmpresa } from "./validacion";
@@ -10,7 +10,7 @@ import { CacheConfiguracionEmpresa } from './client-cache'
 const REGION = "us-central1";
 const cache = new CacheConfiguracionEmpresa();
 export class ConfiguracionClienteError extends Error { constructor(public readonly codigo: "AUSENTE" | "INVALIDA" | "CONFLICTO" | "BACKEND", mensaje: string) { super(mensaje); } }
-const funciones = () => getFunctions(app, REGION);
+const funciones = () => getFirebaseFunctions(REGION);
 
 export async function leerConfiguracionEmpresaCliente(empresaId: string, forzar = false): Promise<ConfiguracionEmpresa> {
   const existente = cache.obtener(empresaId);
