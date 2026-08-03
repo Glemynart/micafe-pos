@@ -1,3 +1,4 @@
+import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
@@ -35,7 +36,7 @@ export const restablecerCredencialOperativa = onCall(
       throw new HttpsError("invalid-argument", "OBJETIVO_UID_INVALIDO");
     }
     const comando = validarComandoRestablecimiento(data);
-    return solicitarRestablecimientoCredencial(
+    const resultado = await solicitarRestablecimientoCredencial(
       getFirestore(),
       { tipo: "ADMIN_TENANT", uid: auth.uid, facultad: null },
       comando,
@@ -44,6 +45,8 @@ export const restablecerCredencialOperativa = onCall(
       pepper(),
       undefined,
     );
+    await getAuth().revokeRefreshTokens(resultado.uid);
+    return resultado;
   },
 );
 
@@ -64,7 +67,7 @@ export const restablecerCredencialAdministradorTenantSaas = onCall(
     }
     const comando = validarComandoRestablecimiento(data);
     const evidencia = data.evidenciaVerificacion as EvidenciaFueraDeBanda | undefined;
-    return solicitarRestablecimientoCredencial(
+    const resultado = await solicitarRestablecimientoCredencial(
       db,
       { tipo: "OPERADOR_SAAS", uid: auth.uid, facultad: "ACCESO_RESTABLECER" },
       comando,
@@ -73,6 +76,8 @@ export const restablecerCredencialAdministradorTenantSaas = onCall(
       pepper(),
       evidencia,
     );
+    await getAuth().revokeRefreshTokens(resultado.uid);
+    return resultado;
   },
 );
 
