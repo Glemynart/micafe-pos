@@ -10,6 +10,7 @@ test.describe("P0-01 — certificación operativa en emuladores", () => {
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
     const notFoundResponses: string[] = [];
+    const unauthorizedResponses: string[] = [];
 
     page.on("console", (message) => {
       if (message.type() === "error") consoleErrors.push(message.text());
@@ -17,6 +18,7 @@ test.describe("P0-01 — certificación operativa en emuladores", () => {
     page.on("pageerror", (error) => pageErrors.push(error.message));
     page.on("response", (response) => {
       if (response.status() === 404) notFoundResponses.push(response.url());
+      if (response.status() === 401) unauthorizedResponses.push(`${response.request().method()} ${response.url()}`);
     });
 
     try {
@@ -28,13 +30,31 @@ test.describe("P0-01 — certificación operativa en emuladores", () => {
         await expect(page).toHaveURL(/\/admin(?:\?.*)?$/);
       });
 
+      await test.step("navegación PWA según el Plan", async () => {
+        const bottomNav = page.locator("nav.fixed.bottom-0");
+        await expect(bottomNav.getByRole("link", { name: "Reservas", exact: true })).toBeVisible();
+        await expect(bottomNav.getByRole("link", { name: "Finanzas", exact: true })).toBeVisible();
+        await expect(bottomNav.getByRole("link", { name: "Turnos", exact: true })).toHaveCount(0);
+      });
+
       await test.step("configuración y POS tenant-aware", async () => {
         await page.goto("/pos");
         await expect(page.locator("aside")).toBeVisible();
         await expect(page.getByText(fixture.espacios[0].nombre, { exact: true })).toBeVisible();
-        await expect(page.getByRole("button", { name: "Vender", exact: true })).toBeVisible();
-        await expect(page.getByRole("button", { name: "Salón", exact: true })).toBeVisible();
-        await expect(page.getByRole("button", { name: "Configuración", exact: true })).toBeVisible();
+        for (const modulo of [
+          "Vender",
+          "Inventario",
+          "Compras",
+          "Clientes",
+          "Finanzas",
+          "Reservas Web",
+          "Mermas",
+        ]) {
+          await expect(page.getByRole("button", { name: modulo, exact: true })).toBeVisible();
+        }
+        await expect(page.getByRole("button", { name: "Turnos", exact: true })).toHaveCount(0);
+        await expect(page.getByRole("button", { name: "Salón", exact: true })).toHaveCount(0);
+        await expect(page.getByRole("button", { name: "Configuración", exact: true })).toHaveCount(0);
       });
 
       await test.step("selector de espacios", async () => {
@@ -49,8 +69,9 @@ test.describe("P0-01 — certificación operativa en emuladores", () => {
         consoleErrors,
         pageErrors,
         notFoundResponses,
+        unauthorizedResponses,
       }, null, 2)}\n`);
-      expect(consoleErrors, "no debe haber errores de consola").toEqual([]);
+      expect(consoleErrors, `no debe haber errores de consola; 401=${unauthorizedResponses.join(", ")}`).toEqual([]);
       expect(pageErrors, "no debe haber errores de página").toEqual([]);
       expect(notFoundResponses, "no debe haber respuestas 404").toEqual([]);
       await limpiarFixtureP001(fixture);
