@@ -101,6 +101,7 @@ export interface VentaBuilderInput {
   /** Número de ticket/venta sin prefijo (se le aplica padding a 6 dígitos). */
   numero: string | number
   fecha: string | Date
+  modoOperacion?: 'FISCAL' | 'DEMO'
   cliente?: VentaBuilderInputCliente
   items: VentaBuilderInputItem[]
   totales: VentaBuilderInputTotales
@@ -184,6 +185,7 @@ function construirImpuestos(items: VentaBuilderInputItem[]): TicketImpuestoLinea
 
 function fromVenta(input: VentaBuilderInput, empresaConfig: TicketEmpresaConfig): VentaTicketModel {
   const isDian = !!input.dian
+  const isDemo = input.modoOperacion === 'DEMO'
 
   const cliente: TicketCliente = {
     nombre: input.cliente?.nombre?.toUpperCase() || CLIENTE_DEFAULT.nombre,
@@ -197,16 +199,17 @@ function fromVenta(input: VentaBuilderInput, empresaConfig: TicketEmpresaConfig)
       nombreComercial: empresaConfig.nombreComercial,
       razonSocial: empresaConfig.razonSocial,
       nit: empresaConfig.nit,
-      rotuloFiscal: derivarRotuloFiscal(empresaConfig.regimenTributario),
+      rotuloFiscal: isDemo ? 'OPERACIÓN NO FISCAL' : derivarRotuloFiscal(empresaConfig.regimenTributario),
       direccion: empresaConfig.direccion,
       ciudad: empresaConfig.ciudad,
       telefono: empresaConfig.telefono,
     },
     meta: {
       fecha: typeof input.fecha === 'string' ? input.fecha : input.fecha.toISOString(),
-      titulo: isDian ? 'FACTURA ELECTRÓNICA DE VENTA' : 'TICKET DE VENTA',
+      titulo: isDemo ? 'VENTA DE DEMOSTRACIÓN — NO FISCAL' : (isDian ? 'FACTURA ELECTRÓNICA DE VENTA' : 'TICKET DE VENTA'),
       numero: formatearNumero(input.dian?.numero ?? input.numero),
       prefijo: input.dian?.prefijo,
+      modoOperacion: input.modoOperacion,
     },
     pie: {
       fabricanteSoftware: empresaConfig.fabricanteSoftware ?? DEFAULT_FABRICANTE_SOFTWARE,

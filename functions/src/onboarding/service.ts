@@ -1,8 +1,9 @@
 import { HttpsError } from "firebase-functions/v2/https";
 import type { Firestore } from "firebase-admin/firestore";
-import { evaluarReadinessTotal, type EstadoReadinessTotal } from "../../../lib/onboarding/contrato";
+import { evaluarDisponibilidadVentaDemostracion, evaluarReadinessTotal, type EstadoReadinessTotal, type EstadoVentaDemostracion } from "../../../lib/onboarding/contrato";
 import type { ConfiguracionEmpresa, OperacionConfiguracion } from "../../../lib/configuracion";
 import type { Asignacion, Numeracion, ScopeFiscal } from "../../../lib/fiscal/contrato";
+import type { PlanVersion, Suscripcion } from "../../../lib/suscripciones/contrato";
 import {
   actualizarNumeracionBorrador,
   establecerAsignacion,
@@ -23,6 +24,7 @@ export interface EstadoOnboardingTenant {
   estadoEmpresa: string;
   readinessTotal: EstadoReadinessTotal;
   numeracionBorrador: Numeracion | null;
+  ventaDemostracion: EstadoVentaDemostracion;
 }
 
 export async function obtenerEstadoOnboardingTenant(
@@ -30,11 +32,12 @@ export async function obtenerEstadoOnboardingTenant(
   empresaId: string,
   paisFiscal: string
 ): Promise<EstadoOnboardingTenant> {
-  const [empresaSnap, configSnap, numeracionesSnap, asignacionesSnap] = await Promise.all([
+  const [empresaSnap, configSnap, numeracionesSnap, asignacionesSnap, suscripcionSnap] = await Promise.all([
     db.collection("empresas").doc(empresaId).get(),
     db.collection("configuraciones").doc(empresaId).get(),
     db.collection("numeraciones").where("empresaId", "==", empresaId).get(),
     db.collection("asignaciones_numeracion").where("empresaId", "==", empresaId).get(),
+    db.collection("suscripciones").doc(empresaId).get(),
   ]);
 
   if (!empresaSnap.exists) fail("not-found", "EMPRESA_NOT_FOUND");
@@ -51,6 +54,18 @@ export async function obtenerEstadoOnboardingTenant(
   });
 
   const borrador = numeraciones.find((n) => n.estado === "BORRADOR" && n.tipoDocumento === "pos") ?? null;
+  const suscripcion = suscripcionSnap.exists ? suscripcionSnap.data() as Suscripcion : undefined;
+  const planSnap = suscripcion
+    ? await db.collection("planes").doc(suscripcion.planId).collection("versiones").doc(String(suscripcion.planVersion)).get()
+    : null;
+  const plan = planSnap?.exists ? planSnap.data() as PlanVersion : undefined;
+  const ventaDemostracion = evaluarDisponibilidadVentaDemostracion(
+    String(empresaData.estado ?? ""),
+    suscripcion,
+    plan,
+    readinessTotal.detalles.configuracion.fiscal.lista &&
+      readinessTotal.detalles.numeracion.lista,
+  );
 
   return {
     empresaId,
@@ -58,6 +73,7 @@ export async function obtenerEstadoOnboardingTenant(
     estadoEmpresa: String(empresaData.estado ?? ""),
     readinessTotal,
     numeracionBorrador: borrador,
+    ventaDemostracion,
   };
 }
 
@@ -102,7 +118,7 @@ export async function completarPasoConfiguracionFiscalOnboarding(
     { tipo: "SET", ruta: "identidadFiscal.digitoVerificacion", valor: entrada.identidadFiscal.digitoVerificacion },
     { tipo: "SET", ruta: "identidadFiscal.regimenTributario", valor: entrada.identidadFiscal.regimenTributario },
     { tipo: "SET", ruta: "identidadFiscal.actividadEconomicaPrincipal", valor: entrada.identidadFiscal.actividadEconomicaPrincipal },
-    { tipo: "SET", ruta: "identidadFiscal.responsabilidadesFiscales", valor: entrada.identidadFiscal.responsabilidadFiscal ? [entrada.identidadFiscal.responsabilidadFiscal] : ["R-99-PN"] },
+    { tipo: "SET", ruta: "identidadFiscal.responsabilidadesFiscales", valor: entrada.identidadFiscal.responsabilidadFiscal ? [entrada.identidadFiscal.responsabilidadFiscal] : [] },
     { tipo: "SET", ruta: "localizacion.direccion.linea1", valor: entrada.direccionFiscal.linea1 },
     { tipo: "SET", ruta: "localizacion.direccion.departamentoCodigo", valor: entrada.direccionFiscal.departamentoCodigo },
     { tipo: "SET", ruta: "localizacion.direccion.departamentoNombre", valor: entrada.direccionFiscal.departamentoNombre },

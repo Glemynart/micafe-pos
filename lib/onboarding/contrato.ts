@@ -13,6 +13,7 @@ import {
   type ScopeFiscal,
   type TipoDocumentoFiscal,
 } from "../fiscal/contrato";
+import { readinessComercial, type PlanVersion, type Suscripcion } from "../suscripciones/contrato";
 
 export type CausaReadinessTotal =
   | "CONFIGURACION_OPERATIVA_INCOMPLETA"
@@ -48,6 +49,39 @@ export interface EstadoReadinessTotal {
     configuracion: ReadinessConfiguracion;
     numeracion: EstadoReadinessNumeracion;
   };
+}
+
+export type CausaVentaDemostracion =
+  | "EMPRESA_NO_TRIAL"
+  | "SUSCRIPCION_NO_TRIAL"
+  | "TRIAL_NO_VIGENTE"
+  | "PLAN_NO_ADMISIBLE"
+  | "CAPACIDAD_SELL_NO_DISPONIBLE"
+  | "READINESS_FISCAL_COMPLETA";
+
+export interface EstadoVentaDemostracion {
+  disponible: boolean;
+  causa: CausaVentaDemostracion | null;
+}
+
+/**
+ * Deriva la elegibilidad de la ruta DEMO sin persistir un estado adicional.
+ * La misma regla se usa en onboarding (UX) y en el comando backend (autoridad).
+ */
+export function evaluarDisponibilidadVentaDemostracion(
+  estadoEmpresa: string,
+  suscripcion: Suscripcion | undefined,
+  plan: PlanVersion | undefined,
+  readinessFiscalLista: boolean,
+  hoy = new Date().toISOString().slice(0, 10),
+): EstadoVentaDemostracion {
+  if (estadoEmpresa !== "trial") return { disponible: false, causa: "EMPRESA_NO_TRIAL" };
+  if (!suscripcion || suscripcion.estado !== "trialing") return { disponible: false, causa: "SUSCRIPCION_NO_TRIAL" };
+  if (!readinessComercial(suscripcion, hoy)) return { disponible: false, causa: "TRIAL_NO_VIGENTE" };
+  if (!plan || plan.estado !== "PUBLICADA") return { disponible: false, causa: "PLAN_NO_ADMISIBLE" };
+  if (!Array.isArray(plan.capacidades) || !plan.capacidades.includes("sell")) return { disponible: false, causa: "CAPACIDAD_SELL_NO_DISPONIBLE" };
+  if (readinessFiscalLista) return { disponible: false, causa: "READINESS_FISCAL_COMPLETA" };
+  return { disponible: true, causa: null };
 }
 
 /**

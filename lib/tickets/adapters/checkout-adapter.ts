@@ -52,7 +52,8 @@ import type {
  * + `consecutivo` (retorno del servicio) + `fecha` (sello de cliente).
  */
 export type CheckoutTicketInput = CrearVentaParams & {
-  consecutivo: number
+  consecutivo?: number
+  referenciaOperacion?: string
   fecha: Date
 }
 
@@ -119,14 +120,15 @@ function mapearItems(items: VentaItem[]): VentaBuilderInputItem[] {
 /** Encabezado/pie de empresa. El régimen sale del snapshot de la venta (ADR-TRIB-001 D6). */
 export interface CheckoutConfiguracionEmpresa { identidad: ReturnType<typeof proyectarIdentidadConfiguracion>; localizacion: ReturnType<typeof proyectarLocalizacionConfiguracion>; ticket: ReturnType<typeof proyectarTicketConfiguracion> }
 function mapearEmpresa(venta: CheckoutTicketInput, config: CheckoutConfiguracionEmpresa): TicketEmpresaConfig {
+  const esDemo = venta.modoOperacion === 'DEMO'
   return {
     nombreComercial: config.identidad.nombreComercial,
-    razonSocial: config.identidad.razonSocial,
-    nit: config.identidad.numeroDocumento ? `${config.identidad.numeroDocumento}${config.identidad.digitoVerificacion ? `-${config.identidad.digitoVerificacion}` : ''}` : '',
+    razonSocial: esDemo ? undefined : config.identidad.razonSocial,
+    nit: esDemo ? '' : (config.identidad.numeroDocumento ? `${config.identidad.numeroDocumento}${config.identidad.digitoVerificacion ? `-${config.identidad.digitoVerificacion}` : ''}` : ''),
     direccion: config.localizacion.direccion.linea1,
     ciudad: config.localizacion.direccion.municipioNombre,
     telefono: config.identidad.contacto.telefono,
-    regimenTributario: venta.regimenAlMomento,
+    regimenTributario: esDemo ? undefined : venta.regimenAlMomento,
     mensajeTicket: config.ticket.mensajePie,
   }
 }
@@ -141,8 +143,9 @@ export function adaptarCheckoutAModeloTicket(
   config: CheckoutConfiguracionEmpresa
 ): { input: VentaBuilderInput; empresa: TicketEmpresaConfig } {
   const input: VentaBuilderInput = {
-    numero: venta.consecutivo,
+    numero: venta.referenciaOperacion ?? venta.consecutivo ?? 'SIN-NUMERO',
     fecha: venta.fecha,
+    modoOperacion: venta.modoOperacion,
     cliente: mapearCliente(venta),
     items: mapearItems(venta.items),
     totales: mapearTotales(venta),

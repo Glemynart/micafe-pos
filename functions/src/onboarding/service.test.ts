@@ -144,6 +144,7 @@ test("B6 Onboarding — Flujo completo de reanudación y completitud del Onboard
   const estado1 = await obtenerEstadoOnboardingTenant(db as any, "empresa_b6_flow", "CO");
   assert.equal(estado1.readinessTotal.listo, false);
   assert.ok(estado1.numeracionBorrador !== null);
+  assert.equal(estado1.ventaDemostracion.disponible, true);
 
   // Intentar realizar una venta fiscal desde backend (debe rebotar por readiness fiscal incompleta)
   await assert.rejects(
@@ -234,6 +235,8 @@ test("B6 Onboarding — Flujo completo de reanudación y completitud del Onboard
   const estado2 = await obtenerEstadoOnboardingTenant(db as any, "empresa_b6_flow", "CO");
   assert.equal(estado2.readinessTotal.listo, true);
   assert.equal(estado2.readinessTotal.causas.length, 0);
+  assert.equal(estado2.ventaDemostracion.disponible, false);
+  assert.equal(estado2.ventaDemostracion.causa, "READINESS_FISCAL_COMPLETA");
 
   // 6. Confirmar que la autoridad de Lifecycle (Empresa.estado) PERMANECE intacta en "trial"
   const empresa = db.read("empresas/empresa_b6_flow");

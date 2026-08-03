@@ -67,6 +67,7 @@ export interface PagoMixtoDetalle {
 }
 
 export interface CrearVentaParams {
+  modoOperacion?: 'FISCAL' | 'DEMO';
   turnoId: string;
   cajeroId: string;
   cajeroNombre?: string;
@@ -93,6 +94,7 @@ export interface CrearVentaParams {
   // Pago mixto
   pagoMixto?: boolean;
   pagoMixtoDetalle?: PagoMixtoDetalle[];
+  pedidoId?: string;
   estado: 'pagada' | 'pendiente';
 }
 
@@ -111,6 +113,14 @@ interface ResultadoEfectosVenta {
   movimientosInventario: string[];
   incidenciasInventario: IncidenciaInventario[];
   pedidoId?: string;
+}
+
+export interface ResultadoVenta {
+  id: string;
+  modoOperacion: 'FISCAL' | 'DEMO';
+  consecutivo?: number;
+  referenciaOperacion?: string;
+  incidenciasInventario: IncidenciaInventario[];
 }
 
 /**
@@ -165,14 +175,72 @@ async function aplicarFase2Venta(ventaId: string): Promise<ResultadoEfectosVenta
   return respuesta.data;
 }
 
+async function registrarVentaDemostracion(
+  params: CrearVentaParams,
+  ventaId: string,
+): Promise<ResultadoVenta> {
+  const ejecutar = httpsCallable<any, { ventaId: string; modoOperacion: 'DEMO'; referenciaOperacion: string }>(
+    getFunctions(),
+    'crearVentaDemostracionV1',
+  );
+  const respuesta = await ejecutar({
+    commandId: `cmd_demo_sale_${ventaId}`,
+    idempotencyKey: `idem_demo_sale_${ventaId}`,
+    correlationId: `corr_demo_sale_${ventaId}`,
+    causationId: `cause_demo_sale_${ventaId}`,
+    expectedRevision: 1,
+    ventaId,
+    espacioId: params.espacioId,
+    venta: {
+      turnoId: params.turnoId,
+      cajeroId: params.cajeroId,
+      cajeroNombre: params.cajeroNombre,
+      clienteId: params.clienteId,
+      clienteNombre: params.clienteNombre,
+      clienteDocumento: params.clienteDocumento,
+      notasFiado: params.notasFiado,
+      pedidoId: params.pedidoId,
+      items: params.items.map((item) => ({
+        id: item.id,
+        nombre: item.nombre,
+        cantidad: item.cantidad,
+        precioUnitario: item.precioUnitario,
+        costoUnitario: item.costoUnitario,
+        subtotal: item.subtotal,
+        schemaVersion: item.schemaVersion,
+        configurationKey: item.configurationKey,
+        precioBaseUnitario: item.precioBaseUnitario,
+        codigo: item.codigo,
+        categoria: item.categoria,
+        modificadores: item.modificadores,
+      })),
+      metodoPago: params.metodoPago,
+      dineroRecibido: params.dineroRecibido,
+      cambio: params.cambio,
+      pagoMixtoDetalle: params.pagoMixtoDetalle,
+    },
+  });
+  const resFase2 = await aplicarFase2Venta(ventaId);
+  return {
+    id: ventaId,
+    modoOperacion: respuesta.data.modoOperacion,
+    referenciaOperacion: respuesta.data.referenciaOperacion,
+    incidenciasInventario: resFase2.incidenciasInventario ?? [],
+  };
+}
+
 /**
  * Registra una venta en Firestore utilizando la Saga en 2 Fases (B7 Cutover).
  */
 export async function registrarVenta(
   params: CrearVentaParams
-): Promise<{ id: string; consecutivo: number; incidenciasInventario: IncidenciaInventario[] }> {
+): Promise<ResultadoVenta> {
   const nuevaVentaDoc = doc(collection(db, "ventas"));
   const ventaId = nuevaVentaDoc.id;
+
+  if (params.modoOperacion === 'DEMO') {
+    return registrarVentaDemostracion(params, ventaId);
+  }
 
   // 1. Obtener revisiones de numeración y asignación
   const { expectedRevision, expectedAsignacionRevision } = await obtenerRevisionesNumeracionActiva("pos");
@@ -234,11 +302,11 @@ export async function registrarVenta(
   // 3. FASE 2: intención mínima; la transacción crítica vive en Functions.
   const resFase2 = await aplicarFase2Venta(ventaId);
 
-  return { id: ventaId, consecutivo, incidenciasInventario: resFase2.incidenciasInventario ?? [] };
+  return { id: ventaId, modoOperacion: 'FISCAL', consecutivo, incidenciasInventario: resFase2.incidenciasInventario ?? [] };
 }
 
 export type CobrarPedidoResult =
-  | { status: 'ok', ventaId: string, consecutivo: number, incidenciasInventario: IncidenciaInventario[] }
+  | { status: 'ok', ventaId: string, modoOperacion: 'FISCAL' | 'DEMO', consecutivo?: number, referenciaOperacion?: string, incidenciasInventario: IncidenciaInventario[] }
   | { status: 'already_paid', ventaId: string }
 
 export async function cobrarPedido(
@@ -256,6 +324,17 @@ export async function cobrarPedido(
   const pedido = pedidoSnap.data();
   if (!pedido.activo || pedido.estado !== 'abierto') {
     return { status: 'already_paid', ventaId: pedido.ventaId || '' };
+  }
+
+  if (params.modoOperacion === 'DEMO') {
+    const resultado = await registrarVentaDemostracion({ ...params, pedidoId }, ventaId);
+    return {
+      status: 'ok',
+      ventaId,
+      modoOperacion: 'DEMO',
+      referenciaOperacion: resultado.referenciaOperacion,
+      incidenciasInventario: resultado.incidenciasInventario,
+    };
   }
 
   // 1. Obtener revisiones
@@ -317,7 +396,7 @@ export async function cobrarPedido(
   // 3. FASE 2: la misma intención server-side cierra también el pedido y sus comandas.
   const resFase2 = await aplicarFase2Venta(ventaId);
 
-  return { status: 'ok', ventaId, consecutivo, incidenciasInventario: resFase2.incidenciasInventario ?? [] };
+  return { status: 'ok', ventaId, modoOperacion: 'FISCAL', consecutivo, incidenciasInventario: resFase2.incidenciasInventario ?? [] };
 }
 
 const HISTORIAL_VENTAS_LIMIT = 100;

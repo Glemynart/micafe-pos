@@ -66,7 +66,7 @@ function renderVenta(model: VentaTicketModel, options: RenderOptions, assets: Ti
         .join('')
     : ''
 
-  const encabezadoNumero = `${isDian ? 'N° FACTURA' : 'N° TICKET'}:`
+  const encabezadoNumero = `${isDian ? 'N° FACTURA' : meta.modoOperacion === 'DEMO' ? 'N° OPERACIÓN' : 'N° TICKET'}:`
   const numeroCompleto = `${isDian && meta.prefijo ? `${meta.prefijo} ` : ''}${meta.numero}`
 
   const qrHtml =
