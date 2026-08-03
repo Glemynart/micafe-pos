@@ -89,11 +89,12 @@ export function suscribirUsuarios(callback: (usuarios: Usuario[]) => void): Unsu
 }
 
 export type ResultadoCreacionOperador = {
-  incorporacionId: string;
+  incorporacionId?: string;
   estado: string;
   uid: string;
   codigo: string;
   pinTemporal?: string;
+  restablecimientoId?: string;
 };
 
 export async function crearOperador(nombre: string, rol: RolUsuario): Promise<ResultadoCreacionOperador> {
@@ -105,6 +106,28 @@ export async function crearOperador(nombre: string, rol: RolUsuario): Promise<Re
   }, ResultadoCreacionOperador>(functionsCliente(), "crearIncorporacionDirecta");
   const result = await callable({ nombre, rol });
   return result.data as ResultadoCreacionOperador;
+}
+
+/** ADR-SAAS-017 — el admin del tenant puede recuperar solo operadores no admin. */
+export async function restablecerOperador(uid: string): Promise<ResultadoCreacionOperador> {
+  const callable = httpsCallable<{
+    objetivoUid: string;
+    commandId: string;
+    idempotencyKey: string;
+    correlationId: string;
+    causationId: null;
+    motivoCodigo: string;
+  }, ResultadoCreacionOperador>(functionsCliente(), "restablecerCredencialOperativa");
+  const id = crypto.randomUUID();
+  const result = await callable({
+    objetivoUid: uid,
+    commandId: id,
+    idempotencyKey: crypto.randomUUID(),
+    correlationId: crypto.randomUUID(),
+    causationId: null,
+    motivoCodigo: "TENANT_ADMIN_RESTABLECER_CREDENCIAL_OPERADOR",
+  });
+  return result.data;
 }
 
 /**

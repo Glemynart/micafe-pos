@@ -32,6 +32,8 @@ export interface CredencialOperativa {
   actualizadaEn: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
   pinActualizadoEn: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
   requiereCambio?: boolean;
+  /** ADR-SAAS-017: vínculo no secreto con la recuperación temporal vigente. */
+  restablecimientoId?: string | null;
   /** ADR-SAAS-013: quién emitió esta credencial. Ausente en documentos previos a §7.4. */
   origen?: OrigenIncorporacion;
   /** ADR-SAAS-013 D-3: TTL de 72h para credenciales temporales (`requiereCambio=true`). */
