@@ -32,6 +32,7 @@
     "test:onboarding": "tsx --test lib/__tests__/onboarding.test.ts",
     "test:backfill": "tsx --test scripts/lib/__tests__/*.test.ts",
     "test:p0-01:verifier": "tsx --test scripts/p0-01/verifier.test.ts",
+    "test:p0-01:plan": "tsx --test scripts/plans/mvp-comercial.test.ts",
     "verify:p0-01": "tsx scripts/p0-01/verify-tenant.ts",
     "migrate:configuracion-fundacional": "tsx functions/src/configuracion/migrar-fundacional-cli.ts",
     "analyze:configuracion-legacy": "tsx scripts/analizar-configuracion-legacy.ts --dry-run",
