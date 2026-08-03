@@ -1,9 +1,14 @@
 import bcrypt from "bcryptjs";
 import { FieldValue } from "firebase-admin/firestore";
 import { crearPlantillaConfiguracionRevision1 } from "../../../../lib/configuracion/plantilla";
+import { MVP_COMERCIAL_CAPACIDADES } from "../../../../scripts/plans/mvp-comercial";
 import { adminP001, E2E_P0_01_RUN_ID } from "./entorno";
 
-export const P0_01_MODULES = ["sell", "salon", "settings"] as const;
+/**
+ * El smoke debe certificar el contrato del Plan aprobado, no una combinación
+ * histórica de permisos que ya no representa el MVP comercial.
+ */
+export const P0_01_MODULES = MVP_COMERCIAL_CAPACIDADES;
 const PIN = "123456";
 const PEPPER = process.env.E2E_P0_01_OPERATIONAL_PIN_PEPPER ?? "p0-01-e2e-local-pepper";
 
@@ -51,7 +56,7 @@ export async function prepararFixtureP001(nombre: string): Promise<FixtureP001> 
   const { auth, db } = adminP001();
   const runId = `${E2E_P0_01_RUN_ID}-${idSeguro(nombre)}`;
   const empresaId = `e2e-p0-01-${idSeguro(runId)}`;
-  const planId = `${empresaId}-plan`;
+  const planId = "mvp_comercial";
   const uid = `${empresaId}-admin`;
   const codigo = `p001-${idSeguro(runId).slice(-8)}-admin`.toLowerCase();
   const admin = { uid, codigo, pin: PIN, nombre: "Administrador E2E P0-01" };
@@ -118,7 +123,7 @@ export async function prepararFixtureP001(nombre: string): Promise<FixtureP001> 
 
   await db.collection("planes").doc(planId).set({
     planId,
-    codigo: "P0_01_E2E",
+    codigo: "MVP_COMERCIAL",
     revision: 1,
     versionActual: 1,
     creadaEn: FieldValue.serverTimestamp(),
@@ -126,11 +131,11 @@ export async function prepararFixtureP001(nombre: string): Promise<FixtureP001> 
   await db.collection("planes").doc(planId).collection("versiones").doc("1").set({
     schemaVersion: 1,
     planId,
-    codigo: "P0_01_E2E",
+    codigo: "MVP_COMERCIAL",
     planVersion: 1,
     estado: "PUBLICADA",
     capacidades: [...P0_01_MODULES],
-    limites: { usuarios: { unidad: "USUARIOS", valor: 10 } },
+    limites: {},
     periodicidad: "MENSUAL",
     grandfathered: false,
     revision: 1,
@@ -166,5 +171,5 @@ export async function prepararFixtureP001(nombre: string): Promise<FixtureP001> 
 }
 
 export async function limpiarFixtureP001(fixture: FixtureP001): Promise<void> {
-  await borrarFixture(fixture, `${fixture.empresaId}-plan`);
+  await borrarFixture(fixture, "mvp_comercial");
 }
