@@ -2,7 +2,9 @@ import { createHash } from "node:crypto";
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { evaluarReadinessConfiguracion, type ConfiguracionEmpresa } from "../../../lib/configuracion";
+import { evaluarDisponibilidadVentaDemostracion, evaluarReadinessTotal } from "../../../lib/onboarding/contrato";
 import { fechaFiscalActualUtc, fechaFiscalEnRango, rangoVigenciaFiscalValido, scopeEmpresa, scopeEspacio, validarIdFiscal, validarScopeFiscal, type EstadoNumeracion, type ScopeFiscal, type SnapshotFiscal, type TipoDocumentoFiscal, type Numeracion, type Asignacion } from "../../../lib/fiscal/contrato";
+import type { PlanVersion, Suscripcion } from "../../../lib/suscripciones/contrato";
 
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const id = (prefix: string, empresaId: string, value: string) => `${prefix}_${empresaId}_${hash(value)}`;
@@ -14,6 +16,7 @@ export interface ContextoFiscal { empresaId: string; actorId: string; paisFiscal
 export interface Envelope { commandId: string; idempotencyKey: string; correlationId: string; causationId: string; expectedRevision: number; motivo?: string; }
 export interface CrearNumeracion extends Envelope { numeracionId: string; tipoDocumento: TipoDocumentoFiscal; scope: ScopeFiscal; prefijo: string; resolucion: string; rangoInicio: number; rangoFin: number; vigenciaDesde: string; vigenciaHasta: string; }
 export interface ConfirmarVentaFiscal extends Envelope { ventaId: string; espacioId?: string; tipoDocumento: TipoDocumentoFiscal; expectedAsignacionRevision: number; venta: Record<string, unknown> & { items: Array<Record<string, unknown>> }; }
+export interface CrearVentaDemostracion extends Envelope { ventaId: string; espacioId?: string; venta: Record<string, unknown> & { items: Array<Record<string, unknown>> }; }
 
 export function claveAsignacion(scope: ScopeFiscal, tipo: TipoDocumentoFiscal) { return `${scope}_${tipo}`; }
 function validarNumeracion(input: Omit<Numeracion, "creadaEn" | "actualizadaEn">) {
@@ -29,6 +32,205 @@ function snapshot(config: ConfiguracionEmpresa, n: Numeracion, numero: number, i
   return sinUndefined({ schemaVersion: 1, configuracionRevision: config.revision, identidadFiscal: { nombreComercial: config.identidadFiscal.nombreComercial, razonSocial: config.identidadFiscal.razonSocial, numeroDocumento: config.identidadFiscal.numeroDocumento, digitoVerificacion: config.identidadFiscal.digitoVerificacion, regimenTributario: config.identidadFiscal.regimenTributario, direccion: config.localizacion.direccion.linea1, ciudad: config.localizacion.direccion.municipioNombre, telefono: config.identidadFiscal.contacto.telefono }, paisFiscal: config.localizacion.paisFiscal, moneda: config.localizacion.moneda, impuestosLineas: lineas.map((item) => ({ itemId: item.id, impuestoTipo: item.impuestoTipo, impuestoTarifa: item.impuestoTarifa, impuestoValor: item.impuestoValor, base: item.base })), documento: { items: lineas, totales: { subtotalBase: Number(totales.subtotalBase), totalINC: Number(totales.totalINC), total: Number(totales.total) }, pago: { metodo: String(pago.metodo ?? venta.metodoPago ?? ""), recibido: pago.recibido as number | undefined, cambio: pago.cambio as number | undefined }, cliente: venta.cliente as SnapshotFiscal['documento']['cliente'] }, numeracion: { numeracionId: n.numeracionId, revision: n.revision, tipoDocumento: n.tipoDocumento, scope: n.scope, numero, prefijo: n.prefijo, resolucion: n.resolucion, rangoInicio: n.rangoInicio, rangoFin: n.rangoFin, vigenciaDesde: n.vigenciaDesde, vigenciaHasta: n.vigenciaHasta }, emitidaEn: FieldValue.serverTimestamp() });
 }
 function validarVentaParaSnapshot(venta: ConfirmarVentaFiscal["venta"]): void { const numero = (v: unknown, min = 0) => typeof v === "number" && Number.isFinite(v) && v >= min; if (venta.items.length === 0 || venta.items.some(item => !validarIdFiscal(item.id) || typeof item.nombre !== "string" || !item.nombre.trim() || !numero(item.cantidad, 0.000001) || !numero(item.precioUnitario) || !numero(item.subtotal) || !["excluido", "inc_8", "iva_19"].includes(String(item.impuestoTipo)) || !numero(item.impuestoTarifa) || !numero(item.impuestoValor) || !numero(item.base))) fail("invalid-argument", "LINEAS_FISCALES_INVALIDAS"); const t = venta.totales as Record<string, unknown> | undefined; if (!t || !numero(t.subtotalBase) || !numero(t.totalINC) || !numero(t.total)) fail("invalid-argument", "TOTALES_FISCALES_INVALIDOS"); const metodo = ((venta.pago as Record<string, unknown> | undefined)?.metodo ?? venta.metodoPago); if (typeof metodo !== "string" || !metodo.trim()) fail("invalid-argument", "PAGO_FISCAL_INVALIDO"); }
+
+function numeroComercial(value: unknown, minimo = 0): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= minimo;
+}
+
+function textoComercial(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function sumaDeltasModificadores(value: unknown): number {
+  if (value === undefined) return 0;
+  const grupos: unknown[] = Array.isArray(value) ? value : fail("invalid-argument", "MODIFICADORES_INVALIDOS");
+  let total = 0;
+  for (const grupo of grupos) {
+    if (!grupo || typeof grupo !== "object" || !Array.isArray((grupo as any).opciones)) fail("invalid-argument", "MODIFICADORES_INVALIDOS");
+    for (const opcion of (grupo as any).opciones) {
+      if (!opcion || !numeroComercial(opcion.precioDelta)) fail("invalid-argument", "MODIFICADORES_INVALIDOS");
+      total += opcion.precioDelta;
+    }
+  }
+  return total;
+}
+
+async function construirVentaDemostracion(
+  tx: FirebaseFirestore.Transaction,
+  db: Firestore,
+  empresaId: string,
+  venta: CrearVentaDemostracion["venta"],
+) {
+  if (!textoComercial(venta.turnoId) || !textoComercial(venta.cajeroId) || venta.items.length === 0) fail("invalid-argument", "VENTA_DEMO_INVALIDA");
+  const metodo = venta.metodoPago;
+  if (!["efectivo", "transferencia", "tarjeta", "cuenta_cobro", "mixto"].includes(String(metodo))) fail("invalid-argument", "PAGO_DEMO_INVALIDO");
+  if (metodo === "cuenta_cobro" && (!textoComercial(venta.clienteId) || !textoComercial(venta.clienteNombre))) fail("invalid-argument", "CLIENTE_CUENTA_COBRO_REQUERIDO");
+
+  const items: Array<Record<string, unknown>> = [];
+  let total = 0;
+  for (const item of venta.items) {
+    if (!textoComercial(item.id) || !numeroComercial(item.cantidad, 1) || !numeroComercial(item.precioUnitario, 1) || !numeroComercial(item.subtotal, 1)) fail("invalid-argument", "ITEM_DEMO_INVALIDO");
+    const cantidad = item.cantidad as number;
+    const quick = (item.id as string).startsWith("quick-");
+    const productoSnap = quick ? null : await tx.get(db.collection("productos").doc(item.id as string));
+    const producto = productoSnap?.exists ? productoSnap.data() as Record<string, unknown> : undefined;
+    if (!quick && (!productoSnap?.exists || producto?.empresaId !== empresaId || producto?.activo === false)) fail("failed-precondition", "ARTICULO_NO_ENCONTRADO");
+    if (quick && !textoComercial(item.nombre)) fail("invalid-argument", "ITEM_DEMO_INVALIDO");
+
+    const precioBase = item.precioBaseUnitario ?? item.precioUnitario;
+    const precioCatalogo = producto?.precio;
+    const deltaModificadores = sumaDeltasModificadores(item.modificadores);
+    if (producto && (!numeroComercial(precioCatalogo, 1) || precioBase !== precioCatalogo || item.precioUnitario !== precioCatalogo + deltaModificadores)) {
+      fail("failed-precondition", "PRECIO_DEMO_DESACTUALIZADO");
+    }
+    if ((item.subtotal as number) !== (item.precioUnitario as number) * cantidad) fail("invalid-argument", "SUBTOTAL_DEMO_INVALIDO");
+    total += item.subtotal as number;
+    const costoUnitario = producto?.costo ?? item.costoUnitario ?? 0;
+    if (!numeroComercial(costoUnitario)) fail("invalid-argument", "ITEM_DEMO_INVALIDO");
+
+    items.push(sinUndefined({
+      id: item.id,
+      nombre: producto?.nombre ?? item.nombre,
+      cantidad,
+      precioUnitario: item.precioUnitario,
+      costoUnitario,
+      subtotal: item.subtotal,
+      codigo: item.codigo ?? item.id,
+      categoria: producto?.categoriaId ?? item.categoria ?? null,
+      schemaVersion: item.schemaVersion,
+      configurationKey: item.configurationKey,
+      precioBaseUnitario: item.precioBaseUnitario,
+      modificadores: item.modificadores,
+    }));
+  }
+
+  if (!numeroComercial(total, 1)) fail("invalid-argument", "TOTAL_DEMO_INVALIDO");
+  if (metodo === "mixto") {
+    const detalle = Array.isArray(venta.pagoMixtoDetalle) ? venta.pagoMixtoDetalle : fail("invalid-argument", "PAGO_DEMO_INVALIDO");
+    if (detalle.length === 0) fail("invalid-argument", "PAGO_DEMO_INVALIDO");
+    const suma = detalle.reduce((acumulado: number, pago: any) => {
+      if (!pago || !["efectivo", "transferencia", "tarjeta"].includes(String(pago.metodo)) || !numeroComercial(pago.monto, 1)) fail("invalid-argument", "PAGO_DEMO_INVALIDO");
+      return acumulado + pago.monto;
+    }, 0);
+    if (suma !== total) fail("invalid-argument", "PAGO_DEMO_INVALIDO");
+  }
+
+  return {
+    items,
+    totales: { subtotalBase: total, totalINC: 0, totalExcluido: total, total },
+    estado: metodo === "cuenta_cobro" ? "pendiente" : "pagada",
+    total,
+  };
+}
+
+type ResultadoVentaDemostracion = {
+  ventaId: string;
+  modoOperacion: "DEMO";
+  referenciaOperacion: string;
+};
+
+export async function crearVentaDemostracion(
+  db: Firestore,
+  entrada: CrearVentaDemostracion,
+  contexto: ContextoFiscal,
+) {
+  validarEnvelope(entrada);
+  const rolEfectivo = typeof contexto.rolEfectivo === "string" && contexto.rolEfectivo
+    ? contexto.rolEfectivo
+    : fail("failed-precondition", "CONTEXTO_OPERATIVO_INVALIDO");
+  if (!validarIdFiscal(entrada.ventaId) || (entrada.espacioId !== undefined && !validarIdFiscal(entrada.espacioId)) || !entrada.venta || !Array.isArray(entrada.venta.items)) {
+    fail("invalid-argument", "VENTA_DEMO_INVALIDA");
+  }
+
+  const fingerprint = hash(entrada);
+  const resultado = await db.runTransaction(async tx => {
+    const previo = await deduplicar<ResultadoVentaDemostracion>(db, tx, contexto, entrada, fingerprint);
+    if (previo) return { resultado: previo, idempotente: true };
+
+    const [empresaSnap, configSnap, suscripcionSnap, ventaSnap, numeracionesSnap, asignacionesSnap] = await Promise.all([
+      tx.get(db.collection("empresas").doc(contexto.empresaId)),
+      tx.get(db.collection("configuraciones").doc(contexto.empresaId)),
+      tx.get(db.collection("suscripciones").doc(contexto.empresaId)),
+      tx.get(db.collection("ventas").doc(entrada.ventaId)),
+      tx.get(db.collection("numeraciones").where("empresaId", "==", contexto.empresaId)),
+      tx.get(db.collection("asignaciones_numeracion").where("empresaId", "==", contexto.empresaId)),
+    ]);
+    validarEmpresa(empresaSnap.data(), contexto);
+    if (ventaSnap.exists) {
+      if (ventaSnap.data()?.modoOperacion === "DEMO") fail("already-exists", "VENTA_DEMO_EXISTS");
+      fail("already-exists", "VENTA_ALREADY_EXISTS");
+    }
+    if (!configSnap.exists) fail("failed-precondition", "CONFIG_NOT_FOUND");
+    const empresa = empresaSnap.data() as Record<string, unknown>;
+    const suscripcion = suscripcionSnap.exists ? suscripcionSnap.data() as Suscripcion : undefined;
+    const planSnap = suscripcion
+      ? await tx.get(db.collection("planes").doc(suscripcion.planId).collection("versiones").doc(String(suscripcion.planVersion)))
+      : undefined;
+    const plan = planSnap?.exists ? planSnap.data() as PlanVersion : undefined;
+    const config = configSnap.data() as ConfiguracionEmpresa;
+    const readinessConfiguracion = evaluarReadinessConfiguracion(config, {
+      empresaId: contexto.empresaId,
+      paisFiscalEmpresa: contexto.paisFiscal,
+    });
+    const readinessTotal = evaluarReadinessTotal(
+      config,
+      numeracionesSnap.docs.map((snap: FirebaseFirestore.QueryDocumentSnapshot) => snap.data() as Numeracion),
+      asignacionesSnap.docs.map((snap: FirebaseFirestore.QueryDocumentSnapshot) => snap.data() as Asignacion),
+      { empresaId: contexto.empresaId, paisFiscalEmpresa: contexto.paisFiscal },
+    );
+    const readinessFiscal = readinessConfiguracion.fiscal.lista && readinessTotal.detalles.numeracion.lista;
+    const disponibilidad = evaluarDisponibilidadVentaDemostracion(
+      String(empresa.estado ?? ""),
+      suscripcion,
+      plan,
+      readinessFiscal,
+    );
+    if (!disponibilidad.disponible) fail("failed-precondition", `VENTA_DEMO_NO_DISPONIBLE:${disponibilidad.causa}`);
+
+    const construida = await construirVentaDemostracion(tx, db, contexto.empresaId, entrada.venta);
+    const referenciaOperacion = `DEMO-${entrada.ventaId}`;
+    const ventaCanonica = sinUndefined({
+      empresaId: contexto.empresaId,
+      espacioId: entrada.espacioId ?? null,
+      turnoId: entrada.venta.turnoId,
+      cajeroId: contexto.actorId,
+      cajeroNombre: entrada.venta.cajeroNombre,
+      rolCajeroSnapshot: rolEfectivo,
+      clienteId: entrada.venta.clienteId,
+      clienteNombre: entrada.venta.clienteNombre,
+      clienteDocumento: entrada.venta.clienteDocumento,
+      notasFiado: entrada.venta.notasFiado,
+      pedidoId: entrada.venta.pedidoId,
+      items: construida.items,
+      totales: construida.totales,
+      metodoPago: entrada.venta.metodoPago ?? (entrada.venta.pago as Record<string, unknown> | undefined)?.metodo,
+      pago: {
+        metodo: entrada.venta.metodoPago ?? (entrada.venta.pago as Record<string, unknown> | undefined)?.metodo,
+        recibido: entrada.venta.dineroRecibido,
+        cambio: entrada.venta.cambio,
+      },
+      pagoMixtoDetalle: entrada.venta.pagoMixtoDetalle,
+      estado: construida.estado,
+      modoOperacion: "DEMO",
+      referenciaOperacion,
+      estadoOperativo: "PENDIENTE_EFECTOS",
+      fecha: FieldValue.serverTimestamp(),
+    });
+    tx.create(db.collection("ventas").doc(entrada.ventaId), ventaCanonica);
+    const confirmado: ResultadoVentaDemostracion = {
+      ventaId: entrada.ventaId,
+      modoOperacion: "DEMO",
+      referenciaOperacion,
+    };
+    registrar(db, tx, contexto, entrada, fingerprint, confirmado, "VentaDemostracionCreada", "VENTA", 0, 1, {
+      ventaId: entrada.ventaId,
+      actorOriginal: { uid: contexto.actorId, rolEfectivo },
+    });
+    return { resultado: confirmado, idempotente: false };
+  });
+
+  return { ...resultado.resultado, idempotente: resultado.idempotente };
+}
 async function deduplicar<T>(db: Firestore, tx: FirebaseFirestore.Transaction, contexto: ContextoFiscal, e: Envelope, fingerprint: string): Promise<T | undefined> { const ref = db.collection("fiscal_comandos").doc(id("fiscalcmd", contexto.empresaId, e.idempotencyKey)); const commandIdRef = db.collection("configuracion_command_ids").doc(`cfgcmdid_${hash(e.commandId)}`); const [snap, commandIdSnap] = await Promise.all([tx.get(ref), tx.get(commandIdRef)]); for (const existente of [commandIdSnap, snap]) { if (!existente.exists) continue; const data = existente.data()!; if (data.empresaId !== contexto.empresaId || data.commandId !== e.commandId || data.idempotencyKey !== e.idempotencyKey || data.fingerprint !== fingerprint) fail("already-exists", existente === commandIdSnap ? "COMMAND_ID_CONFLICT" : "IDEMPOTENCY_CONFLICT"); return data.resultado as T; } return undefined; }
 function registrarHecho(db: Firestore, tx: FirebaseFirestore.Transaction, contexto: ContextoFiscal, e: Envelope, tipo: string, agregado: string, anterior: number, nueva: number, sufijo = "") { const clave = `${e.commandId}${sufijo}`; const auditId = id("fiscalaudit", contexto.empresaId, clave); const eventId = id("fiscalevent", contexto.empresaId, clave); tx.create(db.collection("auditoria_logs").doc(auditId), { empresaId: contexto.empresaId, agregado, comando: tipo, commandId: e.commandId, idempotencyKey: e.idempotencyKey, correlationId: e.correlationId, causationId: e.causationId, actorId: contexto.actorId, origen: contexto.origen, motivo: e.motivo ?? null, revisionAnterior: anterior, revisionNueva: nueva, creadoEn: FieldValue.serverTimestamp() }); tx.create(db.collection("eventos_dominio").doc(eventId), { eventId, tipo, version: 1, empresaId: contexto.empresaId, agregado, revisionAnterior: anterior, revisionNueva: nueva, actorId: contexto.actorId, origen: contexto.origen, commandId: e.commandId, correlationId: e.correlationId, causationId: e.causationId, creadoEn: FieldValue.serverTimestamp() }); }
 function registrarComando(db: Firestore, tx: FirebaseFirestore.Transaction, contexto: ContextoFiscal, e: Envelope, fingerprint: string, resultado: unknown, confirmacion?: { ventaId: string; actorOriginal: { uid: string; rolEfectivo: string } }) { const comando = { empresaId: contexto.empresaId, commandId: e.commandId, idempotencyKey: e.idempotencyKey, fingerprint, resultado, creadoEn: FieldValue.serverTimestamp() }; tx.create(db.collection("fiscal_comandos").doc(id("fiscalcmd", contexto.empresaId, e.idempotencyKey)), confirmacion ? { ...comando, ...confirmacion, correlationId: e.correlationId, causationId: e.causationId } : comando); tx.create(db.collection("configuracion_command_ids").doc(`cfgcmdid_${hash(e.commandId)}`), comando); }
@@ -61,7 +263,10 @@ export async function confirmarVentaFiscal(db: Firestore, entrada: ConfirmarVent
     ]);
     validarEmpresa(empresaSnap.data(), contexto);
     if (!configSnap.exists) fail("failed-precondition", "CONFIG_NOT_FOUND");
-    if (ventaSnap.exists) fail("already-exists", "VENTA_ALREADY_EXISTS");
+    if (ventaSnap.exists) {
+      if (ventaSnap.data()?.modoOperacion === "DEMO") fail("failed-precondition", "VENTA_DEMO_NO_FISCALIZABLE");
+      fail("already-exists", "VENTA_ALREADY_EXISTS");
+    }
     const asignacion = asignaciones.map(s => s.exists ? s.data() as Asignacion : undefined).find(a => a?.estado === "VIGENTE");
     if (!asignacion) fail("failed-precondition", "ASIGNACION_NOT_FOUND");
     const asignacionVigente = asignacion as Asignacion;

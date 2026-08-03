@@ -235,6 +235,26 @@ test("P0-03: la Fase 2 server-side aplica inventario, tesoreria, incidencia y re
   assert.equal(count(db, "operaciones_auditoria"), 1);
 });
 
+test("P0-02: la Fase 2 procesa una venta DEMO sin snapshot fiscal ni consecutivo", async () => {
+  const db = new FakeFirestore();
+  const { bancoId } = seedVentaOperativa(db);
+  db.docs.set("ventas/venta-demo-server", {
+    empresaId: "empresa-venta", modoOperacion: "DEMO", referenciaOperacion: "DEMO-venta-demo-server",
+    estado: "pagada", estadoOperativo: "PENDIENTE_EFECTOS", turnoId: "turno-venta",
+    metodoPago: "transferencia", totales: { subtotalBase: 100, totalINC: 0, totalExcluido: 100, total: 100 },
+    items: [{ id: "cafe-venta", cantidad: 1, precioUnitario: 100, subtotal: 100 }],
+  });
+
+  const result = await ejecutarAplicarEfectosVentaOperativaV1(db, contextoVenta, envelopeVenta("venta-demo-server"));
+
+  assert.equal(result.ventaId, "venta-demo-server");
+  assert.equal(db.docs.get("ventas/venta-demo-server")?.estadoOperativo, "COMPLETO");
+  assert.equal(db.docs.get("ventas/venta-demo-server")?.modoOperacion, "DEMO");
+  assert.equal(db.docs.get(`cuentas_bancarias/${bancoId}`)?.saldo, 100);
+  assert.equal("snapshotFiscal" in db.docs.get("ventas/venta-demo-server")!, false);
+  assert.equal("consecutivo" in db.docs.get("ventas/venta-demo-server")!, false);
+});
+
 test("P0-03: el cierre de pedido y comandas permanece dentro de la misma transaccion server-side", async () => {
   const db = new FakeFirestore();
   seedVentaOperativa(db);

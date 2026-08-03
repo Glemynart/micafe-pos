@@ -1,7 +1,7 @@
 import { onCall } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
 import { exigirAdminTenant, exigirTenantActivo } from "../operational-auth";
-import { actualizarNumeracionBorrador, confirmarVentaFiscal, crearNumeracion, establecerAsignacion, retirarAsignacion, transicionarNumeracion } from "./service";
+import { actualizarNumeracionBorrador, confirmarVentaFiscal, crearNumeracion, crearVentaDemostracion, establecerAsignacion, retirarAsignacion, transicionarNumeracion } from "./service";
 const ctx = (empresaId: string, actorId: string, origen: "ADMIN" | "SYSTEM" = "ADMIN", rolEfectivo?: string) => ({ empresaId, actorId, paisFiscal: "CO", origen, rolEfectivo });
 export const crearNumeracionFiscal = onCall({ region: "us-central1" }, async request => { const e = await exigirAdminTenant(request); return crearNumeracion(getFirestore(), request.data, ctx(e.id, request.auth!.uid)); });
 export const actualizarNumeracionFiscal = onCall({ region: "us-central1" }, async request => { const e = await exigirAdminTenant(request); return actualizarNumeracionBorrador(getFirestore(), request.data, ctx(e.id, request.auth!.uid)); });
@@ -9,3 +9,4 @@ export const transicionarNumeracionFiscal = onCall({ region: "us-central1" }, as
 export const establecerAsignacionFiscal = onCall({ region: "us-central1" }, async request => { const e = await exigirAdminTenant(request); return establecerAsignacion(getFirestore(), request.data, ctx(e.id, request.auth!.uid)); });
 export const retirarAsignacionFiscal = onCall({ region: "us-central1" }, async request => { const e = await exigirAdminTenant(request); return retirarAsignacion(getFirestore(), request.data, ctx(e.id, request.auth!.uid)); });
 export const confirmarVentaFiscalCallable = onCall({ region: "us-central1" }, async request => { const e = await exigirTenantActivo(request); return confirmarVentaFiscal(getFirestore(), request.data, ctx(e.id, request.auth!.uid, "ADMIN", e.rol)); });
+export const crearVentaDemostracionV1 = onCall({ region: "us-central1" }, async request => { const e = await exigirTenantActivo(request); return crearVentaDemostracion(getFirestore(), request.data, ctx(e.id, request.auth!.uid, "ADMIN", e.rol)); });

@@ -155,6 +155,7 @@ export function Historial() {
 
   const debeBloquearDIAN = (v: any): boolean =>
     v.estado === 'anulada' ||
+    v.modoOperacion === 'DEMO' ||
     (v.metodo_pago === 'cuenta_cobro' && v.estado === 'pendiente')
 
   const ventasFiltradas = ventas.filter((v) => {
@@ -162,7 +163,7 @@ export function Historial() {
     const matchFecha = !filtroFecha || vFecha.startsWith(filtroFecha);
     
     // Si la venta tiene el bloque `dian` congelado, fue emitida; sino "pendiente"
-    const estadoDian = v.dian?.cufe ? "enviado" : "pendiente";
+    const estadoDian = v.modoOperacion === 'DEMO' ? "demo" : (v.dian?.cufe ? "enviado" : "pendiente");
     const matchEstado = filtroEstado === "todos" || estadoDian === filtroEstado;
     return matchFecha && matchEstado;
   })
@@ -212,7 +213,9 @@ export function Historial() {
   const emitirDian = async (venta: any) => {
     if (debeBloquearDIAN(venta)) {
       toast.error(
-        venta.estado === 'anulada'
+        venta.modoOperacion === 'DEMO'
+          ? 'Las ventas DEMO son no fiscales y no pueden emitirse a la DIAN.'
+          : venta.estado === 'anulada'
           ? 'No se puede emitir DIAN sobre una venta anulada.'
           : 'No se puede emitir DIAN: la cuenta aún no ha sido recaudada.'
       )
@@ -393,6 +396,12 @@ export function Historial() {
           <Badge variant="secondary" className="bg-warning/20 text-warning border-0">
             <AlertCircle className="h-3 w-3 mr-1" />
             Pendiente
+          </Badge>
+        )
+      case "demo":
+        return (
+          <Badge variant="secondary" className="bg-sky-500/20 text-sky-700 dark:text-sky-300 border-0">
+            DEMO · NO FISCAL
           </Badge>
         )
       case "error":
@@ -577,7 +586,7 @@ export function Historial() {
                 </TableRow>
               ) : (
                 ventasFiltradas.map((venta, idx) => {
-                  const estado = venta.estado === 'anulada' ? 'anulada' : (venta.dian?.cufe ? "enviado" : "pendiente");
+                  const estado = venta.modoOperacion === 'DEMO' ? 'demo' : (venta.estado === 'anulada' ? 'anulada' : (venta.dian?.cufe ? "enviado" : "pendiente"));
                   const vFechaObj = new Date(venta.fecha);
                   const fechaFormat = vFechaObj.toLocaleDateString('es-CO');
                   const horaFormat = vFechaObj.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
@@ -730,7 +739,7 @@ export function Historial() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Estado DIAN</p>
-                  <div className="mt-1">{getEstadoDianBadge(ventaDetalle.dian?.cufe ? "enviado" : "pendiente")}</div>
+                  <div className="mt-1">{getEstadoDianBadge(ventaDetalle.modoOperacion === 'DEMO' ? "demo" : (ventaDetalle.dian?.cufe ? "enviado" : "pendiente"))}</div>
                 </div>
               </div>
 
