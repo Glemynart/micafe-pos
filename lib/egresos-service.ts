@@ -36,7 +36,7 @@ const EGRESOS_COLLECTION = 'egresos'
 export async function guardarEgreso(egreso: Omit<Egreso, 'id' | 'fecha'> & { id?: string }) {
   const response = await httpsCallable(getFirebaseFunctions(), 'registrarEgresoOperativoV1')({
     commandId: crypto.randomUUID(), idempotencyKey: crypto.randomUUID(), correlationId: crypto.randomUUID(), causationId: null,
-    motivo: egreso.motivo, payload: { cuentaId: 'caja-principal', turnoId: egreso.turnoId, monto: egreso.monto },
+    motivo: egreso.motivo, payload: { cuentaClaveOperativa: 'caja-principal', turnoId: egreso.turnoId, monto: egreso.monto },
   })
   return (response.data as { egresoId: string }).egresoId
   const id = egreso.id || uuidv4()
