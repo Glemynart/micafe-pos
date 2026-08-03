@@ -2,9 +2,9 @@
 
 ## Resultado
 
-**NO APROBADO PARA MERGE**
+**APROBADO PARA MERGE**
 
-Este estado es provisional mientras el PR no tenga todos los checks requeridos de CI en verde. La auditoría se actualizará únicamente cuando exista evidencia de CI completa.
+Los checks requeridos de CI del PR #165 terminaron en verde y no quedan checks pendientes.
 
 ## Trazabilidad
 
@@ -53,6 +53,6 @@ No se modificaron Rules, Bootstrap, Fase 1, numeración, `snapshotFiscal`, Plane
 
 El script `npm run lint` no puede ejecutarse en el checkout actual porque `eslint` no está declarado ni instalado. El script y la ausencia de la dependencia son preexistentes y no forman parte de P0-03; además, el workflow `.github/workflows/ci.yml` no incluye lint. Esta observación no sustituye los checks de CI requeridos.
 
-## Condición para cerrar la auditoría
+## Cierre de auditoría
 
-Actualizar este resultado a **APROBADO PARA MERGE** solo después de que `gh pr checks <PR>` confirme todos los checks en verde, sin pendientes, y el diff mantenga el alcance auditado.
+`gh pr checks 165` confirmó `Tipos y pruebas`, `Vercel` y `Vercel Preview Comments` en verde, sin pendientes. El diff mantiene el alcance auditado.
