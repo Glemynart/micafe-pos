@@ -14,6 +14,7 @@ import {
 } from "./contracts";
 import { hashearPin, verificarPin } from "./pin-security";
 import { esCredencialTemporalPlataformaVencidaOInvalida } from "./platform/vigencia-credencial-temporal";
+import { validarRestablecimientoParaAutenticacion } from "./credential-recovery-service";
 
 initializeApp();
 
@@ -347,6 +348,17 @@ export async function emitirSesionActivacionDirecta(uid: string, incorporacionId
   return auth.createCustomToken(uid, { authStage: "DIRECTA_TEMP", incorporacionId });
 }
 
+/** Emite una sesión temporal sin claims tenant para ADR-SAAS-017. */
+export async function emitirSesionActivacionRestablecimiento(uid: string, restablecimientoId: string): Promise<string> {
+  const auth = getAuth();
+  const existente = (await auth.getUser(uid)).customClaims ?? {};
+  const platformClaims = {
+    ...(existente.saas && typeof existente.saas === "object" ? { saas: existente.saas } : {}),
+  };
+  await auth.setCustomUserClaims(uid, platformClaims);
+  return auth.createCustomToken(uid, { authStage: "RESTABLECIMIENTO_TEMP", restablecimientoId });
+}
+
 export async function actualizarClaimsTenant(
   uid: string,
   empresaId: string,
@@ -403,7 +415,7 @@ export async function permisosPredeterminados(rol: RolTenant, dbParam?: any): Pr
 
 export const autenticarOperativo = onCall(
   { region: REGION, secrets: [PIN_PEPPER] },
-  async (request): Promise<{ customToken: string; requiereCambio?: boolean; incorporacionId?: string }> => {
+  async (request): Promise<{ customToken: string; requiereCambio?: boolean; incorporacionId?: string; restablecimientoId?: string }> => {
     const codigo = normalizarCodigo((request.data as SolicitudAutenticacion | undefined)?.codigo);
     const pin = (request.data as SolicitudAutenticacion | undefined)?.pin;
     if (!codigo || !esPinValido(pin)) throw errorCredenciales();
@@ -412,6 +424,17 @@ export const autenticarOperativo = onCall(
       const { empresa, ref, credencial } = await resolverCredencialOperativa(codigo, pin);
 
       if (credencial.requiereCambio === true) {
+        if (typeof credencial.restablecimientoId === "string" && credencial.restablecimientoId.trim()) {
+          await validarRestablecimientoParaAutenticacion(getFirestore(), empresa.id, credencial.uid, credencial.restablecimientoId, ref.id);
+          await limpiarFallos(ref);
+          const customToken = await emitirSesionActivacionRestablecimiento(credencial.uid, credencial.restablecimientoId);
+          logger.info("operational_auth_recovery_activation_required", {
+            empresaId: empresa.id,
+            uid: credencial.uid,
+            restablecimientoId: credencial.restablecimientoId,
+          });
+          return { customToken, requiereCambio: true, restablecimientoId: credencial.restablecimientoId };
+        }
         const incorporacion = await obtenerIncorporacionDirectaTemporal(empresa.id, credencial);
         const incorporacionData = incorporacion?.data();
         if (!incorporacion || incorporacionData?.mecanismo !== "DIRECTA"

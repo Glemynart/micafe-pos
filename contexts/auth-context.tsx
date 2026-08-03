@@ -20,7 +20,7 @@ import {
 } from "react";
 import {
   activarCredencial as activarCredencialServicio,
-  esActivacionDirectaRestaurada,
+  esActivacionTemporalRestaurada,
   loginConCodigoYPin,
   logout as authLogout,
   onAuthStateChange,
@@ -33,7 +33,9 @@ import { signOut as firebaseSignOut } from "firebase/auth";
 
 /** ADR-SAAS-013 §9 — credencial inicial pendiente de fijar PIN definitivo. */
 interface ActivacionPendiente {
-  incorporacionId: string;
+  modo: "DIRECTA" | "RESTABLECIMIENTO";
+  incorporacionId: string | null;
+  restablecimientoId?: string;
   /** Solo vive en memoria; nunca se restaura ni se deriva desde Firebase. */
   pinTemporal: string | null;
 }
@@ -63,7 +65,7 @@ interface AuthContextValue {
   activandoCredencial: boolean;
   /** Fija el PIN definitivo y completa el login con la sesión tenant resultante. */
   activarCredencial: (pinNuevo: string, pinTemporalRestaurado?: string) => Promise<void>;
-  /** Descarta la activación pendiente y cierra la sesión temporal DIRECTA_TEMP. */
+  /** Descarta la activación pendiente y cierra la sesión temporal sin claims tenant. */
   cancelarActivacion: () => Promise<void>;
 }
 
@@ -99,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChange((estadoAuth) => {
       if (!isMounted) return;
       clearTimeout(fallbackTimer);
-      if (esActivacionDirectaRestaurada(estadoAuth)) {
+      if (esActivacionTemporalRestaurada(estadoAuth)) {
         if (!restauracionInicialPendienteRef.current) {
           setCargando(false);
           return;
@@ -110,7 +112,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // puede reemplazarlo. Si no existe, solo se reconstruye el id no secreto.
         setActivacionPendiente((actual) => actual?.pinTemporal
           ? actual
-          : { incorporacionId: estadoAuth.incorporacionId, pinTemporal: null });
+          : estadoAuth.tipo === "DIRECTA_TEMP"
+            ? { modo: "DIRECTA", incorporacionId: estadoAuth.incorporacionId, pinTemporal: null }
+            : { modo: "RESTABLECIMIENTO", incorporacionId: null, restablecimientoId: estadoAuth.restablecimientoId, pinTemporal: null });
       } else {
         restauracionInicialPendienteRef.current = false;
         setUsuario(estadoAuth);
@@ -136,7 +140,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const resultado = await loginConCodigoYPin(codigo, pin);
       if (resultado.requiereActivacion) {
-        setActivacionPendiente({ incorporacionId: resultado.incorporacionId, pinTemporal: resultado.pinTemporal });
+        setActivacionPendiente(resultado.modo === "DIRECTA"
+          ? { modo: "DIRECTA", incorporacionId: resultado.incorporacionId, pinTemporal: resultado.pinTemporal }
+          : { modo: "RESTABLECIMIENTO", incorporacionId: null, restablecimientoId: resultado.restablecimientoId, pinTemporal: resultado.pinTemporal });
         return;
       }
       setUsuario(resultado.usuario);
@@ -175,7 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     invalidarAuthPendienteRef.current();
     setActivacionPendiente(null);
     setErrorLogin(null);
-    // La sesión DIRECTA_TEMP no lleva claims tenant: cerrarla aquí no afecta
+    // Las sesiones temporales no llevan claims tenant: cerrarlas aquí no afecta
     // ninguna sesión operativa real, solo descarta el intento de activación.
     if (auth.currentUser) await firebaseSignOut(auth).catch(() => {});
   }, []);

@@ -5,6 +5,11 @@ export {
   crearUsuarioConMembresia,
   actualizarMembresia,
 } from "./operational-auth";
+export {
+  restablecerCredencialOperativa,
+  restablecerCredencialAdministradorTenantSaas,
+  activarRestablecimientoCredencial,
+} from "./credential-recovery-callables";
 
 export {
   crearIncorporacionDirecta,

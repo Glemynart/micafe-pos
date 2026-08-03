@@ -27,6 +27,8 @@ import {
 } from "./membresias-service";
 import {
   esSesionTransicionDirecta,
+  esSesionRestablecimientoTemporal,
+  obtenerRestablecimientoSesionTemporal,
   obtenerIncorporacionSesionTransicionDirecta,
   resolverEmpresaIdActivo,
 } from "./tenant-context";
@@ -69,7 +71,9 @@ const EMAIL_DOMAIN = "@micafe-pos.internal";
 /** ADR-SAAS-013 §9 — resultado de `loginConCodigoYPin` cuando la credencial requiere activación. */
 export interface ActivacionRequerida {
   requiereActivacion: true;
-  incorporacionId: string;
+  modo: "DIRECTA" | "RESTABLECIMIENTO";
+  incorporacionId: string | null;
+  restablecimientoId?: string;
   /** El PIN temporal que el usuario acaba de usar para entrar; lo exige `activarCredencial`. */
   pinTemporal: string;
 }
@@ -87,7 +91,9 @@ export type ResultadoLoginOperativo = { requiereActivacion: false; usuario: Usua
 export async function loginConCodigoYPin(codigo: string, pin: string): Promise<ResultadoLoginOperativo> {
   const resultado = await iniciarSesionOperativa(codigo.trim(), pin);
   if (resultado.requiereCambio) {
-    return { requiereActivacion: true, incorporacionId: resultado.incorporacionId, pinTemporal: pin };
+    return resultado.modo === "DIRECTA"
+      ? { requiereActivacion: true, modo: "DIRECTA", incorporacionId: resultado.incorporacionId, pinTemporal: pin }
+      : { requiereActivacion: true, modo: "RESTABLECIMIENTO", incorporacionId: null, restablecimientoId: resultado.restablecimientoId, pinTemporal: pin };
   }
   return { requiereActivacion: false, usuario: await materializarSesionOperativa(resultado.user) };
 }
@@ -201,7 +207,12 @@ export interface ActivacionDirectaRestaurada {
   incorporacionId: string;
 }
 
-export type EstadoAuth = Usuario | ActivacionDirectaRestaurada | null;
+export interface ActivacionRestablecimientoRestaurada {
+  tipo: "RESTABLECIMIENTO_TEMP";
+  restablecimientoId: string;
+}
+
+export type EstadoAuth = Usuario | ActivacionDirectaRestaurada | ActivacionRestablecimientoRestaurada | null;
 
 export interface SuscripcionAuth {
   cancelar: () => void;
@@ -212,6 +223,13 @@ export function esActivacionDirectaRestaurada(
   estado: EstadoAuth,
 ): estado is ActivacionDirectaRestaurada {
   return estado !== null && "tipo" in estado && estado.tipo === "DIRECTA_TEMP";
+}
+
+export function esActivacionTemporalRestaurada(
+  estado: EstadoAuth,
+): estado is ActivacionDirectaRestaurada | ActivacionRestablecimientoRestaurada {
+  return estado !== null && "tipo" in estado
+    && (estado.tipo === "DIRECTA_TEMP" || estado.tipo === "RESTABLECIMIENTO_TEMP");
 }
 
 export function onAuthStateChange(
@@ -246,6 +264,11 @@ export function onAuthStateChange(
     if (esSesionTransicionDirecta(tokenCacheado.claims)) {
       const incorporacionId = obtenerIncorporacionSesionTransicionDirecta(tokenCacheado.claims);
       callback(incorporacionId ? { tipo: "DIRECTA_TEMP", incorporacionId } : null);
+      return;
+    }
+    if (esSesionRestablecimientoTemporal(tokenCacheado.claims)) {
+      const restablecimientoId = obtenerRestablecimientoSesionTemporal(tokenCacheado.claims);
+      callback(restablecimientoId ? { tipo: "RESTABLECIMIENTO_TEMP", restablecimientoId } : null);
       return;
     }
 
