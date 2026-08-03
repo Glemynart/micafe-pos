@@ -13,6 +13,7 @@ interface OnboardingWizardProps {
   readinessTotal: EstadoReadinessTotal
   numeracionBorradorId?: string
   onCompletado: () => void
+  onCancelar?: () => void
 }
 
 function calcularDigitoVerificacionNIT(nit: string): string | null {
@@ -32,6 +33,7 @@ export function OnboardingWizard({
   readinessTotal,
   numeracionBorradorId = 'num_pos_1',
   onCompletado,
+  onCancelar,
 }: OnboardingWizardProps) {
   const [paso, setPaso] = useState<1 | 2 | 3>(1)
   const [guardando, setGuardando] = useState(false)
@@ -41,21 +43,31 @@ export function OnboardingWizard({
   const [numeroDocumento, setNumeroDocumento] = useState('')
   const [digitoVerificacion, setDigitoVerificacion] = useState('')
   const [direccion, setDireccion] = useState('')
+  const [tipoPersona, setTipoPersona] = useState('')
+  const [regimenTributario, setRegimenTributario] = useState('')
+  const [actividadEconomicaPrincipal, setActividadEconomicaPrincipal] = useState('')
+  const [responsabilidadFiscal, setResponsabilidadFiscal] = useState('')
+  const [departamentoCodigo, setDepartamentoCodigo] = useState('')
+  const [departamentoNombre, setDepartamentoNombre] = useState('')
+  const [municipioCodigo, setMunicipioCodigo] = useState('')
+  const [municipioNombre, setMunicipioNombre] = useState('')
   const [errorFiscal, setErrorFiscal] = useState<string | null>(null)
   const nitInputRef = useRef<HTMLInputElement>(null)
 
   // Paso 2: Numeración Fiscal POS
-  const [prefijo, setPrefijo] = useState('POS')
-  const [resolucion, setResolucion] = useState('18760000001')
-  const [rangoInicio, setRangoInicio] = useState('1')
-  const [rangoFin, setRangoFin] = useState('5000')
+  const [prefijo, setPrefijo] = useState('')
+  const [resolucion, setResolucion] = useState('')
+  const [rangoInicio, setRangoInicio] = useState('')
+  const [rangoFin, setRangoFin] = useState('')
+  const [vigenciaDesde, setVigenciaDesde] = useState('')
+  const [vigenciaHasta, setVigenciaHasta] = useState('')
 
   // Paso 3: Invitar Equipo (MT-U5B)
   const [emailEmpleado, setEmailEmpleado] = useState('')
   const [rolEmpleado, setRolEmpleado] = useState('cajero')
 
   const handlePasoFiscal = async () => {
-    if (!razonSocial.trim() || !numeroDocumento.trim() || !direccion.trim()) {
+    if (!razonSocial.trim() || !numeroDocumento.trim() || !direccion.trim() || !tipoPersona || !regimenTributario || !/^\d{4}$/.test(actividadEconomicaPrincipal) || !/^\d{2}$/.test(departamentoCodigo) || !departamentoNombre.trim() || !/^\d{5}$/.test(municipioCodigo) || !municipioNombre.trim()) {
       setErrorFiscal('Completa la razón social, el NIT y la dirección fiscal para continuar.')
       toast.error('Por favor completa todos los campos fiscales obligatorios.')
       return
@@ -83,20 +95,20 @@ export function OnboardingWizard({
         expectedRevision: 1,
         identidadFiscal: {
           razonSocial: razonSocial.trim(),
-          tipoPersona: 'JURIDICA',
+          tipoPersona,
           tipoDocumento: 'NIT',
           numeroDocumento: numeroDocumento.trim(),
           digitoVerificacion: dvCalculado,
-          regimenTributario: 'responsable_iva',
-          actividadEconomicaPrincipal: '5611',
-          responsabilidadFiscal: 'R-99-PN',
+          regimenTributario,
+          actividadEconomicaPrincipal: actividadEconomicaPrincipal.trim(),
+          ...(responsabilidadFiscal.trim() ? { responsabilidadFiscal: responsabilidadFiscal.trim() } : {}),
         },
         direccionFiscal: {
           linea1: direccion.trim(),
-          departamentoCodigo: '11',
-          departamentoNombre: 'Bogotá D.C.',
-          municipioCodigo: '11001',
-          municipioNombre: 'Bogotá',
+          departamentoCodigo: departamentoCodigo.trim(),
+          departamentoNombre: departamentoNombre.trim(),
+          municipioCodigo: municipioCodigo.trim(),
+          municipioNombre: municipioNombre.trim(),
         },
       })
 
@@ -111,7 +123,9 @@ export function OnboardingWizard({
   }
 
   const handlePasoNumeracion = async () => {
-    if (!prefijo.trim() || !resolucion.trim()) {
+    const inicio = Number(rangoInicio)
+    const fin = Number(rangoFin)
+    if (!prefijo.trim() || !resolucion.trim() || !Number.isInteger(inicio) || !Number.isInteger(fin) || inicio < 1 || fin < inicio || !vigenciaDesde || !vigenciaHasta || vigenciaDesde >= vigenciaHasta) {
       toast.error('Ingresa el prefijo y número de resolución.')
       return
     }
@@ -131,10 +145,10 @@ export function OnboardingWizard({
         numeracionId: numeracionBorradorId,
         prefijo: prefijo.trim().toUpperCase(),
         resolucion: resolucion.trim(),
-        rangoInicio: parseInt(rangoInicio, 10) || 1,
-        rangoFin: parseInt(rangoFin, 10) || 5000,
-        vigenciaDesde: '2026-01-01',
-        vigenciaHasta: '2099-12-31',
+        rangoInicio: inicio,
+        rangoFin: fin,
+        vigenciaDesde,
+        vigenciaHasta,
       })
 
       toast.success('Numeración habilitada y asignada correctamente.')
@@ -173,6 +187,11 @@ export function OnboardingWizard({
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] p-6 max-w-2xl mx-auto bg-background rounded-2xl shadow-xl border border-border/40">
+      {onCancelar ? (
+        <div className="w-full flex justify-end mb-3">
+          <Button variant="ghost" size="sm" onClick={onCancelar} disabled={guardando}>Continuar más tarde</Button>
+        </div>
+      ) : null}
       {/* Pasos Header */}
       <div className="flex items-center justify-between w-full mb-8 px-4">
         <div className={`flex items-center gap-2 ${paso >= 1 ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
@@ -272,6 +291,49 @@ export function OnboardingWizard({
               placeholder="Calle 100 # 15-20, Bogotá"
             />
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="tipo-persona">Tipo de persona *</Label>
+              <select id="tipo-persona" value={tipoPersona} onChange={(e) => setTipoPersona(e.target.value)} className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                <option value="">Selecciona una opción</option>
+                <option value="NATURAL">Natural</option>
+                <option value="JURIDICA">Jurídica</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="regimen-tributario">Régimen tributario *</Label>
+              <select id="regimen-tributario" value={regimenTributario} onChange={(e) => setRegimenTributario(e.target.value)} className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                <option value="">Selecciona una opción</option>
+                <option value="no_responsable">No responsable</option>
+                <option value="responsable_inc">Responsable de INC</option>
+                <option value="responsable_iva">Responsable de IVA</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="actividad-economica">Actividad económica CIIU *</Label>
+              <Input id="actividad-economica" value={actividadEconomicaPrincipal} onChange={(e) => setActividadEconomicaPrincipal(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Código real de 4 dígitos" inputMode="numeric" maxLength={4} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="responsabilidad-fiscal">Responsabilidad fiscal</Label>
+              <Input id="responsabilidad-fiscal" value={responsabilidadFiscal} onChange={(e) => setResponsabilidadFiscal(e.target.value)} placeholder="Dato real, si aplica" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="departamento-codigo">Código departamento *</Label>
+              <Input id="departamento-codigo" value={departamentoCodigo} onChange={(e) => setDepartamentoCodigo(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Código DIVIPOLA" inputMode="numeric" maxLength={2} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="departamento-nombre">Departamento *</Label>
+              <Input id="departamento-nombre" value={departamentoNombre} onChange={(e) => setDepartamentoNombre(e.target.value)} placeholder="Nombre real" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="municipio-codigo">Código municipio *</Label>
+              <Input id="municipio-codigo" value={municipioCodigo} onChange={(e) => setMunicipioCodigo(e.target.value.replace(/\D/g, '').slice(0, 5))} placeholder="Código DIVIPOLA" inputMode="numeric" maxLength={5} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="municipio-nombre">Municipio *</Label>
+              <Input id="municipio-nombre" value={municipioNombre} onChange={(e) => setMunicipioNombre(e.target.value)} placeholder="Nombre real" />
+            </div>
+          </div>
           <Button
             onClick={handlePasoFiscal}
             disabled={guardando}
@@ -323,6 +385,16 @@ export function OnboardingWizard({
                 value={rangoFin}
                 onChange={(e) => setRangoFin(e.target.value)}
               />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label>Vigencia desde *</Label>
+              <Input type="date" value={vigenciaDesde} onChange={(e) => setVigenciaDesde(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>Vigencia hasta *</Label>
+              <Input type="date" value={vigenciaHasta} onChange={(e) => setVigenciaHasta(e.target.value)} />
             </div>
           </div>
           <Button

@@ -219,7 +219,10 @@ async function efectoAplicarEfectosVentaOperativa(tx: any, db: any, empresaId: s
   if (!text(ventaId)) fail("invalid-argument", "PAYLOAD_INVALID");
   const ventaRef = db.collection("ventas").doc(ventaId as string); const venta = await tx.get(ventaRef);
   if (!venta.exists || venta.data()?.empresaId !== empresaId || venta.data()?.estadoOperativo !== "PENDIENTE_EFECTOS") fail("failed-precondition", "VENTA_NO_PENDIENTE");
-  const data = venta.data() as Record<string, any>; const total = Number(data.totales?.total ?? 0); const metodo = data.metodoPago ?? data.pago?.metodo;
+  const data = venta.data() as Record<string, any>;
+  const modoOperacion = data.modoOperacion ?? "FISCAL";
+  if (modoOperacion !== "FISCAL" && modoOperacion !== "DEMO") fail("failed-precondition", "MODO_VENTA_INVALIDO");
+  const total = Number(data.totales?.total ?? 0); const metodo = data.metodoPago ?? data.pago?.metodo;
   if (!money(total) || !text(metodo)) fail("invalid-argument", "PAGO_INVALIDO");
   // Ventas F1 actuales siempre persisten `estado`; el fallback conserva la
   // semántica histórica del reconciliador para ventas legacy sin ese campo.

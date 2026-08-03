@@ -206,6 +206,18 @@ test('Numero: sale del consecutivo capturado', () => {
   assert.equal(input.numero, 88)
 })
 
+test('DEMO: usa referencia operativa y no expone identidad fiscal del tenant', () => {
+  const { input, empresa } = adaptarCheckoutAModeloTicket(
+    venta({ modoOperacion: 'DEMO', consecutivo: undefined, referenciaOperacion: 'DEMO-venta-1' }),
+    cfg(),
+  )
+  assert.equal(input.numero, 'DEMO-venta-1')
+  assert.equal(input.modoOperacion, 'DEMO')
+  assert.equal(empresa.razonSocial, undefined)
+  assert.equal(empresa.nit, '')
+  assert.equal(empresa.regimenTributario, undefined)
+})
+
 test('Fecha: se transporta la fecha de la venta', () => {
   const f = new Date('2026-07-05T12:00:00.000Z')
   const { input } = adaptarCheckoutAModeloTicket(venta({ fecha: f }), cfg())

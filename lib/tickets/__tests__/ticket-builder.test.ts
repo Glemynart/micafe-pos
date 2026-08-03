@@ -15,6 +15,22 @@ test('fromVenta: ticket simple sin DIAN usa defaults de Consumidor Final y no ar
   assert.deepEqual(modelo.impuestos, [])
 })
 
+test('fromVenta: DEMO se identifica como operación no fiscal y no proyecta impuestos', () => {
+  const modelo = TicketBuilder.fromVenta(
+    { ...VENTA_SIMPLE_INPUT, modoOperacion: 'DEMO', numero: 'DEMO-venta-1' },
+    { ...EMPRESA_RESPONSABLE_INC, razonSocial: undefined, nit: '' },
+  )
+
+  assert.equal(modelo.meta.titulo, 'VENTA DE DEMOSTRACIÓN — NO FISCAL')
+  assert.equal(modelo.meta.numero, 'DEMO-venta-1')
+  assert.equal(modelo.meta.modoOperacion, 'DEMO')
+  assert.equal(modelo.empresa.rotuloFiscal, 'OPERACIÓN NO FISCAL')
+  assert.equal(modelo.empresa.razonSocial, undefined)
+  assert.equal(modelo.empresa.nit, '')
+  assert.deepEqual(modelo.impuestos, [])
+  assert.equal(modelo.dian, undefined)
+})
+
 test('fromVenta: rotulo fiscal se deriva del regimen de la empresa (default no_responsable)', () => {
   const sinRegimen = TicketBuilder.fromVenta(VENTA_SIMPLE_INPUT, { ...EMPRESA_BASE, regimenTributario: undefined })
   assert.equal(sinRegimen.empresa.rotuloFiscal, 'No Responsable de INC')

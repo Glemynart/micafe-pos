@@ -43,6 +43,7 @@ export interface TicketMeta {
   /** Número de documento ya formateado para mostrar (sin prefijo). */
   numero: string
   prefijo?: string
+  modoOperacion?: 'FISCAL' | 'DEMO'
 }
 
 /** Pie de página, común a todo tipo de documento impreso. */

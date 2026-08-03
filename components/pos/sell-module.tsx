@@ -35,6 +35,7 @@ import { suscribirModificadorGrupos, type ModificadorGrupo } from '@/lib/modific
 import { suscribirProductoModificadorGruposPorEspacio, type ProductoModificadorGrupo } from '@/lib/producto-modificador-grupos-service'
 import { resolverGruposProducto, type SeleccionModificadorTemporal } from '@/lib/modifier-selection'
 import { crearConfiguracionModificadores, crearConfiguracionSimple } from '@/lib/configured-line'
+import { useModoOperacionPermitido } from '@/components/onboarding/onboarding-access-context'
 
 import { toast } from 'sonner'
 import { 
@@ -116,6 +117,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   const { usuario } = useAuthContext()
   const { espacioActivo, categorias, categoriaActiva, seleccionarCategoria } = useEspacios()
   const { proyecciones } = useConfiguracionEmpresa()
+  const modoOperacion = useModoOperacionPermitido()
 
   const [catScroll, setCatScroll] = useState({ canLeft: false, canRight: false })
   const categoriesScrollRef = useRef<HTMLDivElement>(null)
@@ -885,6 +887,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
       }
 
       const params: CrearVentaParams = {
+        modoOperacion,
         turnoId: turnoActivo.id,
         cajeroId: usuario.uid,
         cajeroNombre: usuario.nombre,
@@ -910,7 +913,9 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
       }
 
       let incidenciasInventario: { itemNombre: string }[] = []
-      let consecutivo: number
+      let consecutivo: number | undefined
+      let referenciaOperacion: string | undefined
+      let modoOperacionConfirmado: 'FISCAL' | 'DEMO' = modoOperacion
 
       if (activePedido) {
         const result = await cobrarPedido(params, activePedido.id)
@@ -923,10 +928,14 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
         }
         incidenciasInventario = result.incidenciasInventario
         consecutivo = result.consecutivo
+        referenciaOperacion = result.referenciaOperacion
+        modoOperacionConfirmado = result.modoOperacion
       } else {
         const result = await registrarVenta(params)
         incidenciasInventario = result.incidenciasInventario
         consecutivo = result.consecutivo
+        referenciaOperacion = result.referenciaOperacion
+        modoOperacionConfirmado = result.modoOperacion
       }
 
       if (incidenciasInventario.length > 0) {
@@ -945,7 +954,13 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
       // se resuelve tras el commit — leerlo obligaría a un round-trip extra
       // solo para imprimir, y (b) el Checkout nunca emite DIAN (esa fecha
       // oficial, si aplica, la sella Factus después, desde Historial).
-      setVentaParaImprimir({ ...params, consecutivo, fecha: new Date() })
+      setVentaParaImprimir({
+        ...params,
+        modoOperacion: modoOperacionConfirmado,
+        ...(consecutivo !== undefined ? { consecutivo } : {}),
+        ...(referenciaOperacion ? { referenciaOperacion } : {}),
+        fecha: new Date(),
+      })
 
       setShowPayment(false)
       setShowReceipt(true)
@@ -957,7 +972,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
       isProcessingRef.current = false
       setIsProcessingPayment(false)
     }
-  }, [usuario, cart, selectedCustomer, selectedCliente, subtotal, totalesImpuesto, lineasResueltas, regimenTributario, total, paymentMethod, cashReceived, change, activePedido, espacioActivo, turnoActivo])
+  }, [usuario, cart, selectedCustomer, selectedCliente, subtotal, totalesImpuesto, lineasResueltas, regimenTributario, total, paymentMethod, cashReceived, change, activePedido, espacioActivo, turnoActivo, modoOperacion])
 
   // Orquestación del motor de tickets (H4): el adaptador traduce la venta del
   // Checkout (CrearVentaParams + consecutivo + fecha) + config al contrato del
