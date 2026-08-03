@@ -456,7 +456,7 @@ No existe un comando independiente para “incrementar consecutivo” ni para �
 | `ActualizarVersionPlanBorrador` | Modifica solo un borrador. |
 | `PublicarVersionPlan` | Inmoviliza la versión y la habilita comercialmente. |
 | `RetirarVersionPlan` | Impide nuevas adhesiones, conserva grandfathering. |
-| `CrearSuscripcionTrial` | Crea la Suscripción inicial `trialing` dentro de Bootstrap. |
+| `CrearSuscripcionTrial` | Crea la Suscripción inicial `trialing` dentro de Bootstrap o para una Empresa existente mediante la operación canónica. |
 | `CrearSuscripcionActiva` | Alta administrativa explícita sin trial. |
 | `ActivarSuscripcion` | Pasa a `active` y fija periodo. |
 | `RenovarSuscripcion` | Crea el siguiente periodo no solapado. |

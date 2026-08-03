@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { FieldValue } from "firebase-admin/firestore";
 import { esFechaComercial, fechaComercialUtc, readinessComercial, type Suscripcion } from "../../../lib/suscripciones/contrato";
-import { actualizarBorradorPlan, cambiarPlanSuscripcion, crearPlan, crearNuevaVersionPlan, crearSuscripcionActiva, crearSuscripcionTrialEnTransaccion, programarCancelacionSuscripcion, publicarPlan, renovarSuscripcion, retirarVersionPlan, revocarCancelacionSuscripcion, transicionarEmpresa, transicionarSuscripcion } from "./service";
+import { actualizarBorradorPlan, cambiarPlanSuscripcion, crearPlan, crearNuevaVersionPlan, crearSuscripcionActiva, crearSuscripcionTrial, crearSuscripcionTrialEnTransaccion, programarCancelacionSuscripcion, publicarPlan, renovarSuscripcion, retirarVersionPlan, revocarCancelacionSuscripcion, transicionarEmpresa, transicionarSuscripcion } from "./service";
 
 class Ref { constructor(public path: string) {} collection(id: string) { return new Ref(`${this.path}/${id}`); } doc(id: string) { return new Ref(`${this.path}/${id}`); } }
 class Snap { constructor(private readonly v: any) {} get exists() { return this.v !== undefined; } data() { return structuredClone(this.v); } }
@@ -111,6 +111,94 @@ test("B3 provee el primitive trial atómico para B5 sin iniciar bootstrap", asyn
   const db = new Db(); await planPublicado(db);
   await db.runTransaction(tx => crearSuscripcionTrialEnTransaccion(db as any, tx, { ...env("trial"), empresaId: "empresa_trial", planId: "plan_base", planVersion: 1, trialInicio: "2026-07-01", trialFin: "2026-07-15" }, ctx));
   assert.equal(db.read("suscripciones/empresa_trial").estado, "trialing"); assert.ok([...db.docs.values()].some(v => v.tipo === "TrialIniciado"));
+});
+
+test("B5 crea Trial para una Empresa existente y reintenta de forma idempotente", async () => {
+  const db = new Db();
+  db.seed("empresas/empresa_existente", { empresaId: "empresa_existente", estado: "activa", revision: 1 });
+  await planPublicado(db);
+  const entrada = {
+    ...env("trial_existente"),
+    empresaId: "empresa_existente",
+    planId: "plan_base",
+    planVersion: 1,
+    trialDias: 30,
+  };
+  const relojOriginal = Date.now;
+  try {
+    Date.now = () => Date.parse("2026-08-02T12:00:00.000Z");
+    const creado = await crearSuscripcionTrial(db as any, entrada, ctx);
+    assert.equal(creado.idempotente, false);
+    const suscripcion = db.read("suscripciones/empresa_existente");
+    assert.equal(suscripcion?.empresaId, "empresa_existente");
+    assert.equal(suscripcion?.planId, "plan_base");
+    assert.equal(suscripcion?.planVersion, 1);
+    assert.equal(suscripcion?.estado, "trialing");
+    assert.equal(suscripcion?.trialInicio, "2026-08-02");
+    assert.equal(suscripcion?.trialFin, "2026-09-01");
+    assert.equal(suscripcion?.revision, 1);
+    assert.equal(suscripcion?.schemaVersion, 1);
+
+    db.seed("empresas/empresa_existente", { empresaId: "empresa_existente", estado: "suspendida", revision: 2 });
+    Date.now = () => Date.parse("2026-09-10T12:00:00.000Z");
+    const reintento = await crearSuscripcionTrial(db as any, entrada, ctx);
+    assert.equal(reintento.idempotente, true);
+    assert.equal(reintento.trialInicio, "2026-08-02");
+    assert.equal(reintento.trialFin, "2026-09-01");
+    assert.equal([...db.docs.values()].filter(v => v.tipo === "TrialIniciado").length, 1);
+    await assert.rejects(
+      crearSuscripcionTrial(db as any, { ...entrada, trialDias: 31 }, ctx),
+      /COMMAND_ID_CONFLICT/,
+    );
+  } finally {
+    Date.now = relojOriginal;
+  }
+});
+
+test("B5 rechaza una Empresa existente que no esta en estado operativo", async () => {
+  const db = new Db();
+  db.seed("empresas/empresa_suspendida", { empresaId: "empresa_suspendida", estado: "suspendida", revision: 1 });
+  await planPublicado(db);
+  await assert.rejects(
+    crearSuscripcionTrial(db as any, { ...env("trial_no_operativo"), empresaId: "empresa_suspendida", planId: "plan_base", planVersion: 1, trialDias: 30 }, ctx),
+    /EMPRESA_NOT_OPERATIONAL/,
+  );
+  assert.equal(db.read("suscripciones/empresa_suspendida"), undefined);
+});
+
+test("B5 rechaza un Trial con duracion no positiva", async () => {
+  const db = new Db();
+  db.seed("empresas/empresa_trial_invalido", { empresaId: "empresa_trial_invalido", estado: "activa", revision: 1 });
+  await planPublicado(db);
+  await assert.rejects(
+    crearSuscripcionTrial(db as any, { ...env("trial_invalido"), empresaId: "empresa_trial_invalido", planId: "plan_base", planVersion: 1, trialDias: 0 }, ctx),
+    /TRIAL_INVALIDO/,
+  );
+  assert.equal(db.read("suscripciones/empresa_trial_invalido"), undefined);
+});
+
+test("B5 exige un Plan publicado antes de crear el Trial", async () => {
+  const db = new Db();
+  db.seed("empresas/empresa_plan_borrador", { empresaId: "empresa_plan_borrador", estado: "activa", revision: 1 });
+  db.seed("planes/plan_borrador/versiones/1", { planId: "plan_borrador", planVersion: 1, estado: "BORRADOR" });
+  await assert.rejects(
+    crearSuscripcionTrial(db as any, { ...env("trial_plan_borrador"), empresaId: "empresa_plan_borrador", planId: "plan_borrador", planVersion: 1, trialDias: 30 }, ctx),
+    /PLAN_NOT_ADMISSIBLE/,
+  );
+  assert.equal(db.read("suscripciones/empresa_plan_borrador"), undefined);
+});
+
+test("B5 rechaza una Suscripcion existente sin sobrescribirla", async () => {
+  const db = new Db();
+  db.seed("empresas/empresa_con_suscripcion", { empresaId: "empresa_con_suscripcion", estado: "activa", revision: 1 });
+  db.seed("planes/plan_base/versiones/1", { planId: "plan_base", planVersion: 1, estado: "PUBLICADA" });
+  db.seed("suscripciones/empresa_con_suscripcion", { empresaId: "empresa_con_suscripcion", planId: "plan_base", planVersion: 1, estado: "active", revision: 3, schemaVersion: 1 });
+  await assert.rejects(
+    crearSuscripcionTrial(db as any, { ...env("trial_duplicado"), empresaId: "empresa_con_suscripcion", planId: "plan_base", planVersion: 1, trialDias: 30 }, ctx),
+    /SUSCRIPCION_EXISTS/,
+  );
+  assert.equal(db.read("suscripciones/empresa_con_suscripcion")?.estado, "active");
+  assert.equal(db.read("suscripciones/empresa_con_suscripcion")?.revision, 3);
 });
 
 test("B3 no convierte Suscripción en autoridad, limpia graceFin al regularizar y emite eventos PascalCase", async () => {

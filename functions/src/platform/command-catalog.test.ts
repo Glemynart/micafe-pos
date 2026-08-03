@@ -20,6 +20,13 @@ test("TransicionarEmpresa conserva su facultad exclusiva de lifecycle", () => {
   );
 });
 
+test("CrearSuscripcionTrial exige la facultad comercial", () => {
+  assert.equal(
+    obtenerComandoComercial("CrearSuscripcionTrial").facultad,
+    "COMERCIAL_GOBERNAR",
+  );
+});
+
 function dbEmpresas(docs: Record<string, { estado: string } | { uid: string; estado: string; facultades: string[]; versionAutorizacion: number }>) {
   return {
     collection: (name: string) => ({

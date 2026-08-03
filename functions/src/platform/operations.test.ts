@@ -200,6 +200,46 @@ test("H2 + H5 — un reintento tras fallar la emisión de evidencia recupera el 
   assert.ok(db.docsByPrefix("saas_auditoria_obligaciones/").every((o) => o.estado === "EMITIDA"));
 });
 
+test("P0-01 crea un Trial existente mediante el comando comercial y conserva la Empresa", async () => {
+  const db = new Db();
+  seedPlanPublicado(db);
+  db.seed("empresas/empresa_trial_existente", { empresaId: "empresa_trial_existente", estado: "activa", revision: 1 });
+  const entrada = {
+    ...entradaBackoffice({
+      empresaId: "empresa_trial_existente",
+      planId: "plan_pos_pro",
+      planVersion: 1,
+      trialDias: 30,
+      commandId: "cmd_trial_existente",
+      idempotencyKey: "idem_trial_existente",
+      correlationId: "corr_trial_existente",
+      motivoCodigo: "BACKOFFICE_SUSCRIPCION_TRIAL",
+    }),
+    expectedRevision: 1,
+  };
+
+  const relojOriginal = Date.now;
+  try {
+    Date.now = () => Date.parse("2026-08-02T12:00:00.000Z");
+    const resultado = await ejecutarComandoComercial(db as never, "operador_1", "CrearSuscripcionTrial", entrada as any);
+
+    assert.equal(resultado.idempotente, false);
+    const suscripcion = db.read("suscripciones/empresa_trial_existente");
+    assert.equal(suscripcion?.empresaId, "empresa_trial_existente");
+    assert.equal(suscripcion?.planId, "plan_pos_pro");
+    assert.equal(suscripcion?.planVersion, 1);
+    assert.equal(suscripcion?.estado, "trialing");
+    assert.equal(suscripcion?.trialInicio, "2026-08-02");
+    assert.equal(suscripcion?.trialFin, "2026-09-01");
+    assert.equal(suscripcion?.revision, 1);
+    assert.equal(suscripcion?.schemaVersion, 1);
+    assert.equal(db.read("empresas/empresa_trial_existente")?.estado, "activa");
+    assert.ok(db.docsByPrefix("saas_auditoria_obligaciones/").some(o => o.estado === "EMITIDA"));
+  } finally {
+    Date.now = relojOriginal;
+  }
+});
+
 test("H5 — BOOTSTRAP_EMPRESARIAL_COMPLETADO referencia el agregado de provisionamiento, con actor de sistema", async () => {
   const db = new Db();
   seedPlanPublicado(db);
@@ -474,4 +514,42 @@ test("ActualizarDatosAdministrativosEmpresa rechaza por conflicto de revisión, 
     /EMPRESA_REVISION_CONFLICT/,
   );
   assert.equal(db.read("empresas/empresa_rename2").nombre, "X");
+});
+test("P0-01 recupera la auditoría pendiente del Trial sin duplicar la suscripción", async () => {
+  const db = new Db();
+  seedPlanPublicado(db);
+  db.seed("empresas/empresa_trial_auditoria", { empresaId: "empresa_trial_auditoria", estado: "activa", revision: 1 });
+  const entrada = {
+    ...entradaBackoffice({
+      empresaId: "empresa_trial_auditoria",
+      planId: "plan_pos_pro",
+      planVersion: 1,
+      trialDias: 30,
+      commandId: "cmd_trial_auditoria",
+      idempotencyKey: "idem_trial_auditoria",
+      correlationId: "corr_trial_auditoria",
+      motivoCodigo: "BACKOFFICE_SUSCRIPCION_TRIAL",
+    }),
+    expectedRevision: 1,
+  };
+
+  db.failCreateOnce = "saas_auditoria/";
+  await assert.rejects(
+    ejecutarComandoComercial(db as never, "operador_1", "CrearSuscripcionTrial", entrada as any),
+    /SIMULATED_EVIDENCE_WRITE_FAILURE/,
+  );
+
+  const suscripcionInicial = db.read("suscripciones/empresa_trial_auditoria");
+  const obligacionPendiente = db.docsByPrefix("saas_auditoria_obligaciones/").find((o) => o.estado === "PENDIENTE");
+  assert.ok(suscripcionInicial);
+  assert.ok(obligacionPendiente);
+  assert.equal(db.countByPrefix("saas_auditoria/"), 0);
+
+  const reintento = await ejecutarComandoComercial(db as never, "operador_1", "CrearSuscripcionTrial", entrada as any);
+
+  assert.equal(reintento.idempotente, true);
+  assert.equal(reintento.obligacionId, obligacionPendiente.obligacionId);
+  assert.deepEqual(db.read("suscripciones/empresa_trial_auditoria"), suscripcionInicial);
+  assert.equal(db.docsByPrefix("saas_auditoria/").filter((e) => e.tipo === "SUSCRIPCION_CREADA").length, 1);
+  assert.equal(db.docsByPrefix("saas_auditoria_obligaciones/").filter((o) => o.estado === "EMITIDA").length, 1);
 });
