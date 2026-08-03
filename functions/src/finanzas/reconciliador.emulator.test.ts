@@ -52,10 +52,10 @@ test("R1-B.2 Emulator: resuelve el contexto histórico desde el recibo fiscal", 
     assert.equal(movimientos.size, 1);
     assert.equal(movimientos.docs[0].data().usuarioId, "cajero-canonico");
     assert.equal(movimientos.docs[0].data().rolEfectivoSnapshot, "cajero");
-    assert.equal(movimientos.docs[0].data().commandId, `confirmar_${suffix}`);
+    assert.equal(movimientos.docs[0].data().commandId, `efectos-venta:${ventaId}`);
     assert.equal(auditorias.size, 1);
     assert.deepEqual(auditorias.docs[0].data().actor, { uid: "cajero-canonico", rolEfectivo: "cajero" });
-    assert.equal(auditorias.docs[0].data().comando.id, `confirmar_${suffix}`);
+    assert.equal(auditorias.docs[0].data().comando.id, `efectos-venta:${ventaId}`);
     assert.equal(auditorias.docs[0].data().causationId, `causa_${suffix}`);
     assert.equal(auditorias.docs[0].data().comando.correlationId, `corr_${suffix}`);
     assert.equal(auditorias.docs[0].data().ejecutorTecnico, "reconciliarVentasPendientesOperativas");
