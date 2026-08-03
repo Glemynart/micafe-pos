@@ -1,14 +1,16 @@
 # ADR-SAAS-018 — Eventos operativos confiables y notificaciones FCM
 
-- **Estado:** PROPUESTO
+- **Estado:** ACEPTADO
 - **Fecha:** 2026-08-03
-- **Decision makers:** Lead Engineer; propietario del Goal pendiente de aceptación formal
+- **Fecha de aceptación:** 2026-08-03
+- **Decision makers:** Lead Engineer; propietario del Goal
 - **Alcance:** MVP comercial reusable para cualquier tenant
 - **Relacionados:** ADR-SAAS-001, ADR-SAAS-011, ADR-SAAS-012, ADR-SAAS-015, D-NOTIF-02
 - **No incluye:** `cuentas_cobro`, cambios de Firestore Rules, cambios de autoridad financiera o notificaciones implementadas
 
-> Este ADR formaliza la arquitectura. No implementa productores de eventos,
-> dispatcher ni notificaciones mientras permanezca en estado `PROPUESTO`.
+> La decisión queda aceptada. La implementación de productores, dispatcher y
+> notificaciones se realizará en un PR posterior, manteniendo este cambio sin
+> escrituras productivas y fuera del alcance de la implementación de credenciales.
 
 ---
 
@@ -266,7 +268,8 @@ segundo proveedor push ni se envía FCM desde el cliente.
 5. E2E Emulator: cada evento, reintento, ausencia de token, token inválido, tenant
    ajeno, carrera e idempotencia; luego validación UI de recepción en PWA.
 
-La implementación no comienza mientras este ADR siga `PROPUESTO`.
+La implementación de esta arquitectura queda reservada para un PR posterior y
+no forma parte del PR de recuperación de credenciales.
 
 ## 8. Compatibilidad con decisiones existentes
 
@@ -287,9 +290,9 @@ eventos ni se revierten hechos de dominio como compensación de un fallo de FCM.
 rollback del productor exige un PR posterior que preserve el contrato de eventos
 ya emitidos.
 
-## 10. Criterio de aceptación del ADR
+## 10. Criterios verificados para la aceptación
 
-La decisión queda lista para pasar a `ACEPTADO` cuando se confirme explícitamente:
+Se aceptan explícitamente los siguientes criterios:
 
 - el evento durable en la transacción de dominio;
 - el catálogo inicial de cinco eventos de turnos;
@@ -297,3 +300,10 @@ La decisión queda lista para pasar a `ACEPTADO` cuando se confirme explícitame
 - la selección server-side de administradores y reutilización de FCM;
 - el tratamiento de `D-NOTIF-02` como compatible solo para mensajes best-effort;
 - la ausencia de cambios en Rules, Bootstrap, autoridad financiera y producción.
+
+## 11. Decisión
+
+La arquitectura de eventos operativos confiables queda aceptada como base
+reusable para el PWA. Su aceptación no cambia la prioridad del Goal ni convierte
+las notificaciones push en parte del PR de credenciales: el siguiente PR de
+implementación deberá planificarse y auditarse por separado.
