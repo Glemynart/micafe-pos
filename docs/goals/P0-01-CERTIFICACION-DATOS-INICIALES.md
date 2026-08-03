@@ -1,8 +1,8 @@
 # P0-01 — Runbook de certificación de datos iniciales
 
-> **Estado del documento:** PREPARACIÓN — no constituye evidencia de ejecución ni certifica P0-01.
+> **Estado del documento:** CERTIFICACIÓN DOCUMENTADA — EN REVISIÓN. La evidencia real está registrada en este documento y en el artefacto de cierre asociado; el resultado final queda sujeto a la auditoría y al merge del PR.
 >
-> Este documento prepara la ejecución controlada del siguiente PR del Goal. No reemplaza el acceso aprobado a Firebase, los datos corporativos aprobados ni la evidencia obtenida en el entorno real.
+> Este documento registra la ejecución controlada del PR de certificación de P0-01. No reemplaza el acceso aprobado a Firebase, los datos corporativos aprobados ni la evidencia obtenida en el entorno real.
 
 ## 1. Trazabilidad
 
@@ -11,7 +11,7 @@
 - **Epic:** `E1.1 — Tenant operativo`
 - **Backlog:** `P0-01 — Certificar el tenant real de Café Atrato`
 - **Criterio de aceptación:** el administrador inicia sesión; el tenant activo es Café Atrato; `configuraciones/{empresaId}` es válida; los módulos y espacios esperados son visibles sin errores de Rules ni 404.
-- **Rama de preparación:** `codex/e1-1-p0-01-verificador-certificacion`
+- **Rama de certificación:** `codex/e1-1-p0-01-certificacion-manual`
 
 ## 2. Alcance
 
@@ -251,34 +251,42 @@ flujo es ejecutable contra un entorno controlado, pero no certifica los datos
 reales de Café Atrato ni reemplaza el verificador read-only o los gates de
 entrada de la sección 4.
 
-## 11. Plantilla de cierre del PR P0-01
+## 11. Registro de cierre del PR P0-01
 
 ```text
-Run ID:
-Proyecto / entorno:
-empresaId aprobado:
-Commit de aplicación:
-Versión de Functions:
-Fecha y zona horaria:
-Responsable:
-Aprobador de datos:
+Run ID: `1785779049884`
+Proyecto / entorno: `micafe-pos` / producción
+empresaId aprobado: `1ae0rD9H8t3ZFSBKrrHR`
+Commit de aplicación: `22ba0093b6b05bc6d5822e11e1d1fa83156e926c`
+Versión de Functions: v2, Node.js 22, `us-central1`
+Fecha y zona horaria: `2026-08-03`, America/Bogota
+Responsable: operador autorizado por el responsable del tenant
+Aprobador de datos: responsable del tenant; la identidad fiscal definitiva permanece fuera de P0-01
 
-Gates de entrada: PASS / BLOCKED
-Empresa y lifecycle: PASS / FAIL
-Administrador, membresía y claims: PASS / FAIL
-Login del administrador: PASS / FAIL
-Configuración B1: PASS / FAIL
-Módulos aprobados: PASS / FAIL
-Espacios y categorías: PASS / FAIL
-Rules y 404: PASS / FAIL
-Evidencia redactada adjunta: SÍ / NO
+Gates de entrada: PASS
+Empresa y lifecycle: PASS
+Administrador, membresía y claims: PASS
+Login del administrador: PASS — evidencia manual recibida
+Configuración B1: PASS
+Módulos aprobados: PASS
+Espacios y categorías: PASS — verificación tenant-scoped
+Rules y 404: PASS — navegación manual sin errores observados y smoke automatizado en PASS
+Evidencia redactada adjunta: SÍ
 
-Desviaciones:
-Rollback aplicado o disponible:
-Resultado de certificación: APROBADO / NO CERTIFICADO
+Desviaciones: ninguna. No se realizaron escrituras productivas.
+Rollback aplicado o disponible: no aplica; la certificación fue read-only.
+Resultado de certificación: APTO PARA REVISIÓN
 ```
 
-El resultado `APROBADO` de esta plantilla solo puede emitirse después de la ejecución real y la revisión del PR. Mientras tanto, P0-01 y el Goal permanecen `ACTIVO`.
+El registro anterior se basa en la lectura productiva y en la evidencia manual recibida. El estado `APROBADO` se emitirá únicamente después de la auditoría y del merge de este PR.
+
+### 11.1 Evidencia manual recibida
+
+- La captura proporcionada durante la validación muestra `Café Atrato`, el espacio `Cafetería`, el rol de administrador y los siete módulos aprobados: Ventas, Reservas Web, Clientes, Inventario, Compras, Finanzas y Mermas.
+- El responsable confirmó que inició sesión y navegó por todos los módulos sin errores en la consola del navegador.
+- La captura se conserva como evidencia de la conversación y se identifica mediante SHA-256 `FAF3767218341E047526D9CECDB6E1070D8E97063431728F4F6EC798CDB5AA21`.
+- El verificador productivo devolvió `automatedVerdict = PASS` para los doce criterios automatizables y generó el hash de evidencia `32bc903ed4771ef5c138d4d5968b8629089393594ee6d6955e070e82c7677515`.
+- La producción de Vercel correspondiente al commit `22ba0093b6b05bc6d5822e11e1d1fa83156e926c` figura como `success`; el listado read-only de Functions confirma las callable relevantes desplegadas en `us-central1` como v2/Node.js 22.
 
 ## 12. Criterio de auditoría del PR
 
