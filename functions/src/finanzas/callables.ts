@@ -214,19 +214,27 @@ export const trasladarEntreCuentasV1 = onCall({ region: REGION }, async request 
 }));
 
 async function efectoAplicarEfectosVentaOperativa(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<Record<string, unknown>> {
-  await revalidarAutoridadFinancieraEnTransaccion(tx, db, { empresaId, actorUid, rol }, "pos");
+  await revalidarAutoridadFinancieraEnTransaccion(tx, db, { empresaId, actorUid, rol }, "sell");
   const ventaId = input.payload.ventaId;
   if (!text(ventaId)) fail("invalid-argument", "PAYLOAD_INVALID");
   const ventaRef = db.collection("ventas").doc(ventaId as string); const venta = await tx.get(ventaRef);
   if (!venta.exists || venta.data()?.empresaId !== empresaId || venta.data()?.estadoOperativo !== "PENDIENTE_EFECTOS") fail("failed-precondition", "VENTA_NO_PENDIENTE");
   const data = venta.data() as Record<string, any>; const total = Number(data.totales?.total ?? 0); const metodo = data.metodoPago ?? data.pago?.metodo;
   if (!money(total) || !text(metodo)) fail("invalid-argument", "PAGO_INVALIDO");
-  const legs: Array<{ claveOperativa: string; monto: number; turnoId: string | null }> = metodo === "mixto" ? (Array.isArray(data.pagoMixtoDetalle) ? data.pagoMixtoDetalle.map((p: any) => ({ claveOperativa: claveCuentaPorMedioPago(p.metodo), monto: p.monto, turnoId: p.metodo === "efectivo" ? data.turnoId ?? null : null })) : []) : [{ claveOperativa: claveCuentaPorMedioPago(metodo), monto: total, turnoId: metodo === "efectivo" ? data.turnoId ?? null : null }];
-  if (!legs.length || legs.some(leg => !money(leg.monto))) fail("invalid-argument", "PAGO_INVALIDO");
-  if (legs.reduce((sum, leg) => sum + leg.monto, 0) !== total) fail("invalid-argument", "PAGO_INVALIDO");
-  const cuentas = await Promise.all([...new Set(legs.map(leg => leg.claveOperativa))].map(clave => resolverCuentaOperativa(tx, db, empresaId, clave)));
-  const porId = new Map(cuentas.map(cuenta => [cuenta.ref.id, cuenta]));
-  if (legs.some(leg => leg.claveOperativa === CLAVE_CAJA_PRINCIPAL)) {
+  // Ventas F1 actuales siempre persisten `estado`; el fallback conserva la
+  // semántica histórica del reconciliador para ventas legacy sin ese campo.
+  const esPagada = data.estado === "pagada" || data.estado === undefined;
+  const legs: Array<{ claveOperativa: string; monto: number; turnoId: string | null }> = !esPagada
+    ? []
+    : metodo === "mixto"
+      ? (Array.isArray(data.pagoMixtoDetalle) ? data.pagoMixtoDetalle.map((p: any) => ({ claveOperativa: claveCuentaPorMedioPago(p.metodo), monto: p.monto, turnoId: p.metodo === "efectivo" ? data.turnoId ?? null : null })) : [])
+      : [{ claveOperativa: claveCuentaPorMedioPago(metodo), monto: total, turnoId: metodo === "efectivo" ? data.turnoId ?? null : null }];
+  if (esPagada && (!legs.length || legs.some(leg => !money(leg.monto)))) fail("invalid-argument", "PAGO_INVALIDO");
+  if (esPagada && legs.reduce((sum, leg) => sum + leg.monto, 0) !== total) fail("invalid-argument", "PAGO_INVALIDO");
+  const cuentas = esPagada
+    ? await Promise.all([...new Set(legs.map(leg => leg.claveOperativa))].map(clave => resolverCuentaOperativa(tx, db, empresaId, clave)))
+    : [];
+  if (esPagada && legs.some(leg => leg.claveOperativa === CLAVE_CAJA_PRINCIPAL)) {
     const turnoId = legs.find(leg => leg.claveOperativa === CLAVE_CAJA_PRINCIPAL)!.turnoId;
     if (!text(turnoId)) fail("failed-precondition", "TURNO_CERRADO");
     const turno = await tx.get(db.collection("turnos").doc(turnoId));
@@ -267,6 +275,29 @@ async function efectoAplicarEfectosVentaOperativa(tx: any, db: any, empresaId: s
     if (existente.exists && (existente.data()?.empresaId !== empresaId || existente.data()?.referenciaId !== ventaId)) fail("failed-precondition", "EFECTO_INVENTARIO_INCONSISTENTE");
     inventario.push({ key, articulo, movimiento, cantidad: consumo.cantidad, tipo: consumo.tipo });
   }
+  const incidenciasInventario: Array<{ tipo: "stock_insuficiente"; itemId: string; itemNombre: string; stockAnterior: number; cantidadSolicitada: number }> = [];
+  const pedidoIdEntrada = data.pedidoId;
+  if (pedidoIdEntrada !== undefined && pedidoIdEntrada !== null && !text(pedidoIdEntrada)) fail("failed-precondition", "PEDIDO_INVALIDO");
+  const pedidoId = text(pedidoIdEntrada) ? pedidoIdEntrada : null;
+  let pedidoRef: any = null;
+  let pedidoSnap: any = null;
+  let comandaSnaps: any[] = [];
+  if (pedidoId) {
+    pedidoRef = db.collection("pedidos_activos").doc(pedidoId);
+    pedidoSnap = await tx.get(pedidoRef);
+    const pedidoData = pedidoSnap.data() as Record<string, any> | undefined;
+    if (!pedidoSnap.exists || pedidoData?.empresaId !== empresaId || pedidoData.activo !== true || pedidoData.estado !== "abierto") {
+      fail("failed-precondition", "PEDIDO_NO_ABIERTO");
+    }
+    const comandaIds = pedidoData?.comandaIds === undefined ? [] : pedidoData.comandaIds;
+    if (!Array.isArray(comandaIds) || comandaIds.some((id: unknown) => !text(id))) fail("failed-precondition", "PEDIDO_INVALIDO");
+    comandaSnaps = await Promise.all((comandaIds as string[]).map(id => tx.get(db.collection("comandas_cocina").doc(id))));
+    for (const comanda of comandaSnaps) {
+      if (comanda.exists && (comanda.data()?.empresaId !== empresaId || comanda.data()?.pedidoId !== pedidoId)) {
+        fail("failed-precondition", "PEDIDO_INVALIDO");
+      }
+    }
+  }
   const lineasExistentes = await Promise.all(legs.map((_, ordinal) => tx.get(db.collection(MOVIMIENTOS).doc(crearIdentificadorInterno(empresaId, `movfin:venta:${ventaId}:pago:${ordinal}`)))));
   if (lineasExistentes.some(linea => linea.exists)) fail("failed-precondition", "EFECTOS_VENTA_INCONSISTENTES");
   const saldos = new Map(cuentas.map(cuenta => [cuenta.ref.id, cuenta.saldo]));
@@ -275,11 +306,22 @@ async function efectoAplicarEfectosVentaOperativa(tx: any, db: any, empresaId: s
   for (const cuenta of cuentas) tx.update(cuenta.ref, { saldo: saldos.get(cuenta.ref.id)! });
   for (const entrada of inventario) {
     const articulo = entrada.articulo.data(); const stock = Number(articulo.stock ?? 0); const secuencia = Number(articulo.secuenciaLedger ?? 0);
+    if (entrada.cantidad > stock) {
+      incidenciasInventario.push({ tipo: "stock_insuficiente", itemId: entrada.articulo.id, itemNombre: articulo.nombre ?? entrada.articulo.id, stockAnterior: stock, cantidadSolicitada: entrada.cantidad });
+    }
     tx.create(entrada.movimiento, { id: entrada.movimiento.id, empresaId, articuloTipo: entrada.tipo, articuloId: entrada.articulo.id, articuloNombre: articulo.nombre ?? entrada.articulo.id, unidad: articulo.unidadMedida ?? articulo.unidad ?? "und", tipo: entrada.tipo === "insumo" ? "consumo_receta" : "venta", clase: "salida", signo: -1, cantidad: -entrada.cantidad, saldoCantidadDespues: stock - entrada.cantidad, secuencia: secuencia + 1, referenciaColeccion: "ventas", referenciaId: ventaId, claveIdempotencia: entrada.movimiento.id, usuarioId: actorUid, rolEfectivoSnapshot: rol, creadoEn: FieldValue.serverTimestamp() });
     tx.update(db.collection(entrada.tipo === "producto" ? "productos" : "insumos").doc(entrada.articulo.id), { stock: stock - entrada.cantidad, secuenciaLedger: secuencia + 1 });
   }
+  if (pedidoRef && pedidoSnap) {
+    tx.update(pedidoRef, { estado: "pagado", activo: false, fechaPago: FieldValue.serverTimestamp(), ventaId });
+    for (const comanda of comandaSnaps) {
+      if (comanda.exists && comanda.data()?.estado !== "entregado") {
+        tx.update(comanda.ref, { estado: "entregado", completadoEn: FieldValue.serverTimestamp() });
+      }
+    }
+  }
   tx.update(ventaRef, { estadoOperativo: "COMPLETO", efectosOperativosEn: FieldValue.serverTimestamp() });
-  return { commandId: input.commandId, ventaId, movimientos: movementIds, movimientosInventario: inventario.map(entrada => entrada.movimiento.id) };
+  return { commandId: input.commandId, ventaId, movimientos: movementIds, movimientosInventario: inventario.map(entrada => entrada.movimiento.id), incidenciasInventario, ...(pedidoId ? { pedidoId } : {}) };
 }
 
 export async function ejecutarAplicarEfectosVentaOperativaV1(db: any, contexto: ContextoFinancieroOperativo, data: unknown) {

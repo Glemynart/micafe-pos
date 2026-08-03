@@ -85,7 +85,7 @@ const count = (db: FakeFirestore, collection: string) => [...db.docs.keys()].fil
 function seed(db: FakeFirestore, options: { relevo?: boolean; efectivo?: boolean } = {}) {
   db.docs.set(`empresas/${empresaId}`, { estado: "activa", esFundacional: false });
   db.docs.set(`membresias/${empresaId}_${actor.actorUid}`, {
-    empresaId, uid: actor.actorUid, rol: actor.rol, permisos: ["shifts", "pos"], estado: "activa", activo: true,
+    empresaId, uid: actor.actorUid, rol: actor.rol, permisos: ["shifts", "sell"], estado: "activa", activo: true,
   });
   const cajaId = crearIdentificadorInterno(empresaId, "cuenta:caja-principal");
   const fuerteId = crearIdentificadorInterno(empresaId, "cuenta:caja-fuerte");
@@ -190,4 +190,100 @@ test("R1-B.2: una empresa no fundacional acredita la cuenta reservada mediante s
   assert.equal(result.ventaId, "venta-pendiente");
   assert.equal(db.docs.get(`cuentas_bancarias/${cajaId}`)?.saldo, 200);
   assert.equal(db.docs.has("cuentas_bancarias/caja-principal"), false);
+});
+
+function seedVentaOperativa(db: FakeFirestore) {
+  const bancoId = crearIdentificadorInterno("empresa-venta", "cuenta:bancolombia");
+  db.docs.set("empresas/empresa-venta", { estado: "activa", esFundacional: false });
+  db.docs.set("membresias/empresa-venta_cajero-venta", { empresaId: "empresa-venta", uid: "cajero-venta", rol: "cajero", permisos: ["sell"], estado: "activa", activo: true });
+  db.docs.set(`cuentas_bancarias/${bancoId}`, { id: bancoId, empresaId: "empresa-venta", saldo: 0, claveOperativa: "bancolombia", nombre: "Banco" });
+  db.docs.set("productos/cafe-venta", { empresaId: "empresa-venta", nombre: "Cafe venta", stock: 1, secuenciaLedger: 0, costo: 10, unidad: "und" });
+  db.docs.set("turnos/turno-venta", { empresaId: "empresa-venta", estado: "abierto" });
+  return { bancoId };
+}
+
+const contextoVenta: ContextoFinancieroOperativo = { empresaId: "empresa-venta", actorUid: "cajero-venta", rol: "cajero" };
+const envelopeVenta = (ventaId: string) => ({
+  commandId: `efectos-venta:${ventaId}`,
+  idempotencyKey: `efectos-venta:${ventaId}`,
+  correlationId: `corr-efectos-venta:${ventaId}`,
+  causationId: `cmd_sale_${ventaId}`,
+  payload: { ventaId },
+});
+
+test("P0-03: la Fase 2 server-side aplica inventario, tesoreria, incidencia y replay sin duplicar", async () => {
+  const db = new FakeFirestore();
+  const { bancoId } = seedVentaOperativa(db);
+  db.docs.set("ventas/venta-server", {
+    empresaId: "empresa-venta", estado: "pagada", estadoOperativo: "PENDIENTE_EFECTOS",
+    turnoId: "turno-venta", metodoPago: "transferencia", totales: { total: 100 },
+    items: [{ id: "cafe-venta", cantidad: 2 }],
+  });
+
+  const first = await ejecutarAplicarEfectosVentaOperativaV1(db, contextoVenta, envelopeVenta("venta-server"));
+  const second = await ejecutarAplicarEfectosVentaOperativaV1(db, contextoVenta, envelopeVenta("venta-server"));
+
+  assert.deepEqual(second, first);
+  assert.equal(db.docs.get("ventas/venta-server")?.estadoOperativo, "COMPLETO");
+  assert.equal(db.docs.get(`cuentas_bancarias/${bancoId}`)?.saldo, 100);
+  assert.equal(db.docs.get("productos/cafe-venta")?.stock, -1);
+  assert.equal(db.docs.get("productos/cafe-venta")?.secuenciaLedger, 1);
+  assert.deepEqual(first.incidenciasInventario, [{ tipo: "stock_insuficiente", itemId: "cafe-venta", itemNombre: "Cafe venta", stockAnterior: 1, cantidadSolicitada: 2 }]);
+  assert.equal(count(db, "transacciones_financieras"), 1);
+  assert.equal(count(db, "movimientos_inventario"), 1);
+  assert.equal(count(db, "operaciones_comandos"), 1);
+  assert.equal(count(db, "operaciones_auditoria"), 1);
+});
+
+test("P0-03: el cierre de pedido y comandas permanece dentro de la misma transaccion server-side", async () => {
+  const db = new FakeFirestore();
+  seedVentaOperativa(db);
+  db.docs.set("pedidos_activos/pedido-server", { empresaId: "empresa-venta", estado: "abierto", activo: true, comandaIds: ["comanda-server"] });
+  db.docs.set("comandas_cocina/comanda-server", { empresaId: "empresa-venta", pedidoId: "pedido-server", estado: "listo" });
+  db.docs.set("ventas/venta-pedido-server", {
+    empresaId: "empresa-venta", estado: "pagada", estadoOperativo: "PENDIENTE_EFECTOS",
+    turnoId: "turno-venta", metodoPago: "transferencia", totales: { total: 50 },
+    items: [{ id: "quick-pedido", cantidad: 1 }], pedidoId: "pedido-server",
+  });
+
+  const result = await ejecutarAplicarEfectosVentaOperativaV1(db, contextoVenta, envelopeVenta("venta-pedido-server"));
+
+  assert.equal(result.pedidoId, "pedido-server");
+  assert.equal(db.docs.get("pedidos_activos/pedido-server")?.estado, "pagado");
+  assert.equal(db.docs.get("pedidos_activos/pedido-server")?.activo, false);
+  assert.equal(db.docs.get("pedidos_activos/pedido-server")?.ventaId, "venta-pedido-server");
+  assert.equal(db.docs.get("comandas_cocina/comanda-server")?.estado, "entregado");
+  assert.equal(db.docs.get("ventas/venta-pedido-server")?.estadoOperativo, "COMPLETO");
+});
+
+test("P0-03: ventas no pagadas conservan inventario sin crear movimientos financieros", async () => {
+  const db = new FakeFirestore();
+  seedVentaOperativa(db);
+  db.docs.set("ventas/venta-cuenta", {
+    empresaId: "empresa-venta", estado: "pendiente", estadoOperativo: "PENDIENTE_EFECTOS",
+    metodoPago: "cuenta_cobro", totales: { total: 50 }, items: [{ id: "quick-cuenta", cantidad: 1 }],
+  });
+
+  await ejecutarAplicarEfectosVentaOperativaV1(db, contextoVenta, envelopeVenta("venta-cuenta"));
+
+  assert.equal(db.docs.get("ventas/venta-cuenta")?.estadoOperativo, "COMPLETO");
+  assert.equal(count(db, "transacciones_financieras"), 0);
+  assert.equal(count(db, "movimientos_inventario"), 0);
+});
+
+test("P0-03: una falla de validacion no deja efectos parciales y una membresia sin sell es rechazada", async () => {
+  const db = new FakeFirestore();
+  seedVentaOperativa(db);
+  db.docs.set("ventas/venta-invalida", {
+    empresaId: "empresa-venta", estado: "pagada", estadoOperativo: "PENDIENTE_EFECTOS",
+    metodoPago: "transferencia", totales: { total: 50 }, items: [{ id: "articulo-inexistente", cantidad: 1 }],
+  });
+  const before = structuredClone([...db.docs]);
+  await assert.rejects(ejecutarAplicarEfectosVentaOperativaV1(db, contextoVenta, envelopeVenta("venta-invalida")), error => domain(error, "ARTICULO_NO_ENCONTRADO"));
+  assert.deepEqual([...db.docs], before);
+
+  db.docs.set("membresias/empresa-venta_cajero-venta", { empresaId: "empresa-venta", uid: "cajero-venta", rol: "cajero", permisos: [], estado: "activa", activo: true });
+  const beforePermission = structuredClone([...db.docs]);
+  await assert.rejects(ejecutarAplicarEfectosVentaOperativaV1(db, contextoVenta, envelopeVenta("venta-invalida")), error => domain(error, "ROLE_FORBIDDEN"));
+  assert.deepEqual([...db.docs], beforePermission);
 });

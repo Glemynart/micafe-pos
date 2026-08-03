@@ -5,8 +5,9 @@
  * Implementa la Saga en 2 Fases con Contrato de Estado Operativo (ADR-SAAS-010):
  *  - Fase 1 (Backend Cloud Functions): `confirmarVentaFiscalCallable`. Genera consecutivo inmutable,
  *    `snapshotFiscal` y establece `estadoOperativo: "PENDIENTE_EFECTOS"`.
- *  - Fase 2 (Cliente POS / Reconciliador): Transacción atómica local Firestore que descuenta el Ledger,
- *    acredita la tesorería y transiciona `estadoOperativo: "COMPLETO"`.
+ *  - Fase 2 (Callable server-authoritative): `aplicarEfectosVentaOperativaV1`
+ *    descuenta el Ledger, acredita la tesorería y transiciona
+ *    `estadoOperativo: "COMPLETO"` en una transacción Admin SDK.
  */
 
 import {
@@ -26,8 +27,6 @@ import {
   limit,
   Timestamp,
   type Unsubscribe,
-  type Transaction,
-  type DocumentReference,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { getAuth } from "firebase/auth";
@@ -67,8 +66,6 @@ export interface PagoMixtoDetalle {
   monto: number;
 }
 
-const METODOS_MIXTO_PERMITIDOS: readonly PagoMixtoDetalle['metodo'][] = ['efectivo', 'transferencia', 'tarjeta'];
-
 export interface CrearVentaParams {
   turnoId: string;
   cajeroId: string;
@@ -107,6 +104,15 @@ export interface IncidenciaInventario {
   cantidadSolicitada: number
 }
 
+interface ResultadoEfectosVenta {
+  commandId: string;
+  ventaId: string;
+  movimientos: string[];
+  movimientosInventario: string[];
+  incidenciasInventario: IncidenciaInventario[];
+  pedidoId?: string;
+}
+
 /**
  * Consulta la asignación de numeración vigente para el tenant y devuelve los números de revisión esperados.
  */
@@ -139,230 +145,24 @@ export async function obtenerRevisionesNumeracionActiva(
   return { expectedRevision, expectedAsignacionRevision };
 }
 
-/**
- * Fase 2 de la Saga Operativa: Aplica los efectos de inventario (Ledger) y tesorería,
- * y promueve la venta de `PENDIENTE_EFECTOS` a `COMPLETO` dentro de una transacción atómica.
- */
-export async function ejecutarFase2OperativaEnTransaccion(
-  transaction: Transaction,
-  ventaDocRef: DocumentReference,
-  params: CrearVentaParams,
-  empresaId: string
-): Promise<{ incidencias: IncidenciaInventario[] }> {
-  const incidencias: IncidenciaInventario[] = [];
-
-  const ventaSnap = await transaction.get(ventaDocRef);
-  if (!ventaSnap.exists()) {
-    throw new Error("La venta no existe.");
-  }
-  const ventaData = ventaSnap.data();
-
-  // Guarda de Concurrencia / Idempotencia (ADR-SAAS-010 §5.1)
-  if (ventaData.estadoOperativo === "COMPLETO") {
-    return { incidencias: [] };
-  }
-  if (ventaData.estadoOperativo !== "PENDIENTE_EFECTOS") {
-    throw new Error(`Estado operativo no permite completar la venta: ${ventaData.estadoOperativo}`);
-  }
-
-  // Validación de pago mixto (I7)
-  if (params.metodoPago === 'mixto') {
-    const detalle = params.pagoMixtoDetalle;
-    if (!detalle || detalle.length === 0) {
-      throw new Error('Pago mixto requiere pagoMixtoDetalle con al menos una pierna.');
-    }
-    for (const pago of detalle) {
-      if (!METODOS_MIXTO_PERMITIDOS.includes(pago.metodo)) {
-        throw new Error(`Método de pago mixto no permitido: ${pago.metodo}`);
-      }
-      if (!Number.isFinite(pago.monto) || pago.monto <= 0) {
-        throw new Error('Cada pierna del pago mixto debe tener un monto positivo.');
-      }
-    }
-    const sumaDetalle = detalle.reduce((acc, pago) => acc + pago.monto, 0);
-    if (sumaDetalle !== params.totales.total) {
-      throw new Error(
-        `La suma del pago mixto (${sumaDetalle}) no coincide con el total de la venta (${params.totales.total}).`
-      );
-    }
-  }
-
-  // 1. LECTURAS (reads-before-writes)
-  const recetasMap = new Map<string, any>();
-  for (const item of params.items) {
-    if (item.id.startsWith('quick-')) continue;
-    const recetaRef = doc(db, "recetas", item.id);
-    const recetaSnap = await transaction.get(recetaRef);
-    if (recetaSnap.exists()) {
-      recetasMap.set(item.id, recetaSnap.data());
-    }
-  }
-
-  const insumosToRead = new Set<string>();
-  const productosToRead = new Set<string>();
-  for (const item of params.items) {
-    if (item.id.startsWith('quick-')) continue;
-    const receta = recetasMap.get(item.id);
-    if (receta && receta.ingredientes && receta.ingredientes.length > 0) {
-      for (const ing of receta.ingredientes) {
-        insumosToRead.add(ing.insumoId);
-      }
-    } else {
-      productosToRead.add(item.id);
-    }
-  }
-
-  const insumosMap = new Map<string, any>();
-  for (const insumoId of insumosToRead) {
-    const insumoRef = doc(db, "insumos", insumoId);
-    const insumoSnap = await transaction.get(insumoRef);
-    if (insumoSnap.exists()) {
-      insumosMap.set(insumoId, { ref: insumoRef, data: insumoSnap.data() });
-    }
-  }
-
-  const productosMap = new Map<string, any>();
-  for (const productoId of productosToRead) {
-    const productoRef = doc(db, "productos", productoId);
-    const productoSnap = await transaction.get(productoRef);
-    if (productoSnap.exists()) {
-      productosMap.set(productoId, { ref: productoRef, data: productoSnap.data() });
-    }
-  }
-
-  const insumosDescuentos = new Map<string, number>();
-  const productosDescuentos = new Map<string, number>();
-  for (const item of params.items) {
-    if (item.id.startsWith('quick-')) continue;
-    const receta = recetasMap.get(item.id);
-    if (receta && receta.ingredientes && receta.ingredientes.length > 0) {
-      for (const ing of receta.ingredientes) {
-        const currentDescuento = insumosDescuentos.get(ing.insumoId) || 0;
-        insumosDescuentos.set(ing.insumoId, currentDescuento + (ing.cantidad * item.cantidad));
-      }
-    } else {
-      const currentDescuento = productosDescuentos.get(item.id) || 0;
-      productosDescuentos.set(item.id, currentDescuento + item.cantidad);
-    }
-  }
-
-  // 2. ESCRITURAS ATÓMICAS (Fase 2)
-  const paramsMovimientos: EmitirMovimientoParams[] = [];
-
-  for (const [insumoId, qtyDesc] of insumosDescuentos.entries()) {
-    if (qtyDesc <= 0) continue;
-    const insumo = insumosMap.get(insumoId);
-    if (insumo) {
-      const currentStock = insumo.data.stock || 0;
-      if (qtyDesc > currentStock) {
-        incidencias.push({
-          tipo: 'stock_insuficiente',
-          itemId: insumoId,
-          itemNombre: insumo.data.nombre || insumoId,
-          stockAnterior: currentStock,
-          cantidadSolicitada: qtyDesc,
-        });
-      }
-      paramsMovimientos.push({
-        empresaId,
-        articuloTipo:        "insumo",
-        articuloId:          insumoId,
-        articuloNombre:      insumo.data.nombre ?? insumoId,
-        unidad:              insumo.data.unidadMedida ?? "und",
-        tipo:                "consumo_receta",
-        cantidad:            -qtyDesc,
-        costoUnitario:       insumo.data.costo ?? 0,
-        espacioId:           params.espacioId ?? "",
-        usuarioId:           params.cajeroId,
-        usuarioNombre:       params.cajeroNombre ?? params.cajeroId,
-        claveIdempotencia:   `consumo_receta:${ventaDocRef.id}:insumo:${insumoId}:0`,
-        referenciaColeccion: "ventas",
-        referenciaId:        ventaDocRef.id,
-      });
-    }
-  }
-
-  for (const [productoId, qtyDesc] of productosDescuentos.entries()) {
-    if (qtyDesc <= 0) continue;
-    const producto = productosMap.get(productoId);
-    if (producto) {
-      const currentStock = producto.data.stock || 0;
-      if (qtyDesc > currentStock) {
-        incidencias.push({
-          tipo: 'stock_insuficiente',
-          itemId: productoId,
-          itemNombre: producto.data.nombre || productoId,
-          stockAnterior: currentStock,
-          cantidadSolicitada: qtyDesc,
-        });
-      }
-      paramsMovimientos.push({
-        empresaId,
-        articuloTipo:        "producto",
-        articuloId:          productoId,
-        articuloNombre:      producto.data.nombre ?? productoId,
-        unidad:              producto.data.unidad ?? "und",
-        tipo:                "venta",
-        cantidad:            -qtyDesc,
-        costoUnitario:       producto.data.costo ?? 0,
-        espacioId:           params.espacioId ?? "",
-        usuarioId:           params.cajeroId,
-        usuarioNombre:       params.cajeroNombre ?? params.cajeroId,
-        claveIdempotencia:   `venta:${ventaDocRef.id}:producto:${productoId}:0`,
-        referenciaColeccion: "ventas",
-        referenciaId:        ventaDocRef.id,
-      });
-    }
-  }
-
-  if (paramsMovimientos.length > 0) {
-    await aplicarMovimientosEnTransaccion(transaction, paramsMovimientos);
-  }
-
-  // Actualización a estado COMPLETO
-  transaction.update(ventaDocRef, {
-    estadoOperativo: "COMPLETO",
-    efectosAplicadosEn: serverTimestamp(),
+/** Solicita al backend la única ejecución autorizada de la Fase 2. */
+async function aplicarFase2Venta(ventaId: string): Promise<ResultadoEfectosVenta> {
+  const commandId = `efectos-venta:${ventaId}`;
+  const ejecutar = httpsCallable<{
+    commandId: string;
+    idempotencyKey: string;
+    correlationId: string;
+    causationId: string;
+    payload: { ventaId: string };
+  }, ResultadoEfectosVenta>(getFunctions(), "aplicarEfectosVentaOperativaV1");
+  const respuesta = await ejecutar({
+    commandId,
+    idempotencyKey: commandId,
+    correlationId: `corr-efectos-venta:${ventaId}`,
+    causationId: `cmd_sale_${ventaId}`,
+    payload: { ventaId },
   });
-
-  // Movimientos de tesorería
-  if (params.estado === 'pagada') {
-    const cuentaMap: Record<string, { nombre: string }> = {
-      'caja-principal': { nombre: 'Caja Registradora' },
-      'bancolombia':    { nombre: 'Bancolombia' },
-    };
-
-    const registrarMovimiento = (cuentaId: string, monto: number) => {
-      if (monto <= 0 || !cuentaMap[cuentaId]) return;
-      transaction.update(doc(db, 'cuentas_bancarias', cuentaId), { saldo: increment(monto) });
-      transaction.set(doc(collection(db, 'transacciones_financieras')), withEmpresaId(empresaId, {
-        cuentaId,
-        cuentaNombre: cuentaMap[cuentaId].nombre,
-        tipo: 'ingreso',
-        monto,
-        concepto: `Venta #${ventaData.consecutivo || ''}`,
-        categoria: 'ventas',
-        referencia: ventaDocRef.id,
-        usuarioId: params.cajeroId,
-        usuarioNombre: params.cajeroNombre ?? params.cajeroId,
-        espacioId: params.espacioId ?? null,
-        fecha: serverTimestamp(),
-      }));
-    };
-
-    if (params.metodoPago === 'efectivo') {
-      registrarMovimiento('caja-principal', params.totales.total);
-    } else if (params.metodoPago === 'transferencia') {
-      registrarMovimiento('bancolombia', params.totales.total);
-    } else if (params.metodoPago === 'mixto' && params.pagoMixtoDetalle) {
-      for (const pago of params.pagoMixtoDetalle) {
-        if (pago.metodo === 'efectivo') registrarMovimiento('caja-principal', pago.monto);
-        else if (pago.metodo === 'transferencia') registrarMovimiento('bancolombia', pago.monto);
-      }
-    }
-  }
-
-  return { incidencias };
+  return respuesta.data;
 }
 
 /**
@@ -373,7 +173,6 @@ export async function registrarVenta(
 ): Promise<{ id: string; consecutivo: number; incidenciasInventario: IncidenciaInventario[] }> {
   const nuevaVentaDoc = doc(collection(db, "ventas"));
   const ventaId = nuevaVentaDoc.id;
-  const empresaId = await getEmpresaId();
 
   // 1. Obtener revisiones de numeración y asignación
   const { expectedRevision, expectedAsignacionRevision } = await obtenerRevisionesNumeracionActiva("pos");
@@ -432,19 +231,10 @@ export async function registrarVenta(
   const resFiscal = await callConfirmarVenta(payloadFiscal);
   const consecutivo = resFiscal.data.numero;
 
-  // 3. FASE 2: Transacción Firestore atómica local (Ledger + Tesorería + COMPLETO)
-  let incidencias: IncidenciaInventario[] = [];
-  await runTransaction(db, async (transaction) => {
-    const resFase2 = await ejecutarFase2OperativaEnTransaccion(
-      transaction,
-      nuevaVentaDoc,
-      params,
-      empresaId
-    );
-    incidencias = resFase2.incidencias;
-  });
+  // 3. FASE 2: intención mínima; la transacción crítica vive en Functions.
+  const resFase2 = await aplicarFase2Venta(ventaId);
 
-  return { id: ventaId, consecutivo, incidenciasInventario: incidencias };
+  return { id: ventaId, consecutivo, incidenciasInventario: resFase2.incidenciasInventario ?? [] };
 }
 
 export type CobrarPedidoResult =
@@ -457,7 +247,6 @@ export async function cobrarPedido(
 ): Promise<CobrarPedidoResult> {
   const nuevaVentaDoc = doc(collection(db, "ventas"));
   const ventaId = nuevaVentaDoc.id;
-  const empresaId = await getEmpresaId();
 
   // Validar estado del pedido
   const pedidoRef = doc(db, 'pedidos_activos', pedidoId);
@@ -525,37 +314,10 @@ export async function cobrarPedido(
   const resFiscal = await callConfirmarVenta(payloadFiscal);
   const consecutivo = resFiscal.data.numero;
 
-  // 3. FASE 2: Transacción local
-  let incidencias: IncidenciaInventario[] = [];
-  await runTransaction(db, async (transaction) => {
-    const comandaIds: string[] = pedido.comandaIds || [];
-    const comandaSnaps = await Promise.all(
-      comandaIds.map(id => transaction.get(doc(db, 'comandas_cocina', id)))
-    );
+  // 3. FASE 2: la misma intención server-side cierra también el pedido y sus comandas.
+  const resFase2 = await aplicarFase2Venta(ventaId);
 
-    const resFase2 = await ejecutarFase2OperativaEnTransaccion(
-      transaction,
-      nuevaVentaDoc,
-      params,
-      empresaId
-    );
-    incidencias = resFase2.incidencias;
-
-    transaction.update(pedidoRef, {
-      estado: 'pagado',
-      activo: false,
-      fechaPago: serverTimestamp(),
-      ventaId,
-    });
-
-    for (const snap of comandaSnaps) {
-      if (snap.exists() && snap.data().estado !== 'entregado') {
-        transaction.update(snap.ref, { estado: 'entregado', completadoEn: serverTimestamp() });
-      }
-    }
-  });
-
-  return { status: 'ok', ventaId, consecutivo, incidenciasInventario: incidencias };
+  return { status: 'ok', ventaId, consecutivo, incidenciasInventario: resFase2.incidenciasInventario ?? [] };
 }
 
 const HISTORIAL_VENTAS_LIMIT = 100;
