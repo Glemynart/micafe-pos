@@ -56,6 +56,12 @@ export interface CertificationExpectations {
   adminUid?: string;
   modules: string[];
   spaces: ExpectedSpace[];
+  /**
+   * `exact` preserves the original contract. `tenant-scoped` is useful when
+   * categories are intentionally outside the certification scope: it checks
+   * isolation and space consistency without approving a definitive catalog.
+   */
+  categoriesPolicy?: "exact" | "tenant-scoped";
 }
 
 export interface CheckResult {
@@ -91,6 +97,13 @@ function digest(value: string): string {
 
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function comparableName(value: unknown): string | null {
+  const normalized = text(value);
+  return normalized
+    ? normalized.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es-CO")
+    : null;
 }
 
 function firestoreId(value: unknown): string | null {
@@ -141,6 +154,9 @@ export function validateExpectations(value: unknown): { valid: true; value: Cert
   if (!text(input.expectedEmpresaNombre)) errors.push("EXPECTATIONS_EMPRESA_NAME_REQUIRED");
   if (input.expectedEstado !== undefined && input.expectedEstado !== "activa") errors.push("EXPECTATIONS_STATE_UNSUPPORTED");
   if (input.adminUid !== undefined && !firestoreId(input.adminUid)) errors.push("EXPECTATIONS_ADMIN_UID_INVALID");
+  if (input.categoriesPolicy !== undefined && input.categoriesPolicy !== "exact" && input.categoriesPolicy !== "tenant-scoped") {
+    errors.push("EXPECTATIONS_CATEGORIES_POLICY_UNSUPPORTED");
+  }
 
   const modules = stringList(input.modules);
   if (!modules) errors.push("EXPECTATIONS_MODULES_REQUIRED");
@@ -201,6 +217,7 @@ export function validateExpectations(value: unknown): { valid: true; value: Cert
       ...(input.adminUid ? { adminUid: firestoreId(input.adminUid)! } : {}),
       modules: modules!,
       spaces,
+      categoriesPolicy: input.categoriesPolicy === "tenant-scoped" ? "tenant-scoped" : "exact",
     },
   };
 }
@@ -256,12 +273,13 @@ export async function verifyTenant(
   const empresaData = empresa.data;
   const expectedName = expectations.expectedEmpresaNombre;
   const actualName = text(empresaData.nombreComercial) ?? text(empresaData.nombre);
+  const namesMatch = comparableName(actualName) !== null && comparableName(actualName) === comparableName(expectedName);
   const expectedState = expectations.expectedEstado ?? "activa";
   checks.push(check(
     "TENANT_ACTIVE_AND_EXPECTED",
-    empresaData.estado === expectedState && actualName === expectedName && (empresaData.empresaId === undefined || empresaData.empresaId === tenantId) ? "PASS" : "FAIL",
+    empresaData.estado === expectedState && namesMatch && (empresaData.empresaId === undefined || empresaData.empresaId === tenantId) ? "PASS" : "FAIL",
     "La Empresa coincide con el tenant y el estado esperado.",
-    { expectedName, actualName, expectedState, actualState: text(empresaData.estado) },
+    { expectedName, actualName, namesMatch, expectedState, actualState: text(empresaData.estado) },
   ));
 
   const ownerUid = expectations.adminUid ?? text(empresaData.ownerUid);
@@ -404,6 +422,27 @@ export async function verifyTenant(
     { expectedCount: expectations.spaces.length, actualActiveCount: activeSpaces.length, unexpectedIds: unexpectedSpaces },
   ));
 
+  const categoriesPolicy = expectations.categoriesPolicy ?? "exact";
+  if (categoriesPolicy === "tenant-scoped") {
+    const expectedSpaceIds = new Set(expectations.spaces.map((space) => space.id));
+    const invalidCategories = categories.filter((category) => {
+      const spaceId = text(category.data.espacioId);
+      return category.data.empresaId !== tenantId
+        || (category.data.activo === true && (!spaceId || !expectedSpaceIds.has(spaceId) || !text(category.data.nombre)));
+    });
+    checks.push(check(
+      "CATEGORIES_EXPECTED_AND_TENANT_SCOPED",
+      invalidCategories.length === 0 ? "PASS" : "FAIL",
+      "Las categorias se validan por aislamiento del tenant y consistencia con espacios activos; el catalogo exacto queda fuera de alcance.",
+      {
+        policy: categoriesPolicy,
+        checked: categories.length,
+        activeCount: categories.filter((category) => category.data.activo === true).length,
+        expectedSpaceIds: sorted([...expectedSpaceIds]),
+        failedIds: invalidCategories.map((category) => category.id),
+      },
+    ));
+  } else {
   const expectedCategories = expectedCategoryMap(expectations);
   const categoriesBySpace = actualCategoryMap(categories);
   const categoryChecks: Array<{ id: string; status: CheckStatus }> = [];
@@ -433,6 +472,7 @@ export async function verifyTenant(
     "Las categorías esperadas pertenecen al espacio y tenant correctos.",
     { expectedCount: [...expectedCategories.values()].reduce((total, values) => total + values.length, 0), checked: categoryChecks.length, failedIds: categoryChecks.filter((item) => item.status !== "PASS").map((item) => item.id) },
   ));
+  }
 
   return finalizeReport(execution.projectId, tenantId, started, checks);
 }

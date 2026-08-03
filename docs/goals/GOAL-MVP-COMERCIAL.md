@@ -84,7 +84,7 @@ Este Goal se marca `COMPLETADO` solo cuando:
 
 > Esta sección solo se actualiza ante un evento oficial: merge de un PR, aprobación de un ADR o cambio de planificación aprobado. Mantén los seis campos; no agregues diarios, narrativas ni listas paralelas durante la implementación.
 
-- **Progreso:** ADR-SAAS-013 aceptado, bloqueos previos a P0-01 reconciliados, verificador read-only y smoke E2E reutilizable en emuladores integrados en `main @ 83eced1`; ningún criterio de datos P0 se da por certificado sin ejecución real.
+- **Progreso:** ADR-SAAS-013 y ADR-SAAS-014 aceptados, bloqueos previos a P0-01 reconciliados, verificador read-only y smoke E2E reutilizable en emuladores integrados en `main @ 83eced1`; ningún criterio de datos P0 se da por certificado sin ejecución real.
 - **Estado:** ACTIVO.
 - **PR completados:** PR #147, PR #149, PR #151, PR #153 y PR #155 — reconciliación, cierre documental, referencia vigente de ADR-SAAS-013, verificador read-only y smoke E2E reutilizable para P0-01.
 - **Siguiente PR esperado:** `P0-01 / E1.1 — certificación de datos iniciales de Café Atrato`.

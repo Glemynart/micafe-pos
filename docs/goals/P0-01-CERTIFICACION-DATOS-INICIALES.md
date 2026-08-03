@@ -135,6 +135,19 @@ La ruta de migración trata la existencia del documento como no-op; por eso la e
 - `scripts/seed-espacios.ts` y `scripts/fix-espacios-modulos.ts` son herramientas históricas y no deben ejecutarse contra producción sin una revisión específica de aislamiento, alcance y rollback.
 - No se permite escribir directamente `configuraciones/{empresaId}` desde un script nuevo para evitar el comando B1.
 
+### 7.4 Trial para una Empresa existente
+
+El Trial de una Empresa ya existente se solicita mediante el comando de
+plataforma `CrearSuscripcionTrial` a través de
+`ejecutarComandoComercialSaas`. No se debe reutilizar Bootstrap ni escribir
+directamente `suscripciones/{empresaId}`.
+
+La entrada requiere `empresaId`, `planId`, `planVersion`, `trialDias` y el
+envelope comercial. La operación comprueba Empresa operativa, Plan publicado y
+ausencia de Suscripción; calcula las fechas con el reloj del servidor y delega
+la transacción en la primitiva B3. La estrategia concreta del Plan se decide
+antes de cualquier ejecución productiva.
+
 ## 8. Flujo de ejecución controlada
 
 1. Confirmar todos los gates de entrada.
@@ -167,6 +180,12 @@ El verificador read-only está implementado en `scripts/p0-01/verify-tenant.ts` 
 
 ### Entrada
 
+- `categoriesPolicy` puede ser `"exact"` (predeterminado) o
+  `"tenant-scoped"`. El segundo modo se usa cuando las categorias definitivas
+  estan fuera de P0-01: verifica aislamiento por `empresaId` y consistencia de
+  las categorias activas con los espacios aprobados, sin certificar nombres ni
+  un catalogo definitivo.
+
 - proyecto Firebase explícito;
 - `empresaId` explícito y aprobado;
 - credencial administrativa suministrada fuera de Git;
@@ -184,7 +203,15 @@ npx tsx scripts/p0-01/verify-tenant.ts `
 
 También está disponible `npm run verify:p0-01 -- ...`. El archivo de expectativas no debe contener PINs, tokens, secretos, credenciales ni PII.
 
+En PowerShell de Windows, si el wrapper `npm` local no propaga los argumentos,
+usar `npm.cmd run verify:p0-01 -- ...` o ejecutar directamente `npx tsx
+scripts/p0-01/verify-tenant.ts ...`.
+
 ### Comportamiento obligatorio
+
+- Cuando el manifiesto use `categoriesPolicy: "tenant-scoped"`, el resultado
+  de categorias demuestra aislamiento y consistencia, pero no aprueba el
+  catalogo comercial definitivo.
 
 - no aceptar `--execute`;
 - no descubrir tenants ni seleccionar uno por defecto;
