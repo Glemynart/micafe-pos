@@ -209,6 +209,21 @@ El resultado automatizado puede ser `PASS` aunque el resultado global sea `BLOCK
 
 La automatización no puede convertirse en una nueva autoridad de datos ni sustituir la prueba de login en el canal real.
 
+### Smoke E2E reutilizable en emuladores
+
+El arnés `npm run e2e:p0-01` valida el contrato observable de login operativo,
+resolución de tenant, configuración B1, módulos y espacios usando únicamente
+Auth, Firestore y Functions locales. La fixture es aislada por ejecución y
+rechaza destinos que no sean `127.0.0.1`; el runner elimina cualquier
+`GOOGLE_APPLICATION_CREDENTIALS` heredado para impedir que una prueba escriba
+en producción por accidente.
+
+La prueba genera reporte Playwright, trazas/capturas ante fallo y un registro
+local de respuestas 404 y errores de consola. Este resultado demuestra que el
+flujo es ejecutable contra un entorno controlado, pero no certifica los datos
+reales de Café Atrato ni reemplaza el verificador read-only o los gates de
+entrada de la sección 4.
+
 ## 11. Plantilla de cierre del PR P0-01
 
 ```text
