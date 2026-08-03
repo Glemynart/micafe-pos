@@ -12,6 +12,7 @@ test("mvp_comercial define exactamente las capacidades aprobadas del MVP", () =>
     "finanzas",
     "reservas",
     "waste",
+    "shifts",
   ]);
   assert.equal(MVP_COMERCIAL_PLAN.planId, "mvp_comercial");
   assert.equal(MVP_COMERCIAL_PLAN.codigo, "MVP_COMERCIAL");
@@ -20,7 +21,7 @@ test("mvp_comercial define exactamente las capacidades aprobadas del MVP", () =>
   assert.equal(MVP_COMERCIAL_PLAN.grandfathered, false);
   assert.deepEqual(MVP_COMERCIAL_PLAN.limites, {});
   assert.ok(MVP_COMERCIAL_CAPACIDADES.every((capacidad) => MODULOS_CONFIGURACION.includes(capacidad)));
-  assert.equal(MVP_COMERCIAL_CAPACIDADES.includes("shifts"), false);
+  assert.equal(MVP_COMERCIAL_CAPACIDADES.includes("shifts"), true);
 });
 
 test("mvp_comercial pasa el gate local de consistencia", () => {
@@ -54,14 +55,14 @@ test("el constructor genera el payload del comando CrearPlan sin estado persisti
   assert.equal("revision" in entrada, false);
 });
 
-test("el gate rechaza una variante tenant-specific o con turnos", () => {
+test("el gate rechaza una variante tenant-specific o capacidades no aprobadas", () => {
   const tenantSpecific = { ...MVP_COMERCIAL_PLAN, planId: "cafe_atrato_mvp" };
   assert.deepEqual(validarPlanMvp(tenantSpecific), { valid: false, errors: ["PLAN_ID_NO_GENERICO"] });
 
-  const withShifts = { ...MVP_COMERCIAL_PLAN, capacidades: [...MVP_COMERCIAL_CAPACIDADES, "shifts"] };
-  assert.deepEqual(validarPlanMvp(withShifts), {
+  const withoutApprovedShift = { ...MVP_COMERCIAL_PLAN, capacidades: MVP_COMERCIAL_CAPACIDADES.filter((capacidad) => capacidad !== "shifts") };
+  assert.deepEqual(validarPlanMvp(withoutApprovedShift), {
     valid: false,
-    errors: ["PLAN_CAPACIDADES_NO_APROBADAS", "PLAN_INCLUYE_TURNOS_FUERA_DE_MVP"],
+    errors: ["PLAN_CAPACIDADES_NO_APROBADAS"],
   });
 
   const withUnknownCapability = { ...MVP_COMERCIAL_PLAN, capacidades: [...MVP_COMERCIAL_CAPACIDADES, "future_module"] };
