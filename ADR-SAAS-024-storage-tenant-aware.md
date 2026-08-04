@@ -255,6 +255,10 @@ PR B no queda aprobado ni implementado por la aceptación de este ADR.
 - rutas canónicas tenant-aware para productos y assets públicos;
 - adaptación mínima de los uploaders existentes de productos y eventos a la
   raíz `tenants/{empresaId}`;
+- en el uploader de Eventos, mientras Firestore conserve el modelo legacy, el
+  segmento `eventoId` será un identificador de asset generado para la carga;
+  PR A no lo presenta como identidad del documento Firestore ni modifica esa
+  colección. PR B definirá la correlación canónica durante su migración;
 - pruebas de Storage Emulator con `@firebase/rules-unit-testing` y Firebase
   CLI para lectura pública, escritura propia, aislamiento, roles, tamaño, MIME
   y rutas no reconocidas;

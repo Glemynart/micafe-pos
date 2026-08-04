@@ -13,7 +13,7 @@
   "scripts": {
     "dev:next": "next dev -H 0.0.0.0",
     "dev:emu": "cross-env NEXT_PUBLIC_USE_EMULATORS=1 next dev -H 0.0.0.0 -p 3002",
-    "emu": "firebase emulators:start --only functions,firestore,auth --project micafe-pos",
+    "emu": "firebase emulators:start --only functions,firestore,auth,storage --project micafe-pos",
     "seed:emu-capa4": "node scripts/seed-emulador-capa4.js",
     "dev:electron": "cross-env NODE_ENV=development electron .",
     "dev": "concurrently -k \"npm run dev:next\" \"npm run dev:electron\"",
@@ -42,6 +42,7 @@
     "test:auth-foundation": "npm --prefix functions test",
     "test:rules:raw": "node --import tsx firestore-rules/run-tests.ts",
     "test:rules": "firebase --project demo-mt-u4-rules emulators:exec --only firestore \"node --import tsx firestore-rules/run-tests.ts\"",
+    "test:storage-rules": "firebase --project demo-p2-03-storage emulators:exec --only storage \"node scripts/storage-rules-runner.mjs\"",
     "test:email:integration": "cross-env GCLOUD_PROJECT=demo-mt-u4-rules FIRESTORE_EMULATOR_HOST=127.0.0.1:8085 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 firebase --project demo-mt-u4-rules emulators:exec --only firestore,auth \"npm --prefix functions run test:email:integration\"",
     "e2e:r1a": "node scripts/e2e/r1a-runner.mjs",
     "e2e:p0-01": "node scripts/e2e/p0-01-runner.mjs",

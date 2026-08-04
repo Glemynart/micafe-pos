@@ -107,6 +107,18 @@ jobs:
       - name: Pruebas de Rules tenant-aware
         run: npm run test:rules
 
+      - name: Pruebas de Storage tenant-aware P2-03
+        run: npm run test:storage-rules
+
+      - name: Publicar evidencia P2-03 Storage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2-03-storage-${{ github.run_id }}
+          path: artifacts/e2e/p2-03/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Certificacion P0-10 de restauracion Firestore en Emulator
         run: npm run e2e:p0-10
 

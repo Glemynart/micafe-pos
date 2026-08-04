@@ -1,8 +1,8 @@
 # MASTER SECURITY PLAN — MiCafe POS
 
 > Documento de arquitectura de seguridad. Cubre el estado actual (piloto single-tenant) y la evolución a SaaS multi-tenant.
-> **Versión:** 2.0 · **Fecha:** 2026-07-02 · **Clasificación:** Interno / Confidencial
-> **Estado:** Borrador para aprobación. Incorpora la revisión crítica independiente (ver §8 Changelog).
+> **Versión:** 2.1 · **Fecha:** 2026-08-04 · **Clasificación:** Interno / Confidencial
+> **Estado:** Vigente con seguimientos. La revisión crítica independiente y el contrato tenant-aware de Storage quedan registrados en §8 Changelog.
 > **Alcance:** Landing, Catálogo, Reservas, PWA, POS, Cocina, Producción, Inventario, Compras, Clientes, Caja, Turnos, Reportes, Configuración, Facturación electrónica (Factus/DIAN), Firebase (Firestore/Auth/Storage), Electron Desktop, SQLite local.
 
 ---
@@ -159,7 +159,7 @@ CADENA DE SUMINISTRO
 
 **FB-3 · Rol en documento (`get()` por evaluación) — MEDIO (coste/latencia) + ALTO (EoP).** `rol()` hace `get(/usuarios/{uid})` en cada evaluación (confirmado: cada `get()` se factura y añade latencia). Peor: atar el privilegio a un doc escribible es escalada directa a admin si se compromete la escritura. *Mitigación:* SEC-010 (migrar rol a **custom claims**; adelantado a P1 por su valor single-tenant).
 
-**FB-4 · No existe `storage.rules` versionado — ALTO.** `firebase.json` solo declara `firestore`. Storage queda a merced de lo que haya en consola. Si es laxo, cualquier autenticado sube/lee archivos sin límite de tamaño/tipo. *Mitigación:* SEC-006.
+**FB-4 · Contrato de Storage no versionado — RESUELTO EN P2-03.** `storage.rules` está versionado, declarado en `firebase.json`, probado contra Storage Emulator en CI y aplica rutas tenant-aware, límite de 5 MiB y tipos MIME permitidos. Permanece fuera de este cierre la migración del dominio Firestore `eventos`, que tiene su PR independiente conforme a ADR-SAAS-024.
 
 **FB-5 · Admin SDK / API routes — MEDIO.** `lib/firebase-admin.ts` carga credencial por env (correcto). Existe `/api/debug-tokens` (deshabilitada en prod por bandera) que **no debería llegar al build**. *Mitigación:* SEC-025 (eliminar rutas debug del build) + SEC-017 (derivar tenant del token).
 
@@ -199,7 +199,7 @@ CADENA DE SUMINISTRO
 
 ### 3.8 Multi-tenant (evolución SaaS) — DISEÑAR AHORA
 
-Hoy el sistema es **single-tenant**. Retrofit con datos reales es la operación más cara y peligrosa del roadmap.
+El núcleo operativo del SaaS ya es **tenant-aware** en sus Rules y autoridades server-side. Persisten fronteras legacy concretas, como la colección Firestore `eventos`, cuya migración requiere su PR independiente. Cualquier retrofit de datos reales sigue siendo una operación que exige ventana de migración y pruebas de aislamiento.
 
 **MT-1 · Aislamiento de tenant — bloqueante SaaS.** *Riesgo si se improvisa:* fuga cross-tenant (A6). *Estrategia:* `tenantId` inmutable en todo doc (o rutas `tenants/{tenantId}/…`); `tenantId` como **custom claim** (nunca campo escribible); reglas que fuercen `request.auth.token.tenantId == recurso.tenantId`; índices con prefijo `tenantId`; App Check + cuotas por tenant. *Mitigación:* SEC-016.
 
@@ -266,13 +266,13 @@ Orden de ejecución de arriba hacia abajo. El bloque P2 (cumplimiento) corre **e
 | **SEC-002** | Cifrado real (clave en `safeStorage`) de secretos Factus en SQLite; dejar de sembrarlos en código; rotar **solo si** hubo credenciales de producción almacenadas | SQL-1, SQL-2, FE-1 | CRÍTICO | M |
 | **SEC-003** | Canal de actualización seguro (barato): HTTPS forzado, **eliminar `update-server.js` HTTP**, validar/allowlist en `update:configure` (rol admin) | E-1, UP-1 | CRÍTICO | S |
 | **SEC-004** | `config:get` deja de devolver secretos al renderer; emisión Factus 100% en el main | E-6, FE-1 | ALTO | S |
-| **SEC-005** | **Tests de Firestore/Storage Rules con emulador en CI** — protege el control primario ante cambios | C-1 (proceso), FB-* | ALTO | M |
+| **SEC-005** | **Tests de Firestore/Storage Rules con emulador en CI** — protege el control primario ante cambios (Firestore integrado en P1-07; Storage integrado en P2-03) | C-1 (proceso), FB-* | ALTO | M |
 
 ### Fase P1 — Endurecimiento previo a exposición pública / escala
 
 | ID | Acción | Aborda | Sev. | Esf. |
 |----|--------|--------|:----:|:----:|
-| **SEC-006** | Crear y versionar `storage.rules` (ruta, tamaño, content-type); declararlo en `firebase.json` | FB-4 | ALTO | S |
+| **SEC-006** | **CERRADO EN P2-03:** crear y versionar `storage.rules` (ruta tenant-aware, tamaño, content-type) y declararlo en `firebase.json` | FB-4 | ALTO | S |
 | **SEC-007** | App Check **enforce en web pública** (reCAPTCHA Enterprise). Electron/PWA: investigación de atestación, **no** enforce hasta tener proveedor viable | FB-1, FB-2 | ALTO | M |
 | **SEC-008** | Mover creación pública `reservas`/`agendas` tras API route con validación + rate limiting; `agendas` solo confirmación server-side | FB-2 | ALTO | M |
 | **SEC-009** | Endurecer navegación Electron: `setWindowOpenHandler` deny + `will-navigate` allowlist + `sandbox:true`/`nodeIntegration:false` en todas las ventanas (incl. impresión) + validar URL en `app:openUrl` | E-2, E-3, E-4, F-5 | ALTO | S |
@@ -313,7 +313,7 @@ Orden de ejecución de arriba hacia abajo. El bloque P2 (cumplimiento) corre **e
 
 ```
 P0:  SEC-000 → SEC-002 → SEC-003 → SEC-001 → SEC-004 → SEC-005     (cerrar antes de producción)
-P1:  SEC-006 → SEC-005(reglas listas) → SEC-009 → SEC-007 → SEC-008 → SEC-010 → SEC-011
+P1:  SEC-006 [CERRADO EN P2-03] → SEC-005(reglas listas) → SEC-009 → SEC-007 → SEC-008 → SEC-010 → SEC-011
      SEC-012 en paralelo como fast-follow (compra de certificado, no bloquea piloto)
 P2:  SEC-013 ‖ SEC-014 ‖ SEC-015     (en paralelo a P1, no después)
 P3:  SEC-016 → SEC-017 → SEC-018     (empezar DISEÑO en paralelo a P1)
@@ -364,6 +364,12 @@ Una estrategia sin dueños ni fechas es un PDF. Cada ítem SEC-XXX debe registra
 
 ## 8. Changelog
 
+**v2.1 (2026-08-04)** — Cierra SEC-006 mediante P2-03 / ADR-SAAS-024:
+- `storage.rules` queda versionado y declarado en `firebase.json`.
+- Las cargas nuevas usan rutas `tenants/{empresaId}/...`; no se habilitan nuevas escrituras en raíces globales legacy.
+- Storage Emulator valida aislamiento multi-tenant, lectura pública controlada, roles y límites de archivo en CI.
+- La colección Firestore `eventos` permanece legacy y se reserva para el PR B independiente.
+
 **v2.0 (2026-07-02)** — Incorpora revisión crítica independiente:
 - **Reclasificado** SEC-001 (`credentials.json`) de CRÍTICO a ALTO (secret OAuth desktop no confidencial por diseño, RFC 8252); se mantiene la acción.
 - **Dividido** el antiguo SEC-003: fix barato (HTTPS/eliminar HTTP server/validar `update:configure`) queda como bloqueante de piloto (SEC-003); code-signing pasa a fast-follow con presupuesto propio (SEC-012), **no** bloquea el piloto.
@@ -382,4 +388,4 @@ Una estrategia sin dueños ni fechas es un PDF. Cada ítem SEC-XXX debe registra
 
 ---
 
-*Fin del Master Security Plan v2.0. Aprobación condicionada a completar la §5 Gobernanza (owners, fechas, coste, aceptación de riesgo residual).*
+*Fin del Master Security Plan v2.1. El plan permanece vigente con seguimientos de seguridad y riesgos externos registrados en sus secciones correspondientes.*

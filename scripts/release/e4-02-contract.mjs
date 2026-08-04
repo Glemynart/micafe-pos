@@ -2,6 +2,7 @@ export const E4_02_REQUIRED_CI_COMMANDS = [
   "npm run test:e2e:preflight",
   "npm run test:auth-foundation",
   "npm run test:rules",
+  "npm run test:storage-rules",
   "npm run e2e:p0-01",
   "npm run e2e:p0-06",
   "npm run e2e:p1-02",
@@ -50,7 +51,6 @@ export const E4_02_PENDING_GATES = [
 ];
 
 export const E4_02_FOLLOW_UP_IDS = [
-  "E4.2-SEC-001-STORAGE-RULES",
   "E4.2-SEC-002-DEPENDENCIES",
   "E4.2-SEC-003-MASTER-PLAN",
   "E4.2-CI-001-UNCOVERED-SURFACES",
