@@ -36,7 +36,7 @@ test.describe("P0-01 — certificación operativa en emuladores", () => {
         const bottomNav = page.locator("nav.fixed.bottom-0");
         await expect(bottomNav.getByRole("link", { name: "Reservas", exact: true })).toBeVisible();
         await expect(bottomNav.getByRole("link", { name: "Finanzas", exact: true })).toBeVisible();
-        await expect(bottomNav.getByRole("link", { name: "Turnos", exact: true })).toHaveCount(0);
+        await expect(bottomNav.getByRole("link", { name: "Turnos", exact: true })).toBeVisible();
       });
 
       await test.step("configuración y POS tenant-aware", async () => {
@@ -50,11 +50,12 @@ test.describe("P0-01 — certificación operativa en emuladores", () => {
           "Clientes",
           "Finanzas",
           "Reservas Web",
+          "Turnos",
           "Mermas",
         ]) {
           await expect(page.getByRole("button", { name: modulo, exact: true })).toBeVisible();
         }
-        await expect(page.getByRole("button", { name: "Turnos", exact: true })).toHaveCount(0);
+        await expect(page.getByRole("button", { name: "Turnos", exact: true })).toBeVisible();
         await expect(page.getByRole("button", { name: "Salón", exact: true })).toHaveCount(0);
         await expect(page.getByRole("button", { name: "Configuración", exact: true })).toHaveCount(0);
       });
