@@ -34,19 +34,27 @@ test("roles: el tenant correcto no basta para mutar catálogos", async () => {
   await expectDenied(adminTenantB.firestore().doc(path).update({ nombre: "Otro tenant" }));
 });
 
-test("roles: cocina puede leer comandas, pero no crearlas", async () => {
+test("roles: cocina puede leer comandas, pero ningún cliente puede escribirlas", async () => {
   const cajeroTenantA = await contextFor(fixtures.tenantA.cajero);
   const cocineroTenantA = await contextFor(fixtures.tenantA.cocinero);
   const path = "comandas_cocina/comanda-tenant-a";
   await seedDocument(path, { empresaId: "empresa-a", estado: "pendiente" });
 
   await expectAllowed(cocineroTenantA.firestore().doc(path).get());
-  await expectDenied(
-    cocineroTenantA.firestore().doc("comandas_cocina/nueva-cocina").set({ empresaId: "empresa-a" })
-  );
-  await expectAllowed(
-    cajeroTenantA.firestore().doc("comandas_cocina/nueva-cajero").set({ empresaId: "empresa-a" })
-  );
+  await expectDenied(cocineroTenantA.firestore().doc("comandas_cocina/nueva-cocina").set({ empresaId: "empresa-a" }));
+  await expectDenied(cajeroTenantA.firestore().doc("comandas_cocina/nueva-cajero").set({ empresaId: "empresa-a" }));
+  await expectDenied(cajeroTenantA.firestore().doc(path).update({ estado: "listo" }));
+});
+
+test("salón: las escrituras directas de pedidos quedan denegadas para todos los roles", async () => {
+  const adminTenantA = await contextFor(fixtures.tenantA.admin);
+  const cajeroTenantA = await contextFor(fixtures.tenantA.cajero);
+  const path = "pedidos_activos/pedido-tenant-a";
+  await seedDocument(path, { empresaId: "empresa-a", estado: "abierto", activo: true });
+  await expectAllowed(cajeroTenantA.firestore().doc(path).get());
+  await expectDenied(adminTenantA.firestore().doc(path).set({ empresaId: "empresa-a", estado: "abierto", activo: true }));
+  await expectDenied(cajeroTenantA.firestore().doc(path).update({ estado: "pagado" }));
+  await expectDenied(cajeroTenantA.firestore().doc(path).delete());
 });
 
 test("roles: superadmin no obtiene acceso implícito a un tenant", async () => {

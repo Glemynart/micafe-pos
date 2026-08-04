@@ -101,6 +101,9 @@ jobs:
       - name: Certificacion P1-02 de recetas y modificadores en Emulator
         run: npm run e2e:p1-02
 
+      - name: Certificacion P1-04 de salón y cocina en Emulator
+        run: npm run e2e:p1-04
+
       - name: Pruebas de Rules tenant-aware
         run: npm run test:rules
 

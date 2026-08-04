@@ -32,6 +32,17 @@ export {
 } from "./finanzas/callables";
 export { registrarCompraOperativaV1 } from "./finanzas/compras";
 export { crearProveedorOperativoV1, actualizarProveedorOperativoV1, desactivarProveedorOperativoV1 } from "./proveedores/callables";
+export {
+  crearCuentaSalonV1,
+  agregarLineaCuentaSalonV1,
+  modificarLineaCuentaSalonV1,
+  finalizarAlquilerSalonV1,
+  enviarCuentaCocinaV1,
+  separarCuentaSalonV1,
+  unirCuentasSalonV1,
+  trasladarCuentaSalonV1,
+  actualizarEstadoComandaSalonV1,
+} from "./salon/callables";
 export { crearNumeracionFiscal, actualizarNumeracionFiscal, transicionarNumeracionFiscal, establecerAsignacionFiscal, retirarAsignacionFiscal, confirmarVentaFiscalCallable, crearVentaDemostracionV1 } from "./fiscal/callables";
 export { bootstrapEmpresarialCallable } from "./bootstrap/callables";
 export { obtenerEstadoOnboarding, completarPasoFiscalOnboardingCallable, completarPasoNumeracionOnboardingCallable } from "./onboarding/callables";

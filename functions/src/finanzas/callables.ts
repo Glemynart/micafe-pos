@@ -170,7 +170,7 @@ export interface ContextoFinancieroOperativo {
 }
 
 /** Relee autoridad canónica en la misma transacción que materializa el efecto. */
-export async function revalidarAutoridadFinancieraEnTransaccion(tx: any, db: any, contexto: ContextoFinancieroOperativo, capacidad: string) {
+export async function revalidarAutoridadFinancieraEnTransaccion(tx: any, db: any, contexto: ContextoFinancieroOperativo, capacidad: string | readonly string[]) {
   const [empresa, membresiaSnap] = await Promise.all([
     tx.get(db.collection("empresas").doc(contexto.empresaId)),
     tx.get(db.collection("membresias").doc(`${contexto.empresaId}_${contexto.actorUid}`)),
@@ -180,7 +180,8 @@ export async function revalidarAutoridadFinancieraEnTransaccion(tx: any, db: any
   if (!esMembresiaAutorizada(membresia, contexto)) fail("permission-denied", "TENANT_ACCESS_DENIED");
   const membresiaVigente = membresia as Record<string, unknown> & { rol: string; permisos: unknown[] };
   if (membresiaVigente.rol !== contexto.rol) fail("permission-denied", "TENANT_ACCESS_DENIED");
-  if (!membresiaVigente.permisos.includes(capacidad)) fail("permission-denied", "ROLE_FORBIDDEN");
+  const capacidades = Array.isArray(capacidad) ? capacidad : [capacidad];
+  if (!capacidades.some((item) => membresiaVigente.permisos.includes(item))) fail("permission-denied", "ROLE_FORBIDDEN");
 }
 
 export async function executeConContexto(db: any, contexto: ContextoFinancieroOperativo, data: unknown, tipo: string, effect: (tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope) => Promise<Record<string, unknown>>) {
