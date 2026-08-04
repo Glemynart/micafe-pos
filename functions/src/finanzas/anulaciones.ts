@@ -28,10 +28,39 @@ export async function ejecutarAnularVentaOperativaV1(db: any, contexto: Contexto
   const input = envelope(data); const huella = crearHuellaSemantica({ tipo: "anularVentaOperativaV1", causationId: input.causationId ?? null, motivo: input.motivo ?? null, payload: input.payload }); const operation = refs(db, contexto.empresaId, input);
   return db.runTransaction(async (tx: any) => {
     const existing = replay(...await Promise.all([tx.get(operation.recibo), tx.get(operation.indice)]), contexto.empresaId, input, huella, operation.recibo.path); if (existing) return existing;
-    await revalidarAutoridadFinancieraEnTransaccion(tx, db, contexto, "pos");
+    await revalidarAutoridadFinancieraEnTransaccion(tx, db, contexto, "sell");
     const ventaIdEntrada = input.payload.ventaId; const ventaId = text(ventaIdEntrada) ? ventaIdEntrada : fail("invalid-argument", "PAYLOAD_INVALID"); if (contexto.rol !== "admin" && contexto.rol !== "cajero") fail("permission-denied", "ROL_NO_AUTORIZADO");
     const ventaRef = db.collection("ventas").doc(ventaId); const venta = await tx.get(ventaRef); if (!venta.exists || venta.data()?.empresaId !== contexto.empresaId) fail("not-found", "VENTA_NO_ENCONTRADA"); const ventaData = venta.data() as Record<string, any>; const estado = ventaData.estadoOperativo;
     if (estado === "ANULADA_SIN_EFECTOS" || estado === "ANULADA_CON_EFECTOS" || ventaData.estado === "anulada") fail("failed-precondition", "VENTA_YA_ANULADA");
+    if (estado === "COMPLETO" && ventaData.metodoPago === "cuenta_cobro" && ventaData.estado === "pagada") {
+      const liquidacionId = crearIdentificadorInterno(contexto.empresaId, `liquidacion:cuenta_cobro:${ventaId}`);
+      if (ventaData.liquidacionCuentaCobroId !== liquidacionId) fail("failed-precondition", "EFECTOS_VENTA_INCONSISTENTES");
+      const fuenteId = crearIdentificadorInterno(contexto.empresaId, `movfin:cuenta_cobro:${ventaId}`);
+      const fuente = await tx.get(db.collection(MOVIMIENTOS).doc(fuenteId));
+      const fuenteData = fuente.data() as Record<string, any> | undefined;
+      const total = ventaData.totales?.total;
+      if (!fuente.exists || !fuenteData) fail("failed-precondition", "EFECTOS_VENTA_INCONSISTENTES");
+      const fuenteSegura = fuenteData as Record<string, any>;
+      if (fuenteSegura.empresaId !== contexto.empresaId || fuenteSegura.ventaId !== ventaId || fuenteSegura.liquidacionId !== liquidacionId || fuenteSegura.tipo !== "ingreso" || fuenteSegura.categoria !== "cuentas_cobro" || fuenteSegura.claveIdempotencia !== `cuenta_cobro:${ventaId}` || fuenteSegura.monto !== total || !text(fuenteSegura.cuentaDocumentoId)) {
+        fail("failed-precondition", "EFECTOS_VENTA_INCONSISTENTES");
+      }
+      const cuenta = await account(tx, db, contexto.empresaId, fuenteSegura.cuentaDocumentoId as string);
+      if (cuenta.saldo < total) fail("failed-precondition", "FONDOS_INSUFICIENTES");
+      const esEfectivo = fuenteSegura.cuentaClaveSnapshot === "caja-principal" || fuenteSegura.cuentaDocumentoId === "caja-principal";
+      let turnoCompensacion: string | null = null;
+      if (esEfectivo) {
+        const lock = await tx.get(db.collection("turnos_activos").doc(crearIdentificadorInterno(contexto.empresaId, contexto.actorUid)));
+        if (!lock.exists || lock.data()?.empresaId !== contexto.empresaId || lock.data()?.cajeroId !== contexto.actorUid) fail("failed-precondition", "TURNO_CERRADO");
+        await turnoAbierto(tx, db, contexto.empresaId, lock.data()?.turnoId);
+        turnoCompensacion = lock.data()?.turnoId;
+      }
+      const compensacion = movement(tx, db, { empresaId: contexto.empresaId, command: input, key: `anulacion:${ventaId}:cuenta_cobro`, cuenta, monto: total, actorUid: contexto.actorUid, rol: contexto.rol, turnoId: esEfectivo ? turnoCompensacion : null, ventaId, relacionado: fuente.id });
+      tx.update(cuenta.ref, { saldo: compensacion.saldo });
+      tx.update(ventaRef, { estado: "anulada", estadoOperativo: "ANULADA_CON_EFECTOS", anuladaPor: contexto.actorUid, anuladaPorNombre: contexto.actorUid, anuladaEn: FieldValue.serverTimestamp() });
+      const result = { commandId: input.commandId, ventaId, liquidacionCuentaCobroId: liquidacionId, estadoOperativo: "ANULADA_CON_EFECTOS", movimientos: [compensacion.id], turnoCompensacion };
+      confirm(tx, operation, contexto.empresaId, contexto.actorUid, contexto.rol, input, huella, result);
+      return result;
+    }
     if (estado === "PENDIENTE_EFECTOS") { tx.update(ventaRef, { estado: "anulada", estadoOperativo: "ANULADA_SIN_EFECTOS", anuladaPor: contexto.actorUid, anuladaPorNombre: contexto.actorUid, anuladaEn: FieldValue.serverTimestamp() }); const result = { commandId: input.commandId, ventaId, estadoOperativo: "ANULADA_SIN_EFECTOS", movimientos: [] }; confirm(tx, operation, contexto.empresaId, contexto.actorUid, contexto.rol, input, huella, result); return result; }
     if (estado !== "COMPLETO") fail("failed-precondition", "ESTADO_VENTA_INVALIDO"); const importes = importesPagoVenta(ventaData) ?? fail("failed-precondition", "PAGO_INVALIDO");
     const fuentes = await Promise.all(importes.map((monto, ordinal) => tx.get(db.collection(MOVIMIENTOS).doc(crearIdentificadorInterno(contexto.empresaId, `movfin:venta:${ventaId}:pago:${ordinal}`))).then((snap: any) => ({ snap, monto, ordinal }))));

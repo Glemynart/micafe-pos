@@ -17,6 +17,7 @@ export const MVP_COMERCIAL_CAPACIDADES = [
   "reservas",
   "waste",
   "shifts",
+  "cuentas_cobro",
 ] as const;
 
 export const MVP_COMERCIAL_PLAN = {

@@ -63,7 +63,7 @@ const movimientoId = (ventaId: string, key: string) => crearIdentificadorInterno
 const domain = (error: unknown, code: string) => error instanceof HttpsError && (error.details as { code?: string }).code === code;
 function seedAuth(db: FakeFirestore, contexto: ContextoFinancieroOperativo = actor) {
   db.docs.set(`empresas/${contexto.empresaId}`, { estado: "activa" });
-  db.docs.set(`membresias/${contexto.empresaId}_${contexto.actorUid}`, { empresaId: contexto.empresaId, uid: contexto.actorUid, rol: contexto.rol, permisos: ["pos"], estado: "activa", activo: true });
+  db.docs.set(`membresias/${contexto.empresaId}_${contexto.actorUid}`, { empresaId: contexto.empresaId, uid: contexto.actorUid, rol: contexto.rol, permisos: ["sell"], estado: "activa", activo: true });
 }
 async function anular(db: FakeFirestore, contexto: ContextoFinancieroOperativo, data: ReturnType<typeof envelope>) {
   seedAuth(db, contexto);
@@ -133,7 +133,7 @@ test("R1-B.1: payload distinto con la misma identidad idempotente se rechaza", a
 test("R1-B.1: revalida empresa, membresÃ­a y permiso pos dentro de la transacciÃ³n", async () => {
   const casos: Array<{ codigo: string; mutar(db: FakeFirestore): void }> = [
     { codigo: "EMPRESA_NO_OPERATIVA", mutar: db => db.docs.set(`empresas/${empresaId}`, { estado: "suspendida" }) },
-    { codigo: "TENANT_ACCESS_DENIED", mutar: db => db.docs.set(`membresias/${empresaId}_${actor.actorUid}`, { empresaId, uid: actor.actorUid, rol: actor.rol, permisos: ["pos"], estado: "revocada", activo: false }) },
+    { codigo: "TENANT_ACCESS_DENIED", mutar: db => db.docs.set(`membresias/${empresaId}_${actor.actorUid}`, { empresaId, uid: actor.actorUid, rol: actor.rol, permisos: ["sell"], estado: "revocada", activo: false }) },
     { codigo: "ROLE_FORBIDDEN", mutar: db => db.docs.set(`membresias/${empresaId}_${actor.actorUid}`, { empresaId, uid: actor.actorUid, rol: actor.rol, permisos: [], estado: "activa", activo: true }) },
   ];
   for (const escenario of casos) {
