@@ -56,6 +56,12 @@ jobs:
       - name: Build de Functions
         run: npm run build:functions
 
+      - name: Lint de aplicacion y tooling
+        run: npm run lint
+
+      - name: Pruebas unitarias de preflight E2E
+        run: npm run test:e2e:preflight
+
       - name: Pruebas de tickets
         run: npm run test:tickets
 
@@ -67,6 +73,21 @@ jobs:
 
       - name: Pruebas de tenant
         run: npm run test:tenant
+
+      - name: Pruebas de configuracion B1
+        run: npm run test:configuracion
+
+      - name: Pruebas de onboarding
+        run: npm run test:onboarding
+
+      - name: Pruebas de membresias
+        run: npm run test:membresias
+
+      - name: Verificador read-only de P0-01
+        run: npm run test:p0-01:verifier
+
+      - name: Contrato del plan MVP comercial
+        run: npm run test:p0-01:plan
 
       - name: Pruebas del backfill operativo
         run: npm run test:backfill
@@ -88,3 +109,18 @@ jobs:
 
       - name: Pruebas de integración Auth y Firestore
         run: npm run test:email:integration
+
+      - name: Instalar Chromium para E2E P0-01
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke E2E P0-01 con Auth, Firestore y Functions
+        run: npm run e2e:p0-01
+
+      - name: Publicar evidencia E2E P0-01
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-p0-01-${{ github.run_id }}
+          path: artifacts/e2e/p0-01/
+          if-no-files-found: warn
+          retention-days: 14

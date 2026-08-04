@@ -1,11 +1,24 @@
 import { mkdirSync, copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import net from "node:net";
 import { resolve } from "node:path";
+import {
+  crearEndpointsEmulador,
+  detenerEmuladoresDemo,
+  exigirProjectIdEmulador,
+  obtenerEstadoPuertos,
+  esperarEmuladoresSaludables,
+} from "./emulator-preflight.mjs";
 
 const projectId = process.env.E2E_P0_01_PROJECT_ID ?? "demo-p0-01-e2e";
+exigirProjectIdEmulador(projectId, "demo-p0-01-");
 const runId = process.env.E2E_P0_01_RUN_ID ?? `p0-01-${Date.now()}`;
 const evidenceDir = resolve(process.env.E2E_P0_01_EVIDENCE_DIR ?? `artifacts/e2e/p0-01/${runId}`);
+const endpoints = crearEndpointsEmulador({
+  ...process.env,
+  FIREBASE_FUNCTIONS_EMULATOR_HOST: process.env.FIREBASE_FUNCTIONS_EMULATOR_HOST ?? "127.0.0.1:5001",
+  FIRESTORE_EMULATOR_HOST: process.env.FIRESTORE_EMULATOR_HOST ?? "127.0.0.1:8085",
+  FIREBASE_AUTH_EMULATOR_HOST: process.env.FIREBASE_AUTH_EMULATOR_HOST ?? "127.0.0.1:9099",
+});
 function leerPepperLocal() {
   const secretFile = resolve("functions", ".secret.local");
   if (!existsSync(secretFile)) return undefined;
@@ -34,8 +47,17 @@ Object.assign(env, {
   OPERATIONAL_PIN_PEPPER: pepper,
   NEXT_PUBLIC_USE_EMULATORS: "1",
   NEXT_PUBLIC_FIREBASE_PROJECT_ID: projectId,
-  FIRESTORE_EMULATOR_HOST: "127.0.0.1:8085",
-  FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099",
+  // El navegador necesita una configuraciÃ³n Web no vacÃ­a para inicializar
+  // Firebase Auth. Estos valores son deliberadamente sintÃ©ticos y solo viven
+  // en el proceso del E2E; nunca apuntan a un tenant ni a producciÃ³n.
+  NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "AIzaSyDUMMY0000000000000000000000000000",
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? `${projectId}.firebaseapp.com`,
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? `${projectId}.firebasestorage.app`,
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? "000000000000",
+  NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? `1:000000000000:web:${projectId}`,
+  FIREBASE_FUNCTIONS_EMULATOR_HOST: endpoints.functions.endpoint,
+  FIRESTORE_EMULATOR_HOST: endpoints.firestore.endpoint,
+  FIREBASE_AUTH_EMULATOR_HOST: endpoints.auth.endpoint,
 });
 
 const compilacion = spawnSync(process.execPath, [
@@ -48,18 +70,14 @@ if (compilacion.stdout) process.stdout.write(compilacion.stdout);
 if (compilacion.stderr) process.stderr.write(compilacion.stderr);
 if (compilacion.status !== 0) throw new Error("La compilación de Functions falló; P0-01 E2E no usa artefactos desactualizados.");
 
-function puertoEnUso(port) {
-  return new Promise((resolvePort) => {
-    const socket = net.connect({ host: "127.0.0.1", port });
-    socket.once("connect", () => { socket.destroy(); resolvePort(true); });
-    socket.once("error", () => resolvePort(false));
-  });
+const estados = await obtenerEstadoPuertos(endpoints);
+const puertosEnUso = estados.filter((estado) => estado.enUso);
+const usarExistentes = puertosEnUso.length === estados.length;
+if (puertosEnUso.length > 0 && !usarExistentes) {
+  throw new Error(`P0-01 E2E requiere Auth, Firestore y Functions en conjunto; entorno parcial: ${JSON.stringify(estados)}.`);
 }
-
-const estados = await Promise.all([5001, 8085, 9099].map(puertoEnUso));
-const usarExistentes = estados.every(Boolean);
-if (estados.some(Boolean) && !usarExistentes) {
-  throw new Error("P0-01 E2E requiere Auth, Firestore y Functions en conjunto; se rechazó un entorno parcial.");
+if (usarExistentes) {
+  await esperarEmuladoresSaludables({ projectId, endpoints });
 }
 
 const firebaseCli = resolve("node_modules", "firebase-tools", "lib", "bin", "firebase.js");
@@ -77,4 +95,11 @@ const result = usarExistentes
 
 if (existsSync("firebase-debug.log")) copyFileSync("firebase-debug.log", resolve(evidenceDir, "firebase-emulator.log"));
 if (result.error) writeFileSync(resolve(evidenceDir, "launcher-error.txt"), result.error.stack ?? String(result.error));
+if (!usarExistentes) detenerEmuladoresDemo(projectId);
+writeFileSync(resolve(evidenceDir, "emulator-preflight.json"), `${JSON.stringify({
+  projectId,
+  endpoints,
+  reusedExistingEmulators: usarExistentes,
+  ports: estados,
+}, null, 2)}\n`);
 process.exitCode = result.status ?? (result.error ? 1 : 0);
