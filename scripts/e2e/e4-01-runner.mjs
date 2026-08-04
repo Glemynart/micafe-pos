@@ -91,9 +91,23 @@ const commands = [
 ];
 
 function limpiarEmuladoresOrfanos() {
-  if (process.platform !== "win32") return;
-  const script = `$names = @('java.exe','java','node.exe','node'); Get-CimInstance Win32_Process | Where-Object { $names -contains $_.Name -and $_.CommandLine -and $_.CommandLine -match '(cloud-firestore-emulator|firebase.*emulators|auth-emulator)' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`;
-  spawnSync("powershell.exe", ["-NoProfile", "-Command", script], { stdio: "ignore" });
+  const patterns = ["cloud-firestore-emulator", "firebase.*emulators", "auth-emulator"];
+  if (process.platform === "win32") {
+    const script = `$names = @('java.exe','java','node.exe','node'); Get-CimInstance Win32_Process | Where-Object { $names -contains $_.Name -and $_.CommandLine -and $_.CommandLine -match '(cloud-firestore-emulator|firebase.*emulators|auth-emulator)' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`;
+    spawnSync("powershell.exe", ["-NoProfile", "-Command", script], { stdio: "ignore" });
+    return;
+  }
+
+  const listed = spawnSync("ps", ["-eo", "pid=,args="], { encoding: "utf8" });
+  if (listed.status !== 0) return;
+  for (const line of (listed.stdout ?? "").split("\n")) {
+    const match = line.trim().match(/^(\d+)\s+(.*)$/);
+    if (!match) continue;
+    const pid = Number(match[1]);
+    const commandLine = match[2];
+    if (pid === process.pid || !patterns.some((pattern) => new RegExp(pattern, "i").test(commandLine))) continue;
+    spawnSync("kill", ["-KILL", String(pid)], { stdio: "ignore" });
+  }
 }
 
 for (const command of commands) {
