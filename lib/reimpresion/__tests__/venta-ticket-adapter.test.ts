@@ -2,8 +2,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { adaptarVentaAModeloTicket, adaptarVentaB2AModeloTicket } from '../venta-ticket-adapter'
+import { adaptarVentaAModeloTicket, adaptarVentaB2AModeloTicket, adaptarVentaDemoAModeloTicket } from '../venta-ticket-adapter'
 import type { ConfiguracionHistoricaTicket } from '../legacy-ticket-config'
+import type { CheckoutConfiguracionEmpresa } from '../../tickets/adapters/checkout-adapter'
 
 // Config mínima válida; los tests sobreescriben lo relevante.
 const BASE_CONFIG: ConfiguracionHistoricaTicket = {
@@ -35,6 +36,29 @@ const cfg = (overrides: Partial<ConfiguracionHistoricaTicket> = {}): Configuraci
   ...BASE_CONFIG,
   ...overrides,
 })
+
+const CONFIG_CANONICA: CheckoutConfiguracionEmpresa = {
+  identidad: {
+    nombreComercial: 'Café Demo',
+    razonSocial: undefined,
+    tipoPersona: undefined,
+    tipoDocumento: undefined,
+    numeroDocumento: undefined,
+    digitoVerificacion: undefined,
+    regimenTributario: undefined,
+    responsabilidadesFiscales: undefined,
+    actividadEconomicaPrincipal: undefined,
+    contacto: { telefono: '3001112233' },
+  },
+  localizacion: {
+    paisFiscal: 'CO',
+    moneda: 'COP',
+    idioma: 'es-CO',
+    zonaHoraria: 'America/Bogota',
+    direccion: { linea1: 'Calle Demo 1', municipioNombre: 'Bogotá' },
+  },
+  ticket: { mensajePie: 'Gracias', mostrarLogoDocumento: false, mostrarRazonSocial: true, mostrarDireccion: true, mostrarTelefono: true, mostrarDesgloseImpuestos: true },
+}
 
 const ventaNueva = () => ({
   id: 'venta_abc123',
@@ -188,6 +212,21 @@ test('B2: reimpresión usa exclusivamente snapshotFiscal y no acepta configuraci
   const { input, empresa } = adaptarVentaB2AModeloTicket(snapshot)
   assert.equal(input.numero, 42); assert.equal(input.items[0].descripcion, 'Cafe'); assert.equal(empresa.nombreComercial, 'Cafe Snapshot'); assert.equal(empresa.direccion, 'Calle Snapshot')
   assert.equal(adaptarVentaB2AModeloTicket.length, 1)
+})
+
+test('P0-07: una venta DEMO se adapta sin snapshot fiscal ni datos DIAN', () => {
+  const { input, empresa } = adaptarVentaDemoAModeloTicket({
+    ...ventaNueva(),
+    id: 'demo-123',
+    modoOperacion: 'DEMO',
+    referenciaOperacion: 'DEMO-123',
+  }, CONFIG_CANONICA)
+
+  assert.equal(input.modoOperacion, 'DEMO')
+  assert.equal(input.numero, 'DEMO-123')
+  assert.equal(input.dian, undefined)
+  assert.equal(empresa.nombreComercial, 'Café Demo')
+  assert.equal(empresa.nit, '')
 })
 
 test('empresa: regimen desde venta.regimenAlMomento y fallback de nombre', () => {
