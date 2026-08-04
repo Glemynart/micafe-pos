@@ -36,7 +36,7 @@ Cada PR recomendado es independiente en lo posible y no debe mezclar tareas de d
 | ID | Tarea verificable | Dependencias | Criterio de aceptación | Esfuerzo | PR recomendado |
 |---|---|---|---|---|---|
 | P1-01 | Certificar inventario inicial, ajustes, movimientos, kardex y mermas con casos reales. | P0-01, P0-03; inventario inicial aprobado. | Cada entrada, ajuste, venta y merma deja stock y kardex coherentes; no hay denegaciones de Rules ni movimientos sin trazabilidad. | L | `test/certificacion-inventario-kardex` |
-| P1-02 | Validar recetas, modificadores y descuento de insumos en una venta real. | P1-01; recetas y modificadores configurados. | La venta con receta/modificadores mantiene el snapshot comercial y descuenta los insumos correctos. | M | `test/recetas-modificadores-e2e` |
+| P1-02 | Validar recetas, modificadores y descuento de insumos en una venta DEMO reusable. | P1-01; recetas y modificadores configurados; Emulator y fixtures multi-tenant. | La venta DEMO con receta/modificadores mantiene el snapshot comercial, descuenta los insumos correctos, conserva idempotencia y no depende de fiscalidad, hardware, producción ni datos de un tenant concreto. | M | `test/recetas-modificadores-e2e` |
 | P1-03 | Implementar y certificar compras, catálogo tenant-aware de proveedores y costos después de P0-12. | P0-12, P1-01, ADR-SAAS-022; datos de compra para certificación. | El catálogo permite crear, editar y desactivar proveedores sin cruzar tenants; una compra resuelve `empresaId + proveedorId`, congela snapshots y conserva idempotencia; las compras históricas no bloquean ni se modifican y las operaciones abiertas impiden la desactivación. | M | `feat/proveedores-tenant-aware` |
 | P1-04 | Certificar salón, cuentas múltiples, comandas y cocina bajo operación concurrente. | P0-04; mesas, usuarios y permisos configurados. | Abrir, separar, unir y trasladar cuentas; enviar comandas; y transicionar estados de cocina funciona sin pérdida ni confusión de cuentas. | L | `test/salon-cocina-concurrencia` |
 | P1-05 | Certificar clientes, crédito, cobranza, historial y reportes con datos reales. | P0-04; clientes y casos de crédito. | Un crédito, su cobranza y los reportes/historial asociados muestran importes y tenant correcto; las consultas soportan el volumen inicial sin fallos. | M | `test/clientes-reportes-certificacion` |
@@ -66,7 +66,8 @@ Cada PR recomendado es independiente en lo posible y no debe mezclar tareas de d
 1. Completar **P0-01** y habilitar la ruta DEMO; **P0-02** solo es requisito para operación FISCAL.
 2. Completar **P0-03**, **P0-05** y **P0-12** antes de certificar el núcleo transaccional completo.
 3. Ejecutar **P0-04** y **P0-06** en Emulator y después en un entorno representativo.
-4. Certificar **P0-07** cuando exista hardware y canal de caja; **P0-08** solo si se elige Electron.
-5. Si habrá factura electrónica desde PWA, completar **P0-09** después de P0-02.
-6. Cerrar P0 solamente después de **P0-10** y de una prueba integral: venta → inventario → caja → turno → ticket → recuperación.
-7. Ejecutar P1 según los flujos que cada tenant utilice durante sus primeras semanas.
+4. Mientras **P0-07** permanezca bloqueado por hardware/canal, ejecutar **P1-02** en la línea paralela reusable con Emulator, CI y fixtures multi-tenant; no modificar el alcance de P0-07.
+5. Certificar **P0-07** cuando exista hardware y canal de caja; **P0-08** solo si se elige Electron.
+6. Si habrá factura electrónica desde PWA, completar **P0-09** después de P0-02.
+7. Cerrar P0 solamente después de **P0-10** y de una prueba integral: venta → inventario → caja → turno → ticket → recuperación.
+8. Ejecutar el resto de P1 según los flujos que cada tenant utilice durante sus primeras semanas.
