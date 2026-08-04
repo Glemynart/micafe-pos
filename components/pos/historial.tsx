@@ -4,9 +4,11 @@ import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { useAuthContext } from '@/contexts/auth-context'
 import { useEspacios } from '@/contexts/espacios-context'
+import { useConfiguracionEmpresa } from '@/contexts/configuracion-empresa-context'
 import { suscribirHistorialVentas, obtenerVentaPorId, anularVenta as anularVentaFirebase, guardarMetadatosDian } from '@/lib/ventas-service'
-import { TicketBuilder, generateQrDataUri, renderTicket, DEFAULT_RENDER_OPTIONS } from '@/lib/tickets'
-import { adaptarVentaB2AModeloTicket } from '@/lib/reimpresion/venta-ticket-adapter'
+import { TicketBuilder, generateQrDataUri, renderTicket } from '@/lib/tickets'
+import { imprimirTicketHtml, resolverOpcionesImpresion } from '@/lib/tickets/print-service'
+import { adaptarVentaB2AModeloTicket, adaptarVentaDemoAModeloTicket } from '@/lib/reimpresion/venta-ticket-adapter'
 import { formatCurrency } from '@/lib/format-utils'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -62,6 +64,7 @@ import {
 export function Historial() {
   const { usuario } = useAuthContext()
   const { espacioActivo } = useEspacios()
+  const { proyecciones } = useConfiguracionEmpresa()
   const [ventas, setVentas] = useState<any[]>([])
   const [filtroFecha, setFiltroFecha] = useState("")
   const [tipoPeriodo, setTipoPeriodo] = useState<"dia" | "mes" | "ano">("dia")
@@ -327,36 +330,34 @@ export function Historial() {
   };
 
   const imprimirReimpresion = async (venta: any) => {
-    if (!venta?.snapshotFiscal) {
+    if (venta?.modoOperacion !== 'DEMO' && !venta?.snapshotFiscal) {
       toast.error("Esta venta histórica no tiene snapshot fiscal certificado para reimpresión.");
       return;
     }
     try {
-      await imprimirTicketConMotor(venta);
+      const { input, empresa } = venta.modoOperacion === 'DEMO'
+        ? proyecciones
+          ? adaptarVentaDemoAModeloTicket(venta, {
+            identidad: proyecciones.identidad,
+            localizacion: proyecciones.localizacion,
+            ticket: proyecciones.ticket,
+          })
+          : (() => { throw new Error('Configuración del tenant no disponible para reimprimir la venta DEMO.') })()
+        : adaptarVentaB2AModeloTicket(venta.snapshotFiscal);
+      const model = TicketBuilder.fromVenta(input, empresa);
+      const qrDataUri = model.dian ? await generateQrDataUri(model.dian.qrPayload) : undefined;
+      const html = renderTicket(model, resolverOpcionesImpresion(proyecciones?.impresion.formatoPapel), { qrDataUri });
+      const resultado = await imprimirTicketHtml(html);
+      if (!resultado.success) throw new Error(resultado.reason || 'No fue posible abrir el canal de impresión.');
     } catch (err) {
       console.error(err);
       toast.error("Error al imprimir el ticket.");
     }
   };
 
-  // B7: un ticket reimpreso es evidencia histórica y se materializa únicamente
-  // desde el snapshot fiscal inmutable de la venta. Las ventas sin evidencia
-  // certificada permanecen bloqueadas hasta su migración histórica aprobada.
-  const imprimirTicketConMotor = async (venta: any) => {
-    const { input, empresa } = adaptarVentaB2AModeloTicket(venta.snapshotFiscal);
-    const model = TicketBuilder.fromVenta(input, empresa);
-    const qrDataUri = model.dian ? await generateQrDataUri(model.dian.qrPayload) : undefined;
-    const html = renderTicket(model, DEFAULT_RENDER_OPTIONS, { qrDataUri });
-
-    if (typeof window !== 'undefined' && (window as any).api) {
-      if (typeof (window as any).api.print.toPrinter === 'function') {
-        await (window as any).api.print.toPrinter(html);
-      } else {
-        await (window as any).api.print.ticket(html);
-      }
-    }
-  };
-
+  // B7: las ventas FISCAL se reimprimen únicamente desde su snapshot fiscal
+  // inmutable; una venta DEMO usa sus datos operativos y la configuración
+  // canónica vigente, sin inventar evidencia fiscal.
   const confirmarEliminar = (id: string) => {
     setIdToDelete(id);
     setIsDeleteDialogOpen(true);

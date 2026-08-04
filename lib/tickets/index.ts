@@ -21,6 +21,11 @@ export { DEFAULT_RENDER_OPTIONS, RENDER_OPTIONS_58MM, RENDER_OPTIONS_80MM } from
 export { renderTicket } from './ticket-renderer'
 
 export { TicketBuilder } from './ticket-builder'
+export {
+  imprimirEnDialogoNavegador,
+  imprimirTicketHtml,
+  resolverOpcionesImpresion,
+} from './print-service'
 export type {
   TicketEmpresaConfig,
   RegimenTributarioTicket,
