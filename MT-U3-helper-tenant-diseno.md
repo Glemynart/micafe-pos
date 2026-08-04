@@ -434,6 +434,12 @@ Reconciliación código ↔ documentación (la lista de docs difería en 4 entra
 - ✅ `modificador_grupos`: colección real omitida en las listas (usa constante `COLLECTION_NAME`). Se añade.
 - ✅ `producto_modificador_grupos`: colección real. Se añade.
 
+> **Reconciliación posterior (ADR-SAAS-022, 2026-08-04):** la exclusión de
+> `proveedores` anterior corresponde al modelo histórico previo al catálogo
+> reusable. ADR-SAAS-022 autoriza una nueva colección `proveedores` tenant-aware
+> para documentos creados desde ese PR; no se migran ni se reescriben compras
+> históricas y la colección no forma parte del backfill original de MT-U3.
+
 ### 7.1 Colecciones operativas empresa-scoped (25) — SÍ ganan `empresaId` en MT-U3
 
 `espacios`, `categorias`, `productos`, `insumos`, `recetas`, `mesas`, `pedidos_activos`,

@@ -31,8 +31,10 @@ es **25 colecciones operativas**, no 24.
 > conteo, aunque coincide en el total (25), seguía teniendo el conjunto incorrecto: (a) `modificador_grupos`
 > —colección hermana de `producto_modificador_grupos`, usa la misma constante `COLLECTION_NAME` y por eso
 > se escapó también de este hallazgo— **faltaba**; (b) `proveedores` y `cuentas_cobro`, presentes en la
-> lista original de `ADR-SAAS-004`/documento maestro, **nunca fueron colecciones reales** (el primero es un
-> campo embebido en `compras`; el segundo es el valor `metodoPago=='cuenta_cobro'` sobre `ventas`). El total
+> lista original de `ADR-SAAS-004`/documento maestro, **no eran colecciones reales en el modelo histórico**
+> (el primero era un campo embebido en `compras`; el segundo es el valor `metodoPago=='cuenta_cobro'` sobre
+> `ventas`). ADR-SAAS-022 introduce posteriormente un catálogo nuevo de `proveedores`, sin migrar compras
+> históricas ni alterar el backfill original. El total
 > de 25 se mantiene por coincidencia (−2, +2). La lista oficial, ya corregida, vive en
 > `MT-U3-helper-tenant-diseno.md` §7 y es la fuente a usar para el backfill de MT-U3. Esta nota no altera
 > el alcance ya ejecutado de MT-U1 (que no tocó ninguna colección operativa).
