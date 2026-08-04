@@ -21,10 +21,22 @@ export interface CompraItem {
   costoTotal: number;
 }
 
+export interface ProveedorSnapshot {
+  id: string;
+  nombre: string;
+  estado: "ACTIVO";
+  nit?: string;
+  telefono?: string;
+  correo?: string;
+  direccion?: string;
+}
+
 export interface Compra {
   id: string;
   fecha: unknown;
   proveedor: string;
+  proveedorId?: string;
+  proveedorSnapshot?: ProveedorSnapshot;
   items: CompraItem[];
   total: number;
   espacioId: string;
@@ -39,6 +51,7 @@ export interface Compra {
 
 export interface RegistrarCompraParams {
   proveedor: string;
+  proveedorId?: string;
   items: CompraItem[];
   espacioId: string;
   cuentaClaveOperativa?: string;
@@ -56,6 +69,7 @@ export async function registrarCompra(params: RegistrarCompraParams): Promise<st
     motivo: "compra_proveedor",
     payload: {
       proveedor: params.proveedor,
+      ...(params.proveedorId ? { proveedorId: params.proveedorId } : {}),
       espacioId: params.espacioId,
       fechaCompra: params.fechaCompra ?? null,
       ...(params.cuentaClaveOperativa ? { cuentaClaveOperativa: params.cuentaClaveOperativa } : {}),

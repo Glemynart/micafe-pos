@@ -129,6 +129,57 @@ test("P0-12: confirma compra con snapshots del catálogo, inventario y costo en 
   assert.equal([...db.docs.keys()].filter(key => key.startsWith("transacciones_financieras/")).length, 0);
 });
 
+test("P1-03: resuelve proveedor por empresaId + proveedorId y congela su snapshot", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set("proveedores/proveedor-a", {
+    empresaId,
+    nombre: "Proveedor canónico",
+    nit: "900123456",
+    telefono: "3000000000",
+    estado: "ACTIVO",
+  });
+
+  const command = envelope("proveedor-snapshot", payload({
+    proveedor: "Nombre manipulado",
+    proveedorId: "proveedor-a",
+  }));
+  const result = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
+  const replay = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
+  assert.deepEqual(replay, result);
+  const compra = db.docs.get(`compras/${result.compraId}`);
+
+  assert.equal(compra?.proveedor, "Proveedor canónico");
+  assert.equal(compra?.proveedorId, "proveedor-a");
+  assert.deepEqual(compra?.proveedorSnapshot, {
+    id: "proveedor-a",
+    nombre: "Proveedor canónico",
+    nit: "900123456",
+    telefono: "3000000000",
+    estado: "ACTIVO",
+  });
+  assert.equal(compra?.snapshotComercial.proveedor, "Proveedor canónico");
+
+  db.docs.set("proveedores/proveedor-a", { empresaId, nombre: "Proveedor renombrado", estado: "ACTIVO" });
+  assert.equal(db.docs.get(`compras/${result.compraId}`)?.proveedorSnapshot.nombre, "Proveedor canónico");
+});
+
+test("P1-03: rechaza proveedor inactivo o ajeno sin efectos parciales", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set("proveedores/inactivo", { empresaId, nombre: "Inactivo", estado: "INACTIVO" });
+  db.docs.set("proveedores/ajeno", { empresaId: "empresa-b", nombre: "Ajeno", estado: "ACTIVO" });
+  const before = [...db.docs.entries()];
+
+  await assert.rejects(
+    ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("proveedor-inactivo", payload({ proveedorId: "inactivo" }))),
+    error => domain(error, "PROVEEDOR_INACTIVO"),
+  );
+  await assert.rejects(
+    ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("proveedor-ajeno", payload({ proveedorId: "ajeno" }))),
+    error => domain(error, "PROVEEDOR_NO_ENCONTRADO"),
+  );
+  assert.deepEqual([...db.docs.entries()], before);
+});
+
 test("P0-12: resuelve la cuenta reservada por clave y el replay no duplica efectos", async () => {
   const db = new FakeFirestore(); seed(db, 1000);
   const data = envelope("idempotente", { ...payload(), cuentaClaveOperativa: "caja-principal" });

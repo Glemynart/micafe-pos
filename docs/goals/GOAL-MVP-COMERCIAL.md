@@ -32,6 +32,9 @@ su gate fiscal para operación FISCAL/productiva, mientras ADR-SAAS-020 habilita
 la operación DEMO no fiscal sin datos del cliente ni escrituras productivas.
 ADR-SAAS-021 admite P0-12 como trabajo del núcleo transaccional y mantiene la
 autoridad única server-side para compras.
+ADR-SAAS-022 acepta un catálogo mínimo tenant-aware de proveedores para P1-03,
+sin crédito, cuentas por pagar, fiscalidad, migraciones ni dependencia de Café
+Atrato.
 
 ## Milestones y Epics
 
@@ -101,8 +104,10 @@ Este Goal se marca `COMPLETADO` solo cuando:
 - **Estado:** ACTIVO.
   PR #187 quedó integrado en `main @ fae007a` tras auditoría `APROBADO PARA MERGE` y CI completamente verde.
   PR #186 quedó integrado en `main @ 50c3866` con compras server-authoritative, snapshots comerciales, ledger, costo, inventario, efecto financiero, idempotencia, auditoría y CI completamente verde.
+  PR #188 quedó integrado en `main @ 6298e81` con ADR-SAAS-022 aceptado para el catálogo tenant-aware de proveedores y sus invariantes de snapshots, estado enum y desactivación segura.
 - **PR completados:** PR #147, PR #149, PR #151, PR #153, PR #155, PR #157, PR #159, PR #161, PR #163, PR #165, PR #167, PR #168, PR #170, PR #172, PR #174, PR #175, PR #176, PR #178, PR #179, PR #181, PR #182 y PR #183, PR #184 — reconciliación, cierre documental, referencia vigente de ADR-SAAS-013, tooling de certificación P0-01, comando Trial para una Empresa existente, plan SaaS genérico reusable del MVP con `shifts`, capacidades del Plan disponibles para la configuración B1, smoke E2E P0-01 alineado a la oferta y navegación aprobadas, Fase 2 de ventas server-authoritative, eliminación de escrituras financieras legacy desde el cliente, certificación manual del tenant real, ventas DEMO no fiscales durante Trial, aceptación de ADR-SAAS-017 y su planificación como P0-11/E3.4, aceptación de ADR-SAAS-018 para eventos operativos confiables, recuperación segura de credenciales de administrador y operadores, aceptación de ADR-SAAS-019, compatibilidad financiera tenant-aware, certificación reusable P0-06 de turnos y arqueo multi-tenant con Emulator, certificación reusable P0-10 de exportación/importación de Firestore y Auth Emulator con fixtures multi-tenant y huella de restauración, y liquidación server-authoritative de cuentas por cobrar con reversión auditable. Las notificaciones se mantienen separadas para un PR posterior. El PR #184 añade transporte reutilizable de impresión con fallback PWA y pruebas de seguridad del renderer. El PR #185 sincroniza el estado bloqueado de P0-07 por dependencia de hardware y canal.
   PR #186 actualizó el contrato de compras y quedó integrado en `main @ 50c3866`; PR #187 quedó integrado en `main @ fae007a` con la primitiva canónica reusable del ledger para venta, compra, ajustes y mermas, apertura lazy, secuencia, saldo, replay, aislamiento tenant-safe y certificación de Rules. El siguiente trabajo recomendado es P1-03, certificación reusable de compras, proveedores y costos.
+  PR #188 quedó integrado en `main @ 6298e81` con ADR-SAAS-022 aceptado; el catálogo tenant-aware de proveedores y la integración de compras forman el alcance de P1-03.
 - **Siguiente PR esperado:** `P1-03 / E2.5 — certificación reusable de compras, proveedores y costos`; depende de P0-12 y P1-01, puede ejecutarse en Emulator sin impresora, fiscalidad real, hardware ni producción. P0-07/E3.1 permanece como certificación condicional del canal físico y P0-02/P0-09 como gate fiscal condicional.
 - **Milestone activo:** `M2 — Núcleo transaccional íntegro`.
 - **Epic activo:** `E2.5 — Compras e inventario operativos`.

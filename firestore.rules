@@ -175,6 +175,12 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if puedeEliminarEnTenant() && esAdmin();
     }
+    // El catalogo se escribe exclusivamente mediante las callables de
+    // Proveedores; el cliente solo puede leer datos de su tenant.
+    match /proveedores/{id} {
+      allow read: if puedeLeerTenant() && esAutenticado();
+      allow create, update, delete: if false;
+    }
     match /mermas/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
       allow create: if puedeCrearEnTenant() && esAdmin();
