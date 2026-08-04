@@ -33,7 +33,7 @@ function seed(db: FakeFirestore, ventaId: string, total = 100) {
   db.docs.set(`membresias/${empresaId}_cajero-a`, { empresaId, uid: "cajero-a", rol: "cajero", permisos: ["sell"], estado: "activa", activo: true });
   db.docs.set("cuentas_bancarias/caja-principal", { id: "caja-principal", empresaId, saldo: 0, claveOperativa: "caja-principal", nombre: "Caja" });
   db.docs.set("turnos/turno-1", { empresaId, estado: "cerrado" });
-  db.docs.set("productos/cafe", { empresaId, nombre: "Café", stock: 5, secuenciaLedger: 0, costo: 10 });
+  db.docs.set("productos/cafe", { empresaId, espacioId: "cafeteria", nombre: "Café", stock: 5, secuenciaLedger: 0, costo: 10 });
   db.docs.set(`ventas/${ventaId}`, { empresaId, cajeroId: "no-es-actor-autoritativo", rolCajeroSnapshot: "admin", estado: "pagada", estadoOperativo: "PENDIENTE_EFECTOS", turnoId: "turno-1", metodoPago: "efectivo", totales: { total }, items: [{ id: "cafe", cantidad: 1 }] });
   db.docs.set(`fiscal_comandos/recibo-${ventaId}`, { ventaId, empresaId, actorOriginal: { uid: "cajero-a", rolEfectivo: "cajero" }, commandId: `confirmar-${ventaId}`, idempotencyKey: `idem-confirmar-${ventaId}`, correlationId: `corr-${ventaId}`, causationId: `causa-${ventaId}` });
 }
@@ -47,7 +47,7 @@ test("R1-B.2: el reconciliador real aplica efectos, recibo, auditoría y ledger 
   assert.equal(db.docs.get("cuentas_bancarias/caja-principal")?.saldo, 100);
   assert.equal(db.docs.get("productos/cafe")?.stock, 4);
   assert.equal(count(db, "transacciones_financieras"), 1);
-  assert.equal(count(db, "movimientos_inventario"), 1);
+  assert.equal(count(db, "movimientos_inventario"), 2);
   assert.equal(count(db, "operaciones_comandos"), 1);
   assert.equal(count(db, "operaciones_auditoria"), 1);
   const movimiento = [...db.docs.entries()].find(([path]) => path.startsWith("transacciones_financieras/"))?.[1];
@@ -70,7 +70,7 @@ test("R1-B.2: reintento concurrente no duplica efectos ni confirmaciones", async
   await Promise.all([reconciliarVentasPendientes(db as any), reconciliarVentasPendientes(db as any)]);
   assert.equal(db.docs.get("ventas/venta-unica")?.estadoOperativo, "COMPLETO");
   assert.equal(count(db, "transacciones_financieras"), 1);
-  assert.equal(count(db, "movimientos_inventario"), 1);
+  assert.equal(count(db, "movimientos_inventario"), 2);
   assert.equal(count(db, "operaciones_comandos"), 1);
 });
 

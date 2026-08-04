@@ -197,7 +197,7 @@ function seedVentaOperativa(db: FakeFirestore) {
   db.docs.set("empresas/empresa-venta", { estado: "activa", esFundacional: false });
   db.docs.set("membresias/empresa-venta_cajero-venta", { empresaId: "empresa-venta", uid: "cajero-venta", rol: "cajero", permisos: ["sell"], estado: "activa", activo: true });
   db.docs.set(`cuentas_bancarias/${bancoId}`, { id: bancoId, empresaId: "empresa-venta", saldo: 0, claveOperativa: "bancolombia", nombre: "Banco" });
-  db.docs.set("productos/cafe-venta", { empresaId: "empresa-venta", nombre: "Cafe venta", stock: 1, secuenciaLedger: 0, costo: 10, unidad: "und" });
+  db.docs.set("productos/cafe-venta", { empresaId: "empresa-venta", espacioId: "cafeteria", nombre: "Cafe venta", stock: 1, secuenciaLedger: 0, costo: 10, unidad: "und" });
   db.docs.set("turnos/turno-venta", { empresaId: "empresa-venta", estado: "abierto" });
   return { bancoId };
 }
@@ -227,10 +227,21 @@ test("P0-03: la Fase 2 server-side aplica inventario, tesoreria, incidencia y re
   assert.equal(db.docs.get("ventas/venta-server")?.estadoOperativo, "COMPLETO");
   assert.equal(db.docs.get(`cuentas_bancarias/${bancoId}`)?.saldo, 100);
   assert.equal(db.docs.get("productos/cafe-venta")?.stock, -1);
-  assert.equal(db.docs.get("productos/cafe-venta")?.secuenciaLedger, 1);
+  assert.equal(db.docs.get("productos/cafe-venta")?.secuenciaLedger, 2);
   assert.deepEqual(first.incidenciasInventario, [{ tipo: "stock_insuficiente", itemId: "cafe-venta", itemNombre: "Cafe venta", stockAnterior: 1, cantidadSolicitada: 2 }]);
+  const apertura = db.docs.get("movimientos_inventario/inventario_inicial:producto:cafe-venta");
+  const movimientoVenta = db.docs.get("movimientos_inventario/venta:venta-server:producto:cafe-venta:0");
+  assert.equal(apertura?.tipo, "inventario_inicial");
+  assert.equal(apertura?.secuenciaArticulo, 1);
+  assert.equal(movimientoVenta?.tipo, "venta");
+  assert.equal(movimientoVenta?.secuenciaArticulo, 2);
+  assert.equal(movimientoVenta?.cantidad, -2);
+  assert.equal(movimientoVenta?.costoUnitario, 10);
+  assert.equal(movimientoVenta?.saldoCantidadDespues, -1);
+  assert.equal(movimientoVenta?.referenciaColeccion, "ventas");
+  assert.equal(movimientoVenta?.referenciaId, "venta-server");
   assert.equal(count(db, "transacciones_financieras"), 1);
-  assert.equal(count(db, "movimientos_inventario"), 1);
+  assert.equal(count(db, "movimientos_inventario"), 2);
   assert.equal(count(db, "operaciones_comandos"), 1);
   assert.equal(count(db, "operaciones_auditoria"), 1);
 });
