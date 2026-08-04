@@ -139,3 +139,20 @@ jobs:
           path: artifacts/e2e/e4-01/
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Auditoría automática E4.2 de release readiness
+        run: npm run test:e4-02:contract
+
+      - name: Generar evidencia E4.2 de release readiness
+        run: npm run e4-02:readiness
+        env:
+          E4_02_CI_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Publicar evidencia E4.2
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e4-02-${{ github.run_id }}
+          path: artifacts/release/e4-02/
+          if-no-files-found: warn
+          retention-days: 14
