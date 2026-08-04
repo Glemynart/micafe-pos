@@ -357,10 +357,6 @@ async function efectoAplicarEfectosVentaOperativa(tx: any, db: any, empresaId: s
   }
   const lineasExistentes = await Promise.all(legs.map((_, ordinal) => tx.get(db.collection(MOVIMIENTOS).doc(crearIdentificadorInterno(empresaId, `movfin:venta:${ventaId}:pago:${ordinal}`)))));
   if (lineasExistentes.some(linea => linea.exists)) fail("failed-precondition", "EFECTOS_VENTA_INCONSISTENTES");
-  const saldos = new Map(cuentas.map(cuenta => [cuenta.ref.id, cuenta.saldo]));
-  const movementIds: string[] = [];
-  for (const [ordinal, leg] of legs.entries()) { const a = cuentas.find(cuenta => cuenta.data.claveOperativa === leg.claveOperativa)!; const saldo = saldos.get(a.ref.id)!; const m = writeMovement(tx, db, { empresaId, command: input, key: `venta:${ventaId as string}:pago:${ordinal}`, account: { ...a, saldo }, tipo: "ingreso", monto: leg.monto, categoria: "ventas", actorUid, rol, turnoId: leg.turnoId, ventaId: ventaId as string, actualizarSaldo: false }); saldos.set(a.ref.id, m.saldo); movementIds.push(m.id); }
-  for (const cuenta of cuentas) tx.update(cuenta.ref, { saldo: saldos.get(cuenta.ref.id)! });
   for (const entrada of inventario) {
     const articulo = entrada.articulo.data() as Record<string, any>;
     const stock = Number(articulo.stock ?? 0);
@@ -389,6 +385,13 @@ async function efectoAplicarEfectosVentaOperativa(tx: any, db: any, empresaId: s
       referenciaId: ventaId as string,
     };
   }));
+  // Firestore exige que todas las lecturas de la transacción precedan a sus
+  // escrituras. El ledger hace lecturas de idempotencia y artículos; por eso
+  // debe materializarse antes de escribir tesorería o actualizar la venta.
+  const saldos = new Map(cuentas.map(cuenta => [cuenta.ref.id, cuenta.saldo]));
+  const movementIds: string[] = [];
+  for (const [ordinal, leg] of legs.entries()) { const a = cuentas.find(cuenta => cuenta.data.claveOperativa === leg.claveOperativa)!; const saldo = saldos.get(a.ref.id)!; const m = writeMovement(tx, db, { empresaId, command: input, key: `venta:${ventaId as string}:pago:${ordinal}`, account: { ...a, saldo }, tipo: "ingreso", monto: leg.monto, categoria: "ventas", actorUid, rol, turnoId: leg.turnoId, ventaId: ventaId as string, actualizarSaldo: false }); saldos.set(a.ref.id, m.saldo); movementIds.push(m.id); }
+  for (const cuenta of cuentas) tx.update(cuenta.ref, { saldo: saldos.get(cuenta.ref.id)! });
   if (pedidoRef && pedidoSnap) {
     tx.update(pedidoRef, { estado: "pagado", activo: false, fechaPago: FieldValue.serverTimestamp(), ventaId });
     for (const comanda of comandaSnaps) {

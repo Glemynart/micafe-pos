@@ -62,6 +62,9 @@ jobs:
       - name: Pruebas de reimpresión
         run: npm run test:reimpresion
 
+      - name: Pruebas unitarias P1-02 de recetas y modificadores
+        run: npm run test:p1-02:unit
+
       - name: Pruebas de tenant
         run: npm run test:tenant
 
@@ -73,6 +76,12 @@ jobs:
 
       - name: Certificacion P0-06 de turnos y arqueo en Emulator
         run: npm run e2e:p0-06
+
+      - name: Certificacion P1-02 de recetas y modificadores en Emulator
+        run: npm run e2e:p1-02
+
+      - name: Pruebas de Rules tenant-aware
+        run: npm run test:rules
 
       - name: Certificacion P0-10 de restauracion Firestore en Emulator
         run: npm run e2e:p0-10
