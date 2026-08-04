@@ -74,5 +74,8 @@ jobs:
       - name: Certificacion P0-06 de turnos y arqueo en Emulator
         run: npm run e2e:p0-06
 
+      - name: Certificacion P0-10 de restauracion Firestore en Emulator
+        run: npm run e2e:p0-10
+
       - name: Pruebas de integración Auth y Firestore
         run: npm run test:email:integration
