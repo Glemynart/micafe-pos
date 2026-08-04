@@ -24,6 +24,7 @@ export { abrirTurnoOperativoV1 } from "./turnos/callable";
 export { anularVentaOperativaV1 } from "./finanzas/anulaciones";
 export {
   aplicarEfectosVentaOperativaV1,
+  liquidarCuentaCobroV1,
   cerrarTurnoOperativoV1,
   registrarEgresoOperativoV1,
   registrarMovimientoFinancieroV1,

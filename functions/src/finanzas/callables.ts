@@ -134,12 +134,12 @@ function writeConfirmation(tx: any, refs: ReturnType<typeof operationRefs>, empr
   tx.create(refs.auditoria, { empresaId, tipo, resultado: "CONFIRMADO", actor: { uid: actorUid, rolEfectivo: rol }, ejecutorTecnico: ejecutorTecnico ?? null, causationId: input.causationId ?? null, comando: { id: input.commandId, tipo, idempotencyKey: input.idempotencyKey, huella: fingerprint, correlationId: input.correlationId }, motivo: input.motivo ?? null, referencias, creadoEn: now });
 }
 
-function writeMovement(tx: any, db: any, input: { empresaId: string; command: Envelope; key: string; account: { ref: any; data: Record<string, unknown>; saldo: number }; tipo: Tipo; monto: number; categoria: string; actorUid: string; rol: string; turnoId?: string | null; ventaId?: string | null; egresoId?: string | null; movimientoRelacionadoId?: string | null; actualizarSaldo?: boolean; validarFondos?: boolean; }) {
+function writeMovement(tx: any, db: any, input: { empresaId: string; command: Envelope; key: string; account: { ref: any; data: Record<string, unknown>; saldo: number }; tipo: Tipo; monto: number; categoria: string; actorUid: string; rol: string; turnoId?: string | null; ventaId?: string | null; liquidacionId?: string | null; egresoId?: string | null; movimientoRelacionadoId?: string | null; actualizarSaldo?: boolean; validarFondos?: boolean; }) {
   const id = crearIdentificadorInterno(input.empresaId, `movfin:${input.key}`);
   const ref = db.collection(MOVIMIENTOS).doc(id);
   const next = input.tipo === "ingreso" ? input.account.saldo + input.monto : input.account.saldo - input.monto;
   if (input.validarFondos !== false && next < 0) fail("failed-precondition", "FONDOS_INSUFICIENTES");
-  tx.create(ref, { id, empresaId: input.empresaId, claveIdempotencia: input.key, commandId: input.command.commandId, idempotencyKey: input.command.idempotencyKey, correlationId: input.command.correlationId, tipo: input.tipo, monto: input.monto, moneda: "COP", fecha: FieldValue.serverTimestamp(), cuentaDocumentoId: input.account.ref.id, cuentaClaveSnapshot: input.account.data.claveOperativa ?? input.account.ref.id, cuentaNombreSnapshot: input.account.data.nombre ?? input.account.ref.id, saldoDespues: next, categoria: input.categoria, referenciaColeccion: input.ventaId ? "ventas" : input.egresoId ? "egresos" : "operacion", referenciaId: input.ventaId ?? input.egresoId ?? input.command.commandId, turnoId: input.turnoId ?? null, ventaId: input.ventaId ?? null, egresoId: input.egresoId ?? null, movimientoRelacionadoId: input.movimientoRelacionadoId ?? null, motivo: input.command.motivo ?? null, usuarioId: input.actorUid, usuarioNombreSnapshot: input.actorUid, rolEfectivoSnapshot: input.rol });
+  tx.create(ref, { id, empresaId: input.empresaId, claveIdempotencia: input.key, commandId: input.command.commandId, idempotencyKey: input.command.idempotencyKey, correlationId: input.command.correlationId, tipo: input.tipo, monto: input.monto, moneda: "COP", fecha: FieldValue.serverTimestamp(), cuentaDocumentoId: input.account.ref.id, cuentaClaveSnapshot: input.account.data.claveOperativa ?? input.account.ref.id, cuentaNombreSnapshot: input.account.data.nombre ?? input.account.ref.id, saldoDespues: next, categoria: input.categoria, referenciaColeccion: input.ventaId ? "ventas" : input.egresoId ? "egresos" : "operacion", referenciaId: input.ventaId ?? input.egresoId ?? input.command.commandId, turnoId: input.turnoId ?? null, ventaId: input.ventaId ?? null, liquidacionId: input.liquidacionId ?? null, egresoId: input.egresoId ?? null, movimientoRelacionadoId: input.movimientoRelacionadoId ?? null, motivo: input.command.motivo ?? null, usuarioId: input.actorUid, usuarioNombreSnapshot: input.actorUid, rolEfectivoSnapshot: input.rol });
   if (input.actualizarSaldo !== false) tx.update(input.account.ref, { saldo: next });
   return { id, ref, saldo: next };
 }
@@ -387,6 +387,83 @@ export async function ejecutarAplicarEfectosVentaOperativaV1(db: any, contexto: 
 export const aplicarEfectosVentaOperativaV1 = onCall({ region: REGION }, async request => {
   const db = getFirestore(); const tenant = await exigirTenantActivo(request, db);
   return ejecutarAplicarEfectosVentaOperativaV1(db, { empresaId: tenant.id, actorUid: request.auth!.uid, rol: tenant.rol }, request.data);
+});
+
+async function turnoRecaudoDerivado(tx: any, db: any, empresaId: string, actorUid: string) {
+  const lock = await tx.get(db.collection("turnos_activos").doc(crearIdentificadorInterno(empresaId, actorUid)));
+  const turnoId = lock.data()?.turnoId;
+  if (!lock.exists || lock.data()?.empresaId !== empresaId || lock.data()?.cajeroId !== actorUid || !text(turnoId)) {
+    fail("failed-precondition", "TURNO_CERRADO");
+  }
+  await turnoAbierto(tx, db, empresaId, turnoId);
+  return turnoId as string;
+}
+
+async function efectoLiquidarCuentaCobroV1(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<Record<string, unknown>> {
+  await revalidarAutoridadFinancieraEnTransaccion(tx, db, { empresaId, actorUid, rol }, "sell");
+  const payload = input.payload;
+  const camposAutoritativos = ["empresaId", "monto", "importe", "saldo", "cuentaId", "cuentaDocumentoId", "cuentaClaveOperativa", "turnoId", "turnoRecaudoId"];
+  if (camposAutoritativos.some(campo => Object.prototype.hasOwnProperty.call(payload, campo))) fail("invalid-argument", "PAYLOAD_INVALID");
+  const ventaId = payload.ventaId;
+  const metodoPagoFinal = payload.metodoPagoFinal;
+  if (!text(ventaId) || (metodoPagoFinal !== "efectivo" && metodoPagoFinal !== "transferencia")) fail("invalid-argument", "PAYLOAD_INVALID");
+
+  const ventaRef = db.collection("ventas").doc(ventaId);
+  const venta = await tx.get(ventaRef);
+  if (!venta.exists || venta.data()?.empresaId !== empresaId) fail("not-found", "VENTA_NO_ENCONTRADA");
+  const ventaData = venta.data() as Record<string, any>;
+  if (ventaData.metodoPago !== "cuenta_cobro" || ventaData.estado !== "pendiente") fail("failed-precondition", "VENTA_NO_PENDIENTE");
+  if (ventaData.estadoOperativo !== "COMPLETO") fail("failed-precondition", "VENTA_NO_PENDIENTE");
+  const total = ventaData.totales?.total;
+  if (!money(total)) fail("failed-precondition", "PAGO_INVALIDO");
+
+  const claveOperativa = metodoPagoFinal === "efectivo" ? CLAVE_CAJA_PRINCIPAL : CLAVE_CUENTA_ELECTRONICA;
+  const cuenta = await resolverCuentaOperativa(tx, db, empresaId, claveOperativa);
+  const turnoRecaudoId: string | null = metodoPagoFinal === "efectivo"
+    ? await turnoRecaudoDerivado(tx, db, empresaId, actorUid)
+    : null;
+  const liquidacionId = crearIdentificadorInterno(empresaId, `liquidacion:cuenta_cobro:${ventaId}`);
+  const movimiento = writeMovement(tx, db, {
+    empresaId,
+    command: input,
+    key: `cuenta_cobro:${ventaId}`,
+    account: cuenta,
+    tipo: "ingreso",
+    monto: total,
+    categoria: "cuentas_cobro",
+    actorUid,
+    rol,
+    turnoId: turnoRecaudoId as string | null,
+    ventaId: ventaId as string,
+    liquidacionId,
+  });
+  const actualizacion: Record<string, unknown> = {
+    estado: "pagada",
+    metodoPagoFinal,
+    fechaPago: FieldValue.serverTimestamp(),
+    liquidacionCuentaCobroId: liquidacionId,
+  };
+  if (turnoRecaudoId) actualizacion.turnoRecaudoId = turnoRecaudoId;
+  tx.update(ventaRef, actualizacion);
+  return {
+    commandId: input.commandId,
+    ventaId,
+    liquidacionId,
+    movimientoId: movimiento.id,
+    cuentaDocumentoId: cuenta.ref.id,
+    cuentaClaveOperativa: claveOperativa,
+    metodoPagoFinal,
+    turnoRecaudoId,
+  };
+}
+
+export async function ejecutarLiquidarCuentaCobroV1(db: any, contexto: ContextoFinancieroOperativo, data: unknown) {
+  return executeConContexto(db, contexto, data, "liquidarCuentaCobroV1", efectoLiquidarCuentaCobroV1);
+}
+
+export const liquidarCuentaCobroV1 = onCall({ region: REGION }, async request => {
+  const db = getFirestore(); const tenant = await exigirTenantActivo(request, db);
+  return ejecutarLiquidarCuentaCobroV1(db, { empresaId: tenant.id, actorUid: request.auth!.uid, rol: tenant.rol }, request.data);
 });
 
 /** R1-B.1: compensa inmutablemente cada pierna financiera original de la venta. */

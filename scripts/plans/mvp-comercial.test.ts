@@ -13,6 +13,7 @@ test("mvp_comercial define exactamente las capacidades aprobadas del MVP", () =>
     "reservas",
     "waste",
     "shifts",
+    "cuentas_cobro",
   ]);
   assert.equal(MVP_COMERCIAL_PLAN.planId, "mvp_comercial");
   assert.equal(MVP_COMERCIAL_PLAN.codigo, "MVP_COMERCIAL");
@@ -22,6 +23,7 @@ test("mvp_comercial define exactamente las capacidades aprobadas del MVP", () =>
   assert.deepEqual(MVP_COMERCIAL_PLAN.limites, {});
   assert.ok(MVP_COMERCIAL_CAPACIDADES.every((capacidad) => MODULOS_CONFIGURACION.includes(capacidad)));
   assert.equal(MVP_COMERCIAL_CAPACIDADES.includes("shifts"), true);
+  assert.equal(MVP_COMERCIAL_CAPACIDADES.includes("cuentas_cobro"), true);
 });
 
 test("mvp_comercial pasa el gate local de consistencia", () => {

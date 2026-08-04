@@ -6,8 +6,6 @@ import {
   DollarSign,
   Clock,
   CheckCircle2,
-  AlertTriangle,
-  AlertCircle,
   Banknote,
   Smartphone,
   Search,
@@ -25,8 +23,6 @@ import { formatDateTime } from '@/lib/format-utils'
 import {
   suscribirCuentasPorCobrar,
   marcarComoPagada,
-  calcularEstadoDIAN,
-  tiempoRestanteDIAN,
   type CuentaCobro,
 } from '@/lib/cuentas-cobro-service'
 import { useAuthContext } from '@/contexts/auth-context'
@@ -40,9 +36,6 @@ export function CuentasCobroModule() {
   const [showPagarDialog, setShowPagarDialog] = useState(false)
   const [metodoPagoFinal, setMetodoPagoFinal] = useState<'efectivo' | 'transferencia'>('efectivo')
   const [procesando, setProcesando] = useState(false)
-  // Timer para refrescar el semáforo DIAN cada minuto
-  const [tick, setTick] = useState(0)
-
   useEffect(() => {
     const unsub = suscribirCuentasPorCobrar((data) => {
       setCuentas(data)
@@ -51,21 +44,12 @@ export function CuentasCobroModule() {
     return unsub
   }, [])
 
-  // Refresca el semáforo cada 60 segundos
-  useEffect(() => {
-    const interval = setInterval(() => setTick(t => t + 1), 60_000)
-    return () => clearInterval(interval)
-  }, [])
-
   const cuentasFiltradas = cuentas.filter(c =>
     c.clienteNombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
     c.id.includes(busqueda)
   )
 
   const totalPendiente = cuentas.reduce((acc, c) => acc + c.totales.total, 0)
-  const countDanger = cuentas.filter(c => calcularEstadoDIAN(c.fecha) === 'danger').length
-  const countWarning = cuentas.filter(c => calcularEstadoDIAN(c.fecha) === 'warning').length
-
   const handlePagar = async () => {
     if (!cuentaSeleccionada) return
     setProcesando(true)
@@ -81,23 +65,10 @@ export function CuentasCobroModule() {
     }
   }
 
-  const EstadoBadge = ({ cuenta }: { cuenta: CuentaCobro }) => {
-    // tick se usa para re-renderizar cada minuto
-    void tick
-    const estado = calcularEstadoDIAN(cuenta.fecha)
-    if (estado === 'danger') return (
-      <Badge className="bg-destructive/20 text-destructive border-destructive/30 gap-1">
-        <AlertCircle className="h-3 w-3" /> DIAN vencida
-      </Badge>
-    )
-    if (estado === 'warning') return (
-      <Badge className="bg-warning/20 text-warning border-warning/30 gap-1">
-        <AlertTriangle className="h-3 w-3" /> Facturar pronto
-      </Badge>
-    )
+  const EstadoBadge = () => {
     return (
       <Badge variant="secondary" className="gap-1">
-        <Clock className="h-3 w-3" /> A tiempo
+        <Clock className="h-3 w-3" /> Pendiente de pago
       </Badge>
     )
   }
@@ -114,20 +85,6 @@ export function CuentasCobroModule() {
             Cuentas por Cobrar
           </h1>
           <p className="text-muted-foreground text-sm">Cuentas de cobro y pagos pendientes</p>
-        </div>
-        <div className="flex gap-3">
-          {countDanger > 0 && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20">
-              <AlertCircle className="h-4 w-4 text-destructive" />
-              <span className="text-sm font-semibold text-destructive">{countDanger} DIAN vencida{countDanger > 1 ? 's' : ''}</span>
-            </div>
-          )}
-          {countWarning > 0 && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/20">
-              <AlertTriangle className="h-4 w-4 text-warning" />
-              <span className="text-sm font-semibold text-warning">{countWarning} por vencer</span>
-            </div>
-          )}
         </div>
       </div>
 
@@ -157,23 +114,12 @@ export function CuentasCobroModule() {
         </Card>
         <Card className="bg-card border-border">
           <CardContent className="p-4 flex items-center gap-4">
-            <div className={cn(
-              "w-12 h-12 rounded-xl flex items-center justify-center",
-              countDanger > 0 ? "bg-destructive/10" : countWarning > 0 ? "bg-warning/10" : "bg-success/10"
-            )}>
-              <Clock className={cn(
-                "h-6 w-6",
-                countDanger > 0 ? "text-destructive" : countWarning > 0 ? "text-warning" : "text-success"
-              )} />
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Clock className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <p className="text-muted-foreground text-xs">Estado DIAN</p>
-              <p className={cn(
-                "text-lg font-bold",
-                countDanger > 0 ? "text-destructive" : countWarning > 0 ? "text-warning" : "text-success"
-              )}>
-                {countDanger > 0 ? 'Urgente' : countWarning > 0 ? 'Atención' : 'Al día'}
-              </p>
+              <p className="text-muted-foreground text-xs">Estado operativo</p>
+              <p className="text-lg font-bold text-primary">Pendientes</p>
             </div>
           </CardContent>
         </Card>
@@ -214,38 +160,22 @@ export function CuentasCobroModule() {
           ) : (
             <div className="divide-y divide-border">
               {cuentasFiltradas.map(cuenta => {
-                void tick // trigger re-render
-                const estadoDIAN = calcularEstadoDIAN(cuenta.fecha)
                 return (
                   <div
                     key={cuenta.id}
-                    className={cn(
-                      "flex items-center gap-4 px-4 py-3 hover:bg-secondary/30 transition-colors cursor-pointer",
-                      estadoDIAN === 'danger' && "bg-destructive/5",
-                      estadoDIAN === 'warning' && "bg-warning/5"
-                    )}
+                    className="flex items-center gap-4 px-4 py-3 hover:bg-secondary/30 transition-colors cursor-pointer"
                     onClick={() => { setCuentaSeleccionada(cuenta); setShowPagarDialog(true); setMetodoPagoFinal('efectivo') }}
                   >
-                    {/* Semáforo lateral */}
-                    <div className={cn(
-                      "w-1.5 self-stretch rounded-full flex-shrink-0",
-                      estadoDIAN === 'danger' ? "bg-destructive" :
-                      estadoDIAN === 'warning' ? "bg-warning" : "bg-success"
-                    )} />
-
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-semibold text-foreground text-base truncate">
                           {cuenta.clienteNombre || 'Sin nombre'}
                         </p>
-                        <EstadoBadge cuenta={cuenta} />
+                        <EstadoBadge />
                       </div>
                       <p className="text-sm text-muted-foreground">
                         {formatFecha(cuenta.fecha)}
                         {cuenta.notasFiado && ` · ${cuenta.notasFiado}`}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {tiempoRestanteDIAN(cuenta.fecha)}
                       </p>
                     </div>
 
@@ -300,24 +230,6 @@ export function CuentasCobroModule() {
               {cuentaSeleccionada.notasFiado && (
                 <div className="text-sm text-muted-foreground bg-secondary/20 rounded-lg px-3 py-2">
                   📝 {cuentaSeleccionada.notasFiado}
-                </div>
-              )}
-
-              {/* Alerta DIAN si aplica */}
-              {calcularEstadoDIAN(cuentaSeleccionada.fecha) !== 'ok' && (
-                <div className={cn(
-                  "flex items-start gap-2 p-3 rounded-lg border text-xs font-medium",
-                  calcularEstadoDIAN(cuentaSeleccionada.fecha) === 'danger'
-                    ? "bg-destructive/10 border-destructive/30 text-destructive"
-                    : "bg-warning/10 border-warning/30 text-warning"
-                )}>
-                  {calcularEstadoDIAN(cuentaSeleccionada.fecha) === 'danger'
-                    ? <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                    : <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                  }
-                  <span>
-                    {tiempoRestanteDIAN(cuentaSeleccionada.fecha)} — Recuerda emitir la factura DIAN.
-                  </span>
                 </div>
               )}
 
