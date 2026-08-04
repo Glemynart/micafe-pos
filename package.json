@@ -45,6 +45,7 @@
     "e2e:r1a": "node scripts/e2e/r1a-runner.mjs",
     "e2e:p0-01": "node scripts/e2e/p0-01-runner.mjs",
     "e2e:p0-06": "node scripts/e2e/p0-06-runner.mjs",
+    "e2e:p0-10": "node scripts/e2e/p0-10-runner.mjs",
     "e2e:ventas:seed": "tsx scripts/e2e/ventas-local-fixture.ts",
     "e2e:r1a:preflight": "tsx scripts/e2e/preflight-r1a.ts",
     "e2e:operator-portal": "node scripts/e2e/operator-portal-runner.mjs"
