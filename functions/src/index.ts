@@ -31,6 +31,7 @@ export {
   trasladarEntreCuentasV1,
 } from "./finanzas/callables";
 export { registrarCompraOperativaV1 } from "./finanzas/compras";
+export { crearProveedorOperativoV1, actualizarProveedorOperativoV1, desactivarProveedorOperativoV1 } from "./proveedores/callables";
 export { crearNumeracionFiscal, actualizarNumeracionFiscal, transicionarNumeracionFiscal, establecerAsignacionFiscal, retirarAsignacionFiscal, confirmarVentaFiscalCallable, crearVentaDemostracionV1 } from "./fiscal/callables";
 export { bootstrapEmpresarialCallable } from "./bootstrap/callables";
 export { obtenerEstadoOnboarding, completarPasoFiscalOnboardingCallable, completarPasoNumeracionOnboardingCallable } from "./onboarding/callables";

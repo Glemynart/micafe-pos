@@ -177,6 +177,7 @@ Cada módulo se carga dinámicamente (`next/dynamic`, `ssr: false`) desde `/pos`
 | Inventario | `inventory-module.tsx` | Control de stock |
 | Recetas | `recipes-module.tsx` | Combos / recetas con insumos |
 | Compras | `purchases-module.tsx` | Órdenes a proveedores |
+| Proveedores | `proveedores-module.tsx` + `proveedores-service.ts` | Catálogo tenant-aware para nuevas compras |
 | Salón | `salon-module.tsx` | Mapa de mesas con estado derivado y multi-cuenta |
 | Cocina | `kitchen-module.tsx` | Pantalla de órdenes para cocina |
 | Turnos | `shifts-module.tsx` | Apertura y cierre de caja |
