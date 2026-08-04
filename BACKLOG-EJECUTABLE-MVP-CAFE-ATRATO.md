@@ -1,8 +1,10 @@
-# Backlog ejecutable — MVP Café Atrato
+# Backlog ejecutable — MVP SaaS multi-tenant
 
 ## Alcance y regla de uso
 
-Este backlog deriva exclusivamente del informe técnico de preparación del MVP de Café Atrato. No incorpora funcionalidades ni decisiones de arquitectura nuevas.
+Este backlog deriva de la planificación aprobada del MVP SaaS multi-tenant. Café
+Atrato es el primer tenant de referencia, pero las capacidades P0 deben ser
+reutilizables para cualquier tenant.
 
 - **P0:** obligatorio antes del primer día de operación.
 - **P1:** importante; puede ejecutarse durante las primeras semanas.
@@ -27,6 +29,7 @@ Cada PR recomendado es independiente en lo posible y no debe mezclar tareas de d
 | P0-09 | Confirmar el requisito de factura electrónica y validarlo si aplica. | P0-02; decisión fiscal de Café Atrato. | Si Café Atrato requiere DIAN desde el PWA, una venta real completa la emisión y conserva evidencia; si no la requiere, queda constancia operativa de que usa la evidencia fiscal interna. | L condicional | `feat/facturacion-electronica-operativa` |
 | P0-10 | Ejecutar una restauración comprobable de Firestore y documentar el resultado operativo. | Acceso controlado al entorno y conjunto de datos de prueba. | Se restaura un conjunto de datos de prueba sin pérdida no explicada; se verifica login, configuración, inventario, ventas y reportes posteriores. | M | `ops/certificacion-recuperacion-firestore` |
 | P0-11 | Implementar recuperación segura de credenciales de administrador y operadores. | ADR-SAAS-017; Firebase Auth y entorno Emulator para validación. | Un administrador recupera un operador no administrador y un operador SaaS autorizado recupera el administrador con evidencia fuera de banda; la activación es de un solo uso, revoca la credencial anterior, no persiste secretos y queda auditada e idempotente. | L | `feat/recuperacion-credenciales-segura` |
+| P0-12 | Migrar compras con efecto de inventario y financiero a `registrarCompraOperativaV1`. | ADR-SAAS-021; autoridad tenant-aware de ADR-SAAS-019; Emulator. | Una compra con y sin cuenta confirma snapshots comerciales, inventario, costo y efecto financiero en una única transacción server-side; el replay no duplica efectos y el cliente no escribe las colecciones financieras críticas. | L | `feat/compras-server-authoritative` |
 
 ## P1 — Primeras semanas de operación
 
@@ -34,7 +37,7 @@ Cada PR recomendado es independiente en lo posible y no debe mezclar tareas de d
 |---|---|---|---|---|---|
 | P1-01 | Certificar inventario inicial, ajustes, movimientos, kardex y mermas con casos reales. | P0-01, P0-03; inventario inicial aprobado. | Cada entrada, ajuste, venta y merma deja stock y kardex coherentes; no hay denegaciones de Rules ni movimientos sin trazabilidad. | L | `test/certificacion-inventario-kardex` |
 | P1-02 | Validar recetas, modificadores y descuento de insumos en una venta real. | P1-01; recetas y modificadores configurados. | La venta con receta/modificadores mantiene el snapshot comercial y descuenta los insumos correctos. | M | `test/recetas-modificadores-e2e` |
-| P1-03 | Validar compras, proveedores y costos en operación real. | P1-01; proveedores y datos de compra. | Una compra aumenta el inventario y actualiza el costo; los límites conocidos de eliminación/reversión quedan comprobados y no afectan la operación inicial. | M | `test/compras-proveedores-operacion` |
+| P1-03 | Certificar compras, proveedores y costos en operación real después de P0-12. | P0-12, P1-01; proveedores y datos de compra. | La operación comercial de compras queda certificada; los límites de eliminación/reversión quedan comprobados y no afectan la operación inicial. | M | `test/compras-proveedores-operacion` |
 | P1-04 | Certificar salón, cuentas múltiples, comandas y cocina bajo operación concurrente. | P0-04; mesas, usuarios y permisos configurados. | Abrir, separar, unir y trasladar cuentas; enviar comandas; y transicionar estados de cocina funciona sin pérdida ni confusión de cuentas. | L | `test/salon-cocina-concurrencia` |
 | P1-05 | Certificar clientes, crédito, cobranza, historial y reportes con datos reales. | P0-04; clientes y casos de crédito. | Un crédito, su cobranza y los reportes/historial asociados muestran importes y tenant correcto; las consultas soportan el volumen inicial sin fallos. | M | `test/clientes-reportes-certificacion` |
 | P1-06 | Resolver la compatibilidad definitiva entre IDs financieros históricos y tenant-aware. | P0-05. | Los servicios operativos no contienen dependencias funcionales de IDs históricos; un tenant moderno y Café Atrato usan el mismo contrato. | M | `refactor/cuentas-financieras-tenant` |
@@ -60,9 +63,10 @@ Cada PR recomendado es independiente en lo posible y no debe mezclar tareas de d
 
 ## Secuencia de ejecución
 
-1. Completar **P0-01** y **P0-02** antes de probar cualquier flujo de caja.
-2. Completar **P0-03** y **P0-05** antes de certificar cobros y turnos.
-3. Ejecutar **P0-04**, **P0-06** y **P0-07** en un entorno representativo de la caja real.
-4. Si se usará Electron, completar **P0-08**; si habrá factura electrónica desde PWA, completar **P0-09**.
-5. Cerrar P0 solamente después de **P0-10** y de una prueba integral: venta → inventario → caja → turno → ticket → recuperación.
-6. Ejecutar P1 según los flujos que Café Atrato utilice durante sus primeras semanas.
+1. Completar **P0-01** y habilitar la ruta DEMO; **P0-02** solo es requisito para operación FISCAL.
+2. Completar **P0-03**, **P0-05** y **P0-12** antes de certificar el núcleo transaccional completo.
+3. Ejecutar **P0-04** y **P0-06** en Emulator y después en un entorno representativo.
+4. Certificar **P0-07** cuando exista hardware y canal de caja; **P0-08** solo si se elige Electron.
+5. Si habrá factura electrónica desde PWA, completar **P0-09** después de P0-02.
+6. Cerrar P0 solamente después de **P0-10** y de una prueba integral: venta → inventario → caja → turno → ticket → recuperación.
+7. Ejecutar P1 según los flujos que cada tenant utilice durante sus primeras semanas.
