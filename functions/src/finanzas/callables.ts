@@ -13,7 +13,7 @@ const CLAVE_CUENTA_ELECTRONICA = "bancolombia";
 export const CLAVES_OPERATIVAS_RESERVADAS = ["caja-principal", "caja-fuerte"] as const;
 type ClaveOperativaReservada = typeof CLAVES_OPERATIVAS_RESERVADAS[number];
 
-interface Envelope {
+export interface Envelope {
   commandId: string;
   idempotencyKey: string;
   correlationId: string;
@@ -75,7 +75,7 @@ async function cuentaReservada(tx: any, db: any, empresaId: string, claveOperati
 }
 
 /** Resuelve la identidad lógica de una cuenta sin aceptar un ID físico como autoridad. */
-async function resolverCuentaOperativa(tx: any, db: any, empresaId: string, claveOperativa: string) {
+export async function resolverCuentaOperativa(tx: any, db: any, empresaId: string, claveOperativa: string) {
   if ((CLAVES_OPERATIVAS_RESERVADAS as readonly string[]).includes(claveOperativa)) {
     return cuentaReservada(tx, db, empresaId, claveOperativa as ClaveOperativaReservada);
   }
@@ -97,7 +97,7 @@ async function resolverCuentaOperativa(tx: any, db: any, empresaId: string, clav
  * el rechazo explícito de los nombres físicos evita que un cliente antiguo
  * convierta accidentalmente un document ID en autoridad financiera.
  */
-function requerirClaveOperativa(payload: Record<string, unknown>, claveCampo: string, camposFisicos: string[]) {
+export function requerirClaveOperativa(payload: Record<string, unknown>, claveCampo: string, camposFisicos: string[]) {
   if (camposFisicos.some(campo => Object.prototype.hasOwnProperty.call(payload, campo))) {
     fail("invalid-argument", "CUENTA_CLAVE_REQUERIDA");
   }
@@ -134,12 +134,12 @@ function writeConfirmation(tx: any, refs: ReturnType<typeof operationRefs>, empr
   tx.create(refs.auditoria, { empresaId, tipo, resultado: "CONFIRMADO", actor: { uid: actorUid, rolEfectivo: rol }, ejecutorTecnico: ejecutorTecnico ?? null, causationId: input.causationId ?? null, comando: { id: input.commandId, tipo, idempotencyKey: input.idempotencyKey, huella: fingerprint, correlationId: input.correlationId }, motivo: input.motivo ?? null, referencias, creadoEn: now });
 }
 
-function writeMovement(tx: any, db: any, input: { empresaId: string; command: Envelope; key: string; account: { ref: any; data: Record<string, unknown>; saldo: number }; tipo: Tipo; monto: number; categoria: string; actorUid: string; rol: string; turnoId?: string | null; ventaId?: string | null; liquidacionId?: string | null; egresoId?: string | null; movimientoRelacionadoId?: string | null; actualizarSaldo?: boolean; validarFondos?: boolean; }) {
+export function writeMovement(tx: any, db: any, input: { empresaId: string; command: Envelope; key: string; account: { ref: any; data: Record<string, unknown>; saldo: number }; tipo: Tipo; monto: number; categoria: string; actorUid: string; rol: string; turnoId?: string | null; ventaId?: string | null; compraId?: string | null; liquidacionId?: string | null; egresoId?: string | null; movimientoRelacionadoId?: string | null; actualizarSaldo?: boolean; validarFondos?: boolean; }) {
   const id = crearIdentificadorInterno(input.empresaId, `movfin:${input.key}`);
   const ref = db.collection(MOVIMIENTOS).doc(id);
   const next = input.tipo === "ingreso" ? input.account.saldo + input.monto : input.account.saldo - input.monto;
   if (input.validarFondos !== false && next < 0) fail("failed-precondition", "FONDOS_INSUFICIENTES");
-  tx.create(ref, { id, empresaId: input.empresaId, claveIdempotencia: input.key, commandId: input.command.commandId, idempotencyKey: input.command.idempotencyKey, correlationId: input.command.correlationId, tipo: input.tipo, monto: input.monto, moneda: "COP", fecha: FieldValue.serverTimestamp(), cuentaDocumentoId: input.account.ref.id, cuentaClaveSnapshot: input.account.data.claveOperativa ?? input.account.ref.id, cuentaNombreSnapshot: input.account.data.nombre ?? input.account.ref.id, saldoDespues: next, categoria: input.categoria, referenciaColeccion: input.ventaId ? "ventas" : input.egresoId ? "egresos" : "operacion", referenciaId: input.ventaId ?? input.egresoId ?? input.command.commandId, turnoId: input.turnoId ?? null, ventaId: input.ventaId ?? null, liquidacionId: input.liquidacionId ?? null, egresoId: input.egresoId ?? null, movimientoRelacionadoId: input.movimientoRelacionadoId ?? null, motivo: input.command.motivo ?? null, usuarioId: input.actorUid, usuarioNombreSnapshot: input.actorUid, rolEfectivoSnapshot: input.rol });
+  tx.create(ref, { id, empresaId: input.empresaId, claveIdempotencia: input.key, commandId: input.command.commandId, idempotencyKey: input.command.idempotencyKey, correlationId: input.command.correlationId, tipo: input.tipo, monto: input.monto, moneda: "COP", fecha: FieldValue.serverTimestamp(), cuentaDocumentoId: input.account.ref.id, cuentaClaveSnapshot: input.account.data.claveOperativa ?? input.account.ref.id, cuentaNombreSnapshot: input.account.data.nombre ?? input.account.ref.id, saldoDespues: next, categoria: input.categoria, referenciaColeccion: input.ventaId ? "ventas" : input.compraId ? "compras" : input.egresoId ? "egresos" : "operacion", referenciaId: input.ventaId ?? input.compraId ?? input.egresoId ?? input.command.commandId, turnoId: input.turnoId ?? null, ventaId: input.ventaId ?? null, compraId: input.compraId ?? null, liquidacionId: input.liquidacionId ?? null, egresoId: input.egresoId ?? null, movimientoRelacionadoId: input.movimientoRelacionadoId ?? null, motivo: input.command.motivo ?? null, usuarioId: input.actorUid, usuarioNombreSnapshot: input.actorUid, rolEfectivoSnapshot: input.rol });
   if (input.actualizarSaldo !== false) tx.update(input.account.ref, { saldo: next });
   return { id, ref, saldo: next };
 }
@@ -182,7 +182,7 @@ export async function revalidarAutoridadFinancieraEnTransaccion(tx: any, db: any
   if (!membresiaVigente.permisos.includes(capacidad)) fail("permission-denied", "ROLE_FORBIDDEN");
 }
 
-async function executeConContexto(db: any, contexto: ContextoFinancieroOperativo, data: unknown, tipo: string, effect: (tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope) => Promise<Record<string, unknown>>) {
+export async function executeConContexto(db: any, contexto: ContextoFinancieroOperativo, data: unknown, tipo: string, effect: (tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope) => Promise<Record<string, unknown>>) {
   const input = envelope(data);
   const fingerprint = crearHuellaSemantica({ tipo, causationId: input.causationId ?? null, motivo: input.motivo ?? null, payload: input.payload });
   const refs = operationRefs(db, contexto.empresaId, input);
