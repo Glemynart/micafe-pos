@@ -4,6 +4,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { exigirTenantActivo } from "../operational-auth";
 import { esMembresiaAutorizada } from "../turnos/executor";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
+import { aplicarMovimientosInventarioEnTransaccion } from "../inventario/ledger";
 
 const REGION = "us-central1";
 const MOVIMIENTOS = "transacciones_financieras";
@@ -361,13 +362,33 @@ async function efectoAplicarEfectosVentaOperativa(tx: any, db: any, empresaId: s
   for (const [ordinal, leg] of legs.entries()) { const a = cuentas.find(cuenta => cuenta.data.claveOperativa === leg.claveOperativa)!; const saldo = saldos.get(a.ref.id)!; const m = writeMovement(tx, db, { empresaId, command: input, key: `venta:${ventaId as string}:pago:${ordinal}`, account: { ...a, saldo }, tipo: "ingreso", monto: leg.monto, categoria: "ventas", actorUid, rol, turnoId: leg.turnoId, ventaId: ventaId as string, actualizarSaldo: false }); saldos.set(a.ref.id, m.saldo); movementIds.push(m.id); }
   for (const cuenta of cuentas) tx.update(cuenta.ref, { saldo: saldos.get(cuenta.ref.id)! });
   for (const entrada of inventario) {
-    const articulo = entrada.articulo.data(); const stock = Number(articulo.stock ?? 0); const secuencia = Number(articulo.secuenciaLedger ?? 0);
+    const articulo = entrada.articulo.data() as Record<string, any>;
+    const stock = Number(articulo.stock ?? 0);
     if (entrada.cantidad > stock) {
       incidenciasInventario.push({ tipo: "stock_insuficiente", itemId: entrada.articulo.id, itemNombre: articulo.nombre ?? entrada.articulo.id, stockAnterior: stock, cantidadSolicitada: entrada.cantidad });
     }
-    tx.create(entrada.movimiento, { id: entrada.movimiento.id, empresaId, articuloTipo: entrada.tipo, articuloId: entrada.articulo.id, articuloNombre: articulo.nombre ?? entrada.articulo.id, unidad: articulo.unidadMedida ?? articulo.unidad ?? "und", tipo: entrada.tipo === "insumo" ? "consumo_receta" : "venta", clase: "salida", signo: -1, cantidad: -entrada.cantidad, saldoCantidadDespues: stock - entrada.cantidad, secuencia: secuencia + 1, referenciaColeccion: "ventas", referenciaId: ventaId, claveIdempotencia: entrada.movimiento.id, usuarioId: actorUid, rolEfectivoSnapshot: rol, creadoEn: FieldValue.serverTimestamp() });
-    tx.update(db.collection(entrada.tipo === "producto" ? "productos" : "insumos").doc(entrada.articulo.id), { stock: stock - entrada.cantidad, secuenciaLedger: secuencia + 1 });
   }
+  const movimientosInventario = await aplicarMovimientosInventarioEnTransaccion(tx, db, inventario.map(entrada => {
+    const articulo = entrada.articulo.data() as Record<string, any>;
+    return {
+      empresaId,
+      articuloTipo: entrada.tipo,
+      articuloId: entrada.articulo.id,
+      articuloNombre: articulo.nombre ?? entrada.articulo.id,
+      unidad: articulo.unidadMedida ?? articulo.unidad ?? "und",
+      tipo: entrada.tipo === "insumo" ? "consumo_receta" as const : "venta" as const,
+      cantidad: -entrada.cantidad,
+      costoUnitario: Number(articulo.costo ?? 0),
+      espacioId: data.espacioId ?? articulo.espacioId ?? "",
+      usuarioId: actorUid,
+      usuarioNombre: typeof data.cajeroNombre === "string" && data.cajeroNombre.trim()
+        ? data.cajeroNombre
+        : actorUid,
+      claveIdempotencia: entrada.movimiento.id,
+      referenciaColeccion: "ventas",
+      referenciaId: ventaId as string,
+    };
+  }));
   if (pedidoRef && pedidoSnap) {
     tx.update(pedidoRef, { estado: "pagado", activo: false, fechaPago: FieldValue.serverTimestamp(), ventaId });
     for (const comanda of comandaSnaps) {
@@ -377,7 +398,7 @@ async function efectoAplicarEfectosVentaOperativa(tx: any, db: any, empresaId: s
     }
   }
   tx.update(ventaRef, { estadoOperativo: "COMPLETO", efectosOperativosEn: FieldValue.serverTimestamp() });
-  return { commandId: input.commandId, ventaId, movimientos: movementIds, movimientosInventario: inventario.map(entrada => entrada.movimiento.id), incidenciasInventario, ...(pedidoId ? { pedidoId } : {}) };
+  return { commandId: input.commandId, ventaId, movimientos: movementIds, movimientosInventario: movimientosInventario.map(movimiento => movimiento.id), incidenciasInventario, ...(pedidoId ? { pedidoId } : {}) };
 }
 
 export async function ejecutarAplicarEfectosVentaOperativaV1(db: any, contexto: ContextoFinancieroOperativo, data: unknown) {
