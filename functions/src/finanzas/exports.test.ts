@@ -7,6 +7,7 @@ test("R1-B: la entrada publicada expone todas las Callables financieras", () => 
     "cerrarTurnoOperativoV1",
     "registrarEgresoOperativoV1",
     "registrarMovimientoFinancieroV1",
+    "liquidarCuentaCobroV1",
     "trasladarEntreCuentasV1",
   ] as const) {
     assert.equal(typeof superficiePublica[nombre], "function", nombre);
