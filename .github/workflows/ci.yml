@@ -71,5 +71,8 @@ jobs:
       - name: Pruebas de Functions
         run: npm run test:auth-foundation
 
+      - name: Certificacion P0-06 de turnos y arqueo en Emulator
+        run: npm run e2e:p0-06
+
       - name: Pruebas de integración Auth y Firestore
         run: npm run test:email:integration
