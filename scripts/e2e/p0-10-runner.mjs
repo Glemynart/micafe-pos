@@ -23,11 +23,18 @@ Object.assign(env, {
 
 async function puertoLibre(preferido) {
   for (let port = preferido; port < preferido + 100; port += 1) {
-    const disponible = await Promise.all(["127.0.0.1", "0.0.0.0"].map((host) => new Promise((resolvePort) => {
-      const server = net.createServer();
-      server.once("error", () => resolvePort(false));
-      server.listen(port, host, () => server.close(() => resolvePort(true)));
-    }))).then((resultados) => resultados.every(Boolean));
+    let disponible = true;
+    for (const host of ["127.0.0.1", "0.0.0.0"]) {
+      const hostDisponible = await new Promise((resolvePort) => {
+        const server = net.createServer();
+        server.once("error", () => resolvePort(false));
+        server.listen(port, host, () => server.close(() => resolvePort(true)));
+      });
+      if (!hostDisponible) {
+        disponible = false;
+        break;
+      }
+    }
     if (disponible) return port;
   }
   throw new Error(`No hay puerto local disponible cerca de ${preferido}.`);
