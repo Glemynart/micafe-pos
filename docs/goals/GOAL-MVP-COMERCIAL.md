@@ -36,6 +36,12 @@ ADR-SAAS-022 acepta un catálogo mínimo tenant-aware de proveedores para P1-03,
 sin crédito, cuentas por pagar, fiscalidad, migraciones ni dependencia de Café
 Atrato.
 
+La replanificación aprobada mantiene P0-07/E3.1 como gate externo bloqueado por
+hardware y canal, sin cambiar su alcance ni prioridad. Mientras esa dependencia
+permanece pendiente, P1-02 se ejecuta en una línea paralela del núcleo POS:
+certificación reusable con Emulator, CI y fixtures multi-tenant, sin producción,
+datos fiscales reales ni dependencia de Café Atrato.
+
 ## Milestones y Epics
 
 ### M1 — Fundación SaaS y Trial listos para operar — COMPLETADO
@@ -70,6 +76,16 @@ Resultado: el canal de caja acordado imprime, se distribuye cuando aplique y pue
 | E3.2 Distribución de caja | Electron queda certificado si es el canal elegido. | P0-08 | CONDICIONAL |
 | E3.3 Recuperación | Restauración Firestore comprobada y documentada. | P0-10 | COMPLETADO |
 | E3.4 Recuperación de acceso | Administrador y operadores recuperan credenciales mediante autoridad server-side, activación segura, auditoría e idempotencia. | P0-11 | COMPLETADO |
+
+### Línea paralela aprobada — núcleo POS reusable — EN PROGRESO
+
+Resultado: las variantes de producto que consumen insumos mantienen sus
+snapshots comerciales, inventario e idempotencia bajo la autoridad server-side,
+sin depender de hardware, fiscalidad ni producción.
+
+| Epic | Resultado | Backlog | Estado |
+|---|---|---|---|
+| E2.6 Recetas y modificadores | La venta DEMO con receta y modificadores conserva el snapshot comercial y descuenta los insumos correctos de forma tenant-aware. | P1-02 | EN PROGRESO |
 
 ### M4 — Certificación comercial — PENDIENTE
 
@@ -110,9 +126,9 @@ Este Goal se marca `COMPLETADO` solo cuando:
   PR #186 actualizó el contrato de compras y quedó integrado en `main @ 50c3866`; PR #187 quedó integrado en `main @ fae007a` con la primitiva canónica reusable del ledger para venta, compra, ajustes y mermas, apertura lazy, secuencia, saldo, replay, aislamiento tenant-safe y certificación de Rules. PR #189 quedó integrado en `main @ 119e898` con el catálogo tenant-aware reusable de proveedores y la integración segura con compras.
   PR #188 quedó integrado en `main @ 6298e81` con ADR-SAAS-022 aceptado; el catálogo tenant-aware de proveedores y la integración de compras forman el alcance de P1-03.
   PR #189 quedó integrado en `main @ 119e898`; P1-03 y E2.5 quedan completados.
-- **Siguiente PR esperado:** `P0-07 / E3.1 — certificación física de impresión`; requiere impresora térmica real y decisión del canal de caja. P0-02/P0-09 siguen como gate fiscal condicional y P0-08/E3.2 como decisión condicional de canal.
+- **Siguiente PR ejecutable:** `P1-02 / E2.6 — certificación reusable de recetas y modificadores` en la línea paralela aprobada; se ejecutará con Emulator, CI y fixtures multi-tenant. `P0-07 / E3.1 — certificación física de impresión` permanece como gate externo bloqueado y requiere impresora térmica real y decisión del canal de caja. P0-02/P0-09 siguen como gate fiscal condicional y P0-08/E3.2 como decisión condicional de canal.
 - **Milestone activo:** `M3 — Canal productivo y recuperación`.
-- **Epic activo:** `E3.1 — Impresión física` (BLOQUEADO por hardware/canal).
+- **Epic activo:** `E3.1 — Impresión física` (BLOQUEADO por hardware/canal); línea paralela `E2.6 — Recetas y modificadores` (EN PROGRESO).
 
 P0-07/E3.1 requiere una impresora térmica real y la decisión operativa del
 canal de caja, pero esa dependencia no bloquea el desarrollo reusable del SaaS.
@@ -120,3 +136,8 @@ P0-12 puede ejecutarse íntegramente con Emulator y conserva separadas las
 certificaciones físicas y fiscales.
 
 La provisión productiva aprobada, la verificación automatizada y la evidencia manual de login, resolución del tenant y visibilidad de UI/Rules completan P0-01/E1.1. La ruta DEMO permite evaluar el POS durante el Trial sin datos fiscales ficticios. P0-04/E2.3 quedó integrado sobre la autoridad server-side aprobada por ADR-SAAS-020, sin cambios en Rules, Bootstrap, migraciones ni producción. ADR-SAAS-021, P0-12/E2.5, P1-01 y P1-03 quedaron integrados; compras, proveedores, costos, snapshots e idempotencia están certificados de forma reusable. P0-07/E3.1 continúa como certificación física bloqueada por hardware/canal y P0-02/E1.2 como gate fiscal independiente para la futura operación FISCAL.
+
+La línea paralela E2.6/P1-02 no modifica la autoridad de ventas ni las Rules:
+certifica el contrato existente mediante una venta DEMO, snapshot de receta y
+modificadores, consumo transaccional de insumos, ledger, aislamiento tenant e
+idempotencia.
