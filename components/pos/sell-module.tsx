@@ -21,7 +21,8 @@ import {
   IMPUESTO_TIPO_DEFAULT,
   type RegimenTributario,
 } from '@/lib/impuestos-service'
-import { TicketBuilder, generateQrDataUri, renderTicket, DEFAULT_RENDER_OPTIONS } from '@/lib/tickets'
+import { TicketBuilder, generateQrDataUri, renderTicket } from '@/lib/tickets'
+import { imprimirTicketHtml, resolverOpcionesImpresion } from '@/lib/tickets/print-service'
 import { adaptarCheckoutAModeloTicket, type CheckoutTicketInput } from '@/lib/tickets/adapters/checkout-adapter'
 import { separarCuenta, type ItemSeparacion } from '@/lib/separar-cuenta-service'
 import { unirCuentas } from '@/lib/unir-cuentas-service'
@@ -984,14 +985,11 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
     const { input, empresa } = adaptarCheckoutAModeloTicket(venta, configuracionTicket)
     const model = TicketBuilder.fromVenta(input, empresa)
     const qrDataUri = model.dian ? await generateQrDataUri(model.dian.qrPayload) : undefined
-    const html = renderTicket(model, DEFAULT_RENDER_OPTIONS, { qrDataUri })
-
-    if (typeof window !== 'undefined' && (window as any).api) {
-      if (typeof (window as any).api.print.toPrinter === 'function') {
-        await (window as any).api.print.toPrinter(html)
-      } else {
-        await (window as any).api.print.ticket(html)
-      }
+    const opciones = resolverOpcionesImpresion(proyecciones?.impresion.formatoPapel)
+    const html = renderTicket(model, opciones, { qrDataUri })
+    const resultado = await imprimirTicketHtml(html)
+    if (!resultado.success) {
+      throw new Error(resultado.reason || 'No fue posible abrir el canal de impresión.')
     }
   }
 

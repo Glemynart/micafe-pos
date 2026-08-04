@@ -25,28 +25,46 @@ export function renderTicket(model: TicketModel, options: RenderOptions, assets:
   }
 }
 
+/**
+ * Los tickets se entregan a una ventana de impresión HTML. Todo dato de
+ * negocio que cruza esa frontera debe tratarse como texto, no como markup.
+ */
+function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, (caracter) => {
+    switch (caracter) {
+      case '&': return '&amp;'
+      case '<': return '&lt;'
+      case '>': return '&gt;'
+      case '"': return '&quot;'
+      case "'": return '&#39;'
+      default: return caracter
+    }
+  })
+}
+
 function renderVenta(model: VentaTicketModel, options: RenderOptions, assets: TicketAssets): string {
   const { empresa, meta, pie, cliente, items, impuestos, totales, pago, dian } = model
   const isDian = !!dian
+  const mensajePie = escapeHtml(pie.mensajeTicket || '¡GRACIAS POR SU COMPRA!')
 
   const { fecha, hora } = formatFecha(meta.fecha, options)
-  const money = (value: number) => formatMoney(value, options)
+  const money = (value: number) => escapeHtml(formatMoney(value, options))
 
   const itemsHtml = items
     .map((item) => {
-      const codigoLinea = item.codigo ? ` | COD: ${item.codigo}` : ''
+      const codigoLinea = item.codigo ? ` | COD: ${escapeHtml(item.codigo)}` : ''
       const modificadoresHtml = item.modificadores
         ?.map((modificador) => {
           const adicional = modificador.precioDelta === 0
             ? ''
             : ` (${modificador.precioDelta > 0 ? '+' : '-'}${money(Math.abs(modificador.precioDelta))})`
-          return `\n            <span class="modifier-line">&bull; ${modificador.nombre}${adicional}</span>`
+          return `\n            <span class="modifier-line">&bull; ${escapeHtml(modificador.nombre)}${adicional}</span>`
         })
         .join('') ?? ''
       return `
         <div class="row3">
-          <span class="desc">${item.descripcion}<br>
-            <span class="line-meta">CANT: ${item.cantidad}${codigoLinea}</span>${modificadoresHtml}
+          <span class="desc">${escapeHtml(item.descripcion)}<br>
+            <span class="line-meta">CANT: ${escapeHtml(item.cantidad)}${codigoLinea}</span>${modificadoresHtml}
           </span>
           <span class="unit">${money(item.precioUnitario)}</span>
           <span class="sub">${money(item.subtotal)}</span>
@@ -59,7 +77,7 @@ function renderVenta(model: VentaTicketModel, options: RenderOptions, assets: Ti
     ? impuestos
         .map(
           (linea) =>
-            `<tr><td>${linea.tipo}</td><td>${linea.tasa}%</td><td>${money(linea.base)}</td><td>${money(
+            `<tr><td>${escapeHtml(linea.tipo)}</td><td>${escapeHtml(linea.tasa)}%</td><td>${money(linea.base)}</td><td>${money(
               linea.valor
             )}</td></tr>`
         )
@@ -67,21 +85,21 @@ function renderVenta(model: VentaTicketModel, options: RenderOptions, assets: Ti
     : ''
 
   const encabezadoNumero = `${isDian ? 'N° FACTURA' : meta.modoOperacion === 'DEMO' ? 'N° OPERACIÓN' : 'N° TICKET'}:`
-  const numeroCompleto = `${isDian && meta.prefijo ? `${meta.prefijo} ` : ''}${meta.numero}`
+  const numeroCompleto = escapeHtml(`${isDian && meta.prefijo ? `${meta.prefijo} ` : ''}${meta.numero}`)
 
   const qrHtml =
     isDian && assets.qrDataUri
-      ? `<div class="qr-container"><img class="qr-image" src="${assets.qrDataUri}" /></div>`
+      ? `<div class="qr-container"><img class="qr-image" src="${escapeHtml(assets.qrDataUri)}" /></div>`
       : ''
 
   const resolucionHtml = isDian
     ? `
       <div class="res">
-        <div>Resolución DIAN N° ${dian!.resolucion || ''} Prefijo: ${dian!.prefijo} Habilitada del ${
-        dian!.rangoInicio || ''
-      } al ${dian!.rangoFin || ''}</div>
-        ${dian!.vigencia ? `<div>Vigencia: ${dian!.vigencia}</div>` : ''}
-        ${pie.proveedorTecnologico ? `<div class="bold" style="margin-top:4px">Proveedor Tecnológico: ${pie.proveedorTecnologico}</div>` : ''}
+        <div>Resolución DIAN N° ${escapeHtml(dian!.resolucion || '')} Prefijo: ${escapeHtml(dian!.prefijo)} Habilitada del ${
+        escapeHtml(dian!.rangoInicio || '')
+      } al ${escapeHtml(dian!.rangoFin || '')}</div>
+        ${dian!.vigencia ? `<div>Vigencia: ${escapeHtml(dian!.vigencia)}</div>` : ''}
+        ${pie.proveedorTecnologico ? `<div class="bold" style="margin-top:4px">Proveedor Tecnológico: ${escapeHtml(pie.proveedorTecnologico)}</div>` : ''}
       </div>
     `
     : ''
@@ -137,15 +155,15 @@ function renderVenta(model: VentaTicketModel, options: RenderOptions, assets: Ti
       .footer  { text-align: center; margin-top: 15px; font-size: ${options.fuenteBasePx - 2}px; line-height: 1.4; }
     </style></head><body>
 
-    <div class="store uppercase">${empresa.nombreComercial}</div>
-    ${empresa.razonSocial ? `<div class="sub uppercase">${empresa.razonSocial}</div>` : ''}
-    <div class="sub">NIT: ${empresa.nit}</div>
-    ${empresa.direccion ? `<div class="sub uppercase">${empresa.direccion}</div>` : ''}
-    ${empresa.ciudad ? `<div class="sub uppercase">${empresa.ciudad} - COLOMBIA</div>` : ''}
-    ${empresa.telefono ? `<div class="sub">TEL: ${empresa.telefono}</div>` : ''}
-    <div class="sub">${empresa.rotuloFiscal}</div>
+    <div class="store uppercase">${escapeHtml(empresa.nombreComercial)}</div>
+    ${empresa.razonSocial ? `<div class="sub uppercase">${escapeHtml(empresa.razonSocial)}</div>` : ''}
+    <div class="sub">NIT: ${escapeHtml(empresa.nit)}</div>
+    ${empresa.direccion ? `<div class="sub uppercase">${escapeHtml(empresa.direccion)}</div>` : ''}
+    ${empresa.ciudad ? `<div class="sub uppercase">${escapeHtml(empresa.ciudad)} - COLOMBIA</div>` : ''}
+    ${empresa.telefono ? `<div class="sub">TEL: ${escapeHtml(empresa.telefono)}</div>` : ''}
+    <div class="sub">${escapeHtml(empresa.rotuloFiscal)}</div>
 
-    <div class="titulo">${meta.titulo}</div>
+    <div class="titulo">${escapeHtml(meta.titulo)}</div>
 
     <div class="row2"><span class="bold">${encabezadoNumero}</span><span class="bold">${numeroCompleto}</span></div>
     <div class="row2"><span>FECHA:</span><span>${fecha}</span></div>
@@ -155,8 +173,8 @@ function renderVenta(model: VentaTicketModel, options: RenderOptions, assets: Ti
       isDian
         ? `
       <div class="sep"></div>
-      <div class="sub" style="text-align:left"><span class="bold">ADQUIRIENTE:</span> ${cliente.nombre.toUpperCase()}</div>
-      <div class="sub" style="text-align:left"><span class="bold">NIT/CC:</span> ${cliente.documento}</div>
+      <div class="sub" style="text-align:left"><span class="bold">ADQUIRIENTE:</span> ${escapeHtml(cliente.nombre.toUpperCase())}</div>
+      <div class="sub" style="text-align:left"><span class="bold">NIT/CC:</span> ${escapeHtml(cliente.documento)}</div>
     `
         : ''
     }
@@ -176,7 +194,7 @@ function renderVenta(model: VentaTicketModel, options: RenderOptions, assets: Ti
     ${totales.otros ? `<div class="total-row"><span>OTROS IMPUESTOS:</span><span>${money(totales.otros)}</span></div>` : ''}
     <div class="total-row total-main"><span>TOTAL A PAGAR:</span><span>${money(totales.total)}</span></div>
 
-    <div class="row2" style="margin-top: 6px;"><span class="bold">FORMA PAGO:</span><span class="bold uppercase">${pago.metodo}</span></div>
+    <div class="row2" style="margin-top: 6px;"><span class="bold">FORMA PAGO:</span><span class="bold uppercase">${escapeHtml(pago.metodo)}</span></div>
     ${
       pago.recibido !== undefined && pago.cambio !== undefined
         ? `
@@ -198,7 +216,7 @@ function renderVenta(model: VentaTicketModel, options: RenderOptions, assets: Ti
 
       <div class="sep"></div>
       <div class="bold">CUFE:</div>
-      <div class="cufe">${dian!.cufe}</div>
+      <div class="cufe">${escapeHtml(dian!.cufe)}</div>
 
       ${qrHtml}
       ${resolucionHtml}
@@ -207,9 +225,9 @@ function renderVenta(model: VentaTicketModel, options: RenderOptions, assets: Ti
     }
 
     <div class="footer">
-      <p class="bold">${empresa.nombreComercial}</p>
-      <p>${pie.fabricanteSoftware}</p>
-      <p style="margin-top:6px; font-weight: bold;">${pie.mensajeTicket || '¡GRACIAS POR SU COMPRA!'}</p>
+      <p class="bold">${escapeHtml(empresa.nombreComercial)}</p>
+      <p>${escapeHtml(pie.fabricanteSoftware)}</p>
+      <p style="margin-top:6px; font-weight: bold;">${mensajePie}</p>
     </div>
     <div style="height:35px"></div>
   </body></html>`
