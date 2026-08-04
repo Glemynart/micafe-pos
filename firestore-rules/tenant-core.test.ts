@@ -95,6 +95,51 @@ test("núcleo tenant-aware: eliminación se limita al tenant propietario", async
   );
 });
 
+test("P1-02: recetas y modificadores respetan tenant y roles operativos", async () => {
+  const adminA = await contextFor(fixtures.tenantA.admin);
+  const cajeroA = await contextFor(fixtures.tenantA.cajero);
+  const cocineroA = await contextFor(fixtures.tenantA.cocinero);
+  const adminB = await contextFor(fixtures.tenantB.admin);
+
+  await seedDocument("recetas/receta-p102", {
+    empresaId: "empresa-a",
+    productoId: "producto-a",
+    ingredientes: [{ insumoId: "insumo-a", cantidad: 1 }],
+  });
+  await seedDocument("modificador_grupos/grupo-p102", {
+    empresaId: "empresa-a",
+    nombre: "Leche",
+    activo: true,
+  });
+  await seedDocument("producto_modificador_grupos/relacion-p102", {
+    empresaId: "empresa-a",
+    productoId: "producto-a",
+    grupoId: "grupo-p102",
+    activo: true,
+  });
+
+  await expectAllowed(adminA.firestore().doc("recetas/receta-p102").get());
+  await expectDenied(adminB.firestore().doc("recetas/receta-p102").get());
+  await expectAllowed(adminA.firestore().doc("recetas/receta-p102").update({ ingredientes: [] }));
+  await expectAllowed(cajeroA.firestore().doc("recetas/receta-p102").update({ ingredientes: [] }));
+  await expectDenied(cocineroA.firestore().doc("recetas/receta-p102").update({ ingredientes: [] }));
+
+  await expectAllowed(adminA.firestore().doc("modificador_grupos/grupo-p102").get());
+  await expectDenied(adminB.firestore().doc("modificador_grupos/grupo-p102").get());
+  await expectAllowed(cajeroA.firestore().doc("modificador_grupos/grupo-p102").update({ activo: false }));
+  await expectDenied(cocineroA.firestore().doc("modificador_grupos/grupo-p102").update({ activo: true }));
+
+  await expectAllowed(adminA.firestore().doc("producto_modificador_grupos/relacion-p102").get());
+  await expectDenied(adminB.firestore().doc("producto_modificador_grupos/relacion-p102").get());
+  await expectAllowed(cajeroA.firestore().doc("producto_modificador_grupos/relacion-p102").update({ activo: false }));
+  await expectDenied(adminB.firestore().doc("producto_modificador_grupos/relacion-p102").set({
+    empresaId: "empresa-b",
+    productoId: "producto-b",
+    grupoId: "grupo-b",
+    activo: true,
+  }));
+});
+
 test("R1-A: command receipts, idempotency index, and critical audit are backend-only", async () => {
   const tenantA = await contextFor(fixtures.tenantA.admin);
   const coleccionesBackendOnly = [
