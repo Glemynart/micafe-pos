@@ -39,8 +39,6 @@ import {
 import {
  suscribirCuentasPorCobrar,
  marcarComoPagada,
- calcularEstadoDIAN,
- tiempoRestanteDIAN,
  type CuentaCobro,
 } from '@/lib/cuentas-cobro-service'
 
@@ -370,25 +368,15 @@ export function ClientesModule() {
  ) : (
  <div className="space-y-2">
  {cuentasDelCliente.map(cuenta => {
- const estadoDIAN = calcularEstadoDIAN(cuenta.fecha)
  return (
  <div
  key={cuenta.id}
- className={cn(
- "flex items-center gap-3 p-3 rounded-lg border transition-colors",
- estadoDIAN === 'danger' ? "bg-destructive/5 border-destructive/20" :
- estadoDIAN === 'warning' ? "bg-warning/5 border-warning/20" :
- "bg-secondary/20 border-border"
- )}
+ className="flex items-center gap-3 p-3 rounded-lg border transition-colors bg-secondary/20 border-border"
  >
- <div className={cn(
- "w-1 self-stretch rounded-full flex-shrink-0",
- estadoDIAN === 'danger' ? "bg-destructive" :
- estadoDIAN === 'warning' ? "bg-warning" : "bg-success"
- )} />
+ <div className="w-1 self-stretch rounded-full flex-shrink-0 bg-primary" />
  <div className="flex-1 min-w-0">
  <p className="text-sm font-medium text-foreground">{formatFecha(cuenta.fecha)}</p>
- <p className="text-xs text-muted-foreground">{tiempoRestanteDIAN(cuenta.fecha)}</p>
+ <p className="text-xs text-muted-foreground">Pendiente de pago</p>
  {cuenta.notasFiado && <p className="text-xs text-muted-foreground mt-0.5">📝 {cuenta.notasFiado}</p>}
  </div>
  <p className="text-base font-bold text-primary">{formatCurrency(cuenta.totales.total)}</p>
