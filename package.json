@@ -47,6 +47,7 @@
     "e2e:p0-01": "node scripts/e2e/p0-01-runner.mjs",
     "e2e:p0-06": "node scripts/e2e/p0-06-runner.mjs",
     "e2e:p1-02": "node scripts/e2e/p1-02-runner.mjs",
+    "e2e:p1-04": "node scripts/e2e/p1-04-runner.mjs",
     "e2e:p0-10": "node scripts/e2e/p0-10-runner.mjs",
     "test:e2e:preflight": "node --test scripts/e2e/emulator-preflight.test.mjs",
     "e2e:ventas:seed": "tsx scripts/e2e/ventas-local-fixture.ts",
