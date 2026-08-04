@@ -8,6 +8,7 @@ import type {
 import type { ConfiguracionHistoricaTicket } from './legacy-ticket-config'
 import { proyectarModificadoresTicket } from '../modifier-snapshot-projection'
 import type { SnapshotFiscal } from '../fiscal/contrato'
+import type { CheckoutConfiguracionEmpresa } from '../tickets/adapters/checkout-adapter'
 
 /**
  * Adaptador de reimpresión (H3).
@@ -215,6 +216,37 @@ export function adaptarVentaB2AModeloTicket(snapshot: SnapshotFiscal): { input: 
       ciudad: identidad.ciudad,
       telefono: identidad.telefono,
       regimenTributario: identidad.regimenTributario as TicketEmpresaConfig['regimenTributario'],
+    },
+  }
+}
+
+/**
+ * Adapta una venta DEMO persistida usando la configuración canónica vigente.
+ * Una venta DEMO no tiene snapshot fiscal y por eso no puede pasar por B2 ni
+ * inventar identidad, numeración o datos DIAN para poder reimprimirse.
+ */
+export function adaptarVentaDemoAModeloTicket(
+  venta: any,
+  config: CheckoutConfiguracionEmpresa,
+): { input: VentaBuilderInput; empresa: TicketEmpresaConfig } {
+  return {
+    input: {
+      numero: venta?.referenciaOperacion ?? venta?.id ?? '',
+      fecha: normalizarFecha(venta?.fecha),
+      modoOperacion: 'DEMO',
+      cliente: venta?.clienteNombre || venta?.clienteDocumento
+        ? { nombre: venta.clienteNombre, documento: venta.clienteDocumento }
+        : undefined,
+      items: mapearItems(venta?.items),
+      totales: mapearTotales(venta),
+      pago: { metodo: resolverMetodoPago(venta) },
+    },
+    empresa: {
+      nombreComercial: config.identidad.nombreComercial,
+      direccion: config.localizacion.direccion.linea1,
+      ciudad: config.localizacion.direccion.municipioNombre,
+      telefono: config.identidad.contacto.telefono,
+      nit: '',
     },
   }
 }
