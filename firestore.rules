@@ -106,14 +106,16 @@ service cloud.firestore {
     }
     match /pedidos_activos/{id} {
       allow read: if puedeLeerTenant() && esAdminOCajero();
-      allow create: if puedeCrearEnTenant() && esAdminOCajero();
-      allow update: if puedeActualizarEnTenant() && esAdminOCajero();
-      allow delete: if puedeEliminarEnTenant() && esAdminOCajero();
+      // Las mutaciones operativas pasan exclusivamente por Functions/Admin SDK.
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
     match /comandas_cocina/{id} {
       allow read: if puedeLeerTenant() && esCocina();
-      allow create: if puedeCrearEnTenant() && esAdminOCajero();
-      allow update: if puedeActualizarEnTenant() && esCocina();
+      // Caja y cocina expresan intención mediante las callables de salón.
+      allow create: if false;
+      allow update: if false;
       allow delete: if false;
     }
     match /ventas/{id} {

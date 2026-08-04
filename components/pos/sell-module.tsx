@@ -314,7 +314,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   const handleSepararCuenta = useCallback(async (items: ItemSeparacion[]) => {
     if (!activePedido || !usuario) return
     try {
-      const nuevoId = await separarCuenta(activePedido.id, items, usuario.uid)
+      const nuevoId = await separarCuenta(activePedido.id, items)
       toast.success('Cuenta separada correctamente')
       setSelectedPedidoId(nuevoId)
     } catch (e: any) {
@@ -325,7 +325,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
   const handleUnirCuentas = useCallback(async (destinoId: string, origenIds: string[]) => {
     if (!usuario) return
     try {
-      await unirCuentas(destinoId, origenIds, usuario.uid)
+      await unirCuentas(destinoId, origenIds)
       toast.success('Cuentas unidas correctamente')
       setSelectedPedidoId(destinoId)
     } catch (e: any) {
@@ -337,7 +337,7 @@ export function SellModule({ initialPedidoId }: SellModuleProps = {}) {
     if (!activePedido || !usuario) return
     try {
       const pedidoId = activePedido.id
-      await trasladarCuenta(pedidoId, mesaDestinoId, usuario.uid)
+      await trasladarCuenta(pedidoId, mesaDestinoId)
       toast.success('Cuenta trasladada correctamente')
       // Delegar la selección al consume-effect: cuando llegue el snapshot
       // con el pedido en su nueva mesa, el effect fija selectedPedidoId y
