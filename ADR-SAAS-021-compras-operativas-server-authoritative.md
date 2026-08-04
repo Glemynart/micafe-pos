@@ -2,25 +2,26 @@
 
 ## Estado
 
-**Propuesto**
+**Aceptado**
 
 **Fecha:** 2026-08-04  
 **Decision makers:** Lead Engineer; propietario del Goal  
-**Aprobación requerida antes de implementar:** sí
+**Fecha de aceptación:** 2026-08-04
 
-Este ADR no autoriza todavía código, cambios de Firestore Rules, migraciones,
-despliegues ni escrituras en producción. La implementación debe comenzar solo
-después de que la decisión sea aceptada y la planificación del Goal se
-reconcilie con el trabajo aprobado.
+Este ADR autoriza la implementación del PR derivado dentro del alcance
+declarado. No autoriza cambios de Firestore Rules, Bootstrap, migraciones,
+despliegues ni escrituras en producción.
 
 ## Goal, Milestone y Epic
 
 - **Goal:** `G-MVP-01` — SaaS POS multi-tenant listo para primera versión comercial reusable.
 - **Ubicación propuesta:** `M2 — Núcleo transaccional íntegro`.
-- **Epic propuesto:** `E2.3 — Compras e inventario operativos`.
+- **Epic:** `E2.5 — Compras e inventario operativos`.
 - **Backlog actual relacionado:** `P1-03`.
-- **Corte propuesto:** nuevo `P0-12`, sujeto a aprobación de la replanificación.
-- **Estado documental actual:** el Goal todavía señala `M3/E3.1` como siguiente PR; este ADR no modifica esa sección.
+- **Corte:** `P0-12`.
+- **Nota de reconciliación:** `E2.3` ya identifica cobro y anulación en el Goal;
+  por eso este Epic se registra como `E2.5` para conservar la unicidad de la
+  jerarquía Goal → Milestone → Epic → PR.
 
 ## 1. Contexto y problema
 
@@ -200,6 +201,12 @@ históricas.
 - Una reversión posterior es compensatoria y auditable; nunca edita ni borra el
   hecho original.
 - La resolución de cuentas nunca depende del nombre visible ni de un ID físico.
+- Los snapshots comerciales de la compra —proveedor, artículos, cantidades,
+  costos y unidades— se preservan como evidencia histórica y no dependen del
+  estado posterior del catálogo.
+- El costo derivado del artículo solo se actualiza dentro de la misma
+  transacción que confirma la compra; una compra fallida nunca deja el costo
+  modificado.
 - No se aceptan `cuentaId`, `empresaId`, actor, stock, saldo, total derivado ni
   nombres de artículos como autoridad del cliente.
 - No hay dual-write cliente/servidor para una misma compra.
@@ -299,6 +306,5 @@ Se solicita aceptar o rechazar:
 2. la autoridad server-side co-atómica sobre compra, inventario y finanzas;
 3. la resolución financiera por `empresaId + claveOperativa`;
 4. la separación de la reversión de compras como corte compensatorio;
-5. la admisión del trabajo como `P0-12 / M2-E2.3`, mediante una actualización
+5. la admisión del trabajo como `P0-12 / M2-E2.5`, mediante la actualización
    aprobada del Goal y del backlog.
-
