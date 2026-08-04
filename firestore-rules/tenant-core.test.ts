@@ -25,6 +25,7 @@ const COLECCIONES_OPERATIVAS = [
   "reservas",
   "agendas",
   "compras",
+  "proveedores",
   "mermas",
   "egresos",
   "clientes",
@@ -50,7 +51,7 @@ after(async () => {
   await cleanupRulesTestEnvironment();
 });
 
-test("núcleo tenant-aware: las 25 colecciones permiten leer solo el tenant propio", async () => {
+test("núcleo tenant-aware: las colecciones permiten leer solo el tenant propio", async () => {
   const tenantA = await contextFor(fixtures.tenantA.admin);
   const tenantB = await contextFor(fixtures.tenantB.admin);
 
@@ -112,4 +113,20 @@ test("R1-A: command receipts, idempotency index, and critical audit are backend-
     await expectDenied(tenantA.firestore().doc(existente).update({ marcador: "cliente" }));
     await expectDenied(tenantA.firestore().doc(existente).delete());
   }
+});
+
+test("P1-03: el catalogo de proveedores solo se escribe mediante callable backend", async () => {
+  const tenantA = await contextFor(fixtures.tenantA.admin);
+  const tenantB = await contextFor(fixtures.tenantB.admin);
+  const path = "proveedores/backend-only";
+  const pathTenantB = "proveedores/backend-only-b";
+  await seedDocument(path, { empresaId: "empresa-a", nombre: "Proveedor", estado: "ACTIVO" });
+  await seedDocument(pathTenantB, { empresaId: "empresa-b", nombre: "Proveedor", estado: "ACTIVO" });
+
+  await expectAllowed(tenantA.firestore().doc(path).get());
+  await expectDenied(tenantA.firestore().doc(pathTenantB).get());
+  await expectAllowed(tenantB.firestore().doc(pathTenantB).get());
+  await expectDenied(tenantA.firestore().doc("proveedores/directo").set({ empresaId: "empresa-a", nombre: "No permitido", estado: "ACTIVO" }));
+  await expectDenied(tenantA.firestore().doc(path).update({ estado: "INACTIVO" }));
+  await expectDenied(tenantA.firestore().doc(path).delete());
 });

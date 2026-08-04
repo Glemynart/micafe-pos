@@ -33,8 +33,20 @@ interface SnapshotItem {
   costoTotal: number;
 }
 
+interface ProveedorSnapshot {
+  id: string;
+  nombre: string;
+  estado: "ACTIVO";
+  nit?: string;
+  telefono?: string;
+  correo?: string;
+  direccion?: string;
+}
+
 interface CompraPayload {
   proveedor: string;
+  proveedorId?: string;
+  proveedorSnapshot?: ProveedorSnapshot;
   espacioId: string;
   fechaCompra: Timestamp | FieldValue;
   cuentaClaveOperativa: string | null;
@@ -54,7 +66,7 @@ function fechaCompra(value: unknown): Timestamp | FieldValue {
 }
 
 function validarCamposNoAutoritativos(payload: Record<string, unknown>) {
-  if (["empresaId", "total", "cuentaNombre", "cuentaDocumentoId", "registradoPor", "registradoPorNombre"].some(campo => Object.prototype.hasOwnProperty.call(payload, campo))) {
+  if (["empresaId", "total", "cuentaNombre", "cuentaDocumentoId", "registradoPor", "registradoPorNombre", "proveedorSnapshot"].some(campo => Object.prototype.hasOwnProperty.call(payload, campo))) {
     fail("invalid-argument", "PAYLOAD_INVALID");
   }
   if (Object.prototype.hasOwnProperty.call(payload, "cuentaId")) fail("invalid-argument", "CUENTA_CLAVE_REQUERIDA");
@@ -63,7 +75,32 @@ function validarCamposNoAutoritativos(payload: Record<string, unknown>) {
 async function prepararCompra(tx: any, db: any, empresaId: string, actorUid: string, input: Envelope): Promise<CompraPayload> {
   const payload = input.payload;
   validarCamposNoAutoritativos(payload);
-  const proveedor = text(payload.proveedor) ? payload.proveedor.trim() : fail("invalid-argument", "PROVEEDOR_INVALIDO");
+  let proveedor: string;
+  let proveedorId: string | undefined;
+  let proveedorSnapshot: ProveedorSnapshot | undefined;
+  const proveedorIdEntrada = payload.proveedorId;
+  const usaCatalogo = proveedorIdEntrada !== undefined && proveedorIdEntrada !== null && proveedorIdEntrada !== "";
+  if (usaCatalogo) {
+    proveedorId = text(proveedorIdEntrada) ? proveedorIdEntrada.trim() : fail("invalid-argument", "PROVEEDOR_INVALIDO");
+    const proveedorRef = db.collection("proveedores").doc(proveedorId);
+    const proveedorDoc = await tx.get(proveedorRef);
+    if (!proveedorDoc.exists || proveedorDoc.data()?.empresaId !== empresaId) fail("failed-precondition", "PROVEEDOR_NO_ENCONTRADO");
+    const proveedorData = proveedorDoc.data() as Record<string, unknown>;
+    if (proveedorData.estado !== "ACTIVO") fail("failed-precondition", "PROVEEDOR_INACTIVO");
+    const nombre = text(proveedorData.nombre) ? proveedorData.nombre.trim() : fail("failed-precondition", "PROVEEDOR_INVALIDO");
+    proveedor = nombre;
+    proveedorSnapshot = {
+      id: proveedorId,
+      nombre,
+      estado: "ACTIVO",
+      ...(text(proveedorData.nit) ? { nit: proveedorData.nit.trim() } : {}),
+      ...(text(proveedorData.telefono) ? { telefono: proveedorData.telefono.trim() } : {}),
+      ...(text(proveedorData.correo) ? { correo: proveedorData.correo.trim() } : {}),
+      ...(text(proveedorData.direccion) ? { direccion: proveedorData.direccion.trim() } : {}),
+    };
+  } else {
+    proveedor = text(payload.proveedor) ? payload.proveedor.trim() : fail("invalid-argument", "PROVEEDOR_INVALIDO");
+  }
   const espacioId = text(payload.espacioId) ? payload.espacioId : fail("invalid-argument", "ESPACIO_INVALIDO");
   const espacio = await tx.get(db.collection("espacios").doc(espacioId));
   if (!espacio.exists || espacio.data()?.empresaId !== empresaId || espacio.data()?.activo === false) fail("failed-precondition", "ESPACIO_INVALIDO");
@@ -94,7 +131,7 @@ async function prepararCompra(tx: any, db: any, empresaId: string, actorUid: str
   const cuentaClaveOperativa = payload.cuentaClaveOperativa === undefined || payload.cuentaClaveOperativa === null || payload.cuentaClaveOperativa === ""
     ? null
     : requerirClaveOperativa(payload, "cuentaClaveOperativa", ["cuentaId"]) as string;
-  return { proveedor, espacioId, fechaCompra: fechaCompra(payload.fechaCompra), cuentaClaveOperativa, items: snapshots, total };
+  return { proveedor, proveedorId, proveedorSnapshot, espacioId, fechaCompra: fechaCompra(payload.fechaCompra), cuentaClaveOperativa, items: snapshots, total };
 }
 
 function consolidar(items: SnapshotItem[], empresaId: string, espacioId: string, actorUid: string, actorNombre: string, compraId: string): MovimientoCompraParams[] {
@@ -145,13 +182,14 @@ async function efectoRegistrarCompraOperativaV1(tx: any, db: any, empresaId: str
     id: compraId,
     empresaId,
     proveedor: compra.proveedor,
+    ...(compra.proveedorId ? { proveedorId: compra.proveedorId, proveedorSnapshot: compra.proveedorSnapshot } : {}),
     items: snapshotItems,
     total: compra.total,
     espacioId: compra.espacioId,
     fecha: compra.fechaCompra,
     registradoPor: actorUid,
     registradoPorNombre: actorNombre,
-    snapshotComercial: { version: 1, proveedor: compra.proveedor, items: snapshotItems },
+    snapshotComercial: { version: 1, proveedor: compra.proveedor, ...(compra.proveedorSnapshot ? { proveedorSnapshot: compra.proveedorSnapshot } : {}), items: snapshotItems },
     ...(cuenta ? { cuentaClaveOperativa: compra.cuentaClaveOperativa, cuentaDocumentoId: cuenta.ref.id, cuentaNombre: cuenta.data.nombre ?? cuenta.ref.id } : {}),
     ...(movimientoFinanciero ? { movimientoFinancieroId: movimientoFinanciero.id } : {}),
     movimientosInventario: movimientos.map(movimiento => movimiento.id),

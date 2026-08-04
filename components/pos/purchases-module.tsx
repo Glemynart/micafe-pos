@@ -34,6 +34,8 @@ import {
 import { suscribirInsumos, type Insumo } from '@/lib/insumos-service'
 import { suscribirProductos, type Producto } from '@/lib/productos-service'
 import { suscribirCuentasBancarias, type CuentaBancaria } from '@/lib/finanzas-service'
+import { suscribirProveedores, type Proveedor } from '@/lib/proveedores-service'
+import { ProveedoresModule } from '@/components/pos/proveedores-module'
 import { formatCurrency } from '@/lib/demo-data'
 
 interface PurchaseItemForm {
@@ -56,6 +58,7 @@ export function PurchasesModule() {
 
   const [searchTerm, setSearchTerm] = useState('')
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
+  const [showProvidersDialog, setShowProvidersDialog] = useState(false)
   const [showDetailDialog, setShowDetailDialog] = useState(false)
   const [compras, setCompras] = useState<Compra[]>([])
   
@@ -72,6 +75,8 @@ export function PurchasesModule() {
   const [fechaCompra, setFechaCompra] = useState<string>(getHoy())
   const [cuentaClaveOperativa, setCuentaClaveOperativa] = useState<string>('')
   const [proveedor, setProveedor] = useState('')
+  const [proveedorId, setProveedorId] = useState('')
+  const [proveedores, setProveedores] = useState<Proveedor[]>([])
   const [itemsForm, setItemsForm] = useState<PurchaseItemForm[]>([
     { insumoId: '', insumoNombre: '', cantidad: 0, unidadMedida: 'g', costoUnitario: 0 },
   ])
@@ -88,6 +93,10 @@ export function PurchasesModule() {
   useEffect(() => {
     const unsub = suscribirCuentasBancarias(setCuentas)
     return unsub
+  }, [])
+
+  useEffect(() => {
+    return suscribirProveedores(setProveedores)
   }, [])
 
   useEffect(() => {
@@ -123,6 +132,7 @@ export function PurchasesModule() {
   const currentMonthTotal = compras.reduce((acc, p) => acc + p.total, 0)
   const lastMonthTotal = compras.length > 1 ? compras.slice(1).reduce((acc, p) => acc + p.total, 0) : 0
   const percentChange = lastMonthTotal > 0 ? ((currentMonthTotal - lastMonthTotal) / lastMonthTotal) * 100 : 0
+  const proveedorSeleccionado = proveedores.find((item) => item.id === proveedorId && item.estado === 'ACTIVO')
 
   const updateItem = useCallback((idx: number, field: keyof PurchaseItemForm, value: string | number) => {
     setItemsForm((prev) => {
@@ -165,7 +175,8 @@ export function PurchasesModule() {
   }
 
   const handleRegistrarCompra = async () => {
-    if (!proveedor.trim()) {
+    const nombreProveedor = proveedorSeleccionado?.nombre ?? proveedor.trim()
+    if (!nombreProveedor) {
       toast.error('Debe especificar un proveedor')
       return
     }
@@ -190,7 +201,8 @@ export function PurchasesModule() {
       }))
 
       await registrarCompra({
-        proveedor: proveedor.trim(),
+        proveedor: nombreProveedor,
+        ...(proveedorSeleccionado ? { proveedorId: proveedorSeleccionado.id } : {}),
         items,
         espacioId,
         fechaCompra,
@@ -200,6 +212,7 @@ export function PurchasesModule() {
       toast.success('Compra registrada exitosamente')
       setShowPurchaseDialog(false)
       setProveedor('')
+      setProveedorId('')
       setFechaCompra(getHoy())
       setCuentaClaveOperativa('')
       setItemsForm([{ insumoId: '', insumoNombre: '', cantidad: 0, unidadMedida: 'g', costoUnitario: 0 }])
@@ -254,6 +267,9 @@ export function PurchasesModule() {
           <Button onClick={() => setShowPurchaseDialog(true)} className="h-12 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 shadow-lg shadow-primary/20 transition-all active:scale-95">
             <Plus className="h-5 w-5 mr-2" />
             Registrar Compra
+          </Button>
+          <Button variant="outline" onClick={() => setShowProvidersDialog(true)} className="h-12 rounded-2xl font-bold px-4">
+            Proveedores
           </Button>
         </div>
       </div>
@@ -400,12 +416,26 @@ export function PurchasesModule() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Proveedor</Label>
-                  <Input
-                    value={proveedor}
-                    onChange={(e) => setProveedor(e.target.value)}
-                    placeholder="Nombre del proveedor"
-                    className="bg-input"
-                  />
+                  <Select value={proveedorId || '__manual__'} onValueChange={(value) => setProveedorId(value === '__manual__' ? '' : value)}>
+                    <SelectTrigger className="bg-input">
+                      <SelectValue placeholder="Selecciona un proveedor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__manual__">Captura manual (compatibilidad)</SelectItem>
+                      {proveedores.filter((item) => item.estado === 'ACTIVO').map((item) => (
+                        <SelectItem key={item.id} value={item.id}>{item.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!proveedorId && (
+                    <Input
+                      value={proveedor}
+                      onChange={(e) => setProveedor(e.target.value)}
+                      placeholder="Nombre del proveedor"
+                      className="bg-input"
+                    />
+                  )}
+                  {proveedorSeleccionado && <p className="text-xs text-muted-foreground">Se congelará el snapshot comercial de {proveedorSeleccionado.nombre} al confirmar.</p>}
                 </div>
                 <div className="space-y-2">
                   <Label>Fecha de compra</Label>
@@ -521,6 +551,15 @@ export function PurchasesModule() {
               Registrar Compra
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showProvidersDialog} onOpenChange={setShowProvidersDialog}>
+        <DialogContent className="bg-card border-border sm:max-w-5xl h-[80vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="sr-only">Gestión de proveedores</DialogTitle>
+          </DialogHeader>
+          <ProveedoresModule />
         </DialogContent>
       </Dialog>
 
