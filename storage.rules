@@ -1,0 +1,92 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function tieneSesionTenant() {
+      return request.auth != null
+        && request.auth.token.keys().hasAll(['empresaId'])
+        && request.auth.token.empresaId is string;
+    }
+
+    function tieneRolPermitido(roles) {
+      return request.auth != null
+        && request.auth.token.keys().hasAll(['rol'])
+        && request.auth.token.rol in roles;
+    }
+
+    function perteneceAlTenant(empresaId) {
+      return tieneSesionTenant()
+        && request.auth.token.empresaId == empresaId;
+    }
+
+    function puedeGestionarCatalogo(empresaId) {
+      return perteneceAlTenant(empresaId)
+        && tieneRolPermitido(['admin', 'cajero']);
+    }
+
+    function puedeGestionarContenidoPublico(empresaId) {
+      return perteneceAlTenant(empresaId)
+        && tieneRolPermitido(['admin', 'marketing']);
+    }
+
+    function esImagenValida() {
+      return request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType in [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/gif'
+        ];
+    }
+
+    // Catálogo privado: el asset se puede leer únicamente desde el tenant
+    // propietario y las mutaciones quedan alineadas con los roles que operan
+    // el catálogo en la aplicación.
+    match /tenants/{empresaId}/productos/{espacioId}/{archivo} {
+      allow read: if perteneceAlTenant(empresaId);
+      allow create, update: if puedeGestionarCatalogo(empresaId)
+        && esImagenValida();
+      allow delete: if puedeGestionarCatalogo(empresaId);
+    }
+
+    // Contenido público: la lectura es pública, pero la propiedad y las
+    // mutaciones siguen siendo tenant-aware. La visibilidad no crea un
+    // namespace global de la plataforma.
+    match /tenants/{empresaId}/landing/{recurso}/{archivo} {
+      allow read: if true;
+      allow create, update: if puedeGestionarContenidoPublico(empresaId)
+        && esImagenValida();
+      allow delete: if puedeGestionarContenidoPublico(empresaId);
+    }
+
+    match /tenants/{empresaId}/marketing/{recurso}/{archivo} {
+      allow read: if true;
+      allow create, update: if puedeGestionarContenidoPublico(empresaId)
+        && esImagenValida();
+      allow delete: if puedeGestionarContenidoPublico(empresaId);
+    }
+
+    // El identificador intermedio permite cargar el asset antes de que el
+    // dominio de Eventos tenga su migración Firestore tenant-aware. PR B
+    // podrá correlacionarlo con el evento sin cambiar la frontera de Storage.
+    match /tenants/{empresaId}/eventos/{eventoId}/{archivo} {
+      allow read: if true;
+      allow create, update: if puedeGestionarContenidoPublico(empresaId)
+        && esImagenValida();
+      allow delete: if puedeGestionarContenidoPublico(empresaId);
+    }
+
+    match /tenants/{empresaId}/reservas/{recurso}/{archivo} {
+      allow read: if true;
+      allow create, update: if puedeGestionarContenidoPublico(empresaId)
+        && esImagenValida();
+      allow delete: if puedeGestionarContenidoPublico(empresaId);
+    }
+
+    // Rechazo explícito por defecto: no se habilitan rutas legacy ni raíces
+    // globales como productos/... o eventos/....
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

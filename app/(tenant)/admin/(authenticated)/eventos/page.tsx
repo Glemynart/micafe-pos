@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useAuthContext } from "@/contexts/auth-context"
+import { useSaaS } from "@/contexts/saas-context"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,6 +21,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 
 export default function EventosPage() {
   const { usuario } = useAuthContext()
+  const { empresaId } = useSaaS()
   const [eventos, setEventos] = useState<Evento[]>([])
   const [cargando, setCargando] = useState(true)
   const [showDialog, setShowDialog] = useState(false)
@@ -55,13 +57,15 @@ export default function EventosPage() {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 5 * 1024 * 1024) { toast.error("La imagen no puede superar 5MB"); return }
+    if (!empresaId) { toast.error("No hay un tenant activo para subir la imagen"); return }
 
     setPreviewUrl(URL.createObjectURL(file))
     setUploading(true)
     try {
-      const ext = file.name.split(".").pop() || "jpg"
-      const fileRef = ref(storage, `eventos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`)
-      await uploadBytes(fileRef, file)
+      const ext = file.type.split("/")[1] || "jpg"
+      const eventoId = crypto.randomUUID()
+      const fileRef = ref(storage, `tenants/${empresaId}/eventos/${eventoId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`)
+      await uploadBytes(fileRef, file, { contentType: file.type })
       const url = await getDownloadURL(fileRef)
       setForm(prev => ({ ...prev, imagenUrl: url }))
       toast.success("Imagen subida")

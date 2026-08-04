@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, type ChangeEvent } from 'react'
 import { useEspacios } from '@/contexts/espacios-context'
+import { useSaaS } from '@/contexts/saas-context'
 import { suscribirProductos, crearProducto, editarProducto, desactivarProducto, type Producto } from '@/lib/productos-service'
 import { suscribirInsumos, crearInsumo, editarInsumo, desactivarInsumo, type Insumo } from '@/lib/insumos-service'
 import { suscribirConsignadores, type Consignador } from '@/lib/consignadores-service'
@@ -827,6 +828,7 @@ function NuevoProductoDialog({
  esAlquilerOFoto,
  productoAEditar
 }: any) {
+ const { empresaId } = useSaaS()
  const [nuevoProdNombre, setNuevoProdNombre] = useState('')
  const [nuevoProdCodigo, setNuevoProdCodigo] = useState('')
  const [nuevoProdPrecio, setNuevoProdPrecio] = useState('')
@@ -939,8 +941,9 @@ function NuevoProductoDialog({
  }
 
  const subirImagenProducto = async (file: File, espacioId: string) => {
+ if (!empresaId) throw new Error('No hay un tenant activo para subir la imagen')
  const extension = getProductImageExtension(file)
- const fileRef = ref(storage, `productos/${espacioId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`)
+ const fileRef = ref(storage, `tenants/${empresaId}/productos/${espacioId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`)
  await uploadBytes(fileRef, file, { contentType: file.type })
  return getDownloadURL(fileRef)
  }
