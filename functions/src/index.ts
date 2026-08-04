@@ -30,6 +30,7 @@ export {
   registrarMovimientoFinancieroV1,
   trasladarEntreCuentasV1,
 } from "./finanzas/callables";
+export { registrarCompraOperativaV1 } from "./finanzas/compras";
 export { crearNumeracionFiscal, actualizarNumeracionFiscal, transicionarNumeracionFiscal, establecerAsignacionFiscal, retirarAsignacionFiscal, confirmarVentaFiscalCallable, crearVentaDemostracionV1 } from "./fiscal/callables";
 export { bootstrapEmpresarialCallable } from "./bootstrap/callables";
 export { obtenerEstadoOnboarding, completarPasoFiscalOnboardingCallable, completarPasoNumeracionOnboardingCallable } from "./onboarding/callables";

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useAuthContext } from '@/contexts/auth-context'
 import { useEspacios } from '@/contexts/espacios-context'
 import {
   Plus,
@@ -21,14 +20,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { toast } from 'sonner'
 import {
   registrarCompra,
-  eliminarCompra,
   suscribirCompras,
   type Compra,
   type CompraItem,
@@ -52,7 +50,6 @@ function getHoy(): string {
 }
 
 export function PurchasesModule() {
-  const { usuario } = useAuthContext()
   const { espacioActivo, cargandoEspacios } = useEspacios()
   const espacioId = espacioActivo?.id ?? ''
   const esCafeteria = espacioActivo?.nombre?.toLowerCase().includes('cafeter') ?? false
@@ -69,11 +66,11 @@ export function PurchasesModule() {
   const [registrando, setRegistrando] = useState(false)
   const [compraSeleccionada, setCompraSeleccionada] = useState<Compra | null>(null)
   const [compraAEliminar, setCompraAEliminar] = useState<Compra | null>(null)
-  const [eliminando, setEliminando] = useState(false)
+  const [eliminando] = useState(false)
 
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([])
   const [fechaCompra, setFechaCompra] = useState<string>(getHoy())
-  const [cuentaId, setCuentaId] = useState<string>('caja-principal')
+  const [cuentaClaveOperativa, setCuentaClaveOperativa] = useState<string>('')
   const [proveedor, setProveedor] = useState('')
   const [itemsForm, setItemsForm] = useState<PurchaseItemForm[]>([
     { insumoId: '', insumoNombre: '', cantidad: 0, unidadMedida: 'g', costoUnitario: 0 },
@@ -163,6 +160,10 @@ export function PurchasesModule() {
 
   const totalCompra = itemsForm.reduce((acc, item) => acc + item.cantidad * item.costoUnitario, 0)
 
+  const handleEliminarCompra = () => {
+    toast.info('La reversión de compras requiere un comando server-side.')
+  }
+
   const handleRegistrarCompra = async () => {
     if (!proveedor.trim()) {
       toast.error('Debe especificar un proveedor')
@@ -188,21 +189,19 @@ export function PurchasesModule() {
         costoTotal: i.cantidad * i.costoUnitario,
       }))
 
-      const cuentaSeleccionada = cuentas.find(c => c.id === cuentaId)
       await registrarCompra({
         proveedor: proveedor.trim(),
         items,
-        total: items.reduce((acc, i) => acc + i.costoTotal, 0),
         espacioId,
         fechaCompra,
-        ...(cuentaId ? { cuentaId, cuentaNombre: cuentaSeleccionada?.nombre } : {}),
+        ...(cuentaClaveOperativa ? { cuentaClaveOperativa } : {}),
       })
 
       toast.success('Compra registrada exitosamente')
       setShowPurchaseDialog(false)
       setProveedor('')
       setFechaCompra(getHoy())
-      setCuentaId('caja-principal')
+      setCuentaClaveOperativa('')
       setItemsForm([{ insumoId: '', insumoNombre: '', cantidad: 0, unidadMedida: 'g', costoUnitario: 0 }])
     } catch (err) {
       toast.error('Error al registrar la compra')
@@ -220,21 +219,6 @@ export function PurchasesModule() {
       })
     }
     return '-'
-  }
-
-  const handleEliminarCompra = async () => {
-    if (!compraAEliminar) return
-    setEliminando(true)
-    try {
-      await eliminarCompra(compraAEliminar.id)
-      toast.success('Compra eliminada y stock revertido')
-      setCompraAEliminar(null)
-    } catch (err) {
-      toast.error('Error al eliminar la compra')
-      console.error(err)
-    } finally {
-      setEliminando(false)
-    }
   }
 
   if (cargandoEspacios || cargando) {
@@ -394,16 +378,6 @@ export function PurchasesModule() {
                         <Eye className="h-4 w-4 mr-2" />
                         Ver
                       </Button>
-                      {usuario?.rol === 'admin' && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setCompraAEliminar(purchase)}
-                          className="h-9 w-9 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -446,21 +420,21 @@ export function PurchasesModule() {
 
               <div className="space-y-2">
                 <Label>Cuenta de pago <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-                <Select value={cuentaId} onValueChange={setCuentaId}>
+                <Select value={cuentaClaveOperativa} onValueChange={setCuentaClaveOperativa}>
                   <SelectTrigger className="bg-input">
                     <SelectValue placeholder="Sin descuento en Finanzas" />
                   </SelectTrigger>
                   <SelectContent>
                     {cuentas.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
+                      <SelectItem key={c.id} value={c.claveOperativa}>
                         {c.nombre}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {cuentaId && (
+                {cuentaClaveOperativa && (
                   <p className="text-xs text-muted-foreground">
-                    Se descontará {formatCurrency(totalCompra)} de <strong>{cuentas.find(c => c.id === cuentaId)?.nombre}</strong> al registrar.
+                    Se descontará {formatCurrency(totalCompra)} de <strong>{cuentas.find(c => c.claveOperativa === cuentaClaveOperativa)?.nombre}</strong> al registrar.
                   </p>
                 )}
               </div>
