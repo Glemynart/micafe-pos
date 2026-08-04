@@ -36,6 +36,10 @@ ADR-SAAS-022 acepta un catálogo mínimo tenant-aware de proveedores para P1-03,
 sin crédito, cuentas por pagar, fiscalidad, migraciones ni dependencia de Café
 Atrato.
 
+ADR-SAAS-023 acepta la frontera server-authoritative para operaciones de salón
+y cocina, con idempotencia, concurrencia segura y máquina de estados válida;
+su implementación queda autorizada como P1-04.
+
 La replanificación aprobada mantiene P0-07/E3.1 como gate externo bloqueado por
 hardware y canal, sin cambiar su alcance ni prioridad. Mientras esa dependencia
 permanece pendiente, P1-02 se ejecuta en una línea paralela del núcleo POS:
@@ -87,7 +91,7 @@ sin depender de hardware, fiscalidad ni producción.
 |---|---|---|---|
 | E2.6 Recetas y modificadores | La venta DEMO con receta y modificadores conserva el snapshot comercial y descuenta los insumos correctos de forma tenant-aware. | P1-02 | COMPLETADO |
 
-### Siguiente línea recomendada — operaciones de salón — PENDIENTE DE APROBACIÓN
+### Siguiente línea aprobada — operaciones de salón — AUTORIZADA TRAS P1-07
 
 Resultado propuesto: salón, cuentas múltiples, comandas y cocina operan de forma
 concurrente, tenant-aware e idempotente, reutilizando la autoridad server-side
@@ -95,7 +99,7 @@ existente y sin depender de hardware ni de datos fiscales reales.
 
 | Epic | Resultado | Backlog | Estado |
 |---|---|---|---|
-| E2.7 Salón y cocina | Certificación reusable de cuentas, mesas, comandas y transiciones de cocina. | P1-04 | RECOMENDADO |
+| E2.7 Salón y cocina | Certificación reusable de cuentas, mesas, comandas y transiciones de cocina. | P1-04 | SIGUIENTE |
 
 ### M4 — Certificación comercial — PENDIENTE
 
@@ -104,7 +108,7 @@ Resultado: la cadena venta → inventario → caja → turno → ticket → recu
 | Epic | Resultado | Estado |
 |---|---|---|
 | E4.1 Certificación integral | Evidencia completa del recorrido operativo y decisiones condicionales. | PENDIENTE |
-| E4.2 Release readiness | Auditoría final aprobada, CI verde y versión comercial preparada. | PENDIENTE |
+| E4.2 Release readiness | Auditoría final aprobada, CI verde y versión comercial preparada. | EN PROGRESO |
 
 ## Definition of Done del Goal
 
@@ -133,13 +137,14 @@ Este Goal se marca `COMPLETADO` solo cuando:
   PR #188 quedó integrado en `main @ 6298e81` con ADR-SAAS-022 aceptado para el catálogo tenant-aware de proveedores y sus invariantes de snapshots, estado enum y desactivación segura.
   PR #189 quedó integrado en `main @ 119e898` con el catálogo tenant-aware reusable de proveedores, estado enum, aislamiento Rules, resolución por `empresaId + proveedorId`, snapshots históricos, idempotencia de compras y desactivación segura sin mutación de históricos.
   PR #190 quedó integrado en `main @ 9e58ef4` con la certificación reusable de P1-02/E2.6: snapshot de receta y modificadores, consumo transaccional de insumos, ledger, auditoría, idempotencia y aislamiento multi-tenant en Emulator/CI; la corrección de orden transaccional no cambió la autoridad server-side ni las Rules.
-- **PR completados:** PR #147, PR #149, PR #151, PR #153, PR #155, PR #157, PR #159, PR #161, PR #163, PR #165, PR #167, PR #168, PR #170, PR #172, PR #174, PR #175, PR #176, PR #178, PR #179, PR #181, PR #182 y PR #183, PR #184 — reconciliación, cierre documental, referencia vigente de ADR-SAAS-013, tooling de certificación P0-01, comando Trial para una Empresa existente, plan SaaS genérico reusable del MVP con `shifts`, capacidades del Plan disponibles para la configuración B1, smoke E2E P0-01 alineado a la oferta y navegación aprobadas, Fase 2 de ventas server-authoritative, eliminación de escrituras financieras legacy desde el cliente, certificación manual del tenant real, ventas DEMO no fiscales durante Trial, aceptación de ADR-SAAS-017 y su planificación como P0-11/E3.4, aceptación de ADR-SAAS-018 para eventos operativos confiables, recuperación segura de credenciales de administrador y operadores, aceptación de ADR-SAAS-019, compatibilidad financiera tenant-aware, certificación reusable P0-06 de turnos y arqueo multi-tenant con Emulator, certificación reusable P0-10 de exportación/importación de Firestore y Auth Emulator con fixtures multi-tenant y huella de restauración, y liquidación server-authoritative de cuentas por cobrar con reversión auditable. Las notificaciones se mantienen separadas para un PR posterior. El PR #184 añade transporte reutilizable de impresión con fallback PWA y pruebas de seguridad del renderer. El PR #185 sincroniza el estado bloqueado de P0-07 por dependencia de hardware y canal.
+  PR #191 quedó integrado en `main @ 09688c1` con P1-07: CI como release gate, lint ejecutable, preflight seguro de Auth/Firestore/Functions Emulator, suites operativas integradas y smoke E2E P0-01 con evidencia; ADR-SAAS-023 quedó aceptado.
+- **PR completados:** PR #147, PR #149, PR #151, PR #153, PR #155, PR #157, PR #159, PR #161, PR #163, PR #165, PR #167, PR #168, PR #170, PR #172, PR #174, PR #175, PR #176, PR #178, PR #179, PR #181, PR #182 y PR #183, PR #184 — reconciliación, cierre documental, referencia vigente de ADR-SAAS-013, tooling de certificación P0-01, comando Trial para una Empresa existente, plan SaaS genérico reusable del MVP con `shifts`, capacidades del Plan disponibles para la configuración B1, smoke E2E P0-01 alineado a la oferta y navegación aprobadas, Fase 2 de ventas server-authoritative, eliminación de escrituras financieras legacy desde el cliente, certificación manual del tenant real, ventas DEMO no fiscales durante Trial, aceptación de ADR-SAAS-017 y su planificación como P0-11/E3.4, aceptación de ADR-SAAS-018 para eventos operativos confiables, recuperación segura de credenciales de administrador y operadores, aceptación de ADR-SAAS-019, compatibilidad financiera tenant-aware, certificación reusable P0-06 de turnos y arqueo multi-tenant con Emulator, certificación reusable P0-10 de exportación/importación de Firestore y Auth Emulator con fixtures multi-tenant y huella de restauración, y liquidación server-authoritative de cuentas por cobrar con reversión auditable. Las notificaciones se mantienen separadas para un PR posterior. El PR #184 añade transporte reutilizable de impresión con fallback PWA y pruebas de seguridad del renderer. El PR #185 sincroniza el estado bloqueado de P0-07 por dependencia de hardware y canal. El PR #191 fortalece el release gate reusable con CI, preflight y smoke E2E.
   PR #186 actualizó el contrato de compras y quedó integrado en `main @ 50c3866`; PR #187 quedó integrado en `main @ fae007a` con la primitiva canónica reusable del ledger para venta, compra, ajustes y mermas, apertura lazy, secuencia, saldo, replay, aislamiento tenant-safe y certificación de Rules. PR #189 quedó integrado en `main @ 119e898` con el catálogo tenant-aware reusable de proveedores y la integración segura con compras.
   PR #188 quedó integrado en `main @ 6298e81` con ADR-SAAS-022 aceptado; el catálogo tenant-aware de proveedores y la integración de compras forman el alcance de P1-03.
   PR #189 quedó integrado en `main @ 119e898`; P1-03 y E2.5 quedan completados.
-- **Siguiente PR recomendado:** `P1-04 / E2.7 — certificación reusable de salón, cuentas múltiples, comandas y cocina`; requiere confirmar el alcance concreto antes de abrir rama y debe empezar por auditar las rutas cliente existentes, su autoridad server-side y sus invariantes de concurrencia. `P0-07 / E3.1 — certificación física de impresión` permanece como gate externo bloqueado y requiere impresora térmica real y decisión del canal de caja. P0-02/P0-09 siguen como gate fiscal condicional y P0-08/E3.2 como decisión condicional de canal.
+- **Siguiente PR recomendado:** `P1-04 / E2.7 — certificación reusable de salón, cuentas múltiples, comandas y cocina`; alcance autorizado por ADR-SAAS-023 y listo para iniciar desde `main` actualizado. `P0-07 / E3.1 — certificación física de impresión` permanece como gate externo bloqueado y requiere impresora térmica real y decisión del canal de caja. P0-02/P0-09 siguen como gate fiscal condicional y P0-08/E3.2 como decisión condicional de canal.
 - **Milestone activo:** `M3 — Canal productivo y recuperación`.
-- **Epic activo:** `E3.1 — Impresión física` (BLOQUEADO por hardware/canal); `E2.6 — Recetas y modificadores` completado; `E2.7 — Salón y cocina` recomendado como siguiente línea, pendiente de aprobación del alcance.
+- **Epic activo:** `E2.7 — Salón y cocina` (siguiente ejecución autorizada por ADR-SAAS-023); `E3.1 — Impresión física` permanece BLOQUEADO por hardware/canal; `E2.6 — Recetas y modificadores` completado.
 
 P0-07/E3.1 requiere una impresora térmica real y la decisión operativa del
 canal de caja, pero esa dependencia no bloquea el desarrollo reusable del SaaS.
@@ -151,6 +156,7 @@ La provisión productiva aprobada, la verificación automatizada y la evidencia 
 La línea paralela E2.6/P1-02 quedó integrada sin modificar la autoridad de
 ventas ni las Rules: certifica el contrato existente mediante una venta DEMO,
 snapshot de receta y modificadores, consumo transaccional de insumos, ledger,
-aislamiento tenant e idempotencia. El siguiente candidato E2.7 debe auditar
-primero las operaciones parciales de salón/cocina y detenerse ante cualquier
-brecha de autoridad o contrato que requiera ADR.
+aislamiento tenant e idempotencia. P1-04/E2.7 queda autorizado para auditar
+e implementar las operaciones parciales de salón/cocina sobre ADR-SAAS-023;
+si aparece una divergencia arquitectónica real no cubierta, se detendrá solo
+el alcance afectado para formalizar el ADR correspondiente.
