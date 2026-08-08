@@ -491,11 +491,11 @@ empresa para vender hasta certificar numeración, snapshot y enforcement.
 
 ## 16. Decisiones de producto pendientes
 
-1. Transición y retiro de los documentos legacy de `eventos`, junto con el
-   routing futuro por dominio personalizado. B2 ya implementó la lectura
-   pública por slug y ADR-SAAS-025 resolvió el contrato tenant-aware de los
-   documentos nuevos; el dominio personalizado solo resuelve el contexto
-   público (`empresaId`) y nunca permisos administrativos.
+1. Transición y retiro de los documentos legacy de `eventos` mediante B3.
+   B2 ya implementó la lectura pública por slug y ADR-SAAS-025 resolvió el
+   contrato tenant-aware de los documentos nuevos. El routing futuro por
+   dominio personalizado permanece como trabajo independiente: solo resuelve
+   el contexto público (`empresaId`) y nunca permisos administrativos.
 2. Distribución SaaS definitiva: web/PWA y papel futuro de Electron.
 3. Alcance fiscal multi-país.
 4. Duración comercial exacta del trial.
