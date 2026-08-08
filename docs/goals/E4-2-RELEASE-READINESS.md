@@ -35,7 +35,7 @@ multicanal que todavía no ha sido probado en esos canales.
 | ID | Hallazgo | Impacto | Acción posterior | ADR |
 |---|---|---:|---|---|
 | E4.2-SEC-001-STORAGE-RULES | La app usa Storage para imágenes, pero no hay `storage.rules` versionado ni declaración en `firebase.json`. | Alto | Diseñar y certificar reglas tenant-aware con Emulator. | Sí, si cambia el contrato de autorización |
-| E4.2-SEC-002-DEPENDENCIES | `npm audit` presentaba vulnerabilidades conocidas en raíz y Functions. | Alto | PR #203 integrado; quedan residuales documentadas para una decisión de compatibilidad separada. | Solo si cambia arquitectura/contrato |
+| E4.2-SEC-002-DEPENDENCIES | `npm audit` presentaba vulnerabilidades conocidas en raíz y Functions. | Alto | PR #203 y PR #205 integrados; quedan siete moderadas documentadas por requerir cambios mayores incompatibles. | Solo si cambia arquitectura/contrato |
 | E4.2-SEC-003-MASTER-PLAN | El plan maestro todavía describe el producto como single-tenant y en borrador. | Alto | Alinear el documento con el estado SaaS real y conservar riesgos no mitigados. | No |
 | E4.2-CI-001-UNCOVERED-SURFACES | Operator Portal, R1A, Electron, Storage y reservas/Wompi no forman parte del gate core. | Medio/alto | Abrir gates o PRs separados según el alcance comercial aprobado. | Según cada frontera |
 
@@ -47,13 +47,13 @@ autoridades server-side, las Rules ni la persistencia. La instalacion limpia
 con `npm ci` es reproducible con Node 22 y `firebase-tools` 15.26.0.
 
 El inventario de produccion paso de 21 vulnerabilidades (1 critica, 11 altas y
-9 moderadas) a 10 (0 criticas, 3 altas y 7 moderadas). Las actualizaciones
+9 moderadas) a 10 (0 criticas, 3 altas y 7 moderadas) con PR #203. Las actualizaciones
 compatibles incluyen DOMPurify, Electron/Electron Builder, electron-updater,
 Playwright, PostCSS, Firebase Admin y tooling de Firebase.
 
-Las vulnerabilidades residuales altas estan ancladas en `next@16.2.4`, sus
-dependencias anidadas `postcss`/`sharp`, y solo se resuelven segun `npm audit`
-con `next@16.3.0`, que esta fuera del pin actual. Las moderadas restantes
+Las tres vulnerabilidades altas residuales de la evidencia de PR #203 estaban
+ancladas en `next@16.2.4`, sus dependencias anidadas `postcss`/`sharp`, y se
+resolvieron en PR #205 fijando `next@16.3.0`. Las moderadas restantes
 requieren degradar `firebase-admin`, `firebase-tools` o `exceljs` a versiones
 incompatibles. Esas decisiones no se fuerzan en este PR; requieren una
 validacion de compatibilidad independiente antes de declararse resueltas.
