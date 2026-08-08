@@ -39,6 +39,40 @@ multicanal que todavía no ha sido probado en esos canales.
 | E4.2-SEC-003-MASTER-PLAN | El plan maestro todavía describe el producto como single-tenant y en borrador. | Alto | Alinear el documento con el estado SaaS real y conservar riesgos no mitigados. | No |
 | E4.2-CI-001-UNCOVERED-SURFACES | Operator Portal, R1A, Electron, Storage y reservas/Wompi no forman parte del gate core. | Medio/alto | Abrir gates o PRs separados según el alcance comercial aprobado. | Según cada frontera |
 
+### Evidencia E4.2-SEC-002 - parche compatible de dependencias
+
+El parche de seguridad actualiza unicamente `package-lock.json`, conservando
+los rangos declarados en `package.json` y sin cambiar el dominio, las
+autoridades server-side, las Rules ni la persistencia. La instalacion limpia
+con `npm ci` es reproducible con Node 22 y `firebase-tools` 15.26.0.
+
+El inventario de produccion paso de 21 vulnerabilidades (1 critica, 11 altas y
+9 moderadas) a 10 (0 criticas, 3 altas y 7 moderadas). Las actualizaciones
+compatibles incluyen DOMPurify, Electron/Electron Builder, electron-updater,
+Playwright, PostCSS, Firebase Admin y tooling de Firebase.
+
+Las vulnerabilidades residuales altas estan ancladas en `next@16.2.4`, sus
+dependencias anidadas `postcss`/`sharp`, y solo se resuelven segun `npm audit`
+con `next@16.3.0`, que esta fuera del pin actual. Las moderadas restantes
+requieren degradar `firebase-admin`, `firebase-tools` o `exceljs` a versiones
+incompatibles. Esas decisiones no se fuerzan en este PR; requieren una
+validacion de compatibilidad independiente antes de declararse resueltas.
+
+Validaciones ejecutadas en la rama del parche:
+
+- `npm ci`: PASS.
+- `npx tsc --noEmit`: PASS.
+- `npm run lint`: PASS.
+- `npm run build`: PASS.
+- `npm run build:functions`: PASS.
+- `npm run test:auth-foundation`: PASS (268 pass, 3 skip, 0 fail).
+- `npm run test:backfill`: PASS (19 pass, 0 fail).
+- `npm run e2e:b3-eventos-backfill`: PASS en Emulator; `productionWrites:false`.
+- `npm run dist`: la compilacion y el empaquetado alcanzan Electron 42.8.1,
+  pero Windows rechaza la escritura de la integridad del `.exe` generado con
+  error `UNKNOWN`; no forma parte del gate CI de E4.2 y queda como evidencia
+  del gate Electron pendiente.
+
 ## Gates externos pendientes
 
 Estos gates no se implementan ni se simulan dentro de E4.2:
