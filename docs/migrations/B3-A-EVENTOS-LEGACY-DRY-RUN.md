@@ -44,6 +44,12 @@ corresponden a ningún evento.
 `--execute` está prohibido por diseño. B3-A no realiza backfill, no borra
 documentos, no reescribe URLs y no escribe en producción.
 
+La lectura puede autenticarse con una cuenta de servicio (`FIREBASE_SERVICE_ACCOUNT`
+o `FIREBASE_SERVICE_ACCOUNT_PATH`) o con Application Default Credentials mediante
+`GOOGLE_APPLICATION_CREDENTIALS`. Esto permite usar una credencial `authorized_user`
+emitida por Firebase CLI para el inventario read-only; B3-A nunca usa esa
+credencial para escribir.
+
 ## Evidencia
 
 La suite `npm run e2e:b3-eventos` ejecuta el inventario contra Firestore
