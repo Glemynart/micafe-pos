@@ -2,9 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { CalendarDays, Clock, Sparkles, X, MapPin, ArrowRight } from "lucide-react"
-import { collection, query, where, orderBy, getDocs } from "firebase/firestore"
-import { db } from "@/lib/firebase"
-import { type Evento } from "@/lib/eventos-service"
+import { type EventoPublico } from "@/lib/eventos-service"
 
 const NAVY = "#051D41"
 const GOLD = "#F9B207"
@@ -20,10 +18,10 @@ const catStyles: Record<string, { accent: string; chip: string; bg: string }> = 
 }
 
 const style = (c: string) => catStyles[c] || catStyles["Otro"]
-const fmt = (e: Evento) => new Date(e.fecha + "T" + e.hora).toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })
-const dayShort = (e: Evento) => new Date(e.fecha + "T" + e.hora).toLocaleDateString("es-CO", { weekday: "short" })
-const dayNum = (e: Evento) => new Date(e.fecha + "T" + e.hora).getDate()
-const monthShort = (e: Evento) => new Date(e.fecha + "T" + e.hora).toLocaleDateString("es-CO", { month: "short" })
+const fmt = (e: EventoPublico) => new Date(e.fecha + "T" + e.hora).toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })
+const dayShort = (e: EventoPublico) => new Date(e.fecha + "T" + e.hora).toLocaleDateString("es-CO", { weekday: "short" })
+const dayNum = (e: EventoPublico) => new Date(e.fecha + "T" + e.hora).getDate()
+const monthShort = (e: EventoPublico) => new Date(e.fecha + "T" + e.hora).toLocaleDateString("es-CO", { month: "short" })
 
 const formatTime = (hora: string) => {
   if (!hora) return ""
@@ -36,23 +34,49 @@ const formatTime = (hora: string) => {
   return `${h}:${m} ${ampm}`
 }
 
-export function EventosSection() {
-  const [eventos, setEventos] = useState<Evento[]>([])
+export function EventosSection({ slug }: { slug?: string | null }) {
+  const [eventos, setEventos] = useState<EventoPublico[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(false)
-  const [selected, setSelected] = useState<Evento | null>(null)
+  const [selected, setSelected] = useState<EventoPublico | null>(null)
 
   useEffect(() => {
+    const tenantSlug = slug?.trim()
+    if (!tenantSlug) {
+      setEventos([])
+      setError(false)
+      setCargando(false)
+      return
+    }
+
+    const controller = new AbortController()
     const hoy = new Date().toISOString().split("T")[0]
-    const q = query(collection(db, "eventos"), where("activo", "==", true), orderBy("fecha", "asc"))
-    getDocs(q).then(snap => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Evento))
-      setEventos(data.filter(e => e.fecha >= hoy))
-    }).catch(err => {
-      console.error("Error cargando eventos:", err)
-      setError(true)
-    }).finally(() => setCargando(false))
-  }, [])
+    setCargando(true)
+    setError(false)
+
+    fetch(`/api/public/eventos?slug=${encodeURIComponent(tenantSlug)}`, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`No se pudieron cargar los eventos (${response.status}).`)
+        return response.json() as Promise<{ eventos: EventoPublico[] }>
+      })
+      .then((payload) => {
+        setEventos(payload.eventos.filter((evento) => evento.activo && evento.fecha >= hoy))
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return
+        console.error("Error cargando eventos:", err)
+        setEventos([])
+        setError(true)
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCargando(false)
+      })
+
+    return () => controller.abort()
+  }, [slug])
 
   useEffect(() => {
     if (selected) {
@@ -77,11 +101,12 @@ export function EventosSection() {
     </section>
   )
 
-  if (eventos.length === 0) return null
+  if (error || eventos.length === 0) return null
 
   return (
     <>
       <section
+        data-testid="public-events"
         style={{
           background: "linear-gradient(180deg, #ffffff 0%, #F5F1EA 50%, #faf6ee 100%)",
           padding: "6rem 0",
@@ -141,6 +166,7 @@ export function EventosSection() {
               return (
                 <article
                   key={evento.id}
+                  data-testid={`public-event-${evento.id}`}
                   onClick={() => setSelected(evento)}
                   style={{
                     cursor: "pointer",

@@ -245,12 +245,11 @@ service cloud.firestore {
       allow delete: if puedeEliminarEnTenant() && esAdminOCajero();
     }
 
-    // Contenido público propiedad de tenant. La lectura anónima se conserva
-    // temporalmente para compatibilidad hasta PR B2; una sesión autenticada
-    // solo puede leer documentos de su tenant y las mutaciones nunca son
-    // globales.
+    // Contenido público propiedad de tenant. La lectura pública se realiza
+    // exclusivamente mediante el endpoint server-side de B2; ningún cliente
+    // anónimo puede consultar la colección global directamente.
     match /eventos/{id} {
-      allow read: if !haySesion() || puedeLeerTenant();
+      allow read: if puedeLeerTenant() && esAutenticado();
       allow create: if puedeCrearEnTenant()
         && rol() in ['admin', 'marketing']
         && request.resource.data.empresaId is string;
