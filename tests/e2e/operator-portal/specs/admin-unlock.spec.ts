@@ -25,6 +25,7 @@ test("diagnostica y desbloquea el administrador inicial", async ({ page }) => {
   await expect(page.getByRole("button", { name: /Solicitar Bootstrap/ })).toBeEnabled();
   await page.getByRole("button", { name: "Solicitar Bootstrap canónico" }).click();
   await page.getByRole("dialog", { name: "Credencial inicial emitida" }).getByRole("button", { name: "Ya lo entregué, cerrar" }).click();
+  await expect(page).toHaveURL(new RegExp(`/backoffice/empresas/${empresaId}$`));
   const store = db();
   const credenciales = await store.collection("credenciales_operativas").where("empresaId", "==", empresaId).limit(1).get();
   await credenciales.docs[0].ref.update({
