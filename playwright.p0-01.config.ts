@@ -23,7 +23,7 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   webServer: {
-    command: "cross-env NEXT_PUBLIC_USE_EMULATORS=1 next dev -H 127.0.0.1 -p 3003",
+    command: "cross-env NEXT_PUBLIC_USE_EMULATORS=1 next dev --webpack -H 127.0.0.1 -p 3003",
     url: `${baseURL}/admin/login`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

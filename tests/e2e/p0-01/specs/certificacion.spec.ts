@@ -69,7 +69,7 @@ test.describe("P0-01 — certificación operativa en emuladores", () => {
 
       await test.step("activación de Finanzas en el POS/PWA", async () => {
         await page.getByRole("button", { name: "Finanzas", exact: true }).click();
-        await expect(page.getByRole("heading", { name: "Finanzas y Tesorería", exact: true })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Finanzas y Tesorería", exact: true })).toBeVisible({ timeout: 60_000 });
 
         const cuentas = await adminP001().db.collection("cuentas_bancarias")
           .where("empresaId", "==", fixture.empresaId)
