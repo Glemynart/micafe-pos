@@ -71,7 +71,7 @@ test("membresias: cada miembro lee la propia y el admin lista su tenant sin pode
   await expectDenied(adminA.firestore().doc(propia).update({ rol: "admin" }));
 });
 
-test("eventos mantienen lectura pÃºblica temporal, pero la administración queda aislada por tenant", async () => {
+test("eventos: la lectura pública usa servidor y la administración queda aislada por tenant", async () => {
   const anonimo = await contextFor(fixtures.anonimo);
   const adminA = await contextFor(fixtures.tenantA.admin);
   const adminB = await contextFor(fixtures.tenantB.admin);
@@ -80,7 +80,8 @@ test("eventos mantienen lectura pÃºblica temporal, pero la administración que
 
   await expectDenied(anonimo.firestore().doc("configuracion/general").get());
   await expectDenied(cajeroA.firestore().doc("configuracion/general").get());
-  await expectAllowed(anonimo.firestore().doc("eventos/evento-publico-a").get());
+  await expectDenied(anonimo.firestore().doc("eventos/evento-publico-a").get());
+  await expectDenied(anonimo.firestore().collection("eventos").get());
   await expectAllowed(adminA.firestore().doc("eventos/evento-publico-a").get());
   await expectDenied(adminA.firestore().doc("eventos/evento-publico-b").get());
   await expectAllowed(adminB.firestore().doc("eventos/evento-publico-b").get());

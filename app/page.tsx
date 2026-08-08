@@ -307,7 +307,7 @@ export default function LandingPage() {
         <AdBanner />
 
         {/* Events Section */}
-        <EventosSection />
+        <EventosSection slug={publicReservationSlug} />
 
         {/* Contact Section */}
         <section id="contact" className="contact">

@@ -28,6 +28,24 @@ export interface Evento {
   creadoEn?: unknown;
 }
 
+/**
+ * Proyección pública de un evento.
+ *
+ * No expone campos administrativos como `creadoPor` ni `creadoEn`. El
+ * `empresaId` se utiliza únicamente en el servidor para filtrar el tenant y
+ * no forma parte de la respuesta pública.
+ */
+export interface EventoPublico {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  fecha: string;
+  hora: string;
+  imagenUrl?: string;
+  categoria: string;
+  activo: true;
+}
+
 export interface EventoInput {
   titulo: string;
   descripcion: string;
