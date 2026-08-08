@@ -122,7 +122,7 @@ checks.push(result(
 const storageConfigured = Boolean(storageRules) && Boolean(firebaseConfig?.includes('"storage"'));
 checks.push(result(
   "E4.2-SEC-001-STORAGE-RULES",
-  storageConfigured ? "PASS" : "FOLLOW_UP",
+  storageConfigured ? "PASS" : "FAIL",
   "SECURITY",
   "Storage usado por imágenes tiene reglas versionadas y declaradas.",
   { firebaseConfig: Boolean(firebaseConfig?.includes('"storage"')), storageRules: Boolean(storageRules) },
@@ -133,7 +133,7 @@ const securityPlanAligned = !securityPlan.includes("**Estado:** Borrador para ap
   && !securityPlan.includes("Hoy el sistema es **single-tenant**");
 checks.push(result(
   "E4.2-SEC-003-MASTER-PLAN",
-  securityPlanAligned ? "PASS" : "FOLLOW_UP",
+  securityPlanAligned ? "PASS" : "FAIL",
   "SECURITY",
   "El plan maestro de seguridad refleja el estado SaaS vigente.",
   "MASTER-SECURITY-PLAN.md",
@@ -159,18 +159,16 @@ checks.push(result(
   "E4.2-CI-001-UNCOVERED-SURFACES",
   "FOLLOW_UP",
   "COVERAGE",
-  "Operator Portal, R1A, Storage, Electron y reservas/Wompi no forman parte del gate core actual.",
+  "Operator Portal, R1A, Electron y reservas/Wompi no forman parte del gate core actual; Storage sí está cubierto por su suite tenant-aware.",
   {
     packageScripts: ["e2e:operator-portal", "e2e:r1a", "dist"],
-    ciCovered: ["e2e:e4-01", "e2e:p0-01", "e2e:p0-06", "e2e:p1-02", "e2e:p1-04", "e2e:p0-10"],
+    ciCovered: ["test:storage-rules", "e2e:e4-01", "e2e:p0-01", "e2e:p0-06", "e2e:p1-02", "e2e:p1-04", "e2e:p0-10"],
   },
   "Planificar cada superficie como PR/gate separado; no ampliar E4.2 con funcionalidad.",
 ));
 
 const followUpPrefixes = {
-  "E4.2-SEC-001-STORAGE-RULES": "E4.2-SEC-001-STORAGE-RULES",
   "E4.2-SEC-002-DEPENDENCIES": "E4.2-SEC-002-DEPENDENCIES",
-  "E4.2-SEC-003-MASTER-PLAN": "E4.2-SEC-003-MASTER-PLAN",
   "E4.2-CI-001-UNCOVERED-SURFACES": "E4.2-CI-001-UNCOVERED-SURFACES",
 };
 const followUpIds = E4_02_FOLLOW_UP_IDS.filter((id) => checks.some((check) => {
