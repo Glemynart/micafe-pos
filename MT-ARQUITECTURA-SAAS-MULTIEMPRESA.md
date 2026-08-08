@@ -150,7 +150,10 @@ ADR-SAAS-006.
 ### 5.3 Datos globales e históricos
 
 - `usuarios` permanece global y sin autoridad tenant.
-- `eventos` conserva pendiente su clasificación global o tenant.
+- `eventos` es contenido público propiedad de un tenant y usa la colección
+  superior `eventos` con `empresaId` obligatorio e inmutable conforme a
+  ADR-SAAS-025. Los documentos sin propietario permanecen legacy hasta B3;
+  la visibilidad pública no elimina la propiedad tenant.
 - Cada venta nueva contiene un snapshot fiscal autosuficiente. No se crea una colección separada para
   snapshots.
 - Las ventas históricas conservan su forma original; los lectores compatibles no reconstruyen hechos
@@ -488,7 +491,10 @@ empresa para vender hasta certificar numeración, snapshot y enforcement.
 
 ## 16. Decisiones de producto pendientes
 
-1. Clasificación global o tenant de `eventos`.
+1. Transición y retiro de los documentos legacy de `eventos`, junto con el
+   routing público por slug/dominio. ADR-SAAS-025 ya resolvió el contrato
+   tenant-aware de los documentos nuevos; el dominio personalizado solo
+   resuelve el contexto público (`empresaId`) y nunca permisos administrativos.
 2. Distribución SaaS definitiva: web/PWA y papel futuro de Electron.
 3. Alcance fiscal multi-país.
 4. Duración comercial exacta del trial.

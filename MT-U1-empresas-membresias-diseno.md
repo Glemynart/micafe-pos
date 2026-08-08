@@ -20,12 +20,18 @@ Inventario de colecciones verificado contra el código real (`grep` de `collecti
 | Categoría | Colecciones / entidades |
 |---|---|
 | **Pertenecen a una empresa** (ganan `empresaId`) | Las 24 operativas de `ADR-SAAS-004` **+ `producto_modificador_grupos`** = **25** |
-| **Permanecen globales** | `usuarios` (identidad), `permisos_roles` (plantilla de plataforma), `eventos` (decisión de producto pendiente), `configuracion/general` (su migración de forma es MT-U6) |
+| **Permanecen globales** | `usuarios` (identidad), `permisos_roles` (plantilla de plataforma), `configuracion/general` (su migración de forma es MT-U6) |
 | **Independientes (nuevas, aún inexistentes)** | `saas_operadores`, `planes`, `saas_auditoria`, `consumo` — **no se crean en MT-U1** (pertenecen a MT-U8/MT-U9) |
 
 **Hallazgo #1 — `producto_modificador_grupos`:** colección introducida por U1–U5 (`lib/modificador-grupos-service.ts`),
 no registrada en `PROJECT_DISCOVERY.md`. Es catálogo ligado a `productos` → empresa-scoped. El total real
 es **25 colecciones operativas**, no 24.
+
+> **Reconciliación ADR-SAAS-025 (2026-08-08):** `eventos` ya no se considera
+> global en el modelo de producto. Sus documentos nuevos pertenecen a un
+> tenant mediante `empresaId` obligatorio e inmutable; los documentos sin ese
+> campo permanecen legacy y quedan fuera del backfill operativo histórico hasta
+> el PR B3. La visibilidad pública no elimina la propiedad tenant.
 
 > **Nota de reconciliación (MT-U3, 2026-07-17):** la auditoría de preparación de MT-U3 encontró que este
 > conteo, aunque coincide en el total (25), seguía teniendo el conjunto incorrecto: (a) `modificador_grupos`

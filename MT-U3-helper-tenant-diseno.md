@@ -454,8 +454,16 @@ Reconciliación código ↔ documentación (la lista de docs difería en 4 entra
 ### 7.2 Globales — NO ganan `empresaId` en MT-U3
 
 - `usuarios` (identidad global), `permisos_roles` (plantilla de plataforma), `empresas`, `membresias`
-  (ya modeladas), `eventos` (decisión de producto pendiente, maestro §16).
+  (ya modeladas).
 - `configuracion` (doc `general`): singleton; su migración a `configuraciones/{empresaId}` es **MT-U6**.
+
+`eventos` ya no forma parte de esta lista global. ADR-SAAS-025 lo clasifica
+como contenido público propiedad de un tenant: los documentos nuevos llevan
+`empresaId` obligatorio e inmutable y su contrato se implementa en PR B1. Los
+documentos legacy sin `empresaId` quedan fuera del backfill operativo de MT-U3
+y se resolverán en el PR B3 específico de Eventos. El dominio personalizado
+solo resuelve el contexto público (`empresaId`); nunca sustituye los permisos
+de la sesión administrativa.
 
 Esta §7 es la **fuente oficial** para el backfill (§6) y para el conjunto de servicios a modificar (§3).
 
@@ -474,7 +482,9 @@ explosión de índices y límite por proyecto).
 - `mermas`: `(empresaId, espacioId, fecha desc)`.
 - `espacios`: `(empresaId, activo, orden)`.
 - `reservas`: `(empresaId, mesaId, estadoReserva, fechaInicio)`.
-- `eventos`: **sin cambio** (global; no gana `empresaId`).
+- `eventos`: `(empresaId, activo, fecha)` para las consultas tenant-aware de
+  Eventos; el índice y su activación pertenecen a PR B1, no al backfill
+  histórico de MT-U3.
 
 ### 8.2 Índices nuevos a crear
 Uno por cada query compuesta que hoy resuelve con índice single-field automático y que, al ganar
