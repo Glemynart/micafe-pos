@@ -22,12 +22,11 @@ after(async () => {
   await cleanupRulesTestEnvironment();
 });
 
-test("smoke: una solicitud anónima usa las Rules locales del Emulator", async () => {
+test("smoke: una solicitud anónima no puede leer eventos globales", async () => {
   const anonimo = await contextFor(fixtures.anonimo);
 
-  // Las Rules actuales mantienen eventos como lectura pública. Este caso fija
-  // únicamente que el runner carga firestore.rules; no adelanta MT-U4.
-  await expectAllowed(anonimo.firestore().doc("eventos/smoke-publico").get());
+  // La lectura pública tenant-aware se ejecuta en el endpoint server-side B2.
+  await expectDenied(anonimo.firestore().doc("eventos/smoke-publico").get());
 });
 
 test("smoke: una denegación de las Rules actuales se observa desde el runner", async () => {
