@@ -54,11 +54,11 @@ Cada PR recomendado es independiente en lo posible y no debe mezclar tareas de d
 | P2-03 | Definir y desplegar el contrato seguro de Firebase Storage. | Inventario de usos de Storage. | Storage tiene Rules y configuración de despliegue; las rutas necesarias quedan aisladas por tenant. | M | `security/storage-rules-tenant` |
 | P2-04 | Formalizar la contingencia offline y reconciliación de UX. | P1-08; resultados de operación real. | Existe un flujo probado para informar el estado offline, recuperar conectividad y reconciliar operaciones sin ambigüedad. | L | `feat/offline-reconciliacion-ux` |
 
-## P3 — Fuera del MVP de Café Atrato
+## P3 — Backlog histórico y trabajo no admitido
 
 | ID | Trabajo excluido | Razón de exclusión | PR recomendado |
 |---|---|---|---|
-| P3-01 | Landing multi-tenant, eventos multi-tenant, branding tenant-aware y dominios personalizados. | No son necesarios para vender, controlar inventario, cerrar caja ni recuperar la operación inicial de Café Atrato. | `feature/landing-events-multitenant` |
+| P3-01 | Landing multi-tenant, eventos multi-tenant, branding tenant-aware y dominios personalizados. | La clasificación P3 original quedó superada por el Goal y ADR-SAAS-025: B1 y B2 de Eventos ya están integrados en M4; B3 de transición legacy permanece como trabajo separado. Los dominios personalizados siguen fuera de alcance. | `B3-A / B3-B` |
 | P3-02 | Portal de operador SaaS. | No forma parte del MVP operativo definido en el informe. | `feature/operator-portal` |
 
 ## Secuencia de ejecución
