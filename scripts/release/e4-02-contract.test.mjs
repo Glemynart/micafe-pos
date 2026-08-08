@@ -8,7 +8,7 @@ import {
 } from "./e4-02-contract.mjs";
 
 test("E4.2 conserva las suites core y los seis gates externos", () => {
-  assert.equal(E4_02_REQUIRED_CI_COMMANDS.length, 10);
+  assert.equal(E4_02_REQUIRED_CI_COMMANDS.length, 12);
   assert.equal(E4_02_PENDING_GATES.length, 6);
   assert.equal(new Set(E4_02_PENDING_GATES.map((gate) => gate.id)).size, 6);
 });

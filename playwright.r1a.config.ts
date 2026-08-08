@@ -6,6 +6,7 @@ const evidencia = process.env.E2E_R1A_EVIDENCE_DIR ?? "artifacts/e2e/r1a";
 export default defineConfig({
   testDir: "./tests/e2e/r1a/specs",
   fullyParallel: false,
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   timeout: 45_000,
@@ -25,7 +26,9 @@ export default defineConfig({
   webServer: {
     command: "cross-env NEXT_PUBLIC_USE_EMULATORS=1 next dev -H 127.0.0.1 -p 3000",
     url: `${baseURL}/pos`,
-    reuseExistingServer: !process.env.CI,
+    // R1-A debe arrancar Next con el projectId del runner; reutilizar un
+    // `next dev` local deja el navegador apuntando a otro entorno Firebase.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
   projects: [

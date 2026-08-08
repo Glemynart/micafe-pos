@@ -13,13 +13,18 @@ test.describe("R1-A concurrencia de apertura", () => {
     try {
       const primera = new TurnoGatePage(canal.page);
       await primera.iniciarSesion(fixture.cajero);
-      await segunda.goto("/pos");
-      await expect(segunda.getByRole("heading", { name: "Abre tu turno" })).toBeVisible();
+      const baseUrl = process.env.E2E_R1A_BASE_URL ?? "http://127.0.0.1:3000";
+      await segunda.goto(new URL("/pos", baseUrl).toString());
+      await expect(segunda.getByRole("heading", { name: "Abre tu turno" })).toBeVisible({ timeout: 30_000 });
       await canal.page.getByPlaceholder("0").fill("150000");
       await segunda.getByPlaceholder("0").fill("150000");
       await Promise.all([
-        canal.page.getByRole("button", { name: "Iniciar Turno" }).click(),
-        segunda.getByRole("button", { name: "Iniciar Turno" }).click(),
+        // El primer listener puede desmontar la compuerta de la segunda
+        // pestaña inmediatamente; el click DOM evita que Playwright espere
+        // estabilidad sobre un nodo que la propia prueba está provocando que
+        // desaparezca.
+        canal.page.getByRole("button", { name: "Iniciar Turno" }).evaluate((button) => (button as HTMLButtonElement).click()),
+        segunda.getByRole("button", { name: "Iniciar Turno" }).evaluate((button) => (button as HTMLButtonElement).click()),
       ]);
       await esperarConfirmacionListener(canal.page);
       await esperarAperturaConfirmada(fixture.empresaId, fixture.cajero.uid);

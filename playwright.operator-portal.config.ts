@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = "http://127.0.0.1:3001";
+const evidencia = process.env.OPERATOR_PORTAL_EVIDENCE_DIR ?? "artifacts/e2e/operator-portal";
 
 export default defineConfig({
   testDir: "./tests/e2e/operator-portal/specs",
@@ -20,6 +21,11 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
+  outputDir: `${evidencia}/test-results`,
+  reporter: [
+    ["list"],
+    ["html", { outputFolder: `${evidencia}/html`, open: "never" }],
+  ],
   globalSetup: "./tests/e2e/operator-portal/global-setup.ts",
   webServer: {
     command: "cross-env NEXT_PUBLIC_USE_EMULATORS=1 next dev -H 127.0.0.1 -p 3001",

@@ -1,6 +1,8 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 
 const operador = { email: "operador@e2e.local", password: "Emulador-2026" };
+const functionsBaseUrl = process.env.OPERATOR_PORTAL_FUNCTIONS_BASE_URL
+  ?? `http://127.0.0.1:5001/${process.env.OPERATOR_PORTAL_PROJECT_ID ?? "demo-operator-portal"}/us-central1`;
 
 async function iniciarSesion(page: import("@playwright/test").Page) {
   await page.goto("/backoffice/login");
@@ -33,7 +35,7 @@ async function crearEmpresa(page: import("@playwright/test").Page, empresaId: st
 
 /** Lleva el agregado a `canceled` mediante el callable comercial real, nunca por Firestore directo. */
 async function cancelarSuscripcionCanonica(request: APIRequestContext, autorizacion: string, empresaId: string) {
-  const respuesta = await request.post("http://127.0.0.1:5001/micafe-pos/us-central1/ejecutarComandoComercialSaas", {
+  const respuesta = await request.post(`${functionsBaseUrl}/ejecutarComandoComercialSaas`, {
     headers: { Authorization: autorizacion },
     data: {
       data: {

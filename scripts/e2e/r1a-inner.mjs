@@ -4,8 +4,13 @@ import { resolve } from "node:path";
 
 const evidenceDir = resolve(process.env.E2E_R1A_EVIDENCE_DIR ?? "artifacts/e2e/r1a/manual");
 const command = process.platform === "win32" ? "npx.cmd" : "npx";
-const result = spawnSync(command, ["playwright", "test", "-c", "playwright.r1a.config.ts"], {
-  cwd: process.cwd(), env: process.env, stdio: "inherit",
+let playwrightArgs = [];
+try {
+  const parsed = JSON.parse(process.env.E2E_R1A_PLAYWRIGHT_ARGS ?? "[]");
+  if (Array.isArray(parsed) && parsed.every((value) => typeof value === "string")) playwrightArgs = parsed;
+} catch { /* Un filtro inválido se ignora y mantiene la corrida completa. */ }
+const result = spawnSync(command, ["playwright", "test", "-c", "playwright.r1a.config.ts", ...playwrightArgs], {
+  cwd: process.cwd(), env: process.env, stdio: "inherit", shell: process.platform === "win32",
 });
 
 writeFileSync(resolve(evidenceDir, "run-metadata.json"), JSON.stringify({

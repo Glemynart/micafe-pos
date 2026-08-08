@@ -3,7 +3,7 @@ import { getApps, initializeApp } from "firebase-admin/app";
 import { Timestamp, getFirestore } from "firebase-admin/firestore";
 
 function db() {
-  if (!getApps().length) initializeApp({ projectId: "micafe-pos" });
+  if (!getApps().length) initializeApp({ projectId: process.env.OPERATOR_PORTAL_PROJECT_ID ?? "demo-operator-portal" });
   return getFirestore();
 }
 
