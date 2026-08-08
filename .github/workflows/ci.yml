@@ -170,6 +170,18 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      - name: Backfill idempotente B3-B de Eventos legacy en Emulator
+        run: npm run e2e:b3-eventos-backfill
+
+      - name: Publicar evidencia B3-B
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-b3-eventos-backfill-${{ github.run_id }}
+          path: artifacts/e2e/b3-eventos-backfill/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Certificación integral E4.1 del núcleo SaaS/POS en Emulator
         run: npm run e2e:e4-01
 
