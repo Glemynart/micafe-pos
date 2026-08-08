@@ -58,7 +58,7 @@ Cada PR recomendado es independiente en lo posible y no debe mezclar tareas de d
 
 | ID | Trabajo excluido | Razón de exclusión | PR recomendado |
 |---|---|---|---|
-| P3-01 | Landing multi-tenant, eventos multi-tenant, branding tenant-aware y dominios personalizados. | La clasificación P3 original quedó superada por el Goal y ADR-SAAS-025: B1 y B2 de Eventos ya están integrados en M4; B3 de transición legacy permanece como trabajo separado. Los dominios personalizados siguen fuera de alcance. | `B3-A / B3-B` |
+| P3-01 | Landing multi-tenant, eventos multi-tenant, branding tenant-aware y dominios personalizados. | La clasificación P3 original quedó superada por el Goal y ADR-SAAS-025: B1, B2, B3-A y B3-B de Eventos ya están integrados en M4; queda únicamente el cierre productivo condicionado de la transición legacy. Los dominios personalizados siguen fuera de alcance. | `cierre operativo B3` |
 | P3-02 | Portal de operador SaaS. | No forma parte del MVP operativo definido en el informe. | `feature/operator-portal` |
 
 ## Secuencia de ejecución

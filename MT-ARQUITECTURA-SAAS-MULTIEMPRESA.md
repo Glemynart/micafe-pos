@@ -152,7 +152,8 @@ ADR-SAAS-006.
 - `usuarios` permanece global y sin autoridad tenant.
 - `eventos` es contenido público propiedad de un tenant y usa la colección
   superior `eventos` con `empresaId` obligatorio e inmutable conforme a
-  ADR-SAAS-025. Los documentos sin propietario permanecen legacy hasta B3;
+  ADR-SAAS-025. B3-A y B3-B preparan y certifican la transición; los documentos
+  sin propietario permanecen legacy hasta el cierre operativo autorizado de B3;
   la visibilidad pública no elimina la propiedad tenant.
 - Cada venta nueva contiene un snapshot fiscal autosuficiente. No se crea una colección separada para
   snapshots.
@@ -491,11 +492,12 @@ empresa para vender hasta certificar numeración, snapshot y enforcement.
 
 ## 16. Decisiones de producto pendientes
 
-1. Transición y retiro de los documentos legacy de `eventos` mediante B3.
-   B2 ya implementó la lectura pública por slug y ADR-SAAS-025 resolvió el
-   contrato tenant-aware de los documentos nuevos. El routing futuro por
-   dominio personalizado permanece como trabajo independiente: solo resuelve
-   el contexto público (`empresaId`) y nunca permisos administrativos.
+1. Cierre operativo y retiro de los documentos legacy de `eventos` mediante B3.
+   B2 ya implementó la lectura pública por slug y B3-A/B3-B certificaron el
+   inventario y el backfill seguro en Emulator. El cierre productivo requiere
+   mapeos reales y autorización explícita. El routing futuro por dominio
+   personalizado permanece como trabajo independiente: solo resuelve el
+   contexto público (`empresaId`) y nunca permisos administrativos.
 2. Distribución SaaS definitiva: web/PWA y papel futuro de Electron.
 3. Alcance fiscal multi-país.
 4. Duración comercial exacta del trial.
