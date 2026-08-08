@@ -13,7 +13,7 @@ if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.FIREBASE_SERVICE_A
 }
 
 mkdirSync(evidenceDir, { recursive: true })
-const firestorePort = await new Promise((resolvePort, reject) => {
+const reservarPuerto = () => new Promise((resolvePort, reject) => {
   const server = createServer()
   server.once("error", reject)
   server.listen(0, "127.0.0.1", () => {
@@ -25,11 +25,17 @@ const firestorePort = await new Promise((resolvePort, reject) => {
     server.close(() => resolvePort(address.port))
   })
 })
+const firestorePort = await reservarPuerto()
+const storagePort = await reservarPuerto()
 
 const firebaseConfigPath = resolve(evidenceDir, "firebase-config.json")
 writeFileSync(firebaseConfigPath, `${JSON.stringify({
   firestore: { rules: resolve("firestore.rules"), indexes: resolve("firestore.indexes.json") },
-  emulators: { firestore: { host: "127.0.0.1", port: firestorePort } },
+  storage: { rules: resolve("storage.rules") },
+  emulators: {
+    firestore: { host: "127.0.0.1", port: firestorePort },
+    storage: { host: "127.0.0.1", port: storagePort },
+  },
 }, null, 2)}\n`)
 
 const env = { ...process.env }
@@ -39,6 +45,9 @@ Object.assign(env, {
   E2E_B3_EVENTOS_PROJECT_ID: projectId,
   E2E_B3_EVENTOS_RUN_ID: runId,
   E2E_B3_EVENTOS_EVIDENCE_DIR: evidenceDir,
+  FIRESTORE_EMULATOR_HOST: `127.0.0.1:${firestorePort}`,
+  FIREBASE_STORAGE_EMULATOR_HOST: `127.0.0.1:${storagePort}`,
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: `${projectId}.firebasestorage.app`,
 })
 
 const firebaseCli = resolve("node_modules", "firebase-tools", "lib", "bin", "firebase.js")
@@ -46,7 +55,7 @@ const result = spawnSync(process.execPath, [
   firebaseCli,
   "emulators:exec",
   "--only",
-  "firestore",
+  "firestore,storage",
   "--config",
   firebaseConfigPath,
   "--project",
