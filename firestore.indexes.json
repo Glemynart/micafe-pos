@@ -191,6 +191,7 @@
       "collectionGroup": "eventos",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
         { "fieldPath": "activo", "order": "ASCENDING" },
         { "fieldPath": "fecha", "order": "ASCENDING" }
       ]

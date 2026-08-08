@@ -245,10 +245,19 @@ service cloud.firestore {
       allow delete: if puedeEliminarEnTenant() && esAdminOCajero();
     }
 
-    // Colecciones globales de perfil y transición.
+    // Contenido público propiedad de tenant. La lectura anónima se conserva
+    // temporalmente para compatibilidad hasta PR B2; una sesión autenticada
+    // solo puede leer documentos de su tenant y las mutaciones nunca son
+    // globales.
     match /eventos/{id} {
-      allow read: if true;
-      allow create, update, delete: if esAutenticado() && rol() in ['admin', 'marketing'];
+      allow read: if !haySesion() || puedeLeerTenant();
+      allow create: if puedeCrearEnTenant()
+        && rol() in ['admin', 'marketing']
+        && request.resource.data.empresaId is string;
+      allow update: if puedeActualizarEnTenant()
+        && rol() in ['admin', 'marketing'];
+      allow delete: if puedeEliminarEnTenant()
+        && rol() in ['admin', 'marketing'];
     }
     match /configuracion/{id} {
       // MT-B7: archivo histórico. Ningún cliente puede resolver configuración

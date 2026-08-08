@@ -49,7 +49,7 @@ export default function DashboardPage() {
     const unsub = suscribirEventos(true, (data) => {
       setEventos(data.filter(e => e.fecha >= new Date().toISOString().split("T")[0]))
       setCargandoEventos(false)
-    })
+    }, () => setCargandoEventos(false))
     return unsub
   }, [])
 
