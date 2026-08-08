@@ -91,6 +91,12 @@ Validaciones adicionales de compatibilidad: `npx tsc --noEmit`, `npm run lint`,
 `npm run test:backfill` y `npm run e2e:b3-eventos-backfill` pasan. El E2E usa
 un proyecto demo y no realiza escrituras productivas.
 
+El runner E2E B2 usa `next dev --webpack` de forma explícita. Durante la
+validación de CI con Next 16.3.0, Turbopack presentó un panic interno al
+recompilar el servidor de desarrollo; fijar Webpack en este runner elimina la
+inestabilidad del harness sin cambiar el bundle productivo, las rutas, la
+autoridad del servidor ni el contrato tenant-aware.
+
 ## Gates externos pendientes
 
 Estos gates no se implementan ni se simulan dentro de E4.2:
