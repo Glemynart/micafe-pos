@@ -3,7 +3,7 @@
 **Goal:** G-MVP-01 — MVP SaaS comercial reusable
 **Milestone:** M4 — Certificación comercial
 **Epic:** E4.2 — Release readiness
-**Fecha de auditoría:** 2026-08-04
+**Fecha de auditoría:** 2026-08-08
 **Alcance:** auditoría, evidencia y alineación documental; no cambia el dominio ni el comportamiento del producto.
 
 ## Decisión de release
@@ -35,7 +35,7 @@ multicanal que todavía no ha sido probado en esos canales.
 | ID | Hallazgo | Impacto | Acción posterior | ADR |
 |---|---|---:|---|---|
 | E4.2-SEC-001-STORAGE-RULES | La app usa Storage para imágenes, pero no hay `storage.rules` versionado ni declaración en `firebase.json`. | Alto | Diseñar y certificar reglas tenant-aware con Emulator. | Sí, si cambia el contrato de autorización |
-| E4.2-SEC-002-DEPENDENCIES | `npm audit` presenta vulnerabilidades conocidas en raíz y Functions. | Alto | PR separado de dependencias con validación de compatibilidad. | Solo si cambia arquitectura/contrato |
+| E4.2-SEC-002-DEPENDENCIES | `npm audit` presentaba vulnerabilidades conocidas en raíz y Functions. | Alto | PR #203 integrado; quedan residuales documentadas para una decisión de compatibilidad separada. | Solo si cambia arquitectura/contrato |
 | E4.2-SEC-003-MASTER-PLAN | El plan maestro todavía describe el producto como single-tenant y en borrador. | Alto | Alinear el documento con el estado SaaS real y conservar riesgos no mitigados. | No |
 | E4.2-CI-001-UNCOVERED-SURFACES | Operator Portal, R1A, Electron, Storage y reservas/Wompi no forman parte del gate core. | Medio/alto | Abrir gates o PRs separados según el alcance comercial aprobado. | Según cada frontera |
 
