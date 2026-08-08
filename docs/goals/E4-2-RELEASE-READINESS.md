@@ -37,7 +37,7 @@ multicanal que todavía no ha sido probado en esos canales.
 | E4.2-SEC-001-STORAGE-RULES | **CERRADO en PR #195:** `storage.rules` está versionado, declarado en `firebase.json` y aplica el contrato tenant-aware. La suite de Storage Emulator está conectada a CI. | Alto | Mantener la suite tenant-aware y la evidencia de aislamiento. | ADR-SAAS-024 aceptado |
 | E4.2-SEC-002-DEPENDENCIES | `npm audit` presentaba vulnerabilidades conocidas en raíz y Functions. | Alto | PR #203 y PR #205 integrados; quedan siete moderadas documentadas por requerir cambios mayores incompatibles. | Solo si cambia arquitectura/contrato |
 | E4.2-SEC-003-MASTER-PLAN | **CERRADO:** `MASTER-SECURITY-PLAN.md` está vigente y registra la evolución SaaS, Storage tenant-aware y los riesgos residuales sin declararlos mitigados implícitamente. | Alto | Mantenerlo alineado cuando se cierre un riesgo o se integre una nueva frontera. | No |
-| E4.2-CI-001-UNCOVERED-SURFACES | Operator Portal, R1A, Electron y reservas/Wompi no forman parte del gate core; Storage sí cuenta con suite tenant-aware en CI. | Medio/alto | Abrir gates o PRs separados según el alcance comercial aprobado. | Según cada frontera |
+| E4.2-CI-001-UNCOVERED-SURFACES | Operator Portal y R1A (incluido Electron) forman parte del gate; reservas/Wompi permanecen fuera por dependencias externas. Storage cuenta con suite tenant-aware en CI. | Medio/alto | Mantener el seguimiento abierto hasta resolver las dependencias externas de reservas/Wompi. | Según cada frontera |
 
 ### Evidencia E4.2-SEC-002 - parche compatible de dependencias
 
