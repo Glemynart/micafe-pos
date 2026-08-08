@@ -24,7 +24,7 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   webServer: {
-    command: `cross-env NEXT_PUBLIC_USE_EMULATORS=1 NEXT_PUBLIC_RESERVATION_SLUG=${publicSlug} next dev -H 127.0.0.1 -p 3004`,
+    command: `cross-env NEXT_PUBLIC_USE_EMULATORS=1 NEXT_PUBLIC_RESERVATION_SLUG=${publicSlug} next dev --webpack -H 127.0.0.1 -p 3004`,
     url: `${baseURL}/api/public/eventos?slug=${encodeURIComponent(publicSlug)}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
