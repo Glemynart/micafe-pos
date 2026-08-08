@@ -73,6 +73,24 @@ Validaciones ejecutadas en la rama del parche:
   error `UNKNOWN`; no forma parte del gate CI de E4.2 y queda como evidencia
   del gate Electron pendiente.
 
+### Evidencia E4.2-SEC-002A - actualizacion de Next y cadena de imagenes
+
+El PR de seguimiento fija `next@16.3.0` y actualiza su cadena compatible de
+`postcss`, `sharp` y binarios SWC. No modifica rutas, autoridades server-side,
+Rules, persistencia, dominio ni configuracion de produccion. La instalacion
+limpia con `npm ci` y Node 22 es reproducible.
+
+Con este cambio `npm audit --omit=dev` queda en 0 vulnerabilidades criticas,
+0 altas y 7 moderadas. Las moderadas restantes provienen de cadenas legacy de
+`uuid`/tooling y su correccion automatica propone degradaciones incompatibles
+de `firebase-admin`, `firebase-tools` o `exceljs`; permanecen documentadas y
+fuera de este PR.
+
+Validaciones adicionales de compatibilidad: `npx tsc --noEmit`, `npm run lint`,
+`npm run build`, `npm run build:functions`, `npm run test:auth-foundation`,
+`npm run test:backfill` y `npm run e2e:b3-eventos-backfill` pasan. El E2E usa
+un proyecto demo y no realiza escrituras productivas.
+
 ## Gates externos pendientes
 
 Estos gates no se implementan ni se simulan dentro de E4.2:
