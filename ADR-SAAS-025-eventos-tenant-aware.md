@@ -138,11 +138,12 @@ nunca sustituye el modelo de autorización administrativa ni se utiliza como
 fuente de permisos. El dominio enviado por el cliente tampoco se convierte en
 autoridad.
 
-Durante B1 se conserva temporalmente la lectura anónima directa existente para
-no romper la landing antes de que B2 entregue su superficie pública
-tenant-aware. Esta compatibilidad no convierte `eventos` en una colección
-global ni autoriza administración cruzada; B2 deberá retirarla o sustituirla
-por la resolución pública contextualizada.
+Durante B1 se conservó temporalmente la lectura anónima directa existente para
+no romper la landing antes de que B2 entregara su superficie pública
+tenant-aware. B2 sustituye esa compatibilidad por un endpoint server-side que
+resuelve el slug, filtra por `empresaId` y devuelve únicamente la proyección
+pública de eventos activos. La lectura anónima directa de Firestore queda
+denegada.
 
 ### 4.2 Assets de Eventos
 
@@ -210,7 +211,9 @@ La decisión se implementará en cortes auditables, sin mezclarse con Storage:
 2. **PR B2 — lectura pública tenant-aware:** endpoint/contexto público,
    integración de la landing y pruebas de aislamiento por slug. La resolución
    completa por dominio personalizado queda como dependencia de routing si aún
-   no existe el campo/contrato correspondiente.
+   no existe el campo/contrato correspondiente. La implementación no expone
+   campos administrativos ni modifica reservas, marketing o la landing fuera
+   de la lectura de Eventos.
 3. **PR B3 — transición legacy:** dry-run, mapeo autorizado, backfill idempotente,
    evidencia y retirada del modelo global. Las escrituras productivas requieren
    confirmación explícita.
@@ -255,7 +258,7 @@ superficie canónica hasta que exista evidencia suficiente para clasificarlos.
 
 ## 9. Alcance autorizado por la aceptación
 
-La aceptación autoriza abrir el PR B1 con el siguiente alcance exclusivo:
+La aceptación inicial autorizó abrir el PR B1 con el siguiente alcance exclusivo:
 
 - cambiar el contrato de `eventos` para documentos nuevos tenant-aware;
 - adaptar `firestore.rules`, índices y pruebas de Rules;
@@ -265,10 +268,11 @@ La aceptación autoriza abrir el PR B1 con el siguiente alcance exclusivo:
 - sincronizar los documentos maestros que todavía clasifican `eventos` como
   globales.
 
-B2 (lectura pública y routing) y B3 (transición, backfill y retiro de legacy)
-permanecen planificados como PR independientes. La aceptación no autoriza
-escrituras en producción ni el backfill legacy; esos pasos requieren
-autorización posterior.
+B2 fue autorizado posteriormente de forma explícita con su alcance propio:
+resolución server-side por `slug`, lectura de eventos activos del tenant,
+exclusión de legacy, integración de la landing y evidencia de aislamiento.
+B3 (transición, backfill y retiro de legacy) permanece planificado como PR
+independiente. Ninguno de estos cortes autoriza escrituras en producción.
 
 ## 10. Estado
 

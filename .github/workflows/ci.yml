@@ -110,6 +110,9 @@ jobs:
       - name: Pruebas de Storage tenant-aware P2-03
         run: npm run test:storage-rules
 
+      - name: Pruebas unitarias de lectura pública tenant-aware B2
+        run: npm run test:eventos-publicos
+
       - name: Publicar evidencia P2-03 Storage
         if: always()
         uses: actions/upload-artifact@v4
@@ -137,6 +140,18 @@ jobs:
         with:
           name: e2e-p0-01-${{ github.run_id }}
           path: artifacts/e2e/p0-01/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: E2E B2 de eventos públicos tenant-aware en Emulator
+        run: npm run e2e:b2-eventos
+
+      - name: Publicar evidencia E2E B2
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-b2-eventos-${{ github.run_id }}
+          path: artifacts/e2e/b2-eventos/
           if-no-files-found: warn
           retention-days: 14
 
