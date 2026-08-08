@@ -113,6 +113,9 @@ jobs:
       - name: Pruebas unitarias de lectura pública tenant-aware B2
         run: npm run test:eventos-publicos
 
+      - name: Pruebas unitarias de inventario legacy B3-A
+        run: npm run test:b3-eventos
+
       - name: Publicar evidencia P2-03 Storage
         if: always()
         uses: actions/upload-artifact@v4
@@ -152,6 +155,18 @@ jobs:
         with:
           name: e2e-b2-eventos-${{ github.run_id }}
           path: artifacts/e2e/b2-eventos/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Dry-run B3-A de Eventos legacy en Emulator
+        run: npm run e2e:b3-eventos
+
+      - name: Publicar evidencia B3-A
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-b3-eventos-${{ github.run_id }}
+          path: artifacts/e2e/b3-eventos/
           if-no-files-found: warn
           retention-days: 14
 
