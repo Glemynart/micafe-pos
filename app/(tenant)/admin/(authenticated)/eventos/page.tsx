@@ -15,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Loader2, CalendarPlus, Trash2, Edit2, Eye, EyeOff, CalendarDays, Upload, X, ImageIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
-import { suscribirEventos, crearEvento, editarEvento, toggleEvento, eliminarEvento, CATEGORIAS_EVENTOS, type Evento, type EventoInput } from "@/lib/eventos-service"
+import { suscribirEventos, crearEvento, editarEvento, toggleEvento, eliminarEvento, generarEventoId, CATEGORIAS_EVENTOS, type Evento, type EventoInput } from "@/lib/eventos-service"
 import { storage } from "@/lib/firebase"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 
@@ -30,17 +30,19 @@ export default function EventosPage() {
   const [eventToDelete, setEventToDelete] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [form, setForm] = useState<EventoInput>({ titulo: "", descripcion: "", fecha: "", hora: "", imagenUrl: "", categoria: "Otro" })
+  const [draftEventoId, setDraftEventoId] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string>("")
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    const unsub = suscribirEventos(false, (data) => { setEventos(data); setCargando(false) })
+    const unsub = suscribirEventos(false, (data) => { setEventos(data); setCargando(false) }, () => setCargando(false))
     return unsub
-  }, [])
+  }, [empresaId])
 
   const openNew = () => {
     setEditing(null)
+    setDraftEventoId(generarEventoId())
     setForm({ titulo: "", descripcion: "", fecha: "", hora: "", imagenUrl: "", categoria: "Otro" })
     setPreviewUrl("")
     setShowDialog(true)
@@ -48,6 +50,7 @@ export default function EventosPage() {
 
   const openEdit = (e: Evento) => {
     setEditing(e)
+    setDraftEventoId(e.id)
     setForm({ titulo: e.titulo, descripcion: e.descripcion, fecha: e.fecha, hora: e.hora, imagenUrl: e.imagenUrl || "", categoria: e.categoria })
     setPreviewUrl(e.imagenUrl || "")
     setShowDialog(true)
@@ -57,14 +60,13 @@ export default function EventosPage() {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 5 * 1024 * 1024) { toast.error("La imagen no puede superar 5MB"); return }
-    if (!empresaId) { toast.error("No hay un tenant activo para subir la imagen"); return }
+    if (!empresaId || !draftEventoId) { toast.error("No hay un evento tenant-aware activo para subir la imagen"); return }
 
     setPreviewUrl(URL.createObjectURL(file))
     setUploading(true)
     try {
       const ext = file.type.split("/")[1] || "jpg"
-      const eventoId = crypto.randomUUID()
-      const fileRef = ref(storage, `tenants/${empresaId}/eventos/${eventoId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`)
+      const fileRef = ref(storage, `tenants/${empresaId}/eventos/${draftEventoId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`)
       await uploadBytes(fileRef, file, { contentType: file.type })
       const url = await getDownloadURL(fileRef)
       setForm(prev => ({ ...prev, imagenUrl: url }))
@@ -87,7 +89,7 @@ export default function EventosPage() {
         await editarEvento(editing.id, form)
         toast.success("Evento actualizado")
       } else {
-        await crearEvento(form, usuario?.nombre || "Admin")
+        await crearEvento(form, usuario?.nombre || "Admin", draftEventoId || undefined)
         toast.success("Evento creado")
       }
       setShowDialog(false)
@@ -214,8 +216,7 @@ export default function EventosPage() {
                   </Button>
                 </div>
               )}
-              <p className="text-[10px] text-white/60 mt-1">O pega una URL:</p>
-              <Input value={form.imagenUrl || ""} onChange={e => { setForm({ ...form, imagenUrl: e.target.value }); setPreviewUrl(e.target.value) }} placeholder="https://..." className="mt-1 text-xs" />
+              <p className="text-[10px] text-white/60 mt-1">Las imágenes nuevas se almacenan dentro del tenant activo.</p>
             </div>
           </div>
           <DialogFooter>

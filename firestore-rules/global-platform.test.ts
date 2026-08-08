@@ -20,9 +20,11 @@ beforeEach(async () => {
   await seedDocument(`usuarios/${fixtures.tenantA.cajero.uid}`, { nombre: "Cajero A" });
   await seedDocument(`usuarios/${fixtures.tenantA.admin.uid}`, { nombre: "Admin A" });
   await seedDocument("configuracion/general", { nombre_tienda: "CafÃ© A" });
-  await seedDocument("eventos/evento-publico", { titulo: "Evento", activo: true });
-  await seedDocument("empresas/empresa-a", { nombre: "Empresa A" });
-  await seedDocument("empresas/empresa-b", { nombre: "Empresa B" });
+  await seedDocument("eventos/evento-publico-a", { empresaId: "empresa-a", titulo: "Evento A", activo: true, fecha: "2026-08-10" });
+  await seedDocument("eventos/evento-publico-b", { empresaId: "empresa-b", titulo: "Evento B", activo: true, fecha: "2026-08-11" });
+  await seedDocument("eventos/evento-legacy", { titulo: "Evento legacy", activo: true, fecha: "2026-08-12" });
+  await seedDocument("empresas/empresa-a", { nombre: "Empresa A", estado: "trial" });
+  await seedDocument("empresas/empresa-b", { nombre: "Empresa B", estado: "trial" });
 });
 
 after(async () => {
@@ -69,16 +71,31 @@ test("membresias: cada miembro lee la propia y el admin lista su tenant sin pode
   await expectDenied(adminA.firestore().doc(propia).update({ rol: "admin" }));
 });
 
-test("configuraciÃ³n exige autenticaciÃ³n y eventos mantienen lectura pÃºblica", async () => {
+test("eventos mantienen lectura pÃºblica temporal, pero la administración queda aislada por tenant", async () => {
   const anonimo = await contextFor(fixtures.anonimo);
+  const adminA = await contextFor(fixtures.tenantA.admin);
+  const adminB = await contextFor(fixtures.tenantB.admin);
   const cajeroA = await contextFor(fixtures.tenantA.cajero);
   const marketingA = await contextFor(fixtures.tenantA.marketing);
 
   await expectDenied(anonimo.firestore().doc("configuracion/general").get());
   await expectDenied(cajeroA.firestore().doc("configuracion/general").get());
-  await expectAllowed(anonimo.firestore().doc("eventos/evento-publico").get());
-  await expectAllowed(marketingA.firestore().doc("eventos/nuevo-evento").set({ titulo: "Nuevo" }));
-  await expectDenied(anonimo.firestore().doc("eventos/no-autorizado").set({ titulo: "No" }));
+  await expectAllowed(anonimo.firestore().doc("eventos/evento-publico-a").get());
+  await expectAllowed(adminA.firestore().doc("eventos/evento-publico-a").get());
+  await expectDenied(adminA.firestore().doc("eventos/evento-publico-b").get());
+  await expectAllowed(adminB.firestore().doc("eventos/evento-publico-b").get());
+  await expectAllowed(adminA.firestore().collection("eventos").where("empresaId", "==", "empresa-a").get());
+  await expectDenied(adminA.firestore().collection("eventos").get());
+
+  await expectAllowed(marketingA.firestore().doc("eventos/nuevo-evento").set({ empresaId: "empresa-a", titulo: "Nuevo", activo: true }));
+  await expectDenied(marketingA.firestore().doc("eventos/evento-ajeno").set({ empresaId: "empresa-b", titulo: "No", activo: true }));
+  await expectDenied(marketingA.firestore().doc("eventos/evento-sin-tenant").set({ titulo: "No", activo: true }));
+  await expectDenied(anonimo.firestore().doc("eventos/no-autorizado").set({ empresaId: "empresa-a", titulo: "No" }));
+
+  await expectAllowed(marketingA.firestore().doc("eventos/evento-publico-a").update({ titulo: "Actualizado A" }));
+  await expectDenied(marketingA.firestore().doc("eventos/evento-publico-a").update({ empresaId: "empresa-b" }));
+  await expectDenied(marketingA.firestore().doc("eventos/evento-publico-b").update({ titulo: "No" }));
+  await expectDenied(marketingA.firestore().doc("eventos/evento-legacy").update({ titulo: "No" }));
 });
 
 test("un tenant solo puede leer su empresa y no puede listarlas", async () => {
