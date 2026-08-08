@@ -6,7 +6,7 @@ export default function globalSetup(): void {
       cwd: process.cwd(),
       env: {
         ...process.env,
-        GCLOUD_PROJECT: "micafe-pos",
+        GCLOUD_PROJECT: process.env.OPERATOR_PORTAL_PROJECT_ID ?? "demo-operator-portal",
         FIRESTORE_EMULATOR_HOST: "127.0.0.1:8085",
         FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099",
       },

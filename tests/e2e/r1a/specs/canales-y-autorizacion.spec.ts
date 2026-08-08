@@ -12,7 +12,7 @@ test.describe("R1-A canales y autorización", () => {
     const fixture = await prepararFixtureR1A(`${testInfo.project.name}-shifts`);
     try {
       const gate = new TurnoGatePage(canal.page);
-      await gate.iniciarSesion(fixture.admin);
+      await gate.iniciarSesion(fixture.admin, { esperarCompuerta: false });
       const shifts = new ShiftsModulePage(canal.page);
       await shifts.abrirModulo();
       await shifts.abrirTurno();
@@ -28,9 +28,18 @@ test.describe("R1-A canales y autorización", () => {
     try {
       const gate = new TurnoGatePage(canal.page);
       await gate.iniciarSesion(fixture.cajero);
-      await canal.page.route("**/abrirTurnoOperativoV1", (route) => route.abort("internetdisconnected"));
+      await canal.page.route("**/*abrirTurnoOperativoV1*", async (route) => {
+        // Una respuesta Callable de indisponibilidad evita que el emulador
+        // llegue a confirmar la operación antes de simular la pérdida de red.
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({ error: { status: "UNAVAILABLE", message: "E2E transient network failure" } }),
+        });
+      });
       await gate.abrir();
       await expect(canal.page.getByRole("heading", { name: "Abre tu turno" })).toBeVisible();
+      await expect(canal.page.getByPlaceholder("0")).toBeEnabled({ timeout: 15_000 });
       await canal.page.unrouteAll({ behavior: "wait" });
       await gate.abrir();
       await esperarConfirmacionListener(canal.page);
@@ -77,7 +86,7 @@ test.describe("R1-A canales y autorización", () => {
     const canalAjeno = await abrirWeb(browser);
     try {
       const gatePropio = new TurnoGatePage(canal.page);
-      await gatePropio.iniciarSesion(propia.admin);
+      await gatePropio.iniciarSesion(propia.admin, { esperarCompuerta: false });
       const shifts = new ShiftsModulePage(canal.page);
       await shifts.abrirModulo();
       await shifts.abrirTurno();
@@ -88,7 +97,7 @@ test.describe("R1-A canales y autorización", () => {
       await gateAjeno.abrir();
       await esperarAperturaConfirmada(ajena.empresaId, ajena.cajero.uid);
 
-      await expect(canal.page.getByText(propia.admin.nombre)).toBeVisible();
+      await expect(canal.page.getByRole("complementary").getByText(propia.admin.nombre)).toBeVisible();
       await expect(canal.page.getByText(ajena.cajero.nombre)).toHaveCount(0);
     } finally {
       await canalAjeno.cerrar();

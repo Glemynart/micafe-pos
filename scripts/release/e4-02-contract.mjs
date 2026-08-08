@@ -9,6 +9,8 @@ export const E4_02_REQUIRED_CI_COMMANDS = [
   "npm run e2e:p1-04",
   "npm run e2e:p0-10",
   "npm run e2e:e4-01",
+  "npm run e2e:operator-portal",
+  "npm run e2e:r1a",
 ];
 
 export const E4_02_PENDING_GATES = [
