@@ -46,7 +46,24 @@ if (fixture.status !== 0) {
       legacyMapeoConflictivo: 0,
       mapeosNoEncontrados: 1,
     }
-    if (JSON.stringify(evidence.totales) !== JSON.stringify(expected) || evidence.productionWrites !== false || evidence.modo !== "DRY_RUN") {
+    const expectedAssets = {
+      referencias: 3,
+      referenciasStorage: 3,
+      referenciasStorageExistentes: 3,
+      referenciasStorageAusentes: 0,
+      referenciasExternasNoVerificables: 0,
+      referenciasInvalidas: 0,
+      assetsCompartidos: 1,
+      objetosNoReferenciados: 1,
+      eventosConAsset: 3,
+      eventosSinAsset: 2,
+    }
+    if (JSON.stringify(evidence.totales) !== JSON.stringify(expected)
+      || JSON.stringify(evidence.totalesAssets) !== JSON.stringify(expectedAssets)
+      || evidence.storageScan?.estado !== "ESCANEADO"
+      || evidence.storageScan?.objectCount !== 3
+      || evidence.productionWrites !== false
+      || evidence.modo !== "DRY_RUN") {
       throw new Error(`Evidencia B3-A inesperada: ${JSON.stringify(evidence)}`)
     }
     writeFileSync(resolve(evidenceDir, "run-metadata.json"), `${JSON.stringify({
