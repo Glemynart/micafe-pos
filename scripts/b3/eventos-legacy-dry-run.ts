@@ -1,6 +1,6 @@
 import * as dotenv from "dotenv"
 import * as fs from "node:fs"
-import { cert, getApps, initializeApp } from "firebase-admin/app"
+import { applicationDefault, cert, getApps, initializeApp } from "firebase-admin/app"
 import { getFirestore } from "firebase-admin/firestore"
 import { createHash } from "node:crypto"
 import { dirname, resolve } from "node:path"
@@ -16,13 +16,24 @@ function argumento(nombre: string): string | undefined {
   return value
 }
 
-function cargarCuentaServicio(): object {
+function cargarCuentaServicio(): object | undefined {
   const inline = process.env.FIREBASE_SERVICE_ACCOUNT
-  if (inline) return JSON.parse(inline)
+  if (inline) {
+    const parsed = JSON.parse(inline) as { type?: unknown }
+    if (parsed.type === "authorized_user") {
+      throw new Error("FIREBASE_SERVICE_ACCOUNT inline debe contener una cuenta de servicio; para ADC autorizado use GOOGLE_APPLICATION_CREDENTIALS.")
+    }
+    return parsed
+  }
   const rutas = [process.env.FIREBASE_SERVICE_ACCOUNT_PATH, process.env.GOOGLE_APPLICATION_CREDENTIALS, "./service-account.local.json"]
     .filter(Boolean) as string[]
-  for (const ruta of rutas) if (fs.existsSync(ruta)) return JSON.parse(fs.readFileSync(ruta, "utf8"))
-  throw new Error("No se encontró una cuenta de servicio para la lectura dry-run.")
+  for (const ruta of rutas) {
+    if (!fs.existsSync(ruta)) continue
+    const parsed = JSON.parse(fs.readFileSync(ruta, "utf8")) as { type?: unknown }
+    if (parsed.type === "authorized_user") return undefined
+    return parsed
+  }
+  return undefined
 }
 
 function crearDb() {
@@ -30,7 +41,11 @@ function crearDb() {
     if (process.env.FIRESTORE_EMULATOR_HOST) {
       initializeApp({ projectId: process.env.GCLOUD_PROJECT ?? "demo-b3-eventos-e2e" })
     } else {
-      initializeApp({ credential: cert(cargarCuentaServicio()) })
+      const cuentaServicio = cargarCuentaServicio()
+      initializeApp({
+        credential: cuentaServicio ? cert(cuentaServicio) : applicationDefault(),
+        projectId: process.env.GCLOUD_PROJECT ?? process.env.GCP_PROJECT,
+      })
     }
   }
   return getFirestore()
