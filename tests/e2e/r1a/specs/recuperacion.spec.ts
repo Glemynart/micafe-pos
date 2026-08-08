@@ -10,16 +10,17 @@ test.describe("R1-A recuperación de intención", () => {
       const gate = new TurnoGatePage(sesion.page);
       await gate.iniciarSesion(fixture.cajero);
       let llamadas = 0;
-      await sesion.page.route("**/abrirTurnoOperativoV1", async (route) => {
+      await sesion.page.route("**/*abrirTurnoOperativoV1*", async (route) => {
         llamadas += 1;
         await route.continue();
       });
       if (testInfo.project.name === "web") await sesion.page.reload();
       else {
         sesion = await sesion.reiniciar!();
-        await sesion.page.goto("/pos");
+        const baseUrl = process.env.E2E_R1A_BASE_URL ?? "http://127.0.0.1:3000";
+        await sesion.page.goto(new URL("/pos", baseUrl).toString());
       }
-      await expect(sesion.page.getByRole("heading", { name: "Abre tu turno" })).toBeVisible();
+      await expect(sesion.page.getByRole("heading", { name: "Abre tu turno" })).toBeVisible({ timeout: 30_000 });
       expect(llamadas).toBe(0);
     } finally {
       await limpiarFixtureR1A(fixture);

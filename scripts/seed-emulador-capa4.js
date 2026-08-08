@@ -12,7 +12,7 @@
 
 const FIRESTORE_HOST = "127.0.0.1:8085";
 const AUTH_HOST = "127.0.0.1:9099";
-const PROJECT_ID = "micafe-pos";
+const PROJECT_ID = process.env.OPERATOR_PORTAL_PROJECT_ID ?? "demo-operator-portal";
 
 process.env.FIRESTORE_EMULATOR_HOST = FIRESTORE_HOST;
 process.env.FIREBASE_AUTH_EMULATOR_HOST = AUTH_HOST;
