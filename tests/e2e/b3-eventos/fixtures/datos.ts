@@ -28,6 +28,7 @@ const ASSETS = {
 } as const
 
 const BUCKET = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? `${B3_PROJECT_ID}.firebasestorage.app`
+const STORAGE_ENABLED = Boolean(process.env.FIREBASE_STORAGE_EMULATOR_HOST)
 
 function dbEmulador() {
   if (!process.env.FIRESTORE_EMULATOR_HOST) throw new Error("B3 fixture solo admite Firestore Emulator.")
@@ -58,16 +59,18 @@ export async function prepararFixtureB3() {
     db.collection("eventos").doc(EVENTOS.legacyInvalido).set({ titulo: "Legacy inválido", activo: true, runId: B3_RUN_ID }),
   ])
 
-  await Promise.all([
-    db.collection("eventos").doc(EVENTOS.canonico).update({ imagenUrl: `gs://${BUCKET}/${ASSETS.canonico}` }),
-    db.collection("eventos").doc(EVENTOS.legacyMapeado).update({ imagenUrl: `gs://${BUCKET}/${ASSETS.compartido}?token=fixture-a` }),
-    db.collection("eventos").doc(EVENTOS.legacySinMapeo).update({ imagenUrl: `gs://${BUCKET}/${ASSETS.compartido}?token=fixture-b` }),
-  ])
+  if (STORAGE_ENABLED) {
+    await Promise.all([
+      db.collection("eventos").doc(EVENTOS.canonico).update({ imagenUrl: `gs://${BUCKET}/${ASSETS.canonico}` }),
+      db.collection("eventos").doc(EVENTOS.legacyMapeado).update({ imagenUrl: `gs://${BUCKET}/${ASSETS.compartido}?token=fixture-a` }),
+      db.collection("eventos").doc(EVENTOS.legacySinMapeo).update({ imagenUrl: `gs://${BUCKET}/${ASSETS.compartido}?token=fixture-b` }),
+    ])
 
-  const bucket = storageEmulador()
-  await Promise.all(Object.values(ASSETS).map((path) => bucket.file(path).save(Buffer.from(`fixture:${path}`), {
-    metadata: { contentType: "image/png" },
-  })))
+    const bucket = storageEmulador()
+    await Promise.all(Object.values(ASSETS).map((path) => bucket.file(path).save(Buffer.from(`fixture:${path}`), {
+      metadata: { contentType: "image/png" },
+    })))
+  }
 
   writeFileSync(resolve(B3_EVIDENCE_DIR, "mapping.json"), `${JSON.stringify({
     schemaVersion: 1,
@@ -81,11 +84,11 @@ export async function prepararFixtureB3() {
 
 export async function limpiarFixtureB3() {
   const db = dbEmulador()
-  const bucket = storageEmulador()
+  const bucket = STORAGE_ENABLED ? storageEmulador() : undefined
   await Promise.all([
     ...Object.values(EVENTOS).map((id) => db.collection("eventos").doc(id).delete()),
     ...Object.values(EMPRESAS).map((id) => db.collection("empresas").doc(id).delete()),
-    ...Object.values(ASSETS).map((path) => bucket.file(path).delete().catch(() => undefined)),
+    ...(bucket ? Object.values(ASSETS).map((path) => bucket.file(path).delete().catch(() => undefined)) : []),
   ])
 }
 
