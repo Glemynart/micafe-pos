@@ -27,10 +27,14 @@ test("diagnostica y desbloquea el administrador inicial", async ({ page }) => {
   await page.getByRole("dialog", { name: "Credencial inicial emitida" }).getByRole("button", { name: "Ya lo entregué, cerrar" }).click();
   const store = db();
   const credenciales = await store.collection("credenciales_operativas").where("empresaId", "==", empresaId).limit(1).get();
-  await credenciales.docs[0].ref.update({ fallosConsecutivos: 0, bloqueadoHasta: Timestamp.fromMillis(Date.now() + 60_000) });
-  await page.reload();
-  const estadoAcceso = page.locator("div").filter({ hasText: /^Estado de accesoBLOQUEADO$/ });
-  await expect(estadoAcceso.getByText("BLOQUEADO", { exact: true })).toBeVisible();
+  await credenciales.docs[0].ref.update({
+    fallosConsecutivos: 0,
+    bloqueadoHasta: Timestamp.fromMillis(Date.now() + 5 * 60_000),
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("button", { name: "Desbloquear administrador" })).toBeVisible({ timeout: 60_000 });
+  const estadoAcceso = page.getByText("Estado de acceso", { exact: true }).locator("..");
+  await expect(estadoAcceso.getByText("BLOQUEADO", { exact: true })).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Desbloquear administrador" }).click();
   await page.getByRole("alertdialog", { name: "Desbloquear administrador inicial" }).getByRole("button", { name: "Desbloquear administrador" }).click();
   await expect(page.getByText("Administrador inicial desbloqueado")).toBeVisible();
