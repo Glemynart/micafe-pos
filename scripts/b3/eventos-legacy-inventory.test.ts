@@ -1,6 +1,12 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { construirReporteInventario, parsearMapeos } from "./eventos-legacy-inventory"
+import {
+  analizarReferenciaAsset,
+  construirInventarioAssets,
+  construirReporteInventario,
+  parsearMapeos,
+  serializarReporte,
+} from "./eventos-legacy-inventory"
 
 const empresas = [
   { id: "tenant-a", data: { estado: "activa", nombre: "Café A" } },
@@ -70,4 +76,63 @@ test("el manifiesto requiere versión y campos explícitos", () => {
   ])
   assert.throws(() => parsearMapeos({ schemaVersion: 2, mapeos: [] }), /schemaVersion=1/)
   assert.throws(() => parsearMapeos({ schemaVersion: 1 }), /arreglo mapeos/)
+})
+
+test("analiza referencias Storage sin conservar tokens ni asignar tenant por la URL", () => {
+  const gs = analizarReferenciaAsset("gs://bucket-demo/eventos/legacy.png?token=secreto")
+  const firebase = analizarReferenciaAsset("https://firebasestorage.googleapis.com/v0/b/bucket-demo/o/tenants%2Ftenant-a%2Feventos%2Fe1%2Fcanonico.png?alt=media&token=secreto")
+  const externa = analizarReferenciaAsset("https://cdn.example.test/imagen.png")
+
+  assert.equal(gs?.tipo, "STORAGE_PATH")
+  assert.equal(gs?.path, "eventos/legacy.png")
+  assert.equal(gs?.ruta, "LEGACY")
+  assert.equal(firebase?.bucket, "bucket-demo")
+  assert.equal(firebase?.path, "tenants/tenant-a/eventos/e1/canonico.png")
+  assert.equal(firebase?.ruta, "CANONICA_TENANT")
+  assert.equal(externa?.tipo, "URL_EXTERNA")
+  assert.equal(externa?.host, "cdn.example.test")
+  assert.notEqual(JSON.stringify(gs), JSON.stringify({ token: "secreto" }))
+})
+
+test("inventaría assets existentes, compartidos, externos y huérfanos de forma determinista", () => {
+  const eventos = [
+    { id: "legacy-a", data: { imagenUrl: "gs://bucket-demo/eventos/shared.png?token=uno" } },
+    { id: "legacy-b", data: { imagenUrl: "gs://bucket-demo/eventos/shared.png?token=dos" } },
+    { id: "legacy-c", data: { imagenUrl: "https://cdn.example.test/externa.png" } },
+    { id: "legacy-d", data: {} },
+  ]
+  const primero = construirInventarioAssets(eventos, [
+    { bucket: "bucket-demo", path: "eventos/shared.png" },
+    { bucket: "bucket-demo", path: "eventos/orphan.png" },
+  ])
+  const segundo = construirInventarioAssets(eventos, [
+    { bucket: "bucket-demo", path: "eventos/shared.png" },
+    { bucket: "bucket-demo", path: "eventos/orphan.png" },
+  ])
+
+  assert.deepEqual(primero, segundo)
+  assert.equal(primero.totales.referencias, 3)
+  assert.equal(primero.totales.assetsCompartidos, 1)
+  assert.equal(primero.totales.objetosNoReferenciados, 1)
+  assert.equal(primero.totales.eventosConAsset, 3)
+  assert.equal(primero.totales.eventosSinAsset, 1)
+  assert.equal(primero.assets.find((asset) => asset.path === "eventos/shared.png")?.estado, "REFERENCIA_COMPARTIDA")
+  assert.equal(primero.assets.find((asset) => asset.tipo === "URL_EXTERNA")?.estado, "URL_EXTERNA_NO_VERIFICABLE")
+  assert.equal(primero.assets.find((asset) => asset.path === "eventos/orphan.png")?.estado, "OBJETO_NO_REFERENCIADO")
+})
+
+test("la evidencia serializada es reproducible y no contiene URLs o tokens crudos", () => {
+  const reporte = construirReporteInventario(
+    [{ id: "legacy", data: { imagenUrl: "gs://bucket-demo/eventos/legacy.png?token=secreto" } }],
+    empresas,
+    [],
+    { projectId: "demo-b3-eventos-test", entorno: "EMULATOR" },
+    { storageObjects: [{ bucket: "bucket-demo", path: "eventos/legacy.png" }] },
+  )
+  const primero = serializarReporte(reporte)
+  const segundo = serializarReporte(reporte)
+
+  assert.equal(primero, segundo)
+  assert.equal(primero.includes("token=secreto"), false)
+  assert.equal(primero.includes("gs://bucket-demo"), false)
 })
