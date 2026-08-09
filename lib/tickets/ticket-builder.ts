@@ -114,8 +114,8 @@ const CLIENTE_DEFAULT: TicketCliente = {
   documento: '222222222222',
 }
 
-const DEFAULT_FABRICANTE_SOFTWARE = 'Desarrollado por SaaS POS [REDACTED]
-const DEFAULT_PROVEEDOR_TECNOLOGICO = 'Proveedor fiscal de pruebas [REDACTED]
+const DEFAULT_FABRICANTE_SOFTWARE = 'Desarrollado por SaaS POS [REDACTED]'
+const DEFAULT_PROVEEDOR_TECNOLOGICO = 'Proveedor fiscal de pruebas [REDACTED]'
 
 /** Default alineado con ADR-TRIB-001 (REGIMEN_TRIBUTARIO_DEFAULT = 'no_responsable'). */
 const REGIMEN_DEFAULT: RegimenTributarioTicket = 'no_responsable'

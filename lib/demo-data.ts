@@ -114,16 +114,16 @@ export const products: Product[] = [
 ]
 
 export const ingredients: Ingredient[] = [
-  { id: '1', name: 'Café en grano', stock: 5000, unit: 'g', costPerUNIT: [REDACTED], lastPurchasePrice: 80000, minStock: 1000, status: 'ok' },
-  { id: '2', name: 'Leche entera', stock: 15000, unit: 'ml', costPerUNIT: [REDACTED], lastPurchasePrice: 4000, minStock: 5000, status: 'ok' },
-  { id: '3', name: 'Azúcar', stock: 3000, unit: 'g', costPerUNIT: [REDACTED], lastPurchasePrice: 3000, minStock: 500, status: 'ok' },
-  { id: '4', name: 'Chocolate en polvo', stock: 800, unit: 'g', costPerUNIT: [REDACTED], lastPurchasePrice: 25000, minStock: 300, status: 'low' },
-  { id: '5', name: 'Pan de sándwich', stock: 40, unit: 'unidades', costPerUNIT: [REDACTED], lastPurchasePrice: 500, minStock: 20, status: 'ok' },
-  { id: '6', name: 'Jamón', stock: 500, unit: 'g', costPerUNIT: [REDACTED], lastPurchasePrice: 35000, minStock: 200, status: 'ok' },
-  { id: '7', name: 'Queso', stock: 150, unit: 'g', costPerUNIT: [REDACTED], lastPurchasePrice: 28000, minStock: 200, status: 'critical' },
-  { id: '8', name: 'Pollo desmenuzado', stock: 800, unit: 'g', costPerUNIT: [REDACTED], lastPurchasePrice: 22000, minStock: 300, status: 'ok' },
-  { id: '9', name: 'Harina', stock: 2500, unit: 'g', costPerUNIT: [REDACTED], lastPurchasePrice: 4000, minStock: 1000, status: 'ok' },
-  { id: '10', name: 'Huevos', stock: 48, unit: 'unidades', costPerUNIT: [REDACTED], lastPurchasePrice: 600, minStock: 24, status: 'ok' },
+  { id: '1', name: 'Café en grano', stock: 5000, unit: 'g', costPerUnit: 0, lastPurchasePrice: 80000, minStock: 1000, status: 'ok' },
+  { id: '2', name: 'Leche entera', stock: 15000, unit: 'ml', costPerUnit: 0, lastPurchasePrice: 4000, minStock: 5000, status: 'ok' },
+  { id: '3', name: 'Azúcar', stock: 3000, unit: 'g', costPerUnit: 0, lastPurchasePrice: 3000, minStock: 500, status: 'ok' },
+  { id: '4', name: 'Chocolate en polvo', stock: 800, unit: 'g', costPerUnit: 0, lastPurchasePrice: 25000, minStock: 300, status: 'low' },
+  { id: '5', name: 'Pan de sándwich', stock: 40, unit: 'unidades', costPerUnit: 0, lastPurchasePrice: 500, minStock: 20, status: 'ok' },
+  { id: '6', name: 'Jamón', stock: 500, unit: 'g', costPerUnit: 0, lastPurchasePrice: 35000, minStock: 200, status: 'ok' },
+  { id: '7', name: 'Queso', stock: 150, unit: 'g', costPerUnit: 0, lastPurchasePrice: 28000, minStock: 200, status: 'critical' },
+  { id: '8', name: 'Pollo desmenuzado', stock: 800, unit: 'g', costPerUnit: 0, lastPurchasePrice: 22000, minStock: 300, status: 'ok' },
+  { id: '9', name: 'Harina', stock: 2500, unit: 'g', costPerUnit: 0, lastPurchasePrice: 4000, minStock: 1000, status: 'ok' },
+  { id: '10', name: 'Huevos', stock: 48, unit: 'unidades', costPerUnit: 0, lastPurchasePrice: 600, minStock: 24, status: 'ok' },
 ]
 
 export const recipes: Recipe[] = [
