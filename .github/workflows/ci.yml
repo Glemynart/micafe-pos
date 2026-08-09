@@ -1,13 +1,17 @@
 name: CI
 
-# MT-U0 — Gate de calidad: condición de merge hacia main.
-# Valida tipos y pruebas antes de integrar. No despliega ni construye artefactos.
+# Perfil PR/main: validación rápida, estable y sensible al alcance. El gate
+# pesado de release vive en release-gate.yml y conserva E4.1 completo, R1-A y
+# Operator Portal sin repetirlos en cada cambio.
 
 on:
   pull_request:
     branches: [main]
   push:
     branches: [main]
+
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -20,14 +24,32 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detectar alcance del cambio
+        id: scope
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/ci/changed-scope.mjs
+
+      - name: Validar contrato de CI y release
+        run: npm run test:e4-02:contract
+
+      - name: Validar formato del diff documental
+        if: steps.scope.outputs.documentation_only == 'true'
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: git diff --check "$env:GITHUB_BASE_SHA..$env:GITHUB_HEAD_SHA"
+        shell: pwsh
 
       - name: Setup Node
+        if: steps.scope.outputs.run_core == 'true'
         uses: actions/setup-node@v4
         with:
-          # Alineado con el Node de desarrollo (22.x): los golden de test:tickets
-          # embeben tiempos formateados con Intl, cuyo separador (U+00A0) depende
-          # de la versión de ICU del runtime. Node 20 trae un ICU distinto y los
-          # golden (generados bajo Node 22) fallaban en CI por ese carácter.
           node-version: 22
           cache: npm
           cache-dependency-path: |
@@ -35,134 +57,123 @@ jobs:
             functions/package-lock.json
 
       - name: Setup Java para Firebase Emulator Suite
+        if: steps.scope.outputs.run_core == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
 
-      - name: Instalar dependencias de aplicaciÃ³n
+      - name: Instalar dependencias de aplicación
+        if: steps.scope.outputs.run_core == 'true'
         run: npm ci
 
       - name: Instalar dependencias de Functions
+        if: steps.scope.outputs.run_core == 'true'
         run: npm ci
         working-directory: functions
 
-      - name: Chequeo de tipos de aplicaciÃ³n
+      - name: Chequeo de tipos de aplicación
+        if: steps.scope.outputs.run_core == 'true'
         run: npx tsc --noEmit
 
-      - name: Build de aplicaciÃ³n
+      - name: Build de aplicación
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run build
 
       - name: Build de Functions
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run build:functions
 
-      - name: Lint de aplicacion y tooling
+      - name: Lint de aplicación y tooling
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run lint
 
       - name: Pruebas unitarias de preflight E2E
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run test:e2e:preflight
 
+      - name: Pruebas de scope CI
+        if: steps.scope.outputs.run_core == 'true'
+        run: npm run test:ci:scope
+
       - name: Pruebas de tickets
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run test:tickets
 
       - name: Pruebas de reimpresión
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run test:reimpresion
 
       - name: Pruebas unitarias P1-02 de recetas y modificadores
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run test:p1-02:unit
 
       - name: Pruebas de tenant
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run test:tenant
 
-      - name: Pruebas de configuracion B1
+      - name: Pruebas de configuración B1
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run test:configuracion
 
       - name: Pruebas de onboarding
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run test:onboarding
 
-      - name: Pruebas de membresias
+      - name: Pruebas de membresías
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run test:membresias
 
       - name: Verificador read-only de P0-01
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run test:p0-01:verifier
 
       - name: Contrato del plan MVP comercial
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run test:p0-01:plan
 
       - name: Pruebas del backfill operativo
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run test:backfill
 
-      - name: Pruebas de Functions
+      - name: Pruebas de Functions y Auth
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run test:auth-foundation
 
-      - name: Certificacion P0-06 de turnos y arqueo en Emulator
-        run: npm run e2e:p0-06
-
-      - name: Certificacion P1-02 de recetas y modificadores en Emulator
-        run: npm run e2e:p1-02
-
-      - name: Certificacion P1-04 de salón y cocina en Emulator
-        run: npm run e2e:p1-04
+      - name: Pruebas de integración Auth y Firestore
+        if: steps.scope.outputs.functions == 'true' || steps.scope.outputs.firestore_rules == 'true'
+        run: npm run test:email:integration
 
       - name: Pruebas de Rules tenant-aware
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run test:rules
 
       - name: Pruebas de Storage tenant-aware P2-03
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run test:storage-rules
 
       - name: Pruebas unitarias de lectura pública tenant-aware B2
+        if: steps.scope.outputs.run_core == 'true'
         run: npm run test:eventos-publicos
 
       - name: Pruebas unitarias de inventario legacy B3-A
+        if: steps.scope.outputs.b3 == 'true'
         run: npm run test:b3-eventos
 
-      - name: Publicar evidencia P2-03 Storage
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: p2-03-storage-${{ github.run_id }}
-          path: artifacts/e2e/p2-03/
-          if-no-files-found: warn
-          retention-days: 14
+      - name: Pruebas unitarias B3-B
+        if: steps.scope.outputs.b3 == 'true'
+        run: npm run test:b3-eventos-backfill
 
-      - name: Certificacion P0-10 de restauracion Firestore en Emulator
-        run: npm run e2e:p0-10
-
-      - name: Pruebas de integración Auth y Firestore
-        run: npm run test:email:integration
-
-      - name: Instalar Chromium para E2E P0-01
+      - name: Instalar Chromium para smoke P0-01
+        if: steps.scope.outputs.p001 == 'true'
         run: npx playwright install --with-deps chromium
 
-      - name: E2E Operator Portal con Auth, Firestore y Functions
-        run: npm run e2e:operator-portal
-
-      - name: Publicar evidencia E2E Operator Portal
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-operator-portal-${{ github.run_id }}
-          path: artifacts/e2e/operator-portal/
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: E2E R1-A con web, PWA y Electron
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npm run e2e:r1a
-
-      - name: Publicar evidencia E2E R1-A
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-r1a-${{ github.run_id }}
-          path: artifacts/e2e/r1a/
-          if-no-files-found: warn
-          retention-days: 14
-
       - name: Smoke E2E P0-01 con Auth, Firestore y Functions
+        if: steps.scope.outputs.p001 == 'true'
         run: npm run e2e:p0-01
 
       - name: Publicar evidencia E2E P0-01
-        if: always()
+        if: always() && steps.scope.outputs.p001 == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: e2e-p0-01-${{ github.run_id }}
@@ -170,11 +181,28 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: E2E B2 de eventos públicos tenant-aware en Emulator
+      - name: Certificación P0-06 de turnos y arqueo
+        if: steps.scope.outputs.p006 == 'true'
+        run: npm run e2e:p0-06
+
+      - name: Certificación P1-02 de recetas y modificadores
+        if: steps.scope.outputs.p102 == 'true'
+        run: npm run e2e:p1-02
+
+      - name: Certificación P1-04 de salón y cocina
+        if: steps.scope.outputs.p104 == 'true'
+        run: npm run e2e:p1-04
+
+      - name: Certificación P0-10 de restauración Firestore
+        if: steps.scope.outputs.p010 == 'true'
+        run: npm run e2e:p0-10
+
+      - name: E2E B2 de eventos públicos tenant-aware
+        if: steps.scope.outputs.b2 == 'true'
         run: npm run e2e:b2-eventos
 
       - name: Publicar evidencia E2E B2
-        if: always()
+        if: always() && steps.scope.outputs.b2 == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: e2e-b2-eventos-${{ github.run_id }}
@@ -182,11 +210,12 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Dry-run B3-A de Eventos legacy en Emulator
+      - name: Dry-run B3-A de Eventos legacy
+        if: steps.scope.outputs.b3 == 'true'
         run: npm run e2e:b3-eventos
 
       - name: Publicar evidencia B3-A
-        if: always()
+        if: always() && steps.scope.outputs.b3 == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: e2e-b3-eventos-${{ github.run_id }}
@@ -194,11 +223,12 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Backfill idempotente B3-B de Eventos legacy en Emulator
+      - name: Backfill idempotente B3-B de Eventos legacy
+        if: steps.scope.outputs.b3 == 'true'
         run: npm run e2e:b3-eventos-backfill
 
       - name: Publicar evidencia B3-B
-        if: always()
+        if: always() && steps.scope.outputs.b3 == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: e2e-b3-eventos-backfill-${{ github.run_id }}
@@ -206,31 +236,10 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Certificación integral E4.1 del núcleo SaaS/POS en Emulator
-        run: npm run e2e:e4-01
-
-      - name: Publicar evidencia E4.1
+      - name: Registrar perfil ejecutado
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e4-01-${{ github.run_id }}
-          path: artifacts/e2e/e4-01/
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Auditoría automática E4.2 de release readiness
-        run: npm run test:e4-02:contract
-
-      - name: Generar evidencia E4.2 de release readiness
-        run: npm run e4-02:readiness
         env:
-          E4_02_CI_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-      - name: Publicar evidencia E4.2
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e4-02-${{ github.run_id }}
-          path: artifacts/release/e4-02/
-          if-no-files-found: warn
-          retention-days: 14
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/ci/changed-scope.mjs

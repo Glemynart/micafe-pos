@@ -60,7 +60,8 @@ Object.assign(env, {
   FIREBASE_AUTH_EMULATOR_HOST: endpoints.auth.endpoint,
 });
 
-const compilacion = spawnSync(process.execPath, [
+const skipFunctionsBuild = process.env.E2E_SKIP_FUNCTIONS_BUILD === "1";
+const compilacion = skipFunctionsBuild ? { stdout: "", stderr: "", status: 0 } : spawnSync(process.execPath, [
   resolve("functions", "node_modules", "typescript", "bin", "tsc"),
   "-p",
   "functions/tsconfig.json",
@@ -69,6 +70,11 @@ writeFileSync(resolve(evidenceDir, "functions-build.log"), `${compilacion.stdout
 if (compilacion.stdout) process.stdout.write(compilacion.stdout);
 if (compilacion.stderr) process.stderr.write(compilacion.stderr);
 if (compilacion.status !== 0) throw new Error("La compilación de Functions falló; P0-01 E2E no usa artefactos desactualizados.");
+
+if (skipFunctionsBuild) {
+  if (!existsSync(resolve("functions", "lib", "functions", "src", "index.js"))) throw new Error("E2E_SKIP_FUNCTIONS_BUILD=1 requiere functions/lib/functions/src/index.js.");
+  writeFileSync(resolve(evidenceDir, "functions-build.log"), "Skipped: functions/lib/functions/src/index.js fue construido por el job.\n");
+}
 
 const estados = await obtenerEstadoPuertos(endpoints);
 const puertosEnUso = estados.filter((estado) => estado.enUso);

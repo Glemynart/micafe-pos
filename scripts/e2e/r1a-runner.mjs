@@ -39,7 +39,8 @@ const env = {
   NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? `1:000000000000:web:${projectId}`,
 };
 
-const compilacion = spawnSync(process.execPath, [
+const skipFunctionsBuild = process.env.E2E_SKIP_FUNCTIONS_BUILD === "1";
+const compilacion = skipFunctionsBuild ? { stdout: "", stderr: "", status: 0 } : spawnSync(process.execPath, [
   resolve("functions", "node_modules", "typescript", "bin", "tsc"), "-p", "functions/tsconfig.json",
 ], {
   cwd: process.cwd(), env, encoding: "utf8",
@@ -49,6 +50,11 @@ if (compilacion.stdout) process.stdout.write(compilacion.stdout);
 if (compilacion.stderr) process.stderr.write(compilacion.stderr);
 if (compilacion.status !== 0) {
   throw new Error("La compilación de Functions falló; R1-A E2E no permite ejecutar contra artefactos desactualizados.");
+}
+
+if (skipFunctionsBuild) {
+  if (!existsSync(resolve("functions", "lib", "functions", "src", "index.js"))) throw new Error("E2E_SKIP_FUNCTIONS_BUILD=1 requiere functions/lib/functions/src/index.js.");
+  writeFileSync(resolve(evidenceDir, "functions-build.log"), "Skipped: functions/lib/functions/src/index.js fue construido por el job.\n");
 }
 
 function puertoEnUso(port) {

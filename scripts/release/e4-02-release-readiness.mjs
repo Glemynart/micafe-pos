@@ -67,6 +67,8 @@ function runNpmAudit(args) {
 
 const goal = readRepoFile("docs/goals/GOAL-MVP-COMERCIAL.md") ?? "";
 const ci = readRepoFile(".github/workflows/ci.yml") ?? "";
+const releaseCi = readRepoFile(".github/workflows/release-gate.yml") ?? "";
+const ciContract = `${ci}\n${releaseCi}`;
 const e4Runner = readRepoFile("scripts/e2e/e4-01-runner.mjs") ?? "";
 const firebaseConfig = readRepoFile("firebase.json");
 const storageRules = readRepoFile("storage.rules");
@@ -86,13 +88,13 @@ checks.push(result(
   "docs/goals/GOAL-MVP-COMERCIAL.md",
 ));
 
-const missingCiCommands = E4_02_REQUIRED_CI_COMMANDS.filter((command) => !ci.includes(command));
+const missingCiCommands = E4_02_REQUIRED_CI_COMMANDS.filter((command) => !ciContract.includes(command));
 checks.push(result(
   "E4.2-CI-CORE-SUITES",
   missingCiCommands.length === 0 ? "PASS" : "FAIL",
   "CI",
   "La CI conserva las suites que forman el núcleo certificado.",
-  missingCiCommands.length === 0 ? E4_02_REQUIRED_CI_COMMANDS : missingCiCommands,
+  missingCiCommands.length === 0 ? { fastCi: ci, releaseGate: releaseCi } : missingCiCommands,
   missingCiCommands.length === 0 ? null : "Restaurar la suite faltante antes de declarar el release gate verde.",
 ));
 
@@ -110,11 +112,11 @@ checks.push(result(
 
 checks.push(result(
   "E4.2-RELEASE-SCRIPTS",
-  packageJson.includes("e4-02:readiness") && ci.includes("e4-02:readiness") ? "PASS" : "FAIL",
+  packageJson.includes("e4-02:readiness") && releaseCi.includes("e4-02:readiness") ? "PASS" : "FAIL",
   "CI",
   "El runner de readiness está conectado al contrato de CI.",
-  ["package.json", ".github/workflows/ci.yml"],
-  packageJson.includes("e4-02:readiness") && ci.includes("e4-02:readiness")
+  ["package.json", ".github/workflows/release-gate.yml"],
+  packageJson.includes("e4-02:readiness") && releaseCi.includes("e4-02:readiness")
     ? null
     : "Conectar el runner antes de fusionar E4.2.",
 ));
@@ -159,10 +161,10 @@ checks.push(result(
   "E4.2-CI-001-UNCOVERED-SURFACES",
   "FOLLOW_UP",
   "COVERAGE",
-  "Operator Portal y R1A (incluido Electron) ya forman parte del gate; reservas/Wompi permanecen fuera por sus dependencias externas.",
+  "Operator Portal y R1A (incluido Electron) forman parte del release gate manual/tag; la CI rapida conserva las suites afectadas sin repetir E4.1.",
   {
     packageScripts: ["e2e:operator-portal", "e2e:r1a", "dist"],
-    ciCovered: ["test:storage-rules", "e2e:e4-01", "e2e:p0-01", "e2e:p0-06", "e2e:p1-02", "e2e:p1-04", "e2e:p0-10", "e2e:operator-portal", "e2e:r1a"],
+    ciCovered: ["test:storage-rules", "e2e:e4-01", "e2e:operator-portal", "e2e:r1a", "scripts/ci/changed-scope.mjs"],
   },
   "Mantener el seguimiento abierto hasta resolver las dependencias externas de reservas/Wompi; no ampliar E4.2 con funcionalidad.",
 ));
@@ -175,7 +177,7 @@ const followUpIds = E4_02_FOLLOW_UP_IDS.filter((id) => checks.some((check) => {
   const prefix = followUpPrefixes[id];
   return prefix && (check.id === prefix || check.id.startsWith(`${prefix}-`));
 }));
-const contractValid = validarContratoE4_02({ ci, gates: E4_02_PENDING_GATES, followUpIds });
+const contractValid = validarContratoE4_02({ ci: ciContract, gates: E4_02_PENDING_GATES, followUpIds });
 checks.push(result(
   "E4.2-CONTRACT",
   contractValid ? "PASS" : "FAIL",

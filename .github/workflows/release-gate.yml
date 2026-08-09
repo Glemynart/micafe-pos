@@ -1,0 +1,153 @@
+name: Release Gate
+
+# Certificación pesada bajo demanda o al crear un tag de release. Este
+# workflow conserva el corte completo y no comparte emuladores entre suites.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release gate completo
+    runs-on: ubuntu-latest
+    env:
+      # El job construye Functions una sola vez. Los runners conservan su
+      # validación de artefactos, pero reutilizan functions/lib/functions/src/index.js.
+      E2E_SKIP_FUNCTIONS_BUILD: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+
+      - name: Setup Java para Firebase Emulator Suite
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Instalar dependencias de aplicación
+        run: npm ci
+
+      - name: Instalar dependencias de Functions
+        run: npm ci
+        working-directory: functions
+
+      - name: TypeScript, build, Functions y lint
+        run: |
+          npx tsc --noEmit
+          npm run build
+          npm run build:functions
+          npm run lint
+
+      - name: Preflight y pruebas de contrato
+        run: |
+          npm run test:e2e:preflight
+          npm run test:e4-02:contract
+          npm run test:ci:scope
+
+      - name: Pruebas unitarias y Functions/Auth
+        run: |
+          npm run test:tickets
+          npm run test:reimpresion
+          npm run test:p1-02:unit
+          npm run test:tenant
+          npm run test:configuracion
+          npm run test:onboarding
+          npm run test:membresias
+          npm run test:p0-01:verifier
+          npm run test:p0-01:plan
+          npm run test:backfill
+          npm run test:auth-foundation
+
+      - name: Rules, Storage y Auth/Firestore
+        run: |
+          npm run test:rules
+          npm run test:storage-rules
+          npm run test:eventos-publicos
+          npm run test:email:integration
+
+      - name: Pruebas unitarias B3 legacy
+        run: |
+          npm run test:b3-eventos
+          npm run test:b3-eventos-backfill
+
+      - name: Instalar Chromium para certificación de canales
+        run: npx playwright install --with-deps chromium
+
+      - name: Certificación integral E4.1
+        run: npm run e2e:e4-01
+
+      - name: Publicar evidencia E4.1
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e4-01-release-${{ github.run_id }}
+          path: artifacts/e2e/e4-01/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: E2E Operator Portal
+        run: npm run e2e:operator-portal
+
+      - name: Publicar evidencia Operator Portal
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: operator-portal-release-${{ github.run_id }}
+          path: artifacts/e2e/operator-portal/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: E2E R1-A web, PWA y Electron
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npm run e2e:r1a
+
+      - name: Publicar evidencia R1-A
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-r1a-release-${{ github.run_id }}
+          path: artifacts/e2e/r1a/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: E2E B2 eventos públicos tenant-aware
+        run: npm run e2e:b2-eventos
+
+      - name: E2E B3 inventario y backfill Emulator
+        run: |
+          npm run e2e:b3-eventos
+          npm run e2e:b3-eventos-backfill
+
+      - name: Auditoría automática E4.2
+        run: npm run e4-02:readiness
+        env:
+          E4_02_CI_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Publicar evidencia E4.2
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e4-02-release-${{ github.run_id }}
+          path: artifacts/release/e4-02/
+          if-no-files-found: warn
+          retention-days: 30
