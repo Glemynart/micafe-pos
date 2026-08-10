@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { listarSalasPublicas } from './salas/route'
-import { consultarDisponibilidad } from './disponibilidad/route'
-import { crearHoldPublico } from './hold/route'
-import { cancelarHoldPendiente } from './cancelar/route'
+import { listarSalasPublicas } from './salas/service'
+import { consultarDisponibilidad } from './disponibilidad/service'
+import { crearHoldPublico } from './hold/service'
+import { cancelarHoldPendiente } from './cancelar/service'
 
 type Datos = Record<string, Record<string, Record<string, any>>>
 

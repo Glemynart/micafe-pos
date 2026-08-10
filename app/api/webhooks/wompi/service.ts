@@ -1,0 +1,354 @@
+import { NextResponse } from 'next/server'
+import crypto from 'crypto'
+import { FieldValue } from 'firebase-admin/firestore'
+import { getAdminDb } from '@/lib/firebase-admin'
+import { enviarPushAdmins } from '@/lib/notificaciones-push'
+
+function getDb() {
+  return getAdminDb()
+}
+
+/** La referencia de Wompi identifica la reserva; solo la reserva autoriza el tenant. */
+export function resolverEmpresaIdDeReserva(reserva: unknown): string | null {
+  const empresaId = (reserva as { empresaId?: unknown } | null)?.empresaId
+  return typeof empresaId === 'string' && empresaId.trim() ? empresaId : null
+}
+
+export function validarAgendaDeReserva(reserva: unknown, agenda: unknown): boolean {
+  const r = reserva as { empresaId?: unknown; mesaId?: unknown; espacioId?: unknown } | null
+  const a = agenda as { empresaId?: unknown; mesaId?: unknown; espacioId?: unknown } | null
+  return typeof r?.empresaId === 'string' && typeof r?.mesaId === 'string' && typeof r?.espacioId === 'string'
+    && a?.empresaId === r.empresaId && a?.mesaId === r.mesaId && a?.espacioId === r.espacioId
+}
+
+export function evaluarPropiedadWebhook(reserva: unknown, agenda?: unknown): { empresaId: string } | { error: 'RESERVA_SIN_EMPRESA' | 'AGENDA_INCONSISTENTE' } {
+  const empresaId = resolverEmpresaIdDeReserva(reserva)
+  if (!empresaId) return { error: 'RESERVA_SIN_EMPRESA' }
+  if (agenda !== undefined && !validarAgendaDeReserva(reserva, agenda)) return { error: 'AGENDA_INCONSISTENTE' }
+  return { empresaId }
+}
+
+export async function procesarWebhookWompi(
+  req: Request,
+  db: FirebaseFirestore.Firestore = getDb(),
+  notificarAdmins: typeof enviarPushAdmins = enviarPushAdmins,
+) {
+  try {
+    if ((req.headers.get('content-type') || '').split(';')[0] !== 'application/json') {
+      return NextResponse.json({ error: 'Unsupported content type' }, { status: 415 })
+    }
+
+    const body = await req.json()
+
+    const { event, data, signature, timestamp } = body
+
+    if (event !== 'transaction.updated') {
+      return NextResponse.json({ message: 'Event ignored' }, { status: 200 })
+    }
+
+    const transaction = data.transaction
+
+    const secret = process.env.WOMPI_EVENTS_SECRET
+    if (!secret) {
+      console.error('WOMPI_EVENTS_SECRET no configurado — rechazando webhook')
+      return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
+    }
+
+    if (!signature || !signature.properties || !signature.checksum) {
+      console.error('Firma ausente en webhook de Wompi')
+      return NextResponse.json({ error: 'Missing signature' }, { status: 401 })
+    }
+
+    let stringToHash = ''
+    for (const prop of signature.properties) {
+      const parts = prop.split('.')
+      let val: any = body
+      for (const p of parts) val = val[p]
+      stringToHash += val
+    }
+    stringToHash += timestamp
+    stringToHash += secret
+
+    const hash = crypto.createHash('sha256').update(stringToHash).digest('hex')
+
+    const hashBuffer = Buffer.from(hash)
+    const sigBuffer = Buffer.from(signature.checksum)
+    if (hashBuffer.length !== sigBuffer.length || !crypto.timingSafeEqual(hashBuffer, sigBuffer)) {
+      console.error('Firma inválida en webhook de Wompi')
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    }
+
+    if (transaction.status === 'APPROVED') {
+      const reservaId = transaction.reference
+
+      if (typeof reservaId !== 'string' || !reservaId.trim()) {
+        return NextResponse.json({ error: 'Invalid reference' }, { status: 400 })
+      }
+
+      try {
+        let pushData: { empresaId: string; clienteNombre: string; fechaInicio: string; fechaFin: string } | null = null
+
+        await db.runTransaction(async (t) => {
+          const reservaRef = db.collection('reservas').doc(reservaId)
+          const reservaDoc = await t.get(reservaRef)
+
+          if (!reservaDoc.exists) {
+            console.error(`Reserva ${reservaId} no encontrada`)
+            throw new Error('Reservation not found')
+          }
+
+          const reservaData = reservaDoc.data()
+
+          const propiedad = evaluarPropiedadWebhook(reservaData)
+          if ('error' in propiedad) throw new Error(propiedad.error)
+          const empresaId = propiedad.empresaId
+
+          if (reservaData?.estadoPago === 'pagado') {
+            console.log(`Reserva ${reservaId} ya estaba pagada. Ignorando webhook por idempotencia.`)
+            pushData = null
+            return
+          }
+
+          // El tenant se deriva exclusivamente de la reserva, validada antes de
+          // la rama de idempotencia.
+          pushData = {
+            empresaId,
+            clienteNombre: reservaData?.clienteNombre || 'Cliente',
+            fechaInicio: reservaData?.fechaInicio || '',
+            fechaFin: reservaData?.fechaFin || '',
+          }
+
+          // 1. Actualizar Reserva
+          t.update(reservaRef, {
+            estadoPago: 'pagado',
+            referenciaPago: transaction.id,
+          })
+
+          // 2. Confirmar bloques de agenda (fuente autoritativa)
+          const mesaId: string = reservaData?.mesaId || ''
+
+          // fechaLocal y bloques persisten desde el cliente en hora local correcta.
+          // Fallback para reservas creadas antes de este fix: recalcular desde ISO
+          // usando TZ de Colombia (UTC-5) para evitar el mismatch de timezone.
+          let fechaLocal: string = reservaData?.fechaLocal || ''
+          let bloquesReserva: string[] = reservaData?.bloques || []
+
+          if (mesaId && !fechaLocal) {
+            // Fallback: derivar fechaLocal en TZ Colombia (UTC-5) desde el ISO string
+            const fechaInicio: string = reservaData?.fechaInicio || ''
+            if (fechaInicio) {
+              const tsMs = new Date(fechaInicio).getTime()
+              const colombiaOffsetMs = -5 * 60 * 60 * 1000
+              const localMs = tsMs + colombiaOffsetMs
+              const localDate = new Date(localMs)
+              const y = localDate.getUTCFullYear()
+              const mo = String(localDate.getUTCMonth() + 1).padStart(2, '0')
+              const d = String(localDate.getUTCDate()).padStart(2, '0')
+              fechaLocal = `${y}-${mo}-${d}`
+            }
+          }
+
+          if (mesaId && !bloquesReserva.length) {
+            // Fallback: derivar bloques desde ISO strings en TZ Colombia
+            const fechaInicio: string = reservaData?.fechaInicio || ''
+            const fechaFin: string = reservaData?.fechaFin || ''
+            if (fechaInicio && fechaFin) {
+              const colombiaOffsetMs = -5 * 60 * 60 * 1000
+              const hInicio = new Date(new Date(fechaInicio).getTime() + colombiaOffsetMs).getUTCHours()
+              const hFin = new Date(new Date(fechaFin).getTime() + colombiaOffsetMs).getUTCHours()
+              for (let h = hInicio; h < hFin; h++) {
+                bloquesReserva.push(h.toString().padStart(2, '0'))
+              }
+            }
+          }
+
+          if (mesaId && fechaLocal && bloquesReserva.length) {
+            const agendaDocId = `${mesaId}_${fechaLocal}`
+            const agendaRef = db.collection('agendas').doc(agendaDocId)
+            const agendaSnap = await t.get(agendaRef)
+
+            if (agendaSnap.exists) {
+              const agendaData = agendaSnap.data() as any
+              const propiedadAgenda = evaluarPropiedadWebhook(reservaData, agendaData)
+              if ('error' in propiedadAgenda) throw new Error(propiedadAgenda.error)
+              const bloques = { ...(agendaData.bloques || {}) }
+              let cambio = false
+              for (const key of bloquesReserva) {
+                if (bloques[key] && bloques[key].reservaId === reservaId && bloques[key].estado !== 'confirmado') {
+                  bloques[key] = { ...bloques[key], estado: 'confirmado', holdExpira: null }
+                  cambio = true
+                }
+              }
+              if (cambio) {
+                // Defensivo: si la agenda es legacy y no trae empresaId, se ancla aquí.
+                t.set(agendaRef, {
+                  ...agendaData,
+                  bloques,
+                  actualizadoEn: new Date().toISOString(),
+                  empresaId,
+                })
+              }
+            }
+          }
+
+          // 3. Crear Venta B7 (Autoridad B2 - ADR-SAAS-008)
+          const asignacionRef = db.collection("asignaciones_numeracion").doc(`${empresaId}_empresa_pos`)
+          const asignacionSnap = await t.get(asignacionRef)
+
+          if (!asignacionSnap.exists) {
+            console.error(`[wompi-webhook] No existe asignación de numeración para la empresa ${empresaId}`)
+            throw new Error(`Asignación de numeración no encontrada para la empresa ${empresaId}`)
+          }
+
+          const asignacionData = asignacionSnap.data()
+          if (asignacionData?.estado !== 'VIGENTE') {
+            console.error(`[wompi-webhook] Asignación de numeración no está VIGENTE (estado: ${asignacionData?.estado})`)
+            throw new Error(`Asignación de numeración no está VIGENTE para la empresa ${empresaId}`)
+          }
+
+          const numeracionId = asignacionData?.numeracionId || "fundacional_pos"
+          const numRef = db.collection("numeraciones").doc(`${empresaId}_${numeracionId}`)
+          const numSnap = await t.get(numRef)
+
+          if (!numSnap.exists) {
+            console.error(`[wompi-webhook] No existe el documento de numeración ${empresaId}_${numeracionId}`)
+            throw new Error(`Numeración ${numeracionId} no encontrada`)
+          }
+
+          const numData = numSnap.data() || {}
+
+          // ADR-SAAS-008 §3: Validaciones autoritativas de emisión
+          // 1. Estado de numeración (solo HABILITADA puede emitir)
+          if (numData.estado !== 'HABILITADA') {
+            console.error(`[wompi-webhook] Numeración ${numeracionId} no está HABILITADA (estado: ${numData.estado})`)
+            throw new Error(`Numeración ${numeracionId} no está HABILITADA (estado actual: ${numData.estado || 'sin_estado'})`)
+          }
+
+          // 2. Vigencia fiscal (reloj UTC YYYY-MM-DD)
+          const hoyUtc = new Date().toISOString().slice(0, 10)
+          if (numData.vigenciaHasta && hoyUtc > numData.vigenciaHasta) {
+            console.error(`[wompi-webhook] Numeración ${numeracionId} vencida (vigenciaHasta: ${numData.vigenciaHasta}, hoy: ${hoyUtc})`)
+            throw new Error(`Numeración ${numeracionId} vencida (vigenciaHasta: ${numData.vigenciaHasta})`)
+          }
+          if (numData.vigenciaDesde && hoyUtc < numData.vigenciaDesde) {
+            console.error(`[wompi-webhook] Numeración ${numeracionId} no vigente aún (vigenciaDesde: ${numData.vigenciaDesde}, hoy: ${hoyUtc})`)
+            throw new Error(`Numeración ${numeracionId} no vigente (vigenciaDesde: ${numData.vigenciaDesde})`)
+          }
+
+          // 3. Rango disponible
+          const ultimoAsignado = typeof numData.ultimoAsignado === 'number' ? numData.ultimoAsignado : 0
+          const nuevoConsecutivo = ultimoAsignado + 1
+          if (typeof numData.rangoFin === 'number' && nuevoConsecutivo > numData.rangoFin) {
+            console.error(`[wompi-webhook] Numeración ${numeracionId} agotada (rangoFin: ${numData.rangoFin}, consecutivo solicitado: ${nuevoConsecutivo})`)
+            throw new Error(`Numeración ${numeracionId} agotada (rangoFin: ${numData.rangoFin})`)
+          }
+
+          // Actualizar contador y estado si se alcanza el fin del rango (ADR-SAAS-008 §3)
+          const siguienteEstado = (typeof numData.rangoFin === 'number' && nuevoConsecutivo === numData.rangoFin)
+            ? 'AGOTADA'
+            : 'HABILITADA'
+
+          t.update(numRef, {
+            ultimoAsignado: nuevoConsecutivo,
+            estado: siguienteEstado,
+            actualizadaEn: FieldValue.serverTimestamp(),
+          })
+
+          const nuevaVentaRef = db.collection('ventas').doc()
+
+          t.set(nuevaVentaRef, {
+            empresaId,
+            consecutivo: nuevoConsecutivo,
+            estadoOperativo: 'COMPLETO',
+            fecha: new Date(),
+            turnoId: 'reserva-web',
+            cajeroId: 'wompi',
+            espacioId: reservaData?.espacioId || 'salas-coworking',
+            clienteNombre: reservaData?.clienteNombre || 'Cliente Web',
+            metodoPago: 'transferencia',
+            estado: 'pagada',
+            origenReserva: reservaId,
+            items: [
+              {
+                id: `reserva-${reservaId}`,
+                nombre: `Reserva sala: ${reservaData?.mesaId || 'web'}`,
+                cantidad: 1,
+                precioUnitario: reservaData?.montoTotal || 0,
+                costoUnitario: 0,
+                subtotal: reservaData?.montoTotal || 0,
+              },
+            ],
+            totales: {
+              subtotal: reservaData?.montoTotal || 0,
+              iva: 0,
+              impoconsumo: 0,
+              total: reservaData?.montoTotal || 0,
+            },
+          })
+
+          // 4. Acreditar tesorería — espejo de registrarVenta(transferencia)
+          const montoTotal: number = reservaData?.montoTotal || 0
+          if (montoTotal > 0) {
+            const bancolombiaRef = db.collection('cuentas_bancarias').doc('bancolombia')
+            t.set(bancolombiaRef, { saldo: FieldValue.increment(montoTotal) }, { merge: true })
+            t.set(db.collection('transacciones_financieras').doc(), {
+              empresaId,
+              cuentaId: 'bancolombia',
+              cuentaNombre: 'Bancolombia',
+              tipo: 'ingreso',
+              monto: montoTotal,
+              concepto: `Venta #${nuevoConsecutivo}`,
+              categoria: 'ventas',
+              referencia: nuevaVentaRef.id,
+              usuarioId: 'wompi',
+              usuarioNombre: 'Wompi (Reserva Web)',
+              espacioId: reservaData?.espacioId || 'salas-coworking',
+              fecha: new Date(),
+            })
+          }
+        })
+
+        console.log(`Reserva ${reservaId} pagada y Venta generada exitosamente.`)
+
+        if (pushData) {
+          const pd = pushData as { empresaId: string; clienteNombre: string; fechaInicio: string; fechaFin: string }
+          const colombiaOffsetMs = -5 * 60 * 60 * 1000
+          let fechaHora = ''
+          if (pd.fechaInicio) {
+            const d = new Date(new Date(pd.fechaInicio).getTime() + colombiaOffsetMs)
+            const dia = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
+            const hInicio = `${String(d.getUTCHours()).padStart(2, '0')}:00`
+            let hFin = ''
+            if (pd.fechaFin) {
+              const dFin = new Date(new Date(pd.fechaFin).getTime() + colombiaOffsetMs)
+              hFin = `${String(dFin.getUTCHours()).padStart(2, '0')}:00`
+            }
+            fechaHora = hFin ? `${dia} ${hInicio}-${hFin}` : `${dia} ${hInicio}`
+          }
+          notificarAdmins({
+            empresaId: pd.empresaId,
+            title: 'Nueva reserva recibida',
+            body: `${pd.clienteNombre} — ${fechaHora}`,
+            url: '/admin/reservas',
+          }).catch(err => console.error('[push] Error notificando reserva:', err))
+        }
+      } catch (dbError: any) {
+        if (dbError.message === 'Reservation not found') {
+          return NextResponse.json({ error: 'Reservation not found' }, { status: 404 })
+        }
+        if (dbError.message === 'RESERVA_SIN_EMPRESA' || dbError.message === 'AGENDA_INCONSISTENTE') {
+          return NextResponse.json({ error: 'Reservation ownership unavailable' }, { status: 503 })
+        }
+        console.error(`Error actualizando Firebase para la reserva ${reservaId}:`, dbError)
+        return NextResponse.json({ error: 'Failed to update DB' }, { status: 500 })
+      }
+    } else {
+      console.log(`Transaccion en estado: ${transaction.status}. No se requiere accion.`)
+    }
+
+    return NextResponse.json({ success: true }, { status: 200 })
+  } catch (error) {
+    console.error('Webhook error:', error)
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+  }
+}

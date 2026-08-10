@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { cancelarHoldPendiente } from './route'
+import { cancelarHoldPendiente } from './service'
 
 const ahora = new Date('2026-07-20T12:00:00.000Z')
 const empresaId = 'cafe-atrato'

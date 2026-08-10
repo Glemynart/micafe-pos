@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { listarEventosPublicos } from "./route"
+import { listarEventosPublicos } from "./service"
 
 type Datos = Record<string, Record<string, Record<string, unknown>>>
 
