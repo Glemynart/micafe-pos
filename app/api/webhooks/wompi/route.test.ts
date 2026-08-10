@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import crypto from 'node:crypto'
-import { evaluarPropiedadWebhook, procesarWebhookWompi, resolverEmpresaIdDeReserva, validarAgendaDeReserva } from './route'
+import { evaluarPropiedadWebhook, procesarWebhookWompi, resolverEmpresaIdDeReserva, validarAgendaDeReserva } from './service'
 
 function dbWebhook(inicial: Record<string, Record<string, Record<string, any>>>) {
   let datos = structuredClone(inicial)
