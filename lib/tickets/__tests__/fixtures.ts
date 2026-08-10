@@ -11,12 +11,12 @@ import type { TicketAssets } from '../ticket-model'
  */
 
 export const EMPRESA_BASE: TicketEmpresaConfig = {
-  nombreComercial: 'Mi Cafe Especial',
-  razonSocial: 'Mi Cafe Especial S.A.S.',
-  nit: '900.123.456-7',
-  direccion: 'Calle 123 #45-67',
-  ciudad: 'Bogota',
-  telefono: '+57 300 123 4567',
+  nombreComercial: 'Empresa Demo',
+  razonSocial: 'Empresa Demo S.A.S.',
+  nit: '900000000-0',
+  direccion: 'Calle Demo #1-2',
+  ciudad: 'Ciudad Demo',
+  telefono: '+57 300 000 0000',
   regimenTributario: 'no_responsable',
 }
 
@@ -37,8 +37,8 @@ export const VENTA_SIMPLE_INPUT: VentaBuilderInput = {
   numero: 42,
   fecha: FECHA_FIJA,
   items: [
-    { descripcion: 'Cafe Americano', codigo: 'CAF-001', cantidad: 2, precioUnitario: 5000, subtotal: 10000 },
-    { descripcion: 'Croissant', codigo: 'PAN-010', cantidad: 1, precioUnitario: 6000, subtotal: 6000 },
+    { descripcion: 'Producto Demo 01', codigo: 'DEMO-001', cantidad: 2, precioUnitario: 5000, subtotal: 10000 },
+    { descripcion: 'Producto Demo 02', codigo: 'DEMO-002', cantidad: 1, precioUnitario: 6000, subtotal: 6000 },
   ],
   totales: { subtotalBase: 16000, totalINC: 0, total: 16000 },
   pago: { metodo: 'efectivo', recibido: 20000, cambio: 4000 },
@@ -48,15 +48,15 @@ export const VENTA_CON_MODIFICADORES_INPUT: VentaBuilderInput = {
   numero: 43,
   fecha: FECHA_FIJA,
   items: [{
-    descripcion: 'Cafe Latte',
-    codigo: 'LAT-001',
+    descripcion: 'Producto Demo 03',
+    codigo: 'DEMO-003',
     cantidad: 1,
     precioUnitario: 8000,
     subtotal: 8000,
     modificadores: [
-      { nombre: 'Grande', precioDelta: 0 },
-      { nombre: 'Leche Almendra', precioDelta: 1500 },
-      { nombre: 'Canela', precioDelta: 0 },
+      { nombre: 'Opcion Demo A', precioDelta: 0 },
+      { nombre: 'Opcion Demo B', precioDelta: 1500 },
+      { nombre: 'Opcion Demo C', precioDelta: 0 },
     ],
   }],
   totales: { subtotalBase: 8000, totalINC: 0, total: 8000 },
@@ -68,8 +68,8 @@ export const CONSUMIDOR_FINAL_DIAN_INPUT: VentaBuilderInput = {
   fecha: FECHA_FIJA,
   items: [
     {
-      descripcion: 'Cafe Especial 500g',
-      codigo: 'CAF-500',
+      descripcion: 'Producto Fiscal Demo 01',
+      codigo: 'DEMO-010',
       cantidad: 1,
       precioUnitario: 45000,
       subtotal: 45000,
@@ -84,33 +84,33 @@ export const CONSUMIDOR_FINAL_DIAN_INPUT: VentaBuilderInput = {
   dian: {
     numero: '101',
     prefijo: 'SETP',
-    resolucion: '187640000001',
+    resolucion: 'RES-DEMO-0001',
     rangoInicio: '1',
     rangoFin: '10000',
-    vigencia: '2024-01-01 a 2025-12-31',
-    cufe: 'cufe-consumidor-final-0000000000000000000000000000000000',
+    vigencia: '2026-01-01 a 2026-12-31',
+    cufe: 'CUFE-DEMO-CONSUMIDOR-0001',
   },
 }
 
 export const CLIENTE_REGISTRADO_DIAN_INPUT: VentaBuilderInput = {
   ...CONSUMIDOR_FINAL_DIAN_INPUT,
   numero: 102,
-  cliente: { nombre: 'Juan Perez', documento: '1020304050', tipoDoc: 'CC' },
+  cliente: { nombre: 'Cliente Demo 01', documento: 'DOC-DEMO-0001', tipoDoc: 'CC' },
   dian: {
     ...CONSUMIDOR_FINAL_DIAN_INPUT.dian!,
     numero: '102',
-    cufe: 'cufe-cliente-registrado-000000000000000000000000000000000',
+    cufe: 'CUFE-DEMO-CLIENTE-0001',
   },
 }
 
 export const CON_IVA_DIAN_INPUT: VentaBuilderInput = {
   numero: 103,
   fecha: FECHA_FIJA,
-  cliente: { nombre: 'Maria Gomez', documento: '900999888' },
+  cliente: { nombre: 'Cliente Demo 02', documento: 'DOC-DEMO-0002' },
   items: [
     {
-      descripcion: 'Equipo Cafetero',
-      codigo: 'EQ-100',
+      descripcion: 'Producto Fiscal Demo 02',
+      codigo: 'DEMO-020',
       cantidad: 1,
       precioUnitario: 200000,
       subtotal: 200000,
@@ -125,11 +125,11 @@ export const CON_IVA_DIAN_INPUT: VentaBuilderInput = {
   dian: {
     numero: '103',
     prefijo: 'SETP',
-    resolucion: '187640000001',
+    resolucion: 'RES-DEMO-0001',
     rangoInicio: '1',
     rangoFin: '10000',
-    vigencia: '2024-01-01 a 2025-12-31',
-    cufe: 'cufe-con-iva-00000000000000000000000000000000000000000',
+    vigencia: '2026-01-01 a 2026-12-31',
+    cufe: 'CUFE-DEMO-IVA-0001',
   },
 }
 
@@ -138,11 +138,11 @@ export const CON_INC_DIAN_INPUT: VentaBuilderInput = CONSUMIDOR_FINAL_DIAN_INPUT
 export const VENTA_MIXTA_DIAN_INPUT: VentaBuilderInput = {
   numero: 104,
   fecha: FECHA_FIJA,
-  cliente: { nombre: 'Carlos Ruiz', documento: '800111222' },
+  cliente: { nombre: 'Cliente Demo 03', documento: 'DOC-DEMO-0003' },
   items: [
     {
-      descripcion: 'Cafe Especial 500g',
-      codigo: 'CAF-500',
+      descripcion: 'Producto Fiscal Demo 01',
+      codigo: 'DEMO-010',
       cantidad: 1,
       precioUnitario: 45000,
       subtotal: 45000,
@@ -152,8 +152,8 @@ export const VENTA_MIXTA_DIAN_INPUT: VentaBuilderInput = {
       impuestoValor: 3600,
     },
     {
-      descripcion: 'Equipo Cafetero',
-      codigo: 'EQ-100',
+      descripcion: 'Producto Fiscal Demo 02',
+      codigo: 'DEMO-020',
       cantidad: 1,
       precioUnitario: 200000,
       subtotal: 200000,
@@ -163,8 +163,8 @@ export const VENTA_MIXTA_DIAN_INPUT: VentaBuilderInput = {
       impuestoValor: 38000,
     },
     {
-      descripcion: 'Bolsa de Tela (excluido)',
-      codigo: 'BOL-001',
+      descripcion: 'Producto Excluido Demo',
+      codigo: 'DEMO-030',
       cantidad: 1,
       precioUnitario: 3000,
       subtotal: 3000,
@@ -179,11 +179,11 @@ export const VENTA_MIXTA_DIAN_INPUT: VentaBuilderInput = {
   dian: {
     numero: '104',
     prefijo: 'SETP',
-    resolucion: '187640000001',
+    resolucion: 'RES-DEMO-0001',
     rangoInicio: '1',
     rangoFin: '10000',
-    vigencia: '2024-01-01 a 2025-12-31',
-    cufe: 'cufe-venta-mixta-0000000000000000000000000000000000000000',
+    vigencia: '2026-01-01 a 2026-12-31',
+    cufe: 'CUFE-DEMO-MIXTA-0001',
   },
 }
 
