@@ -1,6 +1,6 @@
 # ADR-SAAS-027 — Ejecución productiva controlada del cierre B3-026
 
-- **Estado:** Propuesto
+- **Estado:** Aceptado
 - **Fecha:** 2026-08-11
 - **Decision makers:** propietario del Goal; Lead Engineer
 - **Goal:** `G-MVP-01` — SaaS POS multi-tenant listo para primera versión comercial

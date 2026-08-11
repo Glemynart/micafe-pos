@@ -42,6 +42,7 @@
     "test:b3-eventos": "tsx --test scripts/b3/eventos-legacy-inventory.test.ts",
     "test:b3-eventos-backfill": "tsx --test scripts/b3/eventos-legacy-backfill.test.ts",
     "test:b3-eventos-closure": "tsx --test scripts/b3/eventos-legacy-closure.test.ts",
+    "test:b3-eventos-production-closure": "tsx --test scripts/b3/eventos-legacy-production-closure.test.ts",
     "b3:eventos:closure": "tsx scripts/b3/eventos-legacy-closure.ts",
     "test:email:integration": "cross-env GCLOUD_PROJECT=demo-mt-u4-rules FIRESTORE_EMULATOR_HOST=127.0.0.1:8085 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 firebase --project demo-mt-u4-rules emulators:exec --only firestore,auth \"npm --prefix functions run test:email:integration\"",
     "e2e:r1a": "node scripts/e2e/r1a-runner.mjs",
