@@ -177,3 +177,4 @@ transacciones y máquina de estados sin regresiones. E4.2 quedó integrado sobre
 su runner de readiness, con decisión CONDICIONAL y seguimientos explícitos. PR A
 / P2-03 quedó integrado con el contrato seguro de Firebase Storage y su
 certificación tenant-aware. B1, B2, B3-A y B3-B de Eventos tenant-aware quedaron integrados bajo ADR-SAAS-025; el siguiente trabajo es el cierre operativo de B3, condicionado a mapeos reales y autorización explícita, sin datos inventados ni escrituras productivas anticipadas.
+> **Decisión vigente (2026-08-10):** el producto se distribuye únicamente como Web/PWA. Electron, su empaquetado y P0-08 quedan retirados; las referencias históricas se conservan como trazabilidad y no representan una superficie soportada.

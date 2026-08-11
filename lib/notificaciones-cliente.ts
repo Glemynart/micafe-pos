@@ -1,12 +1,10 @@
 /**
  * lib/notificaciones-cliente.ts
- * Emisor único de eventos de notificación push (D-NOTIF-02).
+ * Emisor unico de eventos de notificacion push (D-NOTIF-02).
  *
- * Describe un evento genérico ({title, message, url?}); no conoce su origen
- * funcional (login, turno u otro futuro) ni decide destinatarios — eso lo
- * resuelve el backend en /api/notifications/send. Mismo camino para cualquier
- * plataforma (Web, PWA, Electron): la única diferencia entre ellas es si la
- * base de la API debe resolverse same-origin (vacía) o absoluta (empaquetado).
+ * Describe un evento generico ({title, message, url?}); no conoce su origen
+ * funcional ni decide destinatarios: eso lo resuelve el backend en
+ * /api/notifications/send. El canal soportado es Web/PWA.
  */
 import { auth } from './firebase'
 
@@ -25,9 +23,7 @@ function resolverBaseUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || ''
 }
 
-/** Heurística platform-neutral: un origen servido por http/https puede resolver
- *  una URL relativa; cualquier otro protocolo (p. ej. `app:` de electron-serve)
- *  es un empaquetado sin servidor propio y necesita base absoluta. */
+/** Un contexto servido por http/https puede resolver una URL relativa. */
 function esContextoSinServidorPropio(): boolean {
   if (typeof window === 'undefined') return false
   const protocolo = window.location.protocol
@@ -42,9 +38,7 @@ async function enviarConReintento(params: NotificarParams): Promise<void> {
   const base = resolverBaseUrl()
 
   if (!base && esContextoSinServidorPropio()) {
-    console.error(
-      '[push] config: falta NEXT_PUBLIC_APP_URL en un build empaquetado (cross-origin). Evento no enviado.'
-    )
+    console.error('[push] config: falta NEXT_PUBLIC_APP_URL. Evento no enviado.')
     return
   }
 
@@ -96,10 +90,8 @@ async function enviarConReintento(params: NotificarParams): Promise<void> {
 }
 
 /**
- * Único punto de entrada para emitir un evento de notificación push, desde
- * cualquier consumidor (login, turno, futuros eventos) y cualquier plataforma.
- * Fire-and-forget en beneficio del destinatario: nunca lanza ni bloquea al
- * llamador; los errores quedan en el log con prefijo `[push]`.
+ * Unico punto de entrada para emitir un evento de notificacion push desde
+ * Web/PWA. Fire-and-forget: nunca lanza ni bloquea al llamador.
  */
 export function notificar(params: NotificarParams): void {
   if (typeof window === 'undefined') return

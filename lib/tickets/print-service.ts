@@ -6,7 +6,7 @@ import {
   type RenderOptions,
 } from './render-options'
 
-export type TicketPrintChannel = 'electron-printer' | 'electron-pdf' | 'browser-dialog' | 'unavailable'
+export type TicketPrintChannel = 'browser-dialog' | 'unavailable'
 
 export interface TicketPrintResult {
   success: boolean
@@ -15,27 +15,14 @@ export interface TicketPrintResult {
 }
 
 /**
- * Selecciona el layout físico a partir de la configuración canónica del tenant.
- * CARTA conserva el layout histórico de 80 mm hasta que exista un renderer de
+ * Selecciona el layout fisico a partir de la configuracion canonica del tenant.
+ * CARTA conserva el layout historico de 80 mm hasta que exista un renderer de
  * documentos carta; no se inventa una plantilla nueva dentro de P0-07.
  */
 export function resolverOpcionesImpresion(formatoPapel?: FormatoPapel): RenderOptions {
   if (formatoPapel === 'MM_58') return RENDER_OPTIONS_58MM
   if (formatoPapel === 'MM_80') return RENDER_OPTIONS_80MM
   return DEFAULT_RENDER_OPTIONS
-}
-
-function resultadoElectron(resultado: unknown, channel: TicketPrintChannel): TicketPrintResult {
-  if (resultado && typeof resultado === 'object' && 'success' in resultado) {
-    const success = (resultado as { success?: unknown }).success === true
-    const reason = (resultado as { reason?: unknown }).reason
-    return {
-      success,
-      channel,
-      ...(typeof reason === 'string' ? { reason } : {}),
-    }
-  }
-  return { success: true, channel }
 }
 
 function htmlParaDialogoImpresion(html: string): string {
@@ -51,8 +38,8 @@ function htmlParaDialogoImpresion(html: string): string {
 }
 
 /**
- * Abre un documento aislado para que el navegador use su diálogo de impresión.
- * Esto mantiene la PWA funcional sin asumir que `window.api` existe.
+ * Abre un documento aislado para que el navegador use su dialogo de impresion.
+ * La PWA no depende de un puente de escritorio.
  */
 export function imprimirEnDialogoNavegador(html: string): Promise<TicketPrintResult> {
   if (typeof window === 'undefined') {
@@ -122,23 +109,9 @@ export function imprimirEnDialogoNavegador(html: string): Promise<TicketPrintRes
 }
 
 /**
- * Usa el puente Electron existente cuando está disponible y cae al diálogo
- * estándar del navegador en la PWA. No escribe datos de negocio ni crea una
- * autoridad adicional: solo transporta HTML ya generado por el renderer.
+ * Imprime la representacion HTML usando el dialogo estandar del navegador.
+ * No escribe datos de negocio ni crea una autoridad adicional.
  */
-export async function imprimirTicketHtml(html: string): Promise<TicketPrintResult> {
-  if (typeof window !== 'undefined') {
-    const api = (window as Window & {
-      api?: { print?: { toPrinter?: (value: string) => Promise<unknown>; ticket?: (value: string) => Promise<unknown> } }
-    }).api
-
-    if (typeof api?.print?.toPrinter === 'function') {
-      return resultadoElectron(await api.print.toPrinter(html), 'electron-printer')
-    }
-    if (typeof api?.print?.ticket === 'function') {
-      return resultadoElectron(await api.print.ticket(html), 'electron-pdf')
-    }
-  }
-
+export function imprimirTicketHtml(html: string): Promise<TicketPrintResult> {
   return imprimirEnDialogoNavegador(html)
 }

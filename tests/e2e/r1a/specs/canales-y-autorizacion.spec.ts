@@ -7,8 +7,8 @@ import { TurnoGatePage } from "../pages/turno-gate.page";
 import { ShiftsModulePage } from "../pages/shifts-module.page";
 import { abrirWeb } from "../drivers/web";
 
-test.describe("R1-A canales y autorización", () => {
-  test("Shifts Module abre un único turno confirmado", async ({ canal }, testInfo) => {
+test.describe("R1-A canales y autorizacion", () => {
+  test("Shifts Module abre un unico turno confirmado", async ({ canal }, testInfo) => {
     const fixture = await prepararFixtureR1A(`${testInfo.project.name}-shifts`);
     try {
       const gate = new TurnoGatePage(canal.page);
@@ -23,14 +23,14 @@ test.describe("R1-A canales y autorización", () => {
     }
   });
 
-  test("retry tras pérdida de red conserva una sola apertura", async ({ canal }, testInfo) => {
+  test("retry tras perdida de red conserva una sola apertura", async ({ canal }, testInfo) => {
     const fixture = await prepararFixtureR1A(`${testInfo.project.name}-retry`);
     try {
       const gate = new TurnoGatePage(canal.page);
       await gate.iniciarSesion(fixture.cajero);
       await canal.page.route("**/*abrirTurnoOperativoV1*", async (route) => {
         // Una respuesta Callable de indisponibilidad evita que el emulador
-        // llegue a confirmar la operación antes de simular la pérdida de red.
+        // llegue a confirmar la operacion antes de simular la perdida de red.
         await route.fulfill({
           status: 503,
           contentType: "application/json",
@@ -50,7 +50,7 @@ test.describe("R1-A canales y autorización", () => {
     }
   });
 
-  test("permiso revocado durante la acción no crea turno", async ({ canal }, testInfo) => {
+  test("permiso revocado durante la accion no crea turno", async ({ canal }, testInfo) => {
     const fixture = await prepararFixtureR1A(`${testInfo.project.name}-revocacion`);
     try {
       const gate = new TurnoGatePage(canal.page);
@@ -58,22 +58,6 @@ test.describe("R1-A canales y autorización", () => {
       await adminE2E().db.collection("membresias").doc(`${fixture.empresaId}_${fixture.cajero.uid}`).update({ permisos: ["sell"] });
       await gate.abrir();
       await expect.poll(() => contarTurnosAbiertos(fixture.empresaId, fixture.cajero.uid)).toBe(0);
-    } finally {
-      await limpiarFixtureR1A(fixture);
-    }
-  });
-
-  test("Electron invoca el contrato Callable de apertura", async ({ canal }, testInfo) => {
-    test.skip(testInfo.project.name !== "electron", "Contrato específico del renderer Electron.");
-    const fixture = await prepararFixtureR1A("electron-contrato");
-    let invocoCallable = false;
-    try {
-      canal.page.on("request", (request) => { if (request.url().includes("abrirTurnoOperativoV1")) invocoCallable = true; });
-      const gate = new TurnoGatePage(canal.page);
-      await gate.iniciarSesion(fixture.cajero);
-      await gate.abrir();
-      await esperarAperturaConfirmada(fixture.empresaId, fixture.cajero.uid);
-      expect(invocoCallable).toBe(true);
     } finally {
       await limpiarFixtureR1A(fixture);
     }

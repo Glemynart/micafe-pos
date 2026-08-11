@@ -35,6 +35,5 @@ export default defineConfig({
     { name: "web", use: { ...devices["Desktop Chrome"] } },
     // El driver PWA conserva contexto de navegador persistente; R1-A no prescribe instalación ni Service Worker.
     { name: "pwa", use: { ...devices["Desktop Chrome"] } },
-    { name: "electron", use: { ...devices["Desktop Chrome"] } },
   ],
 });

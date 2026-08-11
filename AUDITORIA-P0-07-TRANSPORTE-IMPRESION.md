@@ -83,3 +83,4 @@ definir el formato operativo de 58/80 mm.
 confirme todos los checks en verde y sin pendientes. Tras el merge, el Goal
 debe conservar E3.1 activo y señalar como siguiente gate la certificación con
 hardware real, no declarar P0-07 completamente cerrado.
+> **Decisión de canal (2026-08-10):** la superficie soportada es Web/PWA y usa el diálogo de impresión del navegador. Electron no se distribuye ni se certifica; las menciones históricas del transporte se conservan como evidencia.

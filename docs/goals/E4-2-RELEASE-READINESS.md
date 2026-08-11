@@ -125,3 +125,4 @@ detecta fallos en el contrato de certificación, todas las pruebas requeridas
 están verdes y la documentación conserva explícitamente la decisión
 CONDICIONAL y los seguimientos. Esta aprobación no equivale a declarar el Goal
 completo: los gates externos se cierran mediante sus propias evidencias.
+> **Current channel decision (2026-08-10):** Web/PWA is the only supported distribution surface. Electron and its packaging/runtime gate are retired by product decision; historical references below are preserved as evidence only.

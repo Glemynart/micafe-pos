@@ -159,9 +159,9 @@ checks.push(result(
   "E4.2-CI-001-UNCOVERED-SURFACES",
   "FOLLOW_UP",
   "COVERAGE",
-  "Operator Portal y R1A (incluido Electron) ya forman parte del gate; reservas/Wompi permanecen fuera por sus dependencias externas.",
+  "Operator Portal y R1A Web/PWA forman parte del gate; reservas/Wompi permanecen fuera por sus dependencias externas.",
   {
-    packageScripts: ["e2e:operator-portal", "e2e:r1a", "dist"],
+    packageScripts: ["e2e:operator-portal", "e2e:r1a"],
     ciCovered: ["test:storage-rules", "e2e:e4-01", "e2e:p0-01", "e2e:p0-06", "e2e:p1-02", "e2e:p1-04", "e2e:p0-10", "e2e:operator-portal", "e2e:r1a"],
   },
   "Mantener el seguimiento abierto hasta resolver las dependencias externas de reservas/Wompi; no ampliar E4.2 con funcionalidad.",
