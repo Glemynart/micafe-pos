@@ -119,6 +119,9 @@ jobs:
       - name: Pruebas de cierre controlado B3-B / ADR-SAAS-026
         run: npm run test:b3-eventos-closure
 
+      - name: Pruebas del operador productivo B3-027 sin escrituras
+        run: npm run test:b3-eventos-production-closure
+
       - name: Publicar evidencia P2-03 Storage
         if: always()
         uses: actions/upload-artifact@v4

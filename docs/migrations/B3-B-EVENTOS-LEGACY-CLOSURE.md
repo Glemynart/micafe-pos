@@ -42,6 +42,12 @@ Los targets productivos no se versionan en este repositorio. El manifiesto se
 prepara fuera del árbol de código a partir del informe B3-A revisado y solo se
 usa cuando el proyecto y el bucket configurados coinciden.
 
+La ejecuciÃ³n productiva, aceptada por separado en `ADR-SAAS-027`, no se aÃ±ade
+a este ejecutor. Su herramienta externa, controles de TTY, recovery, journal y
+precondiciones estÃ¡n documentados en
+`B3-027-EVENTOS-LEGACY-PRODUCTION-OPERATOR.md`; no se ejecuta desde CI ni se
+activa como parte de esta suite.
+
 ## Recovery y journal
 
 Antes de cualquier ejecución Emulator se captura el documento completo y los
