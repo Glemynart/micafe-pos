@@ -508,3 +508,4 @@ empresa para vender hasta certificar numeración, snapshot y enforcement.
 
 Estas decisiones no alteran la separación de autoridades definida en este documento. Cualquier cambio
 que contradiga un ADR aceptado requiere un nuevo ADR que lo superseda explícitamente.
+> **Decisión vigente (2026-08-10):** el canal soportado del producto es Web/PWA. Electron y su distribución quedan retirados; las menciones históricas al programa Electron se conservan únicamente como trazabilidad arquitectónica.

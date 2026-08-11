@@ -7,28 +7,13 @@ import {
 
 const ventanaOriginal = (globalThis as any).window
 
-test('P0-07: resuelve el layout canónico de 58 y 80 mm', () => {
+test('P0-07: resuelve el layout canonico de 58 y 80 mm', () => {
   assert.equal(resolverOpcionesImpresion('MM_58').anchoCuerpoPx, 210)
   assert.equal(resolverOpcionesImpresion('MM_80').anchoCuerpoPx, 280)
   assert.equal(resolverOpcionesImpresion('CARTA').anchoCuerpoPx, 280)
 })
 
-test('P0-07: usa el puente Electron de impresora cuando está disponible', async () => {
-  let htmlRecibido = ''
-  ;(globalThis as any).window = {
-    api: { print: { toPrinter: async (html: string) => { htmlRecibido = html; return { success: true } } } },
-  }
-
-  try {
-    const resultado = await imprimirTicketHtml('<html>ticket</html>')
-    assert.deepEqual(resultado, { success: true, channel: 'electron-printer' })
-    assert.equal(htmlRecibido, '<html>ticket</html>')
-  } finally {
-    ;(globalThis as any).window = ventanaOriginal
-  }
-})
-
-test('P0-07: informa popup bloqueado en PWA en lugar de ignorar la impresión', async () => {
+test('P0-07: informa popup bloqueado en PWA en lugar de ignorar la impresion', async () => {
   ;(globalThis as any).window = { open: () => null }
 
   try {
@@ -39,7 +24,7 @@ test('P0-07: informa popup bloqueado en PWA en lugar de ignorar la impresión', 
   }
 })
 
-test('P0-07: abre un documento aislado y solicita impresión estándar en PWA', async () => {
+test('P0-07: abre un documento aislado y solicita impresion estandar en PWA', async () => {
   let contenido = ''
   let imprimio = false
   let cerro = false
