@@ -1,6 +1,6 @@
 # ADR-SAAS-026 — Cierre controlado y recuperable de Eventos legacy
 
-- **Estado:** Propuesto
+- **Estado:** Aceptado
 - **Fecha:** 2026-08-08
 - **Decision makers:** Lead Engineer; propietario del Goal
 - **Goal:** `G-MVP-01` — SaaS POS multi-tenant listo para primera versión comercial
@@ -172,5 +172,8 @@ Queda fuera:
 
 ## 10. Estado
 
-Este ADR queda **PROPUESTO** y requiere aceptación explícita antes de
-implementar el mecanismo de cierre.
+Este ADR queda **ACEPTADO** por autorización explícita del Goal. La
+aceptación cubre únicamente la preparación del manifiesto congelado, el
+dry-run productivo estrictamente read-only, la revalidación, el bundle de
+recovery, el journal, la idempotencia por objetivo y las pruebas definidas en
+este ADR. No autoriza escrituras ni eliminaciones en producción.

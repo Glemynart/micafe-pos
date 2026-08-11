@@ -116,6 +116,9 @@ jobs:
       - name: Pruebas unitarias de inventario legacy B3-A
         run: npm run test:b3-eventos
 
+      - name: Pruebas de cierre controlado B3-B / ADR-SAAS-026
+        run: npm run test:b3-eventos-closure
+
       - name: Publicar evidencia P2-03 Storage
         if: always()
         uses: actions/upload-artifact@v4
@@ -203,6 +206,18 @@ jobs:
         with:
           name: e2e-b3-eventos-backfill-${{ github.run_id }}
           path: artifacts/e2e/b3-eventos-backfill/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Cierre controlado B3-B / ADR-SAAS-026 en Emulator
+        run: npm run e2e:b3-eventos-closure
+
+      - name: Publicar evidencia B3-B closure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-b3-eventos-closure-${{ github.run_id }}
+          path: artifacts/e2e/b3-eventos-closure/
           if-no-files-found: warn
           retention-days: 14
 
