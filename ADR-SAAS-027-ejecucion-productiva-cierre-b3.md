@@ -35,6 +35,11 @@ Emulator de ADR-SAAS-026. La operación no será una funcionalidad del POS ni
 una callable; será una herramienta de operador ejecutada manualmente en un
 entorno controlado.
 
+El único proyecto y bucket admitidos por la herramienta serán, respectivamente,
+`micafe-pos` y `micafe-pos.firebasestorage.app`. El manifiesto externo deberá
+coincidir con ambos valores. No existirán argumentos ni variables que permitan
+seleccionar otro proyecto o bucket.
+
 La operación solo podrá ejecutarse si se cumplen **todos** estos controles:
 
 1. El manifiesto externo coincide byte a byte con el hash aprobado y contiene
@@ -51,15 +56,26 @@ La operación solo podrá ejecutarse si se cumplen **todos** estos controles:
    cantidad exacta de objetivos y hash del plan. Una variable de entorno común,
    una sesión previa o la existencia de credenciales no equivalen a dicha
    confirmación.
-6. La credencial operativa es temporal o de mínimo privilegio, no se almacena
-   en el repositorio, no se imprime en logs y se retira o invalida conforme al
-   procedimiento operativo posterior.
+6. La credencial operativa se obtiene únicamente mediante ADC externo o
+   identidad de workload autorizada. La herramienta rechaza credenciales
+   inline, usuarios OAuth y service accounts almacenadas en el repositorio. La
+   credencial es temporal o de mínimo privilegio, no se imprime en logs y se
+   retira o invalida conforme al procedimiento operativo posterior.
 7. El journal externo registra `PREPARADO`, `ELIMINADO`,
    `IDEMPOTENTE_NOOP` u `ABORTADO` por objetivo. Un drift, una referencia nueva,
    una ausencia inesperada o un error parcial detiene los objetivos restantes.
 8. La operación usa un orden determinista y verifica después de cada objetivo;
    Firestore y Storage no se tratarán como una transacción común.
-9. La evidencia final demuestra que solo los cuatro objetivos permitidos fueron
+9. Cada eliminación usa una precondición del proveedor: `lastUpdateTime` o
+   equivalente para el documento Firestore y `generation` para el objeto
+   Storage. Antes de cada precondición se vuelve a comprobar el hash esperado,
+   la ausencia de `empresaId` y, para assets, la ausencia de referencias. Si la
+   precondición falla, el objetivo se marca `ABORTADO` y no se continúa.
+10. La confirmación exige una sesión interactiva (`stdin` y `stdout` TTY),
+    rechaza `CI=true`/`CI=1` y contiene literalmente proyecto, bucket, cuatro
+    objetivos y el hash del manifiesto. No se acepta una confirmación por una
+    variable de entorno genérica.
+11. La evidencia final demuestra que solo los cuatro objetivos permitidos fueron
    considerados, que no quedan objetivos canónicos afectados y que la
    operación recibió autorización explícita. La evidencia no contendrá tokens
    ni credenciales.
@@ -75,6 +91,8 @@ escrituras productivas.
 - Nunca se elimina un Evento tenant-aware ni un asset referenciado.
 - Solo pueden tratarse los cuatro objetivos presentes en el manifiesto
   aprobado; cualquier objetivo adicional aborta todo el plan.
+- El proyecto y bucket permitidos están fijados a `micafe-pos` y
+  `micafe-pos.firebasestorage.app`; el operador no puede sustituirlos.
 - La visibilidad pública, el nombre de un tenant, un slug o una ruta no son
   fuentes de autorización.
 - La operación no modifica documentos, Rules, Bootstrap, autoridades de
@@ -85,6 +103,11 @@ escrituras productivas.
   documento u objeto distinto.
 - La autorización de este ADR, si se acepta, no autoriza por sí sola la
   eliminación: cada ejecución requiere una confirmación operativa separada.
+- Un snapshot o fingerprint leído antes de la eliminación no se considera
+  válido si cambia durante la operación; las precondiciones del proveedor deben
+  rechazar el borrado.
+- El recovery y el journal se guardan en una ruta absoluta fuera del worktree y
+  no se incorporan a Git.
 
 ## 4. Alternativas consideradas
 
@@ -149,10 +172,28 @@ Queda fuera de este ADR propuesto:
 - crear un sistema genérico de borrado o retención;
 - incluir credenciales, manifiestos productivos o bundles de recovery en Git.
 
-## 7. Requisitos para una implementación posterior
+## 7. Auditoría de la decisión
 
-Si este ADR se acepta, el PR de implementación deberá incluir únicamente la
-herramienta operativa separada, pruebas con adapters simulados/Emulator,
+La auditoría contra ADR-SAAS-026, PR #226, B3-A, B3-B, las Rules, Storage
+Rules, la arquitectura vigente, el Goal y E4.2 identificó tres riesgos en la
+redacción inicial: selección de proyecto/bucket controlada solo por el
+manifiesto, credenciales inline potenciales y una ventana de carrera entre el
+preflight y la eliminación. La decisión queda corregida con proyecto/bucket
+fijos, ADC externo, confirmación interactiva fuera de CI y precondiciones de
+Firestore/Storage por objetivo.
+
+Con esas correcciones no se duplica una autoridad de dominio: ADR-SAAS-026
+conserva el ejecutor Emulator-only y ADR-SAAS-027 define exclusivamente la
+frontera operativa manual. No se alteran Rules, datos, Bootstrap, callables ni
+el flujo del producto.
+
+Resultado de auditoría arquitectónica: `ADR-SAAS-027 — APPROVED`.
+
+## 8. Requisitos para una implementación posterior
+
+Tras la aceptación de este ADR, el PR de implementación deberá incluir
+únicamente la herramienta operativa separada, pruebas con adapters
+simulados/Emulator,
 verificación de drift, confirmación explícita, journal, recovery y evidencia.
 Deberá mantener `productionWrites: false` en las suites automatizadas y no
 podrá ejecutar contra producción durante CI.
@@ -161,7 +202,7 @@ La primera operación real seguirá necesitando una autorización posterior que
 identifique el proyecto, el hash del manifiesto y los cuatro objetivos; antes
 de ella se repetirá el dry-run read-only final.
 
-## 8. Criterio de aceptación del ADR
+## 9. Criterio de aceptación del ADR
 
 - Se acepta explícitamente la frontera entre certificación Emulator y
   herramienta operativa productiva.
@@ -172,9 +213,10 @@ de ella se repetirá el dry-run read-only final.
 - Se mantiene la prohibición de escrituras productivas hasta una autorización
   posterior y específica.
 
-## 9. Estado
+## 10. Estado
 
-Este ADR queda **PROPUESTO**. No cambia el comportamiento actual, no autoriza
-escrituras productivas y no habilita ninguna ejecución. La implementación solo
-podrá comenzar después de una aceptación explícita y de actualizar el Goal y
-la documentación de E4.2 conforme a la decisión.
+Este ADR queda **ACEPTADO** por decisión técnica documentada conforme al modo
+autónomo del Goal. La aceptación habilita únicamente la implementación y
+certificación de la herramienta operativa separada. No autoriza ninguna
+eliminación productiva: cada ejecución continuará requiriendo la confirmación
+operativa independiente definida aquí.
