@@ -38,7 +38,7 @@ multicanal que todavía no ha sido probado en esos canales.
 | E4.2-SEC-002-DEPENDENCIES | `npm audit` presentaba vulnerabilidades conocidas en raíz y Functions. | Alto | PR #203 y PR #205 integrados; quedan siete moderadas documentadas por requerir cambios mayores incompatibles. | Solo si cambia arquitectura/contrato |
 | E4.2-SEC-003-MASTER-PLAN | **CERRADO:** `MASTER-SECURITY-PLAN.md` está vigente y registra la evolución SaaS, Storage tenant-aware y los riesgos residuales sin declararlos mitigados implícitamente. | Alto | Mantenerlo alineado cuando se cierre un riesgo o se integre una nueva frontera. | No |
 | E4.2-CI-001-UNCOVERED-SURFACES | Operator Portal y R1-A Web/PWA forman parte del gate; Electron fue retirado por PR #224 y reservas/Wompi permanecen fuera por dependencias externas. Storage cuenta con suite tenant-aware en CI. | Medio/alto | Mantener el seguimiento abierto hasta resolver las dependencias externas de reservas/Wompi. | Según cada frontera |
-| E4.2-B3-CLOSURE | **Mecanismo cerrado en PR #226:** ADR-SAAS-026, allowlist estricta, dry-run, recovery, journal e idempotencia están implementados y certificados sin escrituras productivas. | Alto | Ejecutar únicamente el dry-run productivo read-only cuando exista el manifiesto externo congelado; detenerse antes de eliminar y solicitar la autorización independiente correspondiente. | ADR-SAAS-026 |
+| E4.2-B3-CLOSURE | **Mecanismo y operador cerrados en PR #226/#229:** ADR-SAAS-026 y ADR-SAAS-027, allowlist estricta, dry-run, recovery, journal, idempotencia y precondiciones por objetivo están implementados y certificados sin escrituras productivas. | Alto | Preparar y ejecutar únicamente el dry-run productivo read-only con el manifiesto externo congelado; detenerse antes de eliminar y solicitar la autorización operativa independiente correspondiente. | ADR-SAAS-026 / ADR-SAAS-027 |
 
 ### Evidencia E4.2-SEC-002 - parche compatible de dependencias
 
@@ -103,7 +103,7 @@ autoridad del servidor ni el contrato tenant-aware.
 Estos gates no se implementan ni se simulan dentro de E4.2:
 
 - **P0-07/E3.1:** impresora térmica y certificación física.
-- **P0-08/E3.2:** decisión de canal Electron/PWA.
+- **P0-08/E3.2:** cerrado como decisión Web/PWA-only mediante PR #224; Electron no es una superficie soportada.
 - **P0-02/E1.2-P0-09:** datos fiscales, DIAN y operación FISCAL.
 - **P1-09:** Wompi y reservas públicas en operación comercial.
 - **P2-04:** offline y reconciliación.
