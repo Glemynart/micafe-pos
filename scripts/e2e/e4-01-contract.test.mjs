@@ -7,7 +7,7 @@ import {
   validarProyectoEmulador,
 } from "./e4-01-contract.mjs";
 
-test("E4.1 define exactamente los cinco cortes reutilizables del núcleo", () => {
+test("E4.1 define exactamente los cinco cortes reutilizables del nucleo", () => {
   assert.equal(validarContratoE4_01(), true);
   assert.deepEqual(E4_01_STEP_DEFINITIONS.map((step) => step.id), ["P0-01", "P0-06", "P1-02", "P1-04", "P0-10"]);
 });
@@ -20,10 +20,9 @@ test("E4.1 solo acepta proyectos de Emulator con el prefijo del corte", () => {
   }
 });
 
-test("E4.1 registra seis gates externos sin ejecutarlos", () => {
+test("E4.1 registra cinco gates externos fuera del alcance Web/PWA", () => {
   assert.deepEqual(E4_01_PENDING_GATES.map((gate) => gate.id), [
     "P0-07/E3.1",
-    "P0-08/E3.2",
     "P0-02/E1.2-P0-09",
     "P1-09",
     "P2-04",

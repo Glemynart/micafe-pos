@@ -146,7 +146,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: E2E R1-A con web, PWA y Electron
+      - name: E2E R1-A Web/PWA
         run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npm run e2e:r1a
 
       - name: Publicar evidencia E2E R1-A

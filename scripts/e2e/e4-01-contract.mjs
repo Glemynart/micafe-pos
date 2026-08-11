@@ -11,31 +11,25 @@ export const E4_01_PENDING_GATES = Object.freeze([
     id: "P0-07/E3.1",
     type: "EXTERNAL_GATE",
     status: "PENDIENTE",
-    description: "Impresión física requiere impresora térmica y canal de caja acordado.",
-  }),
-  Object.freeze({
-    id: "P0-08/E3.2",
-    type: "EXTERNAL_GATE",
-    status: "PENDIENTE",
-    description: "Distribución Electron solo aplica si se selecciona ese canal.",
+    description: "Impresion fisica requiere impresora termica y canal de caja acordado.",
   }),
   Object.freeze({
     id: "P0-02/E1.2-P0-09",
     type: "EXTERNAL_GATE",
     status: "PENDIENTE",
-    description: "DIAN y operación FISCAL requieren datos fiscales y decisión del tenant.",
+    description: "DIAN y operacion FISCAL requieren datos fiscales y decision del tenant.",
   }),
   Object.freeze({
     id: "P1-09",
     type: "EXTERNAL_GATE",
     status: "PENDIENTE",
-    description: "Wompi y reservas públicas requieren decisión comercial y configuración externa.",
+    description: "Wompi y reservas publicas requieren decision comercial y configuracion externa.",
   }),
   Object.freeze({
     id: "P2-04",
     type: "EXTERNAL_GATE",
     status: "PENDIENTE",
-    description: "Offline y reconciliación requieren pruebas de conectividad y decisión posterior.",
+    description: "Offline y reconciliacion requieren pruebas de conectividad y decision posterior.",
   }),
   Object.freeze({
     id: "P2-01",
@@ -57,6 +51,6 @@ export function validarContratoE4_01() {
   return ids.length === new Set(ids).size
     && ids.length === 5
     && gates.length === new Set(gates).size
-    && gates.length === 6
+    && gates.length === 5
     && E4_01_PENDING_GATES.every((gate) => gate.type === "EXTERNAL_GATE" && gate.status === "PENDIENTE");
 }

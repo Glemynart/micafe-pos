@@ -178,3 +178,4 @@ Fuera del MVP, candidatas a trabajo posterior:
 - [ ] **PWA iOS (instalada, iOS ≥16.4):** recepción (aceptando la capability de plataforma).
 - [ ] **Electron (paquete real):** cajero abre turno → POST a URL absoluta → admin recibe **en su plataforma** (no en el POS).
 - [ ] Ningún PR modifica `notificaciones-push.ts`, `firebase-admin.ts`, `firebase-push-sw.js`, `firestore.rules`.
+> **Decisión de canal (2026-08-10):** el diseño de notificaciones se mantiene para Web/PWA. Electron y el transporte cross-origin asociado a una aplicación empaquetada quedan fuera porque Electron ya no es una superficie soportada.

@@ -71,3 +71,4 @@ Cada PR recomendado es independiente en lo posible y no debe mezclar tareas de d
 6. Si habrá factura electrónica desde PWA, completar **P0-09** después de P0-02.
 7. Cerrar P0 solamente después de **P0-10** y de una prueba integral: venta → inventario → caja → turno → ticket → recuperación.
 8. Ejecutar el resto de P1 según los flujos que cada tenant utilice durante sus primeras semanas.
+> **Decisión vigente (2026-08-10):** Web/PWA es el único canal soportado. P0-08/E3.2 y la distribución Electron quedan retirados; cualquier referencia histórica al trabajo se conserva únicamente para trazabilidad.

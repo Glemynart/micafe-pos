@@ -348,3 +348,4 @@ La especificación de MT-U2 queda **coherente y lista para congelarse como defin
 5. Comportamiento del POS **idéntico** (verificación manual): venta, turno, KDS, salón.
 6. Scripts idempotentes con dry-run; `tsc --noEmit` + `test:tickets` + `test:reimpresion` en verde.
 7. PR sin modificar servicios operativos, rules, ni la fuente de autorización — solo los archivos de §5.
+> **Nota de vigencia (2026-08-10):** la distribución soportada es Web/PWA. Las referencias históricas a instaladores Electron o runtime desktop no forman parte del producto actual.

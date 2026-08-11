@@ -13,7 +13,6 @@ export default tseslint.config(
       "**/test-results/**",
       "**/functions/lib/**",
       "**/*.d.ts",
-      "renderer.js",
     ],
   },
   {

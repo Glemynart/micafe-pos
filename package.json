@@ -1,7 +1,6 @@
 {
   "name": "pos-cafe",
   "version": "1.0.0",
-  "main": "main.js",
   "private": true,
   "overrides": {
     "jose": "4.15.9"
@@ -15,13 +14,9 @@
     "dev:emu": "cross-env NEXT_PUBLIC_USE_EMULATORS=1 next dev -H 0.0.0.0 -p 3002",
     "emu": "firebase emulators:start --only functions,firestore,auth,storage --project micafe-pos",
     "seed:emu-capa4": "node scripts/seed-emulador-capa4.js",
-    "dev:electron": "cross-env NODE_ENV=development electron .",
-    "dev": "concurrently -k \"npm run dev:next\" \"npm run dev:electron\"",
+    "dev": "npm run dev:next",
     "build": "next build",
-    "start": "electron .",
-    "dist": "npm run build && electron-builder",
-    "update-server": "node update-server.js",
-    "publicar": "powershell -ExecutionPolicy Bypass -File scripts/publicar-update.ps1",
+    "start": "next start -H 0.0.0.0",
     "lint": "eslint .",
     "seed:usuarios": "tsx scripts/seed-usuarios.ts",
     "test:tickets": "tsx --test lib/tickets/__tests__/*.test.ts",
@@ -64,39 +59,6 @@
     "e2e:r1a:preflight": "tsx scripts/e2e/preflight-r1a.ts",
     "e2e:operator-portal": "node scripts/e2e/operator-portal-runner.mjs"
   },
-  "build": {
-    "appId": "com.pos.cafe",
-    "productName": "MiCafe-POS",
-    "directories": {
-      "output": "dist-installer"
-    },
-    "files": [
-      "out/**/*",
-      "main.js",
-      "preload.js",
-      "src/**/*",
-      "package.json",
-      "credentials.json"
-    ],
-    "win": {
-      "target": "nsis",
-      "icon": "build/icon.ico"
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": true,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "uninstallDisplayName": "MiCafe POS",
-      "artifactName": "${productName}-Setup-${version}.${ext}"
-    },
-    "publish": {
-      "provider": "github",
-      "owner": "Glemynart",
-      "repo": "micafe-pos"
-    }
-  },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
     "@radix-ui/react-accordion": "1.2.12",
@@ -135,21 +97,15 @@
     "cmdk": "1.1.1",
     "date-fns": "4.1.0",
     "dompurify": "^3.4.11",
-    "electron-log": "^5.4.4",
-    "electron-serve": "^3.0.1",
-    "electron-updater": "^6.8.3",
     "embla-carousel-react": "8.6.0",
-    "exceljs": "^4.4.0",
     "firebase": "^12.15.0",
     "firebase-admin": "^14.0.0",
-    "googleapis": "^173.0.0",
     "input-otp": "1.4.2",
     "jszip": "^3.10.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.564.0",
     "next": "16.3.0",
     "next-themes": "^0.4.6",
-    "pdf-parse": "^2.4.5",
     "qrcode": "^1.5.4",
     "react": "^19",
     "react-day-picker": "9.13.2",
@@ -159,9 +115,9 @@
     "react-resizable-panels": "^2.1.7",
     "recharts": "3.8.1",
     "sonner": "^1.7.1",
-    "sql.js": "^1.14.1",
     "tailwind-merge": "^3.3.1",
     "vaul": "^1.1.2",
+    "uuid": "^14.0.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -175,11 +131,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^8.3.4",
-    "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "dotenv": "^16.6.1",
-    "electron": "^42.0.1",
-    "electron-builder": "^26.8.1",
     "eslint": "^9.39.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "firebase-tools": "^15.24.0",

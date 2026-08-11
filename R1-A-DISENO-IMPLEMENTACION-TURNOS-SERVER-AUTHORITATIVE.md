@@ -412,3 +412,4 @@ Estos prerrequisitos no autorizan extender R1-A. Su única función en este docu
 - `ADR-SAAS-005-rol-supervisor.md`.
 - `PROJECT_DISCOVERY.md` — contrato operativo vigente de turnos.
 - `IMP-4-validacion-fondos-diseno.md` — antecedente aplicable exclusivamente a la fase posterior de cierre.
+> **Canales vigentes (2026-08-10):** R1-A se certifica únicamente en Web/PWA. La variante Electron queda retirada; las referencias históricas se conservan como evidencia del diseño anterior.

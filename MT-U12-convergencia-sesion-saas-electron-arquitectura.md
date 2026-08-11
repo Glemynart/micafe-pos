@@ -163,3 +163,4 @@ MT-U12 está arquitectónicamente completo cuando:
 ## U12.10 Cierre conceptual
 
 MT-U12 concluye la arquitectura conceptual de la sesión SaaS y su convergencia con Electron. Preserva todas las autoridades previamente aprobadas y no habilita implementación. Cualquier diseño futuro deberá construir sus mecanismos respetando este contrato arquitectónico, sin reinterpretar ni sustituir las autoridades de identidad, membresía, contexto activo, claims, lifecycle, plataforma, fiscalidad, límites o aislamiento tenant establecidas por el programa.
+> **Estado histórico:** este documento queda supersedido por la decisión Web/PWA-only de retiro de Electron. Se conserva como registro arquitectónico; no autoriza ni mantiene una distribución Electron.
