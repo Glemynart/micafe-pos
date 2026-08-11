@@ -103,3 +103,23 @@ regenerar el dry-run read-only con el manifiesto externo congelado, revisar el
 plan, el hash, las cuatro targets, el recovery y el journal, y recibir una
 autorización separada que identifique explícitamente proyecto, bucket, cantidad
 y `manifestSha256`.
+
+## Registro de ejecución B3-027 — 2026-08-11
+
+La autorización operativa separada fue concedida y el operador se ejecutó desde
+una sesión interactiva con ADC válido. El manifiesto canónico fue:
+
+`61a2fadfec3a67975a975309f1c04bb8f93dd652b6c6529bb4f5553193d52fe5`
+
+El plan final declaró `safeToExecute=true` y procesó exactamente cuatro
+targets: un Evento legacy y tres objetos Storage. El journal externo registra
+los cuatro como `ELIMINADO`; no hubo `ABORTADO`, `IDEMPOTENTE_NOOP` ni targets
+adicionales. El recovery fue creado y verificado antes de la primera
+eliminación. La evidencia completa permanece fuera del repositorio en
+`B3-027-PRODUCTION-EXECUTION-20260811`.
+
+La verificación posterior confirmó que los cuatro targets están ausentes y que
+`eventos/1781122906272-gzhck1.png`, excluido explícitamente, permanece intacto.
+La verificación del bundle leído desde JSON requirió rehidratar timestamps de
+Firestore serializados como `{_seconds,_nanoseconds}`; esa corrección está
+incluida en el PR de cierre técnico y no modifica datos productivos.

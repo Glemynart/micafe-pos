@@ -38,7 +38,22 @@ multicanal que todavía no ha sido probado en esos canales.
 | E4.2-SEC-002-DEPENDENCIES | `npm audit` presentaba vulnerabilidades conocidas en raíz y Functions. | Alto | PR #203 y PR #205 integrados; quedan siete moderadas documentadas por requerir cambios mayores incompatibles. | Solo si cambia arquitectura/contrato |
 | E4.2-SEC-003-MASTER-PLAN | **CERRADO:** `MASTER-SECURITY-PLAN.md` está vigente y registra la evolución SaaS, Storage tenant-aware y los riesgos residuales sin declararlos mitigados implícitamente. | Alto | Mantenerlo alineado cuando se cierre un riesgo o se integre una nueva frontera. | No |
 | E4.2-CI-001-UNCOVERED-SURFACES | Operator Portal y R1-A Web/PWA forman parte del gate; Electron fue retirado por PR #224 y reservas/Wompi permanecen fuera por dependencias externas. Storage cuenta con suite tenant-aware en CI. | Medio/alto | Mantener el seguimiento abierto hasta resolver las dependencias externas de reservas/Wompi. | Según cada frontera |
-| E4.2-B3-CLOSURE | **Mecanismo, operador y dry-run cerrados en PR #226/#229:** ADR-SAAS-026 y ADR-SAAS-027, allowlist estricta, dry-run read-only, recovery, journal, idempotencia y precondiciones por objetivo están implementados y certificados sin escrituras productivas; el dry-run confirmó `safeToExecute=true` y cero eliminaciones. | Alto | Mantener el allowlist congelado. Antes de cualquier ejecución destructiva, repetir la revalidación read-only inmediata y solicitar la autorización operativa independiente correspondiente. | ADR-SAAS-026 / ADR-SAAS-027 |
+| E4.2-B3-CLOSURE | **Cerrado en la ejecución B3-027 del 2026-08-11:** ADR-SAAS-026 y ADR-SAAS-027, allowlist estricta, preflight, recovery, journal, idempotencia y precondiciones por objetivo quedaron verificados; se eliminaron exactamente 1 Evento legacy y 3 assets autorizados. | Alto | Mantener el allowlist congelado y conservar la evidencia productiva fuera del repositorio. | ADR-SAAS-026 / ADR-SAAS-027 |
+
+### Evidencia de ejecución productiva B3-027
+
+La ejecución se realizó únicamente contra `micafe-pos` y
+`micafe-pos.firebasestorage.app`, con el manifiesto canónico
+`61a2fadfec3a67975a975309f1c04bb8f93dd652b6c6529bb4f5553193d52fe5`. El
+journal registra cuatro estados `ELIMINADO` y ningún target adicional. La
+carpeta de evidencia, el recovery y sus hashes se conservan fuera del
+repositorio en `B3-027-PRODUCTION-EXECUTION-20260811`.
+
+La verificación read-only posterior confirmó la ausencia de los cuatro targets
+y la permanencia del asset excluido `eventos/1781122906272-gzhck1.png`. El
+verificador de recovery fue corregido para aceptar el round-trip JSON de
+timestamps Firestore; las pruebas B3 siguen en verde y no se realizaron nuevas
+escrituras.
 
 ### Evidencia E4.2-SEC-002 - parche compatible de dependencias
 
