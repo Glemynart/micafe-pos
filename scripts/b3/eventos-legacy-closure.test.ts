@@ -47,7 +47,11 @@ function manifest(event: EventoCierreRow, rows: StorageCierreRow[]): CierreManif
 }
 
 function fixtures() {
-  const event: EventoCierreRow = { id: eventId, data: { titulo: "Evento de prueba", activo: false } }
+  const eventTimestamp = {
+    toDate: () => new Date("2026-08-08T00:00:00.000Z"),
+    toJSON: () => ({ _seconds: 1786147200, _nanoseconds: 0 }),
+  }
+  const event: EventoCierreRow = { id: eventId, data: { titulo: "Evento de prueba", activo: false, creadoEn: eventTimestamp } }
   const rows: StorageCierreRow[] = assets.map((path, index) => ({
     bucket,
     path,
@@ -115,6 +119,8 @@ test("verifica recovery y no sobrescribe identidades ocupadas", async () => {
   const plan = planificarCierre(manifest, [event], rows)
   const bundle = prepararRecoveryBundle(plan, manifest, event, rows)
   assert.equal(verificarRecoveryBundle(bundle).ok, true)
+  const serializedBundle = JSON.parse(JSON.stringify(bundle))
+  assert.equal(verificarRecoveryBundle(serializedBundle).ok, true)
   const restored = new Set<string>()
   const results = await recuperarBundle(bundle, {
     eventExists: async (id) => restored.has(`EVENTO:${id}`),

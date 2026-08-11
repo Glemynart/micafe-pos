@@ -165,6 +165,26 @@ function stable(value: unknown): unknown {
   return Object.fromEntries(Object.keys(object).sort().map((key) => [key, stable(object[key])]))
 }
 
+function rehidratarTimestampsSerializados(value: unknown): unknown {
+  if (value === null || typeof value !== "object") return value
+  if (Array.isArray(value)) return value.map(rehidratarTimestampsSerializados)
+
+  const object = value as Record<string, unknown>
+  const keys = Object.keys(object).sort()
+  if (
+    keys.length === 2 &&
+    keys[0] === "_nanoseconds" &&
+    keys[1] === "_seconds" &&
+    typeof object._seconds === "number" &&
+    typeof object._nanoseconds === "number"
+  ) {
+    const date = new Date(object._seconds * 1000 + Math.floor(object._nanoseconds / 1_000_000))
+    if (!Number.isNaN(date.getTime())) return { toDate: () => date }
+  }
+
+  return Object.fromEntries(Object.keys(object).map((key) => [key, rehidratarTimestampsSerializados(object[key])]))
+}
+
 export function sha256(value: string | Buffer): string {
   return createHash("sha256").update(value).digest("hex")
 }
@@ -416,7 +436,8 @@ export function verificarRecoveryBundle(bundle: RecoveryBundle): RecoveryVerific
   const errors: string[] = []
   if (bundle.schemaVersion !== B3_CLOSURE_SCHEMA_VERSION || bundle.contrato !== B3_CLOSURE_CONTRACT) errors.push("Contrato de recovery invÃ¡lido.")
   if (bundle.productionWrites !== false) errors.push("El bundle no declara productionWrites:false.")
-  if (bundle.evento.dataSha256 !== hashSnapshotCompleto(bundle.evento.data)) errors.push("Hash del documento Firestore no coincide.")
+  const recoveryData = rehidratarTimestampsSerializados(bundle.evento.data) as Record<string, unknown>
+  if (bundle.evento.dataSha256 !== hashSnapshotCompleto(recoveryData)) errors.push("Hash del documento Firestore no coincide.")
   for (const asset of bundle.assets) {
     const bytes = Buffer.from(asset.bytesBase64, "base64")
     if (sha256(bytes) !== asset.bytesSha256) errors.push(`Hash de bytes no coincide: ${asset.bucket}::${asset.path}`)
