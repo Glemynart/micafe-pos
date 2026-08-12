@@ -2,6 +2,10 @@
 
 Estado: `BORRADOR OPERATIVO` hasta validar el flujo con el tenant de referencia.
 
+## Gate adicional de M2
+
+La certificacion read-only del tenant acepta `Empresa.estado = trial` durante el periodo contractual inicial; no se exige activar la suscripcion anual para certificar el provisioning y el onboarding.
+
 Este runbook acompaña al Goal `G-SAAS-02`. No autoriza escrituras productivas por sí mismo ni sustituye el acceso administrativo aprobado, un backup o el registro de cambios.
 
 ## 1. Gate de entrada

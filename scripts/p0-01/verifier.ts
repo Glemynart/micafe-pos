@@ -52,7 +52,7 @@ export interface CertificationExpectations {
   schemaVersion: 1;
   empresaId: string;
   expectedEmpresaNombre: string;
-  expectedEstado?: "activa";
+  expectedEstado?: "trial" | "activa";
   adminUid?: string;
   modules: string[];
   spaces: ExpectedSpace[];
@@ -152,7 +152,7 @@ export function validateExpectations(value: unknown): { valid: true; value: Cert
   if (input.schemaVersion !== 1) errors.push("EXPECTATIONS_SCHEMA_UNSUPPORTED");
   if (!firestoreId(input.empresaId)) errors.push("EXPECTATIONS_EMPRESA_ID_REQUIRED");
   if (!text(input.expectedEmpresaNombre)) errors.push("EXPECTATIONS_EMPRESA_NAME_REQUIRED");
-  if (input.expectedEstado !== undefined && input.expectedEstado !== "activa") errors.push("EXPECTATIONS_STATE_UNSUPPORTED");
+  if (input.expectedEstado !== undefined && input.expectedEstado !== "trial" && input.expectedEstado !== "activa") errors.push("EXPECTATIONS_STATE_UNSUPPORTED");
   if (input.adminUid !== undefined && !firestoreId(input.adminUid)) errors.push("EXPECTATIONS_ADMIN_UID_INVALID");
   if (input.categoriesPolicy !== undefined && input.categoriesPolicy !== "exact" && input.categoriesPolicy !== "tenant-scoped") {
     errors.push("EXPECTATIONS_CATEGORIES_POLICY_UNSUPPORTED");
@@ -213,7 +213,7 @@ export function validateExpectations(value: unknown): { valid: true; value: Cert
       schemaVersion: 1,
       empresaId: firestoreId(input.empresaId)!,
       expectedEmpresaNombre: text(input.expectedEmpresaNombre)!,
-      ...(input.expectedEstado ? { expectedEstado: "activa" as const } : {}),
+      ...(input.expectedEstado ? { expectedEstado: input.expectedEstado as "trial" | "activa" } : {}),
       ...(input.adminUid ? { adminUid: firestoreId(input.adminUid)! } : {}),
       modules: modules!,
       spaces,
