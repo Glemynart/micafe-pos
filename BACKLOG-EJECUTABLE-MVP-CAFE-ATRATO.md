@@ -25,7 +25,7 @@ Cada PR recomendado es independiente en lo posible y no debe mezclar tareas de d
 | P0-05 | Validar compatibilidad de cuentas financieras de Café Atrato con las rutas usadas por venta, traslado y turnos. | P0-01; datos de cuentas existentes. | Ningún flujo operativo depende de IDs históricos incompatibles (`caja-principal`, `bancolombia`); venta, traslado y cierre usan las cuentas del tenant sin error. | M | `fix/cuentas-financieras-tenant-compatibilidad` |
 | P0-06 | Certificar apertura, relevo y cierre de turno con arqueo real. | P0-03, P0-05; operadores y cuentas certificadas. | Se abre turno, se registran ventas/egresos, se realiza relevo y cierre ciego; el arqueo y las transacciones coinciden con los movimientos registrados. | M | `test/certificacion-turnos-caja` |
 | P0-07 | Resolver y validar impresión física por el canal de caja elegido. | P0-04; impresora térmica real y configuración 58/80 mm. | Después de una venta y una reimpresión se obtiene un ticket físico correcto desde el canal definido; no depende de una API inexistente en el navegador. | L | `fix/impresion-pos-produccion` |
-| P0-08 | Empaquetar y certificar Electron si será el canal de caja. | P0-07; definición de distribución objetivo. | Existe instalador/artefacto arrancable que abre el POS PWA actual, permite login y realiza una impresión física; no intenta cargar una exportación inexistente ni la interfaz SQLite legacy. | L | `fix/electron-pos-distribucion` |
+| P0-08 | **RETIRADO:** empaquetado y distribución Electron. | Decisión de producto Web/PWA-only integrada por PR #224. | No aplica: Electron no es una superficie soportada del MVP y no existe un entregable Electron pendiente. | — | No ejecutar; conservar trazabilidad en PR #224 |
 | P0-09 | Confirmar el requisito de factura electrónica y validarlo si aplica. | P0-02; decisión fiscal de Café Atrato. | Si Café Atrato requiere DIAN desde el PWA, una venta real completa la emisión y conserva evidencia; si no la requiere, queda constancia operativa de que usa la evidencia fiscal interna. | L condicional | `feat/facturacion-electronica-operativa` |
 | P0-10 | Ejecutar una restauración comprobable de Firestore y documentar el resultado operativo. | Acceso controlado al entorno y conjunto de datos de prueba. | Se restaura un conjunto de datos de prueba sin pérdida no explicada; se verifica login, configuración, inventario, ventas y reportes posteriores. | M | `ops/certificacion-recuperacion-firestore` |
 | P0-11 | Implementar recuperación segura de credenciales de administrador y operadores. | ADR-SAAS-017; Firebase Auth y entorno Emulator para validación. | Un administrador recupera un operador no administrador y un operador SaaS autorizado recupera el administrador con evidencia fuera de banda; la activación es de un solo uso, revoca la credencial anterior, no persiste secretos y queda auditada e idempotente. | L | `feat/recuperacion-credenciales-segura` |
@@ -58,7 +58,7 @@ Cada PR recomendado es independiente en lo posible y no debe mezclar tareas de d
 
 | ID | Trabajo excluido | Razón de exclusión | PR recomendado |
 |---|---|---|---|
-| P3-01 | Landing multi-tenant, eventos multi-tenant, branding tenant-aware y dominios personalizados. | La clasificación P3 original quedó superada por el Goal y ADR-SAAS-025: B1, B2, B3-A y B3-B de Eventos ya están integrados en M4; queda únicamente el cierre productivo condicionado de la transición legacy. Los dominios personalizados siguen fuera de alcance. | `cierre operativo B3` |
+| P3-01 | Landing multi-tenant, eventos multi-tenant, branding tenant-aware y dominios personalizados. | La clasificación P3 original quedó superada por el Goal y ADR-SAAS-025: B1, B2, B3-A, B3-B y el cierre productivo controlado B3-027 ya están integrados en M4. Los dominios personalizados siguen fuera de alcance. | No hay unidad pendiente de Eventos; el cierre B3 quedó integrado en PR #235/#236/#237 |
 | P3-02 | Portal de operador SaaS. | No forma parte del MVP operativo definido en el informe. | `feature/operator-portal` |
 
 ## Secuencia de ejecución
@@ -67,7 +67,7 @@ Cada PR recomendado es independiente en lo posible y no debe mezclar tareas de d
 2. Completar **P0-03**, **P0-05** y **P0-12** antes de certificar el núcleo transaccional completo.
 3. Ejecutar **P0-04** y **P0-06** en Emulator y después en un entorno representativo.
 4. Mientras **P0-07** permanezca bloqueado por hardware/canal, ejecutar **P1-02** en la línea paralela reusable con Emulator, CI y fixtures multi-tenant; no modificar el alcance de P0-07.
-5. Certificar **P0-07** cuando exista hardware y canal de caja; **P0-08** solo si se elige Electron.
+5. Certificar **P0-07** cuando exista hardware y canal de caja. **P0-08 queda retirado** por la decisión Web/PWA-only y no debe reabrirse.
 6. Si habrá factura electrónica desde PWA, completar **P0-09** después de P0-02.
 7. Cerrar P0 solamente después de **P0-10** y de una prueba integral: venta → inventario → caja → turno → ticket → recuperación.
 8. Ejecutar el resto de P1 según los flujos que cada tenant utilice durante sus primeras semanas.
