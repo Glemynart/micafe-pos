@@ -8,6 +8,12 @@ La certificacion read-only del tenant acepta `Empresa.estado = trial` durante el
 
 Este runbook acompaña al Goal `G-SAAS-02`. No autoriza escrituras productivas por sí mismo ni sustituye el acceso administrativo aprobado, un backup o el registro de cambios.
 
+La lectura productiva actual del tenant de referencia está registrada en
+`docs/goals/evidence/G-SAAS-02-READONLY-PRODUCTION-2026-08-12.md`. Esa evidencia
+confirma el tenant real, pero también documenta que el Trial observado es
+mensual y que el plan anual de G-SAAS-02 todavía no está publicado en
+producción. Por tanto, no se considera inicio válido del Trial de este Goal.
+
 ## 1. Gate de entrada
 
 Antes de crear o modificar un tenant se registra:
