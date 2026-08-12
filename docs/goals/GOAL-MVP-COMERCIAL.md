@@ -33,7 +33,7 @@ automática de datos.
 
 | Epic | Resultado | Estado |
 |---|---|---|
-| E9.1 Contrato comercial y snapshot | Product Decision preservada, ADR técnico aprobado y contrato de Suscripción versionado sin mutación retroactiva. | EN PROGRESO |
+| E9.1 Contrato comercial y snapshot | Product Decision preservada, ADR-SAAS-028 aceptado y contrato de Suscripción versionado sin mutación retroactiva. | EN PROGRESO |
 | E9.2 Plan anual y Trial | `mvp_comercial` conserva su versión mensual y obtiene versión `ANUAL`; Trial de 30 días sin cambio de Plan ni gracia. | PENDIENTE |
 | E9.3 Cobro y lifecycle manual | Confirmación anual manual, reactivación server-side, suspensión por vencimiento y cancelación al final del periodo. | PENDIENTE |
 | E9.4 Operación y certificación | Panel de operadores, auditoría, Rules, pruebas y evidencia de la operación comercial inicial. | PENDIENTE |
@@ -47,10 +47,10 @@ sin mutar snapshots históricos y sin ampliar MT-U9.
 
 ## Estado vivo
 
-- **Progreso:** aprobación de Product Owner registrada; `origin/main` auditado; G-MVP-01 permanece como baseline histórica completada; se identifica E9.1 como primera unidad ejecutable.
+- **Progreso:** aprobación de Product Owner registrada, oferta anual fijada en `1.800.000 COP`, `origin/main` auditado; G-MVP-01 permanece como baseline histórica completada; ADR-SAAS-028 aceptado técnicamente y E9.1 listo para implementación.
 - **Estado:** ACTIVO.
 - **PR completados:** ninguno.
-- **Siguiente PR esperado:** formalización de E9.1 mediante ADR técnico propuesto para snapshot contractual y compatibilidad de versiones.
+- **Siguiente PR esperado:** implementación de E9.1: snapshot contractual inmutable y compatibilidad de versiones.
 - **Milestone activo:** `MT-U9 — Contrato y operación comercial inicial`.
 - **Epic activo:** `E9.1 — Contrato comercial y snapshot`.
 

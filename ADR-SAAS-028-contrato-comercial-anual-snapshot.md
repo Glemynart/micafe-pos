@@ -2,13 +2,16 @@
 
 ## Estado
 
-**Propuesto.** Requiere aprobación explícita antes de implementar persistencia,
-comandos, migraciones, jobs o cambios de Rules.
+**Aceptado técnicamente.** La autorización autónoma del Product Owner registrada
+en el contrato de ejecución del 2026-08-12 habilita este diseño para MT-U9.
+La implementación sigue limitada a las decisiones de producto aprobadas y a
+los gates de validación, Rules, CI y merge protegido.
 
 - **Goal:** `G-SAAS-01` — Plataforma SaaS comercial operable
 - **Milestone:** `MT-U9` — Contrato y operación comercial inicial
 - **Epic:** `E9.1` — Contrato comercial y snapshot
 - **Decisión de producto:** `G-SAAS-01-PRODUCT-DECISION-RESOLUTION.md`
+- **Oferta anual:** `1.800.000 COP / año` (`ANUAL`)
 - **ADRs preservados:** `ADR-SAAS-003`, `ADR-SAAS-009`, `ADR-SAAS-011`, `ADR-SAAS-012`
 
 ## Contexto
@@ -35,8 +38,8 @@ del periodo. Estas reglas deben ser compatibles con la separación entre
   `periodicidad: ANUAL`, sin crear una Sede técnica ni activar límites
   cuantitativos.
 - La nueva versión debe contener precio y moneda como datos obligatorios del
-  catálogo. Este ADR no inventa el importe anual: debe provenir de una decisión
-  comercial aprobada antes de publicar la versión.
+  catálogo: `precio.importe: 1800000` y `precio.moneda: "COP"`. La confirmación
+  de pago no recibe ni puede sustituir estos valores.
 - La lista de capacidades debe coincidir exactamente con el catálogo aprobado:
   `sell`, `inventory`, `purchases`, `clientes`, `finanzas`, `reservas`, `waste`,
   `shifts`, `cuentas_cobro`.
@@ -66,14 +69,21 @@ Toda Suscripción creada o activada bajo el contrato MT-U9 debe guardar un
 ```
 
 La Suscripción puede conservar campos de consulta derivados, pero ninguna
-operación posterior puede reescribir el snapshot. Un cambio de Plan crea una
-nueva relación contractual según las reglas aprobadas; no muta la evidencia de
-una relación ya confirmada. Las Suscripciones históricas de la versión mensual
-no se migran automáticamente ni se rellenan por inferencia.
+operación posterior puede reescribir el snapshot. En la primera materialización
+del contrato, `vigencia` representa el intervalo contractual que originó la
+Suscripción: el intervalo de Trial para una Suscripción `trialing` y el periodo
+pagado para una Suscripción creada directamente `active`. La confirmación de
+pago escribe el periodo vigente en los campos de lifecycle y conserva intacto
+el snapshot de la oferta/Trial; cada recibo anual queda como evidencia append-
+only enlazada al comando. Un cambio de Plan crea una nueva relación contractual
+según las reglas aprobadas; no muta la evidencia de una relación ya confirmada.
+Las Suscripciones históricas de la versión mensual no se migran
+automáticamente ni se rellenan por inferencia.
 
 ### 3. Trial
 
-- El Trial nuevo usa exactamente 30 días calculados con reloj server-side.
+- El Trial nuevo usa exactamente 30 días calculados con reloj server-side; el
+  bootstrap de MT-U9 no admite otro valor.
 - Las fechas contractuales usan intervalo semiabierto `[inicio, fin)`: la fecha
   `fin` ya no es un día de acceso. Al alcanzar `fin` sin pago confirmado, el
   backend suspende de forma idempotente la Suscripción y solicita la transición
@@ -145,8 +155,6 @@ Costes y gates:
 
 - se requiere ampliar el modelo de Plan/Suscripción y sus pruebas;
 - se requiere un comando y un proceso de vencimiento idempotentes;
-- el importe anual y la moneda deben resolverse fuera de este ADR antes de
-  publicar la versión ANUAL;
 - la implementación debe actualizar Panel, queries, auditoría, Rules y
   compatibilidad sin mutar históricos.
 
@@ -161,7 +169,7 @@ versión server-side compatible, nunca reabrir escrituras directas del cliente.
 
 ## Criterios de aceptación del ADR
 
-- precio y moneda son obligatorios en la versión ANUAL, sin valor inventado;
+- precio `1800000` y moneda `COP` son obligatorios en la versión ANUAL;
 - el snapshot contiene todos los campos aprobados y se rechaza cualquier
   actualización posterior;
 - la versión mensual histórica permanece intacta y no se migra automáticamente;
@@ -175,5 +183,7 @@ versión server-side compatible, nunca reabrir escrituras directas del cliente.
 
 ## Gate
 
-Este ADR se entrega como **PROPUESTO**. No autoriza todavía cambios de código,
-persistencia, migraciones, scheduler, Rules, Panel ni pruebas de implementación.
+ADR aceptado. Autoriza implementar el siguiente paso mínimo aprobado: contrato
+anual, snapshot, Trial fijo de 30 días, confirmación manual, vencimiento,
+cancelación de fin de periodo y sus validaciones. No autoriza ningún elemento
+del apartado fuera de alcance.

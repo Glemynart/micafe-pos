@@ -4,6 +4,8 @@
 **Fecha de registro:** 2026-08-12
 **Milestone:** `MT-U9 — Contrato y operación comercial inicial`
 
+**Oferta aprobada:** `1.800.000 COP / año`, periodicidad `ANUAL`.
+
 ## Decisiones aprobadas
 
 1. Durante MT-U9 el cobro será anual y manual. Solo un operador SaaS autorizado
@@ -30,6 +32,10 @@
 9. El catálogo canónico del Plan inclusivo contiene exactamente:
    `sell`, `inventory`, `purchases`, `clientes`, `finanzas`, `reservas`,
    `waste`, `shifts`, `cuentas_cobro`.
+
+10. La versión anual se publica con precio `1800000` y moneda `COP`. El importe
+    se guarda como entero en la unidad monetaria de COP; no se aceptan valores
+    de precio o moneda desde una confirmación de pago.
 
 ## Límites de la autorización
 
