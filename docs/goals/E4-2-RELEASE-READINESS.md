@@ -17,6 +17,12 @@ seguimientos de seguridad indicados en este documento.
 Esta distinción evita presentar como listo un producto fiscal, físico o
 multicanal que todavía no ha sido probado en esos canales.
 
+> **Estado vivo (2026-08-12):** PR #238 quedó integrado en `main @ 6056956`
+> con CI post-merge completamente verde. B3-027 y ADR-SAAS-026/027 están
+> cerrados; Electron/P0-08 permanece retirado. Los únicos gates externos
+> abiertos son impresión física (P0-07), fiscalidad/DIAN (P0-02/P0-09) y la
+> decisión comercial de reservas/Wompi (P1-09).
+
 ## Evidencia disponible
 
 | Área | Evidencia | Resultado |
