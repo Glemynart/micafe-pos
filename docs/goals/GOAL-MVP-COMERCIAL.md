@@ -11,7 +11,7 @@
 - **Resultado:** un primer cliente real opera MiCafe POS durante un Trial ANUAL server-side de 30 días, con provisioning reproducible, onboarding, operación crítica, soporte, recuperación cuando aplique y cierre contractual evidenciado.
 - **Estado:** ACTIVO
 - **Inicio formal:** 2026-08-12
-- **Rama base:** `main @ 5dcb8837f6785be3045ee983aab4c660948f150f`
+- **Rama base:** `main @ 5ed5d1f870240c807263f0cb5d65fec363fa50ef`
 - **Fuente de autorización:** `AUTORIZACIÓN DE EJECUCIÓN — G-SAAS-02`
 - **Decisiones comerciales preservadas:** `1.800.000 COP`, `ANUAL`, pago manual, Trial de 30 días, todos los módulos disponibles y un Espacio operativo interno.
 
@@ -114,10 +114,10 @@
 
 ## Estado vivo
 
-- **Progreso:** PR #246 integró M1; PR #247 sincronizó el estado del Goal; y PR #248 integró el gate read-only de certificación para tenants en Trial en `main @ 5dcb8837f6785be3045ee983aab4c660948f150f`. La CI de los tres PR quedó completamente verde y Vercel completó sus despliegues.
+- **Progreso:** PR #246 integró M1; PR #247 sincronizó el estado del Goal; PR #248 integró el gate read-only de certificación para tenants en Trial; PR #249 reconcilió el estado vivo; y PR #250 registró la evidencia read-only de producción en `main @ 5ed5d1f870240c807263f0cb5d65fec363fa50ef`. La CI de los tres PR quedó completamente verde y Vercel completó sus despliegues.
 - **Estado:** ACTIVO.
-- **PR completados:** #246, #247, #248.
-- **Siguiente PR esperado:** M2/E2.1, alta del tenant de referencia y provisioning reproducible con datos aprobados del primer cliente, sujeto al gate de no escritura productiva no autorizada.
+- **PR completados:** #246, #247, #248, #249, #250.
+- **Siguiente PR esperado:** M2/E2.1, alta del tenant de referencia y provisioning reproducible con datos aprobados del primer cliente, sujeto al gate de no escritura productiva no autorizada y a la publicación del Plan ANUAL aprobada.
 - **Milestone activo:** `M2 — Provisioning y onboarding`.
 - **Epic activo:** `E2.1 — Tenant de referencia`.
 
