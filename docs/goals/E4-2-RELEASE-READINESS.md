@@ -53,8 +53,8 @@ La verificación read-only posterior confirmó la ausencia de los cuatro targets
 y la permanencia del asset excluido `eventos/1781122906272-gzhck1.png`. El
 verificador de recovery fue corregido para aceptar el round-trip JSON de
 timestamps Firestore; las pruebas B3 siguen en verde y no se realizaron nuevas
-escrituras. PR #235 integró esta corrección y la documentación en `main`;
-la CI post-merge de `73cacf4` terminó completamente en verde.
+escrituras. PR #235 integró esta corrección y PR #236 reconcilió el estado de
+E4.2 en `main @ 9c725b0`; las CI post-merge terminaron completamente en verde.
 
 ### Evidencia E4.2-SEC-002 - parche compatible de dependencias
 
