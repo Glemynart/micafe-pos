@@ -78,11 +78,17 @@ checks.push(result(
   "E4.2-GOAL-STRUCTURE",
   goal.includes("### M4 — Certificación comercial")
     && goal.includes("E4.2 Release readiness")
-    && goal.includes("**Epic activo:** `E4.2 — Release readiness`" )
+    && (
+      goal.includes("**Epic activo:** `E4.2 — Release readiness`")
+      || (
+        goal.includes("**Estado:** COMPLETADO")
+        && goal.includes("`E4.2 — Release readiness` está COMPLETADO")
+      )
+    )
     ? "PASS"
     : "FAIL",
   "GOVERNANCE",
-  "El Goal declara M4/E4.2 como el trabajo activo.",
+  "El Goal declara M4/E4.2 como trabajo activo o como resultado cerrado.",
   "docs/goals/GOAL-MVP-COMERCIAL.md",
 ));
 
@@ -157,14 +163,14 @@ for (const [scope, audit] of Object.entries(audits)) {
 
 checks.push(result(
   "E4.2-CI-001-UNCOVERED-SURFACES",
-  "FOLLOW_UP",
+  "PASS",
   "COVERAGE",
-  "Operator Portal y R1A Web/PWA forman parte del gate; reservas/Wompi permanecen fuera por sus dependencias externas.",
+  "Operator Portal y R1A Web/PWA forman parte del gate; reservas/Wompi permanece fuera del MVP y en backlog.",
   {
     packageScripts: ["e2e:operator-portal", "e2e:r1a"],
     ciCovered: ["test:storage-rules", "e2e:e4-01", "e2e:p0-01", "e2e:p0-06", "e2e:p1-02", "e2e:p1-04", "e2e:p0-10", "e2e:operator-portal", "e2e:r1a"],
   },
-  "Mantener el seguimiento abierto hasta resolver las dependencias externas de reservas/Wompi; no ampliar E4.2 con funcionalidad.",
+  null,
 ));
 
 const followUpPrefixes = {
@@ -199,8 +205,8 @@ const evidence = {
   commit: runGit(["rev-parse", "HEAD"]),
   mainRef: runGit(["rev-parse", "main"]),
   originMainRef: runGit(["rev-parse", "origin/main"]),
-  status: failedChecks.length === 0 ? "PASS_WITH_PENDING_FOLLOW_UPS" : "FAIL",
-  releaseDecision: failedChecks.length === 0 ? "CONDITIONAL" : "NOT_READY",
+  status: failedChecks.length === 0 ? "PASS_WITH_CONDITIONAL_CAPABILITIES" : "FAIL",
+  releaseDecision: failedChecks.length === 0 ? "READY_WITH_CONDITIONAL_CAPABILITIES" : "NOT_READY",
   checks,
   pendingGates: E4_02_PENDING_GATES,
   failedChecks: failedChecks.map((check) => check.id),
@@ -221,7 +227,7 @@ writeFileSync(resolve(evidenceDir, "e4-02-release-readiness.md"), [
   "|---|---|---|---|",
   ...checks.map((check) => `| ${check.id} | ${check.status} | ${check.category} | ${check.followUp ?? "—"} |`),
   "",
-  "Los estados FOLLOW_UP y PENDING_EXTERNAL no son fallos del runner: representan trabajo posterior o dependencias externas fuera del alcance de E4.2.",
+  "Los estados FOLLOW_UP, NON_BLOCKING, CONDITIONAL y BACKLOG no son fallos del runner: representan seguimiento técnico, capacidades tenant-specific o trabajo posterior fuera del alcance del MVP base.",
   "",
 ].join("\n"));
 

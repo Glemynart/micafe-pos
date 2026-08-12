@@ -7,10 +7,17 @@ import {
   validarContratoE4_02,
 } from "./e4-02-contract.mjs";
 
-test("E4.2 conserva las suites core y los cinco gates externos", () => {
+test("E4.2 conserva las suites core y clasifica las cinco condiciones posteriores", () => {
   assert.equal(E4_02_REQUIRED_CI_COMMANDS.length, 12);
   assert.equal(E4_02_PENDING_GATES.length, 5);
   assert.equal(new Set(E4_02_PENDING_GATES.map((gate) => gate.id)).size, 5);
+  assert.deepEqual(E4_02_PENDING_GATES.map((gate) => gate.status), [
+    "NON_BLOCKING",
+    "CONDITIONAL",
+    "BACKLOG",
+    "BACKLOG",
+    "BACKLOG",
+  ]);
 });
 
 test("E4.2 contrato valido exige registrar seguimientos tecnicos", () => {
