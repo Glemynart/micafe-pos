@@ -11,7 +11,7 @@
 - **Resultado:** un primer cliente real opera MiCafe POS durante un Trial ANUAL server-side de 30 días, con provisioning reproducible, onboarding, operación crítica, soporte, recuperación cuando aplique y cierre contractual evidenciado.
 - **Estado:** ACTIVO
 - **Inicio formal:** 2026-08-12
-- **Rama base:** `main @ 02375fbd72e238776da7a6d4f4d278abd0e1f9ae`
+- **Rama base:** `main @ b108d63ba23f8d84e74b6d06f1280629bd5254c3`
 - **Fuente de autorización:** `AUTORIZACIÓN DE EJECUCIÓN — G-SAAS-02`
 - **Decisiones comerciales preservadas:** `1.800.000 COP`, `ANUAL`, pago manual, Trial de 30 días, todos los módulos disponibles y un Espacio operativo interno.
 
@@ -39,20 +39,20 @@
 
 ## Milestones y Epics activos/propuestos
 
-### M1 — Baseline y remediaciones previas — EN EJECUCIÓN
+### M1 — Baseline y remediaciones previas — COMPLETADO
 
 | Epic | Resultado | Estado |
 |---|---|---|
-| E1.1 Onboarding DEMO | Bootstrap materializa los módulos derivados del Plan sin crear una autoridad paralela. | EN EJECUCIÓN |
-| E1.2 Integridad financiera de egresos | El cliente no puede borrar egresos por una ruta legacy incompatible; las correcciones quedan bajo soporte/backend canónico. | EN EJECUCIÓN |
-| E1.3 Diagnóstico operativo | Un tenant DEMO operativo no se presenta como onboarding detenido por fiscalidad pendiente. | EN EJECUCIÓN |
-| E1.4 Documentación de seguridad y operación | La documentación del sistema real y el runbook del Trial están versionados y distinguen evidencia pendiente. | EN EJECUCIÓN |
+| E1.1 Onboarding DEMO | Bootstrap materializa los módulos derivados del Plan sin crear una autoridad paralela. | COMPLETADO |
+| E1.2 Integridad financiera de egresos | El cliente no puede borrar egresos por una ruta legacy incompatible; las correcciones quedan bajo soporte/backend canónico. | COMPLETADO |
+| E1.3 Diagnóstico operativo | Un tenant DEMO operativo no se presenta como onboarding detenido por fiscalidad pendiente. | COMPLETADO |
+| E1.4 Documentación de seguridad y operación | La documentación del sistema real y el runbook del Trial están versionados y distinguen evidencia pendiente. | COMPLETADO |
 
-### M2 — Provisioning y onboarding — PENDIENTE
+### M2 — Provisioning y onboarding — EN EJECUCIÓN
 
 | Epic | Resultado | Estado |
 |---|---|---|
-| E2.1 Tenant de referencia | Tenant, contrato, Trial, membresía, administrador, credencial, Espacio y configuración reproducibles. | PENDIENTE |
+| E2.1 Tenant de referencia | Tenant, contrato, Trial, membresía, administrador, credencial, Espacio y configuración reproducibles. | EN EJECUCIÓN |
 | E2.2 Configuración inicial | Catálogo, usuarios, permisos, módulos y flujo DEMO aceptados por el cliente. | PENDIENTE |
 
 ### M3 — Certificación funcional del tenant — PENDIENTE
@@ -111,6 +111,15 @@
 - Impresión física depende de modelo, driver y ancho del equipo del cliente; el transporte técnico Web/PWA ya está definido.
 - Correcciones financieras posteriores a un egreso requieren una autoridad backend canónica o un procedimiento de soporte; el cliente no borra el ledger.
 - El despliegue productivo actual y la recuperación productiva aún no están certificados.
+
+## Estado vivo
+
+- **Progreso:** PR #246 integró M1 y sus remediaciones en `main @ b108d63ba23f8d84e74b6d06f1280629bd5254c3`; la CI del PR quedó completamente verde y Vercel completó el despliegue.
+- **Estado:** ACTIVO.
+- **PR completados:** #246.
+- **Siguiente PR esperado:** M2/E2.1, tenant de referencia y provisioning reproducible, sujeto a datos aprobados del primer cliente y al gate de no escritura productiva no autorizada.
+- **Milestone activo:** `M2 — Provisioning y onboarding`.
+- **Epic activo:** `E2.1 — Tenant de referencia`.
 
 
 ## Identidad estable
