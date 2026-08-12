@@ -13,6 +13,13 @@
 > (contrato Firestore, Rules, servicio y UI administrativa); no autoriza B2,
 > B3, migraciones ni escrituras en producción.
 
+> **Estado actual post-MVP (2026-08-11):** B1 (#196), B2 (#197), B3-A
+> (#199), B3-B (#201) y el cierre productivo controlado (#235/#236) fueron
+> integrados y auditados. El contrato público tenant-aware está vigente y los
+> cuatro objetivos legacy autorizados ya fueron cerrados. Las restricciones de
+> autorización de esta aceptación son **HISTÓRICAS**; no queda una migración B3
+> pendiente en el Goal.
+
 ## 1. Contexto y problema
 
 `ADR-SAAS-024` resolvió el contrato de Firebase Storage: los assets nuevos de
@@ -279,4 +286,6 @@ independiente. Ninguno de estos cortes autoriza escrituras en producción.
 Este documento está **ACEPTADO** por el propietario del Goal. La aceptación
 incluye las dos precisiones sobre propiedad tenant de los recursos públicos y
 sobre el dominio personalizado como contexto público, nunca como autoridad
-administrativa.
+administrativa. La implementación y el cierre legacy descritos arriba están
+COMPLETADOS; cualquier backfill o limpieza adicional requeriría una decisión
+independiente y no se infiere de este ADR.

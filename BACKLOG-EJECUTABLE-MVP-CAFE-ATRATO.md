@@ -14,6 +14,22 @@ reutilizables para cualquier tenant.
 
 Cada PR recomendado es independiente en lo posible y no debe mezclar tareas de distinta prioridad.
 
+## Estado post-MVP
+
+Las tablas P0-P3 siguientes son el **inventario histórico de planificación** del
+MVP. El estado vigente, posterior al cierre de `G-MVP-01`, es:
+
+- **COMPLETADO:** núcleo SaaS/POS Web/PWA, M1-M4/E4.2, certificaciones E4.1,
+  Storage/Eventos tenant-aware y cierre controlado B3-026/B3-027.
+- **CONDICIONADO / NO BLOQUEANTE:** configuración fiscal/DIAN por decisión y
+  datos del tenant; validación física de una impresora concreta.
+- **BACKLOG:** P1-05, P1-08, P1-09, P2-01, P2-02 y P2-04, sujetos a una nueva
+  decisión de producto y a sus dependencias propias.
+- **RETIRADO / SUPERSEDED:** P0-08 y toda distribución Electron, por PR #224.
+
+Este backlog no autoriza por sí mismo una fase post-MVP, ni convierte las ramas
+o PR históricos en trabajo pendiente.
+
 ## P0 — Antes de operar
 
 | ID | Tarea verificable | Dependencias | Criterio de aceptación | Esfuerzo | PR recomendado |

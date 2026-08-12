@@ -12,6 +12,13 @@
 > para preparar y validar un cierre selectivo de legacy; la ejecución
 > productiva requerirá una autorización explícita posterior.
 
+> **Estado actual post-MVP (2026-08-11):** el mecanismo fue implementado y
+> certificado por PR #226. La ejecución productiva autorizada se realizó después
+> mediante ADR-SAAS-027, PR #235 y PR #236, eliminando exactamente un Evento y
+> tres assets del allowlist. No debe repetirse el operador ni inferirse ningún
+> target adicional. La prohibición de escritura del texto original describe el
+> alcance de aceptación de este ADR y queda como evidencia **HISTÓRICA**.
+
 ## 1. Contexto y problema
 
 `ADR-SAAS-025` contempla que el modelo global legacy pueda retirarse después de
@@ -172,8 +179,7 @@ Queda fuera:
 
 ## 10. Estado
 
-Este ADR queda **ACEPTADO** por autorización explícita del Goal. La
-aceptación cubre únicamente la preparación del manifiesto congelado, el
-dry-run productivo estrictamente read-only, la revalidación, el bundle de
-recovery, el journal, la idempotencia por objetivo y las pruebas definidas en
-este ADR. No autoriza escrituras ni eliminaciones en producción.
+Este ADR queda **ACEPTADO** por autorización explícita del Goal. Su mecanismo
+de preparación, dry-run, recovery, journal e idempotencia quedó integrado y
+certificado; el cierre productivo posterior fue ejecutado bajo ADR-SAAS-027.
+No existen escrituras o eliminaciones adicionales autorizadas por este ADR.

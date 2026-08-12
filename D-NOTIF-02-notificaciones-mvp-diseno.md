@@ -2,6 +2,14 @@
 
 **Rama:** `research/notificaciones-mvp` · **Estado:** diseño aprobado, pendiente de implementar · **Fecha:** 2026-07-05
 
+> **Estado actual post-MVP (2026-08-11):** este documento es una propuesta
+> histórica de notificaciones operativas y no forma parte del release gate del
+> MVP. La implementación durable de outbox/dispatcher no está completa, por lo
+> que las notificaciones NO están listas para producción. Web/PWA es la única
+> superficie soportada; todas las referencias a Electron, `main.js` y el
+> transporte cross-origin empaquetado son contexto histórico y no constituyen
+> una dependencia vigente ni autorizan reactivar Electron.
+
 ---
 
 ## 1. Contexto

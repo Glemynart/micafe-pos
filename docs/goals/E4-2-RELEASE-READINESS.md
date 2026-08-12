@@ -3,7 +3,7 @@
 **Goal:** G-MVP-01 — MVP SaaS comercial reusable
 **Milestone:** M4 — Certificación comercial
 **Epic:** E4.2 — Release readiness
-**Fecha de auditoría:** 2026-08-08
+**Fecha de auditoría:** 2026-08-11
 **Alcance:** auditoría, evidencia y alineación documental; no cambia el dominio ni el comportamiento del producto.
 
 ## Decisión de release
@@ -25,11 +25,16 @@ Las capacidades que dependen de una decisión del tenant no bloquean esta releas
 Esta clasificación no simula una impresora, no inventa datos fiscales y no presenta
 reservas/Wompi como capacidades certificadas.
 
-> **Estado vivo (2026-08-12):** `main @ 6a018e32164796bb0e33669dcf83efe5cad38b31`
+> **Estado vivo (2026-08-11):** `main @ 65a9fb85d9159eb949ffaf18c5a99ed6377b1554`
 > tiene CI post-merge completamente verde. B3-027 y ADR-SAAS-026/027 están
 > cerrados; Electron/P0-08 permanece retirado. E4.2 queda cerrado para el MVP
 > Web/PWA, con validaciones físicas y capacidades fiscales tenant-specific
 > registradas como condiciones no bloqueantes.
+
+> **Reconciliación:** las secciones de evidencia y seguimiento conservan la
+> cronología de auditorías anteriores. Cuando mencionan dry-run, B3 pendiente,
+> Electron o una decisión de release condicional, ese texto es **HISTÓRICO**;
+> el estado vigente es el de este bloque y el de `main @ 65a9fb8`.
 
 ## Evidencia disponible
 
@@ -69,7 +74,9 @@ verificador de recovery fue corregido para aceptar el round-trip JSON de
 timestamps Firestore; las pruebas B3 siguen en verde y no se realizaron nuevas
 escrituras. PR #235 integró esta corrección, PR #236 reconcilió el estado de
 E4.2 y PR #237 alineó la documentación con el estado vivo de `main @ fabcf65`;
-las CI post-merge terminaron completamente en verde.
+las CI post-merge terminaron completamente en verde. Estos SHA son referencias
+históricas de esas ejecuciones y no sustituyen al SHA vivo indicado al inicio
+del documento.
 
 > **Nota de vigencia:** el inventario y las actualizaciones descritos en esta
 > sección son evidencia histórica de la auditoría anterior al retiro de
