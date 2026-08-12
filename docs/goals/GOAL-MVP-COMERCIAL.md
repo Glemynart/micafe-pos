@@ -11,7 +11,7 @@
 
 ## Estado actual post-MVP (2026-08-11)
 
-- **ACTUAL:** `G-MVP-01` está COMPLETADO en `main @ 65a9fb85d9159eb949ffaf18c5a99ed6377b1554`.
+- **ACTUAL:** `G-MVP-01` está COMPLETADO en la línea base funcional de cierre del MVP (`main @ 65a9fb85d9159eb949ffaf18c5a99ed6377b1554`). La reconciliación documental posterior quedó integrada por PR #241.
 - **ACTUAL:** M1, M2, M3 y M4/E4.2 están COMPLETADOS; la CI post-merge de `main` está verde.
 - **ACTUAL:** B3-026/B3-027 están COMPLETADOS. El cierre productivo autorizado eliminó únicamente los cuatro objetivos allowlisted y no requiere nuevas ejecuciones.
 - **ACTUAL:** Web/PWA es la única superficie soportada. Electron/P0-08 está RETIRADO; sus referencias se conservan solo como historial.
