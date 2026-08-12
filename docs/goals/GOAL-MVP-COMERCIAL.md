@@ -6,8 +6,18 @@
 - **Resultado:** Cualquier tenant puede operar la primera versión comercial del SaaS de forma segura, íntegra, recuperable y reusable; Café Atrato permanece como primer tenant de referencia.
 - **Estado:** COMPLETADO
 - **Inicio formal:** 2026-08-01
-- **Rama base al adoptar:** `main @ 0958181`
+- **Rama base histórica al adoptar:** `main @ 0958181`
 - **Fuente de alcance inicial:** `BACKLOG-EJECUTABLE-MVP-CAFE-ATRATO.md`, prioridad P0.
+
+## Estado actual post-MVP (2026-08-11)
+
+- **ACTUAL:** `G-MVP-01` está COMPLETADO en `main @ 65a9fb85d9159eb949ffaf18c5a99ed6377b1554`.
+- **ACTUAL:** M1, M2, M3 y M4/E4.2 están COMPLETADOS; la CI post-merge de `main` está verde.
+- **ACTUAL:** B3-026/B3-027 están COMPLETADOS. El cierre productivo autorizado eliminó únicamente los cuatro objetivos allowlisted y no requiere nuevas ejecuciones.
+- **ACTUAL:** Web/PWA es la única superficie soportada. Electron/P0-08 está RETIRADO; sus referencias se conservan solo como historial.
+- **ACTUAL:** no existe Milestone, Epic ni PR funcional activo del Goal. Fiscalidad/DIAN y la validación física de hardware son capacidades condicionadas o actividades operativas no bloqueantes; Wompi, notificaciones y offline siguen en backlog.
+
+La cronología y los estados intermedios que aparecen más abajo son **HISTÓRICOS** y se conservan como evidencia de decisiones, implementaciones y cierres. No deben interpretarse como trabajo pendiente ni como autorización para abrir una nueva fase.
 
 ## Alcance del Goal
 

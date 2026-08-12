@@ -12,6 +12,12 @@
 > contrato para una futura ejecución operativa, después de su aceptación y de
 > una autorización explícita separada para la limpieza concreta.
 
+> **Estado actual post-MVP (2026-08-11):** el operador fue implementado y
+> certificado por PR #229. La autorización productiva separada se concedió y se
+> ejecutó el 2026-08-11; PR #235/#236 documentaron el resultado en `main`. Se
+> eliminaron únicamente un Evento y tres assets del allowlist. B3-027 está
+> COMPLETADO y no debe volver a ejecutarse.
+
 ## 1. Contexto y problema
 
 ADR-SAAS-026 y PR #226 implementaron el manifiesto congelado, el dry-run
@@ -216,7 +222,8 @@ de ella se repetirá el dry-run read-only final.
 ## 10. Estado
 
 Este ADR queda **ACEPTADO** por decisión técnica documentada conforme al modo
-autónomo del Goal. La aceptación habilita únicamente la implementación y
-certificación de la herramienta operativa separada. No autoriza ninguna
-eliminación productiva: cada ejecución continuará requiriendo la confirmación
-operativa independiente definida aquí.
+autónomo del Goal. La implementación, certificación y única ejecución
+productiva autorizada quedaron COMPLETADAS. La exigencia de confirmación
+operativa independiente se conserva como control histórico y cualquier nueva
+operación requeriría una autorización separada; no existe una ejecución
+pendiente de B3-027.

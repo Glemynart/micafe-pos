@@ -13,6 +13,11 @@
 > de Storage tenant-aware; no autoriza el PR B de migración de Eventos ni
 > despliegues o escrituras en producción.
 
+> **Estado actual post-MVP (2026-08-11):** la decisión fue implementada y
+> certificada por PR #195. El trabajo de Eventos se ejecutó posteriormente bajo
+> ADR-SAAS-025 y B3-026/B3-027 quedó cerrado. El texto de autorización y
+> separación de PRs que sigue es **HISTÓRICO** y no representa trabajo pendiente.
+
 ## 1. Contexto y problema
 
 La aplicación utiliza Firebase Storage para imágenes de productos y eventos,
@@ -345,7 +350,7 @@ relajará las Rules de Firestore existentes.
 
 ## 10. Estado de decisión
 
-Este documento está **ACEPTADO** por el propietario del Goal. La aceptación
-admite únicamente PR A / `P2-03` dentro del alcance indicado. PR B / Eventos
-tenant-aware permanece planificado como trabajo independiente y no se incluye
-en este PR.
+Este documento está **ACEPTADO** por el propietario del Goal. PR A / `P2-03`
+quedó integrado y no existe un seguimiento pendiente de Storage en el MVP.
+PR B / Eventos tenant-aware se conserva como separación histórica y fue
+resuelto posteriormente por ADR-SAAS-025.

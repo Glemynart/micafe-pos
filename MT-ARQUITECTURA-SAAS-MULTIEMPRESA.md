@@ -1,9 +1,10 @@
 # MT — Arquitectura SaaS Multiempresa (Documento Maestro)
 
 > **Estado:** ✅ Aprobado como vista arquitectónica consolidada del proyecto.
-> **Base revisada:** `main @ a8a0cf3`.
-> **Última revisión:** 2026-07-21.
-> **Alcance vigente:** MT-U0 a MT-U5B completados; programa MT-U6→MT-U8 aprobado para diseño e implementación posterior.
+> **Base revisada:** `main @ 65a9fb85d9159eb949ffaf18c5a99ed6377b1554`.
+> **Última revisión:** 2026-08-11.
+> **Alcance vigente:** MT-U0 a MT-U8 completados; MT-U9→MT-U11 son unidades
+> candidatas post-MVP y MT-U12 está retirada/superseded por la decisión Web/PWA-only.
 >
 > **Gobernanza documental:** este documento mantiene la vista consolidada y vigente de la arquitectura
 > SaaS. Cada ADR aceptado es la autoridad histórica de la decisión concreta que registra. Las
@@ -431,7 +432,11 @@ empresa para vender hasta certificar numeración, snapshot y enforcement.
 | MT-U9 | Panel SaaS, operadores y auditoría de plataforma. |
 | MT-U10 | Métricas de consumo y enforcement de límites definidos por planes. |
 | MT-U11 | Multiempresa por usuario y cambio de tenant activo. |
-| MT-U12 | Convergencia Electron con la sesión SaaS. |
+| MT-U12 | **SUPERSEDED / RETIRADA:** convergencia Electron con la sesión SaaS; Web/PWA es la única superficie soportada. |
+
+Estas unidades son **candidatas post-MVP**, no un Milestone o Epic activo. MT-U12
+no puede reabrirse como trabajo de producto. La selección y orden de MT-U9/U10/U11
+requieren una decisión de producto sobre monetización, límites y operación SaaS.
 
 ---
 
@@ -461,7 +466,7 @@ empresa para vender hasta certificar numeración, snapshot y enforcement.
 - Permitir al cliente escribir estados, claims o `empresaId`.
 - Mantener dual-write entre el singleton y la configuración tenant.
 - Aplicar límites o vencimientos retroactivos a la empresa fundacional.
-- Exponer Electron como canal multiempresa antes de MT-U12.
+- **HISTÓRICO / SUPERSEDED:** exponer Electron como canal multiempresa antes de MT-U12.
 
 ### Controles obligatorios antes de la segunda empresa
 
@@ -490,21 +495,25 @@ empresa para vender hasta certificar numeración, snapshot y enforcement.
 
 ---
 
-## 16. Decisiones de producto pendientes
+## 16. Estado de decisiones de producto
 
-1. Cierre operativo y retiro de los documentos legacy de `eventos` mediante B3.
-   B2 ya implementó la lectura pública por slug y B3-A/B3-B certificaron el
-   inventario y el backfill seguro en Emulator. El cierre productivo requiere
-   mapeos reales y autorización explícita. El routing futuro por dominio
+1. **COMPLETADO:** cierre operativo selectivo de los documentos y assets legacy
+   de `eventos` mediante B3-026/B3-027. El routing futuro por dominio
    personalizado permanece como trabajo independiente: solo resuelve el
    contexto público (`empresaId`) y nunca permisos administrativos.
-2. Distribución SaaS definitiva: web/PWA y papel futuro de Electron.
-3. Alcance fiscal multi-país.
-4. Duración comercial exacta del trial.
-5. Períodos de gracia y retención.
-6. Dimensiones monetizadas, precios y límites.
-7. Proveedor e integración de pagos.
-8. Política de medición de consumo.
+2. **SUPERSEDED:** distribución Electron. El producto soportado es Web/PWA.
+3. **PENDIENTE DE PRODUCTO:** alcance fiscal multi-país.
+4. **PENDIENTE DE PRODUCTO:** duración comercial futura del trial y renovación.
+   El Trial inicial de 30 días fue una decisión del MVP.
+5. **PENDIENTE DE PRODUCTO:** períodos de gracia, retención y política de
+   suspensión/reactivación comercial.
+6. **PENDIENTE DE PRODUCTO:** dimensiones monetizadas, precios y límites.
+7. **PENDIENTE DE PRODUCTO:** proveedor e integración de pagos.
+8. **PENDIENTE DE PRODUCTO:** política de medición de consumo y facturación.
+
+Las decisiones marcadas como pendientes no autorizan implementación. Las
+decisiones completadas y superseded se mantienen aquí para reconciliar el
+historial sin eliminarlo.
 
 Estas decisiones no alteran la separación de autoridades definida en este documento. Cualquier cambio
 que contradiga un ADR aceptado requiere un nuevo ADR que lo superseda explícitamente.

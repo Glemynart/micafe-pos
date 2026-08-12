@@ -1,8 +1,12 @@
 # MT-U12 — Convergencia de la sesión SaaS con Electron
 
-> **Estado:** especificación arquitectónica para revisión.
+> **Estado:** SUPERSEDED / RETIRADA por la decisión Web/PWA-only.
 > **Alcance:** convergencia conceptual entre la sesión SaaS aprobada y una sesión de aplicación Electron.
 > **Precondición:** MT-U3, MT-U5B, MT-U9, MT-U10 y MT-U11 aprobadas. Este documento no modifica sus autoridades ni define mecanismos técnicos.
+
+> **Nota de vigencia:** se conserva como evidencia arquitectónica histórica. No
+> representa una plataforma soportada, no autoriza implementación y no requiere
+> un reemplazo de backup Electron en Web/PWA.
 
 ## U12.1 Autoridad y propósito
 
