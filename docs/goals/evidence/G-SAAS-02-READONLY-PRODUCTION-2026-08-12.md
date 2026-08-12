@@ -30,4 +30,4 @@ No se debe reiniciar artificialmente el Trial, cambiar su plan durante el period
 - `docs/goals/P0-01-CERTIFICACION-DATOS-INICIALES.md` — certificación histórica read-only de P0-01.
 - `ADR-SAAS-014-trial-tenant-existente.md` — restricciones para una Empresa existente.
 - `docs/goals/G-SAAS-02-TRIAL-OPERATIONS.md` — gates de entrada, operación y cierre.
-- `main` verificado en `200932dc21a38fa78243c0d1ff37483dde3bceed`.
+- `main` verificado en `5ed5d1f870240c807263f0cb5d65fec363fa50ef`.
