@@ -8,20 +8,28 @@
 
 ## Decisión de release
 
-El núcleo SaaS/POS DEMO puede certificarse de forma reusable en Emulator/CI. La
-decisión de release es **CONDICIONAL**: el recorrido DEMO/PWA controlado está
-respaldado por las certificaciones integradas, pero el Goal completo no puede
-declararse terminado mientras permanezcan pendientes los gates externos y los
-seguimientos de seguridad indicados en este documento.
+El MVP SaaS/POS Web/PWA está **COMPLETADO y listo para comercialización** en su
+alcance operativo. El recorrido DEMO y las operaciones server-authoritative están
+respaldados por las certificaciones integradas en Emulator/CI, y `main` está verde.
 
-Esta distinción evita presentar como listo un producto fiscal, físico o
-multicanal que todavía no ha sido probado en esos canales.
+Las capacidades que dependen de una decisión del tenant no bloquean esta release:
 
-> **Estado vivo (2026-08-12):** PR #238 quedó integrado en `main @ 6056956`
-> con CI post-merge completamente verde. B3-027 y ADR-SAAS-026/027 están
-> cerrados; Electron/P0-08 permanece retirado. Los únicos gates externos
-> abiertos son impresión física (P0-07), fiscalidad/DIAN (P0-02/P0-09) y la
-> decisión comercial de reservas/Wompi (P1-09).
+- P0-07/E3.1 tiene transporte Web/PWA y layouts POS de 58/80 mm; el navegador usa
+  su diálogo estándar y el PC aporta el driver. La prueba física de un modelo
+  concreto es una validación operativa posterior.
+- P0-02/P0-09 habilitan fiscalidad/DIAN únicamente cuando el tenant decide usarla y
+  proporciona sus datos. No son requisitos para vender DEMO ni para operar el POS.
+- P1-09 (reservas públicas/Wompi) queda fuera del MVP actual y pasa a backlog de
+  una fase posterior.
+
+Esta clasificación no simula una impresora, no inventa datos fiscales y no presenta
+reservas/Wompi como capacidades certificadas.
+
+> **Estado vivo (2026-08-12):** `main @ 6a018e32164796bb0e33669dcf83efe5cad38b31`
+> tiene CI post-merge completamente verde. B3-027 y ADR-SAAS-026/027 están
+> cerrados; Electron/P0-08 permanece retirado. E4.2 queda cerrado para el MVP
+> Web/PWA, con validaciones físicas y capacidades fiscales tenant-specific
+> registradas como condiciones no bloqueantes.
 
 ## Evidencia disponible
 
@@ -43,7 +51,7 @@ multicanal que todavía no ha sido probado en esos canales.
 | E4.2-SEC-001-STORAGE-RULES | **CERRADO en PR #195:** `storage.rules` está versionado, declarado en `firebase.json` y aplica el contrato tenant-aware. La suite de Storage Emulator está conectada a CI. | Alto | Mantener la suite tenant-aware y la evidencia de aislamiento. | ADR-SAAS-024 aceptado |
 | E4.2-SEC-002-DEPENDENCIES | `npm audit` presentaba vulnerabilidades conocidas en raíz y Functions. | Alto | PR #203 y PR #205 integrados; quedan siete moderadas documentadas por requerir cambios mayores incompatibles. | Solo si cambia arquitectura/contrato |
 | E4.2-SEC-003-MASTER-PLAN | **CERRADO:** `MASTER-SECURITY-PLAN.md` está vigente y registra la evolución SaaS, Storage tenant-aware y los riesgos residuales sin declararlos mitigados implícitamente. | Alto | Mantenerlo alineado cuando se cierre un riesgo o se integre una nueva frontera. | No |
-| E4.2-CI-001-UNCOVERED-SURFACES | Operator Portal y R1-A Web/PWA forman parte del gate; Electron fue retirado por PR #224 y reservas/Wompi permanecen fuera por dependencias externas. Storage cuenta con suite tenant-aware en CI. | Medio/alto | Mantener el seguimiento abierto hasta resolver las dependencias externas de reservas/Wompi. | Según cada frontera |
+| E4.2-CI-001-UNCOVERED-SURFACES | Operator Portal y R1-A Web/PWA forman parte del gate; Electron fue retirado por PR #224. Storage cuenta con suite tenant-aware en CI; reservas/Wompi queda fuera del MVP y en backlog. | Medio/alto | Mantener estas suites como barrera contra regresiones; no abrir trabajo de reservas/Wompi dentro de E4.2. | Según cada frontera |
 | E4.2-B3-CLOSURE | **Cerrado en la ejecución B3-027 del 2026-08-11 y PR #235:** ADR-SAAS-026 y ADR-SAAS-027, allowlist estricta, preflight, recovery, journal, idempotencia y precondiciones por objetivo quedaron verificados; se eliminaron exactamente 1 Evento legacy y 3 assets autorizados. | Alto | Mantener el allowlist congelado y conservar la evidencia productiva fuera del repositorio. | ADR-SAAS-026 / ADR-SAAS-027 |
 
 ### Evidencia de ejecución productiva B3-027
@@ -126,16 +134,20 @@ recompilar el servidor de desarrollo; fijar Webpack en este runner elimina la
 inestabilidad del harness sin cambiar el bundle productivo, las rutas, la
 autoridad del servidor ni el contrato tenant-aware.
 
-## Gates externos pendientes
+## Condiciones operativas y capacidades posteriores
 
-Estos gates no se implementan ni se simulan dentro de E4.2:
+Estos elementos no se implementan ni se simulan dentro de E4.2 y no bloquean la
+release del MVP Web/PWA:
 
-- **P0-07/E3.1:** impresora térmica y certificación física.
-- **P0-08/E3.2:** cerrado como decisión Web/PWA-only mediante PR #224; Electron no es una superficie soportada.
-- **P0-02/E1.2-P0-09:** datos fiscales, DIAN y operación FISCAL.
-- **P1-09:** Wompi y reservas públicas en operación comercial.
-- **P2-04:** offline y reconciliación.
-- **P2-01:** notificaciones FCM, permisos y dispositivos.
+- **P0-07/E3.1 — NO BLOQUEANTE:** validación física de una impresora térmica
+  concreta; la compatibilidad técnica Web/PWA 58/80 mm ya está integrada.
+- **P0-08/E3.2 — COMPLETADO:** Web/PWA-only mediante PR #224; Electron no es una
+  superficie soportada.
+- **P0-02/E1.2-P0-09 — CONDICIONADO:** datos fiscales, DIAN y operación FISCAL
+  solo si el tenant los activa.
+- **P1-09 — BACKLOG:** Wompi y reservas públicas para una fase posterior.
+- **P2-04 — BACKLOG:** offline y reconciliación.
+- **P2-01 — BACKLOG:** notificaciones FCM, permisos y dispositivos.
 
 ## Fuera de alcance
 
@@ -149,9 +161,9 @@ E4.2 no modifica:
 
 ## Criterio de cierre
 
-El PR de E4.2 puede auditarse como **APROBADO PARA MERGE** si su runner no
-detecta fallos en el contrato de certificación, todas las pruebas requeridas
-están verdes y la documentación conserva explícitamente la decisión
-CONDICIONAL y los seguimientos. Esta aprobación no equivale a declarar el Goal
-completo: los gates externos se cierran mediante sus propias evidencias.
+E4.2 queda **COMPLETADO** cuando el runner no detecta fallos en el contrato de
+certificación, todas las pruebas requeridas están verdes y la documentación
+clasifica explícitamente las capacidades condicionales y los seguimientos no
+bloqueantes. La validación física, la activación fiscal de un tenant y el trabajo
+de reservas/Wompi no se convierten en gates globales del Goal.
 > **Current channel decision (2026-08-10):** Web/PWA is the only supported distribution surface. Electron and its packaging/runtime gate are retired by product decision; historical references below are preserved as evidence only.

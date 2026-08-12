@@ -9,6 +9,15 @@ autoridad, persistencia ni dependencia de producción. La certificación física
 final permanece abierta hasta probar una impresora térmica representativa y
 definir el formato operativo de 58/80 mm.
 
+## Clasificación vigente de producto — 2026-08-12
+
+La decisión de producto posterior establece que P0-07/E3.1 queda **COMPLETADO
+técnicamente y NO BLOQUEANTE** para el MVP Web/PWA. El servicio selecciona los
+layouts `MM_58` y `MM_80`, genera el ticket en HTML y abre el diálogo estándar del
+navegador. El PC/tenant debe aportar el driver correspondiente. La prueba física
+con un modelo concreto de impresora queda como validación operativa posterior;
+su ausencia no bloquea el desarrollo ni la disponibilidad del POS.
+
 ## Trazabilidad
 
 - **Goal:** `G-MVP-01` — MVP comercial de Café Atrato.
@@ -80,7 +89,7 @@ definir el formato operativo de 58/80 mm.
 ## Cierre
 
 `APROBADO PARA MERGE`. El merge queda condicionado a que GitHub Actions
-confirme todos los checks en verde y sin pendientes. Tras el merge, el Goal
-debe conservar E3.1 activo y señalar como siguiente gate la certificación con
-hardware real, no declarar P0-07 completamente cerrado.
+confirme todos los checks en verde y sin pendientes. Tras la decisión de producto
+del 2026-08-12, E3.1 se considera cerrado para la capacidad técnica Web/PWA; la
+certificación con hardware real permanece como validación operativa no bloqueante.
 > **Decisión de canal (2026-08-10):** la superficie soportada es Web/PWA y usa el diálogo de impresión del navegador. Electron no se distribuye ni se certifica; las menciones históricas del transporte se conservan como evidencia.

@@ -4,7 +4,7 @@
 
 - **Goal:** `G-MVP-01`
 - **Resultado:** Cualquier tenant puede operar la primera versión comercial del SaaS de forma segura, íntegra, recuperable y reusable; Café Atrato permanece como primer tenant de referencia.
-- **Estado:** ACTIVO
+- **Estado:** COMPLETADO
 - **Inicio formal:** 2026-08-01
 - **Rama base al adoptar:** `main @ 0958181`
 - **Fuente de alcance inicial:** `BACKLOG-EJECUTABLE-MVP-CAFE-ATRATO.md`, prioridad P0.
@@ -28,8 +28,9 @@ su existencia no autoriza nuevas ampliaciones fuera del MVP. Café Atrato se
 utiliza como tenant de referencia, pero no define la arquitectura ni la oferta.
 
 Los Milestones M1–M4 reorganizan la prioridad del MVP reusable. P0-02 conserva
-su gate fiscal para operación FISCAL/productiva, mientras ADR-SAAS-020 habilita
-la operación DEMO no fiscal sin datos del cliente ni escrituras productivas.
+la capacidad fiscal condicional para operación FISCAL/productiva, mientras
+ADR-SAAS-020 habilita la operación DEMO no fiscal sin datos del cliente ni
+escrituras productivas.
 ADR-SAAS-021 admite P0-12 como trabajo del núcleo transaccional y mantiene la
 autoridad única server-side para compras.
 ADR-SAAS-022 acepta un catálogo mínimo tenant-aware de proveedores para P1-03,
@@ -40,11 +41,11 @@ ADR-SAAS-023 acepta la frontera server-authoritative para operaciones de salón
 y cocina, con idempotencia, concurrencia segura y máquina de estados válida;
 su implementación P1-04 quedó integrada en `main` mediante el PR #192.
 
-La replanificación aprobada mantiene P0-07/E3.1 como gate externo bloqueado por
-hardware y canal, sin cambiar su alcance ni prioridad. Mientras esa dependencia
-permanece pendiente, P1-02 se ejecuta en una línea paralela del núcleo POS:
-certificación reusable con Emulator, CI y fixtures multi-tenant, sin producción,
-datos fiscales reales ni dependencia de Café Atrato.
+La decisión de producto vigente clasifica P0-07/E3.1 como capacidad técnica
+COMPLETADA para Web/PWA: el navegador usa el diálogo estándar y el PC aporta el
+driver de la impresora. La prueba con un equipo térmico concreto es una validación
+operativa posterior y NO BLOQUEANTE. P1-02 ya quedó integrado como certificación
+reusable con Emulator, CI y fixtures multi-tenant.
 
 ## Milestones y Epics
 
@@ -56,7 +57,7 @@ configuración operativa sin depender de datos fiscales reales.
 | Epic | Resultado | Backlog | Estado |
 |---|---|---|---|
 | E1.1 Tenant operativo | Empresa, administrador, membresía, claims, configuración, módulos y espacios certificados. | P0-01 | COMPLETADO |
-| E1.2 Readiness fiscal | Identidad, impuestos, numeración y asignación vigentes; decisión DIAN registrada. | P0-02, P0-09 | CONDICIONAL |
+| E1.2 Readiness fiscal | Capacidad opcional de identidad, impuestos, numeración y asignación cuando un tenant decide operar FISCAL/DIAN. | P0-02, P0-09 | CONDICIONAL / NO BLOQUEANTE |
 
 ### M2 — Núcleo transaccional íntegro — COMPLETADO
 
@@ -70,13 +71,13 @@ Resultado: venta, stock, tesorería, cuentas y turnos mantienen sus invariantes 
 | E2.4 Turnos y arqueo | Apertura, relevo, cierre ciego y movimientos coinciden. | P0-06 | COMPLETADO |
 | E2.5 Compras e inventario operativos | Compra, ledger de inventario, costo y efecto financiero se confirman bajo autoridad única server-side. | P0-12, P1-01, P1-03 | COMPLETADO |
 
-### M3 — Canal productivo y recuperación — EN PROGRESO
+### M3 — Canal productivo y recuperación — COMPLETADO
 
 Resultado: el canal de caja acordado imprime, se distribuye cuando aplique y puede recuperarse de una pérdida controlada.
 
 | Epic | Resultado | Backlog | Estado |
 |---|---|---|---|
-| E3.1 Impresión física | Venta y reimpresión generan ticket correcto en hardware real. | P0-07 | BLOQUEADO |
+| E3.1 Impresión física | Venta y reimpresión generan tickets Web/PWA compatibles con 58/80 mm; la validación con hardware concreto es operativa y no bloqueante. | P0-07 | COMPLETADO |
 | E3.2 Distribución de caja | Web/PWA es la única superficie soportada; Electron queda retirado. | P0-08 | COMPLETADO |
 | E3.3 Recuperación | Restauración Firestore comprobada y documentada. | P0-10 | COMPLETADO |
 | E3.4 Recuperación de acceso | Administrador y operadores recuperan credenciales mediante autoridad server-side, activación segura, auditoría e idempotencia. | P0-11 | COMPLETADO |
@@ -101,14 +102,14 @@ existente y sin depender de hardware ni de datos fiscales reales.
 |---|---|---|---|
 | E2.7 Salón y cocina | Certificación reusable de cuentas, mesas, comandas y transiciones de cocina. | P1-04 | COMPLETADO |
 
-### M4 — Certificación comercial — EN PROGRESO
+### M4 — Certificación comercial — COMPLETADO
 
 Resultado: la cadena venta → inventario → caja → turno → ticket → recuperación pasa en un entorno representativo, la documentación está alineada y la integración final en `main` está verde.
 
 | Epic | Resultado | Estado |
 |---|---|---|
 | E4.1 Certificación integral | Evidencia completa del recorrido operativo y decisiones condicionales. | COMPLETADO |
-| E4.2 Release readiness | Auditoría final, CI verde y decisión condicional de comercialización con gates explícitos. | EN PROGRESO |
+| E4.2 Release readiness | Auditoría final, CI verde y decisión de comercialización Web/PWA con capacidades tenant-specific explícitas. | COMPLETADO |
 
 ## Definition of Done del Goal
 
@@ -116,8 +117,10 @@ Este Goal se marca `COMPLETADO` solo cuando:
 
 - todos los Milestones anteriores están cerrados;
 - los criterios P0 aplicables están demostrados;
-- las decisiones condicionales de canal físico y fiscalidad están
-  resueltas y documentadas para cada tenant o canal comercial aplicable;
+- el canal Web/PWA y la compatibilidad de impresión 58/80 mm están demostrados;
+  la validación de hardware concreto queda como actividad operativa no bloqueante;
+- la fiscalidad/DIAN está documentada como capacidad tenant-specific condicional,
+  sin ser requisito para operar el POS DEMO/operativo;
 - arquitectura, ADR, código y documentación coinciden;
 - todas las pruebas requeridas y la certificación integral pasan;
 - todos los PR tienen auditoría `APROBADO PARA MERGE`;
@@ -133,13 +136,13 @@ Este Goal se marca `COMPLETADO` solo cuando:
 - **Progreso:** ADR-SAAS-013, ADR-SAAS-014, ADR-SAAS-015, ADR-SAAS-016, ADR-SAAS-017, ADR-SAAS-018, ADR-SAAS-019, ADR-SAAS-020 y ADR-SAAS-021 aceptados; PR #157 integrado en `main @ 6df0c75` con `CrearSuscripcionTrial`, verificador read-only y smoke E2E reutilizable; PR #159 integrado en `main @ 2a0d508` con el plan SaaS genérico `mvp_comercial` y su validación local reusable; PR #161 integrado en `main @ 43d1faf` con la resolución canónica de capacidades del Plan para la configuración B1; PR #163 integrado en `main @ dbe7c41` con el smoke E2E de P0-01 alineado al Plan, validación de PWA/POS y exclusión de `shifts`; PR #165 integrado en `main @ 32c7aa1` con la Fase 2 de ventas server-authoritative, idempotencia, auditoría, transacción Admin SDK y prueba E2E local; PR #167 integrado en `main @ 0ac5b23` con la eliminación de la escritura financiera legacy desde cliente, inicialización financiera solo lectura y smoke E2E de Finanzas en PWA y Backoffice; PR #168 integrado en `main @ 4297457` con la certificación manual de P0-01, evidencia productiva read-only y cierre de E1.1; PR #170 integrado en `main @ 341b4fe` con ventas DEMO no fiscales durante Trial, elegibilidad reusable, autoridad server-side, idempotencia, auditoría, Fase 2 operativa y separación de evidencia fiscal; PR #172 integrado en `main @ 0df10d3` con `shifts` incorporado al plan SaaS genérico `mvp_comercial`; PR #174 integrado en `main @ f7ccf60` con ADR-SAAS-017 aceptado y P0-11/E3.4 incorporado a la planificación; PR #175 formaliza ADR-SAAS-018, cuya implementación de notificaciones queda para un PR posterior separado; PR #176 integrado en `main @ b9e969d` con recuperación segura de credenciales de administrador y operadores, activación temporal one-shot, revocación de sesiones, evidencia fuera de banda, auditoría e idempotencia; PR #178 integrado en `main @ 714aebd` con ADR-SAAS-019 aceptado y sus invariantes canónicas de cuentas; PR #179 integrado en `main @ ac0e0cd` con resolución financiera tenant-aware por `empresaId + claveOperativa`, rechazo de IDs físicos, aislamiento, idempotencia, auditoría y pruebas reutilizables; PR #181 integrado en `main @ d2571a1` con certificación reusable en Emulator del ciclo multi-tenant de turnos, venta DEMO, egreso, faltante, sobrante, relevo, cierre, replay y evidencia en CI; PR #182 integrado en `main @ c15adeb` con exportación/importación separadas de Firestore y Auth Emulator, fixtures de dos tenants, login restaurado, huella íntegra, aislamiento multi-tenant y evidencia de restauración en CI; PR #183 integrado en `main @ 55bc16e` con liquidación server-authoritative de cuentas por cobrar, idempotencia, auditoría, separación DEMO/FISCAL y reversión auditable; en producción, el plan, el Trial de 30 días y los ocho módulos aprobados están materializados; P0-01 está certificado, la ruta DEMO está validada localmente y su verificador automatizado, smoke local y evidencia manual están en PASS. P0-02 sigue condicionado a datos fiscales reales; P0-04/E2.3 está integrado y no requiere datos fiscales reales ni escrituras productivas para su alcance DEMO; P0-06/E2.4 y P0-10/E3.3 están completados. P0-07/E3.1 tiene el transporte técnico integrado y requiere hardware real y P0-08/E3.2 depende de la decisión de canal y P0-07, mientras P0-09 depende de P0-02 y la decisión fiscal. PR #184 integrado en `main @ 7ceffda` con transporte reutilizable de impresión para venta y reimpresión, fallback PWA, formatos 58/80 mm, reimpresión DEMO segura y escape HTML. El transporte técnico queda integrado; la certificación física de P0-07/E3.1 sigue requiriendo hardware real. PR #185 integrado en `main @ 360d9b4` con la sincronización del estado `BLOQUEADO` de E3.1 y su condición externa.
   PR #211 integrado en `main @ 3c27a13` tras auditoria `APROBADO PARA MERGE`, CI completamente verde y Vercel verde; E4.2-CI-001 convierte Operator Portal y R1-A Web/PWA en gates obligatorios, genera evidencia reusable y mantiene reservas/Wompi y los gates externos fuera de alcance.
   PR #212 integrado en `main @ 86221c6` tras auditoria `APROBADO PARA MERGE`, CI completamente verde y Vercel verde; B3-A amplía el inventario dry-run read-only de Eventos legacy con referencias y objetos Storage, evidencia determinista con hashes y sin tokens crudos, detección de assets compartidos y huérfanos, y verificación Emulator sin escrituras.
-- **Estado:** ACTIVO.
-> **Reconciliación vigente (2026-08-12):** la mención histórica de P0-08/E3.2 como dependiente de canal o hardware queda supersedida por la decisión Web/PWA-only y PR #224; P0-08 no es trabajo ejecutable. B3-027 está cerrado y la documentación viva fue reconciliada por PR #238 en `main @ 6056956`.
-> Las narrativas de progreso anteriores conservan trazabilidad de los merges históricos; la fuente de verdad actual es esta reconciliación y los estados de Milestone/Epic: E4.2 sigue EN PROGRESO, P0-07 está BLOQUEADO por hardware/canal, P0-02/P0-09 y P1-09 están CONDICIONADOS, y no existe un PR funcional interno autorizado dentro del Epic activo.
+- **Estado:** COMPLETADO.
+> **Reconciliación histórica (2026-08-12):** la mención anterior de P0-08/E3.2 como dependiente de canal o hardware queda supersedida por la decisión Web/PWA-only y PR #224; P0-08 no es trabajo ejecutable. B3-027 está cerrado y sus evidencias fueron reconciliadas por PR #238/#239.
+> La fuente de verdad posterior a la decisión de producto es la clasificación vigente documentada al final de esta sección: la capacidad técnica del MVP Web/PWA está completa; la validación física de impresión es operativa y no bloqueante; fiscalidad/DIAN es tenant-specific y condicional; reservas/Wompi queda en backlog futuro.
   PR #209 integrado en `main @ 6f51ce5` tras auditoria `APROBADO PARA MERGE` y CI completamente verde; alinea el contrato y la evidencia de E4.2, cierra los seguimientos ya resueltos de Storage y del plan maestro, y mantiene como pendientes reales las superficies no cubiertas y los gates externos.
   PR #211 integrado en `main @ 3c27a13` con E4.2-CI-001; Operator Portal y R1-A Web/PWA quedan cubiertos por CI como release gates obligatorios, con evidencia reusable y sin escrituras productivas.
   E4.2 registra como completada la ejecución productiva controlada de B3-027: el preflight final confirmó `safeToExecute=true`, el recovery fue verificado antes de borrar y el journal registra exactamente cuatro targets `ELIMINADO`. La evidencia externa conserva plan, recovery, journal y hashes; el asset excluido permanece intacto.
-  El Epic activo E4.2 permanece EN PROGRESO; el release gate exige que Storage y el plan maestro fallen si regresan.
+  El release gate de E4.2 está cerrado para el MVP Web/PWA; Storage, el plan maestro y las suites de aislamiento siguen siendo barreras contra regresiones.
   PR #205 quedo integrado en `main @ 87bd651` tras auditoria `APROBADO PARA MERGE` y CI completamente verde. E4.2-SEC-002A actualiza `next` a 16.3.0 y deja las vulnerabilidades productivas criticas y altas en cero; permanecen siete moderadas de cadenas legacy de uuid/tooling, documentadas fuera de alcance por requerir cambios mayores incompatibles.
   PR #203 quedo integrado en `main @ e881d2b` tras auditoria `APROBADO PARA MERGE` y CI completamente verde. PR #205 completo la actualizacion de Next a 16.3.0. E4.2-SEC-002 queda mitigado mediante actualizaciones compatibles reproducibles en `package-lock.json`; permanecen documentados los riesgos residuales de cadenas legacy de tooling.
   PR #197 quedó integrado en `main @ b3098ce` con B2 de Eventos tenant-aware: resolución pública server-side `slug → empresaId`, lectura únicamente de eventos activos del tenant resuelto, exclusión de legacy sin `empresaId`, aislamiento multi-tenant, integración en landing, casos negativos y certificación Emulator/CI.
@@ -161,16 +164,17 @@ Este Goal se marca `COMPLETADO` solo cuando:
   PR #212 queda añadido a los PR completados: B3-A integra el inventario read-only de assets Storage de Eventos, sin inferencia de tenant, sin migración y sin escrituras productivas; CI y Vercel quedaron completamente en verde.
   PR #224 queda añadido a los PR completados como unidad canónica de migración: integra los 14 golden tickets sintéticos de #216 y el retiro definitivo de Electron de #222; CI, E4.1, E4.2, Vercel y el gate post-merge de `main` quedaron en verde.
   PR #226 quedó añadido a los PR completados: ADR-SAAS-026 fue aceptado y el mecanismo de cierre controlado y recuperable de Eventos legacy quedó integrado y certificado en Emulator/CI, con allowlist estricta, journal, recovery, idempotencia y `productionWrites: false`. PR #229 quedó integrado con ADR-SAAS-027 aceptado y el operador productivo independiente B3-027, protegido por proyecto/bucket fijos, manifiesto externo exacto, recovery, journal, precondiciones por objetivo y confirmación interactiva fuera de CI. La ejecución autorizada del 2026-08-11 eliminó exactamente el Evento legacy y los tres assets del allowlist; la evidencia permanece fuera de Git. PR #235 quedó integrado en `main @ 73cacf4` con la corrección de validación JSON del recovery y el cierre técnico/documental de B3-027; PR #236 reconcilió este estado en la documentación y quedó integrado en `main @ 9c725b0`; ambas CI post-merge terminaron en verde. PR #230 quedó integrado como sincronización documental posterior; PR #231 reconcilió el estado de release del dry-run B3-026, PR #232 alineó el SHA vivo del Goal con `main` y PR #233 registró el estado posterior.
- - **Siguiente unidad recomendada:** mantener E4.2 en decisión condicional y cerrar el siguiente gate externo que el negocio priorice, sin repetir B3-027 ni ampliar el allowlist. No existe actualmente un PR funcional interno autorizado dentro del Epic activo: P0-07 requiere hardware/canal, P0-02/P0-09 requieren decisión y datos fiscales, y P1-09 requiere decisión comercial sobre reservas/Wompi. Notificaciones y offline permanecen en backlog posterior.
-- **Milestone activo:** `M4 — Certificación comercial`.
-  - **Epic activo:** `E4.2 — Release readiness` permanece EN PROGRESO con el cierre productivo B3-027 ejecutado sobre el allowlist exacto y documentado por PR #235 y PR #236 en `main @ 9c725b0`; Storage, B1, B2, B3-A, B3-B, ADR-SAAS-026 y ADR-SAAS-027 están implementados, Operator Portal y R1-A Web/PWA están integrados como gates CI, y los gates externos restantes siguen explícitos. `E4.1 — Certificación integral` está COMPLETADO. `M3` conserva `E3.1 — Impresión física` como gate externo BLOQUEADO por hardware/canal y `E3.2` queda COMPLETADO como decisión Web/PWA-only.
+  - **Siguiente unidad recomendada:** no existe otra unidad funcional del Goal. Las validaciones físicas, la activación fiscal por tenant y reservas/Wompi son decisiones o actividades posteriores no bloqueantes; notificaciones y offline permanecen en backlog.
+  - **Milestone activo:** ninguno; `M1`, `M2`, `M3` y `M4` están COMPLETADOS para el alcance del MVP Web/PWA.
+    - **Epic activo:** ninguno. `E4.2 — Release readiness` está COMPLETADO: CI de `main`, Operator Portal, R1-A Web/PWA, E4.1 y el cierre B3-027 están verdes y documentados. `E3.1` está COMPLETADO técnicamente para impresión Web/PWA 58/80 mm; la prueba con hardware físico queda como validación operativa NO BLOQUEANTE. `E1.2/P0-02` y `P0-09` son capacidades fiscales CONDICIONADAS por tenant, y `P1-09` queda en BACKLOG.
 
-P0-07/E3.1 requiere una impresora térmica real y la decisión operativa del
-canal de caja, pero esa dependencia no bloquea el desarrollo reusable del SaaS.
+ P0-07/E3.1 ya dispone del transporte Web/PWA y de layouts 58/80 mm. El navegador
+ usa el diálogo estándar y el PC aporta el driver de la impresora; probar un equipo
+ térmico concreto es una validación operativa posterior y NO bloquea el MVP.
 P0-12 puede ejecutarse íntegramente con Emulator y conserva separadas las
 certificaciones físicas y fiscales.
 
-La provisión productiva aprobada, la verificación automatizada y la evidencia manual de login, resolución del tenant y visibilidad de UI/Rules completan P0-01/E1.1. La ruta DEMO permite evaluar el POS durante el Trial sin datos fiscales ficticios. P0-04/E2.3 quedó integrado sobre la autoridad server-side aprobada por ADR-SAAS-020, sin cambios en Rules, Bootstrap, migraciones ni producción. ADR-SAAS-021, P0-12/E2.5, P1-01 y P1-03 quedaron integrados; compras, proveedores, costos, snapshots e idempotencia están certificados de forma reusable. P0-07/E3.1 continúa como certificación física bloqueada por hardware/canal y P0-02/E1.2 como gate fiscal independiente para la futura operación FISCAL.
+La provisión productiva aprobada, la verificación automatizada y la evidencia manual de login, resolución del tenant y visibilidad de UI/Rules completan P0-01/E1.1. La ruta DEMO permite evaluar el POS durante el Trial sin datos fiscales ficticios. P0-04/E2.3 quedó integrado sobre la autoridad server-side aprobada por ADR-SAAS-020, sin cambios en Rules, Bootstrap, migraciones ni producción. ADR-SAAS-021, P0-12/E2.5, P1-01 y P1-03 quedaron integrados; compras, proveedores, costos, snapshots e idempotencia están certificados de forma reusable. P0-07/E3.1 está completado técnicamente para Web/PWA 58/80 mm; la validación física de un equipo concreto es operativa y no bloqueante. P0-02/E1.2 y P0-09 quedan condicionados a que cada tenant decida activar fiscalidad.
 
 La línea paralela E2.6/P1-02 quedó integrada sin modificar la autoridad de
 ventas ni las Rules: certifica el contrato existente mediante una venta DEMO,
@@ -178,7 +182,8 @@ snapshot de receta y modificadores, consumo transaccional de insumos, ledger,
 aislamiento tenant e idempotencia. P1-04/E2.7 quedó integrado sobre ADR-SAAS-023
 con operaciones de salón/cocina server-authoritative, idempotencia, auditoría,
 transacciones y máquina de estados sin regresiones. E4.2 quedó integrado sobre
-su runner de readiness, con decisión CONDICIONAL y seguimientos explícitos. PR A
+su runner de readiness, con capacidades condicionales documentadas y sin bloqueos
+para el MVP Web/PWA. PR A
 / P2-03 quedó integrado con el contrato seguro de Firebase Storage y su
 certificación tenant-aware. B1, B2, B3-A y B3-B de Eventos tenant-aware quedaron integrados bajo ADR-SAAS-025; ADR-SAAS-026 y PR #226 integraron el mecanismo de cierre controlado y recuperable. B3-027 ejecutó después el cierre productivo autorizado de los cuatro targets exactos; el journal, recovery y evidencia externa quedaron verificados, y el asset excluido permanece intacto. PR #235 integró el cierre técnico/documental y la corrección del round-trip JSON del recovery en `main @ 73cacf4`, con CI post-merge verde.
 > **Decisión vigente (2026-08-11, tras merge del PR #224):** el producto se distribuye únicamente como Web/PWA. Electron, su empaquetado y P0-08 quedan retirados; las referencias históricas se conservan como trazabilidad y no representan una superficie soportada.
