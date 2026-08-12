@@ -1,4 +1,64 @@
-# Goal activo — MVP comercial SaaS multi-tenant
+# Goal activo — G-SAAS-01: Plataforma SaaS comercial operable
+
+## Identidad estable
+
+- **Goal:** `G-SAAS-01`
+- **Resultado:** operar comercialmente el SaaS multi-tenant con un contrato anual manual, Trial controlado, lifecycle server-side, evidencia contractual inmutable y el plano de operadores autorizado, sin ampliar el alcance aprobado.
+- **Estado:** ACTIVO
+- **Inicio formal:** 2026-08-12
+- **Rama base al adoptar:** `main @ 6ded075`
+- **Fuente de alcance:** `G-SAAS-01-PRODUCT-DECISION-RESOLUTION.md`, aprobada por el Product Owner y conservada en este repositorio.
+
+## Alcance aprobado
+
+MT-U9 queda limitado a la operación comercial inicial del plan inclusivo:
+
+- cobro anual manual confirmado únicamente por un operador SaaS autorizado;
+- nueva versión `ANUAL` de `mvp_comercial`, preservando intacta la versión mensual histórica;
+- snapshot contractual inmutable de cada nueva Suscripción, con identidad y versión del Plan, código, periodicidad, precio, moneda, capacidades, límites, una Sede conceptual, fiscalidad opcional y fechas contractuales;
+- Trial de 30 días, sin cambio de Plan durante Trial y suspensión inmediata al finalizar sin pago confirmado;
+- reactivación mediante confirmación manual y periodo anual calculado server-side;
+- cancelación programada al final del periodo pagado, sin pérdida anticipada de acceso;
+- sin archivado ni eliminación automática de tenants o datos;
+- catálogo canónico de capacidades: `sell`, `inventory`, `purchases`, `clientes`, `finanzas`, `reservas`, `waste`, `shifts`, `cuentas_cobro`.
+
+Fuera de alcance: billing automático, Wompi como billing SaaS, Sede técnica,
+múltiples Sedes, MT-U10, MT-U11, límites cuantitativos, overages, paquetes de
+facturación electrónica, referidos, offline, notificaciones y eliminación
+automática de datos.
+
+## Milestone y Epics
+
+### MT-U9 — Contrato y operación comercial inicial — EN PROGRESO
+
+| Epic | Resultado | Estado |
+|---|---|---|
+| E9.1 Contrato comercial y snapshot | Product Decision preservada, ADR-SAAS-028 aceptado y contrato de Suscripción versionado sin mutación retroactiva. | EN PROGRESO |
+| E9.2 Plan anual y Trial | `mvp_comercial` conserva su versión mensual y obtiene versión `ANUAL`; Trial de 30 días sin cambio de Plan ni gracia. | PENDIENTE |
+| E9.3 Cobro y lifecycle manual | Confirmación anual manual, reactivación server-side, suspensión por vencimiento y cancelación al final del periodo. | PENDIENTE |
+| E9.4 Operación y certificación | Panel de operadores, auditoría, Rules, pruebas y evidencia de la operación comercial inicial. | PENDIENTE |
+
+## Definition of Done de G-SAAS-01
+
+El Goal solo termina cuando E9.1–E9.4 están implementados o certificados,
+documentación y ADR están alineados, las pruebas y auditorías pasan, la CI de
+`main` está verde y el contrato anual puede operarse sin billing automático,
+sin mutar snapshots históricos y sin ampliar MT-U9.
+
+## Estado vivo
+
+- **Progreso:** aprobación de Product Owner registrada, oferta anual fijada en `1.800.000 COP`, `origin/main` auditado; G-MVP-01 permanece como baseline histórica completada; ADR-SAAS-028 aceptado técnicamente y E9.1 listo para implementación.
+- **Estado:** ACTIVO.
+- **PR completados:** ninguno.
+- **Siguiente PR esperado:** implementación de E9.1: snapshot contractual inmutable y compatibilidad de versiones.
+- **Milestone activo:** `MT-U9 — Contrato y operación comercial inicial`.
+- **Epic activo:** `E9.1 — Contrato comercial y snapshot`.
+
+## Baseline histórica
+
+El contenido que sigue conserva la evidencia histórica de `G-MVP-01`. Sus
+Milestones, Epics, PR y estados no son trabajo pendiente ni autorización para
+ampliar el nuevo Goal.
 
 ## Identidad estable
 
@@ -139,7 +199,7 @@ Este Goal se marca `COMPLETADO` solo cuando:
 - el SaaS está listo para una primera operación comercial multi-tenant y Café
   Atrato puede utilizarse como tenant de referencia.
 
-## Estado vivo
+## Estado histórico — G-MVP-01 (no es fuente activa)
 
 > Esta sección solo se actualiza ante un evento oficial: merge de un PR, aprobación de un ADR o cambio de planificación aprobado. Mantén los seis campos; no agregues diarios, narrativas ni listas paralelas durante la implementación.
 
