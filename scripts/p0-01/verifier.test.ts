@@ -42,6 +42,10 @@ function tenantScopedExpectations(): CertificationExpectations {
   return { ...expectations(), categoriesPolicy: "tenant-scoped" };
 }
 
+function trialExpectations(): CertificationExpectations {
+  return { ...expectations(), expectedEstado: "trial" };
+}
+
 function source(seed: Record<string, Record<string, unknown>>, auth: Record<string, AuthUserView> = {}): ReadOnlyCertificationSource {
   const documents = new Map(Object.entries(seed));
   return {
@@ -93,6 +97,14 @@ test("valid tenant passes automated checks but remains blocked on manual login a
   assert.equal(report.manualGates.length, 2);
   assert.equal(JSON.stringify(report).includes("pinHash"), false);
   assert.equal(JSON.stringify(report).includes("redacted"), false);
+});
+
+test("trial tenant can be certified before annual activation", async () => {
+  const report = await verifyTenant(validSource({
+    [`empresas/${tenantId}`]: { empresaId: tenantId, nombre: "Cafe Atrato", estado: "trial", paisFiscal: "CO", ownerUid },
+  }), trialExpectations(), { projectId: "demo-p0-01", now: new Date("2026-08-02T12:00:00.000Z") });
+  assert.equal(report.automatedVerdict, "PASS");
+  assert.equal(report.checks.find((item) => item.code === "TENANT_ACTIVE_AND_EXPECTED")?.status, "PASS");
 });
 
 test("tenant name comparison tolerates accents without accepting a different name", async () => {
