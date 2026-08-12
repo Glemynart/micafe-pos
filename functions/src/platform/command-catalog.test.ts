@@ -27,6 +27,13 @@ test("CrearSuscripcionTrial exige la facultad comercial", () => {
   );
 });
 
+test("ConfirmarPagoAnualSuscripcion exige la facultad comercial", () => {
+  assert.equal(
+    obtenerComandoComercial("ConfirmarPagoAnualSuscripcion").facultad,
+    "COMERCIAL_GOBERNAR",
+  );
+});
+
 function dbEmpresas(docs: Record<string, { estado: string } | { uid: string; estado: string; facultades: string[]; versionAutorizacion: number }>) {
   return {
     collection: (name: string) => ({

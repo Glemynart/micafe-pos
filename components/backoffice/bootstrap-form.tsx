@@ -135,7 +135,7 @@ export function BootstrapForm() {
                 {planSeleccionado ? `Versión ${planSeleccionado.planVersion ?? planSeleccionado.versionActual}` : 'Se asigna al seleccionar un plan'}
               </div>
             </div>
-            <Field name="trialDias" label="Días de trial" type="number" defaultValue="14" min="1" required disabled={Boolean(entradaBootstrap)} />
+            <Field name="trialDias" label="Días de trial" type="number" defaultValue="30" min="30" max="30" required readOnly disabled={Boolean(entradaBootstrap)} />
             <BootstrapStatus loading={loading} resultado={resultado} />
             {error && <p role="alert" className="sm:col-span-2 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
             <div className="sm:col-span-2 flex justify-end"><Button disabled={loading || (!entradaBootstrap && (planes.loading || !planSeleccionado))}>{loading ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <Rocket className="mr-2 size-4" />}{resultado?.estado === 'RETRYABLE_FAILURE' ? 'Reintentar Bootstrap canónico' : 'Solicitar Bootstrap canónico'}</Button></div>

@@ -3,16 +3,46 @@ export type EstadoPlan = "BORRADOR" | "PUBLICADA" | "RETIRADA";
 export type EstadoSuscripcion = "trialing" | "active" | "past_due" | "suspended" | "canceled";
 export type EstadoEmpresaLifecycle = "trial" | "activa" | "suspendida" | "cancelada" | "archivada" | "eliminada";
 
+export interface PrecioPlan {
+  importe: number;
+  moneda: string;
+}
+
+export interface FiscalidadContrato {
+  pais?: string;
+  modalidad?: string;
+  habilitada?: boolean;
+}
+
+export interface SnapshotContrato {
+  schemaVersion: 1;
+  planId: string;
+  planVersion: number;
+  codigoPlan: string;
+  periodicidad: "ANUAL";
+  precio: PrecioPlan;
+  capacidades: string[];
+  limites: Record<string, { unidad: string; valor: number }>;
+  sedeConceptual: { cantidad: 1 };
+  fiscalidad: FiscalidadContrato | null;
+  vigencia: { inicio: string; fin: string };
+}
+
 export interface PlanVersion {
   planId: string; codigo: string; planVersion: number; estado: EstadoPlan;
   capacidades: string[]; limites: Record<string, { unidad: string; valor: number }>;
   periodicidad: "MENSUAL" | "ANUAL" | "SIN_VENCIMIENTO";
+  /** Optional for historical catalog versions; mandatory for ANUAL MT-U9. */
+  precio?: PrecioPlan;
   grandfathered: boolean; revision: number; schemaVersion: 1;
 }
 export interface Suscripcion {
   empresaId: string; planId: string; planVersion: number; estado: EstadoSuscripcion;
   trialInicio?: string; trialFin?: string; periodoInicio?: string; periodoFin?: string;
   graceFin?: string; cancelacionProgramadaPara?: string; canceladaEn?: string;
+  /** Present only on new annual MT-U9 subscriptions; never rewritten. */
+  snapshotContrato?: SnapshotContrato;
+  ultimoPagoAnualId?: string;
   revision: number; schemaVersion: 1;
 }
 export interface EmpresaLifecycle { estado: EstadoEmpresaLifecycle; revision: number; empresaId?: string }
@@ -30,9 +60,9 @@ export function esFechaComercial(valor: unknown): valor is string {
 export function fechaComercialUtc(reloj: Date = new Date()): string { if (!Number.isFinite(reloj.getTime())) throw new Error("RELOJ_SERVIDOR_INVALIDO"); return reloj.toISOString().slice(0, 10); }
 export function rangoComercialValido(inicio: unknown, fin: unknown): inicio is string { return esFechaComercial(inicio) && esFechaComercial(fin) && inicio < fin; }
 export function readinessComercial(s: Suscripcion, hoy = fechaComercialUtc()): boolean {
-  if (s.estado === "trialing") return !!s.trialInicio && !!s.trialFin && rangoComercialValido(s.trialInicio, s.trialFin) && hoy <= s.trialFin;
-  if (s.estado === "active") return !!s.periodoInicio && !!s.periodoFin && rangoComercialValido(s.periodoInicio, s.periodoFin) && hoy <= s.periodoFin && (!s.cancelacionProgramadaPara || hoy <= s.cancelacionProgramadaPara);
-  return s.estado === "past_due" && !!s.graceFin && esFechaComercial(s.graceFin) && hoy <= s.graceFin;
+  if (s.estado === "trialing") return !!s.trialInicio && !!s.trialFin && rangoComercialValido(s.trialInicio, s.trialFin) && hoy < s.trialFin;
+  if (s.estado === "active") return !!s.periodoInicio && !!s.periodoFin && rangoComercialValido(s.periodoInicio, s.periodoFin) && hoy < s.periodoFin && (!s.cancelacionProgramadaPara || hoy < s.cancelacionProgramadaPara);
+  return s.estado === "past_due" && !!s.graceFin && esFechaComercial(s.graceFin) && hoy < s.graceFin;
 }
 export const transicionesSuscripcion: Record<EstadoSuscripcion, readonly EstadoSuscripcion[]> = {
   trialing: ["active", "suspended", "canceled"], active: ["past_due", "suspended", "canceled"],

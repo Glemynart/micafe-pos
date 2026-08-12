@@ -73,6 +73,7 @@ import { expirarSoportesVencidos } from "./platform/support";
 import { reconciliarClaimsOperadores } from "./platform/initial-bootstrap";
 import { reconciliarObligacionesAuditoria } from "./platform/audit";
 import { reconciliarVentasPendientes } from "./finanzas/reconciliador";
+import { reconciliarVencimientosComerciales } from "./suscripciones/scheduler";
 
 export const expirarSoportesSaas = onSchedule(
   { region: "us-central1", schedule: "every 5 minutes", timeZone: "UTC" },
@@ -92,6 +93,11 @@ export const reconciliarAuditoriaPlataformaSaas = onSchedule(
 export const reconciliarVentasPendientesOperativas = onSchedule(
   { region: "us-central1", schedule: "every 5 minutes", timeZone: "UTC" },
   async () => { await reconciliarVentasPendientes(getFirestore()); },
+);
+
+export const reconciliarVencimientosComercialesSaas = onSchedule(
+  { region: "us-central1", schedule: "every 15 minutes", timeZone: "UTC" },
+  async () => { await reconciliarVencimientosComerciales(getFirestore()); },
 );
 
 

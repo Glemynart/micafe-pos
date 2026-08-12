@@ -116,6 +116,7 @@ test("las colecciones SaaS quedan denegadas para todo cliente, incluso claims le
     "membresias/empresa-a_usuario-a",
     "planes/basico",
     "suscripciones/empresa-a",
+    "pagos_saas/pago-prueba",
     "invitaciones/token-prueba",
     "incorporaciones/incorporacion-prueba",
     "consumo/empresa-a_2026-07",

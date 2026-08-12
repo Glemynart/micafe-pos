@@ -300,6 +300,11 @@ service cloud.firestore {
       allow read: if false;
       allow write: if false;
     }
+    // MT-U9: recibos de pago SaaS append-only del backend; nunca se exponen al
+    // cliente tenant ni se aceptan escrituras directas.
+    match /pagos_saas/{id} {
+      allow read, write: if false;
+    }
     match /invitaciones/{id} {
       allow read, write: if false;
     }

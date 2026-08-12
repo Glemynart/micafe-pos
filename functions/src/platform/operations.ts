@@ -13,6 +13,7 @@ import {
   actualizarDatosAdministrativosEmpresa,
   retirarVersionPlan,
   renovarSuscripcion,
+  confirmarPagoAnualSuscripcion,
   cambiarPlanSuscripcion,
   programarCancelacionSuscripcion,
   revocarCancelacionSuscripcion,
@@ -474,6 +475,12 @@ export async function ejecutarComandoComercial(
     agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
     plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
     resultado = await revocarCancelacionSuscripcion(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
+  } else if (tipo === "ConfirmarPagoAnualSuscripcion") {
+    facultad = "COMERCIAL_GOBERNAR";
+    evento = "SUSCRIPCION_PAGO_ANUAL_CONFIRMADO";
+    agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
+    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
+    resultado = await confirmarPagoAnualSuscripcion(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
   } else if (tipo === "ActualizarDatosAdministrativosEmpresa") {
     facultad = "LIFECYCLE_GOBERNAR";
     evento = "EMPRESA_DATOS_ADMINISTRATIVOS_ACTUALIZADOS";

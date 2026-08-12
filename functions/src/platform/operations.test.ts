@@ -240,6 +240,29 @@ test("P0-01 crea un Trial existente mediante el comando comercial y conserva la 
   }
 });
 
+test("MT-U9 confirma el pago anual solo por el comando comercial y audita el periodo server-side", async () => {
+  const db = new Db();
+  db.seed("empresas/empresa_pago", { empresaId: "empresa_pago", estado: "suspendida", revision: 4 });
+  db.seed("suscripciones/empresa_pago", {
+    empresaId: "empresa_pago", planId: "mvp_comercial", planVersion: 2, estado: "suspended", revision: 7, schemaVersion: 1,
+    snapshotContrato: {
+      schemaVersion: 1, planId: "mvp_comercial", planVersion: 2, codigoPlan: "MVP_COMERCIAL", periodicidad: "ANUAL",
+      precio: { importe: 1800000, moneda: "COP" }, capacidades: ["sell"], limites: {}, sedeConceptual: { cantidad: 1 }, fiscalidad: null,
+      vigencia: { inicio: "2026-07-01", fin: "2026-07-31" },
+    },
+  });
+  const resultado = await ejecutarComandoComercial(db as never, "operador_1", "ConfirmarPagoAnualSuscripcion", {
+    commandId: "cmd_pago_anual_1", idempotencyKey: "idem_pago_anual_1", correlationId: "corr_pago_anual_1",
+    causationId: null, motivoCodigo: "BACKOFFICE_PAGO_ANUAL", empresaId: "empresa_pago", expectedRevision: 7,
+    referenciaPago: "REC-OPERADOR-001",
+  });
+  assert.equal((resultado as any).idempotente, false);
+  assert.equal(db.read("suscripciones/empresa_pago")?.estado, "active");
+  assert.equal(db.read("empresas/empresa_pago")?.estado, "activa");
+  assert.equal(db.read("pagos_saas/" + (resultado as any).reciboId)?.importe, 1800000);
+  assert.ok(db.docsByPrefix("saas_auditoria/").some((e) => e.tipo === "SUSCRIPCION_PAGO_ANUAL_CONFIRMADO"));
+});
+
 test("H5 — BOOTSTRAP_EMPRESARIAL_COMPLETADO referencia el agregado de provisionamiento, con actor de sistema", async () => {
   const db = new Db();
   seedPlanPublicado(db);

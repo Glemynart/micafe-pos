@@ -68,7 +68,8 @@ function sanitizar(data: Record<string, any>) {
     "id", "empresaId", "nombre", "nombreComercial", "estado", "paisFiscal",
     "ownerUid", "revision", "planId", "planVersion", "trialInicio", "trialFin",
     "periodoInicio", "periodoFin", "graceFin", "uid", "facultades",
-    "cancelacionProgramadaPara", "capacidades", "limites", "periodicidad", "grandfathered",
+    "cancelacionProgramadaPara", "capacidades", "limites", "periodicidad", "precio", "grandfathered",
+    "snapshotContrato", "ultimoPagoAnualId",
     "versionAutorizacion", "actualizadoEn", "creadoEn", "actualizadaEn", "creadaEn",
     "tipo", "resultado",
     "origen", "actor", "facultad", "comando", "agregado", "empresaObjetivoId",
@@ -230,6 +231,8 @@ function proyectarSuscripcionDetalle(data: FirebaseFirestore.DocumentData | unde
     periodoFin: typeof data.periodoFin === "string" ? data.periodoFin : null,
     graceFin: typeof data.graceFin === "string" ? data.graceFin : null,
     cancelacionProgramadaPara: typeof data.cancelacionProgramadaPara === "string" ? data.cancelacionProgramadaPara : null,
+    snapshotContrato: data.snapshotContrato && typeof data.snapshotContrato === "object" ? data.snapshotContrato : null,
+    ultimoPagoAnualId: typeof data.ultimoPagoAnualId === "string" ? data.ultimoPagoAnualId : null,
     revision: Number.isInteger(data.revision) ? data.revision : null,
   };
 }

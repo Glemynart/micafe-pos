@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { MODULOS_CONFIGURACION } from "../../lib/configuracion/catalogos";
-import { construirEntradaCrearPlanMvp, MVP_COMERCIAL_CAPACIDADES, MVP_COMERCIAL_PLAN, validarPlanMvp } from "./mvp-comercial";
+import { construirEntradaCrearNuevaVersionPlanMvpAnual, construirEntradaCrearPlanMvp, MVP_COMERCIAL_ANUAL_PLAN, MVP_COMERCIAL_CAPACIDADES, MVP_COMERCIAL_PLAN, validarPlanMvp, validarPlanMvpAnual } from "./mvp-comercial";
 
 test("mvp_comercial define exactamente las capacidades aprobadas del MVP", () => {
   assert.deepEqual(MVP_COMERCIAL_CAPACIDADES, [
@@ -28,6 +28,16 @@ test("mvp_comercial define exactamente las capacidades aprobadas del MVP", () =>
 
 test("mvp_comercial pasa el gate local de consistencia", () => {
   assert.deepEqual(validarPlanMvp(MVP_COMERCIAL_PLAN), { valid: true, errors: [] });
+});
+
+test("mvp_comercial conserva la versión mensual y define la oferta anual aprobada", () => {
+  assert.equal(MVP_COMERCIAL_ANUAL_PLAN.planVersion, 2);
+  assert.equal(MVP_COMERCIAL_ANUAL_PLAN.periodicidad, "ANUAL");
+  assert.deepEqual(MVP_COMERCIAL_ANUAL_PLAN.precio, { importe: 1800000, moneda: "COP" });
+  assert.deepEqual(validarPlanMvpAnual(MVP_COMERCIAL_ANUAL_PLAN), { valid: true, errors: [] });
+  const entrada = construirEntradaCrearNuevaVersionPlanMvpAnual({ commandId: "cmd_v2", idempotencyKey: "idem_v2", correlationId: "corr_v2", causationId: "cause_v2", motivoCodigo: "PLAN_MVP_ANUAL", expectedRevision: 2 });
+  assert.equal("planVersion" in entrada, false);
+  assert.equal(entrada.precio.moneda, "COP");
 });
 
 test("el constructor genera el payload del comando CrearPlan sin estado persistido", () => {
