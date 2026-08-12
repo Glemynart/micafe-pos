@@ -257,6 +257,37 @@ test("B5 Bootstrap — ownerUid existente completa sin emitir claims tenant", as
   assert.equal(reintento.idempotente, true);
 });
 
+test("G-SAAS-02: Bootstrap materializa los módulos del Plan en un tenant DEMO", async () => {
+  const db = new Db();
+  db.seed("planes/plan_pos_pro/versiones/1", {
+    planId: "plan_pos_pro",
+    planVersion: 1,
+    estado: "PUBLICADA",
+    capacidades: ["sell", "inventory", "purchases", "clientes", "finanzas", "reservas", "waste", "shifts", "cuentas_cobro"],
+    limites: {},
+    periodicidad: "ANUAL",
+    codigo: "PLAN_PRO",
+    precio: { importe: 1800000, moneda: "COP" },
+    grandfathered: false,
+    revision: 1,
+    schemaVersion: 1,
+  });
+
+  await ejecutarBootstrapEmpresarial(
+    db as any,
+    entradaBase,
+    async () => {},
+    ownerExistente,
+    undefined,
+    undefined,
+    credencialIssuerExitoso,
+  );
+
+  assert.deepEqual(db.read("configuraciones/empresa_test_b5").modulos.habilitados, [
+    "sell", "inventory", "purchases", "shifts", "waste", "cuentas_cobro", "clientes", "reservas", "finanzas",
+  ]);
+});
+
 test("Bootstrap rejects a non-existent owner before committing the core", async () => {
   const db = new Db();
   db.seed("planes/plan_pos_pro/versiones/1", {

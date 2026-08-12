@@ -10,6 +10,7 @@ import type {
   ConfiguracionEmpresa,
   UltimaMutacionConfiguracion,
 } from "./contrato";
+import { resolverModulosHabilitados } from "./modulos-plan";
 
 export interface DatosPlantillaConfiguracionRevision1 {
   empresaId: string;
@@ -17,6 +18,8 @@ export interface DatosPlantillaConfiguracionRevision1 {
   creadaEn: unknown;
   actualizadaEn: unknown;
   ultimaMutacion: UltimaMutacionConfiguracion;
+  /** Capacidades iniciales derivadas del Plan contratado. */
+  modulosIniciales?: readonly string[];
 }
 
 /**
@@ -26,6 +29,11 @@ export interface DatosPlantillaConfiguracionRevision1 {
 export function crearPlantillaConfiguracionRevision1(
   datos: DatosPlantillaConfiguracionRevision1,
 ): ConfiguracionEmpresa {
+  const modulosIniciales = resolverModulosHabilitados(
+    datos.modulosIniciales ?? [],
+    datos.modulosIniciales ?? [],
+  );
+
   return {
     empresaId: datos.empresaId,
     schemaVersion: CONFIGURACION_SCHEMA_VERSION_INICIAL,
@@ -80,7 +88,7 @@ export function crearPlantillaConfiguracionRevision1(
       rolesConTurnoObligatorio: [...ROLES_TURNO_CONFIGURACION],
       permitirRelevo: true,
     },
-    modulos: { habilitados: [] },
+    modulos: { habilitados: modulosIniciales },
     kds: {
       ordenComandas: "ANTIGUEDAD_ASC",
       minutosAlerta: 10,

@@ -44,7 +44,7 @@ function modificaIdentidadFiscal(entrada: EntradaComandoConfiguracion): boolean 
 function requiereCapacidadesPlan(entrada: EntradaComandoConfiguracion): boolean { return entrada.operaciones.some((operacion) => operacion.ruta === "modulos.habilitados" || operacion.ruta === "pos.metodosPagoHabilitados"); }
 export function prepararInicializacionConfiguracion(entrada: EntradaInicializacionConfiguracion): ConfiguracionEmpresa {
   if (!entrada.empresaId || !entrada.nombreComercial || !entrada.commandId || !entrada.correlationId || (entrada.origen !== "BOOTSTRAP" && entrada.origen !== "BACKFILL")) fallo("invalid-argument", "Contexto de inicialización inválido.");
-  return crearPlantillaConfiguracionRevision1({ empresaId: entrada.empresaId, nombreComercial: entrada.nombreComercial, creadaEn: FieldValue.serverTimestamp(), actualizadaEn: FieldValue.serverTimestamp(), ultimaMutacion: { actorTipo: "SYSTEM", actorId: "system", origen: entrada.origen, commandId: entrada.commandId, correlationId: entrada.correlationId } });
+  return crearPlantillaConfiguracionRevision1({ empresaId: entrada.empresaId, nombreComercial: entrada.nombreComercial, creadaEn: FieldValue.serverTimestamp(), actualizadaEn: FieldValue.serverTimestamp(), modulosIniciales: entrada.modulosIniciales, ultimaMutacion: { actorTipo: "SYSTEM", actorId: "system", origen: entrada.origen, commandId: entrada.commandId, correlationId: entrada.correlationId } });
 }
 /**
  * `permitirNoOperativa` distingue dos autoridades distintas sobre la misma
@@ -154,7 +154,7 @@ export async function ejecutarComandoConfiguracion(db: Firestore, entrada: Entra
   });
 }
 
-export interface EntradaInicializacionConfiguracion { empresaId: string; nombreComercial: string; paisFiscal: string; commandId: string; correlationId: string; origen: "BOOTSTRAP" | "BACKFILL" }
+export interface EntradaInicializacionConfiguracion { empresaId: string; nombreComercial: string; paisFiscal: string; commandId: string; correlationId: string; origen: "BOOTSTRAP" | "BACKFILL"; modulosIniciales?: readonly string[] }
 /** Operación interna, componible en la transacción de Bootstrap; no es callable. */
 function inicializarConfiguracionConEstadoPreleidoEnTransaccion(
   db: Firestore,

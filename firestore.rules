@@ -192,7 +192,9 @@ service cloud.firestore {
       allow read: if puedeLeerTenant() && esAutenticado();
       allow create: if puedeCrearEnTenant() && esOperativo();
       allow update: if puedeActualizarEnTenant() && esOperativo();
-      allow delete: if puedeEliminarEnTenant() && esOperativo();
+      // El egreso y su movimiento financiero son append-only. Las correcciones
+      // requieren una operación backend canónica; el cliente no puede borrar.
+      allow delete: if false;
     }
     match /clientes/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();

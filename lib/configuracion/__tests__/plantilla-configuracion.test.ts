@@ -126,3 +126,12 @@ test("dos plantillas no comparten colecciones u objetos mutables", () => {
   assert.deepEqual(segunda.pos.metodosPagoHabilitados, ["efectivo", "transferencia", "cuenta_cobro", "mixto"]);
   assert.deepEqual(segunda.caja.rolesConTurnoObligatorio, ["cajero"]);
 });
+
+test("la plantilla puede materializar únicamente los módulos contratados por el Plan", () => {
+  const configuracion = crearPlantillaConfiguracionRevision1({
+    ...datos,
+    modulosIniciales: ["sell", "inventory", "capacidad_externa"],
+  });
+
+  assert.deepEqual(configuracion.modulos.habilitados, ["sell", "inventory"]);
+});

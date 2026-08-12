@@ -1,4 +1,117 @@
-# Goal — G-SAAS-01: Plataforma SaaS comercial operable
+# Goal — G-SAAS-02: Primer cliente real operando un Trial de 30 días
+
+> G-SAAS-02 es el Goal activo. G-SAAS-01 permanece documentado debajo como
+> baseline histórico completado. Este Goal no se cierra por compilación, CI,
+> provisioning o inicio del Trial: exige completar el Trial real y documentar
+> su conversión o suspensión contractual.
+
+## Identidad estable
+
+- **Goal:** `G-SAAS-02`
+- **Resultado:** un primer cliente real opera MiCafe POS durante un Trial ANUAL server-side de 30 días, con provisioning reproducible, onboarding, operación crítica, soporte, recuperación cuando aplique y cierre contractual evidenciado.
+- **Estado:** ACTIVO
+- **Inicio formal:** 2026-08-12
+- **Rama base:** `main @ 02375fbd72e238776da7a6d4f4d278abd0e1f9ae`
+- **Fuente de autorización:** `AUTORIZACIÓN DE EJECUCIÓN — G-SAAS-02`
+- **Decisiones comerciales preservadas:** `1.800.000 COP`, `ANUAL`, pago manual, Trial de 30 días, todos los módulos disponibles y un Espacio operativo interno.
+
+## Alcance
+
+- Provisionamiento reproducible de un tenant de referencia.
+- Onboarding DEMO como ruta inicial recomendada cuando el cliente no requiera fiscalidad real.
+- Materialización de capacidades del Plan en la configuración efectiva del tenant.
+- Un único Espacio conceptual; Espacio no equivale a Sede técnica.
+- Ventas, inventario, compras, clientes, caja, turnos, finanzas, egresos y cuentas de cobro cuando formen parte del flujo del cliente.
+- Impresión Web/PWA de 58/80 mm únicamente si el cliente requiere hardware físico.
+- Rules, Storage, Functions, aislamiento tenant y auditoría.
+- Backoffice, soporte, diagnóstico, rollback, recuperación e incidentes.
+- Release identificable, smoke productivo y evidencia del tenant de referencia.
+- Trial real completo de 30 días y decisión final de conversión o suspensión según contrato.
+
+## Fuera de alcance
+
+- MT-U10 completo, límites cuantitativos, overages y cobro por uso.
+- MT-U11, multiempresa por identidad y selector de múltiples tenants.
+- Sede técnica o múltiples sedes.
+- Wompi SaaS, reservas públicas, referidos, offline, notificaciones completas y auto-delete.
+- Fiscalidad real, salvo que el primer cliente la exija explícitamente y se aísle el alcance necesario.
+- Cualquier capacidad no necesaria para el Trial del cliente de referencia.
+
+## Milestones y Epics activos/propuestos
+
+### M1 — Baseline y remediaciones previas — EN EJECUCIÓN
+
+| Epic | Resultado | Estado |
+|---|---|---|
+| E1.1 Onboarding DEMO | Bootstrap materializa los módulos derivados del Plan sin crear una autoridad paralela. | EN EJECUCIÓN |
+| E1.2 Integridad financiera de egresos | El cliente no puede borrar egresos por una ruta legacy incompatible; las correcciones quedan bajo soporte/backend canónico. | EN EJECUCIÓN |
+| E1.3 Diagnóstico operativo | Un tenant DEMO operativo no se presenta como onboarding detenido por fiscalidad pendiente. | EN EJECUCIÓN |
+| E1.4 Documentación de seguridad y operación | La documentación del sistema real y el runbook del Trial están versionados y distinguen evidencia pendiente. | EN EJECUCIÓN |
+
+### M2 — Provisioning y onboarding — PENDIENTE
+
+| Epic | Resultado | Estado |
+|---|---|---|
+| E2.1 Tenant de referencia | Tenant, contrato, Trial, membresía, administrador, credencial, Espacio y configuración reproducibles. | PENDIENTE |
+| E2.2 Configuración inicial | Catálogo, usuarios, permisos, módulos y flujo DEMO aceptados por el cliente. | PENDIENTE |
+
+### M3 — Certificación funcional del tenant — PENDIENTE
+
+| Epic | Resultado | Estado |
+|---|---|---|
+| E3.1 Operación POS | Ventas, inventario, compras, clientes, caja, turnos, finanzas, egresos y cuentas de cobro validados con el tenant. | PENDIENTE |
+| E3.2 Seguridad y canal | Aislamiento tenant, Rules, Storage, Functions, auditoría y hardware de impresión cuando aplique. | PENDIENTE |
+
+### M4 — Release y operación productiva — PENDIENTE
+
+| Epic | Resultado | Estado |
+|---|---|---|
+| E4.1 Release certificado | SHA, CI, despliegues de Vercel/Functions/Rules/Storage y smoke productivo registrados. | PENDIENTE |
+| E4.2 Soporte y recuperación | Procedimientos de acceso, lifecycle, diagnóstico, incidentes, rollback y recuperación validados. | PENDIENTE |
+
+### M5 — Trial real de 30 días — PENDIENTE
+
+| Epic | Resultado | Estado |
+|---|---|---|
+| E5.1 Operación real | El cliente opera durante 30 días sin reinicio artificial del Trial. | PENDIENTE |
+| E5.2 Incidentes y estabilidad | Incidentes, correcciones, despliegues y evidencia se registran sin ocultar fallos. | PENDIENTE |
+
+### M6 — Cierre contractual — PENDIENTE
+
+| Epic | Resultado | Estado |
+|---|---|---|
+| E6.1 Conversión o suspensión | Se aplica el contrato ANUAL y queda registrada la salida correcta. | PENDIENTE |
+| E6.2 Evidencia final | Provisioning, onboarding, Trial, operación, soporte, recuperación y cierre quedan auditados. | PENDIENTE |
+
+## Dependencias y gates
+
+- **Entrada:** `main` actualizado, SHA identificado, G-SAAS-01 integrado, PR de remediación M1 fusionado, plan ANUAL publicado y decisión DEMO/FISCAL del cliente.
+- **M2:** ningún tenant nuevo se inicia con módulos operativos vacíos; el bootstrap es idempotente y reproducible.
+- **M3:** cada operación crítica tiene pruebas automatizadas y, cuando corresponda, validación productiva con el tenant de referencia.
+- **M4:** no se inicia el Trial con divergencia entre aplicación, Functions, Rules, Storage o SHA certificado.
+- **M5:** el Trial permanece abierto hasta completar 30 días de operación real.
+- **M6:** el Goal solo puede cerrarse con evidencia de conversión o suspensión según contrato.
+
+## Definition of Done
+
+- No existen P0 conocidos ni P1 sin resolución o plan aceptado antes de iniciar el Trial.
+- El tenant de referencia es reproducible, aislado y operable por su administrador.
+- DEMO, o FISCAL si fue requerido, funciona con datos reales aprobados del cliente.
+- Las operaciones necesarias del cliente pasan en producción.
+- Backoffice, soporte, diagnóstico, incidentes, rollback y recuperación están probados o documentados como no aplicables con evidencia.
+- SHA, CI, despliegues y smoke productivo están registrados.
+- El cliente completa 30 días reales de Trial.
+- Se registran incidentes, correcciones y cambios sin reiniciar artificialmente el Trial.
+- Conversión o suspensión queda aplicada y auditada.
+- La auditoría final del Goal confirma que toda la evidencia es consistente.
+
+## Riesgos y decisiones pendientes
+
+- Fiscalidad permanece condicionada a la necesidad real del cliente; no se inventan NIT, resolución, prefijos ni credenciales.
+- Impresión física depende de modelo, driver y ancho del equipo del cliente; el transporte técnico Web/PWA ya está definido.
+- Correcciones financieras posteriores a un egreso requieren una autoridad backend canónica o un procedimiento de soporte; el cliente no borra el ledger.
+- El despliegue productivo actual y la recuperación productiva aún no están certificados.
+
 
 ## Identidad estable
 
