@@ -38,7 +38,7 @@ multicanal que todavía no ha sido probado en esos canales.
 | E4.2-SEC-002-DEPENDENCIES | `npm audit` presentaba vulnerabilidades conocidas en raíz y Functions. | Alto | PR #203 y PR #205 integrados; quedan siete moderadas documentadas por requerir cambios mayores incompatibles. | Solo si cambia arquitectura/contrato |
 | E4.2-SEC-003-MASTER-PLAN | **CERRADO:** `MASTER-SECURITY-PLAN.md` está vigente y registra la evolución SaaS, Storage tenant-aware y los riesgos residuales sin declararlos mitigados implícitamente. | Alto | Mantenerlo alineado cuando se cierre un riesgo o se integre una nueva frontera. | No |
 | E4.2-CI-001-UNCOVERED-SURFACES | Operator Portal y R1-A Web/PWA forman parte del gate; Electron fue retirado por PR #224 y reservas/Wompi permanecen fuera por dependencias externas. Storage cuenta con suite tenant-aware en CI. | Medio/alto | Mantener el seguimiento abierto hasta resolver las dependencias externas de reservas/Wompi. | Según cada frontera |
-| E4.2-B3-CLOSURE | **Cerrado en la ejecución B3-027 del 2026-08-11:** ADR-SAAS-026 y ADR-SAAS-027, allowlist estricta, preflight, recovery, journal, idempotencia y precondiciones por objetivo quedaron verificados; se eliminaron exactamente 1 Evento legacy y 3 assets autorizados. | Alto | Mantener el allowlist congelado y conservar la evidencia productiva fuera del repositorio. | ADR-SAAS-026 / ADR-SAAS-027 |
+| E4.2-B3-CLOSURE | **Cerrado en la ejecución B3-027 del 2026-08-11 y PR #235:** ADR-SAAS-026 y ADR-SAAS-027, allowlist estricta, preflight, recovery, journal, idempotencia y precondiciones por objetivo quedaron verificados; se eliminaron exactamente 1 Evento legacy y 3 assets autorizados. | Alto | Mantener el allowlist congelado y conservar la evidencia productiva fuera del repositorio. | ADR-SAAS-026 / ADR-SAAS-027 |
 
 ### Evidencia de ejecución productiva B3-027
 
@@ -53,7 +53,8 @@ La verificación read-only posterior confirmó la ausencia de los cuatro targets
 y la permanencia del asset excluido `eventos/1781122906272-gzhck1.png`. El
 verificador de recovery fue corregido para aceptar el round-trip JSON de
 timestamps Firestore; las pruebas B3 siguen en verde y no se realizaron nuevas
-escrituras.
+escrituras. PR #235 integró esta corrección y la documentación en `main`;
+la CI post-merge de `73cacf4` terminó completamente en verde.
 
 ### Evidencia E4.2-SEC-002 - parche compatible de dependencias
 
