@@ -121,5 +121,5 @@ eliminación. La evidencia completa permanece fuera del repositorio en
 La verificación posterior confirmó que los cuatro targets están ausentes y que
 `eventos/1781122906272-gzhck1.png`, excluido explícitamente, permanece intacto.
 La verificación del bundle leído desde JSON requirió rehidratar timestamps de
-Firestore serializados como `{_seconds,_nanoseconds}`; esa corrección está
-incluida en el PR de cierre técnico y no modifica datos productivos.
+Firestore serializados como `{_seconds,_nanoseconds}`; esa corrección quedó
+integrada por PR #235 en `main @ 73cacf4` y no modifica datos productivos.
