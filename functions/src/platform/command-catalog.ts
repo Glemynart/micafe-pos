@@ -15,6 +15,7 @@ export const COMANDOS_COMERCIALES = {
   CambiarPlanSuscripcion: "COMERCIAL_GOBERNAR",
   ProgramarCancelacionSuscripcion: "COMERCIAL_GOBERNAR",
   RevocarCancelacionSuscripcion: "COMERCIAL_GOBERNAR",
+  ConfirmarPagoAnualSuscripcion: "COMERCIAL_GOBERNAR",
   TransicionarEmpresa: "LIFECYCLE_GOBERNAR",
   ActualizarDatosAdministrativosEmpresa: "LIFECYCLE_GOBERNAR",
 } as const satisfies Record<string, FacultadPlataforma>;

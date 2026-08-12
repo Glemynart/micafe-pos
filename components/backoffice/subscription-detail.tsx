@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type TipoModal = "RenovarSuscripcion" | "CambiarPlanSuscripcion" | "ProgramarCancelacionSuscripcion";
+type TipoModal = "RenovarSuscripcion" | "CambiarPlanSuscripcion" | "ProgramarCancelacionSuscripcion" | "ConfirmarPagoAnualSuscripcion";
 
 /**
  * Ficha de Suscripción — proyección exclusivamente comercial. Reutiliza
@@ -33,6 +33,10 @@ export function SubscriptionDetail({ empresaId }: { empresaId: string }) {
 
   async function transicionar(destino: "active" | "suspended") {
     if (!suscripcion) return;
+    if (destino === "active" && suscripcion.snapshotContrato?.periodicidad === "ANUAL") {
+      setModal("ConfirmarPagoAnualSuscripcion");
+      return;
+    }
     setAccion(true);
     try {
       const extra = destino === "active" ? {
@@ -75,7 +79,9 @@ export function SubscriptionDetail({ empresaId }: { empresaId: string }) {
         ? { periodoInicio: String(form.get("periodoInicio")), periodoFin: String(form.get("periodoFin")) }
         : modal === "CambiarPlanSuscripcion"
           ? { planId: String(form.get("planId")), planVersion: Number(form.get("planVersion")) }
-          : { cancelacionProgramadaPara: String(form.get("cancelacionProgramadaPara")) };
+          : modal === "ProgramarCancelacionSuscripcion"
+            ? { cancelacionProgramadaPara: String(form.get("cancelacionProgramadaPara")) }
+            : { referenciaPago: String(form.get("referenciaPago")) };
       await comandoComercial(modal, {
         ...envelope(`BACKOFFICE_${modal.toUpperCase()}`),
         empresaId,
@@ -127,7 +133,7 @@ export function SubscriptionDetail({ empresaId }: { empresaId: string }) {
                   {suscripcion.estado === "active" && (
                     <>
                       <Button className="w-full justify-start" variant="outline" disabled={accion} onClick={() => setModal("RenovarSuscripcion")}>Renovar período</Button>
-                      <Button className="w-full justify-start" variant="outline" disabled={accion} onClick={() => setModal("CambiarPlanSuscripcion")}>Cambiar plan</Button>
+                      {!suscripcion.snapshotContrato && <Button className="w-full justify-start" variant="outline" disabled={accion} onClick={() => setModal("CambiarPlanSuscripcion")}>Cambiar plan</Button>}
                       {suscripcion.cancelacionProgramadaPara
                         ? <Button className="w-full justify-start" variant="outline" disabled={accion} onClick={() => void revocarCancelacion()}>Revocar cancelación</Button>
                         : <Button className="w-full justify-start" variant="outline" disabled={accion} onClick={() => setModal("ProgramarCancelacionSuscripcion")}>Programar cancelación</Button>}
@@ -144,6 +150,10 @@ export function SubscriptionDetail({ empresaId }: { empresaId: string }) {
               <div className="grid gap-4 sm:grid-cols-2">
                 <Datum label="Plan contratado">{suscripcion.planId ?? "—"}</Datum>
                 <Datum label="Versión contratada">{suscripcion.planVersion ? `v${suscripcion.planVersion}` : "—"}</Datum>
+                {suscripcion.snapshotContrato && <>
+                  <Datum label="Contrato">{suscripcion.snapshotContrato.periodicidad} · {new Intl.NumberFormat("es-CO", { style: "currency", currency: suscripcion.snapshotContrato.precio.moneda, maximumFractionDigits: 0 }).format(suscripcion.snapshotContrato.precio.importe)} / año</Datum>
+                  <Datum label="Sede conceptual">1</Datum>
+                </>}
               </div>
               <p className="mt-3 text-xs leading-relaxed text-slate-400">Esta es la referencia histórica registrada en la Suscripción, no la definición vigente del plan.</p>
             </CardContent>
@@ -154,13 +164,14 @@ export function SubscriptionDetail({ empresaId }: { empresaId: string }) {
       <Dialog open={modal !== null} onOpenChange={(open) => { if (!open) setModal(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{modal === "RenovarSuscripcion" ? "Renovar período" : modal === "CambiarPlanSuscripcion" ? "Cambiar referencia de plan" : "Programar cancelación"}</DialogTitle>
+            <DialogTitle>{modal === "RenovarSuscripcion" ? "Renovar período" : modal === "CambiarPlanSuscripcion" ? "Cambiar referencia de plan" : modal === "ProgramarCancelacionSuscripcion" ? "Programar cancelación" : "Confirmar pago anual"}</DialogTitle>
             <DialogDescription>La operación conserva revisión, idempotencia y la separación entre Suscripción y lifecycle empresarial.</DialogDescription>
           </DialogHeader>
           <form className="space-y-4" onSubmit={submitModal}>
             {modal === "RenovarSuscripcion" && <><Field name="periodoInicio" label="Inicio del período" type="date" required /><Field name="periodoFin" label="Fin del período" type="date" required /></>}
             {modal === "CambiarPlanSuscripcion" && <><Field name="planId" label="Plan publicado" required /><Field name="planVersion" label="Versión" type="number" min="1" required /></>}
             {modal === "ProgramarCancelacionSuscripcion" && <Field name="cancelacionProgramadaPara" label="Fecha de cancelación" type="date" required />}
+            {modal === "ConfirmarPagoAnualSuscripcion" && <><Field name="referenciaPago" label="Referencia interna del pago" placeholder="REC-2026-0001" required /><p className="text-xs leading-relaxed text-slate-500">El importe y la moneda se toman del snapshot contractual; nunca de este formulario.</p></>}
             <Button className="w-full" disabled={accion}>{accion && <LoaderCircle className="mr-2 size-4 animate-spin" />}Confirmar comando</Button>
           </form>
         </DialogContent>

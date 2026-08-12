@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { FieldValue } from "firebase-admin/firestore";
 import { esFechaComercial, fechaComercialUtc, readinessComercial, type Suscripcion } from "../../../lib/suscripciones/contrato";
-import { actualizarBorradorPlan, cambiarPlanSuscripcion, crearPlan, crearNuevaVersionPlan, crearSuscripcionActiva, crearSuscripcionTrial, crearSuscripcionTrialEnTransaccion, programarCancelacionSuscripcion, publicarPlan, renovarSuscripcion, retirarVersionPlan, revocarCancelacionSuscripcion, transicionarEmpresa, transicionarSuscripcion } from "./service";
+import { actualizarBorradorPlan, cambiarPlanSuscripcion, confirmarPagoAnualSuscripcion, crearPlan, crearNuevaVersionPlan, crearSuscripcionActiva, crearSuscripcionTrial, crearSuscripcionTrialEnTransaccion, programarCancelacionSuscripcion, publicarPlan, renovarSuscripcion, retirarVersionPlan, revocarCancelacionSuscripcion, suspenderPeriodoAnualVencido, suspenderTrialVencido, transicionarEmpresa, transicionarSuscripcion } from "./service";
 
 class Ref { constructor(public path: string) {} collection(id: string) { return new Ref(`${this.path}/${id}`); } doc(id: string) { return new Ref(`${this.path}/${id}`); } }
 class Snap { constructor(private readonly v: any) {} get exists() { return this.v !== undefined; } data() { return structuredClone(this.v); } }
@@ -34,6 +34,57 @@ test("B3 confirms a platform audit obligation in the commercial transaction", as
   assert.equal(db.read("saas_auditoria_obligaciones/plan_atomic").estado, "PENDIENTE");
 });
 
+test("MT-U9 materializa snapshot anual inmutable, confirma pago desde servidor y conserva evidencia", async () => {
+  const db = new Db();
+  db.seed("empresas/empresa_anual", { empresaId: "empresa_anual", estado: "trial", revision: 1 });
+  db.seed("planes/mvp_comercial/versiones/2", {
+    planId: "mvp_comercial", codigo: "MVP_COMERCIAL", planVersion: 2, estado: "PUBLICADA",
+    capacidades: ["sell", "inventory", "purchases", "clientes", "finanzas", "reservas", "waste", "shifts", "cuentas_cobro"],
+    limites: {}, periodicidad: "ANUAL", precio: { importe: 1800000, moneda: "COP" }, grandfathered: false, revision: 2, schemaVersion: 1,
+  });
+  await db.runTransaction(tx => crearSuscripcionTrialEnTransaccion(db as any, tx, {
+    ...env("annual_trial"), empresaId: "empresa_anual", planId: "mvp_comercial", planVersion: 2,
+    trialInicio: "2026-07-01", trialFin: "2026-07-31",
+  }, ctx));
+  const snapshotAntes = JSON.stringify(db.read("suscripciones/empresa_anual").snapshotContrato);
+  const pago = await confirmarPagoAnualSuscripcion(db as any, { ...env("annual_pago"), empresaId: "empresa_anual", referenciaPago: "REC-2026-0001" }, ctx);
+  assert.equal(pago.idempotente, false);
+  const suscripcion = db.read("suscripciones/empresa_anual");
+  assert.equal(suscripcion.estado, "active");
+  assert.equal(suscripcion.snapshotContrato.precio.importe, 1800000);
+  assert.equal(suscripcion.snapshotContrato.precio.moneda, "COP");
+  assert.equal(JSON.stringify(suscripcion.snapshotContrato), snapshotAntes);
+  assert.equal(db.read("empresas/empresa_anual").estado, "activa");
+  assert.equal(db.read("pagos_saas/" + pago.reciboId).referenciaPago, "REC-2026-0001");
+  assert.ok([...db.docs.values()].some(v => v.tipo === "SuscripcionPagoAnualConfirmado"));
+  assert.equal((await confirmarPagoAnualSuscripcion(db as any, { ...env("annual_pago"), empresaId: "empresa_anual", referenciaPago: "REC-2026-0001" }, ctx)).idempotente, true);
+});
+
+test("MT-U9 vence Trial y periodo anual sin gracia ni borrado, de forma idempotente", async () => {
+  const db = new Db();
+  db.seed("empresas/empresa_vencida", { empresaId: "empresa_vencida", estado: "trial", revision: 1 });
+  db.seed("suscripciones/empresa_vencida", { empresaId: "empresa_vencida", planId: "mvp_comercial", planVersion: 2, estado: "trialing", trialInicio: "2026-07-01", trialFin: "2026-07-31", revision: 1, schemaVersion: 1 });
+  const trial = await suspenderTrialVencido(db as any, "empresa_vencida", "2026-07-31");
+  assert.equal(trial.idempotente, false);
+  assert.equal(db.read("suscripciones/empresa_vencida").estado, "suspended");
+  assert.equal(db.read("empresas/empresa_vencida").estado, "suspendida");
+  assert.equal((await suspenderTrialVencido(db as any, "empresa_vencida", "2026-07-31")).idempotente, true);
+
+  db.seed("empresas/empresa_periodo", { empresaId: "empresa_periodo", estado: "activa", revision: 1 });
+  db.seed("suscripciones/empresa_periodo", {
+    empresaId: "empresa_periodo", planId: "mvp_comercial", planVersion: 2, estado: "active",
+    periodoInicio: "2025-08-01", periodoFin: "2026-08-01", snapshotContrato: {
+      schemaVersion: 1, planId: "mvp_comercial", planVersion: 2, codigoPlan: "MVP_COMERCIAL", periodicidad: "ANUAL",
+      precio: { importe: 1800000, moneda: "COP" }, capacidades: [], limites: {}, sedeConceptual: { cantidad: 1 }, fiscalidad: null,
+      vigencia: { inicio: "2025-08-01", fin: "2025-08-31" },
+    }, revision: 1, schemaVersion: 1,
+  });
+  await suspenderPeriodoAnualVencido(db as any, "empresa_periodo", "2026-08-01");
+  assert.equal(db.read("suscripciones/empresa_periodo").estado, "suspended");
+  assert.equal(db.read("empresas/empresa_periodo").estado, "suspendida");
+  assert.equal(db.read("pagos_saas/empresa_periodo"), undefined);
+});
+
 test("B3 aborts the aggregate commit when its durable audit obligation cannot be created", async () => {
   const db = new Db();
   await assert.rejects(
@@ -61,9 +112,11 @@ test("B3 valida fechas comerciales canónicas y readiness con límites inclusivo
   assert.equal(esFechaComercial("2028-02-29"), true); assert.equal(esFechaComercial("2026-02-29"), false); assert.equal(esFechaComercial("2026-7-01"), false);
   assert.equal(fechaComercialUtc(new Date("2026-07-31T23:30:00-05:00")), "2026-08-01");
   const sPast: Suscripcion = { empresaId: "empresa_1", planId: "plan_base", planVersion: 1, estado: "past_due", graceFin: "2026-07-31", revision: 1, schemaVersion: 1 };
-  assert.equal(readinessComercial(sPast, "2026-07-31"), true); assert.equal(readinessComercial(sPast, "2026-08-01"), false);
+  assert.equal(readinessComercial(sPast, "2026-07-30"), true); assert.equal(readinessComercial(sPast, "2026-07-31"), false);
   const sActive: Suscripcion = { empresaId: "empresa_1", planId: "plan_base", planVersion: 1, estado: "active", periodoInicio: "2026-07-01", periodoFin: "2026-07-31", revision: 1, schemaVersion: 1 };
-  assert.equal(readinessComercial(sActive, "2026-07-31"), true); assert.equal(readinessComercial(sActive, "2026-08-01"), false);
+  assert.equal(readinessComercial(sActive, "2026-07-30"), true); assert.equal(readinessComercial(sActive, "2026-07-31"), false);
+  const sTrial: Suscripcion = { empresaId: "empresa_1", planId: "plan_base", planVersion: 1, estado: "trialing", trialInicio: "2026-07-01", trialFin: "2026-07-31", revision: 1, schemaVersion: 1 };
+  assert.equal(readinessComercial(sTrial, "2026-07-30"), true); assert.equal(readinessComercial(sTrial, "2026-07-31"), false);
 });
 
 test("B3 publica versiones inmutables, permite crear versiones superiores y mantiene grandfathering", async () => {
@@ -82,7 +135,7 @@ test("B3 publica versiones inmutables, permite crear versiones superiores y mant
 test("B2 completa lifecycle comercial sin alterar referencias publicadas o lifecycle Empresa", async () => {
   const db = new Db();
   await crearPlan(db as any, { ...env("plan_editable"), planId: "plan_editable", codigo: "EDITABLE", capacidades: ["pos"], limites: {}, periodicidad: "MENSUAL", grandfathered: false }, ctx);
-  await actualizarBorradorPlan(db as any, { ...env("editar_plan"), planId: "plan_editable", planVersion: 1, capacidades: ["pos", "reportes"], limites: {}, periodicidad: "ANUAL", grandfathered: false }, ctx);
+  await actualizarBorradorPlan(db as any, { ...env("editar_plan"), planId: "plan_editable", planVersion: 1, capacidades: ["pos", "reportes"], limites: {}, periodicidad: "MENSUAL", grandfathered: false }, ctx);
   assert.deepEqual(db.read("planes/plan_editable/versiones/1").capacidades, ["pos", "reportes"]);
   await publicarPlan(db as any, { ...env("publicar_editado", 2), planId: "plan_editable", planVersion: 1 }, ctx);
 

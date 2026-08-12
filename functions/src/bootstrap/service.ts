@@ -225,7 +225,11 @@ export async function ejecutarBootstrapEmpresarial(
   });
 
   // 3. Commit atómico del núcleo (Transacción Firestore)
-  const trialDias = entrada.trialDias ?? 14;
+  const trialDias = entrada.trialDias ?? 30;
+  const planContratado = planSnap.data() as PlanVersion;
+  if (planContratado.periodicidad === "ANUAL" && trialDias !== 30) {
+    fail("invalid-argument", "TRIAL_ANUAL_DEBE_SER_30_DIAS");
+  }
   const hoyMs = Date.now();
   const trialInicio = fechaComercialUtc(new Date(hoyMs));
   const trialFin = fechaComercialUtc(new Date(hoyMs + trialDias * 86400000));
