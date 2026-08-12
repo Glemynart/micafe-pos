@@ -415,7 +415,10 @@ export async function obtenerResumenOperadorSaas(
     }
 
     if (onboardingResultado.status === "fulfilled") {
-      if (!onboardingResultado.value.readinessTotal.listo) agregar("ONBOARDING_DETENIDO");
+      const onboarding = onboardingResultado.value;
+      const demoOperativo = onboarding.ventaDemostracion?.disponible === true
+        && onboarding.readinessTotal.detalles?.configuracion?.operativa?.lista === true;
+      if (!onboarding.readinessTotal.listo && !demoOperativo) agregar("ONBOARDING_DETENIDO");
     } else {
       fuentesDegradadas.push({ empresaId, fuente: "ONBOARDING" });
     }

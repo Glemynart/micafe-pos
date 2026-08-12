@@ -326,6 +326,7 @@ export async function ejecutarBootstrapEmpresarial(
       commandId: entrada.commandId,
       correlationId: entrada.correlationId,
       origen: "BOOTSTRAP",
+      modulosIniciales: Array.isArray(planContratado.capacidades) ? planContratado.capacidades : [],
     }, empresaInicial, configSnap);
 
     // C. Espacio inicial

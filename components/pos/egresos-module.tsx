@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useAuthContext } from "@/contexts/auth-context"
 import { useUI } from "@/contexts/ui-context"
 import { suscribirTurnoActivo, type Turno } from "@/lib/turnos-service"
-import { guardarEgreso, suscribirEgresosPorTurno, eliminarEgreso, type Egreso } from "@/lib/egresos-service"
+import { guardarEgreso, suscribirEgresosPorTurno, type Egreso } from "@/lib/egresos-service"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Trash2, Plus, TrendingDown, Clock, AlertCircle } from "lucide-react"
+import { Plus, TrendingDown, Clock, AlertCircle } from "lucide-react"
 import { formatCurrency } from "@/lib/demo-data"
 import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -28,8 +28,6 @@ export function EgresosModule() {
   const [monto, setMonto] = useState("")
   const [motivo, setMotivo] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const isAdmin = usuario?.rol === 'admin'
 
   useEffect(() => {
     if (!usuario?.uid) return
@@ -79,22 +77,6 @@ export function EgresosModule() {
       toast.error("No se pudo registrar el egreso")
     } finally {
       setIsSubmitting(false)
-    }
-  }
-
-  const handleEliminarEgreso = async (id: string) => {
-    if (!isAdmin) {
-      toast.error("No tienes permisos para eliminar egresos")
-      return
-    }
-    if (confirm("¿Estás seguro de eliminar este egreso? Esta acción modificará el cuadre de caja.")) {
-      try {
-        await eliminarEgreso(id)
-        toast.success("Egreso eliminado")
-      } catch (error) {
-        console.error("Error al eliminar egreso:", error)
-        toast.error("Error al eliminar el egreso")
-      }
     }
   }
 
@@ -173,7 +155,6 @@ export function EgresosModule() {
                       <TableHead>Hora</TableHead>
                       <TableHead>Motivo / Concepto</TableHead>
                       <TableHead className="text-right">Monto</TableHead>
-                      {isAdmin && <TableHead className="w-[100px] text-right">Acciones</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -191,19 +172,6 @@ export function EgresosModule() {
                         <TableCell className="text-right font-bold text-destructive">
                           -{formatCurrency(egreso.monto)}
                         </TableCell>
-                        {isAdmin && (
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                              onClick={() => handleEliminarEgreso(egreso.id)}
-                              title="Eliminar gasto"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        )}
                       </TableRow>
                     ))}
                   </TableBody>

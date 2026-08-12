@@ -36,6 +36,16 @@ function detalle(override: Record<string, unknown> = {}) {
 
 const onboardingListo = { readinessTotal: { listo: true } } as any;
 const onboardingDetenido = { readinessTotal: { listo: false } } as any;
+const onboardingDemoOperativo = {
+  readinessTotal: {
+    listo: false,
+    detalles: {
+      configuracion: { operativa: { lista: true } },
+      numeracion: { lista: false },
+    },
+  },
+  ventaDemostracion: { disponible: true },
+} as any;
 
 test("resumen vacío no produce alertas ni fuentes degradadas", async () => {
   const db = dbConEmpresas([]);
@@ -93,4 +103,14 @@ test("una fuente degradada conserva las alertas que no dependen de ella y no rev
   assert.deepEqual(resumen.alertas.map((alerta) => alerta.tipo), ["EMPRESA_SUSPENDIDA"]);
   assert.deepEqual(resumen.fuentesDegradadas, [{ empresaId: "empresa-1", fuente: "DETALLE_EMPRESA" }]);
   assert.equal(JSON.stringify(resumen).includes("secreto-no-visible"), false);
+});
+
+test("un tenant DEMO operativo no se reporta como onboarding detenido por fiscalidad pendiente", async () => {
+  const db = dbConEmpresas([{ id: "empresa-1", data: { nombre: "Café Uno", estado: "trial", paisFiscal: "CO" } }]);
+  const resumen = await obtenerResumenOperadorSaas(db as never, {
+    obtenerDetalle: async () => detalle(),
+    obtenerOnboarding: async () => onboardingDemoOperativo,
+  });
+
+  assert.equal(resumen.alertas.some((alerta) => alerta.tipo === "ONBOARDING_DETENIDO"), false);
 });
