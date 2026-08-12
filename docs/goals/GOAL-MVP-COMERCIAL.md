@@ -1,10 +1,10 @@
-# Goal activo — G-SAAS-01: Plataforma SaaS comercial operable
+# Goal — G-SAAS-01: Plataforma SaaS comercial operable
 
 ## Identidad estable
 
 - **Goal:** `G-SAAS-01`
 - **Resultado:** operar comercialmente el SaaS multi-tenant con un contrato anual manual, Trial controlado, lifecycle server-side, evidencia contractual inmutable y el plano de operadores autorizado, sin ampliar el alcance aprobado.
-- **Estado:** ACTIVO
+- **Estado:** COMPLETADO
 - **Inicio formal:** 2026-08-12
 - **Rama base al adoptar:** `main @ 6ded075`
 - **Fuente de alcance:** `G-SAAS-01-PRODUCT-DECISION-RESOLUTION.md`, aprobada por el Product Owner y conservada en este repositorio.
@@ -29,14 +29,14 @@ automática de datos.
 
 ## Milestone y Epics
 
-### MT-U9 — Contrato y operación comercial inicial — EN PROGRESO
+### MT-U9 — Contrato y operación comercial inicial — COMPLETADO
 
 | Epic | Resultado | Estado |
 |---|---|---|
-| E9.1 Contrato comercial y snapshot | Product Decision preservada, ADR-SAAS-028 aceptado y contrato de Suscripción versionado sin mutación retroactiva. | EN PROGRESO |
-| E9.2 Plan anual y Trial | `mvp_comercial` conserva su versión mensual y obtiene versión `ANUAL`; Trial de 30 días sin cambio de Plan ni gracia. | PENDIENTE |
-| E9.3 Cobro y lifecycle manual | Confirmación anual manual, reactivación server-side, suspensión por vencimiento y cancelación al final del periodo. | PENDIENTE |
-| E9.4 Operación y certificación | Panel de operadores, auditoría, Rules, pruebas y evidencia de la operación comercial inicial. | PENDIENTE |
+| E9.1 Contrato comercial y snapshot | Product Decision preservada, ADR-SAAS-028 aceptado y contrato de Suscripción versionado sin mutación retroactiva. | COMPLETADO |
+| E9.2 Plan anual y Trial | `mvp_comercial` conserva su versión mensual y obtiene versión `ANUAL`; Trial de 30 días sin cambio de Plan ni gracia. | COMPLETADO |
+| E9.3 Cobro y lifecycle manual | Confirmación anual manual, reactivación server-side, suspensión por vencimiento y cancelación al final del periodo. | COMPLETADO |
+| E9.4 Operación y certificación | Panel de operadores, auditoría, Rules, pruebas y evidencia de la operación comercial inicial. | COMPLETADO |
 
 ## Definition of Done de G-SAAS-01
 
@@ -47,12 +47,12 @@ sin mutar snapshots históricos y sin ampliar MT-U9.
 
 ## Estado vivo
 
-- **Progreso:** aprobación de Product Owner registrada, oferta anual fijada en `1.800.000 COP`, `origin/main` auditado; G-MVP-01 permanece como baseline histórica completada; ADR-SAAS-028 aceptado técnicamente y E9.1 listo para implementación.
-- **Estado:** ACTIVO.
-- **PR completados:** ninguno.
-- **Siguiente PR esperado:** implementación de E9.1: snapshot contractual inmutable y compatibilidad de versiones.
-- **Milestone activo:** `MT-U9 — Contrato y operación comercial inicial`.
-- **Epic activo:** `E9.1 — Contrato comercial y snapshot`.
+- **Progreso:** PR #243 aceptó e integró el contrato y ADR-SAAS-028; PR #244 implementó E9.1–E9.4 y quedó integrado en `main @ ca2c20c`. La CI post-merge quedó verde con tipos, builds, Rules, Functions, Emulator y E2E. La oferta anual queda fijada en `1.800.000 COP` y la versión mensual histórica permanece intacta.
+- **Estado:** COMPLETADO.
+- **PR completados:** #243, #244.
+- **Siguiente PR esperado:** ninguno para MT-U9; la activación de la oferta en un entorno concreto es una operación manual mediante los comandos canónicos y no una migración automática.
+- **Milestone activo:** ninguno; `MT-U9 — Contrato y operación comercial inicial` está COMPLETADO.
+- **Epic activo:** ninguno; `E9.1`–`E9.4` están COMPLETADOS.
 
 ## Baseline histórica
 
