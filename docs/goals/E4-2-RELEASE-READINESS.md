@@ -25,16 +25,20 @@ Las capacidades que dependen de una decisión del tenant no bloquean esta releas
 Esta clasificación no simula una impresora, no inventa datos fiscales y no presenta
 reservas/Wompi como capacidades certificadas.
 
-> **Estado vivo (2026-08-11):** `main @ 65a9fb85d9159eb949ffaf18c5a99ed6377b1554`
-> tiene CI post-merge completamente verde. B3-027 y ADR-SAAS-026/027 están
+> **Estado funcional de cierre del MVP (baseline 2026-08-11):** `main @ 65a9fb85d9159eb949ffaf18c5a99ed6377b1554`
+> tenía CI post-merge completamente verde. B3-027 y ADR-SAAS-026/027 están
 > cerrados; Electron/P0-08 permanece retirado. E4.2 queda cerrado para el MVP
 > Web/PWA, con validaciones físicas y capacidades fiscales tenant-specific
 > registradas como condiciones no bloqueantes.
 
+> **Estado documental vigente:** esta reconciliación está integrada por PR #241.
+> El SHA de la baseline anterior no se presenta como el tip actual de `main`.
+
 > **Reconciliación:** las secciones de evidencia y seguimiento conservan la
 > cronología de auditorías anteriores. Cuando mencionan dry-run, B3 pendiente,
 > Electron o una decisión de release condicional, ese texto es **HISTÓRICO**;
-> el estado vigente es el de este bloque y el de `main @ 65a9fb8`.
+> el estado vigente es el de este bloque y de la baseline funcional identificada
+> arriba.
 
 ## Evidencia disponible
 

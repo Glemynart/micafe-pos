@@ -1,8 +1,9 @@
 # MT — Arquitectura SaaS Multiempresa (Documento Maestro)
 
 > **Estado:** ✅ Aprobado como vista arquitectónica consolidada del proyecto.
-> **Base revisada:** `main @ 65a9fb85d9159eb949ffaf18c5a99ed6377b1554`.
+> **Base funcional revisada:** `main @ 65a9fb85d9159eb949ffaf18c5a99ed6377b1554` (cierre del MVP).
 > **Última revisión:** 2026-08-11.
+> **Reconciliación documental:** PR #241; este SHA no pretende identificar el tip actual de `main`.
 > **Alcance vigente:** MT-U0 a MT-U8 completados; MT-U9→MT-U11 son unidades
 > candidatas post-MVP y MT-U12 está retirada/superseded por la decisión Web/PWA-only.
 >
