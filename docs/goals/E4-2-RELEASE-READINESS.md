@@ -53,8 +53,14 @@ La verificación read-only posterior confirmó la ausencia de los cuatro targets
 y la permanencia del asset excluido `eventos/1781122906272-gzhck1.png`. El
 verificador de recovery fue corregido para aceptar el round-trip JSON de
 timestamps Firestore; las pruebas B3 siguen en verde y no se realizaron nuevas
-escrituras. PR #235 integró esta corrección y PR #236 reconcilió el estado de
-E4.2 en `main @ 9c725b0`; las CI post-merge terminaron completamente en verde.
+escrituras. PR #235 integró esta corrección, PR #236 reconcilió el estado de
+E4.2 y PR #237 alineó la documentación con el estado vivo de `main @ fabcf65`;
+las CI post-merge terminaron completamente en verde.
+
+> **Nota de vigencia:** el inventario y las actualizaciones descritos en esta
+> sección son evidencia histórica de la auditoría anterior al retiro de
+> Electron por PR #224. No representan dependencias ni gates activos del
+> producto Web/PWA.
 
 ### Evidencia E4.2-SEC-002 - parche compatible de dependencias
 
@@ -85,10 +91,10 @@ Validaciones ejecutadas en la rama del parche:
 - `npm run test:auth-foundation`: PASS (268 pass, 3 skip, 0 fail).
 - `npm run test:backfill`: PASS (19 pass, 0 fail).
 - `npm run e2e:b3-eventos-backfill`: PASS en Emulator; `productionWrites:false`.
-- `npm run dist`: la compilacion y el empaquetado alcanzan Electron 42.8.1,
-  pero Windows rechaza la escritura de la integridad del `.exe` generado con
-  error `UNKNOWN`; no forma parte del gate CI de E4.2 y queda como evidencia
-  del gate Electron pendiente.
+- **Evidencia histórica pre-PR #224:** `npm run dist` alcanzaba Electron
+  42.8.1, pero Windows rechazaba la escritura de la integridad del `.exe`
+  generado con error `UNKNOWN`. Este resultado ya no es un gate vigente:
+  Electron fue retirado y la certificación actual se limita a Web/PWA.
 
 ### Evidencia E4.2-SEC-002A - actualizacion de Next y cadena de imagenes
 
