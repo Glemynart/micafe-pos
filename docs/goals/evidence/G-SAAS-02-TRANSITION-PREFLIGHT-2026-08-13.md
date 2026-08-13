@@ -45,3 +45,23 @@ El runner es `scripts/g-saas-02/trial-transition-preflight.ts` y el núcleo
 testeable es `scripts/g-saas-02/trial-transition-preflight-core.ts`. Requiere
 `FIREBASE_ACCESS_TOKEN` entregado fuera del repositorio y nunca obtiene ni
 imprime credenciales.
+
+## Revalidación posterior al merge
+
+Tras los merges de #269 y #270, se ejecutó nuevamente el runner el
+`2026-08-13T20:33:51Z`, declarando `main @ cc023b0fe987eb5f1dd556f882c2ce8293013c1b`.
+La lectura volvió a confirmar:
+
+```text
+status: ESPERAR_VENTANA
+readyForCanonicalCommands: false
+readOnly: true
+productionWrites: false
+commandExecutionAllowed: false
+```
+
+Los gates positivos fueron identidad del proyecto/tenant, raíz histórica
+intacta, Plan anual publicado, configuración histórica de siete módulos,
+operador autorizado y cero relaciones anuales. Continúan pendientes la fecha
+`2026-09-02`, recovery verificable y atestaciones independientes de release;
+por tanto no se autoriza ninguna operación comercial productiva.
