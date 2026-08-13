@@ -45,6 +45,20 @@ No se usan NIT, credenciales fiscales, PINs o secretos inventados.
 6. En modo DEMO, validar entrada al POS y una venta no fiscal.
 7. Configurar productos, clientes, usuarios, permisos y flujo inicial del cliente.
 
+### 2.1 Transición del tenant mensual histórico
+
+La transición de Café Atrato solo se ejecuta después de `2026-09-02` y nunca reinicia el Trial mensual:
+
+1. hacer preflight read-only de Empresa, suscripción raíz, relación vigente, plan v2, configuración, operador, Rules y punto de recuperación;
+2. ejecutar el cierre canónico del Trial mensual (`suspenderTrialVencido`) si no existe pago; la raíz puede avanzar en su lifecycle, pero no se cambian sus fechas, plan, capacidades históricas ni snapshot;
+3. ejecutar `CrearRelacionContractualTrial` mediante `ejecutarComandoComercialSaas`, con `planId=mvp_comercial`, `planVersion=2`, la revisión raíz observada y `relacionAnteriorId=legacy_mensual_v1`;
+4. verificar que la nueva relación tiene snapshot ANUAL, nueve capacidades y exactamente 30 días, mientras la raíz conserva `planVersion=1`, sus fechas y sus siete capacidades;
+5. ejecutar `TransicionarEmpresa` a `activa` mediante el comando de lifecycle, usando la revisión de Empresa observada después de materializar la relación;
+6. actualizar `configuraciones/{empresaId}.modulos.habilitados` mediante el comando canónico de configuración, usando la lista derivada del snapshot vigente;
+7. registrar IDs de comandos, revisiones, SHA desplegado, smoke test y evidencia sin secretos.
+
+Si cualquier precondición falla, se conserva el estado actual y se registra el rechazo; no se escribe directamente Firestore ni se crea otro tenant.
+
 ## 3. Operación y soporte
 
 El operador consulta primero las proyecciones canónicas del Backoffice:
@@ -64,6 +78,8 @@ Acciones permitidas por procedimiento:
 - autorizar soporte temporal y solo lectura;
 - corregir configuración mediante comandos canónicos;
 - registrar incidente y su severidad.
+
+El panel y el soporte consultan la relación contractual vigente y su snapshot inmutable. El scheduler canónico suspende la relación al vencer el Trial o el periodo pagado. El pago manual usa `ConfirmarPagoAnualRelacionContractual`, calcula el periodo server-side, crea un recibo ligado a `relacionId` y conserva intacta la suscripción raíz histórica.
 
 El operador no edita directamente `empresas`, `suscripciones`, `membresias`, `configuraciones`, cuentas financieras, ledger o auditoría.
 
@@ -121,6 +137,8 @@ La evidencia no debe contener secretos, PINs, tokens, service accounts ni docume
 - decisión final de conversión o suspensión.
 
 ## 8. Cierre
+
+La salida contractual se ejecuta sobre la relación vigente: conversión mediante `ConfirmarPagoAnualRelacionContractual` o suspensión automática mediante el scheduler canónico. Los comandos de la suscripción raíz mensual no se reutilizan para operar el contrato anual.
 
 El Trial no se cierra por una pantalla de éxito ni por CI verde. Al día 30 se verifica:
 
