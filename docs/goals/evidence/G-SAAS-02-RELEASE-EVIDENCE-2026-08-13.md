@@ -2,9 +2,9 @@
 
 ## Resultado
 
-El colector read-only se ejecutó el `2026-08-13T21:52:54Z` contra el proyecto
+El colector read-only se ejecutó el `2026-08-13T22:19:34Z` contra el proyecto
 Firebase `micafe-pos`, el repositorio `Glemynart/micafe-pos` y
-`origin/main @ a33bd2b6d866adec00aec8f8c5ff47c4f4877741`.
+`origin/main @ fa4fd781e091554042d35189ac7d31357fd7ff3b`.
 
 ```text
 status: INCOMPLETE
@@ -15,8 +15,8 @@ collectionErrors: []
 
 ## Evidencia automática positiva
 
-- CI del SHA objetivo: run `31745492006`, `completed`, `success`.
-- Vercel para el SHA objetivo: `success`.
+- CI del SHA objetivo: run `31748687136`, `completed`, `success` (post-merge de PR #273).
+- Vercel para el SHA objetivo: `success`, deployment `B7PYdLrhqVE2HtAShLig1CREM6qZ`, actualizado `2026-08-13T22:09:12Z`.
 - Functions observadas: `74` activas de `74` y todas en `nodejs22`.
 - Distribución de hashes de Functions observada:
   - `ce73f42fa704c461257e87a809f45a264a7cbfc3`: 59;
