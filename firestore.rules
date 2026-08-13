@@ -190,8 +190,9 @@ service cloud.firestore {
     }
     match /egresos/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
-      allow create: if puedeCrearEnTenant() && esOperativo();
-      allow update: if puedeActualizarEnTenant() && esOperativo();
+      // Los egresos se crean y corrigen exclusivamente mediante la callable
+      // registrarEgresoOperativoV1, que conserva el hecho financiero atómico.
+      allow create, update: if false;
       // El egreso y su movimiento financiero son append-only. Las correcciones
       // requieren una operación backend canónica; el cliente no puede borrar.
       allow delete: if false;

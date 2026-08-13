@@ -1,6 +1,6 @@
 # Project Discovery — MiCafe POS
 
-Estado: `VIGENTE` para `main @ 02375fbd72e238776da7a6d4f4d278abd0e1f9ae`.
+Estado: `VIGENTE` para `origin/main @ 54c1d0c4287f8234c16a29d7bbd51fa900d17f74` (2026-08-13).
 
 ## Stack verificado
 
@@ -17,7 +17,10 @@ Estado: `VIGENTE` para `main @ 02375fbd72e238776da7a6d4f4d278abd0e1f9ae`.
 - Empresa/Tenant es la frontera de aislamiento.
 - Espacio es una unidad operativa interna y no equivale a Sede técnica.
 - Claims son proyección; membresía y lifecycle son autoridades canónicas.
-- Operaciones críticas pasan por Functions/Admin SDK con idempotencia y auditoría.
+- Operaciones críticas de ventas, compras, caja, turnos, finanzas y lifecycle
+  pasan por Functions/Admin SDK con idempotencia y auditoría. Las mutaciones de
+  stock de catálogo y mermas siguen siendo una frontera histórica pendiente de
+  ADR/cutover; no se presentan como backend-only hasta aceptar esa decisión.
 - El cliente lee la configuración por su provider/callable; `configuraciones/{empresaId}` está bloqueada en Rules.
 
 ## Entry points relevantes

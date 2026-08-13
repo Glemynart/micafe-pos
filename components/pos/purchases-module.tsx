@@ -20,7 +20,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -68,8 +67,6 @@ export function PurchasesModule() {
   const [cargando, setCargando] = useState(true)
   const [registrando, setRegistrando] = useState(false)
   const [compraSeleccionada, setCompraSeleccionada] = useState<Compra | null>(null)
-  const [compraAEliminar, setCompraAEliminar] = useState<Compra | null>(null)
-  const [eliminando] = useState(false)
 
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([])
   const [fechaCompra, setFechaCompra] = useState<string>(getHoy())
@@ -169,10 +166,6 @@ export function PurchasesModule() {
   }
 
   const totalCompra = itemsForm.reduce((acc, item) => acc + item.cantidad * item.costoUnitario, 0)
-
-  const handleEliminarCompra = () => {
-    toast.info('La reversión de compras requiere un comando server-side.')
-  }
 
   const handleRegistrarCompra = async () => {
     const nombreProveedor = proveedorSeleccionado?.nombre ?? proveedor.trim()
@@ -612,31 +605,6 @@ export function PurchasesModule() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!compraAEliminar} onOpenChange={(open) => !open && setCompraAEliminar(null)}>
-        <AlertDialogContent className="bg-card border-border">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-foreground">¿Eliminar Compra?</AlertDialogTitle>
-            <AlertDialogDescription className="text-muted-foreground">
-              Esta acción eliminará el registro de la compra y <strong>restará el stock</strong> que se había sumado al inventario ({compraAEliminar?.proveedor}).
-              <br/><br/>
-              Esta acción no se puede deshacer.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="bg-transparent text-foreground border-border hover:bg-secondary">
-              Cancelar
-            </AlertDialogCancel>
-            <Button
-              variant="destructive"
-              onClick={handleEliminarCompra}
-              disabled={eliminando}
-            >
-              {eliminando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              Eliminar Compra
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }

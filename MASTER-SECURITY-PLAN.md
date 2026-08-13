@@ -1,6 +1,6 @@
 # Master Security Plan — MiCafe POS SaaS
 
-Estado: `VIGENTE` para la baseline SaaS de `main` al 2026-08-12.
+Estado: `VIGENTE` para `origin/main @ 54c1d0c4287f8234c16a29d7bbd51fa900d17f74` al 2026-08-13.
 
 Este documento registra controles y riesgos relevantes para G-SAAS-02. No declara desplegado en producción ningún recurso que no tenga evidencia de despliegue. Los riesgos fuera del Trial permanecen en backlog y no se convierten en alcance automáticamente.
 
@@ -21,7 +21,10 @@ No se usa Espacio como frontera de seguridad ni se introduce una Sede técnica p
 - Storage Rules tenant-aware, límites de tamaño y tipos MIME.
 - Auth con membresía canónica, claims proyectados y credenciales operativas temporales.
 - Commands server-authoritative con envelope, idempotencia, auditoría y efectos transaccionales para operaciones críticas.
-- Ledger financiero e inventario append-oriented; los egresos no se borran desde el cliente.
+- Ledger financiero e inventario append-oriented; los egresos son backend-only
+  y no se crean, modifican ni borran desde el cliente. Las mutaciones de stock
+  de catálogo y mermas permanecen identificadas como frontera histórica hasta
+  aceptar el ADR de cutover correspondiente.
 - Backoffice para consulta, lifecycle, soporte consentido, recuperación de credenciales y auditoría.
 - CI con typecheck, builds, Rules, Storage Rules, Functions, Emulator y E2E según superficie.
 
@@ -41,6 +44,7 @@ No se usa Espacio como frontera de seguridad ni se introduce una Sede técnica p
 |---|---|---|
 | Functions productivas no demostradas contra el SHA actual | Pendiente | Gate M4: despliegue identificable y smoke test |
 | Recuperación productiva no ensayada | Pendiente | Gate M4: backup/restore o justificación documentada |
+| Mutaciones directas históricas de stock y mermas | P1 / gate arquitectónico | ADR-SAAS-030 propuesto; no cambiar Rules ni autoridad hasta aceptación |
 | Fiscalidad externa | Condicional | Solo si el cliente selecciona FISCAL y aporta datos aprobados |
 | Hardware de impresión | Condicional | Validar modelo/driver 58/80 mm si el cliente lo requiere |
 | MT-U10 límites/consumo | Fuera de G-SAAS-02 | No implementar sin necesidad y decisión de producto |
