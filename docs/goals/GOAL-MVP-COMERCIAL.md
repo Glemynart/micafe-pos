@@ -114,9 +114,9 @@
 
 ## Estado vivo
 
-- **Progreso:** PR #246 integró M1; PR #247 sincronizó el estado del Goal; PR #248 integró el gate read-only de certificación para tenants en Trial; PR #249 reconcilió el estado vivo; y PR #250 registró la evidencia read-only de producción; PR #251 reconcilió la evidencia y la documentación posterior al merge; PR #252 sincronizó el estado vivo en `main @ 3ade762b1932278816fa596cdb2c719081e18c2b`. La CI pre-merge y post-merge de los PR quedó completamente verde y Vercel completó sus despliegues.
+- **Progreso:** PR #246 integró M1; PR #247 sincronizó el estado del Goal; PR #248 integró el gate read-only de certificación para tenants en Trial; PR #249 reconcilió el estado vivo; y PR #250 registró la evidencia read-only de producción; PR #251 reconcilió la evidencia y la documentación posterior al merge; PR #252 sincronizó el estado vivo; PR #253 completó la reconciliación posterior en `main @ df66b54b4322720c1ca6f04fef828b47e2b2d257`. La CI pre-merge y post-merge de los PR quedó completamente verde y Vercel completó sus despliegues.
 - **Estado:** ACTIVO.
-- **PR completados:** #246, #247, #248, #249, #250, #251, #252.
+- **PR completados:** #246, #247, #248, #249, #250, #251, #252, #253.
 - **Siguiente PR esperado:** M2/E2.1, alta del tenant de referencia y provisioning reproducible con datos aprobados del primer cliente, sujeto al gate de no escritura productiva no autorizada y a la publicación del Plan ANUAL aprobada.
 - **Milestone activo:** `M2 — Provisioning y onboarding`.
 - **Epic activo:** `E2.1 — Tenant de referencia`.
