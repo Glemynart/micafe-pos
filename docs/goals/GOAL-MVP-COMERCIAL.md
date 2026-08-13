@@ -11,7 +11,7 @@
 - **Resultado:** un primer cliente real opera MiCafe POS durante un Trial ANUAL server-side de 30 días, con provisioning reproducible, onboarding, operación crítica, soporte, recuperación cuando aplique y cierre contractual evidenciado.
 - **Estado:** ACTIVO
 - **Inicio formal:** 2026-08-12
-- **Rama base:** `main @ 5ed5d1f870240c807263f0cb5d65fec363fa50ef`
+- **Rama base:** `main @ 47f38e400a74cf8f9cf69f0c778b9fba95a28abf`
 - **Fuente de autorización:** `AUTORIZACIÓN DE EJECUCIÓN — G-SAAS-02`
 - **Decisiones comerciales preservadas:** `1.800.000 COP`, `ANUAL`, pago manual, Trial de 30 días, todos los módulos disponibles y un Espacio operativo interno.
 
@@ -114,10 +114,10 @@
 
 ## Estado vivo
 
-- **Progreso:** PR #246 integró M1; PR #247 sincronizó el estado del Goal; PR #248 integró el gate read-only de certificación para tenants en Trial; PR #249 reconcilió el estado vivo; y PR #250 registró la evidencia read-only de producción; PR #251 reconcilió la evidencia y la documentación posterior al merge; PR #252 sincronizó el estado vivo; PR #253 completó la reconciliación posterior en `main @ df66b54b4322720c1ca6f04fef828b47e2b2d257`. La CI pre-merge y post-merge de los PR quedó completamente verde y Vercel completó sus despliegues.
+- **Progreso:** PR #246 integró M1; PR #247 sincronizó el estado del Goal; PR #248 integró el gate read-only de certificación para tenants en Trial; PR #249 reconcilió el estado vivo; PR #250 registró la evidencia read-only de producción; PR #251 reconcilió la evidencia y la documentación posterior al merge; PR #252 y #253 sincronizaron el estado vivo; PR #256 publicó la evidencia del catálogo anual y alineó el runbook; PR #257 aceptó ADR-SAAS-029; PR #258 materializó la relación contractual append-only y actualizó los consumidores. La CI pre-merge y post-merge de los PR quedó completamente verde y Vercel completó sus despliegues. Café Atrato conserva el Trial mensual histórico y todavía no existe relación anual materializada en producción.
 - **Estado:** ACTIVO.
-- **PR completados:** #246, #247, #248, #249, #250, #251, #252, #253.
-- **Siguiente PR esperado:** M2/E2.1, alta del tenant de referencia y provisioning reproducible con datos aprobados del primer cliente, sujeto al gate de no escritura productiva no autorizada y a la publicación del Plan ANUAL aprobada.
+- **PR completados:** #246, #247, #248, #249, #250, #251, #252, #253, #256, #257, #258.
+- **Siguiente PR esperado:** #260, M2/E2.1, lifecycle anual de la relación: pago manual ligado a relación, vencimiento, scheduler, runbook y pruebas; sin escritura productiva hasta desplegar y repetir el preflight posterior al cierre del Trial mensual.
 - **Milestone activo:** `M2 — Provisioning y onboarding`.
 - **Epic activo:** `E2.1 — Tenant de referencia`.
 
