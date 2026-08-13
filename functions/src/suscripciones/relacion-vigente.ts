@@ -33,7 +33,9 @@ export function proyectarSuscripcionDesdeRelacion(
     planId: relacion.planId,
     planVersion: relacion.planVersion,
     estado: relacion.estado,
-    ...(relacion.estado === "trialing" ? { trialInicio: relacion.trialInicio ?? vigencia.inicio, trialFin: relacion.trialFin ?? vigencia.fin } : {}),
+    ...(relacion.estado === "trialing"
+      ? { trialInicio: relacion.trialInicio ?? vigencia.inicio, trialFin: relacion.trialFin ?? vigencia.fin }
+      : { trialInicio: undefined, trialFin: undefined }),
     ...(relacion.periodoInicio ? { periodoInicio: relacion.periodoInicio } : {}),
     ...(relacion.periodoFin ? { periodoFin: relacion.periodoFin } : {}),
     ...(relacion.cancelacionProgramadaPara ? { cancelacionProgramadaPara: relacion.cancelacionProgramadaPara } : {}),
