@@ -13,8 +13,9 @@ La lectura productiva actual del tenant de referencia está registrada en
 publicación posterior del catálogo anual está registrada en
 `docs/goals/evidence/G-SAAS-02-PLAN-ANNUAL-PUBLICATION-2026-08-12.md`. La
 revalidación read-only más reciente está registrada en
-`docs/goals/evidence/G-SAAS-02-POS-GLOBAL-AUDIT-2026-08-13.md` sobre
-`origin/main @ 91e75b6e34e9892e3227a808ccd02c75408d74ef`. La
+`docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-13.md`; la
+documentación vigente quedó integrada en
+`origin/main @ cc023b0fe987eb5f1dd556f882c2ce8293013c1b`. La
 versión anual v2 de `mvp_comercial` ya está publicada con precio de
 `1.800.000 COP`, periodicidad `ANUAL` y nueve capacidades. Café Atrato, sin
 embargo, conserva su suscripción mensual histórica y su Trial
