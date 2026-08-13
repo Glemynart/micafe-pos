@@ -5,9 +5,10 @@ import {
   type ConfiguracionEmpresa,
   type ReadinessConfiguracion,
 } from "../../../lib/configuracion";
-import { fechaComercialUtc } from "../../../lib/suscripciones/contrato";
+import { fechaComercialUtc, type Suscripcion } from "../../../lib/suscripciones/contrato";
 import { consultarIncorporacionDirectaMasReciente } from "../incorporaciones-service";
 import { obtenerEstadoOnboardingTenant } from "../onboarding/service";
+import { leerRelacionContractualVigente, proyectarSuscripcionDesdeRelacion } from "../suscripciones/relacion-vigente";
 
 // ADR-SAAS-012 §3.1: familias Seguridad y Soporte B4. Consultarlas por `tipo` sin acotar
 // a una Empresa o actor específico exige la ventana temporal obligatoria de §7.
@@ -268,7 +269,11 @@ export async function obtenerDetalleEmpresaPlataforma(db: Firestore, empresaId: 
   const empresaData = empresaSnap.data()!;
   const ownerUid = typeof empresaData.ownerUid === "string" ? empresaData.ownerUid : null;
   const suscripcionData = suscripcionSnap.data();
-  const suscripcion = proyectarSuscripcionDetalle(suscripcionData);
+  const relacionVigente = await leerRelacionContractualVigente(db, empresaId);
+  const suscripcionOperativa = suscripcionData && relacionVigente
+    ? proyectarSuscripcionDesdeRelacion(suscripcionData as Suscripcion, relacionVigente)
+    : suscripcionData;
+  const suscripcion = proyectarSuscripcionDetalle(suscripcionOperativa);
   const diagnosticoConfiguracion = proyectarDiagnosticoConfiguracion(
     configuracionSnap.data(),
     empresaId,

@@ -36,6 +36,9 @@ test("la configuracion resuelve las capacidades del snapshot de la relacion vige
   const db = new Db();
   db.seed("suscripciones/cafe/relaciones/_vigente", { relacionVigenteId: "rel_annual" });
   db.seed("suscripciones/cafe/relaciones/rel_annual", {
+    schemaVersion: 1,
+    relacionId: "rel_annual",
+    empresaId: "cafe",
     estado: "trialing",
     snapshotContrato: {
       capacidades: ["sell", "inventory", "purchases", "clientes", "finanzas", "reservas", "waste", "shifts", "cuentas_cobro"],

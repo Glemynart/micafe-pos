@@ -1,21 +1,16 @@
 import { HttpsError } from "firebase-functions/v2/https";
 import type { Firestore } from "firebase-admin/firestore";
-import type { PlanVersion, RelacionContractual, Suscripcion } from "../../../lib/suscripciones/contrato";
+import type { PlanVersion, Suscripcion } from "../../../lib/suscripciones/contrato";
 import { resolverModulosHabilitados } from "../../../lib/configuracion/modulos-plan";
+import { leerRelacionContractualVigente } from "../suscripciones/relacion-vigente";
 
 /** Resuelve la versión de Plan contratada, no la versión actualmente visible. */
 export async function resolverModulosInicialesDelPlan(
   db: Firestore,
   empresaId: string,
 ): Promise<ReturnType<typeof resolverModulosHabilitados>> {
-  const relacionesRef = db.collection("suscripciones").doc(empresaId).collection("relaciones");
-  const controlSnap = await relacionesRef.doc("_vigente").get();
-  if (controlSnap.exists) {
-    const relacionId = controlSnap.data()?.relacionVigenteId;
-    if (typeof relacionId !== "string") throw new HttpsError("failed-precondition", "RELACION_CONTRACTUAL_INVALIDA");
-    const relacionSnap = await relacionesRef.doc(relacionId).get();
-    if (!relacionSnap.exists) throw new HttpsError("failed-precondition", "RELACION_CONTRACTUAL_NOT_FOUND");
-    const relacionVigente = relacionSnap.data() as RelacionContractual;
+  const relacionVigente = await leerRelacionContractualVigente(db, empresaId);
+  if (relacionVigente) {
     if (relacionVigente.estado !== "trialing" && relacionVigente.estado !== "active") {
       throw new HttpsError("failed-precondition", "RELACION_CONTRACTUAL_NO_OPERATIVA");
     }
