@@ -413,10 +413,17 @@ export async function transicionarEmpresa(db: Firestore, entrada: Envelope & { e
         if (relacionSnap.exists) {
           const relacion = relacionSnap.data() as RelacionContractual;
           const vigencia = relacion.snapshotContrato?.vigencia;
+          const hoy = fechaComercialUtc();
           relationReadiness = relacion.estado === "trialing"
             && !!vigencia
-            && rangoComercialValido(vigencia.inicio, vigencia.fin)
-            && fechaComercialUtc() < vigencia.fin;
+            && rangoComercialValido(relacion.trialInicio ?? vigencia.inicio, relacion.trialFin ?? vigencia.fin)
+            && hoy < (relacion.trialFin ?? vigencia.fin);
+          if (!relationReadiness && relacion.estado === "active") {
+            relationReadiness = !!relacion.periodoInicio
+              && !!relacion.periodoFin
+              && rangoComercialValido(relacion.periodoInicio, relacion.periodoFin)
+              && hoy < relacion.periodoFin;
+          }
         }
       }
     }

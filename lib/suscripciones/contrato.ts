@@ -44,6 +44,13 @@ export interface RelacionContractual {
   snapshotContrato: SnapshotContrato;
   origen: "bootstrap" | "transicion_contractual";
   relacionAnteriorId: string | null;
+  trialInicio?: string;
+  trialFin?: string;
+  periodoInicio?: string;
+  periodoFin?: string;
+  cancelacionProgramadaPara?: string;
+  canceladaEn?: string;
+  ultimoPagoAnualId?: string;
   revision: number;
   creadaEn?: unknown;
   actualizadaEn?: unknown;
