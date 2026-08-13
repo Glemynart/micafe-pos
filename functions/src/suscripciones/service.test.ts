@@ -10,6 +10,24 @@ class Db { docs = new Map<string, any>(); private queue = Promise.resolve(); col
 const ctx = { actorId: "operator_1", origen: "PLATFORM" as const };
 const env = (n: string, rev = 1) => ({ commandId: `cmd_${n}`, idempotencyKey: `idem_${n}`, correlationId: `corr_${n}`, causationId: `cause_${n}`, expectedRevision: rev, motivo: "operacion administrativa" });
 
+test("B3 reactiva una Empresa suspendida cuando la relacion contractual vigente esta ready", async () => {
+  const db = new Db();
+  db.seed("empresas/empresa_relacion", { empresaId: "empresa_relacion", estado: "suspendida", revision: 4 });
+  db.seed("suscripciones/empresa_relacion", { empresaId: "empresa_relacion", planId: "mvp_comercial", planVersion: 1, estado: "suspended", revision: 2, schemaVersion: 1 });
+  db.seed("suscripciones/empresa_relacion/relaciones/_vigente", { relacionVigenteId: "rel_annual", estado: "trialing", revision: 1 });
+  db.seed("suscripciones/empresa_relacion/relaciones/rel_annual", {
+    relacionId: "rel_annual",
+    estado: "trialing",
+    snapshotContrato: { vigencia: { inicio: "2099-01-01", fin: "2099-01-31" } },
+  });
+
+  const resultado = await transicionarEmpresa(db as any, { ...env("reactivar_relacion", 4), empresaId: "empresa_relacion", destino: "activa" }, ctx);
+
+  assert.equal(resultado.idempotente, false);
+  assert.equal(db.read("empresas/empresa_relacion").estado, "activa");
+  assert.equal(db.read("empresas/empresa_relacion").revision, 5);
+});
+
 test("B3 confirms a platform audit obligation in the commercial transaction", async () => {
   const db = new Db();
   const contextoConObligacion = {

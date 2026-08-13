@@ -27,6 +27,13 @@ test("CrearSuscripcionTrial exige la facultad comercial", () => {
   );
 });
 
+test("CrearRelacionContractualTrial exige la facultad comercial", () => {
+  assert.equal(
+    obtenerComandoComercial("CrearRelacionContractualTrial").facultad,
+    "COMERCIAL_GOBERNAR",
+  );
+});
+
 test("ConfirmarPagoAnualSuscripcion exige la facultad comercial", () => {
   assert.equal(
     obtenerComandoComercial("ConfirmarPagoAnualSuscripcion").facultad,

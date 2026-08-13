@@ -28,6 +28,27 @@ export interface SnapshotContrato {
   vigencia: { inicio: string; fin: string };
 }
 
+/**
+ * Relación contractual append-only para una empresa que ya conserva una
+ * suscripción histórica. La relación es la autoridad del contrato nuevo; el
+ * documento raíz `suscripciones/{empresaId}` permanece compatible con
+ * lectores legacy y no se reescribe para borrar evidencia anterior.
+ */
+export interface RelacionContractual {
+  schemaVersion: 1;
+  relacionId: string;
+  empresaId: string;
+  estado: EstadoSuscripcion;
+  planId: string;
+  planVersion: number;
+  snapshotContrato: SnapshotContrato;
+  origen: "bootstrap" | "transicion_contractual";
+  relacionAnteriorId: string | null;
+  revision: number;
+  creadaEn?: unknown;
+  actualizadaEn?: unknown;
+}
+
 export interface PlanVersion {
   planId: string; codigo: string; planVersion: number; estado: EstadoPlan;
   capacidades: string[]; limites: Record<string, { unidad: string; valor: number }>;

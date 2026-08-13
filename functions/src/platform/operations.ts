@@ -21,6 +21,7 @@ import {
   transicionarEmpresa,
   transicionarSuscripcion,
 } from "../suscripciones/service";
+import { crearRelacionContractualTrial } from "../suscripciones/relaciones-service";
 import { crearObligacionAuditoria, emitirObligacionAuditoria } from "./audit";
 import type {
   EnvelopePlataforma,
@@ -439,6 +440,23 @@ export async function ejecutarComandoComercial(
     agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
     plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, () => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: 1 }));
     resultado = await crearSuscripcionTrial(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
+  } else if (tipo === "CrearRelacionContractualTrial") {
+    facultad = "COMERCIAL_GOBERNAR";
+    evento = "SUSCRIPCION_RELACION_CONTRACTUAL_CREADA";
+    agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
+    plan = planificarConfirmacionAuditoria(
+      db,
+      actorUid,
+      facultad,
+      tipo,
+      entrada,
+      agregado,
+      empresaObjetivoId,
+      evento,
+      (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }),
+      (r: any) => ({ relacionId: r.relacionId, relacionAnteriorId: entrada.relacionAnteriorId }),
+    );
+    resultado = await crearRelacionContractualTrial(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
   } else if (tipo === "TransicionarSuscripcion") {
     facultad = "COMERCIAL_GOBERNAR";
     const eventos: Record<string, TipoAuditoria> = {
