@@ -49,7 +49,7 @@ Ambos comandos tienen registros `auditoria_logs` con `origen=PLATFORM`, agregado
 
 ## Estado de certificación
 
-Esta evidencia **no certifica G-SAAS-02 completo** ni constituye el inicio del Trial anual. El Goal continúa abierto. Falta aceptar e implementar `ADR-SAAS-029`, cerrar canónicamente el Trial mensual sin mutarlo y materializar entonces la relación anual con snapshot inmutable, seguida de los 30 días reales, soporte, recuperación, evidencia y cierre contractual.
+Esta evidencia **no certifica G-SAAS-02 completo** ni constituye el inicio del Trial anual. El Goal continúa abierto. `ADR-SAAS-029` ya fue aceptado por el PR #257 y su implementación quedó integrada por el PR #260; falta cerrar canónicamente el Trial mensual sin mutarlo y materializar entonces la relación anual con snapshot inmutable, seguida de los 30 días reales, soporte, recuperación, evidencia y cierre contractual.
 
 ## Rollback
 
