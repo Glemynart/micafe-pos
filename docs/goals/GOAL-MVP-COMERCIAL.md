@@ -11,7 +11,7 @@
 - **Resultado:** un primer cliente real opera MiCafe POS durante un Trial ANUAL server-side de 30 días, con provisioning reproducible, onboarding, operación crítica, soporte, recuperación cuando aplique y cierre contractual evidenciado.
 - **Estado:** ACTIVO
 - **Inicio formal:** 2026-08-12
-- **Rama base:** `main @ 47f38e400a74cf8f9cf69f0c778b9fba95a28abf`
+- **Rama base:** `main @ db944ccd09048c06ebdc884a868635c72e56e6cd`
 - **Fuente de autorización:** `AUTORIZACIÓN DE EJECUCIÓN — G-SAAS-02`
 - **Decisiones comerciales preservadas:** `1.800.000 COP`, `ANUAL`, pago manual, Trial de 30 días, todos los módulos disponibles y un Espacio operativo interno.
 
@@ -114,10 +114,10 @@
 
 ## Estado vivo
 
-- **Progreso:** PR #246 integró M1; PR #247 sincronizó el estado del Goal; PR #248 integró el gate read-only de certificación para tenants en Trial; PR #249 reconcilió el estado vivo; PR #250 registró la evidencia read-only de producción; PR #251 reconcilió la evidencia y la documentación posterior al merge; PR #252 y #253 sincronizaron el estado vivo; PR #256 publicó la evidencia del catálogo anual y alineó el runbook; PR #257 aceptó ADR-SAAS-029; PR #258 materializó la relación contractual append-only y actualizó los consumidores. La CI pre-merge y post-merge de los PR quedó completamente verde y Vercel completó sus despliegues. Café Atrato conserva el Trial mensual histórico y todavía no existe relación anual materializada en producción.
+- **Progreso:** PR #246 integró M1; PR #247 sincronizó el estado del Goal; PR #248 integró el gate read-only de certificación para tenants en Trial; PR #249 reconcilió el estado vivo; PR #250 registró la evidencia read-only de producción; PR #251 reconcilió la evidencia y la documentación posterior al merge; PR #252 y #253 sincronizaron el estado vivo; PR #256 publicó la evidencia del catálogo anual y alineó el runbook; PR #257 aceptó ADR-SAAS-029; PR #258 materializó la relación contractual append-only y actualizó los consumidores; PR #260 integró el lifecycle anual server-side: confirmación manual de pago ligada a la relación, recibo con snapshot, vencimiento, scheduler, idempotencia y runbook operativo. La auditoría de #260 concluyó `APROBADO PARA MERGE`; su CI completa, E4.1, E4.2 y Vercel quedaron en verde, y fue fusionado en `main @ db944cc`. Café Atrato conserva el Trial mensual histórico y todavía no existe relación anual materializada en producción.
 - **Estado:** ACTIVO.
-- **PR completados:** #246, #247, #248, #249, #250, #251, #252, #253, #256, #257, #258.
-- **Siguiente PR esperado:** #260, M2/E2.1, lifecycle anual de la relación: pago manual ligado a relación, vencimiento, scheduler, runbook y pruebas; sin escritura productiva hasta desplegar y repetir el preflight posterior al cierre del Trial mensual.
+- **PR completados:** #246, #247, #248, #249, #250, #251, #252, #253, #256, #257, #258, #260.
+- **Siguiente PR esperado:** preflight productivo y materialización canónica de la relación anual de Café Atrato después del cierre del Trial mensual el `2026-09-02`; debe preservar la suscripción raíz histórica, activar los nueve módulos efectivos, reactivar la Empresa solo tras validar readiness y publicar evidencia. No se autoriza ninguna escritura productiva antes de esa fecha.
 - **Milestone activo:** `M2 — Provisioning y onboarding`.
 - **Epic activo:** `E2.1 — Tenant de referencia`.
 
