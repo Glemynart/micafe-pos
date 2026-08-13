@@ -176,9 +176,11 @@ test("P1-03: el catalogo de proveedores solo se escribe mediante callable backen
   await expectDenied(tenantA.firestore().doc(path).delete());
 });
 
-test("G-SAAS-02: los egresos son append-only y no permiten borrado client-side", async () => {
+test("G-SAAS-02: los egresos son backend-only y append-only para el cliente", async () => {
   const tenantA = await contextFor(fixtures.tenantA.admin);
   await seedDocument("egresos/append-only", { empresaId: "empresa-a", monto: 100 });
 
+  await expectDenied(tenantA.firestore().doc("egresos/nuevo").set({ empresaId: "empresa-a", monto: 50 }));
+  await expectDenied(tenantA.firestore().doc("egresos/append-only").update({ monto: 200 }));
   await expectDenied(tenantA.firestore().doc("egresos/append-only").delete());
 });
