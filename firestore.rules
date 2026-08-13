@@ -302,6 +302,10 @@ service cloud.firestore {
       allow read: if false;
       allow write: if false;
     }
+    match /suscripciones/{empresaId}/relaciones/{relacionId} {
+      // Relaciones contractuales y snapshots: solo comandos server-side.
+      allow read, write: if false;
+    }
     // MT-U9: recibos de pago SaaS append-only del backend; nunca se exponen al
     // cliente tenant ni se aceptan escrituras directas.
     match /pagos_saas/{id} {

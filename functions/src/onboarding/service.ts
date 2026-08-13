@@ -13,6 +13,7 @@ import {
 } from "../fiscal/service";
 import { ejecutarComandoConfiguracion } from "../configuracion/service";
 import { resolverModulosInicialesDelPlan } from "../configuracion/capacidades-plan";
+import { leerRelacionContractualVigente, proyectarSuscripcionDesdeRelacion } from "../suscripciones/relacion-vigente";
 
 const fail = (code: "invalid-argument" | "failed-precondition" | "not-found", msg: string): never => {
   throw new HttpsError(code, msg);
@@ -54,7 +55,11 @@ export async function obtenerEstadoOnboardingTenant(
   });
 
   const borrador = numeraciones.find((n) => n.estado === "BORRADOR" && n.tipoDocumento === "pos") ?? null;
-  const suscripcion = suscripcionSnap.exists ? suscripcionSnap.data() as Suscripcion : undefined;
+  const suscripcionRaiz = suscripcionSnap.exists ? suscripcionSnap.data() as Suscripcion : undefined;
+  const relacionVigente = await leerRelacionContractualVigente(db, empresaId);
+  const suscripcion = suscripcionRaiz && relacionVigente
+    ? proyectarSuscripcionDesdeRelacion(suscripcionRaiz, relacionVigente)
+    : suscripcionRaiz;
   const planSnap = suscripcion
     ? await db.collection("planes").doc(suscripcion.planId).collection("versiones").doc(String(suscripcion.planVersion)).get()
     : null;

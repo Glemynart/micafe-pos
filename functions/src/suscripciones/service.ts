@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
-import { esFechaComercial, esIdComercial, fechaComercialUtc, rangoComercialValido, readinessComercial, transicionesEmpresa, transicionesSuscripcion, type EmpresaLifecycle, type PlanVersion, type SnapshotContrato, type Suscripcion } from "../../../lib/suscripciones/contrato";
+import { esFechaComercial, esIdComercial, fechaComercialUtc, rangoComercialValido, readinessComercial, transicionesEmpresa, transicionesSuscripcion, type EmpresaLifecycle, type PlanVersion, type RelacionContractual, type SnapshotContrato, type Suscripcion } from "../../../lib/suscripciones/contrato";
 import {
   ejecutarComandoConfiguracionConEstadoPreleidoEnTransaccion,
   leerComandoConfiguracionEnTransaccion,
@@ -401,11 +401,26 @@ export async function transicionarEmpresa(db: Firestore, entrada: Envelope & { e
   validar(entrada); if (!esIdComercial(entrada.empresaId) || !Object.keys(transicionesEmpresa).includes(entrada.destino)) fail("invalid-argument", "LIFECYCLE_INVALIDO"); const f = hash(entrada);
   const res = await db.runTransaction(async tx => {
     const p = await previo(tx, db, entrada, entrada.empresaId, f); if (p) return { ...p, idempotente: true };
-    const ref = db.collection("empresas").doc(entrada.empresaId), [empresaSnap, subSnap] = await Promise.all([tx.get(ref), tx.get(db.collection("suscripciones").doc(entrada.empresaId))]);
+    const ref = db.collection("empresas").doc(entrada.empresaId), [empresaSnap, subSnap, relacionControlSnap] = await Promise.all([tx.get(ref), tx.get(db.collection("suscripciones").doc(entrada.empresaId)), tx.get(db.collection("suscripciones").doc(entrada.empresaId).collection("relaciones").doc("_vigente"))]);
     if (!empresaSnap.exists) fail("not-found", "EMPRESA_NOT_FOUND");
     const empresa = empresaSnap.data() as EmpresaLifecycle;
     if (!Number.isInteger(empresa.revision) || empresa.revision !== entrada.expectedRevision || !transicionesEmpresa[empresa.estado].includes(entrada.destino)) fail("failed-precondition", "EMPRESA_TRANSITION_INVALID");
-    if ((entrada.destino === "activa") && (!subSnap.exists || !readinessComercial(subSnap.data() as Suscripcion))) fail("failed-precondition", "READINESS_COMERCIAL_INCOMPLETA");
+    let relationReadiness = false;
+    if (entrada.destino === "activa" && relacionControlSnap.exists) {
+      const relacionId = relacionControlSnap.data()?.relacionVigenteId;
+      if (typeof relacionId === "string") {
+        const relacionSnap = await tx.get(db.collection("suscripciones").doc(entrada.empresaId).collection("relaciones").doc(relacionId));
+        if (relacionSnap.exists) {
+          const relacion = relacionSnap.data() as RelacionContractual;
+          const vigencia = relacion.snapshotContrato?.vigencia;
+          relationReadiness = relacion.estado === "trialing"
+            && !!vigencia
+            && rangoComercialValido(vigencia.inicio, vigencia.fin)
+            && fechaComercialUtc() < vigencia.fin;
+        }
+      }
+    }
+    if ((entrada.destino === "activa") && (!subSnap.exists || (!readinessComercial(subSnap.data() as Suscripcion) && !relationReadiness))) fail("failed-precondition", "READINESS_COMERCIAL_INCOMPLETA");
     const revision = empresa.revision + 1;
     tx.update(ref, { estado: entrada.destino, revision, ultimaTransicion: { ocurridaEn: FieldValue.serverTimestamp(), actorId: ctx.actorId, origen: ctx.origen, motivo: entrada.motivo }, actualizadaEn: FieldValue.serverTimestamp() });
     const r = { empresaId: entrada.empresaId, estado: entrada.destino, revision };
