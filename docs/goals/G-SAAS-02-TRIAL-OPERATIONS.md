@@ -9,10 +9,14 @@ La certificacion read-only del tenant acepta `Empresa.estado = trial` durante el
 Este runbook acompaña al Goal `G-SAAS-02`. No autoriza escrituras productivas por sí mismo ni sustituye el acceso administrativo aprobado, un backup o el registro de cambios.
 
 La lectura productiva actual del tenant de referencia está registrada en
-`docs/goals/evidence/G-SAAS-02-READONLY-PRODUCTION-2026-08-12.md`. Esa evidencia
-confirma el tenant real, pero también documenta que el Trial observado es
-mensual y que el plan anual de G-SAAS-02 todavía no está publicado en
-producción. Por tanto, no se considera inicio válido del Trial de este Goal.
+`docs/goals/evidence/G-SAAS-02-READONLY-PRODUCTION-2026-08-12.md` y la
+publicación posterior del catálogo anual está registrada en
+`docs/goals/evidence/G-SAAS-02-PLAN-ANNUAL-PUBLICATION-2026-08-12.md`. La
+versión anual v2 de `mvp_comercial` ya está publicada con precio de
+`1.800.000 COP`, periodicidad `ANUAL` y nueve capacidades. Café Atrato, sin
+embargo, conserva su suscripción mensual histórica y su Trial
+`2026-08-03`–`2026-09-02`; por tanto, todavía no se considera iniciado el
+Trial anual de este Goal.
 
 ## 1. Gate de entrada
 
