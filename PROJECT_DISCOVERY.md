@@ -1,6 +1,6 @@
 # Project Discovery — MiCafe POS
 
-Estado: `VIGENTE` para `origin/main @ 54c1d0c4287f8234c16a29d7bbd51fa900d17f74` (2026-08-13).
+Estado: `VIGENTE` para `origin/main @ 3a02dbbd4cafcc9dfd716859c29ba18d1839c3d7` (2026-08-13).
 
 ## Stack verificado
 
