@@ -2,7 +2,7 @@
 
 ## Estado
 
-**Propuesto.** Este ADR es un gate de arquitectura para G-SAAS-02. No autoriza cambios de código ni escrituras productivas mientras no sea aceptado.
+**Aceptado.** La autorización explícita de ejecución autónoma registrada para G-SAAS-02 acepta la alternativa recomendada y habilita su implementación dentro del alcance descrito. Las escrituras productivas siguen sujetas a preflight, comandos canónicos, auditoría, idempotencia y verificación.
 
 - **Goal:** `G-SAAS-02` — Primer cliente real operable durante todo el ciclo comercial
 - **Milestone:** `M2` — Operación comercial real y cierre del primer Trial
@@ -132,4 +132,4 @@ Antes de cada escritura se hará preflight read-only de empresa, suscripción ra
 
 ## Gate
 
-Mientras sea **Propuesto**, no se implementa el modelo ni se hacen escrituras productivas relacionadas con la transición. Tras aprobación explícita, pasa a **Aceptado**, se sincronizan Goal y documentos maestros y se prepara el siguiente PR mínimo.
+Con estado **Aceptado**, este ADR autoriza el siguiente PR mínimo para implementar la relación contractual, sus consumidores, Rules, pruebas y rollback. No autoriza tenants sustitutos, Sedes técnicas, billing automático ni funcionalidad fuera de G-SAAS-02.
