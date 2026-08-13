@@ -61,7 +61,8 @@
     "test:e2e:preflight": "node --test scripts/e2e/emulator-preflight.test.mjs scripts/e2e/e4-01-contract.test.mjs",
     "e2e:ventas:seed": "tsx scripts/e2e/ventas-local-fixture.ts",
     "e2e:r1a:preflight": "tsx scripts/e2e/preflight-r1a.ts",
-    "e2e:operator-portal": "node scripts/e2e/operator-portal-runner.mjs"
+    "e2e:operator-portal": "node scripts/e2e/operator-portal-runner.mjs",
+    "test:g-saas-02:preflight": "tsx --test scripts/g-saas-02/trial-transition-preflight.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
