@@ -1,6 +1,6 @@
 # Master Security Plan — MiCafe POS SaaS
 
-Estado: `VIGENTE` para `origin/main @ 54c1d0c4287f8234c16a29d7bbd51fa900d17f74` al 2026-08-13.
+Estado: `VIGENTE` para `origin/main @ 3a02dbbd4cafcc9dfd716859c29ba18d1839c3d7` al 2026-08-13.
 
 Este documento registra controles y riesgos relevantes para G-SAAS-02. No declara desplegado en producción ningún recurso que no tenga evidencia de despliegue. Los riesgos fuera del Trial permanecen en backlog y no se convierten en alcance automáticamente.
 

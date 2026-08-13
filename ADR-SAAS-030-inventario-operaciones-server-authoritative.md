@@ -13,7 +13,7 @@ despliegues ni escrituras productivas.
 
 ## Contexto
 
-La auditoría de `origin/main @ 54c1d0c` confirma que ventas y compras aplican
+La auditoría y revalidación de `origin/main @ 3a02dbb` confirma que ventas y compras aplican
 el ledger de inventario mediante Functions/Admin SDK. Sin embargo, permanecen
 rutas cliente para mutaciones críticas:
 

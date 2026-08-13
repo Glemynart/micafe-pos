@@ -2,7 +2,7 @@
 
 ## Resultado
 
-La auditoría se ejecutó sobre `origin/main` en `54c1d0c4287f8234c16a29d7bbd51fa900d17f74`, en un worktree limpio separado del checkout histórico. El resultado es:
+La auditoría inicial se ejecutó sobre `origin/main` en `54c1d0c4287f8234c16a29d7bbd51fa900d17f74`, en un worktree limpio separado del checkout histórico. La revalidación posterior se realizó sobre `origin/main @ 3a02dbbd4cafcc9dfd716859c29ba18d1839c3d7`; el resultado vigente es:
 
 > **NO CERTIFICA todavía el Trial anual ni el cierre de G-SAAS-02.**
 
@@ -17,7 +17,10 @@ El código y la CI cubren técnicamente la mayor parte del POS. Los bloqueos act
 - Seguridad y backlog: `MASTER-SECURITY-PLAN.md`, `BACKLOG-EJECUTABLE-MVP-CAFE-ATRATO.md`.
 - CI post-merge: run `31723759098`, `main`, `54c1d0c`, resultado `success`.
 - CI del PR #266: run `31727291660`, `106aa17`, resultado `success`; todos los checks requeridos quedaron en verde.
+- CI post-merge de #266: run `31729647738`, `17057f1`, resultado `success`.
+- PR #267 documental: CI `31730877925` y CI post-merge `31732062645`, resultado `success`.
 - Producción read-only en `micafe-pos`, tenant `1ae0rD9H8t3ZFSBKrrHR`, observada el `2026-08-13T17:30:18Z`.
+- Revalidación productiva read-only en el mismo proyecto y tenant, observada el `2026-08-13T18:57:44Z`; no se ejecutaron callables ni escrituras.
 
 No se ejecutaron comandos comerciales ni escrituras productivas durante esta auditoría.
 
@@ -35,6 +38,12 @@ No se ejecutaron comandos comerciales ni escrituras productivas durante esta aud
 | Functions | 74 activas; callables críticas en Node.js 22, `us-central1`; hash principal desplegado `ce73f42...` |
 
 Esto es consistente con la regla de no reiniciar el Trial: la materialización anual solo puede ocurrir después del cierre canónico del Trial mensual, con el comando de `ADR-SAAS-029`.
+
+La revalidación confirmó además 74 Functions activas, las callables críticas en
+Node.js 22/us-central1 con el hash desplegado `ce73f42...`, seis espacios activos,
+un administrador activo y cero documentos en
+`suscripciones/{empresaId}/relaciones`. El estado productivo no cambió durante
+la auditoría.
 
 ## Clasificación funcional
 
