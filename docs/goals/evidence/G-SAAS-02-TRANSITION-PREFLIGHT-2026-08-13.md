@@ -65,3 +65,7 @@ intacta, Plan anual publicado, configuración histórica de siete módulos,
 operador autorizado y cero relaciones anuales. Continúan pendientes la fecha
 `2026-09-02`, recovery verificable y atestaciones independientes de release;
 por tanto no se autoriza ninguna operación comercial productiva.
+
+El PR #271 solo reconcilió esta evidencia y el Goal después del merge; no
+cambió código ejecutable ni el estado productivo. La autoridad documental
+posterior quedó integrada en `main @ 6e1cb04431e8d8c788c0d380d463d8f5eafebeb3`.
