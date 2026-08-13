@@ -16,6 +16,7 @@ El código y la CI cubren técnicamente la mayor parte del POS. Los bloqueos act
 - Arquitectura: `MT-ARQUITECTURA-SAAS-MULTIEMPRESA.md`, `R1-ARQUITECTURA-OPERACIONES-SERVER-AUTHORITATIVE.md`, `R1-B-DISENO-FUNCIONAL-TECNICO-CAJA-LEDGER.md`.
 - Seguridad y backlog: `MASTER-SECURITY-PLAN.md`, `BACKLOG-EJECUTABLE-MVP-CAFE-ATRATO.md`.
 - CI post-merge: run `31723759098`, `main`, `54c1d0c`, resultado `success`.
+- CI del PR #266: run `31727291660`, `106aa17`, resultado `success`; todos los checks requeridos quedaron en verde.
 - Producción read-only en `micafe-pos`, tenant `1ae0rD9H8t3ZFSBKrrHR`, observada el `2026-08-13T17:30:18Z`.
 
 No se ejecutaron comandos comerciales ni escrituras productivas durante esta auditoría.
@@ -88,4 +89,4 @@ Paginación de reportes, contingencia offline completa, notificaciones completas
 
 ## Veredicto de auditoría
 
-**NO APROBADO PARA MERGE** hasta ejecutar las validaciones de esta iniciativa y corregir cualquier regresión. La auditoría no bloquea el desarrollo restante; sí impide declarar listo el Trial anual mientras falten los gates productivos y la decisión de arquitectura de inventario.
+**APROBADO PARA MERGE** para el alcance de esta iniciativa: las validaciones locales y la CI del PR #266 concluyeron en verde, sin regresiones detectadas. Este veredicto no certifica todavía el Trial anual ni el cierre de G-SAAS-02; siguen pendientes los gates productivos y la decisión de arquitectura de inventario/mermas.
