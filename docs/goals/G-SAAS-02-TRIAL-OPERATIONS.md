@@ -14,7 +14,7 @@ publicación posterior del catálogo anual está registrada en
 `docs/goals/evidence/G-SAAS-02-PLAN-ANNUAL-PUBLICATION-2026-08-12.md`. La
 revalidación read-only más reciente está registrada en
 `docs/goals/evidence/G-SAAS-02-POS-GLOBAL-AUDIT-2026-08-13.md` sobre
-`origin/main @ 3a02dbb`. La
+`origin/main @ 91e75b6e34e9892e3227a808ccd02c75408d74ef`. La
 versión anual v2 de `mvp_comercial` ya está publicada con precio de
 `1.800.000 COP`, periodicidad `ANUAL` y nueve capacidades. Café Atrato, sin
 embargo, conserva su suscripción mensual histórica y su Trial
@@ -59,6 +59,18 @@ La transición de Café Atrato solo se ejecuta después de `2026-09-02` y nunca 
 5. ejecutar `TransicionarEmpresa` a `activa` mediante el comando de lifecycle, usando la revisión de Empresa observada después de materializar la relación;
 6. actualizar `configuraciones/{empresaId}.modulos.habilitados` mediante el comando canónico de configuración, usando la lista derivada del snapshot vigente;
 7. registrar IDs de comandos, revisiones, SHA desplegado, smoke test y evidencia sin secretos.
+
+El preflight reproducible está disponible como
+`npx tsx scripts/g-saas-02/trial-transition-preflight.ts`. Solo acepta lecturas `GET` de Firestore y
+exige `FIREBASE_ACCESS_TOKEN` entregado fuera del repositorio. Requiere declarar
+explícitamente el SHA, CI, hash de Functions, Rules, Storage, Vercel y la
+referencia de recovery; siempre emite `productionWrites: false` y
+`commandExecutionAllowed: false`. Antes del `2026-09-02` debe devolver
+`ESPERAR_VENTANA`; no debe invocar ninguno de los comandos de transición.
+La evidencia de la ejecución actual está en
+`docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-13.md`; su estado
+también registra recovery y release como gates pendientes, no como hechos
+supuestos.
 
 Si cualquier precondición falla, se conserva el estado actual y se registra el rechazo; no se escribe directamente Firestore ni se crea otro tenant.
 
