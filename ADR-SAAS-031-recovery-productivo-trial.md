@@ -26,6 +26,22 @@ El runbook de G-SAAS-02 exige un punto de recuperación antes de cualquier
 escritura de transición y un ensayo de restore antes de declarar recovery
 verificable. La CI de emulator no sustituye la evidencia productiva.
 
+## Observación read-only adicional — 2026-08-14
+
+La sesión autenticada de Firebase CLI permitió verificar directamente, sin
+mutaciones:
+
+- `billingEnabled = true` para el proyecto `micafe-pos`;
+- base `(default)` en `southamerica-east1`;
+- `pointInTimeRecoveryEnablement = POINT_IN_TIME_RECOVERY_DISABLED`;
+- cero schedules de backup y cero backups observables.
+
+Billing habilitado elimina el bloqueo técnico para que el servicio pueda
+configurarse, pero no constituye aceptación del costo recurrente ni autoriza
+crear schedules, habilitar PITR o ejecutar restores. El costo depende del
+volumen almacenado y de la política elegida y debe quedar expresamente
+aceptado junto con RPO/RTO, retención, destino, responsable y rollback.
+
 ## Resultado de la revisión — 2026-08-14
 
 **Decisión:** `NO ACEPTADO PARA EJECUCIÓN`.
