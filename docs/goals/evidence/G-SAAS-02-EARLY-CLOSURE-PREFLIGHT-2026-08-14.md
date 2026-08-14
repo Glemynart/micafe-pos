@@ -3,7 +3,7 @@
 - **Fecha de observacion:** 2026-08-14 UTC
 - **Proyecto:** `micafe-pos`
 - **Tenant:** Cafe Atrato - `1ae0rD9H8t3ZFSBKrrHR`
-- **SHA observado:** `origin/main @ 180a85f8106f03e0466acaa5c4fd927bc3c35246`
+- **SHA observado:** `origin/main @ 05f70a84c98a0f30bda3b1151552e541b1e46135`
 - **Decision:** `G-SAAS-02-PO-DECISION-CIERRE-ANTICIPADO-2026-08-14`
 - **ADR:** `ADR-SAAS-032-cierre-anticipado-trial-historico.md`
 
@@ -48,8 +48,7 @@ La ejecucion productiva se mantiene detenida por estos gates verificables:
    El preflight anticipado ahora comprueba esa identidad con la callable
    read-only `consultarContextoPlataforma` mediante `FIREBASE_OPERATOR_ID_TOKEN`;
    la fila activa de `saas_operadores` no se considera suficiente.
-3. El CI post-merge de SHA `180a85f` estaba en ejecucion al momento de este
-   registro (`31841829007`); no se declara verde hasta que termine.
+3. El CI post-merge de SHA `05f70a8` terminó en verde (`31844323881`).
 
 ## Escrituras realizadas
 
