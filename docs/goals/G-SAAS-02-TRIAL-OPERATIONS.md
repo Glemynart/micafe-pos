@@ -15,7 +15,7 @@ publicación posterior del catálogo anual está registrada en
 revalidación read-only más reciente está registrada en
 `docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-13.md`; la
 documentación vigente quedó integrada en
-`origin/main @ 201bef607e8ff18abeb99f3a83dd2e33859342cd`. La
+`origin/main @ a644d1d002d733b9ef2ea637894ff362c01ee59d`. La
 versión anual v2 de `mvp_comercial` ya está publicada con precio de
 `1.800.000 COP`, periodicidad `ANUAL` y nueve capacidades. Café Atrato, sin
 embargo, conserva su suscripción mensual histórica y su Trial
@@ -82,8 +82,10 @@ rulesets efectivos mediante la API GET de Firebase Rules cuando existe
 Firebase CLI. Nunca imprime credenciales ni ejecuta deploy. Las referencias
 `--rules-ref`, `--storage-ref`, `--smoke-ref` y `--recovery-ref` se conservan
 como declaradas, pero no se consideran atestaciones independientes por el solo
-hecho de existir. La ejecución observada más reciente está en
-`docs/goals/evidence/G-SAAS-02-RELEASE-EVIDENCE-2026-08-14.md`.
+hecho de existir. La ejecución predeploy está en
+`docs/goals/evidence/G-SAAS-02-RELEASE-EVIDENCE-2026-08-14.md` y la
+verificación posterior al deploy está en
+`docs/goals/evidence/G-SAAS-02-RELEASE-EVIDENCE-2026-08-14-POSTDEPLOY.md`.
 
 Si cualquier precondición falla, se conserva el estado actual y se registra el rechazo; no se escribe directamente Firestore ni se crea otro tenant.
 
