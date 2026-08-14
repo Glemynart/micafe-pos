@@ -153,7 +153,7 @@ Antes del Trial se registra:
 
 Un rollback de código no revierte automáticamente datos financieros. Los datos se corrigen únicamente mediante comandos idempotentes y auditados.
 
-La recuperación productiva se considera pendiente hasta realizar un ensayo aprobado o documentar formalmente que no aplica al incidente concreto.
+La recuperación productiva se considera pendiente hasta realizar un ensayo aprobado o documentar formalmente que no aplica al incidente concreto. La política de mecanismo, retención, RPO/RTO, destino y costo está documentada como `ADR-SAAS-031` en estado `Propuesto`; no se activa PITR ni un schedule mientras no exista aceptación.
 
 ## 7. Evidencia del Trial
 
