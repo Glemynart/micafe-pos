@@ -3,6 +3,8 @@ import test from "node:test";
 import { FieldValue } from "firebase-admin/firestore";
 import { ejecutarComandoComercial, solicitarBootstrapEmpresarial } from "./operations";
 import { ejecutarBootstrapEmpresarial } from "../bootstrap/service";
+import { ejecutarComandoConfiguracion } from "../configuracion/service";
+import { suspenderTrialVencido } from "../suscripciones/service";
 import type { EntradaBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
 import { crearPlantillaConfiguracionRevision1 } from "../../../lib/configuracion";
 
@@ -575,4 +577,126 @@ test("P0-01 recupera la auditoría pendiente del Trial sin duplicar la suscripci
   assert.deepEqual(db.read("suscripciones/empresa_trial_auditoria"), suscripcionInicial);
   assert.equal(db.docsByPrefix("saas_auditoria/").filter((e) => e.tipo === "SUSCRIPCION_CREADA").length, 1);
   assert.equal(db.docsByPrefix("saas_auditoria_obligaciones/").filter((o) => o.estado === "EMITIDA").length, 1);
+});
+
+test("G-SAAS-02 completa la secuencia post-vencimiento sin reescribir el contrato raiz historico", async () => {
+  const db = new Db();
+  const empresaId = "cafe_atrato_transition";
+  const capacidadesAnuales = ["sell", "inventory", "purchases", "clientes", "finanzas", "reservas", "waste", "shifts", "cuentas_cobro"];
+  const suscripcionHistorica = {
+    empresaId,
+    planId: "mvp_comercial",
+    planVersion: 1,
+    estado: "trialing",
+    trialInicio: "2026-08-03",
+    trialFin: "2026-09-02",
+    revision: 1,
+    schemaVersion: 1,
+  };
+  const configuracionHistorica = crearPlantillaConfiguracionRevision1({
+    empresaId,
+    nombreComercial: "Cafe Atrato",
+    creadaEn: {},
+    actualizadaEn: {},
+    modulosIniciales: ["sell", "inventory", "purchases", "clientes", "finanzas", "reservas", "waste"],
+    ultimaMutacion: { actorTipo: "SYSTEM", actorId: "system", origen: "BOOTSTRAP", commandId: "cmd_init", correlationId: "corr_init" },
+  });
+  db.seed(`empresas/${empresaId}`, { empresaId, estado: "trial", paisFiscal: "CO", revision: 1 });
+  db.seed(`suscripciones/${empresaId}`, suscripcionHistorica);
+  db.seed(`configuraciones/${empresaId}`, configuracionHistorica);
+  db.seed("planes/mvp_comercial/versiones/2", {
+    planId: "mvp_comercial",
+    codigo: "MVP_COMERCIAL",
+    planVersion: 2,
+    estado: "PUBLICADA",
+    capacidades: capacidadesAnuales,
+    limites: {},
+    periodicidad: "ANUAL",
+    precio: { importe: 1800000, moneda: "COP" },
+    grandfathered: false,
+    revision: 2,
+    schemaVersion: 1,
+  });
+
+  const relojOriginal = globalThis.Date;
+  try {
+    globalThis.Date = class FechaFija extends relojOriginal {
+      constructor(...args: any[]) {
+        super(args.length === 0 ? "2026-09-03T12:00:00.000Z" : args[0]);
+      }
+    } as DateConstructor;
+
+    const vencimiento = await suspenderTrialVencido(db as never, empresaId, "2026-09-02");
+    assert.equal(vencimiento.idempotente, false);
+    assert.equal(db.read(`suscripciones/${empresaId}`)?.estado, "suspended");
+    assert.equal(db.read(`empresas/${empresaId}`)?.estado, "suspendida");
+
+    const relacion = await ejecutarComandoComercial(db as never, "operador_1", "CrearRelacionContractualTrial", {
+      commandId: "cmd_cafe_relation",
+      idempotencyKey: "idem_cafe_relation",
+      correlationId: "corr_cafe_relation",
+      causationId: null,
+      motivoCodigo: "G_SAAS_02_TRANSICION_ANUAL",
+      empresaId,
+      planId: "mvp_comercial",
+      planVersion: 2,
+      relacionAnteriorId: "legacy_mensual_v1",
+      expectedRevision: 2,
+    });
+    const relacionCreada = db.read(`suscripciones/${empresaId}/relaciones/${relacion.relacionId}`);
+    assert.equal(relacionCreada.estado, "trialing");
+    assert.equal(relacionCreada.relacionAnteriorId, "legacy_mensual_v1");
+    assert.equal(relacionCreada.snapshotContrato.precio.importe, 1800000);
+    assert.equal(relacionCreada.snapshotContrato.precio.moneda, "COP");
+    assert.deepEqual(relacionCreada.snapshotContrato.capacidades, capacidadesAnuales);
+    assert.equal(relacionCreada.trialInicio, "2026-09-03");
+    assert.equal(relacionCreada.trialFin, "2026-10-03");
+
+    const reactivacion = await ejecutarComandoComercial(db as never, "operador_1", "TransicionarEmpresa", {
+      commandId: "cmd_cafe_reactivate",
+      idempotencyKey: "idem_cafe_reactivate",
+      correlationId: "corr_cafe_reactivate",
+      causationId: null,
+      motivoCodigo: "G_SAAS_02_TRANSICION_ANUAL",
+      empresaId,
+      destino: "activa",
+      expectedRevision: 2,
+    });
+    assert.equal(reactivacion.idempotente, false);
+    assert.equal(db.read(`empresas/${empresaId}`)?.estado, "activa");
+    assert.equal(db.read(`empresas/${empresaId}`)?.revision, 3);
+
+    const configuracion = await ejecutarComandoConfiguracion(db as never, {
+      comando: "ActualizarConfiguracionEmpresa",
+      expectedRevision: 1,
+      idempotencyKey: "idem_cafe_config",
+      commandId: "cmd_cafe_config",
+      correlationId: "corr_cafe_config",
+      motivo: "G_SAAS_02_TRANSICION_ANUAL",
+      operaciones: [{ tipo: "SET", ruta: "modulos.habilitados", valor: capacidadesAnuales }],
+    }, {
+      empresaId,
+      actorId: "operador_1",
+      origen: "PLATFORM",
+      paisFiscal: "CO",
+      modulosPermitidos: capacidadesAnuales,
+      metodosPagoPermitidos: ["efectivo", "transferencia", "cuenta_cobro", "mixto"],
+    });
+    assert.equal(configuracion.idempotente, false);
+    assert.deepEqual(db.read(`configuraciones/${empresaId}`)?.modulos.habilitados, capacidadesAnuales);
+
+    const raizDespues = { ...db.read(`suscripciones/${empresaId}`) };
+    delete raizDespues.actualizadaEn;
+    assert.deepEqual(raizDespues, {
+      ...suscripcionHistorica,
+      estado: "suspended",
+      revision: 2,
+    });
+    assert.equal(db.docsByPrefix(`suscripciones/${empresaId}/relaciones/`).filter((value) => value.relacionId).length, 1);
+    const evidencias = db.docsByPrefix("saas_auditoria/").filter((e) => e.empresaObjetivoId === empresaId);
+    assert.ok(evidencias.some((e) => e.tipo === "SUSCRIPCION_RELACION_CONTRACTUAL_CREADA"));
+    assert.ok(evidencias.some((e) => e.tipo === "EMPRESA_ACTIVADA"));
+  } finally {
+    globalThis.Date = relojOriginal;
+  }
 });
