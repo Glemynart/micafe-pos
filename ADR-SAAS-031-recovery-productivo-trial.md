@@ -26,6 +26,41 @@ El runbook de G-SAAS-02 exige un punto de recuperación antes de cualquier
 escritura de transición y un ensayo de restore antes de declarar recovery
 verificable. La CI de emulator no sustituye la evidencia productiva.
 
+## Resultado de la revisión — 2026-08-14
+
+**Decisión:** `NO ACEPTADO PARA EJECUCIÓN`.
+
+El ADR conserva el estado `Propuesto`. La dirección de la alternativa B es
+razonable para un Trial de 30 días, pero el documento todavía no constituye una
+política ejecutable: no fija retención exacta, RPO, RTO, destino aislado,
+responsable operativo, rollback ni costo aceptado. No se debe habilitar PITR,
+crear un schedule o ejecutar un restore hasta completar y aprobar esos campos.
+
+La revisión también verificó estas restricciones del servicio:
+
+- los backups programados se restauran en una base nueva y permanecen en la
+  misma ubicación que la base de origen;
+- la retención máxima de un schedule es de 14 semanas;
+- backups, PITR y operaciones de restore requieren billing habilitado fuera de
+  la cuota gratuita.
+
+Fuentes del proveedor: [backup y restore de Firestore](https://cloud.google.com/firestore/docs/backups),
+[precios de Firestore](https://cloud.google.com/firestore/pricing?hl=en).
+
+## Condiciones para aceptar
+
+La aceptación requiere registrar explícitamente:
+
+1. mecanismo elegido, frecuencia y retención;
+2. RPO/RTO objetivo y cómo se medirán durante el ensayo;
+3. proyecto/base de destino aislado, ubicación y controles de acceso;
+4. responsable operativo, procedimiento de rollback y evidencia esperada;
+5. billing/costo recurrente aceptado;
+6. preflight read-only, backup o PITR observable y restore de prueba exitoso.
+
+Hasta entonces, `RECOVERY_INDEPENDENT_ATTESTATION` y
+`RECOVERY_POINT_OBSERVED` permanecen pendientes y el Trial anual no se inicia.
+
 ## Decisión pendiente
 
 Seleccionar una política productiva que defina explícitamente:
