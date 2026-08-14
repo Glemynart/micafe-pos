@@ -16,8 +16,10 @@ revalidación read-only histórica está registrada en
 `docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-13.md` y la
 revalidación final contra el release observado está en
 `docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-14-FINAL.md`; la
-evidencia fue recolectada contra el release
-`edede7ac600b0524ac15683b4356bce715c171e7`; los merges documentales
+revalidación actual contra el SHA vivo está en
+`docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-14-8f0fa6f.md`.
+La ejecución actual observó `origin/main @
+8f0fa6f7bfe3dbd20aa15598bbdb281448f079b6`; los merges documentales
 posteriores no modificaron runtime ni producción. Antes de cada operación se
 debe volver a observar el SHA vivo de `origin/main`. La
 versión anual v2 de `mvp_comercial` ya está publicada con precio de
@@ -72,10 +74,11 @@ explícitamente el SHA, CI, hash de Functions, Rules, Storage, Vercel y la
 referencia de recovery; siempre emite `productionWrites: false` y
 `commandExecutionAllowed: false`. Antes del `2026-09-02` debe devolver
 `ESPERAR_VENTANA`; no debe invocar ninguno de los comandos de transición.
-La evidencia de la ejecución actual está en
-`docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-14-FINAL.md`; su estado
-también registra recovery y release como gates pendientes, no como hechos
-supuestos.
+La evidencia de la ejecución histórica está en
+`docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-14-FINAL.md` y la
+revalidación actual está en
+`docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-14-8f0fa6f.md`; su
+estado registra recovery como gate pendiente, no como hecho supuesto.
 
 La evidencia automática de release se puede recolectar sin escrituras con:
 `npx tsx scripts/g-saas-02/release-evidence.ts --project micafe-pos --repo Glemynart/micafe-pos`.
