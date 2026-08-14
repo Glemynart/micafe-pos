@@ -2,9 +2,11 @@
 
 ## Estado
 
-**Propuesto.** Este ADR registra la decisión operativa pendiente para poder
-certificar recovery en G-SAAS-02. No autoriza todavía cambios de configuración,
-creación de backups, restauraciones ni escrituras productivas.
+**Aceptado.** La autorización explícita del Product
+Owner para que Codex revise y resuelva este ADR permite adoptar la política
+definida abajo. La aceptación autoriza configurar el mecanismo de recovery y
+ejecutar su ensayo conforme a esta política; no autoriza todavía escrituras de
+tenant, el inicio del Trial anual ni un restore sobre la base de origen.
 
 - **Goal:** `G-SAAS-02`
 - **Milestone / Epic:** `M4 / E4.2`
@@ -44,13 +46,13 @@ aceptado junto con RPO/RTO, retención, destino, responsable y rollback.
 
 ## Resultado de la revisión — 2026-08-14
 
-**Decisión:** `NO ACEPTADO PARA EJECUCIÓN`.
+**Decisión:** `ACEPTADO PARA EJECUCIÓN CONTROLADA`.
 
-El ADR conserva el estado `Propuesto`. La dirección de la alternativa B es
-razonable para un Trial de 30 días, pero el documento todavía no constituye una
-política ejecutable: no fija retención exacta, RPO, RTO, destino aislado,
-responsable operativo, rollback ni costo aceptado. No se debe habilitar PITR,
-crear un schedule o ejecutar un restore hasta completar y aprobar esos campos.
+Se adopta la alternativa B con los valores operativos concretos de la sección
+`Política aceptada`. La aceptación resuelve el mecanismo, la retención, el
+RPO/RTO, el destino, el responsable, el rollback y el tratamiento del costo.
+La configuración y el ensayo siguen sujetos al preflight read-only y a la
+evidencia observable definidos en este ADR.
 
 La revisión también verificó estas restricciones del servicio:
 
@@ -63,30 +65,61 @@ La revisión también verificó estas restricciones del servicio:
 Fuentes del proveedor: [backup y restore de Firestore](https://cloud.google.com/firestore/docs/backups),
 [precios de Firestore](https://cloud.google.com/firestore/pricing?hl=en).
 
-## Condiciones para aceptar
+## Política aceptada
 
-La aceptación requiere registrar explícitamente:
+Para el Trial contractual de 30 días se adopta:
 
-1. mecanismo elegido, frecuencia y retención;
-2. RPO/RTO objetivo y cómo se medirán durante el ensayo;
-3. proyecto/base de destino aislado, ubicación y controles de acceso;
-4. responsable operativo, procedimiento de rollback y evidencia esperada;
-5. billing/costo recurrente aceptado;
-6. preflight read-only, backup o PITR observable y restore de prueba exitoso.
+1. **Mecanismo:** backup programado de Firestore, una vez al día, sobre
+   `(default)`; no se habilita PITR como parte de este ADR.
+2. **Retención:** `35 días`, cubriendo los 30 días contractuales y un margen
+   operativo de cinco días. Está dentro del máximo documentado de 14 semanas.
+3. **RPO:** objetivo de `≤ 24 horas`, medido contra la marca de tiempo del
+   backup observable más reciente antes de una operación autorizada.
+4. **RTO:** objetivo de `≤ 4 horas`, medido desde la solicitud del restore
+   hasta que la base restaurada pueda consultarse en el destino aislado. El
+   ensayo debe registrar los timestamps reales; el objetivo no se declara
+   cumplido por documentación solamente.
+5. **Destino:** base nueva y aislada en el mismo proyecto `micafe-pos` y en
+   `southamerica-east1`, conforme a la restricción del servicio. Nunca se
+   restaura sobre `(default)`, nunca se cambia el tráfico de la aplicación al
+   destino de ensayo y el acceso queda limitado al operador SaaS y soporte
+   autorizado.
+6. **Responsable:** responsable de plataforma/operador SaaS con acceso cloud
+   explícitamente autorizado, acompañado por el responsable de
+   soporte/operación del Trial. `CONSERVACION_GOBERNAR` sigue siendo la
+   frontera de comandos de conservación del tenant y no se interpreta como
+   permiso IAM para administrar Firestore. El responsable registra el comando,
+   el backup, el destino, los timestamps y la verificación de aislamiento; no
+   modifica directamente datos del tenant.
+7. **Rollback:** la base de origen permanece intacta. Si el ensayo falla o
+   queda incompleto, se conserva `(default)`, se revoca el acceso de ensayo,
+   se aísla y elimina únicamente la base restaurada cuando la evidencia ya
+   esté preservada, y se registra el incidente. No hay cutover ni rollback de
+   datos productivos mediante escritura directa.
+8. **Billing/costo:** `billingEnabled = true` fue verificado read-only. Se
+   acepta el costo variable por uso de almacenamiento, operaciones y restore
+   que produzca esta política durante el Trial, bajo la cuenta de billing ya
+   asociada al proyecto. No se afirma un monto fijo: el valor depende del
+   volumen y del uso real.
+9. **Evidencia:** antes de configurar, preflight read-only del proyecto, base,
+   billing y schedules; después, schedule observable, backup observable,
+   restore exitoso, integridad mínima, aislamiento, RPO/RTO medidos y rollback
+   documentado, sin secretos ni datos completos del tenant.
 
-Hasta entonces, `RECOVERY_INDEPENDENT_ATTESTATION` y
+Hasta producir esa evidencia, `RECOVERY_INDEPENDENT_ATTESTATION` y
 `RECOVERY_POINT_OBSERVED` permanecen pendientes y el Trial anual no se inicia.
 
-## Decisión pendiente
+## Decisión resuelta
 
-Seleccionar una política productiva que defina explícitamente:
+La política productiva queda resuelta como:
 
-1. mecanismo: PITR, backup programado o ambos;
-2. frecuencia y retención;
-3. ubicación y destino aislado del ensayo de restore;
-4. RPO/RTO aceptables para el Trial de 30 días;
-5. responsable operativo, evidencia y rollback;
-6. aceptación del costo recurrente.
+1. backup diario;
+2. retención de 35 días;
+3. RPO ≤ 24 horas y RTO ≤ 4 horas;
+4. restore a una base nueva aislada en `micafe-pos/southamerica-east1`;
+5. responsable de plataforma/operador SaaS con acceso cloud autorizado;
+6. rollback sin tocar `(default)`;
+7. costo variable aceptado bajo billing habilitado.
 
 ## Alternativas
 
@@ -112,20 +145,22 @@ requieren.
 
 ## Recomendación
 
-Adoptar **B** para el Trial: backup diario, retención aprobada para cubrir sus
-30 días, restore de prueba en un destino aislado y evidencia sin datos
-innecesarios. PITR puede añadirse como defensa complementaria si el Product
-Owner acepta el costo y el RPO/RTO lo justifican.
+Adoptar **B** para el Trial: backup diario, retención de 35 días, restore de
+prueba en un destino aislado y evidencia sin datos innecesarios. PITR queda
+fuera de este ADR y requiere una decisión posterior si el riesgo o el RPO/RTO
+lo justifican.
 
-La recomendación no se considera aceptación. No se ejecutará
-`firestore:databases:update` ni `firestore:backups:schedules:create` hasta que
-la política quede aceptada.
+La aceptación permite ejecutar `firestore:backups:schedules:create` y el
+restore de prueba únicamente después del preflight read-only. No permite
+`firestore:databases:update`, escrituras de tenant ni materializar la relación
+anual antes del cierre del Trial histórico el `2026-09-02`.
 
 ## Criterios de aceptación
 
-- política elegida y retención/frecuencia aprobadas;
+- política B, retención de 35 días y frecuencia diaria registradas;
 - destino aislado y procedimiento de restore definidos;
-- RPO/RTO y responsable registrados;
+- RPO ≤ 24 horas, RTO ≤ 4 horas y responsable registrados;
+- billing habilitado y costo variable aceptado;
 - comandos read-only de preflight ejecutados antes del cambio;
 - backup o PITR observable después del cambio;
 - restore de prueba exitoso, con integridad, aislamiento y rollback verificados;
@@ -133,7 +168,10 @@ la política quede aceptada.
 
 ## Consecuencias
 
-Mientras este ADR siga `Propuesto`, el release global de G-SAAS-02 permanece
-`INCOMPLETE` y no se autoriza iniciar el Trial anual ni materializar la relación
-contractual. El smoke productivo requiere además una cuenta/ventana de prueba
-segura y se mantiene como gate independiente.
+Este ADR resuelve la política técnica de recovery, pero no certifica por sí
+solo el recovery productivo: el schedule, un backup y un restore exitoso deben
+quedar observados en evidencia independiente. El release global de G-SAAS-02
+permanece `INCOMPLETE` hasta cerrar también el smoke productivo, el cierre del
+Trial histórico, la relación anual y el Trial operativo completo. El smoke
+productivo requiere una cuenta/ventana de prueba segura y se mantiene como
+gate independiente.
