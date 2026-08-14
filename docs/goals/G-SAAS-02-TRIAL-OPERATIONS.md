@@ -15,7 +15,7 @@ publicación posterior del catálogo anual está registrada en
 revalidación read-only más reciente está registrada en
 `docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-13.md`; la
 documentación vigente quedó integrada en
-`origin/main @ 307e213533f958daaa7394b41fd8029202ddb44e`. La
+`origin/main @ 201bef607e8ff18abeb99f3a83dd2e33859342cd`. La
 versión anual v2 de `mvp_comercial` ya está publicada con precio de
 `1.800.000 COP`, periodicidad `ANUAL` y nueve capacidades. Café Atrato, sin
 embargo, conserva su suscripción mensual histórica y su Trial
