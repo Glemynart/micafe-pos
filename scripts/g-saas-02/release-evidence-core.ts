@@ -1,4 +1,4 @@
-export type ReleaseEvidenceStatus = "PASS" | "FOLLOW_UP" | "MISSING" | "DECLARED_NOT_VERIFIED";
+export type ReleaseEvidenceStatus = "PASS" | "FOLLOW_UP" | "MISSING" | "DECLARED_NOT_VERIFIED" | "MISMATCH";
 
 export interface CiObservation {
   runId: string;
@@ -27,12 +27,37 @@ export interface ExternalGateObservation {
   independentlyVerified?: boolean;
 }
 
+export interface RulesReleaseObservation {
+  service: "cloud.firestore" | "firebase.storage";
+  releaseName: string;
+  rulesetName: string;
+  updatedAt?: string | null;
+  localFile: "firestore.rules" | "storage.rules";
+  localSourceSha256: string;
+  deployedSourceSha256: string;
+  sourceMatches: boolean;
+}
+
+export interface RulesObservation {
+  firestore: RulesReleaseObservation | null;
+  storage: RulesReleaseObservation | null;
+}
+
+export interface RecoveryObservation {
+  pitrEnabled: boolean;
+  backupSchedules: number;
+  backups: number;
+  location?: string | null;
+}
+
 export interface ReleaseEvidenceInput {
   targetSha: string;
   originMainSha: string | null;
   ci: CiObservation | null;
   vercel: VercelObservation | null;
   functions: FunctionsObservation | null;
+  rules?: RulesObservation | null;
+  recovery?: RecoveryObservation | null;
   external: {
     rules: ExternalGateObservation;
     storage: ExternalGateObservation;
@@ -64,6 +89,8 @@ export interface ReleaseEvidenceResult {
     functions: FunctionsObservation | null;
     functionsHash: string | null;
     functionsUniform: boolean;
+    rules: RulesObservation | null;
+    recovery: RecoveryObservation | null;
   };
   external: {
     rules: ReleaseEvidenceStatus;
@@ -82,6 +109,26 @@ function externalStatus(gate: ExternalGateObservation): ReleaseEvidenceStatus {
   if (gate.independentlyVerified === true) return "PASS";
   if (gate.reference?.trim()) return "DECLARED_NOT_VERIFIED";
   return "MISSING";
+}
+
+function rulesStatus(
+  observation: RulesReleaseObservation | null | undefined,
+  fallback: ExternalGateObservation,
+  automaticObservationPresent: boolean,
+): ReleaseEvidenceStatus {
+  if (observation) return observation.sourceMatches ? "PASS" : "MISMATCH";
+  if (automaticObservationPresent) return "MISSING";
+  return externalStatus(fallback);
+}
+
+function rulesMessage(
+  name: "Rules" | "Storage",
+  status: ReleaseEvidenceStatus,
+): string {
+  if (status === "PASS") return `${name} desplegadas coinciden con la fuente versionada observada.`;
+  if (status === "MISMATCH") return `${name} desplegadas no coinciden con la fuente versionada de origin/main.`;
+  if (status === "DECLARED_NOT_VERIFIED") return `Existe una referencia declarada de ${name}, pero no fue verificada independientemente.`;
+  return `Falta evidencia independiente de ${name}.`;
 }
 
 function addCheck(
@@ -165,13 +212,19 @@ export function evaluarReleaseEvidence(input: ReleaseEvidenceInput): ReleaseEvid
     );
   }
 
+  const automaticRulesObservationPresent = input.rules !== null && input.rules !== undefined;
+  const rulesStatusValue = rulesStatus(input.rules?.firestore, input.external.rules, automaticRulesObservationPresent);
+  const storageStatusValue = rulesStatus(input.rules?.storage, input.external.storage, automaticRulesObservationPresent);
   const externalStatuses = {
-    rules: externalStatus(input.external.rules),
-    storage: externalStatus(input.external.storage),
+    rules: rulesStatusValue,
+    storage: storageStatusValue,
     smoke: externalStatus(input.external.smoke),
     recovery: externalStatus(input.external.recovery),
   } as const;
-  for (const [name, status] of Object.entries(externalStatuses)) {
+  addCheck(checks, "RULES_INDEPENDENT_ATTESTATION", rulesStatusValue, rulesMessage("Rules", rulesStatusValue));
+  addCheck(checks, "STORAGE_INDEPENDENT_ATTESTATION", storageStatusValue, rulesMessage("Storage", storageStatusValue));
+  for (const name of ["smoke", "recovery"] as const) {
+    const status = externalStatuses[name];
     addCheck(
       checks,
       `${name.toUpperCase()}_INDEPENDENT_ATTESTATION`,
@@ -181,6 +234,20 @@ export function evaluarReleaseEvidence(input: ReleaseEvidenceInput): ReleaseEvid
         : status === "DECLARED_NOT_VERIFIED"
           ? `Existe una referencia declarada de ${name}, pero no fue verificada independientemente.`
           : `Falta evidencia independiente de ${name}.`,
+    );
+  }
+
+  if (input.recovery) {
+    const hasRecoveryPoint = input.recovery.pitrEnabled
+      || input.recovery.backupSchedules > 0
+      || input.recovery.backups > 0;
+    addCheck(
+      checks,
+      "RECOVERY_POINT_OBSERVED",
+      hasRecoveryPoint ? "PASS" : "MISSING",
+      hasRecoveryPoint
+        ? "Se observó al menos un mecanismo o punto de recuperación configurado."
+        : "No se observó PITR, una programación de backups ni un backup disponible.",
     );
   }
 
@@ -212,6 +279,8 @@ export function evaluarReleaseEvidence(input: ReleaseEvidenceInput): ReleaseEvid
       functions: input.functions,
       functionsHash: functionsUniform ? functionHashes[0] ?? null : null,
       functionsUniform,
+      rules: input.rules ?? null,
+      recovery: input.recovery ?? null,
     },
     external: externalStatuses,
     collectionErrors,
