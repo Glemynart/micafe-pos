@@ -14,10 +14,12 @@ publicación posterior del catálogo anual está registrada en
 `docs/goals/evidence/G-SAAS-02-PLAN-ANNUAL-PUBLICATION-2026-08-12.md`. La
 revalidación read-only histórica está registrada en
 `docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-13.md` y la
-revalidación final contra el release vigente está en
+revalidación final contra el release observado está en
 `docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-14-FINAL.md`; la
-documentación vigente quedó integrada en
-`origin/main @ edede7ac600b0524ac15683b4356bce715c171e7`. La
+evidencia fue recolectada contra el release
+`edede7ac600b0524ac15683b4356bce715c171e7`; los merges documentales
+posteriores no modificaron runtime ni producción. Antes de cada operación se
+debe volver a observar el SHA vivo de `origin/main`. La
 versión anual v2 de `mvp_comercial` ya está publicada con precio de
 `1.800.000 COP`, periodicidad `ANUAL` y nueve capacidades. Café Atrato, sin
 embargo, conserva su suscripción mensual histórica y su Trial
