@@ -1,5 +1,9 @@
 export const FIRESTORE_ADMIN_API_ORIGIN = "https://firestore.googleapis.com/v1";
 
+function encodePath(value: string): string {
+  return value.split("/").map((segment) => encodeURIComponent(segment)).join("/");
+}
+
 export type RecoveryApiResponse = {
   ok: boolean;
   status: number | null;
@@ -73,5 +77,34 @@ export function requestRecoveryRestore(
     "projects/" + projectId + "/databases:restore",
     accessToken,
     { databaseId: destinationDatabase, backup: sourceBackup },
+  );
+}
+
+export function getRecoveryDatabase(
+  projectId: string,
+  databaseId: string,
+  accessToken: string,
+): Promise<RecoveryApiResponse> {
+  return request(
+    "GET",
+    "projects/" + encodePath(projectId) + "/databases/" + encodeURIComponent(databaseId),
+    accessToken,
+  );
+}
+
+export function getRecoveryDocument(
+  projectId: string,
+  databaseId: string,
+  collectionId: string,
+  documentId: string,
+  accessToken: string,
+): Promise<RecoveryApiResponse> {
+  return request(
+    "GET",
+    "projects/" + encodePath(projectId)
+      + "/databases/" + encodeURIComponent(databaseId)
+      + "/documents/" + encodePath(collectionId)
+      + "/" + encodePath(documentId),
+    accessToken,
   );
 }

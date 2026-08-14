@@ -197,6 +197,28 @@ equivale a atestación: la base destino, integridad, aislamiento, RPO/RTO y
 rollback se verifican después. El token nunca se imprime ni se guarda en la
 evidencia.
 
+Cuando la solicitud de restore termine, la verificación read-only reproducible
+se ejecuta con los timestamps reales de la solicitud y de disponibilidad de la
+base destino:
+
+```powershell
+npx tsx scripts/g-saas-02/recovery-verify.ts `
+  --project micafe-pos `
+  --source-backup projects/micafe-pos/locations/southamerica-east1/backups/BACKUP_ID `
+  --destination-database gsaas02-recovery-20260814 `
+  --tenant 1ae0rD9H8t3ZFSBKrrHR `
+  --restore-requested-at 2026-08-14T00:00:00.000Z `
+  --restore-ready-at 2026-08-14T00:30:00.000Z `
+  --out artifacts/g-saas-02/recovery-verification.json
+```
+
+El verificador solo lee el backup, la base destino y una muestra mínima de
+Empresa, Suscripción, configuración y Plan desde `(default)` y el destino.
+Compara sus huellas, exige destino aislado en `southamerica-east1`, backup en
+estado `READY`, RPO `≤24 h` y RTO `≤4 h`. Su salida `VERIFIED` es la
+atestación independiente de recovery; nunca cambia el tráfico ni escribe el
+tenant.
+
 ## 7. Evidencia del Trial
 
 La evidencia no debe contener secretos, PINs, tokens, service accounts ni documentos completos innecesarios. Debe conservar:

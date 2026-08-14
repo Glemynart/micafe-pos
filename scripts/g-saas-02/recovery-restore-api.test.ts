@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   describeRecoveryBackup,
+  getRecoveryDatabase,
+  getRecoveryDocument,
   requestRecoveryRestore,
 } from "./recovery-restore-api";
 
@@ -56,6 +58,32 @@ test("restore REST usa databaseId aislado y backup completo", async () => {
       databaseId: "gsaas02-recovery-20260814",
       backup: "projects/micafe-pos/locations/southamerica-east1/backups/BACKUP_ID",
     });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("verificación REST consulta la base destino y documentos anidados sin exponer el token", async () => {
+  const originalFetch = globalThis.fetch;
+  const observed: string[] = [];
+  globalThis.fetch = (async (input) => {
+    observed.push(String(input));
+    return new Response(JSON.stringify({ name: "resource" }), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    await getRecoveryDatabase("micafe-pos", "gsaas02-recovery-20260814", "token-only-in-memory");
+    await getRecoveryDocument(
+      "micafe-pos",
+      "gsaas02-recovery-20260814",
+      "planes/mvp_comercial",
+      "versiones/2",
+      "token-only-in-memory",
+    );
+    assert.deepEqual(observed, [
+      "https://firestore.googleapis.com/v1/projects/micafe-pos/databases/gsaas02-recovery-20260814",
+      "https://firestore.googleapis.com/v1/projects/micafe-pos/databases/gsaas02-recovery-20260814/documents/planes/mvp_comercial/versiones/2",
+    ]);
   } finally {
     globalThis.fetch = originalFetch;
   }
