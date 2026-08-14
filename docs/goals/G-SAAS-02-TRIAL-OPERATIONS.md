@@ -82,7 +82,9 @@ rulesets efectivos mediante la API GET de Firebase Rules cuando existe
 Firebase CLI. Nunca imprime credenciales ni ejecuta deploy. Las referencias
 `--rules-ref`, `--storage-ref`, `--smoke-ref` y `--recovery-ref` se conservan
 como declaradas, pero no se consideran atestaciones independientes por el solo
-hecho de existir. La ejecución predeploy está en
+hecho de existir. El mapa por Function está verificado en
+`docs/goals/evidence/G-SAAS-02-RELEASE-EVIDENCE-2026-08-14-FUNCTIONS.md`.
+La ejecución predeploy está en
 `docs/goals/evidence/G-SAAS-02-RELEASE-EVIDENCE-2026-08-14.md` y la
 verificación posterior al deploy está en
 `docs/goals/evidence/G-SAAS-02-RELEASE-EVIDENCE-2026-08-14-POSTDEPLOY.md`.
