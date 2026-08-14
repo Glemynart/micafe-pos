@@ -8,7 +8,8 @@ type FirestoreDocument = { name?: string; fields?: Record<string, unknown> };
 
 const argumentos = new Set([
   "--project", "--tenant", "--as-of", "--main-sha", "--functions-hash", "--ci-green",
-  "--rules-verified", "--storage-verified", "--vercel-verified", "--recovery-ref", "--out",
+  "--rules-verified", "--storage-verified", "--vercel-verified", "--recovery-ref",
+  "--recovery-verified", "--early-closure-approved", "--decision-ref", "--out",
 ]);
 
 function argumento(nombre: string): string | undefined {
@@ -57,6 +58,26 @@ function decodeDocument(document: FirestoreDocument | null): Record<string, unkn
 
 function documentId(document: FirestoreDocument): string {
   return document.name?.split("/").pop() ?? "";
+}
+
+async function verificarAutenticacionOperador(projectId: string): Promise<{ verificada: boolean; uid: string | null }> {
+  const token = process.env.FIREBASE_OPERATOR_ID_TOKEN;
+  if (!token) return { verificada: false, uid: null };
+  try {
+    const response = await fetch(`https://us-central1-${encodeURIComponent(projectId)}.cloudfunctions.net/consultarContextoPlataforma`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ data: {} }),
+    });
+    if (!response.ok) return { verificada: false, uid: null };
+    const body = await response.json() as { result?: { uid?: unknown; estado?: unknown } };
+    const uid = body.result?.uid;
+    return typeof uid === "string" && body.result?.estado === "ACTIVO"
+      ? { verificada: true, uid }
+      : { verificada: false, uid: null };
+  } catch {
+    return { verificada: false, uid: null };
+  }
 }
 
 async function readProduction(projectId: string, tenantId: string): Promise<Pick<TrialTransitionSnapshot, "empresa" | "suscripcionRaiz" | "planAnual" | "configuracion" | "relaciones" | "operador">> {
@@ -108,6 +129,7 @@ async function main(): Promise<void> {
     vercelVerified: argumento("--vercel-verified") === "true",
   };
   const production = await readProduction(projectId, tenantId);
+  const autenticacionOperador = await verificarAutenticacionOperador(projectId);
   const snapshot: TrialTransitionSnapshot = {
     projectId,
     tenantId,
@@ -115,13 +137,18 @@ async function main(): Promise<void> {
     ...production,
     release,
     recoveryEvidenceRef: argumento("--recovery-ref") ?? null,
+    recoveryVerified: argumento("--recovery-verified") === "true",
+    earlyClosureApproved: argumento("--early-closure-approved") === "true",
+    decisionRef: argumento("--decision-ref") ?? null,
+    operatorAuthVerified: autenticacionOperador.verificada,
+    operatorAuthUid: autenticacionOperador.uid,
   };
   const result = evaluarTrialTransitionPreflight(snapshot);
   const output = `${JSON.stringify(result, null, 2)}\n`;
   const out = argumento("--out");
   if (out) await writeFile(out, output, "utf8");
   process.stdout.write(output);
-  if (result.status !== "ESPERAR_VENTANA" && result.status !== "LISTO_PARA_COMANDOS") process.exitCode = 2;
+  if (!["ESPERAR_VENTANA", "LISTO_PARA_COMANDOS", "LISTO_PARA_CIERRE_ANTICIPADO"].includes(result.status)) process.exitCode = 2;
 }
 
 main().catch((error: unknown) => {

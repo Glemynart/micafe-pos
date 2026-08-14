@@ -29,7 +29,7 @@ function snapshot(overrides: Partial<TrialTransitionSnapshot> = {}): TrialTransi
     },
     configuracion: { revision: 3, modulos: { habilitados: [...HISTORIC_CAPABILITIES] } },
     relaciones: [],
-    operador: { estado: "ACTIVO", facultades: ["COMERCIAL_GOBERNAR", "LIFECYCLE_GOBERNAR"] },
+    operador: { uid: "operador", estado: "ACTIVO", facultades: ["COMERCIAL_GOBERNAR", "LIFECYCLE_GOBERNAR"] },
     release: {
       mainSha: "91e75b6e34e9892e3227a808ccd02c75408d74ef",
       ciGreen: true,
@@ -39,6 +39,9 @@ function snapshot(overrides: Partial<TrialTransitionSnapshot> = {}): TrialTransi
       vercelVerified: true,
     },
     recoveryEvidenceRef: "recovery://g-saas-02/cafe-atrato/2026-09-02",
+    recoveryVerified: true,
+    operatorAuthVerified: true,
+    operatorAuthUid: "operador",
     ...overrides,
   };
 }
@@ -49,6 +52,24 @@ test("preflight mantiene la transición bloqueada antes del cierre histórico", 
   assert.equal(result.readyForCanonicalCommands, false);
   assert.equal(result.productionWrites, false);
   assert.ok(result.findings.some((finding) => finding.code === "HISTORIC_TRIAL_STILL_OPEN"));
+});
+
+test("preflight permite cierre anticipado solo con decisión explícita y sin alterar el contrato histórico", () => {
+  const result = evaluarTrialTransitionPreflight(snapshot({
+    earlyClosureApproved: true,
+    decisionRef: "G-SAAS-02-PO-DECISION-CIERRE-ANTICIPADO-2026-08-14",
+  }));
+  assert.equal(result.status, "LISTO_PARA_CIERRE_ANTICIPADO");
+  assert.equal(result.readyForCanonicalCommands, true);
+  assert.equal(result.productionWrites, false);
+  assert.ok(result.findings.some((finding) => finding.code === "EARLY_CLOSURE_AUTHORIZED"));
+});
+
+test("preflight rechaza el cierre anticipado sin referencia de Product Owner", () => {
+  const result = evaluarTrialTransitionPreflight(snapshot({ earlyClosureApproved: true }));
+  assert.equal(result.status, "BLOQUEADO");
+  assert.equal(result.readyForCanonicalCommands, false);
+  assert.ok(result.findings.some((finding) => finding.code === "EARLY_CLOSURE_DECISION_MISSING"));
 });
 
 test("preflight exige suspensión canónica después del cierre, sin mutar la raíz", () => {
