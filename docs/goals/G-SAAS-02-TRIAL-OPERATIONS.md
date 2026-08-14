@@ -76,12 +76,14 @@ supuestos.
 La evidencia automática de release se puede recolectar sin escrituras con:
 `npx tsx scripts/g-saas-02/release-evidence.ts --project micafe-pos --repo Glemynart/micafe-pos`.
 El colector consulta el SHA de `origin/main`, la CI y Vercel mediante `gh api`,
-y el inventario de Functions mediante `firebase functions:list`. Nunca imprime
-credenciales ni ejecuta deploy. Las referencias `--rules-ref`, `--storage-ref`,
-`--smoke-ref` y `--recovery-ref` se conservan como declaradas, pero no se
-consideran atestaciones independientes por el solo hecho de existir.
-La ejecución observada más reciente está en
-`docs/goals/evidence/G-SAAS-02-RELEASE-EVIDENCE-2026-08-13.md`.
+el inventario de Functions mediante `firebase functions:list`, los releases y
+rulesets efectivos mediante la API GET de Firebase Rules cuando existe
+`FIREBASE_ACCESS_TOKEN`, y el estado read-only de base de datos/backups mediante
+Firebase CLI. Nunca imprime credenciales ni ejecuta deploy. Las referencias
+`--rules-ref`, `--storage-ref`, `--smoke-ref` y `--recovery-ref` se conservan
+como declaradas, pero no se consideran atestaciones independientes por el solo
+hecho de existir. La ejecución observada más reciente está en
+`docs/goals/evidence/G-SAAS-02-RELEASE-EVIDENCE-2026-08-14.md`.
 
 Si cualquier precondición falla, se conserva el estado actual y se registra el rechazo; no se escribe directamente Firestore ni se crea otro tenant.
 

@@ -1,6 +1,9 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
-import { evaluarReleaseEvidence, type CiObservation, type FunctionsObservation, type ReleaseEvidenceInput, type VercelObservation } from "./release-evidence-core";
+import { resolve } from "node:path";
+import { evaluarReleaseEvidence, type CiObservation, type FunctionsObservation, type RecoveryObservation, type ReleaseEvidenceInput, type RulesObservation, type RulesReleaseObservation, type VercelObservation } from "./release-evidence-core";
 
 const argumentos = new Set([
   "--project", "--repo", "--sha", "--out", "--rules-ref", "--storage-ref", "--smoke-ref", "--recovery-ref",
@@ -31,6 +34,11 @@ function ejecutar(command: string, args: readonly string[]): { ok: boolean; stdo
 function shaLocal(): string | null {
   const result = ejecutar("git", ["rev-parse", "origin/main"]);
   return result.ok ? result.stdout : null;
+}
+
+function shaSource(value: string): string {
+  const normalized = value.replace(/\r\n?/g, "\n");
+  return createHash("sha256").update(normalized, "utf8").digest("hex");
 }
 
 function leerJson(command: string, args: readonly string[]): { value: unknown | null; error?: string } {
@@ -108,6 +116,100 @@ function obtenerFunctions(project: string): { observation: FunctionsObservation 
   };
 }
 
+async function obtenerRules(project: string): Promise<{ observation: RulesObservation | null; errors: string[] }> {
+  const token = process.env.FIREBASE_ACCESS_TOKEN;
+  if (!token) return { observation: null, errors: [] };
+  const headers = { Authorization: `Bearer ${token}` };
+  const errors: string[] = [];
+  try {
+    const releasesResponse = await fetch(`https://firebaserules.googleapis.com/v1/projects/${encodeURIComponent(project)}/releases`, {
+      method: "GET",
+      headers,
+    });
+    if (!releasesResponse.ok) {
+      return { observation: null, errors: [`Firebase Rules API no pudo listar releases (${releasesResponse.status}).`] };
+    }
+    const releases = (await releasesResponse.json()) as { releases?: Array<Record<string, unknown>> };
+    const firestoreRelease = releases.releases?.find((release) => String(release.name ?? "").endsWith("/releases/cloud.firestore"));
+    const storageRelease = releases.releases?.find((release) => String(release.name ?? "").includes("/releases/firebase.storage/"));
+
+    async function releaseObservation(
+      release: Record<string, unknown> | undefined,
+      service: RulesReleaseObservation["service"],
+      localFile: RulesReleaseObservation["localFile"],
+    ): Promise<RulesReleaseObservation | null> {
+      if (!release) return null;
+      const rulesetName = String(release.rulesetName ?? "");
+      if (!rulesetName) return null;
+      const rulesetResponse = await fetch(`https://firebaserules.googleapis.com/v1/${rulesetName}`, { method: "GET", headers });
+      if (!rulesetResponse.ok) {
+        errors.push(`Firebase Rules API no pudo leer ${service} (${rulesetResponse.status}).`);
+        return null;
+      }
+      const ruleset = (await rulesetResponse.json()) as { source?: { files?: Array<{ name?: string; content?: string }> } };
+      const file = ruleset.source?.files?.find((candidate) => candidate.name === localFile);
+      if (!file || typeof file.content !== "string") {
+        errors.push(`El ruleset desplegado no contiene ${localFile}.`);
+        return null;
+      }
+      const localSourceSha256 = shaSource(readFileSync(resolve(process.cwd(), localFile), "utf8"));
+      const deployedSourceSha256 = shaSource(file.content);
+      return {
+        service,
+        releaseName: String(release.name ?? ""),
+        rulesetName,
+        updatedAt: release.updateTime == null ? null : String(release.updateTime),
+        localFile,
+        localSourceSha256,
+        deployedSourceSha256,
+        sourceMatches: localSourceSha256 === deployedSourceSha256,
+      };
+    }
+
+    return {
+      observation: {
+        firestore: await releaseObservation(firestoreRelease, "cloud.firestore", "firestore.rules"),
+        storage: await releaseObservation(storageRelease, "firebase.storage", "storage.rules"),
+      },
+      errors,
+    };
+  } catch (error: unknown) {
+    return {
+      observation: null,
+      errors: [error instanceof Error ? `Firebase Rules API falló: ${error.message}` : "Firebase Rules API falló."],
+    };
+  }
+}
+
+function obtenerRecovery(project: string): { observation: RecoveryObservation | null; error?: string } {
+  const database = leerJson("firebase", ["firestore:databases:get", "(default)", "--project", project, "--json"]);
+  const schedules = leerJson("firebase", ["firestore:backups:schedules:list", "--project", project, "--json"]);
+  if (database.error || schedules.error) {
+    return { observation: null, error: database.error ?? schedules.error };
+  }
+  const databaseResult = (database.value as { result?: Record<string, unknown> })?.result ?? {};
+  const scheduleResult = (schedules.value as { result?: unknown[] })?.result;
+  const location = typeof databaseResult.locationId === "string" ? databaseResult.locationId : null;
+  const backups = location
+    ? leerJson("firebase", ["firestore:backups:list", "--project", project, "--location", location, "--json"])
+    : { value: { result: [] }, error: undefined };
+  if (backups.error) return { observation: null, error: backups.error };
+  const backupResult = (backups.value as { result?: unknown })?.result;
+  const backupCount = Array.isArray(backupResult)
+    ? backupResult.length
+    : backupResult && typeof backupResult === "object" && Array.isArray((backupResult as { backups?: unknown[] }).backups)
+      ? (backupResult as { backups: unknown[] }).backups.length
+      : 0;
+  return {
+    observation: {
+      pitrEnabled: databaseResult.pointInTimeRecoveryEnablement === "POINT_IN_TIME_RECOVERY_ENABLED",
+      backupSchedules: Array.isArray(scheduleResult) ? scheduleResult.length : 0,
+      backups: backupCount,
+      location,
+    },
+  };
+}
+
 function external(reference: string | undefined) {
   return { reference: reference ?? null, independentlyVerified: false };
 }
@@ -126,7 +228,10 @@ async function main(): Promise<void> {
   const ci = obtenerCi(repo, targetSha);
   const vercel = obtenerVercel(repo, targetSha);
   const functions = obtenerFunctions(project);
-  for (const result of [ci, vercel, functions]) if (result.error) collectionErrors.push(result.error);
+  const rules = await obtenerRules(project);
+  const recovery = obtenerRecovery(project);
+  for (const result of [ci, vercel, functions, recovery]) if (result.error) collectionErrors.push(result.error);
+  collectionErrors.push(...rules.errors);
 
   const input: ReleaseEvidenceInput = {
     targetSha,
@@ -134,6 +239,8 @@ async function main(): Promise<void> {
     ci: ci.observation,
     vercel: vercel.observation,
     functions: functions.observation,
+    rules: rules.observation,
+    recovery: recovery.observation,
     external: {
       rules: external(argumento("--rules-ref")),
       storage: external(argumento("--storage-ref")),

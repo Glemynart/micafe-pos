@@ -58,3 +58,54 @@ test("fallo de colección queda distinguido de un gate pendiente", () => {
   assert.equal(result.status, "COLLECTION_ERROR");
   assert.equal(result.checks.at(-1)?.status, "FOLLOW_UP");
 });
+
+test("Rules y Storage desplegadas con drift no se consideran evidencia independiente", () => {
+  const result = evaluarReleaseEvidence(input({
+    rules: {
+      firestore: {
+        service: "cloud.firestore",
+        releaseName: "projects/micafe-pos/releases/cloud.firestore",
+        rulesetName: "projects/micafe-pos/rulesets/firestore-old",
+        localFile: "firestore.rules",
+        localSourceSha256: "a".repeat(64),
+        deployedSourceSha256: "b".repeat(64),
+        sourceMatches: false,
+      },
+      storage: {
+        service: "firebase.storage",
+        releaseName: "projects/micafe-pos/releases/firebase.storage/bucket",
+        rulesetName: "projects/micafe-pos/rulesets/storage-old",
+        localFile: "storage.rules",
+        localSourceSha256: "c".repeat(64),
+        deployedSourceSha256: "d".repeat(64),
+        sourceMatches: false,
+      },
+    },
+  }));
+  assert.equal(result.status, "INCOMPLETE");
+  assert.equal(result.external.rules, "MISMATCH");
+  assert.equal(result.external.storage, "MISMATCH");
+  assert.match(result.checks.find((check) => check.id === "STORAGE_INDEPENDENT_ATTESTATION")?.message ?? "", /no coinciden/);
+});
+
+test("un punto de recovery observado no sustituye el ensayo de recuperación", () => {
+  const result = evaluarReleaseEvidence(input({
+    recovery: { pitrEnabled: true, backupSchedules: 0, backups: 0, location: "southamerica-east1" },
+  }));
+  assert.equal(result.checks.find((check) => check.id === "RECOVERY_POINT_OBSERVED")?.status, "PASS");
+  assert.equal(result.external.recovery, "PASS");
+});
+
+test("una observación automática incompleta no se rellena con una referencia declarada", () => {
+  const result = evaluarReleaseEvidence(input({
+    rules: { firestore: null, storage: null },
+    external: {
+      rules: { reference: "rules://declared", independentlyVerified: true },
+      storage: { reference: "storage://declared", independentlyVerified: true },
+      smoke: { reference: "smoke://verified", independentlyVerified: true },
+      recovery: { reference: "recovery://verified", independentlyVerified: true },
+    },
+  }));
+  assert.equal(result.external.rules, "MISSING");
+  assert.equal(result.external.storage, "MISSING");
+});
