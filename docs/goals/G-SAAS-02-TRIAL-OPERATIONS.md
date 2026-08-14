@@ -180,8 +180,12 @@ npx tsx scripts/g-saas-02/recovery-restore.ts `
 ```
 
 El guard rechaza `(default)`, otros proyectos/ubicaciones y destinos fuera del
-prefijo aislado. Su salida `RESTORE_REQUESTED` no equivale a atestación: la
-base destino, integridad, aislamiento, RPO/RTO y rollback se verifican después.
+prefijo aislado. Si `FIREBASE_ACCESS_TOKEN` está presente en el entorno
+entregado fuera de Git, usa Firestore Admin REST; si no, usa `gcloud`. Si el
+backup no es observable, no invoca restore. Su salida `RESTORE_REQUESTED` no
+equivale a atestación: la base destino, integridad, aislamiento, RPO/RTO y
+rollback se verifican después. El token nunca se imprime ni se guarda en la
+evidencia.
 
 ## 7. Evidencia del Trial
 
