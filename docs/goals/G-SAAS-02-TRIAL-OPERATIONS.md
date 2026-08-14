@@ -16,10 +16,12 @@ revalidación read-only histórica está registrada en
 `docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-13.md` y la
 revalidación final contra el release observado está en
 `docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-14-FINAL.md`; la
-revalidación actual contra el SHA vivo está en
-`docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-14-8f0fa6f.md`.
-La ejecución actual observó `origin/main @
-8f0fa6f7bfe3dbd20aa15598bbdb281448f079b6`; los merges documentales
+revalidación anterior contra el SHA vivo está en
+`docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-14-8f0fa6f.md` y la
+revalidación vigente está en
+`docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-14-AE7819.md`.
+La ejecución vigente observó `origin/main @
+ae7819b45acbbb8014398c53b0bd135742d068c3`; los merges documentales
 posteriores no modificaron runtime ni producción. Antes de cada operación se
 debe volver a observar el SHA vivo de `origin/main`. La
 versión anual v2 de `mvp_comercial` ya está publicada con precio de
