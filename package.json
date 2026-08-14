@@ -63,6 +63,7 @@
     "e2e:r1a:preflight": "tsx scripts/e2e/preflight-r1a.ts",
     "e2e:operator-portal": "node scripts/e2e/operator-portal-runner.mjs",
     "test:g-saas-02:preflight": "tsx --test scripts/g-saas-02/trial-transition-preflight.test.ts",
+    "test:g-saas-02:recovery": "tsx --test scripts/g-saas-02/recovery-restore-core.test.ts",
     "test:g-saas-02:release-evidence": "tsx --test scripts/g-saas-02/release-evidence-core.test.ts"
   },
   "dependencies": {

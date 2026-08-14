@@ -167,6 +167,22 @@ Un rollback de código no revierte automáticamente datos financieros. Los datos
 
 La recuperación productiva se considera pendiente hasta realizar un ensayo aprobado o documentar formalmente que no aplica al incidente concreto. `ADR-SAAS-031` fue aceptado para ejecución controlada: quedó configurado un schedule diario de 35 días sobre `(default)`, con evidencia en `docs/goals/evidence/G-SAAS-02-RECOVERY-CONFIGURATION-2026-08-14-fa16b7c4.md`. El primer backup, el restore aislado y la medición de RPO/RTO siguen pendientes; no se activa PITR ni se escribe el tenant.
 
+Cuando exista un backup observable, el guard reproducible valida proyecto,
+ubicación y destino antes de invocar el restore:
+
+```powershell
+npx tsx scripts/g-saas-02/recovery-restore.ts `
+  --project micafe-pos `
+  --source-backup projects/micafe-pos/locations/southamerica-east1/backups/BACKUP_ID `
+  --destination-database gsaas02-recovery-20260814 `
+  --confirm-destination gsaas02-recovery-20260814 `
+  --out artifacts/g-saas-02/recovery-restore.json
+```
+
+El guard rechaza `(default)`, otros proyectos/ubicaciones y destinos fuera del
+prefijo aislado. Su salida `RESTORE_REQUESTED` no equivale a atestación: la
+base destino, integridad, aislamiento, RPO/RTO y rollback se verifican después.
+
 ## 7. Evidencia del Trial
 
 La evidencia no debe contener secretos, PINs, tokens, service accounts ni documentos completos innecesarios. Debe conservar:
