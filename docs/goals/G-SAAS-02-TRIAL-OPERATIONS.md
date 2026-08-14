@@ -92,6 +92,9 @@ La ejecución predeploy está en
 `docs/goals/evidence/G-SAAS-02-RELEASE-EVIDENCE-2026-08-14.md` y la
 verificación posterior al deploy está en
 `docs/goals/evidence/G-SAAS-02-RELEASE-EVIDENCE-2026-08-14-POSTDEPLOY.md`.
+La recolección posterior contra el SHA vivo de `origin/main @ 53ed743` está
+en
+`docs/goals/evidence/G-SAAS-02-RELEASE-EVIDENCE-2026-08-14-ORIGIN-MAIN-53ED.md`.
 
 Si cualquier precondición falla, se conserva el estado actual y se registra el rechazo; no se escribe directamente Firestore ni se crea otro tenant.
 
