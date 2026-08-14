@@ -77,7 +77,10 @@ El preflight reproducible está disponible como
 exige `FIREBASE_ACCESS_TOKEN` entregado fuera del repositorio. Requiere declarar
 explícitamente el SHA, CI, hash de Functions, Rules, Storage, Vercel y la
 referencia de recovery junto con `--recovery-verified true` cuando exista una
-atestación independiente; siempre emite `productionWrites: false` y
+atestación independiente. Si se quiere declarar el operador listo, también
+requiere `FIREBASE_OPERATOR_ID_TOKEN` para comprobar la callable read-only de
+plataforma; un registro `saas_operadores` por sí solo no basta. Siempre emite
+`productionWrites: false` y
 `commandExecutionAllowed: false`. Antes del `2026-09-02` devuelve
 `ESPERAR_VENTANA` por defecto. Si se declara
 `--early-closure-approved true --decision-ref G-SAAS-02-PO-DECISION-CIERRE-ANTICIPADO-2026-08-14`, puede devolver

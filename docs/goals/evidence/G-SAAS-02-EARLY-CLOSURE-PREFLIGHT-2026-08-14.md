@@ -45,6 +45,9 @@ La ejecucion productiva se mantiene detenida por estos gates verificables:
    OAuth de Firebase CLI solo sirve para lecturas administrativas y fue
    rechazado por la callable como `UNAUTHENTICATED`; no se sustituyó por una
    escritura directa ni por un bypass de autorizacion.
+   El preflight anticipado ahora comprueba esa identidad con la callable
+   read-only `consultarContextoPlataforma` mediante `FIREBASE_OPERATOR_ID_TOKEN`;
+   la fila activa de `saas_operadores` no se considera suficiente.
 3. El CI post-merge de SHA `180a85f` estaba en ejecucion al momento de este
    registro (`31841829007`); no se declara verde hasta que termine.
 

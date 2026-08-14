@@ -60,6 +60,26 @@ function documentId(document: FirestoreDocument): string {
   return document.name?.split("/").pop() ?? "";
 }
 
+async function verificarAutenticacionOperador(projectId: string): Promise<{ verificada: boolean; uid: string | null }> {
+  const token = process.env.FIREBASE_OPERATOR_ID_TOKEN;
+  if (!token) return { verificada: false, uid: null };
+  try {
+    const response = await fetch(`https://us-central1-${encodeURIComponent(projectId)}.cloudfunctions.net/consultarContextoPlataforma`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ data: {} }),
+    });
+    if (!response.ok) return { verificada: false, uid: null };
+    const body = await response.json() as { result?: { uid?: unknown; estado?: unknown } };
+    const uid = body.result?.uid;
+    return typeof uid === "string" && body.result?.estado === "ACTIVO"
+      ? { verificada: true, uid }
+      : { verificada: false, uid: null };
+  } catch {
+    return { verificada: false, uid: null };
+  }
+}
+
 async function readProduction(projectId: string, tenantId: string): Promise<Pick<TrialTransitionSnapshot, "empresa" | "suscripcionRaiz" | "planAnual" | "configuracion" | "relaciones" | "operador">> {
   const token = process.env.FIREBASE_ACCESS_TOKEN;
   if (!token) throw new Error("FIREBASE_ACCESS_TOKEN es obligatorio; el preflight no obtiene ni imprime credenciales.");
@@ -109,6 +129,7 @@ async function main(): Promise<void> {
     vercelVerified: argumento("--vercel-verified") === "true",
   };
   const production = await readProduction(projectId, tenantId);
+  const autenticacionOperador = await verificarAutenticacionOperador(projectId);
   const snapshot: TrialTransitionSnapshot = {
     projectId,
     tenantId,
@@ -119,6 +140,8 @@ async function main(): Promise<void> {
     recoveryVerified: argumento("--recovery-verified") === "true",
     earlyClosureApproved: argumento("--early-closure-approved") === "true",
     decisionRef: argumento("--decision-ref") ?? null,
+    operatorAuthVerified: autenticacionOperador.verificada,
+    operatorAuthUid: autenticacionOperador.uid,
   };
   const result = evaluarTrialTransitionPreflight(snapshot);
   const output = `${JSON.stringify(result, null, 2)}\n`;

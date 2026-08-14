@@ -59,7 +59,7 @@ export interface TrialTransitionSnapshot {
   } | null;
   configuracion: { modulos?: { habilitados?: unknown } | null; revision?: unknown } | null;
   relaciones: readonly { id: string; estado?: unknown }[];
-  operador: { estado?: unknown; facultades?: unknown } | null;
+  operador: { uid?: unknown; estado?: unknown; facultades?: unknown } | null;
   release: {
     mainSha?: unknown;
     ciGreen?: unknown;
@@ -72,6 +72,8 @@ export interface TrialTransitionSnapshot {
   recoveryVerified?: boolean;
   earlyClosureApproved?: boolean;
   decisionRef?: string | null;
+  operatorAuthVerified?: boolean;
+  operatorAuthUid?: string | null;
 }
 
 export interface PreflightFinding {
@@ -197,6 +199,12 @@ export function evaluarTrialTransitionPreflight(snapshot: TrialTransitionSnapsho
     agregar(findings, "OPERATOR_AUTHORITY_INVALID", "BLOCKER", "El operador no está activo con facultades comerciales y de lifecycle.");
   } else {
     agregar(findings, "OPERATOR_AUTHORITY_CONFIRMED", "PASS", "Existe operador activo con facultades COMERCIAL_GOBERNAR y LIFECYCLE_GOBERNAR.");
+  }
+
+  if (snapshot.operatorAuthVerified !== true || snapshot.operatorAuthUid !== snapshot.operador?.uid) {
+    agregar(findings, "OPERATOR_AUTHENTICATION_MISSING", "BLOCKER", "La identidad Firebase del operador no ha sido verificada contra la callable read-only de plataforma.");
+  } else {
+    agregar(findings, "OPERATOR_AUTHENTICATION_CONFIRMED", "PASS", "La identidad Firebase del operador fue verificada contra la callable read-only de plataforma.");
   }
 
   const release = snapshot.release;

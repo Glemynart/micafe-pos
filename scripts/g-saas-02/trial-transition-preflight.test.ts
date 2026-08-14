@@ -29,7 +29,7 @@ function snapshot(overrides: Partial<TrialTransitionSnapshot> = {}): TrialTransi
     },
     configuracion: { revision: 3, modulos: { habilitados: [...HISTORIC_CAPABILITIES] } },
     relaciones: [],
-    operador: { estado: "ACTIVO", facultades: ["COMERCIAL_GOBERNAR", "LIFECYCLE_GOBERNAR"] },
+    operador: { uid: "operador", estado: "ACTIVO", facultades: ["COMERCIAL_GOBERNAR", "LIFECYCLE_GOBERNAR"] },
     release: {
       mainSha: "91e75b6e34e9892e3227a808ccd02c75408d74ef",
       ciGreen: true,
@@ -40,6 +40,8 @@ function snapshot(overrides: Partial<TrialTransitionSnapshot> = {}): TrialTransi
     },
     recoveryEvidenceRef: "recovery://g-saas-02/cafe-atrato/2026-09-02",
     recoveryVerified: true,
+    operatorAuthVerified: true,
+    operatorAuthUid: "operador",
     ...overrides,
   };
 }
