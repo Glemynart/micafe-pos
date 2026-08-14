@@ -59,10 +59,13 @@ No se usan NIT, credenciales fiscales, PINs o secretos inventados.
 
 ### 2.1 Transición del tenant mensual histórico
 
-La transición de Café Atrato solo se ejecuta después de `2026-09-02` y nunca reinicia el Trial mensual:
+La transición de Café Atrato conserva el Trial histórico y nunca lo reinicia.
+Por defecto se ejecuta después de `2026-09-02`. La decisión explícita del
+Product Owner registrada en `ADR-SAAS-032` permite ejecutarla antes de esa
+fecha mediante un cierre anticipado controlado:
 
 1. hacer preflight read-only de Empresa, suscripción raíz, relación vigente, plan v2, configuración, operador, Rules y punto de recuperación;
-2. ejecutar el cierre canónico del Trial mensual (`suspenderTrialVencido`) si no existe pago; la raíz puede avanzar en su lifecycle, pero no se cambian sus fechas, plan, capacidades históricas ni snapshot;
+2. para el flujo normal, ejecutar el cierre canónico del Trial mensual (`suspenderTrialVencido`) si no existe pago; para el cierre anticipado, ejecutar `TransicionarSuscripcion` con destino `canceled` mediante `ejecutarComandoComercialSaas`. En ambos casos no se cambian sus fechas, plan, capacidades históricas ni snapshot;
 3. ejecutar `CrearRelacionContractualTrial` mediante `ejecutarComandoComercialSaas`, con `planId=mvp_comercial`, `planVersion=2`, la revisión raíz observada y `relacionAnteriorId=legacy_mensual_v1`;
 4. verificar que la nueva relación tiene snapshot ANUAL, nueve capacidades y exactamente 30 días, mientras la raíz conserva `planVersion=1`, sus fechas y sus siete capacidades;
 5. ejecutar `TransicionarEmpresa` a `activa` mediante el comando de lifecycle, usando la revisión de Empresa observada después de materializar la relación;
@@ -73,9 +76,13 @@ El preflight reproducible está disponible como
 `npx tsx scripts/g-saas-02/trial-transition-preflight.ts`. Solo acepta lecturas `GET` de Firestore y
 exige `FIREBASE_ACCESS_TOKEN` entregado fuera del repositorio. Requiere declarar
 explícitamente el SHA, CI, hash de Functions, Rules, Storage, Vercel y la
-referencia de recovery; siempre emite `productionWrites: false` y
-`commandExecutionAllowed: false`. Antes del `2026-09-02` debe devolver
-`ESPERAR_VENTANA`; no debe invocar ninguno de los comandos de transición.
+referencia de recovery junto con `--recovery-verified true` cuando exista una
+atestación independiente; siempre emite `productionWrites: false` y
+`commandExecutionAllowed: false`. Antes del `2026-09-02` devuelve
+`ESPERAR_VENTANA` por defecto. Si se declara
+`--early-closure-approved true --decision-ref G-SAAS-02-PO-DECISION-CIERRE-ANTICIPADO-2026-08-14`, puede devolver
+`LISTO_PARA_CIERRE_ANTICIPADO`; el preflight sigue siendo read-only y no
+invoca comandos de transición.
 La evidencia de la ejecución histórica está en
 `docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-14-FINAL.md` y la
 revalidación actual está en

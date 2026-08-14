@@ -8,7 +8,8 @@ type FirestoreDocument = { name?: string; fields?: Record<string, unknown> };
 
 const argumentos = new Set([
   "--project", "--tenant", "--as-of", "--main-sha", "--functions-hash", "--ci-green",
-  "--rules-verified", "--storage-verified", "--vercel-verified", "--recovery-ref", "--out",
+  "--rules-verified", "--storage-verified", "--vercel-verified", "--recovery-ref",
+  "--recovery-verified", "--early-closure-approved", "--decision-ref", "--out",
 ]);
 
 function argumento(nombre: string): string | undefined {
@@ -115,13 +116,16 @@ async function main(): Promise<void> {
     ...production,
     release,
     recoveryEvidenceRef: argumento("--recovery-ref") ?? null,
+    recoveryVerified: argumento("--recovery-verified") === "true",
+    earlyClosureApproved: argumento("--early-closure-approved") === "true",
+    decisionRef: argumento("--decision-ref") ?? null,
   };
   const result = evaluarTrialTransitionPreflight(snapshot);
   const output = `${JSON.stringify(result, null, 2)}\n`;
   const out = argumento("--out");
   if (out) await writeFile(out, output, "utf8");
   process.stdout.write(output);
-  if (result.status !== "ESPERAR_VENTANA" && result.status !== "LISTO_PARA_COMANDOS") process.exitCode = 2;
+  if (!["ESPERAR_VENTANA", "LISTO_PARA_COMANDOS", "LISTO_PARA_CIERRE_ANTICIPADO"].includes(result.status)) process.exitCode = 2;
 }
 
 main().catch((error: unknown) => {

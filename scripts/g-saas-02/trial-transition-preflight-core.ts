@@ -26,7 +26,11 @@ export const HISTORIC_CAPABILITIES = [
 ] as const;
 
 export type PreflightSeverity = "PASS" | "WAITING" | "BLOCKER";
-export type PreflightStatus = "ESPERAR_VENTANA" | "BLOQUEADO" | "LISTO_PARA_COMANDOS";
+export type PreflightStatus =
+  | "ESPERAR_VENTANA"
+  | "BLOQUEADO"
+  | "LISTO_PARA_COMANDOS"
+  | "LISTO_PARA_CIERRE_ANTICIPADO";
 
 export interface TrialTransitionSnapshot {
   projectId: string;
@@ -65,6 +69,9 @@ export interface TrialTransitionSnapshot {
     vercelVerified?: unknown;
   };
   recoveryEvidenceRef?: string | null;
+  recoveryVerified?: boolean;
+  earlyClosureApproved?: boolean;
+  decisionRef?: string | null;
 }
 
 export interface PreflightFinding {
@@ -143,7 +150,16 @@ export function evaluarTrialTransitionPreflight(snapshot: TrialTransitionSnapsho
     agregar(findings, "AS_OF_INVALID", "BLOCKER", "La fecha de evaluación no tiene formato comercial válido.");
   }
   const trialClosed = fechaValida(asOf) && asOf >= HISTORIC_TRIAL_FIN;
-  if (!trialClosed) {
+  const earlyClosure = snapshot.earlyClosureApproved === true;
+  if (!trialClosed && earlyClosure) {
+    if (!snapshot.decisionRef?.trim()) {
+      agregar(findings, "EARLY_CLOSURE_DECISION_MISSING", "BLOCKER", "El cierre anticipado exige una referencia explícita de decisión del Product Owner.");
+    } else if (root?.estado !== "trialing") {
+      agregar(findings, "EARLY_CLOSURE_ROOT_NOT_TRIALING", "BLOCKER", "El cierre anticipado solo puede ejecutarse mientras la suscripción histórica siga en trialing.");
+    } else {
+      agregar(findings, "EARLY_CLOSURE_AUTHORIZED", "PASS", "Existe decisión explícita para cerrar anticipadamente el Trial histórico sin cambiar sus fechas ni su contrato.");
+    }
+  } else if (!trialClosed) {
     agregar(findings, "HISTORIC_TRIAL_STILL_OPEN", "WAITING", `El Trial mensual histórico permanece protegido hasta ${HISTORIC_TRIAL_FIN}.`);
   } else if (root?.estado !== "suspended") {
     agregar(findings, "ROOT_NOT_CANONICALLY_SUSPENDED", "BLOCKER", "Después del cierre histórico, la raíz todavía no está suspendida por el lifecycle canónico.");
@@ -190,8 +206,8 @@ export function evaluarTrialTransitionPreflight(snapshot: TrialTransitionSnapsho
     agregar(findings, "RELEASE_EVIDENCE_COMPLETE", "PASS", "La evidencia de release está completa y verificable.");
   }
 
-  if (!snapshot.recoveryEvidenceRef || !snapshot.recoveryEvidenceRef.trim()) {
-    agregar(findings, "RECOVERY_EVIDENCE_MISSING", "BLOCKER", "Falta un punto de recuperación verificable antes de cualquier escritura.");
+  if (!snapshot.recoveryEvidenceRef || !snapshot.recoveryEvidenceRef.trim() || snapshot.recoveryVerified !== true) {
+    agregar(findings, "RECOVERY_EVIDENCE_MISSING", "BLOCKER", "Falta una atestación independiente de recovery antes de cualquier escritura; la referencia de configuración por sí sola no basta.");
   } else {
     agregar(findings, "RECOVERY_EVIDENCE_PRESENT", "PASS", "Existe referencia de recovery para el preflight.");
   }
@@ -208,7 +224,9 @@ export function evaluarTrialTransitionPreflight(snapshot: TrialTransitionSnapsho
     readOnly: true,
     productionWrites: false,
     commandExecutionAllowed: false,
-    status: !trialClosed ? "ESPERAR_VENTANA" : readyForCanonicalCommands ? "LISTO_PARA_COMANDOS" : "BLOQUEADO",
+    status: !trialClosed
+      ? earlyClosure ? readyForCanonicalCommands ? "LISTO_PARA_CIERRE_ANTICIPADO" : "BLOQUEADO" : "ESPERAR_VENTANA"
+      : readyForCanonicalCommands ? "LISTO_PARA_COMANDOS" : "BLOQUEADO",
     readyForCanonicalCommands,
     findings,
   };
