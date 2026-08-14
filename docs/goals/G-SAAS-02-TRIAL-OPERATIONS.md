@@ -12,10 +12,12 @@ La lectura productiva actual del tenant de referencia está registrada en
 `docs/goals/evidence/G-SAAS-02-READONLY-PRODUCTION-2026-08-12.md` y la
 publicación posterior del catálogo anual está registrada en
 `docs/goals/evidence/G-SAAS-02-PLAN-ANNUAL-PUBLICATION-2026-08-12.md`. La
-revalidación read-only más reciente está registrada en
-`docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-13.md`; la
+revalidación read-only histórica está registrada en
+`docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-13.md` y la
+revalidación final contra el release vigente está en
+`docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-14-FINAL.md`; la
 documentación vigente quedó integrada en
-`origin/main @ a644d1d002d733b9ef2ea637894ff362c01ee59d`. La
+`origin/main @ edede7ac600b0524ac15683b4356bce715c171e7`. La
 versión anual v2 de `mvp_comercial` ya está publicada con precio de
 `1.800.000 COP`, periodicidad `ANUAL` y nueve capacidades. Café Atrato, sin
 embargo, conserva su suscripción mensual histórica y su Trial
@@ -69,7 +71,7 @@ referencia de recovery; siempre emite `productionWrites: false` y
 `commandExecutionAllowed: false`. Antes del `2026-09-02` debe devolver
 `ESPERAR_VENTANA`; no debe invocar ninguno de los comandos de transición.
 La evidencia de la ejecución actual está en
-`docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-13.md`; su estado
+`docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-14-FINAL.md`; su estado
 también registra recovery y release como gates pendientes, no como hechos
 supuestos.
 
