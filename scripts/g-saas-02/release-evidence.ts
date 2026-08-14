@@ -100,6 +100,14 @@ function obtenerFunctions(project: string): { observation: FunctionsObservation 
       : {};
     return String(item.hash ?? labels["firebase-functions-hash"] ?? "");
   }).filter(Boolean);
+  const functionHashesByName = Object.fromEntries(functions.map((item) => {
+    const name = String(item.id ?? item.name ?? item.entryPoint ?? "");
+    const labels = item.labels && typeof item.labels === "object"
+      ? item.labels as Record<string, unknown>
+      : {};
+    const hash = String(item.hash ?? labels["firebase-functions-hash"] ?? "");
+    return [name, hash];
+  }).filter(([name, hash]) => name.length > 0 && hash.length > 0));
   const hashCounts = Object.fromEntries([...new Set(functionHashes)].sort().map((hash) => [
     hash,
     functionHashes.filter((value) => value === hash).length,
@@ -112,6 +120,7 @@ function obtenerFunctions(project: string): { observation: FunctionsObservation 
       runtimes,
       hashes,
       hashCounts,
+      functionHashesByName,
     },
   };
 }

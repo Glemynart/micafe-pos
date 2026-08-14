@@ -20,6 +20,7 @@ export interface FunctionsObservation {
   runtimes: readonly string[];
   hashes: readonly string[];
   hashCounts: Readonly<Record<string, number>>;
+  functionHashesByName?: Readonly<Record<string, string>>;
 }
 
 export interface ExternalGateObservation {
@@ -195,6 +196,11 @@ export function evaluarReleaseEvidence(input: ReleaseEvidenceInput): ReleaseEvid
   const functionHashes = functions?.hashes ?? [];
   const functionsUniform = functionHashes.length === 1;
   const functionsHashDistributionObserved = functionHashes.length > 0;
+  const functionHashesByName = functions?.functionHashesByName;
+  const functionsPerFunctionReconciled = functions !== null
+    && functionHashesByName !== undefined
+    && Object.keys(functionHashesByName).length === functions.count
+    && Object.values(functionHashesByName).every((hash) => hash.length > 0);
   addCheck(
     checks,
     "FUNCTIONS_HASH_DISTRIBUTION",
@@ -203,12 +209,16 @@ export function evaluarReleaseEvidence(input: ReleaseEvidenceInput): ReleaseEvid
       ? "La distribución de hashes desplegados de Functions fue observada y registrada."
       : "No fue posible observar la distribución de hashes desplegados de Functions.",
   );
-  if (functionsHashDistributionObserved && !functionsUniform) {
+  if (functionsHashDistributionObserved) {
     addCheck(
       checks,
       "FUNCTIONS_HASH_RECONCILIATION",
-      "FOLLOW_UP",
-      "Las Functions observadas tienen hashes múltiples; debe reconciliarse el release por Function antes de certificarlo.",
+      functionsUniform || functionsPerFunctionReconciled ? "PASS" : "FOLLOW_UP",
+      functionsUniform
+        ? "El release de Functions usa un hash único observado."
+        : functionsPerFunctionReconciled
+          ? "Se observó y reconcilió el hash desplegado de cada Function; los hashes múltiples corresponden a Functions concretas."
+          : "Las Functions observadas tienen hashes múltiples y falta el mapa completo Function → hash para reconciliar el release.",
     );
   }
 

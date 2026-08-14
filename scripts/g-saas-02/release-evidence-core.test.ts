@@ -39,6 +39,25 @@ test("hashes múltiples de Functions quedan registrados para reconciliación", (
   assert.equal(result.checks.find((check) => check.id === "FUNCTIONS_HASH_RECONCILIATION")?.status, "FOLLOW_UP");
 });
 
+test("hashes múltiples quedan reconciliados cuando existe el mapa completo por Function", () => {
+  const result = evaluarReleaseEvidence(input({
+    functions: {
+      count: 3,
+      activeCount: 3,
+      runtimes: ["nodejs22"],
+      hashes: ["f".repeat(40), "e".repeat(40)],
+      hashCounts: { ["f".repeat(40)]: 2, ["e".repeat(40)]: 1 },
+      functionHashesByName: {
+        primera: "f".repeat(40),
+        segunda: "f".repeat(40),
+        tercera: "e".repeat(40),
+      },
+    },
+  }));
+  assert.equal(result.status, "COMPLETE");
+  assert.equal(result.checks.find((check) => check.id === "FUNCTIONS_HASH_RECONCILIATION")?.status, "PASS");
+});
+
 test("una referencia declarada no se convierte en atestación independiente", () => {
   const result = evaluarReleaseEvidence(input({
     external: {
