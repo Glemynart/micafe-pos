@@ -52,6 +52,21 @@ como mínimo, `roles/datastore.restoreAdmin` y los permisos de lectura de
 backups. No se amplió IAM automáticamente y no se imprimieron ni guardaron
 tokens.
 
+## Seguimiento read-only — 2026-08-15T08:40:29Z
+
+- `origin/main`: `027a8170e5df547aca8789737b79a2361df93e23`.
+- El schedule único permanece sin cambios y el listado de backups continúa en
+  cero en `southamerica-east1`.
+- El principal autenticado de Firebase CLI tiene `roles/owner` en el proyecto
+  `micafe-pos`; la matriz oficial de permisos de Firestore incluye
+  `datastore.backups.restoreDatabase` para Owner. El principal queda disponible
+  para solicitar el restore cuando exista un backup `READY`.
+- La cuenta de servicio local conserva sus roles previos y no se le concedió
+  recovery.
+- `RECOVERY_PRINCIPAL_READY = PASS`; `RECOVERY_INDEPENDENT_ATTESTATION = PENDING`.
+- La verificación no obtuvo, imprimió ni persistió tokens y no ejecutó ninguna
+  escritura de Firestore ni cambio de IAM.
+
 ## Siguiente ejecución segura
 
 Cuando exista un backup `READY`:
