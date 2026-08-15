@@ -22,6 +22,8 @@ export type RecoveryVerificationInput = {
   destinationDatabaseName?: string | null;
   destinationLocation?: string | null;
   destinationState?: string | null;
+  destinationSourceBackup?: string | null;
+  destinationSourceProgress?: string | null;
   tenantId: string;
   sourceDocuments: RecoveryVerificationDocument[];
   destinationDocuments: RecoveryVerificationDocument[];
@@ -136,10 +138,13 @@ export function verificarRecovery(input: RecoveryVerificationInput): RecoveryVer
     agregar(findings, "DESTINATION_NOT_ISOLATED", "BLOCKER", "El destino no cumple el aislamiento aprobado.");
   }
 
+  const destinationStateReady = input.destinationState === "READY" || input.destinationState === "ACTIVE";
+  const destinationRestoreCompleted = input.destinationSourceBackup === input.sourceBackup
+    && input.destinationSourceProgress === "COMPLETED";
   if (
     input.destinationDatabaseName === expectedDestinationName
     && input.destinationLocation === RECOVERY_VERIFY_LOCATION
-    && (input.destinationState === "READY" || input.destinationState === "ACTIVE")
+    && (destinationStateReady || destinationRestoreCompleted)
   ) {
     agregar(findings, "DESTINATION_READY_OBSERVED", "PASS", "La base restaurada está lista en la ubicación aprobada.");
   } else {

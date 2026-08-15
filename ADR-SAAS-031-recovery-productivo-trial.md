@@ -106,8 +106,9 @@ Para el Trial contractual de 30 días se adopta:
    restore exitoso, integridad mínima, aislamiento, RPO/RTO medidos y rollback
    documentado, sin secretos ni datos completos del tenant.
 
-Hasta producir esa evidencia, `RECOVERY_INDEPENDENT_ATTESTATION` y
-`RECOVERY_POINT_OBSERVED` permanecen pendientes y el Trial anual no se inicia.
+Antes del ensayo, `RECOVERY_INDEPENDENT_ATTESTATION` y
+`RECOVERY_POINT_OBSERVED` permanecían pendientes y el Trial anual no se
+iniciaba.
 
 ## Decisión resuelta
 
@@ -120,6 +121,30 @@ La política productiva queda resuelta como:
 5. responsable de plataforma/operador SaaS con acceso cloud autorizado;
 6. rollback sin tocar `(default)`;
 7. costo variable aceptado bajo billing habilitado.
+
+## Ejecución controlada y evidencia — 2026-08-15
+
+La política aceptada se ejecutó después del preflight read-only, usando un
+principal cloud autorizado y un destino nuevo. El origen `(default)` y el
+tenant Café Atrato permanecieron intactos:
+
+- Backup `b660289e-6ec3-4800-a191-b49294242c6f` en `READY`, snapshot
+  `2026-08-15T09:37:49.256986Z`.
+- Restore solicitado a `gsaas02-recovery-20260814` a las
+  `2026-08-15T09:51:00.886Z`; operación `SUCCESSFUL` a las
+  `2026-08-15T10:04:54.596776Z`.
+- Destino aislado en `southamerica-east1`; la API expuso
+  `sourceInfo.progress=COMPLETED` y el backup de origen correcto.
+- Verificación read-only: `VERIFIED`, integridad mínima confirmada, `RPO =
+  0.220 h` y `RTO = 0.232 h`.
+- No hubo cutover, escrituras de tenant, creación de usuarios ni reinicio del
+  Trial histórico.
+
+La evidencia detallada está en
+`docs/goals/evidence/G-SAAS-02-RECOVERY-OBSERVATION-2026-08-15.md`.
+`RECOVERY_INDEPENDENT_ATTESTATION = PASS` y
+`RECOVERY_POINT_OBSERVED = PASS` para este ensayo; el smoke productivo y el
+Trial anual siguen siendo gates independientes.
 
 ## Alternativas
 
@@ -168,9 +193,8 @@ anual antes del cierre del Trial histórico el `2026-09-02`.
 
 ## Consecuencias
 
-Este ADR resuelve la política técnica de recovery, pero no certifica por sí
-solo el recovery productivo: el schedule, un backup y un restore exitoso deben
-quedar observados en evidencia independiente. El release global de G-SAAS-02
+Este ADR resuelve la política técnica de recovery y su ensayo independiente
+ya quedó atestado para el punto observado. El release global de G-SAAS-02
 permanece `INCOMPLETE` hasta cerrar también el smoke productivo, el cierre del
 Trial histórico, la relación anual y el Trial operativo completo. El smoke
 productivo requiere una cuenta/ventana de prueba segura y se mantiene como

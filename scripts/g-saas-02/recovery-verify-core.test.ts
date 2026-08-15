@@ -62,3 +62,23 @@ test("bloquea una copia antigua o una divergencia de integridad", () => {
   assert.ok(result.findings.some((finding) => finding.code === "INTEGRITY_MINIMUM_MISSING"));
   assert.ok(result.findings.some((finding) => finding.code === "RPO_OUTSIDE_TARGET"));
 });
+
+test("acepta la señal oficial de restore completado cuando la API no expone state", () => {
+  const result = verificarRecovery(input({
+    destinationState: null,
+    destinationSourceBackup: sourceBackup,
+    destinationSourceProgress: "COMPLETED",
+  }));
+  assert.equal(result.status, "VERIFIED");
+  assert.ok(result.findings.some((finding) => finding.code === "DESTINATION_READY_OBSERVED"));
+});
+
+test("bloquea sourceInfo completado si apunta a otro backup", () => {
+  const result = verificarRecovery(input({
+    destinationState: null,
+    destinationSourceBackup: "projects/micafe-pos/locations/southamerica-east1/backups/otro-backup",
+    destinationSourceProgress: "COMPLETED",
+  }));
+  assert.equal(result.status, "BLOCKED");
+  assert.ok(result.findings.some((finding) => finding.code === "DESTINATION_NOT_READY"));
+});
