@@ -4,7 +4,7 @@ import { HttpsError } from "firebase-functions/v2/https";
 import { idCredencialOperativa, type OrigenIncorporacion, type RolTenant } from "../contracts";
 import { consultarIncorporacionDirectaMasReciente, idIncorporacionDirecta, INCORPORACIONES_COLLECTION } from "../incorporaciones-service";
 import { hashearPin } from "../pin-security";
-import { derivarSlugParaCodigo, generarCodigoOperativo, generarPinTemporal, MAX_INTENTOS_UNICIDAD } from "./credencial-inicial";
+import { generarCodigoOperativo, generarPinTemporal, MAX_INTENTOS_UNICIDAD } from "./credencial-inicial";
 import { CODIGO_OPERATIVO_GLOBAL_YA_ASIGNADO, reservarCodigoOperativoEnTransaccion } from "./reserva-codigo-operativo";
 
 /**
@@ -139,11 +139,10 @@ export async function emitirCredencialInicial(
   const principal = await resolverPrincipal(uid);
   const nombre = principal.displayName?.trim() || "Administrador";
 
-  const slug = derivarSlugParaCodigo(nombreComercial);
   const usuarioRef = db.collection(USUARIOS_COLLECTION).doc(uid);
 
   for (let intento = 0; intento < MAX_INTENTOS_UNICIDAD; intento++) {
-    const codigo = generarCodigoOperativo(slug);
+    const codigo = generarCodigoOperativo(nombreComercial, rol === "admin" ? "admin" : nombre, intento);
     const pinTemporal = generarPinTemporal();
     const pinHash = await hashearPin(pinTemporal, pepper);
     const expiraEn = Timestamp.fromMillis(Date.now() + ttlMs);

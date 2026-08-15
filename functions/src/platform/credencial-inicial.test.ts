@@ -9,17 +9,16 @@ import {
 const CODIGO_REGEX = /^[a-z0-9._-]{3,32}$/;
 const PIN_REGEX = /^[0-9]{6}$/;
 
-test("generarPinTemporal produce siempre 6 dígitos, con ceros a la izquierda si aplica", () => {
+test("generarPinTemporal produce siempre 6 dígitos", () => {
   for (let i = 0; i < 200; i++) {
-    const pin = generarPinTemporal();
-    assert.match(pin, PIN_REGEX, `PIN inválido: ${pin}`);
+    assert.match(generarPinTemporal(), PIN_REGEX);
   }
 });
 
 test("derivarSlugParaCodigo normaliza acentos, minúsculas y caracteres no alfanuméricos", () => {
-  assert.equal(derivarSlugParaCodigo("Café Atrato"), "cafeat");
-  assert.equal(derivarSlugParaCodigo("Mi Café Especial"), "micafe");
-  assert.equal(derivarSlugParaCodigo("ÑOÑO S.A.S"), "nonosa");
+  assert.equal(derivarSlugParaCodigo("Café Atrato"), "cafeatrato");
+  assert.equal(derivarSlugParaCodigo("Mi Café Especial"), "micafeespecial");
+  assert.equal(derivarSlugParaCodigo("ÑOÑO S.A.S"), "nonosas");
 });
 
 test("derivarSlugParaCodigo nunca produce menos de 3 caracteres", () => {
@@ -27,18 +26,14 @@ test("derivarSlugParaCodigo nunca produce menos de 3 caracteres", () => {
   assert.equal(derivarSlugParaCodigo(""), "000");
 });
 
-test("generarCodigoOperativo cumple el CODIGO_REGEX del contrato existente", () => {
-  for (let i = 0; i < 100; i++) {
-    const codigo = generarCodigoOperativo("atrato");
-    assert.match(codigo, CODIGO_REGEX, `código inválido: ${codigo}`);
-    assert.match(codigo, /^atrato-[0-9a-hj-km-np-tv-z]{4}$/, `alfabeto Crockford violado: ${codigo}`);
-  }
+test("generarCodigoOperativo produce un identificador recordable de negocio y persona", () => {
+  const codigo = generarCodigoOperativo("Café Atrato", "María López");
+  assert.equal(codigo, "cafeatrato-maria");
+  assert.match(codigo, CODIGO_REGEX);
 });
 
-test("generarCodigoOperativo excluye los caracteres ambiguos i, l, o, u", () => {
-  const codigos = Array.from({ length: 500 }, () => generarCodigoOperativo("atrato"));
-  const sufijos = codigos.map((c) => c.split("-")[1]).join("");
-  for (const ambiguo of ["i", "l", "o", "u"]) {
-    assert.equal(sufijos.includes(ambiguo), false, `carácter ambiguo '${ambiguo}' apareció en un código generado`);
-  }
+test("generarCodigoOperativo usa el rol admin y un diferenciador legible en colisión", () => {
+  assert.equal(generarCodigoOperativo("Café Atrato", "admin"), "cafeatrato-admin");
+  assert.equal(generarCodigoOperativo("Café Atrato", "admin", 1), "cafeatrato-admin-2");
+  assert.match(generarCodigoOperativo("Nombre Comercial Largo", "Persona Operativa", 4), CODIGO_REGEX);
 });

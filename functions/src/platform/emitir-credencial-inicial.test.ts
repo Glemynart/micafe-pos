@@ -153,7 +153,7 @@ test("emite una credencial nueva: código único, PIN de 6 dígitos, requiereCam
 
   assert.equal(resultado.estado, "EMITIDA");
   assert.match(resultado.pinTemporal!, /^[0-9]{6}$/);
-  assert.match(resultado.codigo, /^cafeat-[0-9a-hj-km-np-tv-z]{4}$/);
+  assert.equal(resultado.codigo, "cafeatrato-admin");
 
   const credencial = db.docs.get(`credenciales_operativas/empresa-1_${resultado.codigo}`);
   assert.equal(credencial.empresaId, "empresa-1");

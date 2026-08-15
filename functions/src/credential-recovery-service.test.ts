@@ -116,7 +116,7 @@ test("ADR-SAAS-017: recupera operador, no persiste secretos en el agregado y act
   );
   assert.equal(primera.idempotente, false);
   assert.equal(primera.estado, "PENDIENTE_ACTIVACION");
-  assert.match(primera.codigo!, /^tenant-/);
+  assert.equal(primera.codigo, "cafeatrato-operador");
   assert.match(primera.pinTemporal!, /^\d{6}$/);
   const recovery = db.read(`restablecimientos_credencial/${primera.restablecimientoId}`);
   assert.equal("pinHash" in recovery, false);
@@ -195,6 +195,7 @@ test("ADR-SAAS-017: la recuperación del administrador exige autoridad SaaS y ev
     { metodo: "CONFIRMACION_PROPIETARIO", referencia: "ticket-1234" },
   );
   assert.equal(resultado.uid, "owner-1");
+  assert.equal(resultado.codigo, "tenantdemo-admin");
   const recovery = db.read(`restablecimientos_credencial/${resultado.restablecimientoId}`);
   assert.deepEqual(recovery.verificacionFueraDeBanda, undefined);
   assert.equal(recovery.solicitadoPor.tipo, "OPERADOR_SAAS");

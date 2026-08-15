@@ -25,7 +25,7 @@ import {
 import { crearObligacionAuditoria, emitirObligacionAuditoria } from "./platform/audit";
 import { esCredencialTemporalPlataformaVencidaOInvalida } from "./platform/vigencia-credencial-temporal";
 import { CODIGO_OPERATIVO_GLOBAL_YA_ASIGNADO, reservarCodigoOperativoEnTransaccion } from "./platform/reserva-codigo-operativo";
-import { derivarSlugParaCodigo, generarCodigoOperativo, generarPinTemporal, MAX_INTENTOS_UNICIDAD } from "./platform/credencial-inicial";
+import { generarCodigoOperativo, generarPinTemporal, MAX_INTENTOS_UNICIDAD } from "./platform/credencial-inicial";
 
 export const INCORPORACIONES_COLLECTION = "incorporaciones";
 
@@ -183,7 +183,7 @@ export async function crearIncorporacionDirecta({
     if (codigo === null) {
       const empresaSnap = await db.collection("empresas").doc(empresaId).get();
       const nombreComercial = empresaSnap.data()?.nombreComercial ?? empresaSnap.data()?.nombre ?? empresaId;
-      codigo = generarCodigoOperativo(derivarSlugParaCodigo(nombreComercial));
+      codigo = generarCodigoOperativo(nombreComercial, nombre, intento);
     }
     const codigoResuelto: string = codigo;
 

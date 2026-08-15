@@ -3,7 +3,7 @@ import { FieldValue, Timestamp, type Firestore, type Transaction } from "firebas
 import { HttpsError } from "firebase-functions/v2/https";
 import { type RolTenant, esPinValido, esRolTenant, idCredencialOperativa } from "./contracts";
 import { hashearPin, verificarPin } from "./pin-security";
-import { derivarSlugParaCodigo, generarCodigoOperativo, generarPinTemporal, MAX_INTENTOS_UNICIDAD } from "./platform/credencial-inicial";
+import { generarCodigoOperativo, generarPinTemporal, MAX_INTENTOS_UNICIDAD } from "./platform/credencial-inicial";
 import { CODIGO_OPERATIVO_GLOBAL_YA_ASIGNADO, reservarCodigoOperativoEnTransaccion } from "./platform/reserva-codigo-operativo";
 import { crearObligacionAuditoria, emitirObligacionAuditoria } from "./platform/audit";
 
@@ -160,15 +160,12 @@ function planificarAuditoria(
   return obligacionId;
 }
 
-function obtenerCodigoUsuario(userSnap: SnapshotLike, empresaSnap: SnapshotLike): string {
+function obtenerNombreOperativo(userSnap: SnapshotLike, rol: unknown): string {
   const user = userSnap.data();
-  const empresa = empresaSnap.data();
-  const nombre = typeof user?.nombre === "string" && user.nombre.trim()
-    ? user.nombre
-    : typeof empresa?.nombreComercial === "string" && empresa.nombreComercial.trim()
-      ? empresa.nombreComercial
-      : "operador";
-  return derivarSlugParaCodigo(nombre);
+  if (rol === "admin") return "admin";
+  if (typeof user?.nombre === "string" && user.nombre.trim()) return user.nombre;
+  if (typeof user?.username === "string" && user.username.trim()) return user.username;
+  return typeof rol === "string" && esRolTenant(rol) ? rol : "usuario";
 }
 
 /**
@@ -195,7 +192,6 @@ export async function solicitarRestablecimientoCredencial(
   const fingerprintActual = fingerprint({ actor, empresaId, objetivoUid, evidencia: evidenciaValidada ?? null });
 
   for (let intento = 0; intento < MAX_INTENTOS_UNICIDAD; intento++) {
-    const codigo = generarCodigoOperativo(derivarSlugParaCodigo(empresaId));
     const pinTemporal = generarPinTemporal();
     const pinHash = await hashearPin(pinTemporal, pepper);
     const expiraEn = Timestamp.fromMillis(Date.now() + TTL_RESTABLECIMIENTO_MS);
@@ -240,6 +236,18 @@ export async function solicitarRestablecimientoCredencial(
             error("failed-precondition", "RECUPERACION_ADMINISTRADOR_NO_VERIFICADA");
           }
         }
+
+        const empresa = empresaSnap.data();
+        const nombreComercial = typeof empresa?.nombreComercial === "string" && empresa.nombreComercial.trim()
+          ? empresa.nombreComercial
+          : typeof empresa?.nombre === "string" && empresa.nombre.trim()
+            ? empresa.nombre
+            : "empresa";
+        const codigo = generarCodigoOperativo(
+          nombreComercial,
+          obtenerNombreOperativo(userSnap, targetMembership?.rol),
+          intento,
+        );
 
         const activas = credencialesSnap.docs.filter((snap: SnapshotLike) => snap.get?.("activo") === true);
         if (activas.length !== 1) error("failed-precondition", "CREDENCIAL_ACTIVA_NO_UNICA");
