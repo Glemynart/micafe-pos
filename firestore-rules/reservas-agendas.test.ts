@@ -43,11 +43,13 @@ test("reservas y agendas: el rol y el tenant siguen siendo obligatorios para cli
   const adminB = await contextFor(fixtures.tenantB.admin);
 
   await expectAllowed(cajeroA.firestore().doc(reservaA).get());
-  await expectAllowed(cajeroA.firestore().doc(reservaA).update({ estadoReserva: "completada" }));
+  await expectDenied(cajeroA.firestore().doc(reservaA).update({ estadoReserva: "completada" }));
+  await expectDenied(cajeroA.firestore().doc("reservas/nueva").set({ empresaId: "empresa-a", estadoReserva: "activa" }));
   await expectDenied(cocineroA.firestore().doc(reservaA).update({ estadoReserva: "completada" }));
   await expectDenied(adminB.firestore().doc(reservaA).get());
-  await expectAllowed(cajeroA.firestore().doc(agendaA).update({ bloques: { "08": { reservaId: "r1" } } }));
+  await expectDenied(cajeroA.firestore().doc(agendaA).update({ bloques: { "08": { reservaId: "r1" } } }));
   await expectDenied(cajeroA.firestore().doc("agendas/nueva").set({ empresaId: "empresa-a", bloques: {} }));
+  await expectDenied(cajeroA.firestore().doc("reservas_operaciones/operacion-1").set({ empresaId: "empresa-a" }));
 });
 
 test("reservas y agendas: las rutas backend pueden escribir mediante Admin SDK", async () => {

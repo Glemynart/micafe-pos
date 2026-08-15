@@ -37,6 +37,7 @@ export {
   registrarMermaOperativaV1,
 } from "./inventario/callables";
 export { crearProveedorOperativoV1, actualizarProveedorOperativoV1, desactivarProveedorOperativoV1 } from "./proveedores/callables";
+export { cancelarReservaOperativaV1, completarReservaOperativaV1 } from "./reservas/callables";
 export {
   crearCuentaSalonV1,
   agregarLineaCuentaSalonV1,

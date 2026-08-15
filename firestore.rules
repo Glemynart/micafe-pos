@@ -158,15 +158,16 @@ service cloud.firestore {
     // Reservas públicas: la landing opera exclusivamente por rutas Admin SDK.
     match /reservas/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
-      allow create: if puedeCrearEnTenant() && esOperativo();
-      allow update: if puedeActualizarEnTenant() && esOperativo();
+      allow create, update: if false;
       allow delete: if false;
     }
     match /agendas/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
-      allow create: if false;
-      allow update: if puedeActualizarEnTenant() && esOperativo();
+      allow create, update: if false;
       allow delete: if false;
+    }
+    match /reservas_operaciones/{id} {
+      allow read, write: if false;
     }
 
     match /compras/{id} {
