@@ -171,6 +171,19 @@ read-only para el cliente después de verificar el deploy de las Functions y
 del cliente compatible. Los documentos históricos no se reescriben; una
 corrección posterior se realiza por un nuevo comando compensatorio.
 
+## 5.2 Reservas internas del POS
+
+`ADR-SAAS-033` fue aceptado para cerrar la mutación histórica desde el
+navegador. La creación pública, disponibilidad, hold y webhook permanecen en
+backend; el POS usa `cancelarReservaOperativaV1` y
+`completarReservaOperativaV1`. El servidor deriva reserva, tenant, actor,
+importe, agenda y bloques. Una reserva pendiente se cobra como venta DEMO
+determinista durante el Trial y puede reintentarse si la saga se interrumpe.
+
+Las Rules de `reservas`, `agendas` y `reservas_operaciones` niegan escrituras
+del cliente. No se reescriben reservas históricas ni se habilita fiscalidad
+real o Wompi SaaS por este alcance.
+
 ## 6. Release, rollback y recuperación
 
 Antes del Trial se registra:

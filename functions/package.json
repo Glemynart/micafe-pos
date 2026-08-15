@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "tsx --test src/contracts.test.ts src/incorporaciones-service.test.ts src/pin-security.test.ts src/credential-recovery-service.test.ts src/configuracion/*.test.ts src/fiscal/*.test.ts src/finanzas/*.test.ts src/inventario/*.test.ts src/proveedores/*.test.ts src/suscripciones/*.test.ts src/bootstrap/*.test.ts src/onboarding/*.test.ts src/platform/*.test.ts src/salon/*.test.ts",
+    "test": "tsx --test src/contracts.test.ts src/incorporaciones-service.test.ts src/pin-security.test.ts src/credential-recovery-service.test.ts src/configuracion/*.test.ts src/fiscal/*.test.ts src/finanzas/*.test.ts src/inventario/*.test.ts src/proveedores/*.test.ts src/reservas/*.test.ts src/suscripciones/*.test.ts src/bootstrap/*.test.ts src/onboarding/*.test.ts src/platform/*.test.ts src/salon/*.test.ts",
     "test:p0-06:emulator": "tsx --test src/turnos/p0-06.emulator.test.ts",
     "test:p1-02:emulator": "tsx --test src/finanzas/p1-02.emulator.test.ts",
     "test:p1-04:emulator": "tsx --test src/salon/p1-04.emulator.test.ts",

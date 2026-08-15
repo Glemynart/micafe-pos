@@ -81,7 +81,6 @@ export function ReservasModule() {
       await completarReserva({
         reservaId: reserva.id,
         turnoId: turnoActivo?.id,
-        cajeroId: usuario?.uid,
       })
 
       toast({

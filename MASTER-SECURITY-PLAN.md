@@ -26,6 +26,9 @@ No se usa Espacio como frontera de seguridad ni se introduce una Sede técnica p
   de catálogo y mermas quedan bajo el cutover aceptado de `ADR-SAAS-030`; la
   implementación y el despliegue del deny de Rules deben verificarse antes de
   declarar el control operativo integrado.
+- Las reservas internas y su agenda quedan bajo el cutover aceptado de
+  `ADR-SAAS-033`; cancelación y completado usan Functions idempotentes y el
+  cliente no puede escribir esas colecciones.
 - Backoffice para consulta, lifecycle, soporte consentido, recuperación de credenciales y auditoría.
 - CI con typecheck, builds, Rules, Storage Rules, Functions, Emulator y E2E según superficie.
 
@@ -45,12 +48,12 @@ No se usa Espacio como frontera de seguridad ni se introduce una Sede técnica p
 |---|---|---|
 | Functions productivas no demostradas contra el SHA actual | Pendiente | Gate M4: despliegue identificable y smoke test |
 | Recuperación productiva no ensayada | Pendiente | Gate M4: backup/restore o justificación documentada |
-| Mutaciones directas históricas de stock y mermas | P1 / remediación en curso | `ADR-SAAS-030` aceptado; Functions, cliente migrado, Rules deny y verificación post-merge pendientes |
+| Mutaciones directas históricas de stock, mermas y reservas internas | P1 / remediación en curso | `ADR-SAAS-030` y `ADR-SAAS-033` aceptados; inventario integrado en PR #322; reservas pendientes de CI, deploy y verificación post-merge |
 | Fiscalidad externa | Condicional | Solo si el cliente selecciona FISCAL y aporta datos aprobados |
 | Hardware de impresión | Condicional | Validar modelo/driver 58/80 mm si el cliente lo requiere |
 | MT-U10 límites/consumo | Fuera de G-SAAS-02 | No implementar sin necesidad y decisión de producto |
 | MT-U11 multiempresa por identidad | Fuera de G-SAAS-02 | Un usuario → un tenant es suficiente |
-| Wompi, reservas, offline y notificaciones | Fuera de G-SAAS-02 | No implementar anticipadamente |
+| Wompi SaaS, reservas públicas, offline y notificaciones | Fuera de G-SAAS-02 | Las reservas internas del POS se cubren únicamente por `ADR-SAAS-033` |
 
 ## Respuesta a incidentes
 
