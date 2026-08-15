@@ -76,7 +76,10 @@ export function CompanyDetail({ empresaId }: { empresaId: string }) {
   }
 
   async function recuperarAdministrador() {
-    if (!referenciaVerificacion.trim()) return;
+    if (!referenciaVerificacionValida) {
+      toast.error("La referencia debe tener entre 4 y 160 caracteres.");
+      return;
+    }
     setCredencialAccion(true);
     try {
       const resultado = await restablecerCredencialAdministrador(empresaId, {
@@ -93,7 +96,10 @@ export function CompanyDetail({ empresaId }: { empresaId: string }) {
   }
 
   async function reemitirRecuperacionAdministrador() {
-    if (!referenciaVerificacion.trim()) return;
+    if (!referenciaVerificacionValida) {
+      toast.error("La referencia debe tener entre 4 y 160 caracteres.");
+      return;
+    }
     setCredencialAccion(true);
     try {
       const resultado = await reemitirRestablecimientoCredencialAdministrador(empresaId, {
@@ -124,6 +130,9 @@ export function CompanyDetail({ empresaId }: { empresaId: string }) {
       await load();
     } catch (cause) { toast.error(mensajeError(cause)); } finally { setAccion(false); setConfirmarCancelacion(false); }
   }
+
+  const referenciaVerificacionValida = referenciaVerificacion.trim().length >= 4
+    && referenciaVerificacion.trim().length <= 160;
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} retry={load} />;
@@ -162,15 +171,15 @@ export function CompanyDetail({ empresaId }: { empresaId: string }) {
       <AlertDialog open={confirmarRecuperacion} onOpenChange={setConfirmarRecuperacion}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>¿Restablecer acceso del administrador?</AlertDialogTitle><AlertDialogDescription>Esta acción invalida la credencial activa, genera un nuevo código y PIN temporal y exige que el administrador defina un PIN definitivo. Confirma la evidencia fuera de banda antes de continuar.</AlertDialogDescription></AlertDialogHeader>
-          <div className="space-y-2 py-2"><label htmlFor="evidencia-recuperacion" className="text-sm font-medium">Referencia de verificación</label><Input id="evidencia-recuperacion" value={referenciaVerificacion} onChange={(event) => setReferenciaVerificacion(event.target.value)} placeholder="Ticket o referencia de confirmación" /></div>
-          <AlertDialogFooter><AlertDialogCancel disabled={credencialAccion}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={credencialAccion || !referenciaVerificacion.trim()} onClick={(event) => { event.preventDefault(); void recuperarAdministrador(); }}>{credencialAccion && <LoaderCircle className="mr-2 size-4 animate-spin" />}Restablecer acceso</AlertDialogAction></AlertDialogFooter>
+          <div className="space-y-2 py-2"><label htmlFor="evidencia-recuperacion" className="text-sm font-medium">Referencia de verificación</label><Input id="evidencia-recuperacion" minLength={4} maxLength={160} value={referenciaVerificacion} onChange={(event) => setReferenciaVerificacion(event.target.value)} placeholder="Ticket o referencia de confirmación" /></div>
+          <AlertDialogFooter><AlertDialogCancel disabled={credencialAccion}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={credencialAccion || !referenciaVerificacionValida} onClick={(event) => { event.preventDefault(); void recuperarAdministrador(); }}>{credencialAccion && <LoaderCircle className="mr-2 size-4 animate-spin" />}Restablecer acceso</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
       <AlertDialog open={confirmarReemisionRecuperacion} onOpenChange={setConfirmarReemisionRecuperacion}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>¿Reemitir la recuperación pendiente?</AlertDialogTitle><AlertDialogDescription>La recuperación anterior se cancelará, su código y PIN dejarán de funcionar y se generará una nueva credencial temporal. Confirma nuevamente la evidencia fuera de banda. El nuevo PIN solo se mostrará una vez.</AlertDialogDescription></AlertDialogHeader>
-          <div className="space-y-2 py-2"><label htmlFor="evidencia-reemision-recuperacion" className="text-sm font-medium">Referencia de verificación</label><Input id="evidencia-reemision-recuperacion" value={referenciaVerificacion} onChange={(event) => setReferenciaVerificacion(event.target.value)} placeholder="Ticket o referencia de confirmación" /></div>
-          <AlertDialogFooter><AlertDialogCancel disabled={credencialAccion}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={credencialAccion || !referenciaVerificacion.trim()} onClick={(event) => { event.preventDefault(); void reemitirRecuperacionAdministrador(); }}>{credencialAccion && <LoaderCircle className="mr-2 size-4 animate-spin" />}Reemitir recuperación</AlertDialogAction></AlertDialogFooter>
+          <div className="space-y-2 py-2"><label htmlFor="evidencia-reemision-recuperacion" className="text-sm font-medium">Referencia de verificación</label><Input id="evidencia-reemision-recuperacion" minLength={4} maxLength={160} value={referenciaVerificacion} onChange={(event) => setReferenciaVerificacion(event.target.value)} placeholder="Ticket o referencia de confirmación" /></div>
+          <AlertDialogFooter><AlertDialogCancel disabled={credencialAccion}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={credencialAccion || !referenciaVerificacionValida} onClick={(event) => { event.preventDefault(); void reemitirRecuperacionAdministrador(); }}>{credencialAccion && <LoaderCircle className="mr-2 size-4 animate-spin" />}Reemitir recuperación</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
       <AlertDialog open={confirmarCancelacion} onOpenChange={setConfirmarCancelacion}>

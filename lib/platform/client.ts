@@ -211,6 +211,7 @@ export function mensajeError(error: unknown): string {
   const raw = error instanceof Error ? error.message : "No fue posible completar la operación.";
   if (raw.includes("PLATFORM_CONTEXT_STALE")) return "La autorización cambió. Actualiza tu sesión e intenta de nuevo.";
   if (raw.includes("PLATFORM_ACCESS_DENIED")) return "No tienes autorización para esta operación.";
+  if (raw.includes("EVIDENCIA_FUERA_DE_BANDA_INVALIDA")) return "La referencia debe tener entre 4 y 160 caracteres.";
   if (raw.includes("CONFLICTO_REVISION")) return "El registro cambió. Recarga antes de reintentar.";
   return raw.replace(/^FirebaseError:\s*/i, "");
 }

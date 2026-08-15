@@ -92,6 +92,21 @@ function command(key = "key-1") {
   } as const;
 }
 
+test("ADR-SAAS-017: rechaza una referencia de verificaciÃ³n demasiado corta antes de escribir", async () => {
+  await assert.rejects(
+    solicitarRestablecimientoCredencial(
+      new FakeDb() as any,
+      { tipo: "OPERADOR_SAAS", uid: "saas-operator", facultad: "ACCESO_RESTABLECER" },
+      command("short-reference"),
+      "tenant-owner",
+      "owner-1",
+      "test-pepper",
+      { metodo: "CONFIRMACION_PROPIETARIO", referencia: "abc" },
+    ),
+    (cause: any) => cause?.code === "invalid-argument" && cause?.message === "EVIDENCIA_FUERA_DE_BANDA_INVALIDA",
+  );
+});
+
 test("ADR-SAAS-017: recupera operador, no persiste secretos en el agregado y activa de un solo uso", async () => {
   const db = new FakeDb();
   const pepper = "test-pepper";
