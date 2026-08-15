@@ -20,6 +20,16 @@ function parseBody(value: string): unknown {
   }
 }
 
+function apiError(status: number): string {
+  if (status === 403) {
+    return "Firestore Admin API respondió HTTP 403: el principal no tiene permisos de recovery. "
+      + "Se requieren datastore.backups.get/list para observar el backup y "
+      + "datastore.backups.restoreDatabase junto con datastore.databases.create para restaurar; "
+      + "use roles/datastore.restoreAdmin o un rol equivalente.";
+  }
+  return "Firestore Admin API respondió HTTP " + status + ".";
+}
+
 async function request(
   method: "GET" | "POST",
   path: string,
@@ -46,7 +56,7 @@ async function request(
       status: response.status,
       body: parseBody(rawBody),
       ...(!response.ok
-        ? { error: "Firestore Admin API respondió HTTP " + response.status + "." }
+        ? { error: apiError(response.status) }
         : {}),
     };
   } catch (error: unknown) {
