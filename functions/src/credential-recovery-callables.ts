@@ -14,6 +14,7 @@ import { emitirSesionTenant } from "./operational-auth";
 
 const REGION = "us-central1";
 const PIN_PEPPER = defineSecret("OPERATIONAL_PIN_PEPPER");
+const CORS_ORIGINS = ["https://cafeatrato.vercel.app"];
 
 function exigirAuth(request: { auth?: { uid: string; token: Record<string, unknown> } | null }) {
   if (!request.auth) throw new HttpsError("unauthenticated", "Autenticación requerida.");
@@ -27,7 +28,7 @@ function pepper(): string {
 }
 
 export const restablecerCredencialOperativa = onCall(
-  { region: REGION, secrets: [PIN_PEPPER] },
+  { region: REGION, secrets: [PIN_PEPPER], cors: CORS_ORIGINS, invoker: "public" },
   async (request) => {
     const auth = exigirAuth(request);
     const tenant = await exigirAdminTenant(request);
@@ -51,7 +52,7 @@ export const restablecerCredencialOperativa = onCall(
 );
 
 export const restablecerCredencialAdministradorTenantSaas = onCall(
-  { region: REGION, secrets: [PIN_PEPPER] },
+  { region: REGION, secrets: [PIN_PEPPER], cors: CORS_ORIGINS, invoker: "public" },
   async (request) => {
     const auth = exigirAuth(request);
     const db = getFirestore();
@@ -82,7 +83,7 @@ export const restablecerCredencialAdministradorTenantSaas = onCall(
 );
 
 export const activarRestablecimientoCredencial = onCall(
-  { region: REGION, secrets: [PIN_PEPPER] },
+  { region: REGION, secrets: [PIN_PEPPER], cors: CORS_ORIGINS, invoker: "public" },
   async (request) => {
     const auth = exigirAuth(request);
     if (auth.token.authStage !== "RESTABLECIMIENTO_TEMP" || typeof auth.token.restablecimientoId !== "string") {
