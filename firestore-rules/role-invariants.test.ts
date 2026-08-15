@@ -22,14 +22,14 @@ after(async () => {
   await cleanupRulesTestEnvironment();
 });
 
-test("roles: el tenant correcto no basta para mutar catálogos", async () => {
+test("roles: el catálogo solo puede mutarse mediante callable backend", async () => {
   const cajeroTenantA = await contextFor(fixtures.tenantA.cajero);
   const cocineroTenantA = await contextFor(fixtures.tenantA.cocinero);
   const adminTenantB = await contextFor(fixtures.tenantB.admin);
   const path = "productos/catalogo-tenant-a";
   await seedDocument(path, { empresaId: "empresa-a", nombre: "Café" });
 
-  await expectAllowed(cajeroTenantA.firestore().doc(path).update({ nombre: "Café negro" }));
+  await expectDenied(cajeroTenantA.firestore().doc(path).update({ nombre: "Café negro" }));
   await expectDenied(cocineroTenantA.firestore().doc(path).update({ nombre: "No permitido" }));
   await expectDenied(adminTenantB.firestore().doc(path).update({ nombre: "Otro tenant" }));
 });
@@ -92,7 +92,7 @@ test("invariantes: auditoría y movimientos son append-only", async () => {
       uid: fixtures.tenantA.admin.uid,
     })
   );
-  await expectAllowed(
+  await expectDenied(
     cajeroTenantA.firestore().doc(movimientoPath).set({ empresaId: "empresa-a", cantidad: 1 })
   );
   await expectAllowed(adminTenantA.firestore().doc(auditoriaPath).get());

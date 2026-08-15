@@ -160,6 +160,17 @@ Si un egreso debe corregirse:
 4. si no existe, mantener el dato y escalar como dependencia de implementación;
 5. nunca modificar directamente la cuenta financiera o el ledger.
 
+## 5.1 Inventario, ajustes y mermas
+
+`ADR-SAAS-030` fue aceptado para cerrar la mutación histórica desde cliente.
+El POS usa `crearArticuloInventarioV1`, `actualizarArticuloInventarioV1` y
+`registrarMermaOperativaV1`; el servidor deriva actor, tenant, lifecycle,
+artículo, costo, saldo y secuencia, y conserva la idempotencia y auditoría.
+Las Rules de productos, insumos, mermas y movimientos de inventario deben ser
+read-only para el cliente después de verificar el deploy de las Functions y
+del cliente compatible. Los documentos históricos no se reescriben; una
+corrección posterior se realiza por un nuevo comando compensatorio.
+
 ## 6. Release, rollback y recuperación
 
 Antes del Trial se registra:

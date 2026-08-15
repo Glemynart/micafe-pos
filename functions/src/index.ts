@@ -31,6 +31,11 @@ export {
   trasladarEntreCuentasV1,
 } from "./finanzas/callables";
 export { registrarCompraOperativaV1 } from "./finanzas/compras";
+export {
+  crearArticuloInventarioV1,
+  actualizarArticuloInventarioV1,
+  registrarMermaOperativaV1,
+} from "./inventario/callables";
 export { crearProveedorOperativoV1, actualizarProveedorOperativoV1, desactivarProveedorOperativoV1 } from "./proveedores/callables";
 export {
   crearCuentaSalonV1,

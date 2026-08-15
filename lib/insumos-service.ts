@@ -1,33 +1,21 @@
-/**
- * insumos-service.ts
- *
- * Funciones Firestore para leer / crear / editar / eliminar Insumos (materia prima).
- */
+/** Servicio tenant-aware de catálogo de insumos. */
 
 import {
   collection,
-  query,
   where,
-  orderBy,
   onSnapshot,
-  doc,
-  addDoc,
-  updateDoc,
-  runTransaction,
-  serverTimestamp,
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { aplicarMovimientoEnTransaccion } from "@/lib/inventario-ledger";
-import { getCurrentUserInfo } from "@/lib/auth-service";
-import { getEmpresaId, tenantQuery, stampEmpresaId } from "@/lib/tenant";
+import { tenantQuery } from "@/lib/tenant";
+import { crearEnvelopeInventario, ejecutarComandoInventario } from "@/lib/inventario-command";
 
 export interface Insumo {
   id: string;
   nombre: string;
   costo: number;
   stock: number;
-  unidadMedida: string; // ej. "gr", "ml", "und"
+  unidadMedida: string;
   stockMinimo: number;
   espacioId: string;
   activo: boolean;
@@ -39,15 +27,14 @@ export type InsumoInput = Omit<Insumo, "id" | "creadoEn" | "actualizadoEn">;
 
 export function suscribirInsumos(
   espacioId: string,
-  callback: (insumos: Insumo[]) => void
+  callback: (insumos: Insumo[]) => void,
 ): Unsubscribe {
   let unsubscribe = () => {};
   let cancelado = false;
-
   tenantQuery(
     collection(db, "insumos"),
     where("espacioId", "==", espacioId),
-    where("activo", "==", true)
+    where("activo", "==", true),
   ).then((q) => {
     if (cancelado) return;
     unsubscribe = onSnapshot(q, (snap) => {
@@ -66,80 +53,23 @@ export function suscribirInsumos(
 }
 
 export async function crearInsumo(data: InsumoInput): Promise<string> {
-  const ref = await addDoc(collection(db, "insumos"), await stampEmpresaId({
-    ...data,
-    creadoEn: serverTimestamp(),
-    actualizadoEn: serverTimestamp(),
-  }));
-  return ref.id;
+  const result = await ejecutarComandoInventario<{ articuloId: string }>(
+    "crearArticuloInventarioV1",
+    crearEnvelopeInventario({ articuloTipo: "insumo", data: { ...data } }),
+  );
+  return result.articuloId;
 }
 
 export async function editarInsumo(id: string, data: Partial<InsumoInput>): Promise<void> {
-  const { stock: nuevoStock, ...dataSinStock } = data;
-
-  // Sin cambio de stock: actualización simple de metadatos.
-  if (nuevoStock === undefined) {
-    await updateDoc(doc(db, "insumos", id), {
-      ...dataSinStock,
-      actualizadoEn: serverTimestamp(),
-    });
-    return;
-  }
-
-  // Stock cambió: transacción atómica + Ledger (I11).
-  const { uid, nombre: usuarioNombre } = await getCurrentUserInfo("Debe iniciar sesión para ajustar el stock");
-  // MT-U3 Capa 2: resuelto antes de runTransaction (§2.5).
-  const empresaId = await getEmpresaId();
-
-  // Clave de idempotencia estable: generada fuera del callback de runTransaction
-  // para sobrevivir reintentos automáticos del SDK sin duplicar el movimiento (I10).
-  const ajusteId = doc(collection(db, "movimientos_inventario")).id;
-
-  await runTransaction(db, async (transaction) => {
-    // ── LECTURAS ──────────────────────────────────────────────────────────────
-    const insumoRef = doc(db, "insumos", id);
-    const insumoSnap = await transaction.get(insumoRef);
-    if (!insumoSnap.exists()) throw new Error("Insumo no encontrado");
-
-    const d = insumoSnap.data();
-    const stockActual = (d.stock as number | undefined) ?? 0;
-    const delta = nuevoStock - stockActual;
-
-    // ── ESCRITURAS ────────────────────────────────────────────────────────────
-    // El ledger hace su Fase 1 (lecturas: idempotencia + artículo) antes de
-    // escribir nada — reads-before-writes preservado.
-    if (delta !== 0) {
-      const tipo = delta > 0 ? "ajuste_positivo" : "ajuste_negativo";
-      await aplicarMovimientoEnTransaccion(transaction, {
-        empresaId,
-        articuloTipo:        "insumo",
-        articuloId:          id,
-        articuloNombre:      (d.nombre as string) ?? id,
-        unidad:              (d.unidadMedida as string | undefined) ?? "und",
-        tipo,
-        cantidad:            delta,
-        costoUnitario:       (d.costo as number | undefined) ?? 0,
-        espacioId:           (d.espacioId as string) ?? "",
-        usuarioId:           uid,
-        usuarioNombre,
-        claveIdempotencia:   `${tipo}:edicion:insumo:${id}:${ajusteId}`,
-        referenciaColeccion: "insumos",
-        referenciaId:        id,
-        motivo:              "ajuste_administrativo",
-      });
-    }
-
-    // Actualiza campos no-stock (ledger ya actualizó stock + secuenciaLedger).
-    transaction.update(insumoRef, {
-      ...dataSinStock,
-      actualizadoEn: serverTimestamp(),
-    });
-  });
+  await ejecutarComandoInventario(
+    "actualizarArticuloInventarioV1",
+    crearEnvelopeInventario(
+      { articuloTipo: "insumo", articuloId: id, data: { ...data } },
+      data.stock === undefined ? null : "ajuste_administrativo",
+    ),
+  );
 }
 
 export async function desactivarInsumo(id: string): Promise<void> {
-  await updateDoc(doc(db, "insumos", id), {
-    activo: false,
-    actualizadoEn: serverTimestamp(),
-  });
+  await editarInsumo(id, { activo: false });
 }

@@ -2,9 +2,12 @@
 
 ## Estado
 
-**Propuesto.** Este ADR documenta una divergencia encontrada en la auditoría
-global de G-SAAS-02. No autoriza todavía cambios de código, Rules, migraciones,
-despliegues ni escrituras productivas.
+**Aceptado — alcance acotado a G-SAAS-02.** La auditoría global confirmó una
+divergencia P1 entre la arquitectura server-authoritative y las mutaciones de
+stock/mermas del cliente. Se acepta la alternativa B para cerrar esa frontera.
+Esta aceptación no autoriza escrituras productivas ni acepta el resto de R1;
+autoriza únicamente la implementación, pruebas y despliegue controlado de los
+comandos descritos en este ADR.
 
 - **Goal:** `G-SAAS-02`
 - **Milestone / Epic:** `M3 / E3.1-E3.2`
@@ -29,17 +32,33 @@ secuencia, saldo, costo, idempotencia y auditoría. R1 describe la frontera
 server-authoritative para inventario, ajustes y mermas, pero permanece como
 `DISEÑO PROPUESTO` y sus textos no autorizan por sí solos un cutover.
 
-## Decisión pendiente
+## Decisión aceptada
 
-Evaluar y aceptar una autoridad única server-side para:
+Se adopta la alternativa B: una autoridad única server-side para:
 
 1. ajustes positivos y negativos de stock;
 2. mermas/waste;
 3. cambios de stock iniciados desde edición de productos e insumos.
 
-Las mutaciones de metadatos de catálogo —nombre, precio, categoría y estado—
-pueden conservar una ruta administrativa separada si no cambian existencias ni
-ledger.
+El contrato implementado es:
+
+- `crearArticuloInventarioV1`: crea producto o insumo y, si recibe stock
+  inicial, emite el primer ajuste y la proyección de stock en la misma
+  transacción.
+- `actualizarArticuloInventarioV1`: actualiza metadatos y transforma `stock`
+  en una intención de stock objetivo; el servidor calcula el delta y emite el
+  ajuste correspondiente.
+- `registrarMermaOperativaV1`: recibe únicamente insumo, cantidad, motivo y
+  notas; resuelve nombre, unidad, costo, espacio y actor en el servidor, y
+  persiste merma, kardex, stock, secuencia, recibo idempotente y auditoría
+  atómicamente.
+
+Todos reciben el envelope R1 (`commandId`, `idempotencyKey`, `correlationId`,
+`motivo` y `payload`). Empresa, actor, rol, membresía, lifecycle, artículo,
+espacio, costo unitario, saldo, secuencia e identificadores de hechos se
+resuelven o validan en Functions. El cliente no escribe `productos`, `insumos`,
+`mermas` ni `movimientos_inventario`; las Rules quedan read-only para esas
+colecciones.
 
 ## Alternativas
 
@@ -63,12 +82,19 @@ secuencia, saldo, costo, motivo, turno, idempotencia y el resto de efectos.
 
 ## Consecuencias y migración requerida
 
-La alternativa B exige inventariar consumidores, definir contratos de comando,
-mantener compatibilidad con documentos históricos, agregar tests de Functions,
-Rules y Emulator, desplegar Functions antes del deny, y verificar rollback sin
-editar ni borrar hechos históricos. No se debe cambiar `firestore.rules` para
-denegar estas rutas antes de que el nuevo servicio cliente y sus comandos estén
-desplegados y probados.
+La migración conserva documentos históricos: no hace backfill destructivo ni
+recalcula saldos legados. El orden de despliegue es Functions nuevas y cliente
+compatible, pruebas de Functions/Rules/Emulator, verificación read-only del
+release y después el deny de Rules. En este cambio ambos lados se versionan
+juntos porque las Functions nuevas son backward-compatible con los documentos
+existentes y el cliente deja de usar las escrituras antiguas antes del cambio
+de Rules.
+
+El rollback de código consiste en volver al SHA anterior únicamente si las
+Rules anteriores siguen desplegadas; después del deny no se reabre la escritura
+cliente. Los hechos ya creados se conservan y cualquier corrección se realiza
+por un nuevo comando compensatorio. No se permite rollback por edición directa
+de stock, secuencia, movimientos o mermas.
 
 ## Criterios para aceptar el ADR
 
@@ -79,4 +105,12 @@ desplegados y probados.
 - plan de compatibilidad y rollback sin mutar históricos;
 - Rules y pruebas de Emulator cubren todos los roles y tenants;
 - auditoría productiva read-only y smoke antes del cutover;
-- aprobación explícita del Product Owner/arquitectura.
+- aprobación explícita del Product Owner/arquitectura, registrada con la
+  decisión de continuidad de G-SAAS-02 del 2026-08-14.
+
+## Estado de implementación
+
+La implementación se entrega en un PR separado del checkout histórico y debe
+pasar CI, auditoría `APROBADO PARA MERGE`, deploy controlado y verificación
+post-merge antes de considerarse integrada. La aceptación del ADR no cambia
+ningún tenant productivo ni modifica por sí sola los datos de Café Atrato.

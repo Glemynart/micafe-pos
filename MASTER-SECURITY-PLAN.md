@@ -23,8 +23,9 @@ No se usa Espacio como frontera de seguridad ni se introduce una Sede técnica p
 - Commands server-authoritative con envelope, idempotencia, auditoría y efectos transaccionales para operaciones críticas.
 - Ledger financiero e inventario append-oriented; los egresos son backend-only
   y no se crean, modifican ni borran desde el cliente. Las mutaciones de stock
-  de catálogo y mermas permanecen identificadas como frontera histórica hasta
-  aceptar el ADR de cutover correspondiente.
+  de catálogo y mermas quedan bajo el cutover aceptado de `ADR-SAAS-030`; la
+  implementación y el despliegue del deny de Rules deben verificarse antes de
+  declarar el control operativo integrado.
 - Backoffice para consulta, lifecycle, soporte consentido, recuperación de credenciales y auditoría.
 - CI con typecheck, builds, Rules, Storage Rules, Functions, Emulator y E2E según superficie.
 
@@ -44,7 +45,7 @@ No se usa Espacio como frontera de seguridad ni se introduce una Sede técnica p
 |---|---|---|
 | Functions productivas no demostradas contra el SHA actual | Pendiente | Gate M4: despliegue identificable y smoke test |
 | Recuperación productiva no ensayada | Pendiente | Gate M4: backup/restore o justificación documentada |
-| Mutaciones directas históricas de stock y mermas | P1 / gate arquitectónico | ADR-SAAS-030 propuesto; no cambiar Rules ni autoridad hasta aceptación |
+| Mutaciones directas históricas de stock y mermas | P1 / remediación en curso | `ADR-SAAS-030` aceptado; Functions, cliente migrado, Rules deny y verificación post-merge pendientes |
 | Fiscalidad externa | Condicional | Solo si el cliente selecciona FISCAL y aporta datos aprobados |
 | Hardware de impresión | Condicional | Validar modelo/driver 58/80 mm si el cliente lo requiere |
 | MT-U10 límites/consumo | Fuera de G-SAAS-02 | No implementar sin necesidad y decisión de producto |
