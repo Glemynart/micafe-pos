@@ -4,8 +4,8 @@ import { esPinValido, esRolTenant, idCredencialOperativa, normalizarCodigo } fro
 
 test("normalizarCodigo acepta el formato canónico por tenant", () => {
   assert.equal(normalizarCodigo("  Caja-01  "), "caja-01");
+  assert.equal(normalizarCodigo("Cafeatrato Maria"), "cafeatrato-maria");
   assert.equal(normalizarCodigo("ab"), null);
-  assert.equal(normalizarCodigo("caja 01"), null);
 });
 
 test("el PIN operativo requiere exactamente seis dígitos", () => {

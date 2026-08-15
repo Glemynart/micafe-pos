@@ -128,6 +128,7 @@ El operador consulta primero las proyecciones canónicas del Backoffice:
 Acciones permitidas por procedimiento:
 
 - reemitir o desbloquear credencial;
+- reemitir una recuperación de administrador pendiente cuando se perdió su PIN temporal, usando la acción específica del Backoffice y nueva evidencia fuera de banda; la operación cancela la entrega anterior y muestra el nuevo PIN una sola vez;
 - activar, suspender o reactivar según comandos de lifecycle;
 - autorizar soporte temporal y solo lectura;
 - corregir configuración mediante comandos canónicos;

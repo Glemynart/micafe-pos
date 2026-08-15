@@ -84,7 +84,7 @@ export interface Incorporacion {
 
 export function normalizarCodigo(codigo: unknown): string | null {
   if (typeof codigo !== "string") return null;
-  const normalizado = codigo.trim().toLowerCase();
+  const normalizado = codigo.trim().toLowerCase().replace(/\s+/g, "-");
   return CODIGO_REGEX.test(normalizado) ? normalizado : null;
 }
 

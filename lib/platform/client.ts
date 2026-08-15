@@ -94,7 +94,13 @@ export const obtenerDetalleEmpresa = (empresaId: string) =>
     };
     provisionamiento: Record<string, any> | null;
     adminInicial: { rol: string | null; estado: string | null; activo: boolean | null } | null;
-    credencialInicial: { estado: EstadoCredencialInicial; incorporacionId: string | null; puedeReemitir: boolean };
+    credencialInicial: {
+      estado: EstadoCredencialInicial;
+      incorporacionId: string | null;
+      puedeReemitir: boolean;
+      restablecimientoPendiente: boolean;
+      puedeReemitirRestablecimiento: boolean;
+    };
     estadoAccesoInicial: EstadoAccesoAdministradorInicial;
   }>(
     "obtenerDetalleEmpresaPlataformaSaas",
@@ -149,6 +155,14 @@ export const restablecerCredencialAdministrador = (
   "restablecerCredencialAdministradorTenantSaas",
   { ...envelope("SAAS_RESTABLECER_CREDENCIAL_ADMINISTRADOR"), empresaId, evidenciaVerificacion },
 );
+
+export const reemitirRestablecimientoCredencialAdministrador = (
+  empresaId: string,
+  evidenciaVerificacion: { metodo: "CONFIRMACION_PROPIETARIO" | "TICKET_SOPORTE" | "VERIFICACION_PRESENCIAL"; referencia: string },
+) => invocar<{ restablecimientoId: string; empresaId: string; uid: string; estado: "PENDIENTE_ACTIVACION"; codigo: string; pinTemporal: string; idempotente: boolean }>(
+  "reemitirRestablecimientoCredencialAdministradorTenantSaas",
+  { ...envelope("SAAS_REEMITIR_RESTABLECIMIENTO_CREDENCIAL_ADMINISTRADOR"), empresaId, evidenciaVerificacion },
+ );
 
 export const comandoOperador = (
   accion: "incorporar" | "facultades" | "suspender" | "reactivar" | "revocar",

@@ -18,7 +18,7 @@ const TIPOS_SEGURIDAD_O_SOPORTE = new Set([
   "SOPORTE_SOLICITADO", "SOPORTE_RECHAZADO", "SOPORTE_AUTORIZADO", "SOPORTE_REVOCADO", "SOPORTE_EXPIRADO",
   "SOPORTE_INICIADO", "SOPORTE_FINALIZADO", "SOPORTE_ALCANCE_RECHAZADO",
   "SOPORTE_ACCESO_FUERA_DE_ALCANCE_DENEGADO", "SOPORTE_DIAGNOSTICO_ALTO_RIESGO",
-  "CREDENCIAL_RESTABLECIMIENTO_SOLICITADO", "CREDENCIAL_RESTABLECIMIENTO_ACTIVADO",
+  "CREDENCIAL_RESTABLECIMIENTO_SOLICITADO", "CREDENCIAL_RESTABLECIMIENTO_ACTIVADO", "CREDENCIAL_RESTABLECIMIENTO_CANCELADO",
 ]);
 
 // ADR-SAAS-012 §7: límite máximo por patrón de consulta.
@@ -285,16 +285,24 @@ export async function obtenerDetalleEmpresaPlataforma(db: Firestore, empresaId: 
     : null;
 
   let adminInicial: { rol: string | null; estado: string | null; activo: boolean | null } | null = null;
-  let credencialInicial: { estado: EstadoCredencialInicialProyectado; incorporacionId: string | null; puedeReemitir: boolean } = {
+  let credencialInicial: {
+    estado: EstadoCredencialInicialProyectado;
+    incorporacionId: string | null;
+    puedeReemitir: boolean;
+    restablecimientoPendiente: boolean;
+    puedeReemitirRestablecimiento: boolean;
+  } = {
     estado: "SIN_PROVISIONAR", incorporacionId: null, puedeReemitir: false,
+    restablecimientoPendiente: false, puedeReemitirRestablecimiento: false,
   };
 
   if (ownerUid) {
-    const [membresiaSnap, incorporacionesSnap] = await Promise.all([
+    const [membresiaSnap, incorporacionesSnap, credencialesSnap] = await Promise.all([
       db.collection("membresias").doc(`${empresaId}_${ownerUid}`).get(),
       // Misma consulta compartida que gobierna emisión/reemisión — así la
       // ficha nunca muestra una credencial superada por una reemisión.
       consultarIncorporacionDirectaMasReciente(db, empresaId, ownerUid).get(),
+      db.collection("credenciales_operativas").where("empresaId", "==", empresaId).where("uid", "==", ownerUid).limit(3).get(),
     ]);
     const membresiaData = membresiaSnap.data();
     adminInicial = {
@@ -309,13 +317,22 @@ export async function obtenerDetalleEmpresaPlataforma(db: Firestore, empresaId: 
       && incorporacionData?.origen === "PLATAFORMA"
       && typeof expiraEn?.toMillis === "function"
       && expiraEn.toMillis() > Date.now();
+    const credencialesActivas = credencialesSnap.docs.filter((doc) => doc.get("activo") === true);
+    const credencialActiva = credencialesActivas.length === 1 ? credencialesActivas[0] : null;
+    const restablecimientoPendiente = credencialActiva?.get("requiereCambio") === true
+      && typeof credencialActiva.get("restablecimientoId") === "string"
+      && credencialActiva.get("restablecimientoId").trim().length > 0;
     credencialInicial = {
       estado,
       incorporacionId: incorporacionesSnap.empty ? null : incorporacionesSnap.docs[0].id,
       puedeReemitir,
+      restablecimientoPendiente,
+      puedeReemitirRestablecimiento: restablecimientoPendiente,
     };
   }
-  let estadoAccesoInicial: EstadoAccesoAdministradorInicial = credencialInicial.estado === "EXPIRADA"
+  let estadoAccesoInicial: EstadoAccesoAdministradorInicial = credencialInicial.restablecimientoPendiente
+    ? "CREDENCIAL_TEMPORAL_PENDIENTE"
+    : credencialInicial.estado === "EXPIRADA"
     ? "CREDENCIAL_EXPIRADA"
     : credencialInicial.estado === "PENDIENTE_ACTIVACION"
       ? "CREDENCIAL_TEMPORAL_PENDIENTE"

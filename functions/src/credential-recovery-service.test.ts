@@ -116,7 +116,7 @@ test("ADR-SAAS-017: recupera operador, no persiste secretos en el agregado y act
   );
   assert.equal(primera.idempotente, false);
   assert.equal(primera.estado, "PENDIENTE_ACTIVACION");
-  assert.match(primera.codigo!, /^tenant-/);
+  assert.equal(primera.codigo, "cafeatrato-operador");
   assert.match(primera.pinTemporal!, /^\d{6}$/);
   const recovery = db.read(`restablecimientos_credencial/${primera.restablecimientoId}`);
   assert.equal("pinHash" in recovery, false);
@@ -164,6 +164,73 @@ test("ADR-SAAS-017: recupera operador, no persiste secretos en el agregado y act
   assert.equal(db.docs.size > 0, true);
 });
 
+test("ADR-SAAS-035: reemite una recuperaciÃ³n pendiente de administrador de forma atÃ³mica", async () => {
+  const db = new FakeDb();
+  const pepper = "test-pepper";
+  db.seed("empresas/tenant-owner", { estado: "activa", ownerUid: "owner-1", nombreComercial: "Tenant Demo" });
+  db.seed("membresias/tenant-owner_owner-1", { empresaId: "tenant-owner", uid: "owner-1", rol: "admin", estado: "activa", activo: true, permisos: [] });
+  db.seed("usuarios/owner-1", { uid: "owner-1", nombre: "Owner Demo" });
+  db.seed("credenciales_operativas/tenant-owner_owner-old", {
+    empresaId: "tenant-owner", uid: "owner-1", codigo: "owner-old", pinHash: await hashearPin("123456", pepper),
+    activo: true, requiereCambio: false, fallosConsecutivos: 0, bloqueadoHasta: null,
+  });
+
+  const primera = await solicitarRestablecimientoCredencial(
+    db as any,
+    { tipo: "OPERADOR_SAAS", uid: "saas-operator", facultad: "ACCESO_RESTABLECER" },
+    command("first-reset"),
+    "tenant-owner",
+    "owner-1",
+    pepper,
+    { metodo: "CONFIRMACION_PROPIETARIO", referencia: "ticket-1" },
+  );
+  await assert.rejects(
+    solicitarRestablecimientoCredencial(
+      db as any,
+      { tipo: "OPERADOR_SAAS", uid: "saas-operator", facultad: "ACCESO_RESTABLECER" },
+      command("blocked-reset"),
+      "tenant-owner",
+      "owner-1",
+      pepper,
+      { metodo: "CONFIRMACION_PROPIETARIO", referencia: "ticket-2" },
+    ),
+    (cause: any) => cause?.message === "CREDENCIAL_RESTABLECIMIENTO_PENDIENTE",
+  );
+  db.read(`restablecimientos_credencial/${primera.restablecimientoId}`).expiraEn = { toMillis: () => Date.now() - 1 };
+
+  const segunda = await solicitarRestablecimientoCredencial(
+    db as any,
+    { tipo: "OPERADOR_SAAS", uid: "saas-operator", facultad: "ACCESO_RESTABLECER" },
+    command("second-reset"),
+    "tenant-owner",
+    "owner-1",
+    pepper,
+    { metodo: "CONFIRMACION_PROPIETARIO", referencia: "ticket-3" },
+    { reemitirPendiente: true },
+  );
+  assert.equal(segunda.idempotente, false);
+  assert.equal(segunda.estado, "PENDIENTE_ACTIVACION");
+  assert.notEqual(segunda.restablecimientoId, primera.restablecimientoId);
+  assert.equal(db.read(`restablecimientos_credencial/${primera.restablecimientoId}`).estado, "CANCELADO");
+  assert.equal(db.read(`credenciales_operativas/tenant-owner_${primera.codigo}`).activo, false);
+  assert.equal(db.read(`credenciales_operativas/tenant-owner_${segunda.codigo}`).activo, true);
+  assert.equal(db.read(`restablecimientos_credencial/${segunda.restablecimientoId}`).estado, "PENDIENTE_ACTIVACION");
+
+  const reintento = await solicitarRestablecimientoCredencial(
+    db as any,
+    { tipo: "OPERADOR_SAAS", uid: "saas-operator", facultad: "ACCESO_RESTABLECER" },
+    command("second-reset"),
+    "tenant-owner",
+    "owner-1",
+    pepper,
+    { metodo: "CONFIRMACION_PROPIETARIO", referencia: "ticket-3" },
+    { reemitirPendiente: true },
+  );
+  assert.equal(reintento.idempotente, true);
+  assert.equal(reintento.codigo, null);
+  assert.equal(reintento.pinTemporal, null);
+});
+
 test("ADR-SAAS-017: un admin de tenant no puede recuperar al administrador", async () => {
   const db = new FakeDb();
   db.seed("empresas/tenant-1", { estado: "activa", ownerUid: "owner-1" });
@@ -195,6 +262,7 @@ test("ADR-SAAS-017: la recuperación del administrador exige autoridad SaaS y ev
     { metodo: "CONFIRMACION_PROPIETARIO", referencia: "ticket-1234" },
   );
   assert.equal(resultado.uid, "owner-1");
+  assert.equal(resultado.codigo, "tenantdemo-admin");
   const recovery = db.read(`restablecimientos_credencial/${resultado.restablecimientoId}`);
   assert.deepEqual(recovery.verificacionFueraDeBanda, undefined);
   assert.equal(recovery.solicitadoPor.tipo, "OPERADOR_SAAS");

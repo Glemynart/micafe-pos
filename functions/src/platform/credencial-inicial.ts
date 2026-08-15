@@ -1,28 +1,15 @@
 import { randomInt } from "node:crypto";
 
 /**
- * credencial-inicial.ts — primitivas de generación para la credencial
- * operativa inicial de un tenant (ADR-SAAS-013 D-1).
+ * Primitivas de generación para credenciales operativas.
  *
- * SIN CONSUMIDORES todavía (Capa 1 de la implementación por capas): estas
- * funciones no se invocan desde ningún callable ni desde el bootstrap. Eso
- * empieza en capas posteriores (paso H de `ejecutarBootstrapEmpresarial` y
- * el comando `ProvisionarCredencialInicialTenant`).
- *
- * Por qué el código se genera y no lo escribe el operador (ADR-SAAS-013 §3):
- * la resolución de login busca el código en TODOS los tenants a la vez
- * (`resolverCredencialOperativa` en operational-auth.ts no recibe empresaId
- * del cliente) y desempata con el PIN. Con códigos legibles elegidos a mano
- * (`admin`, `caja1`) la colisión de código entre tenants es la norma, no la
- * excepción, y deja solo 10^6 PINs para separarlas — con ~1200 tenants
- * usando `admin` la probabilidad de al menos una colisión (código, PIN)
- * supera el 50% (problema del cumpleaños). Un código con entropía propia,
- * reservado transaccionalmente al emitirlo, elimina el riesgo por construcción.
+ * El código es un identificador humano, no un secreto. La unicidad global se
+ * garantiza en la transacción que reserva la credencial; el PIN sigue siendo
+ * el secreto personal y la autoridad sigue dependiendo de la membresía.
  */
 
-const ALFABETO_CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz"; // sin i,l,o,u
-const LONGITUD_SUFIJO = 4;
-const LONGITUD_SLUG = 6;
+const LONGITUD_NEGOCIO = 16;
+const LONGITUD_OPERATIVO = 12;
 export const MAX_INTENTOS_UNICIDAD = 5;
 
 /** Genera un PIN temporal de 6 dígitos con un generador criptográfico. */
@@ -30,35 +17,32 @@ export function generarPinTemporal(): string {
   return String(randomInt(0, 1_000_000)).padStart(6, "0");
 }
 
-function sufijoAleatorio(longitud: number): string {
-  let sufijo = "";
-  for (let i = 0; i < longitud; i++) {
-    sufijo += ALFABETO_CROCKFORD[randomInt(0, ALFABETO_CROCKFORD.length)];
-  }
-  return sufijo;
-}
-
 /**
- * Deriva un slug apto para el prefijo del código a partir del nombre
- * comercial. No es el `Empresa.slug` reservado para MT-U7 (onboarding) —
- * ese campo, si algún día existe para la empresa, tiene prioridad (ver
- * `generarCodigoOperativo`). Este es solo el material del código de login.
+ * Deriva un identificador legible desde un nombre comercial o personal.
+ * Nunca debe recibir un `empresaId` como sustituto del nombre comercial.
  */
-export function derivarSlugParaCodigo(nombreComercial: string): string {
-  const normalizado = nombreComercial
+export function derivarSlugParaCodigo(valor: string, longitud = LONGITUD_NEGOCIO): string {
+  const normalizado = valor
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "") // quita diacríticos (NFD los separa como marcas combinantes)
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
-  const slug = normalizado.slice(0, LONGITUD_SLUG);
+  const slug = normalizado.slice(0, longitud);
   return slug.length >= 3 ? slug : slug.padEnd(3, "0");
 }
 
 /**
- * Compone un código candidato `<slug>-<4 base32 Crockford>`. Cumple
- * `CODIGO_REGEX` de contracts.ts (`/^[a-z0-9._-]{3,32}$/`) por construcción.
+ * Compone `<negocio>-<persona-o-rol>`. En caso de colisión, el intento
+ * agrega un diferenciador legible (`-2`, `-3`, etc.).
  */
-export function generarCodigoOperativo(slugEmpresa: string): string {
-  const slug = slugEmpresa || derivarSlugParaCodigo("empresa");
-  return `${slug}-${sufijoAleatorio(LONGITUD_SUFIJO)}`;
+export function generarCodigoOperativo(
+  nombreComercial: string,
+  nombreOperativo = "usuario",
+  intento = 0,
+): string {
+  const negocio = derivarSlugParaCodigo(nombreComercial || "empresa", LONGITUD_NEGOCIO);
+  const nombreCorto = nombreOperativo.trim().split(/\s+/)[0] || "usuario";
+  const operativo = derivarSlugParaCodigo(nombreCorto, LONGITUD_OPERATIVO);
+  const base = `${negocio}-${operativo}`;
+  return intento > 0 ? `${base}-${intento + 1}` : base;
 }

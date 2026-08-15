@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, KeyRound, LoaderCircle, PauseCircle, PlayCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
-import { comandoComercial, desbloquearAdministradorInicial, envelope, mensajeError, obtenerDetalleEmpresa, provisionarCredencialInicial, reemitirCredencialInicialTemporal, restablecerCredencialAdministrador } from "@/lib/platform/client";
+import { comandoComercial, desbloquearAdministradorInicial, envelope, mensajeError, obtenerDetalleEmpresa, provisionarCredencialInicial, reemitirCredencialInicialTemporal, reemitirRestablecimientoCredencialAdministrador, restablecerCredencialAdministrador } from "@/lib/platform/client";
 import { EmptyState, ErrorState, EstadoBadge, LoadingState, PageIntro } from "./ui";
 import { CredentialRevealDialog, type CredencialEntrega } from "./credential-reveal-dialog";
 import { EditCompanyDialog } from "./edit-company-dialog";
@@ -26,6 +26,7 @@ export function CompanyDetail({ empresaId }: { empresaId: string }) {
   const [confirmarDesbloqueo, setConfirmarDesbloqueo] = useState(false);
   const [confirmarCancelacion, setConfirmarCancelacion] = useState(false);
   const [confirmarRecuperacion, setConfirmarRecuperacion] = useState(false);
+  const [confirmarReemisionRecuperacion, setConfirmarReemisionRecuperacion] = useState(false);
   const [referenciaVerificacion, setReferenciaVerificacion] = useState("");
   const { tiene } = usePlatform();
   const load = useCallback(async () => {
@@ -91,6 +92,24 @@ export function CompanyDetail({ empresaId }: { empresaId: string }) {
     }
   }
 
+  async function reemitirRecuperacionAdministrador() {
+    if (!referenciaVerificacion.trim()) return;
+    setCredencialAccion(true);
+    try {
+      const resultado = await reemitirRestablecimientoCredencialAdministrador(empresaId, {
+        metodo: "CONFIRMACION_PROPIETARIO",
+        referencia: referenciaVerificacion.trim(),
+      });
+      if (resultado.pinTemporal) setCredencial({ codigo: resultado.codigo, pinTemporal: resultado.pinTemporal });
+      else toast.info("La reemisión ya fue procesada; no se volvió a revelar ningún PIN.");
+      await load();
+      setReferenciaVerificacion("");
+    } catch (cause) { toast.error(mensajeError(cause)); } finally {
+      setCredencialAccion(false);
+      setConfirmarReemisionRecuperacion(false);
+    }
+  }
+
   async function transition(destino: string) {
     if (!data?.empresa.revision) return;
     setAccion(true);
@@ -124,7 +143,7 @@ export function CompanyDetail({ empresaId }: { empresaId: string }) {
         <Card><CardHeader><CardTitle>Suscripción</CardTitle></CardHeader><CardContent>{data.suscripcion ? <div className="grid gap-4 sm:grid-cols-3"><Datum label="Estado"><EstadoBadge estado={data.suscripcion.estado} /></Datum><Datum label="Plan">{data.suscripcion.planId} · v{data.suscripcion.planVersion}</Datum><Datum label="Revisión">{data.suscripcion.revision}</Datum></div> : <p className="text-sm text-slate-500">Sin suscripción materializada.</p>}</CardContent></Card>
         <Card><CardHeader><CardTitle>Diagnóstico operativo</CardTitle></CardHeader><CardContent className="space-y-4">{data.versionPlan && <div className="grid gap-4 sm:grid-cols-2"><Datum label="Versión contratada">{data.versionPlan.codigo ?? data.versionPlan.planId} · v{data.versionPlan.planVersion}</Datum><Datum label="Estado de versión"><EstadoBadge estado={data.versionPlan.estado ?? undefined} /></Datum></div>}{data.diagnosticoConfiguracion.disponible ? <><div className="grid gap-4 sm:grid-cols-2"><Datum label="Readiness operativa"><EstadoBadge estado={data.diagnosticoConfiguracion.readiness?.operativa.lista ? "LISTA" : "PENDIENTE"} /></Datum><Datum label="Readiness fiscal"><EstadoBadge estado={data.diagnosticoConfiguracion.readiness?.fiscal.lista ? "LISTA" : "PENDIENTE"} /></Datum></div><Datum label="Módulos habilitados">{data.diagnosticoConfiguracion.modulosHabilitados.join(", ") || "Ninguno"}</Datum></> : <p className="text-sm text-slate-500">La configuración B1 aún no está disponible.</p>}</CardContent></Card>
         <Card><CardHeader><CardTitle>Provisionamiento</CardTitle></CardHeader><CardContent>{data.provisionamiento ? <div className="space-y-3"><EstadoBadge estado={data.provisionamiento.estado} /><p className="font-mono text-xs text-slate-400">{data.provisionamiento.provisionamientoId}</p>{data.provisionamiento.requiereRecuperacion && <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">El provisionamiento requiere recuperación desde el servicio canónico.</p>}</div> : <p className="text-sm text-slate-500">Sin registro visible.</p>}</CardContent></Card>
-        <AccesoInicialCard data={data} accion={credencialAccion} onEmitir={emitirCredencial} onSolicitarReemision={() => setConfirmarReemision(true)} onSolicitarDesbloqueo={() => setConfirmarDesbloqueo(true)} onSolicitarRecuperacion={() => setConfirmarRecuperacion(true)} puede={tiene("LIFECYCLE_GOBERNAR")} puedeRestablecer={tiene("ACCESO_RESTABLECER")} />
+        <AccesoInicialCard data={data} accion={credencialAccion} onEmitir={emitirCredencial} onSolicitarReemision={() => setConfirmarReemision(true)} onSolicitarDesbloqueo={() => setConfirmarDesbloqueo(true)} onSolicitarRecuperacion={() => setConfirmarRecuperacion(true)} onSolicitarReemisionRecuperacion={() => setConfirmarReemisionRecuperacion(true)} puede={tiene("LIFECYCLE_GOBERNAR")} puedeRestablecer={tiene("ACCESO_RESTABLECER")} />
         <CompanyHistory empresaId={empresaId} />
       </div>
       <CredentialRevealDialog credencial={credencial} onClose={() => { setCredencial(null); }} />
@@ -147,6 +166,13 @@ export function CompanyDetail({ empresaId }: { empresaId: string }) {
           <AlertDialogFooter><AlertDialogCancel disabled={credencialAccion}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={credencialAccion || !referenciaVerificacion.trim()} onClick={(event) => { event.preventDefault(); void recuperarAdministrador(); }}>{credencialAccion && <LoaderCircle className="mr-2 size-4 animate-spin" />}Restablecer acceso</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <AlertDialog open={confirmarReemisionRecuperacion} onOpenChange={setConfirmarReemisionRecuperacion}>
+        <AlertDialogContent>
+          <AlertDialogHeader><AlertDialogTitle>¿Reemitir la recuperación pendiente?</AlertDialogTitle><AlertDialogDescription>La recuperación anterior se cancelará, su código y PIN dejarán de funcionar y se generará una nueva credencial temporal. Confirma nuevamente la evidencia fuera de banda. El nuevo PIN solo se mostrará una vez.</AlertDialogDescription></AlertDialogHeader>
+          <div className="space-y-2 py-2"><label htmlFor="evidencia-reemision-recuperacion" className="text-sm font-medium">Referencia de verificación</label><Input id="evidencia-reemision-recuperacion" value={referenciaVerificacion} onChange={(event) => setReferenciaVerificacion(event.target.value)} placeholder="Ticket o referencia de confirmación" /></div>
+          <AlertDialogFooter><AlertDialogCancel disabled={credencialAccion}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={credencialAccion || !referenciaVerificacion.trim()} onClick={(event) => { event.preventDefault(); void reemitirRecuperacionAdministrador(); }}>{credencialAccion && <LoaderCircle className="mr-2 size-4 animate-spin" />}Reemitir recuperación</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={confirmarCancelacion} onOpenChange={setConfirmarCancelacion}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>¿Cancelar esta empresa?</AlertDialogTitle><AlertDialogDescription>La empresa pasará a estado cancelada y se revocarán sus sesiones activas. Esta acción usa el mismo servicio de lifecycle que las demás transiciones.</AlertDialogDescription></AlertDialogHeader>
@@ -164,6 +190,7 @@ function AccesoInicialCard({
   onSolicitarReemision,
   onSolicitarDesbloqueo,
   onSolicitarRecuperacion,
+  onSolicitarReemisionRecuperacion,
   puede,
   puedeRestablecer,
 }: {
@@ -173,6 +200,7 @@ function AccesoInicialCard({
   onSolicitarReemision: () => void;
   onSolicitarDesbloqueo: () => void;
   onSolicitarRecuperacion: () => void;
+  onSolicitarReemisionRecuperacion: () => void;
   puede: boolean;
   puedeRestablecer: boolean;
 }) {
@@ -180,6 +208,7 @@ function AccesoInicialCard({
   const reprovisionar = estadoCredencial === "EXPIRADA";
   const emitible = estadoCredencial === "SIN_PROVISIONAR" || reprovisionar;
   const puedeReemitir = data.credencialInicial.puedeReemitir && !!data.credencialInicial.incorporacionId;
+  const puedeReemitirRecuperacion = puedeRestablecer && data.credencialInicial.puedeReemitirRestablecimiento;
   return (
     <Card className="lg:col-span-2">
       <CardHeader><CardTitle>Acceso inicial</CardTitle></CardHeader>
@@ -199,13 +228,15 @@ function AccesoInicialCard({
               </Button>}
               {puedeReemitir && <Button variant="outline" disabled={accion || !data.adminInicial} onClick={onSolicitarReemision}><KeyRound className="mr-2 size-4" />Reemitir credencial</Button>}
               {data.estadoAccesoInicial === "BLOQUEADO" && <Button variant="outline" disabled={accion || !data.adminInicial} onClick={onSolicitarDesbloqueo}><KeyRound className="mr-2 size-4" />Desbloquear administrador</Button>}
-              {puedeRestablecer && estadoCredencial === "ACTIVA" && <Button variant="outline" disabled={accion || !data.adminInicial} onClick={onSolicitarRecuperacion}><KeyRound className="mr-2 size-4" />Restablecer administrador</Button>}
+              {puedeReemitirRecuperacion && <Button variant="outline" disabled={accion || !data.adminInicial} onClick={onSolicitarReemisionRecuperacion}><KeyRound className="mr-2 size-4" />Reemitir recuperación</Button>}
+              {puedeRestablecer && !data.credencialInicial.restablecimientoPendiente && estadoCredencial === "ACTIVA" && <Button variant="outline" disabled={accion || !data.adminInicial} onClick={onSolicitarRecuperacion}><KeyRound className="mr-2 size-4" />Restablecer administrador</Button>}
             </div>
           ) : (
             <p className="text-sm text-slate-500">Tu contexto no posee gobernanza de lifecycle.</p>
           )}
           {estadoCredencial === "ACTIVA" && <p className="mt-2 text-xs text-slate-400">Ya existe una credencial activa; no puede reemitirse desde aquí.</p>}
           {estadoCredencial === "PENDIENTE_ACTIVACION" && <p className="mt-2 text-xs text-slate-400">Hay una credencial temporal vigente, aún no activada por el administrador. Reemitir invalida la entrega actual.</p>}
+          {data.credencialInicial.restablecimientoPendiente && <p className="mt-2 text-xs text-amber-700">Hay una recuperación pendiente. Si se perdió el PIN temporal, puedes reemitirla con una nueva verificación.</p>}
         </div>
       </CardContent>
     </Card>
