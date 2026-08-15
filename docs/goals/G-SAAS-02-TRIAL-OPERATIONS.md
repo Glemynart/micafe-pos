@@ -166,9 +166,9 @@ Si un egreso debe corregirse:
 El POS usa `crearArticuloInventarioV1`, `actualizarArticuloInventarioV1` y
 `registrarMermaOperativaV1`; el servidor deriva actor, tenant, lifecycle,
 artículo, costo, saldo y secuencia, y conserva la idempotencia y auditoría.
-Las Rules de productos, insumos, mermas y movimientos de inventario deben ser
-read-only para el cliente después de verificar el deploy de las Functions y
-del cliente compatible. Los documentos históricos no se reescriben; una
+Las Rules de productos, insumos, mermas y movimientos de inventario son
+read-only para el cliente en el release observado de `origin/main` y fueron
+reconciliadas después del deploy. Los documentos históricos no se reescriben; una
 corrección posterior se realiza por un nuevo comando compensatorio.
 
 ## 5.2 Reservas internas del POS
@@ -181,8 +181,8 @@ importe, agenda y bloques. Una reserva pendiente se cobra como venta DEMO
 determinista durante el Trial y puede reintentarse si la saga se interrumpe.
 
 Las Rules de `reservas`, `agendas` y `reservas_operaciones` niegan escrituras
-del cliente. No se reescriben reservas históricas ni se habilita fiscalidad
-real o Wompi SaaS por este alcance.
+del cliente y fueron verificadas postdeploy. No se reescriben reservas históricas
+ni se habilita fiscalidad real o Wompi SaaS por este alcance.
 
 ## 6. Release, rollback y recuperación
 
@@ -196,6 +196,11 @@ Antes del Trial se registra:
 - smoke test productivo;
 - punto de recuperación;
 - responsable de rollback.
+
+En la observación del `2026-08-15T04:29:09Z`, las 79 Functions activas de
+`origin/main @ 7d9078f` y las Rules/Storage desplegadas quedaron reconciliadas
+con el release. Smoke productivo y recovery independiente permanecen como
+gates pendientes; esta observación no ejecutó operaciones sobre el tenant.
 
 Un rollback de código no revierte automáticamente datos financieros. Los datos se corrigen únicamente mediante comandos idempotentes y auditados.
 

@@ -1,6 +1,6 @@
 # Master Security Plan — MiCafe POS SaaS
 
-Estado: `VIGENTE` para `origin/main @ 3a02dbbd4cafcc9dfd716859c29ba18d1839c3d7` al 2026-08-13.
+Estado: `VIGENTE` para `origin/main @ 7d9078f7fce7f206a6696ff21be4a05893e59fcf` al 2026-08-15.
 
 Este documento registra controles y riesgos relevantes para G-SAAS-02. No declara desplegado en producción ningún recurso que no tenga evidencia de despliegue. Los riesgos fuera del Trial permanecen en backlog y no se convierten en alcance automáticamente.
 
@@ -23,9 +23,7 @@ No se usa Espacio como frontera de seguridad ni se introduce una Sede técnica p
 - Commands server-authoritative con envelope, idempotencia, auditoría y efectos transaccionales para operaciones críticas.
 - Ledger financiero e inventario append-oriented; los egresos son backend-only
   y no se crean, modifican ni borran desde el cliente. Las mutaciones de stock
-  de catálogo y mermas quedan bajo el cutover aceptado de `ADR-SAAS-030`; la
-  implementación y el despliegue del deny de Rules deben verificarse antes de
-  declarar el control operativo integrado.
+  de catálogo y mermas quedan bajo el cutover aceptado de `ADR-SAAS-030`.
 - Las reservas internas y su agenda quedan bajo el cutover aceptado de
   `ADR-SAAS-033`; cancelación y completado usan Functions idempotentes y el
   cliente no puede escribir esas colecciones.
@@ -48,7 +46,7 @@ No se usa Espacio como frontera de seguridad ni se introduce una Sede técnica p
 |---|---|---|
 | Functions productivas no demostradas contra el SHA actual | Pendiente | Gate M4: despliegue identificable y smoke test |
 | Recuperación productiva no ensayada | Pendiente | Gate M4: backup/restore o justificación documentada |
-| Mutaciones directas históricas de stock, mermas y reservas internas | P1 / remediación en curso | `ADR-SAAS-030` y `ADR-SAAS-033` aceptados; inventario integrado en PR #322; reservas pendientes de CI, deploy y verificación post-merge |
+| Mutaciones directas históricas de stock, mermas y reservas internas | Remediado y desplegado | `ADR-SAAS-030`/PR #322 y `ADR-SAAS-033`/PR #323 integrados; las 79 Functions y Rules fueron desplegadas/reconciliadas. El release productivo aún exige smoke y recovery independientes. |
 | Fiscalidad externa | Condicional | Solo si el cliente selecciona FISCAL y aporta datos aprobados |
 | Hardware de impresión | Condicional | Validar modelo/driver 58/80 mm si el cliente lo requiere |
 | MT-U10 límites/consumo | Fuera de G-SAAS-02 | No implementar sin necesidad y decisión de producto |
