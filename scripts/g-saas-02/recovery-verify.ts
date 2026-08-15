@@ -42,6 +42,22 @@ function stringField(value: unknown, field: string): string | null {
   return typeof record?.[field] === "string" ? record[field] as string : null;
 }
 
+function nestedStringField(value: unknown, parentField: string, field: string): string | null {
+  const record = asRecord(asRecord(value)?.[parentField]);
+  return typeof record?.[field] === "string" ? record[field] as string : null;
+}
+
+function doubleNestedStringField(
+  value: unknown,
+  firstParentField: string,
+  secondParentField: string,
+  field: string,
+): string | null {
+  const first = asRecord(asRecord(value)?.[firstParentField]);
+  const second = asRecord(first?.[secondParentField]);
+  return typeof second?.[field] === "string" ? second[field] as string : null;
+}
+
 function fieldsOf(value: unknown): Record<string, unknown> | undefined {
   const fields = asRecord(asRecord(value)?.fields);
   return fields ?? undefined;
@@ -100,6 +116,8 @@ async function main(): Promise<void> {
     destinationDatabaseName: stringField(database.body, "name"),
     destinationLocation: stringField(database.body, "locationId"),
     destinationState: stringField(database.body, "state"),
+    destinationSourceBackup: doubleNestedStringField(database.body, "sourceInfo", "backup", "backup"),
+    destinationSourceProgress: nestedStringField(database.body, "sourceInfo", "progress"),
     tenantId,
     sourceDocuments,
     destinationDocuments,
