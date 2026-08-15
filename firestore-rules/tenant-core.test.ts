@@ -64,10 +64,10 @@ test("núcleo tenant-aware: las colecciones permiten leer solo el tenant propio"
   }
 });
 
-test("núcleo tenant-aware: creación exige el empresaId del claim", async () => {
+test("núcleo tenant-aware: el catálogo no acepta creación directa del cliente", async () => {
   const tenantA = await contextFor(fixtures.tenantA.admin);
 
-  await expectAllowed(
+  await expectDenied(
     tenantA.firestore().doc("productos/creacion-correcta").set({ empresaId: "empresa-a" })
   );
   await expectDenied(

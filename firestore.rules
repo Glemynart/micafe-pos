@@ -82,15 +82,13 @@ service cloud.firestore {
     }
     match /productos/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
-      allow create: if puedeCrearEnTenant() && esAdminOCajero();
-      allow update: if puedeActualizarEnTenant() && esAdminOCajero();
-      allow delete: if puedeEliminarEnTenant() && esAdmin();
+      // Catálogo, stock y secuencia son autoridad de las callables de
+      // inventario; el cliente conserva únicamente la lectura tenant-aware.
+      allow create, update, delete: if false;
     }
     match /insumos/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
-      allow create: if puedeCrearEnTenant() && esAdminOCajero();
-      allow update: if puedeActualizarEnTenant() && esAdminOCajero();
-      allow delete: if puedeEliminarEnTenant() && esAdmin();
+      allow create, update, delete: if false;
     }
     match /recetas/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
@@ -185,8 +183,8 @@ service cloud.firestore {
     }
     match /mermas/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
-      allow create: if puedeCrearEnTenant() && esAdmin();
-      allow update, delete: if false;
+      // La merma y su salida de kardex se escriben juntas por callable.
+      allow create, update, delete: if false;
     }
     match /egresos/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
@@ -226,8 +224,7 @@ service cloud.firestore {
     }
     match /movimientos_inventario/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
-      allow create: if puedeCrearEnTenant() && esOperativo();
-      allow update, delete: if false;
+      allow create, update, delete: if false;
     }
     match /auditoria_logs/{id} {
       allow read: if puedeLeerTenant() && esAdmin();

@@ -110,12 +110,13 @@
 - Fiscalidad permanece condicionada a la necesidad real del cliente; no se inventan NIT, resolución, prefijos ni credenciales.
 - Impresión física depende de modelo, driver y ancho del equipo del cliente; el transporte técnico Web/PWA ya está definido.
 - Correcciones financieras posteriores a un egreso requieren una autoridad backend canónica o un procedimiento de soporte; el cliente no borra el ledger.
-- La auditoría global de G-SAAS-02 identificó mutaciones cliente históricas de stock y merma. El cutover server-authoritative queda pendiente de decisión y aceptación de `ADR-SAAS-030`; no se cambia la frontera ni las Rules por inferencia.
+- La auditoría global de G-SAAS-02 identificó mutaciones cliente históricas de stock y merma. `ADR-SAAS-030` fue aceptado con alcance acotado a inventario/mermas de G-SAAS-02: la implementación server-authoritative, sus pruebas y el deny de Rules quedan pendientes de integración y despliegue; no se modifica producción por esta aceptación.
 - Rules y Storage quedaron sincronizadas con `origin/main @ a644d1d` mediante un deploy controlado y verificación read-only posterior. El release productivo completo y la recuperación productiva aún no están certificados.
 
 ## Estado vivo
 
 - **Revision de ADR-SAAS-031:** PR #289 registró la revisión inicial y PR #301 aceptó la alternativa B para ejecución controlada: backup diario, retención de 35 días, RPO ≤24 h, RTO ≤4 h, restore a una base nueva aislada en `micafe-pos/southamerica-east1`, responsable cloud autorizado, rollback sin tocar `(default)` y costo variable bajo billing habilitado. El ADR no autoriza escrituras del tenant, inicio del Trial anual ni restore sobre la base de origen.
+- **Revisión de ADR-SAAS-030:** la decisión de continuidad de G-SAAS-02 del 2026-08-14 aceptó la alternativa B para el cutover server-authoritative de productos, insumos, ajustes y mermas. El alcance exige Functions idempotentes, resolución server-side de actor/tenant/lifecycle/artículo/stock/secuencia, Rules read-only para esas colecciones, pruebas de Functions/Rules/Emulator y rollback sin editar históricos. La aceptación no autoriza escrituras productivas.
 
 - **Evidencia de release vigente:** PR #296 publico la recoleccion read-only contra `origin/main @ 3d5ef26`; CI, Vercel, Functions, Rules y Storage quedaron PASS. Smoke productivo y recovery permanecen MISSING. Esta evidencia no autoriza escrituras ni inicia el Trial anual.
 
