@@ -199,12 +199,20 @@ Antes del Trial se registra:
 
 En la observación del `2026-08-15T04:29:09Z`, las 79 Functions activas de
 `origin/main @ 7d9078f` y las Rules/Storage desplegadas quedaron reconciliadas
-con el release. Smoke productivo y recovery independiente permanecen como
-gates pendientes; esta observación no ejecutó operaciones sobre el tenant.
+con el release. PR #326 dejó la evidencia documental de recovery integrada en
+`origin/main @ c2ff8855d2564972886d0f4f9bb296f5f3035d0e`; el runtime no cambió.
+Smoke productivo y recovery independiente permanecen como gates pendientes;
+estas observaciones no ejecutaron operaciones sobre el tenant.
 
 Un rollback de código no revierte automáticamente datos financieros. Los datos se corrigen únicamente mediante comandos idempotentes y auditados.
 
-La recuperación productiva se considera pendiente hasta realizar un ensayo aprobado o documentar formalmente que no aplica al incidente concreto. `ADR-SAAS-031` fue aceptado para ejecución controlada: quedó configurado un schedule diario de 35 días sobre `(default)`, con evidencia en `docs/goals/evidence/G-SAAS-02-RECOVERY-CONFIGURATION-2026-08-14-fa16b7c4.md`. El primer backup, el restore aislado y la medición de RPO/RTO siguen pendientes; no se activa PITR ni se escribe el tenant.
+La recuperación productiva se considera pendiente hasta realizar un ensayo aprobado o documentar formalmente que no aplica al incidente concreto. `ADR-SAAS-031` fue aceptado para ejecución controlada: quedó configurado un schedule diario de 35 días sobre `(default)`, con evidencia en `docs/goals/evidence/G-SAAS-02-RECOVERY-CONFIGURATION-2026-08-14-fa16b7c4.md`. La observación read-only posterior confirmó el schedule único, la retención y cero backups observables dentro de la ventana inicial; la documentación del proveedor no permite fijar la hora exacta de ejecución. El primer backup, el restore aislado y la medición de RPO/RTO siguen pendientes; no se activa PITR ni se escribe el tenant.
+
+La cuenta de servicio local probada no tiene `datastore.backups.list`,
+`datastore.backups.get` ni `datastore.backups.restoreDatabase`; el ensayo debe
+usar un operador o principal autorizado con permisos de recovery. No se
+amplió IAM automáticamente. La evidencia completa está en
+`docs/goals/evidence/G-SAAS-02-RECOVERY-OBSERVATION-2026-08-15.md`.
 
 Cuando exista un backup observable, el guard reproducible valida proyecto,
 ubicación y destino antes de invocar el restore:
