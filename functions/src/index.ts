@@ -8,6 +8,7 @@ export {
 export {
   restablecerCredencialOperativa,
   restablecerCredencialAdministradorTenantSaas,
+  reemitirRestablecimientoCredencialAdministradorTenantSaas,
   activarRestablecimientoCredencial,
 } from "./credential-recovery-callables";
 

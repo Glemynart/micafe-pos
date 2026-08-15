@@ -81,8 +81,12 @@ export function idRestablecimientoCredencial(empresaId: string, uid: string, ide
     .digest("hex");
 }
 
-export function idAuditoriaRestablecimiento(restablecimientoId: string, evento: "SOLICITADO" | "ACTIVADO"): string {
+export function idAuditoriaRestablecimiento(restablecimientoId: string, evento: "SOLICITADO" | "ACTIVADO" | "CANCELADO"): string {
   return createHash("sha256").update(`restablecimiento-credencial:${evento}:${restablecimientoId}`).digest("hex");
+}
+
+export interface OpcionesSolicitudRestablecimiento {
+  reemitirPendiente?: boolean;
 }
 
 export function validarComandoRestablecimiento(data: Record<string, unknown> | undefined): ComandoRestablecimiento {
@@ -139,10 +143,11 @@ function planificarAuditoria(
   empresaId: string,
   uid: string,
   restablecimientoId: string,
-  tipo: "CREDENCIAL_RESTABLECIMIENTO_SOLICITADO" | "CREDENCIAL_RESTABLECIMIENTO_ACTIVADO",
+  tipo: "CREDENCIAL_RESTABLECIMIENTO_SOLICITADO" | "CREDENCIAL_RESTABLECIMIENTO_ACTIVADO" | "CREDENCIAL_RESTABLECIMIENTO_CANCELADO",
   detalle: Record<string, unknown>,
 ): string {
-  const obligacionId = idAuditoriaRestablecimiento(restablecimientoId, tipo.endsWith("SOLICITADO") ? "SOLICITADO" : "ACTIVADO");
+  const evento = tipo.endsWith("SOLICITADO") ? "SOLICITADO" : tipo.endsWith("ACTIVADO") ? "ACTIVADO" : "CANCELADO";
+  const obligacionId = idAuditoriaRestablecimiento(restablecimientoId, evento);
   crearObligacionAuditoria(db, tx, {
     tipo,
     resultado: "CONFIRMADO",
@@ -182,6 +187,7 @@ export async function solicitarRestablecimientoCredencial(
   objetivoUid: string,
   pepper: string,
   evidencia?: EvidenciaFueraDeBanda,
+  opciones: OpcionesSolicitudRestablecimiento = {},
 ): Promise<ResultadoRestablecimiento> {
   if (!empresaId.trim() || !objetivoUid.trim()) error("invalid-argument", "OBJETIVO_RESTABLECIMIENTO_INVALIDO");
   if (actor.tipo === "ADMIN_TENANT" && actor.facultad !== null) error("internal", "AUTORIDAD_RESTABLECIMIENTO_INVALIDA");
@@ -189,7 +195,8 @@ export async function solicitarRestablecimientoCredencial(
   const evidenciaValidada = actor.tipo === "OPERADOR_SAAS" ? validarEvidencia(evidencia) : undefined;
   const resetId = idRestablecimientoCredencial(empresaId, objetivoUid, comando.idempotencyKey);
   const resetRef = db.collection(RESTABLECIMIENTOS_COLLECTION).doc(resetId);
-  const fingerprintActual = fingerprint({ actor, empresaId, objetivoUid, evidencia: evidenciaValidada ?? null });
+  const reemitirPendiente = opciones.reemitirPendiente === true;
+  const fingerprintActual = fingerprint({ actor, empresaId, objetivoUid, evidencia: evidenciaValidada ?? null, reemitirPendiente });
 
   for (let intento = 0; intento < MAX_INTENTOS_UNICIDAD; intento++) {
     const pinTemporal = generarPinTemporal();
@@ -252,16 +259,53 @@ export async function solicitarRestablecimientoCredencial(
         const activas = credencialesSnap.docs.filter((snap: SnapshotLike) => snap.get?.("activo") === true);
         if (activas.length !== 1) error("failed-precondition", "CREDENCIAL_ACTIVA_NO_UNICA");
         const anterior = activas[0];
-        if (anterior.get?.("requiereCambio") === true && anterior.get?.("restablecimientoId")) {
+        const restablecimientoAnteriorId = typeof anterior.get?.("restablecimientoId") === "string"
+          ? anterior.get?.("restablecimientoId")
+          : null;
+        const requiereCambio = anterior.get?.("requiereCambio") === true;
+        if (restablecimientoAnteriorId && !requiereCambio) {
+          error("failed-precondition", "CREDENCIAL_RESTABLECIMIENTO_INCONSISTENTE");
+        }
+        let restablecimientoAnteriorSnap: SnapshotLike | null = null;
+        if (restablecimientoAnteriorId) {
+          restablecimientoAnteriorSnap = await tx.get(db.collection(RESTABLECIMIENTOS_COLLECTION).doc(restablecimientoAnteriorId));
+          const anteriorData = restablecimientoAnteriorSnap.data();
+          if (!restablecimientoAnteriorSnap.exists
+            || anteriorData?.empresaId !== empresaId
+            || anteriorData?.objetivoUid !== objetivoUid
+            || anteriorData?.credencialNuevaId !== anterior.id
+            || anteriorData?.estado !== "PENDIENTE_ACTIVACION") {
+            error("failed-precondition", "CREDENCIAL_RESTABLECIMIENTO_INCONSISTENTE");
+          }
+        }
+        if (restablecimientoAnteriorId && !reemitirPendiente) {
           error("failed-precondition", "CREDENCIAL_RESTABLECIMIENTO_PENDIENTE");
+        }
+        if (reemitirPendiente && !restablecimientoAnteriorId) {
+          error("failed-precondition", "CREDENCIAL_RESTABLECIMIENTO_NO_PENDIENTE");
         }
         const nuevaCredencialRef = db.collection("credenciales_operativas").doc(idCredencialOperativa(empresaId, codigo));
         await reservarCodigoOperativoEnTransaccion(db, tx, codigo);
+        if (restablecimientoAnteriorId && restablecimientoAnteriorSnap) {
+          planificarAuditoria(db, tx, comando, actor, empresaId, objetivoUid, restablecimientoAnteriorId, "CREDENCIAL_RESTABLECIMIENTO_CANCELADO", {
+            credencialCanceladaId: anterior.id,
+            reemplazadoPorRestablecimientoId: resetId,
+            motivo: comando.motivoCodigo,
+          });
+          tx.update(db.collection(RESTABLECIMIENTOS_COLLECTION).doc(restablecimientoAnteriorId), {
+            estado: "CANCELADO",
+            canceladoPor: { tipo: actor.tipo, uid: actor.uid },
+            reemplazadoPorRestablecimientoId: resetId,
+            canceladaEn: FieldValue.serverTimestamp(),
+            actualizadaEn: FieldValue.serverTimestamp(),
+          });
+        }
         const obligacionId = planificarAuditoria(db, tx, comando, actor, empresaId, objetivoUid, resetId, "CREDENCIAL_RESTABLECIMIENTO_SOLICITADO", {
           autoridad: actor.tipo,
           objetivo: actor.tipo === "ADMIN_TENANT" ? "OPERADOR" : "ADMINISTRADOR",
           credencialAnteriorId: anterior.id,
           credencialNuevaId: nuevaCredencialRef.id,
+          ...(restablecimientoAnteriorId ? { reemisionDeRestablecimientoId: restablecimientoAnteriorId } : {}),
           ...(evidenciaValidada ? { verificacionFueraDeBanda: evidenciaValidada } : {}),
         });
         tx.update(db.collection("credenciales_operativas").doc(anterior.id), {

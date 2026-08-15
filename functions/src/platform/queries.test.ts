@@ -243,6 +243,22 @@ test("obtenerDetalleEmpresaPlataforma: una temporal de plataforma sin TTL no hab
   assert.equal(detalle.credencialInicial.puedeReemitir, false);
 });
 
+test("obtenerDetalleEmpresaPlataforma: proyecta una recuperación pendiente sin exponer secretos", async () => {
+  const db = fakeDetalleDb();
+  db.seed("empresas/empresa-1", { estado: "activa", ownerUid: "owner-1" });
+  db.seed("membresias/empresa-1_owner-1", { rol: "admin", estado: "activa", activo: true });
+  db.seed("credenciales_operativas/empresa-1_cafeatrato-admin", {
+    empresaId: "empresa-1", uid: "owner-1", codigo: "cafeatrato-admin", activo: true,
+    requiereCambio: true, restablecimientoId: "reset-1", pinHash: "hash-no-visible",
+  });
+
+  const detalle = await obtenerDetalleEmpresaPlataforma(db as never, "empresa-1");
+  assert.equal(detalle.credencialInicial.restablecimientoPendiente, true);
+  assert.equal(detalle.credencialInicial.puedeReemitirRestablecimiento, true);
+  assert.equal(detalle.estadoAccesoInicial, "CREDENCIAL_TEMPORAL_PENDIENTE");
+  assert.equal(JSON.stringify(detalle).includes("hash-no-visible"), false);
+});
+
 test("detalle diagnóstico reutiliza B1, módulos y versión contratada del plan", async () => {
   const db = fakeDetalleDb();
   db.seed("empresas/empresa-1", { estado: "trial", ownerUid: "owner-1", paisFiscal: "CO" });

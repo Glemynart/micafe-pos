@@ -27,6 +27,38 @@ function pepper(): string {
   return value;
 }
 
+async function ejecutarRestablecimientoAdministrador(
+  request: { auth?: { uid: string; token: Record<string, unknown> } | null; data?: unknown },
+  reemitirPendiente: boolean,
+) {
+  const auth = exigirAuth(request);
+  const db = getFirestore();
+  await autorizarPlataforma(db, auth.uid, auth.token as TokenPlataforma, "ACCESO_RESTABLECER");
+  const data = request.data as Record<string, unknown> | undefined;
+  if (typeof data?.empresaId !== "string" || !data.empresaId.trim()) {
+    throw new HttpsError("invalid-argument", "EMPRESA_ID_INVALIDO");
+  }
+  const empresa = await db.collection("empresas").doc(data.empresaId).get();
+  const ownerUid = empresa.data()?.ownerUid;
+  if (!empresa.exists || typeof ownerUid !== "string" || !ownerUid) {
+    throw new HttpsError("failed-precondition", "EMPRESA_SIN_OWNER");
+  }
+  const comando = validarComandoRestablecimiento(data);
+  const evidencia = data.evidenciaVerificacion as EvidenciaFueraDeBanda | undefined;
+  const resultado = await solicitarRestablecimientoCredencial(
+    db,
+    { tipo: "OPERADOR_SAAS", uid: auth.uid, facultad: "ACCESO_RESTABLECER" },
+    comando,
+    data.empresaId,
+    ownerUid,
+    pepper(),
+    evidencia,
+    { reemitirPendiente },
+  );
+  await getAuth().revokeRefreshTokens(resultado.uid);
+  return resultado;
+}
+
 export const restablecerCredencialOperativa = onCall(
   { region: REGION, secrets: [PIN_PEPPER], cors: CORS_ORIGINS, invoker: "public" },
   async (request) => {
@@ -53,33 +85,12 @@ export const restablecerCredencialOperativa = onCall(
 
 export const restablecerCredencialAdministradorTenantSaas = onCall(
   { region: REGION, secrets: [PIN_PEPPER], cors: CORS_ORIGINS, invoker: "public" },
-  async (request) => {
-    const auth = exigirAuth(request);
-    const db = getFirestore();
-    await autorizarPlataforma(db, auth.uid, auth.token as TokenPlataforma, "ACCESO_RESTABLECER");
-    const data = request.data as Record<string, unknown> | undefined;
-    if (typeof data?.empresaId !== "string" || !data.empresaId.trim()) {
-      throw new HttpsError("invalid-argument", "EMPRESA_ID_INVALIDO");
-    }
-    const empresa = await db.collection("empresas").doc(data.empresaId).get();
-    const ownerUid = empresa.data()?.ownerUid;
-    if (!empresa.exists || typeof ownerUid !== "string" || !ownerUid) {
-      throw new HttpsError("failed-precondition", "EMPRESA_SIN_OWNER");
-    }
-    const comando = validarComandoRestablecimiento(data);
-    const evidencia = data.evidenciaVerificacion as EvidenciaFueraDeBanda | undefined;
-    const resultado = await solicitarRestablecimientoCredencial(
-      db,
-      { tipo: "OPERADOR_SAAS", uid: auth.uid, facultad: "ACCESO_RESTABLECER" },
-      comando,
-      data.empresaId,
-      ownerUid,
-      pepper(),
-      evidencia,
-    );
-    await getAuth().revokeRefreshTokens(resultado.uid);
-    return resultado;
-  },
+  async (request) => ejecutarRestablecimientoAdministrador(request, false),
+);
+
+export const reemitirRestablecimientoCredencialAdministradorTenantSaas = onCall(
+  { region: REGION, secrets: [PIN_PEPPER], cors: CORS_ORIGINS, invoker: "public" },
+  async (request) => ejecutarRestablecimientoAdministrador(request, true),
 );
 
 export const activarRestablecimientoCredencial = onCall(
