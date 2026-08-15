@@ -105,3 +105,21 @@ test("REST conserva el error y no trata un HTTP no exitoso como restore", async 
     globalThis.fetch = originalFetch;
   }
 });
+
+test("REST explica los permisos faltantes ante un HTTP 403", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response("forbidden", { status: 403 })) as typeof fetch;
+
+  try {
+    const result = await describeRecoveryBackup(
+      "projects/micafe-pos/locations/southamerica-east1/backups/PROTECTED",
+      "token-only-in-memory",
+    );
+    assert.equal(result.ok, false);
+    assert.equal(result.status, 403);
+    assert.match(result.error ?? "", /datastore\.backups\.get\/list/);
+    assert.match(result.error ?? "", /roles\/datastore\.restoreAdmin/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
