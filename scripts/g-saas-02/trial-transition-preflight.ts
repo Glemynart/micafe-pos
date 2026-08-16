@@ -1,6 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import {
   evaluarTrialTransitionPreflight,
+  seleccionarOperadorAutenticado,
   type TrialTransitionSnapshot,
 } from "./trial-transition-preflight-core";
 
@@ -80,7 +81,7 @@ async function verificarAutenticacionOperador(projectId: string): Promise<{ veri
   }
 }
 
-async function readProduction(projectId: string, tenantId: string): Promise<Pick<TrialTransitionSnapshot, "empresa" | "suscripcionRaiz" | "planAnual" | "configuracion" | "relaciones" | "operador">> {
+async function readProduction(projectId: string, tenantId: string, operadorUid: string | null): Promise<Pick<TrialTransitionSnapshot, "empresa" | "suscripcionRaiz" | "planAnual" | "configuracion" | "relaciones" | "operador">> {
   const token = process.env.FIREBASE_ACCESS_TOKEN;
   if (!token) throw new Error("FIREBASE_ACCESS_TOKEN es obligatorio; el preflight no obtiene ni imprime credenciales.");
   const base = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents`;
@@ -106,13 +107,16 @@ async function readProduction(projectId: string, tenantId: string): Promise<Pick
     list("saas_operadores"),
   ]);
   void plan;
+  const operadores = operators
+    .map(decodeDocument)
+    .filter((document): document is Record<string, unknown> => document !== null);
   return {
     empresa: decodeDocument(empresa),
     suscripcionRaiz: decodeDocument(suscripcionRaiz),
     planAnual: decodeDocument(version),
     configuracion: decodeDocument(config),
     relaciones: relations.map((document) => ({ id: documentId(document), ...decodeDocument(document) })),
-    operador: decodeDocument(operators.find((document) => decodeDocument(document)?.estado === "ACTIVO") ?? null),
+    operador: seleccionarOperadorAutenticado(operadores, operadorUid),
   };
 }
 
@@ -128,8 +132,8 @@ async function main(): Promise<void> {
     storageVerified: argumento("--storage-verified") === "true",
     vercelVerified: argumento("--vercel-verified") === "true",
   };
-  const production = await readProduction(projectId, tenantId);
   const autenticacionOperador = await verificarAutenticacionOperador(projectId);
+  const production = await readProduction(projectId, tenantId, autenticacionOperador.uid);
   const snapshot: TrialTransitionSnapshot = {
     projectId,
     tenantId,

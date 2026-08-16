@@ -4,6 +4,7 @@ import {
   ANNUAL_CAPABILITIES,
   evaluarTrialTransitionPreflight,
   HISTORIC_CAPABILITIES,
+  seleccionarOperadorAutenticado,
   type TrialTransitionSnapshot,
 } from "./trial-transition-preflight-core";
 
@@ -45,6 +46,23 @@ function snapshot(overrides: Partial<TrialTransitionSnapshot> = {}): TrialTransi
     ...overrides,
   };
 }
+
+test("preflight selecciona el operador autenticado aunque otro operador activo aparezca primero", () => {
+  const operador = seleccionarOperadorAutenticado([
+    { uid: "otro-operador", estado: "ACTIVO", facultades: ["PLATAFORMA_CONSULTAR"] },
+    { uid: "operador-autenticado", estado: "ACTIVO", facultades: ["COMERCIAL_GOBERNAR"] },
+  ], "operador-autenticado");
+
+  assert.equal(operador?.uid, "operador-autenticado");
+});
+
+test("preflight no selecciona un operador activo distinto al autenticado", () => {
+  const operador = seleccionarOperadorAutenticado([
+    { uid: "otro-operador", estado: "ACTIVO" },
+  ], "operador-autenticado");
+
+  assert.equal(operador, null);
+});
 
 test("preflight mantiene la transición bloqueada antes del cierre histórico", () => {
   const result = evaluarTrialTransitionPreflight(snapshot());

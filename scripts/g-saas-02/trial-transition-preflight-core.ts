@@ -96,6 +96,14 @@ export interface TrialTransitionPreflightResult {
   findings: readonly PreflightFinding[];
 }
 
+export function seleccionarOperadorAutenticado(
+  operadores: readonly Record<string, unknown>[],
+  operadorUid: string | null,
+): Record<string, unknown> | null {
+  if (!operadorUid) return null;
+  return operadores.find((operador) => operador.uid === operadorUid && operador.estado === "ACTIVO") ?? null;
+}
+
 function fechaValida(value: unknown): value is string {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
 }
