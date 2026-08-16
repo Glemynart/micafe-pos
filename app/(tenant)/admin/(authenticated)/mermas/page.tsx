@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Trash2, Calendar } from "lucide-react"
@@ -8,12 +8,15 @@ import { formatCurrency } from "@/lib/demo-data"
 import { collection, query, orderBy, getDocs, limit, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { getEmpresaId } from "@/lib/tenant"
+import { suscribirUsuarios, type Usuario } from "@/lib/permisos-service"
+import { crearIndiceNombres, resolverNombreActor } from "@/lib/actor-display"
 
-interface MermaRaw { id: string; insumoNombre: string; cantidad: number; unidadMedida: string; motivo: string; costo: number; notas?: string; registradoPorNombre: string; fecha: { toDate: () => Date } | null }
+interface MermaRaw { id: string; insumoNombre: string; cantidad: number; unidadMedida: string; motivo: string; costo: number; notas?: string; registradoPor?: string; registradoPorNombre?: string; fecha: { toDate: () => Date } | null }
 const reasons: Record<string, string> = { expired: "Vencido", damaged: "Danado", spilled: "Derramado", burned: "Quemado", other: "Otro" }
 
 export default function MermasPage() {
   const [mermas, setMermas] = useState<MermaRaw[]>([])
+  const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
@@ -22,9 +25,11 @@ export default function MermasPage() {
       catch {} finally { setCargando(false) }
     })()
   }, [])
+  useEffect(() => suscribirUsuarios(setUsuarios), [])
 
   const total = mermas.reduce((a, m) => a + (m.costo || 0), 0)
   const ff = (f: MermaRaw["fecha"]) => f?.toDate?.().toLocaleDateString("es-CO", { day: "2-digit", month: "short" }) || "-"
+  const nombres = useMemo(() => crearIndiceNombres(usuarios), [usuarios])
 
   if (cargando) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-white/20" /></div>
 
@@ -39,7 +44,7 @@ export default function MermasPage() {
               <div><p className="text-sm font-medium text-white">{m.insumoNombre}</p><p className="text-xs text-white/60">{m.cantidad} {m.unidadMedida}</p></div>
               <span className="font-bold text-destructive text-sm">{formatCurrency(m.costo)}</span></div>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2"><Calendar className="h-3 w-3 text-white/60" /><span className="text-xs text-white/60">{ff(m.fecha)} - {m.registradoPorNombre}</span></div>
+              <div className="flex items-center gap-2"><Calendar className="h-3 w-3 text-white/60" /><span className="text-xs text-white/60">{ff(m.fecha)} · Reportó: {resolverNombreActor(m.registradoPor, m.registradoPorNombre, nombres)}</span></div>
               <Badge variant="secondary" className="text-[10px]">{reasons[m.motivo] || m.motivo}</Badge></div>
           </CardContent></Card>
         ))}</div>

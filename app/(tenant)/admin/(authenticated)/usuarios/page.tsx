@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import Link from "next/link"
-import { Loader2, UserPlus, Trash2, Shield, ArrowRight, ClipboardList, LayoutGrid, ChevronRight, Lock, Truck, CalendarDays } from "lucide-react"
+import { Loader2, UserPlus, Trash2, Shield, ArrowRight, ClipboardList, LayoutGrid, ChevronRight, Lock, Truck, CalendarDays, TrendingDown } from "lucide-react"
 import { toast } from "sonner"
 import { suscribirUsuarios, crearOperador, actualizarRolUsuario, toggleUsuarioActivo, type Usuario, type RolUsuario, type ResultadoCreacionOperador } from "@/lib/permisos-service"
 
@@ -126,6 +126,13 @@ export default function UsuariosPage() {
               </div>
               <p className="text-sm font-semibold text-white/80">Mermas</p>
               <p className="text-[11px] text-white/40 mt-0.5">Pérdidas registradas</p>
+            </Link>
+            <Link href="/admin/gastos" className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/5 transition-colors">
+              <div className="w-8 h-8 rounded-lg bg-orange-500/20 flex items-center justify-center mb-3">
+                <TrendingDown className="h-4 w-4 text-orange-400" />
+              </div>
+              <p className="text-sm font-semibold text-white/80">Gastos</p>
+              <p className="text-[11px] text-white/40 mt-0.5">Salidas y responsables</p>
             </Link>
             <Link href="/admin/cuentas-cobro" className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/5 transition-colors">
               <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center mb-3">

@@ -15,7 +15,7 @@ import {
 } from "lucide-react"
 
 const adminTabs = [
-  { href: "/admin", label: "Inicio", icon: LayoutDashboard, modulo: "reports" },
+  { href: "/admin", label: "Inicio", icon: LayoutDashboard },
   { href: "/admin/reportes", label: "Reportes", icon: BarChart3, modulo: "reports" },
   { href: "/admin/reservas", label: "Reservas", icon: CalendarDays, modulo: "reservas" },
   { href: "/admin/turnos", label: "Turnos", icon: Clock, modulo: "shifts" },
@@ -27,7 +27,7 @@ const marketingTabs = [
   { href: "/admin/eventos", label: "Eventos", icon: CalendarDays },
 ]
 
-const moreModulos = ["usuarios", "permisos", "mermas", "cuentas_cobro", "compras"]
+const moreModulos = ["usuarios", "permisos", "mermas", "gastos", "cuentas_cobro", "compras"]
 
 export function BottomNav() {
   const pathname = usePathname()
@@ -37,7 +37,7 @@ export function BottomNav() {
 
   const tabs = usuario?.rol === "marketing"
     ? marketingTabs
-    : adminTabs.filter((t) => modSet.has(t.modulo))
+    : adminTabs.filter((t) => !t.modulo || modSet.has(t.modulo))
 
   const isMoreActive = usuario?.rol !== "marketing" && moreModulos.some((m) => pathname.includes(m))
 

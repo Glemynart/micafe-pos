@@ -1,16 +1,20 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Loader2, Clock, CheckCircle2, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatCurrency } from "@/lib/demo-data"
 import { suscribirHistorialTurnos, type Turno } from "@/lib/turnos-service"
+import { suscribirUsuarios, type Usuario } from "@/lib/permisos-service"
+import { crearIndiceNombres, resolverNombreActor } from "@/lib/actor-display"
 
 export default function TurnosPage() {
   const [turnos, setTurnos] = useState<Turno[]>([])
+  const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => { const u = suscribirHistorialTurnos(d => { setTurnos(d); setCargando(false) }); return u }, [])
+  useEffect(() => suscribirUsuarios(setUsuarios), [])
 
   if (cargando) return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -20,6 +24,8 @@ export default function TurnosPage() {
 
   const abiertos = turnos.filter(t => t.estado === "abierto")
   const cerrados = turnos.filter(t => t.estado !== "abierto")
+  const nombres = useMemo(() => crearIndiceNombres(usuarios), [usuarios])
+  const nombreCajero = (turno: Turno) => resolverNombreActor(turno.cajeroId, turno.cajeroNombre, nombres)
 
   return (
     <div className="pb-4">
@@ -43,7 +49,7 @@ export default function TurnosPage() {
                   <div key={t.id} className="px-4 py-4">
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <p className="text-sm font-semibold text-white">{t.cajeroNombre}</p>
+                        <p className="text-sm font-semibold text-white">{nombreCajero(t)}</p>
                         <p className="text-[11px] text-white/40 mt-0.5">
                           {t.fechaApertura?.toDate?.().toLocaleDateString("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                         </p>
@@ -81,7 +87,7 @@ export default function TurnosPage() {
                   <div key={t.id} className="px-4 py-4">
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <p className="text-sm font-semibold text-white/80">{t.cajeroNombre}</p>
+                        <p className="text-sm font-semibold text-white/80">{nombreCajero(t)}</p>
                         <p className="text-[11px] text-white/40 mt-0.5">
                           {t.fechaApertura?.toDate?.().toLocaleDateString("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                         </p>
