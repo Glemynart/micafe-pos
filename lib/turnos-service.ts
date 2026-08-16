@@ -46,6 +46,7 @@ export interface Turno {
   diferenciaEfectivo: number;
   notasApertura: string;
   notasCierre: string;
+  depositoNeto?: number;
   esCierreDefinitivo?: boolean;
   turnoAnteriorId?: string | null;
   relevadoA?: string | null;
