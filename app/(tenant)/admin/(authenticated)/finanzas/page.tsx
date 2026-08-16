@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { Loader2, TrendingUp, TrendingDown, ArrowRightLeft, Plus, Minus, Wallet, ChevronRight } from "lucide-react"
+import { Loader2, TrendingUp, TrendingDown, ArrowRightLeft, Plus, Minus, Wallet, ChevronLeft, ChevronRight, PieChart } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatCurrency } from "@/lib/demo-data"
 import { useAuthContext } from "@/contexts/auth-context"
@@ -19,6 +19,7 @@ import { suscribirUsuarios, type Usuario } from "@/lib/permisos-service"
 import { crearIndiceNombres, resolverNombreActor } from "@/lib/actor-display"
 
 type TxTipo = "ingreso" | "egreso" | "traslado"
+type FiltroMovimiento = "todos" | "ingreso" | "egreso"
 
 const CATEGORIAS_EGRESO = [
   { value: "proveedores", label: "Proveedores / Compras" },
@@ -42,6 +43,11 @@ export default function FinanzasPage() {
   const [transacciones, setTransacciones] = useState<TransaccionFinanciera[]>([])
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [cargando, setCargando] = useState(true)
+  const [periodo, setPeriodo] = useState(() => {
+    const ahora = new Date()
+    return { mes: ahora.getMonth() + 1, anio: ahora.getFullYear() }
+  })
+  const [filtroMovimiento, setFiltroMovimiento] = useState<FiltroMovimiento>("todos")
 
   // Modal
   const [modal, setModal] = useState<TxTipo | null>(null)
@@ -49,13 +55,19 @@ export default function FinanzasPage() {
   const [guardando, setGuardando] = useState(false)
 
   useEffect(() => {
-    inicializarCuentasBancarias()
+    void inicializarCuentasBancarias()
     const unsubC = suscribirCuentasBancarias((data) => { setCuentas(data); setCargando(false) })
-    const now = new Date()
-    const unsubT = suscribirTransacciones(now.getMonth() + 1, now.getFullYear(), setTransacciones)
     const unsubU = suscribirUsuarios(setUsuarios)
-    return () => { unsubC(); unsubT(); unsubU() }
+    return () => { unsubC(); unsubU() }
   }, [])
+
+  useEffect(() => {
+    setCargando(true)
+    return suscribirTransacciones(periodo.mes, periodo.anio, (data) => {
+      setTransacciones(data)
+      setCargando(false)
+    })
+  }, [periodo])
 
   const resetForm = () => setForm({ cuentaId: "", cuentaDestinoId: "", monto: "", concepto: "", categoria: "", referencia: "" })
 
@@ -107,6 +119,36 @@ export default function FinanzasPage() {
 
   const saldoTotal = cuentas.reduce((s, c) => s + (c.saldo || 0), 0)
   const nombres = useMemo(() => crearIndiceNombres(usuarios), [usuarios])
+  const ingresos = useMemo(
+    () => transacciones.filter((tx) => tx.tipo === "ingreso").reduce((total, tx) => total + (tx.monto || 0), 0),
+    [transacciones],
+  )
+  const gastos = useMemo(
+    () => transacciones.filter((tx) => tx.tipo === "egreso").reduce((total, tx) => total + (tx.monto || 0), 0),
+    [transacciones],
+  )
+  const resultadoNeto = ingresos - gastos
+  const gastosPorCategoria = useMemo(() => {
+    const porCategoria = new Map<string, number>()
+    transacciones
+      .filter((tx) => tx.tipo === "egreso")
+      .forEach((tx) => porCategoria.set(tx.categoria || "sin-categoria", (porCategoria.get(tx.categoria || "sin-categoria") || 0) + (tx.monto || 0)))
+    return [...porCategoria.entries()].sort(([, montoA], [, montoB]) => montoB - montoA)
+  }, [transacciones])
+  const transaccionesVisibles = useMemo(
+    () => filtroMovimiento === "todos" ? transacciones : transacciones.filter((tx) => tx.tipo === filtroMovimiento),
+    [filtroMovimiento, transacciones],
+  )
+  const etiquetaCategoria = (categoria: string) => [...CATEGORIAS_EGRESO, ...CATEGORIAS_INGRESO].find((item) => item.value === categoria)?.label || categoria
+  const etiquetaPeriodo = new Date(periodo.anio, periodo.mes - 1, 1).toLocaleDateString("es-CO", { month: "long", year: "numeric" })
+  const esPeriodoActual = (() => {
+    const ahora = new Date()
+    return ahora.getMonth() + 1 === periodo.mes && ahora.getFullYear() === periodo.anio
+  })()
+  const cambiarPeriodo = (delta: number) => {
+    const siguiente = new Date(periodo.anio, periodo.mes - 1 + delta, 1)
+    setPeriodo({ mes: siguiente.getMonth() + 1, anio: siguiente.getFullYear() })
+  }
 
   if (cargando) return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -119,14 +161,71 @@ export default function FinanzasPage() {
       {/* Header */}
       <div className="pt-2 pb-1">
         <h1 className="text-2xl font-bold text-white">Finanzas</h1>
-        <p className="text-white/40 text-sm">Saldos y movimientos del mes</p>
+        <p className="text-white/40 text-sm">Saldos, flujo de caja y movimientos del negocio</p>
+      </div>
+
+      <div className="flex items-center justify-between rounded-xl bg-white/5 border border-white/10 px-3 py-2">
+        <button onClick={() => cambiarPeriodo(-1)} className="h-8 w-8 rounded-lg flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white" aria-label="Mes anterior">
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <div className="text-center">
+          <p className="text-[10px] uppercase tracking-widest font-bold text-white/35">Periodo analizado</p>
+          <p className="text-sm font-bold text-white capitalize">{etiquetaPeriodo}</p>
+        </div>
+        <button onClick={() => cambiarPeriodo(1)} disabled={esPeriodoActual} className="h-8 w-8 rounded-lg flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white disabled:opacity-20 disabled:hover:bg-transparent" aria-label="Mes siguiente">
+          <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
 
       {/* Saldo total */}
       <div className="rounded-2xl bg-gradient-to-br from-[#F9B207]/20 to-[#F9B207]/5 border border-[#F9B207]/20 p-5">
         <p className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-1">Saldo Total</p>
         <p className="text-4xl font-black text-white tracking-tight">{formatCurrency(saldoTotal)}</p>
+        <p className="text-xs text-white/40 mt-2">Saldo actual de todas las cuentas</p>
       </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3">
+          <p className="text-[10px] uppercase tracking-wider font-bold text-emerald-300/70">Ingresos</p>
+          <p className="text-sm font-black text-emerald-300 mt-1">{formatCurrency(ingresos)}</p>
+        </div>
+        <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3">
+          <p className="text-[10px] uppercase tracking-wider font-bold text-red-300/70">Gastos</p>
+          <p className="text-sm font-black text-red-300 mt-1">{formatCurrency(gastos)}</p>
+        </div>
+        <div className={cn("rounded-xl border p-3", resultadoNeto >= 0 ? "bg-blue-500/10 border-blue-500/20" : "bg-orange-500/10 border-orange-500/20")}>
+          <p className="text-[10px] uppercase tracking-wider font-bold text-white/50">Resultado</p>
+          <p className={cn("text-sm font-black mt-1", resultadoNeto >= 0 ? "text-blue-300" : "text-orange-300")}>{formatCurrency(resultadoNeto)}</p>
+        </div>
+      </div>
+
+      {gastosPorCategoria.length > 0 && (
+        <div className="rounded-2xl bg-white/5 border border-white/5 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <PieChart className="h-4 w-4 text-orange-400" />
+            <div>
+              <h2 className="text-sm font-bold text-white">En qué se está yendo el dinero</h2>
+              <p className="text-[11px] text-white/35">Gastos agrupados por categoría</p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {gastosPorCategoria.slice(0, 5).map(([categoria, monto]) => {
+              const porcentaje = gastos > 0 ? Math.round((monto / gastos) * 100) : 0
+              return (
+                <div key={categoria}>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-white/60 truncate">{etiquetaCategoria(categoria)}</span>
+                    <span className="text-white/80 font-bold shrink-0 ml-2">{formatCurrency(monto)} · {porcentaje}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                    <div className="h-full rounded-full bg-orange-400" style={{ width: `${porcentaje}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Cuentas */}
       <div className="grid grid-cols-2 gap-3">
@@ -168,15 +267,27 @@ export default function FinanzasPage() {
 
       {/* Historial */}
       <div>
-        <h2 className="text-sm font-bold text-white/50 uppercase tracking-wider mb-3">Movimientos del mes</h2>
-        {transacciones.length === 0 ? (
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <h2 className="text-sm font-bold text-white/50 uppercase tracking-wider">Movimientos</h2>
+            <p className="text-[11px] text-white/35 mt-1">{transacciones.length} registrados en el periodo</p>
+          </div>
+          <div className="flex gap-1">
+            {([['todos', 'Todos'], ['ingreso', 'Ingresos'], ['egreso', 'Gastos']] as const).map(([value, label]) => (
+              <button key={value} onClick={() => setFiltroMovimiento(value)} className={cn("rounded-full px-2.5 py-1 text-[10px] font-bold border", filtroMovimiento === value ? "border-[#F9B207]/50 bg-[#F9B207]/15 text-[#F9B207]" : "border-white/10 text-white/40")}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {transaccionesVisibles.length === 0 ? (
           <div className="rounded-2xl bg-white/5 border border-white/5 py-12 flex flex-col items-center gap-2">
             <Wallet className="h-8 w-8 text-white/10" />
-            <p className="text-sm text-white/30">Sin movimientos este mes</p>
+            <p className="text-sm text-white/30">Sin movimientos para este filtro</p>
           </div>
         ) : (
           <div className="rounded-2xl bg-white/5 border border-white/5 divide-y divide-white/5 overflow-hidden">
-            {transacciones.map(tx => (
+            {transaccionesVisibles.map(tx => (
               <div key={tx.id} className="flex items-center gap-3 px-4 py-3">
                 <div className={cn(
                   "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
