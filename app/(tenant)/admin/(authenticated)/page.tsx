@@ -1,18 +1,21 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useAuthContext } from "@/contexts/auth-context"
-import { Loader2, ShoppingCart, Trash2, Clock, ClipboardList, TrendingUp, AlertCircle, CalendarDays, Sparkles } from "lucide-react"
+import { Loader2, ShoppingCart, Trash2, Clock, ClipboardList, TrendingUp, TrendingDown, AlertCircle, CalendarDays, Sparkles } from "lucide-react"
 import { formatCurrency } from "@/lib/demo-data"
 import { collection, query, orderBy, getDocs, limit, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { getEmpresaId } from "@/lib/tenant"
 import Link from "next/link"
 import { suscribirEventos, type Evento, CATEGORIAS_EVENTOS } from "@/lib/eventos-service"
+import { suscribirTransacciones, type TransaccionFinanciera } from "@/lib/finanzas-service"
+import { suscribirUsuarios, type Usuario } from "@/lib/permisos-service"
+import { crearIndiceNombres, resolverNombreActor } from "@/lib/actor-display"
 
 interface CompraRaw { id: string; total?: number }
 interface MermaRaw { id: string; costo?: number }
-interface TurnoRaw { id: string; estado?: string; cajeroNombre?: string; totalEsperadoEfectivo?: number; fechaApertura?: { toDate: () => Date } }
+interface TurnoRaw { id: string; cajeroId?: string; estado?: string; cajeroNombre?: string; totalEsperadoEfectivo?: number; fechaApertura?: { toDate: () => Date } }
 interface CuentaRaw { id: string; estado?: string; totales?: { total: number }; clienteNombre?: string; fecha?: { toDate: () => Date } }
 
 export default function DashboardPage() {
@@ -21,6 +24,8 @@ export default function DashboardPage() {
   const [mermas, setMermas] = useState<MermaRaw[]>([])
   const [turnos, setTurnos] = useState<TurnoRaw[]>([])
   const [cuentas, setCuentas] = useState<CuentaRaw[]>([])
+  const [transacciones, setTransacciones] = useState<TransaccionFinanciera[]>([])
+  const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [eventos, setEventos] = useState<Evento[]>([])
   const [cargando, setCargando] = useState(true)
   const [cargandoEventos, setCargandoEventos] = useState(true)
@@ -46,6 +51,13 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
+    const ahora = new Date()
+    const unsubTransacciones = suscribirTransacciones(ahora.getMonth() + 1, ahora.getFullYear(), setTransacciones)
+    const unsubUsuarios = suscribirUsuarios(setUsuarios)
+    return () => { unsubTransacciones(); unsubUsuarios() }
+  }, [])
+
+  useEffect(() => {
     const unsub = suscribirEventos(true, (data) => {
       setEventos(data.filter(e => e.fecha >= new Date().toISOString().split("T")[0]))
       setCargandoEventos(false)
@@ -58,6 +70,9 @@ export default function DashboardPage() {
   const tActivos = turnos.filter(t => t.estado === "abierto").length
   const cPend = cuentas.length
   const tCuentas = cuentas.reduce((a, c) => a + (c.totales?.total || 0), 0)
+  const tGastos = transacciones.filter((tx) => tx.tipo === "egreso").reduce((a, tx) => a + (tx.monto || 0), 0)
+  const tIngresos = transacciones.filter((tx) => tx.tipo === "ingreso").reduce((a, tx) => a + (tx.monto || 0), 0)
+  const nombres = useMemo(() => crearIndiceNombres(usuarios), [usuarios])
   const now = new Date()
   const hour = now.getHours()
   const greeting = hour < 12 ? "Buenos dias" : hour < 18 ? "Buenas tardes" : "Buenas noches"
@@ -142,6 +157,7 @@ export default function DashboardPage() {
             { label: "Mermas", value: formatCurrency(tMermas), icon: Trash2, accent: "text-red-400", dot: "bg-red-400", href: "/admin/mermas" },
             { label: "Turnos activos", value: `${tActivos}`, icon: Clock, accent: "text-emerald-400", dot: "bg-emerald-400", href: "/admin/turnos" },
             { label: "Por cobrar", value: formatCurrency(tCuentas), icon: ClipboardList, accent: "text-amber-400", dot: "bg-amber-400", href: "/admin/cuentas-cobro" },
+            { label: "Gastos del mes", value: formatCurrency(tGastos), icon: TrendingDown, accent: "text-orange-400", dot: "bg-orange-400", href: "/admin/gastos" },
           ].map((kpi) => {
             const Icon = kpi.icon
             return (
@@ -185,7 +201,7 @@ export default function DashboardPage() {
             turnos.slice(0, 5).map(t => (
               <div key={t.id} className="flex items-center justify-between px-4 py-3">
                 <div>
-                  <p className="text-sm font-semibold text-white/80">{t.cajeroNombre}</p>
+                  <p className="text-sm font-semibold text-white/80">{resolverNombreActor(t.cajeroId, t.cajeroNombre, nombres)}</p>
                   <p className="text-[11px] text-white/30 mt-0.5">
                     {t.fechaApertura?.toDate?.().toLocaleDateString("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                   </p>
@@ -228,6 +244,13 @@ export default function DashboardPage() {
               <span className="text-sm text-white/70">Todos los turnos</span>
             </div>
             <span className="text-sm font-semibold text-white/50">{turnos.length} registros</span>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-3">
+              <div className="w-7 h-7 bg-emerald-500/15 rounded-lg flex items-center justify-center"><TrendingUp className="h-3.5 w-3.5 text-emerald-400" /></div>
+              <span className="text-sm text-white/70">Ingresos del mes</span>
+            </div>
+            <span className="text-sm font-semibold text-white/50">{formatCurrency(tIngresos)}</span>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Loader2, TrendingUp, TrendingDown, ArrowRightLeft, Plus, Minus, Wallet, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatCurrency } from "@/lib/demo-data"
@@ -15,6 +15,8 @@ import {
   type CuentaBancaria,
   type TransaccionFinanciera,
 } from "@/lib/finanzas-service"
+import { suscribirUsuarios, type Usuario } from "@/lib/permisos-service"
+import { crearIndiceNombres, resolverNombreActor } from "@/lib/actor-display"
 
 type TxTipo = "ingreso" | "egreso" | "traslado"
 
@@ -38,6 +40,7 @@ export default function FinanzasPage() {
   const { usuario } = useAuthContext()
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([])
   const [transacciones, setTransacciones] = useState<TransaccionFinanciera[]>([])
+  const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [cargando, setCargando] = useState(true)
 
   // Modal
@@ -50,7 +53,8 @@ export default function FinanzasPage() {
     const unsubC = suscribirCuentasBancarias((data) => { setCuentas(data); setCargando(false) })
     const now = new Date()
     const unsubT = suscribirTransacciones(now.getMonth() + 1, now.getFullYear(), setTransacciones)
-    return () => { unsubC(); unsubT() }
+    const unsubU = suscribirUsuarios(setUsuarios)
+    return () => { unsubC(); unsubT(); unsubU() }
   }, [])
 
   const resetForm = () => setForm({ cuentaId: "", cuentaDestinoId: "", monto: "", concepto: "", categoria: "", referencia: "" })
@@ -102,6 +106,7 @@ export default function FinanzasPage() {
   }
 
   const saldoTotal = cuentas.reduce((s, c) => s + (c.saldo || 0), 0)
+  const nombres = useMemo(() => crearIndiceNombres(usuarios), [usuarios])
 
   if (cargando) return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -187,6 +192,9 @@ export default function FinanzasPage() {
                   <p className="text-sm font-semibold text-white truncate">{tx.concepto}</p>
                   <p className="text-xs text-white/30">
                     {tx.cuentaNombre} · {tx.fecha?.seconds ? new Date(tx.fecha.seconds * 1000).toLocaleDateString("es-CO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
+                  </p>
+                  <p className="text-[11px] text-white/45 mt-0.5">
+                    Reportó: {resolverNombreActor(tx.usuarioId, tx.usuarioNombreSnapshot ?? tx.usuarioNombre, nombres)}
                   </p>
                 </div>
                 <p className={cn(

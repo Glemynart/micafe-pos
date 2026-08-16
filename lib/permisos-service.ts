@@ -1,5 +1,6 @@
 import {
   collection,
+  doc,
   onSnapshot,
   query,
   where,
@@ -60,16 +61,34 @@ function proyectarUsuario(uid: string, perfil: Record<string, unknown>, membresi
 /** Lista perfiles globales enriquecidos exclusivamente con su membresía tenant. */
 export function suscribirUsuarios(callback: (usuarios: Usuario[]) => void): Unsubscribe {
   let cerrar = () => {};
+  let cerrarPerfiles: Unsubscribe[] = [];
   let cancelado = false;
   void (async () => {
     try {
       const empresaId = await getEmpresaId();
       const membresias = new Map<string, Membresia>();
+      const perfiles = new Map<string, Record<string, unknown>>();
       const emitir = () => {
         callback([...membresias.values()]
           .filter((membresia) => membresia.estado === "activa" || membresia.estado === "inactiva")
-          .map((membresia) => proyectarUsuario(membresia.uid, {}, membresia))
+          .map((membresia) => proyectarUsuario(membresia.uid, perfiles.get(membresia.uid) ?? {}, membresia))
           .sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      };
+      const sincronizarPerfiles = () => {
+        cerrarPerfiles.forEach((unsubscribe) => unsubscribe());
+        cerrarPerfiles = [];
+        perfiles.clear();
+        for (const uid of membresias.keys()) {
+          cerrarPerfiles.push(onSnapshot(doc(db, "usuarios", uid), (snap) => {
+            if (snap.exists()) perfiles.set(uid, snap.data());
+            else perfiles.delete(uid);
+            emitir();
+          }, () => {
+            perfiles.delete(uid);
+            emitir();
+          }));
+        }
+        emitir();
       };
       const cerrarMembresias = onSnapshot(query(collection(db, "membresias"), where("empresaId", "==", empresaId)), (snap) => {
         membresias.clear();
@@ -77,9 +96,13 @@ export function suscribirUsuarios(callback: (usuarios: Usuario[]) => void): Unsu
           const data = doc.data();
           if (esMembresiaCanonica(data)) membresias.set(data.uid, data);
         });
-        emitir();
+        sincronizarPerfiles();
       }, () => callback([]));
-      cerrar = cerrarMembresias;
+      cerrar = () => {
+        cerrarMembresias();
+        cerrarPerfiles.forEach((unsubscribe) => unsubscribe());
+        cerrarPerfiles = [];
+      };
       if (cancelado) cerrar();
     } catch {
       callback([]);

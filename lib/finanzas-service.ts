@@ -33,6 +33,7 @@ export interface TransaccionFinanciera {
   referencia?: string
   usuarioId: string
   usuarioNombre: string
+  usuarioNombreSnapshot?: string
   espacioId?: string
   fecha?: any
 }
