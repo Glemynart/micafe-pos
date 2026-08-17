@@ -205,8 +205,12 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
  * con las restricciones de transacciones de Firestore.
  */
 export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
+  // El cierre es una única operación lógica por turno. Reutilizar sus claves
+  // permite que un reintento después de una caída de red devuelva el mismo
+  // resultado server-side, en vez de intentar crear otro cierre.
+  const operationKey = `cierre-turno:${params.turnoId}`;
   await httpsCallable(getFirebaseFunctions(), 'cerrarTurnoOperativoV1')({
-    commandId: crypto.randomUUID(), idempotencyKey: crypto.randomUUID(), correlationId: crypto.randomUUID(), causationId: null,
+    commandId: operationKey, idempotencyKey: operationKey, correlationId: operationKey, causationId: null,
     motivo: params.notasCierre ?? null,
     payload: { turnoId: params.turnoId, efectivoContado: params.totalReportadoEfectivo, relevoCajeroId: params.relevoCajeroId ?? null, conteoDetalle: params.conteoDetalle ?? null },
   })

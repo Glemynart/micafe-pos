@@ -84,6 +84,7 @@ const count = (db: FakeFirestore, collection: string) => [...db.docs.keys()].fil
 
 function seed(db: FakeFirestore, options: { relevo?: boolean; efectivo?: boolean } = {}) {
   db.docs.set(`empresas/${empresaId}`, { estado: "activa", esFundacional: false });
+  db.docs.set(`configuraciones/${empresaId}`, { caja: { umbralAlertaFaltante: 20 } });
   db.docs.set(`membresias/${empresaId}_${actor.actorUid}`, {
     empresaId, uid: actor.actorUid, rol: actor.rol, permisos: ["shifts", "sell"], estado: "activa", activo: true,
   });
@@ -118,6 +119,20 @@ test("R1-B.3: reconstruye el arqueo del ledger de caja tenant-safe y congela los
   assert.equal(db.docs.get(`cuentas_bancarias/${fuerteId}`)?.saldo, 80);
   assert.equal(count(db, "transacciones_financieras"), 6);
   assert.equal(db.docs.has(`turnos_activos/${crearIdentificadorInterno(empresaId, actor.actorUid)}`), false);
+});
+
+test("R1-B.3: conserva nota, cierre definitivo y alerta de faltante desde configuración canónica", async () => {
+  const db = new FakeFirestore(); seed(db);
+  const result = await ejecutarCerrarTurnoOperativoV1(db, actor, {
+    ...cierre("alerta", { efectivoContado: 100, relevoCajeroId: null }),
+    motivo: "  Faltó efectivo; revisar comprobante 123.  ",
+  });
+  const turno = db.docs.get("turnos/turno-a")!;
+  assert.equal(result.diferenciaEfectivo, -30);
+  assert.equal(turno.notasCierre, "Faltó efectivo; revisar comprobante 123.");
+  assert.equal(turno.esCierreDefinitivo, true);
+  assert.equal(turno.umbralAlertaFaltante, 20);
+  assert.equal(turno.alertaFaltante, true);
 });
 
 test("R1-B.3: depósito y sobrante se validan por saldo final, no por un débito intermedio", async () => {
