@@ -604,16 +604,18 @@ function membresiaRelevoValida(data: Record<string, any> | undefined, empresaId:
 }
 
 async function efectoCerrarTurnoOperativo(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<Record<string, unknown>> {
-  const { turnoId, efectivoContado, relevoCajeroId } = input.payload;
-  if (!text(turnoId) || !Number.isSafeInteger(efectivoContado) || (efectivoContado as number) < 0 || (relevoCajeroId !== undefined && !text(relevoCajeroId))) fail("invalid-argument", "PAYLOAD_INVALID");
+  const { turnoId, efectivoContado } = input.payload;
+  const relevoCajeroIdRaw = input.payload.relevoCajeroId;
+  if (!text(turnoId) || !Number.isSafeInteger(efectivoContado) || (efectivoContado as number) < 0 || (relevoCajeroIdRaw !== undefined && relevoCajeroIdRaw !== null && !text(relevoCajeroIdRaw))) fail("invalid-argument", "PAYLOAD_INVALID");
+  const relevoCajeroId = text(relevoCajeroIdRaw) ? relevoCajeroIdRaw : undefined;
   const contado = efectivoContado as number;
   const turnoRef = db.collection("turnos").doc(turnoId as string);
   const lock = db.collection("turnos_activos").doc(crearIdentificadorInterno(empresaId, actorUid));
   const empresaRef = db.collection("empresas").doc(empresaId);
   const membresiaActorRef = db.collection("membresias").doc(`${empresaId}_${actorUid}`);
   const relevoLock = text(relevoCajeroId) ? db.collection("turnos_activos").doc(crearIdentificadorInterno(empresaId, relevoCajeroId)) : null;
-  const [turno, caja, fuerte, lockSnap, empresa, membresiaActor] = await Promise.all([
-    tx.get(turnoRef), cuentaReservada(tx, db, empresaId, "caja-principal"), cuentaReservada(tx, db, empresaId, "caja-fuerte"), tx.get(lock), tx.get(empresaRef), tx.get(membresiaActorRef),
+  const [turno, caja, fuerte, lockSnap, empresa, membresiaActor, configuracion] = await Promise.all([
+    tx.get(turnoRef), cuentaReservada(tx, db, empresaId, "caja-principal"), cuentaReservada(tx, db, empresaId, "caja-fuerte"), tx.get(lock), tx.get(empresaRef), tx.get(membresiaActorRef), tx.get(db.collection("configuraciones").doc(empresaId)),
   ]);
   const [movimientos, ventas, egresos, relevoMembresia, relevoUsuario, relevoLockSnap, relevoTurnos] = await Promise.all([
     tx.get(db.collection(MOVIMIENTOS).where("empresaId", "==", empresaId).where("cuentaDocumentoId", "==", caja.ref.id).where("turnoId", "==", turnoId)),
@@ -639,6 +641,12 @@ async function efectoCerrarTurnoOperativo(tx: any, db: any, empresaId: string, a
   const esperado = base + flujo;
   const deposit = Math.max(0, contado - base);
   const difference = contado - esperado;
+  const umbralConfigurado = configuracion.data()?.caja?.umbralAlertaFaltante;
+  const umbralAlertaFaltante = Number.isSafeInteger(umbralConfigurado) && (umbralConfigurado as number) >= 0
+    ? umbralConfigurado as number
+    : 20000;
+  const alertaFaltante = difference < -umbralAlertaFaltante;
+  const notasCierre = typeof input.motivo === "string" ? input.motivo.trim() : "";
   const finalSaldo = caja.saldo - deposit + difference;
   if (finalSaldo < 0) fail("failed-precondition", "FONDOS_INSUFICIENTES");
   const ventasCompletas = lineas(ventas).map((snap: any) => snap.data() as Record<string, any>);
@@ -661,7 +669,7 @@ async function efectoCerrarTurnoOperativo(tx: any, db: any, empresaId: string, a
   if (difference !== 0) { const adjustment = writeMovement(tx, db, { empresaId, command: input, key: `cierre:${turnoId as string}:${input.commandId}:${difference < 0 ? "faltante" : "sobrante"}`, account: { ...caja, saldo: saldoCajaTrasDeposito }, tipo: difference < 0 ? "egreso" : "ingreso", monto: Math.abs(difference), categoria: difference < 0 ? "faltante_caja" : "sobrante_caja", actorUid, rol, turnoId: turnoId as string, actualizarSaldo: false, validarFondos: false }); ids.push(adjustment.id); }
   tx.update(caja.ref, { saldo: finalSaldo });
   tx.update(fuerte.ref, { saldo: fuerte.saldo + deposit });
-  tx.update(turnoRef, { estado: "cerrado", fechaCierre: FieldValue.serverTimestamp(), ventasEfectivo, ventasOtrosMetodos: ventasTotales - ventasEfectivo, totalEgresos, totalReportadoEfectivo: contado, totalEsperadoEfectivo: esperado, diferenciaEfectivo: difference, depositoNeto: deposit, conteoDetalle: input.payload.conteoDetalle ?? null });
+  tx.update(turnoRef, { estado: "cerrado", fechaCierre: FieldValue.serverTimestamp(), ventasEfectivo, ventasOtrosMetodos: ventasTotales - ventasEfectivo, totalEgresos, totalReportadoEfectivo: contado, totalEsperadoEfectivo: esperado, diferenciaEfectivo: difference, depositoNeto: deposit, conteoDetalle: input.payload.conteoDetalle ?? null, notasCierre, esCierreDefinitivo: relevoCajeroId === undefined, umbralAlertaFaltante, alertaFaltante });
   tx.delete(lock);
   let relevoTurnoId: string | null = null;
   if (relevoCajeroId !== undefined) {
