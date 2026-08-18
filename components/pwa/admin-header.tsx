@@ -1,13 +1,17 @@
 "use client"
 
 import { useAuthContext } from "@/contexts/auth-context"
+import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
 import { useRouter } from "next/navigation"
+import { useTheme } from "next-themes"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Store, LogOut, Headphones } from "lucide-react"
 import Link from "next/link"
 
 export function AdminHeader() {
   const { usuario, logout } = useAuthContext()
+  const { branding } = useConfiguracionEmpresa()
+  const { resolvedTheme } = useTheme()
   const router = useRouter()
 
   const handleLogout = async () => {
@@ -22,14 +26,22 @@ export function AdminHeader() {
     .toUpperCase()
     .slice(0, 2) || "?"
 
+  const logo = resolvedTheme === "dark"
+    ? branding.logoOscuro ?? branding.logo
+    : branding.logo
+
   return (
     <header className="sticky top-0 z-40 bg-card/95 backdrop-blur-sm border-b border-border px-4 h-14 flex items-center justify-between">
       <div className="flex items-center gap-2.5">
         <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-sm">
-          <Store className="h-4 w-4 text-primary-foreground" />
+          {logo ? (
+            <img src={logo} alt="" className="h-6 w-6 rounded object-contain" />
+          ) : (
+            <Store className="h-4 w-4 text-primary-foreground" />
+          )}
         </div>
         <div>
-          <p className="text-sm font-semibold text-foreground leading-none">Cafe Atrato</p>
+          <p className="text-sm font-semibold text-foreground leading-none">{branding.nombreVisible}</p>
           <p className="text-[10px] text-muted-foreground">
             {usuario?.rol === "admin" ? "Admin" : usuario?.rol === "marketing" ? "Marketing" : usuario?.rol}
           </p>

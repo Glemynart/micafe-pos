@@ -16,7 +16,7 @@ if (!firebase.apps.length) {
 var messaging = firebase.messaging();
 
 messaging.onBackgroundMessage(function(payload) {
-  var title = 'CafePOS';
+  var title = 'POS Empresarial';
   var body = '';
   var url = '/admin';
 
@@ -31,7 +31,7 @@ messaging.onBackgroundMessage(function(payload) {
 
   var notificationOptions = {
     body: body,
-    icon: '/cafe-atrato-icon.png',
+    icon: '/placeholder-logo.png',
     data: { url: url }
   };
 

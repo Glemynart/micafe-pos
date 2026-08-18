@@ -152,7 +152,7 @@ export default function FinanzasPage() {
 
   if (cargando) return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <Loader2 className="h-6 w-6 animate-spin text-white/20" />
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/50" />
     </div>
   )
 
@@ -160,28 +160,28 @@ export default function FinanzasPage() {
     <div className="pb-4 space-y-4">
       {/* Header */}
       <div className="pt-2 pb-1">
-        <h1 className="text-2xl font-bold text-white">Finanzas</h1>
-        <p className="text-white/40 text-sm">Saldos, flujo de caja y movimientos del negocio</p>
+        <h1 className="text-2xl font-bold text-foreground">Finanzas</h1>
+        <p className="text-muted-foreground text-sm">Saldos, flujo de caja y movimientos del negocio</p>
       </div>
 
-      <div className="flex items-center justify-between rounded-xl bg-white/5 border border-white/10 px-3 py-2">
-        <button onClick={() => cambiarPeriodo(-1)} className="h-8 w-8 rounded-lg flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white" aria-label="Mes anterior">
+      <div className="flex items-center justify-between rounded-xl bg-card/50 border border-border px-3 py-2">
+        <button onClick={() => cambiarPeriodo(-1)} className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground/80 hover:bg-muted/50 hover:text-foreground" aria-label="Mes anterior">
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div className="text-center">
-          <p className="text-[10px] uppercase tracking-widest font-bold text-white/35">Periodo analizado</p>
-          <p className="text-sm font-bold text-white capitalize">{etiquetaPeriodo}</p>
+          <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/80">Periodo analizado</p>
+          <p className="text-sm font-bold text-foreground capitalize">{etiquetaPeriodo}</p>
         </div>
-        <button onClick={() => cambiarPeriodo(1)} disabled={esPeriodoActual} className="h-8 w-8 rounded-lg flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white disabled:opacity-20 disabled:hover:bg-transparent" aria-label="Mes siguiente">
+        <button onClick={() => cambiarPeriodo(1)} disabled={esPeriodoActual} className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground/80 hover:bg-muted/50 hover:text-foreground disabled:opacity-20 disabled:hover:bg-transparent" aria-label="Mes siguiente">
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
 
       {/* Saldo total */}
-      <div className="rounded-2xl bg-gradient-to-br from-[#F9B207]/20 to-[#F9B207]/5 border border-[#F9B207]/20 p-5">
-        <p className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-1">Saldo Total</p>
-        <p className="text-4xl font-black text-white tracking-tight">{formatCurrency(saldoTotal)}</p>
-        <p className="text-xs text-white/40 mt-2">Saldo actual de todas las cuentas</p>
+      <div className="rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 p-5">
+        <p className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-wider mb-1">Saldo Total</p>
+        <p className="text-4xl font-black text-foreground tracking-tight">{formatCurrency(saldoTotal)}</p>
+        <p className="text-xs text-muted-foreground mt-2">Saldo actual de todas las cuentas</p>
       </div>
 
       <div className="grid grid-cols-3 gap-2">
@@ -194,18 +194,18 @@ export default function FinanzasPage() {
           <p className="text-sm font-black text-red-300 mt-1">{formatCurrency(gastos)}</p>
         </div>
         <div className={cn("rounded-xl border p-3", resultadoNeto >= 0 ? "bg-blue-500/10 border-blue-500/20" : "bg-orange-500/10 border-orange-500/20")}>
-          <p className="text-[10px] uppercase tracking-wider font-bold text-white/50">Resultado</p>
+          <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/80">Resultado</p>
           <p className={cn("text-sm font-black mt-1", resultadoNeto >= 0 ? "text-blue-300" : "text-orange-300")}>{formatCurrency(resultadoNeto)}</p>
         </div>
       </div>
 
       {gastosPorCategoria.length > 0 && (
-        <div className="rounded-2xl bg-white/5 border border-white/5 p-4">
+        <div className="rounded-2xl bg-card/50 border border-border/50 p-4">
           <div className="flex items-center gap-2 mb-3">
             <PieChart className="h-4 w-4 text-orange-400" />
             <div>
-              <h2 className="text-sm font-bold text-white">En qué se está yendo el dinero</h2>
-              <p className="text-[11px] text-white/35">Gastos agrupados por categoría</p>
+              <h2 className="text-sm font-bold text-foreground">En qué se está yendo el dinero</h2>
+              <p className="text-[11px] text-muted-foreground/80">Gastos agrupados por categoría</p>
             </div>
           </div>
           <div className="space-y-3">
@@ -214,10 +214,10 @@ export default function FinanzasPage() {
               return (
                 <div key={categoria}>
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-white/60 truncate">{etiquetaCategoria(categoria)}</span>
-                    <span className="text-white/80 font-bold shrink-0 ml-2">{formatCurrency(monto)} · {porcentaje}%</span>
+                    <span className="text-muted-foreground truncate">{etiquetaCategoria(categoria)}</span>
+                    <span className="text-foreground/80 font-bold shrink-0 ml-2">{formatCurrency(monto)} · {porcentaje}%</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                  <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
                     <div className="h-full rounded-full bg-orange-400" style={{ width: `${porcentaje}%` }} />
                   </div>
                 </div>
@@ -230,15 +230,15 @@ export default function FinanzasPage() {
       {/* Cuentas */}
       <div className="grid grid-cols-2 gap-3">
         {cuentas.map(cuenta => (
-          <div key={cuenta.id} className="rounded-2xl bg-white/5 border border-white/5 p-4">
+          <div key={cuenta.id} className="rounded-2xl bg-card/50 border border-border/50 p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: cuenta.color + "33" }}>
                 <Wallet className="h-3.5 w-3.5" style={{ color: cuenta.color }} />
               </div>
-              <span className="text-xs font-semibold text-white/50 truncate">{cuenta.nombre}</span>
+              <span className="text-xs font-semibold text-muted-foreground/80 truncate">{cuenta.nombre}</span>
             </div>
-            <p className="text-xl font-black text-white">{formatCurrency(cuenta.saldo)}</p>
-            <span className="text-[10px] font-bold uppercase text-white/30">{cuenta.tipo}</span>
+            <p className="text-xl font-black text-foreground">{formatCurrency(cuenta.saldo)}</p>
+            <span className="text-[10px] font-bold uppercase text-muted-foreground/70">{cuenta.tipo}</span>
           </div>
         ))}
       </div>
@@ -269,24 +269,24 @@ export default function FinanzasPage() {
       <div>
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
-            <h2 className="text-sm font-bold text-white/50 uppercase tracking-wider">Movimientos</h2>
-            <p className="text-[11px] text-white/35 mt-1">{transacciones.length} registrados en el periodo</p>
+            <h2 className="text-sm font-bold text-muted-foreground/80 uppercase tracking-wider">Movimientos</h2>
+            <p className="text-[11px] text-muted-foreground/80 mt-1">{transacciones.length} registrados en el periodo</p>
           </div>
           <div className="flex gap-1">
             {([['todos', 'Todos'], ['ingreso', 'Ingresos'], ['egreso', 'Gastos']] as const).map(([value, label]) => (
-              <button key={value} onClick={() => setFiltroMovimiento(value)} className={cn("rounded-full px-2.5 py-1 text-[10px] font-bold border", filtroMovimiento === value ? "border-[#F9B207]/50 bg-[#F9B207]/15 text-[#F9B207]" : "border-white/10 text-white/40")}>
+              <button key={value} onClick={() => setFiltroMovimiento(value)} className={cn("rounded-full px-2.5 py-1 text-[10px] font-bold border", filtroMovimiento === value ? "border-primary/50 bg-primary/15 text-primary" : "border-border text-muted-foreground")}>
                 {label}
               </button>
             ))}
           </div>
         </div>
         {transaccionesVisibles.length === 0 ? (
-          <div className="rounded-2xl bg-white/5 border border-white/5 py-12 flex flex-col items-center gap-2">
-            <Wallet className="h-8 w-8 text-white/10" />
-            <p className="text-sm text-white/30">Sin movimientos para este filtro</p>
+          <div className="rounded-2xl bg-card/50 border border-border/50 py-12 flex flex-col items-center gap-2">
+            <Wallet className="h-8 w-8 text-muted-foreground/20" />
+            <p className="text-sm text-muted-foreground/70">Sin movimientos para este filtro</p>
           </div>
         ) : (
-          <div className="rounded-2xl bg-white/5 border border-white/5 divide-y divide-white/5 overflow-hidden">
+          <div className="rounded-2xl bg-card/50 border border-border/50 divide-y divide-border/50 overflow-hidden">
             {transaccionesVisibles.map(tx => (
               <div key={tx.id} className="flex items-center gap-3 px-4 py-3">
                 <div className={cn(
@@ -300,17 +300,17 @@ export default function FinanzasPage() {
                       : <ArrowRightLeft className="h-4 w-4 text-amber-400" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-white truncate">{tx.concepto}</p>
-                  <p className="text-xs text-white/30">
+                  <p className="text-sm font-semibold text-foreground truncate">{tx.concepto}</p>
+                  <p className="text-xs text-muted-foreground/70">
                     {tx.cuentaNombre} · {tx.fecha?.seconds ? new Date(tx.fecha.seconds * 1000).toLocaleDateString("es-CO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
                   </p>
-                  <p className="text-[11px] text-white/45 mt-0.5">
+                  <p className="text-[11px] text-foreground/45 mt-0.5">
                     Reportó: {resolverNombreActor(tx.usuarioId, tx.usuarioNombreSnapshot ?? tx.usuarioNombre, nombres)}
                   </p>
                 </div>
                 <p className={cn(
                   "text-sm font-black shrink-0",
-                  tx.tipo === "ingreso" ? "text-emerald-400" : tx.tipo === "egreso" ? "text-red-400" : "text-white/60"
+                  tx.tipo === "ingreso" ? "text-emerald-400" : tx.tipo === "egreso" ? "text-red-400" : "text-muted-foreground"
                 )}>
                   {tx.tipo === "ingreso" ? "+" : tx.tipo === "egreso" ? "-" : ""}{formatCurrency(tx.monto)}
                 </p>
@@ -324,16 +324,16 @@ export default function FinanzasPage() {
       {modal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center" onClick={() => setModal(null)}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative w-full sm:max-w-md sm:rounded-3xl max-w-lg mx-auto bg-[#0f1e35] border border-white/10 rounded-t-3xl sm:rounded-3xl p-6 space-y-4" onClick={e => e.stopPropagation()}>
-            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto -mt-2 mb-2 sm:hidden" />
-            <h3 className="text-lg font-bold text-white">
+          <div className="relative w-full sm:max-w-md sm:rounded-3xl max-w-lg mx-auto bg-card border border-border rounded-t-3xl sm:rounded-3xl p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-muted rounded-full mx-auto -mt-2 mb-2 sm:hidden" />
+            <h3 className="text-lg font-bold text-foreground">
               {modal === "ingreso" ? "Registrar Ingreso" : modal === "egreso" ? "Registrar Gasto" : "Trasladar Dinero"}
             </h3>
 
             {/* Cuenta origen */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-white/50 uppercase">{modal === "traslado" ? "Cuenta origen" : "Cuenta"}</label>
-              <select value={form.cuentaId} onChange={e => setForm(f => ({ ...f, cuentaId: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#F9B207]/50">
+              <label className="text-xs font-semibold text-muted-foreground/80 uppercase">{modal === "traslado" ? "Cuenta origen" : "Cuenta"}</label>
+              <select value={form.cuentaId} onChange={e => setForm(f => ({ ...f, cuentaId: e.target.value }))} className="w-full bg-card/50 border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary/50">
                 <option value="">Seleccionar cuenta...</option>
                 {cuentas.map(c => <option key={c.id} value={c.id}>{c.nombre} — {formatCurrency(c.saldo)}</option>)}
               </select>
@@ -342,8 +342,8 @@ export default function FinanzasPage() {
             {/* Cuenta destino (solo traslado) */}
             {modal === "traslado" && (
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-white/50 uppercase">Cuenta destino</label>
-                <select value={form.cuentaDestinoId} onChange={e => setForm(f => ({ ...f, cuentaDestinoId: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/50">
+                <label className="text-xs font-semibold text-muted-foreground/80 uppercase">Cuenta destino</label>
+                <select value={form.cuentaDestinoId} onChange={e => setForm(f => ({ ...f, cuentaDestinoId: e.target.value }))} className="w-full bg-card/50 border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-amber-500/50">
                   <option value="">Seleccionar destino...</option>
                   {cuentas.filter(c => c.id !== form.cuentaId).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                 </select>
@@ -352,21 +352,21 @@ export default function FinanzasPage() {
 
             {/* Monto */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-white/50 uppercase">Monto</label>
-              <input type="number" inputMode="numeric" value={form.monto} onChange={e => setForm(f => ({ ...f, monto: e.target.value }))} placeholder="0" className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xl font-black text-white focus:outline-none focus:border-[#F9B207]/50 placeholder:text-white/20" />
+              <label className="text-xs font-semibold text-muted-foreground/80 uppercase">Monto</label>
+              <input type="number" inputMode="numeric" value={form.monto} onChange={e => setForm(f => ({ ...f, monto: e.target.value }))} placeholder="0" className="w-full bg-card/50 border border-border rounded-xl px-3 py-2.5 text-xl font-black text-foreground focus:outline-none focus:border-primary/50 placeholder:text-muted-foreground/50" />
             </div>
 
             {/* Concepto */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-white/50 uppercase">Concepto</label>
-              <input type="text" value={form.concepto} onChange={e => setForm(f => ({ ...f, concepto: e.target.value }))} placeholder={modal === "egreso" ? "Ej: Pago arriendo" : modal === "ingreso" ? "Ej: Inyección capital" : "Descripción del traslado"} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#F9B207]/50 placeholder:text-white/20" />
+              <label className="text-xs font-semibold text-muted-foreground/80 uppercase">Concepto</label>
+              <input type="text" value={form.concepto} onChange={e => setForm(f => ({ ...f, concepto: e.target.value }))} placeholder={modal === "egreso" ? "Ej: Pago arriendo" : modal === "ingreso" ? "Ej: Inyección capital" : "Descripción del traslado"} className="w-full bg-card/50 border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary/50 placeholder:text-muted-foreground/50" />
             </div>
 
             {/* Categoría (no traslado) */}
             {modal !== "traslado" && (
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-white/50 uppercase">Categoría</label>
-                <select value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#F9B207]/50">
+                <label className="text-xs font-semibold text-muted-foreground/80 uppercase">Categoría</label>
+                <select value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))} className="w-full bg-card/50 border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary/50">
                   <option value="">Seleccionar...</option>
                   {(modal === "egreso" ? CATEGORIAS_EGRESO : CATEGORIAS_INGRESO).map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
@@ -375,11 +375,11 @@ export default function FinanzasPage() {
 
             {/* Botones */}
             <div className="flex gap-3 pt-1">
-              <button onClick={() => setModal(null)} className="flex-1 py-3 rounded-xl border border-white/10 text-sm font-bold text-white/60 active:bg-white/5">
+              <button onClick={() => setModal(null)} className="flex-1 py-3 rounded-xl border border-border text-sm font-bold text-muted-foreground active:bg-card/50">
                 Cancelar
               </button>
               <button onClick={guardar} disabled={guardando} className={cn(
-                "flex-1 py-3 rounded-xl text-sm font-bold text-white active:scale-95 transition-transform disabled:opacity-50",
+                "flex-1 py-3 rounded-xl text-sm font-bold text-foreground active:scale-95 transition-transform disabled:opacity-50",
                 modal === "ingreso" ? "bg-emerald-500" : modal === "egreso" ? "bg-red-500" : "bg-amber-500"
               )}>
                 {guardando ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Confirmar"}

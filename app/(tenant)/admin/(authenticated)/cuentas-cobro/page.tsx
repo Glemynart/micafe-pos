@@ -28,28 +28,28 @@ export default function CuentasCobroPage() {
   const filtradas = filtro === "todas" ? cuentas : cuentas.filter(c => c.estado === filtro)
   const totalP = cuentas.filter(c => c.estado === "pendiente").reduce((a, c) => a + (c.totales?.total || 0), 0)
 
-  if (cargando) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-white/20" /></div>
+  if (cargando) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground/50" /></div>
 
   return (
     <div className="p-4 space-y-4">
-      <div><h1 className="text-xl font-bold text-white flex items-center gap-2"><ClipboardList className="h-5 w-5 text-[#F9B207]" />Cuentas de Cobro</h1><p className="text-sm text-white/60">Ventas a credito</p></div>
+      <div><h1 className="text-xl font-bold text-foreground flex items-center gap-2"><ClipboardList className="h-5 w-5 text-primary" />Cuentas de Cobro</h1><p className="text-sm text-muted-foreground">Ventas a credito</p></div>
       <div className="grid grid-cols-2 gap-3">
-        <Card className="bg-white/5 border-white/10"><CardContent className="p-4"><p className="text-xs text-white/60">Pendientes</p><p className="text-xl font-bold text-white">{cuentas.filter(c => c.estado === "pendiente").length}</p></CardContent></Card>
-        <Card className="bg-white/5 border-white/10"><CardContent className="p-4"><p className="text-xs text-white/60">Total pendiente</p><p className="text-xl font-bold text-[#F9B207]">{formatCurrency(totalP)}</p></CardContent></Card>
+        <Card className="bg-card/50 border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Pendientes</p><p className="text-xl font-bold text-foreground">{cuentas.filter(c => c.estado === "pendiente").length}</p></CardContent></Card>
+        <Card className="bg-card/50 border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Total pendiente</p><p className="text-xl font-bold text-primary">{formatCurrency(totalP)}</p></CardContent></Card>
       </div>
       <div className="flex gap-2">
-        {(["pendiente", "pagada", "todas"] as const).map(f => <button key={f} onClick={() => setFiltro(f)} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium", filtro === f ? "bg-[#F9B207] text-white" : "bg-white/5 text-white/60")}>{f === "pendiente" ? "Pendientes" : f === "pagada" ? "Pagadas" : "Todas"}</button>)}
+        {(["pendiente", "pagada", "todas"] as const).map(f => <button key={f} onClick={() => setFiltro(f)} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium", filtro === f ? "bg-primary text-primary-foreground" : "bg-card/50 text-muted-foreground")}>{f === "pendiente" ? "Pendientes" : f === "pagada" ? "Pagadas" : "Todas"}</button>)}
       </div>
-      {filtradas.length === 0 ? <Card className="bg-white/5 border-white/10"><CardContent className="py-8 text-center text-white/60">Sin cuentas</CardContent></Card> : (
+      {filtradas.length === 0 ? <Card className="bg-card/50 border-border"><CardContent className="py-8 text-center text-muted-foreground">Sin cuentas</CardContent></Card> : (
         <div className="space-y-2">{filtradas.map(c => (
-          <Card key={c.id} className={cn("bg-white/5 border-white/10", c.estado === "pendiente" && "border-l-2 border-l-[#F9B207]")}><CardContent className="p-3">
+          <Card key={c.id} className={cn("bg-card/50 border-border", c.estado === "pendiente" && "border-l-2 border-l-primary")}><CardContent className="p-3">
             <div className="flex items-center justify-between mb-1">
-              <p className="font-medium text-white text-sm">{c.clienteNombre}</p>
+              <p className="font-medium text-foreground text-sm">{c.clienteNombre}</p>
               <Badge className={cn(c.estado === "pendiente" ? "bg-amber-500/20 text-amber-300" : "bg-emerald-500/20 text-emerald-300")}>{c.estado === "pendiente" ? "Pendiente" : "Pagada"}</Badge></div>
-            <p className="text-xs text-white/60 mb-1">{c.items?.map(i => `${i.cantidad}x ${i.nombre}`).join(", ")}</p>
+            <p className="text-xs text-muted-foreground mb-1">{c.items?.map(i => `${i.cantidad}x ${i.nombre}`).join(", ")}</p>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1 text-xs text-white/60"><Calendar className="h-3 w-3" />{ff(c.fecha)}</div>
-              <span className="font-bold text-[#F9B207] text-sm">{formatCurrency(c.totales?.total || 0)}</span></div>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground"><Calendar className="h-3 w-3" />{ff(c.fecha)}</div>
+              <span className="font-bold text-primary text-sm">{formatCurrency(c.totales?.total || 0)}</span></div>
           </CardContent></Card>
         ))}</div>
       )}
