@@ -55,15 +55,15 @@ export default function ReservasPage() {
 
   if (cargando) return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <Loader2 className="h-6 w-6 animate-spin text-white/20" />
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/50" />
     </div>
   )
 
   return (
     <div className="pb-4">
-      <div className="px-4 pt-5 pb-4 border-b border-white/5">
-        <h1 className="text-xl font-bold text-white">Reservas Web</h1>
-        <p className="text-xs text-white/40 mt-0.5">
+      <div className="px-4 pt-5 pb-4 border-b border-border/50">
+        <h1 className="text-xl font-bold text-foreground">Reservas Web</h1>
+        <p className="text-xs text-muted-foreground mt-0.5">
           {reservas.length} reserva{reservas.length !== 1 ? 's' : ''} activa{reservas.length !== 1 ? 's' : ''}
         </p>
       </div>
@@ -71,13 +71,13 @@ export default function ReservasPage() {
       <div className="px-4 pt-4 space-y-3">
         {reservas.length === 0 ? (
           <div className="text-center py-10">
-            <CalendarDays className="h-10 w-10 mx-auto mb-3 text-white/10" />
-            <p className="text-sm text-white/30">No hay reservas activas</p>
-            <p className="text-xs text-white/15 mt-1">Las reservas hechas desde la web aparecerán aquí</p>
+            <CalendarDays className="h-10 w-10 mx-auto mb-3 text-muted-foreground/20" />
+            <p className="text-sm text-muted-foreground/70">No hay reservas activas</p>
+            <p className="text-xs text-muted-foreground/30 mt-1">Las reservas hechas desde la web aparecerán aquí</p>
           </div>
         ) : (
           reservas.map(r => (
-            <div key={r.id} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+            <div key={r.id} className="bg-card/50 border border-border rounded-xl overflow-hidden">
               <div
                 className={cn(
                   "h-1.5 w-full",
@@ -88,7 +88,7 @@ export default function ReservasPage() {
               <div className="p-4">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                       {r.clienteNombre}
                       <span className={cn(
                         "text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
@@ -100,33 +100,33 @@ export default function ReservasPage() {
                       </span>
                     </h3>
                     <div className="flex flex-wrap gap-3 mt-1.5">
-                      <span className="text-[11px] text-white/40 flex items-center gap-1">
+                      <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                         <Phone className="h-3 w-3" /> {r.clienteTelefono}
                       </span>
                       {r.clienteEmail && (
-                        <span className="text-[11px] text-white/40 flex items-center gap-1">
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                           <Mail className="h-3 w-3" /> {r.clienteEmail}
                         </span>
                       )}
                     </div>
                   </div>
-                  <span className="text-sm font-black text-[#F9B207] tabular-nums">
+                  <span className="text-sm font-black text-primary tabular-nums">
                     {formatCurrency(r.montoTotal)}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
-                  <div className="bg-white/5 rounded-lg p-2">
-                    <p className="text-white/30 text-[10px] uppercase tracking-wider">Fecha</p>
-                    <p className="text-white/70 font-medium capitalize">{fmtFecha(r.fechaInicio)}</p>
+                  <div className="bg-card/50 rounded-lg p-2">
+                    <p className="text-muted-foreground/70 text-[10px] uppercase tracking-wider">Fecha</p>
+                    <p className="text-foreground/70 font-medium capitalize">{fmtFecha(r.fechaInicio)}</p>
                   </div>
-                  <div className="bg-white/5 rounded-lg p-2">
-                    <p className="text-white/30 text-[10px] uppercase tracking-wider">Horario</p>
-                    <p className="text-white/70 font-medium">{fmtHora(r.fechaInicio)} – {fmtHora(r.fechaFin)}</p>
+                  <div className="bg-card/50 rounded-lg p-2">
+                    <p className="text-muted-foreground/70 text-[10px] uppercase tracking-wider">Horario</p>
+                    <p className="text-foreground/70 font-medium">{fmtHora(r.fechaInicio)} – {fmtHora(r.fechaFin)}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-[11px] text-white/20 mb-3">
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50 mb-3">
                   <CalendarDays className="h-3 w-3" />
                   <span>{r.mesaId || "Sala"}</span>
                   <span>·</span>

@@ -125,24 +125,24 @@ export default function EventosPage() {
   const eventosFuturos = eventos.filter(e => e.fecha >= new Date().toISOString().split("T")[0])
   const eventosPasados = eventos.filter(e => e.fecha < new Date().toISOString().split("T")[0])
 
-  if (cargando) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-white/20" /></div>
+  if (cargando) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground/50" /></div>
 
   const EventoCard = ({ e }: { e: Evento }) => (
-    <Card className={cn("bg-white/5 border-white/10", !e.activo && "opacity-50")}>
+    <Card className={cn("bg-card/50 border-border", !e.activo && "opacity-50")}>
       <CardContent className="p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <Badge variant="secondary" className="text-[10px]">{e.categoria}</Badge>
-              {!e.activo && <Badge variant="outline" className="text-[10px] text-white/60">Oculto</Badge>}
+              {!e.activo && <Badge variant="outline" className="text-[10px] text-muted-foreground">Oculto</Badge>}
             </div>
-            <p className="font-medium text-white text-sm">{e.titulo}</p>
-            <p className="text-xs text-white/60 mt-0.5">
+            <p className="font-medium text-foreground text-sm">{e.titulo}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
               <CalendarDays className="h-3 w-3 inline mr-1" />
               {new Date(e.fecha + "T" + e.hora).toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "short" })}
               {" · "}{e.hora}
             </p>
-            {e.descripcion && <p className="text-xs text-white/60 mt-1 line-clamp-2">{e.descripcion}</p>}
+            {e.descripcion && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{e.descripcion}</p>}
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(e)}><Edit2 className="h-4 w-4" /></Button>
@@ -158,50 +158,50 @@ export default function EventosPage() {
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2"><CalendarDays className="h-5 w-5 text-[#F9B207]" />Eventos</h1>
-          <p className="text-sm text-white/60">Gestiona la agenda de eventos del cafe</p>
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" />Eventos</h1>
+          <p className="text-sm text-muted-foreground">Gestiona la agenda de eventos del cafe</p>
         </div>
         <Button size="sm" onClick={openNew}><CalendarPlus className="h-4 w-4 mr-1" />Nuevo</Button>
       </div>
 
       {eventosFuturos.length > 0 && (
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-white/60 mb-2">Proximos ({eventosFuturos.length})</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Proximos ({eventosFuturos.length})</p>
           <div className="space-y-2">{eventosFuturos.map(e => <EventoCard key={e.id} e={e} />)}</div>
         </div>
       )}
 
       {eventosPasados.length > 0 && (
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-white/60 mb-2">Pasados ({eventosPasados.length})</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Pasados ({eventosPasados.length})</p>
           <div className="space-y-2">{eventosPasados.map(e => <EventoCard key={e.id} e={e} />)}</div>
         </div>
       )}
 
       {eventos.length === 0 && (
-        <Card className="bg-white/5 border-white/10"><CardContent className="py-8 text-center text-white/60">No hay eventos. Crea el primero.</CardContent></Card>
+        <Card className="bg-card/50 border-border"><CardContent className="py-8 text-center text-muted-foreground">No hay eventos. Crea el primero.</CardContent></Card>
       )}
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="!bg-[#0a1628] !text-white !border-white/10">
-          <DialogHeader><DialogTitle className="!text-white">{editing ? "Editar Evento" : "Nuevo Evento"}</DialogTitle></DialogHeader>
+        <DialogContent className="!bg-background !text-foreground !border-border">
+          <DialogHeader><DialogTitle className="!text-foreground">{editing ? "Editar Evento" : "Nuevo Evento"}</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
-            <div><Label className="!text-white/80">Titulo</Label><Input className="!bg-[#1a2d4a] !border-white/10 !text-white placeholder:!text-white/30" value={form.titulo} onChange={e => setForm({ ...form, titulo: e.target.value })} placeholder="Ej: Noche de Jazz en vivo" /></div>
+            <div><Label className="!text-foreground/80">Titulo</Label><Input className="!bg-input !border-border !text-foreground placeholder:!text-muted-foreground/70" value={form.titulo} onChange={e => setForm({ ...form, titulo: e.target.value })} placeholder="Ej: Noche de Jazz en vivo" /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label className="!text-white/80">Fecha</Label><Input type="date" className="!bg-[#1a2d4a] !border-white/10 !text-white [color-scheme:dark]" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} /></div>
-              <div><Label className="!text-white/80">Hora</Label><Input type="time" className="!bg-[#1a2d4a] !border-white/10 !text-white [color-scheme:dark]" value={form.hora} onChange={e => setForm({ ...form, hora: e.target.value })} /></div>
+              <div><Label className="!text-foreground/80">Fecha</Label><Input type="date" className="!bg-input !border-border !text-foreground [color-scheme:dark]" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} /></div>
+              <div><Label className="!text-foreground/80">Hora</Label><Input type="time" className="!bg-input !border-border !text-foreground [color-scheme:dark]" value={form.hora} onChange={e => setForm({ ...form, hora: e.target.value })} /></div>
             </div>
-            <div><Label className="!text-white/80">Categoria</Label>
+            <div><Label className="!text-foreground/80">Categoria</Label>
               <Select value={form.categoria} onValueChange={v => setForm({ ...form, categoria: v })}>
-                <SelectTrigger className="!bg-[#1a2d4a] !border-white/10 !text-white"><SelectValue /></SelectTrigger>
-                <SelectContent className="!bg-[#0d1f3c] !border-white/10">{CATEGORIAS_EVENTOS.map(c => <SelectItem key={c} value={c} className="!text-white focus:!bg-[#1a2d4a]">{c}</SelectItem>)}</SelectContent>
+                <SelectTrigger className="!bg-input !border-border !text-foreground"><SelectValue /></SelectTrigger>
+                <SelectContent className="!bg-card !border-border">{CATEGORIAS_EVENTOS.map(c => <SelectItem key={c} value={c} className="!text-foreground focus:!bg-input">{c}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><Label className="!text-white/80">Descripcion</Label><Textarea className="!bg-[#1a2d4a] !border-white/10 !text-white placeholder:!text-white/30" value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} placeholder="Detalles del evento..." rows={3} /></div>
+            <div><Label className="!text-foreground/80">Descripcion</Label><Textarea className="!bg-input !border-border !text-foreground placeholder:!text-muted-foreground/70" value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} placeholder="Detalles del evento..." rows={3} /></div>
             <div>
               <Label>Imagen</Label>
               {previewUrl ? (
-                <div className="relative mt-1 rounded-xl overflow-hidden border border-white/10">
+                <div className="relative mt-1 rounded-xl overflow-hidden border border-border">
                   <img src={previewUrl} alt="Preview" className="w-full h-40 object-cover" />
                   <button onClick={clearImage} className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1">
                     <X className="h-4 w-4" />
@@ -210,33 +210,33 @@ export default function EventosPage() {
               ) : (
                 <div className="mt-1">
                   <input ref={fileRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
-                  <Button type="button" variant="outline" className="w-full h-20 border-dashed gap-2 !border-white/10 !text-white/60 hover:!bg-white/5" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                  <Button type="button" variant="outline" className="w-full h-20 border-dashed gap-2 !border-border !text-foreground/60 hover:!bg-card/50" onClick={() => fileRef.current?.click()} disabled={uploading}>
                     {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
                     {uploading ? "Subiendo..." : "Subir imagen (JPG, PNG, max 5MB)"}
                   </Button>
                 </div>
               )}
-              <p className="text-[10px] text-white/60 mt-1">Las imágenes nuevas se almacenan dentro del tenant activo.</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Las imágenes nuevas se almacenan dentro del tenant activo.</p>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" className="!border-white/10 !text-white/70 hover:!bg-white/5" onClick={() => setShowDialog(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={guardando || uploading} style={{ backgroundColor: '#F9B207', color: '#051D41' }}>{guardando || uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}Guardar</Button>
+            <Button variant="outline" className="!border-border !text-foreground/70 hover:!bg-card/50" onClick={() => setShowDialog(false)}>Cancelar</Button>
+            <Button onClick={handleSave} disabled={guardando || uploading} style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}>{guardando || uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}Guardar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={!!eventToDelete} onOpenChange={(open) => !open && setEventToDelete(null)}>
-        <AlertDialogContent className="bg-[#0A1A30] border-white/10 text-white">
+        <AlertDialogContent className="bg-card border-border text-foreground">
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este evento?</AlertDialogTitle>
-            <AlertDialogDescription className="text-white/60">
+            <AlertDialogDescription className="text-muted-foreground">
               Esta acción no se puede deshacer. El evento desaparecerá de la página principal.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-transparent border-white/10 text-white hover:bg-white/5">Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmDelete(); }} disabled={deleting} className="bg-red-500 hover:bg-red-600 text-white border-0">
+            <AlertDialogCancel className="bg-transparent border-border text-foreground hover:bg-card/50">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmDelete(); }} disabled={deleting} className="bg-red-500 hover:bg-red-600 text-foreground border-0">
               {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               Eliminar
             </AlertDialogAction>

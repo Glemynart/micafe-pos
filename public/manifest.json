@@ -1,15 +1,15 @@
 {
-  "name": "Cafe Atrato Admin",
-  "short_name": "Cafe Atrato",
-  "description": "Panel de administracion - Coworking Cultural y Empresarial",
+  "name": "POS Empresarial",
+  "short_name": "POS Empresarial",
+  "description": "Panel de administracion empresarial",
   "start_url": "/admin",
   "scope": "/admin",
   "display": "standalone",
-  "background_color": "#051D41",
-  "theme_color": "#051D41",
+  "background_color": "#f8fafc",
+  "theme_color": "#334155",
   "orientation": "portrait",
   "icons": [
-    { "src": "/cafe-atrato-icon.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/cafe-atrato-icon.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/placeholder-logo.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/placeholder-logo.png", "sizes": "512x512", "type": "image/png" }
   ]
 }

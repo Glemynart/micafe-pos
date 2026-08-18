@@ -34,7 +34,7 @@ export default function AdminAuthLayout({ children }: { children: React.ReactNod
         <FcmManagerWrapper />
         <IdleTimer />
         <AdminHeader />
-        <div className="min-h-[100dvh] bg-[#0a1628] pb-20">
+        <div className="tenant-admin min-h-[100dvh] bg-background pb-20">
           <main className="max-w-lg mx-auto px-4 pt-4">{children}</main>
           <BottomNav />
         </div>
