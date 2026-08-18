@@ -13,6 +13,7 @@ import {
 import * as Icons from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
+import { useConfiguracionEmpresa } from '@/contexts/configuracion-empresa-context'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { 
@@ -39,7 +40,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeModule, onModuleChange, onLogout, usuario, modulosSet, userPerms }: SidebarProps) {
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, resolvedTheme } = useTheme()
+  const { branding } = useConfiguracionEmpresa()
   const [collapsed, setCollapsed] = useState(false)
   const { espacios, espacioActivo, cargandoEspacios, seleccionarEspacio } = useEspacios()
 
@@ -72,12 +74,20 @@ export function Sidebar({ activeModule, onModuleChange, onLogout, usuario, modul
         {/* Logo */}
         <div className="h-16 flex items-center gap-3 px-4 border-b border-sidebar-border">
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center flex-shrink-0 shadow-sm">
-            <Store className="h-5 w-5 text-primary-foreground" strokeWidth={2.4} />
+            {((resolvedTheme === 'dark' ? branding.logoOscuro ?? branding.logo : branding.logo)) ? (
+              <img
+                src={(resolvedTheme === 'dark' ? branding.logoOscuro ?? branding.logo : branding.logo)!}
+                alt=""
+                className="h-7 w-7 object-contain"
+              />
+            ) : (
+              <Store className="h-5 w-5 text-primary-foreground" strokeWidth={2.4} />
+            )}
           </div>
           {!collapsed && (
             <div className="flex flex-col leading-none animate-fade-in">
               <span className="font-bold text-base text-sidebar-foreground tracking-tight">
-                Café Atrato
+                {branding.nombreVisible}
               </span>
               <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">
                 Punto de venta
