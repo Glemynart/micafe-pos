@@ -231,6 +231,14 @@
       ]
     },
     {
+      "collectionGroup": "transacciones_financieras",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "turnos",
       "queryScope": "COLLECTION",
       "fields": [
