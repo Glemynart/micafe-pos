@@ -242,6 +242,7 @@ ampliar el nuevo Goal.
 - **ACTUAL:** B3-026/B3-027 están COMPLETADOS. El cierre productivo autorizado eliminó únicamente los cuatro objetivos allowlisted y no requiere nuevas ejecuciones.
 - **ACTUAL:** Web/PWA es la única superficie soportada. Electron/P0-08 está RETIRADO; sus referencias se conservan solo como historial.
 - **ACTUAL:** no existe Milestone, Epic ni PR funcional activo del Goal. ADR-SAAS-036 autoriza únicamente un corte independiente de remediación de seguridad P1-09 bajo `M3 / E3.2`; no activa Wompi, no reabre el alcance funcional y no cambia el siguiente PR operativo. Fiscalidad/DIAN y la validación física de hardware siguen condicionadas; notificaciones y offline siguen en backlog.
+- **Reconciliación P1-09:** PR #351 quedó fusionado en `origin/main @ 96a1a3c32ab5d547a00a93e9df686c7e73e02258`; la CI post-merge `32592546684` y Vercel terminaron en verde. El scan Codex Security post-merge no encontró regresiones del corte y separó un MEDIUM preexistente en `usuarios`. La capacidad continúa deshabilitada y bloqueada para activación por falta de Function desplegada, secretos/bindings, WAF, readiness fiscal/tesorería y smoke productivo. No hubo pagos ni escrituras productivas.
 
 La cronología y los estados intermedios que aparecen más abajo son **HISTÓRICOS** y se conservan como evidencia de decisiones, implementaciones y cierres. No deben interpretarse como trabajo pendiente ni como autorización para abrir una nueva fase.
 

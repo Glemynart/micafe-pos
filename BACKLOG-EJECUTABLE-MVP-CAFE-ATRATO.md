@@ -25,8 +25,9 @@ MVP. El estado vigente, posterior al cierre de `G-MVP-01`, es:
   datos del tenant; validación física de una impresora concreta.
 - **BACKLOG:** P1-05, P1-08, P2-01, P2-02 y P2-04, sujetos a una nueva
   decisión de producto y a sus dependencias propias.
-- **REMEDIACIÓN DE SEGURIDAD AUTORIZADA:** P1-09 por ADR-SAAS-036, sin
-  activación funcional ni productiva.
+- **REMEDIACIÓN DE SEGURIDAD INTEGRADA:** P1-09 por ADR-SAAS-036 quedó en
+  `main @ 96a1a3c32ab5d547a00a93e9df686c7e73e02258`, sin activación funcional
+  ni productiva; sus gates externos permanecen bloqueados.
 - **RETIRADO / SUPERSEDED:** P0-08 y toda distribución Electron, por PR #224.
 
 Este backlog no autoriza por sí mismo una fase post-MVP, ni convierte las ramas
@@ -97,5 +98,5 @@ o PR históricos en trabajo pendiente.
 | P0-07 / E3.1 | COMPLETADO / NO BLOQUEANTE | La compatibilidad Web/PWA 58/80 mm está integrada; hardware concreto solo requiere validación operativa posterior. |
 | P0-02 / E1.2 | CONDICIONADO | La readiness fiscal se activa por tenant cuando el negocio decide operar fiscalmente. |
 | P0-09 | CONDICIONADO / NO BLOQUEANTE | DIAN depende de datos y decisión del tenant; no bloquea DEMO ni POS operativo. |
-| P1-09 | AUTORIZADO / DESACTIVADO | ADR-SAAS-036 autoriza el corte de seguridad independiente; configuración externa, activación comercial y producción siguen prohibidas. |
+| P1-09 | INTEGRADO / DESACTIVADO / BLOQUEADO PARA ACTIVACIÓN | PR #351 integró ADR-SAAS-036; faltan Function desplegada, secretos/bindings, WAF, readiness fiscal/tesorería y smoke productivo. |
 | P2-01 / P2-04 | BACKLOG | Notificaciones y offline permanecen fuera del MVP aprobado. |

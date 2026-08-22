@@ -88,4 +88,20 @@ Scan de seguimiento posterior al gate E2E: `16184c9e-492c-4c3f-a297-35794813b36a
 
 `APROBADO PARA MERGE`
 
-El merge y la activación productiva no están autorizados por este documento. Cualquier commit posterior debe repetir los checks del PR antes del merge.
+## Cierre post-merge — 2026-08-22
+
+El PR #351 fue fusionado mediante el flujo normal de GitHub. `origin/main` quedó
+en `96a1a3c32ab5d547a00a93e9df686c7e73e02258`; la CI post-merge
+`32592546684` y el deployment de Vercel asociado terminaron en verde.
+
+El scan Codex Security `c10e69cc-ac29-458c-8e52-e2c364450822` no encontró
+regresiones P1-09. Reportó un MEDIUM preexistente y fuera de este corte en la
+lectura global de `usuarios` (`csf_5ca8a6446e681d29d5c898cd`), que permanece
+separado de Wompi/reservas.
+
+La activación continúa bloqueada: `wompiReservasWebhookV1` no aparece en el
+inventario desplegado de Functions y faltan evidencias autoritativas de secretos,
+WAF, readiness fiscal/tesorería y smoke productivo. El detalle y la matriz de
+gates están en `P1-09-CIERRE-POST-MERGE.md`.
+
+`P1-09 — BLOQUEADO`
