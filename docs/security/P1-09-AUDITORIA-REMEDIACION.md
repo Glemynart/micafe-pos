@@ -52,6 +52,7 @@ El trigger original ya no reproduce: no es posible alcanzar efectos con un hold 
 - `npm run test:rules`: PASS.
 - `npm run e2e:p0-01`: PASS (`1/1`) después de separar las primitivas `node:crypto` del contrato compartido con el navegador.
 - `git diff --check`: PASS; solo advertencias de normalización LF/CRLF.
+- PR #351, CI `32590741806`: PASS integral (`Tipos y pruebas`, Vercel y Preview Comments), incluido el smoke P0-01 en Linux.
 
 ## Codex Security
 
@@ -85,6 +86,6 @@ Scan de seguimiento posterior al gate E2E: `16184c9e-492c-4c3f-a297-35794813b36a
 - LISTO PARA ACTIVACIÓN: **no**.
 - ACTIVADO EN PRODUCCIÓN: **no**.
 
-`NO APROBADO PARA MERGE`
+`APROBADO PARA MERGE`
 
-Único gate pendiente para cambiar el veredicto: abrir el PR de esta iniciativa y comprobar todos sus checks de CI en verde, sin pendientes. El merge y la activación productiva no están autorizados por este documento.
+El merge y la activación productiva no están autorizados por este documento. Cualquier commit posterior debe repetir los checks del PR antes del merge.
