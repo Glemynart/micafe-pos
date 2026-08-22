@@ -50,6 +50,7 @@ El trigger original ya no reproduce: no es posible alcanzar efectos con un hold 
 - `npm run build:functions`: PASS.
 - `npm run lint`: PASS.
 - `npm run test:rules`: PASS.
+- `npm run e2e:p0-01`: PASS (`1/1`) después de separar las primitivas `node:crypto` del contrato compartido con el navegador.
 - `git diff --check`: PASS; solo advertencias de normalización LF/CRLF.
 
 ## Codex Security
@@ -61,6 +62,13 @@ Scan final: `c2d7dc87-5460-40b8-b5e4-3c1562beebb8`.
 - Snapshot: `codex-security-snapshot/v1:sha256:614ce00fd5a6e96e963605c1cf2cdc4ebcee7ab1a22885d29f05d5e387ce9e07`.
 - Artefactos: `report.md`, `findings.json` y `exports/results.sarif` en el directorio del scan.
 - Limitación: la consulta TAC no estuvo disponible porque el conector no estaba conectado; no afecta la cobertura local declarada, pero limita contraste externo de advisories.
+
+Scan de seguimiento posterior al gate E2E: `16184c9e-492c-4c3f-a297-35794813b36a`.
+
+- Cobertura: `4/4` archivos del ajuste server-only.
+- Findings reportables: `0`.
+- Snapshot: `codex-security-snapshot/v1:sha256:bd5836e927701271da3721c8f9cbfce74dbcac70a0df439e82c338be698843e9`.
+- Evidencia dinámica: build cliente y smoke P0-01 confirman que `node:crypto` no entra al bundle; las pruebas Wompi confirman que SHA-256 y `timingSafeEqual` conservan el comportamiento previo.
 
 ## Riesgos residuales y gates de activación
 

@@ -1,4 +1,3 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import type { ImpuestoTipo } from "../impuestos-service";
 
 export const MONEDA_RESERVAS_PUBLICAS = "COP" as const;
@@ -77,13 +76,4 @@ export function calcularMontoAutorizadoCentavos(tarifa: TarifaSalaPublica, bloqu
   const total = tarifa.precioBloqueCentavos * bloques.length;
   if (!Number.isSafeInteger(total) || total <= 0) throw new Error("MONTO_INVALIDO");
   return total;
-}
-
-export function firmaIntegridadCheckout(reference: string, amountInCents: number, currency: string, secret: string) {
-  return createHash("sha256").update(`${reference}${amountInCents}${currency}${secret}`, "utf8").digest("hex");
-}
-
-export function compararHexSeguro(actual: unknown, esperado: string) {
-  if (typeof actual !== "string" || !/^[a-f0-9]{64}$/i.test(actual) || !/^[a-f0-9]{64}$/i.test(esperado)) return false;
-  return timingSafeEqual(Buffer.from(actual.toLowerCase(), "hex"), Buffer.from(esperado.toLowerCase(), "hex"));
 }

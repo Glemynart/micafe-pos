@@ -6,10 +6,10 @@ import { resolverLineaImpuesto, type RegimenTributario } from '@/lib/impuestos-s
 import {
   MAX_BODY_HOLD_BYTES,
   calcularMontoAutorizadoCentavos,
-  firmaIntegridadCheckout,
   validarConfiguracionReservasPublicas,
   validarSolicitudHoldPublico,
 } from '@/lib/reservas-publicas/contrato'
+import { firmaIntegridadCheckout } from '@/lib/reservas-publicas/crypto-servidor'
 
 interface BloqueAgenda { reservaId: string; estado: 'hold' | 'confirmado'; holdExpira: string | null; creadoEn: string }
 interface AgendaDoc { empresaId?: unknown; mesaId?: unknown; espacioId?: unknown; bloques?: Record<string, BloqueAgenda> }
