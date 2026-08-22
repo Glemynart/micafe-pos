@@ -4,6 +4,7 @@ import { listarSalasPublicas } from './salas/service'
 import { consultarDisponibilidad } from './disponibilidad/service'
 import { crearHoldPublico } from './hold/service'
 import { cancelarHoldPendiente } from './cancelar/service'
+import { crearPlantillaConfiguracionRevision1 } from '@/lib/configuracion'
 
 type Datos = Record<string, Record<string, Record<string, any>>>
 
@@ -32,6 +33,12 @@ function dbDePrueba(datos: Datos) {
         set: (r: ReturnType<typeof ref>, data: Record<string, any>) => {
           datos[r.coleccion] ||= {}
           datos[r.coleccion][r.id] = { ...(datos[r.coleccion][r.id] || {}), ...data }
+          escrituras.push({ ...r, data })
+        },
+        create: (r: ReturnType<typeof ref>, data: Record<string, any>) => {
+          if (datos[r.coleccion]?.[r.id]) throw new Error('ALREADY_EXISTS')
+          datos[r.coleccion] ||= {}
+          datos[r.coleccion][r.id] = data
           escrituras.push({ ...r, data })
         },
         update: (r: ReturnType<typeof ref>, data: Record<string, any>) => {
@@ -81,53 +88,28 @@ test('disponibilidad: dos tenants operativos materializan y consultan agendas in
   assert.equal(prueba.datos.agendas['mesa-b_2026-07-28'].empresaId, 'b')
 })
 
-test('hold: la mesa es la autoridad y rechaza espacio o agenda cruzados', async () => {
-  const body = { reservaData: { clienteNombre: 'Ana', clienteEmail: 'ana@test.co', clienteTelefono: '1', mesaId: 'mesa-b', espacioId: 'espacio-b', fechaInicio: '2026-07-28T10:00:00Z', fechaFin: '2026-07-28T11:00:00Z', estadoPago: 'pendiente' as const, estadoReserva: 'activa' as const, montoTotal: 10000, referenciaPago: 'r', fechaCreacion: '2026-07-28T00:00:00Z' }, fechaLocal: '2026-07-28', bloquesSolicitados: ['10'] }
-  const prueba = dbDePrueba({ empresas: { b: { estado: 'activa' } }, mesas: { 'mesa-b': { empresaId: 'b', espacioId: 'espacio-b' } }, agendas: { 'mesa-b_2026-07-28': { empresaId: 'a', mesaId: 'mesa-b', espacioId: 'espacio-b', bloques: {} } }, reservas: {} })
-  const cruzada = await crearHoldPublico(new Request('https://app.test/api/reservas/hold', { method: 'POST', body: JSON.stringify(body) }), prueba.db)
-  assert.equal(cruzada.status, 409)
+function configuracionFiscalReservas(empresaId: string) {
+  const c = crearPlantillaConfiguracionRevision1({ empresaId, nombreComercial: 'Cafe', creadaEn: {}, actualizadaEn: {}, modulosIniciales: ['sell', 'reservas'], ultimaMutacion: { actorTipo: 'SYSTEM', actorId: 'system', origen: 'BACKFILL', commandId: 'init', correlationId: 'init' } })
+  return { ...c, identidadFiscal: { ...c.identidadFiscal, razonSocial: 'Cafe SAS', tipoPersona: 'JURIDICA' as const, tipoDocumento: 'NIT', numeroDocumento: '900373913', digitoVerificacion: '4', regimenTributario: 'no_responsable' as const, actividadEconomicaPrincipal: '5610' }, localizacion: { ...c.localizacion, direccion: { linea1: 'Calle 1', departamentoCodigo: '11', municipioCodigo: '11001', municipioNombre: 'Bogota' } }, reservasPublicas: { habilitadas: true, moneda: 'COP' as const, tarifaRevision: 3, cuentaClaveOperativa: 'bancolombia', salas: { [`mesa-${empresaId}`]: { precioBloqueCentavos: 3_500_000, productoId: `producto-${empresaId}`, impuestoTipo: 'excluido' as const, bloquesMinimos: 1, bloquesMaximos: 4 } } } }
+}
+
+test('hold: falla cerrado y el servidor fija monto, tenant, referencia y firma', async () => {
+  const body = { slug: 'cafe-b', mesaId: 'mesa-b', fechaLocal: '2026-07-28', bloquesSolicitados: ['10', '11'], cliente: { nombre: 'Ana Perez', email: 'ana@test.co', telefono: '3001234567' } }
+  const prueba = dbDePrueba({ empresas: { b: { estado: 'activa', slug: 'cafe-b', paisFiscal: 'CO' } }, configuraciones: { b: configuracionFiscalReservas('b') }, mesas: { 'mesa-b': { empresaId: 'b', espacioId: 'espacio-b' } }, productos: { 'producto-b': { empresaId: 'b', nombre: 'Reserva sala', activo: true } }, agendas: {}, reservas: {}, intenciones_pago_reserva: {} })
+  const disabled = await crearHoldPublico(new Request('https://app.test/api/reservas/hold', { method: 'POST', body: JSON.stringify(body) }), prueba.db)
+  assert.equal(disabled.status, 503)
   assert.equal(prueba.escrituras.length, 0)
 
-  prueba.datos.agendas = {}
-  const espacioAjeno = await crearHoldPublico(new Request('https://app.test/api/reservas/hold', { method: 'POST', body: JSON.stringify({ ...body, reservaData: { ...body.reservaData, espacioId: 'espacio-a' } }) }), prueba.db)
-  assert.equal(espacioAjeno.status, 409)
-  assert.equal(prueba.escrituras.length, 0)
-
-  prueba.datos.empresas.b.estado = 'suspendida'
-  const suspendida = await crearHoldPublico(new Request('https://app.test/api/reservas/hold', { method: 'POST', body: JSON.stringify(body) }), prueba.db)
-  assert.equal(suspendida.status, 409)
-  assert.equal(prueba.escrituras.length, 0)
-
-  prueba.datos.empresas.b.estado = 'activa'
-  const correcto = await crearHoldPublico(new Request('https://app.test/api/reservas/hold', { method: 'POST', body: JSON.stringify(body) }), prueba.db)
+  const response = await crearHoldPublico(new Request('https://app.test/api/reservas/hold', { method: 'POST', body: JSON.stringify({ ...body, montoTotal: 1 }) }), prueba.db, { habilitada: true, publicKey: 'pub_test', integritySecret: 'integrity_test', ahora: new Date('2026-07-20T12:00:00Z') })
+  assert.equal(response.status, 400)
+  const correcto = await crearHoldPublico(new Request('https://app.test/api/reservas/hold', { method: 'POST', body: JSON.stringify(body) }), prueba.db, { habilitada: true, publicKey: 'pub_test', integritySecret: 'integrity_test', ahora: new Date('2026-07-20T12:00:00Z') })
   assert.equal(correcto.status, 200)
+  const result = await correcto.json()
+  assert.equal(result.checkout.amountInCents, 7_000_000)
+  assert.equal(result.checkout.currency, 'COP')
+  assert.equal(result.checkout.reference === result.reservaId, false)
   assert.equal(Object.values(prueba.datos.reservas)[0].empresaId, 'b')
-})
-
-test('hold: dos tenants crean reservas y agendas sin afectarse entre sí', async () => {
-  const prueba = dbDePrueba({
-    empresas: { a: { estado: 'activa' }, b: { estado: 'activa' } },
-    mesas: {
-      'mesa-a': { empresaId: 'a', espacioId: 'espacio-a' },
-      'mesa-b': { empresaId: 'b', espacioId: 'espacio-b' },
-    },
-    agendas: {}, reservas: {},
-  })
-  const crearBody = (tenant: 'a' | 'b') => ({
-    reservaData: {
-      clienteNombre: `Cliente ${tenant}`, clienteEmail: `${tenant}@test.co`, clienteTelefono: '1',
-      mesaId: `mesa-${tenant}`, espacioId: `espacio-${tenant}`, fechaInicio: '2026-07-28T10:00:00Z', fechaFin: '2026-07-28T11:00:00Z',
-      estadoPago: 'pendiente' as const, estadoReserva: 'activa' as const, montoTotal: 10000, referenciaPago: `r-${tenant}`, fechaCreacion: '2026-07-28T00:00:00Z',
-    },
-    fechaLocal: '2026-07-28', bloquesSolicitados: ['10'],
-  })
-
-  assert.equal((await crearHoldPublico(new Request('https://app.test/api/reservas/hold', { method: 'POST', body: JSON.stringify(crearBody('a')) }), prueba.db)).status, 200)
-  assert.equal((await crearHoldPublico(new Request('https://app.test/api/reservas/hold', { method: 'POST', body: JSON.stringify(crearBody('b')) }), prueba.db)).status, 200)
-
-  assert.deepEqual(Object.values(prueba.datos.reservas).map((reserva: any) => reserva.empresaId).sort(), ['a', 'b'])
-  assert.equal(prueba.datos.agendas['mesa-a_2026-07-28'].empresaId, 'a')
-  assert.equal(prueba.datos.agendas['mesa-b_2026-07-28'].empresaId, 'b')
+  assert.equal(Object.values(prueba.datos.intenciones_pago_reserva)[0].montoEsperadoCentavos, 7_000_000)
 })
 
 test('cancelación: cada tenant libera únicamente los bloques de su propia reserva', async () => {

@@ -167,10 +167,17 @@ export interface ContextoFinancieroOperativo {
   actorUid: string;
   rol: string;
   ejecutorTecnico?: string;
+  autoridad?: "MEMBERSHIP" | "SYSTEM_WOMPI";
 }
 
 /** Relee autoridad canónica en la misma transacción que materializa el efecto. */
 export async function revalidarAutoridadFinancieraEnTransaccion(tx: any, db: any, contexto: ContextoFinancieroOperativo, capacidad: string | readonly string[]) {
+  if (contexto.autoridad === "SYSTEM_WOMPI") {
+    const empresa = await tx.get(db.collection("empresas").doc(contexto.empresaId));
+    if (!empresa.exists || !["trial", "activa"].includes(empresa.data()?.estado)) fail("failed-precondition", "EMPRESA_NO_OPERATIVA");
+    if (!contexto.actorUid.startsWith("wompi:") || contexto.rol !== "system") fail("permission-denied", "TENANT_ACCESS_DENIED");
+    return;
+  }
   const [empresa, membresiaSnap] = await Promise.all([
     tx.get(db.collection("empresas").doc(contexto.empresaId)),
     tx.get(db.collection("membresias").doc(`${contexto.empresaId}_${contexto.actorUid}`)),
@@ -268,8 +275,8 @@ export const trasladarEntreCuentasV1 = onCall({ region: REGION }, async request 
   return ejecutarTrasladarEntreCuentasV1(db, { empresaId: tenant.id, actorUid: request.auth!.uid, rol: tenant.rol }, request.data);
 });
 
-async function efectoAplicarEfectosVentaOperativa(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<Record<string, unknown>> {
-  await revalidarAutoridadFinancieraEnTransaccion(tx, db, { empresaId, actorUid, rol }, "sell");
+async function efectoAplicarEfectosVentaOperativa(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope, autoridad: ContextoFinancieroOperativo["autoridad"] = "MEMBERSHIP"): Promise<Record<string, unknown>> {
+  await revalidarAutoridadFinancieraEnTransaccion(tx, db, { empresaId, actorUid, rol, autoridad }, "sell");
   const ventaId = input.payload.ventaId;
   if (!text(ventaId)) fail("invalid-argument", "PAYLOAD_INVALID");
   const ventaRef = db.collection("ventas").doc(ventaId as string); const venta = await tx.get(ventaRef);
@@ -279,6 +286,8 @@ async function efectoAplicarEfectosVentaOperativa(tx: any, db: any, empresaId: s
   if (modoOperacion !== "FISCAL" && modoOperacion !== "DEMO") fail("failed-precondition", "MODO_VENTA_INVALIDO");
   const total = Number(data.totales?.total ?? 0); const metodo = data.metodoPago ?? data.pago?.metodo;
   if (!money(total) || !text(metodo)) fail("invalid-argument", "PAGO_INVALIDO");
+  const cuentaSistemaWompi = autoridad === "SYSTEM_WOMPI" ? data.cuentaClaveOperativa : undefined;
+  if (autoridad === "SYSTEM_WOMPI" && (metodo !== "transferencia" || !text(cuentaSistemaWompi))) fail("invalid-argument", "PAGO_INVALIDO");
   // Ventas F1 actuales siempre persisten `estado`; el fallback conserva la
   // semántica histórica del reconciliador para ventas legacy sin ese campo.
   const esPagada = data.estado === "pagada" || data.estado === undefined;
@@ -286,7 +295,7 @@ async function efectoAplicarEfectosVentaOperativa(tx: any, db: any, empresaId: s
     ? []
     : metodo === "mixto"
       ? (Array.isArray(data.pagoMixtoDetalle) ? data.pagoMixtoDetalle.map((p: any) => ({ claveOperativa: claveCuentaPorMedioPago(p.metodo), monto: p.monto, turnoId: p.metodo === "efectivo" ? data.turnoId ?? null : null })) : [])
-      : [{ claveOperativa: claveCuentaPorMedioPago(metodo), monto: total, turnoId: metodo === "efectivo" ? data.turnoId ?? null : null }];
+      : [{ claveOperativa: text(cuentaSistemaWompi) ? cuentaSistemaWompi : claveCuentaPorMedioPago(metodo), monto: total, turnoId: metodo === "efectivo" ? data.turnoId ?? null : null }];
   if (esPagada && (!legs.length || legs.some(leg => !money(leg.monto)))) fail("invalid-argument", "PAGO_INVALIDO");
   if (esPagada && legs.reduce((sum, leg) => sum + leg.monto, 0) !== total) fail("invalid-argument", "PAGO_INVALIDO");
   const cuentas = esPagada
@@ -407,6 +416,12 @@ async function efectoAplicarEfectosVentaOperativa(tx: any, db: any, empresaId: s
 
 export async function ejecutarAplicarEfectosVentaOperativaV1(db: any, contexto: ContextoFinancieroOperativo, data: unknown) {
   return executeConContexto(db, contexto, data, "aplicarEfectosVentaOperativaV1", efectoAplicarEfectosVentaOperativa);
+}
+
+/** Solo para el adaptador Wompi firmado; no se exporta como callable pública. */
+export async function ejecutarAplicarEfectosVentaSistemaWompiV1(db: any, contexto: Omit<ContextoFinancieroOperativo, "autoridad">, data: unknown) {
+  const sistema = { ...contexto, autoridad: "SYSTEM_WOMPI" as const };
+  return executeConContexto(db, sistema, data, "aplicarEfectosVentaOperativaV1", (tx, firestore, empresaId, actorUid, rol, input) => efectoAplicarEfectosVentaOperativa(tx, firestore, empresaId, actorUid, rol, input, "SYSTEM_WOMPI"));
 }
 
 export const aplicarEfectosVentaOperativaV1 = onCall({ region: REGION }, async request => {

@@ -169,6 +169,9 @@ service cloud.firestore {
     match /reservas_operaciones/{id} {
       allow read, write: if false;
     }
+    match /intenciones_pago_reserva/{id} {
+      allow read, write: if false;
+    }
 
     match /compras/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { HttpsError } from "firebase-functions/v2/https";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
-import { ejecutarAplicarEfectosVentaOperativaV1, ejecutarCerrarTurnoOperativoV1, type ContextoFinancieroOperativo } from "./callables";
+import { ejecutarAplicarEfectosVentaOperativaV1, ejecutarAplicarEfectosVentaSistemaWompiV1, ejecutarCerrarTurnoOperativoV1, type ContextoFinancieroOperativo } from "./callables";
 
 type Data = Record<string, any>;
 
@@ -259,6 +259,18 @@ test("P0-03: la Fase 2 server-side aplica inventario, tesoreria, incidencia y re
   assert.equal(count(db, "movimientos_inventario"), 2);
   assert.equal(count(db, "operaciones_comandos"), 1);
   assert.equal(count(db, "operaciones_auditoria"), 1);
+});
+
+test("P1-09: un pago ya reclamado acredita la cuenta tenant-aware aunque se cierre la entrada pública", async () => {
+  const db = new FakeFirestore();
+  const empresaId = "empresa-wompi"; const cuentaId = crearIdentificadorInterno(empresaId, "cuenta:pasarela-reservas");
+  db.docs.set(`empresas/${empresaId}`, { estado: "activa", esFundacional: false });
+  db.docs.set(`configuraciones/${empresaId}`, { reservasPublicas: { habilitadas: false } });
+  db.docs.set(`cuentas_bancarias/${cuentaId}`, { id: cuentaId, empresaId, saldo: 10, claveOperativa: "pasarela-reservas", nombre: "Pasarela" });
+  db.docs.set("ventas/venta-wompi", { empresaId, estado: "pagada", estadoOperativo: "PENDIENTE_EFECTOS", metodoPago: "transferencia", cuentaClaveOperativa: "pasarela-reservas", totales: { total: 90 }, items: [{ id: "quick-reserva", cantidad: 1 }] });
+  await ejecutarAplicarEfectosVentaSistemaWompiV1(db, { empresaId, actorUid: "wompi:tx-1", rol: "system" }, { commandId: "wompi-effects", idempotencyKey: "wompi-effects", correlationId: "wompi-corr", payload: { ventaId: "venta-wompi" } });
+  assert.equal(db.docs.get(`cuentas_bancarias/${cuentaId}`)?.saldo, 100);
+  assert.equal([...db.docs.values()].some(value => value?.cuentaDocumentoId === "bancolombia"), false);
 });
 
 test("P0-02: la Fase 2 procesa una venta DEMO sin snapshot fiscal ni consecutivo", async () => {

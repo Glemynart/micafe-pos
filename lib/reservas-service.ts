@@ -43,22 +43,22 @@ export async function getBloquesOcupados(mesaId: string, fechaLocal: string, slu
 }
 
 export async function crearReservaConHold(
-  reservaData: Omit<Reserva, 'id'>,
+  cliente: { nombre: string; email: string; telefono: string },
+  mesaId: string,
   fechaLocal: string,
   bloquesSolicitados: string[],
   slug: string,
-): Promise<string> {
+): Promise<{ reservaId: string; checkout: { amountInCents: number; currency: 'COP'; reference: string; signature: string; publicKey: string } }> {
   const res = await fetch('/api/reservas/hold', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ reservaData, fechaLocal, bloquesSolicitados, slug }),
+    body: JSON.stringify({ slug, mesaId, fechaLocal, bloquesSolicitados, cliente }),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => null)
     throw new Error(body?.error === 'BLOQUE_OCUPADO' ? 'BLOQUE_OCUPADO' : 'No se pudo crear la reserva.')
   }
-  const data = (await res.json()) as { reservaId: string }
-  return data.reservaId
+  return await res.json()
 }
 
 const COLLECTION_NAME = 'reservas'

@@ -34,6 +34,16 @@ export async function cancelarHoldPendiente(
     const resultadoCancelacion = evaluarCancelacionPublica(reserva, ahora)
     if (resultadoCancelacion !== 'CANCELABLE') return resultadoCancelacion
 
+    const referenciaPago = typeof reserva.referenciaPago === 'string' ? reserva.referenciaPago : ''
+    if (referenciaPago) {
+      const intentSnap = await tx.get(db.collection('intenciones_pago_reserva').doc(referenciaPago))
+      if (intentSnap.exists) {
+        const intent = intentSnap.data() as Record<string, unknown>
+        if (intent.empresaId !== reserva.empresaId || intent.reservaId !== reservaId) return 'RESERVA_INCONSISTENTE'
+        if (intent.estado !== 'CREADA') return 'RESERVA_NO_CANCELABLE'
+      }
+    }
+
     const empresaSnap = await tx.get(db.collection('empresas').doc(reserva.empresaId as string))
     const estadoEmpresa = empresaSnap.exists ? empresaSnap.data()?.estado : undefined
     if (estadoEmpresa !== 'trial' && estadoEmpresa !== 'activa') return 'EMPRESA_NO_OPERATIVA'

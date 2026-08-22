@@ -15,7 +15,6 @@ import { useParams } from 'next/navigation'
 import {
   getBloquesOcupados,
   crearReservaConHold,
-  Reserva,
 } from '@/lib/reservas-service'
 import { es } from 'date-fns/locale'
 
@@ -34,18 +33,6 @@ const HORARIOS = [
 // Cada slot representa un BLOQUE de 1 hora.
 // - Seleccionar solo 08:00 = reserva de 8:00 a 9:00 (1 hora).
 // - Seleccionar 08:00 y 09:00 = reserva de 8:00 a 10:00 (2 horas).
-const PRECIO_POR_HORA = 35000 // Ejemplo: $35.000 COP por hora
-
-// Duración en horas: para N bloques seleccionados, la duración es N.
-function duracionHoras(seleccionadas: string[]): number {
-  if (seleccionadas.length === 0) return 0
-  const indices = seleccionadas
-    .map(h => HORARIOS.indexOf(h))
-    .filter(i => i !== -1)
-  if (indices.length === 0) return 0
-  return Math.max(...indices) - Math.min(...indices) + 1
-}
-
 export default function ReservarPage() {
   const params = useParams<{ slug?: string }>()
   const slug = typeof params.slug === 'string' ? params.slug : ''
@@ -176,10 +163,6 @@ export default function ReservarPage() {
     })
   }
 
-  const calcularTotal = () => {
-    return duracionHoras(horasSeleccionadas) * PRECIO_POR_HORA
-  }
-
   // Calcula el rango visual (inicio / fin) basado en los bloques seleccionados.
   // Ej: si selecciona 08:00 y 09:00, el rango visual es 08:00 - 10:00.
   const calcularRangoVisual = (): { inicio: string; fin: string; duracion: number } | null => {
@@ -229,38 +212,16 @@ export default function ReservarPage() {
       return
     }
 
-    const pubKey = process.env.NEXT_PUBLIC_WOMPI_PUB_KEY
-    if (!pubKey) {
-      toast.success('Modo de Prueba', { description: 'No hay llave Wompi. Simulando pago y guardando la reserva (estado: Pendiente).' })
-      setCargandoPago(true)
-      try {
-        await crearReservaBase()
-        toast.success('Reserva Confirmada', { description: 'Tu espacio ha sido reservado con éxito.' })
-        setPaso(3)
-      } catch (err: any) {
-        console.error('Error guardando reserva mock:', err)
-        if (err?.message === 'BLOQUE_OCUPADO') {
-          toast.error('Horario no disponible', { description: 'Ese horario acaba de ser reservado. Por favor elige otro.' })
-          const bl = await getBloquesOcupados(salaSeleccionada, getFechaLocalStr(), slug)
-          setHorasOcupadas(bl.map(b => `${b}:00`))
-          setHorasSeleccionadas([])
-        } else {
-          toast.error('Error', { description: 'Hubo un problema guardando la reserva.' })
-        }
-      } finally {
-        setCargandoPago(false)
-      }
-      return
-    }
-
     setCargandoPago(true)
 
     let reservaId: string
+    let checkoutAutorizado: { amountInCents: number; currency: 'COP'; reference: string; signature: string; publicKey: string }
 
     try {
       // 1. Claim transaccional: crea reserva + hold en una sola transacción
       const resultado = await crearReservaBase()
       reservaId = resultado.reservaId
+      checkoutAutorizado = resultado.checkout
     } catch (err: any) {
       if (err?.message === 'BLOQUE_OCUPADO') {
         toast.error('Horario no disponible', { description: 'Ese horario acaba de ser reservado. Por favor elige otro.' })
@@ -279,10 +240,11 @@ export default function ReservarPage() {
 
     // 2. Abrir Wompi (hold protege la franja durante el checkout)
     const checkout = new window.WidgetCheckout({
-      currency: 'COP',
-      amountInCents: calcularTotal() * 100,
-      reference: reservaId,
-      publicKey: pubKey,
+      currency: checkoutAutorizado.currency,
+      amountInCents: checkoutAutorizado.amountInCents,
+      reference: checkoutAutorizado.reference,
+      publicKey: checkoutAutorizado.publicKey,
+      signature: { integrity: checkoutAutorizado.signature },
       redirectUrl: `${window.location.origin}/reservar/estado`
     })
 
@@ -333,35 +295,13 @@ export default function ReservarPage() {
     return bloques
   }
 
-  const crearReservaBase = async (): Promise<{ reservaId: string; fechaLocal: string; bloques: string[] }> => {
+  const crearReservaBase = async () => {
     const rango = calcularRangoVisual()
     if (!rango) throw new Error('Debe seleccionar al menos un horario.')
 
-    const fechaInicio = new Date(fecha!)
-    fechaInicio.setHours(parseInt(rango.inicio.split(':')[0], 10), 0, 0, 0)
-    const fechaFin = new Date(fecha!)
-    fechaFin.setHours(parseInt(rango.fin.split(':')[0], 10), 0, 0, 0)
-
     const fechaLocal = getFechaLocalStr()
     const bloques = getBloquesSolicitados()
-
-    const reservaData: Omit<Reserva, 'id'> = {
-      clienteNombre,
-      clienteEmail,
-      clienteTelefono,
-      mesaId: salaSeleccionada,
-      espacioId: 'salas-coworking',
-      fechaInicio: fechaInicio.toISOString(),
-      fechaFin: fechaFin.toISOString(),
-      estadoPago: 'pendiente',
-      estadoReserva: 'activa',
-      montoTotal: calcularTotal(),
-      referenciaPago: '',
-      fechaCreacion: new Date().toISOString(),
-    }
-
-    const reservaId = await crearReservaConHold(reservaData, fechaLocal, bloques, slug)
-    return { reservaId, fechaLocal, bloques }
+    return crearReservaConHold({ nombre: clienteNombre.trim(), email: clienteEmail.trim(), telefono: clienteTelefono.trim() }, salaSeleccionada, fechaLocal, bloques, slug)
   }
 
   if (!slug) {
@@ -497,7 +437,7 @@ export default function ReservarPage() {
                       </CardTitle>
                       <CardDescription className="reservar-desc flex items-center gap-2">
                         <Clock className="w-4 h-4" style={{ color: '#F9B207' }} />
-                        Valor: <strong className="text-[#051D41]">${PRECIO_POR_HORA.toLocaleString('es-CO')} COP/hora</strong>
+                        <strong className="text-[#051D41]">La tarifa se calcula de forma segura al continuar</strong>
                       </CardDescription>
                     </div>
                   </div>
@@ -561,7 +501,7 @@ export default function ReservarPage() {
                           <div className="reservar-total-box">
                             <div>
                               <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ opacity: 0.6 }}>Total a pagar</p>
-                              <p className="text-3xl font-black" style={{ color: '#051D41' }}>${calcularTotal().toLocaleString('es-CO')}</p>
+                              <p className="text-lg font-black" style={{ color: '#051D41' }}>Cotización del servidor</p>
                             </div>
                             <div className="text-right">
                               <div
@@ -667,7 +607,7 @@ export default function ReservarPage() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs text-white/50 font-medium mb-0.5">Total</p>
-                        <p className="font-black text-base leading-tight" style={{ color: '#F9B207' }}>${calcularTotal().toLocaleString('es-CO')}</p>
+                        <p className="font-black text-base leading-tight" style={{ color: '#F9B207' }}>Al continuar</p>
                       </div>
                     </div>
                   </div>
@@ -740,7 +680,7 @@ export default function ReservarPage() {
                         className="px-3 py-1 rounded-full text-sm font-black"
                         style={{ backgroundColor: 'rgba(5, 29, 65, 0.15)' }}
                       >
-                        ${calcularTotal().toLocaleString('es-CO')}
+                        Cotización segura
                       </span>
                     </div>
                   )}
@@ -825,7 +765,7 @@ export default function ReservarPage() {
               </div>
               <div className="flex justify-between items-center pt-2">
                 <span className="text-slate-500 font-medium">Total</span>
-                <strong className="text-xl font-black" style={{ color: '#F9B207' }}>${calcularTotal().toLocaleString('es-CO')}</strong>
+                <strong className="text-xl font-black" style={{ color: '#F9B207' }}>Calculado por el servidor</strong>
               </div>
             </div>
 

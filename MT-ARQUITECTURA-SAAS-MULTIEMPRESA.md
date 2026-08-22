@@ -27,7 +27,9 @@ identidad global y un ciclo SaaS coherente desde la creación del tenant hasta s
 El programa **MT-U6→MT-U8** se trata como un único dominio: **Ciclo de vida empresarial SaaS**. Incluye
 bootstrap, configuración, fiscalidad, suscripción, lifecycle y onboarding. Quedan fuera de este
 documento el código, las migraciones ejecutables, la pasarela de pago y las dimensiones concretas de
-monetización.
+monetización. `ADR-SAAS-036` es una excepción acotada para remediar la seguridad
+del pago de reservas públicas de clientes; no introduce billing SaaS ni cambia
+el ciclo de vida de suscripciones descrito aquí.
 
 ---
 

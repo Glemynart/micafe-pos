@@ -1,6 +1,6 @@
 # Master Security Plan — MiCafe POS SaaS
 
-Estado: `VIGENTE` para `origin/main @ eb99180bcbdbbf10bfc6c26cf119f914a654d157` al 2026-08-15.
+Estado: `VIGENTE` para el corte P1-09 basado en `origin/main @ 9cdb25f0ad52eb1e3b4a44c6f6e924403a43f3b9` al 2026-08-22.
 
 Este documento registra controles y riesgos relevantes para G-SAAS-02. No declara desplegado en producción ningún recurso que no tenga evidencia de despliegue. Los riesgos fuera del Trial permanecen en backlog y no se convierten en alcance automáticamente.
 
@@ -51,7 +51,8 @@ No se usa Espacio como frontera de seguridad ni se introduce una Sede técnica p
 | Hardware de impresión | Condicional | Validar modelo/driver 58/80 mm si el cliente lo requiere |
 | MT-U10 límites/consumo | Fuera de G-SAAS-02 | No implementar sin necesidad y decisión de producto |
 | MT-U11 multiempresa por identidad | Fuera de G-SAAS-02 | Un usuario → un tenant es suficiente |
-| Wompi SaaS, reservas públicas, offline y notificaciones | Fuera de G-SAAS-02 | Las reservas internas del POS se cubren únicamente por `ADR-SAAS-033` |
+| Reservas públicas/Wompi de clientes | Remediación autorizada; capacidad desactivada | `ADR-SAAS-036` exige precio servidor, intención inmutable, validación exacta, saga fiscal, cuenta tenant-aware y WAF antes de activar. No cambia reservas internas de `ADR-SAAS-033` ni billing SaaS. |
+| Wompi como billing SaaS, offline y notificaciones | Fuera de G-SAAS-02 | No implementar sin nueva decisión de producto. |
 
 ## Respuesta a incidentes
 

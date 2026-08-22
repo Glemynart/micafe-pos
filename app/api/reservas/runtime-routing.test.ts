@@ -19,6 +19,6 @@ test('las rutas runtime de reservas y Wompi no consultan esFundacional', () => {
 })
 
 test('salas solo expone el catálogo de tenants en trial o activos', () => {
-  const source = fs.readFileSync(path.resolve('app/api/reservas/salas/route.ts'), 'utf8')
+  const source = fs.readFileSync(path.resolve('app/api/reservas/salas/service.ts'), 'utf8')
   assert.match(source, /empresa\.estado !== 'trial' && empresa\.estado !== 'activa'/)
 })
