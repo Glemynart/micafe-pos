@@ -39,6 +39,7 @@ export {
 } from "./inventario/callables";
 export { crearProveedorOperativoV1, actualizarProveedorOperativoV1, desactivarProveedorOperativoV1 } from "./proveedores/callables";
 export { cancelarReservaOperativaV1, completarReservaOperativaV1 } from "./reservas/callables";
+export { wompiReservasWebhookV1 } from "./reservas-publicas/wompi";
 export {
   crearCuentaSalonV1,
   agregarLineaCuentaSalonV1,

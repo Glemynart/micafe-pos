@@ -30,6 +30,7 @@ interface ReservaDoc {
   bloques?: unknown;
   montoTotal?: number;
   clienteNombre?: string;
+  referenciaPago?: string;
   estadoPago?: "pendiente" | "pagado" | "fallido";
   estadoReserva?: "activa" | "completada" | "cancelada";
 }
@@ -241,8 +242,15 @@ async function efectoCancelarReservaOperativaV1(
   const [operacionSnap, ventaSnap] = await Promise.all([tx.get(operacionRef), tx.get(ventaRef)]);
   if (!reservaSnap.exists || reservaSnap.data()?.empresaId !== empresaId) return fail("not-found", "RESERVA_NOT_FOUND");
   const reserva = reservaSnap.data() as ReservaDoc;
+  const intentRef = text(reserva.referenciaPago) ? db.collection("intenciones_pago_reserva").doc(reserva.referenciaPago) : null;
+  const intentSnap = intentRef ? await tx.get(intentRef) : null;
   if (reserva.estadoReserva === "cancelada") return { commandId: input.commandId, reservaId, estadoReserva: "cancelada", idempotente: true };
   if (reserva.estadoReserva === "completada") return fail("failed-precondition", "RESERVA_COMPLETADA");
+  if (intentSnap?.exists) {
+    const intent = intentSnap.data() as Record<string, unknown>;
+    if (intent.empresaId !== empresaId || intent.reservaId !== reservaId) return fail("failed-precondition", "RESERVA_INCONSISTENTE");
+    if (intent.estado !== "CREADA") return fail("failed-precondition", "RESERVA_EN_PROCESO");
+  }
   if (operacionSnap.exists && operacionSnap.data()?.estado === "EN_PROCESO") return fail("failed-precondition", "RESERVA_EN_PROCESO");
   if (ventaSnap.exists && ventaSnap.data()?.empresaId === empresaId) return fail("failed-precondition", "RESERVA_EN_PROCESO");
 

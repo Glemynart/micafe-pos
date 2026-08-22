@@ -166,6 +166,7 @@ export interface ConfiguracionEmpresa {
   kds: KdsConfiguracion;
   autenticacionOperativa: AutenticacionOperativaConfiguracion;
   preferencias: PreferenciasConfiguracion;
+  reservasPublicas?: import("../reservas-publicas/contrato").ConfiguracionReservasPublicas;
   creadaEn: unknown;
   actualizadaEn: unknown;
   ultimaMutacion: UltimaMutacionConfiguracion;

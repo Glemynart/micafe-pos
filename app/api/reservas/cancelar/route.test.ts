@@ -29,6 +29,7 @@ function dbDePrueba(reserva?: Record<string, unknown>) {
     agendas: {
       'sala-a_2026-07-20': { empresaId, mesaId: 'sala-a', espacioId: 'salas-coworking', bloques: { '08': { reservaId: 'reserva-1' } } },
     },
+    intenciones_pago_reserva: {},
   }
   const escrituras: Array<{ coleccion: string, id: string }> = []
 
@@ -71,6 +72,23 @@ test('cancelaci\u00f3n p\u00fablica: no libera la agenda si mesa o agenda perten
 
   assert.equal(await cancelarHoldPendiente(prueba.db, 'reserva-1', ahora), 'RESERVA_INCONSISTENTE')
   assert.equal(prueba.escrituras.length, 0)
+})
+
+test('cancelación pública: se serializa con la intención y rechaza un pago reclamado', async () => {
+  const prueba = dbDePrueba(reservaHold({ referenciaPago: 'ref-1' }))
+  prueba.datos.intenciones_pago_reserva['ref-1'] = { estado: 'PAGO_RECLAMADO', empresaId, reservaId: 'reserva-1' }
+
+  assert.equal(await cancelarHoldPendiente(prueba.db, 'reserva-1', ahora), 'RESERVA_NO_CANCELABLE')
+  assert.equal(prueba.datos.reservas['reserva-1'].estadoReserva, 'activa')
+  assert.equal((prueba.datos.agendas['sala-a_2026-07-20'].bloques as Record<string, unknown>)['08'] !== undefined, true)
+  assert.equal(prueba.escrituras.length, 0)
+})
+
+test('cancelación pública: una intención CREADA conserva la cancelación ordinaria', async () => {
+  const prueba = dbDePrueba(reservaHold({ referenciaPago: 'ref-1' }))
+  prueba.datos.intenciones_pago_reserva['ref-1'] = { estado: 'CREADA', empresaId, reservaId: 'reserva-1' }
+
+  assert.equal(await cancelarHoldPendiente(prueba.db, 'reserva-1', ahora), 'CANCELABLE')
 })
 
 test('cancelacion publica: no libera un hold de una empresa suspendida', async () => {

@@ -10,6 +10,14 @@ test("B1.2 valida la plantilla neutral y rechaza campos o enums no cerrados", ()
   assert.equal(validarConfiguracionEmpresa({ ...c, desconocido: true }).valida, false);
   assert.equal(validarConfiguracionEmpresa({ ...c, pos: { ...c.pos, metodosPagoHabilitados: ["efectivo", "efectivo"] } }).valida, false);
 });
+test("P1-09 acepta solo tarifas de reservas cerradas, COP y expresables en pesos enteros", () => {
+  const c = base();
+  const reservasPublicas = { habilitadas: false, moneda: "COP" as const, tarifaRevision: 1, cuentaClaveOperativa: "pasarela-reservas", salas: { mesa_1: { precioBloqueCentavos: 3_500_000, productoId: "reserva_sala", impuestoTipo: "excluido" as const, bloquesMinimos: 1, bloquesMaximos: 4 } } };
+  assert.equal(validarConfiguracionEmpresa({ ...c, reservasPublicas }).valida, true);
+  assert.equal(validarConfiguracionEmpresa({ ...c, reservasPublicas: { ...reservasPublicas, moneda: "USD" } }).valida, false);
+  assert.equal(validarConfiguracionEmpresa({ ...c, reservasPublicas: { ...reservasPublicas, salas: { mesa_1: { ...reservasPublicas.salas.mesa_1, precioBloqueCentavos: 350_001 } } } }).valida, false);
+  assert.equal(validarConfiguracionEmpresa({ ...c, reservasPublicas: { ...reservasPublicas, secreto: "no" } }).valida, false);
+});
 test("B1.2 controla rutas, allowlists, no-op y mutación efectiva", () => {
   const c = base();
   assert.throws(() => aplicarOperacionesConfiguracion(c, [{ tipo: "SET", ruta: "branding.nombreVisible", valor: "X" }], []));

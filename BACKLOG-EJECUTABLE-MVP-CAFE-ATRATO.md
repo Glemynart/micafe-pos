@@ -23,8 +23,10 @@ MVP. El estado vigente, posterior al cierre de `G-MVP-01`, es:
   Storage/Eventos tenant-aware y cierre controlado B3-026/B3-027.
 - **CONDICIONADO / NO BLOQUEANTE:** configuración fiscal/DIAN por decisión y
   datos del tenant; validación física de una impresora concreta.
-- **BACKLOG:** P1-05, P1-08, P1-09, P2-01, P2-02 y P2-04, sujetos a una nueva
+- **BACKLOG:** P1-05, P1-08, P2-01, P2-02 y P2-04, sujetos a una nueva
   decisión de producto y a sus dependencias propias.
+- **REMEDIACIÓN DE SEGURIDAD AUTORIZADA:** P1-09 por ADR-SAAS-036, sin
+  activación funcional ni productiva.
 - **RETIRADO / SUPERSEDED:** P0-08 y toda distribución Electron, por PR #224.
 
 Este backlog no autoriza por sí mismo una fase post-MVP, ni convierte las ramas
@@ -68,7 +70,7 @@ o PR históricos en trabajo pendiente.
 | P2-02 | Completar paginación y límites de consultas históricas. | P1-05; perfil de volumen real. | Reportes e historial no ejecutan consultas no acotadas para las rutas cubiertas y mantienen los resultados esperados. | M | `perf/reportes-paginacion` |
 | P2-03 | Definir y desplegar el contrato seguro de Firebase Storage. | Inventario de usos de Storage. | Storage tiene Rules y configuración de despliegue; las rutas necesarias quedan aisladas por tenant. | M | `security/storage-rules-tenant` |
 | P2-04 | Formalizar la contingencia offline y reconciliación de UX. | P1-08; resultados de operación real. | Existe un flujo probado para informar el estado offline, recuperar conectividad y reconciliar operaciones sin ambigüedad. | L | `feat/offline-reconciliacion-ux` |
-| P1-09 | **BACKLOG FUTURO:** validar reservas públicas y Wompi si Café Atrato mantiene ese flujo. | Decisión comercial y configuración externa; no es requisito del MVP POS. | En una fase posterior, el flujo público y el cobro de reservas finalizan sin exponer datos de otro tenant. | L condicional | `test/reservas-wompi-operacion` |
+| P1-09 | **REMEDIACIÓN DE SEGURIDAD AUTORIZADA:** cerrar autoridad de precio, intención inmutable, webhook Wompi, tesorería tenant-aware y abuso del hold; mantener la capacidad deshabilitada. | ADR-SAAS-036 aceptado; configuración externa y activación siguen separadas. | El código desplegable no acepta monto cliente, no cruza tenants ni cuentas, valida pago contra intención y falla cerrado mientras falten los gates externos. | L condicional | `codex/p1-09-security-remediation` |
 
 ## P3 — Backlog histórico y trabajo no admitido
 
@@ -85,7 +87,7 @@ o PR históricos en trabajo pendiente.
 4. Mantener **P0-07** como capacidad Web/PWA de 58/80 mm; la validación de hardware concreto es operativa y no bloquea el desarrollo ni la disponibilidad del POS. **P0-08 queda retirado** por la decisión Web/PWA-only y no debe reabrirse.
 5. Si un tenant activa factura electrónica, completar **P0-09** después de **P0-02** con sus datos reales; la ausencia de esa activación no bloquea el POS.
 6. Cerrar el MVP base con **P0-10** y la prueba integral: venta → inventario → caja → turno → ticket → recuperación.
-7. Ejecutar el resto de P1 según los flujos que cada tenant utilice durante sus primeras semanas; **P1-09 queda reclasificado como backlog futuro**.
+7. Ejecutar el resto de P1 según los flujos que cada tenant utilice durante sus primeras semanas; **P1-09 solo está autorizado como remediación de seguridad por ADR-SAAS-036 y no como activación funcional**.
 > **Decisión vigente (2026-08-10):** Web/PWA es el único canal soportado. P0-08/E3.2 y la distribución Electron quedan retirados; cualquier referencia histórica al trabajo se conserva únicamente para trazabilidad.
 
 ## Clasificación vigente de gates
@@ -95,5 +97,5 @@ o PR históricos en trabajo pendiente.
 | P0-07 / E3.1 | COMPLETADO / NO BLOQUEANTE | La compatibilidad Web/PWA 58/80 mm está integrada; hardware concreto solo requiere validación operativa posterior. |
 | P0-02 / E1.2 | CONDICIONADO | La readiness fiscal se activa por tenant cuando el negocio decide operar fiscalmente. |
 | P0-09 | CONDICIONADO / NO BLOQUEANTE | DIAN depende de datos y decisión del tenant; no bloquea DEMO ni POS operativo. |
-| P1-09 | BACKLOG | Reservas públicas/Wompi pertenecen a una fase futura, no al MVP POS actual. |
+| P1-09 | AUTORIZADO / DESACTIVADO | ADR-SAAS-036 autoriza el corte de seguridad independiente; configuración externa, activación comercial y producción siguen prohibidas. |
 | P2-01 / P2-04 | BACKLOG | Notificaciones y offline permanecen fuera del MVP aprobado. |

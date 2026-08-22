@@ -135,6 +135,19 @@ test("G-SAAS-02: completar reserva pendiente exige turno y medio de pago antes d
   assert.equal(db.docs.get("reservas/r-1")?.estadoReserva, "activa");
 });
 
+test("P1-09: la cancelación tenant no compite con un pago Wompi reclamado", async () => {
+  const db = new FakeFirestore(); seedAuth(db); seedReserva(db, "pendiente");
+  db.docs.set("reservas/r-1", { ...db.docs.get("reservas/r-1"), referenciaPago: "ref-1" });
+  db.docs.set("intenciones_pago_reserva/ref-1", { estado: "PAGO_RECLAMADO", empresaId: "empresa-a", reservaId: "r-1" });
+
+  await assert.rejects(
+    ejecutarCancelarReservaOperativaV1(db, contexto, envelope("cancelar-pago-wompi", { reservaId: "r-1" })),
+    error => domain(error, "RESERVA_EN_PROCESO"),
+  );
+  assert.equal(db.docs.get("reservas/r-1")?.estadoReserva, "activa");
+  assert.equal(db.docs.get("agendas/mesa-1_2026-08-20")?.bloques?.["10"] !== undefined, true);
+});
+
 test("G-SAAS-02: una cancelación no compite con un completado reclamado", async () => {
   const db = new FakeFirestore(); seedAuth(db); seedReserva(db, "pendiente");
   db.docs.set(`reservas_operaciones/${crearIdentificadorInterno("empresa-a", "reserva:r-1")}`, { estado: "EN_PROCESO" });

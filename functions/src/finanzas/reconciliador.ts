@@ -1,5 +1,5 @@
 import { logger } from "firebase-functions";
-import { ejecutarAplicarEfectosVentaOperativaV1 } from "./callables";
+import { ejecutarAplicarEfectosVentaOperativaV1, ejecutarAplicarEfectosVentaSistemaWompiV1 } from "./callables";
 import { validarEmpresaEscribible } from "../operational-auth";
 
 interface ReciboFiscalCanonico {
@@ -9,6 +9,7 @@ interface ReciboFiscalCanonico {
   idempotencyKey: string;
   correlationId: string;
   causationId: string;
+  origen?: string;
 }
 
 function texto(value: unknown): value is string {
@@ -31,6 +32,7 @@ function leerReciboFiscalCanonico(data: unknown): ReciboFiscalCanonico | null {
     idempotencyKey: recibo.idempotencyKey,
     correlationId: recibo.correlationId,
     causationId: recibo.causationId,
+    origen: texto(recibo.origen) ? recibo.origen : undefined,
   };
 }
 
@@ -54,7 +56,8 @@ export async function reconciliarVentasPendientes(db: any, ejecutar = ejecutarAp
     try {
       await validarEmpresaEscribible(recibo.empresaId, db);
       const commandId = `efectos-venta:${venta.id}`;
-      await ejecutar(db, { empresaId: recibo.empresaId, actorUid: recibo.actorOriginal.uid, rol: recibo.actorOriginal.rolEfectivo, ejecutorTecnico: "reconciliarVentasPendientesOperativas" }, {
+      const ejecutor = recibo.origen === "SYSTEM" && recibo.actorOriginal.uid.startsWith("wompi:") ? ejecutarAplicarEfectosVentaSistemaWompiV1 : ejecutar;
+      await ejecutor(db, { empresaId: recibo.empresaId, actorUid: recibo.actorOriginal.uid, rol: recibo.actorOriginal.rolEfectivo, ejecutorTecnico: "reconciliarVentasPendientesOperativas" }, {
         commandId, idempotencyKey: commandId,
         correlationId: recibo.correlationId,
         causationId: recibo.causationId, payload: { ventaId: venta.id },
