@@ -45,12 +45,12 @@ const contexto = { empresaId, actorId: "admin_1", paisFiscal: "CO", origen: "ADM
 const fecha = (offset: number) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
 function configFiscal() {
   const c = crearPlantillaConfiguracionRevision1({ empresaId, nombreComercial: "Cafe", creadaEn: {}, actualizadaEn: {}, ultimaMutacion: { actorTipo: "SYSTEM", actorId: "system", origen: "BACKFILL", commandId: "init", correlationId: "init" } });
-  return { ...c, identidadFiscal: { ...c.identidadFiscal, razonSocial: "Cafe SAS", tipoPersona: "JURIDICA", tipoDocumento: "NIT", numeroDocumento: "900373913", digitoVerificacion: "4", regimenTributario: "no_responsable", actividadEconomicaPrincipal: "5610" }, localizacion: { ...c.localizacion, direccion: { ...c.localizacion.direccion, linea1: "Calle 1", departamentoCodigo: "11", municipioCodigo: "11001", municipioNombre: "Bogota" } } };
+  return { ...c, identidadFiscal: { ...c.identidadFiscal, razonSocial: "Cafe SAS", tipoPersona: "JURIDICA", tipoDocumento: "NIT", numeroDocumento: "900373913", digitoVerificacion: "4", regimenTributario: "responsable_inc", actividadEconomicaPrincipal: "5610" }, localizacion: { ...c.localizacion, direccion: { ...c.localizacion.direccion, linea1: "Calle 1", departamentoCodigo: "11", municipioCodigo: "11001", municipioNombre: "Bogota" } } };
 }
 function numeracion(id: string, scope: "EMPRESA" | `ESPACIO:${string}`, ultimo = 0, hasta = fecha(10)): Numeracion { return { empresaId, numeracionId: id, paisFiscal: "CO", tipoDocumento: "pos", scope, prefijo: id.toUpperCase(), resolucion: `RES-${id}`, rangoInicio: 1, rangoFin: 10, ultimoAsignado: ultimo, vigenciaDesde: fecha(-10), vigenciaHasta: hasta, estado: "HABILITADA", revision: 1, schemaVersion: 1, creadaEn: {}, actualizadaEn: {} } }
 function asignacion(scope: "EMPRESA" | `ESPACIO:${string}`, id: string): Asignacion { return { empresaId, scope, tipoDocumento: "pos", numeracionId: id, estado: "VIGENTE", revision: 1, schemaVersion: 1, actualizadaEn: {} } }
 function entrada(commandId: string, ventaId: string, espacioId?: string) { return { commandId, idempotencyKey: `idem_${commandId}`, correlationId: "corr_1", causationId: "cause_1", expectedRevision: 1, expectedAsignacionRevision: 1, ventaId, espacioId, tipoDocumento: "pos" as const, venta: { items: [{ id: "p1", nombre: "Cafe", cantidad: 1, precioUnitario: 1000, subtotal: 1000, impuestoTipo: "inc_8", impuestoTarifa: 8, impuestoValor: 74, base: 926 }], totales: { subtotalBase: 926, totalINC: 74, total: 1000 }, metodoPago: "efectivo", pago: { metodo: "efectivo", recibido: 1000, cambio: 0 } } } }
-function base() { const db = new FakeFirestore(); db.seed(`empresas/${empresaId}`, { paisFiscal: "CO", estado: "activa" }); db.seed(`configuraciones/${empresaId}`, configFiscal()); return db }
+function base() { const db = new FakeFirestore(); db.seed(`empresas/${empresaId}`, { paisFiscal: "CO", estado: "activa" }); db.seed(`configuraciones/${empresaId}`, configFiscal()); db.seed("productos/p1", { empresaId, espacioId: "s1", nombre: "Cafe", precio: 1000, costo: 200, categoriaId: "cafeteria", codigo: "CAF", activo: true, impuestoTipo: "inc_8" }); return db }
 function seedFiscal(db: FakeFirestore, n: Numeracion, a: Asignacion) { db.seed(`numeraciones/${empresaId}_${n.numeracionId}`, n); db.seed(`asignaciones_numeracion/${empresaId}_${a.scope}_pos`, a) }
 
 test("B2 valida IDs y scopes canónicos antes de construir rutas", () => {
@@ -70,6 +70,48 @@ test("ConfirmarVentaFiscal selecciona espacio antes de empresa y persiste snapsh
   const recibo = [...db.docs.values()].find(v => v.ventaId === "venta_1");
   assert.deepEqual({ ventaId: recibo.ventaId, empresaId: recibo.empresaId, actorOriginal: recibo.actorOriginal, commandId: recibo.commandId, idempotencyKey: recibo.idempotencyKey, correlationId: recibo.correlationId, causationId: recibo.causationId }, { ventaId: "venta_1", empresaId, actorOriginal: { uid: "admin_1", rolEfectivo: "admin" }, commandId: "cmd_1", idempotencyKey: "idem_cmd_1", correlationId: "corr_1", causationId: "cause_1" });
   assert.equal("actorOriginal" in venta, false);
+});
+
+test("B2 deriva el precio desde el producto y rechaza un importe manipulado", async () => {
+  const db = base();
+  seedFiscal(db, numeracion("general", "EMPRESA"), asignacion("EMPRESA", "general"));
+  const e: any = structuredClone(entrada("cmd_price_tamper", "venta_price_tamper"));
+  e.venta.items[0].precioUnitario = 1;
+  e.venta.items[0].subtotal = 1;
+  e.venta.items[0].impuestoTarifa = 8;
+  e.venta.items[0].impuestoValor = 0;
+  e.venta.items[0].base = 1;
+  e.venta.totales = { subtotalBase: 1, totalINC: 0, total: 1 };
+  await assert.rejects(confirmarVentaFiscal(db as any, e, contexto), /PRECIO_CATALOGO_DESACTUALIZADO/);
+  assert.equal(db.read("ventas/venta_price_tamper"), undefined);
+  assert.equal(db.read(`numeraciones/${empresaId}_general`).ultimoAsignado, 0);
+});
+
+test("B2 resuelve modificadores desde el catálogo y no acepta su precio enviado", async () => {
+  const db = base();
+  db.seed("productos/p_mod", { empresaId, espacioId: "s1", nombre: "Cafe configurable", precio: 1000, costo: 200, activo: true, impuestoTipo: "inc_8" });
+  db.seed("modificador_grupos/g_leche", { empresaId, espacioId: "s1", nombre: "Leche", minSeleccion: 0, maxSeleccion: 1, activo: true, opciones: [{ id: "avena", nombre: "Avena", precioDelta: 500, activo: true, orden: 0 }] });
+  db.seed("producto_modificador_grupos/r_mod", { empresaId, espacioId: "s1", productoId: "p_mod", grupoId: "g_leche", orden: 0, activo: true });
+  seedFiscal(db, numeracion("general", "EMPRESA"), asignacion("EMPRESA", "general"));
+  const e: any = structuredClone(entrada("cmd_modifier_tamper", "venta_modifier_tamper", "s1"));
+  e.venta.items[0] = { id: "p_mod", nombre: "Nombre enviado", cantidad: 1, precioBaseUnitario: 1000, precioUnitario: 1500, subtotal: 1500, configurationKey: "mod:v1|p:p_mod|g:g_leche:avena", modificadores: [{ grupoId: "g_leche", opcionIds: ["avena"], opciones: [{ opcionId: "avena", nombre: "Falso", precioDelta: 999 }] }], impuestoTipo: "inc_8", impuestoTarifa: 8, impuestoValor: 111, base: 1389 };
+  e.venta.totales = { subtotalBase: 1389, totalINC: 111, total: 1500 };
+  e.venta.pago.recibido = 1500;
+  await confirmarVentaFiscal(db as any, e, contexto);
+  const item = db.read("ventas/venta_modifier_tamper").items[0];
+  assert.equal(item.nombre, "Cafe configurable");
+  assert.equal(item.precioUnitario, 1500);
+  assert.equal(item.modificadores[0].opciones[0].precioDelta, 500);
+});
+
+test("B2 conserva la autoridad de una línea de reserva creada por el sistema Wompi", async () => {
+  const db = base();
+  seedFiscal(db, numeracion("general", "EMPRESA"), asignacion("EMPRESA", "general"));
+  const e: any = structuredClone(entrada("cmd_wompi_line", "venta_wompi_line"));
+  e.venta = { origenReserva: "reserva_1", cuentaClaveOperativa: "pasarela-reservas", items: [{ id: "reserva-sala", nombre: "Reserva sala", cantidad: 1, precioUnitario: 1000, subtotal: 1000, impuestoTipo: "excluido", impuestoTarifa: 0, impuestoValor: 0, base: 1000 }], totales: { subtotalBase: 1000, totalINC: 0, total: 1000 }, metodoPago: "transferencia", pago: { metodo: "transferencia" }, estado: "pagada" };
+  const result = await confirmarVentaFiscal(db as any, e, { ...contexto, actorId: "wompi:tx_1", origen: "SYSTEM", rolEfectivo: "system" });
+  assert.equal(result.ventaId, "venta_wompi_line");
+  assert.equal(db.read("ventas/venta_wompi_line").cajeroId, "wompi:tx_1");
 });
 
 test("B2 acepta exclusivamente fechas fiscales gregorianas canonicas y rangos ordenados", () => {

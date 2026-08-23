@@ -139,6 +139,7 @@ test("B6 Onboarding — Flujo completo de reanudación y completitud del Onboard
   }));
 
   assert.equal(bootRes.estado, "COMPLETED");
+  db.seed("productos/prod_1", { empresaId: "empresa_b6_flow", nombre: "Cafe", precio: 4500, costo: 1000, activo: true, impuestoTipo: "excluido" });
 
   // 2. Verificar estado inicial de Onboarding (Incompleto)
   const estado1 = await obtenerEstadoOnboardingTenant(db as any, "empresa_b6_flow", "CO");
