@@ -16,6 +16,16 @@ Cada PR recomendado es independiente en lo posible y no debe mezclar tareas de d
 
 ## Estado post-MVP
 
+### Checkpoint operativo vigente — 2026-08-23
+
+`origin/main` está en `d2b8cdeb94c0c1513a85dfeae61765e2c092c437` tras PR #354.
+El scan Standard de Codex Security
+`6c0ba85e-4375-487f-af8d-e3a5292f90ab` confirma un único MEDIUM real en la
+lectura/listado global de `usuarios`, documentado en `ADR-SAAS-037` y PR #355.
+El ADR sigue `Propuesto`; no se implementan Rules ni una proyección de
+identidad hasta su aprobación explícita. La auditoría completa está en
+`docs/security/G-SAAS-02-AUDITORIA-2026-08-23.md`.
+
 Las tablas P0-P3 siguientes son el **inventario histórico de planificación** del
 MVP. El estado vigente, posterior al cierre de `G-MVP-01`, es:
 

@@ -11,7 +11,7 @@
 - **Resultado:** un primer cliente real opera MiCafe POS durante un Trial ANUAL server-side de 30 días, con provisioning reproducible, onboarding, operación crítica, soporte, recuperación cuando aplique y cierre contractual evidenciado.
 - **Estado:** ACTIVO
 - **Inicio formal:** 2026-08-12
-- **Rama base:** `main @ 1448e03fa5210ad857881b1af94997aff62f1636` (SHA vivo al reconciliar PR #353)
+- **Rama base:** `main @ d2b8cdeb94c0c1513a85dfeae61765e2c092c437` (SHA vivo al reconciliar PR #354 y la auditoría del 2026-08-23)
 - **Fuente de autorización:** `AUTORIZACIÓN DE EJECUCIÓN — G-SAAS-02`
 - **Decisiones comerciales preservadas:** `1.800.000 COP`, `ANUAL`, pago manual, Trial de 30 días, todos los módulos disponibles y un Espacio operativo interno.
 
@@ -115,6 +115,22 @@
 - Rules y Storage quedaron sincronizadas con `origin/main @ a644d1d` mediante un deploy controlado y verificación read-only posterior. El release productivo completo y la recuperación productiva aún no están certificados.
 
 ## Estado vivo
+
+### Checkpoint vigente — 2026-08-23
+
+La auditoría operativa y de seguridad vigente está registrada en
+[`docs/security/G-SAAS-02-AUDITORIA-2026-08-23.md`](../security/G-SAAS-02-AUDITORIA-2026-08-23.md)
+y prevalece sobre los párrafos históricos de esta sección. El Goal permanece
+`ACTIVO`, con M2/E2.1 en ejecución, porque todavía falta la evidencia de que el
+primer cliente pueda operar el Trial completo. El checkpoint confirma que las
+operaciones críticas tienen cobertura reusable local, pero separa esa evidencia
+de la certificación del tenant real, del release productivo y del Trial.
+
+- **PR #355:** abierto y detrás de `main`; `ADR-SAAS-037` sigue `Propuesto`.
+- **P1-09:** integrado en PR #351, pero `DISABLED / FAIL CLOSED` hasta completar los gates externos.
+- **Codex Security:** scan `6c0ba85e-4375-487f-af8d-e3a5292f90ab`; un MEDIUM real confirmado en la lectura/listado global de `usuarios`.
+- **Restricciones preservadas:** `empresaId` es la frontera de seguridad; `espacioId` no se convierte en Sede; no se implementa multi-sede.
+- **Bloqueadores externos:** autorización de despliegue, secretos Wompi, evidencia WAF, autorización del tenant, ventana productiva y recovery autorizado.
 
 - **Revision de ADR-SAAS-031:** PR #289 registró la revisión inicial y PR #301 aceptó la alternativa B para ejecución controlada: backup diario, retención de 35 días, RPO ≤24 h, RTO ≤4 h, restore a una base nueva aislada en `micafe-pos/southamerica-east1`, responsable cloud autorizado, rollback sin tocar `(default)` y costo variable bajo billing habilitado. El ADR no autoriza escrituras del tenant, inicio del Trial anual ni restore sobre la base de origen.
 - **Revisión de ADR-SAAS-030:** la decisión de continuidad de G-SAAS-02 del 2026-08-14 aceptó la alternativa B para el cutover server-authoritative de productos, insumos, ajustes y mermas. El alcance exige Functions idempotentes, resolución server-side de actor/tenant/lifecycle/artículo/stock/secuencia, Rules read-only para esas colecciones, pruebas de Functions/Rules/Emulator y rollback sin editar históricos. La aceptación no autoriza escrituras productivas.
