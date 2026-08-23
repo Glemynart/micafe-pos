@@ -28,6 +28,11 @@ MVP. El estado vigente, posterior al cierre de `G-MVP-01`, es:
 - **REMEDIACIÓN DE SEGURIDAD INTEGRADA:** P1-09 por ADR-SAAS-036 quedó en
   `main @ 96a1a3c32ab5d547a00a93e9df686c7e73e02258`, sin activación funcional
   ni productiva; sus gates externos permanecen bloqueados.
+- **CORTE DE INTEGRIDAD FISCAL INTEGRADO:** PR #353 quedó fusionado en
+  `origin/main @ 1448e03fa5210ad857881b1af94997aff62f1636` y cerró la autoridad
+  server-side de precio y snapshots fiscales manipulables. Es un subcorte de
+  P0-03; la certificación integral de venta, inventario y tesorería permanece
+  pendiente.
 - **RETIRADO / SUPERSEDED:** P0-08 y toda distribución Electron, por PR #224.
 
 Este backlog no autoriza por sí mismo una fase post-MVP, ni convierte las ramas
@@ -83,7 +88,7 @@ o PR históricos en trabajo pendiente.
 ## Secuencia de ejecución
 
 1. Completar **P0-01** y habilitar la ruta DEMO; **P0-02** solo es requisito para operación FISCAL.
-2. Completar **P0-03**, **P0-05** y **P0-12** antes de certificar el núcleo transaccional completo.
+2. Mantener el subcorte fiscal de **P0-03** integrado y completar su certificación de venta, inventario y tesorería junto con **P0-05** y **P0-12** antes de certificar el núcleo transaccional completo.
 3. Ejecutar **P0-04** y **P0-06** en Emulator y después en un entorno representativo.
 4. Mantener **P0-07** como capacidad Web/PWA de 58/80 mm; la validación de hardware concreto es operativa y no bloquea el desarrollo ni la disponibilidad del POS. **P0-08 queda retirado** por la decisión Web/PWA-only y no debe reabrirse.
 5. Si un tenant activa factura electrónica, completar **P0-09** después de **P0-02** con sus datos reales; la ausencia de esa activación no bloquea el POS.
