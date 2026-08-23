@@ -26,6 +26,40 @@ ejecutado.
 5. Desplegar la Function y registrar su URL como webhook Wompi. No reutilizar
    `/api/webhooks/wompi`, que falla cerrado deliberadamente.
 
+### Configuración de Functions y Web
+
+- Functions: mantener `RESERVAS_PUBLICAS_ENABLED=false` y
+  `WOMPI_ENVIRONMENT=<ambiente aprobado>` en el archivo de entorno de Functions
+  específico del proyecto (`functions/.env.<alias-o-project-id>`), fuera de
+  Git y con acceso restringido. `WOMPI_EVENTS_SECRET` se entrega únicamente
+  por Secret Manager mediante `defineSecret`; no se copia al archivo de
+  entorno.
+- Web/Vercel: configurar `RESERVAS_PUBLICAS_ENABLED=false`,
+  `WOMPI_ENVIRONMENT=<ambiente aprobado>`, la llave pública correspondiente y
+  `WOMPI_INTEGRITY_SECRET` como variable cifrada de servidor. Nunca usar el
+  prefijo `NEXT_PUBLIC_` para el secreto de integridad.
+- Antes de cambiar cualquier flag, comprobar por nombre que cada consumidor
+  recibe el entorno correcto y conservar la evidencia redactada sin valores.
+
+### Procedimiento de deployment de la Function
+
+Este procedimiento requiere autorización de deployment y no forma parte de la
+CI de calidad:
+
+```powershell
+npm ci
+npm --prefix functions ci
+npm run build:functions
+firebase deploy --only functions:wompiReservasWebhookV1 --project micafe-pos
+firebase functions:list --project micafe-pos --json
+```
+
+El operador debe confirmar que el inventario contiene exactamente
+`wompiReservasWebhookV1`, región `us-central1`, trigger HTTPS público y el
+binding `WOMPI_EVENTS_SECRET`. No imprimir la salida de valores de secretos ni
+usar `/api/webhooks/wompi` como sustituto. Si falta acceso o autorización,
+registrar `BLOCKED — DEPLOYMENT AUTHORIZATION REQUIRED`.
+
 ## Vercel WAF en Preview
 
 Crear una regla para método `POST` y path exacto `/api/reservas/hold`:
@@ -50,6 +84,9 @@ La validación no debe crear datos de un tenant productivo.
 4. Solo con evidencia completa, cambiar `RESERVAS_PUBLICAS_ENABLED=true` en
    Web y Functions dentro de una ventana aprobada.
 5. Ejecutar smoke, observar logs sin PII/secretos y registrar SHA/configuración.
+
+El procedimiento detallado, datos requeridos, negativos, replay, cleanup y
+criterios de PASS está en `docs/security/P1-09-SMOKE-CONTROLADO.md`.
 
 ## Rollback
 
