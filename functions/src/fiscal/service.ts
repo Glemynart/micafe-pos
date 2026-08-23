@@ -4,6 +4,7 @@ import { HttpsError } from "firebase-functions/v2/https";
 import { evaluarReadinessConfiguracion, type ConfiguracionEmpresa } from "../../../lib/configuracion";
 import { evaluarDisponibilidadVentaDemostracion, evaluarReadinessTotal } from "../../../lib/onboarding/contrato";
 import { fechaFiscalActualUtc, fechaFiscalEnRango, rangoVigenciaFiscalValido, scopeEmpresa, scopeEspacio, validarIdFiscal, validarScopeFiscal, type EstadoNumeracion, type ScopeFiscal, type SnapshotFiscal, type TipoDocumentoFiscal, type Numeracion, type Asignacion } from "../../../lib/fiscal/contrato";
+import { agregarTotalesImpuesto, IMPUESTO_TIPO_DEFAULT, REGIMEN_TRIBUTARIO_DEFAULT, resolverLineaImpuesto, type ImpuestoTipo, type RegimenTributario } from "../../../lib/impuestos-service";
 import type { PlanVersion, Suscripcion } from "../../../lib/suscripciones/contrato";
 
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -53,6 +54,255 @@ function sumaDeltasModificadores(value: unknown): number {
     }
   }
   return total;
+}
+
+const TIPOS_IMPUESTO: readonly ImpuestoTipo[] = ["excluido", "inc_8", "iva_19"];
+const REGIMENES_TRIBUTARIOS: readonly RegimenTributario[] = ["no_responsable", "responsable_inc", "responsable_iva"];
+const METODOS_PAGO_FISCALES = ["efectivo", "transferencia", "cuenta_cobro", "mixto"] as const;
+type MetodoPagoFiscal = typeof METODOS_PAGO_FISCALES[number];
+
+function esImpuestoTipo(value: unknown): value is ImpuestoTipo {
+  return typeof value === "string" && TIPOS_IMPUESTO.includes(value as ImpuestoTipo);
+}
+
+function esRegimenTributario(value: unknown): value is RegimenTributario {
+  return typeof value === "string" && REGIMENES_TRIBUTARIOS.includes(value as RegimenTributario);
+}
+
+function esMetodoPagoFiscal(value: unknown): value is MetodoPagoFiscal {
+  return typeof value === "string" && METODOS_PAGO_FISCALES.includes(value as MetodoPagoFiscal);
+}
+
+function numeroCantidad(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+}
+
+function deltaModificadorComercial(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value);
+}
+
+function igualOpcional(value: unknown, esperado: number): boolean {
+  return value === undefined || value === esperado;
+}
+
+function crearConfigurationKeyFiscal(productoId: string, grupos: Array<{ grupoId: string; opcionIds: string[] }>): string {
+  const partes = grupos
+    .filter((grupo) => grupo.opcionIds.length > 0)
+    .map((grupo) => ({ grupoId: grupo.grupoId, opcionIds: [...new Set(grupo.opcionIds)].sort() }))
+    .sort((a, b) => a.grupoId.localeCompare(b.grupoId))
+    .map((grupo) => `g:${encodeURIComponent(grupo.grupoId)}:${grupo.opcionIds.map(encodeURIComponent).join(",")}`);
+  return ["mod:v1", `p:${encodeURIComponent(productoId)}`, ...partes].join("|");
+}
+
+type ResultadoModificadoresFiscales = {
+  delta: number;
+  configurationKey: string;
+  modificadores?: Array<Record<string, unknown>>;
+};
+
+async function resolverModificadoresFiscales(
+  tx: FirebaseFirestore.Transaction,
+  db: Firestore,
+  empresaId: string,
+  productoId: string,
+  espacioId: string | undefined,
+  seleccionEntrada: unknown,
+): Promise<ResultadoModificadoresFiscales> {
+  const relacionesSnap = await tx.get(
+    db.collection("producto_modificador_grupos")
+      .where("empresaId", "==", empresaId)
+      .where("productoId", "==", productoId)
+      .where("activo", "==", true),
+  );
+  const relaciones = relacionesSnap.docs.map((snap: FirebaseFirestore.QueryDocumentSnapshot) => snap.data() as Record<string, unknown>);
+  if (relaciones.some((relacion) => relacion.empresaId !== empresaId || relacion.productoId !== productoId)) {
+    fail("failed-precondition", "MODIFICADORES_CONFIGURACION_INVALIDA");
+  }
+  if (seleccionEntrada !== undefined && !Array.isArray(seleccionEntrada)) fail("invalid-argument", "MODIFICADORES_INVALIDOS");
+
+  const seleccionPorGrupo = new Map<string, string[]>();
+  for (const grupo of (seleccionEntrada as unknown[] | undefined) ?? []) {
+    if (!grupo || typeof grupo !== "object") fail("invalid-argument", "MODIFICADORES_INVALIDOS");
+    const grupoData = grupo as Record<string, unknown>;
+    if (!textoComercial(grupoData.grupoId) || !Array.isArray(grupoData.opcionIds) || grupoData.opcionIds.some((opcionId) => !textoComercial(opcionId))) {
+      fail("invalid-argument", "MODIFICADORES_INVALIDOS");
+    }
+    const grupoId = grupoData.grupoId as string;
+    const opcionIds = grupoData.opcionIds as string[];
+    if (seleccionPorGrupo.has(grupoId) || new Set(opcionIds).size !== opcionIds.length) fail("invalid-argument", "MODIFICADORES_INVALIDOS");
+    seleccionPorGrupo.set(grupoId, opcionIds);
+  }
+
+  const resueltos: Array<Record<string, unknown>> = [];
+  let delta = 0;
+  for (const relacion of relaciones) {
+    const grupoId = textoComercial(relacion.grupoId) ? relacion.grupoId : fail("failed-precondition", "MODIFICADORES_CONFIGURACION_INVALIDA");
+    const relacionEspacio = textoComercial(relacion.espacioId) ? relacion.espacioId : undefined;
+    if (espacioId && relacionEspacio && relacionEspacio !== espacioId) fail("failed-precondition", "MODIFICADORES_FUERA_DE_ESPACIO");
+    const grupoSnap = await tx.get(db.collection("modificador_grupos").doc(grupoId));
+    if (!grupoSnap.exists) fail("failed-precondition", "MODIFICADORES_CONFIGURACION_INVALIDA");
+    const grupo = grupoSnap.data() as Record<string, unknown>;
+    if (grupo.empresaId !== empresaId || grupo.activo !== true || (relacionEspacio && grupo.espacioId !== relacionEspacio) || !Array.isArray(grupo.opciones)) {
+      fail("failed-precondition", "MODIFICADORES_CONFIGURACION_INVALIDA");
+    }
+    const permitidas = relacion.opcionesPermitidas === undefined
+      ? undefined
+      : Array.isArray(relacion.opcionesPermitidas) && relacion.opcionesPermitidas.every(textoComercial)
+        ? new Set(relacion.opcionesPermitidas as string[])
+        : fail("failed-precondition", "MODIFICADORES_CONFIGURACION_INVALIDA");
+    const overrides = relacion.opcionOverrides === undefined
+      ? {}
+      : relacion.opcionOverrides && typeof relacion.opcionOverrides === "object" && !Array.isArray(relacion.opcionOverrides)
+        ? relacion.opcionOverrides as Record<string, unknown>
+        : fail("failed-precondition", "MODIFICADORES_CONFIGURACION_INVALIDA");
+    const opciones: Array<{ id: string; nombre: string; precioDelta: number; cocinaNombre?: string; orden: number }> = [];
+    for (const opcion of grupo.opciones as unknown[]) {
+      if (!opcion || typeof opcion !== "object") fail("failed-precondition", "MODIFICADORES_CONFIGURACION_INVALIDA");
+      const opcionData = opcion as Record<string, unknown>;
+      const opcionId = textoComercial(opcionData.id) ? opcionData.id : fail("failed-precondition", "MODIFICADORES_CONFIGURACION_INVALIDA");
+      const override = overrides[opcionId];
+      const overrideData = override && typeof override === "object" && !Array.isArray(override) ? override as Record<string, unknown> : undefined;
+      const activo = opcionData.activo === true && permitidas?.has(opcionId) !== false && overrideData?.activo !== false;
+      const precioDelta = overrideData?.precioDelta ?? opcionData.precioDelta;
+      if (!activo) continue;
+      const deltaCanonico: number = deltaModificadorComercial(precioDelta) ? precioDelta : fail("failed-precondition", "MODIFICADORES_CONFIGURACION_INVALIDA");
+      opciones.push({ id: opcionId, nombre: textoComercial(opcionData.nombre) ? opcionData.nombre : fail("failed-precondition", "MODIFICADORES_CONFIGURACION_INVALIDA"), precioDelta: deltaCanonico, ...(textoComercial(opcionData.cocinaNombre) ? { cocinaNombre: opcionData.cocinaNombre } : {}), orden: numeroComercial(opcionData.orden) ? opcionData.orden : 0 });
+    }
+    const opcionesPorId = new Map(opciones.map((opcion) => [opcion.id, opcion]));
+    const seleccionadas = seleccionPorGrupo.get(grupoId) ?? [];
+    const minSeleccion = relacion.minSeleccion ?? grupo.minSeleccion;
+    const maxSeleccion = relacion.maxSeleccion ?? grupo.maxSeleccion;
+    if (!numeroComercial(minSeleccion) || !numeroComercial(maxSeleccion) || maxSeleccion < minSeleccion || seleccionadas.length < minSeleccion || seleccionadas.length > maxSeleccion || seleccionadas.some((opcionId) => !opcionesPorId.has(opcionId))) {
+      fail("failed-precondition", "SELECCION_MODIFICADOR_INVALIDA");
+    }
+    const opcionesCanonicas = seleccionadas
+      .map((opcionId) => opcionesPorId.get(opcionId)!)
+      .sort((a, b) => a.orden - b.orden || a.id.localeCompare(b.id));
+    delta += opcionesCanonicas.reduce((total, opcion) => total + opcion.precioDelta, 0);
+    resueltos.push(sinUndefined({
+      grupoId,
+      opcionIds: opcionesCanonicas.map((opcion) => opcion.id),
+      nombreGrupo: textoComercial(grupo.nombre) ? grupo.nombre : undefined,
+      opciones: opcionesCanonicas.map((opcion) => sinUndefined({ opcionId: opcion.id, nombre: opcion.nombre, precioDelta: opcion.precioDelta, cocinaNombre: opcion.cocinaNombre })),
+    }));
+  }
+  if ([...seleccionPorGrupo.keys()].some((grupoId) => !relaciones.some((relacion) => relacion.grupoId === grupoId))) fail("failed-precondition", "SELECCION_MODIFICADOR_INVALIDA");
+  return { delta, configurationKey: crearConfigurationKeyFiscal(productoId, resueltos.map((grupo) => ({ grupoId: grupo.grupoId as string, opcionIds: grupo.opcionIds as string[] }))), modificadores: resueltos.length > 0 ? resueltos : undefined };
+}
+
+function validarPagoFiscal(config: ConfiguracionEmpresa, venta: Record<string, unknown>, total: number): { metodo: MetodoPagoFiscal; pagoMixtoDetalle?: Array<Record<string, unknown>>; pago: Record<string, unknown>; estado: "pagada" | "pendiente" } {
+  const pago = venta.pago && typeof venta.pago === "object" && !Array.isArray(venta.pago) ? venta.pago as Record<string, unknown> : {};
+  const metodoEntrada = venta.metodoPago ?? pago.metodo;
+  if (!esMetodoPagoFiscal(metodoEntrada) || (venta.metodoPago !== undefined && pago.metodo !== undefined && venta.metodoPago !== pago.metodo)) fail("invalid-argument", "PAGO_FISCAL_INVALIDO");
+  const metodo: MetodoPagoFiscal = esMetodoPagoFiscal(metodoEntrada) ? metodoEntrada : fail("invalid-argument", "PAGO_FISCAL_INVALIDO");
+  if (config.pos?.metodosPagoHabilitados && !config.pos.metodosPagoHabilitados.includes(metodo)) fail("failed-precondition", "PAGO_NO_HABILITADO");
+  if (metodo === "mixto" && config.pos?.permitirPagoMixto === false) fail("failed-precondition", "PAGO_MIXTO_NO_HABILITADO");
+  const estado = metodo === "cuenta_cobro" ? "pendiente" : "pagada";
+  if (venta.estado !== undefined && venta.estado !== estado) fail("failed-precondition", "ESTADO_VENTA_INVALIDO");
+  let pagoMixtoDetalle: Array<Record<string, unknown>> | undefined;
+  if (metodo === "mixto") {
+    const detalleEntrada = venta.pagoMixtoDetalle;
+    if (!Array.isArray(detalleEntrada) || detalleEntrada.length === 0) fail("invalid-argument", "PAGO_MIXTO_INVALIDO");
+    pagoMixtoDetalle = (detalleEntrada as unknown[]).map((leg: unknown) => {
+      if (!leg || typeof leg !== "object" || !["efectivo", "transferencia"].includes(String((leg as Record<string, unknown>).metodo)) || !numeroComercial((leg as Record<string, unknown>).monto, 1)) fail("invalid-argument", "PAGO_MIXTO_INVALIDO");
+      return { metodo: (leg as Record<string, unknown>).metodo, monto: (leg as Record<string, unknown>).monto };
+    });
+    if (pagoMixtoDetalle!.reduce((sum, leg) => sum + Number(leg.monto), 0) !== total) fail("invalid-argument", "PAGO_MIXTO_INVALIDO");
+  }
+  const recibido = pago.recibido ?? venta.dineroRecibido;
+  const cambio = pago.cambio ?? venta.cambio;
+  if (metodo === "efectivo" && recibido !== undefined) {
+    if (!numeroComercial(recibido, total) || (cambio !== undefined && cambio !== Number(recibido) - total)) fail("invalid-argument", "PAGO_RECIBIDO_INVALIDO");
+  }
+  return { metodo, pagoMixtoDetalle, pago: sinUndefined({ metodo, recibido, cambio: metodo === "efectivo" && recibido !== undefined ? Number(recibido) - total : undefined }), estado };
+}
+
+type ResultadoVentaFiscalCanonica = { items: Array<Record<string, unknown>>; venta: Record<string, unknown> };
+
+async function construirVentaFiscal(
+  tx: FirebaseFirestore.Transaction,
+  db: Firestore,
+  contexto: ContextoFiscal,
+  config: ConfiguracionEmpresa,
+  espacioId: string | undefined,
+  ventaEntrada: ConfirmarVentaFiscal["venta"],
+): Promise<ResultadoVentaFiscalCanonica> {
+  const esReservaSistema = contexto.origen === "SYSTEM" && contexto.rolEfectivo === "system" && contexto.actorId.startsWith("wompi:") && textoComercial(ventaEntrada.origenReserva);
+  const regimen = esRegimenTributario(config.identidadFiscal?.regimenTributario) ? config.identidadFiscal.regimenTributario : REGIMEN_TRIBUTARIO_DEFAULT;
+  if (config.impuestos?.preciosIncluyenImpuestos !== true) fail("failed-precondition", "CONFIG_PRECIOS_NO_INCLUSIVOS");
+  const items: Array<Record<string, unknown>> = [];
+  if (esReservaSistema) {
+    if (ventaEntrada.items.length !== 1) fail("failed-precondition", "RESERVA_FISCAL_INVALIDA");
+    const item = ventaEntrada.items[0];
+    const impuestoTipo = esImpuestoTipo(item.impuestoTipo) ? item.impuestoTipo : fail("failed-precondition", "RESERVA_FISCAL_INVALIDA");
+    if (!textoComercial(item.id) || !textoComercial(item.nombre) || !numeroCantidad(item.cantidad) || !numeroComercial(item.precioUnitario) || item.subtotal !== Number(item.precioUnitario) * Number(item.cantidad) || !numeroComercial(item.subtotal) || !numeroComercial(item.base) || !numeroComercial(item.impuestoValor) || (item.base as number) + (item.impuestoValor as number) !== item.subtotal || !igualOpcional(item.impuestoTarifa, resolverLineaImpuesto(item.subtotal as number, impuestoTipo, regimen).impuestoTarifa)) fail("failed-precondition", "RESERVA_FISCAL_INVALIDA");
+    const linea = resolverLineaImpuesto(item.subtotal as number, impuestoTipo, regimen);
+    if (item.base !== linea.base || item.impuestoValor !== linea.impuestoValor) fail("failed-precondition", "RESERVA_FISCAL_INVALIDA");
+    const totales = agregarTotalesImpuesto([{ precioLinea: item.subtotal as number, impuestoTipo, base: linea.base, impuestoValor: linea.impuestoValor }]);
+    const entradaTotales = ventaEntrada.totales as Record<string, unknown>;
+    if (entradaTotales.total !== totales.total || entradaTotales.subtotalBase !== totales.subtotalBase || entradaTotales.totalINC !== totales.totalINC) fail("failed-precondition", "RESERVA_FISCAL_INVALIDA");
+    items.push(sinUndefined({ ...item, impuestoTipo, impuestoTarifa: linea.impuestoTarifa, impuestoValor: linea.impuestoValor, base: linea.base, subtotal: item.subtotal, precioUnitario: item.precioUnitario, costoUnitario: 0 }));
+  } else {
+    if (contexto.origen !== "ADMIN") fail("failed-precondition", "CONTEXTO_FISCAL_INVALIDO");
+    const resultadosImpuesto: Array<{ precioLinea: number; impuestoTipo: ImpuestoTipo; base: number; impuestoValor: number }> = [];
+    for (const item of ventaEntrada.items) {
+      if (!validarIdFiscal(item.id) || !numeroCantidad(item.cantidad) || !numeroComercial(item.precioUnitario) || !numeroComercial(item.subtotal)) fail("invalid-argument", "ITEM_FISCAL_INVALIDO");
+      const productoSnap = await tx.get(db.collection("productos").doc(item.id as string));
+      const producto = productoSnap.exists ? productoSnap.data() as Record<string, unknown> : undefined;
+      if (!productoSnap.exists || producto?.empresaId !== contexto.empresaId || producto?.activo === false) fail("failed-precondition", "ARTICULO_NO_ENCONTRADO");
+      const productoCanonico = producto as Record<string, unknown>;
+      if (textoComercial(espacioId) && textoComercial(productoCanonico.espacioId) && productoCanonico.espacioId !== espacioId) fail("failed-precondition", "ARTICULO_FUERA_DE_ESPACIO");
+      if (!textoComercial(productoCanonico.nombre)) fail("failed-precondition", "ARTICULO_CATALOGO_INVALIDO");
+      if (!numeroComercial(productoCanonico.precio)) fail("failed-precondition", "PRECIO_CATALOGO_INVALIDO");
+      if (productoCanonico.costo !== undefined && !numeroComercial(productoCanonico.costo)) fail("failed-precondition", "COSTO_CATALOGO_INVALIDO");
+      const precioBaseUnitario = productoCanonico.precio as number;
+      const modificadores = await resolverModificadoresFiscales(tx, db, contexto.empresaId, item.id as string, espacioId, item.modificadores);
+      const precioUnitario = precioBaseUnitario + modificadores.delta;
+      const subtotal = precioUnitario * (item.cantidad as number);
+      if (!numeroComercial(precioUnitario) || !numeroComercial(subtotal)) fail("failed-precondition", "PRECIO_CATALOGO_INVALIDO");
+      if (item.precioBaseUnitario !== undefined && item.precioBaseUnitario !== precioBaseUnitario || item.precioUnitario !== precioUnitario) fail("failed-precondition", "PRECIO_CATALOGO_DESACTUALIZADO");
+      if (item.configurationKey !== undefined && item.configurationKey !== modificadores.configurationKey) fail("failed-precondition", "CONFIGURACION_PRODUCTO_DESACTUALIZADA");
+      if (item.subtotal !== subtotal) fail("invalid-argument", "SUBTOTAL_VENTA_INVALIDO");
+      const impuestoTipoEntrada = productoCanonico.impuestoTipo ?? config.impuestos?.impuestoTipoPredeterminado ?? IMPUESTO_TIPO_DEFAULT;
+      if (!esImpuestoTipo(impuestoTipoEntrada)) fail("failed-precondition", "CONFIG_IMPUESTO_INVALIDA");
+      const impuestoTipo: ImpuestoTipo = esImpuestoTipo(impuestoTipoEntrada) ? impuestoTipoEntrada : fail("failed-precondition", "CONFIG_IMPUESTO_INVALIDA");
+      const impuesto = resolverLineaImpuesto(subtotal, impuestoTipo, regimen);
+      if (item.impuestoTipo !== impuestoTipo || item.impuestoTarifa !== impuesto.impuestoTarifa || item.impuestoValor !== impuesto.impuestoValor || item.base !== impuesto.base) fail("failed-precondition", "IMPUESTOS_VENTA_DESACTUALIZADOS");
+      resultadosImpuesto.push({ precioLinea: subtotal, impuestoTipo, base: impuesto.base, impuestoValor: impuesto.impuestoValor });
+      items.push(sinUndefined({ id: item.id, nombre: productoCanonico.nombre, codigo: textoComercial(productoCanonico.codigo) ? productoCanonico.codigo : item.id, cantidad: item.cantidad, precioUnitario, costoUnitario: productoCanonico.costo ?? 0, subtotal, categoria: productoCanonico.categoriaId ?? null, schemaVersion: 1, configurationKey: modificadores.configurationKey, precioBaseUnitario, modificadores: modificadores.modificadores, impuestoTipo, impuestoTarifa: impuesto.impuestoTarifa, impuestoValor: impuesto.impuestoValor, base: impuesto.base }));
+    }
+    const totales = agregarTotalesImpuesto(resultadosImpuesto);
+    const entradaTotales = ventaEntrada.totales as Record<string, unknown>;
+    if (entradaTotales.subtotalBase !== totales.subtotalBase || entradaTotales.totalINC !== totales.totalINC || entradaTotales.total !== totales.total || (entradaTotales.totalExcluido !== undefined && entradaTotales.totalExcluido !== totales.totalExcluido)) fail("failed-precondition", "TOTALES_VENTA_DESACTUALIZADOS");
+  }
+  const total = items.reduce((sum, item) => sum + Number(item.subtotal), 0);
+  const pago = validarPagoFiscal(config, ventaEntrada, total);
+  return {
+    items,
+    venta: sinUndefined({
+      turnoId: ventaEntrada.turnoId,
+      cajeroId: contexto.actorId,
+      cajeroNombre: ventaEntrada.cajeroNombre,
+      rolCajeroSnapshot: contexto.rolEfectivo,
+      clienteId: ventaEntrada.clienteId,
+      clienteNombre: ventaEntrada.clienteNombre,
+      clienteDocumento: ventaEntrada.clienteDocumento,
+      notasFiado: ventaEntrada.notasFiado,
+      pedidoId: ventaEntrada.pedidoId,
+      origenReserva: esReservaSistema ? ventaEntrada.origenReserva : undefined,
+      cuentaClaveOperativa: esReservaSistema ? ventaEntrada.cuentaClaveOperativa : undefined,
+      items,
+      totales: (() => {
+        const lineas = items.map((item) => ({ precioLinea: item.subtotal as number, impuestoTipo: item.impuestoTipo as ImpuestoTipo, base: item.base as number, impuestoValor: item.impuestoValor as number }));
+        return agregarTotalesImpuesto(lineas);
+      })(),
+      metodoPago: pago.metodo,
+      pago: pago.pago,
+      pagoMixtoDetalle: pago.pagoMixtoDetalle,
+      regimenAlMomento: regimen,
+      estado: pago.estado,
+    }),
+  };
 }
 
 async function construirVentaDemostracion(
@@ -296,9 +546,10 @@ export async function confirmarVentaFiscal(db: Firestore, entrada: ConfirmarVent
       return { resultado: rechazado, idempotente: false };
     }
     const siguienteEstado: EstadoNumeracion = numero === n.rangoFin ? "AGOTADA" : "HABILITADA";
-    const fiscalSnapshot = snapshot(config, n, numero, entrada.venta.items, entrada.venta);
+    const ventaCanonica = await construirVentaFiscal(tx, db, contexto, config, entrada.espacioId, entrada.venta);
+    const fiscalSnapshot = snapshot(config, n, numero, ventaCanonica.items, ventaCanonica.venta);
     tx.update(nRef, { ultimoAsignado: numero, estado: siguienteEstado, revision: n.revision + 1, actualizadaEn: FieldValue.serverTimestamp() });
-    tx.create(db.collection("ventas").doc(entrada.ventaId), sinUndefined({ ...entrada.venta, empresaId: contexto.empresaId, espacioId: entrada.espacioId ?? null, consecutivo: numero, snapshotFiscal: fiscalSnapshot, estadoOperativo: "PENDIENTE_EFECTOS", fecha: FieldValue.serverTimestamp() }));
+    tx.create(db.collection("ventas").doc(entrada.ventaId), sinUndefined({ ...ventaCanonica.venta, empresaId: contexto.empresaId, espacioId: entrada.espacioId ?? null, consecutivo: numero, snapshotFiscal: fiscalSnapshot, estadoOperativo: "PENDIENTE_EFECTOS", fecha: FieldValue.serverTimestamp() }));
     const confirmado: ResultadoConfirmacion = { estado: "CONFIRMADA", ventaId: entrada.ventaId, numero, prefijo: n.prefijo };
     registrar(db, tx, contexto, entrada, fingerprint, confirmado, "VentaFiscalConfirmada", "VENTA", 0, 1, { ventaId: entrada.ventaId, actorOriginal: { uid: contexto.actorId, rolEfectivo } });
     if (siguienteEstado === "AGOTADA") registrarHecho(db, tx, contexto, entrada, "NumeracionAgotada", "NUMERACION", n.revision, n.revision + 1, ":agotada");
