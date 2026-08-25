@@ -111,6 +111,9 @@ test("R1-B.1: el cliente no puede alterar saldos ni anular una venta", async () 
 
   await expectDenied(cajeroTenantA.firestore().doc(path).update({ saldo: 150 }));
   await expectDenied(cajeroTenantA.firestore().doc(path).update({ nombre: "Cuenta alterada" }));
+  await expectDenied(cajeroTenantA.firestore().doc("ventas/venta-pendiente").update({
+    estadoOperativo: "COMPLETO",
+  }));
   await expectDenied(cajeroTenantA.firestore().doc("ventas/venta-pendiente").update({ estado: "anulada", estadoOperativo: "ANULADA_SIN_EFECTOS" }));
   await expectDenied(adminTenantA.firestore().doc("ventas/venta-pendiente").update({ estado: "anulada", estadoOperativo: "ANULADA_SIN_EFECTOS" }));
 });
