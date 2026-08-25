@@ -119,15 +119,11 @@ service cloud.firestore {
     match /ventas/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
       allow create: if false;
-      allow update: if puedeActualizarEnTenant() && esOperativo() && (
-        // 1. Transición Fase 2: PENDIENTE_EFECTOS -> COMPLETO
-        (
-          resource.data.estadoOperativo == 'PENDIENTE_EFECTOS' &&
-          request.resource.data.estadoOperativo == 'COMPLETO' &&
-          request.resource.data.snapshotFiscal == resource.data.snapshotFiscal &&
-          request.resource.data.consecutivo == resource.data.consecutivo
-        )
-      );
+      // La Fase 2 es server-authoritative: inventario, tesorería,
+      // idempotencia y auditoría deben confirmarse en una transacción Admin
+      // SDK. El cliente no puede marcar una venta como COMPLETO para saltarse
+      // esos efectos aunque conserve el snapshot fiscal.
+      allow update: if false;
       allow delete: if false;
     }
     match /turnos/{id} {
