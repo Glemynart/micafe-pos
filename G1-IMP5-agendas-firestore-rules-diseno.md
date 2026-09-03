@@ -227,7 +227,7 @@ Porque `getBloquesOcupados()` materializa agendas vacías desde el flujo públic
 
 1. Modificar `firestore.rules` línea 214: añadir gate `esAutenticado() || (...)`.
 2. Verificar que el cambio es sintácticamente válido.
-3. Desplegar con `firebase deploy --only firestore:rules`.
+3. Desplegar con `firebase deploy --project <staging|production> --only firestore:rules`.
 4. Probar el flujo público `/reservar`: crear reserva → verificar que agenda se materializa.
 5. Probar el flujo POS: cancelar/completar reserva → verificar que agenda se actualiza.
 
