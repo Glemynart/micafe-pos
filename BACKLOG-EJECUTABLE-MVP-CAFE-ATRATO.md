@@ -34,7 +34,10 @@ MVP. El estado vigente, posterior al cierre de `G-MVP-01`, es:
 - **CONDICIONADO / NO BLOQUEANTE:** configuración fiscal/DIAN por decisión y
   datos del tenant; validación física de una impresora concreta.
 - **BACKLOG:** P1-05, P1-08, P2-01, P2-02 y P2-04, sujetos a una nueva
-  decisión de producto y a sus dependencias propias.
+  decisión de producto y a sus dependencias propias. P2-05 queda admitido
+  exclusivamente para la recuperación controlada F1–F4 definida por
+  ADR-SAAS-038; su ejecución permanece condicionada a la aceptación del ADR y
+  no autoriza configuración ni operación externa.
 - **REMEDIACIÓN DE SEGURIDAD INTEGRADA:** P1-09 por ADR-SAAS-036 quedó en
   `main @ 96a1a3c32ab5d547a00a93e9df686c7e73e02258`, sin activación funcional
   ni productiva; sus gates externos permanecen bloqueados.
@@ -86,6 +89,7 @@ o PR históricos en trabajo pendiente.
 | P2-02 | Completar paginación y límites de consultas históricas. | P1-05; perfil de volumen real. | Reportes e historial no ejecutan consultas no acotadas para las rutas cubiertas y mantienen los resultados esperados. | M | `perf/reportes-paginacion` |
 | P2-03 | Definir y desplegar el contrato seguro de Firebase Storage. | Inventario de usos de Storage. | Storage tiene Rules y configuración de despliegue; las rutas necesarias quedan aisladas por tenant. | M | `security/storage-rules-tenant` |
 | P2-04 | Formalizar la contingencia offline y reconciliación de UX. | P1-08; resultados de operación real. | Existe un flujo probado para informar el estado offline, recuperar conectividad y reconciliar operaciones sin ambigüedad. | L | `feat/offline-reconciliacion-ux` |
+| P2-05 | **RECUPERACIÓN CONTROLADA ADMITIDA:** recuperar F1–F4 de la integración administrativa POS → Dusema sobre el main vigente. | ADR-SAAS-038 propuesto y posteriormente aceptado; preservación de STG-02; validación fase por fase. | Un PR nuevo recupera el código F1–F4 sin merge de genealogía histórica, sin configuración externa, secrets, bindings reales, deploy ni E2E. | L | `feature/p2-05-recovery-main` |
 | P1-09 | **REMEDIACIÓN DE SEGURIDAD AUTORIZADA:** cerrar autoridad de precio, intención inmutable, webhook Wompi, tesorería tenant-aware y abuso del hold; mantener la capacidad deshabilitada. | ADR-SAAS-036 aceptado; configuración externa y activación siguen separadas. | El código desplegable no acepta monto cliente, no cruza tenants ni cuentas, valida pago contra intención y falla cerrado mientras falten los gates externos. | L condicional | `codex/p1-09-security-remediation` |
 
 ## P3 — Backlog histórico y trabajo no admitido
