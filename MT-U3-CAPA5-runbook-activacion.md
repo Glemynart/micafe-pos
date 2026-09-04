@@ -46,7 +46,7 @@ secuencia — no se avanza al siguiente "para no perder tiempo".
 ## 2. Paso 1 — Desplegar índices y esperar `Enabled`
 
 ```bash
-firebase deploy --only firestore:indexes
+firebase deploy --project <staging|production> --only firestore:indexes
 ```
 
 - `firestore.indexes.json` contiene 22 entradas: 6 originales + 6 con `empresaId`

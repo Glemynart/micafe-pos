@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "micafe-pos"
+    "production": "micafe-pos",
+    "staging": "micafe-pos-staging"
   }
 }
