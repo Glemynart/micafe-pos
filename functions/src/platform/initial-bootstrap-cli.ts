@@ -1,12 +1,12 @@
 import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
-import { FACULTADES_PLATAFORMA, esFacultadPlataforma } from "./contracts";
+import { FACULTADES_BOOTSTRAP_POR_DEFECTO, esFacultadPlataforma } from "./contracts";
 import { bootstrapOperadorInicial } from "./initial-bootstrap";
 
 async function main() {
   const uid = process.env.SAAS_BOOTSTRAP_UID;
-  const requested = (process.env.SAAS_BOOTSTRAP_FACULTADES ?? FACULTADES_PLATAFORMA.join(","))
+  const requested = (process.env.SAAS_BOOTSTRAP_FACULTADES ?? FACULTADES_BOOTSTRAP_POR_DEFECTO.join(","))
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);

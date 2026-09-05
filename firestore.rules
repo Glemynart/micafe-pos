@@ -336,6 +336,9 @@ service cloud.firestore {
     match /provisionamientos_empresariales/{id} {
       allow read, write: if false;
     }
+    match /saas_platform_bindings/{id} {
+      allow read, write: if false;
+    }
 
     // Colecciones futuras de MT-U6: no tienen consumidor cliente todavÃ­a.
     // Se bloquean para tenants y quedan disponibles solo al plano plataforma.
