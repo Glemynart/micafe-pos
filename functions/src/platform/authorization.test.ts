@@ -73,26 +73,22 @@ test("rechaza contexto obsoleto y facultad ausente", async () => {
 });
 
 test("autorizarPlataforma exige asignación explícita de DUSEMA_TENANT_CONSULTAR", async () => {
-  const operadorDusema = {
-    ...operador,
-    facultades: ["DUSEMA_TENANT_CONSULTAR"],
-  };
+  await assert.rejects(
+    autorizarPlataforma(
+      dbCon(operador) as never,
+      "operador_1",
+      { saas: { operador: true, versionAutorizacion: 4 } },
+      "DUSEMA_TENANT_CONSULTAR",
+    ),
+    /PLATFORM_ACCESS_DENIED/,
+  );
   await assert.doesNotReject(
     autorizarPlataforma(
-      dbCon(operadorDusema) as never,
+      dbCon({ ...operador, facultades: ["DUSEMA_TENANT_CONSULTAR"] }) as never,
       "operador_1",
       { saas: { operador: true, versionAutorizacion: 4, facultades: ["DUSEMA_TENANT_CONSULTAR"] } },
       "DUSEMA_TENANT_CONSULTAR",
     ),
-  );
-  await assert.rejects(
-    autorizarPlataforma(
-      dbCon(operadorDusema) as never,
-      "operador_1",
-      { saas: { operador: true, versionAutorizacion: 4, facultades: [] } },
-      "DUSEMA_TENANT_CONSULTAR",
-    ),
-    /PLATFORM_ACCESS_DENIED/,
   );
 });
 

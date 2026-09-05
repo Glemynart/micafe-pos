@@ -109,6 +109,11 @@ test("rechaza binding con environment inconsistente o ID no determinista", async
   seedBinding(inconsistentEnvironment, "staging", "empresa-a", binding("production", "empresa-a"));
   await assert.rejects(resolverBindingDusema(inconsistentEnvironment as never, "empresa-a", "staging"), (error: unknown) => codigo(error) === "BINDING_ENVIRONMENT_INCONSISTENTE");
 
+  const schemaInvalido = new FakeDb();
+  empresa(schemaInvalido, "empresa-a");
+  seedBinding(schemaInvalido, "staging", "empresa-a", binding("staging", "empresa-a", "tenant-1", { schemaVersion: 2 }));
+  await assert.rejects(resolverBindingDusema(schemaInvalido as never, "empresa-a", "staging"), (error: unknown) => codigo(error) === "BINDING_SCHEMA_INVALIDO");
+
   const missingDeterministic = new FakeDb();
   empresa(missingDeterministic, "empresa-a");
   missingDeterministic.docs.set(`${PLATFORM_BINDINGS_COLLECTION}/arbitrario`, binding("staging", "empresa-a"));
