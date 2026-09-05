@@ -6,9 +6,21 @@ export const FACULTADES_PLATAFORMA = [
   "CONSERVACION_GOBERNAR",
   "PLATAFORMA_CONSULTAR",
   "ACCESO_RESTABLECER",
+  "DUSEMA_TENANT_CONSULTAR",
 ] as const;
 
 export type FacultadPlataforma = (typeof FACULTADES_PLATAFORMA)[number];
+
+/** Las facultades nuevas requieren asignación explícita tras el bootstrap inicial. */
+export const FACULTADES_BOOTSTRAP_POR_DEFECTO = [
+  "OPERADORES_GOBERNAR",
+  "COMERCIAL_GOBERNAR",
+  "BOOTSTRAP_EMPRESARIAL_SOLICITAR",
+  "LIFECYCLE_GOBERNAR",
+  "CONSERVACION_GOBERNAR",
+  "PLATAFORMA_CONSULTAR",
+  "ACCESO_RESTABLECER",
+] as const satisfies readonly FacultadPlataforma[];
 export type EstadoOperador = "ACTIVO" | "SUSPENDIDO" | "REVOCADO";
 
 export interface OperadorSaas {

@@ -2,7 +2,7 @@
 
 ## Estado
 
-**Propuesto.**
+**Aceptado.**
 
 La aprobación de este ADR autoriza exclusivamente recuperar de forma controlada
 el código histórico de las Fases 1–4 de P2-05 sobre el `main` vigente. No

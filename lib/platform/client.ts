@@ -12,6 +12,7 @@ export const FACULTADES_PLATAFORMA = [
   "CONSERVACION_GOBERNAR",
   "PLATAFORMA_CONSULTAR",
   "ACCESO_RESTABLECER",
+  "DUSEMA_TENANT_CONSULTAR",
 ] as const;
 
 export type FacultadPlataforma = (typeof FACULTADES_PLATAFORMA)[number];
