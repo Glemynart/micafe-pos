@@ -26,6 +26,13 @@ const env = {
   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? "000000000000",
   NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? `1:000000000000:web:${projectId}`,
   OPERATIONAL_PIN_PEPPER: process.env.OPERATIONAL_PIN_PEPPER ?? "operator-portal-e2e-pepper",
+  // Los parámetros S2S se resuelven al cargar el módulo de Functions. Estas
+  // referencias sintéticas permiten iniciar el Emulator sin apuntar a Dusema.
+  DUSEMA_ADMIN_BASE_URL: "https://dusema-e2e.invalid",
+  DUSEMA_S2S_ISSUER: "pos-e2e",
+  DUSEMA_S2S_AUDIENCE: "dusema-e2e",
+  DUSEMA_S2S_KID: "dusema-e2e-kid",
+  DUSEMA_S2S_ENVIRONMENT: "staging",
 };
 
 const compilacion = spawnSync(process.execPath, [
