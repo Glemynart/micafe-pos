@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import { resolve } from "node:path";
-import { detenerEmuladoresDemo, exigirProjectIdEmulador } from "./emulator-preflight.mjs";
+import { detenerEmuladoresDemo, exigirProjectIdEmulador, prepararParametrosDusemaEmulador } from "./emulator-preflight.mjs";
 
 const projectId = process.env.OPERATOR_PORTAL_PROJECT_ID ?? "demo-operator-portal";
 exigirProjectIdEmulador(projectId, "demo-");
@@ -26,13 +26,6 @@ const env = {
   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? "000000000000",
   NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? `1:000000000000:web:${projectId}`,
   OPERATIONAL_PIN_PEPPER: process.env.OPERATIONAL_PIN_PEPPER ?? "operator-portal-e2e-pepper",
-  // Los parámetros S2S se resuelven al cargar el módulo de Functions. Estas
-  // referencias sintéticas permiten iniciar el Emulator sin apuntar a Dusema.
-  DUSEMA_ADMIN_BASE_URL: "https://dusema-e2e.invalid",
-  DUSEMA_S2S_ISSUER: "pos-e2e",
-  DUSEMA_S2S_AUDIENCE: "dusema-e2e",
-  DUSEMA_S2S_KID: "dusema-e2e-kid",
-  DUSEMA_S2S_ENVIRONMENT: "staging",
 };
 
 const compilacion = spawnSync(process.execPath, [
@@ -73,13 +66,20 @@ if (estados.every(Boolean) && !permitirReutilizacion) {
 const ejecutar = () => spawnSync(process.execPath, ["scripts/e2e/operator-portal-inner.mjs"], {
   cwd: process.cwd(), env, stdio: "inherit",
 });
-const result = usarExistentes
-  ? ejecutar()
-  : spawnSync(process.execPath, [
-      resolve("node_modules", "firebase-tools", "lib", "bin", "firebase.js"),
-      "emulators:exec", "--only", "auth,firestore,functions", "--project", projectId,
-      "node scripts/e2e/operator-portal-inner.mjs",
-    ], { cwd: process.cwd(), env, stdio: "inherit" });
+let result;
+let limpiarParametrosDusema;
+try {
+  if (!usarExistentes) limpiarParametrosDusema = prepararParametrosDusemaEmulador();
+  result = usarExistentes
+    ? ejecutar()
+    : spawnSync(process.execPath, [
+        resolve("node_modules", "firebase-tools", "lib", "bin", "firebase.js"),
+        "emulators:exec", "--only", "auth,firestore,functions", "--project", projectId,
+        "node scripts/e2e/operator-portal-inner.mjs",
+      ], { cwd: process.cwd(), env, stdio: "inherit" });
+} finally {
+  limpiarParametrosDusema?.();
+}
 
 if (existsSync("firebase-debug.log")) copyFileSync("firebase-debug.log", resolve(evidenceDir, "firebase-emulator.log"));
 if (result.error) writeFileSync(resolve(evidenceDir, "launcher-error.txt"), result.error.stack ?? String(result.error));
