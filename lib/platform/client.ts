@@ -31,6 +31,33 @@ export interface ContextoPlataforma {
   versionAutorizacion: number;
 }
 
+export type EstadoConsultaTenantDusema =
+  | "NO_VINCULADO"
+  | "ACTIVO"
+  | "INACTIVO"
+  | "NO_ENCONTRADO"
+  | "ERROR_TEMPORAL";
+
+export interface TenantDusemaMetadata {
+  id: string;
+  nombre: string;
+  razonSocial: string | null;
+  nit: string | null;
+  activo: boolean;
+  plan: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ResultadoConsultaTenantDusema {
+  estado: EstadoConsultaTenantDusema;
+  tenant: TenantDusemaMetadata | null;
+}
+
+export function entradaConsultaTenantDusema(empresaPosId: string) {
+  return { empresaPosId };
+}
+
 const functions = () => getFirebaseFunctions("us-central1");
 
 async function invocar<T>(nombre: string, data: unknown = {}): Promise<T> {
@@ -106,6 +133,12 @@ export const obtenerDetalleEmpresa = (empresaId: string) =>
   }>(
     "obtenerDetalleEmpresaPlataformaSaas",
     { empresaId },
+  );
+
+export const consultarTenantDusema = (empresaPosId: string) =>
+  invocar<ResultadoConsultaTenantDusema>(
+    "consultarTenantDusemaSaas",
+    entradaConsultaTenantDusema(empresaPosId),
   );
 
 // Campos de negocio del contrato canónico (`EntradaBootstrapEmpresarial`) más
