@@ -1,7 +1,43 @@
 import net from "node:net";
 import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
+const DUSEMA_E2E_PARAMS = {
+  DUSEMA_ADMIN_BASE_URL: "https://dusema-e2e.invalid",
+  DUSEMA_S2S_ISSUER: "pos-e2e",
+  DUSEMA_S2S_AUDIENCE: "dusema-e2e",
+  DUSEMA_S2S_KID: "dusema-e2e-kid",
+  DUSEMA_S2S_ENVIRONMENT: "staging",
+};
+const DUSEMA_E2E_PARAM_NAMES = new Set(Object.keys(DUSEMA_E2E_PARAMS));
+
+// Firebase Emulator descubre defineString desde functions/.env.local, no desde
+// el entorno del proceso que lanza el CLI. El runner crea este archivo justo
+// antes de iniciar Emulator y restaura el estado local al terminar.
+export function prepararParametrosDusemaEmulador(functionsDir = resolve("functions")) {
+  const envFile = resolve(functionsDir, ".env.local");
+  const existia = existsSync(envFile);
+  const contenidoOriginal = existia ? readFileSync(envFile, "utf8") : null;
+  const sinParametrosDusema = (contenidoOriginal ?? "")
+    .split(/\r?\n/)
+    .filter((linea) => !DUSEMA_E2E_PARAM_NAMES.has(linea.match(/^\s*([A-Z0-9_]+)=/)?.[1]))
+    .join("\n")
+    .replace(/\n+$/, "");
+  const parametros = Object.entries(DUSEMA_E2E_PARAMS)
+    .map(([nombre, valor]) => `${nombre}=${valor}`)
+    .join("\n");
+  writeFileSync(envFile, `${sinParametrosDusema ? `${sinParametrosDusema}\n` : ""}${parametros}\n`);
+
+  let restaurado = false;
+  return () => {
+    if (restaurado) return;
+    restaurado = true;
+    if (existia) writeFileSync(envFile, contenidoOriginal);
+    else if (existsSync(envFile)) unlinkSync(envFile);
+  };
+}
 
 export function exigirProjectIdEmulador(projectId, prefix = "demo-") {
   if (typeof projectId !== "string" || !projectId.startsWith(prefix) || !/^[a-z0-9-]+$/.test(projectId)) {

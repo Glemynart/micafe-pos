@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import { resolve } from "node:path";
-import { detenerEmuladoresDemo, exigirProjectIdEmulador } from "./emulator-preflight.mjs";
+import { detenerEmuladoresDemo, exigirProjectIdEmulador, prepararParametrosDusemaEmulador } from "./emulator-preflight.mjs";
 
 const projectId = process.env.OPERATOR_PORTAL_PROJECT_ID ?? "demo-operator-portal";
 exigirProjectIdEmulador(projectId, "demo-");
@@ -66,13 +66,20 @@ if (estados.every(Boolean) && !permitirReutilizacion) {
 const ejecutar = () => spawnSync(process.execPath, ["scripts/e2e/operator-portal-inner.mjs"], {
   cwd: process.cwd(), env, stdio: "inherit",
 });
-const result = usarExistentes
-  ? ejecutar()
-  : spawnSync(process.execPath, [
-      resolve("node_modules", "firebase-tools", "lib", "bin", "firebase.js"),
-      "emulators:exec", "--only", "auth,firestore,functions", "--project", projectId,
-      "node scripts/e2e/operator-portal-inner.mjs",
-    ], { cwd: process.cwd(), env, stdio: "inherit" });
+let result;
+let limpiarParametrosDusema;
+try {
+  if (!usarExistentes) limpiarParametrosDusema = prepararParametrosDusemaEmulador();
+  result = usarExistentes
+    ? ejecutar()
+    : spawnSync(process.execPath, [
+        resolve("node_modules", "firebase-tools", "lib", "bin", "firebase.js"),
+        "emulators:exec", "--only", "auth,firestore,functions", "--project", projectId,
+        "node scripts/e2e/operator-portal-inner.mjs",
+      ], { cwd: process.cwd(), env, stdio: "inherit" });
+} finally {
+  limpiarParametrosDusema?.();
+}
 
 if (existsSync("firebase-debug.log")) copyFileSync("firebase-debug.log", resolve(evidenceDir, "firebase-emulator.log"));
 if (result.error) writeFileSync(resolve(evidenceDir, "launcher-error.txt"), result.error.stack ?? String(result.error));

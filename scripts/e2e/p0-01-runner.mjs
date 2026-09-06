@@ -7,6 +7,7 @@ import {
   exigirProjectIdEmulador,
   obtenerEstadoPuertos,
   esperarEmuladoresSaludables,
+  prepararParametrosDusemaEmulador,
 } from "./emulator-preflight.mjs";
 
 const projectId = process.env.E2E_P0_01_PROJECT_ID ?? "demo-p0-01-e2e";
@@ -81,17 +82,24 @@ if (usarExistentes) {
 }
 
 const firebaseCli = resolve("node_modules", "firebase-tools", "lib", "bin", "firebase.js");
-const result = usarExistentes
-  ? spawnSync(process.execPath, ["scripts/e2e/p0-01-inner.mjs"], { cwd: process.cwd(), env, stdio: "inherit" })
-  : spawnSync(process.execPath, [
-      firebaseCli,
-      "emulators:exec",
-      "--only",
-      "auth,firestore,functions",
-      "--project",
-      projectId,
-      "node scripts/e2e/p0-01-inner.mjs",
-    ], { cwd: process.cwd(), env, stdio: "inherit" });
+let result;
+let limpiarParametrosDusema;
+try {
+  if (!usarExistentes) limpiarParametrosDusema = prepararParametrosDusemaEmulador();
+  result = usarExistentes
+    ? spawnSync(process.execPath, ["scripts/e2e/p0-01-inner.mjs"], { cwd: process.cwd(), env, stdio: "inherit" })
+    : spawnSync(process.execPath, [
+        firebaseCli,
+        "emulators:exec",
+        "--only",
+        "auth,firestore,functions",
+        "--project",
+        projectId,
+        "node scripts/e2e/p0-01-inner.mjs",
+      ], { cwd: process.cwd(), env, stdio: "inherit" });
+} finally {
+  limpiarParametrosDusema?.();
+}
 
 if (existsSync("firebase-debug.log")) copyFileSync("firebase-debug.log", resolve(evidenceDir, "firebase-emulator.log"));
 if (result.error) writeFileSync(resolve(evidenceDir, "launcher-error.txt"), result.error.stack ?? String(result.error));
