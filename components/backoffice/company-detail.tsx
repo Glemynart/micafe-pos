@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, EstadoBadge, LoadingState, PageIntro } from "./
 import { CredentialRevealDialog, type CredencialEntrega } from "./credential-reveal-dialog";
 import { EditCompanyDialog } from "./edit-company-dialog";
 import { CompanyHistory } from "./company-history";
+import { DusemaTenantCard } from "./dusema-tenant-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -153,6 +154,7 @@ export function CompanyDetail({ empresaId }: { empresaId: string }) {
         <Card><CardHeader><CardTitle>Diagnóstico operativo</CardTitle></CardHeader><CardContent className="space-y-4">{data.versionPlan && <div className="grid gap-4 sm:grid-cols-2"><Datum label="Versión contratada">{data.versionPlan.codigo ?? data.versionPlan.planId} · v{data.versionPlan.planVersion}</Datum><Datum label="Estado de versión"><EstadoBadge estado={data.versionPlan.estado ?? undefined} /></Datum></div>}{data.diagnosticoConfiguracion.disponible ? <><div className="grid gap-4 sm:grid-cols-2"><Datum label="Readiness operativa"><EstadoBadge estado={data.diagnosticoConfiguracion.readiness?.operativa.lista ? "LISTA" : "PENDIENTE"} /></Datum><Datum label="Readiness fiscal"><EstadoBadge estado={data.diagnosticoConfiguracion.readiness?.fiscal.lista ? "LISTA" : "PENDIENTE"} /></Datum></div><Datum label="Módulos habilitados">{data.diagnosticoConfiguracion.modulosHabilitados.join(", ") || "Ninguno"}</Datum></> : <p className="text-sm text-slate-500">La configuración B1 aún no está disponible.</p>}</CardContent></Card>
         <Card><CardHeader><CardTitle>Provisionamiento</CardTitle></CardHeader><CardContent>{data.provisionamiento ? <div className="space-y-3"><EstadoBadge estado={data.provisionamiento.estado} /><p className="font-mono text-xs text-slate-400">{data.provisionamiento.provisionamientoId}</p>{data.provisionamiento.requiereRecuperacion && <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">El provisionamiento requiere recuperación desde el servicio canónico.</p>}</div> : <p className="text-sm text-slate-500">Sin registro visible.</p>}</CardContent></Card>
         <AccesoInicialCard data={data} accion={credencialAccion} onEmitir={emitirCredencial} onSolicitarReemision={() => setConfirmarReemision(true)} onSolicitarDesbloqueo={() => setConfirmarDesbloqueo(true)} onSolicitarRecuperacion={() => setConfirmarRecuperacion(true)} onSolicitarReemisionRecuperacion={() => setConfirmarReemisionRecuperacion(true)} puede={tiene("LIFECYCLE_GOBERNAR")} puedeRestablecer={tiene("ACCESO_RESTABLECER")} />
+        <DusemaTenantCard empresaPosId={empresaId} puedeConsultar={tiene("DUSEMA_TENANT_CONSULTAR")} />
         <CompanyHistory empresaId={empresaId} />
       </div>
       <CredentialRevealDialog credencial={credencial} onClose={() => { setCredencial(null); }} />
