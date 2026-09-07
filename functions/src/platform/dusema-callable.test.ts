@@ -57,6 +57,13 @@ test("representa INACTIVO, NO_ENCONTRADO y ERROR_TEMPORAL", async () => {
 
 test("normaliza acceso Dusema, declara secret y protege consulta de auditoria", async () => {
   const state = setup(); seedBinding(state.db); state.dependencies.client = { getTenant: async () => { throw new DusemaS2sError("DUSEMA_FORBIDDEN"); } }; await assert.rejects(ejecutarConsultaTenantDusema(request({ empresaPosId: "empresa-a" }), state.dependencies), (e) => isError(e, "permission-denied", "DUSEMA_ACCESS_DENIED"));
-  const endpoint = (consultarTenantDusemaSaas as unknown as { __endpoint?: { secretEnvironmentVariables?: Array<{ key: string }> } }).__endpoint; assert.deepEqual(endpoint?.secretEnvironmentVariables, [{ key: "DUSEMA_S2S_PRIVATE_KEY" }]);
+  const endpoint = (consultarTenantDusemaSaas as unknown as { __endpoint?: { secretEnvironmentVariables?: Array<{ key: string }> } }).__endpoint; assert.deepEqual(endpoint?.secretEnvironmentVariables, [
+    { key: "DUSEMA_ADMIN_BASE_URL" },
+    { key: "DUSEMA_S2S_ISSUER" },
+    { key: "DUSEMA_S2S_AUDIENCE" },
+    { key: "DUSEMA_S2S_KID" },
+    { key: "DUSEMA_S2S_ENVIRONMENT" },
+    { key: "DUSEMA_S2S_PRIVATE_KEY" },
+  ]);
   assert.throws(() => validarFiltroAuditoria({ por: "tipo", valor: "DUSEMA_TENANT_CONSULTADO" }), /VENTANA_TEMPORAL_REQUERIDA/);
 });

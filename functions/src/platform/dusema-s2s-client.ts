@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { defineSecret, defineString } from "firebase-functions/params";
+import { defineSecret } from "firebase-functions/params";
 import { importPKCS8, SignJWT } from "jose";
 
 export const DUSEMA_S2S_SCOPE = "DUSEMA_TENANT_READ" as const;
@@ -7,10 +7,10 @@ export const DUSEMA_S2S_SUBJECT = "pos-platform" as const;
 export const DUSEMA_S2S_TTL_SECONDS = 60;
 export const DUSEMA_S2S_TIMEOUT_MS = 5_000;
 
-const DUSEMA_ADMIN_BASE_URL_PARAM = defineString("DUSEMA_ADMIN_BASE_URL");
-const DUSEMA_S2S_ISSUER_PARAM = defineString("DUSEMA_S2S_ISSUER");
-const DUSEMA_S2S_AUDIENCE_PARAM = defineString("DUSEMA_S2S_AUDIENCE");
-const DUSEMA_S2S_KID_PARAM = defineString("DUSEMA_S2S_KID");
+export const DUSEMA_ADMIN_BASE_URL_PARAM = defineSecret("DUSEMA_ADMIN_BASE_URL");
+export const DUSEMA_S2S_ISSUER_PARAM = defineSecret("DUSEMA_S2S_ISSUER");
+export const DUSEMA_S2S_AUDIENCE_PARAM = defineSecret("DUSEMA_S2S_AUDIENCE");
+export const DUSEMA_S2S_KID_PARAM = defineSecret("DUSEMA_S2S_KID");
 export const DUSEMA_S2S_PRIVATE_KEY_PARAM = defineSecret("DUSEMA_S2S_PRIVATE_KEY");
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
