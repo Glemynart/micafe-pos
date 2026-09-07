@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { defineSecret, defineString } from "firebase-functions/params";
+import { defineSecret } from "firebase-functions/params";
 import { autorizarPlataforma, type TokenPlataforma } from "./authorization";
 import { esEnvironment, resolverBindingDusema, type BindingEnvironment, type DusemaPlatformBinding } from "./bindings";
 import type { EnvelopePlataforma, FacultadPlataforma } from "./contracts";
 import { registrarHechoAuditoria, type HechoAuditable } from "./audit";
-import { createConfiguredDusemaS2sClient, DUSEMA_S2S_PRIVATE_KEY_PARAM, DusemaS2sError, proyectarTenantDusema, type DusemaTenantMetadata } from "./dusema-s2s-client";
+import { createConfiguredDusemaS2sClient, DUSEMA_ADMIN_BASE_URL_PARAM, DUSEMA_S2S_AUDIENCE_PARAM, DUSEMA_S2S_ISSUER_PARAM, DUSEMA_S2S_KID_PARAM, DUSEMA_S2S_PRIVATE_KEY_PARAM, DusemaS2sError, proyectarTenantDusema, type DusemaTenantMetadata } from "./dusema-s2s-client";
 import { ejecutarComandoOperador } from "./operators";
 import { ejecutarComandoComercial, provisionarCredencialInicialTenant, reemitirCredencialInicialTemporalTenant, solicitarBootstrapEmpresarial } from "./operations";
 import { desbloquearAdministradorInicialTenant } from "./desbloquear-administrador-inicial-tenant";
@@ -19,7 +19,7 @@ const REGION = "us-central1";
 // ADR-SAAS-013 — el paso H de ejecutarBootstrapEmpresarial (invocado por
 // solicitarBootstrapEmpresarialSaas) hashea el PIN temporal con este secreto.
 const PIN_PEPPER = defineSecret("OPERATIONAL_PIN_PEPPER");
-const DUSEMA_S2S_ENVIRONMENT_PARAM = defineString("DUSEMA_S2S_ENVIRONMENT");
+const DUSEMA_S2S_ENVIRONMENT_PARAM = defineSecret("DUSEMA_S2S_ENVIRONMENT");
 
 const DUSEMA_TENANT_READ_FACULTAD = "DUSEMA_TENANT_CONSULTAR" as const;
 const DUSEMA_CONSULTA_TIPO = "ConsultarTenantDusema";
@@ -155,7 +155,7 @@ export async function ejecutarConsultaTenantDusema(request: RequestConsultaTenan
 }
 
 export const consultarTenantDusemaSaas = onCall(
-  { region: REGION, secrets: [DUSEMA_S2S_PRIVATE_KEY_PARAM] },
+  { region: REGION, secrets: [DUSEMA_ADMIN_BASE_URL_PARAM, DUSEMA_S2S_ISSUER_PARAM, DUSEMA_S2S_AUDIENCE_PARAM, DUSEMA_S2S_KID_PARAM, DUSEMA_S2S_ENVIRONMENT_PARAM, DUSEMA_S2S_PRIVATE_KEY_PARAM] },
   async (request) => ejecutarConsultaTenantDusema({ data: request.data, auth: request.auth ? { uid: request.auth.uid, token: request.auth.token as Record<string, unknown> } : null }),
 );
 
