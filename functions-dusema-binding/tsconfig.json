@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "lib",
+    "rootDir": "..",
+    "declaration": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "../functions/src/platform/dusema-binding-callable.ts",
+    "../functions/src/platform/dusema-binding-command.ts"
+  ],
+  "exclude": ["src/**/*.test.ts", "lib", "node_modules"]
+}

@@ -3,6 +3,10 @@
     {
       "source": "functions",
       "codebase": "saas-auth"
+    },
+    {
+      "source": "functions-dusema-binding",
+      "codebase": "saas-dusema-binding"
     }
   ],
   "firestore": {
