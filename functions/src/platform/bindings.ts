@@ -3,6 +3,7 @@ import { HttpsError } from "firebase-functions/v2/https";
 import { exigirId } from "./validation";
 
 export const PLATFORM_BINDINGS_COLLECTION = "saas_platform_bindings";
+export const DUSEMA_EXTERNAL_TENANT_RESERVATIONS_COLLECTION = "saas_platform_binding_external_tenants";
 export const DUSEMA_PRODUCT_CODE = "DUSEMA" as const;
 export const DUSEMA_BINDING_ACTIVE_STATE = "ACTIVO" as const;
 
@@ -41,6 +42,10 @@ function exigirEnvironment(value: unknown): BindingEnvironment {
 
 export function idBindingDusema(environment: BindingEnvironment, empresaPosId: string): string {
   return `${environment}:${DUSEMA_PRODUCT_CODE}:${empresaPosId}`;
+}
+
+export function idReservaTenantDusema(environment: BindingEnvironment, externalTenantId: string): string {
+  return `${environment}:${DUSEMA_PRODUCT_CODE}:${externalTenantId}`;
 }
 
 function inconsistente(codigo = "BINDING_INCONSISTENTE"): never {

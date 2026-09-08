@@ -123,6 +123,7 @@ test("las colecciones SaaS quedan denegadas para todo cliente, incluso claims le
     "saas_operadores/operador-1",
     "saas_auditoria/evento-1",
     "saas_platform_bindings/staging:DUSEMA:empresa-a",
+    "saas_platform_binding_external_tenants/staging:DUSEMA:tenant-a",
     "saas_auditoria_obligaciones/obligacion-1",
     "saas_soporte_autorizaciones/autorizacion-1",
     "saas_comandos/comando-1",
