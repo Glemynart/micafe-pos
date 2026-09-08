@@ -4,7 +4,6 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { autorizarPlataforma, type TokenPlataforma } from "./authorization";
 import { esEnvironment, resolverBindingDusema, type BindingEnvironment, type DusemaPlatformBinding } from "./bindings";
-import { crearBindingDusemaStaging, exigirRuntimeDusemaBinding } from "./dusema-binding-command";
 import type { EnvelopePlataforma, FacultadPlataforma } from "./contracts";
 import { registrarHechoAuditoria, type HechoAuditable } from "./audit";
 import { createConfiguredDusemaS2sClient, DUSEMA_ADMIN_BASE_URL_PARAM, DUSEMA_S2S_AUDIENCE_PARAM, DUSEMA_S2S_ISSUER_PARAM, DUSEMA_S2S_KID_PARAM, DUSEMA_S2S_PRIVATE_KEY_PARAM, DusemaS2sError, proyectarTenantDusema, type DusemaTenantMetadata } from "./dusema-s2s-client";
@@ -159,17 +158,6 @@ export const consultarTenantDusemaSaas = onCall(
   { region: REGION, secrets: [DUSEMA_ADMIN_BASE_URL_PARAM, DUSEMA_S2S_ISSUER_PARAM, DUSEMA_S2S_AUDIENCE_PARAM, DUSEMA_S2S_KID_PARAM, DUSEMA_S2S_ENVIRONMENT_PARAM, DUSEMA_S2S_PRIVATE_KEY_PARAM] },
   async (request) => ejecutarConsultaTenantDusema({ data: request.data, auth: request.auth ? { uid: request.auth.uid, token: request.auth.token as Record<string, unknown> } : null }),
 );
-
-export const crearBindingDusemaStagingSaas = onCall({ region: REGION }, async (request) => {
-  const auth = exigirAuth(request);
-  exigirRuntimeDusemaBinding();
-  return crearBindingDusemaStaging(
-    getFirestore(),
-    auth.uid,
-    auth.token as TokenPlataforma,
-    request.data as never,
-  );
-});
 
 export const consultarContextoPlataforma = onCall({ region: REGION }, async (request) => {
   const auth = exigirAuth(request);
