@@ -74,6 +74,7 @@ export {
   listarSoporteTenantSaas,
   consultarAuditoriaPlataformaSaas,
   consultarTenantDusemaSaas,
+  crearBindingDusemaStagingSaas,
 } from "./platform/callables";
 
 import { onSchedule } from "firebase-functions/v2/scheduler";
