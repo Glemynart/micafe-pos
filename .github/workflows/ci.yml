@@ -34,6 +34,7 @@ jobs:
             package-lock.json
             functions/package-lock.json
             functions-dusema-binding/package-lock.json
+            functions-platform-context/package-lock.json
 
       - name: Setup Java para Firebase Emulator Suite
         uses: actions/setup-java@v4
@@ -52,6 +53,10 @@ jobs:
         run: npm ci
         working-directory: functions-dusema-binding
 
+      - name: Instalar dependencias del codebase Platform context
+        run: npm ci
+        working-directory: functions-platform-context
+
       - name: Chequeo de tipos de aplicaciÃ³n
         run: npx tsc --noEmit
 
@@ -68,6 +73,14 @@ jobs:
       - name: Discovery secret-free del codebase Dusema binding
         run: npm run test:discovery
         working-directory: functions-dusema-binding
+
+      - name: Build del codebase Platform context
+        run: npm run build
+        working-directory: functions-platform-context
+
+      - name: Discovery secret-free del codebase Platform context
+        run: npm run test:discovery
+        working-directory: functions-platform-context
 
       - name: Lint de aplicacion y tooling
         run: npm run lint

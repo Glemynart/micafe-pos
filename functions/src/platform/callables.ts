@@ -159,17 +159,6 @@ export const consultarTenantDusemaSaas = onCall(
   async (request) => ejecutarConsultaTenantDusema({ data: request.data, auth: request.auth ? { uid: request.auth.uid, token: request.auth.token as Record<string, unknown> } : null }),
 );
 
-export const consultarContextoPlataforma = onCall({ region: REGION }, async (request) => {
-  const auth = exigirAuth(request);
-  const operador = await autorizarPlataforma(getFirestore(), auth.uid, auth.token);
-  return {
-    uid: operador.uid,
-    estado: operador.estado,
-    facultades: operador.facultades,
-    versionAutorizacion: operador.versionAutorizacion,
-  };
-});
-
 type DatosOperador = EnvelopePlataforma & {
   objetivoUid: string;
   expectedVersionAutorizacion?: number;
