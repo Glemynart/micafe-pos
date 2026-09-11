@@ -31,13 +31,18 @@ after(async () => {
   await cleanupRulesTestEnvironment();
 });
 
-test("usuarios legacy: cualquier autenticado puede leer y listar el directorio global", async () => {
+test("usuarios: solo el titular lee su perfil; no hay listado ni lectura cross-tenant", async () => {
   const cajeroA = await contextFor(fixtures.tenantA.cajero);
+  const adminA = await contextFor(fixtures.tenantA.admin);
+  const adminB = await contextFor(fixtures.tenantB.admin);
   const anonimo = await contextFor(fixtures.anonimo);
 
   await expectAllowed(cajeroA.firestore().doc(`usuarios/${fixtures.tenantA.cajero.uid}`).get());
-  await expectAllowed(cajeroA.firestore().doc(`usuarios/${fixtures.tenantA.admin.uid}`).get());
-  await expectAllowed(cajeroA.firestore().collection("usuarios").get());
+  await expectDenied(cajeroA.firestore().doc(`usuarios/${fixtures.tenantA.admin.uid}`).get());
+  await expectDenied(adminA.firestore().doc(`usuarios/${fixtures.tenantA.cajero.uid}`).get());
+  await expectDenied(adminB.firestore().doc(`usuarios/${fixtures.tenantA.cajero.uid}`).get());
+  await expectDenied(cajeroA.firestore().collection("usuarios").get());
+  await expectDenied(adminA.firestore().collection("usuarios").get());
   await expectDenied(anonimo.firestore().collection("usuarios").get());
 });
 

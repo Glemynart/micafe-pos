@@ -1,6 +1,5 @@
 import {
   collection,
-  doc,
   onSnapshot,
   query,
   where,
@@ -14,7 +13,7 @@ import {
 } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { db, firebaseConfig, app } from "@/lib/firebase";
+import { auth, db, firebaseConfig, app } from "@/lib/firebase";
 import { usernameToEmail, type RolUsuario, type Usuario } from "@/lib/auth-service";
 import { esMembresiaCanonica, normalizarPermisos, type Membresia } from "@/lib/membresias-service";
 import { getEmpresaId } from "@/lib/tenant";
@@ -58,16 +57,44 @@ function proyectarUsuario(uid: string, perfil: Record<string, unknown>, membresi
   };
 }
 
-/** Lista perfiles globales enriquecidos exclusivamente con su membresía tenant. */
+type PerfilTenantMinimo = {
+  uid: string;
+  nombre: string;
+  username: string;
+};
+
+async function obtenerPerfilesTenant(): Promise<Map<string, PerfilTenantMinimo>> {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("No hay una sesión activa.");
+  const response = await fetch("/api/usuarios/tenant", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error("No fue posible cargar los perfiles.");
+  const body = await response.json() as { perfiles?: unknown };
+  if (!Array.isArray(body.perfiles)) throw new Error("Respuesta de perfiles inválida.");
+  return new Map(body.perfiles
+    .filter((perfil): perfil is PerfilTenantMinimo => !!perfil
+      && typeof perfil === "object"
+      && typeof (perfil as PerfilTenantMinimo).uid === "string"
+      && typeof (perfil as PerfilTenantMinimo).nombre === "string"
+      && typeof (perfil as PerfilTenantMinimo).username === "string")
+    .map((perfil) => [perfil.uid, perfil]));
+}
+
+/**
+ * Lista usuarios del tenant activo. La identidad mínima llega desde backend,
+ * que autoriza al admin contra la membresía canónica; el cliente nunca lee
+ * perfiles globales de terceros directamente.
+ */
 export function suscribirUsuarios(callback: (usuarios: Usuario[]) => void): Unsubscribe {
   let cerrar = () => {};
-  let cerrarPerfiles: Unsubscribe[] = [];
   let cancelado = false;
+  let version = 0;
   void (async () => {
     try {
       const empresaId = await getEmpresaId();
       const membresias = new Map<string, Membresia>();
-      const perfiles = new Map<string, Record<string, unknown>>();
+      let perfiles = new Map<string, PerfilTenantMinimo>();
       const emitir = () => {
         callback([...membresias.values()]
           .filter((membresia) => membresia.estado === "activa" || membresia.estado === "inactiva")
@@ -75,20 +102,16 @@ export function suscribirUsuarios(callback: (usuarios: Usuario[]) => void): Unsu
           .sort((a, b) => a.nombre.localeCompare(b.nombre)));
       };
       const sincronizarPerfiles = () => {
-        cerrarPerfiles.forEach((unsubscribe) => unsubscribe());
-        cerrarPerfiles = [];
-        perfiles.clear();
-        for (const uid of membresias.keys()) {
-          cerrarPerfiles.push(onSnapshot(doc(db, "usuarios", uid), (snap) => {
-            if (snap.exists()) perfiles.set(uid, snap.data());
-            else perfiles.delete(uid);
-            emitir();
-          }, () => {
-            perfiles.delete(uid);
-            emitir();
-          }));
-        }
-        emitir();
+        const versionActual = ++version;
+        void obtenerPerfilesTenant().then((resultado) => {
+          if (cancelado || versionActual !== version) return;
+          perfiles = resultado;
+          emitir();
+        }).catch(() => {
+          if (cancelado || versionActual !== version) return;
+          perfiles = new Map();
+          emitir();
+        });
       };
       const cerrarMembresias = onSnapshot(query(collection(db, "membresias"), where("empresaId", "==", empresaId)), (snap) => {
         membresias.clear();
@@ -100,8 +123,7 @@ export function suscribirUsuarios(callback: (usuarios: Usuario[]) => void): Unsu
       }, () => callback([]));
       cerrar = () => {
         cerrarMembresias();
-        cerrarPerfiles.forEach((unsubscribe) => unsubscribe());
-        cerrarPerfiles = [];
+        version++;
       };
       if (cancelado) cerrar();
     } catch {
