@@ -6,7 +6,7 @@ import {
   type ReadinessConfiguracion,
 } from "../../../lib/configuracion";
 import { fechaComercialUtc, type Suscripcion } from "../../../lib/suscripciones/contrato";
-import { consultarIncorporacionDirectaMasReciente } from "../incorporaciones-service";
+import { consultarIncorporacionDirectaMasReciente } from "../incorporaciones-query";
 import { obtenerEstadoOnboardingTenant } from "../onboarding/service";
 import { leerRelacionContractualVigente, proyectarSuscripcionDesdeRelacion } from "../suscripciones/relacion-vigente";
 

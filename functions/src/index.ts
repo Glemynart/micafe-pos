@@ -67,7 +67,6 @@ export {
   ejecutarComandoComercialSaas,
   listarRecursosPlataformaSaas,
   obtenerDetalleEmpresaPlataformaSaas,
-  obtenerResumenOperadorSaas,
   solicitarSoporteSaas,
   transicionarSoporteSaas,
   listarSoporteTenantSaas,
