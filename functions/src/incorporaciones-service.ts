@@ -26,39 +26,9 @@ import { crearObligacionAuditoria, emitirObligacionAuditoria } from "./platform/
 import { esCredencialTemporalPlataformaVencidaOInvalida } from "./platform/vigencia-credencial-temporal";
 import { CODIGO_OPERATIVO_GLOBAL_YA_ASIGNADO, reservarCodigoOperativoEnTransaccion } from "./platform/reserva-codigo-operativo";
 import { generarCodigoOperativo, generarPinTemporal, MAX_INTENTOS_UNICIDAD } from "./platform/credencial-inicial";
+import { INCORPORACIONES_COLLECTION } from "./incorporaciones-query";
 
-export const INCORPORACIONES_COLLECTION = "incorporaciones";
-
-/**
- * La incorporación DIRECTA más reciente para (empresaId, uid) — el único
- * registro que gobierna la credencial inicial de ese usuario en ese tenant.
- * ADR-SAAS-013 §4.4 conserva el historial de reemisiones (las incorporaciones
- * superadas quedan `EXPIRED`, nunca se borran ni se sobrescriben), así que
- * "cuántas incorporaciones DIRECTA existen para este par" no es una señal de
- * corrupción — solo la más reciente es vigente. `orderBy("creadaEn","desc")`
- * hace esa noción explícita en la propia consulta, en vez de dejar que cada
- * consumidor infiera "la última" filtrando por estado (una politica que
- * divergiría con el tiempo).
- *
- * Único punto que define "cuál incorporación DIRECTA importa" — compartido
- * por `emitir-credencial-inicial.ts` (crear/reemplazar), por
- * `provisionar-credencial-inicial-tenant.ts` (decidir EMITIR/REEMITIR/
- * RECHAZAR) y por la proyección de la ficha en `platform/queries.ts`
- * (qué mostrar). Los tres deben ver siempre el mismo registro — divergir
- * aquí es exactamente el defecto que esta función existe para prevenir.
- */
-export function consultarIncorporacionDirectaMasReciente(
-  db: Firestore,
-  empresaId: string,
-  uid: string,
-): Query {
-  return db.collection(INCORPORACIONES_COLLECTION)
-    .where("empresaId", "==", empresaId)
-    .where("mecanismo", "==", "DIRECTA")
-    .where("uid", "==", uid)
-    .orderBy("creadaEn", "desc")
-    .limit(1);
-}
+export { INCORPORACIONES_COLLECTION, consultarIncorporacionDirectaMasReciente } from "./incorporaciones-query";
 
 export interface SolicitudIncorporacionDirecta {
   nombre?: unknown;

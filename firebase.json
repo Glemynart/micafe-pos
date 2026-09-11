@@ -11,6 +11,10 @@
     {
       "source": "functions-platform-context",
       "codebase": "saas-platform-context"
+    },
+    {
+      "source": "functions-operator-summary",
+      "codebase": "saas-operator-summary"
     }
   ],
   "firestore": {
