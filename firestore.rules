@@ -266,7 +266,12 @@ service cloud.firestore {
     }
     match /usuarios/{uid} {
       // Perfil global: nunca contiene ni decide rol, permisos o estado.
-      allow read: if esAutenticado();
+      // Un perfil no lleva empresaId porque una identidad puede pertenecer a
+      // varios tenants. Por ello ningún cliente puede listar ni leer perfiles
+      // de terceros: los directorios administrativos se resuelven únicamente
+      // en backend desde las membresías canónicas del tenant.
+      allow get: if esUsuarioPropio(uid);
+      allow list: if false;
       allow create, delete: if false;
       allow update: if esUsuarioPropio(uid)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimoAcceso', 'fcmTokens']);
