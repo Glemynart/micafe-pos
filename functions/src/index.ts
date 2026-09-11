@@ -55,7 +55,6 @@ export { crearNumeracionFiscal, actualizarNumeracionFiscal, transicionarNumeraci
 export { bootstrapEmpresarialCallable } from "./bootstrap/callables";
 export { obtenerEstadoOnboarding, completarPasoFiscalOnboardingCallable, completarPasoNumeracionOnboardingCallable } from "./onboarding/callables";
 export {
-  consultarContextoPlataforma,
   incorporarOperadorSaas,
   cambiarFacultadesOperadorSaas,
   suspenderOperadorSaas,

@@ -7,6 +7,10 @@
     {
       "source": "functions-dusema-binding",
       "codebase": "saas-dusema-binding"
+    },
+    {
+      "source": "functions-platform-context",
+      "codebase": "saas-platform-context"
     }
   ],
   "firestore": {
