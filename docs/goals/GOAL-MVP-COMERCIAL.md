@@ -116,7 +116,7 @@
 
 ## Estado vivo
 
-### Checkpoint vigente — 2026-08-23
+### Checkpoint vigente — 2026-09-11
 
 La auditoría operativa y de seguridad vigente está registrada en
 [`docs/security/G-SAAS-02-AUDITORIA-2026-08-23.md`](../security/G-SAAS-02-AUDITORIA-2026-08-23.md)
@@ -126,11 +126,11 @@ primer cliente pueda operar el Trial completo. El checkpoint confirma que las
 operaciones críticas tienen cobertura reusable local, pero separa esa evidencia
 de la certificación del tenant real, del release productivo y del Trial.
 
-- **PR #355:** abierto y detrás de `main`; `ADR-SAAS-037` sigue `Propuesto`.
+- **PR #375:** fusionado en `origin/main @ 6f61437b4932bc5e650f1690f82d1981c1e35593`; `ADR-SAAS-037` queda aceptado e implementado. La CI del PR y la CI post-merge (`34637120894`) terminaron completamente en verde.
 - **P1-09:** integrado en PR #351, pero `DISABLED / FAIL CLOSED` hasta completar los gates externos.
-- **Codex Security:** scan `6c0ba85e-4375-487f-af8d-e3a5292f90ab`; un MEDIUM real confirmado en la lectura/listado global de `usuarios`.
+- **Security re-scan:** la lectura/listado global de `usuarios` quedó aislada por Rules y servicio backend tenant-aware; el escaneo de configuración no reportó hallazgos. `npm audit --omit=dev` conserva vulnerabilidades de dependencias preexistentes, fuera del alcance de ADR-SAAS-037.
 - **Restricciones preservadas:** `empresaId` es la frontera de seguridad; `espacioId` no se convierte en Sede; no se implementa multi-sede.
-- **Bloqueadores externos:** autorización de despliegue, secretos Wompi, evidencia WAF, autorización del tenant, ventana productiva y recovery autorizado.
+- **Bloqueadores externos:** autorización de despliegue, secretos Wompi, evidencia WAF, autorización del tenant y ventana productiva; Recovery independiente ya está en `PASS`.
 - **Excepción paralela — P2-05:** F1–F4 de la integración administrativa POS → Dusema quedaron recuperadas e integradas en `main @ 91bb6ae` bajo ADR-SAAS-038, sin modificar el resultado comercial, Milestone, Epic ni criterios de aceptación de G-SAAS-02. ADR-SAAS-039 queda `Propuesto` para el staging controlado: la Etapa B no está ejecutada y no autoriza provisioning, configuración externa, secretos, bindings reales, despliegue ni pruebas E2E hasta su aprobación explícita y la aprobación documentada de la región Firestore.
 
 - **Revision de ADR-SAAS-031:** PR #289 registró la revisión inicial y PR #301 aceptó la alternativa B para ejecución controlada: backup diario, retención de 35 días, RPO ≤24 h, RTO ≤4 h, restore a una base nueva aislada en `micafe-pos/southamerica-east1`, responsable cloud autorizado, rollback sin tocar `(default)` y costo variable bajo billing habilitado. El ADR no autoriza escrituras del tenant, inicio del Trial anual ni restore sobre la base de origen.
@@ -174,6 +174,7 @@ de la certificación del tenant real, del release productivo y del Trial.
   PR #333 quedó fusionado con recovery verificado; la siguiente unidad técnica es obtener una cuenta/ventana segura para el smoke productivo autenticado y repetir el preflight contra el SHA vivo. No se adelantan nuevas capacidades fuera de G-SAAS-02.
 - PR #334 quedó fusionado como reconciliación documental del Goal; `origin/main` actual es `6b00fd9f180754a381367529d82a9e12509aeb0e` y no alteró el runtime observado.
 - PR #335 quedó fusionado como reconciliación documental del Goal; `origin/main` actual es `c25960e64cf1841abd19fc3f2fa609f450444ee6` y su CI post-merge quedó en verde.
+- PR #375 cerró ADR-SAAS-037: lectura global de perfiles aislada por tenant, Rules sin listados de `usuarios`, endpoint backend mínimo para administradores y pruebas de aislamiento. Quedó fusionado en `origin/main @ 6f61437b4932bc5e650f1690f82d1981c1e35593`; CI post-merge `34637120894` terminó en verde. Security re-scan y Recovery emulator (`14/14` pruebas unitarias y `e2e:p0-10`) pasaron; no se realizaron escrituras productivas.
 - PR #336 quedó fusionado como reconciliación documental del Goal; su CI post-merge quedó en verde y no alteró el runtime observado.
 - **Siguiente trabajo autónomo:** continuar con el siguiente blocker P0/P1 independiente —primero aislamiento tenant de identidad/usuarios y después certificaciones operativas— sin esperar la activación de Wompi. El smoke productivo y la transición contractual de Café Atrato permanecen separados y bloqueados hasta disponer de ventana, autorización y evidencia externa; no abrir trabajo de MT-U10, MT-U11, Sede, referidos u offline.
 - **PR completados:** #246, #247, #248, #249, #250, #251, #252, #253, #256, #257, #258, #260, #262, #263, #264, #265, #266, #267, #269, #270, #271, #272, #273, #274, #275, #276, #278, #279, #280, #281, #282, #284, #285, #286, #287, #289, #290, #291, #292, #294, #296, #298, #299, #300, #301, #303, #305, #307, #309, #311, #313, #315, #317, #318, #322, #323, #326, #334, #335, #336, #342, #353.
