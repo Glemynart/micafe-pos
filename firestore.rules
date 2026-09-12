@@ -197,7 +197,10 @@ service cloud.firestore {
       allow delete: if false;
     }
     match /clientes/{id} {
-      allow read: if puedeLeerTenant() && esAutenticado();
+      // Bodega MVP-1: vendedor consulta clientes activos exclusivamente por
+      // callable con DTO fijo; así no puede leer documentos completos ni
+      // cambiar de tenant mediante una consulta directa.
+      allow read: if puedeLeerTenant() && esAutenticado() && !esVendedor();
       allow create: if puedeCrearEnTenant() && esOperativo();
       allow update: if puedeActualizarEnTenant() && esOperativo();
       allow delete: if puedeEliminarEnTenant() && esOperativo();
