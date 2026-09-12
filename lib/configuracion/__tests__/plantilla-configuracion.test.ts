@@ -6,6 +6,7 @@ import {
   DEPENDENCIAS_MODULOS_CONFIGURACION,
   METODOS_PAGO_CONFIGURACION,
   MODULOS_CONFIGURACION,
+  MODULOS_PERMITIDOS_BODEGA_MVP1,
   PERFIL_FISCAL_COLOMBIA,
   RUTAS_HOJA_EDITABLES_CONFIGURACION,
   TOKENS_BRANDING,
@@ -53,7 +54,7 @@ test("la plantilla CO v1 materializa metadatos y las doce secciones", () => {
   assert.deepEqual(Object.keys(configuracion).sort(), [
     "actualizadaEn", "autenticacionOperativa", "branding", "caja", "creadaEn",
     "empresaId", "identidadFiscal", "impresion", "impuestos", "kds", "localizacion",
-    "modulos", "pos", "preferencias", "revision", "schemaVersion", "ticket", "ultimaMutacion",
+    "modulos", "pos", "preferencias", "revision", "schemaVersion", "ticket", "ultimaMutacion", "vertical",
   ].sort());
   assert.deepEqual(Object.keys(configuracion).filter((clave) => [
     "identidadFiscal", "localizacion", "impuestos", "branding", "ticket", "impresion",
@@ -134,4 +135,35 @@ test("la plantilla puede materializar únicamente los módulos contratados por e
   });
 
   assert.deepEqual(configuracion.modulos.habilitados, ["sell", "inventory"]);
+});
+
+test("Bodega MVP1 fija efectivo, transferencia y turno vendedor", () => {
+  const configuracion = crearPlantillaConfiguracionRevision1({ ...datos, vertical: "BODEGA_MVP1" });
+  assert.equal(configuracion.vertical, "BODEGA_MVP1");
+  assert.deepEqual(configuracion.pos.metodosPagoHabilitados, ["efectivo", "transferencia"]);
+  assert.equal(configuracion.pos.permitirPagoMixto, false);
+  assert.deepEqual(configuracion.caja.rolesConTurnoObligatorio, ["vendedor"]);
+});
+
+test("Bodega MVP1 filtra módulos de restaurante aunque el Plan los aporte", () => {
+  const configuracion = crearPlantillaConfiguracionRevision1({
+    ...datos,
+    vertical: "BODEGA_MVP1",
+    modulosIniciales: [...MODULOS_CONFIGURACION],
+  });
+
+  assert.deepEqual(configuracion.modulos.habilitados, [...MODULOS_PERMITIDOS_BODEGA_MVP1]);
+  for (const modulo of ["salon", "kitchen", "recipes", "reservas", "alquiler_dashboard", "consignaciones"]) {
+    assert.equal(configuracion.modulos.habilitados.includes(modulo as never), false);
+  }
+});
+
+test("GENERAL y configuraciones legacy conservan el comportamiento de módulos", () => {
+  const general = crearPlantillaConfiguracionRevision1({ ...datos, vertical: "GENERAL", modulosIniciales: [...MODULOS_CONFIGURACION] });
+  const legacy = crearPlantillaConfiguracionRevision1({ ...datos, modulosIniciales: [...MODULOS_CONFIGURACION] });
+
+  assert.equal(general.vertical, "GENERAL");
+  assert.equal(legacy.vertical, "GENERAL");
+  assert.deepEqual(general.modulos.habilitados, [...MODULOS_CONFIGURACION]);
+  assert.deepEqual(legacy.modulos.habilitados, [...MODULOS_CONFIGURACION]);
 });

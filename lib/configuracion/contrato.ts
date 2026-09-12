@@ -24,6 +24,7 @@ export type OrdenComandas = "ANTIGUEDAD_ASC";
 export type MetodoAutenticacionOperativa = "CODIGO_PIN";
 export type FormatoHora = "H12" | "H24";
 export type PrimerDiaSemana = "DOMINGO" | "LUNES";
+export type VerticalTenant = "GENERAL" | "BODEGA_MVP1";
 
 /** Referencia persistible a un asset externo; nunca contiene binarios ni secretos. */
 export interface ReferenciaAssetBranding {
@@ -152,6 +153,8 @@ export interface PreferenciasConfiguracion {
 /** Forma persistible completa de `configuraciones/{empresaId}`. */
 export interface ConfiguracionEmpresa {
   empresaId: string;
+  /** Ausente en documentos legados; equivale a GENERAL. */
+  vertical?: VerticalTenant;
   schemaVersion: number;
   revision: number;
   identidadFiscal: IdentidadFiscalConfiguracion;

@@ -93,6 +93,16 @@ export const MODULOS_CONFIGURACION = [
 export type ModuloConfiguracionId = (typeof MODULOS_CONFIGURACION)[number];
 
 /**
+ * Bodega MVP-1 reutiliza el catálogo existente, pero no habilita módulos de
+ * restaurante, reservas ni consignaciones. Esta lista es una restricción de
+ * configuración por vertical; no crea capacidades nuevas ni modifica planes.
+ */
+export const MODULOS_PERMITIDOS_BODEGA_MVP1 = [
+  "sell", "inventory", "purchases", "reports", "shifts", "waste",
+  "permissions", "settings", "clientes", "gastos", "finanzas",
+] as const satisfies readonly ModuloConfiguracionId[];
+
+/**
  * B1 no declara todavía dependencias concretas entre módulos. El mapa queda
  * completo y vacío para no inferir relaciones funcionales no aprobadas.
  */

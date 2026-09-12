@@ -53,7 +53,7 @@
 | Epic | Resultado | Estado |
 |---|---|---|
 | E2.1 Tenant de referencia | Tenant, contrato, Trial, membresía, administrador, credencial, Espacio y configuración reproducibles. | EN EJECUCIÓN |
-| E2.2 Configuración inicial | Catálogo, usuarios, permisos, módulos y flujo DEMO aceptados por el cliente. | PENDIENTE |
+| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. | EN EJECUCIÓN |
 
 ### M3 — Certificación funcional del tenant — PENDIENTE
 
@@ -121,8 +121,10 @@
 La auditoría operativa y de seguridad vigente está registrada en
 [`docs/security/G-SAAS-02-AUDITORIA-2026-08-23.md`](../security/G-SAAS-02-AUDITORIA-2026-08-23.md)
 y prevalece sobre los párrafos históricos de esta sección. El Goal permanece
-`ACTIVO`, con M2/E2.1 en ejecución, porque todavía falta la evidencia de que el
-primer cliente pueda operar el Trial completo. El checkpoint confirma que las
+`ACTIVO`, con M2/E2.1 en ejecución y E2.2 habilitado en paralelo para el corte
+técnico reusable de Bodega MVP-1, porque todavía falta la evidencia de que el
+primer cliente pueda operar el Trial completo. E2.2 no crea ni configura el
+tenant real hasta superar sus gates. El checkpoint confirma que las
 operaciones críticas tienen cobertura reusable local, pero separa esa evidencia
 de la certificación del tenant real, del release productivo y del Trial.
 
@@ -130,6 +132,7 @@ de la certificación del tenant real, del release productivo y del Trial.
 - **P1-09:** integrado en PR #351, pero `DISABLED / FAIL CLOSED` hasta completar los gates externos.
 - **Security re-scan:** la lectura/listado global de `usuarios` quedó aislada por Rules y servicio backend tenant-aware; el escaneo de configuración no reportó hallazgos. `npm audit --omit=dev` conserva vulnerabilidades de dependencias preexistentes, fuera del alcance de ADR-SAAS-037.
 - **Restricciones preservadas:** `empresaId` es la frontera de seguridad; `espacioId` no se convierte en Sede; no se implementa multi-sede.
+- **Bodega MVP-1 / E2.2:** ADR-SAAS-041 queda aceptado. Bodega es el cliente/tenant de referencia de G-SAAS-02; este corte técnico reusable cubre vertical `BODEGA_MVP1`, configuración/capabilities, rol y permisos `vendedor`, frontera de lectura server-side sanitizada, Rules y pruebas. No implementa todavía presentaciones comerciales, conversión de unidad base, venta completa de Bodega ni UI/PWA de vendedor. Permanecen prohibidos tenant real, datos o secretos reales, despliegue, operación fiscal, Wompi y operaciones productivas hasta sus gates.
 - **Bloqueadores externos:** autorización de despliegue, secretos Wompi, evidencia WAF, autorización del tenant y ventana productiva; Recovery independiente ya está en `PASS`.
 - **Excepción paralela — P2-05:** F1–F4 de la integración administrativa POS → Dusema quedaron recuperadas e integradas en `main @ 91bb6ae` bajo ADR-SAAS-038, sin modificar el resultado comercial, Milestone, Epic ni criterios de aceptación de G-SAAS-02. ADR-SAAS-039 queda `Propuesto` para el staging controlado: la Etapa B no está ejecutada y no autoriza provisioning, configuración externa, secretos, bindings reales, despliegue ni pruebas E2E hasta su aprobación explícita y la aprobación documentada de la región Firestore.
 
@@ -182,7 +185,7 @@ de la certificación del tenant real, del release productivo y del Trial.
 -  PR #333 queda añadido a los PR completados: recovery aislado ejecutado y verificado con destino separado, integridad mínima, RPO/RTO medidos y documentación de ADR-SAAS-031; la raíz de Café Atrato permanece intacta.
 - **Siguiente PR esperado para el track externo:** conseguir una cuenta/ventana segura para el smoke productivo autenticado y repetir el preflight read-only contra el SHA vivo de `origin/main`, resuelto nuevamente al ejecutar el preflight. Después, y solo con ventana histórica resuelta, recovery PASS y todos los gates restantes en PASS, ejecutar el cierre canónico aprobado, materializar la relación ANUAL de 30 días de Café Atrato, activar sus nueve capacidades y publicar la evidencia. No se autoriza ninguna escritura de tenant mientras el smoke autenticado siga pendiente.
 - **Milestone activo:** `M2 — Provisioning y onboarding`.
-- **Epic activo:** `E2.1 — Tenant de referencia`.
+- **Epic activo:** `E2.1 — Tenant de referencia`; `E2.2 — Configuración inicial` queda autorizado en paralelo únicamente para el corte técnico reusable de Bodega MVP-1, sin crear ni configurar el tenant real.
 
 
 ## Identidad estable

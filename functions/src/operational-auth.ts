@@ -24,6 +24,8 @@ const INCORPORACIONES_COLLECTION = "incorporaciones";
 const MAX_FALLOS = 5;
 const BLOQUEO_MS = 15 * 60 * 1000;
 const ERROR_CREDENCIALES = "Credenciales operativas inválidas.";
+/** Plantilla canónica mínima del rol Bodega MVP-1. */
+export const PERMISOS_VENDEDOR = ["sell", "shifts"] as const;
 
 interface MembresiaCanonica {
   empresaId?: unknown;
@@ -409,6 +411,11 @@ export async function permisosPredeterminados(rol: RolTenant, dbParam?: any): Pr
   if (!snap.exists || !permisos) {
     logger.error("membership_default_template_invalid", { rol });
     throw new HttpsError("failed-precondition", "La plantilla de permisos no está disponible.");
+  }
+  if (rol === "vendedor" && (permisos.length !== PERMISOS_VENDEDOR.length
+    || permisos.some((permiso, indice) => permiso !== PERMISOS_VENDEDOR[indice]))) {
+    logger.error("membership_vendedor_template_invalid");
+    throw new HttpsError("failed-precondition", "La plantilla de permisos de vendedor es inválida.");
   }
   return permisos;
 }

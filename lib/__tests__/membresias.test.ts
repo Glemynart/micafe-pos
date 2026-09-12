@@ -13,7 +13,7 @@ import { planificarPreparacionMembresias } from "../membresias-preparacion";
 const EMPRESA_ID = "empresa-1";
 const PLANTILLAS = new Map([
   ["admin", ["sell"]], ["supervisor", ["sell"]], ["cajero", ["sell"]],
-  ["cocinero", ["sell"]], ["marketing", []],
+  ["vendedor", ["sell", "shifts"]], ["cocinero", ["sell"]], ["marketing", []],
 ] as const);
 
 function usuario(uid = "u1") {
@@ -27,8 +27,8 @@ function membresiaCompleta(uid = "u1") {
   };
 }
 
-test("el contrato de rol acepta exactamente los cinco roles tenant", () => {
-  for (const rol of ["admin", "supervisor", "cajero", "cocinero", "marketing"]) {
+test("el contrato de rol acepta exactamente los seis roles tenant", () => {
+  for (const rol of ["admin", "supervisor", "cajero", "vendedor", "cocinero", "marketing"]) {
     assert.equal(esRolMembresia(rol), true);
   }
   assert.equal(esRolMembresia("cashier"), false);
@@ -76,6 +76,13 @@ test("la preparación reporta plantillas ausentes, permisos inválidos y membres
   assert.match(plan.errores.join("\n"), /permisos_roles\/marketing/);
   assert.match(plan.errores.join("\n"), /permisos no es un arreglo válido/);
   assert.match(plan.errores.join("\n"), /múltiples membresías/);
+});
+
+test("la preparación exige la plantilla canónica de vendedor", () => {
+  const plantillas = new Map(PLANTILLAS);
+  plantillas.delete("vendedor");
+  const plan = planificarPreparacionMembresias({ empresaId: EMPRESA_ID, usuarios: [], plantillas, membresias: [] });
+  assert.match(plan.errores.join("\n"), /permisos_roles\/vendedor/);
 });
 
 test("una segunda planificación es idempotente y una ejecución parcial se recupera", () => {

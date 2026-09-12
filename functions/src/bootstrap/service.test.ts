@@ -4,6 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { ejecutarBootstrapEmpresarial } from "./service";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 import type { EntradaBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
+import { MODULOS_CONFIGURACION, MODULOS_PERMITIDOS_BODEGA_MVP1 } from "../../../lib/configuracion";
 
 class Ref {
   constructor(public path: string, private db: Db) {}
@@ -227,7 +228,9 @@ test("B5 Bootstrap — ownerUid existente completa sin emitir claims tenant", as
 
   const config = db.read("configuraciones/empresa_test_b5");
   assert.equal(config.revision, 1);
+  assert.equal(config.vertical, "GENERAL");
   assert.equal(config.identidadFiscal.nombreComercial, "Café B5 Central");
+  assert.deepEqual(db.read("permisos_roles/vendedor").permisos, ["sell", "shifts"]);
 
   const espacio = db.read("espacios/esp_empresa_test_b5_1");
   assert.equal(espacio.empresaId, "empresa_test_b5");
@@ -286,6 +289,43 @@ test("G-SAAS-02: Bootstrap materializa los módulos del Plan en un tenant DEMO",
   assert.deepEqual(db.read("configuraciones/empresa_test_b5").modulos.habilitados, [
     "sell", "inventory", "purchases", "shifts", "waste", "cuentas_cobro", "clientes", "reservas", "finanzas",
   ]);
+});
+
+test("Bodega MVP1: Bootstrap propaga el vertical y excluye módulos de restaurante", async () => {
+  const db = new Db();
+  db.seed("planes/plan_pos_pro/versiones/1", {
+    planId: "plan_pos_pro",
+    planVersion: 1,
+    estado: "PUBLICADA",
+    capacidades: [...MODULOS_CONFIGURACION],
+    limites: {},
+    periodicidad: "ANUAL",
+    codigo: "PLAN_PRO",
+    precio: { importe: 1800000, moneda: "COP" },
+    grandfathered: false,
+    revision: 1,
+    schemaVersion: 1,
+  });
+
+  await ejecutarBootstrapEmpresarial(
+    db as any,
+    { ...entradaBase, empresaId: "empresa_bodega_sintetica", idempotencyKey: "idem_bodega_sintetica", commandId: "cmd_bodega_sintetica", correlationId: "corr_bodega_sintetica", causationId: "cause_bodega_sintetica", vertical: "BODEGA_MVP1" },
+    async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso,
+  );
+
+  const config = db.read("configuraciones/empresa_bodega_sintetica");
+  assert.equal(config.vertical, "BODEGA_MVP1");
+  assert.deepEqual(config.modulos.habilitados, [...MODULOS_PERMITIDOS_BODEGA_MVP1]);
+  assert.equal(config.modulos.habilitados.includes("salon"), false);
+  assert.equal(config.modulos.habilitados.includes("reservas"), false);
+  assert.deepEqual(db.read("permisos_roles/vendedor").permisos, ["sell", "shifts"]);
+});
+
+test("Bodega MVP1: Bootstrap rechaza vertical fuera del contrato cerrado", async () => {
+  await assert.rejects(
+    ejecutarBootstrapEmpresarial(new Db() as any, { ...entradaBase, vertical: "OTRO" as never }, async () => {}, ownerExistente),
+    /ENTRADA_BOOTSTRAP_INVALIDA/,
+  );
 });
 
 test("Bootstrap rejects a non-existent owner before committing the core", async () => {

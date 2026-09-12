@@ -117,3 +117,20 @@ test("R1-B.1: el cliente no puede alterar saldos ni anular una venta", async () 
   await expectDenied(cajeroTenantA.firestore().doc("ventas/venta-pendiente").update({ estado: "anulada", estadoOperativo: "ANULADA_SIN_EFECTOS" }));
   await expectDenied(adminTenantA.firestore().doc("ventas/venta-pendiente").update({ estado: "anulada", estadoOperativo: "ANULADA_SIN_EFECTOS" }));
 });
+
+test("Bodega: vendedor no salta DTO por Firestore y solo lee su turno", async () => {
+  const vendedorA = await contextFor(fixtures.tenantA.vendedor);
+  const vendedorB = await contextFor(fixtures.tenantB.vendedor);
+  const adminA = await contextFor(fixtures.tenantA.admin);
+  await seedDocument("productos/bodega-a", { empresaId: "empresa-a", costo: 8 });
+  await seedDocument("ventas/bodega-a", { empresaId: "empresa-a", cajeroId: fixtures.tenantA.vendedor.uid, items: [{ costoUnitario: 8 }] });
+  await seedDocument("turnos/bodega-propio", { empresaId: "empresa-a", cajeroId: fixtures.tenantA.vendedor.uid });
+  await seedDocument("turnos/bodega-ajeno", { empresaId: "empresa-a", cajeroId: fixtures.tenantA.cajero.uid });
+  await expectDenied(vendedorA.firestore().doc("productos/bodega-a").get());
+  await expectDenied(vendedorA.firestore().doc("ventas/bodega-a").get());
+  await expectAllowed(vendedorA.firestore().doc("turnos/bodega-propio").get());
+  await expectDenied(vendedorA.firestore().doc("turnos/bodega-ajeno").get());
+  await expectDenied(vendedorB.firestore().doc("turnos/bodega-propio").get());
+  await expectAllowed(adminA.firestore().doc("productos/bodega-a").get());
+  await expectAllowed(adminA.firestore().doc("ventas/bodega-a").get());
+});

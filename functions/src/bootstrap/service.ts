@@ -6,7 +6,7 @@ import { esIdComercial, fechaComercialUtc, type PlanVersion } from "../../../lib
 import type { EntradaBootstrapEmpresarial, ProvisionamientoEmpresarial, ResultadoBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
 import { inicializarConfiguracionEmpresaConEstadoPreleidoEnTransaccion } from "../configuracion/service";
 import { crearSuscripcionTrialEnTransaccion, referenciasTrial } from "../suscripciones/service";
-import { actualizarClaimsTenant, permisosPredeterminados } from "../operational-auth";
+import { actualizarClaimsTenant, normalizarPermisosEfectivos, PERMISOS_VENDEDOR, permisosPredeterminados } from "../operational-auth";
 import { emitirCredencialInicial } from "../platform/emitir-credencial-inicial";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 
@@ -67,7 +67,8 @@ function validarEntradaBootstrap(e: EntradaBootstrapEmpresarial): void {
     !e.paisFiscal.trim() ||
     !esIdComercial(e.planId) ||
     !Number.isInteger(e.planVersion) ||
-    e.planVersion < 1
+    e.planVersion < 1 ||
+    (e.vertical !== undefined && e.vertical !== "GENERAL" && e.vertical !== "BODEGA_MVP1")
   ) {
     fail("invalid-argument", "ENTRADA_BOOTSTRAP_INVALIDA");
   }
@@ -222,6 +223,7 @@ export async function ejecutarBootstrapEmpresarial(
     paisFiscal: entrada.paisFiscal.trim(),
     planId: entrada.planId,
     planVersion: entrada.planVersion,
+    vertical: entrada.vertical ?? "GENERAL",
   });
 
   // 3. Commit atómico del núcleo (Transacción Firestore)
@@ -261,6 +263,7 @@ export async function ejecutarBootstrapEmpresarial(
     const empresaRef = db.collection("empresas").doc(entrada.empresaId);
     const subRef = db.collection("suscripciones").doc(entrada.empresaId);
     const configRef = db.collection("configuraciones").doc(entrada.empresaId);
+    const plantillaVendedorRef = db.collection("permisos_roles").doc("vendedor");
     const cuentaReservadaId = (claveOperativa: "caja-principal" | "caja-fuerte") => crearIdentificadorInterno(
       entrada.empresaId,
       `cuenta:${claveOperativa}`,
@@ -269,10 +272,11 @@ export async function ejecutarBootstrapEmpresarial(
       .doc(cuentaReservadaId(claveOperativa));
     const cajaPrincipalRef = cuentaReservadaRef("caja-principal");
     const cajaFuerteRef = cuentaReservadaRef("caja-fuerte");
-    const [empresaSnap, subSnap, configSnap, comandoTrialSnap, commandIdTrialSnap, planTrialSnap, cajaPrincipalSnap, cajaFuerteSnap] = await Promise.all([
+    const [empresaSnap, subSnap, configSnap, plantillaVendedorSnap, comandoTrialSnap, commandIdTrialSnap, planTrialSnap, cajaPrincipalSnap, cajaFuerteSnap] = await Promise.all([
       tx.get(empresaRef),
       tx.get(subRef),
       tx.get(configRef),
+      tx.get(plantillaVendedorRef),
       tx.get(refsTrial.comando),
       tx.get(refsTrial.commandId),
       tx.get(refsTrial.plan),
@@ -282,6 +286,11 @@ export async function ejecutarBootstrapEmpresarial(
 
     if (empresaSnap.exists || subSnap.exists) {
       fail("already-exists", "EMPRESA_ALREADY_EXISTS");
+    }
+    const permisosVendedor = normalizarPermisosEfectivos(plantillaVendedorSnap.data()?.permisos);
+    if (plantillaVendedorSnap.exists && (permisosVendedor?.length !== PERMISOS_VENDEDOR.length
+      || permisosVendedor.some((permiso, indice) => permiso !== PERMISOS_VENDEDOR[indice]))) {
+      fail("failed-precondition", "PLANTILLA_VENDEDOR_INVALIDA");
     }
 
     const empresaInicial = {
@@ -299,6 +308,18 @@ export async function ejecutarBootstrapEmpresarial(
       actualizadaEn: FieldValue.serverTimestamp(),
     };
     tx.create(empresaRef, empresaInicial);
+
+    // Las plantillas de roles son globales y se materializan con el mismo
+    // contrato `permisos_roles/<rol>` que consume toda alta de membresía.
+    // No se asignan a ningún usuario ni conceden autoridad hasta que una
+    // membresía tenant-aware las copie mediante la callable canónica.
+    if (!plantillaVendedorSnap.exists) {
+      tx.create(plantillaVendedorRef, {
+        permisos: [...PERMISOS_VENDEDOR],
+        creadaEn: FieldValue.serverTimestamp(),
+        actualizadaEn: FieldValue.serverTimestamp(),
+      });
+    }
 
     // R1-B §5.1: el bootstrap de un tenant no fundacional materializa las
     // dos claves reservadas con IDs internos tenant-scoped, sin ledger ni
@@ -327,6 +348,7 @@ export async function ejecutarBootstrapEmpresarial(
       correlationId: entrada.correlationId,
       origen: "BOOTSTRAP",
       modulosIniciales: Array.isArray(planContratado.capacidades) ? planContratado.capacidades : [],
+      vertical: entrada.vertical,
     }, empresaInicial, configSnap);
 
     // C. Espacio inicial
