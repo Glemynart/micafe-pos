@@ -1,4 +1,4 @@
-import { mkdirSync, copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, copyFileSync, existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import {
@@ -59,6 +59,9 @@ Object.assign(env, {
   FIREBASE_FUNCTIONS_EMULATOR_HOST: endpoints.functions.endpoint,
   FIRESTORE_EMULATOR_HOST: endpoints.firestore.endpoint,
   FIREBASE_AUTH_EMULATOR_HOST: endpoints.auth.endpoint,
+  NEXT_PUBLIC_FIREBASE_FUNCTIONS_EMULATOR_PORT: String(endpoints.functions.port),
+  NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT: String(endpoints.firestore.port),
+  NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_PORT: String(endpoints.auth.port),
 });
 
 const compilacion = spawnSync(process.execPath, [
@@ -82,6 +85,20 @@ if (usarExistentes) {
 }
 
 const firebaseCli = resolve("node_modules", "firebase-tools", "lib", "bin", "firebase.js");
+// Firebase CLI resuelve `source`, `rules` e `indexes` con respecto a su
+// archivo de configuración. El archivo debe vivir en la raíz del checkout,
+// no dentro de evidencia, para conservar las rutas canónicas del proyecto.
+const emulatorConfigPath = resolve(`.firebase.p0-01-${runId}.json`);
+writeFileSync(emulatorConfigPath, `${JSON.stringify({
+  functions: [{ source: "functions", codebase: "saas-auth" }],
+  firestore: { rules: "firestore.rules", indexes: "firestore.indexes.json" },
+  emulators: {
+    functions: { port: endpoints.functions.port },
+    firestore: { port: endpoints.firestore.port },
+    auth: { port: endpoints.auth.port },
+    singleProjectMode: true,
+  },
+}, null, 2)}\n`);
 let result;
 let limpiarParametrosDusema;
 try {
@@ -95,10 +112,13 @@ try {
         "auth,firestore,functions",
         "--project",
         projectId,
+        "--config",
+        emulatorConfigPath,
         "node scripts/e2e/p0-01-inner.mjs",
       ], { cwd: process.cwd(), env, stdio: "inherit" });
 } finally {
   limpiarParametrosDusema?.();
+  if (existsSync(emulatorConfigPath)) unlinkSync(emulatorConfigPath);
 }
 
 if (existsSync("firebase-debug.log")) copyFileSync("firebase-debug.log", resolve(evidenceDir, "firebase-emulator.log"));

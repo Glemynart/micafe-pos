@@ -31,6 +31,31 @@ function getFirebaseApp(): FirebaseApp {
 const USANDO_EMULADORES = process.env.NEXT_PUBLIC_USE_EMULATORS === "1";
 const EMULADOR_HOST = "127.0.0.1";
 
+function puertoEmulador(nombre: string, value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`${nombre} debe ser un puerto local válido.`);
+  }
+  return port;
+}
+
+const PUERTO_FIRESTORE_EMULATOR = puertoEmulador(
+  "NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT",
+  process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT,
+  8085,
+);
+const PUERTO_AUTH_EMULATOR = puertoEmulador(
+  "NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_PORT",
+  process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_PORT,
+  9099,
+);
+const PUERTO_FUNCTIONS_EMULATOR = puertoEmulador(
+  "NEXT_PUBLIC_FIREBASE_FUNCTIONS_EMULATOR_PORT",
+  process.env.NEXT_PUBLIC_FIREBASE_FUNCTIONS_EMULATOR_PORT,
+  5001,
+);
+
 let firestore: Firestore | null = null;
 
 function getFirebaseDb(): Firestore {
@@ -38,7 +63,7 @@ function getFirebaseDb(): Firestore {
     firestore = initializeFirestore(getFirebaseApp(), {
       localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
     });
-    if (USANDO_EMULADORES) connectFirestoreEmulator(firestore, EMULADOR_HOST, 8085);
+    if (USANDO_EMULADORES) connectFirestoreEmulator(firestore, EMULADOR_HOST, PUERTO_FIRESTORE_EMULATOR);
   }
   return firestore;
 }
@@ -49,7 +74,7 @@ function getFirebaseAuth(): Auth {
   if (!authInstance) {
     authInstance = getAuth(getFirebaseApp());
     if (USANDO_EMULADORES) {
-      connectAuthEmulator(authInstance, `http://${EMULADOR_HOST}:9099`, { disableWarnings: true });
+      connectAuthEmulator(authInstance, `http://${EMULADOR_HOST}:${PUERTO_AUTH_EMULATOR}`, { disableWarnings: true });
     }
   }
   return authInstance;
@@ -60,7 +85,7 @@ let functionsInstance: Functions | null = null;
 function getFirebaseFunctions(region = "us-central1"): Functions {
   if (!functionsInstance) {
     functionsInstance = getFunctions(getFirebaseApp(), region);
-    if (USANDO_EMULADORES) connectFunctionsEmulator(functionsInstance, EMULADOR_HOST, 5001);
+    if (USANDO_EMULADORES) connectFunctionsEmulator(functionsInstance, EMULADOR_HOST, PUERTO_FUNCTIONS_EMULATOR);
   }
   return functionsInstance;
 }
