@@ -66,3 +66,9 @@ test("elimina el archivo efímero cuando no existía configuración local", () =
     rmSync(functionsDir, { recursive: true, force: true });
   }
 });
+
+test("R1-A no incorpora el log bruto del Emulator a la evidencia", () => {
+  const runner = readFileSync(new URL("./r1a-runner.mjs", import.meta.url), "utf8");
+  assert.equal(runner.includes("firebase-emulator.log"), false);
+  assert.equal(runner.includes('copyFileSync("firebase-debug.log"'), false);
+});

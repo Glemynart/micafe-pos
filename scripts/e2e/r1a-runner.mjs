@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { crearEndpointsEmulador, detenerEmuladoresDemo, exigirProjectIdEmulador, obtenerEstadoPuertos, prepararParametrosDusemaEmulador } from "./emulator-preflight.mjs";
 
@@ -87,7 +87,9 @@ try {
   if (existsSync(emulatorConfigPath)) unlinkSync(emulatorConfigPath);
 }
 
-if (existsSync("firebase-debug.log")) copyFileSync("firebase-debug.log", resolve(evidenceDir, "firebase-emulator.log"));
+// Firebase CLI puede serializar variables de entorno en firebase-debug.log.
+// La evidencia R1-A conserva únicamente metadatos estructurados allowlisted;
+// nunca publica ni copia el log bruto del Emulator.
 if (result.error) writeFileSync(resolve(evidenceDir, "launcher-error.txt"), result.error.stack ?? String(result.error));
 if (!usarExistentes) {
   // Firebase puede dejar el proceso Java unos milisegundos después de cerrar
