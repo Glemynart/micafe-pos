@@ -4,7 +4,6 @@ import { getFirestore } from "firebase-admin/firestore";
 
 export const E2E_R1A_PROJECT_ID = process.env.E2E_R1A_PROJECT_ID ?? "demo-r1a-e2e";
 export const E2E_R1A_RUN_ID = process.env.E2E_R1A_RUN_ID ?? `manual-${Date.now()}`;
-export const E2E_R1A_FUNCTIONS_URL = `http://127.0.0.1:5001/${E2E_R1A_PROJECT_ID}/us-central1`;
 
 function exigirEmulador(nombre: string, valor: string | undefined): string {
   if (!valor?.startsWith("127.0.0.1:")) {
@@ -12,6 +11,12 @@ function exigirEmulador(nombre: string, valor: string | undefined): string {
   }
   return valor;
 }
+
+const functionsEndpoint = exigirEmulador(
+  "FIREBASE_FUNCTIONS_EMULATOR_HOST",
+  process.env.FIREBASE_FUNCTIONS_EMULATOR_HOST ?? "127.0.0.1:5001",
+);
+export const E2E_R1A_FUNCTIONS_URL = `http://${functionsEndpoint}/${E2E_R1A_PROJECT_ID}/us-central1`;
 
 export function adminE2E() {
   process.env.GCLOUD_PROJECT = E2E_R1A_PROJECT_ID;
