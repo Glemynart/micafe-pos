@@ -28,10 +28,13 @@ export interface Cliente {
   tipoDocumento?: string  // CC | NIT | CE | PP
   telefono: string
   activo: boolean
+  contacto?: string
+  direccion?: string
+  barrioZona?: string
   creadoEn: unknown
 }
 
-export type ClienteInput = Pick<Cliente, 'nombre' | 'cedula' | 'telefono' | 'tipoDocumento'>
+export type ClienteInput = Pick<Cliente, 'nombre' | 'cedula' | 'telefono' | 'tipoDocumento' | 'contacto' | 'direccion' | 'barrioZona'>
 
 // ─── Lectura ─────────────────────────────────────────────────────────────────
 

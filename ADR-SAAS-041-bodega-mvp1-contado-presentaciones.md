@@ -56,11 +56,11 @@ MVP-1 usa un único precio vigente por presentación, en COP entero. No requiere
 
 ## 9. Clientes
 
-El cliente continúa siendo una entidad tenant-aware separada del usuario autenticado. MVP-1 añade únicamente: nombre comercial, razón social opcional, tipo/número de documento (NIT/CC), teléfono, contacto opcional, dirección, barrio/zona opcional, vendedor asignado opcional y \`activo\`. No se persiste saldo, límite ni condición de crédito. El vendedor consulta todos los clientes activos de su mismo tenant; no se persiste ni filtra una asignación vendedor→cliente. Administración conserva lectura total.
+El cliente continúa siendo una entidad tenant-aware separada del usuario autenticado. MVP-1 reutiliza los campos legacy \`nombre\`, \`cedula\`, \`tipoDocumento\`, \`telefono\` y \`activo\`: \`nombre\` representa el nombre comercial y \`cedula\` el número de documento. Añade únicamente contacto opcional, dirección y barrio/zona opcional. No se persiste vendedor asignado ni relación vendedor→cliente, y no se filtra por vendedor. No se persiste saldo, límite ni condición de crédito. El vendedor consulta todos los clientes activos de su mismo tenant y solo puede crearlos mediante la frontera server-authoritative; no edita ni desactiva clientes existentes. Administración conserva la lectura y CRUD administrativo existentes.
 
 ## 10. Vendedores
 
-Se adopta una plantilla de permisos \`vendedor\`; no se reutilizan semánticamente \`cajero\`, \`cocinero\` ni \`supervisor\`. Puede iniciar sesión, consultar todos los clientes activos de su tenant, crear/editar clientes según permiso, consultar catálogo/precios, crear venta de contado y consultar sus ventas. Puede recaudar efectivo mediante un turno propio limitado y registrar transferencias.
+Se adopta una plantilla de permisos \`vendedor\`; no se reutilizan semánticamente \`cajero\`, \`cocinero\` ni \`supervisor\`. Puede iniciar sesión, consultar todos los clientes activos de su tenant y crear clientes; U2-A no le permite editar ni desactivar clientes existentes. Puede consultar catálogo/precios, crear venta de contado y consultar sus ventas. Puede recaudar efectivo mediante un turno propio limitado y registrar transferencias.
 
 No puede modificar costos/precios, usuarios, membresías, permisos, configuración, compras, finanzas administrativas, otros turnos, otros vendedores ni ventas ajenas salvo permiso futuro explícito. Su turno autoriza solo apertura, su venta de contado y su propio cierre/conciliación; no equivale a una facultad administrativa de caja. Pago mixto queda fuera de MVP-1. Las comprobaciones viven en Functions y Rules; ocultar módulos es solo presentación.
 

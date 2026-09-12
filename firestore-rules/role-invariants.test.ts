@@ -134,3 +134,23 @@ test("Bodega: vendedor no salta DTO por Firestore y solo lee su turno", async ()
   await expectAllowed(adminA.firestore().doc("productos/bodega-a").get());
   await expectAllowed(adminA.firestore().doc("ventas/bodega-a").get());
 });
+
+test("Bodega U2-A: vendedor no salta la frontera de clientes y administración conserva CRUD", async () => {
+  const vendedorA = await contextFor(fixtures.tenantA.vendedor);
+  const vendedorB = await contextFor(fixtures.tenantB.vendedor);
+  const adminA = await contextFor(fixtures.tenantA.admin);
+  const clienteA = "clientes/cliente-bodega-a";
+  await seedDocument(clienteA, { empresaId: "empresa-a", nombre: "Cliente A", cedula: "9001", telefono: "3000000000", activo: true, saldo: 999 });
+
+  await expectDenied(vendedorA.firestore().doc(clienteA).get());
+  await expectDenied(vendedorB.firestore().doc(clienteA).get());
+  await expectDenied(vendedorA.firestore().doc("clientes/nuevo-vendedor").set({
+    empresaId: "empresa-a", nombre: "Intento directo", cedula: "9002", telefono: "3000000001", activo: true,
+  }));
+  await expectDenied(vendedorA.firestore().doc(clienteA).update({ telefono: "3000000002" }));
+  await expectDenied(vendedorA.firestore().doc(clienteA).update({ activo: false }));
+
+  await expectAllowed(adminA.firestore().doc(clienteA).get());
+  await expectAllowed(adminA.firestore().doc(clienteA).update({ telefono: "3000000003" }));
+  await expectAllowed(adminA.firestore().doc(clienteA).update({ activo: false }));
+});

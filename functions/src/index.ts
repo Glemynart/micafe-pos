@@ -23,6 +23,7 @@ export {
 export { actualizarConfiguracionEmpresa, actualizarParametrosFiscales, actualizarPreferenciasImpresion, actualizarPoliticasOperativas, obtenerConfiguracionEmpresa } from "./configuracion/callables";
 export { abrirTurnoOperativoV1 } from "./turnos/callable";
 export { consultarCatalogoVendedorV1, consultarMisVentasVendedorV1 } from "./bodega-vendedor/lecturas";
+export { consultarClientesVendedorV1, crearClienteVendedorV1 } from "./bodega-vendedor/clientes";
 export { anularVentaOperativaV1 } from "./finanzas/anulaciones";
 export {
   aplicarEfectosVentaOperativaV1,

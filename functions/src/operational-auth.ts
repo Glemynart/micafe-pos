@@ -169,7 +169,7 @@ function esMembresiaActivaYValida(data: MembresiaCanonica | undefined, empresaId
 }
 
 /** La membresía, no `usuarios`, decide rol, permisos y estado. */
-async function validarMembresiaActiva(empresaId: string, uid: string, dbParam?: any): Promise<RolTenant> {
+async function validarMembresiaActiva(empresaId: string, uid: string, dbParam?: any): Promise<{ rol: RolTenant; permisos: string[] }> {
   const db = dbParam ?? getFirestore();
   let membresiaSnap;
   try {
@@ -186,7 +186,7 @@ async function validarMembresiaActiva(empresaId: string, uid: string, dbParam?: 
   if (!membresiaSnap.exists || !esMembresiaActivaYValida(membresia, empresaId, uid)) {
     throw errorCredenciales();
   }
-  return membresia.rol;
+  return { rol: membresia.rol, permisos: membresia.permisos };
 }
 
 async function obtenerIncorporacionDirectaTemporal(
@@ -242,14 +242,15 @@ export async function exigirTenantActivo(request: { auth?: { uid: string; token:
   if (!snap.exists || (estado !== "activa" && estado !== "trial")) {
     throw new HttpsError("permission-denied", "Acceso denegado.");
   }
-  const rolActual = await validarMembresiaActiva(empresaId, request.auth!.uid, db);
-  if (request.auth.token.rol !== rolActual) {
+  const membresiaActual = await validarMembresiaActiva(empresaId, request.auth!.uid, db);
+  if (request.auth.token.rol !== membresiaActual.rol) {
     throw new HttpsError("permission-denied", "Acceso denegado.");
   }
   return {
     id: empresaId,
     estado: estado as string,
-    rol: rolActual,
+    rol: membresiaActual.rol,
+    permisos: membresiaActual.permisos,
     paisFiscal: typeof paisFiscal === "string" ? paisFiscal : undefined,
   };
 }
@@ -262,16 +263,16 @@ export async function exigirTenantLecturaAdmin(request: { auth?: { uid: string; 
   const db = dbParam ?? getFirestore();
   const snap = await db.collection("empresas").doc(empresaId).get();
   const estado = snap.data()?.estado;
-  const rolActual = await validarMembresiaActiva(empresaId, request.auth!.uid, db);
-  if (request.auth.token.rol !== rolActual) {
+  const membresiaActual = await validarMembresiaActiva(empresaId, request.auth!.uid, db);
+  if (request.auth.token.rol !== membresiaActual.rol) {
     throw new HttpsError("permission-denied", "Acceso denegado.");
   }
-  const esAdmin = rolActual === "admin";
+  const esAdmin = membresiaActual.rol === "admin";
   const estadoValido = estado === "activa" || estado === "trial" || (estado === "suspendida" && esAdmin);
   if (!snap.exists || !estadoValido) {
     throw new HttpsError("permission-denied", "Acceso denegado.");
   }
-  return { id: empresaId, estado: estado as string, rol: rolActual };
+  return { id: empresaId, estado: estado as string, rol: membresiaActual.rol, permisos: membresiaActual.permisos };
 }
 
 /** Revalida que la empresa permita operaciones de escritura en su estado actual (trial o activa). */
@@ -462,9 +463,9 @@ export const autenticarOperativo = onCall(
         return { customToken, requiereCambio: true, incorporacionId: incorporacion.id };
       }
 
-      const rol = await validarMembresiaActiva(empresa.id, credencial.uid);
+      const membresia = await validarMembresiaActiva(empresa.id, credencial.uid);
       await limpiarFallos(ref);
-      const customToken = await acuñarSesionTenant(credencial.uid, empresa.id, rol);
+      const customToken = await acuñarSesionTenant(credencial.uid, empresa.id, membresia.rol);
       logger.info("operational_auth_succeeded", { empresaId: empresa.id, uid: credencial.uid });
       return { customToken };
     } catch (error) {
