@@ -42,6 +42,7 @@
     "functions/**",
     "functions-dusema-binding/**",
     "functions-platform-context/**",
-    "functions-operator-summary/**"
+    "functions-operator-summary/**",
+    "functions-platform-resources/**"
   ]
 }

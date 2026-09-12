@@ -65,7 +65,6 @@ export {
   reemitirCredencialInicialTemporalSaas,
   desbloquearAdministradorInicialTenantSaas,
   ejecutarComandoComercialSaas,
-  listarRecursosPlataformaSaas,
   obtenerDetalleEmpresaPlataformaSaas,
   solicitarSoporteSaas,
   transicionarSoporteSaas,
