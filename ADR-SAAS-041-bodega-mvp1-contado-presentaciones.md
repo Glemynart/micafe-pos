@@ -148,4 +148,3 @@ Antes de configurar el tenant real deben confirmarse: unidad base y empaques rea
 ## Consecuencias y siguiente gate
 
 La propuesta maximiza velocidad y reutilización al no crear una logística incompleta. Su coste es que una venta que deba despacharse o cobrarse a crédito no cabe en MVP-1. El primer PR se limita a contratos/capacidades/permisos y pruebas; no crea un tenant real ni incorpora MVP-2.
-

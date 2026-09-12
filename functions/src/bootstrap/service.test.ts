@@ -230,6 +230,7 @@ test("B5 Bootstrap — ownerUid existente completa sin emitir claims tenant", as
   assert.equal(config.revision, 1);
   assert.equal(config.vertical, "GENERAL");
   assert.equal(config.identidadFiscal.nombreComercial, "Café B5 Central");
+  assert.deepEqual(db.read("permisos_roles/vendedor").permisos, ["sell", "shifts"]);
 
   const espacio = db.read("espacios/esp_empresa_test_b5_1");
   assert.equal(espacio.empresaId, "empresa_test_b5");
@@ -317,6 +318,7 @@ test("Bodega MVP1: Bootstrap propaga el vertical y excluye módulos de restauran
   assert.deepEqual(config.modulos.habilitados, [...MODULOS_PERMITIDOS_BODEGA_MVP1]);
   assert.equal(config.modulos.habilitados.includes("salon"), false);
   assert.equal(config.modulos.habilitados.includes("reservas"), false);
+  assert.deepEqual(db.read("permisos_roles/vendedor").permisos, ["sell", "shifts"]);
 });
 
 test("Bodega MVP1: Bootstrap rechaza vertical fuera del contrato cerrado", async () => {
