@@ -15,12 +15,16 @@ test("R1-B.2 Emulator: resuelve el contexto histórico desde el recibo fiscal", 
 
   try {
     const batch = db.batch();
-    batch.set(db.collection("empresas").doc(empresaId), { estado: "activa" });
-    batch.set(db.collection("cuentas_bancarias").doc("caja-principal"), { empresaId, saldo: 0, claveOperativa: "caja-principal", nombre: "Caja" });
+    batch.set(db.collection("empresas").doc(empresaId), { estado: "activa", esFundacional: true });
+    batch.set(db.collection("membresias").doc(`${empresaId}_cajero-canonico`), {
+      empresaId, uid: "cajero-canonico", rol: "cajero", permisos: ["sell"], estado: "activa", activo: true,
+    });
+    batch.set(db.collection("cuentas_bancarias").doc("caja-principal"), { id: "caja-principal", empresaId, saldo: 0, claveOperativa: "caja-principal", nombre: "Caja" });
     batch.set(db.collection("turnos").doc(`turno_${suffix}`), { empresaId, estado: "cerrado" });
-    batch.set(db.collection("productos").doc(`cafe_${suffix}`), { empresaId, nombre: "Cafe", stock: 5, secuenciaLedger: 0, costo: 10 });
+    batch.set(db.collection("productos").doc(`cafe_${suffix}`), { empresaId, espacioId: "cafeteria", nombre: "Cafe", stock: 5, secuenciaLedger: 0, costo: 10 });
     batch.set(db.collection("ventas").doc(ventaId), {
       empresaId,
+      espacioId: "cafeteria",
       cajeroId: "actor-no-autoritativo",
       rolCajeroSnapshot: "admin",
       estadoOperativo: "PENDIENTE_EFECTOS",
