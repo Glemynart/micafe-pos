@@ -15,6 +15,10 @@
     {
       "source": "functions-operator-summary",
       "codebase": "saas-operator-summary"
+    },
+    {
+      "source": "functions-platform-resources",
+      "codebase": "saas-platform-resources"
     }
   ],
   "firestore": {

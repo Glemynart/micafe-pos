@@ -11,7 +11,7 @@ import { ejecutarComandoOperador } from "./operators";
 import { ejecutarComandoComercial, provisionarCredencialInicialTenant, reemitirCredencialInicialTemporalTenant, solicitarBootstrapEmpresarial } from "./operations";
 import { desbloquearAdministradorInicialTenant } from "./desbloquear-administrador-inicial-tenant";
 import { facultadTransicionEmpresa, obtenerComandoComercial } from "./command-catalog";
-import { consultarAuditoriaPlataforma, listarRecursosPlataforma, obtenerDetalleEmpresaPlataforma, validarFiltroAuditoria, type RecursoPlataforma } from "./queries";
+import { consultarAuditoriaPlataforma, obtenerDetalleEmpresaPlataforma, validarFiltroAuditoria } from "./queries";
 import { listarSoporteTenant, solicitarSoporte, transicionarSoporte } from "./support";
 import { exigirId } from "./validation";
 
@@ -245,20 +245,6 @@ export const ejecutarComandoComercialSaas = onCall({ region: REGION }, async (re
     : comando.facultad;
   await autorizarPlataforma(db, auth.uid, auth.token, facultad);
   return ejecutarComandoComercial(db, auth.uid, comando.tipo, data.entrada as never);
-});
-
-export const listarRecursosPlataformaSaas = onCall({ region: REGION }, async (request) => {
-  const auth = exigirAuth(request);
-  const db = getFirestore();
-  await autorizarPlataforma(db, auth.uid, auth.token, "PLATAFORMA_CONSULTAR");
-  const data = request.data as { recurso: RecursoPlataforma; limite?: number; estado?: string; empresaId?: string; cursor?: string };
-  if (data.recurso === "operadores") {
-    await autorizarPlataforma(db, auth.uid, auth.token, "OPERADORES_GOBERNAR");
-  }
-  return listarRecursosPlataforma(db, data.recurso, {
-    ...data,
-    ...(data.recurso === "soporte" ? { operadorUid: auth.uid } : {}),
-  });
 });
 
 export const obtenerDetalleEmpresaPlataformaSaas = onCall({ region: REGION }, async (request) => {

@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "firebase-admin/*": ["node_modules/firebase-admin/lib/*/index"],
+      "firebase-functions/v2/https": ["node_modules/firebase-functions/lib/v2/providers/https"]
+    },
+    "outDir": "lib",
+    "rootDir": "..",
+    "declaration": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "../functions/src/incorporaciones-query.ts",
+    "../functions/src/platform/platform-resources-callable.ts",
+    "../functions/src/platform/authorization.ts",
+    "../functions/src/platform/audit.ts",
+    "../functions/src/platform/contracts.ts",
+    "../functions/src/platform/queries.ts",
+    "../functions/src/onboarding/service.ts",
+    "../functions/src/suscripciones/relacion-vigente.ts"
+  ],
+  "exclude": ["src/**/*.test.ts", "lib", "node_modules"]
+}
