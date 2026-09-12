@@ -14,6 +14,7 @@ service cloud.firestore {
     function rol() { return request.auth.token.rol; }
     function esAdmin() { return esAutenticado() && rol() == 'admin'; }
     function esCajero() { return esAutenticado() && rol() == 'cajero'; }
+    function esVendedor() { return esAutenticado() && rol() == 'vendedor'; }
     function esSupervisor() { return esAutenticado() && rol() == 'supervisor'; }
     function esCocinero() { return esAutenticado() && rol() == 'cocinero'; }
     function esMarketing() { return esAutenticado() && rol() == 'marketing'; }
@@ -81,7 +82,7 @@ service cloud.firestore {
       allow delete: if puedeEliminarEnTenant() && esAdmin();
     }
     match /productos/{id} {
-      allow read: if puedeLeerTenant() && esAutenticado();
+      allow read: if puedeLeerTenant() && esAutenticado() && !esVendedor();
       // Catálogo, stock y secuencia son autoridad de las callables de
       // inventario; el cliente conserva únicamente la lectura tenant-aware.
       allow create, update, delete: if false;
@@ -117,7 +118,7 @@ service cloud.firestore {
       allow delete: if false;
     }
     match /ventas/{id} {
-      allow read: if puedeLeerTenant() && esAutenticado();
+      allow read: if puedeLeerTenant() && esAutenticado() && !esVendedor();
       allow create: if false;
       // La Fase 2 es server-authoritative: inventario, tesorería,
       // idempotencia y auditoría deben confirmarse en una transacción Admin
@@ -127,7 +128,7 @@ service cloud.firestore {
       allow delete: if false;
     }
     match /turnos/{id} {
-      allow read: if puedeLeerTenant() && esAutenticado();
+      allow read: if puedeLeerTenant() && esAutenticado() && (!esVendedor() || resource.data.cajeroId == request.auth.uid);
       allow create: if puedeCrearEnTenant() && esOperativo();
       allow update: if puedeActualizarEnTenant() && esOperativo();
       allow delete: if false;

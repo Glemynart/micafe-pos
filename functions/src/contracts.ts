@@ -2,6 +2,7 @@ export const ROLES_TENANT = [
   "admin",
   "supervisor",
   "cajero",
+  "vendedor",
   "cocinero",
   "marketing",
 ] as const;

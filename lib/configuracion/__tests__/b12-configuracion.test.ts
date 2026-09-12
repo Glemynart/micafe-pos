@@ -10,6 +10,18 @@ test("B1.2 valida la plantilla neutral y rechaza campos o enums no cerrados", ()
   assert.equal(validarConfiguracionEmpresa({ ...c, desconocido: true }).valida, false);
   assert.equal(validarConfiguracionEmpresa({ ...c, pos: { ...c.pos, metodosPagoHabilitados: ["efectivo", "efectivo"] } }).valida, false);
 });
+test("Bodega bloquea módulos excluidos y los documentos legacy sin vertical siguen siendo GENERAL", () => {
+  const legacy = base();
+  delete legacy.vertical;
+  assert.equal(validarConfiguracionEmpresa(legacy, { empresaId: legacy.empresaId, paisFiscalEmpresa: "CO" }).valida, true);
+
+  const bodega = crearPlantillaConfiguracionRevision1({
+    empresaId: "empresa-bodega", nombreComercial: "Bodega sintética", creadaEn: "2026-01-01", actualizadaEn: "2026-01-01",
+    vertical: "BODEGA_MVP1",
+    ultimaMutacion: { actorTipo: "SYSTEM", actorId: "system", origen: "BOOTSTRAP", commandId: "cmd-bodega", correlationId: "corr-bodega" },
+  });
+  assert.equal(validarConfiguracionEmpresa({ ...bodega, modulos: { habilitados: ["sell", "salon"] } }, { empresaId: bodega.empresaId, paisFiscalEmpresa: "CO" }).valida, false);
+});
 test("P1-09 acepta solo tarifas de reservas cerradas, COP y expresables en pesos enteros", () => {
   const c = base();
   const reservasPublicas = { habilitadas: false, moneda: "COP" as const, tarifaRevision: 1, cuentaClaveOperativa: "pasarela-reservas", salas: { mesa_1: { precioBloqueCentavos: 3_500_000, productoId: "reserva_sala", impuestoTipo: "excluido" as const, bloquesMinimos: 1, bloquesMaximos: 4 } } };

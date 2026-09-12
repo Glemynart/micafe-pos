@@ -4,10 +4,12 @@ import {
   CONFIGURACION_SCHEMA_VERSION_INICIAL,
   IMPUESTO_TIPO_CONFIGURACION_POR_DEFECTO,
   PERFIL_FISCAL_COLOMBIA,
+  MODULOS_PERMITIDOS_BODEGA_MVP1,
   ROLES_TURNO_CONFIGURACION,
 } from "./catalogos";
 import type {
   ConfiguracionEmpresa,
+  VerticalTenant,
   UltimaMutacionConfiguracion,
 } from "./contrato";
 import { resolverModulosHabilitados } from "./modulos-plan";
@@ -20,6 +22,7 @@ export interface DatosPlantillaConfiguracionRevision1 {
   ultimaMutacion: UltimaMutacionConfiguracion;
   /** Capacidades iniciales derivadas del Plan contratado. */
   modulosIniciales?: readonly string[];
+  vertical?: VerticalTenant;
 }
 
 /**
@@ -29,13 +32,15 @@ export interface DatosPlantillaConfiguracionRevision1 {
 export function crearPlantillaConfiguracionRevision1(
   datos: DatosPlantillaConfiguracionRevision1,
 ): ConfiguracionEmpresa {
+  const vertical = datos.vertical ?? "GENERAL";
   const modulosIniciales = resolverModulosHabilitados(
     datos.modulosIniciales ?? [],
-    datos.modulosIniciales ?? [],
+    vertical === "BODEGA_MVP1" ? MODULOS_PERMITIDOS_BODEGA_MVP1 : datos.modulosIniciales ?? [],
   );
 
   return {
     empresaId: datos.empresaId,
+    vertical,
     schemaVersion: CONFIGURACION_SCHEMA_VERSION_INICIAL,
     revision: CONFIGURACION_REVISION_INICIAL,
     identidadFiscal: {
@@ -76,17 +81,17 @@ export function crearPlantillaConfiguracionRevision1(
       autoAbrirCajon: false,
     },
     pos: {
-      metodosPagoHabilitados: ["efectivo", "transferencia", "cuenta_cobro", "mixto"],
+      metodosPagoHabilitados: vertical === "BODEGA_MVP1" ? ["efectivo", "transferencia"] : ["efectivo", "transferencia", "cuenta_cobro", "mixto"],
       metodoPagoPredeterminado: "efectivo",
-      permitirPagoMixto: true,
+      permitirPagoMixto: vertical !== "BODEGA_MVP1",
       permitirVentaSinExistencias: false,
       requerirClienteEnCuentaCobro: true,
     },
     caja: {
       baseAperturaSugerida: 200000,
       umbralAlertaFaltante: 20000,
-      rolesConTurnoObligatorio: [...ROLES_TURNO_CONFIGURACION],
-      permitirRelevo: true,
+      rolesConTurnoObligatorio: vertical === "BODEGA_MVP1" ? ["vendedor"] : [...ROLES_TURNO_CONFIGURACION],
+      permitirRelevo: vertical !== "BODEGA_MVP1",
     },
     modulos: { habilitados: modulosIniciales },
     kds: {

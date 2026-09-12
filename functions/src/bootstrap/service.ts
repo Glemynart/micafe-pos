@@ -67,7 +67,8 @@ function validarEntradaBootstrap(e: EntradaBootstrapEmpresarial): void {
     !e.paisFiscal.trim() ||
     !esIdComercial(e.planId) ||
     !Number.isInteger(e.planVersion) ||
-    e.planVersion < 1
+    e.planVersion < 1 ||
+    (e.vertical !== undefined && e.vertical !== "GENERAL" && e.vertical !== "BODEGA_MVP1")
   ) {
     fail("invalid-argument", "ENTRADA_BOOTSTRAP_INVALIDA");
   }
@@ -222,6 +223,7 @@ export async function ejecutarBootstrapEmpresarial(
     paisFiscal: entrada.paisFiscal.trim(),
     planId: entrada.planId,
     planVersion: entrada.planVersion,
+    vertical: entrada.vertical ?? "GENERAL",
   });
 
   // 3. Commit atómico del núcleo (Transacción Firestore)
@@ -327,6 +329,7 @@ export async function ejecutarBootstrapEmpresarial(
       correlationId: entrada.correlationId,
       origen: "BOOTSTRAP",
       modulosIniciales: Array.isArray(planContratado.capacidades) ? planContratado.capacidades : [],
+      vertical: entrada.vertical,
     }, empresaInicial, configSnap);
 
     // C. Espacio inicial

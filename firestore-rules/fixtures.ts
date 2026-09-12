@@ -1,6 +1,6 @@
 import type { TokenOptions } from "@firebase/rules-unit-testing";
 
-export type RolDeTenant = "admin" | "cajero" | "supervisor" | "cocinero" | "marketing";
+export type RolDeTenant = "admin" | "cajero" | "vendedor" | "supervisor" | "cocinero" | "marketing";
 
 export interface FixtureAutenticado {
   uid: string;
@@ -22,12 +22,14 @@ export const fixtures = {
   tenantA: {
     admin: tenantFixture("tenant-a-admin", "empresa-a", "admin"),
     cajero: tenantFixture("tenant-a-cajero", "empresa-a", "cajero"),
+    vendedor: tenantFixture("tenant-a-vendedor", "empresa-a", "vendedor"),
     supervisor: tenantFixture("tenant-a-supervisor", "empresa-a", "supervisor"),
     cocinero: tenantFixture("tenant-a-cocinero", "empresa-a", "cocinero"),
     marketing: tenantFixture("tenant-a-marketing", "empresa-a", "marketing"),
   },
   tenantB: {
     admin: tenantFixture("tenant-b-admin", "empresa-b", "admin"),
+    vendedor: tenantFixture("tenant-b-vendedor", "empresa-b", "vendedor"),
   },
   superadmin: {
     uid: "saas-superadmin",

@@ -1,3 +1,5 @@
+import type { VerticalTenant } from "../configuracion";
+
 /**
  * Contratos B5 — Bootstrap Empresarial Atómico e Idempotente.
  * Conforme a ADR-SAAS-007 y MT-ARQUITECTURA-SAAS-MULTIEMPRESA.md
@@ -67,6 +69,11 @@ export interface EntradaBootstrapEmpresarial {
   paisFiscal: string;
   planId: string;
   planVersion: number;
+  /**
+   * Ausente conserva el contrato histórico: el tenant se inicializa como
+   * GENERAL. Solo Bootstrap materializa este valor en la configuración.
+   */
+  vertical?: VerticalTenant;
   trialDias?: number;
 }
 
