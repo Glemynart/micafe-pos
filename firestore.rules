@@ -233,7 +233,8 @@ service cloud.firestore {
       allow delete: if puedeEliminarEnTenant() && esAdmin();
     }
     match /movimientos_inventario/{id} {
-      allow read: if puedeLeerTenant() && esAutenticado();
+      // El vendedor no puede leer el ledger: contiene costos internos.
+      allow read: if puedeLeerTenant() && esAutenticado() && !esVendedor();
       allow create, update, delete: if false;
     }
     match /auditoria_logs/{id} {

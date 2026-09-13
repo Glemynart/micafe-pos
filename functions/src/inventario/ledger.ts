@@ -27,9 +27,11 @@ export interface MovimientoInventarioParams {
   referenciaId: string;
   motivo?: string | null;
   actualizarCosto?: boolean;
+  /** Opt-in para rutas que no admiten stock negativo (Bodega U3). */
+  exigirStockSuficiente?: boolean;
 }
 
-export interface MovimientoInventarioServer extends Omit<MovimientoInventarioParams, "actualizarCosto" | "referenciaColeccion" | "referenciaId" | "motivo"> {
+export interface MovimientoInventarioServer extends Omit<MovimientoInventarioParams, "actualizarCosto" | "exigirStockSuficiente" | "referenciaColeccion" | "referenciaId" | "motivo"> {
   id: string;
   clase: "entrada" | "salida";
   signo: 1 | -1;
@@ -174,6 +176,12 @@ export async function aplicarMovimientosInventarioEnTransaccion(
     if (!secuenciaValida(secuenciaRaw)) fallo("ARTICULO_INVENTARIO_INVALIDO");
     const saldoActual = saldoRaw as number;
     const secuenciaActual = secuenciaRaw as number;
+    if (params.exigirStockSuficiente) {
+      if (!Number.isSafeInteger(saldoActual) || saldoActual < 0 || !Number.isSafeInteger(params.cantidad)) {
+        fallo("STOCK_BODEGA_INVALIDO");
+      }
+      if (saldoActual + params.cantidad < 0) fallo("STOCK_INSUFICIENTE");
+    }
 
     const aperturaRef = secuenciaActual === 0 && saldoActual > 0
       ? db.collection("movimientos_inventario").doc(`inventario_inicial:${params.articuloTipo}:${params.articuloId}`)
