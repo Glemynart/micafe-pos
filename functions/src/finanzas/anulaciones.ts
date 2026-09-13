@@ -3,6 +3,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { exigirTenantActivo } from "../operational-auth";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 import { crearHuellaSemantica, revalidarAutoridadFinancieraEnTransaccion } from "./callables";
+import { SCHEMA_VERSION_VENTA_BODEGA } from "../bodega-vendedor/ventas-contract";
 
 const REGION = "us-central1";
 const MOVIMIENTOS = "transacciones_financieras";
@@ -30,7 +31,7 @@ export async function ejecutarAnularVentaOperativaV1(db: any, contexto: Contexto
     const existing = replay(...await Promise.all([tx.get(operation.recibo), tx.get(operation.indice)]), contexto.empresaId, input, huella, operation.recibo.path); if (existing) return existing;
     await revalidarAutoridadFinancieraEnTransaccion(tx, db, contexto, "sell");
     const ventaIdEntrada = input.payload.ventaId; const ventaId = text(ventaIdEntrada) ? ventaIdEntrada : fail("invalid-argument", "PAYLOAD_INVALID"); if (contexto.rol !== "admin" && contexto.rol !== "cajero") fail("permission-denied", "ROL_NO_AUTORIZADO");
-    const ventaRef = db.collection("ventas").doc(ventaId); const venta = await tx.get(ventaRef); if (!venta.exists || venta.data()?.empresaId !== contexto.empresaId) fail("not-found", "VENTA_NO_ENCONTRADA"); const ventaData = venta.data() as Record<string, any>; const estado = ventaData.estadoOperativo;
+    const ventaRef = db.collection("ventas").doc(ventaId); const venta = await tx.get(ventaRef); if (!venta.exists || venta.data()?.empresaId !== contexto.empresaId) fail("not-found", "VENTA_NO_ENCONTRADA"); const ventaData = venta.data() as Record<string, any>; if (ventaData.schemaVersion === SCHEMA_VERSION_VENTA_BODEGA) fail("failed-precondition", "ANULACION_BODEGA_NO_DISPONIBLE"); const estado = ventaData.estadoOperativo;
     if (estado === "ANULADA_SIN_EFECTOS" || estado === "ANULADA_CON_EFECTOS" || ventaData.estado === "anulada") fail("failed-precondition", "VENTA_YA_ANULADA");
     if (estado === "COMPLETO" && ventaData.metodoPago === "cuenta_cobro" && ventaData.estado === "pagada") {
       const liquidacionId = crearIdentificadorInterno(contexto.empresaId, `liquidacion:cuenta_cobro:${ventaId}`);
