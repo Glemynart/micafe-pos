@@ -28,6 +28,15 @@ export interface PresentacionComercialCanonica {
   activo: boolean;
 }
 
+/** Hechos de producto que U3-B necesita congelar desde la misma lectura
+ * canónica que valida la presentación. No es un DTO público. */
+export interface ResolucionComercialBodega extends PresentacionComercialCanonica {
+  productoNombre: string;
+  unidadBase: string;
+  espacioId: string;
+  costoUnidadBaseCOP: number;
+}
+
 function requiredText(value: unknown, code: string, max = 120): string {
   if (!text(value)) fail("invalid-argument", code);
   const normalizado = (value as string).trim();
@@ -106,28 +115,53 @@ export function normalizarReferenciaPresentacionComercial(raw: unknown) {
 }
 
 /** Resuelve el precio/factor persistidos dentro de la transacción futura de venta; nunca usa datos comerciales del cliente. */
-export async function resolverPresentacionComercialEnTransaccion(tx: any, db: any, empresaId: string, referencia: ReturnType<typeof normalizarReferenciaPresentacionComercial>): Promise<PresentacionComercialCanonica> {
-  const productoSnap = await tx.get(db.collection("productos").doc(referencia.productoId));
+async function resolverProductoComercialEnTransaccion(tx: any, db: any, empresaId: string, productoId: string): Promise<Record<string, unknown>> {
+  const productoSnap = await tx.get(db.collection("productos").doc(productoId));
   if (!productoSnap.exists || productoSnap.data()?.empresaId !== empresaId) fail("not-found", "PRODUCTO_NO_ENCONTRADO");
   const producto = productoSnap.data() as Record<string, unknown>;
   if (producto.activo !== true) fail("failed-precondition", "PRODUCTO_INACTIVO");
+  return producto;
+}
+
+async function resolverPresentacionDesdeProductoEnTransaccion(tx: any, db: any, empresaId: string, referencia: ReturnType<typeof normalizarReferenciaPresentacionComercial>): Promise<PresentacionComercialCanonica> {
   const presentacionSnap = await tx.get(db.collection(COLLECTION).doc(referencia.presentacionId));
   if (!presentacionSnap.exists) fail("not-found", "PRESENTACION_NO_ENCONTRADA");
   const data = presentacionSnap.data() as Record<string, unknown>;
   if (data.empresaId !== empresaId || data.productoId !== referencia.productoId) fail("not-found", "PRESENTACION_NO_ENCONTRADA");
   if (data.activo !== true) fail("failed-precondition", "PRESENTACION_INACTIVA");
   if (!text(data.nombre) || !positiveInteger(data.factorUnidadBase) || !positiveInteger(data.precioCOP)) fail("failed-precondition", "PRESENTACION_INVALIDA");
-  const nombre = data.nombre as string;
-  const factorUnidadBase = data.factorUnidadBase as number;
-  const precioCOP = data.precioCOP as number;
   return {
     id: presentacionSnap.id,
     empresaId,
     productoId: referencia.productoId,
-    nombre: nombre.trim(),
-    factorUnidadBase,
-    precioCOP,
+    nombre: (data.nombre as string).trim(),
+    factorUnidadBase: data.factorUnidadBase as number,
+    precioCOP: data.precioCOP as number,
     activo: true,
+  };
+}
+
+export async function resolverPresentacionComercialEnTransaccion(tx: any, db: any, empresaId: string, referencia: ReturnType<typeof normalizarReferenciaPresentacionComercial>): Promise<PresentacionComercialCanonica> {
+  await resolverProductoComercialEnTransaccion(tx, db, empresaId, referencia.productoId);
+  return resolverPresentacionDesdeProductoEnTransaccion(tx, db, empresaId, referencia);
+}
+
+/**
+ * Resolver interno para U3-B. Precio, factor, costo y metadatos inventariables
+ * provienen solo de producto/presentación dentro de la transacción.
+ */
+export async function resolverComercialBodegaEnTransaccion(tx: any, db: any, empresaId: string, referencia: ReturnType<typeof normalizarReferenciaPresentacionComercial>): Promise<ResolucionComercialBodega> {
+  const producto = await resolverProductoComercialEnTransaccion(tx, db, empresaId, referencia.productoId);
+  const presentacion = await resolverPresentacionDesdeProductoEnTransaccion(tx, db, empresaId, referencia);
+  const unidadBase = text(producto.unidadMedida) ? producto.unidadMedida : producto.unidad;
+  if (!text(producto.nombre) || !text(unidadBase) || !text(producto.espacioId)) fail("failed-precondition", "PRODUCTO_INVENTARIABLE_INVALIDO");
+  if (typeof producto.costo !== "number" || !Number.isSafeInteger(producto.costo) || producto.costo < 0) fail("failed-precondition", "PRODUCTO_COSTO_INVALIDO");
+  return {
+    ...presentacion,
+    productoNombre: (producto.nombre as string).trim(),
+    unidadBase: (unidadBase as string).trim(),
+    espacioId: (producto.espacioId as string).trim(),
+    costoUnidadBaseCOP: producto.costo as number,
   };
 }
 

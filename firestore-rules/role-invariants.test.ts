@@ -124,15 +124,20 @@ test("Bodega: vendedor no salta DTO por Firestore y solo lee su turno", async ()
   const adminA = await contextFor(fixtures.tenantA.admin);
   await seedDocument("productos/bodega-a", { empresaId: "empresa-a", costo: 8 });
   await seedDocument("ventas/bodega-a", { empresaId: "empresa-a", cajeroId: fixtures.tenantA.vendedor.uid, items: [{ costoUnitario: 8 }] });
+  await seedDocument("movimientos_inventario/bodega-a", { empresaId: "empresa-a", costoUnitario: 8, costoTotal: 80 });
   await seedDocument("turnos/bodega-propio", { empresaId: "empresa-a", cajeroId: fixtures.tenantA.vendedor.uid });
   await seedDocument("turnos/bodega-ajeno", { empresaId: "empresa-a", cajeroId: fixtures.tenantA.cajero.uid });
   await expectDenied(vendedorA.firestore().doc("productos/bodega-a").get());
   await expectDenied(vendedorA.firestore().doc("ventas/bodega-a").get());
+  await expectDenied(vendedorA.firestore().doc("movimientos_inventario/bodega-a").get());
+  await expectDenied(vendedorB.firestore().doc("movimientos_inventario/bodega-a").get());
+  await expectDenied(vendedorA.firestore().doc("movimientos_inventario/bodega-nuevo").set({ empresaId: "empresa-a", cantidad: 1 }));
   await expectAllowed(vendedorA.firestore().doc("turnos/bodega-propio").get());
   await expectDenied(vendedorA.firestore().doc("turnos/bodega-ajeno").get());
   await expectDenied(vendedorB.firestore().doc("turnos/bodega-propio").get());
   await expectAllowed(adminA.firestore().doc("productos/bodega-a").get());
   await expectAllowed(adminA.firestore().doc("ventas/bodega-a").get());
+  await expectAllowed(adminA.firestore().doc("movimientos_inventario/bodega-a").get());
 });
 
 test("Bodega U2-A: vendedor no salta la frontera de clientes y administración conserva CRUD", async () => {
