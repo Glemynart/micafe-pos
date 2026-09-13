@@ -87,6 +87,12 @@ service cloud.firestore {
       // inventario; el cliente conserva únicamente la lectura tenant-aware.
       allow create, update, delete: if false;
     }
+    match /presentaciones_producto/{id} {
+      // Bodega U2-B: el vendedor consume únicamente la proyección callable
+      // sanitizada. Las altas, precios y estados se mutan solo por Functions.
+      allow read: if puedeLeerTenant() && esAutenticado() && !esVendedor();
+      allow create, update, delete: if false;
+    }
     match /insumos/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
       allow create, update, delete: if false;
