@@ -44,7 +44,7 @@ Cada \`ProductoBase\` conserva una **unidad base** explícita y es el único art
 
 \`\`\`text
 empresaId, productoId, nombre, factorUnidadBase (> 0 entero),
-precioCOP (entero no negativo), estado (ACTIVA | INACTIVA),
+precioCOP (entero >= 1), estado (ACTIVA | INACTIVA),
 creadaEn, actualizadaEn
 \`\`\`
 
@@ -52,7 +52,7 @@ Ejemplo: \`unidad=1\`, \`paca=6\`, \`caja=24\`. Dos cajas solicitan \`2 × 24 = 
 
 ## 8. Precios
 
-MVP-1 usa un único precio vigente por presentación, en COP entero. No requiere vigencia histórica: el precio se congela en el snapshot de venta y un cambio afecta solo ventas futuras. Solo \`admin\` y el permiso explícito de gestión de catálogo/precios podrán modificarlo mediante autoridad server-side. La Function resuelve presentación y precio canónicos y rechaza precio, costo, descuento o total autoritativo enviados por vendedor.
+MVP-1 usa un único precio vigente por presentación, en COP entero mínimo de \`1\`. No requiere vigencia histórica: el precio se congela en el snapshot de venta y un cambio afecta solo ventas futuras. Solo \`admin\` y el permiso explícito de gestión de catálogo/precios podrán modificarlo mediante autoridad server-side. La Function resuelve presentación y precio canónicos y rechaza precio, costo, descuento o total autoritativo enviados por vendedor.
 
 ## 9. Clientes
 
@@ -132,7 +132,7 @@ También podrá añadir crédito/cartera derivada, abonos inmutables, vencimient
 
 ## 19. Decisiones pendientes del cliente
 
-Antes de configurar el tenant real deben confirmarse: unidad base y empaques reales por producto; si el precio puede ser cero y quién aprueba cambios; datos obligatorios de cliente; y si el comprobante inicial será solo ticket DEMO o se exige documento fiscal. Para MVP-1 quedan resueltos: visibilidad de todos los clientes activos del tenant, efectivo y transferencia, turno propio limitado por vendedor y pago mixto deshabilitado. Entrega posterior, crédito o abono pertenecen a MVP-2.
+Antes de configurar el tenant real deben confirmarse: unidad base y empaques reales por producto; datos obligatorios de cliente; y si el comprobante inicial será solo ticket DEMO o se exige documento fiscal. Para MVP-1 quedan resueltos: precio vigente entero mínimo de \`1\` COP, visibilidad de todos los clientes activos del tenant, efectivo y transferencia, turno propio limitado por vendedor y pago mixto deshabilitado. Entrega posterior, crédito o abono pertenecen a MVP-2.
 
 ## 20. Criterios de aceptación para el futuro PR
 

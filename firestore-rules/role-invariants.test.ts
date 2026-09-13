@@ -154,3 +154,24 @@ test("Bodega U2-A: vendedor no salta la frontera de clientes y administración c
   await expectAllowed(adminA.firestore().doc(clienteA).update({ telefono: "3000000003" }));
   await expectAllowed(adminA.firestore().doc(clienteA).update({ activo: false }));
 });
+
+test("Bodega U2-B: vendedor no lee ni muta presentaciones; administración conserva lectura aislada", async () => {
+  const vendedorA = await contextFor(fixtures.tenantA.vendedor);
+  const vendedorB = await contextFor(fixtures.tenantB.vendedor);
+  const adminA = await contextFor(fixtures.tenantA.admin);
+  const adminB = await contextFor(fixtures.tenantB.admin);
+  const presentacionA = "presentaciones_producto/paca-empresa-a";
+  await seedDocument(presentacionA, {
+    empresaId: "empresa-a", productoId: "producto-a", nombre: "Paca", factorUnidadBase: 6, precioCOP: 6000, activo: true,
+  });
+
+  await expectDenied(vendedorA.firestore().doc(presentacionA).get());
+  await expectDenied(vendedorB.firestore().doc(presentacionA).get());
+  await expectDenied(vendedorA.firestore().doc(presentacionA).update({ precioCOP: 1 }));
+  await expectDenied(vendedorA.firestore().doc("presentaciones_producto/nueva-vendedor").set({
+    empresaId: "empresa-a", productoId: "producto-a", nombre: "Falsa", factorUnidadBase: 1, precioCOP: 1, activo: true,
+  }));
+  await expectAllowed(adminA.firestore().doc(presentacionA).get());
+  await expectDenied(adminB.firestore().doc(presentacionA).get());
+  await expectDenied(adminA.firestore().doc(presentacionA).update({ precioCOP: 1 }));
+});
