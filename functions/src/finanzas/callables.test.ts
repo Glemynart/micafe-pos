@@ -105,6 +105,20 @@ test("R1-B.1: cajero autorizado compensa post-efectos con nueva línea enlazada"
   assert.equal(db.docs.get(`transacciones_financieras/${fuente}`)?.tipo, "ingreso");
 });
 
+test("U3-A: la anulación genérica rechaza una venta Bodega sin efectos", async () => {
+  const db = new FakeFirestore();
+  const fuente = seedCompleta(db, "bodega-protegida");
+  db.docs.set("ventas/bodega-protegida", {
+    ...db.docs.get("ventas/bodega-protegida"),
+    schemaVersion: "BODEGA_MVP1_V1",
+  });
+  seedAuth(db);
+  const before = structuredClone([...db.docs]);
+  await assert.rejects(manejarAnularVentaOperativaV1(db, { auth: { uid: actor.actorUid, token: { empresaId, rol: actor.rol } }, data: envelope("bodega-protegida") }), error => domain(error, "ANULACION_BODEGA_NO_DISPONIBLE"));
+  assert.deepEqual([...db.docs], before);
+  assert.equal(db.docs.get(`transacciones_financieras/${fuente}`)?.tipo, "ingreso");
+});
+
 test("R1-B.1: fondos insuficientes abortan atómicamente la compensación", async () => {
   const db = new FakeFirestore(); seedCompleta(db, "sin-fondos", 99); seedAuth(db); const before = structuredClone([...db.docs]);
   await assert.rejects(anular(db, actor, envelope("sin-fondos")), error => domain(error, "FONDOS_INSUFICIENTES"));

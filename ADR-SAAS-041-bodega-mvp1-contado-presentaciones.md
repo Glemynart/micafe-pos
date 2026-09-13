@@ -73,7 +73,7 @@ Login → Inicio vendedor → Clientes → Cliente → Catálogo → Presentaci�
 → Cantidad → Resumen → Pago contado → Confirmación
 \`\`\`
 
-La confirmación usa el flujo server-authoritative existente. La Function resuelve tenant, actor, producto/presentación, factor, precio, impuestos y cuenta operativa; crea snapshots, acredita pago, registra auditoría y movimiento de inventario idempotente. La venta no equivale a una futura remisión.
+La confirmación usa el flujo server-authoritative existente. ADR-SAAS-042 define la frontera atómica específica de la venta Bodega: la Function resuelve tenant, actor, producto/presentación, factor, precio, impuestos y cuenta operativa; crea snapshots, acredita pago, registra auditoría y movimiento de inventario idempotente. La venta no equivale a una futura remisión.
 
 ## 12. Inventario
 
