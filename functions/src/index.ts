@@ -24,6 +24,7 @@ export { actualizarConfiguracionEmpresa, actualizarParametrosFiscales, actualiza
 export { abrirTurnoOperativoV1 } from "./turnos/callable";
 export { consultarCatalogoVendedorV1, consultarMisVentasVendedorV1 } from "./bodega-vendedor/lecturas";
 export { consultarClientesVendedorV1, crearClienteVendedorV1 } from "./bodega-vendedor/clientes";
+export { confirmarVentaBodegaV1 } from "./bodega-vendedor/ventas-confirmation";
 export {
   crearPresentacionComercialV1,
   actualizarPresentacionComercialV1,
