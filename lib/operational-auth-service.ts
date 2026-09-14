@@ -17,12 +17,13 @@ import { httpsCallable } from "firebase/functions";
 import { signInWithCustomToken, signOut, type User } from "firebase/auth";
 import { auth, getFirebaseFunctions } from "@/lib/firebase";
 
-export type RolOperativo = "admin" | "supervisor" | "cajero" | "cocinero" | "marketing";
+export type RolOperativo = "admin" | "supervisor" | "cajero" | "vendedor" | "cocinero" | "marketing";
 
 const ROLES_OPERATIVOS: readonly RolOperativo[] = [
   "admin",
   "supervisor",
   "cajero",
+  "vendedor",
   "cocinero",
   "marketing",
 ];

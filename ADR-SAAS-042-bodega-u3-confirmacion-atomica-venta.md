@@ -2,7 +2,7 @@
 
 ## Estado
 
-**Aceptado.** U3-A completó sus validaciones conforme a la gobernanza vigente; esta aceptación no autoriza publicar la callable ni confirmar una venta.
+**Aceptado e implementado hasta U3-C.** U3-A cerró contrato y autoridad, U3-B la resolución comercial y stock estricto, y U3-C publicó la confirmación atómica mediante PR #387. La compensación/anulación Bodega permanece fuera de alcance en U3-E.
 
 - **Goal rector:** `G-SAAS-02`.
 - **Milestone:** `M2 — Provisioning y onboarding`.
@@ -61,3 +61,10 @@ La anulación genérica debe rechazar, antes de cualquier lectura de cuenta, mov
 ## Fuera de alcance
 
 U3-A no crea ventas, movimientos de inventario o tesorería, cuentas, turnos, recibos de venta ni auditoría de venta; tampoco añade checkout, carrito, UI/PWA, crédito, cartera, despacho, tenant, usuarios, datos reales o despliegues.
+
+## Evidencia de implementación
+
+- PR #385 materializó U3-A; PR #386 materializó U3-B; PR #387 materializó U3-C en `origin/main @ 93f8819c7d9f58c0f6dc85e0f5daf04d23961df8`.
+- `confirmarVentaBodegaV1` conserva sin cambios el envelope cerrado de este ADR y deriva tenant, autoridad, hechos comerciales, cuenta y turno exclusivamente en servidor.
+- Para materializar la garantía de ADR-SAAS-041 sobre ventas propias, el documento de venta registra `cajeroId` desde `actorUid` server-side. `cajeroId` no forma parte del payload ni puede ser suministrado o sobrescrito por el cliente; no se introduce `vendedorId` ni una segunda relación comercial.
+- La evidencia automatizada cubre efectivo con turno propio, transferencia sin turno, resolución de cuenta canónica, stock atómico, idempotencia y proyección sanitizada de las ventas propias del actor.

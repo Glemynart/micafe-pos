@@ -3,12 +3,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSaaS } from "./saas-context";
 import type { ConfiguracionEmpresa } from "../lib/configuracion/contrato";
+import type { VerticalTenant } from "../lib/configuracion/contrato";
 import { leerConfiguracionEmpresaCliente, invalidarCacheConfiguracion, type EntradaActualizacionCliente, ejecutarComandoConfiguracionCliente, type ResultadoActualizacionCliente } from "../lib/configuracion/client-repository";
 import { proyectarBrandingConfiguracion, proyectarCajaConfiguracion, proyectarIdentidadConfiguracion, proyectarImpresionConfiguracion, proyectarLocalizacionConfiguracion, proyectarModulosConfiguracion, proyectarPosConfiguracion, proyectarTicketConfiguracion } from "../lib/configuracion/proyecciones";
 import { resolverBrandingRuntime, type BrandingRuntimeResuelto } from '../lib/configuracion/branding-runtime'
 
 type Estado = "SIN_TENANT" | "CARGANDO" | "LISTA" | "AUSENTE" | "INVALIDA" | "ERROR";
-interface Contexto { empresaId: string | null; estado: Estado; revision: number | null; error: Error | null; proyecciones: ReturnType<typeof crearProyecciones> | null; branding: BrandingRuntimeResuelto; refrescar(): Promise<void>; ejecutar(comando: Parameters<typeof ejecutarComandoConfiguracionCliente>[0], entrada: EntradaActualizacionCliente): Promise<ResultadoActualizacionCliente>; }
+interface Contexto { empresaId: string | null; vertical: VerticalTenant | null; estado: Estado; revision: number | null; error: Error | null; proyecciones: ReturnType<typeof crearProyecciones> | null; branding: BrandingRuntimeResuelto; refrescar(): Promise<void>; ejecutar(comando: Parameters<typeof ejecutarComandoConfiguracionCliente>[0], entrada: EntradaActualizacionCliente): Promise<ResultadoActualizacionCliente>; }
 const crearProyecciones = (c: ConfiguracionEmpresa) => ({ identidad: proyectarIdentidadConfiguracion(c), localizacion: proyectarLocalizacionConfiguracion(c), ticket: proyectarTicketConfiguracion(c), impresion: proyectarImpresionConfiguracion(c), pos: proyectarPosConfiguracion(c), modulos: proyectarModulosConfiguracion(c), caja: proyectarCajaConfiguracion(c), branding: proyectarBrandingConfiguracion(c) });
 export const ConfiguracionContext = createContext<Contexto | null>(null);
 
@@ -26,6 +27,6 @@ export function ConfiguracionEmpresaProvider({ children }: { children: ReactNode
   const proyecciones = useMemo(() => vigente ? crearProyecciones(vigente) : null, [vigente]);
   const branding = useMemo(() => resolverBrandingRuntime(vigente), [vigente])
   const estadoVigente: Estado = vigente ? estado : estado === "LISTA" ? "CARGANDO" : estado
-  return <ConfiguracionContext.Provider value={{ empresaId: vigente?.empresaId ?? null, estado: estadoVigente, revision: vigente?.revision ?? null, error, proyecciones, branding, refrescar, ejecutar }}>{children}</ConfiguracionContext.Provider>;
+  return <ConfiguracionContext.Provider value={{ empresaId: vigente?.empresaId ?? null, vertical: vigente ? (vigente.vertical ?? "GENERAL") : null, estado: estadoVigente, revision: vigente?.revision ?? null, error, proyecciones, branding, refrescar, ejecutar }}>{children}</ConfiguracionContext.Provider>;
 }
 export function useConfiguracionEmpresa(): Contexto { const c = useContext(ConfiguracionContext); if (!c) throw new Error("useConfiguracionEmpresa requiere ConfiguracionEmpresaProvider"); return c; }

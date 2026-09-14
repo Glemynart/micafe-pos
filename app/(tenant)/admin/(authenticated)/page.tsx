@@ -12,6 +12,8 @@ import { suscribirEventos, type Evento, CATEGORIAS_EVENTOS } from "@/lib/eventos
 import { suscribirTransacciones, type TransaccionFinanciera } from "@/lib/finanzas-service"
 import { suscribirUsuarios, type Usuario } from "@/lib/permisos-service"
 import { crearIndiceNombres, resolverNombreActor } from "@/lib/actor-display"
+import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
+import { BodegaAdminDashboard } from "@/components/bodega/bodega-admin"
 
 interface CompraRaw { id: string; total?: number }
 interface MermaRaw { id: string; costo?: number }
@@ -19,6 +21,15 @@ interface TurnoRaw { id: string; cajeroId?: string; estado?: string; cajeroNombr
 interface CuentaRaw { id: string; estado?: string; totales?: { total: number }; clienteNombre?: string; fecha?: { toDate: () => Date } }
 
 export default function DashboardPage() {
+  const { vertical, estado } = useConfiguracionEmpresa()
+  const { usuario } = useAuthContext()
+  if (estado === "CARGANDO") return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+  if (estado !== "LISTA" || vertical === null) return <p className="rounded-xl border border-border p-6 text-center text-muted-foreground">No fue posible verificar la configuración operativa de este tenant.</p>
+  if (vertical === "BODEGA_MVP1") return usuario?.rol === "admin" ? <BodegaAdminDashboard /> : <p className="rounded-xl border border-border p-6 text-center text-muted-foreground">Acceso reservado al administrador de Bodega.</p>
+  return <LegacyDashboardPage />
+}
+
+function LegacyDashboardPage() {
   const { usuario } = useAuthContext()
   const [compras, setCompras] = useState<CompraRaw[]>([])
   const [mermas, setMermas] = useState<MermaRaw[]>([])

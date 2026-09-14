@@ -49,6 +49,7 @@ test("U3-C: efectivo completa una venta Bodega con 48 unidades base, caja, turno
   assert.equal(result.estadoOperativo, "COMPLETO"); assert.equal(result.total, 40000); assert.equal(result.turnoId, "turno-u3c");
   const venta = db.docs.get(`ventas/${result.ventaId}`)!;
   assert.equal(venta.schemaVersion, "BODEGA_MVP1_V1"); assert.equal(venta.items[0].cantidadUnidadBase, 48); assert.equal(venta.estadoOperativo, "COMPLETO");
+  assert.equal(venta.cajeroId, contexto.actorUid);
   assert.equal(db.docs.get("productos/producto-u3c")?.stock, 52);
   assert.equal(db.docs.get("cuentas_bancarias/caja-principal")?.saldo, 40000);
   const replay = await ejecutarConfirmarVentaBodegaV1(db, contexto, comando()) as any;
@@ -59,6 +60,7 @@ test("U3-C: efectivo completa una venta Bodega con 48 unidades base, caja, turno
 test("U3-C: datos económicos y autoridad de cliente se rechazan antes de efectos", async () => {
   const db = new FakeDb(); seed(db);
   await assert.rejects(ejecutarConfirmarVentaBodegaV1(db, contexto, comando({ empresaId: "ajena" })), error => dominio(error, "COMANDO_BODEGA_INVALIDO"));
+  await assert.rejects(ejecutarConfirmarVentaBodegaV1(db, contexto, comando({ cajeroId: "otro-vendedor" })), error => dominio(error, "COMANDO_BODEGA_INVALIDO"));
   await assert.rejects(ejecutarConfirmarVentaBodegaV1(db, contexto, comando({ payload: { clienteId: "cliente-u3c", lineas: [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 1, precio: 1 }], metodoPago: "efectivo" } })), error => dominio(error, "LINEA_BODEGA_INVALIDA"));
   assert.equal([...db.docs.keys()].some(path => path.startsWith("ventas/")), false);
 });

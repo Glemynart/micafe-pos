@@ -12,7 +12,11 @@ import {
   Users,
   CalendarDays,
   Landmark,
+  Boxes,
+  ShoppingBag,
+  Tags,
 } from "lucide-react"
+import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
 
 const adminTabs = [
   { href: "/admin", label: "Inicio", icon: LayoutDashboard },
@@ -27,15 +31,26 @@ const marketingTabs = [
   { href: "/admin/eventos", label: "Eventos", icon: CalendarDays },
 ]
 
+const bodegaTabs = [
+  { href: "/admin", label: "Inicio", icon: LayoutDashboard },
+  { href: "/admin/catalogo", label: "Catálogo", icon: Tags },
+  { href: "/admin/clientes", label: "Clientes", icon: Users },
+  { href: "/admin/inventario", label: "Stock", icon: Boxes },
+  { href: "/admin/ventas", label: "Ventas", icon: ShoppingBag },
+]
+
 const moreModulos = ["usuarios", "permisos", "mermas", "gastos", "cuentas_cobro", "compras"]
 
 export function BottomNav() {
   const pathname = usePathname()
   const { modulos } = useModulosHabilitados()
   const { usuario } = useAuthContext()
+  const { vertical } = useConfiguracionEmpresa()
   const modSet = new Set(modulos)
 
-  const tabs = usuario?.rol === "marketing"
+  const tabs = vertical === "BODEGA_MVP1" && usuario?.rol === "admin"
+    ? bodegaTabs
+    : usuario?.rol === "marketing"
     ? marketingTabs
     : adminTabs.filter((t) => !t.modulo || modSet.has(t.modulo))
 
@@ -76,7 +91,7 @@ export function BottomNav() {
             </Link>
           )
         })}
-        {usuario?.rol !== "marketing" && (
+        {vertical !== "BODEGA_MVP1" && usuario?.rol !== "marketing" && (
           <Link
             href="/admin/usuarios"
             className={cn(
