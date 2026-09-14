@@ -61,6 +61,7 @@ export async function ejecutarConfirmarVentaBodegaV1(db: any, contexto: Contexto
     tx.create(ventaRef, {
       id: ventaId, empresaId, schemaVersion: SCHEMA_VERSION_VENTA_BODEGA,
       estado: "pagada", estadoOperativo: "COMPLETO", modoOperacion: "BODEGA_MVP1",
+      cajeroId: actorUid,
       clienteId: resolucion.cliente.id, clienteNombreSnapshot: resolucion.cliente.nombre,
       clienteDocumentoSnapshot: resolucion.cliente.cedula, items: lineas,
       metodoPago: comando.payload.metodoPago, pago: { metodo: comando.payload.metodoPago },

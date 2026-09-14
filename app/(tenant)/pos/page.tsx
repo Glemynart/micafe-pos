@@ -12,6 +12,8 @@ import { useModulosHabilitados } from '@/contexts/modulos-context'
 import { ReservasBanner } from '@/components/pos/reservas-banner'
 import { OnboardingGate } from '@/components/onboarding/onboarding-gate'
 import dynamic from 'next/dynamic'
+import { useConfiguracionEmpresa } from '@/contexts/configuracion-empresa-context'
+import { BodegaVendedorApp } from '@/components/bodega/bodega-vendedor-app'
 
 // ── Skeleton compartido para todos los módulos mientras cargan ──
 const ModuleSkeleton = () => (
@@ -46,6 +48,7 @@ export default function POSApp() {
   const { usuario, cargando, logout } = useAuthContext()
   const router = useRouter()
   const { modulos: modulosHabilitados, cargando: cargandoModulos } = useModulosHabilitados()
+  const { vertical, estado: estadoConfiguracion } = useConfiguracionEmpresa()
   const [activeModule, setActiveModule] = useState('sell')
   const [pendingPedidoId, setPendingPedidoId] = useState<string | null>(null)
 
@@ -62,12 +65,17 @@ export default function POSApp() {
     if (!permitidos.includes(activeModule)) setActiveModule(permitidos[0] ?? '')
   }, [activeModule, cargandoModulos, modulosHabilitados, userPerms, usuario])
 
-  // ── Redirigir solo a marketing fuera del POS (admin puede entrar si lo desea) ──
+  // ── En Bodega, el POS legacy no es una superficie válida. ──
   useEffect(() => {
-    if (usuario && usuario.rol === 'marketing') {
+    if (!usuario || estadoConfiguracion !== 'LISTA' || vertical === null) return
+    if (usuario.rol === 'marketing') {
+      router.replace('/admin')
+      return
+    }
+    if (vertical === 'BODEGA_MVP1' && usuario.rol === 'admin') {
       router.replace('/admin')
     }
-  }, [usuario, router])
+  }, [usuario, router, estadoConfiguracion, vertical])
 
   // FASE-10C: se eliminó la auto-apertura de turno con base 0. El cajero ahora
   // debe abrir turno explícitamente con una base real (ver TurnoGate). Sin turno
@@ -138,6 +146,22 @@ export default function POSApp() {
   // ── Marketing no tiene acceso al POS — el useEffect ya redirige ──
   if (usuario.rol === 'marketing') {
     return null
+  }
+
+  if (estadoConfiguracion === 'CARGANDO') return <ModuleSkeleton />
+  if (estadoConfiguracion !== 'LISTA' || vertical === null) return <div className="grid min-h-screen place-items-center bg-background p-6 text-center text-muted-foreground">No fue posible verificar la configuración operativa de este tenant.</div>
+
+  if (vertical === 'BODEGA_MVP1') {
+    if (usuario.rol === 'vendedor') {
+      return (
+        <OnboardingGate usuario={usuario}>
+          <BodegaVendedorApp usuario={usuario} onLogout={() => void handleLogoutAttempt()} />
+          <GlobalCloseShift usuario={usuario} onCloseSuccess={logout} />
+        </OnboardingGate>
+      )
+    }
+    if (usuario.rol === 'admin') return <ModuleSkeleton />
+    return <div className="grid min-h-screen place-items-center bg-background p-6 text-center text-muted-foreground">No tienes acceso al POS de Bodega.</div>
   }
 
   // ── Módulo activo: memoizado para no redefinir en cada render ──

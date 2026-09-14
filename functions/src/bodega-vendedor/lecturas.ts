@@ -27,7 +27,7 @@ export function proyectarVentaVendedor(venta: Record<string, any>) {
     precioUnitario: number(item.precioUnitario) ? item.precioUnitario : null,
     subtotal: number(item.subtotal) ? item.subtotal : null,
   })) : [];
-  return { id: String(venta.id ?? ""), fecha: venta.fecha ?? venta.creadaEn ?? null, clienteId: text(venta.clienteId) ? venta.clienteId : null, cliente: text(venta.clienteNombre) ? venta.clienteNombre : null, items, total: number(venta.totales?.total) ? venta.totales.total : null, metodoPago: text(venta.metodoPago) ? venta.metodoPago : null, estado: text(venta.estado) ? venta.estado : null };
+  return { id: String(venta.id ?? ""), fecha: venta.fecha ?? venta.creadaEn ?? null, clienteId: text(venta.clienteId) ? venta.clienteId : null, cliente: text(venta.clienteNombreSnapshot) ? venta.clienteNombreSnapshot : text(venta.clienteNombre) ? venta.clienteNombre : null, items, total: number(venta.totales?.total) ? venta.totales.total : null, metodoPago: text(venta.metodoPago) ? venta.metodoPago : null, estado: text(venta.estado) ? venta.estado : null };
 }
 
 function exigirVendedor(rol: string) { if (rol !== "vendedor") fail("permission-denied", "ROL_NO_AUTORIZADO"); }
