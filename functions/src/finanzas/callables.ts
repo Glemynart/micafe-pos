@@ -429,7 +429,8 @@ export const aplicarEfectosVentaOperativaV1 = onCall({ region: REGION }, async r
   return ejecutarAplicarEfectosVentaOperativaV1(db, { empresaId: tenant.id, actorUid: request.auth!.uid, rol: tenant.rol }, request.data);
 });
 
-async function turnoRecaudoDerivado(tx: any, db: any, empresaId: string, actorUid: string) {
+/** Resuelve el único turno abierto propio sin aceptar un ID desde el cliente. */
+export async function resolverTurnoRecaudoPropioEnTransaccion(tx: any, db: any, empresaId: string, actorUid: string) {
   const lock = await tx.get(db.collection("turnos_activos").doc(crearIdentificadorInterno(empresaId, actorUid)));
   const turnoId = lock.data()?.turnoId;
   if (!lock.exists || lock.data()?.empresaId !== empresaId || lock.data()?.cajeroId !== actorUid || !text(turnoId)) {
@@ -437,6 +438,10 @@ async function turnoRecaudoDerivado(tx: any, db: any, empresaId: string, actorUi
   }
   await turnoAbierto(tx, db, empresaId, turnoId);
   return turnoId as string;
+}
+
+async function turnoRecaudoDerivado(tx: any, db: any, empresaId: string, actorUid: string) {
+  return resolverTurnoRecaudoPropioEnTransaccion(tx, db, empresaId, actorUid);
 }
 
 async function efectoLiquidarCuentaCobroV1(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<Record<string, unknown>> {
