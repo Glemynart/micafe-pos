@@ -57,7 +57,11 @@ No se usan NIT, credenciales fiscales, PINs o secretos inventados.
 6. En modo DEMO, validar entrada al POS y una venta no fiscal.
 7. Configurar productos, clientes, usuarios, permisos y flujo inicial del cliente.
 
-### 2.1 Transición del tenant mensual histórico
+### 2.1 Gate previo: ensayo Bodega MVP-1 en staging/Preview
+
+Antes de provisionar un tenant real, el ensayo debe usar el Bootstrap canónico con `vertical: BODEGA_MVP1` y una identidad de prueba. La evidencia pendiente es: acceso autorizado al Preview protegido por Vercel SSO; confirmación de que el Preview apunta a Firebase `micafe-pos-staging`; Functions de staging publicadas desde el SHA certificado; y disponibilidad de los secretos operativos requeridos por Bootstrap e incorporaciones sin exponer sus valores. Si cualquiera falta, el gate permanece bloqueado: no se crea Distribuidora Las Jiménez, usuarios reales, datos comerciales ni se despliega producción.
+
+### 2.2 Transición del tenant mensual histórico
 
 La transición de Café Atrato conserva el Trial histórico y nunca lo reinicia.
 Por defecto se ejecuta después de `2026-09-02`. La decisión explícita del

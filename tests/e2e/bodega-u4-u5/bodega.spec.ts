@@ -65,6 +65,7 @@ async function seedTenant(db: FirebaseFirestore.Firestore, auth: ReturnType<type
 test.beforeAll(async () => {
   app = initializeApp({ projectId }, `bodega-${runId}`)
   const auth = getAuth(app); const db = getFirestore(app)
+  await db.collection("permisos_roles").doc("vendedor").set({ permisos: ["sell", "shifts"] })
   await seedTenant(db, auth, tenantA, "BODEGA_MVP1")
   await seedTenant(db, auth, tenantB, "BODEGA_MVP1")
   await seedTenant(db, auth, tenantGeneral, "GENERAL")
@@ -142,6 +143,22 @@ test("administrador Bodega ve únicamente el backoffice y conserva operaciones d
 test("administrador Bodega B solo consulta su propio catálogo", async ({ page }) => {
   await login(page, tenantB.admin, true); await expect(page).toHaveURL(/\/admin$/); await expect(page.getByRole("heading", { name: "Centro de operación" })).toBeVisible()
   await page.goto("/admin/catalogo"); await expect(page.getByRole("article").filter({ hasText: tenantB.productoNombre })).toBeVisible(); await expect(page.getByText(tenantA.productoNombre)).toHaveCount(0)
+})
+
+test("administrador Bodega crea vendedor mediante la incorporación canónica", async ({ page }) => {
+  const nombreVendedor = `Vendedor onboarding ${runId}`
+  await login(page, tenantA.admin, true)
+  await page.goto("/admin/usuarios")
+  await page.getByRole("button", { name: "Nuevo operador" }).click()
+  const dialogo = page.getByRole("dialog", { name: "Nuevo Operador" })
+  await dialogo.getByPlaceholder("Ej: Carlos López").fill(nombreVendedor)
+  await dialogo.getByRole("combobox").click()
+  await page.getByRole("option", { name: "Vendedor" }).click()
+  await dialogo.getByRole("button", { name: "Crear operador" }).click()
+  await expect(page.getByRole("dialog", { name: "Credencial del operador" })).toBeVisible()
+  await expect.poll(async () => (await getFirestore(app).collection("membresias").where("empresaId", "==", tenantA.empresaId).where("rol", "==", "vendedor").get()).docs.some((doc) => doc.data().permisos?.join(",") === "sell,shifts")).toBe(true)
+  const vendedores = await getFirestore(app).collection("membresias").where("empresaId", "==", tenantA.empresaId).where("rol", "==", "vendedor").get()
+  expect(vendedores.docs.some((doc) => doc.data().permisos?.join(",") === "sell,shifts")).toBe(true)
 })
 
 test("GENERAL autorizado conserva el POS legacy en /pos", async ({ page }) => {

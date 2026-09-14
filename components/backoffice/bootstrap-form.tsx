@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import type { VerticalTenant } from '@/lib/configuracion'
 
 export function BootstrapForm() {
   const [loading, setLoading] = useState(false)
@@ -22,6 +23,7 @@ export function BootstrapForm() {
   const [credencial, setCredencial] = useState<CredencialEntrega | null>(null)
   const [empresaCreada, setEmpresaCreada] = useState<string | null>(null)
   const [planId, setPlanId] = useState('')
+  const [vertical, setVertical] = useState<VerticalTenant>('GENERAL')
   const [solicitud, setSolicitud] = useState<ReturnType<typeof envelope> | null>(null)
   const [entradaBootstrap, setEntradaBootstrap] = useState<SolicitudBootstrap | null>(null)
   const [resultado, setResultado] = useState<ResultadoBootstrapEmpresarial | null>(null)
@@ -53,6 +55,7 @@ export function BootstrapForm() {
         planId: planSeleccionado!.id,
         planVersion: Number(planSeleccionado!.planVersion ?? planSeleccionado!.versionActual),
         trialDias: Number(form.get('trialDias')),
+        vertical,
       }
       if (!solicitud) setSolicitud(solicitudActual)
       if (!entradaBootstrap) setEntradaBootstrap(entrada)
@@ -95,6 +98,17 @@ export function BootstrapForm() {
           <form onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
             <Field name="empresaId" label="ID opaco de Empresa" placeholder="empresa_acme_01" required disabled={Boolean(entradaBootstrap)} />
             <div className="sm:col-span-2"><Field name="nombreComercial" label="Nombre comercial" placeholder="Café Central" required disabled={Boolean(entradaBootstrap)} /></div>
+            <div className="sm:col-span-2 space-y-2">
+              <Label htmlFor="vertical">Vertical del tenant</Label>
+              <Select value={vertical} onValueChange={(value) => setVertical(value as VerticalTenant)} disabled={Boolean(entradaBootstrap)}>
+                <SelectTrigger id="vertical" className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="GENERAL">General</SelectItem>
+                  <SelectItem value="BODEGA_MVP1">Bodega MVP-1</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-500">La selección viaja en el comando canónico de Bootstrap; no configura ni crea el tenant desde el navegador.</p>
+            </div>
 
             <div className="sm:col-span-2 space-y-3 rounded-xl border border-slate-200 p-4">
               <div className="flex items-center justify-between">

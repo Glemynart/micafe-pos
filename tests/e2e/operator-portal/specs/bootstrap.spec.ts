@@ -128,5 +128,30 @@ test("con administrador existente, la solicitud envía ownerUid y omite nombreAd
 
   expect(solicitudes).toHaveLength(1);
   expect(solicitudes[0].ownerUid).toBe(ownerUid);
+  expect(solicitudes[0].vertical).toBe("GENERAL");
   expect("nombreAdministrador" in solicitudes[0]).toBe(false);
+});
+
+test("el Backoffice propaga BODEGA_MVP1 al Bootstrap canónico", async ({ page }) => {
+  const empresaId = `empresa_bodega_${Date.now()}`;
+  const solicitudes: Record<string, unknown>[] = [];
+  await page.route("**/solicitarBootstrapEmpresarialSaas", async (route) => {
+    solicitudes.push(JSON.parse(route.request().postData() ?? "{}").data);
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ data: { provisionamientoId: "prov_e2e_bodega", empresaId, estado: "COMPLETED", claimsEmitidos: false, idempotente: false, credencialInicial: { codigo: "bodega-e2e", pinTemporal: "112233" } } }),
+    });
+  });
+
+  await iniciarSesion(page);
+  await completarSolicitud(page, empresaId);
+  await page.getByLabel("Vertical del tenant").click();
+  await page.getByRole("option", { name: "Bodega MVP-1" }).click();
+  await page.getByRole("button", { name: "Solicitar Bootstrap canónico" }).click();
+  const dialogo = page.getByRole("dialog", { name: "Credencial inicial emitida" });
+  await expect(dialogo).toContainText("112233");
+  await dialogo.getByRole("button", { name: "Ya lo entregué, cerrar" }).click();
+
+  expect(solicitudes).toHaveLength(1);
+  expect(solicitudes[0].vertical).toBe("BODEGA_MVP1");
 });
