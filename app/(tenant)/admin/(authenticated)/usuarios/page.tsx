@@ -13,9 +13,20 @@ import Link from "next/link"
 import { Loader2, UserPlus, Trash2, Shield, ArrowRight, ClipboardList, LayoutGrid, ChevronRight, Lock, Truck, CalendarDays, TrendingDown } from "lucide-react"
 import { toast } from "sonner"
 import { suscribirUsuarios, crearOperador, actualizarRolUsuario, toggleUsuarioActivo, type Usuario, type RolUsuario, type ResultadoCreacionOperador } from "@/lib/permisos-service"
+import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
+
+const ROLES_OPERADOR_BASE: Array<{ value: RolUsuario; label: string }> = [
+  { value: "admin", label: "Administrador" },
+  { value: "supervisor", label: "Supervisor" },
+  { value: "cajero", label: "Cajero" },
+  { value: "cocinero", label: "Cocinero" },
+  { value: "marketing", label: "Marketing" },
+]
+const ROL_VENDEDOR: { value: RolUsuario; label: string } = { value: "vendedor", label: "Vendedor" }
 
 export default function UsuariosPage() {
   const { usuario: cu } = useAuthContext()
+  const { vertical } = useConfiguracionEmpresa()
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [cargando, setCargando] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
@@ -27,6 +38,7 @@ export default function UsuariosPage() {
   const [showCredential, setShowCredential] = useState(false)
   const [credentialData, setCredentialData] = useState<ResultadoCreacionOperador | null>(null)
   const [showPin, setShowPin] = useState(false)
+  const rolesOperador = vertical === "BODEGA_MVP1" ? [...ROLES_OPERADOR_BASE, ROL_VENDEDOR] : ROLES_OPERADOR_BASE
 
   useEffect(() => { const u = suscribirUsuarios(d => { setUsuarios(d); setCargando(false) }); return u }, [])
 
@@ -188,11 +200,7 @@ export default function UsuariosPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="admin" className="text-xs">Admin</SelectItem>
-                        <SelectItem value="supervisor" className="text-xs">Supervisor</SelectItem>
-                        <SelectItem value="cajero" className="text-xs">Cajero</SelectItem>
-                        <SelectItem value="cocinero" className="text-xs">Cocinero</SelectItem>
-                        <SelectItem value="marketing" className="text-xs">Marketing</SelectItem>
+                        {rolesOperador.map((rol) => <SelectItem key={rol.value} value={rol.value} className="text-xs">{rol.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   )}
@@ -240,11 +248,7 @@ export default function UsuariosPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="!bg-card !border-border">
-                  <SelectItem value="admin" className="!text-foreground focus:!bg-input">Administrador</SelectItem>
-                  <SelectItem value="supervisor" className="!text-foreground focus:!bg-input">Supervisor</SelectItem>
-                  <SelectItem value="cajero" className="!text-foreground focus:!bg-input">Cajero</SelectItem>
-                  <SelectItem value="cocinero" className="!text-foreground focus:!bg-input">Cocinero</SelectItem>
-                  <SelectItem value="marketing" className="!text-foreground focus:!bg-input">Marketing</SelectItem>
+                  {rolesOperador.map((rol) => <SelectItem key={rol.value} value={rol.value} className="!text-foreground focus:!bg-input">{rol.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
