@@ -112,7 +112,14 @@ export async function listarRecursosPlataforma(
         const version = Number.isInteger(versionActual)
           ? await db.collection("planes").doc(doc.id).collection("versiones").doc(String(versionActual)).get()
           : null;
-        return { id: doc.id, ...sanitizar(root), ...(version?.exists ? sanitizar(version.data()!) : {}) };
+        return {
+          id: doc.id,
+          ...sanitizar(root),
+          // La revisión del agregado controla CrearNuevaVersionPlan; la revisión
+          // de la versión controla PublicarPlan/RetirarVersionPlan.
+          planRevision: Number.isInteger(root.revision) ? root.revision : null,
+          ...(version?.exists ? sanitizar(version.data()!) : {}),
+        };
       }))
     : snap.docs.map((doc) => ({ id: doc.id, ...sanitizar(doc.data()) }));
   return {

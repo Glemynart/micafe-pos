@@ -61,6 +61,8 @@ No se usan NIT, credenciales fiscales, PINs o secretos inventados.
 
 Antes de provisionar un tenant real, el ensayo debe usar el Bootstrap canónico con `vertical: BODEGA_MVP1` y una identidad de prueba. La evidencia pendiente es: acceso autorizado al Preview protegido por Vercel SSO; confirmación de que el Preview apunta a Firebase `micafe-pos-staging`; Functions de staging publicadas desde el SHA certificado; y disponibilidad de los secretos operativos requeridos por Bootstrap e incorporaciones sin exponer sus valores. Si cualquiera falta, el gate permanece bloqueado: no se crea Distribuidora Las Jiménez, usuarios reales, datos comerciales ni se despliega producción.
 
+El Backoffice comercial materializa el catálogo exclusivamente mediante `CrearPlan`, `CrearNuevaVersionPlan` y `PublicarPlan`, bajo `COMERCIAL_GOBERNAR`. La creación inicial produce v1 en `BORRADOR`; una oferta ANUAL se crea como versión posterior y exige el precio que valida el contrato server-side. El Trial de 30 días continúa siendo responsabilidad exclusiva del Bootstrap.
+
 ### 2.2 Transición del tenant mensual histórico
 
 La transición de Café Atrato conserva el Trial histórico y nunca lo reinicia.
