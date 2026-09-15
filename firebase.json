@@ -19,6 +19,10 @@
     {
       "source": "functions-platform-resources",
       "codebase": "saas-platform-resources"
+    },
+    {
+      "source": "functions-commercial",
+      "codebase": "saas-commercial"
     }
   ],
   "firestore": {

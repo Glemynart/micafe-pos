@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { FieldValue } from "firebase-admin/firestore";
-import { ejecutarComandoComercial, solicitarBootstrapEmpresarial } from "./operations";
+import { solicitarBootstrapEmpresarial } from "./operations";
+import { ejecutarComandoComercial } from "./commercial-command-executor";
 import { ejecutarBootstrapEmpresarial } from "../bootstrap/service";
 import { ejecutarComandoConfiguracion } from "../configuracion/service";
 import { suspenderTrialVencido } from "../suscripciones/service";

@@ -8,9 +8,8 @@ import type { EnvelopePlataforma, FacultadPlataforma } from "./contracts";
 import { registrarHechoAuditoria, type HechoAuditable } from "./audit";
 import { createConfiguredDusemaS2sClient, DUSEMA_ADMIN_BASE_URL_PARAM, DUSEMA_S2S_AUDIENCE_PARAM, DUSEMA_S2S_ISSUER_PARAM, DUSEMA_S2S_KID_PARAM, DUSEMA_S2S_PRIVATE_KEY_PARAM, DusemaS2sError, proyectarTenantDusema, type DusemaTenantMetadata } from "./dusema-s2s-client";
 import { ejecutarComandoOperador } from "./operators";
-import { ejecutarComandoComercial, provisionarCredencialInicialTenant, reemitirCredencialInicialTemporalTenant, solicitarBootstrapEmpresarial } from "./operations";
+import { provisionarCredencialInicialTenant, reemitirCredencialInicialTemporalTenant, solicitarBootstrapEmpresarial } from "./operations";
 import { desbloquearAdministradorInicialTenant } from "./desbloquear-administrador-inicial-tenant";
-import { facultadTransicionEmpresa, obtenerComandoComercial } from "./command-catalog";
 import { consultarAuditoriaPlataforma, obtenerDetalleEmpresaPlataforma, validarFiltroAuditoria } from "./queries";
 import { listarSoporteTenant, solicitarSoporte, transicionarSoporte } from "./support";
 import { exigirId } from "./validation";
@@ -227,24 +226,6 @@ export const desbloquearAdministradorInicialTenantSaas = onCall({ region: REGION
   const data = request.data as (EnvelopePlataforma & { empresaId?: unknown }) | undefined;
   if (!data || typeof data.empresaId !== "string") throw new HttpsError("invalid-argument", "EMPRESA_ID_INVALIDO");
   return desbloquearAdministradorInicialTenant(db, auth.uid, data as EnvelopePlataforma & { empresaId: string }, auth.token as TokenPlataforma);
-});
-
-export const ejecutarComandoComercialSaas = onCall({ region: REGION }, async (request) => {
-  const auth = exigirAuth(request);
-  const data = request.data as { tipo?: unknown; entrada?: unknown };
-  const comando = obtenerComandoComercial(data?.tipo);
-  if (!data || !data.entrada || typeof data.entrada !== "object" || Array.isArray(data.entrada)) {
-    throw new HttpsError("invalid-argument", "ENTRADA_COMANDO_INVALIDA");
-  }
-  const db = getFirestore();
-  const entrada = data.entrada as { destino?: unknown; empresaId?: unknown };
-  // Archivar, restaurar y eliminar Empresa exigen CONSERVACION_GOBERNAR, separada de
-  // LIFECYCLE_GOBERNAR (ADR-SAAS-011 §3.3, MT-U9 §B2.7); ver command-catalog.ts.
-  const facultad = comando.tipo === "TransicionarEmpresa"
-    ? await facultadTransicionEmpresa(db, entrada.destino, entrada.empresaId)
-    : comando.facultad;
-  await autorizarPlataforma(db, auth.uid, auth.token, facultad);
-  return ejecutarComandoComercial(db, auth.uid, comando.tipo, data.entrada as never);
 });
 
 export const obtenerDetalleEmpresaPlataformaSaas = onCall({ region: REGION }, async (request) => {
