@@ -150,6 +150,21 @@ test("B3 publica versiones inmutables, permite crear versiones superiores y mant
   assert.equal(db.read("planes/plan_legacy/versiones/1").estado, "PUBLICADA"); // Versión 1 permanece inalterada
 });
 
+test("B3 exige la revisión vigente del agregado al crear una nueva versión anual", async () => {
+  const db = new Db();
+  await crearPlan(db as any, { ...env("mvp_v1"), planId: "mvp_comercial", codigo: "MVP_COMERCIAL", capacidades: ["sell"], limites: {}, periodicidad: "MENSUAL", grandfathered: false }, ctx);
+  await assert.rejects(
+    crearNuevaVersionPlan(db as any, { ...env("mvp_v2_conflict", 2), planId: "mvp_comercial", codigo: "MVP_COMERCIAL", capacidades: ["sell"], limites: {}, periodicidad: "ANUAL", precio: { importe: 1800000, moneda: "COP" }, grandfathered: false }, ctx),
+    /PLAN_REVISION_CONFLICT/,
+  );
+  await assert.rejects(
+    crearNuevaVersionPlan(db as any, { ...env("mvp_v2_missing_price"), planId: "mvp_comercial", codigo: "MVP_COMERCIAL", capacidades: ["sell"], limites: {}, periodicidad: "ANUAL", grandfathered: false }, ctx),
+    /PLAN_ANUAL_PRECIO_REQUERIDO/,
+  );
+  await crearNuevaVersionPlan(db as any, { ...env("mvp_v2"), planId: "mvp_comercial", codigo: "MVP_COMERCIAL", capacidades: ["sell"], limites: {}, periodicidad: "ANUAL", precio: { importe: 1800000, moneda: "COP" }, grandfathered: false }, ctx);
+  assert.deepEqual(db.read("planes/mvp_comercial/versiones/2").precio, { importe: 1800000, moneda: "COP" });
+});
+
 test("B2 completa lifecycle comercial sin alterar referencias publicadas o lifecycle Empresa", async () => {
   const db = new Db();
   await crearPlan(db as any, { ...env("plan_editable"), planId: "plan_editable", codigo: "EDITABLE", capacidades: ["pos"], limites: {}, periodicidad: "MENSUAL", grandfathered: false }, ctx);
