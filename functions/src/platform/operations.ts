@@ -4,24 +4,6 @@ import { defineSecret } from "firebase-functions/params";
 import { HttpsError } from "firebase-functions/v2/https";
 import type { EntradaBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
 import { ejecutarBootstrapEmpresarial, type ClaimsEmitter, type CredentialIssuer, type OwnerIdentityEnabler, type OwnerIdentityResolver, type OwnerIdentityVerifier } from "../bootstrap/service";
-import {
-  crearNuevaVersionPlan,
-  crearPlan,
-  crearSuscripcionActiva,
-  crearSuscripcionTrial,
-  actualizarBorradorPlan,
-  actualizarDatosAdministrativosEmpresa,
-  retirarVersionPlan,
-  renovarSuscripcion,
-  confirmarPagoAnualSuscripcion,
-  cambiarPlanSuscripcion,
-  programarCancelacionSuscripcion,
-  revocarCancelacionSuscripcion,
-  publicarPlan,
-  transicionarEmpresa,
-  transicionarSuscripcion,
-} from "../suscripciones/service";
-import { confirmarPagoAnualRelacionContractual, crearRelacionContractualTrial } from "../suscripciones/relaciones-service";
 import { crearObligacionAuditoria, emitirObligacionAuditoria } from "./audit";
 import type {
   EnvelopePlataforma,
@@ -31,7 +13,11 @@ import type {
 } from "./contracts";
 import { autorizarPlataforma, type TokenPlataforma } from "./authorization";
 import { validarEnvelope } from "./validation";
-import { obtenerComandoComercial, type TipoComandoComercial } from "./command-catalog";
+import {
+  finalizarResultadoAuditable,
+  planificarConfirmacionAuditoria,
+  type ConfirmacionAuditoriaPlanificada,
+} from "./audit-confirmation";
 import { emitirCredencialInicial, type ResolverPrincipal } from "./emitir-credencial-inicial";
 import {
   resolverPlanEmisionCredencialInicial,
@@ -47,47 +33,6 @@ const hash = (value: unknown) =>
 // el pepper declara su propia referencia; se resuelve por nombre en runtime.
 const PIN_PEPPER = defineSecret("OPERATIONAL_PIN_PEPPER");
 const MOTIVO_REEMISION_CREDENCIAL_INICIAL = "REEMISION_ADMINISTRATIVA_PIN_NO_ENTREGADO";
-
-type ConfirmacionAuditoriaPlanificada = {
-  obligacionId: string;
-  registrarEnTransaccion: (tx: any, resultado: unknown) => { obligacionId: string };
-};
-
-function planificarConfirmacionAuditoria(
-  db: Firestore,
-  actorUid: string,
-  facultad: FacultadPlataforma,
-  tipoComando: string,
-  entrada: EnvelopePlataforma,
-  agregado: { tipo: TipoAgregadoAuditoria; id: string },
-  empresaObjetivoId: string | null,
-  tipoAuditoria: TipoAuditoria,
-  revision: (resultado: any) => { esperada: number | null; resultante: number | null },
-  detalle?: (resultado: any) => Record<string, unknown>,
-): ConfirmacionAuditoriaPlanificada {
-  const ids = { obligacionId: randomUUID(), evidenciaId: randomUUID() };
-  return {
-    obligacionId: ids.obligacionId,
-    registrarEnTransaccion: (tx, resultado) => {
-      const detalleAuditable = detalle?.(resultado);
-      crearObligacionAuditoria(db, tx, {
-        tipo: tipoAuditoria,
-        resultado: "CONFIRMADO",
-        actor: { tipo: "OPERADOR", uid: actorUid },
-        facultad,
-        comando: { id: entrada.commandId, tipo: tipoComando },
-        agregado,
-        empresaObjetivoId,
-        revision: revision(resultado),
-        correlacionId: entrada.correlationId,
-        causacionId: entrada.causationId,
-        motivo: { codigo: entrada.motivoCodigo, resumen: null },
-        ...(detalleAuditable ? { detalle: detalleAuditable } : {}),
-      }, ids);
-      return { obligacionId: ids.obligacionId };
-    },
-  };
-}
 
 /**
  * Variante de sistema para hechos que el propio dominio confirma tras el commit —no
@@ -125,24 +70,6 @@ function planificarConfirmacionSistema(
     },
   };
 }
-
-async function finalizarResultadoAuditable(
-  db: Firestore,
-  resultado: Record<string, unknown>,
-  plan: ConfirmacionAuditoriaPlanificada,
-) {
-  // La obligación ya fue creada dentro de la transacción del agregado (fresca o, en un
-  // reintento idempotente, recuperada desde el resultado durable — nunca regenerada).
-  // La emisión es en sí misma idempotente y no vuelve a confirmar ningún hecho de dominio.
-  const obligacionId = resultado.idempotente
-    ? (resultado.obligacionId as string | undefined)
-    : plan.obligacionId;
-  if (obligacionId) {
-    await emitirObligacionAuditoria(db, obligacionId);
-  }
-  return resultado;
-}
-
 export async function solicitarBootstrapEmpresarial(
   db: Firestore,
   actorUid: string,
@@ -291,7 +218,6 @@ export async function provisionarCredencialInicialTenant(
   };
   return finalizarResultadoAuditable(db, resultado, confirmacion);
 }
-
 /**
  * ADR-SAAS-013 §4.4.1. Rotación administrativa dirigida de una credencial
  * temporal vigente cuya única entrega se perdió. Nunca es un override de la
@@ -373,157 +299,4 @@ export async function reemitirCredencialInicialTemporalTenant(
     idempotente: emitida.estado === "YA_EXISTENTE",
   };
   return finalizarResultadoAuditable(db, resultado, confirmacion);
-}
-
-type ComercialEntrada = EnvelopePlataforma & Record<string, any>;
-
-export async function ejecutarComandoComercial(
-  db: Firestore,
-  actorUid: string,
-  tipo: TipoComandoComercial,
-  entrada: ComercialEntrada,
-) {
-  obtenerComandoComercial(tipo);
-  validarEnvelope(entrada);
-  const dominio = {
-    ...entrada,
-    motivo: entrada.motivoCodigo,
-    causationId: entrada.causationId ?? entrada.commandId,
-  };
-  const ctxBase = { actorId: actorUid, origen: "PLATFORM" as const };
-  let resultado: any;
-  let facultad: FacultadPlataforma;
-  let evento: TipoAuditoria;
-  let agregado: { tipo: TipoAgregadoAuditoria; id: string };
-  let empresaObjetivoId: string | null = entrada.empresaId ?? null;
-  let plan: ConfirmacionAuditoriaPlanificada;
-
-  if (tipo === "CrearPlan") {
-    facultad = "COMERCIAL_GOBERNAR";
-    evento = "PLAN_CREADO";
-    agregado = { tipo: "PLAN", id: entrada.planId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, () => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: 1 }));
-    resultado = await crearPlan(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
-  } else if (tipo === "CrearNuevaVersionPlan") {
-    facultad = "COMERCIAL_GOBERNAR";
-    evento = "PLAN_VERSION_CREADA";
-    agregado = { tipo: "PLAN", id: entrada.planId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
-    resultado = await crearNuevaVersionPlan(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
-  } else if (tipo === "PublicarPlan") {
-    facultad = "COMERCIAL_GOBERNAR";
-    evento = "PLAN_VERSION_PUBLICADA";
-    agregado = { tipo: "PLAN", id: entrada.planId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
-    resultado = await publicarPlan(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
-  } else if (tipo === "ActualizarBorradorPlan") {
-    facultad = "COMERCIAL_GOBERNAR";
-    evento = "PLAN_BORRADOR_ACTUALIZADO";
-    agregado = { tipo: "PLAN", id: entrada.planId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
-    resultado = await actualizarBorradorPlan(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
-  } else if (tipo === "RetirarVersionPlan") {
-    facultad = "COMERCIAL_GOBERNAR";
-    evento = "PLAN_VERSION_RETIRADA";
-    agregado = { tipo: "PLAN", id: entrada.planId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
-    resultado = await retirarVersionPlan(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
-  } else if (tipo === "CrearSuscripcionActiva") {
-    facultad = "COMERCIAL_GOBERNAR";
-    evento = "SUSCRIPCION_CREADA";
-    agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, () => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: 1 }));
-    resultado = await crearSuscripcionActiva(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
-  } else if (tipo === "CrearSuscripcionTrial") {
-    facultad = "COMERCIAL_GOBERNAR";
-    evento = "SUSCRIPCION_CREADA";
-    agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, () => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: 1 }));
-    resultado = await crearSuscripcionTrial(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
-  } else if (tipo === "CrearRelacionContractualTrial") {
-    facultad = "COMERCIAL_GOBERNAR";
-    evento = "SUSCRIPCION_RELACION_CONTRACTUAL_CREADA";
-    agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
-    plan = planificarConfirmacionAuditoria(
-      db,
-      actorUid,
-      facultad,
-      tipo,
-      entrada,
-      agregado,
-      empresaObjetivoId,
-      evento,
-      (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }),
-      (r: any) => ({ relacionId: r.relacionId, relacionAnteriorId: entrada.relacionAnteriorId }),
-    );
-    resultado = await crearRelacionContractualTrial(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
-  } else if (tipo === "TransicionarSuscripcion") {
-    facultad = "COMERCIAL_GOBERNAR";
-    const eventos: Record<string, TipoAuditoria> = {
-      active: "SUSCRIPCION_ACTIVADA",
-      past_due: "SUSCRIPCION_MORA_MARCADA",
-      suspended: "SUSCRIPCION_SUSPENDIDA",
-      canceled: "SUSCRIPCION_CANCELADA",
-    };
-    evento = eventos[entrada.destino] ?? "SUSCRIPCION_REACTIVADA";
-    agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
-    resultado = await transicionarSuscripcion(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
-  } else if (tipo === "RenovarSuscripcion") {
-    facultad = "COMERCIAL_GOBERNAR";
-    evento = "SUSCRIPCION_RENOVADA";
-    agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
-    resultado = await renovarSuscripcion(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
-  } else if (tipo === "CambiarPlanSuscripcion") {
-    facultad = "COMERCIAL_GOBERNAR";
-    evento = "SUSCRIPCION_PLAN_CAMBIADO";
-    agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
-    resultado = await cambiarPlanSuscripcion(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
-  } else if (tipo === "ProgramarCancelacionSuscripcion") {
-    facultad = "COMERCIAL_GOBERNAR";
-    evento = "SUSCRIPCION_CANCELACION_PROGRAMADA";
-    agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
-    resultado = await programarCancelacionSuscripcion(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
-  } else if (tipo === "RevocarCancelacionSuscripcion") {
-    facultad = "COMERCIAL_GOBERNAR";
-    evento = "SUSCRIPCION_CANCELACION_REVOCADA";
-    agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
-    resultado = await revocarCancelacionSuscripcion(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
-  } else if (tipo === "ConfirmarPagoAnualSuscripcion") {
-    facultad = "COMERCIAL_GOBERNAR";
-    evento = "SUSCRIPCION_PAGO_ANUAL_CONFIRMADO";
-    agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
-    resultado = await confirmarPagoAnualSuscripcion(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
-  } else if (tipo === "ConfirmarPagoAnualRelacionContractual") {
-    facultad = "COMERCIAL_GOBERNAR";
-    evento = "SUSCRIPCION_RELACION_PAGO_ANUAL_CONFIRMADO";
-    agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }), (r: any) => ({ relacionId: r.relacionId, reciboId: r.reciboId }));
-    resultado = await confirmarPagoAnualRelacionContractual(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
-  } else if (tipo === "ActualizarDatosAdministrativosEmpresa") {
-    facultad = "LIFECYCLE_GOBERNAR";
-    evento = "EMPRESA_DATOS_ADMINISTRATIVOS_ACTUALIZADOS";
-    agregado = { tipo: "EMPRESA", id: entrada.empresaId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
-    resultado = await actualizarDatosAdministrativosEmpresa(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
-  } else {
-    facultad = "LIFECYCLE_GOBERNAR";
-    const eventos: Record<string, TipoAuditoria> = {
-      activa: "EMPRESA_ACTIVADA",
-      suspendida: "EMPRESA_SUSPENDIDA",
-      cancelada: "EMPRESA_CANCELADA",
-      archivada: "EMPRESA_ARCHIVADA",
-      eliminada: "EMPRESA_ELIMINADA",
-    };
-    evento = eventos[entrada.destino] ?? "EMPRESA_REACTIVADA";
-    agregado = { tipo: "EMPRESA", id: entrada.empresaId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
-    resultado = await transicionarEmpresa(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
-  }
-  return finalizarResultadoAuditable(db, resultado, plan);
 }

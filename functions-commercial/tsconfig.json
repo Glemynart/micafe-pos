@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "firebase-admin/*": ["node_modules/firebase-admin/lib/*/index"],
+      "firebase-functions/v2/https": ["node_modules/firebase-functions/lib/v2/providers/https"]
+    },
+    "outDir": "lib",
+    "rootDir": "..",
+    "declaration": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "../functions/src/platform/commercial-callable.ts",
+    "../functions/src/platform/commercial-command-executor.ts",
+    "../functions/src/platform/audit-confirmation.ts",
+    "../functions/src/platform/authorization.ts",
+    "../functions/src/platform/audit.ts",
+    "../functions/src/platform/command-catalog.ts",
+    "../functions/src/platform/contracts.ts",
+    "../functions/src/platform/validation.ts",
+    "../functions/src/suscripciones/service.ts",
+    "../functions/src/suscripciones/relaciones-service.ts",
+    "../functions/src/suscripciones/relacion-vigente.ts",
+    "../functions/src/configuracion/service.ts",
+    "../functions/src/configuracion/capacidades-plan.ts"
+  ],
+  "exclude": ["src/**/*.test.ts", "lib", "node_modules"]
+}

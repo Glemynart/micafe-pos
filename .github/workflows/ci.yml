@@ -34,6 +34,7 @@ jobs:
             package-lock.json
             functions/package-lock.json
             functions-dusema-binding/package-lock.json
+            functions-commercial/package-lock.json
             functions-platform-context/package-lock.json
             functions-operator-summary/package-lock.json
             functions-platform-resources/package-lock.json
@@ -54,6 +55,10 @@ jobs:
       - name: Instalar dependencias del codebase Dusema binding
         run: npm ci
         working-directory: functions-dusema-binding
+
+      - name: Instalar dependencias del codebase Commercial
+        run: npm ci
+        working-directory: functions-commercial
 
       - name: Instalar dependencias del codebase Platform context
         run: npm ci
@@ -83,6 +88,14 @@ jobs:
       - name: Discovery secret-free del codebase Dusema binding
         run: npm run test:discovery
         working-directory: functions-dusema-binding
+
+      - name: Build del codebase Commercial
+        run: npm run build
+        working-directory: functions-commercial
+
+      - name: Discovery secret-free del codebase Commercial
+        run: npm run test:discovery
+        working-directory: functions-commercial
 
       - name: Build del codebase Platform context
         run: npm run build

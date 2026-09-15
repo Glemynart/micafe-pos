@@ -41,6 +41,7 @@
     "node_modules",
     "functions/**",
     "functions-dusema-binding/**",
+    "functions-commercial/**",
     "functions-platform-context/**",
     "functions-operator-summary/**",
     "functions-platform-resources/**"
