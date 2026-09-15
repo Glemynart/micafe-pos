@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import { resolve } from "node:path";
 import { detenerEmuladoresDemo, exigirProjectIdEmulador, prepararParametrosDusemaEmulador } from "./emulator-preflight.mjs";
@@ -28,15 +28,37 @@ const env = {
   OPERATIONAL_PIN_PEPPER: process.env.OPERATIONAL_PIN_PEPPER ?? "operator-portal-e2e-pepper",
 };
 
-const compilacion = spawnSync(process.execPath, [
-  resolve("functions", "node_modules", "typescript", "bin", "tsc"), "-p", "functions/tsconfig.json",
-], { cwd: process.cwd(), env, encoding: "utf8" });
-writeFileSync(resolve(evidenceDir, "functions-build.log"), `${compilacion.stdout ?? ""}${compilacion.stderr ?? ""}`);
-if (compilacion.stdout) process.stdout.write(compilacion.stdout);
-if (compilacion.stderr) process.stderr.write(compilacion.stderr);
-if (compilacion.status !== 0) {
+function obtenerCodebasesFunctions() {
+  const configuracion = JSON.parse(readFileSync(resolve("firebase.json"), "utf8"));
+  if (!Array.isArray(configuracion.functions)) {
+    throw new Error("firebase.json debe declarar los codebases de Functions como una lista.");
+  }
+  const codebases = configuracion.functions.map(({ source }) => source);
+  if (codebases.some((source) => typeof source !== "string" || !source)) {
+    throw new Error("Cada codebase de Functions debe declarar un source válido.");
+  }
+  return [...new Set(codebases)];
+}
+
+const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+const codebasesFunctions = obtenerCodebasesFunctions();
+const compilaciones = codebasesFunctions.map((codebase) => ({
+  codebase,
+  resultado: spawnSync(npm, ["--prefix", codebase, "run", "build"], {
+    cwd: process.cwd(), env, encoding: "utf8", shell: process.platform === "win32",
+  }),
+}));
+const logCompilacion = compilaciones.map(({ codebase, resultado }) => [
+  `===== ${codebase} =====`,
+  resultado.stdout ?? "",
+  resultado.stderr ?? "",
+  resultado.error?.message ?? "",
+].join("\n")).join("\n");
+writeFileSync(resolve(evidenceDir, "functions-build.log"), `${logCompilacion}\n`);
+if (logCompilacion) process.stdout.write(`${logCompilacion}\n`);
+if (compilaciones.some(({ resultado }) => resultado.status !== 0 || resultado.error)) {
   writeFileSync(resolve(evidenceDir, "result.json"), `${JSON.stringify({ projectId, runId, exitCode: 1 }, null, 2)}\n`);
-  throw new Error("La compilacion de Functions fallo.");
+  throw new Error("La compilación de uno o más codebases de Functions falló.");
 }
 
 function puertoEnUso(port) {
