@@ -44,6 +44,7 @@
     "functions-commercial/**",
     "functions-platform-context/**",
     "functions-operator-summary/**",
-    "functions-platform-resources/**"
+    "functions-platform-resources/**",
+    "functions-tenant-configuration/**"
   ]
 }
