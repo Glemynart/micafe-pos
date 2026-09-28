@@ -10,8 +10,10 @@ import {
   type OperacionConfiguracion,
   type RutaHojaEditableConfiguracion,
 } from "../../../lib/configuracion";
+import { CONFIGURACIONES_COLLECTION, leerConfiguracionEmpresa } from "./reader";
 
-export const CONFIGURACIONES_COLLECTION = "configuraciones";
+export { CONFIGURACIONES_COLLECTION, leerConfiguracionEmpresa } from "./reader";
+
 const COMANDOS = ["ActualizarConfiguracionEmpresa", "ActualizarParametrosFiscales", "ActualizarPreferenciasImpresion", "ActualizarPoliticasOperativas"] as const;
 type Comando = (typeof COMANDOS)[number];
 export interface EntradaComandoConfiguracion { comando: Comando; expectedRevision: number; idempotencyKey: string; commandId: string; correlationId: string; motivo?: string; operaciones: OperacionConfiguracion[] }
@@ -199,15 +201,3 @@ export async function inicializarConfiguracionEmpresaEnTransaccion(db: Firestore
 }
 
 export async function inicializarConfiguracionEmpresa(entrada: EntradaInicializacionConfiguracion) { const db = getFirestore(); return db.runTransaction((tx) => inicializarConfiguracionEmpresaEnTransaccion(db, tx, entrada)); }
-
-export async function leerConfiguracionEmpresa(db: Firestore, empresaId: string): Promise<ConfiguracionEmpresa> {
-  const snap = await db.collection(CONFIGURACIONES_COLLECTION).doc(empresaId).get();
-  if (!snap.exists) throw new HttpsError("not-found", "Configuración inexistente.");
-  const configuracion = snap.data() as ConfiguracionEmpresa;
-  const empresa = await db.collection("empresas").doc(empresaId).get();
-  const paisFiscal = empresa.data()?.paisFiscal;
-  if (!empresa.exists || typeof paisFiscal !== "string" || !validarConfiguracionEmpresa(configuracion, { empresaId, paisFiscalEmpresa: paisFiscal }).valida) {
-    throw new HttpsError("failed-precondition", "Configuración inválida.");
-  }
-  return configuracion;
-}
