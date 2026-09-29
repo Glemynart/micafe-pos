@@ -74,6 +74,16 @@ if (compilacion.stdout) process.stdout.write(compilacion.stdout);
 if (compilacion.stderr) process.stderr.write(compilacion.stderr);
 if (compilacion.status !== 0) throw new Error("La compilación de Functions falló; P0-01 E2E no usa artefactos desactualizados.");
 
+const compilacionConfiguracionTenant = spawnSync(process.execPath, [
+  resolve("functions-tenant-configuration", "node_modules", "typescript", "bin", "tsc"),
+  "-p",
+  "functions-tenant-configuration/tsconfig.json",
+], { cwd: process.cwd(), env, encoding: "utf8" });
+writeFileSync(resolve(evidenceDir, "tenant-configuration-build.log"), `${compilacionConfiguracionTenant.stdout ?? ""}${compilacionConfiguracionTenant.stderr ?? ""}`);
+if (compilacionConfiguracionTenant.stdout) process.stdout.write(compilacionConfiguracionTenant.stdout);
+if (compilacionConfiguracionTenant.stderr) process.stderr.write(compilacionConfiguracionTenant.stderr);
+if (compilacionConfiguracionTenant.status !== 0) throw new Error("La compilación de Tenant configuration falló; P0-01 E2E no usa artefactos desactualizados.");
+
 const estados = await obtenerEstadoPuertos(endpoints);
 const puertosEnUso = estados.filter((estado) => estado.enUso);
 const usarExistentes = puertosEnUso.length === estados.length;
@@ -90,7 +100,10 @@ const firebaseCli = resolve("node_modules", "firebase-tools", "lib", "bin", "fir
 // no dentro de evidencia, para conservar las rutas canónicas del proyecto.
 const emulatorConfigPath = resolve(`.firebase.p0-01-${runId}.json`);
 writeFileSync(emulatorConfigPath, `${JSON.stringify({
-  functions: [{ source: "functions", codebase: "saas-auth" }],
+  functions: [
+    { source: "functions", codebase: "saas-auth" },
+    { source: "functions-tenant-configuration", codebase: "saas-tenant-configuration" },
+  ],
   firestore: { rules: "firestore.rules", indexes: "firestore.indexes.json" },
   emulators: {
     functions: { port: endpoints.functions.port },
