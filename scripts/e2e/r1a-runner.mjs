@@ -69,6 +69,18 @@ if (compilacionConfiguracionTenant.status !== 0) {
   throw new Error("La compilación de Tenant configuration falló; R1-A E2E no permite ejecutar contra artefactos desactualizados.");
 }
 
+const compilacionAutenticacionOperativa = spawnSync(process.execPath, [
+  resolve("functions-operational-auth", "node_modules", "typescript", "bin", "tsc"), "-p", "functions-operational-auth/tsconfig.json",
+], {
+  cwd: process.cwd(), env, encoding: "utf8",
+});
+writeFileSync(resolve(evidenceDir, "operational-auth-build.log"), `${compilacionAutenticacionOperativa.stdout ?? ""}${compilacionAutenticacionOperativa.stderr ?? ""}`);
+if (compilacionAutenticacionOperativa.stdout) process.stdout.write(compilacionAutenticacionOperativa.stdout);
+if (compilacionAutenticacionOperativa.stderr) process.stderr.write(compilacionAutenticacionOperativa.stderr);
+if (compilacionAutenticacionOperativa.status !== 0) {
+  throw new Error("La compilación de Operational auth falló; R1-A E2E no permite ejecutar contra artefactos desactualizados.");
+}
+
 const estados = await obtenerEstadoPuertos(endpoints);
 const permitirReutilizacion = process.env.E2E_R1A_REUSE_EMULATORS === "1";
 const usarExistentes = permitirReutilizacion && estados.every(({ enUso }) => enUso);
@@ -82,6 +94,7 @@ writeFileSync(emulatorConfigPath, `${JSON.stringify({
   functions: [
     { source: "functions", codebase: "saas-auth" },
     { source: "functions-tenant-configuration", codebase: "saas-tenant-configuration" },
+    { source: "functions-operational-auth", codebase: "saas-operational-auth" },
   ],
   firestore: { rules: "firestore.rules", indexes: "firestore.indexes.json" },
   emulators: { functions: { port: endpoints.functions.port }, firestore: { port: endpoints.firestore.port }, auth: { port: endpoints.auth.port }, singleProjectMode: true },
