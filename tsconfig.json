@@ -45,6 +45,9 @@
     "functions-platform-context/**",
     "functions-operator-summary/**",
     "functions-platform-resources/**",
-    "functions-tenant-configuration/**"
+    "functions-tenant-configuration/**",
+    "functions-bootstrap/**",
+    "functions-operational-auth/**",
+    "functions-operational-activation/**"
   ]
 }

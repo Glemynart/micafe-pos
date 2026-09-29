@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { FieldValue, Timestamp, getFirestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions";
@@ -13,9 +13,25 @@ import {
   normalizarCodigo,
 } from "./contracts";
 import { hashearPin, verificarPin } from "./pin-security";
-import { esCredencialTemporalPlataformaVencidaOInvalida } from "./platform/vigencia-credencial-temporal";
-import { validarRestablecimientoParaAutenticacion } from "./credential-recovery-service";
+import { ejecutarAutenticacionOperativa } from "./operational-auth-executor";
+import {
+  actualizarClaimsTenant,
+  estaBloqueada,
+  emitirSesionTenant,
+  normalizarPermisosEfectivos,
+  registrarFallo,
+  validarSnapshotEmpresaEscribible,
+} from "./operational/tenant-context";
 import { exigirTenantActivo, validarMembresiaActiva } from "./tenant-configuration/authority";
+
+export {
+  actualizarClaimsTenant,
+  estaBloqueada,
+  emitirSesionTenant,
+  normalizarPermisosEfectivos,
+  registrarFallo,
+  validarSnapshotEmpresaEscribible,
+} from "./operational/tenant-context";
 
 export { exigirTenantActivo } from "./tenant-configuration/authority";
 
@@ -23,9 +39,6 @@ initializeApp();
 
 const REGION = "us-central1";
 const PIN_PEPPER = defineSecret("OPERATIONAL_PIN_PEPPER");
-const INCORPORACIONES_COLLECTION = "incorporaciones";
-const MAX_FALLOS = 5;
-const BLOQUEO_MS = 15 * 60 * 1000;
 const ERROR_CREDENCIALES = "Credenciales operativas inválidas.";
 /** Plantilla canónica mínima del rol Bodega MVP-1. */
 export const PERMISOS_VENDEDOR = ["sell", "shifts"] as const;
@@ -76,65 +89,6 @@ function referenciaCredencial(empresaId: string, codigo: string) {
   return getFirestore().collection("credenciales_operativas").doc(idCredencialOperativa(empresaId, codigo));
 }
 
-interface CredencialOperativaResuelta {
-  empresa: { id: string; estado: string };
-  ref: FirebaseFirestore.DocumentReference;
-  credencial: CredencialOperativa;
-}
-
-/** Contrato canónico de lifecycle para operaciones tenant que requieren escritura. */
-export function validarSnapshotEmpresaEscribible(
-  snap: { exists: boolean; id: string; data(): FirebaseFirestore.DocumentData | undefined },
-): { id: string; estado: string } {
-  const estado = snap.data()?.estado;
-  if (!snap.exists || (estado !== "activa" && estado !== "trial")) {
-    throw new HttpsError("failed-precondition", "La empresa no permite operaciones de escritura en su estado actual.");
-  }
-  return { id: snap.id, estado };
-}
-
-/**
- * R-6 — La credencial no recibe empresaId del cliente. El backend identifica
- * su tenant mediante búsqueda global por código en `credenciales_operativas`
- * y desambigua por PIN, sin depender de una empresa fundacional.
- */
-async function resolverCredencialOperativa(
-  codigo: string,
-  pin: string,
-): Promise<CredencialOperativaResuelta> {
-  const db = getFirestore();
-  const credencialesConCodigo = await db
-    .collection("credenciales_operativas")
-    .where("codigo", "==", codigo)
-    .get();
-
-  const candidatas = credencialesConCodigo.docs;
-  const coincidencias = (await Promise.all(candidatas.map(async (snap) => {
-    const credencial = snap.data() as CredencialOperativa;
-    if (credencial.activo !== true || await estaBloqueada(snap.ref) || !credencial.pinHash) return null;
-    return await verificarPin(pin, credencial.pinHash, obtenerPepper())
-      ? { ref: snap.ref, credencial }
-      : null;
-  }))).filter((candidata): candidata is { ref: FirebaseFirestore.DocumentReference; credencial: CredencialOperativa } => candidata !== null);
-
-  if (coincidencias.length !== 1) {
-    if (candidatas.length === 1) await registrarFallo(candidatas[0].ref);
-    throw errorCredenciales();
-  }
-
-  const { ref, credencial } = coincidencias[0];
-  if (typeof credencial.empresaId !== "string" || credencial.empresaId.trim().length === 0) {
-    throw errorCredenciales();
-  }
-  const empresaSnap = await db.collection("empresas").doc(credencial.empresaId).get();
-  try {
-    const empresa = validarSnapshotEmpresaEscribible(empresaSnap);
-    return { empresa, ref, credencial };
-  } catch {
-    throw errorCredenciales();
-  }
-}
-
 async function obtenerCredencialDelUid(empresaId: string, uid: string) {
   const snap = await getFirestore()
     .collection("credenciales_operativas")
@@ -148,28 +102,6 @@ async function obtenerCredencialDelUid(empresaId: string, uid: string) {
     throw new HttpsError("internal", "No se pudo procesar la autenticación.");
   }
 
-  return snap.docs[0] ?? null;
-}
-
-async function obtenerIncorporacionDirectaTemporal(
-  empresaId: string,
-  credencial: CredencialOperativa,
-): Promise<FirebaseFirestore.QueryDocumentSnapshot | null> {
-  const db = getFirestore();
-  if (credencial.incorporacionId) {
-    const snap = await db.collection(INCORPORACIONES_COLLECTION).doc(credencial.incorporacionId).get();
-    return snap.exists ? snap as FirebaseFirestore.QueryDocumentSnapshot : null;
-  }
-  const snap = await db.collection(INCORPORACIONES_COLLECTION)
-    .where("empresaId", "==", empresaId)
-    .where("mecanismo", "==", "DIRECTA")
-    .where("uid", "==", credencial.uid)
-    .limit(2)
-    .get();
-  if (snap.size > 1) {
-    logger.error("operational_auth_duplicate_direct_incorporations", { empresaId, uid: credencial.uid });
-    throw new HttpsError("internal", "No se pudo procesar la autenticacion.");
-  }
   return snap.docs[0] ?? null;
 }
 
@@ -219,101 +151,6 @@ export async function validarEmpresaEscribible(empresaId: string, dbParam?: any)
   return validarSnapshotEmpresaEscribible(snap);
 }
 
-export async function registrarFallo(ref: FirebaseFirestore.DocumentReference): Promise<void> {
-  await getFirestore().runTransaction(async (transaction) => {
-    const snap = await transaction.get(ref);
-    if (!snap.exists) return;
-    const actual = snap.data() as CredencialOperativa;
-    const fallos = (actual.fallosConsecutivos ?? 0) + 1;
-    const bloqueadoHasta = fallos >= MAX_FALLOS
-      ? Timestamp.fromMillis(Date.now() + BLOQUEO_MS)
-      : null;
-    transaction.update(ref, {
-      fallosConsecutivos: fallos >= MAX_FALLOS ? 0 : fallos,
-      bloqueadoHasta,
-      actualizadaEn: FieldValue.serverTimestamp(),
-    });
-  });
-}
-
-export async function estaBloqueada(ref: FirebaseFirestore.DocumentReference): Promise<boolean> {
-  const snap = await ref.get();
-  const bloqueadoHasta = (snap.data() as CredencialOperativa | undefined)?.bloqueadoHasta;
-  return !!bloqueadoHasta && bloqueadoHasta.toMillis() > Date.now();
-}
-
-async function limpiarFallos(ref: FirebaseFirestore.DocumentReference): Promise<void> {
-  await ref.update({
-    fallosConsecutivos: 0,
-    bloqueadoHasta: null,
-    actualizadaEn: FieldValue.serverTimestamp(),
-  });
-}
-
-async function acuñarSesionTenant(uid: string, empresaId: string, rol: RolTenant): Promise<string> {
-  const auth = getAuth();
-  const existente = (await auth.getUser(uid)).customClaims ?? {};
-  const platformClaims = {
-    ...(existente.saas && typeof existente.saas === "object" ? { saas: existente.saas } : {}),
-  };
-
-  await auth.setCustomUserClaims(uid, { ...platformClaims, empresaId, rol });
-  return auth.createCustomToken(uid);
-}
-
-/**
- * Emite una sesión de bootstrap sin dejar claims tenant persistentes.
- *
- * CORRECCIÓN ARQUITECTÓNICA (Capa 5, derivada del E2E): antes revocaba los
- * refresh tokens del uid antes de emitir el customToken, para invalidar una
- * sesión previa en caso de que una reparación reutilizara el principal. Se
- * eliminó tras auditar que ninguna invariante depende de ella: el uid llega
- * aquí recién creado (sin sesión previa) en el camino normal, y el único
- * caso real de invalidación —una credencial reemitida— ya se protege por su
- * cuenta en `emitirCredencialInicial` (incorporación anterior a `EXPIRED` en
- * la misma transacción), verificado por `activarIncorporacionDirecta` contra
- * el estado de Firestore, no contra la validez del token. Mantenerla creaba
- * una carrera real: `revokeRefreshTokens` fija `validSince` con resolución
- * de segundo, y el customToken emitido a continuación podía nacer con un
- * `iat` dentro del mismo segundo, autoinvalidando la sesión `DIRECTA_TEMP`
- * recién creada antes de que el cliente pudiera usarla.
- */
-export async function emitirSesionActivacionDirecta(uid: string, incorporacionId: string): Promise<string> {
-  const auth = getAuth();
-  const existente = (await auth.getUser(uid)).customClaims ?? {};
-  const platformClaims = {
-    ...(existente.saas && typeof existente.saas === "object" ? { saas: existente.saas } : {}),
-  };
-  await auth.setCustomUserClaims(uid, platformClaims);
-  return auth.createCustomToken(uid, { authStage: "DIRECTA_TEMP", incorporacionId });
-}
-
-/** Emite una sesión temporal sin claims tenant para ADR-SAAS-017. */
-export async function emitirSesionActivacionRestablecimiento(uid: string, restablecimientoId: string): Promise<string> {
-  const auth = getAuth();
-  const existente = (await auth.getUser(uid)).customClaims ?? {};
-  const platformClaims = {
-    ...(existente.saas && typeof existente.saas === "object" ? { saas: existente.saas } : {}),
-  };
-  await auth.setCustomUserClaims(uid, platformClaims);
-  return auth.createCustomToken(uid, { authStage: "RESTABLECIMIENTO_TEMP", restablecimientoId });
-}
-
-export async function actualizarClaimsTenant(
-  uid: string,
-  empresaId: string,
-  rol: RolTenant | null,
-  claimsActuales?: Record<string, unknown>,
-): Promise<void> {
-  const auth = getAuth();
-  const existente = claimsActuales ?? (await auth.getUser(uid)).customClaims ?? {};
-  const platformClaims = {
-    ...(existente.saas && typeof existente.saas === "object" ? { saas: existente.saas } : {}),
-  };
-  await auth.setCustomUserClaims(uid, rol ? { ...platformClaims, empresaId, rol } : platformClaims);
-  await auth.revokeRefreshTokens(uid);
-}
-
 /**
  * Una edición de membresía solo puede proyectar o revocar el contexto que el
  * usuario ya tiene activo. A diferencia de bootstrap e incorporaciones, esta
@@ -328,18 +165,6 @@ async function actualizarClaimsMembresiaSiTenantActivo(
   const claimsActuales = (await auth.getUser(uid)).customClaims ?? {};
   if (claimsActuales.empresaId !== empresaId) return;
   await actualizarClaimsTenant(uid, empresaId, rol, claimsActuales);
-}
-
-export function normalizarPermisosEfectivos(valor: unknown): string[] | null {
-  if (!Array.isArray(valor) || valor.some((permiso) => typeof permiso !== "string" || !permiso)) return null;
-  return [...new Set(valor)].sort();
-}
-
-/** Sincroniza la proyección tenant y emite una sesión posterior a una activación. */
-export async function emitirSesionTenant(uid: string, empresaId: string, rol: string): Promise<string> {
-  if (!esRolTenant(rol)) throw new HttpsError("failed-precondition", "Rol de membresia invalido.");
-  await actualizarClaimsTenant(uid, empresaId, rol);
-  return getAuth().createCustomToken(uid);
 }
 
 export async function permisosPredeterminados(rol: RolTenant, dbParam?: any): Promise<string[]> {
@@ -360,57 +185,11 @@ export async function permisosPredeterminados(rol: RolTenant, dbParam?: any): Pr
 
 export const autenticarOperativo = onCall(
   { region: REGION, secrets: [PIN_PEPPER] },
-  async (request): Promise<{ customToken: string; requiereCambio?: boolean; incorporacionId?: string; restablecimientoId?: string }> => {
-    const codigo = normalizarCodigo((request.data as SolicitudAutenticacion | undefined)?.codigo);
-    const pin = (request.data as SolicitudAutenticacion | undefined)?.pin;
-    if (!codigo || !esPinValido(pin)) throw errorCredenciales();
-
-    try {
-      const { empresa, ref, credencial } = await resolverCredencialOperativa(codigo, pin);
-
-      if (credencial.requiereCambio === true) {
-        if (typeof credencial.restablecimientoId === "string" && credencial.restablecimientoId.trim()) {
-          await validarRestablecimientoParaAutenticacion(getFirestore(), empresa.id, credencial.uid, credencial.restablecimientoId, ref.id);
-          await limpiarFallos(ref);
-          const customToken = await emitirSesionActivacionRestablecimiento(credencial.uid, credencial.restablecimientoId);
-          logger.info("operational_auth_recovery_activation_required", {
-            empresaId: empresa.id,
-            uid: credencial.uid,
-            restablecimientoId: credencial.restablecimientoId,
-          });
-          return { customToken, requiereCambio: true, restablecimientoId: credencial.restablecimientoId };
-        }
-        const incorporacion = await obtenerIncorporacionDirectaTemporal(empresa.id, credencial);
-        const incorporacionData = incorporacion?.data();
-        if (!incorporacion || incorporacionData?.mecanismo !== "DIRECTA"
-          || incorporacionData.empresaId !== empresa.id
-          || incorporacionData.estado !== "TEMP_CREDENTIAL"
-          || incorporacionData.uid !== credencial.uid
-          || incorporacionData.codigo !== credencial.codigo
-          || esCredencialTemporalPlataformaVencidaOInvalida(incorporacionData, credencial)) {
-          throw errorCredenciales();
-        }
-        await limpiarFallos(ref);
-        const customToken = await emitirSesionActivacionDirecta(credencial.uid, incorporacion.id);
-        logger.info("operational_auth_direct_activation_required", {
-          empresaId: empresa.id,
-          uid: credencial.uid,
-          incorporacionId: incorporacion.id,
-        });
-        return { customToken, requiereCambio: true, incorporacionId: incorporacion.id };
-      }
-
-      const membresia = await validarMembresiaActiva(empresa.id, credencial.uid);
-      await limpiarFallos(ref);
-      const customToken = await acuñarSesionTenant(credencial.uid, empresa.id, membresia.rol);
-      logger.info("operational_auth_succeeded", { empresaId: empresa.id, uid: credencial.uid });
-      return { customToken };
-    } catch (error) {
-      if (error instanceof HttpsError) throw error;
-      logger.error("operational_auth_failed", { error: error instanceof Error ? error.name : "unknown" });
-      throw errorCredenciales();
-    }
-  }
+  async (request) => ejecutarAutenticacionOperativa(request.data as SolicitudAutenticacion | undefined, {
+    db: getFirestore(),
+    auth: getAuth(),
+    pepper: obtenerPepper(),
+  }),
 );
 
 export const provisionarCredencialOperativa = onCall(

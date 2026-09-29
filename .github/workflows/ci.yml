@@ -39,6 +39,9 @@ jobs:
             functions-operator-summary/package-lock.json
             functions-platform-resources/package-lock.json
             functions-tenant-configuration/package-lock.json
+            functions-bootstrap/package-lock.json
+            functions-operational-auth/package-lock.json
+            functions-operational-activation/package-lock.json
 
       - name: Setup Java para Firebase Emulator Suite
         uses: actions/setup-java@v4
@@ -76,6 +79,18 @@ jobs:
       - name: Instalar dependencias del codebase Tenant configuration
         run: npm ci
         working-directory: functions-tenant-configuration
+
+      - name: Instalar dependencias del codebase Bootstrap
+        run: npm ci
+        working-directory: functions-bootstrap
+
+      - name: Instalar dependencias del codebase Operational auth
+        run: npm ci
+        working-directory: functions-operational-auth
+
+      - name: Instalar dependencias del codebase Operational activation
+        run: npm ci
+        working-directory: functions-operational-activation
 
       - name: Chequeo de tipos de aplicaciÃ³n
         run: npx tsc --noEmit
@@ -133,6 +148,26 @@ jobs:
       - name: Pruebas, discovery y module-load del codebase Tenant configuration
         run: npm test
         working-directory: functions-tenant-configuration
+
+      - name: Build, discovery y module-load del codebase Bootstrap
+        run: |
+          npm run build
+          npm run test:discovery
+          npm run test:module-load
+        working-directory: functions-bootstrap
+
+      - name: Build y discovery del codebase Operational auth
+        run: |
+          npm run build
+          npm run test:discovery
+        working-directory: functions-operational-auth
+
+      - name: Build, discovery y module-load del codebase Operational activation
+        run: |
+          npm run build
+          npm run test:discovery
+          npm run test:module-load
+        working-directory: functions-operational-activation
 
       - name: Lint de aplicacion y tooling
         run: npm run lint
