@@ -8,8 +8,8 @@
 
 Esta es una decisión de gobernanza para `G-SAAS-02 → M2 — Provisioning y
 onboarding → E2.2 — Configuración inicial`. La implementación local y la
-certificación en staging descritas en este ADR no sustituyen la integración en
-`main`, la CI/auditoría del PR ni ningún gate de producción.
+certificación en staging fueron integradas posteriormente en `main` mediante
+el PR #395. Esta integración no sustituye ningún gate de producción.
 
 ## Problema y evidencia
 
@@ -137,10 +137,13 @@ desde Git/source: su procedencia permanece incompleta. Cualquier retiro,
 reasignación o rollback remoto requiere un gate operativo explícito.
 
 El deploy controlado, el cutover de tráfico de este endpoint en staging y la
-validación funcional staging están certificados. Permanecen pendientes la
-integración de la implementación en `main`, auditoría/CI del PR correspondiente,
-cualquier validación posterior ligada a esa integración y toda producción.
-Producción continúa fuera de alcance de esta decisión.
+validación funcional staging están certificados. El PR #395 fue fusionado en
+`main` mediante el merge commit `27d83d0d7fa8a736a3fca34e4a27d9bc6709c3c2` el
+2026-09-29 01:12:11 UTC; su HEAD `cf2e4c87a28592127e05746c58bd830ba38b0d0a`
+está incluido en `main`, los checks previos al merge terminaron `PASS` y la
+integración Git fue verificada. Cualquier validación posterior ligada a esta
+integración y toda producción permanecen pendientes. Producción continúa fuera
+de alcance de esta decisión.
 
 ## Criterios de implementación y evidencia
 
