@@ -23,7 +23,7 @@ const PIN_PEPPER = defineSecret("OPERATIONAL_PIN_PEPPER");
 const MOTIVO_REEMISION_CREDENCIAL_INICIAL = "REEMISION_ADMINISTRATIVA_PIN_NO_ENTREGADO";
 
 // Boundary neutral compartido por `saas-auth` y `saas-bootstrap`.
-export { solicitarBootstrapEmpresarial } from "../../../lib/bootstrap/shared";
+export { solicitarBootstrapEmpresarial } from "../bootstrap/shared";
 
 /**
  * Variante de sistema para hechos que el propio dominio confirma tras el commit —no

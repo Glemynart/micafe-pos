@@ -21,7 +21,7 @@
   },
   "include": [
     "src/**/*.ts",
-    "../lib/bootstrap/shared.ts",
+    "../functions/src/bootstrap/shared.ts",
     "../lib/bootstrap/contrato.ts"
   ],
   "exclude": ["src/**/*.test.ts", "lib", "node_modules"]

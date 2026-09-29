@@ -1,5 +1,5 @@
 /**
- * Boundary neutral de Bootstrap empresarial (ADR-SAAS-044).
+ * Boundary compartido de Bootstrap empresarial (ADR-SAAS-044).
  *
  * Este módulo es el único punto compartido por los adapters de `saas-auth`
  * y `saas-bootstrap`. No define una callable ni una nueva autoridad: expone
@@ -8,7 +8,7 @@
  */
 import { createHash, randomUUID } from "node:crypto";
 import type { Firestore } from "firebase-admin/firestore";
-import type { EntradaBootstrapEmpresarial } from "./contrato";
+import type { EntradaBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
 import {
   ejecutarBootstrapEmpresarial,
   type ClaimsEmitter,
@@ -16,19 +16,19 @@ import {
   type OwnerIdentityEnabler,
   type OwnerIdentityResolver,
   type OwnerIdentityVerifier,
-} from "../../functions/src/bootstrap/service";
-import { crearObligacionAuditoria, emitirObligacionAuditoria } from "../../functions/src/platform/audit";
+} from "./service";
+import { crearObligacionAuditoria, emitirObligacionAuditoria } from "../platform/audit";
 import type {
   EnvelopePlataforma,
   TipoAgregadoAuditoria,
   TipoAuditoria,
-} from "../../functions/src/platform/contracts";
-import { validarEnvelope } from "../../functions/src/platform/validation";
+} from "../platform/contracts";
+import { validarEnvelope } from "../platform/validation";
 import {
   finalizarResultadoAuditable,
   planificarConfirmacionAuditoria,
   type ConfirmacionAuditoriaPlanificada,
-} from "../../functions/src/platform/audit-confirmation";
+} from "../platform/audit-confirmation";
 
 export {
   ejecutarBootstrapEmpresarial,
@@ -37,7 +37,7 @@ export {
   type OwnerIdentityEnabler,
   type OwnerIdentityResolver,
   type OwnerIdentityVerifier,
-} from "../../functions/src/bootstrap/service";
+} from "./service";
 
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");

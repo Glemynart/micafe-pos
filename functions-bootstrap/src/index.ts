@@ -3,7 +3,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { autorizarPlataforma } from "../../functions/src/platform/authorization";
-import { solicitarBootstrapEmpresarial } from "../../lib/bootstrap/shared";
+import { solicitarBootstrapEmpresarial } from "../../functions/src/bootstrap/shared";
 
 if (!getApps().length) initializeApp();
 
