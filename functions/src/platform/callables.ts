@@ -8,15 +8,15 @@ import type { EnvelopePlataforma, FacultadPlataforma } from "./contracts";
 import { registrarHechoAuditoria, type HechoAuditable } from "./audit";
 import { createConfiguredDusemaS2sClient, DUSEMA_ADMIN_BASE_URL_PARAM, DUSEMA_S2S_AUDIENCE_PARAM, DUSEMA_S2S_ISSUER_PARAM, DUSEMA_S2S_KID_PARAM, DUSEMA_S2S_PRIVATE_KEY_PARAM, DusemaS2sError, proyectarTenantDusema, type DusemaTenantMetadata } from "./dusema-s2s-client";
 import { ejecutarComandoOperador } from "./operators";
-import { provisionarCredencialInicialTenant, reemitirCredencialInicialTemporalTenant, solicitarBootstrapEmpresarial } from "./operations";
+import { provisionarCredencialInicialTenant, reemitirCredencialInicialTemporalTenant } from "./operations";
 import { desbloquearAdministradorInicialTenant } from "./desbloquear-administrador-inicial-tenant";
 import { consultarAuditoriaPlataforma, obtenerDetalleEmpresaPlataforma, validarFiltroAuditoria } from "./queries";
 import { listarSoporteTenant, solicitarSoporte, transicionarSoporte } from "./support";
 import { exigirId } from "./validation";
 
 const REGION = "us-central1";
-// ADR-SAAS-013 — el paso H de ejecutarBootstrapEmpresarial (invocado por
-// solicitarBootstrapEmpresarialSaas) hashea el PIN temporal con este secreto.
+// ADR-SAAS-013 — los flujos de credencial de plataforma hashean el PIN
+// temporal con este secreto.
 const PIN_PEPPER = defineSecret("OPERATIONAL_PIN_PEPPER");
 const DUSEMA_S2S_ENVIRONMENT_PARAM = defineSecret("DUSEMA_S2S_ENVIRONMENT");
 
@@ -180,13 +180,6 @@ export const cambiarFacultadesOperadorSaas = callableOperador("CambiarFacultades
 export const suspenderOperadorSaas = callableOperador("SuspenderOperador");
 export const reactivarOperadorSaas = callableOperador("ReactivarOperador");
 export const revocarOperadorSaas = callableOperador("RevocarOperador");
-
-export const solicitarBootstrapEmpresarialSaas = onCall({ region: REGION, secrets: [PIN_PEPPER] }, async (request) => {
-  const auth = exigirAuth(request);
-  const db = getFirestore();
-  await autorizarPlataforma(db, auth.uid, auth.token, "BOOTSTRAP_EMPRESARIAL_SOLICITAR");
-  return solicitarBootstrapEmpresarial(db, auth.uid, request.data as never);
-});
 
 // ADR-SAAS-013 §4.2 — misma facultad que gobierna el resto del ciclo de vida
 // operativo del tenant (activar/suspender/reactivar): "poder ser usada por

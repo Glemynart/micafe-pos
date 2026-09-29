@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
-import { ejecutarBootstrapEmpresarial } from "./service";
+import { ejecutarBootstrapEmpresarial } from "../../../lib/bootstrap/shared";
 import type { EntradaBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
 
 const REGION = "us-central1";

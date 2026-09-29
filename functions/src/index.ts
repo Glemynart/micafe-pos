@@ -1,5 +1,4 @@
 export {
-  autenticarOperativo,
   provisionarCredencialOperativa,
   rotarPinOperativo,
   crearUsuarioConMembresia,
@@ -14,7 +13,6 @@ export {
 
 export {
   crearIncorporacionDirecta,
-  activarIncorporacionDirecta,
   crearIncorporacionEmail,
   reenviarIncorporacionEmail,
   cancelarIncorporacionEmail,
@@ -68,7 +66,6 @@ export {
   suspenderOperadorSaas,
   reactivarOperadorSaas,
   revocarOperadorSaas,
-  solicitarBootstrapEmpresarialSaas,
   provisionarCredencialInicialTenantSaas,
   reemitirCredencialInicialTemporalSaas,
   desbloquearAdministradorInicialTenantSaas,

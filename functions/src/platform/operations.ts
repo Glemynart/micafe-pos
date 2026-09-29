@@ -2,22 +2,10 @@ import { createHash, randomUUID } from "node:crypto";
 import { type Firestore } from "firebase-admin/firestore";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError } from "firebase-functions/v2/https";
-import type { EntradaBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
-import { ejecutarBootstrapEmpresarial, type ClaimsEmitter, type CredentialIssuer, type OwnerIdentityEnabler, type OwnerIdentityResolver, type OwnerIdentityVerifier } from "../bootstrap/service";
-import { crearObligacionAuditoria, emitirObligacionAuditoria } from "./audit";
-import type {
-  EnvelopePlataforma,
-  FacultadPlataforma,
-  TipoAgregadoAuditoria,
-  TipoAuditoria,
-} from "./contracts";
+import type { EnvelopePlataforma, FacultadPlataforma } from "./contracts";
 import { autorizarPlataforma, type TokenPlataforma } from "./authorization";
 import { validarEnvelope } from "./validation";
-import {
-  finalizarResultadoAuditable,
-  planificarConfirmacionAuditoria,
-  type ConfirmacionAuditoriaPlanificada,
-} from "./audit-confirmation";
+import { finalizarResultadoAuditable, planificarConfirmacionAuditoria, type ConfirmacionAuditoriaPlanificada } from "./audit-confirmation";
 import { emitirCredencialInicial, type ResolverPrincipal } from "./emitir-credencial-inicial";
 import {
   resolverPlanEmisionCredencialInicial,
@@ -34,109 +22,15 @@ const hash = (value: unknown) =>
 const PIN_PEPPER = defineSecret("OPERATIONAL_PIN_PEPPER");
 const MOTIVO_REEMISION_CREDENCIAL_INICIAL = "REEMISION_ADMINISTRATIVA_PIN_NO_ENTREGADO";
 
+// Boundary neutral compartido por `saas-auth` y `saas-bootstrap`.
+export { solicitarBootstrapEmpresarial } from "../../../lib/bootstrap/shared";
+
 /**
  * Variante de sistema para hechos que el propio dominio confirma tras el commit —no
  * una decisión humana adicional— como la finalización de un provisionamiento ya
  * solicitado. `facultad: null` conforme ADR-SAAS-012 §2.2 ("null solo para proceso de
  * sistema sin facultad humana").
  */
-function planificarConfirmacionSistema(
-  db: Firestore,
-  tipoComando: string,
-  entrada: EnvelopePlataforma,
-  agregado: { tipo: TipoAgregadoAuditoria; id: string },
-  empresaObjetivoId: string | null,
-  tipoAuditoria: TipoAuditoria,
-): ConfirmacionAuditoriaPlanificada {
-  const ids = { obligacionId: randomUUID(), evidenciaId: randomUUID() };
-  return {
-    obligacionId: ids.obligacionId,
-    registrarEnTransaccion: (tx) => {
-      crearObligacionAuditoria(db, tx, {
-        tipo: tipoAuditoria,
-        resultado: "CONFIRMADO",
-        origen: "SISTEMA",
-        actor: { tipo: "SISTEMA", uid: null },
-        facultad: null,
-        comando: { id: entrada.commandId, tipo: tipoComando },
-        agregado,
-        empresaObjetivoId,
-        revision: { esperada: null, resultante: null },
-        correlacionId: entrada.correlationId,
-        causacionId: entrada.causationId,
-        motivo: { codigo: entrada.motivoCodigo, resumen: null },
-      }, ids);
-      return { obligacionId: ids.obligacionId };
-    },
-  };
-}
-export async function solicitarBootstrapEmpresarial(
-  db: Firestore,
-  actorUid: string,
-  entrada: EntradaBootstrapEmpresarial & EnvelopePlataforma,
-  // Puntos de inyección de ADR-SAAS-007 (ver `ejecutarBootstrapEmpresarial`), expuestos
-  // únicamente para pruebas; el callable de producción invoca esta función con 3
-  // argumentos y conserva los emisores/verificadores por defecto de Firebase Admin.
-  customClaimsEmitter?: ClaimsEmitter,
-  ownerIdentityVerifier?: OwnerIdentityVerifier,
-  credentialIssuer?: CredentialIssuer,
-  ownerIdentityResolver?: OwnerIdentityResolver,
-  ownerIdentityEnabler?: OwnerIdentityEnabler,
-) {
-  validarEnvelope(entrada);
-  const agregadoProvisionamiento = {
-    tipo: "PROVISIONAMIENTO_EMPRESARIAL" as const,
-    id: `prov_${hash(entrada.idempotencyKey)}`,
-  };
-  const solicitud = planificarConfirmacionAuditoria(
-    db,
-    actorUid,
-    "BOOTSTRAP_EMPRESARIAL_SOLICITAR",
-    "SolicitarBootstrapEmpresarial",
-    entrada,
-    agregadoProvisionamiento,
-    entrada.empresaId,
-    "BOOTSTRAP_EMPRESARIAL_SOLICITADO",
-    () => ({ esperada: null, resultante: null }),
-  );
-  const completado = planificarConfirmacionSistema(
-    db,
-    "SolicitarBootstrapEmpresarial",
-    entrada,
-    agregadoProvisionamiento,
-    entrada.empresaId,
-    "BOOTSTRAP_EMPRESARIAL_COMPLETADO",
-  );
-  // El envelope de plataforma admite `causationId: null` para un comando raíz (ADR-SAAS-011
-  // §8); el contrato de Bootstrap de ADR-SAAS-007 exige un identificador comercial no vacío.
-  // Se normaliza aquí, en la traducción de envelope de plataforma a envelope de dominio, sin
-  // tocar la validación ni el servicio canónico de ADR-SAAS-007.
-  const resultado = await ejecutarBootstrapEmpresarial(
-    db,
-    { ...entrada, causationId: entrada.causationId ?? entrada.commandId },
-    customClaimsEmitter,
-    ownerIdentityVerifier,
-    solicitud.registrarEnTransaccion,
-    completado.registrarEnTransaccion,
-    credentialIssuer,
-    ownerIdentityResolver,
-    ownerIdentityEnabler,
-  );
-  const resultadoRecord = resultado as unknown as Record<string, unknown>;
-  await finalizarResultadoAuditable(db, resultadoRecord, solicitud);
-  // Solo se emite si el hecho durable efectivamente registró un obligacionCompletadoId
-  // (observador invocado dentro de la transacción de finalización). Nunca se cae a un
-  // id recién generado en esta llamada: no fue persistido y no existe obligación que
-  // emitir bajo ese id — provocaría AUDIT_OBLIGATION_NOT_FOUND sobre un hecho ya
-  // confirmado (p. ej. un provisionamiento completado por la ruta de autoservicio,
-  // sin observador de plataforma).
-  const obligacionCompletadoId = resultadoRecord.obligacionCompletadoId as string | null | undefined;
-  if (resultadoRecord.estado === "COMPLETED" && obligacionCompletadoId) {
-    await emitirObligacionAuditoria(db, obligacionCompletadoId);
-  }
-  return resultado;
-}
-
 /**
  * ADR-SAAS-013 — comando `ProvisionarCredencialInicialTenant`. A diferencia
  * del resto de comandos comerciales (revision-guarded, una única

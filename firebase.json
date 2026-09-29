@@ -27,6 +27,18 @@
     {
       "source": "functions-tenant-configuration",
       "codebase": "saas-tenant-configuration"
+    },
+    {
+      "source": "functions-operational-auth",
+      "codebase": "saas-operational-auth"
+    },
+    {
+      "source": "functions-bootstrap",
+      "codebase": "saas-bootstrap"
+    },
+    {
+      "source": "functions-operational-activation",
+      "codebase": "saas-operational-activation"
     }
   ],
   "firestore": {
