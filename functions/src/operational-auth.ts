@@ -15,6 +15,9 @@ import {
 import { hashearPin, verificarPin } from "./pin-security";
 import { esCredencialTemporalPlataformaVencidaOInvalida } from "./platform/vigencia-credencial-temporal";
 import { validarRestablecimientoParaAutenticacion } from "./credential-recovery-service";
+import { exigirTenantActivo, validarMembresiaActiva } from "./tenant-configuration/authority";
+
+export { exigirTenantActivo } from "./tenant-configuration/authority";
 
 initializeApp();
 
@@ -26,15 +29,6 @@ const BLOQUEO_MS = 15 * 60 * 1000;
 const ERROR_CREDENCIALES = "Credenciales operativas inválidas.";
 /** Plantilla canónica mínima del rol Bodega MVP-1. */
 export const PERMISOS_VENDEDOR = ["sell", "shifts"] as const;
-
-interface MembresiaCanonica {
-  empresaId?: unknown;
-  uid?: unknown;
-  rol?: unknown;
-  permisos?: unknown;
-  estado?: unknown;
-  activo?: unknown;
-}
 
 interface SolicitudAutenticacion {
   codigo?: unknown;
@@ -157,38 +151,6 @@ async function obtenerCredencialDelUid(empresaId: string, uid: string) {
   return snap.docs[0] ?? null;
 }
 
-function esMembresiaActivaYValida(data: MembresiaCanonica | undefined, empresaId: string, uid: string): data is MembresiaCanonica & { rol: RolTenant; permisos: string[] } {
-  return !!data
-    && data.empresaId === empresaId
-    && data.uid === uid
-    && data.estado === "activa"
-    && data.activo === true
-    && esRolTenant(data.rol)
-    && Array.isArray(data.permisos)
-    && data.permisos.every((permiso) => typeof permiso === "string" && permiso.length > 0);
-}
-
-/** La membresía, no `usuarios`, decide rol, permisos y estado. */
-async function validarMembresiaActiva(empresaId: string, uid: string, dbParam?: any): Promise<{ rol: RolTenant; permisos: string[] }> {
-  const db = dbParam ?? getFirestore();
-  let membresiaSnap;
-  try {
-    const res = await Promise.all([
-      db.collection("membresias").doc(`${empresaId}_${uid}`).get(),
-      getAuth().getUser(uid).catch(() => null),
-    ]);
-    membresiaSnap = res[0];
-  } catch {
-    membresiaSnap = await db.collection("membresias").doc(`${empresaId}_${uid}`).get();
-  }
-
-  const membresia = membresiaSnap.data() as MembresiaCanonica | undefined;
-  if (!membresiaSnap.exists || !esMembresiaActivaYValida(membresia, empresaId, uid)) {
-    throw errorCredenciales();
-  }
-  return { rol: membresia.rol, permisos: membresia.permisos };
-}
-
 async function obtenerIncorporacionDirectaTemporal(
   empresaId: string,
   credencial: CredencialOperativa,
@@ -228,31 +190,6 @@ export async function exigirAdminTenant(request: { auth?: { uid: string; token: 
     throw new HttpsError("permission-denied", "Acceso denegado.");
   }
   return { id: tenant.id, estado: tenant.estado, paisFiscal: tenant.paisFiscal };
-}
-
-/** Revalida claim, Empresa y membresía para lecturas tenant de backend. */
-export async function exigirTenantActivo(request: { auth?: { uid: string; token: Record<string, unknown> } }, dbParam?: any) {
-  if (!request.auth) throw new HttpsError("unauthenticated", "Autenticación requerida.");
-  const empresaId = request.auth.token.empresaId;
-  if (typeof empresaId !== "string" || !empresaId.trim()) throw new HttpsError("permission-denied", "Acceso denegado.");
-  const db = dbParam ?? getFirestore();
-  const snap = await db.collection("empresas").doc(empresaId).get();
-  const estado = snap.data()?.estado;
-  const paisFiscal = snap.data()?.paisFiscal;
-  if (!snap.exists || (estado !== "activa" && estado !== "trial")) {
-    throw new HttpsError("permission-denied", "Acceso denegado.");
-  }
-  const membresiaActual = await validarMembresiaActiva(empresaId, request.auth!.uid, db);
-  if (request.auth.token.rol !== membresiaActual.rol) {
-    throw new HttpsError("permission-denied", "Acceso denegado.");
-  }
-  return {
-    id: empresaId,
-    estado: estado as string,
-    rol: membresiaActual.rol,
-    permisos: membresiaActual.permisos,
-    paisFiscal: typeof paisFiscal === "string" ? paisFiscal : undefined,
-  };
 }
 
 /** Revalida claim, Empresa y membresía para lecturas administrativas (admite 'suspendida' solo para admin). */
@@ -639,7 +576,7 @@ export const actualizarMembresia = onCall(
 
     const ref = getFirestore().collection("membresias").doc(`${empresa.id}_${uid}`);
     const snap = await ref.get();
-    const actual = snap.data() as MembresiaCanonica | undefined;
+    const actual = snap.data() as { rol?: unknown; permisos?: unknown; estado?: unknown } | undefined;
     if (!snap.exists || !actual || !esRolTenant(actual.rol) || !Array.isArray(actual.permisos)) {
       throw new HttpsError("not-found", "Membresía no encontrada.");
     }

@@ -1,8 +1,8 @@
 import { onCall } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
-import { exigirAdminTenant, exigirTenantActivo } from "../operational-auth";
+import { exigirAdminTenant } from "../operational-auth";
 import { METODOS_PAGO_CONFIGURACION } from "../../../lib/configuracion/catalogos";
-import { ejecutarComandoConfiguracion, leerConfiguracionEmpresa, type EntradaComandoConfiguracion } from "./service";
+import { ejecutarComandoConfiguracion, type EntradaComandoConfiguracion } from "./service";
 import { resolverModulosInicialesDelPlan } from "./capacidades-plan";
 const REGION = "us-central1";
 
@@ -42,7 +42,3 @@ export const actualizarConfiguracionEmpresa = callable("ActualizarConfiguracionE
 export const actualizarParametrosFiscales = callable("ActualizarParametrosFiscales");
 export const actualizarPreferenciasImpresion = callable("ActualizarPreferenciasImpresion");
 export const actualizarPoliticasOperativas = callable("ActualizarPoliticasOperativas");
-export const obtenerConfiguracionEmpresa = onCall({ region: REGION }, async (request) => {
-  const empresa = await exigirTenantActivo(request);
-  return leerConfiguracionEmpresa(getFirestore(), empresa.id);
-});

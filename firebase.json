@@ -23,6 +23,10 @@
     {
       "source": "functions-commercial",
       "codebase": "saas-commercial"
+    },
+    {
+      "source": "functions-tenant-configuration",
+      "codebase": "saas-tenant-configuration"
     }
   ],
   "firestore": {
