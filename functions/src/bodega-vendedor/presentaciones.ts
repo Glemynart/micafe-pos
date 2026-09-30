@@ -1,13 +1,13 @@
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { leerConfiguracionEmpresa } from "../configuracion/service";
-import { exigirTenantActivo } from "../operational-auth";
+import { leerConfiguracionEmpresa } from "../configuracion/reader";
+import { exigirTenantActivo } from "../tenant-configuration/authority";
 import {
   executeConContexto,
   revalidarAutoridadFinancieraEnTransaccion,
   type ContextoFinancieroOperativo,
   type Envelope,
-} from "../finanzas/callables";
+} from "../bodega/operational-core";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 
 const REGION = "us-central1";

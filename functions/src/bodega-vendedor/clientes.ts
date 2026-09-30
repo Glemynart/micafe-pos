@@ -1,7 +1,7 @@
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { exigirTenantActivo } from "../operational-auth";
-import { leerConfiguracionEmpresa } from "../configuracion/service";
+import { exigirTenantActivo } from "../tenant-configuration/authority";
+import { leerConfiguracionEmpresa } from "../configuracion/reader";
 
 const REGION = "us-central1";
 const CAMPOS_ENTRADA = ["nombre", "cedula", "tipoDocumento", "telefono", "contacto", "direccion", "barrioZona"] as const;

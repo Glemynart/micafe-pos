@@ -3,7 +3,7 @@ import { resolverComercialBodegaEnTransaccion, type ResolucionComercialBodega } 
 import { aplicarMovimientosInventarioEnTransaccion, type MovimientoInventarioServer } from "../inventario/ledger";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 import { revalidarAutoridadVentaBodegaEnTransaccion } from "./ventas-authority";
-import type { ContextoFinancieroOperativo } from "../finanzas/callables";
+import type { ContextoFinancieroOperativo } from "../bodega/operational-core";
 import { normalizarComandoConfirmacionVentaBodega, type ComandoConfirmacionVentaBodega } from "./ventas-contract";
 
 const fail = (code: HttpsError["code"], domain: string): never => {

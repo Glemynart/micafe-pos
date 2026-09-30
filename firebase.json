@@ -39,6 +39,10 @@
     {
       "source": "functions-operational-activation",
       "codebase": "saas-operational-activation"
+    },
+    {
+      "source": "functions-bodega",
+      "codebase": "saas-bodega"
     }
   ],
   "firestore": {

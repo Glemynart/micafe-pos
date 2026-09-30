@@ -42,6 +42,7 @@ jobs:
             functions-bootstrap/package-lock.json
             functions-operational-auth/package-lock.json
             functions-operational-activation/package-lock.json
+            functions-bodega/package-lock.json
 
       - name: Setup Java para Firebase Emulator Suite
         uses: actions/setup-java@v4
@@ -91,6 +92,10 @@ jobs:
       - name: Instalar dependencias del codebase Operational activation
         run: npm ci
         working-directory: functions-operational-activation
+
+      - name: Instalar dependencias del codebase Bodega
+        run: npm ci
+        working-directory: functions-bodega
 
       - name: Chequeo de tipos de aplicaciÃ³n
         run: npx tsc --noEmit
@@ -168,6 +173,12 @@ jobs:
           npm run test:discovery
           npm run test:module-load
         working-directory: functions-operational-activation
+
+      - name: Build, pruebas, discovery y module-load del codebase Bodega
+        run: |
+          npm run build
+          npm test
+        working-directory: functions-bodega
 
       - name: Lint de aplicacion y tooling
         run: npm run lint
