@@ -11,10 +11,13 @@ la implementación de la frontera `saas-bodega` únicamente dentro del alcance
 definido por este ADR. No autoriza por sí misma deploy, tráfico, fixture,
 Bootstrap, Activation ni producción.
 
-Esta propuesta pertenece a `G-SAAS-02 → M2 — Provisioning y onboarding →
-E2.2 — Configuración inicial`. No autoriza implementación, creación de
-`saas-bodega`, cambios de `firebase.json`, despliegues, fixtures, Bootstrap,
-Activation, Firestore, Auth, Rules, IAM, Secrets ni producción.
+Esta decisión pertenece a `G-SAAS-02 → M2 — Provisioning y onboarding →
+E2.2 — Configuración inicial`. La autorización de implementación fue consumida
+por el PR técnico #400, todavía pendiente de merge al momento de esta
+reconciliación. Esa autorización cubre exclusivamente el boundary
+`saas-bodega` y los cambios de manifest necesarios para implementarlo; no
+autoriza despliegues, fixtures, Bootstrap, Activation, Firestore, Auth, Rules,
+IAM, Secrets ni producción.
 
 La propuesta responde al bloqueo documentado por ADR-SAAS-048 en el Gate B.
 No modifica las decisiones aceptadas de ADR-SAAS-043 a ADR-SAAS-048, ni
@@ -46,7 +49,7 @@ ADR-SAAS-048.
 
 ## 2. Decisión
 
-Tras aprobación, se creará una frontera de discovery y despliegue dedicada:
+La frontera de discovery y despliegue dedicada autorizada es:
 
 ```text
 saas-bodega
@@ -58,7 +61,7 @@ saas-bodega
    └─ confirmarVentaBodegaV1
 ```
 
-La frontera propuesta será Gen 2, `us-central1`, Node.js 22 y
+La frontera es Gen 2, `us-central1`, Node.js 22 y
 `ZERO_SECRETS_REQUIRED`. No es un microservicio, una segunda implementación
 del dominio ni una autorización de despliegue; es una unidad mínima de
 discovery para conservar los contratos Bodega existentes sin descubrir
@@ -87,8 +90,8 @@ email, recovery, schedules, plataforma, comercial, fiscalidad y producción.
 
 ## 4. Dependency closure propuesta
 
-La implementación no copiará módulos completos solo para conservar
-compilación. Deberá extraer o reutilizar unidades con la siguiente
+La implementación autorizada no copia módulos completos solo para conservar
+compilación. Debe extraer o reutilizar unidades con la siguiente
 clasificación:
 
 | Dependencia actual | Clasificación | Tratamiento requerido |
@@ -157,7 +160,8 @@ contexto de runtime, nunca como I/O accidental de una unidad compartida.
 
 ## 9. Topología y migración propuestas
 
-Después de aprobación, la implementación propuesta seguirá estos gates:
+La implementación autorizada y los gates posteriores se rigen por esta
+secuencia:
 
 1. extraer/reutilizar el closure mínimo y conservar los contratos;
 2. añadir `functions-bodega` y `saas-bodega` al manifiesto solo en el PR de
@@ -240,12 +244,31 @@ La implementación deberá aportar como mínimo:
   superficie monolítica y la falta de rollback/attestation. Esta ADR formaliza
   la frontera dedicada que ADR-SAAS-048 requería evaluar.
 
-La aceptación de esta ADR autoriza solamente planificar e implementar el
-boundary en un PR posterior. No autoriza deploy, fixture, Bootstrap,
-Activation, cutover, producción ni el cierre de E2.2.
+La aceptación de esta ADR autorizó la implementación del boundary en un PR
+técnico separado. El PR #400 contiene esa implementación y permanece pendiente
+de merge. Esta aceptación no autoriza deploy, fixture, Bootstrap, Activation,
+cutover, producción ni el cierre de E2.2.
 
 ## 15. Decisión solicitada
 
-La implementación futura de `saas-bodega` requiere un PR técnico separado,
-auditado y limitado por las restricciones de esta ADR. No existe todavía
-codebase, manifest, despliegue, fixture ni migración ejecutados.
+El PR técnico #400 implementa el boundary `saas-bodega` bajo las restricciones
+de esta ADR y está pendiente de merge. No existe todavía deploy, tráfico,
+fixture, Bootstrap, Activation, rehearsal, certificación, cutover ni migración
+remota ejecutados.
+
+## 16. Estado vigente de autorización y gates
+
+| Estado | Situación |
+| --- | --- |
+| Implementación | Autorizada y ejecutada en PR #400; pendiente de merge. |
+| Preflight de deploy | PENDIENTE. |
+| Deploy staging | PENDIENTE. |
+| Fixture | PENDIENTE. |
+| Validación funcional | PENDIENTE. |
+| Rehearsal / certificación | PENDIENTE. |
+| Cutover y retiro de exports legacy en `saas-auth` | PENDIENTE. |
+| Producción | PENDIENTE y fuera de alcance. |
+
+La autorización consumida para implementar `saas-bodega` no concede ninguno de
+los gates posteriores. Cada uno requiere su propia decisión, evidencia y
+mutation audit.
