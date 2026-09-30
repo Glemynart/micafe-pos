@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — atestación local de `saas-bodega`
 
-Fecha: 2026-09-30  
+Fecha: 2026-09-30
 Alcance: implementación local únicamente; no es evidencia de deploy, tráfico,
 fixture, Bootstrap, Activation ni producción.
 
