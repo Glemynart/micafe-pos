@@ -13,8 +13,9 @@ Bootstrap, Activation ni producción.
 
 Esta decisión pertenece a `G-SAAS-02 → M2 — Provisioning y onboarding →
 E2.2 — Configuración inicial`. La autorización de implementación fue consumida
-por el PR técnico #400, todavía pendiente de merge al momento de esta
-reconciliación. Esa autorización cubre exclusivamente el boundary
+por el PR técnico #400, integrado en `main` mediante
+`a89b5f17567abd45e1b177b76c9822c4add985ee` el 2026-09-30, con CI post-merge
+`36740060340` en `PASS`. Esa autorización cubrió exclusivamente el boundary
 `saas-bodega` y los cambios de manifest necesarios para implementarlo; no
 autoriza despliegues, fixtures, Bootstrap, Activation, Firestore, Auth, Rules,
 IAM, Secrets ni producción.
@@ -245,22 +246,22 @@ La implementación deberá aportar como mínimo:
   la frontera dedicada que ADR-SAAS-048 requería evaluar.
 
 La aceptación de esta ADR autorizó la implementación del boundary en un PR
-técnico separado. El PR #400 contiene esa implementación y permanece pendiente
-de merge. Esta aceptación no autoriza deploy, fixture, Bootstrap, Activation,
-cutover, producción ni el cierre de E2.2.
+técnico separado. PR #400 integró esa implementación en `main` mediante
+`a89b5f17567abd45e1b177b76c9822c4add985ee`; esta integración no autoriza
+deploy, fixture, Bootstrap, Activation, cutover, producción ni el cierre de
+E2.2.
 
 ## 15. Decisión solicitada
 
-El PR técnico #400 implementa el boundary `saas-bodega` bajo las restricciones
-de esta ADR y está pendiente de merge. No existe todavía deploy, tráfico,
-fixture, Bootstrap, Activation, rehearsal, certificación, cutover ni migración
-remota ejecutados.
+PR #400 implementó e integró el boundary `saas-bodega` bajo las restricciones
+de esta ADR. No existe todavía deploy, tráfico, fixture, Bootstrap, Activation,
+rehearsal, certificación, cutover ni migración remota ejecutados.
 
 ## 16. Estado vigente de autorización y gates
 
 | Estado | Situación |
 | --- | --- |
-| Implementación | Autorizada y ejecutada en PR #400; pendiente de merge. |
+| Implementación | Autorizada, ejecutada e integrada en `main` mediante PR #400. |
 | Preflight de deploy | PENDIENTE. |
 | Deploy staging | PENDIENTE. |
 | Fixture | PENDIENTE. |
