@@ -33,6 +33,7 @@ build/
 # Dependencies
 node_modules/
 functions/lib/
+functions-bodega/lib/
 functions-operational-auth/lib/
 functions-platform-context/lib/
 functions-operator-summary/lib/

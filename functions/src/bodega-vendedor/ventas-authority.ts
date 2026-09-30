@@ -1,9 +1,9 @@
 import { HttpsError } from "firebase-functions/v2/https";
-import { exigirTenantActivo } from "../operational-auth";
+import { exigirTenantActivo } from "../tenant-configuration/authority";
 import {
   revalidarAutoridadFinancieraEnTransaccion,
   type ContextoFinancieroOperativo,
-} from "../finanzas/callables";
+} from "../bodega/operational-core";
 
 const fail = (code: HttpsError["code"], domain: string): never => {
   throw new HttpsError(code, "Autoridad de venta Bodega denegada.", { code: domain });

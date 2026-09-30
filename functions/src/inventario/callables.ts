@@ -1,13 +1,13 @@
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { exigirTenantActivo } from "../operational-auth";
+import { exigirTenantActivo } from "../tenant-configuration/authority";
 import {
   crearHuellaSemantica,
   executeConContexto,
   revalidarAutoridadFinancieraEnTransaccion,
   type ContextoFinancieroOperativo,
   type Envelope,
-} from "../finanzas/callables";
+} from "../bodega/operational-core";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 import { aplicarMovimientosInventarioEnTransaccion, type ArticuloTipo } from "./ledger";
 

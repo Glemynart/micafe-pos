@@ -1,13 +1,13 @@
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { exigirTenantActivo } from "../operational-auth";
+import { exigirTenantActivo } from "../tenant-configuration/authority";
 import {
   executeConContexto,
   resolverCuentaOperativa,
   resolverTurnoRecaudoPropioEnTransaccion,
   writeMovement,
   type ContextoFinancieroOperativo,
-} from "../finanzas/callables";
+} from "../bodega/operational-core";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 import { SCHEMA_VERSION_VENTA_BODEGA, normalizarComandoConfirmacionVentaBodega, type ComandoConfirmacionVentaBodega, type LineaVentaBodegaPersistida } from "./ventas-contract";
 import { aplicarConsumosInventarioBodegaEnTransaccion, resolverVentaBodegaEnTransaccion } from "./ventas-resolution";
