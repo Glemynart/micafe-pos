@@ -2,12 +2,17 @@
 
 ## Estado
 
-**PROPUESTO — PENDIENTE DE APROBACIÓN.**
+**ACEPTADO.**
 
-Esta propuesta pertenece a `G-SAAS-02 → M2 — Provisioning y onboarding →
-E2.2 — Configuración inicial`. No autoriza implementación, cambios de
-`firebase.json`, despliegues, reemisión de credenciales, Bootstrap, Activation,
-fixtures adicionales, tráfico ni producción.
+**Fecha de aceptación formal:** 2026-09-30.
+
+La aceptación autoriza únicamente la implementación posterior de la frontera
+`saas-platform-tenant-access` dentro del alcance definido aquí. **No autoriza
+por sí sola** cambios de `firebase.json`, deploy, tráfico, reemisión de
+credenciales, Bootstrap, Activation, fixtures adicionales ni producción.
+
+Esta decisión pertenece a `G-SAAS-02 → M2 — Provisioning y onboarding →
+E2.2 — Configuración inicial`.
 
 ## Contexto y evidencia
 
@@ -53,7 +58,7 @@ staging limitado a estos dos endpoints. No se puede sustituir esa evidencia
 con escrituras directas, lecturas de secretos o una segunda implementación de
 la emisión de credenciales.
 
-## Decisión propuesta
+## Decisión
 
 Crear, en una implementación posterior, el codebase dedicado:
 
@@ -167,8 +172,8 @@ permanecen fuera de alcance.
 
 ## Consecuencias
 
-Aceptar esta ADR desbloquearía únicamente la planificación e implementación
-de una frontera técnica mínima. No cierra Gate E, no autoriza el deploy de la
-frontera, no reemite una credencial, no ejecuta Activation y no declara E2.2
-completo. Hasta que los gates posteriores estén cerrados, el fixture permanece
-retenido en `TEMP_CREDENTIAL` y E2.2 permanece `EN EJECUCIÓN`.
+Esta ADR autoriza únicamente la planificación e implementación de una frontera
+técnica mínima. No cierra Gate E, no autoriza el deploy de la frontera, no
+reemite una credencial, no ejecuta Activation y no declara E2.2 completo.
+Hasta que los gates posteriores estén cerrados, el fixture permanece retenido
+en `TEMP_CREDENTIAL` y E2.2 permanece `EN EJECUCIÓN`.
