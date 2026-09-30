@@ -11,9 +11,12 @@ Esta aceptación **NO autoriza deploy, creación de fixture, Bootstrap,
 Activation ni producción**.
 
 Esta propuesta pertenece a `G-SAAS-02 → M2 — Provisioning y onboarding →
-E2.2 — Configuración inicial`. No autoriza implementación, cambios de
-`firebase.json`, despliegues, creación de fixtures, Bootstrap, activación ni
-mutaciones en Firebase, Firestore, Auth, Rules, IAM, Secrets o producción.
+E2.2 — Configuración inicial`. Su aceptación por sí sola no autorizó
+implementación, cambios de `firebase.json`, despliegues, creación de fixtures,
+Bootstrap, activación ni mutaciones en Firebase, Firestore, Auth, Rules, IAM,
+Secrets o producción. La decisión arquitectónica posterior de ADR-SAAS-049
+autorizó por separado la implementación aislada de `saas-bodega`; no autorizó
+ninguno de los gates operativos de esta ADR.
 
 ## Contexto y problema
 
@@ -151,8 +154,10 @@ grafo completo. Tampoco hay runbook o endpoint aprobado que la materialice.
 
 Cada gate requiere autorización explícita y una mutation audit independiente.
 
-**Estado de gates:** Gate A `COMPLETED / ACCEPTED`; Gate B `PENDING`.
-Ningún gate posterior queda autorizado por esta aceptación.
+**Estado de gates:** Gate A `COMPLETED / ACCEPTED`; Gate B
+`BLOCKED / SUPERADO MEDIANTE DECISIÓN ARQUITECTÓNICA (ADR-SAAS-049)`.
+La implementación aislada quedó integrada en `main` mediante PR #400; ningún
+gate operativo posterior queda autorizado por esa integración.
 
 ## Criterios de aceptación de esta decisión
 
