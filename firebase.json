@@ -43,6 +43,10 @@
     {
       "source": "functions-bodega",
       "codebase": "saas-bodega"
+    },
+    {
+      "source": "functions-platform-tenant-access",
+      "codebase": "saas-platform-tenant-access"
     }
   ],
   "firestore": {

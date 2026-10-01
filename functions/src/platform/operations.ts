@@ -1,26 +1,24 @@
 import { createHash, randomUUID } from "node:crypto";
+import { getAuth } from "firebase-admin/auth";
 import { type Firestore } from "firebase-admin/firestore";
 import { defineSecret } from "firebase-functions/params";
-import { HttpsError } from "firebase-functions/v2/https";
 import type { EnvelopePlataforma, FacultadPlataforma } from "./contracts";
-import { autorizarPlataforma, type TokenPlataforma } from "./authorization";
+import type { TokenPlataforma } from "./authorization";
 import { validarEnvelope } from "./validation";
 import { finalizarResultadoAuditable, planificarConfirmacionAuditoria, type ConfirmacionAuditoriaPlanificada } from "./audit-confirmation";
 import { emitirCredencialInicial, type ResolverPrincipal } from "./emitir-credencial-inicial";
 import {
   resolverPlanEmisionCredencialInicial,
-  resolverPlanReemisionCredencialInicialTemporal,
   revalidarDestinoProvisionableEnTransaccion,
-  revalidarReemisionTemporalEnTransaccion,
 } from "./provisionar-credencial-inicial-tenant";
 import { permisosPredeterminados } from "../tenant-permissions";
+import { reemitirCredencialInicialTemporalTenant as reemitirCredencialInicialTemporalCompartida } from "./tenant-access-reemision";
 
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 // Igual que operational-auth.ts/incorporaciones.ts: cada módulo que necesita
 // el pepper declara su propia referencia; se resuelve por nombre en runtime.
 const PIN_PEPPER = defineSecret("OPERATIONAL_PIN_PEPPER");
-const MOTIVO_REEMISION_CREDENCIAL_INICIAL = "REEMISION_ADMINISTRATIVA_PIN_NO_ENTREGADO";
 
 // Boundary neutral compartido por `saas-auth` y `saas-bootstrap`.
 export { solicitarBootstrapEmpresarial } from "../bootstrap/shared";
@@ -127,70 +125,12 @@ export async function reemitirCredencialInicialTemporalTenant(
   resolverPrincipal?: ResolverPrincipal,
   pepperParam?: string,
 ) {
-  validarEnvelope(entrada);
-  if (entrada.motivoCodigo !== MOTIVO_REEMISION_CREDENCIAL_INICIAL) {
-    throw new HttpsError("invalid-argument", "MOTIVO_REEMISION_INVALIDO");
-  }
-  const plan = await resolverPlanReemisionCredencialInicialTemporal(db, entrada.empresaId, entrada.incorporacionId);
-  if (plan.idempotente) {
-    return {
-      empresaId: entrada.empresaId,
-      uid: plan.ownerUid,
-      incorporacionId: plan.incorporacionId,
-      codigo: plan.codigoAnterior,
-      pinTemporal: null,
-      estado: "YA_EXISTENTE" as const,
-      obligacionId: null,
-      idempotente: true,
-    };
-  }
-  const agregado = { tipo: "EMPRESA" as const, id: entrada.empresaId };
-  const confirmacion = planificarConfirmacionAuditoria(
+  return reemitirCredencialInicialTemporalCompartida(
     db,
     actorUid,
-    "LIFECYCLE_GOBERNAR",
-    "ReemitirCredencialInicialTemporalTenant",
     entrada,
-    agregado,
-    entrada.empresaId,
-    "CREDENCIAL_INICIAL_REEMITIDA",
-    () => ({ esperada: null, resultante: null }),
-    (resultado) => ({
-      rotacionAdministrativa: true,
-      incorporacionAnteriorId: plan.incorporacionId,
-      incorporacionNuevaId: resultado.incorporacionId,
-      codigoAnterior: plan.codigoAnterior,
-      codigoNuevo: resultado.codigo,
-    }),
+    tokenPlataforma,
+    resolverPrincipal ?? ((uid) => getAuth().getUser(uid)),
+    pepperParam ?? PIN_PEPPER.value(),
   );
-  const permisos = await permisosPredeterminados("admin", db);
-  const pepper = pepperParam ?? PIN_PEPPER.value();
-  const emitida = await emitirCredencialInicial(db, {
-    empresaId: entrada.empresaId,
-    uid: plan.ownerUid,
-    rol: "admin",
-    permisos,
-    origen: "PLATAFORMA",
-    emisorUid: actorUid,
-    nombreComercial: plan.nombreComercial,
-    pepper,
-    reemplazarIncorporacionId: plan.incorporacionId,
-    resolverPrincipal,
-    auditObserver: confirmacion.registrarEnTransaccion,
-    validarAntesDeEmitirEnTransaccion: async (tx) => {
-      await autorizarPlataforma(db, actorUid, tokenPlataforma, "LIFECYCLE_GOBERNAR", tx);
-      await revalidarReemisionTemporalEnTransaccion(db, tx, entrada.empresaId, plan);
-    },
-  });
-  const resultado = {
-    empresaId: entrada.empresaId,
-    uid: plan.ownerUid,
-    incorporacionId: emitida.incorporacionId,
-    codigo: emitida.codigo,
-    pinTemporal: emitida.pinTemporal,
-    estado: emitida.estado,
-    obligacionId: emitida.obligacionId,
-    idempotente: emitida.estado === "YA_EXISTENTE",
-  };
-  return finalizarResultadoAuditable(db, resultado, confirmacion);
 }

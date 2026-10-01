@@ -49,6 +49,7 @@
     "functions-bootstrap/**",
     "functions-operational-auth/**",
     "functions-operational-activation/**",
-    "functions-bodega/**"
+    "functions-bodega/**",
+    "functions-platform-tenant-access/**"
   ]
 }
