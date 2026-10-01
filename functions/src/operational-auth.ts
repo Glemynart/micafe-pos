@@ -23,6 +23,9 @@ import {
   validarSnapshotEmpresaEscribible,
 } from "./operational/tenant-context";
 import { exigirTenantActivo, validarMembresiaActiva } from "./tenant-configuration/authority";
+import { PERMISOS_VENDEDOR, permisosPredeterminados } from "./tenant-permissions";
+
+export { PERMISOS_VENDEDOR, permisosPredeterminados } from "./tenant-permissions";
 
 export {
   actualizarClaimsTenant,
@@ -40,8 +43,6 @@ initializeApp();
 const REGION = "us-central1";
 const PIN_PEPPER = defineSecret("OPERATIONAL_PIN_PEPPER");
 const ERROR_CREDENCIALES = "Credenciales operativas inválidas.";
-/** Plantilla canónica mínima del rol Bodega MVP-1. */
-export const PERMISOS_VENDEDOR = ["sell", "shifts"] as const;
 
 interface SolicitudAutenticacion {
   codigo?: unknown;
@@ -165,22 +166,6 @@ async function actualizarClaimsMembresiaSiTenantActivo(
   const claimsActuales = (await auth.getUser(uid)).customClaims ?? {};
   if (claimsActuales.empresaId !== empresaId) return;
   await actualizarClaimsTenant(uid, empresaId, rol, claimsActuales);
-}
-
-export async function permisosPredeterminados(rol: RolTenant, dbParam?: any): Promise<string[]> {
-  const db = dbParam ?? getFirestore();
-  const snap = await db.collection("permisos_roles").doc(rol).get();
-  const permisos = normalizarPermisosEfectivos(snap.data()?.permisos);
-  if (!snap.exists || !permisos) {
-    logger.error("membership_default_template_invalid", { rol });
-    throw new HttpsError("failed-precondition", "La plantilla de permisos no está disponible.");
-  }
-  if (rol === "vendedor" && (permisos.length !== PERMISOS_VENDEDOR.length
-    || permisos.some((permiso, indice) => permiso !== PERMISOS_VENDEDOR[indice]))) {
-    logger.error("membership_vendedor_template_invalid");
-    throw new HttpsError("failed-precondition", "La plantilla de permisos de vendedor es inválida.");
-  }
-  return permisos;
 }
 
 export const autenticarOperativo = onCall(

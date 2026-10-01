@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { emitirCredencialInicial } from "./emitir-credencial-inicial";
+import { emitirCredencialInicial } from "../credential-core/emitir-credencial-inicial";
 
 /**
  * Firestore falso mínimo: colecciones planas, `where` de igualdad

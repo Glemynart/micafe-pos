@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { HttpsError } from "firebase-functions/v2/https";
-import { resolverPlanEmisionCredencialInicial } from "./provisionar-credencial-inicial-tenant";
+import { resolverPlanEmisionCredencialInicial } from "../credential-core/provisionar-credencial-inicial-tenant";
 
 class Snap {
   constructor(private readonly v: any) {}
