@@ -6,14 +6,14 @@
 
 **Fecha de aceptación formal:** 2026-09-30.
 
-Esta aceptación formaliza la frontera neutral únicamente para su
-implementación posterior dentro de `G-SAAS-02 → M2 → E2.2`. No autoriza por
-sí sola deploy, tráfico, reemisión, Bootstrap, Activation, fixture adicional
-ni producción.
+La implementación de esta frontera quedó integrada en `main` mediante PR
+#405, merge `c3f7727268109f8f3128f00e930f45e9cbe926eb`. Conserva la misma
+autorización limitada: no autoriza por sí sola deploy, tráfico, reemisión,
+Bootstrap, Activation, fixture adicional ni producción.
 
-Pertenece a `G-SAAS-02 → M2 → E2.2`. La implementación permanece sujeta al
-alcance y validaciones de esta ADR; la aceptación no autoriza despliegue,
-reemisión, Bootstrap, Activation, fixture adicional ni producción.
+Pertenece a `G-SAAS-02 → M2 → E2.2`. El núcleo neutral está implementado e
+integrado; el despliegue, la reemisión, Bootstrap, Activation, fixture
+adicional y producción siguen sujetos a sus gates posteriores.
 
 ## Problema y evidencia
 
@@ -52,10 +52,10 @@ módulos.
 
 ## Migración y validación
 
-La implementación deberá mover —no duplicar— la lógica neutral, mantener los
-adapters legacy hasta el cutover y demostrar contratos, autoridad, aislamiento,
-idempotencia, auditoría, hash, discovery, module-load, Secret closure y
-rollback. Deploy y reemisión seguirán siendo gates posteriores separados.
+PR #405 movió —sin duplicar— la lógica neutral y mantuvo adapters legacy. Su
+validación local y CI cubrieron contratos, autoridad, aislamiento, idempotencia,
+auditoría, hash, module-load y cierre de Secrets. Deploy y reemisión siguen
+siendo gates posteriores separados de ADR-SAAS-050.
 
 ## Consecuencias
 
