@@ -1,0 +1,21 @@
+{
+  "name": "micafe-pos-saas-platform-tenant-access-functions",
+  "private": true,
+  "main": "lib/functions-platform-tenant-access/src/index.js",
+  "engines": { "node": "22" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test:discovery": "tsx --test src/discovery.test.ts",
+    "test:module-load": "tsx --test src/module-load.test.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "firebase-admin": "^14.0.0",
+    "firebase-functions": "^7.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.22.4",
+    "typescript": "^5.7.3"
+  }
+}

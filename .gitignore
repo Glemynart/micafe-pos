@@ -38,6 +38,7 @@ functions-operational-auth/lib/
 functions-platform-context/lib/
 functions-operator-summary/lib/
 functions-platform-resources/lib/
+functions-platform-tenant-access/lib/
 pnpm-lock.yaml
 
 # Temporal

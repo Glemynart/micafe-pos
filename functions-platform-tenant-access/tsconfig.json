@@ -1,0 +1,47 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "bcryptjs": ["node_modules/bcryptjs"],
+      "firebase-admin/*": ["node_modules/firebase-admin/lib/*/index"],
+      "firebase-functions": ["node_modules/firebase-functions/lib/v2/index"],
+      "firebase-functions/v2/https": ["node_modules/firebase-functions/lib/v2/providers/https"]
+    },
+    "outDir": "lib",
+    "rootDir": "..",
+    "declaration": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "../functions/src/credential-core/**/*.ts",
+    "../functions/src/incorporaciones-query.ts",
+    "../functions/src/pin-security.ts",
+    "../functions/src/tenant-permissions.ts",
+    "../functions/src/platform/authorization.ts",
+    "../functions/src/platform/audit.ts",
+    "../functions/src/platform/audit-confirmation.ts",
+    "../functions/src/platform/contracts.ts",
+    "../functions/src/platform/tenant-access-detail.ts",
+    "../functions/src/platform/tenant-access-reemision.ts",
+    "../functions/src/platform/validation.ts",
+    "../functions/src/suscripciones/relacion-vigente.ts",
+    "../lib/configuracion/catalogos.ts",
+    "../lib/configuracion/branding.ts",
+    "../lib/configuracion/contrato.ts",
+    "../lib/configuracion/normalizacion.ts",
+    "../lib/configuracion/readiness.ts",
+    "../lib/configuracion/validacion.ts",
+    "../lib/reservas-publicas/contrato.ts",
+    "../lib/impuestos-service.ts",
+    "../lib/tenant-roles.ts",
+    "../lib/suscripciones/contrato.ts"
+  ],
+  "exclude": ["src/**/*.test.ts", "../functions/src/**/*.test.ts", "lib", "node_modules"]
+}
