@@ -3,6 +3,7 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import type { CredencialOperativa, RolTenant } from "../contracts";
 import { esRolTenant } from "../contracts";
+export { normalizarPermisosEfectivos } from "../tenant-permissions";
 
 const MAX_FALLOS = 5;
 const BLOQUEO_MS = 15 * 60 * 1000;
@@ -55,11 +56,6 @@ export async function actualizarClaimsTenant(
   };
   await auth.setCustomUserClaims(uid, rol ? { ...platformClaims, empresaId, rol } : platformClaims);
   await auth.revokeRefreshTokens(uid);
-}
-
-export function normalizarPermisosEfectivos(valor: unknown): string[] | null {
-  if (!Array.isArray(valor) || valor.some((permiso) => typeof permiso !== "string" || !permiso)) return null;
-  return [...new Set(valor)].sort();
 }
 
 /** Sincroniza la proyección tenant y emite una sesión posterior a una activación. */

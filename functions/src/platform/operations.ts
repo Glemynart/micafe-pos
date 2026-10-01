@@ -13,7 +13,7 @@ import {
   revalidarDestinoProvisionableEnTransaccion,
   revalidarReemisionTemporalEnTransaccion,
 } from "./provisionar-credencial-inicial-tenant";
-import { permisosPredeterminados } from "../operational-auth";
+import { permisosPredeterminados } from "../tenant-permissions";
 
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");

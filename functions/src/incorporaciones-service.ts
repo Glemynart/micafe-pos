@@ -26,7 +26,8 @@ import { crearObligacionAuditoria, emitirObligacionAuditoria } from "./platform/
 import { esCredencialTemporalPlataformaVencidaOInvalida } from "./platform/vigencia-credencial-temporal";
 import { CODIGO_OPERATIVO_GLOBAL_YA_ASIGNADO, reservarCodigoOperativoEnTransaccion } from "./platform/reserva-codigo-operativo";
 import { generarCodigoOperativo, generarPinTemporal, MAX_INTENTOS_UNICIDAD } from "./platform/credencial-inicial";
-import { INCORPORACIONES_COLLECTION } from "./incorporaciones-query";
+import { INCORPORACIONES_COLLECTION, idIncorporacionDirecta } from "./incorporaciones-query";
+export { idIncorporacionDirecta } from "./incorporaciones-query";
 export {
   activarIncorporacionDirecta,
   idAuditoriaActivacion,
@@ -299,10 +300,6 @@ export async function crearIncorporacionDirecta({
     }
     return result;
   }
-}
-
-export function idIncorporacionDirecta(empresaId: string, codigo: string): string {
-  return createHash("sha256").update(`${empresaId}:DIRECTA:${codigo}`).digest("hex");
 }
 
 async function obtenerPrincipalDirecto(
