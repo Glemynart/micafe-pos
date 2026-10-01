@@ -2,9 +2,17 @@
 
 ## Estado
 
-**PROPUESTO — PENDIENTE DE APROBACIÓN.**
+**ACEPTADO.**
 
-Pertenece a `G-SAAS-02 → M2 → E2.2`. No autoriza implementación, despliegue,
+**Fecha de aceptación formal:** 2026-09-30.
+
+Esta aceptación formaliza la frontera neutral únicamente para su
+implementación posterior dentro de `G-SAAS-02 → M2 → E2.2`. No autoriza por
+sí sola deploy, tráfico, reemisión, Bootstrap, Activation, fixture adicional
+ni producción.
+
+Pertenece a `G-SAAS-02 → M2 → E2.2`. La implementación permanece sujeta al
+alcance y validaciones de esta ADR; la aceptación no autoriza despliegue,
 reemisión, Bootstrap, Activation, fixture adicional ni producción.
 
 ## Problema y evidencia
