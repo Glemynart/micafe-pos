@@ -2,15 +2,17 @@
 
 ## Estado
 
-**PROPUESTO — PENDIENTE DE APROBACIÓN.**
+**ACEPTADO.**
 
-**Fecha de propuesta:** 2026-10-01.
+**Fecha de propuesta y aceptación formal:** 2026-10-01.
 
-Esta propuesta pertenece a `G-SAAS-02 → M2 — Provisioning y onboarding →
-E2.2 — Configuración inicial`. No autoriza implementación, cambios de
-`firebase.json`, despliegues, creación de categorías, cambios de Rules, IAM,
-Secrets, Firestore, Auth, fixture adicional, Bootstrap, Activation, tráfico ni
-producción.
+Esta aceptación constituye una decisión de gobernanza para
+`G-SAAS-02 → M2 — Provisioning y onboarding → E2.2 — Configuración inicial`.
+Autoriza únicamente implementar y probar la frontera de categoría Bodega, su
+adaptador administrativo mínimo y el enforcement Firestore estrictamente
+necesario para evitar doble autoridad. No autoriza despliegues, creación de
+categorías, fixture adicional, Bootstrap, Activation, tráfico, IAM, Secrets,
+producción ni cambios a otros boundaries.
 
 ## Contexto y evidencia
 
@@ -32,6 +34,13 @@ categoría. El único escritor localizado, `scripts/seed-espacios.ts`, es un
 seed directo de Firestore con datos de MiCafe; no es tenant-scoped, no está
 auditado para staging y no puede usarse para el fixture ni como mecanismo de
 producción.
+
+Las Rules vigentes permiten a un administrador autenticado crear, actualizar y
+eliminar documentos `categorias` por escritura cliente. Esa ruta conserva el
+aislamiento por `empresaId`, pero no valida el espacio Bodega, no tiene
+idempotencia de comando ni produce auditoría canónica. Por ello no satisface
+la frontera necesaria para el catálogo Bodega y no debe coexistir como ruta de
+escritura Bodega después de la implementación.
 
 ADR-SAAS-049 limita deliberadamente `saas-bodega` a cinco callables. ADR-SAAS-
 048 exige que el fixture se cree y opere mediante mecanismos seguros y
@@ -61,17 +70,23 @@ Extender `saas-bodega` con una única callable Gen2 adicional:
 
 `crearCategoriaBodegaV1`
 
-La callable propuesta conservaría `us-central1`, Node.js 22 y cero Secrets.
-No aceptaría `empresaId`, `uid`, rol, permisos ni identificadores de otro
-tenant como autoridad de cliente. Derivaría tenant, membresía, rol y permisos
-desde Auth y servidor; validaría que `espacioId` existe, pertenece al mismo
-tenant y está operativo; validaría el nombre y los campos permitidos; crearía
-la categoría con `empresaId`, `espacioId`, estado activo, orden determinista y
+La callable conservará `us-central1`, Node.js 22 y cero Secrets. No aceptará
+`empresaId`, `uid`, rol, permisos ni identificadores de otro tenant como
+autoridad de cliente. Derivará tenant, membresía, rol y permisos desde Auth y
+servidor; exigirá rol `admin`, configuración `vertical: BODEGA_MVP1` y módulo
+`inventory` habilitado; validará que `espacioId` existe, pertenece al mismo
+tenant y está operativo; validará el nombre y los campos permitidos; y creará
+la categoría con `empresaId`, `espacioId`, estado activo, orden determinista e
 auditoría canónica.
 
-La administración Bodega incorporaría una UI mínima para crear la categoría
-solamente después de la implementación aprobada. No se propone sembrar una
-categoría implícita ni crear datos durante el deploy.
+La administración Bodega incorporará una UI mínima para crear la categoría.
+No se sembrará una categoría implícita ni se crearán datos durante el deploy.
+
+La implementación ajustará las Rules de `categorias` para denegar escrituras
+cliente cuando la configuración del tenant sea `BODEGA_MVP1`; la callable,
+mediante Admin SDK, será la única ruta de mutación de categoría para ese
+vertical. El comportamiento legacy de categorías de verticales distintos queda
+fuera de esta decisión y debe conservarse expresamente en las pruebas Rules.
 
 ```mermaid
 flowchart LR
@@ -82,22 +97,28 @@ flowchart LR
   E --> F[Auditoría canónica]
 ```
 
-## Contrato propuesto
+## Contrato aceptado
 
-El contrato exacto y sus códigos de error se definirán y probarán antes de
-implementar. Como mínimo:
+La request es un command envelope Bodega con `commandId`, `idempotencyKey`,
+`correlationId` y `payload` cerrado: `espacioId`, `nombre` e `icono` opcional.
+No admite campos de autoridad ni un `orden` controlado por cliente. La respuesta
+incluye `categoriaId`, `idempotente` y el `commandId` efectivo.
 
-- ausencia de Auth o membresía inválida conserva la semántica vigente de la
-  primitiva tenant-aware;
-- `espacioId` ausente, inválido, ajeno o no operativo no puede crear datos;
-- ningún campo de autoridad del cliente puede cambiar el tenant efectivo;
-- la operación es idempotente conforme al envelope canónico o rechaza una
-  repetición incompatible sin duplicar categorías;
-- toda creación produce auditoría atribuible al actor efectivo.
+- ausencia de Auth o membresía inválida conserva la semántica vigente de
+  `exigirTenantActivo()`;
+- actor que no es `admin`, vertical/capability no autorizadas, espacio ajeno o
+  no operativo devuelve `permission-denied` sin escribir;
+- request o campos desconocidos/inválidos devuelve `invalid-argument`;
+- mismo `idempotencyKey` y fingerprint devuelve el resultado original sin
+  duplicar categoría; reutilización incompatible se rechaza;
+- todo alta confirmada genera auditoría atribuible al actor efectivo;
+- el tenant siempre se deriva en servidor, por lo que un `empresaId` enviado
+  por cliente no puede seleccionar otra empresa.
 
-No se modifica mediante esta ADR propuesta el contrato de Bootstrap,
-`crearArticuloInventarioV1`, las cinco callables existentes de ADR-SAAS-049,
-Rules ni datos de ningún tenant.
+La implementación debe probar explícitamente que las Rules deniegan escritura
+cliente Bodega directa y que continúan preservando el comportamiento legacy
+permitido para verticales no Bodega. No se modifica por esta decisión el
+contrato de Bootstrap ni las cinco callables existentes de ADR-SAAS-049.
 
 ## Consecuencias si se acepta
 
@@ -131,7 +152,7 @@ Rules ni datos de ningún tenant.
 - **ADR-SAAS-050 y ADR-SAAS-051:** permanecen intactas; no se usan sus
   privilegios de plataforma ni su Secret para catálogo Bodega.
 
-## Gate posterior si se acepta
+## Gates posteriores
 
 1. aceptación formal y sincronización documental;
 2. implementación aislada y pruebas;
@@ -141,5 +162,6 @@ Rules ni datos de ningún tenant.
 6. validación de `crearCategoriaBodegaV1` con el fixture retenido;
 7. reanudación de Gate E de E2.2.
 
-Hasta entonces, E2.2 permanece `EN EJECUCIÓN` y Gate E permanece bloqueado por
-la ausencia de un mecanismo canónico de categoría.
+Hasta que la implementación, el PR, CI, preflight y deploy dirigido estén
+cerrados, E2.2 permanece `EN EJECUCIÓN` y Gate E permanece bloqueado por la
+ausencia de un mecanismo canónico de categoría desplegado y validado.
