@@ -154,14 +154,18 @@ contrato de Bootstrap ni las cinco callables existentes de ADR-SAAS-049.
 
 ## Gates posteriores
 
-1. aceptación formal y sincronización documental;
-2. implementación aislada y pruebas;
-3. PR, CI, auditoría y merge;
-4. preflight de deploy dirigido;
+1. aceptación formal y sincronización documental — **COMPLETADO**;
+2. implementación aislada y pruebas — **COMPLETADO**;
+3. PR, CI, auditoría y merge — **COMPLETADO** mediante PR #409, integrado en
+   `main` por `9f307fe75d1069dc08279c87aaac0156a56503be`; su CI post-merge
+   `36968156967` terminó `PASS`;
+4. preflight de deploy dirigido — **PENDIENTE**;
 5. deploy staging autorizado;
 6. validación de `crearCategoriaBodegaV1` con el fixture retenido;
 7. reanudación de Gate E de E2.2.
 
-Hasta que la implementación, el PR, CI, preflight y deploy dirigido estén
-cerrados, E2.2 permanece `EN EJECUCIÓN` y Gate E permanece bloqueado por la
-ausencia de un mecanismo canónico de categoría desplegado y validado.
+La implementación está integrada en `main`, pero no existe todavía deploy de
+`crearCategoriaBodegaV1` ni publicación de las Rules asociadas en staging.
+Hasta cerrar preflight, deploy dirigido y validación funcional, E2.2 permanece
+`EN EJECUCIÓN` y Gate E permanece bloqueado por la ausencia de un mecanismo
+canónico de categoría desplegado y validado.
