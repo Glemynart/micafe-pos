@@ -2,10 +2,17 @@
 
 ## Estado
 
-**PROPUESTO — PENDIENTE DE ACEPTACIÓN.**
+**ACEPTADO — 2026-10-02.**
 
-Esta propuesta pertenece a `G-SAAS-02 → M2 — Provisioning y onboarding →
-E2.2 — Configuración inicial`. No autoriza implementación, cambios de
+La aceptación formal de ADR-SAAS-054 constituye la decisión arquitectónica
+necesaria para continuar E2.2. Autoriza únicamente la implementación futura de
+las dos fronteras y las callables descritas en este ADR. No autoriza por sí
+misma deploy, tráfico, fixture adicional, Bootstrap, Activation, producción ni
+cambios en `saas-auth`, Rules, IAM, Secrets, Firestore o Auth.
+
+Esta decisión pertenece a `G-SAAS-02 → M2 — Provisioning y onboarding →
+E2.2 — Configuración inicial`. Autoriza únicamente la implementación
+controlada de las dos fronteras descritas. No autoriza cambios de
 `firebase.json`, deploy, tráfico, fixture adicional, Bootstrap, Activation,
 producción ni cambios en el tenant real.
 
@@ -51,7 +58,7 @@ negocio y sin usar escrituras directas de Firestore.
 | Crear operadores mediante una ruta administrativa directa | **Rechazada**: evita la incorporación canónica, rompe autoridad/auditoría y no es aceptable para staging. |
 | Crear fronteras dedicadas y reutilizar helpers neutrales | **Recomendada**: limita Secrets y discovery, conserva contratos y permite gates independientes. |
 
-## Decisión propuesta
+## Decisión aceptada
 
 Crear dos fronteras dedicadas, sin retirar todavía las exportaciones legacy.
 
@@ -97,7 +104,7 @@ turno o total como autoridad del cliente.
 
 ## Topología y migración
 
-La propuesta no autoriza todavía ningún deploy ni reasignación de tráfico.
+La decisión no autoriza todavía ningún deploy ni reasignación de tráfico.
 Cada codebase deberá tener su propio discovery, build, module-load y preflight.
 No se retirará ninguna exportación legacy hasta demostrar equivalencia,
 coexistencia controlada y rollback reproducible.
@@ -107,7 +114,7 @@ El despliegue futuro deberá demostrar exclusivamente:
 - `saas-operational-onboarding → crearIncorporacionDirecta`;
 - `saas-bodega-operations →` las seis callables indicadas;
 - región y runtime correctos;
-- Secrets exactamente según esta propuesta;
+- Secrets exactamente según esta decisión;
 - cero deletes, replacements o cambios de otros codebases;
 - cero cambios de producción, Rules, IAM, Firestore o Auth fuera de los
   efectos funcionales autorizados por el gate.
@@ -127,7 +134,7 @@ Antes de aceptar Gate E/F se deberán demostrar:
 - preflight y deploy dirigido en staging;
 - rollback de código y revisión remota conocida.
 
-Los gates E2.2 siguen separados: esta propuesta no cierra Gate E, Gate F,
+Los gates E2.2 siguen separados: esta decisión no cierra Gate E, Gate F,
 rehearsal, certificación ni producción.
 
 ## Rollback y riesgos
@@ -151,7 +158,13 @@ aceptación, no mejoras opcionales.
 - preparar o modificar Distribuidora Las Jiménez;
 - marcar E2.2 como completado.
 
-## Decisión solicitada
+## Decisión aceptada
 
-Aceptar o rechazar esta arquitectura antes de iniciar implementación. Hasta
-entonces, Gate F permanece `BLOCKED` y E2.2 permanece `EN EJECUCIÓN`.
+La arquitectura queda aceptada para implementación controlada dentro del
+alcance descrito. La implementación todavía no ha comenzado, Gate F permanece
+`BLOCKED` hasta que las superficies necesarias estén implementadas, auditadas
+y desplegadas, y E2.2 permanece `EN EJECUCIÓN`.
+
+La aceptación no convierte ninguna validación pendiente en PASS ni autoriza
+avanzar automáticamente a los gates de preflight, deploy, fixture,
+rehearsal, certificación o producción.
