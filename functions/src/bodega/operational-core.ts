@@ -81,13 +81,14 @@ export async function resolverCuentaOperativa(tx: any, db: any, empresaId: strin
   return { ref: snap.ref, data, saldo: data.saldo as number };
 }
 
-export function writeMovement(tx: any, db: any, input: { empresaId: string; command: Envelope; key: string; account: { ref: any; data: Record<string, unknown>; saldo: number }; tipo: Tipo; monto: number; categoria: string; actorUid: string; rol: string; turnoId?: string | null; ventaId?: string | null; }) {
+export function writeMovement(tx: any, db: any, input: { empresaId: string; command: Envelope; key: string; account: { ref: any; data: Record<string, unknown>; saldo: number }; tipo: Tipo; monto: number; categoria: string; actorUid: string; rol: string; turnoId?: string | null; ventaId?: string | null; compraId?: string | null; liquidacionId?: string | null; egresoId?: string | null; movimientoRelacionadoId?: string | null; actualizarSaldo?: boolean; validarFondos?: boolean; }) {
   const id = crearIdentificadorInterno(input.empresaId, `movfin:${input.key}`);
   const ref = db.collection(MOVIMIENTOS).doc(id);
   const saldo = input.tipo === "ingreso" ? input.account.saldo + input.monto : input.account.saldo - input.monto;
-  if (saldo < 0) fail("failed-precondition", "FONDOS_INSUFICIENTES");
-  tx.create(ref, { id, empresaId: input.empresaId, claveIdempotencia: input.key, commandId: input.command.commandId, idempotencyKey: input.command.idempotencyKey, correlationId: input.command.correlationId, tipo: input.tipo, monto: input.monto, moneda: "COP", fecha: FieldValue.serverTimestamp(), cuentaDocumentoId: input.account.ref.id, cuentaClaveSnapshot: input.account.data.claveOperativa ?? input.account.ref.id, cuentaNombreSnapshot: input.account.data.nombre ?? input.account.ref.id, saldoDespues: saldo, categoria: input.categoria, referenciaColeccion: input.ventaId ? "ventas" : "operacion", referenciaId: input.ventaId ?? input.command.commandId, turnoId: input.turnoId ?? null, ventaId: input.ventaId ?? null, motivo: input.command.motivo ?? null, usuarioId: input.actorUid, usuarioNombreSnapshot: input.actorUid, rolEfectivoSnapshot: input.rol });
-  tx.update(input.account.ref, { saldo });
+  if (input.validarFondos !== false && saldo < 0) fail("failed-precondition", "FONDOS_INSUFICIENTES");
+  const referenciaColeccion = input.ventaId ? "ventas" : input.compraId ? "compras" : input.egresoId ? "egresos" : "operacion";
+  tx.create(ref, { id, empresaId: input.empresaId, claveIdempotencia: input.key, commandId: input.command.commandId, idempotencyKey: input.command.idempotencyKey, correlationId: input.command.correlationId, tipo: input.tipo, monto: input.monto, moneda: "COP", fecha: FieldValue.serverTimestamp(), cuentaDocumentoId: input.account.ref.id, cuentaClaveSnapshot: input.account.data.claveOperativa ?? input.account.ref.id, cuentaNombreSnapshot: input.account.data.nombre ?? input.account.ref.id, saldoDespues: saldo, categoria: input.categoria, referenciaColeccion, referenciaId: input.ventaId ?? input.compraId ?? input.egresoId ?? input.command.commandId, turnoId: input.turnoId ?? null, ventaId: input.ventaId ?? null, compraId: input.compraId ?? null, liquidacionId: input.liquidacionId ?? null, egresoId: input.egresoId ?? null, movimientoRelacionadoId: input.movimientoRelacionadoId ?? null, motivo: input.command.motivo ?? null, usuarioId: input.actorUid, usuarioNombreSnapshot: input.actorUid, rolEfectivoSnapshot: input.rol });
+  if (input.actualizarSaldo !== false) tx.update(input.account.ref, { saldo });
   return { id, ref, saldo };
 }
 

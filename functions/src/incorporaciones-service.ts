@@ -5,27 +5,17 @@ import { HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import {
   type CredencialOperativa,
-  idCredencialOperativa,
-  normalizarCodigo,
   normalizarEmail,
-  normalizarNombre,
-  esPinValido,
   esRolTenant,
 } from "./contracts";
-import { hashearPin, verificarPin } from "./pin-security";
+import { verificarPin } from "./pin-security";
 import {
-  actualizarClaimsTenant,
-  estaBloqueada,
   emitirSesionTenant,
   normalizarPermisosEfectivos,
-  permisosPredeterminados,
-  registrarFallo,
   validarSnapshotEmpresaEscribible,
-} from "./operational-auth";
+} from "./operational/tenant-context";
+import { permisosPredeterminados } from "./tenant-permissions";
 import { crearObligacionAuditoria, emitirObligacionAuditoria } from "./platform/audit";
-import { esCredencialTemporalPlataformaVencidaOInvalida } from "./platform/vigencia-credencial-temporal";
-import { CODIGO_OPERATIVO_GLOBAL_YA_ASIGNADO, reservarCodigoOperativoEnTransaccion } from "./platform/reserva-codigo-operativo";
-import { generarCodigoOperativo, generarPinTemporal, MAX_INTENTOS_UNICIDAD } from "./platform/credencial-inicial";
 import { INCORPORACIONES_COLLECTION, idIncorporacionDirecta } from "./incorporaciones-query";
 export { idIncorporacionDirecta } from "./incorporaciones-query";
 export {
@@ -42,14 +32,7 @@ export {
 
 export { INCORPORACIONES_COLLECTION, consultarIncorporacionDirectaMasReciente } from "./incorporaciones-query";
 
-export interface SolicitudIncorporacionDirecta {
-  nombre?: unknown;
-  codigo?: unknown;
-  pinTemporal?: unknown;
-  rol?: unknown;
-  /** Se rechaza hasta que exista una prueba de posesion aprobada. */
-  uid?: unknown;
-}
+export { crearIncorporacionDirecta, prepararIncorporacionDirecta, type SolicitudIncorporacionDirecta } from "./operational-onboarding/direct";
 
 export interface SolicitudIncorporacionEmail {
   email?: unknown;
@@ -79,7 +62,6 @@ export interface IncorporacionCreada {
   estado: "TEMP_CREDENTIAL" | "INVITED";
 }
 
-
 export interface IncorporacionEmailEmitida extends IncorporacionCreada {
   entrega: { email: string; token: string; tokenVersion: number; expiraEn: Date } | null;
 }
@@ -91,263 +73,12 @@ export interface ActivacionEmailCompletada {
   idempotente: boolean;
 }
 
-
-export function prepararIncorporacionDirecta(data: SolicitudIncorporacionDirecta | undefined) {
-  const nombre = normalizarNombre(data?.nombre);
-  const codigo = data?.codigo !== undefined && data.codigo !== null ? normalizarCodigo(data?.codigo) : null;
-  const pinTemporal = data?.pinTemporal !== undefined && data.pinTemporal !== null ? data.pinTemporal : null;
-  if (!nombre || !esRolTenant(data?.rol) || data?.uid !== undefined) {
-    throw new HttpsError("invalid-argument", "Datos de incorporacion directa invalidos.");
-  }
-  if (codigo !== null && !codigo) {
-    throw new HttpsError("invalid-argument", "El codigo operativo es invalido.");
-  }
-  if (pinTemporal !== null && !esPinValido(pinTemporal)) {
-    throw new HttpsError("invalid-argument", "El PIN temporal es invalido.");
-  }
-  return { nombre, codigo, pinTemporal, rol: data.rol };
-}
-
 export function prepararIncorporacionEmail(data: SolicitudIncorporacionEmail | undefined) {
   const email = normalizarEmail(data?.email);
   if (!email || !esRolTenant(data?.rol)) {
     throw new HttpsError("invalid-argument", "Datos de incorporacion por email invalidos.");
   }
   return { email, rol: data.rol };
-}
-
-export async function crearIncorporacionDirecta({
-  empresaId,
-  emisorUid,
-  data,
-  pepper,
-}: {
-  empresaId: string;
-  emisorUid: string;
-  data: SolicitudIncorporacionDirecta | undefined;
-  pepper: string;
-}): Promise<IncorporacionCreada & { uid: string; codigo: string; pinTemporal?: string }> {
-  const preparado = prepararIncorporacionDirecta(data);
-  const { nombre, rol } = preparado;
-  let { codigo, pinTemporal } = preparado;
-  const codigoFueProvisto = codigo !== null;
-  const pinTemporalGenerada = pinTemporal === null;
-
-  const db = getFirestore();
-  const auth = getAuth();
-
-  if (pinTemporal === null) {
-    pinTemporal = generarPinTemporal();
-  }
-
-  let intento = 0;
-  while (true) {
-    if (codigo === null) {
-      const empresaSnap = await db.collection("empresas").doc(empresaId).get();
-      const nombreComercial = empresaSnap.data()?.nombreComercial ?? empresaSnap.data()?.nombre ?? empresaId;
-      codigo = generarCodigoOperativo(nombreComercial, nombre, intento);
-    }
-    const codigoResuelto: string = codigo;
-
-    const incorporacionRef = db.collection(INCORPORACIONES_COLLECTION).doc(idIncorporacionDirecta(empresaId, codigoResuelto));
-    const credencialRef = db.collection("credenciales_operativas").doc(idCredencialOperativa(empresaId, codigoResuelto));
-
-    const incorporacionExistente = await incorporacionRef.get();
-    if (incorporacionExistente.exists) {
-      const credencialExistente = await credencialRef.get();
-      return validarIncorporacionDirectaExistente(
-        incorporacionExistente.data(),
-        credencialExistente.data(),
-        codigoResuelto,
-        rol,
-        incorporacionRef.id,
-      );
-    }
-    if ((await credencialRef.get()).exists) {
-      throw new HttpsError("already-exists", "El codigo operativo ya esta asignado.");
-    }
-
-    const permisosEfectivos = await permisosPredeterminados(rol);
-    const { principal, creadaAhora } = await obtenerPrincipalDirecto(auth, incorporacionRef.id, nombre);
-    const usuarioRef = db.collection("usuarios").doc(principal.uid);
-    let resultadoExistente: (IncorporacionCreada & { uid: string; codigo: string }) | undefined;
-
-    try {
-      const pinHash = await hashearPin(pinTemporal, pepper);
-      await db.runTransaction(async (transaction) => {
-        const [incorporacionSnap, usuarioSnap, credencialSnap, credencialesUidSnap] = await Promise.all([
-          transaction.get(incorporacionRef),
-          transaction.get(usuarioRef),
-          transaction.get(credencialRef),
-          transaction.get(db.collection("credenciales_operativas")
-            .where("empresaId", "==", empresaId)
-            .where("uid", "==", principal.uid)
-            .limit(2)),
-        ]);
-        if (incorporacionSnap.exists) {
-          resultadoExistente = validarIncorporacionDirectaExistente(
-            incorporacionSnap.data(),
-            credencialSnap.data(),
-            codigoResuelto,
-            rol,
-            incorporacionRef.id,
-          );
-          return;
-        }
-        if (usuarioSnap.exists) {
-          throw new HttpsError("already-exists", "La identidad ya tiene perfil global.");
-        }
-        if (credencialSnap.exists) {
-          throw new HttpsError("already-exists", "El codigo operativo ya esta asignado.");
-        }
-        if (credencialesUidSnap.size > 0) {
-          throw new HttpsError("already-exists", "La identidad ya tiene credencial operativa en esta empresa.");
-        }
-
-        await reservarCodigoOperativoEnTransaccion(db, transaction, codigoResuelto);
-
-        transaction.create(usuarioRef, {
-          uid: principal.uid,
-          nombre,
-          creadoEn: FieldValue.serverTimestamp(),
-        });
-        transaction.create(credencialRef, {
-          empresaId,
-          uid: principal.uid,
-          codigo: codigoResuelto,
-          incorporacionId: incorporacionRef.id,
-          pinHash,
-          activo: true,
-          requiereCambio: true,
-          fallosConsecutivos: 0,
-          bloqueadoHasta: null,
-          creadaEn: FieldValue.serverTimestamp(),
-          actualizadaEn: FieldValue.serverTimestamp(),
-          pinActualizadoEn: FieldValue.serverTimestamp(),
-        });
-        transaction.create(incorporacionRef, {
-          empresaId,
-          mecanismo: "DIRECTA",
-          estado: "TEMP_CREDENTIAL",
-          rol,
-          permisosEfectivos,
-          emitidaPorUid: emisorUid,
-          uid: principal.uid,
-          nombre,
-          codigo: codigoResuelto,
-          creadaEn: FieldValue.serverTimestamp(),
-          actualizadaEn: FieldValue.serverTimestamp(),
-        });
-      });
-
-      if (resultadoExistente) return resultadoExistente;
-    } catch (error) {
-      if (error instanceof HttpsError
-        && error.message === CODIGO_OPERATIVO_GLOBAL_YA_ASIGNADO
-        && !codigoFueProvisto
-        && intento < MAX_INTENTOS_UNICIDAD) {
-        if (creadaAhora) {
-          try {
-            await auth.deleteUser(principal.uid);
-          } catch {
-            logger.error("incorporacion_directa_auth_cleanup_failed", { empresaId, uid: principal.uid });
-            throw error;
-          }
-        }
-        intento++;
-        codigo = null;
-        continue;
-      }
-
-      const incorporacionConfirmada = await incorporacionRef.get().catch(() => null);
-      if (incorporacionConfirmada === null) {
-        logger.error("incorporacion_directa_outcome_unknown", { empresaId, uid: principal.uid });
-        throw error;
-      }
-      if (incorporacionConfirmada?.exists) {
-        const credencialConfirmada = await credencialRef.get().catch(() => null);
-        if (credencialConfirmada === null) {
-          logger.error("incorporacion_directa_credential_outcome_unknown", { empresaId, uid: principal.uid });
-          throw error;
-        }
-        try {
-          return validarIncorporacionDirectaExistente(
-            incorporacionConfirmada.data(),
-            credencialConfirmada.data(),
-            codigoResuelto,
-            rol,
-            incorporacionRef.id,
-          );
-        } catch {
-        }
-        throw error;
-      }
-      if (creadaAhora) await auth.deleteUser(principal.uid).catch(() => {
-        logger.error("incorporacion_directa_auth_cleanup_failed", { empresaId, uid: principal.uid });
-      });
-      throw error;
-    }
-
-    logger.info("incorporacion_directa_created", { empresaId, incorporacionId: incorporacionRef.id, uid: principal.uid, rol });
-    const result: IncorporacionCreada & { uid: string; codigo: string; pinTemporal?: string } = {
-      incorporacionId: incorporacionRef.id,
-      estado: "TEMP_CREDENTIAL",
-      uid: principal.uid,
-      codigo: codigoResuelto,
-    };
-    if (pinTemporalGenerada) {
-      result.pinTemporal = pinTemporal;
-    }
-    return result;
-  }
-}
-
-async function obtenerPrincipalDirecto(
-  auth: Auth,
-  uid: string,
-  nombre: string,
-): Promise<{ principal: UserRecord; creadaAhora: boolean }> {
-  try {
-    const existente = await auth.getUser(uid);
-    if (existente.disabled) {
-      throw new HttpsError("failed-precondition", "La identidad Firebase esta deshabilitada.");
-    }
-    return { principal: existente, creadaAhora: false };
-  } catch (error) {
-    if (!(error instanceof Error && "code" in error && error.code === "auth/user-not-found")) {
-      if (error instanceof HttpsError) throw error;
-      throw error;
-    }
-  }
-
-  try {
-    const creada = await auth.createUser({ uid, displayName: nombre });
-    return { principal: creada, creadaAhora: true };
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "auth/uid-already-exists") {
-      const existente = await auth.getUser(uid);
-      if (existente.disabled) {
-        throw new HttpsError("failed-precondition", "La identidad Firebase esta deshabilitada.");
-      }
-      return { principal: existente, creadaAhora: false };
-    }
-    throw error;
-  }
-}
-
-function validarIncorporacionDirectaExistente(
-  data: FirebaseFirestore.DocumentData | undefined,
-  credencial: FirebaseFirestore.DocumentData | undefined,
-  codigo: string,
-  rol: string,
-  incorporacionId: string,
-): IncorporacionCreada & { uid: string; codigo: string } {
-  if (data?.mecanismo !== "DIRECTA" || data.estado !== "TEMP_CREDENTIAL" || data.codigo !== codigo
-    || typeof data.uid !== "string" || data.rol !== rol
-    || credencial?.uid !== data.uid || credencial.codigo !== codigo || credencial.activo !== true) {
-    throw new HttpsError("already-exists", "Ya existe una incorporacion para ese codigo operativo.");
-  }
-  return { incorporacionId, estado: "TEMP_CREDENTIAL", uid: data.uid, codigo };
 }
 
 export async function crearIncorporacionEmail({

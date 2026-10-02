@@ -51,6 +51,8 @@
     "functions-operational-activation/**",
     "functions-bodega/**",
     "functions-platform-tenant-access/**",
-    "functions-platform-credential-recovery/**"
+    "functions-platform-credential-recovery/**",
+    "functions-operational-onboarding/**",
+    "functions-bodega-operations/**"
   ]
 }

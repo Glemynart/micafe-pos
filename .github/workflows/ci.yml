@@ -45,6 +45,8 @@ jobs:
             functions-bodega/package-lock.json
             functions-platform-tenant-access/package-lock.json
             functions-platform-credential-recovery/package-lock.json
+            functions-operational-onboarding/package-lock.json
+            functions-bodega-operations/package-lock.json
 
       - name: Setup Java para Firebase Emulator Suite
         uses: actions/setup-java@v4
@@ -106,6 +108,14 @@ jobs:
       - name: Instalar dependencias del codebase Platform credential recovery
         run: npm ci
         working-directory: functions-platform-credential-recovery
+
+      - name: Instalar dependencias del codebase Operational onboarding
+        run: npm ci
+        working-directory: functions-operational-onboarding
+
+      - name: Instalar dependencias del codebase Bodega operations
+        run: npm ci
+        working-directory: functions-bodega-operations
 
       - name: Chequeo de tipos de aplicaciÃ³n
         run: npx tsc --noEmit
@@ -202,6 +212,18 @@ jobs:
           npm run build
           npm test
         working-directory: functions-platform-credential-recovery
+
+      - name: Build, discovery y module-load del codebase Operational onboarding
+        run: |
+          npm run build
+          npm test
+        working-directory: functions-operational-onboarding
+
+      - name: Build, pruebas, discovery y module-load del codebase Bodega operations
+        run: |
+          npm run build
+          npm test
+        working-directory: functions-bodega-operations
 
       - name: Lint de aplicacion y tooling
         run: npm run lint

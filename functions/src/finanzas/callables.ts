@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { exigirTenantActivo } from "../operational-auth";
+import { exigirTenantActivo } from "../tenant-configuration/authority";
 import { esMembresiaAutorizada } from "../turnos/executor";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 import { aplicarMovimientosInventarioEnTransaccion } from "../inventario/ledger";
+import { ejecutarCerrarTurnoOperativoV1 as ejecutarCerrarTurnoOperativoNeutral } from "../bodega/close-turn";
 
 const REGION = "us-central1";
 const MOVIMIENTOS = "transacciones_financieras";
@@ -702,7 +703,11 @@ async function efectoCerrarTurnoOperativo(tx: any, db: any, empresaId: string, a
 
 /** Ejecutor inyectable del cierre R1-B.3 para pruebas de atomicidad e idempotencia. */
 export async function ejecutarCerrarTurnoOperativoV1(db: any, contexto: ContextoFinancieroOperativo, data: unknown) {
-  return executeConContexto(db, contexto, data, "cerrarTurnoOperativoV1", efectoCerrarTurnoOperativo);
+  return ejecutarCerrarTurnoOperativoNeutral(db, contexto, data);
 }
 
-export const cerrarTurnoOperativoV1 = onCall({ region: REGION }, async request => execute(request, "cerrarTurnoOperativoV1", efectoCerrarTurnoOperativo));
+export const cerrarTurnoOperativoV1 = onCall({ region: REGION }, async request => {
+  const db = getFirestore();
+  const tenant = await exigirTenantActivo(request, db);
+  return ejecutarCerrarTurnoOperativoNeutral(db, { empresaId: tenant.id, actorUid: request.auth!.uid, rol: tenant.rol }, request.data);
+});
