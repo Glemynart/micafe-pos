@@ -42,6 +42,18 @@ superficie se evaluará en un gate separado y no bloquea la emisión canónica.
 
 ## Problema
 
+### Reconciliación posterior del estado (2026-10-02)
+
+El contexto anterior describe el estado previo al despliegue y queda
+conservado como antecedente del bloqueo. Desde entonces, los tres endpoints de
+esta ADR fueron implementados en `saas-platform-credential-recovery` mediante
+`163afec5058f86ef7ddb97f0b34976f0badee408` y quedaron integrados en `main` por
+`223ccce695a15fa44a220bcfe020f5f415778366`. El despliegue dirigido en
+`micafe-pos-staging` está verificado: las tres Functions están `ACTIVE` en
+`us-central1`, Node.js 22, con el único Secret existente
+`OPERATIONAL_PIN_PEPPER`. La consulta histórica `404` y su presentación como
+fallo CORS ya no describen el estado actual.
+
 ADR-SAAS-017 ya define la recuperación segura, pero sus endpoints continúan en
 un monolito que no puede desplegarse de forma dirigida. E2.2 necesita recuperar
 exclusivamente el fixture sintético sin reabrir Bootstrap, reutilizar PIN alguno
@@ -133,6 +145,18 @@ la temporal anterior permanece inválida y el fixture se retiene conforme
 ADR-SAAS-048.
 
 ## Consecuencias
+
+### Estado posterior al deploy (2026-10-02)
+
+La implementación y el deploy de staging están completados y verificados. La
+reemisión/activación del administrador sintético, la validación funcional, el
+rehearsal y la certificación siguen pendientes; por tanto, esta ADR no cierra
+Gate E ni E2.2. Producción y Distribuidora Las Jiménez permanecen fuera de
+alcance.
+
+El texto de consecuencia que sigue pertenece al momento de aceptación del ADR;
+queda superado por el estado posterior anterior y no debe leerse como una
+prohibición vigente del deploy ya verificado.
 
 La decisión desbloquea la implementación de una ruta canónica para recuperar
 un fixture `ACTIVE` sin tocar `saas-auth`. No autoriza el deploy ni una
