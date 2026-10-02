@@ -179,6 +179,43 @@ test("ADR-SAAS-017: recupera operador, no persiste secretos en el agregado y act
   assert.equal(db.docs.size > 0, true);
 });
 
+test("ADR-SAAS-053: encuentra la credencial activa aunque existan más de tres registros históricos", async () => {
+  const db = new FakeDb();
+  const pepper = "test-pepper";
+  db.seed("empresas/tenant-history", { estado: "activa", ownerUid: "owner-history", nombreComercial: "Tenant History" });
+  db.seed("membresias/tenant-history_owner-history", {
+    empresaId: "tenant-history", uid: "owner-history", rol: "admin", estado: "activa", activo: true, permisos: [],
+  });
+  db.seed("usuarios/owner-history", { uid: "owner-history", nombre: "Owner History" });
+  for (const [suffix, activo] of [["old-1", false], ["old-2", false], ["old-3", false], ["active-4", true]] as const) {
+    db.seed(`credenciales_operativas/tenant-history_${suffix}`, {
+      empresaId: "tenant-history",
+      uid: "owner-history",
+      codigo: suffix,
+      pinHash: await hashearPin("123456", pepper),
+      activo,
+      requiereCambio: false,
+      fallosConsecutivos: 0,
+      bloqueadoHasta: null,
+    });
+  }
+
+  const resultado = await solicitarRestablecimientoCredencial(
+    db as any,
+    { tipo: "OPERADOR_SAAS", uid: "saas-operator", facultad: "ACCESO_RESTABLECER" },
+    command("history-reset"),
+    "tenant-history",
+    "owner-history",
+    pepper,
+    { metodo: "CONFIRMACION_PROPIETARIO", referencia: "ticket-history" },
+  );
+
+  assert.equal(resultado.idempotente, false);
+  assert.equal(resultado.estado, "PENDIENTE_ACTIVACION");
+  assert.equal(db.read("credenciales_operativas/tenant-history_active-4").activo, false);
+  assert.equal(db.read(`credenciales_operativas/tenant-history_${resultado.codigo}`).activo, true);
+});
+
 test("ADR-SAAS-035: reemite una recuperaciÃ³n pendiente de administrador de forma atÃ³mica", async () => {
   const db = new FakeDb();
   const pepper = "test-pepper";
