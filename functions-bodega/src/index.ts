@@ -8,6 +8,7 @@ import {
 } from "../../functions/src/bodega-vendedor/presentaciones";
 import { ejecutarConfirmarVentaBodegaV1 } from "../../functions/src/bodega-vendedor/ventas-confirmation";
 import { ejecutarCrearArticuloInventarioV1 } from "../../functions/src/inventario/callables";
+import { ejecutarCrearCategoriaBodegaV1 } from "../../functions/src/bodega/categorias";
 import { leerConfiguracionEmpresa } from "../../functions/src/configuracion/reader";
 import { exigirTenantActivo } from "../../functions/src/tenant-configuration/authority";
 
@@ -20,7 +21,12 @@ async function contextoOperativo(request: Parameters<typeof exigirTenantActivo>[
   return { empresaId: tenant.id, actorUid: request.auth!.uid, rol: tenant.rol };
 }
 
-/** Frontera Bodega aislada: cinco comandos Gen2, sin Secrets. */
+/** Frontera Bodega aislada: comandos Gen2, sin Secrets. */
+export const crearCategoriaBodegaV1 = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  return ejecutarCrearCategoriaBodegaV1(db, await contextoOperativo(request, db), request.data);
+});
+
 export const crearClienteVendedorV1 = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   const tenant = await exigirTenantActivo(request, db);

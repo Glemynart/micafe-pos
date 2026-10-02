@@ -13,13 +13,14 @@ class Snapshot {
 }
 
 class Ref {
-  constructor(readonly path: string) {}
+  constructor(readonly path: string, private readonly db: FakeFirestore) {}
   get id() { return this.path.split("/").at(-1)!; }
+  async get() { return new Snapshot(this.id, this.db.docs.get(this.path)); }
 }
 
 class Collection {
   constructor(private readonly db: FakeFirestore, private readonly name: string) {}
-  doc(id: string) { return new Ref(`${this.name}/${id}`); }
+  doc(id: string) { return new Ref(`${this.name}/${id}`, this.db); }
 }
 
 class Transaction {
@@ -58,13 +59,14 @@ function seed(db: FakeFirestore, empresaId = "empresa-a") {
 test("ADR-052: admin Bodega crea categoría tenant-aware con auditoría", async () => {
   const db = new FakeFirestore(); seed(db);
   const result = await ejecutarCrearCategoriaBodegaV1(db, adminA, envelope("categoria-a", { espacioId: "espacio-empresa-a", nombre: "Bebidas", icono: "cup" }));
+  assert.equal(result.idempotente, false);
   const categoria = db.docs.get(`categorias/${result.categoriaId}`);
   assert.equal(categoria?.empresaId, "empresa-a");
   assert.equal(categoria?.espacioId, "espacio-empresa-a");
   assert.equal(categoria?.nombre, "Bebidas");
   assert.equal(categoria?.activo, true);
   assert.equal(categoria?.creadoPor, "admin-a");
-  assert.equal(db.docs.get(`operaciones_comandos/empresa-a_categoria-a`)?.estado, "CONFIRMADO");
+  assert.equal([...db.docs.values()].find(value => value.commandId === "categoria-a")?.estado, "CONFIRMADO");
   assert.equal([...db.docs.keys()].filter(key => key.startsWith("operaciones_auditoria/")).length, 1);
 });
 
@@ -73,7 +75,7 @@ test("ADR-052: replay compatible no duplica categoría ni auditoría", async () 
   const data = envelope("categoria-idempotente", { espacioId: "espacio-empresa-a", nombre: "Abarrotes" });
   const first = await ejecutarCrearCategoriaBodegaV1(db, adminA, data);
   const replay = await ejecutarCrearCategoriaBodegaV1(db, adminA, data);
-  assert.deepEqual(replay, first);
+  assert.deepEqual(replay, { ...first, idempotente: true });
   assert.equal([...db.docs.keys()].filter(key => key.startsWith("categorias/")).length, 1);
   assert.equal([...db.docs.keys()].filter(key => key.startsWith("operaciones_auditoria/")).length, 1);
 });
