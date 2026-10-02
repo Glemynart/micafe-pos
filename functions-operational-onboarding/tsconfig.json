@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "firebase-admin/*": ["node_modules/firebase-admin/lib/*/index"],
+      "firebase-functions": ["node_modules/firebase-functions/lib/v2/index"],
+      "firebase-functions/v2/https": ["node_modules/firebase-functions/lib/v2/providers/https"]
+    },
+    "outDir": "lib",
+    "rootDir": "..",
+    "declaration": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "../functions/src/operational-onboarding/direct.ts",
+    "../functions/src/incorporaciones-query.ts",
+    "../functions/src/contracts.ts",
+    "../functions/src/pin-security.ts",
+    "../functions/src/operational/tenant-context.ts",
+    "../functions/src/tenant-permissions.ts",
+    "../functions/src/platform/audit.ts",
+    "../functions/src/platform/vigencia-credencial-temporal.ts",
+    "../functions/src/platform/reserva-codigo-operativo.ts",
+    "../functions/src/platform/credencial-inicial.ts"
+  ],
+  "exclude": ["src/**/*.test.ts", "../functions/src/**/*.test.ts", "lib", "node_modules"]
+}

@@ -1,0 +1,43 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "firebase-admin/*": ["node_modules/firebase-admin/lib/*/index"],
+      "firebase-functions": ["node_modules/firebase-functions/lib/v2/index"],
+      "firebase-functions/v2/https": ["node_modules/firebase-functions/lib/v2/providers/https"]
+    },
+    "outDir": "lib",
+    "rootDir": "..",
+    "declaration": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "../functions/src/bodega/operational-core.ts",
+    "../functions/src/bodega/close-turn.ts",
+    "../functions/src/bodega-vendedor/clientes.ts",
+    "../functions/src/bodega-vendedor/lecturas.ts",
+    "../functions/src/bodega-vendedor/presentaciones.ts",
+    "../functions/src/inventario/callables.ts",
+    "../functions/src/inventario/ledger.ts",
+    "../functions/src/finanzas/callables.ts",
+    "../functions/src/turnos/callable.ts",
+    "../functions/src/turnos/contracts.ts",
+    "../functions/src/turnos/confirmation.ts",
+    "../functions/src/turnos/envelope.ts",
+    "../functions/src/turnos/executor.ts",
+    "../functions/src/turnos/identificadores.ts",
+    "../functions/src/tenant-configuration/authority.ts",
+    "../functions/src/configuracion/reader.ts",
+    "../functions/src/contracts.ts",
+    "../lib/configuracion/contrato.ts",
+    "../lib/configuracion/validacion.ts"
+  ],
+  "exclude": ["src/**/*.test.ts", "../functions/src/**/*.test.ts", "lib", "node_modules"]
+}

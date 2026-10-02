@@ -51,6 +51,14 @@
     {
       "source": "functions-platform-credential-recovery",
       "codebase": "saas-platform-credential-recovery"
+    },
+    {
+      "source": "functions-operational-onboarding",
+      "codebase": "saas-operational-onboarding"
+    },
+    {
+      "source": "functions-bodega-operations",
+      "codebase": "saas-bodega-operations"
     }
   ],
   "firestore": {
