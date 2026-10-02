@@ -20,13 +20,21 @@ por el PR técnico #400, integrado en `main` mediante
 autoriza despliegues, fixtures, Bootstrap, Activation, Firestore, Auth, Rules,
 IAM, Secrets ni producción.
 
+**Complemento vigente.** El alcance original de cinco callables fue ampliado
+de forma explícita y acotada por ADR-SAAS-052, aceptada posteriormente. PR
+#409 integró en `main` la sexta callable `crearCategoriaBodegaV1`, con Rules y
+adaptador administrativo estrictamente necesarios. Las menciones a “cinco” en
+esta ADR describen el corte original de PR #400 y no limitan la superficie
+vigente de seis endpoints. ADR-SAAS-052 no autoriza por sí misma deploy,
+tráfico, fixture, Bootstrap, Activation ni producción.
+
 La propuesta responde al bloqueo documentado por ADR-SAAS-048 en el Gate B.
 No modifica las decisiones aceptadas de ADR-SAAS-043 a ADR-SAAS-048, ni
 convierte una fuente local en evidencia de staging.
 
 ## 1. Contexto y problema
 
-Las cinco callables Bodega necesarias para el ensayo E2.2 están declaradas en
+Las cinco callables Bodega originales necesarias para el ensayo E2.2 estaban declaradas en
 `functions/src/index.ts`, dentro de `saas-auth`:
 
 - `crearClienteVendedorV1`;
@@ -169,7 +177,8 @@ secuencia:
    implementación aprobado;
 3. probar contrato, autoridad, equivalencia, aislamiento, idempotencia,
    inventario, finanzas, turnos y auditoría;
-4. comprobar build reproducible, discovery de exactamente cinco endpoints,
+4. comprobar build reproducible, discovery de los cinco endpoints del corte
+   original y de seis endpoints después de ADR-SAAS-052,
    cero Secrets y module-load sin I/O;
 5. capturar attestation `Git → build → artefacto → revisión`;
 6. realizar un preflight remoto que demuestre región, runtime, tráfico,
@@ -207,7 +216,8 @@ La implementación deberá aportar como mínimo:
 - idempotencia de altas, inventario y venta;
 - secuencia/ledger, cuenta lógica, turno, efectos financieros y auditoría;
 - build, TypeScript, lint y suites Bodega/inventario/finanzas afectadas;
-- discovery de exactamente las cinco callables y cero Secrets;
+- discovery de las cinco callables del corte original y de seis tras
+  ADR-SAAS-052, siempre con cero Secrets;
 - module-load sin I/O ni imports prohibidos;
 - attestation staging, revisión/tráfico esperados y validación funcional con
   fixture sintético autorizado;
