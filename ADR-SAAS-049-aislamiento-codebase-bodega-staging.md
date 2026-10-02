@@ -264,22 +264,29 @@ E2.2.
 ## 15. Decisión solicitada
 
 PR #400 implementó e integró el boundary `saas-bodega` bajo las restricciones
-de esta ADR. No existe todavía deploy, tráfico, fixture, Bootstrap, Activation,
-rehearsal, certificación, cutover ni migración remota ejecutados.
+de esta ADR. El deploy dirigido de las cinco callables originales quedó
+verificado en `micafe-pos-staging` el 2026-09-30; la sexta callable de
+ADR-SAAS-052 quedó desplegada por separado el 2026-10-02. Las revisiones
+remotas están `ACTIVE`, en `us-central1`, Node.js 22, con 100 % del tráfico en
+la revisión más reciente y cero Secrets. Esta evidencia de staging no cierra
+el fixture, la validación funcional, el rehearsal, la certificación, el
+cutover ni producción.
 
 ## 16. Estado vigente de autorización y gates
 
 | Estado | Situación |
 | --- | --- |
 | Implementación | Autorizada, ejecutada e integrada en `main` mediante PR #400. |
-| Preflight de deploy | PENDIENTE. |
-| Deploy staging | PENDIENTE. |
-| Fixture | PENDIENTE. |
+| Preflight de deploy | PASS — superficie dirigida y cero deletes/replacements. |
+| Deploy staging | PASS — cinco callables originales; la sexta se reconcilia en ADR-SAAS-052. |
+| Fixture | EXISTE Y ESTÁ RETENIDO; validación funcional pendiente. |
 | Validación funcional | PENDIENTE. |
 | Rehearsal / certificación | PENDIENTE. |
 | Cutover y retiro de exports legacy en `saas-auth` | PENDIENTE. |
 | Producción | PENDIENTE y fuera de alcance. |
 
-La autorización consumida para implementar `saas-bodega` no concede ninguno de
-los gates posteriores. Cada uno requiere su propia decisión, evidencia y
-mutation audit.
+La autorización consumida para implementar `saas-bodega` no concedió por sí
+sola ninguno de los gates posteriores. Los gates de preflight y deploy fueron
+consumidos mediante decisiones operativas separadas; fixture, validación
+funcional, rehearsal, certificación, cutover y producción siguen requiriendo
+su propia evidencia y mutation audit.

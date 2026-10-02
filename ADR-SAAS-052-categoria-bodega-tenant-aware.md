@@ -159,13 +159,18 @@ contrato de Bootstrap ni las cinco callables existentes de ADR-SAAS-049.
 3. PR, CI, auditoría y merge — **COMPLETADO** mediante PR #409, integrado en
    `main` por `9f307fe75d1069dc08279c87aaac0156a56503be`; su CI post-merge
    `36968156967` terminó `PASS`;
-4. preflight de deploy dirigido — **PENDIENTE**;
-5. deploy staging autorizado;
-6. validación de `crearCategoriaBodegaV1` con el fixture retenido;
+4. preflight de deploy dirigido — **COMPLETADO / PASS**; se verificaron
+   `saas-bodega`, `crearCategoriaBodegaV1`, `us-central1`, Node.js 22, cero
+   Secrets y ausencia de deletes/replacements;
+5. deploy staging — **COMPLETADO / PASS**; revisión
+   `crearcategoriabodegav1-00001-zin`, hash
+   `41b7db7415558b023086b660d8a07f2681b8d94e`, Cloud Build
+   `d3e01185-c265-47a1-b70e-00033762ae57`, estado `ACTIVE`;
+6. validación de `crearCategoriaBodegaV1` con el fixture retenido —
+   **PENDIENTE**;
 7. reanudación de Gate E de E2.2.
 
-La implementación está integrada en `main`, pero no existe todavía deploy de
-`crearCategoriaBodegaV1` ni publicación de las Rules asociadas en staging.
-Hasta cerrar preflight, deploy dirigido y validación funcional, E2.2 permanece
-`EN EJECUCIÓN` y Gate E permanece bloqueado por la ausencia de un mecanismo
-canónico de categoría desplegado y validado.
+La implementación y el deploy de `crearCategoriaBodegaV1` están integrados y
+activos en staging. Esta reconciliación no afirma una publicación de Rules
+adicional: la validación de Rules y la ejecución contra el fixture retenido
+siguen pendientes. E2.2 permanece `EN EJECUCIÓN`.

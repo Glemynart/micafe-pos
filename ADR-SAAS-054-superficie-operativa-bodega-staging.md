@@ -161,9 +161,21 @@ aceptación, no mejoras opcionales.
 ## Decisión aceptada
 
 La arquitectura queda aceptada para implementación controlada dentro del
-alcance descrito. La implementación todavía no ha comenzado, Gate F permanece
-`BLOCKED` hasta que las superficies necesarias estén implementadas, auditadas
-y desplegadas, y E2.2 permanece `EN EJECUCIÓN`.
+alcance descrito. La implementación fue integrada mediante PR #415, con
+merge en `main` `8710b04400ed58973ccbc33b268f20dc0eeede3f`; el deploy dirigido
+en `micafe-pos-staging` creó `crearIncorporacionDirecta` y las seis callables
+de `saas-bodega-operations`, todas `ACTIVE` en `us-central1`, Node.js 22 y
+100 % de tráfico en la revisión más reciente. `OPERATIONAL_PIN_PEPPER` quedó
+enlazado únicamente a `crearIncorporacionDirecta`; las seis callables Bodega
+operations tienen cero Secrets.
+
+La corrección de UI necesaria para que un vendedor Bodega no dependa de la
+callable legacy ausente quedó integrada mediante PR #416, merge
+`e3b414dc61f111dbc585c8fa7e73f8fd303a165f`, con CI post-merge PASS.
+Gate F permanece pendiente: la entrada al POS fue verificada, pero la
+validación funcional completa aún debe ejecutarse contra el fixture Bodega
+retenido, sin convertir pruebas realizadas en otro fixture sintético en
+evidencia de E2.2. E2.2 permanece `EN EJECUCIÓN`.
 
 La aceptación no convierte ninguna validación pendiente en PASS ni autoriza
 avanzar automáticamente a los gates de preflight, deploy, fixture,
