@@ -48,8 +48,12 @@ export function OnboardingGate({ usuario, children }: OnboardingGateProps) {
   }, [])
 
   useEffect(() => {
+    if (usuario.rol === 'vendedor') {
+      setCargandoReadiness(false)
+      return
+    }
     cargarReadiness()
-  }, [cargarReadiness])
+  }, [cargarReadiness, usuario.rol])
 
   if (cargandoReadiness || saasLoading) {
     return (
@@ -57,6 +61,13 @@ export function OnboardingGate({ usuario, children }: OnboardingGateProps) {
         <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/50" />
       </div>
     )
+  }
+
+  // Los vendedores de Bodega operan en modo DEMO y no necesitan consultar
+  // la readiness fiscal del tenant. Esa consulta pertenece al flujo de
+  // configuración administrativa y no debe bloquear la superficie operativa.
+  if (usuario.rol === 'vendedor') {
+    return <OnboardingAccessProvider modo="DEMO">{children}</OnboardingAccessProvider>
   }
 
   // Si hubo error de consulta o no se pudo cargar, permitir reintento
