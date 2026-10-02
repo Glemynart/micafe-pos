@@ -75,6 +75,20 @@ test("núcleo tenant-aware: el catálogo no acepta creación directa del cliente
   );
 });
 
+test("ADR-052: categorías Bodega son backend-only y las categorías legacy conservan su contrato", async () => {
+  const tenantA = await contextFor(fixtures.tenantA.admin);
+  const tenantB = await contextFor(fixtures.tenantB.admin);
+  await seedDocument("configuraciones/empresa-a", { empresaId: "empresa-a", vertical: "BODEGA_MVP1" });
+  await seedDocument("configuraciones/empresa-b", { empresaId: "empresa-b", vertical: "GENERAL" });
+
+  await expectDenied(
+    tenantA.firestore().doc("categorias/directa-bodega").set({ empresaId: "empresa-a", nombre: "No canónica" }),
+  );
+  await expectAllowed(
+    tenantB.firestore().doc("categorias/directa-legacy").set({ empresaId: "empresa-b", nombre: "Legacy" }),
+  );
+});
+
 test("núcleo tenant-aware: actualización conserva el empresaId", async () => {
   const tenantA = await contextFor(fixtures.tenantA.admin);
   const path = "turnos/actualizacion-empresa-a";

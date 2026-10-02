@@ -19,21 +19,22 @@ const text = (value: unknown): value is string => typeof value === "string" && v
 
 function requiredText(value: unknown, code: string, max = 120): string {
   if (!text(value)) fail("invalid-argument", code);
-  const normalized = value.trim();
+  const normalized = (value as string).trim();
   if (normalized.length > max) fail("invalid-argument", code);
   return normalized;
 }
 
 function normalize(payload: unknown) {
   if (!object(payload)) fail("invalid-argument", "PAYLOAD_CATEGORIA_INVALIDO");
+  const data = payload as Data;
   const allowed = new Set(["espacioId", "nombre", "icono"]);
-  if (Object.keys(payload).some(key => !allowed.has(key))) fail("invalid-argument", "PAYLOAD_CATEGORIA_INVALIDO");
-  const icono = payload.icono === undefined || payload.icono === null || payload.icono === ""
+  if (Object.keys(data).some(key => !allowed.has(key))) fail("invalid-argument", "PAYLOAD_CATEGORIA_INVALIDO");
+  const icono = data.icono === undefined || data.icono === null || data.icono === ""
     ? null
-    : requiredText(payload.icono, "ICONO_CATEGORIA_INVALIDO", 80);
+    : requiredText(data.icono, "ICONO_CATEGORIA_INVALIDO", 80);
   return {
-    espacioId: requiredText(payload.espacioId, "ESPACIO_INVALIDO", 160),
-    nombre: requiredText(payload.nombre, "NOMBRE_CATEGORIA_INVALIDO"),
+    espacioId: requiredText(data.espacioId, "ESPACIO_INVALIDO", 160),
+    nombre: requiredText(data.nombre, "NOMBRE_CATEGORIA_INVALIDO"),
     icono,
   };
 }
@@ -77,7 +78,8 @@ async function crearCategoria(tx: any, db: any, empresaId: string, actorUid: str
 /** ADR-052: creación de categoría Bodega con autoridad, aislamiento y recibo canónicos. */
 export async function ejecutarCrearCategoriaBodegaV1(db: any, contexto: ContextoFinancieroOperativo, data: unknown) {
   if (!object(data) || !text(data.commandId)) fail("invalid-argument", "PAYLOAD_INVALID");
-  const receipt = db.collection("operaciones_comandos").doc(crearIdentificadorInterno(contexto.empresaId, data.commandId));
+  const input = data as Data;
+  const receipt = db.collection("operaciones_comandos").doc(crearIdentificadorInterno(contexto.empresaId, input.commandId as string));
   const alreadyConfirmed = (await receipt.get()).exists;
   const result = await executeConContexto(db, contexto, data, "crearCategoriaBodegaV1", (tx, firestore, empresaId, actorUid, rol, input) =>
     crearCategoria(tx, firestore, empresaId, actorUid, rol, contexto, input));

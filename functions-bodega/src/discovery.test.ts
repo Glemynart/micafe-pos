@@ -25,13 +25,13 @@ async function manifest(value: number): Promise<Record<string, unknown>> {
   throw error;
 }
 
-test("saas-bodega descubre exactamente cinco callables Gen2 sin Secrets", async () => {
+test("saas-bodega descubre exactamente seis callables Gen2 sin Secrets", async () => {
   const value = await port();
   const child = spawn(process.execPath, [bin], { cwd: sourceRoot, env: { ...process.env, FUNCTIONS_CONTROL_API: "true", PORT: String(value) }, stdio: "pipe" });
   after(() => child.kill());
   const result = await manifest(value);
   const endpoints = result.endpoints as Record<string, { region?: unknown; callableTrigger?: unknown }>;
-  assert.deepEqual(Object.keys(endpoints).sort(), ["actualizarPresentacionComercialV1", "confirmarVentaBodegaV1", "crearArticuloInventarioV1", "crearClienteVendedorV1", "crearPresentacionComercialV1"]);
+  assert.deepEqual(Object.keys(endpoints).sort(), ["actualizarPresentacionComercialV1", "confirmarVentaBodegaV1", "crearArticuloInventarioV1", "crearCategoriaBodegaV1", "crearClienteVendedorV1", "crearPresentacionComercialV1"]);
   for (const endpoint of Object.values(endpoints)) { assert.deepEqual(endpoint.region, ["us-central1"]); assert.deepEqual(endpoint.callableTrigger, {}); }
   assert.deepEqual(result.params ?? [], []);
   const serialized = JSON.stringify(result).toLowerCase();

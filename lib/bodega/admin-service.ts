@@ -71,16 +71,21 @@ export async function ajustarStockProductoBodega(productoId: string, stock: numb
   await ejecutarComandoInventario("actualizarArticuloInventarioV1", crearEnvelopeInventario({ articuloTipo: "producto", articuloId: productoId, data: { stock } }, "ajuste_administrativo_bodega"))
 }
 
-async function ejecutarPresentacion(nombre: string, payload: Record<string, unknown>) {
-  const commandId = `presentacion:${crypto.randomUUID()}`
+async function ejecutarComandoBodega<T>(nombre: string, prefijo: string, payload: Record<string, unknown>): Promise<T> {
+  const commandId = `${prefijo}:${crypto.randomUUID()}`
   const callable = (await import("firebase/functions")).httpsCallable(getFirebaseFunctions(), nombre)
-  await callable({ commandId, idempotencyKey: commandId, correlationId: `presentacion:${crypto.randomUUID()}`, payload })
+  const result = await callable({ commandId, idempotencyKey: commandId, correlationId: `${prefijo}:${crypto.randomUUID()}`, payload })
+  return result.data as T
 }
 
 export async function crearPresentacionBodega(payload: { productoId: string; nombre: string; factorUnidadBase: number; precioCOP: number }) {
-  await ejecutarPresentacion("crearPresentacionComercialV1", { ...payload, activo: true })
+  await ejecutarComandoBodega("crearPresentacionComercialV1", "presentacion", { ...payload, activo: true })
 }
 
 export async function actualizarPresentacionBodega(payload: { presentacionId: string; nombre?: string; factorUnidadBase?: number; precioCOP?: number; activo?: boolean }) {
-  await ejecutarPresentacion("actualizarPresentacionComercialV1", payload)
+  await ejecutarComandoBodega("actualizarPresentacionComercialV1", "presentacion", payload)
+}
+
+export async function crearCategoriaBodega(payload: { espacioId: string; nombre: string; icono?: string }): Promise<{ categoriaId: string; idempotente: boolean }> {
+  return ejecutarComandoBodega("crearCategoriaBodegaV1", "categoria", payload)
 }

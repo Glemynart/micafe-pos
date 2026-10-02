@@ -65,6 +65,13 @@ service cloud.firestore {
     function puedeEliminarEnTenant() {
       return perteneceTenantDelRecurso() && empresaEscribible();
     }
+    // ADR-SAAS-052: Bodega administra categorías mediante la callable
+    // server-authoritative; los verticales legacy conservan su contrato actual.
+    function esBodegaMvp1() {
+      return tieneEmpresaId()
+        && exists(/databases/$(database)/documents/configuraciones/$(request.auth.token.empresaId))
+        && get(/databases/$(database)/documents/configuraciones/$(request.auth.token.empresaId)).data.vertical == 'BODEGA_MVP1';
+    }
     function esUsuarioPropio(uid) {
       return esAutenticado() && request.auth.uid == uid;
     }
@@ -77,9 +84,9 @@ service cloud.firestore {
     }
     match /categorias/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
-      allow create: if puedeCrearEnTenant() && esAdmin();
-      allow update: if puedeActualizarEnTenant() && esAdmin();
-      allow delete: if puedeEliminarEnTenant() && esAdmin();
+      allow create: if !esBodegaMvp1() && puedeCrearEnTenant() && esAdmin();
+      allow update: if !esBodegaMvp1() && puedeActualizarEnTenant() && esAdmin();
+      allow delete: if !esBodegaMvp1() && puedeEliminarEnTenant() && esAdmin();
     }
     match /productos/{id} {
       allow read: if puedeLeerTenant() && esAutenticado() && !esVendedor();
