@@ -1,9 +1,8 @@
-import { getAuth } from "firebase-admin/auth";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
-import type { CredencialOperativa, RolTenant } from "../contracts";
-import { esRolTenant } from "../contracts";
+import type { CredencialOperativa } from "../contracts";
 export { normalizarPermisosEfectivos } from "../tenant-permissions";
+export { actualizarClaimsTenant, emitirSesionTenant } from "../credential-core/emitir-sesion-tenant";
 
 const MAX_FALLOS = 5;
 const BLOQUEO_MS = 15 * 60 * 1000;
@@ -41,26 +40,4 @@ export async function estaBloqueada(ref: FirebaseFirestore.DocumentReference): P
   const snap = await ref.get();
   const bloqueadoHasta = (snap.data() as CredencialOperativa | undefined)?.bloqueadoHasta;
   return !!bloqueadoHasta && bloqueadoHasta.toMillis() > Date.now();
-}
-
-export async function actualizarClaimsTenant(
-  uid: string,
-  empresaId: string,
-  rol: RolTenant | null,
-  claimsActuales?: Record<string, unknown>,
-): Promise<void> {
-  const auth = getAuth();
-  const existente = claimsActuales ?? (await auth.getUser(uid)).customClaims ?? {};
-  const platformClaims = {
-    ...(existente.saas && typeof existente.saas === "object" ? { saas: existente.saas } : {}),
-  };
-  await auth.setCustomUserClaims(uid, rol ? { ...platformClaims, empresaId, rol } : platformClaims);
-  await auth.revokeRefreshTokens(uid);
-}
-
-/** Sincroniza la proyección tenant y emite una sesión posterior a una activación. */
-export async function emitirSesionTenant(uid: string, empresaId: string, rol: string): Promise<string> {
-  if (!esRolTenant(rol)) throw new HttpsError("failed-precondition", "Rol de membresia invalido.");
-  await actualizarClaimsTenant(uid, empresaId, rol);
-  return getAuth().createCustomToken(uid);
 }

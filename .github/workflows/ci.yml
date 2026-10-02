@@ -44,6 +44,7 @@ jobs:
             functions-operational-activation/package-lock.json
             functions-bodega/package-lock.json
             functions-platform-tenant-access/package-lock.json
+            functions-platform-credential-recovery/package-lock.json
 
       - name: Setup Java para Firebase Emulator Suite
         uses: actions/setup-java@v4
@@ -101,6 +102,10 @@ jobs:
       - name: Instalar dependencias del codebase Platform tenant access
         run: npm ci
         working-directory: functions-platform-tenant-access
+
+      - name: Instalar dependencias del codebase Platform credential recovery
+        run: npm ci
+        working-directory: functions-platform-credential-recovery
 
       - name: Chequeo de tipos de aplicaciÃ³n
         run: npx tsc --noEmit
@@ -191,6 +196,12 @@ jobs:
           npm run test:discovery
           npm run test:module-load
         working-directory: functions-platform-tenant-access
+
+      - name: Build, discovery y module-load del codebase Platform credential recovery
+        run: |
+          npm run build
+          npm test
+        working-directory: functions-platform-credential-recovery
 
       - name: Lint de aplicacion y tooling
         run: npm run lint

@@ -50,6 +50,7 @@
     "functions-operational-auth/**",
     "functions-operational-activation/**",
     "functions-bodega/**",
-    "functions-platform-tenant-access/**"
+    "functions-platform-tenant-access/**",
+    "functions-platform-credential-recovery/**"
   ]
 }
