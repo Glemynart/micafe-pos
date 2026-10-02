@@ -210,7 +210,9 @@ export async function solicitarRestablecimientoCredencial(
           tx.get(db.collection("membresias").doc(`${empresaId}_${objetivoUid}`)),
           tx.get(db.collection("membresias").doc(`${empresaId}_${actor.uid}`)),
           tx.get(db.collection("usuarios").doc(objetivoUid)),
-          tx.get(db.collection("credenciales_operativas").where("empresaId", "==", empresaId).where("uid", "==", objetivoUid).limit(3)),
+          // Credential history is append-only; a fixed limit can hide the
+          // active record after more than three rotations.
+          tx.get(db.collection("credenciales_operativas").where("empresaId", "==", empresaId).where("uid", "==", objetivoUid)),
         ]);
         if (resetSnap.exists) {
           const existing = resetSnap.data() ?? {};
