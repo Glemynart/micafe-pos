@@ -39,6 +39,7 @@ functions-platform-context/lib/
 functions-operator-summary/lib/
 functions-platform-resources/lib/
 functions-platform-tenant-access/lib/
+functions-platform-credential-recovery/lib/
 pnpm-lock.yaml
 
 # Temporal

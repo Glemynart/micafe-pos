@@ -6,9 +6,6 @@ export {
 } from "./operational-auth";
 export {
   restablecerCredencialOperativa,
-  restablecerCredencialAdministradorTenantSaas,
-  reemitirRestablecimientoCredencialAdministradorTenantSaas,
-  activarRestablecimientoCredencial,
 } from "./credential-recovery-callables";
 
 export {
