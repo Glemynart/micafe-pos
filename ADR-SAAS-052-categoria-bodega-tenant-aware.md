@@ -62,9 +62,9 @@ scripts de seed ni un endpoint privilegiado específico de staging.
 | Ejecutar `scripts/seed-espacios.ts` | Rechazada | Es una escritura directa, no tenant-aware y contiene datos de MiCafe. |
 | Reejecutar o extender Bootstrap para el fixture existente | Rechazada | El Bootstrap no puede repetirse y alterar su contrato no corrige el tenant ya creado. |
 | Endpoint de plataforma exclusivo para staging | Rechazada | Añade privilegio administrativo y un flujo especial que no resuelve el producto reusable. |
-| Agregar una creación tenant-aware de categoría al boundary Bodega | **Propuesta** | Mantiene la administración de catálogo en el tenant, autoridad server-side y un flujo reusable. |
+| Agregar una creación tenant-aware de categoría al boundary Bodega | **Aceptada** | Mantiene la administración de catálogo en el tenant, autoridad server-side y un flujo reusable. |
 
-## Decisión propuesta
+## Decisión aceptada
 
 Extender `saas-bodega` con una única callable Gen2 adicional:
 
