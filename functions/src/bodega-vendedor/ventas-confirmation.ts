@@ -52,7 +52,17 @@ export async function ejecutarConfirmarVentaBodegaV1(db: any, contexto: Contexto
 
     // Todas las lecturas (autoridad, hechos comerciales, cuenta, turno y venta)
     // ya ocurrieron; el ledger estricto conserva sus propias lecturas antes de escribir.
-    const movimientosInventario = await aplicarConsumosInventarioBodegaEnTransaccion(tx, firestore, resolucion, ventaId);
+    let movimientosInventario;
+    try {
+      movimientosInventario = await aplicarConsumosInventarioBodegaEnTransaccion(tx, firestore, resolucion, ventaId);
+    } catch (error) {
+      // El ledger es una primitiva neutral y expresa este límite con Error;
+      // el boundary callable debe conservar el contrato Https de Bodega.
+      if (error instanceof Error && error.message === "STOCK_INSUFICIENTE") {
+        fail("failed-precondition", "STOCK_INSUFICIENTE");
+      }
+      throw error;
+    }
     const ingreso = writeMovement(tx, firestore, {
       empresaId, command: comando, key: `venta-bodega:${comando.commandId}:pago`, account: cuenta,
       tipo: "ingreso", monto: total, categoria: "ventas", actorUid, rol, turnoId, ventaId,

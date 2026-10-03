@@ -72,7 +72,7 @@ test("U3-C: efectivo exige turno propio, stock suficiente y sell vigente sin efe
   assert.equal([...sinTurno.docs.keys()].some(path => path.startsWith("ventas/")), false);
 
   const sinStock = new FakeDb(); seed(sinStock); sinStock.docs.set("productos/producto-u3c", { ...sinStock.docs.get("productos/producto-u3c"), stock: 47 });
-  await assert.rejects(ejecutarConfirmarVentaBodegaV1(sinStock, contexto, comando()), error => error instanceof Error && error.message === "STOCK_INSUFICIENTE");
+  await assert.rejects(ejecutarConfirmarVentaBodegaV1(sinStock, contexto, comando()), error => dominio(error, "STOCK_INSUFICIENTE"));
   assert.equal([...sinStock.docs.keys()].some(path => path.startsWith("ventas/")), false);
   assert.equal(sinStock.docs.get("productos/producto-u3c")?.stock, 47);
 
