@@ -144,6 +144,18 @@ Esta decisión no autoriza por sí sola un deploy, consulta contra producción,
 creación de otro fixture, Bootstrap, Activation, reemisión de credenciales,
 cleanup destructivo ni el cierre de Gate F, Gate G, Gate H o E2.2.
 
+## Reconciliación posterior
+
+La implementación de `consultarAuditoriaPlataformaSaas` quedó integrada y
+desplegada en `saas-platform-resources` en `micafe-pos-staging`,
+`us-central1`, Node.js 22 y cero Secrets. La revisión activa respondió la
+consulta del panel Historial con HTTP `200` después de crear el índice definido
+por ADR-SAAS-057; la llamada sin Auth fue rechazada con `401`. Esta evidencia
+no cambia la callable legacy ni autoriza producción.
+
+El subgate de auditoría de Gate F queda `PASS`; el resto de la validación
+funcional de E2.2 continúa pendiente.
+
 ## Compatibilidad
 
 Preserva ADR-SAAS-012 (auditoría append-only y backend-only), ADR-SAAS-048
