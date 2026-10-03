@@ -89,6 +89,7 @@ Con esa identidad, en el preview de staging asociado a esta rama se verificó:
 | Credencial vigente | PASS; autenticación exitosa y claims del fixture |
 | Payload con `empresaId`/campos ajenos | PASS negativo; el boundary respondió `PAYLOAD_INVALIDO` y no permitió alterar la autoridad |
 | Replay con el mismo `commandId`/`idempotencyKey` | PASS; dos respuestas devolvieron el mismo `ventaId` y el recuento persistido mostró una sola venta para el comando |
+| Dos solicitudes concurrentes con el mismo comando | PASS; ambas respuestas devolvieron el mismo `ventaId` y solo una venta quedó persistida |
 
 La lectura posterior mostró una única presentación del fixture con 8 unidades
 base disponibles después del replay (una sola deducción), seis ventas totales
@@ -106,7 +107,7 @@ alterar permisos reales:
 
 - aislamiento tenant A/B con dos contextos autenticados independientes;
 - revocación y restauración de permisos de un actor;
-- concurrencia/retry autenticados bajo una ventana dedicada.
+- retry autenticado bajo una ventana de red dedicada.
 
 Los tests locales existentes cubren esos contratos, pero no convierten esos
 escenarios staging no ejecutados en `PASS`.
