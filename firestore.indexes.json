@@ -316,8 +316,8 @@
       "collectionGroup": "saas_auditoria",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "agregado.tipo", "order": "ASCENDING" },
         { "fieldPath": "agregado.id", "order": "ASCENDING" },
+        { "fieldPath": "agregado.tipo", "order": "ASCENDING" },
         { "fieldPath": "registradoEn", "order": "DESCENDING" }
       ]
     },
