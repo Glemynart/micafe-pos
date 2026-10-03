@@ -59,6 +59,10 @@
     {
       "source": "functions-bodega-operations",
       "codebase": "saas-bodega-operations"
+    },
+    {
+      "source": "functions-platform-financial-account-provisioning",
+      "codebase": "saas-platform-financial-account-provisioning"
     }
   ],
   "firestore": {
