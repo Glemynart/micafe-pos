@@ -68,21 +68,48 @@ comprobación.
   cobertura complementa, pero no convierte, un escenario staging no
   ejecutado en `PASS`.
 
+## Reanudación con credencial sintética de vendedor
+
+El fixture ya existente emitió mediante el flujo canónico una credencial
+adicional para el actor sintético `GateF Seller E2_2 Bodega Atrato`. La
+credencial se utilizó únicamente en staging y su PIN no se registra en esta
+evidencia. La identidad autenticada resolvió `empresaId` del fixture, rol
+`vendedor`, membresía activa, credencial activa sin cambio pendiente y turno
+cerrado al finalizar la comprobación.
+
+Con esa identidad, en el preview de staging asociado a esta rama se verificó:
+
+| Escenario | Resultado observable |
+| --- | --- |
+| Login PWA y resolución de tenant | PASS; la superficie mostró Bodega móvil y el contexto del fixture |
+| Venta por transferencia | PASS; confirmación visible y efectos de venta/inventario/auditoría |
+| Apertura de turno y venta en efectivo | PASS; confirmación visible y cierre canónico posterior |
+| Stock insuficiente | PASS; la venta fue rechazada con `STOCK_INSUFICIENTE` y no se creó una venta adicional |
+| Credencial anterior | PASS; rechazada |
+| Credencial vigente | PASS; autenticación exitosa y claims del fixture |
+| Payload con `empresaId`/campos ajenos | PASS negativo; el boundary respondió `PAYLOAD_INVALIDO` y no permitió alterar la autoridad |
+| Replay con el mismo `commandId`/`idempotencyKey` | PASS; dos respuestas devolvieron el mismo `ventaId` y el recuento persistido mostró una sola venta para el comando |
+
+La lectura posterior mostró una única presentación del fixture con 8 unidades
+base disponibles después del replay (una sola deducción), seis ventas totales
+del fixture y una sola venta asociada al comando de idempotencia. Las lecturas
+sin Auth de las superficies de catálogo, clientes, ventas y confirmación
+continuaron respondiendo `401`.
+
 ## Limitación que mantiene Gate F abierto
 
-No existe en la sesión actual una credencial de vendedor sintético utilizable
-para completar una sesión PWA autenticada del actor vendedor. No se adivinó
-un PIN, no se escribió una credencial directamente y no se reemitió ni creó
-otra identidad. Por ello permanecen sin evidencia staging suficiente:
+La limitación histórica sobre ausencia de credencial queda superada por la
+evidencia de la sección anterior: el actor sintético autenticó en PWA, completó
+los flujos de venta y cerró su turno de forma canónica. Permanecen sin
+ejecución staging, por restricciones explícitas de no crear otro tenant ni
+alterar permisos reales:
 
-- recorrido autenticado de vendedor completo desde PWA;
-- payload manipulado contra un contexto autenticado;
-- aislamiento tenant A/B con dos contextos autenticados;
-- replay/concurrencia/retry autenticados y permisos revocados.
+- aislamiento tenant A/B con dos contextos autenticados independientes;
+- revocación y restauración de permisos de un actor;
+- concurrencia/retry autenticados bajo una ventana dedicada.
 
-Los estados HTTP negativos observados en logs no se asignan a un caso
-específico cuando no existe contexto autenticado correlacionable; no se
-presentan como evidencia más fuerte de la que permiten.
+Los tests locales existentes cubren esos contratos, pero no convierten esos
+escenarios staging no ejecutados en `PASS`.
 
 ## Estado del gate
 
