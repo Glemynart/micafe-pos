@@ -19,6 +19,7 @@
   "include": [
     "src/**/*.ts",
     "../functions/src/incorporaciones-query.ts",
+    "../functions/src/platform/platform-audit-callable.ts",
     "../functions/src/platform/platform-resources-callable.ts",
     "../functions/src/platform/authorization.ts",
     "../functions/src/platform/audit.ts",

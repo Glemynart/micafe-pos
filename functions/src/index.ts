@@ -68,7 +68,6 @@ export {
   solicitarSoporteSaas,
   transicionarSoporteSaas,
   listarSoporteTenantSaas,
-  consultarAuditoriaPlataformaSaas,
   consultarTenantDusemaSaas,
 } from "./platform/callables";
 

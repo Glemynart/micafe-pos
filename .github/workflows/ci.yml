@@ -167,8 +167,8 @@ jobs:
         run: npm run build
         working-directory: functions-platform-resources
 
-      - name: Discovery secret-free del codebase Platform resources
-        run: npm run test:discovery
+      - name: Discovery y module-load del codebase Platform resources
+        run: npm run test:discovery && npm run test:module-load
         working-directory: functions-platform-resources
 
       - name: Build del codebase Tenant configuration
