@@ -3,6 +3,7 @@ import test from "node:test";
 import { HttpsError } from "firebase-functions/v2/https";
 import { crearContextoVentaBodegaDesdeRequest, revalidarAutoridadVentaBodegaEnTransaccion } from "./ventas-authority";
 import { MAX_LINEAS_BODEGA_U3, normalizarComandoConfirmacionVentaBodega } from "./ventas-contract";
+import { crearIdentificadorInterno } from "../turnos/identificadores";
 
 type Data = Record<string, any>;
 class Snapshot { constructor(readonly id: string, private readonly value: Data | undefined) {} get exists() { return this.value !== undefined; } data() { return this.value; } }
@@ -38,6 +39,17 @@ test("U3-A contrato: acepta el mínimo, causationId texto o null y los dos medio
   assert.equal(normalizarComandoConfirmacionVentaBodega(base()).payload.metodoPago, "efectivo");
   const transferencia = { ...base(), causationId: "causa-1", payload: { ...base().payload, metodoPago: "transferencia" as const } };
   assert.equal(normalizarComandoConfirmacionVentaBodega(transferencia).causationId, "causa-1");
+});
+
+test("U3-A contrato: acepta el ID largo de presentación generado canónicamente", () => {
+  const productoId = "r1a-WyJFMl8yLUJPREVHQS1TVEFHSU5HLUZJWFRVUkUiLCJwcm9kdWN0bzppbnZlbnRhcmlvOjk0MzhlOTNlLTcwNTItNDBjNC05MDJiLTFjZGYyNzU4MDQwYiJd";
+  const presentacionId = crearIdentificadorInterno(
+    "E2_2-BODEGA-STAGING-FIXTURE",
+    `presentacion:${productoId}:3c1f8a29-44a1-4d8e-8f2c-202610020001`,
+  );
+  assert.ok(presentacionId.length > 160);
+  const comando = normalizarComandoConfirmacionVentaBodega(base([{ productoId, presentacionId, cantidad: 1 }]));
+  assert.equal(comando.payload.lineas[0]?.presentacionId, presentacionId);
 });
 
 test("U3-A contrato: allowlist, identificadores, cliente, cantidad y método fallan cerrados", () => {

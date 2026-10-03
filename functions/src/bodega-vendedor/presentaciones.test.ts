@@ -7,6 +7,7 @@ import {
   normalizarReferenciaPresentacionComercial,
   resolverPresentacionComercialEnTransaccion,
 } from "./presentaciones";
+import { crearIdentificadorInterno } from "../turnos/identificadores";
 import type { ContextoFinancieroOperativo } from "../finanzas/callables";
 
 type Data = Record<string, any>;
@@ -171,6 +172,16 @@ test("U2-B: el resolver futuro usa factor/precio persistidos y rechaza precio en
   assert.deepEqual({ factor: canonica.factorUnidadBase, precio: canonica.precioCOP, producto: canonica.productoId }, { factor: 24, precio: 12000, producto: "producto-empresa-a" });
   assert.throws(() => normalizarReferenciaPresentacionComercial({ productoId: "producto-empresa-a", presentacionId: creada.presentacionId, precioCOP: 500 }), /PAYLOAD_INVALIDO/);
   assert.throws(() => normalizarReferenciaPresentacionComercial({ empresaId: "empresa-b", productoId: "producto-empresa-a", presentacionId: creada.presentacionId }), /PAYLOAD_INVALIDO/);
+});
+
+test("U2-B: acepta referencias de presentación generadas por el identificador interno canónico", () => {
+  const productoId = "r1a-WyJFMl8yLUJPREVHQS1TVEFHSU5HLUZJWFRVUkUiLCJwcm9kdWN0bzppbnZlbnRhcmlvOjk0MzhlOTNlLTcwNTItNDBjNC05MDJiLTFjZGYyNzU4MDQwYiJd";
+  const presentacionId = crearIdentificadorInterno(
+    "E2_2-BODEGA-STAGING-FIXTURE",
+    `presentacion:${productoId}:3c1f8a29-44a1-4d8e-8f2c-202610020001`,
+  );
+  assert.ok(presentacionId.length > 160);
+  assert.doesNotThrow(() => normalizarReferenciaPresentacionComercial({ productoId, presentacionId }));
 });
 
 test("U2-B: catálogo vendedor es tenant-aware, activo y no filtra costos", async () => {
