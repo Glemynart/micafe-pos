@@ -132,6 +132,22 @@ Gate F continúa **BLOCKED** hasta demostrar, como mínimo, transferencia
 exitosa, ledger, inventario, auditoría, idempotencia, negativos y aislamiento.
 Gate G, H, I, J, K y L permanecen pendientes. E2.2 permanece `EN EJECUCIÓN`.
 
+## Reconciliación posterior
+
+La callable `provisionarCuentaOperativaTenantSaas` quedó desplegada en
+`micafe-pos-staging` como `ACTIVE`, en `us-central1`, Node.js 22 y cero
+Secrets, con hash `4e82efe79e1b272828b1dd6d1a25f6d3172a26b1`, generación de
+source `1791001875431513` y Cloud Build
+`451f5474-e7fb-48b8-b181-e723746fe4e3`. La invocación canónica autorizada del
+fixture respondió HTTP `200` el `2026-10-03T04:55:58Z` y creó la cuenta lógica
+tenant-aware `bancolombia`; la lectura posterior observó estado `activa` y el
+saldo vigente derivado de los efectos de transferencia ya existentes.
+
+No se ejecutó Bootstrap ni Activation adicionales, no se creó otro fixture y
+no se escribió directamente Firestore. La transferencia y su evidencia
+funcional continúan formando parte de la matriz de Gate F; esta reconciliación
+no declara Gate F completo.
+
 ## 6. Compatibilidad y fuera de alcance
 
 ADR-SAAS-055 no modifica silenciosamente ADR-SAAS-019, ADR-SAAS-041,

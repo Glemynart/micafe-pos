@@ -75,6 +75,18 @@ El rollback no borra automáticamente el índice ni evidencia; si el índice
 debiera retirarse, requerirá un gate explícito posterior. Producción y
 Distribuidora Las Jiménez permanecen fuera de alcance.
 
+## Reconciliación posterior
+
+El índice fue creado exclusivamente en `micafe-pos-staging` y alcanzó estado
+`READY` como `CICAgJiUpoMK`. El panel Historial del Backoffice reintentó la
+consulta sobre `E2_2-BODEGA-STAGING-FIXTURE` y mostró cuatro eventos
+`CONFIRMADO`; los logs registraron HTTP `200`. La llamada sin Auth devolvió
+`401`. No se modificaron documentos del fixture ni otros recursos.
+
+Este resultado cierra únicamente el subgate de auditoría de Gate F. La matriz
+funcional completa, el rehearsal, la certificación y los gates posteriores
+siguen pendientes.
+
 ## Compatibilidad
 
 Preserva ADR-SAAS-012 (auditoría append-only y backend-only), ADR-SAAS-048
