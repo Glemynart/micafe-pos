@@ -9,6 +9,7 @@ import {
   type Envelope,
 } from "../bodega/operational-core";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
+import { MAX_BODEGA_REFERENCE_ID_LENGTH } from "./identificadores";
 
 const REGION = "us-central1";
 const COLLECTION = "presentaciones_producto";
@@ -72,7 +73,7 @@ function normalizeCreate(raw: unknown) {
   if (!positiveInteger(data.precioCOP)) fail("invalid-argument", "PRECIO_COP_INVALIDO");
   if (data.activo !== undefined && !active(data.activo)) fail("invalid-argument", "ESTADO_PRESENTACION_INVALIDO");
   return {
-    productoId: requiredText(data.productoId, "PRODUCTO_ID_INVALIDO", 160),
+    productoId: requiredText(data.productoId, "PRODUCTO_ID_INVALIDO", MAX_BODEGA_REFERENCE_ID_LENGTH),
     nombre: requiredText(data.nombre, "NOMBRE_PRESENTACION_INVALIDO"),
     factorUnidadBase: data.factorUnidadBase as number,
     precioCOP: data.precioCOP as number,
@@ -84,7 +85,7 @@ function normalizeUpdate(raw: unknown) {
   if (!object(raw)) fail("invalid-argument", "PAYLOAD_INVALIDO");
   const data = raw as Record<string, unknown>;
   only(data, ["presentacionId", "nombre", "factorUnidadBase", "precioCOP", "activo"]);
-  const presentacionId = requiredText(data.presentacionId, "PRESENTACION_ID_INVALIDO", 160);
+  const presentacionId = requiredText(data.presentacionId, "PRESENTACION_ID_INVALIDO", MAX_BODEGA_REFERENCE_ID_LENGTH);
   const changes: Record<string, unknown> = {};
   if (data.nombre !== undefined) changes.nombre = requiredText(data.nombre, "NOMBRE_PRESENTACION_INVALIDO");
   if (data.factorUnidadBase !== undefined) {
@@ -109,8 +110,8 @@ export function normalizarReferenciaPresentacionComercial(raw: unknown) {
   const data = raw as Record<string, unknown>;
   only(data, ["productoId", "presentacionId"]);
   return {
-    productoId: requiredText(data.productoId, "PRODUCTO_ID_INVALIDO", 160),
-    presentacionId: requiredText(data.presentacionId, "PRESENTACION_ID_INVALIDO", 160),
+    productoId: requiredText(data.productoId, "PRODUCTO_ID_INVALIDO", MAX_BODEGA_REFERENCE_ID_LENGTH),
+    presentacionId: requiredText(data.presentacionId, "PRESENTACION_ID_INVALIDO", MAX_BODEGA_REFERENCE_ID_LENGTH),
   };
 }
 

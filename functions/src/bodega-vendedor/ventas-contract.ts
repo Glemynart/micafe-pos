@@ -1,4 +1,5 @@
 import { HttpsError } from "firebase-functions/v2/https";
+import { MAX_BODEGA_REFERENCE_ID_LENGTH } from "./identificadores";
 
 /** Identifica inequívocamente las ventas cuya compensación pertenece a U3-E. */
 export const SCHEMA_VERSION_VENTA_BODEGA = "BODEGA_MVP1_V1" as const;
@@ -57,10 +58,10 @@ const fail = (code: HttpsError["code"], domain: string): never => {
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 const own = (data: Record<string, unknown>, fields: readonly string[]) => Object.keys(data).every(key => fields.includes(key));
 
-function requiredText(value: unknown, domain: string): string {
+function requiredText(value: unknown, domain: string, max = 160): string {
   if (typeof value !== "string") fail("invalid-argument", domain);
   const normalized = (value as string).trim();
-  if (!normalized || normalized.length > 160) fail("invalid-argument", domain);
+  if (!normalized || normalized.length > max) fail("invalid-argument", domain);
   return normalized;
 }
 
@@ -71,8 +72,8 @@ function normalizarLinea(raw: unknown): LineaVentaBodegaIntento {
     fail("invalid-argument", "CANTIDAD_PRESENTACIONES_INVALIDA");
   }
   return {
-    productoId: requiredText(data.productoId, "PRODUCTO_ID_INVALIDO"),
-    presentacionId: requiredText(data.presentacionId, "PRESENTACION_ID_INVALIDO"),
+    productoId: requiredText(data.productoId, "PRODUCTO_ID_INVALIDO", MAX_BODEGA_REFERENCE_ID_LENGTH),
+    presentacionId: requiredText(data.presentacionId, "PRESENTACION_ID_INVALIDO", MAX_BODEGA_REFERENCE_ID_LENGTH),
     cantidad: data.cantidad as number,
   };
 }
