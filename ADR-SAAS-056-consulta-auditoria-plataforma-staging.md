@@ -2,12 +2,13 @@
 
 ## Estado
 
-**PROPUESTO — PENDIENTE DE APROBACIÓN.**
+**ACEPTADO — 2026-10-03.**
 
 Esta propuesta pertenece a `G-SAAS-02 → M2 — Provisioning y onboarding →
 E2.2 — Configuración inicial`.
 
-No autoriza implementación, modificación de `firebase.json`, deploy, tráfico,
+La aceptación autoriza únicamente la implementación posterior de esta frontera
+dentro del alcance descrito. No autoriza por sí sola deploy, tráfico,
 Firestore, Auth, Rules, IAM, Secrets, fixture, Bootstrap, Activation ni
 producción.
 
