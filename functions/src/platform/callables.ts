@@ -10,7 +10,7 @@ import { createConfiguredDusemaS2sClient, DUSEMA_ADMIN_BASE_URL_PARAM, DUSEMA_S2
 import { ejecutarComandoOperador } from "./operators";
 import { provisionarCredencialInicialTenant, reemitirCredencialInicialTemporalTenant } from "./operations";
 import { desbloquearAdministradorInicialTenant } from "./desbloquear-administrador-inicial-tenant";
-import { consultarAuditoriaPlataforma, obtenerDetalleEmpresaPlataforma, validarFiltroAuditoria } from "./queries";
+import { obtenerDetalleEmpresaPlataforma } from "./queries";
 import { listarSoporteTenant, solicitarSoporte, transicionarSoporte } from "./support";
 import { exigirId } from "./validation";
 
@@ -254,15 +254,4 @@ export const listarSoporteTenantSaas = onCall({ region: REGION }, async (request
   const empresaId = auth.token.empresaId;
   if (typeof empresaId !== "string") throw new HttpsError("permission-denied", "TENANT_CONTEXT_REQUIRED");
   return listarSoporteTenant(getFirestore(), auth.uid, empresaId);
-});
-
-export const consultarAuditoriaPlataformaSaas = onCall({ region: REGION }, async (request) => {
-  const auth = exigirAuth(request);
-  const db = getFirestore();
-  await autorizarPlataforma(db, auth.uid, auth.token, "PLATAFORMA_CONSULTAR");
-  const data = request.data as { filtro?: unknown; limite?: number; cursor?: unknown };
-  if (data.cursor !== undefined && typeof data.cursor !== "string") {
-    throw new HttpsError("invalid-argument", "CURSOR_INVALIDO");
-  }
-  return consultarAuditoriaPlataforma(db, validarFiltroAuditoria(data.filtro), data.limite, data.cursor);
 });
