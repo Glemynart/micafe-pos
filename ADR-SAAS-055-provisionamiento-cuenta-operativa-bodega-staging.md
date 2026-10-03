@@ -15,6 +15,15 @@ tenant-aware, idempotente y auditable definido aquí. No se permite resolver el
 bloqueo mediante escritura directa del fixture ni mediante cambios a
 `confirmarVentaBodegaV1`.
 
+**Implementación e integración.** PR #421 integró la frontera
+`saas-platform-financial-account-provisioning` en `main` mediante el merge
+`d3ae278990dda42d157257eb8619d549cb9d6ab2`; su commit técnico es
+`276590739ff7e80bb825c75a33a1764844183c69`. Los checks previos al merge
+(`Tipos y pruebas`, `Vercel` y `Vercel Preview Comments`) terminaron en
+`PASS`. Esta integración materializa exclusivamente la implementación local
+reproducible de la frontera; no constituye evidencia de preflight, deploy
+staging, provisionamiento del fixture ni validación funcional.
+
 **Fecha de propuesta:** 2026-10-03
 **Fecha de aceptación:** 2026-10-03
 
@@ -107,14 +116,14 @@ Activation, comercial, Wompi, Dusema, email, recovery ni módulos con Secrets.
 
 ## 5. Migración, rollback y gates
 
-La implementación será un PR técnico independiente. Antes del primer deploy
-deberán pasar build reproducible, TypeScript, lint, tests de autoridad,
+La implementación se integró mediante un PR técnico independiente. Antes del
+primer deploy deberán pasar build reproducible, TypeScript, lint, tests de autoridad,
 idempotencia, aislamiento, discovery, module-load y preflight dirigido. El
 preflight debe demostrar exactamente un codebase y una callable, cero Secrets,
 cero deletes/replacements y cero cambios ajenos.
 
-Después del merge, un gate separado podrá autorizar únicamente el deploy
-dirigido a `micafe-pos-staging`. La creación de `bancolombia` en el fixture
+Después de la integración, un gate separado podrá autorizar únicamente el
+deploy dirigido a `micafe-pos-staging`. La creación de `bancolombia` en el fixture
 requiere posteriormente una invocación canónica autorizada; no se permite
 escritura directa. La operación debe conservar una revisión conocida y un
 rollback de código/tráfico explícito antes de modificar el fixture.
