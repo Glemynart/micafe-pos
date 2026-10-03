@@ -173,6 +173,28 @@ function obtenerNombreOperativo(userSnap: SnapshotLike, rol: unknown): string {
   return typeof rol === "string" && esRolTenant(rol) ? rol : "usuario";
 }
 
+function siguienteIntentoCodigo(
+  credenciales: SnapshotLike[],
+  nombreComercial: string,
+  nombreOperativo: string,
+): number {
+  const base = generarCodigoOperativo(nombreComercial, nombreOperativo);
+  let maximoIntento = -1;
+  for (const credencial of credenciales) {
+    const codigo = credencial.get?.("codigo");
+    if (codigo === base) {
+      maximoIntento = Math.max(maximoIntento, 0);
+      continue;
+    }
+    if (typeof codigo !== "string" || !codigo.startsWith(`${base}-`)) continue;
+    const sufijo = codigo.slice(base.length + 1);
+    if (!/^\d+$/.test(sufijo)) continue;
+    const intento = Number(sufijo) - 1;
+    if (intento > 0) maximoIntento = Math.max(maximoIntento, intento);
+  }
+  return maximoIntento + 1;
+}
+
 /**
  * Crea una recuperación sin reutilizar incorporaciones ni la provisión inicial.
  * El agregado de recuperación no guarda código, PIN, hash ni token: esos
@@ -246,18 +268,6 @@ export async function solicitarRestablecimientoCredencial(
           }
         }
 
-        const empresa = empresaSnap.data();
-        const nombreComercial = typeof empresa?.nombreComercial === "string" && empresa.nombreComercial.trim()
-          ? empresa.nombreComercial
-          : typeof empresa?.nombre === "string" && empresa.nombre.trim()
-            ? empresa.nombre
-            : "empresa";
-        const codigo = generarCodigoOperativo(
-          nombreComercial,
-          obtenerNombreOperativo(userSnap, targetMembership?.rol),
-          intento,
-        );
-
         const activas = credencialesSnap.docs.filter((snap: SnapshotLike) => snap.get?.("activo") === true);
         if (activas.length !== 1) error("failed-precondition", "CREDENCIAL_ACTIVA_NO_UNICA");
         const anterior = activas[0];
@@ -286,6 +296,20 @@ export async function solicitarRestablecimientoCredencial(
         if (reemitirPendiente && !restablecimientoAnteriorId) {
           error("failed-precondition", "CREDENCIAL_RESTABLECIMIENTO_NO_PENDIENTE");
         }
+        const empresa = empresaSnap.data();
+        const nombreComercial = typeof empresa?.nombreComercial === "string" && empresa.nombreComercial.trim()
+          ? empresa.nombreComercial
+          : typeof empresa?.nombre === "string" && empresa.nombre.trim()
+            ? empresa.nombre
+            : "empresa";
+        // Las credenciales históricas conservan sus códigos globalmente reservados.
+        // Comenzar después de ese historial evita reintentar siempre las mismas variantes.
+        const nombreOperativo = obtenerNombreOperativo(userSnap, targetMembership?.rol);
+        const codigo = generarCodigoOperativo(
+          nombreComercial,
+          nombreOperativo,
+          siguienteIntentoCodigo(credencialesSnap.docs as SnapshotLike[], nombreComercial, nombreOperativo) + intento,
+        );
         const nuevaCredencialRef = db.collection("credenciales_operativas").doc(idCredencialOperativa(empresaId, codigo));
         await reservarCodigoOperativoEnTransaccion(db, tx, codigo);
         if (restablecimientoAnteriorId && restablecimientoAnteriorSnap) {
