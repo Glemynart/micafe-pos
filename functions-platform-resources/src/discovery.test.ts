@@ -66,6 +66,7 @@ test("el build aislado excluye superficies con secretos o autoridad ajena", asyn
   const required = [
     resolve(functionsRoot, "incorporaciones-query.ts"),
     resolve(platformRoot, "platform-resources-callable.ts"),
+    resolve(platformRoot, "platform-audit-callable.ts"),
     resolve(platformRoot, "authorization.ts"),
     resolve(platformRoot, "audit.ts"),
     resolve(platformRoot, "contracts.ts"),
@@ -88,10 +89,10 @@ test("el build aislado excluye superficies con secretos o autoridad ajena", asyn
   assert.equal(existsSync(resolve(sourceRoot, "lib", "functions", "src", "platform", "platform-resources-callable.js")), true);
 });
 
-test("el manifiesto aislado declara solo listarRecursosPlataformaSaas, sin params ni secretos", async () => {
+test("el manifiesto aislado declara solo las lecturas de plataforma, sin params ni secretos", async () => {
   const manifest = await discover(sourceRoot);
   const endpoints = manifest.endpoints as Record<string, unknown>;
-  assert.deepEqual(Object.keys(endpoints), ["listarRecursosPlataformaSaas"]);
+  assert.deepEqual(Object.keys(endpoints).sort(), ["consultarAuditoriaPlataformaSaas", "listarRecursosPlataformaSaas"]);
   assert.deepEqual(manifest.params ?? [], []);
   const serialized = JSON.stringify(manifest);
   for (const forbidden of [
@@ -106,8 +107,9 @@ test("el manifiesto aislado declara solo listarRecursosPlataformaSaas, sin param
   }
 });
 
-test("saas-auth ya no declara listarRecursosPlataformaSaas", async () => {
+test("saas-auth ya no declara las lecturas de plataforma migradas", async () => {
   const manifest = await discover(resolve(workspaceRoot, "functions"));
   const endpoints = manifest.endpoints as Record<string, unknown>;
   assert.equal(Object.hasOwn(endpoints, "listarRecursosPlataformaSaas"), false);
+  assert.equal(Object.hasOwn(endpoints, "consultarAuditoriaPlataformaSaas"), false);
 });
