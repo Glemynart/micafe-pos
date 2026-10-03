@@ -198,6 +198,30 @@ export const reemitirRestablecimientoCredencialAdministrador = (
   { ...envelope("SAAS_REEMITIR_RESTABLECIMIENTO_CREDENCIAL_ADMINISTRADOR"), empresaId, evidenciaVerificacion },
  );
 
+export type ResultadoProvisionarCuentaOperativa = {
+  estado: "CREADA";
+  cuentaId: string;
+  empresaId: string;
+  claveOperativa: string;
+  obligacionId: string;
+  idempotente: boolean;
+};
+
+/** ADR-SAAS-055: comando canónico de plataforma para una cuenta tenant-aware no reservada. */
+export const provisionarCuentaOperativa = (
+  empresaId: string,
+  entrada: { claveOperativa: string; nombre: string },
+) => invocar<ResultadoProvisionarCuentaOperativa>(
+  "provisionarCuentaOperativaTenantSaas",
+  {
+    ...envelope("BACKOFFICE_PROVISIONAR_CUENTA_OPERATIVA"),
+    empresaId,
+    claveOperativa: entrada.claveOperativa,
+    nombre: entrada.nombre,
+    tipo: "banco",
+  },
+);
+
 export const comandoOperador = (
   accion: "incorporar" | "facultades" | "suspender" | "reactivar" | "revocar",
   entrada: Record<string, unknown>,
