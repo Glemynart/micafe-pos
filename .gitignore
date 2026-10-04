@@ -43,6 +43,7 @@ functions-platform-credential-recovery/lib/
 functions-operational-onboarding/lib/
 functions-bodega-operations/lib/
 functions-platform-financial-account-provisioning/lib/
+functions-tenant-credential-recovery/lib/
 pnpm-lock.yaml
 
 # Temporal

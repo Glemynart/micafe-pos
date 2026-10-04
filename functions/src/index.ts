@@ -5,10 +5,6 @@ export {
   actualizarMembresia,
 } from "./operational-auth";
 export {
-  restablecerCredencialOperativa,
-} from "./credential-recovery-callables";
-
-export {
   crearIncorporacionDirecta,
   crearIncorporacionEmail,
   reenviarIncorporacionEmail,

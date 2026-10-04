@@ -63,6 +63,10 @@
     {
       "source": "functions-platform-financial-account-provisioning",
       "codebase": "saas-platform-financial-account-provisioning"
+    },
+    {
+      "source": "functions-tenant-credential-recovery",
+      "codebase": "saas-tenant-credential-recovery"
     }
   ],
   "firestore": {
