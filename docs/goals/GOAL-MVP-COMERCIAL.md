@@ -116,7 +116,23 @@
 
 ## Estado vivo
 
-### Checkpoint vigente — 2026-09-11
+### Checkpoint vigente — 2026-10-03
+
+La evidencia consolidada de Gate F está integrada en `main` mediante PR #430,
+merge commit `1e822c7dbe456eff5868db7fc2626157ed39a0fd`. En el fixture
+retenido `E2_2-BODEGA-STAGING-FIXTURE` se verificaron autenticación PWA de un
+vendedor sintético, ventas por transferencia y efectivo, turno, inventario,
+stock insuficiente, autoridad server-side, credencial anterior/nueva,
+payload manipulado y replay/idempotencia secuencial y concurrente. El PIN no
+se registra. Gate F permanece `BLOCKED / PENDING FUNCTIONAL MATRIX` porque no
+existe un segundo contexto vendedor canónico utilizable para A/B ni una ruta
+staging desplegada para revocar/restaurar credenciales de un vendedor; el
+retry de red dedicado tampoco se ha ejecutado en staging. No se crea otro
+tenant ni se modifica producción para cerrar artificialmente esos casos.
+El CI post-merge del commit anterior terminó `PASS`; E2.2 permanece `EN
+EJECUCIÓN`.
+
+### Checkpoint histórico — 2026-09-11
 
 La auditoría operativa y de seguridad vigente está registrada en
 [`docs/security/G-SAAS-02-AUDITORIA-2026-08-23.md`](../security/G-SAAS-02-AUDITORIA-2026-08-23.md)
