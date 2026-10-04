@@ -69,4 +69,17 @@ Antes del primer deploy, rollback es revertir el cambio técnico. Tras deploy, c
 
 ## Consecuencias
 
-La decisión desbloquea la implementación de una única superficie de recuperación de operador tenant. No cierra Gate F, rehearsal, certificación, tenant real, aceptación operativa ni producción.
+### Ejecución reconciliada — 2026-10-04
+
+La frontera se implementó e integró mediante PR #433 (merge
+`703fcf5095857aada02a5640550985174615dab1`), con las correcciones de UI de
+PR #434 y de exposición staging de PR #435. En `micafe-pos-staging`,
+`restablecerCredencialOperativa` está `ACTIVE` en
+`saas-tenant-credential-recovery`, `us-central1`, Node.js 22, hash
+`2841aa754aefeffa5ec56a2a07e943c430ea40be` y únicamente el Secret existente
+`OPERATIONAL_PIN_PEPPER`.
+
+La validación funcional de revocación, recuperación temporal, activación y
+auditoría contra el fixture retenido sigue siendo un subgate de Gate F. La
+integración y el deploy no la convierten en `PASS` ni cierran rehearsal,
+certificación, tenant real, aceptación operativa o producción.

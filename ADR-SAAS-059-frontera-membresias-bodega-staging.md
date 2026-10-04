@@ -119,6 +119,23 @@ el comando canónico autorizado; no mediante escritura directa ni cleanup.
 
 ## Consecuencias
 
-Esta decisión elimina la exposición funcional de permisos ajenos a Bodega sin
-crear un operador, fixture ni credencial adicional. No cierra Gate E, Gate F,
-rehearsal, certificación, tenant real, aceptación operativa ni producción.
+### Ejecución reconciliada — 2026-10-04
+
+La frontera y la extensión de auditoría de ADR-SAAS-060 se integraron mediante
+PR #438 (merge `3151890d6464d760417709b491653bf10307fc97`). El deploy dirigido
+de `actualizarMembresiaBodegaV1` está `ACTIVE` en
+`saas-bodega-membership`, `us-central1`, Node.js 22, hash
+`e436c21e90afb71cc88e3b557ec2e82b97b094fe` y cero Secrets. El update dirigido
+de `crearIncorporacionDirecta` preserva la validación vertical en
+`saas-operational-onboarding` con el único Secret existente
+`OPERATIONAL_PIN_PEPPER`.
+
+PR #439 (merge `7f46d9e9a4ef300bb0333ff4e3fbcc201cbd6933`) alineó el
+Backoffice Bodega con esta política: no presenta las operaciones genéricas de
+restaurante y el alta inicia como `vendedor`. La autoridad sigue siendo
+server-side; la interfaz no puede asignar permisos ni roles arbitrarios.
+
+La validación funcional autenticada del cambio de estado, claims y auditoría
+contra el fixture retenido permanece pendiente dentro de Gate F. Esta
+reconciliación no cierra Gate E/F, rehearsal, certificación, tenant real,
+aceptación operativa ni producción.
