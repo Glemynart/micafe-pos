@@ -129,8 +129,8 @@ existe un segundo contexto vendedor canónico utilizable para A/B ni una ruta
 staging desplegada para revocar/restaurar credenciales de un vendedor; el
 retry de red dedicado tampoco se ha ejecutado en staging. No se crea otro
 tenant ni se modifica producción para cerrar artificialmente esos casos.
-El CI post-merge del commit anterior continúa verificándose; E2.2 permanece
-`EN EJECUCIÓN`.
+El CI post-merge del commit anterior terminó `PASS`; E2.2 permanece `EN
+EJECUCIÓN`.
 
 ### Checkpoint histórico — 2026-09-11
 
