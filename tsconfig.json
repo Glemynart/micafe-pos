@@ -54,6 +54,7 @@
     "functions-platform-credential-recovery/**",
     "functions-operational-onboarding/**",
     "functions-bodega-operations/**",
-    "functions-platform-financial-account-provisioning/**"
+    "functions-platform-financial-account-provisioning/**",
+    "functions-tenant-credential-recovery/**"
   ]
 }

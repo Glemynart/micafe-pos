@@ -2,7 +2,6 @@ import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
-import { exigirAdminTenant } from "./operational-auth";
 import { autorizarPlataforma, type TokenPlataforma } from "./platform/authorization";
 import {
   activarRestablecimientoCredencial as activarRestablecimientoCredencialServicio,
@@ -68,30 +67,6 @@ async function ejecutarRestablecimientoAdministrador(
     throw cause;
   }
 }
-
-export const restablecerCredencialOperativa = onCall(
-  { region: REGION, secrets: [PIN_PEPPER], cors: CORS_ORIGINS, invoker: "public" },
-  async (request) => {
-    const auth = exigirAuth(request);
-    const tenant = await exigirAdminTenant(request);
-    const data = request.data as Record<string, unknown> | undefined;
-    if (typeof data?.objetivoUid !== "string" || !data.objetivoUid.trim()) {
-      throw new HttpsError("invalid-argument", "OBJETIVO_UID_INVALIDO");
-    }
-    const comando = validarComandoRestablecimiento(data);
-    const resultado = await solicitarRestablecimientoCredencial(
-      getFirestore(),
-      { tipo: "ADMIN_TENANT", uid: auth.uid, facultad: null },
-      comando,
-      tenant.id,
-      data.objetivoUid,
-      pepper(),
-      undefined,
-    );
-    await getAuth().revokeRefreshTokens(resultado.uid);
-    return resultado;
-  },
-);
 
 export const restablecerCredencialAdministradorTenantSaas = onCall(
   { region: REGION, secrets: [PIN_PEPPER], cors: CORS_ORIGINS, invoker: "public" },
