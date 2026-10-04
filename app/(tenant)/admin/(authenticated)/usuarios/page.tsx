@@ -14,6 +14,7 @@ import { Loader2, UserPlus, Trash2, Shield, ArrowRight, ClipboardList, LayoutGri
 import { toast } from "sonner"
 import { suscribirUsuarios, crearOperador, actualizarRolUsuario, toggleUsuarioActivo, toggleVendedorBodegaActivo, restablecerOperador, type Usuario, type RolUsuario, type ResultadoCreacionOperador } from "@/lib/permisos-service"
 import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
+import { esBodegaMvp1, mostrarOperacionesGenericas, rolInicialOperador } from "@/lib/bodega/operator-ui-policy"
 
 const ROLES_OPERADOR_BASE: Array<{ value: RolUsuario; label: string }> = [
   { value: "admin", label: "Administrador" },
@@ -27,6 +28,8 @@ const ROL_VENDEDOR: { value: RolUsuario; label: string } = { value: "vendedor", 
 export default function UsuariosPage() {
   const { usuario: cu } = useAuthContext()
   const { vertical } = useConfiguracionEmpresa()
+  const bodegaMvp1 = esBodegaMvp1(vertical)
+  const rolInicial = rolInicialOperador(vertical)
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [cargando, setCargando] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
@@ -44,7 +47,7 @@ export default function UsuariosPage() {
   const [showResetCredential, setShowResetCredential] = useState(false)
   const [resetCredentialData, setResetCredentialData] = useState<ResultadoCreacionOperador | null>(null)
   const [showResetPin, setShowResetPin] = useState(false)
-  const rolesOperador = vertical === "BODEGA_MVP1" ? [{ value: "admin", label: "Administrador" } as const, ROL_VENDEDOR] : ROLES_OPERADOR_BASE
+  const rolesOperador = bodegaMvp1 ? [{ value: "admin", label: "Administrador" } as const, ROL_VENDEDOR] : ROLES_OPERADOR_BASE
 
   useEffect(() => { const u = suscribirUsuarios(d => { setUsuarios(d); setCargando(false) }); return u }, [])
 
@@ -56,7 +59,7 @@ export default function UsuariosPage() {
       setCredentialData(result)
       setShowCredential(true)
       setShowCreate(false)
-      setForm({ nombre: "", rol: "cajero" })
+      setForm({ nombre: "", rol: rolInicial })
     } catch (err: any) {
       toast.error(err?.message || "Error al crear operador")
     } finally { setCreando(false) }
@@ -94,7 +97,7 @@ export default function UsuariosPage() {
 
   const hDelete = async () => {
     if (!uDel) return
-    try { if (vertical === "BODEGA_MVP1") await toggleVendedorBodegaActivo(uDel.uid, false); else await toggleUsuarioActivo(uDel.uid, false); toast.success("Usuario desactivado"); setShowDelete(false); setUDel(null) }
+    try { if (bodegaMvp1) await toggleVendedorBodegaActivo(uDel.uid, false); else await toggleUsuarioActivo(uDel.uid, false); toast.success("Usuario desactivado"); setShowDelete(false); setUDel(null) }
     catch { toast.error("Error al desactivar") }
   }
 
@@ -123,7 +126,7 @@ export default function UsuariosPage() {
         </div>
         <Button
           size="sm"
-          onClick={() => setShowCreate(true)}
+          onClick={() => { setForm({ nombre: "", rol: rolInicial }); setShowCreate(true) }}
           className="bg-amber-600 hover:bg-amber-700 text-foreground text-xs h-8 px-3 rounded-lg shadow-none"
         >
           <UserPlus className="h-3.5 w-3.5 mr-1.5" />
@@ -134,11 +137,11 @@ export default function UsuariosPage() {
       <div className="px-4 pt-4 space-y-4">
         {/* Configuración */}
         <div>
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Configuración</p>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">{bodegaMvp1 ? "Operación Bodega" : "Configuración"}</p>
           <div className="bg-card/50 border border-border rounded-xl overflow-hidden divide-y divide-border/50">
             {[
               { href: "/admin/permisos", label: "Permisos", desc: "Módulos por rol y usuario", icon: Shield, color: "text-amber-400", bg: "bg-amber-500/20" },
-              { href: "/admin/espacios", label: "Espacios", desc: "Áreas del negocio", icon: LayoutGrid, color: "text-blue-400", bg: "bg-blue-500/20" },
+              ...(!bodegaMvp1 ? [{ href: "/admin/espacios", label: "Espacios", desc: "Áreas del negocio", icon: LayoutGrid, color: "text-blue-400", bg: "bg-blue-500/20" }] : []),
             ].map(item => {
               const Icon = item.icon
               return (
@@ -157,8 +160,8 @@ export default function UsuariosPage() {
           </div>
         </div>
 
-        {/* Operaciones */}
-        <div>
+        {/* Operaciones fuera de Bodega */}
+        {mostrarOperacionesGenericas(vertical) && <div>
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Operaciones</p>
           <div className="grid grid-cols-2 gap-2">
             <Link href="/admin/mermas" className="bg-card/50 border border-border rounded-xl p-4 hover:bg-card/50 transition-colors">
@@ -197,11 +200,11 @@ export default function UsuariosPage() {
               <p className="text-[11px] text-muted-foreground mt-0.5">Agenda cultural</p>
             </Link>
           </div>
-        </div>
+        </div>}
 
         {/* Usuarios */}
         <div>
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Empleados ({usuarios.length})</p>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">{bodegaMvp1 ? "Operadores" : "Empleados"} ({usuarios.length})</p>
           <div className="bg-card/50 border border-border rounded-xl overflow-hidden divide-y divide-border/50">
             {usuarios.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-8">Sin usuarios registrados</p>
@@ -221,7 +224,7 @@ export default function UsuariosPage() {
                 </div>
                 {/* Role selector */}
                 <div className="shrink-0">
-                  {vertical === "BODEGA_MVP1" ? <Badge className={rolColor(u.rol)}>{u.rol === "vendedor" ? "Vendedor" : "Administrador"}</Badge> : gr === u.uid ? (
+                  {bodegaMvp1 ? <Badge className={rolColor(u.rol)}>{u.rol === "vendedor" ? "Vendedor" : "Administrador"}</Badge> : gr === u.uid ? (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/50" />
                   ) : (
                     <Select value={u.rol} onValueChange={v => hRole(u.uid, v)} disabled={u.uid === cu?.uid}>
@@ -250,8 +253,8 @@ export default function UsuariosPage() {
                 <button
                   className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground/70 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-30"
                   onClick={() => { setUDel(u); setShowDelete(true) }}
-                  disabled={!u.activo || u.uid === cu?.uid || (vertical === "BODEGA_MVP1" && u.rol !== "vendedor")}
-                  title={vertical === "BODEGA_MVP1" && u.rol !== "vendedor" ? "La frontera Bodega solo permite desactivar vendedores" : "Desactivar operador"}
+                  disabled={!u.activo || u.uid === cu?.uid || (bodegaMvp1 && u.rol !== "vendedor")}
+                  title={bodegaMvp1 && u.rol !== "vendedor" ? "La frontera Bodega solo permite desactivar vendedores" : "Desactivar operador"}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
