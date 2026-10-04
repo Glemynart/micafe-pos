@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import Link from "next/link"
 import { Loader2, UserPlus, Trash2, Shield, ArrowRight, ClipboardList, LayoutGrid, ChevronRight, Lock, Truck, CalendarDays, TrendingDown, KeyRound } from "lucide-react"
 import { toast } from "sonner"
-import { suscribirUsuarios, crearOperador, actualizarRolUsuario, toggleUsuarioActivo, restablecerOperador, type Usuario, type RolUsuario, type ResultadoCreacionOperador } from "@/lib/permisos-service"
+import { suscribirUsuarios, crearOperador, actualizarRolUsuario, toggleUsuarioActivo, toggleVendedorBodegaActivo, restablecerOperador, type Usuario, type RolUsuario, type ResultadoCreacionOperador } from "@/lib/permisos-service"
 import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
 
 const ROLES_OPERADOR_BASE: Array<{ value: RolUsuario; label: string }> = [
@@ -44,7 +44,7 @@ export default function UsuariosPage() {
   const [showResetCredential, setShowResetCredential] = useState(false)
   const [resetCredentialData, setResetCredentialData] = useState<ResultadoCreacionOperador | null>(null)
   const [showResetPin, setShowResetPin] = useState(false)
-  const rolesOperador = vertical === "BODEGA_MVP1" ? [...ROLES_OPERADOR_BASE, ROL_VENDEDOR] : ROLES_OPERADOR_BASE
+  const rolesOperador = vertical === "BODEGA_MVP1" ? [{ value: "admin", label: "Administrador" } as const, ROL_VENDEDOR] : ROLES_OPERADOR_BASE
 
   useEffect(() => { const u = suscribirUsuarios(d => { setUsuarios(d); setCargando(false) }); return u }, [])
 
@@ -94,7 +94,7 @@ export default function UsuariosPage() {
 
   const hDelete = async () => {
     if (!uDel) return
-    try { await toggleUsuarioActivo(uDel.uid, false); toast.success("Usuario desactivado"); setShowDelete(false); setUDel(null) }
+    try { if (vertical === "BODEGA_MVP1") await toggleVendedorBodegaActivo(uDel.uid, false); else await toggleUsuarioActivo(uDel.uid, false); toast.success("Usuario desactivado"); setShowDelete(false); setUDel(null) }
     catch { toast.error("Error al desactivar") }
   }
 
@@ -221,7 +221,7 @@ export default function UsuariosPage() {
                 </div>
                 {/* Role selector */}
                 <div className="shrink-0">
-                  {gr === u.uid ? (
+                  {vertical === "BODEGA_MVP1" ? <Badge className={rolColor(u.rol)}>{u.rol === "vendedor" ? "Vendedor" : "Administrador"}</Badge> : gr === u.uid ? (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/50" />
                   ) : (
                     <Select value={u.rol} onValueChange={v => hRole(u.uid, v)} disabled={u.uid === cu?.uid}>
@@ -250,7 +250,8 @@ export default function UsuariosPage() {
                 <button
                   className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground/70 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-30"
                   onClick={() => { setUDel(u); setShowDelete(true) }}
-                  disabled={!u.activo || u.uid === cu?.uid}
+                  disabled={!u.activo || u.uid === cu?.uid || (vertical === "BODEGA_MVP1" && u.rol !== "vendedor")}
+                  title={vertical === "BODEGA_MVP1" && u.rol !== "vendedor" ? "La frontera Bodega solo permite desactivar vendedores" : "Desactivar operador"}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

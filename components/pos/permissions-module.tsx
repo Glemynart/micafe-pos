@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { actualizarPermisosUsuario, MODULOS, suscribirUsuarios, type Usuario } from "@/lib/permisos-service";
+import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context";
+import Link from "next/link";
 
 const ETIQUETAS: Record<string, string> = {
   sell: "Vender", salon: "Salón", kitchen: "Cocina", inventory: "Inventario",
@@ -17,6 +19,7 @@ const ETIQUETAS: Record<string, string> = {
 
 /** Administración de permisos efectivos por membresía. Las plantillas no se leen en runtime. */
 export function PermissionsModule() {
+  const { vertical } = useConfiguracionEmpresa();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [seleccionado, setSeleccionado] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
@@ -27,6 +30,10 @@ export function PermissionsModule() {
     const unsub = suscribirUsuarios((datos) => { setUsuarios(datos); setCargando(false); });
     return unsub;
   }, []);
+
+  if (vertical === "BODEGA_MVP1") {
+    return <section className="space-y-4"><header><h1 className="text-xl font-bold">Operadores Bodega</h1><p className="text-sm text-muted-foreground">Bodega usa únicamente Administrador y Vendedor. Los permisos del vendedor son canónicos y no se editan desde el cliente.</p></header><div className="rounded-xl border border-border bg-card p-4 text-sm"><p className="font-semibold">Vendedor</p><p className="mt-1 text-muted-foreground">Puede vender y gestionar su turno. No recibe módulos de restaurante, reservas, consignaciones ni permisos administrativos.</p><Link href="/admin/usuarios" className="mt-3 inline-flex text-primary underline">Gestionar operadores</Link></div></section>;
+  }
 
   const usuario = usuarios.find((item) => item.uid === seleccionado) ?? null;
   const filtrados = useMemo(() => usuarios.filter((item) =>

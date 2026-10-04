@@ -67,6 +67,10 @@
     {
       "source": "functions-tenant-credential-recovery",
       "codebase": "saas-tenant-credential-recovery"
+    },
+    {
+      "source": "functions-bodega-membership",
+      "codebase": "saas-bodega-membership"
     }
   ],
   "firestore": {

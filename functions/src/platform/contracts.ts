@@ -126,7 +126,8 @@ export type TipoAuditoria =
   | "SOPORTE_DIAGNOSTICO_ALTO_RIESGO"
   | "DUSEMA_TENANT_CONSULTADO"
   | "DUSEMA_BINDING_CREADO"
-  | "CUENTA_OPERATIVA_PROVISIONADA";
+  | "CUENTA_OPERATIVA_PROVISIONADA"
+  | "MEMBRESIA_BODEGA_ESTADO_ACTUALIZADO";
 
 export type TipoAgregadoAuditoria =
   | "OPERADOR"
@@ -140,7 +141,8 @@ export type TipoAgregadoAuditoria =
   | "SOPORTE_SESION"
   | "SEGURIDAD_PLATAFORMA"
   | "BINDING_DUSEMA"
-  | "CUENTA_OPERATIVA";
+  | "CUENTA_OPERATIVA"
+  | "MEMBRESIA_BODEGA";
 
 export function esFacultadPlataforma(value: unknown): value is FacultadPlataforma {
   return typeof value === "string"
