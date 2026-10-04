@@ -136,6 +136,14 @@ autoridad de administrador tenant y el único Secret existente
 `OPERATIONAL_PIN_PEPPER`. Su implementación, preflight, deploy y validación
 permanecen pendientes; esta aceptación no transforma ningún escenario de Gate
 F en `PASS`.
+
+ADR-SAAS-059 queda aceptado como decisión mínima para impedir que el Backoffice
+de Bodega administre roles o módulos ajenos al vertical. La futura frontera
+`saas-bodega-membership` gestionará exclusivamente el estado de vendedores
+Bodega, sin Secrets, mientras `crearIncorporacionDirecta` conservará el alta
+canónica con validación vertical. Implementación, preflight, deploy y
+validación permanecen pendientes; no se crearon usuarios ni fixtures ni se
+modificó producción.
 El CI post-merge del commit anterior terminó `PASS`; E2.2 permanece `EN
 EJECUCIÓN`.
 
