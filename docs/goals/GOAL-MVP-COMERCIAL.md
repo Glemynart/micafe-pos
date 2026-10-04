@@ -144,6 +144,13 @@ Bodega, sin Secrets, mientras `crearIncorporacionDirecta` conservará el alta
 canónica con validación vertical. Implementación, preflight, deploy y
 validación permanecen pendientes; no se crearon usuarios ni fixtures ni se
 modificó producción.
+
+ADR-SAAS-060 queda aceptado como decisión mínima para completar la auditoría
+canónica e idempotente de `actualizarMembresiaBodegaV1`. Extiende únicamente
+los tipos append-only de auditoría para el cambio de estado de un vendedor
+Bodega y preserva la ruta legacy para verticales no Bodega. Implementación,
+preflight, deploy y validación permanecen pendientes; E2.2 continúa `EN
+EJECUCIÓN`.
 El CI post-merge del commit anterior terminó `PASS`; E2.2 permanece `EN
 EJECUCIÓN`.
 

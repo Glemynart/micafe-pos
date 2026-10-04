@@ -67,9 +67,10 @@ capacidad de Bodega.
 - El cambio de estado revoca o reemite claims de la sesión afectada mediante una
   unidad neutral extraída del comportamiento actual; no escribe directamente
   credenciales ni auditoría fuera del flujo canónico.
-- `actualizarMembresia` se retira únicamente de la exportación local de
-  `saas-auth` para evitar que el cliente Bodega conserve una ruta genérica. No
-  existe revisión remota staging de esa callable que deba migrarse.
+- `actualizarMembresia` legacy permanece para verticales no Bodega. El cliente
+  Bodega no lo invoca: usa exclusivamente `actualizarMembresiaBodegaV1`, cuya
+  política server-side impide asignar roles o permisos genéricos. No existe
+  revisión remota staging de la callable legacy que deba migrarse.
 - `crearIncorporacionDirecta`, recuperación de credenciales y activación
   conservan sus contratos y boundaries de ADR-SAAS-054, ADR-SAAS-058 y
   ADR-SAAS-053 respectivamente.
