@@ -44,6 +44,7 @@ functions-operational-onboarding/lib/
 functions-bodega-operations/lib/
 functions-platform-financial-account-provisioning/lib/
 functions-tenant-credential-recovery/lib/
+functions-bodega-membership/lib/
 pnpm-lock.yaml
 
 # Temporal

@@ -186,6 +186,32 @@ test("DIRECTA rechaza la activacion y el reintento ACTIVE cuando el lifecycle de
   );
 });
 
+test("DIRECTA Bodega solo admite administrador y vendedor", async () => {
+  const empresaFundacionalId = `empresa-fundacional-bodega-${Date.now()}`;
+  const empresaId = `empresa-directa-bodega-${Date.now()}`;
+  const db = getFirestore();
+  await prepararEmpresaFundacionalUnica(empresaFundacionalId);
+  await preparar(empresaId);
+  await db.collection("configuraciones").doc(empresaId).set({ empresaId, vertical: "BODEGA_MVP1" });
+  await assert.rejects(
+    () => crearIncorporacionDirecta({
+      empresaId,
+      emisorUid: "admin",
+      data: { nombre: "Rol no permitido", codigo: `bodega-cajero-${Date.now()}`, pinTemporal: "123456", rol: "cajero" },
+      pepper: PIN_PEPPER,
+    }),
+    (error: unknown) => error instanceof HttpsError && error.code === "permission-denied" && error.message === "ROL_BODEGA_NO_AUTORIZADO",
+  );
+  await db.collection("permisos_roles").doc("vendedor").set({ permisos: ["sell", "shifts"] });
+  const vendedor = await crearIncorporacionDirecta({
+    empresaId,
+    emisorUid: "admin",
+    data: { nombre: "Vendedor Bodega", codigo: `bodega-vendedor-${Date.now()}`, pinTemporal: "123456", rol: "vendedor" },
+    pepper: PIN_PEPPER,
+  });
+  assert.equal(vendedor.estado, "TEMP_CREDENTIAL");
+});
+
 test("EMAIL rechaza la aceptacion y el reintento ACTIVE cuando el lifecycle deja de ser operativo", async () => {
   const empresaId = `empresa-email-lifecycle-${Date.now()}`;
   const db = getFirestore();

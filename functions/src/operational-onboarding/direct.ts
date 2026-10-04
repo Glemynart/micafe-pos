@@ -67,6 +67,10 @@ export async function crearIncorporacionDirecta({
   const pinTemporalGenerada = pinTemporal === null;
   const db = getFirestore();
   const auth = getAuth();
+  const configuracionSnap = await db.collection("configuraciones").doc(empresaId).get();
+  if (configuracionSnap.data()?.vertical === "BODEGA_MVP1" && rol !== "admin" && rol !== "vendedor") {
+    throw new HttpsError("permission-denied", "ROL_BODEGA_NO_AUTORIZADO");
+  }
   let obligacionId: string | null = null;
 
   if (pinTemporal === null) pinTemporal = generarPinTemporal();

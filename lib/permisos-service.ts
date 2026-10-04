@@ -43,6 +43,27 @@ async function llamarActualizacion(data: ActualizacionMembresia): Promise<void> 
   await callable(data);
 }
 
+async function llamarActualizacionBodega(objetivoUid: string, estado: "activa" | "inactiva"): Promise<void> {
+  const callable = httpsCallable<{
+    objetivoUid: string;
+    estado: "activa" | "inactiva";
+    commandId: string;
+    idempotencyKey: string;
+    correlationId: string;
+    causationId: null;
+    motivoCodigo: "TENANT_ADMIN_ACTUALIZAR_MEMBRESIA_BODEGA";
+  }, void>(functionsCliente(), "actualizarMembresiaBodegaV1");
+  await callable({
+    objetivoUid,
+    estado,
+    commandId: crypto.randomUUID(),
+    idempotencyKey: crypto.randomUUID(),
+    correlationId: crypto.randomUUID(),
+    causationId: null,
+    motivoCodigo: "TENANT_ADMIN_ACTUALIZAR_MEMBRESIA_BODEGA",
+  });
+}
+
 function proyectarUsuario(uid: string, perfil: Record<string, unknown>, membresia: Membresia): Usuario {
   return {
     uid,
@@ -215,6 +236,10 @@ export async function actualizarRolUsuario(uid: string, rol: RolUsuario): Promis
 
 export async function toggleUsuarioActivo(uid: string, activo: boolean): Promise<void> {
   await llamarActualizacion({ uid, estado: activo ? "activa" : "inactiva" });
+}
+
+export async function toggleVendedorBodegaActivo(uid: string, activo: boolean): Promise<void> {
+  await llamarActualizacionBodega(uid, activo ? "activa" : "inactiva");
 }
 
 export async function actualizarPermisosUsuario(uid: string, permisos: string[]): Promise<void> {
