@@ -129,6 +129,13 @@ existe un segundo contexto vendedor canónico utilizable para A/B ni una ruta
 staging desplegada para revocar/restaurar credenciales de un vendedor; el
 retry de red dedicado tampoco se ha ejecutado en staging. No se crea otro
 tenant ni se modifica producción para cerrar artificialmente esos casos.
+
+ADR-SAAS-058 queda aceptado como decisión mínima para aislar
+`restablecerCredencialOperativa` en `saas-tenant-credential-recovery`, con la
+autoridad de administrador tenant y el único Secret existente
+`OPERATIONAL_PIN_PEPPER`. Su implementación, preflight, deploy y validación
+permanecen pendientes; esta aceptación no transforma ningún escenario de Gate
+F en `PASS`.
 El CI post-merge del commit anterior terminó `PASS`; E2.2 permanece `EN
 EJECUCIÓN`.
 
