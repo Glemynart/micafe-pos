@@ -10,11 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import Link from "next/link"
-import { Loader2, UserPlus, Trash2, Shield, ArrowRight, ClipboardList, LayoutGrid, ChevronRight, Lock, Truck, CalendarDays, TrendingDown, KeyRound } from "lucide-react"
+import { Loader2, UserPlus, Trash2, RotateCcw, Shield, ArrowRight, ClipboardList, LayoutGrid, ChevronRight, Lock, Truck, CalendarDays, TrendingDown, KeyRound } from "lucide-react"
 import { toast } from "sonner"
 import { suscribirUsuarios, crearOperador, actualizarRolUsuario, toggleUsuarioActivo, toggleVendedorBodegaActivo, restablecerOperador, type Usuario, type RolUsuario, type ResultadoCreacionOperador } from "@/lib/permisos-service"
 import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
-import { esBodegaMvp1, mostrarOperacionesGenericas, rolInicialOperador } from "@/lib/bodega/operator-ui-policy"
+import { accionEstadoVendedor, esBodegaMvp1, mostrarOperacionesGenericas, rolInicialOperador } from "@/lib/bodega/operator-ui-policy"
 
 const ROLES_OPERADOR_BASE: Array<{ value: RolUsuario; label: string }> = [
   { value: "admin", label: "Administrador" },
@@ -97,8 +97,16 @@ export default function UsuariosPage() {
 
   const hDelete = async () => {
     if (!uDel) return
-    try { if (bodegaMvp1) await toggleVendedorBodegaActivo(uDel.uid, false); else await toggleUsuarioActivo(uDel.uid, false); toast.success("Usuario desactivado"); setShowDelete(false); setUDel(null) }
-    catch { toast.error("Error al desactivar") }
+    const accion = accionEstadoVendedor(uDel.activo)
+    try {
+      if (bodegaMvp1) await toggleVendedorBodegaActivo(uDel.uid, accion.estadoSolicitado === "activa")
+      else await toggleUsuarioActivo(uDel.uid, false)
+      toast.success(bodegaMvp1 ? accion.resultado : "Usuario desactivado")
+      setShowDelete(false)
+      setUDel(null)
+    } catch {
+      toast.error(bodegaMvp1 && accion.estadoSolicitado === "activa" ? "Error al reactivar" : "Error al desactivar")
+    }
   }
 
   const hRole = async (uid: string, rol: string) => {
@@ -253,10 +261,12 @@ export default function UsuariosPage() {
                 <button
                   className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground/70 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-30"
                   onClick={() => { setUDel(u); setShowDelete(true) }}
-                  disabled={!u.activo || u.uid === cu?.uid || (bodegaMvp1 && u.rol !== "vendedor")}
-                  title={bodegaMvp1 && u.rol !== "vendedor" ? "La frontera Bodega solo permite desactivar vendedores" : "Desactivar operador"}
+                  disabled={u.uid === cu?.uid || (bodegaMvp1 ? u.rol !== "vendedor" : !u.activo)}
+                  title={bodegaMvp1 && u.rol !== "vendedor"
+                    ? "La frontera Bodega solo permite actualizar vendedores"
+                    : bodegaMvp1 ? accionEstadoVendedor(u.activo).etiqueta : "Desactivar operador"}
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  {bodegaMvp1 && !u.activo ? <RotateCcw className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
                 </button>
               </div>
             ))}
@@ -415,14 +425,25 @@ export default function UsuariosPage() {
       <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
         <AlertDialogContent className="!bg-background !text-foreground !border-border">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-foreground font-bold">Desactivar usuario</AlertDialogTitle>
+            <AlertDialogTitle className="text-foreground font-bold">
+              {bodegaMvp1 && uDel && accionEstadoVendedor(uDel.activo).estadoSolicitado === "activa" ? "Reactivar usuario" : "Desactivar usuario"}
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
-              ¿Desactivar a <strong className="text-foreground/80">{uDel?.nombre}</strong>? Perderá acceso al sistema inmediatamente.
+              {bodegaMvp1 && uDel && accionEstadoVendedor(uDel.activo).estadoSolicitado === "activa"
+                ? <>¿Reactivar a <strong className="text-foreground/80">{uDel.nombre}</strong>? Recuperará el acceso según la membresía y credencial canónicas.</>
+                : <>¿Desactivar a <strong className="text-foreground/80">{uDel?.nombre}</strong>? Perderá acceso al sistema inmediatamente.</>}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="!border-border !text-foreground/70 hover:!bg-card/50">Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={hDelete} className="!bg-red-600 hover:!bg-red-700 !text-foreground">Desactivar</AlertDialogAction>
+            <AlertDialogAction
+              onClick={hDelete}
+              className={bodegaMvp1 && uDel && accionEstadoVendedor(uDel.activo).estadoSolicitado === "activa"
+                ? "!bg-primary !text-primary-foreground hover:!bg-primary/90"
+                : "!bg-red-600 hover:!bg-red-700 !text-foreground"}
+            >
+              {bodegaMvp1 && uDel ? accionEstadoVendedor(uDel.activo).confirmacion : "Desactivar"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
