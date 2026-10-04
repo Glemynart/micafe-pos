@@ -89,7 +89,7 @@ export default function UsuariosPage() {
     setShowResetCredential(false)
     setResetCredentialData(null)
     setShowResetPin(false)
-    toast.success("Credencial restablecida. Entrega el nuevo cÃ³digo y PIN una sola vez.")
+    toast.success("Credencial restablecida. Entrega el nuevo código y PIN una sola vez.")
   }
 
   const hDelete = async () => {
@@ -234,7 +234,7 @@ export default function UsuariosPage() {
                     </Select>
                   )}
                 </div>
-                {/* RecuperaciÃ³n canÃ³nica; los admins no pueden ser objetivo. */}
+                {/* Recuperación canónica; los admins no pueden ser objetivo. */}
                 {u.rol !== "admin" && (
                   <button
                     className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground/70 hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-30"
@@ -359,13 +359,13 @@ export default function UsuariosPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ConfirmaciÃ³n de recuperaciÃ³n canÃ³nica */}
+      {/* Confirmación de recuperación canónica */}
       <AlertDialog open={showReset} onOpenChange={(open) => { if (!open && !restableciendo) { setShowReset(false); setUReset(null) } }}>
         <AlertDialogContent className="!bg-background !text-foreground !border-border">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-foreground font-bold">Restablecer credencial</AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
-              Se invalidarÃ¡n el cÃ³digo y PIN actuales de <strong className="text-foreground/80">{uReset?.nombre}</strong>. Se emitirÃ¡ una credencial temporal nueva y el operador deberÃ¡ definir un PIN definitivo al ingresar.
+              Se invalidarán el código y PIN actuales de <strong className="text-foreground/80 break-all">{uReset?.nombre}</strong>. Se emitirá una credencial temporal nueva y el operador deberá definir un PIN definitivo al ingresar.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -377,19 +377,19 @@ export default function UsuariosPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Entrega de la credencial temporal generada por el endpoint canÃ³nico. */}
+      {/* Entrega de la credencial temporal generada por el endpoint canónico. */}
       <Dialog open={showResetCredential} onOpenChange={() => {}}>
         <DialogContent className="!bg-background !text-foreground !border-border [&>button]:hidden" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle className="text-foreground font-bold">Credencial restablecida</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <p className="text-xs text-amber-400 font-semibold">Estos datos no se volverÃ¡n a mostrar. EntrÃ©galos ahora y el operador deberÃ¡ cambiar su PIN en el primer ingreso.</p>
+            <p className="text-xs text-amber-400 font-semibold">Estos datos no se volverán a mostrar. Entrégalos ahora y el operador deberá cambiar su PIN en el primer ingreso.</p>
             <div className="space-y-1">
-              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">CÃ³digo operativo</Label>
+              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Código operativo</Label>
               <div className="flex items-center gap-2">
                 <code className="flex-1 bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground font-mono">{resetCredentialData?.codigo}</code>
-                <Button size="sm" variant="outline" className="!border-border !text-foreground/70 hover:!bg-card/50 h-9" onClick={() => { if (resetCredentialData?.codigo) navigator.clipboard.writeText(resetCredentialData.codigo); toast.success("CÃ³digo copiado") }}>Copiar</Button>
+                <Button size="sm" variant="outline" className="!border-border !text-foreground/70 hover:!bg-card/50 h-9" onClick={() => { if (resetCredentialData?.codigo) navigator.clipboard.writeText(resetCredentialData.codigo); toast.success("Código copiado") }}>Copiar</Button>
               </div>
             </div>
             {resetCredentialData?.pinTemporal && (
@@ -403,7 +403,7 @@ export default function UsuariosPage() {
               </div>
             )}
           </div>
-          <DialogFooter><Button onClick={hCloseResetCredential} className="!bg-primary !text-primary-foreground hover:!bg-primary/90 shadow-none font-bold">Entendido, ya los guardÃ©</Button></DialogFooter>
+          <DialogFooter><Button onClick={hCloseResetCredential} className="!bg-primary !text-primary-foreground hover:!bg-primary/90 shadow-none font-bold">Entendido, ya los guardé</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 

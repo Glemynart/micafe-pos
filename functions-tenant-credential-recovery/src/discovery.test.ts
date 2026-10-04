@@ -46,6 +46,9 @@ test("declara solo la recuperación de operador tenant con el Secret canónico",
   assert.deepEqual(Object.keys(endpoints), ["restablecerCredencialOperativa"]);
   assert.deepEqual(endpoints.restablecerCredencialOperativa?.region, ["us-central1"]);
   assert.match(JSON.stringify(endpoints.restablecerCredencialOperativa), /OPERATIONAL_PIN_PEPPER/);
+  const entrypoint = await readFile(resolve(sourceRoot, "src/index.ts"), "utf8");
+  assert.match(entrypoint, /https:\/\/cafeatrato\.vercel\.app/);
+  assert.match(entrypoint, /https:\/\/cafeatrato-bg6o3l7mf-glemynarts-projects\.vercel\.app/);
 });
 
 test("retira únicamente la exportación legacy migrada", async () => {
