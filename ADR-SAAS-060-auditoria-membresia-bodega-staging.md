@@ -119,3 +119,16 @@ se revierten únicamente mediante un nuevo comando canónico autorizado.
 
 Esta decisión no cierra Gate E, Gate F, rehearsal, certificación, tenant real,
 aceptación operativa ni producción.
+
+### Ejecución reconciliada — 2026-10-04
+
+La extensión de tipos, la obligación transaccional determinista y la callable
+de ADR-SAAS-059 quedaron integradas en PR #438 (merge
+`3151890d6464d760417709b491653bf10307fc97`) y desplegadas en
+`micafe-pos-staging` como `actualizarMembresiaBodegaV1`, `ACTIVE`,
+`us-central1`, Node.js 22, hash
+`e436c21e90afb71cc88e3b557ec2e82b97b094fe`, cero Secrets.
+
+La evidencia runtime de un cambio de estado, su replay y la proyección
+append-only se conserva como requisito de Gate F. El deploy no permite
+presentar esa evidencia como ejecutada.

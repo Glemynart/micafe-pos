@@ -116,7 +116,35 @@
 
 ## Estado vivo
 
-### Checkpoint vigente — 2026-10-03
+### Checkpoint vigente — 2026-10-04
+
+La reconciliación de Gate A confirma `main @
+7f46d9e9a4ef300bb0333ff4e3fbcc201cbd6933`, CI post-merge
+`37219515812` `PASS` y documentación alineada con el estado remoto de
+`micafe-pos-staging`. La frontera de recuperación de operador de ADR-SAAS-058
+está integrada y activa tras PR #433/#434/#435 como
+`restablecerCredencialOperativa` (Node.js 22, `us-central1`, hash
+`2841aa754aefeffa5ec56a2a07e943c430ea40be`, únicamente
+`OPERATIONAL_PIN_PEPPER`).
+
+La frontera de membresía de ADR-SAAS-059 y la auditoría de ADR-SAAS-060 están
+integradas por PR #438 como `actualizarMembresiaBodegaV1` (Node.js 22,
+`us-central1`, hash `e436c21e90afb71cc88e3b557ec2e82b97b094fe`, cero
+Secrets). PR #439 alineó el Backoffice Bodega con la política vertical: los
+operadores no reciben navegación genérica de restaurante y el alta inicia como
+`vendedor`. Estas integraciones y deploys no sustituyen la evidencia funcional
+autenticada ni convierten escenarios no ejecutados en `PASS`.
+
+**Gate actual:** `GATE F — VALIDACIÓN FUNCIONAL`. Permanecen pendientes la
+revocación/restauración de un vendedor mediante el flujo canónico, aislamiento
+tenant A/B con dos contextos independientes y el retry autenticado de red. La
+validación UI debe usar un preview staging construido desde la revisión actual;
+el alias fijo de Backoffice utilizado anteriormente apunta a un preview
+histórico y no representa los controles integrados en PR #438/#439. No se
+crean tenants ni fixtures adicionales, no se toca producción y Gate G/H no se
+declaran ejecutados.
+
+### Checkpoint histórico — 2026-10-03
 
 La evidencia consolidada de Gate F está integrada en `main` mediante PR #430,
 merge commit `1e822c7dbe456eff5868db7fc2626157ed39a0fd`. En el fixture
