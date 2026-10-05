@@ -16,11 +16,15 @@ const command = (overrides: Record<string, unknown> = {}) => ({
 
 function request(data: unknown, uid = "admin-0001") { return { auth: { uid, token: { empresaId: "empresa", rol: "admin" } }, data }; }
 
-function dependencies(member: Record<string, unknown> = { empresaId: "empresa", uid: "vendedor-01", rol: "vendedor", estado: "activa", activo: true }) {
+function dependencies(
+  member: Record<string, unknown> = { empresaId: "empresa", uid: "vendedor-01", rol: "vendedor", estado: "activa", activo: true },
+  initialClaims: Record<string, unknown> = { empresaId: "empresa" },
+) {
   const updates: unknown[] = [];
   const obligations = new Map<string, Record<string, any>>();
   const audits: unknown[] = [];
   const claims: unknown[] = [];
+  let authClaims = initialClaims;
   const ref = (collection: string, id: string) => ({ collection, id });
   const db = {
     collection: (collection: string) => ({ doc: (id: string) => ref(collection, id) }),
@@ -38,10 +42,16 @@ function dependencies(member: Record<string, unknown> = { empresaId: "empresa", 
   };
   return {
     updates, obligations, audits, claims, db,
+    get authClaims() { return authClaims; },
     exigirTenant: async () => ({ id: "empresa", rol: "admin" }),
     leerConfiguracion: async () => ({ vertical: "BODEGA_MVP1" }),
-    auth: { getUser: async () => ({ customClaims: { empresaId: "empresa" } }) },
-    actualizarClaims: async (...args: unknown[]) => { claims.push(args); },
+    auth: { getUser: async () => ({ customClaims: authClaims }) },
+    actualizarClaims: async (...args: unknown[]) => {
+      claims.push(args);
+      const [, empresaId, rol, actuales] = args as [string, string, "vendedor" | null, Record<string, unknown>];
+      const saas = actuales.saas && typeof actuales.saas === "object" ? { saas: actuales.saas } : {};
+      authClaims = rol ? { ...saas, empresaId, rol } : saas;
+    },
     crearObligacion: (_db: unknown, tx: any, hecho: Record<string, unknown>, ids: { obligacionId: string; evidenciaId: string }) => {
       tx.create(ref("saas_auditoria_obligaciones", ids.obligacionId), { evidencia: { ...hecho } });
       audits.push({ hecho, ids });
@@ -50,6 +60,43 @@ function dependencies(member: Record<string, unknown> = { empresaId: "empresa", 
     emitirObligacion: async (_db: unknown, obligacionId: string) => { audits.push({ emitted: obligacionId }); },
   } as any;
 }
+
+test("restaura claims ausentes al reactivar y re-sincroniza replay sin duplicar auditoría", async () => {
+  const d = dependencies();
+  const desactivar = command({
+    estado: "inactiva",
+    commandId: "command-deactivate",
+    idempotencyKey: "idempotency-deactivate",
+    correlationId: "correlation-deactivate",
+  });
+  const activar = command({
+    estado: "activa",
+    commandId: "command-activate",
+    idempotencyKey: "idempotency-activate",
+    correlationId: "correlation-activate",
+  });
+
+  await ejecutarActualizarMembresiaBodegaV1(request(desactivar), d);
+  assert.deepEqual(d.authClaims, {});
+
+  await ejecutarActualizarMembresiaBodegaV1(request(activar), d);
+  assert.deepEqual(d.authClaims, { empresaId: "empresa", rol: "vendedor" });
+
+  await ejecutarActualizarMembresiaBodegaV1(request(activar), d);
+  assert.deepEqual(d.authClaims, { empresaId: "empresa", rol: "vendedor" });
+  assert.equal(d.updates.length, 2);
+  assert.equal(d.obligations.size, 2);
+  assert.equal(d.audits.filter((entry: Record<string, unknown>) => "emitted" in entry).length, 3);
+  assert.equal(d.claims.length, 3);
+});
+
+test("no reemplaza claims que apuntan a otro tenant incluso al activar", async () => {
+  const claimsOtroTenant = { empresaId: "otro-tenant", rol: "vendedor", saas: { soporte: true } };
+  const d = dependencies(undefined, claimsOtroTenant);
+  await ejecutarActualizarMembresiaBodegaV1(request(command({ estado: "activa" })), d);
+  assert.deepEqual(d.authClaims, claimsOtroTenant);
+  assert.equal(d.claims.length, 0);
+});
 
 test("rechaza payload con autoridad aportada por cliente", async () => {
   await assert.rejects(
