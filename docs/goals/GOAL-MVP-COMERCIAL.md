@@ -116,7 +116,7 @@
 
 ## Estado vivo
 
-### Checkpoint vigente — 2026-10-04
+### Checkpoint histórico — 2026-10-04
 
 La reconciliación de Gate A confirma `main @
 7f46d9e9a4ef300bb0333ff4e3fbcc201cbd6933`, CI post-merge
@@ -148,13 +148,28 @@ completa.
 
 **Gate actual:** `GATE F — VALIDACIÓN FUNCIONAL`. La submatriz de
 revocación/restauración y el cierre de turno del actor existente están en
-`PASS`. Permanecen pendientes el aislamiento tenant A/B con dos contextos
-independientes y el retry autenticado bajo una ventana de red dedicada. La
-validación UI debe usar un preview staging construido desde la revisión actual;
+`PASS`. A esa fecha permanecían pendientes el aislamiento tenant A/B con dos
+contextos independientes y el retry autenticado bajo una ventana de red
+dedicada. La validación UI debe usar un preview staging construido desde la
+revisión actual;
 el alias fijo de Backoffice utilizado anteriormente apunta a un preview
 histórico y no representa necesariamente los controles integrados en PR
 #438/#439/#443. No se crean tenants ni fixtures adicionales, no se toca
 producción y Gate G/H no se declaran ejecutados.
+
+### Checkpoint vigente — 2026-10-05
+
+En staging pasaron los subescenarios de aislamiento de lectura de configuración
+tenant A/B con dos contextos Auth independientes y retry autenticado/idempotente
+de apertura seguido del cierre canónico del turno sintético. La evidencia y su
+mutation audit están en
+[`G-SAAS-02-E2-2-GATE-F-ISOLATION-RETRY-2026-10-05.md`](evidence/G-SAAS-02-E2-2-GATE-F-ISOLATION-RETRY-2026-10-05.md).
+
+Gate F sigue abierto: falta la comprobación autenticada del Backoffice Bodega
+en el preview vigente. La inspección disponible solo alcanzó el login del
+operador de plataforma; la suite local de política UI pasó 7/7, pero no
+sustituye esa validación live. Gate G/H, tenant real, aceptación operativa y
+producción siguen pendientes; E2.2 continúa `EN EJECUCIÓN`.
 
 ### Checkpoint histórico — 2026-10-03
 
