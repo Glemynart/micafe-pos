@@ -165,11 +165,19 @@ de apertura seguido del cierre canónico del turno sintético. La evidencia y su
 mutation audit están en
 [`G-SAAS-02-E2-2-GATE-F-ISOLATION-RETRY-2026-10-05.md`](evidence/G-SAAS-02-E2-2-GATE-F-ISOLATION-RETRY-2026-10-05.md).
 
-Gate F sigue abierto: falta la comprobación autenticada del Backoffice Bodega
-en el preview vigente. La inspección disponible solo alcanzó el login del
-operador de plataforma; la suite local de política UI pasó 7/7, pero no
-sustituye esa validación live. Gate G/H, tenant real, aceptación operativa y
-producción siguen pendientes; E2.2 continúa `EN EJECUCIÓN`.
+La comprobación autenticada del Backoffice Bodega en el preview vigente pasó
+para acceso, contexto del fixture, navegación y política de operadores. La
+evidencia está en
+[`G-SAAS-02-E2-2-GATE-F-BACKOFFICE-UI-2026-10-05.md`](evidence/G-SAAS-02-E2-2-GATE-F-BACKOFFICE-UI-2026-10-05.md).
+Esto corrige el checkpoint anterior que indicaba que solo se había alcanzado
+el login del operador de plataforma.
+
+Gate F continúa abierto: ADR-SAAS-059/060 aún requieren validar en staging el
+cambio canónico de estado de una membresía Bodega, la sincronización de claims
+y la auditoría append-only/replay. Esa prueba no se infiere de la reemisión de
+credenciales, de la inspección UI ni de tests locales. Gate G/H, tenant real,
+aceptación operativa y producción siguen pendientes; E2.2 continúa
+`EN EJECUCIÓN`.
 
 ### Checkpoint histórico — 2026-10-03
 
