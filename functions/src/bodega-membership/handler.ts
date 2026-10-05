@@ -118,7 +118,10 @@ export async function ejecutarActualizarMembresiaBodegaV1(request: Request, depe
   const auth = dependencies.auth ?? getAuth();
   const claims = (await auth.getUser(comando.objetivoUid)).customClaims ?? {};
   const actualizarClaims = dependencies.actualizarClaims ?? actualizarClaimsTenant;
-  if (claims.empresaId === tenant.id) await actualizarClaims(comando.objetivoUid, tenant.id, resultado.estadoFinal === "activa" ? "vendedor" : null, claims);
+  const claimsTenantAusentes = !Object.prototype.hasOwnProperty.call(claims, "empresaId");
+  if (claims.empresaId === tenant.id || (resultado.estadoFinal === "activa" && claimsTenantAusentes)) {
+    await actualizarClaims(comando.objetivoUid, tenant.id, resultado.estadoFinal === "activa" ? "vendedor" : null, claims);
+  }
   const emitirObligacion = dependencies.emitirObligacion ?? emitirObligacionAuditoria;
   await emitirObligacion(db, auditoriaIds.obligacionId);
 }
