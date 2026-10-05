@@ -202,8 +202,9 @@ export function ShiftsModule() {
   const expectedCash = turnoActivoVisible ? (turnoActivoVisible.baseApertura + ventasTurno.efectivo - egresosTurno) : 0
   const cashDifference = totalCashCount - expectedCash
 
-  // FASE-10C: no se permite cerrar con conteo vacío, salvo cierre forzado del admin.
-  const puedeCerrar = totalCashCount > 0 || usuario?.rol === 'admin'
+  // FASE-10C: exige conteo si existe efectivo esperado; permite cierre en cero
+  // cuando el turno no tiene saldo esperado, sin inventar efectivo.
+  const puedeCerrar = totalCashCount > 0 || usuario?.rol === 'admin' || expectedCash === 0
 
   const handleOpenShift = async () => {
     if (!usuario || !formularioAperturaVisible || abriendoTurnoVisible || preparandoAperturaVisible) return
