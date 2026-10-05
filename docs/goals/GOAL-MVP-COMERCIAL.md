@@ -179,6 +179,27 @@ credenciales, de la inspección UI ni de tests locales. Gate G/H, tenant real,
 aceptación operativa y producción siguen pendientes; E2.2 continúa
 `EN EJECUCIÓN`.
 
+### Reconciliación post-merge — PR #447 (2026-10-05)
+
+La prueba canónica de Gate F detectó que la activación y el replay exacto de
+una membresía Bodega no restauraban los claims del vendedor después de la
+desactivación. La corrección mínima quedó integrada mediante PR #447 en
+`main @ 59365d1b916d740f6f0d96c4edb570c2df9c86f8` (HEAD del PR
+`38af2d0da5d0ec0620046418fb8952f19b3d8a59`); la CI post-merge
+`37329105800` terminó `success`. La implementación añade cobertura de replay
+elegible y evita sobrescribir claims que pertenecen a otro tenant.
+
+La corrección todavía no está desplegada: staging conserva el hash anterior
+`e436c21e90afb71cc88e3b557ec2e82b97b094fe`. El dry-run dirigido terminó, pero
+el CLI solicitó generar identidades administradas de Pub/Sub y Eventarc. No se
+observó cambio de política IAM ni despliegue; con la evidencia read-only
+disponible no se puede determinar si esas identidades ya existían antes del
+dry-run. Por ello el update controlado y el replay del envelope de activación
+existente siguen pendientes de resolver ese límite de autorización. Gate F
+permanece `BLOCKED / PENDING CONTROLLED UPDATE AND REPLAY`; no se declara PASS.
+El detalle y la auditoría de mutaciones están en
+[`G-SAAS-02-E2-2-GATE-F-CLAIMS-RESTORATION-2026-10-05.md`](evidence/G-SAAS-02-E2-2-GATE-F-CLAIMS-RESTORATION-2026-10-05.md).
+
 ### Checkpoint histórico — 2026-10-03
 
 La evidencia consolidada de Gate F está integrada en `main` mediante PR #430,
