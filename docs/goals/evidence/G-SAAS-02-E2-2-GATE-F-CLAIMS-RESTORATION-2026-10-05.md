@@ -1,10 +1,11 @@
-# G-SAAS-02 / M2 / E2.2 — corrección de claims de membresía (2026-10-05)
+# G-SAAS-02 / M2 / E2.2 — corrección y despliegue de claims de membresía (2026-10-05)
 
 ## Alcance y resultado
 
 Esta evidencia registra la corrección de código integrada por PR #447 para el
-flujo de claims de `actualizarMembresiaBodegaV1`. No declara el deploy de la
-corrección, la validación funcional staging, Gate F completo ni E2.2 completo.
+flujo de claims de `actualizarMembresiaBodegaV1`, el preflight inicial y la
+reconciliación posterior del update staging. No declara la validación
+funcional autenticada, Gate F completo ni E2.2 completo.
 
 En la ejecución canónica de Gate F, la desactivación seguida de activación y
 replay exacto no restauró los claims tenant del vendedor. La prueba local
@@ -22,7 +23,7 @@ PR #447 se fusionó el 2026-10-05 a las 14:58:49 UTC:
 - El diff funcional del PR se limitó al handler de membresía Bodega y sus
   pruebas. No cambió contratos públicos ni topología Firebase.
 
-## Estado staging y preflight
+## Estado staging y preflight — checkpoint previo al update
 
 El endpoint consultado antes y después del dry-run fue
 `micafe-pos-staging / saas-bodega-membership / actualizarMembresiaBodegaV1`,
@@ -53,17 +54,15 @@ Referencias oficiales sobre esta limitación:
 - [Service Usage audit logging](https://docs.cloud.google.com/service-usage/docs/audit-logging)
 - [Service account types — service agents](https://docs.cloud.google.com/iam/docs/service-account-types)
 
-## Decisión y siguiente condición
+## Decisión registrada en ese checkpoint
 
-No se ejecutó el deploy mientras siga sin resolverse si el preflight activó una
-identidad de servicio fuera del alcance IAM autorizado. Para reanudar Gate F,
-el gate siguiente debe establecer de forma explícita que las identidades
-administradas necesarias ya existían o autorizar únicamente la generación
-administrada requerida por Firebase CLI, sin cambios manuales de política IAM.
-Después podrá evaluarse un deploy dirigido a la única callable y el replay del
-envelope de activación ya existente para comprobar la restauración de claims y
-la auditoría append-only, sin crear otro fixture ni escribir claims
-directamente.
+En ese checkpoint no se ejecutó el deploy mientras seguía sin resolverse si el
+preflight había activado una identidad de servicio fuera del alcance IAM
+autorizado. La sección de reconciliación posterior registra el estado que
+resultó del update controlado y mantiene `UNKNOWN` la generación/reutilización
+efectiva de las identidades administradas. En ese momento, el siguiente paso
+propuesto era el deploy dirigido y el replay del envelope de activación
+existente, sin crear otro fixture ni escribir claims directamente.
 
 ## Mutation audit del preflight staging descrito
 
@@ -74,3 +73,76 @@ directamente.
 - Firestore/Auth/Rules/Secrets/fixture/Bootstrap/Activation/producción: 0 en el
   preflight descrito aquí.
 - Gate F: `BLOCKED / PENDING CONTROLLED UPDATE AND REPLAY`.
+
+## Reconciliación posterior — update dirigido staging (2026-10-05)
+
+Esta sección supersede únicamente el estado de despliegue anterior; no convierte
+la validación funcional pendiente en `PASS`.
+
+### Artefacto y build
+
+- Código auditado: `origin/main @
+  6896886e91812eb73f345b08739d71ac6f3e2d01`; CI post-merge del commit:
+  run `37336822064`, `success`.
+- Target: proyecto `micafe-pos-staging`, codebase
+  `saas-bodega-membership`, callable `actualizarMembresiaBodegaV1`, región
+  `us-central1`, runtime Node.js 22.
+- Firebase Functions hash: `795e32a293708f60528c80d1463e2dd8fcc055e0`.
+- Cloud Build: `3b319894-1013-4f9f-a458-36ea80753122`, `SUCCESS`, iniciado
+  `2026-10-05T16:34:59.968Z`, terminado `2026-10-05T16:35:27.833Z`.
+- Source ZIP inmutable: generación `1791218098935244`, tamaño `79817`, MD5
+  `a14vZatRrLviqTTI+zqz/Q==`, CRC32C `+U94hQ==`.
+- `sourceProvenance` del Cloud Build es `{}`; por tanto, la procedencia Git
+  declarada por el build es `UNKNOWN`. Como comprobación separada, se descargó
+  ese ZIP y sus 39 archivos coincidieron byte por byte con los archivos
+  correspondientes del paquete `functions-bodega-membership` en el checkout
+  limpio de `main @ 6896886...`. Esto demuestra equivalencia de contenido con
+  ese commit, no una attestation Git firmada por Cloud Build.
+
+### Estado remoto posterior
+
+- Cloud Run revision `actualizarmembresiabodegav1-00002-zog`: `Ready=True`,
+  creada `2026-10-05T16:35:33.736Z`, con 100 % del tráfico. Imagen:
+  `sha256:26a41c5cbfb36404132a75f2404305cac190d9c8d5971ddd6340d27c2fc50e3d`.
+- Service account: `192423427245-compute@developer.gserviceaccount.com`;
+  Secrets configurados: `0`.
+- Revisión previa `actualizarmembresiabodegav1-00001-cuj` sigue retenida, sin
+  tráfico y sin eliminación; Cloud Run la marca `Retired` tras el cambio de
+  tráfico. Su imagen conserva digest
+  `sha256:d7a13c6b6ef79d6f340eb7f5368c3b1b589e05f7b8c84ffe1b80891694cdb3d5`.
+- La política IAM leída para el servicio contiene `allUsers` con
+  `roles/run.invoker`, consistente con `invoker: "public"` en el entrypoint.
+  No se encontró evento
+  `SetIamPolicy` ni `GenerateServiceIdentity` entre 16:30 y 16:40 UTC. La
+  generación/reutilización efectiva de los service agents Pub/Sub/Eventarc
+  sigue `UNKNOWN`; no se atribuye un cambio IAM no demostrado.
+
+### Validación funcional disponible
+
+Una llamada HTTP sin Firebase Auth al endpoint devolvió `401 UNAUTHENTICATED`
+(`Autenticación requerida.`), coherente con la primera barrera del handler.
+La lectura posterior confirmó que no produjo cambios: la membresía sintética
+del vendedor `fdea8e9a…230fe` permanece `activa`/`vendedor`, su obligación de
+activación preexistente continúa `EMITIDA` y sus custom claims siguen `{}`.
+
+El replay que debe comprobar la restauración de claims aún no se ejecutó: es
+necesaria una sesión tenant-admin autenticada en el POS. En la última
+inspección, la pestaña Edge del POS seguía en `/admin/login`; la sesión visible
+del Backoffice pertenece al operador de plataforma y no sustituye esa
+autoridad tenant. No se creó un comando nuevo ni se escribieron claims de forma
+directa.
+
+### Mutation audit del update y la comprobación
+
+- Functions: 1 callable actualizada; 1 revisión nueva; traffic shift normal del
+  deploy a `00002-zog` al 100 %; `00001-cuj` retenida a 0 %.
+- Source ZIP/build/image: 1 artifact/build de la callable objetivo.
+- Firestore/Auth/Rules/Secrets: 0 escrituras o cambios manuales observados en
+  este gate; el probe fue rechazado antes de procesar payload.
+- Política IAM: 0 cambios `SetIamPolicy` observados; generación de service
+  agents Pub/Sub/Eventarc: `UNKNOWN`.
+- Otros codebases, fixtures, Bootstrap, Activation, producción: 0.
+- Durante el deploy y el probe: archivos/commits/push/PR/merge: 0. Esta
+  actualización de evidencia es documental y se tramita mediante su propia PR.
+- Gate F: `BLOCKED / PENDING AUTHENTICATED CANONICAL REPLAY`; no se declara
+  validación de claims/auditoría ni `FUNCTIONAL = PASS`.
