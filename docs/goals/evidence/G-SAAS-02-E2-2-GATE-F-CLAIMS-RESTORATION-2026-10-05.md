@@ -4,8 +4,9 @@
 
 Esta evidencia registra la corrección de código integrada por PR #447 para el
 flujo de claims de `actualizarMembresiaBodegaV1`, el preflight inicial y la
-reconciliación posterior del update staging. No declara la validación
-funcional autenticada, Gate F completo ni E2.2 completo.
+reconciliación posterior del update staging. El checkpoint previo al replay
+quedó supersedido por la reconciliación funcional al final de este documento;
+Gate G/H y E2.2 permanecen pendientes.
 
 En la ejecución canónica de Gate F, la desactivación seguida de activación y
 replay exacto no restauró los claims tenant del vendedor. La prueba local
@@ -117,7 +118,7 @@ la validación funcional pendiente en `PASS`.
   generación/reutilización efectiva de los service agents Pub/Sub/Eventarc
   sigue `UNKNOWN`; no se atribuye un cambio IAM no demostrado.
 
-### Validación funcional disponible
+### Sonda pre-replay — checkpoint histórico
 
 Una llamada HTTP sin Firebase Auth al endpoint devolvió `401 UNAUTHENTICATED`
 (`Autenticación requerida.`), coherente con la primera barrera del handler.
@@ -125,14 +126,11 @@ La lectura posterior confirmó que no produjo cambios: la membresía sintética
 del vendedor `fdea8e9a…230fe` permanece `activa`/`vendedor`, su obligación de
 activación preexistente continúa `EMITIDA` y sus custom claims siguen `{}`.
 
-El replay que debe comprobar la restauración de claims aún no se ejecutó: es
-necesaria una sesión tenant-admin autenticada en el POS. En la última
-inspección, la pestaña Edge del POS seguía en `/admin/login`; la sesión visible
-del Backoffice pertenece al operador de plataforma y no sustituye esa
-autoridad tenant. No se creó un comando nuevo ni se escribieron claims de forma
-directa.
+En este checkpoint todavía no se había ejecutado el replay autenticado. Ese
+estado quedó supersedido por la reconciliación posterior documentada abajo; no
+se creó un comando nuevo ni se escribieron claims directamente.
 
-### Mutation audit del update y la comprobación
+### Mutation audit del update y la sonda pre-replay
 
 - Functions: 1 callable actualizada; 1 revisión nueva; traffic shift normal del
   deploy a `00002-zog` al 100 %; `00001-cuj` retenida a 0 %.
@@ -144,5 +142,55 @@ directa.
 - Otros codebases, fixtures, Bootstrap, Activation, producción: 0.
 - Durante el deploy y el probe: archivos/commits/push/PR/merge: 0. Esta
   actualización de evidencia es documental y se tramita mediante su propia PR.
-- Gate F: `BLOCKED / PENDING AUTHENTICATED CANONICAL REPLAY`; no se declara
-  validación de claims/auditoría ni `FUNCTIONAL = PASS`.
+- En ese checkpoint Gate F estaba `BLOCKED / PENDING AUTHENTICATED CANONICAL
+  REPLAY`; su estado vigente se reconcilia en la sección siguiente.
+
+### Reconciliación funcional posterior — replay exacto (2026-10-05)
+
+La verificación previa confirmó en `micafe-pos-staging` el vendedor sintético
+`fdea8e9a…230fe`, con membresía `activa`/`vendedor`, la obligación de auditoría
+determinista `EMITIDA` y su hecho append-only preexistente. El envelope del
+comando existente coincidía exactamente con tenant, objetivo, estado,
+`commandId`, `idempotencyKey`, correlación, causación nula y motivo; no se creó
+otro comando.
+
+El 2026-10-05T20:31:35.434Z se ejecutó una sola vez, con un administrador
+autenticado del mismo tenant, `actualizarMembresiaBodegaV1` en
+`micafe-pos-staging`, codebase `saas-bodega-membership`, región `us-central1`,
+revisión `actualizarmembresiabodegav1-00002-zog`, Node.js 22 y hash
+`795e32a293708f60528c80d1463e2dd8fcc055e0`. Cloud Run registró HTTP 200. La
+transacción tomó la rama de replay compatible: no volvió a actualizar la
+membresía y la obligación `EMITIDA` no volvió a escribirse.
+
+Como comprobación funcional posterior, la credencial sintética ya existente
+autenticó al mismo vendedor sin registrar el código ni el PIN. El ID token
+emitido contenía el `empresaId` del fixture y rol `vendedor`; una lectura
+autenticada de `consultarCatalogoPresentacionesVendedorV1` respondió
+correctamente con una presentación. Las consultas read-only contaron un solo
+documento de auditoría y una sola obligación para el `commandId`. La lectura
+administrativa independiente de custom claims no está disponible para la
+identidad local (`firebaseauth.users.get` denegado), pero el token real emitido
+por la autenticación operativa y el callable de catálogo confirman el contexto
+tenant/rol efectivo.
+
+Resultado del subgate: `PASS` para replay canónico, sincronización efectiva de
+claims, auditoría append-only/idempotente y acceso autenticado posterior del
+vendedor. Combinado con los escenarios `PASS` anteriores de Gate F, el gate
+queda `PASS`; el siguiente es Gate G — rehearsal.
+
+#### Mutation audit del replay
+
+- `actualizarMembresiaBodegaV1`: 1 invocación autenticada; HTTP 200.
+- Membresía y documentos canónicos de auditoría: 0 escrituras por el replay;
+  1 obligación y 1 hecho existentes, sin duplicados.
+- Autenticación operativa auxiliar: 3 sesiones de tenant-admin (dos terminaron
+  antes de invocar la callable por guardas de identidad; la tercera autorizó el
+  replay) y 1 sesión del vendedor para verificación. Cada login actualizó sus
+  contadores/timestamp de credencial y sincronizó/revocó claims de sesión por
+  el flujo canónico.
+- Auth: sincronización de claims/revocación de sesiones del administrador por
+  los logins y del vendedor por replay y login posterior. No se crearon ni
+  eliminaron identidades.
+- Deploy, tráfico manual, Rules, IAM, Secrets, fixture adicional, Bootstrap,
+  Activation, producción: 0.
+- Archivos/commits/push/PR/merge durante la ejecución remota: 0.
