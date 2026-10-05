@@ -189,15 +189,28 @@ desactivación. La corrección mínima quedó integrada mediante PR #447 en
 `37329105800` terminó `success`. La implementación añade cobertura de replay
 elegible y evita sobrescribir claims que pertenecen a otro tenant.
 
-La corrección todavía no está desplegada: staging conserva el hash anterior
-`e436c21e90afb71cc88e3b557ec2e82b97b094fe`. El dry-run dirigido terminó, pero
-el CLI solicitó generar identidades administradas de Pub/Sub y Eventarc. No se
-observó cambio de política IAM ni despliegue; con la evidencia read-only
-disponible no se puede determinar si esas identidades ya existían antes del
-dry-run. Por ello el update controlado y el replay del envelope de activación
-existente siguen pendientes de resolver ese límite de autorización. Gate F
-permanece `BLOCKED / PENDING CONTROLLED UPDATE AND REPLAY`; no se declara PASS.
-El detalle y la auditoría de mutaciones están en
+En el checkpoint inicial posterior al merge de PR #447, el update controlado
+seguía pendiente por la solicitud del CLI de generar identidades administradas
+de Pub/Sub y Eventarc; esa incertidumbre sobre su generación/reutilización
+efectiva sigue registrada como `UNKNOWN` y no se reporta cambio manual de
+política IAM.
+
+La reconciliación posterior confirma que staging ya ejecuta la revisión
+`actualizarmembresiabodegav1-00002-zog` de
+`actualizarMembresiaBodegaV1` (Node.js 22, `us-central1`, cero Secrets), con
+100 % del tráfico y hash `795e32a293708f60528c80d1463e2dd8fcc055e0`. El Cloud
+Build `3b319894-1013-4f9f-a458-36ea80753122` terminó `SUCCESS`; aunque su
+`sourceProvenance` está vacío, los 39 archivos del source ZIP coinciden byte
+por byte con el paquete en `main @ 6896886e91812eb73f345b08739d71ac6f3e2d01`.
+La revisión previa `00001-cuj` sigue retenida sin tráfico, ahora marcada
+`Retired` por Cloud Run.
+
+La sonda sin Auth respondió `401 UNAUTHENTICATED` y la lectura posterior
+confirmó que no cambió la membresía, la obligación emitida ni los claims.
+Todavía falta el replay canónico autenticado para probar la restauración de
+claims y la auditoría append-only. Gate F permanece
+`BLOCKED / PENDING AUTHENTICATED CANONICAL REPLAY`; no se declara PASS. El
+detalle y la auditoría de mutaciones están en
 [`G-SAAS-02-E2-2-GATE-F-CLAIMS-RESTORATION-2026-10-05.md`](evidence/G-SAAS-02-E2-2-GATE-F-CLAIMS-RESTORATION-2026-10-05.md).
 
 ### Checkpoint histórico — 2026-10-03
