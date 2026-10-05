@@ -82,9 +82,10 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  const expectedCash = activeShift ? (activeShift.baseApertura + ventasTurno.efectivo - egresosTurno) : 0
  const cashDifference = totalCashCount - expectedCash
 
- // FASE-10C: no se permite cerrar con conteo vacío, salvo cierre forzado del admin.
+ // FASE-10C: exige conteo si existe efectivo esperado; permite cierre en cero
+ // cuando el turno no tiene saldo esperado, sin inventar efectivo.
  const esAdmin = usuario?.rol === 'admin'
- const puedeCerrar = totalCashCount > 0 || esAdmin
+ const puedeCerrar = totalCashCount > 0 || esAdmin || expectedCash === 0
 
  const handleCloseShift = async () => {
  if (!activeShift) return
