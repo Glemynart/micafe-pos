@@ -146,14 +146,19 @@ reemisión, activación y acceso PWA, y se cerró el turno sintético sin invent
 efectivo. Estas evidencias no crean otro fixture ni sustituyen la matriz
 completa.
 
-**Gate actual:** `GATE G — REHEARSAL`. Gate F quedó `PASS` el 2026-10-05:
+**Gate actual:** `GATE H — CERTIFICACIÓN E2.2`. Gate F quedó `PASS` el 2026-10-05:
 aislamiento de configuración A/B, retry autenticado e idempotente, flujos
 operativos Bodega, Backoffice vigente y replay canónico de membresía/claims/
 auditoría están respaldados por evidencia staging. La reconciliación final del
 replay está en
 [`G-SAAS-02-E2-2-GATE-F-CLAIMS-RESTORATION-2026-10-05.md`](evidence/G-SAAS-02-E2-2-GATE-F-CLAIMS-RESTORATION-2026-10-05.md).
-No se crean tenants ni fixtures adicionales, no se toca producción y Gate G/H
-no se declaran ejecutados.
+No se crean tenants ni fixtures adicionales y no se toca producción. Gate G
+quedó `PASS` el 2026-10-05 mediante el rehearsal documentado en
+[`G-SAAS-02-E2-2-GATE-G-REHEARSAL-2026-10-05.md`](evidence/G-SAAS-02-E2-2-GATE-G-REHEARSAL-2026-10-05.md):
+el turno sintético se abrió y cerró con base `0`, una venta de efectivo de
+`5.000 COP`, stock posterior `4`, diferencia de caja `0`, depósito neto
+`5.000 COP`, recibo/auditoría `CONFIRMADO` y sin lock activo. Gate H no se
+declara ejecutado.
 
 ### Checkpoint vigente — 2026-10-05
 
@@ -173,7 +178,8 @@ el login del operador de plataforma.
 La comprobación staging exigida por ADR-SAAS-059/060 también quedó en `PASS`:
 una única invocación autenticada del comando canónico devolvió HTTP 200, el
 vendedor volvió a iniciar sesión con claims del fixture y consultó el catálogo,
-y el replay conservó una sola obligación y un solo hecho append-only. Gate G/H,
+y el replay conservó una sola obligación y un solo hecho append-only. Gate G
+quedó posteriormente cerrado mediante el rehearsal enlazado arriba. Gate H,
 tenant real, aceptación operativa y producción siguen pendientes; E2.2
 continúa `EN EJECUCIÓN`.
 
