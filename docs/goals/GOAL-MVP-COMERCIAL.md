@@ -135,14 +135,26 @@ operadores no reciben navegación genérica de restaurante y el alta inicia como
 `vendedor`. Estas integraciones y deploys no sustituyen la evidencia funcional
 autenticada ni convierten escenarios no ejecutados en `PASS`.
 
-**Gate actual:** `GATE F — VALIDACIÓN FUNCIONAL`. Permanecen pendientes la
-revocación/restauración de un vendedor mediante el flujo canónico, aislamiento
-tenant A/B con dos contextos independientes y el retry autenticado de red. La
+PR #442 integró el allowlist de previews para la recuperación de credenciales
+y su actualización dirigida quedó activa en staging como
+`restablecercredencialoperativa-00003-xes` (Node.js 22, `us-central1`,
+`OPERATIONAL_PIN_PEPPER` como único Secret). PR #443 integró la corrección de
+cierre canónico de turnos con efectivo esperado cero mediante
+`e5562bf904fb9e680d069f9cb7c8706ef6658c23`; su CI post-merge
+`37259422639` terminó `PASS`. Sobre el fixture existente se verificaron
+reemisión, activación y acceso PWA, y se cerró el turno sintético sin inventar
+efectivo. Estas evidencias no crean otro fixture ni sustituyen la matriz
+completa.
+
+**Gate actual:** `GATE F — VALIDACIÓN FUNCIONAL`. La submatriz de
+revocación/restauración y el cierre de turno del actor existente están en
+`PASS`. Permanecen pendientes el aislamiento tenant A/B con dos contextos
+independientes y el retry autenticado bajo una ventana de red dedicada. La
 validación UI debe usar un preview staging construido desde la revisión actual;
 el alias fijo de Backoffice utilizado anteriormente apunta a un preview
-histórico y no representa los controles integrados en PR #438/#439. No se
-crean tenants ni fixtures adicionales, no se toca producción y Gate G/H no se
-declaran ejecutados.
+histórico y no representa necesariamente los controles integrados en PR
+#438/#439/#443. No se crean tenants ni fixtures adicionales, no se toca
+producción y Gate G/H no se declaran ejecutados.
 
 ### Checkpoint histórico — 2026-10-03
 
