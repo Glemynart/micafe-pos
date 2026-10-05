@@ -146,7 +146,10 @@ reemisión, activación y acceso PWA, y se cerró el turno sintético sin invent
 efectivo. Estas evidencias no crean otro fixture ni sustituyen la matriz
 completa.
 
-**Gate actual:** `GATE H — CERTIFICACIÓN E2.2`. Gate F quedó `PASS` el 2026-10-05:
+**Gate actual:** `GATE I — TENANT REAL`. Gate H quedó `E2.2 CERTIFIED` el
+2026-10-05 mediante la matriz
+[`G-SAAS-02-E2-2-GATE-H-CERTIFICATION-2026-10-05.md`](evidence/G-SAAS-02-E2-2-GATE-H-CERTIFICATION-2026-10-05.md).
+Gate F quedó `PASS` el 2026-10-05:
 aislamiento de configuración A/B, retry autenticado e idempotente, flujos
 operativos Bodega, Backoffice vigente y replay canónico de membresía/claims/
 auditoría están respaldados por evidencia staging. La reconciliación final del
@@ -157,8 +160,9 @@ quedó `PASS` el 2026-10-05 mediante el rehearsal documentado en
 [`G-SAAS-02-E2-2-GATE-G-REHEARSAL-2026-10-05.md`](evidence/G-SAAS-02-E2-2-GATE-G-REHEARSAL-2026-10-05.md):
 el turno sintético se abrió y cerró con base `0`, una venta de efectivo de
 `5.000 COP`, stock posterior `4`, diferencia de caja `0`, depósito neto
-`5.000 COP`, recibo/auditoría `CONFIRMADO` y sin lock activo. Gate H no se
-declara ejecutado.
+`5.000 COP`, recibo/auditoría `CONFIRMADO` y sin lock activo. Gate H
+consolidó esos resultados, el estado remoto y los límites pendientes: E2.2
+está certificado para iniciar Gate I, no para declarar el Goal completo.
 
 ### Checkpoint vigente — 2026-10-05
 
@@ -179,9 +183,9 @@ La comprobación staging exigida por ADR-SAAS-059/060 también quedó en `PASS`:
 una única invocación autenticada del comando canónico devolvió HTTP 200, el
 vendedor volvió a iniciar sesión con claims del fixture y consultó el catálogo,
 y el replay conservó una sola obligación y un solo hecho append-only. Gate G
-quedó posteriormente cerrado mediante el rehearsal enlazado arriba. Gate H,
-tenant real, aceptación operativa y producción siguen pendientes; E2.2
-continúa `EN EJECUCIÓN`.
+quedó posteriormente cerrado mediante el rehearsal enlazado arriba. Gate H
+quedó certificado mediante la matriz vigente. Tenant real, aceptación
+operativa y producción siguen pendientes; E2.2 continúa `EN EJECUCIÓN`.
 
 ### Reconciliación post-merge — PR #447 (2026-10-05; checkpoint inicial supersedido)
 
