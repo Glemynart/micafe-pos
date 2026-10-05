@@ -6,9 +6,11 @@ import { ejecutarRestablecimientoOperadorTenant } from "../../functions/src/tena
 if (!getApps().length) initializeApp();
 
 const REGION = "us-central1";
-const CORS_ORIGINS = [
+const VERCEL_PREVIEW_ORIGIN = /^https:\/\/cafeatrato-[a-z0-9-]+-glemynarts-projects\.vercel\.app$/;
+const CORS_ORIGINS: Array<string | RegExp> = [
   "https://cafeatrato.vercel.app",
   "https://cafeatrato-bg6o3l7mf-glemynarts-projects.vercel.app",
+  VERCEL_PREVIEW_ORIGIN,
 ];
 const PIN_PEPPER = defineSecret("OPERATIONAL_PIN_PEPPER");
 
