@@ -146,16 +146,14 @@ reemisión, activación y acceso PWA, y se cerró el turno sintético sin invent
 efectivo. Estas evidencias no crean otro fixture ni sustituyen la matriz
 completa.
 
-**Gate actual:** `GATE F — VALIDACIÓN FUNCIONAL`. La submatriz de
-revocación/restauración y el cierre de turno del actor existente están en
-`PASS`. A esa fecha permanecían pendientes el aislamiento tenant A/B con dos
-contextos independientes y el retry autenticado bajo una ventana de red
-dedicada. La validación UI debe usar un preview staging construido desde la
-revisión actual;
-el alias fijo de Backoffice utilizado anteriormente apunta a un preview
-histórico y no representa necesariamente los controles integrados en PR
-#438/#439/#443. No se crean tenants ni fixtures adicionales, no se toca
-producción y Gate G/H no se declaran ejecutados.
+**Gate actual:** `GATE G — REHEARSAL`. Gate F quedó `PASS` el 2026-10-05:
+aislamiento de configuración A/B, retry autenticado e idempotente, flujos
+operativos Bodega, Backoffice vigente y replay canónico de membresía/claims/
+auditoría están respaldados por evidencia staging. La reconciliación final del
+replay está en
+[`G-SAAS-02-E2-2-GATE-F-CLAIMS-RESTORATION-2026-10-05.md`](evidence/G-SAAS-02-E2-2-GATE-F-CLAIMS-RESTORATION-2026-10-05.md).
+No se crean tenants ni fixtures adicionales, no se toca producción y Gate G/H
+no se declaran ejecutados.
 
 ### Checkpoint vigente — 2026-10-05
 
@@ -172,14 +170,14 @@ evidencia está en
 Esto corrige el checkpoint anterior que indicaba que solo se había alcanzado
 el login del operador de plataforma.
 
-Gate F continúa abierto: ADR-SAAS-059/060 aún requieren validar en staging el
-cambio canónico de estado de una membresía Bodega, la sincronización de claims
-y la auditoría append-only/replay. Esa prueba no se infiere de la reemisión de
-credenciales, de la inspección UI ni de tests locales. Gate G/H, tenant real,
-aceptación operativa y producción siguen pendientes; E2.2 continúa
-`EN EJECUCIÓN`.
+La comprobación staging exigida por ADR-SAAS-059/060 también quedó en `PASS`:
+una única invocación autenticada del comando canónico devolvió HTTP 200, el
+vendedor volvió a iniciar sesión con claims del fixture y consultó el catálogo,
+y el replay conservó una sola obligación y un solo hecho append-only. Gate G/H,
+tenant real, aceptación operativa y producción siguen pendientes; E2.2
+continúa `EN EJECUCIÓN`.
 
-### Reconciliación post-merge — PR #447 (2026-10-05)
+### Reconciliación post-merge — PR #447 (2026-10-05; checkpoint inicial supersedido)
 
 La prueba canónica de Gate F detectó que la activación y el replay exacto de
 una membresía Bodega no restauraban los claims del vendedor después de la
@@ -205,12 +203,13 @@ por byte con el paquete en `main @ 6896886e91812eb73f345b08739d71ac6f3e2d01`.
 La revisión previa `00001-cuj` sigue retenida sin tráfico, ahora marcada
 `Retired` por Cloud Run.
 
-La sonda sin Auth respondió `401 UNAUTHENTICATED` y la lectura posterior
-confirmó que no cambió la membresía, la obligación emitida ni los claims.
-Todavía falta el replay canónico autenticado para probar la restauración de
-claims y la auditoría append-only. Gate F permanece
-`BLOCKED / PENDING AUTHENTICATED CANONICAL REPLAY`; no se declara PASS. El
-detalle y la auditoría de mutaciones están en
+En ese checkpoint inicial, la sonda sin Auth respondió `401 UNAUTHENTICATED` y
+la lectura posterior confirmó que no cambió la membresía, la obligación
+emitida ni los claims. En ese momento el replay canónico autenticado seguía
+pendiente y Gate F estaba `BLOCKED / PENDING AUTHENTICATED CANONICAL REPLAY`.
+Ese estado fue supersedido por la validación posterior documentada en el
+checkpoint vigente de arriba y en la evidencia enlazada; Gate F está ahora en
+`PASS`. El detalle y la auditoría de mutaciones están en
 [`G-SAAS-02-E2-2-GATE-F-CLAIMS-RESTORATION-2026-10-05.md`](evidence/G-SAAS-02-E2-2-GATE-F-CLAIMS-RESTORATION-2026-10-05.md).
 
 ### Checkpoint histórico — 2026-10-03
