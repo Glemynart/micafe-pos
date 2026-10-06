@@ -185,6 +185,14 @@ matriz de Gate H antes de continuar con la creación/configuración del tenant
 real en Gate I. La oferta de 1.600.000 COP aún no está persistida y el tenant
 real no existe.
 
+El responsable del proyecto aprobó ADR-SAAS-063 el 2026-10-06: el proyecto
+Vercel `cafeatrato` conservará los Preview de PR y deshabilitará los
+deployments Git automáticos de `main`; cualquier release de producción requiere
+un gate posterior independiente. PR #462 implementa esta barrera y debe
+integrarse antes de reanudar la auditoría/merge de PR #461. Esta decisión no
+autoriza release, promoción de alias, tráfico productivo ni modifica Firebase;
+E2.2 continúa `EN EJECUCIÓN`.
+
 ### Checkpoint vigente — 2026-10-05
 
 En staging pasaron los subescenarios de aislamiento de lectura de configuración
