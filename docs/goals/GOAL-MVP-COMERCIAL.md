@@ -116,39 +116,40 @@
 
 ## Estado vivo
 
-### Checkpoint vigente — 2026-10-06 — PR #461 / PR #462
+### Checkpoint vigente — 2026-10-06 — PR #463 / Gate C
 
-`origin/main` está en `d5cd66e5bc02a06bcb5c318fce989e75e897c8bc`, merge
-commit de PR #461. PR #462 integró antes ADR-SAAS-063 mediante
-`0dc9f2024e585a3b3b33321c7a758f040a5df218`. Ambos PR apuntaron a `main`; los
-checks `Tipos y pruebas`, `Vercel` y `Vercel Preview Comments` de ambos PR
-terminaron `PASS`. El CI post-merge de `main`, run `37516562659` en el SHA
-`d5cd66e5bc02a06bcb5c318fce989e75e897c8bc`, terminó `success`; el job
-`Tipos y pruebas`, incluido `E2E Bodega — solicitud, aprobación y venta
-canónica`, también terminó `success`.
+PR #463 quedó `MERGED` mediante `f337758aa675f8aaa5307e64601c0a14af26c800`;
+`origin/main` apunta a ese merge commit. La CI post-merge de `main`, run
+`37526848613`, terminó `success` el `2026-10-06T20:50:20Z`, incluido el job
+`Tipos y pruebas` y sus etapas E2E R1-A, P0-01 y Bodega — solicitud,
+aprobación y venta canónica.
+Los checks del PR #463 —`Tipos y pruebas`, `Vercel` y `Vercel Preview
+Comments`— terminaron `PASS`. PR #462 había integrado ADR-SAAS-063 mediante
+`0dc9f2024e585a3b3b33321c7a758f040a5df218`; PR #461 integró ADR-SAAS-062
+mediante `d5cd66e5bc02a06bcb5c318fce989e75e897c8bc`.
 
-Esta reconciliación documental cierra Gate A para el corte vigente. Gate B
-queda `COMPLETED / IMPLEMENTATION CERTIFIED`: PR #461 integró la ampliación de
-ADR-SAAS-062, y build, tests, discovery y module-load de `functions-bodega`
-pasaron localmente y en CI. La evidencia detallada está en
+Gate A está cerrado y Gate B permanece `COMPLETED / IMPLEMENTATION
+CERTIFIED`; la evidencia de ADR-SAAS-062 está en
 [`G-SAAS-02-E2-2-GATE-B-ADR062-POSTMERGE-2026-10-06.md`](evidence/G-SAAS-02-E2-2-GATE-B-ADR062-POSTMERGE-2026-10-06.md).
-
-**Gate actual: GATE C — PREFLIGHT DE STAGING, PENDING.** El código integrado
-descubre diez callables Gen 2 en `us-central1`, Node.js 22 y cero Secrets.
-La inspección read-only de `micafe-pos-staging` encontró seis callables
-`saas-bodega` activas; no encontró aún las cuatro callables nuevas de
-solicitud/aprobación. La revisión remota de `confirmarVentaBodegaV1` sigue
-siendo `confirmarventabodegav1-00003-cud`, creada el 2026-10-03, antes de PR
-#461. Por ello Gate C debe demostrar el delta exacto, artefacto y rollback
-antes de cualquier deploy. No se ejecutó un deploy de esta ampliación.
+**Gate C — preflight de staging: `PREFLIGHT = PASS` para el artefacto
+identificado en la evidencia
+[`G-SAAS-02-E2-2-GATE-C-PREFLIGHT-2026-10-06.md`](evidence/G-SAAS-02-E2-2-GATE-C-PREFLIGHT-2026-10-06.md).**
+La ampliación tiene diez callables Gen 2 en `us-central1`, Node.js 22 y cero
+Secrets. El delta remoto demostrado es seis actualizaciones, cuatro altas y
+cero bajas; el paquete es reproducible. El deploy real no se ha ejecutado:
+Gate D permanece pendiente y es el siguiente paso después de integrar esta
+evidencia. El preflight también registra que Firebase CLI solicitó asegurar
+identidades administradas de Pub/Sub/Eventarc durante el dry-run; las APIs
+requeridas ya estaban habilitadas, no aparecieron eventos Service Usage/IAM
+en la auditoría del intervalo y las revisiones/generaciones de Functions no
+cambiaron.
 
 El fixture sintético retenido `E2_2-BODEGA-STAGING-FIXTURE` ya existe y está
 validado como recurso reutilizable; Gate E queda `PASS` sin crear otro fixture
-(reutilizado en las evidencias enlazadas de Gate G y Gate H).
-Después del preflight y deploy staging se deben revalidar el flujo de Gate F,
-repetir el rehearsal de Gate G y emitir una nueva matriz de Gate H, tal como
-requiere ADR-SAAS-062. La CI E2E post-merge cubre Emulator y no sustituye esas
-pruebas de staging.
+(reutilizado en las evidencias enlazadas de Gate G y Gate H). Después del
+deploy staging se deben revalidar el flujo de Gate F, repetir el rehearsal de
+Gate G y emitir una nueva matriz de Gate H, tal como requiere ADR-SAAS-062.
+La CI E2E post-merge cubre Emulator y no sustituye esas pruebas de staging.
 
 Gate I sigue `PENDING`: no se creó ni configuró el tenant real y no se
 persistió la oferta. La aprobación interna de 1.600.000 COP permanece
