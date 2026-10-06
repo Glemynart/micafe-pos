@@ -45,7 +45,15 @@ test("el manifiesto comercial declara solo el callable canónico sin Secrets", a
   after(() => child.kill());
   const manifest = await waitForManifest(port);
   const endpoints = manifest.endpoints as Record<string, unknown>;
-  assert.deepEqual(Object.keys(endpoints), ["ejecutarComandoComercialSaas"]);
+  assert.deepEqual(Object.keys(endpoints).sort(), ["consultarOfertaComercialTenantSaas", "ejecutarComandoComercialSaas"].sort());
+  assert.deepEqual(
+    (endpoints.consultarOfertaComercialTenantSaas as { region?: unknown }).region,
+    ["us-central1"],
+  );
+  assert.deepEqual(
+    (endpoints.consultarOfertaComercialTenantSaas as { callableTrigger?: unknown }).callableTrigger,
+    {},
+  );
   assert.deepEqual(
     (endpoints.ejecutarComandoComercialSaas as { region?: unknown }).region,
     ["us-central1"],
