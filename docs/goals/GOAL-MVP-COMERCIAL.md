@@ -116,40 +116,41 @@
 
 ## Estado vivo
 
-### Checkpoint vigente — 2026-10-06 — PR #463 / Gate C
+### Checkpoint vigente — 2026-10-06 — PR #464 / Gate D
 
-PR #463 quedó `MERGED` mediante `f337758aa675f8aaa5307e64601c0a14af26c800`;
+PR #464 quedó `MERGED` mediante `62fab28fdabf9941cbb25b437263c52eed59efbd`;
 `origin/main` apunta a ese merge commit. La CI post-merge de `main`, run
-`37526848613`, terminó `success` el `2026-10-06T20:50:20Z`, incluido el job
-`Tipos y pruebas` y sus etapas E2E R1-A, P0-01 y Bodega — solicitud,
-aprobación y venta canónica.
-Los checks del PR #463 —`Tipos y pruebas`, `Vercel` y `Vercel Preview
-Comments`— terminaron `PASS`. PR #462 había integrado ADR-SAAS-063 mediante
-`0dc9f2024e585a3b3b33321c7a758f040a5df218`; PR #461 integró ADR-SAAS-062
-mediante `d5cd66e5bc02a06bcb5c318fce989e75e897c8bc`.
+`37532798668`, terminó `success` el `2026-10-06T21:39:16Z`, incluido `Tipos y
+pruebas` y sus etapas E2E R1-A, P0-01 y Bodega —solicitud, aprobación y venta
+canónica—. Los checks del PR #464 (`Tipos y pruebas`, Vercel y Vercel Preview
+Comments) terminaron `PASS`. PR #463 integró la reconciliación documental de
+ADR-SAAS-062/063 mediante `f337758aa675f8aaa5307e64601c0a14af26c800`; PR #464
+integró la evidencia de Gate C mediante `62fab28fdabf9941cbb25b437263c52eed59efbd`.
 
 Gate A está cerrado y Gate B permanece `COMPLETED / IMPLEMENTATION
 CERTIFIED`; la evidencia de ADR-SAAS-062 está en
 [`G-SAAS-02-E2-2-GATE-B-ADR062-POSTMERGE-2026-10-06.md`](evidence/G-SAAS-02-E2-2-GATE-B-ADR062-POSTMERGE-2026-10-06.md).
 **Gate C — preflight de staging: `PREFLIGHT = PASS` para el artefacto
-identificado en la evidencia
-[`G-SAAS-02-E2-2-GATE-C-PREFLIGHT-2026-10-06.md`](evidence/G-SAAS-02-E2-2-GATE-C-PREFLIGHT-2026-10-06.md).**
-La ampliación tiene diez callables Gen 2 en `us-central1`, Node.js 22 y cero
-Secrets. El delta remoto demostrado es seis actualizaciones, cuatro altas y
-cero bajas; el paquete es reproducible. El deploy real no se ha ejecutado:
-Gate D permanece pendiente y es el siguiente paso después de integrar esta
-evidencia. El preflight también registra que Firebase CLI solicitó asegurar
-identidades administradas de Pub/Sub/Eventarc durante el dry-run; las APIs
-requeridas ya estaban habilitadas, no aparecieron eventos Service Usage/IAM
-en la auditoría del intervalo y las revisiones/generaciones de Functions no
-cambiaron.
+identificado en [`G-SAAS-02-E2-2-GATE-C-PREFLIGHT-2026-10-06.md`](evidence/G-SAAS-02-E2-2-GATE-C-PREFLIGHT-2026-10-06.md).**
+Gate D — deploy staging: `PASS`, evidencia en
+[`G-SAAS-02-E2-2-GATE-D-STAGING-DEPLOY-2026-10-06.md`](evidence/G-SAAS-02-E2-2-GATE-D-STAGING-DEPLOY-2026-10-06.md).
+El deploy dirigido actualizó seis callables y creó cuatro, con cero bajas.
+Las diez Functions `saas-bodega` están `ACTIVE` en `us-central1`, Node.js 22,
+sin Secrets y con 100 % de tráfico en sus revisiones `Ready`. El contenido
+desplegado se verificó archivo por archivo contra el paquete local del SHA de
+`main`; las diez sondas no autenticadas fueron rechazadas con
+`401 UNAUTHENTICATED` y no ejecutaron lógica de negocio. Firebase aplicó el
+binding de transporte `roles/run.invoker: allUsers` a los cuatro servicios
+nuevos; el guard Auth/tenant permanece en cada handler. No hubo cambios
+manuales de IAM ni escrituras Firestore/Auth.
 
 El fixture sintético retenido `E2_2-BODEGA-STAGING-FIXTURE` ya existe y está
 validado como recurso reutilizable; Gate E queda `PASS` sin crear otro fixture
 (reutilizado en las evidencias enlazadas de Gate G y Gate H). Después del
 deploy staging se deben revalidar el flujo de Gate F, repetir el rehearsal de
 Gate G y emitir una nueva matriz de Gate H, tal como requiere ADR-SAAS-062.
-La CI E2E post-merge cubre Emulator y no sustituye esas pruebas de staging.
+El siguiente gate es F; la CI E2E post-merge cubre Emulator y no sustituye la
+validación funcional en staging.
 
 Gate I sigue `PENDING`: no se creó ni configuró el tenant real y no se
 persistió la oferta. La aprobación interna de 1.600.000 COP permanece
