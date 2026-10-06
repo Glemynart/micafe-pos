@@ -146,8 +146,8 @@ reemisión, activación y acceso PWA, y se cerró el turno sintético sin invent
 efectivo. Estas evidencias no crean otro fixture ni sustituyen la matriz
 completa.
 
-**Gate actual:** `GATE I — TENANT REAL`. Gate H quedó `E2.2 CERTIFIED` el
-2026-10-05 mediante la matriz
+**Gate actual:** `GATE I — TENANT REAL`, `BLOCKED — DATOS DEL CLIENTE
+PENDIENTES`. Gate H quedó `E2.2 CERTIFIED` el 2026-10-05 mediante la matriz
 [`G-SAAS-02-E2-2-GATE-H-CERTIFICATION-2026-10-05.md`](evidence/G-SAAS-02-E2-2-GATE-H-CERTIFICATION-2026-10-05.md).
 Gate F quedó `PASS` el 2026-10-05:
 aislamiento de configuración A/B, retry autenticado e idempotente, flujos
@@ -186,6 +186,12 @@ y el replay conservó una sola obligación y un solo hecho append-only. Gate G
 quedó posteriormente cerrado mediante el rehearsal enlazado arriba. Gate H
 quedó certificado mediante la matriz vigente. Tenant real, aceptación
 operativa y producción siguen pendientes; E2.2 continúa `EN EJECUCIÓN`.
+
+El preflight documental de Gate I confirmó el 2026-10-05 que no se dispone de
+los datos comerciales y operativos autorizados de Distribuidora Las Jiménez;
+por ello no se creó ni se configuró un tenant real. El detalle de los insumos
+requeridos y el mutation audit de la comprobación están en
+[`G-SAAS-02-E2-2-GATE-I-PREFLIGHT-BLOCKED-2026-10-05.md`](evidence/G-SAAS-02-E2-2-GATE-I-PREFLIGHT-BLOCKED-2026-10-05.md).
 
 ### Reconciliación post-merge — PR #447 (2026-10-05; checkpoint inicial supersedido)
 
