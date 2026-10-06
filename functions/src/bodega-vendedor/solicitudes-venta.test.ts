@@ -204,4 +204,3 @@ test("consultas de vendedor y administrador no cruzan tenant y vendedor solo ve 
   assert.equal("cedula" in queue.solicitudes[0].cliente, false);
   assert.equal(queue.solicitudes.some((item: Data) => item.solicitudId === "solicitud-ajena"), false);
 });
-
