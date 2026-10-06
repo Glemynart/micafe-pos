@@ -19,6 +19,7 @@
   "include": [
     "src/**/*.ts",
     "../functions/src/platform/commercial-callable.ts",
+    "../functions/src/platform/commercial-offer-read.ts",
     "../functions/src/platform/commercial-command-executor.ts",
     "../functions/src/platform/audit-confirmation.ts",
     "../functions/src/platform/authorization.ts",

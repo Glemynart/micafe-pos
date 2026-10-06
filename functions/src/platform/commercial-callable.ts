@@ -3,6 +3,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { autorizarPlataforma, type TokenPlataforma } from "./authorization";
 import { facultadTransicionEmpresa, obtenerComandoComercial } from "./command-catalog";
 import { ejecutarComandoComercial } from "./commercial-command-executor";
+import { consultarOfertaComercialTenant } from "./commercial-offer-read";
 
 const REGION = "us-central1";
 
@@ -29,4 +30,16 @@ export const ejecutarComandoComercialSaas = onCall({ region: REGION }, async (re
     : comando.facultad;
   await autorizarPlataforma(db, auth.uid, auth.token as TokenPlataforma, facultad);
   return ejecutarComandoComercial(db, auth.uid, comando.tipo, data.entrada as never);
+});
+
+/** ADR-SAAS-061: lectura puntual de una oferta, protegida por la facultad comercial. */
+export const consultarOfertaComercialTenantSaas = onCall({ region: REGION }, async (request) => {
+  const auth = exigirAuth(request);
+  const data = request.data as { empresaId?: unknown; ofertaId?: unknown };
+  const db = getFirestore();
+  await autorizarPlataforma(db, auth.uid, auth.token as TokenPlataforma, "COMERCIAL_GOBERNAR");
+  if (typeof data?.empresaId !== "string" || typeof data?.ofertaId !== "string") {
+    throw new HttpsError("invalid-argument", "OFERTA_COMERCIAL_INVALIDA");
+  }
+  return consultarOfertaComercialTenant(db, data.empresaId, data.ofertaId);
 });

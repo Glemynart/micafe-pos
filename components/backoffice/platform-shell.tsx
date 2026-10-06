@@ -3,19 +3,21 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity, Building2, ChevronRight, ClipboardList, Headphones, LayoutDashboard,
+  Activity, Building2, ChevronRight, ClipboardList, Headphones, LayoutDashboard, Tag,
   LogOut, Menu, PackageOpen, Settings, ShieldCheck, Users, X,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { usePlatform } from "@/contexts/platform-context";
 import type { FacultadPlataforma } from "@/lib/platform/client";
+import { firebaseConfig } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-const navegacion: Array<{ href: string; label: string; icon: typeof Activity; facultad?: FacultadPlataforma }> = [
+const navegacion: Array<{ href: string; label: string; icon: typeof Activity; facultad?: FacultadPlataforma; stagingOnly?: boolean }> = [
   { href: "/backoffice", label: "Dashboard", icon: LayoutDashboard, facultad: "PLATAFORMA_CONSULTAR" },
   { href: "/backoffice/empresas", label: "Empresas", icon: Building2, facultad: "PLATAFORMA_CONSULTAR" },
   { href: "/backoffice/planes", label: "Planes", icon: PackageOpen, facultad: "PLATAFORMA_CONSULTAR" },
+  { href: "/backoffice/ofertas", label: "Oferta staging", icon: Tag, facultad: "COMERCIAL_GOBERNAR", stagingOnly: true },
   { href: "/backoffice/suscripciones", label: "Suscripciones", icon: Activity, facultad: "PLATAFORMA_CONSULTAR" },
   { href: "/backoffice/operadores", label: "Operadores", icon: Users, facultad: "PLATAFORMA_CONSULTAR" },
   { href: "/backoffice/auditoria", label: "Auditoría", icon: ClipboardList, facultad: "PLATAFORMA_CONSULTAR" },
@@ -27,7 +29,8 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const { contexto, tiene, logout } = usePlatform();
-  const items = navegacion.filter((item) => !item.facultad || tiene(item.facultad));
+  const items = navegacion.filter((item) => (!item.facultad || tiene(item.facultad))
+    && (!item.stagingOnly || firebaseConfig.projectId === "micafe-pos-staging"));
   const actual = items.findLast((item) => pathname.startsWith(item.href));
 
   return (
