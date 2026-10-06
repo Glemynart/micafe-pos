@@ -27,6 +27,7 @@
     "../functions/src/platform/contracts.ts",
     "../functions/src/platform/validation.ts",
     "../functions/src/suscripciones/service.ts",
+    "../functions/src/suscripciones/ofertas-tenant.ts",
     "../functions/src/suscripciones/relaciones-service.ts",
     "../functions/src/suscripciones/relacion-vigente.ts",
     "../functions/src/configuracion/service.ts",

@@ -8,6 +8,26 @@ export interface PrecioPlan {
   moneda: string;
 }
 
+export type EstadoOfertaComercialTenant = "BORRADOR" | "APROBADA" | "CONSUMIDA" | "REVOCADA" | "EXPIRADA";
+
+/** ADR-SAAS-061: excepción comercial auditable, nunca una versión pública de Plan. */
+export interface OfertaComercialTenant {
+  schemaVersion: 1;
+  ofertaId: string;
+  empresaIdObjetivo: string;
+  planIdBase: string;
+  planVersionBase: number;
+  periodicidad: "ANUAL";
+  precioAcordado: PrecioPlan;
+  estado: EstadoOfertaComercialTenant;
+  iniciaEn: string;
+  expiraEn: string | null;
+  motivoCodigo: string;
+  referenciaAprobacion: string;
+  revision: number;
+  consumidaPor?: { empresaId: string; provisionamientoId: string };
+}
+
 export interface FiscalidadContrato {
   pais?: string;
   modalidad?: string;
