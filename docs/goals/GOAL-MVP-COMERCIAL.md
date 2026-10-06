@@ -53,7 +53,7 @@
 | Epic | Resultado | Estado |
 |---|---|---|
 | E2.1 Tenant de referencia | Tenant, contrato, Trial, membresía, administrador, credencial, Espacio y configuración reproducibles. | EN EJECUCIÓN |
-| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. | EN EJECUCIÓN |
+| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. Incluye solicitud de venta del vendedor y aprobación administrativa previa a la venta canónica según ADR-SAAS-062. | EN EJECUCIÓN |
 
 ### M3 — Certificación funcional del tenant — PENDIENTE
 
@@ -116,7 +116,60 @@
 
 ## Estado vivo
 
-### Checkpoint histórico — 2026-10-04
+### Checkpoint vigente — 2026-10-06 — PR #461 / PR #462
+
+`origin/main` está en `d5cd66e5bc02a06bcb5c318fce989e75e897c8bc`, merge
+commit de PR #461. PR #462 integró antes ADR-SAAS-063 mediante
+`0dc9f2024e585a3b3b33321c7a758f040a5df218`. Ambos PR apuntaron a `main`; los
+checks `Tipos y pruebas`, `Vercel` y `Vercel Preview Comments` de ambos PR
+terminaron `PASS`. El CI post-merge de `main`, run `37516562659` en el SHA
+`d5cd66e5bc02a06bcb5c318fce989e75e897c8bc`, terminó `success`; el job
+`Tipos y pruebas`, incluido `E2E Bodega — solicitud, aprobación y venta
+canónica`, también terminó `success`.
+
+Esta reconciliación documental cierra Gate A para el corte vigente. Gate B
+queda `COMPLETED / IMPLEMENTATION CERTIFIED`: PR #461 integró la ampliación de
+ADR-SAAS-062, y build, tests, discovery y module-load de `functions-bodega`
+pasaron localmente y en CI. La evidencia detallada está en
+[`G-SAAS-02-E2-2-GATE-B-ADR062-POSTMERGE-2026-10-06.md`](evidence/G-SAAS-02-E2-2-GATE-B-ADR062-POSTMERGE-2026-10-06.md).
+
+**Gate actual: GATE C — PREFLIGHT DE STAGING, PENDING.** El código integrado
+descubre diez callables Gen 2 en `us-central1`, Node.js 22 y cero Secrets.
+La inspección read-only de `micafe-pos-staging` encontró seis callables
+`saas-bodega` activas; no encontró aún las cuatro callables nuevas de
+solicitud/aprobación. La revisión remota de `confirmarVentaBodegaV1` sigue
+siendo `confirmarventabodegav1-00003-cud`, creada el 2026-10-03, antes de PR
+#461. Por ello Gate C debe demostrar el delta exacto, artefacto y rollback
+antes de cualquier deploy. No se ejecutó un deploy de esta ampliación.
+
+El fixture sintético retenido `E2_2-BODEGA-STAGING-FIXTURE` ya existe y está
+validado como recurso reutilizable; Gate E queda `PASS` sin crear otro fixture
+(reutilizado en las evidencias enlazadas de Gate G y Gate H).
+Después del preflight y deploy staging se deben revalidar el flujo de Gate F,
+repetir el rehearsal de Gate G y emitir una nueva matriz de Gate H, tal como
+requiere ADR-SAAS-062. La CI E2E post-merge cubre Emulator y no sustituye esas
+pruebas de staging.
+
+Gate I sigue `PENDING`: no se creó ni configuró el tenant real y no se
+persistió la oferta. La aprobación interna de 1.600.000 COP permanece
+documentada, pero no demuestra aceptación del cliente. La vigencia de oferta,
+los usuarios iniciales y la normalización/confirmación final del catálogo e
+inventario (incluidas unidades, presentaciones y cantidades iniciales)
+requieren confirmación antes de persistirlos. Gate J, K y L también siguen
+pendientes; E2.2 y el Goal G-SAAS-02 permanecen `EN EJECUCIÓN`.
+
+ADR-SAAS-063 está implementada en `vercel.json` con
+`git.deploymentEnabled.main = false`. La inspección read-only de Vercel mostró
+que el deployment Production más reciente observado,
+`dpl_4viR3AppP838CJjtUHYeBLo1W19C`, se creó el 2026-10-06 a las 09:52 -05,
+antes de los merges de PR #462 (13:20 -05) y PR #461 (14:07 -05). No se observó
+un deployment Production posterior a esos merges; no se cambió ningún alias.
+
+Los rótulos A–F de la tabla histórica de ADR-SAAS-048 son gates internos de
+esa decisión de superficie/fixture; el estado operativo actual de E2.2 se
+registra en esta secuencia A–L.
+
+### Checkpoint histórico — corte previo a PR #461 / #462 (iniciado 2026-10-04)
 
 La reconciliación de Gate A confirma `main @
 7f46d9e9a4ef300bb0333ff4e3fbcc201cbd6933`, CI post-merge
@@ -193,7 +246,7 @@ integrarse antes de reanudar la auditoría/merge de PR #461. Esta decisión no
 autoriza release, promoción de alias, tráfico productivo ni modifica Firebase;
 E2.2 continúa `EN EJECUCIÓN`.
 
-### Checkpoint vigente — 2026-10-05
+### Checkpoint histórico — 2026-10-05 (supersedido por PR #461)
 
 En staging pasaron los subescenarios de aislamiento de lectura de configuración
 tenant A/B con dos contextos Auth independientes y retry autenticado/idempotente
