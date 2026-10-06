@@ -35,7 +35,7 @@ async function waitForManifest(port: number): Promise<Record<string, unknown>> {
   throw lastError ?? new Error("DISCOVERY_TIMEOUT");
 }
 
-test("el manifiesto comercial declara solo el callable canónico sin Secrets", async () => {
+test("el manifiesto comercial declara callables canónicos sin Secrets", async () => {
   const port = await freePort();
   const child = spawn(process.execPath, [firebaseFunctionsBin], {
     cwd: sourceRoot,

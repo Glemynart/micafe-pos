@@ -239,6 +239,30 @@ export const comandoOperador = (
 export const comandoComercial = (tipo: string, entrada: Record<string, unknown>) =>
   invocar<Record<string, unknown>>("ejecutarComandoComercialSaas", { tipo, entrada });
 
+export type OfertaComercialTenantAdmin = {
+  ofertaId: string;
+  empresaIdObjetivo: string;
+  planIdBase: string;
+  planVersionBase: number;
+  periodicidad: "ANUAL";
+  precioAcordado: { importe: number; moneda: string };
+  estado: "BORRADOR" | "APROBADA" | "CONSUMIDA" | "REVOCADA" | "EXPIRADA";
+  iniciaEn: string;
+  expiraEn: string | null;
+  motivoCodigo: string;
+  referenciaAprobacion: string;
+  revision: number;
+};
+
+export type ResultadoConsultaOfertaComercialTenant = {
+  oferta: OfertaComercialTenantAdmin | null;
+  controlRevision: number;
+  ofertaActivaId: string | null;
+};
+
+export const consultarOfertaComercialTenant = (empresaId: string, ofertaId: string) =>
+  invocar<ResultadoConsultaOfertaComercialTenant>("consultarOfertaComercialTenantSaas", { empresaId, ofertaId });
+
 export const solicitarSoporte = (entrada: Record<string, unknown>) =>
   invocar<Record<string, unknown>>("solicitarSoporteSaas", entrada);
 

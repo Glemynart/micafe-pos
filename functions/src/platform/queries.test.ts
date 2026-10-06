@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { consultarAuditoriaPlataforma, consultarOfertaComercialTenant, listarRecursosPlataforma, obtenerDetalleEmpresaPlataforma, validarFiltroAuditoria } from "./queries";
+import { consultarAuditoriaPlataforma, listarRecursosPlataforma, obtenerDetalleEmpresaPlataforma, validarFiltroAuditoria } from "./queries";
 
 test("la auditoría exige un filtro selectivo aprobado", () => {
   assert.throws(() => validarFiltroAuditoria(undefined), /FILTRO_AUDITORIA_INVALIDO/);
@@ -216,64 +216,6 @@ test("obtenerDetalleEmpresaPlataforma: una DIRECTA heredada no habilita la reemi
   const detalle = await obtenerDetalleEmpresaPlataforma(db as never, "empresa-1");
   assert.equal(detalle.credencialInicial.estado, "PENDIENTE_ACTIVACION");
   assert.equal(detalle.credencialInicial.puedeReemitir, false);
-});
-
-test("ADR-SAAS-061: la consulta de oferta lee solo el ID solicitado y devuelve campos permitidos", async () => {
-  const db = fakeDetalleDb();
-  db.seed("ofertas_comerciales_tenant/distribuidora-las-jimenez", {
-    ofertaActivaId: "oferta-distribuidora-jimenez-2026",
-    revision: 3,
-  });
-  db.seed("ofertas_comerciales_tenant/distribuidora-las-jimenez/ofertas/oferta-distribuidora-jimenez-2026", {
-    schemaVersion: 1,
-    ofertaId: "oferta-distribuidora-jimenez-2026",
-    empresaIdObjetivo: "distribuidora-las-jimenez",
-    planIdBase: "mvp_comercial",
-    planVersionBase: 2,
-    periodicidad: "ANUAL",
-    precioAcordado: { importe: 1600000, moneda: "COP" },
-    estado: "APROBADA",
-    iniciaEn: "2026-10-05",
-    expiraEn: null,
-    motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
-    referenciaAprobacion: "ADR-SAAS-061",
-    revision: 2,
-    internalCredential: "must-not-leak",
-  });
-
-  const result = await consultarOfertaComercialTenant(db as never, "distribuidora-las-jimenez", "oferta-distribuidora-jimenez-2026");
-
-  assert.equal(result.controlRevision, 3);
-  assert.equal(result.ofertaActivaId, "oferta-distribuidora-jimenez-2026");
-  assert.deepEqual(result.oferta, {
-    ofertaId: "oferta-distribuidora-jimenez-2026",
-    empresaIdObjetivo: "distribuidora-las-jimenez",
-    planIdBase: "mvp_comercial",
-    planVersionBase: 2,
-    periodicidad: "ANUAL",
-    precioAcordado: { importe: 1600000, moneda: "COP" },
-    estado: "APROBADA",
-    iniciaEn: "2026-10-05",
-    expiraEn: null,
-    motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
-    referenciaAprobacion: "ADR-SAAS-061",
-    revision: 2,
-  });
-  assert.equal(JSON.stringify(result).includes("must-not-leak"), false);
-});
-
-test("ADR-SAAS-061: una oferta inexistente devuelve control inicial recuperable", async () => {
-  const db = fakeDetalleDb();
-  const result = await consultarOfertaComercialTenant(db as never, "empresa-1", "oferta-1");
-  assert.deepEqual(result, { oferta: null, controlRevision: 1, ofertaActivaId: null });
-});
-
-test("ADR-SAAS-061: la consulta rechaza identificadores fuera del contrato", async () => {
-  const db = fakeDetalleDb();
-  await assert.rejects(
-    consultarOfertaComercialTenant(db as never, "../empresa", "oferta-1"),
-    /OFERTA_COMERCIAL_INVALIDA/,
-  );
 });
 
 test("obtenerDetalleEmpresaPlataforma: la más reciente EXPIRED (sin reemitir aún) proyecta EXPIRADA", async () => {
