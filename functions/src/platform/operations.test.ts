@@ -521,6 +521,72 @@ test("ActualizarDatosAdministrativosEmpresa — si el tenant ya emitió document
   assert.equal(db.read("configuraciones/empresa_dian").identidadFiscal.nombreComercial, "Café Sur");
 });
 
+test("ADR-SAAS-061: la plataforma crea, aprueba y revoca una oferta específica sin cambiar el plan público", async () => {
+  const db = new Db();
+  const empresaId = "empresa-oferta-1";
+  const ofertaId = "oferta-empresa-1-2026";
+  db.seed("planes/mvp_comercial/versiones/2", {
+    planId: "mvp_comercial",
+    planVersion: 2,
+    estado: "PUBLICADA",
+    codigo: "MVP_COMERCIAL",
+    capacidades: ["sell"],
+    limites: {},
+    periodicidad: "ANUAL",
+    precio: { importe: 1800000, moneda: "COP" },
+    grandfathered: false,
+    revision: 2,
+    schemaVersion: 1,
+  });
+
+  await ejecutarComandoComercial(db as never, "operador_1", "CrearOfertaComercialTenant" as never, {
+    commandId: "cmd_oferta_crear_1",
+    idempotencyKey: "idem_oferta_crear_1",
+    correlationId: "corr_oferta_crear_1",
+    causationId: null,
+    motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
+    empresaId,
+    ofertaId,
+    planIdBase: "mvp_comercial",
+    planVersionBase: 2,
+    precioAcordado: { importe: 1600000, moneda: "COP" },
+    iniciaEn: "2026-10-05",
+    expiraEn: null,
+    referenciaAprobacion: "ADR-SAAS-061",
+    expectedRevision: 1,
+  });
+  assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).estado, "BORRADOR");
+
+  await ejecutarComandoComercial(db as never, "operador_1", "AprobarOfertaComercialTenant" as never, {
+    commandId: "cmd_oferta_aprobar_1",
+    idempotencyKey: "idem_oferta_aprobar_1",
+    correlationId: "corr_oferta_aprobar_1",
+    causationId: null,
+    motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
+    empresaId,
+    ofertaId,
+    expectedRevision: 1,
+  });
+  assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).estado, "APROBADA");
+  assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}`).ofertaActivaId, ofertaId);
+  assert.deepEqual(db.read("planes/mvp_comercial/versiones/2").precio, { importe: 1800000, moneda: "COP" });
+
+  await ejecutarComandoComercial(db as never, "operador_1", "RevocarOfertaComercialTenant" as never, {
+    commandId: "cmd_oferta_revocar_1",
+    idempotencyKey: "idem_oferta_revocar_1",
+    correlationId: "corr_oferta_revocar_1",
+    causationId: null,
+    motivoCodigo: "OFERTA_CORREGIDA",
+    empresaId,
+    ofertaId,
+    expectedRevision: 2,
+  });
+  assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).estado, "REVOCADA");
+  assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}`).ofertaActivaId, null);
+  assert.ok(db.docsByPrefix("saas_auditoria/").some((e) => e.tipo === "OFERTA_COMERCIAL_TENANT_APROBADA"));
+  assert.ok(db.docsByPrefix("saas_auditoria/").some((e) => e.tipo === "OFERTA_COMERCIAL_TENANT_REVOCADA"));
+});
+
 test("ActualizarDatosAdministrativosEmpresa rechaza por conflicto de revisión, sin escribir nada", async () => {
   const db = new Db();
   db.seed("empresas/empresa_rename2", { estado: "activa", nombre: "X", nombreComercial: "X", paisFiscal: "CO", revision: 5 });

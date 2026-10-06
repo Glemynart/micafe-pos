@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { FieldValue } from "firebase-admin/firestore";
 import { ejecutarBootstrapEmpresarial } from "./service";
+import { ofertaComercialActivaRef, ofertaComercialRef } from "../suscripciones/ofertas-tenant";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 import type { EntradaBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
 import { MODULOS_CONFIGURACION, MODULOS_PERMITIDOS_BODEGA_MVP1 } from "../../../lib/configuracion";
@@ -289,6 +290,110 @@ test("G-SAAS-02: Bootstrap materializa los módulos del Plan en un tenant DEMO",
   assert.deepEqual(db.read("configuraciones/empresa_test_b5").modulos.habilitados, [
     "sell", "inventory", "purchases", "shifts", "waste", "cuentas_cobro", "clientes", "reservas", "finanzas",
   ]);
+});
+
+test("ADR-SAAS-061: Bootstrap resuelve y consume atómicamente una oferta anual específica sin alterar el catálogo público", async () => {
+  const db = new Db();
+  const empresaId = "distribuidora-las-jimenez";
+  const ofertaId = "oferta-distribuidora-jimenez-2026";
+  db.seed("planes/mvp_comercial/versiones/2", {
+    planId: "mvp_comercial",
+    planVersion: 2,
+    estado: "PUBLICADA",
+    codigo: "MVP_COMERCIAL",
+    capacidades: ["sell", "inventory", "clientes", "finanzas", "shifts"],
+    limites: {},
+    periodicidad: "ANUAL",
+    precio: { importe: 1800000, moneda: "COP" },
+    grandfathered: false,
+    revision: 2,
+    schemaVersion: 1,
+  });
+  db.seed(ofertaComercialActivaRef(db as never, empresaId).path, {
+    empresaId,
+    ofertaActivaId: ofertaId,
+    revision: 1,
+  });
+  db.seed(ofertaComercialRef(db as never, empresaId, ofertaId).path, {
+    ofertaId,
+    empresaIdObjetivo: empresaId,
+    planIdBase: "mvp_comercial",
+    planVersionBase: 2,
+    periodicidad: "ANUAL",
+    precioAcordado: { importe: 1600000, moneda: "COP" },
+    estado: "APROBADA",
+    iniciaEn: "2026-10-05",
+    expiraEn: null,
+    motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
+    referenciaAprobacion: "ADR-SAAS-061",
+    revision: 2,
+    schemaVersion: 1,
+  });
+
+  const entrada: EntradaBootstrapEmpresarial = {
+    ...entradaBase,
+    empresaId,
+    nombreComercial: "Distribuidora Las Jiménez",
+    planId: "mvp_comercial",
+    planVersion: 2,
+    vertical: "BODEGA_MVP1",
+    commandId: "cmd_boot_jimenez_1",
+    idempotencyKey: "idem_boot_jimenez_1",
+    correlationId: "corr_boot_jimenez_1",
+    causationId: "cause_boot_jimenez_1",
+  };
+
+  const creado = await ejecutarBootstrapEmpresarial(
+    db as any, entrada, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso,
+  );
+
+  assert.equal(creado.estado, "COMPLETED");
+  const suscripcion = db.read(`suscripciones/${empresaId}`);
+  assert.deepEqual(suscripcion.snapshotContrato.precio, { importe: 1600000, moneda: "COP" });
+  assert.deepEqual(db.read("planes/mvp_comercial/versiones/2").precio, { importe: 1800000, moneda: "COP" });
+  assert.equal(db.read(ofertaComercialRef(db as never, empresaId, ofertaId).path).estado, "CONSUMIDA");
+  assert.equal(db.read(ofertaComercialActivaRef(db as never, empresaId).path).ofertaActivaId, null);
+
+  const replay = await ejecutarBootstrapEmpresarial(
+    db as any, entrada, async () => { throw new Error("NO_DEBE_EMITIR_CLAIMS"); }, ownerExistente, undefined, undefined, credencialIssuerExitoso,
+  );
+  assert.equal(replay.idempotente, true);
+  assert.deepEqual(db.read(`suscripciones/${empresaId}`).snapshotContrato.precio, { importe: 1600000, moneda: "COP" });
+
+  const empresaVencida = "empresa-oferta-vencida";
+  const ofertaVencida = "oferta-vencida-2020";
+  db.seed(ofertaComercialActivaRef(db as never, empresaVencida).path, {
+    empresaId: empresaVencida,
+    ofertaActivaId: ofertaVencida,
+    revision: 1,
+  });
+  db.seed(ofertaComercialRef(db as never, empresaVencida, ofertaVencida).path, {
+    ofertaId: ofertaVencida,
+    empresaIdObjetivo: empresaVencida,
+    planIdBase: "mvp_comercial",
+    planVersionBase: 2,
+    periodicidad: "ANUAL",
+    precioAcordado: { importe: 1600000, moneda: "COP" },
+    estado: "APROBADA",
+    iniciaEn: "2020-01-01",
+    expiraEn: "2020-01-02",
+    motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
+    referenciaAprobacion: "ADR-SAAS-061",
+    revision: 2,
+    schemaVersion: 1,
+  });
+  await assert.rejects(
+    ejecutarBootstrapEmpresarial(db as any, {
+      ...entrada,
+      empresaId: empresaVencida,
+      commandId: "cmd_boot_vencida_1",
+      idempotencyKey: "idem_boot_vencida_1",
+      correlationId: "corr_boot_vencida_1",
+      causationId: "cause_boot_vencida_1",
+    }, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso),
+    /OFERTA_COMERCIAL_NO_ADMISIBLE/,
+  );
+  assert.equal(db.read(`empresas/${empresaVencida}`), undefined);
 });
 
 test("Bodega MVP1: Bootstrap propaga el vertical y excluye módulos de restaurante", async () => {

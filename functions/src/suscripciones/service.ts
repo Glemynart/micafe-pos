@@ -1,7 +1,13 @@
 import { createHash } from "node:crypto";
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
-import { esFechaComercial, esIdComercial, fechaComercialUtc, rangoComercialValido, readinessComercial, transicionesEmpresa, transicionesSuscripcion, type EmpresaLifecycle, type PlanVersion, type RelacionContractual, type SnapshotContrato, type Suscripcion } from "../../../lib/suscripciones/contrato";
+import { esFechaComercial, esIdComercial, fechaComercialUtc, rangoComercialValido, readinessComercial, transicionesEmpresa, transicionesSuscripcion, type EmpresaLifecycle, type OfertaComercialTenant, type PlanVersion, type RelacionContractual, type SnapshotContrato, type Suscripcion } from "../../../lib/suscripciones/contrato";
+import {
+  ofertaComercialActivaRef,
+  ofertaComercialRef,
+  validarOfertaComercialEntrada,
+  validarPlanBaseParaOferta,
+} from "./ofertas-tenant";
 import {
   ejecutarComandoConfiguracionConEstadoPreleidoEnTransaccion,
   leerComandoConfiguracionEnTransaccion,
@@ -56,11 +62,19 @@ function validarOfertaPlan(plan: Pick<PlanVersion, "periodicidad" | "precio">) {
   }
 }
 
-function construirSnapshotContrato(plan: PlanVersion, inicio: string, fin: string): SnapshotContrato | undefined {
+function construirSnapshotContrato(
+  plan: PlanVersion,
+  inicio: string,
+  fin: string,
+  precioContrato?: { importe: number; moneda: string },
+): SnapshotContrato | undefined {
   if (plan.periodicidad !== "ANUAL") return undefined;
   validarOfertaPlan(plan);
   if (!rangoComercialValido(inicio, fin) || !plan.precio) fail("invalid-argument", "SNAPSHOT_CONTRATO_INVALIDO");
-  const precio = plan.precio!;
+  const precio = precioContrato ?? plan.precio!;
+  if (!Number.isSafeInteger(precio.importe) || precio.importe <= 0 || precio.moneda !== plan.precio!.moneda) {
+    fail("invalid-argument", "SNAPSHOT_CONTRATO_INVALIDO");
+  }
   return {
     schemaVersion: 1,
     planId: plan.planId,
@@ -108,6 +122,154 @@ export async function retirarVersionPlan(db: Firestore, entrada: Envelope & { pl
   validar(entrada); if (!esIdComercial(entrada.planId) || !Number.isInteger(entrada.planVersion) || entrada.planVersion < 1) fail("invalid-argument", "PLAN_INVALIDO");
   const f = hash(entrada); return db.runTransaction(async tx => { const p = await previo(tx, db, entrada, "PLATFORM", f); if (p) return { ...p, idempotente: true }; const ref = db.collection("planes").doc(entrada.planId).collection("versiones").doc(String(entrada.planVersion)); const snap = await tx.get(ref); if (!snap.exists) fail("not-found", "PLAN_NOT_FOUND"); const plan = snap.data() as PlanVersion; if (plan.revision !== entrada.expectedRevision || plan.estado !== "PUBLICADA") fail("failed-precondition", "PLAN_TRANSITION_INVALID"); const revision = plan.revision + 1; tx.update(ref, { estado: "RETIRADA", revision, retiradaEn: FieldValue.serverTimestamp() }); const r = { planId: plan.planId, planVersion: plan.planVersion, revision }; registrar(tx, db, entrada, "PLATFORM", f, r, "VersionPlanRetirada", "PLAN", plan.revision, revision, ctx); return { ...r, idempotente: false }; });
 }
+
+/** ADR-SAAS-061: crea evidencia comercial dirigida, sin modificar el catálogo público. */
+export async function crearOfertaComercialTenant(
+  db: Firestore,
+  entrada: Envelope & {
+    empresaId: string;
+    ofertaId: string;
+    planIdBase: string;
+    planVersionBase: number;
+    precioAcordado: { importe: number; moneda: string };
+    iniciaEn: string;
+    expiraEn: string | null;
+    referenciaAprobacion: string;
+  },
+  ctx: ContextoComercial,
+) {
+  validar(entrada);
+  validarOfertaComercialEntrada(entrada);
+  const fingerprint = hash(entrada);
+  return db.runTransaction(async (tx) => {
+    const previoResultado = await previo(tx, db, entrada, entrada.empresaId, fingerprint);
+    if (previoResultado) return { ...previoResultado, idempotente: true };
+    const controlRef = ofertaComercialActivaRef(db, entrada.empresaId);
+    const ofertaRef = ofertaComercialRef(db, entrada.empresaId, entrada.ofertaId);
+    const planRef = db.collection("planes").doc(entrada.planIdBase).collection("versiones").doc(String(entrada.planVersionBase));
+    const [controlSnap, ofertaSnap, planSnap] = await Promise.all([
+      tx.get(controlRef), tx.get(ofertaRef), tx.get(planRef),
+    ]);
+    if (ofertaSnap.exists) fail("already-exists", "OFERTA_COMERCIAL_EXISTS");
+    if (controlSnap.exists && controlSnap.data()?.revision !== entrada.expectedRevision) {
+      fail("failed-precondition", "OFERTA_COMERCIAL_CONTROL_CONFLICT");
+    }
+    if (!controlSnap.exists && entrada.expectedRevision !== 1) {
+      fail("failed-precondition", "OFERTA_COMERCIAL_CONTROL_CONFLICT");
+    }
+    if (!planSnap.exists) fail("not-found", "PLAN_NOT_FOUND");
+    validarPlanBaseParaOferta(planSnap.data() as PlanVersion, entrada.precioAcordado);
+
+    const controlRevisionAnterior = controlSnap.exists ? controlSnap.data()!.revision as number : 0;
+    const controlRevision = controlRevisionAnterior + 1;
+    if (controlSnap.exists) {
+      tx.update(controlRef, { revision: controlRevision, actualizadaEn: FieldValue.serverTimestamp() });
+    } else {
+      tx.create(controlRef, {
+        empresaId: entrada.empresaId,
+        ofertaActivaId: null,
+        revision: controlRevision,
+        creadaEn: FieldValue.serverTimestamp(),
+        actualizadaEn: FieldValue.serverTimestamp(),
+      });
+    }
+    const oferta: OfertaComercialTenant = {
+      schemaVersion: 1,
+      ofertaId: entrada.ofertaId,
+      empresaIdObjetivo: entrada.empresaId,
+      planIdBase: entrada.planIdBase,
+      planVersionBase: entrada.planVersionBase,
+      periodicidad: "ANUAL",
+      precioAcordado: { ...entrada.precioAcordado },
+      estado: "BORRADOR",
+      iniciaEn: entrada.iniciaEn,
+      expiraEn: entrada.expiraEn,
+      motivoCodigo: entrada.motivo,
+      referenciaAprobacion: entrada.referenciaAprobacion,
+      revision: 1,
+    };
+    tx.create(ofertaRef, { ...oferta, creadaEn: FieldValue.serverTimestamp(), actualizadaEn: FieldValue.serverTimestamp() });
+    const resultado = { empresaId: entrada.empresaId, ofertaId: entrada.ofertaId, revision: 1, controlRevision };
+    registrar(tx, db, entrada, entrada.empresaId, fingerprint, resultado, "OfertaComercialTenantCreada", "OFERTA_COMERCIAL_TENANT", 0, 1, ctx);
+    return { ...resultado, idempotente: false };
+  });
+}
+
+export async function aprobarOfertaComercialTenant(
+  db: Firestore,
+  entrada: Envelope & { empresaId: string; ofertaId: string },
+  ctx: ContextoComercial,
+) {
+  validar(entrada);
+  if (!esIdComercial(entrada.empresaId) || !esIdComercial(entrada.ofertaId)) fail("invalid-argument", "OFERTA_COMERCIAL_INVALIDA");
+  const fingerprint = hash(entrada);
+  return db.runTransaction(async (tx) => {
+    const previoResultado = await previo(tx, db, entrada, entrada.empresaId, fingerprint);
+    if (previoResultado) return { ...previoResultado, idempotente: true };
+    const controlRef = ofertaComercialActivaRef(db, entrada.empresaId);
+    const ofertaRef = ofertaComercialRef(db, entrada.empresaId, entrada.ofertaId);
+    const [controlSnap, ofertaSnap] = await Promise.all([tx.get(controlRef), tx.get(ofertaRef)]);
+    if (!controlSnap.exists || !ofertaSnap.exists) fail("not-found", "OFERTA_COMERCIAL_NOT_FOUND");
+    const control = controlSnap.data() as { ofertaActivaId?: unknown; revision?: unknown };
+    const oferta = ofertaSnap.data() as OfertaComercialTenant;
+    validarOfertaComercialEntrada({
+      empresaId: oferta.empresaIdObjetivo, ofertaId: oferta.ofertaId, planIdBase: oferta.planIdBase,
+      planVersionBase: oferta.planVersionBase, precioAcordado: oferta.precioAcordado,
+      iniciaEn: oferta.iniciaEn, expiraEn: oferta.expiraEn, referenciaAprobacion: oferta.referenciaAprobacion,
+    });
+    if (oferta.empresaIdObjetivo !== entrada.empresaId
+      || oferta.estado !== "BORRADOR"
+      || oferta.revision !== entrada.expectedRevision
+      || control.ofertaActivaId !== null
+      || !Number.isInteger(control.revision)) {
+      fail("failed-precondition", "OFERTA_COMERCIAL_TRANSITION_INVALIDA");
+    }
+    const planRef = db.collection("planes").doc(oferta.planIdBase).collection("versiones").doc(String(oferta.planVersionBase));
+    const planSnap = await tx.get(planRef);
+    if (!planSnap.exists) fail("not-found", "PLAN_NOT_FOUND");
+    validarPlanBaseParaOferta(planSnap.data() as PlanVersion, oferta.precioAcordado);
+    const revision = oferta.revision + 1;
+    tx.update(ofertaRef, { estado: "APROBADA", revision, aprobadaEn: FieldValue.serverTimestamp(), actualizadaEn: FieldValue.serverTimestamp() });
+    tx.update(controlRef, { ofertaActivaId: oferta.ofertaId, revision: (control.revision as number) + 1, actualizadaEn: FieldValue.serverTimestamp() });
+    const resultado = { empresaId: entrada.empresaId, ofertaId: entrada.ofertaId, revision };
+    registrar(tx, db, entrada, entrada.empresaId, fingerprint, resultado, "OfertaComercialTenantAprobada", "OFERTA_COMERCIAL_TENANT", oferta.revision, revision, ctx);
+    return { ...resultado, idempotente: false };
+  });
+}
+
+export async function revocarOfertaComercialTenant(
+  db: Firestore,
+  entrada: Envelope & { empresaId: string; ofertaId: string },
+  ctx: ContextoComercial,
+) {
+  validar(entrada);
+  if (!esIdComercial(entrada.empresaId) || !esIdComercial(entrada.ofertaId)) fail("invalid-argument", "OFERTA_COMERCIAL_INVALIDA");
+  const fingerprint = hash(entrada);
+  return db.runTransaction(async (tx) => {
+    const previoResultado = await previo(tx, db, entrada, entrada.empresaId, fingerprint);
+    if (previoResultado) return { ...previoResultado, idempotente: true };
+    const controlRef = ofertaComercialActivaRef(db, entrada.empresaId);
+    const ofertaRef = ofertaComercialRef(db, entrada.empresaId, entrada.ofertaId);
+    const [controlSnap, ofertaSnap] = await Promise.all([tx.get(controlRef), tx.get(ofertaRef)]);
+    if (!controlSnap.exists || !ofertaSnap.exists) fail("not-found", "OFERTA_COMERCIAL_NOT_FOUND");
+    const control = controlSnap.data() as { ofertaActivaId?: unknown; revision?: unknown };
+    const oferta = ofertaSnap.data() as OfertaComercialTenant;
+    if (oferta.empresaIdObjetivo !== entrada.empresaId
+      || !["BORRADOR", "APROBADA"].includes(oferta.estado)
+      || oferta.revision !== entrada.expectedRevision
+      || !Number.isInteger(control.revision)) {
+      fail("failed-precondition", "OFERTA_COMERCIAL_TRANSITION_INVALIDA");
+    }
+    const revision = oferta.revision + 1;
+    tx.update(ofertaRef, { estado: "REVOCADA", revision, revocadaEn: FieldValue.serverTimestamp(), actualizadaEn: FieldValue.serverTimestamp() });
+    if (control.ofertaActivaId === oferta.ofertaId) {
+      tx.update(controlRef, { ofertaActivaId: null, revision: (control.revision as number) + 1, actualizadaEn: FieldValue.serverTimestamp() });
+    }
+    const resultado = { empresaId: entrada.empresaId, ofertaId: entrada.ofertaId, revision };
+    registrar(tx, db, entrada, entrada.empresaId, fingerprint, resultado, "OfertaComercialTenantRevocada", "OFERTA_COMERCIAL_TENANT", oferta.revision, revision, ctx);
+    return { ...resultado, idempotente: false };
+  });
+}
 export async function crearSuscripcionActiva(db: Firestore, entrada: Envelope & { empresaId: string; planId: string; planVersion: number; periodoInicio: string; periodoFin: string }, ctx: ContextoComercial) { validar(entrada); if (!esIdComercial(entrada.empresaId) || !esIdComercial(entrada.planId) || !esFechaComercial(entrada.periodoInicio) || !esFechaComercial(entrada.periodoFin) || entrada.periodoInicio >= entrada.periodoFin) fail("invalid-argument", "SUSCRIPCION_INVALIDA"); const f = hash(entrada); return db.runTransaction(async tx => { const p = await previo(tx, db, entrada, entrada.empresaId, f); if (p) return { ...p, idempotente: true }; const [empresa, plan, sub] = await Promise.all([tx.get(db.collection("empresas").doc(entrada.empresaId)), tx.get(db.collection("planes").doc(entrada.planId).collection("versiones").doc(String(entrada.planVersion))), tx.get(db.collection("suscripciones").doc(entrada.empresaId))]); if (!empresa.exists) fail("not-found", "EMPRESA_NOT_FOUND"); if (!plan.exists || (plan.data() as PlanVersion).estado !== "PUBLICADA") fail("failed-precondition", "PLAN_NOT_ADMISSIBLE"); if (sub.exists) fail("already-exists", "SUSCRIPCION_EXISTS"); const planData = plan.data() as PlanVersion; const snapshotContrato = construirSnapshotContrato(planData, entrada.periodoInicio, entrada.periodoFin); const s: Suscripcion = { empresaId: entrada.empresaId, planId: entrada.planId, planVersion: entrada.planVersion, estado: "active", periodoInicio: entrada.periodoInicio, periodoFin: entrada.periodoFin, ...(snapshotContrato ? { snapshotContrato } : {}), revision: 1, schemaVersion: 1 }; tx.create(db.collection("suscripciones").doc(entrada.empresaId), { ...s, creadaEn: FieldValue.serverTimestamp() }); const r = { empresaId: s.empresaId, revision: 1 }; registrar(tx, db, entrada, entrada.empresaId, f, r, "SuscripcionCreada", "SUSCRIPCION", 0, 1, ctx); return { ...r, idempotente: false }; }); }
 /** Primitive B3 para que B5 componga el core atómico; no inicia Bootstrap ni es callable. */
 export type LecturasTrialPreleidas = {
@@ -119,6 +281,8 @@ export type LecturasTrialPreleidas = {
 
 export type OpcionesTrial = {
   fingerprintInput?: unknown;
+  /** ADR-SAAS-061: importe resuelto por servidor desde una oferta consumida. */
+  precioContrato?: { importe: number; moneda: string };
 };
 
 export function referenciasTrial(db: Firestore, entrada: Envelope & { empresaId: string; planId: string; planVersion: number }) {
@@ -167,7 +331,7 @@ export async function crearSuscripcionTrialEnTransaccion(
   const planData = lecturas.plan.data() as PlanVersion;
   if (planData.periodicidad === "ANUAL" && diasEntre(entrada.trialInicio, entrada.trialFin) !== 30) fail("invalid-argument", "TRIAL_ANUAL_DEBE_SER_30_DIAS");
   if (lecturas.suscripcion.exists) fail("already-exists", "SUSCRIPCION_EXISTS");
-  const snapshotContrato = construirSnapshotContrato(planData, entrada.trialInicio, entrada.trialFin);
+  const snapshotContrato = construirSnapshotContrato(planData, entrada.trialInicio, entrada.trialFin, opciones?.precioContrato);
   const s: Suscripcion = { empresaId: entrada.empresaId, planId: entrada.planId, planVersion: entrada.planVersion, estado: "trialing", trialInicio: entrada.trialInicio, trialFin: entrada.trialFin, ...(snapshotContrato ? { snapshotContrato } : {}), revision: 1, schemaVersion: 1 };
   tx.create(db.collection("suscripciones").doc(entrada.empresaId), { ...s, creadaEn: FieldValue.serverTimestamp() });
   const r = { empresaId: s.empresaId, revision: 1, trialInicio: s.trialInicio, trialFin: s.trialFin };

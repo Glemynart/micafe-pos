@@ -24,6 +24,8 @@ export interface ProvisionamientoEmpresarial {
   paisFiscal: string;
   planId: string;
   planVersion: number;
+  /** ADR-SAAS-061: oferta dirigida que se consumió de forma atómica, si aplica. */
+  ofertaComercialId?: string | null;
   estado: EstadoProvisionamiento;
   ultimoPasoConfirmado?: "REQUESTED" | "CORE_COMMITTED" | "CREDENTIAL_ISSUED" | "CLAIMS_ISSUED" | "COMPLETED";
   errorRecuperable?: string | null;
@@ -86,6 +88,8 @@ export interface ResultadoBootstrapEmpresarial {
   /** Ver `ProvisionamientoEmpresarial.obligacionId`/`obligacionCompletadoId`. */
   obligacionId?: string | null;
   obligacionCompletadoId?: string | null;
+  /** ADR-SAAS-061: referencia opaca; no expone importe ni datos de la oferta. */
+  ofertaComercialId?: string | null;
   /**
    * ADR-SAAS-013 — credencial operativa inicial del admin. `pinTemporal` es
    * `null` en cualquier respuesta que no sea la emisión original: nunca se

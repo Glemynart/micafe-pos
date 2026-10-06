@@ -22,6 +22,7 @@
   "include": [
     "src/**/*.ts",
     "../functions/src/bootstrap/shared.ts",
+    "../functions/src/suscripciones/ofertas-tenant.ts",
     "../lib/bootstrap/contrato.ts"
   ],
   "exclude": ["src/**/*.test.ts", "lib", "node_modules"]

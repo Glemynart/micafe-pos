@@ -6,6 +6,7 @@ import { esIdComercial, fechaComercialUtc, type PlanVersion } from "../../../lib
 import type { EntradaBootstrapEmpresarial, ProvisionamientoEmpresarial, ResultadoBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
 import { inicializarConfiguracionEmpresaConEstadoPreleidoEnTransaccion } from "../configuracion/service";
 import { crearSuscripcionTrialEnTransaccion, referenciasTrial } from "../suscripciones/service";
+import { resolverOfertaComercialBootstrapEnTransaccion } from "../suscripciones/ofertas-tenant";
 import { actualizarClaimsTenant, normalizarPermisosEfectivos, PERMISOS_VENDEDOR, permisosPredeterminados } from "../operational-auth";
 import { emitirCredencialInicial } from "../platform/emitir-credencial-inicial";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
@@ -150,7 +151,7 @@ export type CredentialIssuer = (params: {
  */
 export type BootstrapCoreCommitObserver = (
   tx: Transaction,
-  provisionamiento: Pick<ProvisionamientoEmpresarial, "provisionamientoId" | "empresaId">,
+  provisionamiento: Pick<ProvisionamientoEmpresarial, "provisionamientoId" | "empresaId" | "ofertaComercialId">,
 ) => { obligacionId: string } | void;
 
 export async function ejecutarBootstrapEmpresarial(
@@ -287,6 +288,16 @@ export async function ejecutarBootstrapEmpresarial(
     if (empresaSnap.exists || subSnap.exists) {
       fail("already-exists", "EMPRESA_ALREADY_EXISTS");
     }
+    if (!planTrialSnap.exists || (planTrialSnap.data() as PlanVersion).estado !== "PUBLICADA") {
+      fail("failed-precondition", "PLAN_NOT_PUBLISHED");
+    }
+    const ofertaComercial = await resolverOfertaComercialBootstrapEnTransaccion(db, tx, {
+      empresaId: entrada.empresaId,
+      planId: entrada.planId,
+      planVersion: entrada.planVersion,
+      planBase: planTrialSnap.data() as PlanVersion,
+      provisionamientoId,
+    });
     const permisosVendedor = normalizarPermisosEfectivos(plantillaVendedorSnap.data()?.permisos);
     if (plantillaVendedorSnap.exists && (permisosVendedor?.length !== PERMISOS_VENDEDOR.length
       || permisosVendedor.some((permiso, indice) => permiso !== PERMISOS_VENDEDOR[indice]))) {
@@ -347,7 +358,9 @@ export async function ejecutarBootstrapEmpresarial(
       commandId: entrada.commandId,
       correlationId: entrada.correlationId,
       origen: "BOOTSTRAP",
-      modulosIniciales: Array.isArray(planContratado.capacidades) ? planContratado.capacidades : [],
+      modulosIniciales: Array.isArray((planTrialSnap.data() as PlanVersion).capacidades)
+        ? (planTrialSnap.data() as PlanVersion).capacidades
+        : [],
       vertical: entrada.vertical,
     }, empresaInicial, configSnap);
 
@@ -407,6 +420,7 @@ export async function ejecutarBootstrapEmpresarial(
         plan: planTrialSnap,
         suscripcion: subSnap,
       },
+      { precioContrato: ofertaComercial?.precioAcordado },
     );
 
     // G. Registro de Provisionamiento (CORE_COMMITTED)
@@ -424,6 +438,7 @@ export async function ejecutarBootstrapEmpresarial(
       paisFiscal: entrada.paisFiscal.trim(),
       planId: entrada.planId,
       planVersion: entrada.planVersion,
+      ofertaComercialId: ofertaComercial?.ofertaId ?? null,
       estado: "CORE_COMMITTED",
       ultimoPasoConfirmado: "CORE_COMMITTED",
       obligacionId: observadoCore?.obligacionId ?? null,
@@ -444,6 +459,7 @@ export async function ejecutarBootstrapEmpresarial(
       claimsEmitidos: debeEmitirClaims,
       obligacionId: transaccionResultado.prov.obligacionId ?? null,
       obligacionCompletadoId: transaccionResultado.prov.obligacionCompletadoId ?? null,
+      ofertaComercialId: transaccionResultado.prov.ofertaComercialId ?? null,
       idempotente: true,
       credencialInicial: transaccionResultado.prov.credencialInicial
         ? { codigo: transaccionResultado.prov.credencialInicial.codigo, pinTemporal: null }
@@ -598,7 +614,11 @@ export async function ejecutarBootstrapEmpresarial(
       if (previo?.estado === "COMPLETED") {
         return previo.obligacionCompletadoId ?? null;
       }
-      const observadoCompletado = completionObserver?.(tx, { provisionamientoId, empresaId: entrada.empresaId });
+      const observadoCompletado = completionObserver?.(tx, {
+        provisionamientoId,
+        empresaId: entrada.empresaId,
+        ofertaComercialId: transaccionResultado.prov.ofertaComercialId ?? null,
+      });
       tx.update(provRef, {
         estado: "COMPLETED",
         ultimoPasoConfirmado: "COMPLETED",
@@ -615,6 +635,7 @@ export async function ejecutarBootstrapEmpresarial(
       claimsEmitidos: debeEmitirClaims,
       obligacionId: transaccionResultado.prov.obligacionId ?? null,
       obligacionCompletadoId,
+      ofertaComercialId: transaccionResultado.prov.ofertaComercialId ?? null,
       idempotente: transaccionResultado.yaCometido,
       credencialInicial: credencialInicialResultado,
     };

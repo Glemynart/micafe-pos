@@ -1,10 +1,12 @@
 import type { Firestore } from "firebase-admin/firestore";
 import {
   actualizarBorradorPlan,
+  aprobarOfertaComercialTenant,
   actualizarDatosAdministrativosEmpresa,
   cambiarPlanSuscripcion,
   confirmarPagoAnualSuscripcion,
   crearNuevaVersionPlan,
+  crearOfertaComercialTenant,
   crearPlan,
   crearSuscripcionActiva,
   crearSuscripcionTrial,
@@ -12,6 +14,7 @@ import {
   publicarPlan,
   renovarSuscripcion,
   retirarVersionPlan,
+  revocarOfertaComercialTenant,
   revocarCancelacionSuscripcion,
   transicionarEmpresa,
   transicionarSuscripcion,
@@ -67,6 +70,24 @@ export async function ejecutarComandoComercial(
     agregado = { tipo: "PLAN", id: entrada.planId };
     plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, () => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: 1 }));
     resultado = await crearPlan(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
+  } else if (tipo === "CrearOfertaComercialTenant") {
+    facultad = "COMERCIAL_GOBERNAR";
+    evento = "OFERTA_COMERCIAL_TENANT_CREADA";
+    agregado = { tipo: "OFERTA_COMERCIAL_TENANT", id: entrada.ofertaId };
+    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
+    resultado = await crearOfertaComercialTenant(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
+  } else if (tipo === "AprobarOfertaComercialTenant") {
+    facultad = "COMERCIAL_GOBERNAR";
+    evento = "OFERTA_COMERCIAL_TENANT_APROBADA";
+    agregado = { tipo: "OFERTA_COMERCIAL_TENANT", id: entrada.ofertaId };
+    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
+    resultado = await aprobarOfertaComercialTenant(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
+  } else if (tipo === "RevocarOfertaComercialTenant") {
+    facultad = "COMERCIAL_GOBERNAR";
+    evento = "OFERTA_COMERCIAL_TENANT_REVOCADA";
+    agregado = { tipo: "OFERTA_COMERCIAL_TENANT", id: entrada.ofertaId };
+    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
+    resultado = await revocarOfertaComercialTenant(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
   } else if (tipo === "CrearNuevaVersionPlan") {
     facultad = "COMERCIAL_GOBERNAR";
     evento = "PLAN_VERSION_CREADA";
