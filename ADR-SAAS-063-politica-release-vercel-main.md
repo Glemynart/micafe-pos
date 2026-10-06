@@ -7,6 +7,11 @@
 **Fecha de propuesta:** 2026-10-06.
 **Aprobación:** el responsable del proyecto aprobó explícitamente la Opción 2 el 2026-10-06; Lead Engineer registra y ejecuta la decisión.
 
+**Nota de vigencia:** las referencias de las secciones Contexto y Decisión
+aceptada a que PR #461 está abierto describen el estado al redactarse la
+decisión, antes de los merges de PR #462 y #461. La sección de reconciliación
+post-merge al final de esta ADR registra el estado vigente.
+
 Pertenece a `G-SAAS-02 → M2 — Provisioning y onboarding → E2.2 —
 Configuración inicial`, con efecto transversal sobre los PR que integran a
 `main` y sobre el release de `M4 / E4.1`. La aceptación autoriza únicamente
@@ -114,8 +119,9 @@ automáticos de `main` y conservar los deployments Preview de las demás ramas.
 La regla se implementará en `vercel.json`, integrada con la configuración
 existente y mediante el flujo normal de PR, CI y auditoría.
 
-PR #461 permanece abierto hasta que la barrera esté integrada y se complete su
-auditoría propia. Sus checks verdes no sustituyen ese gate.
+Al redactar esta decisión, PR #461 permanecía abierto hasta que la barrera
+estuviera integrada y se completara su auditoría propia. Sus checks verdes no
+sustituían ese gate.
 
 ## Límites de la decisión aceptada
 
@@ -190,3 +196,20 @@ la funcionalidad de PR #461 ni declara E2.2 completado.
 - `ADR-SAAS-049-aislamiento-codebase-bodega-staging.md`.
 - `ADR-SAAS-061-oferta-comercial-tenant-especifica.md`.
 - `ADR-SAAS-062-aprobacion-previa-ventas-bodega.md`.
+
+## Reconciliación post-merge — PR #462 y PR #461 (2026-10-06)
+
+PR #462 integró esta barrera en `main` mediante el merge commit
+`0dc9f2024e585a3b3b33321c7a758f040a5df218` a las 18:20:17 UTC. PR #461 se
+integró después mediante `d5cd66e5bc02a06bcb5c318fce989e75e897c8bc` a las
+19:07:18 UTC. Los checks de ambos PR y el CI post-merge de `main` (run
+`37516562659`) terminaron `PASS`.
+
+La configuración vigente en `vercel.json` conserva los Preview y establece
+`git.deploymentEnabled.main = false`. La inspección read-only de Vercel del
+2026-10-06 encontró como deployment Production más reciente observado
+`dpl_4viR3AppP838CJjtUHYeBLo1W19C`, creado a las 09:52:13 -05, antes de ambos
+merges. No se observó un nuevo deployment Production posterior a esos merges
+ni cambios de aliases. Por ello la implementación de ADR-SAAS-063 quedó
+verificada para esos eventos; esta reconciliación no autoriza `vercel deploy
+--prod`, promoción de alias ni release productivo.

@@ -290,3 +290,37 @@ sola ninguno de los gates posteriores. Los gates de preflight y deploy fueron
 consumidos mediante decisiones operativas separadas; fixture, validación
 funcional, rehearsal, certificación, cutover y producción siguen requiriendo
 su propia evidencia y mutation audit.
+
+## Reconciliación post-merge de ADR-SAAS-062 — PR #461 (2026-10-06)
+
+ADR-SAAS-062 amplió de forma acotada el flujo Bodega con cuatro callables de
+solicitud, consulta, resolución y cancelación de solicitudes de venta. PR #461
+implementó e integró ese alcance en `main`: el HEAD del PR fue
+`e7d028a25300117bf1dec800fc01905dff9fdb49` y su merge commit es
+`d5cd66e5bc02a06bcb5c318fce989e75e897c8bc`. El CI del PR pasó y el CI
+post-merge `37516562659` terminó `success`, incluido el E2E de solicitud,
+aprobación y venta canónica.
+
+El discovery vigente de `functions-bodega/src/index.ts` contiene diez
+callables Gen 2 en `us-central1`, Node.js 22 y cero Secrets: las seis
+superficies del corte previo más las cuatro de ADR-SAAS-062. Por tanto, las
+referencias de las secciones 2, 3, 11 y 16 a cinco/seis callables conservan
+el historial de los cortes PR #400/ADR-SAAS-052; no describen el total
+integrado actual.
+
+La lectura remota de `micafe-pos-staging` del 2026-10-06 encontró seis
+callables `saas-bodega` activas en `us-central1`, Node.js 22, cada una con
+100 % del tráfico en su revisión lista y sin referencias a Secrets en
+variables ni volúmenes de Cloud Run. Las cuatro callables de ADR-SAAS-062 no
+están desplegadas. La revisión remota vigente de
+`confirmarVentaBodegaV1`, `confirmarventabodegav1-00003-cud`, se creó el
+2026-10-03T09:23:50Z, antes del merge de PR #461. Esto confirma que el nuevo
+flujo no ha sido publicado en staging; no cambia ni invalida las evidencias
+históricas de las seis funciones previas.
+
+**Estado operativo actual:** implementación y CI de Gate B `PASS`; preflight
+Gate C para el candidato de diez callables `PENDING`; deploy de esa ampliación
+no ejecutado. Gate F, rehearsal G y certificación H deben repetirse después
+del deploy staging por el cambio aceptado de ADR-SAAS-062. Esta reconciliación
+no autoriza deploy, tráfico adicional, fixture nuevo, Bootstrap, Activation,
+cutover ni producción.
