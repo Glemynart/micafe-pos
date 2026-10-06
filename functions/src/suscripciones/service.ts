@@ -131,34 +131,48 @@ export async function crearOfertaComercialTenant(
     ofertaId: string;
     planIdBase: string;
     planVersionBase: number;
-    precioAcordado: { importe: number; moneda: string };
+    periodicidad: "ANUAL";
+    precioAcordado: { importe: number; moneda: "COP" };
+    expectedRevision: number;
     iniciaEn: string;
     expiraEn: string | null;
+    motivoCodigo: string;
     referenciaAprobacion: string;
   },
   ctx: ContextoComercial,
 ) {
   validar(entrada);
-  validarOfertaComercialEntrada(entrada);
-  const fingerprint = hash(entrada);
+  const registro = { ...entrada, motivo: entrada.motivoCodigo };
+  const terminos = {
+    ofertaId: entrada.ofertaId,
+    empresaIdObjetivo: entrada.empresaId,
+    planIdBase: entrada.planIdBase,
+    planVersionBase: entrada.planVersionBase,
+    periodicidad: entrada.periodicidad,
+    precioAcordado: entrada.precioAcordado,
+    motivoCodigo: entrada.motivoCodigo,
+    referenciaAprobacion: entrada.referenciaAprobacion,
+  };
+  validarOfertaComercialEntrada({ ...registro, empresaId: terminos.empresaIdObjetivo });
+  const fingerprint = hash(registro);
   return db.runTransaction(async (tx) => {
-    const previoResultado = await previo(tx, db, entrada, entrada.empresaId, fingerprint);
+    const previoResultado = await previo(tx, db, registro, terminos.empresaIdObjetivo, fingerprint);
     if (previoResultado) return { ...previoResultado, idempotente: true };
-    const controlRef = ofertaComercialActivaRef(db, entrada.empresaId);
-    const ofertaRef = ofertaComercialRef(db, entrada.empresaId, entrada.ofertaId);
-    const planRef = db.collection("planes").doc(entrada.planIdBase).collection("versiones").doc(String(entrada.planVersionBase));
+    const controlRef = ofertaComercialActivaRef(db, terminos.empresaIdObjetivo);
+    const ofertaRef = ofertaComercialRef(db, terminos.empresaIdObjetivo, terminos.ofertaId);
+    const planRef = db.collection("planes").doc(terminos.planIdBase).collection("versiones").doc(String(terminos.planVersionBase));
     const [controlSnap, ofertaSnap, planSnap] = await Promise.all([
       tx.get(controlRef), tx.get(ofertaRef), tx.get(planRef),
     ]);
     if (ofertaSnap.exists) fail("already-exists", "OFERTA_COMERCIAL_EXISTS");
-    if (controlSnap.exists && controlSnap.data()?.revision !== entrada.expectedRevision) {
+    if (controlSnap.exists && controlSnap.data()?.revision !== registro.expectedRevision) {
       fail("failed-precondition", "OFERTA_COMERCIAL_CONTROL_CONFLICT");
     }
-    if (!controlSnap.exists && entrada.expectedRevision !== 1) {
+    if (!controlSnap.exists && registro.expectedRevision !== 1) {
       fail("failed-precondition", "OFERTA_COMERCIAL_CONTROL_CONFLICT");
     }
     if (!planSnap.exists) fail("not-found", "PLAN_NOT_FOUND");
-    validarPlanBaseParaOferta(planSnap.data() as PlanVersion, entrada.precioAcordado);
+    validarPlanBaseParaOferta(planSnap.data() as PlanVersion, terminos.precioAcordado);
 
     const controlRevisionAnterior = controlSnap.exists ? controlSnap.data()!.revision as number : 0;
     const controlRevision = controlRevisionAnterior + 1;
@@ -166,7 +180,7 @@ export async function crearOfertaComercialTenant(
       tx.update(controlRef, { revision: controlRevision, actualizadaEn: FieldValue.serverTimestamp() });
     } else {
       tx.create(controlRef, {
-        empresaId: entrada.empresaId,
+        empresaId: terminos.empresaIdObjetivo,
         ofertaActivaId: null,
         revision: controlRevision,
         creadaEn: FieldValue.serverTimestamp(),
@@ -175,64 +189,94 @@ export async function crearOfertaComercialTenant(
     }
     const oferta: OfertaComercialTenant = {
       schemaVersion: 1,
-      ofertaId: entrada.ofertaId,
-      empresaIdObjetivo: entrada.empresaId,
-      planIdBase: entrada.planIdBase,
-      planVersionBase: entrada.planVersionBase,
-      periodicidad: "ANUAL",
-      precioAcordado: { ...entrada.precioAcordado },
+      ofertaId: terminos.ofertaId,
+      empresaIdObjetivo: terminos.empresaIdObjetivo,
+      planIdBase: terminos.planIdBase,
+      planVersionBase: terminos.planVersionBase,
+      periodicidad: terminos.periodicidad,
+      precioAcordado: { ...terminos.precioAcordado },
       estado: "BORRADOR",
-      iniciaEn: entrada.iniciaEn,
-      expiraEn: entrada.expiraEn,
-      motivoCodigo: entrada.motivo,
-      referenciaAprobacion: entrada.referenciaAprobacion,
+      iniciaEn: registro.iniciaEn,
+      expiraEn: registro.expiraEn,
+      motivoCodigo: terminos.motivoCodigo,
+      referenciaAprobacion: terminos.referenciaAprobacion,
       revision: 1,
     };
     tx.create(ofertaRef, { ...oferta, creadaEn: FieldValue.serverTimestamp(), actualizadaEn: FieldValue.serverTimestamp() });
-    const resultado = { empresaId: entrada.empresaId, ofertaId: entrada.ofertaId, revision: 1, controlRevision };
-    registrar(tx, db, entrada, entrada.empresaId, fingerprint, resultado, "OfertaComercialTenantCreada", "OFERTA_COMERCIAL_TENANT", 0, 1, ctx);
+    const resultado = { empresaId: terminos.empresaIdObjetivo, ofertaId: terminos.ofertaId, revision: 1, controlRevision };
+    registrar(tx, db, registro, terminos.empresaIdObjetivo, fingerprint, resultado, "OfertaComercialTenantCreada", "OFERTA_COMERCIAL_TENANT", 0, 1, ctx);
     return { ...resultado, idempotente: false };
   });
 }
 
 export async function aprobarOfertaComercialTenant(
   db: Firestore,
-  entrada: Envelope & { empresaId: string; ofertaId: string },
+  entrada: Envelope & {
+    empresaId: string;
+    ofertaId: string;
+    planIdBase: string;
+    planVersionBase: number;
+    periodicidad: "ANUAL";
+    precioAcordado: { importe: number; moneda: "COP" };
+    expectedRevision: number;
+    motivoCodigo: string;
+    referenciaAprobacion: string;
+  },
   ctx: ContextoComercial,
 ) {
   validar(entrada);
-  if (!esIdComercial(entrada.empresaId) || !esIdComercial(entrada.ofertaId)) fail("invalid-argument", "OFERTA_COMERCIAL_INVALIDA");
-  const fingerprint = hash(entrada);
+  const registro = { ...entrada, motivo: entrada.motivoCodigo };
+  const terminos = {
+    ofertaId: entrada.ofertaId,
+    empresaIdObjetivo: entrada.empresaId,
+    planIdBase: entrada.planIdBase,
+    planVersionBase: entrada.planVersionBase,
+    periodicidad: entrada.periodicidad,
+    precioAcordado: entrada.precioAcordado,
+    motivoCodigo: entrada.motivoCodigo,
+    referenciaAprobacion: entrada.referenciaAprobacion,
+  };
+  const fingerprint = hash(registro);
   return db.runTransaction(async (tx) => {
-    const previoResultado = await previo(tx, db, entrada, entrada.empresaId, fingerprint);
+    const previoResultado = await previo(tx, db, registro, terminos.empresaIdObjetivo, fingerprint);
     if (previoResultado) return { ...previoResultado, idempotente: true };
-    const controlRef = ofertaComercialActivaRef(db, entrada.empresaId);
-    const ofertaRef = ofertaComercialRef(db, entrada.empresaId, entrada.ofertaId);
+    const controlRef = ofertaComercialActivaRef(db, terminos.empresaIdObjetivo);
+    const ofertaRef = ofertaComercialRef(db, terminos.empresaIdObjetivo, terminos.ofertaId);
     const [controlSnap, ofertaSnap] = await Promise.all([tx.get(controlRef), tx.get(ofertaRef)]);
     if (!controlSnap.exists || !ofertaSnap.exists) fail("not-found", "OFERTA_COMERCIAL_NOT_FOUND");
     const control = controlSnap.data() as { ofertaActivaId?: unknown; revision?: unknown };
     const oferta = ofertaSnap.data() as OfertaComercialTenant;
+    if (oferta.empresaIdObjetivo !== terminos.empresaIdObjetivo
+      || oferta.ofertaId !== terminos.ofertaId
+      || oferta.planIdBase !== terminos.planIdBase
+      || oferta.planVersionBase !== terminos.planVersionBase
+      || oferta.periodicidad !== terminos.periodicidad
+      || oferta.precioAcordado?.importe !== terminos.precioAcordado.importe
+      || oferta.precioAcordado?.moneda !== terminos.precioAcordado.moneda
+      || oferta.referenciaAprobacion !== terminos.referenciaAprobacion) {
+      fail("failed-precondition", "OFERTA_COMERCIAL_APROBACION_NO_COINCIDE");
+    }
     validarOfertaComercialEntrada({
       empresaId: oferta.empresaIdObjetivo, ofertaId: oferta.ofertaId, planIdBase: oferta.planIdBase,
       planVersionBase: oferta.planVersionBase, precioAcordado: oferta.precioAcordado,
       iniciaEn: oferta.iniciaEn, expiraEn: oferta.expiraEn, referenciaAprobacion: oferta.referenciaAprobacion,
     });
-    if (oferta.empresaIdObjetivo !== entrada.empresaId
+    if (oferta.empresaIdObjetivo !== terminos.empresaIdObjetivo
       || oferta.estado !== "BORRADOR"
-      || oferta.revision !== entrada.expectedRevision
+      || oferta.revision !== registro.expectedRevision
       || control.ofertaActivaId !== null
       || !Number.isInteger(control.revision)) {
       fail("failed-precondition", "OFERTA_COMERCIAL_TRANSITION_INVALIDA");
     }
-    const planRef = db.collection("planes").doc(oferta.planIdBase).collection("versiones").doc(String(oferta.planVersionBase));
+    const planRef = db.collection("planes").doc(terminos.planIdBase).collection("versiones").doc(String(terminos.planVersionBase));
     const planSnap = await tx.get(planRef);
     if (!planSnap.exists) fail("not-found", "PLAN_NOT_FOUND");
-    validarPlanBaseParaOferta(planSnap.data() as PlanVersion, oferta.precioAcordado);
+    validarPlanBaseParaOferta(planSnap.data() as PlanVersion, terminos.precioAcordado);
     const revision = oferta.revision + 1;
     tx.update(ofertaRef, { estado: "APROBADA", revision, aprobadaEn: FieldValue.serverTimestamp(), actualizadaEn: FieldValue.serverTimestamp() });
     tx.update(controlRef, { ofertaActivaId: oferta.ofertaId, revision: (control.revision as number) + 1, actualizadaEn: FieldValue.serverTimestamp() });
-    const resultado = { empresaId: entrada.empresaId, ofertaId: entrada.ofertaId, revision };
-    registrar(tx, db, entrada, entrada.empresaId, fingerprint, resultado, "OfertaComercialTenantAprobada", "OFERTA_COMERCIAL_TENANT", oferta.revision, revision, ctx);
+    const resultado = { empresaId: terminos.empresaIdObjetivo, ofertaId: terminos.ofertaId, revision };
+    registrar(tx, db, registro, terminos.empresaIdObjetivo, fingerprint, resultado, "OfertaComercialTenantAprobada", "OFERTA_COMERCIAL_TENANT", oferta.revision, revision, ctx);
     return { ...resultado, idempotente: false };
   });
 }

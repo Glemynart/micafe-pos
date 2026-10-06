@@ -1,6 +1,7 @@
 import { HttpsError } from "firebase-functions/v2/https";
 import type { Firestore } from "firebase-admin/firestore";
 import { esIdComercial, type EstadoOfertaComercialTenant, type OfertaComercialTenant } from "../../../lib/suscripciones/contrato";
+import { resolverTerminosOfertaTenantAprobada, type TerminosOfertaTenantAprobada } from "./approved-tenant-offers";
 import { ofertaComercialActivaRef, ofertaComercialRef, validarOfertaComercialEntrada } from "../suscripciones/ofertas-tenant";
 
 const ESTADOS_OFERTA: readonly EstadoOfertaComercialTenant[] = [
@@ -29,16 +30,16 @@ export type OfertaComercialTenantAdminView = Pick<
 
 export async function consultarOfertaComercialTenant(
   db: Firestore,
-  empresaId: string,
-  ofertaId: string,
+  codigoAprobacion: string,
 ): Promise<{
+  autorizacion: TerminosOfertaTenantAprobada;
   oferta: OfertaComercialTenantAdminView | null;
   controlRevision: number;
   ofertaActivaId: string | null;
 }> {
-  if (!esIdComercial(empresaId) || !esIdComercial(ofertaId)) {
-    throw new HttpsError("invalid-argument", "OFERTA_COMERCIAL_INVALIDA");
-  }
+  const autorizacion = resolverTerminosOfertaTenantAprobada(codigoAprobacion);
+  const empresaId = autorizacion.empresaIdObjetivo;
+  const ofertaId = autorizacion.ofertaId;
 
   const controlRef = ofertaComercialActivaRef(db, empresaId);
   const ofertaRef = ofertaComercialRef(db, empresaId, ofertaId);
@@ -64,14 +65,19 @@ export async function consultarOfertaComercialTenant(
     }
   }
 
-  if (!ofertaSnap.exists) return { oferta: null, controlRevision, ofertaActivaId };
+  if (!ofertaSnap.exists) return { autorizacion, oferta: null, controlRevision, ofertaActivaId };
 
   const data = ofertaSnap.data() as OfertaComercialTenant;
   if (data.schemaVersion !== 1
     || data.ofertaId !== ofertaId
     || data.empresaIdObjetivo !== empresaId
+    || data.planIdBase !== autorizacion.planIdBase
     || !Number.isInteger(data.planVersionBase)
+    || data.planVersionBase !== autorizacion.planVersionBase
     || data.periodicidad !== "ANUAL"
+    || data.precioAcordado?.importe !== autorizacion.precioAcordado.importe
+    || data.precioAcordado?.moneda !== autorizacion.precioAcordado.moneda
+    || data.referenciaAprobacion !== autorizacion.referenciaAprobacion
     || !ESTADOS_OFERTA.includes(data.estado)
     || !Number.isInteger(data.revision)
     || data.revision < 1) {
@@ -90,6 +96,7 @@ export async function consultarOfertaComercialTenant(
   });
 
   return {
+    autorizacion,
     oferta: {
       ofertaId: data.ofertaId,
       empresaIdObjetivo: data.empresaIdObjetivo,

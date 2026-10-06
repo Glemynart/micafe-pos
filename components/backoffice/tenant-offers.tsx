@@ -14,15 +14,7 @@ import { permiteGestionOfertasTenant } from "@/lib/platform/tenant-offer-guard";
 import { firebaseConfig } from "@/lib/firebase";
 import { ErrorState, EstadoBadge, LoadingState, PageIntro } from "./ui";
 
-const OFERTA_APROBADA = {
-  empresaId: "distribuidora-las-jimenez",
-  ofertaId: "oferta-distribuidora-jimenez-2026",
-  planIdBase: "mvp_comercial",
-  planVersionBase: 2,
-  precioAcordado: { importe: 1_600_000, moneda: "COP" },
-  motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
-  referenciaAprobacion: "G-SAAS-02-PO-OFFER-DISTRIBUIDORA-LAS-JIMENEZ-2026-10-06",
-} as const;
+const CODIGO_APROBACION = "GATE_I_OFFER_1";
 
 type AccionOferta = "crear" | "aprobar";
 
@@ -48,7 +40,7 @@ export function TenantOfferPage() {
     setCargando(true);
     setError(null);
     try {
-      setConsulta(await consultarOfertaComercialTenant(OFERTA_APROBADA.empresaId, OFERTA_APROBADA.ofertaId));
+      setConsulta(await consultarOfertaComercialTenant(CODIGO_APROBACION));
     } catch (cause) {
       setError(mensajeError(cause));
     } finally {
@@ -81,9 +73,9 @@ export function TenantOfferPage() {
     try {
       if (accion === "crear") {
         await comandoComercial("CrearOfertaComercialTenant", {
-          ...envelope(OFERTA_APROBADA.motivoCodigo),
+          ...envelope("OFERTA_COMERCIAL_TENANT_REGISTRAR"),
           expectedRevision: consulta.controlRevision,
-          ...OFERTA_APROBADA,
+          codigoAprobacion: CODIGO_APROBACION,
           iniciaEn,
           expiraEn: sinVencimiento ? null : expiraEn,
         });
@@ -92,10 +84,9 @@ export function TenantOfferPage() {
         const oferta = consulta.oferta;
         if (!oferta || oferta.estado !== "BORRADOR" || consulta.ofertaActivaId) return;
         await comandoComercial("AprobarOfertaComercialTenant", {
-          ...envelope(OFERTA_APROBADA.motivoCodigo),
+          ...envelope("OFERTA_COMERCIAL_TENANT_APROBAR"),
           expectedRevision: oferta.revision,
-          empresaId: OFERTA_APROBADA.empresaId,
-          ofertaId: OFERTA_APROBADA.ofertaId,
+          codigoAprobacion: CODIGO_APROBACION,
         });
         toast.success("Oferta aprobada en staging. Bootstrap no fue ejecutado.");
       }
@@ -109,6 +100,7 @@ export function TenantOfferPage() {
   }
 
   const oferta = consulta?.oferta;
+  const autorizacion = consulta?.autorizacion;
   const puedeCrear = habilitada && !cargando && !error && consulta !== null && oferta === null && consulta.ofertaActivaId === null;
   const puedeAprobar = habilitada && !cargando && !error && oferta?.estado === "BORRADOR" && consulta?.ofertaActivaId === null;
 
@@ -116,7 +108,7 @@ export function TenantOfferPage() {
     <PageIntro
       eyebrow="Condición comercial tenant-specific"
       title="Oferta de staging"
-      description="Workflow restringido a la oferta aprobada para Distribuidora Las Jiménez. La pantalla no cambia el plan público ni ejecuta Bootstrap."
+      description="Consulta y registra la oferta aprobada para Gate I. Los términos comerciales se resuelven en servidor; la pantalla no cambia el plan público ni ejecuta Bootstrap."
     />
 
     {!habilitada ? (
@@ -137,11 +129,11 @@ export function TenantOfferPage() {
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(19rem,0.75fr)]">
             <Card>
               <CardContent className="space-y-6 p-6">
-                <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">Oferta autorizada</p><h3 className="mt-2 text-xl font-semibold">Distribuidora Las Jiménez</h3><p className="mt-1 font-mono text-sm text-slate-500">{OFERTA_APROBADA.empresaId}</p></div>
+                <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">Oferta autorizada</p><h3 className="mt-2 text-xl font-semibold">{autorizacion?.nombreEmpresaObjetivo ?? "Oferta Gate I"}</h3><p className="mt-1 font-mono text-sm text-slate-500">{autorizacion?.empresaIdObjetivo}</p></div>
                 <dl className="grid gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
-                  <div><dt className="text-xs uppercase tracking-wide text-slate-500">Plan base</dt><dd className="mt-1 font-medium">MVP Comercial · v2</dd></div>
+                  <div><dt className="text-xs uppercase tracking-wide text-slate-500">Plan base</dt><dd className="mt-1 font-medium">{autorizacion?.planIdBase} · v{autorizacion?.planVersionBase}</dd></div>
                   <div><dt className="text-xs uppercase tracking-wide text-slate-500">Periodicidad</dt><dd className="mt-1 font-medium">Anual</dd></div>
-                  <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-slate-500">Precio acordado</dt><dd className="mt-1 flex items-center gap-2 text-lg font-semibold"><CircleDollarSign className="size-5 text-cyan-700" />{precioCop(OFERTA_APROBADA.precioAcordado.importe)} COP</dd></div>
+                  <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-slate-500">Precio acordado</dt><dd className="mt-1 flex items-center gap-2 text-lg font-semibold"><CircleDollarSign className="size-5 text-cyan-700" />{autorizacion ? precioCop(autorizacion.precioAcordado.importe) : "—"} {autorizacion?.precioAcordado.moneda}</dd></div>
                 </dl>
 
                 {oferta ? (
@@ -159,7 +151,7 @@ export function TenantOfferPage() {
                   </div>
                 ) : (
                   <form className="space-y-4" onSubmit={solicitarCreacion}>
-                    <div><h4 className="font-semibold">Crear borrador</h4><p className="mt-1 text-sm leading-relaxed text-slate-500">El monto, el plan, la empresa y la referencia vienen fijados por la aprobación registrada; solo define la vigencia.</p><p className="mt-1 font-mono text-xs text-slate-500">{OFERTA_APROBADA.referenciaAprobacion}</p></div>
+                    <div><h4 className="font-semibold">Crear borrador</h4><p className="mt-1 text-sm leading-relaxed text-slate-500">El monto, el plan, la empresa y la referencia se resuelven en servidor desde la aprobación registrada; solo define la vigencia.</p><p className="mt-1 font-mono text-xs text-slate-500">{autorizacion?.referenciaAprobacion}</p></div>
                     {consulta?.ofertaActivaId ? (
                       <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">La empresa ya tiene activa otra oferta ({consulta.ofertaActivaId}). No se creará otro borrador; primero debe resolverse esa oferta por el flujo canónico.</p>
                     ) : (
@@ -187,7 +179,7 @@ export function TenantOfferPage() {
                 <ul className="space-y-3 text-sm leading-relaxed text-slate-600">
                   <li>La lectura puntual y cada cambio pasan por Functions y revalidan <code>COMERCIAL_GOBERNAR</code>.</li>
                   <li>Crear genera solo un borrador; aprobar es una acción separada y auditada.</li>
-                  <li>La referencia documenta aprobación interna de los términos; no afirma aceptación del cliente ni autoriza Bootstrap.</li>
+                  <li>La aprobación documenta los términos internos; no afirma aceptación del cliente ni autoriza Bootstrap.</li>
                   <li>El precio público del plan permanece en {precioCop(1_800_000)} COP.</li>
                   <li>Aprobar habilita su consumo por Bootstrap, pero esta página no crea Empresa, suscripción, usuarios ni catálogo.</li>
                   <li>La UI no contiene escrituras directas a Firestore ni funciona fuera del proyecto de staging.</li>
@@ -205,8 +197,8 @@ export function TenantOfferPage() {
           <AlertDialogTitle>{accionPendiente === "crear" ? "Crear el borrador de oferta" : "Aprobar la oferta"}</AlertDialogTitle>
           <AlertDialogDescription>
             {accionPendiente === "crear"
-              ? <>Se registrará en <strong>micafe-pos-staging</strong> una oferta anual de <strong>{precioCop(OFERTA_APROBADA.precioAcordado.importe)} COP</strong> para <strong>{OFERTA_APROBADA.empresaId}</strong>, plan mvp_comercial v2. Esta acción no crea el tenant ni ejecuta Bootstrap.</>
-              : <>La oferta de <strong>{precioCop(OFERTA_APROBADA.precioAcordado.importe)} COP</strong> quedará activa para su eventual consumo atómico por Bootstrap. No se creará el tenant ni se iniciará el Trial.</>}
+              ? <>Se registrará en <strong>micafe-pos-staging</strong> la oferta resuelta por servidor para <strong>{autorizacion?.nombreEmpresaObjetivo}</strong>, a partir de la aprobación vigente. Esta acción no crea el tenant ni ejecuta Bootstrap.</>
+              : <>La oferta aprobada por <strong>{autorizacion ? `${precioCop(autorizacion.precioAcordado.importe)} ${autorizacion.precioAcordado.moneda}` : "el precio autorizado"}</strong> quedará activa para su eventual consumo atómico por Bootstrap. No se creará el tenant ni se iniciará el Trial.</>}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

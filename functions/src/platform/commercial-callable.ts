@@ -1,5 +1,6 @@
 import { getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { exigirRuntimeOfertaTenantStaging } from "./approved-tenant-offers";
 import { autorizarPlataforma, type TokenPlataforma } from "./authorization";
 import { facultadTransicionEmpresa, obtenerComandoComercial } from "./command-catalog";
 import { ejecutarComandoComercial } from "./commercial-command-executor";
@@ -23,6 +24,9 @@ export const ejecutarComandoComercialSaas = onCall({ region: REGION }, async (re
   if (!data || !data.entrada || typeof data.entrada !== "object" || Array.isArray(data.entrada)) {
     throw new HttpsError("invalid-argument", "ENTRADA_COMANDO_INVALIDA");
   }
+  if (["CrearOfertaComercialTenant", "AprobarOfertaComercialTenant", "RevocarOfertaComercialTenant"].includes(comando.tipo)) {
+    exigirRuntimeOfertaTenantStaging();
+  }
   const db = getFirestore();
   const entrada = data.entrada as { destino?: unknown; empresaId?: unknown };
   const facultad = comando.tipo === "TransicionarEmpresa"
@@ -35,11 +39,12 @@ export const ejecutarComandoComercialSaas = onCall({ region: REGION }, async (re
 /** ADR-SAAS-061: lectura puntual de una oferta, protegida por la facultad comercial. */
 export const consultarOfertaComercialTenantSaas = onCall({ region: REGION }, async (request) => {
   const auth = exigirAuth(request);
-  const data = request.data as { empresaId?: unknown; ofertaId?: unknown };
+  const data = request.data as { codigoAprobacion?: unknown };
   const db = getFirestore();
   await autorizarPlataforma(db, auth.uid, auth.token as TokenPlataforma, "COMERCIAL_GOBERNAR");
-  if (typeof data?.empresaId !== "string" || typeof data?.ofertaId !== "string") {
+  exigirRuntimeOfertaTenantStaging();
+  if (typeof data?.codigoAprobacion !== "string") {
     throw new HttpsError("invalid-argument", "OFERTA_COMERCIAL_INVALIDA");
   }
-  return consultarOfertaComercialTenant(db, data.empresaId, data.ofertaId);
+  return consultarOfertaComercialTenant(db, data.codigoAprobacion);
 });
