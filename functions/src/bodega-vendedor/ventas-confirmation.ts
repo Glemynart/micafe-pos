@@ -2,6 +2,7 @@ import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { exigirTenantActivo } from "../tenant-configuration/authority";
 import {
+  crearHuellaSemantica,
   executeConContexto,
   resolverCuentaOperativa,
   resolverTurnoRecaudoPropioEnTransaccion,
@@ -11,6 +12,7 @@ import {
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 import { SCHEMA_VERSION_VENTA_BODEGA, normalizarComandoConfirmacionVentaBodega, type ComandoConfirmacionVentaBodega, type LineaVentaBodegaPersistida } from "./ventas-contract";
 import { aplicarConsumosInventarioBodegaEnTransaccion, resolverVentaBodegaEnTransaccion } from "./ventas-resolution";
+import { esCambioComercialNoVigente, proyectarComercialSolicitud } from "./solicitudes-venta";
 
 const REGION = "us-central1";
 const fail = (code: HttpsError["code"], domain: string): never => {
@@ -39,7 +41,53 @@ function lineasPersistidas(lineas: Awaited<ReturnType<typeof resolverVentaBodega
 export async function ejecutarConfirmarVentaBodegaV1(db: any, contexto: ContextoFinancieroOperativo, raw: unknown) {
   const comando = normalizarComandoConfirmacionVentaBodega(raw);
   return executeConContexto(db, contexto, comando, "confirmarVentaBodegaV1", async (tx, firestore, empresaId, actorUid, rol) => {
-    const resolucion = await resolverVentaBodegaEnTransaccion(tx, firestore, contexto, comando);
+    const solicitudId = comando.payload.solicitudId;
+    if (rol === "vendedor" && !solicitudId) fail("failed-precondition", "SOLICITUD_APROBACION_REQUERIDA");
+    if (rol === "admin" && solicitudId) fail("invalid-argument", "ADMIN_NO_CONSUME_SOLICITUD");
+    if (rol !== "vendedor" && rol !== "admin") fail("permission-denied", "ROL_VENTA_BODEGA_REQUERIDO");
+
+    let solicitudRef: any = null;
+    let solicitud: Record<string, any> | null = null;
+    if (solicitudId) {
+      solicitudRef = firestore.collection("empresas").doc(empresaId).collection("solicitudes_venta_bodega").doc(solicitudId);
+      const solicitudSnap = await tx.get(solicitudRef);
+      if (!solicitudSnap.exists || solicitudSnap.data()?.empresaId !== empresaId || solicitudSnap.data()?.solicitanteUid !== actorUid) {
+        fail("not-found", "SOLICITUD_NO_ENCONTRADA");
+      }
+      solicitud = solicitudSnap.data() as Record<string, any>;
+      const approval = solicitud.aprobacion as Record<string, any> | undefined;
+      const expiryMillis = typeof approval?.expiraEn?.toMillis === "function" ? approval.expiraEn.toMillis() : null;
+      if (solicitud.estado !== "APROBADA" || !approval || approval.revision !== solicitud.revision
+        || approval.huellaComercial !== solicitud.huellaComercial || approval.totalCOP !== solicitud.totalCOP) {
+        fail("failed-precondition", "SOLICITUD_NO_APROBADA");
+      }
+      if (expiryMillis === null || expiryMillis <= Date.now()) fail("failed-precondition", "SOLICITUD_APROBACION_EXPIRADA");
+      const submittedIntent = crearHuellaSemantica({ clienteId: comando.payload.clienteId, lineas: comando.payload.lineas });
+      const approvedIntent = crearHuellaSemantica({ clienteId: solicitud.clienteId, lineas: solicitud.intentoLineas });
+      if (submittedIntent !== approvedIntent) fail("failed-precondition", "SOLICITUD_CONTENIDO_NO_COINCIDE");
+    }
+
+    let resolucion: Awaited<ReturnType<typeof resolverVentaBodegaEnTransaccion>>;
+    try { resolucion = await resolverVentaBodegaEnTransaccion(tx, firestore, contexto, comando); }
+    catch (error) {
+      if (!solicitud || !esCambioComercialNoVigente(error)) throw error;
+      tx.update(solicitudRef, { estado: "INVALIDADA", motivoInvalidacion: "CATALOGO_CAMBIADO", actualizadaEn: FieldValue.serverTimestamp() });
+      return {
+        commandId: comando.commandId, solicitudId, estado: "INVALIDADA", estadoOperativo: "SOLICITUD_INVALIDADA",
+        motivo: "CATALOGO_CAMBIADO",
+      };
+    }
+    if (solicitud) {
+      const comercialVigente = proyectarComercialSolicitud(resolucion);
+      const approval = solicitud.aprobacion as Record<string, any>;
+      if (comercialVigente.huellaComercial !== approval.huellaComercial) {
+        tx.update(solicitudRef, { estado: "INVALIDADA", motivoInvalidacion: "CATALOGO_CAMBIADO", actualizadaEn: FieldValue.serverTimestamp() });
+        return {
+          commandId: comando.commandId, solicitudId, estado: "INVALIDADA", estadoOperativo: "SOLICITUD_INVALIDADA",
+          motivo: "CATALOGO_CAMBIADO",
+        };
+      }
+    }
     const total = sumaSegura(resolucion.lineas.map(linea => linea.subtotalCOP));
     const esEfectivo = comando.payload.metodoPago === "efectivo";
     const cuenta = await resolverCuentaOperativa(tx, firestore, empresaId, esEfectivo ? "caja-principal" : "bancolombia");
@@ -80,9 +128,14 @@ export async function ejecutarConfirmarVentaBodegaV1(db: any, contexto: Contexto
       correlationId: comando.correlationId, causationId: comando.causationId,
       fecha: FieldValue.serverTimestamp(), efectosOperativosEn: FieldValue.serverTimestamp(),
     });
+    if (solicitudRef) tx.update(solicitudRef, {
+      estado: "EJECUTADA", ejecucion: { actorUid, revision: solicitud?.revision, ventaId, commandId: comando.commandId },
+      actualizadaEn: FieldValue.serverTimestamp(),
+    });
     return {
       commandId: comando.commandId, ventaId, estadoOperativo: "COMPLETO" as const,
       metodoPago: comando.payload.metodoPago, total,
+      ...(solicitudId ? { solicitudId } : {}),
       movimientoFinancieroId: ingreso.id,
       movimientosInventario: movimientosInventario.map(movimiento => movimiento.id),
       turnoId,

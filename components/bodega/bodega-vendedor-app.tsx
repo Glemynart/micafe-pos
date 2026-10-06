@@ -1,14 +1,15 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { CheckCircle2, CircleDollarSign, LogOut, Package, Plus, RefreshCw, Search, ShoppingCart, Store, UserPlus, Users } from "lucide-react"
+import { CheckCircle2, CircleDollarSign, ClipboardList, LogOut, Package, Plus, RefreshCw, Search, ShoppingCart, Store, UserPlus, Users } from "lucide-react"
 import type { Usuario } from "@/lib/auth-service"
 import { abrirTurno, suscribirTurnoActivo, type Turno } from "@/lib/turnos-service"
 import { cn } from "@/lib/utils"
-import { construirConfirmacionVentaBodega, crearProtectorDobleEnvio, mensajeErrorBodega, type ClienteVendedorDTO, type ConfirmacionVentaBodega, type MetodoPagoBodega, type PresentacionVendedorDTO, type ResultadoVentaBodega, type VentaVendedorDTO } from "@/lib/bodega/ui-contract"
+import { construirConfirmacionVentaBodega, construirSolicitudVentaBodega, crearProtectorDobleEnvio, mensajeErrorBodega, type ClienteVendedorDTO, type ComandoSolicitudVentaBodega, type ConfirmacionVentaBodega, type EstadoSolicitudVentaBodega, type MetodoPagoBodega, type PresentacionVendedorDTO, type ResultadoVentaBodega, type SolicitudVentaBodegaDTO, type VentaVendedorDTO } from "@/lib/bodega/ui-contract"
 import { confirmarVentaBodega, consultarCatalogoBodega, consultarClientesVendedor, consultarMisVentasBodega, crearClienteVendedor } from "@/lib/bodega/vendedor-service"
+import { cancelarSolicitudVentaBodega, consultarSolicitudesVentaBodega, crearSolicitudVentaBodega } from "@/lib/bodega/solicitudes-service"
 
-type Tab = "venta" | "clientes" | "historial"
+type Tab = "venta" | "solicitudes" | "clientes" | "historial"
 type LineaVisual = PresentacionVendedorDTO & { cantidad: number }
 const money = (value: number | null) => value === null ? "—" : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(value)
 
@@ -17,9 +18,10 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   const [clientes, setClientes] = useState<ClienteVendedorDTO[]>([])
   const [catalogo, setCatalogo] = useState<PresentacionVendedorDTO[]>([])
   const [ventas, setVentas] = useState<VentaVendedorDTO[]>([])
+  const [solicitudes, setSolicitudes] = useState<SolicitudVentaBodegaDTO[]>([])
   const [clienteId, setClienteId] = useState("")
   const [carrito, setCarrito] = useState<LineaVisual[]>([])
-  const [metodoPago, setMetodoPago] = useState<MetodoPagoBodega>("efectivo")
+  const [metodosPago, setMetodosPago] = useState<Record<string, MetodoPagoBodega>>({})
   const [turno, setTurno] = useState<Turno | null>(null)
   const [cargando, setCargando] = useState(true)
   const [enviando, setEnviando] = useState(false)
@@ -28,21 +30,22 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   const [busqueda, setBusqueda] = useState("")
   const [mostrarCliente, setMostrarCliente] = useState(false)
   const [baseApertura, setBaseApertura] = useState(0)
-  const comandoPendiente = useRef<ConfirmacionVentaBodega | null>(null)
+  const comandoSolicitudPendiente = useRef<ComandoSolicitudVentaBodega | null>(null)
+  const comandosVentaPendientes = useRef(new Map<string, ConfirmacionVentaBodega>())
   const guardiaEnvio = useRef(crearProtectorDobleEnvio())
 
   const cargar = useCallback(async () => {
     setCargando(true); setError("")
     try {
-      const [clientesPermitidos, presentaciones, ventasPropias] = await Promise.all([consultarClientesVendedor(), consultarCatalogoBodega(), consultarMisVentasBodega()])
-      setClientes(clientesPermitidos); setCatalogo(presentaciones); setVentas(ventasPropias)
+      const [clientesPermitidos, presentaciones, ventasPropias, solicitudesPropias] = await Promise.all([consultarClientesVendedor(), consultarCatalogoBodega(), consultarMisVentasBodega(), consultarSolicitudesVentaBodega()])
+      setClientes(clientesPermitidos); setCatalogo(presentaciones); setVentas(ventasPropias); setSolicitudes(solicitudesPropias)
       setClienteId(actual => actual || clientesPermitidos[0]?.id || "")
     } catch (e) { setError(mensajeErrorBodega(e)) } finally { setCargando(false) }
   }, [])
 
   useEffect(() => { void cargar() }, [cargar])
   useEffect(() => suscribirTurnoActivo(usuario.uid, setTurno), [usuario.uid])
-  useEffect(() => { comandoPendiente.current = null }, [clienteId, carrito, metodoPago])
+  useEffect(() => { comandoSolicitudPendiente.current = null }, [clienteId, carrito])
 
   const filtrado = useMemo(() => {
     const q = busqueda.trim().toLocaleLowerCase("es")
@@ -56,18 +59,50 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   })
   const cantidad = (id: string, value: number) => setCarrito(actual => value <= 0 ? actual.filter(linea => linea.presentacionId !== id) : actual.map(linea => linea.presentacionId === id ? { ...linea, cantidad: value } : linea))
 
-  const confirmar = async () => {
+  const enviarSolicitud = async () => {
     if (guardiaEnvio.current.activo) return
     if (!clienteId || carrito.length === 0) { setError("Selecciona un cliente y agrega al menos una presentación."); return }
-    if (metodoPago === "efectivo" && !turno) { setError("Abre tu turno antes de cobrar en efectivo."); return }
     setEnviando(true); setError("")
     await guardiaEnvio.current.ejecutar(async () => { try {
-      const envelope = comandoPendiente.current ?? construirConfirmacionVentaBodega({ clienteId, metodoPago, lineas: carrito.map(({ productoId, presentacionId, cantidad }) => ({ productoId, presentacionId, cantidad })) })
-      comandoPendiente.current = envelope
-      const final = await confirmarVentaBodega(envelope)
-      setResultado(final); setCarrito([]); comandoPendiente.current = null
-      setVentas(await consultarMisVentasBodega())
+      const envelope = comandoSolicitudPendiente.current ?? construirSolicitudVentaBodega({ clienteId, lineas: carrito.map(({ productoId, presentacionId, cantidad }) => ({ productoId, presentacionId, cantidad })) })
+      comandoSolicitudPendiente.current = envelope
+      await crearSolicitudVentaBodega(envelope)
+      setCarrito([]); comandoSolicitudPendiente.current = null
+      setSolicitudes(await consultarSolicitudesVentaBodega()); setTab("solicitudes")
     } catch (e) { setError(mensajeErrorBodega(e)) } finally { setEnviando(false) } })
+  }
+
+  const confirmarSolicitud = async (solicitud: SolicitudVentaBodegaDTO) => {
+    if (guardiaEnvio.current.activo) return
+    const metodoPago = metodosPago[solicitud.solicitudId] ?? "transferencia"
+    if (metodoPago === "efectivo" && !turno) { setError("Abre tu turno antes de cobrar en efectivo."); return }
+    const key = `${solicitud.solicitudId}:${metodoPago}`
+    setEnviando(true); setError("")
+    await guardiaEnvio.current.ejecutar(async () => { try {
+      const envelope = comandosVentaPendientes.current.get(key) ?? construirConfirmacionVentaBodega({
+        clienteId: solicitud.clienteId, solicitudId: solicitud.solicitudId, metodoPago,
+        lineas: solicitud.lineas.map(({ productoId, presentacionId, cantidad }) => ({ productoId, presentacionId, cantidad })),
+      })
+      comandosVentaPendientes.current.set(key, envelope)
+      const result = await confirmarVentaBodega(envelope)
+      if (!("ventaId" in result)) {
+        comandosVentaPendientes.current.delete(key)
+        setError("El catálogo cambió desde la aprobación. Envía una solicitud nueva para obtener el precio vigente.")
+      } else {
+        setResultado(result); comandosVentaPendientes.current.delete(key)
+      }
+      setSolicitudes(await consultarSolicitudesVentaBodega()); setVentas(await consultarMisVentasBodega())
+    } catch (cause) { setError(mensajeErrorBodega(cause)) } finally { setEnviando(false) } })
+  }
+
+  const cancelarSolicitud = async (solicitud: SolicitudVentaBodegaDTO) => {
+    if (enviando) return
+    setEnviando(true); setError("")
+    try {
+      await cancelarSolicitudVentaBodega({ solicitudId: solicitud.solicitudId, revision: solicitud.revision })
+      setSolicitudes(await consultarSolicitudesVentaBodega())
+    } catch (cause) { setError(mensajeErrorBodega(cause)) }
+    finally { setEnviando(false) }
   }
 
   return (
@@ -81,11 +116,11 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
 
       <main className="mx-auto max-w-6xl px-4 pb-24 pt-5">
         {error && <div role="alert" className="mb-4 rounded-xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">{error}</div>}
-        {resultado && <div className="mb-5 flex items-start gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4"><CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-300" /><div><p className="font-semibold">Venta confirmada</p><p className="text-sm text-emerald-100/80">Referencia {resultado.ventaId} · {money(resultado.total)} · {resultado.metodoPago}</p></div><button className="ml-auto text-xs text-emerald-200" onClick={() => setResultado(null)}>Cerrar</button></div>}
+        {resultado && "ventaId" in resultado && <div className="mb-5 flex items-start gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4"><CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-300" /><div><p className="font-semibold">Venta confirmada</p><p className="text-sm text-emerald-100/80">Referencia {resultado.ventaId} · {money(resultado.total)} · {resultado.metodoPago}</p></div><button className="ml-auto text-xs text-emerald-200" onClick={() => setResultado(null)}>Cerrar</button></div>}
         {cargando ? <div className="grid min-h-[50vh] place-items-center"><RefreshCw className="h-7 w-7 animate-spin text-amber-300" /></div> : tab === "venta" ? (
           <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
             <section>
-              <div className="mb-4"><p className="text-xs font-bold uppercase tracking-[.22em] text-amber-300">Venta directa</p><h1 className="mt-1 text-2xl font-bold">Selecciona una presentación</h1><p className="mt-1 text-sm text-slate-400">Los precios, factores y existencias finales se validan en el servidor.</p></div>
+              <div className="mb-4"><p className="text-xs font-bold uppercase tracking-[.22em] text-amber-300">Solicitud de venta</p><h1 className="mt-1 text-2xl font-bold">Prepara una solicitud</h1><p className="mt-1 text-sm text-slate-400">El servidor resuelve cliente, presentaciones, precios y total. La venta queda pendiente hasta que administración la apruebe.</p></div>
               <label className="mb-4 flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3"><Search className="h-4 w-4 text-slate-500" /><input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar producto o presentación" className="h-11 w-full bg-transparent text-sm outline-none" /></label>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{filtrado.map(item => <button key={item.presentacionId} onClick={() => agregar(item)} className="rounded-2xl border border-white/10 bg-slate-900 p-4 text-left transition hover:border-amber-300/50 hover:bg-slate-800"><div className="mb-3 flex items-start justify-between gap-3"><Package className="h-5 w-5 text-amber-300" /><span className="text-lg font-bold text-amber-200">{money(item.precioCOP)}</span></div><p className="font-semibold">{item.productoNombre}</p><p className="mt-1 text-sm text-slate-400">{item.presentacionNombre} · {item.factorUnidadBase} {item.unidadBase ?? "unidades"}</p><p className="mt-3 text-xs text-slate-500">Disponibles: {item.maximoPresentacionesVendibles ?? "por validar"}</p></button>)}</div>
               {filtrado.length === 0 && <div className="rounded-2xl border border-dashed border-white/15 p-10 text-center text-slate-400">No hay presentaciones activas para mostrar.</div>}
@@ -94,19 +129,52 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
               <div className="mb-4 flex items-center justify-between"><h2 className="flex items-center gap-2 font-bold"><ShoppingCart className="h-5 w-5 text-amber-300" /> Resumen</h2><span className="text-xs text-slate-400">{carrito.length}/50 líneas</span></div>
               <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Cliente</label><div className="mt-2 flex gap-2"><select value={clienteId} onChange={e => setClienteId(e.target.value)} className="h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950 px-3 text-sm"><option value="">Seleccionar cliente</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nombre} · {c.cedula}</option>)}</select><button aria-label="Crear cliente" onClick={() => setMostrarCliente(true)} className="rounded-xl bg-white/10 px-3 hover:bg-white/15"><UserPlus className="h-4 w-4" /></button></div>
               <div className="my-4 space-y-3">{carrito.map(linea => <div key={linea.presentacionId} className="rounded-xl bg-white/5 p-3"><div className="flex justify-between gap-3"><div><p className="text-sm font-semibold">{linea.productoNombre}</p><p className="text-xs text-slate-400">{linea.presentacionNombre}</p></div><p className="text-sm font-semibold">{money(linea.precioCOP * linea.cantidad)}</p></div><div className="mt-2 flex items-center gap-2"><button onClick={() => cantidad(linea.presentacionId, linea.cantidad - 1)} className="h-8 w-8 rounded-lg bg-white/10">−</button><input aria-label={`Cantidad de ${linea.presentacionNombre}`} type="number" min={1} value={linea.cantidad} onChange={e => cantidad(linea.presentacionId, Number(e.target.value))} className="h-8 w-16 rounded-lg bg-slate-950 text-center" /><button onClick={() => cantidad(linea.presentacionId, linea.cantidad + 1)} className="h-8 w-8 rounded-lg bg-white/10">+</button></div></div>)}</div>
-              <div className="border-t border-white/10 pt-4"><div className="flex justify-between text-sm text-slate-400"><span>Total visual estimado</span><strong className="text-lg text-white">{money(estimado)}</strong></div><p className="mt-1 text-[11px] text-slate-500">El total canónico se resuelve al confirmar.</p></div>
-              <div className="mt-4 grid grid-cols-2 gap-2">{(["efectivo", "transferencia"] as const).map(metodo => <button key={metodo} onClick={() => setMetodoPago(metodo)} className={cn("rounded-xl border px-3 py-3 text-sm font-semibold capitalize", metodoPago === metodo ? "border-amber-300 bg-amber-300 text-slate-950" : "border-white/10 bg-white/5")}>{metodo}</button>)}</div>
-              {metodoPago === "efectivo" && !turno && <div className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/5 p-3"><label className="text-xs font-semibold text-amber-100">Base real de apertura<input aria-label="Base de apertura" type="number" min={0} value={baseApertura} onChange={e => setBaseApertura(Number(e.target.value))} className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-slate-950 px-3 text-white" /></label><button onClick={async () => { try { await abrirTurno({ baseApertura, notasApertura: "Turno vendedor Bodega" }) } catch (e) { setError(mensajeErrorBodega(e)) } }} className="mt-2 w-full rounded-lg border border-amber-300/40 px-4 py-2 text-sm font-semibold text-amber-200">Abrir turno para efectivo</button></div>}
-              <button disabled={enviando || carrito.length === 0 || !clienteId || (metodoPago === "efectivo" && !turno)} onClick={() => void confirmar()} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-400 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"><CircleDollarSign className="h-5 w-5" />{enviando ? "Confirmando…" : "Confirmar venta"}</button>
+              <div className="border-t border-white/10 pt-4"><div className="flex justify-between text-sm text-slate-400"><span>Total visual estimado</span><strong className="text-lg text-white">{money(estimado)}</strong></div><p className="mt-1 text-[11px] text-slate-500">El total autoritativo llegará con la respuesta del servidor; no se persiste como dato del vendedor.</p></div>
+              <button disabled={enviando || carrito.length === 0 || !clienteId} onClick={() => void enviarSolicitud()} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-300 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"><ClipboardList className="h-5 w-5" />{enviando ? "Enviando…" : "Enviar solicitud"}</button>
             </aside>
           </div>
-        ) : tab === "clientes" ? <ClientesView clientes={clientes} onCrear={() => setMostrarCliente(true)} /> : <HistorialView ventas={ventas} />}
+        ) : tab === "solicitudes" ? <SolicitudesView solicitudes={solicitudes} metodosPago={metodosPago} setMetodoPago={(id, method) => setMetodosPago(current => ({ ...current, [id]: method }))} enviando={enviando} turnoAbierto={!!turno} baseApertura={baseApertura} setBaseApertura={setBaseApertura} onAbrirTurno={() => void abrirTurno({ baseApertura, notasApertura: "Turno vendedor Bodega" }).catch(cause => setError(mensajeErrorBodega(cause)))} onConfirmar={solicitud => void confirmarSolicitud(solicitud)} onCancelar={solicitud => void cancelarSolicitud(solicitud)} onCrearOtra={() => setTab("venta")} /> : tab === "clientes" ? <ClientesView clientes={clientes} onCrear={() => setMostrarCliente(true)} /> : <HistorialView ventas={ventas} />}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-slate-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"><div className="mx-auto flex h-16 max-w-lg">{([{ id: "venta", label: "Vender", icon: ShoppingCart }, { id: "clientes", label: "Clientes", icon: Users }, { id: "historial", label: "Mis ventas", icon: CircleDollarSign }] as const).map(item => <button key={item.id} onClick={() => setTab(item.id)} className={cn("flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold", tab === item.id ? "text-amber-300" : "text-slate-500")}><item.icon className="h-5 w-5" />{item.label}</button>)}</div></nav>
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-slate-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"><div className="mx-auto flex h-16 max-w-lg">{([{ id: "venta", label: "Nueva", icon: ShoppingCart }, { id: "solicitudes", label: "Solicitudes", icon: ClipboardList }, { id: "clientes", label: "Clientes", icon: Users }, { id: "historial", label: "Mis ventas", icon: CircleDollarSign }] as const).map(item => <button key={item.id} onClick={() => setTab(item.id)} className={cn("flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold", tab === item.id ? "text-amber-300" : "text-slate-500")}><item.icon className="h-5 w-5" />{item.label}</button>)}</div></nav>
       {mostrarCliente && <CrearClienteModal onCerrar={() => setMostrarCliente(false)} onCreado={cliente => { setClientes(actual => [...actual, cliente].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))); setClienteId(cliente.id); setMostrarCliente(false) }} />}
     </div>
   )
+}
+
+function SolicitudesView({ solicitudes, metodosPago, setMetodoPago, enviando, turnoAbierto, baseApertura, setBaseApertura, onAbrirTurno, onConfirmar, onCancelar, onCrearOtra }: {
+  solicitudes: SolicitudVentaBodegaDTO[]
+  metodosPago: Record<string, MetodoPagoBodega>
+  setMetodoPago(id: string, method: MetodoPagoBodega): void
+  enviando: boolean
+  turnoAbierto: boolean
+  baseApertura: number
+  setBaseApertura(value: number): void
+  onAbrirTurno(): void
+  onConfirmar(solicitud: SolicitudVentaBodegaDTO): void
+  onCancelar(solicitud: SolicitudVentaBodegaDTO): void
+  onCrearOtra(): void
+}) {
+  return <section>
+    <div className="mb-4 flex items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.22em] text-amber-300">Aprobación previa</p><h1 className="mt-1 text-2xl font-bold">Mis solicitudes</h1><p className="mt-1 text-sm text-slate-400">La venta solo se registra después de aprobación, al confirmar el pago.</p></div><button onClick={onCrearOtra} className="rounded-xl bg-amber-300 px-3 py-2 text-xs font-bold text-slate-950">Nueva</button></div>
+    <div className="space-y-3">{solicitudes.map(solicitud => {
+      const metodo = metodosPago[solicitud.solicitudId] ?? "transferencia"
+      const cancelable = solicitud.estado === "PENDIENTE_APROBACION" || solicitud.estado === "APROBADA"
+      return <article key={solicitud.solicitudId} className="rounded-2xl border border-white/10 bg-slate-900 p-4">
+        <div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{solicitud.cliente?.nombre || "Cliente no disponible"}</p><p className="mt-1 text-xs text-slate-500">{solicitud.solicitudId}</p></div><span className={cn("rounded-full px-2 py-1 text-xs font-bold", solicitud.estado === "APROBADA" ? "bg-emerald-400/15 text-emerald-300" : solicitud.estado === "PENDIENTE_APROBACION" ? "bg-amber-300/15 text-amber-200" : "bg-white/10 text-slate-300")}>{solicitud.estado.replaceAll("_", " ")}</span></div>
+        <div className="my-3 space-y-2">{solicitud.lineas.map((linea, index) => <div key={`${linea.presentacionId}-${index}`} className="flex justify-between gap-3 text-sm"><span>{linea.cantidad} × {linea.presentacionNombre} ({linea.factorUnidadBase} {linea.unidadBase})</span><span>{money(linea.subtotalCOP)}</span></div>)}</div>
+        <div className="flex justify-between border-t border-white/10 pt-3"><span className="text-sm text-slate-400">Total resuelto por servidor</span><strong>{money(solicitud.totalCOP)}</strong></div>
+        {solicitud.estado === "PENDIENTE_APROBACION" && <p className="mt-3 text-xs text-amber-200">Esperando revisión de administración. Aún no se creó una venta ni se descontó inventario.</p>}
+        {solicitud.estado === "APROBADA" && <div className="mt-3 space-y-3"><p className="text-xs text-emerald-200">Aprobada por {solicitud.aprobacion?.actorUid}; vence {fechaSolicitud(solicitud.aprobacion?.expiraEn)}. El inventario se revisa al confirmar.</p><div className="grid grid-cols-2 gap-2">{(["efectivo", "transferencia"] as const).map(method => <button key={method} onClick={() => setMetodoPago(solicitud.solicitudId, method)} className={cn("rounded-xl border px-3 py-2 text-sm font-semibold capitalize", metodo === method ? "border-amber-300 bg-amber-300 text-slate-950" : "border-white/10 bg-white/5")}>{method}</button>)}</div>{metodo === "efectivo" && !turnoAbierto && <div className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-3"><label className="text-xs font-semibold text-amber-100">Base real de apertura<input aria-label="Base de apertura" type="number" min={0} value={baseApertura} onChange={event => setBaseApertura(Number(event.target.value))} className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-slate-950 px-3 text-white" /></label><button onClick={onAbrirTurno} className="mt-2 w-full rounded-lg border border-amber-300/40 px-4 py-2 text-sm font-semibold text-amber-200">Abrir turno para efectivo</button></div>}<button disabled={enviando || (metodo === "efectivo" && !turnoAbierto)} onClick={() => onConfirmar(solicitud)} className="h-11 w-full rounded-xl bg-emerald-400 font-bold text-slate-950 disabled:opacity-40">{enviando ? "Confirmando…" : "Confirmar venta"}</button></div>}
+        {cancelable && <button disabled={enviando} onClick={() => onCancelar(solicitud)} className="mt-3 w-full rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-300 disabled:opacity-50">Cancelar solicitud</button>}
+      </article>
+    })}{solicitudes.length === 0 && <p className="rounded-2xl border border-dashed border-white/15 p-10 text-center text-slate-400">Todavía no tienes solicitudes. Puedes preparar una nueva.</p>}</div>
+  </section>
+}
+
+function fechaSolicitud(value: unknown): string {
+  const date = value && typeof (value as { toDate?: unknown }).toDate === "function" ? (value as { toDate(): Date }).toDate() : value instanceof Date ? value : null
+  return date && !Number.isNaN(date.getTime()) ? date.toLocaleString("es-CO") : "no disponible"
 }
 
 function ClientesView({ clientes, onCrear }: { clientes: ClienteVendedorDTO[]; onCrear(): void }) {

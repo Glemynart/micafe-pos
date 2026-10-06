@@ -6,7 +6,12 @@ const projectId = "demo-bodega-u4-u5-ui"
 const runId = `bodega-ui-${Date.now()}`
 const config = resolve(`.firebase.bodega-${runId}.json`)
 writeFileSync(config, JSON.stringify({
-  functions: [{ source: "functions", codebase: "saas-auth" }],
+  functions: [
+    { source: "functions", codebase: "saas-auth" },
+    { source: "functions-operational-auth", codebase: "saas-operational-auth" },
+    { source: "functions-tenant-configuration", codebase: "saas-tenant-configuration" },
+    { source: "functions-bodega", codebase: "saas-bodega" },
+  ],
   firestore: { rules: "firestore.rules", indexes: "firestore.indexes.json" },
   emulators: { functions: { host: "127.0.0.1", port: 5001 }, firestore: { host: "127.0.0.1", port: 8085 }, auth: { host: "127.0.0.1", port: 9099 }, singleProjectMode: true },
 }, null, 2))
@@ -38,9 +43,18 @@ const env = {
 const occupied = spawnSync(process.platform === "win32" ? "powershell.exe" : "sh", process.platform === "win32" ? ["-NoProfile", "-Command", "@(5001,8085,9099,3010) | ForEach-Object { if (Get-NetTCPConnection -LocalPort $_ -State Listen -ErrorAction SilentlyContinue) { Write-Output $_ } }"] : ["-c", "true"], { encoding: "utf8" })
 if (occupied.stdout.trim()) throw new Error(`E2E Bodega requiere puertos libres; ocupados: ${occupied.stdout.trim()}`)
 
+function compilarCodebaseAislado(source, nombre) {
+  const compiler = resolve(source, "node_modules", "typescript", "bin", "tsc")
+  const build = spawnSync(process.execPath, [compiler, "-p", `${source}/tsconfig.json`], { cwd: process.cwd(), env, stdio: "inherit" })
+  if (build.status !== 0) throw new Error(`Build de ${nombre} falló antes de iniciar los emuladores.`)
+}
+
 try {
   const build = spawnSync(process.execPath, [resolve("functions/node_modules/typescript/bin/tsc"), "-p", "functions/tsconfig.json"], { cwd: process.cwd(), env, stdio: "inherit" })
   if (build.status !== 0) throw new Error("Build Functions falló antes de E2E Bodega.")
+  compilarCodebaseAislado("functions-operational-auth", "saas-operational-auth")
+  compilarCodebaseAislado("functions-tenant-configuration", "saas-tenant-configuration")
+  compilarCodebaseAislado("functions-bodega", "saas-bodega")
   const firebase = resolve("node_modules/firebase-tools/lib/bin/firebase.js")
   const result = spawnSync(process.execPath, [firebase, "emulators:exec", "--only", "auth,firestore,functions", "--project", projectId, "--config", config, "node scripts/e2e/bodega-u4-u5-inner.mjs"], { cwd: process.cwd(), env, stdio: "inherit" })
   process.exitCode = result.status ?? (result.error ? 1 : 0)

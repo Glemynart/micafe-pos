@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Timestamp } from "firebase-admin/firestore";
 import { ejecutarConsultarCatalogoVendedor, ejecutarConsultarMisVentasVendedor } from "./lecturas";
 import { ejecutarConfirmarVentaBodegaV1 } from "./ventas-confirmation";
+import { crearHuellaSemantica } from "../bodega/operational-core";
 import type { ContextoFinancieroOperativo } from "../finanzas/callables";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 
@@ -29,7 +31,10 @@ test("venta Bodega materializada por U3-C aparece únicamente en las ventas del 
     collection(name: string) {
       const db = this;
       return {
-        doc(id: string) { return { path: `${name}/${id}`, id }; },
+        doc(id: string) {
+          const path = `${name}/${id}`;
+          return { path, id, collection(child: string) { return db.collection(`${path}/${child}`); } };
+        },
         where(k: string, _op: string, v: unknown) { return new Query([...db.docs.entries()].filter(([path]) => path.startsWith(`${name}/`)).map(([path, data]) => doc(path.split("/").at(-1)!, data)), [[k, v]]); },
       };
     }
@@ -53,7 +58,15 @@ test("venta Bodega materializada por U3-C aparece únicamente en las ventas del 
   fake.docs.set("presentaciones_producto/presentacion", { empresaId, productoId: "producto", nombre: "Unidad", factorUnidadBase: 1, precioCOP: 1000, activo: true });
   fake.docs.set("cuentas_bancarias/banco", { id: "banco", empresaId, claveOperativa: "bancolombia", saldo: 0, nombre: "Banco" });
   const contexto: ContextoFinancieroOperativo = { empresaId, actorUid, rol: "vendedor" };
-  await ejecutarConfirmarVentaBodegaV1(fake, contexto, { commandId: "cmd", idempotencyKey: "idem", correlationId: "corr", causationId: null, payload: { clienteId: "cliente", lineas: [{ productoId: "producto", presentacionId: "presentacion", cantidad: 1 }], metodoPago: "transferencia" } });
+  const intentoLineas = [{ productoId: "producto", presentacionId: "presentacion", cantidad: 1 }];
+  const lineaComercial = { productoId: "producto", productoNombre: "Producto", unidadBase: "unidad", presentacionId: "presentacion", presentacionNombre: "Unidad", cantidad: 1, factorUnidadBase: 1, cantidadUnidadBase: 1, precioPresentacionCOP: 1000, subtotalCOP: 1000 };
+  const huellaComercial = crearHuellaSemantica({ clienteId: "cliente", lineas: [lineaComercial], totalCOP: 1000 });
+  fake.docs.set(`empresas/${empresaId}/solicitudes_venta_bodega/solicitud`, {
+    solicitudId: "solicitud", empresaId, solicitanteUid: actorUid, clienteId: "cliente", intentoLineas,
+    lineas: [lineaComercial], totalCOP: 1000, huellaComercial, revision: 1, estado: "APROBADA",
+    aprobacion: { actorUid: "admin", revision: 1, totalCOP: 1000, huellaComercial, expiraEn: Timestamp.fromMillis(Date.now() + 60_000) },
+  });
+  await ejecutarConfirmarVentaBodegaV1(fake, contexto, { commandId: "cmd", idempotencyKey: "idem", correlationId: "corr", causationId: null, payload: { clienteId: "cliente", lineas: intentoLineas, metodoPago: "transferencia", solicitudId: "solicitud" } });
   const ventas = await ejecutarConsultarMisVentasVendedor(fake, contexto, {});
   assert.equal(ventas.ventas.length, 1);
   assert.equal(ventas.ventas[0]?.total, 1000);

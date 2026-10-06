@@ -16,12 +16,12 @@ export async function crearContextoVentaBodegaDesdeRequest(request: any, db: any
 }
 
 /**
- * Frontera decisiva de U3: se ejecutará en la misma transacción del efecto.
- * Compone la autoridad de membresía existente con el vertical y capability.
+ * Frontera decisiva de la venta Bodega: vendedor aprobado o administración
+ * con capacidad explícita sell, siempre dentro de la transacción del efecto.
  */
 export async function revalidarAutoridadVentaBodegaEnTransaccion(tx: any, db: any, contexto: ContextoFinancieroOperativo): Promise<void> {
   await revalidarAutoridadFinancieraEnTransaccion(tx, db, contexto, "sell");
-  if (contexto.rol !== "vendedor") fail("permission-denied", "ROL_VENDEDOR_REQUERIDO");
+  if (contexto.rol !== "vendedor" && contexto.rol !== "admin") fail("permission-denied", "ROL_VENTA_BODEGA_REQUERIDO");
   const configuracionSnap = await tx.get(db.collection("configuraciones").doc(contexto.empresaId));
   const configuracion = configuracionSnap.data() as Record<string, any> | undefined;
   if (!configuracionSnap.exists

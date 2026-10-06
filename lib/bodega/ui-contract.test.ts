@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { construirConfirmacionVentaBodega, crearProtectorDobleEnvio, MAX_LINEAS_BODEGA, mensajeErrorBodega, resolverSuperficieBodega } from "./ui-contract"
+import { construirConfirmacionVentaBodega, construirSolicitudVentaBodega, crearProtectorDobleEnvio, MAX_LINEAS_BODEGA, mensajeErrorBodega, resolverSuperficieBodega } from "./ui-contract"
 
 test("U4 construye exactamente el envelope certificado sin campos de autoridad", () => {
   let secuencia = 0
@@ -31,9 +31,26 @@ test("U4 limita líneas, cantidades y conserva mensajes operativos fail-closed",
   assert.match(mensajeErrorBodega({ details: { code: "STOCK_INSUFICIENTE" } }), /existencias/i)
   assert.match(mensajeErrorBodega({ details: { code: "ROLE_FORBIDDEN" } }), /permiso/i)
   assert.match(mensajeErrorBodega({ details: { code: "CLIENTE_INACTIVO" } }), /cliente/i)
+  assert.match(mensajeErrorBodega({ details: { code: "SOLICITUD_APROBACION_REQUERIDA" } }), /aprobada/i)
+  assert.match(mensajeErrorBodega({ details: { code: "SOLICITUD_APROBACION_EXPIRADA" } }), /venció|expiró/i)
   assert.match(mensajeErrorBodega({ details: { code: "PRESENTACION_INACTIVA" } }), /catálogo/i)
   assert.match(mensajeErrorBodega({ details: { code: "IDEMPOTENCY_CONFLICT" } }), /intento anterior/i)
   assert.match(mensajeErrorBodega({ code: "functions/unavailable" }), /Reintenta/i)
+})
+
+test("ADR-062 crea solicitud sin pago, total ni autoridad del cliente", () => {
+  let secuencia = 0
+  const request = construirSolicitudVentaBodega({
+    clienteId: " cliente ",
+    lineas: [{ productoId: "producto", presentacionId: "caja", cantidad: 2 }],
+    generarId: () => String(++secuencia),
+  })
+  assert.deepEqual(request, {
+    commandId: "bodega-solicitud:1", idempotencyKey: "bodega-solicitud:1", correlationId: "bodega-solicitud:2", causationId: null,
+    payload: { clienteId: "cliente", lineas: [{ productoId: "producto", presentacionId: "caja", cantidad: 2 }] },
+  })
+  const serialized = JSON.stringify(request)
+  for (const forbidden of ["empresaId", "precio", "costo", "subtotal", "total", "metodoPago", "stock"]) assert.equal(serialized.includes(forbidden), false)
 })
 
 test("U4 separa vertical y roles sin convertir la UI en autoridad", () => {
