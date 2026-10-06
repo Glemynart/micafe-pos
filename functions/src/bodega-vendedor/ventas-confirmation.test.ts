@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { deleteApp, initializeApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { ejecutarConfirmarVentaBodegaV1 } from "./ventas-confirmation";
-import type { ContextoFinancieroOperativo } from "../finanzas/callables";
+import { crearHuellaSemantica, type ContextoFinancieroOperativo } from "../bodega/operational-core";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 
 type Data = Record<string, any>;
-class Ref { constructor(readonly path: string) {} get id() { return this.path.split("/").at(-1)!; } }
+class Ref { constructor(readonly path: string, private readonly db?: FakeDb) {} get id() { return this.path.split("/").at(-1)!; } collection(name: string) { return new Collection(this.db!, `${this.path}/${name}`); } }
 class Snap { constructor(readonly ref: Ref, private readonly value: Data | undefined) {} get id() { return this.ref.id; } get exists() { return this.value !== undefined; } data() { return this.value; } }
-class Query { constructor(private db: FakeDb, private name: string, private filters: Array<[string, unknown]>) {} where(field: string, _op: string, value: unknown) { return new Query(this.db, this.name, [...this.filters, [field, value]]); } async get() { const docs = [...this.db.docs.entries()].filter(([path, data]) => path.startsWith(`${this.name}/`) && this.filters.every(([field, value]) => data[field] === value)).map(([path, data]) => new Snap(new Ref(path), data)); return { docs, size: docs.length }; } }
-class Collection { constructor(private db: FakeDb, private name: string) {} doc(id: string) { return new Ref(`${this.name}/${id}`); } where(field: string, _op: string, value: unknown) { return new Query(this.db, this.name, [[field, value]]); } }
+class Query { constructor(private db: FakeDb, private name: string, private filters: Array<[string, unknown]>) {} where(field: string, _op: string, value: unknown) { return new Query(this.db, this.name, [...this.filters, [field, value]]); } async get() { const docs = [...this.db.docs.entries()].filter(([path, data]) => path.startsWith(`${this.name}/`) && this.filters.every(([field, value]) => data[field] === value)).map(([path, data]) => new Snap(new Ref(path, this.db), data)); return { docs, size: docs.length }; } }
+class Collection { constructor(private db: FakeDb, private name: string) {} doc(id: string) { return new Ref(`${this.name}/${id}`, this.db); } where(field: string, _op: string, value: unknown) { return new Query(this.db, this.name, [[field, value]]); } }
 class Tx {
   creates: Array<[Ref, Data]> = []; updates: Array<[Ref, Data]> = [];
   constructor(private db: FakeDb) {}
@@ -27,9 +27,10 @@ class FakeDb {
 const empresaId = "empresa-u3c";
 const contexto: ContextoFinancieroOperativo = { empresaId, actorUid: "vendedor-u3c", rol: "vendedor" };
 const dominio = (error: unknown, code: string) => error instanceof HttpsError && (error.details as any)?.code === code;
-function comando(overrides: Record<string, unknown> = {}) { return {
+function comando(overrides: Record<string, any> = {}) { return {
   commandId: "cmd-u3c", idempotencyKey: "idem-u3c", correlationId: "corr-u3c", causationId: null,
-  payload: { clienteId: "cliente-u3c", lineas: [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 2 }], metodoPago: "efectivo" }, ...overrides,
+  ...overrides,
+  payload: overrides.payload ?? { clienteId: "cliente-u3c", lineas: [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 2 }], metodoPago: "efectivo", solicitudId: "solicitud-u3c" },
 }; }
 function seed(db: FakeDb) {
   db.docs.set(`empresas/${empresaId}`, { estado: "activa", esFundacional: true });
@@ -41,6 +42,15 @@ function seed(db: FakeDb) {
   db.docs.set("cuentas_bancarias/caja-principal", { id: "caja-principal", empresaId, claveOperativa: "caja-principal", nombre: "Caja", saldo: 0 });
   db.docs.set(`turnos_activos/${crearIdentificadorInterno(empresaId, "vendedor-u3c")}`, { empresaId, cajeroId: "vendedor-u3c", turnoId: "turno-u3c" });
   db.docs.set("turnos/turno-u3c", { empresaId, cajeroId: "vendedor-u3c", estado: "abierto" });
+  db.docs.set(`membresias/${empresaId}_admin-u3c`, { empresaId, uid: "admin-u3c", rol: "admin", permisos: ["sell"], estado: "activa", activo: true });
+  const intentLineas = [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 2 }];
+  const commercialLine = { productoId: "producto-u3c", productoNombre: "Producto", unidadBase: "unidad", presentacionId: "caja-u3c", presentacionNombre: "Caja", cantidad: 2, factorUnidadBase: 24, cantidadUnidadBase: 48, precioPresentacionCOP: 20000, subtotalCOP: 40000 };
+  const huellaComercial = crearHuellaSemantica({ clienteId: "cliente-u3c", lineas: [commercialLine], totalCOP: 40000 });
+  db.docs.set(`empresas/${empresaId}/solicitudes_venta_bodega/solicitud-u3c`, {
+    solicitudId: "solicitud-u3c", empresaId, solicitanteUid: contexto.actorUid, clienteId: "cliente-u3c", intentoLineas: intentLineas,
+    lineas: [commercialLine], totalCOP: 40000, huellaComercial, revision: 1, estado: "APROBADA",
+    aprobacion: { actorUid: "admin-u3c", revision: 1, totalCOP: 40000, huellaComercial, expiraEn: Timestamp.fromMillis(Date.now() + 60_000) },
+  });
 }
 
 test("U3-C: efectivo completa una venta Bodega con 48 unidades base, caja, turno e idempotencia", async () => {
@@ -50,6 +60,7 @@ test("U3-C: efectivo completa una venta Bodega con 48 unidades base, caja, turno
   const venta = db.docs.get(`ventas/${result.ventaId}`)!;
   assert.equal(venta.schemaVersion, "BODEGA_MVP1_V1"); assert.equal(venta.items[0].cantidadUnidadBase, 48); assert.equal(venta.estadoOperativo, "COMPLETO");
   assert.equal(venta.cajeroId, contexto.actorUid);
+  assert.equal(db.docs.get(`empresas/${empresaId}/solicitudes_venta_bodega/solicitud-u3c`)?.estado, "EJECUTADA");
   assert.equal(db.docs.get("productos/producto-u3c")?.stock, 52);
   assert.equal(db.docs.get("cuentas_bancarias/caja-principal")?.saldo, 40000);
   const replay = await ejecutarConfirmarVentaBodegaV1(db, contexto, comando()) as any;
@@ -63,6 +74,29 @@ test("U3-C: datos económicos y autoridad de cliente se rechazan antes de efecto
   await assert.rejects(ejecutarConfirmarVentaBodegaV1(db, contexto, comando({ cajeroId: "otro-vendedor" })), error => dominio(error, "COMANDO_BODEGA_INVALIDO"));
   await assert.rejects(ejecutarConfirmarVentaBodegaV1(db, contexto, comando({ payload: { clienteId: "cliente-u3c", lineas: [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 1, precio: 1 }], metodoPago: "efectivo" } })), error => dominio(error, "LINEA_BODEGA_INVALIDA"));
   assert.equal([...db.docs.keys()].some(path => path.startsWith("ventas/")), false);
+});
+
+test("venta de vendedor exige aprobación; aprobación expirada no crea efectos", async () => {
+  const missing = new FakeDb(); seed(missing);
+  await assert.rejects(ejecutarConfirmarVentaBodegaV1(missing, contexto, comando({ payload: { clienteId: "cliente-u3c", lineas: [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 2 }], metodoPago: "efectivo" } })), error => dominio(error, "SOLICITUD_APROBACION_REQUERIDA"));
+  assert.equal([...missing.docs.keys()].some(path => path.startsWith("ventas/")), false);
+
+  const expired = new FakeDb(); seed(expired);
+  const requestPath = `empresas/${empresaId}/solicitudes_venta_bodega/solicitud-u3c`;
+  expired.docs.set(requestPath, { ...expired.docs.get(requestPath), aprobacion: { ...expired.docs.get(requestPath)?.aprobacion, expiraEn: Timestamp.fromMillis(Date.now() - 1) } });
+  await assert.rejects(ejecutarConfirmarVentaBodegaV1(expired, contexto, comando()), error => dominio(error, "SOLICITUD_APROBACION_EXPIRADA"));
+  assert.equal([...expired.docs.keys()].some(path => path.startsWith("ventas/")), false);
+});
+
+test("precio cambiado después de aprobación invalida la solicitud atómicamente y no materializa venta", async () => {
+  const db = new FakeDb(); seed(db);
+  db.docs.set("presentaciones_producto/caja-u3c", { ...db.docs.get("presentaciones_producto/caja-u3c"), precioCOP: 21000 });
+  const result = await ejecutarConfirmarVentaBodegaV1(db, contexto, comando()) as any;
+  assert.equal(result.estado, "INVALIDADA");
+  assert.equal(db.docs.get(`empresas/${empresaId}/solicitudes_venta_bodega/solicitud-u3c`)?.estado, "INVALIDADA");
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("ventas/")), false);
+  assert.equal(db.docs.get("productos/producto-u3c")?.stock, 100);
+  assert.equal(db.docs.get("cuentas_bancarias/caja-principal")?.saldo, 0);
 });
 
 test("U3-C: efectivo exige turno propio, stock suficiente y sell vigente sin efectos parciales", async () => {
@@ -82,10 +116,11 @@ test("U3-C: efectivo exige turno propio, stock suficiente y sell vigente sin efe
 
 test("U3-C: transferencia usa la cuenta canónica sin turno ni movimiento de caja", async () => {
   const db = new FakeDb(); seed(db);
+  const adminContext: ContextoFinancieroOperativo = { empresaId, actorUid: "admin-u3c", rol: "admin" };
   db.docs.delete(`turnos_activos/${crearIdentificadorInterno(empresaId, "vendedor-u3c")}`);
   db.docs.delete("turnos/turno-u3c");
   db.docs.set("cuentas_bancarias/banco-u3c", { id: "banco-u3c", empresaId, claveOperativa: "bancolombia", nombre: "Banco", saldo: 0 });
-  const result = await ejecutarConfirmarVentaBodegaV1(db, contexto, comando({ commandId: "cmd-transfer", idempotencyKey: "idem-transfer", payload: { clienteId: "cliente-u3c", lineas: [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 1 }], metodoPago: "transferencia" } })) as any;
+  const result = await ejecutarConfirmarVentaBodegaV1(db, adminContext, comando({ commandId: "cmd-transfer", idempotencyKey: "idem-transfer", payload: { clienteId: "cliente-u3c", lineas: [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 1 }], metodoPago: "transferencia" } })) as any;
   assert.equal(result.turnoId, null);
   const ingreso = db.docs.get(`transacciones_financieras/${result.movimientoFinancieroId}`)!;
   assert.equal(ingreso.cuentaDocumentoId, "banco-u3c");
@@ -99,9 +134,9 @@ const FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST;
 test("U3-C Emulator: doble confirmación real conserva un único conjunto atómico de efectos", { skip: !FIRESTORE_EMULATOR_HOST }, async () => {
   if (!FIRESTORE_EMULATOR_HOST?.startsWith("127.0.0.1:") || process.env.GOOGLE_APPLICATION_CREDENTIALS) throw new Error("U3-C requiere Emulator local sin credenciales reales.");
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const empresa = `empresa-u3c-${suffix}`; const actor = `vendedor-u3c-${suffix}`;
+  const empresa = `empresa-u3c-${suffix}`; const actor = `vendedor-u3c-${suffix}`; const solicitudId = `solicitud-u3c-${suffix}`;
   const app = initializeApp({ projectId: "demo-bodega-u3c-confirmacion" }, `u3c-${suffix}`); const db = getFirestore(app);
-  const command = { commandId: `cmd-u3c-${suffix}`, idempotencyKey: `idem-u3c-${suffix}`, correlationId: `corr-u3c-${suffix}`, causationId: null, payload: { clienteId: `cliente-${suffix}`, lineas: [{ productoId: `producto-${suffix}`, presentacionId: `presentacion-${suffix}`, cantidad: 6 }], metodoPago: "efectivo" } };
+  const command = { commandId: `cmd-u3c-${suffix}`, idempotencyKey: `idem-u3c-${suffix}`, correlationId: `corr-u3c-${suffix}`, causationId: null, payload: { clienteId: `cliente-${suffix}`, lineas: [{ productoId: `producto-${suffix}`, presentacionId: `presentacion-${suffix}`, cantidad: 6 }], metodoPago: "efectivo", solicitudId } };
   try {
     const [clienteId, productoId, presentacionId] = [command.payload.clienteId, command.payload.lineas[0].productoId, command.payload.lineas[0].presentacionId];
     const lockId = crearIdentificadorInterno(empresa, actor);
@@ -114,7 +149,16 @@ test("U3-C Emulator: doble confirmación real conserva un único conjunto atómi
     batch.set(db.collection("presentaciones_producto").doc(presentacionId), { empresaId: empresa, productoId, nombre: "Unidad", factorUnidadBase: 1, precioCOP: 1000, activo: true });
     batch.set(db.collection("cuentas_bancarias").doc("caja-principal"), { id: "caja-principal", empresaId: empresa, claveOperativa: "caja-principal", nombre: "Caja", saldo: 0 });
     batch.set(db.collection("turnos").doc(`turno-${suffix}`), { empresaId: empresa, cajeroId: actor, estado: "abierto" });
-    batch.set(db.collection("turnos_activos").doc(lockId), { empresaId: empresa, cajeroId: actor, turnoId: `turno-${suffix}` }); await batch.commit();
+    batch.set(db.collection("turnos_activos").doc(lockId), { empresaId: empresa, cajeroId: actor, turnoId: `turno-${suffix}` });
+    const intentLineas = command.payload.lineas;
+    const commercialLine = { productoId, productoNombre: "Producto", unidadBase: "unidad", presentacionId, presentacionNombre: "Unidad", cantidad: 6, factorUnidadBase: 1, cantidadUnidadBase: 6, precioPresentacionCOP: 1000, subtotalCOP: 6000 };
+    const huellaComercial = crearHuellaSemantica({ clienteId, lineas: [commercialLine], totalCOP: 6000 });
+    batch.set(db.collection("empresas").doc(empresa).collection("solicitudes_venta_bodega").doc(solicitudId), {
+      solicitudId, empresaId: empresa, solicitanteUid: actor, clienteId, intentoLineas,
+      lineas: [commercialLine], totalCOP: 6000, huellaComercial, revision: 1, estado: "APROBADA",
+      aprobacion: { actorUid: "admin-u3c-test", revision: 1, totalCOP: 6000, huellaComercial, expiraEn: Timestamp.fromMillis(Date.now() + 60_000) },
+    });
+    await batch.commit();
     const contextoEmulator: ContextoFinancieroOperativo = { empresaId: empresa, actorUid: actor, rol: "vendedor" };
     const [a, b] = await Promise.all([ejecutarConfirmarVentaBodegaV1(db, contextoEmulator, command), ejecutarConfirmarVentaBodegaV1(db, contextoEmulator, command)]) as any[];
     assert.equal(a.ventaId, b.ventaId);
@@ -124,5 +168,6 @@ test("U3-C Emulator: doble confirmación real conserva un único conjunto atómi
     const inventario = await db.collection("movimientos_inventario").where("empresaId", "==", empresa).get();
     assert.equal(inventario.size, 1); assert.equal(inventario.docs[0]?.data().cantidad, -6);
     assert.equal((await db.collection("productos").doc(productoId).get()).data()?.stock, 4);
+    assert.equal((await db.collection("empresas").doc(empresa).collection("solicitudes_venta_bodega").doc(solicitudId).get()).data()?.estado, "EJECUTADA");
   } finally { await deleteApp(app); }
 });

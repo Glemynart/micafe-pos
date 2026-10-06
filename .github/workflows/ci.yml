@@ -378,6 +378,20 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      - name: E2E Bodega — solicitud, aprobación y venta canónica
+        run: npm run e2e:bodega-u4-u5
+        env:
+          E2E_BODEGA_OUTPUT_DIR: ${{ runner.temp }}/e2e-bodega-u4-u5
+
+      - name: Publicar evidencia E2E Bodega U4-U5
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-bodega-u4-u5-${{ github.run_id }}
+          path: ${{ runner.temp }}/e2e-bodega-u4-u5/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: E2E B2 de eventos públicos tenant-aware en Emulator
         run: npm run e2e:b2-eventos
 

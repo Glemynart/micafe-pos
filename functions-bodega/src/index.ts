@@ -7,6 +7,12 @@ import {
   ejecutarCrearPresentacionComercialV1,
 } from "../../functions/src/bodega-vendedor/presentaciones";
 import { ejecutarConfirmarVentaBodegaV1 } from "../../functions/src/bodega-vendedor/ventas-confirmation";
+import {
+  ejecutarCancelarSolicitudVentaBodegaV1,
+  ejecutarConsultarSolicitudesVentaBodegaV1,
+  ejecutarCrearSolicitudVentaBodegaV1,
+  ejecutarResolverSolicitudVentaBodegaV1,
+} from "../../functions/src/bodega-vendedor/solicitudes-venta";
 import { ejecutarCrearArticuloInventarioV1 } from "../../functions/src/inventario/callables";
 import { ejecutarCrearCategoriaBodegaV1 } from "../../functions/src/bodega/categorias";
 import { leerConfiguracionEmpresa } from "../../functions/src/configuracion/reader";
@@ -57,4 +63,24 @@ export const crearArticuloInventarioV1 = onCall({ region: REGION }, async (reque
 export const confirmarVentaBodegaV1 = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   return ejecutarConfirmarVentaBodegaV1(db, await contextoOperativo(request, db), request.data);
+});
+
+export const crearSolicitudVentaBodegaV1 = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  return ejecutarCrearSolicitudVentaBodegaV1(db, await contextoOperativo(request, db), request.data);
+});
+
+export const consultarSolicitudesVentaBodegaV1 = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  return ejecutarConsultarSolicitudesVentaBodegaV1(db, await contextoOperativo(request, db), request.data);
+});
+
+export const resolverSolicitudVentaBodegaV1 = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  return ejecutarResolverSolicitudVentaBodegaV1(db, await contextoOperativo(request, db), request.data);
+});
+
+export const cancelarSolicitudVentaBodegaV1 = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  return ejecutarCancelarSolicitudVentaBodegaV1(db, await contextoOperativo(request, db), request.data);
 });

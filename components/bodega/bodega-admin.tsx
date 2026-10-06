@@ -1,24 +1,30 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useRef, useState } from "react"
-import { Boxes, CircleDollarSign, PackagePlus, RefreshCw, Settings, Tags, Users } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Boxes, CheckCircle2, CircleDollarSign, PackagePlus, RefreshCw, Settings, Tags, Users, XCircle } from "lucide-react"
 import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
 import { useAuthContext } from "@/contexts/auth-context"
 import { actualizarCliente, crearCliente, eliminarCliente, type Cliente } from "@/lib/clientes-service"
 import { ajustarStockProductoBodega, crearCategoriaBodega, crearPresentacionBodega, crearProductoBodega, listarCategoriasBodega, listarEspaciosBodega, suscribirClientesBodegaAdmin, suscribirPresentacionesBodegaAdmin, suscribirProductosBodegaAdmin, suscribirVentasBodegaAdmin, actualizarPresentacionBodega, type PresentacionBodegaAdmin, type ProductoBodegaAdmin, type VentaBodegaAdmin } from "@/lib/bodega/admin-service"
 import { mensajeErrorBodega } from "@/lib/bodega/ui-contract"
+import { construirConfirmacionVentaBodega, type LineaCarritoBodega, type MetodoPagoBodega, type ResultadoVentaBodega, type SolicitudVentaBodegaDTO } from "@/lib/bodega/ui-contract"
+import { cancelarSolicitudVentaBodega, consultarSolicitudesVentaBodega, resolverSolicitudVentaBodega } from "@/lib/bodega/solicitudes-service"
+import { confirmarVentaBodega } from "@/lib/bodega/vendedor-service"
+import { abrirTurno, suscribirTurnoActivo, type Turno } from "@/lib/turnos-service"
 
 const money = (value: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(value)
 const cards = [
   { href: "/admin/catalogo", label: "Productos y precios", detail: "Catálogo base y presentaciones", icon: Tags },
   { href: "/admin/clientes", label: "Clientes", detail: "Directorio comercial", icon: Users },
   { href: "/admin/inventario", label: "Inventario", detail: "Stock en unidad base", icon: Boxes },
+  { href: "/admin/vender", label: "Registrar venta", detail: "Venta directa de administración", icon: CircleDollarSign },
+  { href: "/admin/solicitudes", label: "Solicitudes", detail: "Revisar y aprobar ventas de vendedores", icon: CheckCircle2 },
   { href: "/admin/ventas", label: "Ventas", detail: "Consulta operativa", icon: CircleDollarSign },
   { href: "/admin/permisos", label: "Configuración operativa", detail: "Usuarios y permisos existentes", icon: Settings },
 ]
 
-function useBodegaAdminData() {
+export function useBodegaAdminData() {
   const [productos, setProductos] = useState<ProductoBodegaAdmin[]>([])
   const [presentaciones, setPresentaciones] = useState<PresentacionBodegaAdmin[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -92,6 +98,108 @@ export function BodegaVentasAdmin() {
   const { ventas, cargando } = useBodegaAdminData(); const ordenadas = useMemo(() => [...ventas].reverse(), [ventas])
   if (cargando) return <AdminLoading />
   return <AdminSection eyebrow="Ventas" title="Consulta operativa" description="Vista administrativa tenant-aware. La anulación Bodega permanece fuera de este corte."><div className="space-y-3">{ordenadas.map(v => <article key={v.id} className="flex items-center justify-between rounded-2xl border border-border bg-card p-4"><div><p className="font-semibold">{v.clienteNombreSnapshot || "Cliente"}</p><p className="text-xs text-muted-foreground">{v.id} · {v.metodoPago} · vendedor {v.cajeroId}</p></div><div className="text-right"><p className="font-bold">{money(v.total)}</p><p className="text-xs text-emerald-600">{v.estado}</p></div></article>)}{ventas.length === 0 && <p className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">No hay ventas Bodega registradas.</p>}</div></AdminSection>
+}
+
+export function BodegaSolicitudesAdmin() {
+  const [solicitudes, setSolicitudes] = useState<SolicitudVentaBodegaDTO[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [procesando, setProcesando] = useState("")
+  const [error, setError] = useState("")
+  const cargar = useCallback(async () => {
+    setError("")
+    try { setSolicitudes(await consultarSolicitudesVentaBodega()) }
+    catch (cause) { setError(mensajeErrorBodega(cause)) }
+    finally { setCargando(false) }
+  }, [])
+  useEffect(() => { void cargar() }, [cargar])
+
+  const resolver = async (solicitud: SolicitudVentaBodegaDTO, decision: "aprobar" | "rechazar") => {
+    if (procesando) return
+    setProcesando(solicitud.solicitudId); setError("")
+    try {
+      await resolverSolicitudVentaBodega({ solicitudId: solicitud.solicitudId, revision: solicitud.revision, decision })
+      await cargar()
+    } catch (cause) { setError(mensajeErrorBodega(cause)) }
+    finally { setProcesando("") }
+  }
+
+  if (cargando) return <AdminLoading />
+  return <AdminSection eyebrow="Aprobación previa" title="Solicitudes de venta" description="Revisa el cliente, las presentaciones y el total canónico antes de autorizar al vendedor. La aprobación dura 24 horas y no reserva inventario.">
+    {error && <ErrorBox>{error}</ErrorBox>}
+    <button onClick={() => void cargar()} className="mb-4 rounded-xl border border-border px-4 py-2 text-sm font-semibold">Actualizar</button>
+    <div className="space-y-3">{solicitudes.map(solicitud => <article key={solicitud.solicitudId} className="rounded-2xl border border-border bg-card p-4">
+      <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">{solicitud.cliente?.nombre || "Cliente no disponible"}</h2><p className="mt-1 text-xs text-muted-foreground">Solicitud {solicitud.solicitudId} · vendedor {solicitud.solicitanteUid}</p></div><span className="rounded-full bg-muted px-2 py-1 text-xs font-semibold">{solicitud.estado}</span></div>
+      <div className="my-3 space-y-2">{solicitud.lineas.map((linea, index) => <div key={`${linea.presentacionId}-${index}`} className="flex justify-between gap-3 text-sm"><span>{linea.cantidad} × {linea.presentacionNombre} ({linea.factorUnidadBase} {linea.unidadBase})</span><span>{money(linea.subtotalCOP)}</span></div>)}</div>
+      <div className="flex items-center justify-between border-t border-border pt-3"><span className="text-sm text-muted-foreground">Total validado por servidor</span><strong>{money(solicitud.totalCOP)}</strong></div>
+      {solicitud.estado === "APROBADA" && solicitud.aprobacion && <p className="mt-2 text-xs text-muted-foreground">Aprobada por {solicitud.aprobacion.actorUid}; vence {fechaLegible(solicitud.aprobacion.expiraEn)}.</p>}
+      {solicitud.estado === "PENDIENTE_APROBACION" && <div className="mt-4 flex gap-2"><button disabled={!!procesando} onClick={() => void resolver(solicitud, "aprobar")} className="flex-1 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground disabled:opacity-50">{procesando === solicitud.solicitudId ? "Procesando…" : "Aprobar"}</button><button disabled={!!procesando} onClick={() => void resolver(solicitud, "rechazar")} className="rounded-xl border border-border px-3 py-2 text-sm font-semibold disabled:opacity-50">Rechazar</button></div>}
+    </article>)}{solicitudes.length === 0 && <p className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">No hay solicitudes pendientes de revisar.</p>}</div>
+  </AdminSection>
+}
+
+export function BodegaVentaDirectaAdmin() {
+  const { productos, presentaciones, clientes, cargando } = useBodegaAdminData()
+  const { usuario } = useAuthContext()
+  const [turno, setTurno] = useState<Turno | null>(null)
+  const [clienteId, setClienteId] = useState("")
+  const [presentacionId, setPresentacionId] = useState("")
+  const [carrito, setCarrito] = useState<LineaCarritoBodega[]>([])
+  const [metodoPago, setMetodoPago] = useState<MetodoPagoBodega>("transferencia")
+  const [baseApertura, setBaseApertura] = useState(0)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState("")
+  const [venta, setVenta] = useState<ResultadoVentaBodega | null>(null)
+  useEffect(() => usuario?.uid ? suscribirTurnoActivo(usuario.uid, setTurno) : undefined, [usuario?.uid])
+  const presentacionesActivas = useMemo(() => presentaciones.filter(item => item.activo && productos.some(producto => producto.id === item.productoId && producto.activo)), [presentaciones, productos])
+  const lineasDetalle = carrito.map(linea => {
+    const presentacion = presentacionesActivas.find(item => item.id === linea.presentacionId)
+    const producto = productos.find(item => item.id === linea.productoId)
+    return presentacion && producto ? { ...linea, nombreProducto: producto.nombre, presentacion: presentacion.nombre, precioCOP: presentacion.precioCOP } : null
+  }).filter((linea): linea is NonNullable<typeof linea> => linea !== null)
+  const estimado = lineasDetalle.reduce((total, linea) => total + linea.precioCOP * linea.cantidad, 0)
+
+  const agregar = () => {
+    const presentation = presentacionesActivas.find(item => item.id === presentacionId)
+    if (!presentation) return
+    setCarrito(current => {
+      const found = current.find(line => line.presentacionId === presentation.id)
+      return found ? current.map(line => line.presentacionId === presentation.id ? { ...line, cantidad: line.cantidad + 1 } : line)
+        : [...current, { productoId: presentation.productoId, presentacionId: presentation.id, cantidad: 1 }]
+    })
+  }
+
+  const registrar = async () => {
+    if (guardando) return
+    if (!clienteId || carrito.length === 0) { setError("Selecciona un cliente y agrega al menos una presentación."); return }
+    if (metodoPago === "efectivo" && !turno) { setError("Abre tu turno antes de registrar una venta en efectivo."); return }
+    setGuardando(true); setError("")
+    try {
+      const command = construirConfirmacionVentaBodega({ clienteId, lineas: carrito, metodoPago })
+      const result = await confirmarVentaBodega(command)
+      setVenta(result); setCarrito([])
+    } catch (cause) { setError(mensajeErrorBodega(cause)) }
+    finally { setGuardando(false) }
+  }
+
+  if (cargando) return <AdminLoading />
+  return <AdminSection eyebrow="Venta administrativa directa" title="Registrar venta" description="La administradora puede vender directamente por el comando canónico. No crea ni aprueba una solicitud propia.">
+    {error && <ErrorBox>{error}</ErrorBox>}
+    {venta && "ventaId" in venta && <p role="status" className="mb-4 rounded-xl bg-emerald-500/10 p-3 text-sm text-emerald-700">Venta registrada: {venta.ventaId} · {money(venta.total)}.</p>}
+    <div className="space-y-4 rounded-2xl border border-border bg-card p-4">
+      <label className="block text-sm">Cliente<select aria-label="Cliente de venta" value={clienteId} onChange={event => setClienteId(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3"><option value="">Seleccionar cliente</option>{clientes.filter(cliente => cliente.activo).map(cliente => <option key={cliente.id} value={cliente.id}>{cliente.nombre}</option>)}</select></label>
+      <div className="flex gap-2"><select aria-label="Presentación de venta" value={presentacionId} onChange={event => setPresentacionId(event.target.value)} className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-background px-3"><option value="">Seleccionar presentación</option>{presentacionesActivas.map(item => <option key={item.id} value={item.id}>{item.nombre} · {money(item.precioCOP)}</option>)}</select><button onClick={agregar} disabled={!presentacionId} className="rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50">Agregar</button></div>
+      <div className="space-y-2">{lineasDetalle.map(linea => <div key={linea.presentacionId} className="flex items-center justify-between rounded-xl bg-muted/40 p-3"><div><p className="text-sm font-semibold">{linea.nombreProducto}</p><p className="text-xs text-muted-foreground">{linea.cantidad} × {linea.presentacion}</p></div><div className="flex items-center gap-3"><strong>{money(linea.precioCOP * linea.cantidad)}</strong><button aria-label={`Quitar ${linea.presentacion}`} onClick={() => setCarrito(current => current.filter(item => item.presentacionId !== linea.presentacionId))} className="text-sm text-destructive">Quitar</button></div></div>)}</div>
+      <div className="flex justify-between border-t border-border pt-3"><span className="text-sm text-muted-foreground">Total estimado; servidor vuelve a resolver precio</span><strong>{money(estimado)}</strong></div>
+      <div className="grid grid-cols-2 gap-2">{(["efectivo", "transferencia"] as const).map(method => <button key={method} onClick={() => setMetodoPago(method)} className={`rounded-xl border px-3 py-3 text-sm font-semibold capitalize ${metodoPago === method ? "border-primary bg-primary/10" : "border-border"}`}>{method}</button>)}</div>
+      {metodoPago === "efectivo" && !turno && <div className="rounded-xl border border-border p-3"><label className="text-sm">Base de apertura<input aria-label="Base de apertura administrativa" type="number" min={0} value={baseApertura} onChange={event => setBaseApertura(Number(event.target.value))} className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3" /></label><button onClick={() => void abrirTurno({ baseApertura, notasApertura: "Turno venta directa Bodega admin" }).catch(cause => setError(mensajeErrorBodega(cause)))} className="mt-2 w-full rounded-xl border border-border px-3 py-2 text-sm font-semibold">Abrir turno de efectivo</button></div>}
+      <button disabled={guardando || carrito.length === 0 || !clienteId || (metodoPago === "efectivo" && !turno)} onClick={() => void registrar()} className="h-12 w-full rounded-xl bg-primary font-bold text-primary-foreground disabled:opacity-50">{guardando ? "Registrando…" : "Confirmar venta directa"}</button>
+    </div>
+  </AdminSection>
+}
+
+function fechaLegible(value: unknown): string {
+  const date = value && typeof (value as { toDate?: unknown }).toDate === "function" ? (value as { toDate(): Date }).toDate() : value instanceof Date ? value : null
+  return date && !Number.isNaN(date.getTime()) ? date.toLocaleString("es-CO") : "no disponible"
 }
 
 function AdminSection({ eyebrow, title, description, children }: { eyebrow: string; title: string; description: string; children: React.ReactNode }) { return <section><p className="text-xs font-bold uppercase tracking-[.22em] text-primary">{eyebrow}</p><h1 className="mt-1 text-2xl font-bold">{title}</h1><p className="mt-1 mb-5 text-sm text-muted-foreground">{description}</p>{children}</section> }

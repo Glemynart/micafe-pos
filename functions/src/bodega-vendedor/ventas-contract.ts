@@ -27,6 +27,7 @@ export interface ComandoConfirmacionVentaBodega {
     clienteId: string;
     lineas: LineaVentaBodegaIntento[];
     metodoPago: "efectivo" | "transferencia";
+    solicitudId?: string;
   };
 }
 
@@ -89,8 +90,11 @@ export function normalizarComandoConfirmacionVentaBodega(raw: unknown): ComandoC
   const data = raw as Record<string, unknown>;
   if (data.causationId !== null && typeof data.causationId !== "string") fail("invalid-argument", "CAUSATION_ID_INVALIDO");
   const causationId = data.causationId === null ? null : requiredText(data.causationId, "CAUSATION_ID_INVALIDO");
-  if (!object(data.payload) || !own(data.payload, ["clienteId", "lineas", "metodoPago"])) fail("invalid-argument", "PAYLOAD_BODEGA_INVALIDO");
+  if (!object(data.payload) || !own(data.payload, ["clienteId", "lineas", "metodoPago", "solicitudId"])) fail("invalid-argument", "PAYLOAD_BODEGA_INVALIDO");
   const payload = data.payload as Record<string, unknown>;
+  if (payload.solicitudId !== undefined && (typeof payload.solicitudId !== "string" || !payload.solicitudId.trim() || payload.solicitudId.length > 180)) {
+    fail("invalid-argument", "SOLICITUD_ID_INVALIDO");
+  }
   if (!Array.isArray(payload.lineas) || payload.lineas.length === 0 || payload.lineas.length > MAX_LINEAS_BODEGA_U3) {
     fail("invalid-argument", "LINEAS_BODEGA_INVALIDAS");
   }
@@ -104,6 +108,7 @@ export function normalizarComandoConfirmacionVentaBodega(raw: unknown): ComandoC
       clienteId: requiredText(payload.clienteId, "CLIENTE_ID_INVALIDO"),
       lineas: (payload.lineas as unknown[]).map(normalizarLinea),
       metodoPago: payload.metodoPago as "efectivo" | "transferencia",
+      ...(payload.solicitudId === undefined ? {} : { solicitudId: (payload.solicitudId as string).trim() }),
     },
   };
 }

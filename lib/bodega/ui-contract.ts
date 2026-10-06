@@ -42,10 +42,42 @@ export interface ConfirmacionVentaBodega {
     clienteId: string
     lineas: LineaCarritoBodega[]
     metodoPago: MetodoPagoBodega
+    solicitudId?: string
   }
 }
 
-export interface ResultadoVentaBodega {
+export type EstadoSolicitudVentaBodega = "PENDIENTE_APROBACION" | "APROBADA" | "RECHAZADA" | "CANCELADA" | "INVALIDADA" | "EXPIRADA" | "EJECUTADA"
+
+export interface SolicitudVentaBodegaDTO {
+  solicitudId: string
+  estado: EstadoSolicitudVentaBodega
+  revision: number
+  clienteId: string
+  cliente: { id: string; nombre: string } | null
+  lineas: Array<LineaCarritoBodega & {
+    productoNombre: string
+    unidadBase: string
+    presentacionNombre: string
+    factorUnidadBase: number
+    cantidadUnidadBase: number
+    precioPresentacionCOP: number
+    subtotalCOP: number
+  }>
+  totalCOP: number
+  solicitanteUid: string
+  creadaEn: unknown
+  aprobacion: { actorUid: string; revision: number; expiraEn: unknown } | null
+}
+
+export interface ComandoSolicitudVentaBodega {
+  commandId: string
+  idempotencyKey: string
+  correlationId: string
+  causationId: null
+  payload: { clienteId: string; lineas: LineaCarritoBodega[] }
+}
+
+export interface ResultadoVentaBodegaCompletada {
   commandId: string
   ventaId: string
   estadoOperativo: "COMPLETO"
@@ -54,7 +86,18 @@ export interface ResultadoVentaBodega {
   movimientoFinancieroId: string
   movimientosInventario: string[]
   turnoId: string | null
+  solicitudId?: string
 }
+
+export interface ResultadoSolicitudVentaInvalidada {
+  commandId: string
+  solicitudId: string
+  estado: "INVALIDADA"
+  estadoOperativo: "SOLICITUD_INVALIDADA"
+  motivo: string
+}
+
+export type ResultadoVentaBodega = ResultadoVentaBodegaCompletada | ResultadoSolicitudVentaInvalidada
 
 export interface VentaVendedorDTO {
   id: string
@@ -102,6 +145,7 @@ export function construirConfirmacionVentaBodega(input: {
   clienteId: string
   lineas: readonly LineaCarritoBodega[]
   metodoPago: MetodoPagoBodega
+  solicitudId?: string
   generarId?: () => string
 }): ConfirmacionVentaBodega {
   if (input.lineas.length === 0 || input.lineas.length > MAX_LINEAS_BODEGA) throw new Error("LINEAS_INVALIDAS")
@@ -124,7 +168,29 @@ export function construirConfirmacionVentaBodega(input: {
       clienteId: requerido(input.clienteId, "CLIENTE"),
       lineas,
       metodoPago: input.metodoPago,
+      ...(input.solicitudId ? { solicitudId: requerido(input.solicitudId, "SOLICITUD") } : {}),
     },
+  }
+}
+
+export function construirSolicitudVentaBodega(input: {
+  clienteId: string
+  lineas: readonly LineaCarritoBodega[]
+  generarId?: () => string
+}): ComandoSolicitudVentaBodega {
+  if (input.lineas.length === 0 || input.lineas.length > MAX_LINEAS_BODEGA) throw new Error("LINEAS_INVALIDAS")
+  const lineas = input.lineas.map(linea => {
+    if (!Number.isSafeInteger(linea.cantidad) || linea.cantidad <= 0) throw new Error("CANTIDAD_INVALIDA")
+    return { productoId: requerido(linea.productoId, "PRODUCTO"), presentacionId: requerido(linea.presentacionId, "PRESENTACION"), cantidad: linea.cantidad }
+  })
+  const generarId = input.generarId ?? (() => crypto.randomUUID())
+  const commandId = `bodega-solicitud:${generarId()}`
+  return {
+    commandId,
+    idempotencyKey: commandId,
+    correlationId: `bodega-solicitud:${generarId()}`,
+    causationId: null,
+    payload: { clienteId: requerido(input.clienteId, "CLIENTE"), lineas },
   }
 }
 
@@ -133,6 +199,10 @@ export function mensajeErrorBodega(error: unknown): string {
   const code = candidate?.details?.code ?? candidate?.code ?? candidate?.message ?? ""
   if (code.includes("TURNO_CERRADO")) return "Abre tu turno antes de cobrar en efectivo."
   if (code.includes("STOCK_INSUFICIENTE")) return "No hay existencias suficientes para completar la venta."
+  if (code.includes("SOLICITUD_APROBACION_REQUERIDA")) return "La solicitud de venta debe estar aprobada antes de confirmar el pago."
+  if (code.includes("SOLICITUD_APROBACION_EXPIRADA")) return "La aprobación venció. Envía una nueva solicitud al administrador."
+  if (code.includes("SOLICITUD_CONTENIDO_NO_COINCIDE")) return "Los artículos o cantidades no coinciden con la solicitud aprobada."
+  if (code.includes("SOLICITUD_NO_APROBADA")) return "La solicitud todavía no está aprobada para confirmar la venta."
   if (code.includes("CLIENTE")) return "El cliente seleccionado ya no está disponible."
   if (code.includes("PRODUCTO") || code.includes("PRESENTACION")) return "El catálogo cambió. Actualízalo antes de reintentar."
   if (code.includes("ROLE_FORBIDDEN") || code.includes("permission-denied")) return "Tu permiso para vender cambió. Vuelve a iniciar sesión o contacta al administrador."

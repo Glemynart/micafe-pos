@@ -25,6 +25,7 @@
     "../functions/src/bodega-vendedor/ventas-confirmation.ts",
     "../functions/src/bodega-vendedor/ventas-contract.ts",
     "../functions/src/bodega-vendedor/ventas-resolution.ts",
+    "../functions/src/bodega-vendedor/solicitudes-venta.ts",
     "../functions/src/inventario/callables.ts",
     "../functions/src/inventario/ledger.ts",
     "../functions/src/tenant-configuration/authority.ts",

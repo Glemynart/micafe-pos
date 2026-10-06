@@ -104,6 +104,11 @@ test("crear solicitud resuelve cliente, presentaciones, factor, precio y total s
   assert.equal(result.lineas[0].cantidadUnidadBase, 20);
   assert.equal(result.lineas[0].precioPresentacionCOP, 5_000);
   assert.equal("costoUnidadBaseCOP" in result.lineas[0], false);
+  const stored = db.docs.get(`${collectionPath}/${result.solicitudId}`)!;
+  assert.equal(stored.clienteId, "cliente-1");
+  assert.equal("nombre" in stored, false);
+  assert.equal("cedula" in stored, false);
+  assert.equal("cliente" in stored, false);
   assert.equal([...db.docs.keys()].some(path => path.startsWith("ventas/")), false);
   assert.equal([...db.docs.keys()].some(path => path.startsWith("transacciones_financieras/")), false);
   assert.equal([...db.docs.keys()].some(path => path.startsWith("movimientos_inventario/")), false);
@@ -121,6 +126,16 @@ test("solicitud rechaza total o tenant aportado por cliente y no deja efectos", 
   }
 });
 
+test("comandos de solicitud limitan los identificadores de envelope antes de persistir", async () => {
+  for (const field of ["commandId", "idempotencyKey", "correlationId", "causationId"]) {
+    const db = new FakeDb(); seed(db);
+    const input = envelope("identificador-valido", createInput().payload) as Data;
+    input[field] = "x".repeat(161);
+    await assert.rejects(ejecutarCrearSolicitudVentaBodegaV1(db, seller, input), error => domain(error) === "SOLICITUD_VENTA_INVALIDA");
+    assert.equal([...db.docs.keys()].some(path => path.includes("solicitudes_venta_bodega/")), false);
+  }
+});
+
 test("approval admin binds immutable revision and expires exactly after 24 hours", async () => {
   const db = new FakeDb(); seed(db); const now = 1_800_000_000_000;
   const created = await crear(db, seller, "crear-aprobar", undefined, now);
@@ -131,6 +146,16 @@ test("approval admin binds immutable revision and expires exactly after 24 hours
   assert.equal(persisted.aprobacion.revision, 1);
   assert.equal((persisted.aprobacion.expiraEn as Timestamp).toMillis(), now + 24 * 60 * 60 * 1000);
   assert.equal(db.docs.get("productos/producto-1")?.stock, 20);
+});
+
+test("approval revalidates a generated long request ID without violating the sale command contract", async () => {
+  const db = new FakeDb(); seed(db);
+  const created = await crear(db, seller, `crear-${"x".repeat(70)}`);
+  assert.ok(created.solicitudId.length > 160 && created.solicitudId.length <= 180);
+  const result = await ejecutarResolverSolicitudVentaBodegaV1(db, admin, envelope("aprobar-larga", {
+    solicitudId: created.solicitudId, revision: 1, decision: "aprobar",
+  })) as Data;
+  assert.equal(result.estado, "APROBADA");
 });
 
 test("vendedor no puede aprobar/rechazar; admin sin sell no puede aprobar; autor no puede autoaprobar", async () => {
@@ -175,6 +200,8 @@ test("consultas de vendedor y administrador no cruzan tenant y vendedor solo ve 
   assert.equal(own.solicitudes.some((item: Data) => "costoUnidadBaseCOP" in item.lineas[0]), false);
   const queue = await ejecutarConsultarSolicitudesVentaBodegaV1(db, admin, {}) as Data;
   assert.equal(queue.solicitudes.length, 2);
+  assert.equal(queue.solicitudes[0].cliente.nombre, "Tienda Demo");
+  assert.equal("cedula" in queue.solicitudes[0].cliente, false);
   assert.equal(queue.solicitudes.some((item: Data) => item.solicitudId === "solicitud-ajena"), false);
 });
 
