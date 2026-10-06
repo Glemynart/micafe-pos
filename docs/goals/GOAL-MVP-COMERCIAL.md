@@ -146,10 +146,14 @@ reemisión, activación y acceso PWA, y se cerró el turno sintético sin invent
 efectivo. Estas evidencias no crean otro fixture ni sustituyen la matriz
 completa.
 
-**Gate actual:** `GATE I — TENANT REAL`, `EN EJECUCIÓN — PREFLIGHT Y DESPLIEGUE
-CONTROLADO DE ADR-SAAS-061 PENDIENTES`. ADR-SAAS-061 fue implementado e integrado mediante
-PR #455 (merge `37c878034cd32f4103aa85e61a901b0f5c342e46`); la CI post-merge de
-`main` debe concluir en `PASS` antes de desplegar la frontera comercial. Gate H quedó `E2.2 CERTIFIED` el 2026-10-05 mediante la matriz
+**Gate actual:** `GATE I — TENANT REAL`, `EN EJECUCIÓN — OFERTA CANÓNICA Y ALTA
+DEL TENANT PENDIENTES`. ADR-SAAS-061 fue implementado e integrado mediante
+PR #455 (merge `37c878034cd32f4103aa85e61a901b0f5c342e46`); la frontera fue
+reconciliada por PR #458 (merge
+`fb9f7d079e1cbdf53050cc85958ee896c8d5c6b9`), cuya CI post-merge terminó
+`PASS` en el run `37442386369`. El deploy dirigido de `saas-commercial` a
+`micafe-pos-staging` también terminó `PASS`; no creó una oferta ni un tenant.
+Gate H quedó `E2.2 CERTIFIED` el 2026-10-05 mediante la matriz
 [`G-SAAS-02-E2-2-GATE-H-CERTIFICATION-2026-10-05.md`](evidence/G-SAAS-02-E2-2-GATE-H-CERTIFICATION-2026-10-05.md).
 Gate F quedó `PASS` el 2026-10-05:
 aislamiento de configuración A/B, retry autenticado e idempotente, flujos
@@ -195,11 +199,34 @@ por ello no se creó ni configuró un tenant real. Esa evidencia conserva el
 estado de su ejecución. Posteriormente se autorizó una tarifa anual específica
 por tenant, por lo que ADR-SAAS-061 fue aceptada el 2026-10-05. La frontera fue
 implementada, auditada e integrada mediante PR #455 (merge
-`37c878034cd32f4103aa85e61a901b0f5c342e46`); Gate I continúa en ejecución
-pendiente de CI post-merge, preflight reproducible y deploy controlado de
-`saas-commercial`. No se creó ni configuró un tenant real. El detalle del
+`37c878034cd32f4103aa85e61a901b0f5c342e46`). Al corte de este preflight
+(2026-10-05), Gate I seguía pendiente de CI post-merge, preflight reproducible
+y deploy controlado de `saas-commercial`; ese estado fue supersedido el
+2026-10-06 por la reconciliación documentada abajo. No se creó ni configuró un
+tenant real. El detalle del
 preflight inicial y su mutation audit están en
 [`G-SAAS-02-E2-2-GATE-I-PREFLIGHT-BLOCKED-2026-10-05.md`](evidence/G-SAAS-02-E2-2-GATE-I-PREFLIGHT-BLOCKED-2026-10-05.md).
+
+### Reconciliación post-merge y deploy staging — PR #458 (2026-10-06)
+
+PR #458 integró la resolución server-side de los términos de oferta. Su merge
+`fb9f7d079e1cbdf53050cc85958ee896c8d5c6b9` está en `origin/main`; la CI
+post-merge terminó `PASS` en el run `37442386369`. La frontera comercial se
+desplegó de forma dirigida únicamente a `micafe-pos-staging` mediante
+`firebase deploy --only functions:saas-commercial --project micafe-pos-staging`.
+`saas-commercial` registra `consultarOfertaComercialTenantSaas` y
+`ejecutarComandoComercialSaas`, ambas Node.js 22, `us-central1`, cero Secrets;
+las dos revisiones quedaron `READY` con 100 % del tráfico en su revisión
+vigente. La evidencia de build, artefacto, digest, configuración, smoke de
+autenticación, rollback y mutation audit está en
+[`G-SAAS-02-E2-2-GATE-I-COMMERCIAL-DEPLOY-2026-10-06.md`](evidence/G-SAAS-02-E2-2-GATE-I-COMMERCIAL-DEPLOY-2026-10-06.md).
+
+Este deploy cierra únicamente el subgate técnico de publicación staging. No
+se creó ni persistió la oferta, no se ejecutó Bootstrap o Activation y no se
+creó ni configuró el tenant real. Gate I continúa `EN EJECUCIÓN`; la vigencia
+explícita de la oferta y las precondiciones documentadas para registrar la
+oferta y efectuar el alta real siguen pendientes. E2.2 permanece `EN
+EJECUCIÓN`; no se declara producción lista ni se autoriza su acceso.
 
 ### Reconciliación post-merge — PR #447 (2026-10-05; checkpoint inicial supersedido)
 
