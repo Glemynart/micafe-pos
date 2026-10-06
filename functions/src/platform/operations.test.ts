@@ -523,8 +523,8 @@ test("ActualizarDatosAdministrativosEmpresa — si el tenant ya emitió document
 
 test("ADR-SAAS-061: la plataforma crea, aprueba y revoca una oferta específica sin cambiar el plan público", async () => {
   const db = new Db();
-  const empresaId = "empresa-oferta-1";
-  const ofertaId = "oferta-empresa-1-2026";
+  const empresaId = "distribuidora-las-jimenez";
+  const ofertaId = "oferta-distribuidora-jimenez-2026";
   db.seed("planes/mvp_comercial/versiones/2", {
     planId: "mvp_comercial",
     planVersion: 2,
@@ -539,22 +539,34 @@ test("ADR-SAAS-061: la plataforma crea, aprueba y revoca una oferta específica 
     schemaVersion: 1,
   });
 
+  const codigoAprobacion = "GATE_I_OFFER_1";
+  await assert.rejects(ejecutarComandoComercial(db as never, "operador_1", "CrearOfertaComercialTenant" as never, {
+    commandId: "cmd_oferta_manipulada",
+    idempotencyKey: "idem_oferta_manipulada",
+    correlationId: "corr_oferta_manipulada",
+    causationId: null,
+    motivoCodigo: "OFERTA_COMERCIAL_TENANT_REGISTRAR",
+    codigoAprobacion,
+    expectedRevision: 1,
+    iniciaEn: "2026-10-05",
+    expiraEn: null,
+    precioAcordado: { importe: 1, moneda: "COP" },
+  } as never), /OFERTA_COMERCIAL_TERMINOS_CLIENTE_NO_ADMITIDOS/);
+  assert.equal(db.countByPrefix("ofertas_comerciales_tenant/"), 0, "no persiste términos manipulados");
+
   await ejecutarComandoComercial(db as never, "operador_1", "CrearOfertaComercialTenant" as never, {
     commandId: "cmd_oferta_crear_1",
     idempotencyKey: "idem_oferta_crear_1",
     correlationId: "corr_oferta_crear_1",
     causationId: null,
-    motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
-    empresaId,
-    ofertaId,
-    planIdBase: "mvp_comercial",
-    planVersionBase: 2,
-    precioAcordado: { importe: 1600000, moneda: "COP" },
+    motivoCodigo: "OFERTA_COMERCIAL_TENANT_REGISTRAR",
+    codigoAprobacion,
     iniciaEn: "2026-10-05",
     expiraEn: null,
-    referenciaAprobacion: "ADR-SAAS-061",
     expectedRevision: 1,
-  });
+  } as never);
+  assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).precioAcordado.importe, 1_600_000);
+  assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).referenciaAprobacion, "G-SAAS-02-PO-OFFER-DISTRIBUIDORA-LAS-JIMENEZ-2026-10-06");
   assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).estado, "BORRADOR");
 
   await ejecutarComandoComercial(db as never, "operador_1", "AprobarOfertaComercialTenant" as never, {
@@ -562,11 +574,10 @@ test("ADR-SAAS-061: la plataforma crea, aprueba y revoca una oferta específica 
     idempotencyKey: "idem_oferta_aprobar_1",
     correlationId: "corr_oferta_aprobar_1",
     causationId: null,
-    motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
-    empresaId,
-    ofertaId,
+    motivoCodigo: "OFERTA_COMERCIAL_TENANT_APROBAR",
+    codigoAprobacion,
     expectedRevision: 1,
-  });
+  } as never);
   assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).estado, "APROBADA");
   assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}`).ofertaActivaId, ofertaId);
   assert.deepEqual(db.read("planes/mvp_comercial/versiones/2").precio, { importe: 1800000, moneda: "COP" });
@@ -576,11 +587,11 @@ test("ADR-SAAS-061: la plataforma crea, aprueba y revoca una oferta específica 
     idempotencyKey: "idem_oferta_revocar_1",
     correlationId: "corr_oferta_revocar_1",
     causationId: null,
-    motivoCodigo: "OFERTA_CORREGIDA",
+    motivoCodigo: "OFERTA_COMERCIAL_TENANT_REVOCAR",
     empresaId,
     ofertaId,
     expectedRevision: 2,
-  });
+  } as never);
   assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).estado, "REVOCADA");
   assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}`).ofertaActivaId, null);
   assert.ok(db.docsByPrefix("saas_auditoria/").some((e) => e.tipo === "OFERTA_COMERCIAL_TENANT_APROBADA"));

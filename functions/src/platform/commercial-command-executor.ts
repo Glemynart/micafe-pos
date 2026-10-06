@@ -1,4 +1,5 @@
 import type { Firestore } from "firebase-admin/firestore";
+import { resolverTerminosOfertaTenantAprobada } from "./approved-tenant-offers";
 import {
   actualizarBorradorPlan,
   aprobarOfertaComercialTenant,
@@ -73,15 +74,53 @@ export async function ejecutarComandoComercial(
   } else if (tipo === "CrearOfertaComercialTenant") {
     facultad = "COMERCIAL_GOBERNAR";
     evento = "OFERTA_COMERCIAL_TENANT_CREADA";
-    agregado = { tipo: "OFERTA_COMERCIAL_TENANT", id: entrada.ofertaId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
-    resultado = await crearOfertaComercialTenant(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
+    const terminos = resolverTerminosOfertaTenantAprobada(entrada.codigoAprobacion, entrada);
+    const entradaAuditoria = { ...entrada, motivoCodigo: terminos.motivoCodigo };
+    const entradaServicio = {
+      commandId: entrada.commandId,
+      idempotencyKey: entrada.idempotencyKey,
+      correlationId: entrada.correlationId,
+      causationId: entrada.causationId ?? entrada.commandId,
+      expectedRevision: entrada.expectedRevision,
+      empresaId: terminos.empresaIdObjetivo,
+      ofertaId: terminos.ofertaId,
+      planIdBase: terminos.planIdBase,
+      planVersionBase: terminos.planVersionBase,
+      periodicidad: terminos.periodicidad,
+      precioAcordado: terminos.precioAcordado,
+      motivoCodigo: terminos.motivoCodigo,
+      referenciaAprobacion: terminos.referenciaAprobacion,
+      motivo: terminos.motivoCodigo,
+      iniciaEn: entrada.iniciaEn,
+      expiraEn: entrada.expiraEn,
+    };
+    agregado = { tipo: "OFERTA_COMERCIAL_TENANT", id: terminos.ofertaId };
+    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entradaAuditoria, agregado, terminos.empresaIdObjetivo, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
+    resultado = await crearOfertaComercialTenant(db, entradaServicio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
   } else if (tipo === "AprobarOfertaComercialTenant") {
     facultad = "COMERCIAL_GOBERNAR";
     evento = "OFERTA_COMERCIAL_TENANT_APROBADA";
-    agregado = { tipo: "OFERTA_COMERCIAL_TENANT", id: entrada.ofertaId };
-    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
-    resultado = await aprobarOfertaComercialTenant(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
+    const terminos = resolverTerminosOfertaTenantAprobada(entrada.codigoAprobacion, entrada);
+    const entradaAuditoria = { ...entrada, motivoCodigo: terminos.motivoCodigo };
+    const entradaServicio = {
+      commandId: entrada.commandId,
+      idempotencyKey: entrada.idempotencyKey,
+      correlationId: entrada.correlationId,
+      causationId: entrada.causationId ?? entrada.commandId,
+      expectedRevision: entrada.expectedRevision,
+      empresaId: terminos.empresaIdObjetivo,
+      ofertaId: terminos.ofertaId,
+      planIdBase: terminos.planIdBase,
+      planVersionBase: terminos.planVersionBase,
+      periodicidad: terminos.periodicidad,
+      precioAcordado: terminos.precioAcordado,
+      motivoCodigo: terminos.motivoCodigo,
+      referenciaAprobacion: terminos.referenciaAprobacion,
+      motivo: terminos.motivoCodigo,
+    };
+    agregado = { tipo: "OFERTA_COMERCIAL_TENANT", id: terminos.ofertaId };
+    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entradaAuditoria, agregado, terminos.empresaIdObjetivo, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
+    resultado = await aprobarOfertaComercialTenant(db, entradaServicio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
   } else if (tipo === "RevocarOfertaComercialTenant") {
     facultad = "COMERCIAL_GOBERNAR";
     evento = "OFERTA_COMERCIAL_TENANT_REVOCADA";

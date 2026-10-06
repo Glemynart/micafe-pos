@@ -255,13 +255,24 @@ export type OfertaComercialTenantAdmin = {
 };
 
 export type ResultadoConsultaOfertaComercialTenant = {
+  autorizacion: {
+    ofertaId: string;
+    empresaIdObjetivo: string;
+    nombreEmpresaObjetivo: string;
+    planIdBase: string;
+    planVersionBase: number;
+    periodicidad: "ANUAL";
+    precioAcordado: { importe: number; moneda: string };
+    motivoCodigo: string;
+    referenciaAprobacion: string;
+  };
   oferta: OfertaComercialTenantAdmin | null;
   controlRevision: number;
   ofertaActivaId: string | null;
 };
 
-export const consultarOfertaComercialTenant = (empresaId: string, ofertaId: string) =>
-  invocar<ResultadoConsultaOfertaComercialTenant>("consultarOfertaComercialTenantSaas", { empresaId, ofertaId });
+export const consultarOfertaComercialTenant = (codigoAprobacion: string) =>
+  invocar<ResultadoConsultaOfertaComercialTenant>("consultarOfertaComercialTenantSaas", { codigoAprobacion });
 
 export const solicitarSoporte = (entrada: Record<string, unknown>) =>
   invocar<Record<string, unknown>>("solicitarSoporteSaas", entrada);
