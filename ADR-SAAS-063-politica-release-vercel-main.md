@@ -2,15 +2,16 @@
 
 ## Estado
 
-**PROPUESTO — PENDIENTE DE APROBACIÓN.**
+**ACEPTADO — 2026-10-06.**
 
 **Fecha de propuesta:** 2026-10-06.
-**Decisores:** Product Owner (decisión pendiente); Lead Engineer (recomendación técnica).
+**Aprobación:** el responsable del proyecto aprobó explícitamente la Opción 2 el 2026-10-06; Lead Engineer registra y ejecuta la decisión.
 
 Pertenece a `G-SAAS-02 → M2 — Provisioning y onboarding → E2.2 —
 Configuración inicial`, con efecto transversal sobre los PR que integran a
-`main` y sobre el release de `M4 / E4.1`. Esta propuesta no modifica la
-política vigente ni autoriza deploy, promoción, cambio de alias o tráfico.
+`main` y sobre el release de `M4 / E4.1`. La aceptación autoriza únicamente
+implementar la barrera descrita en esta ADR mediante configuración versionada;
+no autoriza un release, promoción, cambio de alias o tráfico.
 
 ## Contexto
 
@@ -105,23 +106,22 @@ repositorio y es más fácil que la configuración remota diverja.
 **Desventajas:** elimina o degrada previews y comentarios requeridos por el
 flujo de PR; es más amplio de lo necesario.
 
-## Recomendación pendiente
+## Decisión aceptada
 
-Se recomienda la **Opción 2** como política de separación entre integración y
-release. Esta recomendación no es una decisión aceptada: requiere aprobación
-explícita del Product Owner porque cambia el comportamiento de publicación de
-todo el proyecto Vercel `cafeatrato`, no solo de E2.2.
+Se acepta la **Opción 2** como política de separación entre integración y
+release para todo el proyecto Vercel `cafeatrato`: deshabilitar deployments Git
+automáticos de `main` y conservar los deployments Preview de las demás ramas.
+La regla se implementará en `vercel.json`, integrada con la configuración
+existente y mediante el flujo normal de PR, CI y auditoría.
 
-Hasta que se acepte esta ADR y se integre su implementación mediante PR, no se
-debe fusionar un cambio de `main` cuyo efecto Vercel `production` no esté
-autorizado por el gate aplicable. En particular, PR #461 permanece abierto; sus
-checks verdes no autorizan el deployment que su merge generaría hoy.
+PR #461 permanece abierto hasta que la barrera esté integrada y se complete su
+auditoría propia. Sus checks verdes no sustituyen ese gate.
 
-## Límites de la decisión propuesta
+## Límites de la decisión aceptada
 
-Si se acepta, la implementación posterior podrá modificar exclusivamente la
-configuración de deployments Git de Vercel necesaria para bloquear `main` y
-conservar previews. No podrá:
+La implementación autorizada podrá modificar exclusivamente la configuración
+de deployments Git de Vercel necesaria para bloquear `main` y conservar
+previews. No podrá:
 
 - lanzar `vercel deploy --prod`, promover deployments ni cambiar aliases;
 - modificar Firebase, staging, producción de Firebase, tráfico, Firestore,
@@ -132,10 +132,10 @@ conservar previews. No podrá:
 
 La autorización para realizar un release de producción seguirá requiriendo un
 gate separado con SHA, artefacto, smoke, rollback y aprobación conforme a los
-documentos vigentes. Aceptar esta ADR únicamente autorizaría implementar la
-barrera de auto-deployment descrita; no autorizaría un release.
+documentos vigentes. La aceptación de esta ADR autoriza únicamente implementar
+la barrera de auto-deployment descrita; no autoriza un release.
 
-## Consecuencias si se acepta
+## Consecuencias de la decisión
 
 - Los pushes y merges a `main` no generan deployments Git Vercel.
 - Los pushes a branches de PR continúan generando Preview, salvo una regla
@@ -161,11 +161,19 @@ La comprobación post-merge solo se ejecutará después de la aprobación de est
 ADR y de la auditoría/CI requeridas; no se hará un merge experimental para
 probar la configuración.
 
-## Decisión solicitada
+## Registro de aprobación y alcance
 
-¿Se acepta la Opción 2 como política del proyecto `cafeatrato`: mantener
-previews por PR, deshabilitar el auto-deployment de `main` y reservar todo
-release Vercel de producción a un gate explícito posterior?
+El responsable del proyecto aprobó explícitamente la Opción 2 el 2026-10-06.
+La aceptación autoriza añadir `git.deploymentEnabled.main = false` a
+`vercel.json`, preservar deployments Preview para las ramas de PR y verificar
+la política después de integrarla. También reserva cualquier publicación
+Vercel de producción a un gate explícito posterior, con SHA y artefacto
+verificados.
+
+Esta aceptación no autoriza `vercel deploy --prod`, promover deployments,
+cambiar dominios o aliases, modificar variables de entorno, ni desplegar o
+alterar Firebase, staging, producción de Firebase, datos o tráfico. No modifica
+la funcionalidad de PR #461 ni declara E2.2 completado.
 
 ## Referencias
 
