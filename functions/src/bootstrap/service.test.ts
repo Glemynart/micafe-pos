@@ -359,6 +359,41 @@ test("ADR-SAAS-061: Bootstrap resuelve y consume atómicamente una oferta anual 
   );
   assert.equal(replay.idempotente, true);
   assert.deepEqual(db.read(`suscripciones/${empresaId}`).snapshotContrato.precio, { importe: 1600000, moneda: "COP" });
+
+  const empresaVencida = "empresa-oferta-vencida";
+  const ofertaVencida = "oferta-vencida-2020";
+  db.seed(ofertaComercialActivaRef(db as never, empresaVencida).path, {
+    empresaId: empresaVencida,
+    ofertaActivaId: ofertaVencida,
+    revision: 1,
+  });
+  db.seed(ofertaComercialRef(db as never, empresaVencida, ofertaVencida).path, {
+    ofertaId: ofertaVencida,
+    empresaIdObjetivo: empresaVencida,
+    planIdBase: "mvp_comercial",
+    planVersionBase: 2,
+    periodicidad: "ANUAL",
+    precioAcordado: { importe: 1600000, moneda: "COP" },
+    estado: "APROBADA",
+    iniciaEn: "2020-01-01",
+    expiraEn: "2020-01-02",
+    motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
+    referenciaAprobacion: "ADR-SAAS-061",
+    revision: 2,
+    schemaVersion: 1,
+  });
+  await assert.rejects(
+    ejecutarBootstrapEmpresarial(db as any, {
+      ...entrada,
+      empresaId: empresaVencida,
+      commandId: "cmd_boot_vencida_1",
+      idempotencyKey: "idem_boot_vencida_1",
+      correlationId: "corr_boot_vencida_1",
+      causationId: "cause_boot_vencida_1",
+    }, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso),
+    /OFERTA_COMERCIAL_NO_ADMISIBLE/,
+  );
+  assert.equal(db.read(`empresas/${empresaVencida}`), undefined);
 });
 
 test("Bodega MVP1: Bootstrap propaga el vertical y excluye módulos de restaurante", async () => {
