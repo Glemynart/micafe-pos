@@ -146,10 +146,11 @@ reemisión, activación y acceso PWA, y se cerró el turno sintético sin invent
 efectivo. Estas evidencias no crean otro fixture ni sustituyen la matriz
 completa.
 
-**Gate actual:** `GATE I — TENANT REAL`, `EN EJECUCIÓN — OFERTA CANÓNICA Y ALTA
-DEL TENANT PENDIENTES`. ADR-SAAS-061 fue implementado e integrado mediante
-PR #455 (merge `37c878034cd32f4103aa85e61a901b0f5c342e46`); la frontera fue
-reconciliada por PR #458 (merge
+**Gate actual:** `GATE B — IMPLEMENTACIÓN`, `EN EJECUCIÓN — IMPLEMENTAR
+ADR-SAAS-062 Y REVALIDAR EL FLUJO DE VENTA ANTES DEL TENANT REAL`.
+ADR-SAAS-061 fue implementado e integrado mediante PR #455 (merge
+`37c878034cd32f4103aa85e61a901b0f5c342e46`); la frontera fue reconciliada
+por PR #458 (merge
 `fb9f7d079e1cbdf53050cc85958ee896c8d5c6b9`), cuya CI post-merge terminó
 `PASS` en el run `37442386369`. El deploy dirigido de `saas-commercial` a
 `micafe-pos-staging` también terminó `PASS`; no creó una oferta ni un tenant.
@@ -168,7 +169,21 @@ el turno sintético se abrió y cerró con base `0`, una venta de efectivo de
 `5.000 COP`, stock posterior `4`, diferencia de caja `0`, depósito neto
 `5.000 COP`, recibo/auditoría `CONFIRMADO` y sin lock activo. Gate H
 consolidó esos resultados, el estado remoto y los límites pendientes: E2.2
-está certificado para iniciar Gate I, no para declarar el Goal completo.
+quedó certificado para el flujo anterior de venta directa y habilitó el
+preflight de Gate I; esa certificación no cubre la aprobación previa añadida
+por ADR-SAAS-062.
+
+ADR-SAAS-062 fue aceptado el 2026-10-06 para que cada vendedor presente una
+solicitud server-authoritative y la administración la apruebe antes de la venta
+canónica. La autorización vence en 24 horas y no reserva inventario; un cambio
+de precio invalida la revisión y exige una nueva solicitud. Diana, como
+administradora que también venderá, conserva venta directa por el comando
+canónico con permiso explícito `sell`; no crea ni aprueba sus propias
+solicitudes. Esta ampliación reabre Gate B. Tras su implementación e integración
+se deben repetir las pruebas afectadas de Gate F, el rehearsal de Gate G y la
+matriz de Gate H antes de continuar con la creación/configuración del tenant
+real en Gate I. La oferta de 1.600.000 COP aún no está persistida y el tenant
+real no existe.
 
 ### Checkpoint vigente — 2026-10-05
 
@@ -227,6 +242,10 @@ creó ni configuró el tenant real. Gate I continúa `EN EJECUCIÓN`; la vigenci
 explícita de la oferta y las precondiciones documentadas para registrar la
 oferta y efectuar el alta real siguen pendientes. E2.2 permanece `EN
 EJECUCIÓN`; no se declara producción lista ni se autoriza su acceso.
+
+La reconciliación de ADR-SAAS-062 y la aceptación de su cambio de alcance se
+registran en
+[`G-SAAS-02-E2-2-ADR-SAAS-062-ACCEPTANCE-2026-10-06.md`](evidence/G-SAAS-02-E2-2-ADR-SAAS-062-ACCEPTANCE-2026-10-06.md).
 
 ### Reconciliación post-merge — PR #447 (2026-10-05; checkpoint inicial supersedido)
 
