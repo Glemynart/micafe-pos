@@ -15,7 +15,7 @@ const pepper = process.env.OPERATIONAL_PIN_PEPPER ?? "bodega-u4-u5-local-pepper"
 
 type Actor = { uid: string; codigo: string; rol: "vendedor" | "admin"; permisos: string[]; empresaId: string }
 type TenantFixture = {
-  key: "A" | "B" | "GENERAL"; empresaId: string; nombre: string; vendedor: Actor; admin: Actor
+  key: "A" | "B" | "C" | "GENERAL"; empresaId: string; nombre: string; vendedor: Actor; admin: Actor
   clienteId: string; clienteNombre: string; productoId: string; productoNombre: string; presentacionId: string; presentacionNombre: string
 }
 
@@ -32,6 +32,7 @@ function tenantFixture(key: TenantFixture["key"], vertical: "BODEGA_MVP1" | "GEN
 
 const tenantA = tenantFixture("A", "BODEGA_MVP1")
 const tenantB = tenantFixture("B", "BODEGA_MVP1")
+const tenantC = tenantFixture("C", "BODEGA_MVP1")
 const tenantGeneral = tenantFixture("GENERAL", "GENERAL")
 let app: ReturnType<typeof initializeApp>
 
@@ -57,7 +58,7 @@ async function seedTenant(db: FirebaseFirestore.Firestore, auth: ReturnType<type
   await db.collection("productos").doc(tenant.productoId).set({ id: tenant.productoId, empresaId: tenant.empresaId, nombre: tenant.productoNombre, categoriaId: `abarrotes-${tenant.key}-${runId}`, espacioId: `bodega-${tenant.key}-${runId}`, unidad: "unidad", costo: 1000, stock: 20, stockMinimo: 2, secuenciaLedger: 1, activo: true })
   await db.collection("presentaciones_producto").doc(tenant.presentacionId).set({ id: tenant.presentacionId, empresaId: tenant.empresaId, productoId: tenant.productoId, nombre: tenant.presentacionNombre, factorUnidadBase: 2, precioCOP: 5000, activo: true })
   if (vertical === "BODEGA_MVP1") {
-    const bankAccountId = tenant.key === "A" ? "bancolombia" : `bancolombia-${runId}`
+    const bankAccountId = tenant.key === "A" ? "bancolombia" : `bancolombia-${tenant.key.toLowerCase()}-${runId}`
     await db.collection("cuentas_bancarias").doc(bankAccountId).set({ id: bankAccountId, empresaId: tenant.empresaId, claveOperativa: "bancolombia", nombre: "Bancolombia", saldo: 0 })
   }
   if (tenant.key === "A") {
@@ -71,6 +72,7 @@ test.beforeAll(async () => {
   await db.collection("permisos_roles").doc("vendedor").set({ permisos: ["sell", "shifts"] })
   await seedTenant(db, auth, tenantA, "BODEGA_MVP1")
   await seedTenant(db, auth, tenantB, "BODEGA_MVP1")
+  await seedTenant(db, auth, tenantC, "BODEGA_MVP1")
   await seedTenant(db, auth, tenantGeneral, "GENERAL")
 })
 test.afterAll(async () => { await deleteApp(app) })
@@ -132,6 +134,69 @@ test("vendedor solicita transferencia, admin aprueba y el pago materializa una Ã
   const ingresos = await db.collection("transacciones_financieras").where("empresaId", "==", tenantA.empresaId).where("ventaId", "==", venta?.id).get(); expect(ingresos.size).toBe(1); expect(ingresos.docs[0]?.data()).toMatchObject({ tipo: "ingreso", categoria: "ventas", monto: 5000, turnoId: null, cuentaDocumentoId: "bancolombia" })
   const movimientosCaja = await db.collection("transacciones_financieras").where("empresaId", "==", tenantA.empresaId).where("cuentaDocumentoId", "==", "caja-principal").get(); expect(movimientosCaja.size).toBe(0)
   await page.goto("/admin"); await expect(page).toHaveURL(/\/admin\/login\?error=not_admin/)
+})
+
+test("reintento tras perder la respuesta de la venta conserva una sola solicitud y sus efectos", async ({ page, browser }) => {
+  await login(page, tenantC.vendedor); await expect(page.getByText("Bodega mÃ³vil")).toBeVisible()
+  const db = getFirestore(app)
+  await page.getByRole("button", { name: tenantC.productoNombre }).click()
+  await page.getByRole("button", { name: "Enviar solicitud" }).click()
+  await expect(page.getByRole("heading", { name: "Mis solicitudes" })).toBeVisible()
+  const solicitud = (await db.collection("empresas").doc(tenantC.empresaId).collection("solicitudes_venta_bodega").get()).docs[0]
+  expect(solicitud).toBeTruthy()
+  const solicitudId = solicitud!.id
+  expect((await db.collection("ventas").where("empresaId", "==", tenantC.empresaId).get()).size).toBe(0)
+
+  await aprobarSolicitudEnBackoffice(browser, tenantC, tenantC.clienteNombre)
+  await page.reload(); await page.getByRole("button", { name: "Solicitudes" }).click()
+  const tarjeta = page.getByRole("article").filter({ hasText: tenantC.clienteNombre })
+  await expect(tarjeta.getByText("APROBADA", { exact: true })).toBeVisible()
+  await tarjeta.getByRole("button", { name: "transferencia" }).click()
+
+  let perderRespuesta = true
+  let comandoInicial: unknown
+  let comandoReintentado: unknown
+  await page.route("**/*confirmarVentaBodegaV1*", async route => {
+    if (route.request().method() !== "POST") { await route.continue(); return }
+    const data = route.request().postDataJSON()?.data
+    if (perderRespuesta) {
+      perderRespuesta = false
+      comandoInicial = data
+      const response = await route.fetch()
+      expect(response.status()).toBe(200)
+      await route.abort("failed")
+      return
+    }
+    comandoReintentado = data
+    await route.continue()
+  })
+
+  await tarjeta.getByRole("button", { name: "Confirmar venta" }).click()
+  await expect(page.getByRole("alert")).toBeVisible()
+  await expect.poll(async () => (await db.collection("ventas").where("empresaId", "==", tenantC.empresaId).get()).size).toBe(1)
+  const ventaConfirmadaPorServidor = (await db.collection("ventas").where("empresaId", "==", tenantC.empresaId).get()).docs[0]
+  expect(ventaConfirmadaPorServidor).toBeTruthy()
+  const ventaId = ventaConfirmadaPorServidor!.id
+  await expect.poll(async () => (await db.collection("empresas").doc(tenantC.empresaId).collection("solicitudes_venta_bodega").doc(solicitudId).get()).data()?.estado).toBe("EJECUTADA")
+
+  await tarjeta.getByRole("button", { name: "Confirmar venta" }).click()
+  await expect(page.getByText("Venta confirmada")).toBeVisible()
+  expect(comandoReintentado).toEqual(comandoInicial)
+
+  const ventas = await db.collection("ventas").where("empresaId", "==", tenantC.empresaId).get()
+  expect(ventas.size).toBe(1)
+  expect(ventas.docs[0]?.id).toBe(ventaId)
+  const solicitudesFinales = await db.collection("empresas").doc(tenantC.empresaId).collection("solicitudes_venta_bodega").get()
+  expect(solicitudesFinales.size).toBe(1)
+  const solicitudFinal = solicitudesFinales.docs[0]
+  expect(solicitudFinal?.id).toBe(solicitudId)
+  expect(solicitudFinal.data()).toMatchObject({ estado: "EJECUTADA", ejecucion: { ventaId } })
+  const movimientos = await db.collection("movimientos_inventario").where("empresaId", "==", tenantC.empresaId).where("referenciaId", "==", ventaId).get()
+  expect(movimientos.size).toBe(1)
+  expect(movimientos.docs[0]?.data()).toMatchObject({ cantidad: -2, referenciaColeccion: "ventas", referenciaId: ventaId })
+  const ingresos = await db.collection("transacciones_financieras").where("empresaId", "==", tenantC.empresaId).where("ventaId", "==", ventaId).get()
+  expect(ingresos.size).toBe(1)
+  expect(ingresos.docs[0]?.data()).toMatchObject({ tipo: "ingreso", categoria: "ventas", monto: 5000, cuentaDocumentoId: `bancolombia-c-${runId}` })
 })
 
 test("vendedor aprobado confirma efectivo con turno propio desde la PWA hasta los efectos persistidos", async ({ page, browser }) => {
