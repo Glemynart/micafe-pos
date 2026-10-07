@@ -116,7 +116,12 @@
 
 ## Estado vivo
 
-### Checkpoint vigente — 2026-10-06 — PR #466 / Gate C revalidado
+### Checkpoint vigente — 2026-10-06 — PR #467 / Gate D revalidado
+
+PR #467 quedó integrado en `main` mediante
+`abbeac7a09764efd01e83153d1ae05a039a821f0`; la CI post-merge, run
+`37563515007`, terminó `success`. La evidencia post-merge de Gate C/D está en
+[`G-SAAS-02-E2-2-GATE-D-STAGING-DEPLOY-2026-10-07.md`](evidence/G-SAAS-02-E2-2-GATE-D-STAGING-DEPLOY-2026-10-07.md).
 
 PR #466 fue integrado en `main` mediante
 `8694491f61fd12d361d569f4a75218d8415c5f57` el `2026-10-07T01:36:05Z`
@@ -127,24 +132,25 @@ etapas E2E de Bodega en Emulator. PR #466 acepta `presentacionId` hasta el
 límite canónico en solicitudes; no altera el contrato ni la autoridad de
 venta.
 
-Gate C se revalidó para la nueva fuente de `saas-bodega`; evidencia en
-[`G-SAAS-02-E2-2-GATE-C-PREFLIGHT-2026-10-07.md`](evidence/G-SAAS-02-E2-2-GATE-C-PREFLIGHT-2026-10-07.md).
-El candidato mantiene diez callables, cero Secrets y un delta de deploy
-calculado de `10 update / 0 create / 0 delete`, exclusivamente en
-`micafe-pos-staging`. No se desplegó esta fuente en esa revalidación. Gate D
-permanece `PASS` para la versión anterior, pero su deploy y verificación deben
-repetirse para el nuevo artefacto antes de revalidar Gate F. No hubo mutaciones
-remotas durante Gate C.
+Gate C se revalidó para la nueva fuente de `saas-bodega`; mantuvo diez
+callables, cero Secrets y un delta de `10 update / 0 create / 0 delete`,
+exclusivamente en `micafe-pos-staging`. Gate D desplegó esa fuente con salida
+`0`: diez Functions `ACTIVE`, `Ready`, Node.js 22 y 100 % de tráfico en sus
+revisiones nuevas. El artefacto remoto se verificó archivo por archivo contra
+el paquete local, enlazando SHA de `main`, Cloud Build y digests remotos. Las
+diez sondas sin autenticación respondieron `401 UNAUTHENTICATED`. No hubo
+cambios de Secrets, Rules, IAM policy, Firestore/Auth ni producción.
 
 El fixture sintético retenido `E2_2-BODEGA-STAGING-FIXTURE` permanece
 reutilizable y Gate E conserva `PASS`; no se creó otro fixture. Tras Gate D se
 deben revalidar Gate F, repetir el rehearsal de Gate G y emitir una nueva
-matriz de Gate H, como requiere ADR-SAAS-062. El siguiente gate es D. Gate I
+matriz de Gate H, como requiere ADR-SAAS-062. El siguiente gate es F. Gate I
 sigue `PENDING`: no se creó ni configuró el tenant real ni se persistió la
-oferta. La oferta de 1.600.000 COP no demuestra aceptación del cliente; la
-vigencia, usuarios iniciales y normalización/confirmación del catálogo e
-inventario siguen pendientes. Gate J/K/L y E2.2 continúan pendientes; no se
-autoriza producción.
+oferta. La aprobación interna de 1.600.000 COP no demuestra aceptación del
+cliente; la vigencia, usuarios iniciales y normalización/confirmación del
+catálogo e inventario siguen pendientes. Gates J/K/L, M2/E2.2 y G-SAAS-02
+continúan pendientes; este despliegue staging no autoriza producción ni inicia
+el Trial real.
 
 Los rótulos A–F de la tabla histórica de ADR-SAAS-048 son gates internos de
 esa decisión de superficie/fixture; el estado operativo actual de E2.2 se
