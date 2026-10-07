@@ -7,7 +7,7 @@ import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-contex
 import { useAuthContext } from "@/contexts/auth-context"
 import { actualizarCliente, crearCliente, eliminarCliente, type Cliente } from "@/lib/clientes-service"
 import { ajustarStockProductoBodega, crearCategoriaBodega, crearPresentacionBodega, crearProductoBodega, listarCategoriasBodega, listarEspaciosBodega, suscribirClientesBodegaAdmin, suscribirPresentacionesBodegaAdmin, suscribirProductosBodegaAdmin, suscribirVentasBodegaAdmin, actualizarPresentacionBodega, type PresentacionBodegaAdmin, type ProductoBodegaAdmin, type VentaBodegaAdmin } from "@/lib/bodega/admin-service"
-import { mensajeErrorBodega } from "@/lib/bodega/ui-contract"
+import { formatearFechaBodega, formatearReferenciaSolicitud, mensajeErrorBodega } from "@/lib/bodega/ui-contract"
 import { construirConfirmacionVentaBodega, type LineaCarritoBodega, type MetodoPagoBodega, type ResultadoVentaBodega, type SolicitudVentaBodegaDTO } from "@/lib/bodega/ui-contract"
 import { cancelarSolicitudVentaBodega, consultarSolicitudesVentaBodega, resolverSolicitudVentaBodega } from "@/lib/bodega/solicitudes-service"
 import { confirmarVentaBodega } from "@/lib/bodega/vendedor-service"
@@ -128,10 +128,10 @@ export function BodegaSolicitudesAdmin() {
     {error && <ErrorBox>{error}</ErrorBox>}
     <button onClick={() => void cargar()} className="mb-4 rounded-xl border border-border px-4 py-2 text-sm font-semibold">Actualizar</button>
     <div className="space-y-3">{solicitudes.map(solicitud => <article key={solicitud.solicitudId} className="rounded-2xl border border-border bg-card p-4">
-      <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">{solicitud.cliente?.nombre || "Cliente no disponible"}</h2><p className="mt-1 text-xs text-muted-foreground">Solicitud {solicitud.solicitudId} · vendedor {solicitud.solicitanteUid}</p></div><span className="rounded-full bg-muted px-2 py-1 text-xs font-semibold">{solicitud.estado}</span></div>
-      <div className="my-3 space-y-2">{solicitud.lineas.map((linea, index) => <div key={`${linea.presentacionId}-${index}`} className="flex justify-between gap-3 text-sm"><span>{linea.cantidad} × {linea.presentacionNombre} ({linea.factorUnidadBase} {linea.unidadBase})</span><span>{money(linea.subtotalCOP)}</span></div>)}</div>
+      <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-words font-semibold">{solicitud.cliente?.nombre || "Cliente no disponible"}</h2><p className="mt-1 text-xs text-muted-foreground">Solicitud · {formatearReferenciaSolicitud(solicitud.solicitudId)} · vendedor</p></div><span className="shrink-0 rounded-full bg-muted px-2 py-1 text-xs font-semibold">{solicitud.estado}</span></div>
+      <div className="my-3 space-y-2">{solicitud.lineas.map((linea, index) => <div key={`${linea.presentacionId}-${index}`} className="flex justify-between gap-3 text-sm"><span className="min-w-0 break-words">{linea.cantidad} × {linea.presentacionNombre} ({linea.factorUnidadBase} {linea.unidadBase})</span><span className="shrink-0">{money(linea.subtotalCOP)}</span></div>)}</div>
       <div className="flex items-center justify-between border-t border-border pt-3"><span className="text-sm text-muted-foreground">Total validado por servidor</span><strong>{money(solicitud.totalCOP)}</strong></div>
-      {solicitud.estado === "APROBADA" && solicitud.aprobacion && <p className="mt-2 text-xs text-muted-foreground">Aprobada por {solicitud.aprobacion.actorUid}; vence {fechaLegible(solicitud.aprobacion.expiraEn)}.</p>}
+      {solicitud.estado === "APROBADA" && solicitud.aprobacion && <p className="mt-2 text-xs text-muted-foreground">Aprobada por administración; vence {formatearFechaBodega(solicitud.aprobacion.expiraEn)}.</p>}
       {solicitud.estado === "PENDIENTE_APROBACION" && <div className="mt-4 flex gap-2"><button disabled={!!procesando} onClick={() => void resolver(solicitud, "aprobar")} className="flex-1 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground disabled:opacity-50">{procesando === solicitud.solicitudId ? "Procesando…" : "Aprobar"}</button><button disabled={!!procesando} onClick={() => void resolver(solicitud, "rechazar")} className="rounded-xl border border-border px-3 py-2 text-sm font-semibold disabled:opacity-50">Rechazar</button></div>}
     </article>)}{solicitudes.length === 0 && <p className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">No hay solicitudes pendientes de revisar.</p>}</div>
   </AdminSection>
@@ -195,11 +195,6 @@ export function BodegaVentaDirectaAdmin() {
       <button disabled={guardando || carrito.length === 0 || !clienteId || (metodoPago === "efectivo" && !turno)} onClick={() => void registrar()} className="h-12 w-full rounded-xl bg-primary font-bold text-primary-foreground disabled:opacity-50">{guardando ? "Registrando…" : "Confirmar venta directa"}</button>
     </div>
   </AdminSection>
-}
-
-function fechaLegible(value: unknown): string {
-  const date = value && typeof (value as { toDate?: unknown }).toDate === "function" ? (value as { toDate(): Date }).toDate() : value instanceof Date ? value : null
-  return date && !Number.isNaN(date.getTime()) ? date.toLocaleString("es-CO") : "no disponible"
 }
 
 function AdminSection({ eyebrow, title, description, children }: { eyebrow: string; title: string; description: string; children: React.ReactNode }) { return <section><p className="text-xs font-bold uppercase tracking-[.22em] text-primary">{eyebrow}</p><h1 className="mt-1 text-2xl font-bold">{title}</h1><p className="mt-1 mb-5 text-sm text-muted-foreground">{description}</p>{children}</section> }

@@ -123,6 +123,38 @@ export function resolverSuperficieBodega(vertical: "GENERAL" | "BODEGA_MVP1" | n
   return rol === "admin" ? "ADMIN" : "DENEGADA"
 }
 
+export function fechaDesdeSerializacionBodega(value: unknown): Date | null {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value
+  if (!value || typeof value !== "object") return null
+
+  const record = value as Record<string, unknown>
+  if (typeof record.toDate === "function") {
+    try {
+      const date = (record.toDate as () => unknown)()
+      if (date instanceof Date && !Number.isNaN(date.getTime())) return date
+    } catch {
+      // A malformed serialized Timestamp should not prevent trying its plain fields.
+    }
+  }
+
+  const seconds = record._seconds ?? record.seconds
+  const nanoseconds = record._nanoseconds ?? record.nanoseconds ?? 0
+  if (!Number.isSafeInteger(seconds) || !Number.isInteger(nanoseconds) || (nanoseconds as number) < 0 || (nanoseconds as number) >= 1_000_000_000) return null
+
+  const date = new Date((seconds as number) * 1000 + Math.floor((nanoseconds as number) / 1_000_000))
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+export function formatearReferenciaSolicitud(solicitudId: string): string {
+  const id = solicitudId.trim()
+  if (!id) return "sin referencia"
+  return id.length > 18 ? `…${id.slice(-8).toUpperCase()}` : id
+}
+
+export function formatearFechaBodega(value: unknown): string {
+  return fechaDesdeSerializacionBodega(value)?.toLocaleString("es-CO") ?? "no disponible"
+}
+
 export function crearProtectorDobleEnvio() {
   let ejecucion: Promise<unknown> | null = null
   return {
