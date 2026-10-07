@@ -116,7 +116,7 @@
 
 ## Estado vivo
 
-### Checkpoint vigente — 2026-10-07 — PR #469 / Gate F en curso
+### Checkpoint vigente — 2026-10-07 — PR #472 / Gate F en curso
 
 PR #467 quedó integrado en `main` mediante
 `abbeac7a09764efd01e83153d1ae05a039a821f0`; la CI post-merge, run
@@ -142,6 +142,16 @@ run `37573969262` sobre ese SHA, terminó `success`, incluidas R1-A, P0-01 y la
 E2E de solicitud, aprobación y venta canónica de Bodega. PR #469 no cambió
 lógica de producto ni staging.
 
+PR #472 quedó integrado en `main` mediante
+`fe383994a299baf9c346be15731ede3383b1d83e` el `2026-10-07T15:42:53Z`; su
+commit fue `885d5bcf48957913ea8e043bc09ac6ba7bfe1daa`. Los checks previos al
+merge (`Tipos y pruebas`, `Vercel` y `Vercel Preview Comments`) terminaron
+`PASS`; la CI post-merge, run `37646184683`, terminó `success` sobre el merge
+SHA. PR #472 añadió en Emulator el retry tras perder la respuesta de
+`confirmarVentaBodegaV1`; no cambia lógica de producto ni demuestra por sí solo
+la validación funcional en staging. La evidencia está en
+[`G-SAAS-02-E2-2-GATE-F-ADR062-RESPONSE-LOSS-RETRY-2026-10-07.md`](evidence/G-SAAS-02-E2-2-GATE-F-ADR062-RESPONSE-LOSS-RETRY-2026-10-07.md).
+
 La lectura actual de `firebase functions:list --project micafe-pos-staging
 --json` confirmó las diez callables de `saas-bodega` en estado `ACTIVE`,
 `us-central1`, `nodejs22`. El 2026-10-07 la persona usuaria completó en staging
@@ -155,10 +165,12 @@ El preview observado fue `dpl_8RPtpatX2SgmspCJWb2YcfnBjeNa`, del branch
 de UI frente a `main` en ese corte.
 
 Gate F sigue `EN CURSO`: faltan aislamiento A/B de superficies operativas,
-revocación/restauración de membresía con replay del actor restaurado y retry
-autenticado bajo pérdida de red dedicado al flujo afectado por ADR-SAAS-062.
-No se declara `FUNCTIONAL = PASS`. Gate G debe repetirse con la aprobación
-previa y Gate H requiere una matriz nueva cuando F se cierre.
+revocación/restauración de membresía con replay del actor restaurado y la
+validación en staging del retry autenticado bajo pérdida de respuesta para el
+flujo afectado por ADR-SAAS-062. PR #472 cubre ese retry en Emulator, pero no
+sustituye la comprobación de staging. No se declara `FUNCTIONAL = PASS`. Gate G
+debe repetirse con la aprobación previa y Gate H requiere una matriz nueva
+cuando F se cierre.
 
 Gate C se revalidó para la nueva fuente de `saas-bodega`; mantuvo diez
 callables, cero Secrets y un delta de `10 update / 0 create / 0 delete`,
