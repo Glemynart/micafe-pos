@@ -7,6 +7,7 @@ import {
   ejecutarConsultarSolicitudesVentaBodegaV1,
   ejecutarResolverSolicitudVentaBodegaV1,
 } from "./solicitudes-venta";
+import { crearIdentificadorInterno } from "../turnos/identificadores";
 import type { ContextoFinancieroOperativo } from "../bodega/operational-core";
 
 type Data = Record<string, any>;
@@ -113,6 +114,26 @@ test("crear solicitud resuelve cliente, presentaciones, factor, precio y total s
   assert.equal([...db.docs.keys()].some(path => path.startsWith("transacciones_financieras/")), false);
   assert.equal([...db.docs.keys()].some(path => path.startsWith("movimientos_inventario/")), false);
   assert.equal(db.docs.get("productos/producto-1")?.stock, 20);
+});
+
+test("crear solicitud acepta referencias canónicas de presentación mayores a 160 caracteres", async () => {
+  const db = new FakeDb(); seed(db);
+  const presentacionId = crearIdentificadorInterno(empresaId, `presentacion:producto-1:${"x".repeat(160)}`);
+  assert.ok(presentacionId.length > 160 && presentacionId.length <= 1024);
+  db.docs.set(`presentaciones_producto/${presentacionId}`, {
+    empresaId, productoId: "producto-1", nombre: "Presentación larga", factorUnidadBase: 1, precioCOP: 5_000, activo: true,
+  });
+
+  const result = await crear(db, seller, "crear-presentacion-larga", {
+    clienteId: "cliente-1",
+    lineas: [{ productoId: "producto-1", presentacionId, cantidad: 1 }],
+  });
+
+  assert.equal(result.estado, "PENDIENTE_APROBACION");
+  assert.equal(result.lineas[0].presentacionId, presentacionId);
+  assert.equal(result.totalCOP, 5_000);
+  assert.equal(db.docs.get("productos/producto-1")?.stock, 20);
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("ventas/")), false);
 });
 
 test("solicitud rechaza total o tenant aportado por cliente y no deja efectos", async () => {

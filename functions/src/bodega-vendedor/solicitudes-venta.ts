@@ -10,6 +10,7 @@ import { crearIdentificadorInterno } from "../turnos/identificadores";
 import { revalidarAutoridadVentaBodegaEnTransaccion } from "./ventas-authority";
 import { resolverVentaBodegaEnTransaccion } from "./ventas-resolution";
 import { normalizarComandoConfirmacionVentaBodega } from "./ventas-contract";
+import { MAX_BODEGA_REFERENCE_ID_LENGTH } from "./identificadores";
 
 const COLLECTION = "solicitudes_venta_bodega";
 const REGION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -45,8 +46,8 @@ function normalizeCreate(raw: unknown): Envelope {
   }
   for (const linea of lineas) {
     if (!object(linea) || Object.keys(linea).some(key => !["productoId", "presentacionId", "cantidad"].includes(key))
-      || !text(linea.productoId) || linea.productoId.length > 160 || !text(linea.presentacionId)
-      || linea.presentacionId.length > 160 || !Number.isSafeInteger(linea.cantidad) || linea.cantidad <= 0) {
+      || !text(linea.productoId) || linea.productoId.length > MAX_BODEGA_REFERENCE_ID_LENGTH || !text(linea.presentacionId)
+      || linea.presentacionId.length > MAX_BODEGA_REFERENCE_ID_LENGTH || !Number.isSafeInteger(linea.cantidad) || linea.cantidad <= 0) {
       fail("invalid-argument", "SOLICITUD_VENTA_INVALIDA");
     }
   }
