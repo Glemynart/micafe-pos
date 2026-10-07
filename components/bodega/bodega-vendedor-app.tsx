@@ -5,7 +5,7 @@ import { CheckCircle2, CircleDollarSign, ClipboardList, LogOut, Package, Plus, R
 import type { Usuario } from "@/lib/auth-service"
 import { abrirTurno, suscribirTurnoActivo, type Turno } from "@/lib/turnos-service"
 import { cn } from "@/lib/utils"
-import { construirConfirmacionVentaBodega, construirSolicitudVentaBodega, crearProtectorDobleEnvio, mensajeErrorBodega, type ClienteVendedorDTO, type ComandoSolicitudVentaBodega, type ConfirmacionVentaBodega, type EstadoSolicitudVentaBodega, type MetodoPagoBodega, type PresentacionVendedorDTO, type ResultadoVentaBodega, type SolicitudVentaBodegaDTO, type VentaVendedorDTO } from "@/lib/bodega/ui-contract"
+import { construirConfirmacionVentaBodega, construirSolicitudVentaBodega, crearProtectorDobleEnvio, formatearFechaBodega, formatearReferenciaSolicitud, mensajeErrorBodega, type ClienteVendedorDTO, type ComandoSolicitudVentaBodega, type ConfirmacionVentaBodega, type EstadoSolicitudVentaBodega, type MetodoPagoBodega, type PresentacionVendedorDTO, type ResultadoVentaBodega, type SolicitudVentaBodegaDTO, type VentaVendedorDTO } from "@/lib/bodega/ui-contract"
 import { confirmarVentaBodega, consultarCatalogoBodega, consultarClientesVendedor, consultarMisVentasBodega, crearClienteVendedor } from "@/lib/bodega/vendedor-service"
 import { cancelarSolicitudVentaBodega, consultarSolicitudesVentaBodega, crearSolicitudVentaBodega } from "@/lib/bodega/solicitudes-service"
 
@@ -32,6 +32,7 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   const [baseApertura, setBaseApertura] = useState(0)
   const comandoSolicitudPendiente = useRef<ComandoSolicitudVentaBodega | null>(null)
   const comandosVentaPendientes = useRef(new Map<string, ConfirmacionVentaBodega>())
+  const solicitudesConsultaEnCurso = useRef(false)
   const guardiaEnvio = useRef(crearProtectorDobleEnvio())
 
   const cargar = useCallback(async () => {
@@ -43,9 +44,34 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
     } catch (e) { setError(mensajeErrorBodega(e)) } finally { setCargando(false) }
   }, [])
 
+  const actualizarSolicitudes = useCallback(async () => {
+    if (solicitudesConsultaEnCurso.current) return
+    solicitudesConsultaEnCurso.current = true
+    try {
+      setSolicitudes(await consultarSolicitudesVentaBodega())
+    } catch (cause) {
+      setError(mensajeErrorBodega(cause))
+    } finally {
+      solicitudesConsultaEnCurso.current = false
+    }
+  }, [])
+
   useEffect(() => { void cargar() }, [cargar])
   useEffect(() => suscribirTurnoActivo(usuario.uid, setTurno), [usuario.uid])
   useEffect(() => { comandoSolicitudPendiente.current = null }, [clienteId, carrito])
+  useEffect(() => {
+    if (tab !== "solicitudes") return
+    const actualizarSiVisible = () => {
+      if (document.visibilityState === "visible") void actualizarSolicitudes()
+    }
+    void actualizarSolicitudes()
+    const interval = window.setInterval(actualizarSiVisible, 15_000)
+    document.addEventListener("visibilitychange", actualizarSiVisible)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener("visibilitychange", actualizarSiVisible)
+    }
+  }, [tab, actualizarSolicitudes])
 
   const filtrado = useMemo(() => {
     const q = busqueda.trim().toLocaleLowerCase("es")
@@ -133,7 +159,7 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
               <button disabled={enviando || carrito.length === 0 || !clienteId} onClick={() => void enviarSolicitud()} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-300 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"><ClipboardList className="h-5 w-5" />{enviando ? "Enviando…" : "Enviar solicitud"}</button>
             </aside>
           </div>
-        ) : tab === "solicitudes" ? <SolicitudesView solicitudes={solicitudes} metodosPago={metodosPago} setMetodoPago={(id, method) => setMetodosPago(current => ({ ...current, [id]: method }))} enviando={enviando} turnoAbierto={!!turno} baseApertura={baseApertura} setBaseApertura={setBaseApertura} onAbrirTurno={() => void abrirTurno({ baseApertura, notasApertura: "Turno vendedor Bodega" }).catch(cause => setError(mensajeErrorBodega(cause)))} onConfirmar={solicitud => void confirmarSolicitud(solicitud)} onCancelar={solicitud => void cancelarSolicitud(solicitud)} onCrearOtra={() => setTab("venta")} /> : tab === "clientes" ? <ClientesView clientes={clientes} onCrear={() => setMostrarCliente(true)} /> : <HistorialView ventas={ventas} />}
+        ) : tab === "solicitudes" ? <SolicitudesView solicitudes={solicitudes} metodosPago={metodosPago} setMetodoPago={(id, method) => setMetodosPago(current => ({ ...current, [id]: method }))} enviando={enviando} turnoAbierto={!!turno} baseApertura={baseApertura} setBaseApertura={setBaseApertura} onAbrirTurno={() => void abrirTurno({ baseApertura, notasApertura: "Turno vendedor Bodega" }).catch(cause => setError(mensajeErrorBodega(cause)))} onConfirmar={solicitud => void confirmarSolicitud(solicitud)} onCancelar={solicitud => void cancelarSolicitud(solicitud)} onActualizar={() => void actualizarSolicitudes()} onCrearOtra={() => setTab("venta")} /> : tab === "clientes" ? <ClientesView clientes={clientes} onCrear={() => setMostrarCliente(true)} /> : <HistorialView ventas={ventas} />}
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-slate-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"><div className="mx-auto flex h-16 max-w-lg">{([{ id: "venta", label: "Nueva", icon: ShoppingCart }, { id: "solicitudes", label: "Solicitudes", icon: ClipboardList }, { id: "clientes", label: "Clientes", icon: Users }, { id: "historial", label: "Mis ventas", icon: CircleDollarSign }] as const).map(item => <button key={item.id} onClick={() => setTab(item.id)} className={cn("flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold", tab === item.id ? "text-amber-300" : "text-slate-500")}><item.icon className="h-5 w-5" />{item.label}</button>)}</div></nav>
@@ -142,7 +168,7 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   )
 }
 
-function SolicitudesView({ solicitudes, metodosPago, setMetodoPago, enviando, turnoAbierto, baseApertura, setBaseApertura, onAbrirTurno, onConfirmar, onCancelar, onCrearOtra }: {
+function SolicitudesView({ solicitudes, metodosPago, setMetodoPago, enviando, turnoAbierto, baseApertura, setBaseApertura, onAbrirTurno, onConfirmar, onCancelar, onActualizar, onCrearOtra }: {
   solicitudes: SolicitudVentaBodegaDTO[]
   metodosPago: Record<string, MetodoPagoBodega>
   setMetodoPago(id: string, method: MetodoPagoBodega): void
@@ -153,28 +179,24 @@ function SolicitudesView({ solicitudes, metodosPago, setMetodoPago, enviando, tu
   onAbrirTurno(): void
   onConfirmar(solicitud: SolicitudVentaBodegaDTO): void
   onCancelar(solicitud: SolicitudVentaBodegaDTO): void
+  onActualizar(): void
   onCrearOtra(): void
 }) {
   return <section>
-    <div className="mb-4 flex items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.22em] text-amber-300">Aprobación previa</p><h1 className="mt-1 text-2xl font-bold">Mis solicitudes</h1><p className="mt-1 text-sm text-slate-400">La venta solo se registra después de aprobación, al confirmar el pago.</p></div><button onClick={onCrearOtra} className="rounded-xl bg-amber-300 px-3 py-2 text-xs font-bold text-slate-950">Nueva</button></div>
+    <div className="mb-4 flex items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.22em] text-amber-300">Aprobación previa</p><h1 className="mt-1 text-2xl font-bold">Mis solicitudes</h1><p className="mt-1 text-sm text-slate-400">La venta solo se registra después de aprobación, al confirmar el pago.</p><p className="mt-1 text-xs text-slate-500">Se actualizan automáticamente mientras esta vista está abierta.</p></div><div className="flex shrink-0 gap-2"><button onClick={onActualizar} className="rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-slate-200">Actualizar</button><button onClick={onCrearOtra} className="rounded-xl bg-amber-300 px-3 py-2 text-xs font-bold text-slate-950">Nueva</button></div></div>
     <div className="space-y-3">{solicitudes.map(solicitud => {
       const metodo = metodosPago[solicitud.solicitudId] ?? "transferencia"
       const cancelable = solicitud.estado === "PENDIENTE_APROBACION" || solicitud.estado === "APROBADA"
       return <article key={solicitud.solicitudId} className="rounded-2xl border border-white/10 bg-slate-900 p-4">
-        <div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{solicitud.cliente?.nombre || "Cliente no disponible"}</p><p className="mt-1 text-xs text-slate-500">{solicitud.solicitudId}</p></div><span className={cn("rounded-full px-2 py-1 text-xs font-bold", solicitud.estado === "APROBADA" ? "bg-emerald-400/15 text-emerald-300" : solicitud.estado === "PENDIENTE_APROBACION" ? "bg-amber-300/15 text-amber-200" : "bg-white/10 text-slate-300")}>{solicitud.estado.replaceAll("_", " ")}</span></div>
-        <div className="my-3 space-y-2">{solicitud.lineas.map((linea, index) => <div key={`${linea.presentacionId}-${index}`} className="flex justify-between gap-3 text-sm"><span>{linea.cantidad} × {linea.presentacionNombre} ({linea.factorUnidadBase} {linea.unidadBase})</span><span>{money(linea.subtotalCOP)}</span></div>)}</div>
+        <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="break-words font-semibold">{solicitud.cliente?.nombre || "Cliente no disponible"}</p><p className="mt-1 text-xs text-slate-500">Solicitud · {formatearReferenciaSolicitud(solicitud.solicitudId)}</p></div><span className={cn("shrink-0 rounded-full px-2 py-1 text-xs font-bold", solicitud.estado === "APROBADA" ? "bg-emerald-400/15 text-emerald-300" : solicitud.estado === "PENDIENTE_APROBACION" ? "bg-amber-300/15 text-amber-200" : "bg-white/10 text-slate-300")}>{solicitud.estado.replaceAll("_", " ")}</span></div>
+        <div className="my-3 space-y-2">{solicitud.lineas.map((linea, index) => <div key={`${linea.presentacionId}-${index}`} className="flex justify-between gap-3 text-sm"><span className="min-w-0 break-words">{linea.cantidad} × {linea.presentacionNombre} ({linea.factorUnidadBase} {linea.unidadBase})</span><span className="shrink-0">{money(linea.subtotalCOP)}</span></div>)}</div>
         <div className="flex justify-between border-t border-white/10 pt-3"><span className="text-sm text-slate-400">Total resuelto por servidor</span><strong>{money(solicitud.totalCOP)}</strong></div>
         {solicitud.estado === "PENDIENTE_APROBACION" && <p className="mt-3 text-xs text-amber-200">Esperando revisión de administración. Aún no se creó una venta ni se descontó inventario.</p>}
-        {solicitud.estado === "APROBADA" && <div className="mt-3 space-y-3"><p className="text-xs text-emerald-200">Aprobada por {solicitud.aprobacion?.actorUid}; vence {fechaSolicitud(solicitud.aprobacion?.expiraEn)}. El inventario se revisa al confirmar.</p><div className="grid grid-cols-2 gap-2">{(["efectivo", "transferencia"] as const).map(method => <button key={method} onClick={() => setMetodoPago(solicitud.solicitudId, method)} className={cn("rounded-xl border px-3 py-2 text-sm font-semibold capitalize", metodo === method ? "border-amber-300 bg-amber-300 text-slate-950" : "border-white/10 bg-white/5")}>{method}</button>)}</div>{metodo === "efectivo" && !turnoAbierto && <div className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-3"><label className="text-xs font-semibold text-amber-100">Base real de apertura<input aria-label="Base de apertura" type="number" min={0} value={baseApertura} onChange={event => setBaseApertura(Number(event.target.value))} className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-slate-950 px-3 text-white" /></label><button onClick={onAbrirTurno} className="mt-2 w-full rounded-lg border border-amber-300/40 px-4 py-2 text-sm font-semibold text-amber-200">Abrir turno para efectivo</button></div>}<button disabled={enviando || (metodo === "efectivo" && !turnoAbierto)} onClick={() => onConfirmar(solicitud)} className="h-11 w-full rounded-xl bg-emerald-400 font-bold text-slate-950 disabled:opacity-40">{enviando ? "Confirmando…" : "Confirmar venta"}</button></div>}
+        {solicitud.estado === "APROBADA" && <div className="mt-3 space-y-3"><p className="text-xs text-emerald-200">Aprobada por administración; vence {formatearFechaBodega(solicitud.aprobacion?.expiraEn)}. El inventario se revisa al confirmar.</p><div className="grid grid-cols-2 gap-2">{(["efectivo", "transferencia"] as const).map(method => <button key={method} onClick={() => setMetodoPago(solicitud.solicitudId, method)} className={cn("rounded-xl border px-3 py-2 text-sm font-semibold capitalize", metodo === method ? "border-amber-300 bg-amber-300 text-slate-950" : "border-white/10 bg-white/5")}>{method}</button>)}</div>{metodo === "efectivo" && !turnoAbierto && <div className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-3"><label className="text-xs font-semibold text-amber-100">Base real de apertura<input aria-label="Base de apertura" type="number" min={0} value={baseApertura} onChange={event => setBaseApertura(Number(event.target.value))} className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-slate-950 px-3 text-white" /></label><button onClick={onAbrirTurno} className="mt-2 w-full rounded-lg border border-amber-300/40 px-4 py-2 text-sm font-semibold text-amber-200">Abrir turno para efectivo</button></div>}<button disabled={enviando || (metodo === "efectivo" && !turnoAbierto)} onClick={() => onConfirmar(solicitud)} className="h-11 w-full rounded-xl bg-emerald-400 font-bold text-slate-950 disabled:opacity-40">{enviando ? "Confirmando…" : "Confirmar venta"}</button></div>}
         {cancelable && <button disabled={enviando} onClick={() => onCancelar(solicitud)} className="mt-3 w-full rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-300 disabled:opacity-50">Cancelar solicitud</button>}
       </article>
     })}{solicitudes.length === 0 && <p className="rounded-2xl border border-dashed border-white/15 p-10 text-center text-slate-400">Todavía no tienes solicitudes. Puedes preparar una nueva.</p>}</div>
   </section>
-}
-
-function fechaSolicitud(value: unknown): string {
-  const date = value && typeof (value as { toDate?: unknown }).toDate === "function" ? (value as { toDate(): Date }).toDate() : value instanceof Date ? value : null
-  return date && !Number.isNaN(date.getTime()) ? date.toLocaleString("es-CO") : "no disponible"
 }
 
 function ClientesView({ clientes, onCrear }: { clientes: ClienteVendedorDTO[]; onCrear(): void }) {
