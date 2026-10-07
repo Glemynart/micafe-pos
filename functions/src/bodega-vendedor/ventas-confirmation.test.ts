@@ -154,7 +154,7 @@ test("U3-C Emulator: doble confirmación real conserva un único conjunto atómi
     const commercialLine = { productoId, productoNombre: "Producto", unidadBase: "unidad", presentacionId, presentacionNombre: "Unidad", cantidad: 6, factorUnidadBase: 1, cantidadUnidadBase: 6, precioPresentacionCOP: 1000, subtotalCOP: 6000 };
     const huellaComercial = crearHuellaSemantica({ clienteId, lineas: [commercialLine], totalCOP: 6000 });
     batch.set(db.collection("empresas").doc(empresa).collection("solicitudes_venta_bodega").doc(solicitudId), {
-      solicitudId, empresaId: empresa, solicitanteUid: actor, clienteId, intentoLineas,
+      solicitudId, empresaId: empresa, solicitanteUid: actor, clienteId, intentoLineas: intentLineas,
       lineas: [commercialLine], totalCOP: 6000, huellaComercial, revision: 1, estado: "APROBADA",
       aprobacion: { actorUid: "admin-u3c-test", revision: 1, totalCOP: 6000, huellaComercial, expiraEn: Timestamp.fromMillis(Date.now() + 60_000) },
     });
