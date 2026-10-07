@@ -116,7 +116,7 @@
 
 ## Estado vivo
 
-### Checkpoint vigente — 2026-10-06 — PR #467 / Gate D revalidado
+### Checkpoint vigente — 2026-10-07 — PR #469 / Gate F en curso
 
 PR #467 quedó integrado en `main` mediante
 `abbeac7a09764efd01e83153d1ae05a039a821f0`; la CI post-merge, run
@@ -131,6 +131,27 @@ PR #466 fue integrado en `main` mediante
 etapas E2E de Bodega en Emulator. PR #466 acepta `presentacionId` hasta el
 límite canónico en solicitudes; no altera el contrato ni la autoridad de
 venta.
+
+PR #468 quedó integrado mediante `aebfbef6e0030bf53ed36f4f9744d9b2520e2d47`
+(`2026-10-07T03:52:11Z`) y registró la evidencia de Gate D posterior a PR
+#466; sus checks requeridos terminaron `PASS`. PR #469 quedó integrado mediante
+`991d4ce6d8f4f924e651e7713a11ff6d599c9926` (`2026-10-07T04:57:43Z`); su único
+cambio fue corregir el fixture de una prueba de confirmación bajo Emulator. Los
+checks requeridos de PR #469 terminaron `PASS`, y la CI post-merge de `main`,
+run `37573969262` sobre ese SHA, terminó `success`, incluidas R1-A, P0-01 y la
+E2E de solicitud, aprobación y venta canónica de Bodega. PR #469 no cambió
+lógica de producto ni staging.
+
+La lectura actual de `firebase functions:list --project micafe-pos-staging
+--json` confirmó las diez callables de `saas-bodega` en estado `ACTIVE`,
+`us-central1`, `nodejs22`. La PWA autenticada del vendedor muestra una
+solicitud sintética ya existente de `5.000 COP`, pendiente de aprobación; la
+propia pantalla confirma que aún no se creó una venta ni se descontó
+inventario. Esta inspección no creó otra solicitud ni hizo una escritura.
+La ruta de POS administrador continúa en inicio de sesión, por lo que la
+validación staging de aprobación/confirmación tras el cambio aún no está
+demostrada. Gate F permanece `EN CURSO`; no se declara `PASS`. Gate G debe
+repetirse y Gate H requiere una matriz nueva cuando F se cierre.
 
 Gate C se revalidó para la nueva fuente de `saas-bodega`; mantuvo diez
 callables, cero Secrets y un delta de `10 update / 0 create / 0 delete`,
