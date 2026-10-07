@@ -144,14 +144,21 @@ lógica de producto ni staging.
 
 La lectura actual de `firebase functions:list --project micafe-pos-staging
 --json` confirmó las diez callables de `saas-bodega` en estado `ACTIVE`,
-`us-central1`, `nodejs22`. La PWA autenticada del vendedor muestra una
-solicitud sintética ya existente de `5.000 COP`, pendiente de aprobación; la
-propia pantalla confirma que aún no se creó una venta ni se descontó
-inventario. Esta inspección no creó otra solicitud ni hizo una escritura.
-La ruta de POS administrador continúa en inicio de sesión, por lo que la
-validación staging de aprobación/confirmación tras el cambio aún no está
-demostrada. Gate F permanece `EN CURSO`; no se declara `PASS`. Gate G debe
-repetirse y Gate H requiere una matriz nueva cuando F se cierre.
+`us-central1`, `nodejs22`. El 2026-10-07 la persona usuaria completó en staging
+una solicitud sintética de `5.000 COP`, su aprobación administrativa, la venta
+canónica correlacionada y el cierre definitivo del turno con diferencia `0` y
+depósito `5.000 COP`. Firestore y Cloud Run confirmaron cada etapa; el detalle
+de IDs, revisiones y tiempos está en
+[`G-SAAS-02-E2-2-GATE-F-ADR062-APPROVAL-SALE-CLOSE-2026-10-07.md`](evidence/G-SAAS-02-E2-2-GATE-F-ADR062-APPROVAL-SALE-CLOSE-2026-10-07.md).
+El preview observado fue `dpl_8RPtpatX2SgmspCJWb2YcfnBjeNa`, del branch
+`codex/e2-2-gate-d-deploy`; la comparación Git no encontró cambios posteriores
+de UI frente a `main` en ese corte.
+
+Gate F sigue `EN CURSO`: faltan aislamiento A/B de superficies operativas,
+revocación/restauración de membresía con replay del actor restaurado y retry
+autenticado bajo pérdida de red dedicado al flujo afectado por ADR-SAAS-062.
+No se declara `FUNCTIONAL = PASS`. Gate G debe repetirse con la aprobación
+previa y Gate H requiere una matriz nueva cuando F se cierre.
 
 Gate C se revalidó para la nueva fuente de `saas-bodega`; mantuvo diez
 callables, cero Secrets y un delta de `10 update / 0 create / 0 delete`,
@@ -164,8 +171,9 @@ cambios de Secrets, Rules, IAM policy, Firestore/Auth ni producción.
 
 El fixture sintético retenido `E2_2-BODEGA-STAGING-FIXTURE` permanece
 reutilizable y Gate E conserva `PASS`; no se creó otro fixture. Tras Gate D se
-deben revalidar Gate F, repetir el rehearsal de Gate G y emitir una nueva
-matriz de Gate H, como requiere ADR-SAAS-062. El siguiente gate es F. Gate I
+revalidaron parcialmente los escenarios afectados de Gate F; todavía no se
+cierra. Luego se debe repetir el rehearsal de Gate G y emitir una nueva matriz
+de Gate H, como requiere ADR-SAAS-062. El siguiente gate sigue siendo F. Gate I
 sigue `PENDING`: no se creó ni configuró el tenant real ni se persistió la
 oferta. La aprobación interna de 1.600.000 COP no demuestra aceptación del
 cliente; la vigencia, usuarios iniciales y normalización/confirmación del
