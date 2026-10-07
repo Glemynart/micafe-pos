@@ -53,7 +53,7 @@
 | Epic | Resultado | Estado |
 |---|---|---|
 | E2.1 Tenant de referencia | Tenant, contrato, Trial, membresía, administrador, credencial, Espacio y configuración reproducibles. | EN EJECUCIÓN |
-| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. Incluye solicitud de venta del vendedor y aprobación administrativa previa a la venta canónica según ADR-SAAS-062. | EN EJECUCIÓN |
+| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. Incluye solicitud de venta del vendedor y aprobación administrativa previa a la venta canónica según ADR-SAAS-062, y la agenda de pedidos/entregas con recordatorios aprobada como requisito previo a la primera entrega comercial; su arquitectura sigue pendiente de ADR. | EN EJECUCIÓN |
 
 ### M3 — Certificación funcional del tenant — PENDIENTE
 
@@ -116,7 +116,7 @@
 
 ## Estado vivo
 
-### Checkpoint vigente — 2026-10-07 — PR #472 / Gate F en curso
+### Checkpoint vigente — 2026-10-07 — PR #474 / Gate F en curso
 
 PR #467 quedó integrado en `main` mediante
 `abbeac7a09764efd01e83153d1ae05a039a821f0`; la CI post-merge, run
@@ -151,6 +151,23 @@ SHA. PR #472 añadió en Emulator el retry tras perder la respuesta de
 `confirmarVentaBodegaV1`; no cambia lógica de producto ni demuestra por sí solo
 la validación funcional en staging. La evidencia está en
 [`G-SAAS-02-E2-2-GATE-F-ADR062-RESPONSE-LOSS-RETRY-2026-10-07.md`](evidence/G-SAAS-02-E2-2-GATE-F-ADR062-RESPONSE-LOSS-RETRY-2026-10-07.md).
+
+PR #474 quedó integrado en `main` mediante merge commit
+`a818a28f81c9bad0ad922cd2719a8787aeea1d61` el `2026-10-07T20:42:57Z`.
+Actualiza la bandeja de solicitudes del vendedor al entrar, regresar a la
+pestaña y periódicamente mientras está visible; además acorta referencias
+internas y presenta correctamente la expiración serializada. No cambia las
+reglas de solicitud/venta ni produjo mutaciones de staging. Los checks del PR
+terminaron `PASS`; la CI post-merge de `main`, run `37684131027`, terminó
+`success`, incluida la E2E de Bodega y la certificación integral E4.1. Al
+verificarlo, `origin/main` apuntaba al merge commit.
+
+El 2026-10-07 la persona usuaria añadió como requisito previo a la primera
+entrega una agenda de pedidos/entregas con recordatorios. La regla de
+inventario/precio, persistencia, vencimiento y garantía del canal de aviso no
+está decidida ni implementada; requiere un ADR propuesto antes de modificar
+código. Esta petición no modifica el Gate F ni autoriza reserva de inventario,
+venta, entrega o mutación de staging.
 
 La lectura actual de `firebase functions:list --project micafe-pos-staging
 --json` confirmó las diez callables de `saas-bodega` en estado `ACTIVE`,
