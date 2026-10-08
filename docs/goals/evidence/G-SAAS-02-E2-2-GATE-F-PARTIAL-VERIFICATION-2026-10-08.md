@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: evidencia parcial de verificación (2026-10-08)
 
-**Última revisión:** 2026-10-08 22:26 UTC
+**Última revisión:** 2026-10-08 22:33 UTC
 **Estado:** `EN CURSO` — evidencia parcial; no certifica Gate F.
 
 ## Contexto y límites
@@ -601,3 +601,34 @@ ventas ni solicitudes.
   stock, solicitudes, ventas, ledger y turnos: escrituras/cambios por Codex `0`.
 - Fixture adicional, Bootstrap, Activation, tenant real y cleanup destructivo:
   `0`.
+
+### Reconciliación read-only de agenda y Scheduler — 2026-10-08 22:33 UTC
+
+Se consultó explícitamente el proyecto `micafe-pos-staging` por Firestore REST,
+Cloud Scheduler y Cloud Logging, sin invocar jobs ni escribir documentos.
+`firebase-schedule-reconciliarAgendaPedidosBodegaV1-us-central1` está
+`ENABLED`, con frecuencia de cinco minutos UTC; Cloud Logging registra HTTP
+`200` a las `22:23:07Z` y `22:28:07Z`.
+
+El fixture conserva cuatro agendas (`1 RESERVADA`, `3 CANCELADA`) y cuatro
+reservas (`1 ACTIVA`, `3 LIBERADA`). La reserva activa mantiene 2 unidades base;
+el único producto registra 6 unidades físicas, 2 reservadas y 4 disponibles.
+Su vencimiento persistido es `2026-10-10T05:00:00Z`, equivalente a la medianoche
+local de Bogotá al terminar el 9 de octubre.
+
+El outbox contiene 15 recordatorios. Tres eventos `fecha_programada` siguen
+`PENDIENTE` para `2026-10-09T13:00:00Z` (08:00 Bogotá): uno corresponde a la
+agenda `RESERVADA` y dos a agendas `CANCELADA`. El evento de la agenda activa
+queda listo para probar el despacho normal; el worker debe omitir los dos
+obsoletos. No se adelantó el reloj ni se llamó manualmente al Scheduler. Esta
+lectura no prueba todavía despacho FCM, recepción background ni sonido.
+
+#### Mutation audit de la reconciliación
+
+- Firestore staging: consultas REST de lectura; escrituras manuales/de Codex `0`.
+- Scheduler y Cloud Logging: lecturas; job habilitado y ejecuciones automáticas
+  observadas con HTTP `200`; invocaciones manuales `0`.
+- Agenda, reservas, stock, solicitudes, ventas, ledger, turnos, Auth, Rules,
+  IAM, Secrets y tráfico: cambios por Codex `0`.
+- Fixture adicional, Bootstrap, Activation, tenant real, producción y cleanup
+  destructivo: `0`.
