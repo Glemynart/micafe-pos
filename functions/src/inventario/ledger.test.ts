@@ -214,3 +214,36 @@ test("ADR-064: la salida exacta de stock disponible conserva la reserva", async 
   assert.equal(db.docs.get("productos/bebida")?.stock, 4);
   assert.equal(db.docs.get("productos/bebida")?.stockReservado, 4);
 });
+
+test("ADR-064: la venta vinculada consume stock físico y reservado en la misma transacción", async () => {
+  const db = new FakeFirestore();
+  db.docs.set("productos/bebida", {
+    empresaId: "empresa-a",
+    espacioId: "cafeteria",
+    nombre: "Bebida",
+    unidad: "und",
+    stock: 10,
+    stockReservado: 4,
+    secuenciaLedger: 1,
+    costo: 2,
+  });
+  const linkedSale = base({
+    articuloTipo: "producto",
+    articuloId: "bebida",
+    articuloNombre: "Bebida",
+    unidad: "und",
+    tipo: "venta",
+    cantidad: -4,
+    claveIdempotencia: "venta:consume-hold",
+    referenciaColeccion: "ventas",
+    referenciaId: "venta-consume-hold",
+    exigirStockSuficiente: true,
+    consumirStockReservado: 4,
+  });
+
+  await db.runTransaction(tx => aplicarMovimientosInventarioEnTransaccion(tx, db, [linkedSale]));
+
+  assert.equal(db.docs.get("productos/bebida")?.stock, 6);
+  assert.equal(db.docs.get("productos/bebida")?.stockReservado, 0);
+  assert.equal([...db.docs.entries()].filter(([path, data]) => path.startsWith("movimientos_inventario/") && data.tipo === "venta").length, 1);
+});
