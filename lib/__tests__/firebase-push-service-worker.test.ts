@@ -140,7 +140,7 @@ describe("configuración del service worker FCM", () => {
     assert.equal(typeof waitUntilPromise?.then, "function");
     await Promise.resolve();
     await Promise.resolve();
-    assert.deepEqual(calls, ["close", "matchAll", "focus", "navigate:/pos"]);
+    assert.deepEqual(calls, ["close", "matchAll", "focus", "navigate:https://bodega.example/pos"]);
 
     let settled = false;
     void waitUntilPromise.then(() => { settled = true; });

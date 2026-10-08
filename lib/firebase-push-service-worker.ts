@@ -69,16 +69,26 @@ self.addEventListener('notificationclick', function(event) {
   event.notification.close();
 
   var targetUrl = (event.notification.data && event.notification.data.url) || '/admin';
+  var resolvedTargetUrl = new URL(targetUrl, self.location.origin);
+  if (resolvedTargetUrl.origin !== self.location.origin) return;
+  var targetPath = resolvedTargetUrl.pathname;
+  var isAdminTarget = targetPath === '/admin' || targetPath.indexOf('/admin/') === 0;
+  var isPosTarget = targetPath === '/pos' || targetPath.indexOf('/pos/') === 0;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
       for (var i = 0; i < clientList.length; i++) {
         var client = clientList[i];
         var clientUrl = new URL(client.url);
-        if (clientUrl.pathname.startsWith('/admin') && 'focus' in client) {
-          client.focus();
-          client.navigate(targetUrl);
-          return;
+        var isAdminClient = clientUrl.pathname === '/admin' || clientUrl.pathname.indexOf('/admin/') === 0;
+        var isPosClient = clientUrl.pathname === '/pos' || clientUrl.pathname.indexOf('/pos/') === 0;
+        if (((isAdminTarget && isAdminClient) || (isPosTarget && isPosClient)) && 'focus' in client) {
+          return client.focus().then(function(focusedClient) {
+            if ('navigate' in focusedClient) return focusedClient.navigate(resolvedTargetUrl.href);
+            return focusedClient;
+          }).catch(function() {
+            return clients.openWindow(targetUrl);
+          });
         }
       }
       return clients.openWindow(targetUrl);
