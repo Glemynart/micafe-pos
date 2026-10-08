@@ -127,7 +127,7 @@ PR #477; su aceptación no autoriza por sí sola deploy, tráfico, staging,
 fixtures, Bootstrap, Activation, tenant real ni producción. La revalidación
 operativa posterior al merge queda registrada abajo.
 
-### Checkpoint vigente — 2026-10-08 (Bogotá) — PR #479 / Gate C ADR-064
+### Checkpoint vigente — 2026-10-08 (Bogotá) — Gate D / deploy ADR-064
 
 PR #479 quedó `MERGED` en `main` mediante
 `1d94944a1cc9d028e1680c66e10b27e0f91cf497` (`2026-10-08T05:15:02Z`). Sus checks
@@ -136,6 +136,10 @@ post-merge de `main`, run `37731432362`, concluyó `success` a las
 `2026-10-08T05:33:01Z`. El run incluyó E2E de venta Bodega y agenda/reservas en
 Emulator; esto no sustituye staging.
 
+PR #480 integró el checkpoint documental de Gate C mediante
+`026b130106ec17ac8f7ef50f101039078358f8f7`; sus tres checks y la CI
+post-merge de `main`, run `37735749847`, terminaron `PASS` para ese SHA.
+
 Gate C para ADR-SAAS-064 queda `PASS` con evidencia actualizada en
 [`G-SAAS-02-E2-2-GATE-C-PREFLIGHT-ADR064-2026-10-08.md`](evidence/G-SAAS-02-E2-2-GATE-C-PREFLIGHT-ADR064-2026-10-08.md).
 El artefacto exacto identifica `saas-bodega` en `main @ 1d94944a1cc9d028e1680c66e10b27e0f91cf497`, sourceHash
@@ -143,20 +147,27 @@ El artefacto exacto identifica `saas-bodega` en `main @ 1d94944a1cc9d028e1680c66
 Secrets. El inventario staging confirma diez endpoints actuales y delta futuro
 de diez updates/seis creates, sin deletes ni cambios a otros codebases.
 
-Gate D sigue `PENDING`: staging aún carece de los dos índices compuestos de
-agenda/reservas ADR-064. Antes de desplegar Functions se crearán únicamente esos
-dos índices y se esperará `READY`; luego se revalidará el estado remoto y se
-desplegará solo `saas-bodega` en `micafe-pos-staging`. El preflight también dejó
-registrado que un `dry-run` previo habilitó Cloud Scheduler y que Google añadió
-el rol service-agent `roles/cloudscheduler.serviceAgent`; no hubo deploy ni
-tráfico. No se revertirá esa dependencia administrada.
+Gate D para ADR-SAAS-064 queda `PASS` con la evidencia reproducible en
+[`G-SAAS-02-E2-2-GATE-D-ADR064-STAGING-DEPLOY-2026-10-08.md`](evidence/G-SAAS-02-E2-2-GATE-D-ADR064-STAGING-DEPLOY-2026-10-08.md).
+El deploy dirigido actualizó 10 Functions y creó 6 únicamente en
+`saas-bodega`; las 16 están `ACTIVE`, Node.js 22, `us-central1`, cero Secrets y
+100 % del tráfico en revisiones `Ready`. Cloud Build
+`64268683-275a-4f07-91c1-d9fbacea0762` terminó `SUCCESS`; las 15 callables
+rechazaron sondas sin autenticación con `401 UNAUTHENTICATED`. Los dos índices
+ADR-064 están `READY` y el scheduler ejecutó una invocación automática HTTP
+`200`. El audit registra seis políticas IAM de servicio Run dentro de las
+superficies nuevas: cinco invokers callable y el worker limitado a su cuenta
+OIDC; cero grants IAM de proyecto. La dependencia service-agent de Scheduler
+creada durante el preflight previo permanece registrada y no se revirtió.
 
 Gate E conserva `PASS` y el fixture sintético retenido
-`E2_2-BODEGA-STAGING-FIXTURE`; Gate F permanece `EN CURSO`, no `PASS`. Tras Gate
-D se validarán en staging aislamiento A/B, revocación/restauración con replay,
-retry autenticado bajo pérdida de respuesta y agenda ADR-064 (reservar, liberar,
-consumir stock, recordatorios y conversión idempotente). Gate G debe repetirse y
-Gate H emitirá una matriz nueva. Gate I y J/K/L permanecen pendientes; no se ha
+`E2_2-BODEGA-STAGING-FIXTURE`; Gate F permanece `EN CURSO`, no `PASS`. Falta la
+matriz staging de aislamiento tenant/roles, revocación/restauración con replay,
+retry autenticado ante pérdida de respuesta y agenda ADR-064 (crear/aceptar,
+liberar/expirar/consumir reservas, recordatorios y conversión idempotente), así
+como la verificación funcional integral de venta, turnos, inventario, ledger,
+auditoría, reportes, PWA y Backoffice. Gate G debe repetirse y Gate H emitirá
+una matriz nueva. Gate I y J/K/L permanecen pendientes; no se ha
 creado/configurado el tenant real ni se autoriza producción.
 
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
