@@ -335,6 +335,37 @@ identidad del operador SaaS para acciones de administrador tenant. Gate G debe
 repetirse y H emitir la matriz final después de cerrar F; no se inicia todavía
 el tenant real ni se modifica producción.
 
+### Checkpoint — 2026-10-08 — PR #493/#494 / índices de reportes
+
+PR #493 quedó integrado mediante `b4ab350dffe3da3c2446bf409dc68c28bc26806d`;
+su CI post-merge, run `37858453098`, terminó `success`. PR #494 quedó integrado
+mediante `a1274b0fde0ef469af3dce2a93259fa0595800b1` a las
+`2026-10-08T23:49:22Z`; los checks previos al merge (CI de tipos/pruebas,
+Vercel y Preview Comments) terminaron `PASS`. La CI post-merge `37861536241`
+seguía `in_progress` al corte documental, sin fallos reportados.
+
+El fallo reproducible en el reporte era el índice ascendente ausente de
+`turnos(empresaId, fechaApertura)`: Firestore lanzaba `FAILED_PRECONDITION` y
+la UI convertía el error en «No hay datos para este periodo». PR #494 añadió
+solo esa definición al manifiesto. En `micafe-pos-staging`, el índice exacto
+`CICAgJjmiJEK` alcanzó `READY` con `empresaId ASC`, `fechaApertura ASC` y
+`__name__ ASC`. No se tocaron documentos ni se desplegaron Functions, Rules o
+la aplicación.
+
+La corrección está desplegada como metadata de índice en staging, pero la
+verificación visual post-fix del reporte sigue pendiente: Edge quedó en el
+login del preview actualizado tras vencer la sesión. No se declara el reporte
+PASS hasta volver a entrar como administrador sintético y confirmar que las
+consultas terminan sin el error y la UI representa el periodo. La matriz
+integral de Gate F continúa pendiente; la evidencia parcial se mantiene en
+[`G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md`](evidence/G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md).
+
+Gate F permanece `EN CURSO`, no `PASS`; E2.2 sigue `EN EJECUCIÓN`. Se mantienen
+pendientes aislamiento/roles, replay de membresía, retry tras pérdida de
+respuesta, el ciclo completo de agenda/recordatorios y la validación funcional
+integral. Gate G debe repetirse; Gate H emitirá una matriz nueva después de F.
+No se adelanta el tenant real ni producción.
+
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
 PR #477 quedó `MERGED` en `main` el `2026-10-07 22:23:06` hora de Bogotá

@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: evidencia parcial de verificación (2026-10-08)
 
-**Última revisión:** 2026-10-08 22:33 UTC
+**Última revisión:** 2026-10-08 23:56 UTC
 **Estado:** `EN CURSO` — evidencia parcial; no certifica Gate F.
 
 ## Contexto y límites
@@ -632,3 +632,65 @@ lectura no prueba todavía despacho FCM, recepción background ni sonido.
   IAM, Secrets y tráfico: cambios por Codex `0`.
 - Fixture adicional, Bootstrap, Activation, tenant real, producción y cleanup
   destructivo: `0`.
+
+### Seguimiento — PR #493/#494 / corrección del índice de reportes (2026-10-08)
+
+#### Diagnóstico reproducible
+
+Con el administrador sintético autenticado en el Preview, abrir el periodo
+`Semana` en `/admin/reportes` disparó una excepción capturada de Firestore:
+`FAILED_PRECONDITION`, índice requerido para `turnos` con
+`empresaId ASC`, `fechaApertura ASC`, `__name__ ASC`. La UI atrapaba el fallo de
+la carga agregada y mostraba «No hay datos para este periodo», por lo que ese
+mensaje no era evidencia de un periodo vacío. El servicio consulta los turnos
+por tenant y rango de `fechaApertura` junto con las ventas, productos y
+membresías.
+
+El preflight read-only de `micafe-pos-staging` confirmó que el índice
+`turnos(empresaId ASC, fechaApertura ASC)` no existía; había uno descendente.
+PR #493 ya integró el índice de ventas requerido y su CI post-merge
+`37858453098` terminó `success`. PR #494 declaró únicamente el índice
+ascendente de turnos y se fusionó a `main` como
+`a1274b0fde0ef469af3dce2a93259fa0595800b1` a las `23:49:22Z`. CI, Vercel y
+Preview Comments del PR terminaron `PASS`; la CI post-merge `37861536241` estaba
+`in_progress`, sin fallos reportados al corte.
+
+#### Validación de staging
+
+En el proyecto exacto `micafe-pos-staging` se creó el índice compuesto
+`projects/micafe-pos-staging/databases/(default)/collectionGroups/turnos/indexes/CICAgJjmiJEK`.
+La lectura posterior del inventario de índices confirmó `READY` y los campos
+`empresaId ASC`, `fechaApertura ASC`, `__name__ ASC`. El índice de ventas
+`CICAgJj7z4EK` también está `READY`.
+
+La UI post-fix aún no se ha validado: Edge está en el login del Preview vigente
+`https://cafeatrato-git-codex-e2-2-turnos-rep-403802-glemynarts-projects.vercel.app/admin/reportes`
+tras vencer la sesión del administrador. La sesión requiere autenticación
+manual del usuario. Hasta confirmar en esa UI que el reporte carga sin la
+excepción, este subcaso queda **corregido en infraestructura, validación visual
+pendiente**; no se afirma que el reporte esté PASS ni que Gate F esté cerrado.
+
+#### Resultado y matriz actualizada
+
+| Caso | Estado posterior a este seguimiento |
+| --- | --- |
+| Reportes (índices) | Índices requeridos de ventas y turnos en staging: `READY`. El missing-index `FAILED_PRECONDITION` queda corregido. |
+| Reportes (UI) | Pendiente de reautenticación admin y comprobación visual post-fix en el Preview actual. |
+| Validación integral de Gate F | Continúa pendiente: los otros casos de la matriz conservan sus estados anteriores. |
+
+#### Mutation audit de este seguimiento
+
+- GitHub: PR #493 y #494 fusionados; sin cambios manuales adicionales en el
+  estado de negocio.
+- Firestore: una única creación de índice compuesto en `micafe-pos-staging`,
+  `CICAgJjmiJEK`, estado `READY`. No se escribieron ni leyeron documentos de
+  negocio como parte de esa creación.
+- Vercel: Preview del PR generado por el flujo normal; deploys de producción
+  por este seguimiento: `0`.
+- Agenda, reservas, stock, solicitudes, ventas, ledger, turnos, membresías,
+  Auth, Rules, IAM, Secrets, Scheduler y FCM: mutaciones manuales de Codex `0`.
+- Fixture adicional, Bootstrap, Activation, tenant real, tráfico de
+  producción y cleanup destructivo: `0`.
+
+Gate F y E2.2 permanecen `EN CURSO`/`EN EJECUCIÓN`. Gate G/H/I/J/K/L y el
+tenant real no se adelantan por esta corrección puntual.
