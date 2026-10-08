@@ -19,7 +19,11 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { auth, db, getFirebaseFunctions } from './firebase'
 import { calcularEgresosTurno } from './egresos-service'
 import { tenantQuery, getEmpresaId, withEmpresaId } from '@/lib/tenant'
-import { suscribirTrasPreparacion } from './turnos-history-subscription'
+import {
+  conEtapaHistorialTurnos,
+  ErrorHistorialTurnos,
+  suscribirTrasPreparacion,
+} from './turnos-history-subscription'
 import {
   ABRIR_TURNO_OPERATIVO_V1,
   ErrorAperturaTurnoCliente,
@@ -486,12 +490,17 @@ export function suscribirHistorialTurnos(
   // Roles y estados provienen de membresías del tenant activo.
   return suscribirTrasPreparacion(async (emitir, notificarError) => {
     const [q, membresiasSnap] = await Promise.all([
-      tenantQuery(
-        collection(db, 'turnos'),
-        orderBy('fechaApertura', 'desc'),
-        limit(HISTORIAL_TURNOS_LIMIT)
+      conEtapaHistorialTurnos('consulta_turnos', () =>
+        tenantQuery(
+          collection(db, 'turnos'),
+          orderBy('fechaApertura', 'desc'),
+          limit(HISTORIAL_TURNOS_LIMIT)
+        )
       ),
-      tenantQuery(collection(db, 'membresias')).then((consulta) => getDocs(consulta)),
+      conEtapaHistorialTurnos('lectura_membresias', async () => {
+        const consulta = await tenantQuery(collection(db, 'membresias'));
+        return getDocs(consulta);
+      }),
     ]);
 
     const rolesPorUid: Record<string, string> = {}
@@ -508,7 +517,7 @@ export function suscribirHistorialTurnos(
           return rol !== 'admin' && rol !== 'marketing'
         });
       emitir(turnos);
-    }, notificarError);
+    }, (error) => notificarError(new ErrorHistorialTurnos('listener_turnos', error)));
   }, callback, alFallar);
 }
 
