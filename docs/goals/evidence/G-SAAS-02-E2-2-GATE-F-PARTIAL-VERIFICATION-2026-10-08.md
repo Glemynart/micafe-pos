@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: evidencia parcial de verificación (2026-10-08)
 
-**Última revisión:** 2026-10-08 13:08 UTC
+**Última revisión:** 2026-10-08 14:09 UTC
 **Estado:** `EN CURSO` — evidencia parcial; no certifica Gate F.
 
 ## Contexto y límites
@@ -17,7 +17,13 @@ permisos.
 
 ## Identidad del código
 
-- `HEAD` y `origin/main`: `bf9d456b4c0a65493c6d13982eca6891f3da17a1`.
+- SHA del código usado en las pruebas locales: `bf9d456b4c0a65493c6d13982eca6891f3da17a1`.
+- `origin/main` vigente: `24e33591c9dd6dcae858c1d893d354ae54d70d3e` (merge de PR #486).
+- `git diff --name-only bf9d456b4c0a65493c6d13982eca6891f3da17a1..origin/main`
+  solo contiene `docs/goals/GOAL-MVP-COMERCIAL.md` y este archivo; no hay
+  diferencias de aplicación, Functions, configuración ni reglas. Las
+  validaciones de código enumeradas siguen correspondiendo al código vigente,
+  pero el commit de evidencia no las vuelve a ejecutar.
 - La verificación se ejecutó en un worktree separado del checkout principal.
 - Las pruebas E2E locales usaron proyectos Emulator `demo-bodega-agenda` y
   `demo-bodega-u4-u5-ui`; no apuntaron a Firebase staging o producción.
@@ -41,6 +47,37 @@ permisos.
 Los skips de la suite de Functions no se presentan como pruebas aprobadas. Los
 tests de Emulator acreditan los casos modelados por esas suites, no el estado
 remoto de staging.
+
+### Reconciliación de main — PR #486
+
+PR #486 quedó `MERGED` mediante `24e33591c9dd6dcae858c1d893d354ae54d70d3e`.
+Los tres checks previos al merge terminaron `PASS` y la CI post-merge de `main`,
+run `37784488864`, terminó `success` a las `2026-10-08T13:47:25Z`. El cambio fue
+solo documental; la comparación de archivos confirma que no cambió el código
+que fue objeto de las pruebas anteriores.
+
+### Diagnóstico de la sesión Backoffice — inspección de solo lectura, 2026-10-08 14:05 UTC
+
+- En la app abierta en el navegador integrado, bajo el origen
+  `https://cafeatrato-7u5o2fovz-glemynarts-projects.vercel.app`, el POS muestra
+  una sesión del vendedor sintético `GateF Seller E2_2`; el Backoffice, en el
+  mismo origen, muestra
+  `Acceso de plataforma no disponible` y que la identidad no posee autorización
+  SaaS activa. No se recargó ni se interactuó con ninguna de las dos pestañas.
+- `contexts/platform-context.tsx` usa la instancia cliente `auth` y consulta
+  `consultarContextoPlataforma`; `functions/src/platform/authorization.ts`
+  exige un claim `saas.operador`, documento `saas_operadores/{uid}` activo con
+  facultades y versión de autorización coincidente. Un PIN de admin tenant no
+  satisface este contrato.
+- El POS y Backoffice comparten el mismo origen y la misma instancia cliente de
+  Auth. La sesión tenant observada no acredita la sesión global de plataforma;
+  validar el Backoffice requiere un perfil de navegador separado con una
+  identidad de operador SaaS autorizada.
+- PR #482 modifica el `SaaSProvider`/`TenantAccessGuard` para fallos de
+  resolución tenant; no modifica `PlatformProvider`/`PlatformGuard` ni esta
+  autorización. Se mantiene en Draft y no se considera solución de este caso.
+- La observación no probó credenciales de plataforma, no cambió sesiones y no
+  aceptó el permiso de notificaciones.
 
 ## Instantánea read-only de staging
 
@@ -97,7 +134,8 @@ demuestra entrega push ni el ciclo completo de agenda.
 | Agenda: cancelación/liberación y expiración | Tests locales PASS; validación remota pendiente |
 | Recordatorio worker y entrega push | Rama sin destinatario: PASS; entrega push: pendiente, 0 tokens FCM activos; no se cambió el permiso del navegador |
 | Venta, turnos, inventario, ledger y auditoría | La evidencia histórica no equivale a una revalidación integral de este checkpoint |
-| Reportes, PWA y Backoffice | Pendiente de revalidación integral |
+| Reportes y PWA | Pendiente de revalidación integral |
+| Backoffice | Pendiente: el perfil observado está autenticado como vendedor tenant, no como operador SaaS; requiere sesión de plataforma separada |
 
 No se debe consumir ni cancelar la reserva activa para completar casos que
 requieran una nueva autorización de negocio. Tampoco se debe crear otro fixture.
@@ -126,5 +164,7 @@ varios escenarios obligatorios de la matriz. Por ello:
 - Cambios de agenda, reservas, stock, membresías o ventas por esta ejecución:
   0; sus valores observados permanecieron iguales.
 - Firebase Auth, Rules, IAM, Secrets, tráfico y despliegues: 0 cambios.
+- Inspección de pestañas existentes: solo lectura, sin navegación, login,
+  refresh, acción de negocio ni permiso de navegador aceptado.
 - Agenda/reserva/venta/ledger: 0 mutaciones en este checkpoint.
 - Fixture adicional, Bootstrap, Activation, tenant real y producción: 0.
