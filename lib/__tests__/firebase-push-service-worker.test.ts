@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { Script } from "node:vm";
 import { crearFirebasePushServiceWorker } from "../firebase-push-service-worker";
 
 const configStaging = {
@@ -19,6 +20,7 @@ describe("configuración del service worker FCM", () => {
     assert.ok(script.includes('messaging.onBackgroundMessage'));
     assert.ok(script.includes('clients.openWindow(targetUrl)'));
     assert.ok(!script.includes('projectId: "micafe-pos"'));
+    assert.doesNotThrow(() => new Script(script));
   });
 
   it("falla cerrado si falta configuración Firebase pública", () => {

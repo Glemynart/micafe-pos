@@ -1,14 +1,34 @@
-importScripts('/firebase-app-compat.js');
+type FirebasePushConfig = {
+  apiKey?: string;
+  authDomain?: string;
+  projectId?: string;
+  storageBucket?: string;
+  messagingSenderId?: string;
+  appId?: string;
+};
+
+const REQUIRED_CONFIG_KEYS = [
+  "apiKey",
+  "authDomain",
+  "projectId",
+  "storageBucket",
+  "messagingSenderId",
+  "appId",
+] as const;
+
+export function crearFirebasePushServiceWorker(config: FirebasePushConfig): string {
+  if (REQUIRED_CONFIG_KEYS.some((key) => !config[key]?.trim())) {
+    throw new Error("FIREBASE_PUSH_CONFIG_INCOMPLETA");
+  }
+
+  const serializedConfig = JSON.stringify(Object.fromEntries(
+    REQUIRED_CONFIG_KEYS.map((key) => [key, config[key]]),
+  ));
+
+  return `importScripts('/firebase-app-compat.js');
 importScripts('/firebase-messaging-compat.js');
 
-var firebaseConfig = {
-  apiKey: "AIzaSyCVTjnTrEpRCSHWdN0g5-TKJfVDNUIOvD8",
-  authDomain: "micafe-pos.firebaseapp.com",
-  projectId: "micafe-pos",
-  storageBucket: "micafe-pos.firebasestorage.app",
-  messagingSenderId: "882525811433",
-  appId: "1:882525811433:web:27a44f97b72df9ec4bb678"
-};
+var firebaseConfig = ${serializedConfig};
 
 if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
@@ -58,3 +78,5 @@ self.addEventListener('notificationclick', function(event) {
     })
   );
 });
+`;
+}
