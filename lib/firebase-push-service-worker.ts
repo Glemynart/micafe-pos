@@ -61,7 +61,7 @@ messaging.onBackgroundMessage(function(payload) {
   // FCM displays notification payloads automatically. Only data-only messages
   // need a custom notification here, otherwise the user would see two alerts.
   if (!hasNotificationPayload) {
-    self.registration.showNotification(title, notificationOptions);
+    return self.registration.showNotification(title, notificationOptions);
   }
 });
 
