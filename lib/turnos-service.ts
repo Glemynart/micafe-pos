@@ -20,6 +20,11 @@ import { auth, db, getFirebaseFunctions } from './firebase'
 import { calcularEgresosTurno } from './egresos-service'
 import { tenantQuery, getEmpresaId, withEmpresaId } from '@/lib/tenant'
 import {
+  conEtapaHistorialTurnos,
+  ErrorHistorialTurnos,
+  suscribirTrasPreparacion,
+} from './turnos-history-subscription'
+import {
   ABRIR_TURNO_OPERATIVO_V1,
   ErrorAperturaTurnoCliente,
   ejecutarAperturaPendiente,
@@ -479,42 +484,41 @@ const HISTORIAL_TURNOS_LIMIT = 100;
  * no en cada evento de snapshot.
  */
 export function suscribirHistorialTurnos(
-  callback: (turnos: Turno[]) => void
+  callback: (turnos: Turno[]) => void,
+  alFallar: (error: unknown) => void = () => undefined,
 ) {
-  let unsubscribeTurnos = () => {};
-  let cancelado = false;
-
   // Roles y estados provienen de membresías del tenant activo.
-  Promise.all([
-    tenantQuery(
-      collection(db, 'turnos'),
-      orderBy('fechaApertura', 'desc'),
-      limit(HISTORIAL_TURNOS_LIMIT)
-    ),
-    tenantQuery(collection(db, 'membresias')).then((q) => getDocs(q)),
-  ]).then(([q, membresiasSnap]) => {
-    if (cancelado) return;
+  return suscribirTrasPreparacion(async (emitir, notificarError) => {
+    const [q, membresiasSnap] = await Promise.all([
+      conEtapaHistorialTurnos('consulta_turnos', () =>
+        tenantQuery(
+          collection(db, 'turnos'),
+          orderBy('fechaApertura', 'desc'),
+          limit(HISTORIAL_TURNOS_LIMIT)
+        )
+      ),
+      conEtapaHistorialTurnos('lectura_membresias', async () => {
+        const consulta = await tenantQuery(collection(db, 'membresias'));
+        return getDocs(consulta);
+      }),
+    ]);
+
     const rolesPorUid: Record<string, string> = {}
     membresiasSnap.docs.forEach(d => {
       const data = d.data()
       if (data.estado === 'activa' && data.activo === true) rolesPorUid[data.uid] = data.rol || ''
     })
 
-    unsubscribeTurnos = onSnapshot(q, (snapshot) => {
+    return onSnapshot(q, (snapshot) => {
       const turnos = snapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() } as Turno))
         .filter(t => {
           const rol = rolesPorUid[t.cajeroId] || ''
           return rol !== 'admin' && rol !== 'marketing'
         });
-      callback(turnos);
-    });
-  });
-
-  return () => {
-    cancelado = true;
-    unsubscribeTurnos();
-  };
+      emitir(turnos);
+    }, (error) => notificarError(new ErrorHistorialTurnos('listener_turnos', error)));
+  }, callback, alFallar);
 }
 
 /**

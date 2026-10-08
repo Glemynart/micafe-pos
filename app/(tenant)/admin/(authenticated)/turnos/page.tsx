@@ -25,6 +25,10 @@ import {
 import { suscribirEgresosPorTurno, type Egreso } from "@/lib/egresos-service"
 import { suscribirUsuarios, type Usuario } from "@/lib/permisos-service"
 import { crearIndiceNombres, resolverNombreActor } from "@/lib/actor-display"
+import {
+  obtenerDiagnosticoHistorialTurnos,
+  type DiagnosticoHistorialTurnos,
+} from "@/lib/turnos-history-subscription"
 
 type FiltroTurno = "todos" | "abierto" | "cerrado" | "alerta"
 type ResumenVentas = Awaited<ReturnType<typeof calcularVentasTurno>>
@@ -68,6 +72,9 @@ export default function TurnosPage() {
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [cargando, setCargando] = useState(true)
+  const [errorCarga, setErrorCarga] = useState(false)
+  const [diagnosticoCarga, setDiagnosticoCarga] = useState<DiagnosticoHistorialTurnos | null>(null)
+  const [intentoCarga, setIntentoCarga] = useState(0)
   const [busqueda, setBusqueda] = useState("")
   const [filtro, setFiltro] = useState<FiltroTurno>("todos")
   const [seleccionado, setSeleccionado] = useState<Turno | null>(null)
@@ -77,12 +84,21 @@ export default function TurnosPage() {
   const [errorDetalle, setErrorDetalle] = useState<string | null>(null)
 
   useEffect(() => {
+    setCargando(true)
+    setErrorCarga(false)
+    setDiagnosticoCarga(null)
     const unsubscribe = suscribirHistorialTurnos((data) => {
       setTurnos(data)
+      setErrorCarga(false)
+      setDiagnosticoCarga(null)
+      setCargando(false)
+    }, (error) => {
+      setErrorCarga(true)
+      setDiagnosticoCarga(obtenerDiagnosticoHistorialTurnos(error))
       setCargando(false)
     })
     return unsubscribe
-  }, [])
+  }, [intentoCarga])
 
   useEffect(() => suscribirUsuarios(setUsuarios), [])
 
@@ -165,6 +181,26 @@ export default function TurnosPage() {
     </div>
   )
 
+  if (errorCarga && turnos.length === 0) return (
+    <div className="min-h-[40vh] flex flex-col items-center justify-center gap-4 px-4 text-center">
+      <p role="alert" className="text-sm text-muted-foreground">
+        No fue posible cargar el historial de turnos. Revisa la conexión o los permisos e inténtalo de nuevo.
+      </p>
+      {diagnosticoCarga && (
+        <p className="text-xs text-muted-foreground">
+          Diagnóstico técnico: {diagnosticoCarga.etapa} · {diagnosticoCarga.codigo ?? "sin código"}
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={() => setIntentoCarga((intento) => intento + 1)}
+        className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-card/50"
+      >
+        Reintentar
+      </button>
+    </div>
+  )
+
   return (
     <div className="pb-4 space-y-4">
       <div className="pt-2">
@@ -174,6 +210,26 @@ export default function TurnosPage() {
         </h1>
         <p className="text-muted-foreground text-sm mt-1">Revisa quién abrió, cuánto debía entregar y qué ocurrió al cerrar.</p>
       </div>
+
+      {errorCarga && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+          <div>
+            <p>No se pudo actualizar el historial. Se muestran los últimos datos recibidos.</p>
+            {diagnosticoCarga && (
+              <p className="mt-1 text-xs text-amber-100/80">
+                Diagnóstico técnico: {diagnosticoCarga.etapa} · {diagnosticoCarga.codigo ?? "sin código"}
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setIntentoCarga((intento) => intento + 1)}
+            className="shrink-0 rounded-lg border border-amber-200/40 px-3 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-100/10"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4">

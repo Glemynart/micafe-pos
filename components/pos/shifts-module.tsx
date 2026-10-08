@@ -163,6 +163,9 @@ export function ShiftsModule() {
       if (cancelado || !esContextoActual(contextoSuscripcion)) return
       contextoHistorialRef.current = contextoSuscripcion
       setHistorial(turnos)
+    }, () => {
+      if (cancelado || !esContextoActual(contextoSuscripcion)) return
+      toast.error('No fue posible cargar el historial de turnos. Verifica la conexión y vuelve a intentarlo.')
     })
     return () => { cancelado = true; unsubActivo(); unsubHistorial() }
   }, [usuario?.uid, empresaId])
