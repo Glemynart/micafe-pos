@@ -173,12 +173,13 @@ terminaron `PASS`; la CI post-merge de `main`, run `37684131027`, terminó
 `success`, incluida la E2E de Bodega y la certificación integral E4.1. Al
 verificarlo, `origin/main` apuntaba al merge commit.
 
-El 2026-10-07 la persona usuaria añadió como requisito previo a la primera
-entrega una agenda de pedidos/entregas con recordatorios. La regla de
-inventario/precio, persistencia, vencimiento y garantía del canal de aviso no
-está decidida ni implementada; requiere un ADR propuesto antes de modificar
-código. Esta petición no modifica el Gate F ni autoriza reserva de inventario,
-venta, entrega o mutación de staging.
+El 2026-10-07 la persona usuaria confirmó como requisito previo a la primera
+entrega una agenda de pedidos/entregas con recordatorios y autorizó la
+continuación autónoma de E2.2. ADR-SAAS-064 aceptó la reserva lógica: la
+administración puede retener stock disponible sin reducir existencia física;
+precio, venta y ledger se confirman mediante el flujo canónico. La decisión no
+autoriza por sí sola mutaciones de staging, venta, entrega o producción y no
+cambia Gate F.
 
 La lectura actual de `firebase functions:list --project micafe-pos-staging
 --json` confirmó las diez callables de `saas-bodega` en estado `ACTIVE`,

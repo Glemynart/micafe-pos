@@ -33,7 +33,7 @@ en una fecha futura y que la administración tenga una agenda con recordatorios.
 La interfaz debe distinguir «Pedido para hoy» de «Agendar entrega». La fecha
 define el día; una franja horaria preferida puede solicitarse tanto para hoy
 como para una fecha futura. Después preguntó si lo ideal sería reservar stock.
-Esta propuesta recomienda una reserva lógica aprobada por administración, no
+La decisión adopta una reserva lógica aprobada por administración, no
 descontar la existencia física al agendar. La reserva reduciría el stock
 disponible; el movimiento físico y la venta canónica ocurrirían solo al
 confirmar la venta en la fecha acordada. La reserva no congelaría precio ni
@@ -112,9 +112,9 @@ La programación crea inmediatamente una salida física o una venta pendiente.
   contamina el ledger y puede anticipar ventas, caja o efectos financieros. Se
   rechaza.
 
-## Decisión propuesta
+## Decisión aceptada
 
-Se recomienda la **Opción 3**. La programación comienza como solicitud
+Se acepta la **Opción 3**. La programación comienza como solicitud
 pendiente; solo la aceptación administrativa crea una reserva. La reserva
 representa unidades físicas comprometidas exclusivamente para esa futura
 atención, pero no una venta ni una garantía de transporte/entrega a una hora
@@ -122,7 +122,7 @@ exacta. El vendedor y la administración deben ver claramente «stock reservado;
 precio y entrega se confirman al atender». No se congela precio. Si el precio
 cambia antes de cobrar, se vuelve a resolver y aprobar conforme a ADR-SAAS-062.
 
-La propuesta requiere una proyección transaccional de `stockReservado` en
+La implementación requiere una proyección transaccional de `stockReservado` en
 unidad base por producto. `stockDisponible = stockFisico - stockReservado`.
 Crear, cancelar, vencer o consumir la reserva actualiza esa proyección y el
 registro auditable de reserva en una transacción idempotente. Ningún egreso de
@@ -134,7 +134,7 @@ holds activos tenant-aware; un faltante o divergencia falla cerrado para nuevas
 reservas. Administración ve stock físico, reservado y disponible; el vendedor
 solo recibe la disponibilidad comercial necesaria.
 
-Si se aprueba, esta decisión supersederá exclusivamente: (a) en ADR-SAAS-041,
+Esta decisión supersede exclusivamente: (a) en ADR-SAAS-041,
 la exclusión de pedidos persistentes y reservas para permitir la agenda y el
 hold descritos aquí; (b) en ADR-SAAS-062, la exclusión de registrar una
 fecha/franja y reservar unidades sin extender la aprobación de venta de 24
@@ -143,7 +143,7 @@ Bodega. No modificará ADR-SAAS-042 como autoridad única de la venta/ledger ni
 los controles de precio, pago e idempotencia de ADR-SAAS-062. Los ADR aceptados
 no se editarán; el alcance se registrará en esta nueva decisión.
 
-## Flujo y datos propuestos
+## Flujo y datos aceptados
 
 ```text
 Vendedor crea programación
@@ -173,7 +173,7 @@ Vendedor crea programación
   unidad base y crea el hold mediante autoridad server-side; no congela precio.
   Al atender la agenda, el precio y la solicitud de venta se vuelven a resolver
   conforme a ADR-SAAS-062.
-- Estados propuestos para la agenda: `PENDIENTE_REVISION`, `RESERVADA`,
+- Estados de programación: `PENDIENTE_REVISION`, `RESERVADA`,
   `CANCELADA`, `VENCIDA`, `CONVERTIDA_A_SOLICITUD` y `CUMPLIDA`; la reserva
   tiene estado separado `ACTIVA`, `CONSUMIDA`, `LIBERADA` o `VENCIDA`. El hold
   vence al final del día local programado, se haya convertido o no en una
@@ -195,12 +195,12 @@ Vendedor crea programación
   financiera. Solo la confirmación canónica genera esos efectos. No habilita
   crédito, entrega parcial, ruta, remisión o fiscalidad.
 
-## Recordatorios propuestos
+## Recordatorios
 
 - La agenda autenticada del POS Bodega (vistas de vendedor y administrador del
   tenant) es la fuente durable de verdad; no es parte del Backoffice SaaS de
   plataforma.
-- La propuesta incluye el evento Bodega `RECORDATORIO_AGENDA_PEDIDO` y un
+- El alcance incluye el evento Bodega `RECORDATORIO_AGENDA_PEDIDO` y un
   productor backend idempotente para el vendedor creador y administradores
   activos del tenant. Como mínimo avisa al crear la entrada, el día anterior
   (si aplica) y al llegar la fecha/franja solicitada. Las franjas vencidas para
@@ -234,7 +234,7 @@ Vendedor crea programación
 - Cada programación referencia un cliente activo y reutiliza su dirección
   canónica si está registrada; no duplica dirección/contacto en el documento de
   agenda. La interfaz indica cuando no hay dirección disponible. Capturar
-  destinos alternos queda fuera de esta propuesta.
+  destinos alternos queda fuera del alcance de esta decisión.
 - Cada transición, reserva, liberación, consumo y recordatorio es idempotente y
   auditable; los retries no duplican agenda, holds, movimientos, notificaciones
   ni solicitudes.
@@ -275,12 +275,12 @@ Vendedor crea programación
 
 ## Límites de autorización
 
-ADR-SAAS-064, si se acepta, autorizará únicamente implementar este alcance en
-una PR separada y reusable dentro de E2.2. No autorizará deploy, tráfico,
+ADR-SAAS-064 autoriza únicamente implementar este alcance en una PR separada y
+reusable dentro de E2.2. No autoriza deploy, tráfico,
 fixture nuevo, mutaciones de staging, Bootstrap, Activation, tenant real ni
 producción. Gate C/D y sus preflights conservan aprobaciones independientes.
 
-La propuesta fija expresamente que:
+La decisión fija expresamente que:
 
 1. Una programación es una solicitud. La aceptación administrativa retiene
    stock disponible, pero no crea venta ni garantiza transporte, entrega a una
