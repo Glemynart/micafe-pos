@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useAuthContext } from '@/contexts/auth-context'
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging'
 import { app, db } from '@/lib/firebase'
+import { leerContenidoPush } from '@/lib/fcm-notification-content'
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
 import { toast } from 'sonner'
 import { Bell } from 'lucide-react'
@@ -88,14 +89,13 @@ export function FcmManager() {
     if (!messagingInstance) return
 
     const unsubscribe = onMessage(messagingInstance, (payload) => {
-      const { title, body } = payload.notification || {}
-      if (title && body) {
-        toast(title, {
-          description: body,
-          duration: 10000,
-          position: 'top-center',
-        })
-      }
+      const content = leerContenidoPush(payload)
+      if (!content) return
+      toast(content.title, {
+        description: content.body,
+        duration: 10000,
+        position: 'top-center',
+      })
     })
 
     return () => unsubscribe()

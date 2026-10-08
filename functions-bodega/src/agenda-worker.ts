@@ -211,7 +211,12 @@ async function despacharEvento(db: any, messaging: Messaging, claim: Claim, now:
     for (let offset = 0; offset < targetTokens.length; offset += 500) {
       const chunk = targetTokens.slice(offset, offset + 500);
       const result = await messaging.sendEachForMulticast({
-        tokens: chunk, notification, data: { url, eventId: String(event.eventoId) },
+        tokens: chunk, data: {
+          title: notification.title,
+          body: notification.body,
+          url,
+          eventId: String(event.eventoId),
+        },
       });
       result.responses.forEach((response, index) => {
         if (response.success) { delivered += 1; return; }

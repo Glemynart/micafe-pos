@@ -39,14 +39,17 @@ messaging.onBackgroundMessage(function(payload) {
   var title = 'POS Empresarial';
   var body = '';
   var url = '/admin';
+  var hasNotificationPayload = Boolean(payload && payload.notification);
 
   if (payload && payload.notification) {
     if (payload.notification.title) title = payload.notification.title;
     if (payload.notification.body) body = payload.notification.body;
   }
 
-  if (payload && payload.data && payload.data.url) {
-    url = payload.data.url;
+  if (payload && payload.data) {
+    if (payload.data.title) title = payload.data.title;
+    if (payload.data.body) body = payload.data.body;
+    if (payload.data.url) url = payload.data.url;
   }
 
   var notificationOptions = {
@@ -55,7 +58,11 @@ messaging.onBackgroundMessage(function(payload) {
     data: { url: url }
   };
 
-  self.registration.showNotification(title, notificationOptions);
+  // FCM displays notification payloads automatically. Only data-only messages
+  // need a custom notification here, otherwise the user would see two alerts.
+  if (!hasNotificationPayload) {
+    self.registration.showNotification(title, notificationOptions);
+  }
 });
 
 self.addEventListener('notificationclick', function(event) {

@@ -62,10 +62,10 @@ describe("configuración del service worker FCM", () => {
 
     await handlers.background({ data: { title: "Recordatorio", body: "Atender pedido", url: "/admin/agenda" } });
     assert.equal(notifications.length, 1);
-    assert.deepEqual(notifications[0], {
-      title: "Recordatorio",
-      options: { body: "Atender pedido", icon: "/placeholder-logo.png", data: { url: "/admin/agenda" } },
-    });
+    assert.equal(notifications[0]?.title, "Recordatorio");
+    assert.equal(notifications[0]?.options.body, "Atender pedido");
+    assert.equal(notifications[0]?.options.icon, "/placeholder-logo.png");
+    assert.equal((notifications[0]?.options.data as { url?: string }).url, "/admin/agenda");
   });
 
   it("lee contenido notification heredado y data-only para el handler foreground", () => {
