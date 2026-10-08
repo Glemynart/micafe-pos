@@ -265,6 +265,10 @@ export async function ejecutarResolverProgramacionPedidoBodegaV1(db: any, contex
       tx.update(ref, { estado: "CANCELADA", revision: data.revision + 1, rechazo: { actorUid, creadoEn: FieldValue.serverTimestamp() }, actualizadaEn: FieldValue.serverTimestamp() });
       return { commandId: input.commandId, programacionId: payload.programacionId, estado: "CANCELADA" };
     }
+    const clientSnap = await tx.get(firestore.collection("clientes").doc(String(data.clienteId ?? "")));
+    if (!clientSnap.exists || clientSnap.data()?.empresaId !== empresaId || clientSnap.data()?.activo !== true) {
+      fail("failed-precondition", "AGENDA_CLIENTE_NO_DISPONIBLE");
+    }
     const fecha = String(data.fechaLocal ?? "");
     const expiracion = Timestamp.fromMillis(localInstantMillis(nextLocalDay(fecha), "00:00", data.zonaHoraria ?? timeZone));
     if (expiracion.toMillis() <= now()) fail("failed-precondition", "AGENDA_RESERVA_EXPIRADA");
