@@ -91,6 +91,68 @@ describe("configuración del service worker FCM", () => {
     assert.equal((notifications[0]?.options.data as { url?: string }).url, "/admin/agenda");
   });
 
+  it("reutiliza y espera la navegación de una pestaña POS al pulsar la notificación", async () => {
+    const script = crearFirebasePushServiceWorker(configStaging);
+    const handlers: Record<string, (value: any) => unknown> = {};
+    const calls: string[] = [];
+    let finishNavigation!: () => void;
+    const navigation = new Promise((resolve) => { finishNavigation = () => resolve(client); });
+    const client = {
+      url: "https://bodega.example/pos",
+      focus() {
+        calls.push("focus");
+        return Promise.resolve(this);
+      },
+      navigate(url: string) {
+        calls.push(`navigate:${url}`);
+        return navigation;
+      },
+    };
+    const firebase = {
+      apps: [] as unknown[],
+      initializeApp(config: typeof configStaging) { this.apps.push({ config }); },
+      messaging() {
+        return { onBackgroundMessage(handler: (payload: any) => unknown) { handlers.background = handler; } };
+      },
+    };
+    const context = {
+      importScripts() {},
+      firebase,
+      self: {
+        location: { origin: "https://bodega.example" },
+        registration: { showNotification() {} },
+        addEventListener(name: string, handler: (value: any) => unknown) { handlers[name] = handler; },
+      },
+      clients: {
+        async matchAll() { calls.push("matchAll"); return [client]; },
+        async openWindow(url: string) { calls.push(`openWindow:${url}`); },
+      },
+      URL,
+    };
+
+    new Script(script).runInNewContext(context);
+    let waitUntilPromise!: Promise<unknown>;
+    handlers.notificationclick({
+      notification: { close() { calls.push("close"); }, data: { url: "/pos" } },
+      waitUntil(promise: Promise<unknown>) { waitUntilPromise = promise; },
+    });
+
+    assert.equal(typeof waitUntilPromise?.then, "function");
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.deepEqual(calls, ["close", "matchAll", "focus", "navigate:/pos"]);
+
+    let settled = false;
+    void waitUntilPromise.then(() => { settled = true; });
+    await Promise.resolve();
+    assert.equal(settled, false);
+
+    finishNavigation();
+    await waitUntilPromise;
+    assert.equal(settled, true);
+    assert.equal(calls.some((call) => call.startsWith("openWindow:")), false);
+  });
+
   it("lee contenido notification heredado y data-only para el handler foreground", () => {
     assert.deepEqual(leerContenidoPush({ data: { title: "Agenda", body: "Pedido para hoy" } }), {
       title: "Agenda", body: "Pedido para hoy",
