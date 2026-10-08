@@ -178,6 +178,19 @@ test("ADR-064: aceptar conserva tenant y presentación vigentes", async () => {
   assert.equal(db.docs.get("productos/producto-1")?.stockReservado, 0);
 });
 
+test("ADR-064: no reserva stock si el cliente se desactiva antes de la aprobación", async () => {
+  const db = new FakeDb(); seed(db);
+  const created = await create(db);
+  db.docs.set("clientes/cliente-1", { ...db.docs.get("clientes/cliente-1"), activo: false });
+
+  await assert.rejects(resolve(db, created.programacionId), error => domain(error) === "AGENDA_CLIENTE_NO_DISPONIBLE");
+
+  assert.equal(db.docs.get("productos/producto-1")?.stock, 20);
+  assert.equal(db.docs.get("productos/producto-1")?.stockReservado, 0);
+  assert.equal(db.docs.get(`empresas/${empresaId}/agenda_pedidos_bodega/${created.programacionId}`)?.estado, "PENDIENTE_REVISION");
+  assert.equal([...db.docs.keys()].some(path => path.includes("reservas_stock_bodega/")), false);
+});
+
 test("ADR-064: el vendedor convierte agenda de hoy en solicitud idempotente sin liberar stock", async () => {
   const db = new FakeDb(); seed(db);
   const created = await create(db, createInput("agenda-hoy", { clienteId: "cliente-1", fechaLocal: "2026-10-07", franja: { desde: "11:00", hasta: "12:00" }, lineas }));
