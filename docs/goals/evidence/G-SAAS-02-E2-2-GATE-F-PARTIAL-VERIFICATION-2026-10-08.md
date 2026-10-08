@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: evidencia parcial de verificación (2026-10-08)
 
-**Última revisión:** 2026-10-08 12:27 UTC
+**Última revisión:** 2026-10-08 13:08 UTC
 **Estado:** `EN CURSO` — evidencia parcial; no certifica Gate F.
 
 ## Contexto y límites
@@ -63,12 +63,27 @@ Lecturas realizadas el 2026-10-08, aproximadamente a las 12:26 UTC:
   `2026-10-08T13:00:00Z`; el aviso de fecha programada, para
   `2026-10-09T13:00:00Z`. La lectura ocurrió antes de que el primer aviso
   estuviera vencido. No se forzó la ejecución del Scheduler.
-- Scheduler de ADR-064: job habilitado con frecuencia de cinco minutos UTC; la
-  última inspección previa registró un intento a `2026-10-08T12:18:06Z`.
+- Scheduler de ADR-064: job habilitado con frecuencia de cinco minutos UTC. La
+  lectura inicial observó una ejecución HTTP `200` a `12:18:06Z`.
 
 Estas lecturas confirman una reserva vigente y el estado persistido observado,
 pero no prueban la entrega de recordatorios, conversión de agenda, liberación,
 expiración ni consumo en staging.
+
+### Resultado posterior del Scheduler — 2026-10-08 13:03 UTC
+
+Sin invocación manual, el job automático ejecutó después de la hora disponible
+el aviso `dia_anterior` de la agenda activa. El log `AttemptFinished` registró
+HTTP `200` a `2026-10-08T13:03:09.250Z`. El evento pasó de `PENDIENTE` a
+`SIN_DESTINATARIO`, `intentos=1`, sin código de error; había cero tokens FCM
+activos. Tres avisos vencidos de agendas ya canceladas quedaron en
+`OMITIDO / AGENDA_NO_VIGENTE`. Los otros avisos futuros siguen pendientes.
+
+Una lectura posterior confirmó que no cambió el dominio de inventario:
+continúan una agenda `RESERVADA`, tres `CANCELADA`, una reserva activa por 2
+unidades base, y el producto conserva 6 unidades físicas / 2 reservadas. Esto
+demuestra la rama durable sin destinatario y la omisión de avisos obsoletos; no
+demuestra entrega push ni el ciclo completo de agenda.
 
 ## Matriz restante de Gate F
 
@@ -80,7 +95,7 @@ expiración ni consumo en staging.
 | Agenda: creación y aceptación con reserva | Reserva preexistente verificada; ciclo de prueba completo pendiente |
 | Agenda: conversión a solicitud y venta idempotente | Pendiente de evidencia completa en staging |
 | Agenda: cancelación/liberación y expiración | Tests locales PASS; validación remota pendiente |
-| Recordatorio worker y entrega push | Pendiente; no hay tokens FCM activos; no se cambió el permiso del navegador |
+| Recordatorio worker y entrega push | Rama sin destinatario: PASS; entrega push: pendiente, 0 tokens FCM activos; no se cambió el permiso del navegador |
 | Venta, turnos, inventario, ledger y auditoría | La evidencia histórica no equivale a una revalidación integral de este checkpoint |
 | Reportes, PWA y Backoffice | Pendiente de revalidación integral |
 
@@ -104,7 +119,12 @@ varios escenarios obligatorios de la matriz. Por ello:
 ## Mutation audit
 
 - Archivos de aplicación/Functions modificados: 0.
-- Firebase staging: lecturas Firestore y lecturas de Scheduler; escrituras: 0.
+- Firebase staging: lecturas Firestore y Cloud Logging por Codex; escrituras
+  directas de Codex: 0. El Scheduler autorizado actualizó automáticamente
+  cuatro eventos existentes de outbox al vencimiento: uno
+  `PENDIENTE → SIN_DESTINATARIO` y tres a `OMITIDO / AGENDA_NO_VIGENTE`.
+- Cambios de agenda, reservas, stock, membresías o ventas por esta ejecución:
+  0; sus valores observados permanecieron iguales.
 - Firebase Auth, Rules, IAM, Secrets, tráfico y despliegues: 0 cambios.
 - Agenda/reserva/venta/ledger: 0 mutaciones en este checkpoint.
 - Fixture adicional, Bootstrap, Activation, tenant real y producción: 0.
