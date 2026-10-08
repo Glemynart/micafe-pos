@@ -257,6 +257,14 @@
       ]
     },
     {
+      "collectionGroup": "turnos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "fechaApertura", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "compras",
       "queryScope": "COLLECTION",
       "fields": [
