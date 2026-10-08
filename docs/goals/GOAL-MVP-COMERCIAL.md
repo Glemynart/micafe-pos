@@ -127,7 +127,39 @@ PR #477; su aceptación no autoriza por sí sola deploy, tráfico, staging,
 fixtures, Bootstrap, Activation, tenant real ni producción. La revalidación
 operativa posterior al merge queda registrada abajo.
 
-### Checkpoint vigente — 2026-10-07 (Bogotá) — PR #477 / preflight de Gate C
+### Checkpoint vigente — 2026-10-08 (Bogotá) — PR #479 / Gate C ADR-064
+
+PR #479 quedó `MERGED` en `main` mediante
+`1d94944a1cc9d028e1680c66e10b27e0f91cf497` (`2026-10-08T05:15:02Z`). Sus checks
+`Tipos y pruebas`, `Vercel` y `Vercel Preview Comments` terminaron `PASS`; la CI
+post-merge de `main`, run `37731432362`, concluyó `success` a las
+`2026-10-08T05:33:01Z`. El run incluyó E2E de venta Bodega y agenda/reservas en
+Emulator; esto no sustituye staging.
+
+Gate C para ADR-SAAS-064 queda `PASS` con evidencia actualizada en
+[`G-SAAS-02-E2-2-GATE-C-PREFLIGHT-ADR064-2026-10-08.md`](evidence/G-SAAS-02-E2-2-GATE-C-PREFLIGHT-ADR064-2026-10-08.md).
+El artefacto exacto identifica `saas-bodega` en `main @ 1d94944a1cc9d028e1680c66e10b27e0f91cf497`, sourceHash
+`29c96c95519ab5325748e0db8900209aafdfd7c7`, 15 callables y un scheduler, sin
+Secrets. El inventario staging confirma diez endpoints actuales y delta futuro
+de diez updates/seis creates, sin deletes ni cambios a otros codebases.
+
+Gate D sigue `PENDING`: staging aún carece de los dos índices compuestos de
+agenda/reservas ADR-064. Antes de desplegar Functions se crearán únicamente esos
+dos índices y se esperará `READY`; luego se revalidará el estado remoto y se
+desplegará solo `saas-bodega` en `micafe-pos-staging`. El preflight también dejó
+registrado que un `dry-run` previo habilitó Cloud Scheduler y que Google añadió
+el rol service-agent `roles/cloudscheduler.serviceAgent`; no hubo deploy ni
+tráfico. No se revertirá esa dependencia administrada.
+
+Gate E conserva `PASS` y el fixture sintético retenido
+`E2_2-BODEGA-STAGING-FIXTURE`; Gate F permanece `EN CURSO`, no `PASS`. Tras Gate
+D se validarán en staging aislamiento A/B, revocación/restauración con replay,
+retry autenticado bajo pérdida de respuesta y agenda ADR-064 (reservar, liberar,
+consumir stock, recordatorios y conversión idempotente). Gate G debe repetirse y
+Gate H emitirá una matriz nueva. Gate I y J/K/L permanecen pendientes; no se ha
+creado/configurado el tenant real ni se autoriza producción.
+
+### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
 PR #477 quedó `MERGED` en `main` el `2026-10-07 22:23:06` hora de Bogotá
 (`2026-10-08T03:23:06Z`), mediante el merge commit
