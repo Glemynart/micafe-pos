@@ -244,6 +244,22 @@ una sesión de operador SaaS en un perfil de navegador separado; la entrega push
 sigue pendiente de la interacción del usuario con el permiso del navegador.
 No se cambia el estado de otros subcasos ni se infiere `PASS` para la matriz.
 
+### Checkpoint — 2026-10-08 — PR #487 / Backoffice autorizado y CI post-merge
+
+PR #487 quedó `MERGED` el `2026-10-08T14:35:47Z` mediante
+`01aa85e5921ab02b9e606b18f032a505889c85de`. Sus tres checks previos al merge
+terminaron `PASS`; la CI post-merge de `main`, run `37793768997`, terminó
+`success` sobre ese SHA a las `2026-10-08T14:53:40Z`.
+
+Una inspección de solo lectura en Brave confirmó una sesión autorizada de
+operador de plataforma en el detalle del fixture `E2_2-BODEGA-STAGING-FIXTURE`:
+Backoffice mostró `Contexto validado` y el detalle de Bodega Atrato Demo; el
+panel informó que el operador no tiene autorización para consultar Dusema. Esto
+aporta una comprobación puntual de autorización/denegación, pero no certifica el
+aislamiento completo ni la matriz funcional de Backoffice. Gate F sigue `EN
+CURSO` y la entrega push permanece pendiente; no se modificó el tenant ni se
+concedieron permisos del navegador.
+
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
 PR #477 quedó `MERGED` en `main` el `2026-10-07 22:23:06` hora de Bogotá
