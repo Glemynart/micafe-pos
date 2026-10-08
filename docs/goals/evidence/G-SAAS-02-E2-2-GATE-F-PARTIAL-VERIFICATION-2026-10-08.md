@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: evidencia parcial de verificación (2026-10-08)
 
-**Última revisión:** 2026-10-08 20:05 UTC
+**Última revisión:** 2026-10-08 22:33 UTC
 **Estado:** `EN CURSO` — evidencia parcial; no certifica Gate F.
 
 ## Contexto y límites
@@ -564,3 +564,71 @@ ni reabrirá el evento.
   producción: escrituras/cambios por Codex `0`.
 - Fixture adicional, Bootstrap, Activation, tenant real y cleanup destructivo:
   `0`.
+
+### Reconciliación de PR #491 y sesiones abiertas — 2026-10-08 22:26 UTC
+
+PR #491 quedó `MERGED` en `main @ f72a26418ea6faefb2be59295074917996086803`
+a las `22:21:21Z`. Sus tres checks de PR terminaron `PASS`; la CI post-merge de
+`main`, run `37852942461`, seguía `in_progress` a las `22:26Z`. El Preview de
+revisión está `READY`. La inspección de Vercel confirmó que el deployment de
+producción más reciente es del 6 de octubre, no el merge #491; no se promovió
+este cambio a producción.
+
+La inspección del navegador fue de solo lectura:
+
+- El Preview actual de PR #491 muestra al vendedor sintético autenticado y
+  `Sin turno`; la tarjeta del producto presenta dos unidades disponibles.
+  Este es un estado de UI, no una nueva lectura autoritativa de Firestore.
+- Edge está en `/admin/login`; no hay sesión de administrador tenant disponible
+  allí en este momento.
+- Brave mantiene una sesión autorizada de operador de plataforma en el Preview
+  anterior y abre el detalle de Bodega Atrato Demo. Esa identidad no sustituye
+  la sesión/autoridad de administrador del tenant para aprobar, abrir turnos o
+  ejecutar operaciones POS.
+- No se navegó, autenticó, pulsó controles ni ejecutó acciones de negocio.
+
+El estado observado no cambia la matriz de Gate F. En particular, no se usó
+otra identidad para completar una autorización faltante y no se repitieron
+ventas ni solicitudes.
+
+#### Mutation audit de esta reconciliación
+
+- GitHub: PR #491 integrado; post-merge CI todavía `in_progress` al corte.
+- Vercel: lecturas de deployment Preview y Production; ningún deploy de
+  producción por PR #491.
+- Navegadores: lectura de estado de pestañas; autenticación/acciones UI `0`.
+- Firestore/Auth/Functions/Rules/IAM/Secrets/FCM/Scheduler, agenda, reserva,
+  stock, solicitudes, ventas, ledger y turnos: escrituras/cambios por Codex `0`.
+- Fixture adicional, Bootstrap, Activation, tenant real y cleanup destructivo:
+  `0`.
+
+### Reconciliación read-only de agenda y Scheduler — 2026-10-08 22:33 UTC
+
+Se consultó explícitamente el proyecto `micafe-pos-staging` por Firestore REST,
+Cloud Scheduler y Cloud Logging, sin invocar jobs ni escribir documentos.
+`firebase-schedule-reconciliarAgendaPedidosBodegaV1-us-central1` está
+`ENABLED`, con frecuencia de cinco minutos UTC; Cloud Logging registra HTTP
+`200` a las `22:23:07Z` y `22:28:07Z`.
+
+El fixture conserva cuatro agendas (`1 RESERVADA`, `3 CANCELADA`) y cuatro
+reservas (`1 ACTIVA`, `3 LIBERADA`). La reserva activa mantiene 2 unidades base;
+el único producto registra 6 unidades físicas, 2 reservadas y 4 disponibles.
+Su vencimiento persistido es `2026-10-10T05:00:00Z`, equivalente a la medianoche
+local de Bogotá al terminar el 9 de octubre.
+
+El outbox contiene 15 recordatorios. Tres eventos `fecha_programada` siguen
+`PENDIENTE` para `2026-10-09T13:00:00Z` (08:00 Bogotá): uno corresponde a la
+agenda `RESERVADA` y dos a agendas `CANCELADA`. El evento de la agenda activa
+queda listo para probar el despacho normal; el worker debe omitir los dos
+obsoletos. No se adelantó el reloj ni se llamó manualmente al Scheduler. Esta
+lectura no prueba todavía despacho FCM, recepción background ni sonido.
+
+#### Mutation audit de la reconciliación
+
+- Firestore staging: consultas REST de lectura; escrituras manuales/de Codex `0`.
+- Scheduler y Cloud Logging: lecturas; job habilitado y ejecuciones automáticas
+  observadas con HTTP `200`; invocaciones manuales `0`.
+- Agenda, reservas, stock, solicitudes, ventas, ledger, turnos, Auth, Rules,
+  IAM, Secrets y tráfico: cambios por Codex `0`.
+- Fixture adicional, Bootstrap, Activation, tenant real, producción y cleanup
+  destructivo: `0`.

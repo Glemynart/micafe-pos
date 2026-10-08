@@ -1,7 +1,7 @@
 # G-SAAS-02 / M2 / E2.2 — recuperación de errores del historial de turnos
 
 **Fecha:** 2026-10-08
-**Estado:** corrección y diagnóstico en PR #491; el fallo observado quedó remediado en staging y el Preview carga el historial. CI del commit actual aún pendiente; no certifica Gate F.
+**Estado:** PR #491 quedó integrado en `main`; el fallo observado quedó remediado en staging y el Preview carga el historial. Los checks del PR pasaron; la CI post-merge seguía en curso al actualizar este registro. Esta corrección no certifica Gate F.
 
 ## Hallazgo
 
@@ -70,9 +70,10 @@ realizar mutaciones fuera del alcance autorizado.
 
 ## Límites de esta evidencia
 
-- CI requerida para el commit actual está pendiente al registrar esta evidencia;
-  el estado final queda condicionado al resultado remoto.
+- Los checks del PR #491 (`Tipos y pruebas`, `Vercel` y `Vercel Preview
+  Comments`) terminaron `PASS`; la CI post-merge de `main`, run
+  `37852942461`, seguía `in_progress` a las `2026-10-08T22:26Z`. Aun cuando
+  concluya, esta corrección de lectura no certifica Gate F.
 - Gate F permanece `EN CURSO`: este subgate de lectura de historial está
   recuperado, pero no reemplaza la matriz funcional, aislamiento y demás
   criterios pendientes.
-- Gate F permanece `EN CURSO`; esta evidencia es parcial y no cierra la matriz.
