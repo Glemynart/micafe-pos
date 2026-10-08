@@ -290,13 +290,14 @@ terminaron `PASS`. La CI post-merge de `main`, run `37833645441`, sigue en curso
 y debe confirmarse antes de registrar su resultado final.
 
 El cambio integra el worker FCM por entorno y la espera de activación del
-Service Worker. El administrador sintético confirmó sesión en el Preview
-vigente `cafeatrato-pugkg9gnj-glemynarts-projects.vercel.app`; esta comprobación
-solo demuestra acceso autenticado al POS administrativo, no registro/entrega
-FCM en ese origen ni despacho automático Scheduler/outbox. La lectura de
-deployments de Vercel no encontró un deployment de producción para el merge
-commit; el deployment de producción más reciente continúa asociado a un SHA
-anterior de `main`.
+Service Worker. Tras expirar la sesión por inactividad, el admin sintético se
+autenticó de nuevo en Edge, con la autorización previa del usuario, en el
+Preview vigente `cafeatrato-pugkg9gnj-glemynarts-projects.vercel.app`; esta
+comprobación solo demuestra acceso autenticado al POS administrativo, no
+registro/entrega FCM en ese origen ni despacho automático Scheduler/outbox. La
+lectura de deployments de Vercel no encontró un deployment de producción para
+el merge commit; el deployment de producción más reciente continúa asociado a
+un SHA anterior de `main`.
 
 Gate F permanece `EN CURSO`, no `PASS`; E2.2 sigue `EN EJECUCIÓN`. No se
 realizaron mutaciones de negocio ni se adelantó ningún gate posterior.

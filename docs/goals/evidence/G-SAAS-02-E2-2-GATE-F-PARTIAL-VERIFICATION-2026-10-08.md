@@ -499,13 +499,15 @@ commit `3cac817d436e3b55cde188e9c96f347f3547e497`. Sus checks requeridos
 run post-merge de `main` `37833645441` continúa en curso al momento de este
 registro.
 
-El usuario confirmó inicio de sesión como administrador sintético del fixture
-en Edge en el Preview vigente
-`https://cafeatrato-pugkg9gnj-glemynarts-projects.vercel.app/admin`. La sesión y
-la vista administrativa cargaron correctamente. Esto verifica autenticación y
-acceso a la UI en el nuevo origen; no prueba que se haya concedido el permiso de
-notificaciones allí, que exista un token FCM activo, ni que ese navegador
-reciba un push del Scheduler. No se envió una notificación en este seguimiento.
+Al verificar Edge, la pestaña estaba de nuevo en `/admin/login`; la sesión había
+expirado por inactividad. Con la autorización previa del usuario para el acceso
+de prueba, Codex volvió a autenticar el administrador sintético en el Preview
+vigente `https://cafeatrato-pugkg9gnj-glemynarts-projects.vercel.app/admin` y
+confirmó que cargó el Centro de operación de Bodega Atrato Demo. Esto verifica
+autenticación y acceso a la UI en el nuevo origen; no prueba que se haya
+concedido el permiso de notificaciones allí, que exista un token FCM activo, ni
+que ese navegador reciba un push del Scheduler. No se envió una notificación en
+este seguimiento.
 
 La consulta de solo lectura de deployments de Vercel no encontró un deployment
 de producción asociado al merge SHA. El deployment de producción más reciente
@@ -516,8 +518,10 @@ permanece en un SHA anterior de `main`; el merge #490 generó únicamente Previe
 - GitHub: un único merge, PR #490; CI post-merge aún en curso.
 - Vercel: consulta de deployments únicamente; deploy de producción por este
   merge `0`.
-- POS/UI: inicio de sesión confirmado; ninguna transición de negocio.
-- Firebase remoto adicional, Firestore, Auth, Rules, IAM, Secrets, Functions,
-  FCM, agenda, reservas, stock, solicitudes, ventas, ledger, tráfico,
-  fixture adicional, Bootstrap, Activation y cleanup destructivo: cambios `0`.
+- POS: un inicio de sesión normal en Preview autorizado; ninguna transición de
+  negocio. No se crearon ni alteraron cuentas/identidades Auth.
+- Firestore, Rules, IAM, Secrets, Functions, FCM, agenda, reservas, stock,
+  solicitudes, ventas, ledger y tráfico de producción: escrituras/cambios `0`.
+- No hubo Firebase remoto adicional, fixture adicional, Bootstrap, Activation
+  ni cleanup destructivo.
 - Gate F permanece `EN CURSO`; Gate G/H y el tenant real no se adelantan.
