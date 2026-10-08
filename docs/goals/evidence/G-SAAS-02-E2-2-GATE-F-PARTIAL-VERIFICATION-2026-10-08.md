@@ -423,3 +423,34 @@ demuestra entrega background.
   IAM, Secrets, tráfico, deploy y producción: escrituras/cambios `0`.
 - Fixture adicional, Bootstrap, Activation, tenant real y cleanup destructivo:
   `0`.
+
+### Seguimiento — outbox después del alta del token, 2026-10-08 17:06 UTC
+
+Se leyeron Firestore y Cloud Scheduler sin mutaciones manuales. De cinco
+membresías activas del fixture (un admin y cuatro vendedores), el perfil del
+vendedor F conserva un token FCM y los otros cuatro perfiles no tienen token.
+El worker de `saas-bodega` permanece habilitado cada cinco minutos; el último
+intento del Scheduler observado fue `2026-10-08T17:03:08Z`.
+
+El estado de agenda es `1 RESERVADA` y `3 CANCELADA`; la única reserva activa
+retiene dos unidades base y vence al final del día local del 9 de octubre. Sus
+eventos `creada`, `reservada` y `dia_anterior` quedaron `SIN_DESTINATARIO`
+antes de registrarse el token; no se reabrieron ni se reenviaron. El evento
+`fecha_programada` de la agenda activa sigue `PENDIENTE` para
+`2026-10-09T13:00:00Z` (08:00, hora de Bogotá). También hay un evento futuro
+pendiente para una agenda cancelada; el worker debe omitirlo al verificar el
+estado de esa agenda. No se adelantó el reloj ni se invocó el Scheduler.
+
+El resultado deja preparado el siguiente control automático del Gate F, pero
+no acredita todavía el despacho ni la recepción: se observará el evento
+programado cuando el worker lo procese. Si llega al navegador, solo acredita
+el recorrido Scheduler/outbox → FCM en ese perfil; la recepción background y
+el sonido continúan sin demostrarse.
+
+#### Mutation audit del estado del outbox
+
+- Firestore, Scheduler, FCM, Functions, Auth, Rules, IAM, Secrets, tráfico y
+  producción: lecturas únicamente; escrituras manuales/de Codex `0`.
+- Agenda, reserva, stock, solicitudes, ventas, ledger, membresías y perfiles:
+  escrituras manuales/de Codex `0`; fixture adicional, Bootstrap, Activation,
+  tenant real y cleanup destructivo `0`.
