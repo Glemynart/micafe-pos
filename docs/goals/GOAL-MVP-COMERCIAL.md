@@ -122,12 +122,57 @@ El responsable del proyecto autorizó continuar autónomamente con las decisione
 necesarias para E2.2 y confirmó la agenda con recordatorios como requisito previo
 a la primera entrega. ADR-SAAS-064 acepta una reserva lógica aprobada por
 administración: reduce disponibilidad sin rebajar stock físico ni generar venta
-o ledger hasta la confirmación canónica. Su implementación queda para una PR
-separada; esta aceptación no autoriza deploy, tráfico, staging, fixtures,
-Bootstrap, Activation, tenant real ni producción. Gate F continúa como siguiente
-gate y Gate G/H se revalidarán para cualquier escenario afectado.
+o ledger hasta la confirmación canónica. La implementación quedó integrada por
+PR #477; su aceptación no autoriza por sí sola deploy, tráfico, staging,
+fixtures, Bootstrap, Activation, tenant real ni producción. La revalidación
+operativa posterior al merge queda registrada abajo.
 
-### Checkpoint vigente — 2026-10-07 — PR #474 / Gate F en curso
+### Checkpoint vigente — 2026-10-07 (Bogotá) — PR #477 / preflight de Gate C
+
+PR #477 quedó `MERGED` en `main` el `2026-10-07 22:23:06` hora de Bogotá
+(`2026-10-08T03:23:06Z`), mediante el merge commit
+`e27126057fa627c01d8e6a313836f40dbaf32e1e`. Los checks previos al merge
+(`Tipos y pruebas`, `Vercel` y `Vercel Preview Comments`) terminaron `PASS`; la
+CI post-merge de `main`, run `37722462262` sobre el merge SHA, terminó
+`completed / success`.
+
+PR #477 implementó ADR-SAAS-064 en `saas-bodega`: cinco callables de agenda
+adicionales y el scheduler `reconciliarAgendaPedidosBodegaV1` cada cinco
+minutos, además de las reservas lógicas, outbox/recordatorios y sus interfaces.
+La evidencia TDD de Emulator y los builds/tests del PR están en
+[`ADR-SAAS-064-agenda-emulator.tdd.md`](../testing/ADR-SAAS-064-agenda-emulator.tdd.md);
+no demuestran comportamiento en staging. PR #477 no desplegó Functions ni
+modificó staging, fixture, tenant, Auth, Firestore remoto, Rules, IAM, Secrets,
+tráfico o producción.
+
+La evidencia anterior de Gate C/D cubre el artefacto de diez callables previo a
+PR #477, no este boundary actualizado de quince callables y un scheduler.
+Por eso, el siguiente paso es revalidar Gate C para el SHA
+`e27126057fa627c01d8e6a313836f40dbaf32e1e`: inventario y delta exactos,
+procedencia/digest, runtime, región, Secrets/parámetros, tráfico y rollback.
+Gate D solo podrá ejecutarse si ese preflight demuestra el alcance exacto y un
+rollback staging verificable. No se reutiliza el `PASS` anterior para autorizar
+el nuevo artefacto.
+
+Gate E conserva `PASS` y el fixture sintético retenido
+`E2_2-BODEGA-STAGING-FIXTURE`; no se crea otro fixture. Gate F continúa
+`EN CURSO`, no `PASS`: siguen pendientes aislamiento A/B de superficies
+operativas, revocación/restauración de membresía con replay del actor restaurado
+y retry autenticado ante pérdida de respuesta en staging. También deberán
+validarse en staging los escenarios de agenda afectados por ADR-SAAS-064
+(reserva/liberación/consumo de stock, recordatorios y conversión idempotente a
+la solicitud aprobada) después del Gate D correspondiente. PR #472 aporta
+evidencia Emulator para retry, no la validación staging. Gate G deberá repetirse
+y Gate H emitirá una matriz nueva después de cerrar F.
+
+Gate I permanece `PENDING`: no se ha creado ni configurado el tenant real. La
+tarifa interna de `1.600.000 COP` no prueba aceptación del cliente; vigencia,
+usuarios iniciales y normalización/confirmación del catálogo e inventario
+iniciales todavía requieren evidencia del cliente antes de persistirse. Gates
+J/K/L y E2.2 continúan pendientes; no hay autorización implícita de producción
+ni inicio del Trial real.
+
+### Checkpoint histórico — 2026-10-07 — PR #474 / Gate F en curso (supersedido por #477)
 
 PR #467 quedó integrado en `main` mediante
 `abbeac7a09764efd01e83153d1ae05a039a821f0`; la CI post-merge, run
