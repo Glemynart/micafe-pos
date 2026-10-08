@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: evidencia parcial de verificación (2026-10-08)
 
-**Última revisión:** 2026-10-08 14:09 UTC
+**Última revisión:** 2026-10-08 14:55 UTC
 **Estado:** `EN CURSO` — evidencia parcial; no certifica Gate F.
 
 ## Contexto y límites
@@ -18,7 +18,7 @@ permisos.
 ## Identidad del código
 
 - SHA del código usado en las pruebas locales: `bf9d456b4c0a65493c6d13982eca6891f3da17a1`.
-- `origin/main` vigente: `24e33591c9dd6dcae858c1d893d354ae54d70d3e` (merge de PR #486).
+- `origin/main` vigente al iniciar este checkpoint: `01aa85e5921ab02b9e606b18f032a505889c85de` (merge de PR #487).
 - `git diff --name-only bf9d456b4c0a65493c6d13982eca6891f3da17a1..origin/main`
   solo contiene `docs/goals/GOAL-MVP-COMERCIAL.md` y este archivo; no hay
   diferencias de aplicación, Functions, configuración ni reglas. Las
@@ -79,6 +79,28 @@ que fue objeto de las pruebas anteriores.
 - La observación no probó credenciales de plataforma, no cambió sesiones y no
   aceptó el permiso de notificaciones.
 
+### Seguimiento de sesión Backoffice — inspección de solo lectura, 2026-10-08 14:52 UTC
+
+- El usuario informó que inició sesión en Brave. La pestaña visible de
+  `Backoffice SaaS · MiCafe` quedó en
+  `/backoffice/empresas/E2_2-BODEGA-STAGING-FIXTURE` del preview
+  `cafeatrato-7u5o2fovz-glemynarts-projects.vercel.app`.
+- La interfaz muestra `Contexto validado`, el detalle de `Bodega Atrato Demo` y
+  el identificador del fixture. La comprobación confirma que la identidad de
+  plataforma puede abrir el detalle Backoffice; no se usaron controles de
+  edición, lifecycle, credenciales ni otros comandos.
+- El mismo detalle informa `No tienes autorización para consultar Dusema`.
+  Esto es una denegación visible para ese tenant en esta vista y con esta
+  identidad; no sustituye las pruebas de aislamiento multi-tenant de toda la
+  matriz.
+- La inspección fue de solo lectura. No se ejecutó ninguna mutación de
+  Firestore/Auth, no se cambió el fixture ni la reserva, y no se concedió el
+  permiso de notificaciones.
+- Tras el merge de PR #487, `origin/main` está en
+  `01aa85e5921ab02b9e606b18f032a505889c85de`; la CI post-merge
+  `37793768997` terminó `success` a las `14:53:40Z`. El PR era documental y no
+  alteró el código cubierto por las pruebas.
+
 ## Instantánea read-only de staging
 
 Lecturas realizadas el 2026-10-08, aproximadamente a las 12:26 UTC:
@@ -135,7 +157,7 @@ demuestra entrega push ni el ciclo completo de agenda.
 | Recordatorio worker y entrega push | Rama sin destinatario: PASS; entrega push: pendiente, 0 tokens FCM activos; no se cambió el permiso del navegador |
 | Venta, turnos, inventario, ledger y auditoría | La evidencia histórica no equivale a una revalidación integral de este checkpoint |
 | Reportes y PWA | Pendiente de revalidación integral |
-| Backoffice | Pendiente: el perfil observado está autenticado como vendedor tenant, no como operador SaaS; requiere sesión de plataforma separada |
+| Backoffice | Parcial: sesión de operador SaaS autorizada y detalle del fixture cargado con `Contexto validado`; falta revalidación funcional integral |
 
 No se debe consumir ni cancelar la reserva activa para completar casos que
 requieran una nueva autorización de negocio. Tampoco se debe crear otro fixture.
@@ -166,5 +188,7 @@ varios escenarios obligatorios de la matriz. Por ello:
 - Firebase Auth, Rules, IAM, Secrets, tráfico y despliegues: 0 cambios.
 - Inspección de pestañas existentes: solo lectura, sin navegación, login,
   refresh, acción de negocio ni permiso de navegador aceptado.
+- Verificación del detalle Backoffice en Brave: solo lectura; escrituras de
+  negocio y cambios de permisos: 0.
 - Agenda/reserva/venta/ledger: 0 mutaciones en este checkpoint.
 - Fixture adicional, Bootstrap, Activation, tenant real y producción: 0.
