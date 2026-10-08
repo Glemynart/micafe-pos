@@ -180,6 +180,9 @@ lectura de auditoría no encontró cambios de IAM persistente, habilitación de
 servicios, escrituras de Firestore/Auth ni cambios de Rules. En el POS del
 vendedor, tras recargar, se verificaron `2` presentaciones disponibles frente a
 6 unidades físicas y 2 reservadas; no se envió solicitud ni se creó venta.
+La lectura de `Mi agenda` mostró una reserva activa de 2 unidades base para el
+9 de octubre y tres entradas canceladas; el banner aún pide activar
+notificaciones, por lo que el envío de recordatorios no se considera probado.
 El helper local había calculado un identificador preliminar distinto, que se
 reconcilió explícitamente y no se presenta como hash del artefacto desplegado.
 

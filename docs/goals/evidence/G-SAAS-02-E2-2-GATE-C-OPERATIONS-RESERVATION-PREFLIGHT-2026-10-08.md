@@ -145,6 +145,13 @@ para la presentación de factor 2. El fixture conserva stock físico 6 y 2
 unidades reservadas, por lo que las 4 unidades libres permiten exactamente 2
 presentaciones. No se agregó artículo a la solicitud ni se envió una venta.
 
+La navegación de solo lectura a `Mi agenda` mostró cuatro entradas existentes:
+tres `Cancelada` y una con estado `Stock reservado` para el viernes 9 de octubre,
+una presentación de 2 unidades base. El banner superior aún ofrece `Activar`
+notificaciones. No se pidió permiso al navegador, no se registró suscripción de
+este dispositivo y no se verificó la entrega de un recordatorio push; esa parte
+de Gate F continúa pendiente.
+
 La inspección de los logs de Cloud Audit entre `2026-10-08T11:08:00Z` y
 `2026-10-08T11:15:00Z` encontró las llamadas `GenerateUploadUrl` y
 `UpdateFunction` de las dos Functions, además de los reemplazos internos de
@@ -179,8 +186,9 @@ bindings y datos de inventario. No se detectó deriva: el delta continuó en
 - IAM persistente/Secrets/parámetros: 0 cambios; cero bindings de Secrets en las
   dos Functions seleccionadas.
 - Fixture, Bootstrap, Activation, producción, tenant real y transacciones:
-  0 cambios/operaciones. La única acción de navegador fue lectura tras recargar
-  la pantalla del vendedor y abrir el formulario vacío.
+  0 cambios/operaciones. Las acciones de navegador fueron lecturas tras
+  recargar el POS, abrir el formulario vacío y consultar `Mi agenda`; no se
+  agregó artículo, se envió solicitud ni se activó permiso de notificaciones.
 
 ## Estado
 
