@@ -18,7 +18,9 @@ describe("configuración del service worker FCM", () => {
   it("mantiene el worker FCM en un scope separado del worker PWA raíz", async () => {
     let registeredScript = "";
     let registeredScope = "";
-    const registration = {} as ServiceWorkerRegistration;
+    const registration = {
+      active: { state: "activated" },
+    } as unknown as ServiceWorkerRegistration;
     const serviceWorker = {
       async register(script: string, options?: RegistrationOptions) {
         registeredScript = script;
@@ -64,6 +66,51 @@ describe("configuración del service worker FCM", () => {
 
     assert.equal(await pendingRegistration, registration);
     assert.equal(settled, true);
+  });
+
+  it("falla con un error específico si el registro no tiene worker instalando ni activo", async () => {
+    const registration = {
+      active: null,
+      installing: null,
+      waiting: null,
+    } as unknown as ServiceWorkerRegistration;
+    const serviceWorker = {
+      async register() { return registration; },
+    } as unknown as Pick<ServiceWorkerContainer, "register">;
+
+    await assert.rejects(
+      registrarFirebasePushServiceWorker(serviceWorker),
+      /FIREBASE_PUSH_SERVICE_WORKER_NOT_ACTIVE/,
+    );
+  });
+
+  it("rechaza si la instalación del worker se vuelve redundante", async () => {
+    const stateListeners: EventListener[] = [];
+    let state: ServiceWorkerState = "installing";
+    const installingWorker = {
+      get state() { return state; },
+      addEventListener(_type: string, listener: EventListener) {
+        stateListeners.push(listener);
+      },
+      removeEventListener() {},
+    } as unknown as ServiceWorker;
+    const registration = {
+      active: null,
+      installing: installingWorker,
+      waiting: null,
+    } as unknown as ServiceWorkerRegistration;
+    const serviceWorker = {
+      async register() { return registration; },
+    } as unknown as Pick<ServiceWorkerContainer, "register">;
+
+    const pendingRegistration = registrarFirebasePushServiceWorker(serviceWorker);
+    state = "redundant";
+    stateListeners.forEach((listener) => listener(new Event("statechange")));
+
+    await assert.rejects(
+      pendingRegistration,
+      /FIREBASE_PUSH_SERVICE_WORKER_ACTIVATION_FAILED/,
+    );
   });
 
   it("inicializa el worker con el mismo proyecto Firebase que recibe la app", () => {

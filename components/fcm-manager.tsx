@@ -58,7 +58,6 @@ export function FcmManager() {
         setNeedsPermission(false)
         // Mantener FCM separado del service worker PWA que controla el scope raíz.
         const registration = await registrarFirebasePushServiceWorker(navigator.serviceWorker)
-        await navigator.serviceWorker.ready
 
         const currentToken = await getToken(messagingInstance, {
           vapidKey,
