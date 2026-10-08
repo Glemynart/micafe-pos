@@ -166,9 +166,22 @@ registra `PREFLIGHT = PASS` para actualizar únicamente
 `consultarCatalogoPresentacionesVendedorV1` y
 `actualizarArticuloInventarioV1` dentro de `saas-bodega-operations`. La revisión
 remota anterior del catálogo aún ignoraba `stockReservado`; las pruebas y el
-delta exacto de dos actualizaciones quedaron documentados. Gate D de ese
-suplemento sigue `PENDING`: el PASS anterior de Gate D solo cubre
-`saas-bodega`, no estas dos Functions existentes.
+delta exacto de dos actualizaciones quedaron documentados. PR #483 integró el
+preflight documental en `main @ a84f343a6cf9a6cf3baf667cedb0d55f8bec1b3e`; sus
+checks y la CI post-merge de `main`, run `37766184623`, terminaron `PASS`.
+
+El Gate D suplementario se ejecutó de forma dirigida después del merge. Solo se
+actualizaron esas dos Functions; sus revisiones están `Ready`, 100 % del tráfico,
+Node.js 22, `us-central1`, sin Secrets/parámetros propios y sin cambios de IAM.
+El source remoto es `6ed63ebadff83be08bb45a35ea2fca729b0e3ca3`, con ZIP SHA-256
+`96d87d774533ce88e588254b153093fd728e72c209ecbc96d92dbd5a022b3d04`; los 61
+archivos del artefacto remoto coinciden byte por byte con el paquete local. La
+lectura de auditoría no encontró cambios de IAM persistente, habilitación de
+servicios, escrituras de Firestore/Auth ni cambios de Rules. En el POS del
+vendedor, tras recargar, se verificaron `2` presentaciones disponibles frente a
+6 unidades físicas y 2 reservadas; no se envió solicitud ni se creó venta.
+El helper local había calculado un identificador preliminar distinto, que se
+reconcilió explícitamente y no se presenta como hash del artefacto desplegado.
 
 Gate E conserva `PASS` y el fixture sintético retenido
 `E2_2-BODEGA-STAGING-FIXTURE`; Gate F permanece `EN CURSO`, no `PASS`. Falta la
@@ -176,11 +189,10 @@ matriz staging de aislamiento tenant/roles, revocación/restauración con replay
 retry autenticado ante pérdida de respuesta y agenda ADR-064 (crear/aceptar,
 liberar/expirar/consumir reservas, recordatorios y conversión idempotente), así
 como la verificación funcional integral de venta, turnos, inventario, ledger,
-auditoría, reportes, PWA y Backoffice. Antes de reanudar esas pruebas se debe
-completar el Gate D suplementario de las dos Functions de `saas-bodega-operations`
-y comprobar que el POS refleja el stock reservado. Gate G debe repetirse y Gate
-H emitirá una matriz nueva. Gate I y J/K/L permanecen pendientes; no se ha
-creado/configurado el tenant real ni se autoriza producción.
+auditoría, reportes, PWA y Backoffice. Gate D suplementario está `PASS` y la
+proyección de reservas ya se refleja en POS; continúa la matriz de Gate F. Gate G
+debe repetirse y Gate H emitirá una matriz nueva. Gate I y J/K/L permanecen
+pendientes; no se ha creado/configurado el tenant real ni se autoriza producción.
 
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 

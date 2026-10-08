@@ -8,9 +8,10 @@
 - `consultarCatalogoPresentacionesVendedorV1`;
 - `actualizarArticuloInventarioV1`.
 
-Gate D para estas dos actualizaciones permanece `PENDING`. Este suplemento no
-reabre ni amplía el Gate D ya aprobado para `saas-bodega`; tampoco cierra Gate F
-ni autoriza otro codebase, fixture, venta, producción o tenant real.
+Al aprobarse este preflight, Gate D para estas dos actualizaciones estaba
+`PENDING`; su ejecución y verificación posteriores se registran abajo. Este
+suplemento no reabre ni amplía el Gate D ya aprobado para `saas-bodega`, no cierra
+Gate F y no autoriza otro codebase, fixture, venta, producción o tenant real.
 
 ## Identidad y procedencia
 
@@ -47,14 +48,18 @@ invadir unidades reservadas y no se puede desactivar el artículo mientras
 exista una reserva. Por eso el delta mínimo correcto comprende ambas Functions,
 no solo el catálogo.
 
-## Huella del candidato
+## Huella del candidato y reconciliación del artefacto desplegado
 
 El paquete se construyó desde el `origin/main` identificado arriba, usando
 Firebase CLI `15.32.1`, Node `v22.23.2` y npm `10.9.8`. Se ejecutó directamente
 `prepareFunctionsUpload` del Firebase CLI, sin `deploy --dry-run` ni llamadas de
 mutación remota.
 
-- Firebase `sourceHash`: `ac1347612ac2fe910c8e19b060290d67724ef199`.
+- El helper local `prepareFunctionsUpload` produjo el identificador candidato
+  `ac1347612ac2fe910c8e19b060290d67724ef199`. La reconciliación post-deploy
+  confirmó que este valor no coincide con el hash de source que Firebase asignó
+  al artefacto desplegado; por tanto, no debe citarse como `sourceHash`
+  desplegado.
 - Manifiesto canónico SHA-256: `33ff8994964d42474c92919b0a0c601d31ada7b5e08a8a4bd23ab603c2a3a28c`.
 - Contenido empaquetado: 61 archivos, 391,887 bytes sin comprimir.
 - El build, tests y empaquetado incluyeron `lib` generado desde el mismo árbol;
@@ -76,7 +81,7 @@ Node.js 22 y hash anterior `1cb4b5476b2edb5eb976f6bff0fa6b38c4b44d21`:
 | `abrirTurnoOperativoV1` | `abrirturnooperativov1-00001-noy` | — | 100 % |
 | `cerrarTurnoOperativoV1` | `cerrarturnooperativov1-00001-bef` | — | 100 % |
 
-El delta preparado es exactamente `2 update / 0 create / 0 delete`; las otras
+El delta preparado fue exactamente `2 update / 0 create / 0 delete`; las otras
 cuatro Functions no se seleccionan. Las dos Functions objetivo están `Ready`,
 con 100 % de tráfico en las revisiones previas descritas. Sus descripciones
 remotas no contienen bindings de Secrets ni parámetros de entorno propios.
@@ -105,6 +110,51 @@ manifests ni lockfiles:
 - `tsx --test src/bodega-vendedor/presentaciones.test.ts src/inventario/callables.test.ts src/inventario/ledger.test.ts` en `functions`: PASS, 23/23, incluidas proyección de reservas, ajustes que respetan holds, replay e idempotencia.
 - `git diff --check`: PASS.
 
+## Ejecución y verificación de Gate D suplementario
+
+El `2026-10-08`, una vez fusionado PR #483 y con `origin/main` en
+`a84f343a6cf9a6cf3baf667cedb0d55f8bec1b3e`, se ejecutó exactamente el comando
+acotado de esta evidencia, sin `--force`. Firebase terminó con `Deploy
+complete` (exit code 0). El deploy actualizó solo las dos Functions objetivo.
+
+| Function | Hash de source remoto | Source generation | Build | Revisión Ready | Tráfico |
+| --- | --- | ---: | --- | --- | ---: |
+| `consultarCatalogoPresentacionesVendedorV1` | `6ed63ebadff83be08bb45a35ea2fca729b0e3ca3` | `1791457843769441` | `177e0817-05aa-4be2-aaad-352e37b8a6fd` — `SUCCESS` | `consultarcatalogopresentacionesvendedorv1-00002-kiy` | 100 % |
+| `actualizarArticuloInventarioV1` | `6ed63ebadff83be08bb45a35ea2fca729b0e3ca3` | `1791457894449784` | `177e0817-05aa-4be2-aaad-352e37b8a6fd` — `SUCCESS` | `actualizararticuloinventariov1-00002-yoc` | 100 % |
+
+El ZIP de source descargado desde la generación remota tiene 125,263 bytes y
+SHA-256 `96d87d774533ce88e588254b153093fd728e72c209ecbc96d92dbd5a022b3d04`.
+La comparación por ruta y contenido entre los 61 archivos extraídos del ZIP
+remoto y los 61 archivos del paquete local produjo cero diferencias. Las otras
+cuatro Functions de `saas-bodega-operations` permanecen en el hash previo
+`1cb4b5476b2edb5eb976f6bff0fa6b38c4b44d21`; no se seleccionaron ni actualizaron.
+
+Las dos revisiones nuevas están `Ready`, sirven 100 % del tráfico y no exponen
+bindings de Secrets ni parámetros de entorno propios. La política de invocación
+de Cloud Run se observó idéntica antes y después: `roles/run.invoker` para
+`allUsers`; el log de auditoría no registró `SetIamPolicy`, habilitación de APIs,
+creación de service identity ni cambios de IAM de proyecto. Los eventos IAM
+`iam.serviceAccounts.actAs` corresponden a la autorización de ejecución del
+deploy, no a una concesión persistente.
+
+## Comprobación funcional de disponibilidad
+
+Tras recargar el POS sintético del preview y abrir el formulario vacío de
+solicitud, tanto la UI como el árbol de accesibilidad mostraron `Disponibles: 2`
+para la presentación de factor 2. El fixture conserva stock físico 6 y 2
+unidades reservadas, por lo que las 4 unidades libres permiten exactamente 2
+presentaciones. No se agregó artículo a la solicitud ni se envió una venta.
+
+La inspección de los logs de Cloud Audit entre `2026-10-08T11:08:00Z` y
+`2026-10-08T11:15:00Z` encontró las llamadas `GenerateUploadUrl` y
+`UpdateFunction` de las dos Functions, además de los reemplazos internos de
+revisión de Cloud Run y los eventos `actAs`. No encontró eventos de escritura de
+Firestore/Auth, cambios de Rules, habilitación de APIs o modificación de IAM.
+
+PR #483, que integró el preflight documental, quedó `MERGED` en
+`a84f343a6cf9a6cf3baf667cedb0d55f8bec1b3e`; sus checks requeridos pasaron. La CI
+post-merge de `main`, run `37766184623`, terminó `success` para ese SHA.
+
 ## Riesgo y rollback
 
 El rollback técnico posible de cada servicio es volver al 100 % de tráfico de
@@ -115,23 +165,28 @@ aceptación de agendas en el fixture, mantener el hold existente y volver a
 desplegar/corregir la fuente protegida antes de reanudar. No borrar ni reducir
 holds para acomodar una revisión antigua.
 
-Gate D deberá, inmediatamente antes del comando, repetir el snapshot de las seis
-Functions, tráfico, Secret bindings y datos de inventario. Cualquier deriva en
-el delta o cambio ajeno invalida este PASS y detiene el deploy.
+Antes del comando se repitió el snapshot de las seis Functions, tráfico, Secret
+bindings y datos de inventario. No se detectó deriva: el delta continuó en
+`2 update / 0 create / 0 delete`.
 
-## Mutation audit del preflight
+## Mutation audit del preflight y ejecución
 
 - Archivos funcionales, `firebase.json` y manifests: 0 modificados.
-- Firebase Functions deploy/tráfico: 0; Firestore/Auth: 0 escrituras.
-- Rules, IAM, Secrets, Storage, índices, fixture, Bootstrap, Activation,
-  producción y tenant real: 0 cambios/operaciones.
-- La única actividad remota fue lectura de inventario de Functions, revisiones,
-  tráfico y documentos sintéticos de staging.
+- Deploy Firebase Functions: exactamente 2 actualizaciones de Functions
+  existentes en `micafe-pos-staging`; sin create/delete.
+- Tráfico: ambas quedaron en sus revisiones nuevas `Ready`, 100 %.
+- Firestore/Auth/Rules/Storage/índices: 0 escrituras/cambios.
+- IAM persistente/Secrets/parámetros: 0 cambios; cero bindings de Secrets en las
+  dos Functions seleccionadas.
+- Fixture, Bootstrap, Activation, producción, tenant real y transacciones:
+  0 cambios/operaciones. La única acción de navegador fue lectura tras recargar
+  la pantalla del vendedor y abrir el formulario vacío.
 
 ## Estado
 
 - Gate C suplementario para las dos Functions indicadas: `PREFLIGHT = PASS`.
-- Gate D para estas dos actualizaciones: `PENDING`.
+- Gate D suplementario para estas dos actualizaciones: `PASS`; el artefacto,
+  revisiones, tráfico, Secrets, IAM y disponibilidad del POS quedaron verificados.
 - Gate D previo de `saas-bodega`: se conserva `PASS` dentro de su alcance
   documentado.
 - Gate E: `PASS`, fixture sintético retenido.
