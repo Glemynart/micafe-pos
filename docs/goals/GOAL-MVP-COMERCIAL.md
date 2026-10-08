@@ -53,7 +53,7 @@
 | Epic | Resultado | Estado |
 |---|---|---|
 | E2.1 Tenant de referencia | Tenant, contrato, Trial, membresía, administrador, credencial, Espacio y configuración reproducibles. | EN EJECUCIÓN |
-| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. Incluye solicitud de venta del vendedor y aprobación administrativa previa a la venta canónica según ADR-SAAS-062, y la agenda de pedidos/entregas con recordatorios aprobada como requisito previo a la primera entrega comercial; su arquitectura sigue pendiente de ADR. | EN EJECUCIÓN |
+| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. Incluye solicitud de venta del vendedor y aprobación administrativa previa a la venta canónica según ADR-SAAS-062, y la agenda de pedidos/entregas con recordatorios aprobada como requisito previo a la primera entrega comercial, con arquitectura aceptada en ADR-SAAS-064. | EN EJECUCIÓN |
 
 ### M3 — Certificación funcional del tenant — PENDIENTE
 
@@ -115,6 +115,17 @@
 - Rules y Storage quedaron sincronizadas con `origin/main @ a644d1d` mediante un deploy controlado y verificación read-only posterior. El release productivo completo y la recuperación productiva aún no están certificados.
 
 ## Estado vivo
+
+### Decisión aceptada — 2026-10-07 — ADR-SAAS-064
+
+El responsable del proyecto autorizó continuar autónomamente con las decisiones
+necesarias para E2.2 y confirmó la agenda con recordatorios como requisito previo
+a la primera entrega. ADR-SAAS-064 acepta una reserva lógica aprobada por
+administración: reduce disponibilidad sin rebajar stock físico ni generar venta
+o ledger hasta la confirmación canónica. Su implementación queda para una PR
+separada; esta aceptación no autoriza deploy, tráfico, staging, fixtures,
+Bootstrap, Activation, tenant real ni producción. Gate F continúa como siguiente
+gate y Gate G/H se revalidarán para cualquier escenario afectado.
 
 ### Checkpoint vigente — 2026-10-07 — PR #474 / Gate F en curso
 

@@ -2,9 +2,10 @@
 
 ## Estado
 
-**PROPUESTO — PENDIENTE DE APROBACIÓN.**
+**ACEPTADO — 2026-10-07.**
 
 - **Fecha:** 2026-10-07.
+- **Fecha de aceptación:** 2026-10-07.
 - **Fecha de propuesta:** 2026-10-07.
 - **Última revisión:** 2026-10-07.
 - **Goal:** `G-SAAS-02` → `M2` → `E2.2`.
@@ -12,12 +13,11 @@
   Lead Engineer.
 - **Relacionados:** ADR-SAAS-018, ADR-SAAS-041, ADR-SAAS-042 y ADR-SAAS-062.
 
-Esta propuesta no autoriza implementación ni mutaciones. Si se aprueba, la
-implementación deberá integrarse y certificarse mediante branch, PR, CI y
-auditoría antes de la primera entrega. No autorizará por sí sola deploy,
-tráfico, mutaciones de staging, fixture, Bootstrap, Activation, tenant real ni
-producción. Gate F permanece en curso; los escenarios afectados de Gate F/G/H
-deberán revalidarse después de integrar la implementación.
+La aceptación autoriza implementar únicamente el alcance de este ADR en una
+PR separada, con branch, pruebas, auditoría y CI. No autoriza por sí sola
+deploy, tráfico, mutaciones de staging, fixture, Bootstrap, Activation, tenant
+real ni producción. Gate F permanece en curso; los escenarios afectados de
+Gate F/G/H deberán revalidarse después de integrar la implementación.
 
 ## Contexto
 
@@ -294,6 +294,12 @@ La propuesta fija expresamente que:
    frecuencia máxima de cinco minutos y cero Secrets; el deploy requiere Gates
    C/D independientes.
 
-La decisión arquitectónica sigue pendiente de aprobación explícita. No
-implementar hasta su aceptación; después deben respetarse estos límites y los
-gates de ejecución independientes.
+## Registro de aceptación
+
+El responsable del proyecto autorizó continuar autónomamente con las decisiones
+necesarias para E2.2 y confirmó que la agenda con recordatorios es requisito
+previo a la primera entrega. Se acepta la opción 3: la aceptación administrativa
+retiene disponibilidad en unidad base, sin reducir existencia física ni crear
+venta, caja o ledger; la venta y el descuento físico ocurren únicamente mediante
+la confirmación canónica. Se mantienen independientes los gates de CI, preflight,
+deploy staging, fixture, Gate F/G/H, tenant real y producción.
