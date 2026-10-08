@@ -53,17 +53,48 @@ cuando falta cualquiera de los campos requeridos; no incluye fallback ni
 secreto. El mensaje de agenda conserva título, cuerpo, destinatario y URL en el
 payload de datos; no añade PII. FCM tiene scope separado del PWA.
 
-En `micafe-pos-staging`, el admin sintético autenticó el preview actual
-`cafeatrato-ck4y429gi`. Se observó un registro de cuatro tokens FCM en su perfil
-(no se copiaron ni imprimieron los valores). Dos mensajes data-only de prueba
-fueron aceptados por FCM; la captura del usuario confirmó la recepción del
-reenvío `Prueba sintética Gate F — reenvío`, cuyo texto identifica el preview
-actual. No se oyó sonido; Web Push no garantiza sonido y depende del navegador
-y del sistema operativo. Esta prueba confirma recepción, no persistencia de una
-notificación dentro de la aplicación ni el despacho automático del outbox.
+En `micafe-pos-staging`, el admin sintético autenticó el preview
+`cafeatrato-ck4y429gi` durante la verificación inicial. Se observó un registro
+de cuatro tokens FCM en su perfil (no se copiaron ni imprimieron los valores).
+Dos mensajes data-only de prueba fueron aceptados por FCM; la captura del
+usuario confirmó la recepción del reenvío `Prueba sintética Gate F — reenvío`.
+Esta recepción corresponde a ese preview anterior; no acredita todavía la
+entrega desde la última revisión de PR #490. No se oyó sonido; Web Push no
+garantiza sonido y depende del navegador y del sistema operativo. Esta prueba
+confirma recepción, no persistencia de una notificación dentro de la aplicación
+ni el despacho automático del outbox.
 
 Mutation audit: el registro FCM del admin sintético en staging fue actualizado
 por la app y se enviaron dos mensajes FCM sintéticos; no se modificaron agenda,
 reservas, stock, ventas, Auth, Rules, IAM, Secrets, despliegues, tráfico ni
 producción. El procesamiento automático del outbox y los demás casos de la
 matriz Gate F permanecen pendientes.
+
+## Seguimiento — carrera de activación de Service Worker (2026-10-08)
+
+- Síntoma reportado por el usuario: `PushManager.subscribe()` falló con
+  `Subscription failed - no active Service Worker`. No se confirma como una
+  reproducción en el navegador ni se atribuye todavía exclusivamente a esta
+  carrera.
+- [RED] Commit `9b4e93c82a7e530ac4f2bd724f36c018e6f09866`: la prueba nueva
+  `espera a que el worker registrado esté activo antes de devolver el registro`
+  falló porque el helper devolvió la inscripción mientras su worker seguía en
+  estado `installing` (6 pruebas previas pasaban).
+- [GREEN] Commit `1b4bf30`: el registro FCM espera el evento de activación de
+  su propia inscripción `/firebase-push/`; ausencia de worker y transición a
+  `redundant` producen errores explícitos. Se eliminó la espera global
+  `navigator.serviceWorker.ready`, que no garantiza que el registro FCM
+  separado sea el que quedó activo.
+- `npm run test:firebase-push-service-worker` — PASS, 9/9.
+- `npx tsc --noEmit` — PASS.
+- `npm run lint` — PASS.
+- `npm run build` — PASS; la ruta dinámica `/firebase-push-sw.js` fue generada.
+- `npm run e2e:bodega-agenda` — PASS, 6/6 en Emulator.
+- `npm run e2e:bodega-u4-u5` — PASS, 9/9 en Emulator.
+- CI de estos commits y comprobación de Push en el nuevo preview: pendientes.
+  La matriz funcional de Gate F continúa `EN CURSO`; este arreglo no la cierra.
+
+Mutation audit de este seguimiento: dos commits locales en la rama de PR #490;
+sin deploy ni escritura en Firebase staging/producción, Auth, Rules, IAM,
+Secrets, agenda, reserva, stock, venta o tráfico. Las pruebas E2E usaron solo
+Firebase Emulators de proyectos `demo-*`.
