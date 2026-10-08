@@ -38,6 +38,7 @@ import { obtenerEmpresaPorId, type Empresa } from "@/lib/empresas-service";
 import { esSesionTemporalSinTenant, resolverEmpresaIdActivo, TenantSinSesionError } from "@/lib/tenant-context";
 import { esRolUsuario, type RolUsuario } from "@/lib/auth-service";
 import { esMembresiaActiva, obtenerMembresia, type Membresia } from "@/lib/membresias-service";
+import { runTenantResolution } from "@/lib/tenant-resolution-runner";
 
 // ─── Tipos del Contexto ───────────────────────────────────────────────────────
 
@@ -52,6 +53,8 @@ interface SaaSContextValue {
   rol: RolUsuario | null;
   /** true mientras se resuelve el claim/la empresa */
   loading: boolean;
+  /** Falló la verificación técnica; no concede acceso y permite reintentar. */
+  resolutionError: boolean;
   /** La identidad Firebase es válida, pero no posee una sesión tenant autorizada. */
   accesoTenantDenegado: boolean;
   /** Fuerza un refresh del token (getIdToken(true)) y re-resuelve el estado */
@@ -70,6 +73,7 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
   const [membresia, setMembresia] = useState<Membresia | null>(null);
   const [loading, setLoading] = useState(true);
   const [accesoTenantDenegado, setAccesoTenantDenegado] = useState(false);
+  const [resolutionError, setResolutionError] = useState(false);
 
   const resolver = useCallback(async (firebaseUser: FirebaseUser) => {
     try {
@@ -99,6 +103,7 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
       setMembresia(membresiaActual);
       setEmpresa(empresaDoc);
       setAccesoTenantDenegado(false);
+      setResolutionError(false);
     } catch (err) {
       if (err instanceof TenantSinSesionError) {
          // La identidad Firebase puede ser válida para otro plano (por
@@ -109,6 +114,7 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
          setMembresia(null);
          setEmpresa(null);
          setAccesoTenantDenegado(true);
+         setResolutionError(false);
          return;
       }
       throw err;
@@ -122,31 +128,40 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
         setEmpresa(null);
         setMembresia(null);
         setAccesoTenantDenegado(false);
+        setResolutionError(false);
         setLoading(false);
         return;
       }
 
-      // Ver `esSesionTemporalSinTenant` (lib/tenant-context.ts): una sesión
-      // `DIRECTA_TEMP` es una sesión de Auth válida que aún no es tenant.
-      // Este provider no tiene contexto SaaS que ofrecerle (no hay empresa
-      // ni membresía que resolver todavía) pero tampoco debe tratarla como
-      // inválida — se mantiene estable, sin resolver ni cerrar sesión, hasta
-      // que la activación (fuera de este provider) la reemplace por una
-      // sesión tenant y este mismo listener vuelva a disparar.
-      const tokenCacheado = await firebaseUser.getIdTokenResult();
-      if (esSesionTemporalSinTenant(tokenCacheado.claims)) {
-        setEmpresaId(null);
-        setEmpresa(null);
-        setMembresia(null);
-        setAccesoTenantDenegado(false);
-        setLoading(false);
-        return;
-      }
-
-      setAccesoTenantDenegado(false);
       setLoading(true);
-      await resolver(firebaseUser);
-      setLoading(false);
+      setResolutionError(false);
+      await runTenantResolution(
+        async () => {
+          // DIRECTA_TEMP y RESTABLECIMIENTO_TEMP son sesiones válidas de Auth
+          // que aún no poseen tenant; no deben marcarse como acceso denegado.
+          const tokenCacheado = await firebaseUser.getIdTokenResult();
+          if (esSesionTemporalSinTenant(tokenCacheado.claims)) {
+            setEmpresaId(null);
+            setEmpresa(null);
+            setMembresia(null);
+            setAccesoTenantDenegado(false);
+            return;
+          }
+
+          setAccesoTenantDenegado(false);
+          await resolver(firebaseUser);
+        },
+        () => {
+          // Fallar cerrado: no conservar un tenant previamente resuelto si
+          // una nueva verificación no pudo completarse.
+          setEmpresaId(null);
+          setEmpresa(null);
+          setMembresia(null);
+          setAccesoTenantDenegado(false);
+          setResolutionError(true);
+        },
+        () => setLoading(false),
+      );
     });
 
     return unsubscribe;
@@ -154,25 +169,44 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     const firebaseUser = auth.currentUser;
-    if (!firebaseUser) return;
-    setLoading(true);
-    await firebaseUser.getIdToken(true);
-    const tokenCacheado = await firebaseUser.getIdTokenResult();
-    if (esSesionTemporalSinTenant(tokenCacheado.claims)) {
+    if (!firebaseUser) {
       setEmpresaId(null);
       setEmpresa(null);
       setMembresia(null);
       setAccesoTenantDenegado(false);
+      setResolutionError(false);
       setLoading(false);
       return;
     }
-    setAccesoTenantDenegado(false);
-    await resolver(firebaseUser);
-    setLoading(false);
+    setLoading(true);
+    setResolutionError(false);
+    await runTenantResolution(
+      async () => {
+        await firebaseUser.getIdToken(true);
+        const tokenCacheado = await firebaseUser.getIdTokenResult();
+        if (esSesionTemporalSinTenant(tokenCacheado.claims)) {
+          setEmpresaId(null);
+          setEmpresa(null);
+          setMembresia(null);
+          setAccesoTenantDenegado(false);
+          return;
+        }
+        setAccesoTenantDenegado(false);
+        await resolver(firebaseUser);
+      },
+      () => {
+        setEmpresaId(null);
+        setEmpresa(null);
+        setMembresia(null);
+        setAccesoTenantDenegado(false);
+        setResolutionError(true);
+      },
+      () => setLoading(false),
+    );
   }, [resolver]);
 
   return (
-    <SaaSContext.Provider value={{ empresaId, empresa, membresia, rol: membresia?.rol ?? null, loading, accesoTenantDenegado, refresh }}>
+    <SaaSContext.Provider value={{ empresaId, empresa, membresia, rol: membresia?.rol ?? null, loading, resolutionError, accesoTenantDenegado, refresh }}>
       {children}
     </SaaSContext.Provider>
   );

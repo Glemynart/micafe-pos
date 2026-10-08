@@ -16,11 +16,16 @@ const saasTenant = {
   membresia: null,
   rol: null,
   loading: false,
+  resolutionError: false,
   accesoTenantDenegado: false,
   refresh: async () => {},
 }
 
-function renderGuard(estado: EstadoConfiguracion, overrides: Record<string, unknown> = {}) {
+function renderGuard(
+  estado: EstadoConfiguracion,
+  overrides: Record<string, unknown> = {},
+  saasOverrides: Record<string, unknown> = {},
+) {
   const refrescar = async () => {}
   const configuracion = {
     empresaId: estado === 'LISTA' ? 'empresa-a' : null,
@@ -37,7 +42,7 @@ function renderGuard(estado: EstadoConfiguracion, overrides: Record<string, unkn
   return renderToStaticMarkup(
     createElement(
       SaaSContext.Provider,
-      { value: saasTenant },
+      { value: { ...saasTenant, ...saasOverrides } as never },
       createElement(
         ConfiguracionContext.Provider,
         { value: configuracion as never },
@@ -85,4 +90,13 @@ test('TenantAccessGuard conecta Reintentar con una nueva carga del provider', ()
   const source = readFileSync(resolve(process.cwd(), 'components/tenant/tenant-access-guard.tsx'), 'utf8')
 
   assert.match(source, /onClick=\{\(\) => \{ void refrescar\(\) \}\}/)
+})
+
+test('TenantAccessGuard no deja un error de resolución en un spinner infinito', () => {
+  const html = renderGuard('LISTA', {}, { resolutionError: true })
+
+  assert.match(html, /No fue posible verificar el acceso/)
+  assert.match(html, /Reintentar/)
+  assert.doesNotMatch(html, /Verificando acceso al tenant/)
+  assert.doesNotMatch(html, /POS operativo/)
 })

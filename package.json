@@ -28,7 +28,7 @@
     "test:tickets": "tsx --test lib/tickets/__tests__/*.test.ts",
     "test:reimpresion": "tsx --test lib/reimpresion/__tests__/*.test.ts",
     "test:p1-02:unit": "tsx --test lib/__tests__/configured-line.test.ts lib/__tests__/modifier-selection.test.ts",
-    "test:tenant": "tsx --test lib/__tests__/tenant.test.ts",
+    "test:tenant": "tsx --test lib/__tests__/tenant.test.ts lib/__tests__/tenant-resolution-runner.test.ts",
     "test:membresias": "tsx --test lib/__tests__/membresias.test.ts",
     "test:configuracion": "tsx --test lib/configuracion/__tests__/*.test.ts",
     "test:bodega-ui": "tsx --test lib/bodega/*.test.ts",

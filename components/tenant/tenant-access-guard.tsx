@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { LoaderCircle, ShieldX } from 'lucide-react'
+import { LoaderCircle, ShieldAlert, ShieldX } from 'lucide-react'
 import { useSaaS } from '@/contexts/saas-context'
 import { useConfiguracionEmpresa } from '@/contexts/configuracion-empresa-context'
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,7 @@ import type { ReactNode } from 'react'
  * Firebase, que puede ser válida para el Backoffice SaaS.
  */
 export function TenantAccessGuard({ children }: { children: ReactNode }) {
-  const { loading, accesoTenantDenegado, empresaId } = useSaaS()
+  const { loading, resolutionError, refresh, accesoTenantDenegado, empresaId } = useSaaS()
   const { empresaId: empresaConfiguracionId, estado, error, proyecciones, refrescar } = useConfiguracionEmpresa()
 
   if (loading) {
@@ -21,6 +21,21 @@ export function TenantAccessGuard({ children }: { children: ReactNode }) {
       <div className="grid min-h-screen place-items-center bg-background text-foreground">
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <LoaderCircle className="size-5 animate-spin" /> Verificando acceso al tenant…
+        </div>
+      </div>
+    )
+  }
+
+  if (resolutionError) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-background p-6 text-foreground">
+        <div className="max-w-md rounded-2xl border border-amber-400/30 bg-card p-8 text-center shadow-sm">
+          <ShieldAlert className="mx-auto mb-4 size-10 text-amber-500" />
+          <h1 className="text-xl font-semibold">No fue posible verificar el acceso</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            No se habilitó el acceso al tenant. Puede ser un problema de conexión o permisos; inténtalo de nuevo.
+          </p>
+          <Button className="mt-6" onClick={() => { void refresh() }}>Reintentar</Button>
         </div>
       </div>
     )
