@@ -286,8 +286,8 @@ siguen pendientes. No se inicia aún el tenant real ni el Trial.
 
 PR #490 se fusionó mediante merge protegido normal en
 `main @ 3cac817d436e3b55cde188e9c96f347f3547e497`; los checks previos al merge
-terminaron `PASS`. La CI post-merge de `main`, run `37833645441`, sigue en curso
-y debe confirmarse antes de registrar su resultado final.
+terminaron `PASS`. La CI post-merge de `main`, run `37833645441`, terminó
+`success` sobre ese merge SHA a las `2026-10-08T20:01:02Z`.
 
 El cambio integra el worker FCM por entorno y la espera de activación del
 Service Worker. Tras expirar la sesión por inactividad, el admin sintético se

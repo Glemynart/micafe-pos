@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: evidencia parcial de verificación (2026-10-08)
 
-**Última revisión:** 2026-10-08 14:55 UTC
+**Última revisión:** 2026-10-08 20:01 UTC
 **Estado:** `EN CURSO` — evidencia parcial; no certifica Gate F.
 
 ## Contexto y límites
@@ -496,8 +496,8 @@ PR #490 (`fix(fcm): align background push delivery`) quedó
 `MERGED` por el mecanismo protegido normal, sin bypass, mediante el merge
 commit `3cac817d436e3b55cde188e9c96f347f3547e497`. Sus checks requeridos
 `Tipos y pruebas`, `Vercel` y `Vercel Preview Comments` terminaron `PASS`; el
-run post-merge de `main` `37833645441` continúa en curso al momento de este
-registro.
+run post-merge de `main` `37833645441` terminó `success` sobre ese SHA a las
+`2026-10-08T20:01:02Z`.
 
 Al verificar Edge, la pestaña estaba de nuevo en `/admin/login`; la sesión había
 expirado por inactividad. Con la autorización previa del usuario para el acceso
@@ -525,3 +525,31 @@ permanece en un SHA anterior de `main`; el merge #490 generó únicamente Previe
 - No hubo Firebase remoto adicional, fixture adicional, Bootstrap, Activation
   ni cleanup destructivo.
 - Gate F permanece `EN CURSO`; Gate G/H y el tenant real no se adelantan.
+
+### Seguimiento read-only — sesión admin y referencias FCM, 2026-10-08 20:00 UTC
+
+Una inspección de solo lectura de Edge confirmó la sesión autenticada del admin
+sintético en el Preview de `main` posterior a PR #490:
+`https://cafeatrato-pugkg9gnj-glemynarts-projects.vercel.app/admin`. Firestore
+REST, fijado a `micafe-pos-staging` y al fixture, encontró cinco membresías
+activas; se consultaron sus cinco perfiles y dos contenían referencias a tokens
+FCM: nueve asociadas a perfiles admin y una a un perfil vendedor. No se copiaron
+ni revelaron UID, PII o valores de token.
+
+La cantidad de referencias no demuestra que el token de Edge corresponda al
+origen actual: el perfil guarda tokens sin metadatos de origen, así que pueden
+coexistir referencias de previews anteriores. Tampoco se verificó mediante
+esta consulta el permiso de navegador ni la entrega al Service Worker de
+`pugkg9gnj`. Por tanto, la sesión admin y la presencia de referencias FCM no
+cierran el smoke automático/background de Gate F. No se solicitó ni aceptó un
+permiso de navegador, no se envió push y no se invocó Scheduler manualmente.
+
+#### Mutation audit de esta consulta
+
+- Edge y Firestore REST: lecturas; proyecto `micafe-pos-staging`, fixture
+  sintético existente; cinco perfiles activos del tenant.
+- Firestore/Auth/Functions, tokens, agenda, reservas, stock, solicitudes,
+  ventas, ledger, Rules, IAM, Secrets, Scheduler, FCM, tráfico, deploy y
+  producción: escrituras/cambios por Codex `0`.
+- Fixture adicional, Bootstrap, Activation, tenant real y cleanup destructivo:
+  `0`.
