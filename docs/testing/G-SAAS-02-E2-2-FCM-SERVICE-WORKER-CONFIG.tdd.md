@@ -91,10 +91,27 @@ matriz Gate F permanecen pendientes.
 - `npm run build` — PASS; la ruta dinámica `/firebase-push-sw.js` fue generada.
 - `npm run e2e:bodega-agenda` — PASS, 6/6 en Emulator.
 - `npm run e2e:bodega-u4-u5` — PASS, 9/9 en Emulator.
-- CI de estos commits y comprobación de Push en el nuevo preview: pendientes.
-  La matriz funcional de Gate F continúa `EN CURSO`; este arreglo no la cierra.
+- CI del HEAD `059a7a7dc9c76961f3c6f9feb25c245adb63d0de`: PASS, run
+  `37827633298`; `Tipos y pruebas`, `Vercel` y `Vercel Preview Comments`
+  terminaron correctamente. Los E2E del flujo Bodega y la certificación
+  integral de CI usaron Firebase Emulators (`demo-*`), no staging.
+- Vercel Preview READY para el HEAD: `https://cafeatrato-q0oh6en21-glemynarts-projects.vercel.app`.
+- Inspección del navegador Edge autenticado en ese origen: permiso de
+  notificaciones concedido, worker FCM de scope `/firebase-push/` en estado
+  `activated` y `PushManager.getSubscription()` presente; no se observaron
+  errores FCM/Service Worker en la consola. Esto verifica que la precondición de
+  suscripción no reproduce el error reportado en este preview. No demuestra una
+  entrega push desde este origen: la recepción confirmada por el usuario fue en
+  el preview anterior `cafeatrato-ck4y429gi`.
+- Gate F continúa `EN CURSO`; la matriz funcional de staging y la recepción de
+  un recordatorio automático en el origen vigente siguen pendientes. Este
+  arreglo no cierra el gate.
 
-Mutation audit de este seguimiento: dos commits locales en la rama de PR #490;
-sin deploy ni escritura en Firebase staging/producción, Auth, Rules, IAM,
-Secrets, agenda, reserva, stock, venta o tráfico. Las pruebas E2E usaron solo
-Firebase Emulators de proyectos `demo-*`.
+Mutation audit de este seguimiento: dos commits de implementación y uno de
+documentación en la rama de PR #490. Codex no desplegó Firebase ni escribió
+directamente Firestore/Auth, Rules, IAM, Secrets, agenda, reserva, stock, venta
+o tráfico. Tras autorizar notificaciones y autenticar el preview, la app puede
+registrar un token FCM en el perfil del admin mediante su flujo normal; el
+documento de token de este origen no se leyó de forma independiente, por lo que
+no se atribuye una escritura concreta. No hubo mutaciones en producción. Las
+pruebas E2E usaron solo Firebase Emulators de proyectos `demo-*`.
