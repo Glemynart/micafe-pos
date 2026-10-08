@@ -394,6 +394,23 @@
         { "fieldPath": "estado", "order": "ASCENDING" },
         { "fieldPath": "actualizadaEn", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "reservas_stock_bodega",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "expiraEn", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "eventos_operativos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tipo", "order": "ASCENDING" },
+        { "fieldPath": "estadoDespacho", "order": "ASCENDING" },
+        { "fieldPath": "fechaDisponible", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

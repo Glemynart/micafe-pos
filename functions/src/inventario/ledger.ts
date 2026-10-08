@@ -29,6 +29,10 @@ export interface MovimientoInventarioParams {
   actualizarCosto?: boolean;
   /** Opt-in para rutas que no admiten stock negativo (Bodega U3). */
   exigirStockSuficiente?: boolean;
+  /** Un movimiento de venta vinculado puede consumir el hold en la misma transacción. */
+  consumirStockReservado?: number;
+  /** Libera un hold vencido de forma atómica con la venta que ya no puede consumirlo. */
+  liberarStockReservado?: number;
 }
 
 export interface MovimientoInventarioServer extends Omit<MovimientoInventarioParams, "actualizarCosto" | "exigirStockSuficiente" | "referenciaColeccion" | "referenciaId" | "motivo"> {
@@ -95,6 +99,16 @@ function validarMovimiento(params: MovimientoInventarioParams) {
   if (!numeroFinito(params.cantidad) || params.cantidad === 0 || Math.sign(params.cantidad) !== catalogo.signo) {
     fallo("INVENTARIO_CANTIDAD_INVALIDA");
   }
+  const consumoReserva = params.consumirStockReservado ?? 0;
+  if (!Number.isSafeInteger(consumoReserva) || consumoReserva < 0) fallo("STOCK_RESERVADO_INVALIDO");
+  const liberacionReserva = params.liberarStockReservado ?? 0;
+  if (!Number.isSafeInteger(liberacionReserva) || liberacionReserva < 0) fallo("STOCK_RESERVADO_INVALIDO");
+  if (consumoReserva > 0 && (params.articuloTipo !== "producto" || params.tipo !== "venta" || params.cantidad >= 0 || consumoReserva !== Math.abs(params.cantidad))) {
+    fallo("STOCK_RESERVADO_INVALIDO");
+  }
+  if (liberacionReserva > 0 && (params.articuloTipo !== "producto" || params.tipo !== "venta" || params.cantidad >= 0 || consumoReserva > 0)) {
+    fallo("STOCK_RESERVADO_INVALIDO");
+  }
   if (!numeroFinito(params.costoUnitario) || params.costoUnitario < 0) {
     fallo("INVENTARIO_COSTO_INVALIDO");
   }
@@ -111,6 +125,7 @@ interface EntradaPendiente {
   articuloRef: any;
   existente: MovimientoInventarioServer | null;
   saldoActual: number;
+  stockReservado: number;
   secuenciaActual: number;
   costoApertura: number;
   aperturaRef: any | null;
@@ -158,7 +173,7 @@ export async function aplicarMovimientosInventarioEnTransaccion(
       ) {
         fallo("INVENTARIO_MOVIMIENTO_INCONSISTENTE");
       }
-      lote.push({ params, movimientoRef, articuloRef, existente, saldoActual: 0, secuenciaActual: 0, costoApertura: 0, aperturaRef: null });
+      lote.push({ params, movimientoRef, articuloRef, existente, saldoActual: 0, stockReservado: 0, secuenciaActual: 0, costoApertura: 0, aperturaRef: null });
       continue;
     }
 
@@ -170,17 +185,30 @@ export async function aplicarMovimientosInventarioEnTransaccion(
     if (data.espacioId && data.espacioId !== params.espacioId) fallo("ARTICULO_NO_ENCONTRADO");
 
     const saldoRaw: unknown = data.stock === undefined ? 0 : data.stock;
+    const stockReservadoRaw: unknown = params.articuloTipo === "producto" && data.stockReservado !== undefined ? data.stockReservado : 0;
     const secuenciaRaw: unknown = data.secuenciaLedger === undefined ? 0 : data.secuenciaLedger;
     const costoRaw: unknown = data.costo === undefined ? 0 : data.costo;
     if (!numeroFinito(saldoRaw)) fallo("ARTICULO_INVENTARIO_INVALIDO");
+    if (params.articuloTipo === "producto" && (!Number.isSafeInteger(stockReservadoRaw) || (stockReservadoRaw as number) < 0 || (stockReservadoRaw as number) > (saldoRaw as number))) {
+      fallo("STOCK_RESERVADO_INVALIDO");
+    }
     if (!secuenciaValida(secuenciaRaw)) fallo("ARTICULO_INVENTARIO_INVALIDO");
     const saldoActual = saldoRaw as number;
+    const stockReservado = stockReservadoRaw as number;
     const secuenciaActual = secuenciaRaw as number;
+    const consumoReserva = params.consumirStockReservado ?? 0;
+    const liberacionReserva = params.liberarStockReservado ?? 0;
+    if (consumoReserva + liberacionReserva > stockReservado) fallo("STOCK_RESERVADO_INSUFICIENTE");
     if (params.exigirStockSuficiente) {
       if (!Number.isSafeInteger(saldoActual) || saldoActual < 0 || !Number.isSafeInteger(params.cantidad)) {
         fallo("STOCK_BODEGA_INVALIDO");
       }
       if (saldoActual + params.cantidad < 0) fallo("STOCK_INSUFICIENTE");
+    }
+    const reservaRestante = stockReservado - consumoReserva - liberacionReserva;
+    if (params.articuloTipo === "producto" && params.cantidad < 0 && reservaRestante > 0
+      && saldoActual + params.cantidad < reservaRestante) {
+      fallo("STOCK_DISPONIBLE_INSUFICIENTE");
     }
 
     const aperturaRef = secuenciaActual === 0 && saldoActual > 0
@@ -194,6 +222,7 @@ export async function aplicarMovimientosInventarioEnTransaccion(
       articuloRef,
       existente: null,
       saldoActual,
+      stockReservado,
       secuenciaActual,
       costoApertura: numeroFinito(costoRaw) && costoRaw >= 0 ? costoRaw : 0,
       aperturaRef,
@@ -279,6 +308,10 @@ export async function aplicarMovimientosInventarioEnTransaccion(
       stock: saldoCantidadDespues,
       secuenciaLedger: secuenciaArticulo,
     };
+    const cambioReserva = (params.consumirStockReservado ?? 0) + (params.liberarStockReservado ?? 0);
+    if (cambioReserva > 0) {
+      actualizacion.stockReservado = entrada.stockReservado - cambioReserva;
+    }
     if (params.actualizarCosto) actualizacion.costo = params.costoUnitario;
     tx.update(entrada.articuloRef, actualizacion);
     resultado.push(movimiento);

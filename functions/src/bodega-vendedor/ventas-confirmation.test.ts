@@ -53,6 +53,26 @@ function seed(db: FakeDb) {
   });
 }
 
+function seedAgendaReservation(db: FakeDb, expiraEn: Timestamp) {
+  const programacionId = "agenda-u3c";
+  const reservaId = crearIdentificadorInterno(empresaId, `agenda-hold:${programacionId}:producto-u3c`);
+  const solicitudPath = `empresas/${empresaId}/solicitudes_venta_bodega/solicitud-u3c`;
+  db.docs.set(solicitudPath, {
+    ...db.docs.get(solicitudPath), programacionId, reservaIds: [reservaId],
+  });
+  db.docs.set("productos/producto-u3c", { ...db.docs.get("productos/producto-u3c"), stockReservado: 48 });
+  db.docs.set(`empresas/${empresaId}/agenda_pedidos_bodega/${programacionId}`, {
+    empresaId, programacionId, solicitanteUid: contexto.actorUid, solicitudId: "solicitud-u3c",
+    estado: "CONVERTIDA_A_SOLICITUD", revision: 3, reservaIds: [reservaId],
+    lineas: [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 2, cantidadUnidadBase: 48 }],
+  });
+  db.docs.set(`empresas/${empresaId}/reservas_stock_bodega/${reservaId}`, {
+    empresaId, programacionId, productoId: "producto-u3c", cantidadUnidadBase: 48,
+    estado: "ACTIVA", expiraEn,
+  });
+  return { programacionId, reservaId };
+}
+
 test("U3-C: efectivo completa una venta Bodega con 48 unidades base, caja, turno e idempotencia", async () => {
   const db = new FakeDb(); seed(db);
   const result = await ejecutarConfirmarVentaBodegaV1(db, contexto, comando()) as any;
@@ -66,6 +86,46 @@ test("U3-C: efectivo completa una venta Bodega con 48 unidades base, caja, turno
   const replay = await ejecutarConfirmarVentaBodegaV1(db, contexto, comando()) as any;
   assert.equal(replay.ventaId, result.ventaId);
   assert.equal([...db.docs.keys()].filter(path => path.startsWith("ventas/")).length, 1);
+});
+
+test("ADR-064: venta vinculada consume hold, stock físico y agenda en una transacción idempotente", async () => {
+  const db = new FakeDb(); seed(db);
+  const { programacionId, reservaId } = seedAgendaReservation(db, Timestamp.fromMillis(Date.now() + 60_000));
+  const result = await ejecutarConfirmarVentaBodegaV1(db, contexto, comando()) as any;
+  assert.equal(result.programacionId, programacionId);
+  assert.equal(db.docs.get("productos/producto-u3c")?.stock, 52);
+  assert.equal(db.docs.get("productos/producto-u3c")?.stockReservado, 0);
+  assert.equal(db.docs.get(`empresas/${empresaId}/reservas_stock_bodega/${reservaId}`)?.estado, "CONSUMIDA");
+  assert.equal(db.docs.get(`empresas/${empresaId}/agenda_pedidos_bodega/${programacionId}`)?.estado, "CUMPLIDA");
+  assert.equal(db.docs.get(`ventas/${result.ventaId}`)?.programacionId, programacionId);
+  const replay = await ejecutarConfirmarVentaBodegaV1(db, contexto, comando()) as any;
+  assert.equal(replay.ventaId, result.ventaId);
+  assert.equal(db.docs.get("productos/producto-u3c")?.stock, 52);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("ventas/")).length, 1);
+});
+
+test("ADR-064: confirmación posterior al vencimiento no consume el hold ya liberado", async () => {
+  const db = new FakeDb(); seed(db);
+  const { programacionId, reservaId } = seedAgendaReservation(db, Timestamp.fromMillis(Date.now() - 1));
+  const result = await ejecutarConfirmarVentaBodegaV1(db, contexto, comando()) as any;
+  assert.equal(result.programacionId, programacionId);
+  assert.equal(db.docs.get("productos/producto-u3c")?.stock, 52);
+  assert.equal(db.docs.get("productos/producto-u3c")?.stockReservado, 0);
+  assert.equal(db.docs.get(`empresas/${empresaId}/reservas_stock_bodega/${reservaId}`)?.estado, "VENCIDA");
+  assert.equal(db.docs.get(`empresas/${empresaId}/agenda_pedidos_bodega/${programacionId}`)?.estado, "CUMPLIDA");
+});
+
+test("ADR-064: agenda vencida no puede consumir un hold futuro inconsistente", async () => {
+  const db = new FakeDb(); seed(db);
+  const { programacionId } = seedAgendaReservation(db, Timestamp.fromMillis(Date.now() + 60_000));
+  const agendaRef = `empresas/${empresaId}/agenda_pedidos_bodega/${programacionId}`;
+  db.docs.set(agendaRef, { ...db.docs.get(agendaRef), estado: "VENCIDA" });
+
+  await assert.rejects(ejecutarConfirmarVentaBodegaV1(db, contexto, comando()), error => dominio(error, "AGENDA_RESERVA_INCONSISTENTE"));
+  assert.equal(db.docs.get("productos/producto-u3c")?.stock, 100);
+  assert.equal(db.docs.get("productos/producto-u3c")?.stockReservado, 48);
+  assert.equal(db.docs.get(`empresas/${empresaId}/reservas_stock_bodega/${crearIdentificadorInterno(empresaId, `agenda-hold:${programacionId}:producto-u3c`)}`)?.estado, "ACTIVA");
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("ventas/")), false);
 });
 
 test("U3-C: datos económicos y autoridad de cliente se rechazan antes de efectos", async () => {

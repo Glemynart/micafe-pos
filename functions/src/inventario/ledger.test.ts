@@ -152,3 +152,182 @@ test("P1-01: un artículo ajeno aborta el lote sin escritura parcial", async () 
   );
   assert.deepEqual([...db.docs.entries()], before);
 });
+
+test("ADR-064: una salida de inventario no invade unidades reservadas", async () => {
+  const db = new FakeFirestore();
+  db.docs.set("productos/bebida", {
+    empresaId: "empresa-a",
+    espacioId: "cafeteria",
+    nombre: "Bebida",
+    unidad: "und",
+    stock: 10,
+    stockReservado: 4,
+    secuenciaLedger: 1,
+    costo: 2,
+  });
+  const before = structuredClone([...db.docs.entries()]);
+
+  await assert.rejects(
+    db.runTransaction(tx => aplicarMovimientosInventarioEnTransaccion(tx, db, [base({
+      articuloTipo: "producto",
+      articuloId: "bebida",
+      articuloNombre: "Bebida",
+      unidad: "und",
+      tipo: "venta",
+      cantidad: -7,
+      claveIdempotencia: "venta:invade-reserva",
+      referenciaColeccion: "ventas",
+      referenciaId: "venta-invade-reserva",
+      exigirStockSuficiente: true,
+    })])),
+    error => error instanceof Error && error.message === "STOCK_DISPONIBLE_INSUFICIENTE",
+  );
+  assert.deepEqual([...db.docs.entries()], before);
+});
+
+test("ADR-064: la salida exacta de stock disponible conserva la reserva", async () => {
+  const db = new FakeFirestore();
+  db.docs.set("productos/bebida", {
+    empresaId: "empresa-a",
+    espacioId: "cafeteria",
+    nombre: "Bebida",
+    unidad: "und",
+    stock: 10,
+    stockReservado: 4,
+    secuenciaLedger: 1,
+    costo: 2,
+  });
+
+  await db.runTransaction(tx => aplicarMovimientosInventarioEnTransaccion(tx, db, [base({
+    articuloTipo: "producto",
+    articuloId: "bebida",
+    articuloNombre: "Bebida",
+    unidad: "und",
+    tipo: "venta",
+    cantidad: -6,
+    claveIdempotencia: "venta:respeta-reserva",
+    referenciaColeccion: "ventas",
+    referenciaId: "venta-respeta-reserva",
+    exigirStockSuficiente: true,
+  })]));
+
+  assert.equal(db.docs.get("productos/bebida")?.stock, 4);
+  assert.equal(db.docs.get("productos/bebida")?.stockReservado, 4);
+});
+
+test("ADR-064: la venta vinculada consume stock físico y reservado en la misma transacción", async () => {
+  const db = new FakeFirestore();
+  db.docs.set("productos/bebida", {
+    empresaId: "empresa-a",
+    espacioId: "cafeteria",
+    nombre: "Bebida",
+    unidad: "und",
+    stock: 10,
+    stockReservado: 4,
+    secuenciaLedger: 1,
+    costo: 2,
+  });
+  const linkedSale = base({
+    articuloTipo: "producto",
+    articuloId: "bebida",
+    articuloNombre: "Bebida",
+    unidad: "und",
+    tipo: "venta",
+    cantidad: -4,
+    claveIdempotencia: "venta:consume-hold",
+    referenciaColeccion: "ventas",
+    referenciaId: "venta-consume-hold",
+    exigirStockSuficiente: true,
+    consumirStockReservado: 4,
+  });
+
+  await db.runTransaction(tx => aplicarMovimientosInventarioEnTransaccion(tx, db, [linkedSale]));
+  await db.runTransaction(tx => aplicarMovimientosInventarioEnTransaccion(tx, db, [linkedSale]));
+
+  assert.equal(db.docs.get("productos/bebida")?.stock, 6);
+  assert.equal(db.docs.get("productos/bebida")?.stockReservado, 0);
+  assert.equal([...db.docs.entries()].filter(([path, data]) => path.startsWith("movimientos_inventario/") && data.tipo === "venta").length, 1);
+});
+
+test("ADR-064: el ledger rechaza consumir una reserva mayor a la retenida", async () => {
+  const db = new FakeFirestore();
+  db.docs.set("productos/bebida", {
+    empresaId: "empresa-a",
+    espacioId: "cafeteria",
+    nombre: "Bebida",
+    unidad: "und",
+    stock: 10,
+    stockReservado: 3,
+    secuenciaLedger: 1,
+    costo: 2,
+  });
+
+  await assert.rejects(
+    db.runTransaction(tx => aplicarMovimientosInventarioEnTransaccion(tx, db, [base({
+      articuloTipo: "producto",
+      articuloId: "bebida",
+      articuloNombre: "Bebida",
+      unidad: "und",
+      tipo: "venta",
+      cantidad: -4,
+      claveIdempotencia: "venta:consume-hold-insuficiente",
+      referenciaColeccion: "ventas",
+      referenciaId: "venta-consume-hold-insuficiente",
+      exigirStockSuficiente: true,
+      consumirStockReservado: 4,
+    })])),
+    error => error instanceof Error && error.message === "STOCK_RESERVADO_INSUFICIENTE",
+  );
+  assert.equal(db.docs.get("productos/bebida")?.stock, 10);
+  assert.equal(db.docs.get("productos/bebida")?.stockReservado, 3);
+  assert.equal([...db.docs.keys()].some(path => path === "movimientos_inventario/venta:consume-hold-insuficiente"), false);
+});
+
+test("ADR-064: una venta tras vencimiento libera solo su hold y respeta las demás reservas", async () => {
+  const db = new FakeFirestore();
+  db.docs.set("productos/bebida", {
+    empresaId: "empresa-a",
+    espacioId: "cafeteria",
+    nombre: "Bebida",
+    unidad: "und",
+    stock: 10,
+    stockReservado: 7,
+    secuenciaLedger: 1,
+    costo: 2,
+  });
+
+  await assert.rejects(
+    db.runTransaction(tx => aplicarMovimientosInventarioEnTransaccion(tx, db, [base({
+      articuloTipo: "producto",
+      articuloId: "bebida",
+      articuloNombre: "Bebida",
+      unidad: "und",
+      tipo: "venta",
+      cantidad: -8,
+      claveIdempotencia: "venta:vence-hold-invade-restante",
+      referenciaColeccion: "ventas",
+      referenciaId: "venta-vence-hold-invade-restante",
+      exigirStockSuficiente: true,
+      liberarStockReservado: 4,
+    })])),
+    error => error instanceof Error && error.message === "STOCK_DISPONIBLE_INSUFICIENTE",
+  );
+  assert.equal(db.docs.get("productos/bebida")?.stock, 10);
+  assert.equal(db.docs.get("productos/bebida")?.stockReservado, 7);
+
+  await db.runTransaction(tx => aplicarMovimientosInventarioEnTransaccion(tx, db, [base({
+    articuloTipo: "producto",
+    articuloId: "bebida",
+    articuloNombre: "Bebida",
+    unidad: "und",
+    tipo: "venta",
+    cantidad: -5,
+    claveIdempotencia: "venta:vence-hold",
+    referenciaColeccion: "ventas",
+    referenciaId: "venta-vence-hold",
+    exigirStockSuficiente: true,
+    liberarStockReservado: 4,
+  })]));
+  assert.equal(db.docs.get("productos/bebida")?.stock, 5);
+  assert.equal(db.docs.get("productos/bebida")?.stockReservado, 3);
+});

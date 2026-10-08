@@ -54,6 +54,7 @@
     "test:email:integration": "cross-env GCLOUD_PROJECT=demo-mt-u4-rules FIRESTORE_EMULATOR_HOST=127.0.0.1:8085 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 firebase --project demo-mt-u4-rules emulators:exec --only firestore,auth \"npm --prefix functions run test:email:integration\"",
     "e2e:r1a": "node scripts/e2e/r1a-runner.mjs",
     "e2e:bodega-u4-u5": "node scripts/e2e/bodega-u4-u5-runner.mjs",
+    "e2e:bodega-agenda": "node scripts/e2e/bodega-agenda-runner.mjs",
     "e2e:p0-01": "node scripts/e2e/p0-01-runner.mjs",
     "e2e:p0-06": "node scripts/e2e/p0-06-runner.mjs",
     "e2e:p1-02": "node scripts/e2e/p1-02-runner.mjs",

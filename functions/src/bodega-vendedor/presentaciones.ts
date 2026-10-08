@@ -200,6 +200,16 @@ async function actualizarPresentacion(tx: any, db: any, empresaId: string, actor
   if (!text(productoId)) fail("failed-precondition", "PRESENTACION_INVALIDA");
   const productoSnap = await tx.get(db.collection("productos").doc(productoId));
   if (!productoSnap.exists || productoSnap.data()?.empresaId !== empresaId) fail("failed-precondition", "PRESENTACION_PRODUCTO_INVALIDO");
+  const producto = productoSnap.data() as Record<string, unknown>;
+  const stock = producto.stock ?? 0;
+  const stockReservado = producto.stockReservado ?? 0;
+  if (!Number.isSafeInteger(stock) || (stock as number) < 0 || !Number.isSafeInteger(stockReservado)
+    || (stockReservado as number) < 0 || (stockReservado as number) > (stock as number)) fail("failed-precondition", "STOCK_RESERVADO_INVALIDO");
+  if ((stockReservado as number) > 0
+    && (entrada.changes.activo === false || (entrada.changes.factorUnidadBase !== undefined
+      && entrada.changes.factorUnidadBase !== snap.data()?.factorUnidadBase))) {
+    fail("failed-precondition", "PRESENTACION_CON_STOCK_RESERVADO");
+  }
   tx.update(ref, { ...entrada.changes, actualizadoPor: actorUid, actualizadoEn: FieldValue.serverTimestamp() });
   return { commandId: input.commandId, presentacionId: entrada.presentacionId };
 }
@@ -220,7 +230,12 @@ function exigirCatalogoVendedor(contexto: { rol: string; permisos: readonly stri
 
 /** DTO comercial fijo para U3: no devuelve producto interno, costo, margen ni empresaId. */
 export function proyectarCatalogoPresentacionesVendedor(producto: Record<string, unknown>, presentacion: PresentacionComercialCanonica) {
-  const stock = typeof producto.stock === "number" && Number.isFinite(producto.stock) && producto.stock >= 0 ? producto.stock : null;
+  const stockFisico = typeof producto.stock === "number" && Number.isSafeInteger(producto.stock) && producto.stock >= 0 ? producto.stock : null;
+  const reservadoRaw = producto.stockReservado === undefined ? 0 : producto.stockReservado;
+  const stockReservado = Number.isSafeInteger(reservadoRaw) && (reservadoRaw as number) >= 0 && stockFisico !== null && (reservadoRaw as number) <= stockFisico
+    ? reservadoRaw as number
+    : null;
+  const disponible = stockFisico !== null && stockReservado !== null ? stockFisico - stockReservado : null;
   return {
     productoId: presentacion.productoId,
     productoNombre: text(producto.nombre) ? producto.nombre : "",
@@ -230,8 +245,8 @@ export function proyectarCatalogoPresentacionesVendedor(producto: Record<string,
     presentacionNombre: presentacion.nombre,
     factorUnidadBase: presentacion.factorUnidadBase,
     precioCOP: presentacion.precioCOP,
-    disponibilidadUnidadBase: stock,
-    maximoPresentacionesVendibles: stock === null ? null : Math.floor(stock / presentacion.factorUnidadBase),
+    disponibilidadUnidadBase: disponible,
+    maximoPresentacionesVendibles: disponible === null ? null : Math.floor(disponible / presentacion.factorUnidadBase),
   };
 }
 

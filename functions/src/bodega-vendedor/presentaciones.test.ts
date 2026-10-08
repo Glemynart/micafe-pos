@@ -137,6 +137,25 @@ test("U2-B: administración Bodega con inventory crea y actualiza; vendedor no m
   await assert.rejects(create(sinModulo, "sin-inventory", payload("producto-empresa-a", 1, 1000)), /CATALOGO_BODEGA_NO_AUTORIZADO/);
 });
 
+test("ADR-064: no desactiva ni cambia el factor de presentación mientras el producto tiene stock reservado", async () => {
+  const db = new FakeFirestore(); seed(db);
+  const creada = await create(db, "presentacion-con-hold", payload("producto-empresa-a", 6, 6000));
+  db.docs.set("productos/producto-empresa-a", { ...db.docs.get("productos/producto-empresa-a"), stockReservado: 6 });
+  const code = (expected: string) => (error: any) => error?.message === expected;
+  await assert.rejects(
+    ejecutarActualizarPresentacionComercialV1(db, adminA, envelope("desactivar-con-hold", { presentacionId: creada.presentacionId, activo: false })),
+    code("PRESENTACION_CON_STOCK_RESERVADO"),
+  );
+  await assert.rejects(
+    ejecutarActualizarPresentacionComercialV1(db, adminA, envelope("cambiar-factor-con-hold", { presentacionId: creada.presentacionId, factorUnidadBase: 12 })),
+    code("PRESENTACION_CON_STOCK_RESERVADO"),
+  );
+  await ejecutarActualizarPresentacionComercialV1(db, adminA, envelope("precio-con-hold", { presentacionId: creada.presentacionId, precioCOP: 7000 }));
+  assert.equal(db.docs.get(`presentaciones_producto/${creada.presentacionId}`)?.activo, true);
+  assert.equal(db.docs.get(`presentaciones_producto/${creada.presentacionId}`)?.factorUnidadBase, 6);
+  assert.equal(db.docs.get(`presentaciones_producto/${creada.presentacionId}`)?.precioCOP, 7000);
+});
+
 test("U2-B: producto ajeno, presentación ajena, producto inactivo y presentación inactiva fallan cerrados", async () => {
   const db = new FakeFirestore(); seed(db); seed(db, "empresa-b");
   await assert.rejects(create(db, "producto-ausente", payload("producto-ausente", 1, 1000)), /PRODUCTO_NO_ENCONTRADO/);
@@ -187,11 +206,13 @@ test("U2-B: acepta referencias de presentación generadas por el identificador i
 test("U2-B: catálogo vendedor es tenant-aware, activo y no filtra costos", async () => {
   const db = new FakeFirestore(); seed(db); seed(db, "empresa-b");
   await create(db, "catalogo-a", payload("producto-empresa-a", 6, 6000, "Paca"));
+  db.docs.set("productos/producto-empresa-a", { ...db.docs.get("productos/producto-empresa-a"), stockReservado: 12 });
   db.docs.set("presentaciones_producto/presentacion-b", { empresaId: "empresa-b", productoId: "producto-empresa-b", nombre: "Caja B", factorUnidadBase: 24, precioCOP: 24000, activo: true });
   const catalogo = await ejecutarConsultarCatalogoPresentacionesVendedor(db, { empresaId: "empresa-a", rol: "vendedor", permisos: ["sell"], vertical: "BODEGA_MVP1", inventoryHabilitado: true }, {});
   assert.equal(catalogo.presentaciones.length, 1);
   assert.equal(catalogo.presentaciones[0]?.precioCOP, 6000);
-  assert.equal(catalogo.presentaciones[0]?.maximoPresentacionesVendibles, 8);
+  assert.equal(catalogo.presentaciones[0]?.disponibilidadUnidadBase, 38);
+  assert.equal(catalogo.presentaciones[0]?.maximoPresentacionesVendibles, 6);
   assert.equal(JSON.stringify(catalogo).includes("costo"), false);
   await assert.rejects(
     ejecutarConsultarCatalogoPresentacionesVendedor(db, { empresaId: "empresa-a", rol: "vendedor", permisos: ["sell"], vertical: "BODEGA_MVP1", inventoryHabilitado: true }, { fields: ["costo"] }),
@@ -201,4 +222,13 @@ test("U2-B: catálogo vendedor es tenant-aware, activo y no filtra costos", asyn
     ejecutarConsultarCatalogoPresentacionesVendedor(db, { empresaId: "empresa-a", rol: "vendedor", permisos: ["sell"], vertical: "GENERAL", inventoryHabilitado: true }, {}),
     /ROL_NO_AUTORIZADO/,
   );
+});
+
+test("U2-B / ADR-064: disponibilidad falla cerrada ante proyección de reserva inconsistente", async () => {
+  const db = new FakeFirestore(); seed(db);
+  await create(db, "catalogo-a", payload("producto-empresa-a", 6, 6000, "Paca"));
+  db.docs.set("productos/producto-empresa-a", { ...db.docs.get("productos/producto-empresa-a"), stockReservado: 61 });
+  const catalogo = await ejecutarConsultarCatalogoPresentacionesVendedor(db, { empresaId: "empresa-a", rol: "vendedor", permisos: ["sell"], vertical: "BODEGA_MVP1", inventoryHabilitado: true }, {});
+  assert.equal(catalogo.presentaciones[0]?.disponibilidadUnidadBase, null);
+  assert.equal(catalogo.presentaciones[0]?.maximoPresentacionesVendibles, null);
 });

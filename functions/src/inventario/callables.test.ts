@@ -105,6 +105,17 @@ test("G-SAAS-02: ajustar stock resuelve el delta server-side y replay no duplica
   assert.equal([...db.docs.keys()].filter(path => path.startsWith("movimientos_inventario/")).length, 1);
 });
 
+test("ADR-064: producto con reserva activa no se puede desactivar", async () => {
+  const db = new FakeFirestore(); seedAuth(db);
+  db.docs.set("productos/producto-reservado", { empresaId: "empresa-a", nombre: "Tinto", unidad: "und", costo: 0, stock: 10, stockReservado: 4, secuenciaLedger: 1, espacioId: "espacio-a", activo: true });
+  const before = structuredClone([...db.docs.entries()]);
+  await assert.rejects(
+    ejecutarActualizarArticuloInventarioV1(db, contexto, envelope("desactivar-producto-reservado", { articuloTipo: "producto", articuloId: "producto-reservado", data: { activo: false } })),
+    error => domain(error, "PRODUCTO_CON_STOCK_RESERVADO"),
+  );
+  assert.deepEqual([...db.docs.entries()], before);
+});
+
 test("G-SAAS-02: merma deriva nombre, unidad, costo y actor del servidor", async () => {
   const db = new FakeFirestore(); seedAuth(db);
   db.docs.set("insumos/cafe", { empresaId: "empresa-a", nombre: "Café", unidadMedida: "g", costo: 3, stock: 10, secuenciaLedger: 1, espacioId: "espacio-a" });

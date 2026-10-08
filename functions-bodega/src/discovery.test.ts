@@ -25,19 +25,28 @@ async function manifest(value: number): Promise<Record<string, unknown>> {
   throw error;
 }
 
-test("saas-bodega descubre exactamente diez callables Gen2 sin Secrets", async () => {
+test("saas-bodega descubre quince callables y el scheduler ADR-064 sin Secrets", async () => {
   const value = await port();
   const child = spawn(process.execPath, [bin], { cwd: sourceRoot, env: { ...process.env, FUNCTIONS_CONTROL_API: "true", PORT: String(value) }, stdio: "pipe" });
   after(() => child.kill());
   const result = await manifest(value);
-  const endpoints = result.endpoints as Record<string, { region?: unknown; callableTrigger?: unknown }>;
+  const endpoints = result.endpoints as Record<string, { region?: unknown; callableTrigger?: unknown; scheduleTrigger?: { schedule?: unknown; timeZone?: unknown } }>;
   assert.deepEqual(Object.keys(endpoints).sort(), [
-    "actualizarPresentacionComercialV1", "cancelarSolicitudVentaBodegaV1", "confirmarVentaBodegaV1",
-    "consultarSolicitudesVentaBodegaV1", "crearArticuloInventarioV1", "crearCategoriaBodegaV1",
-    "crearClienteVendedorV1", "crearPresentacionComercialV1", "crearSolicitudVentaBodegaV1",
+    "actualizarPresentacionComercialV1", "cancelarProgramacionPedidoBodegaV1", "cancelarSolicitudVentaBodegaV1",
+    "confirmarVentaBodegaV1", "consultarAgendaPedidosBodegaV1", "consultarSolicitudesVentaBodegaV1",
+    "convertirProgramacionPedidoBodegaV1", "crearArticuloInventarioV1", "crearCategoriaBodegaV1",
+    "crearClienteVendedorV1", "crearPresentacionComercialV1", "crearProgramacionPedidoBodegaV1",
+    "crearSolicitudVentaBodegaV1", "reconciliarAgendaPedidosBodegaV1", "resolverProgramacionPedidoBodegaV1",
     "resolverSolicitudVentaBodegaV1",
   ]);
-  for (const endpoint of Object.values(endpoints)) { assert.deepEqual(endpoint.region, ["us-central1"]); assert.deepEqual(endpoint.callableTrigger, {}); }
+  for (const [name, endpoint] of Object.entries(endpoints)) {
+    assert.deepEqual(endpoint.region, ["us-central1"]);
+    if (name === "reconciliarAgendaPedidosBodegaV1") {
+      assert.equal(endpoint.callableTrigger, undefined);
+      assert.equal(endpoint.scheduleTrigger?.schedule, "every 5 minutes");
+      assert.equal(endpoint.scheduleTrigger?.timeZone, "UTC");
+    } else assert.deepEqual(endpoint.callableTrigger, {});
+  }
   assert.deepEqual(result.params ?? [], []);
   const serialized = JSON.stringify(result).toLowerCase();
   for (const forbidden of ["operational_pin_pepper", "wompi", "dusema", "email_invitation", "secret"]) assert.equal(serialized.includes(forbidden), false);
