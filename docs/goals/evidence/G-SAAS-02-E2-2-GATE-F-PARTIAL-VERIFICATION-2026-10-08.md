@@ -351,7 +351,8 @@ en staging ni reemplaza el preflight/deploy de Gate C/D.
 Estas suites aumentan la evidencia automatizada local de authority, aislamiento,
 retry, agenda y efectos de venta; no certifican por sí mismas el comportamiento
 remoto del fixture. Gate F continúa `EN CURSO` hasta completar la matriz de
-staging y reconciliar la procedencia de las ventas sin solicitud visible.
+staging. La procedencia de las cuatro ventas históricas sin solicitud queda
+reconciliada en el seguimiento read-only siguiente.
 
 #### Mutation audit de la validación automatizada
 
@@ -363,3 +364,62 @@ staging y reconciliar la procedencia de las ventas sin solicitud visible.
   cleanup destructivo: cambios 0.
 - Los cambios generados por Next dev en `AGENTS.md` y `next-env.d.ts` durante el
   E2E se reconciliaron a su contenido versionado; el worktree quedó limpio.
+
+### Seguimiento — reconciliación temporal de ventas ADR-062, 2026-10-08
+
+Se repitieron consultas Firestore REST con proyección de campos limitada y una
+lectura de Cloud Logging, fijando explícitamente `micafe-pos-staging` y el
+fixture `E2_2-BODEGA-STAGING-FIXTURE`. Los UID se trataron solo como sufijos
+para clasificar actores; no se copiaron identificadores completos ni datos de
+clientes a esta evidencia.
+
+- El tenant tiene 11 ventas, 4 solicitudes y 19 movimientos financieros.
+  Las 11 ventas corresponden a 11 ingresos de ledger; los 3 documentos de
+  solicitud `EJECUTADA` enlazan una venta existente cada uno y la solicitud
+  `CANCELADA` no enlaza venta. Las otras 8 ventas no tienen solicitud enlazada;
+  su fecha y revisión de servicio se clasifican abajo como historial previo a
+  ADR-SAAS-062, no como incumplimiento del flujo vigente.
+- El vendedor F (UID terminado en `230fe`) tiene 5 ventas por `25.000 COP`:
+  cuatro fechadas el 3 de octubre entre `22:47Z` y `23:07Z`, y una del 8 de
+  octubre a `01:01Z`. Las cuatro primeras aparecen en los logs de requests de
+  Cloud Run bajo `confirmarventabodegav1-00003-cud`, creado el
+  `2026-10-03T09:23:50.880076Z`; no tienen solicitud enlazada. La versión
+  `-00005-loz`, que atiende el flujo de aprobación, se creó el
+  `2026-10-07T03:08:40.137877Z`. ADR-SAAS-062 se aceptó el 6 de octubre; por
+  tanto, las cuatro operaciones del 3 de octubre son historial previo a esa
+  regla y no evidencia de una venta sin aprobación bajo ADR-062.
+- La venta F del `2026-10-08T01:01Z` fue atendida por `-00005-loz`, enlaza la
+  solicitud `EJECUTADA` del mismo vendedor y tiene un ingreso correlacionado de
+  `5.000 COP`, rol efectivo `vendedor`, pago por transferencia y sin turno
+  asociado. Es consistente con el caso de transferencia ya admitido por el
+  flujo; no se observó agenda en esa venta.
+- Las otras dos solicitudes ejecutadas corresponden a otro vendedor sintético
+  y se enlazan con ventas del 7 de octubre en `-00005-loz`; la solicitud de
+  agenda cancelada no creó venta. Se conserva el historial completo, sin
+  borrar ni corregir documentos.
+
+La lectura temporal de las ocho ventas sin solicitud encontró tres ventas el
+3 de octubre bajo `confirmarventabodegav1-00002-kig` (creada el
+`2026-10-03T01:00:30.770015Z`) y cinco bajo
+`confirmarventabodegav1-00003-cud` (creada el
+`2026-10-03T09:23:50.880076Z`), entre el 3 y el 5 de octubre. ADR-SAAS-062 se
+aceptó el 6 de octubre; las cuatro callables de solicitud/aprobación fueron
+desplegadas después. Las ocho operaciones preceden a la aceptación de ADR-062
+y a ese deploy. En contraste, las tres ventas vinculadas a
+solicitudes ejecutadas aparecen en `-00005-loz`, creada el
+`2026-10-07T03:08:40.137877Z`, y cada una coincide con su `ejecucion.ventaId`.
+
+La conciliación temporal resuelve el hallazgo de las ventas históricas sin
+solicitud: todas preceden a ADR-SAAS-062 y a su despliegue. Esto no cierra
+Gate F. Siguen pendientes la matriz integral de aislamiento/roles y la
+validación de la agenda y su entrega de recordatorios en el navegador,
+incluyendo el comportamiento background; el smoke FCM de primer plano no
+demuestra entrega background.
+
+#### Mutation audit de la reconciliación temporal
+
+- Firestore REST y Cloud Logging en `micafe-pos-staging`: lecturas únicamente.
+- Firestore/Auth/Functions, agenda, stock, ventas, ledger, turnos, Rules,
+  IAM, Secrets, tráfico, deploy y producción: escrituras/cambios `0`.
+- Fixture adicional, Bootstrap, Activation, tenant real y cleanup destructivo:
+  `0`.
