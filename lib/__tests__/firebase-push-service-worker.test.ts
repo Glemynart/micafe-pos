@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Script } from "node:vm";
+import { leerContenidoPush } from "../fcm-notification-content";
 import { crearFirebasePushServiceWorker } from "../firebase-push-service-worker";
 
 const configStaging = {
@@ -28,5 +29,52 @@ describe("configuración del service worker FCM", () => {
       () => crearFirebasePushServiceWorker({ ...configStaging, projectId: undefined }),
       /FIREBASE_PUSH_CONFIG_INCOMPLETA/,
     );
+  });
+
+  it("presenta una sola notificación de fondo para payloads notification o data-only", async () => {
+    const script = crearFirebasePushServiceWorker(configStaging);
+    const notifications: Array<{ title: string; options: Record<string, unknown> }> = [];
+    const handlers: Record<string, (value: any) => unknown> = {};
+    const firebase = {
+      apps: [] as unknown[],
+      initializeApp(config: typeof configStaging) { this.apps.push({ config }); },
+      messaging() {
+        return { onBackgroundMessage(handler: (payload: any) => unknown) { handlers.background = handler; } };
+      },
+    };
+    const context = {
+      importScripts() {},
+      firebase,
+      self: {
+        registration: { showNotification(title: string, options: Record<string, unknown>) { notifications.push({ title, options }); } },
+        addEventListener(name: string, handler: (value: any) => unknown) { handlers[name] = handler; },
+      },
+      clients: {},
+      URL,
+    };
+
+    new Script(script).runInNewContext(context);
+    await handlers.background({
+      notification: { title: "Firebase la muestra", body: "No duplicar" },
+      data: { url: "/admin/agenda" },
+    });
+    assert.equal(notifications.length, 0);
+
+    await handlers.background({ data: { title: "Recordatorio", body: "Atender pedido", url: "/admin/agenda" } });
+    assert.equal(notifications.length, 1);
+    assert.deepEqual(notifications[0], {
+      title: "Recordatorio",
+      options: { body: "Atender pedido", icon: "/placeholder-logo.png", data: { url: "/admin/agenda" } },
+    });
+  });
+
+  it("lee contenido notification heredado y data-only para el handler foreground", () => {
+    assert.deepEqual(leerContenidoPush({ data: { title: "Agenda", body: "Pedido para hoy" } }), {
+      title: "Agenda", body: "Pedido para hoy",
+    });
+    assert.deepEqual(leerContenidoPush({ notification: { title: "Venta", body: "Pendiente" } }), {
+      title: "Venta", body: "Pendiente",
+    });
+    assert.equal(leerContenidoPush({ data: { title: "incompleto" } }), null);
   });
 });
