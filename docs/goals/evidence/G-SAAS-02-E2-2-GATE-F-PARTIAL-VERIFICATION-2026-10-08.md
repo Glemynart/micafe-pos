@@ -251,3 +251,52 @@ Los demás subcasos de la matriz conservan sus estados previos. Gate F continúa
 - Agenda, reservas, stock, venta, turnos, ledger, membresías y Auth: sin cambios.
 - Tráfico productivo, proyecto de producción, fixture adicional, Bootstrap,
   Activation y cleanup destructivo: 0.
+
+### Seguimiento read-only — aislamiento de rol y solicitudes, 2026-10-08 16:22 UTC
+
+En el Preview `cafeatrato-2wbemooce-glemynarts-projects.vercel.app`, la sesión
+autenticada identificó al actor como `GateF Seller E2_2`. La navegación de solo
+lectura a la ruta de detalle SaaS del fixture mostró `Acceso de plataforma no
+disponible` y `La identidad no posee una autorización SaaS activa`. Al volver a
+`/pos`, la sesión del vendedor siguió activa. Esto prueba la denegación de esa
+superficie de plataforma para ese actor; no completa la matriz A/B de tenant ni
+la autorización de todas las rutas de Backoffice.
+
+La vista `Mis solicitudes` mostró una solicitud `CANCELADA` y una `EJECUTADA`
+para el cliente sintético; la ejecutada comunica que venta, inventario y pago
+fueron procesados por el servidor. No había una solicitud pendiente en esa
+vista. `Mis ventas` mostró cinco entradas del cliente sintético por $5.000 cada
+una. Este conteo visual no demuestra duplicidad, pero difiere de la instantánea
+remota previa y requiere reconciliarse contra los documentos canónicos antes
+de certificar exactamente cuántas ventas resultaron de las pruebas. No se
+abrieron controles de venta, pago o inventario.
+
+### Hallazgo técnico pendiente — configuración del service worker FCM
+
+El cliente registra `/firebase-push-sw.js` desde `components/fcm-manager.tsx`
+y crea su instancia FCM con `app` en `lib/firebase.ts`, cuya configuración
+proviene de `NEXT_PUBLIC_FIREBASE_*`. En el SHA de aplicación desplegado
+`024118fac32d11a33449fbc19bc8dd1b8036be41`, el archivo
+`public/firebase-push-sw.js` inicializa por separado el worker con
+`projectId: "micafe-pos"` y el `messagingSenderId` del proyecto productivo.
+El token del vendedor de esta prueba se registró en `micafe-pos-staging`; por
+tanto, la configuración del worker no está alineada en el código con la
+configuración Firebase por entorno del cliente. La prueba FCM directa solo
+acreditó `onMessage` en primer plano y no permite inferir que el worker entregue
+un aviso en segundo plano. Esto es un riesgo de configuración que debe
+resolverse o descartarse con evidencia antes de afirmar recepción background;
+no se concluye que el aviso haya fallado.
+
+La descarga externa del recurso del worker no permitió inspeccionar el artefacto
+del Preview porque respondió con la página HTML de protección de Vercel; la
+aplicación y el SHA de origen sí permiten identificar el archivo versionado. No
+se envió otro push. La recepción en segundo plano queda pendiente.
+
+#### Mutation audit del seguimiento
+
+- Solo lecturas de UI en POS/Backoffice; no se ejecutó una transición de negocio.
+- Solicitudes, ventas, agenda/reserva, stock, turnos, ledger, membresías, Auth,
+  Firestore, Functions, Rules, IAM, Secrets y tráfico: sin escrituras por este
+  seguimiento.
+- El permiso de notificaciones y un smoke push sintético corresponden al
+  seguimiento anterior; no se repitieron.
