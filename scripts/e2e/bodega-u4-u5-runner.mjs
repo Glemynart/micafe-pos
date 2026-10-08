@@ -21,7 +21,7 @@ const env = {
   GCLOUD_PROJECT: projectId,
   E2E_BODEGA_PROJECT_ID: projectId,
   E2E_BODEGA_RUN_ID: runId,
-  E2E_BODEGA_OUTPUT_DIR: resolve(process.env.TEMP ?? ".", `bodega-u4-u5-${runId}`),
+  E2E_BODEGA_OUTPUT_DIR: process.env.E2E_BODEGA_OUTPUT_DIR ?? resolve(process.env.TEMP ?? ".", `bodega-u4-u5-${runId}`),
   E2E_R1A_PROJECT_ID: projectId,
   E2E_R1A_RUN_ID: runId,
   OPERATIONAL_PIN_PEPPER: "bodega-u4-u5-local-pepper",

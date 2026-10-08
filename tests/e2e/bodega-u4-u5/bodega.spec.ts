@@ -132,6 +132,10 @@ test("vendedor solicita transferencia, admin aprueba y el pago materializa una Ã
   expect(solicitudFinal.data()).toMatchObject({ estado: "EJECUTADA", ejecucion: { ventaId: ventas.docs[0]?.id } })
   const venta = ventas.docs[0]
   const ingresos = await db.collection("transacciones_financieras").where("empresaId", "==", tenantA.empresaId).where("ventaId", "==", venta?.id).get(); expect(ingresos.size).toBe(1); expect(ingresos.docs[0]?.data()).toMatchObject({ tipo: "ingreso", categoria: "ventas", monto: 5000, turnoId: null, cuentaDocumentoId: "bancolombia" })
+  const movimientosInventario = await db.collection("movimientos_inventario").where("empresaId", "==", tenantA.empresaId).where("referenciaId", "==", venta?.id).get()
+  expect(movimientosInventario.size).toBe(1)
+  expect(movimientosInventario.docs[0]?.data()).toMatchObject({ articuloId: tenantA.productoId, cantidad: -2, referenciaColeccion: "ventas", referenciaId: venta?.id })
+  expect((await db.collection("productos").doc(tenantA.productoId).get()).data()?.stock).toBe(18)
   const movimientosCaja = await db.collection("transacciones_financieras").where("empresaId", "==", tenantA.empresaId).where("cuentaDocumentoId", "==", "caja-principal").get(); expect(movimientosCaja.size).toBe(0)
   await page.goto("/admin"); await expect(page).toHaveURL(/\/admin\/login\?error=not_admin/)
 })
@@ -179,7 +183,9 @@ test("reintento tras perder la respuesta de la venta conserva una sola solicitud
   const ventaId = ventaConfirmadaPorServidor!.id
   await expect.poll(async () => (await db.collection("empresas").doc(tenantC.empresaId).collection("solicitudes_venta_bodega").doc(solicitudId).get()).data()?.estado).toBe("EJECUTADA")
 
-  await tarjeta.getByRole("button", { name: "Confirmar venta" }).click()
+  await page.getByRole("button", { name: "Actualizar" }).click()
+  await expect(tarjeta.getByText("EJECUTADA", { exact: true })).toBeVisible()
+  await tarjeta.getByRole("button", { name: "Recuperar confirmaciÃ³n" }).click()
   await expect(page.getByText("Venta confirmada")).toBeVisible()
   expect(comandoReintentado).toEqual(comandoInicial)
 
@@ -208,6 +214,7 @@ test("vendedor aprobado confirma efectivo con turno propio desde la PWA hasta lo
   await page.getByLabel("Base de apertura").fill("10000"); await page.getByRole("button", { name: "Abrir turno para efectivo" }).click(); await expect(page.getByText("Turno abierto")).toBeVisible()
   await expect.poll(async () => (await db.collection("turnos").where("empresaId", "==", tenantA.empresaId).where("cajeroId", "==", tenantA.vendedor.uid).where("estado", "==", "abierto").get()).docs[0]?.id ?? null).not.toBeNull()
   const turnoDoc = (await db.collection("turnos").where("empresaId", "==", tenantA.empresaId).where("cajeroId", "==", tenantA.vendedor.uid).where("estado", "==", "abierto").get()).docs[0]; expect(turnoDoc?.id).toBeTruthy()
+  expect((await db.collection("productos").doc(tenantA.productoId).get()).data()?.stock).toBe(18)
   await page.getByRole("button", { name: "Confirmar venta" }).click(); await expect(page.getByText("Venta confirmada")).toBeVisible()
   const ventas = await db.collection("ventas").where("empresaId", "==", tenantA.empresaId).get()
   const ventasProyectadas: Array<Record<string, any>> = ventas.docs.map(item => ({ id: item.id, ...(item.data() as Record<string, unknown>) }))
