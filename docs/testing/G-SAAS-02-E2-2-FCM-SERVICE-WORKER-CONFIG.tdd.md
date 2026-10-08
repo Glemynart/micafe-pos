@@ -22,6 +22,8 @@
 | GREEN | `d76ce7c` | `npm run test:firebase-push-service-worker` | PASS, 2/2: configuración del proyecto correcto, sintaxis del worker y fallo cerrado si falta configuración. |
 | RED | `2cee95e316ec6582d9496b6023d761c41e04c378` | `npx tsx --test lib/__tests__/firebase-push-service-worker.test.ts`; `npm --prefix functions-bodega test` | PASS previo 2/2 regresó a RED por helper ausente; función falló porque aún enviaba `notification` aparte de `data`. |
 | GREEN | `e39df7a` | `npm run test:firebase-push-service-worker`; `npm --prefix functions-bodega test` | PASS, 4/4 y 9/9: un solo display de background, payload data-only para agenda y lectura foreground. |
+| RED | `64fc77b` | `npm run test:firebase-push-service-worker` | Falló porque el callback background no devolvía la promesa de `showNotification`; el worker podía terminar antes de completar la notificación. |
+| GREEN | `b6b9bcf` | `npm run test:firebase-push-service-worker` | PASS, 4/4: el callback espera la promesa de `showNotification` y mantiene la entrega dentro del ciclo de vida del push. |
 
 ## Validación
 
