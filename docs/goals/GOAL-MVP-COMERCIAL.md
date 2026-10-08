@@ -218,6 +218,32 @@ Scheduler; no acredita entrega push ni cierra el ciclo de agenda. Gate F queda
 Firestore, producción ni consumo/liberación de la reserva activa en este
 checkpoint.
 
+### Checkpoint — 2026-10-08 — PR #486 / identidad de validación Backoffice
+
+PR #486 quedó `MERGED` en `main` mediante
+`24e33591c9dd6dcae858c1d893d354ae54d70d3e`. Sus checks previos al merge
+(`Tipos y pruebas`, `Vercel` y `Vercel Preview Comments`) terminaron `PASS`; la
+CI post-merge de `main`, run `37784488864`, terminó `success` sobre ese SHA a
+las `2026-10-08T13:47:25Z`. El cambio fue documental: el código de aplicación
+permanece idéntico al SHA `bf9d456b4c0a65493c6d13982eca6891f3da17a1` usado para
+las validaciones locales descritas en la evidencia de Gate F.
+
+Una inspección de solo lectura de la app abierta en el navegador integrado,
+a las `2026-10-08T14:05Z`, observó el POS autenticado como el vendedor
+sintético `GateF Seller E2_2` y el Backoffice en el mismo origen mostrando que
+la identidad no tiene autorización SaaS activa. El código confirma que el
+Backoffice exige un operador SaaS autorizado (`saas.operador`, registro activo
+y versión vigente), distinto del admin/vendedor tenant. Ambas superficies usan
+la misma instancia cliente de Firebase Auth; por ello, esta sesión de vendedor
+no sirve para certificar el Backoffice. PR #482 solo maneja errores del
+contexto tenant y no resuelve esta autorización de plataforma. No se probó con
+otra cuenta ni se alteraron sesiones.
+
+Gate F permanece `EN CURSO`: la comprobación del Backoffice sigue pendiente de
+una sesión de operador SaaS en un perfil de navegador separado; la entrega push
+sigue pendiente de la interacción del usuario con el permiso del navegador.
+No se cambia el estado de otros subcasos ni se infiere `PASS` para la matriz.
+
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
 PR #477 quedó `MERGED` en `main` el `2026-10-07 22:23:06` hora de Bogotá
