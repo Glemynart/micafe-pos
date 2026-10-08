@@ -77,6 +77,87 @@ export interface ComandoSolicitudVentaBodega {
   payload: { clienteId: string; lineas: LineaCarritoBodega[] }
 }
 
+export type EstadoProgramacionPedidoBodega = "PENDIENTE_REVISION" | "RESERVADA" | "CANCELADA" | "VENCIDA" | "CONVERTIDA_A_SOLICITUD" | "CUMPLIDA"
+
+export interface ProgramacionPedidoBodegaDTO {
+  programacionId: string
+  estado: EstadoProgramacionPedidoBodega
+  revision: number
+  clienteId: string
+  cliente: { id: string; nombre: string; direccion?: string | null } | null
+  fechaLocal: string
+  franja: { desde: string; hasta: string } | null
+  zonaHoraria: string
+  lineas: Array<{
+    productoId: string
+    productoNombre: string
+    unidadBase: string
+    presentacionId: string
+    presentacionNombre: string
+    cantidad: number
+    factorUnidadBase: number
+    cantidadUnidadBase: number
+  }>
+  stockReservadoUnidadBase: number
+  solicitanteUid: string
+  solicitudId: string | null
+  reservaExpiraEn: unknown
+  creadaEn: unknown
+  actualizadaEn: unknown
+}
+
+export interface ComandoCrearProgramacionPedidoBodega {
+  commandId: string
+  idempotencyKey: string
+  correlationId: string
+  causationId: null
+  payload: {
+    clienteId: string
+    fechaLocal: string
+    franja: { desde: string; hasta: string } | null
+    lineas: LineaCarritoBodega[]
+  }
+}
+
+export function fechaLocalEnZonaHoraria(fecha: Date, zonaHoraria: string): string {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: zonaHoraria,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(fecha)
+  const valores = Object.fromEntries(partes.map(parte => [parte.type, parte.value]))
+  return `${valores.year}-${valores.month}-${valores.day}`
+}
+
+export function construirProgramacionPedidoBodega(input: {
+  clienteId: string
+  fechaLocal: string
+  franja?: { desde: string; hasta: string } | null
+  lineas: readonly LineaCarritoBodega[]
+  generarId?: () => string
+}): ComandoCrearProgramacionPedidoBodega {
+  if (input.lineas.length === 0 || input.lineas.length > MAX_LINEAS_BODEGA) throw new Error("LINEAS_INVALIDAS")
+  const lineas = input.lineas.map(linea => {
+    if (!Number.isSafeInteger(linea.cantidad) || linea.cantidad <= 0) throw new Error("CANTIDAD_INVALIDA")
+    return { productoId: requerido(linea.productoId, "PRODUCTO"), presentacionId: requerido(linea.presentacionId, "PRESENTACION"), cantidad: linea.cantidad }
+  })
+  const clienteId = requerido(input.clienteId, "CLIENTE")
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.fechaLocal)) throw new Error("FECHA_INVALIDA")
+  if (input.franja && (!/^([01]\d|2[0-3]):[0-5]\d$/.test(input.franja.desde)
+    || !/^([01]\d|2[0-3]):[0-5]\d$/.test(input.franja.hasta)
+    || input.franja.hasta <= input.franja.desde)) throw new Error("FRANJA_INVALIDA")
+  const generarId = input.generarId ?? (() => crypto.randomUUID())
+  const commandId = `bodega-agenda:${generarId()}`
+  return {
+    commandId,
+    idempotencyKey: commandId,
+    correlationId: `bodega-agenda:${generarId()}`,
+    causationId: null,
+    payload: { clienteId, fechaLocal: input.fechaLocal, franja: input.franja ?? null, lineas },
+  }
+}
+
 export interface ResultadoVentaBodegaCompletada {
   commandId: string
   ventaId: string

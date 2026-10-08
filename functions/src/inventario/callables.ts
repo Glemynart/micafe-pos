@@ -233,6 +233,20 @@ async function efectoActualizarArticulo(tx: any, db: any, empresaId: string, act
   const articulo = await tx.get(ref);
   if (!articulo.exists || articulo.data()?.empresaId !== empresaId) fail("not-found", "ARTICULO_NO_ENCONTRADO");
   const actual = articulo.data() as Data;
+  if (tipo === "producto") {
+    const stockActualProducto: unknown = actual.stock ?? 0;
+    const stockReservado: unknown = actual.stockReservado ?? 0;
+    if (typeof stockActualProducto !== "number" || typeof stockReservado !== "number") {
+      fail("failed-precondition", "STOCK_RESERVADO_INVALIDO");
+    }
+    const stockFisico = stockActualProducto as number;
+    const stockRetenido = stockReservado as number;
+    if (!Number.isSafeInteger(stockFisico) || stockFisico < 0
+      || !Number.isSafeInteger(stockRetenido) || stockRetenido < 0 || stockRetenido > stockFisico) {
+      fail("failed-precondition", "STOCK_RESERVADO_INVALIDO");
+    }
+    if (stockRetenido > 0 && data.activo === false) fail("failed-precondition", "PRODUCTO_CON_STOCK_RESERVADO");
+  }
   const espacioIdRaw = (data.espacioId as string | undefined) ?? actual.espacioId;
   if (!text(espacioIdRaw)) fail("failed-precondition", "ESPACIO_INVALIDO");
   const espacioId = espacioIdRaw as string;

@@ -11,6 +11,7 @@ export interface ProductoBodegaAdmin {
   espacioId: string
   unidad: string
   stock: number
+  stockReservado: number
   stockMinimo: number
   activo: boolean
 }
@@ -45,7 +46,7 @@ function suscribirTenant<T>(coleccion: string, map: (id: string, data: Record<st
   return () => { cancelado = true; unsubscribe() }
 }
 
-export const suscribirProductosBodegaAdmin = (callback: (items: ProductoBodegaAdmin[]) => void) => suscribirTenant("productos", (id, data) => ({ id, nombre: String(data.nombre ?? ""), categoriaId: String(data.categoriaId ?? ""), espacioId: String(data.espacioId ?? ""), unidad: String(data.unidadMedida ?? data.unidad ?? "und"), stock: Number(data.stock ?? 0), stockMinimo: Number(data.stockMinimo ?? 0), activo: data.activo === true }), items => callback(items.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))))
+export const suscribirProductosBodegaAdmin = (callback: (items: ProductoBodegaAdmin[]) => void) => suscribirTenant("productos", (id, data) => ({ id, nombre: String(data.nombre ?? ""), categoriaId: String(data.categoriaId ?? ""), espacioId: String(data.espacioId ?? ""), unidad: String(data.unidadMedida ?? data.unidad ?? "und"), stock: Number(data.stock ?? 0), stockReservado: Number(data.stockReservado ?? 0), stockMinimo: Number(data.stockMinimo ?? 0), activo: data.activo === true }), items => callback(items.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))))
 export const suscribirPresentacionesBodegaAdmin = (callback: (items: PresentacionBodegaAdmin[]) => void) => suscribirTenant("presentaciones_producto", (id, data) => ({ id, productoId: String(data.productoId ?? ""), nombre: String(data.nombre ?? ""), factorUnidadBase: Number(data.factorUnidadBase ?? 0), precioCOP: Number(data.precioCOP ?? 0), activo: data.activo === true }), callback)
 export const suscribirClientesBodegaAdmin = (callback: (items: Cliente[]) => void) => suscribirTenant("clientes", (id, data) => ({ id, ...data } as Cliente), items => callback(items.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))))
 export const suscribirVentasBodegaAdmin = (callback: (items: VentaBodegaAdmin[]) => void) => suscribirTenant("ventas", (id, data) => ({ id, cajeroId: String(data.cajeroId ?? ""), clienteNombreSnapshot: String(data.clienteNombreSnapshot ?? data.clienteNombre ?? ""), metodoPago: String(data.metodoPago ?? ""), estado: String(data.estado ?? ""), total: Number(data.totales?.total ?? 0), fecha: data.fecha ?? null, schemaVersion: String(data.schemaVersion ?? "") }), items => callback(items.filter(item => item.schemaVersion === "BODEGA_MVP1_V1")))

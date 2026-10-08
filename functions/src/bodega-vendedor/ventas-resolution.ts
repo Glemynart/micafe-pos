@@ -161,6 +161,7 @@ export async function aplicarConsumosInventarioBodegaEnTransaccion(
   db: any,
   resolucion: ResolucionVentaBodega,
   ventaIdInterno: string,
+  reservas?: ReadonlyMap<string, { consumir?: number; liberar?: number }>,
 ): Promise<MovimientoInventarioServer[]> {
   if (!text(ventaIdInterno) || ventaIdInterno.trim().length > 160) fail("invalid-argument", "VENTA_INTERNA_INVALIDA");
   return aplicarMovimientosInventarioEnTransaccion(tx, db, resolucion.consumos.map(consumo => ({
@@ -179,5 +180,7 @@ export async function aplicarConsumosInventarioBodegaEnTransaccion(
     referenciaColeccion: "ventas",
     referenciaId: ventaIdInterno.trim(),
     exigirStockSuficiente: true,
+    ...(reservas?.get(consumo.productoId)?.consumir ? { consumirStockReservado: reservas.get(consumo.productoId)!.consumir } : {}),
+    ...(reservas?.get(consumo.productoId)?.liberar ? { liberarStockReservado: reservas.get(consumo.productoId)!.liberar } : {}),
   })));
 }

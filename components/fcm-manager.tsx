@@ -10,6 +10,7 @@ import { Bell } from 'lucide-react'
 
 export function FcmManager() {
   const { usuario } = useAuthContext()
+  const puedeRecibirAgenda = usuario?.rol === 'admin' || usuario?.rol === 'vendedor'
   const [messagingInstance, setMessagingInstance] = useState<any>(null)
   const [needsPermission, setNeedsPermission] = useState(false)
 
@@ -32,12 +33,12 @@ export function FcmManager() {
 
   // Auto-fetch token when messagingInstance and usuario are ready, if permission is already granted
   useEffect(() => {
-    if (messagingInstance && usuario?.rol === 'admin' && typeof window !== 'undefined' && 'Notification' in window) {
+    if (messagingInstance && puedeRecibirAgenda && typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission === 'granted') {
         requestPermissionAndGetToken(false)
       }
     }
-  }, [messagingInstance, usuario])
+  }, [messagingInstance, usuario, puedeRecibirAgenda])
 
   const requestPermissionAndGetToken = async (fromButton: boolean = true) => {
     if (!messagingInstance || !usuario) return
@@ -100,7 +101,7 @@ export function FcmManager() {
     return () => unsubscribe()
   }, [messagingInstance])
 
-  if (needsPermission && usuario?.rol === 'admin') {
+  if (needsPermission && puedeRecibirAgenda) {
     return (
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-sm bg-[#051D41]/95 backdrop-blur-md border border-blue-500/30 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-4">
         <div className="bg-blue-500/20 p-2 rounded-full">
@@ -108,10 +109,12 @@ export function FcmManager() {
         </div>
         <div className="flex-1">
           <h4 className="font-bold text-sm text-white/90">
-            Alertas de Turnos
+            {usuario?.rol === 'vendedor' ? 'Recordatorios de pedidos' : 'Alertas operativas'}
           </h4>
           <p className="text-[11px] text-white/60 leading-tight mt-0.5">
-            Activa las notificaciones para enterarte cuando se abran o cierren turnos.
+            {usuario?.rol === 'vendedor'
+              ? 'Activa las notificaciones para recibir avisos de tu agenda de pedidos.'
+              : 'Activa las notificaciones para recibir avisos operativos de tu empresa.'}
           </p>
         </div>
         <button

@@ -1,6 +1,9 @@
 import { getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { onCall } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/scheduler";
+import { getMessaging } from "firebase-admin/messaging";
+import { reconciliarAgendaPedidosBodega } from "./agenda-worker";
 import { ejecutarCrearClienteVendedor } from "../../functions/src/bodega-vendedor/clientes";
 import {
   ejecutarActualizarPresentacionComercialV1,
@@ -17,6 +20,13 @@ import { ejecutarCrearArticuloInventarioV1 } from "../../functions/src/inventari
 import { ejecutarCrearCategoriaBodegaV1 } from "../../functions/src/bodega/categorias";
 import { leerConfiguracionEmpresa } from "../../functions/src/configuracion/reader";
 import { exigirTenantActivo } from "../../functions/src/tenant-configuration/authority";
+import {
+  ejecutarCancelarProgramacionPedidoBodegaV1,
+  ejecutarConsultarAgendaPedidosBodegaV1,
+  ejecutarConvertirProgramacionPedidoBodegaV1,
+  ejecutarCrearProgramacionPedidoBodegaV1,
+  ejecutarResolverProgramacionPedidoBodegaV1,
+} from "../../functions/src/bodega-vendedor/agenda-pedidos";
 
 if (!getApps().length) initializeApp();
 
@@ -84,3 +94,34 @@ export const cancelarSolicitudVentaBodegaV1 = onCall({ region: REGION }, async (
   const db = getFirestore();
   return ejecutarCancelarSolicitudVentaBodegaV1(db, await contextoOperativo(request, db), request.data);
 });
+
+export const crearProgramacionPedidoBodegaV1 = onCall({ region: REGION }, async request => {
+  const db = getFirestore();
+  return ejecutarCrearProgramacionPedidoBodegaV1(db, await contextoOperativo(request, db), request.data);
+});
+
+export const resolverProgramacionPedidoBodegaV1 = onCall({ region: REGION }, async request => {
+  const db = getFirestore();
+  return ejecutarResolverProgramacionPedidoBodegaV1(db, await contextoOperativo(request, db), request.data);
+});
+
+export const cancelarProgramacionPedidoBodegaV1 = onCall({ region: REGION }, async request => {
+  const db = getFirestore();
+  return ejecutarCancelarProgramacionPedidoBodegaV1(db, await contextoOperativo(request, db), request.data);
+});
+
+export const consultarAgendaPedidosBodegaV1 = onCall({ region: REGION }, async request => {
+  const db = getFirestore();
+  return ejecutarConsultarAgendaPedidosBodegaV1(db, await contextoOperativo(request, db), request.data);
+});
+
+export const convertirProgramacionPedidoBodegaV1 = onCall({ region: REGION }, async request => {
+  const db = getFirestore();
+  return ejecutarConvertirProgramacionPedidoBodegaV1(db, await contextoOperativo(request, db), request.data);
+});
+
+/** Despacho durable y expiración de holds; no requiere Secrets adicionales. */
+export const reconciliarAgendaPedidosBodegaV1 = onSchedule(
+  { region: REGION, schedule: "every 5 minutes", timeZone: "UTC" },
+  async () => { await reconciliarAgendaPedidosBodega(getFirestore(), getMessaging()); },
+);
