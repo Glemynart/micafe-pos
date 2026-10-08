@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Script } from "node:vm";
 import { leerContenidoPush } from "../fcm-notification-content";
+import { registrarFirebasePushServiceWorker } from "../firebase-push-registration";
 import { crearFirebasePushServiceWorker } from "../firebase-push-service-worker";
 
 const configStaging = {
@@ -14,6 +15,23 @@ const configStaging = {
 };
 
 describe("configuración del service worker FCM", () => {
+  it("mantiene el worker FCM en un scope separado del worker PWA raíz", async () => {
+    let registeredScript = "";
+    let registeredScope = "";
+    const registration = {} as ServiceWorkerRegistration;
+    const serviceWorker = {
+      async register(script: string, options?: RegistrationOptions) {
+        registeredScript = script;
+        registeredScope = options?.scope ?? "";
+        return registration;
+      },
+    } as unknown as Pick<ServiceWorkerContainer, "register">;
+
+    assert.equal(await registrarFirebasePushServiceWorker(serviceWorker), registration);
+    assert.equal(registeredScript, "/firebase-push-sw.js");
+    assert.equal(registeredScope, "/firebase-push/");
+  });
+
   it("inicializa el worker con el mismo proyecto Firebase que recibe la app", () => {
     const script = crearFirebasePushServiceWorker(configStaging);
 
