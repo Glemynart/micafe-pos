@@ -19,7 +19,8 @@ en Firestore staging.
 - El servicio ahora propaga errores de preparación y del listener, conservando
   la cancelación de listeners y evitando callbacks tardíos al desmontar.
 - Backoffice muestra estado de error recuperable y permite reintentar; si ya
-  recibió datos, conserva la última lectura y avisa que no pudo actualizar.
+  recibió datos, conserva la última lectura, avisa que no pudo actualizar y
+  ofrece re-suscribir el listener terminado mediante `Reintentar`.
 - El módulo POS muestra un aviso al fallar la carga del historial.
 - El ajuste diagnóstico de este mismo PR distingue consulta de turnos, lectura
   de membresías y listener; expone únicamente la etapa y un código Firebase

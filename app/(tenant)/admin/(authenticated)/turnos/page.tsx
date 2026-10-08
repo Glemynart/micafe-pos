@@ -212,13 +212,22 @@ export default function TurnosPage() {
       </div>
 
       {errorCarga && (
-        <div role="alert" className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-          <p>No se pudo actualizar el historial. Se muestran los últimos datos recibidos.</p>
-          {diagnosticoCarga && (
-            <p className="mt-1 text-xs text-amber-100/80">
-              Diagnóstico técnico: {diagnosticoCarga.etapa} · {diagnosticoCarga.codigo ?? "sin código"}
-            </p>
-          )}
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+          <div>
+            <p>No se pudo actualizar el historial. Se muestran los últimos datos recibidos.</p>
+            {diagnosticoCarga && (
+              <p className="mt-1 text-xs text-amber-100/80">
+                Diagnóstico técnico: {diagnosticoCarga.etapa} · {diagnosticoCarga.codigo ?? "sin código"}
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setIntentoCarga((intento) => intento + 1)}
+            className="shrink-0 rounded-lg border border-amber-200/40 px-3 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-100/10"
+          >
+            Reintentar
+          </button>
         </div>
       )}
 
