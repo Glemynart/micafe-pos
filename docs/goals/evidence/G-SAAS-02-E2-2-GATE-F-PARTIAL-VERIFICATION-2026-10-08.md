@@ -454,3 +454,30 @@ el sonido continúan sin demostrarse.
 - Agenda, reserva, stock, solicitudes, ventas, ledger, membresías y perfiles:
   escrituras manuales/de Codex `0`; fixture adicional, Bootstrap, Activation,
   tenant real y cleanup destructivo `0`.
+
+### Seguimiento — token de notificaciones del administrador Edge, 2026-10-08 17:16 UTC
+
+El usuario confirmó que inició sesión en Edge como administrador del tenant y
+habilitó las notificaciones del navegador. Una consulta de solo lectura a
+`micafe-pos-staging`, limitada a membresías activas del fixture y al conteo de
+tokens de sus perfiles, encontró un token FCM en el perfil admin y uno en el
+del vendedor F; los otros tres perfiles activos no tenían token. No se copió
+ni se mostró el valor de ningún token. Esto confirma registro de destinatario,
+no entrega, recepción en segundo plano ni sonido.
+
+La consulta también confirmó que el job `reconciliarAgendaPedidosBodegaV1`
+está `ENABLED` cada cinco minutos. Para `2026-10-09T13:00:00Z` (08:00,
+Bogotá) el outbox tiene tres eventos `fecha_programada` pendientes: uno
+corresponde a la agenda activa `RESERVADA` y dos a agendas `CANCELADA`. El
+worker debe procesar el primero y omitir los otros dos según el estado actual
+de sus agendas. No se adelantó el evento ni se invocó manualmente el Scheduler;
+la verificación de despacho y recepción queda pendiente de su ejecución normal.
+
+#### Mutation audit de la sesión admin
+
+- Firestore REST y Cloud Scheduler en `micafe-pos-staging`: lecturas únicamente.
+- Tokens FCM: solo se contó su presencia; valores no expuestos.
+- Notificación enviada en este seguimiento: `0`; Scheduler invocado
+  manualmente: `0`.
+- Agenda, reservas, stock, ventas, ledger, Auth, Functions, Rules, IAM,
+  Secrets, tráfico, deploy y producción: escrituras/cambios `0`.
