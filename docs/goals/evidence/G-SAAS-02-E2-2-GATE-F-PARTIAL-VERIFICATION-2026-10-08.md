@@ -192,3 +192,58 @@ varios escenarios obligatorios de la matriz. Por ello:
   negocio y cambios de permisos: 0.
 - Agenda/reserva/venta/ledger: 0 mutaciones en este checkpoint.
 - Fixture adicional, Bootstrap, Activation, tenant real y producción: 0.
+
+### Seguimiento autorizado — push directo en Preview, 2026-10-08 16:05 UTC
+
+Después de la evidencia anterior, el usuario inició sesión como el vendedor
+sintético `GateF Seller E2_2` en el deployment Preview
+`https://cafeatrato-2wbemooce-glemynarts-projects.vercel.app` y aceptó el
+permiso de notificaciones del navegador. Se generó el par Web Push de
+`micafe-pos-staging` en Firebase Console; solo la clave pública VAPID se
+configuró en la variable `NEXT_PUBLIC_FIREBASE_VAPID_KEY` del entorno **Preview**
+de Vercel. No se incluye la clave en este documento. Se redeplegó el Preview
+existente, sin cambiar su commit de aplicación:
+
+- Deployment nuevo: `dpl_GRw1x6JWDwcDoi3eu9tiFU3bgpvR` (`READY`).
+- Deployment fuente: `dpl_8HetjaWtqjHwYRKkiTwpiQKoyTw3`.
+- Commit fuente: `024118fac32d11a33449fbc19bc8dd1b8036be41`.
+- Host probado: `cafeatrato-2wbemooce-glemynarts-projects.vercel.app`.
+
+El flujo cliente registró un token FCM para la membresía activa del vendedor
+sintético en `micafe-pos-staging`; una lectura posterior encontró exactamente
+un token asociado a ese perfil. Se envió **una** notificación FCM de smoke,
+con texto explícitamente sintético, al token de ese vendedor. FCM respondió
+`projects/micafe-pos-staging/messages/b1f1a5d7-3f4a-4d5c-be25-caf74b5a04f1`.
+La pestaña autenticada mostró el toast `Prueba sintética de Gate F` con el
+mensaje `Notificación de staging. No corresponde a un pedido real.`. No se
+registran en Git la clave VAPID privada ni el token del dispositivo.
+
+Esto acredita **solo la entrega directa FCM → navegador autenticado en Preview**.
+No acredita el recorrido Scheduler/outbox → FCM: el aviso vencido anterior ya
+había terminado como `SIN_DESTINATARIO` antes de registrar el token y no fue
+reprocesado; el siguiente aviso programado aún requiere observarse en su
+ejecución automática. No se invocó manualmente el Scheduler ni se alteró la
+agenda/reserva para adelantar la prueba.
+
+#### Actualización puntual de matriz
+
+| Caso | Estado posterior a este seguimiento |
+| --- | --- |
+| Recordatorio worker y entrega push | **Push directo al navegador: PASS**. Scheduler/outbox con destinatario y entrega automática: pendiente; no se reabrió el evento terminal anterior. |
+
+Los demás subcasos de la matriz conservan sus estados previos. Gate F continúa
+`EN CURSO`, no `PASS`.
+
+#### Mutation audit del seguimiento
+
+- Firebase Console: se generó la configuración Web Push de
+  `micafe-pos-staging` (sin cambios a Functions, Rules, IAM o Secrets).
+- Vercel: una variable pública VAPID agregada al entorno Preview y un redeploy
+  Preview del mismo commit; Production no fue modificado ni redeplegado.
+- Firestore: una actualización de registro FCM realizada por el cliente al
+  conceder el permiso; no hubo escrituras directas de Codex. Se verificó un
+  token activo para el vendedor sintético.
+- FCM: exactamente un mensaje sintético directo al dispositivo de prueba.
+- Agenda, reservas, stock, venta, turnos, ledger, membresías y Auth: sin cambios.
+- Tráfico productivo, proyecto de producción, fixture adicional, Bootstrap,
+  Activation y cleanup destructivo: 0.

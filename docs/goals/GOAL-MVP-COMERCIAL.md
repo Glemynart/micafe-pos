@@ -260,6 +260,27 @@ aislamiento completo ni la matriz funcional de Backoffice. Gate F sigue `EN
 CURSO` y la entrega push permanece pendiente; no se modificó el tenant ni se
 concedieron permisos del navegador.
 
+### Checkpoint — 2026-10-08 — PR #488 / push directo de Gate F
+
+PR #488 (`docs(e2.2): record authorized Backoffice verification`) quedó
+`MERGED` en `main @ d81e106298eec8388d5a60ebd0c1ca0cd5c00160`. Sus checks de CI,
+Vercel y Preview Comments terminaron `PASS`; la CI post-merge de `main`, run
+`37800704540`, terminó `success` sobre el merge commit
+`d81e106298eec8388d5a60ebd0c1ca0cd5c00160`.
+
+Después del merge, el permiso de notificaciones fue concedido por el usuario en
+el Preview nuevo del vendedor sintético. El token FCM quedó registrado para esa
+identidad y una notificación sintética directa llegó al navegador autenticado.
+Esto cierra únicamente el smoke de entrega directa FCM; no demuestra el
+recorrido automático del Scheduler/outbox ni el resto de la matriz. La
+configuración VAPID y el redeploy fueron exclusivos de `micafe-pos-staging` y
+Vercel Preview; Production no se modificó. Evidencia completa en
+[`G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md`](evidence/G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md).
+
+Gate F permanece `EN CURSO`, no `PASS`; E2.2 sigue `EN EJECUCIÓN`. Gate G debe
+repetirse y Gate H emitir una matriz actualizada después de Gate F; gates I/J/K/L
+siguen pendientes. No se inicia aún el tenant real ni el Trial.
+
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
 PR #477 quedó `MERGED` en `main` el `2026-10-07 22:23:06` hora de Bogotá
