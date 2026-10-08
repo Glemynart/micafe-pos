@@ -260,6 +260,52 @@ aislamiento completo ni la matriz funcional de Backoffice. Gate F sigue `EN
 CURSO` y la entrega push permanece pendiente; no se modificó el tenant ni se
 concedieron permisos del navegador.
 
+### Checkpoint — 2026-10-08 — PR #488 / push directo de Gate F
+
+PR #488 (`docs(e2.2): record authorized Backoffice verification`) quedó
+`MERGED` en `main @ d81e106298eec8388d5a60ebd0c1ca0cd5c00160`. Sus checks de CI,
+Vercel y Preview Comments terminaron `PASS`; la CI post-merge de `main`, run
+`37800704540`, terminó `success` sobre el merge commit
+`d81e106298eec8388d5a60ebd0c1ca0cd5c00160`.
+
+Después del merge, el permiso de notificaciones fue concedido por el usuario en
+el Preview nuevo del vendedor sintético. El token FCM quedó registrado para esa
+identidad y una notificación sintética directa produjo un toast con el POS
+visible en primer plano. Esto cierra únicamente ese smoke foreground; no
+demuestra el aviso del sistema en segundo plano/sonido, el recorrido automático
+del Scheduler/outbox ni el resto de la matriz. La
+configuración VAPID y el redeploy fueron exclusivos de `micafe-pos-staging` y
+Vercel Preview; Production no se modificó. Evidencia completa en
+[`G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md`](evidence/G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md).
+
+Gate F permanece `EN CURSO`, no `PASS`; E2.2 sigue `EN EJECUCIÓN`. Gate G debe
+repetirse y Gate H emitir una matriz actualizada después de Gate F; gates I/J/K/L
+siguen pendientes. No se inicia aún el tenant real ni el Trial.
+
+### Checkpoint — 2026-10-08 — PR #490 / worker FCM integrado
+
+PR #490 se fusionó mediante merge protegido normal en
+`main @ 3cac817d436e3b55cde188e9c96f347f3547e497`; los checks previos al merge
+terminaron `PASS`. La CI post-merge de `main`, run `37833645441`, terminó
+`success` sobre ese merge SHA a las `2026-10-08T20:01:02Z`.
+
+El cambio integra el worker FCM por entorno y la espera de activación del
+Service Worker. Tras expirar la sesión por inactividad, el admin sintético se
+autenticó de nuevo en Edge, con la autorización previa del usuario, en el
+Preview vigente `cafeatrato-pugkg9gnj-glemynarts-projects.vercel.app`; esta
+comprobación demuestra acceso autenticado al POS administrativo. Una lectura
+posterior de Edge encontró permiso de notificaciones `granted` y el Service
+Worker FCM `firebase-push-sw.js` activo con scope aislado `/firebase-push/` en
+ese origen. La consulta Firestore del fixture halló referencias FCM en dos
+perfiles activos, pero no hay metadatos para atribuirlas al origen actual; esto
+no demuestra entrega al dispositivo ni despacho automático Scheduler/outbox.
+La lectura de deployments de Vercel no encontró un deployment de producción
+para el merge commit; el deployment de producción más reciente continúa
+asociado a un SHA anterior de `main`.
+
+Gate F permanece `EN CURSO`, no `PASS`; E2.2 sigue `EN EJECUCIÓN`. No se
+realizaron mutaciones de negocio ni se adelantó ningún gate posterior.
+
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
 PR #477 quedó `MERGED` en `main` el `2026-10-07 22:23:06` hora de Bogotá
