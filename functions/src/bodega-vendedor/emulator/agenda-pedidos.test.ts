@@ -252,3 +252,31 @@ test("Emulator: desactivar cliente pendiente impide aprobar y reservar stock", a
   assert.equal(schedule?.estado, "PENDIENTE_REVISION");
   assert.equal(holds.size, 0);
 });
+
+test("Emulator: la agenda pagina más de 100 registros sin perder ni repetir entradas", async () => {
+  const empresaId = `agenda-pagination-${runId}`;
+  const fixture = await seedTenant(empresaId);
+  const collection = db.collection("empresas").doc(empresaId).collection("agenda_pedidos_bodega");
+  const fechaLocal = addLocalDays(localDateToday(), 1);
+  const batch = db.batch();
+  for (let index = 0; index < 101; index += 1) {
+    const programacionId = `agenda-page-${String(index).padStart(3, "0")}`;
+    batch.set(collection.doc(programacionId), {
+      programacionId, empresaId, solicitanteUid: fixture.seller.actorUid,
+      clienteId: fixture.clientId, fechaLocal, franja: null, zonaHoraria: "America/Bogota",
+      lineas: [], estado: "PENDIENTE_REVISION", revision: 1,
+      stockReservadoUnidadBase: 0, creadaEn: new Date(), actualizadaEn: new Date(),
+    });
+  }
+  await batch.commit();
+
+  const first = await ejecutarConsultarAgendaPedidosBodegaV1(db, fixture.admin) as { programaciones: Data[]; nextCursor: string | null };
+  assert.equal(first.programaciones.length, 100);
+  assert.ok(first.nextCursor);
+  const second = await ejecutarConsultarAgendaPedidosBodegaV1(db, fixture.admin, { cursor: first.nextCursor }) as { programaciones: Data[]; nextCursor: string | null };
+
+  assert.equal(second.programaciones.length, 1);
+  assert.equal(second.nextCursor, null);
+  const ids = [...first.programaciones, ...second.programaciones].map(item => item.programacionId);
+  assert.equal(new Set(ids).size, 101);
+});
