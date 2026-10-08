@@ -170,12 +170,20 @@ export async function aplicarMovimientosInventarioEnTransaccion(
     if (data.espacioId && data.espacioId !== params.espacioId) fallo("ARTICULO_NO_ENCONTRADO");
 
     const saldoRaw: unknown = data.stock === undefined ? 0 : data.stock;
+    const stockReservadoRaw: unknown = data.stockReservado === undefined ? 0 : data.stockReservado;
     const secuenciaRaw: unknown = data.secuenciaLedger === undefined ? 0 : data.secuenciaLedger;
     const costoRaw: unknown = data.costo === undefined ? 0 : data.costo;
     if (!numeroFinito(saldoRaw)) fallo("ARTICULO_INVENTARIO_INVALIDO");
+    if (!Number.isSafeInteger(stockReservadoRaw) || (stockReservadoRaw as number) < 0 || (stockReservadoRaw as number) > saldoRaw) {
+      fallo("STOCK_RESERVADO_INVALIDO");
+    }
     if (!secuenciaValida(secuenciaRaw)) fallo("ARTICULO_INVENTARIO_INVALIDO");
     const saldoActual = saldoRaw as number;
+    const stockReservado = stockReservadoRaw as number;
     const secuenciaActual = secuenciaRaw as number;
+    if (params.articuloTipo === "producto" && params.cantidad < 0 && saldoActual + params.cantidad < stockReservado) {
+      fallo("STOCK_DISPONIBLE_INSUFICIENTE");
+    }
     if (params.exigirStockSuficiente) {
       if (!Number.isSafeInteger(saldoActual) || saldoActual < 0 || !Number.isSafeInteger(params.cantidad)) {
         fallo("STOCK_BODEGA_INVALIDO");
