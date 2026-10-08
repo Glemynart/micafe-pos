@@ -5,6 +5,7 @@ import { useAuthContext } from '@/contexts/auth-context'
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging'
 import { app, db } from '@/lib/firebase'
 import { leerContenidoPush } from '@/lib/fcm-notification-content'
+import { registrarFirebasePushServiceWorker } from '@/lib/firebase-push-registration'
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
 import { toast } from 'sonner'
 import { Bell } from 'lucide-react'
@@ -55,8 +56,8 @@ export function FcmManager() {
       const permission = await Notification.requestPermission()
       if (permission === 'granted') {
         setNeedsPermission(false)
-        // Registrar el SW manualmente con un nombre nuevo para romper cualquier caché
-        const registration = await navigator.serviceWorker.register('/firebase-push-sw.js')
+        // Mantener FCM separado del service worker PWA que controla el scope raíz.
+        const registration = await registrarFirebasePushServiceWorker(navigator.serviceWorker)
         await navigator.serviceWorker.ready
 
         const currentToken = await getToken(messagingInstance, {
