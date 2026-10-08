@@ -160,14 +160,26 @@ superficies nuevas: cinco invokers callable y el worker limitado a su cuenta
 OIDC; cero grants IAM de proyecto. La dependencia service-agent de Scheduler
 creada durante el preflight previo permanece registrada y no se revirtió.
 
+Reconciliación de Gate C para el cambio compartido de PR #477:
+[`G-SAAS-02-E2-2-GATE-C-OPERATIONS-RESERVATION-PREFLIGHT-2026-10-08.md`](evidence/G-SAAS-02-E2-2-GATE-C-OPERATIONS-RESERVATION-PREFLIGHT-2026-10-08.md)
+registra `PREFLIGHT = PASS` para actualizar únicamente
+`consultarCatalogoPresentacionesVendedorV1` y
+`actualizarArticuloInventarioV1` dentro de `saas-bodega-operations`. La revisión
+remota anterior del catálogo aún ignoraba `stockReservado`; las pruebas y el
+delta exacto de dos actualizaciones quedaron documentados. Gate D de ese
+suplemento sigue `PENDING`: el PASS anterior de Gate D solo cubre
+`saas-bodega`, no estas dos Functions existentes.
+
 Gate E conserva `PASS` y el fixture sintético retenido
 `E2_2-BODEGA-STAGING-FIXTURE`; Gate F permanece `EN CURSO`, no `PASS`. Falta la
 matriz staging de aislamiento tenant/roles, revocación/restauración con replay,
 retry autenticado ante pérdida de respuesta y agenda ADR-064 (crear/aceptar,
 liberar/expirar/consumir reservas, recordatorios y conversión idempotente), así
 como la verificación funcional integral de venta, turnos, inventario, ledger,
-auditoría, reportes, PWA y Backoffice. Gate G debe repetirse y Gate H emitirá
-una matriz nueva. Gate I y J/K/L permanecen pendientes; no se ha
+auditoría, reportes, PWA y Backoffice. Antes de reanudar esas pruebas se debe
+completar el Gate D suplementario de las dos Functions de `saas-bodega-operations`
+y comprobar que el POS refleja el stock reservado. Gate G debe repetirse y Gate
+H emitirá una matriz nueva. Gate I y J/K/L permanecen pendientes; no se ha
 creado/configurado el tenant real ni se autoriza producción.
 
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
