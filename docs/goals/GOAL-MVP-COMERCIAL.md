@@ -53,7 +53,7 @@
 | Epic | Resultado | Estado |
 |---|---|---|
 | E2.1 Tenant de referencia | Tenant, contrato, Trial, membresía, administrador, credencial, Espacio y configuración reproducibles. | EN EJECUCIÓN |
-| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. Incluye solicitud de venta del vendedor y aprobación administrativa previa a la venta canónica según ADR-SAAS-062, y la agenda de pedidos/entregas con recordatorios aprobada como requisito previo a la primera entrega comercial; su arquitectura sigue pendiente de ADR. | EN EJECUCIÓN |
+| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. Incluye solicitud de venta del vendedor y aprobación administrativa previa a la venta canónica según ADR-SAAS-062, y la agenda de pedidos/entregas con recordatorios aprobada como requisito previo a la primera entrega comercial, con arquitectura aceptada en ADR-SAAS-064. | EN EJECUCIÓN |
 
 ### M3 — Certificación funcional del tenant — PENDIENTE
 
@@ -116,6 +116,17 @@
 
 ## Estado vivo
 
+### Decisión aceptada — 2026-10-07 — ADR-SAAS-064
+
+El responsable del proyecto autorizó continuar autónomamente con las decisiones
+necesarias para E2.2 y confirmó la agenda con recordatorios como requisito previo
+a la primera entrega. ADR-SAAS-064 acepta una reserva lógica aprobada por
+administración: reduce disponibilidad sin rebajar stock físico ni generar venta
+o ledger hasta la confirmación canónica. Su implementación queda para una PR
+separada; esta aceptación no autoriza deploy, tráfico, staging, fixtures,
+Bootstrap, Activation, tenant real ni producción. Gate F continúa como siguiente
+gate y Gate G/H se revalidarán para cualquier escenario afectado.
+
 ### Checkpoint vigente — 2026-10-07 — PR #474 / Gate F en curso
 
 PR #467 quedó integrado en `main` mediante
@@ -162,12 +173,13 @@ terminaron `PASS`; la CI post-merge de `main`, run `37684131027`, terminó
 `success`, incluida la E2E de Bodega y la certificación integral E4.1. Al
 verificarlo, `origin/main` apuntaba al merge commit.
 
-El 2026-10-07 la persona usuaria añadió como requisito previo a la primera
-entrega una agenda de pedidos/entregas con recordatorios. La regla de
-inventario/precio, persistencia, vencimiento y garantía del canal de aviso no
-está decidida ni implementada; requiere un ADR propuesto antes de modificar
-código. Esta petición no modifica el Gate F ni autoriza reserva de inventario,
-venta, entrega o mutación de staging.
+El 2026-10-07 la persona usuaria confirmó como requisito previo a la primera
+entrega una agenda de pedidos/entregas con recordatorios y autorizó la
+continuación autónoma de E2.2. ADR-SAAS-064 aceptó la reserva lógica: la
+administración puede retener stock disponible sin reducir existencia física;
+precio, venta y ledger se confirman mediante el flujo canónico. La decisión no
+autoriza por sí sola mutaciones de staging, venta, entrega o producción y no
+cambia Gate F.
 
 La lectura actual de `firebase functions:list --project micafe-pos-staging
 --json` confirmó las diez callables de `saas-bodega` en estado `ACTIVE`,
