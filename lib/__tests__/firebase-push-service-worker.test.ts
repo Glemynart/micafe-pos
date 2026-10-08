@@ -32,6 +32,40 @@ describe("configuración del service worker FCM", () => {
     assert.equal(registeredScope, "/firebase-push/");
   });
 
+  it("espera a que el worker registrado esté activo antes de devolver el registro", async () => {
+    const stateListeners: EventListener[] = [];
+    let state: ServiceWorkerState = "installing";
+    const installingWorker = {
+      get state() { return state; },
+      addEventListener(_type: string, listener: EventListener) {
+        stateListeners.push(listener);
+      },
+      removeEventListener() {},
+    } as unknown as ServiceWorker;
+    const registration = {
+      active: null,
+      installing: installingWorker,
+      waiting: null,
+      scope: "https://bodega.example/firebase-push/",
+    } as unknown as ServiceWorkerRegistration;
+    const serviceWorker = {
+      async register() { return registration; },
+    } as unknown as Pick<ServiceWorkerContainer, "register">;
+
+    let settled = false;
+    const pendingRegistration = registrarFirebasePushServiceWorker(serviceWorker);
+    void pendingRegistration.then(() => { settled = true; });
+    await Promise.resolve();
+    assert.equal(settled, false);
+
+    state = "activated";
+    (registration as { active: ServiceWorker | null }).active = installingWorker;
+    stateListeners.forEach((listener) => listener(new Event("statechange")));
+
+    assert.equal(await pendingRegistration, registration);
+    assert.equal(settled, true);
+  });
+
   it("inicializa el worker con el mismo proyecto Firebase que recibe la app", () => {
     const script = crearFirebasePushServiceWorker(configStaging);
 
