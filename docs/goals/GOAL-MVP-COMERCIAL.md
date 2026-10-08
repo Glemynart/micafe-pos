@@ -197,6 +197,27 @@ proyección de reservas ya se refleja en POS; continúa la matriz de Gate F. Gat
 debe repetirse y Gate H emitirá una matriz nueva. Gate I y J/K/L permanecen
 pendientes; no se ha creado/configurado el tenant real ni se autoriza producción.
 
+### Checkpoint — 2026-10-08 — PR #485 / evidencia parcial Gate F
+
+PR #485 quedó `MERGED` en `main` mediante
+`4d9d17fbc40c7ceef4789d83bfe5ad8ff4aba333`. Sus checks previos al merge
+(`Tipos y pruebas`, `Vercel` y `Vercel Preview Comments`) terminaron `PASS`.
+La CI post-merge de `main`, run `37779555191`, terminó `success` a las
+`2026-10-08T13:07:33Z`. Pasaron las certificaciones E2E de Bodega para
+solicitud/venta y agenda/reservas, además de E4.1 y la auditoría E4.2 en
+Emulator. Esta CI no sustituye la matriz funcional de staging de Gate F.
+
+La evidencia parcial vigente está en
+[`G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md`](evidence/G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md).
+En staging, el worker automático procesó un aviso de la agenda sintética activa
+como `SIN_DESTINATARIO` (cero tokens FCM activos) y omitió tres avisos de agendas
+canceladas; el job devolvió HTTP `200`. La agenda retenida, la reserva de dos
+unidades y el stock no cambiaron. Esto prueba únicamente esas ramas del
+Scheduler; no acredita entrega push ni cierra el ciclo de agenda. Gate F queda
+`EN CURSO`, no `PASS`; no hubo cambios de aplicación, mutaciones manuales de
+Firestore, producción ni consumo/liberación de la reserva activa en este
+checkpoint.
+
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
 PR #477 quedó `MERGED` en `main` el `2026-10-07 22:23:06` hora de Bogotá
