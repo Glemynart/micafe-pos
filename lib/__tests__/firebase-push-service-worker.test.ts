@@ -35,6 +35,8 @@ describe("configuración del service worker FCM", () => {
     const script = crearFirebasePushServiceWorker(configStaging);
     const notifications: Array<{ title: string; options: Record<string, unknown> }> = [];
     const handlers: Record<string, (value: any) => unknown> = {};
+    let finishNotification!: () => void;
+    const notificationDelivery = new Promise<void>((resolve) => { finishNotification = resolve; });
     const firebase = {
       apps: [] as unknown[],
       initializeApp(config: typeof configStaging) { this.apps.push({ config }); },
@@ -46,7 +48,7 @@ describe("configuración del service worker FCM", () => {
       importScripts() {},
       firebase,
       self: {
-        registration: { showNotification(title: string, options: Record<string, unknown>) { notifications.push({ title, options }); } },
+        registration: { showNotification(title: string, options: Record<string, unknown>) { notifications.push({ title, options }); return notificationDelivery; } },
         addEventListener(name: string, handler: (value: any) => unknown) { handlers[name] = handler; },
       },
       clients: {},
@@ -60,7 +62,10 @@ describe("configuración del service worker FCM", () => {
     });
     assert.equal(notifications.length, 0);
 
-    await handlers.background({ data: { title: "Recordatorio", body: "Atender pedido", url: "/admin/agenda" } });
+    const delivery = handlers.background({ data: { title: "Recordatorio", body: "Atender pedido", url: "/admin/agenda" } });
+    assert.equal(delivery, notificationDelivery);
+    finishNotification();
+    await delivery;
     assert.equal(notifications.length, 1);
     assert.equal(notifications[0]?.title, "Recordatorio");
     assert.equal(notifications[0]?.options.body, "Atender pedido");
