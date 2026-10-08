@@ -264,6 +264,9 @@ jobs:
       - name: Pruebas unitarias de preflight E2E
         run: npm run test:e2e:preflight
 
+      - name: Configuración del service worker de Firebase Messaging
+        run: npm run test:firebase-push-service-worker
+
       - name: Pruebas de tickets
         run: npm run test:tickets
 

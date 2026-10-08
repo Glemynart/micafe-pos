@@ -100,8 +100,15 @@ test("ADR-064 worker: despacha recordatorio a admin y vendedor solo con membres�
   const processed = await despacharRecordatoriosAgendaBodega(db, messaging as any, now);
   assert.equal(processed, 1);
   assert.equal(db.docs.get(`eventos_operativos/${eventoId}`)?.estadoDespacho, "ENVIADO");
-  assert.deepEqual(calls.map(call => [call.tokens, call.data.url]).sort(), [
-    [["token-admin"], "/admin/agenda"], [["token-seller"], "/pos"],
+  assert.deepEqual(calls.map(call => [call.tokens, call.notification, call.data]).sort(), [
+    [["token-admin"], undefined, {
+      title: "Pedido para hoy", body: "Llegó la fecha programada para atender un pedido.",
+      url: "/admin/agenda", eventId: eventoId,
+    }],
+    [["token-seller"], undefined, {
+      title: "Pedido para hoy", body: "Llegó la fecha programada para atender un pedido.",
+      url: "/pos", eventId: eventoId,
+    }],
   ].sort());
 });
 
