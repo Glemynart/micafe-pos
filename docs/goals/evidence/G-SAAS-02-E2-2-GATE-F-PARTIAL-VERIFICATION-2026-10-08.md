@@ -266,10 +266,10 @@ La vista `Mis solicitudes` mostró una solicitud `CANCELADA` y una `EJECUTADA`
 para el cliente sintético; la ejecutada comunica que venta, inventario y pago
 fueron procesados por el servidor. No había una solicitud pendiente en esa
 vista. `Mis ventas` mostró cinco entradas del cliente sintético por $5.000 cada
-una. Este conteo visual no demuestra duplicidad, pero difiere de la instantánea
-remota previa y requiere reconciliarse contra los documentos canónicos antes
-de certificar exactamente cuántas ventas resultaron de las pruebas. No se
-abrieron controles de venta, pago o inventario.
+una. La lectura posterior de documentos canónicos concilió esas cinco entradas
+con cinco ventas atribuibles al vendedor; la instantánea remota previa
+contabilizaba solicitudes, no ventas, por lo que no representa un conteo
+contradictorio. No se abrieron controles de venta, pago o inventario.
 
 ### Hallazgo técnico pendiente — configuración del service worker FCM
 
@@ -300,3 +300,32 @@ se envió otro push. La recepción en segundo plano queda pendiente.
   seguimiento.
 - El permiso de notificaciones y un smoke push sintético corresponden al
   seguimiento anterior; no se repitieron.
+
+### Reconciliación read-only — ventas del fixture y ledger, 2026-10-08 16:35 UTC
+
+Se consultaron en modo de solo lectura Firestore REST, autenticando con la
+sesión `gcloud` local y fijando explícitamente `micafe-pos-staging`; la salida
+se limitó a agregados, sin mostrar PII ni identificadores de documentos.
+
+- Tenant: 11 ventas `COMPLETO`, total agregado $55.000 COP, 0 `commandId`
+  duplicados y 11 movimientos de inventario tipo venta referenciando ventas;
+  no se detectó venta sin movimiento de inventario.
+- Vendedor sintético F (UID con sufijo `230fe`): 5 ventas `COMPLETO`, total
+  $25.000 COP, coincidentes con las cinco filas visibles en `Mis ventas`.
+- Solicitudes tenant-wide: 4 (`3 EJECUTADA`, `1 CANCELADA`). Del vendedor F:
+  2 (`1 EJECUTADA`, `1 CANCELADA`); la solicitud ejecutada referencia una de
+  sus cinco ventas.
+- Las otras cuatro ventas del vendedor F no están referenciadas por esas dos
+  solicitudes. Son canónicas y tienen movimiento de inventario; la consulta no
+  atribuye su origen funcional exacto. Se conservan intactas y no se concluye
+  que sean duplicadas.
+
+Esta lectura concilia conteos de ventas y ledger y descarta duplicidad por
+`commandId` en la colección consultada; no sustituye la auditoría completa de
+efectos financieros, turnos, auditoría ni la matriz de aislamiento.
+
+#### Mutation audit de la reconciliación
+
+- Firestore staging: lecturas autenticadas de agregados únicamente; escrituras
+  0. Proyecto de producción, Auth, agenda, reserva, stock, ventas, ledger,
+  turnos, Rules, IAM, Secrets, tráfico y despliegues: cambios 0.
