@@ -270,9 +270,10 @@ Vercel y Preview Comments terminaron `PASS`; la CI post-merge de `main`, run
 
 Después del merge, el permiso de notificaciones fue concedido por el usuario en
 el Preview nuevo del vendedor sintético. El token FCM quedó registrado para esa
-identidad y una notificación sintética directa llegó al navegador autenticado.
-Esto cierra únicamente el smoke de entrega directa FCM; no demuestra el
-recorrido automático del Scheduler/outbox ni el resto de la matriz. La
+identidad y una notificación sintética directa produjo un toast con el POS
+visible en primer plano. Esto cierra únicamente ese smoke foreground; no
+demuestra el aviso del sistema en segundo plano/sonido, el recorrido automático
+del Scheduler/outbox ni el resto de la matriz. La
 configuración VAPID y el redeploy fueron exclusivos de `micafe-pos-staging` y
 Vercel Preview; Production no se modificó. Evidencia completa en
 [`G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md`](evidence/G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md).

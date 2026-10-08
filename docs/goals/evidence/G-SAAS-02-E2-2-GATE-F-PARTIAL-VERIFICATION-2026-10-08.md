@@ -214,13 +214,17 @@ sintético en `micafe-pos-staging`; una lectura posterior encontró exactamente
 un token asociado a ese perfil. Se envió **una** notificación FCM de smoke,
 con texto explícitamente sintético, al token de ese vendedor. FCM respondió
 `projects/micafe-pos-staging/messages/b1f1a5d7-3f4a-4d5c-be25-caf74b5a04f1`.
-La pestaña autenticada mostró el toast `Prueba sintética de Gate F` con el
-mensaje `Notificación de staging. No corresponde a un pedido real.`. No se
-registran en Git la clave VAPID privada ni el token del dispositivo.
+Con el POS visible en primer plano, la pestaña autenticada mostró el toast
+`Prueba sintética de Gate F` con el mensaje
+`Notificación de staging. No corresponde a un pedido real.`. Esto no prueba la
+presentación del aviso del sistema con la app en segundo plano, en móvil, ni la
+emisión de sonido. No se registran en Git la clave VAPID privada ni el token
+del dispositivo.
 
-Esto acredita **solo la entrega directa FCM → navegador autenticado en Preview**.
-No acredita el recorrido Scheduler/outbox → FCM: el aviso vencido anterior ya
-había terminado como `SIN_DESTINATARIO` antes de registrar el token y no fue
+Esto acredita **solo la recepción directa FCM → handler foreground/toast** en
+el navegador autenticado en Preview. No acredita la presentación del aviso en
+segundo plano ni el recorrido Scheduler/outbox → FCM: el aviso vencido anterior
+ya había terminado como `SIN_DESTINATARIO` antes de registrar el token y no fue
 reprocesado; el siguiente aviso programado aún requiere observarse en su
 ejecución automática. No se invocó manualmente el Scheduler ni se alteró la
 agenda/reserva para adelantar la prueba.
@@ -229,7 +233,7 @@ agenda/reserva para adelantar la prueba.
 
 | Caso | Estado posterior a este seguimiento |
 | --- | --- |
-| Recordatorio worker y entrega push | **Push directo al navegador: PASS**. Scheduler/outbox con destinatario y entrega automática: pendiente; no se reabrió el evento terminal anterior. |
+| Recordatorio worker y entrega push | **Push FCM directo con app visible/toast: PASS**. Aviso del sistema en segundo plano/sonido y Scheduler/outbox con entrega automática: pendientes; no se reabrió el evento terminal anterior. |
 
 Los demás subcasos de la matriz conservan sus estados previos. Gate F continúa
 `EN CURSO`, no `PASS`.
