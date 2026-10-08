@@ -10,6 +10,10 @@
   POS/worker los presenta en primer plano/segundo plano respectivamente. La
   guía oficial describe el display automático para payloads `notification`:
   [Receive messages in Web apps](https://firebase.google.com/docs/cloud-messaging/web/receive-messages).
+- **Hallazgo de scope:** el PWA registra `/sw.js` en `/` y FCM registraba
+  `/firebase-push-sw.js` también en `/`; dos scripts competían por una única
+  inscripción. FCM ahora usa `/firebase-push/`, permitida por el header
+  `Service-Worker-Allowed: /`.
 - **Recorrido esperado:** admin/vendedor de staging habilita notificaciones;
   el service worker usa la misma configuración Firebase de la app y no recurre
   a valores productivos si falta configuración.
@@ -24,10 +28,12 @@
 | GREEN | `e39df7a` | `npm run test:firebase-push-service-worker`; `npm --prefix functions-bodega test` | PASS, 4/4 y 9/9: un solo display de background, payload data-only para agenda y lectura foreground. |
 | RED | `64fc77b` | `npm run test:firebase-push-service-worker` | Falló porque el callback background no devolvía la promesa de `showNotification`; el worker podía terminar antes de completar la notificación. |
 | GREEN | `b6b9bcf` | `npm run test:firebase-push-service-worker` | PASS, 4/4: el callback espera la promesa de `showNotification` y mantiene la entrega dentro del ciclo de vida del push. |
+| RED | `d344f94` | `npm run test:firebase-push-service-worker` | Falló porque aún no existía un registro FCM aislado del scope raíz del PWA. |
+| GREEN | `09d74c8` | `npm run test:firebase-push-service-worker` | PASS, 5/5: el registro FCM usa `/firebase-push/` y el worker PWA conserva `/`. |
 
 ## Validación
 
-- `node --experimental-test-coverage --import tsx --test lib/__tests__/firebase-push-service-worker.test.ts` — PASS; cobertura agregada: 100% líneas, 94.34% branches, 97.14% funciones; helpers/worker tienen 100% líneas.
+- `node --experimental-test-coverage --import tsx --test lib/__tests__/firebase-push-service-worker.test.ts` — PASS, 5/5; cobertura agregada: 99.05% líneas, 94.29% branches, 97.87% funciones; helpers/worker tienen 100% líneas.
 - `npx tsc --noEmit` — PASS.
 - `npm run build` — PASS; Next reconoció `/firebase-push-sw.js` como ruta dinámica.
 - `npm --prefix functions-bodega test` — PASS, 9/9.
@@ -42,7 +48,8 @@
 La ruta dinámica comparte `firebaseConfig` con el cliente y responde `503`
 cuando falta cualquiera de los campos requeridos; no incluye fallback ni
 secreto. El mensaje de agenda conserva título, cuerpo, destinatario y URL en el
-payload de datos; no añade PII. No se modificaron Firebase remoto, Vercel,
-agenda persistida ni producción. El build local no demuestra todavía la
-respuesta del service worker en Preview, la recepción push en segundo plano ni
-el procesamiento automático del outbox; eso permanece pendiente para Gate F.
+payload de datos; no añade PII. FCM tiene scope separado del PWA. No se
+modificaron Firebase remoto, Vercel, agenda persistida ni producción. El build
+local no demuestra todavía la respuesta del service worker en Preview, la
+recepción push en segundo plano ni el procesamiento automático del outbox; eso
+permanece pendiente para Gate F.
