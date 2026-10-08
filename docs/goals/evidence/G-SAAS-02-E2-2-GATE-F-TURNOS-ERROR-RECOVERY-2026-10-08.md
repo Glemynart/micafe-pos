@@ -1,18 +1,18 @@
 # G-SAAS-02 / M2 / E2.2 — recuperación de errores del historial de turnos
 
 **Fecha:** 2026-10-08
-**Estado:** corrección y diagnóstico en revisión mediante PR #491; no certifica Gate F.
+**Estado:** corrección y diagnóstico en PR #491; el fallo observado quedó remediado en staging y el Preview carga el historial. CI del commit actual aún pendiente; no certifica Gate F.
 
 ## Hallazgo
 
 La ruta administrativa `/admin/turnos` dejaba un indicador de carga permanente
 si la preparación asíncrona de consultas o el listener de Firestore fallaban:
 el servicio no propagaba ninguno de esos errores y la página solo terminaba de
-cargar al recibir datos. La inspección visual previa de staging/Preview mostró
-la ruta sin contenido operativo. Tras publicarse el primer cambio de PR #491,
-el administrador autenticado en su Preview vio el estado recuperable con el
-mensaje genérico de error. Esto confirma que la interfaz ya no queda cargando,
-pero todavía no identifica ni corrige la causa remota.
+cargar al recibir datos. El primer commit de PR #491 hizo visible el error
+recuperable. El diagnóstico sanitizado del Preview actual identificó
+`listener_turnos · failed-precondition`. La lectura de membresías no fallaba:
+el índice compuesto requerido estaba declarado en el repositorio, pero ausente
+en Firestore staging.
 
 ## Cambio acotado
 
@@ -41,15 +41,37 @@ No se ejecutó E2E de negocio porque esta corrección solo añade propagación y
 clasificación segura de errores de lectura; el E2E remoto de turnos podría
 realizar mutaciones fuera del alcance autorizado.
 
+## Diagnóstico y verificación en staging
+
+- Preview autenticado de PR #491: el fallo provenía del listener, no de la
+  lectura de membresías ni de un rechazo de permisos.
+- Proyecto verificado por Cloud CLI: `micafe-pos-staging`; database
+  `(default)`, Firestore Native, región `us-central1`.
+- Inventario remoto previo: no existía índice compuesto para `turnos`. El
+  contrato ya presente en `firestore.indexes.json` es `empresaId ASC` +
+  `fechaApertura DESC`, scope `COLLECTION`.
+- Remediación remota exacta: un índice aditivo `turnos`, id `CICAgOi3kJAK`,
+  densidad `SPARSE_ALL`; operación
+  `S0FKazNpT2dBQ0lDDCoDIGUzNDRhYTVjNTgwMS05Nzg4LWFiZjQtMzM3Yi1iZDYwZjgxMiQac2VuaWxlcGlwCQpBEg`.
+  `gcloud firestore indexes composite list` informó `READY`.
+- Reintento de solo lectura en el Preview autenticado: el historial cargó sin
+  error y mostró 9/9 turnos (1 abierto, 8 cerrados). No se abrió detalle ni se
+  ejecutó ningún comando de turno.
+
+## Mutation audit
+
+- Firestore staging: exactamente 1 mutación de infraestructura, creación del
+  índice anterior.
+- Documentos de turnos, ventas, inventario, agenda, membresías y Auth: 0
+  escrituras.
+- Producción: 0 mutaciones; Functions, Rules, IAM, Secrets y Hosting: 0 cambios.
+- El Preview de Vercel es de revisión; no se promovió a producción.
+
 ## Límites de esta evidencia
 
-- El primer commit del PR sí está publicado en Preview y muestra el error
-  recuperable; la actualización diagnóstica de este checkpoint aún espera CI y
-  su nuevo Preview.
-- No se confirmó la causa exacta del fallo. La inspección de Rules e índices en
-  el repositorio no basta para inferir el estado desplegado ni el permiso del
-  token activo. El diagnóstico del siguiente Preview determinará el paso
-  correctivo mínimo; no se modifican Rules o índices por conjetura.
-- Firebase staging y producción: escrituras `0`; Vercel deploys: `0`; ventas,
-  inventario, agenda, turnos, memberships y Auth: mutaciones `0`.
+- CI requerida para el commit actual está pendiente al registrar esta evidencia;
+  el estado final queda condicionado al resultado remoto.
+- Gate F permanece `EN CURSO`: este subgate de lectura de historial está
+  recuperado, pero no reemplaza la matriz funcional, aislamiento y demás
+  criterios pendientes.
 - Gate F permanece `EN CURSO`; esta evidencia es parcial y no cierra la matriz.
