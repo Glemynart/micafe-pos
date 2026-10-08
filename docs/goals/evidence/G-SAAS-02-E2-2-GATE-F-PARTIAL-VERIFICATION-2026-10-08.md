@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: evidencia parcial de verificación (2026-10-08)
 
-**Última revisión:** 2026-10-08 20:05 UTC
+**Última revisión:** 2026-10-08 22:26 UTC
 **Estado:** `EN CURSO` — evidencia parcial; no certifica Gate F.
 
 ## Contexto y límites
@@ -562,5 +562,42 @@ ni reabrirá el evento.
 - Firestore/Auth/Functions, tokens, agenda, reservas, stock, solicitudes,
   ventas, ledger, Rules, IAM, Secrets, Scheduler, FCM, tráfico, deploy y
   producción: escrituras/cambios por Codex `0`.
+- Fixture adicional, Bootstrap, Activation, tenant real y cleanup destructivo:
+  `0`.
+
+### Reconciliación de PR #491 y sesiones abiertas — 2026-10-08 22:26 UTC
+
+PR #491 quedó `MERGED` en `main @ f72a26418ea6faefb2be59295074917996086803`
+a las `22:21:21Z`. Sus tres checks de PR terminaron `PASS`; la CI post-merge de
+`main`, run `37852942461`, seguía `in_progress` a las `22:26Z`. El Preview de
+revisión está `READY`. La inspección de Vercel confirmó que el deployment de
+producción más reciente es del 6 de octubre, no el merge #491; no se promovió
+este cambio a producción.
+
+La inspección del navegador fue de solo lectura:
+
+- El Preview actual de PR #491 muestra al vendedor sintético autenticado y
+  `Sin turno`; la tarjeta del producto presenta dos unidades disponibles.
+  Este es un estado de UI, no una nueva lectura autoritativa de Firestore.
+- Edge está en `/admin/login`; no hay sesión de administrador tenant disponible
+  allí en este momento.
+- Brave mantiene una sesión autorizada de operador de plataforma en el Preview
+  anterior y abre el detalle de Bodega Atrato Demo. Esa identidad no sustituye
+  la sesión/autoridad de administrador del tenant para aprobar, abrir turnos o
+  ejecutar operaciones POS.
+- No se navegó, autenticó, pulsó controles ni ejecutó acciones de negocio.
+
+El estado observado no cambia la matriz de Gate F. En particular, no se usó
+otra identidad para completar una autorización faltante y no se repitieron
+ventas ni solicitudes.
+
+#### Mutation audit de esta reconciliación
+
+- GitHub: PR #491 integrado; post-merge CI todavía `in_progress` al corte.
+- Vercel: lecturas de deployment Preview y Production; ningún deploy de
+  producción por PR #491.
+- Navegadores: lectura de estado de pestañas; autenticación/acciones UI `0`.
+- Firestore/Auth/Functions/Rules/IAM/Secrets/FCM/Scheduler, agenda, reserva,
+  stock, solicitudes, ventas, ledger y turnos: escrituras/cambios por Codex `0`.
 - Fixture adicional, Bootstrap, Activation, tenant real y cleanup destructivo:
   `0`.

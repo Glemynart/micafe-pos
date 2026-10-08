@@ -306,6 +306,35 @@ asociado a un SHA anterior de `main`.
 Gate F permanece `EN CURSO`, no `PASS`; E2.2 sigue `EN EJECUCIÓN`. No se
 realizaron mutaciones de negocio ni se adelantó ningún gate posterior.
 
+### Checkpoint — 2026-10-08 — PR #491 / recuperación del historial de turnos
+
+PR #491 quedó `MERGED` en `main` mediante
+`f72a26418ea6faefb2be59295074917996086803` a las `2026-10-08T22:21:21Z`.
+Los checks requeridos (`Tipos y pruebas`, `Vercel` y `Vercel Preview Comments`)
+terminaron `PASS`; la CI post-merge de `main`, run `37852942461`, seguía
+`in_progress` a las `2026-10-08T22:26Z`. El cambio hace recuperables los errores
+del historial de turnos en Backoffice/POS y sanitiza el diagnóstico. La causa
+remota observada fue el índice compuesto de `turnos` ausente; se creó únicamente
+en `micafe-pos-staging`, donde alcanzó `READY`. No cambió reglas, autoridad ni
+operaciones canónicas.
+
+La evidencia de Gate F fue actualizada tras una inspección de solo lectura de
+las sesiones abiertas. En el Preview de PR #491 el vendedor sintético está
+autenticado, pero no tiene turno activo; Edge está en el login de administrador.
+Brave conserva una sesión de operador de plataforma en un Preview anterior,
+que no equivale al administrador del tenant. No se ejecutó una acción de
+negocio. `vercel inspect` confirmó el Preview de PR #491 `READY`; el deployment
+de producción más reciente continúa siendo del 6 de octubre y no corresponde
+al merge #491.
+
+Gate F permanece `EN CURSO`, no `PASS`: siguen pendientes la matriz integral de
+aislamiento/roles, revocación/restauración con replay, retry autenticado tras
+pérdida de respuesta, ciclo completo de agenda y recordatorios automáticos, y
+la revalidación integral de las superficies operativas. No se reutiliza la
+identidad del operador SaaS para acciones de administrador tenant. Gate G debe
+repetirse y H emitir la matriz final después de cerrar F; no se inicia todavía
+el tenant real ni se modifica producción.
+
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
 PR #477 quedó `MERGED` en `main` el `2026-10-07 22:23:06` hora de Bogotá
