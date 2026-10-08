@@ -232,3 +232,23 @@ test("Emulator: cliente y presentación inactivos y vendedor sin sell no crean a
   const agendas = await db.collection("empresas").doc(empresaId).collection("agenda_pedidos_bodega").get();
   assert.equal(agendas.size, 0);
 });
+
+test("Emulator: desactivar cliente pendiente impide aprobar y reservar stock", async () => {
+  const empresaId = `agenda-client-deactivated-${runId}`;
+  const fixture = await seedTenant(empresaId, 10);
+  const agenda = await createAgenda(empresaId, fixture.seller, fixture.clientId, fixture.presentationId, 2, `create-inactive-client-${runId}`);
+
+  await db.collection("clientes").doc(fixture.clientId).update({ activo: false });
+  await assert.rejects(
+    approve(fixture.admin, agenda.programacionId, `approve-inactive-client-${runId}`),
+    error => domain(error) === "AGENDA_CLIENTE_NO_DISPONIBLE",
+  );
+
+  const product = (await db.collection("productos").doc(fixture.productId).get()).data();
+  const schedule = (await db.collection("empresas").doc(empresaId).collection("agenda_pedidos_bodega").doc(agenda.programacionId).get()).data();
+  const holds = await db.collection("empresas").doc(empresaId).collection("reservas_stock_bodega").get();
+  assert.equal(product?.stock, 10);
+  assert.equal(product?.stockReservado, 0);
+  assert.equal(schedule?.estado, "PENDIENTE_REVISION");
+  assert.equal(holds.size, 0);
+});

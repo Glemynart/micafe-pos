@@ -17,21 +17,28 @@ sin mutaciones indebidas.
 | Conversiones concurrentes crean una sola solicitud y mantienen el hold. | Mismo archivo — concurrencia de conversión | Firestore Emulator | PASS |
 | Un tenant no consulta ni cancela agendas ajenas; cliente cruzado y tenant enviado en payload se rechazan. | Mismo archivo — tenant/actor/payload | Firestore Emulator | PASS |
 | Cliente o presentación inactivos y vendedor sin permiso `sell` no crean agenda. | Mismo archivo — entidades/permiso inactivos | Firestore Emulator | PASS |
+| Si el cliente se desactiva mientras la agenda espera revisión, la aprobación falla sin crear holds ni alterar stock. | Mismo archivo — desactivación previa a aprobación | Firestore Emulator | PASS |
 
 ## Ejecución y evidencia
 
 - Comando: `npm run e2e:bodega-agenda`.
-- Resultado final observado: 4 pruebas, 4 PASS, 0 FAIL, 0 skipped; Firebase CLI
+- Resultado final observado: 5 pruebas, 5 PASS, 0 FAIL, 0 skipped; Firebase CLI
   ejecutó Firestore Emulator con proyecto `demo-bodega-agenda`.
 - La primera ejecución tuvo 3 PASS y 1 fallo del predicado de prueba: este leía
   únicamente `details.code`, mientras el resolver de presentaciones expone
   `PRESENTACION_INACTIVA` en `Error.message`. Se amplió el helper de aserción,
-  sin cambiar lógica de producto; la reejecución completa terminó 4/4 PASS.
+  sin cambiar lógica de producto; la reejecución de esa suite inicial terminó
+  4/4 PASS antes de añadirse el escenario de desactivación previa a aprobación.
 - El runner rechaza `GOOGLE_APPLICATION_CREDENTIALS` y fija el proyecto demo;
   no se usó staging ni producción.
-- Validaciones adicionales: `npm --prefix functions test` terminó con 413 PASS,
-  5 skipped y 0 FAIL; `npm run build:functions`, `npx tsc --noEmit`,
-  `npm run lint`, `npm run build` y `npm run test:bodega-ui` terminaron PASS.
+- Hallazgo corregido en TDD: la primera ejecución unitaria del caso nuevo falló
+  con `Missing expected rejection`; tras revalidar el cliente tenant-aware y
+  activo en la transacción de aprobación, la suite focalizada terminó 9/9 PASS.
+- Validaciones adicionales: `npm --prefix functions test` terminó con 419
+  pruebas, 414 PASS, 5 skipped y 0 FAIL; `npm run build:functions`,
+  `npm --prefix functions-bodega run build`, `npx tsc --noEmit` y
+  `npm run lint` terminaron PASS. `npm run build` y `npm run test:bodega-ui`
+  habían terminado PASS antes de esta corrección backend-only.
 
 ## Alcance no demostrado aquí
 
