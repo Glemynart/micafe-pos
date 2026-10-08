@@ -293,11 +293,15 @@ El cambio integra el worker FCM por entorno y la espera de activación del
 Service Worker. Tras expirar la sesión por inactividad, el admin sintético se
 autenticó de nuevo en Edge, con la autorización previa del usuario, en el
 Preview vigente `cafeatrato-pugkg9gnj-glemynarts-projects.vercel.app`; esta
-comprobación solo demuestra acceso autenticado al POS administrativo, no
-registro/entrega FCM en ese origen ni despacho automático Scheduler/outbox. La
-lectura de deployments de Vercel no encontró un deployment de producción para
-el merge commit; el deployment de producción más reciente continúa asociado a
-un SHA anterior de `main`.
+comprobación demuestra acceso autenticado al POS administrativo. Una lectura
+posterior de Edge encontró permiso de notificaciones `granted` y el Service
+Worker FCM `firebase-push-sw.js` activo con scope aislado `/firebase-push/` en
+ese origen. La consulta Firestore del fixture halló referencias FCM en dos
+perfiles activos, pero no hay metadatos para atribuirlas al origen actual; esto
+no demuestra entrega al dispositivo ni despacho automático Scheduler/outbox.
+La lectura de deployments de Vercel no encontró un deployment de producción
+para el merge commit; el deployment de producción más reciente continúa
+asociado a un SHA anterior de `main`.
 
 Gate F permanece `EN CURSO`, no `PASS`; E2.2 sigue `EN EJECUCIÓN`. No se
 realizaron mutaciones de negocio ni se adelantó ningún gate posterior.

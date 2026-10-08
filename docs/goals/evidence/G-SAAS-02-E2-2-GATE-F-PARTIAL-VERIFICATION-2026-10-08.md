@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: evidencia parcial de verificación (2026-10-08)
 
-**Última revisión:** 2026-10-08 20:01 UTC
+**Última revisión:** 2026-10-08 20:05 UTC
 **Estado:** `EN CURSO` — evidencia parcial; no certifica Gate F.
 
 ## Contexto y límites
@@ -538,16 +538,27 @@ ni revelaron UID, PII o valores de token.
 
 La cantidad de referencias no demuestra que el token de Edge corresponda al
 origen actual: el perfil guarda tokens sin metadatos de origen, así que pueden
-coexistir referencias de previews anteriores. Tampoco se verificó mediante
-esta consulta el permiso de navegador ni la entrega al Service Worker de
-`pugkg9gnj`. Por tanto, la sesión admin y la presencia de referencias FCM no
-cierran el smoke automático/background de Gate F. No se solicitó ni aceptó un
-permiso de navegador, no se envió push y no se invocó Scheduler manualmente.
+coexistir referencias de previews anteriores. Una lectura de solo lectura del
+contexto Edge actual confirmó `Notification.permission = granted` y dos
+Service Workers activos: el PWA de scope raíz y
+`https://cafeatrato-pugkg9gnj-glemynarts-projects.vercel.app/firebase-push-sw.js`
+con scope aislado `/firebase-push/`. Esto verifica permiso y registro del worker
+post-#490 en el origen actual, pero no identifica cuál referencia FCM es la de
+este origen ni demuestra despacho del Scheduler o presentación background. No
+se solicitó ni aceptó un permiso de navegador, no se envió push y no se invocó
+Scheduler manualmente.
+
+La siguiente oportunidad automática conocida es el evento
+`fecha_programada` de la agenda activa, previsto para `2026-10-09T13:00:00Z`
+(08:00 Bogotá). Se observará la ejecución ordinaria del worker; no se adelantará
+ni reabrirá el evento.
 
 #### Mutation audit de esta consulta
 
 - Edge y Firestore REST: lecturas; proyecto `micafe-pos-staging`, fixture
   sintético existente; cinco perfiles activos del tenant.
+- Edge: permiso existente `granted` y estado de registros de Service Worker
+  leídos; no se cambió configuración ni permiso.
 - Firestore/Auth/Functions, tokens, agenda, reservas, stock, solicitudes,
   ventas, ledger, Rules, IAM, Secrets, Scheduler, FCM, tráfico, deploy y
   producción: escrituras/cambios por Codex `0`.
