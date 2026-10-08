@@ -271,7 +271,7 @@ con cinco ventas atribuibles al vendedor; la instantánea remota previa
 contabilizaba solicitudes, no ventas, por lo que no representa un conteo
 contradictorio. No se abrieron controles de venta, pago o inventario.
 
-### Hallazgo técnico pendiente — configuración del service worker FCM
+### Hallazgo técnico histórico — configuración del service worker FCM (resuelto por PR #490)
 
 El cliente registra `/firebase-push-sw.js` desde `components/fcm-manager.tsx`
 y crea su instancia FCM con `app` en `lib/firebase.ts`, cuya configuración
@@ -283,14 +283,22 @@ El token del vendedor de esta prueba se registró en `micafe-pos-staging`; por
 tanto, la configuración del worker no está alineada en el código con la
 configuración Firebase por entorno del cliente. La prueba FCM directa solo
 acreditó `onMessage` en primer plano y no permite inferir que el worker entregue
-un aviso en segundo plano. Esto es un riesgo de configuración que debe
-resolverse o descartarse con evidencia antes de afirmar recepción background;
-no se concluye que el aviso haya fallado.
+un aviso en segundo plano. Esto documenta el riesgo observado en el SHA probado
+entonces; no concluía que el aviso hubiera fallado. PR #490 corrigió esta
+frontera: el worker se genera dinámicamente con la configuración Firebase del
+entorno y se registra bajo el scope aislado `/firebase-push/`. La corrección fue
+integrada en `main` mediante merge protegido normal
+`3cac817d436e3b55cde188e9c96f347f3547e497`. La validación automática y de
+integración pre-merge pasó; la CI post-merge de `main` aún debe confirmarse.
+Esto elimina la discrepancia de configuración, pero no sustituye la prueba de
+entrega background ni el recorrido automático Scheduler/outbox → FCM.
 
 La descarga externa del recurso del worker no permitió inspeccionar el artefacto
 del Preview porque respondió con la página HTML de protección de Vercel; la
 aplicación y el SHA de origen sí permiten identificar el archivo versionado. No
-se envió otro push. La recepción en segundo plano queda pendiente.
+se envió otro push. La recepción en segundo plano quedó pendiente hasta la
+integración de #490 y sigue pendiente de una prueba posterior con el worker
+corregido.
 
 #### Mutation audit del seguimiento
 
@@ -481,3 +489,35 @@ la verificación de despacho y recepción queda pendiente de su ejecución norma
   manualmente: `0`.
 - Agenda, reservas, stock, ventas, ledger, Auth, Functions, Rules, IAM,
   Secrets, tráfico, deploy y producción: escrituras/cambios `0`.
+
+### Seguimiento — merge protegido y acceso admin al Preview vigente, 2026-10-08
+
+PR #490 (`fix(fcm): align background push delivery`) quedó
+`MERGED` por el mecanismo protegido normal, sin bypass, mediante el merge
+commit `3cac817d436e3b55cde188e9c96f347f3547e497`. Sus checks requeridos
+`Tipos y pruebas`, `Vercel` y `Vercel Preview Comments` terminaron `PASS`; el
+run post-merge de `main` `37833645441` continúa en curso al momento de este
+registro.
+
+El usuario confirmó inicio de sesión como administrador sintético del fixture
+en Edge en el Preview vigente
+`https://cafeatrato-pugkg9gnj-glemynarts-projects.vercel.app/admin`. La sesión y
+la vista administrativa cargaron correctamente. Esto verifica autenticación y
+acceso a la UI en el nuevo origen; no prueba que se haya concedido el permiso de
+notificaciones allí, que exista un token FCM activo, ni que ese navegador
+reciba un push del Scheduler. No se envió una notificación en este seguimiento.
+
+La consulta de solo lectura de deployments de Vercel no encontró un deployment
+de producción asociado al merge SHA. El deployment de producción más reciente
+permanece en un SHA anterior de `main`; el merge #490 generó únicamente Preview.
+
+#### Mutation audit del seguimiento
+
+- GitHub: un único merge, PR #490; CI post-merge aún en curso.
+- Vercel: consulta de deployments únicamente; deploy de producción por este
+  merge `0`.
+- POS/UI: inicio de sesión confirmado; ninguna transición de negocio.
+- Firebase remoto adicional, Firestore, Auth, Rules, IAM, Secrets, Functions,
+  FCM, agenda, reservas, stock, solicitudes, ventas, ledger, tráfico,
+  fixture adicional, Bootstrap, Activation y cleanup destructivo: cambios `0`.
+- Gate F permanece `EN CURSO`; Gate G/H y el tenant real no se adelantan.

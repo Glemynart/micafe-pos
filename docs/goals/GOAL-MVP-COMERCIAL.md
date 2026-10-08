@@ -282,6 +282,25 @@ Gate F permanece `EN CURSO`, no `PASS`; E2.2 sigue `EN EJECUCIÓN`. Gate G debe
 repetirse y Gate H emitir una matriz actualizada después de Gate F; gates I/J/K/L
 siguen pendientes. No se inicia aún el tenant real ni el Trial.
 
+### Checkpoint — 2026-10-08 — PR #490 / worker FCM integrado
+
+PR #490 se fusionó mediante merge protegido normal en
+`main @ 3cac817d436e3b55cde188e9c96f347f3547e497`; los checks previos al merge
+terminaron `PASS`. La CI post-merge de `main`, run `37833645441`, sigue en curso
+y debe confirmarse antes de registrar su resultado final.
+
+El cambio integra el worker FCM por entorno y la espera de activación del
+Service Worker. El administrador sintético confirmó sesión en el Preview
+vigente `cafeatrato-pugkg9gnj-glemynarts-projects.vercel.app`; esta comprobación
+solo demuestra acceso autenticado al POS administrativo, no registro/entrega
+FCM en ese origen ni despacho automático Scheduler/outbox. La lectura de
+deployments de Vercel no encontró un deployment de producción para el merge
+commit; el deployment de producción más reciente continúa asociado a un SHA
+anterior de `main`.
+
+Gate F permanece `EN CURSO`, no `PASS`; E2.2 sigue `EN EJECUCIÓN`. No se
+realizaron mutaciones de negocio ni se adelantó ningún gate posterior.
+
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
 PR #477 quedó `MERGED` en `main` el `2026-10-07 22:23:06` hora de Bogotá
