@@ -329,3 +329,37 @@ efectos financieros, turnos, auditoría ni la matriz de aislamiento.
 - Firestore staging: lecturas autenticadas de agregados únicamente; escrituras
   0. Proyecto de producción, Auth, agenda, reserva, stock, ventas, ledger,
   turnos, Rules, IAM, Secrets, tráfico y despliegues: cambios 0.
+
+### Seguimiento — validación automatizada local, 2026-10-08 16:49 UTC
+
+Se reejecutaron suites desde el worktree de la rama de evidencia, sin usar CI
+remota ni conectarse a Firebase staging/producción:
+
+| Comando | Resultado | Cobertura relevante |
+| --- | --- | --- |
+| `npm run test:bodega-ui` | PASS, 12/12 | Contratos de UI Bodega, solicitud de venta, presentación legible, idempotencia de doble submit y aislamiento entre roles/verticales. |
+| `npm --prefix functions-bodega test` | PASS, 9/9 | Scheduler/outbox, destinatarios con membresía activa, ausencia de token, reintento/backoff, tokens inválidos, expiración y liberación idempotente. |
+| `npm run e2e:bodega-agenda` | PASS, 6/6 | Reserva concurrente sin sobreasignación, conversión idempotente, tenant/actor ajeno, payload manipulado, inactivos, y paginación. Solo Firestore Emulator con proyecto `demo-bodega-agenda`. |
+| `npm run e2e:bodega-u4-u5` | PASS, 9/9 | PWA solicitud/aprobación/venta, retry tras pérdida de respuesta, pago efectivo con turno, aislamiento A/B en UI/callable, catálogo por tenant, venta canónica, incorporación de vendedor y regresión GENERAL. Emuladores Auth/Firestore/Functions con proyecto `demo-bodega-u4-u5-ui`. |
+
+Durante `e2e:bodega-u4-u5`, Functions Emulator intentó resolver
+`OPERATIONAL_PIN_PEPPER` en Secret Manager del proyecto demo y recibió `403`;
+no obtuvo el secreto. El runner continuó exclusivamente contra emuladores y las
+nueve pruebas terminaron PASS. Esto no es evidencia de disponibilidad de Secrets
+en staging ni reemplaza el preflight/deploy de Gate C/D.
+
+Estas suites aumentan la evidencia automatizada local de authority, aislamiento,
+retry, agenda y efectos de venta; no certifican por sí mismas el comportamiento
+remoto del fixture. Gate F continúa `EN CURSO` hasta completar la matriz de
+staging y reconciliar la procedencia de las ventas sin solicitud visible.
+
+#### Mutation audit de la validación automatizada
+
+- Firestore/Auth/Functions Emulator locales: datos de prueba efímeros; no se
+  conectó a los proyectos Firebase remotos.
+- Firebase staging/producción, Firestore, Auth, Rules, IAM, Secrets, Functions,
+  tráfico, ventas, agenda y stock remotos: cambios 0.
+- Vercel, deploy, FCM, fixture adicional, Bootstrap, Activation, tenant real y
+  cleanup destructivo: cambios 0.
+- Los cambios generados por Next dev en `AGENTS.md` y `next-env.d.ts` durante el
+  E2E se reconciliaron a su contenido versionado; el worktree quedó limpio.
