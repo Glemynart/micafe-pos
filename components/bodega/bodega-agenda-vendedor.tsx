@@ -19,13 +19,16 @@ function fechaLegible(value: string) {
 }
 
 export function BodegaAgendaVendedor({
-  programaciones, hoy, cargando, procesando, onActualizar, onCancelar, onConvertir,
+  programaciones, hoy, cargando, cargandoMas, hayMas, procesando, onActualizar, onCargarMas, onCancelar, onConvertir,
 }: {
   programaciones: ProgramacionPedidoBodegaDTO[]
   hoy: string
   cargando: boolean
+  cargandoMas: boolean
+  hayMas: boolean
   procesando: string
   onActualizar(): void
+  onCargarMas(): void
   onCancelar(item: ProgramacionPedidoBodegaDTO): void
   onConvertir(item: ProgramacionPedidoBodegaDTO): void
 }) {
@@ -52,6 +55,7 @@ export function BodegaAgendaVendedor({
         </article>
       })}
       {sorted.length === 0 && <p className="rounded-2xl border border-dashed border-white/15 p-10 text-center text-slate-400">Todavía no tienes pedidos agendados.</p>}
+      {hayMas && <button disabled={cargandoMas || cargando} onClick={onCargarMas} className="w-full rounded-xl border border-white/15 px-4 py-3 text-sm font-semibold text-slate-200 disabled:opacity-50">{cargandoMas ? "Cargando más pedidos…" : "Cargar más pedidos"}</button>}
     </div>}
   </section>
 }

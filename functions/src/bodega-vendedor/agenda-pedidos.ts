@@ -14,6 +14,7 @@ const AGENDA = "agenda_pedidos_bodega";
 const RESERVAS = "reservas_stock_bodega";
 const EVENTOS = "eventos_operativos";
 const MAX_LINEAS = 50;
+const PAGE_SIZE = 100;
 type LineaIntento = { productoId: string; presentacionId: string; cantidad: number };
 type Franja = { desde: string; hasta: string } | null;
 type Envelope = { commandId: string; idempotencyKey: string; correlationId: string; causationId: string | null; payload: Record<string, any> };
@@ -388,15 +389,29 @@ export async function ejecutarCancelarProgramacionPedidoBodegaV1(db: any, contex
 }
 
 export async function ejecutarConsultarAgendaPedidosBodegaV1(db: any, contexto: ContextoFinancieroOperativo, raw: unknown = {}) {
-  if (!object(raw) || Object.keys(raw).length !== 0) fail("invalid-argument", "AGENDA_PAYLOAD_INVALIDO");
+  if (!object(raw) || !ownKeys(raw, ["cursor"])
+    || (raw.cursor !== undefined && raw.cursor !== null && (!text(raw.cursor) || raw.cursor.trim().length > 512))) {
+    fail("invalid-argument", "AGENDA_PAYLOAD_INVALIDO");
+  }
+  const input = raw as Record<string, unknown>;
   return db.runTransaction(async (tx: any) => {
     const admin = contexto.rol === "admin";
     await configAgenda(tx, db, contexto, admin);
     if (!admin && contexto.rol !== "vendedor") fail("permission-denied", "AGENDA_ROL_NO_AUTORIZADO");
     const collection = db.collection("empresas").doc(contexto.empresaId).collection(AGENDA);
-    const query = admin ? collection.limit(100) : collection.where("solicitanteUid", "==", contexto.actorUid).limit(100);
+    const cursor = typeof input.cursor === "string" ? input.cursor.trim() : null;
+    const cursorSnap = cursor ? await tx.get(collection.doc(cursor)) : null;
+    if (cursor && (!cursorSnap?.exists || cursorSnap.data()?.empresaId !== contexto.empresaId
+      || (!admin && cursorSnap.data()?.solicitanteUid !== contexto.actorUid))) {
+      fail("invalid-argument", "AGENDA_CURSOR_INVALIDO");
+    }
+    let query = admin ? collection : collection.where("solicitanteUid", "==", contexto.actorUid);
+    if (cursorSnap) query = query.startAfter(cursorSnap);
+    query = query.limit(PAGE_SIZE + 1);
     const result = await tx.get(query);
-    const entries = result.docs.filter((item: any) => item.data()?.empresaId === contexto.empresaId
+    const hasMore = result.docs.length > PAGE_SIZE;
+    const page = result.docs.slice(0, PAGE_SIZE);
+    const entries = page.filter((item: any) => item.data()?.empresaId === contexto.empresaId
       && (admin || item.data()?.solicitanteUid === contexto.actorUid));
     const clientIds = [...new Set<string>(entries.map((item: any) => item.data()?.clienteId).filter((id: unknown): id is string => typeof id === "string"))];
     const clients = new Map<string, { id: string; nombre: string; direccion: string | null }>();
@@ -408,7 +423,10 @@ export async function ejecutarConsultarAgendaPedidosBodegaV1(db: any, contexto: 
         direccion: text(snap.data()?.direccion) ? snap.data().direccion.trim() : null,
       });
     }
-    return { programaciones: entries.map((item: any) => publicAgenda(item.id, { ...item.data(), cliente: clients.get(item.data()?.clienteId) ?? { id: item.data()?.clienteId, nombre: "Cliente no disponible", direccion: null } })) };
+    return {
+      programaciones: entries.map((item: any) => publicAgenda(item.id, { ...item.data(), cliente: clients.get(item.data()?.clienteId) ?? { id: item.data()?.clienteId, nombre: "Cliente no disponible", direccion: null } })),
+      nextCursor: hasMore ? page.at(-1)?.id ?? null : null,
+    };
   });
 }
 

@@ -193,6 +193,15 @@ test("Emulator: tenant/actor ajeno y payload con empresa impuesta no cruzan la a
     })),
     error => domain(error) === "AGENDA_CANCELACION_NO_AUTORIZADA",
   );
+  await assert.rejects(
+    ejecutarConsultarAgendaPedidosBodegaV1(db, a.seller, { cursor: foreign.programacionId }),
+    error => domain(error) === "AGENDA_CURSOR_INVALIDO",
+  );
+  const otherSellerAgenda = await createAgenda(tenantA, context(tenantA, otherSellerUid, "vendedor"), a.clientId, a.presentationId, 1, `other-seller-agenda-${runId}`);
+  await assert.rejects(
+    ejecutarConsultarAgendaPedidosBodegaV1(db, a.seller, { cursor: otherSellerAgenda.programacionId }),
+    error => domain(error) === "AGENDA_CURSOR_INVALIDO",
+  );
 
   const visibleA = await ejecutarConsultarAgendaPedidosBodegaV1(db, a.seller) as { programaciones: Data[] };
   const visibleB = await ejecutarConsultarAgendaPedidosBodegaV1(db, b.seller) as { programaciones: Data[] };

@@ -32,20 +32,44 @@ function dateLabel(value: string) {
 export function BodegaAgendaAdmin() {
   const [programaciones, setProgramaciones] = useState<ProgramacionPedidoBodegaDTO[]>([])
   const [cargando, setCargando] = useState(true)
+  const [cargandoMas, setCargandoMas] = useState(false)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [procesando, setProcesando] = useState("")
   const [error, setError] = useState("")
   const pending = useRef(new Map<string, AgendaCommand | CancelCommand>())
+  const consultaEnCurso = useRef(false)
 
-  const cargar = useCallback(async () => {
+  const cargar = useCallback(async (cursor?: string | null, preservarPaginas = false) => {
+    if (consultaEnCurso.current) return
+    consultaEnCurso.current = true
+    if (cursor) setCargandoMas(true)
+    else setCargando(true)
     setError("")
-    try { setProgramaciones(await consultarAgendaPedidosBodega()) }
+    try {
+      const page = await consultarAgendaPedidosBodega(cursor)
+      if (cursor) {
+        setProgramaciones(current => {
+          const ids = new Set(current.map(item => item.programacionId))
+          return [...current, ...page.programaciones.filter(item => !ids.has(item.programacionId))]
+        })
+        setNextCursor(page.nextCursor)
+      } else if (preservarPaginas) {
+        setProgramaciones(current => {
+          const freshIds = new Set(page.programaciones.map(item => item.programacionId))
+          return [...page.programaciones, ...current.filter(item => !freshIds.has(item.programacionId))]
+        })
+      } else {
+        setProgramaciones(page.programaciones)
+        setNextCursor(page.nextCursor)
+      }
+    }
     catch (cause) { setError(mensajeErrorBodega(cause)) }
-    finally { setCargando(false) }
+    finally { consultaEnCurso.current = false; setCargando(false); setCargandoMas(false) }
   }, [])
 
   useEffect(() => { void cargar() }, [cargar])
   useEffect(() => {
-    const refresh = () => { if (document.visibilityState === "visible") void cargar() }
+    const refresh = () => { if (document.visibilityState === "visible") void cargar(undefined, true) }
     const interval = window.setInterval(refresh, 30_000)
     document.addEventListener("visibilitychange", refresh)
     return () => { window.clearInterval(interval); document.removeEventListener("visibilitychange", refresh) }
@@ -94,6 +118,7 @@ export function BodegaAgendaAdmin() {
         {["RESERVADA", "CONVERTIDA_A_SOLICITUD"].includes(item.estado) && <button disabled={!!procesando} onClick={() => void cancelar(item)} className="mt-3 w-full rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground disabled:opacity-50">Cancelar y liberar reserva</button>}
       </article>)}
       {sorted.length === 0 && <p className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">No hay pedidos agendados.</p>}
+      {nextCursor && <button disabled={cargandoMas || cargando} onClick={() => void cargar(nextCursor)} className="w-full rounded-xl border border-border px-4 py-3 text-sm font-semibold disabled:opacity-50">{cargandoMas ? "Cargando más pedidos…" : "Cargar más pedidos"}</button>}
     </div>}
   </section>
 }

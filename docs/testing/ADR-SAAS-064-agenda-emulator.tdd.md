@@ -15,14 +15,15 @@ sin mutaciones indebidas.
 |---|---|---|---|
 | Dos aceptaciones concurrentes que exceden la disponibilidad no sobre-reservan; el stock físico queda intacto. | `functions/src/bodega-vendedor/emulator/agenda-pedidos.test.ts` — concurrencia de reservas | Firestore Emulator | PASS |
 | Conversiones concurrentes crean una sola solicitud y mantienen el hold. | Mismo archivo — concurrencia de conversión | Firestore Emulator | PASS |
-| Un tenant no consulta ni cancela agendas ajenas; cliente cruzado y tenant enviado en payload se rechazan. | Mismo archivo — tenant/actor/payload | Firestore Emulator | PASS |
+| Un tenant no consulta ni cancela agendas ajenas; los cursores se validan contra tenant y actor; cliente cruzado y tenant enviado en payload se rechazan. | Mismo archivo — tenant/actor/payload/cursor | Firestore Emulator | PASS |
 | Cliente o presentación inactivos y vendedor sin permiso `sell` no crean agenda. | Mismo archivo — entidades/permiso inactivos | Firestore Emulator | PASS |
 | Si el cliente se desactiva mientras la agenda espera revisión, la aprobación falla sin crear holds ni alterar stock. | Mismo archivo — desactivación previa a aprobación | Firestore Emulator | PASS |
+| Más de 100 agendas se consultan en páginas consecutivas sin omitir ni repetir registros. | Mismo archivo — paginación de 101 agendas | Firestore Emulator | PASS |
 
 ## Ejecución y evidencia
 
 - Comando: `npm run e2e:bodega-agenda`.
-- Resultado final observado: 5 pruebas, 5 PASS, 0 FAIL, 0 skipped; Firebase CLI
+- Resultado final observado: 6 pruebas, 6 PASS, 0 FAIL, 0 skipped; Firebase CLI
   ejecutó Firestore Emulator con proyecto `demo-bodega-agenda`.
 - La primera ejecución tuvo 3 PASS y 1 fallo del predicado de prueba: este leía
   únicamente `details.code`, mientras el resolver de presentaciones expone
@@ -34,11 +35,14 @@ sin mutaciones indebidas.
 - Hallazgo corregido en TDD: la primera ejecución unitaria del caso nuevo falló
   con `Missing expected rejection`; tras revalidar el cliente tenant-aware y
   activo en la transacción de aprobación, la suite focalizada terminó 9/9 PASS.
+- Hallazgo corregido en TDD: la prueba de 101 registros falló inicialmente
+  porque la consulta no exponía cursor; el backend ahora responde páginas de
+  100 con `nextCursor`, y las vistas de administración y vendedor permiten
+  cargar páginas adicionales sin duplicar agendas ya visibles.
 - Validaciones adicionales: `npm --prefix functions test` terminó con 419
   pruebas, 414 PASS, 5 skipped y 0 FAIL; `npm run build:functions`,
-  `npm --prefix functions-bodega run build`, `npx tsc --noEmit` y
-  `npm run lint` terminaron PASS. `npm run build` y `npm run test:bodega-ui`
-  habían terminado PASS antes de esta corrección backend-only.
+  `npm --prefix functions-bodega run build`, `npx tsc --noEmit`,
+  `npm run lint`, `npm run build` y `npm run test:bodega-ui` terminaron PASS.
 
 ## Alcance no demostrado aquí
 

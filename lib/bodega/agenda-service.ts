@@ -10,6 +10,11 @@ export type Envelope<TPayload> = {
   payload: TPayload
 }
 
+export type AgendaPedidosBodegaPage = {
+  programaciones: ProgramacionPedidoBodegaDTO[]
+  nextCursor: string | null
+}
+
 async function invoke<TInput, TOutput>(name: string, data: TInput): Promise<TOutput> {
   return (await httpsCallable<TInput, TOutput>(getFirebaseFunctions(), name)(data)).data
 }
@@ -28,8 +33,8 @@ export function crearProgramacionPedidoBodega(command: Envelope<{
   return invoke<typeof command, ProgramacionPedidoBodegaDTO & { commandId: string }>("crearProgramacionPedidoBodegaV1", command)
 }
 
-export async function consultarAgendaPedidosBodega(): Promise<ProgramacionPedidoBodegaDTO[]> {
-  return (await invoke<Record<string, never>, { programaciones: ProgramacionPedidoBodegaDTO[] }>("consultarAgendaPedidosBodegaV1", {})).programaciones
+export async function consultarAgendaPedidosBodega(cursor?: string | null): Promise<AgendaPedidosBodegaPage> {
+  return invoke<{ cursor?: string }, AgendaPedidosBodegaPage>("consultarAgendaPedidosBodegaV1", cursor ? { cursor } : {})
 }
 
 export function construirResolucionProgramacionPedidoBodega(input: { programacionId: string; revision: number; decision: "aceptar" | "rechazar" }) {

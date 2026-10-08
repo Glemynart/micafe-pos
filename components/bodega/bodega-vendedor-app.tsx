@@ -43,6 +43,8 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   const [solicitudes, setSolicitudes] = useState<SolicitudVentaBodegaDTO[]>([])
   const [agenda, setAgenda] = useState<ProgramacionPedidoBodegaDTO[]>([])
   const [cargandoAgenda, setCargandoAgenda] = useState(false)
+  const [cargandoMasAgenda, setCargandoMasAgenda] = useState(false)
+  const [nextCursorAgenda, setNextCursorAgenda] = useState<string | null>(null)
   const [procesandoAgenda, setProcesandoAgenda] = useState("")
   const [clienteId, setClienteId] = useState("")
   const [carrito, setCarrito] = useState<LineaVisual[]>([])
@@ -84,13 +86,31 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
     }
   }, [])
 
-  const actualizarAgenda = useCallback(async () => {
+  const actualizarAgenda = useCallback(async (cursor?: string | null, preservarPaginas = false) => {
     if (agendaConsultaEnCurso.current) return
     agendaConsultaEnCurso.current = true
-    setCargandoAgenda(true)
-    try { setAgenda(await consultarAgendaPedidosBodega()) }
+    if (cursor) setCargandoMasAgenda(true)
+    else setCargandoAgenda(true)
+    try {
+      const page = await consultarAgendaPedidosBodega(cursor)
+      if (cursor) {
+        setAgenda(current => {
+          const ids = new Set(current.map(item => item.programacionId))
+          return [...current, ...page.programaciones.filter(item => !ids.has(item.programacionId))]
+        })
+        setNextCursorAgenda(page.nextCursor)
+      } else if (preservarPaginas) {
+        setAgenda(current => {
+          const freshIds = new Set(page.programaciones.map(item => item.programacionId))
+          return [...page.programaciones, ...current.filter(item => !freshIds.has(item.programacionId))]
+        })
+      } else {
+        setAgenda(page.programaciones)
+        setNextCursorAgenda(page.nextCursor)
+      }
+    }
     catch (cause) { setError(mensajeErrorBodega(cause)) }
-    finally { agendaConsultaEnCurso.current = false; setCargandoAgenda(false) }
+    finally { agendaConsultaEnCurso.current = false; setCargandoAgenda(false); setCargandoMasAgenda(false) }
   }, [])
 
   useEffect(() => { void cargar() }, [cargar])
@@ -112,7 +132,7 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   }, [tab, actualizarSolicitudes])
   useEffect(() => {
     if (tab !== "agenda") return
-    const actualizarSiVisible = () => { if (document.visibilityState === "visible") void actualizarAgenda() }
+    const actualizarSiVisible = () => { if (document.visibilityState === "visible") void actualizarAgenda(undefined, true) }
     void actualizarAgenda()
     const interval = window.setInterval(actualizarSiVisible, 30_000)
     document.addEventListener("visibilitychange", actualizarSiVisible)
@@ -257,7 +277,7 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
               <button disabled={enviando || carrito.length === 0 || !clienteId || (tipoPedido === "agendar" && !fechaAgendadaVigente) || (!!franjaDesde !== !!franjaHasta)} onClick={() => void (tipoPedido === "venta" ? enviarSolicitud() : enviarProgramacion())} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-300 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">{tipoPedido === "venta" ? <ClipboardList className="h-5 w-5" /> : <CalendarDays className="h-5 w-5" />}{enviando ? "Enviando…" : tipoPedido === "venta" ? "Enviar solicitud de venta" : tipoPedido === "hoy" ? "Enviar pedido para hoy" : "Agendar entrega"}</button>
             </aside>
           </div>
-        ) : tab === "solicitudes" ? <SolicitudesView solicitudes={solicitudes} metodosPago={metodosPago} setMetodoPago={(id, method) => setMetodosPago(current => ({ ...current, [id]: method }))} enviando={enviando} turnoAbierto={!!turno} baseApertura={baseApertura} setBaseApertura={setBaseApertura} onAbrirTurno={() => void abrirTurno({ baseApertura, notasApertura: "Turno vendedor Bodega" }).catch(cause => setError(mensajeErrorBodega(cause)))} onConfirmar={solicitud => void confirmarSolicitud(solicitud)} onCancelar={solicitud => void cancelarSolicitud(solicitud)} onActualizar={() => void actualizarSolicitudes()} onCrearOtra={() => setTab("venta")} /> : tab === "agenda" ? <BodegaAgendaVendedor programaciones={agenda} hoy={hoy} cargando={cargandoAgenda} procesando={procesandoAgenda} onActualizar={() => void actualizarAgenda()} onCancelar={item => void cancelarProgramacion(item)} onConvertir={item => void convertirProgramacion(item)} /> : tab === "clientes" ? <ClientesView clientes={clientes} onCrear={() => setMostrarCliente(true)} /> : <HistorialView ventas={ventas} />}
+        ) : tab === "solicitudes" ? <SolicitudesView solicitudes={solicitudes} metodosPago={metodosPago} setMetodoPago={(id, method) => setMetodosPago(current => ({ ...current, [id]: method }))} enviando={enviando} turnoAbierto={!!turno} baseApertura={baseApertura} setBaseApertura={setBaseApertura} onAbrirTurno={() => void abrirTurno({ baseApertura, notasApertura: "Turno vendedor Bodega" }).catch(cause => setError(mensajeErrorBodega(cause)))} onConfirmar={solicitud => void confirmarSolicitud(solicitud)} onCancelar={solicitud => void cancelarSolicitud(solicitud)} onActualizar={() => void actualizarSolicitudes()} onCrearOtra={() => setTab("venta")} /> : tab === "agenda" ? <BodegaAgendaVendedor programaciones={agenda} hoy={hoy} cargando={cargandoAgenda} cargandoMas={cargandoMasAgenda} hayMas={!!nextCursorAgenda} procesando={procesandoAgenda} onActualizar={() => void actualizarAgenda()} onCargarMas={() => void actualizarAgenda(nextCursorAgenda)} onCancelar={item => void cancelarProgramacion(item)} onConvertir={item => void convertirProgramacion(item)} /> : tab === "clientes" ? <ClientesView clientes={clientes} onCrear={() => setMostrarCliente(true)} /> : <HistorialView ventas={ventas} />}
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-slate-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"><div className="mx-auto flex h-16 max-w-2xl">{([{ id: "venta", label: "Nueva", icon: ShoppingCart }, { id: "solicitudes", label: "Solicitudes", icon: ClipboardList }, { id: "agenda", label: "Agenda", icon: CalendarDays }, { id: "clientes", label: "Clientes", icon: Users }, { id: "historial", label: "Mis ventas", icon: CircleDollarSign }] as const).map(item => <button key={item.id} onClick={() => setTab(item.id)} className={cn("flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold", tab === item.id ? "text-amber-300" : "text-slate-500")}><item.icon className="h-5 w-5" />{item.label}</button>)}</div></nav>
