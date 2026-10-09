@@ -722,7 +722,9 @@ un aviso genérico de fallo de venta, aún sin diagnóstico; no se reintentó ni
 considera validada la conversión de agenda a venta. Queda pendiente observar
 después de medianoche la transición automática y la liberación del hold
 (máximo cinco minutos de cadencia); no se forzará el Scheduler ni se manipulará
-el reloj.
+el reloj. El job permanece `ENABLED` cada cinco minutos y sus cuatro
+ejecuciones observadas hasta las `20:08Z` devolvieron HTTP `200`; es señal de
+salud previa, no evidencia de expiración.
 Gate F permanece `EN CURSO`, no `PASS`. Continúan pendientes replay/retry y
 concurrencia autenticados, aislamiento remoto tenant/roles y la conciliación
 integral de PWA/Backoffice, inventario, ledger, reportes y turnos. No se

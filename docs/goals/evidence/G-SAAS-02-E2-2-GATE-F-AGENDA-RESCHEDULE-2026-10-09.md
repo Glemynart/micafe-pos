@@ -49,6 +49,14 @@ pendiente debe observar la agenda/reserva y el stock después de las 00:00 del
 minutos adicionales antes de clasificar una demora como fallo. No se forzará
 el Scheduler ni se cambiará el reloj para fabricar el resultado.
 
+Una lectura posterior confirmó que el job
+`firebase-schedule-reconciliarAgendaPedidosBodegaV1-us-central1` está
+`ENABLED`, con frecuencia `every 5 minutes` (configurada en UTC). Cloud Logging
+registró HTTP `200` en sus cuatro últimas ejecuciones observadas: `19:53:09Z`,
+`19:58:05Z`, `20:03:03Z` y `20:08:03Z` del 9 de octubre. Esto acredita
+disponibilidad reciente del worker, pero como la reserva todavía no vencía no
+demuestra su liberación automática.
+
 Las notificaciones de esta agenda reprogramada no se revalidaron en este
 cambio. La alerta de solicitudes nuevas, entrega visible/sonora, retry/replay
 autenticado, concurrencia e aislamiento remoto, y conciliación integral
