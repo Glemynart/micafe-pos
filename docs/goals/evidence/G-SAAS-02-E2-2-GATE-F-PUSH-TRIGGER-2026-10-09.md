@@ -260,3 +260,36 @@ forzó la ejecución ni se modificó agenda, reserva o Scheduler.
 ### Suite Functions canónica — 2026-10-09
 
 En el worktree de esta evidencia, sobre `origin/main @ 51ba17311f7493a3799154a1200a5ef0ae70a67b` (la rama de PR solo añade este documento), `npm --prefix functions test` terminó con `422` pruebas: `417` PASS, `5` SKIP y `0` fallos. Incluye replay del mismo comando de solicitud con una única solicitud y un único evento push. Esta ejecución local complementa Emulator; no sustituye retry/replay autenticado ni concurrencia remotos de Gate F.
+
+### Inspección read-only adicional de la PWA — 2026-10-09
+
+En el Preview post-merge de PR #506, la sesión ya autenticada del vendedor
+sintético mostró `Solicitudes`, `Mi agenda`, `Clientes` y `Mis ventas`. La
+agenda del vendedor se encontraba vacía al momento de la lectura. No se
+confirmó ninguna de las dos solicitudes `APROBADA`, no se canceló otra, no se
+creó solicitud/agenda/cliente y no se alteraron ventas, inventario, ledger ni
+turnos.
+
+En el formulario sin enviar, `Pedido para hoy` mostró la fecha local actual
+(`2026-10-09`). `Agendar entrega` propuso `2026-10-10` y expuso campos
+opcionales `Desde`/`Hasta`; el texto informa que fecha y franja son preferidas,
+que administración debe aceptar para reservar existencias y que precio y
+entrega exacta no quedan confirmados al agendar. Se restauró la opción
+`Venta de hoy` y el borrador terminó vacío.
+
+El catálogo mostró una presentación con `Disponibles: 1`; el carrito local
+permitió subir ese borrador a cantidad `2`. Se retiró el borrador sin enviarlo.
+La inspección del código confirma que la solicitud resuelve el catálogo y el
+precio en servidor, mientras el consumo canónico aplica `exigirStockSuficiente`
+al confirmar la venta. Por lo tanto, esta observación no demuestra una venta
+con sobreventa; registra que el cliente no limita el borrador a la disponibilidad
+mostrada. La actualización en vivo y el tope visual de cantidad se mantienen
+como mejora posterior a Gate F, según la priorización acordada con el usuario.
+
+La pestaña de Edge del administrador estaba en `/admin/login`; no se intentó
+automatizar la autenticación. La sesión del vendedor no se usó para atribuir
+capacidades administrativas.
+
+Esta lectura es evidencia puntual de la UI, no la matriz funcional completa de
+staging. No cambia el estado de Gate F (`EN CURSO`) ni acredita replay,
+concurrencia remota, aislamiento A/B o retry tras pérdida de respuesta.
