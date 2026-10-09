@@ -10,10 +10,11 @@ test("preserva el nombre histórico del vendedor en el reporte", () => {
 })
 
 test("preserva el nombre histórico aunque falte el UID del vendedor", () => {
-  const nombres = new Map<string, string>()
+  const nombres = new Map<string, string>([["uid-vendedor-conocido", "Nombre actual"]])
 
   assert.equal(resolverNombreVisibleVendedor("desconocido", "Nombre histórico", nombres), "Nombre histórico")
   assert.equal(resolverNombreVisibleVendedor(undefined, "Nombre histórico", nombres), "Nombre histórico")
+  assert.equal(resolverNombreVisibleVendedor(undefined, "uid-vendedor-conocido", nombres), "Nombre actual")
 })
 
 test("resuelve el nombre tenant-aware cuando el snapshot del reporte es el UID", () => {
