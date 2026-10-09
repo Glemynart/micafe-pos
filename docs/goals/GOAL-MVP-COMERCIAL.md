@@ -558,17 +558,20 @@ La evidencia confirma las 17 Functions activas del codebase `saas-bodega`,
 incluido el trigger Firestore; sin cambios a producción, Rules, Secrets,
 tenant real ni datos del fixture.
 
-Gate F permanece `EN CURSO`, no `PASS`. Siguen requiriendo evidencia de staging:
-el despacho automático trigger/outbox y sus reintentos; replay/concurrencia y
-retry autenticado tras pérdida de respuesta; aislamiento completo de tenant y
-roles, revocación/restauración de membresía con replay; ciclo de agenda,
-recordatorios, expiración/liberación automática e idempotencia de conversión;
-y la matriz integral de PWA, Backoffice, inventario, ledger, reportes y turnos.
-La [evidencia parcial más reciente de Gate F](evidence/G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md)
-conserva la matriz de staging. Los E2E en Emulator aportan cobertura, pero no
-cierran esos casos remotos. El siguiente gate continúa siendo F; G debe
-repetirse y H emitir una matriz nueva después de F. I permanece pendiente; no
-se crea/configura el tenant real ni se toca producción.
+Gate F permanece `EN CURSO`, no `PASS`. Una observación staging posterior al
+deploy confirma un despacho trigger/outbox `ENVIADO` para una solicitud; no
+demuestra recepción del dispositivo, reintentos ni replay. Siguen requiriendo
+evidencia remota: esos subcasos de push; replay/concurrencia y retry autenticado
+tras pérdida de respuesta; aislamiento completo de tenant y roles,
+revocación/restauración de membresía con replay; ciclo de agenda, recordatorios,
+expiración/liberación automática e idempotencia de conversión; y la matriz
+integral de PWA, Backoffice, inventario, ledger, reportes y turnos. El resultado
+puntual está en la [evidencia del trigger](evidence/G-SAAS-02-E2-2-GATE-F-PUSH-TRIGGER-2026-10-09.md);
+la [matriz parcial de Gate F](evidence/G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md)
+conserva los demás casos. Los E2E en Emulator aportan cobertura, pero no cierran
+esos escenarios remotos. El siguiente gate continúa siendo F; G debe repetirse
+y H emitir una matriz nueva después de F. I permanece pendiente; no se
+crea/configura el tenant real ni se toca producción.
 
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
