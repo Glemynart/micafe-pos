@@ -161,3 +161,43 @@ callable para fabricar el resultado.
 
 Gate F permanece `EN CURSO`; los demás escenarios remotos permanecen según la
 [matriz parcial de Gate F](G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md).
+
+## Seguimiento staging — ciclo de revocación/restauración de vendedor, 2026-10-09
+
+En `micafe-pos-staging`, sobre el fixture existente
+`E2_2-BODEGA-STAGING-FIXTURE`, se ejecutaron por la interfaz canónica de
+Backoffice dos transiciones autorizadas sobre el vendedor sintético F (UID
+terminado en `230fe`): `activa → inactiva` y luego `inactiva → activa`. No se
+creó otra identidad ni se editó Firestore directamente.
+
+Cloud Logging del servicio `actualizarmembresiabodegav1`, revisión
+`actualizarmembresiabodegav1-00002-zog`, registró ambas solicitudes callable
+con HTTP `200`: `2026-10-09T12:33:22.412789Z` y
+`2026-10-09T12:33:44.426268Z`. La lectura autenticada de `/admin/usuarios`
+después del ciclo mostró al vendedor F nuevamente activo. En la PWA del mismo
+vendedor, la vista `Solicitudes` cargó desde servidor la bandeja existente
+después de la restauración; no se envió otra solicitud ni se confirmó una
+venta.
+
+Esto verifica el ciclo remoto de revocación/restauración y el acceso posterior
+del vendedor, pero no un replay remoto: la interfaz genera un `commandId`
+nuevo por operación y no expone una acción de reintento con el mismo comando.
+La suite local del paquete `functions-bodega-membership` pasó `npm run build`
+y `npm test` (`11/11`), incluidos restauración/re-sincronización de claims,
+replay sin duplicar obligación/auditoría, conflicto de idempotencia y
+aislamiento de tenant. Esta cobertura local no se presenta como evidencia de
+replay en staging.
+
+### Auditoría de mutaciones del ciclo de membresía
+
+- Proyecto/tenant: únicamente `micafe-pos-staging` /
+  `E2_2-BODEGA-STAGING-FIXTURE`.
+- Membresía: dos transiciones canónicas de estado del vendedor sintético F;
+  estado final activo.
+- Firestore/Auth: sin escrituras directas; las dos operaciones se tramitaron
+  por `actualizarMembresiaBodegaV1`.
+- Solicitudes nuevas, ventas, inventario, ledger y turnos: cambios `0`.
+- Rules, Functions, IAM, Secrets, despliegues, producción y tenant real:
+  cambios `0`.
+- Gate F permanece `EN CURSO`: el replay remoto y los restantes escenarios de
+  Gate F siguen pendientes.
