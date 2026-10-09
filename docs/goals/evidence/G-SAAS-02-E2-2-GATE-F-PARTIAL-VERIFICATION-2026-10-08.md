@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: evidencia parcial de verificación (2026-10-08)
 
-**Última revisión:** 2026-10-09 01:37 UTC
+**Última revisión:** 2026-10-09 02:12 UTC
 **Estado:** `EN CURSO` — evidencia parcial; no certifica Gate F.
 
 ## Contexto y límites
@@ -151,18 +151,18 @@ demuestra entrega push ni el ciclo completo de agenda.
 | Aislamiento de tenant y roles en staging | Pendiente de evidencia completa |
 | Revocación/restauración de membresía y replay autenticado | Pendiente en staging; Emulator PASS no la sustituye |
 | Retry autenticado tras pérdida de respuesta | Pendiente en staging; Emulator PASS no la sustituye |
-| Agenda: creación y aceptación con reserva | Reserva preexistente verificada; ciclo de prueba completo pendiente |
-| Agenda: conversión a solicitud y venta idempotente | Pendiente de evidencia completa en staging |
-| Agenda: cancelación/liberación y expiración | Tests locales PASS; validación remota pendiente |
-| Recordatorio worker y entrega push | Rama sin destinatario: PASS; entrega push: pendiente, 0 tokens FCM activos; no se cambió el permiso del navegador |
+| Agenda: creación y aceptación con reserva | Una agenda sintética creada y aceptada; se verificó la retención de 2 unidades. No es venta ni acredita todo el ciclo |
+| Agenda: conversión a solicitud y venta idempotente | Conversión canónica observada; solicitud pendiente y sin venta. Replay/concurrencia, aprobación y venta vinculada idempotente siguen pendientes |
+| Agenda: cancelación/liberación y expiración | Cancelación/liberación anterior verificada; la reserva actual sigue activa tras conversión y tiene vencimiento automático pendiente |
+| Recordatorio worker y entrega push | Un `fecha_programada` despachado por Scheduler/FCM (`ENVIADO`, intento 1, sin error); usuario confirmó recepción. Sonido y recepción background no certificados |
 | Venta, turnos, inventario, ledger y auditoría | La evidencia histórica no equivale a una revalidación integral de este checkpoint |
 | Reportes y PWA | Pendiente de revalidación integral |
 | Backoffice | Parcial: sesión de operador SaaS autorizada y detalle del fixture cargado con `Contexto validado`; falta revalidación funcional integral |
 
-No se debe consumir ni cancelar la reserva activa para completar casos que
-requieran una nueva autorización de negocio. Tampoco se debe crear otro fixture.
-El permiso de notificaciones del navegador requiere la interacción del usuario;
-no se aceptó ni se intentó eludir ese permiso.
+La reserva nueva permanece activa y no se consumió ni canceló en esta etapa;
+no se creó otro fixture. El permiso de notificaciones de este Preview había
+sido concedido explícitamente por el usuario; no se eludió el control del
+navegador.
 
 ## Dictamen y siguiente paso
 
@@ -789,3 +789,145 @@ evidencia local y no reemplaza la matriz remota completa de Gate F.
 Gate F permanece `EN CURSO`. Este paso adelanta la agenda de prueba, pero aún no
 acredita expiración, recordatorio automático, conversión idempotente ni la
 matriz funcional integral.
+
+### Seguimiento — recordatorio automático de fecha programada, 2026-10-09
+
+La agenda activa del fixture, solicitada para el 8 de octubre de 21:00–22:00
+hora de Bogotá, tenía un evento `fecha_programada` disponible a las
+`2026-10-09T02:00:00Z`. El Scheduler normal `reconciliarAgendaPedidosBodegaV1`
+ejecutó el `2026-10-09T02:03:07Z` y la llamada a la Function terminó HTTP `200`.
+La lectura Firestore REST posterior, filtrada al fixture y a eventos de
+recordatorio, encontró ese evento en `ENVIADO`, `intentos=1`, sin código de
+error. No se invocó manualmente el Scheduler ni se editaron documentos.
+
+El usuario confirmó que recibió la notificación. El evento se envía a los
+destinatarios server-side elegibles (vendedor solicitante y admins activos),
+pero no hay evidencia que atribuya esta recepción a una sesión concreta. No se
+declara prueba de sonido ni de recepción en segundo plano de todos los perfiles.
+Los eventos `fecha_programada` de otras agendas futuras continúan pendientes a
+su fecha; los avisos de agendas canceladas se omiten por vigencia.
+
+La conversión de la agenda nueva cambió su estado a `CONVERTIDA_A_SOLICITUD`.
+La UI del vendedor y Firestore muestran la solicitud ligada pendiente de
+aprobación, total resuelto en servidor de `5.000 COP`, y que todavía no existe venta.
+La lectura Firestore de la misma agenda confirmó su reserva `ACTIVA` por 2
+unidades base; producto: 6 físicas, 2 reservadas y 4 disponibles. La reserva
+vence a `2026-10-09T05:00:00Z` (medianoche Bogotá); su expiración automática
+sigue pendiente de observar. No se aprobó ni confirmó la venta. Replay y
+concurrencia de conversión, venta vinculada idempotente, revocación/replay de
+membresía, aislamiento completo y la matriz funcional restante también siguen
+pendientes.
+
+La acción de conversión se hizo por el control canónico del POS en el Preview
+de staging, con vendedor sintético autenticado. No se repitió el comando para
+fabricar evidencia de replay: la UI ya bloquea una segunda conversión cuando
+el estado cambió; la garantía de replay queda `NOT EXECUTED` en staging.
+
+#### Mutation audit del recordatorio
+
+- Proyecto/tenant: `micafe-pos-staging` / `E2_2-BODEGA-STAGING-FIXTURE`.
+- Firestore: lecturas REST selectivas para estado del outbox; escritura manual
+  o directa de Codex `0`. El Scheduler automático actualizó el evento de
+  `PENDIENTE` a `ENVIADO`.
+- POS staging: una acción canónica `Crear solicitud de venta de hoy` para la
+  agenda convertida; solicitud creada pendiente de aprobación. No se hizo
+  escritura directa en Firestore.
+- Firestore posterior a conversión: lecturas selectivas confirmaron agenda
+  `CONVERTIDA_A_SOLICITUD`, solicitud `PENDIENTE_APROBACION`, reserva `ACTIVA`
+  (2 unidades base) y stock físico/reservado `6/2`.
+- Scheduler/Cloud Logging: lecturas; invocaciones manuales `0`; la ejecución
+  normal de las `02:03:07Z` terminó HTTP `200`.
+- FCM: despacho del evento registrado como `ENVIADO` y recepción confirmada
+  por el usuario. No se expusieron valores de tokens.
+- Agenda: una conversión canónica a solicitud; una solicitud pendiente nueva.
+  Venta, ledger y turno: cambios `0`. No se canceló/consumió la reserva activa.
+- Reservas/stock: sin cambios manuales; el estado observado tras conversión
+  permaneció `ACTIVA`, 2 unidades reservadas (6 físicas / 2 reservadas).
+- Auth, Rules,
+  Functions, IAM, Secrets, configuración, tráfico, deploy y producción:
+  cambios manuales/de Codex `0` en este seguimiento.
+- La reserva nueva se mantiene; sí se ejecutó la conversión a solicitud, pero
+  no el consumo de inventario ni la limpieza.
+- Gate F permanece `EN CURSO`, no `PASS`.
+
+### Seguimiento — aprobación administrativa de la solicitud, 2026-10-09 02:20 UTC
+
+En el Preview staging del fixture `E2_2-BODEGA-STAGING-FIXTURE`, la sesión
+autenticada de `Administrador Bodega Demo` aprobó desde `/admin/solicitudes`
+la solicitud ligada a la agenda, identificador visible terminado en
+`ZWIXZCJD`. La tarjeta del administrador pasó a `APROBADA`; la sesión POS del
+vendedor confirmó el mismo estado para una línea de 1 presentación (2 unidades
+base), con total canónico de `5.000 COP` y vencimiento de la aprobación dentro
+de las 24 horas previstas por ADR-SAAS-062.
+
+La tarjeta aún ofrece `Confirmar venta`: no se accionó. La pantalla del
+vendedor indica `Sin turno` y muestra `Transferencia` seleccionada; en el
+componente vigente el turno es requisito para cobrar en efectivo, mientras que
+transferencia no requiere apertura de caja. La aprobación no equivale a pago ni
+a venta. No se afirma creación de venta, asiento de ledger, consumo de reserva
+o descuento de stock; el cierre financiero queda pendiente del handoff humano
+en el botón final de POS.
+
+La lista también conserva solicitudes sintéticas anteriores `CANCELADA` y
+`EJECUTADA`; la solicitud aprobada se distinguió por su estado e identificador
+visible para evitar operar sobre un registro previo.
+
+#### Mutation audit de la aprobación
+
+- Proyecto/tenant: `micafe-pos-staging` /
+  `E2_2-BODEGA-STAGING-FIXTURE`; Preview de staging, no producción.
+- Solicitud: una transición canónica `PENDIENTE_APROBACION → APROBADA` desde
+  Backoffice; no hubo escritura directa de Codex a Firestore.
+- Venta/ledger/turno: no se confirmó la venta ni se cambió el método de pago;
+  no se abrió ni cerró turno.
+- Inventario/reserva: no se consumió ni liberó la reserva; sin ajuste manual.
+- Auth, Rules, Functions, IAM, Secrets, configuración, despliegue y tráfico:
+  cambios manuales de Codex `0`.
+- Tenant real, producción, fixture adicional y cleanup destructivo: `0`.
+- Gate F continúa `EN CURSO`; la venta final, su idempotencia remota y los
+  efectos financieros siguen sin certificarse.
+
+### Seguimiento — venta canónica de la solicitud agendada, 2026-10-09 02:32 UTC
+
+El usuario confirmó en el POS staging la venta de la solicitud `…ZWIXZCJD`.
+Las vistas del vendedor y administrador mostraron `EJECUTADA`/`pagada`,
+transferencia y total `5.000 COP`. La solicitud conserva una línea de una
+presentación (2 unidades base) y referencia la venta resultante.
+
+Se efectuaron lecturas Firestore REST autenticadas, de solo lectura, en
+`micafe-pos-staging`, limitadas al fixture, solicitud y referencias exactas de
+esa operación:
+
+- `operaciones_comandos`: recibo `confirmarVentaBodegaV1` en
+  `CONFIRMADO`; su resultado enlaza solicitud, agenda y venta, contiene un
+  movimiento financiero, un movimiento de inventario y `turnoId = null`.
+- `operaciones_command_idempotency`: existe el índice para el mismo
+  `commandId`. Esto acredita el recibo/índice iniciales, no un replay remoto:
+  no se repitió el comando.
+- `operaciones_auditoria`: hecho `confirmarVentaBodegaV1` con resultado
+  `CONFIRMADO` y referencia a la venta.
+- `ventas`: documento enlazado en estado `pagada`, `estadoOperativo =
+  COMPLETO`, medio `transferencia`, total `5.000 COP` y `programacionId`
+  presente.
+- `transacciones_financieras`: un `ingreso` por `5.000 COP`, categoría
+  `ventas`, ligado al mismo `ventaId`; `turnoId = null`, consistente con
+  transferencia y con la sesión del vendedor `Sin turno`.
+- `movimientos_inventario`: un movimiento `venta` de `-2` unidades base, con
+  saldo posterior `4`, ligado a la venta.
+- Agenda: `CUMPLIDA`, con `ventaId` coincidente. La reserva correspondiente
+  quedó `CONSUMIDA` por 2 unidades base y referencia la misma venta. La UI de
+  inventario confirmó `4` físicas, `0` reservadas y `4` disponibles.
+
+La operación final fue confirmada por el usuario en la interfaz. Codex no
+ejecutó ni repitió una transacción financiera; las consultas posteriores
+fueron `GET`/`runQuery` de Firestore. No se abrió/cerró turno ni se ajustó stock
+manualmente. No se modificaron Auth, Rules, Functions, IAM, Secrets,
+configuración, despliegues, producción ni otro tenant. La ejecución confirma el
+camino exitoso solicitud→aprobación→venta y sus efectos atómicos para este
+caso; no prueba concurrencia ni replay remoto ante pérdida de respuesta.
+
+Gate F permanece `EN CURSO`. Siguen pendientes el replay/concurrencia remotos,
+los casos restantes de aislamiento y revocación/restauración, expiración
+automática, retry autenticado tras pérdida de respuesta, y la matriz funcional
+integral de staging, incluidos los escenarios de turno, backoffice y PWA no
+cubiertos por este caso.

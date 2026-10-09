@@ -367,6 +367,46 @@ respuesta, el ciclo completo de agenda/recordatorios y la validación funcional
 integral. Gate G debe repetirse; Gate H emitirá una matriz nueva después de F.
 No se adelanta el tenant real ni producción.
 
+### Checkpoint — 2026-10-09 — PR #496 / agenda y recordatorio sintéticos
+
+PR #496 quedó `MERGED` en `main @ 8c4c75735fb3cf37e07ae472a33440bcbddd941f`
+a las `2026-10-09T02:04:45Z`, con `Tipos y pruebas`, `Vercel` y
+`Vercel Preview Comments` en `PASS`. La CI post-merge de `main`, run
+`37872843869`, estaba `in_progress` al corte de `02:04:48Z`. El PR fue
+documental; no modificó el código de aplicación.
+
+La evidencia de Gate F registra la agenda sintética reprogramada y aprobada
+para el 8-oct, 21:00–22:00 Bogotá, y la cancelación/liberación autorizada de la
+reserva antigua del 9-oct. La reserva nueva sigue activa por 2 unidades base;
+inventario observado: 6 físicas, 2 reservadas, 4 disponibles. El Scheduler
+automático despachó el recordatorio `fecha_programada` a las `02:03:07Z` con
+HTTP `200`; el outbox quedó `ENVIADO`, intento 1, y el usuario confirmó su
+recepción. Esto no prueba sonido ni todos los perfiles/background, expiración,
+conversión idempotente ni la matriz completa. Gate F queda `EN CURSO`, no
+`PASS`; E2.2 continúa `EN EJECUCIÓN` y no se inicia todavía el tenant real.
+Evidencia: [`Gate F parcial`](evidence/G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md).
+
+### Seguimiento — 2026-10-09 — PR #497 / conversión de agenda
+
+PR #497 está abierto sobre `main @ 8c4c75735fb3cf37e07ae472a33440bcbddd941f`;
+el check `Vercel Preview Comments` pasó y `Tipos y pruebas`/`Vercel` seguían
+corriendo al corte de `02:09Z`. El cambio es documental y no altera el artefacto
+de aplicación.
+
+Desde el POS staging, la sesión sintética del vendedor convirtió mediante el
+control canónico la agenda de hoy a una solicitud de venta. POS mostró
+`PENDIENTE APROBACIÓN`, total resuelto en servidor de `5.000 COP` y el mensaje
+de que aún no se creó venta ni se descontó inventario. La lectura Firestore de
+staging confirmó la agenda `CONVERTIDA_A_SOLICITUD`, la solicitud
+`PENDIENTE_APROBACION`, su reserva aún `ACTIVA` por 2 unidades base y stock
+físico/reservado `6/2`. La reserva vence a `2026-10-09T05:00:00Z` (medianoche
+Bogotá); no se aprobó ni confirmó la venta en este paso.
+
+Gate F permanece `EN CURSO`: la conversión básica quedó observada, pero el
+replay/concurrencia, aprobación y venta canónica, consumo/liberación/expiración
+de reserva y matriz funcional completa todavía requieren evidencia. El tenant
+real no se inicia.
+
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
 PR #477 quedó `MERGED` en `main` el `2026-10-07 22:23:06` hora de Bogotá
