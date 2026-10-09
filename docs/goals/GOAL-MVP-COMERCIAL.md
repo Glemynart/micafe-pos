@@ -671,6 +671,30 @@ reserva, y la matriz funcional integral PWA/Backoffice de inventario, ledger,
 reportes y turnos. Se conserva F como siguiente gate; no se adelantan G/H, no
 se crea/configura el tenant real y no se toca producción.
 
+### Checkpoint vigente — 2026-10-09 — PR #512 / nombres de vendedores en reportes
+
+PR #512 quedó integrado en `main` mediante el merge commit
+`5ad2670b7305cc2e5f06c02b90dfee550282048d`. Sus checks previos al merge
+(`Tipos y pruebas`, `Vercel` y `Vercel Preview Comments`) terminaron `PASS`; la
+CI post-merge de `main`, run `37976849313`, terminó `success` sobre ese mismo
+SHA.
+
+La evidencia autenticada de Edge en el Preview confirma que las filas del
+reporte semanal ya muestran nombres o referencias abreviadas, nunca UIDs
+completos. El tenant sintético no aporta nombres visibles para esos vendedores,
+por lo que se observó el fallback esperado. La implementación preserva
+snapshots históricos y resuelve perfiles actuales solo mediante la lectura
+tenant-aware de ADR-SAAS-037. `test:reportes` pasó 10/10, además de TypeScript,
+build, ESLint dirigido y `git diff --check`; no se hicieron mutaciones en
+staging como parte del PR.
+
+Este PR cierra solo ese hallazgo de reportes. Gate F permanece `EN CURSO`, no
+`PASS`; continúan pendientes el replay de membresía/comandos, retry tras pérdida
+de respuesta, aislamiento y concurrencia remotos, expiración/liberación real de
+la reserva y conciliación integral PWA/Backoffice de inventario, ledger,
+reportes y turnos. No se adelantan G/H, no se configura el tenant real y no se
+toca producción.
+
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
 PR #477 quedó `MERGED` en `main` el `2026-10-07 22:23:06` hora de Bogotá
