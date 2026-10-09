@@ -43,3 +43,30 @@ no se permitió el aviso de notificaciones en este nuevo origen.
 
 Gate F continúa `EN CURSO`; este checkpoint no modifica el Goal ni certifica el
 cierre de E2.2.
+
+### Seguimiento operativo read-only — 2026-10-09, aproximadamente 22:33–22:45 UTC
+
+En el mismo Preview de `micafe-pos-staging`, con las sesiones sintéticas de
+vendedor y admin abiertas en navegadores separados, se amplió la conciliación
+sin operar la agenda:
+
+| Superficie | Resultado observado |
+|---|---|
+| Solicitudes | Ambos roles muestran las mismas dos solicitudes `APROBADA` de `$5.000 COP` cada una. Ninguna se confirmó ni canceló. |
+| Stock visible | Admin informa 4 unidades físicas, 2 reservadas y 2 disponibles; el POS del vendedor informa 1 presentación disponible (factor 2), equivalente a las mismas 2 unidades base. |
+| Ventas | Admin lista 12 ventas pagadas de `$5.000` (`$60.000` total). El historial del vendedor sintético muestra 6 ventas (`$30.000`), coincidentes con su subtotal en el reporte. Efectivo y transferencia están representados. |
+| Rentabilidad | Reporte de octubre: ventas `$60.000`, costo `$24.000`, ganancia bruta `$36.000`, margen `60%`, 12 unidades; subtotales de vendedores suman `$60.000`. |
+| Turnos | 9 visibles: 8 cerrados y 1 abierto antiguo. Los cierres visibles tienen diferencia acumulada `$0`; el abierto conserva base `$10.000`. No se cerró ni alteró porque cambiaría caja. |
+| Guard de rol | Desde la sesión del vendedor, abrir `/admin/solicitudes` redirigió a `error=not_admin` y exigió cerrar la sesión de caja antes de intentar acceso admin. Volver a `/pos` restauró la sesión del vendedor. Acredita el guard UI, no autorización backend A/B completa. |
+| Resolución tenant | Al navegar a Reportes y Turnos apareció brevemente `Verificando acceso al tenant…`; la siguiente lectura resolvió sin recargar. No reproduce una carga infinita. |
+
+La corrida adicional `npm run e2e:bodega-u4-u5` terminó `9 passed` en Emulator.
+Incluye recorridos de solicitud/aprobación/venta, retry tras pérdida de
+respuesta y aislamiento A/B. Esta evidencia automatizada no sustituye las
+pruebas autenticadas remotas de replay, retry y carrera de stock.
+
+Mutation audit de este seguimiento: no se aprobaron, rechazaron, confirmaron ni
+cancelaron solicitudes; no se alteraron caja, turnos, stock, ventas, agenda,
+membresías, Auth, Rules, Functions, Scheduler, IAM, Secrets, despliegue o
+producción. La sesión del vendedor se restauró en `/pos` después de comprobar
+el guard. Gate F permanece `EN CURSO`.
