@@ -116,6 +116,24 @@ test("crear solicitud resuelve cliente, presentaciones, factor, precio y total s
   assert.equal(db.docs.get("productos/producto-1")?.stock, 20);
 });
 
+test("crear solicitud escribe un evento push mínimo y tenant-aware en la misma transacción", async () => {
+  const db = new FakeDb(); seed(db);
+  const result = await crear(db);
+  const eventoId = crearIdentificadorInterno(empresaId, `solicitud-venta-bodega-pendiente:${result.solicitudId}`);
+  const evento = db.docs.get(`eventos_operativos/${eventoId}`)!;
+
+  assert.equal(evento.tipo, "SOLICITUD_VENTA_BODEGA_PENDIENTE");
+  assert.equal(evento.empresaId, empresaId);
+  assert.equal(evento.eventoId, eventoId);
+  assert.deepEqual(evento.agregado, { tipo: "SOLICITUD_VENTA_BODEGA", id: result.solicitudId });
+  assert.deepEqual(evento.payloadOperativo, { solicitudId: result.solicitudId });
+  assert.equal(evento.estadoDespacho, "PENDIENTE");
+  assert.equal(evento.intentos, 0);
+  assert.equal(JSON.stringify(evento).includes("Tienda Demo"), false);
+  assert.equal(JSON.stringify(evento).includes("10_000"), false);
+  assert.equal(db.docs.get(`${collectionPath}/${result.solicitudId}`)?.estado, "PENDIENTE_APROBACION");
+});
+
 test("crear solicitud acepta referencias canónicas de presentación mayores a 160 caracteres", async () => {
   const db = new FakeDb(); seed(db);
   const presentacionId = crearIdentificadorInterno(empresaId, `presentacion:producto-1:${"x".repeat(160)}`);
