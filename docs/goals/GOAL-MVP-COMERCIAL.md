@@ -558,9 +558,11 @@ La evidencia confirma las 17 Functions activas del codebase `saas-bodega`,
 incluido el trigger Firestore; sin cambios a producción, Rules, Secrets,
 tenant real ni datos del fixture.
 
-Gate F permanece `EN CURSO`, no `PASS`. Una observación staging posterior al
-deploy confirma un despacho trigger/outbox `ENVIADO` para una solicitud; no
-demuestra recepción del dispositivo, reintentos ni replay. Siguen requiriendo
+Gate F permanece `EN CURSO`, no `PASS`. Dos observaciones staging posteriores
+al deploy confirman despachos trigger/outbox `ENVIADO` para solicitudes
+pendientes; la segunda solicitud continúa pendiente, sin venta ni descuento de
+inventario. Estos despachos no demuestran recepción visible del evento de
+venta en el dispositivo, ni reintentos o replay. Siguen requiriendo
 evidencia remota: esos subcasos de push; replay/concurrencia y retry autenticado
 tras pérdida de respuesta; aislamiento completo de tenant y roles,
 revocación/restauración de membresía con replay; ciclo de agenda, recordatorios,

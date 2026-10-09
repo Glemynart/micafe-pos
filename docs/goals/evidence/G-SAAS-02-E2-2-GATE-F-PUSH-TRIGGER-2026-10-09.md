@@ -35,11 +35,30 @@ callable para fabricar el resultado.
   destinatarios múltiples ni aislamiento entre tenants.
 - Esta prueba no crea otra venta ni cambia ledger, inventario o turno.
 
+## Seguimiento staging — segundo despacho sintético
+
+- El 2026-10-09, Codex envió desde la sesión autenticada del vendedor una
+  segunda solicitud sintética de venta para hoy, ID terminado en `yOTk3Il0`,
+  por una presentación (2 unidades base) y `$5.000 COP`. Sigue en
+  `PENDIENTE_APROBACION`.
+- El evento outbox asociado, ID terminado en `zSWwwIl0`, tipo
+  `SOLICITUD_VENTA_BODEGA_PENDIENTE`, quedó `ENVIADO`, intento `1`, sin error.
+  Cloud Logging registró HTTP `204` del trigger
+  `notificarsolicitudventabodegapendientev1` a las
+  `2026-10-09T09:45:50.592146Z`.
+- Lecturas posteriores confirmaron producto con 4 unidades disponibles y 0
+  reservadas; no se creó venta ni movimiento de inventario/ledger. La solicitud
+  permanece pendiente, sin aprobación de administrador.
+- La recepción de esta notificación concreta en el dispositivo del
+  administrador no fue confirmada. Por tanto, es una segunda evidencia de
+  despacho automático trigger/outbox, no de entrega visible ni sonora.
+
 ## Auditoría de mutaciones
 
-- Codex: lecturas únicamente; escrituras directas de Firestore `0`.
-- La solicitud fue creada y aprobada por la actividad de usuario ya reflejada
-  en staging; Codex no ejecutó esas transiciones.
+- Codex creó una solicitud por el flujo UI autenticado de vendedor; escrituras
+  directas de Firestore `0`.
+- La solicitud anterior fue aprobada por la actividad de usuario ya reflejada
+  en staging; la segunda solicitud sigue pendiente y Codex no la aprobó.
 - Functions, Scheduler, IAM, Rules, Secrets, configuración, Auth, Vercel,
   fixture adicional, tenant real y producción: cambios de Codex `0`.
 
