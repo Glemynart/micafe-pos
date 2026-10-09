@@ -611,8 +611,8 @@ PR #508 quedó integrado en `main` mediante el merge commit
 `def3b0195c33e63bed99ac389a0c8f2fbb64cfe0` a las `2026-10-09T14:00:54Z`.
 Sus checks previos al merge (`Tipos y pruebas`, `Vercel` y
 `Vercel Preview Comments`) terminaron `PASS`. La CI post-merge de `main`, run
-`37941301958`, seguía `in_progress` a las `2026-10-09T14:12Z`; no se declara
-`PASS` para ese run.
+`37941301958`, terminó `success` sobre el merge commit a las
+`2026-10-09T14:18:01Z`.
 
 La [evidencia Gate F de PR #508](evidence/G-SAAS-02-E2-2-GATE-F-PUSH-TRIGGER-2026-10-09.md)
 añadió el ciclo staging autorizado de revocación/restauración del vendedor
