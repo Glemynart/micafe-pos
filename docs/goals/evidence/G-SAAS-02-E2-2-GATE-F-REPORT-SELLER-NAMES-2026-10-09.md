@@ -8,7 +8,7 @@ demostrada en el flujo: `generarReporteVentas` toma `cajeroNombre` del snapshot
 y usa `cajeroId` cuando ese snapshot falta; la página renderizaba ese resultado
 directamente.
 
-## Corrección candidata
+## Corrección implementada
 
 La página resuelve el actor con la precedencia existente: snapshot histórico,
 perfil actual del tenant y, si no hay nombre, una referencia abreviada con los
@@ -35,12 +35,25 @@ globales ni se modifica autoridad, persistencia o datos de ventas (ADR-SAAS-037)
 El checkpoint RED está en el historial de la rama; la corrección GREEN contiene
 el ajuste de clasificación de snapshots y el límite seguro de abreviación.
 
+## Validación visual autenticada del Preview
+
+El 2026-10-09 a las 18:05 UTC, en Edge y con sesión administrativa de staging,
+se abrió `/admin/reportes` y se seleccionó «Semana». El reporte cargó sus ventas
+y las dos filas de vendedor; ambas mostraron referencias abreviadas (`Vendedor ·
+…aa1e07` y `Vendedor · …e230fe`), no los UIDs completos. En la vista de operadores
+del mismo tenant, los dos perfiles del fixture aparecen únicamente con UID y rol,
+sin nombre visible; por tanto, la referencia abreviada es el fallback esperado
+para estos datos. Las pruebas unitarias cubren la resolución del nombre cuando el
+directorio sí provee `nombre`.
+
+La revisión fue de solo lectura: no se modificaron ventas, operadores, inventario,
+agenda ni configuración de staging.
+
 ## Límite de esta evidencia
 
-Esta evidencia corresponde a la rama y sus validaciones locales. La CI requerida,
-el merge y la comprobación visual autenticada del Preview siguen siendo condiciones
-de cierre del PR. No constituye `PASS` de Gate F ni reemplaza la matriz funcional
-integral.
+Esta evidencia corresponde a la rama, validaciones locales y comprobación visual
+autenticada del Preview. El merge del PR sigue pendiente. No constituye `PASS` de
+Gate F ni reemplaza la matriz funcional integral.
 
 ## Auditoría de mutaciones
 
