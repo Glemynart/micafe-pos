@@ -336,3 +336,18 @@ concurrencia remota, aislamiento A/B o retry tras pérdida de respuesta.
 
 Esto añade cobertura local independiente del calendario de agenda, pero Gate
 F permanece `EN CURSO` hasta cerrar la evidencia remota restante.
+
+### Revalidación read-only del runtime operativo — 2026-10-09 13:27 UTC
+
+`gcloud functions list --project micafe-pos-staging --regions=us-central1`
+mostró 17 Functions operativas relacionadas con Bodega, ventas, agenda e
+inventario en estado `ACTIVE`, todas con runtime `nodejs22`. Entre ellas están
+`crearSolicitudVentaBodegaV1`, `resolverSolicitudVentaBodegaV1`,
+`confirmarVentaBodegaV1`, `consultarAgendaPedidosBodegaV1`,
+`reconciliarAgendaPedidosBodegaV1`, `notificarSolicitudVentaBodegaPendienteV1`
+y `actualizarArticuloInventarioV1`.
+
+La consulta fue de inventario de Functions, sin lectura de configuración
+secreta ni mutaciones. Confirma que el runtime staging continúa disponible en
+la región prevista; no acredita autorización, resultado funcional de llamadas,
+aislamiento A/B ni los casos remotos pendientes de Gate F.
