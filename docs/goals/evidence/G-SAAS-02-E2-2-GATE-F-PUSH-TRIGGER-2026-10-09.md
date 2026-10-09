@@ -57,12 +57,35 @@ callable para fabricar el resultado.
   administrador no fue confirmada. Por tanto, es una segunda evidencia de
   despacho automático trigger/outbox, no de entrega visible ni sonora.
 
+## Agenda staging — reserva aceptada
+
+- Desde la sesión de vendedor se creó una agenda sintética para el
+  `2026-10-10`, cliente `E2_2-BODEGA-STAGING-FIXTURE-CLIENTE-GATE-F`, una
+  presentación de 2 unidades base y sin franja horaria. La solicitud quedó
+  pendiente de revisión; no tenía dirección de entrega registrada.
+- En la bandeja `/admin/agenda` del mismo tenant, Codex aceptó la agenda. La UI
+  confirmó `Stock reservado`: 2 unidades base retenidas hasta el
+  `2026-10-11 00:00` hora de Bogotá. Conforme a la UI, no se creó venta ni
+  movimiento financiero.
+- La agenda del vendedor no reflejó la reserva hasta pulsar `Actualizar
+  agenda`; después mostró `Reservado: 2 unidades base` y el vencimiento. Esto
+  verifica el ciclo crear/aceptar/reservar/consultar, pero deja pendiente la
+  reconciliación automática al llegar el vencimiento, y no valida sincronía en
+  vivo.
+- La expiración todavía no ocurrió al momento de esta observación. No se
+  alteraron fechas, reloj, datos por escritura directa ni Scheduler para
+  acelerar el resultado.
+
 ## Auditoría de mutaciones
 
 - Codex creó una solicitud por el flujo UI autenticado de vendedor; escrituras
   directas de Firestore `0`.
-- Codex inició sesión con la sesión de staging ya guardada y solo leyó la
-  bandeja; no aprobó ni rechazó la nueva solicitud.
+- Codex inició sesión con la sesión de staging ya guardada. La solicitud de
+  venta terminada en `yOTk3Il0` solo se consultó; no se aprobó ni rechazó.
+- Conforme a la autorización explícita para retener 2 unidades en staging,
+  Codex creó la agenda sintética por el flujo UI de vendedor y la aceptó por la
+  UI de administrador. No ejecutó escrituras directas de Firestore; la reserva
+  de 2 unidades permanece activa hasta su vencimiento programado.
 - La solicitud anterior fue aprobada por la actividad de usuario ya reflejada
   en staging; la segunda solicitud sigue pendiente y Codex no la aprobó.
 - Functions, Scheduler, IAM, Rules, Secrets, configuración, Auth, Vercel,

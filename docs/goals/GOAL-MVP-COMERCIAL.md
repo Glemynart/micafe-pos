@@ -568,9 +568,12 @@ real. Siguen requiriendo
 evidencia remota: esos subcasos de push; replay/concurrencia y retry autenticado
 tras pérdida de respuesta; aislamiento completo de tenant y roles,
 revocación/restauración de membresía con replay; ciclo de agenda, recordatorios,
-expiración/liberación automática e idempotencia de conversión; y la matriz
+expiración/liberación automática e idempotencia de conversión. En staging ya se
+creó y aceptó una agenda sintética que retiene 2 unidades base hasta el
+`2026-10-11 00:00` (Bogotá); el vendedor tuvo que actualizar manualmente su
+vista para ver la reserva. El vencimiento aún no ocurrió. También falta la matriz
 integral de PWA, Backoffice, inventario, ledger, reportes y turnos. El resultado
-puntual está en la [evidencia del trigger](evidence/G-SAAS-02-E2-2-GATE-F-PUSH-TRIGGER-2026-10-09.md);
+puntual está en la [evidencia staging de Gate F](evidence/G-SAAS-02-E2-2-GATE-F-PUSH-TRIGGER-2026-10-09.md);
 la [matriz parcial de Gate F](evidence/G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md)
 conserva los demás casos. Los E2E en Emulator aportan cobertura, pero no cierran
 esos escenarios remotos. El siguiente gate continúa siendo F; G debe repetirse
