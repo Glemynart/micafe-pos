@@ -91,6 +91,32 @@ callable para fabricar el resultado.
   recordatorio, liberación automática de reserva ni entrega FCM. No se invocó el
   job manualmente.
 
+## Estado de agenda y destinatarios — lectura posterior, 2026-10-09
+
+- Una consulta read-only posterior confirmó que la agenda sintética (ID con
+  sufijo `zNTNmIl0`) sigue `RESERVADA`; la reserva (ID con sufijo `WWlKZCJd`)
+  permanece `ACTIVA` por 2 unidades base y expira en
+  `2026-10-11T05:00:00Z` (`2026-10-11 00:00` Bogotá). Sus eventos
+  `creada` y `reservada` están `ENVIADO`; `dia_anterior` sigue `PENDIENTE`
+  para `2026-10-09T13:00:00Z` (08:00 Bogotá), y `fecha_programada` sigue
+  `PENDIENTE` para `2026-10-10T13:00:00Z` (08:00 Bogotá). Ambos recordatorios
+  tenían cero intentos al consultar; el Scheduler aún no había demostrado su
+  despacho.
+- En el producto sintético, Firestore mostraba 4 unidades físicas, 2
+  reservadas y 2 disponibles. La solicitud de venta pendiente seguía sin una
+  venta canónica; el estado `stockReservado` corresponde a la agenda aceptada,
+  no a una reserva de la solicitud. Se leyeron 4 tokens FCM en el perfil admin
+  y 3 en el perfil del vendedor solicitante; el conteo no prueba que sean
+  válidos ni que FCM haya entregado un aviso. Los valores de token no se
+  imprimieron ni guardaron.
+- La inspección de código confirma que la vista admin de solicitudes realiza
+  una consulta inicial y se recarga al pulsar `Actualizar` o después de
+  resolver una solicitud; no tiene suscripción en tiempo real. El usuario
+  había indicado dejar esa mejora para después de Gate F. No se presenta como
+  funcionalidad PASS ni se incluyó en este PR.
+- La lectura no alteró eventos, agenda, membresías, tokens, stock, ventas,
+  ledger, Scheduler ni producción. No se forzó la ejecución del job.
+
 ## Validación local complementaria
 
 - `npm --prefix functions-bodega test`: `14/14 PASS` en el código de Functions
