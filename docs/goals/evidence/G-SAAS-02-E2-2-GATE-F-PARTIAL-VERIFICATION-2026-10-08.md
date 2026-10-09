@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: evidencia parcial de verificación (2026-10-08)
 
-**Última revisión:** 2026-10-09 00:10 UTC
+**Última revisión:** 2026-10-09 01:37 UTC
 **Estado:** `EN CURSO` — evidencia parcial; no certifica Gate F.
 
 ## Contexto y límites
@@ -699,3 +699,93 @@ por el índice, no certifica todos los rangos ni el módulo completo de reportes
 
 Gate F y E2.2 permanecen `EN CURSO`/`EN EJECUCIÓN`. Gate G/H/I/J/K/L y el
 tenant real no se adelantan por esta corrección puntual.
+
+### Seguimiento — agenda sintética reprogramada al 8-oct, 21:00–22:00 Bogotá
+
+El 2026-10-09, aproximadamente a las `01:22Z` (`2026-10-08 20:22` en
+Bogotá), desde la sesión autenticada del vendedor sintético `GateF Seller E2_2`
+en el Preview
+`https://cafeatrato-git-codex-e2-2-turnos-adm-f22bb6-glemynarts-projects.vercel.app/pos`,
+se envió una sola programación mediante el flujo canónico de POS para adelantar
+la prueba que estaba prevista para el 9 de octubre a las 08:00. La nueva entrada
+usa el cliente sintético `E2_2-BODEGA-STAGING-FIXTURE-CLIENTE-GATE-F`, una
+presentación del producto sintético (2 unidades base) y la franja preferida
+del 8 de octubre, 21:00–22:00, zona `America/Bogota`.
+
+La vista `Mi agenda`, después del envío y la respuesta de la aplicación, mostró
+la entrada como `Pendiente de revisión` y dijo que todavía no había stock
+retenido ni venta. No se expuso un ID de documento ni código HTTP en la
+interfaz. La reserva preexistente del 9 de octubre seguía reteniendo 2 unidades
+base. El usuario inició sesión manualmente como administrador sintético en el
+mismo Preview; no se automatizó la autenticación.
+
+En `/admin/agenda`, la identidad visible fue `Administrador Bodega Demo`. Se
+aceptó la nueva programación mediante `Aceptar y reservar stock`; luego de
+esperar la respuesta, Backoffice y POS del vendedor mostraron la entrada del
+8-oct como `Stock reservado`, 2 unidades base retenidas, vencimiento
+`2026-10-09 00:00` hora de Bogotá y preferencia 21:00–22:00. No es una venta ni
+garantiza hora de entrega. La pantalla de inventario confirmó 6 unidades
+físicas, 2 reservadas y 4 disponibles.
+
+Solo después de comprobar la nueva retención y con autorización explícita del
+usuario en el turno actual, se canceló mediante `Cancelar y liberar reserva`
+la única agenda todavía reservada del 9-oct. El Backoffice y el POS del
+vendedor pasaron a mostrar esa agenda como `Cancelada`; la del 8-oct permanece
+`Stock reservado`. La lectura de inventario posterior conservó 6 físicas, con
+2 reservadas y 4 disponibles, consistente con liberar la antigua retención y
+conservar únicamente la nueva. Las otras agendas del fixture ya estaban
+canceladas. El vendedor continúa sin turno activo, por lo que no se envió ni
+confirmó una solicitud de venta.
+
+La expiración de la reserva nueva y el despacho de su recordatorio siguen
+pendientes de comprobar mediante el Scheduler normal; no se adelantó el reloj
+ni se invocó el Scheduler manualmente.
+
+#### Mutation audit del seguimiento
+
+- Proyecto/tenant: `micafe-pos-staging` / `E2_2-BODEGA-STAGING-FIXTURE`.
+- Agenda: una creación por POS y dos mutaciones canónicas de Backoffice (aceptar
+  la nueva del 8-oct y cancelar/liberar la reserva activa anterior del 9-oct).
+  El resultado leído en POS y Backoffice es una reserva activa de 2 unidades;
+  las agendas anteriores están canceladas.
+- Inventario de staging, lectura posterior: 6 unidades físicas, 2 reservadas,
+  4 disponibles. No se ejecutó ajuste de stock.
+- Venta, solicitud, ledger, turno, membresías, Auth, Rules, Functions, IAM,
+  Secrets, Scheduler y FCM: cambios por Codex `0` en este seguimiento.
+- No hubo escrituras directas de Codex a Firestore; la creación, aceptación y
+  cancelación/liberación se realizaron por las interfaces autenticadas y la
+  autoridad canónica del producto.
+- Producción, tenant real, fixture adicional, Bootstrap, Activation y cleanup
+  destructivo: `0`.
+
+#### Revalidación local de la suite de agenda — código de `main` @ `fd8ed9c`
+
+Después de la comprobación de staging se ejecutó
+`npm run e2e:bodega-agenda` desde el worktree basado en `origin/main @
+fd8ed9c293c017735ed1e58d5e180ef4a42b781c`. Firestore Emulator usó el proyecto
+demo `demo-bodega-agenda`; resultado `6/6 PASS`, cero fallos y cero skips.
+La suite cubre sobreasignación concurrente de reservas, conversión concurrente
+idempotente, aislamiento tenant/actor y payload manipulado, roles/permisos,
+cliente/presentación inactivos, y paginación. Es evidencia automatizada local,
+no reemplaza la prueba remota del Scheduler, FCM o la matriz staging completa.
+
+También se ejecutó `npm --prefix functions-bodega test` sobre el mismo SHA:
+`9/9 PASS`, cero fallos y cero skips. Incluye despacho a membresías activas,
+ausencia de tokens, backoff ante fallo transitorio, tokens inválidos,
+expiración/liberación de reservas por lotes, discovery y module-load. Estos
+tests de worker no demuestran el estado remoto del outbox ni la recepción de
+notificaciones en el dispositivo.
+
+Las suites locales `npm run test:bodega-ui` y `npm run e2e:bodega-u4-u5`
+terminaron `12/12 PASS` y `9/9 PASS`, respectivamente, cero fallos y cero
+skips. El E2E se ejecutó en Auth/Firestore/Functions Emulator con el proyecto
+demo `demo-bodega-u4-u5-ui`; cubre retry de solicitud/venta, aislamiento A/B,
+operaciones de vendedor y admin y efectos persistidos. Durante el arranque del
+Functions Emulator hubo intentos de lectura de `OPERATIONAL_PIN_PEPPER` contra
+Secret Manager del proyecto demo; recibieron `403` y ningún secreto se leyó ni
+modificó. Los nueve casos finalizaron correctamente. Todo este conjunto es
+evidencia local y no reemplaza la matriz remota completa de Gate F.
+
+Gate F permanece `EN CURSO`. Este paso adelanta la agenda de prueba, pero aún no
+acredita expiración, recordatorio automático, conversión idempotente ni la
+matriz funcional integral.
