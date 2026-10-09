@@ -161,3 +161,193 @@ callable para fabricar el resultado.
 
 Gate F permanece `EN CURSO`; los demás escenarios remotos permanecen según la
 [matriz parcial de Gate F](G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md).
+
+## Seguimiento staging — ciclo de revocación/restauración de vendedor, 2026-10-09
+
+En `micafe-pos-staging`, sobre el fixture existente
+`E2_2-BODEGA-STAGING-FIXTURE`, se ejecutaron por la interfaz canónica de
+Backoffice dos transiciones autorizadas sobre el vendedor sintético F (UID
+terminado en `230fe`): `activa → inactiva` y luego `inactiva → activa`. No se
+creó otra identidad ni se editó Firestore directamente.
+
+Cloud Logging del servicio `actualizarmembresiabodegav1`, revisión
+`actualizarmembresiabodegav1-00002-zog`, registró ambas solicitudes callable
+con HTTP `200`: `2026-10-09T12:33:22.412789Z` y
+`2026-10-09T12:33:44.426268Z`. La lectura autenticada de `/admin/usuarios`
+después del ciclo mostró al vendedor F nuevamente activo. En la PWA del mismo
+vendedor, la vista `Solicitudes` cargó desde servidor la bandeja existente
+después de la restauración; no se envió otra solicitud ni se confirmó una
+venta.
+
+La consulta Firestore REST de solo lectura a `saas_auditoria`, filtrada por
+`MEMBRESIA_BODEGA_ESTADO_ACTUALIZADO` y limitada a la empresa objetivo,
+encontró los dos hechos append-only correspondientes: revocación
+`activa → inactiva` registrada a `2026-10-09T12:33:24.020Z` y restauración
+`inactiva → activa` registrada a `2026-10-09T12:33:45.180Z`. Ambos indican
+`resultado = CONFIRMADO` y actor `ADMIN_TENANT`. Esto verifica la emisión de
+auditoría canónica de ambas transiciones; no se leyó ni registró el PIN.
+
+Esto verifica el ciclo remoto de revocación/restauración y el acceso posterior
+del vendedor, pero no un replay remoto: la interfaz genera un `commandId`
+nuevo por operación y no expone una acción de reintento con el mismo comando.
+La suite local del paquete `functions-bodega-membership` pasó `npm run build`
+y `npm test` (`11/11`), incluidos restauración/re-sincronización de claims,
+replay sin duplicar obligación/auditoría, conflicto de idempotencia y
+aislamiento de tenant. Esta cobertura local no se presenta como evidencia de
+replay en staging.
+
+### Auditoría de mutaciones del ciclo de membresía
+
+- Proyecto/tenant: únicamente `micafe-pos-staging` /
+  `E2_2-BODEGA-STAGING-FIXTURE`.
+- Membresía: dos transiciones canónicas de estado del vendedor sintético F;
+  estado final activo.
+- Firestore/Auth: sin escrituras directas; las dos operaciones se tramitaron
+  por `actualizarMembresiaBodegaV1`.
+- Solicitudes nuevas, ventas, inventario, ledger y turnos: cambios `0`.
+- Rules, Functions, IAM, Secrets, despliegues, producción y tenant real:
+  cambios `0`.
+- Gate F permanece `EN CURSO`: el replay remoto y los restantes escenarios de
+  Gate F siguen pendientes.
+
+### Revalidación local independiente de escenarios Gate F — 2026-10-09
+
+Para avanzar sin esperar el recordatorio remoto programado, se ejecutaron las
+siguientes suites exclusivamente con Firebase/Firestore Emulator y datos demo:
+
+- `npm run e2e:bodega-agenda`: `6/6 PASS`, incluidos límite de stock bajo dos
+  reservas concurrentes, conversión concurrente idempotente y aislamiento de
+  tenant/actor.
+- `npm run e2e:bodega-u4-u5`: `9/9 PASS`, incluida pérdida de respuesta y
+  reintento del mismo comando, venta única con efectos persistidos, aislamiento
+  A/B en UI y callable, y flujos de vendedor y administrador.
+- `ventas-confirmation.test.ts` en Firestore Emulator: `10/10 PASS`, incluida
+  doble confirmación concurrente con un solo conjunto atómico de efectos,
+  conversión de reserva ligada a venta y rechazo posterior al vencimiento.
+- `ventas-resolution.test.ts` en Firestore Emulator: `7/7 PASS`, incluida la
+  carrera de dos consumos reales donde solo uno descuenta stock y deja un único
+  movimiento de inventario.
+- `npm --prefix functions-bodega test`: `14/14 PASS`, incluidos worker de
+  recordatorios, reintento/backoff, claim concurrente entre trigger y
+  Scheduler, expiración automática que libera stock y liberación por lotes.
+- `npm run test:bodega-ui`: `12/12 PASS`, incluida restauración canónica del
+  operador y doble submit de solicitud colapsado a una sola ejecución.
+- `npm run test:firebase-push-service-worker`: `9/9 PASS`, incluida espera
+  por un Service Worker activo, presentación única en background y navegación
+  al recibir/clicar una notificación.
+- `npm --prefix functions-bodega run build`: TypeScript `PASS`.
+
+Estas ejecuciones confirman comportamiento local de los escenarios enumerados,
+no son evidencia de ejecución remota en `micafe-pos-staging`. Los resultados
+remotos pendientes de la matriz —incluidos el despacho del recordatorio y la
+expiración automática de una reserva— requieren verificación en staging.
+
+En una lectura remota selectiva a `micafe-pos-staging` a las `12:47 UTC`, el
+fixture tenía una agenda `RESERVADA` para `2026-10-10` (`America/Bogota`), con
+2 unidades base retenidas y expiración a `2026-10-11T05:00:00Z`. Su evento
+`dia_anterior` seguía `PENDIENTE`, programado exactamente para
+`2026-10-09T13:00:00Z`; el evento `fecha_programada` está programado para
+`2026-10-10T13:00:00Z`. Esta lectura fija el estado previo al envío; no se
+forzó la ejecución ni se modificó agenda, reserva o Scheduler.
+
+### Resultado automático del recordatorio `dia_anterior` — 2026-10-09 13:03 UTC
+
+- El Scheduler habilitado ejecutó el job `firebase-schedule-reconciliarAgendaPedidosBodegaV1-us-central1` automáticamente. Cloud Logging registró HTTP `200` a `2026-10-09T13:03:01.686930Z` para la revisión `reconciliaragendapedidosbodegav1-00002-fir`.
+- La lectura REST posterior del evento asociado a la única agenda sintética `RESERVADA` para `2026-10-10` mostró `dia_anterior = ENVIADO`, `intentos = 1`, sin código de error y `fechaProgramada = 2026-10-09T13:00:00Z`.
+- El evento `fecha_programada` sigue `PENDIENTE`, con cero intentos, para `2026-10-10T13:00:00Z`; la reserva continúa antes de su vencimiento programado `2026-10-11T05:00:00Z`.
+- Esto verifica el despacho automático del recordatorio del día anterior por el worker en staging. El estado persistido no demuestra por sí solo que el administrador lo haya visto en pantalla ni que el sistema operativo haya emitido sonido. No se llamó manualmente al Scheduler ni se modificó la agenda.
+
+### Suite Functions canónica — 2026-10-09
+
+En el worktree de esta evidencia, sobre `origin/main @ 51ba17311f7493a3799154a1200a5ef0ae70a67b` (la rama de PR solo añade este documento), `npm --prefix functions test` terminó con `422` pruebas: `417` PASS, `5` SKIP y `0` fallos. Incluye replay del mismo comando de solicitud con una única solicitud y un único evento push. Esta ejecución local complementa Emulator; no sustituye retry/replay autenticado ni concurrencia remotos de Gate F.
+
+### Inspección read-only adicional de la PWA — 2026-10-09
+
+En el Preview post-merge de PR #506, la sesión del vendedor sintético mostró
+`Solicitudes`, `Mi agenda`, `Clientes` y `Mis ventas`. Al abrir `Mi agenda`, la
+instantánea de accesibilidad mostró el encabezado y el botón `Actualizar agenda`
+deshabilitado, pero aún no una tarjeta. Como el botón deshabilitado indica una
+consulta en curso, esa instantánea no demuestra que la lista estuviera vacía.
+No se confirmó ninguna de las dos solicitudes `APROBADA`, no se canceló otra,
+no se creó solicitud/agenda/cliente y no se alteraron ventas, inventario, ledger
+ni turnos.
+
+Una lectura Firestore REST posterior, limitada a las agendas y reservas del
+fixture en `micafe-pos-staging`, encontró siete agendas: seis `CANCELADA` o
+`CUMPLIDA` y una `RESERVADA` para `2026-10-10`. La agenda activa pertenece al
+vendedor sintético cuyo UID termina en `230fe`; su reserva sigue `ACTIVA` por
+2 unidades base y vence a `2026-10-11T05:00:00Z`. La lectura no escribió datos.
+
+Cloud Logging registró HTTP `200` de
+`consultaragendapedidosbodegav1-00002-vaz` a las `2026-10-09T13:08:25.662769Z`.
+La respuesta no registra el cuerpo, por lo que este log no demuestra por sí
+solo qué proyectó el cliente. Sí demuestra que la llamada remota no terminó en
+error HTTP.
+
+Como corroboración visual, una sesión autenticada del mismo vendedor en la
+pestaña del preview anterior `cafeatrato-git-codex-e2-2-gate-d-dep-c70f67`
+mostró `Mi agenda` cargada: seis entradas históricas (`CANCELADA` o
+`ATENDIDA`) y la entrada `Stock reservado` del `2026-10-10`, con 2 unidades
+base y vencimiento `11/10/2026, 12:00 a. m.`. Esto prueba la proyección en esa
+sesión/preview staging, no sustituye una captura posterior al login en el host
+post-merge de PR #506. Ese host expiró a login durante la inspección; no se
+atribuyó su estado intermedio de carga a una agenda vacía. No se canceló,
+convirtió ni confirmó ninguna entrada.
+
+En el formulario sin enviar, `Pedido para hoy` mostró la fecha local actual
+(`2026-10-09`). `Agendar entrega` propuso `2026-10-10` y expuso campos
+opcionales `Desde`/`Hasta`; el texto informa que fecha y franja son preferidas,
+que administración debe aceptar para reservar existencias y que precio y
+entrega exacta no quedan confirmados al agendar. Se restauró la opción
+`Venta de hoy` y el borrador terminó vacío.
+
+El catálogo mostró una presentación con `Disponibles: 1`; el carrito local
+permitió subir ese borrador a cantidad `2`. Se retiró el borrador sin enviarlo.
+La inspección del código confirma que la solicitud resuelve el catálogo y el
+precio en servidor, mientras el consumo canónico aplica `exigirStockSuficiente`
+al confirmar la venta. Por lo tanto, esta observación no demuestra una venta
+con sobreventa; registra que el cliente no limita el borrador a la disponibilidad
+mostrada. La actualización en vivo y el tope visual de cantidad se mantienen
+como mejora posterior a Gate F, según la priorización acordada con el usuario.
+
+La pestaña de Edge del administrador estaba en `/admin/login`; no se intentó
+automatizar la autenticación. La sesión del vendedor no se usó para atribuir
+capacidades administrativas.
+
+Esta lectura es evidencia puntual de la UI, no la matriz funcional completa de
+staging. No cambia el estado de Gate F (`EN CURSO`) ni acredita replay,
+concurrencia remota, aislamiento A/B o retry tras pérdida de respuesta.
+
+### Revalidación local de Rules y reportes — 2026-10-09
+
+- `npm run test:rules`: `37/37 PASS` con Firestore Emulator en el proyecto demo
+  `demo-mt-u4-rules`. Incluye el límite vendedor/administración de Bodega,
+  movimientos de inventario backend-only, aislamiento de lectura del Kardex
+  entre tenants, y auditoría/movimientos append-only.
+- `npx tsx --test lib/__tests__/reportes-tenant.test.ts`: `2/2 PASS`; reportes
+  no consulta perfiles globales y resuelve roles desde membresías del tenant.
+- Ambas ejecuciones son locales, sin escrituras a staging o producción; no
+  sustituyen la comprobación autenticada A/B ni la revalidación funcional
+  remota de reportes.
+- La primera ejecución de Rules no llegó a cargar las pruebas porque el
+  worktree aislado no tenía dependencias instaladas. Tras instalar desde el
+  lockfile en ese worktree, la suite completa terminó correctamente. No se
+  modificaron manifiestos ni código de aplicación.
+
+Esto añade cobertura local independiente del calendario de agenda, pero Gate
+F permanece `EN CURSO` hasta cerrar la evidencia remota restante.
+
+### Revalidación read-only del runtime operativo — 2026-10-09 13:27 UTC
+
+`gcloud functions list --project micafe-pos-staging --regions=us-central1`
+mostró 17 Functions operativas relacionadas con Bodega, ventas, agenda e
+inventario en estado `ACTIVE`, todas con runtime `nodejs22`. Entre ellas están
+`crearSolicitudVentaBodegaV1`, `resolverSolicitudVentaBodegaV1`,
+`confirmarVentaBodegaV1`, `consultarAgendaPedidosBodegaV1`,
+`reconciliarAgendaPedidosBodegaV1`, `notificarSolicitudVentaBodegaPendienteV1`
+y `actualizarArticuloInventarioV1`.
+
+La consulta fue de inventario de Functions, sin lectura de configuración
+secreta ni mutaciones. Confirma que el runtime staging continúa disponible en
+la región prevista; no acredita autorización, resultado funcional de llamadas,
+aislamiento A/B ni los casos remotos pendientes de Gate F.
