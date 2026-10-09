@@ -31,4 +31,8 @@ test("abrevia el UID si no existe un nombre disponible", () => {
 test("no expone un UID completo cuando falta la identidad del vendedor", () => {
   assert.equal(resolverNombreVisibleVendedor("desconocido", undefined, new Map()), "Vendedor sin identificar")
   assert.equal(resolverNombreVisibleVendedor(undefined, undefined, new Map()), "Vendedor sin identificar")
+  assert.equal(
+    resolverNombreVisibleVendedor(undefined, "firebase-uid-no-disponible-123456", new Map()),
+    "Vendedor · …123456",
+  )
 })
