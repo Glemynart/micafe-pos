@@ -62,8 +62,14 @@ test('TenantAccessGuard muestra una opción recuperable si falla la verificació
 
 test('SaaSProvider siempre finaliza la carga si falla la verificación de sesión', () => {
   const source = readFileSync(resolve(process.cwd(), 'contexts/saas-context.tsx'), 'utf8')
-  const listener = source.slice(source.indexOf('onIdTokenChanged'), source.indexOf('return unsubscribe'))
-  const refresh = source.slice(source.indexOf('const refresh = useCallback'))
+  const listenerStart = source.indexOf('const unsubscribe = onIdTokenChanged')
+  const refreshStart = source.indexOf('const refresh = useCallback')
+
+  assert.ok(listenerStart >= 0, 'debe existir el listener de cambios de identidad')
+  assert.ok(refreshStart > listenerStart, 'el refresh debe declararse después del listener')
+
+  const listener = source.slice(listenerStart, refreshStart)
+  const refresh = source.slice(refreshStart)
 
   assert.match(listener, /finally\s*\{[\s\S]*setLoading\(false\)/)
   assert.match(listener, /setErrorVerificacionTenant\(true\)/)
