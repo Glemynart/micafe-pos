@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: evidencia parcial de verificación (2026-10-08)
 
-**Última revisión:** 2026-10-08 23:56 UTC
+**Última revisión:** 2026-10-09 00:10 UTC
 **Estado:** `EN CURSO` — evidencia parcial; no certifica Gate F.
 
 ## Contexto y límites
@@ -652,8 +652,8 @@ PR #493 ya integró el índice de ventas requerido y su CI post-merge
 `37858453098` terminó `success`. PR #494 declaró únicamente el índice
 ascendente de turnos y se fusionó a `main` como
 `a1274b0fde0ef469af3dce2a93259fa0595800b1` a las `23:49:22Z`. CI, Vercel y
-Preview Comments del PR terminaron `PASS`; la CI post-merge `37861536241` estaba
-`in_progress`, sin fallos reportados al corte.
+Preview Comments del PR terminaron `PASS`; la CI post-merge `37861536241`
+terminó `success` sobre el merge SHA a las `2026-10-09T00:10:02Z`.
 
 #### Validación de staging
 

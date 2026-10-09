@@ -342,7 +342,7 @@ su CI post-merge, run `37858453098`, terminó `success`. PR #494 quedó integrad
 mediante `a1274b0fde0ef469af3dce2a93259fa0595800b1` a las
 `2026-10-08T23:49:22Z`; los checks previos al merge (CI de tipos/pruebas,
 Vercel y Preview Comments) terminaron `PASS`. La CI post-merge `37861536241`
-seguía `in_progress` al corte documental, sin fallos reportados.
+terminó `success` sobre el merge SHA a las `2026-10-09T00:10:02Z`.
 
 El fallo reproducible en el reporte era el índice ascendente ausente de
 `turnos(empresaId, fechaApertura)`: Firestore lanzaba `FAILED_PRECONDITION` y
