@@ -542,7 +542,7 @@ liberación automática de reservas ni la matriz integral de PWA/Backoffice/
 turnos. Gate G/H se repetirán después de F; no se crea/configura el tenant real
 ni se toca producción.
 
-### Checkpoint vigente — 2026-10-09 — PR #504 / Gate D y CI post-merge
+### Checkpoint histórico — 2026-10-09 — PR #504 / Gate D y CI post-merge (supersedido por PR #506)
 
 PR #504 quedó integrado en `main` mediante el merge commit
 `6a0b60a599194a6ee681cca8ea86403433ef1e39` a las `2026-10-09T08:57:50Z`.
