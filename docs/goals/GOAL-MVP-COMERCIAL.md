@@ -562,7 +562,9 @@ Gate F permanece `EN CURSO`, no `PASS`. Dos observaciones staging posteriores
 al deploy confirman despachos trigger/outbox `ENVIADO` para solicitudes
 pendientes; la segunda solicitud continúa pendiente, sin venta ni descuento de
 inventario. Estos despachos no demuestran recepción visible del evento de
-venta en el dispositivo, ni reintentos o replay. Siguen requiriendo
+venta en el dispositivo, ni reintentos o replay. La segunda solicitud aparece
+en la bandeja después de iniciar sesión, sin validar actualización en tiempo
+real. Siguen requiriendo
 evidencia remota: esos subcasos de push; replay/concurrencia y retry autenticado
 tras pérdida de respuesta; aislamiento completo de tenant y roles,
 revocación/restauración de membresía con replay; ciclo de agenda, recordatorios,

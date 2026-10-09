@@ -49,6 +49,10 @@ callable para fabricar el resultado.
 - Lecturas posteriores confirmaron producto con 4 unidades disponibles y 0
   reservadas; no se creó venta ni movimiento de inventario/ledger. La solicitud
   permanece pendiente, sin aprobación de administrador.
+- Tras iniciar sesión en la bandeja administrativa de staging, la solicitud
+  apareció como `PENDIENTE_APROBACION`. El administrador inició sesión después
+  del despacho: esto comprueba carga en la bandeja, pero no actualización en
+  tiempo real, recepción push en el sistema operativo ni sonido.
 - La recepción de esta notificación concreta en el dispositivo del
   administrador no fue confirmada. Por tanto, es una segunda evidencia de
   despacho automático trigger/outbox, no de entrega visible ni sonora.
@@ -57,6 +61,8 @@ callable para fabricar el resultado.
 
 - Codex creó una solicitud por el flujo UI autenticado de vendedor; escrituras
   directas de Firestore `0`.
+- Codex inició sesión con la sesión de staging ya guardada y solo leyó la
+  bandeja; no aprobó ni rechazó la nueva solicitud.
 - La solicitud anterior fue aprobada por la actividad de usuario ya reflejada
   en staging; la segunda solicitud sigue pendiente y Codex no la aprobó.
 - Functions, Scheduler, IAM, Rules, Secrets, configuración, Auth, Vercel,
