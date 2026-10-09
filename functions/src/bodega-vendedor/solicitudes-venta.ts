@@ -13,6 +13,8 @@ import { normalizarComandoConfirmacionVentaBodega } from "./ventas-contract";
 import { MAX_BODEGA_REFERENCE_ID_LENGTH } from "./identificadores";
 
 const COLLECTION = "solicitudes_venta_bodega";
+const EVENTOS = "eventos_operativos";
+const TIPO_EVENTO_SOLICITUD_PENDIENTE = "SOLICITUD_VENTA_BODEGA_PENDIENTE";
 const REGION_TTL_MS = 24 * 60 * 60 * 1000;
 const fail = (code: HttpsError["code"], domain: string): never => {
   throw new HttpsError(code, "No fue posible procesar la solicitud de venta Bodega.", { code: domain });
@@ -115,6 +117,10 @@ function refSolicitud(db: any, empresaId: string, solicitudId: string) {
   return db.collection("empresas").doc(empresaId).collection(COLLECTION).doc(solicitudId);
 }
 
+export function idEventoSolicitudVentaBodegaPendiente(empresaId: string, solicitudId: string): string {
+  return crearIdentificadorInterno(empresaId, `solicitud-venta-bodega-pendiente:${solicitudId}`);
+}
+
 async function requireAdminSell(tx: any, db: any, contexto: ContextoFinancieroOperativo) {
   if (contexto.rol !== "admin") fail("permission-denied", "SOLICITUD_ADMIN_REQUERIDO");
   await revalidarAutoridadFinancieraEnTransaccion(tx, db, contexto, "sell");
@@ -189,6 +195,27 @@ export async function ejecutarCrearSolicitudVentaBodegaV1(db: any, contexto: Con
     };
     tx.create(ref, requestData);
     const createdAt = Timestamp.fromMillis(now());
+    const eventoId = idEventoSolicitudVentaBodegaPendiente(empresaId, solicitudId);
+    tx.create(firestore.collection(EVENTOS).doc(eventoId), {
+      schemaVersion: 1,
+      eventoId,
+      tipo: TIPO_EVENTO_SOLICITUD_PENDIENTE,
+      empresaId,
+      agregado: { tipo: "SOLICITUD_VENTA_BODEGA", id: solicitudId },
+      actor: { uid: actorUid, rolEfectivo: rol },
+      commandId: input.commandId,
+      correlationId: input.correlationId,
+      causationId: input.causationId,
+      payloadOperativo: { solicitudId },
+      fechaProgramada: createdAt,
+      fechaDisponible: createdAt,
+      estadoDespacho: "PENDIENTE",
+      intentos: 0,
+      ultimoErrorCodigo: null,
+      creadoEn: FieldValue.serverTimestamp(),
+      actualizadoEn: FieldValue.serverTimestamp(),
+      ultimoIntentoEn: null,
+    });
     return { commandId: input.commandId, ...publicSolicitud(solicitudId, {
       ...requestData, creadaEn: createdAt, actualizadaEn: createdAt,
     }, createdAt.toMillis(), { id: commercial.cliente.id, nombre: commercial.cliente.nombre }) };

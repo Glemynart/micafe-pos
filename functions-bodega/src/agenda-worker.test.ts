@@ -54,10 +54,18 @@ class Tx {
 }
 class FakeDb {
   readonly docs = new Map<string, Data>();
+  private transactionTail: Promise<void> = Promise.resolve();
   collection(name: string) { return new Collection(name, this); }
   collectionGroup(name: string) { return new Query(this, name, [], true); }
   async getAll(...refs: Ref[]) { return Promise.all(refs.map(ref => ref.get())); }
-  async runTransaction<T>(work: (tx: Tx) => Promise<T>) { const tx = new Tx(this); const result = await work(tx); tx.commit(); return result; }
+  async runTransaction<T>(work: (tx: Tx) => Promise<T>) {
+    const previous = this.transactionTail;
+    let release!: () => void;
+    this.transactionTail = new Promise<void>(resolve => { release = resolve; });
+    await previous;
+    try { const tx = new Tx(this); const result = await work(tx); tx.commit(); return result; }
+    finally { release(); }
+  }
   update(path: string, value: Data) {
     const current = this.docs.get(path);
     if (!current) throw new Error("not-found");
@@ -123,7 +131,7 @@ test("solicitud pendiente: notifica solo al admin activo del tenant con payload 
   assert.equal(db.docs.get(`eventos_operativos/${eventoId}`)?.estadoDespacho, "ENVIADO");
   assert.deepEqual(calls.map(call => [call.tokens, call.data]), [[ ["token-admin"], {
     title: "Nueva solicitud de venta", body: "Hay una solicitud pendiente de revisión.",
-    url: "/admin/solicitudes", eventId,
+    url: "/admin/solicitudes", eventId: eventoId,
   } ]]);
   assert.equal(JSON.stringify(calls).includes("solicitud-push-1"), false);
 });
@@ -136,13 +144,16 @@ test("solicitud ya resuelta antes del despacho se omite sin enviar push", async 
   assert.equal(db.docs.get(`eventos_operativos/${eventoId}`)?.estadoDespacho, "OMITIDO");
 });
 
-test("el trigger y Scheduler comparten el claim y no envían dos veces el mismo evento", async () => {
+test("el trigger y Scheduler comparten el claim transaccional en una carrera concurrente", async () => {
   const db = new FakeDb(); seedSolicitudEvent(db, { token: true });
   let sends = 0;
   const messaging = { async sendEachForMulticast(input: Data) { sends += input.tokens.length; return { responses: input.tokens.map(() => ({ success: true })) }; } };
 
-  assert.equal(await despacharNotificacionSolicitudVentaBodegaPendiente(db, messaging as any, eventoId, now), true);
-  assert.equal(await despacharEventosOperativosBodega(db, messaging as any, now), 0);
+  const [trigger, scheduler] = await Promise.all([
+    despacharNotificacionSolicitudVentaBodegaPendiente(db, messaging as any, eventoId, now),
+    despacharEventosOperativosBodega(db, messaging as any, now),
+  ]);
+  assert.equal(trigger || scheduler === 1, true);
   assert.equal(sends, 1);
 });
 

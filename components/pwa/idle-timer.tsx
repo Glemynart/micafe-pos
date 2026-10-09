@@ -16,7 +16,7 @@ export function IdleTimer() {
 
     const doLogout = () => {
       console.log("[IdleTimer] Cerrando sesion por inactividad")
-      logout()
+      void logout({ motivo: "INACTIVIDAD", preservarTokenPush: usuario.rol === "admin" })
     }
 
     const resetTimer = () => {
@@ -51,7 +51,7 @@ export function IdleTimer() {
       eventos.forEach(e => window.removeEventListener(e, markActivity))
       document.removeEventListener("visibilitychange", onVisibilityChange)
     }
-  }, [])
+  }, [usuario, logout])
 
   return null
 }
