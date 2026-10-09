@@ -276,12 +276,23 @@ Una lectura Firestore REST posterior, limitada a las agendas y reservas del
 fixture en `micafe-pos-staging`, encontró siete agendas: seis `CANCELADA` o
 `CUMPLIDA` y una `RESERVADA` para `2026-10-10`. La agenda activa pertenece al
 vendedor sintético cuyo UID termina en `230fe`; su reserva sigue `ACTIVA` por
-2 unidades base y vence a `2026-10-11T05:00:00Z`. Esto concuerda con la agenda
-registrada previamente y confirma que no venció ni se liberó antes de tiempo.
-La lectura no escribió datos. Al revalidar el navegador a las `13:15 UTC`, el
-POS integrado ya estaba en login, por lo que todavía no se reconcilió la
-respuesta visible de la agenda con el documento activo; queda pendiente
-recargar la sesión y esperar que termine la consulta antes de concluir.
+2 unidades base y vence a `2026-10-11T05:00:00Z`. La lectura no escribió datos.
+
+Cloud Logging registró HTTP `200` de
+`consultaragendapedidosbodegav1-00002-vaz` a las `2026-10-09T13:08:25.662769Z`.
+La respuesta no registra el cuerpo, por lo que este log no demuestra por sí
+solo qué proyectó el cliente. Sí demuestra que la llamada remota no terminó en
+error HTTP.
+
+Como corroboración visual, una sesión autenticada del mismo vendedor en la
+pestaña del preview anterior `cafeatrato-git-codex-e2-2-gate-d-dep-c70f67`
+mostró `Mi agenda` cargada: seis entradas históricas (`CANCELADA` o
+`ATENDIDA`) y la entrada `Stock reservado` del `2026-10-10`, con 2 unidades
+base y vencimiento `11/10/2026, 12:00 a. m.`. Esto prueba la proyección en esa
+sesión/preview staging, no sustituye una captura posterior al login en el host
+post-merge de PR #506. Ese host expiró a login durante la inspección; no se
+atribuyó su estado intermedio de carga a una agenda vacía. No se canceló,
+convirtió ni confirmó ninguna entrada.
 
 En el formulario sin enviar, `Pedido para hoy` mostró la fecha local actual
 (`2026-10-09`). `Agendar entrega` propuso `2026-10-10` y expuso campos
