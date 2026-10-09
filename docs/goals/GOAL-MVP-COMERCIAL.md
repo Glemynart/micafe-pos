@@ -503,23 +503,44 @@ revocación/restauración remotos, expiración automática y matriz funcional
 integral de PWA/Backoffice/turnos aún requieren pruebas. Gate G/H se repetirán
 tras F. No se crea/configura el tenant real y no se toca producción.
 
-### Checkpoint vigente — 2026-10-09 — ADR-SAAS-067 y PR #500/#501
+### Checkpoint vigente — 2026-10-09 — Gate C final / ADR-SAAS-065/066/067
 
-La aprobación de ADR-SAAS-067 resuelve el bloqueo de autorización sobre los dos
-service agents que el Firebase CLI requiere. PR #500 quedó integrado en `main`
-mediante `29fdadf0441b660dc4114edf6fd12cadc2365530`; su CI post-merge,
+PR #500 quedó integrado en `main` mediante
+`29fdadf0441b660dc4114edf6fd12cadc2365530`; su CI post-merge,
 `37892240442`, terminó `success`. PR #501 quedó integrado mediante
-`affb024d8621e13c47c022db7f314eb7534e8553`; su CI post-merge
-`37895111671` estaba `in_progress` al redactar este checkpoint. Ninguno de
-esos merges ejecutó el preflight ni modificó IAM o recursos de staging.
+`affb024d8621e13c47c022db7f314eb7534e8553`; su CI post-merge,
+`37895111671`, terminó `success`. PR #502 aceptó ADR-SAAS-067 y quedó
+integrado en `main @ 734dd7dd3aa9f1b2ec89c63b52bc3bf77db9437a`; la CI
+post-merge `37897655131` terminó `success` el `2026-10-09T07:31:38Z`.
 
-Gate C no está `PASS`: falta integrar la aceptación de ADR-SAAS-067 con su CI
-post-merge y repetir el preflight controlado sobre el SHA vivo. Ese preflight
-debe comprobar la generación/reconciliación de solo los dos service agents y
-los cinco bindings autorizados (tres de ADR-SAAS-066 y dos de ADR-SAAS-067),
-así como el delta exacto de Functions y el rollback. Cualquier delta adicional
-detiene Gate D. Hasta aquí, los deploys/dry-run y las escrituras remotas de
-identidad/IAM para el trigger siguen en cero; Gate D sigue `NOT EXECUTED`.
+Gate C queda `PREFLIGHT = PASS` únicamente para el artefacto actual del
+codebase `saas-bodega`, en el proyecto `micafe-pos-staging`, según la evidencia
+reproducible
+[`preflight final ADR-065/066/067`](evidence/G-SAAS-02-E2-2-GATE-C-PREFLIGHT-ADR067-2026-10-09.md).
+El artefacto conserva el código de Functions integrado por PR #499; el build,
+las 14 pruebas específicas y el audit de dependencias fueron revalidados sobre
+el SHA vivo. La inspección remota confirmó 42 Functions Gen 2 en el proyecto,
+16 del codebase Bodega activas en `us-central1`/Node 22 y ausencia del trigger
+`notificarSolicitudVentaBodegaPendienteV1`.
+
+La verificación de IAM confirmó solo los dos grants de agentes autorizados por
+ADR-SAAS-067, además del binding preexistente de Firebase Admin. Los tres
+bindings de ADR-SAAS-066 siguen ausentes y son el único delta IAM esperado que
+Firebase CLI aplicaría durante Gate D; la evidencia registra también las dos
+operaciones `SetIamPolicy`, el inventario de revisiones de rollback y que no se
+observaron cambios de APIs, Functions, Rules, Secrets, Auth, Firestore, fixture,
+tenant real o producción. Cualquier identidad, permiso, API o superficie
+adicional detiene el deploy.
+
+Gate D sigue `NOT EXECUTED`: requiere integrar esta evidencia y confirmar CI
+post-merge; después podrá desplegarse solo `functions:saas-bodega` en staging y
+verificarse inmediatamente contra el delta aprobado. Gate F sigue `EN CURSO`,
+no `PASS`: la evidencia parcial agenda→solicitud→aprobación→venta no sustituye
+la entrega push desde el trigger, retry/replay/concurrencia, retry autenticado
+tras pérdida de respuesta, aislamiento y revocación/restauración, expiración y
+liberación automática de reservas ni la matriz integral de PWA/Backoffice/
+turnos. Gate G/H se repetirán después de F; no se crea/configura el tenant real
+ni se toca producción.
 
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
