@@ -263,12 +263,25 @@ En el worktree de esta evidencia, sobre `origin/main @ 51ba17311f7493a3799154a12
 
 ### Inspección read-only adicional de la PWA — 2026-10-09
 
-En el Preview post-merge de PR #506, la sesión ya autenticada del vendedor
-sintético mostró `Solicitudes`, `Mi agenda`, `Clientes` y `Mis ventas`. La
-agenda del vendedor se encontraba vacía al momento de la lectura. No se
-confirmó ninguna de las dos solicitudes `APROBADA`, no se canceló otra, no se
-creó solicitud/agenda/cliente y no se alteraron ventas, inventario, ledger ni
-turnos.
+En el Preview post-merge de PR #506, la sesión del vendedor sintético mostró
+`Solicitudes`, `Mi agenda`, `Clientes` y `Mis ventas`. Al abrir `Mi agenda`, la
+instantánea de accesibilidad mostró el encabezado y el botón `Actualizar agenda`
+deshabilitado, pero aún no una tarjeta. Como el botón deshabilitado indica una
+consulta en curso, esa instantánea no demuestra que la lista estuviera vacía.
+No se confirmó ninguna de las dos solicitudes `APROBADA`, no se canceló otra,
+no se creó solicitud/agenda/cliente y no se alteraron ventas, inventario, ledger
+ni turnos.
+
+Una lectura Firestore REST posterior, limitada a las agendas y reservas del
+fixture en `micafe-pos-staging`, encontró siete agendas: seis `CANCELADA` o
+`CUMPLIDA` y una `RESERVADA` para `2026-10-10`. La agenda activa pertenece al
+vendedor sintético cuyo UID termina en `230fe`; su reserva sigue `ACTIVA` por
+2 unidades base y vence a `2026-10-11T05:00:00Z`. Esto concuerda con la agenda
+registrada previamente y confirma que no venció ni se liberó antes de tiempo.
+La lectura no escribió datos. Al revalidar el navegador a las `13:15 UTC`, el
+POS integrado ya estaba en login, por lo que todavía no se reconcilió la
+respuesta visible de la agenda con el documento activo; queda pendiente
+recargar la sesión y esperar que termine la consulta antes de concluir.
 
 En el formulario sin enviar, `Pedido para hoy` mostró la fecha local actual
 (`2026-10-09`). `Agendar entrega` propuso `2026-10-10` y expuso campos
