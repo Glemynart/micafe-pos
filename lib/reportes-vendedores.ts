@@ -1,5 +1,7 @@
 import { resolverNombreActor } from "./actor-display"
 
+const IDENTIFICADOR_OPACO = /^[A-Za-z0-9_-]{20,}$/
+
 /** Evita exponer UIDs completos en el reporte cuando no hay nombre disponible. */
 export function resolverNombreVisibleVendedor(
   uid: string | undefined,
@@ -7,9 +9,19 @@ export function resolverNombreVisibleVendedor(
   nombres: ReadonlyMap<string, string>,
 ): string {
   const uidLimpio = uid?.trim()
-  if (!uidLimpio || uidLimpio === "desconocido") return "Vendedor sin identificar"
+  const snapshotLimpio = snapshot?.trim()
+  if (!uidLimpio || uidLimpio === "desconocido") {
+    if (!snapshotLimpio || snapshotLimpio === "desconocido") return "Vendedor sin identificar"
 
-  const nombre = resolverNombreActor(uidLimpio, snapshot, nombres)
+    const nombreActual = nombres.get(snapshotLimpio)
+    if (nombreActual && nombreActual !== snapshotLimpio) return nombreActual
+
+    return IDENTIFICADOR_OPACO.test(snapshotLimpio)
+      ? `Vendedor · …${snapshotLimpio.slice(-6)}`
+      : snapshotLimpio
+  }
+
+  const nombre = resolverNombreActor(uidLimpio, snapshotLimpio, nombres)
   return nombre === uidLimpio
     ? `Vendedor · …${uidLimpio.slice(-6)}`
     : nombre
