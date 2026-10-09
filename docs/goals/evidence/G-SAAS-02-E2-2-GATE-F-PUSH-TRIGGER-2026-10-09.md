@@ -235,5 +235,13 @@ siguientes suites exclusivamente con Firebase/Firestore Emulator y datos demo:
 
 Estas ejecuciones confirman comportamiento local de los escenarios enumerados,
 no son evidencia de ejecución remota en `micafe-pos-staging`. Los resultados
-remotos pendientes de la matriz —incluida la observación de la reserva que
-vence a `2026-10-09T13:00:00Z`— requieren verificación en staging.
+remotos pendientes de la matriz —incluidos el despacho del recordatorio y la
+expiración automática de una reserva— requieren verificación en staging.
+
+En una lectura remota selectiva a `micafe-pos-staging` a las `12:47 UTC`, el
+fixture tenía una agenda `RESERVADA` para `2026-10-10` (`America/Bogota`), con
+2 unidades base retenidas y expiración a `2026-10-11T05:00:00Z`. Su evento
+`dia_anterior` seguía `PENDIENTE`, programado exactamente para
+`2026-10-09T13:00:00Z`; el evento `fecha_programada` está programado para
+`2026-10-10T13:00:00Z`. Esta lectura fija el estado previo al envío; no se
+forzó la ejecución ni se modificó agenda, reserva o Scheduler.
