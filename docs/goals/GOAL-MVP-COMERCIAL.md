@@ -386,6 +386,27 @@ conversión idempotente ni la matriz completa. Gate F queda `EN CURSO`, no
 `PASS`; E2.2 continúa `EN EJECUCIÓN` y no se inicia todavía el tenant real.
 Evidencia: [`Gate F parcial`](evidence/G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md).
 
+### Seguimiento — 2026-10-09 — PR #497 / conversión de agenda
+
+PR #497 está abierto sobre `main @ 8c4c75735fb3cf37e07ae472a33440bcbddd941f`;
+el check `Vercel Preview Comments` pasó y `Tipos y pruebas`/`Vercel` seguían
+corriendo al corte de `02:09Z`. El cambio es documental y no altera el artefacto
+de aplicación.
+
+Desde el POS staging, la sesión sintética del vendedor convirtió mediante el
+control canónico la agenda de hoy a una solicitud de venta. POS mostró
+`PENDIENTE APROBACIÓN`, total resuelto en servidor de `5.000 COP` y el mensaje
+de que aún no se creó venta ni se descontó inventario. La lectura Firestore de
+staging confirmó la agenda `CONVERTIDA_A_SOLICITUD`, la solicitud
+`PENDIENTE_APROBACION`, su reserva aún `ACTIVA` por 2 unidades base y stock
+físico/reservado `6/2`. La reserva vence a `2026-10-09T05:00:00Z` (medianoche
+Bogotá); no se aprobó ni confirmó la venta en este paso.
+
+Gate F permanece `EN CURSO`: la conversión básica quedó observada, pero el
+replay/concurrencia, aprobación y venta canónica, consumo/liberación/expiración
+de reserva y matriz funcional completa todavía requieren evidencia. El tenant
+real no se inicia.
+
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
 PR #477 quedó `MERGED` en `main` el `2026-10-07 22:23:06` hora de Bogotá

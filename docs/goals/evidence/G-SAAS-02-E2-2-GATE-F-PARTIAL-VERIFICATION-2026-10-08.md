@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: evidencia parcial de verificación (2026-10-08)
 
-**Última revisión:** 2026-10-09 02:06 UTC
+**Última revisión:** 2026-10-09 02:12 UTC
 **Estado:** `EN CURSO` — evidencia parcial; no certifica Gate F.
 
 ## Contexto y límites
@@ -152,8 +152,8 @@ demuestra entrega push ni el ciclo completo de agenda.
 | Revocación/restauración de membresía y replay autenticado | Pendiente en staging; Emulator PASS no la sustituye |
 | Retry autenticado tras pérdida de respuesta | Pendiente en staging; Emulator PASS no la sustituye |
 | Agenda: creación y aceptación con reserva | Una agenda sintética creada y aceptada; se verificó la retención de 2 unidades. No es venta ni acredita todo el ciclo |
-| Agenda: conversión a solicitud y venta idempotente | Pendiente de evidencia completa en staging |
-| Agenda: cancelación/liberación y expiración | Cancelación/liberación de la reserva anterior verificada por la interfaz canónica; expiración automática de la reserva actual pendiente |
+| Agenda: conversión a solicitud y venta idempotente | Conversión canónica observada; solicitud pendiente y sin venta. Replay/concurrencia, aprobación y venta vinculada idempotente siguen pendientes |
+| Agenda: cancelación/liberación y expiración | Cancelación/liberación anterior verificada; la reserva actual sigue activa tras conversión y tiene vencimiento automático pendiente |
 | Recordatorio worker y entrega push | Un `fecha_programada` despachado por Scheduler/FCM (`ENVIADO`, intento 1, sin error); usuario confirmó recepción. Sonido y recepción background no certificados |
 | Venta, turnos, inventario, ledger y auditoría | La evidencia histórica no equivale a una revalidación integral de este checkpoint |
 | Reportes y PWA | Pendiente de revalidación integral |
@@ -807,12 +807,21 @@ declara prueba de sonido ni de recepción en segundo plano de todos los perfiles
 Los eventos `fecha_programada` de otras agendas futuras continúan pendientes a
 su fecha; los avisos de agendas canceladas se omiten por vigencia.
 
-La agenda nueva continúa `Stock reservado` por 2 unidades base y no es una
-venta. La lectura visible posterior a cancelar la agenda antigua confirmó el
-stock físico en 6, reservado en 2 y disponible en 4. Su reserva vence a la
-medianoche local del 9 de octubre; la expiración automática sigue pendiente de
-observar. Conversión idempotente a solicitud/venta, revocación/replay,
-aislamiento completo y la matriz funcional restante también siguen pendientes.
+La conversión de la agenda nueva cambió su estado a `CONVERTIDA_A_SOLICITUD`.
+La UI del vendedor y Firestore muestran la solicitud ligada pendiente de
+aprobación, total resuelto en servidor de `5.000 COP`, y que todavía no existe venta.
+La lectura Firestore de la misma agenda confirmó su reserva `ACTIVA` por 2
+unidades base; producto: 6 físicas, 2 reservadas y 4 disponibles. La reserva
+vence a `2026-10-09T05:00:00Z` (medianoche Bogotá); su expiración automática
+sigue pendiente de observar. No se aprobó ni confirmó la venta. Replay y
+concurrencia de conversión, venta vinculada idempotente, revocación/replay de
+membresía, aislamiento completo y la matriz funcional restante también siguen
+pendientes.
+
+La acción de conversión se hizo por el control canónico del POS en el Preview
+de staging, con vendedor sintético autenticado. No se repitió el comando para
+fabricar evidencia de replay: la UI ya bloquea una segunda conversión cuando
+el estado cambió; la garantía de replay queda `NOT EXECUTED` en staging.
 
 #### Mutation audit del recordatorio
 
@@ -820,12 +829,23 @@ aislamiento completo y la matriz funcional restante también siguen pendientes.
 - Firestore: lecturas REST selectivas para estado del outbox; escritura manual
   o directa de Codex `0`. El Scheduler automático actualizó el evento de
   `PENDIENTE` a `ENVIADO`.
+- POS staging: una acción canónica `Crear solicitud de venta de hoy` para la
+  agenda convertida; solicitud creada pendiente de aprobación. No se hizo
+  escritura directa en Firestore.
+- Firestore posterior a conversión: lecturas selectivas confirmaron agenda
+  `CONVERTIDA_A_SOLICITUD`, solicitud `PENDIENTE_APROBACION`, reserva `ACTIVA`
+  (2 unidades base) y stock físico/reservado `6/2`.
 - Scheduler/Cloud Logging: lecturas; invocaciones manuales `0`; la ejecución
   normal de las `02:03:07Z` terminó HTTP `200`.
 - FCM: despacho del evento registrado como `ENVIADO` y recepción confirmada
   por el usuario. No se expusieron valores de tokens.
-- Agenda, reservas, stock, solicitud, venta, ledger, turno, Auth, Rules,
+- Agenda: una conversión canónica a solicitud; una solicitud pendiente nueva.
+  Venta, ledger y turno: cambios `0`. No se canceló/consumió la reserva activa.
+- Reservas/stock: sin cambios manuales; el estado observado tras conversión
+  permaneció `ACTIVA`, 2 unidades reservadas (6 físicas / 2 reservadas).
+- Auth, Rules,
   Functions, IAM, Secrets, configuración, tráfico, deploy y producción:
   cambios manuales/de Codex `0` en este seguimiento.
-- La reserva nueva se mantiene; no se ejecutó conversión, consumo ni limpieza.
+- La reserva nueva se mantiene; sí se ejecutó la conversión a solicitud, pero
+  no el consumo de inventario ni la limpieza.
 - Gate F permanece `EN CURSO`, no `PASS`.
