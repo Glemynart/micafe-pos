@@ -979,3 +979,28 @@ pendientes de resolución o prueba.
 - Se consultaron únicamente las vistas autenticadas del fixture; no se repitió
   venta ni se cerró/abrió ningún turno.
 - Esta evidencia puntual no cambia el estado: Gate F sigue `EN CURSO`.
+
+### Reconciliación read-only — agenda y reservas tras vencimiento, 2026-10-09 05:45 UTC
+
+Una consulta Firestore REST de solo lectura, limitada a las subcolecciones
+`agenda_pedidos_bodega` y `reservas_stock_bodega` del fixture, encontró seis
+agendas: una `CUMPLIDA` y cinco `CANCELADA`; las cinco reservas asociadas están
+`CONSUMIDA` (una) o `LIBERADA` (cuatro). No quedan agendas/reservas activas ni
+una reserva `VENCIDA` observable. La programación cuya reserva había vencido a
+las `2026-10-09T05:00:00Z` fue confirmada como venta canónica antes de este corte;
+por eso no sirve para certificar la expiración automática. No se creó otra
+agenda ni se alteró inventario para fabricar ese escenario.
+
+Este corte no cierra el subcaso de expiración: falta observar una retención
+vigente pasar a `VENCIDA` por el Scheduler normal y confirmar su liberación de
+stock. El flujo exitoso de la reserva consumida se mantiene conciliado; Gate F
+continúa `EN CURSO`.
+
+#### Auditoría de mutaciones del corte
+
+- Firestore staging: únicamente lecturas de las dos subcolecciones del fixture;
+  escrituras directas de Codex `0`.
+- Agendas, reservas, inventario, ventas, ledger, turnos, membresías y Auth:
+  cambios por Codex `0`.
+- Functions, Scheduler, IAM, Rules, Secrets, tráfico, despliegue y producción:
+  cambios `0`.
