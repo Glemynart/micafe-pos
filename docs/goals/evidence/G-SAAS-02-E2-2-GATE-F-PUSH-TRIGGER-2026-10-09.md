@@ -179,6 +179,14 @@ vendedor, la vista `Solicitudes` cargó desde servidor la bandeja existente
 después de la restauración; no se envió otra solicitud ni se confirmó una
 venta.
 
+La consulta Firestore REST de solo lectura a `saas_auditoria`, filtrada por
+`MEMBRESIA_BODEGA_ESTADO_ACTUALIZADO` y limitada a la empresa objetivo,
+encontró los dos hechos append-only correspondientes: revocación
+`activa → inactiva` registrada a `2026-10-09T12:33:24.020Z` y restauración
+`inactiva → activa` registrada a `2026-10-09T12:33:45.180Z`. Ambos indican
+`resultado = CONFIRMADO` y actor `ADMIN_TENANT`. Esto verifica la emisión de
+auditoría canónica de ambas transiciones; no se leyó ni registró el PIN.
+
 Esto verifica el ciclo remoto de revocación/restauración y el acceso posterior
 del vendedor, pero no un replay remoto: la interfaz genera un `commandId`
 nuevo por operación y no expone una acción de reintento con el mismo comando.
