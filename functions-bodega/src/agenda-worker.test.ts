@@ -146,6 +146,34 @@ test("solicitud ya resuelta antes del despacho se omite sin enviar push", async 
   assert.equal(db.docs.get(`eventos_operativos/${eventoId}`)?.estadoDespacho, "OMITIDO");
 });
 
+test("solicitud pendiente: fallo transitorio conserva el outbox y programa reintento", async () => {
+  const db = new FakeDb(); seedSolicitudEvent(db, { token: true });
+  const messaging = { async sendEachForMulticast(input: Data) {
+    return { responses: input.tokens.map(() => ({ success: false, error: { code: "messaging/internal-error" } })) };
+  } };
+
+  assert.equal(await despacharNotificacionSolicitudVentaBodegaPendiente(db, messaging as any, eventoId, now), true);
+  const event = db.docs.get(`eventos_operativos/${eventoId}`)!;
+  assert.equal(event.estadoDespacho, "REINTENTAR");
+  assert.equal(event.fechaDisponible.toMillis(), now + 60_000);
+  assert.equal(event.ultimoErrorCodigo, "SOLICITUD_PUSH_TRANSITORIO");
+});
+
+test("solicitud pendiente: purga token admin inválido y deja constancia sin destinatario", async () => {
+  const db = new FakeDb(); seedSolicitudEvent(db, { token: true });
+  const messaging = { async sendEachForMulticast(input: Data) {
+    return { responses: input.tokens.map(() => ({ success: false, error: { code: "messaging/registration-token-not-registered" } })) };
+  } };
+
+  assert.equal(await despacharNotificacionSolicitudVentaBodegaPendiente(db, messaging as any, eventoId, now), true);
+  assert.deepEqual(db.docs.get("usuarios/admin-worker")?.fcmTokens, []);
+  assert.deepEqual(db.docs.get("usuarios/seller-worker")?.fcmTokens, ["token-seller"]);
+  const event = db.docs.get(`eventos_operativos/${eventoId}`)!;
+  assert.equal(event.estadoDespacho, "SIN_DESTINATARIO");
+  assert.equal(event.ultimoErrorCodigo, "SOLICITUD_PUSH_SIN_TOKENS_VALIDOS");
+  assert.equal(event.despachadoEn, undefined);
+});
+
 test("el trigger y Scheduler comparten el claim transaccional en una carrera concurrente", async () => {
   const db = new FakeDb(); seedSolicitudEvent(db, { token: true });
   let sends = 0;

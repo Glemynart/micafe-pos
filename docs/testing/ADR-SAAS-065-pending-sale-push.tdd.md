@@ -16,6 +16,7 @@
 | RED | `7b61e51` | `npx tsx --test lib/__tests__/fcm-logout-policy.test.ts` | FAIL esperado: política aún no implementada. |
 | GREEN | rama `codex/e2-2-bodega-pending-sale-push` | `npx tsx --test functions/src/bodega-vendedor/solicitudes-venta.test.ts lib/__tests__/fcm-logout-policy.test.ts` | PASS, 14/14, incluye atomicidad del evento, replay idempotente y política timeout/logout manual. |
 | GREEN | misma rama | `npm --prefix functions-bodega run build` y `npm --prefix functions-bodega test` | PASS, build y 12/12: despacho a admin activo del tenant, payload genérico sin ID de solicitud, evento obsoleto omitido, carrera concurrente sin doble envío, regresión de agenda y discovery del trigger sin Secrets. |
+| Seguimiento de auditoría | misma rama | `npm --prefix functions-bodega test` | PASS, 14/14; se añadieron pruebas específicas de fallo transitorio/backoff y purga de token inválido para el evento de solicitud pendiente (no solo para recordatorios de agenda). |
 | GREEN | misma rama | `npm run e2e:bodega-u4-u5` | PASS, 9/9 en Firebase Emulator (`demo-bodega-u4-u5-ui`); el flujo integrado observa el evento durable atómico, trigger ejecutado y estado `SIN_DESTINATARIO` sin token, además de confirmar cero ventas/ledger antes de aprobar. |
 | GREEN | misma rama | `npm run e2e:bodega-agenda` | PASS, 6/6 en Firestore Emulator (`demo-bodega-agenda`), regresión de reservas, conversión, aislamiento y paginación. |
 | GREEN | misma rama | `npm --prefix functions test` | PASS, 422 pruebas: 417 PASS, 5 omitidas, 0 FAIL. |
