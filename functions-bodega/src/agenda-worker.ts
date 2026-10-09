@@ -213,7 +213,6 @@ async function despacharSolicitudPendiente(db: any, messaging: Messaging, claim:
         title: "Nueva solicitud de venta",
         body: "Hay una solicitud pendiente de revisión.",
         url: "/admin/solicitudes",
-        eventId: String(event.eventoId),
       },
     });
     result.responses.forEach((response, index) => {

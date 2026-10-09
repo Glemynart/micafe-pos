@@ -131,9 +131,11 @@ test("solicitud pendiente: notifica solo al admin activo del tenant con payload 
   assert.equal(db.docs.get(`eventos_operativos/${eventoId}`)?.estadoDespacho, "ENVIADO");
   assert.deepEqual(calls.map(call => [call.tokens, call.data]), [[ ["token-admin"], {
     title: "Nueva solicitud de venta", body: "Hay una solicitud pendiente de revisión.",
-    url: "/admin/solicitudes", eventId: eventoId,
+    url: "/admin/solicitudes",
   } ]]);
   assert.equal(JSON.stringify(calls).includes("solicitud-push-1"), false);
+  assert.equal(JSON.stringify(calls).includes(empresaId), false);
+  assert.equal(JSON.stringify(calls).includes(eventoId), false);
 });
 
 test("solicitud ya resuelta antes del despacho se omite sin enviar push", async () => {

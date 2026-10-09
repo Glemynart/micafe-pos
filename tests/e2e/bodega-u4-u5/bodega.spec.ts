@@ -7,7 +7,6 @@ import { initializeApp as initializeClientApp, deleteApp as deleteClientApp } fr
 import { connectAuthEmulator, getAuth as getClientAuth, signInWithCustomToken } from "firebase/auth"
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions"
 import { crearPlantillaConfiguracionRevision1 } from "../../../lib/configuracion/plantilla"
-import { idEventoSolicitudVentaBodegaPendiente } from "../../../functions/src/bodega-vendedor/solicitudes-venta"
 
 const projectId = process.env.E2E_BODEGA_PROJECT_ID ?? "demo-bodega-u4-u5-ui"
 const runId = (process.env.E2E_BODEGA_RUN_ID ?? "manual").replace(/[^a-z0-9-]/gi, "-").slice(-30)
@@ -120,8 +119,11 @@ test("vendedor solicita transferencia, admin aprueba y el pago materializa una Ã
   const db = getFirestore(app)
   const solicitudes = await db.collection("empresas").doc(tenantA.empresaId).collection("solicitudes_venta_bodega").get()
   expect(solicitudes.size).toBe(1); expect(solicitudes.docs[0]?.data()).toMatchObject({ estado: "PENDIENTE_APROBACION", solicitanteUid: tenantA.vendedor.uid, totalCOP: 5000 })
-  const eventRef = db.collection("eventos_operativos").doc(idEventoSolicitudVentaBodegaPendiente(tenantA.empresaId, solicitudes.docs[0]!.id))
-  const event = await eventRef.get()
+  const eventos = await db.collection("eventos_operativos").where("empresaId", "==", tenantA.empresaId).get()
+  const eventosSolicitud = eventos.docs.filter(doc => doc.data().tipo === "SOLICITUD_VENTA_BODEGA_PENDIENTE" && doc.data().agregado?.id === solicitudes.docs[0]!.id)
+  expect(eventosSolicitud).toHaveLength(1)
+  const eventRef = eventosSolicitud[0]!.ref
+  const event = eventosSolicitud[0]!
   expect(event.data()).toMatchObject({ tipo: "SOLICITUD_VENTA_BODEGA_PENDIENTE", empresaId: tenantA.empresaId, estadoDespacho: "PENDIENTE", agregado: { tipo: "SOLICITUD_VENTA_BODEGA", id: solicitudes.docs[0]!.id }, payloadOperativo: { solicitudId: solicitudes.docs[0]!.id } })
   expect(JSON.stringify(event.data()).includes(tenantA.clienteNombre)).toBe(false)
   await expect.poll(async () => (await eventRef.get()).data()?.estadoDespacho).toBe("SIN_DESTINATARIO")

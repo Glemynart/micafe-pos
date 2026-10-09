@@ -10,6 +10,11 @@
 - **Recomendación técnica:** Lead Engineer.
 - **Relacionados:** ADR-SAAS-018, ADR-SAAS-062, ADR-SAAS-064 y D-NOTIF-02.
 
+**Ajuste de seguridad de implementación (2026-10-08):** el payload FCM omite
+también el ID interno del evento. El ID es reversible y el Service Worker no lo
+necesita para abrir `/admin/solicitudes`; el identificador permanece solo en el
+outbox/backend.
+
 La aceptación autoriza implementar esta única familia de avisos mediante el
 proceso normal de rama, PR, CI, auditoría y merge. El despliegue posterior se
 limita a `micafe-pos-staging` y requiere los preflights de Gate C/D. No autoriza
@@ -83,10 +88,11 @@ Se acepta la **Opción 2**, con estas reglas:
      `PENDIENTE`.
    Si el evento no se puede escribir, la transacción no crea una solicitud
    incompleta. El replay del comando no crea otro evento.
-2. El evento solo conserva el tenant, referencia opaca de solicitud y datos de
-   correlación/estado necesarios para el dispatcher. El texto FCM es genérico:
-   “Nueva solicitud de venta — Hay una solicitud pendiente de revisión.” El
-   enlace es `/admin/solicitudes`.
+2. El evento solo conserva el tenant, referencia de solicitud y datos de
+   correlación/estado necesarios para el dispatcher. El payload FCM no incluye
+   IDs de tenant, solicitud o evento: solo texto genérico (“Nueva solicitud de
+   venta — Hay una solicitud pendiente de revisión.”) y el enlace
+   `/admin/solicitudes`.
 3. El dispatcher revalida en backend que la solicitud sigue
    `PENDIENTE_APROBACION`, vuelve a seleccionar membresías activas con rol
    `admin` de ese mismo `empresaId`, y lee tokens solo de esos perfiles. No
@@ -121,8 +127,8 @@ Se acepta la **Opción 2**, con estas reglas:
   worker existente.
 - Un evento sin destinatario elegible no afecta la solicitud. La solicitud
   persiste y puede consultarse en Backoffice/POS; FCM no es fuente de verdad.
-- El payload no contiene PII ni detalles comerciales y el Service Worker solo
-  navega a una ruta del mismo origen.
+- El payload no contiene PII, detalles comerciales ni identificadores de
+  correlación; el Service Worker solo navega a una ruta del mismo origen.
 - No se relajan Rules ni se habilita escritura cliente sobre outbox/eventos.
 
 ## Validación requerida

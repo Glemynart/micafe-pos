@@ -19,7 +19,7 @@
 | GREEN | misma rama | `npm run e2e:bodega-u4-u5` | PASS, 9/9 en Firebase Emulator (`demo-bodega-u4-u5-ui`); el flujo integrado observa el evento durable atómico, trigger ejecutado y estado `SIN_DESTINATARIO` sin token, además de confirmar cero ventas/ledger antes de aprobar. |
 | GREEN | misma rama | `npm run e2e:bodega-agenda` | PASS, 6/6 en Firestore Emulator (`demo-bodega-agenda`), regresión de reservas, conversión, aislamiento y paginación. |
 | GREEN | misma rama | `npm --prefix functions test` | PASS, 422 pruebas: 417 PASS, 5 omitidas, 0 FAIL. |
-| GREEN | misma rama | `npm run test:firebase-push-service-worker`; `npm run test:bodega-ui`; `npm run build:functions`; `npm run build`; `npx tsc --noEmit`; `npm run lint`; `git diff --check` | PASS; push worker 9/9, UI Bodega 12/12; builds/typecheck/lint y diff limpios. |
+| GREEN | misma rama | `npm run test:firebase-push-service-worker`; `npm run test:bodega-ui`; `npm run build:functions`; `$env:POS_DEPLOY_ENV='staging'; $env:NEXT_PUBLIC_FIREBASE_PROJECT_ID='micafe-pos-staging'; npm run build:vercel`; `npx tsc --noEmit`; `npm run lint`; `git diff --check` | PASS; push worker 9/9, UI Bodega 12/12; build Vercel/staging, builds/typecheck/lint y diff limpios. |
 
 ## Controles cubiertos
 
@@ -30,11 +30,15 @@
 - El worker revalida que la solicitud esté pendiente y selecciona únicamente
   membresías activas `admin` del mismo tenant. Vendedor, tenant ajeno y
   membresía suspendida no reciben el push.
-- El payload solo incluye texto genérico, URL interna `/admin/solicitudes` e ID
-  opaco del evento; no contiene referencia, cliente, artículos ni valor de la
-  solicitud.
+- El payload solo incluye texto genérico y URL interna `/admin/solicitudes`; no
+  contiene IDs de tenant, solicitud o evento, ni cliente, artículos o valor de
+  la solicitud. El ID interno del evento es reversible y permanece solo en el
+  backend/outbox, nunca se envía al navegador.
 - El trigger inmediato y el Scheduler comparten el claim transaccional. El
   push no ocurre dentro de la transacción de dominio.
+- La prueba E2E consulta el outbox mediante Firestore y no importa módulos del
+  backend; así el build de Vercel no debe resolver dependencias exclusivas de
+  Cloud Functions.
 - El timeout conserva el token únicamente cuando el rol autenticado es admin;
   timeout de otros roles y logout manual eliminan el token según el flujo
   existente.
