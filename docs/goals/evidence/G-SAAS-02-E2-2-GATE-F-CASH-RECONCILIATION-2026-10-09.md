@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: conciliación de efectivo
 
-**Estado:** corrección preparada; validación del Preview posterior al cambio pendiente. No cierra Gate F.
+**Estado:** corrección implementada; CI y build de Preview `PASS`. La validación funcional autenticada del Preview sigue pendiente. No cierra Gate F.
 
 **Última revisión:** 2026-10-09.
 
@@ -42,9 +42,13 @@ cambia autoridad, esquema, persistencia ni fórmula del cierre.
 - ESLint dirigido a los cuatro archivos de aplicación/prueba afectados: PASS.
 - `git diff --check`: PASS.
 
-La CI de `main` posterior al PR #509 y la CI/Preview de esta corrección siguen
-siendo requisitos independientes. No se ha desplegado esta corrección en
-staging ni se han modificado Firestore, Auth, Rules, Functions, Scheduler, IAM,
-Secrets, Vercel o producción.
+La CI post-merge de #509, run `37946338216`, terminó `success`. Los checks del
+PR #510 terminaron `PASS`: `Tipos y pruebas`, `Vercel` y `Vercel Preview
+Comments`; la CI `37948034761` concluyó `success`. El Preview está publicado en
+`https://cafeatrato-git-codex-e2-2-gatef-cash-7213e3-glemynarts-projects.vercel.app/admin/reportes`.
+No se completó una sesión autenticada en ese nuevo dominio, así que la lectura
+visual posterior a la corrección aún no está verificada. No se ha desplegado
+esta corrección en staging ni se han modificado Firestore, Auth, Rules,
+Functions, Scheduler, IAM, Secrets o producción.
 
 **Gate F:** permanece `EN CURSO`; la matriz funcional integral sigue pendiente.
