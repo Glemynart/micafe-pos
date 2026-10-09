@@ -542,7 +542,7 @@ liberación automática de reservas ni la matriz integral de PWA/Backoffice/
 turnos. Gate G/H se repetirán después de F; no se crea/configura el tenant real
 ni se toca producción.
 
-### Checkpoint vigente — 2026-10-09 — PR #504 / Gate D y CI post-merge
+### Checkpoint histórico — 2026-10-09 — PR #504 / Gate D y CI post-merge (supersedido por PR #506)
 
 PR #504 quedó integrado en `main` mediante el merge commit
 `6a0b60a599194a6ee681cca8ea86403433ef1e39` a las `2026-10-09T08:57:50Z`.
@@ -579,6 +579,31 @@ conserva los demás casos. Los E2E en Emulator aportan cobertura, pero no cierra
 esos escenarios remotos. El siguiente gate continúa siendo F; G debe repetirse
 y H emitir una matriz nueva después de F. I permanece pendiente; no se
 crea/configura el tenant real ni se toca producción.
+
+### Checkpoint vigente — 2026-10-09 — PR #506 / CI post-merge
+
+PR #506 quedó `MERGED` en `main` mediante el merge commit
+`dbc12e1ddadc339378aa9f1a0ff129533253e304` a las `2026-10-09T10:46:52Z`.
+La CI post-merge de `main`, run `37919696431`, terminó `success` sobre ese SHA
+a las `2026-10-09T11:07:32Z`. Pasaron los E2E Bodega de solicitud/venta
+canónica y agenda/reservas/aislamiento, además de E4.1 y la auditoría E4.2 en
+Emulator; esto no sustituye la matriz remota de staging.
+
+La [evidencia de PR #506](evidence/G-SAAS-02-E2-2-GATE-F-PUSH-TRIGGER-2026-10-09.md)
+registra un despacho trigger/outbox de solicitud pendiente y lecturas
+read-only de la agenda activa. Al momento de esas lecturas, el recordatorio
+`dia_anterior` seguía pendiente para `2026-10-09T13:00:00Z` (08:00 Bogotá), el
+recordatorio `fecha_programada` para `2026-10-10T13:00:00Z` y la reserva de 2
+unidades base vencía el `2026-10-11T05:00:00Z` (00:00 Bogotá). Esos eventos
+automáticos aún requieren observarse en staging; no se adelantó el reloj ni se
+forzó el Scheduler.
+
+Gate F permanece `EN CURSO`, no `PASS`. Siguen pendientes los reintentos/replay
+y concurrencia, el retry autenticado tras pérdida de respuesta, aislamiento y
+revocación/restauración en staging, recordatorios y vencimiento/liberación real
+de la reserva, conversión idempotente y la matriz integral PWA/Backoffice,
+inventario, ledger, reportes y turnos. El siguiente gate continúa siendo F; no
+se inicia G/H ni se crea/configura el tenant real o se toca producción.
 
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
