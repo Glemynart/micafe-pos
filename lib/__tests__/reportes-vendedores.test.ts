@@ -16,6 +16,10 @@ test("preserva el nombre histórico aunque falte el UID del vendedor", () => {
   assert.equal(resolverNombreVisibleVendedor(undefined, "Nombre histórico", nombres), "Nombre histórico")
   assert.equal(resolverNombreVisibleVendedor(undefined, "uid-vendedor-conocido", nombres), "Nombre actual")
   assert.equal(resolverNombreVisibleVendedor(undefined, "Ana-Maria", nombres), "Ana-Maria")
+  assert.equal(
+    resolverNombreVisibleVendedor(undefined, "AnaMariaRodriguezLopez", nombres),
+    "AnaMariaRodriguezLopez",
+  )
 })
 
 test("resuelve el nombre tenant-aware cuando el snapshot del reporte es el UID", () => {
