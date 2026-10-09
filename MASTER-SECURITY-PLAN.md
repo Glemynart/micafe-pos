@@ -52,7 +52,7 @@ No se usa Espacio como frontera de seguridad ni se introduce una Sede técnica p
 | MT-U10 límites/consumo | Fuera de G-SAAS-02 | No implementar sin necesidad y decisión de producto |
 | MT-U11 multiempresa por identidad | Fuera de G-SAAS-02 | Un usuario → un tenant es suficiente |
 | Reservas públicas/Wompi de clientes | Remediación autorizada; capacidad desactivada | `ADR-SAAS-036` exige precio servidor, intención inmutable, validación exacta, saga fiscal, cuenta tenant-aware y WAF antes de activar. No cambia reservas internas de `ADR-SAAS-033` ni billing SaaS. |
-| Wompi como billing SaaS, offline y notificaciones | Fuera de G-SAAS-02 | No implementar sin nueva decisión de producto. |
+| Wompi como billing SaaS, offline y centro completo de notificaciones | Fuera de G-SAAS-02 | No implementar sin nueva decisión de producto. La alerta durable de solicitud pendiente de Bodega es una excepción específica aceptada por ADR-SAAS-065; su IAM y despliegue continúan limitados a staging por ADR-SAAS-066/067 y sus gates. |
 
 ## Respuesta a incidentes
 

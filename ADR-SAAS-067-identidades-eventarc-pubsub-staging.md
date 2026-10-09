@@ -1,10 +1,17 @@
 # ADR-SAAS-067 — Identidades administradas para el trigger de Bodega en staging
 
-- **Estado:** PROPUESTO.
+- **Estado:** ACEPTADO.
 - **Fecha:** 2026-10-09.
 - **Goal:** `G-SAAS-02` → `M2` → `E2.2` (Gate C/D/F).
 - **Decisores:** responsable del proyecto; recomendación del Lead Engineer.
 - **Relacionado:** ADR-SAAS-065 y ADR-SAAS-066.
+
+El responsable del proyecto aprobó explícitamente la **Opción 1** el
+2026-10-09. La autorización se limita a los dos agentes de servicio y sus dos
+roles predeterminados enumerados abajo en `micafe-pos-staging`, además de los
+tres bindings exactos ya aceptados en ADR-SAAS-066. Esta decisión complementa
+esa excepción; no autoriza ningún otro principal, rol, API, cambio a Rules o
+Secrets, tenant real ni producción.
 
 ## Contexto
 
@@ -67,21 +74,54 @@ cerrar los gates que dependen de ese despliegue.
 
 ## Recomendación
 
-Recomiendo la **Opción 1** por ser el delta adicional mínimo que corresponde a
-los dos servicios que Firebase CLI solicita explícitamente, siempre sujeto a
-la aprobación del responsable. La autorización no existe hasta que el usuario
-acepte esta ADR. No se ejecutará `--dry-run`, generación de identidades, cambio
-IAM ni deploy mientras permanezca `PROPUESTO`.
+La **Opción 1** fue aprobada explícitamente por el responsable el 2026-10-09.
+La aceptación documental no declara Gate C `PASS` ni es por sí sola evidencia
+de que las identidades o bindings existan. Antes de Gate D, el preflight debe
+confirmar el delta exacto de Functions e IAM y el rollback. Si Firebase CLI
+solicita cualquier identidad, rol, principal o superficie adicional, el
+despliegue se detiene y se requiere una decisión separada.
 
-Si se aprueba, se cambiará su estado a `ACEPTADO` y se actualizarán los
-documentos maestros antes de reanudar Gate C. La aceptación de la ADR tampoco
-declara Gate C `PASS`: el preflight aún debe demostrar el delta exacto y el
-rollback antes de Gate D.
+La autorización permite solicitar de manera idempotente la generación de los
+dos service agents indicados y, únicamente si faltan, asignarles sus roles
+predeterminados indicados. No se ejecutaron todavía `--dry-run`, generación de
+identidades, cambios IAM ni deploy; la autorización operativa se ejercerá
+después de integrar esta decisión y completar el preflight controlado.
+
+## Decisión aceptada
+
+Se acepta la **Opción 1**, con este alcance acumulado y cerrado para el
+artefacto de ADR-SAAS-065 en `micafe-pos-staging`:
+
+1. Solicitar la generación idempotente de los agentes Pub/Sub y Eventarc con
+   los principals exactos de la tabla de Opción 1.
+2. Asignar únicamente `roles/pubsub.serviceAgent` al agente Pub/Sub y
+   `roles/eventarc.serviceAgent` al agente Eventarc, si esos bindings faltan.
+3. Conservar, sin ampliar, los tres bindings de ADR-SAAS-066.
+4. Detener el preflight/deploy si aparece cualquier delta IAM, identidad,
+   principal o superficie distinto a los anteriores.
+
+La Opción 1 fue aprobada por el responsable del proyecto el 2026-10-09. No se
+autoriza producción, tenant real, otros proyectos, otros codebases, Rules,
+Secrets ni tráfico productivo. Gate C debe producir `PREFLIGHT = PASS` antes
+de cualquier despliegue; Gate D y Gate F siguen abiertos.
+
+## Consecuencias de la decisión aceptada
+
+- ADR-SAAS-065 y ADR-SAAS-066 permanecen vigentes, extendidas solo por las dos
+  identidades y roles de esta ADR; el resultado acumulado son exactamente cinco
+  bindings de proyecto y dos service agents autorizados en staging.
+- El preflight final aún debe probar idempotencia, delta de Functions, IAM
+  efectivo y rollback; la aceptación no ejecuta ninguna mutación remota.
+- No se agrega permiso humano ni se amplía la autoridad de runtime de la
+  aplicación más allá de los service agents explícitos.
+- Cualquier diferencia frente al alcance exacto requiere detenerse y abrir
+  una decisión nueva antes de aplicar cambios.
 
 ## Referencias
 
 - `ADR-SAAS-065-notificacion-solicitud-venta-bodega.md`.
 - `ADR-SAAS-066-iam-acotado-eventarc-bodega-staging.md`.
+- `docs/goals/evidence/G-SAAS-02-E2-2-ADR-SAAS-067-ACCEPTANCE-2026-10-09.md`.
 - `docs/goals/evidence/G-SAAS-02-E2-2-GATE-C-PREFLIGHT-ADR065-2026-10-09.md`.
 - Google Cloud: [Create and grant roles to service agents](https://docs.cloud.google.com/iam/docs/create-service-agents?hl=en).
 - Service Usage: [services.generateServiceIdentity](https://cloud.google.com/service-usage/docs/reference/rest/v1beta1/services/generateServiceIdentity).
