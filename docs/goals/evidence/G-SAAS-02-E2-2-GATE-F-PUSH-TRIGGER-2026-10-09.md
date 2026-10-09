@@ -317,3 +317,22 @@ capacidades administrativas.
 Esta lectura es evidencia puntual de la UI, no la matriz funcional completa de
 staging. No cambia el estado de Gate F (`EN CURSO`) ni acredita replay,
 concurrencia remota, aislamiento A/B o retry tras pérdida de respuesta.
+
+### Revalidación local de Rules y reportes — 2026-10-09
+
+- `npm run test:rules`: `37/37 PASS` con Firestore Emulator en el proyecto demo
+  `demo-mt-u4-rules`. Incluye el límite vendedor/administración de Bodega,
+  movimientos de inventario backend-only, aislamiento de lectura del Kardex
+  entre tenants, y auditoría/movimientos append-only.
+- `npx tsx --test lib/__tests__/reportes-tenant.test.ts`: `2/2 PASS`; reportes
+  no consulta perfiles globales y resuelve roles desde membresías del tenant.
+- Ambas ejecuciones son locales, sin escrituras a staging o producción; no
+  sustituyen la comprobación autenticada A/B ni la revalidación funcional
+  remota de reportes.
+- La primera ejecución de Rules no llegó a cargar las pruebas porque el
+  worktree aislado no tenía dependencias instaladas. Tras instalar desde el
+  lockfile en ese worktree, la suite completa terminó correctamente. No se
+  modificaron manifiestos ni código de aplicación.
+
+Esto añade cobertura local independiente del calendario de agenda, pero Gate
+F permanece `EN CURSO` hasta cerrar la evidencia remota restante.
