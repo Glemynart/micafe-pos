@@ -1004,3 +1004,35 @@ continúa `EN CURSO`.
   cambios por Codex `0`.
 - Functions, Scheduler, IAM, Rules, Secrets, tráfico, despliegue y producción:
   cambios `0`.
+
+### Seguimiento read-only — trigger automático de solicitud pendiente, 2026-10-09
+
+Tras integrar y desplegar PR #504 en `micafe-pos-staging`, la lectura selectiva
+de una solicitud sintética del fixture (ID terminado en `4NjMxIl0`) encontró
+`createTime = 2026-10-09T08:47:34.029263Z` y estado actual `APROBADA`, con
+`updateTime = 2026-10-09T08:49:31.332247Z`. Su evento outbox correlacionado
+(ID terminado en `4SWwwIl0`) es `SOLICITUD_VENTA_BODEGA_PENDIENTE`, estado
+`ENVIADO`, intento `1`, sin código de error; `despachadoEn` es
+`2026-10-09T08:47:36.546Z`.
+
+Cloud Logging del servicio exacto
+`notificarsolicitudventabodegapendientev1` registró una invocación HTTP `204`
+en la revisión `notificarsolicitudventabodegapendientev1-00001-raf` a las
+`2026-10-09T08:47:34.774461Z`, entre la creación y la aprobación. Esto confirma
+un despacho automático del trigger/outbox mientras la solicitud estaba
+pendiente. La referencia puntual está en
+[`evidencia del trigger de Gate F`](G-SAAS-02-E2-2-GATE-F-PUSH-TRIGGER-2026-10-09.md).
+
+El evento `ENVIADO` acredita que FCM aceptó el despacho; no prueba que el
+administrador viera esta notificación en el dispositivo, recepción en segundo
+plano, sonido, retries, replay, carreras trigger/Scheduler ni aislamiento entre
+tenants. Gate F sigue `EN CURSO`.
+
+#### Auditoría de mutaciones
+
+- Firestore REST y Cloud Logging de `micafe-pos-staging`: lecturas únicamente;
+  escrituras directas de Codex `0`.
+- Solicitud y outbox: no fueron creados, aprobados ni modificados por Codex en
+  este seguimiento.
+- Functions, Scheduler, IAM, Rules, Secrets, Auth, Vercel, inventario, ventas,
+  ledger, turnos, tenant real y producción: cambios de Codex `0`.
