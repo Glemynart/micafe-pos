@@ -1,11 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, BarChart3, TrendingUp, DollarSign, ShoppingCart, Users, Package, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatCurrency } from "@/lib/demo-data"
 import { generarReporteVentas, obtenerRangoFechas, type ReporteVentas } from "@/lib/reportes-service"
+import { suscribirUsuarios, type Usuario } from "@/lib/permisos-service"
+import { crearIndiceNombres } from "@/lib/actor-display"
+import { resolverNombreVisibleVendedor } from "@/lib/reportes-vendedores"
 
 const periodos = [
   { key: "today", label: "Hoy" },
@@ -16,12 +19,16 @@ const periodos = [
 export default function ReportesPage() {
   const [periodo, setPeriodo] = useState("today")
   const [reporte, setReporte] = useState<ReporteVentas | null>(null)
+  const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [cargando, setCargando] = useState(false)
   const [expandirVendedores, setExpandirVendedores] = useState(true)
   const [expandirProductos, setExpandirProductos] = useState(false)
   const [expandirTiempo, setExpandirTiempo] = useState(false)
 
   useEffect(() => { cargarReporte() }, [periodo])
+  useEffect(() => suscribirUsuarios(setUsuarios), [])
+
+  const nombres = useMemo(() => crearIndiceNombres(usuarios), [usuarios])
 
   const cargarReporte = async () => {
     setCargando(true)
@@ -139,7 +146,7 @@ export default function ReportesPage() {
                   {reporte.ventasPorVendedor.map(v => (
                     <div key={v.id} className="px-4 py-3">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-semibold text-foreground">{v.nombre}</span>
+                        <span className="text-sm font-semibold text-foreground">{resolverNombreVisibleVendedor(v.id, v.nombre, nombres)}</span>
                         <div className="text-right">
                           <span className="text-sm font-bold text-foreground tabular-nums">{formatCurrency(v.total)}</span>
                           <p className="text-[10px] text-muted-foreground/70">{v.ventas} ventas · Prom {formatCurrency(v.average)}</p>
