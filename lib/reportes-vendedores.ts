@@ -1,6 +1,7 @@
 import { resolverNombreActor } from "./actor-display"
 
-const IDENTIFICADOR_OPACO = /^(?=.*\d)\S+$|^\S{20,}$/
+// Sin UID disponible, conserva nombres legibles y abrevia tokens numéricos u opacamente largos.
+const IDENTIFICADOR_OPACO = /^(?=.*\d)\S+$|^\S{28,}$/
 
 /** Evita exponer UIDs completos en el reporte cuando no hay nombre disponible. */
 export function resolverNombreVisibleVendedor(
