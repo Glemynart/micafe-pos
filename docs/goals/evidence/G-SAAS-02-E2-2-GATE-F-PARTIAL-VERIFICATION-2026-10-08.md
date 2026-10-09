@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: evidencia parcial de verificación (2026-10-08)
 
-**Última revisión:** 2026-10-09 02:12 UTC
+**Última revisión:** 2026-10-09 02:59 UTC
 **Estado:** `EN CURSO` — evidencia parcial; no certifica Gate F.
 
 ## Contexto y límites
@@ -931,3 +931,16 @@ los casos restantes de aislamiento y revocación/restauración, expiración
 automática, retry autenticado tras pérdida de respuesta, y la matriz funcional
 integral de staging, incluidos los escenarios de turno, backoffice y PWA no
 cubiertos por este caso.
+
+### Seguimiento — historial de ventas PWA del vendedor, 2026-10-09 02:59 UTC
+
+En el mismo Preview de staging, la vista autenticada `Mis ventas` del vendedor
+mostró la venta anterior de `E2_2-BODEGA-STAGING-FIXTURE-CLIENTE-GATE-F` por
+`5.000 COP`, medio `transferencia`. El ID de venta visible codifica el mismo
+`commandId` terminado en `3b033b8d` del recibo `confirmarVentaBodegaV1`
+verificado en Firestore para la solicitud `…ZWIXZCJD`.
+
+Esta es una lectura de la PWA después de la confirmación; no se creó ni repitió
+venta, no se cambió el inventario y no se abrió turno. Añade evidencia positiva
+de consulta personal de ventas, pero no acredita la matriz completa de PWA ni
+los escenarios de otros roles, aislamiento y replay. Gate F continúa `EN CURSO`.
