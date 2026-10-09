@@ -695,6 +695,41 @@ la reserva y conciliación integral PWA/Backoffice de inventario, ledger,
 reportes y turnos. No se adelantan G/H, no se configura el tenant real y no se
 toca producción.
 
+### Checkpoint vigente — 2026-10-09 — PR #514 y reprogramación de agenda Gate F
+
+PR #514 quedó integrado en `main` mediante el merge commit
+`4476bd98379fc25580405f8f79df756d54e9cd95` a las `2026-10-09T19:57:41Z`. Sus
+checks previos al merge terminaron `PASS`; al registrar este checkpoint, la CI
+post-merge de `main`, run `37983763317`, seguía `in_progress`. Este PR actualiza
+el checkpoint de reportes y no cambia código de aplicación.
+
+Con autorización explícita del responsable, se sustituyó en el fixture existente
+de `micafe-pos-staging` la reserva de dos unidades para el 10 de octubre por la
+agenda sintética de hoy, 9 de octubre, de 14:00 a 15:00. La UI de administración
+mostró el nuevo hold activo por 2 unidades base, con vencimiento a las
+`2026-10-10 00:00` de Bogotá (`2026-10-10T05:00:00Z`); la reserva anterior y la
+agenda duplicada sin franja del 10 de octubre quedaron canceladas. Inventario
+mostró 4 unidades físicas, 2 reservadas y 2 disponibles; después de las 15:00
+la agenda aún aparecía reservada, conforme a la expiración al cierre del día
+local. No se creó venta, movimiento de ledger ni cambio de caja. La inspección
+adicional y la auditoría de mutaciones están en
+[`G-SAAS-02-E2-2-GATE-F-AGENDA-RESCHEDULE-2026-10-09.md`](evidence/G-SAAS-02-E2-2-GATE-F-AGENDA-RESCHEDULE-2026-10-09.md).
+
+La reserva vence al terminar el día local de la fecha programada, según
+ADR-SAAS-064; la franja preferida no altera el vencimiento. A las 15:05 del
+9-oct faltaban aproximadamente 8 h 55 min. La vista del vendedor además mostró
+un aviso genérico de fallo de venta, aún sin diagnóstico; no se reintentó ni se
+considera validada la conversión de agenda a venta. Queda pendiente observar
+después de medianoche la transición automática y la liberación del hold
+(máximo cinco minutos de cadencia); no se forzará el Scheduler ni se manipulará
+el reloj. El job permanece `ENABLED` cada cinco minutos y sus cuatro
+ejecuciones observadas hasta las `20:08Z` devolvieron HTTP `200`; es señal de
+salud previa, no evidencia de expiración.
+Gate F permanece `EN CURSO`, no `PASS`. Continúan pendientes replay/retry y
+concurrencia autenticados, aislamiento remoto tenant/roles y la conciliación
+integral de PWA/Backoffice, inventario, ledger, reportes y turnos. No se
+adelantan G/H, no se crea/configura el tenant real y no se toca producción.
+
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
 PR #477 quedó `MERGED` en `main` el `2026-10-07 22:23:06` hora de Bogotá
