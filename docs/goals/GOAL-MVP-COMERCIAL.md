@@ -418,9 +418,9 @@ usuario: `5.000 COP` por transferencia, agenda `CUMPLIDA`, reserva consumida,
 un ingreso de ledger y un movimiento de inventario de `-2` con saldo final 4.
 El alcance fue documental; no modificó aplicación ni Functions.
 
-La CI post-merge de `main`, run `37876935719`, estaba `in_progress` al corte de
-`2026-10-09T02:56:52Z`; no se infiere su resultado antes de que termine. Gate F
-permanece `EN CURSO`, no `PASS`: siguen pendientes el replay/concurrencia
+La CI post-merge de `main`, run `37876935719`, terminó `success` a las
+`2026-10-09T03:17:20Z`. Gate F permanece `EN CURSO`, no `PASS`: siguen
+pendientes el replay/concurrencia
 remotos, aislamiento y revocación/restauración restantes, expiración
 automática, retry autenticado tras pérdida de respuesta y la matriz integral
 de turno, Backoffice y PWA. Gate G/H deben repetirse después del cierre de F;
