@@ -849,3 +849,40 @@ el estado cambió; la garantía de replay queda `NOT EXECUTED` en staging.
 - La reserva nueva se mantiene; sí se ejecutó la conversión a solicitud, pero
   no el consumo de inventario ni la limpieza.
 - Gate F permanece `EN CURSO`, no `PASS`.
+
+### Seguimiento — aprobación administrativa de la solicitud, 2026-10-09 02:20 UTC
+
+En el Preview staging del fixture `E2_2-BODEGA-STAGING-FIXTURE`, la sesión
+autenticada de `Administrador Bodega Demo` aprobó desde `/admin/solicitudes`
+la solicitud ligada a la agenda, identificador visible terminado en
+`ZWIXZCJD`. La tarjeta del administrador pasó a `APROBADA`; la sesión POS del
+vendedor confirmó el mismo estado para una línea de 1 presentación (2 unidades
+base), con total canónico de `5.000 COP` y vencimiento de la aprobación dentro
+de las 24 horas previstas por ADR-SAAS-062.
+
+La tarjeta aún ofrece `Confirmar venta`: no se accionó. La pantalla del
+vendedor indica `Sin turno` y muestra `Transferencia` seleccionada; en el
+componente vigente el turno es requisito para cobrar en efectivo, mientras que
+transferencia no requiere apertura de caja. La aprobación no equivale a pago ni
+a venta. No se afirma creación de venta, asiento de ledger, consumo de reserva
+o descuento de stock; el cierre financiero queda pendiente del handoff humano
+en el botón final de POS.
+
+La lista también conserva solicitudes sintéticas anteriores `CANCELADA` y
+`EJECUTADA`; la solicitud aprobada se distinguió por su estado e identificador
+visible para evitar operar sobre un registro previo.
+
+#### Mutation audit de la aprobación
+
+- Proyecto/tenant: `micafe-pos-staging` /
+  `E2_2-BODEGA-STAGING-FIXTURE`; Preview de staging, no producción.
+- Solicitud: una transición canónica `PENDIENTE_APROBACION → APROBADA` desde
+  Backoffice; no hubo escritura directa de Codex a Firestore.
+- Venta/ledger/turno: no se confirmó la venta ni se cambió el método de pago;
+  no se abrió ni cerró turno.
+- Inventario/reserva: no se consumió ni liberó la reserva; sin ajuste manual.
+- Auth, Rules, Functions, IAM, Secrets, configuración, despliegue y tráfico:
+  cambios manuales de Codex `0`.
+- Tenant real, producción, fixture adicional y cleanup destructivo: `0`.
+- Gate F continúa `EN CURSO`; la venta final, su idempotencia remota y los
+  efectos financieros siguen sin certificarse.
