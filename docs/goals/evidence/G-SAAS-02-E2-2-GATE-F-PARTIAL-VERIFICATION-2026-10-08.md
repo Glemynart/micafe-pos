@@ -886,3 +886,48 @@ visible para evitar operar sobre un registro previo.
 - Tenant real, producción, fixture adicional y cleanup destructivo: `0`.
 - Gate F continúa `EN CURSO`; la venta final, su idempotencia remota y los
   efectos financieros siguen sin certificarse.
+
+### Seguimiento — venta canónica de la solicitud agendada, 2026-10-09 02:32 UTC
+
+El usuario confirmó en el POS staging la venta de la solicitud `…ZWIXZCJD`.
+Las vistas del vendedor y administrador mostraron `EJECUTADA`/`pagada`,
+transferencia y total `5.000 COP`. La solicitud conserva una línea de una
+presentación (2 unidades base) y referencia la venta resultante.
+
+Se efectuaron lecturas Firestore REST autenticadas, de solo lectura, en
+`micafe-pos-staging`, limitadas al fixture, solicitud y referencias exactas de
+esa operación:
+
+- `operaciones_comandos`: recibo `confirmarVentaBodegaV1` en
+  `CONFIRMADO`; su resultado enlaza solicitud, agenda y venta, contiene un
+  movimiento financiero, un movimiento de inventario y `turnoId = null`.
+- `operaciones_command_idempotency`: existe el índice para el mismo
+  `commandId`. Esto acredita el recibo/índice iniciales, no un replay remoto:
+  no se repitió el comando.
+- `operaciones_auditoria`: hecho `confirmarVentaBodegaV1` con resultado
+  `CONFIRMADO` y referencia a la venta.
+- `ventas`: documento enlazado en estado `pagada`, `estadoOperativo =
+  COMPLETO`, medio `transferencia`, total `5.000 COP` y `programacionId`
+  presente.
+- `transacciones_financieras`: un `ingreso` por `5.000 COP`, categoría
+  `ventas`, ligado al mismo `ventaId`; `turnoId = null`, consistente con
+  transferencia y con la sesión del vendedor `Sin turno`.
+- `movimientos_inventario`: un movimiento `venta` de `-2` unidades base, con
+  saldo posterior `4`, ligado a la venta.
+- Agenda: `CUMPLIDA`, con `ventaId` coincidente. La reserva correspondiente
+  quedó `CONSUMIDA` por 2 unidades base y referencia la misma venta. La UI de
+  inventario confirmó `4` físicas, `0` reservadas y `4` disponibles.
+
+La operación final fue confirmada por el usuario en la interfaz. Codex no
+ejecutó ni repitió una transacción financiera; las consultas posteriores
+fueron `GET`/`runQuery` de Firestore. No se abrió/cerró turno ni se ajustó stock
+manualmente. No se modificaron Auth, Rules, Functions, IAM, Secrets,
+configuración, despliegues, producción ni otro tenant. La ejecución confirma el
+camino exitoso solicitud→aprobación→venta y sus efectos atómicos para este
+caso; no prueba concurrencia ni replay remoto ante pérdida de respuesta.
+
+Gate F permanece `EN CURSO`. Siguen pendientes el replay/concurrencia remotos,
+los casos restantes de aislamiento y revocación/restauración, expiración
+automática, retry autenticado tras pérdida de respuesta, y la matriz funcional
+integral de staging, incluidos los escenarios de turno, backoffice y PWA no
+cubiertos por este caso.
