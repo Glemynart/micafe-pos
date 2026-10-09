@@ -21,6 +21,11 @@ No se aprobaron, rechazaron, confirmaron ni cancelaron operaciones.
 | Cuadre de efectivo | Los tres vendedores aparecen `Cuadrado`; efectivo contado coincide con efectivo esperado, que incluye las bases de apertura. Transferencias se muestran separadas del efectivo. |
 | Control de rol | La sesión vendedora fue redirigida desde `/admin/solicitudes` con `error=not_admin` y mensaje de sesión de caja activa. Volver a `/pos` restauró la sesión vendedora. Esto acredita el guard visible de navegación, no una matriz de autorización backend/tenant A/B. |
 
+Las dos solicitudes aprobadas requieren 2 unidades base cada una, pero hay solo
+2 unidades disponibles. No se confirmó ninguna venta: la resolución de la
+carrera entre ambas queda como escenario remoto pendiente. La suite Emulator
+ya valida que el backend no excede el stock bajo consumo concurrente.
+
 ## Límite y mutaciones
 
 Esta pasada verifica conciliación visual entre solicitud aprobada, venta
