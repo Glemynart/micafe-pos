@@ -63,9 +63,12 @@ test('TenantAccessGuard muestra una opción recuperable si falla la verificació
 test('SaaSProvider siempre finaliza la carga si falla la verificación de sesión', () => {
   const source = readFileSync(resolve(process.cwd(), 'contexts/saas-context.tsx'), 'utf8')
   const listener = source.slice(source.indexOf('onIdTokenChanged'), source.indexOf('return unsubscribe'))
+  const refresh = source.slice(source.indexOf('const refresh = useCallback'))
 
   assert.match(listener, /finally\s*\{[\s\S]*setLoading\(false\)/)
   assert.match(listener, /setErrorVerificacionTenant\(true\)/)
+  assert.match(refresh, /finally\s*\{[\s\S]*setLoading\(false\)/)
+  assert.match(refresh, /setErrorVerificacionTenant\(true\)/)
 })
 
 test('TenantAccessGuard renderiza spinner solamente mientras la configuracion esta CARGANDO', () => {

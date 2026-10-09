@@ -13,7 +13,7 @@ import type { ReactNode } from 'react'
  * Firebase, que puede ser válida para el Backoffice SaaS.
  */
 export function TenantAccessGuard({ children }: { children: ReactNode }) {
-  const { loading, accesoTenantDenegado, empresaId } = useSaaS()
+  const { loading, accesoTenantDenegado, errorVerificacionTenant, empresaId, refresh } = useSaaS()
   const { empresaId: empresaConfiguracionId, estado, error, proyecciones, refrescar } = useConfiguracionEmpresa()
 
   if (loading) {
@@ -21,6 +21,21 @@ export function TenantAccessGuard({ children }: { children: ReactNode }) {
       <div className="grid min-h-screen place-items-center bg-background text-foreground">
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <LoaderCircle className="size-5 animate-spin" /> Verificando acceso al tenant…
+        </div>
+      </div>
+    )
+  }
+
+  if (errorVerificacionTenant) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-background p-6 text-foreground">
+        <div className="max-w-md rounded-2xl border border-amber-400/30 bg-card p-8 text-center shadow-sm">
+          <ShieldX className="mx-auto mb-4 size-10 text-amber-500" />
+          <h1 className="text-xl font-semibold">No se pudo verificar el acceso</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            No fue posible verificar el acceso al tenant. Revisa la conexión e inténtalo de nuevo.
+          </p>
+          <Button className="mt-6" onClick={() => { void refresh() }}>Reintentar</Button>
         </div>
       </div>
     )

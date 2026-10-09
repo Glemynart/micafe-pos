@@ -11,8 +11,8 @@
  * MT-U3 Capa 1: la resolución claim→fallback (incl. el `console.warn` de
  * anomalía) se delegó a `resolverEmpresaIdActivo()` (`lib/tenant-context.ts`)
  * — el mismo resolvedor que usa `lib/tenant.ts` para servicios planos. Una
- * sola ruta de resolución en todo el sistema. La API pública de este
- * contexto (`SaaSContextValue`) no cambió.
+ * sola ruta de resolución en todo el sistema. La verificación expone un
+ * estado de error recuperable sin modificar la autoridad de los claims.
  *
  * Límites de responsabilidad (ver MT-U2-runtime-saas-diseno.md §3):
  *   (a) NO decide el `empresaId` — lo impone el claim (D-U2-1); el fallback
@@ -30,6 +30,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import { onIdTokenChanged, type User as FirebaseUser } from "firebase/auth";
@@ -54,6 +55,8 @@ interface SaaSContextValue {
   loading: boolean;
   /** La identidad Firebase es válida, pero no posee una sesión tenant autorizada. */
   accesoTenantDenegado: boolean;
+  /** Falló transitoriamente la verificación del tenant; permite reintentar sin filtrar contenido. */
+  errorVerificacionTenant: boolean;
   /** Fuerza un refresh del token (getIdToken(true)) y re-resuelve el estado */
   refresh: () => Promise<void>;
 }
@@ -70,8 +73,19 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
   const [membresia, setMembresia] = useState<Membresia | null>(null);
   const [loading, setLoading] = useState(true);
   const [accesoTenantDenegado, setAccesoTenantDenegado] = useState(false);
+  const [errorVerificacionTenant, setErrorVerificacionTenant] = useState(false);
+  const verificacionRevision = useRef(0);
 
-  const resolver = useCallback(async (firebaseUser: FirebaseUser) => {
+  const limpiarContextoTenant = useCallback(() => {
+    setEmpresaId(null);
+    setEmpresa(null);
+    setMembresia(null);
+  }, []);
+
+  const resolver = useCallback(async (
+    firebaseUser: FirebaseUser,
+    esRevisionVigente: () => boolean = () => true,
+  ) => {
     try {
        // Resolución exclusiva desde claim — misma ruta que usa lib/tenant.ts
        // para servicios planos. MT-U5a eliminó el fallback transitorio.
@@ -95,84 +109,110 @@ export function SaaSProvider({ children }: { children: ReactNode }) {
       // la lectura.
        const empresaDoc = await obtenerEmpresaPorId(empresaIdResuelto);
 
+      if (!esRevisionVigente()) return;
+
       setEmpresaId(empresaIdResuelto);
       setMembresia(membresiaActual);
       setEmpresa(empresaDoc);
       setAccesoTenantDenegado(false);
     } catch (err) {
       if (err instanceof TenantSinSesionError) {
+        if (!esRevisionVigente()) return;
          // La identidad Firebase puede ser válida para otro plano (por
          // ejemplo, Backoffice SaaS) aunque no tenga sesión tenant. Se limpia
          // solo este contexto y el guard del plano tenant rechaza la vista;
          // cerrar Auth aquí afectaría todas las pestañas del mismo origen.
-         setEmpresaId(null);
-         setMembresia(null);
-         setEmpresa(null);
+         limpiarContextoTenant();
          setAccesoTenantDenegado(true);
          return;
       }
       throw err;
     }
-  }, []);
+  }, [limpiarContextoTenant]);
 
   useEffect(() => {
-    const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) {
-        setEmpresaId(null);
-        setEmpresa(null);
-        setMembresia(null);
-        setAccesoTenantDenegado(false);
-        setLoading(false);
-        return;
-      }
+    const unsubscribe = onIdTokenChanged(auth, (firebaseUser) => {
+      const revision = ++verificacionRevision.current;
+      const esRevisionVigente = () => verificacionRevision.current === revision;
 
-      // Ver `esSesionTemporalSinTenant` (lib/tenant-context.ts): una sesión
-      // `DIRECTA_TEMP` es una sesión de Auth válida que aún no es tenant.
-      // Este provider no tiene contexto SaaS que ofrecerle (no hay empresa
-      // ni membresía que resolver todavía) pero tampoco debe tratarla como
-      // inválida — se mantiene estable, sin resolver ni cerrar sesión, hasta
-      // que la activación (fuera de este provider) la reemplace por una
-      // sesión tenant y este mismo listener vuelva a disparar.
-      const tokenCacheado = await firebaseUser.getIdTokenResult();
-      if (esSesionTemporalSinTenant(tokenCacheado.claims)) {
-        setEmpresaId(null);
-        setEmpresa(null);
-        setMembresia(null);
+      if (!firebaseUser) {
+        limpiarContextoTenant();
         setAccesoTenantDenegado(false);
+        setErrorVerificacionTenant(false);
         setLoading(false);
         return;
       }
 
       setAccesoTenantDenegado(false);
+      setErrorVerificacionTenant(false);
       setLoading(true);
-      await resolver(firebaseUser);
-      setLoading(false);
+      void (async () => {
+        try {
+          // Ver `esSesionTemporalSinTenant` (lib/tenant-context.ts): una sesión
+          // `DIRECTA_TEMP` es válida aunque todavía no tenga empresa ni membresía.
+          const tokenCacheado = await firebaseUser.getIdTokenResult();
+          if (!esRevisionVigente()) return;
+
+          if (esSesionTemporalSinTenant(tokenCacheado.claims)) {
+            limpiarContextoTenant();
+            setAccesoTenantDenegado(false);
+            return;
+          }
+
+          await resolver(firebaseUser, esRevisionVigente);
+        } catch {
+          if (!esRevisionVigente()) return;
+          // Un error de red/Auth no prueba que el tenant sea inválido. Se falla
+          // cerrado, se limpia el contexto previo y se ofrece reintentar.
+          limpiarContextoTenant();
+          setAccesoTenantDenegado(false);
+          setErrorVerificacionTenant(true);
+        } finally {
+          if (esRevisionVigente()) setLoading(false);
+        }
+      })();
     });
 
-    return unsubscribe;
-  }, [resolver]);
+    return () => {
+      verificacionRevision.current += 1;
+      unsubscribe();
+    };
+  }, [limpiarContextoTenant, resolver]);
 
   const refresh = useCallback(async () => {
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) return;
+
+    const revision = ++verificacionRevision.current;
+    const esRevisionVigente = () => verificacionRevision.current === revision;
     setLoading(true);
-    await firebaseUser.getIdToken(true);
-    const tokenCacheado = await firebaseUser.getIdTokenResult();
-    if (esSesionTemporalSinTenant(tokenCacheado.claims)) {
-      setEmpresaId(null);
-      setEmpresa(null);
-      setMembresia(null);
-      setAccesoTenantDenegado(false);
-      setLoading(false);
-      return;
-    }
     setAccesoTenantDenegado(false);
-    await resolver(firebaseUser);
-    setLoading(false);
-  }, [resolver]);
+    setErrorVerificacionTenant(false);
+    try {
+      await firebaseUser.getIdToken(true);
+      if (!esRevisionVigente()) return;
+
+      const tokenCacheado = await firebaseUser.getIdTokenResult();
+      if (!esRevisionVigente()) return;
+
+      if (esSesionTemporalSinTenant(tokenCacheado.claims)) {
+        limpiarContextoTenant();
+        return;
+      }
+
+      await resolver(firebaseUser, esRevisionVigente);
+    } catch {
+      if (!esRevisionVigente()) return;
+      limpiarContextoTenant();
+      setAccesoTenantDenegado(false);
+      setErrorVerificacionTenant(true);
+    } finally {
+      if (esRevisionVigente()) setLoading(false);
+    }
+  }, [limpiarContextoTenant, resolver]);
 
   return (
-    <SaaSContext.Provider value={{ empresaId, empresa, membresia, rol: membresia?.rol ?? null, loading, accesoTenantDenegado, refresh }}>
+    <SaaSContext.Provider value={{ empresaId, empresa, membresia, rol: membresia?.rol ?? null, loading, accesoTenantDenegado, errorVerificacionTenant, refresh }}>
       {children}
     </SaaSContext.Provider>
   );
