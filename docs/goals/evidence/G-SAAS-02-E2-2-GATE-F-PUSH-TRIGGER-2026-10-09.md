@@ -249,3 +249,14 @@ fixture tenía una agenda `RESERVADA` para `2026-10-10` (`America/Bogota`), con
 `2026-10-09T13:00:00Z`; el evento `fecha_programada` está programado para
 `2026-10-10T13:00:00Z`. Esta lectura fija el estado previo al envío; no se
 forzó la ejecución ni se modificó agenda, reserva o Scheduler.
+
+### Resultado automático del recordatorio `dia_anterior` — 2026-10-09 13:03 UTC
+
+- El Scheduler habilitado ejecutó el job `firebase-schedule-reconciliarAgendaPedidosBodegaV1-us-central1` automáticamente. Cloud Logging registró HTTP `200` a `2026-10-09T13:03:01.686930Z` para la revisión `reconciliaragendapedidosbodegav1-00002-fir`.
+- La lectura REST posterior del evento asociado a la única agenda sintética `RESERVADA` para `2026-10-10` mostró `dia_anterior = ENVIADO`, `intentos = 1`, sin código de error y `fechaProgramada = 2026-10-09T13:00:00Z`.
+- El evento `fecha_programada` sigue `PENDIENTE`, con cero intentos, para `2026-10-10T13:00:00Z`; la reserva continúa antes de su vencimiento programado `2026-10-11T05:00:00Z`.
+- Esto verifica el despacho automático del recordatorio del día anterior por el worker en staging. El estado persistido no demuestra por sí solo que el administrador lo haya visto en pantalla ni que el sistema operativo haya emitido sonido. No se llamó manualmente al Scheduler ni se modificó la agenda.
+
+### Suite Functions canónica — 2026-10-09
+
+En el worktree de esta evidencia, sobre `origin/main @ 51ba17311f7493a3799154a1200a5ef0ae70a67b` (la rama de PR solo añade este documento), `npm --prefix functions test` terminó con `422` pruebas: `417` PASS, `5` SKIP y `0` fallos. Incluye replay del mismo comando de solicitud con una única solicitud y un único evento push. Esta ejecución local complementa Emulator; no sustituye retry/replay autenticado ni concurrencia remotos de Gate F.
