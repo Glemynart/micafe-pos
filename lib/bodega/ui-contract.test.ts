@@ -36,6 +36,9 @@ test("U4 limita líneas, cantidades y conserva mensajes operativos fail-closed",
   assert.match(mensajeErrorBodega({ details: { code: "PRESENTACION_INACTIVA" } }), /catálogo/i)
   assert.match(mensajeErrorBodega({ details: { code: "IDEMPOTENCY_CONFLICT" } }), /intento anterior/i)
   assert.match(mensajeErrorBodega({ code: "functions/unavailable" }), /Reintenta/i)
+  const generic = mensajeErrorBodega({ code: "functions/internal" })
+  assert.match(generic, /operación/i)
+  assert.doesNotMatch(generic, /venta/i)
 })
 
 test("ADR-062 crea solicitud sin pago, total ni autoridad del cliente", () => {

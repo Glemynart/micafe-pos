@@ -321,5 +321,5 @@ export function mensajeErrorBodega(error: unknown): string {
   if (code.includes("ROLE_FORBIDDEN") || code.includes("permission-denied")) return "Tu permiso para vender cambió. Vuelve a iniciar sesión o contacta al administrador."
   if (code.includes("IDEMPOTENCY") || code.includes("COMMAND_ID_CONFLICT") || code.includes("already-exists")) return "La operación no coincide con el intento anterior. Actualiza y vuelve a intentarlo."
   if (code.includes("unavailable") || code.includes("deadline-exceeded")) return "No fue posible conectar. Reintenta: conservaremos el mismo identificador de operación."
-  return "No fue posible completar la venta. Revisa los datos e inténtalo de nuevo."
+  return "No fue posible completar esta operación. Actualiza la vista e inténtalo de nuevo."
 }
