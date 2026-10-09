@@ -1,6 +1,6 @@
 import { resolverNombreActor } from "./actor-display"
 
-const IDENTIFICADOR_OPACO = /^[A-Za-z0-9_-]{20,}$/
+const IDENTIFICADOR_OPACO = /^(?=.*\d)\S+$|^\S{20,}$/
 
 /** Evita exponer UIDs completos en el reporte cuando no hay nombre disponible. */
 export function resolverNombreVisibleVendedor(
