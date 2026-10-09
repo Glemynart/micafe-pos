@@ -407,6 +407,25 @@ replay/concurrencia, aprobación y venta canónica, consumo/liberación/expiraci
 de reserva y matriz funcional completa todavía requieren evidencia. El tenant
 real no se inicia.
 
+### Seguimiento — 2026-10-09 — PR #497 / venta agendada integrada
+
+PR #497 quedó `MERGED` en `main` a las `2026-10-09T02:56:17Z`, mediante el
+merge commit `36ba330a29e970d93822a2f069203abf1a50c6e6`. Sus checks previos al
+merge terminaron `PASS`: `Tipos y pruebas` (run `37875088100`, conclusión
+`success`), `Vercel` y `Vercel Preview Comments`. La evidencia asociada registra
+la aprobación administrativa y confirmación de la venta agendada por el
+usuario: `5.000 COP` por transferencia, agenda `CUMPLIDA`, reserva consumida,
+un ingreso de ledger y un movimiento de inventario de `-2` con saldo final 4.
+El alcance fue documental; no modificó aplicación ni Functions.
+
+La CI post-merge de `main`, run `37876935719`, terminó `success` a las
+`2026-10-09T03:17:20Z`. Gate F permanece `EN CURSO`, no `PASS`: siguen
+pendientes el replay/concurrencia
+remotos, aislamiento y revocación/restauración restantes, expiración
+automática, retry autenticado tras pérdida de respuesta y la matriz integral
+de turno, Backoffice y PWA. Gate G/H deben repetirse después del cierre de F;
+no se inicia todavía el tenant real ni producción.
+
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
 PR #477 quedó `MERGED` en `main` el `2026-10-07 22:23:06` hora de Bogotá

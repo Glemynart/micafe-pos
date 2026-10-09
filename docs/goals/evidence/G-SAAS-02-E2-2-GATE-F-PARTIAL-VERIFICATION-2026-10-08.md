@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: evidencia parcial de verificación (2026-10-08)
 
-**Última revisión:** 2026-10-09 02:12 UTC
+**Última revisión:** 2026-10-09 02:59 UTC
 **Estado:** `EN CURSO` — evidencia parcial; no certifica Gate F.
 
 ## Contexto y límites
@@ -931,3 +931,51 @@ los casos restantes de aislamiento y revocación/restauración, expiración
 automática, retry autenticado tras pérdida de respuesta, y la matriz funcional
 integral de staging, incluidos los escenarios de turno, backoffice y PWA no
 cubiertos por este caso.
+
+### Seguimiento — historial de ventas PWA del vendedor, 2026-10-09 02:59 UTC
+
+En el mismo Preview de staging, la vista autenticada `Mis ventas` del vendedor
+mostró la venta anterior de `E2_2-BODEGA-STAGING-FIXTURE-CLIENTE-GATE-F` por
+`5.000 COP`, medio `transferencia`. El ID de venta visible codifica el mismo
+`commandId` terminado en `3b033b8d` del recibo `confirmarVentaBodegaV1`
+verificado en Firestore para la solicitud `…ZWIXZCJD`.
+
+Esta es una lectura de la PWA después de la confirmación; no se creó ni repitió
+venta, no se cambió el inventario y no se abrió turno. Añade evidencia positiva
+de consulta personal de ventas, pero no acredita la matriz completa de PWA ni
+los escenarios de otros roles, aislamiento y replay. Gate F continúa `EN CURSO`.
+
+### Seguimiento — conciliación visual de Backoffice, 2026-10-09 03:16 UTC
+
+Con el administrador sintético autenticado en el Preview de staging, las vistas
+de solo lectura `/admin/solicitudes`, `/admin/ventas`, `/admin/inventario`,
+`/admin/reportes` y `/admin/turnos` mostraron:
+
+- Solicitudes: no hay solicitudes pendientes de revisar.
+- Ventas: la venta del mismo comando terminado en `3b033b8d` aparece `pagada`,
+  por `5.000 COP`, transferencia y con el vendedor sintético correspondiente.
+- Inventario: 4 unidades físicas/disponibles y 0 reservadas, coherente con el
+  consumo de 2 unidades base registrado para esa venta.
+- Reportes, rango de hoy: ventas `5.000 COP`, costo `2.000 COP`, ganancia bruta
+  `3.000 COP`, margen `60,0 %` y una unidad de presentación del producto
+  sintético; la venta aparece bajo el vendedor y medio de pago esperados.
+- Turnos: el historial visible contiene 8 cerrados y 1 abierto. El abierto
+  pertenece a `E2_2-BODEGA-STAGING-FIXTURE Vendedor`, figura desde el 2-oct con
+  base de `10.000 COP` y no corresponde al vendedor de la venta por transferencia
+  (que continúa `Sin turno`). No se cerró: la vista no ofrece una lectura de
+  conteo físico que permita declarar un arqueo, y no se inventó un valor.
+
+La navegación fue de solo lectura y no accionó botones de negocio. Se confirma
+la conciliación visual entre solicitudes, venta, stock y reporte para este
+caso, pero no se certifica la matriz completa ni se cierra Gate F. El turno
+antiguo abierto y la evidencia de replay/concurrencia, retry autenticado tras
+pérdida de respuesta, aislamiento/revocación/restauración y expiración siguen
+pendientes de resolución o prueba.
+
+#### Auditoría de mutaciones de la conciliación
+
+- Firebase staging, Auth, Rules, Functions, inventario, ventas, ledger, turnos,
+  configuración, permisos, Vercel y producción: cambios de Codex `0`.
+- Se consultaron únicamente las vistas autenticadas del fixture; no se repitió
+  venta ni se cerró/abrió ningún turno.
+- Esta evidencia puntual no cambia el estado: Gate F sigue `EN CURSO`.
