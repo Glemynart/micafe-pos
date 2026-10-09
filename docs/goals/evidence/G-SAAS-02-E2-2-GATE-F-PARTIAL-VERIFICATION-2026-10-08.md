@@ -663,19 +663,22 @@ La lectura posterior del inventario de índices confirmó `READY` y los campos
 `empresaId ASC`, `fechaApertura ASC`, `__name__ ASC`. El índice de ventas
 `CICAgJj7z4EK` también está `READY`.
 
-La UI post-fix aún no se ha validado: Edge está en el login del Preview vigente
-`https://cafeatrato-git-codex-e2-2-turnos-rep-403802-glemynarts-projects.vercel.app/admin/reportes`
-tras vencer la sesión del administrador. La sesión requiere autenticación
-manual del usuario. Hasta confirmar en esa UI que el reporte carga sin la
-excepción, este subcaso queda **corregido en infraestructura, validación visual
-pendiente**; no se afirma que el reporte esté PASS ni que Gate F esté cerrado.
+La validación visual post-fix se realizó en Edge, en el Preview vigente
+`https://cafeatrato-git-codex-e2-2-turnos-rep-403802-glemynarts-projects.vercel.app/admin/reportes`,
+con la sesión de administrador sintético iniciada manualmente por el usuario.
+Al seleccionar `Semana`, la consulta del 5–11 de octubre cargó y representó
+ventas totales de `20.000 COP`, ganancia bruta de `12.000 COP`, margen `60,0 %`,
+costo total de `8.000 COP` y cuatro unidades en el producto principal. La UI
+no mostró el error de índice ni el mensaje engañoso de periodo vacío; la
+consulta devolvió los datos del fixture. Esto valida el rango semanal afectado
+por el índice, no certifica todos los rangos ni el módulo completo de reportes.
 
 #### Resultado y matriz actualizada
 
 | Caso | Estado posterior a este seguimiento |
 | --- | --- |
 | Reportes (índices) | Índices requeridos de ventas y turnos en staging: `READY`. El missing-index `FAILED_PRECONDITION` queda corregido. |
-| Reportes (UI) | Pendiente de reautenticación admin y comprobación visual post-fix en el Preview actual. |
+| Reportes (UI) | Validado en staging para el rango `Semana` (5–11 oct): consulta completada y métricas del fixture representadas. No equivale a certificar los rangos restantes ni Gate F. |
 | Validación integral de Gate F | Continúa pendiente: los otros casos de la matriz conservan sus estados anteriores. |
 
 #### Mutation audit de este seguimiento
@@ -684,7 +687,9 @@ pendiente**; no se afirma que el reporte esté PASS ni que Gate F esté cerrado.
   estado de negocio.
 - Firestore: una única creación de índice compuesto en `micafe-pos-staging`,
   `CICAgJjmiJEK`, estado `READY`. No se escribieron ni leyeron documentos de
-  negocio como parte de esa creación.
+  negocio como parte de esa creación. La verificación visual posterior usó la
+  sesión admin de staging y una consulta de reporte de solo lectura; escrituras
+  de negocio en este seguimiento: `0`.
 - Vercel: Preview del PR generado por el flujo normal; deploys de producción
   por este seguimiento: `0`.
 - Agenda, reservas, stock, solicitudes, ventas, ledger, turnos, membresías,

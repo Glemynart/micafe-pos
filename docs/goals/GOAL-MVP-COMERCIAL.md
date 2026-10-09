@@ -352,12 +352,13 @@ solo esa definición al manifiesto. En `micafe-pos-staging`, el índice exacto
 `__name__ ASC`. No se tocaron documentos ni se desplegaron Functions, Rules o
 la aplicación.
 
-La corrección está desplegada como metadata de índice en staging, pero la
-verificación visual post-fix del reporte sigue pendiente: Edge quedó en el
-login del preview actualizado tras vencer la sesión. No se declara el reporte
-PASS hasta volver a entrar como administrador sintético y confirmar que las
-consultas terminan sin el error y la UI representa el periodo. La matriz
-integral de Gate F continúa pendiente; la evidencia parcial se mantiene en
+La verificación visual se completó en Edge, con el administrador sintético
+autenticado por el usuario. En el rango `Semana` (5–11 de octubre), el Preview
+cargó ventas por `20.000 COP`, ganancia bruta de `12.000 COP`, margen `60,0 %`,
+costo `8.000 COP` y cuatro unidades del producto principal, sin el error de
+índice. Queda validado el caso semanal que reproducía el bloqueo; no se infiere
+que todos los rangos ni todo el módulo de reportes estén certificados. La
+matriz integral de Gate F continúa pendiente; la evidencia parcial se mantiene en
 [`G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md`](evidence/G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md).
 
 Gate F permanece `EN CURSO`, no `PASS`; E2.2 sigue `EN EJECUCIÓN`. Se mantienen
