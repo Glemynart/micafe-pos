@@ -374,7 +374,9 @@ Las consultas visibles coincidieron en el estado del fixture:
   ni se descontó stock por esta inspección.
 - Agenda admin: una reserva activa de 2 unidades para el 10-oct, sin franja
   horaria, con vencimiento `2026-10-11T05:00:00Z` (00:00 Bogotá); las demás
-  entradas visibles estaban canceladas o atendidas.
+  entradas visibles estaban canceladas o atendidas. Al abrir `Mi agenda` en
+  la PWA del vendedor, después de terminar la carga, apareció la misma reserva
+  y vencimiento sin ejecutar una mutación.
 - Reporte «Hoy» (9-oct): `$0 COP`; esta lectura no concilia por sí sola todo el
   historial de ventas/ledger.
 
@@ -388,3 +390,11 @@ No se pulsó `Confirmar venta`, no se cancelaron solicitudes ni agenda y no se
 alteraron inventario, pagos, ledger, clientes, turnos, roles o permisos. Esta
 revalidación es una instantánea UI de solo lectura; no cierra la matriz remota
 de Gate F.
+
+### Seguimiento de sesión Edge — 2026-10-09 14:13 UTC
+
+Al intentar abrir el reporte semanal, la pestaña Edge ya estaba en
+`/admin/login?from=%2Fadmin%2Freportes`; la sesión de administrador había
+expirado. No se introdujeron credenciales ni se inició otro login. La
+observación confirma que la sesión no permaneció activa, pero sin una hora
+exacta de última actividad no se usa como medición precisa del timeout.
