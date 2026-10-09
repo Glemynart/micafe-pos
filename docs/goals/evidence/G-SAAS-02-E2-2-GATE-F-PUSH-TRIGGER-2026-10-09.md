@@ -76,6 +76,21 @@ callable para fabricar el resultado.
   alteraron fechas, reloj, datos por escritura directa ni Scheduler para
   acelerar el resultado.
 
+## Salud del Scheduler — 2026-10-09 10:05 UTC
+
+- El job `firebase-schedule-reconciliarAgendaPedidosBodegaV1-us-central1` se
+  observó `ENABLED`, con frecuencia de cinco minutos y zona `UTC`; su último
+  intento fue `2026-10-09T10:03:04.040610Z`.
+- Cloud Logging del servicio
+  `reconciliaragendapedidosbodegav1` registró HTTP `200` para las invocaciones
+  de `09:48:09.521894Z`, `09:53:12.155571Z`, `09:58:05.865629Z` y
+  `10:03:04.064521Z`.
+- Esas respuestas acreditan que el Scheduler alcanzó la Function sin error en
+  esas ejecuciones. La lectura ocurrió antes de la hora prevista del recordatorio
+  `dia_anterior` de la agenda activa; por tanto, no prueba despacho de ese
+  recordatorio, liberación automática de reserva ni entrega FCM. No se invocó el
+  job manualmente.
+
 ## Auditoría de mutaciones
 
 - Codex creó una solicitud por el flujo UI autenticado de vendedor; escrituras
@@ -86,6 +101,8 @@ callable para fabricar el resultado.
   Codex creó la agenda sintética por el flujo UI de vendedor y la aceptó por la
   UI de administrador. No ejecutó escrituras directas de Firestore; la reserva
   de 2 unidades permanece activa hasta su vencimiento programado.
+- Scheduler y Cloud Logging de `micafe-pos-staging`: lecturas únicamente; no
+  se alteró la programación ni se forzó ninguna ejecución.
 - La solicitud anterior fue aprobada por la actividad de usuario ya reflejada
   en staging; la segunda solicitud sigue pendiente y Codex no la aprobó.
 - Functions, Scheduler, IAM, Rules, Secrets, configuración, Auth, Vercel,
