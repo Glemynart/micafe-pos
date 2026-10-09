@@ -59,6 +59,15 @@ completar la venta. Revisa los datos e inténtalo de nuevo». Esta inspección f
 read-only: no se reintentó la venta y el origen de ese aviso no quedó
 determinado; por ello no se acredita la conversión de agenda a venta.
 
+La inspección local confirma que el mismo mapper de errores se usa en la carga
+inicial paralela, la actualización de agenda/solicitudes y las mutaciones; su
+fallback de cualquier error no reconocido está redactado como si fuera una
+venta. Una lectura read-only de Cloud Logging en staging para respuestas
+HTTP `>= 400` del 9 de octubre encontró tres respuestas `401/403` y ninguna
+`5xx`, pero no había un identificador de correlación que vinculara esos logs al
+aviso visible. Por tanto, no se atribuye el mensaje a una venta concreta ni se
+declara resuelta su causa.
+
 ## Auditoría de mutaciones
 
 - Se usó la UI canónica de staging para cancelar la reserva antigua, aceptar
