@@ -15,6 +15,7 @@ test("preserva el nombre histórico aunque falte el UID del vendedor", () => {
   assert.equal(resolverNombreVisibleVendedor("desconocido", "Nombre histórico", nombres), "Nombre histórico")
   assert.equal(resolverNombreVisibleVendedor(undefined, "Nombre histórico", nombres), "Nombre histórico")
   assert.equal(resolverNombreVisibleVendedor(undefined, "uid-vendedor-conocido", nombres), "Nombre actual")
+  assert.equal(resolverNombreVisibleVendedor(undefined, "Ana-Maria", nombres), "Ana-Maria")
 })
 
 test("resuelve el nombre tenant-aware cuando el snapshot del reporte es el UID", () => {
@@ -36,4 +37,5 @@ test("no expone un UID completo cuando falta la identidad del vendedor", () => {
     resolverNombreVisibleVendedor(undefined, "firebase-uid-no-disponible-123456", new Map()),
     "Vendedor · …123456",
   )
+  assert.equal(resolverNombreVisibleVendedor(undefined, "uid-123", new Map()), "Vendedor · …id-123")
 })
