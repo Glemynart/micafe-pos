@@ -734,8 +734,8 @@ adelantan G/H, no se crea/configura el tenant real y no se toca producción.
 
 PR #516 quedó integrado en `main` mediante el merge commit
 `6fde73154d8aca8ae2cc9ce8e49f8fa29e69c7ff` a las `2026-10-09T20:55:17Z`.
-Los checks previos al merge terminaron en verde; a las `2026-10-09T21:06Z`,
-la CI post-merge de `main`, run `37990184510`, seguía `in_progress`.
+Los checks previos al merge terminaron en verde; la CI post-merge de `main`,
+run `37990184510`, terminó `success` a las `2026-10-09T21:15:41Z`.
 
 El cambio limita su alcance al texto fallback de error de operación y una
 prueba de regresión: deja de atribuir una falla genérica a una venta cuando la
