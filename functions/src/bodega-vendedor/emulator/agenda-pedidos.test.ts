@@ -10,7 +10,7 @@ import {
   ejecutarCrearProgramacionPedidoBodegaV1,
   ejecutarResolverProgramacionPedidoBodegaV1,
 } from "../agenda-pedidos";
-import { ejecutarResolverSolicitudVentaBodegaV1 } from "../solicitudes-venta";
+import { ejecutarCrearSolicitudVentaBodegaV1, ejecutarResolverSolicitudVentaBodegaV1 } from "../solicitudes-venta";
 import { ejecutarConfirmarVentaBodegaV1 } from "../ventas-confirmation";
 import { crearIdentificadorInterno } from "../../turnos/identificadores";
 import { exigirTenantActivo } from "../../tenant-configuration/authority";
@@ -267,6 +267,57 @@ test("Emulator: agenda reservada llega a venta canónica, replay revocado falla 
   assert.equal((await productRef.get()).data()?.stock, 8);
   assert.equal((await db.collection("movimientos_inventario").where("empresaId", "==", empresaId).get()).size, 1);
   assert.equal((await db.collection("transacciones_financieras").where("empresaId", "==", empresaId).get()).size, 1);
+});
+
+test("Emulator: dos vendedores con solicitudes aprobadas no venden las últimas unidades dos veces", async () => {
+  const empresaId = `sale-concurrency-${runId}`;
+  const fixture = await seedTenant(empresaId, 2);
+  const secondSeller = context(empresaId, `seller-2-${empresaId}`, "vendedor");
+  await db.collection("membresias").doc(`${empresaId}_${secondSeller.actorUid}`).set({
+    empresaId, uid: secondSeller.actorUid, rol: "vendedor", permisos: ["sell", "shifts"], estado: "activa", activo: true,
+  });
+  const accountId = crearIdentificadorInterno(empresaId, "cuenta:bancolombia");
+  await db.collection("cuentas_bancarias").doc(accountId).set({
+    id: accountId, empresaId, claveOperativa: "bancolombia", nombre: "Banco de prueba", saldo: 0,
+  });
+  const lineas = [{ productoId: fixture.productId, presentacionId: fixture.presentationId, cantidad: 2 }];
+  const firstRequest = await ejecutarCrearSolicitudVentaBodegaV1(db, fixture.seller, envelope(
+    `request-race-a-${runId}`, { clienteId: fixture.clientId, lineas },
+  )) as Data;
+  const secondRequest = await ejecutarCrearSolicitudVentaBodegaV1(db, secondSeller, envelope(
+    `request-race-b-${runId}`, { clienteId: fixture.clientId, lineas },
+  )) as Data;
+  await Promise.all([firstRequest, secondRequest].map((request, index) => ejecutarResolverSolicitudVentaBodegaV1(
+    db, fixture.admin, envelope(`approve-race-${index}-${runId}`, {
+      solicitudId: request.solicitudId, revision: 1, decision: "aprobar",
+    }),
+  )));
+
+  assert.equal((await db.collection("productos").doc(fixture.productId).get()).data()?.stock, 2);
+  const outcomes = await Promise.allSettled([
+    confirmAsCallable(fixture.seller, envelope(`sale-race-a-${runId}`, {
+      clienteId: fixture.clientId, lineas, metodoPago: "transferencia", solicitudId: firstRequest.solicitudId,
+    })),
+    confirmAsCallable(secondSeller, envelope(`sale-race-b-${runId}`, {
+      clienteId: fixture.clientId, lineas, metodoPago: "transferencia", solicitudId: secondRequest.solicitudId,
+    })),
+  ]);
+  const accepted = outcomes.filter(result => result.status === "fulfilled");
+  const rejected = outcomes.filter(result => result.status === "rejected");
+  assert.equal(accepted.length, 1);
+  assert.equal(rejected.length, 1);
+  assert.equal(domain((rejected[0] as PromiseRejectedResult).reason), "STOCK_INSUFICIENTE");
+
+  assert.equal((await db.collection("productos").doc(fixture.productId).get()).data()?.stock, 0);
+  assert.equal((await db.collection("productos").doc(fixture.productId).get()).data()?.stockReservado, 0);
+  assert.equal((await db.collection("ventas").where("empresaId", "==", empresaId).get()).size, 1);
+  assert.equal((await db.collection("movimientos_inventario").where("empresaId", "==", empresaId).get()).size, 1);
+  assert.equal((await db.collection("transacciones_financieras").where("empresaId", "==", empresaId).get()).size, 1);
+  const requestStates = await Promise.all([firstRequest.solicitudId, secondRequest.solicitudId].map(async solicitudId =>
+    (await db.collection("empresas").doc(empresaId).collection("solicitudes_venta_bodega").doc(solicitudId).get()).data()?.estado,
+  ));
+  assert.equal(requestStates.filter(state => state === "EJECUTADA").length, 1);
+  assert.equal(requestStates.filter(state => state === "APROBADA").length, 1);
 });
 
 test("Emulator: tenant/actor ajeno y payload con empresa impuesta no cruzan la autoridad", async () => {
