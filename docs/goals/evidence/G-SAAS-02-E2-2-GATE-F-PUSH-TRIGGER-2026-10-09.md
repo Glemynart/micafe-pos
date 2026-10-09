@@ -368,6 +368,8 @@ Las consultas visibles coincidieron en el estado del fixture:
   disponibles. La presentación activa tiene factor 2 y precio `$5.000 COP`.
 - POS del vendedor: una presentación disponible, equivalente a 2 unidades
   base, después de respetar las 2 unidades reservadas.
+- Directorio vendedor: aparecen los dos clientes sintéticos activos del
+  fixture; la inspección no creó ni modificó clientes.
 - Bandeja admin y `Mis solicitudes` del vendedor: dos solicitudes sintéticas
   aprobadas, una presentación cada una por `$5.000 COP`; ambas siguen esperando
   confirmación de venta. Las solicitudes aprobadas no se presentan como ventas
