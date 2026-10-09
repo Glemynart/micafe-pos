@@ -279,6 +279,9 @@ jobs:
       - name: Pruebas de tenant
         run: npm run test:tenant
 
+      - name: Pruebas de reportes tenant-aware y cuadre de caja
+        run: npm run test:reportes
+
       - name: Pruebas de configuracion B1
         run: npm run test:configuracion
 
