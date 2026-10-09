@@ -96,10 +96,22 @@ callable para fabricar el resultado.
 - `npm --prefix functions-bodega test`: `14/14 PASS` en el código de Functions
   de `origin/main @ 3a509963a713c13e31385a7b155332c4e55edb6d`, que es idéntico
   al código de esta rama; la rama solo añade documentación.
+- `npm run e2e:bodega-agenda`: `6/6 PASS` en Firestore Emulator con el proyecto
+  demo `demo-bodega-agenda`; cubrió concurrencia de reservas, conversión
+  idempotente, aislamiento de tenant/actor y permisos.
+- `npm run e2e:bodega-u4-u5`: `9/9 PASS` en Auth/Firestore/Functions Emulator
+  con el proyecto demo `demo-bodega-u4-u5-ui`; cubrió solicitud, aprobación y
+  venta canónica, aislamiento A/B en UI/callables, Backoffice y alta canónica
+  de vendedor.
 - La suite incluye contratos locales de expiración/liberación, reintento,
   concurrencia del claim trigger/Scheduler y destinatarios de notificaciones.
   Usa dobles de prueba/emulador local; no acredita que el recordatorio o la
   expiración hayan ocurrido en staging.
+- Durante el arranque de la E2E integrada, el emulador intentó resolver
+  `OPERATIONAL_PIN_PEPPER` en Secret Manager del proyecto demo y recibió `403`;
+  no obtuvo el secreto. El recorrido continuó y pasó 9/9. Es una advertencia de
+  aislamiento/configuración local del runner, no una lectura o escritura de
+  staging ni producción.
 
 ## Auditoría de mutaciones
 
@@ -114,6 +126,8 @@ callable para fabricar el resultado.
 - Scheduler y Cloud Logging de `micafe-pos-staging`: lecturas únicamente; no
   se alteró la programación ni se forzó ninguna ejecución.
 - Suite local de Functions Bodega: `14/14 PASS`; ninguna escritura remota.
+- E2E de agenda y PWA/Backoffice: `6/6` y `9/9 PASS`, solo en Emulator/demo;
+  no modificaron staging ni producción.
 - La solicitud anterior fue aprobada por la actividad de usuario ya reflejada
   en staging; la segunda solicitud sigue pendiente y Codex no la aprobó.
 - Functions, Scheduler, IAM, Rules, Secrets, configuración, Auth, Vercel,
