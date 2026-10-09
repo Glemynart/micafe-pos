@@ -19,6 +19,7 @@ No se aprobaron, rechazaron, confirmaron ni cancelaron operaciones.
 | Reporte semanal (5–11 oct) | Ventas `$25.000 COP`, 5 unidades; los vendedores listados suman `$15.000 + $10.000`. |
 | Reporte mensual (octubre) | Ventas `$60.000 COP`, costo `$24.000`, ganancia bruta `$36.000`, margen `60%`, 12 unidades. Los totales por vendedor (`$30.000 + $25.000 + $5.000`) suman `$60.000`. |
 | Cuadre de efectivo | Los tres vendedores aparecen `Cuadrado`; efectivo contado coincide con efectivo esperado, que incluye las bases de apertura. Transferencias se muestran separadas del efectivo. |
+| Usuarios/permisos | `/admin/usuarios` lista 4 operadores `Vendedor` y 1 `Administrador`. `/admin/permisos` explica que el vendedor solo vende y gestiona su turno; no recibe módulos de restaurante, reservas, consignaciones ni permisos administrativos. Es evidencia de UI en este tenant, no una matriz backend A/B. |
 | Control de rol | La sesión vendedora fue redirigida desde `/admin/solicitudes` con `error=not_admin` y mensaje de sesión de caja activa. Volver a `/pos` restauró la sesión vendedora. Esto acredita el guard visible de navegación, no una matriz de autorización backend/tenant A/B. |
 
 Las dos solicitudes aprobadas requieren 2 unidades base cada una, pero hay solo
