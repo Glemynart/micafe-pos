@@ -49,11 +49,17 @@ directorio sí provee `nombre`.
 La revisión fue de solo lectura: no se modificaron ventas, operadores, inventario,
 agenda ni configuración de staging.
 
-## Límite de esta evidencia
+## Integración y límite de esta evidencia
 
-Esta evidencia corresponde a la rama, validaciones locales y comprobación visual
-autenticada del Preview. El merge del PR sigue pendiente. No constituye `PASS` de
-Gate F ni reemplaza la matriz funcional integral.
+PR #512 quedó integrado en `main` mediante el merge commit
+`5ad2670b7305cc2e5f06c02b90dfee550282048d`. La CI post-merge de `main`, run
+`37976849313`, terminó `success` sobre ese mismo SHA. Los checks previos al merge
+(`Tipos y pruebas`, `Vercel` y `Vercel Preview Comments`) también terminaron
+`PASS`.
+
+La integración cierra únicamente el hallazgo de nombres de vendedores en
+reportes. No constituye `PASS` de Gate F ni reemplaza la matriz funcional
+integral.
 
 ## Auditoría de mutaciones
 
