@@ -351,3 +351,40 @@ La consulta fue de inventario de Functions, sin lectura de configuración
 secreta ni mutaciones. Confirma que el runtime staging continúa disponible en
 la región prevista; no acredita autorización, resultado funcional de llamadas,
 aislamiento A/B ni los casos remotos pendientes de Gate F.
+
+### Revalidación read-only de sesiones y proyecciones Bodega — 2026-10-09 14:10 UTC
+
+En el mismo Preview de staging, el POS autenticado identificó al vendedor
+sintético F; `/admin/usuarios` en Edge identificó al administrador tenant y
+mostró al vendedor F con rol `Vendedor`. Sin cerrar la sesión del vendedor, la
+navegación a `/admin/solicitudes` terminó en login con `error=not_admin` y el
+mensaje de que había una sesión de caja activa. Esta observación confirma el
+límite de navegación en el mismo dispositivo, pero no sustituye una matriz
+tenant A/B ni una prueba de autorización backend con dos identidades.
+
+Las consultas visibles coincidieron en el estado del fixture:
+
+- Catálogo e inventario admin: 4 unidades físicas, 2 reservadas y 2
+  disponibles. La presentación activa tiene factor 2 y precio `$5.000 COP`.
+- POS del vendedor: una presentación disponible, equivalente a 2 unidades
+  base, después de respetar las 2 unidades reservadas.
+- Bandeja admin y `Mis solicitudes` del vendedor: dos solicitudes sintéticas
+  aprobadas, una presentación cada una por `$5.000 COP`; ambas siguen esperando
+  confirmación de venta. Las solicitudes aprobadas no se presentan como ventas
+  ni se descontó stock por esta inspección.
+- Agenda admin: una reserva activa de 2 unidades para el 10-oct, sin franja
+  horaria, con vencimiento `2026-10-11T05:00:00Z` (00:00 Bogotá); las demás
+  entradas visibles estaban canceladas o atendidas.
+- Reporte «Hoy» (9-oct): `$0 COP`; esta lectura no concilia por sí sola todo el
+  historial de ventas/ledger.
+
+`Mis solicitudes` indica que la vista se actualiza automáticamente mientras
+permanece abierta y refleja el estado `APROBADA`; no se provocó una transición
+durante la observación, por lo que no se declara probado el tiempo real. La
+lista `Mis ventas` mostró registros sintéticos previos de `$5.000 COP`; no se
+infirió replay/idempotencia a partir de sus identificadores.
+
+No se pulsó `Confirmar venta`, no se cancelaron solicitudes ni agenda y no se
+alteraron inventario, pagos, ledger, clientes, turnos, roles o permisos. Esta
+revalidación es una instantánea UI de solo lectura; no cierra la matriz remota
+de Gate F.

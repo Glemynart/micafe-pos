@@ -580,7 +580,7 @@ esos escenarios remotos. El siguiente gate continúa siendo F; G debe repetirse
 y H emitir una matriz nueva después de F. I permanece pendiente; no se
 crea/configura el tenant real ni se toca producción.
 
-### Checkpoint vigente — 2026-10-09 — PR #506 / CI post-merge
+### Checkpoint histórico — 2026-10-09 — PR #506 / CI post-merge (supersedido por PR #508)
 
 PR #506 quedó `MERGED` en `main` mediante el merge commit
 `dbc12e1ddadc339378aa9f1a0ff129533253e304` a las `2026-10-09T10:46:52Z`.
@@ -604,6 +604,46 @@ revocación/restauración en staging, recordatorios y vencimiento/liberación re
 de la reserva, conversión idempotente y la matriz integral PWA/Backoffice,
 inventario, ledger, reportes y turnos. El siguiente gate continúa siendo F; no
 se inicia G/H ni se crea/configura el tenant real o se toca producción.
+
+### Checkpoint vigente — 2026-10-09 — PR #508 / evidencia Gate F
+
+PR #508 quedó integrado en `main` mediante el merge commit
+`def3b0195c33e63bed99ac389a0c8f2fbb64cfe0` a las `2026-10-09T14:00:54Z`.
+Sus checks previos al merge (`Tipos y pruebas`, `Vercel` y
+`Vercel Preview Comments`) terminaron `PASS`. La CI post-merge de `main`, run
+`37941301958`, seguía `in_progress` a las `2026-10-09T14:12Z`; no se declara
+`PASS` para ese run.
+
+La [evidencia Gate F de PR #508](evidence/G-SAAS-02-E2-2-GATE-F-PUSH-TRIGGER-2026-10-09.md)
+añadió el ciclo staging autorizado de revocación/restauración del vendedor
+sintético y la restauración de acceso; el replay remoto tras restaurar sigue
+pendiente. El Scheduler despachó automáticamente el recordatorio
+`dia_anterior` en staging y el outbox quedó `ENVIADO` con un intento y sin
+error. La entrega automática de `fecha_programada` y la recepción del aviso ya
+están documentadas en el seguimiento previo; estos casos no son el bloqueo
+actual y no se esperará otro recordatorio para avanzar. Las suites E2E/Emulator
+locales citadas por PR #508 permanecen complementarias, no evidencia remota.
+
+Una nueva inspección autenticada, solo de lectura, en el preview de staging
+confirmó al vendedor sintético activo y al administrador tenant autenticado.
+El vendedor mostró dos solicitudes `APROBADA` por `$5.000 COP` cada una, con
+la acción de confirmación todavía disponible; no se confirmó ninguna venta.
+La proyección de catálogo/inventario coincidió en 4 unidades físicas, 2
+reservadas y 2 disponibles; la presentación equivale a 2 unidades base y el
+POS del vendedor mostró una presentación disponible. La agenda conserva una
+reserva activa de 2 unidades hasta el `2026-10-11T05:00:00Z` (00:00 Bogotá).
+La navegación del vendedor a `/admin/solicitudes` redirigió a login con
+`error=not_admin` y señaló la sesión de caja activa. No se alteraron ventas,
+solicitudes, agenda, inventario, ledger, turnos, membresías ni permisos; el
+detalle de esta observación queda en la evidencia Gate F enlazada arriba.
+
+Gate F permanece `EN CURSO`, no `PASS`. Continúan pendientes el replay de
+membresía y de comandos autenticados, el retry tras pérdida de respuesta, la
+matriz remota de aislamiento tenant/roles y concurrencia, la expiración y
+liberación automática de la reserva (programada para el 11 de octubre), y la
+conciliación integral PWA/Backoffice, inventario, ledger, reportes y turnos.
+El siguiente gate continúa siendo F; G/H no se adelantan y no se crea/configura
+el tenant real ni se toca producción.
 
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
