@@ -13,6 +13,7 @@ import {
 import { ejecutarResolverSolicitudVentaBodegaV1 } from "../solicitudes-venta";
 import { ejecutarConfirmarVentaBodegaV1 } from "../ventas-confirmation";
 import { crearIdentificadorInterno } from "../../turnos/identificadores";
+import { exigirTenantActivo } from "../../tenant-configuration/authority";
 import type { ContextoFinancieroOperativo } from "../../bodega/operational-core";
 
 const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
@@ -112,6 +113,15 @@ async function approve(admin: ContextoFinancieroOperativo, programacionId: strin
   })) as Promise<Data>;
 }
 
+async function confirmAsCallable(seller: ContextoFinancieroOperativo, command: unknown) {
+  const tenant = await exigirTenantActivo({
+    auth: { uid: seller.actorUid, token: { empresaId: seller.empresaId, rol: seller.rol } },
+  }, db);
+  return ejecutarConfirmarVentaBodegaV1(db, {
+    empresaId: tenant.id, actorUid: seller.actorUid, rol: tenant.rol,
+  }, command);
+}
+
 test.after(async () => { await deleteApp(app); });
 
 test("Emulator: dos agendas concurrentes no pueden reservar más stock del disponible", async () => {
@@ -167,7 +177,7 @@ test("Emulator: conversiones concurrentes crean una sola solicitud y conservan e
   assert.equal(product?.stockReservado, 2);
 });
 
-test("Emulator: agenda reservada recorre solicitud, aprobación y venta canónica sin doble consumo", async () => {
+test("Emulator: agenda reservada llega a venta canónica, replay revocado falla y restaurado no duplica", async () => {
   const empresaId = `agenda-sale-lifecycle-${runId}`;
   const fixture = await seedTenant(empresaId, 10);
   const accountId = crearIdentificadorInterno(empresaId, "cuenta:bancolombia");
@@ -220,7 +230,7 @@ test("Emulator: agenda reservada recorre solicitud, aprobación y venta canónic
     metodoPago: "transferencia",
     solicitudId: converted.solicitudId,
   });
-  const sale = await ejecutarConfirmarVentaBodegaV1(db, fixture.seller, saleCommand) as Data;
+  const sale = await confirmAsCallable(fixture.seller, saleCommand) as Data;
   assert.equal(sale.estadoOperativo, "COMPLETO");
   assert.equal(sale.total, 1_000);
   assert.equal(sale.programacionId, agenda.programacionId);
@@ -235,11 +245,28 @@ test("Emulator: agenda reservada recorre solicitud, aprobación y venta canónic
   assert.equal(inventory.docs[0]?.data().cantidad, -2);
   assert.equal((await db.collection("transacciones_financieras").where("empresaId", "==", empresaId).get()).size, 1);
 
-  const replay = await ejecutarConfirmarVentaBodegaV1(db, fixture.seller, saleCommand) as Data;
+  const replay = await confirmAsCallable(fixture.seller, saleCommand) as Data;
   assert.equal(replay.ventaId, sale.ventaId);
   assert.equal((await productRef.get()).data()?.stock, 8);
   assert.equal((await db.collection("movimientos_inventario").where("empresaId", "==", empresaId).get()).size, 1);
   assert.equal((await db.collection("ventas").where("empresaId", "==", empresaId).get()).size, 1);
+
+  const sellerMembershipRef = db.collection("membresias").doc(`${empresaId}_${fixture.seller.actorUid}`);
+  const sellerMembership = (await sellerMembershipRef.get()).data();
+  await sellerMembershipRef.update({ estado: "inactiva", activo: false });
+  await assert.rejects(
+    confirmAsCallable(fixture.seller, saleCommand),
+    error => error instanceof Error && error.message === "Credenciales operativas inválidas.",
+  );
+  assert.equal((await productRef.get()).data()?.stock, 8);
+  assert.equal((await db.collection("transacciones_financieras").where("empresaId", "==", empresaId).get()).size, 1);
+
+  await sellerMembershipRef.set({ ...sellerMembership, estado: "activa", activo: true });
+  const restoredReplay = await confirmAsCallable(fixture.seller, saleCommand) as Data;
+  assert.equal(restoredReplay.ventaId, sale.ventaId);
+  assert.equal((await productRef.get()).data()?.stock, 8);
+  assert.equal((await db.collection("movimientos_inventario").where("empresaId", "==", empresaId).get()).size, 1);
+  assert.equal((await db.collection("transacciones_financieras").where("empresaId", "==", empresaId).get()).size, 1);
 });
 
 test("Emulator: tenant/actor ajeno y payload con empresa impuesta no cruzan la autoridad", async () => {
