@@ -503,7 +503,7 @@ revocación/restauración remotos, expiración automática y matriz funcional
 integral de PWA/Backoffice/turnos aún requieren pruebas. Gate G/H se repetirán
 tras F. No se crea/configura el tenant real y no se toca producción.
 
-### Checkpoint vigente — 2026-10-09 — Gate C final / ADR-SAAS-065/066/067
+### Checkpoint — 2026-10-09 — Gate C final / ADR-SAAS-065/066/067 (supersedido por PR #504)
 
 PR #500 quedó integrado en `main` mediante
 `29fdadf0441b660dc4114edf6fd12cadc2365530`; su CI post-merge,
@@ -541,6 +541,34 @@ tras pérdida de respuesta, aislamiento y revocación/restauración, expiración
 liberación automática de reservas ni la matriz integral de PWA/Backoffice/
 turnos. Gate G/H se repetirán después de F; no se crea/configura el tenant real
 ni se toca producción.
+
+### Checkpoint vigente — 2026-10-09 — PR #504 / Gate D y CI post-merge
+
+PR #504 quedó integrado en `main` mediante el merge commit
+`6a0b60a599194a6ee681cca8ea86403433ef1e39` a las `2026-10-09T08:57:50Z`.
+La CI post-merge de `main`, run `37908229168`, terminó `success` sobre ese SHA
+a las `2026-10-09T09:18:26Z`. Incluyó los E2E de solicitud/venta canónica y
+agenda/reservas/aislamiento Bodega en Emulator, además de E4.1 y la auditoría
+E4.2. Estas pruebas automatizadas no sustituyen la validación remota de staging.
+
+Gate D queda `PASS` para el despliegue del trigger/outbox ADR-SAAS-065/066/067
+en el único proyecto autorizado `micafe-pos-staging`, según la evidencia
+[`deploy de Gate D`](evidence/G-SAAS-02-E2-2-GATE-D-DEPLOY-ADR065-066-067-2026-10-09.md).
+La evidencia confirma las 17 Functions activas del codebase `saas-bodega`,
+incluido el trigger Firestore; sin cambios a producción, Rules, Secrets,
+tenant real ni datos del fixture.
+
+Gate F permanece `EN CURSO`, no `PASS`. Siguen requiriendo evidencia de staging:
+el despacho automático trigger/outbox y sus reintentos; replay/concurrencia y
+retry autenticado tras pérdida de respuesta; aislamiento completo de tenant y
+roles, revocación/restauración de membresía con replay; ciclo de agenda,
+recordatorios, expiración/liberación automática e idempotencia de conversión;
+y la matriz integral de PWA, Backoffice, inventario, ledger, reportes y turnos.
+La [evidencia parcial más reciente de Gate F](evidence/G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md)
+conserva la matriz de staging. Los E2E en Emulator aportan cobertura, pero no
+cierran esos casos remotos. El siguiente gate continúa siendo F; G debe
+repetirse y H emitir una matriz nueva después de F. I permanece pendiente; no
+se crea/configura el tenant real ni se toca producción.
 
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
