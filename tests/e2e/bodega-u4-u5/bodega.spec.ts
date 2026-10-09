@@ -119,6 +119,14 @@ test("vendedor solicita transferencia, admin aprueba y el pago materializa una Ã
   const db = getFirestore(app)
   const solicitudes = await db.collection("empresas").doc(tenantA.empresaId).collection("solicitudes_venta_bodega").get()
   expect(solicitudes.size).toBe(1); expect(solicitudes.docs[0]?.data()).toMatchObject({ estado: "PENDIENTE_APROBACION", solicitanteUid: tenantA.vendedor.uid, totalCOP: 5000 })
+  const eventos = await db.collection("eventos_operativos").where("empresaId", "==", tenantA.empresaId).get()
+  const eventosSolicitud = eventos.docs.filter(doc => doc.data().tipo === "SOLICITUD_VENTA_BODEGA_PENDIENTE" && doc.data().agregado?.id === solicitudes.docs[0]!.id)
+  expect(eventosSolicitud).toHaveLength(1)
+  const eventRef = eventosSolicitud[0]!.ref
+  const event = eventosSolicitud[0]!
+  expect(event.data()).toMatchObject({ tipo: "SOLICITUD_VENTA_BODEGA_PENDIENTE", empresaId: tenantA.empresaId, estadoDespacho: "PENDIENTE", agregado: { tipo: "SOLICITUD_VENTA_BODEGA", id: solicitudes.docs[0]!.id }, payloadOperativo: { solicitudId: solicitudes.docs[0]!.id } })
+  expect(JSON.stringify(event.data()).includes(tenantA.clienteNombre)).toBe(false)
+  await expect.poll(async () => (await eventRef.get()).data()?.estadoDespacho).toBe("SIN_DESTINATARIO")
   expect((await db.collection("ventas").where("empresaId", "==", tenantA.empresaId).get()).size).toBe(0)
   expect((await db.collection("movimientos_inventario").where("empresaId", "==", tenantA.empresaId).get()).size).toBe(0)
   expect((await db.collection("transacciones_financieras").where("empresaId", "==", tenantA.empresaId).get()).size).toBe(0)

@@ -1,9 +1,10 @@
 import { getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onCall } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { getMessaging } from "firebase-admin/messaging";
-import { reconciliarAgendaPedidosBodega } from "./agenda-worker";
+import { despacharNotificacionSolicitudVentaBodegaPendiente, reconciliarAgendaPedidosBodega } from "./agenda-worker";
 import { ejecutarCrearClienteVendedor } from "../../functions/src/bodega-vendedor/clientes";
 import {
   ejecutarActualizarPresentacionComercialV1,
@@ -15,6 +16,7 @@ import {
   ejecutarConsultarSolicitudesVentaBodegaV1,
   ejecutarCrearSolicitudVentaBodegaV1,
   ejecutarResolverSolicitudVentaBodegaV1,
+  idEventoSolicitudVentaBodegaPendiente,
 } from "../../functions/src/bodega-vendedor/solicitudes-venta";
 import { ejecutarCrearArticuloInventarioV1 } from "../../functions/src/inventario/callables";
 import { ejecutarCrearCategoriaBodegaV1 } from "../../functions/src/bodega/categorias";
@@ -94,6 +96,21 @@ export const cancelarSolicitudVentaBodegaV1 = onCall({ region: REGION }, async (
   const db = getFirestore();
   return ejecutarCancelarSolicitudVentaBodegaV1(db, await contextoOperativo(request, db), request.data);
 });
+
+/** Despacho inmediato; el evento durable atómico y el Scheduler comparten claim idempotente. */
+export const notificarSolicitudVentaBodegaPendienteV1 = onDocumentCreated(
+  { document: "empresas/{empresaId}/solicitudes_venta_bodega/{solicitudId}", region: REGION, retry: true },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot?.exists) return;
+    const solicitud = snapshot.data();
+    const { empresaId, solicitudId } = event.params;
+    if (solicitud.empresaId !== empresaId || solicitud.solicitudId !== solicitudId
+      || solicitud.estado !== "PENDIENTE_APROBACION") return;
+    const eventId = idEventoSolicitudVentaBodegaPendiente(empresaId, solicitudId);
+    await despacharNotificacionSolicitudVentaBodegaPendiente(getFirestore(), getMessaging(), eventId);
+  },
+);
 
 export const crearProgramacionPedidoBodegaV1 = onCall({ region: REGION }, async request => {
   const db = getFirestore();

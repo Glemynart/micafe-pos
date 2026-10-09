@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 const AGENDA = "agenda_pedidos_bodega";
 const RESERVAS = "reservas_stock_bodega";
 const EVENTOS = "eventos_operativos";
+const TIPOS_EVENTO_DESPACHABLES = ["RECORDATORIO_AGENDA_PEDIDO", "SOLICITUD_VENTA_BODEGA_PENDIENTE"] as const;
 const CLAIM_TIMEOUT_MS = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 8;
 const BATCH_LIMIT = 100;
@@ -94,7 +95,7 @@ async function reclamarEvento(db: any, ref: any, now: number): Promise<Claim | n
   return db.runTransaction(async (tx: any) => {
     const snap = await tx.get(ref);
     const data = snap.data() as Record<string, any> | undefined;
-    if (!snap.exists || data?.tipo !== "RECORDATORIO_AGENDA_PEDIDO") return null;
+    if (!snap.exists || !data || !TIPOS_EVENTO_DESPACHABLES.includes(data.tipo)) return null;
     const state = data.estadoDespacho;
     const due = timestampMillis(data.fechaDisponible);
     if (due === null || due > now) return null;
@@ -105,7 +106,8 @@ async function reclamarEvento(db: any, ref: any, now: number): Promise<Claim | n
     }
     const intentos = Number.isSafeInteger(data.intentos) && data.intentos >= 0 ? data.intentos + 1 : 1;
     if (intentos > MAX_ATTEMPTS) {
-      tx.update(ref, { estadoDespacho: "FALLIDO", ultimoErrorCodigo: "AGENDA_PUSH_MAX_REINTENTOS", actualizadoEn: FieldValue.serverTimestamp() });
+      const code = data.tipo === "SOLICITUD_VENTA_BODEGA_PENDIENTE" ? "SOLICITUD_PUSH_MAX_REINTENTOS" : "AGENDA_PUSH_MAX_REINTENTOS";
+      tx.update(ref, { estadoDespacho: "FALLIDO", ultimoErrorCodigo: code, actualizadoEn: FieldValue.serverTimestamp() });
       return null;
     }
     tx.update(ref, {
@@ -147,8 +149,105 @@ function mensaje(etapa: string) {
   }
 }
 
+async function despacharSolicitudPendiente(db: any, messaging: Messaging, claim: Claim, now: number): Promise<void> {
+  const event = claim.data;
+  const empresaId = event.empresaId;
+  const solicitudId = event.agregado?.id;
+  if (!requiredText(empresaId) || event.agregado?.tipo !== "SOLICITUD_VENTA_BODEGA"
+    || !requiredText(solicitudId) || event.payloadOperativo?.solicitudId !== solicitudId) {
+    throw new Error("SOLICITUD_PUSH_EVENTO_INVALIDO");
+  }
+
+  const solicitudRef = db.collection("empresas").doc(empresaId).collection("solicitudes_venta_bodega").doc(solicitudId);
+  const solicitudSnap = await solicitudRef.get();
+  const solicitud = solicitudSnap.data() as Record<string, any> | undefined;
+  if (!solicitudSnap.exists || solicitud?.empresaId !== empresaId || solicitud?.solicitudId !== solicitudId
+    || solicitud.estado !== "PENDIENTE_APROBACION") {
+    await marcarEvento(db, claim, "OMITIDO", now, "SOLICITUD_NO_PENDIENTE");
+    return;
+  }
+
+  const memberships = await db.collection("membresias").where("empresaId", "==", empresaId).get();
+  const admins = new Set<string>();
+  for (const membership of memberships.docs) {
+    const value = membership.data() as Record<string, any>;
+    if (value.empresaId === empresaId && value.estado === "activa" && value.activo === true
+      && value.rol === "admin" && requiredText(value.uid)) admins.add(value.uid);
+  }
+  if (admins.size === 0) {
+    await marcarEvento(db, claim, "SIN_DESTINATARIO", now);
+    return;
+  }
+
+  const profiles = await db.getAll(...[...admins].map(uid => db.collection("usuarios").doc(uid)));
+  const tokens = new Map<string, Set<string>>();
+  const tokenOwners = new Map<string, Set<string>>();
+  for (const profile of profiles) {
+    if (!admins.has(profile.id) || !profile.exists) continue;
+    const values = profile.data()?.fcmTokens;
+    if (!Array.isArray(values)) continue;
+    for (const token of values) {
+      if (typeof token !== "string" || token.length === 0) continue;
+      const owners = tokenOwners.get(token) ?? new Set<string>();
+      owners.add(profile.id);
+      tokenOwners.set(token, owners);
+      tokens.set(token, owners);
+    }
+  }
+  if (tokens.size === 0) {
+    await marcarEvento(db, claim, "SIN_DESTINATARIO", now);
+    return;
+  }
+
+  const invalidByUid = new Map<string, Set<string>>();
+  let failed = false;
+  let permanentErrorCode: string | null = null;
+  let invalidRegistrationSeen = false;
+  let delivered = 0;
+  const targetTokens = [...tokens.keys()];
+  for (let offset = 0; offset < targetTokens.length; offset += 500) {
+    const chunk = targetTokens.slice(offset, offset + 500);
+    const result = await messaging.sendEachForMulticast({
+      tokens: chunk,
+      data: {
+        title: "Nueva solicitud de venta",
+        body: "Hay una solicitud pendiente de revisión.",
+        url: "/admin/solicitudes",
+      },
+    });
+    result.responses.forEach((response, index) => {
+      if (response.success) { delivered += 1; return; }
+      const code = response.error?.code ?? "";
+      if (["messaging/registration-token-not-registered", "messaging/invalid-registration-token"].includes(code)) {
+        invalidRegistrationSeen = true;
+        const token = chunk[index];
+        for (const uid of tokenOwners.get(token) ?? []) {
+          const invalid = invalidByUid.get(uid) ?? new Set<string>(); invalid.add(token); invalidByUid.set(uid, invalid);
+        }
+        return;
+      }
+      if (code === "messaging/invalid-argument") { permanentErrorCode = code; return; }
+      failed = true;
+    });
+  }
+  for (const [uid, invalid] of invalidByUid) {
+    await db.collection("usuarios").doc(uid).update({ fcmTokens: FieldValue.arrayRemove(...invalid) });
+  }
+  if (permanentErrorCode) await marcarEvento(db, claim, "FALLIDO", now, permanentErrorCode);
+  else if (failed) {
+    if (claim.intentos >= MAX_ATTEMPTS) await marcarEvento(db, claim, "FALLIDO", now, "SOLICITUD_PUSH_MAX_REINTENTOS");
+    else await marcarEvento(db, claim, "REINTENTAR", now, "SOLICITUD_PUSH_TRANSITORIO");
+  } else if (delivered === 0 && invalidRegistrationSeen) {
+    await marcarEvento(db, claim, "SIN_DESTINATARIO", now, "SOLICITUD_PUSH_SIN_TOKENS_VALIDOS");
+  } else await marcarEvento(db, claim, "ENVIADO", now);
+}
+
 async function despacharEvento(db: any, messaging: Messaging, claim: Claim, now: number): Promise<void> {
   const event = claim.data;
+  if (event.tipo === "SOLICITUD_VENTA_BODEGA_PENDIENTE") {
+    await despacharSolicitudPendiente(db, messaging, claim, now);
+    return;
+  }
   const empresaId = event.empresaId;
   const programacionId = event.agregado?.id;
   const etapa = event.payloadOperativo?.etapa;
@@ -252,29 +351,42 @@ async function despacharEvento(db: any, messaging: Messaging, claim: Claim, now:
   }
 }
 
-export async function despacharRecordatoriosAgendaBodega(db: any, messaging: Messaging, now = Date.now(), limit = BATCH_LIMIT): Promise<number> {
+async function despacharEventoPorId(db: any, messaging: Messaging, eventId: string, now: number): Promise<boolean> {
+  const ref = db.collection(EVENTOS).doc(eventId);
+  const claim = await reclamarEvento(db, ref, now);
+  if (!claim) return false;
+  try {
+    await despacharEvento(db, messaging, claim, now);
+  } catch (error) {
+    const code = internalCode(error);
+    if (claim.intentos >= MAX_ATTEMPTS) await marcarEvento(db, claim, "FALLIDO", now, code);
+    else await marcarEvento(db, claim, "REINTENTAR", now, code);
+  }
+  return true;
+}
+
+export async function despacharNotificacionSolicitudVentaBodegaPendiente(db: any, messaging: Messaging, eventId: string, now = Date.now()): Promise<boolean> {
+  const snap = await db.collection(EVENTOS).doc(eventId).get();
+  if (!snap.exists || snap.data()?.tipo !== "SOLICITUD_VENTA_BODEGA_PENDIENTE") return false;
+  return despacharEventoPorId(db, messaging, eventId, now);
+}
+
+export async function despacharEventosOperativosBodega(db: any, messaging: Messaging, now = Date.now(), limit = BATCH_LIMIT): Promise<number> {
   const vistos = new Set<string>();
   let enviados = 0;
-  while (vistos.size < limit) {
-    const candidates = await db.collection(EVENTOS)
-      .where("tipo", "==", "RECORDATORIO_AGENDA_PEDIDO")
-      .where("estadoDespacho", "in", ["PENDIENTE", "REINTENTAR", "ENVIANDO"])
-      .where("fechaDisponible", "<=", Timestamp.fromMillis(now))
-      .limit(Math.min(50, limit - vistos.size))
-      .get();
-    const nuevos = candidates.docs.filter((doc: any) => !vistos.has(doc.ref.path));
-    if (nuevos.length === 0) break;
-    for (const candidate of nuevos) {
-      vistos.add(candidate.ref.path);
-      const claim = await reclamarEvento(db, candidate.ref, now);
-      if (!claim) continue;
-      try {
-        await despacharEvento(db, messaging, claim, now);
-        enviados += 1;
-      } catch (error) {
-        const code = internalCode(error);
-        if (claim.intentos >= MAX_ATTEMPTS) await marcarEvento(db, claim, "FALLIDO", now, code);
-        else await marcarEvento(db, claim, "REINTENTAR", now, code);
+  for (const tipo of TIPOS_EVENTO_DESPACHABLES) {
+    while (vistos.size < limit) {
+      const candidates = await db.collection(EVENTOS)
+        .where("tipo", "==", tipo)
+        .where("estadoDespacho", "in", ["PENDIENTE", "REINTENTAR", "ENVIANDO"])
+        .where("fechaDisponible", "<=", Timestamp.fromMillis(now))
+        .limit(Math.min(50, limit - vistos.size))
+        .get();
+      const nuevos = candidates.docs.filter((doc: any) => !vistos.has(doc.ref.path));
+      if (nuevos.length === 0) break;
+      for (const candidate of nuevos) {
+        vistos.add(candidate.ref.path);
+        if (await despacharEventoPorId(db, messaging, candidate.id, now)) enviados += 1;
       }
     }
   }
@@ -283,6 +395,6 @@ export async function despacharRecordatoriosAgendaBodega(db: any, messaging: Mes
 
 export async function reconciliarAgendaPedidosBodega(db: any, messaging: Messaging, now = Date.now()) {
   const vencidas = await expirarReservasAgendaBodega(db, now);
-  const procesadas = await despacharRecordatoriosAgendaBodega(db, messaging, now);
+  const procesadas = await despacharEventosOperativosBodega(db, messaging, now);
   return { vencidas, procesadas };
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Timestamp } from "firebase-admin/firestore";
-import { despacharRecordatoriosAgendaBodega, expirarReservasAgendaBodega } from "./agenda-worker";
+import { despacharEventosOperativosBodega, despacharNotificacionSolicitudVentaBodegaPendiente, expirarReservasAgendaBodega } from "./agenda-worker";
 
 type Data = Record<string, any>;
 class Ref {
@@ -54,10 +54,18 @@ class Tx {
 }
 class FakeDb {
   readonly docs = new Map<string, Data>();
+  private transactionTail: Promise<void> = Promise.resolve();
   collection(name: string) { return new Collection(name, this); }
   collectionGroup(name: string) { return new Query(this, name, [], true); }
   async getAll(...refs: Ref[]) { return Promise.all(refs.map(ref => ref.get())); }
-  async runTransaction<T>(work: (tx: Tx) => Promise<T>) { const tx = new Tx(this); const result = await work(tx); tx.commit(); return result; }
+  async runTransaction<T>(work: (tx: Tx) => Promise<T>) {
+    const previous = this.transactionTail;
+    let release!: () => void;
+    this.transactionTail = new Promise<void>(resolve => { release = resolve; });
+    await previous;
+    try { const tx = new Tx(this); const result = await work(tx); tx.commit(); return result; }
+    finally { release(); }
+  }
   update(path: string, value: Data) {
     const current = this.docs.get(path);
     if (!current) throw new Error("not-found");
@@ -93,11 +101,97 @@ function seedEvent(db: FakeDb, options: { token?: boolean; state?: string } = {}
   db.docs.set("usuarios/seller-worker", { fcmTokens: options.token ? ["token-seller"] : [] });
 }
 
+function seedSolicitudEvent(db: FakeDb, options: { token?: boolean; state?: string; requestState?: string } = {}) {
+  const solicitudId = "solicitud-push-1";
+  db.docs.set(`eventos_operativos/${eventoId}`, {
+    eventoId, empresaId, tipo: "SOLICITUD_VENTA_BODEGA_PENDIENTE",
+    agregado: { tipo: "SOLICITUD_VENTA_BODEGA", id: solicitudId },
+    payloadOperativo: { solicitudId }, fechaDisponible: Timestamp.fromMillis(now),
+    estadoDespacho: options.state ?? "PENDIENTE", intentos: 0,
+  });
+  db.docs.set(`empresas/${empresaId}/solicitudes_venta_bodega/${solicitudId}`, {
+    empresaId, solicitudId, estado: options.requestState ?? "PENDIENTE_APROBACION",
+  });
+  db.docs.set("membresias/admin-worker", { empresaId, uid: "admin-worker", rol: "admin", activo: true, estado: "activa" });
+  db.docs.set("membresias/seller-worker", { empresaId, uid: "seller-worker", rol: "vendedor", activo: true, estado: "activa" });
+  db.docs.set("membresias/admin-ajeno", { empresaId: "otra-empresa", uid: "admin-ajeno", rol: "admin", activo: true, estado: "activa" });
+  db.docs.set("membresias/admin-inactivo", { empresaId, uid: "admin-inactivo", rol: "admin", activo: false, estado: "suspendida" });
+  db.docs.set("usuarios/admin-worker", { fcmTokens: options.token ? ["token-admin"] : [] });
+  db.docs.set("usuarios/seller-worker", { fcmTokens: options.token ? ["token-seller"] : [] });
+  db.docs.set("usuarios/admin-ajeno", { fcmTokens: options.token ? ["token-admin-ajeno"] : [] });
+  db.docs.set("usuarios/admin-inactivo", { fcmTokens: options.token ? ["token-admin-inactivo"] : [] });
+}
+
+test("solicitud pendiente: notifica solo al admin activo del tenant con payload genérico", async () => {
+  const db = new FakeDb(); seedSolicitudEvent(db, { token: true });
+  const calls: Array<{ tokens: string[]; data: Data }> = [];
+  const messaging = { async sendEachForMulticast(input: Data) { calls.push(input); return { responses: input.tokens.map(() => ({ success: true })) }; } };
+
+  assert.equal(await despacharNotificacionSolicitudVentaBodegaPendiente(db, messaging as any, eventoId, now), true);
+  assert.equal(db.docs.get(`eventos_operativos/${eventoId}`)?.estadoDespacho, "ENVIADO");
+  assert.deepEqual(calls.map(call => [call.tokens, call.data]), [[ ["token-admin"], {
+    title: "Nueva solicitud de venta", body: "Hay una solicitud pendiente de revisión.",
+    url: "/admin/solicitudes",
+  } ]]);
+  assert.equal(JSON.stringify(calls).includes("solicitud-push-1"), false);
+  assert.equal(JSON.stringify(calls).includes(empresaId), false);
+  assert.equal(JSON.stringify(calls).includes(eventoId), false);
+});
+
+test("solicitud ya resuelta antes del despacho se omite sin enviar push", async () => {
+  const db = new FakeDb(); seedSolicitudEvent(db, { token: true, requestState: "APROBADA" });
+  const messaging = { async sendEachForMulticast() { throw new Error("NO_DEBE_ENVIAR"); } };
+
+  assert.equal(await despacharNotificacionSolicitudVentaBodegaPendiente(db, messaging as any, eventoId, now), true);
+  assert.equal(db.docs.get(`eventos_operativos/${eventoId}`)?.estadoDespacho, "OMITIDO");
+});
+
+test("solicitud pendiente: fallo transitorio conserva el outbox y programa reintento", async () => {
+  const db = new FakeDb(); seedSolicitudEvent(db, { token: true });
+  const messaging = { async sendEachForMulticast(input: Data) {
+    return { responses: input.tokens.map(() => ({ success: false, error: { code: "messaging/internal-error" } })) };
+  } };
+
+  assert.equal(await despacharNotificacionSolicitudVentaBodegaPendiente(db, messaging as any, eventoId, now), true);
+  const event = db.docs.get(`eventos_operativos/${eventoId}`)!;
+  assert.equal(event.estadoDespacho, "REINTENTAR");
+  assert.equal(event.fechaDisponible.toMillis(), now + 60_000);
+  assert.equal(event.ultimoErrorCodigo, "SOLICITUD_PUSH_TRANSITORIO");
+});
+
+test("solicitud pendiente: purga token admin inválido y deja constancia sin destinatario", async () => {
+  const db = new FakeDb(); seedSolicitudEvent(db, { token: true });
+  const messaging = { async sendEachForMulticast(input: Data) {
+    return { responses: input.tokens.map(() => ({ success: false, error: { code: "messaging/registration-token-not-registered" } })) };
+  } };
+
+  assert.equal(await despacharNotificacionSolicitudVentaBodegaPendiente(db, messaging as any, eventoId, now), true);
+  assert.deepEqual(db.docs.get("usuarios/admin-worker")?.fcmTokens, []);
+  assert.deepEqual(db.docs.get("usuarios/seller-worker")?.fcmTokens, ["token-seller"]);
+  const event = db.docs.get(`eventos_operativos/${eventoId}`)!;
+  assert.equal(event.estadoDespacho, "SIN_DESTINATARIO");
+  assert.equal(event.ultimoErrorCodigo, "SOLICITUD_PUSH_SIN_TOKENS_VALIDOS");
+  assert.equal(event.despachadoEn, undefined);
+});
+
+test("el trigger y Scheduler comparten el claim transaccional en una carrera concurrente", async () => {
+  const db = new FakeDb(); seedSolicitudEvent(db, { token: true });
+  let sends = 0;
+  const messaging = { async sendEachForMulticast(input: Data) { sends += input.tokens.length; return { responses: input.tokens.map(() => ({ success: true })) }; } };
+
+  const [trigger, scheduler] = await Promise.all([
+    despacharNotificacionSolicitudVentaBodegaPendiente(db, messaging as any, eventoId, now),
+    despacharEventosOperativosBodega(db, messaging as any, now),
+  ]);
+  assert.equal(trigger || scheduler === 1, true);
+  assert.equal(sends, 1);
+});
+
 test("ADR-064 worker: despacha recordatorio a admin y vendedor solo con membresías activas", async () => {
   const db = new FakeDb(); seedEvent(db, { token: true });
   const calls: Array<{ tokens: string[]; data: Data }> = [];
   const messaging = { async sendEachForMulticast(input: Data) { calls.push(input); return { responses: input.tokens.map(() => ({ success: true })) }; } };
-  const processed = await despacharRecordatoriosAgendaBodega(db, messaging as any, now);
+  const processed = await despacharEventosOperativosBodega(db, messaging as any, now);
   assert.equal(processed, 1);
   assert.equal(db.docs.get(`eventos_operativos/${eventoId}`)?.estadoDespacho, "ENVIADO");
   assert.deepEqual(calls.map(call => [call.tokens, call.notification, call.data]).sort(), [
@@ -114,7 +208,7 @@ test("ADR-064 worker: despacha recordatorio a admin y vendedor solo con membres�
 
 test("ADR-064 worker: ausencia de tokens queda durable y no altera la programación", async () => {
   const db = new FakeDb(); seedEvent(db);
-  const processed = await despacharRecordatoriosAgendaBodega(db, { async sendEachForMulticast() { throw new Error("NO_DEBE_ENVIAR"); } } as any, now);
+  const processed = await despacharEventosOperativosBodega(db, { async sendEachForMulticast() { throw new Error("NO_DEBE_ENVIAR"); } } as any, now);
   assert.equal(processed, 1);
   assert.equal(db.docs.get(`eventos_operativos/${eventoId}`)?.estadoDespacho, "SIN_DESTINATARIO");
   assert.equal(db.docs.get(`empresas/${empresaId}/agenda_pedidos_bodega/${programacionId}`)?.estado, "RESERVADA");
@@ -123,7 +217,7 @@ test("ADR-064 worker: ausencia de tokens queda durable y no altera la programaci
 test("ADR-064 worker: fallo transitorio conserva outbox y aplica backoff", async () => {
   const db = new FakeDb(); seedEvent(db, { token: true });
   const messaging = { async sendEachForMulticast(input: Data) { return { responses: input.tokens.map(() => ({ success: false, error: { code: "messaging/internal-error" } })) }; } };
-  await despacharRecordatoriosAgendaBodega(db, messaging as any, now);
+  await despacharEventosOperativosBodega(db, messaging as any, now);
   const event = db.docs.get(`eventos_operativos/${eventoId}`)!;
   assert.equal(event.estadoDespacho, "REINTENTAR");
   assert.equal(event.fechaDisponible.toMillis(), now + 60_000);
@@ -133,7 +227,7 @@ test("ADR-064 worker: fallo transitorio conserva outbox y aplica backoff", async
 test("ADR-064 worker: un invalid-argument no elimina un token que podría ser válido", async () => {
   const db = new FakeDb(); seedEvent(db, { token: true });
   const messaging = { async sendEachForMulticast(input: Data) { return { responses: input.tokens.map(() => ({ success: false, error: { code: "messaging/invalid-argument" } })) }; } };
-  await despacharRecordatoriosAgendaBodega(db, messaging as any, now);
+  await despacharEventosOperativosBodega(db, messaging as any, now);
   assert.deepEqual(db.docs.get("usuarios/admin-worker")?.fcmTokens, ["token-admin"]);
   assert.deepEqual(db.docs.get("usuarios/seller-worker")?.fcmTokens, ["token-seller"]);
   const event = db.docs.get(`eventos_operativos/${eventoId}`)!;
@@ -144,7 +238,7 @@ test("ADR-064 worker: un invalid-argument no elimina un token que podría ser v�
 test("ADR-064 worker: tokens expirados se eliminan y nunca marcan un recordatorio como enviado", async () => {
   const db = new FakeDb(); seedEvent(db, { token: true });
   const messaging = { async sendEachForMulticast(input: Data) { return { responses: input.tokens.map(() => ({ success: false, error: { code: "messaging/registration-token-not-registered" } })) }; } };
-  await despacharRecordatoriosAgendaBodega(db, messaging as any, now);
+  await despacharEventosOperativosBodega(db, messaging as any, now);
   assert.deepEqual(db.docs.get("usuarios/admin-worker")?.fcmTokens, []);
   assert.deepEqual(db.docs.get("usuarios/seller-worker")?.fcmTokens, []);
   const event = db.docs.get(`eventos_operativos/${eventoId}`)!;

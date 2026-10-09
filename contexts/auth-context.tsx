@@ -28,6 +28,7 @@ import {
 } from "@/lib/auth-service";
 import { auth } from "@/lib/firebase";
 import { signOut as firebaseSignOut } from "firebase/auth";
+import type { MotivoCierreSesion } from "@/lib/fcm-logout-policy";
 
 // ─── Tipos del Contexto ───────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ interface AuthContextValue {
   /** Ruta primaria MT-U5a: código operativo + PIN. */
   login: (codigo: string, pin: string) => Promise<void>;
   /** Cierra la sesión del cajero actual */
-  logout: () => Promise<void>;
+  logout: (options?: { motivo?: MotivoCierreSesion; preservarTokenPush?: boolean }) => Promise<void>;
   /** Limpia el mensaje de error de login */
   limpiarError: () => void;
   /**
@@ -186,9 +187,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (auth.currentUser) await firebaseSignOut(auth).catch(() => {});
   }, []);
 
-  const logout = useCallback(async () => {
+  const logout = useCallback(async (options?: { motivo?: MotivoCierreSesion; preservarTokenPush?: boolean }) => {
     invalidarAuthPendienteRef.current();
-    await authLogout();
+    await authLogout(options);
     setUsuario(null);
     setErrorLogin(null);
   }, []);

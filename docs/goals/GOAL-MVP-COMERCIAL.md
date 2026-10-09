@@ -53,7 +53,7 @@
 | Epic | Resultado | Estado |
 |---|---|---|
 | E2.1 Tenant de referencia | Tenant, contrato, Trial, membresía, administrador, credencial, Espacio y configuración reproducibles. | EN EJECUCIÓN |
-| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. Incluye solicitud de venta del vendedor y aprobación administrativa previa a la venta canónica según ADR-SAAS-062, y la agenda de pedidos/entregas con recordatorios aprobada como requisito previo a la primera entrega comercial, con arquitectura aceptada en ADR-SAAS-064. | EN EJECUCIÓN |
+| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. Incluye solicitud de venta del vendedor y aprobación administrativa previa a la venta canónica según ADR-SAAS-062, la agenda de pedidos/entregas con recordatorios según ADR-SAAS-064 y un aviso durable al admin ante una nueva solicitud pendiente según ADR-SAAS-065. | EN EJECUCIÓN |
 
 ### M3 — Certificación funcional del tenant — PENDIENTE
 
@@ -126,6 +126,19 @@ o ledger hasta la confirmación canónica. La implementación quedó integrada p
 PR #477; su aceptación no autoriza por sí sola deploy, tráfico, staging,
 fixtures, Bootstrap, Activation, tenant real ni producción. La revalidación
 operativa posterior al merge queda registrada abajo.
+
+### Decisión aceptada — 2026-10-08 (Bogotá) — ADR-SAAS-065
+
+Por solicitud explícita del responsable del proyecto y su delegación de
+decisiones técnicas para E2.2, se acepta una alerta push durable y genérica para
+el admin cuando un vendedor crea una solicitud pendiente. El evento se escribe
+atómicamente con la solicitud y reutiliza el outbox/FCM de `saas-bodega`.
+Permanece el logout de seguridad tras siete minutos; el timeout conserva el
+token FCM para recibir push, mientras que el logout manual lo elimina. El
+Service Worker/OS no garantiza sonido ni persistencia visual; la solicitud
+misma permanece en la lista protegida de solicitudes. La implementación
+requiere PR, CI, preflight y deploy staging dirigidos; no autoriza producción,
+tenant real, Rules, IAM ni Secrets.
 
 ### Checkpoint vigente — 2026-10-08 (Bogotá) — Gate D / deploy ADR-064
 

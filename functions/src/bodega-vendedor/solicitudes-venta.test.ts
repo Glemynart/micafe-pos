@@ -50,6 +50,7 @@ class Tx {
   constructor(private readonly db: FakeDb) {}
   async get(ref: Ref | Query): Promise<any> { return ref instanceof Query ? ref.get() : new Snap(ref, this.db.docs.get(ref.path)); }
   create(ref: Ref, data: Data) {
+    if (this.db.failCreatePathPrefix && ref.path.startsWith(this.db.failCreatePathPrefix)) throw new Error("injected-create-failure");
     if (this.db.docs.has(ref.path) || this.creates.some(([existing]) => existing.path === ref.path)) throw new Error("already-exists");
     this.creates.push([ref, { ...data }]);
   }
@@ -64,6 +65,7 @@ class Tx {
 }
 class FakeDb {
   docs = new Map<string, Data>();
+  failCreatePathPrefix: string | null = null;
   collection(name: string) { fakeDb = this; return new Collection(name); }
   async runTransaction<T>(work: (tx: Tx) => Promise<T>) {
     const tx = new Tx(this);
@@ -114,6 +116,40 @@ test("crear solicitud resuelve cliente, presentaciones, factor, precio y total s
   assert.equal([...db.docs.keys()].some(path => path.startsWith("transacciones_financieras/")), false);
   assert.equal([...db.docs.keys()].some(path => path.startsWith("movimientos_inventario/")), false);
   assert.equal(db.docs.get("productos/producto-1")?.stock, 20);
+});
+
+test("crear solicitud escribe un evento push mínimo y tenant-aware en la misma transacción", async () => {
+  const db = new FakeDb(); seed(db);
+  const result = await crear(db);
+  const eventoId = crearIdentificadorInterno(empresaId, `solicitud-venta-bodega-pendiente:${result.solicitudId}`);
+  const evento = db.docs.get(`eventos_operativos/${eventoId}`)!;
+
+  assert.equal(evento.tipo, "SOLICITUD_VENTA_BODEGA_PENDIENTE");
+  assert.equal(evento.empresaId, empresaId);
+  assert.equal(evento.eventoId, eventoId);
+  assert.deepEqual(evento.agregado, { tipo: "SOLICITUD_VENTA_BODEGA", id: result.solicitudId });
+  assert.deepEqual(evento.payloadOperativo, { solicitudId: result.solicitudId });
+  assert.equal(evento.estadoDespacho, "PENDIENTE");
+  assert.equal(evento.intentos, 0);
+  assert.equal(JSON.stringify(evento).includes("Tienda Demo"), false);
+  assert.equal(JSON.stringify(evento).includes("10_000"), false);
+  assert.equal(db.docs.get(`${collectionPath}/${result.solicitudId}`)?.estado, "PENDIENTE_APROBACION");
+});
+
+test("fallar la escritura del evento revierte también la solicitud", async () => {
+  const db = new FakeDb(); seed(db); db.failCreatePathPrefix = "eventos_operativos/";
+  await assert.rejects(crear(db, seller, "crear-evento-fallido"));
+  assert.equal([...db.docs.keys()].some(path => path.startsWith(`${collectionPath}/`)), false);
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("eventos_operativos/")), false);
+});
+
+test("replay del mismo comando conserva una sola solicitud y un solo evento push", async () => {
+  const db = new FakeDb(); seed(db);
+  const first = await crear(db, seller, "crear-replay-push");
+  const replay = await crear(db, seller, "crear-replay-push");
+  assert.equal(replay.solicitudId, first.solicitudId);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith(`${collectionPath}/`)).length, 1);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("eventos_operativos/")).length, 1);
 });
 
 test("crear solicitud acepta referencias canónicas de presentación mayores a 160 caracteres", async () => {
