@@ -232,6 +232,10 @@ siguientes suites exclusivamente con Firebase/Firestore Emulator y datos demo:
   Scheduler, expiración automática que libera stock y liberación por lotes.
 - `npm run test:bodega-ui`: `12/12 PASS`, incluida restauración canónica del
   operador y doble submit de solicitud colapsado a una sola ejecución.
+- `npm run test:firebase-push-service-worker`: `9/9 PASS`, incluida espera
+  por un Service Worker activo, presentación única en background y navegación
+  al recibir/clicar una notificación.
+- `npm --prefix functions-bodega run build`: TypeScript `PASS`.
 
 Estas ejecuciones confirman comportamiento local de los escenarios enumerados,
 no son evidencia de ejecución remota en `micafe-pos-staging`. Los resultados
