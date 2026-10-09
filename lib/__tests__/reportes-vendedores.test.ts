@@ -17,8 +17,8 @@ test("preserva el nombre histórico aunque falte el UID del vendedor", () => {
   assert.equal(resolverNombreVisibleVendedor(undefined, "uid-vendedor-conocido", nombres), "Nombre actual")
   assert.equal(resolverNombreVisibleVendedor(undefined, "Ana-Maria", nombres), "Ana-Maria")
   assert.equal(
-    resolverNombreVisibleVendedor(undefined, "AnaMariaRodriguezLopez", nombres),
-    "AnaMariaRodriguezLopez",
+    resolverNombreVisibleVendedor(undefined, "AlejandraMariaRodriguezGonzalez", nombres),
+    "AlejandraMariaRodriguezGonzalez",
   )
 })
 
@@ -42,4 +42,6 @@ test("no expone un UID completo cuando falta la identidad del vendedor", () => {
     "Vendedor · …123456",
   )
   assert.equal(resolverNombreVisibleVendedor(undefined, "uid-123", new Map()), "Vendedor · …id-123")
+  assert.equal(resolverNombreVisibleVendedor(undefined, "u1234", new Map()), "Vendedor sin identificar")
+  assert.equal(resolverNombreVisibleVendedor("u1234", "u1234", new Map()), "Vendedor sin identificar")
 })
