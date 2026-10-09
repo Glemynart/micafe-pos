@@ -645,6 +645,32 @@ conciliación integral PWA/Backoffice, inventario, ledger, reportes y turnos.
 El siguiente gate continúa siendo F; G/H no se adelantan y no se crea/configura
 el tenant real ni se toca producción.
 
+### Checkpoint vigente — 2026-10-09 — PR #510 / conciliación de caja Gate F
+
+PR #510 quedó integrado en `main` mediante el merge commit
+`47dc249815825e9050990c8a701db9c70fe03365`. Sus checks previos al merge
+(`Tipos y pruebas`, `Vercel` y `Vercel Preview Comments`) terminaron `PASS`;
+la CI post-merge de `main`, run `37953082043`, seguía `in_progress` sobre ese
+SHA al registrar este checkpoint.
+
+El cambio corrigió la conciliación del reporte de caja: ahora compara el
+efectivo contado contra el efectivo esperado canónico del cierre, considera
+solo turnos cerrados y presenta el dato como no disponible cuando un cierre
+histórico carece de los totales canónicos, en vez de producir sobrantes o
+faltantes falsos. La evidencia local incluye `test:reportes` (5/5), TypeScript,
+build, ESLint dirigido y `git diff --check`; no se hicieron escrituras remotas
+ni cambios de staging como parte de PR #510.
+
+La comprobación visual autenticada del reporte en el preview de PR #510 no se
+ha observado todavía: Edge muestra el login en ese dominio, por lo que la
+verificación queda pendiente y no se infiere de una sesión en otro preview.
+Gate F permanece `EN CURSO`, no `PASS`. Continúan pendientes el replay de
+membresía y comandos autenticados, retry tras pérdida de respuesta, aislamiento
+tenant/roles y concurrencia en staging, expiración/liberación automática de la
+reserva, y la matriz funcional integral PWA/Backoffice de inventario, ledger,
+reportes y turnos. Se conserva F como siguiente gate; no se adelantan G/H, no
+se crea/configura el tenant real y no se toca producción.
+
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
 PR #477 quedó `MERGED` en `main` el `2026-10-07 22:23:06` hora de Bogotá
