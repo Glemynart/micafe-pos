@@ -161,22 +161,41 @@ export default function ReportesPage() {
                       </div>
                       <div className={cn(
                         "rounded-lg p-2.5",
-                        v.diferenciaCaja < -5000 ? "bg-red-500/10 border border-red-500/30" : v.diferenciaCaja < 0 ? "bg-amber-500/10 border border-amber-500/30" : "bg-emerald-500/10 border border-emerald-500/30"
+                        v.diferenciaCaja === null
+                          ? "bg-muted/20 border border-border/50"
+                          : v.diferenciaCaja < 0
+                            ? "bg-red-500/10 border border-red-500/30"
+                            : v.diferenciaCaja > 0
+                              ? "bg-amber-500/10 border border-amber-500/30"
+                              : "bg-emerald-500/10 border border-emerald-500/30"
                       )}>
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cuadre de Caja</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cuadre de caja</span>
                           <span className={cn(
                             "text-xs font-black tabular-nums",
-                            v.diferenciaCaja < 0 ? "text-red-400" : "text-emerald-400"
+                            v.diferenciaCaja === null
+                              ? "text-muted-foreground"
+                              : v.diferenciaCaja < 0
+                                ? "text-red-400"
+                                : v.diferenciaCaja > 0
+                                  ? "text-amber-400"
+                                  : "text-emerald-400"
                           )}>
-                            {v.diferenciaCaja < 0 ? "Faltante " : "Sobrante "}
-                            {formatCurrency(Math.abs(v.diferenciaCaja))}
+                            {v.diferenciaCaja === null
+                              ? "Sin cierre conciliable"
+                              : v.diferenciaCaja === 0
+                                ? "Cuadrado"
+                                : `${v.diferenciaCaja < 0 ? "Faltante" : "Sobrante"} ${formatCurrency(Math.abs(v.diferenciaCaja))}`}
                           </span>
                         </div>
-                        <div className="flex items-center gap-3 text-[11px]">
-                          <span className="text-muted-foreground/70">Vendido: <strong className="text-muted-foreground/80">{formatCurrency(v.efectivo)}</strong></span>
-                          <span className="text-muted-foreground/70">Declarado: <strong className="text-muted-foreground/80">{formatCurrency(v.efectivoDeclarado)}</strong></span>
-                        </div>
+                        {v.diferenciaCaja === null ? (
+                          <p className="text-[11px] text-muted-foreground/70">No hay turnos cerrados conciliables en este período.</p>
+                        ) : (
+                          <div className="flex items-center gap-3 text-[11px]">
+                            <span className="text-muted-foreground/70">Esperado: <strong className="text-muted-foreground/80">{formatCurrency(v.efectivoEsperado ?? 0)}</strong></span>
+                            <span className="text-muted-foreground/70">Contado: <strong className="text-muted-foreground/80">{formatCurrency(v.efectivoDeclarado ?? 0)}</strong></span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

@@ -2,6 +2,7 @@ import { collection, query, where, getDocs, Timestamp, orderBy } from 'firebase/
 import { db } from './firebase'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, format } from 'date-fns'
 import { getEmpresaId } from '@/lib/tenant'
+import { agruparCuadresCajaPorCajero } from './reportes-caja'
 
 export interface ReporteVentas {
   ventasTotales: number
@@ -17,8 +18,9 @@ export interface ReporteVentas {
     efectivo: number
     transferencia: number
     cuentaCobro: number
-    efectivoDeclarado: number
-    diferenciaCaja: number
+    efectivoEsperado: number | null
+    efectivoDeclarado: number | null
+    diferenciaCaja: number | null
   }[]
   ventasEnElTiempo: {
     fecha: string
@@ -203,7 +205,7 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
   const gananciaBruta = ventasTotales - costoTotal
   const margenBruto = ventasTotales > 0 ? (gananciaBruta / ventasTotales) * 100 : 0
 
-  // Cruce con turnos: efectivo declarado vs efectivo vendido
+  // Conciliar cierres: el efectivo contado se compara con el esperado canónico del turno.
   const qTurnos = query(
     collection(db, 'turnos'),
     where('empresaId', '==', empresaId),
@@ -211,23 +213,18 @@ export async function generarReporteVentas(periodo: string, fechasPersonalizadas
     where('fechaApertura', '<=', Timestamp.fromDate(fin))
   )
   const snapTurnos = await getDocs(qTurnos)
-  const efectivoPorCajero = new Map<string, number>()
-  snapTurnos.docs.forEach(doc => {
-    const t = doc.data()
-    const cajeroId = t.cajeroId
-    if (!cajeroId) return
-    const declarado = t.totalReportadoEfectivo || 0
-    const existente = efectivoPorCajero.get(cajeroId) || 0
-    efectivoPorCajero.set(cajeroId, existente + Number(declarado))
-  })
+  const cuadrosCajaPorCajero = agruparCuadresCajaPorCajero(
+    snapTurnos.docs.map(doc => doc.data()),
+  )
 
   // Formatear Vendedores
   const ventasPorVendedor = Array.from(vendedoresMap.values()).map(v => {
-    const declarado = efectivoPorCajero.get(v.id) || 0
+    const cuadro = cuadrosCajaPorCajero.get(v.id)
     return {
       ...v,
-      efectivoDeclarado: declarado,
-      diferenciaCaja: declarado - v.efectivo,
+      efectivoEsperado: cuadro?.efectivoEsperado ?? null,
+      efectivoDeclarado: cuadro?.efectivoDeclarado ?? null,
+      diferenciaCaja: cuadro?.diferenciaCaja ?? null,
       average: v.ventas > 0 ? v.total / v.ventas : 0
     }
   }).sort((a, b) => b.total - a.total)
