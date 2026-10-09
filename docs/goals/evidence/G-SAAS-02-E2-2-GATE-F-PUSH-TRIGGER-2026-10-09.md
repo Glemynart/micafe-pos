@@ -35,11 +35,127 @@ callable para fabricar el resultado.
   destinatarios múltiples ni aislamiento entre tenants.
 - Esta prueba no crea otra venta ni cambia ledger, inventario o turno.
 
+## Seguimiento staging — segundo despacho sintético
+
+- El 2026-10-09, Codex envió desde la sesión autenticada del vendedor una
+  segunda solicitud sintética de venta para hoy, ID terminado en `yOTk3Il0`,
+  por una presentación (2 unidades base) y `$5.000 COP`. Sigue en
+  `PENDIENTE_APROBACION`.
+- El evento outbox asociado, ID terminado en `zSWwwIl0`, tipo
+  `SOLICITUD_VENTA_BODEGA_PENDIENTE`, quedó `ENVIADO`, intento `1`, sin error.
+  Cloud Logging registró HTTP `204` del trigger
+  `notificarsolicitudventabodegapendientev1` a las
+  `2026-10-09T09:45:50.592146Z`.
+- Lecturas posteriores confirmaron producto con 4 unidades disponibles y 0
+  reservadas; no se creó venta ni movimiento de inventario/ledger. La solicitud
+  permanece pendiente, sin aprobación de administrador.
+- Tras iniciar sesión en la bandeja administrativa de staging, la solicitud
+  apareció como `PENDIENTE_APROBACION`. El administrador inició sesión después
+  del despacho: esto comprueba carga en la bandeja, pero no actualización en
+  tiempo real, recepción push en el sistema operativo ni sonido.
+- La recepción de esta notificación concreta en el dispositivo del
+  administrador no fue confirmada. Por tanto, es una segunda evidencia de
+  despacho automático trigger/outbox, no de entrega visible ni sonora.
+
+## Agenda staging — reserva aceptada
+
+- Desde la sesión de vendedor se creó una agenda sintética para el
+  `2026-10-10`, cliente `E2_2-BODEGA-STAGING-FIXTURE-CLIENTE-GATE-F`, una
+  presentación de 2 unidades base y sin franja horaria. La solicitud quedó
+  pendiente de revisión; no tenía dirección de entrega registrada.
+- En la bandeja `/admin/agenda` del mismo tenant, Codex aceptó la agenda. La UI
+  confirmó `Stock reservado`: 2 unidades base retenidas hasta el
+  `2026-10-11 00:00` hora de Bogotá. Conforme a la UI, no se creó venta ni
+  movimiento financiero.
+- La agenda del vendedor no reflejó la reserva hasta pulsar `Actualizar
+  agenda`; después mostró `Reservado: 2 unidades base` y el vencimiento. Esto
+  verifica el ciclo crear/aceptar/reservar/consultar, pero deja pendiente la
+  reconciliación automática al llegar el vencimiento, y no valida sincronía en
+  vivo.
+- La expiración todavía no ocurrió al momento de esta observación. No se
+  alteraron fechas, reloj, datos por escritura directa ni Scheduler para
+  acelerar el resultado.
+
+## Salud del Scheduler — 2026-10-09 10:05 UTC
+
+- El job `firebase-schedule-reconciliarAgendaPedidosBodegaV1-us-central1` se
+  observó `ENABLED`, con frecuencia de cinco minutos y zona `UTC`; su último
+  intento fue `2026-10-09T10:03:04.040610Z`.
+- Cloud Logging del servicio
+  `reconciliaragendapedidosbodegav1` registró HTTP `200` para las invocaciones
+  de `09:48:09.521894Z`, `09:53:12.155571Z`, `09:58:05.865629Z` y
+  `10:03:04.064521Z`.
+- Esas respuestas acreditan que el Scheduler alcanzó la Function sin error en
+  esas ejecuciones. La lectura ocurrió antes de la hora prevista del recordatorio
+  `dia_anterior` de la agenda activa; por tanto, no prueba despacho de ese
+  recordatorio, liberación automática de reserva ni entrega FCM. No se invocó el
+  job manualmente.
+
+## Estado de agenda y destinatarios — lectura posterior, 2026-10-09
+
+- Una consulta read-only posterior confirmó que la agenda sintética (ID con
+  sufijo `zNTNmIl0`) sigue `RESERVADA`; la reserva (ID con sufijo `WWlKZCJd`)
+  permanece `ACTIVA` por 2 unidades base y expira en
+  `2026-10-11T05:00:00Z` (`2026-10-11 00:00` Bogotá). Sus eventos
+  `creada` y `reservada` están `ENVIADO`; `dia_anterior` sigue `PENDIENTE`
+  para `2026-10-09T13:00:00Z` (08:00 Bogotá), y `fecha_programada` sigue
+  `PENDIENTE` para `2026-10-10T13:00:00Z` (08:00 Bogotá). Ambos recordatorios
+  tenían cero intentos al consultar; el Scheduler aún no había demostrado su
+  despacho.
+- En el producto sintético, Firestore mostraba 4 unidades físicas, 2
+  reservadas y 2 disponibles. La solicitud de venta pendiente seguía sin una
+  venta canónica; el estado `stockReservado` corresponde a la agenda aceptada,
+  no a una reserva de la solicitud. Se leyeron 4 tokens FCM en el perfil admin
+  y 3 en el perfil del vendedor solicitante; el conteo no prueba que sean
+  válidos ni que FCM haya entregado un aviso. Los valores de token no se
+  imprimieron ni guardaron.
+- La inspección de código confirma que la vista admin de solicitudes realiza
+  una consulta inicial y se recarga al pulsar `Actualizar` o después de
+  resolver una solicitud; no tiene suscripción en tiempo real. El usuario
+  había indicado dejar esa mejora para después de Gate F. No se presenta como
+  funcionalidad PASS ni se incluyó en este PR.
+- La lectura no alteró eventos, agenda, membresías, tokens, stock, ventas,
+  ledger, Scheduler ni producción. No se forzó la ejecución del job.
+
+## Validación local complementaria
+
+- `npm --prefix functions-bodega test`: `14/14 PASS` en el código de Functions
+  de `origin/main @ 3a509963a713c13e31385a7b155332c4e55edb6d`, que es idéntico
+  al código de esta rama; la rama solo añade documentación.
+- `npm run e2e:bodega-agenda`: `6/6 PASS` en Firestore Emulator con el proyecto
+  demo `demo-bodega-agenda`; cubrió concurrencia de reservas, conversión
+  idempotente, aislamiento de tenant/actor y permisos.
+- `npm run e2e:bodega-u4-u5`: `9/9 PASS` en Auth/Firestore/Functions Emulator
+  con el proyecto demo `demo-bodega-u4-u5-ui`; cubrió solicitud, aprobación y
+  venta canónica, aislamiento A/B en UI/callables, Backoffice y alta canónica
+  de vendedor.
+- La suite incluye contratos locales de expiración/liberación, reintento,
+  concurrencia del claim trigger/Scheduler y destinatarios de notificaciones.
+  Usa dobles de prueba/emulador local; no acredita que el recordatorio o la
+  expiración hayan ocurrido en staging.
+- Durante el arranque de la E2E integrada, el emulador intentó resolver
+  `OPERATIONAL_PIN_PEPPER` en Secret Manager del proyecto demo y recibió `403`;
+  no obtuvo el secreto. El recorrido continuó y pasó 9/9. Es una advertencia de
+  aislamiento/configuración local del runner, no una lectura o escritura de
+  staging ni producción.
+
 ## Auditoría de mutaciones
 
-- Codex: lecturas únicamente; escrituras directas de Firestore `0`.
-- La solicitud fue creada y aprobada por la actividad de usuario ya reflejada
-  en staging; Codex no ejecutó esas transiciones.
+- Codex creó una solicitud por el flujo UI autenticado de vendedor; escrituras
+  directas de Firestore `0`.
+- Codex inició sesión con la sesión de staging ya guardada. La solicitud de
+  venta terminada en `yOTk3Il0` solo se consultó; no se aprobó ni rechazó.
+- Conforme a la autorización explícita para retener 2 unidades en staging,
+  Codex creó la agenda sintética por el flujo UI de vendedor y la aceptó por la
+  UI de administrador. No ejecutó escrituras directas de Firestore; la reserva
+  de 2 unidades permanece activa hasta su vencimiento programado.
+- Scheduler y Cloud Logging de `micafe-pos-staging`: lecturas únicamente; no
+  se alteró la programación ni se forzó ninguna ejecución.
+- Suite local de Functions Bodega: `14/14 PASS`; ninguna escritura remota.
+- E2E de agenda y PWA/Backoffice: `6/6` y `9/9 PASS`, solo en Emulator/demo;
+  no modificaron staging ni producción.
+- La solicitud anterior fue aprobada por la actividad de usuario ya reflejada
+  en staging; la segunda solicitud sigue pendiente y Codex no la aprobó.
 - Functions, Scheduler, IAM, Rules, Secrets, configuración, Auth, Vercel,
   fixture adicional, tenant real y producción: cambios de Codex `0`.
 
