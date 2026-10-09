@@ -91,6 +91,16 @@ callable para fabricar el resultado.
   recordatorio, liberación automática de reserva ni entrega FCM. No se invocó el
   job manualmente.
 
+## Validación local complementaria
+
+- `npm --prefix functions-bodega test`: `14/14 PASS` en el código de Functions
+  de `origin/main @ 3a509963a713c13e31385a7b155332c4e55edb6d`, que es idéntico
+  al código de esta rama; la rama solo añade documentación.
+- La suite incluye contratos locales de expiración/liberación, reintento,
+  concurrencia del claim trigger/Scheduler y destinatarios de notificaciones.
+  Usa dobles de prueba/emulador local; no acredita que el recordatorio o la
+  expiración hayan ocurrido en staging.
+
 ## Auditoría de mutaciones
 
 - Codex creó una solicitud por el flujo UI autenticado de vendedor; escrituras
@@ -103,6 +113,7 @@ callable para fabricar el resultado.
   de 2 unidades permanece activa hasta su vencimiento programado.
 - Scheduler y Cloud Logging de `micafe-pos-staging`: lecturas únicamente; no
   se alteró la programación ni se forzó ninguna ejecución.
+- Suite local de Functions Bodega: `14/14 PASS`; ninguna escritura remota.
 - La solicitud anterior fue aprobada por la actividad de usuario ya reflejada
   en staging; la segunda solicitud sigue pendiente y Codex no la aprobó.
 - Functions, Scheduler, IAM, Rules, Secrets, configuración, Auth, Vercel,
