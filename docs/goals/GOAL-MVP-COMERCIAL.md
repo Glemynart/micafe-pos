@@ -650,8 +650,8 @@ el tenant real ni se toca producción.
 PR #510 quedó integrado en `main` mediante el merge commit
 `47dc249815825e9050990c8a701db9c70fe03365`. Sus checks previos al merge
 (`Tipos y pruebas`, `Vercel` y `Vercel Preview Comments`) terminaron `PASS`;
-la CI post-merge de `main`, run `37953082043`, seguía `in_progress` sobre ese
-SHA al registrar este checkpoint.
+la CI post-merge de `main`, run `37953082043`, terminó `success` sobre ese SHA
+a las `2026-10-09T15:54:19Z`.
 
 El cambio corrigió la conciliación del reporte de caja: ahora compara el
 efectivo contado contra el efectivo esperado canónico del cierre, considera
