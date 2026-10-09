@@ -209,3 +209,31 @@ replay en staging.
   cambios `0`.
 - Gate F permanece `EN CURSO`: el replay remoto y los restantes escenarios de
   Gate F siguen pendientes.
+
+### Revalidación local independiente de escenarios Gate F — 2026-10-09
+
+Para avanzar sin esperar el recordatorio remoto programado, se ejecutaron las
+siguientes suites exclusivamente con Firebase/Firestore Emulator y datos demo:
+
+- `npm run e2e:bodega-agenda`: `6/6 PASS`, incluidos límite de stock bajo dos
+  reservas concurrentes, conversión concurrente idempotente y aislamiento de
+  tenant/actor.
+- `npm run e2e:bodega-u4-u5`: `9/9 PASS`, incluida pérdida de respuesta y
+  reintento del mismo comando, venta única con efectos persistidos, aislamiento
+  A/B en UI y callable, y flujos de vendedor y administrador.
+- `ventas-confirmation.test.ts` en Firestore Emulator: `10/10 PASS`, incluida
+  doble confirmación concurrente con un solo conjunto atómico de efectos,
+  conversión de reserva ligada a venta y rechazo posterior al vencimiento.
+- `ventas-resolution.test.ts` en Firestore Emulator: `7/7 PASS`, incluida la
+  carrera de dos consumos reales donde solo uno descuenta stock y deja un único
+  movimiento de inventario.
+- `npm --prefix functions-bodega test`: `14/14 PASS`, incluidos worker de
+  recordatorios, reintento/backoff, claim concurrente entre trigger y
+  Scheduler, expiración automática que libera stock y liberación por lotes.
+- `npm run test:bodega-ui`: `12/12 PASS`, incluida restauración canónica del
+  operador y doble submit de solicitud colapsado a una sola ejecución.
+
+Estas ejecuciones confirman comportamiento local de los escenarios enumerados,
+no son evidencia de ejecución remota en `micafe-pos-staging`. Los resultados
+remotos pendientes de la matriz —incluida la observación de la reserva que
+vence a `2026-10-09T13:00:00Z`— requieren verificación en staging.
