@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: evidencia parcial de verificación (2026-10-08)
 
-**Última revisión:** 2026-10-09 01:37 UTC
+**Última revisión:** 2026-10-09 02:06 UTC
 **Estado:** `EN CURSO` — evidencia parcial; no certifica Gate F.
 
 ## Contexto y límites
@@ -151,18 +151,18 @@ demuestra entrega push ni el ciclo completo de agenda.
 | Aislamiento de tenant y roles en staging | Pendiente de evidencia completa |
 | Revocación/restauración de membresía y replay autenticado | Pendiente en staging; Emulator PASS no la sustituye |
 | Retry autenticado tras pérdida de respuesta | Pendiente en staging; Emulator PASS no la sustituye |
-| Agenda: creación y aceptación con reserva | Reserva preexistente verificada; ciclo de prueba completo pendiente |
+| Agenda: creación y aceptación con reserva | Una agenda sintética creada y aceptada; se verificó la retención de 2 unidades. No es venta ni acredita todo el ciclo |
 | Agenda: conversión a solicitud y venta idempotente | Pendiente de evidencia completa en staging |
-| Agenda: cancelación/liberación y expiración | Tests locales PASS; validación remota pendiente |
-| Recordatorio worker y entrega push | Rama sin destinatario: PASS; entrega push: pendiente, 0 tokens FCM activos; no se cambió el permiso del navegador |
+| Agenda: cancelación/liberación y expiración | Cancelación/liberación de la reserva anterior verificada por la interfaz canónica; expiración automática de la reserva actual pendiente |
+| Recordatorio worker y entrega push | Un `fecha_programada` despachado por Scheduler/FCM (`ENVIADO`, intento 1, sin error); usuario confirmó recepción. Sonido y recepción background no certificados |
 | Venta, turnos, inventario, ledger y auditoría | La evidencia histórica no equivale a una revalidación integral de este checkpoint |
 | Reportes y PWA | Pendiente de revalidación integral |
 | Backoffice | Parcial: sesión de operador SaaS autorizada y detalle del fixture cargado con `Contexto validado`; falta revalidación funcional integral |
 
-No se debe consumir ni cancelar la reserva activa para completar casos que
-requieran una nueva autorización de negocio. Tampoco se debe crear otro fixture.
-El permiso de notificaciones del navegador requiere la interacción del usuario;
-no se aceptó ni se intentó eludir ese permiso.
+La reserva nueva permanece activa y no se consumió ni canceló en esta etapa;
+no se creó otro fixture. El permiso de notificaciones de este Preview había
+sido concedido explícitamente por el usuario; no se eludió el control del
+navegador.
 
 ## Dictamen y siguiente paso
 
@@ -789,3 +789,43 @@ evidencia local y no reemplaza la matriz remota completa de Gate F.
 Gate F permanece `EN CURSO`. Este paso adelanta la agenda de prueba, pero aún no
 acredita expiración, recordatorio automático, conversión idempotente ni la
 matriz funcional integral.
+
+### Seguimiento — recordatorio automático de fecha programada, 2026-10-09
+
+La agenda activa del fixture, solicitada para el 8 de octubre de 21:00–22:00
+hora de Bogotá, tenía un evento `fecha_programada` disponible a las
+`2026-10-09T02:00:00Z`. El Scheduler normal `reconciliarAgendaPedidosBodegaV1`
+ejecutó el `2026-10-09T02:03:07Z` y la llamada a la Function terminó HTTP `200`.
+La lectura Firestore REST posterior, filtrada al fixture y a eventos de
+recordatorio, encontró ese evento en `ENVIADO`, `intentos=1`, sin código de
+error. No se invocó manualmente el Scheduler ni se editaron documentos.
+
+El usuario confirmó que recibió la notificación. El evento se envía a los
+destinatarios server-side elegibles (vendedor solicitante y admins activos),
+pero no hay evidencia que atribuya esta recepción a una sesión concreta. No se
+declara prueba de sonido ni de recepción en segundo plano de todos los perfiles.
+Los eventos `fecha_programada` de otras agendas futuras continúan pendientes a
+su fecha; los avisos de agendas canceladas se omiten por vigencia.
+
+La agenda nueva continúa `Stock reservado` por 2 unidades base y no es una
+venta. La lectura visible posterior a cancelar la agenda antigua confirmó el
+stock físico en 6, reservado en 2 y disponible en 4. Su reserva vence a la
+medianoche local del 9 de octubre; la expiración automática sigue pendiente de
+observar. Conversión idempotente a solicitud/venta, revocación/replay,
+aislamiento completo y la matriz funcional restante también siguen pendientes.
+
+#### Mutation audit del recordatorio
+
+- Proyecto/tenant: `micafe-pos-staging` / `E2_2-BODEGA-STAGING-FIXTURE`.
+- Firestore: lecturas REST selectivas para estado del outbox; escritura manual
+  o directa de Codex `0`. El Scheduler automático actualizó el evento de
+  `PENDIENTE` a `ENVIADO`.
+- Scheduler/Cloud Logging: lecturas; invocaciones manuales `0`; la ejecución
+  normal de las `02:03:07Z` terminó HTTP `200`.
+- FCM: despacho del evento registrado como `ENVIADO` y recepción confirmada
+  por el usuario. No se expusieron valores de tokens.
+- Agenda, reservas, stock, solicitud, venta, ledger, turno, Auth, Rules,
+  Functions, IAM, Secrets, configuración, tráfico, deploy y producción:
+  cambios manuales/de Codex `0` en este seguimiento.
+- La reserva nueva se mantiene; no se ejecutó conversión, consumo ni limpieza.
+- Gate F permanece `EN CURSO`, no `PASS`.

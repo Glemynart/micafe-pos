@@ -367,6 +367,25 @@ respuesta, el ciclo completo de agenda/recordatorios y la validación funcional
 integral. Gate G debe repetirse; Gate H emitirá una matriz nueva después de F.
 No se adelanta el tenant real ni producción.
 
+### Checkpoint — 2026-10-09 — PR #496 / agenda y recordatorio sintéticos
+
+PR #496 quedó `MERGED` en `main @ 8c4c75735fb3cf37e07ae472a33440bcbddd941f`
+a las `2026-10-09T02:04:45Z`, con `Tipos y pruebas`, `Vercel` y
+`Vercel Preview Comments` en `PASS`. La CI post-merge de `main`, run
+`37872843869`, estaba `in_progress` al corte de `02:04:48Z`. El PR fue
+documental; no modificó el código de aplicación.
+
+La evidencia de Gate F registra la agenda sintética reprogramada y aprobada
+para el 8-oct, 21:00–22:00 Bogotá, y la cancelación/liberación autorizada de la
+reserva antigua del 9-oct. La reserva nueva sigue activa por 2 unidades base;
+inventario observado: 6 físicas, 2 reservadas, 4 disponibles. El Scheduler
+automático despachó el recordatorio `fecha_programada` a las `02:03:07Z` con
+HTTP `200`; el outbox quedó `ENVIADO`, intento 1, y el usuario confirmó su
+recepción. Esto no prueba sonido ni todos los perfiles/background, expiración,
+conversión idempotente ni la matriz completa. Gate F queda `EN CURSO`, no
+`PASS`; E2.2 continúa `EN EJECUCIÓN` y no se inicia todavía el tenant real.
+Evidencia: [`Gate F parcial`](evidence/G-SAAS-02-E2-2-GATE-F-PARTIAL-VERIFICATION-2026-10-08.md).
+
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
 PR #477 quedó `MERGED` en `main` el `2026-10-07 22:23:06` hora de Bogotá
