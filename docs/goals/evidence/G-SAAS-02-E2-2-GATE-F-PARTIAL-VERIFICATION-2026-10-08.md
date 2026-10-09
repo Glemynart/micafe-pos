@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: evidencia parcial de verificación (2026-10-08)
 
-**Última revisión:** 2026-10-08 22:33 UTC
+**Última revisión:** 2026-10-09 00:10 UTC
 **Estado:** `EN CURSO` — evidencia parcial; no certifica Gate F.
 
 ## Contexto y límites
@@ -632,3 +632,70 @@ lectura no prueba todavía despacho FCM, recepción background ni sonido.
   IAM, Secrets y tráfico: cambios por Codex `0`.
 - Fixture adicional, Bootstrap, Activation, tenant real, producción y cleanup
   destructivo: `0`.
+
+### Seguimiento — PR #493/#494 / corrección del índice de reportes (2026-10-08)
+
+#### Diagnóstico reproducible
+
+Con el administrador sintético autenticado en el Preview, abrir el periodo
+`Semana` en `/admin/reportes` disparó una excepción capturada de Firestore:
+`FAILED_PRECONDITION`, índice requerido para `turnos` con
+`empresaId ASC`, `fechaApertura ASC`, `__name__ ASC`. La UI atrapaba el fallo de
+la carga agregada y mostraba «No hay datos para este periodo», por lo que ese
+mensaje no era evidencia de un periodo vacío. El servicio consulta los turnos
+por tenant y rango de `fechaApertura` junto con las ventas, productos y
+membresías.
+
+El preflight read-only de `micafe-pos-staging` confirmó que el índice
+`turnos(empresaId ASC, fechaApertura ASC)` no existía; había uno descendente.
+PR #493 ya integró el índice de ventas requerido y su CI post-merge
+`37858453098` terminó `success`. PR #494 declaró únicamente el índice
+ascendente de turnos y se fusionó a `main` como
+`a1274b0fde0ef469af3dce2a93259fa0595800b1` a las `23:49:22Z`. CI, Vercel y
+Preview Comments del PR terminaron `PASS`; la CI post-merge `37861536241`
+terminó `success` sobre el merge SHA a las `2026-10-09T00:10:02Z`.
+
+#### Validación de staging
+
+En el proyecto exacto `micafe-pos-staging` se creó el índice compuesto
+`projects/micafe-pos-staging/databases/(default)/collectionGroups/turnos/indexes/CICAgJjmiJEK`.
+La lectura posterior del inventario de índices confirmó `READY` y los campos
+`empresaId ASC`, `fechaApertura ASC`, `__name__ ASC`. El índice de ventas
+`CICAgJj7z4EK` también está `READY`.
+
+La validación visual post-fix se realizó en Edge, en el Preview vigente
+`https://cafeatrato-git-codex-e2-2-turnos-rep-403802-glemynarts-projects.vercel.app/admin/reportes`,
+con la sesión de administrador sintético iniciada manualmente por el usuario.
+Al seleccionar `Semana`, la consulta del 5–11 de octubre cargó y representó
+ventas totales de `20.000 COP`, ganancia bruta de `12.000 COP`, margen `60,0 %`,
+costo total de `8.000 COP` y cuatro unidades en el producto principal. La UI
+no mostró el error de índice ni el mensaje engañoso de periodo vacío; la
+consulta devolvió los datos del fixture. Esto valida el rango semanal afectado
+por el índice, no certifica todos los rangos ni el módulo completo de reportes.
+
+#### Resultado y matriz actualizada
+
+| Caso | Estado posterior a este seguimiento |
+| --- | --- |
+| Reportes (índices) | Índices requeridos de ventas y turnos en staging: `READY`. El missing-index `FAILED_PRECONDITION` queda corregido. |
+| Reportes (UI) | Validado en staging para el rango `Semana` (5–11 oct): consulta completada y métricas del fixture representadas. No equivale a certificar los rangos restantes ni Gate F. |
+| Validación integral de Gate F | Continúa pendiente: los otros casos de la matriz conservan sus estados anteriores. |
+
+#### Mutation audit de este seguimiento
+
+- GitHub: PR #493 y #494 fusionados; sin cambios manuales adicionales en el
+  estado de negocio.
+- Firestore: una única creación de índice compuesto en `micafe-pos-staging`,
+  `CICAgJjmiJEK`, estado `READY`. No se escribieron ni leyeron documentos de
+  negocio como parte de esa creación. La verificación visual posterior usó la
+  sesión admin de staging y una consulta de reporte de solo lectura; escrituras
+  de negocio en este seguimiento: `0`.
+- Vercel: Preview del PR generado por el flujo normal; deploys de producción
+  por este seguimiento: `0`.
+- Agenda, reservas, stock, solicitudes, ventas, ledger, turnos, membresías,
+  Auth, Rules, IAM, Secrets, Scheduler y FCM: mutaciones manuales de Codex `0`.
+- Fixture adicional, Bootstrap, Activation, tenant real, tráfico de
+  producción y cleanup destructivo: `0`.
+
+Gate F y E2.2 permanecen `EN CURSO`/`EN EJECUCIÓN`. Gate G/H/I/J/K/L y el
+tenant real no se adelantan por esta corrección puntual.
