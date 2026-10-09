@@ -695,7 +695,7 @@ la reserva y conciliación integral PWA/Backoffice de inventario, ledger,
 reportes y turnos. No se adelantan G/H, no se configura el tenant real y no se
 toca producción.
 
-### Checkpoint vigente — 2026-10-09 — PR #514 y reprogramación de agenda Gate F
+### Checkpoint histórico — 2026-10-09 — PR #514 y reprogramación de agenda Gate F (supersedido por PR #516)
 
 PR #514 quedó integrado en `main` mediante el merge commit
 `4476bd98379fc25580405f8f79df756d54e9cd95` a las `2026-10-09T19:57:41Z`. Sus
@@ -729,6 +729,35 @@ Gate F permanece `EN CURSO`, no `PASS`. Continúan pendientes replay/retry y
 concurrencia autenticados, aislamiento remoto tenant/roles y la conciliación
 integral de PWA/Backoffice, inventario, ledger, reportes y turnos. No se
 adelantan G/H, no se crea/configura el tenant real y no se toca producción.
+
+### Checkpoint vigente — 2026-10-09 — PR #516 / error genérico de operación Gate F
+
+PR #516 quedó integrado en `main` mediante el merge commit
+`6fde73154d8aca8ae2cc9ce8e49f8fa29e69c7ff` a las `2026-10-09T20:55:17Z`.
+Los checks previos al merge terminaron en verde; a las `2026-10-09T21:06Z`,
+la CI post-merge de `main`, run `37990184510`, seguía `in_progress`.
+
+El cambio limita su alcance al texto fallback de error de operación y una
+prueba de regresión: deja de atribuir una falla genérica a una venta cuando la
+UI no tiene un diagnóstico específico. No identifica ni corrige la causa del
+`internal` observado durante la validación anterior. No hubo nueva reproducción
+instrumentada ni una venta/reintento autenticado; el origen del error sigue sin
+determinar y no se considera resuelto. La conversión de agenda a venta no se
+validó en este checkpoint.
+
+La consulta read-only al job
+`firebase-schedule-reconciliarAgendaPedidosBodegaV1-us-central1` confirmó que
+sigue `ENABLED`, con frecuencia `every 5 minutes`; su último intento observado
+fue `2026-10-09T20:58:03Z`. Esto no demuestra que la reserva activa se haya
+liberado. Su expiración está prevista para `2026-10-10T05:00:00Z` (00:00 de
+Bogotá), con ventana de observación hasta cinco minutos después; no se forzará
+el Scheduler ni se manipulará el reloj.
+
+Gate F permanece `EN CURSO`, no `PASS`. Siguen pendientes la observación real
+de expiración/liberación, retry/replay autenticados tras pérdida de respuesta,
+concurrencia e aislamiento remotos y la conciliación integral de inventario,
+ledger, reportes, turnos, PWA y Backoffice. No se adelantan Gate G/H, no se
+configura el tenant real y no se toca producción.
 
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
