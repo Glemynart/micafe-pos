@@ -17,10 +17,15 @@ const saasTenant = {
   rol: null,
   loading: false,
   accesoTenantDenegado: false,
+  errorVerificacionTenant: false,
   refresh: async () => {},
 }
 
-function renderGuard(estado: EstadoConfiguracion, overrides: Record<string, unknown> = {}) {
+function renderGuard(
+  estado: EstadoConfiguracion,
+  overrides: Record<string, unknown> = {},
+  saasOverrides: Record<string, unknown> = {},
+) {
   const refrescar = async () => {}
   const configuracion = {
     empresaId: estado === 'LISTA' ? 'empresa-a' : null,
@@ -37,7 +42,7 @@ function renderGuard(estado: EstadoConfiguracion, overrides: Record<string, unkn
   return renderToStaticMarkup(
     createElement(
       SaaSContext.Provider,
-      { value: saasTenant },
+      { value: { ...saasTenant, ...saasOverrides } as never },
       createElement(
         ConfiguracionContext.Provider,
         { value: configuracion as never },
@@ -46,6 +51,31 @@ function renderGuard(estado: EstadoConfiguracion, overrides: Record<string, unkn
     ),
   )
 }
+
+test('TenantAccessGuard muestra una opción recuperable si falla la verificación del tenant', () => {
+  const html = renderGuard('LISTA', {}, { errorVerificacionTenant: true })
+
+  assert.match(html, /No fue posible verificar el acceso al tenant/)
+  assert.match(html, /Reintentar/)
+  assert.doesNotMatch(html, /POS operativo/)
+})
+
+test('SaaSProvider siempre finaliza la carga si falla la verificación de sesión', () => {
+  const source = readFileSync(resolve(process.cwd(), 'contexts/saas-context.tsx'), 'utf8')
+  const listenerStart = source.indexOf('const unsubscribe = onIdTokenChanged')
+  const refreshStart = source.indexOf('const refresh = useCallback')
+
+  assert.ok(listenerStart >= 0, 'debe existir el listener de cambios de identidad')
+  assert.ok(refreshStart > listenerStart, 'el refresh debe declararse después del listener')
+
+  const listener = source.slice(listenerStart, refreshStart)
+  const refresh = source.slice(refreshStart)
+
+  assert.match(listener, /finally\s*\{[\s\S]*setLoading\(false\)/)
+  assert.match(listener, /setErrorVerificacionTenant\(true\)/)
+  assert.match(refresh, /finally\s*\{[\s\S]*setLoading\(false\)/)
+  assert.match(refresh, /setErrorVerificacionTenant\(true\)/)
+})
 
 test('TenantAccessGuard renderiza spinner solamente mientras la configuracion esta CARGANDO', () => {
   const html = renderGuard('CARGANDO')
