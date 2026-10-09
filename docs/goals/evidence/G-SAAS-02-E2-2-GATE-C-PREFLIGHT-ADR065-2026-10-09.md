@@ -122,6 +122,8 @@ infieren aquí grants automáticos para el `POST` de Firebase CLI. La generació
 puede provisionar identidades fuera de alcance y el deploy puede requerir
 bindings ausentes. La aprobación actual no autoriza ese delta ni permite
 demostrarlo sin ejecutar la llamada mutante.
+La alternativa de alcance adicional está presentada, sin autorización ni
+ejecución, en [`ADR-SAAS-067` (Propuesto)](../../../ADR-SAAS-067-identidades-eventarc-pubsub-staging.md).
 
 Referencias: Firebase CLI `15.32.1`, `lib/deploy/functions/prepare.js` y
 `lib/gcp/serviceusage.js` (inspección local de fuente); Google Cloud [Service
