@@ -43,9 +43,53 @@ export function ErrorState({ message, retry }: { message: string; retry?: () => 
   return <Card className="border-rose-200"><CardContent className="flex min-h-40 flex-col items-center justify-center text-center"><AlertCircle className="mb-3 size-8 text-rose-500" /><p className="font-medium">No fue posible cargar la información</p><p className="mt-1 max-w-lg text-sm text-slate-500">{message}</p>{retry && <Button variant="outline" className="mt-4" onClick={retry}><RefreshCw className="mr-2 size-4" />Reintentar</Button>}</CardContent></Card>;
 }
 
-export function fecha(value: any) {
+export function fecha(value: unknown) {
   if (!value) return "—";
-  const millis = typeof value.toMillis === "function" ? value.toMillis() : value.seconds ? value.seconds * 1000 : NaN;
-  return Number.isFinite(millis) ? new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(millis) : String(value);
+
+  let millis = Number.NaN;
+  if (value instanceof Date) {
+    millis = value.getTime();
+  } else if (typeof value === "object") {
+    const timestamp = value as Record<string, unknown>;
+
+    if (typeof timestamp.toMillis === "function") {
+      try {
+        millis = (timestamp.toMillis as () => number).call(value);
+      } catch {
+        // Some serialized or malformed Timestamp-like objects cannot be invoked.
+      }
+    }
+
+    if (!Number.isFinite(millis) && typeof timestamp.toDate === "function") {
+      try {
+        const date = (timestamp.toDate as () => unknown).call(value);
+        if (date instanceof Date) millis = date.getTime();
+      } catch {
+        // Fall through to the plain serialized Timestamp fields.
+      }
+    }
+
+    if (!Number.isFinite(millis)) {
+      const seconds = timestamp._seconds ?? timestamp.seconds;
+      const nanoseconds = timestamp._nanoseconds ?? timestamp.nanoseconds ?? 0;
+      if (
+        Number.isSafeInteger(seconds)
+        && Number.isInteger(nanoseconds)
+        && (nanoseconds as number) >= 0
+        && (nanoseconds as number) < 1_000_000_000
+      ) {
+        millis = (seconds as number) * 1000 + Math.floor((nanoseconds as number) / 1_000_000);
+      }
+    }
+  } else {
+    return String(value);
+  }
+
+  if (!Number.isFinite(millis)) return "—";
+  try {
+    return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(millis);
+  } catch {
+    return "—";
+  }
 }
 

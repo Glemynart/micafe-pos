@@ -282,6 +282,9 @@ jobs:
       - name: Pruebas de configuracion B1
         run: npm run test:configuracion
 
+      - name: Pruebas de UI del Backoffice SaaS
+        run: npm run test:backoffice-ui
+
       - name: Pruebas de onboarding
         run: npm run test:onboarding
 

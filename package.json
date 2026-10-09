@@ -31,6 +31,7 @@
     "test:tenant": "tsx --test lib/__tests__/tenant.test.ts",
     "test:membresias": "tsx --test lib/__tests__/membresias.test.ts",
     "test:configuracion": "tsx --test lib/configuracion/__tests__/*.test.ts",
+    "test:backoffice-ui": "tsx --test components/backoffice/*.test.tsx",
     "test:bodega-ui": "tsx --test lib/bodega/*.test.ts",
     "test:firebase-push-service-worker": "tsx --test lib/__tests__/firebase-push-service-worker.test.ts",
     "test:onboarding": "tsx --test lib/__tests__/onboarding.test.ts",
