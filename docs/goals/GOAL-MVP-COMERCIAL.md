@@ -151,6 +151,22 @@ las demás decisiones siguen vigentes. No se autorizan roles/principales
 adicionales, Rules, Secrets, tenant real ni producción. El deploy permanece
 condicionado a `PREFLIGHT = PASS` de Gate C.
 
+### Decisión aceptada — 2026-10-09 — ADR-SAAS-067
+
+El responsable del proyecto aprobó explícitamente la Opción 1: solicitar en
+`micafe-pos-staging` la generación idempotente de los dos service agents
+exactos Pub/Sub/Eventarc y, si faltan, asignarles únicamente
+`roles/pubsub.serviceAgent` y `roles/eventarc.serviceAgent`, respectivamente.
+La excepción complementa ADR-SAAS-066 y conserva sus tres bindings sin
+ampliarlos; el alcance acumulado es de cinco bindings y dos agentes de servicio.
+La prohibición de IAM de ADR-SAAS-065 queda supersedida solo para este conjunto
+exacto. No se autoriza ningún otro principal/rol, Rules, Secrets, tenant real,
+otro proyecto o producción. La decisión está registrada en
+[`ADR-SAAS-067`](../../ADR-SAAS-067-identidades-eventarc-pubsub-staging.md).
+La aceptación no ejecuta cambios remotos ni declara Gate C `PASS`: después de
+integrar la ADR y confirmar su CI post-merge, debe repetirse el preflight y
+detenerse ante cualquier delta adicional antes de Gate D.
+
 ### Checkpoint vigente — 2026-10-08 (Bogotá) — Gate D / deploy ADR-064
 
 PR #479 quedó `MERGED` en `main` mediante
@@ -468,7 +484,8 @@ staging.
 El inventario remoto read-only confirma que el trigger aún no existe en
 `micafe-pos-staging`. El preflight del nuevo candidato está registrado en
 [`G-SAAS-02-E2-2-GATE-C-PREFLIGHT-ADR065-2026-10-09.md`](evidence/G-SAAS-02-E2-2-GATE-C-PREFLIGHT-ADR065-2026-10-09.md)
-con el delta IAM previsto y la decisión aceptada en ADR-SAAS-066. Gate C sigue
+con el delta IAM previsto y la decisión aceptada en ADR-SAAS-066. En ese
+checkpoint Gate C seguía
 `BLOCKED / OUT-OF-SCOPE SERVICE IDENTITY BOOTSTRAP`: la inspección de Firebase
 CLI 15.32.1 confirmó que incluso `--dry-run` llama a `generateServiceIdentity`
 para Pub/Sub y Eventarc en cualquier backend Gen 2. La política remota actual
@@ -485,6 +502,24 @@ Sigue `EN CURSO`: replay/concurrencia y retry autenticado, aislamiento y
 revocación/restauración remotos, expiración automática y matriz funcional
 integral de PWA/Backoffice/turnos aún requieren pruebas. Gate G/H se repetirán
 tras F. No se crea/configura el tenant real y no se toca producción.
+
+### Checkpoint vigente — 2026-10-09 — ADR-SAAS-067 y PR #500/#501
+
+La aprobación de ADR-SAAS-067 resuelve el bloqueo de autorización sobre los dos
+service agents que el Firebase CLI requiere. PR #500 quedó integrado en `main`
+mediante `29fdadf0441b660dc4114edf6fd12cadc2365530`; su CI post-merge,
+`37892240442`, terminó `success`. PR #501 quedó integrado mediante
+`affb024d8621e13c47c022db7f314eb7534e8553`; su CI post-merge
+`37895111671` estaba `in_progress` al redactar este checkpoint. Ninguno de
+esos merges ejecutó el preflight ni modificó IAM o recursos de staging.
+
+Gate C no está `PASS`: falta integrar la aceptación de ADR-SAAS-067 con su CI
+post-merge y repetir el preflight controlado sobre el SHA vivo. Ese preflight
+debe comprobar la generación/reconciliación de solo los dos service agents y
+los cinco bindings autorizados (tres de ADR-SAAS-066 y dos de ADR-SAAS-067),
+así como el delta exacto de Functions y el rollback. Cualquier delta adicional
+detiene Gate D. Hasta aquí, los deploys/dry-run y las escrituras remotas de
+identidad/IAM para el trigger siguen en cero; Gate D sigue `NOT EXECUTED`.
 
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
