@@ -140,6 +140,17 @@ misma permanece en la lista protegida de solicitudes. La implementación
 requiere PR, CI, preflight y deploy staging dirigidos; no autoriza producción,
 tenant real, Rules, IAM ni Secrets.
 
+### Decisión aceptada — 2026-10-09 — ADR-SAAS-066
+
+El responsable del proyecto aprobó la excepción IAM estricta para habilitar el
+trigger Eventarc de ADR-SAAS-065 únicamente en `micafe-pos-staging`: tres
+bindings a las identidades de servicio enumeradas en
+[`ADR-SAAS-066`](../../ADR-SAAS-066-iam-acotado-eventarc-bodega-staging.md).
+La ADR reemplaza solo la prohibición IAM de ADR-SAAS-065 para esos bindings;
+las demás decisiones siguen vigentes. No se autorizan roles/principales
+adicionales, Rules, Secrets, tenant real ni producción. El deploy permanece
+condicionado a `PREFLIGHT = PASS` de Gate C.
+
 ### Checkpoint vigente — 2026-10-08 (Bogotá) — Gate D / deploy ADR-064
 
 PR #479 quedó `MERGED` en `main` mediante
@@ -438,6 +449,42 @@ remotos, aislamiento y revocación/restauración restantes, expiración
 automática, retry autenticado tras pérdida de respuesta y la matriz integral
 de turno, Backoffice y PWA. Gate G/H deben repetirse después del cierre de F;
 no se inicia todavía el tenant real ni producción.
+
+### Checkpoint — 2026-10-09 — PR #499 / alerta durable de solicitud pendiente
+
+PR #499 quedó `MERGED` en `main @ 705585c90afe3fe6fca8ce44067b19ff22186158`
+a las `2026-10-09T05:12:05Z`. Los checks previos al merge (`Tipos y pruebas`,
+`Vercel` y `Vercel Preview Comments`) terminaron `SUCCESS`. La CI post-merge
+de `main`, run `37887438897` sobre el mismo SHA, terminó `success` a las
+`2026-10-09T05:34:50Z`, incluidas las certificaciones E2.2 Bodega y E4.1/E4.2
+en Emulator. No sustituye la validación remota de staging.
+
+El cambio agrega a `saas-bodega` el trigger Firestore
+`notificarSolicitudVentaBodegaPendienteV1`, que despacha el outbox durable
+inmediatamente y conserva el Scheduler como recuperación. El artefacto pasó
+build y 14/14 pruebas locales; esto no acredita el despliegue ni el runtime
+staging.
+
+El inventario remoto read-only confirma que el trigger aún no existe en
+`micafe-pos-staging`. El preflight del nuevo candidato está registrado en
+[`G-SAAS-02-E2-2-GATE-C-PREFLIGHT-ADR065-2026-10-09.md`](evidence/G-SAAS-02-E2-2-GATE-C-PREFLIGHT-ADR065-2026-10-09.md)
+con el delta IAM previsto y la decisión aceptada en ADR-SAAS-066. Gate C sigue
+`BLOCKED / OUT-OF-SCOPE SERVICE IDENTITY BOOTSTRAP`: la inspección de Firebase
+CLI 15.32.1 confirmó que incluso `--dry-run` llama a `generateServiceIdentity`
+para Pub/Sub y Eventarc en cualquier backend Gen 2. La política remota actual
+no contiene `roles/pubsub.serviceAgent` ni `roles/eventarc.serviceAgent`; esos
+roles no están incluidos en los tres bindings aprobados en ADR-SAAS-066 y el
+efecto IAM exacto de la generación no se puede demostrar sin ejecutar el POST.
+Por ello no se ejecutaron dry-run, deploy ni cambios IAM/identidad. Gate D
+permanece `NOT EXECUTED`; los anteriores PASS de despliegue no se reutilizan
+para este artefacto. El detalle reproducible está en la evidencia de Gate C.
+
+Gate F conserva la evidencia parcial más reciente del flujo agenda→solicitud→
+aprobación→venta, conciliado en POS, inventario, ledger, reportes y Backoffice.
+Sigue `EN CURSO`: replay/concurrencia y retry autenticado, aislamiento y
+revocación/restauración remotos, expiración automática y matriz funcional
+integral de PWA/Backoffice/turnos aún requieren pruebas. Gate G/H se repetirán
+tras F. No se crea/configura el tenant real y no se toca producción.
 
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
