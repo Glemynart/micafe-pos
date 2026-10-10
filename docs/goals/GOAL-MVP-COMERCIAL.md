@@ -922,6 +922,32 @@ server-authoritative y recibir aceptación comercial, usuarios, precios
 especiales, inventario contado y autorización del entorno. No se
 creó/configuró tenant real ni se modificó producción.
 
+### Checkpoint de Gate I — 2026-10-10 — ADRs propuestos de caja y sincronización
+
+PR #529 quedó `MERGED` en `main @ 907b50f08165bfc613f64b813c2f7804350e4030`;
+sus checks requeridos terminaron `SUCCESS` y la CI post-merge de `main`, run
+[`38063732621`](https://github.com/Glemynart/micafe-pos/actions/runs/38063732621),
+terminó `success`. PR #530 quedó `MERGED` en `main @
+5b577e8f5e3b42602670769fb94a56146c2512f8`; sus checks y la CI post-merge de
+`main`, run
+[`38067151556`](https://github.com/Glemynart/micafe-pos/actions/runs/38067151556),
+terminaron `success` el 2026-10-10. ADR-SAAS-068 sigue `PROPUESTO`; su
+aprobación explícita es requisito antes de cambiar el contrato de efectivo.
+
+El análisis Pre-I confirmó que el polling actual y la cola administrativa
+manual no cumplen la expectativa de cambio visible sin refresco; las Rules
+siguen impidiendo lecturas directas no sanitizadas al vendedor.
+[`ADR-SAAS-069`](../../ADR-SAAS-069-bodega-sincronizacion-viva.md) queda
+propuesto para que señales tenant-aware no sensibles invaliden las vistas y
+obliguen a reconsultar las callables existentes; el stock y las solicitudes
+siguen siendo autoridad server-side. No hay implementación en esta propuesta.
+
+Gate I permanece `BLOCKED`: faltan decisión explícita sobre ADR-SAAS-068,
+aprobación/latencia de ADR-SAAS-069, aceptación de la oferta por la cliente,
+usuarios reales, precio especial por producto o regla aprobada, conteo físico,
+datos de contacto y autorización del entorno para almacenar datos reales. No
+se ejecutó Bootstrap/Activation ni se creó tenant real.
+
 ### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 
 PR #519 quedó integrado en `main` mediante el merge commit
