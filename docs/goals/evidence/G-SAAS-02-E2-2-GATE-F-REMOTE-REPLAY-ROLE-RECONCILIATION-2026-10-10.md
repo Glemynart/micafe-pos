@@ -3,6 +3,13 @@
 **Resultado:** matriz funcional Gate F `FUNCTIONAL = PASS`; integración del
 registro en `main` pendiente de CI y merge del PR documental #524.
 
+> **Temporalidad:** los resultados parciales y estados `EN CURSO` de los
+> checkpoints anteriores a “Reconciliación final de la matriz” son históricos
+> y válidos para su hora de corte. La reconciliación final los actualiza: los
+> escenarios enumerados allí como pendientes quedaron resueltos o delimitados
+> por alcance. Para el estado funcional vigente, prevalece esa matriz final;
+> su registro oficial en `main` sigue sujeto a CI y merge de #524.
+
 ## Alcance y entorno
 
 Validación realizada el 2026-10-09, hora de Bogotá, contra el preview
@@ -292,5 +299,8 @@ retenido en staging; no se crea un segundo tenant de staging ni se altera otro
 tenant para fabricar el caso A/B. No quedan escenarios funcionales de Gate F
 pendientes dentro del alcance aprobado. El resultado de la matriz es
 `FUNCTIONAL = PASS`. El registro de este resultado en el Goal queda sujeto a
-que PR #524 cumpla auditoría y CI y se integre en `main`; hasta entonces no se
-inicia Gate G/H/I ni se toca el tenant real o producción.
+que PR #524 cumpla auditoría y CI y se integre en `main`. Por autorización
+explícita del responsable el 2026-10-10, Gate G puede ejecutarse en paralelo
+sobre el código ya integrado en `main @ d1dd726`; esto no declara Gate F
+oficialmente cerrado ni habilita H/I antes de integrar #524 y aprobar G. No se
+toca el tenant real ni producción.

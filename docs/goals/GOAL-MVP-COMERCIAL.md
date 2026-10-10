@@ -234,7 +234,11 @@ pruebas Emulator de aislamiento tenant/roles y payloads manipulados. El detalle
 está en
 [`G-SAAS-02-E2-2-GATE-F-REMOTE-REPLAY-ROLE-RECONCILIATION-2026-10-10.md`](evidence/G-SAAS-02-E2-2-GATE-F-REMOTE-REPLAY-ROLE-RECONCILIATION-2026-10-10.md).
 La actualización del Goal en `main` queda sujeta a la auditoría, CI verde y
-merge de PR #524; hasta ese evento no se inicia Gate G/H ni se avanza a Gate I.
+merge de PR #524. Por autorización explícita del responsable el 2026-10-10, el
+rehearsal de Gate G puede ejecutarse en paralelo sobre el código ya integrado
+en `main @ d1dd726`; esto no declara Gate F oficialmente cerrado ni permite
+iniciar Gate H o Gate I antes de integrar #524 y aprobar G. No se crea/configura
+el tenant real ni se modifica producción.
 Gate D suplementario permanece `PASS`; la actualización en tiempo real de
 bandejas/stock y la venta en efectivo sin turno siguen diferidas como se acordó.
 No se ha creado/configurado el tenant real ni se autoriza producción.
