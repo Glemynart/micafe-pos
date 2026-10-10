@@ -883,7 +883,7 @@ cierre del turno sintético antes de registrar `PASS`. Gate H queda pendiente y
 solo se emite después de G; Gate I/J/K/L siguen pendientes. No se crea ni
 configura el tenant real y no se modifica producción.
 
-### Checkpoint vigente — 2026-10-10 — PR #527 integrado / Gate G cerrado; Gate H en preparación
+### Checkpoint vigente — 2026-10-10 — PR #527 integrado / Gate G cerrado / Gate H certificado
 
 PR #527 quedó `MERGED` en `main` mediante el merge commit
 `8293e10cbee51d66fa5f7e13166f704b078797d1` a las
@@ -899,9 +899,11 @@ Gate G queda `CERRADO / PASS`: el rehearsal de dos ventas sintéticas en efectiv
 quedó conciliado contra solicitudes, movimientos de inventario, ledger, turno,
 arqueo y auditoría en
 [`G-SAAS-02-E2-2-GATE-G-REHEARSAL-2026-10-05.md`](evidence/G-SAAS-02-E2-2-GATE-G-REHEARSAL-2026-10-05.md).
-Gate H es el siguiente trabajo activo: emitir y auditar una matriz vigente de
-E2.2 sobre `main @ 8293e10…`, sin reinterpretar evidencia de Emulator como
-evidencia remota ni adelantar el tenant real.
+Gate H queda `CERTIFIED` para el alcance reusable de E2.2 demostrado en el
+fixture; la matriz vigente es
+[`G-SAAS-02-E2-2-GATE-H-CERTIFICATION-2026-10-10.md`](evidence/G-SAAS-02-E2-2-GATE-H-CERTIFICATION-2026-10-10.md).
+La matriz separa evidencia de Emulator y staging, y deja Gate I bloqueado por
+los prerrequisitos descritos abajo; no adelanta el tenant real.
 
 La entrada a Gate I no se presume con el cierre de G/H. Antes de I quedan por
 atender las solicitudes explícitas del responsable: permitir venta en efectivo
