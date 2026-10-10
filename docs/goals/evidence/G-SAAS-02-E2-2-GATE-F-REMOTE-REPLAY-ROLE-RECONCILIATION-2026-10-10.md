@@ -1,6 +1,7 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: replay remoto y conciliación de roles
 
-**Resultado:** escenarios puntuales `PASS`; Gate F sigue `EN CURSO`.
+**Resultado:** matriz funcional Gate F `FUNCTIONAL = PASS`; integración del
+registro en `main` pendiente de CI y merge del PR documental #524.
 
 ## Alcance y entorno
 
@@ -259,3 +260,37 @@ Esto acredita `PASS` para la carrera remota de confirmación de stock: no hubo
 sobreventa ni doble registro visible. No prueba la matriz negativa backend de
 aislamiento entre tenants o roles; Gate F continúa `EN CURSO`, sin iniciar
 Gate G/H/I y sin tocar tenant real o producción.
+
+### Reconciliación final de la matriz — 2026-10-10
+
+Se consolidó la evidencia remota anterior con las suites automatizadas del
+código de aplicación integrado en `main @ d1dd726f02d48cca6b1269e5c4a30ba61045b4e6`.
+El PR #524 cambia solo documentación; no modifica el código ejecutado por estas
+pruebas.
+
+| Área | Resultado y evidencia |
+|---|---|
+| Tenant y rol | `e2e:bodega-u4-u5` cubre dos tenants y actores independientes: cada vendedor/admin ve su propio catálogo y operaciones, el tenant B no recibe productos/clientes del A, la UI no ofrece recursos ajenos y los intentos autenticados con cliente/producto del tenant B desde el actor A no escriben venta, inventario ni finanzas. La sesión vendedor→ruta admin también fue rechazada en el preview. `PASS` combinado; la negativa de payload cruzado se verifica en Emulator, no se presenta como llamada remota. |
+| Venta, autoridad y conciliación | El recorrido staging de solicitud→aprobación→venta y la recuperación autenticada después de perder la respuesta concluyeron con una venta por `$5.000 COP`, sin duplicado; inventario, movimientos y reporte se conciliaron. Una repetición del comando persistido devolvió el resultado canónico sin duplicar movimientos de inventario o financieros. `PASS`. |
+| Stock concurrente | Dos vendedores confirmaron en paralelo dos solicitudes por la última presentación disponible; el backend aceptó una, rechazó la otra por stock insuficiente y el saldo final quedó en cero. `PASS` remoto. |
+| Membresía y permisos | El replay de activación/restauración del vendedor sintético recuperó sus claims y permitió consultar el catálogo; la obligación y el hecho de auditoría quedaron únicos. Los tests de agenda cubren además revocación/replay, actor sin permiso de `sell` y autoridad tenant derivada del actor. `PASS`. |
+| Agenda y reserva | En staging se comprobó creación/conversión, retención y consumo canónico en los recorridos previos, y el Scheduler venció naturalmente la reserva a medianoche de Bogotá y liberó las 2 unidades en su barrido de cinco minutos, sin venta ni ledger. `PASS`; no se adelantó el reloj. |
+| PWA y Backoffice | En previews autenticados se cargaron solicitudes, POS, catálogo, clientes, inventario, agenda, ventas, turnos e informes; la lectura de rol admin desde vendedor se denegó. La confirmación se concilió en ambas sesiones. `PASS` para los flujos cubiertos; no implica SLA de tiempo real. |
+| Push | La recepción de las pruebas sintéticas fue confirmada por el usuario. El aviso nativo de Windows y el sonido no se observaron; ADR-SAAS-065 define FCM como best-effort, por lo que no son garantías bloqueantes. La actualización en tiempo real de bandejas/stock y la venta en efectivo sin turno se difirieron explícitamente para después de Gate F. |
+
+Validaciones reproducidas en Emulator sobre el mismo código de aplicación:
+
+- `npm run test:bodega-ui`: `12/12 PASS`.
+- `npm run e2e:bodega-u4-u5`: `9/9 PASS`.
+- `npm run e2e:bodega-agenda`: `8/8 PASS`.
+- `npm --prefix functions test`: `417 PASS`, `5 SKIP` esperados, `0 FAIL`.
+- `git diff --check`: `PASS`.
+
+La cobertura combina las pruebas negativas multi-tenant deterministas del
+Emulator con las transacciones y lecturas autenticadas del único fixture
+retenido en staging; no se crea un segundo tenant de staging ni se altera otro
+tenant para fabricar el caso A/B. No quedan escenarios funcionales de Gate F
+pendientes dentro del alcance aprobado. El resultado de la matriz es
+`FUNCTIONAL = PASS`. El registro de este resultado en el Goal queda sujeto a
+que PR #524 cumpla auditoría y CI y se integre en `main`; hasta entonces no se
+inicia Gate G/H/I ni se toca el tenant real o producción.

@@ -227,15 +227,17 @@ El helper local había calculado un identificador preliminar distinto, que se
 reconcilió explícitamente y no se presenta como hash del artefacto desplegado.
 
 Gate E conserva `PASS` y el fixture sintético retenido
-`E2_2-BODEGA-STAGING-FIXTURE`; Gate F permanece `EN CURSO`, no `PASS`. Falta la
-matriz staging de aislamiento tenant/roles, revocación/restauración con replay,
-retry autenticado ante pérdida de respuesta y agenda ADR-064 (crear/aceptar,
-liberar/expirar/consumir reservas, recordatorios y conversión idempotente), así
-como la verificación funcional integral de venta, turnos, inventario, ledger,
-auditoría, reportes, PWA y Backoffice. Gate D suplementario está `PASS` y la
-proyección de reservas ya se refleja en POS; continúa la matriz de Gate F. Gate G
-debe repetirse y Gate H emitirá una matriz nueva. Gate I y J/K/L permanecen
-pendientes; no se ha creado/configurado el tenant real ni se autoriza producción.
+`E2_2-BODEGA-STAGING-FIXTURE`. La matriz funcional de Gate F se evaluó
+`FUNCTIONAL = PASS` al consolidar el ciclo remoto de staging (venta, pérdida de
+respuesta, competencia de stock, agenda y superficies PWA/Backoffice) con las
+pruebas Emulator de aislamiento tenant/roles y payloads manipulados. El detalle
+está en
+[`G-SAAS-02-E2-2-GATE-F-REMOTE-REPLAY-ROLE-RECONCILIATION-2026-10-10.md`](evidence/G-SAAS-02-E2-2-GATE-F-REMOTE-REPLAY-ROLE-RECONCILIATION-2026-10-10.md).
+La actualización del Goal en `main` queda sujeta a la auditoría, CI verde y
+merge de PR #524; hasta ese evento no se inicia Gate G/H ni se avanza a Gate I.
+Gate D suplementario permanece `PASS`; la actualización en tiempo real de
+bandejas/stock y la venta en efectivo sin turno siguen diferidas como se acordó.
+No se ha creado/configurado el tenant real ni se autoriza producción.
 
 ### Checkpoint — 2026-10-08 — PR #485 / evidencia parcial Gate F
 
@@ -817,7 +819,7 @@ esperar la expiración; no se adelanta el reloj ni se cancela el hold para
 acelerar la evidencia. No se inician Gates G/H ni el tenant real y no se toca
 producción.
 
-### Checkpoint vigente — 2026-10-10 — PR #523 / expiración natural Gate F
+### Checkpoint histórico — 2026-10-10 — PR #523 / expiración natural Gate F (supersedido por #524)
 
 PR #523 quedó integrado en `main` mediante el merge commit
 `d1dd726f02d48cca6b1269e5c4a30ba61045b4e6` a las `2026-10-10T05:54:24Z`.
@@ -841,6 +843,25 @@ aislamiento tenant/rol en operaciones Bodega y la competencia simultánea remota
 de stock. También resta la revalidación funcional integral del flujo en PWA y
 Backoffice. La expiración ya no es un bloqueo ni requiere esperar otro ciclo.
 No se inicia Gate G/H ni el tenant real y no se toca producción.
+
+### Checkpoint vigente — 2026-10-10 — PR #524 / matriz funcional Gate F
+
+La evidencia remota del preview actual cierra la expiración automática, el
+retry autenticado después de perder la respuesta, la carrera remota de dos
+vendedores y la lectura conciliada de PWA/Backoffice. Las suites de Emulator
+`e2e:bodega-u4-u5` (9/9) y `e2e:bodega-agenda` (8/8), junto con
+`test:bodega-ui` (12/12), cubren aislamiento A/B, autorización por rol,
+payloads manipulados, permisos, revocación/replay y concurrencia sobre el código
+integrado; funciones terminó con 417 PASS, 5 SKIP esperados y 0 fallos. La
+matriz combinada se registra como `FUNCTIONAL = PASS`; push nativo/sonido no es
+una garantía de ADR-SAAS-065 y las mejoras de tiempo real y efectivo sin turno
+se mantienen fuera de este gate por priorización expresa.
+
+PR #524 es documental y está abierto. El resultado funcional no autoriza por sí
+solo iniciar el siguiente gate: hacen falta la auditoría limitada al alcance y
+todos los checks CI en verde; después del merge se actualizará el estado oficial
+del Goal y podrá repetirse Gate G. Gate H e I/J/K/L permanecen pendientes; no se
+crea tenant real ni se modifica producción.
 
 ### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 
