@@ -59,8 +59,74 @@ evidencia de este rehearsal es el par exacto de movimientos de depósito de
 - Esta evidencia no autoriza tenant real, aceptación operativa, producción ni
   el cierre de E2.2.
 
+## Addendum — rehearsal posterior al cierre de Gate F (2026-10-10)
+
+Se repitió el flujo en el fixture retenido, sin crear identidades, catálogo,
+cliente ni fixture nuevos. La lectura de Firestore en `micafe-pos-staging`
+concilió el cierre confirmado por el responsable:
+
+| Paso | Evidencia observada | Resultado |
+| --- | --- | --- |
+| Solicitudes y aprobación | Dos solicitudes del cliente sintético quedaron `EJECUTADA`; cada una apunta a su venta canónica y comando correspondiente. | PASS |
+| Venta y pago | Dos ventas únicas, ambas `pagada` / `COMPLETO` / `BODEGA_MVP1`, en efectivo por `5.000 COP` cada una. | PASS |
+| Inventario | Dos movimientos `venta`, uno por venta, de `-2` unidades base cada uno. | PASS |
+| Turno y arqueo | Turno `50I2wZft5cqyNIOWGdnJ`, estado `cerrado`, base `0`, efectivo vendido/esperado/reportado `10.000 COP`, diferencia `0`, depósito neto `10.000 COP`. | PASS |
+| Ledger financiero | Dos ingresos `ventas` por `5.000 COP` y un par de movimientos de cierre (`ingreso`/`egreso`) por `10.000 COP`, vinculados al turno. | PASS |
+| Auditoría e idempotencia | Un recibo de `cerrarTurnoOperativoV1` y un hecho de auditoría, ambos `CONFIRMADO`, con referencia al turno. | PASS |
+
+El turno abrió a `2026-10-10T08:10:07.674Z` y cerró a
+`2026-10-10T11:14:27.281Z` (hora de Bogotá: 03:10–06:14). Los comandos de
+venta observados fueron
+`bodega-venta:1f27bff6-df82-47c4-9997-85b6866c766c` y
+`bodega-venta:b7c8b2f4-444a-4cab-84b9-90e2db8f5b5c`; el de cierre fue
+`cierre-turno:50I2wZft5cqyNIOWGdnJ`. Los registros de solicitud vinculan cada
+comando con su venta; no se usó `causationId` como evidencia.
+
+### Hallazgo de revisión y corrección
+
+En la vista administrativa, el renglón del historial ya mostraba el turno
+cerrado y cuadrado, pero el modal conservaba la copia del turno seleccionada
+antes de que llegara el snapshot nuevo. El resultado podía ser una etiqueta
+“Turno en curso” con el arqueo anterior, aunque el backend ya había confirmado
+el cierre. Se corrigió la selección para conservar el ID y resolver el detalle
+contra el snapshot vigente; los listeners de ventas/egresos se mantienen ligados
+al ID y no se reinician por cada actualización del historial.
+
+La prueba de regresión se ejecutó antes del cambio y falló por el helper ausente
+(RED); después pasó junto con la suite del historial: `npm run test:turnos-history`
+(`9/9`). También pasaron `npx tsc --noEmit`, ESLint dirigido a los archivos
+cambiados y `npm run build -- --webpack`. El build predeterminado
+de Turbopack no pudo ejecutarse en este worktree porque sus dependencias se
+montaron mediante un enlace fuera de su raíz; la CI del PR verificará el build
+predeterminado en un checkout limpio.
+
+Para verificar además el render y la suscripción de la vista real de Admin sin
+depender de una sesión manual en un preview protegido, se agregó al E2E Bodega
+un caso Playwright con admin sintético en Emulator: abre un turno, abre su
+detalle, cambia el snapshot Firestore a cerrado y exige que el modal actualice
+el estado, el cuadre y la diferencia sin recargar. Es una mutación aislada del
+Emulator, no una operación canónica ni una escritura de staging. En las dos
+primeras ejecuciones locales de la suite completa (10 escenarios), el caso
+nuevo mostró el estado y los importes cerrados, pero falló por exigir la cadena
+`$10.000` sin el espacio no separable que entrega `Intl.NumberFormat` en
+`es-CO`. La aserción se corrigió a una expresión regular que admite ese
+separador; la ejecución posterior de `npm run e2e:bodega-u4-u5` pasó los
+`10/10` escenarios en Emulator. El runner registró también una consulta de
+Secret Manager denegada para el proyecto demo; no hubo acceso a un Secret ni
+escrituras fuera de los Emulators.
+
+También pasaron `npm run test:turnos-history` (`9/9`), `npx tsc --noEmit`,
+ESLint dirigido y `git diff --check`. El CI anterior del PR #526, run
+`38049053074`, precede al nuevo E2E y no lo valida; el CI y el preview del
+último commit se verifican en el PR antes de integrar. Gate G permanece
+`EN CURSO` hasta que el CI del commit vigente pase y el PR se integre. No se
+requiere otra sesión manual, venta ni cierre para comprobar este defecto de
+snapshot. La lectura remota posterior fue de solo lectura; no hubo deploy de
+Firebase, cambios de Rules/IAM/Secrets, limpieza ni escrituras en producción.
+
 ## Siguiente gate
 
-`GATE H — CERTIFICACIÓN E2.2`: consolidar una matriz final que preserve los
-escenarios no ejecutados como tales y determine si quedan bloqueos antes del
-tenant real.
+`GATE H — CERTIFICACIÓN E2.2`: después de cerrar G, actualizar y auditar la
+matriz de certificación contra la evidencia vigente, conservando como
+`NOT EXECUTED` los datos, tenant, aceptación y operación real que pertenecen a
+Gate I/J/K/L.

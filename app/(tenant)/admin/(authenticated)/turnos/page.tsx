@@ -29,6 +29,7 @@ import {
   obtenerDiagnosticoHistorialTurnos,
   type DiagnosticoHistorialTurnos,
 } from "@/lib/turnos-history-subscription"
+import { resolverTurnoSeleccionado } from "@/lib/turnos-history-selection"
 
 type FiltroTurno = "todos" | "abierto" | "cerrado" | "alerta"
 type ResumenVentas = Awaited<ReturnType<typeof calcularVentasTurno>>
@@ -77,7 +78,11 @@ export default function TurnosPage() {
   const [intentoCarga, setIntentoCarga] = useState(0)
   const [busqueda, setBusqueda] = useState("")
   const [filtro, setFiltro] = useState<FiltroTurno>("todos")
-  const [seleccionado, setSeleccionado] = useState<Turno | null>(null)
+  const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null)
+  const seleccionado = useMemo(
+    () => resolverTurnoSeleccionado(turnos, seleccionadoId),
+    [turnos, seleccionadoId],
+  )
   const [ventasDetalle, setVentasDetalle] = useState<ResumenVentas | null>(null)
   const [egresosDetalle, setEgresosDetalle] = useState<Egreso[]>([])
   const [cargandoDetalle, setCargandoDetalle] = useState(false)
@@ -104,7 +109,7 @@ export default function TurnosPage() {
 
   useEffect(() => {
     let activo = true
-    if (!seleccionado) {
+    if (!seleccionadoId) {
       setVentasDetalle(null)
       setEgresosDetalle([])
       setErrorDetalle(null)
@@ -116,11 +121,11 @@ export default function TurnosPage() {
     setEgresosDetalle([])
     setErrorDetalle(null)
 
-    const unsubscribeEgresos = suscribirEgresosPorTurno(seleccionado.id, (egresos) => {
+    const unsubscribeEgresos = suscribirEgresosPorTurno(seleccionadoId, (egresos) => {
       if (activo) setEgresosDetalle(egresos)
     })
 
-    void calcularVentasTurno(seleccionado.id)
+    void calcularVentasTurno(seleccionadoId)
       .then((ventas) => {
         if (activo) setVentasDetalle(ventas)
       })
@@ -135,7 +140,7 @@ export default function TurnosPage() {
       activo = false
       unsubscribeEgresos()
     }
-  }, [seleccionado])
+  }, [seleccionadoId])
 
   const nombres = useMemo(() => crearIndiceNombres(usuarios), [usuarios])
   const abiertos = useMemo(() => turnos.filter((turno) => turno.estado === "abierto"), [turnos])
@@ -308,7 +313,7 @@ export default function TurnosPage() {
               return (
                 <button
                   key={turno.id}
-                  onClick={() => setSeleccionado(turno)}
+                  onClick={() => setSeleccionadoId(turno.id)}
                   className="w-full text-left px-4 py-4 hover:bg-card/50 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -363,7 +368,7 @@ export default function TurnosPage() {
       )}
 
       {seleccionado && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center" onClick={() => setSeleccionado(null)}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center" onClick={() => setSeleccionadoId(null)}>
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
           <div
             className="relative w-full max-w-lg max-h-[92dvh] overflow-y-auto bg-card border border-border rounded-t-3xl sm:rounded-3xl p-5 space-y-5"
@@ -375,7 +380,7 @@ export default function TurnosPage() {
                 <h2 className="text-xl font-black text-foreground mt-1">{nombreCajero(seleccionado)}</h2>
                 <p className="text-xs text-muted-foreground mt-1">{seleccionado.estado === "abierto" ? "Turno en curso" : "Turno cerrado"}</p>
               </div>
-              <button onClick={() => setSeleccionado(null)} className="h-9 w-9 rounded-xl bg-card/50 flex items-center justify-center text-muted-foreground hover:text-foreground" aria-label="Cerrar detalle">
+              <button onClick={() => setSeleccionadoId(null)} className="h-9 w-9 rounded-xl bg-card/50 flex items-center justify-center text-muted-foreground hover:text-foreground" aria-label="Cerrar detalle">
                 <X className="h-4 w-4" />
               </button>
             </div>

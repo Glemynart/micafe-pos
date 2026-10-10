@@ -282,6 +282,9 @@ jobs:
       - name: Pruebas de reportes tenant-aware y cuadre de caja
         run: npm run test:reportes
 
+      - name: Pruebas del historial y selección de turnos
+        run: npm run test:turnos-history
+
       - name: Pruebas de configuracion B1
         run: npm run test:configuracion
 
