@@ -1,14 +1,14 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: replay remoto y conciliación de roles
 
-**Resultado:** matriz funcional Gate F `FUNCTIONAL = PASS`; integración del
-registro en `main` pendiente de CI y merge del PR documental #524.
+**Resultado:** matriz funcional Gate F `FUNCTIONAL = PASS`; registro integrado
+en `main` mediante PR documental #524.
 
 > **Temporalidad:** los resultados parciales y estados `EN CURSO` de los
 > checkpoints anteriores a “Reconciliación final de la matriz” son históricos
 > y válidos para su hora de corte. La reconciliación final los actualiza: los
 > escenarios enumerados allí como pendientes quedaron resueltos o delimitados
 > por alcance. Para el estado funcional vigente, prevalece esa matriz final;
-> su registro oficial en `main` sigue sujeto a CI y merge de #524.
+> su registro oficial en `main` quedó integrado mediante #524 el 2026-10-10.
 
 ## Alcance y entorno
 
@@ -298,9 +298,11 @@ Emulator con las transacciones y lecturas autenticadas del único fixture
 retenido en staging; no se crea un segundo tenant de staging ni se altera otro
 tenant para fabricar el caso A/B. No quedan escenarios funcionales de Gate F
 pendientes dentro del alcance aprobado. El resultado de la matriz es
-`FUNCTIONAL = PASS`. El registro de este resultado en el Goal queda sujeto a
-que PR #524 cumpla auditoría y CI y se integre en `main`. Por autorización
-explícita del responsable el 2026-10-10, Gate G puede ejecutarse en paralelo
-sobre el código ya integrado en `main @ d1dd726`; esto no declara Gate F
-oficialmente cerrado ni habilita H/I antes de integrar #524 y aprobar G. No se
-toca el tenant real ni producción.
+`FUNCTIONAL = PASS`. PR #524 se integró en `main` mediante el merge commit
+`f43616e03f4244e86cfb817e1ce552116030e469` el `2026-10-10T08:24:27Z`, con sus
+checks requeridos en `SUCCESS`; con esa integración Gate F queda oficialmente
+`CERRADO`. La CI post-merge de `main`, run
+[`38037766343`](https://github.com/Glemynart/micafe-pos/actions/runs/38037766343),
+seguía `in_progress` al `2026-10-10T08:29Z`; no bloquea continuar el rehearsal
+de Gate G, pero forma parte del DoD global del Goal. Gate G debe pasar antes
+de emitir H o iniciar I. No se toca el tenant real ni producción.

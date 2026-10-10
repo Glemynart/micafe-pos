@@ -848,7 +848,7 @@ de stock. También resta la revalidación funcional integral del flujo en PWA y
 Backoffice. La expiración ya no es un bloqueo ni requiere esperar otro ciclo.
 No se inicia Gate G/H ni el tenant real y no se toca producción.
 
-### Checkpoint vigente — 2026-10-10 — PR #524 / matriz funcional Gate F
+### Checkpoint funcional pre-merge — 2026-10-10 — PR #524 / matriz Gate F
 
 La evidencia remota del preview actual cierra la expiración automática, el
 retry autenticado después de perder la respuesta, la carrera remota de dos
@@ -861,11 +861,27 @@ matriz combinada se registra como `FUNCTIONAL = PASS`; push nativo/sonido no es
 una garantía de ADR-SAAS-065 y las mejoras de tiempo real y efectivo sin turno
 se mantienen fuera de este gate por priorización expresa.
 
-PR #524 es documental y está abierto. El resultado funcional no autoriza por sí
-solo iniciar el siguiente gate: hacen falta la auditoría limitada al alcance y
-todos los checks CI en verde; después del merge se actualizará el estado oficial
-del Goal y podrá repetirse Gate G. Gate H e I/J/K/L permanecen pendientes; no se
-crea tenant real ni se modifica producción.
+El resultado funcional y las validaciones se documentaron en PR #524; al corte
+de este checkpoint, la integración todavía estaba pendiente. Gate G podía
+repetirse una vez integrada la evidencia. Gate H e I/J/K/L permanecían
+pendientes; no se creaba tenant real ni se modificaba producción.
+
+### Checkpoint vigente — 2026-10-10 — PR #524 integrado / Gate F cerrado
+
+PR #524 quedó `MERGED` en `main` mediante `f43616e03f4244e86cfb817e1ce552116030e469`
+el `2026-10-10T08:24:27Z`. Sus checks requeridos de tipos/pruebas, Vercel y
+Preview Comments terminaron `SUCCESS`. La CI post-merge de `main`, run
+[`38037766343`](https://github.com/Glemynart/micafe-pos/actions/runs/38037766343),
+seguía `in_progress` al `2026-10-10T08:29Z`; se continúa Gate G sin esperar ese
+run, pero la CI de `main` debe quedar verde antes de declarar el Goal completo.
+
+Gate F queda oficialmente `CERRADO` con la matriz `FUNCTIONAL = PASS` integrada
+en `main`; la evidencia funcional y sus límites por entorno están en
+[`G-SAAS-02-E2-2-GATE-F-REMOTE-REPLAY-ROLE-RECONCILIATION-2026-10-10.md`](evidence/G-SAAS-02-E2-2-GATE-F-REMOTE-REPLAY-ROLE-RECONCILIATION-2026-10-10.md).
+Gate G está `EN CURSO`: debe terminarse el rehearsal vigente y conciliarse el
+cierre del turno sintético antes de registrar `PASS`. Gate H queda pendiente y
+solo se emite después de G; Gate I/J/K/L siguen pendientes. No se crea ni
+configura el tenant real y no se modifica producción.
 
 ### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 
