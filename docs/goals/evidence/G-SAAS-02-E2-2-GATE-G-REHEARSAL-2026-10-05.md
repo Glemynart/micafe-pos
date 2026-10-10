@@ -105,18 +105,24 @@ depender de una sesión manual en un preview protegido, se agregó al E2E Bodega
 un caso Playwright con admin sintético en Emulator: abre un turno, abre su
 detalle, cambia el snapshot Firestore a cerrado y exige que el modal actualice
 el estado, el cuadre y la diferencia sin recargar. Es una mutación aislada del
-Emulator, no una operación canónica ni una escritura de staging. El intento de
-ejecutar localmente el runner no llegó a iniciar porque este worktree no tiene
-instaladas las dependencias `functions/node_modules`; la CI limpia debe validar
-el caso nuevo.
+Emulator, no una operación canónica ni una escritura de staging. En las dos
+primeras ejecuciones locales de la suite completa (10 escenarios), el caso
+nuevo mostró el estado y los importes cerrados, pero falló por exigir la cadena
+`$10.000` sin el espacio no separable que entrega `Intl.NumberFormat` en
+`es-CO`. La aserción se corrigió a una expresión regular que admite ese
+separador; la ejecución posterior de `npm run e2e:bodega-u4-u5` pasó los
+`10/10` escenarios en Emulator. El runner registró también una consulta de
+Secret Manager denegada para el proyecto demo; no hubo acceso a un Secret ni
+escrituras fuera de los Emulators.
 
-El CI anterior del PR #526, run `38049053074`, pasó antes de añadir este caso;
-la ejecución CI que incluye el nuevo E2E queda pendiente. El preview de esa
-versión ya terminó su despliegue (`Vercel = pass`). Gate G permanece `EN CURSO`
-hasta que el nuevo CI pase y el PR se integre. No se requiere otra sesión
-manual, venta ni cierre para comprobar este defecto de snapshot. La lectura
-remota posterior fue de solo lectura; no hubo deploy de Firebase, cambios de
-Rules/IAM/Secrets, limpieza ni escrituras en producción.
+También pasaron `npm run test:turnos-history` (`9/9`), `npx tsc --noEmit`,
+ESLint dirigido y `git diff --check`. El CI anterior del PR #526, run
+`38049053074`, precede al nuevo E2E y no lo valida; el CI y el preview del
+último commit se verifican en el PR antes de integrar. Gate G permanece
+`EN CURSO` hasta que el CI del commit vigente pase y el PR se integre. No se
+requiere otra sesión manual, venta ni cierre para comprobar este defecto de
+snapshot. La lectura remota posterior fue de solo lectura; no hubo deploy de
+Firebase, cambios de Rules/IAM/Secrets, limpieza ni escrituras en producción.
 
 ## Siguiente gate
 

@@ -299,7 +299,7 @@ test("el detalle del turno seleccionado refleja el snapshot de cierre en vivo", 
 
   await expect(detalle).toContainText("Turno cerrado")
   await expect(detalle).toContainText("Diferencia · Cuadrado")
-  await expect(detalle).toContainText("$10.000")
+  await expect(detalle).toContainText(/\$\s*10\.000/)
 })
 
 test("administrador Bodega B solo consulta su propio catálogo", async ({ page }) => {
