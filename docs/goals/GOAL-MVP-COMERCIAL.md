@@ -759,7 +759,7 @@ concurrencia e aislamiento remotos y la conciliación integral de inventario,
 ledger, reportes, turnos, PWA y Backoffice. No se adelantan Gate G/H, no se
 configura el tenant real y no se toca producción.
 
-### Checkpoint vigente — 2026-10-09 — PR #518 / conciliación read-only Gate F
+### Checkpoint histórico — 2026-10-09 — PR #518 / conciliación read-only Gate F (supersedido por PR #519)
 
 PR #518 quedó integrado en `main` mediante el merge commit
 `4702da432908a6485c00f31d1aec7a69eb084cbd` a las `2026-10-09T23:10:38Z`.
@@ -786,6 +786,47 @@ matriz remota que Emulator no reemplaza. El Scheduler continúa habilitado cada
 cinco minutos; el vencimiento esperado es `2026-10-10T05:00:00Z` (medianoche de
 Bogotá). No se adelanta el reloj. No se inician G/H ni el tenant real y no se
 toca producción.
+
+### Checkpoint vigente — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
+
+PR #519 quedó integrado en `main` mediante el merge commit
+`81024ce427b0112b65ac3f919f368ed5c50543b0` a las `2026-10-10T00:22:46Z`
+(`2026-10-09 19:22:46`, Bogotá). Sus checks previos al merge (`Tipos y
+pruebas`, `Vercel` y `Vercel Preview Comments`) terminaron `PASS`. La CI
+post-merge de `main`, run `38008791207`, terminó `success` sobre ese SHA a las
+`2026-10-10T00:43:04Z`.
+
+PR #519 añade al Emulator el ciclo agenda→reserva→solicitud aprobada→venta
+canónica, replay tras revocación/restauración y competencia entre dos
+vendedores, además de ejecutar Playwright con `--webpack`. Las pruebas de
+agenda y competencia pasaron en la CI del PR; siguen siendo evidencia de
+Emulator, no de la matriz remota.
+
+En `micafe-pos-staging`, una confirmación normal de solicitud sintética creó una
+venta por transferencia de `$5.000 COP` y consumió las 2 unidades libres. La
+segunda solicitud aprobada fue rechazada por falta de existencias y permaneció
+`APROBADA`; la agenda conservó sus 2 unidades retenidas. El producto quedó con
+2 físicas, 2 reservadas y 0 disponibles. Firestore concilió 13 ventas sintéticas
+por `$65.000 COP`. La prueba fue secuencial, no una carrera simultánea. El
+detalle está en
+[`G-SAAS-02-E2-2-GATE-F-STAGING-STOCK-COMPETITION-2026-10-09.md`](evidence/G-SAAS-02-E2-2-GATE-F-STAGING-STOCK-COMPETITION-2026-10-09.md).
+
+Al elegir efectivo, el vendedor todavía necesita abrir turno; no se abrió ni
+alteró uno y la confirmación se hizo por transferencia. El requisito de venta
+en efectivo sin turno queda diferido para después de Gate F y antes de Gate I.
+Tras renovar la sesión de Edge se concilió visualmente `Ventas`, `Inventario`,
+`Agenda Bodega` y `Solicitudes`: la venta pagada está listada, el stock es 2
+físicas / 2 reservadas / 0 disponibles y la segunda solicitud sigue aprobada.
+La agenda mantiene exactamente una reserva activa por 2 unidades, con
+vencimiento natural a medianoche de Bogotá (`2026-10-10T05:00:00Z`). `Reportes`
+muestra `$5.000` en ventas del día (una transferencia, margen bruto 60%); el
+historial de turnos carga con 1 abierto y 8 cerrados visibles, sin mutaciones.
+
+Gate F permanece `EN CURSO`, no `PASS`: faltan observar el vencimiento natural
+del hold, el retry/replay remoto tras pérdida de respuesta, aislamiento remoto
+tenant/roles y revocación/restauración de membresía, además de la conciliación
+integral que Emulator no reemplaza. No se inician G/H, no se configura el tenant
+real y no se toca producción.
 
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 
