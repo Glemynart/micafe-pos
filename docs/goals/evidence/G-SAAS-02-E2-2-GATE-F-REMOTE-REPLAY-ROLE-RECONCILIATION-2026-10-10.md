@@ -173,6 +173,13 @@ configuración; se resolvió sin recargar y las rutas anteriores llegaron a su
 contenido. Esta visita no reproduce un bloqueo persistente ni acredita un
 tiempo real contractual.
 
+Como control de rol de interfaz, una pestaña temporal del mismo origen intentó
+abrir `/admin/solicitudes` usando la sesión de vendedor y fue redirigida a
+`/admin/login?error=not_admin`; la pantalla indicó que la sesión de caja seguía
+activa. Se cerró la pestaña temporal y la sesión POS original permaneció activa.
+Esto no sustituye una invocación remota negativa que pruebe autorización
+backend.
+
 No se ejecutaron comandos de negocio ni mutaciones: solicitudes, ventas,
 ledger, turnos, agenda, reservas, stock, membresías y Auth permanecieron sin
 cambios por Codex. Rules, Functions, IAM, Secrets, despliegues, otros tenants y
