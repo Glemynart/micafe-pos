@@ -787,7 +787,37 @@ cinco minutos; el vencimiento esperado es `2026-10-10T05:00:00Z` (medianoche de
 Bogotá). No se adelanta el reloj. No se inician G/H ni el tenant real y no se
 toca producción.
 
-### Checkpoint vigente — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
+### Checkpoint vigente — 2026-10-09 — PR #521 / replay remoto y conciliación
+
+PR #521 quedó integrado en `main` mediante el merge commit
+`88ba0e7489d1dffebdb84d79ce0d344b0357f90a` a las `2026-10-10T02:15:55Z`
+(`2026-10-09 21:15:55`, Bogotá). Sus checks previos al merge (`Tipos y
+pruebas`, `Vercel` y `Vercel Preview Comments`) terminaron `PASS`. El run
+post-merge `38016327706` estaba en ejecución al registrar este checkpoint.
+
+La [evidencia remota de Gate F](evidence/G-SAAS-02-E2-2-GATE-F-REMOTE-REPLAY-ROLE-RECONCILIATION-2026-10-10.md)
+acredita que el replay autenticado del mismo comando devuelve la venta
+persistida sin duplicar solicitud, venta, movimiento financiero ni inventario,
+después de restaurar la membresía sintética. También reconcilia en lecturas
+separadas POS vendedor y Backoffice admin, agenda/reserva, inventario, reportes
+y turnos. El guard de rol vendedor→admin se observó en UI; no equivale a la
+matriz backend tenant/roles A/B. La ejecución no creó una venta ni modificó
+stock o la reserva activa.
+
+Gate F permanece `EN CURSO`, no `PASS`. Aún falta el retry remoto del comando
+canónico de venta con una pérdida controlada de respuesta después del commit;
+el replay autenticado simple no simula esa desconexión. El aislamiento A/B
+remoto de lectura de configuración ya tenía evidencia previa, pero falta
+completar la matriz de tenant/roles en las operaciones Bodega. También faltan
+la competencia simultánea remota de stock y observar el vencimiento natural de
+la reserva. La conciliación visual más reciente y el replay idempotente ya
+están documentados como escenarios puntuales; no son, por sí solos, la matriz
+integral de Gate F. Se puede avanzar en esos escenarios independientes sin
+esperar la expiración; no se adelanta el reloj ni se cancela el hold para
+acelerar la evidencia. No se inician Gates G/H ni el tenant real y no se toca
+producción.
+
+### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 
 PR #519 quedó integrado en `main` mediante el merge commit
 `81024ce427b0112b65ac3f919f368ed5c50543b0` a las `2026-10-10T00:22:46Z`

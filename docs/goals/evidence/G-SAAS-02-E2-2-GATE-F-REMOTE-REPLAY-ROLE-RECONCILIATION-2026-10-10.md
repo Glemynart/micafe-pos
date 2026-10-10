@@ -26,6 +26,32 @@ producción, otro tenant, Rules, Functions, IAM, Secrets ni despliegues.
 | Conciliación de reporte y turnos | `/admin/reportes` mostró para el 9-oct ventas de `$5.000`, costo `$2.000`, ganancia bruta `$3.000` y margen `60 %`, por transferencia. `/admin/turnos` cargó 1 turno abierto y 8 cerrados visibles. Ningún turno fue abierto, cerrado o ajustado. |
 | Verificación de acceso al tenant | El indicador `Verificando acceso al tenant…` apareció brevemente durante la navegación; ambas sesiones terminaron cargando sus vistas sin recargar manualmente. El incidente de carga infinita no se reprodujo en esta ejecución. |
 
+### Revalidación de lectura PWA y frontera de rol — 2026-10-10 03:09 UTC
+
+En el preview de staging
+`cafeatrato-git-codex-e2-2-gatef-remo-908032-glemynarts-projects.vercel.app`,
+el perfil integrado autenticado como `GateF Seller E2_2 Bodega Atrato` cargó
+`/pos`, `Mis ventas` y `Mi agenda`. POS mostró cero disponibles, carrito vacío
+y `Sin turno`; `Mis ventas` presentó siete ventas sintéticas previas por
+`$5.000 COP`; la agenda mostró una retención activa de 2 unidades base para el
+9-oct, franja 14:00–15:00, con vencimiento 10-oct a medianoche de Bogotá, y las
+entradas anteriores en estados terminales. No se creó, canceló, convirtió ni
+confirmó ninguna operación.
+
+Al navegar desde ese mismo perfil vendedor a `/admin/solicitudes`, la app
+redirigió a `/admin/login?error=not_admin`. Esto vuelve a comprobar la barrera
+de rol en UI en el preview vigente, pero no prueba autorización backend ni la
+matriz de aislamiento tenant/roles A/B. No se obtuvo una sesión admin en esta
+revalidación.
+
+#### Auditoría de mutaciones
+
+- Solo navegación y lectura visual del fixture sintético en staging.
+- Solicitudes, ventas, ledger, turnos, agenda, reserva, stock, membresías y Auth:
+  cambios por Codex `0`.
+- Producción, tenant real, Rules, Functions, IAM, Secrets y despliegues:
+  cambios por Codex `0`.
+
 ## Límites y pendientes
 
 - Sigue pendiente observar la expiración natural del hold y confirmar su
@@ -44,3 +70,39 @@ producción, otro tenant, Rules, Functions, IAM, Secrets ni despliegues.
 
 No se declara Gate F cerrado con esta evidencia parcial. No se inicia Gate G/H,
 Gate I, el tenant real ni producción.
+
+### Revalidación administrativa read-only — 2026-10-10, ~03:18 UTC
+
+Tras el inicio manual de sesión del usuario, Edge mostró la identidad
+`Administrador Bodega Demo` en el preview vigente de Gate F. Se inspeccionaron
+las rutas administrativas sin confirmar ni ejecutar operaciones:
+
+| Superficie | Observación |
+|---|---|
+| `/admin/solicitudes` | La solicitud sintética `YOTK3IL0` está `APROBADA`: 1 presentación (2 unidades base), total `$5.000 COP`; la UI muestra vencimiento el 10-oct-2026 a las 07:20:45. No se confirmó la venta. |
+| `/admin/inventario` | Producto sintético: 2 unidades físicas, mínimo 2, 2 reservadas y 0 disponibles. No se ajustó stock. |
+| `/admin/reportes` | Para el 9-oct: ventas `$5.000`, costo `$2.000`, ganancia bruta `$3.000`, margen 60%; una venta atribuida al vendedor sintético terminado en `e230fe`, pagada por transferencia (`$5.000`) y efectivo `$0`. El reporte indica que no hay cierre conciliable en el período. |
+| `/admin/turnos` | Resumen: 1 turno abierto, 8 cerrados visibles, sin faltantes ni sobrantes reportados. La lista incluye un turno sintético abierto de `E2_2-BODEGA-STAGING-FIXTURE` del 2-oct con base `$10.000`; se dejó intacto. |
+| `/admin/agenda` | Sigue activa la reserva de 2 unidades para el 9-oct, 14:00–15:00, con vencimiento a medianoche del 10-oct (Bogotá). Las demás entradas visibles están canceladas o atendidas. No se canceló ni liberó. |
+| `/admin/ventas` | La consulta muestra ventas sintéticas pagadas del fixture por `$5.000`; entre ellas aparece el comando `d60f5034` ya reconciliado en la lectura previa. No se anuló ni creó ninguna venta. |
+| `/admin/catalogo` | El producto sintético está activo; la presentación de prueba convierte 1 presentación en 2 unidades base y muestra precio `$5.000 COP`. Coincide con la solicitud y la reserva. No se guardaron cambios. |
+| `/admin/clientes` | Están presentes el cliente base del fixture y el cliente sintético `...CLIENTE-GATE-F`. No se creó, editó ni desactivó ningún cliente. |
+
+Las vistas mostraron el aviso `Activa las notificaciones para recibir avisos
+operativos de tu empresa`; por ello no se considera probada la suscripción push
+de este origen de preview, aunque la entrega se confirmó previamente en otro
+preview. No se pulsó `Activar`.
+
+#### Auditoría de mutaciones
+
+- Acciones realizadas: navegación y lectura visual en el preview autenticado.
+- Solicitudes, ventas, ledger, turnos, agenda, reservas, stock, membresías y
+  Auth: cambios por Codex `0`.
+- Notificaciones, Rules, Functions, IAM, Secrets, despliegues, tenant real y
+  producción: cambios por Codex `0`.
+
+Esta revalidación amplía la evidencia de las superficies Backoffice, pero no
+cierra la matriz de Gate F. Siguen pendientes el aislamiento remoto A/B y
+autorización backend, carrera remota de stock, expiración natural de la reserva,
+retry tras pérdida real de respuesta y la revalidación integral de PWA y
+Backoffice. Gate F permanece `EN CURSO`.
