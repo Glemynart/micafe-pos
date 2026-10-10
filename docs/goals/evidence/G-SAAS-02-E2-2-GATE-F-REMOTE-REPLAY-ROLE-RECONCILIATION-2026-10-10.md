@@ -228,3 +228,34 @@ remota simultánea ni la matriz backend de aislamiento tenant/rol A/B. La
 recarga del catálogo y la espera breve de la agenda tampoco certifican una
 actualización en tiempo real ni un SLA de carga. Gate F permanece `EN CURSO`;
 no se inicia Gate G/H/I ni se toca el tenant real o producción.
+
+### Carrera remota de stock entre dos vendedores — 2026-10-10 ~02:03 Bogotá
+
+Se usaron dos perfiles separados en el mismo preview de staging
+`cafeatrato-git-codex-e2-2-gatef-natu-3ac7cd-glemynarts-projects.vercel.app`:
+el vendedor sintético existente `GateF Seller` en Brave y el segundo operador
+sintético `GateF2-1010 Concurrencia` en el navegador integrado. El administrador
+continuó en Edge. Todas las sesiones correspondieron a
+`E2_2-BODEGA-STAGING-FIXTURE` en `micafe-pos-staging`.
+
+Como la existencia disponible era cero, se cargaron 2 unidades base al producto
+sintético desde `/admin/inventario`, mediante el flujo normal de Backoffice.
+Ambos vendedores actualizaron su vista y observaron 1 presentación disponible
+(2 unidades base). Cada uno creó una solicitud por 1 presentación (`$5.000 COP`,
+transferencia); administración aprobó ambas. Conforme a ADR-SAAS-062, la
+aprobación no retiene inventario. Se pulsó `Confirmar venta` desde ambas sesiones
+en paralelo.
+
+El servidor confirmó una sola venta: la solicitud del segundo vendedor quedó
+`EJECUTADA` y el Backoffice mostró exactamente una venta atribuida a ese nuevo
+operador. La solicitud competidora del vendedor original devolvió
+`No hay existencias suficientes para completar la venta`; no produjo venta y
+se canceló después para impedir un reintento accidental. `/admin/inventario`
+mostró existencia física `0`, reservado `0` y disponible `0`. No se abrió ni
+cerró turno. No se inspeccionó el ledger para esta carrera, por lo que esta
+evidencia no afirma una conciliación financiera adicional.
+
+Esto acredita `PASS` para la carrera remota de confirmación de stock: no hubo
+sobreventa ni doble registro visible. No prueba la matriz negativa backend de
+aislamiento entre tenants o roles; Gate F continúa `EN CURSO`, sin iniciar
+Gate G/H/I y sin tocar tenant real o producción.
