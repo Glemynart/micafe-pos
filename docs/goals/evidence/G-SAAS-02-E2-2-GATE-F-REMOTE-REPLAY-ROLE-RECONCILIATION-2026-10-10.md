@@ -38,9 +38,9 @@ producción, otro tenant, Rules, Functions, IAM, Secrets ni despliegues.
   esta comprobación.
 - El replay remoto fue idempotente, pero no incluyó una caída de red controlada
   entre el commit y la respuesta. No se afirma ese subcaso como `PASS`.
-- La entrega push fue confirmada previamente por el usuario. Sonido y
-  actualización en tiempo real de la bandeja fueron diferidos por el usuario;
-  esta verificación no los certifica.
+- La entrega push fue confirmada previamente por el usuario. La actualización
+  en tiempo real de la bandeja fue diferida explícitamente; esta verificación no
+  certifica sonido ni actualización en tiempo real.
 
 No se declara Gate F cerrado con esta evidencia parcial. No se inicia Gate G/H,
 Gate I, el tenant real ni producción.
