@@ -145,7 +145,9 @@ test("vendedor solicita transferencia, admin aprueba y el pago materializa una �
   expect(movimientosInventario.docs[0]?.data()).toMatchObject({ articuloId: tenantA.productoId, cantidad: -2, referenciaColeccion: "ventas", referenciaId: venta?.id })
   expect((await db.collection("productos").doc(tenantA.productoId).get()).data()?.stock).toBe(18)
   const movimientosCaja = await db.collection("transacciones_financieras").where("empresaId", "==", tenantA.empresaId).where("cuentaDocumentoId", "==", "caja-principal").get(); expect(movimientosCaja.size).toBe(0)
-  await page.goto("/admin"); await expect(page).toHaveURL(/\/admin\/login\?error=not_admin/)
+  await page.goto("/admin")
+  await expect(page.getByText(/Acceso denegado|Sesión activa en la caja|Tu cuenta no tiene permisos de administrador/)).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Centro de operación" })).toHaveCount(0)
 })
 
 test("reintento tras perder la respuesta de la venta conserva una sola solicitud y sus efectos", async ({ page, browser }) => {
