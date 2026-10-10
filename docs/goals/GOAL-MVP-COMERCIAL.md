@@ -804,13 +804,18 @@ y turnos. El guard de rol vendedor→admin se observó en UI; no equivale a la
 matriz backend tenant/roles A/B. La ejecución no creó una venta ni modificó
 stock o la reserva activa.
 
-Gate F permanece `EN CURSO`, no `PASS`. Aún faltan la prueba remota controlada
-de pérdida de respuesta antes del retry, aislamiento backend tenant/roles A/B,
-competencia simultánea remota de stock y observar el vencimiento natural de la
-reserva. La conciliación visual y el replay ya no son pendientes. Se puede
-avanzar en esos escenarios independientes sin esperar la expiración; no se
-adelanta el reloj ni se cancela el hold para acelerar la evidencia. No se
-inician Gates G/H ni el tenant real y no se toca producción.
+Gate F permanece `EN CURSO`, no `PASS`. Aún falta el retry remoto del comando
+canónico de venta con una pérdida controlada de respuesta después del commit;
+el replay autenticado simple no simula esa desconexión. El aislamiento A/B
+remoto de lectura de configuración ya tenía evidencia previa, pero falta
+completar la matriz de tenant/roles en las operaciones Bodega. También faltan
+la competencia simultánea remota de stock y observar el vencimiento natural de
+la reserva. La conciliación visual más reciente y el replay idempotente ya
+están documentados como escenarios puntuales; no son, por sí solos, la matriz
+integral de Gate F. Se puede avanzar en esos escenarios independientes sin
+esperar la expiración; no se adelanta el reloj ni se cancela el hold para
+acelerar la evidencia. No se inician Gates G/H ni el tenant real y no se toca
+producción.
 
 ### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 
