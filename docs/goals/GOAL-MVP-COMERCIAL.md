@@ -948,6 +948,47 @@ usuarios reales, precio especial por producto o regla aprobada, conteo físico,
 datos de contacto y autorización del entorno para almacenar datos reales. No
 se ejecutó Bootstrap/Activation ni se creó tenant real.
 
+### Checkpoint de Gate I — 2026-10-10 — PR #531 integrado
+
+PR #531 (`docs: propose live Bodega synchronization ADR`) quedó `MERGED` en
+`main @ 27fdc3b27ef29890be77036e7a43a284e5d77766`. El cambio mantiene
+ADR-SAAS-069 en estado `PROPUESTO`; no añade implementación, despliegue ni una
+nueva autoridad de lectura/escritura para el catálogo, las solicitudes o el
+stock.
+
+La CI post-merge de `main`, run
+[`38070380727`](https://github.com/Glemynart/micafe-pos/actions/runs/38070380727),
+sigue `in_progress` al `2026-10-10T17:23:21Z`, en el E2E de solicitud,
+aprobación y venta canónica de Bodega. Los pasos completados hasta ese corte no
+reportaban fallos; esto no equivale a CI `PASS`.
+
+Actualización: el mismo run terminó `success` a las `2026-10-10T17:29:49Z`
+sobre el mismo SHA. Completó E2E Bodega U4-U5, agenda/reservas/aislamiento,
+E2E B2, dry-run/backfill/cierre B3 en Emulator y certificación integral E4.1,
+además del resto de los checks del workflow. Esta CI confirma el commit
+integrado, pero no sustituye la aceptación de ADR-SAAS-069 ni desbloquea Gate I.
+
+Gate I continúa `BLOCKED` para Bootstrap/Activation y cualquier escritura de
+datos reales. La integración de #531 no acepta ADR-SAAS-069 ni resuelve los
+pendientes comerciales, operativos y de autorización ya enumerados arriba. No
+se creó/configuró el tenant real ni se modificaron staging o producción.
+
+En GETs Firestore de solo lectura sobre `micafe-pos-staging` a las
+`2026-10-10T17:27:41Z`, estos documentos exactos respondieron `NOT_FOUND`:
+
+| Documento consultado | Resultado |
+|---|---|
+| `empresas/distribuidora-las-jimenez` | `NOT_FOUND` |
+| `suscripciones/distribuidora-las-jimenez` | `NOT_FOUND` |
+| `configuraciones/distribuidora-las-jimenez` | `NOT_FOUND` |
+| `ofertas_comerciales_tenant/distribuidora-las-jimenez` | `NOT_FOUND` |
+| `cuentas_bancarias/r1a-WyJkaXN0cmlidWlkb3JhLWxhcy1qaW1lbmV6IiwiY3VlbnRhOmNhamEtcHJpbmNpcGFsIl0` | `NOT_FOUND` |
+| `cuentas_bancarias/r1a-WyJkaXN0cmlidWlkb3JhLWxhcy1qaW1lbmV6IiwiY3VlbnRhOmNhamEtZnVlcnRlIl0` | `NOT_FOUND` |
+
+No hubo escrituras. El resultado solo confirma que esos anclajes exactos no
+existen; no sustituye la validación canónica de unicidad/Bootstrap ni autoriza
+el alta.
+
 ### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 
 PR #519 quedó integrado en `main` mediante el merge commit
