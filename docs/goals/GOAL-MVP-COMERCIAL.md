@@ -911,14 +911,16 @@ se demuestra aceptación de la cliente ni se han validado precios especiales,
 usuarios reales o conteos físicos de inventario.
 
 Gate I continúa `BLOCKED` para Bootstrap/Activation, datos reales y producción.
-Antes de implementarlo, debe proponerse y aprobarse el ADR de venta en efectivo
-sin turno solicitado por el responsable. También se debe precisar la
-actualización sin refresco manual de solicitudes e inventario, mantener la
-revalidación transaccional server-authoritative y recibir aceptación comercial,
-usuarios, precios especiales, inventario contado y autorización del entorno.
-El siguiente PR esperado es únicamente la propuesta ADR de efectivo sin turno;
-quedará en estado `Propuesto` y no incluirá implementación hasta aprobación
-explícita. No se creó/configuró tenant real ni se modificó producción.
+La venta en efectivo sin turno solicitada por el responsable se documenta en
+[`ADR-SAAS-068`](../../ADR-SAAS-068-bodega-efectivo-sin-turno.md) en estado
+`PROPUESTO`; recomienda permitir el cobro por venta con recibido/cambio
+server-authoritative y sin fingir que participa en el cierre de un turno. La
+propuesta no está aceptada ni implementada; requiere decisión explícita antes
+del PR técnico. También se debe precisar la actualización sin refresco manual
+de solicitudes e inventario, mantener la revalidación transaccional
+server-authoritative y recibir aceptación comercial, usuarios, precios
+especiales, inventario contado y autorización del entorno. No se
+creó/configuró tenant real ni se modificó producción.
 
 ### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 
