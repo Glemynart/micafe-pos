@@ -866,7 +866,7 @@ de este checkpoint, la integración todavía estaba pendiente. Gate G podía
 repetirse una vez integrada la evidencia. Gate H e I/J/K/L permanecían
 pendientes; no se creaba tenant real ni se modificaba producción.
 
-### Checkpoint vigente — 2026-10-10 — PR #524 integrado / Gate F cerrado
+### Checkpoint histórico — 2026-10-10 — PR #524 integrado / Gate F cerrado (supersedido por #527)
 
 PR #524 quedó `MERGED` en `main` mediante `f43616e03f4244e86cfb817e1ce552116030e469`
 el `2026-10-10T08:24:27Z`. Sus checks requeridos de tipos/pruebas, Vercel y
@@ -882,6 +882,45 @@ Gate G está `EN CURSO`: debe terminarse el rehearsal vigente y conciliarse el
 cierre del turno sintético antes de registrar `PASS`. Gate H queda pendiente y
 solo se emite después de G; Gate I/J/K/L siguen pendientes. No se crea ni
 configura el tenant real y no se modifica producción.
+
+### Checkpoint vigente — 2026-10-10 — PR #527 integrado / Gate G cerrado; Gate H en preparación
+
+PR #527 quedó `MERGED` en `main` mediante el merge commit
+`8293e10cbee51d66fa5f7e13166f704b078797d1` a las
+`2026-10-10T13:38:08Z` (`08:38:08`, hora de Bogotá). Sus checks requeridos
+(`Tipos y pruebas`, Vercel y Preview Comments) terminaron `SUCCESS`. La CI
+post-merge de `main`, run
+[`38056478464`](https://github.com/Glemynart/micafe-pos/actions/runs/38056478464),
+terminó `success` sobre el mismo SHA. El único cambio de producto de pruebas
+fue ajustar la aserción E2E de acceso denegado; no cambió la aplicación en
+ejecución.
+
+Gate G queda `CERRADO / PASS`: el rehearsal de dos ventas sintéticas en efectivo
+quedó conciliado contra solicitudes, movimientos de inventario, ledger, turno,
+arqueo y auditoría en
+[`G-SAAS-02-E2-2-GATE-G-REHEARSAL-2026-10-05.md`](evidence/G-SAAS-02-E2-2-GATE-G-REHEARSAL-2026-10-05.md).
+Gate H es el siguiente trabajo activo: emitir y auditar una matriz vigente de
+E2.2 sobre `main @ 8293e10…`, sin reinterpretar evidencia de Emulator como
+evidencia remota ni adelantar el tenant real.
+
+La entrada a Gate I no se presume con el cierre de G/H. Antes de I quedan por
+atender las solicitudes explícitas del responsable: permitir venta en efectivo
+sin abrir turno (el flujo vigente de ADR-SAAS-062 todavía exige turno) y
+actualizar inventario/bandeja administrativa sin depender de actualización
+manual. Como modificar el invariante de turno, pago y conciliación financiera
+requiere Gate de arquitectura, el siguiente paso es documentar un ADR en estado
+`Propuesto` y esperar su aprobación antes de implementar esa variación. La
+evidencia H debe certificar lo ya cubierto y dejar estos puntos claramente como
+pre-I, no marcarlos como `PASS`.
+
+Gate I también requiere refrescar el preflight de datos comerciales/operativos:
+la aprobación interna de oferta tenant-specific por `1.600.000 COP` está
+documentada, pero la oferta no está persistida y la evidencia existente no
+demuestra aceptación del cliente ni inventario real cargado. El preflight
+bloqueado de 2026-10-05 antecede a datos que el responsable suministró después;
+por eso se debe actualizar, no repetirlo como si nada hubiera cambiado. No se
+creó/configuró tenant real, no se almacenaron credenciales reales y no se tocó
+producción.
 
 ### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 

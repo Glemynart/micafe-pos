@@ -130,3 +130,28 @@ Firebase, cambios de Rules/IAM/Secrets, limpieza ni escrituras en producción.
 matriz de certificación contra la evidencia vigente, conservando como
 `NOT EXECUTED` los datos, tenant, aceptación y operación real que pertenecen a
 Gate I/J/K/L.
+
+### Actualización post-merge — 2026-10-10 — PR #527 / Gate G cerrado
+
+PR #527 quedó `MERGED` en `main` mediante el merge commit
+`8293e10cbee51d66fa5f7e13166f704b078797d1` a las
+`2026-10-10T13:38:08Z` (`08:38:08`, hora de Bogotá). El PR corrigió una
+aserción E2E de denegación de acceso: la prueba valida el mensaje visible de
+acceso denegado en vez de exigir una URL de login concreta. No cambió código de
+producto ni la evidencia de las operaciones sintéticas ya conciliadas.
+
+Los checks requeridos del PR —CI (`38054907236`), Vercel y Preview Comments—
+terminaron `SUCCESS`. La CI post-merge de `main`, run
+[`38056478464`](https://github.com/Glemynart/micafe-pos/actions/runs/38056478464),
+terminó `success` sobre el merge SHA. La evidencia de la corrida y el diff del
+merge confirman que la integración fue exclusivamente el ajuste de aserción
+E2E descrito arriba.
+
+Con la conciliación del rehearsal sintético ya registrada en este documento y
+el E2E corregido integrado con CI post-merge verde, `Gate G = PASS` y queda
+`CERRADO`. No se requiere iniciar sesión, crear otra venta ni volver a cerrar
+el turno para este gate. El siguiente corte es Gate H, cuya matriz debe
+reconciliarse contra la evidencia vigente y mantener Gate I/J/K/L sin ejecutar.
+La sesión, fixture, catálogo, datos de negocio, inventario, Functions, Rules,
+IAM, Secrets, tráfico, tenant real y producción no recibieron cambios por
+PR #527.
