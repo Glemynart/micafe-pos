@@ -883,17 +883,14 @@ cierre del turno sintético antes de registrar `PASS`. Gate H queda pendiente y
 solo se emite después de G; Gate I/J/K/L siguen pendientes. No se crea ni
 configura el tenant real y no se modifica producción.
 
-### Checkpoint vigente — 2026-10-10 — PR #527 integrado / Gate G cerrado / Gate H certificado
+### Checkpoint vigente — 2026-10-10 — PR #528 integrado / Gate H certificado
 
-PR #527 quedó `MERGED` en `main` mediante el merge commit
-`8293e10cbee51d66fa5f7e13166f704b078797d1` a las
-`2026-10-10T13:38:08Z` (`08:38:08`, hora de Bogotá). Sus checks requeridos
-(`Tipos y pruebas`, Vercel y Preview Comments) terminaron `SUCCESS`. La CI
-post-merge de `main`, run
-[`38056478464`](https://github.com/Glemynart/micafe-pos/actions/runs/38056478464),
-terminó `success` sobre el mismo SHA. El único cambio de producto de pruebas
-fue ajustar la aserción E2E de acceso denegado; no cambió la aplicación en
-ejecución.
+PR #528 quedó `MERGED` en `main` mediante el merge commit
+`4ac00d7c012fe6a8d5ba439b993dc9e02ae1247d` a las `2026-10-10T14:36:12Z`.
+Sus checks requeridos (tipos/pruebas, Vercel y Preview Comments) terminaron
+`SUCCESS`. La CI post-merge de `main`, run
+[`38060265375`](https://github.com/Glemynart/micafe-pos/actions/runs/38060265375),
+terminó `success` sobre ese mismo SHA.
 
 Gate G queda `CERRADO / PASS`: el rehearsal de dos ventas sintéticas en efectivo
 quedó conciliado contra solicitudes, movimientos de inventario, ledger, turno,
@@ -902,27 +899,26 @@ arqueo y auditoría en
 Gate H queda `CERTIFIED` para el alcance reusable de E2.2 demostrado en el
 fixture; la matriz vigente es
 [`G-SAAS-02-E2-2-GATE-H-CERTIFICATION-2026-10-10.md`](evidence/G-SAAS-02-E2-2-GATE-H-CERTIFICATION-2026-10-10.md).
-La matriz separa evidencia de Emulator y staging, y deja Gate I bloqueado por
-los prerrequisitos descritos abajo; no adelanta el tenant real.
+La certificación no declara E2.2 completo ni sustituye los requisitos de Gate I.
 
-La entrada a Gate I no se presume con el cierre de G/H. Antes de I quedan por
-atender las solicitudes explícitas del responsable: permitir venta en efectivo
-sin abrir turno (el flujo vigente de ADR-SAAS-062 todavía exige turno) y
-actualizar inventario/bandeja administrativa sin depender de actualización
-manual. Como modificar el invariante de turno, pago y conciliación financiera
-requiere Gate de arquitectura, el siguiente paso es documentar un ADR en estado
-`Propuesto` y esperar su aprobación antes de implementar esa variación. La
-evidencia H debe certificar lo ya cubierto y dejar estos puntos claramente como
-pre-I, no marcarlos como `PASS`.
+El preflight de Gate I fue reconciliado con los datos suministrados después del
+corte del 2026-10-05 en
+[`G-SAAS-02-E2-2-GATE-I-PREFLIGHT-RECONCILIATION-2026-10-10.md`](evidence/G-SAAS-02-E2-2-GATE-I-PREFLIGHT-RECONCILIATION-2026-10-10.md).
+La oferta interna tenant-specific por `1.600.000 COP` al año, el `empresaId`
+propuesto, la vertical `BODEGA_MVP1`, Diana como administradora inicial y la
+fuente de catálogo de 110 referencias quedan registrados con sus límites. No
+se demuestra aceptación de la cliente ni se han validado precios especiales,
+usuarios reales o conteos físicos de inventario.
 
-Gate I también requiere refrescar el preflight de datos comerciales/operativos:
-la aprobación interna de oferta tenant-specific por `1.600.000 COP` está
-documentada, pero la oferta no está persistida y la evidencia existente no
-demuestra aceptación del cliente ni inventario real cargado. El preflight
-bloqueado de 2026-10-05 antecede a datos que el responsable suministró después;
-por eso se debe actualizar, no repetirlo como si nada hubiera cambiado. No se
-creó/configuró tenant real, no se almacenaron credenciales reales y no se tocó
-producción.
+Gate I continúa `BLOCKED` para Bootstrap/Activation, datos reales y producción.
+Antes de implementarlo, debe proponerse y aprobarse el ADR de venta en efectivo
+sin turno solicitado por el responsable. También se debe precisar la
+actualización sin refresco manual de solicitudes e inventario, mantener la
+revalidación transaccional server-authoritative y recibir aceptación comercial,
+usuarios, precios especiales, inventario contado y autorización del entorno.
+El siguiente PR esperado es únicamente la propuesta ADR de efectivo sin turno;
+quedará en estado `Propuesto` y no incluirá implementación hasta aprobación
+explícita. No se creó/configuró tenant real ni se modificó producción.
 
 ### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 
