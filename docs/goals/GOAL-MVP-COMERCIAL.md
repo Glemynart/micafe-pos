@@ -967,6 +967,22 @@ datos reales. La integración de #531 no acepta ADR-SAAS-069 ni resuelve los
 pendientes comerciales, operativos y de autorización ya enumerados arriba. No
 se creó/configuró el tenant real ni se modificaron staging o producción.
 
+En GETs Firestore de solo lectura sobre `micafe-pos-staging` a las
+`2026-10-10T17:27:41Z`, estos documentos exactos respondieron `NOT_FOUND`:
+
+| Documento consultado | Resultado |
+|---|---|
+| `empresas/distribuidora-las-jimenez` | `NOT_FOUND` |
+| `suscripciones/distribuidora-las-jimenez` | `NOT_FOUND` |
+| `configuraciones/distribuidora-las-jimenez` | `NOT_FOUND` |
+| `ofertas_comerciales_tenant/distribuidora-las-jimenez` | `NOT_FOUND` |
+| `cuentas_bancarias/r1a-WyJkaXN0cmlidWlkb3JhLWxhcy1qaW1lbmV6IiwiY3VlbnRhOmNhamEtcHJpbmNpcGFsIl0` | `NOT_FOUND` |
+| `cuentas_bancarias/r1a-WyJkaXN0cmlidWlkb3JhLWxhcy1qaW1lbmV6IiwiY3VlbnRhOmNhamEtZnVlcnRlIl0` | `NOT_FOUND` |
+
+No hubo escrituras. El resultado solo confirma que esos anclajes exactos no
+existen; no sustituye la validación canónica de unicidad/Bootstrap ni autoriza
+el alta.
+
 ### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 
 PR #519 quedó integrado en `main` mediante el merge commit
