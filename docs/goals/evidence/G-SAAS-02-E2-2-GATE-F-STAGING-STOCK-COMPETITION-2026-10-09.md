@@ -20,6 +20,8 @@ físicas, 2 retenidas por la agenda activa y 2 disponibles.
 |---|---|
 | Confirmar la solicitud sintética terminada en `4NJMXIL0` por transferencia | La UI mostró `Venta confirmada`; la solicitud pasó a `EJECUTADA`. Firestore confirmó una venta `pagada` por `$5.000 COP`, método `transferencia`, sin turno asociado. |
 | Inventario tras la venta | 2 unidades físicas, 2 retenidas por la agenda y 0 disponibles. El stock reservado no se consumió ni liberó. |
+| Reporte diario en Backoffice | El 2026-10-09 muestra ventas totales `$5.000`, ganancia bruta `$3.000`, costo `$2.000`, margen 60%; por vendedor: una venta por transferencia de `$5.000`, sin efectivo. |
+| Historial de turnos en Backoffice | La ruta cargó; mostró 1 turno abierto y 8 cerrados en el historial visible. No se abrió, cerró ni ajustó ningún turno durante esta conciliación. |
 | Confirmar la segunda solicitud, terminada en `YOTK3IL0` | El servidor respondió «No hay existencias suficientes para completar la venta». La solicitud permaneció `APROBADA`; no se creó una segunda venta. |
 | Conciliación del fixture | Firestore mostró 13 ventas sintéticas por `$65.000 COP` en total, un incremento de `$5.000` frente a la lectura previa de 12 ventas / `$60.000`. |
 | Actualización de la vista del vendedor | La vista reflejó `EJECUTADA` y mantuvo la segunda solicitud como `APROBADA`; anuncia actualización automática mientras permanece abierta. |
@@ -42,8 +44,10 @@ integradas con PR #519.
   y 13 ventas sintéticas; `Inventario` muestra 2 físicas, 2 reservadas y 0
   disponibles; `Agenda Bodega` muestra la única reserva activa de 2 unidades,
   con vencimiento `2026-10-10 00:00` Bogotá; `Solicitudes de venta` muestra la
-  segunda solicitud aún `APROBADA`. Esto confirma que el estado observado en UI
-  coincide con la lectura previa de Firestore.
+  segunda solicitud aún `APROBADA`. `Reportes` muestra para el día una venta
+  por `$5.000` por transferencia y `Turnos y caja` carga el historial (1
+  abierto, 8 cerrados visibles); no se mutaron turnos. Esto confirma que el
+  estado observado en UI coincide con la lectura previa de Firestore.
 - La agenda conserva una reserva activa de 2 unidades con vencimiento a
   medianoche de Bogotá (`2026-10-10T05:00:00Z`). El vencimiento natural aún no
   se había observado. No se forzó el Scheduler ni se manipuló el reloj.

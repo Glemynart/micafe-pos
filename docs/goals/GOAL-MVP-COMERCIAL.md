@@ -818,7 +818,9 @@ Tras renovar la sesión de Edge se concilió visualmente `Ventas`, `Inventario`,
 `Agenda Bodega` y `Solicitudes`: la venta pagada está listada, el stock es 2
 físicas / 2 reservadas / 0 disponibles y la segunda solicitud sigue aprobada.
 La agenda mantiene exactamente una reserva activa por 2 unidades, con
-vencimiento natural a medianoche de Bogotá (`2026-10-10T05:00:00Z`).
+vencimiento natural a medianoche de Bogotá (`2026-10-10T05:00:00Z`). `Reportes`
+muestra `$5.000` en ventas del día (una transferencia, margen bruto 60%); el
+historial de turnos carga con 1 abierto y 8 cerrados visibles, sin mutaciones.
 
 Gate F permanece `EN CURSO`, no `PASS`: faltan observar el vencimiento natural
 del hold, el retry/replay remoto tras pérdida de respuesta, aislamiento remoto
