@@ -59,8 +59,57 @@ evidencia de este rehearsal es el par exacto de movimientos de depósito de
 - Esta evidencia no autoriza tenant real, aceptación operativa, producción ni
   el cierre de E2.2.
 
+## Addendum — rehearsal posterior al cierre de Gate F (2026-10-10)
+
+Se repitió el flujo en el fixture retenido, sin crear identidades, catálogo,
+cliente ni fixture nuevos. La lectura de Firestore en `micafe-pos-staging`
+concilió el cierre confirmado por el responsable:
+
+| Paso | Evidencia observada | Resultado |
+| --- | --- | --- |
+| Solicitudes y aprobación | Dos solicitudes del cliente sintético quedaron `EJECUTADA`; cada una apunta a su venta canónica y comando correspondiente. | PASS |
+| Venta y pago | Dos ventas únicas, ambas `pagada` / `COMPLETO` / `BODEGA_MVP1`, en efectivo por `5.000 COP` cada una. | PASS |
+| Inventario | Dos movimientos `venta`, uno por venta, de `-2` unidades base cada uno. | PASS |
+| Turno y arqueo | Turno `50I2wZft5cqyNIOWGdnJ`, estado `cerrado`, base `0`, efectivo vendido/esperado/reportado `10.000 COP`, diferencia `0`, depósito neto `10.000 COP`. | PASS |
+| Ledger financiero | Dos ingresos `ventas` por `5.000 COP` y un par de movimientos de cierre (`ingreso`/`egreso`) por `10.000 COP`, vinculados al turno. | PASS |
+| Auditoría e idempotencia | Un recibo de `cerrarTurnoOperativoV1` y un hecho de auditoría, ambos `CONFIRMADO`, con referencia al turno. | PASS |
+
+El turno abrió a `2026-10-10T08:10:07.674Z` y cerró a
+`2026-10-10T11:14:27.281Z` (hora de Bogotá: 03:10–06:14). Los comandos de
+venta observados fueron
+`bodega-venta:1f27bff6-df82-47c4-9997-85b6866c766c` y
+`bodega-venta:b7c8b2f4-444a-4cab-84b9-90e2db8f5b5c`; el de cierre fue
+`cierre-turno:50I2wZft5cqyNIOWGdnJ`. Los registros de solicitud vinculan cada
+comando con su venta; no se usó `causationId` como evidencia.
+
+### Hallazgo de revisión y corrección
+
+En la vista administrativa, el renglón del historial ya mostraba el turno
+cerrado y cuadrado, pero el modal conservaba la copia del turno seleccionada
+antes de que llegara el snapshot nuevo. El resultado podía ser una etiqueta
+“Turno en curso” con el arqueo anterior, aunque el backend ya había confirmado
+el cierre. Se corrigió la selección para conservar el ID y resolver el detalle
+contra el snapshot vigente; los listeners de ventas/egresos se mantienen ligados
+al ID y no se reinician por cada actualización del historial.
+
+La prueba de regresión se ejecutó antes del cambio y falló por el helper ausente
+(RED); después pasó junto con la suite del historial: `npm run test:turnos-history`
+(`9/9`). También pasaron `npx tsc --noEmit`, ESLint dirigido a los archivos
+cambiados y `npm run build -- --webpack`. El build predeterminado
+de Turbopack no pudo ejecutarse en este worktree porque sus dependencias se
+montaron mediante un enlace fuera de su raíz; la CI del PR verificará el build
+predeterminado en un checkout limpio.
+
+El resultado remoto del cierre es PASS, pero Gate G permanece `EN CURSO` hasta
+que la CI y la revisión del PR terminen y se compruebe en su preview que el
+detalle abierto también refleja el snapshot cerrado. No se requiere otra venta
+ni otro cierre para esa verificación. La lectura remota posterior fue de solo
+lectura; no hubo deploy, cambios de Rules/IAM/Secrets, limpieza ni escrituras en
+producción.
+
 ## Siguiente gate
 
-`GATE H — CERTIFICACIÓN E2.2`: consolidar una matriz final que preserve los
-escenarios no ejecutados como tales y determine si quedan bloqueos antes del
-tenant real.
+`GATE H — CERTIFICACIÓN E2.2`: después de cerrar G, actualizar y auditar la
+matriz de certificación contra la evidencia vigente, conservando como
+`NOT EXECUTED` los datos, tenant, aceptación y operación real que pertenecen a
+Gate I/J/K/L.

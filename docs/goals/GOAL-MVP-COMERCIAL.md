@@ -878,10 +878,14 @@ run, pero la CI de `main` debe quedar verde antes de declarar el Goal completo.
 Gate F queda oficialmente `CERRADO` con la matriz `FUNCTIONAL = PASS` integrada
 en `main`; la evidencia funcional y sus límites por entorno están en
 [`G-SAAS-02-E2-2-GATE-F-REMOTE-REPLAY-ROLE-RECONCILIATION-2026-10-10.md`](evidence/G-SAAS-02-E2-2-GATE-F-REMOTE-REPLAY-ROLE-RECONCILIATION-2026-10-10.md).
-Gate G está `EN CURSO`: debe terminarse el rehearsal vigente y conciliarse el
-cierre del turno sintético antes de registrar `PASS`. Gate H queda pendiente y
-solo se emite después de G; Gate I/J/K/L siguen pendientes. No se crea ni
-configura el tenant real y no se modifica producción.
+Gate G está `EN CURSO`: el rehearsal de solicitudes aprobadas, ventas,
+inventario, ledger, arqueo y cierre sintéticos ya se reconcilió en staging con
+resultado cuadrado. Durante la revisión se corrigió en este PR el detalle
+administrativo que retenía el snapshot anterior de un turno seleccionado; su
+validación en el preview y la integración siguen pendientes antes de registrar
+`PASS`. Gate H queda pendiente y solo se emite después de G; Gate I/J/K/L
+siguen pendientes. No se crea ni configura el tenant real y no se modifica
+producción.
 
 ### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 
