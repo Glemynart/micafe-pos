@@ -793,8 +793,8 @@ PR #519 quedó integrado en `main` mediante el merge commit
 `81024ce427b0112b65ac3f919f368ed5c50543b0` a las `2026-10-10T00:22:46Z`
 (`2026-10-09 19:22:46`, Bogotá). Sus checks previos al merge (`Tipos y
 pruebas`, `Vercel` y `Vercel Preview Comments`) terminaron `PASS`. La CI
-post-merge de `main`, run `38008791207`, estaba `in_progress` al abrir este
-checkpoint; no se presume su resultado.
+post-merge de `main`, run `38008791207`, terminó `success` sobre ese SHA a las
+`2026-10-10T00:43:04Z`.
 
 PR #519 añade al Emulator el ciclo agenda→reserva→solicitud aprobada→venta
 canónica, replay tras revocación/restauración y competencia entre dos
