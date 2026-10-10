@@ -962,6 +962,12 @@ sigue `in_progress` al `2026-10-10T17:23:21Z`, en el E2E de solicitud,
 aprobación y venta canónica de Bodega. Los pasos completados hasta ese corte no
 reportaban fallos; esto no equivale a CI `PASS`.
 
+Actualización: el mismo run terminó `success` a las `2026-10-10T17:29:49Z`
+sobre el mismo SHA. Completó E2E Bodega U4-U5, agenda/reservas/aislamiento,
+E2E B2, dry-run/backfill/cierre B3 en Emulator y certificación integral E4.1,
+además del resto de los checks del workflow. Esta CI confirma el commit
+integrado, pero no sustituye la aceptación de ADR-SAAS-069 ni desbloquea Gate I.
+
 Gate I continúa `BLOCKED` para Bootstrap/Activation y cualquier escritura de
 datos reales. La integración de #531 no acepta ADR-SAAS-069 ni resuelve los
 pendientes comerciales, operativos y de autorización ya enumerados arriba. No
