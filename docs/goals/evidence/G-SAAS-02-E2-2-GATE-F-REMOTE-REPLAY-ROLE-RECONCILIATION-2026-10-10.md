@@ -26,6 +26,32 @@ producción, otro tenant, Rules, Functions, IAM, Secrets ni despliegues.
 | Conciliación de reporte y turnos | `/admin/reportes` mostró para el 9-oct ventas de `$5.000`, costo `$2.000`, ganancia bruta `$3.000` y margen `60 %`, por transferencia. `/admin/turnos` cargó 1 turno abierto y 8 cerrados visibles. Ningún turno fue abierto, cerrado o ajustado. |
 | Verificación de acceso al tenant | El indicador `Verificando acceso al tenant…` apareció brevemente durante la navegación; ambas sesiones terminaron cargando sus vistas sin recargar manualmente. El incidente de carga infinita no se reprodujo en esta ejecución. |
 
+### Revalidación de lectura PWA y frontera de rol — 2026-10-10 03:09 UTC
+
+En el preview de staging
+`cafeatrato-git-codex-e2-2-gatef-remo-908032-glemynarts-projects.vercel.app`,
+el perfil integrado autenticado como `GateF Seller E2_2 Bodega Atrato` cargó
+`/pos`, `Mis ventas` y `Mi agenda`. POS mostró cero disponibles, carrito vacío
+y `Sin turno`; `Mis ventas` presentó siete ventas sintéticas previas por
+`$5.000 COP`; la agenda mostró una retención activa de 2 unidades base para el
+9-oct, franja 14:00–15:00, con vencimiento 10-oct a medianoche de Bogotá, y las
+entradas anteriores en estados terminales. No se creó, canceló, convirtió ni
+confirmó ninguna operación.
+
+Al navegar desde ese mismo perfil vendedor a `/admin/solicitudes`, la app
+redirigió a `/admin/login?error=not_admin`. Esto vuelve a comprobar la barrera
+de rol en UI en el preview vigente, pero no prueba autorización backend ni la
+matriz de aislamiento tenant/roles A/B. No se obtuvo una sesión admin en esta
+revalidación.
+
+#### Auditoría de mutaciones
+
+- Solo navegación y lectura visual del fixture sintético en staging.
+- Solicitudes, ventas, ledger, turnos, agenda, reserva, stock, membresías y Auth:
+  cambios por Codex `0`.
+- Producción, tenant real, Rules, Functions, IAM, Secrets y despliegues:
+  cambios por Codex `0`.
+
 ## Límites y pendientes
 
 - Sigue pendiente observar la expiración natural del hold y confirmar su
