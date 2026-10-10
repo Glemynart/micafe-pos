@@ -730,7 +730,7 @@ concurrencia autenticados, aislamiento remoto tenant/roles y la conciliación
 integral de PWA/Backoffice, inventario, ledger, reportes y turnos. No se
 adelantan G/H, no se crea/configura el tenant real y no se toca producción.
 
-### Checkpoint vigente — 2026-10-09 — PR #516 / error genérico de operación Gate F
+### Checkpoint histórico — 2026-10-09 — PR #516 / error genérico de operación Gate F (supersedido por PR #518)
 
 PR #516 quedó integrado en `main` mediante el merge commit
 `6fde73154d8aca8ae2cc9ce8e49f8fa29e69c7ff` a las `2026-10-09T20:55:17Z`.
@@ -758,6 +758,34 @@ de expiración/liberación, retry/replay autenticados tras pérdida de respuesta
 concurrencia e aislamiento remotos y la conciliación integral de inventario,
 ledger, reportes, turnos, PWA y Backoffice. No se adelantan Gate G/H, no se
 configura el tenant real y no se toca producción.
+
+### Checkpoint vigente — 2026-10-09 — PR #518 / conciliación read-only Gate F
+
+PR #518 quedó integrado en `main` mediante el merge commit
+`4702da432908a6485c00f31d1aec7a69eb084cbd` a las `2026-10-09T23:10:38Z`.
+Los tres checks previos al merge (`Tipos y pruebas`, `Vercel` y `Vercel Preview
+Comments`) terminaron `PASS`.
+
+La evidencia autenticada y de solo lectura en staging concilia PWA vendedor y
+Backoffice: las mismas dos solicitudes aprobadas siguen pendientes de venta;
+las vistas muestran 4 unidades físicas, 2 retenidas por agenda y 2 disponibles;
+las 12 ventas pagadas suman `$60.000 COP`, con reporte mensual y subtotales por
+vendedor coincidentes. El cuadre visible de turnos cerrados no presenta
+diferencias. El recorrido Emulator `npm run e2e:bodega-u4-u5` pasó 9/9 y cubre
+solicitud, aprobación, venta, retry y aislamiento A/B; no sustituye la prueba
+autenticada remota de esas invariantes. La evidencia detallada está en
+[`G-SAAS-02-E2-2-GATE-F-READONLY-RECONCILIATION-2026-10-09.md`](evidence/G-SAAS-02-E2-2-GATE-F-READONLY-RECONCILIATION-2026-10-09.md).
+
+La pasada fue read-only: no se confirmó ni canceló una solicitud, no se alteró
+inventario/agenda/caja ni se tocaron membresías, Auth, Rules, Functions, IAM,
+Secrets, despliegues o producción. Gate F permanece `EN CURSO`, no `PASS`:
+faltan observar el vencimiento natural y liberación del hold; validar en staging
+retry/replay tras pérdida de respuesta, carrera de stock e aislamiento backend
+tenant/roles, incluida revocación/restauración de membresía; y completar la
+matriz remota que Emulator no reemplaza. El Scheduler continúa habilitado cada
+cinco minutos; el vencimiento esperado es `2026-10-10T05:00:00Z` (medianoche de
+Bogotá). No se adelanta el reloj. No se inician G/H ni el tenant real y no se
+toca producción.
 
 ### Checkpoint histórico — 2026-10-07 (Bogotá) — PR #477 / preflight inicial de Gate C (supersedido)
 

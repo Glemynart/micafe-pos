@@ -10,6 +10,10 @@ import {
   ejecutarCrearProgramacionPedidoBodegaV1,
   ejecutarResolverProgramacionPedidoBodegaV1,
 } from "../agenda-pedidos";
+import { ejecutarCrearSolicitudVentaBodegaV1, ejecutarResolverSolicitudVentaBodegaV1 } from "../solicitudes-venta";
+import { ejecutarConfirmarVentaBodegaV1 } from "../ventas-confirmation";
+import { crearIdentificadorInterno } from "../../turnos/identificadores";
+import { exigirTenantActivo } from "../../tenant-configuration/authority";
 import type { ContextoFinancieroOperativo } from "../../bodega/operational-core";
 
 const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
@@ -109,6 +113,15 @@ async function approve(admin: ContextoFinancieroOperativo, programacionId: strin
   })) as Promise<Data>;
 }
 
+async function confirmAsCallable(seller: ContextoFinancieroOperativo, command: unknown) {
+  const tenant = await exigirTenantActivo({
+    auth: { uid: seller.actorUid, token: { empresaId: seller.empresaId, rol: seller.rol } },
+  }, db);
+  return ejecutarConfirmarVentaBodegaV1(db, {
+    empresaId: tenant.id, actorUid: seller.actorUid, rol: tenant.rol,
+  }, command);
+}
+
 test.after(async () => { await deleteApp(app); });
 
 test("Emulator: dos agendas concurrentes no pueden reservar más stock del disponible", async () => {
@@ -162,6 +175,149 @@ test("Emulator: conversiones concurrentes crean una sola solicitud y conservan e
   assert.equal(schedule?.solicitudId, results[0].solicitudId);
   assert.equal(product?.stock, 10);
   assert.equal(product?.stockReservado, 2);
+});
+
+test("Emulator: agenda reservada llega a venta canónica, replay revocado falla y restaurado no duplica", async () => {
+  const empresaId = `agenda-sale-lifecycle-${runId}`;
+  const fixture = await seedTenant(empresaId, 10);
+  const accountId = crearIdentificadorInterno(empresaId, "cuenta:bancolombia");
+  await db.collection("cuentas_bancarias").doc(accountId).set({
+    id: accountId, empresaId, claveOperativa: "bancolombia", nombre: "Banco de prueba", saldo: 0,
+  });
+
+  const agenda = await createAgenda(
+    empresaId, fixture.seller, fixture.clientId, fixture.presentationId, 2,
+    `create-sale-lifecycle-${runId}`, localDateToday(),
+  );
+  const productRef = db.collection("productos").doc(fixture.productId);
+  const agendaRef = db.collection("empresas").doc(empresaId)
+    .collection("agenda_pedidos_bodega").doc(agenda.programacionId);
+  const holds = db.collection("empresas").doc(empresaId).collection("reservas_stock_bodega");
+  const requests = db.collection("empresas").doc(empresaId).collection("solicitudes_venta_bodega");
+
+  assert.equal((await productRef.get()).data()?.stock, 10);
+  assert.equal((await productRef.get()).data()?.stockReservado, 0);
+  assert.equal((await db.collection("ventas").where("empresaId", "==", empresaId).get()).size, 0);
+
+  await approve(fixture.admin, agenda.programacionId, `approve-sale-lifecycle-${runId}`);
+  assert.equal((await productRef.get()).data()?.stock, 10);
+  assert.equal((await productRef.get()).data()?.stockReservado, 2);
+  assert.equal((await holds.where("estado", "==", "ACTIVA").get()).size, 1);
+
+  const converted = await ejecutarConvertirProgramacionPedidoBodegaV1(db, fixture.seller, envelope(
+    `convert-sale-lifecycle-${runId}`, { programacionId: agenda.programacionId },
+  )) as Data;
+  const pendingRequest = (await requests.doc(converted.solicitudId).get()).data();
+  assert.equal(pendingRequest?.estado, "PENDIENTE_APROBACION");
+  assert.equal(pendingRequest?.programacionId, agenda.programacionId);
+  assert.equal((await agendaRef.get()).data()?.estado, "CONVERTIDA_A_SOLICITUD");
+  assert.equal((await productRef.get()).data()?.stock, 10);
+  assert.equal((await productRef.get()).data()?.stockReservado, 2);
+  assert.equal((await db.collection("ventas").where("empresaId", "==", empresaId).get()).size, 0);
+
+  await ejecutarResolverSolicitudVentaBodegaV1(db, fixture.admin, envelope(
+    `resolve-sale-lifecycle-${runId}`, {
+      solicitudId: converted.solicitudId, revision: 1, decision: "aprobar",
+    },
+  ));
+  assert.equal((await requests.doc(converted.solicitudId).get()).data()?.estado, "APROBADA");
+  assert.equal((await productRef.get()).data()?.stock, 10);
+  assert.equal((await productRef.get()).data()?.stockReservado, 2);
+
+  const saleCommand = envelope(`confirm-sale-lifecycle-${runId}`, {
+    clienteId: fixture.clientId,
+    lineas: [{ productoId: fixture.productId, presentacionId: fixture.presentationId, cantidad: 2 }],
+    metodoPago: "transferencia",
+    solicitudId: converted.solicitudId,
+  });
+  const sale = await confirmAsCallable(fixture.seller, saleCommand) as Data;
+  assert.equal(sale.estadoOperativo, "COMPLETO");
+  assert.equal(sale.total, 1_000);
+  assert.equal(sale.programacionId, agenda.programacionId);
+  assert.equal((await productRef.get()).data()?.stock, 8);
+  assert.equal((await productRef.get()).data()?.stockReservado, 0);
+  assert.equal((await requests.doc(converted.solicitudId).get()).data()?.estado, "EJECUTADA");
+  assert.equal((await agendaRef.get()).data()?.estado, "CUMPLIDA");
+  assert.equal((await holds.where("estado", "==", "CONSUMIDA").get()).size, 1);
+  assert.equal((await db.collection("ventas").where("empresaId", "==", empresaId).get()).size, 1);
+  const inventory = await db.collection("movimientos_inventario").where("empresaId", "==", empresaId).get();
+  assert.equal(inventory.size, 1);
+  assert.equal(inventory.docs[0]?.data().cantidad, -2);
+  assert.equal((await db.collection("transacciones_financieras").where("empresaId", "==", empresaId).get()).size, 1);
+
+  const replay = await confirmAsCallable(fixture.seller, saleCommand) as Data;
+  assert.equal(replay.ventaId, sale.ventaId);
+  assert.equal((await productRef.get()).data()?.stock, 8);
+  assert.equal((await db.collection("movimientos_inventario").where("empresaId", "==", empresaId).get()).size, 1);
+  assert.equal((await db.collection("ventas").where("empresaId", "==", empresaId).get()).size, 1);
+
+  const sellerMembershipRef = db.collection("membresias").doc(`${empresaId}_${fixture.seller.actorUid}`);
+  const sellerMembership = (await sellerMembershipRef.get()).data();
+  await sellerMembershipRef.update({ estado: "inactiva", activo: false });
+  await assert.rejects(
+    confirmAsCallable(fixture.seller, saleCommand),
+    error => error instanceof Error && error.message === "Credenciales operativas inválidas.",
+  );
+  assert.equal((await productRef.get()).data()?.stock, 8);
+  assert.equal((await db.collection("transacciones_financieras").where("empresaId", "==", empresaId).get()).size, 1);
+
+  await sellerMembershipRef.set({ ...sellerMembership, estado: "activa", activo: true });
+  const restoredReplay = await confirmAsCallable(fixture.seller, saleCommand) as Data;
+  assert.equal(restoredReplay.ventaId, sale.ventaId);
+  assert.equal((await productRef.get()).data()?.stock, 8);
+  assert.equal((await db.collection("movimientos_inventario").where("empresaId", "==", empresaId).get()).size, 1);
+  assert.equal((await db.collection("transacciones_financieras").where("empresaId", "==", empresaId).get()).size, 1);
+});
+
+test("Emulator: dos vendedores con solicitudes aprobadas no venden las últimas unidades dos veces", async () => {
+  const empresaId = `sale-concurrency-${runId}`;
+  const fixture = await seedTenant(empresaId, 2);
+  const secondSeller = context(empresaId, `seller-2-${empresaId}`, "vendedor");
+  await db.collection("membresias").doc(`${empresaId}_${secondSeller.actorUid}`).set({
+    empresaId, uid: secondSeller.actorUid, rol: "vendedor", permisos: ["sell", "shifts"], estado: "activa", activo: true,
+  });
+  const accountId = crearIdentificadorInterno(empresaId, "cuenta:bancolombia");
+  await db.collection("cuentas_bancarias").doc(accountId).set({
+    id: accountId, empresaId, claveOperativa: "bancolombia", nombre: "Banco de prueba", saldo: 0,
+  });
+  const lineas = [{ productoId: fixture.productId, presentacionId: fixture.presentationId, cantidad: 2 }];
+  const firstRequest = await ejecutarCrearSolicitudVentaBodegaV1(db, fixture.seller, envelope(
+    `request-race-a-${runId}`, { clienteId: fixture.clientId, lineas },
+  )) as Data;
+  const secondRequest = await ejecutarCrearSolicitudVentaBodegaV1(db, secondSeller, envelope(
+    `request-race-b-${runId}`, { clienteId: fixture.clientId, lineas },
+  )) as Data;
+  await Promise.all([firstRequest, secondRequest].map((request, index) => ejecutarResolverSolicitudVentaBodegaV1(
+    db, fixture.admin, envelope(`approve-race-${index}-${runId}`, {
+      solicitudId: request.solicitudId, revision: 1, decision: "aprobar",
+    }),
+  )));
+
+  assert.equal((await db.collection("productos").doc(fixture.productId).get()).data()?.stock, 2);
+  const outcomes = await Promise.allSettled([
+    confirmAsCallable(fixture.seller, envelope(`sale-race-a-${runId}`, {
+      clienteId: fixture.clientId, lineas, metodoPago: "transferencia", solicitudId: firstRequest.solicitudId,
+    })),
+    confirmAsCallable(secondSeller, envelope(`sale-race-b-${runId}`, {
+      clienteId: fixture.clientId, lineas, metodoPago: "transferencia", solicitudId: secondRequest.solicitudId,
+    })),
+  ]);
+  const accepted = outcomes.filter(result => result.status === "fulfilled");
+  const rejected = outcomes.filter(result => result.status === "rejected");
+  assert.equal(accepted.length, 1);
+  assert.equal(rejected.length, 1);
+  assert.equal(domain((rejected[0] as PromiseRejectedResult).reason), "STOCK_INSUFICIENTE");
+
+  assert.equal((await db.collection("productos").doc(fixture.productId).get()).data()?.stock, 0);
+  assert.equal((await db.collection("productos").doc(fixture.productId).get()).data()?.stockReservado, 0);
+  assert.equal((await db.collection("ventas").where("empresaId", "==", empresaId).get()).size, 1);
+  assert.equal((await db.collection("movimientos_inventario").where("empresaId", "==", empresaId).get()).size, 1);
+  assert.equal((await db.collection("transacciones_financieras").where("empresaId", "==", empresaId).get()).size, 1);
+  const requestStates = await Promise.all([firstRequest.solicitudId, secondRequest.solicitudId].map(async solicitudId =>
+    (await db.collection("empresas").doc(empresaId).collection("solicitudes_venta_bodega").doc(solicitudId).get()).data()?.estado,
+  ));
+  assert.equal(requestStates.filter(state => state === "EJECUTADA").length, 1);
+  assert.equal(requestStates.filter(state => state === "APROBADA").length, 1);
 });
 
 test("Emulator: tenant/actor ajeno y payload con empresa impuesta no cruzan la autoridad", async () => {
