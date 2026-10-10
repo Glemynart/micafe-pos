@@ -106,3 +106,38 @@ cierra la matriz de Gate F. Siguen pendientes el aislamiento remoto A/B y
 autorización backend, carrera remota de stock, expiración natural de la reserva,
 retry tras pérdida real de respuesta y la revalidación integral de PWA y
 Backoffice. Gate F permanece `EN CURSO`.
+
+### Reconciliación de expiración natural — 2026-10-10 00:00–00:05 Bogotá
+
+La reserva activa del fixture `E2_2-BODEGA-STAGING-FIXTURE` tenía vencimiento
+`2026-10-10T05:00:00Z` (00:00 Bogotá). El Scheduler
+`firebase-schedule-reconciliarAgendaPedidosBodegaV1-us-central1` permaneció
+`ENABLED`, con frecuencia de cinco minutos y zona `UTC`. Una lectura posterior
+a las 00:00, pero anterior al siguiente ciclo, todavía mostraba reserva
+`ACTIVA`, agenda `RESERVADA`, stock físico `2` y stock reservado `2`; no se
+forzó el proceso.
+
+Cloud Logging registró HTTP `200` para la ejecución del Scheduler iniciada a
+`2026-10-10T05:03:01.757901Z`. La lectura Firestore REST del mismo tenant a
+`2026-10-10T05:04:51.816Z` confirmó reserva `VENCIDA`, agenda `VENCIDA`, stock
+físico `2` y stock reservado `0`. No se creó una venta ni movimientos de
+inventario/finanzas; tampoco se alteraron manualmente la reserva, el reloj o el
+Scheduler. Esto cierra el subescenario de expiración y liberación automática,
+con la latencia esperada del barrido de cinco minutos.
+
+El usuario reportó que la prueba push data-only en segundo plano solo se vio en
+Edge y no como aviso nativo de Windows. No se reenviaron mensajes. ADR-SAAS-065
+mantiene FCM como best-effort y no garantiza recepción, persistencia visual ni
+sonido del navegador/sistema operativo; el reporte se conserva como limitación
+observada, no como una garantía aprobada incumplida.
+
+La CI post-merge de `main`, run
+[`38021649607`](https://github.com/Glemynart/micafe-pos/actions/runs/38021649607),
+terminó `success` a `2026-10-10T04:43:55Z`. Pasaron E2E Bodega U4–U5,
+agenda/reservas/aislamiento en Emulator, eventos B2 tenant-aware, Web/PWA y las
+certificaciones E4.1/E4.2. Esta CI no sustituye la matriz autenticada remota.
+
+Gate F sigue `EN CURSO`: permanecen pendientes el aislamiento remoto tenant/rol
+A/B con autorización backend, la carrera remota de stock, la simulación remota
+de pérdida de respuesta HTTP y la revalidación funcional integral de PWA y
+Backoffice. No se inició Gate G/H, Gate I, tenant real ni producción.
