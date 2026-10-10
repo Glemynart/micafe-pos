@@ -132,11 +132,14 @@ como best-effort y no garantiza recepción, persistencia visual ni sonido del
 navegador/sistema operativo; este resultado se conserva como comportamiento
 observado, no como una garantía aprobada incumplida ni un bloqueo de Gate F.
 
-La CI post-merge de `main`, run
-[`38021649607`](https://github.com/Glemynart/micafe-pos/actions/runs/38021649607),
-terminó `success` a `2026-10-10T04:43:55Z`. Pasaron E2E Bodega U4–U5,
-agenda/reservas/aislamiento en Emulator, eventos B2 tenant-aware, Web/PWA y las
-certificaciones E4.1/E4.2. Esta CI no sustituye la matriz autenticada remota.
+La atribución de CI de la primera versión de esta evidencia era incorrecta:
+`38021649607` corresponde al merge anterior (PR #522, SHA
+`6f16546bca87d99d93de654aa441cf1fb3005041`), no valida PR #523. Los checks
+previos al merge de PR #523 sí terminaron `SUCCESS`. Su CI post-merge de `main`,
+run [`38029092704`](https://github.com/Glemynart/micafe-pos/actions/runs/38029092704)
+para SHA `d1dd726f02d48cca6b1269e5c4a30ba61045b4e6`, seguía `in_progress` al
+revisarla a las `2026-10-10T06:05:08Z`; por eso no se le atribuye un resultado
+final todavía. Ninguna de estas CI sustituye la matriz autenticada remota.
 
 Gate F sigue `EN CURSO`: permanecen pendientes el aislamiento remoto tenant/rol
 A/B con autorización backend, la carrera remota de stock, la simulación remota

@@ -817,6 +817,31 @@ esperar la expiración; no se adelanta el reloj ni se cancela el hold para
 acelerar la evidencia. No se inician Gates G/H ni el tenant real y no se toca
 producción.
 
+### Checkpoint vigente — 2026-10-10 — PR #523 / expiración natural Gate F
+
+PR #523 quedó integrado en `main` mediante el merge commit
+`d1dd726f02d48cca6b1269e5c4a30ba61045b4e6` a las `2026-10-10T05:54:24Z`.
+Sus checks previos al merge (`Tipos y pruebas`, `Vercel` y `Vercel Preview
+Comments`) terminaron `PASS`. La CI post-merge de `main`, run
+[`38029092704`](https://github.com/Glemynart/micafe-pos/actions/runs/38029092704),
+para ese SHA estaba `in_progress` a las `2026-10-10T06:05:08Z`; la corrida
+`38021649607` citada en una versión previa de la evidencia pertenece a PR #522,
+no a este merge. El resultado de la CI de #523 debe reconciliarse cuando termine.
+
+PR #523 registra el vencimiento natural de la agenda/reserva y la liberación
+automática del hold en staging, sin adelantar el reloj ni escribir una venta.
+El detalle y la corrección de trazabilidad de CI están en la
+[evidencia remota de Gate F](evidence/G-SAAS-02-E2-2-GATE-F-REMOTE-REPLAY-ROLE-RECONCILIATION-2026-10-10.md).
+Con ello se cierra el subescenario de expiración natural; el push como aviso
+nativo de Windows no es un requisito garantizado por ADR-SAAS-065.
+
+Gate F permanece `EN CURSO`, no `PASS`. Siguen pendientes el retry remoto
+autenticado ante pérdida de respuesta después del commit, la matriz backend de
+aislamiento tenant/rol en operaciones Bodega y la competencia simultánea remota
+de stock. También resta la revalidación funcional integral del flujo en PWA y
+Backoffice. La expiración ya no es un bloqueo ni requiere esperar otro ciclo.
+No se inicia Gate G/H ni el tenant real y no se toca producción.
+
 ### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 
 PR #519 quedó integrado en `main` mediante el merge commit
