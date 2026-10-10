@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import Link from "next/link"
 import { Loader2, UserPlus, Trash2, RotateCcw, Shield, ArrowRight, ClipboardList, LayoutGrid, ChevronRight, Lock, Truck, CalendarDays, TrendingDown, KeyRound } from "lucide-react"
 import { toast } from "sonner"
+import { copyCredentialWithFeedback } from "@/lib/clipboard"
 import { suscribirUsuarios, crearOperador, actualizarRolUsuario, toggleUsuarioActivo, toggleVendedorBodegaActivo, restablecerOperador, type Usuario, type RolUsuario, type ResultadoCreacionOperador } from "@/lib/permisos-service"
 import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
 import { accionEstadoVendedor, esBodegaMvp1, mostrarOperacionesGenericas, rolInicialOperador } from "@/lib/bodega/operator-ui-policy"
@@ -334,7 +335,7 @@ export default function UsuariosPage() {
                   size="sm"
                   variant="outline"
                   className="!border-border !text-foreground/70 hover:!bg-card/50 h-9"
-                  onClick={() => { if (credentialData?.codigo) navigator.clipboard.writeText(credentialData.codigo); toast.success("Código copiado") }}
+                  onClick={() => { void copyCredentialWithFeedback(credentialData?.codigo, "Código", toast) }}
                 >
                   Copiar
                 </Button>
@@ -357,7 +358,7 @@ export default function UsuariosPage() {
                     size="sm"
                     variant="outline"
                     className="!border-border !text-foreground/70 hover:!bg-card/50 h-9"
-                    onClick={() => { if (credentialData?.pinTemporal) navigator.clipboard.writeText(credentialData.pinTemporal); toast.success("PIN copiado") }}
+                    onClick={() => { void copyCredentialWithFeedback(credentialData?.pinTemporal, "PIN", toast) }}
                   >
                     Copiar
                   </Button>
@@ -403,7 +404,7 @@ export default function UsuariosPage() {
               <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Código operativo</Label>
               <div className="flex items-center gap-2">
                 <code className="flex-1 bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground font-mono">{resetCredentialData?.codigo}</code>
-                <Button size="sm" variant="outline" className="!border-border !text-foreground/70 hover:!bg-card/50 h-9" onClick={() => { if (resetCredentialData?.codigo) navigator.clipboard.writeText(resetCredentialData.codigo); toast.success("Código copiado") }}>Copiar</Button>
+                <Button size="sm" variant="outline" className="!border-border !text-foreground/70 hover:!bg-card/50 h-9" onClick={() => { void copyCredentialWithFeedback(resetCredentialData?.codigo, "Código", toast) }}>Copiar</Button>
               </div>
             </div>
             {resetCredentialData?.pinTemporal && (
@@ -412,7 +413,7 @@ export default function UsuariosPage() {
                 <div className="flex items-center gap-2">
                   <code className="flex-1 bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground font-mono tracking-widest">{showResetPin ? resetCredentialData.pinTemporal : "......"}</code>
                   <Button size="sm" variant="outline" className="!border-border !text-foreground/70 hover:!bg-card/50 h-9" onClick={() => setShowResetPin(!showResetPin)}>{showResetPin ? "Ocultar" : "Mostrar"}</Button>
-                  <Button size="sm" variant="outline" className="!border-border !text-foreground/70 hover:!bg-card/50 h-9" onClick={() => { if (resetCredentialData?.pinTemporal) navigator.clipboard.writeText(resetCredentialData.pinTemporal); toast.success("PIN copiado") }}>Copiar</Button>
+                  <Button size="sm" variant="outline" className="!border-border !text-foreground/70 hover:!bg-card/50 h-9" onClick={() => { void copyCredentialWithFeedback(resetCredentialData?.pinTemporal, "PIN", toast) }}>Copiar</Button>
                 </div>
               </div>
             )}

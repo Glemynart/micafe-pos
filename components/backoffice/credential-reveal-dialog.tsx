@@ -2,6 +2,7 @@
 
 import { Copy, KeyRound, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
+import { copyCredentialWithFeedback } from "@/lib/clipboard";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -56,7 +57,7 @@ function CredentialField({ label, value }: { label: string; value: string }) {
         type="button"
         size="icon"
         variant="ghost"
-        onClick={() => { void navigator.clipboard.writeText(value); toast.success(`${label} copiado`); }}
+        onClick={() => { void copyCredentialWithFeedback(value, label, toast); }}
       >
         <Copy className="size-4" />
       </Button>

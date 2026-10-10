@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
+import { copyCredentialWithFeedback } from "@/lib/clipboard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -316,7 +317,7 @@ export function UserManagement() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => { if (credentialData?.codigo) navigator.clipboard.writeText(credentialData.codigo); toast.success("Código copiado") }}
+                  onClick={() => { void copyCredentialWithFeedback(credentialData?.codigo, "Código", toast) }}
                 >
                   Copiar
                 </Button>
@@ -337,7 +338,7 @@ export function UserManagement() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => { if (credentialData?.pinTemporal) navigator.clipboard.writeText(credentialData.pinTemporal); toast.success("PIN copiado") }}
+                    onClick={() => { void copyCredentialWithFeedback(credentialData?.pinTemporal, "PIN", toast) }}
                   >
                     Copiar
                   </Button>
