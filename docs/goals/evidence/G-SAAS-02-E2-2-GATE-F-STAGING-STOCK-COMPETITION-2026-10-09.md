@@ -36,10 +36,14 @@ integradas con PR #519.
   registró por transferencia para preservar la caja; el comportamiento de
   efectivo sin turno solicitado por el responsable queda diferido para después
   de Gate F y antes de Gate I.
-- La sesión admin de Edge expiró durante la comprobación; no se afirma una
-  conciliación visual posterior en Backoffice. La venta, el método, el total,
-  el stock y la reserva se verificaron mediante lectura de Firestore en el
-  proyecto de staging.
+- La sesión admin expiró durante la primera comprobación. El 2026-10-09, tras
+  volver a iniciar sesión en Edge en el preview de Gate F, se hizo conciliación
+  visual en Backoffice: `Ventas` muestra la venta por transferencia de `$5.000`
+  y 13 ventas sintéticas; `Inventario` muestra 2 físicas, 2 reservadas y 0
+  disponibles; `Agenda Bodega` muestra la única reserva activa de 2 unidades,
+  con vencimiento `2026-10-10 00:00` Bogotá; `Solicitudes de venta` muestra la
+  segunda solicitud aún `APROBADA`. Esto confirma que el estado observado en UI
+  coincide con la lectura previa de Firestore.
 - La agenda conserva una reserva activa de 2 unidades con vencimiento a
   medianoche de Bogotá (`2026-10-10T05:00:00Z`). El vencimiento natural aún no
   se había observado. No se forzó el Scheduler ni se manipuló el reloj.

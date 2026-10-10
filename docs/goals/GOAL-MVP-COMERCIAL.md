@@ -814,8 +814,11 @@ detalle está en
 Al elegir efectivo, el vendedor todavía necesita abrir turno; no se abrió ni
 alteró uno y la confirmación se hizo por transferencia. El requisito de venta
 en efectivo sin turno queda diferido para después de Gate F y antes de Gate I.
-La sesión administrativa expiró por inactividad, así que no se atribuye
-conciliación visual en Backoffice después de la operación.
+Tras renovar la sesión de Edge se concilió visualmente `Ventas`, `Inventario`,
+`Agenda Bodega` y `Solicitudes`: la venta pagada está listada, el stock es 2
+físicas / 2 reservadas / 0 disponibles y la segunda solicitud sigue aprobada.
+La agenda mantiene exactamente una reserva activa por 2 unidades, con
+vencimiento natural a medianoche de Bogotá (`2026-10-10T05:00:00Z`).
 
 Gate F permanece `EN CURSO`, no `PASS`: faltan observar el vencimiento natural
 del hold, el retry/replay remoto tras pérdida de respuesta, aislamiento remoto
