@@ -1010,6 +1010,33 @@ permisos reales, el conteo físico/costos aprobados y la autorización del entor
 para almacenar sus datos. No se creó/configuró tenant real ni se modificaron
 staging o producción.
 
+### Checkpoint de Gate I — 2026-10-10 — PR #534 integrado / copia de credenciales
+
+PR #534 quedó `MERGED` en `main @
+355d306886db6fa862c319eff550bca93adc0f13` a las `2026-10-10T19:15:11Z`.
+Los checks previos al merge (`Tipos y pruebas`, Vercel y Vercel Preview
+Comments) terminaron `PASS`; `Tipos y pruebas` completó 105/105 pasos en el run
+[`38077690176`](https://github.com/Glemynart/micafe-pos/actions/runs/38077690176).
+La CI post-merge de `main`, run
+[`38079059473`](https://github.com/Glemynart/micafe-pos/actions/runs/38079059473),
+terminó `success` sobre el mismo SHA a las `2026-10-10T19:34:50Z`, también con
+105/105 pasos y sin fallos.
+
+El cambio corrige la copia de credenciales de operador: espera la respuesta de
+Clipboard API, intenta un campo temporal de respaldo y solo anuncia éxito si
+el navegador confirma la copia; si ambos métodos fallan, ofrece recuperación
+manual. La evidencia TDD está en
+[`G-SAAS-02-E2-2-GATE-I-CREDENTIAL-COPY-2026-10-10.md`](evidence/G-SAAS-02-E2-2-GATE-I-CREDENTIAL-COPY-2026-10-10.md).
+No se modificaron Auth, Firestore, Rules, fixtures, staging ni producción.
+
+Gate I sigue `BLOCKED` para Bootstrap/Activation del tenant real: no hay
+evidencia de aceptación contractual final, datos legales y contacto verificados,
+usuarios/permisos reales, matriz aprobada de precios especiales, conteo físico
+y costos aprobados, ni autorización del entorno para almacenar los datos del
+cliente. ADR-SAAS-068, ADR-SAAS-069 y ADR-SAAS-070 permanecen `PROPUESTO`; no se
+alteró su estado ni el alcance por este PR. No se creó ni configuró el tenant
+real.
+
 ### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 
 PR #519 quedó integrado en `main` mediante el merge commit
