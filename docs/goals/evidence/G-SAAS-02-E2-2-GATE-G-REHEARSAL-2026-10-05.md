@@ -100,12 +100,23 @@ de Turbopack no pudo ejecutarse en este worktree porque sus dependencias se
 montaron mediante un enlace fuera de su raíz; la CI del PR verificará el build
 predeterminado en un checkout limpio.
 
-El resultado remoto del cierre es PASS, pero Gate G permanece `EN CURSO` hasta
-que la CI y la revisión del PR terminen y se compruebe en su preview que el
-detalle abierto también refleja el snapshot cerrado. No se requiere otra venta
-ni otro cierre para esa verificación. La lectura remota posterior fue de solo
-lectura; no hubo deploy, cambios de Rules/IAM/Secrets, limpieza ni escrituras en
-producción.
+Para verificar además el render y la suscripción de la vista real de Admin sin
+depender de una sesión manual en un preview protegido, se agregó al E2E Bodega
+un caso Playwright con admin sintético en Emulator: abre un turno, abre su
+detalle, cambia el snapshot Firestore a cerrado y exige que el modal actualice
+el estado, el cuadre y la diferencia sin recargar. Es una mutación aislada del
+Emulator, no una operación canónica ni una escritura de staging. El intento de
+ejecutar localmente el runner no llegó a iniciar porque este worktree no tiene
+instaladas las dependencias `functions/node_modules`; la CI limpia debe validar
+el caso nuevo.
+
+El CI anterior del PR #526, run `38049053074`, pasó antes de añadir este caso;
+la ejecución CI que incluye el nuevo E2E queda pendiente. El preview de esa
+versión ya terminó su despliegue (`Vercel = pass`). Gate G permanece `EN CURSO`
+hasta que el nuevo CI pase y el PR se integre. No se requiere otra sesión
+manual, venta ni cierre para comprobar este defecto de snapshot. La lectura
+remota posterior fue de solo lectura; no hubo deploy de Firebase, cambios de
+Rules/IAM/Secrets, limpieza ni escrituras en producción.
 
 ## Siguiente gate
 

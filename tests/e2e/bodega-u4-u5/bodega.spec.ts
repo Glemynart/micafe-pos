@@ -253,6 +253,55 @@ test("administrador Bodega ve únicamente el backoffice y conserva operaciones d
   await page.goto("/admin/clientes"); await expect(page.getByText(tenantA.clienteNombre)).toBeVisible(); await expect(page.getByText(tenantB.clienteNombre)).toHaveCount(0); await page.goto("/admin/inventario"); await expect(page.getByRole("heading", { name: "Existencias en unidad base" })).toBeVisible(); await page.goto("/admin/ventas"); await expect(page.getByRole("heading", { name: "Consulta operativa" })).toBeVisible(); await expect(page.getByText(tenantA.clienteNombre).first()).toBeVisible(); await expect(page.getByText(tenantB.clienteNombre)).toHaveCount(0)
 })
 
+test("el detalle del turno seleccionado refleja el snapshot de cierre en vivo", async ({ page }) => {
+  const db = getFirestore(app)
+  const turnoId = `turno-admin-snapshot-${runId}`
+  const cajeroNombre = `Cajero UI ${runId}`
+  const turnoRef = db.collection("turnos").doc(turnoId)
+
+  await turnoRef.set({
+    empresaId: tenantA.empresaId,
+    cajeroId: `cajero-ui-${runId}`,
+    cajeroNombre,
+    fechaApertura: new Date("2026-10-10T08:00:00.000Z"),
+    fechaCierre: null,
+    estado: "abierto",
+    baseApertura: 0,
+    ventasEfectivo: 0,
+    ventasOtrosMetodos: 0,
+    totalEgresos: 0,
+    totalEsperadoEfectivo: 0,
+    totalReportadoEfectivo: 0,
+    diferenciaEfectivo: 0,
+    notasApertura: "",
+    notasCierre: "",
+  })
+
+  await login(page, tenantA.admin, true)
+  await page.goto("/admin/turnos")
+
+  const filaTurno = page.getByRole("button").filter({ hasText: cajeroNombre })
+  await expect(filaTurno).toContainText("ABIERTO")
+  await filaTurno.click()
+
+  const detalle = page.locator(".fixed.inset-0").filter({ hasText: "Detalle del turno" })
+  await expect(detalle).toContainText("Turno en curso")
+
+  await turnoRef.update({
+    estado: "cerrado",
+    fechaCierre: new Date("2026-10-10T08:15:00.000Z"),
+    ventasEfectivo: 10000,
+    totalEsperadoEfectivo: 10000,
+    totalReportadoEfectivo: 10000,
+    diferenciaEfectivo: 0,
+    notasCierre: "Cierre sintético de regresión",
+  })
+
+  await expect(detalle).toContainText("Turno cerrado")
+  await expect(detalle).toContainText("Diferencia · Cuadrado")
+  await expect(detalle).toContainText("$10.000")
+})
+
 test("administrador Bodega B solo consulta su propio catálogo", async ({ page }) => {
   await login(page, tenantB.admin, true); await expect(page).toHaveURL(/\/admin$/); await expect(page.getByRole("heading", { name: "Centro de operación" })).toBeVisible()
   await page.goto("/admin/catalogo"); await expect(page.getByRole("article").filter({ hasText: tenantB.productoNombre })).toBeVisible(); await expect(page.getByText(tenantA.productoNombre)).toHaveCount(0)
