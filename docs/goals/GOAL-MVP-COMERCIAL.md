@@ -787,7 +787,7 @@ cinco minutos; el vencimiento esperado es `2026-10-10T05:00:00Z` (medianoche de
 Bogotá). No se adelanta el reloj. No se inician G/H ni el tenant real y no se
 toca producción.
 
-### Checkpoint vigente — 2026-10-09 — PR #521 / replay remoto y conciliación
+### Checkpoint histórico — 2026-10-09 — PR #521 / replay remoto (supersedido por #523)
 
 PR #521 quedó integrado en `main` mediante el merge commit
 `88ba0e7489d1dffebdb84d79ce0d344b0357f90a` a las `2026-10-10T02:15:55Z`
@@ -824,9 +824,9 @@ PR #523 quedó integrado en `main` mediante el merge commit
 Sus checks previos al merge (`Tipos y pruebas`, `Vercel` y `Vercel Preview
 Comments`) terminaron `PASS`. La CI post-merge de `main`, run
 [`38029092704`](https://github.com/Glemynart/micafe-pos/actions/runs/38029092704),
-para ese SHA estaba `in_progress` a las `2026-10-10T06:05:08Z`; la corrida
+para ese SHA terminó `success` a las `2026-10-10T06:09:58Z`; la corrida
 `38021649607` citada en una versión previa de la evidencia pertenece a PR #522,
-no a este merge. El resultado de la CI de #523 debe reconciliarse cuando termine.
+no a este merge.
 
 PR #523 registra el vencimiento natural de la agenda/reserva y la liberación
 automática del hold en staging, sin adelantar el reloj ni escribir una venta.
