@@ -194,3 +194,37 @@ matriz Gate F: siguen pendientes el aislamiento remoto tenant/rol con
 autorización backend, la carrera remota de stock, el retry autenticado tras
 pérdida de respuesta y el resto de la revalidación funcional. Gate F permanece
 `EN CURSO`.
+
+### Pérdida de respuesta, recuperación y conciliación — 2026-10-10 ~01:32 Bogotá
+
+Con el vendedor y el administrador autenticados en el mismo preview de staging,
+se probó una única vez la solicitud sintética `YOTK3IL0` por `$5.000 COP`, una
+presentación (2 unidades base) y pago por transferencia. La respuesta HTTP
+exitosa se interrumpió después del commit del servidor. El vendedor usó
+`Recuperar confirmación`; la PWA informó `EJECUTADA` y que venta, inventario y
+pago ya estaban procesados.
+
+La relectura posterior concilió la misma operación en ambos roles: el vendedor
+ve `YOTK3IL0` una sola vez como `EJECUTADA` y una única venta asociada en `Mis
+ventas`; Backoffice no muestra solicitudes pendientes y `/admin/ventas` muestra
+una única venta por `$5.000 COP` para el comando de esa solicitud. `/admin/reportes`
+presenta una venta del vendedor sintético por `$5.000`, costo `$2.000`, ganancia
+bruta `$3.000` y margen `60 %`. No apareció una venta duplicada en estas
+lecturas.
+
+Tras refrescar la vista de catálogo del vendedor, la presentación reportó
+`Disponibles: 0`, coincidente con `/admin/inventario` (`reservado 0`,
+`disponible 0`). Antes de ese refresco, la vista abierta conservaba el valor
+anterior `Disponibles: 1`; la actualización automática/inmediata del stock al
+confirmar desde otra sesión queda anotada como mejora posterior a Gate F,
+conforme a la priorización acordada. La recarga no creó solicitudes ni ventas.
+La agenda cargó con sus entradas sintéticas y el historial de turnos mostró 1
+abierto y 8 cerrados visibles, sin faltantes ni sobrantes. No se modificó
+ningún turno ni reserva durante esta verificación.
+
+Esto acredita el retry remoto tras pérdida de la respuesta y recuperación del
+resultado comprometido sin duplicar la venta observada. No acredita una carrera
+remota simultánea ni la matriz backend de aislamiento tenant/rol A/B. La
+recarga del catálogo y la espera breve de la agenda tampoco certifican una
+actualización en tiempo real ni un SLA de carga. Gate F permanece `EN CURSO`;
+no se inicia Gate G/H/I ni se toca el tenant real o producción.
