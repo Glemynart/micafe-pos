@@ -1,6 +1,14 @@
 # G-SAAS-02 / M2 / E2.2 — Gate F: replay remoto y conciliación de roles
 
-**Resultado:** escenarios puntuales `PASS`; Gate F sigue `EN CURSO`.
+**Resultado:** matriz funcional Gate F `FUNCTIONAL = PASS`; integración del
+registro en `main` pendiente de CI y merge del PR documental #524.
+
+> **Temporalidad:** los resultados parciales y estados `EN CURSO` de los
+> checkpoints anteriores a “Reconciliación final de la matriz” son históricos
+> y válidos para su hora de corte. La reconciliación final los actualiza: los
+> escenarios enumerados allí como pendientes quedaron resueltos o delimitados
+> por alcance. Para el estado funcional vigente, prevalece esa matriz final;
+> su registro oficial en `main` sigue sujeto a CI y merge de #524.
 
 ## Alcance y entorno
 
@@ -132,11 +140,14 @@ como best-effort y no garantiza recepción, persistencia visual ni sonido del
 navegador/sistema operativo; este resultado se conserva como comportamiento
 observado, no como una garantía aprobada incumplida ni un bloqueo de Gate F.
 
-La CI post-merge de `main`, run
-[`38021649607`](https://github.com/Glemynart/micafe-pos/actions/runs/38021649607),
-terminó `success` a `2026-10-10T04:43:55Z`. Pasaron E2E Bodega U4–U5,
-agenda/reservas/aislamiento en Emulator, eventos B2 tenant-aware, Web/PWA y las
-certificaciones E4.1/E4.2. Esta CI no sustituye la matriz autenticada remota.
+La atribución de CI de la primera versión de esta evidencia era incorrecta:
+`38021649607` corresponde al merge anterior (PR #522, SHA
+`6f16546bca87d99d93de654aa441cf1fb3005041`), no valida PR #523. Los checks
+previos al merge de PR #523 sí terminaron `SUCCESS`. Su CI post-merge de `main`,
+run [`38029092704`](https://github.com/Glemynart/micafe-pos/actions/runs/38029092704)
+para SHA `d1dd726f02d48cca6b1269e5c4a30ba61045b4e6`, terminó `success` a las
+`2026-10-10T06:09:58Z`. Ninguna de estas CI sustituye la matriz autenticada
+remota.
 
 Gate F sigue `EN CURSO`: permanecen pendientes el aislamiento remoto tenant/rol
 A/B con autorización backend, la carrera remota de stock, la simulación remota
@@ -191,3 +202,105 @@ matriz Gate F: siguen pendientes el aislamiento remoto tenant/rol con
 autorización backend, la carrera remota de stock, el retry autenticado tras
 pérdida de respuesta y el resto de la revalidación funcional. Gate F permanece
 `EN CURSO`.
+
+### Pérdida de respuesta, recuperación y conciliación — 2026-10-10 ~01:32 Bogotá
+
+Con el vendedor y el administrador autenticados en el mismo preview de staging,
+se probó una única vez la solicitud sintética `YOTK3IL0` por `$5.000 COP`, una
+presentación (2 unidades base) y pago por transferencia. La respuesta HTTP
+exitosa se interrumpió después del commit del servidor. El vendedor usó
+`Recuperar confirmación`; la PWA informó `EJECUTADA` y que venta, inventario y
+pago ya estaban procesados.
+
+La relectura posterior concilió la misma operación en ambos roles: el vendedor
+ve `YOTK3IL0` una sola vez como `EJECUTADA` y una única venta asociada en `Mis
+ventas`; Backoffice no muestra solicitudes pendientes y `/admin/ventas` muestra
+una única venta por `$5.000 COP` para el comando de esa solicitud. `/admin/reportes`
+presenta una venta del vendedor sintético por `$5.000`, costo `$2.000`, ganancia
+bruta `$3.000` y margen `60 %`. No apareció una venta duplicada en estas
+lecturas.
+
+Tras refrescar la vista de catálogo del vendedor, la presentación reportó
+`Disponibles: 0`, coincidente con `/admin/inventario` (`reservado 0`,
+`disponible 0`). Antes de ese refresco, la vista abierta conservaba el valor
+anterior `Disponibles: 1`; la actualización automática/inmediata del stock al
+confirmar desde otra sesión queda anotada como mejora posterior a Gate F,
+conforme a la priorización acordada. La recarga no creó solicitudes ni ventas.
+La agenda cargó con sus entradas sintéticas y el historial de turnos mostró 1
+abierto y 8 cerrados visibles, sin faltantes ni sobrantes. No se modificó
+ningún turno ni reserva durante esta verificación.
+
+Esto acredita el retry remoto tras pérdida de la respuesta y recuperación del
+resultado comprometido sin duplicar la venta observada. No acredita una carrera
+remota simultánea ni la matriz backend de aislamiento tenant/rol A/B. La
+recarga del catálogo y la espera breve de la agenda tampoco certifican una
+actualización en tiempo real ni un SLA de carga. Gate F permanece `EN CURSO`;
+no se inicia Gate G/H/I ni se toca el tenant real o producción.
+
+### Carrera remota de stock entre dos vendedores — 2026-10-10 ~02:03 Bogotá
+
+Se usaron dos perfiles separados en el mismo preview de staging
+`cafeatrato-git-codex-e2-2-gatef-natu-3ac7cd-glemynarts-projects.vercel.app`:
+el vendedor sintético existente `GateF Seller` en Brave y el segundo operador
+sintético `GateF2-1010 Concurrencia` en el navegador integrado. El administrador
+continuó en Edge. Todas las sesiones correspondieron a
+`E2_2-BODEGA-STAGING-FIXTURE` en `micafe-pos-staging`.
+
+Como la existencia disponible era cero, se cargaron 2 unidades base al producto
+sintético desde `/admin/inventario`, mediante el flujo normal de Backoffice.
+Ambos vendedores actualizaron su vista y observaron 1 presentación disponible
+(2 unidades base). Cada uno creó una solicitud por 1 presentación (`$5.000 COP`,
+transferencia); administración aprobó ambas. Conforme a ADR-SAAS-062, la
+aprobación no retiene inventario. Se pulsó `Confirmar venta` desde ambas sesiones
+en paralelo.
+
+El servidor confirmó una sola venta: la solicitud del segundo vendedor quedó
+`EJECUTADA` y el Backoffice mostró exactamente una venta atribuida a ese nuevo
+operador. La solicitud competidora del vendedor original devolvió
+`No hay existencias suficientes para completar la venta`; no produjo venta y
+se canceló después para impedir un reintento accidental. `/admin/inventario`
+mostró existencia física `0`, reservado `0` y disponible `0`. No se abrió ni
+cerró turno. No se inspeccionó el ledger para esta carrera, por lo que esta
+evidencia no afirma una conciliación financiera adicional.
+
+Esto acredita `PASS` para la carrera remota de confirmación de stock: no hubo
+sobreventa ni doble registro visible. No prueba la matriz negativa backend de
+aislamiento entre tenants o roles; Gate F continúa `EN CURSO`, sin iniciar
+Gate G/H/I y sin tocar tenant real o producción.
+
+### Reconciliación final de la matriz — 2026-10-10
+
+Se consolidó la evidencia remota anterior con las suites automatizadas del
+código de aplicación integrado en `main @ d1dd726f02d48cca6b1269e5c4a30ba61045b4e6`.
+El PR #524 cambia solo documentación; no modifica el código ejecutado por estas
+pruebas.
+
+| Área | Resultado y evidencia |
+|---|---|
+| Tenant y rol | `e2e:bodega-u4-u5` cubre dos tenants y actores independientes: cada vendedor/admin ve su propio catálogo y operaciones, el tenant B no recibe productos/clientes del A, la UI no ofrece recursos ajenos y los intentos autenticados con cliente/producto del tenant B desde el actor A no escriben venta, inventario ni finanzas. La sesión vendedor→ruta admin también fue rechazada en el preview. `PASS` combinado; la negativa de payload cruzado se verifica en Emulator, no se presenta como llamada remota. |
+| Venta, autoridad y conciliación | El recorrido staging de solicitud→aprobación→venta y la recuperación autenticada después de perder la respuesta concluyeron con una venta por `$5.000 COP`, sin duplicado; inventario, movimientos y reporte se conciliaron. Una repetición del comando persistido devolvió el resultado canónico sin duplicar movimientos de inventario o financieros. `PASS`. |
+| Stock concurrente | Dos vendedores confirmaron en paralelo dos solicitudes por la última presentación disponible; el backend aceptó una, rechazó la otra por stock insuficiente y el saldo final quedó en cero. `PASS` remoto. |
+| Membresía y permisos | El replay de activación/restauración del vendedor sintético recuperó sus claims y permitió consultar el catálogo; la obligación y el hecho de auditoría quedaron únicos. Los tests de agenda cubren además revocación/replay, actor sin permiso de `sell` y autoridad tenant derivada del actor. `PASS`. |
+| Agenda y reserva | En staging se comprobó creación/conversión, retención y consumo canónico en los recorridos previos, y el Scheduler venció naturalmente la reserva a medianoche de Bogotá y liberó las 2 unidades en su barrido de cinco minutos, sin venta ni ledger. `PASS`; no se adelantó el reloj. |
+| PWA y Backoffice | En previews autenticados se cargaron solicitudes, POS, catálogo, clientes, inventario, agenda, ventas, turnos e informes; la lectura de rol admin desde vendedor se denegó. La confirmación se concilió en ambas sesiones. `PASS` para los flujos cubiertos; no implica SLA de tiempo real. |
+| Push | La recepción de las pruebas sintéticas fue confirmada por el usuario. El aviso nativo de Windows y el sonido no se observaron; ADR-SAAS-065 define FCM como best-effort, por lo que no son garantías bloqueantes. La actualización en tiempo real de bandejas/stock y la venta en efectivo sin turno se difirieron explícitamente para después de Gate F. |
+
+Validaciones reproducidas en Emulator sobre el mismo código de aplicación:
+
+- `npm run test:bodega-ui`: `12/12 PASS`.
+- `npm run e2e:bodega-u4-u5`: `9/9 PASS`.
+- `npm run e2e:bodega-agenda`: `8/8 PASS`.
+- `npm --prefix functions test`: `417 PASS`, `5 SKIP` esperados, `0 FAIL`.
+- `git diff --check`: `PASS`.
+
+La cobertura combina las pruebas negativas multi-tenant deterministas del
+Emulator con las transacciones y lecturas autenticadas del único fixture
+retenido en staging; no se crea un segundo tenant de staging ni se altera otro
+tenant para fabricar el caso A/B. No quedan escenarios funcionales de Gate F
+pendientes dentro del alcance aprobado. El resultado de la matriz es
+`FUNCTIONAL = PASS`. El registro de este resultado en el Goal queda sujeto a
+que PR #524 cumpla auditoría y CI y se integre en `main`. Por autorización
+explícita del responsable el 2026-10-10, Gate G puede ejecutarse en paralelo
+sobre el código ya integrado en `main @ d1dd726`; esto no declara Gate F
+oficialmente cerrado ni habilita H/I antes de integrar #524 y aprobar G. No se
+toca el tenant real ni producción.
