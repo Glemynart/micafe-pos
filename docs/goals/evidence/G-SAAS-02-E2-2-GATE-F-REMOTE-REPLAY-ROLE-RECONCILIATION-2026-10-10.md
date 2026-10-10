@@ -142,3 +142,45 @@ Gate F sigue `EN CURSO`: permanecen pendientes el aislamiento remoto tenant/rol
 A/B con autorización backend, la carrera remota de stock, la simulación remota
 de pérdida de respuesta HTTP y la revalidación funcional integral de PWA y
 Backoffice. No se inició Gate G/H, Gate I, tenant real ni producción.
+
+### Revalidación de sesiones y superficies operativas — 2026-10-10 00:22 Bogotá
+
+El usuario inició sesión manualmente en ambas superficies del mismo preview
+staging de Gate F: administrador en Edge y vendedor en el navegador integrado.
+Edge mostró `Administrador Bodega Demo`; el integrado, el vendedor sintético
+Gate F. Se usó únicamente el fixture retenido
+`E2_2-BODEGA-STAGING-FIXTURE`.
+
+Las lecturas de solo lectura dieron estos resultados:
+
+- `/admin/solicitudes`: la solicitud sintética terminada en `YOTK3IL0` sigue
+  `APROBADA`, 1 presentación (2 unidades base), `$5.000 COP`, con vencimiento
+  el 10-oct a las 07:20 Bogotá. No se confirmó una venta.
+- `/admin/inventario`: stock físico `2`, reservado `0`, disponible `2`.
+- `/admin/agenda` y la agenda del vendedor: ambas reflejan la programación del
+  9-oct, 14:00–15:00, como `VENCIDA`/`Reserva vencida`; las demás entradas
+  visibles son canceladas o atendidas. La retención liberada concuerda con el
+  stock disponible.
+- `/admin/turnos`: 1 turno abierto y 8 cerrados visibles; no se abrió ni cerró
+  ningún turno. `/admin/reportes` carga para el 10-oct y presenta `$0` para el
+  día actual.
+- `/admin/ventas`: se observan 13 registros sintéticos pagados; no se creó
+  ninguno. `Mis ventas` del vendedor muestra su historial y sus solicitudes
+  muestran la misma solicitud aprobada.
+
+En la navegación del backoffice apareció primero el estado de carga de tenant /
+configuración; se resolvió sin recargar y las rutas anteriores llegaron a su
+contenido. Esta visita no reproduce un bloqueo persistente ni acredita un
+tiempo real contractual.
+
+No se ejecutaron comandos de negocio ni mutaciones: solicitudes, ventas,
+ledger, turnos, agenda, reservas, stock, membresías y Auth permanecieron sin
+cambios por Codex. Rules, Functions, IAM, Secrets, despliegues, otros tenants y
+producción tampoco se modificaron.
+
+Esta observación aporta `PASS` únicamente para la lectura autenticada de estas
+vistas y la concordancia visible de la expiración ya reconciliada. No cierra la
+matriz Gate F: siguen pendientes el aislamiento remoto tenant/rol con
+autorización backend, la carrera remota de stock, el retry autenticado tras
+pérdida de respuesta y el resto de la revalidación funcional. Gate F permanece
+`EN CURSO`.
