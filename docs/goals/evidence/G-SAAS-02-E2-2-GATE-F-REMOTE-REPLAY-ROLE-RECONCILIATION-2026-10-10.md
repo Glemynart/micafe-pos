@@ -125,11 +125,12 @@ inventario/finanzas; tampoco se alteraron manualmente la reserva, el reloj o el
 Scheduler. Esto cierra el subescenario de expiración y liberación automática,
 con la latencia esperada del barrido de cinco minutos.
 
-El usuario reportó que la prueba push data-only en segundo plano solo se vio en
-Edge y no como aviso nativo de Windows. No se reenviaron mensajes. ADR-SAAS-065
-mantiene FCM como best-effort y no garantiza recepción, persistencia visual ni
-sonido del navegador/sistema operativo; el reporte se conserva como limitación
-observada, no como una garantía aprobada incumplida.
+En una revalidación con el backoffice de Edge en segundo plano, el usuario
+confirmó que la prueba push data-only solo apareció en Edge; no apareció como
+aviso nativo de Windows. No se reenviaron mensajes. ADR-SAAS-065 mantiene FCM
+como best-effort y no garantiza recepción, persistencia visual ni sonido del
+navegador/sistema operativo; este resultado se conserva como comportamiento
+observado, no como una garantía aprobada incumplida ni un bloqueo de Gate F.
 
 La CI post-merge de `main`, run
 [`38021649607`](https://github.com/Glemynart/micafe-pos/actions/runs/38021649607),
