@@ -2,10 +2,13 @@
 
 ## Estado
 
-**PROPUESTO — pendiente de aprobación explícita del responsable.**
+**ACEPTADO — Opción 1, 2026-10-10.**
 
 - **Fecha de propuesta:** 2026-10-10.
 - **Última revisión:** 2026-10-10.
+- **Fecha de aceptación:** 2026-10-10.
+- **Decisión:** el responsable confirmó que `1.600.000 COP` corresponde
+  únicamente a la oferta anual del software, no a precios de productos del POS.
 - **Goal:** `G-SAAS-02` → `M2` → `E2.2`.
 - **Decisor:** responsable del proyecto.
 - **Relacionado:** ADR-SAAS-041, ADR-SAAS-042, ADR-SAAS-061 y ADR-SAAS-062.
@@ -26,13 +29,10 @@ precio resuelto por el servidor en la solicitud aprobada y la invalida si el
 catálogo/precio cambia antes de confirmar la venta.
 
 El responsable entregó una lista de 110 presentaciones y aclaró que sus valores
-impresos son precios de venta al cliente. También confirmó que quiere manejar un
-precio especial para el tenant de referencia, pero no se ha especificado si se
-refiere únicamente a la oferta SaaS anual —formalizada por
-separado bajo ADR-SAAS-061— o a precios diferentes para los clientes compradores
-del tenant dentro del POS. No hay importes ni regla por producto para una
-segunda tarifa. La aprobación de la necesidad comercial no define por sí sola
-la autoridad, el modelo ni la resolución técnica.
+impresos son precios de venta al cliente. El 2026-10-10 confirmó que el precio
+especial de `1.600.000 COP` es únicamente la oferta anual del software, ya
+formalizada por separado bajo ADR-SAAS-061. No solicitó en esta decisión una
+tarifa de producto diferente por comprador.
 
 ## Criterios de decisión
 
@@ -94,51 +94,28 @@ Crear listas versionadas con varias tarifas y asignarlas a clientes o grupos.
 - **En contra:** es más general que el requisito conocido, añade ciclo de vida
   y operación comercial, y no está justificada para el MVP-1 documentado.
 
-## Recomendación propuesta
+## Decisión aceptada
 
-Mantener la **Opción 1** mientras no se confirme que un comprador del tenant
-debe pagar un precio diferente por la misma presentación. La lista impresa ya
-fue descrita como precio de venta al cliente y ADR-SAAS-061 cubre por separado
-el precio anual especial de la suscripción. Si la solicitud se refiere a una
-tarifa negociada para un cliente comprador, elegir explícitamente la Opción 2;
-no se debe simularla cambiando el precio base ni inventar importes.
+El responsable aprobó la **Opción 1**. Se conserva un único precio vigente por
+presentación para todos los compradores del tenant; `1.600.000 COP` queda
+exclusivamente como oferta anual del software bajo ADR-SAAS-061. No se agrega
+una lista ni sobreescritura por cliente comprador. Un cambio futuro a precios
+por comprador requerirá un nuevo alcance y decisión explícitos.
 
-## Decisión requerida
+## Consecuencias y límites de la decisión
 
-La solicitud de manejar un precio especial está confirmada; sigue pendiente
-definir su alcance. ADR-SAAS-070 permanece `PROPUESTO`. El responsable debe
-confirmar cuál de estas reglas aplica a los precios de productos del POS:
-
-1. **Opción 1:** los precios impresos son el único precio vigente por
-   presentación para todos los clientes compradores del tenant; cualquier
-   precio “especial” se refiere solo a la oferta SaaS anual de ADR-SAAS-061.
-2. **Opción 2:** hay precios diferentes según cliente comprador; confirmar la
-   regla (qué cliente, presentaciones afectadas, vigencia y fallback) y aprobar
-   importes por presentación antes de cargarlos.
-
-La Opción 3 no se recomienda para E2.2 sin un requisito adicional aprobado.
-La aprobación de esta ADR no autoriza la carga: aún se requiere que la
-administración valide el catálogo y que se mantenga fuera del sistema cualquier
-precio cuyo valor o aplicación no esté confirmado.
-
-## Consecuencias si se aprueba la Opción 2
-
-- Crear un PR de implementación separado después de aceptar ADR-SAAS-070 y
-  actualizar los documentos maestros afectados.
-- Mantener como autoridad al backend y preservar el envelope cerrado de venta;
-  no ampliar el payload con precio autoritativo.
-- Probar consulta por cliente, fallback a precio base, aislamiento entre
-  tenants/clientes, cambios de precio y snapshot idéntico entre solicitud,
-  aprobación y venta, con idempotencia y replay.
-- No cargar historial o precios reales hasta tener una matriz confirmada por
-  cliente y presentación.
+- ADR-SAAS-041 continúa siendo el contrato de precio operativo: `precioCOP`
+  único por presentación, resuelto y congelado server-side.
+- La oferta anual del software continúa separada bajo ADR-SAAS-061.
+- La transcripción de 110 referencias sigue siendo un borrador hasta que Diana
+  valide nombres, empaques y valores; esta decisión no autoriza su importación
+  ni la carga de catálogo en un tenant real.
 
 ## Rollback
 
-No hay cambios de runtime ni datos mientras la ADR permanezca propuesta. Si la
-Opción 2 se implementa y luego se revierte, retirar la resolución/consulta de
-sobreescrituras por un PR compatible; no borrar snapshots de ventas ya
-confirmadas ni editar su ledger.
+No hay cambios de runtime ni datos por esta aceptación. Un cambio futuro a
+tarifas diferenciadas requeriría una nueva decisión/ADR y no debe borrar
+snapshots de ventas confirmadas ni editar su ledger.
 
 ## Referencias
 

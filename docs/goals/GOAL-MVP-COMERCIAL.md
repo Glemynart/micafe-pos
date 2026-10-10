@@ -53,7 +53,7 @@
 | Epic | Resultado | Estado |
 |---|---|---|
 | E2.1 Tenant de referencia | Tenant, contrato, Trial, membresía, administrador, credencial, Espacio y configuración reproducibles. | EN EJECUCIÓN |
-| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. Incluye solicitud de venta del vendedor y aprobación administrativa previa a la venta canónica según ADR-SAAS-062, la agenda de pedidos/entregas con recordatorios según ADR-SAAS-064 y un aviso durable al admin ante una nueva solicitud pendiente según ADR-SAAS-065. | EN EJECUCIÓN |
+| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. Incluye solicitud de venta y aprobación previa según ADR-SAAS-062, agenda según ADR-SAAS-064, aviso durable según ADR-SAAS-065, sincronización viva por señales tenant-aware y relectura callable según ADR-SAAS-069, y precio único por presentación separado de la oferta SaaS anual según ADR-SAAS-070. | EN EJECUCIÓN |
 
 ### M3 — Certificación funcional del tenant — PENDIENTE
 
@@ -1029,13 +1029,42 @@ manual. La evidencia TDD está en
 [`G-SAAS-02-E2-2-GATE-I-CREDENTIAL-COPY-2026-10-10.md`](evidence/G-SAAS-02-E2-2-GATE-I-CREDENTIAL-COPY-2026-10-10.md).
 No se modificaron Auth, Firestore, Rules, fixtures, staging ni producción.
 
-Gate I sigue `BLOCKED` para Bootstrap/Activation del tenant real: no hay
-evidencia de aceptación contractual final, datos legales y contacto verificados,
-usuarios/permisos reales, matriz aprobada de precios especiales, conteo físico
-y costos aprobados, ni autorización del entorno para almacenar los datos del
-cliente. ADR-SAAS-068, ADR-SAAS-069 y ADR-SAAS-070 permanecen `PROPUESTO`; no se
-alteró su estado ni el alcance por este PR. No se creó ni configuró el tenant
-real.
+Al corte de la integración de #534, Gate I seguía `BLOCKED` para
+Bootstrap/Activation del tenant real: no había evidencia de aceptación
+contractual final, datos legales y contacto verificados, usuarios/permisos
+reales, matriz aprobada de precios especiales, conteo físico y costos aprobados,
+ni autorización del entorno para almacenar los datos del cliente. En ese corte
+ADR-SAAS-068, ADR-SAAS-069 y ADR-SAAS-070 permanecían `PROPUESTO`; las decisiones
+posteriores se registran en el checkpoint siguiente. No se creó ni configuró el
+tenant real.
+
+### Decisiones aceptadas — 2026-10-10 — ADR-SAAS-069 y ADR-SAAS-070
+
+El responsable seleccionó la Opción 3 de ADR-SAAS-069: señales de invalidación
+tenant-aware no sensibles y relectura por las callables existentes. El objetivo
+observable es convergencia automática tras el commit sin pulsar “Actualizar”; no
+se establece un SLA numérico ni se concede lectura directa de datos de negocio
+a vendedores. La latencia real se medirá y documentará en staging.
+
+El responsable seleccionó la Opción 1 de ADR-SAAS-070 y aclaró que `1.600.000
+COP` es solo la oferta anual del software bajo ADR-SAAS-061. El POS conserva un
+precio único por presentación para compradores del tenant. El borrador de 110
+referencias aún requiere validación de Diana y no queda autorizado para
+importación.
+
+ADR-SAAS-068 permanece `PROPUESTO` hasta confirmar expresamente su efecto de
+control de caja: las ventas en efectivo sin turno tendrían `turnoId: null` y no
+entrarían en el arqueo/cierre de un turno; se revisarían por venta y fecha. La
+Opción 2 fue señalada como preferida, pero no se registra aún como aceptada.
+
+Gate I continúa `BLOCKED` para tenant real y datos reales. Además de integrar e
+implementar la decisión aceptada de sincronización y revalidar la certificación
+afectada, faltan la aceptación contractual de Diana, datos legales/contacto
+verificados, usuarios reales y permisos aprobados, catálogo aprobado, conteo
+físico/costos y el entorno expresamente autorizado. No se creó/configuró un
+tenant real ni se modificaron staging o producción. Una vez integrado este
+checkpoint documental, el siguiente PR técnico esperado es implementar
+ADR-SAAS-069 y repetir las validaciones afectadas de Gate F/G/H.
 
 ### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 
