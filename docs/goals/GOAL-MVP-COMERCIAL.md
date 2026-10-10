@@ -989,6 +989,27 @@ No hubo escrituras. El resultado solo confirma que esos anclajes exactos no
 existen; no sustituye la validación canónica de unicidad/Bootstrap ni autoriza
 el alta.
 
+### Checkpoint de Gate I — 2026-10-10 — PR #532 integrado / política de precio propuesta
+
+PR #532 quedó `MERGED` en `main @ 5b3e3a16d52310d05277454c7e64bfe7250c08f8`.
+La CI post-merge de `main`, run
+[`38073525609`](https://github.com/Glemynart/micafe-pos/actions/runs/38073525609),
+terminó `success` sobre ese SHA a las `2026-10-10T18:11:53Z`. El PR registró
+la conclusión de la CI de #531 y el preflight de solo lectura; no modificó
+código, staging ni producción.
+
+Se incorpora `ADR-SAAS-070` en estado `PROPUESTO` para distinguir el precio
+anual de la suscripción, cubierto por ADR-SAAS-061, del posible precio de
+producto por cliente comprador. No se acepta un nuevo modelo, no se inventan
+importes ni reglas, y no se autoriza importar el borrador de 110 referencias.
+
+Gate I sigue `BLOCKED` para Bootstrap/Activation y datos reales. Además de la
+decisión de alcance/precio de ADR-SAAS-070, continúan pendientes la aceptación
+contractual del cliente, los datos legales/contacto verificado, usuarios y
+permisos reales, el conteo físico/costos aprobados y la autorización del entorno
+para almacenar sus datos. No se creó/configuró tenant real ni se modificaron
+staging o producción.
+
 ### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 
 PR #519 quedó integrado en `main` mediante el merge commit
