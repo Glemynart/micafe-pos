@@ -2,9 +2,11 @@
 
 ## Estado
 
-**PROPUESTO — pendiente de aprobación explícita del responsable.**
+**ACEPTADO — Opción 3, 2026-10-10.**
 
 - **Fecha de propuesta:** 2026-10-10.
+- **Fecha de aceptación:** 2026-10-10.
+- **Decisión:** el responsable seleccionó explícitamente la Opción 3.
 - **Goal:** `G-SAAS-02` → `M2` → `E2.2`.
 - **Decisor:** responsable del proyecto. **Recomendación técnica:** Lead Engineer.
 - **Relacionado:** ADR-SAAS-049, ADR-SAAS-062, ADR-SAAS-064 y ADR-SAAS-065.
@@ -114,22 +116,22 @@ Enviar mensajes de datos a cada navegador y refrescar las callables al recibirlo
   el estado visible puede quedar obsoleto sin una lectura de recuperación. No es
   suficiente como fuente única para mantener inventario visible actualizado.
 
-## Recomendación propuesta
+## Decisión aceptada
 
-Se recomienda la **Opción 3**. Es la única opción evaluada que cumple la
-expectativa de actualización impulsada por cambios entre dispositivos sin abrir
-lectura directa de documentos con datos sensibles ni duplicar la autoridad de
-las callables. FCM seguirá dedicado a los avisos del sistema operativo; no será
-la única señal de consistencia de la interfaz.
+El responsable aprobó la **Opción 3**: señales de cambio tenant-aware no
+sensibles y relectura mediante las callables existentes. No se habilitarán
+lecturas directas de documentos de negocio para vendedores, ni se usará FCM como
+única fuente de consistencia. La aprobación establece como objetivo observable
+que las vistas conectadas converjan automáticamente tras el commit canónico sin
+depender del botón “Actualizar”; no establece un SLA numérico ni una garantía
+de latencia productiva.
 
-Objetivo de verificación propuesto para staging: vistas conectadas convergen
-automáticamente después del commit de la operación canónica, sin depender del
-botón “Actualizar”; al desconectarse muestran estado no confirmado/obsoleto y,
-al reconectar, hacen una relectura completa. El responsable debe aprobar el
-objetivo de latencia observable antes de fijar un umbral de aceptación; esta
-propuesta no inventa un SLA de producción.
+En staging se medirá y documentará la latencia observada. Al desconectarse, las
+vistas deben mostrar estado no confirmado/obsoleto y, al reconectar, hacer una
+relectura completa. No se debe inferir de esta ADR un SLA comercial de
+producción.
 
-## Consecuencias si se aprueba la Opción 3
+## Consecuencias de la decisión aceptada
 
 - Antes de implementar se enumerarán todas las transacciones canónicas que
   mutan cada canal y se probará que cada una actualiza señal y dato de negocio
@@ -157,10 +159,10 @@ rollback. Las señales solo contienen versiones técnicas, por lo que su
 persistencia residual no cambia ventas, inventario, aprobaciones ni ledger y no
 requiere borrar datos canónicos.
 
-## Decisión requerida
+## Límite de la aceptación
 
-El ADR permanece `PROPUESTO`. El responsable debe aprobar la Opción 3, escoger
-otra opción o rechazar el cambio. La aceptación habilitaría un PR de
-implementación separado, con Rules, transacciones, reconciliación, tests y
-preflight de staging; no autoriza por sí misma deploy, escritura de datos del
-cliente ni producción.
+La aceptación habilita PRs de implementación separados con Rules,
+transacciones, reconciliación, pruebas y preflight de staging. No autoriza por
+sí misma deploy, escritura de datos del cliente, Bootstrap/Activation ni
+producción. La autoridad de disponibilidad, aprobación y venta continúa en el
+servidor y debe revalidarse en cada operación canónica.
