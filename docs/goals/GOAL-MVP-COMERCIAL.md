@@ -1341,13 +1341,22 @@ matriz Gate F integrada por PR #524; el paso siguiente es repetir Gate G y,
 después de su conciliación, emitir Gate H actualizado. No se toca el tenant real
 ni producción.
 
-### Checkpoint vigente — 2026-10-11 — PR #554 / ADR-SAAS-068 integrado
+### Checkpoint vigente — 2026-10-11 — PR #554/#555 / ADR-SAAS-068 y Gate C
 
 PR #554 quedó `MERGED` en `main @ aa9edd011c506402166012145b9e4c14ce159144`
 el `2026-10-11T20:37:29Z`. Los checks previos al merge (`Tipos y pruebas`,
 Vercel y Vercel Preview Comments) terminaron `PASS`; la CI post-merge de `main`,
 run [`38172994028`](https://github.com/Glemynart/micafe-pos/actions/runs/38172994028),
-está en ejecución al registrar este checkpoint.
+terminó `success` el `2026-10-11T21:19:26Z` tras reejecutar el E2E canónico de
+Bodega, cuyo primer intento agotó el timeout de 60 s. La reejecución completó
+ese E2E y las demás suites.
+
+PR #555 reconcilió el evento de #554 en el Goal y quedó `MERGED` en
+`main @ 64f6d936f32b79335959d006841359a120fbeb07` a las
+`2026-10-11T21:20:59Z`. Su CI post-merge de `main`, run
+[`38175997112`](https://github.com/Glemynart/micafe-pos/actions/runs/38175997112),
+seguía `in_progress` al corte de esta reconciliación; no se afirma resultado
+final.
 
 La implementación de ADR-SAAS-068 Opción 2 permite confirmar efectivo sin
 turno obligatorio, valida el recibido contra el total canónico y deriva el
@@ -1358,10 +1367,15 @@ saldo, stock, idempotencia/replay, rechazo de bloqueos inconsistentes e
 historiales. La auditoría del PR quedó `APROBADO PARA MERGE`.
 
 PR #554 no desplegó Functions ni la aplicación y no escribió datos en staging o
-producción. Antes de Gate I, la ruta nueva debe pasar por su preflight Gate C/D
-dirigido y revalidarse en el alcance actualizado de Gate G; después se emitirá
-Gate H actualizado. Gate I permanece `BLOCKED` para Bootstrap/Activation y
-datos reales; E2.2 continúa `EN EJECUCIÓN`. No se crea tenant real ni se toca
+producción. El preflight read-only de Gate C para el `saas-bodega` de
+`main @ 64f6d93` concluyó `PREFLIGHT = PASS` para exactamente 17 actualizaciones,
+0 creaciones y 0 eliminaciones, sin cambios IAM, Secrets o Rules. La evidencia
+está en
+[`Gate C — preflight ADR-SAAS-068`](evidence/G-SAAS-02-E2-2-GATE-C-PREFLIGHT-ADR068-2026-10-11.md).
+Gate D no se ejecutó. Después del Gate D debe revalidarse Gate G con efectivo
+sin turno y actualizar Gate H; la evidencia de #553 precede a #554 y solo cubre
+transferencia. Gate I permanece `BLOCKED` para Bootstrap/Activation y datos
+reales; E2.2 continúa `EN EJECUCIÓN`. No se crea tenant real ni se toca
 producción.
 
 ### Checkpoint — 2026-10-10 (Bogotá) — PR #537 integrado / sincronización viva
