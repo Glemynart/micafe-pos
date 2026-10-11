@@ -76,7 +76,9 @@ gcloud firestore indexes composite create --project=micafe-pos-staging --databas
 ## Límites y siguiente verificación
 
 - No se ejecutaron las llamadas de creación; no se modificaron índices,
-  Rules, datos, tráfico, permisos ni recursos de producción.
+  datos, tráfico ni permisos. Rules se desplegó después mediante una acción
+  separada y autorizada; su hash y verificación se registran en el Goal. No
+  hubo cambios de Functions, Auth, IAM, Secrets ni producción.
 - La consola bloqueó la carga de `/admin/compras`; una compra autenticada no se
   ejecutó. No registrar Gate D/F funcional como `PASS` por el enrutamiento de
   fuente ni por la CI de Emulator.

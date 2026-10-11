@@ -1218,13 +1218,30 @@ Una lectura read-only de `micafe-pos-staging` encontró 7 índices `READY` de 50
 declarados en `firestore.indexes.json`; 43 están ausentes y no hay índices
 remotos fuera del manifiesto. Cuatro ausencias corresponden a las consultas de
 compras/cuentas bancarias del flujo administrativo. No se desplegaron índices
-ni Rules y no se escribieron datos. La evidencia y los cuatro campos exactos
-están en [`Gate D — preflight de índices Bodega`](evidence/G-SAAS-02-E2-2-GATE-D-INDEX-PREFLIGHT-2026-10-11.md).
+ni Rules en ese checkpoint y no se escribieron datos. La evidencia y los cuatro
+campos exactos están en [`Gate D — preflight de índices Bodega`](evidence/G-SAAS-02-E2-2-GATE-D-INDEX-PREFLIGHT-2026-10-11.md).
 
 El preflight es add-only y limitado a esos cuatro índices, pero su despliegue
 requiere autorización separada: la aprobación condicional anterior cubre solo
 `firestore:rules`. No ejecutar el deploy completo del manifiesto (43 índices)
 como sustituto del alcance propuesto.
+
+### Gate D — deploy Rules Bodega en staging — 2026-10-11
+
+Tras confirmar el código del preview y repetir el preflight de Rules, se ejecutó
+el deploy condicional autorizado, limitado a `firestore:rules` en
+`micafe-pos-staging`. La lectura GET posterior confirma el ruleset
+`72d0ba53-83a4-443d-80c4-6db682a96553`, actualizado a las
+`2026-10-11T14:56:13.380503Z`, cuyo SHA-256 normalizado es
+`69560ea6998352400eca77ce5dfb851864e196053b634f77e4bacd8674769fbb`, idéntico
+al candidato. `npm run test:rules` terminó `PASS` (42/42). El inventario remoto
+de índices permaneció en 7 `READY`; no se desplegaron índices ni se escribieron
+documentos.
+
+**Gate D Rules: `PASS`; Gate D completo: `EN CURSO`.** La ruta autenticada de
+Compras sigue bloqueada por los índices ausentes y aún no se ejecutó una compra
+autenticada en staging. Gate F no se certifica por este deploy. No hubo cambios
+en Functions, IAM, Secrets, Auth, fixture, tenant real ni producción.
 
 ### Checkpoint — 2026-10-10 (Bogotá) — PR #537 integrado / sincronización viva
 
