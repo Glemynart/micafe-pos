@@ -199,6 +199,11 @@ async function efectoRegistrarCompra(tx: any, db: any, empresaId: string, actorU
 }
 
 async function efectoRegistrarCompraBodega(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<Record<string, unknown>> {
+  await validarPoliticaCompraBodegaEnTransaccion(tx, db, empresaId, input);
+  return efectoRegistrarCompra(tx, db, empresaId, actorUid, rol, input);
+}
+
+async function validarPoliticaCompraBodegaEnTransaccion(tx: any, db: any, empresaId: string, input: Envelope): Promise<void> {
   const configuracion = await tx.get(db.collection("configuraciones").doc(empresaId));
   if (!configuracion.exists) fail("failed-precondition", "CONFIGURACION_INVALIDA");
   const datosConfiguracion = configuracion.data() as Record<string, unknown> | undefined;
@@ -207,7 +212,11 @@ async function efectoRegistrarCompraBodega(tx: any, db: any, empresaId: string, 
   if (errorConfiguracion) fail("failed-precondition", errorConfiguracion);
   const errorPayload = errorPayloadCompraBodega(input.payload);
   if (errorPayload) fail("invalid-argument", errorPayload);
-  return efectoRegistrarCompra(tx, db, empresaId, actorUid, rol, input);
+}
+
+async function validarReplayCompraBodega(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<void> {
+  await revalidarAutoridadFinancieraEnTransaccion(tx, db, { empresaId, actorUid, rol }, "purchases");
+  await validarPoliticaCompraBodegaEnTransaccion(tx, db, empresaId, input);
 }
 
 function ejecutarRegistrarCompra(db: any, contexto: ContextoFinancieroOperativo, data: unknown, tipo: string) {
@@ -221,5 +230,5 @@ export function ejecutarRegistrarCompraOperativaV1(db: any, contexto: ContextoFi
 
 /** Entrada aislada Bodega sobre las mismas validaciones, ledger y señal. */
 export function ejecutarRegistrarCompraBodegaV1(db: any, contexto: ContextoFinancieroOperativo, data: unknown) {
-  return executeConContexto(db, contexto, data, "registrarCompraBodegaV1", efectoRegistrarCompraBodega);
+  return executeConContexto(db, contexto, data, "registrarCompraBodegaV1", efectoRegistrarCompraBodega, validarReplayCompraBodega);
 }

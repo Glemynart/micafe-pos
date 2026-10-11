@@ -178,6 +178,13 @@ test("Bodega: revalida vertical y módulo antes de devolver el recibo de un repl
   db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory", "purchases"] } });
   const command = envelope("bodega-replay-disabled", payload());
   await ejecutarRegistrarCompraBodegaV1(db, contexto, command);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "GENERAL", modulos: { habilitados: ["purchases"] } });
+
+  await assert.rejects(
+    ejecutarRegistrarCompraBodegaV1(db, contexto, command),
+    error => domain(error, "VERTICAL_NO_COMPATIBLE"),
+  );
+
   db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory"] } });
 
   await assert.rejects(
