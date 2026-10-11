@@ -1092,11 +1092,15 @@ El PR no desplegó ni escribió datos. La implementación de compra Bodega qued�
 integrada por PR #539 en `main @
 504342634e25a6929f12fc2ab1669f350e54b644` el 2026-10-11. Sus checks de PR
 pasaron en el run `38124550538`, incluidos los E2E de compra y agenda Bodega.
-La CI post-merge de `main`, run `38125879717`, estaba en curso al registrar
-este checkpoint. No hubo deploy ni escrituras remotas. Tras CI post-merge
-verde, se repetirá Gate C read-only sobre ese SHA; Gate D no inicia hasta que
-un nuevo `PREFLIGHT = PASS` lo permita, y Gate I permanece bloqueado para toda
-escritura real.
+La CI post-merge de `main`, run `38125879717`, terminó `success`. El preflight
+read-only de Gate C contra el código de #539 concluyó `PREFLIGHT = PASS` para
+un deploy futuro limitado a `saas-bodega-operations`; el delta exacto, los
+artefactos, las revisiones de rollback y los límites están en
+[`G-SAAS-02-E2-2-GATE-C-PREFLIGHT-PURCHASES-2026-10-11.md`](evidence/G-SAAS-02-E2-2-GATE-C-PREFLIGHT-PURCHASES-2026-10-11.md).
+El checkpoint #542 actualizó únicamente este Goal, sin cambiar el artefacto de
+Functions. No hubo deploy ni escrituras remotas. Gate D permanece
+`NOT EXECUTED` hasta una autorización operativa específica para staging; Gate
+I continúa bloqueado para toda escritura real.
 
 ### Decisión aceptada — 2026-10-11 — ADR-SAAS-072 / corte seguro de compras Bodega
 
@@ -1116,11 +1120,13 @@ El ADR y la sincronización documental quedaron integrados por PR #540 en
 pasó en el run `38120294406` (intento 2); la CI post-merge de `main`, run
 `38122798628`, terminó `success`. PR #541 reconcilió el Goal en `main @
 2e93a9dad1f9e243dc6a939df91e6691da40a2ca`; su CI post-merge, run
-`38124338844`, también terminó `success`. La siguiente validación es Gate C
-read-only contra el SHA integrado de #539; Gate D solo puede empezar si el
-resultado es `PREFLIGHT = PASS`. Después se revalidarán F/G/H según la evidencia
-y dependencias. El corte de Rules de ADR-SAAS-072 requiere preflight específico
-por proyecto y permanece en una PR futura. No hubo deploy ni escrituras.
+`38124338844`, también terminó `success`. Gate C read-only contra el SHA
+integrado de #539 quedó `PASS` según la evidencia reconciliada arriba. Gate D
+sigue sin ejecutar: requiere autorización operativa específica para el deploy
+aislado de Functions en staging. Después se revalidarán F/G/H según la evidencia
+y dependencias. El corte de Rules de ADR-SAAS-072 requiere PR, pruebas y
+preflight específico por proyecto después de verificar compatibilidad;
+permanece separado y no se ejecutó. No hubo deploy ni escrituras.
 
 ### Reconciliación Gate I — 2026-10-11
 
