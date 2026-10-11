@@ -34,7 +34,7 @@ cliente ni inventario; tampoco inicia producción.
 | Vertical | `BODEGA_MVP1` — CONFIRMADA | Corresponde a operación distribuidora. |
 | Plan | `mvp_comercial`, versión 2; operación con plan completo — CONFIRMADO | El precio publicado permanece en `1.800.000 COP`; no modificar el catálogo público. |
 | Oferta del tenant | Diana acepta `1.600.000 COP` por un año, pago manual y Trial de 30 días — CONFIRMADO por el responsable el 2026-10-11 | Aceptación reportada; la oferta y el Trial aún no están persistidos. Fecha prevista de inicio: martes 2026-10-13; la fecha efectiva debe coincidir con la activación canónica y no se debe iniciar anticipadamente. |
-| Administradora inicial | `Diana Jimenez` — CONFIRMADA como administradora inicial y autorizadora del alta | El código permite entrar en modo DEMO con fiscalidad pendiente y ofrece a admin el botón opcional “Configurar fiscalidad ahora”. No es un formulario automático de primer inicio; no se guardan valores ficticios. |
+| Administradora inicial | `Diana Jimenez` — CONFIRMADA como administradora inicial y autorizadora del alta | El código permite entrar en modo DEMO con fiscalidad pendiente y ofrece a admin el botón opcional “Configurar fiscalidad ahora”. Esto no satisface la solicitud pendiente de pedir datos legales/comerciales al primer inicio; no se guardan valores ficticios. |
 | Canal para credenciales temporales | WhatsApp — canal preferido para entregar a cada vendedor su usuario y clave temporal | La entrega automatizada no existe en la app. Para el primer tenant se puede entregar fuera de banda; Diana creará usuarios y roles. Teléfonos/nombres de vendedores se obtendrán cuando Diana los cree. No guardar credenciales ni PIN en Git ni en el sistema de soporte. |
 | Operación inicial | Diana también venderá y no usará facturación electrónica al inicio — CONFIRMADO como intención operativa | País/datos fiscales no se inventan. La información legal/comercial se solicitará a Diana en el primer inicio, sujeto a verificar o implementar ese paso de onboarding antes de depender de él. |
 | Catálogo de referencia | Diana aprueba la transcripción de los 110 productos, empaques y precios — CONFIRMADO el 2026-10-11 | Los valores impresos son precio de venta al cliente. `x N unidades` indica empaque de N unidades; las bebidas fuertes sin múltiplo expreso se venden por unidad. Cargar una tarifa única por presentación y stock inicial cero; no inventar costos de compra. |
@@ -53,7 +53,7 @@ cliente ni inventario; tampoco inicia producción.
 | Catálogo digital aprobado | Diana ya aprobó la transcripción de 110 productos, empaques y precios, con stock cero. | La decisión de contenido está resuelta. Sigue pendiente verificar/importar el artefacto aprobado solo después del preflight de producción; no cargar cantidades ni costos ficticios. |
 | Costos de compra | Se ingresarán después desde la operación de Bodega, mediante compras con costos reales por unidad; no inventar costos durante importación. | Antes de habilitar venta/stock: registrar compras reales para establecer existencias y costo. Stock cero impide confirmar ventas sin existencia. |
 | Conteos físicos y ubicaciones de inventario | El responsable confirma que el catálogo se cargará con stock cero; el inventario físico se hará posteriormente por Diana. | Gate I — no cargar cantidades físicas hasta inventario aprobado por Diana. |
-| Solicitud de datos legales al primer inicio | El responsable pide que Diana complete los datos legales/comerciales al iniciar sesión por primera vez; no habrá facturación electrónica inicialmente. | El flujo actual no fuerza ese formulario en primer inicio: permite operar en DEMO y deja la configuración fiscal como opción administrativa. Para salir pronto, puede usarse ese flujo opcional sin detener ventas DEMO; convertirlo en una solicitud automática es un cambio UX aparte y no está implementado aquí. No inventar razón social/NIT ni datos fiscales. |
+| Solicitud de datos legales al primer inicio | Requisito solicitado por el responsable: pedir a Diana los datos legales/comerciales en su primer inicio, sin facturación electrónica inicial. | Pendiente antes de aceptar el uso real (Gate J): diseñar e implementar el prompt en una PR de onboarding y validar el comportamiento. La lista mínima de campos y si puede diferirse requieren definición antes de codificar; la acción fiscal opcional actual no cumple este requisito. No inventar razón social/NIT ni otros datos. |
 | ADR-SAAS-071 — frontera de compras Bodega | Opción 1 aprobada explícitamente el 2026-10-11: crear `registrarCompraBodegaV1` en `saas-bodega-operations`, reutilizar el núcleo transaccional y mantener `saas-auth` sin cambios. | Preparar PR de implementación; después de integrarla, repetir Gate C read-only. La aprobación no autoriza deploy ni escrituras de datos. |
 | Preflight de producción y recuperación | Entorno de datos reales confirmado como producción; no se ha ejecutado el preflight productivo ni existe evidencia de rollback para el alta nueva. | Completar la secuencia de gates con lectura previa, runbook, revisión de rollback y autorización operativa específica antes de cualquier escritura. |
 
@@ -61,12 +61,14 @@ cliente ni inventario; tampoco inicia producción.
 
 La implementación de ADR-SAAS-069 ya está integrada por PR #537 en
 `main @ 7a44a0be618edf4ac7bfc702e171be1e2e6ab0b4`; no se ha desplegado a
-staging. La CI post-merge terminó `success`; el siguiente paso es un Gate C read-only contra
-el SHA vivo, seguido —solo si `PREFLIGHT = PASS`— de Gate D dirigido a
-`micafe-pos-staging`. La sincronización debe medirse allí y los escenarios
-afectados de F/G/H deben volver a certificarse. La venta sin turno no se cambia
-hasta implementar el contrato aceptado de ADR-SAAS-068 Opción 2 en una PR
-separada y superar sus validaciones; esa implementación y certificación son
+staging. El Gate C de ese SHA quedó `BLOCKED` porque faltaba la frontera
+canónica de compras. El siguiente paso es integrar ADR-SAAS-071 y la callable
+Bodega por PRs #538/#539, y luego repetir Gate C read-only para el SHA
+integrado. Gate D solo puede ejecutarse en `micafe-pos-staging` si ese nuevo
+preflight es `PASS`. La sincronización se medirá allí y los escenarios
+afectados de F/G/H deberán volver a certificarse. La venta sin turno no se
+cambia hasta implementar el contrato aceptado de ADR-SAAS-068 Opción 2 en una
+PR separada y superar sus validaciones; esa implementación y certificación son
 requisito antes de Gate I.
 
 Gate I permanece `BLOCKED` para cualquier Bootstrap, Activation, persistencia

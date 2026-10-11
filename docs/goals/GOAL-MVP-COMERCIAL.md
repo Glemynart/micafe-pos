@@ -1069,6 +1069,13 @@ autorizado. Diana creará los usuarios reales y asignará sus roles después del
 alta; no hace falta una lista previa de vendedores. No se creó/configuró un
 tenant real ni se modificaron staging o producción.
 
+El responsable también pidió que a Diana se le soliciten los datos
+legales/comerciales en su primer inicio de sesión, sin activar facturación
+electrónica. El flujo actual solo ofrece una acción administrativa opcional y
+no satisface este requisito. El prompt de primer inicio queda pendiente para
+Gate I/J y debe implementarse y validarse antes de aceptar el uso real; los
+campos mínimos y la posibilidad de diferirlos deben definirse antes de codificar.
+
 ### Decisión aceptada — 2026-10-11 — ADR-SAAS-071 / compra Bodega aislada
 
 El responsable aprobó la Opción 1 de ADR-SAAS-071: crear
@@ -1101,15 +1108,18 @@ actualizadas dentro de transacciones canónicas, lectura restringida por Rules y
 reconsulta del estado de negocio mediante callables existentes. No incluye
 despliegue ni escrituras en staging o producción.
 
-El siguiente paso operativo es completar Gate C read-only para el SHA vivo de
-`main` y el delta exacto de Rules/Functions; si `PREFLIGHT = PASS`, ejecutar
-Gate D únicamente en `micafe-pos-staging`. Después se revalidarán los casos
-afectados de Gate F y se repetirá G/H. Gate I permanece `BLOCKED`: no hay
-Bootstrap/Activation autorizado hasta completar las precondiciones comerciales,
-legales, de catálogo y de entorno enumeradas en el preflight vigente.
-ADR-SAAS-068 Opción 2 ya está aceptado; su implementación debe integrarse y
-certificarse antes de Gate I. No se creó/configuró el tenant real ni se tocó
-producción.
+El preflight de Gate C para `main @ 7a44a0be618edf4ac7bfc702e171be1e2e6ab0b4`
+ya quedó `BLOCKED`; no repetir ese candidato ni ejecutar Gate D. El siguiente
+paso es integrar el registro documental de ADR-SAAS-071 (#538) y la
+implementación autorizada de compras Bodega (#539). Solo después de integrar
+ambos cambios y completar su CI/auditoría se repetirá Gate C read-only contra el
+SHA integrado; Gate D podrá ejecutarse únicamente si el nuevo resultado es
+`PREFLIGHT = PASS`. Después se revalidarán los escenarios afectados de F/G/H.
+ADR-SAAS-068 Opción 2 también requiere implementación y certificación antes de
+Gate I. Gate I permanece `BLOCKED`: no hay Bootstrap/Activation autorizado
+hasta completar las precondiciones comerciales, legales, de catálogo y de
+entorno enumeradas en el preflight vigente. No se creó/configuró el tenant real
+ni se tocó producción.
 
 ### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 
