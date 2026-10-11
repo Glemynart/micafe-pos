@@ -17,7 +17,7 @@ cambios IAM/Secrets, escritura de datos ni operaciones en producción.
 - `updateTime` observado: `2026-10-02T06:06:09.78389Z`.
 - El contenido remoto normalizado coincide byte por byte con
   `firestore.rules` de antes de PR #537 / ADR-SAAS-069; SHA-256 UTF-8 con LF:
-  `00e8efaf166d41ecccf57979c730b59b2f868725135e9a59abe15a6c9c72723d`.
+  `0d983a0730debe84790916f6eaedb822bcb1e2905acebba3f58aae7342c4481e`.
 - El blob candidato de `origin/main:firestore.rules` es
   `61da38eb9870a7c155f14e4adae85f7d0c87cefe`.
 - Desde el Ruleset remoto hasta el candidato, el delta revisado en Git son
