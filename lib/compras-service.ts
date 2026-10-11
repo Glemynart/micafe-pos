@@ -10,6 +10,7 @@ import { db, getFirebaseFunctions } from "@/lib/firebase";
 import { tenantQuery } from "@/lib/tenant";
 import { resolverCallableCompra } from "@/lib/bodega/compra-routing";
 import type { VerticalTenant } from "@/lib/configuracion/contrato";
+import { construirPayloadCompra, type CompraCommandParams } from "@/lib/compra-command";
 
 export interface CompraItem {
   tipo?: "insumo" | "producto";
@@ -51,18 +52,14 @@ export interface Compra {
   cuentaNombre?: string;
 }
 
-export interface RegistrarCompraParams {
-  proveedor: string;
-  proveedorId?: string;
-  items: CompraItem[];
-  espacioId: string;
-  cuentaClaveOperativa?: string;
-  fechaCompra?: string;
+export interface RegistrarCompraParams extends CompraCommandParams {
+  /** Reutilizar al reintentar el mismo borrador tras una respuesta incierta. */
+  commandId?: string;
 }
 
 /** La callable es la única autoridad sobre compra, inventario y finanzas. */
 export async function registrarCompra(params: RegistrarCompraParams, vertical?: VerticalTenant | null): Promise<string> {
-  const commandId = `compra:${crypto.randomUUID()}`;
+  const commandId = params.commandId ?? `compra:${crypto.randomUUID()}`;
   const callable = resolverCallableCompra(vertical);
   const result = await httpsCallable<unknown, { compraId: string }>(getFirebaseFunctions(), callable)({
     commandId,
@@ -70,19 +67,7 @@ export async function registrarCompra(params: RegistrarCompraParams, vertical?: 
     correlationId: `corr-${commandId}`,
     causationId: null,
     motivo: "compra_proveedor",
-    payload: {
-      proveedor: params.proveedor,
-      ...(params.proveedorId ? { proveedorId: params.proveedorId } : {}),
-      espacioId: params.espacioId,
-      fechaCompra: params.fechaCompra ?? null,
-      ...(params.cuentaClaveOperativa ? { cuentaClaveOperativa: params.cuentaClaveOperativa } : {}),
-      items: params.items.map(item => ({
-        tipo: item.tipo ?? "insumo",
-        articuloId: item.itemId ?? item.insumoId,
-        cantidad: item.cantidad,
-        costoUnitario: item.costoUnitario,
-      })),
-    },
+    payload: construirPayloadCompra(params),
   });
   return result.data.compraId;
 }
