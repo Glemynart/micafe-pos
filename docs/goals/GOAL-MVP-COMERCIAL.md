@@ -1221,10 +1221,11 @@ compras/cuentas bancarias del flujo administrativo. No se desplegaron índices
 ni Rules en ese checkpoint y no se escribieron datos. La evidencia y los cuatro
 campos exactos están en [`Gate D — preflight de índices Bodega`](evidence/G-SAAS-02-E2-2-GATE-D-INDEX-PREFLIGHT-2026-10-11.md).
 
-El preflight es add-only y limitado a esos cuatro índices, pero su despliegue
-requiere autorización separada: la aprobación condicional anterior cubre solo
-`firestore:rules`. No ejecutar el deploy completo del manifiesto (43 índices)
-como sustituto del alcance propuesto.
+El preflight fue add-only y limitado a esos cuatro índices. La aprobación
+condicional anterior de `firestore:rules` no incluía índices; tras el preflight
+exacto, se ejecutó únicamente el delta de cuatro bajo la autorización operativa
+general de E2.2. No se desplegó el manifiesto completo ni los otros 39 índices
+faltantes.
 
 ### Gate D — deploy Rules Bodega en staging — 2026-10-11
 
@@ -1253,11 +1254,29 @@ terminó `success` sobre ese SHA.
 
 En Edge se confirmó la sesión `Administrador Bodega Demo` en el preview #548.
 Al abrir `/admin/compras`, cargaron el shell y la navegación autenticada, pero
-el área principal quedó en blanco. No se inició ni registró una compra. La
-lectura posterior del proyecto `micafe-pos-staging` volvió a mostrar 7 índices
-compuestos `READY`; no se crearon índices ni se escribieron documentos. El
-bloqueo de Compras permanece consistente con el delta de cuatro índices
-faltantes documentado arriba; Gate D completo sigue `EN CURSO`.
+el área principal quedó en blanco. No se inició ni registró una compra. En ese
+checkpoint previo al deploy de índices, `micafe-pos-staging` tenía 7 índices
+compuestos `READY`; la lectura no creó índices ni escribió documentos.
+
+### Gate D — índices Bodega en staging — 2026-10-11
+
+Tras el preflight exacto, se crearon únicamente los cuatro índices de compras y
+cuentas bancarias definidos en el manifiesto. La verificación remota confirmó
+los cuatro `READY`; el total pasó de 7 a 11 índices, todos `READY`, con cero
+recursos remotos fuera del manifiesto. Quedan 39 definiciones del manifiesto sin
+crear, fuera del delta de Gate D para la pantalla de Compras.
+
+La evidencia con nombres de recursos y alcance está en
+[`Gate D — deploy de índices de compras Bodega`](evidence/G-SAAS-02-E2-2-GATE-D-INDEX-DEPLOY-2026-10-11.md).
+La recarga posterior en Edge encontró la sesión expirada y volvió al login;
+por tanto, la verificación visual autenticada después de que los índices
+quedaron `READY` sigue pendiente. No se registró compra ni se escribieron
+documentos.
+
+**Gate D índices: `PASS`; Gate D completo: `EN CURSO`.** La pantalla
+`/admin/compras` debe revalidarse con una sesión admin activa antes de cerrar el
+gate. No se cambió Rules, Functions, IAM, Secrets, Auth, fixture, tenant real ni
+producción.
 
 ### Checkpoint — 2026-10-10 (Bogotá) — PR #537 integrado / sincronización viva
 
