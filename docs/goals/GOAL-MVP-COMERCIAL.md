@@ -1205,6 +1205,79 @@ datos reales. La CI post-merge de PR #547 (`38144529463`) terminó `success`,
 pero sus pruebas E2E de solicitud, aprobación y venta corrieron en Emulator y
 no sustituyen la validación autenticada de compras Bodega en staging.
 
+### Hallazgo de runtime — 2026-10-11 — índices de compras en staging
+
+La sesión admin autenticada en el preview asociado al HEAD de PR #548 cargó el
+panel Bodega. La ruta `/admin/compras` quedó en su indicador de carga; los logs
+del navegador registraron `failed-precondition` por índices compuestos
+ausentes en `compras` y `cuentas_bancarias`. El código del commit del preview
+ruta BODEGA_MVP1 por `registrarCompraBodegaV1`, pero no fue posible completar
+una compra autenticada ni verificar el efecto de Rules desde esa pantalla.
+
+Una lectura read-only de `micafe-pos-staging` encontró 7 índices `READY` de 50
+declarados en `firestore.indexes.json`; 43 están ausentes y no hay índices
+remotos fuera del manifiesto. Cuatro ausencias corresponden a las consultas de
+compras/cuentas bancarias del flujo administrativo. No se desplegaron índices
+ni Rules en ese checkpoint y no se escribieron datos. La evidencia y los cuatro
+campos exactos están en [`Gate D — preflight de índices Bodega`](evidence/G-SAAS-02-E2-2-GATE-D-INDEX-PREFLIGHT-2026-10-11.md).
+
+El preflight fue add-only y limitado a esos cuatro índices. La aprobación
+condicional anterior de `firestore:rules` no incluía índices; tras el preflight
+exacto, se ejecutó únicamente el delta de cuatro bajo la autorización operativa
+general de E2.2. No se desplegó el manifiesto completo ni los otros 39 índices
+faltantes.
+
+### Gate D — deploy Rules Bodega en staging — 2026-10-11
+
+Tras confirmar el código del preview y repetir el preflight de Rules, se ejecutó
+el deploy condicional autorizado, limitado a `firestore:rules` en
+`micafe-pos-staging`. La lectura GET posterior confirma el ruleset
+`72d0ba53-83a4-443d-80c4-6db682a96553`, actualizado a las
+`2026-10-11T14:56:13.380503Z`, cuyo SHA-256 normalizado es
+`69560ea6998352400eca77ce5dfb851864e196053b634f77e4bacd8674769fbb`, idéntico
+al candidato. `npm run test:rules` terminó `PASS` (42/42). El inventario remoto
+de índices permaneció en 7 `READY`; no se desplegaron índices ni se escribieron
+documentos.
+
+**Gate D Rules: `PASS`; Gate D completo: `EN CURSO`.** La ruta autenticada de
+Compras sigue bloqueada por los índices ausentes y aún no se ejecutó una compra
+autenticada en staging. Gate F no se certifica por este deploy. No hubo cambios
+en Functions, IAM, Secrets, Auth, fixture, tenant real ni producción.
+
+### Revalidación de Compras y CI post-merge — 2026-10-11
+
+PR #548 quedó integrado en `main` mediante el merge commit
+`fe5abdbfb87b6c3782ef8e34432d1fc4b9226000` (`2026-10-11T14:48:18Z`). Su CI
+post-merge, run
+[`38148667987`](https://github.com/Glemynart/micafe-pos/actions/runs/38148667987),
+terminó `success` sobre ese SHA.
+
+En Edge se confirmó la sesión `Administrador Bodega Demo` en el preview #548.
+Al abrir `/admin/compras`, cargaron el shell y la navegación autenticada, pero
+el área principal quedó en blanco. No se inició ni registró una compra. En ese
+checkpoint previo al deploy de índices, `micafe-pos-staging` tenía 7 índices
+compuestos `READY`; la lectura no creó índices ni escribió documentos.
+
+### Gate D — índices Bodega en staging — 2026-10-11
+
+Tras el preflight exacto, se crearon únicamente los cuatro índices de compras y
+cuentas bancarias definidos en el manifiesto. La verificación remota confirmó
+los cuatro `READY`; el total pasó de 7 a 11 índices, todos `READY`, con cero
+recursos remotos fuera del manifiesto. Quedan 39 definiciones del manifiesto sin
+crear, fuera del delta de Gate D para la pantalla de Compras.
+
+La evidencia con nombres de recursos y alcance está en
+[`Gate D — deploy de índices de compras Bodega`](evidence/G-SAAS-02-E2-2-GATE-D-INDEX-DEPLOY-2026-10-11.md).
+La recarga posterior en Edge encontró la sesión expirada y volvió al login;
+por tanto, la verificación visual autenticada después de que los índices
+quedaron `READY` sigue pendiente. No se registró compra ni se escribieron
+documentos.
+
+**Gate D índices: `PASS`; Gate D completo: `EN CURSO`.** La pantalla
+`/admin/compras` debe revalidarse con una sesión admin activa antes de cerrar el
+gate. No se cambió Rules, Functions, IAM, Secrets, Auth, fixture, tenant real ni
+producción.
+
 ### Checkpoint — 2026-10-10 (Bogotá) — PR #537 integrado / sincronización viva
 
 PR #537 (`feat: Bodega live refresh signals`) quedó `MERGED` en `main` mediante
