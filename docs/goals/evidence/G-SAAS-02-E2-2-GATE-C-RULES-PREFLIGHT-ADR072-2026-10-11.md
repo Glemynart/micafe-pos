@@ -71,3 +71,30 @@ cambios IAM/Secrets, escritura de datos ni operaciones en producción.
 La aceptación de ADR-SAAS-072 y la PR #544 autorizan el diseño y su
 implementación en código, no la secuencia de despliegue. No hubo cambios en
 producción ni escrituras de datos.
+
+## Reconciliación read-only posterior — 2026-10-11
+
+Después del deploy Functions autorizado para Gate D, se repitieron consultas
+read-only en `micafe-pos-staging`:
+
+- La callable nueva `registrarCompraBodegaV1` aparece en la superficie de
+  Functions; `registrarCompraOperativaV1` no aparece. Las siete Functions de
+  `saas-bodega-operations` siguen `ACTIVE`, Node.js 22, cero Secrets y 100 %
+  del tráfico en las revisiones verificadas en la evidencia de deploy.
+- El release activo de Firestore continúa en el ruleset
+  `30df41d0-bd59-4c91-80ea-65576afd436b`, con `updateTime`
+  `2026-10-02T06:06:09.78389Z` y hash normalizado
+  `0d983a0730debe84790916f6eaedb822bcb1e2905acebba3f58aae7342c4481e`; el
+  corte ADR-SAAS-072 aún no está desplegado.
+- El código integrado enruta `BODEGA_MVP1` a la callable nueva y conserva la
+  ruta legacy para otros verticales. El preview Vercel de esta rama está
+  protegido por SSO (la petición anónima respondió `302` a login); no se pudo
+  probar desde este entorno la versión de cliente servida en ese dominio ni
+  una compra autenticada. No se infiere compatibilidad runtime a partir del
+  código fuente.
+
+Por ello, el preflight del delta Rules sigue siendo válido para el candidato,
+pero el readiness para Gate D Rules permanece **`BLOCKED / PENDING CLIENT
+VERSION VERIFICATION AND SEPARATE DEPLOY AUTHORIZATION`**. No se desplegaron
+Rules y no hubo escrituras de datos, cambios IAM/Secrets, Auth, fixture, tenant
+real ni producción durante esta relectura.
