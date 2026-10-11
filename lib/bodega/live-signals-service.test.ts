@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearDetectorCambioSenalBodega, interpretarSnapshotSenalBodega, rutaSenalBodega } from "./live-signals-service";
+import { crearDetectorCambioSenalBodega, crearSuscripcionRecuperableSenalBodega, interpretarSnapshotSenalBodega, rutaSenalBodega } from "./live-signals-service";
 import { crearRefrescoCoalescido } from "./refresh-coalescido";
 
 test("las rutas de señales se limitan a canales soportados y al vendedor propio", () => {
@@ -56,4 +56,29 @@ test("la primera señal remota provoca una relectura si llega después de inicia
   assert.equal(detectarCambio({ version: 6, conectada: true }), true);
   assert.equal(detectarCambio({ version: null, conectada: false }), false);
   assert.equal(detectarCambio({ version: 6, conectada: true }), true);
+});
+
+test("una escucha terminada por error puede reconectarse sin recrear la vista", () => {
+  const escuchas: Array<{ estado: (state: { version: number | null; conectada: boolean }) => void; error: () => void }> = [];
+  const estados: Array<{ version: number | null; conectada: boolean }> = [];
+  let cancelaciones = 0;
+  const suscripcion = crearSuscripcionRecuperableSenalBodega((estado, error) => {
+    escuchas.push({ estado, error });
+    return () => { cancelaciones += 1; };
+  }, estado => estados.push(estado));
+
+  assert.equal(escuchas.length, 1);
+  escuchas[0].error();
+  assert.deepEqual(estados.at(-1), { version: null, conectada: false });
+
+  suscripcion.reconectar();
+  assert.equal(escuchas.length, 2);
+  assert.equal(cancelaciones, 1);
+  escuchas[1].estado({ version: 8, conectada: true });
+  assert.deepEqual(estados.at(-1), { version: 8, conectada: true });
+
+  suscripcion.cerrar();
+  assert.equal(cancelaciones, 2);
+  suscripcion.reconectar();
+  assert.equal(escuchas.length, 2);
 });
