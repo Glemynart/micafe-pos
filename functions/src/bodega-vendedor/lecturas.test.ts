@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Timestamp } from "firebase-admin/firestore";
-import { ejecutarConsultarCatalogoVendedor, ejecutarConsultarMisVentasVendedor } from "./lecturas";
+import { ejecutarConsultarCatalogoVendedor, ejecutarConsultarMisVentasVendedor, proyectarVentaVendedor } from "./lecturas";
 import { ejecutarConfirmarVentaBodegaV1 } from "./ventas-confirmation";
 import { crearHuellaSemantica } from "../bodega/operational-core";
 import type { ContextoFinancieroOperativo } from "../finanzas/callables";
@@ -10,6 +10,18 @@ import { crearIdentificadorInterno } from "../turnos/identificadores";
 class Query { constructor(private docs: any[], private filters: [string, unknown][] = []) {} where(k: string, _op: string, v: unknown) { return new Query(this.docs, [...this.filters, [k, v]]); } async get() { const docs = this.docs.filter(d => this.filters.every(([k, v]) => d.data()[k] === v)); return { docs, size: docs.length }; } }
 class Db { constructor(private data: Record<string, any[]>) {} collection(name: string) { return new Query(this.data[name] ?? []); } }
 const doc = (id: string, data: any) => ({ id, ref: { id, path: id }, data: () => data });
+
+test("ADR-068: DTO propio expone el efectivo recibido, cambio y vínculo real de turno sin costos", () => {
+  const venta = proyectarVentaVendedor({
+    id: "venta-cash", estado: "pagada", metodoPago: "efectivo", turnoId: null,
+    pago: { metodo: "efectivo", montoRecibidoCOP: 25000, cambioCOP: 5000 },
+    totales: { total: 20000 }, items: [{ id: "producto", cantidad: 1, costoUnitario: 7000 }],
+  });
+  assert.equal(venta.turnoId, null);
+  assert.equal(venta.montoRecibidoCOP, 25000);
+  assert.equal(venta.cambioCOP, 5000);
+  assert.equal(JSON.stringify(venta).includes("costoUnitario"), false);
+});
 
 test("vendedor recibe solo DTOs sanitizados y aislados", async () => {
   const db = new Db({ productos: [doc("a", { empresaId: "a", nombre: "Seguro", activo: true, costo: 8, stock: 4 }), doc("b", { empresaId: "b", nombre: "Ajeno", activo: true, costo: 9 })], ventas: [doc("va", { empresaId: "a", cajeroId: "u", estado: "pagada", metodoPago: "efectivo", totales: { total: 20 }, items: [{ id: "p", cantidad: 1, precioUnitario: 20, costoUnitario: 8 }] }), doc("vb", { empresaId: "b", cajeroId: "u", costoUnitario: 9 })] });

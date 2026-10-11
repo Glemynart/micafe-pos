@@ -41,6 +41,22 @@ test("U3-A contrato: acepta el mínimo, causationId texto o null y los dos medio
   assert.equal(normalizarComandoConfirmacionVentaBodega(transferencia).causationId, "causa-1");
 });
 
+test("ADR-068 contrato: efectivo exige recibido entero y transferencia lo rechaza", () => {
+  const efectivo = { ...base(), payload: { ...base().payload, montoRecibidoCOP: 50000 } };
+  assert.equal((normalizarComandoConfirmacionVentaBodega(efectivo).payload as any).montoRecibidoCOP, 50000);
+
+  const invalidos = [
+    { ...base(), payload: { ...base().payload, montoRecibidoCOP: undefined } },
+    { ...base(), payload: { ...base().payload, montoRecibidoCOP: -1 } },
+    { ...base(), payload: { ...base().payload, montoRecibidoCOP: 1.5 } },
+    { ...base(), payload: { ...base().payload, montoRecibidoCOP: Number.NaN } },
+    { ...base(), payload: { ...base().payload, montoRecibidoCOP: Number.POSITIVE_INFINITY } },
+    { ...base(), payload: { ...base().payload, montoRecibidoCOP: Number.MAX_SAFE_INTEGER + 1 } },
+    { ...base(), payload: { ...base().payload, metodoPago: "transferencia", montoRecibidoCOP: 50000 } },
+  ];
+  for (const input of invalidos) assert.throws(() => normalizarComandoConfirmacionVentaBodega(input));
+});
+
 test("U3-A contrato: acepta el ID largo de presentación generado canónicamente", () => {
   const productoId = "r1a-WyJFMl8yLUJPREVHQS1TVEFHSU5HLUZJWFRVUkUiLCJwcm9kdWN0bzppbnZlbnRhcmlvOjk0MzhlOTNlLTcwNTItNDBjNC05MDJiLTFjZGYyNzU4MDQwYiJd";
   const presentacionId = crearIdentificadorInterno(

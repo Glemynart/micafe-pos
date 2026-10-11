@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { construirConfirmacionVentaBodega, construirSolicitudVentaBodega, crearProtectorDobleEnvio, MAX_LINEAS_BODEGA, mensajeErrorBodega, resolverSuperficieBodega, fechaDesdeSerializacionBodega, formatearFechaBodega, formatearReferenciaSolicitud } from "./ui-contract"
+import { construirConfirmacionVentaBodega, construirSolicitudVentaBodega, crearProtectorDobleEnvio, MAX_LINEAS_BODEGA, mensajeErrorBodega, resolverSuperficieBodega, fechaDesdeSerializacionBodega, formatearFechaBodega, formatearReferenciaSolicitud, calcularCambioEfectivoBodega } from "./ui-contract"
 
 test("U4 construye exactamente el envelope certificado sin campos de autoridad", () => {
   let secuencia = 0
@@ -21,6 +21,21 @@ test("U4 construye exactamente el envelope certificado sin campos de autoridad",
   for (const prohibido of ["empresaId", "cajeroId", "turnoId", "cuenta", "precio", "costo", "factor", "subtotal", "total", "stock", "cantidadUnidadBase"]) {
     assert.equal(serializado.includes(prohibido), false)
   }
+})
+
+test("ADR-068: el envelope de efectivo conserva recibido y calcula el cambio sin volverlo autoridad", () => {
+  const envelope = construirConfirmacionVentaBodega({
+    clienteId: "cliente",
+    lineas: [{ productoId: "producto", presentacionId: "unidad", cantidad: 1 }],
+    metodoPago: "efectivo",
+    montoRecibidoCOP: 25000,
+    generarId: () => "cash",
+  } as any)
+  assert.equal(envelope.payload.montoRecibidoCOP, 25000)
+  assert.equal(JSON.stringify(envelope).includes("cambioCOP"), false)
+  assert.equal(calcularCambioEfectivoBodega(20000, 25000), 5000)
+  assert.equal(calcularCambioEfectivoBodega(20000, 19999), null)
+  assert.equal(calcularCambioEfectivoBodega(0, 25000), null)
 })
 
 test("U4 limita líneas, cantidades y conserva mensajes operativos fail-closed", () => {

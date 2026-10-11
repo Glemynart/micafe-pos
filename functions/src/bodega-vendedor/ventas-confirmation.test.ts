@@ -89,9 +89,11 @@ test("U3-C: efectivo completa una venta Bodega con 48 unidades base, caja, turno
   const db = new FakeDb(); seed(db);
   const result = await ejecutarConfirmarVentaBodegaV1(db, contexto, comando()) as any;
   assert.equal(result.estadoOperativo, "COMPLETO"); assert.equal(result.total, 40000); assert.equal(result.turnoId, "turno-u3c");
+  assert.equal(result.montoRecibidoCOP, 50000); assert.equal(result.cambioCOP, 10000);
   const venta = db.docs.get(`ventas/${result.ventaId}`)!;
   assert.equal(venta.schemaVersion, "BODEGA_MVP1_V1"); assert.equal(venta.items[0].cantidadUnidadBase, 48); assert.equal(venta.estadoOperativo, "COMPLETO");
   assert.equal(venta.cajeroId, contexto.actorUid);
+  assert.deepEqual(venta.pago, { metodo: "efectivo", montoRecibidoCOP: 50000, cambioCOP: 10000 });
   assert.equal(db.docs.get(`empresas/${empresaId}/solicitudes_venta_bodega/solicitud-u3c`)?.estado, "EJECUTADA");
   assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/disponibilidad`)?.version, 1);
   assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/solicitudes_admin`)?.version, 1);
@@ -101,6 +103,75 @@ test("U3-C: efectivo completa una venta Bodega con 48 unidades base, caja, turno
   const replay = await ejecutarConfirmarVentaBodegaV1(db, contexto, comando()) as any;
   assert.equal(replay.ventaId, result.ventaId);
   assert.equal([...db.docs.keys()].filter(path => path.startsWith("ventas/")).length, 1);
+});
+
+test("ADR-068: efectivo sin turno conserva pago, ledger total e inventario en una sola transacción", async () => {
+  const db = new FakeDb(); seed(db);
+  db.docs.delete(`turnos_activos/${crearIdentificadorInterno(empresaId, contexto.actorUid)}`);
+  db.docs.delete("turnos/turno-u3c");
+
+  const result = await ejecutarConfirmarVentaBodegaV1(db, contexto, comando()) as any;
+  const venta = db.docs.get(`ventas/${result.ventaId}`)!;
+  const movimiento = db.docs.get(`transacciones_financieras/${result.movimientoFinancieroId}`)!;
+  assert.equal(result.turnoId, null);
+  assert.equal(result.montoRecibidoCOP, 50000);
+  assert.equal(result.cambioCOP, 10000);
+  assert.equal(venta.turnoId, null);
+  assert.deepEqual(venta.pago, { metodo: "efectivo", montoRecibidoCOP: 50000, cambioCOP: 10000 });
+  assert.equal(movimiento.turnoId, null);
+  assert.equal(movimiento.monto, 40000);
+  assert.equal(db.docs.get("cuentas_bancarias/caja-principal")?.saldo, 40000);
+  assert.equal(db.docs.get("productos/producto-u3c")?.stock, 52);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("ventas/")).length, 1);
+});
+
+test("ADR-068: recibido menor al total falla sin efectos parciales", async () => {
+  const db = new FakeDb(); seed(db);
+  db.docs.delete(`turnos_activos/${crearIdentificadorInterno(empresaId, contexto.actorUid)}`);
+  await assert.rejects(
+    ejecutarConfirmarVentaBodegaV1(db, contexto, comando({ payload: { ...comando().payload, montoRecibidoCOP: 39999 } })),
+    error => dominio(error, "MONTO_RECIBIDO_INVALIDO"),
+  );
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("ventas/")), false);
+  assert.equal(db.docs.get("productos/producto-u3c")?.stock, 100);
+  assert.equal(db.docs.get("cuentas_bancarias/caja-principal")?.saldo, 0);
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("transacciones_financieras/")), false);
+});
+
+test("ADR-068: administrador puede registrar efectivo sin turno y queda visible en ledger", async () => {
+  const db = new FakeDb(); seed(db);
+  const adminContext: ContextoFinancieroOperativo = { empresaId, actorUid: "admin-u3c", rol: "admin" };
+  db.docs.delete(`turnos_activos/${crearIdentificadorInterno(empresaId, contexto.actorUid)}`);
+  db.docs.delete("turnos/turno-u3c");
+  const result = await ejecutarConfirmarVentaBodegaV1(db, adminContext, comando({
+    commandId: "cmd-admin-cash", idempotencyKey: "idem-admin-cash",
+    payload: { clienteId: "cliente-u3c", lineas: [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 1 }], metodoPago: "efectivo", montoRecibidoCOP: 25000 },
+  })) as any;
+  const venta = db.docs.get(`ventas/${result.ventaId}`)!;
+  const movimiento = db.docs.get(`transacciones_financieras/${result.movimientoFinancieroId}`)!;
+  assert.equal(result.total, 20000);
+  assert.equal(result.turnoId, null);
+  assert.equal(venta.pago.montoRecibidoCOP, 25000);
+  assert.equal(venta.pago.cambioCOP, 5000);
+  assert.equal(movimiento.monto, 20000);
+  assert.equal(movimiento.turnoId, null);
+});
+
+test("ADR-068: replay con el mismo recibido es idempotente y con recibido distinto entra en conflicto", async () => {
+  const db = new FakeDb(); seed(db);
+  const original = comando();
+  const result = await ejecutarConfirmarVentaBodegaV1(db, contexto, original) as any;
+  const replay = await ejecutarConfirmarVentaBodegaV1(db, contexto, original) as any;
+  assert.equal(replay.ventaId, result.ventaId);
+
+  await assert.rejects(
+    ejecutarConfirmarVentaBodegaV1(db, contexto, comando({ payload: { ...original.payload, montoRecibidoCOP: 60000 } })),
+    error => dominio(error, "COMMAND_ID_CONFLICT"),
+  );
+  assert.equal(db.docs.get("productos/producto-u3c")?.stock, 52);
+  assert.equal(db.docs.get("cuentas_bancarias/caja-principal")?.saldo, 40000);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("ventas/")).length, 1);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("transacciones_financieras/")).length, 1);
 });
 
 test("ADR-064: venta vinculada consume hold, stock físico y agenda en una transacción idempotente", async () => {
