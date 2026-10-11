@@ -55,7 +55,7 @@ cliente ni inventario; tampoco inicia producción.
 | Conteos físicos y ubicaciones de inventario | El responsable confirma que el catálogo se cargará con stock cero; el inventario físico se hará posteriormente por Diana. | Gate I — no cargar cantidades físicas hasta inventario aprobado por Diana. |
 | Solicitud de datos legales al primer inicio | Requisito solicitado por el responsable: pedir a Diana los datos legales/comerciales en su primer inicio, sin facturación electrónica inicial. | Pendiente antes de aceptar el uso real (Gate J): diseñar e implementar el prompt en una PR de onboarding y validar el comportamiento. La lista mínima de campos y si puede diferirse requieren definición antes de codificar; la acción fiscal opcional actual no cumple este requisito. No inventar razón social/NIT ni otros datos. |
 | ADR-SAAS-071 — frontera de compras Bodega | Opción 1 aprobada explícitamente el 2026-10-11: crear `registrarCompraBodegaV1` en `saas-bodega-operations`, reutilizar el núcleo transaccional y mantener `saas-auth` sin cambios. | Preparar PR de implementación; después de integrarla, repetir Gate C read-only. La aprobación no autoriza deploy ni escrituras de datos. |
-| ADR-SAAS-072 — corte directo de compras Bodega | Opción 2 aceptada explícitamente el 2026-10-11: denegar create/delete directos de cliente en `/compras` solo para `BODEGA_MVP1`, preservando otros verticales. | Implementación en PR separada; corte por proyecto solo tras verificar cliente compatible y que `registrarCompraOperativaV1` no sea invocable desde Bodega. Si la callable legacy está expuesta, detener certificación. No autoriza Rules/deploy ni escrituras. |
+| ADR-SAAS-072 — corte directo de compras Bodega | Opción 2 aceptada explícitamente el 2026-10-11 e integrada por PR #540 en `main @ 382c5821157abda4bc292457386dbcefa7732fc9`: denegar create/delete directos de cliente en `/compras` solo para `BODEGA_MVP1`, preservando otros verticales. | Implementación en PR separada; corte por proyecto solo tras verificar cliente compatible y que `registrarCompraOperativaV1` no sea invocable desde Bodega. Si la callable legacy está expuesta, detener certificación. La CI post-merge `38122798628` está en curso. No autoriza Rules/deploy ni escrituras. |
 | Preflight de producción y recuperación | Entorno de datos reales confirmado como producción; no se ha ejecutado el preflight productivo ni existe evidencia de rollback para el alta nueva. | Completar la secuencia de gates con lectura previa, runbook, revisión de rollback y autorización operativa específica antes de cualquier escritura. |
 
 ## Siguiente paso permitido
@@ -69,8 +69,10 @@ La callable Bodega está en PR #539, aún abierta y no integrada. Tras completar
 CI/auditoría e integrar #539, se repetirá Gate C read-only para el SHA
 integrado. Gate D solo podrá ejecutarse en `micafe-pos-staging` si ese nuevo
 preflight es `PASS`; después se medirán sincronización y escenarios afectados
-de F/G/H. ADR-SAAS-072 acepta el diseño del corte directo de compras solo para
-Bodega, pero no cambia Rules ni autoriza su despliegue. La venta sin turno
+de F/G/H. ADR-SAAS-072 Opción 2 quedó integrada por PR #540 en
+`main @ 382c5821157abda4bc292457386dbcefa7732fc9`; acepta el diseño del corte
+directo de compras solo para Bodega, pero no cambia Rules ni autoriza su
+despliegue. La venta sin turno
 tampoco cambia hasta implementar el contrato aceptado de ADR-SAAS-068 Opción 2
 en una PR separada y superar sus validaciones; su implementación y
 certificación son requisito antes de Gate I.
