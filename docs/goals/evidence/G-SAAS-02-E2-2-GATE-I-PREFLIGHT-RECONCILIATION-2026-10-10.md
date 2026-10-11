@@ -54,7 +54,7 @@ cliente ni inventario; tampoco inicia producción.
 | Costos de compra | Se ingresarán después desde la operación de Bodega, mediante compras con costos reales por unidad; no inventar costos durante importación. | Antes de habilitar venta/stock: registrar compras reales para establecer existencias y costo. Stock cero impide confirmar ventas sin existencia. |
 | Conteos físicos y ubicaciones de inventario | El responsable confirma que el catálogo se cargará con stock cero; el inventario físico se hará posteriormente por Diana. | Gate I — no cargar cantidades físicas hasta inventario aprobado por Diana. |
 | Solicitud de datos legales al primer inicio | El responsable pide que Diana complete los datos legales/comerciales al iniciar sesión por primera vez; no habrá facturación electrónica inicialmente. | El flujo actual no fuerza ese formulario en primer inicio: permite operar en DEMO y deja la configuración fiscal como opción administrativa. Para salir pronto, puede usarse ese flujo opcional sin detener ventas DEMO; convertirlo en una solicitud automática es un cambio UX aparte y no está implementado aquí. No inventar razón social/NIT ni datos fiscales. |
-| ADR-SAAS-071 — frontera de compras Bodega | Propuesta Opción 1 pendiente de aprobación explícita. | Aprobar o rechazar la opción en ADR-SAAS-071 antes de implementar la callable de compras Bodega y repetir Gate C. |
+| ADR-SAAS-071 — frontera de compras Bodega | Opción 1 aprobada explícitamente el 2026-10-11: crear `registrarCompraBodegaV1` en `saas-bodega-operations`, reutilizar el núcleo transaccional y mantener `saas-auth` sin cambios. | Preparar PR de implementación; después de integrarla, repetir Gate C read-only. La aprobación no autoriza deploy ni escrituras de datos. |
 | Preflight de producción y recuperación | Entorno de datos reales confirmado como producción; no se ha ejecutado el preflight productivo ni existe evidencia de rollback para el alta nueva. | Completar la secuencia de gates con lectura previa, runbook, revisión de rollback y autorización operativa específica antes de cualquier escritura. |
 
 ## Siguiente paso permitido
@@ -121,7 +121,7 @@ abra una sesión POS/Backoffice para este preflight documental.
   contraseñas en Git.
 - Estas confirmaciones resuelven insumos comerciales y de catálogo, pero no
   autorizan adelantar escrituras productivas fuera del orden de gates ni
-  sustituyen la aceptación pendiente de ADR-SAAS-071.
+  sustituyen la aprobación de ADR-SAAS-071, ya recibida el 2026-10-11.
 
 ## Actualización de Gate C — 2026-10-11
 
@@ -133,6 +133,9 @@ ni hubo mutaciones staging/producción. Los hashes, reglas, revisiones de
 rollback y causa exacta están en
 [`G-SAAS-02-E2-2-GATE-C-ADR069-PREFLIGHT-2026-10-11.md`](G-SAAS-02-E2-2-GATE-C-ADR069-PREFLIGHT-2026-10-11.md).
 
-La propuesta para resolverlo es ADR-SAAS-071. No se modificará el flujo de
-compras ni se desplegará `saas-auth`; antes se requiere aprobar una frontera
-Bodega compatible, implementarla y repetir Gate C.
+ADR-SAAS-071 Opción 1 fue aprobada el 2026-10-11. Se preparará la callable
+`registrarCompraBodegaV1` en `saas-bodega-operations`, reutilizando el núcleo
+transaccional y sin cambios a `saas-auth`. La implementación deberá integrarse
+antes de repetir Gate C read-only. Hasta obtener un nuevo `PREFLIGHT = PASS`,
+Gate D y cualquier deploy permanecen prohibidos; no se han autorizado
+escrituras de datos.

@@ -53,7 +53,7 @@
 | Epic | Resultado | Estado |
 |---|---|---|
 | E2.1 Tenant de referencia | Tenant, contrato, Trial, membresía, administrador, credencial, Espacio y configuración reproducibles. | EN EJECUCIÓN |
-| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. Incluye solicitud de venta y aprobación previa según ADR-SAAS-062, agenda según ADR-SAAS-064, aviso durable según ADR-SAAS-065, sincronización viva por señales tenant-aware y relectura callable según ADR-SAAS-069, precio único por presentación separado de la oferta SaaS anual según ADR-SAAS-070, y efectivo sin turno según ADR-SAAS-068 Opción 2, cuya implementación y certificación deben preceder Gate I. | EN EJECUCIÓN |
+| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. Incluye solicitud de venta y aprobación previa según ADR-SAAS-062, agenda según ADR-SAAS-064, aviso durable según ADR-SAAS-065, sincronización viva por señales tenant-aware y relectura callable según ADR-SAAS-069, precio único por presentación separado de la oferta SaaS anual según ADR-SAAS-070, efectivo sin turno según ADR-SAAS-068 Opción 2, y compra Bodega canónica aislada según ADR-SAAS-071; sus implementaciones y certificaciones deben preceder Gate I. | EN EJECUCIÓN |
 
 ### M3 — Certificación funcional del tenant — PENDIENTE
 
@@ -1068,6 +1068,21 @@ verificados, catálogo aprobado, conteo físico/costos y el entorno expresamente
 autorizado. Diana creará los usuarios reales y asignará sus roles después del
 alta; no hace falta una lista previa de vendedores. No se creó/configuró un
 tenant real ni se modificaron staging o producción.
+
+### Decisión aceptada — 2026-10-11 — ADR-SAAS-071 / compra Bodega aislada
+
+El responsable aprobó la Opción 1 de ADR-SAAS-071: crear
+`registrarCompraBodegaV1` en `saas-bodega-operations`, reutilizando el núcleo
+transaccional y sin cambiar `saas-auth`. Esta decisión supersede solo la lista
+de seis callables de ADR-SAAS-054 para añadir la séptima; conserva el resto de
+sus límites. Autoriza preparar una PR de implementación, no desplegar ni
+escribir datos.
+
+El checkpoint documental que registra la decisión está en PR #538 y sus checks
+aún están en curso. La preparación de la implementación sigue esa dependencia;
+después de integrar código y documentación se repetirá Gate C read-only. Gate D
+no inicia hasta que un nuevo `PREFLIGHT = PASS` lo permita, y Gate I permanece
+bloqueado para toda escritura real.
 
 ### Checkpoint — 2026-10-10 (Bogotá) — PR #537 integrado / sincronización viva
 

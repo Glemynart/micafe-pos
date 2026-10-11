@@ -92,9 +92,10 @@ Desplegar solo los dos codebases Bodega dejaría sin certificar la actualizació
 de disponibilidad después de compras, requerida por la semántica completa de
 ADR-SAAS-069 y por el onboarding de inventario/costos.
 
-La solución de boundary requiere la decisión de ADR-SAAS-071. Hasta que se
-acepte y se integre una ruta Bodega compatible, **no ejecutar Gate D** para
-este candidato completo. No es un bloqueo de usuario/sesión ni un fallo del CI.
+Al momento de esta lectura, el boundary estaba pendiente de ADR-SAAS-071. Por
+ello, para este candidato original **no ejecutar Gate D**. La aceptación
+posterior y el nuevo paso autorizado están asentados en la reconciliación al
+final de este informe. No era un bloqueo de usuario/sesión ni un fallo del CI.
 
 ## Evidencia ejecutada y auditoría de mutaciones
 
@@ -106,7 +107,18 @@ este candidato completo. No es un bloqueo de usuario/sesión ni un fallo del CI.
 - Functions, Rules, IAM, APIs, Secrets, Auth, Firestore, tráfico, fixtures,
   tenant real y producción: escrituras observadas `0`.
 
-El siguiente paso es decidir ADR-SAAS-071. Tras la aceptación: PR de implementación,
-CI/auditoría/merge; después se repetirá Gate C para el candidato completo antes
-de cualquier deploy. Gate I continúa bloqueado además por las precondiciones
-comerciales, legales, de catálogo y de entorno del preflight vigente.
+## Reconciliación posterior a ADR-SAAS-071 — 2026-10-11
+
+El responsable aprobó explícitamente la Opción 1: `registrarCompraBodegaV1` en
+`saas-bodega-operations`, reutilizando el núcleo transaccional y sin cambiar
+`saas-auth`. La aprobación supersede únicamente la lista de seis callables de
+ADR-SAAS-054 al añadir esta séptima callable. Autoriza preparar la PR de
+implementación, pero no deploy ni escrituras de datos.
+
+Este informe sigue siendo `PREFLIGHT = BLOCKED` para el candidato que auditó:
+no demuestra todavía discovery, source hash, Rules, IAM ni rollback del nuevo
+código. Después de integrar la implementación y su CI/auditoría, se repetirá
+Gate C read-only para el candidato completo. Solo un nuevo `PREFLIGHT = PASS`
+permitirá proponer un Gate D separado para staging. No ejecutar deploy en esta
+etapa. Gate I continúa bloqueado para Bootstrap/Activation y datos reales hasta
+completar la secuencia de gates y las precondiciones documentadas.

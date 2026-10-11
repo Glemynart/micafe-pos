@@ -2,16 +2,20 @@
 
 ## Estado
 
-**PROPUESTO — Opción 1 recomendada; pendiente de aprobación explícita.**
+**ACEPTADO — Opción 1; aprobación explícita recibida el 2026-10-11.**
 
 - **Fecha:** 2026-10-11.
 - **Última revisión:** 2026-10-11.
 - **Goal:** `G-SAAS-02` → `M2` → `E2.2`.
 - **Decisor:** responsable del proyecto. **Recomendación técnica:** Lead Engineer.
 - **Relacionados:** ADR-SAAS-049, ADR-SAAS-054 y ADR-SAAS-069.
-- **Límite:** esta propuesta no cambia código, Rules, Functions, tráfico ni datos.
-  No autoriza deploy, tenant real, Bootstrap/Activation, IAM, Secrets ni
-  producción. Solo al aceptarse autorizaría una PR de implementación separada.
+- **Límite de autorización:** se autoriza preparar una PR de implementación.
+  No se autoriza deploy, tenant real, Bootstrap/Activation, IAM, Secrets,
+  tráfico ni escrituras de datos en ningún entorno.
+- **Supersede:** esta ADR supersede únicamente la lista cerrada de seis
+  callables `saas-bodega-operations` de ADR-SAAS-054, ampliándola a siete con
+  `registrarCompraBodegaV1`. Los demás límites y controles de ADR-SAAS-054
+  permanecen vigentes.
 
 ## Contexto
 
@@ -97,19 +101,24 @@ disponibilidad no converja automáticamente tras una compra.
   que modifique ADR-SAAS-069 y no satisface el objetivo de sincronización
   aprobado.
 
-## Decisión propuesta y fundamento
+## Decisión aceptada y fundamento
 
-Se recomienda la **Opción 1**: una callable Bodega con nombre distinto,
+Se acepta la **Opción 1**: una callable Bodega con nombre distinto,
 reutilizando un núcleo transaccional neutral y manteniendo la ruta legacy para
 otros verticales. Es la opción que conserva el aislamiento ya aprobado sin
 perder el comportamiento de disponibilidad acordado.
 
 La Opción 2 amplía `saas-auth` y contradice los límites de las ADR vigentes. La
 Opción 3 deja una vista obsoleta tras compras y debilita ADR-SAAS-069. Esta ADR
-permanece `PROPUESTA`: hasta recibir aprobación explícita no se implementará la
-nueva callable ni se cambiará la ruta de compras.
+fue aprobada explícitamente por el responsable del proyecto el 2026-10-11:
+“Apruebo la Opción 1 de ADR-SAAS-071: crear `registrarCompraBodegaV1` en
+`saas-bodega-operations`, reutilizando el núcleo transaccional y dejando
+`saas-auth` sin cambios. Autorizo preparar la PR de implementación; no autorizo
+todavía el deploy ni escrituras de datos.” La aprobación permite la PR indicada,
+pero no cambia el estado bloqueado del preflight ni autoriza operaciones
+remotas.
 
-## Consecuencias si se acepta
+## Consecuencias de la decisión
 
 ### Positivas
 
@@ -130,7 +139,7 @@ nueva callable ni se cambiará la ruta de compras.
 - La callable legacy se conserva para los verticales no Bodega; no se retira ni
   se redirige mediante esta ADR.
 
-## Contrato mínimo de implementación si se acepta
+## Contrato mínimo de implementación
 
 - La callable Bodega deriva tenant, actor, rol y permisos en servidor.
 - Reusa el cálculo, validaciones, ledger y mecanismo de idempotencia
@@ -155,13 +164,6 @@ revisión conocida de `saas-bodega-operations` y el cliente compatible mediante
 el gate de rollback correspondiente. No se borran compras, movimientos,
 inventario ni ledger para revertir código; cualquier corrección de hechos
 requiere una operación compensatoria canónica.
-
-## Decisión solicitada
-
-**¿Apruebas la Opción 1** — callable `registrarCompraBodegaV1` en
-`saas-bodega-operations`, núcleo transaccional reutilizable, dispatch Bodega
-específico y `saas-auth` sin cambios? La aprobación autorizaría preparar la PR
-de implementación; no autorizaría su deploy ni mutaciones de datos.
 
 ## Decisiones relacionadas
 
