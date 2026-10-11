@@ -13,6 +13,8 @@ import { ejecutarCerrarTurnoOperativoV1 } from "../../functions/src/bodega/close
 import { manejarAbrirTurnoOperativo } from "../../functions/src/turnos/callable";
 import { leerConfiguracionEmpresa } from "../../functions/src/configuracion/reader";
 import { exigirTenantActivo } from "../../functions/src/tenant-configuration/authority";
+import { ejecutarRegistrarCompraBodegaV1 } from "../../functions/src/finanzas/compra-core";
+import { exigirCompraBodegaHabilitada, validarPayloadCompraBodega } from "./purchase-policy";
 
 if (!getApps().length) initializeApp();
 
@@ -66,6 +68,19 @@ export const cerrarTurnoOperativoV1 = onCall({ region: REGION }, async (request)
   const db = getFirestore();
   const tenant = await exigirTenantActivo(request, db);
   return ejecutarCerrarTurnoOperativoV1(db, {
+    empresaId: tenant.id,
+    actorUid: request.auth!.uid,
+    rol: tenant.rol,
+  }, request.data);
+});
+
+export const registrarCompraBodegaV1 = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  const tenant = await exigirTenantActivo(request, db);
+  const configuracion = await leerConfiguracionEmpresa(db, tenant.id);
+  exigirCompraBodegaHabilitada(configuracion);
+  validarPayloadCompraBodega(request.data?.payload);
+  return ejecutarRegistrarCompraBodegaV1(db, {
     empresaId: tenant.id,
     actorUid: request.auth!.uid,
     rol: tenant.rol,

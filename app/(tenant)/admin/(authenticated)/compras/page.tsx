@@ -7,6 +7,9 @@ import { formatCurrency } from "@/lib/demo-data"
 import { collection, query, orderBy, getDocs, limit, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { getEmpresaId } from "@/lib/tenant"
+import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
+import { BodegaAdminRoute } from "@/components/bodega/bodega-admin"
+import { PurchasesModule } from "@/components/pos/purchases-module"
 
 interface CompraRaw {
   id: string
@@ -18,6 +21,12 @@ interface CompraRaw {
 }
 
 export default function ComprasPage() {
+  const { vertical } = useConfiguracionEmpresa()
+  if (vertical === "BODEGA_MVP1") return <BodegaAdminRoute><PurchasesModule /></BodegaAdminRoute>
+  return <ComprasGeneralesPage />
+}
+
+function ComprasGeneralesPage() {
   const [compras, setCompras] = useState<CompraRaw[]>([])
   const [cargando, setCargando] = useState(true)
 

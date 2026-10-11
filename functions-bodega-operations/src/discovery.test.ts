@@ -25,7 +25,7 @@ async function manifest(port: number): Promise<Record<string, unknown>> {
   throw error;
 }
 
-test("saas-bodega-operations descubre exactamente seis callables Gen2 sin Secrets", async () => {
+test("saas-bodega-operations descubre exactamente siete callables Gen2 sin Secrets", async () => {
   const port = await freePort();
   const child = spawn(process.execPath, [bin], { cwd: sourceRoot, env: { ...process.env, FUNCTIONS_CONTROL_API: "true", PORT: String(port) }, stdio: "pipe" });
   after(() => child.kill());
@@ -38,6 +38,7 @@ test("saas-bodega-operations descubre exactamente seis callables Gen2 sin Secret
     "consultarCatalogoPresentacionesVendedorV1",
     "consultarClientesVendedorV1",
     "consultarMisVentasVendedorV1",
+    "registrarCompraBodegaV1",
   ]);
   for (const endpoint of Object.values(endpoints)) { assert.deepEqual(endpoint.region, ["us-central1"]); assert.deepEqual(endpoint.callableTrigger, {}); }
   assert.deepEqual(result.params ?? [], []);

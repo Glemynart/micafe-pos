@@ -20,6 +20,7 @@ const cards = [
   { href: "/admin/catalogo", label: "Productos y precios", detail: "Catálogo base y presentaciones", icon: Tags },
   { href: "/admin/clientes", label: "Clientes", detail: "Directorio comercial", icon: Users },
   { href: "/admin/inventario", label: "Inventario", detail: "Stock en unidad base", icon: Boxes },
+  { href: "/admin/compras", label: "Compras", detail: "Registrar entradas desde proveedores", icon: PackagePlus },
   { href: "/admin/vender", label: "Registrar venta", detail: "Venta directa de administración", icon: CircleDollarSign },
   { href: "/admin/solicitudes", label: "Solicitudes", detail: "Revisar y aprobar ventas de vendedores", icon: CheckCircle2 },
   { href: "/admin/agenda", label: "Agenda", detail: "Pedidos futuros y stock reservado", icon: CalendarDays },

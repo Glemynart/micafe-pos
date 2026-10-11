@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useEspacios } from '@/contexts/espacios-context'
+import { useConfiguracionEmpresa } from '@/contexts/configuracion-empresa-context'
 import {
   Plus,
   Search,
@@ -36,6 +37,7 @@ import { suscribirCuentasBancarias, type CuentaBancaria } from '@/lib/finanzas-s
 import { suscribirProveedores, type Proveedor } from '@/lib/proveedores-service'
 import { ProveedoresModule } from '@/components/pos/proveedores-module'
 import { formatCurrency } from '@/lib/demo-data'
+import { esCompraDeInsumos } from '@/lib/bodega/compra-routing'
 
 interface PurchaseItemForm {
   insumoId: string
@@ -52,8 +54,10 @@ function getHoy(): string {
 
 export function PurchasesModule() {
   const { espacioActivo, cargandoEspacios } = useEspacios()
+  const { vertical } = useConfiguracionEmpresa()
   const espacioId = espacioActivo?.id ?? ''
-  const esCafeteria = espacioActivo?.nombre?.toLowerCase().includes('cafeter') ?? false
+  const esBodega = vertical === 'BODEGA_MVP1'
+  const esCafeteria = esCompraDeInsumos(vertical, espacioActivo?.nombre)
 
   const [searchTerm, setSearchTerm] = useState('')
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
@@ -93,8 +97,12 @@ export function PurchasesModule() {
   }, [])
 
   useEffect(() => {
+    if (esBodega) {
+      setProveedores([])
+      return
+    }
     return suscribirProveedores(setProveedores)
-  }, [])
+  }, [esBodega])
 
   useEffect(() => {
     if (!espacioId) return
@@ -200,7 +208,7 @@ export function PurchasesModule() {
         espacioId,
         fechaCompra,
         ...(cuentaClaveOperativa ? { cuentaClaveOperativa } : {}),
-      })
+      }, vertical)
 
       toast.success('Compra registrada exitosamente')
       setShowPurchaseDialog(false)
@@ -261,9 +269,9 @@ export function PurchasesModule() {
             <Plus className="h-5 w-5 mr-2" />
             Registrar Compra
           </Button>
-          <Button variant="outline" onClick={() => setShowProvidersDialog(true)} className="h-12 rounded-2xl font-bold px-4">
+          {!esBodega && <Button variant="outline" onClick={() => setShowProvidersDialog(true)} className="h-12 rounded-2xl font-bold px-4">
             Proveedores
-          </Button>
+          </Button>}
         </div>
       </div>
 
@@ -409,7 +417,7 @@ export function PurchasesModule() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Proveedor</Label>
-                  <Select value={proveedorId || '__manual__'} onValueChange={(value) => setProveedorId(value === '__manual__' ? '' : value)}>
+                  {!esBodega && <Select value={proveedorId || '__manual__'} onValueChange={(value) => setProveedorId(value === '__manual__' ? '' : value)}>
                     <SelectTrigger className="bg-input">
                       <SelectValue placeholder="Selecciona un proveedor" />
                     </SelectTrigger>
@@ -419,8 +427,8 @@ export function PurchasesModule() {
                         <SelectItem key={item.id} value={item.id}>{item.nombre}</SelectItem>
                       ))}
                     </SelectContent>
-                  </Select>
-                  {!proveedorId && (
+                  </Select>}
+                  {(esBodega || !proveedorId) && (
                     <Input
                       value={proveedor}
                       onChange={(e) => setProveedor(e.target.value)}
@@ -547,14 +555,14 @@ export function PurchasesModule() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showProvidersDialog} onOpenChange={setShowProvidersDialog}>
+      {!esBodega && <Dialog open={showProvidersDialog} onOpenChange={setShowProvidersDialog}>
         <DialogContent className="bg-card border-border sm:max-w-5xl h-[80vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle className="sr-only">Gestión de proveedores</DialogTitle>
           </DialogHeader>
           <ProveedoresModule />
         </DialogContent>
-      </Dialog>
+      </Dialog>}
 
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
         <DialogContent className="bg-card border-border max-w-lg">

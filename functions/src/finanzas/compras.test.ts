@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { HttpsError } from "firebase-functions/v2/https";
 import { ejecutarRegistrarCompraOperativaV1, type ContextoFinancieroOperativo } from "./compras";
+import { ejecutarRegistrarCompraBodegaV1 } from "./compra-core";
 
 type Data = Record<string, any>;
 
@@ -137,6 +138,95 @@ test("P0-12: confirma compra con snapshots del catálogo, inventario y costo en 
   assert.equal(db.docs.get(`movimientos_inventario/compra:${result.compraId}:producto:cafe:0`)?.referenciaId, result.compraId);
   assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/disponibilidad`)?.version, 1);
   assert.equal([...db.docs.keys()].filter(key => key.startsWith("transacciones_financieras/")).length, 0);
+});
+
+test("Bodega: registra compra con la misma transacción y el nuevo tipo idempotente", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory", "purchases"] } });
+  const command = envelope("bodega-core", payload());
+  const result = await ejecutarRegistrarCompraBodegaV1(db, contexto, command);
+  const replay = await ejecutarRegistrarCompraBodegaV1(db, contexto, command);
+  const recibos = [...db.docs.entries()].filter(([path]) => path.startsWith("operaciones_comandos/"));
+
+  assert.deepEqual(replay, result);
+  assert.equal(db.docs.get(`compras/${result.compraId}`)?.total, 600);
+  assert.equal(db.docs.get("productos/cafe")?.stock, 4);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/disponibilidad`)?.version, 1);
+  assert.equal(recibos.length, 1);
+  assert.equal(recibos[0][1].tipo, "registrarCompraBodegaV1");
+});
+
+test("Bodega: revalida permiso antes de devolver el recibo de un replay", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory", "purchases"] } });
+  const command = envelope("bodega-replay-revoked", payload());
+  const result = await ejecutarRegistrarCompraBodegaV1(db, contexto, command);
+  db.docs.set(`membresias/${empresaId}_${contexto.actorUid}`, { ...db.docs.get(`membresias/${empresaId}_${contexto.actorUid}`), permisos: ["inventory"] });
+  const beforeReplay = [...db.docs.entries()];
+
+  await assert.rejects(
+    ejecutarRegistrarCompraBodegaV1(db, contexto, command),
+    error => domain(error, "ROLE_FORBIDDEN"),
+  );
+  assert.equal(db.docs.get(`compras/${result.compraId}`)?.total, 600);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("operaciones_comandos/")).length, 1);
+  assert.deepEqual([...db.docs.entries()], beforeReplay);
+});
+
+test("Bodega: revalida vertical y módulo antes de devolver el recibo de un replay", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory", "purchases"] } });
+  const command = envelope("bodega-replay-disabled", payload());
+  await ejecutarRegistrarCompraBodegaV1(db, contexto, command);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "GENERAL", modulos: { habilitados: ["purchases"] } });
+
+  await assert.rejects(
+    ejecutarRegistrarCompraBodegaV1(db, contexto, command),
+    error => domain(error, "VERTICAL_NO_COMPATIBLE"),
+  );
+
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory"] } });
+
+  await assert.rejects(
+    ejecutarRegistrarCompraBodegaV1(db, contexto, command),
+    error => domain(error, "MODULO_NO_HABILITADO"),
+  );
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("compras/")).length, 1);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("operaciones_comandos/")).length, 1);
+});
+
+test("Bodega: vuelve a validar vertical y módulo dentro de la transacción antes de escribir", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory"] } });
+  await assert.rejects(
+    ejecutarRegistrarCompraBodegaV1(db, contexto, envelope("bodega-disabled", payload())),
+    error => domain(error, "MODULO_NO_HABILITADO"),
+  );
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("compras/")), false);
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("movimientos_inventario/")), false);
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("operaciones_comandos/")), false);
+});
+
+test("Bodega: rechaza configuración con empresaId distinto al tenant autorizado", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId: "empresa-ajena", vertical: "BODEGA_MVP1", modulos: { habilitados: ["purchases"] } });
+  await assert.rejects(
+    ejecutarRegistrarCompraBodegaV1(db, contexto, envelope("bodega-wrong-config-tenant", payload())),
+    error => domain(error, "CONFIGURACION_INVALIDA"),
+  );
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("compras/")), false);
+});
+
+test("Bodega: exige el permiso canónico purchases y no deja efectos parciales", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["purchases"] } });
+  db.docs.set(`membresias/${empresaId}_${contexto.actorUid}`, { empresaId, uid: contexto.actorUid, rol: contexto.rol, permisos: ["inventory"], estado: "activa", activo: true });
+  await assert.rejects(
+    ejecutarRegistrarCompraBodegaV1(db, contexto, envelope("bodega-no-permission", payload())),
+    error => domain(error, "ROLE_FORBIDDEN"),
+  );
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("compras/")), false);
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("movimientos_inventario/")), false);
 });
 
 test("P1-03: resuelve proveedor por empresaId + proveedorId y congela su snapshot", async () => {

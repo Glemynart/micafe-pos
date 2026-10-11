@@ -192,14 +192,19 @@ export async function revalidarAutoridadFinancieraEnTransaccion(tx: any, db: any
   if (!capacidades.some((item) => membresiaVigente.permisos.includes(item))) fail("permission-denied", "ROLE_FORBIDDEN");
 }
 
-export async function executeConContexto(db: any, contexto: ContextoFinancieroOperativo, data: unknown, tipo: string, effect: (tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope) => Promise<Record<string, unknown>>) {
+type ValidadorReplay = (tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope) => Promise<void>;
+
+export async function executeConContexto(db: any, contexto: ContextoFinancieroOperativo, data: unknown, tipo: string, effect: (tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope) => Promise<Record<string, unknown>>, validarReplay?: ValidadorReplay) {
   const input = envelope(data);
   const fingerprint = crearHuellaSemantica({ tipo, causationId: input.causationId ?? null, motivo: input.motivo ?? null, payload: input.payload });
   const refs = operationRefs(db, contexto.empresaId, input);
   return db.runTransaction(async (tx: any) => {
     const [recibo, indice] = await Promise.all([tx.get(refs.recibo), tx.get(refs.indice)]);
     const replay = assertReplay(recibo, indice, contexto.empresaId, input, fingerprint, refs.recibo.path);
-    if (replay) return replay;
+    if (replay) {
+      await validarReplay?.(tx, db, contexto.empresaId, contexto.actorUid, contexto.rol, input);
+      return replay;
+    }
     const result = await effect(tx, db, contexto.empresaId, contexto.actorUid, contexto.rol, input);
     writeConfirmation(tx, refs, contexto.empresaId, contexto.actorUid, contexto.rol, input, fingerprint, tipo, result, result, contexto.ejecutorTecnico);
     return result;
