@@ -97,14 +97,16 @@ async function clienteAutenticado(actor: Actor) {
 }
 async function debeFallar(action: () => Promise<unknown>) { let fallo: unknown; try { await action() } catch (error) { fallo = error }; expect(fallo).toBeTruthy() }
 
-async function aprobarSolicitudEnBackoffice(browser: import("@playwright/test").Browser, tenant: TenantFixture, clienteNombre: string) {
+async function aprobarSolicitudEnBackoffice(browser: import("@playwright/test").Browser, tenant: TenantFixture, clienteNombre: string, solicitudId: string) {
   const context = await browser.newContext()
   const adminPage = await context.newPage()
   try {
     await login(adminPage, tenant.admin, true)
+    await expect(adminPage.getByRole("heading", { name: "Centro de operación" })).toBeVisible()
     await adminPage.goto("/admin/solicitudes")
     await expect(adminPage.getByRole("heading", { name: "Solicitudes de venta" })).toBeVisible()
-    const solicitud = adminPage.getByRole("article").filter({ hasText: clienteNombre })
+    const referencia = solicitudId.length > 18 ? `…${solicitudId.slice(-8).toUpperCase()}` : solicitudId
+    const solicitud = adminPage.getByRole("article").filter({ hasText: clienteNombre }).filter({ hasText: referencia })
     await expect(solicitud).toBeVisible()
     await solicitud.getByRole("button", { name: "Aprobar" }).click()
     await expect(solicitud.getByText("APROBADA", { exact: true })).toBeVisible()
@@ -132,7 +134,7 @@ test("vendedor solicita transferencia, admin aprueba y el pago materializa una �
   expect((await db.collection("ventas").where("empresaId", "==", tenantA.empresaId).get()).size).toBe(0)
   expect((await db.collection("movimientos_inventario").where("empresaId", "==", tenantA.empresaId).get()).size).toBe(0)
   expect((await db.collection("transacciones_financieras").where("empresaId", "==", tenantA.empresaId).get()).size).toBe(0)
-  await aprobarSolicitudEnBackoffice(browser, tenantA, tenantA.clienteNombre)
+  await aprobarSolicitudEnBackoffice(browser, tenantA, tenantA.clienteNombre, solicitudes.docs[0]!.id)
   await page.reload(); await page.getByRole("button", { name: "Solicitudes" }).click()
   await expect(page.getByText("APROBADA", { exact: true })).toBeVisible()
   await page.getByRole("button", { name: "transferencia" }).click(); await page.getByRole("button", { name: "Confirmar venta" }).click()
@@ -163,7 +165,7 @@ test("reintento tras perder la respuesta de la venta conserva una sola solicitud
   const solicitudId = solicitud!.id
   expect((await db.collection("ventas").where("empresaId", "==", tenantC.empresaId).get()).size).toBe(0)
 
-  await aprobarSolicitudEnBackoffice(browser, tenantC, tenantC.clienteNombre)
+  await aprobarSolicitudEnBackoffice(browser, tenantC, tenantC.clienteNombre, solicitudId)
   await page.reload(); await page.getByRole("button", { name: "Solicitudes" }).click()
   const tarjeta = page.getByRole("article").filter({ hasText: tenantC.clienteNombre })
   await expect(tarjeta.getByText("APROBADA", { exact: true })).toBeVisible()
@@ -220,8 +222,12 @@ test("reintento tras perder la respuesta de la venta conserva una sola solicitud
 test("vendedor aprobado confirma efectivo con turno propio desde la PWA hasta los efectos persistidos", async ({ page, browser }) => {
   await login(page, tenantA.vendedor); await expect(page.getByText("Bodega móvil")).toBeVisible()
   const db = getFirestore(app)
+  const solicitudesAntes = new Set((await db.collection("empresas").doc(tenantA.empresaId).collection("solicitudes_venta_bodega").get()).docs.map(solicitud => solicitud.id))
   await page.getByRole("button", { name: tenantA.productoNombre }).click(); await page.getByLabel(`Cantidad de ${tenantA.presentacionNombre}`).fill("2"); await page.getByRole("button", { name: "Enviar solicitud" }).click(); await expect(page.getByRole("heading", { name: "Mis solicitudes" })).toBeVisible()
-  await aprobarSolicitudEnBackoffice(browser, tenantA, tenantA.clienteNombre)
+  const solicitudesDespues = await db.collection("empresas").doc(tenantA.empresaId).collection("solicitudes_venta_bodega").get()
+  const solicitudNueva = solicitudesDespues.docs.find(solicitud => !solicitudesAntes.has(solicitud.id))
+  expect(solicitudNueva).toBeTruthy()
+  await aprobarSolicitudEnBackoffice(browser, tenantA, tenantA.clienteNombre, solicitudNueva!.id)
   await page.reload(); await page.getByRole("button", { name: "Solicitudes" }).click(); await expect(page.getByText("APROBADA", { exact: true })).toBeVisible(); await page.getByRole("button", { name: "efectivo" }).click()
   await page.getByLabel("Base de apertura").fill("10000"); await page.getByRole("button", { name: "Abrir turno para efectivo" }).click(); await expect(page.getByText("Turno abierto")).toBeVisible()
   await expect.poll(async () => (await db.collection("turnos").where("empresaId", "==", tenantA.empresaId).where("cajeroId", "==", tenantA.vendedor.uid).where("estado", "==", "abierto").get()).docs[0]?.id ?? null).not.toBeNull()
