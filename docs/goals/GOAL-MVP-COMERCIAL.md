@@ -1078,11 +1078,12 @@ de seis callables de ADR-SAAS-054 para añadir la séptima; conserva el resto de
 sus límites. Autoriza preparar una PR de implementación, no desplegar ni
 escribir datos.
 
-El checkpoint documental que registra la decisión está en PR #538 y sus checks
-aún están en curso. La preparación de la implementación sigue esa dependencia;
-después de integrar código y documentación se repetirá Gate C read-only. Gate D
-no inicia hasta que un nuevo `PREFLIGHT = PASS` lo permita, y Gate I permanece
-bloqueado para toda escritura real.
+El checkpoint documental que registra la decisión está en PR #538; sus checks
+pasaron para el HEAD `7bbfe09acfeaa9f16edd2eee537a1ed46928079f`, pero el PR sigue
+abierto y aún no integrado. La preparación de la implementación sigue esa
+dependencia; después de integrar código y documentación se repetirá Gate C
+read-only. Gate D no inicia hasta que un nuevo `PREFLIGHT = PASS` lo permita, y
+Gate I permanece bloqueado para toda escritura real.
 
 ### Checkpoint — 2026-10-10 (Bogotá) — PR #537 integrado / sincronización viva
 
