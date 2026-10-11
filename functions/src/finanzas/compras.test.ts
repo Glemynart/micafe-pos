@@ -156,6 +156,38 @@ test("Bodega: registra compra con la misma transacción y el nuevo tipo idempote
   assert.equal(recibos[0][1].tipo, "registrarCompraBodegaV1");
 });
 
+test("Bodega: revalida permiso antes de devolver el recibo de un replay", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory", "purchases"] } });
+  const command = envelope("bodega-replay-revoked", payload());
+  const result = await ejecutarRegistrarCompraBodegaV1(db, contexto, command);
+  db.docs.set(`membresias/${empresaId}_${contexto.actorUid}`, { ...db.docs.get(`membresias/${empresaId}_${contexto.actorUid}`), permisos: ["inventory"] });
+  const beforeReplay = [...db.docs.entries()];
+
+  await assert.rejects(
+    ejecutarRegistrarCompraBodegaV1(db, contexto, command),
+    error => domain(error, "ROLE_FORBIDDEN"),
+  );
+  assert.equal(db.docs.get(`compras/${result.compraId}`)?.total, 600);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("operaciones_comandos/")).length, 1);
+  assert.deepEqual([...db.docs.entries()], beforeReplay);
+});
+
+test("Bodega: revalida vertical y módulo antes de devolver el recibo de un replay", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory", "purchases"] } });
+  const command = envelope("bodega-replay-disabled", payload());
+  await ejecutarRegistrarCompraBodegaV1(db, contexto, command);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory"] } });
+
+  await assert.rejects(
+    ejecutarRegistrarCompraBodegaV1(db, contexto, command),
+    error => domain(error, "MODULO_NO_HABILITADO"),
+  );
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("compras/")).length, 1);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("operaciones_comandos/")).length, 1);
+});
+
 test("Bodega: vuelve a validar vertical y módulo dentro de la transacción antes de escribir", async () => {
   const db = new FakeFirestore(); seed(db);
   db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory"] } });
