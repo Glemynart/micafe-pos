@@ -1177,6 +1177,34 @@ pendiente, completar el preflight y cargar el catálogo solo tras su autorizaci�
 Diana creará los usuarios y asignará roles después del alta; el inventario
 físico y los costos se incorporarán posteriormente con datos reales.
 
+### Reconciliación operativa — 2026-10-11 — Gate D Functions de compras Bodega
+
+Tras el `PREFLIGHT = PASS` de Gate C, se ejecutó en `micafe-pos-staging`,
+`us-central1`, el deploy autorizado y limitado al codebase
+`saas-bodega-operations`: seis Functions actualizadas y una creada
+(`registrarCompraBodegaV1`), sin eliminaciones. Cloud Build
+`854a2ac1-fb3b-4038-b1c1-54f85df835de` terminó `SUCCESS`; las siete Functions
+están `Ready`, Node.js 22, cero Secrets y con 100 % del tráfico en sus nuevas
+revisiones. La sonda no autenticada recibió `401 UNAUTHENTICATED`; no se creó
+compra ni se escribieron datos. La evidencia está en
+[`Gate D — deploy de compras Bodega`](evidence/G-SAAS-02-E2-2-GATE-D-PURCHASES-STAGING-DEPLOY-2026-10-11.md).
+
+**Gate D Functions de compras: `PASS`; Gate D completo: `EN CURSO`.** La
+autorización de este deploy excluyó Rules. Por tanto, no se desplegó el corte
+ADR-SAAS-072; el cliente Bodega servido en staging y el comportamiento después
+del corte aún deben verificarse antes de declarar Gate D cerrado. Tampoco se
+cambiaron IAM de proyecto, Secrets, Auth, Firestore, fixture, tenant real ni
+producción. Se observó además un binding IAM adicional preexistente, fuera de
+los cinco bindings descritos en ADR-SAAS-067; permanece intacto y requiere
+reconciliación antes de cualquier cambio IAM futuro.
+
+El fixture retenido de Gate E no se modificó. Gate F continúa `EN CURSO` y
+debe revalidarse después de cerrar Gate D; Gate G y H se repetirán conforme a
+la secuencia vigente. Gate I permanece `BLOCKED` para Bootstrap/Activation y
+datos reales. La CI post-merge de PR #547 (`38144529463`) terminó `success`,
+pero sus pruebas E2E de solicitud, aprobación y venta corrieron en Emulator y
+no sustituyen la validación autenticada de compras Bodega en staging.
+
 ### Checkpoint — 2026-10-10 (Bogotá) — PR #537 integrado / sincronización viva
 
 PR #537 (`feat: Bodega live refresh signals`) quedó `MERGED` en `main` mediante
