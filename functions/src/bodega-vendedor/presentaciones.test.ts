@@ -43,6 +43,7 @@ class Collection extends Query {
 class Transaction {
   private readonly creates: Array<[Ref, Data]> = [];
   private readonly updates: Array<[Ref, Data]> = [];
+  private readonly sets: Array<[Ref, Data, boolean]> = [];
   constructor(private readonly db: FakeFirestore) {}
   async get(ref: Ref) { return new Snapshot(ref.id, this.db.docs.get(ref.path)); }
   create(ref: Ref, data: Data) {
@@ -53,9 +54,17 @@ class Transaction {
     if (!this.db.docs.has(ref.path)) throw new Error("not-found");
     this.updates.push([ref, data]);
   }
+  set(ref: Ref, data: Data, options: { merge?: boolean } = {}) { this.sets.push([ref, data, options.merge === true]); }
   commit() {
     for (const [ref, data] of this.creates) this.db.docs.set(ref.path, data);
     for (const [ref, data] of this.updates) this.db.docs.set(ref.path, { ...this.db.docs.get(ref.path), ...data });
+    for (const [ref, data, merge] of this.sets) {
+      const current = this.db.docs.get(ref.path) ?? {};
+      const next = merge ? { ...current } : {};
+      for (const [key, value] of Object.entries(data)) next[key] = value && typeof value === "object" && value.constructor?.name === "NumericIncrementTransform"
+        ? Number(current[key] ?? 0) + Number((value as { operand: number }).operand) : value;
+      this.db.docs.set(ref.path, next);
+    }
   }
 }
 
@@ -101,6 +110,7 @@ test("U2-B: crea presentaciones válidas de factor 1, 6 y 24 sin duplicar stock"
   assert.equal(db.docs.get(`presentaciones_producto/${paca.presentacionId}`)?.factorUnidadBase, 6);
   assert.equal(db.docs.get(`presentaciones_producto/${caja.presentacionId}`)?.factorUnidadBase, 24);
   assert.equal(db.docs.get(`productos/${productoId}`)?.stock, 50);
+  assert.equal(db.docs.get("empresas/empresa-a/bodega_senales/disponibilidad")?.version, 3);
 });
 
 test("U2-B: rechaza factores y precios no enteros positivos", async () => {

@@ -9,6 +9,7 @@ import {
   type Envelope,
 } from "../bodega/operational-core";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
+import { marcarSenalDisponibilidadBodega } from "./live-signals";
 import { MAX_BODEGA_REFERENCE_ID_LENGTH } from "./identificadores";
 
 const REGION = "us-central1";
@@ -187,6 +188,7 @@ async function crearPresentacion(tx: any, db: any, empresaId: string, actorUid: 
     creadoEn: FieldValue.serverTimestamp(),
     actualizadoEn: FieldValue.serverTimestamp(),
   });
+  marcarSenalDisponibilidadBodega(tx, db, empresaId);
   return { commandId: input.commandId, presentacionId: id };
 }
 
@@ -211,6 +213,7 @@ async function actualizarPresentacion(tx: any, db: any, empresaId: string, actor
     fail("failed-precondition", "PRESENTACION_CON_STOCK_RESERVADO");
   }
   tx.update(ref, { ...entrada.changes, actualizadoPor: actorUid, actualizadoEn: FieldValue.serverTimestamp() });
+  marcarSenalDisponibilidadBodega(tx, db, empresaId);
   return { commandId: input.commandId, presentacionId: entrada.presentacionId };
 }
 

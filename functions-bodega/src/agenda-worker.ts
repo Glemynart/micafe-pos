@@ -1,6 +1,7 @@
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import type { Messaging } from "firebase-admin/messaging";
 import { randomUUID } from "node:crypto";
+import { marcarSenalDisponibilidadBodega } from "../../functions/src/bodega-vendedor/live-signals";
 
 const AGENDA = "agenda_pedidos_bodega";
 const RESERVAS = "reservas_stock_bodega";
@@ -59,6 +60,7 @@ async function expirarUnaReserva(db: any, candidate: any, now: number): Promise<
     tx.update(productRef, { stockReservado: stockReservado - quantity });
     tx.update(reservaRef, { estado: "VENCIDA", vencidaEn: FieldValue.serverTimestamp(), actualizadaEn: FieldValue.serverTimestamp() });
     tx.update(scheduleRef, { estado: "VENCIDA", revision: schedule.revision + 1, vencidaEn: FieldValue.serverTimestamp(), actualizadaEn: FieldValue.serverTimestamp() });
+    marcarSenalDisponibilidadBodega(tx, db, empresaId);
     return true;
   });
 }

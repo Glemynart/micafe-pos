@@ -47,10 +47,15 @@ class Collection {
 }
 class Tx {
   private readonly updates: Array<[string, Data]> = [];
+  private readonly sets: Array<[Ref, Data, boolean]> = [];
   constructor(private readonly db: FakeDb) {}
   async get(ref: Ref | Query): Promise<any> { return ref instanceof Query ? ref.get() : new Snap(ref, this.db.docs.get(ref.path)); }
   update(ref: Ref, value: Data) { this.updates.push([ref.path, value]); }
-  commit() { for (const [path, value] of this.updates) this.db.update(path, value); }
+  set(ref: Ref, value: Data, options: { merge?: boolean } = {}) { this.sets.push([ref, value, options.merge === true]); }
+  commit() {
+    for (const [path, value] of this.updates) this.db.update(path, value);
+    for (const [ref, value, merge] of this.sets) this.db.set(ref.path, value, merge);
+  }
 }
 class FakeDb {
   readonly docs = new Map<string, Data>();
@@ -77,6 +82,13 @@ class FakeDb {
         if (removed) next[key] = current[key].filter((item: unknown) => !removed.includes(item));
       }
     }
+    this.docs.set(path, next);
+  }
+  set(path: string, value: Data, merge = false) {
+    const current = this.docs.get(path) ?? {};
+    const next = merge ? { ...current } : {};
+    for (const [key, operation] of Object.entries(value)) next[key] = operation && typeof operation === "object" && operation.constructor?.name === "NumericIncrementTransform"
+      ? Number(current[key] ?? 0) + Number((operation as { operand: number }).operand) : operation;
     this.docs.set(path, next);
   }
 }
@@ -264,6 +276,7 @@ test("ADR-064 worker: vencimiento libera stock y conserva agenda/historial", asy
   assert.equal(db.docs.get("productos/producto-worker")?.stockReservado, 0);
   assert.equal(db.docs.get(`empresas/${empresaId}/reservas_stock_bodega/${reservaId}`)?.estado, "VENCIDA");
   assert.equal(db.docs.get(`empresas/${empresaId}/agenda_pedidos_bodega/${programacionId}`)?.estado, "VENCIDA");
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/disponibilidad`)?.version, 1);
 });
 
 test("ADR-064 worker: libera todos los productos de una agenda aunque expire en lotes", async () => {

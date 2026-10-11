@@ -12,6 +12,7 @@ import {
   type Envelope,
 } from "./callables";
 import { aplicarMovimientosCompraEnTransaccion, type ArticuloTipo, type MovimientoCompraParams } from "../inventario/ledger";
+import { marcarSenalDisponibilidadBodega } from "../bodega-vendedor/live-signals";
 
 const REGION = "us-central1";
 
@@ -195,6 +196,7 @@ async function efectoRegistrarCompraOperativaV1(tx: any, db: any, empresaId: str
     movimientosInventario: movimientos.map(movimiento => movimiento.id),
     creadoEn: FieldValue.serverTimestamp(),
   });
+  if (compra.items.some(item => item.tipo === "producto")) marcarSenalDisponibilidadBodega(tx, db, empresaId);
   return { commandId: input.commandId, compraId, movimientosInventario: movimientos.map(movimiento => movimiento.id), movimientoFinancieroId: movimientoFinanciero?.id ?? null, total: compra.total };
 }
 

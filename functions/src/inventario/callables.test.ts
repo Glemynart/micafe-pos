@@ -29,6 +29,7 @@ class Collection {
 class Transaction {
   private readonly creates: Array<[Ref, Data]> = [];
   private readonly updates: Array<[Ref, Data]> = [];
+  private readonly sets: Array<[Ref, Data, boolean]> = [];
   constructor(private readonly db: FakeFirestore) {}
   async get(ref: Ref) { return new Snapshot(ref.id, this.db.docs.get(ref.path), ref); }
   create(ref: Ref, data: Data) {
@@ -39,9 +40,17 @@ class Transaction {
     if (!this.db.docs.has(ref.path)) throw new Error("not-found");
     this.updates.push([ref, structuredClone(data)]);
   }
+  set(ref: Ref, data: Data, options: { merge?: boolean } = {}) { this.sets.push([ref, data, options.merge === true]); }
   commit() {
     for (const [ref, data] of this.creates) this.db.docs.set(ref.path, data);
     for (const [ref, data] of this.updates) this.db.docs.set(ref.path, { ...this.db.docs.get(ref.path), ...data });
+    for (const [ref, data, merge] of this.sets) {
+      const current = this.db.docs.get(ref.path) ?? {};
+      const next = merge ? { ...current } : {};
+      for (const [key, value] of Object.entries(data)) next[key] = value && typeof value === "object" && value.constructor?.name === "NumericIncrementTransform"
+        ? Number(current[key] ?? 0) + Number((value as { operand: number }).operand) : value;
+      this.db.docs.set(ref.path, next);
+    }
   }
 }
 
@@ -103,6 +112,7 @@ test("G-SAAS-02: ajustar stock resuelve el delta server-side y replay no duplica
   assert.equal(db.docs.get("productos/producto-1")?.secuenciaLedger, 2);
   assert.equal(db.docs.get(`movimientos_inventario/${first.movimientoId}`)?.tipo, "ajuste_negativo");
   assert.equal([...db.docs.keys()].filter(path => path.startsWith("movimientos_inventario/")).length, 1);
+  assert.equal(db.docs.get("empresas/empresa-a/bodega_senales/disponibilidad")?.version, 1);
 });
 
 test("ADR-064: producto con reserva activa no se puede desactivar", async () => {

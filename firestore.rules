@@ -72,6 +72,21 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/configuraciones/$(request.auth.token.empresaId))
         && get(/databases/$(database)/documents/configuraciones/$(request.auth.token.empresaId)).data.vertical == 'BODEGA_MVP1';
     }
+    function membresiaBodegaActiva(empresaId, permiso) {
+      let path = /databases/$(database)/documents/membresias/$(empresaId + '_' + request.auth.uid);
+      return tieneEmpresaId()
+        && request.auth.token.empresaId == empresaId
+        && empresaEscribible()
+        && esBodegaMvp1()
+        && exists(path)
+        && get(path).data.empresaId == empresaId
+        && get(path).data.uid == request.auth.uid
+        && get(path).data.estado == 'activa'
+        && get(path).data.activo == true
+        && get(path).data.rol == rol()
+        && get(path).data.permisos is list
+        && permiso in get(path).data.permisos;
+    }
     function esUsuarioPropio(uid) {
       return esAutenticado() && request.auth.uid == uid;
     }
@@ -306,6 +321,23 @@ service cloud.firestore {
       allow list: if false;
       // Empresa.estado solo transiciona mediante el servicio backend canónico.
       allow create, update, delete: if false;
+    }
+    match /empresas/{empresaId}/bodega_senales/{canal} {
+      // Señales técnicas; los datos de negocio siguen siendo callable-only.
+      allow get: if canal == 'disponibilidad'
+          && esVendedor()
+          && membresiaBodegaActiva(empresaId, 'sell')
+        || canal == 'solicitudes_admin'
+          && esAdmin()
+          && membresiaBodegaActiva(empresaId, 'sell');
+      allow list, create, update, delete: if false;
+    }
+    match /empresas/{empresaId}/bodega_senales_vendedor/{signalId} {
+      // La ruta se resuelve por UID; no se permite enumerar la colección.
+      allow get: if esVendedor()
+        && membresiaBodegaActiva(empresaId, 'sell')
+        && signalId == request.auth.uid;
+      allow list, create, update, delete: if false;
     }
     match /membresias/{id} {
       // La membresía es la autoridad tenant. Cada usuario solo lee la propia;

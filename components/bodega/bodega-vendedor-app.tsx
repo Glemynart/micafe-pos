@@ -12,6 +12,8 @@ import { BodegaAgendaVendedor } from "@/components/bodega/bodega-agenda-vendedor
 import { cancelarProgramacionPedidoBodega, consultarAgendaPedidosBodega, construirCancelacionProgramacionPedidoBodega, construirConversionProgramacionPedidoBodega, convertirProgramacionPedidoBodega, crearProgramacionPedidoBodega, type Envelope } from "@/lib/bodega/agenda-service"
 import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
 import { FcmManagerWrapper } from "@/components/fcm-manager-wrapper"
+import { crearRefrescoCoalescido } from "@/lib/bodega/refresh-coalescido"
+import { suscribirSenalBodega } from "@/lib/bodega/live-signals-service"
 
 type Tab = "venta" | "solicitudes" | "agenda" | "clientes" | "historial"
 type TipoPedido = "venta" | "hoy" | "agendar"
@@ -27,7 +29,7 @@ function sumarDiaLocal(value: string) {
 }
 
 export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onLogout(): void }) {
-  const { proyecciones } = useConfiguracionEmpresa()
+  const { empresaId, proyecciones } = useConfiguracionEmpresa()
   const zonaHoraria = proyecciones?.localizacion.zonaHoraria ?? "America/Bogota"
   const hoy = fechaLocalEnZonaHoraria(new Date(), zonaHoraria)
   const manana = sumarDiaLocal(hoy)
@@ -53,6 +55,7 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   const [cargando, setCargando] = useState(true)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState("")
+  const [senalDesconectada, setSenalDesconectada] = useState(false)
   const [resultado, setResultado] = useState<ResultadoVentaBodega | null>(null)
   const [busqueda, setBusqueda] = useState("")
   const [mostrarCliente, setMostrarCliente] = useState(false)
@@ -61,7 +64,8 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   const comandoAgendaPendiente = useRef<ComandoCrearProgramacionPedidoBodega | null>(null)
   const comandosAgendaPendientes = useRef(new Map<string, AgendaCancelCommand | AgendaConvertCommand>())
   const comandosVentaPendientes = useRef(new Map<string, ConfirmacionVentaBodega>())
-  const solicitudesConsultaEnCurso = useRef(false)
+  const ultimaSenalDisponibilidad = useRef<number | null>(null)
+  const ultimaSenalSolicitudes = useRef<number | null>(null)
   const agendaConsultaEnCurso = useRef(false)
   const guardiaEnvio = useRef(crearProtectorDobleEnvio())
 
@@ -74,17 +78,15 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
     } catch (e) { setError(mensajeErrorBodega(e)) } finally { setCargando(false) }
   }, [])
 
-  const actualizarSolicitudes = useCallback(async () => {
-    if (solicitudesConsultaEnCurso.current) return
-    solicitudesConsultaEnCurso.current = true
-    try {
-      setSolicitudes(await consultarSolicitudesVentaBodega())
-    } catch (cause) {
-      setError(mensajeErrorBodega(cause))
-    } finally {
-      solicitudesConsultaEnCurso.current = false
-    }
-  }, [])
+  const actualizarSolicitudes = useMemo(() => crearRefrescoCoalescido(async () => {
+    try { setSolicitudes(await consultarSolicitudesVentaBodega()) }
+    catch (cause) { setError(mensajeErrorBodega(cause)) }
+  }), [])
+
+  const actualizarCatalogo = useMemo(() => crearRefrescoCoalescido(async () => {
+    try { setCatalogo(await consultarCatalogoBodega()) }
+    catch (cause) { setError(mensajeErrorBodega(cause)) }
+  }), [])
 
   const actualizarAgenda = useCallback(async (cursor?: string | null, preservarPaginas = false) => {
     if (agendaConsultaEnCurso.current) return
@@ -118,18 +120,26 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   useEffect(() => { comandoSolicitudPendiente.current = null }, [clienteId, carrito])
   useEffect(() => { comandoAgendaPendiente.current = null }, [clienteId, carrito, tipoPedido, fechaAgendada, franjaDesde, franjaHasta])
   useEffect(() => {
-    if (tab !== "solicitudes") return
-    const actualizarSiVisible = () => {
-      if (document.visibilityState === "visible") void actualizarSolicitudes()
-    }
-    void actualizarSolicitudes()
-    const interval = window.setInterval(actualizarSiVisible, 15_000)
+    if (!empresaId || (tab !== "venta" && tab !== "solicitudes")) { setSenalDesconectada(false); return }
+    const catalogoActivo = tab === "venta"
+    const version = catalogoActivo ? ultimaSenalDisponibilidad : ultimaSenalSolicitudes
+    const actualizar = catalogoActivo ? actualizarCatalogo : actualizarSolicitudes
+    const channel = catalogoActivo ? "disponibilidad" : "solicitudes_vendedor"
+    let connected: boolean | null = null
+    const unsubscribe = suscribirSenalBodega(empresaId, channel, catalogoActivo ? undefined : usuario.uid, state => {
+      setSenalDesconectada(!state.conectada)
+      if (!state.conectada) { connected = false; return }
+      const reconnecting = connected === false
+      const changed = version.current !== null && state.version !== version.current
+      if (state.version !== null) version.current = state.version
+      connected = true
+      if (reconnecting || changed) void actualizar()
+    })
+    const actualizarSiVisible = () => { if (document.visibilityState === "visible") void actualizar() }
+    void actualizar()
     document.addEventListener("visibilitychange", actualizarSiVisible)
-    return () => {
-      window.clearInterval(interval)
-      document.removeEventListener("visibilitychange", actualizarSiVisible)
-    }
-  }, [tab, actualizarSolicitudes])
+    return () => { unsubscribe(); document.removeEventListener("visibilitychange", actualizarSiVisible) }
+  }, [empresaId, tab, usuario.uid, actualizarCatalogo, actualizarSolicitudes])
   useEffect(() => {
     if (tab !== "agenda") return
     const actualizarSiVisible = () => { if (document.visibilityState === "visible") void actualizarAgenda(undefined, true) }
@@ -259,11 +269,12 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
 
       <main className="mx-auto max-w-6xl px-4 pb-24 pt-5">
         {error && <div role="alert" className="mb-4 rounded-xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">{error}</div>}
+        {senalDesconectada && <div role="status" className="mb-4 rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">La sincronización está temporalmente desconectada; los datos pueden estar desactualizados. Usa Actualizar o vuelve a conectar para validar el estado vigente.</div>}
         {resultado && "ventaId" in resultado && <div className="mb-5 flex items-start gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4"><CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-300" /><div><p className="font-semibold">Venta confirmada</p><p className="text-sm text-emerald-100/80">Referencia {resultado.ventaId} · {money(resultado.total)} · {resultado.metodoPago}</p></div><button className="ml-auto text-xs text-emerald-200" onClick={() => setResultado(null)}>Cerrar</button></div>}
         {cargando ? <div className="grid min-h-[50vh] place-items-center"><RefreshCw className="h-7 w-7 animate-spin text-amber-300" /></div> : tab === "venta" ? (
           <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
             <section>
-              <div className="mb-4"><p className="text-xs font-bold uppercase tracking-[.22em] text-amber-300">Solicitud de venta</p><h1 className="mt-1 text-2xl font-bold">Prepara una solicitud</h1><p className="mt-1 text-sm text-slate-400">El servidor resuelve cliente, presentaciones, precios y total. La venta queda pendiente hasta que administración la apruebe.</p></div>
+              <div className="mb-4 flex items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.22em] text-amber-300">Solicitud de venta</p><h1 className="mt-1 text-2xl font-bold">Prepara una solicitud</h1><p className="mt-1 text-sm text-slate-400">El servidor resuelve cliente, presentaciones, precios y total. La venta queda pendiente hasta que administración la apruebe.</p><p className="mt-1 text-xs text-slate-500">Disponibilidad informativa; el servidor revalida el stock antes de aceptar.</p></div><button onClick={() => void actualizarCatalogo()} className="shrink-0 rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-slate-200">Actualizar</button></div>
               <label className="mb-4 flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3"><Search className="h-4 w-4 text-slate-500" /><input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar producto o presentación" className="h-11 w-full bg-transparent text-sm outline-none" /></label>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{filtrado.map(item => <button key={item.presentacionId} onClick={() => agregar(item)} className="rounded-2xl border border-white/10 bg-slate-900 p-4 text-left transition hover:border-amber-300/50 hover:bg-slate-800"><div className="mb-3 flex items-start justify-between gap-3"><Package className="h-5 w-5 text-amber-300" /><span className="text-lg font-bold text-amber-200">{money(item.precioCOP)}</span></div><p className="font-semibold">{item.productoNombre}</p><p className="mt-1 text-sm text-slate-400">{item.presentacionNombre} · {item.factorUnidadBase} {item.unidadBase ?? "unidades"}</p><p className="mt-3 text-xs text-slate-500">Disponibles: {item.maximoPresentacionesVendibles ?? "por validar"}</p></button>)}</div>
               {filtrado.length === 0 && <div className="rounded-2xl border border-dashed border-white/15 p-10 text-center text-slate-400">No hay presentaciones activas para mostrar.</div>}

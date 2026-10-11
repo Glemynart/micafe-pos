@@ -13,6 +13,7 @@ import { crearIdentificadorInterno } from "../turnos/identificadores";
 import { SCHEMA_VERSION_VENTA_BODEGA, normalizarComandoConfirmacionVentaBodega, type ComandoConfirmacionVentaBodega, type LineaVentaBodegaPersistida } from "./ventas-contract";
 import { aplicarConsumosInventarioBodegaEnTransaccion, resolverVentaBodegaEnTransaccion } from "./ventas-resolution";
 import { esCambioComercialNoVigente, proyectarComercialSolicitud } from "./solicitudes-venta";
+import { marcarSenalDisponibilidadBodega, marcarSenalSolicitudesAdminBodega, marcarSenalSolicitudesVendedorBodega } from "./live-signals";
 
 const REGION = "us-central1";
 const AGENDA = "agenda_pedidos_bodega";
@@ -157,6 +158,8 @@ export async function ejecutarConfirmarVentaBodegaV1(db: any, contexto: Contexto
     catch (error) {
       if (!solicitud || !esCambioComercialNoVigente(error)) throw error;
       tx.update(solicitudRef, { estado: "INVALIDADA", motivoInvalidacion: "CATALOGO_CAMBIADO", actualizadaEn: FieldValue.serverTimestamp() });
+      marcarSenalSolicitudesAdminBodega(tx, firestore, empresaId);
+      marcarSenalSolicitudesVendedorBodega(tx, firestore, empresaId, actorUid);
       return {
         commandId: comando.commandId, solicitudId, estado: "INVALIDADA", estadoOperativo: "SOLICITUD_INVALIDADA",
         motivo: "CATALOGO_CAMBIADO",
@@ -167,6 +170,8 @@ export async function ejecutarConfirmarVentaBodegaV1(db: any, contexto: Contexto
       const approval = solicitud.aprobacion as Record<string, any>;
       if (comercialVigente.huellaComercial !== approval.huellaComercial) {
         tx.update(solicitudRef, { estado: "INVALIDADA", motivoInvalidacion: "CATALOGO_CAMBIADO", actualizadaEn: FieldValue.serverTimestamp() });
+        marcarSenalSolicitudesAdminBodega(tx, firestore, empresaId);
+        marcarSenalSolicitudesVendedorBodega(tx, firestore, empresaId, actorUid);
         return {
           commandId: comando.commandId, solicitudId, estado: "INVALIDADA", estadoOperativo: "SOLICITUD_INVALIDADA",
           motivo: "CATALOGO_CAMBIADO",
@@ -238,6 +243,11 @@ export async function ejecutarConfirmarVentaBodegaV1(db: any, contexto: Contexto
         estado: "CUMPLIDA", revision: reservaAgenda.agenda.revision + 1,
         ventaId, cumplidaEn: FieldValue.serverTimestamp(), actualizadaEn: FieldValue.serverTimestamp(),
       });
+    }
+    marcarSenalDisponibilidadBodega(tx, firestore, empresaId);
+    if (solicitudRef) {
+      marcarSenalSolicitudesAdminBodega(tx, firestore, empresaId);
+      marcarSenalSolicitudesVendedorBodega(tx, firestore, empresaId, actorUid);
     }
     return {
       commandId: comando.commandId, ventaId, estadoOperativo: "COMPLETO" as const,
