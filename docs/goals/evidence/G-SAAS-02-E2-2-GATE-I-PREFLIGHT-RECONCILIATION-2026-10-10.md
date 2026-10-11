@@ -45,8 +45,8 @@ cliente ni inventario; tampoco inicia producción.
 
 | Pendiente | Por qué es necesario | Gate/acción |
 |---|---|---|
-| Entorno explícito para almacenar datos reales y autorización de alta | La autorización general de pruebas no identifica por sí sola el proyecto/entorno autorizado para datos reales. | Gate I — confirmar con el responsable antes de Bootstrap/Activation. |
-| Aceptación de la oferta por Diana/cliente, vigencia, fecha de inicio y tratamiento de Trial | La aprobación interna de precio no acredita aceptación contractual ni define vigencia canónica. | Gate I — validar y persistir únicamente mediante ADR-SAAS-061 tras aceptación. |
+| Proyecto de producción y preflight de datos reales | El responsable confirmó producción como destino el 2026-10-11; todavía falta identificar/leer el proyecto exacto y revisar recuperación. | Gate I — preflight read-only, runbook y rollback antes de cualquier Bootstrap/Activation o escritura. La selección de producción no autoriza por sí sola una mutación. |
+| Persistencia canónica de oferta/Trial | Diana acepta, según reporte del responsable, la oferta anual de `1.600.000 COP`, pago manual y Trial de 30 días. Inicio previsto: 2026-10-13; oferta y Trial aún no están persistidos. | Gate I — registrar solo por ADR-SAAS-061 después del preflight productivo y de cumplir los gates; no anticipar la fecha efectiva. |
 | ADR-SAAS-068 — venta en efectivo sin turno | Opción 2 y su límite fueron aprobados explícitamente el 2026-10-10: efectivo sin turno no entra al arqueo/cierre de turno y se revisa por venta/fecha. | Decisión de arquitectura resuelta. Implementar y certificar el contrato en una PR de E2.2 antes de Gate I; el flujo actual no cambia hasta integrar y pasar sus gates. |
 | ADR-SAAS-069 — actualización sin refresco manual | Opción 3 aceptada e implementada en PR #537, integrado en `main @ 7a44a0be618edf4ac7bfc702e171be1e2e6ab0b4`; la CI post-merge run `38110437457` terminó `success` sobre ese SHA. | Ejecutar Gate C read-only y, solo si pasa, Gate D dirigido a `micafe-pos-staging`; observar convergencia y revalidar los casos afectados de F/G/H. La revalidación server-authoritative permanece obligatoria. |
 | Usuarios operativos reales | El responsable confirma que Diana creará las cuentas reales y asignará los roles; no se requiere recibir ahora una lista de vendedores. | Gate I — Diana administrará usuarios/roles después del alta; no reutilizar vendedores sintéticos. |
@@ -55,21 +55,25 @@ cliente ni inventario; tampoco inicia producción.
 | Conteos físicos y ubicaciones de inventario | El responsable confirma que el catálogo se cargará con stock cero; el inventario físico se hará posteriormente por Diana. | Gate I — no cargar cantidades físicas hasta inventario aprobado por Diana. |
 | Solicitud de datos legales al primer inicio | Requisito solicitado por el responsable: pedir a Diana los datos legales/comerciales en su primer inicio, sin facturación electrónica inicial. | Pendiente antes de aceptar el uso real (Gate J): diseñar e implementar el prompt en una PR de onboarding y validar el comportamiento. La lista mínima de campos y si puede diferirse requieren definición antes de codificar; la acción fiscal opcional actual no cumple este requisito. No inventar razón social/NIT ni otros datos. |
 | ADR-SAAS-071 — frontera de compras Bodega | Opción 1 aprobada explícitamente el 2026-10-11: crear `registrarCompraBodegaV1` en `saas-bodega-operations`, reutilizar el núcleo transaccional y mantener `saas-auth` sin cambios. | Preparar PR de implementación; después de integrarla, repetir Gate C read-only. La aprobación no autoriza deploy ni escrituras de datos. |
+| ADR-SAAS-072 — corte directo de compras Bodega | Opción 2 aceptada explícitamente el 2026-10-11: denegar create/delete directos de cliente en `/compras` solo para `BODEGA_MVP1`, preservando otros verticales. | Implementación en PR separada; corte por proyecto solo tras verificar cliente compatible y que `registrarCompraOperativaV1` no sea invocable desde Bodega. Si la callable legacy está expuesta, detener certificación. No autoriza Rules/deploy ni escrituras. |
 | Preflight de producción y recuperación | Entorno de datos reales confirmado como producción; no se ha ejecutado el preflight productivo ni existe evidencia de rollback para el alta nueva. | Completar la secuencia de gates con lectura previa, runbook, revisión de rollback y autorización operativa específica antes de cualquier escritura. |
 
 ## Siguiente paso permitido
 
-La implementación de ADR-SAAS-069 ya está integrada por PR #537 en
+La implementación de ADR-SAAS-069 quedó integrada por PR #537 en
 `main @ 7a44a0be618edf4ac7bfc702e171be1e2e6ab0b4`; no se ha desplegado a
 staging. El Gate C de ese SHA quedó `BLOCKED` porque faltaba la frontera
-canónica de compras. El siguiente paso es integrar ADR-SAAS-071 y la callable
-Bodega por PRs #538/#539, y luego repetir Gate C read-only para el SHA
-integrado. Gate D solo puede ejecutarse en `micafe-pos-staging` si ese nuevo
-preflight es `PASS`. La sincronización se medirá allí y los escenarios
-afectados de F/G/H deberán volver a certificarse. La venta sin turno no se
-cambia hasta implementar el contrato aceptado de ADR-SAAS-068 Opción 2 en una
-PR separada y superar sus validaciones; esa implementación y certificación son
-requisito antes de Gate I.
+canónica de compras. ADR-SAAS-071 y su sincronización documental quedaron
+integradas por PR #538 en `main @ 824b1aea474c9b70be632965f76702c2ea0af390`.
+La callable Bodega está en PR #539, aún abierta y no integrada. Tras completar
+CI/auditoría e integrar #539, se repetirá Gate C read-only para el SHA
+integrado. Gate D solo podrá ejecutarse en `micafe-pos-staging` si ese nuevo
+preflight es `PASS`; después se medirán sincronización y escenarios afectados
+de F/G/H. ADR-SAAS-072 acepta el diseño del corte directo de compras solo para
+Bodega, pero no cambia Rules ni autoriza su despliegue. La venta sin turno
+tampoco cambia hasta implementar el contrato aceptado de ADR-SAAS-068 Opción 2
+en una PR separada y superar sus validaciones; su implementación y
+certificación son requisito antes de Gate I.
 
 Gate I permanece `BLOCKED` para cualquier Bootstrap, Activation, persistencia
 de oferta, alta de usuarios reales, carga de catálogo/stock real, tráfico o
@@ -135,9 +139,12 @@ ni hubo mutaciones staging/producción. Los hashes, reglas, revisiones de
 rollback y causa exacta están en
 [`G-SAAS-02-E2-2-GATE-C-ADR069-PREFLIGHT-2026-10-11.md`](G-SAAS-02-E2-2-GATE-C-ADR069-PREFLIGHT-2026-10-11.md).
 
-ADR-SAAS-071 Opción 1 fue aprobada el 2026-10-11. Se preparará la callable
-`registrarCompraBodegaV1` en `saas-bodega-operations`, reutilizando el núcleo
-transaccional y sin cambios a `saas-auth`. La implementación deberá integrarse
-antes de repetir Gate C read-only. Hasta obtener un nuevo `PREFLIGHT = PASS`,
-Gate D y cualquier deploy permanecen prohibidos; no se han autorizado
-escrituras de datos.
+ADR-SAAS-071 Opción 1 fue aprobada el 2026-10-11 y el código de
+`registrarCompraBodegaV1` se prepara en PR #539, todavía sin integrar ni
+desplegar. Después de integrar código y completar la auditoría se repetirá Gate
+C read-only. El responsable también aceptó Opción 2 de ADR-SAAS-072: el corte
+de create/delete directo en `/compras` se limita a Bodega y exige verificar por
+proyecto el cliente compatible y la ausencia de una callable legacy invocable
+desde ese tenant. La decisión no altera Rules ni autoriza deploy. Hasta obtener
+un nuevo `PREFLIGHT = PASS`, Gate D y cualquier deploy permanecen prohibidos;
+no se han autorizado escrituras de datos.

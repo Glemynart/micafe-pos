@@ -53,7 +53,7 @@
 | Epic | Resultado | Estado |
 |---|---|---|
 | E2.1 Tenant de referencia | Tenant, contrato, Trial, membresía, administrador, credencial, Espacio y configuración reproducibles. | EN EJECUCIÓN |
-| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. Incluye solicitud de venta y aprobación previa según ADR-SAAS-062, agenda según ADR-SAAS-064, aviso durable según ADR-SAAS-065, sincronización viva por señales tenant-aware y relectura callable según ADR-SAAS-069, precio único por presentación separado de la oferta SaaS anual según ADR-SAAS-070, efectivo sin turno según ADR-SAAS-068 Opción 2, y compra Bodega canónica aislada según ADR-SAAS-071; sus implementaciones y certificaciones deben preceder Gate I. | EN EJECUCIÓN |
+| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. Incluye solicitud de venta y aprobación previa según ADR-SAAS-062, agenda según ADR-SAAS-064, aviso durable según ADR-SAAS-065, sincronización viva por señales tenant-aware y relectura callable según ADR-SAAS-069, precio único por presentación separado de la oferta SaaS anual según ADR-SAAS-070, efectivo sin turno según ADR-SAAS-068 Opción 2, compra Bodega canónica aislada según ADR-SAAS-071 y corte de escrituras directas de compras Bodega por proyecto según ADR-SAAS-072; sus implementaciones y certificaciones aplicables deben preceder Gate I. | EN EJECUCIÓN |
 
 ### M3 — Certificación funcional del tenant — PENDIENTE
 
@@ -1085,12 +1085,41 @@ de seis callables de ADR-SAAS-054 para añadir la séptima; conserva el resto de
 sus límites. Autoriza preparar una PR de implementación, no desplegar ni
 escribir datos.
 
-El checkpoint documental que registra la decisión está en PR #538; sus checks
-pasaron para el HEAD `7bbfe09acfeaa9f16edd2eee537a1ed46928079f`, pero el PR sigue
-abierto y aún no integrado. La preparación de la implementación sigue esa
-dependencia; después de integrar código y documentación se repetirá Gate C
-read-only. Gate D no inicia hasta que un nuevo `PREFLIGHT = PASS` lo permita, y
-Gate I permanece bloqueado para toda escritura real.
+El checkpoint documental quedó integrado por PR #538 en `main @
+824b1aea474c9b70be632965f76702c2ea0af390` el 2026-10-11. Sus checks de PR
+pasaron; la CI post-merge run `38119763023` está en curso al redactar este
+checkpoint. El PR no desplegó ni escribió datos. La implementación de compra
+Bodega sigue en PR #539, aún no integrada; después de integrarla se repetirá
+Gate C read-only. Gate D no inicia hasta que un nuevo `PREFLIGHT = PASS` lo
+permita, y Gate I permanece bloqueado para toda escritura real.
+
+### Decisión aceptada — 2026-10-11 — ADR-SAAS-072 / corte seguro de compras Bodega
+
+El responsable aceptó la Opción 2 de ADR-SAAS-072: denegar create/delete
+directos de cliente en `/compras` solo para `BODEGA_MVP1`, preservar el
+comportamiento de los otros verticales y aplicar el corte por proyecto solo
+después de verificar que el cliente Bodega usa la callable compatible y que
+`registrarCompraOperativaV1` no es invocable desde ese tenant. Si la callable
+legacy Admin SDK está expuesta a Bodega, ese proyecto no pasa el preflight y el
+corte se detiene hasta una nueva decisión arquitectónica. Rules no bloquean
+callables Admin SDK. La aceptación fija el diseño; la implementación requiere
+una PR separada y no autoriza cambios/despliegues de Rules, Functions, IAM,
+Secrets ni escrituras de datos.
+
+### Reconciliación Gate I — 2026-10-11
+
+El responsable confirma que producción será el destino para datos reales;
+todavía falta preflight read-only del proyecto exacto y validar recuperación.
+Diana acepta, según reporte del responsable, la oferta anual de 1.600.000 COP,
+pago manual y Trial de 30 días, con inicio previsto para el 2026-10-13.
+Diana también aprobó los 110 productos, empaques y precios impresos como
+precios de venta, con stock inicial cero. Esas aprobaciones no significan que
+oferta/Trial, tenant o catálogo estén creados o persistidos. Gate I continúa
+`BLOCKED` para Bootstrap/Activation y escrituras reales hasta cumplir la
+secuencia de gates, obtener los datos legales/comerciales mediante el onboarding
+pendiente, completar el preflight y cargar el catálogo solo tras su autorización.
+Diana creará los usuarios y asignará roles después del alta; el inventario
+físico y los costos se incorporarán posteriormente con datos reales.
 
 ### Checkpoint — 2026-10-10 (Bogotá) — PR #537 integrado / sincronización viva
 
@@ -1109,12 +1138,14 @@ reconsulta del estado de negocio mediante callables existentes. No incluye
 despliegue ni escrituras en staging o producción.
 
 El preflight de Gate C para `main @ 7a44a0be618edf4ac7bfc702e171be1e2e6ab0b4`
-ya quedó `BLOCKED`; no repetir ese candidato ni ejecutar Gate D. El siguiente
-paso es integrar el registro documental de ADR-SAAS-071 (#538) y la
-implementación autorizada de compras Bodega (#539). Solo después de integrar
-ambos cambios y completar su CI/auditoría se repetirá Gate C read-only contra el
-SHA integrado; Gate D podrá ejecutarse únicamente si el nuevo resultado es
-`PREFLIGHT = PASS`. Después se revalidarán los escenarios afectados de F/G/H.
+ya quedó `BLOCKED`; no repetir ese candidato ni ejecutar Gate D. El registro de
+ADR-SAAS-071 quedó integrado por #538 en `main @
+824b1aea474c9b70be632965f76702c2ea0af390`. El siguiente cambio técnico
+pendiente es la implementación autorizada de compras Bodega (#539), todavía no
+integrada. Solo después de integrar #539 y completar su CI/auditoría se repetirá
+Gate C read-only contra el SHA integrado; Gate D podrá ejecutarse únicamente si
+el nuevo resultado es `PREFLIGHT = PASS`. Después se revalidarán los escenarios
+afectados de F/G/H.
 ADR-SAAS-068 Opción 2 también requiere implementación y certificación antes de
 Gate I. Gate I permanece `BLOCKED`: no hay Bootstrap/Activation autorizado
 hasta completar las precondiciones comerciales, legales, de catálogo y de
