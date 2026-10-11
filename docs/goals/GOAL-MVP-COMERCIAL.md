@@ -1284,9 +1284,33 @@ checks requeridos terminaron `success`, incluido CI run
 [`38151456016`](https://github.com/Glemynart/micafe-pos/actions/runs/38151456016),
 y la CI post-merge de `main`, run
 [`38153085966`](https://github.com/Glemynart/micafe-pos/actions/runs/38153085966),
-terminó `success` sobre el merge SHA. Esto no cierra Gate D: aún falta evidencia
-visual autenticada de que `/admin/compras` carga después del despliegue de los
-índices; no se ha registrado una compra ni escrito documentos.
+terminó `success` sobre el merge SHA. En ese checkpoint aún faltaba evidencia
+visual autenticada de que `/admin/compras` cargara después del despliegue de los
+índices; no se había registrado una compra ni escrito documentos.
+
+### Revalidación autenticada de Compras tras índices — 2026-10-11
+
+La sesión sintética `Administrador Bodega Demo` quedó autenticada en Edge y
+abrió `/admin/compras` en el preview #548 después de que los cuatro índices
+quedaron `READY`. La pantalla renderizó `Compras de Productos`, gasto del
+periodo `$0`, `0` compras y el estado vacío `No hay compras registradas`; no
+quedó en login/carga ni presentó el error `failed-precondition` que bloqueaba la
+consulta. El árbol de accesibilidad de la pestaña confirmó esos mismos
+elementos. No se abrió ni confirmó una compra y esta revisión no escribió
+documentos. Evidencia: [`Gate D — revalidación autenticada de Compras`](evidence/G-SAAS-02-E2-2-GATE-D-PURCHASES-UI-2026-10-11.md).
+
+La captura muestra además una anomalía de disposición en escritorio: el título
+se parte en varias líneas, los controles exceden el ancho de su tarjeta y las
+etiquetas de métricas se ajustan de forma estrecha. La ruta y consulta siguen
+siendo accesibles; la usabilidad del módulo debe verificarse dentro de Gate F y
+corregirse si los controles resultan recortados o difíciles de operar.
+
+**Gate D operativo: `PASS`** para Functions, Rules, índices y render autenticado
+posterior al despliegue. La siguiente etapa es revalidar Gate F, en particular
+la ruta canónica de compra y sus efectos antes de repetir Gate G y emitir Gate H.
+La reconciliación documental queda sujeta a CI y merge protegido del PR #550;
+no hubo compras, otras escrituras ni cambios de fixture, tenant real o
+producción.
 
 ### Checkpoint — 2026-10-10 (Bogotá) — PR #537 integrado / sincronización viva
 
