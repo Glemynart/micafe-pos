@@ -1312,6 +1312,35 @@ La reconciliación documental queda sujeta a CI y merge protegido del PR #550;
 no hubo compras, otras escrituras ni cambios de fixture, tenant real o
 producción.
 
+### Revalidación de compra Bodega en staging — 2026-10-11
+
+PR #551 quedó integrado en `main` mediante el merge commit
+`89a2ab71486860d353ebf164cc7129a48747be5e`. Sus checks previos al merge,
+incluidos `Tipos y pruebas`, Vercel y Vercel Preview Comments, terminaron
+`PASS`; la CI post-merge de `main`, run
+[`38161620488`](https://github.com/Glemynart/micafe-pos/actions/runs/38161620488),
+terminó `success` sobre el merge SHA.
+
+En el preview de PR #551, la sesión autenticada `Administrador Bodega Demo`
+registró una compra sintética autorizada de una unidad del producto fixture por
+`$1.000 COP`, sin seleccionar cuenta de pago. El historial y detalle de
+`/admin/compras` coincidieron con el borrador. Lecturas Firestore filtradas por
+la compra confirmaron un recibo `CONFIRMADO` de
+`registrarCompraBodegaV1`, una auditoría `CONFIRMADO`, un movimiento canónico de
+ledger tipo `compra` por `+1` unidad, `movimientoFinancieroId: null` y ningún
+documento de transacción financiera para esa compra. `/admin/inventario` mostró
+3 unidades físicas, 0 reservadas y 3 disponibles.
+
+La [evidencia de conciliación de compra Gate F](evidence/G-SAAS-02-E2-2-GATE-F-PURCHASE-RECONCILIATION-2026-10-11.md)
+registra entorno, valores y límites. No se simula una pérdida remota de
+respuesta ni se afirma replay post-commit; PR #551 aporta la cobertura
+automatizada del `commandId` estable para el mismo borrador.
+
+**Revalidación de Gate F para compras: `PASS`.** Se conserva el resultado de la
+matriz Gate F integrada por PR #524; el paso siguiente es repetir Gate G y,
+después de su conciliación, emitir Gate H actualizado. No se toca el tenant real
+ni producción.
+
 ### Checkpoint — 2026-10-10 (Bogotá) — PR #537 integrado / sincronización viva
 
 PR #537 (`feat: Bodega live refresh signals`) quedó `MERGED` en `main` mediante
