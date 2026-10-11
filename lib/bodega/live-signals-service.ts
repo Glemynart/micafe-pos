@@ -4,6 +4,25 @@ import { db } from "@/lib/firebase";
 export type CanalSenalBodega = "disponibilidad" | "solicitudes_admin" | "solicitudes_vendedor";
 export type EstadoSenalBodega = { version: number | null; conectada: boolean };
 
+export function crearDetectorCambioSenalBodega(): (state: EstadoSenalBodega) => boolean {
+  let connected: boolean | null = null;
+  let lastVersion: number | null = null;
+
+  return state => {
+    if (!state.conectada) {
+      connected = false;
+      return false;
+    }
+
+    const firstSnapshot = connected === null;
+    const reconnecting = connected === false;
+    const changed = lastVersion !== null && state.version !== lastVersion;
+    if (state.version !== null) lastVersion = state.version;
+    connected = true;
+    return firstSnapshot || reconnecting || changed;
+  };
+}
+
 const segmentoValido = (value: string) => value.trim().length > 0 && !value.includes("/");
 
 export function rutaSenalBodega(empresaId: string, canal: CanalSenalBodega, uid?: string): string {

@@ -13,7 +13,7 @@ import { cancelarProgramacionPedidoBodega, consultarAgendaPedidosBodega, constru
 import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
 import { FcmManagerWrapper } from "@/components/fcm-manager-wrapper"
 import { crearRefrescoCoalescido } from "@/lib/bodega/refresh-coalescido"
-import { suscribirSenalBodega } from "@/lib/bodega/live-signals-service"
+import { crearDetectorCambioSenalBodega, suscribirSenalBodega } from "@/lib/bodega/live-signals-service"
 
 type Tab = "venta" | "solicitudes" | "agenda" | "clientes" | "historial"
 type TipoPedido = "venta" | "hoy" | "agendar"
@@ -64,8 +64,6 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   const comandoAgendaPendiente = useRef<ComandoCrearProgramacionPedidoBodega | null>(null)
   const comandosAgendaPendientes = useRef(new Map<string, AgendaCancelCommand | AgendaConvertCommand>())
   const comandosVentaPendientes = useRef(new Map<string, ConfirmacionVentaBodega>())
-  const ultimaSenalDisponibilidad = useRef<number | null>(null)
-  const ultimaSenalSolicitudes = useRef<number | null>(null)
   const agendaConsultaEnCurso = useRef(false)
   const guardiaEnvio = useRef(crearProtectorDobleEnvio())
 
@@ -122,18 +120,12 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   useEffect(() => {
     if (!empresaId || (tab !== "venta" && tab !== "solicitudes")) { setSenalDesconectada(false); return }
     const catalogoActivo = tab === "venta"
-    const version = catalogoActivo ? ultimaSenalDisponibilidad : ultimaSenalSolicitudes
     const actualizar = catalogoActivo ? actualizarCatalogo : actualizarSolicitudes
     const channel = catalogoActivo ? "disponibilidad" : "solicitudes_vendedor"
-    let connected: boolean | null = null
+    const detectarCambio = crearDetectorCambioSenalBodega()
     const unsubscribe = suscribirSenalBodega(empresaId, channel, catalogoActivo ? undefined : usuario.uid, state => {
       setSenalDesconectada(!state.conectada)
-      if (!state.conectada) { connected = false; return }
-      const reconnecting = connected === false
-      const changed = version.current !== null && state.version !== version.current
-      if (state.version !== null) version.current = state.version
-      connected = true
-      if (reconnecting || changed) void actualizar()
+      if (detectarCambio(state)) void actualizar()
     })
     const actualizarSiVisible = () => { if (document.visibilityState === "visible") void actualizar() }
     void actualizar()

@@ -12,7 +12,7 @@ import { construirConfirmacionVentaBodega, type LineaCarritoBodega, type MetodoP
 import { cancelarSolicitudVentaBodega, consultarSolicitudesVentaBodega, resolverSolicitudVentaBodega } from "@/lib/bodega/solicitudes-service"
 import { confirmarVentaBodega } from "@/lib/bodega/vendedor-service"
 import { abrirTurno, suscribirTurnoActivo, type Turno } from "@/lib/turnos-service"
-import { suscribirSenalBodega } from "@/lib/bodega/live-signals-service"
+import { crearDetectorCambioSenalBodega, suscribirSenalBodega } from "@/lib/bodega/live-signals-service"
 import { crearRefrescoCoalescido } from "@/lib/bodega/refresh-coalescido"
 
 const money = (value: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(value)
@@ -110,7 +110,6 @@ export function BodegaSolicitudesAdmin() {
   const [procesando, setProcesando] = useState("")
   const [error, setError] = useState("")
   const [senalDesconectada, setSenalDesconectada] = useState(false)
-  const ultimaSenal = useRef<number | null>(null)
   const cargar = useCallback(async () => {
     setError("")
     try { setSolicitudes(await consultarSolicitudesVentaBodega()) }
@@ -121,15 +120,10 @@ export function BodegaSolicitudesAdmin() {
   useEffect(() => { void cargarCoalescido() }, [cargarCoalescido])
   useEffect(() => {
     if (!empresaId) return
-    let connected: boolean | null = null
+    const detectarCambio = crearDetectorCambioSenalBodega()
     const unsubscribe = suscribirSenalBodega(empresaId, "solicitudes_admin", undefined, state => {
       setSenalDesconectada(!state.conectada)
-      if (!state.conectada) { connected = false; return }
-      const reconnecting = connected === false
-      const changed = ultimaSenal.current !== null && state.version !== ultimaSenal.current
-      if (state.version !== null) ultimaSenal.current = state.version
-      connected = true
-      if (reconnecting || changed) void cargarCoalescido()
+      if (detectarCambio(state)) void cargarCoalescido()
     })
     const actualizarSiVisible = () => { if (document.visibilityState === "visible") void cargarCoalescido() }
     document.addEventListener("visibilitychange", actualizarSiVisible)
