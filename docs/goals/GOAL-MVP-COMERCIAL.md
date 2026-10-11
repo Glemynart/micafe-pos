@@ -53,7 +53,7 @@
 | Epic | Resultado | Estado |
 |---|---|---|
 | E2.1 Tenant de referencia | Tenant, contrato, Trial, membresía, administrador, credencial, Espacio y configuración reproducibles. | EN EJECUCIÓN |
-| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. Incluye solicitud de venta y aprobación previa según ADR-SAAS-062, agenda según ADR-SAAS-064, aviso durable según ADR-SAAS-065, sincronización viva por señales tenant-aware y relectura callable según ADR-SAAS-069, y precio único por presentación separado de la oferta SaaS anual según ADR-SAAS-070. | EN EJECUCIÓN |
+| E2.2 Configuración inicial | Bodega MVP-1 es el tenant/cliente de referencia: catálogo, usuarios, permisos, módulos y flujo DEMO se preparan de forma reusable antes de crear o configurar el tenant real. Incluye solicitud de venta y aprobación previa según ADR-SAAS-062, agenda según ADR-SAAS-064, aviso durable según ADR-SAAS-065, sincronización viva por señales tenant-aware y relectura callable según ADR-SAAS-069, precio único por presentación separado de la oferta SaaS anual según ADR-SAAS-070, efectivo sin turno según ADR-SAAS-068 Opción 2, y compra Bodega canónica aislada según ADR-SAAS-071; sus implementaciones y certificaciones deben preceder Gate I. | EN EJECUCIÓN |
 
 ### M3 — Certificación funcional del tenant — PENDIENTE
 
@@ -1038,7 +1038,16 @@ ADR-SAAS-068, ADR-SAAS-069 y ADR-SAAS-070 permanecían `PROPUESTO`; las decision
 posteriores se registran en el checkpoint siguiente. No se creó ni configuró el
 tenant real.
 
-### Decisiones aceptadas — 2026-10-10 — ADR-SAAS-069 y ADR-SAAS-070
+### Decisiones aceptadas — 2026-10-10 — ADR-SAAS-068, ADR-SAAS-069 y ADR-SAAS-070
+
+El responsable aprobó la Opción 2 de ADR-SAAS-068 y su límite de control de
+caja: el efectivo puede confirmarse sin abrir turno, con monto recibido y
+cambio derivados/validados por el servidor; una venta sin turno no participa en
+el arqueo/cierre de turno y administración la revisa por venta y fecha. La
+aprobación desbloquea la implementación en una PR de E2.2, no altera el flujo
+actual ni autoriza despliegues o escrituras remotas. La implementación y su
+certificación son requisito antes de Gate I; se conserva el orden inmediato de
+Gate C/D y revalidación F/G/H que figura en el checkpoint vigente.
 
 El responsable seleccionó la Opción 3 de ADR-SAAS-069: señales de invalidación
 tenant-aware no sensibles y relectura por las callables existentes. El objetivo
@@ -1052,19 +1061,65 @@ precio único por presentación para compradores del tenant. El borrador de 110
 referencias aún requiere validación de Diana y no queda autorizado para
 importación.
 
-ADR-SAAS-068 permanece `PROPUESTO` hasta confirmar expresamente su efecto de
-control de caja: las ventas en efectivo sin turno tendrían `turnoId: null` y no
-entrarían en el arqueo/cierre de un turno; se revisarían por venta y fecha. La
-Opción 2 fue señalada como preferida, pero no se registra aún como aceptada.
-
 Gate I continúa `BLOCKED` para tenant real y datos reales. Además de integrar e
 implementar la decisión aceptada de sincronización y revalidar la certificación
 afectada, faltan la aceptación contractual de Diana, datos legales/contacto
-verificados, usuarios reales y permisos aprobados, catálogo aprobado, conteo
-físico/costos y el entorno expresamente autorizado. No se creó/configuró un
-tenant real ni se modificaron staging o producción. Una vez integrado este
-checkpoint documental, el siguiente PR técnico esperado es implementar
-ADR-SAAS-069 y repetir las validaciones afectadas de Gate F/G/H.
+verificados, catálogo aprobado, conteo físico/costos y el entorno expresamente
+autorizado. Diana creará los usuarios reales y asignará sus roles después del
+alta; no hace falta una lista previa de vendedores. No se creó/configuró un
+tenant real ni se modificaron staging o producción.
+
+El responsable también pidió que a Diana se le soliciten los datos
+legales/comerciales en su primer inicio de sesión, sin activar facturación
+electrónica. El flujo actual solo ofrece una acción administrativa opcional y
+no satisface este requisito. El prompt de primer inicio queda pendiente para
+Gate I/J y debe implementarse y validarse antes de aceptar el uso real; los
+campos mínimos y la posibilidad de diferirlos deben definirse antes de codificar.
+
+### Decisión aceptada — 2026-10-11 — ADR-SAAS-071 / compra Bodega aislada
+
+El responsable aprobó la Opción 1 de ADR-SAAS-071: crear
+`registrarCompraBodegaV1` en `saas-bodega-operations`, reutilizando el núcleo
+transaccional y sin cambiar `saas-auth`. Esta decisión supersede solo la lista
+de seis callables de ADR-SAAS-054 para añadir la séptima; conserva el resto de
+sus límites. Autoriza preparar una PR de implementación, no desplegar ni
+escribir datos.
+
+El checkpoint documental que registra la decisión está en PR #538; sus checks
+pasaron para el HEAD `7bbfe09acfeaa9f16edd2eee537a1ed46928079f`, pero el PR sigue
+abierto y aún no integrado. La preparación de la implementación sigue esa
+dependencia; después de integrar código y documentación se repetirá Gate C
+read-only. Gate D no inicia hasta que un nuevo `PREFLIGHT = PASS` lo permita, y
+Gate I permanece bloqueado para toda escritura real.
+
+### Checkpoint — 2026-10-10 (Bogotá) — PR #537 integrado / sincronización viva
+
+PR #537 (`feat: Bodega live refresh signals`) quedó `MERGED` en `main` mediante
+`7a44a0be618edf4ac7bfc702e171be1e2e6ab0b4` a las
+`2026-10-11T04:04:50Z` (`2026-10-10 23:04:50`, Bogotá). La auditoría fue `APROBADO PARA MERGE`; los checks del
+PR (`Tipos y pruebas`, Vercel y Vercel Preview Comments) terminaron `PASS` para
+el HEAD `d70e64a5875a23f40d67a2ca20e691902c25bad3`. La CI post-merge de `main`,
+run [`38110437457`](https://github.com/Glemynart/micafe-pos/actions/runs/38110437457),
+terminó `success` sobre `main @ 7a44a0be618edf4ac7bfc702e171be1e2e6ab0b4` a
+las `2026-10-11T04:28:44Z`; Gate D queda sujeto al preflight actual de Gate C.
+
+El PR implementa ADR-SAAS-069 Opción 3: señales técnicas tenant-aware
+actualizadas dentro de transacciones canónicas, lectura restringida por Rules y
+reconsulta del estado de negocio mediante callables existentes. No incluye
+despliegue ni escrituras en staging o producción.
+
+El preflight de Gate C para `main @ 7a44a0be618edf4ac7bfc702e171be1e2e6ab0b4`
+ya quedó `BLOCKED`; no repetir ese candidato ni ejecutar Gate D. El siguiente
+paso es integrar el registro documental de ADR-SAAS-071 (#538) y la
+implementación autorizada de compras Bodega (#539). Solo después de integrar
+ambos cambios y completar su CI/auditoría se repetirá Gate C read-only contra el
+SHA integrado; Gate D podrá ejecutarse únicamente si el nuevo resultado es
+`PREFLIGHT = PASS`. Después se revalidarán los escenarios afectados de F/G/H.
+ADR-SAAS-068 Opción 2 también requiere implementación y certificación antes de
+Gate I. Gate I permanece `BLOCKED`: no hay Bootstrap/Activation autorizado
+hasta completar las precondiciones comerciales, legales, de catálogo y de
+entorno enumeradas en el preflight vigente. No se creó/configuró el tenant real
+ni se tocó producción.
 
 ### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 
