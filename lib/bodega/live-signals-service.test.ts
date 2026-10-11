@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { interpretarSnapshotSenalBodega, rutaSenalBodega } from "./live-signals-service";
+import { crearDetectorCambioSenalBodega, interpretarSnapshotSenalBodega, rutaSenalBodega } from "./live-signals-service";
+import { crearRefrescoCoalescido } from "./refresh-coalescido";
 
 test("las rutas de señales se limitan a canales soportados y al vendedor propio", () => {
   assert.equal(rutaSenalBodega("tenant-a", "disponibilidad"), "empresas/tenant-a/bodega_senales/disponibilidad");
@@ -24,4 +25,35 @@ test("un snapshot de señal valida tenant, versión y estado de conexión antes 
   assert.deepEqual(interpretarSnapshotSenalBodega(map(undefined, false), "tenant-a"), { version: 0, conectada: true });
   assert.deepEqual(interpretarSnapshotSenalBodega(map({ empresaId: "tenant-b", version: 4 }, false), "tenant-a"), { version: null, conectada: false });
   assert.deepEqual(interpretarSnapshotSenalBodega(map({ empresaId: "tenant-a", version: "4" }, false), "tenant-a"), { version: null, conectada: false });
+});
+
+test("la primera señal remota provoca una relectura si llega después de iniciar la carga", async () => {
+  const detectarCambio = crearDetectorCambioSenalBodega();
+  assert.equal(detectarCambio({ version: 4, conectada: false }), false);
+
+  let lecturas = 0;
+  let iniciarLectura!: () => void;
+  let terminarPrimeraLectura!: () => void;
+  const lecturaIniciada = new Promise<void>(resolve => { iniciarLectura = resolve; });
+  const primeraLecturaPendiente = new Promise<void>(resolve => { terminarPrimeraLectura = resolve; });
+  const refrescar = crearRefrescoCoalescido(async () => {
+    lecturas += 1;
+    if (lecturas === 1) {
+      iniciarLectura();
+      await primeraLecturaPendiente;
+    }
+  });
+
+  const cargaInicial = refrescar();
+  await lecturaIniciada;
+  const primeraSenalRemota = { version: 5, conectada: true };
+  if (detectarCambio(primeraSenalRemota)) void refrescar();
+  terminarPrimeraLectura();
+  await cargaInicial;
+
+  assert.equal(lecturas, 2);
+  assert.equal(detectarCambio(primeraSenalRemota), false);
+  assert.equal(detectarCambio({ version: 6, conectada: true }), true);
+  assert.equal(detectarCambio({ version: null, conectada: false }), false);
+  assert.equal(detectarCambio({ version: 6, conectada: true }), true);
 });
