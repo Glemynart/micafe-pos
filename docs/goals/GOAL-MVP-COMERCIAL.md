@@ -1087,8 +1087,8 @@ escribir datos.
 
 El checkpoint documental quedó integrado por PR #538 en `main @
 824b1aea474c9b70be632965f76702c2ea0af390` el 2026-10-11. Sus checks de PR
-pasaron; la CI post-merge run `38119763023` está en curso al redactar este
-checkpoint. El PR no desplegó ni escribió datos. La implementación de compra
+pasaron; la CI post-merge run `38119763023` terminó `success` sobre ese SHA.
+El PR no desplegó ni escribió datos. La implementación de compra
 Bodega sigue en PR #539, aún no integrada; después de integrarla se repetirá
 Gate C read-only. Gate D no inicia hasta que un nuevo `PREFLIGHT = PASS` lo
 permita, y Gate I permanece bloqueado para toda escritura real.
@@ -1105,6 +1105,12 @@ corte se detiene hasta una nueva decisión arquitectónica. Rules no bloquean
 callables Admin SDK. La aceptación fija el diseño; la implementación requiere
 una PR separada y no autoriza cambios/despliegues de Rules, Functions, IAM,
 Secrets ni escrituras de datos.
+
+El ADR y la sincronización documental quedaron integrados por PR #540 en
+`main @ 382c5821157abda4bc292457386dbcefa7732fc9` el 2026-10-11. La CI del PR
+pasó en el run `38120294406` (intento 2); el post-merge de `main`, run
+`38122798628`, está en curso. No hubo deploy ni escrituras. El siguiente cambio
+técnico continúa siendo PR #539.
 
 ### Reconciliación Gate I — 2026-10-11
 
