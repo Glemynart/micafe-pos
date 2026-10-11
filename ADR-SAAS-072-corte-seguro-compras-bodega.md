@@ -8,7 +8,7 @@
 - **Última revisión:** 2026-10-11.
 - **Goal:** `G-SAAS-02` → `M2` → `E2.2`.
 - **Decisor:** responsable del proyecto. **Recomendación técnica:** Lead Engineer.
-- **Relacionado:** ADR-SAAS-049, ADR-SAAS-054, ADR-SAAS-069, ADR-SAAS-071 (PR #538, pendiente de integración), R1 §7 y §9.
+- **Relacionado:** ADR-SAAS-049, ADR-SAAS-054, ADR-SAAS-069, ADR-SAAS-071 (integrado por PR #538 en `main @ 824b1aea474c9b70be632965f76702c2ea0af390`), R1 §7 y §9.
 - **Límite de autorización:** la aceptación fija el diseño de Opción 2. La
   implementación requiere una PR separada después de sincronizar esta decisión
   con los documentos maestros. No se autoriza desplegar Rules/Functions, cambiar
@@ -177,8 +177,8 @@ La decisión se aplica con esta secuencia:
 
 ## Referencias
 
-- ADR-SAAS-071 (Opción 1 aceptada; documentada en PR #538, pendiente de
-  integración al redactar esta propuesta).
+- ADR-SAAS-071 (Opción 1 aceptada; integrada por PR #538 en `main @
+  824b1aea474c9b70be632965f76702c2ea0af390`).
 - [PR #539 — implementación de compras Bodega](https://github.com/Glemynart/micafe-pos/pull/539)
 - [PR #538 — registro de ADR-SAAS-071 y evidencia de preflight](https://github.com/Glemynart/micafe-pos/pull/538)
 - `firestore.rules`: reglas actuales de `/compras` y helper `esBodegaMvp1()`.
