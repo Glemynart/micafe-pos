@@ -5,7 +5,7 @@ import {
   crearHuellaSemantica,
   executeConContexto,
   resolverCuentaOperativa,
-  resolverTurnoRecaudoPropioEnTransaccion,
+  resolverTurnoRecaudoPropioOpcionalEnTransaccion,
   writeMovement,
   type ContextoFinancieroOperativo,
 } from "../bodega/operational-core";
@@ -180,9 +180,14 @@ export async function ejecutarConfirmarVentaBodegaV1(db: any, contexto: Contexto
     }
     const total = sumaSegura(resolucion.lineas.map(linea => linea.subtotalCOP));
     const esEfectivo = comando.payload.metodoPago === "efectivo";
+    const montoRecibidoCOP = esEfectivo ? comando.payload.montoRecibidoCOP : undefined;
+    if (esEfectivo && (!Number.isSafeInteger(montoRecibidoCOP) || (montoRecibidoCOP as number) < total)) {
+      fail("failed-precondition", "MONTO_RECIBIDO_INVALIDO");
+    }
+    const cambioCOP = esEfectivo ? (montoRecibidoCOP as number) - total : undefined;
     const cuenta = await resolverCuentaOperativa(tx, firestore, empresaId, esEfectivo ? "caja-principal" : "bancolombia");
     const turnoId = esEfectivo
-      ? await resolverTurnoRecaudoPropioEnTransaccion(tx, firestore, empresaId, actorUid)
+      ? await resolverTurnoRecaudoPropioOpcionalEnTransaccion(tx, firestore, empresaId, actorUid)
       : null;
     const ventaId = crearIdentificadorInterno(empresaId, `venta-bodega:${comando.commandId}`);
     const ventaRef = firestore.collection("ventas").doc(ventaId);
@@ -220,7 +225,8 @@ export async function ejecutarConfirmarVentaBodegaV1(db: any, contexto: Contexto
       cajeroId: actorUid,
       clienteId: resolucion.cliente.id, clienteNombreSnapshot: resolucion.cliente.nombre,
       clienteDocumentoSnapshot: resolucion.cliente.cedula, items: lineas,
-      metodoPago: comando.payload.metodoPago, pago: { metodo: comando.payload.metodoPago },
+      metodoPago: comando.payload.metodoPago,
+      pago: { metodo: comando.payload.metodoPago, ...(esEfectivo ? { montoRecibidoCOP, cambioCOP } : {}) },
       turnoId, totales: { subtotal: total, impuestos: 0, total },
       commandId: comando.commandId, idempotencyKey: comando.idempotencyKey,
       correlationId: comando.correlationId, causationId: comando.causationId,
@@ -252,6 +258,7 @@ export async function ejecutarConfirmarVentaBodegaV1(db: any, contexto: Contexto
     return {
       commandId: comando.commandId, ventaId, estadoOperativo: "COMPLETO" as const,
       metodoPago: comando.payload.metodoPago, total,
+      ...(esEfectivo ? { montoRecibidoCOP, cambioCOP } : {}),
       ...(solicitudId ? { solicitudId } : {}),
       ...(reservaAgenda ? { programacionId: solicitud?.programacionId } : {}),
       movimientoFinancieroId: ingreso.id,
