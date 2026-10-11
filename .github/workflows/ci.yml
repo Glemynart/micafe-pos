@@ -291,6 +291,9 @@ jobs:
       - name: Pruebas de UI del Backoffice SaaS
         run: npm run test:backoffice-ui
 
+      - name: Idempotencia del comando de compra en el cliente
+        run: npm run test:purchase-command
+
       - name: Pruebas de onboarding
         run: npm run test:onboarding
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useEspacios } from '@/contexts/espacios-context'
 import { useConfiguracionEmpresa } from '@/contexts/configuracion-empresa-context'
 import {
@@ -31,6 +31,7 @@ import {
   type Compra,
   type CompraItem,
 } from '@/lib/compras-service'
+import { obtenerComandoCompraPendiente, type ComandoCompraPendiente } from '@/lib/compra-command'
 import { suscribirInsumos, type Insumo } from '@/lib/insumos-service'
 import { suscribirProductos, type Producto } from '@/lib/productos-service'
 import { suscribirCuentasBancarias, type CuentaBancaria } from '@/lib/finanzas-service'
@@ -71,6 +72,7 @@ export function PurchasesModule() {
   const [cargando, setCargando] = useState(true)
   const [registrando, setRegistrando] = useState(false)
   const [compraSeleccionada, setCompraSeleccionada] = useState<Compra | null>(null)
+  const comandoCompraPendienteRef = useRef<ComandoCompraPendiente | null>(null)
 
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([])
   const [fechaCompra, setFechaCompra] = useState<string>(getHoy())
@@ -201,16 +203,24 @@ export function PurchasesModule() {
         costoTotal: i.cantidad * i.costoUnitario,
       }))
 
-      await registrarCompra({
+      const parametrosCompra = {
         proveedor: nombreProveedor,
         ...(proveedorSeleccionado ? { proveedorId: proveedorSeleccionado.id } : {}),
         items,
         espacioId,
         fechaCompra,
         ...(cuentaClaveOperativa ? { cuentaClaveOperativa } : {}),
-      }, vertical)
+      }
+      const comandoCompraPendiente = obtenerComandoCompraPendiente(
+        parametrosCompra,
+        vertical,
+        comandoCompraPendienteRef.current,
+      )
+      comandoCompraPendienteRef.current = comandoCompraPendiente
+      await registrarCompra({ ...parametrosCompra, commandId: comandoCompraPendiente.commandId }, vertical)
 
       toast.success('Compra registrada exitosamente')
+      comandoCompraPendienteRef.current = null
       setShowPurchaseDialog(false)
       setProveedor('')
       setProveedorId('')
@@ -218,7 +228,7 @@ export function PurchasesModule() {
       setCuentaClaveOperativa('')
       setItemsForm([{ insumoId: '', insumoNombre: '', cantidad: 0, unidadMedida: 'g', costoUnitario: 0 }])
     } catch (err) {
-      toast.error('Error al registrar la compra')
+      toast.error('No se pudo confirmar la compra. Puedes reintentar sin cambiar el borrador.')
       console.error(err)
     } finally {
       setRegistrando(false)
@@ -245,7 +255,7 @@ export function PurchasesModule() {
 
   return (
     <div className="flex flex-col h-full p-4 gap-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card/80 backdrop-blur-xl p-6 rounded-[2rem] border border-border/50 shadow-sm">
+      <div className="flex flex-col justify-between gap-4 bg-card/80 backdrop-blur-xl p-6 rounded-[2rem] border border-border/50 shadow-sm">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-foreground flex items-center gap-3">
             <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-primary/10 shadow-inner">
@@ -255,17 +265,17 @@ export function PurchasesModule() {
           </h1>
           <p className="text-muted-foreground font-medium mt-1">Registra y controla las compras a proveedores</p>
         </div>
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="relative w-full md:w-auto">
+        <div className="flex w-full flex-col items-stretch gap-3">
+          <div className="relative w-full">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por proveedor..."
-              className="pl-10 w-full md:w-72 bg-background border-border/50 rounded-2xl h-12 shadow-sm focus:ring-primary/50 font-medium transition-all"
+              className="pl-10 w-full bg-background border-border/50 rounded-2xl h-12 shadow-sm focus:ring-primary/50 font-medium transition-all"
             />
           </div>
-          <Button onClick={() => setShowPurchaseDialog(true)} className="h-12 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 shadow-lg shadow-primary/20 transition-all active:scale-95">
+          <Button onClick={() => setShowPurchaseDialog(true)} className="h-12 w-full rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 shadow-lg shadow-primary/20 transition-all active:scale-95">
             <Plus className="h-5 w-5 mr-2" />
             Registrar Compra
           </Button>
@@ -275,7 +285,7 @@ export function PurchasesModule() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+      <div className="grid grid-cols-1 gap-4 mt-2">
         <Card className="bg-gradient-to-br from-primary/10 via-background to-background border-border/50 rounded-[2rem] shadow-sm relative overflow-hidden">
           <div className="absolute -right-10 -top-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
           <CardContent className="p-6 relative z-10">
