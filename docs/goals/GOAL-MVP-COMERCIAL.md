@@ -1128,6 +1128,24 @@ y dependencias. El corte de Rules de ADR-SAAS-072 requiere PR, pruebas y
 preflight específico por proyecto después de verificar compatibilidad;
 permanece separado y no se ejecutó. No hubo deploy ni escrituras.
 
+**Reconciliación posterior — PR #544 / ADR-SAAS-072:** la implementación del
+corte de escrituras directas quedó integrada en `main @
+f3cee833d15603f8eb5cdf764d0e5b8c23d05b92`. La suite local de Rules pasó
+42/42; typecheck, ESLint y `git diff --check` también pasaron. La CI post-merge
+[`38134082693`](https://github.com/Glemynart/micafe-pos/actions/runs/38134082693)
+terminó `success` sobre ese SHA a las `2026-10-11T11:25:48Z`. La auditoría fue
+`APROBADO PARA MERGE`. No se desplegaron Rules ni Functions y no hubo escrituras
+de datos.
+El inventario read-only de `micafe-pos-staging` volvió a mostrar 43 Functions,
+seis de `saas-bodega-operations`, sin `registrarCompraBodegaV1` ni
+`registrarCompraOperativaV1`; el paquete de Functions y `firebase.json` no
+cambiaron desde el candidato de PR #539. La consulta read-only del ruleset
+activo devolvió HTTP 403, por lo que el preflight de Rules no puede certificar
+aún el estado desplegado; no se habilitaron APIs ni cambiaron permisos. Gate D
+sigue sin ejecutar: el deploy de Functions requiere autorización operativa
+específica y el corte de Rules requiere completar su preflight exacto y contar
+con autorización separada.
+
 ### Reconciliación Gate I — 2026-10-11
 
 El responsable confirma que producción será el destino para datos reales;
