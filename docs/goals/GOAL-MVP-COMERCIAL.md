@@ -1243,6 +1243,22 @@ Compras sigue bloqueada por los índices ausentes y aún no se ejecutó una comp
 autenticada en staging. Gate F no se certifica por este deploy. No hubo cambios
 en Functions, IAM, Secrets, Auth, fixture, tenant real ni producción.
 
+### Revalidación de Compras y CI post-merge — 2026-10-11
+
+PR #548 quedó integrado en `main` mediante el merge commit
+`fe5abdbfb87b6c3782ef8e34432d1fc4b9226000` (`2026-10-11T14:48:18Z`). Su CI
+post-merge, run
+[`38148667987`](https://github.com/Glemynart/micafe-pos/actions/runs/38148667987),
+terminó `success` sobre ese SHA.
+
+En Edge se confirmó la sesión `Administrador Bodega Demo` en el preview #548.
+Al abrir `/admin/compras`, cargaron el shell y la navegación autenticada, pero
+el área principal quedó en blanco. No se inició ni registró una compra. La
+lectura posterior del proyecto `micafe-pos-staging` volvió a mostrar 7 índices
+compuestos `READY`; no se crearon índices ni se escribieron documentos. El
+bloqueo de Compras permanece consistente con el delta de cuatro índices
+faltantes documentado arriba; Gate D completo sigue `EN CURSO`.
+
 ### Checkpoint — 2026-10-10 (Bogotá) — PR #537 integrado / sincronización viva
 
 PR #537 (`feat: Bodega live refresh signals`) quedó `MERGED` en `main` mediante

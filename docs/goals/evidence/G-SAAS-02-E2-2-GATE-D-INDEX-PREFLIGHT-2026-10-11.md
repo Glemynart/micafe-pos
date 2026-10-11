@@ -38,6 +38,19 @@ los cuatro definidos abajo y volver a enumerar el estado remoto.
   servicio y no contiene escrituras directas a `/compras`. Esto verifica el
   código del commit del preview; no equivale a una compra staging autenticada.
 
+## Revalidación tras merge de PR #548
+
+- PR #548 se integró mediante `fe5abdbfb87b6c3782ef8e34432d1fc4b9226000` a las
+  `2026-10-11T14:48:18Z`; su CI post-merge, run
+  `38148667987`, terminó `success` sobre ese SHA.
+- En Edge, el usuario confirmó el panel y la observación mostró la identidad
+  `Administrador Bodega Demo` autenticada en el preview #548. En
+  `/admin/compras` cargaron el shell y la navegación, mientras el área principal
+  permaneció en blanco. No se inició una compra ni se escribieron datos.
+- La consulta read-only posterior volvió a mostrar los mismos 7 índices
+  compuestos `READY`; los cuatro índices propuestos siguen sin crearse. Esta
+  observación no reemplaza la validación funcional autenticada de Compras.
+
 ## Delta mínimo propuesto
 
 Las cuatro definiciones ya existen en `firestore.indexes.json` y la
