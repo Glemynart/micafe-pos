@@ -27,6 +27,7 @@
     "../functions/src/inventario/callables.ts",
     "../functions/src/inventario/ledger.ts",
     "../functions/src/finanzas/callables.ts",
+    "../functions/src/finanzas/compra-core.ts",
     "../functions/src/turnos/callable.ts",
     "../functions/src/turnos/contracts.ts",
     "../functions/src/turnos/confirmation.ts",

@@ -8,6 +8,8 @@ import {
 import { httpsCallable } from "firebase/functions";
 import { db, getFirebaseFunctions } from "@/lib/firebase";
 import { tenantQuery } from "@/lib/tenant";
+import { resolverCallableCompra } from "@/lib/bodega/compra-routing";
+import type { VerticalTenant } from "@/lib/configuracion/contrato";
 
 export interface CompraItem {
   tipo?: "insumo" | "producto";
@@ -59,9 +61,10 @@ export interface RegistrarCompraParams {
 }
 
 /** La callable es la única autoridad sobre compra, inventario y finanzas. */
-export async function registrarCompra(params: RegistrarCompraParams): Promise<string> {
+export async function registrarCompra(params: RegistrarCompraParams, vertical?: VerticalTenant | null): Promise<string> {
   const commandId = `compra:${crypto.randomUUID()}`;
-  const result = await httpsCallable<unknown, { compraId: string }>(getFirebaseFunctions(), "registrarCompraOperativaV1")({
+  const callable = resolverCallableCompra(vertical);
+  const result = await httpsCallable<unknown, { compraId: string }>(getFirebaseFunctions(), callable)({
     commandId,
     idempotencyKey: commandId,
     correlationId: `corr-${commandId}`,
