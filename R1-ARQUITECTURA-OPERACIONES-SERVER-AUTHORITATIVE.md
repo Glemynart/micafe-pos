@@ -203,11 +203,14 @@ Tras el cutover R1, el cliente no escribe colecciones críticas:
 | `cuentas_bancarias` | Lectura autorizada; create/update/delete cliente denegados. La configuración pasa por Callable. |
 | `transacciones_financieras` | Lectura autorizada; create/update/delete cliente denegados. |
 | `movimientos_inventario` | Lectura autorizada; create/update/delete cliente denegados. |
-| `compras`, `egresos`, `mermas`, producción y devoluciones | Lectura autorizada; create/update/delete cliente denegados. |
+| `compras` | Objetivo general: escrituras cliente denegadas después del cutover compatible de cada vertical. Para `BODEGA_MVP1`, ADR-SAAS-072 acepta denegar create/delete directos por proyecto, preservando temporalmente los demás verticales. |
+| `egresos`, `mermas`, producción y devoluciones | Lectura autorizada; create/update/delete cliente denegados. |
 | `productos`, `insumos` | Solo una allowlist cerrada de metadatos no críticos según rol. `stock`, `secuenciaLedger`, costos derivados y todo campo de ledger son create/update/delete cliente denegados. Si un documento mezcla metadatos y un hecho crítico, no se admite excepción de actualización cliente hasta separarlo o usar Callable. |
 | `operaciones_comandos`, `operaciones_command_idempotency` y auditoría crítica | Backend-only: create/update/delete cliente denegados. |
 
 Las Rules conservan la defensa de tenant, rol, lifecycle y fallback-deny. No se pretende que reemplacen la validación de negocio de las Callables.
+
+La excepción de secuencia para compras Bodega no debilita el objetivo server-authoritative: el corte se habilita por proyecto solo después de probar que el cliente Bodega usa la callable compatible y que `registrarCompraOperativaV1` no es invocable para ese tenant. Si la callable Admin SDK legacy está expuesta a Bodega, ese proyecto no pasa el preflight y el corte se detiene hasta una decisión arquitectónica adicional. Las Rules no bloquean escrituras Admin SDK. Esta condición específica está aceptada en ADR-SAAS-072; no cambia ni despliega `saas-auth`.
 
 ## 8. Errores, auditoría y recuperación
 
@@ -230,7 +233,7 @@ El rollback de una transacción fallida es automático: no hay commit parcial. D
 2. Desplegar Callables y contrato compatible; las Rules siguen temporalmente como están.
 3. Adaptar y publicar clientes Callable-capable con la misma intención y respuestas de UX actuales, incluido Electron si aplica.
 4. Observar que las operaciones críticas se ejecutan por Callables; bloquear clientes legacy mediante compatibilidad o versión mínima antes de cerrar Rules.
-5. Desplegar Rules server-authoritative que niegan escrituras directas críticas y retirar la ruta legacy.
+5. Tras la evidencia de compatibilidad y los gates del proyecto, desplegar Rules server-authoritative que niegan escrituras directas críticas. Cerrar cada ruta legacy solo dentro del vertical/proyecto migrado; la callable de otros verticales permanece hasta su propio cutover. Para Bodega, detener el corte si la callable genérica legacy sigue siendo invocable desde el tenant.
 6. Mantener consumidores de lectura y documentos históricos sin reescritura.
 7. Tras el paso 5, el rollback solo puede dirigirse a cliente o Callable que conserve el contrato R1. Está prohibido volver a un escritor Firestore directo. Las versiones Callable necesarias se conservan hasta retirar los clientes previos; reabrir Rules requiere únicamente un break-glass extraordinario, aprobado y auditado.
 

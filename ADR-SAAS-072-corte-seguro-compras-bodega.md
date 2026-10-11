@@ -2,15 +2,18 @@
 
 ## Estado
 
-**PROPUESTO — pendiente de aprobación explícita.**
+**ACEPTADO — Opción 2; aprobación explícita recibida el 2026-10-11.**
 
 - **Fecha:** 2026-10-11.
+- **Última revisión:** 2026-10-11.
 - **Goal:** `G-SAAS-02` → `M2` → `E2.2`.
 - **Decisor:** responsable del proyecto. **Recomendación técnica:** Lead Engineer.
 - **Relacionado:** ADR-SAAS-049, ADR-SAAS-054, ADR-SAAS-069, ADR-SAAS-071 (PR #538, pendiente de integración), R1 §7 y §9.
-- **Límite de esta propuesta:** este documento no modifica código, Firestore Rules,
-  Functions, datos ni tráfico; tampoco autoriza despliegues. La aprobación de
-  esta ADR deberá ser explícita y separada.
+- **Límite de autorización:** la aceptación fija el diseño de Opción 2. La
+  implementación requiere una PR separada después de sincronizar esta decisión
+  con los documentos maestros. No se autoriza desplegar Rules/Functions, cambiar
+  IAM/Secrets, escribir datos ni alterar tráfico en ningún entorno. Gate C y
+  los gates de despliegue aplicables siguen siendo obligatorios.
 
 ## Contexto
 
@@ -96,31 +99,37 @@ y rutas de compra.
   callable Admin SDK incompatible con Bodega. Requiere evidencia y coordinación
   fuera del alcance de E2.2.
 
-## Recomendación pendiente de decisión
+## Decisión aceptada y fundamento
 
-Se recomienda la **Opción 2** para el corte Bodega de E2.2, en secuencia:
+Se acepta la **Opción 2** para el corte Bodega de E2.2, con aprobación explícita
+del responsable el 2026-10-11. La decisión se limita a impedir escrituras
+directas de cliente en `/compras` para `BODEGA_MVP1`, conservando el
+comportamiento de los otros verticales y la callable legacy sin cambios. El
+corte se ejecutará por proyecto únicamente cuando exista evidencia de cliente
+Bodega compatible y de que `registrarCompraOperativaV1` no es invocable para
+Bodega en ese proyecto.
+
+La decisión se aplica con esta secuencia:
 
 1. Integrar la callable Bodega y publicar el cliente compatible mediante PRs
-   separados. Todo despliegue sigue bloqueado hasta satisfacer Gate C y los
-   gates/autorizaciones operativas aplicables; no desplegar ni cambiar
-   `saas-auth`.
+   separados. ADR-SAAS-071 conserva `saas-auth` sin cambios. Todo despliegue
+   sigue bloqueado hasta satisfacer Gate C y los gates/autorizaciones
+   operativas aplicables.
 2. Verificar con pruebas de Rules y de operación que la ruta nueva conserva
    compra, inventario, ledger, idempotencia, auditoría y señal atómicos.
 3. Auditar escritores/clientes del proyecto y repetir el preflight de funciones.
    Confirmar que no hay un cliente Bodega que dependa de escritura directa ni
    una callable legacy genérica invocable desde ese tenant.
-4. Solo tras esa evidencia, proponer y ejecutar en una PR de implementación
-   separada la denegación de create/delete directos para Bodega y el despliegue
-   dirigido de Rules bajo los gates correspondientes.
+4. Solo tras esa evidencia, implementar en una PR separada la denegación de
+   create/delete directos para Bodega. Cualquier deploy dirigido de Rules debe
+   ocurrir después de los gates correspondientes; esta aceptación no lo
+   autoriza por sí sola.
 5. Si el endpoint genérico está desplegado y puede aceptar compras Bodega, no
    declarar seguro el corte ni certificar ese proyecto. Requerir una ADR nueva
    que resuelva esa autoridad de servidor; no modificar ni desplegar
    `saas-auth` implícitamente.
 
-Esta recomendación no es una decisión aceptada. La presente ADR solo se volverá
-vinculante después de la aprobación explícita del responsable.
-
-## Consecuencias esperadas si se acepta
+## Consecuencias de la decisión
 
 ### Positivas
 
@@ -165,7 +174,6 @@ vinculante después de la aprobación explícita del responsable.
 - Modificar o desplegar Firestore Rules, Functions, IAM o Secrets.
 - Ejecutar compras, ajustar inventario, escribir datos o modificar tráfico.
 - Habilitar un corte global de compras para todos los verticales.
-- Aceptar esta decisión por el solo hecho de abrir o integrar este PR documental.
 
 ## Referencias
 

@@ -47,6 +47,7 @@ No se usa Espacio como frontera de seguridad ni se introduce una Sede técnica p
 | Functions productivas no demostradas contra el SHA actual | Pendiente | Gate M4: despliegue identificable y smoke test |
 | Recuperación productiva no ensayada | Pendiente | Gate M4: backup/restore o justificación documentada |
 | Mutaciones directas históricas de stock, mermas y reservas internas | Remediado y desplegado | `ADR-SAAS-030`/PR #322 y `ADR-SAAS-033`/PR #323 integrados; las 79 Functions y Rules fueron desplegadas/reconciliadas. El release productivo aún exige smoke y recovery independientes. |
+| Escrituras directas de `/compras` en Bodega | Diseño aceptado; corte no implementado | `ADR-SAAS-072` acepta denegar create/delete cliente solo para `BODEGA_MVP1`, por proyecto y después de verificar el cliente compatible y que la callable legacy no es invocable desde Bodega. Rules actuales, Functions y datos no se modifican con esa aceptación; sin deploy hasta Gate C y los gates aplicables. |
 | Fiscalidad externa | Condicional | Solo si el cliente selecciona FISCAL y aporta datos aprobados |
 | Hardware de impresión | Condicional | Validar modelo/driver 58/80 mm si el cliente lo requiere |
 | MT-U10 límites/consumo | Fuera de G-SAAS-02 | No implementar sin necesidad y decisión de producto |
