@@ -1278,6 +1278,16 @@ documentos.
 gate. No se cambió Rules, Functions, IAM, Secrets, Auth, fixture, tenant real ni
 producción.
 
+PR #549 integró esta evidencia en `main @
+0c32db153d1b8f62b8b492f8d3ad7805f18f193b` (`2026-10-11T15:52:12Z`). Sus
+checks requeridos terminaron `success`, incluido CI run
+[`38151456016`](https://github.com/Glemynart/micafe-pos/actions/runs/38151456016),
+y la CI post-merge de `main`, run
+[`38153085966`](https://github.com/Glemynart/micafe-pos/actions/runs/38153085966),
+terminó `success` sobre el merge SHA. Esto no cierra Gate D: aún falta evidencia
+visual autenticada de que `/admin/compras` carga después del despliegue de los
+índices; no se ha registrado una compra ni escrito documentos.
+
 ### Checkpoint — 2026-10-10 (Bogotá) — PR #537 integrado / sincronización viva
 
 PR #537 (`feat: Bodega live refresh signals`) quedó `MERGED` en `main` mediante
