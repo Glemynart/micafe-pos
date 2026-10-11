@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { HttpsError } from "firebase-functions/v2/https";
 import { ejecutarRegistrarCompraOperativaV1, type ContextoFinancieroOperativo } from "./compras";
+import { ejecutarRegistrarCompraBodegaV1 } from "./compra-core";
 
 type Data = Record<string, any>;
 
@@ -137,6 +138,21 @@ test("P0-12: confirma compra con snapshots del catálogo, inventario y costo en 
   assert.equal(db.docs.get(`movimientos_inventario/compra:${result.compraId}:producto:cafe:0`)?.referenciaId, result.compraId);
   assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/disponibilidad`)?.version, 1);
   assert.equal([...db.docs.keys()].filter(key => key.startsWith("transacciones_financieras/")).length, 0);
+});
+
+test("Bodega: registra compra con la misma transacción y el nuevo tipo idempotente", async () => {
+  const db = new FakeFirestore(); seed(db);
+  const command = envelope("bodega-core", payload());
+  const result = await ejecutarRegistrarCompraBodegaV1(db, contexto, command);
+  const replay = await ejecutarRegistrarCompraBodegaV1(db, contexto, command);
+  const recibos = [...db.docs.entries()].filter(([path]) => path.startsWith("operaciones_comandos/"));
+
+  assert.deepEqual(replay, result);
+  assert.equal(db.docs.get(`compras/${result.compraId}`)?.total, 600);
+  assert.equal(db.docs.get("productos/cafe")?.stock, 4);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/disponibilidad`)?.version, 1);
+  assert.equal(recibos.length, 1);
+  assert.equal(recibos[0][1].tipo, "registrarCompraBodegaV1");
 });
 
 test("P1-03: resuelve proveedor por empresaId + proveedorId y congela su snapshot", async () => {
