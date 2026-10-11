@@ -7,11 +7,11 @@ import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-contex
 import { useAuthContext } from "@/contexts/auth-context"
 import { actualizarCliente, crearCliente, eliminarCliente, type Cliente } from "@/lib/clientes-service"
 import { ajustarStockProductoBodega, crearCategoriaBodega, crearPresentacionBodega, crearProductoBodega, listarCategoriasBodega, listarEspaciosBodega, suscribirClientesBodegaAdmin, suscribirPresentacionesBodegaAdmin, suscribirProductosBodegaAdmin, suscribirVentasBodegaAdmin, actualizarPresentacionBodega, type PresentacionBodegaAdmin, type ProductoBodegaAdmin, type VentaBodegaAdmin } from "@/lib/bodega/admin-service"
-import { formatearFechaBodega, formatearReferenciaSolicitud, mensajeErrorBodega } from "@/lib/bodega/ui-contract"
-import { construirConfirmacionVentaBodega, type LineaCarritoBodega, type MetodoPagoBodega, type ResultadoVentaBodega, type SolicitudVentaBodegaDTO } from "@/lib/bodega/ui-contract"
+import { calcularCambioEfectivoBodega, formatearFechaBodega, formatearReferenciaSolicitud, mensajeErrorBodega } from "@/lib/bodega/ui-contract"
+import { construirConfirmacionVentaBodega, type ConfirmacionVentaBodega, type LineaCarritoBodega, type MetodoPagoBodega, type ResultadoVentaBodega, type SolicitudVentaBodegaDTO } from "@/lib/bodega/ui-contract"
 import { cancelarSolicitudVentaBodega, consultarSolicitudesVentaBodega, resolverSolicitudVentaBodega } from "@/lib/bodega/solicitudes-service"
 import { confirmarVentaBodega } from "@/lib/bodega/vendedor-service"
-import { abrirTurno, suscribirTurnoActivo, type Turno } from "@/lib/turnos-service"
+import { suscribirTurnoActivo, type Turno } from "@/lib/turnos-service"
 import { crearDetectorCambioSenalBodega, suscribirSenalBodega } from "@/lib/bodega/live-signals-service"
 import { crearRefrescoCoalescido } from "@/lib/bodega/refresh-coalescido"
 
@@ -101,7 +101,7 @@ export function BodegaInventarioAdmin() {
 export function BodegaVentasAdmin() {
   const { ventas, cargando } = useBodegaAdminData(); const ordenadas = useMemo(() => [...ventas].reverse(), [ventas])
   if (cargando) return <AdminLoading />
-  return <AdminSection eyebrow="Ventas" title="Consulta operativa" description="Vista administrativa tenant-aware. La anulación Bodega permanece fuera de este corte."><div className="space-y-3">{ordenadas.map(v => <article key={v.id} className="flex items-center justify-between rounded-2xl border border-border bg-card p-4"><div><p className="font-semibold">{v.clienteNombreSnapshot || "Cliente"}</p><p className="text-xs text-muted-foreground">{v.id} · {v.metodoPago} · vendedor {v.cajeroId}</p></div><div className="text-right"><p className="font-bold">{money(v.total)}</p><p className="text-xs text-emerald-600">{v.estado}</p></div></article>)}{ventas.length === 0 && <p className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">No hay ventas Bodega registradas.</p>}</div></AdminSection>
+  return <AdminSection eyebrow="Ventas" title="Consulta operativa" description="Vista administrativa tenant-aware. El efectivo sin turno se revisa por venta y fecha; no forma parte del arqueo de turnos."><div className="space-y-3">{ordenadas.map(v => <article key={v.id} className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4"><div><p className="font-semibold">{v.clienteNombreSnapshot || "Cliente"}</p><p className="text-xs text-muted-foreground">{v.id} · {v.metodoPago} · vendedor {v.cajeroId}</p><p className="mt-1 text-xs text-muted-foreground">{formatearFechaBodega(v.fecha)}{v.metodoPago === "efectivo" && v.turnoId === null ? " · efectivo sin turno" : v.turnoId ? ` · turno ${v.turnoId}` : ""}</p>{v.metodoPago === "efectivo" && v.montoRecibidoCOP !== null && <p className="mt-1 text-xs text-muted-foreground">Recibido {money(v.montoRecibidoCOP)} · cambio {money(v.cambioCOP ?? 0)}</p>}</div><div className="shrink-0 text-right"><p className="font-bold">{money(v.total)}</p><p className="text-xs text-emerald-600">{v.estado}</p></div></article>)}{ventas.length === 0 && <p className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">No hay ventas Bodega registradas.</p>}</div></AdminSection>
 }
 
 export function BodegaSolicitudesAdmin() {
@@ -174,10 +174,12 @@ export function BodegaVentaDirectaAdmin() {
   const [presentacionId, setPresentacionId] = useState("")
   const [carrito, setCarrito] = useState<LineaCarritoBodega[]>([])
   const [metodoPago, setMetodoPago] = useState<MetodoPagoBodega>("transferencia")
-  const [baseApertura, setBaseApertura] = useState(0)
+  const [montoRecibidoCOP, setMontoRecibidoCOP] = useState<number | undefined>()
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState("")
   const [venta, setVenta] = useState<ResultadoVentaBodega | null>(null)
+  const comandoPendiente = useRef<ConfirmacionVentaBodega | null>(null)
+  const [tieneComandoPendiente, setTieneComandoPendiente] = useState(false)
   useEffect(() => usuario?.uid ? suscribirTurnoActivo(usuario.uid, setTurno) : undefined, [usuario?.uid])
   const presentacionesActivas = useMemo(() => presentaciones.filter(item => item.activo && productos.some(producto => producto.id === item.productoId && producto.activo)), [presentaciones, productos])
   const lineasDetalle = carrito.map(linea => {
@@ -186,6 +188,7 @@ export function BodegaVentaDirectaAdmin() {
     return presentacion && producto ? { ...linea, nombreProducto: producto.nombre, presentacion: presentacion.nombre, precioCOP: presentacion.precioCOP } : null
   }).filter((linea): linea is NonNullable<typeof linea> => linea !== null)
   const estimado = lineasDetalle.reduce((total, linea) => total + linea.precioCOP * linea.cantidad, 0)
+  const cambioEstimado = calcularCambioEfectivoBodega(estimado, montoRecibidoCOP ?? Number.NaN)
 
   const agregar = () => {
     const presentation = presentacionesActivas.find(item => item.id === presentacionId)
@@ -199,13 +202,15 @@ export function BodegaVentaDirectaAdmin() {
 
   const registrar = async () => {
     if (guardando) return
-    if (!clienteId || carrito.length === 0) { setError("Selecciona un cliente y agrega al menos una presentación."); return }
-    if (metodoPago === "efectivo" && !turno) { setError("Abre tu turno antes de registrar una venta en efectivo."); return }
+    const comandoEnCurso = comandoPendiente.current
+    if (!comandoEnCurso && (!clienteId || carrito.length === 0)) { setError("Selecciona un cliente y agrega al menos una presentación."); return }
+    if (!comandoEnCurso && metodoPago === "efectivo" && cambioEstimado === null) { setError("Ingresa el efectivo recibido como un valor entero igual o mayor al total."); return }
     setGuardando(true); setError("")
     try {
-      const command = construirConfirmacionVentaBodega({ clienteId, lineas: carrito, metodoPago })
+      const command = comandoPendiente.current ?? construirConfirmacionVentaBodega({ clienteId, lineas: carrito, metodoPago, ...(metodoPago === "efectivo" ? { montoRecibidoCOP } : {}) })
+      comandoPendiente.current = command; setTieneComandoPendiente(true)
       const result = await confirmarVentaBodega(command)
-      setVenta(result); setCarrito([])
+      setVenta(result); setCarrito([]); setMontoRecibidoCOP(undefined); comandoPendiente.current = null; setTieneComandoPendiente(false)
     } catch (cause) { setError(mensajeErrorBodega(cause)) }
     finally { setGuardando(false) }
   }
@@ -213,15 +218,16 @@ export function BodegaVentaDirectaAdmin() {
   if (cargando) return <AdminLoading />
   return <AdminSection eyebrow="Venta administrativa directa" title="Registrar venta" description="La administradora puede vender directamente por el comando canónico. No crea ni aprueba una solicitud propia.">
     {error && <ErrorBox>{error}</ErrorBox>}
-    {venta && "ventaId" in venta && <p role="status" className="mb-4 rounded-xl bg-emerald-500/10 p-3 text-sm text-emerald-700">Venta registrada: {venta.ventaId} · {money(venta.total)}.</p>}
+    {tieneComandoPendiente && <p role="status" className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800">El resultado del intento anterior no se pudo confirmar. Reintenta la misma venta; sus datos quedan bloqueados para evitar duplicados o cambios accidentales.</p>}
+    {venta && "ventaId" in venta && <p role="status" className="mb-4 rounded-xl bg-emerald-500/10 p-3 text-sm text-emerald-700">Venta registrada: {venta.ventaId} · {money(venta.total)}.{venta.montoRecibidoCOP !== undefined && <> Recibido {money(venta.montoRecibidoCOP)}; cambio {money(venta.cambioCOP ?? 0)}.{venta.turnoId ? ` Turno ${venta.turnoId}.` : " Efectivo sin turno; revisar por venta y fecha."}</>}</p>}
     <div className="space-y-4 rounded-2xl border border-border bg-card p-4">
-      <label className="block text-sm">Cliente<select aria-label="Cliente de venta" value={clienteId} onChange={event => setClienteId(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3"><option value="">Seleccionar cliente</option>{clientes.filter(cliente => cliente.activo).map(cliente => <option key={cliente.id} value={cliente.id}>{cliente.nombre}</option>)}</select></label>
-      <div className="flex gap-2"><select aria-label="Presentación de venta" value={presentacionId} onChange={event => setPresentacionId(event.target.value)} className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-background px-3"><option value="">Seleccionar presentación</option>{presentacionesActivas.map(item => <option key={item.id} value={item.id}>{item.nombre} · {money(item.precioCOP)}</option>)}</select><button onClick={agregar} disabled={!presentacionId} className="rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50">Agregar</button></div>
-      <div className="space-y-2">{lineasDetalle.map(linea => <div key={linea.presentacionId} className="flex items-center justify-between rounded-xl bg-muted/40 p-3"><div><p className="text-sm font-semibold">{linea.nombreProducto}</p><p className="text-xs text-muted-foreground">{linea.cantidad} × {linea.presentacion}</p></div><div className="flex items-center gap-3"><strong>{money(linea.precioCOP * linea.cantidad)}</strong><button aria-label={`Quitar ${linea.presentacion}`} onClick={() => setCarrito(current => current.filter(item => item.presentacionId !== linea.presentacionId))} className="text-sm text-destructive">Quitar</button></div></div>)}</div>
+      <label className="block text-sm">Cliente<select aria-label="Cliente de venta" disabled={tieneComandoPendiente} value={clienteId} onChange={event => setClienteId(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3"><option value="">Seleccionar cliente</option>{clientes.filter(cliente => cliente.activo).map(cliente => <option key={cliente.id} value={cliente.id}>{cliente.nombre}</option>)}</select></label>
+      <div className="flex gap-2"><select aria-label="Presentación de venta" disabled={tieneComandoPendiente} value={presentacionId} onChange={event => setPresentacionId(event.target.value)} className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-background px-3"><option value="">Seleccionar presentación</option>{presentacionesActivas.map(item => <option key={item.id} value={item.id}>{item.nombre} · {money(item.precioCOP)}</option>)}</select><button onClick={agregar} disabled={tieneComandoPendiente || !presentacionId} className="rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50">Agregar</button></div>
+      <div className="space-y-2">{lineasDetalle.map(linea => <div key={linea.presentacionId} className="flex items-center justify-between rounded-xl bg-muted/40 p-3"><div><p className="text-sm font-semibold">{linea.nombreProducto}</p><p className="text-xs text-muted-foreground">{linea.cantidad} × {linea.presentacion}</p></div><div className="flex items-center gap-3"><strong>{money(linea.precioCOP * linea.cantidad)}</strong><button aria-label={`Quitar ${linea.presentacion}`} disabled={tieneComandoPendiente} onClick={() => setCarrito(current => current.filter(item => item.presentacionId !== linea.presentacionId))} className="text-sm text-destructive disabled:opacity-50">Quitar</button></div></div>)}</div>
       <div className="flex justify-between border-t border-border pt-3"><span className="text-sm text-muted-foreground">Total estimado; servidor vuelve a resolver precio</span><strong>{money(estimado)}</strong></div>
-      <div className="grid grid-cols-2 gap-2">{(["efectivo", "transferencia"] as const).map(method => <button key={method} onClick={() => setMetodoPago(method)} className={`rounded-xl border px-3 py-3 text-sm font-semibold capitalize ${metodoPago === method ? "border-primary bg-primary/10" : "border-border"}`}>{method}</button>)}</div>
-      {metodoPago === "efectivo" && !turno && <div className="rounded-xl border border-border p-3"><label className="text-sm">Base de apertura<input aria-label="Base de apertura administrativa" type="number" min={0} value={baseApertura} onChange={event => setBaseApertura(Number(event.target.value))} className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3" /></label><button onClick={() => void abrirTurno({ baseApertura, notasApertura: "Turno venta directa Bodega admin" }).catch(cause => setError(mensajeErrorBodega(cause)))} className="mt-2 w-full rounded-xl border border-border px-3 py-2 text-sm font-semibold">Abrir turno de efectivo</button></div>}
-      <button disabled={guardando || carrito.length === 0 || !clienteId || (metodoPago === "efectivo" && !turno)} onClick={() => void registrar()} className="h-12 w-full rounded-xl bg-primary font-bold text-primary-foreground disabled:opacity-50">{guardando ? "Registrando…" : "Confirmar venta directa"}</button>
+      <div className="grid grid-cols-2 gap-2">{(["efectivo", "transferencia"] as const).map(method => <button key={method} disabled={tieneComandoPendiente} onClick={() => setMetodoPago(method)} className={`rounded-xl border px-3 py-3 text-sm font-semibold capitalize ${metodoPago === method ? "border-primary bg-primary/10" : "border-border"}`}>{method}</button>)}</div>
+      {metodoPago === "efectivo" && <div className="rounded-xl border border-border p-3"><label className="text-sm">Efectivo recibido<input aria-label="Efectivo recibido" type="number" min={estimado} step={1} disabled={tieneComandoPendiente} value={montoRecibidoCOP ?? ""} onChange={event => setMontoRecibidoCOP(event.target.value === "" ? undefined : Number(event.target.value))} className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3" /></label>{cambioEstimado !== null ? <p className="mt-2 text-xs text-muted-foreground">Cambio estimado: {money(cambioEstimado)}</p> : <p className="mt-2 text-xs text-muted-foreground">Debe ser un entero igual o mayor a {money(estimado)}.</p>}<p className="mt-2 text-xs text-muted-foreground">{turno ? "Se vinculará a tu turno abierto." : "Sin turno también puedes vender; administración revisará por venta y fecha."}</p></div>}
+      <button disabled={guardando || carrito.length === 0 || !clienteId || (metodoPago === "efectivo" && cambioEstimado === null)} onClick={() => void registrar()} className="h-12 w-full rounded-xl bg-primary font-bold text-primary-foreground disabled:opacity-50">{guardando ? "Registrando…" : tieneComandoPendiente ? "Reintentar la misma venta" : "Confirmar venta directa"}</button>
     </div>
   </AdminSection>
 }

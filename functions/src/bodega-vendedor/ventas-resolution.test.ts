@@ -76,7 +76,7 @@ const command = (lineas: Array<{ productoId: string; presentacionId: string; can
   idempotencyKey: `idem-${suffix}`,
   correlationId: `corr-${suffix}`,
   causationId: null,
-  payload: { clienteId, lineas, metodoPago: "efectivo" },
+  payload: { clienteId, lineas, metodoPago: "efectivo", montoRecibidoCOP: 10000000 },
 });
 
 function seed(db: FakeFirestore, stock = 100) {
@@ -166,7 +166,7 @@ test("U3-B Emulator: dos transacciones reales reintentan y solo una consume stoc
     idempotencyKey: `idem-u3b-${id}-${suffix}`,
     correlationId: `corr-u3b-${id}-${suffix}`,
     causationId: null,
-    payload: { clienteId, lineas: [{ productoId, presentacionId, cantidad: 6 }], metodoPago: "efectivo" },
+    payload: { clienteId, lineas: [{ productoId, presentacionId, cantidad: 6 }], metodoPago: "efectivo", montoRecibidoCOP: 6000 },
   });
 
   try {
@@ -239,9 +239,9 @@ test("U3-B: cliente, producto, presentación y autoridad inactivos o revocados s
 test("U3-B: el contrato rechaza cantidades inválidas, overflow y campos comerciales controlados por cliente", async () => {
   const base = { productoId: "producto-a", presentacionId: "unidad-a", cantidad: 1 };
   for (const cantidad of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
-    assert.throws(() => normalizarComandoConfirmacionVentaBodega({ commandId: "cmd", idempotencyKey: "idem", correlationId: "corr", causationId: null, payload: { clienteId: "cliente-a", lineas: [{ ...base, cantidad }], metodoPago: "efectivo" } }));
+    assert.throws(() => normalizarComandoConfirmacionVentaBodega({ commandId: "cmd", idempotencyKey: "idem", correlationId: "corr", causationId: null, payload: { clienteId: "cliente-a", lineas: [{ ...base, cantidad }], metodoPago: "efectivo", montoRecibidoCOP: 1000 } }));
   }
-  assert.throws(() => normalizarComandoConfirmacionVentaBodega({ commandId: "cmd", idempotencyKey: "idem", correlationId: "corr", causationId: null, payload: { clienteId: "cliente-a", lineas: [{ ...base, precioCOP: 1 }], metodoPago: "efectivo" } }));
+  assert.throws(() => normalizarComandoConfirmacionVentaBodega({ commandId: "cmd", idempotencyKey: "idem", correlationId: "corr", causationId: null, payload: { clienteId: "cliente-a", lineas: [{ ...base, precioCOP: 1 }], metodoPago: "efectivo", montoRecibidoCOP: 1000 } }));
   const db = new FakeFirestore(); seed(db);
   await assert.rejects(
     db.runTransaction(tx => resolverVentaBodegaEnTransaccion(tx, db, contexto, command([{ productoId: "producto-a", presentacionId: "caja-a", cantidad: Number.MAX_SAFE_INTEGER }], "overflow"))),

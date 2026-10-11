@@ -19,7 +19,7 @@ class FakeFirestore {
 const domain = (error: unknown, code: string) => error instanceof HttpsError && (error.details as { code?: string }).code === code;
 const base = (lineas = [{ productoId: "producto-1", presentacionId: "presentacion-1", cantidad: 1 }]) => ({
   commandId: "cmd-1", idempotencyKey: "idem-1", correlationId: "corr-1", causationId: null,
-  payload: { clienteId: "cliente-1", lineas, metodoPago: "efectivo" },
+  payload: { clienteId: "cliente-1", lineas, metodoPago: "efectivo", montoRecibidoCOP: 40000 },
 });
 
 function seed(db: FakeFirestore, overrides: { rol?: string; permisos?: string[]; estado?: string; activo?: boolean; vertical?: string; modulos?: string[] } = {}) {
@@ -37,7 +37,8 @@ function seed(db: FakeFirestore, overrides: { rol?: string; permisos?: string[];
 
 test("U3-A contrato: acepta el mínimo, causationId texto o null y los dos medios aprobados", () => {
   assert.equal(normalizarComandoConfirmacionVentaBodega(base()).payload.metodoPago, "efectivo");
-  const transferencia = { ...base(), causationId: "causa-1", payload: { ...base().payload, metodoPago: "transferencia" as const } };
+  const { montoRecibidoCOP: _montoRecibidoCOP, ...payloadSinRecibido } = base().payload;
+  const transferencia = { ...base(), causationId: "causa-1", payload: { ...payloadSinRecibido, metodoPago: "transferencia" as const } };
   assert.equal(normalizarComandoConfirmacionVentaBodega(transferencia).causationId, "causa-1");
 });
 

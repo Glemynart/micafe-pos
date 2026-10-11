@@ -104,12 +104,19 @@ export async function revalidarAutoridadFinancieraEnTransaccion(tx: any, db: any
   if (!capacidades.some((item) => (membresia as any).permisos.includes(item))) fail("permission-denied", "ROLE_FORBIDDEN");
 }
 
-export async function resolverTurnoRecaudoPropioEnTransaccion(tx: any, db: any, empresaId: string, actorUid: string) {
+export async function resolverTurnoRecaudoPropioOpcionalEnTransaccion(tx: any, db: any, empresaId: string, actorUid: string) {
   const lock = await tx.get(db.collection("turnos_activos").doc(crearIdentificadorInterno(empresaId, actorUid)));
+  if (!lock.exists) return null;
   const turnoId = lock.data()?.turnoId;
   const turno = text(turnoId) ? await tx.get(db.collection("turnos").doc(turnoId)) : null;
-  if (!lock.exists || lock.data()?.empresaId !== empresaId || lock.data()?.cajeroId !== actorUid || !turno || !turno.exists || turno.data()?.empresaId !== empresaId || turno.data()?.estado !== "abierto") fail("failed-precondition", "TURNO_CERRADO");
+  if (lock.data()?.empresaId !== empresaId || lock.data()?.cajeroId !== actorUid || !turno || !turno.exists || turno.data()?.empresaId !== empresaId || turno.data()?.estado !== "abierto") fail("failed-precondition", "TURNO_CERRADO");
   return turnoId as string;
+}
+
+export async function resolverTurnoRecaudoPropioEnTransaccion(tx: any, db: any, empresaId: string, actorUid: string) {
+  const turnoId = await resolverTurnoRecaudoPropioOpcionalEnTransaccion(tx, db, empresaId, actorUid);
+  if (!turnoId) fail("failed-precondition", "TURNO_CERRADO");
+  return turnoId;
 }
 
 export async function executeConContexto(db: any, contexto: ContextoFinancieroOperativo, data: unknown, tipo: string, effect: (tx: any, firestore: any, empresaId: string, actorUid: string, rol: string, input: Envelope) => Promise<Record<string, unknown>>) {

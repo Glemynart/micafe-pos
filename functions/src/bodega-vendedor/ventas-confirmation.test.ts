@@ -42,7 +42,7 @@ const dominio = (error: unknown, code: string) => error instanceof HttpsError &&
 function comando(overrides: Record<string, any> = {}) { return {
   commandId: "cmd-u3c", idempotencyKey: "idem-u3c", correlationId: "corr-u3c", causationId: null,
   ...overrides,
-  payload: overrides.payload ?? { clienteId: "cliente-u3c", lineas: [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 2 }], metodoPago: "efectivo", solicitudId: "solicitud-u3c" },
+  payload: overrides.payload ?? { clienteId: "cliente-u3c", lineas: [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 2 }], metodoPago: "efectivo", montoRecibidoCOP: 50000, solicitudId: "solicitud-u3c" },
 }; }
 function seed(db: FakeDb) {
   db.docs.set(`empresas/${empresaId}`, { estado: "activa", esFundacional: true });
@@ -218,13 +218,13 @@ test("U3-C: datos económicos y autoridad de cliente se rechazan antes de efecto
   const db = new FakeDb(); seed(db);
   await assert.rejects(ejecutarConfirmarVentaBodegaV1(db, contexto, comando({ empresaId: "ajena" })), error => dominio(error, "COMANDO_BODEGA_INVALIDO"));
   await assert.rejects(ejecutarConfirmarVentaBodegaV1(db, contexto, comando({ cajeroId: "otro-vendedor" })), error => dominio(error, "COMANDO_BODEGA_INVALIDO"));
-  await assert.rejects(ejecutarConfirmarVentaBodegaV1(db, contexto, comando({ payload: { clienteId: "cliente-u3c", lineas: [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 1, precio: 1 }], metodoPago: "efectivo" } })), error => dominio(error, "LINEA_BODEGA_INVALIDA"));
+  await assert.rejects(ejecutarConfirmarVentaBodegaV1(db, contexto, comando({ payload: { clienteId: "cliente-u3c", lineas: [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 1, precio: 1 }], metodoPago: "efectivo", montoRecibidoCOP: 25000 } })), error => dominio(error, "LINEA_BODEGA_INVALIDA"));
   assert.equal([...db.docs.keys()].some(path => path.startsWith("ventas/")), false);
 });
 
 test("venta de vendedor exige aprobación; aprobación expirada no crea efectos", async () => {
   const missing = new FakeDb(); seed(missing);
-  await assert.rejects(ejecutarConfirmarVentaBodegaV1(missing, contexto, comando({ payload: { clienteId: "cliente-u3c", lineas: [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 2 }], metodoPago: "efectivo" } })), error => dominio(error, "SOLICITUD_APROBACION_REQUERIDA"));
+  await assert.rejects(ejecutarConfirmarVentaBodegaV1(missing, contexto, comando({ payload: { clienteId: "cliente-u3c", lineas: [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 2 }], metodoPago: "efectivo", montoRecibidoCOP: 50000 } })), error => dominio(error, "SOLICITUD_APROBACION_REQUERIDA"));
   assert.equal([...missing.docs.keys()].some(path => path.startsWith("ventas/")), false);
 
   const expired = new FakeDb(); seed(expired);
@@ -245,9 +245,9 @@ test("precio cambiado después de aprobación invalida la solicitud atómicament
   assert.equal(db.docs.get("cuentas_bancarias/caja-principal")?.saldo, 0);
 });
 
-test("U3-C: efectivo exige turno propio, stock suficiente y sell vigente sin efectos parciales", async () => {
+test("ADR-068: un bloqueo de turno inconsistente falla cerrado antes de efectos", async () => {
   const sinTurno = new FakeDb(); seed(sinTurno);
-  sinTurno.docs.delete(`turnos_activos/${crearIdentificadorInterno(empresaId, "vendedor-u3c")}`);
+  sinTurno.docs.set(`turnos_activos/${crearIdentificadorInterno(empresaId, "vendedor-u3c")}`, { empresaId, cajeroId: "vendedor-u3c", turnoId: "turno-inexistente" });
   await assert.rejects(ejecutarConfirmarVentaBodegaV1(sinTurno, contexto, comando()), error => dominio(error, "TURNO_CERRADO"));
   assert.equal([...sinTurno.docs.keys()].some(path => path.startsWith("ventas/")), false);
 
@@ -282,7 +282,7 @@ test("U3-C Emulator: doble confirmación real conserva un único conjunto atómi
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const empresa = `empresa-u3c-${suffix}`; const actor = `vendedor-u3c-${suffix}`; const solicitudId = `solicitud-u3c-${suffix}`;
   const app = initializeApp({ projectId: "demo-bodega-u3c-confirmacion" }, `u3c-${suffix}`); const db = getFirestore(app);
-  const command = { commandId: `cmd-u3c-${suffix}`, idempotencyKey: `idem-u3c-${suffix}`, correlationId: `corr-u3c-${suffix}`, causationId: null, payload: { clienteId: `cliente-${suffix}`, lineas: [{ productoId: `producto-${suffix}`, presentacionId: `presentacion-${suffix}`, cantidad: 6 }], metodoPago: "efectivo", solicitudId } };
+  const command = { commandId: `cmd-u3c-${suffix}`, idempotencyKey: `idem-u3c-${suffix}`, correlationId: `corr-u3c-${suffix}`, causationId: null, payload: { clienteId: `cliente-${suffix}`, lineas: [{ productoId: `producto-${suffix}`, presentacionId: `presentacion-${suffix}`, cantidad: 6 }], metodoPago: "efectivo", montoRecibidoCOP: 6000, solicitudId } };
   try {
     const [clienteId, productoId, presentacionId] = [command.payload.clienteId, command.payload.lineas[0].productoId, command.payload.lineas[0].presentacionId];
     const lockId = crearIdentificadorInterno(empresa, actor);

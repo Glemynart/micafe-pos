@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { CalendarDays, CheckCircle2, CircleDollarSign, ClipboardList, LogOut, Package, Plus, RefreshCw, Search, ShoppingCart, Store, UserPlus, Users } from "lucide-react"
 import type { Usuario } from "@/lib/auth-service"
-import { abrirTurno, suscribirTurnoActivo, type Turno } from "@/lib/turnos-service"
+import { suscribirTurnoActivo, type Turno } from "@/lib/turnos-service"
 import { cn } from "@/lib/utils"
-import { construirConfirmacionVentaBodega, construirProgramacionPedidoBodega, construirSolicitudVentaBodega, crearProtectorDobleEnvio, fechaLocalEnZonaHoraria, formatearFechaBodega, formatearReferenciaSolicitud, mensajeErrorBodega, type ClienteVendedorDTO, type ComandoCrearProgramacionPedidoBodega, type ComandoSolicitudVentaBodega, type ConfirmacionVentaBodega, type EstadoSolicitudVentaBodega, type MetodoPagoBodega, type PresentacionVendedorDTO, type ProgramacionPedidoBodegaDTO, type ResultadoVentaBodega, type SolicitudVentaBodegaDTO, type VentaVendedorDTO } from "@/lib/bodega/ui-contract"
+import { calcularCambioEfectivoBodega, construirConfirmacionVentaBodega, construirProgramacionPedidoBodega, construirSolicitudVentaBodega, crearProtectorDobleEnvio, fechaLocalEnZonaHoraria, formatearFechaBodega, formatearReferenciaSolicitud, mensajeErrorBodega, type ClienteVendedorDTO, type ComandoCrearProgramacionPedidoBodega, type ComandoSolicitudVentaBodega, type ConfirmacionVentaBodega, type EstadoSolicitudVentaBodega, type MetodoPagoBodega, type PresentacionVendedorDTO, type ProgramacionPedidoBodegaDTO, type ResultadoVentaBodega, type SolicitudVentaBodegaDTO, type VentaVendedorDTO } from "@/lib/bodega/ui-contract"
 import { confirmarVentaBodega, consultarCatalogoBodega, consultarClientesVendedor, consultarMisVentasBodega, crearClienteVendedor } from "@/lib/bodega/vendedor-service"
 import { cancelarSolicitudVentaBodega, consultarSolicitudesVentaBodega, crearSolicitudVentaBodega } from "@/lib/bodega/solicitudes-service"
 import { BodegaAgendaVendedor } from "@/components/bodega/bodega-agenda-vendedor"
@@ -51,6 +51,7 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   const [clienteId, setClienteId] = useState("")
   const [carrito, setCarrito] = useState<LineaVisual[]>([])
   const [metodosPago, setMetodosPago] = useState<Record<string, MetodoPagoBodega>>({})
+  const [montosRecibidos, setMontosRecibidos] = useState<Record<string, number | undefined>>({})
   const [turno, setTurno] = useState<Turno | null>(null)
   const [cargando, setCargando] = useState(true)
   const [enviando, setEnviando] = useState(false)
@@ -59,7 +60,6 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   const [resultado, setResultado] = useState<ResultadoVentaBodega | null>(null)
   const [busqueda, setBusqueda] = useState("")
   const [mostrarCliente, setMostrarCliente] = useState(false)
-  const [baseApertura, setBaseApertura] = useState(0)
   const comandoSolicitudPendiente = useRef<ComandoSolicitudVentaBodega | null>(null)
   const comandoAgendaPendiente = useRef<ComandoCrearProgramacionPedidoBodega | null>(null)
   const comandosAgendaPendientes = useRef(new Map<string, AgendaCancelCommand | AgendaConvertCommand>())
@@ -239,12 +239,17 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
     if (guardiaEnvio.current.activo) return
     const metodoPendiente = (["efectivo", "transferencia"] as const).find(method => comandosVentaPendientes.current.has(`${solicitud.solicitudId}:${method}`))
     const metodoPago = metodoPendiente ?? metodosPago[solicitud.solicitudId] ?? "transferencia"
-    if (metodoPago === "efectivo" && !turno) { setError("Abre tu turno antes de cobrar en efectivo."); return }
     const key = `${solicitud.solicitudId}:${metodoPago}`
+    const comandoPendiente = comandosVentaPendientes.current.get(key)
+    const montoRecibidoCOP = montosRecibidos[solicitud.solicitudId]
+    if (!comandoPendiente && metodoPago === "efectivo" && calcularCambioEfectivoBodega(solicitud.totalCOP, montoRecibidoCOP ?? Number.NaN) === null) {
+      setError("Ingresa un valor recibido entero igual o mayor al total aprobado."); return
+    }
     setEnviando(true); setError("")
     await guardiaEnvio.current.ejecutar(async () => { try {
-      const envelope = comandosVentaPendientes.current.get(key) ?? construirConfirmacionVentaBodega({
+      const envelope = comandoPendiente ?? construirConfirmacionVentaBodega({
         clienteId: solicitud.clienteId, solicitudId: solicitud.solicitudId, metodoPago,
+        ...(metodoPago === "efectivo" ? { montoRecibidoCOP } : {}),
         lineas: solicitud.lineas.map(({ productoId, presentacionId, cantidad }) => ({ productoId, presentacionId, cantidad })),
       })
       comandosVentaPendientes.current.set(key, envelope)
@@ -282,7 +287,7 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
       <main className="mx-auto max-w-6xl px-4 pb-24 pt-5">
         {error && <div role="alert" className="mb-4 rounded-xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">{error}</div>}
         {senalDesconectada && <div role="status" className="mb-4 rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">La sincronización está temporalmente desconectada; los datos pueden estar desactualizados. Usa Actualizar o vuelve a conectar para validar el estado vigente.</div>}
-        {resultado && "ventaId" in resultado && <div className="mb-5 flex items-start gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4"><CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-300" /><div><p className="font-semibold">Venta confirmada</p><p className="text-sm text-emerald-100/80">Referencia {resultado.ventaId} · {money(resultado.total)} · {resultado.metodoPago}</p></div><button className="ml-auto text-xs text-emerald-200" onClick={() => setResultado(null)}>Cerrar</button></div>}
+        {resultado && "ventaId" in resultado && <div className="mb-5 flex items-start gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4"><CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-300" /><div><p className="font-semibold">Venta confirmada</p><p className="text-sm text-emerald-100/80">Referencia {resultado.ventaId} · {money(resultado.total)} · {resultado.metodoPago}</p>{resultado.montoRecibidoCOP !== undefined && <p className="mt-1 text-xs text-emerald-100/70">Recibido {money(resultado.montoRecibidoCOP)} · cambio {money(resultado.cambioCOP ?? 0)}{resultado.turnoId ? ` · turno ${resultado.turnoId}` : " · efectivo sin turno"}</p>}</div><button className="ml-auto text-xs text-emerald-200" onClick={() => setResultado(null)}>Cerrar</button></div>}
         {cargando ? <div className="grid min-h-[50vh] place-items-center"><RefreshCw className="h-7 w-7 animate-spin text-amber-300" /></div> : tab === "venta" ? (
           <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
             <section>
@@ -301,7 +306,7 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
               <button disabled={enviando || carrito.length === 0 || !clienteId || (tipoPedido === "agendar" && !fechaAgendadaVigente) || (!!franjaDesde !== !!franjaHasta)} onClick={() => void (tipoPedido === "venta" ? enviarSolicitud() : enviarProgramacion())} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-300 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">{tipoPedido === "venta" ? <ClipboardList className="h-5 w-5" /> : <CalendarDays className="h-5 w-5" />}{enviando ? "Enviando…" : tipoPedido === "venta" ? "Enviar solicitud de venta" : tipoPedido === "hoy" ? "Enviar pedido para hoy" : "Agendar entrega"}</button>
             </aside>
           </div>
-        ) : tab === "solicitudes" ? <SolicitudesView solicitudes={solicitudes} metodosPago={metodosPago} setMetodoPago={(id, method) => setMetodosPago(current => ({ ...current, [id]: method }))} tieneConfirmacionPendiente={solicitudId => (["efectivo", "transferencia"] as const).some(method => comandosVentaPendientes.current.has(`${solicitudId}:${method}`))} enviando={enviando} turnoAbierto={!!turno} baseApertura={baseApertura} setBaseApertura={setBaseApertura} onAbrirTurno={() => void abrirTurno({ baseApertura, notasApertura: "Turno vendedor Bodega" }).catch(cause => setError(mensajeErrorBodega(cause)))} onConfirmar={solicitud => void confirmarSolicitud(solicitud)} onCancelar={solicitud => void cancelarSolicitud(solicitud)} onActualizar={() => void actualizarSolicitudesConReconectar()} onCrearOtra={() => setTab("venta")} /> : tab === "agenda" ? <BodegaAgendaVendedor programaciones={agenda} hoy={hoy} cargando={cargandoAgenda} cargandoMas={cargandoMasAgenda} hayMas={!!nextCursorAgenda} procesando={procesandoAgenda} onActualizar={() => void actualizarAgenda()} onCargarMas={() => void actualizarAgenda(nextCursorAgenda)} onCancelar={item => void cancelarProgramacion(item)} onConvertir={item => void convertirProgramacion(item)} /> : tab === "clientes" ? <ClientesView clientes={clientes} onCrear={() => setMostrarCliente(true)} /> : <HistorialView ventas={ventas} />}
+        ) : tab === "solicitudes" ? <SolicitudesView solicitudes={solicitudes} metodosPago={metodosPago} setMetodoPago={(id, method) => setMetodosPago(current => ({ ...current, [id]: method }))} montosRecibidos={montosRecibidos} setMontoRecibido={(id, value) => setMontosRecibidos(current => ({ ...current, [id]: value }))} tieneConfirmacionPendiente={solicitudId => (["efectivo", "transferencia"] as const).some(method => comandosVentaPendientes.current.has(`${solicitudId}:${method}`))} enviando={enviando} turnoAbierto={!!turno} onConfirmar={solicitud => void confirmarSolicitud(solicitud)} onCancelar={solicitud => void cancelarSolicitud(solicitud)} onActualizar={() => void actualizarSolicitudesConReconectar()} onCrearOtra={() => setTab("venta")} /> : tab === "agenda" ? <BodegaAgendaVendedor programaciones={agenda} hoy={hoy} cargando={cargandoAgenda} cargandoMas={cargandoMasAgenda} hayMas={!!nextCursorAgenda} procesando={procesandoAgenda} onActualizar={() => void actualizarAgenda()} onCargarMas={() => void actualizarAgenda(nextCursorAgenda)} onCancelar={item => void cancelarProgramacion(item)} onConvertir={item => void convertirProgramacion(item)} /> : tab === "clientes" ? <ClientesView clientes={clientes} onCrear={() => setMostrarCliente(true)} /> : <HistorialView ventas={ventas} />}
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-slate-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"><div className="mx-auto flex h-16 max-w-2xl">{([{ id: "venta", label: "Nueva", icon: ShoppingCart }, { id: "solicitudes", label: "Solicitudes", icon: ClipboardList }, { id: "agenda", label: "Agenda", icon: CalendarDays }, { id: "clientes", label: "Clientes", icon: Users }, { id: "historial", label: "Mis ventas", icon: CircleDollarSign }] as const).map(item => <button key={item.id} onClick={() => setTab(item.id)} className={cn("flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold", tab === item.id ? "text-amber-300" : "text-slate-500")}><item.icon className="h-5 w-5" />{item.label}</button>)}</div></nav>
@@ -310,16 +315,15 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   )
 }
 
-function SolicitudesView({ solicitudes, metodosPago, setMetodoPago, tieneConfirmacionPendiente, enviando, turnoAbierto, baseApertura, setBaseApertura, onAbrirTurno, onConfirmar, onCancelar, onActualizar, onCrearOtra }: {
+function SolicitudesView({ solicitudes, metodosPago, setMetodoPago, montosRecibidos, setMontoRecibido, tieneConfirmacionPendiente, enviando, turnoAbierto, onConfirmar, onCancelar, onActualizar, onCrearOtra }: {
   solicitudes: SolicitudVentaBodegaDTO[]
   metodosPago: Record<string, MetodoPagoBodega>
   setMetodoPago(id: string, method: MetodoPagoBodega): void
+  montosRecibidos: Record<string, number | undefined>
+  setMontoRecibido(id: string, value: number | undefined): void
   tieneConfirmacionPendiente(solicitudId: string): boolean
   enviando: boolean
   turnoAbierto: boolean
-  baseApertura: number
-  setBaseApertura(value: number): void
-  onAbrirTurno(): void
   onConfirmar(solicitud: SolicitudVentaBodegaDTO): void
   onCancelar(solicitud: SolicitudVentaBodegaDTO): void
   onActualizar(): void
@@ -332,12 +336,14 @@ function SolicitudesView({ solicitudes, metodosPago, setMetodoPago, tieneConfirm
       const cancelable = solicitud.estado === "PENDIENTE_APROBACION" || solicitud.estado === "APROBADA"
       const confirmacionPendiente = tieneConfirmacionPendiente(solicitud.solicitudId)
       const recuperarConfirmacion = solicitud.estado === "EJECUTADA" && confirmacionPendiente
+      const montoRecibidoCOP = montosRecibidos[solicitud.solicitudId]
+      const cambioCOP = calcularCambioEfectivoBodega(solicitud.totalCOP, montoRecibidoCOP ?? Number.NaN)
       return <article key={solicitud.solicitudId} className="rounded-2xl border border-white/10 bg-slate-900 p-4">
         <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="break-words font-semibold">{solicitud.cliente?.nombre || "Cliente no disponible"}</p><p className="mt-1 text-xs text-slate-500">Solicitud · {formatearReferenciaSolicitud(solicitud.solicitudId)}</p></div><span className={cn("shrink-0 rounded-full px-2 py-1 text-xs font-bold", solicitud.estado === "APROBADA" ? "bg-emerald-400/15 text-emerald-300" : solicitud.estado === "PENDIENTE_APROBACION" ? "bg-amber-300/15 text-amber-200" : "bg-white/10 text-slate-300")}>{solicitud.estado.replaceAll("_", " ")}</span></div>
         <div className="my-3 space-y-2">{solicitud.lineas.map((linea, index) => <div key={`${linea.presentacionId}-${index}`} className="flex justify-between gap-3 text-sm"><span className="min-w-0 break-words">{linea.cantidad} × {linea.presentacionNombre} ({linea.factorUnidadBase} {linea.unidadBase})</span><span className="shrink-0">{money(linea.subtotalCOP)}</span></div>)}</div>
         <div className="flex justify-between border-t border-white/10 pt-3"><span className="text-sm text-slate-400">Total resuelto por servidor</span><strong>{money(solicitud.totalCOP)}</strong></div>
         {solicitud.estado === "PENDIENTE_APROBACION" && <p className="mt-3 text-xs text-amber-200">Esperando revisión de administración. Aún no se creó una venta ni se descontó inventario.</p>}
-        {solicitud.estado === "APROBADA" && <div className="mt-3 space-y-3"><p className="text-xs text-emerald-200">Aprobada por administración; vence {formatearFechaBodega(solicitud.aprobacion?.expiraEn)}. El inventario se revisa al confirmar.</p><div className="grid grid-cols-2 gap-2">{(["efectivo", "transferencia"] as const).map(method => <button key={method} disabled={confirmacionPendiente} onClick={() => setMetodoPago(solicitud.solicitudId, method)} className={cn("rounded-xl border px-3 py-2 text-sm font-semibold capitalize", metodo === method ? "border-amber-300 bg-amber-300 text-slate-950" : "border-white/10 bg-white/5", confirmacionPendiente && "cursor-not-allowed opacity-50")}>{method}</button>)}</div>{metodo === "efectivo" && !turnoAbierto && <div className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-3"><label className="text-xs font-semibold text-amber-100">Base real de apertura<input aria-label="Base de apertura" type="number" min={0} value={baseApertura} onChange={event => setBaseApertura(Number(event.target.value))} className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-slate-950 px-3 text-white" /></label><button onClick={onAbrirTurno} className="mt-2 w-full rounded-lg border border-amber-300/40 px-4 py-2 text-sm font-semibold text-amber-200">Abrir turno para efectivo</button></div>}<button disabled={enviando || (metodo === "efectivo" && !turnoAbierto)} onClick={() => onConfirmar(solicitud)} className="h-11 w-full rounded-xl bg-emerald-400 font-bold text-slate-950 disabled:opacity-40">{enviando ? "Confirmando…" : confirmacionPendiente ? "Reintentar confirmación" : "Confirmar venta"}</button></div>}
+        {solicitud.estado === "APROBADA" && <div className="mt-3 space-y-3"><p className="text-xs text-emerald-200">Aprobada por administración; vence {formatearFechaBodega(solicitud.aprobacion?.expiraEn)}. El inventario se revisa al confirmar.</p><div className="grid grid-cols-2 gap-2">{(["efectivo", "transferencia"] as const).map(method => <button key={method} disabled={confirmacionPendiente} onClick={() => setMetodoPago(solicitud.solicitudId, method)} className={cn("rounded-xl border px-3 py-2 text-sm font-semibold capitalize", metodo === method ? "border-amber-300 bg-amber-300 text-slate-950" : "border-white/10 bg-white/5", confirmacionPendiente && "cursor-not-allowed opacity-50")}>{method}</button>)}</div>{metodo === "efectivo" && <div className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-3"><label className="text-xs font-semibold text-amber-100">Efectivo recibido<input aria-label="Efectivo recibido" type="number" min={solicitud.totalCOP} step={1} disabled={confirmacionPendiente} value={montoRecibidoCOP ?? ""} onChange={event => setMontoRecibido(solicitud.solicitudId, event.target.value === "" ? undefined : Number(event.target.value))} className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-slate-950 px-3 text-white" /></label>{cambioCOP !== null ? <p className="mt-2 text-xs text-emerald-200">Cambio estimado: {money(cambioCOP)}</p> : <p className="mt-2 text-xs text-amber-100/70">Debe ser un valor entero igual o mayor a {money(solicitud.totalCOP)}.</p>}{!turnoAbierto && <p className="mt-2 text-[11px] text-slate-400">Esta venta quedará sin turno y se revisará por venta y fecha.</p>}</div>}<button disabled={enviando || (metodo === "efectivo" && cambioCOP === null)} onClick={() => onConfirmar(solicitud)} className="h-11 w-full rounded-xl bg-emerald-400 font-bold text-slate-950 disabled:opacity-40">{enviando ? "Confirmando…" : confirmacionPendiente ? "Reintentar confirmación" : "Confirmar venta"}</button></div>}
         {solicitud.estado === "EJECUTADA" && <div className="mt-3 space-y-2"><p className="text-xs text-emerald-200">Venta registrada. El inventario y el pago ya fueron procesados.</p>{recuperarConfirmacion && <button disabled={enviando} onClick={() => onConfirmar(solicitud)} className="h-11 w-full rounded-xl border border-emerald-300/40 px-3 text-sm font-semibold text-emerald-200 disabled:opacity-50">{enviando ? "Recuperando…" : "Recuperar confirmación"}</button>}</div>}
         {cancelable && <button disabled={enviando} onClick={() => onCancelar(solicitud)} className="mt-3 w-full rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-300 disabled:opacity-50">Cancelar solicitud</button>}
       </article>
@@ -350,7 +356,7 @@ function ClientesView({ clientes, onCrear }: { clientes: ClienteVendedorDTO[]; o
 }
 
 function HistorialView({ ventas }: { ventas: VentaVendedorDTO[] }) {
-  return <section><p className="text-xs font-bold uppercase tracking-[.22em] text-amber-300">Trazabilidad personal</p><h1 className="mt-1 text-2xl font-bold">Mis ventas</h1><div className="mt-4 space-y-3">{ventas.map(v => <article key={v.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-900 p-4"><div><p className="font-semibold">{v.cliente ?? "Cliente"}</p><p className="text-xs text-slate-500">{v.id} · {v.metodoPago}</p></div><p className="font-bold text-emerald-300">{money(v.total)}</p></article>)}{ventas.length === 0 && <p className="rounded-2xl border border-dashed border-white/15 p-10 text-center text-slate-400">Todavía no tienes ventas registradas.</p>}</div></section>
+  return <section><p className="text-xs font-bold uppercase tracking-[.22em] text-amber-300">Trazabilidad personal</p><h1 className="mt-1 text-2xl font-bold">Mis ventas</h1><div className="mt-4 space-y-3">{ventas.map(v => <article key={v.id} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-900 p-4"><div><p className="font-semibold">{v.cliente ?? "Cliente"}</p><p className="text-xs text-slate-500">{v.id} · {v.metodoPago}{v.metodoPago === "efectivo" && v.turnoId === null ? " · efectivo sin turno" : ""}</p>{v.metodoPago === "efectivo" && v.montoRecibidoCOP !== null && <p className="mt-1 text-xs text-slate-400">Recibido {money(v.montoRecibidoCOP)} · cambio {money(v.cambioCOP)}</p>}</div><div className="text-right"><p className="font-bold text-emerald-300">{money(v.total)}</p><p className="text-[11px] text-slate-500">{formatearFechaBodega(v.fecha)}</p></div></article>)}{ventas.length === 0 && <p className="rounded-2xl border border-dashed border-white/15 p-10 text-center text-slate-400">Todavía no tienes ventas registradas.</p>}</div></section>
 }
 
 function CrearClienteModal({ onCerrar, onCreado }: { onCerrar(): void; onCreado(cliente: ClienteVendedorDTO): void }) {

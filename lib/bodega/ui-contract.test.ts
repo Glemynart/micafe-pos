@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { construirConfirmacionVentaBodega, construirSolicitudVentaBodega, crearProtectorDobleEnvio, MAX_LINEAS_BODEGA, mensajeErrorBodega, resolverSuperficieBodega, fechaDesdeSerializacionBodega, formatearFechaBodega, formatearReferenciaSolicitud, calcularCambioEfectivoBodega } from "./ui-contract"
+import { construirConfirmacionVentaBodega, construirSolicitudVentaBodega, crearProtectorDobleEnvio, MAX_LINEAS_BODEGA, mensajeErrorBodega, resolverSuperficieBodega, fechaDesdeSerializacionBodega, formatearFechaBodega, formatearReferenciaSolicitud, calcularCambioEfectivoBodega, proyectarVentaBodegaAdmin } from "./ui-contract"
 
 test("U4 construye exactamente el envelope certificado sin campos de autoridad", () => {
   let secuencia = 0
@@ -36,12 +36,25 @@ test("ADR-068: el envelope de efectivo conserva recibido y calcula el cambio sin
   assert.equal(calcularCambioEfectivoBodega(20000, 25000), 5000)
   assert.equal(calcularCambioEfectivoBodega(20000, 19999), null)
   assert.equal(calcularCambioEfectivoBodega(0, 25000), null)
+  assert.throws(() => construirConfirmacionVentaBodega({ clienteId: "cliente", lineas: [{ productoId: "p", presentacionId: "u", cantidad: 1 }], metodoPago: "efectivo" }), /MONTO_RECIBIDO_INVALIDO/)
+  assert.throws(() => construirConfirmacionVentaBodega({ clienteId: "cliente", lineas: [{ productoId: "p", presentacionId: "u", cantidad: 1 }], metodoPago: "efectivo", montoRecibidoCOP: Number.MAX_SAFE_INTEGER + 1 }), /MONTO_RECIBIDO_INVALIDO/)
+})
+
+test("ADR-068: la proyección administrativa identifica efectivo sin turno y conserva recibido/cambio", () => {
+  const venta = proyectarVentaBodegaAdmin("venta-1", {
+    cajeroId: "admin-1", metodoPago: "efectivo", estado: "pagada", totales: { total: 20000 },
+    pago: { metodo: "efectivo", montoRecibidoCOP: 25000, cambioCOP: 5000 }, turnoId: null,
+    schemaVersion: "BODEGA_MVP1_V1",
+  })
+  assert.equal(venta.turnoId, null)
+  assert.equal(venta.montoRecibidoCOP, 25000)
+  assert.equal(venta.cambioCOP, 5000)
 })
 
 test("U4 limita líneas, cantidades y conserva mensajes operativos fail-closed", () => {
   assert.throws(() => construirConfirmacionVentaBodega({ clienteId: "c", lineas: [], metodoPago: "efectivo" }), /LINEAS_INVALIDAS/)
   assert.throws(() => construirConfirmacionVentaBodega({ clienteId: "c", lineas: Array.from({ length: MAX_LINEAS_BODEGA + 1 }, (_, i) => ({ productoId: `p${i}`, presentacionId: `x${i}`, cantidad: 1 })), metodoPago: "efectivo" }), /LINEAS_INVALIDAS/)
-  assert.throws(() => construirConfirmacionVentaBodega({ clienteId: "c", lineas: [{ productoId: "p", presentacionId: "x", cantidad: 0 }], metodoPago: "efectivo" }), /CANTIDAD_INVALIDA/)
+  assert.throws(() => construirConfirmacionVentaBodega({ clienteId: "c", lineas: [{ productoId: "p", presentacionId: "x", cantidad: 0 }], metodoPago: "efectivo", montoRecibidoCOP: 1000 }), /CANTIDAD_INVALIDA/)
   assert.match(mensajeErrorBodega({ details: { code: "TURNO_CERRADO" } }), /turno/i)
   assert.match(mensajeErrorBodega({ details: { code: "STOCK_INSUFICIENTE" } }), /existencias/i)
   assert.match(mensajeErrorBodega({ details: { code: "ROLE_FORBIDDEN" } }), /permiso/i)

@@ -42,6 +42,7 @@ export interface ConfirmacionVentaBodega {
     clienteId: string
     lineas: LineaCarritoBodega[]
     metodoPago: MetodoPagoBodega
+    montoRecibidoCOP?: number
     solicitudId?: string
   }
 }
@@ -164,6 +165,8 @@ export interface ResultadoVentaBodegaCompletada {
   estadoOperativo: "COMPLETO"
   metodoPago: MetodoPagoBodega
   total: number
+  montoRecibidoCOP?: number
+  cambioCOP?: number
   movimientoFinancieroId: string
   movimientosInventario: string[]
   turnoId: string | null
@@ -189,6 +192,41 @@ export interface VentaVendedorDTO {
   total: number | null
   metodoPago: string | null
   estado: string | null
+  turnoId: string | null
+  montoRecibidoCOP: number | null
+  cambioCOP: number | null
+}
+
+export interface VentaBodegaAdminDTO {
+  id: string
+  cajeroId: string
+  clienteNombreSnapshot: string
+  metodoPago: string
+  estado: string
+  total: number
+  fecha: unknown
+  schemaVersion: string
+  turnoId: string | null
+  montoRecibidoCOP: number | null
+  cambioCOP: number | null
+}
+
+const montoCOPSeguro = (value: unknown): number | null => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null
+
+export function proyectarVentaBodegaAdmin(id: string, data: Record<string, any>): VentaBodegaAdminDTO {
+  return {
+    id,
+    cajeroId: typeof data.cajeroId === "string" ? data.cajeroId : "",
+    clienteNombreSnapshot: typeof data.clienteNombreSnapshot === "string" ? data.clienteNombreSnapshot : typeof data.clienteNombre === "string" ? data.clienteNombre : "",
+    metodoPago: typeof data.metodoPago === "string" ? data.metodoPago : "",
+    estado: typeof data.estado === "string" ? data.estado : "",
+    total: typeof data.totales?.total === "number" ? data.totales.total : 0,
+    fecha: data.fecha ?? null,
+    schemaVersion: typeof data.schemaVersion === "string" ? data.schemaVersion : "",
+    turnoId: typeof data.turnoId === "string" && data.turnoId.trim() ? data.turnoId : null,
+    montoRecibidoCOP: montoCOPSeguro(data.pago?.montoRecibidoCOP),
+    cambioCOP: montoCOPSeguro(data.pago?.cambioCOP),
+  }
 }
 
 export type SuperficieBodega = "VENDEDOR" | "ADMIN" | "LEGACY" | "DENEGADA"
@@ -258,10 +296,13 @@ export function construirConfirmacionVentaBodega(input: {
   clienteId: string
   lineas: readonly LineaCarritoBodega[]
   metodoPago: MetodoPagoBodega
+  montoRecibidoCOP?: number
   solicitudId?: string
   generarId?: () => string
 }): ConfirmacionVentaBodega {
   if (input.lineas.length === 0 || input.lineas.length > MAX_LINEAS_BODEGA) throw new Error("LINEAS_INVALIDAS")
+  if (input.metodoPago === "efectivo" && (!Number.isSafeInteger(input.montoRecibidoCOP) || (input.montoRecibidoCOP as number) < 0)) throw new Error("MONTO_RECIBIDO_INVALIDO")
+  if (input.metodoPago === "transferencia" && input.montoRecibidoCOP !== undefined) throw new Error("MONTO_RECIBIDO_NO_APLICA")
   const lineas = input.lineas.map((linea) => {
     if (!Number.isSafeInteger(linea.cantidad) || linea.cantidad <= 0) throw new Error("CANTIDAD_INVALIDA")
     return {
@@ -281,9 +322,15 @@ export function construirConfirmacionVentaBodega(input: {
       clienteId: requerido(input.clienteId, "CLIENTE"),
       lineas,
       metodoPago: input.metodoPago,
+      ...(input.metodoPago === "efectivo" ? { montoRecibidoCOP: input.montoRecibidoCOP as number } : {}),
       ...(input.solicitudId ? { solicitudId: requerido(input.solicitudId, "SOLICITUD") } : {}),
     },
   }
+}
+
+export function calcularCambioEfectivoBodega(totalCOP: number, montoRecibidoCOP: number): number | null {
+  if (!Number.isSafeInteger(totalCOP) || totalCOP <= 0 || !Number.isSafeInteger(montoRecibidoCOP) || montoRecibidoCOP < totalCOP) return null
+  return montoRecibidoCOP - totalCOP
 }
 
 export function construirSolicitudVentaBodega(input: {
@@ -310,7 +357,8 @@ export function construirSolicitudVentaBodega(input: {
 export function mensajeErrorBodega(error: unknown): string {
   const candidate = error as { code?: string; message?: string; details?: { code?: string } }
   const code = candidate?.details?.code ?? candidate?.code ?? candidate?.message ?? ""
-  if (code.includes("TURNO_CERRADO")) return "Abre tu turno antes de cobrar en efectivo."
+  if (code.includes("MONTO_RECIBIDO")) return "El efectivo recibido debe ser un valor entero igual o mayor al total."
+  if (code.includes("TURNO_CERRADO")) return "El turno activo no está disponible. Actualiza la vista y vuelve a intentarlo."
   if (code.includes("STOCK_INSUFICIENTE")) return "No hay existencias suficientes para completar la venta."
   if (code.includes("SOLICITUD_APROBACION_REQUERIDA")) return "La solicitud de venta debe estar aprobada antes de confirmar el pago."
   if (code.includes("SOLICITUD_APROBACION_EXPIRADA")) return "La aprobación venció. Envía una nueva solicitud al administrador."

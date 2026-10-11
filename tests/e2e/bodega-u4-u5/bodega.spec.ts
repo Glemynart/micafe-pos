@@ -219,7 +219,7 @@ test("reintento tras perder la respuesta de la venta conserva una sola solicitud
   expect(ingresos.docs[0]?.data()).toMatchObject({ tipo: "ingreso", categoria: "ventas", monto: 5000, cuentaDocumentoId: `bancolombia-c-${runId}` })
 })
 
-test("vendedor aprobado confirma efectivo con turno propio desde la PWA hasta los efectos persistidos", async ({ page, browser }) => {
+test("vendedor aprobado confirma efectivo sin turno con recibido y cambio persistidos", async ({ page, browser }) => {
   await login(page, tenantA.vendedor); await expect(page.getByText("Bodega móvil")).toBeVisible()
   const db = getFirestore(app)
   const solicitudesAntes = new Set((await db.collection("empresas").doc(tenantA.empresaId).collection("solicitudes_venta_bodega").get()).docs.map(solicitud => solicitud.id))
@@ -229,19 +229,19 @@ test("vendedor aprobado confirma efectivo con turno propio desde la PWA hasta lo
   expect(solicitudNueva).toBeTruthy()
   await aprobarSolicitudEnBackoffice(browser, tenantA, tenantA.clienteNombre, solicitudNueva!.id)
   await page.reload(); await page.getByRole("button", { name: "Solicitudes" }).click(); await expect(page.getByText("APROBADA", { exact: true })).toBeVisible(); await page.getByRole("button", { name: "efectivo" }).click()
-  await page.getByLabel("Base de apertura").fill("10000"); await page.getByRole("button", { name: "Abrir turno para efectivo" }).click(); await expect(page.getByText("Turno abierto")).toBeVisible()
-  await expect.poll(async () => (await db.collection("turnos").where("empresaId", "==", tenantA.empresaId).where("cajeroId", "==", tenantA.vendedor.uid).where("estado", "==", "abierto").get()).docs[0]?.id ?? null).not.toBeNull()
-  const turnoDoc = (await db.collection("turnos").where("empresaId", "==", tenantA.empresaId).where("cajeroId", "==", tenantA.vendedor.uid).where("estado", "==", "abierto").get()).docs[0]; expect(turnoDoc?.id).toBeTruthy()
+  const turnosAntes = await db.collection("turnos").where("empresaId", "==", tenantA.empresaId).get()
+  await page.getByLabel("Efectivo recibido").fill("12000"); await expect(page.getByText(/Cambio estimado:.*2\.000/)).toBeVisible()
   expect((await db.collection("productos").doc(tenantA.productoId).get()).data()?.stock).toBe(18)
   await page.getByRole("button", { name: "Confirmar venta" }).click(); await expect(page.getByText("Venta confirmada")).toBeVisible()
   const ventas = await db.collection("ventas").where("empresaId", "==", tenantA.empresaId).get()
   const ventasProyectadas: Array<Record<string, any>> = ventas.docs.map(item => ({ id: item.id, ...(item.data() as Record<string, unknown>) }))
   const venta = ventasProyectadas.find(item => item.metodoPago === "efectivo")
-  expect(venta).toBeTruthy(); expect(venta?.estadoOperativo).toBe("COMPLETO"); expect(venta?.cajeroId).toBe(tenantA.vendedor.uid); expect(venta?.turnoId).toBe(turnoDoc?.id); expect(venta?.totales).toEqual({ subtotal: 10000, impuestos: 0, total: 10000 })
+  expect(venta).toBeTruthy(); expect(venta?.estadoOperativo).toBe("COMPLETO"); expect(venta?.cajeroId).toBe(tenantA.vendedor.uid); expect(venta?.turnoId).toBeNull(); expect(venta?.pago).toMatchObject({ metodo: "efectivo", montoRecibidoCOP: 12000, cambioCOP: 2000 }); expect(venta?.totales).toEqual({ subtotal: 10000, impuestos: 0, total: 10000 })
   expect(venta?.items).toHaveLength(1); expect(venta?.items[0]).toMatchObject({ productoId: tenantA.productoId, presentacionId: tenantA.presentacionId, cantidadPresentaciones: 2, factorUnidadBase: 2, cantidadUnidadBase: 4, precioPresentacionCOP: 5000, subtotalCOP: 10000, productoNombreSnapshot: tenantA.productoNombre, presentacionNombreSnapshot: tenantA.presentacionNombre })
   const recibos = await db.collection("operaciones_comandos").where("empresaId", "==", tenantA.empresaId).get(); expect(recibos.docs.filter(recibo => recibo.data().commandId === venta?.commandId)).toHaveLength(1)
-  const ingresos = await db.collection("transacciones_financieras").where("empresaId", "==", tenantA.empresaId).where("ventaId", "==", venta?.id).get(); expect(ingresos.size).toBe(1); expect(ingresos.docs[0]?.data()).toMatchObject({ tipo: "ingreso", categoria: "ventas", monto: 10000, turnoId: turnoDoc?.id, usuarioId: tenantA.vendedor.uid, cuentaDocumentoId: "caja-principal" })
+  const ingresos = await db.collection("transacciones_financieras").where("empresaId", "==", tenantA.empresaId).where("ventaId", "==", venta?.id).get(); expect(ingresos.size).toBe(1); expect(ingresos.docs[0]?.data()).toMatchObject({ tipo: "ingreso", categoria: "ventas", monto: 10000, turnoId: null, usuarioId: tenantA.vendedor.uid, cuentaDocumentoId: "caja-principal" })
   const movimientos = await db.collection("movimientos_inventario").where("empresaId", "==", tenantA.empresaId).where("referenciaId", "==", venta?.id).get(); expect(movimientos.size).toBe(1); expect(movimientos.docs[0]?.data()).toMatchObject({ articuloId: tenantA.productoId, cantidad: -4, referenciaColeccion: "ventas", referenciaId: venta?.id })
+  expect((await db.collection("turnos").where("empresaId", "==", tenantA.empresaId).get()).docs.map(turno => turno.id)).toEqual(turnosAntes.docs.map(turno => turno.id))
   expect((await db.collection("productos").doc(tenantA.productoId).get()).data()?.stock).toBe(14)
 })
 

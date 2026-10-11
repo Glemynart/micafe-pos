@@ -27,6 +27,7 @@ export interface ComandoConfirmacionVentaBodega {
     clienteId: string;
     lineas: LineaVentaBodegaIntento[];
     metodoPago: "efectivo" | "transferencia";
+    montoRecibidoCOP?: number;
     solicitudId?: string;
   };
 }
@@ -90,7 +91,7 @@ export function normalizarComandoConfirmacionVentaBodega(raw: unknown): ComandoC
   const data = raw as Record<string, unknown>;
   if (data.causationId !== null && typeof data.causationId !== "string") fail("invalid-argument", "CAUSATION_ID_INVALIDO");
   const causationId = data.causationId === null ? null : requiredText(data.causationId, "CAUSATION_ID_INVALIDO");
-  if (!object(data.payload) || !own(data.payload, ["clienteId", "lineas", "metodoPago", "solicitudId"])) fail("invalid-argument", "PAYLOAD_BODEGA_INVALIDO");
+  if (!object(data.payload) || !own(data.payload, ["clienteId", "lineas", "metodoPago", "montoRecibidoCOP", "solicitudId"])) fail("invalid-argument", "PAYLOAD_BODEGA_INVALIDO");
   const payload = data.payload as Record<string, unknown>;
   if (payload.solicitudId !== undefined && (typeof payload.solicitudId !== "string" || !payload.solicitudId.trim() || payload.solicitudId.length > 180)) {
     fail("invalid-argument", "SOLICITUD_ID_INVALIDO");
@@ -99,6 +100,13 @@ export function normalizarComandoConfirmacionVentaBodega(raw: unknown): ComandoC
     fail("invalid-argument", "LINEAS_BODEGA_INVALIDAS");
   }
   if (payload.metodoPago !== "efectivo" && payload.metodoPago !== "transferencia") fail("invalid-argument", "METODO_PAGO_BODEGA_INVALIDO");
+  if (payload.metodoPago === "efectivo") {
+    if (typeof payload.montoRecibidoCOP !== "number" || !Number.isSafeInteger(payload.montoRecibidoCOP) || payload.montoRecibidoCOP < 0) {
+      fail("invalid-argument", "MONTO_RECIBIDO_INVALIDO");
+    }
+  } else if (Object.prototype.hasOwnProperty.call(payload, "montoRecibidoCOP")) {
+    fail("invalid-argument", "MONTO_RECIBIDO_NO_APLICA");
+  }
   return {
     commandId: requiredText(data.commandId, "COMMAND_ID_INVALIDO"),
     idempotencyKey: requiredText(data.idempotencyKey, "IDEMPOTENCY_KEY_INVALIDA"),
@@ -108,6 +116,7 @@ export function normalizarComandoConfirmacionVentaBodega(raw: unknown): ComandoC
       clienteId: requiredText(payload.clienteId, "CLIENTE_ID_INVALIDO"),
       lineas: (payload.lineas as unknown[]).map(normalizarLinea),
       metodoPago: payload.metodoPago as "efectivo" | "transferencia",
+      ...(payload.metodoPago === "efectivo" ? { montoRecibidoCOP: payload.montoRecibidoCOP as number } : {}),
       ...(payload.solicitudId === undefined ? {} : { solicitudId: (payload.solicitudId as string).trim() }),
     },
   };

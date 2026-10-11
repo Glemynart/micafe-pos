@@ -2,6 +2,7 @@ import { collection, getDocs, onSnapshot, where, type Unsubscribe } from "fireba
 import { db, getFirebaseFunctions } from "@/lib/firebase"
 import { tenantQuery } from "@/lib/tenant"
 import { crearEnvelopeInventario, ejecutarComandoInventario } from "@/lib/inventario-command"
+import { proyectarVentaBodegaAdmin, type VentaBodegaAdminDTO } from "@/lib/bodega/ui-contract"
 import type { Cliente } from "@/lib/clientes-service"
 
 export interface ProductoBodegaAdmin {
@@ -25,16 +26,7 @@ export interface PresentacionBodegaAdmin {
   activo: boolean
 }
 
-export interface VentaBodegaAdmin {
-  id: string
-  cajeroId: string
-  clienteNombreSnapshot: string
-  metodoPago: string
-  estado: string
-  total: number
-  fecha: unknown
-  schemaVersion: string
-}
+export type VentaBodegaAdmin = VentaBodegaAdminDTO
 
 function suscribirTenant<T>(coleccion: string, map: (id: string, data: Record<string, any>) => T, callback: (items: T[]) => void): Unsubscribe {
   let unsubscribe = () => {}
@@ -49,7 +41,7 @@ function suscribirTenant<T>(coleccion: string, map: (id: string, data: Record<st
 export const suscribirProductosBodegaAdmin = (callback: (items: ProductoBodegaAdmin[]) => void) => suscribirTenant("productos", (id, data) => ({ id, nombre: String(data.nombre ?? ""), categoriaId: String(data.categoriaId ?? ""), espacioId: String(data.espacioId ?? ""), unidad: String(data.unidadMedida ?? data.unidad ?? "und"), stock: Number(data.stock ?? 0), stockReservado: Number(data.stockReservado ?? 0), stockMinimo: Number(data.stockMinimo ?? 0), activo: data.activo === true }), items => callback(items.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))))
 export const suscribirPresentacionesBodegaAdmin = (callback: (items: PresentacionBodegaAdmin[]) => void) => suscribirTenant("presentaciones_producto", (id, data) => ({ id, productoId: String(data.productoId ?? ""), nombre: String(data.nombre ?? ""), factorUnidadBase: Number(data.factorUnidadBase ?? 0), precioCOP: Number(data.precioCOP ?? 0), activo: data.activo === true }), callback)
 export const suscribirClientesBodegaAdmin = (callback: (items: Cliente[]) => void) => suscribirTenant("clientes", (id, data) => ({ id, ...data } as Cliente), items => callback(items.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))))
-export const suscribirVentasBodegaAdmin = (callback: (items: VentaBodegaAdmin[]) => void) => suscribirTenant("ventas", (id, data) => ({ id, cajeroId: String(data.cajeroId ?? ""), clienteNombreSnapshot: String(data.clienteNombreSnapshot ?? data.clienteNombre ?? ""), metodoPago: String(data.metodoPago ?? ""), estado: String(data.estado ?? ""), total: Number(data.totales?.total ?? 0), fecha: data.fecha ?? null, schemaVersion: String(data.schemaVersion ?? "") }), items => callback(items.filter(item => item.schemaVersion === "BODEGA_MVP1_V1")))
+export const suscribirVentasBodegaAdmin = (callback: (items: VentaBodegaAdmin[]) => void) => suscribirTenant("ventas", (id, data) => proyectarVentaBodegaAdmin(id, data), items => callback(items.filter(item => item.schemaVersion === "BODEGA_MVP1_V1")))
 
 export async function listarEspaciosBodega(): Promise<Array<{ id: string; nombre: string }>> {
   const query = await tenantQuery(collection(db, "espacios"), where("activo", "==", true))
