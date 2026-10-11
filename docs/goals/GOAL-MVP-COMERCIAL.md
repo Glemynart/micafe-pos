@@ -1341,7 +1341,7 @@ matriz Gate F integrada por PR #524; el paso siguiente es repetir Gate G y,
 después de su conciliación, emitir Gate H actualizado. No se toca el tenant real
 ni producción.
 
-### Checkpoint vigente — 2026-10-11 — PR #554/#555 / ADR-SAAS-068 y Gate C
+### Checkpoint previo — 2026-10-11 — PR #554/#555 / ADR-SAAS-068 y Gate C
 
 PR #554 quedó `MERGED` en `main @ aa9edd011c506402166012145b9e4c14ce159144`
 el `2026-10-11T20:37:29Z`. Los checks previos al merge (`Tipos y pruebas`,
@@ -1377,6 +1377,38 @@ sin turno y actualizar Gate H; la evidencia de #553 precede a #554 y solo cubre
 transferencia. Gate I permanece `BLOCKED` para Bootstrap/Activation y datos
 reales; E2.2 continúa `EN EJECUCIÓN`. No se crea tenant real ni se toca
 producción.
+
+### Checkpoint vigente — 2026-10-11 — Gate D Functions ADR-SAAS-068
+
+PR #556 integró la evidencia de Gate C en `main @
+6abf832a03947b6f32d046f0d4adbc43b51e8fd6`; sus checks y la CI post-merge
+`38178181727` terminaron `success`. El preflight inmediatamente anterior al
+deploy confirmó el mismo artefacto funcional que el candidato: no hay diff en
+`functions-bodega` ni `firebase.json` entre `64f6d936` y `6abf832`.
+
+El deploy dirigido de `functions:saas-bodega` en `micafe-pos-staging` finalizó
+con `Deploy complete` y exit code `0`: exactamente 17 actualizaciones, cero
+creaciones y cero eliminaciones. La verificación post-deploy encontró las 17
+Functions `ACTIVE`, Node.js 22 y `us-central1`, con 17 servicios Cloud Run
+`Ready=True` y 100 % del tráfico en la revisión lista; no hay Secrets en
+ninguna. Las 15 callables rechazaron sondas sin autenticación con `401
+UNAUTHENTICATED`. No se observaron errores de severidad `ERROR` en los 17
+servicios desde el despliegue. El detalle reproducible está en
+[`Gate D — deploy ADR-SAAS-068`](evidence/G-SAAS-02-E2-2-GATE-D-ADR068-STAGING-DEPLOY-2026-10-11.md).
+
+La política IAM de proyecto posterior coincide con el preflight; se conservaron
+los cinco bindings aprobados y el binding preexistente de
+`firebase-adminsdk-fbsvc`, sin cambios. Rules, Storage, Auth, fixture, tenant
+real y producción no se modificaron ni se ejecutaron compras/ventas
+autenticadas. El scheduler preexistente `reconciliarAgendaPedidosBodegaV1`
+continúa cada cinco minutos y tuvo una invocación automática a las
+`2026-10-11T22:30:01Z`; no se lo invocó manualmente y no se inspeccionó el
+resultado de reconciliación en Firestore.
+
+**Gate D Functions para ADR-SAAS-068: `PASS`.** La certificación operativa de
+esa decisión sigue pendiente: repetir Gate G con efectivo sin turno y actualizar
+Gate H antes de Gate I. La evidencia anterior de #553 cubre solo transferencia.
+Gate I permanece `BLOCKED`; no se crea tenant real ni se toca producción.
 
 ### Checkpoint — 2026-10-10 (Bogotá) — PR #537 integrado / sincronización viva
 
