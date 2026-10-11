@@ -105,6 +105,7 @@ export function BodegaVentasAdmin() {
 
 export function BodegaSolicitudesAdmin() {
   const { empresaId } = useConfiguracionEmpresa()
+  const suscripcionSenal = useRef<ReturnType<typeof suscribirSenalBodega> | null>(null)
   const [solicitudes, setSolicitudes] = useState<SolicitudVentaBodegaDTO[]>([])
   const [cargando, setCargando] = useState(true)
   const [procesando, setProcesando] = useState("")
@@ -117,25 +118,34 @@ export function BodegaSolicitudesAdmin() {
     finally { setCargando(false) }
   }, [])
   const cargarCoalescido = useMemo(() => crearRefrescoCoalescido(cargar), [cargar])
+  const actualizar = useCallback(() => {
+    suscripcionSenal.current?.reconectar()
+    return cargarCoalescido()
+  }, [cargarCoalescido])
   useEffect(() => { void cargarCoalescido() }, [cargarCoalescido])
   useEffect(() => {
     if (!empresaId) return
     const detectarCambio = crearDetectorCambioSenalBodega()
-    const unsubscribe = suscribirSenalBodega(empresaId, "solicitudes_admin", undefined, state => {
+    const suscripcion = suscribirSenalBodega(empresaId, "solicitudes_admin", undefined, state => {
       setSenalDesconectada(!state.conectada)
       if (detectarCambio(state)) void cargarCoalescido()
     })
-    const actualizarSiVisible = () => { if (document.visibilityState === "visible") void cargarCoalescido() }
+    suscripcionSenal.current = suscripcion
+    const actualizarSiVisible = () => { if (document.visibilityState === "visible") void actualizar() }
     document.addEventListener("visibilitychange", actualizarSiVisible)
-    return () => { unsubscribe(); document.removeEventListener("visibilitychange", actualizarSiVisible) }
-  }, [empresaId, cargarCoalescido])
+    return () => {
+      if (suscripcionSenal.current === suscripcion) suscripcionSenal.current = null
+      suscripcion.cerrar()
+      document.removeEventListener("visibilitychange", actualizarSiVisible)
+    }
+  }, [empresaId, cargarCoalescido, actualizar])
 
   const resolver = async (solicitud: SolicitudVentaBodegaDTO, decision: "aprobar" | "rechazar") => {
     if (procesando) return
     setProcesando(solicitud.solicitudId); setError("")
     try {
       await resolverSolicitudVentaBodega({ solicitudId: solicitud.solicitudId, revision: solicitud.revision, decision })
-      await cargarCoalescido()
+      await actualizar()
     } catch (cause) { setError(mensajeErrorBodega(cause)) }
     finally { setProcesando("") }
   }
@@ -144,7 +154,7 @@ export function BodegaSolicitudesAdmin() {
   return <AdminSection eyebrow="Aprobación previa" title="Solicitudes de venta" description="Revisa el cliente, las presentaciones y el total canónico antes de autorizar al vendedor. La aprobación dura 24 horas y no reserva inventario.">
     {error && <ErrorBox>{error}</ErrorBox>}
     {senalDesconectada && <p role="status" className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800">La sincronización está desconectada; la bandeja puede estar desactualizada. Usa Actualizar o vuelve a conectar para validar el estado vigente.</p>}
-    <button onClick={() => void cargarCoalescido()} className="mb-4 rounded-xl border border-border px-4 py-2 text-sm font-semibold">Actualizar</button>
+    <button onClick={() => void actualizar()} className="mb-4 rounded-xl border border-border px-4 py-2 text-sm font-semibold">Actualizar</button>
     <div className="space-y-3">{solicitudes.map(solicitud => <article key={solicitud.solicitudId} className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-words font-semibold">{solicitud.cliente?.nombre || "Cliente no disponible"}</h2><p className="mt-1 text-xs text-muted-foreground">Solicitud · {formatearReferenciaSolicitud(solicitud.solicitudId)} · vendedor</p></div><span className="shrink-0 rounded-full bg-muted px-2 py-1 text-xs font-semibold">{solicitud.estado}</span></div>
       <div className="my-3 space-y-2">{solicitud.lineas.map((linea, index) => <div key={`${linea.presentacionId}-${index}`} className="flex justify-between gap-3 text-sm"><span className="min-w-0 break-words">{linea.cantidad} × {linea.presentacionNombre} ({linea.factorUnidadBase} {linea.unidadBase})</span><span className="shrink-0">{money(linea.subtotalCOP)}</span></div>)}</div>

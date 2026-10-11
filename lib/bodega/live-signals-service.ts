@@ -3,6 +3,42 @@ import { db } from "@/lib/firebase";
 
 export type CanalSenalBodega = "disponibilidad" | "solicitudes_admin" | "solicitudes_vendedor";
 export type EstadoSenalBodega = { version: number | null; conectada: boolean };
+export type ControlSuscripcionSenalBodega = { reconectar: () => void; cerrar: () => void };
+
+export function crearSuscripcionRecuperableSenalBodega(
+  escuchar: (onState: (state: EstadoSenalBodega) => void, onError: () => void) => Unsubscribe,
+  callback: (state: EstadoSenalBodega) => void,
+): ControlSuscripcionSenalBodega {
+  let unsubscribe: Unsubscribe | null = null;
+  let failed = false;
+  let closed = false;
+
+  const start = () => {
+    failed = false;
+    unsubscribe = escuchar(
+      state => { if (!closed) callback(state); },
+      () => {
+        if (closed) return;
+        failed = true;
+        callback({ version: null, conectada: false });
+      },
+    );
+  };
+
+  start();
+  return {
+    reconectar: () => {
+      if (closed || !failed) return;
+      unsubscribe?.();
+      start();
+    },
+    cerrar: () => {
+      if (closed) return;
+      closed = true;
+      unsubscribe?.();
+    },
+  };
+}
 
 export function crearDetectorCambioSenalBodega(): (state: EstadoSenalBodega) => boolean {
   let connected: boolean | null = null;
@@ -59,12 +95,15 @@ export function suscribirSenalBodega(
   canal: CanalSenalBodega,
   uid: string | undefined,
   callback: (state: EstadoSenalBodega) => void,
-): Unsubscribe {
+): ControlSuscripcionSenalBodega {
   const path = rutaSenalBodega(empresaId, canal, uid);
-  return onSnapshot(
-    doc(db, path),
-    { includeMetadataChanges: true },
-    snapshot => callback(interpretarSnapshotSenalBodega(snapshot, empresaId)),
-    () => callback({ version: null, conectada: false }),
+  return crearSuscripcionRecuperableSenalBodega(
+    (onState, onError) => onSnapshot(
+      doc(db, path),
+      { includeMetadataChanges: true },
+      snapshot => onState(interpretarSnapshotSenalBodega(snapshot, empresaId)),
+      onError,
+    ),
+    callback,
   );
 }

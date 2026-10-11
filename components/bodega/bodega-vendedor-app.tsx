@@ -64,6 +64,7 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   const comandoAgendaPendiente = useRef<ComandoCrearProgramacionPedidoBodega | null>(null)
   const comandosAgendaPendientes = useRef(new Map<string, AgendaCancelCommand | AgendaConvertCommand>())
   const comandosVentaPendientes = useRef(new Map<string, ConfirmacionVentaBodega>())
+  const suscripcionSenal = useRef<ReturnType<typeof suscribirSenalBodega> | null>(null)
   const agendaConsultaEnCurso = useRef(false)
   const guardiaEnvio = useRef(crearProtectorDobleEnvio())
 
@@ -85,6 +86,16 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
     try { setCatalogo(await consultarCatalogoBodega()) }
     catch (cause) { setError(mensajeErrorBodega(cause)) }
   }), [])
+
+  const actualizarSolicitudesConReconectar = useCallback(() => {
+    suscripcionSenal.current?.reconectar()
+    return actualizarSolicitudes()
+  }, [actualizarSolicitudes])
+
+  const actualizarCatalogoConReconectar = useCallback(() => {
+    suscripcionSenal.current?.reconectar()
+    return actualizarCatalogo()
+  }, [actualizarCatalogo])
 
   const actualizarAgenda = useCallback(async (cursor?: string | null, preservarPaginas = false) => {
     if (agendaConsultaEnCurso.current) return
@@ -123,14 +134,23 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
     const actualizar = catalogoActivo ? actualizarCatalogo : actualizarSolicitudes
     const channel = catalogoActivo ? "disponibilidad" : "solicitudes_vendedor"
     const detectarCambio = crearDetectorCambioSenalBodega()
-    const unsubscribe = suscribirSenalBodega(empresaId, channel, catalogoActivo ? undefined : usuario.uid, state => {
+    const suscripcion = suscribirSenalBodega(empresaId, channel, catalogoActivo ? undefined : usuario.uid, state => {
       setSenalDesconectada(!state.conectada)
       if (detectarCambio(state)) void actualizar()
     })
-    const actualizarSiVisible = () => { if (document.visibilityState === "visible") void actualizar() }
+    suscripcionSenal.current = suscripcion
+    const actualizarConReconectar = () => {
+      suscripcion.reconectar()
+      void actualizar()
+    }
+    const actualizarSiVisible = () => { if (document.visibilityState === "visible") actualizarConReconectar() }
     void actualizar()
     document.addEventListener("visibilitychange", actualizarSiVisible)
-    return () => { unsubscribe(); document.removeEventListener("visibilitychange", actualizarSiVisible) }
+    return () => {
+      if (suscripcionSenal.current === suscripcion) suscripcionSenal.current = null
+      suscripcion.cerrar()
+      document.removeEventListener("visibilitychange", actualizarSiVisible)
+    }
   }, [empresaId, tab, usuario.uid, actualizarCatalogo, actualizarSolicitudes])
   useEffect(() => {
     if (tab !== "agenda") return
@@ -209,7 +229,7 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
     try {
       await convertirProgramacionPedidoBodega(command)
       comandosAgendaPendientes.current.delete(key)
-      await Promise.all([actualizarAgenda(), actualizarSolicitudes()])
+      await Promise.all([actualizarAgenda(), actualizarSolicitudesConReconectar()])
       setTab("solicitudes")
     } catch (cause) { setError(mensajeErrorBodega(cause)) }
     finally { setProcesandoAgenda("") }
@@ -266,7 +286,7 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
         {cargando ? <div className="grid min-h-[50vh] place-items-center"><RefreshCw className="h-7 w-7 animate-spin text-amber-300" /></div> : tab === "venta" ? (
           <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
             <section>
-              <div className="mb-4 flex items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.22em] text-amber-300">Solicitud de venta</p><h1 className="mt-1 text-2xl font-bold">Prepara una solicitud</h1><p className="mt-1 text-sm text-slate-400">El servidor resuelve cliente, presentaciones, precios y total. La venta queda pendiente hasta que administración la apruebe.</p><p className="mt-1 text-xs text-slate-500">Disponibilidad informativa; el servidor revalida el stock antes de aceptar.</p></div><button onClick={() => void actualizarCatalogo()} className="shrink-0 rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-slate-200">Actualizar</button></div>
+              <div className="mb-4 flex items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.22em] text-amber-300">Solicitud de venta</p><h1 className="mt-1 text-2xl font-bold">Prepara una solicitud</h1><p className="mt-1 text-sm text-slate-400">El servidor resuelve cliente, presentaciones, precios y total. La venta queda pendiente hasta que administración la apruebe.</p><p className="mt-1 text-xs text-slate-500">Disponibilidad informativa; el servidor revalida el stock antes de aceptar.</p></div><button onClick={() => void actualizarCatalogoConReconectar()} className="shrink-0 rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-slate-200">Actualizar</button></div>
               <label className="mb-4 flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3"><Search className="h-4 w-4 text-slate-500" /><input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar producto o presentación" className="h-11 w-full bg-transparent text-sm outline-none" /></label>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{filtrado.map(item => <button key={item.presentacionId} onClick={() => agregar(item)} className="rounded-2xl border border-white/10 bg-slate-900 p-4 text-left transition hover:border-amber-300/50 hover:bg-slate-800"><div className="mb-3 flex items-start justify-between gap-3"><Package className="h-5 w-5 text-amber-300" /><span className="text-lg font-bold text-amber-200">{money(item.precioCOP)}</span></div><p className="font-semibold">{item.productoNombre}</p><p className="mt-1 text-sm text-slate-400">{item.presentacionNombre} · {item.factorUnidadBase} {item.unidadBase ?? "unidades"}</p><p className="mt-3 text-xs text-slate-500">Disponibles: {item.maximoPresentacionesVendibles ?? "por validar"}</p></button>)}</div>
               {filtrado.length === 0 && <div className="rounded-2xl border border-dashed border-white/15 p-10 text-center text-slate-400">No hay presentaciones activas para mostrar.</div>}
@@ -281,7 +301,7 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
               <button disabled={enviando || carrito.length === 0 || !clienteId || (tipoPedido === "agendar" && !fechaAgendadaVigente) || (!!franjaDesde !== !!franjaHasta)} onClick={() => void (tipoPedido === "venta" ? enviarSolicitud() : enviarProgramacion())} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-300 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">{tipoPedido === "venta" ? <ClipboardList className="h-5 w-5" /> : <CalendarDays className="h-5 w-5" />}{enviando ? "Enviando…" : tipoPedido === "venta" ? "Enviar solicitud de venta" : tipoPedido === "hoy" ? "Enviar pedido para hoy" : "Agendar entrega"}</button>
             </aside>
           </div>
-        ) : tab === "solicitudes" ? <SolicitudesView solicitudes={solicitudes} metodosPago={metodosPago} setMetodoPago={(id, method) => setMetodosPago(current => ({ ...current, [id]: method }))} tieneConfirmacionPendiente={solicitudId => (["efectivo", "transferencia"] as const).some(method => comandosVentaPendientes.current.has(`${solicitudId}:${method}`))} enviando={enviando} turnoAbierto={!!turno} baseApertura={baseApertura} setBaseApertura={setBaseApertura} onAbrirTurno={() => void abrirTurno({ baseApertura, notasApertura: "Turno vendedor Bodega" }).catch(cause => setError(mensajeErrorBodega(cause)))} onConfirmar={solicitud => void confirmarSolicitud(solicitud)} onCancelar={solicitud => void cancelarSolicitud(solicitud)} onActualizar={() => void actualizarSolicitudes()} onCrearOtra={() => setTab("venta")} /> : tab === "agenda" ? <BodegaAgendaVendedor programaciones={agenda} hoy={hoy} cargando={cargandoAgenda} cargandoMas={cargandoMasAgenda} hayMas={!!nextCursorAgenda} procesando={procesandoAgenda} onActualizar={() => void actualizarAgenda()} onCargarMas={() => void actualizarAgenda(nextCursorAgenda)} onCancelar={item => void cancelarProgramacion(item)} onConvertir={item => void convertirProgramacion(item)} /> : tab === "clientes" ? <ClientesView clientes={clientes} onCrear={() => setMostrarCliente(true)} /> : <HistorialView ventas={ventas} />}
+        ) : tab === "solicitudes" ? <SolicitudesView solicitudes={solicitudes} metodosPago={metodosPago} setMetodoPago={(id, method) => setMetodosPago(current => ({ ...current, [id]: method }))} tieneConfirmacionPendiente={solicitudId => (["efectivo", "transferencia"] as const).some(method => comandosVentaPendientes.current.has(`${solicitudId}:${method}`))} enviando={enviando} turnoAbierto={!!turno} baseApertura={baseApertura} setBaseApertura={setBaseApertura} onAbrirTurno={() => void abrirTurno({ baseApertura, notasApertura: "Turno vendedor Bodega" }).catch(cause => setError(mensajeErrorBodega(cause)))} onConfirmar={solicitud => void confirmarSolicitud(solicitud)} onCancelar={solicitud => void cancelarSolicitud(solicitud)} onActualizar={() => void actualizarSolicitudesConReconectar()} onCrearOtra={() => setTab("venta")} /> : tab === "agenda" ? <BodegaAgendaVendedor programaciones={agenda} hoy={hoy} cargando={cargandoAgenda} cargandoMas={cargandoMasAgenda} hayMas={!!nextCursorAgenda} procesando={procesandoAgenda} onActualizar={() => void actualizarAgenda()} onCargarMas={() => void actualizarAgenda(nextCursorAgenda)} onCancelar={item => void cancelarProgramacion(item)} onConvertir={item => void convertirProgramacion(item)} /> : tab === "clientes" ? <ClientesView clientes={clientes} onCrear={() => setMostrarCliente(true)} /> : <HistorialView ventas={ventas} />}
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-slate-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"><div className="mx-auto flex h-16 max-w-2xl">{([{ id: "venta", label: "Nueva", icon: ShoppingCart }, { id: "solicitudes", label: "Solicitudes", icon: ClipboardList }, { id: "agenda", label: "Agenda", icon: CalendarDays }, { id: "clientes", label: "Clientes", icon: Users }, { id: "historial", label: "Mis ventas", icon: CircleDollarSign }] as const).map(item => <button key={item.id} onClick={() => setTab(item.id)} className={cn("flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold", tab === item.id ? "text-amber-300" : "text-slate-500")}><item.icon className="h-5 w-5" />{item.label}</button>)}</div></nav>
