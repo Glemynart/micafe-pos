@@ -1341,6 +1341,29 @@ matriz Gate F integrada por PR #524; el paso siguiente es repetir Gate G y,
 después de su conciliación, emitir Gate H actualizado. No se toca el tenant real
 ni producción.
 
+### Checkpoint vigente — 2026-10-11 — PR #554 / ADR-SAAS-068 integrado
+
+PR #554 quedó `MERGED` en `main @ aa9edd011c506402166012145b9e4c14ce159144`
+el `2026-10-11T20:37:29Z`. Los checks previos al merge (`Tipos y pruebas`,
+Vercel y Vercel Preview Comments) terminaron `PASS`; la CI post-merge de `main`,
+run [`38172994028`](https://github.com/Glemynart/micafe-pos/actions/runs/38172994028),
+está en ejecución al registrar este checkpoint.
+
+La implementación de ADR-SAAS-068 Opción 2 permite confirmar efectivo sin
+turno obligatorio, valida el recibido contra el total canónico y deriva el
+cambio en servidor. Si existe un turno propio válido, lo conserva; si no existe
+bloqueo activo, la venta y el movimiento de ledger quedan sin turno. El ledger
+registra únicamente el total. Las pruebas cubren vendedor/admin, pago, cambio,
+saldo, stock, idempotencia/replay, rechazo de bloqueos inconsistentes e
+historiales. La auditoría del PR quedó `APROBADO PARA MERGE`.
+
+PR #554 no desplegó Functions ni la aplicación y no escribió datos en staging o
+producción. Antes de Gate I, la ruta nueva debe pasar por su preflight Gate C/D
+dirigido y revalidarse en el alcance actualizado de Gate G; después se emitirá
+Gate H actualizado. Gate I permanece `BLOCKED` para Bootstrap/Activation y
+datos reales; E2.2 continúa `EN EJECUCIÓN`. No se crea tenant real ni se toca
+producción.
+
 ### Checkpoint — 2026-10-10 (Bogotá) — PR #537 integrado / sincronización viva
 
 PR #537 (`feat: Bodega live refresh signals`) quedó `MERGED` en `main` mediante
