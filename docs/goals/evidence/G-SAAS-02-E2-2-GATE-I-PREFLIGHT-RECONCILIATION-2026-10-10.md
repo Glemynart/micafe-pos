@@ -2,7 +2,7 @@
 
 ## Dictamen
 
-`BLOCKED — PRECONDICIONES COMERCIALES, OPERATIVAS Y DE ARQUITECTURA PENDIENTES`.
+`BLOCKED — PRECONDICIONES COMERCIALES, OPERATIVAS Y DE ENTORNO PENDIENTES`.
 
 Este preflight reemplaza para el estado actual la lectura de “ningún insumo
 disponible” del documento de 2026-10-05. Registra lo que el responsable ya
@@ -45,8 +45,8 @@ cliente ni inventario; tampoco inicia producción.
 |---|---|---|
 | Entorno explícito para almacenar datos reales y autorización de alta | La autorización general de pruebas no identifica por sí sola el proyecto/entorno autorizado para datos reales. | Gate I — confirmar con el responsable antes de Bootstrap/Activation. |
 | Aceptación de la oferta por Diana/cliente, vigencia, fecha de inicio y tratamiento de Trial | La aprobación interna de precio no acredita aceptación contractual ni define vigencia canónica. | Gate I — validar y persistir únicamente mediante ADR-SAAS-061 tras aceptación. |
-| ADR-SAAS-068 — venta en efectivo sin turno | Opción 2 fue señalada como preferida; falta confirmar el límite de control de caja: venta sin turno no entra al arqueo/cierre de turno y se revisa por venta/fecha. | Gate de arquitectura — aceptación final pendiente; no cambiar el flujo actual antes de registrarla. |
-| ADR-SAAS-069 — actualización sin refresco manual | Opción 3 aceptada e implementada en PR #537, integrado en `main @ 7a44a0be618edf4ac7bfc702e171be1e2e6ab0b4`; la CI post-merge sigue pendiente al corte de esta actualización. | Después de CI post-merge `SUCCESS`, ejecutar Gate C read-only y Gate D dirigido solo a `micafe-pos-staging`; observar convergencia y revalidar los casos afectados de F/G/H. La revalidación server-authoritative permanece obligatoria. |
+| ADR-SAAS-068 — venta en efectivo sin turno | Opción 2 y su límite fueron aprobados explícitamente el 2026-10-10: efectivo sin turno no entra al arqueo/cierre de turno y se revisa por venta/fecha. | Decisión de arquitectura resuelta. Implementar y certificar el contrato en una PR de E2.2 antes de Gate I; el flujo actual no cambia hasta integrar y pasar sus gates. |
+| ADR-SAAS-069 — actualización sin refresco manual | Opción 3 aceptada e implementada en PR #537, integrado en `main @ 7a44a0be618edf4ac7bfc702e171be1e2e6ab0b4`; la CI post-merge run `38110437457` terminó `success` sobre ese SHA. | Ejecutar Gate C read-only y, solo si pasa, Gate D dirigido a `micafe-pos-staging`; observar convergencia y revalidar los casos afectados de F/G/H. La revalidación server-authoritative permanece obligatoria. |
 | Usuarios operativos reales | El responsable confirma que Diana creará las cuentas reales y asignará los roles; no se requiere recibir ahora una lista de vendedores. | Gate I — Diana administrará usuarios/roles después del alta; no reutilizar vendedores sintéticos. |
 | Catálogo digital aprobado | Hay 110 referencias en imágenes; los precios impresos son precios de venta. El responsable pide importar esos precios con una tarifa única por presentación y dejar el stock inicial en cero. La transcripción aún requiere revisión de nombres y factores de empaque; no hay matriz de precios por comprador. | Gate I — segunda revisión y aprobación de Diana antes de cargar. La carga real permanece bloqueada hasta autorizar el entorno y completar preflight. |
 | Costos de compra | Se ingresarán después desde la operación de Bodega, mediante compras con costos reales por unidad; no inventar costos durante importación. | Antes de habilitar venta/stock: registrar compras reales para establecer existencias y costo. Stock cero impide confirmar ventas sin existencia. |
@@ -57,11 +57,13 @@ cliente ni inventario; tampoco inicia producción.
 
 La implementación de ADR-SAAS-069 ya está integrada por PR #537 en
 `main @ 7a44a0be618edf4ac7bfc702e171be1e2e6ab0b4`; no se ha desplegado a
-staging. Tras la CI post-merge, el siguiente paso es un Gate C read-only contra
+staging. La CI post-merge terminó `success`; el siguiente paso es un Gate C read-only contra
 el SHA vivo, seguido —solo si `PREFLIGHT = PASS`— de Gate D dirigido a
 `micafe-pos-staging`. La sincronización debe medirse allí y los escenarios
 afectados de F/G/H deben volver a certificarse. La venta sin turno no se cambia
-hasta aceptar expresamente el límite de conciliación de ADR-SAAS-068.
+hasta implementar el contrato aceptado de ADR-SAAS-068 Opción 2 en una PR
+separada y superar sus validaciones; esa implementación y certificación son
+requisito antes de Gate I.
 
 Gate I permanece `BLOCKED` para cualquier Bootstrap, Activation, persistencia
 de oferta, alta de usuarios reales, carga de catálogo/stock real, tráfico o
@@ -87,8 +89,9 @@ abra una sesión POS/Backoffice para este preflight documental.
 
 ## Actualización de estado — 2026-10-10 (Bogotá)
 
-- PR #537 quedó integrado en `main @ 7a44a0be618edf4ac7bfc702e171be1e2e6ab0b4` a las `2026-10-10 23:04:50` Bogotá; sus checks previos al merge pasaron. La CI post-merge es el run [38110437457](https://github.com/Glemynart/micafe-pos/actions/runs/38110437457) y estaba `in_progress` a las `23:08` Bogotá.
+- PR #537 quedó integrado en `main @ 7a44a0be618edf4ac7bfc702e171be1e2e6ab0b4` a las `2026-10-10 23:04:50` Bogotá; sus checks previos al merge pasaron. La CI post-merge, run [38110437457](https://github.com/Glemynart/micafe-pos/actions/runs/38110437457), terminó `success` sobre ese SHA a las `2026-10-11T04:28:44Z`.
 - No se desplegó el cambio a `micafe-pos-staging` ni se hicieron escrituras de tenant, Auth, Firestore, inventario o producción. Gate C/D y la revalidación F/G/H siguen pendientes.
 - La creación de usuarios operativos y asignación de roles queda a cargo de Diana; no hace falta recibir ahora una lista de vendedores.
 - La carga de catálogo con 110 precios de venta y stock cero permanece pendiente de aprobación de Diana y del preflight/autorización de Gate I. El costo se ingresará luego con compras reales; con stock cero no se podrán confirmar ventas.
 - El número de WhatsApp solo es necesario si se usa ese canal externo para entregar la credencial temporal inicial. WhatsApp no es una integración de notificaciones operativas de la aplicación.
+- El responsable aprobó la Opción 2 de ADR-SAAS-068 y aceptó que efectivo sin turno no se concilia en el cierre de turno, sino por venta y fecha. La aprobación no cambia código ni autoriza deploy o escrituras remotas.

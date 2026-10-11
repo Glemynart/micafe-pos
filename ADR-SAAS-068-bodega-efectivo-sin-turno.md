@@ -2,15 +2,17 @@
 
 ## Estado
 
-**PROPUESTO — pendiente de aprobación explícita del responsable.**
+**ACEPTADO — Opción 2 aprobada explícitamente por el responsable.**
 
 - **Fecha de propuesta:** 2026-10-10.
+- **Fecha de aceptación:** 2026-10-10.
 - **Goal:** `G-SAAS-02` → `M2` → `E2.2`.
 - **Decisor:** responsable del proyecto. **Recomendación técnica:** Lead Engineer.
 - **Relacionados:** ADR-SAAS-041, ADR-SAAS-042, ADR-SAAS-062 y la arquitectura
   server-authoritative R1.
-- **Límite:** esta propuesta no cambia código, no sustituye por sí sola ADRs
-  aceptados y no autoriza staging, producción ni cambios de datos.
+- **Límite:** la aceptación autoriza implementar únicamente la Opción 2 en una
+  PR trazable de E2.2. No autoriza por sí sola deploy, escrituras de datos,
+  cambios en staging/producción ni una caja compartida diaria.
 
 ## Contexto
 
@@ -114,23 +116,23 @@ del turno individual de los vendedores.
   reportes, recuperación e invariantes de idempotencia. Amplía el MVP y requiere
   un diseño y estimación separados.
 
-## Recomendación
+## Decisión
 
-Se recomienda la **Opción 2**, condicionada a que el responsable acepte
-explícitamente que una venta sin turno no participa en el arqueo/cierre de un
-turno. Es el ajuste mínimo al flujo confirmado por el responsable y puede
-conservar la autoridad de la callable, el ledger de la cuenta y la auditoría
-por venta sin introducir una segunda autoridad de caja. La interfaz de
-administración debe hacer visible la diferencia entre “venta vinculada a turno”
-y “venta en efectivo sin turno”; no debe presentarse esta última como
-conciliación de cierre.
+El responsable aprobó explícitamente la **Opción 2** y su límite de control de
+caja: una venta en efectivo sin turno no participa en el arqueo/cierre de un
+turno y administración la revisará por venta y fecha. Es el ajuste mínimo al
+flujo solicitado y puede conservar la autoridad de la callable, el ledger de
+la cuenta y la auditoría por venta sin introducir una segunda autoridad de
+caja. La interfaz de administración debe hacer visible la diferencia entre
+“venta vinculada a turno” y “venta en efectivo sin turno”; no debe presentar
+esta última como conciliada por un cierre de turno.
 
 Si el cliente exige una declaración formal de efectivo contado y diferencia
 diaria para esas ventas, la Opción 2 no basta; debe seleccionarse la Opción 3
 mediante un alcance y ADR aprobados antes de implementar. No se debe simular el
 cierre creando un turno oculto ni atribuir la venta al turno de otra persona.
 
-## Efectos esperados si se aprueba la Opción 2
+## Contrato de implementación aprobado
 
 - Extender el envelope cerrado de `confirmarVentaBodegaV1` para aceptar
   `montoRecibidoCOP` únicamente si `metodoPago === "efectivo"`; el servidor
@@ -155,15 +157,12 @@ cierre creando un turno oculto ni atribuir la venta al turno de otra persona.
   ventas ya confirmadas ni se borran movimientos financieros/inventario; los
   documentos creados bajo este contrato conservan sus snapshots.
 
-## Gates y decisión requerida
+## Gates, alcance y registro de aprobación
 
-La aceptación de esta propuesta permitiría implementar solo la Opción aprobada
-en una PR separada. Antes de aceptar deben estar claros el impacto en el cierre
-de caja, el reporte de ventas no asociadas a turno y el valor recibido/cambio.
-No despliega, no crea tenants o vendedores reales y no autoriza cambios de
-staging o producción.
-
-**Decisión solicitada:** aprobar la Opción 2 con el límite de arqueo descrito,
-rechazarla y mantener la Opción 1, o indicar que se requiere diseñar la Opción
-3. Hasta esa decisión, el ADR permanece `PROPUESTO` y el comportamiento actual
-no cambia.
+La decisión requerida quedó resuelta: el responsable respondió “Sí, apruebo la
+opción 2 y ese límite” el 2026-10-10. La implementación sigue pendiente y debe
+ser una PR separada, con las pruebas de autoridad, idempotencia, saldo/ledger,
+turno opcional y reportes descritas arriba. El orden de gates vigente en el
+Goal no cambia; Gate I no puede comenzar hasta integrar y certificar el
+comportamiento requerido. La aceptación no altera el flujo desplegado, no crea
+tenants o vendedores reales y no autoriza cambios remotos.
