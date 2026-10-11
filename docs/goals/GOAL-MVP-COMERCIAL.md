@@ -1205,6 +1205,27 @@ datos reales. La CI post-merge de PR #547 (`38144529463`) terminó `success`,
 pero sus pruebas E2E de solicitud, aprobación y venta corrieron en Emulator y
 no sustituyen la validación autenticada de compras Bodega en staging.
 
+### Hallazgo de runtime — 2026-10-11 — índices de compras en staging
+
+La sesión admin autenticada en el preview asociado al HEAD de PR #548 cargó el
+panel Bodega. La ruta `/admin/compras` quedó en su indicador de carga; los logs
+del navegador registraron `failed-precondition` por índices compuestos
+ausentes en `compras` y `cuentas_bancarias`. El código del commit del preview
+ruta BODEGA_MVP1 por `registrarCompraBodegaV1`, pero no fue posible completar
+una compra autenticada ni verificar el efecto de Rules desde esa pantalla.
+
+Una lectura read-only de `micafe-pos-staging` encontró 7 índices `READY` de 50
+declarados en `firestore.indexes.json`; 43 están ausentes y no hay índices
+remotos fuera del manifiesto. Cuatro ausencias corresponden a las consultas de
+compras/cuentas bancarias del flujo administrativo. No se desplegaron índices
+ni Rules y no se escribieron datos. La evidencia y los cuatro campos exactos
+están en [`Gate D — preflight de índices Bodega`](evidence/G-SAAS-02-E2-2-GATE-D-INDEX-PREFLIGHT-2026-10-11.md).
+
+El preflight es add-only y limitado a esos cuatro índices, pero su despliegue
+requiere autorización separada: la aprobación condicional anterior cubre solo
+`firestore:rules`. No ejecutar el deploy completo del manifiesto (43 índices)
+como sustituto del alcance propuesto.
+
 ### Checkpoint — 2026-10-10 (Bogotá) — PR #537 integrado / sincronización viva
 
 PR #537 (`feat: Bodega live refresh signals`) quedó `MERGED` en `main` mediante
