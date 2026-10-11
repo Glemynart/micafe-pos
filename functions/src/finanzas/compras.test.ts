@@ -35,6 +35,7 @@ class Collection {
 class Transaction {
   private readonly creates: Array<[Ref, Data]> = [];
   private readonly updates: Array<[Ref, Data]> = [];
+  private readonly sets: Array<[Ref, Data, boolean]> = [];
   constructor(private readonly db: FakeFirestore) {}
   async get(ref: Ref | Query): Promise<Snapshot & { size?: number; docs?: Snapshot[] }> {
     if (ref instanceof Query) {
@@ -57,9 +58,17 @@ class Transaction {
     if (!this.db.docs.has(ref.path) && !this.creates.some(([pending]) => pending.path === ref.path)) throw new Error("not-found");
     this.updates.push([ref, data]);
   }
+  set(ref: Ref, data: Data, options: { merge?: boolean } = {}) { this.sets.push([ref, data, options.merge === true]); }
   commit() {
     for (const [ref, data] of this.creates) this.db.docs.set(ref.path, data);
     for (const [ref, data] of this.updates) this.db.docs.set(ref.path, { ...this.db.docs.get(ref.path), ...data });
+    for (const [ref, data, merge] of this.sets) {
+      const current = this.db.docs.get(ref.path) ?? {};
+      const next = merge ? { ...current } : {};
+      for (const [key, value] of Object.entries(data)) next[key] = value && typeof value === "object" && value.constructor?.name === "NumericIncrementTransform"
+        ? Number(current[key] ?? 0) + Number((value as { operand: number }).operand) : value;
+      this.db.docs.set(ref.path, next);
+    }
   }
 }
 
@@ -126,6 +135,7 @@ test("P0-12: confirma compra con snapshots del catálogo, inventario y costo en 
   assert.equal(db.docs.get("productos/cafe")?.stock, 4);
   assert.equal(db.docs.get("productos/cafe")?.costo, 300);
   assert.equal(db.docs.get(`movimientos_inventario/compra:${result.compraId}:producto:cafe:0`)?.referenciaId, result.compraId);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/disponibilidad`)?.version, 1);
   assert.equal([...db.docs.keys()].filter(key => key.startsWith("transacciones_financieras/")).length, 0);
 });
 

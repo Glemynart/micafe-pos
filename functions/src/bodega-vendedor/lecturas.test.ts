@@ -39,14 +39,17 @@ test("venta Bodega materializada por U3-C aparece únicamente en las ventas del 
       };
     }
     async runTransaction<T>(work: (tx: any) => Promise<T>) {
-      const writes: Array<["create" | "update", any, any]> = [];
+      const writes: Array<["create" | "update" | "set", any, any, boolean?]> = [];
       const tx = {
         get: async (ref: any) => ref instanceof Query ? ref.get() : ({ exists: this.docs.has(ref.path), id: ref.id, data: () => this.docs.get(ref.path) }),
         create: (ref: any, data: any) => writes.push(["create", ref, structuredClone(data)]),
         update: (ref: any, data: any) => writes.push(["update", ref, structuredClone(data)]),
+        set: (ref: any, data: any, options?: { merge?: boolean }) => writes.push(["set", ref, data, options?.merge]),
       };
       const result = await work(tx);
-      for (const [kind, ref, data] of writes) this.docs.set(ref.path, kind === "update" ? { ...this.docs.get(ref.path), ...data } : data);
+      for (const [kind, ref, data, merge] of writes) {
+        this.docs.set(ref.path, kind === "update" || (kind === "set" && merge) ? { ...this.docs.get(ref.path), ...data } : data);
+      }
       return result;
     }
   })();

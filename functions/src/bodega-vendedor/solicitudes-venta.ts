@@ -11,6 +11,7 @@ import { revalidarAutoridadVentaBodegaEnTransaccion } from "./ventas-authority";
 import { resolverVentaBodegaEnTransaccion } from "./ventas-resolution";
 import { normalizarComandoConfirmacionVentaBodega } from "./ventas-contract";
 import { MAX_BODEGA_REFERENCE_ID_LENGTH } from "./identificadores";
+import { marcarSenalSolicitudesAdminBodega, marcarSenalSolicitudesVendedorBodega } from "./live-signals";
 
 const COLLECTION = "solicitudes_venta_bodega";
 const EVENTOS = "eventos_operativos";
@@ -216,6 +217,8 @@ export async function ejecutarCrearSolicitudVentaBodegaV1(db: any, contexto: Con
       actualizadoEn: FieldValue.serverTimestamp(),
       ultimoIntentoEn: null,
     });
+    marcarSenalSolicitudesAdminBodega(tx, firestore, empresaId);
+    marcarSenalSolicitudesVendedorBodega(tx, firestore, empresaId, actorUid);
     return { commandId: input.commandId, ...publicSolicitud(solicitudId, {
       ...requestData, creadaEn: createdAt, actualizadaEn: createdAt,
     }, createdAt.toMillis(), { id: commercial.cliente.id, nombre: commercial.cliente.nombre }) };
@@ -238,14 +241,20 @@ export async function ejecutarResolverSolicitudVentaBodegaV1(db: any, contexto: 
       catch (error) { if (!esCambioComercialNoVigente(error)) throw error; current = null; }
       if (current === null || current.huellaComercial !== request.huellaComercial) {
         tx.update(ref, { estado: "INVALIDADA", motivoInvalidacion: "CATALOGO_CAMBIADO", actualizadaEn: FieldValue.serverTimestamp() });
+        marcarSenalSolicitudesAdminBodega(tx, firestore, empresaId);
+        marcarSenalSolicitudesVendedorBodega(tx, firestore, empresaId, request.solicitanteUid);
         return { commandId: input.commandId, solicitudId: request.solicitudId, estado: "INVALIDADA" };
       }
       const expiraEn = Timestamp.fromMillis(now() + REGION_TTL_MS);
       const aprobacion = { actorUid, revision: request.revision, totalCOP: request.totalCOP, huellaComercial: request.huellaComercial, expiraEn };
       tx.update(ref, { estado: "APROBADA", aprobacion, actualizadaEn: FieldValue.serverTimestamp() });
+      marcarSenalSolicitudesAdminBodega(tx, firestore, empresaId);
+      marcarSenalSolicitudesVendedorBodega(tx, firestore, empresaId, request.solicitanteUid);
       return { commandId: input.commandId, solicitudId: request.solicitudId, estado: "APROBADA", revision: request.revision, expiraEn };
     }
     tx.update(ref, { estado: "RECHAZADA", rechazo: { actorUid, revision: request.revision }, actualizadaEn: FieldValue.serverTimestamp() });
+    marcarSenalSolicitudesAdminBodega(tx, firestore, empresaId);
+    marcarSenalSolicitudesVendedorBodega(tx, firestore, empresaId, request.solicitanteUid);
     return { commandId: input.commandId, solicitudId: request.solicitudId, estado: "RECHAZADA" };
   });
 }
@@ -262,6 +271,8 @@ export async function ejecutarCancelarSolicitudVentaBodegaV1(db: any, contexto: 
     if (request.revision !== command.payload.revision || !["PENDIENTE_APROBACION", "APROBADA"].includes(request.estado)
       || (request.estado === "APROBADA" && (expiresAtMillis(request.aprobacion?.expiraEn) ?? 0) <= now())) fail("failed-precondition", "SOLICITUD_NO_CANCELABLE");
     tx.update(ref, { estado: "CANCELADA", cancelacion: { actorUid, revision: request.revision }, actualizadaEn: FieldValue.serverTimestamp() });
+    marcarSenalSolicitudesAdminBodega(tx, firestore, empresaId);
+    marcarSenalSolicitudesVendedorBodega(tx, firestore, empresaId, request.solicitanteUid);
     return { commandId: input.commandId, solicitudId: request.solicitudId, estado: "CANCELADA" };
   });
 }

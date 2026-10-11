@@ -10,6 +10,7 @@ import {
 } from "../bodega/operational-core";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 import { aplicarMovimientosInventarioEnTransaccion, type ArticuloTipo } from "./ledger";
+import { marcarSenalDisponibilidadBodega } from "../bodega-vendedor/live-signals";
 
 const REGION = "us-central1";
 const TIPOS_ARTICULO = ["producto", "insumo"] as const;
@@ -219,6 +220,7 @@ async function efectoCrearArticulo(tx: any, db: any, empresaId: string, actorUid
     empresaId, actorUid, actorNombre: actor, tipo, id, nombre, unidad, espacioId,
     cantidad: stock, costoUnitario: (data.costo as number | undefined) ?? 0, commandId: input.commandId,
   });
+  if (tipo === "producto") marcarSenalDisponibilidadBodega(tx, db, empresaId);
   return { commandId: input.commandId, articuloTipo: tipo, articuloId: id, movimientoId: movimiento?.id ?? null };
 }
 
@@ -282,6 +284,7 @@ async function efectoActualizarArticulo(tx: any, db: any, empresaId: string, act
   if (Object.keys(metadata).length > 0) {
     tx.update(ref, { ...metadata, actualizadoEn: FieldValue.serverTimestamp() });
   }
+  if (tipo === "producto" && (delta !== 0 || Object.keys(metadata).length > 0)) marcarSenalDisponibilidadBodega(tx, db, empresaId);
   return { commandId: input.commandId, articuloTipo: tipo, articuloId: id, movimientoId };
 }
 

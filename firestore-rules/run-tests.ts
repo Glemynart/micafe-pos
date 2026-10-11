@@ -4,3 +4,4 @@ import "./role-invariants.test";
 import "./inventory-kardex.test";
 import "./reservas-agendas.test";
 import "./global-platform.test";
+import "./bodega-live-signals.test";

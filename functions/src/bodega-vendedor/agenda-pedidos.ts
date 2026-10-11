@@ -9,6 +9,7 @@ import {
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 import { revalidarAutoridadVentaBodegaEnTransaccion } from "./ventas-authority";
 import { resolverVentaBodegaEnTransaccion } from "./ventas-resolution";
+import { marcarSenalDisponibilidadBodega, marcarSenalSolicitudesAdminBodega, marcarSenalSolicitudesVendedorBodega } from "./live-signals";
 
 const AGENDA = "agenda_pedidos_bodega";
 const RESERVAS = "reservas_stock_bodega";
@@ -313,6 +314,7 @@ export async function ejecutarResolverProgramacionPedidoBodegaV1(db: any, contex
       });
       tx.update(hold.productRef, { stockReservado: (hold.productData.stockReservado ?? 0) + hold.quantity });
     }
+    marcarSenalDisponibilidadBodega(tx, firestore, empresaId);
     const stockReservadoUnidadBase = holds.reduce((sum, hold) => sum + hold.quantity, 0);
     const reservaIds = holds.map(hold => hold.ref.id);
     tx.update(ref, {
@@ -370,18 +372,28 @@ export async function ejecutarCancelarProgramacionPedidoBodegaV1(db: any, contex
       const saleRequest = await tx.get(saleRequestRef);
       saleRequestData = saleRequest.data() as Record<string, any> | undefined;
     }
+    let releasedStock = false;
     for (const hold of holds) {
       if (hold.holdData.estado === "ACTIVA") {
         const stockReserved = hold.productData.stockReservado ?? 0;
         if (!Number.isSafeInteger(stockReserved) || stockReserved < hold.quantity) fail("failed-precondition", "AGENDA_RESERVA_INCONSISTENTE");
         tx.update(hold.productRef, { stockReservado: stockReserved - hold.quantity });
         tx.update(hold.holdRef, { estado: "LIBERADA", actualizadaEn: FieldValue.serverTimestamp(), liberadaPor: actorUid });
+        releasedStock = true;
       }
     }
+    if (releasedStock) marcarSenalDisponibilidadBodega(tx, firestore, empresaId);
+    let requestCanceled = false;
     if (saleRequestRef && saleRequestData) {
       if (saleRequestData.empresaId === empresaId && ["PENDIENTE_APROBACION", "APROBADA"].includes(saleRequestData.estado)) {
+        if (!text(saleRequestData.solicitanteUid)) fail("failed-precondition", "AGENDA_RESERVA_INCONSISTENTE");
         tx.update(saleRequestRef, { estado: "CANCELADA", motivoCancelacion: "AGENDA_CANCELADA", actualizadaEn: FieldValue.serverTimestamp() });
+        requestCanceled = true;
       }
+    }
+    if (requestCanceled) {
+      marcarSenalSolicitudesAdminBodega(tx, firestore, empresaId);
+      marcarSenalSolicitudesVendedorBodega(tx, firestore, empresaId, saleRequestData!.solicitanteUid);
     }
     tx.update(ref, { estado: "CANCELADA", revision: data.revision + 1, cancelacion: { actorUid }, actualizadaEn: FieldValue.serverTimestamp() });
     return { commandId: input.commandId, programacionId: payload.programacionId, estado: "CANCELADA" };
@@ -461,6 +473,8 @@ export async function ejecutarConvertirProgramacionPedidoBodegaV1(db: any, conte
       reservaIds: data.reservaIds ?? [],
       creadaEn: FieldValue.serverTimestamp(), actualizadaEn: FieldValue.serverTimestamp(),
     });
+    marcarSenalSolicitudesAdminBodega(tx, firestore, empresaId);
+    marcarSenalSolicitudesVendedorBodega(tx, firestore, empresaId, actorUid);
     tx.update(ref, { estado: "CONVERTIDA_A_SOLICITUD", revision: data.revision + 1, solicitudId: requestId, convertidaEn: FieldValue.serverTimestamp(), actualizadaEn: FieldValue.serverTimestamp() });
     return { commandId: input.commandId, programacionId: payload.programacionId, solicitudId: requestId, estado: "CONVERTIDA_A_SOLICITUD" };
   });

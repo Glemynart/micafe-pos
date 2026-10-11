@@ -1,0 +1,109 @@
+import { doc, onSnapshot, type Unsubscribe } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+export type CanalSenalBodega = "disponibilidad" | "solicitudes_admin" | "solicitudes_vendedor";
+export type EstadoSenalBodega = { version: number | null; conectada: boolean };
+export type ControlSuscripcionSenalBodega = { reconectar: () => void; cerrar: () => void };
+
+export function crearSuscripcionRecuperableSenalBodega(
+  escuchar: (onState: (state: EstadoSenalBodega) => void, onError: () => void) => Unsubscribe,
+  callback: (state: EstadoSenalBodega) => void,
+): ControlSuscripcionSenalBodega {
+  let unsubscribe: Unsubscribe | null = null;
+  let failed = false;
+  let closed = false;
+
+  const start = () => {
+    failed = false;
+    unsubscribe = escuchar(
+      state => { if (!closed) callback(state); },
+      () => {
+        if (closed) return;
+        failed = true;
+        callback({ version: null, conectada: false });
+      },
+    );
+  };
+
+  start();
+  return {
+    reconectar: () => {
+      if (closed || !failed) return;
+      unsubscribe?.();
+      start();
+    },
+    cerrar: () => {
+      if (closed) return;
+      closed = true;
+      unsubscribe?.();
+    },
+  };
+}
+
+export function crearDetectorCambioSenalBodega(): (state: EstadoSenalBodega) => boolean {
+  let connected: boolean | null = null;
+  let lastVersion: number | null = null;
+
+  return state => {
+    if (!state.conectada) {
+      connected = false;
+      return false;
+    }
+
+    const firstSnapshot = connected === null;
+    const reconnecting = connected === false;
+    const changed = lastVersion !== null && state.version !== lastVersion;
+    if (state.version !== null) lastVersion = state.version;
+    connected = true;
+    return firstSnapshot || reconnecting || changed;
+  };
+}
+
+const segmentoValido = (value: string) => value.trim().length > 0 && !value.includes("/");
+
+export function rutaSenalBodega(empresaId: string, canal: CanalSenalBodega, uid?: string): string {
+  if (!segmentoValido(empresaId)) throw new Error("Tenant inválido para escuchar señales Bodega.");
+  if (canal === "solicitudes_vendedor") {
+    if (!uid || !segmentoValido(uid)) throw new Error("La señal de solicitudes requiere el UID propio del vendedor.");
+    return `empresas/${empresaId}/bodega_senales_vendedor/${uid}`;
+  }
+  if (uid !== undefined || (canal !== "disponibilidad" && canal !== "solicitudes_admin")) {
+    throw new Error("Canal inválido para escuchar señales Bodega.");
+  }
+  return `empresas/${empresaId}/bodega_senales/${canal}`;
+}
+
+export function interpretarSnapshotSenalBodega(snapshot: any, empresaId: string): EstadoSenalBodega {
+  if (snapshot.metadata?.fromCache) {
+    const cached = snapshot.exists() ? snapshot.data() : null;
+    const cachedVersion = cached?.empresaId === empresaId && Number.isSafeInteger(cached.version) && cached.version >= 0
+      ? cached.version as number
+      : null;
+    return { version: cachedVersion, conectada: false };
+  }
+  if (!snapshot.exists()) return { version: 0, conectada: true };
+  const value = snapshot.data();
+  if (value?.empresaId !== empresaId || !Number.isSafeInteger(value.version) || value.version < 0) {
+    return { version: null, conectada: false };
+  }
+  return { version: value.version as number, conectada: true };
+}
+
+/** Listens only to an authorized technical signal; callers must re-read canonical state via callable. */
+export function suscribirSenalBodega(
+  empresaId: string,
+  canal: CanalSenalBodega,
+  uid: string | undefined,
+  callback: (state: EstadoSenalBodega) => void,
+): ControlSuscripcionSenalBodega {
+  const path = rutaSenalBodega(empresaId, canal, uid);
+  return crearSuscripcionRecuperableSenalBodega(
+    (onState, onError) => onSnapshot(
+      doc(db, path),
+      { includeMetadataChanges: true },
+      snapshot => onState(interpretarSnapshotSenalBodega(snapshot, empresaId)),
+      onError,
+    ),
+    callback,
+  );
+}

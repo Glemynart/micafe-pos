@@ -47,6 +47,7 @@ let fakeDb: FakeDb | null = null;
 class Tx {
   readonly creates: Array<[Ref, Data]> = [];
   readonly updates: Array<[Ref, Data]> = [];
+  readonly sets: Array<[Ref, Data, boolean]> = [];
   constructor(private readonly db: FakeDb) {}
   async get(ref: Ref | Query): Promise<any> { return ref instanceof Query ? ref.get() : new Snap(ref, this.db.docs.get(ref.path)); }
   create(ref: Ref, data: Data) {
@@ -58,14 +59,29 @@ class Tx {
     if (!this.db.docs.has(ref.path)) throw new Error("not-found");
     this.updates.push([ref, { ...data }]);
   }
+  set(ref: Ref, data: Data, options: { merge?: boolean } = {}) {
+    if (this.db.failSetPathPrefix && ref.path.startsWith(this.db.failSetPathPrefix)) throw new Error("injected-set-failure");
+    this.sets.push([ref, { ...data }, options.merge === true]);
+  }
   commit() {
     for (const [ref, data] of this.creates) this.db.docs.set(ref.path, data);
     for (const [ref, data] of this.updates) this.db.docs.set(ref.path, { ...this.db.docs.get(ref.path), ...data });
+    for (const [ref, data, merge] of this.sets) {
+      const current = this.db.docs.get(ref.path) ?? {};
+      const next = merge ? { ...current } : {};
+      for (const [key, value] of Object.entries(data)) {
+        next[key] = value && typeof value === "object" && value.constructor?.name === "NumericIncrementTransform"
+          ? Number(current[key] ?? 0) + Number((value as { operand: number }).operand)
+          : value;
+      }
+      this.db.docs.set(ref.path, next);
+    }
   }
 }
 class FakeDb {
   docs = new Map<string, Data>();
   failCreatePathPrefix: string | null = null;
+  failSetPathPrefix: string | null = null;
   collection(name: string) { fakeDb = this; return new Collection(name); }
   async runTransaction<T>(work: (tx: Tx) => Promise<T>) {
     const tx = new Tx(this);
@@ -118,6 +134,18 @@ test("crear solicitud resuelve cliente, presentaciones, factor, precio y total s
   assert.equal(db.docs.get("productos/producto-1")?.stock, 20);
 });
 
+test("crear solicitud invalida atómicamente la bandeja admin y la lista propia del vendedor", async () => {
+  const db = new FakeDb(); seed(db);
+  const result = await crear(db);
+
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/solicitudes_admin`)?.empresaId, empresaId);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/solicitudes_admin`)?.version, 1);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales_vendedor/${seller.actorUid}`)?.empresaId, empresaId);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales_vendedor/${seller.actorUid}`)?.uid, seller.actorUid);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales_vendedor/${seller.actorUid}`)?.version, 1);
+  assert.equal(db.docs.get(`${collectionPath}/${result.solicitudId}`)?.estado, "PENDIENTE_APROBACION");
+});
+
 test("crear solicitud escribe un evento push mínimo y tenant-aware en la misma transacción", async () => {
   const db = new FakeDb(); seed(db);
   const result = await crear(db);
@@ -143,6 +171,14 @@ test("fallar la escritura del evento revierte también la solicitud", async () =
   assert.equal([...db.docs.keys()].some(path => path.startsWith("eventos_operativos/")), false);
 });
 
+test("fallar la invalidación de solicitudes revierte de forma atómica la solicitud y el evento", async () => {
+  const db = new FakeDb(); seed(db); db.failSetPathPrefix = `empresas/${empresaId}/bodega_senales/`;
+  await assert.rejects(crear(db, seller, "crear-senal-fallida"));
+  assert.equal([...db.docs.keys()].some(path => path.startsWith(`${collectionPath}/`)), false);
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("eventos_operativos/")), false);
+  assert.equal([...db.docs.keys()].some(path => path.includes("bodega_senales")), false);
+});
+
 test("replay del mismo comando conserva una sola solicitud y un solo evento push", async () => {
   const db = new FakeDb(); seed(db);
   const first = await crear(db, seller, "crear-replay-push");
@@ -150,6 +186,8 @@ test("replay del mismo comando conserva una sola solicitud y un solo evento push
   assert.equal(replay.solicitudId, first.solicitudId);
   assert.equal([...db.docs.keys()].filter(path => path.startsWith(`${collectionPath}/`)).length, 1);
   assert.equal([...db.docs.keys()].filter(path => path.startsWith("eventos_operativos/")).length, 1);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/solicitudes_admin`)?.version, 1);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales_vendedor/${seller.actorUid}`)?.version, 1);
 });
 
 test("crear solicitud acepta referencias canónicas de presentación mayores a 160 caracteres", async () => {
@@ -202,6 +240,8 @@ test("approval admin binds immutable revision and expires exactly after 24 hours
   assert.equal(persisted.aprobacion.actorUid, admin.actorUid);
   assert.equal(persisted.aprobacion.revision, 1);
   assert.equal((persisted.aprobacion.expiraEn as Timestamp).toMillis(), now + 24 * 60 * 60 * 1000);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/solicitudes_admin`)?.version, 2);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales_vendedor/${seller.actorUid}`)?.version, 2);
   assert.equal(db.docs.get("productos/producto-1")?.stock, 20);
 });
 
@@ -234,6 +274,8 @@ test("precio cambiado antes de aprobación invalida la solicitud sin autorizar e
   assert.equal(result.estado, "INVALIDADA");
   assert.equal(db.docs.get(`${collectionPath}/${created.solicitudId}`)?.estado, "INVALIDADA");
   assert.equal(db.docs.get(`${collectionPath}/${created.solicitudId}`)?.aprobacion, undefined);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/solicitudes_admin`)?.version, 2);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales_vendedor/${seller.actorUid}`)?.version, 2);
 });
 
 test("cancelación es solo propia, solo antes de ejecución y conserva el historial", async () => {
@@ -242,6 +284,8 @@ test("cancelación es solo propia, solo antes de ejecución y conserva el histor
   const result = await ejecutarCancelarSolicitudVentaBodegaV1(db, seller, envelope("cancelar-propia", { solicitudId: created.solicitudId, revision: 1 })) as Data;
   assert.equal(result.estado, "CANCELADA");
   assert.equal(db.docs.get(`${collectionPath}/${created.solicitudId}`)?.estado, "CANCELADA");
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/solicitudes_admin`)?.version, 2);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales_vendedor/${seller.actorUid}`)?.version, 2);
   await assert.rejects(ejecutarCancelarSolicitudVentaBodegaV1(db, seller, envelope("cancelar-replay-distinto", { solicitudId: created.solicitudId, revision: 1 })), error => domain(error) === "SOLICITUD_NO_CANCELABLE");
 });
 

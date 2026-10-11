@@ -45,6 +45,7 @@ let fakeDb: FakeDb | null = null;
 class Tx {
   readonly creates: Array<[Ref, Data]> = [];
   readonly updates: Array<[Ref, Data]> = [];
+  readonly sets: Array<[Ref, Data, boolean]> = [];
   constructor(private readonly db: FakeDb) {}
   async get(ref: Ref | Query): Promise<any> { return ref instanceof Query ? ref.get() : new Snap(ref, this.db.docs.get(ref.path)); }
   create(ref: Ref, data: Data) {
@@ -55,9 +56,17 @@ class Tx {
     if (!this.db.docs.has(ref.path)) throw new Error("not-found");
     this.updates.push([ref, { ...data }]);
   }
+  set(ref: Ref, data: Data, options: { merge?: boolean } = {}) { this.sets.push([ref, { ...data }, options.merge === true]); }
   commit() {
     for (const [ref, data] of this.creates) this.db.docs.set(ref.path, data);
     for (const [ref, data] of this.updates) this.db.docs.set(ref.path, { ...this.db.docs.get(ref.path), ...data });
+    for (const [ref, data, merge] of this.sets) {
+      const current = this.db.docs.get(ref.path) ?? {};
+      const next = merge ? { ...current } : {};
+      for (const [key, value] of Object.entries(data)) next[key] = value && typeof value === "object" && value.constructor?.name === "NumericIncrementTransform"
+        ? Number(current[key] ?? 0) + Number((value as { operand: number }).operand) : value;
+      this.db.docs.set(ref.path, next);
+    }
   }
 }
 class FakeDb {
@@ -136,6 +145,7 @@ test("ADR-064: aceptar agenda reserva unidades base sin descontar stock físico 
   assert.equal((result.reservaExpiraEn as Timestamp).toMillis(), Date.parse("2026-10-09T05:00:00.000Z"));
   assert.equal(db.docs.get("productos/producto-1")?.stock, 20);
   assert.equal(db.docs.get("productos/producto-1")?.stockReservado, 10);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/disponibilidad`)?.version, 1);
   assert.equal(schedule.estado, "RESERVADA");
   assert.equal(schedule.reservaIds.length, 1);
   assert.equal([...db.docs.values()].filter(doc => doc.estado === "ACTIVA" && typeof doc.cantidadUnidadBase === "number").length, 1);
@@ -165,6 +175,7 @@ test("ADR-064: cancelar reserva propia administrativa libera proyección, sin bo
   assert.equal(result.estado, "CANCELADA");
   assert.equal(db.docs.get("productos/producto-1")?.stock, 20);
   assert.equal(db.docs.get("productos/producto-1")?.stockReservado, 0);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/disponibilidad`)?.version, 2);
   const reservation = [...db.docs.values()].find(doc => doc.programacionId === created.programacionId && doc.cantidadUnidadBase === 10);
   assert.equal(reservation?.estado, "LIBERADA");
   assert.equal(db.docs.get(scheduleRef)?.estado, "CANCELADA");

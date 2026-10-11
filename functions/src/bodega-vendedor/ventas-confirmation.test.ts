@@ -14,11 +14,23 @@ class Query { constructor(private db: FakeDb, private name: string, private filt
 class Collection { constructor(private db: FakeDb, private name: string) {} doc(id: string) { return new Ref(`${this.name}/${id}`, this.db); } where(field: string, _op: string, value: unknown) { return new Query(this.db, this.name, [[field, value]]); } }
 class Tx {
   creates: Array<[Ref, Data]> = []; updates: Array<[Ref, Data]> = [];
+  sets: Array<[Ref, Data, boolean]> = [];
   constructor(private db: FakeDb) {}
   async get(ref: Ref | Query): Promise<any> { return ref instanceof Query ? ref.get() : new Snap(ref, this.db.docs.get(ref.path)); }
   create(ref: Ref, data: Data) { if (this.db.docs.has(ref.path) || this.creates.some(([r]) => r.path === ref.path)) throw new Error("already-exists"); this.creates.push([ref, structuredClone(data)]); }
   update(ref: Ref, data: Data) { if (!this.db.docs.has(ref.path)) throw new Error("not-found"); this.updates.push([ref, structuredClone(data)]); }
-  commit() { for (const [r, d] of this.creates) this.db.docs.set(r.path, d); for (const [r, d] of this.updates) this.db.docs.set(r.path, { ...this.db.docs.get(r.path), ...d }); }
+  set(ref: Ref, data: Data, options: { merge?: boolean } = {}) { this.sets.push([ref, data, options.merge === true]); }
+  commit() {
+    for (const [r, d] of this.creates) this.db.docs.set(r.path, d);
+    for (const [r, d] of this.updates) this.db.docs.set(r.path, { ...this.db.docs.get(r.path), ...d });
+    for (const [r, d, merge] of this.sets) {
+      const current = this.db.docs.get(r.path) ?? {};
+      const next = merge ? { ...current } : {};
+      for (const [key, value] of Object.entries(d)) next[key] = value && typeof value === "object" && value.constructor?.name === "NumericIncrementTransform"
+        ? Number(current[key] ?? 0) + Number((value as { operand: number }).operand) : value;
+      this.db.docs.set(r.path, next);
+    }
+  }
 }
 class FakeDb {
   docs = new Map<string, Data>(); collection(name: string) { return new Collection(this, name); }
@@ -81,6 +93,9 @@ test("U3-C: efectivo completa una venta Bodega con 48 unidades base, caja, turno
   assert.equal(venta.schemaVersion, "BODEGA_MVP1_V1"); assert.equal(venta.items[0].cantidadUnidadBase, 48); assert.equal(venta.estadoOperativo, "COMPLETO");
   assert.equal(venta.cajeroId, contexto.actorUid);
   assert.equal(db.docs.get(`empresas/${empresaId}/solicitudes_venta_bodega/solicitud-u3c`)?.estado, "EJECUTADA");
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/disponibilidad`)?.version, 1);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/solicitudes_admin`)?.version, 1);
+  assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales_vendedor/${contexto.actorUid}`)?.version, 1);
   assert.equal(db.docs.get("productos/producto-u3c")?.stock, 52);
   assert.equal(db.docs.get("cuentas_bancarias/caja-principal")?.saldo, 40000);
   const replay = await ejecutarConfirmarVentaBodegaV1(db, contexto, comando()) as any;

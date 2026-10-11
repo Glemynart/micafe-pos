@@ -15,7 +15,7 @@ const pepper = process.env.OPERATIONAL_PIN_PEPPER ?? "bodega-u4-u5-local-pepper"
 
 type Actor = { uid: string; codigo: string; rol: "vendedor" | "admin"; permisos: string[]; empresaId: string }
 type TenantFixture = {
-  key: "A" | "B" | "C" | "GENERAL"; empresaId: string; nombre: string; vendedor: Actor; admin: Actor
+  key: "A" | "B" | "C" | "D" | "GENERAL"; empresaId: string; nombre: string; vendedor: Actor; admin: Actor
   clienteId: string; clienteNombre: string; productoId: string; productoNombre: string; presentacionId: string; presentacionNombre: string
 }
 
@@ -33,6 +33,7 @@ function tenantFixture(key: TenantFixture["key"], vertical: "BODEGA_MVP1" | "GEN
 const tenantA = tenantFixture("A", "BODEGA_MVP1")
 const tenantB = tenantFixture("B", "BODEGA_MVP1")
 const tenantC = tenantFixture("C", "BODEGA_MVP1")
+const tenantD = tenantFixture("D", "BODEGA_MVP1")
 const tenantGeneral = tenantFixture("GENERAL", "GENERAL")
 let app: ReturnType<typeof initializeApp>
 
@@ -54,7 +55,7 @@ async function seedTenant(db: FirebaseFirestore.Firestore, auth: ReturnType<type
   }
   await db.collection("espacios").doc(`bodega-${tenant.key}-${runId}`).set({ empresaId: tenant.empresaId, nombre: `Espacio ${tenant.key}`, activo: true })
   await db.collection("categorias").doc(`abarrotes-${tenant.key}-${runId}`).set({ empresaId: tenant.empresaId, nombre: `Abarrotes ${tenant.key}`, activo: true })
-  await db.collection("clientes").doc(tenant.clienteId).set({ empresaId: tenant.empresaId, nombre: tenant.clienteNombre, cedula: `9000000${tenant.key === "A" ? "01" : tenant.key === "B" ? "02" : "03"}`, telefono: "3000000000", tipoDocumento: "NIT", activo: true })
+  await db.collection("clientes").doc(tenant.clienteId).set({ empresaId: tenant.empresaId, nombre: tenant.clienteNombre, cedula: `9000000${tenant.key === "A" ? "01" : tenant.key === "B" ? "02" : tenant.key === "C" ? "03" : "04"}`, telefono: "3000000000", tipoDocumento: "NIT", activo: true })
   await db.collection("productos").doc(tenant.productoId).set({ id: tenant.productoId, empresaId: tenant.empresaId, nombre: tenant.productoNombre, categoriaId: `abarrotes-${tenant.key}-${runId}`, espacioId: `bodega-${tenant.key}-${runId}`, unidad: "unidad", costo: 1000, stock: 20, stockMinimo: 2, secuenciaLedger: 1, activo: true })
   await db.collection("presentaciones_producto").doc(tenant.presentacionId).set({ id: tenant.presentacionId, empresaId: tenant.empresaId, productoId: tenant.productoId, nombre: tenant.presentacionNombre, factorUnidadBase: 2, precioCOP: 5000, activo: true })
   if (vertical === "BODEGA_MVP1") {
@@ -73,6 +74,7 @@ test.beforeAll(async () => {
   await seedTenant(db, auth, tenantA, "BODEGA_MVP1")
   await seedTenant(db, auth, tenantB, "BODEGA_MVP1")
   await seedTenant(db, auth, tenantC, "BODEGA_MVP1")
+  await seedTenant(db, auth, tenantD, "BODEGA_MVP1")
   await seedTenant(db, auth, tenantGeneral, "GENERAL")
 })
 test.afterAll(async () => { await deleteApp(app) })
@@ -307,6 +309,47 @@ test("el detalle del turno seleccionado refleja el snapshot de cierre en vivo", 
 test("administrador Bodega B solo consulta su propio catálogo", async ({ page }) => {
   await login(page, tenantB.admin, true); await expect(page).toHaveURL(/\/admin$/); await expect(page.getByRole("heading", { name: "Centro de operación" })).toBeVisible()
   await page.goto("/admin/catalogo"); await expect(page.getByRole("article").filter({ hasText: tenantB.productoNombre })).toBeVisible(); await expect(page.getByText(tenantA.productoNombre)).toHaveCount(0)
+})
+
+test("solicitudes y disponibilidad convergen sin refresco manual en vendedor y administración", async ({ page, browser }) => {
+  const adminContext = await browser.newContext()
+  const adminPage = await adminContext.newPage()
+  try {
+    await login(adminPage, tenantD.admin, true)
+    await adminPage.goto("/admin/solicitudes")
+    await expect(adminPage.getByRole("heading", { name: "Solicitudes de venta" })).toBeVisible()
+    await expect(adminPage.getByText("No hay solicitudes pendientes de revisar.")).toBeVisible()
+
+    await login(page, tenantD.vendedor)
+    await page.getByRole("button", { name: tenantD.productoNombre }).click()
+    await page.getByRole("button", { name: "Enviar solicitud" }).click()
+    await expect(page.getByRole("heading", { name: "Mis solicitudes" })).toBeVisible()
+    const sellerCard = page.getByRole("article").filter({ hasText: tenantD.clienteNombre })
+    await expect(sellerCard.getByText("PENDIENTE APROBACION", { exact: true })).toBeVisible()
+
+    const adminCard = adminPage.getByRole("article").filter({ hasText: tenantD.clienteNombre })
+    await expect(adminCard).toBeVisible({ timeout: 15_000 })
+    await expect(adminCard.getByText("PENDIENTE_APROBACION", { exact: true })).toBeVisible()
+    await adminCard.getByRole("button", { name: "Aprobar" }).click()
+    await expect(adminCard.getByText("APROBADA", { exact: true })).toBeVisible()
+    await expect(sellerCard.getByText("APROBADA", { exact: true })).toBeVisible({ timeout: 15_000 })
+
+    await page.getByRole("main").getByRole("button", { name: "Nueva" }).click()
+    const producto = page.getByRole("button", { name: tenantD.productoNombre })
+    await expect(producto).toContainText("Disponibles: 10")
+
+    await adminPage.goto("/admin/inventario")
+    const inventario = adminPage.getByRole("article").filter({ hasText: tenantD.productoNombre })
+    await inventario.getByLabel(`Nuevo stock ${tenantD.productoNombre}`).fill("14")
+    await inventario.getByRole("button", { name: "Ajustar" }).click()
+    await expect(producto).toContainText("Disponibles: 7", { timeout: 15_000 })
+
+    const db = getFirestore(app)
+    expect((await db.collection("ventas").where("empresaId", "==", tenantD.empresaId).get()).size).toBe(0)
+    expect((await db.collection("productos").doc(tenantD.productoId).get()).data()?.stock).toBe(14)
+  } finally {
+    await adminContext.close()
+  }
 })
 
 test("administrador Bodega puede registrar venta directa canónica sin solicitud propia", async ({ page }) => {
