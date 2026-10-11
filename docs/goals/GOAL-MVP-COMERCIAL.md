@@ -1146,6 +1146,22 @@ sigue sin ejecutar: el deploy de Functions requiere autorización operativa
 específica y el corte de Rules requiere completar su preflight exacto y contar
 con autorización separada.
 
+**Reconciliación posterior — Gate C Rules / ADR-SAAS-072:** la respuesta HTTP
+403 anterior se debía a que la consulta local no enviaba el proyecto de cuota;
+un GET posterior con `x-goog-user-project: micafe-pos-staging` permitió leer el
+release sin habilitar APIs ni cambiar IAM. El ruleset activo es
+`30df41d0-bd59-4c91-80ea-65576afd436b`, actualizado el
+`2026-10-02T06:06:09.78389Z`; su contenido coincide con las Rules anteriores a
+PR #537. Contra `main @ eb44c0593a22e5fbc9397424ad3d8c014b9523a1`, el delta
+revisado se limita a ADR-SAAS-069 (#537) y ADR-SAAS-072 (#544), 36 líneas
+añadidas y 2 retiradas. La UI de compras enruta Bodega a
+`registrarCompraBodegaV1`; la callable legacy no aparece en el snapshot remoto.
+El preflight del candidato Rules queda `PASS`, pero Gate D Rules no se ejecutó:
+la callable Bodega tampoco está desplegada, no se verificó la versión servida
+del cliente staging y el deploy requiere autorización operativa específica.
+La evidencia reproducible está en
+[`G-SAAS-02-E2-2-GATE-C-RULES-PREFLIGHT-ADR072-2026-10-11.md`](evidence/G-SAAS-02-E2-2-GATE-C-RULES-PREFLIGHT-ADR072-2026-10-11.md).
+
 ### Reconciliación Gate I — 2026-10-11
 
 El responsable confirma que producción será el destino para datos reales;
