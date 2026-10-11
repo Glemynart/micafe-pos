@@ -142,6 +142,7 @@ test("P0-12: confirma compra con snapshots del catálogo, inventario y costo en 
 
 test("Bodega: registra compra con la misma transacción y el nuevo tipo idempotente", async () => {
   const db = new FakeFirestore(); seed(db);
+  db.docs.set(`configuraciones/${empresaId}`, { vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory", "purchases"] } });
   const command = envelope("bodega-core", payload());
   const result = await ejecutarRegistrarCompraBodegaV1(db, contexto, command);
   const replay = await ejecutarRegistrarCompraBodegaV1(db, contexto, command);
@@ -153,6 +154,18 @@ test("Bodega: registra compra con la misma transacción y el nuevo tipo idempote
   assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/disponibilidad`)?.version, 1);
   assert.equal(recibos.length, 1);
   assert.equal(recibos[0][1].tipo, "registrarCompraBodegaV1");
+});
+
+test("Bodega: vuelve a validar vertical y módulo dentro de la transacción antes de escribir", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`configuraciones/${empresaId}`, { vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory"] } });
+  await assert.rejects(
+    ejecutarRegistrarCompraBodegaV1(db, contexto, envelope("bodega-disabled", payload())),
+    error => domain(error, "MODULO_NO_HABILITADO"),
+  );
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("compras/")), false);
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("movimientos_inventario/")), false);
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("operaciones_comandos/")), false);
 });
 
 test("P1-03: resuelve proveedor por empresaId + proveedorId y congela su snapshot", async () => {
