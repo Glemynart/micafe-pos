@@ -55,6 +55,8 @@ Relación con código:
 - `lib/compras-service.ts` consulta compras por espacio y fecha.
 - `app/(tenant)/admin/(authenticated)/compras/page.tsx` y el dashboard
   consultan compras por empresa y fecha.
+- `lib/finanzas-service.ts` consulta cuentas bancarias por empresa y ordena por
+  nombre.
 - La consulta compuesta por empresa/espacio/fecha fue observada en el log del
   preview durante la carga de la superficie Bodega.
 - El índice de cuentas bancarias fue observado en el log del preview.
