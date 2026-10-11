@@ -200,9 +200,11 @@ service cloud.firestore {
 
     match /compras/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
-      allow create: if puedeCrearEnTenant() && esAdmin();
+      // ADR-SAAS-072: Bodega registra compras solo por su callable canónica;
+      // los demás verticales conservan temporalmente la ruta legacy.
+      allow create: if !esBodegaMvp1() && puedeCrearEnTenant() && esAdmin();
       allow update: if false;
-      allow delete: if puedeEliminarEnTenant() && esAdmin();
+      allow delete: if !esBodegaMvp1() && puedeEliminarEnTenant() && esAdmin();
     }
     // El catalogo se escribe exclusivamente mediante las callables de
     // Proveedores; el cliente solo puede leer datos de su tenant.

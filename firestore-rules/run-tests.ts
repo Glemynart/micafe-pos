@@ -1,5 +1,6 @@
 import "./smoke.test";
 import "./tenant-core.test";
+import "./bodega-purchases.test";
 import "./role-invariants.test";
 import "./inventory-kardex.test";
 import "./reservas-agendas.test";
