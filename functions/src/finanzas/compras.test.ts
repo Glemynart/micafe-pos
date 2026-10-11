@@ -142,7 +142,7 @@ test("P0-12: confirma compra con snapshots del catálogo, inventario y costo en 
 
 test("Bodega: registra compra con la misma transacción y el nuevo tipo idempotente", async () => {
   const db = new FakeFirestore(); seed(db);
-  db.docs.set(`configuraciones/${empresaId}`, { vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory", "purchases"] } });
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory", "purchases"] } });
   const command = envelope("bodega-core", payload());
   const result = await ejecutarRegistrarCompraBodegaV1(db, contexto, command);
   const replay = await ejecutarRegistrarCompraBodegaV1(db, contexto, command);
@@ -158,7 +158,7 @@ test("Bodega: registra compra con la misma transacción y el nuevo tipo idempote
 
 test("Bodega: vuelve a validar vertical y módulo dentro de la transacción antes de escribir", async () => {
   const db = new FakeFirestore(); seed(db);
-  db.docs.set(`configuraciones/${empresaId}`, { vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory"] } });
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory"] } });
   await assert.rejects(
     ejecutarRegistrarCompraBodegaV1(db, contexto, envelope("bodega-disabled", payload())),
     error => domain(error, "MODULO_NO_HABILITADO"),
@@ -166,6 +166,28 @@ test("Bodega: vuelve a validar vertical y módulo dentro de la transacción ante
   assert.equal([...db.docs.keys()].some(path => path.startsWith("compras/")), false);
   assert.equal([...db.docs.keys()].some(path => path.startsWith("movimientos_inventario/")), false);
   assert.equal([...db.docs.keys()].some(path => path.startsWith("operaciones_comandos/")), false);
+});
+
+test("Bodega: rechaza configuración con empresaId distinto al tenant autorizado", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId: "empresa-ajena", vertical: "BODEGA_MVP1", modulos: { habilitados: ["purchases"] } });
+  await assert.rejects(
+    ejecutarRegistrarCompraBodegaV1(db, contexto, envelope("bodega-wrong-config-tenant", payload())),
+    error => domain(error, "CONFIGURACION_INVALIDA"),
+  );
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("compras/")), false);
+});
+
+test("Bodega: exige el permiso canónico purchases y no deja efectos parciales", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["purchases"] } });
+  db.docs.set(`membresias/${empresaId}_${contexto.actorUid}`, { empresaId, uid: contexto.actorUid, rol: contexto.rol, permisos: ["inventory"], estado: "activa", activo: true });
+  await assert.rejects(
+    ejecutarRegistrarCompraBodegaV1(db, contexto, envelope("bodega-no-permission", payload())),
+    error => domain(error, "ROLE_FORBIDDEN"),
+  );
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("compras/")), false);
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("movimientos_inventario/")), false);
 });
 
 test("P1-03: resuelve proveedor por empresaId + proveedorId y congela su snapshot", async () => {
