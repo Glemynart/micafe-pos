@@ -1062,9 +1062,31 @@ implementar la decisión aceptada de sincronización y revalidar la certificaci�
 afectada, faltan la aceptación contractual de Diana, datos legales/contacto
 verificados, usuarios reales y permisos aprobados, catálogo aprobado, conteo
 físico/costos y el entorno expresamente autorizado. No se creó/configuró un
-tenant real ni se modificaron staging o producción. Una vez integrado este
-checkpoint documental, el siguiente PR técnico esperado es implementar
-ADR-SAAS-069 y repetir las validaciones afectadas de Gate F/G/H.
+tenant real ni se modificaron staging o producción.
+
+### Checkpoint — 2026-10-10 (Bogotá) — PR #537 integrado / sincronización viva
+
+PR #537 (`feat: Bodega live refresh signals`) quedó `MERGED` en `main` mediante
+`7a44a0be618edf4ac7bfc702e171be1e2e6ab0b4` a las
+`2026-10-11T04:04:50Z` (`2026-10-10 23:04:50`, Bogotá). La auditoría fue `APROBADO PARA MERGE`; los checks del
+PR (`Tipos y pruebas`, Vercel y Vercel Preview Comments) terminaron `PASS` para
+el HEAD `d70e64a5875a23f40d67a2ca20e691902c25bad3`. La CI post-merge de `main`,
+run [`38110437457`](https://github.com/Glemynart/micafe-pos/actions/runs/38110437457),
+está `in_progress` al registrar este checkpoint; Gate D no se ejecuta hasta
+confirmar su resultado.
+
+El PR implementa ADR-SAAS-069 Opción 3: señales técnicas tenant-aware
+actualizadas dentro de transacciones canónicas, lectura restringida por Rules y
+reconsulta del estado de negocio mediante callables existentes. No incluye
+despliegue ni escrituras en staging o producción.
+
+El siguiente paso operativo es completar Gate C read-only para el SHA vivo de
+`main` y el delta exacto de Rules/Functions; si `PREFLIGHT = PASS`, ejecutar
+Gate D únicamente en `micafe-pos-staging`. Después se revalidarán los casos
+afectados de Gate F y se repetirá G/H. Gate I permanece `BLOCKED`: no hay
+Bootstrap/Activation autorizado hasta completar las precondiciones comerciales,
+legales, de catálogo y de entorno enumeradas en el preflight vigente. No se
+creó/configuró el tenant real ni se tocó producción.
 
 ### Checkpoint histórico — 2026-10-09 — PR #519 / ciclo E2E y competencia de stock en staging
 
