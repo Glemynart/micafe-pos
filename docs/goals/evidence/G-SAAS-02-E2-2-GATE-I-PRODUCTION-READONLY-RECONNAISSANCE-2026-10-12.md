@@ -27,7 +27,7 @@ autorización para desplegar o escribir en producción.
 | Storage Rules | El contenido activo de producción coincide con `storage.rules` de `main`; SHA-256 normalizado `fc837a77b952f3f2cf9e6eec24e7962eb0177a992f0776810d4798b5a1ee9f2b`. | Paridad observada; falta la atestación independiente del paquete integral de release. |
 | Cloud Functions | Se observaron 80 Functions activas, todas Node.js 22; los hashes de las superficies inspeccionadas se reconciliaron con el código actual. | Observación favorable, no sustituye la certificación de release ni smoke. |
 | Vercel | El despliegue productivo READY más reciente observado corresponde a `1c2f155653536b1fd8e1925db931e2354fa41f7d`, creado el `2026-10-06T14:52:13Z`, anterior a `main @ 702195d`. `vercel.json` mantiene deshabilitados los despliegues Git automáticos de `main`; no se encontró estado de despliegue para el SHA objetivo actual. | `BLOCKED`: no hay evidencia de que la aplicación servida corresponda al release candidato actual. |
-| Recuperación | Se observó un schedule de respaldo, 34 backups y ubicación `southamerica-east1`; PITR aparece deshabilitado. | `BLOCKED`: inventario no prueba una restauración ni rollback recuperable para el alta propuesta. |
+| Recuperación | Se observó un schedule de respaldo, 34 backups y ubicación `southamerica-east1`; PITR aparece deshabilitado. Existe un ensayo histórico aislado `VERIFIED` del 2026-08-15 (RPO 0,220 h; RTO 0,232 h), pero el backup usado expiró el 2026-09-19. | `BLOCKED`: falta una atestación de restore/rollback aislado asociada al release candidato y al alta propuesta; el ensayo histórico no sustituye esa evidencia vigente. |
 | Release evidence collector | La primera colección falló al consultar Rules porque la solicitud no llevaba proyecto de cuota. Un GET posterior, limitado a la solicitud y con `x-goog-user-project: micafe-pos`, leyó el release; no se modificó ADC, IAM ni configuración del proyecto. Siguen faltando atestaciones independientes de Rules/Storage, smoke y recuperación. | `COLLECTION_ERROR` inicial resuelto como problema de cuota de la consulta; el conjunto de evidencia sigue incompleto. |
 
 ## Auditoría read-only de dependencias productivas (2026-10-12)
@@ -64,9 +64,11 @@ de Compras en ese preview, no verifica el release productivo.
 
 Gate H queda cerrado para el alcance reusable de staging conforme a la evidencia
 integrada en #559. Gate I permanece bloqueado: el runtime productivo no está
-alineado en Firestore Rules ni en aplicación Vercel, la recuperación no ha
-demostrado un restore/rollback y el advisory crítico/altos de `saas-auth` requiere
-triage. Antes de cualquier alta real se requiere un release plan exacto,
+alineado en Firestore Rules ni en aplicación Vercel, y falta una atestación de
+restore/rollback aislado para el release candidato. El ensayo histórico aislado
+del 2026-08-15 sí quedó `VERIFIED`, pero usó un backup cuya retención venció el
+2026-09-19. El advisory crítico/altos de `saas-auth` requiere triage. Antes de
+cualquier alta real se requiere un release plan exacto,
 preflight repetible, cierre de la triage de seguridad, prueba de recuperación con
 evidencia, smoke autenticado y las aprobaciones operativas correspondientes. No
 se hicieron escrituras ni deploys en producción.
