@@ -74,6 +74,17 @@ America/Bogota).
 | Efectos canónicos | La lectura read-only, filtrada al proyecto y tenant, encontró 1 venta, 1 ingreso de ledger por `$5.000 COP` con `turnoId=null`, 1 movimiento de inventario `venta` por `-2` unidades base y 1 auditoría `confirmarVentaBodegaV1` con resultado `CONFIRMADO`. El saldo pasó de `3` a `1`. | PASS |
 | Estado visible | El vendedor mostró la venta confirmada y la solicitud ejecutada; Administración mostró la venta pagada, el efectivo recibido, el cambio y la etiqueta `efectivo sin turno`. | PASS |
 
+En una comprobación posterior de solo lectura del preview
+`cafeatrato-breh9pzs3-glemynarts-projects.vercel.app`, la pantalla **Mis ventas**
+mostró la venta `a6093d14-5825-4386-8097-d0caaa3d17ef` por `$5.000 COP`, pero
+renderizó `Recibido $ NaN · cambio $ NaN`. Esto no cambia la conciliación
+canónica ya observada (venta, efectivo recibido, cambio, ledger, inventario y
+auditoría), pero sí deja un defecto visible en el historial del vendedor. La
+causa aún no está confirmada y no se repitió la venta. Por tanto, el flujo
+transaccional de efectivo queda PASS, mientras la presentación del efectivo en
+**Mis ventas** queda `FAIL / pendiente de corrección`; no se debe declarar
+completo el cierre end-to-end de Gate G hasta reconciliar esa vista.
+
 No se abrió ni cerró un turno. No se repitió la confirmación ni se simuló una
 pérdida de respuesta después del commit; por tanto, el replay remoto sigue sin
 certificar. La escritura de stock fue solo el ajuste sintético descrito arriba;

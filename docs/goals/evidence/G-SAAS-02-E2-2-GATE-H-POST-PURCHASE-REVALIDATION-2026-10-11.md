@@ -2,13 +2,13 @@
 
 ## Dictamen
 
-`GATE_H_REVALIDATION = PASS` para las superficies de compra y venta afectadas
-por la revalidación Bodega. La certificación integral previa de Gate H se
-conserva; esta actualización vuelve a validar compra, disponibilidad, venta
-autorizada, efectivo sin turno, inventario y ledger tras ADR-SAAS-068/071/072.
-Gate I continúa bloqueado, entre otros motivos, porque la convergencia viva
-ADR-SAAS-069 sigue `NOT EXECUTED` en staging y falta preparar el tenant real;
-esta matriz no autoriza producción ni escrituras reales.
+`GATE_H_REVALIDATION = PARTIAL / NOT CLOSED`. La compra, las ventas y sus
+efectos canónicos de staging quedaron conciliados, pero la comprobación más
+reciente encontró que **Mis ventas** muestra `NaN` para efectivo recibido y
+cambio en ventas en efectivo. Ese defecto visible debe reconciliarse antes de
+declarar cerrado el recorrido end-to-end. Además, la convergencia viva
+ADR-SAAS-069 sigue `NOT EXECUTED` en staging. Gate I continúa bloqueado; esta
+matriz no autoriza producción ni escrituras reales.
 
 ## Identidad y base comprobada
 
@@ -49,6 +49,7 @@ esta matriz no autoriza producción ni escrituras reales.
 | Aviso push de solicitud | PASS limitado heredado | Se conserva la recepción sintética reportada por el responsable. Sonido y notificación nativa universal de Windows no son garantías. |
 | Bandeja/stock sin refresco manual | NOT EXECUTED | La matriz previa no certificó convergencia viva en staging; es un requisito pre-I y requiere su Gate C/D y validación propios. |
 | Efectivo sin turno (ADR-SAAS-068) | PASS — escenario staging observado | El 11-oct 21:37 Bogotá, la venta aprobada quedó `pagada` por `$5.000 COP`, recibió `$10.000`, calculó `$5.000` de cambio y guardó `turnoId=null`. La auditoría, un ingreso de ledger por el total y un movimiento `venta -2` quedaron asociados a esa venta; el saldo fue de 3 a 1 tras un ajuste sintético `+2` autorizado para preparar el escenario. Administración la muestra como `efectivo sin turno`, fuera del arqueo de turnos. Véase el anexo en [Gate G](G-SAAS-02-E2-2-GATE-G-POST-PURCHASE-REVALIDATION-2026-10-11.md). |
+| Historial vendedor — recibido/cambio en efectivo | FAIL / pendiente de corrección | En el preview `cafeatrato-breh9pzs3`, **Mis ventas** lista la venta `a6093d14-5825-4386-8097-d0caaa3d17ef` por `$5.000 COP`, pero renderiza `Recibido $ NaN · cambio $ NaN`. La conciliación canónica del servidor conserva los valores correctos; la causa del desfase entre respuesta/DTO y UI no está confirmada. No se repitió la venta. |
 | Replay remoto después de pérdida de respuesta | NOT EXECUTED | La confirmación de efectivo fue observada una sola vez. No se simuló una respuesta perdida ni se reenvió el mismo `commandId`; la idempotencia sigue sustentada por pruebas locales, no por este ensayo remoto. |
 | Tenant real, aceptación operativa y Trial | NOT EXECUTED — Gate I/J | Esta certificación solo usa el fixture sintético. No crea tenant, oferta, Trial, usuarios, catálogo ni inventario real. |
 
@@ -79,6 +80,10 @@ ni replay post-commit en esta revalidación.
   registros persistentes de prueba, no operaciones comerciales reales.
 - No se creó un duplicado de la solicitud de efectivo ni se reintentó su
   confirmación tras verla ejecutada.
+- La pantalla **Mis ventas** presenta `NaN` para el efectivo recibido y el
+  cambio de la venta confirmada. Es un defecto funcional visible, no una
+  inconsistencia demostrada del ledger; se conserva como pendiente y no se
+  declara cerrado el recorrido end-to-end de Gate G/H.
 - Producción/tenant real, Rules, Functions, IAM, Secrets, membresías y agenda:
   sin cambios durante la revalidación; solo se escribieron los registros de
   staging expresamente descritos arriba.
