@@ -71,6 +71,10 @@ conciliación de Gate F](G-SAAS-02-E2-2-GATE-F-PURCHASE-RECONCILIATION-2026-10-1
 - La pestaña Edge del admin de staging quedó autenticada en `/admin/compras`,
   pero no se registró una compra ni se hizo una llamada directa desde ese
   cliente.
+- Lecturas REST de solo lectura del tenant confirmaron
+  `configuraciones/E2_2-BODEGA-STAGING-FIXTURE.vertical=BODEGA_MVP1` y
+  `empresas/E2_2-BODEGA-STAGING-FIXTURE.estado=trial`, coincidentes con los
+  valores usados por los mocks.
 - Sin deploy de Rules/Functions, escrituras de negocio, cambios IAM/Secrets,
   Auth, fixtures, datos de clientes, tenant real ni producción durante este
   reconocimiento.
@@ -85,6 +89,11 @@ conciliación de Gate F](G-SAAS-02-E2-2-GATE-F-PURCHASE-RECONCILIATION-2026-10-1
   borrar `/compras` desde el cliente autenticado de Edge. La prueba remota
   sintética, Rules Emulator `42/42` y la revisión del diff son evidencia de la
   política, pero no reemplazan ese smoke de extremo a extremo.
+- La evaluación utilizó el endpoint de pruebas de la [Firebase Rules REST
+  API](https://firebase.google.com/docs/reference/rules/rest/v1/projects/test)
+  sobre el ruleset staging observado, con identidad autenticada sintética y
+  lecturas de configuración simuladas. No se usó una credencial Firebase real
+  del admin en las solicitudes `projects.test`.
 - La compra canónica posterior prueba que la ruta autorizada continuó operando;
   no prueba todos los roles, verticales o casos de rechazo de Rules.
 - En producción, el ruleset observado aún diverge del SHA de `main`, según el
