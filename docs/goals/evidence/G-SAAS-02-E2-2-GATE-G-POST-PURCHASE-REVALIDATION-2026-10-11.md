@@ -57,6 +57,13 @@ largo de referencia presentado al usuario.
 - El ensayo de transferencia original no pretende demostrar replay tras pérdida
   de respuesta, entrega push ni expiración automática. El escenario de efectivo
   sin turno se documenta en el anexo siguiente; el replay remoto sigue pendiente.
+- El 2026-10-11 a las 23:24 (Bogotá) se ejecutó `npm run e2e:bodega-agenda`:
+  8/8 pruebas pasaron. El caso de replay del emulador confirmó dos veces el
+  mismo comando canónico y comprobó que venta, inventario y ledger no se
+  duplicaran; también verificó que la membresía revocada falla y que, al
+  restaurarla, el replay devuelve la venta existente. Esto es evidencia local
+  del contrato, no una simulación de pérdida de respuesta de red en staging; el
+  replay remoto sigue pendiente.
 
 ## Anexo — Efectivo sin turno, ADR-SAAS-068 (2026-10-11, Bogotá)
 
