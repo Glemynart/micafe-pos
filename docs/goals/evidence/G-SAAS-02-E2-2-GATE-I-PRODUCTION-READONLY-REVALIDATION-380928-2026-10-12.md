@@ -38,6 +38,32 @@ Esta lectura no autoriza deploy, alta ni escritura productiva.
 | Smoke | No hay atestación independiente de smoke productivo sintético asociada al candidato. | `MISSING` |
 | Recuperación | PITR deshabilitado; se observan 1 backup schedule y 35 backups en `southamerica-east1`, pero no hay atestación independiente de restore vigente para el candidato. | Punto observado; evidencia de restore `MISSING` |
 
+### Alcance del drift de Firestore Rules
+
+En una segunda lectura read-only se obtuvo el contenido del ruleset remoto
+`d5e205db-0ab4-4db1-b5ec-1534bee39d35` y se comparó en memoria con
+`firestore.rules` del SHA objetivo. El archivo remoto tiene 360 líneas y el
+local 422; la comparación ordenada registra 82 líneas locales y 20 remotas
+distintas. Esto es un drift amplio, no una diferencia aislada de compras.
+
+Los principales cambios de comportamiento visibles son:
+
+| Superficie | Rules remotas observadas | `main @ 380928b` local | Impacto para el plan |
+|---|---|---|---|
+| Categorías Bodega | Admin puede crear, actualizar y eliminar directamente. | Esas mutaciones directas se niegan cuando el tenant es Bodega. | Requiere preservar el comportamiento de otros verticales y validar que Bodega use las callables. |
+| Productos, presentaciones y clientes | Lecturas de cliente más amplias para vendedores; no existe la nueva regla de presentaciones. | Restringe lecturas de vendedor y agrega lectura de presentaciones solo para roles no vendedores. | Puede cambiar pantallas existentes y requiere compatibilidad del cliente desplegado. |
+| Ventas | Permite una actualización cliente acotada de transición operativa. | Niega actualización directa y exige efectos server-authoritative. | Debe certificarse para los verticales y clientes productivos antes de desplegar. |
+| Compras | Admin puede crear y eliminar directamente. | Niega esas escrituras para Bodega, no globalmente. | La callable legacy con Admin SDK es un control separado; Rules no la bloquean. |
+| Ledger y perfiles | Lectura de ledger a autenticados y lectura de perfil autenticado. | Niega ledger a vendedores y limita perfiles a lectura propia. | Son cambios sensibles de autorización que no deben desplegarse solo para cerrar Gate I Bodega. |
+| Señales Bodega y bindings SaaS | No están estas rutas/cierres en el ruleset remoto. | Agrega señales tenant-aware y deny-by-default para bindings. | Exige atestación de aislamiento y compatibilidad de toda superficie que consuma estas rutas. |
+
+La tabla resume diferencias de fuente; no equivale a certificar el impacto en
+cada vertical productivo. Por esa razón no es seguro desplegar
+`firestore.rules` de `main` a producción como una simple reconciliación de
+hash. El plan de Gate I debe enumerar y validar consumidores afectados,
+conservar sus contratos o separar el cambio en Rules acotadas, y definir
+rollback antes de cualquier mutación.
+
 Los IDs duplicados son `crearArticuloInventarioV1`,
 `abrirTurnoOperativoV1`, `actualizarArticuloInventarioV1` y
 `cerrarTurnoOperativoV1`. El inventario remoto los atribuye a `saas-auth`;
@@ -55,15 +81,16 @@ Bodega.
 ## Conclusión y siguiente paso
 
 La revalidación actualiza la evidencia anterior de `eff193b` al SHA
-`380928b`; no mejora el estado del release. Se propone ADR-SAAS-074 para
-decidir cómo evitar las cuatro colisiones con IDs Bodega únicos. Además,
+`380928b`; no mejora el estado del release. ADR-SAAS-074 recomienda evitar las
+cuatro colisiones con IDs Bodega únicos, conforme a la dirección indicada por
+el responsable el 2026-10-12; esa preferencia no es aceptación formal del ADR.
 ADR-SAAS-075 propone resolver la callable legacy genérica, que actualmente no
-restringe el vertical Bodega. Ambas ADR siguen `PROPUESTAS`; hasta su
-aceptación no se implementan cambios de endpoints ni de autoridad.
+restringe el vertical Bodega, y su decisión sigue pendiente. Hasta aceptar las
+decisiones no se implementan cambios de endpoints ni de autoridad.
 
-Después de la decisión, Gate I sigue requiriendo: resolver por separado la
-callable legacy de compras conforme a ADR-SAAS-072; demostrar el artifact
-exacto de Vercel; reconciliar Rules de producción con un plan acotado y
-rollback probado; obtener smoke y restore independientes; y resolver ADR-
-SAAS-073 antes del onboarding real. No se creó ni configuró tenant, Trial,
+Después de las decisiones, Gate I sigue requiriendo: resolver por separado la
+callable legacy de compras conforme a ADR-SAAS-072/075; demostrar el artifact
+exacto de Vercel; tratar el drift amplio de Rules con un plan compatible por
+vertical y rollback probado; obtener smoke y restore independientes; y resolver
+ADR-SAAS-073 antes del onboarding real. No se creó ni configuró tenant, Trial,
 oferta ni catálogo de Distribuidora Las Jiménez.
