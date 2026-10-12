@@ -149,6 +149,8 @@ de un deploy; no se presume que exista una revisión productiva Bodega previa.
 
 ## Decisión solicitada
 
-Aceptar o rechazar explícitamente la Opción 1 antes de implementar. Si se elige
-otra opción, actualizar el plan y los ADR que queden supersedidos antes de
-modificar código.
+El responsable indicó el 2026-10-12 que se propongan nombres Bodega únicos.
+Esto define la recomendación del ADR, pero **no constituye aceptación** de la
+Opción 1 ni autorización de implementación. Aceptar o rechazar explícitamente
+la Opción 1 antes de implementar. Si se elige otra opción, actualizar el plan y
+los ADR que queden supersedidos antes de modificar código.

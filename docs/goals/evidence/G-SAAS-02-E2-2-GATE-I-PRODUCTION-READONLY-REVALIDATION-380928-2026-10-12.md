@@ -56,8 +56,10 @@ Bodega.
 
 La revalidación actualiza la evidencia anterior de `eff193b` al SHA
 `380928b`; no mejora el estado del release. Se propone ADR-SAAS-074 para
-decidir cómo evitar las cuatro colisiones sin tocar `saas-auth`. La ADR sigue
-`PROPUESTA`; hasta su aceptación no se implementan cambios de endpoints.
+decidir cómo evitar las cuatro colisiones con IDs Bodega únicos. Además,
+ADR-SAAS-075 propone resolver la callable legacy genérica, que actualmente no
+restringe el vertical Bodega. Ambas ADR siguen `PROPUESTAS`; hasta su
+aceptación no se implementan cambios de endpoints ni de autoridad.
 
 Después de la decisión, Gate I sigue requiriendo: resolver por separado la
 callable legacy de compras conforme a ADR-SAAS-072; demostrar el artifact
