@@ -23,11 +23,12 @@ ADRs aceptados que requiera una nueva decisión.
 
 | Tema | Evidencia actual | Reconciliación |
 |---|---|---|
-| Estado de `main` | PR #577 está integrado por `e087cb5a3c1bbd2029c64a3953742da4692f9f1f`; su CI post-merge, run `38317187343`, seguía `in_progress` al hacer esta lectura. | El bloque vivo del Goal deja de identificar `05d6f1c` como base actual e incorpora #577. No se afirma que la CI post-merge haya terminado. |
-| Implementación de ADR-SAAS-073 | PR #578 está abierto en `f0410f85b1b1b844babd674c2aaefbaec8dbd957`; Vercel y Vercel Preview Comments están en `success`, mientras CI `38317752879` sigue `in_progress`. | ADR-SAAS-073 está aceptado; su implementación no está integrada ni desplegada. El Goal ya no la enumera como decisión pendiente y no marca #578 como completado. |
+| Estado de `main` | PR #577 está integrado por `e087cb5a3c1bbd2029c64a3953742da4692f9f1f`; su CI post-merge, run `38317187343`, terminó `success`. | El bloque vivo del Goal deja de identificar `05d6f1c` como base actual e incorpora #577 y su CI post-merge `success`. |
+| Implementación de ADR-SAAS-073 | PR #578 sigue abierto en HEAD `7c1f7809dd89ddb5f6a0ac0b3c0e4794671b6865`; Vercel y Vercel Preview Comments están en `success`, mientras `Tipos y pruebas` (`38320575240`) está `in_progress`. | ADR-SAAS-073 está aceptado; su implementación no está integrada ni desplegada. El Goal registra el HEAD/check actual sin marcar #578 como completado. El PR agrega `saas-tenant-profile`, una callable aislada que deberá incluirse en Gate C. |
 | ADR-SAAS-049 y cantidad de callables | ADR-SAAS-049 define el corte original de cinco y cita expresamente el complemento ADR-SAAS-052 para seis. Los cambios posteriores de nombres se rigen por ADR-SAAS-074 y ADR-SAAS-076. | El número cinco se conserva como snapshot del corte original; no se presenta como inventario operativo vigente ni se modifica la decisión aceptada. |
 | ADR-SAAS-070 y catálogo | ADR-SAAS-070 acepta un único precio por presentación y distingue el precio de producto de la oferta SaaS. Su texto original deja la transcripción pendiente de validación. La reconciliación posterior de Gate I registra que el responsable reportó la aprobación de Diana de los 110 productos, empaques y precios impresos como precio de venta, con stock inicial cero. | La aprobación posterior resuelve la frase temporal de “pendiente de validación”; no significa que el catálogo se haya importado ni autoriza escrituras. ADR-SAAS-070 no se reescribe. |
 | ADR-SAAS-074 y ADR-SAAS-076 | ADR-SAAS-076, aceptado el 2026-10-12, amplía explícitamente el inventario de cuatro IDs inicialmente afectados a once y preserva la decisión de no modificar `saas-auth`. La evidencia de Gate C observó en staging los once IDs anteriores activos y los once nuevos ausentes. | Se conserva ADR-SAAS-074 como decisión inicial y se trata ADR-SAAS-076 como alcance vigente para los once IDs. Esta auditoría documental no convierte el Gate C incompleto en PASS ni autoriza deploy. |
+| Separación de carpetas y proyectos | La carpeta local de producción usa `micafe-pos` como proyecto por defecto. La copia local de staging inspeccionada está separada, pero su `firebase.json` aún declara solo `saas-auth`; la rama actual incluye codebases Bodega adicionales y `saas-tenant-profile`. | No se desplegará desde una carpeta cuyo manifiesto no corresponda al SHA certificado. Gate C/D deben usar la carpeta de staging sincronizada al SHA exacto y `--project micafe-pos-staging`; Gate I usará la carpeta de producción y `--project micafe-pos`, sin copiar aliases, manifiestos ni credenciales entre entornos. Esta auditoría no ejecutó deploy. |
 | Gates de ADR-SAAS-048 | ADR-SAAS-048 usa gates internos A–F para la aprobación de superficie/fixture. La secuencia operativa de E2.2 en el Goal es A–L. | Se mantienen ambas nomenclaturas en su contexto; no se interpretan como una única secuencia ni se alteran los snapshots históricos. |
 | Onboarding y tenant | El runbook remite al perfil comercial de primer acceso aprobado en ADR-SAAS-073 y a la responsabilidad de Diana de crear usuarios/roles. El alta real, oferta/Trial y catálogo no están persistidos. | Se conserva el requisito operativo, pero no se afirma que el perfil nuevo esté integrado, desplegado ni que exista tenant real. |
 
@@ -35,17 +36,22 @@ ADRs aceptados que requiera una nueva decisión.
 
 Esta auditoría no cierra ni altera otros gates. La evidencia read-only de Gate C
 posterior a #574 sigue indicando que los IDs nuevos están ausentes de staging;
-por tanto Gate C permanece `INCOMPLETE`, Gate D para el namespace nuevo sigue
-sin ejecutar y las repeticiones de F/G/H siguen pendientes. Gate I continúa
-bloqueado para escrituras de producción y creación del tenant real. La
+por tanto Gate C permanece `INCOMPLETE` para ADR-SAAS-076. Esa evidencia no
+incluye el nuevo codebase `saas-tenant-profile` de #578, que debe verificarse
+con el artefacto actualizado antes de decidir Gate C. Gate D para el namespace
+nuevo sigue sin ejecutar y las repeticiones de F/G/H siguen pendientes. Gate I
+continúa bloqueado para escrituras de producción y creación del tenant real. La
 reconciliación del Goal identifica esos estados y no convierte la aprobación
-comercial o de catálogo en autorización de persistencia.
+comercial o de catálogo en autorización de persistencia. La separación local de
+carpetas no basta por sí sola para un deploy: también deben verificarse el SHA,
+el manifiesto, el proyecto explícito y el alcance permitido en cada gate.
 
 ## Cambios realizados y mutation audit
 
 - Se actualiza solamente el bloque vivo de `docs/goals/GOAL-MVP-COMERCIAL.md`
-  con el SHA/PR #577, estado observado de PR #578/ADR-SAAS-073 y referencia a
-  esta nota.
+  con el SHA/CI de #577, el HEAD/check de PR #578/ADR-SAAS-073, su codebase
+  nuevo, el alcance pendiente de Gate C y la separación operativa de staging y
+  producción.
 - Se agrega esta evidencia documental fechada.
 - Sin cambios en código, ADR aceptados, Firebase, Functions, Rules, IAM,
   Secrets, Firestore/Auth, inventario, fixture, tenant, tráfico o producción.
@@ -57,5 +63,5 @@ comercial o de catálogo en autorización de persistencia.
 - **Base auditada:** `origin/main @ e087cb5a3c1bbd2029c64a3953742da4692f9f1f`.
 - **Rama de reconciliación:** `codex/e2-2-gate-a-reconciliation-20261012`.
 - **Siguiente paso:** integrar esta reconciliación mediante el flujo gobernado;
-  después continuar con la CI/auditoría de PR #578 y con Gate C read-only para
-  el artefacto integrado. Esta nota no autoriza esas operaciones.
+  continuar la CI/auditoría de PR #578 y, tras su integración, recalcular Gate C
+  read-only para el artefacto y codebases exactos. Esta nota no autoriza deploy.
