@@ -291,7 +291,7 @@ test("admin Bodega completa perfil comercial en primer acceso y entra al panel a
   await refresh
   await expect(nombreComercial).toHaveValue("Borrador local sin guardar")
 
-  await nombreComercial.fill("Distribuidora Sintética F")
+  await nombreComercial.fill("  Distribuidora Sintética F   ")
   await page.getByLabel("Razón social").fill("Distribuidora Sintética F S.A.S.")
   await page.getByLabel("Tipo de persona").selectOption("JURIDICA")
   await page.getByLabel("NIT", { exact: true }).fill("900373913")
