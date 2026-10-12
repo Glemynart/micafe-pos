@@ -112,9 +112,19 @@ Administración confirmó después stock `3`, reserva `0` y disponibilidad `3`.
 
 **Resultado limitado:** la convergencia de disponibilidad vendedor→UI queda
 observada en staging sin refresco manual. No se midió latencia/SLA, no se probó
-la convergencia de la bandeja administrativa de solicitudes, y esto no prueba
-la entrega de push. No se creó una solicitud ni una venta durante este ensayo.
-El ajuste queda persistente en el fixture y no corresponde a una compra o venta.
+la entrega de push. El ajuste queda persistente en el fixture y no corresponde
+a una compra o venta.
+
+Como prueba separada de bandeja, el vendedor creó una solicitud sintética
+`…YMZA1IL0`, por una presentación (2 unidades base; `$5.000 COP`). La bandeja de
+administración mostró `PENDIENTE_APROBACION` sin que se pulsara **Actualizar**;
+después, el vendedor la canceló y administración volvió a «No hay solicitudes
+pendientes de revisar» sin refrescar. El POS confirmó `CANCELADA`; no se creó
+venta ni se descontó inventario. Antes de enviar, la vista del vendedor advertía
+«La sincronización está temporalmente desconectada»; fue necesario pulsar
+**Actualizar** para quitar esa advertencia y habilitar una observación válida.
+Esto demuestra convergencia observada de la bandeja admin mientras la sesión
+está conectada, pero no garantiza reconexión automática ni latencia/SLA.
 
 ## Referencias
 

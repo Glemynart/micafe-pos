@@ -6,10 +6,11 @@
 efectos canónicos de staging quedaron conciliados. La discrepancia `NaN` de
 **Mis ventas** se corrigió en staging al actualizar únicamente la callable de
 consulta; la misma venta ahora presenta los valores de recibido/cambio
-correctamente. Gate H continúa parcial porque la convergencia viva ADR-SAAS-069
-quedó observada para disponibilidad del vendedor, pero no para la bandeja admin;
-el replay remoto tras pérdida de respuesta sigue `NOT EXECUTED`. Gate I continúa
-bloqueado; esta matriz no autoriza producción ni escrituras reales.
+correctamente. ADR-SAAS-069 quedó observado para disponibilidad y bandeja admin,
+pero el vendedor requirió «Actualizar» para salir de estado desconectado y no se
+midió latencia/SLA. El replay remoto tras pérdida de respuesta sigue
+`NOT EXECUTED`. Gate H permanece parcial; Gate I continúa bloqueado y esta
+matriz no autoriza producción ni escrituras reales.
 
 ## Identidad y base comprobada
 
@@ -48,7 +49,7 @@ bloqueado; esta matriz no autoriza producción ni escrituras reales.
 | Competencia de stock | PASS heredado | Se conserva la evidencia previa de staging: una venta aceptada y la competidora rechazada sin sobreventa. La venta por transferencia consumió las 2 unidades disponibles restantes tras la compra; el escenario de efectivo se preparó después con un ajuste positivo separado. |
 | Agenda, reserva y vencimiento | PASS heredado | Se conserva la observación previa de reserva, consumo y liberación natural; la prueba actual no modificó agendas ni reservas. |
 | Aviso push de solicitud | PASS limitado heredado | Se conserva la recepción sintética reportada por el responsable. Sonido y notificación nativa universal de Windows no son garantías. |
-| Bandeja/stock sin refresco manual | PARTIAL | La disponibilidad de la presentación del vendedor convergió `0` → `1` sin refrescar tras un ajuste administrativo `+2` en el mismo preview/tenant. La bandeja de solicitudes del admin no se probó en vivo. Véase el anexo ADR-SAAS-069 en [Gate G](G-SAAS-02-E2-2-GATE-G-POST-PURCHASE-REVALIDATION-2026-10-11.md). |
+| Bandeja/stock sin refresco manual (ADR-SAAS-069) | PARTIAL | La disponibilidad del vendedor convergió `0` → `1`; una solicitud apareció y desapareció de la bandeja admin sin refresco. Sin embargo, la vista del vendedor mostró sincronización desconectada hasta pulsar «Actualizar»; no se midió latencia/SLA ni reconexión automática. Véase el anexo ADR-SAAS-069 en [Gate G](G-SAAS-02-E2-2-GATE-G-POST-PURCHASE-REVALIDATION-2026-10-11.md). |
 | Efectivo sin turno (ADR-SAAS-068) | PASS — escenario staging observado | El 11-oct 21:37 Bogotá, la venta aprobada quedó `pagada` por `$5.000 COP`, recibió `$10.000`, calculó `$5.000` de cambio y guardó `turnoId=null`. La auditoría, un ingreso de ledger por el total y un movimiento `venta -2` quedaron asociados a esa venta; el saldo fue de 3 a 1 tras un ajuste sintético `+2` autorizado para preparar el escenario. Administración la muestra como `efectivo sin turno`, fuera del arqueo de turnos. Véase el anexo en [Gate G](G-SAAS-02-E2-2-GATE-G-POST-PURCHASE-REVALIDATION-2026-10-11.md). |
 | Historial vendedor — recibido/cambio en efectivo | PASS tras corrección en staging | La revisión previa `consultarmisventasvendedorv1-00002-tam` mostraba `NaN` para la venta `a6093d14-5825-4386-8097-d0caaa3d17ef`. Después del deploy dirigido de esa callable, `consultarmisventasvendedorv1-00003-kod` quedó `Ready` y con 100 % de tráfico; al abrir una pestaña nueva, la misma venta mostró recibido `$10.000 COP`, cambio `$5.000 COP` y `efectivo sin turno`. El registro no se modificó ni se repitió. La causa demostrada fue la callable de lectura desplegada desde un DTO anterior, sin esos campos. |
 | Replay remoto después de pérdida de respuesta | NOT EXECUTED | La confirmación de efectivo fue observada una sola vez. No se simuló una respuesta perdida ni se reenvió el mismo `commandId`; la idempotencia sigue sustentada por pruebas locales, no por este ensayo remoto. |
@@ -63,7 +64,9 @@ y consumió `-2`, dejando saldo `1`. En la revalidación ADR-SAAS-069 se añadi�
 otro ajuste autorizado `+2` (`1` → `3`); el stock observado al cierre de esta
 lectura es `3`, reserva `0`. La presentación requiere 2 unidades base y el
 vendedor ve `1` presentación disponible. No se emitió otra venta durante la
-prueba de convergencia.
+prueba de convergencia. La solicitud `…YMZA1IL0` usada para probar la bandeja
+admin se canceló antes de aprobación: no produjo venta, reserva ni movimiento
+de inventario.
 
 La venta de efectivo sin turno fue un escenario posterior e independiente: el
 historial registra un ajuste de stock `+2` (saldo `1` → `3`) antes de esa prueba,
@@ -83,6 +86,8 @@ ni replay post-commit en esta revalidación.
   escenario de efectivo sin turno y dos ajustes de stock `+2` documentados
   (uno para preparar la venta en efectivo y otro para ADR-SAAS-069). Son
   registros persistentes de prueba, no operaciones comerciales reales.
+- La solicitud sintética `…YMZA1IL0` se canceló tras validar la bandeja; no
+  produjo venta, ledger, reserva ni descuento de stock.
 - No se creó un duplicado de la solicitud de efectivo ni se reintentó su
   confirmación tras verla ejecutada.
 - Una pestaña ya abierta de **Mis ventas** conservó valores `NaN` tras el
