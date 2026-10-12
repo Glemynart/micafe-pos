@@ -2,15 +2,17 @@
 
 ## Estado
 
-**PROPUESTO — pendiente de aprobación explícita.**
+**ACEPTADO — Opción 1, 2026-10-12.**
 
 - **Fecha de propuesta:** 2026-10-12.
+- **Fecha de aceptación:** 2026-10-12.
 - **Goal:** `G-SAAS-02` → `M2 — Provisioning y onboarding` → `E2.1 — Tenant de referencia` / `E2.2 — Configuración inicial`.
 - **Decisor:** responsable del producto. **Recomendación técnica:** Lead Engineer.
 - **Relacionados:** ADR-SAAS-013, ADR-SAAS-047, ADR-SAAS-049, ADR-SAAS-054, ADR-SAAS-061 y ADR-SAAS-071.
-- **Complementa, si se acepta:** ADR-SAAS-013 §5.4 únicamente para permitir que el admin tenant complete el perfil empresarial básico en su primer acceso; no amplía la edición de datos por operadores de plataforma.
-- **Aprobación previa de alcance:** se autorizó redactar esta propuesta para que Diana complete datos reales del negocio al primer acceso, sin exigir facturación electrónica.
-- **Límite:** este ADR no autoriza implementación, deploy, cambios de Rules/IAM/Secrets, creación del tenant real, incorporación de usuarios, entrega de credenciales, envío por WhatsApp ni escrituras de datos.
+- **Complementa:** ADR-SAAS-013 §5.4 únicamente para permitir que el admin tenant complete el perfil empresarial básico en su primer acceso; no amplía la edición de datos por operadores de plataforma.
+- **Decisión:** el responsable aceptó explícitamente la Opción 1, callable aislada para perfil empresarial, sin activar facturación electrónica.
+- **Evidencia de aceptación:** [decisiones ADR-SAAS-073/074/075](docs/goals/evidence/G-SAAS-02-E2-2-ADR-SAAS-073-075-ACCEPTANCE-2026-10-12.md).
+- **Límite:** se autoriza preparar el PR de implementación conforme a este ADR. No autoriza deploy, cambios de Rules/IAM/Secrets, creación del tenant real, incorporación de usuarios, entrega de credenciales, envío por WhatsApp ni escrituras de datos.
 
 ## Contexto y problema
 
@@ -62,9 +64,9 @@ Crear una colección o sección de configuración nueva que duplique identidad, 
 - **Ventajas:** separación semántica explícita y estado de completitud independiente.
 - **Costes:** duplica información que ya existe en la configuración, abre dos fuentes de verdad y requiere definir sincronización y migración al activar fiscalidad. No se justifica para el primer cliente mientras la readiness fiscal ya distingue DEMO de FISCAL.
 
-## Recomendación y decisión propuesta
+## Decisión aceptada
 
-Se recomienda la **Opción 1**. El perfil es un paso lógico distinto del alta fiscal, no una nueva copia del agregado: se guardan los datos básicos en los campos canónicos ya existentes, con una callable aislada y con la autoridad transaccional de configuración. Se conserva la callable de lectura de ADR-SAAS-047 sin cambios y no se despliega `saas-auth`.
+El responsable aceptó la **Opción 1** el 2026-10-12. El perfil es un paso lógico distinto del alta fiscal, no una nueva copia del agregado: se guardan los datos básicos en los campos canónicos ya existentes, con una callable aislada y con la autoridad transaccional de configuración. Se conserva la callable de lectura de ADR-SAAS-047 sin cambios y no se despliega `saas-auth`.
 
 La pantalla solicitará a Diana: nombre comercial, razón social, tipo de persona, NIT y dígito de verificación, dirección, departamento y municipio, teléfono y correo de contacto. Completar este conjunto es obligatorio para cerrar el paso de primer acceso de la administradora Bodega; los campos no se inventan ni se rellenan con datos de fixtures. Se reutilizan las validaciones canónicas existentes de NIT/DV, contacto y códigos territoriales y se muestran como información declarada por la administradora; el sistema no afirma haber verificado datos ante DIAN ni otro registro externo. La administración de vendedores y roles queda fuera del wizard, bajo responsabilidad de Diana.
 
@@ -88,7 +90,7 @@ No se requiere migración de datos: se reutilizan campos opcionales ya admitidos
 
 Antes de implementar se deberá probar en Emulator que: solo admin tenant activo puede guardar; el `empresaId` del cliente se ignora; datos incompletos/malformados se rechazan; NIT/DV y municipio/departamento se validan; la revisión e idempotencia se preservan; se crea auditoría sin filtrar PII; y, tras guardar solo el perfil básico, DEMO permanece disponible y readiness fiscal/numeración permanecen incompletas. E2E debe verificar primer acceso, reingreso con perfil completado y tenants existentes.
 
-El rollback de código consiste en revertir la callable y la UI, sin borrar los campos ya guardados. Como no se añade un agregado ni se modifica el schemaVersion, el código anterior debe tolerar esos campos opcionales. No habrá deploy hasta Gate C, auditoría, CI verde y autorización operativa específica; este ADR no autoriza deploy por sí mismo.
+El rollback de código consiste en revertir la callable y la UI, sin borrar los campos ya guardados. Como no se añade un agregado ni se modifica el schemaVersion, el código anterior debe tolerar esos campos opcionales. No habrá deploy hasta Gate C, auditoría y CI verde; la aceptación de este ADR no autoriza deploy.
 
 ## Referencias
 

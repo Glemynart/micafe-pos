@@ -224,6 +224,13 @@ razonamiento y las alternativas de esta decisión.
 Completar el bootstrap habilita el acceso del owner. La capacidad de vender requiere además readiness
 fiscal: configuración obligatoria y asignación de numeración vigente.
 
+Para `BODEGA_MVP1`, ADR-SAAS-073 agrega un paso aislado de perfil comercial
+básico para el admin tenant, usando los campos canónicos de Empresa y
+Configuración. Completarlo no modifica la readiness fiscal ni exige numeración:
+el tenant puede continuar en DEMO sin activar facturación electrónica. La
+escritura es server-authoritative; la decisión no crea por sí sola un tenant ni
+autoriza despliegue.
+
 ---
 
 ## 8. Configuración empresarial
@@ -495,6 +502,11 @@ requieren una decisión de producto sobre monetización, límites y operación S
 | ADR-SAAS-007 | Aceptado | Bootstrap atómico, idempotente y recuperable. |
 | ADR-SAAS-008 | Aceptado | Autoridad fiscal, selección y asignación de numeración. |
 | ADR-SAAS-009 | Aceptado | Enforcement canónico del ciclo de vida empresarial. |
+| ADR-SAAS-071 | Aceptado | Callable de compras Bodega aislada; implementación/despliegue sujetos a gates. |
+| ADR-SAAS-072 | Aceptado | Corte por proyecto de escrituras directas de compras Bodega tras validar cliente y barrera legacy. |
+| ADR-SAAS-073 | Aceptado | Perfil comercial Bodega en primer acceso, separado de readiness fiscal. |
+| ADR-SAAS-074 | Aceptado | IDs públicos únicos para los cuatro endpoints Bodega en conflicto. |
+| ADR-SAAS-075 | Aceptado | Callable legacy de compras rechaza Bodega en operaciones nuevas y replay; preserva otros verticales. |
 
 ---
 
