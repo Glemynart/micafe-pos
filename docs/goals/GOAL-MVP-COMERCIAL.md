@@ -116,10 +116,10 @@
 
 ## Estado vivo
 
-- **Progreso:** PR #558 integrado en `main @ 54566fc`; Gate H revalidado en staging, con reconexión automática y replay idempotente documentados en `evidence/G-SAAS-02-E2-2-GATE-H-RECONNECT-REPLAY-2026-10-12.md`. Sus checks previos al merge pasaron; la CI post-merge `38208848199` seguía en progreso al registrar esta actualización. El merge no desplegó producción.
+- **Progreso:** PR #558 (reconexión/replay) y PR #559 (evidencia de Gate H) integrados en `main @ 702195d`; la CI post-merge `38211605203` terminó `success`. Gate H está certificado para E2.2 reusable en staging. La revalidación autenticada de Compras en el preview #558 cargó el historial y mostró la compra sintética previamente autorizada de `$1.000 COP`; no hubo una nueva escritura. El preflight read-only de producción del 2026-10-12 detectó Rules Firestore divergentes y una aplicación Vercel atrasada respecto de `main`; Gate I sigue bloqueado y no se hicieron cambios productivos. Evidencia: [reconocimiento read-only de producción](evidence/G-SAAS-02-E2-2-GATE-I-PRODUCTION-READONLY-RECONNAISSANCE-2026-10-12.md).
 - **Estado:** ACTIVO.
-- **PR completados:** PR #558.
-- **Siguiente PR esperado:** reconciliar e integrar esta evidencia de Gate H; después, ejecutar el preflight propio de Gate I antes de cualquier escritura del tenant real.
+- **PR completados:** PR #558 y PR #559.
+- **Siguiente PR esperado:** después de integrar esta reconciliación, preparar el plan exacto de release y recuperación de producción; no desplegar ni escribir datos reales hasta cerrar las divergencias, completar smoke/restore verificables y obtener la autorización operativa específica.
 - **Milestone activo:** `M2 — Provisioning y onboarding`.
 - **Epic activo:** `E2.2 — Configuración inicial`.
 
