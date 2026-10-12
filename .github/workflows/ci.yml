@@ -50,6 +50,7 @@ jobs:
             functions-platform-financial-account-provisioning/package-lock.json
             functions-tenant-credential-recovery/package-lock.json
             functions-bodega-membership/package-lock.json
+            functions-tenant-profile/package-lock.json
 
       - name: Setup Java para Firebase Emulator Suite
         uses: actions/setup-java@v4
@@ -131,6 +132,10 @@ jobs:
       - name: Instalar dependencias del codebase Bodega membership
         run: npm ci
         working-directory: functions-bodega-membership
+
+      - name: Instalar dependencias del codebase Tenant profile
+        run: npm ci
+        working-directory: functions-tenant-profile
 
       - name: Chequeo de tipos de aplicaciÃ³n
         run: npx tsc --noEmit
@@ -257,6 +262,15 @@ jobs:
           npm run build
           npm test
         working-directory: functions-bodega-membership
+
+      - name: Build, pruebas, discovery y module-load del codebase Tenant profile
+        run: |
+          npm run build
+          npm test
+        working-directory: functions-tenant-profile
+
+      - name: Prueba transaccional del perfil Bodega en Firestore Emulator
+        run: npx firebase --project demo-tenant-profile emulators:exec --only firestore "npm --prefix functions-tenant-profile run test:emulator"
 
       - name: Lint de aplicacion y tooling
         run: npm run lint

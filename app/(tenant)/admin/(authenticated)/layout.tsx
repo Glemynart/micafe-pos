@@ -6,6 +6,7 @@ import { MarketingGuard } from "@/components/pwa/marketing-guard"
 import { AdminHeader } from "@/components/pwa/admin-header"
 import { IdleTimer } from "@/components/pwa/idle-timer"
 import { FcmManagerWrapper } from "@/components/fcm-manager-wrapper"
+import { CommercialProfileGate } from "@/components/tenant-profile/commercial-profile-gate"
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -35,7 +36,7 @@ export default function AdminAuthLayout({ children }: { children: React.ReactNod
         <IdleTimer />
         <AdminHeader />
         <div className="tenant-admin min-h-[100dvh] bg-background pb-20">
-          <main className="max-w-lg mx-auto px-4 pt-4">{children}</main>
+          <main className="max-w-lg mx-auto px-4 pt-4"><CommercialProfileGate>{children}</CommercialProfileGate></main>
           <BottomNav />
         </div>
       </MarketingGuard>
