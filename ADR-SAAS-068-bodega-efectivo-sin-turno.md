@@ -160,9 +160,10 @@ cierre creando un turno oculto ni atribuir la venta al turno de otra persona.
 ## Gates, alcance y registro de aprobación
 
 La decisión requerida quedó resuelta: el responsable respondió “Sí, apruebo la
-opción 2 y ese límite” el 2026-10-10. La implementación sigue pendiente y debe
-ser una PR separada, con las pruebas de autoridad, idempotencia, saldo/ledger,
-turno opcional y reportes descritas arriba. El orden de gates vigente en el
-Goal no cambia; Gate I no puede comenzar hasta integrar y certificar el
-comportamiento requerido. La aceptación no altera el flujo desplegado, no crea
-tenants o vendedores reales y no autoriza cambios remotos.
+opción 2 y ese límite” el 2026-10-10. La implementación se prepara en una PR
+separada de E2.2, con pruebas de autoridad, idempotencia, saldo/ledger, turno
+opcional e historial descritas arriba. Debe superar revisión, CI y auditoría
+antes de integrarse; la aceptación no altera el flujo desplegado, no crea
+tenants o vendedores reales y no autoriza cambios remotos. El orden de gates
+vigente en el Goal no cambia; Gate I no puede comenzar hasta integrar y
+certificar el comportamiento requerido.
