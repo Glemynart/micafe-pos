@@ -8,6 +8,12 @@ idempotencia, auditoría, movimiento de inventario y movimiento financiero.
 Esta ejecución revalida el recorrido de Gate G después de Gate F; no crea ni
 configura el tenant real y no modifica producción.
 
+El escenario de efectivo sin turno de ADR-SAAS-068 se revalidó aparte en staging
+el 2026-10-11 (Bogotá): la solicitud quedó ejecutada y la venta, el ingreso de
+caja, el consumo de inventario y la auditoría se observaron una sola vez. Esto
+cierra ese escenario funcional, pero no afirma un replay remoto tras pérdida de
+respuesta ni la certificación integral de Gate H.
+
 ## Contexto y alcance
 
 La conciliación de compra Gate F registró 1 unidad del producto fixture y dejó
@@ -48,9 +54,30 @@ largo de referencia presentado al usuario.
 - No se abrió ni cerró un turno, no se emitió una factura, no se registró dinero
   real y no se cambió agenda, Rules, Functions, IAM, Secrets, membresías, otro
   tenant o producción.
-- Esta evidencia no pretende demostrar replay tras pérdida de respuesta,
-  efectivo sin turno, entrega push ni expiración automática; esos casos siguen
-  sujetos a sus propias evidencias.
+- El ensayo de transferencia original no pretende demostrar replay tras pérdida
+  de respuesta, entrega push ni expiración automática. El escenario de efectivo
+  sin turno se documenta en el anexo siguiente; el replay remoto sigue pendiente.
+
+## Anexo — Efectivo sin turno, ADR-SAAS-068 (2026-10-11, Bogotá)
+
+La sesión autenticada observó el preview de staging
+`cafeatrato-breh9pzs3-glemynarts-projects.vercel.app` con el vendedor y el
+administrador sintéticos del mismo tenant. La venta ocurrió entre
+`2026-10-12T02:32:59Z` y `2026-10-12T02:37:39Z` (11-oct, 21:32–21:37,
+America/Bogota).
+
+| Paso | Evidencia observada | Resultado |
+|---|---|---|
+| Stock preparado para el escenario | El historial del producto registra un ajuste positivo de `+2` con motivo `ajuste_administrativo_bodega`, de saldo `1` a `3`, previo a la venta. El responsable había autorizado reponer stock sintético si era necesario para las pruebas. | PASS |
+| Solicitud y autorización | El POS mostró la solicitud sintética `…ZWIXZCJD` como `EJECUTADA`, por 1 presentación (2 unidades base), total canónico `$5.000 COP`. | PASS |
+| Pago en efectivo sin turno | `commandId=bodega-venta:a6093d14-5825-4386-8097-d0caaa3d17ef`; venta `pagada`, total `$5.000 COP`, recibido `$10.000 COP`, cambio `$5.000 COP`, `turnoId=null`. | PASS |
+| Efectos canónicos | La lectura read-only, filtrada al proyecto y tenant, encontró 1 venta, 1 ingreso de ledger por `$5.000 COP` con `turnoId=null`, 1 movimiento de inventario `venta` por `-2` unidades base y 1 auditoría `confirmarVentaBodegaV1` con resultado `CONFIRMADO`. El saldo pasó de `3` a `1`. | PASS |
+| Estado visible | El vendedor mostró la venta confirmada y la solicitud ejecutada; Administración mostró la venta pagada, el efectivo recibido, el cambio y la etiqueta `efectivo sin turno`. | PASS |
+
+No se abrió ni cerró un turno. No se repitió la confirmación ni se simuló una
+pérdida de respuesta después del commit; por tanto, el replay remoto sigue sin
+certificar. La escritura de stock fue solo el ajuste sintético descrito arriba;
+no hubo pago real ni cambios en producción.
 
 ## Referencias
 
