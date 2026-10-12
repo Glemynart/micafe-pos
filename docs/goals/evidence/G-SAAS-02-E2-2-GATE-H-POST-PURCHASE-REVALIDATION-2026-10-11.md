@@ -3,12 +3,12 @@
 ## Dictamen
 
 `GATE_H_REVALIDATION = PARTIAL / NOT CLOSED`. La compra, las ventas y sus
-efectos canónicos de staging quedaron conciliados, pero la comprobación más
-reciente encontró que **Mis ventas** muestra `NaN` para efectivo recibido y
-cambio en ventas en efectivo. Ese defecto visible debe reconciliarse antes de
-declarar cerrado el recorrido end-to-end. Además, la convergencia viva
-ADR-SAAS-069 sigue `NOT EXECUTED` en staging. Gate I continúa bloqueado; esta
-matriz no autoriza producción ni escrituras reales.
+efectos canónicos de staging quedaron conciliados. La discrepancia `NaN` de
+**Mis ventas** se corrigió en staging al actualizar únicamente la callable de
+consulta; la misma venta ahora presenta los valores de recibido/cambio
+correctamente. Gate H continúa parcial porque la convergencia viva ADR-SAAS-069
+y el replay remoto tras pérdida de respuesta siguen `NOT EXECUTED`. Gate I
+continúa bloqueado; esta matriz no autoriza producción ni escrituras reales.
 
 ## Identidad y base comprobada
 
@@ -49,7 +49,7 @@ matriz no autoriza producción ni escrituras reales.
 | Aviso push de solicitud | PASS limitado heredado | Se conserva la recepción sintética reportada por el responsable. Sonido y notificación nativa universal de Windows no son garantías. |
 | Bandeja/stock sin refresco manual | NOT EXECUTED | La matriz previa no certificó convergencia viva en staging; es un requisito pre-I y requiere su Gate C/D y validación propios. |
 | Efectivo sin turno (ADR-SAAS-068) | PASS — escenario staging observado | El 11-oct 21:37 Bogotá, la venta aprobada quedó `pagada` por `$5.000 COP`, recibió `$10.000`, calculó `$5.000` de cambio y guardó `turnoId=null`. La auditoría, un ingreso de ledger por el total y un movimiento `venta -2` quedaron asociados a esa venta; el saldo fue de 3 a 1 tras un ajuste sintético `+2` autorizado para preparar el escenario. Administración la muestra como `efectivo sin turno`, fuera del arqueo de turnos. Véase el anexo en [Gate G](G-SAAS-02-E2-2-GATE-G-POST-PURCHASE-REVALIDATION-2026-10-11.md). |
-| Historial vendedor — recibido/cambio en efectivo | FAIL / pendiente de corrección | En el preview `cafeatrato-breh9pzs3`, **Mis ventas** lista la venta `a6093d14-5825-4386-8097-d0caaa3d17ef` por `$5.000 COP`, pero renderiza `Recibido $ NaN · cambio $ NaN`. La conciliación canónica del servidor conserva los valores correctos; la causa del desfase entre respuesta/DTO y UI no está confirmada. No se repitió la venta. |
+| Historial vendedor — recibido/cambio en efectivo | PASS tras corrección en staging | La revisión previa `consultarmisventasvendedorv1-00002-tam` mostraba `NaN` para la venta `a6093d14-5825-4386-8097-d0caaa3d17ef`. Después del deploy dirigido de esa callable, `consultarmisventasvendedorv1-00003-kod` quedó `Ready` y con 100 % de tráfico; al abrir una pestaña nueva, la misma venta mostró recibido `$10.000 COP`, cambio `$5.000 COP` y `efectivo sin turno`. El registro no se modificó ni se repitió. La causa demostrada fue la callable de lectura desplegada desde un DTO anterior, sin esos campos. |
 | Replay remoto después de pérdida de respuesta | NOT EXECUTED | La confirmación de efectivo fue observada una sola vez. No se simuló una respuesta perdida ni se reenvió el mismo `commandId`; la idempotencia sigue sustentada por pruebas locales, no por este ensayo remoto. |
 | Tenant real, aceptación operativa y Trial | NOT EXECUTED — Gate I/J | Esta certificación solo usa el fixture sintético. No crea tenant, oferta, Trial, usuarios, catálogo ni inventario real. |
 
@@ -84,9 +84,24 @@ ni replay post-commit en esta revalidación.
   cambio de la venta confirmada. Es un defecto funcional visible, no una
   inconsistencia demostrada del ledger; se conserva como pendiente y no se
   declara cerrado el recorrido end-to-end de Gate G/H.
-- Producción/tenant real, Rules, Functions, IAM, Secrets, membresías y agenda:
-  sin cambios durante la revalidación; solo se escribieron los registros de
-  staging expresamente descritos arriba.
+- Durante la revalidación original no se cambiaron Rules, Functions, IAM,
+  Secrets ni membresías. Como seguimiento de solo código, el 2026-10-12
+  `03:46Z` se desplegó únicamente la callable de lectura
+  `saas-bodega-operations:consultarMisVentasVendedorV1` con
+  `firebase deploy --only functions:saas-bodega-operations:consultarMisVentasVendedorV1`.
+  El paquete preparado localmente medía `134.682` bytes y su Firebase CLI
+  `sourceHash` era `fc301665d35d589a446744813044416a78a82280`. Se verificó la
+  revisión `-00003-kod` `Ready`/100 % y se conservó sin cambios la política
+  existente `roles/run.invoker` → `allUsers`. Los logs de auditoría de
+  `03:40Z`–`03:50Z` muestran la actualización de esa Function, revisiones
+  internas de Cloud Run y comprobaciones `iam.serviceAccounts.actAs`; no muestran
+  `SetIamPolicy`, `EnableService` ni creación de cuentas de servicio. La lectura
+  IAM posterior conserva únicamente los roles ya aprobados para Functions,
+  Eventarc y Pub/Sub, además del binding preexistente registrado antes. No hubo
+  escrituras de datos por esa actualización.
+- Producción/tenant real, Rules, otras Functions, IAM de proyecto, Secrets,
+  membresías y agenda permanecen sin cambios; los únicos registros persistentes
+  de staging son los escenarios sintéticos ya descritos arriba.
 - Esta actualización es documental; no cambia código ni el Goal vivo.
 
 ## Referencias

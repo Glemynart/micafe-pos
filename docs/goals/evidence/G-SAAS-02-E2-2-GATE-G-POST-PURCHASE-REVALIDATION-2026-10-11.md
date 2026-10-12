@@ -75,15 +75,24 @@ America/Bogota).
 | Estado visible | El vendedor mostró la venta confirmada y la solicitud ejecutada; Administración mostró la venta pagada, el efectivo recibido, el cambio y la etiqueta `efectivo sin turno`. | PASS |
 
 En una comprobación posterior de solo lectura del preview
-`cafeatrato-breh9pzs3-glemynarts-projects.vercel.app`, la pantalla **Mis ventas**
-mostró la venta `a6093d14-5825-4386-8097-d0caaa3d17ef` por `$5.000 COP`, pero
-renderizó `Recibido $ NaN · cambio $ NaN`. Esto no cambia la conciliación
-canónica ya observada (venta, efectivo recibido, cambio, ledger, inventario y
-auditoría), pero sí deja un defecto visible en el historial del vendedor. La
-causa aún no está confirmada y no se repitió la venta. Por tanto, el flujo
-transaccional de efectivo queda PASS, mientras la presentación del efectivo en
-**Mis ventas** queda `FAIL / pendiente de corrección`; no se debe declarar
-completo el cierre end-to-end de Gate G hasta reconciliar esa vista.
+`cafeatrato-breh9pzs3-glemynarts-projects.vercel.app`, **Mis ventas** mostró la
+venta `a6093d14-5825-4386-8097-d0caaa3d17ef` por `$5.000 COP`, inicialmente con
+`Recibido $ NaN · cambio $ NaN`. Se observó que la callable desplegada estaba en
+la revisión `consultarmisventasvendedorv1-00002-tam`, creada desde el candidato
+anterior a la incorporación de los campos de efectivo en
+`proyectarVentaVendedor`; el cliente vigente ya los consumía. Sin cambiar la
+venta ni el inventario, se actualizó únicamente
+`functions:saas-bodega-operations:consultarMisVentasVendedorV1` en staging. La
+nueva revisión `consultarmisventasvendedorv1-00003-kod` quedó `Ready`, con 100 %
+del tráfico. Al volver a cargar **Mis ventas**, la misma venta mostró
+`Recibido $10.000 · cambio $5.000` y `efectivo sin turno`.
+
+**Causa demostrada:** desfase entre la versión desplegada de la callable de
+consulta y el DTO que esperaba el cliente. Cambiar solamente esa revisión de
+`-00002-tam` a `-00003-kod` hizo desaparecer el síntoma sobre el mismo registro;
+no se repitió la venta. La presentación del efectivo queda PASS en el preview
+actual. La actualización afectó solo una Function de lectura y no tocó Rules,
+IAM, Secrets, otras Functions, ventas, inventario, agenda ni producción.
 
 No se abrió ni cerró un turno. No se repitió la confirmación ni se simuló una
 pérdida de respuesta después del commit; por tanto, el replay remoto sigue sin
