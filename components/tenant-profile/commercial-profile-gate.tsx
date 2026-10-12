@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getFirebaseFunctions } from '@/lib/firebase'
 import { perfilComercialCompleto, requierePasoPerfilComercialBodega } from '@/lib/configuracion'
+import { normalizarTexto } from '@/lib/configuracion/normalizacion'
 
 type FormularioPerfil = {
   nombreComercial: string
@@ -119,10 +120,12 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
     if (!Number.isInteger(revision) || revision === null) return
     setGuardando(true)
     setError(null)
+    const perfilNormalizado = { ...form, email: normalizarTexto(form.email).toLowerCase() }
+    setForm(perfilNormalizado)
     try {
       const enviar = httpsCallable(getFirebaseFunctions('us-central1'), 'registrarPerfilComercialBodegaV1')
       await enviar({
-        ...form,
+        ...perfilNormalizado,
         expectedRevision: revision,
         commandId: crypto.randomUUID(),
         idempotencyKey: crypto.randomUUID(),

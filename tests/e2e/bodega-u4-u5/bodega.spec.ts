@@ -313,6 +313,7 @@ test("admin Bodega completa perfil comercial en primer acceso y entra al panel a
   ])
   expect(company.data()).toMatchObject({ nombre: "Distribuidora Sintética F", nombreComercial: "Distribuidora Sintética F", estado: "trial" })
   expect(config.data()?.identidadFiscal).toMatchObject({ razonSocial: "Distribuidora Sintética F S.A.S.", numeroDocumento: "900373913", digitoVerificacion: "4" })
+  expect(config.data()?.identidadFiscal.contacto.email).toBe("diana.jimenez@example.com")
   expect(evaluarReadinessConfiguracion(config.data() as any).fiscal.lista).toBe(false)
 
   await page.reload()
