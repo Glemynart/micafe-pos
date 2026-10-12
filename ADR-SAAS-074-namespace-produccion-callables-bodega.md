@@ -2,14 +2,19 @@
 
 ## Estado
 
-**PROPUESTO — pendiente de aprobación explícita.**
+**ACEPTADO — Opción 1, 2026-10-12.**
 
 - **Fecha de propuesta:** 2026-10-12.
+- **Fecha de aceptación:** 2026-10-12.
 - **Goal:** `G-SAAS-02` → `M2 — Provisioning y onboarding` → `E2.2 — Configuración inicial`.
 - **Decisor:** responsable del producto. **Recomendación técnica:** Lead Engineer.
-- **Relacionados:** ADR-SAAS-049, ADR-SAAS-054, ADR-SAAS-071 y ADR-SAAS-072.
-- **Límite:** esta propuesta no autoriza cambios de código, cliente, deploy,
-  Rules, IAM, Secrets, Functions, datos ni producción.
+- **Relacionados:** ADR-SAAS-049, ADR-SAAS-054, ADR-SAAS-071, ADR-SAAS-072 y ADR-SAAS-075.
+- **Decisión:** el responsable aceptó explícitamente la Opción 1, IDs públicos
+  únicos para los cuatro endpoints Bodega en conflicto.
+- **Evidencia de aceptación:** [decisiones ADR-SAAS-073/074/075](docs/goals/evidence/G-SAAS-02-E2-2-ADR-SAAS-073-075-ACCEPTANCE-2026-10-12.md).
+- **Límite:** se autoriza preparar el PR de implementación de código/cliente.
+  No autoriza deploy, Rules, IAM, Secrets, Functions remotas, datos ni
+  producción.
 
 ## Contexto y problema
 
@@ -56,7 +61,7 @@ Renombrar solo los cuatro endpoints exportados por los codebases Bodega; sus
 wrappers continúan llamando las mismas operaciones de dominio. Mantener intactos
 los endpoints y el comportamiento de `saas-auth`.
 
-IDs propuestos para la implementación:
+IDs aceptados para la implementación:
 
 | ID actual Bodega | ID Bodega propuesto | Codebase |
 |---|---|---|
@@ -95,9 +100,9 @@ Mantener los IDs, pero publicar las Functions Bodega en una región distinta a
 topología operativa, y exige volver a certificar rutas, latencia, logging,
 monitorización y rollback para esa región.
 
-## Decisión propuesta
+## Decisión aceptada
 
-Se recomienda la **Opción 1**. Solo cambian los IDs Firebase de los cuatro
+El responsable aceptó la **Opción 1** el 2026-10-12. Solo cambian los IDs Firebase de los cuatro
 wrappers Bodega que colisionan; el wrapper mantiene la misma llamada al núcleo
 transaccional existente, sin alterar nombres de comandos internos, receipts,
 reglas de autoridad, señales, ledger, auditoría ni semántica de reintento. Los
@@ -112,11 +117,11 @@ orden compatible de despliegue y rollback en Gate C antes de cualquier deploy.
 
 ## Consecuencias y límites
 
-- La aceptación de este ADR no autoriza implementación ni despliegue.
-- La aceptación no cierra el riesgo separado de `registrarCompraOperativaV1`:
-  su ruta legacy sigue activa en producción y ADR-SAAS-072 exige demostrar que
-  no puede procesar compras Bodega o aprobar una decisión que resuelva esa
-  autoridad antes del corte de Rules.
+- La aceptación autoriza preparar una PR de implementación, pero no un deploy.
+- La aceptación no cierra por sí sola el riesgo de `registrarCompraOperativaV1`:
+  su ruta legacy sigue activa en producción. ADR-SAAS-075 aceptó rechazar
+  Bodega en esa callable, también durante replay; esa implementación y su
+  prueba deben preceder al corte de Rules conforme a ADR-SAAS-072.
 - No se modifica ni se despliega `saas-auth` por esta decisión.
 - Gate I permanece bloqueado hasta que estén resueltas las colisiones, la
   identidad del artefacto Vercel, la divergencia de Rules, el smoke sintético,
@@ -125,7 +130,7 @@ orden compatible de despliegue y rollback en Gate C antes de cualquier deploy.
 
 ## Migración, validación y rollback propuestos
 
-Tras aprobación explícita, una PR de implementación debe:
+Una PR de implementación autorizada por esta decisión debe:
 
 1. cambiar los cuatro exports Bodega y actualizar el dispatcher compatible;
 2. conservar los IDs canónicos internos de comando e idempotencia;
@@ -147,10 +152,8 @@ revierten ventas, inventario, ledger, turnos ni auditoría con un rollback de
 código. La ruta concreta de rollback debe validarse con versiones reales antes
 de un deploy; no se presume que exista una revisión productiva Bodega previa.
 
-## Decisión solicitada
+## Aprobación registrada
 
-El responsable indicó el 2026-10-12 que se propongan nombres Bodega únicos.
-Esto define la recomendación del ADR, pero **no constituye aceptación** de la
-Opción 1 ni autorización de implementación. Aceptar o rechazar explícitamente
-la Opción 1 antes de implementar. Si se elige otra opción, actualizar el plan y
-los ADR que queden supersedidos antes de modificar código.
+El responsable indicó que se propusieran nombres Bodega únicos y luego aceptó
+explícitamente la Opción 1 el 2026-10-12. Esta aceptación autoriza preparar el
+PR de implementación; no autoriza deploy, Rules, IAM, Secrets ni producción.

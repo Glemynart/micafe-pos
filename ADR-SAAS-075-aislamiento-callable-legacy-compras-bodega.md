@@ -2,13 +2,18 @@
 
 ## Estado
 
-**PROPUESTO — pendiente de aprobación explícita.**
+**ACEPTADO — Opción 1, 2026-10-12.**
 
 - **Fecha de propuesta:** 2026-10-12.
+- **Fecha de aceptación:** 2026-10-12.
 - **Goal:** `G-SAAS-02` → `M2 — Provisioning y onboarding` → `E2.2 — Configuración inicial`.
 - **Relacionados:** ADR-SAAS-049, ADR-SAAS-054, ADR-SAAS-071, ADR-SAAS-072 y ADR-SAAS-074.
-- **Límite:** esta propuesta no autoriza cambios de código, cliente, deploy,
-  Rules, IAM, Secrets, Functions, datos ni producción.
+- **Decisión:** el responsable aceptó explícitamente la Opción 1, rechazo de la
+  compra legacy solo para Bodega, preservando los otros verticales y el control
+  también durante replay.
+- **Evidencia de aceptación:** [decisiones ADR-SAAS-073/074/075](docs/goals/evidence/G-SAAS-02-E2-2-ADR-SAAS-073-075-ACCEPTANCE-2026-10-12.md).
+- **Límite:** se autoriza preparar el PR de implementación. No autoriza deploy,
+  Rules, IAM, Secrets, compras, datos ni tenant real.
 
 ## Contexto y evidencia
 
@@ -49,9 +54,8 @@ sin convertir un corte de Firestore Rules en un control incompleto?
 - Los verticales distintos a `BODEGA_MVP1` deben conservar el contrato actual.
 - El alcance de despliegue debe ser demostrable conforme a Gate C y ADR-SAAS-049
   / ADR-SAAS-054; no presumir que un filtro de CLI vuelve seguro un deploy.
-- Mantener `saas-auth` intacto es una decisión vigente de ADR-SAAS-071/072; una
-  modificación requiere aprobación que la superseda de forma explícita y
-  acotada.
+- ADR-SAAS-071/072 preservan `saas-auth`, salvo la excepción explícita y
+  acotada aceptada aquí para rechazar Bodega en la callable legacy.
 
 ## Opciones
 
@@ -101,13 +105,13 @@ comportamiento no aprobados.
 **Costes:** mantiene Gate I bloqueado; el hecho de que el cliente use la nueva
 callable no impide invocaciones directas de la legacy.
 
-## Decisión propuesta
+## Decisión aceptada
 
-Se recomienda la **Opción 1**, limitada a impedir que un tenant con vertical
-canónico `BODEGA_MVP1` procese compras por `registrarCompraOperativaV1`. La
-decisión debe expresamente autorizar una excepción acotada a la preservación de
-`saas-auth` en ADR-SAAS-071/072. No debe alterar comportamiento, discovery,
-Secrets ni contratos de otros verticales.
+El responsable aceptó la **Opción 1** el 2026-10-12, limitada a impedir que un
+tenant con vertical canónico `BODEGA_MVP1` procese compras por
+`registrarCompraOperativaV1`. Esta decisión supersede explícitamente ADR-SAAS-071/072
+solo en esa excepción acotada de comportamiento de `saas-auth`; no altera
+discovery, Secrets ni contratos de otros verticales.
 
 La implementación deberá comprobar la vertical dentro de la autoridad
 transaccional, cubrir el camino de operación nueva y el replay, y responder con
@@ -117,10 +121,11 @@ de compras en otros verticales.
 
 ## Consecuencias y límites
 
-- La propuesta no cambia el estado aceptado de ADR-SAAS-071/072. Su aceptación
-  los supersedería solo en la restricción necesaria para esta barrera Bodega.
-- La aceptación autorizaría preparar una PR de implementación aislada; no
-  autorizaría deploy, reglas, IAM, Secrets, compras, datos ni tenant real.
+- Esta decisión supersede ADR-SAAS-071/072 solo en la restricción necesaria
+  para que la callable legacy rechace el vertical Bodega. No altera los demás
+  verticales.
+- La aceptación autoriza preparar una PR de implementación aislada; no
+  autoriza deploy, Rules, IAM, Secrets, compras, datos ni tenant real.
 - Un deploy de `saas-auth` requiere Gate C que demuestre la superficie exacta,
   secretos, dependencias y rollback; no se autoriza por el solo hecho de que
   exista una opción `--only`.
@@ -132,7 +137,7 @@ de compras en otros verticales.
 
 ## Migración, validación y rollback propuestos
 
-Tras aprobación explícita, una PR de implementación deberá:
+Una PR de implementación autorizada por esta decisión deberá:
 
 1. aplicar el control por vertical desde configuración canónica, sin confiar en
    claims aportados por el cliente;
@@ -151,8 +156,7 @@ reabrir la callable genérica ni escrituras directas de Rules como rollback
 automático; exigir corrección hacia delante o un plan de migración/restauración
 aprobado que preserve compras e inventario.
 
-## Decisión solicitada
+## Aprobación registrada
 
-Aceptar o rechazar explícitamente la Opción 1. Si se rechaza, escoger Opción 2
-u Opción 3 y actualizar Goal/ADR antes de implementar. La aprobación de esta
-propuesta no autoriza deploy ni escrituras productivas.
+El responsable aceptó explícitamente la Opción 1 el 2026-10-12. La decisión no
+autoriza deploy ni escrituras productivas.
