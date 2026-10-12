@@ -214,18 +214,41 @@ async function validarPoliticaCompraBodegaEnTransaccion(tx: any, db: any, empres
   if (errorPayload) fail("invalid-argument", errorPayload);
 }
 
+async function rechazarCompraLegacyBodegaEnTransaccion(tx: any, db: any, empresaId: string): Promise<void> {
+  const configuracion = await tx.get(db.collection("configuraciones").doc(empresaId));
+  if (configuracion.data()?.vertical === "BODEGA_MVP1") {
+    throw new HttpsError(
+      "failed-precondition",
+      "Las compras Bodega deben registrarse mediante registrarCompraBodegaV1.",
+      { code: "BODEGA_USE_CANONICAL" },
+    );
+  }
+}
+
+async function efectoRegistrarCompraOperativaLegacy(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<Record<string, unknown>> {
+  await rechazarCompraLegacyBodegaEnTransaccion(tx, db, empresaId);
+  return efectoRegistrarCompra(tx, db, empresaId, actorUid, rol, input);
+}
+
+async function validarReplayCompraOperativaLegacy(tx: any, db: any, empresaId: string): Promise<void> {
+  await rechazarCompraLegacyBodegaEnTransaccion(tx, db, empresaId);
+}
+
 async function validarReplayCompraBodega(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<void> {
   await revalidarAutoridadFinancieraEnTransaccion(tx, db, { empresaId, actorUid, rol }, "purchases");
   await validarPoliticaCompraBodegaEnTransaccion(tx, db, empresaId, input);
 }
 
-function ejecutarRegistrarCompra(db: any, contexto: ContextoFinancieroOperativo, data: unknown, tipo: string) {
-  return executeConContexto(db, contexto, data, tipo, efectoRegistrarCompra);
-}
-
 /** Core transaccional común: solo cambia el tipo canónico de idempotencia. */
 export function ejecutarRegistrarCompraOperativaV1(db: any, contexto: ContextoFinancieroOperativo, data: unknown) {
-  return ejecutarRegistrarCompra(db, contexto, data, "registrarCompraOperativaV1");
+  return executeConContexto(
+    db,
+    contexto,
+    data,
+    "registrarCompraOperativaV1",
+    efectoRegistrarCompraOperativaLegacy,
+    validarReplayCompraOperativaLegacy,
+  );
 }
 
 /** Entrada aislada Bodega sobre las mismas validaciones, ledger y señal. */

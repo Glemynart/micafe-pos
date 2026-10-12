@@ -104,6 +104,9 @@ const envelope = (suffix: string, payload: Record<string, unknown>) => ({
   payload,
 });
 const domain = (error: unknown, code: string) => error instanceof HttpsError && (error.details as { code?: string }).code === code;
+const legacyBodega = (error: unknown) => domain(error, "BODEGA_USE_CANONICAL")
+  && error instanceof HttpsError
+  && error.message.includes("registrarCompraBodegaV1");
 
 function seed(db: FakeFirestore, saldo = 0) {
   db.docs.set(`empresas/${empresaId}`, { estado: "activa", esFundacional: true });
@@ -138,6 +141,39 @@ test("P0-12: confirma compra con snapshots del catálogo, inventario y costo en 
   assert.equal(db.docs.get(`movimientos_inventario/compra:${result.compraId}:producto:cafe:0`)?.referenciaId, result.compraId);
   assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/disponibilidad`)?.version, 1);
   assert.equal([...db.docs.keys()].filter(key => key.startsWith("transacciones_financieras/")).length, 0);
+});
+
+test("ADR-SAAS-075: la callable legacy rechaza una compra nueva de Bodega sin efectos parciales", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory", "purchases"] } });
+  const antes = [...db.docs.entries()];
+
+  await assert.rejects(
+    ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("legacy-bodega-new", payload())),
+    legacyBodega,
+  );
+
+  assert.deepEqual([...db.docs.entries()], antes);
+});
+
+test("ADR-SAAS-075: la callable legacy revalida Bodega antes de devolver un replay", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "GENERAL", modulos: { habilitados: ["purchases"] } });
+  const command = envelope("legacy-bodega-replay", payload());
+  const result = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
+  const compraAntes = db.docs.get(`compras/${result.compraId}`);
+  const movimientoAntes = db.docs.get(`movimientos_inventario/compra:${result.compraId}:producto:cafe:0`);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory", "purchases"] } });
+  const antesReplay = [...db.docs.entries()];
+
+  await assert.rejects(
+    ejecutarRegistrarCompraOperativaV1(db, contexto, command),
+    legacyBodega,
+  );
+
+  assert.deepEqual([...db.docs.entries()], antesReplay);
+  assert.equal(db.docs.get(`compras/${result.compraId}`), compraAntes);
+  assert.equal(db.docs.get(`movimientos_inventario/compra:${result.compraId}:producto:cafe:0`), movimientoAntes);
 });
 
 test("Bodega: registra compra con la misma transacción y el nuevo tipo idempotente", async () => {
