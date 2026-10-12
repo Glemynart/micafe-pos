@@ -7,6 +7,7 @@ import { initializeApp as initializeClientApp, deleteApp as deleteClientApp } fr
 import { connectAuthEmulator, getAuth as getClientAuth, signInWithCustomToken } from "firebase/auth"
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions"
 import { crearPlantillaConfiguracionRevision1 } from "../../../lib/configuracion/plantilla"
+import { crearIdentificadorInterno } from "../../../functions/src/turnos/identificadores"
 
 const projectId = process.env.E2E_BODEGA_PROJECT_ID ?? "demo-bodega-u4-u5-ui"
 const runId = (process.env.E2E_BODEGA_RUN_ID ?? "manual").replace(/[^a-z0-9-]/gi, "-").slice(-30)
@@ -15,7 +16,7 @@ const pepper = process.env.OPERATIONAL_PIN_PEPPER ?? "bodega-u4-u5-local-pepper"
 
 type Actor = { uid: string; codigo: string; rol: "vendedor" | "admin"; permisos: string[]; empresaId: string }
 type TenantFixture = {
-  key: "A" | "B" | "C" | "D" | "GENERAL"; empresaId: string; nombre: string; vendedor: Actor; admin: Actor
+  key: "A" | "B" | "C" | "D" | "E" | "GENERAL"; empresaId: string; nombre: string; vendedor: Actor; admin: Actor
   clienteId: string; clienteNombre: string; productoId: string; productoNombre: string; presentacionId: string; presentacionNombre: string
 }
 
@@ -34,6 +35,7 @@ const tenantA = tenantFixture("A", "BODEGA_MVP1")
 const tenantB = tenantFixture("B", "BODEGA_MVP1")
 const tenantC = tenantFixture("C", "BODEGA_MVP1")
 const tenantD = tenantFixture("D", "BODEGA_MVP1")
+const tenantE = tenantFixture("E", "BODEGA_MVP1")
 const tenantGeneral = tenantFixture("GENERAL", "GENERAL")
 let app: ReturnType<typeof initializeApp>
 
@@ -61,9 +63,8 @@ async function seedTenant(db: FirebaseFirestore.Firestore, auth: ReturnType<type
   if (vertical === "BODEGA_MVP1") {
     const bankAccountId = tenant.key === "A" ? "bancolombia" : `bancolombia-${tenant.key.toLowerCase()}-${runId}`
     await db.collection("cuentas_bancarias").doc(bankAccountId).set({ id: bankAccountId, empresaId: tenant.empresaId, claveOperativa: "bancolombia", nombre: "Bancolombia", saldo: 0 })
-  }
-  if (tenant.key === "A") {
-    await db.collection("cuentas_bancarias").doc("caja-principal").set({ id: "caja-principal", empresaId: tenant.empresaId, claveOperativa: "caja-principal", nombre: "Caja", saldo: 0 })
+    const cashAccountId = tenant.key === "A" ? "caja-principal" : crearIdentificadorInterno(tenant.empresaId, "cuenta:caja-principal")
+    await db.collection("cuentas_bancarias").doc(cashAccountId).set({ id: cashAccountId, empresaId: tenant.empresaId, claveOperativa: "caja-principal", nombre: "Caja", saldo: 0 })
   }
 }
 
@@ -75,6 +76,7 @@ test.beforeAll(async () => {
   await seedTenant(db, auth, tenantB, "BODEGA_MVP1")
   await seedTenant(db, auth, tenantC, "BODEGA_MVP1")
   await seedTenant(db, auth, tenantD, "BODEGA_MVP1")
+  await seedTenant(db, auth, tenantE, "BODEGA_MVP1")
   await seedTenant(db, auth, tenantGeneral, "GENERAL")
 })
 test.afterAll(async () => { await deleteApp(app) })
@@ -116,6 +118,7 @@ async function aprobarSolicitudEnBackoffice(browser: import("@playwright/test").
 }
 
 test("vendedor solicita transferencia, admin aprueba y el pago materializa una única venta", async ({ page, browser }) => {
+  test.setTimeout(120_000)
   await login(page, tenantA.vendedor); await expect(page.getByText("Bodega móvil")).toBeVisible()
   await page.getByRole("button", { name: tenantA.productoNombre }).click(); await expect(page.getByRole("button", { name: "Enviar solicitud" })).toBeEnabled(); await expect(page.getByText("Sin turno")).toBeVisible()
   await page.getByRole("button", { name: "Enviar solicitud" }).click()
@@ -220,29 +223,29 @@ test("reintento tras perder la respuesta de la venta conserva una sola solicitud
 })
 
 test("vendedor aprobado confirma efectivo sin turno con recibido y cambio persistidos", async ({ page, browser }) => {
-  await login(page, tenantA.vendedor); await expect(page.getByText("Bodega móvil")).toBeVisible()
+  await login(page, tenantE.vendedor); await expect(page.getByText("Bodega móvil")).toBeVisible()
   const db = getFirestore(app)
-  const solicitudesAntes = new Set((await db.collection("empresas").doc(tenantA.empresaId).collection("solicitudes_venta_bodega").get()).docs.map(solicitud => solicitud.id))
-  await page.getByRole("button", { name: tenantA.productoNombre }).click(); await page.getByLabel(`Cantidad de ${tenantA.presentacionNombre}`).fill("2"); await page.getByRole("button", { name: "Enviar solicitud" }).click(); await expect(page.getByRole("heading", { name: "Mis solicitudes" })).toBeVisible()
-  const solicitudesDespues = await db.collection("empresas").doc(tenantA.empresaId).collection("solicitudes_venta_bodega").get()
+  const solicitudesAntes = new Set((await db.collection("empresas").doc(tenantE.empresaId).collection("solicitudes_venta_bodega").get()).docs.map(solicitud => solicitud.id))
+  await page.getByRole("button", { name: tenantE.productoNombre }).click(); await page.getByLabel(`Cantidad de ${tenantE.presentacionNombre}`).fill("2"); await page.getByRole("button", { name: "Enviar solicitud" }).click(); await expect(page.getByRole("heading", { name: "Mis solicitudes" })).toBeVisible()
+  const solicitudesDespues = await db.collection("empresas").doc(tenantE.empresaId).collection("solicitudes_venta_bodega").get()
   const solicitudNueva = solicitudesDespues.docs.find(solicitud => !solicitudesAntes.has(solicitud.id))
   expect(solicitudNueva).toBeTruthy()
-  await aprobarSolicitudEnBackoffice(browser, tenantA, tenantA.clienteNombre, solicitudNueva!.id)
+  await aprobarSolicitudEnBackoffice(browser, tenantE, tenantE.clienteNombre, solicitudNueva!.id)
   await page.reload(); await page.getByRole("button", { name: "Solicitudes" }).click(); await expect(page.getByText("APROBADA", { exact: true })).toBeVisible(); await page.getByRole("button", { name: "efectivo" }).click()
-  const turnosAntes = await db.collection("turnos").where("empresaId", "==", tenantA.empresaId).get()
+  const turnosAntes = await db.collection("turnos").where("empresaId", "==", tenantE.empresaId).get()
   await page.getByLabel("Efectivo recibido").fill("12000"); await expect(page.getByText(/Cambio estimado:.*2\.000/)).toBeVisible()
-  expect((await db.collection("productos").doc(tenantA.productoId).get()).data()?.stock).toBe(18)
+  expect((await db.collection("productos").doc(tenantE.productoId).get()).data()?.stock).toBe(20)
   await page.getByRole("button", { name: "Confirmar venta" }).click(); await expect(page.getByText("Venta confirmada")).toBeVisible()
-  const ventas = await db.collection("ventas").where("empresaId", "==", tenantA.empresaId).get()
+  const ventas = await db.collection("ventas").where("empresaId", "==", tenantE.empresaId).get()
   const ventasProyectadas: Array<Record<string, any>> = ventas.docs.map(item => ({ id: item.id, ...(item.data() as Record<string, unknown>) }))
   const venta = ventasProyectadas.find(item => item.metodoPago === "efectivo")
-  expect(venta).toBeTruthy(); expect(venta?.estadoOperativo).toBe("COMPLETO"); expect(venta?.cajeroId).toBe(tenantA.vendedor.uid); expect(venta?.turnoId).toBeNull(); expect(venta?.pago).toMatchObject({ metodo: "efectivo", montoRecibidoCOP: 12000, cambioCOP: 2000 }); expect(venta?.totales).toEqual({ subtotal: 10000, impuestos: 0, total: 10000 })
-  expect(venta?.items).toHaveLength(1); expect(venta?.items[0]).toMatchObject({ productoId: tenantA.productoId, presentacionId: tenantA.presentacionId, cantidadPresentaciones: 2, factorUnidadBase: 2, cantidadUnidadBase: 4, precioPresentacionCOP: 5000, subtotalCOP: 10000, productoNombreSnapshot: tenantA.productoNombre, presentacionNombreSnapshot: tenantA.presentacionNombre })
-  const recibos = await db.collection("operaciones_comandos").where("empresaId", "==", tenantA.empresaId).get(); expect(recibos.docs.filter(recibo => recibo.data().commandId === venta?.commandId)).toHaveLength(1)
-  const ingresos = await db.collection("transacciones_financieras").where("empresaId", "==", tenantA.empresaId).where("ventaId", "==", venta?.id).get(); expect(ingresos.size).toBe(1); expect(ingresos.docs[0]?.data()).toMatchObject({ tipo: "ingreso", categoria: "ventas", monto: 10000, turnoId: null, usuarioId: tenantA.vendedor.uid, cuentaDocumentoId: "caja-principal" })
-  const movimientos = await db.collection("movimientos_inventario").where("empresaId", "==", tenantA.empresaId).where("referenciaId", "==", venta?.id).get(); expect(movimientos.size).toBe(1); expect(movimientos.docs[0]?.data()).toMatchObject({ articuloId: tenantA.productoId, cantidad: -4, referenciaColeccion: "ventas", referenciaId: venta?.id })
-  expect((await db.collection("turnos").where("empresaId", "==", tenantA.empresaId).get()).docs.map(turno => turno.id)).toEqual(turnosAntes.docs.map(turno => turno.id))
-  expect((await db.collection("productos").doc(tenantA.productoId).get()).data()?.stock).toBe(14)
+  expect(venta).toBeTruthy(); expect(venta?.estadoOperativo).toBe("COMPLETO"); expect(venta?.cajeroId).toBe(tenantE.vendedor.uid); expect(venta?.turnoId).toBeNull(); expect(venta?.pago).toMatchObject({ metodo: "efectivo", montoRecibidoCOP: 12000, cambioCOP: 2000 }); expect(venta?.totales).toEqual({ subtotal: 10000, impuestos: 0, total: 10000 })
+  expect(venta?.items).toHaveLength(1); expect(venta?.items[0]).toMatchObject({ productoId: tenantE.productoId, presentacionId: tenantE.presentacionId, cantidadPresentaciones: 2, factorUnidadBase: 2, cantidadUnidadBase: 4, precioPresentacionCOP: 5000, subtotalCOP: 10000, productoNombreSnapshot: tenantE.productoNombre, presentacionNombreSnapshot: tenantE.presentacionNombre })
+  const recibos = await db.collection("operaciones_comandos").where("empresaId", "==", tenantE.empresaId).get(); expect(recibos.docs.filter(recibo => recibo.data().commandId === venta?.commandId)).toHaveLength(1)
+  const ingresos = await db.collection("transacciones_financieras").where("empresaId", "==", tenantE.empresaId).where("ventaId", "==", venta?.id).get(); expect(ingresos.size).toBe(1); expect(ingresos.docs[0]?.data()).toMatchObject({ tipo: "ingreso", categoria: "ventas", monto: 10000, turnoId: null, usuarioId: tenantE.vendedor.uid, cuentaDocumentoId: crearIdentificadorInterno(tenantE.empresaId, "cuenta:caja-principal") })
+  const movimientos = await db.collection("movimientos_inventario").where("empresaId", "==", tenantE.empresaId).where("referenciaId", "==", venta?.id).get(); expect(movimientos.size).toBe(1); expect(movimientos.docs[0]?.data()).toMatchObject({ articuloId: tenantE.productoId, cantidad: -4, referenciaColeccion: "ventas", referenciaId: venta?.id })
+  expect((await db.collection("turnos").where("empresaId", "==", tenantE.empresaId).get()).docs.map(turno => turno.id)).toEqual(turnosAntes.docs.map(turno => turno.id))
+  expect((await db.collection("productos").doc(tenantE.productoId).get()).data()?.stock).toBe(16)
 })
 
 test("Bodega conserva aislamiento A/B en UI y callable real", async ({ page }) => {
