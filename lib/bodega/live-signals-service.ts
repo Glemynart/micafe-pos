@@ -5,6 +5,19 @@ export type CanalSenalBodega = "disponibilidad" | "solicitudes_admin" | "solicit
 export type EstadoSenalBodega = { version: number | null; conectada: boolean };
 export type ControlSuscripcionSenalBodega = { reconectar: () => void; cerrar: () => void };
 
+export function registrarRecuperacionEnLineaBodega(
+  target: Pick<EventTarget, "addEventListener" | "removeEventListener">,
+  reconectar: () => void,
+  releer: () => void,
+): () => void {
+  const recuperar = () => {
+    reconectar();
+    releer();
+  };
+  target.addEventListener("online", recuperar);
+  return () => target.removeEventListener("online", recuperar);
+}
+
 export function crearSuscripcionRecuperableSenalBodega(
   escuchar: (onState: (state: EstadoSenalBodega) => void, onError: () => void) => Unsubscribe,
   callback: (state: EstadoSenalBodega) => void,
