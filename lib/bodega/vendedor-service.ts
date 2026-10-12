@@ -1,9 +1,10 @@
 import { httpsCallable } from "firebase/functions"
 import { getFirebaseFunctions } from "@/lib/firebase"
+import { resolverCallableOperacionBodega } from "./operation-routing"
 import type { ClienteVendedorDTO, ConfirmacionVentaBodega, PresentacionVendedorDTO, ResultadoVentaBodega, VentaVendedorDTO } from "./ui-contract"
 
 async function invocar<TEntrada, TSalida>(nombre: string, data: TEntrada): Promise<TSalida> {
-  const callable = httpsCallable<TEntrada, TSalida>(getFirebaseFunctions(), nombre)
+  const callable = httpsCallable<TEntrada, TSalida>(getFirebaseFunctions(), resolverCallableOperacionBodega("BODEGA_MVP1", nombre))
   return (await callable(data)).data
 }
 

@@ -16,7 +16,7 @@ interface GlobalCloseShiftProps {
 }
 
 export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftProps) {
- const { proyecciones } = useConfiguracionEmpresa()
+ const { proyecciones, vertical } = useConfiguracionEmpresa()
  const [open, setOpen] = useState(false)
  const [activeShift, setActiveShift] = useState<Turno | null>(null)
  
@@ -97,6 +97,7 @@ export function GlobalCloseShift({ usuario, onCloseSuccess }: GlobalCloseShiftPr
  try {
  const cajeroRelevo = cajeros.find(c => c.uid === handoverTo)
  await cerrarTurno({
+ vertical,
  turnoId: activeShift.id,
  ventasEfectivo: ventasTurno.efectivo,
  ventasOtrosMetodos: ventasTurno.transferencia + ventasTurno.tarjeta + ventasTurno.otros,

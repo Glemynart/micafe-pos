@@ -177,7 +177,7 @@ test("reintento tras perder la respuesta de la venta conserva una sola solicitud
   let perderRespuesta = true
   let comandoInicial: unknown
   let comandoReintentado: unknown
-  await page.route("**/*confirmarVentaBodegaV1*", async route => {
+  await page.route("**/*confirmarVentaVendedorBodegaV1*", async route => {
     if (route.request().method() !== "POST") { await route.continue(); return }
     const data = route.request().postDataJSON()?.data
     if (perderRespuesta) {

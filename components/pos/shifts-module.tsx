@@ -49,7 +49,7 @@ import { mensajeErrorApertura } from '@/components/pos/apertura-turno-mensajes'
 
 export function ShiftsModule() {
   const { usuario } = useAuthContext()
-  const { proyecciones, empresaId } = useConfiguracionEmpresa()
+  const { proyecciones, empresaId, vertical } = useConfiguracionEmpresa()
   
   const [showOpenShift, setShowOpenShift] = useState(false)
   const [showCloseShift, setShowCloseShift] = useState(false)
@@ -227,6 +227,7 @@ export function ShiftsModule() {
     preparandoContextoRef.current = null
     try {
       await abrirTurno({
+        vertical,
         baseApertura: base,
         notasApertura: notasAperturaVisibles,
       })
@@ -296,6 +297,7 @@ export function ShiftsModule() {
 
     try {
       await cerrarTurno({
+        vertical,
         turnoId: turnoActivoVisible.id,
         ventasEfectivo: ventasTurno.efectivo,
         ventasOtrosMetodos: ventasTurno.transferencia + ventasTurno.tarjeta + ventasTurno.otros,

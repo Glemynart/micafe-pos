@@ -32,10 +32,10 @@ test("saas-bodega descubre callables, scheduler ADR-064 y trigger push ADR-065 s
   const result = await manifest(value);
   const endpoints = result.endpoints as Record<string, { region?: unknown; callableTrigger?: unknown; scheduleTrigger?: { schedule?: unknown; timeZone?: unknown }; eventTrigger?: { eventType?: unknown; eventFilters?: Record<string, unknown> } }>;
   assert.deepEqual(Object.keys(endpoints).sort(), [
-    "actualizarPresentacionComercialV1", "cancelarProgramacionPedidoBodegaV1", "cancelarSolicitudVentaBodegaV1",
-    "confirmarVentaBodegaV1", "consultarAgendaPedidosBodegaV1", "consultarSolicitudesVentaBodegaV1",
-    "convertirProgramacionPedidoBodegaV1", "crearArticuloInventarioV1", "crearCategoriaBodegaV1",
-    "crearClienteVendedorV1", "crearPresentacionComercialV1", "crearProgramacionPedidoBodegaV1",
+    "actualizarPresentacionComercialBodegaV1", "cancelarProgramacionPedidoBodegaV1", "cancelarSolicitudVentaBodegaV1",
+    "confirmarVentaVendedorBodegaV1", "consultarAgendaPedidosBodegaV1", "consultarSolicitudesVentaBodegaV1",
+    "convertirProgramacionPedidoBodegaV1", "crearArticuloInventarioBodegaV1", "crearCategoriaBodegaV1",
+    "crearClienteVendedorBodegaV1", "crearPresentacionComercialBodegaV1", "crearProgramacionPedidoBodegaV1",
     "crearSolicitudVentaBodegaV1", "notificarSolicitudVentaBodegaPendienteV1", "reconciliarAgendaPedidosBodegaV1", "resolverProgramacionPedidoBodegaV1",
     "resolverSolicitudVentaBodegaV1",
   ]);
