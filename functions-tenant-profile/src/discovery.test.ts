@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { after, test } from "node:test";
@@ -7,7 +8,22 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repository = resolve(root, "..");
 const bin = resolve(root, "node_modules/firebase-functions/lib/bin/firebase-functions.js");
+
+test("el codebase Functions aislado se compila por separado de la aplicación web", () => {
+  const appTsconfig = JSON.parse(readFileSync(resolve(repository, "tsconfig.json"), "utf8"));
+  const functionsTsconfig = JSON.parse(readFileSync(resolve(root, "tsconfig.json"), "utf8"));
+
+  assert.ok(
+    appTsconfig.exclude?.includes("functions-tenant-profile/**"),
+    "el typecheck web no debe compilar el codebase Functions aislado",
+  );
+  assert.ok(
+    functionsTsconfig.include?.includes("src/**/*.ts"),
+    "el codebase aislado debe conservar su typecheck propio",
+  );
+});
 
 async function port() {
   const server = createServer();

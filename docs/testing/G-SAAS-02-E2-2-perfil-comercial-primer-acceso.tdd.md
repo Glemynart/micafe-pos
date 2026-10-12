@@ -14,7 +14,8 @@
 ## RED / GREEN
 
 - **RED:** el esqueleto inicial falló porque el handler todavía no existía; eso fue solo un fallo de scaffolding y no se cuenta como evidencia TDD. Después se agregó una aserción de comportamiento para rechazar dirección demasiado larga y etiquetas territoriales vacías. Antes de la corrección de validación, el test falló con `Missing expected rejection`, confirmando que el servidor aceptaba esos datos.
-- **GREEN:** el servidor ahora valida texto canónico, requerido y acotado antes de crear operaciones; se agregó el caso de teléfono inválido y límites del perfil al formulario. El primer ensayo del Emulator también encontró una aserción demasiado amplia: el DV de un carácter coincidía incidentalmente con otros números de auditoría. Se afinó para comprobar NIT, email, dirección y NIT-DV completos; luego pasó.
+- **RED (build web):** el primer Preview de Vercel (`dpl_2pAD9MY9igBZbjQNmKZCZTVmVrLJ`, commit `bf3e092`) compiló Next y falló en su typecheck al incluir `functions-tenant-profile/src` y sus imports compartidos, que dependen del `firebase-functions` instalado por el lockfile aislado, no por `npm ci` raíz. La nueva prueba de discovery falló primero porque el `tsconfig.json` raíz no excluía ese codebase.
+- **GREEN:** el servidor ahora valida texto canónico, requerido y acotado antes de crear operaciones; se agregó el caso de teléfono inválido y límites del perfil al formulario. El primer ensayo del Emulator también encontró una aserción demasiado amplia: el DV de un carácter coincidía incidentalmente con otros números de auditoría. Se afinó para comprobar NIT, email, dirección y NIT-DV completos; luego pasó. El `tsconfig.json` raíz ahora excluye el paquete aislado y su test verifica que conserva su typecheck independiente. El typecheck y build local de la app, además del build y tests del paquete, pasan; el nuevo Preview de Vercel debe confirmar la corrección antes del merge.
 - **E2E:** el primer recorrido encontró que el fixture no incluía `empresas.revision`, que el Bootstrap sí inicializa en `1`; se corrigió el fixture para representar la forma real del documento. También se retiró una aserción de admin GENERAL que excedía este ADR y no correspondía a la ruta observada. El segundo recorrido completó los 12 escenarios.
 
 ## Evidencia ejecutada
@@ -22,6 +23,7 @@
 | Garantía | Validación ejecutada | Resultado |
 |---|---|---|
 | Discovery declara exactamente una callable Gen2, sin Secrets | `npm test` en `functions-tenant-profile` | PASS |
+| Typecheck web no absorbe el codebase Functions aislado, cuyo paquete mantiene compilación propia | `npm run test:discovery --prefix functions-tenant-profile`; `npx tsc --noEmit`; `npm run build` | PASS local; Preview corregido pendiente |
 | Núcleo transaccional: tenant autenticado, admin Bodega, NIT-DV, validaciones, revisionado, replay y gate de rol/vertical | `npm test` en `functions-tenant-profile` | PASS |
 | Carga de módulo sin consultas Firestore/Auth ni secretos | `npm test` en `functions-tenant-profile` | PASS |
 | Escritura atómica en configuración/Empresa, DEMO intacto, readiness fiscal pendiente, replay sin duplicación y auditoría sin PII | `npx firebase --project demo-tenant-profile emulators:exec --only firestore "npm --prefix functions-tenant-profile run test:emulator"` | PASS (1 prueba) |
