@@ -296,7 +296,7 @@ test("admin Bodega completa perfil comercial en primer acceso y entra al panel a
   await page.getByLabel("Tipo de persona").selectOption("JURIDICA")
   await page.getByLabel("NIT", { exact: true }).fill("900373913")
   await page.getByLabel("Dígito de verificación").fill("4")
-  await page.getByLabel("Correo de contacto").fill("contacto-f@example.com")
+  await page.getByLabel("Correo de contacto").fill("Diana.Jimenez@Example.com")
   await page.getByLabel("Teléfono de contacto").fill("+573001234567")
   await page.getByLabel("Dirección del negocio").fill("Calle de prueba 123")
   await page.getByLabel("Departamento", { exact: true }).fill("Bogotá D.C.")
