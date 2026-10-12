@@ -1398,9 +1398,13 @@ servicios desde el despliegue. El detalle reproducible está en
 
 La política IAM de proyecto posterior coincide con el preflight; se conservaron
 los cinco bindings aprobados y el binding preexistente de
-`firebase-adminsdk-fbsvc`, sin cambios. Rules, Storage, Auth, fixture, tenant
-real y producción no se modificaron ni se ejecutaron compras/ventas
-autenticadas. El scheduler preexistente `reconciliarAgendaPedidosBodegaV1`
+`firebase-adminsdk-fbsvc`, sin cambios. Durante esta ventana de deploy no se
+modificaron Rules, Storage, Auth, fixture, tenant real ni producción, y el
+deploy/verificación no ejecutó compras, ventas o ajustes manuales de inventario.
+La compra sintética anterior del fixture permanece registrada y conciliada en
+[`evidencia de compra Gate F`](evidence/G-SAAS-02-E2-2-GATE-F-PURCHASE-RECONCILIATION-2026-10-11.md);
+no fue creada ni modificada por este deploy. El scheduler preexistente
+`reconciliarAgendaPedidosBodegaV1`
 continúa cada cinco minutos y tuvo una invocación automática a las
 `2026-10-11T22:30:01Z`; no se lo invocó manualmente y no se inspeccionó el
 resultado de reconciliación en Firestore.

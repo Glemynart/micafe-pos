@@ -81,11 +81,14 @@ reconciliación en Firestore.
   `roles/iam.serviceAccountTokenCreator` →
   `firebase-adminsdk-fbsvc@micafe-pos-staging.iam.gserviceaccount.com`. No se
   cambió IAM.
-- No se desplegaron Rules, Storage, APIs, Secrets o índices. No se hicieron
-  escrituras de negocio autenticadas ni se alteraron Auth, fixture, tenant real
-  o producción.
-- No hubo compra, venta ni cambio manual de inventario. La invocación automática
-  del scheduler descrita arriba es independiente y su resultado no se afirma.
+- No se desplegaron Rules, Storage, APIs, Secrets o índices. Durante la ventana
+  del deploy no se hicieron escrituras de negocio autenticadas ni se alteraron
+  Auth, fixture, tenant real o producción.
+- El deploy y su verificación no ejecutaron compras, ventas ni ajustes manuales
+  de inventario. La compra sintética anterior del fixture está conciliada en
+  [la evidencia de compra Gate F](G-SAAS-02-E2-2-GATE-F-PURCHASE-RECONCILIATION-2026-10-11.md);
+  no fue creada ni modificada por este deploy. La invocación automática del
+  scheduler descrita arriba es independiente y su resultado no se afirma.
 - Las revisiones de rollback siguen disponibles; si una verificación posterior
   detecta regresión, restaurar únicamente las 17 revisiones capturadas en el
   preflight tras confirmar que siguen vigentes.
