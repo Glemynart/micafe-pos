@@ -280,10 +280,18 @@ test("administrador Bodega ve únicamente el backoffice y conserva operaciones d
 })
 
 test("admin Bodega completa perfil comercial en primer acceso y entra al panel al reingresar", async ({ page }) => {
+  await page.clock.install({ time: new Date("2026-10-12T12:00:00.000Z") })
   await login(page, tenantF.admin, true)
   await expect(page.getByRole("heading", { name: "Datos del negocio" })).toBeVisible()
   await expect(page.getByText("Guardar y continuar en DEMO")).toBeVisible()
-  await page.getByLabel("Nombre comercial").fill("Distribuidora Sintética F")
+  const nombreComercial = page.getByLabel("Nombre comercial")
+  await nombreComercial.fill("Borrador local sin guardar")
+  const refresh = page.waitForResponse((response) => response.url().includes("obtenerConfiguracionEmpresa") && response.request().method() === "POST")
+  await page.clock.fastForward(60_000)
+  await refresh
+  await expect(nombreComercial).toHaveValue("Borrador local sin guardar")
+
+  await nombreComercial.fill("Distribuidora Sintética F")
   await page.getByLabel("Razón social").fill("Distribuidora Sintética F S.A.S.")
   await page.getByLabel("Tipo de persona").selectOption("JURIDICA")
   await page.getByLabel("NIT", { exact: true }).fill("900373913")
