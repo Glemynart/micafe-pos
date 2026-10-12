@@ -505,8 +505,9 @@ requieren una decisión de producto sobre monetización, límites y operación S
 | ADR-SAAS-071 | Aceptado | Callable de compras Bodega aislada; implementación/despliegue sujetos a gates. |
 | ADR-SAAS-072 | Aceptado | Corte por proyecto de escrituras directas de compras Bodega tras validar cliente y barrera legacy. |
 | ADR-SAAS-073 | Aceptado | Perfil comercial Bodega en primer acceso, separado de readiness fiscal. |
-| ADR-SAAS-074 | Aceptado | IDs públicos únicos para los cuatro endpoints Bodega en conflicto. |
+| ADR-SAAS-074 | Aceptado | Decisión inicial de IDs únicos para cuatro endpoints; su alcance fue ampliado por ADR-SAAS-076. |
 | ADR-SAAS-075 | Aceptado | Callable legacy de compras rechaza Bodega en operaciones nuevas y replay; preserva otros verticales. |
+| ADR-SAAS-076 | Aceptado | Amplía a once IDs duplicados en manifiestos el namespace público único de Bodega; preserva `saas-auth`. |
 
 ---
 

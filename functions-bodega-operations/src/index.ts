@@ -34,25 +34,25 @@ async function contextoVendedor(request: Parameters<typeof exigirTenantActivo>[0
   };
 }
 
-export const consultarCatalogoPresentacionesVendedorV1 = onCall({ region: REGION }, async (request) => {
+export const consultarCatalogoPresentacionesVendedorBodegaV1 = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   const contexto = await contextoVendedor(request, db);
   return ejecutarConsultarCatalogoPresentacionesVendedor(db, contexto, request.data);
 });
 
-export const consultarClientesVendedorV1 = onCall({ region: REGION }, async (request) => {
+export const consultarClientesVendedorBodegaV1 = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   const contexto = await contextoVendedor(request, db);
   return ejecutarConsultarClientesVendedor(db, contexto, request.data);
 });
 
-export const consultarMisVentasVendedorV1 = onCall({ region: REGION }, async (request) => {
+export const consultarMisVentasVendedorBodegaV1 = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   const contexto = await contextoVendedor(request, db);
   return ejecutarConsultarMisVentasVendedor(db, contexto, request.data);
 });
 
-export const actualizarArticuloInventarioV1 = onCall({ region: REGION }, async (request) => {
+export const actualizarArticuloInventarioBodegaV1 = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   const tenant = await exigirTenantActivo(request, db);
   return ejecutarActualizarArticuloInventarioV1(db, {
@@ -62,9 +62,9 @@ export const actualizarArticuloInventarioV1 = onCall({ region: REGION }, async (
   }, request.data);
 });
 
-export const abrirTurnoOperativoV1 = onCall({ region: REGION }, async (request) => manejarAbrirTurnoOperativo(getFirestore(), request));
+export const abrirTurnoBodegaV1 = onCall({ region: REGION }, async (request) => manejarAbrirTurnoOperativo(getFirestore(), request));
 
-export const cerrarTurnoOperativoV1 = onCall({ region: REGION }, async (request) => {
+export const cerrarTurnoBodegaV1 = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   const tenant = await exigirTenantActivo(request, db);
   return ejecutarCerrarTurnoOperativoV1(db, {

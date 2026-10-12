@@ -11,6 +11,7 @@ writeFileSync(config, JSON.stringify({
     { source: "functions-operational-auth", codebase: "saas-operational-auth" },
     { source: "functions-tenant-configuration", codebase: "saas-tenant-configuration" },
     { source: "functions-bodega", codebase: "saas-bodega" },
+    { source: "functions-bodega-operations", codebase: "saas-bodega-operations" },
   ],
   firestore: { rules: "firestore.rules", indexes: "firestore.indexes.json" },
   emulators: { functions: { host: "127.0.0.1", port: 5001 }, firestore: { host: "127.0.0.1", port: 8085 }, auth: { host: "127.0.0.1", port: 9099 }, singleProjectMode: true },
@@ -55,6 +56,7 @@ try {
   compilarCodebaseAislado("functions-operational-auth", "saas-operational-auth")
   compilarCodebaseAislado("functions-tenant-configuration", "saas-tenant-configuration")
   compilarCodebaseAislado("functions-bodega", "saas-bodega")
+  compilarCodebaseAislado("functions-bodega-operations", "saas-bodega-operations")
   const firebase = resolve("node_modules/firebase-tools/lib/bin/firebase.js")
   const result = spawnSync(process.execPath, [firebase, "emulators:exec", "--only", "auth,firestore,functions", "--project", projectId, "--config", config, "node scripts/e2e/bodega-u4-u5-inner.mjs"], { cwd: process.cwd(), env, stdio: "inherit" })
   process.exitCode = result.status ?? (result.error ? 1 : 0)

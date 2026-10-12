@@ -2,6 +2,7 @@ import { collection, getDocs, onSnapshot, where, type Unsubscribe } from "fireba
 import { db, getFirebaseFunctions } from "@/lib/firebase"
 import { tenantQuery } from "@/lib/tenant"
 import { crearEnvelopeInventario, ejecutarComandoInventario } from "@/lib/inventario-command"
+import { resolverCallableOperacionBodega } from "./operation-routing"
 import { proyectarVentaBodegaAdmin, type VentaBodegaAdminDTO } from "@/lib/bodega/ui-contract"
 import type { Cliente } from "@/lib/clientes-service"
 
@@ -56,17 +57,17 @@ export async function listarCategoriasBodega(): Promise<Array<{ id: string; nomb
 }
 
 export async function crearProductoBodega(data: { nombre: string; categoriaId: string; espacioId: string; unidad: string; stock: number; stockMinimo: number; costo: number }): Promise<string> {
-  const result = await ejecutarComandoInventario<{ articuloId: string }>("crearArticuloInventarioV1", crearEnvelopeInventario({ articuloTipo: "producto", data: { ...data, activo: true } }))
+  const result = await ejecutarComandoInventario<{ articuloId: string }>(resolverCallableOperacionBodega("BODEGA_MVP1", "crearArticuloInventarioV1"), crearEnvelopeInventario({ articuloTipo: "producto", data: { ...data, activo: true } }))
   return result.articuloId
 }
 
 export async function ajustarStockProductoBodega(productoId: string, stock: number): Promise<void> {
-  await ejecutarComandoInventario("actualizarArticuloInventarioV1", crearEnvelopeInventario({ articuloTipo: "producto", articuloId: productoId, data: { stock } }, "ajuste_administrativo_bodega"))
+  await ejecutarComandoInventario(resolverCallableOperacionBodega("BODEGA_MVP1", "actualizarArticuloInventarioV1"), crearEnvelopeInventario({ articuloTipo: "producto", articuloId: productoId, data: { stock } }, "ajuste_administrativo_bodega"))
 }
 
 async function ejecutarComandoBodega<T>(nombre: string, prefijo: string, payload: Record<string, unknown>): Promise<T> {
   const commandId = `${prefijo}:${crypto.randomUUID()}`
-  const callable = (await import("firebase/functions")).httpsCallable(getFirebaseFunctions(), nombre)
+  const callable = (await import("firebase/functions")).httpsCallable(getFirebaseFunctions(), resolverCallableOperacionBodega("BODEGA_MVP1", nombre))
   const result = await callable({ commandId, idempotencyKey: commandId, correlationId: `${prefijo}:${crypto.randomUUID()}`, payload })
   return result.data as T
 }

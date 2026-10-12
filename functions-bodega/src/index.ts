@@ -45,7 +45,7 @@ export const crearCategoriaBodegaV1 = onCall({ region: REGION }, async (request)
   return ejecutarCrearCategoriaBodegaV1(db, await contextoOperativo(request, db), request.data);
 });
 
-export const crearClienteVendedorV1 = onCall({ region: REGION }, async (request) => {
+export const crearClienteVendedorBodegaV1 = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   const tenant = await exigirTenantActivo(request, db);
   const configuracion = await leerConfiguracionEmpresa(db, tenant.id);
@@ -57,22 +57,22 @@ export const crearClienteVendedorV1 = onCall({ region: REGION }, async (request)
   }, request.data);
 });
 
-export const crearPresentacionComercialV1 = onCall({ region: REGION }, async (request) => {
+export const crearPresentacionComercialBodegaV1 = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   return ejecutarCrearPresentacionComercialV1(db, await contextoOperativo(request, db), request.data);
 });
 
-export const actualizarPresentacionComercialV1 = onCall({ region: REGION }, async (request) => {
+export const actualizarPresentacionComercialBodegaV1 = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   return ejecutarActualizarPresentacionComercialV1(db, await contextoOperativo(request, db), request.data);
 });
 
-export const crearArticuloInventarioV1 = onCall({ region: REGION }, async (request) => {
+export const crearArticuloInventarioBodegaV1 = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   return ejecutarCrearArticuloInventarioV1(db, await contextoOperativo(request, db), request.data);
 });
 
-export const confirmarVentaBodegaV1 = onCall({ region: REGION }, async (request) => {
+export const confirmarVentaVendedorBodegaV1 = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   return ejecutarConfirmarVentaBodegaV1(db, await contextoOperativo(request, db), request.data);
 });

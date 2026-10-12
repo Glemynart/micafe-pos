@@ -17,6 +17,8 @@ import {
 import { httpsCallable } from 'firebase/functions'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth, db, getFirebaseFunctions } from './firebase'
+import type { VerticalTenant } from '@/lib/configuracion/contrato'
+import { resolverCallableOperacionBodega } from '@/lib/bodega/operation-routing'
 import { calcularEgresosTurno } from './egresos-service'
 import { tenantQuery, getEmpresaId, withEmpresaId } from '@/lib/tenant'
 import {
@@ -60,6 +62,7 @@ export interface Turno {
 }
 
 export interface AbrirTurnoParams {
+  vertical?: VerticalTenant | null;
   /** @deprecated La autoridad procede de la sesión; se ignora. */
   cajeroId?: string;
   /** @deprecated El nombre procede del perfil canónico; se ignora. */
@@ -71,6 +74,7 @@ export interface AbrirTurnoParams {
 }
 
 export interface CerrarTurnoParams {
+  vertical?: VerticalTenant | null;
   turnoId: string;
   ventasEfectivo: number;
   ventasOtrosMetodos: number;
@@ -178,7 +182,7 @@ export async function abrirTurno(params: AbrirTurnoParams): Promise<string> {
   vigilarLogoutCanonico();
   const callable = httpsCallable<EnvelopeAbrirTurnoOperativo, ResultadoAbrirTurnoOperativo>(
     getFirebaseFunctions(),
-    ABRIR_TURNO_OPERATIVO_V1,
+    resolverCallableOperacionBodega(params.vertical, ABRIR_TURNO_OPERATIVO_V1),
   );
   const resultado = await ejecutarAperturaPendiente(
     contexto,
@@ -214,7 +218,7 @@ export async function cerrarTurno(params: CerrarTurnoParams): Promise<void> {
   // permite que un reintento después de una caída de red devuelva el mismo
   // resultado server-side, en vez de intentar crear otro cierre.
   const operationKey = `cierre-turno:${params.turnoId}`;
-  await httpsCallable(getFirebaseFunctions(), 'cerrarTurnoOperativoV1')({
+  await httpsCallable(getFirebaseFunctions(), resolverCallableOperacionBodega(params.vertical, 'cerrarTurnoOperativoV1'))({
     commandId: operationKey, idempotencyKey: operationKey, correlationId: operationKey, causationId: null,
     motivo: params.notasCierre ?? null,
     payload: { turnoId: params.turnoId, efectivoContado: params.totalReportadoEfectivo, relevoCajeroId: params.relevoCajeroId ?? null, conteoDetalle: params.conteoDetalle ?? null },

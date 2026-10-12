@@ -28,7 +28,7 @@ interface TurnoGateProps {
  * Otros roles (admin, marketing, cocinero) pasan sin restricción.
  */
 export function TurnoGate({ usuario, children }: TurnoGateProps) {
-  const { proyecciones, empresaId } = useConfiguracionEmpresa()
+  const { proyecciones, empresaId, vertical } = useConfiguracionEmpresa()
   const requiereTurno = proyecciones?.caja.rolesConTurnoObligatorio.includes(usuario.rol) ?? false
 
   const [turno, setTurno] = useState<Turno | null>(null)
@@ -149,6 +149,7 @@ export function TurnoGate({ usuario, children }: TurnoGateProps) {
     preparandoContextoRef.current = null
     try {
       await abrirTurno({
+        vertical,
         baseApertura: baseNum!,
         notasApertura: notas,
       })
