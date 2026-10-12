@@ -13,7 +13,7 @@ import { cancelarProgramacionPedidoBodega, consultarAgendaPedidosBodega, constru
 import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
 import { FcmManagerWrapper } from "@/components/fcm-manager-wrapper"
 import { crearRefrescoCoalescido } from "@/lib/bodega/refresh-coalescido"
-import { crearDetectorCambioSenalBodega, suscribirSenalBodega } from "@/lib/bodega/live-signals-service"
+import { crearDetectorCambioSenalBodega, registrarRecuperacionEnLineaBodega, suscribirSenalBodega } from "@/lib/bodega/live-signals-service"
 
 type Tab = "venta" | "solicitudes" | "agenda" | "clientes" | "historial"
 type TipoPedido = "venta" | "hoy" | "agendar"
@@ -146,10 +146,12 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
     const actualizarSiVisible = () => { if (document.visibilityState === "visible") actualizarConReconectar() }
     void actualizar()
     document.addEventListener("visibilitychange", actualizarSiVisible)
+    const limpiarRecuperacionEnLinea = registrarRecuperacionEnLineaBodega(window, () => suscripcion.reconectar(), () => { void actualizar() })
     return () => {
       if (suscripcionSenal.current === suscripcion) suscripcionSenal.current = null
       suscripcion.cerrar()
       document.removeEventListener("visibilitychange", actualizarSiVisible)
+      limpiarRecuperacionEnLinea()
     }
   }, [empresaId, tab, usuario.uid, actualizarCatalogo, actualizarSolicitudes])
   useEffect(() => {

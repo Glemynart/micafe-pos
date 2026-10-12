@@ -116,6 +116,40 @@
 
 ## Estado vivo
 
+### Checkpoint vigente — 2026-10-12 — PR #553 integrado / Gate G revalidado
+
+PR #553 quedó `MERGED` en `main` mediante el merge commit
+`51912943b5427907b395f25b47d00c9209e77476` a las
+`2026-10-12T05:03:51Z` (`00:03:51`, hora de Bogotá). Sus checks previos al
+merge (`Tipos y pruebas`, Vercel y Vercel Preview Comments) terminaron
+`success`. La CI post-merge de `main`, run
+[`38206339893`](https://github.com/Glemynart/micafe-pos/actions/runs/38206339893),
+seguía `in_progress` al momento de registrar este checkpoint.
+
+La evidencia integrada revalida el recorrido posterior a la compra y el
+escenario de ADR-SAAS-068 Opción 2: una venta sintética en efectivo de
+`$5.000 COP`, recibido `$10.000 COP`, cambio `$5.000 COP` y `turnoId=null`.
+Firestore confirma exactamente una venta para el comando, un recibo y una
+auditoría `CONFIRMADO`, un ingreso financiero por `$5.000 COP` sin turno y un
+movimiento de venta `-2` unidades base. El movimiento dejó saldo `1`; una
+reposición sintética autorizada posterior de `+2` dejó el producto en `3`
+unidades físicas, `0` reservadas y `3` disponibles. La interfaz admin la
+clasifica como `efectivo sin turno`. No se repitió la confirmación ni se tocó
+producción.
+
+La revalidación de Gate G posterior a Gate D queda documentada e integrada en
+[`Gate G — revalidación posterior a compra`](evidence/G-SAAS-02-E2-2-GATE-G-POST-PURCHASE-REVALIDATION-2026-10-11.md).
+[`Gate H — revalidación posterior a compra`](evidence/G-SAAS-02-E2-2-GATE-H-POST-PURCHASE-REVALIDATION-2026-10-11.md)
+permanece `PARTIAL / NOT CLOSED`: ADR-SAAS-069 aún requiere comprobar la
+reconexión automática, y el replay remoto tras pérdida de respuesta sigue sin
+ejecutarse. Gate I continúa `BLOCKED`; no se inicia el tenant real ni
+producción.
+
+El siguiente PR esperado es #558, que implementa la recuperación/relectura
+canónica al restablecer conectividad; su CI del PR seguía pendiente al registrar
+este checkpoint. El cambio está en el mismo Epic E2.2 y no se declara integrado
+hasta completar su auditoría y validaciones.
+
 ### Decisión aceptada — 2026-10-07 — ADR-SAAS-064
 
 El responsable del proyecto autorizó continuar autónomamente con las decisiones

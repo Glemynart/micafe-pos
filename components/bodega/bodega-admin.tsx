@@ -12,7 +12,7 @@ import { construirConfirmacionVentaBodega, type ConfirmacionVentaBodega, type Li
 import { cancelarSolicitudVentaBodega, consultarSolicitudesVentaBodega, resolverSolicitudVentaBodega } from "@/lib/bodega/solicitudes-service"
 import { confirmarVentaBodega } from "@/lib/bodega/vendedor-service"
 import { suscribirTurnoActivo, type Turno } from "@/lib/turnos-service"
-import { crearDetectorCambioSenalBodega, suscribirSenalBodega } from "@/lib/bodega/live-signals-service"
+import { crearDetectorCambioSenalBodega, registrarRecuperacionEnLineaBodega, suscribirSenalBodega } from "@/lib/bodega/live-signals-service"
 import { crearRefrescoCoalescido } from "@/lib/bodega/refresh-coalescido"
 
 const money = (value: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(value)
@@ -134,10 +134,12 @@ export function BodegaSolicitudesAdmin() {
     suscripcionSenal.current = suscripcion
     const actualizarSiVisible = () => { if (document.visibilityState === "visible") void actualizar() }
     document.addEventListener("visibilitychange", actualizarSiVisible)
+    const limpiarRecuperacionEnLinea = registrarRecuperacionEnLineaBodega(window, () => suscripcion.reconectar(), () => { void actualizar() })
     return () => {
       if (suscripcionSenal.current === suscripcion) suscripcionSenal.current = null
       suscripcion.cerrar()
       document.removeEventListener("visibilitychange", actualizarSiVisible)
+      limpiarRecuperacionEnLinea()
     }
   }, [empresaId, cargarCoalescido, actualizar])
 

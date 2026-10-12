@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearDetectorCambioSenalBodega, crearSuscripcionRecuperableSenalBodega, interpretarSnapshotSenalBodega, rutaSenalBodega } from "./live-signals-service";
+import { crearDetectorCambioSenalBodega, crearSuscripcionRecuperableSenalBodega, interpretarSnapshotSenalBodega, registrarRecuperacionEnLineaBodega, rutaSenalBodega } from "./live-signals-service";
 import { crearRefrescoCoalescido } from "./refresh-coalescido";
 
 test("las rutas de señales se limitan a canales soportados y al vendedor propio", () => {
@@ -81,4 +81,24 @@ test("una escucha terminada por error puede reconectarse sin recrear la vista", 
   assert.equal(cancelaciones, 2);
   suscripcion.reconectar();
   assert.equal(escuchas.length, 2);
+});
+
+test("al volver la conectividad reconecta la señal y relee el estado canónico; el cleanup quita el listener", () => {
+  const target = new EventTarget();
+  let reconexiones = 0;
+  let relecturas = 0;
+  const limpiar = registrarRecuperacionEnLineaBodega(
+    target,
+    () => { reconexiones += 1; },
+    () => { relecturas += 1; },
+  );
+
+  target.dispatchEvent(new Event("online"));
+  assert.equal(reconexiones, 1);
+  assert.equal(relecturas, 1);
+
+  limpiar();
+  target.dispatchEvent(new Event("online"));
+  assert.equal(reconexiones, 1);
+  assert.equal(relecturas, 1);
 });
