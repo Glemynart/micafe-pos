@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { evaluarReleaseEvidence, type CiObservation, type FunctionsObservation, type RecoveryObservation, type ReleaseEvidenceInput, type RulesObservation, type RulesReleaseObservation, type VercelObservation } from "./release-evidence-core";
+import { createRulesApiHeaders } from "./rules-api-headers";
 
 const argumentos = new Set([
   "--project", "--repo", "--sha", "--out", "--rules-ref", "--storage-ref", "--smoke-ref", "--recovery-ref",
@@ -128,7 +129,7 @@ function obtenerFunctions(project: string): { observation: FunctionsObservation 
 async function obtenerRules(project: string): Promise<{ observation: RulesObservation | null; errors: string[] }> {
   const token = process.env.FIREBASE_ACCESS_TOKEN;
   if (!token) return { observation: null, errors: [] };
-  const headers = { Authorization: `Bearer ${token}` };
+  const headers = createRulesApiHeaders(project, token);
   const errors: string[] = [];
   try {
     const releasesResponse = await fetch(`https://firebaserules.googleapis.com/v1/projects/${encodeURIComponent(project)}/releases`, {
