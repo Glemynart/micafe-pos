@@ -3,10 +3,11 @@
 ## Contexto
 
 El merge de PR #570 avanzó `main` a
-`d5328125efb01fe15da08ad3f426c4b4c7100d5a`. Para no confundir las pruebas del
-emulador con el requisito remoto pendiente de Gate D, se repitió la suite de
-Rules sobre el mismo `firestore.rules` y los mismos archivos de prueba que ese
-SHA de `main`.
+`d5328125efb01fe15da08ad3f426c4b4c7100d5a`. Se repitió la suite de Rules
+contra el mismo `firestore.rules` y los mismos archivos de prueba de ese SHA.
+La prueba local complementa, pero no sustituye, la evaluación remota sintética
+del ruleset activo que se registra en la [reconciliación read-only de
+Rules](G-SAAS-02-E2-2-GATE-D-RULES-READONLY-RECONCILIATION-2026-10-12.md).
 
 ## Verificación ejecutada
 
@@ -35,6 +36,11 @@ directas; también se conserva el contrato de create/delete para otro vertical.
   Rules remotas ni de identidad autenticada en staging.
 - No se hicieron deploys ni escrituras en staging o producción, ni se registró
   compra, movimiento de inventario o ajuste de stock.
-- `BODEGA_DIRECT_WRITE_DENIAL_REMOTE_SMOKE = NOT RUN` permanece vigente.
+- `BODEGA_DIRECT_WRITE_DENIAL_CLIENT_SMOKE = NOT RUN`: no se intentó escribir
+  desde un cliente autenticado real; esa prueba podría persistir una compra si
+  hubiera una regresión y no se necesita para demostrar el deploy de Gate D.
+- La evaluación remota sintética de Rules API (`create/delete` Bodega DENY y
+  otro vertical ALLOW) está detallada en la reconciliación enlazada; no es un
+  token real ni una escritura de Firestore.
 - La evidencia read-only del release de staging y de la compra canónica
   posterior a Rules está en [la reconciliación remota de Rules](G-SAAS-02-E2-2-GATE-D-RULES-READONLY-RECONCILIATION-2026-10-12.md).
