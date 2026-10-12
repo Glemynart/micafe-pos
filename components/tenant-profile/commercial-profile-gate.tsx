@@ -120,7 +120,20 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
     if (!Number.isInteger(revision) || revision === null) return
     setGuardando(true)
     setError(null)
-    const perfilNormalizado = { ...form, email: normalizarTexto(form.email).toLowerCase() }
+    const perfilNormalizado: FormularioPerfil = {
+      ...form,
+      nombreComercial: normalizarTexto(form.nombreComercial),
+      razonSocial: normalizarTexto(form.razonSocial),
+      nit: normalizarTexto(form.nit),
+      digitoVerificacion: normalizarTexto(form.digitoVerificacion),
+      email: normalizarTexto(form.email).toLowerCase(),
+      telefono: normalizarTexto(form.telefono),
+      direccion: normalizarTexto(form.direccion),
+      departamentoCodigo: normalizarTexto(form.departamentoCodigo),
+      departamentoNombre: normalizarTexto(form.departamentoNombre),
+      municipioCodigo: normalizarTexto(form.municipioCodigo),
+      municipioNombre: normalizarTexto(form.municipioNombre),
+    }
     setForm(perfilNormalizado)
     try {
       const enviar = httpsCallable(getFirebaseFunctions('us-central1'), 'registrarPerfilComercialBodegaV1')

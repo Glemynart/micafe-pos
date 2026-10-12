@@ -17,6 +17,7 @@
 - **RED (build web):** el primer Preview de Vercel (`dpl_2pAD9MY9igBZbjQNmKZCZTVmVrLJ`, commit `bf3e092`) compiló Next y falló en su typecheck al incluir `functions-tenant-profile/src` y sus imports compartidos, que dependen del `firebase-functions` instalado por el lockfile aislado, no por `npm ci` raíz. La nueva prueba de discovery falló primero porque el `tsconfig.json` raíz no excluía ese codebase.
 - **GREEN:** el servidor ahora valida texto canónico, requerido y acotado antes de crear operaciones; se agregó el caso de teléfono inválido y límites del perfil al formulario. El primer ensayo del Emulator también encontró una aserción demasiado amplia: el DV de un carácter coincidía incidentalmente con otros números de auditoría. Se afinó para comprobar NIT, email, dirección y NIT-DV completos; luego pasó. El `tsconfig.json` raíz ahora excluye el paquete aislado y su test verifica que conserva su typecheck independiente. El typecheck y build local de la app, además del build y tests del paquete, pasan; el nuevo Preview de Vercel debe confirmar la corrección antes del merge.
 - **E2E:** el primer recorrido encontró que el fixture no incluía `empresas.revision`, que el Bootstrap sí inicializa en `1`; se corrigió el fixture para representar la forma real del documento. También se retiró una aserción de admin GENERAL que excedía este ADR y no correspondía a la ruta observada. El segundo recorrido completó los 12 escenarios.
+- **RED/GREEN (normalización de textos):** al agregar al E2E un nombre comercial con espacios accidentales al inicio/final, el recorrido falló al continuar al panel (11/12 escenarios pasaron), porque la callable exige texto canónico. La UI ahora normaliza con `normalizarTexto` todos los campos de texto antes del envío, manteniendo el tipo de persona y el correo en minúsculas. El recorrido completo volvió a pasar (12/12), y verifica que Empresa/configuración conservan el nombre canónico.
 
 ## Evidencia ejecutada
 
@@ -33,7 +34,7 @@
 | Build de la app | `npm run build` | PASS |
 | Build de Functions existente | `npm run build:functions` | PASS |
 | Lint del cambio | `npx eslint 'components/tenant-profile/commercial-profile-gate.tsx' 'lib/configuracion/perfil-comercial.ts' 'functions/src/tenant-profile/handler.ts' 'functions-tenant-profile/src/*.ts' 'app/(tenant)/admin/(authenticated)/layout.tsx'` | PASS |
-| E2E local: primer acceso, reingreso DEMO, perfil previo Bodega, ventas e invariantes generales existentes | `npm run e2e:bodega-u4-u5` (emuladores Auth/Firestore/Functions + navegador) | PASS (12/12; 2.3 min) |
+| E2E local: primer acceso con texto normalizado (espacios accidentales y correo mixto), reingreso DEMO, perfil previo Bodega, ventas e invariantes generales existentes | `npm run e2e:bodega-u4-u5` (emuladores Auth/Firestore/Functions + navegador) | PASS (12/12; 2.3 min, después de un RED reproducible 11/12) |
 | Cobertura del handler y el predicado de completitud comercial | `node --experimental-test-coverage --import tsx --test src/*.test.ts` en `functions-tenant-profile` | PASS: handler 98,59 % líneas / 91,53 % ramas / 100 % funciones; `perfil-comercial.ts` 100 % líneas / 95,45 % ramas / 100 % funciones |
 
 ## Cobertura y límites
