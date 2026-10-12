@@ -30,6 +30,25 @@ autorización para desplegar o escribir en producción.
 | Recuperación | Se observó un schedule de respaldo, 34 backups y ubicación `southamerica-east1`; PITR aparece deshabilitado. | `BLOCKED`: inventario no prueba una restauración ni rollback recuperable para el alta propuesta. |
 | Release evidence collector | La primera colección falló al consultar Rules porque la solicitud no llevaba proyecto de cuota. Un GET posterior, limitado a la solicitud y con `x-goog-user-project: micafe-pos`, leyó el release; no se modificó ADC, IAM ni configuración del proyecto. Siguen faltando atestaciones independientes de Rules/Storage, smoke y recuperación. | `COLLECTION_ERROR` inicial resuelto como problema de cuota de la consulta; el conjunto de evidencia sigue incompleto. |
 
+## Auditoría read-only de dependencias productivas (2026-10-12)
+
+Se ejecutó `npm audit --omit=dev --audit-level=high` contra los lockfiles del
+commit candidato, sin cambiar dependencias ni generar escrituras remotas:
+
+| Codebase | Resultado | Hallazgo |
+|---|---|---|
+| `functions` (`saas-auth`) | `exit 1`; 13 advisories: 9 moderate, 3 high, 1 critical. | El crítico es `proxy-addr@2.0.7` transitivo de Express 4.22.2/Firebase Functions; npm indica rango afectado `<2.0.8` y una corrección disponible. |
+| `functions-bodega` | `exit 0`; dos moderate, cero high/critical. | `uuid` transitivo vía `gaxios`. |
+| `functions-bodega-operations` | `exit 0`; dos moderate, cero high/critical. | `uuid` transitivo vía `gaxios`. |
+
+La búsqueda del código `functions/src` no encontró configuración `trust proxy`
+ni accesos a `req.ip`/`req.ips`; Express conserva `trust proxy` desactivado por
+defecto. Esto no demuestra explotabilidad en la configuración desplegada ni
+justifica aceptar el advisory. El hallazgo de `saas-auth` requiere triage de
+seguridad y resolución documentada antes de incluir ese runtime en un release
+productivo. No se ejecutó `npm audit fix` ni se modificó código, lockfiles o
+servicios.
+
 ## Revalidación autenticada de Compras en staging
 
 En Edge se verificó la sesión `Administrador Bodega Demo` en el preview
@@ -45,8 +64,9 @@ de Compras en ese preview, no verifica el release productivo.
 
 Gate H queda cerrado para el alcance reusable de staging conforme a la evidencia
 integrada en #559. Gate I permanece bloqueado: el runtime productivo no está
-alineado en Firestore Rules ni en aplicación Vercel y la recuperación no ha
-demostrado un restore/rollback. Antes de cualquier alta real se requiere un
-release plan exacto, preflight repetible, prueba de recuperación con evidencia,
-smoke autenticado y las aprobaciones operativas correspondientes. No se hicieron
-escrituras ni deploys en producción.
+alineado en Firestore Rules ni en aplicación Vercel, la recuperación no ha
+demostrado un restore/rollback y el advisory crítico/altos de `saas-auth` requiere
+triage. Antes de cualquier alta real se requiere un release plan exacto,
+preflight repetible, cierre de la triage de seguridad, prueba de recuperación con
+evidencia, smoke autenticado y las aprobaciones operativas correspondientes. No
+se hicieron escrituras ni deploys en producción.
