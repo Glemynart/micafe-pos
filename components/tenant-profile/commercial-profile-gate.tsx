@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type ComponentProps, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ComponentProps, type FormEvent, type ReactNode } from 'react'
 import { httpsCallable } from 'firebase/functions'
 import { Building2, LoaderCircle, ShieldAlert } from 'lucide-react'
 import { useAuthContext } from '@/contexts/auth-context'
@@ -55,6 +55,8 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
   const [form, setForm] = useState<FormularioPerfil>(vacio)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [formTenantId, setFormTenantId] = useState<string | null>(null)
+  const borradorModificado = useRef(false)
 
   const tenantCoincide = !!empresaId && empresaConfigId === empresaId && membresia?.empresaId === empresaId && membresia.uid === usuario?.uid
   const adminActivo = !!membresia && membresia.rol === 'admin' && membresia.estado === 'activa' && membresia.activo
@@ -69,10 +71,21 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
   })
 
   useEffect(() => {
-    if (proyecciones && empresaConfigId === empresaId) {
-      setForm(serializarPerfil(proyecciones.identidad, proyecciones.localizacion.direccion))
+    if (!empresaId || !proyecciones || empresaConfigId !== empresaId) return
+    const formularioPersistido = serializarPerfil(proyecciones.identidad, proyecciones.localizacion.direccion)
+    if (formTenantId !== empresaId) {
+      borradorModificado.current = false
+      setForm(formularioPersistido)
+      setFormTenantId(empresaId)
+      return
     }
-  }, [empresaConfigId, empresaId, revision, proyecciones])
+    if (perfilComercialCompleto({ identidadFiscal: proyecciones.identidad, localizacion: proyecciones.localizacion })) {
+      borradorModificado.current = false
+      setForm(formularioPersistido)
+      return
+    }
+    if (!borradorModificado.current) setForm(formularioPersistido)
+  }, [empresaConfigId, empresaId, formTenantId, revision, proyecciones])
 
   if (usuario?.rol !== 'admin' || !empresaId || vertical !== 'BODEGA_MVP1') return <>{children}</>
 
@@ -92,7 +105,12 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
 
   if (!requierePerfil || perfilComercialCompleto(perfil!)) return <>{children}</>
 
+  if (formTenantId !== empresaId) {
+    return <div className="grid min-h-[60vh] place-items-center text-sm text-muted-foreground"><span className="flex items-center gap-2"><LoaderCircle className="size-5 animate-spin" /> Preparando el perfil del negocio…</span></div>
+  }
+
   function update<K extends keyof FormularioPerfil>(field: K, value: FormularioPerfil[K]) {
+    borradorModificado.current = true
     setForm((current) => ({ ...current, [field]: value }))
   }
 
