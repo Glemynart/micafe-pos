@@ -116,6 +116,13 @@
 
 ## Estado vivo
 
+- **Progreso:** PR #558 integrado en `main @ 54566fc`; Gate H revalidado en staging, con reconexión automática y replay idempotente documentados en `evidence/G-SAAS-02-E2-2-GATE-H-RECONNECT-REPLAY-2026-10-12.md`. Sus checks previos al merge pasaron; la CI post-merge `38208848199` seguía en progreso al registrar esta actualización. El merge no desplegó producción.
+- **Estado:** ACTIVO.
+- **PR completados:** PR #558.
+- **Siguiente PR esperado:** reconciliar e integrar esta evidencia de Gate H; después, ejecutar el preflight propio de Gate I antes de cualquier escritura del tenant real.
+- **Milestone activo:** `M2 — Provisioning y onboarding`.
+- **Epic activo:** `E2.2 — Configuración inicial`.
+
 ### Checkpoint vigente — 2026-10-12 — PR #553 integrado / Gate G revalidado
 
 PR #553 quedó `MERGED` en `main` mediante el merge commit
