@@ -104,6 +104,9 @@ const envelope = (suffix: string, payload: Record<string, unknown>) => ({
   payload,
 });
 const domain = (error: unknown, code: string) => error instanceof HttpsError && (error.details as { code?: string }).code === code;
+const legacyBodega = (error: unknown) => domain(error, "BODEGA_USE_CANONICAL")
+  && error instanceof HttpsError
+  && error.message.includes("registrarCompraBodegaV1");
 
 function seed(db: FakeFirestore, saldo = 0) {
   db.docs.set(`empresas/${empresaId}`, { estado: "activa", esFundacional: true });
@@ -147,7 +150,7 @@ test("ADR-SAAS-075: la callable legacy rechaza una compra nueva de Bodega sin ef
 
   await assert.rejects(
     ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("legacy-bodega-new", payload())),
-    error => domain(error, "BODEGA_USE_CANONICAL"),
+    legacyBodega,
   );
 
   assert.deepEqual([...db.docs.entries()], antes);
@@ -165,7 +168,7 @@ test("ADR-SAAS-075: la callable legacy revalida Bodega antes de devolver un repl
 
   await assert.rejects(
     ejecutarRegistrarCompraOperativaV1(db, contexto, command),
-    error => domain(error, "BODEGA_USE_CANONICAL"),
+    legacyBodega,
   );
 
   assert.deepEqual([...db.docs.entries()], antesReplay);
