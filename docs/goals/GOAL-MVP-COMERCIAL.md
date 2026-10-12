@@ -11,9 +11,9 @@
 - **Resultado:** un primer cliente real opera MiCafe POS durante un Trial ANUAL server-side de 30 días, con provisioning reproducible, onboarding, operación crítica, soporte, recuperación cuando aplique y cierre contractual evidenciado.
 - **Estado:** ACTIVO
 - **Inicio formal:** 2026-08-12
-- **Rama base:** `main @ d2b8cdeb94c0c1513a85dfeae61765e2c092c437` (SHA vivo al reconciliar PR #354 y la auditoría del 2026-08-23)
+- **Rama base:** `main @ b25579150b855521bcad7f0283c85cc704c1ca29` (SHA después de integrar PR #562 el 2026-10-12; CI post-merge `38225774177` en curso al actualizar)
 - **Fuente de autorización:** `AUTORIZACIÓN DE EJECUCIÓN — G-SAAS-02`
-- **Decisiones comerciales preservadas:** `1.800.000 COP`, `ANUAL`, pago manual, Trial de 30 días, todos los módulos disponibles y un Espacio operativo interno.
+- **Decisiones comerciales preservadas:** precio público anual `1.800.000 COP`; oferta específica aprobada para Bodega `1.600.000 COP` por el año, pago manual, Trial de 30 días, todos los módulos disponibles y un Espacio operativo interno. La oferta del tenant no cambia el precio público del Plan.
 
 ## Alcance
 
@@ -116,14 +116,14 @@
 
 ## Estado vivo
 
-- **Progreso:** PR #558 (reconexión/replay) y PR #559 (evidencia de Gate H) integrados en `main @ 702195d`; la CI post-merge `38211605203` terminó `success`. Gate H está certificado para E2.2 reusable en staging. La revalidación autenticada de Compras en el preview #558 cargó el historial y mostró la compra sintética previamente autorizada de `$1.000 COP`; no hubo una nueva escritura. El preflight read-only de producción del 2026-10-12 detectó Rules Firestore divergentes y una aplicación Vercel atrasada respecto de `main`; Gate I sigue bloqueado y no se hicieron cambios productivos. Evidencia: [reconocimiento read-only de producción](evidence/G-SAAS-02-E2-2-GATE-I-PRODUCTION-READONLY-RECONNAISSANCE-2026-10-12.md).
+- **Progreso:** PR #558 (reconexión/replay), #559 (evidencia de Gate H) y #560 (reconciliación de Gate H y preflight de producción) están integrados en `main @ ecd2bcc48ee4888b7493b810a8f54b6a5e8127ad`; la CI post-merge `38218973653` terminó `success`. Gate H está certificado para E2.2 reusable en staging. La lectura posterior del release de Rules de `micafe-pos-staging` encontró paridad exacta con `firestore.rules` en ese SHA; PR #562 no cambió Rules, por lo que esta evidencia sigue describiendo el mismo artefacto. El corte desplegado y el flujo canónico de compra se reconcilian en [la evidencia read-only de Rules de staging](evidence/G-SAAS-02-E2-2-GATE-D-RULES-READONLY-RECONCILIATION-2026-10-12.md); no prueba aún el rechazo remoto de escrituras directas ni cambia producción. PR #562 ya está integrado en `main @ b25579150b855521bcad7f0283c85cc704c1ca29` con cuatro overrides de dependencias en `functions`; su CI post-merge `38225774177` seguía en curso al actualizar. El `npm audit` ejecutado para ese árbol no reportó advisories altos/críticos y dejó nueve moderados; esto es evidencia del código, no del runtime productivo, que no se desplegó ni se volvió a reconciliar contra el nuevo SHA. El reconocimiento read-only previo de producción detectó Rules Firestore divergentes, aplicación Vercel atrasada y falta una atestación de restore aislado ligada al release candidato. Existe un ensayo aislado exitoso del 2026-08-15, pero el backup usado expiró el 2026-09-19. Gate I sigue bloqueado y no se hicieron cambios productivos. Evidencia: [reconocimiento read-only de producción](evidence/G-SAAS-02-E2-2-GATE-I-PRODUCTION-READONLY-RECONNAISSANCE-2026-10-12.md) y [ensayo histórico de recovery](evidence/G-SAAS-02-RECOVERY-OBSERVATION-2026-08-15.md).
 - **Estado:** ACTIVO.
-- **PR completados:** PR #558 y PR #559.
-- **Siguiente PR esperado:** después de integrar esta reconciliación, preparar el plan exacto de release y recuperación de producción; no desplegar ni escribir datos reales hasta cerrar las divergencias, completar smoke/restore verificables y obtener la autorización operativa específica.
+- **PR completados:** PR #558, PR #559 y PR #560.
+- **Siguiente PR esperado:** después de integrar esta reconciliación y cerrar la CI post-merge de #562, preparar el plan exacto de release y recovery sobre `main @ b255791`: reconciliación read-only de Functions con los overrides, estrategia de alineación Vercel/Rules, smoke y restore aislado vigente. No desplegar ni escribir datos reales hasta cerrar las divergencias, completar las verificaciones y obtener la autorización operativa específica.
 - **Milestone activo:** `M2 — Provisioning y onboarding`.
 - **Epic activo:** `E2.2 — Configuración inicial`.
 
-### Checkpoint vigente — 2026-10-12 — PR #553 integrado / Gate G revalidado
+### Checkpoint histórico — 2026-10-12 — PR #553 integrado / Gate G revalidado
 
 PR #553 quedó `MERGED` en `main` mediante el merge commit
 `51912943b5427907b395f25b47d00c9209e77476` a las
