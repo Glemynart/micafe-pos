@@ -56,6 +56,21 @@ conciliación de Gate F](G-SAAS-02-E2-2-GATE-F-PURCHASE-RECONCILIATION-2026-10-1
   observado.
 - Consulta read-only del inventario de Functions, logs de auditoría y evidencia
   ya existente de la compra canónica posterior.
+- Prueba sintética contra el ruleset activo con la API de Rules, sin enviar
+  operaciones de escritura a Firestore:
+  - Se evaluaron `create` y `delete` sobre rutas sintéticas de
+    `/compras/{id}`, con expectativa `DENY` y un contexto de autenticación
+    simulado (`rol=admin`, tenant `E2_2-BODEGA-STAGING-FIXTURE`).
+  - `exists()` y `get()` se simularon para que la configuración del tenant
+    devolviera `vertical=BODEGA_MVP1`; las dos evaluaciones terminaron
+    `SUCCESS`, sin `debugMessages`, y visitaron las expresiones de denegación
+    de `allow create` (línea 205) y `allow delete` (línea 207), ambas `false`.
+  - Firebase informó la advertencia no bloqueante `Unused function:
+    esMarketing`; no hubo errores de evaluación. La prueba no creó, borró ni
+    modificó documentos de negocio.
+- La pestaña Edge del admin de staging quedó autenticada en `/admin/compras`,
+  pero no se registró una compra ni se hizo una llamada directa desde ese
+  cliente.
 - Sin deploy de Rules/Functions, escrituras de negocio, cambios IAM/Secrets,
   Auth, fixtures, datos de clientes, tenant real ni producción durante este
   reconocimiento.
@@ -63,10 +78,13 @@ conciliación de Gate F](G-SAAS-02-E2-2-GATE-F-PURCHASE-RECONCILIATION-2026-10-1
 ## Límites y trabajo restante
 
 - `STAGING_FIRESTORE_RULES_PARITY = PASS` describe paridad de fuente/release.
-- `BODEGA_DIRECT_WRITE_DENIAL_REMOTE_SMOKE = NOT RUN`: no se intentó crear ni
-  borrar `/compras` directamente desde un cliente autenticado para probar el
-  rechazo remoto. Las pruebas Rules Emulator `42/42` y la revisión del diff
-  siguen siendo la evidencia de comportamiento disponible.
+- `BODEGA_DIRECT_WRITE_DENIAL_RULES_API_SIMULATION = PASS` describe una
+  evaluación sintética del ruleset remoto activo con claims y lecturas
+  simulados; no es una solicitud de Firestore autenticada por un usuario real.
+- `BODEGA_DIRECT_WRITE_DENIAL_CLIENT_SMOKE = NOT RUN`: no se intentó crear ni
+  borrar `/compras` desde el cliente autenticado de Edge. La prueba remota
+  sintética, Rules Emulator `42/42` y la revisión del diff son evidencia de la
+  política, pero no reemplazan ese smoke de extremo a extremo.
 - La compra canónica posterior prueba que la ruta autorizada continuó operando;
   no prueba todos los roles, verticales o casos de rechazo de Rules.
 - En producción, el ruleset observado aún diverge del SHA de `main`, según el
