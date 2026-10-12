@@ -99,9 +99,27 @@ pérdida de respuesta después del commit; por tanto, el replay remoto sigue sin
 certificar. La escritura de stock fue solo el ajuste sintético descrito arriba;
 no hubo pago real ni cambios en producción.
 
+## Anexo — Convergencia viva de disponibilidad, ADR-SAAS-069 (2026-10-11)
+
+En el mismo preview de staging y tenant, administración observó el producto
+fixture con stock base `1`, reserva `0` y disponibilidad `1`; la vista **Nueva**
+del vendedor mostraba `0` presentaciones disponibles (cada presentación usa 2
+unidades base). Con ambas sesiones abiertas, administración hizo un ajuste
+sintético autorizado de `+2` unidades base (`1` → `3`) con motivo
+`ajuste_administrativo_bodega`. Sin actualizar ni recargar la página del
+vendedor, ni cambiar de vista, su disponibilidad convergió a `1` presentación.
+Administración confirmó después stock `3`, reserva `0` y disponibilidad `3`.
+
+**Resultado limitado:** la convergencia de disponibilidad vendedor→UI queda
+observada en staging sin refresco manual. No se midió latencia/SLA, no se probó
+la convergencia de la bandeja administrativa de solicitudes, y esto no prueba
+la entrega de push. No se creó una solicitud ni una venta durante este ensayo.
+El ajuste queda persistente en el fixture y no corresponde a una compra o venta.
+
 ## Referencias
 
 - [Conciliación de compra Gate F](G-SAAS-02-E2-2-GATE-F-PURCHASE-RECONCILIATION-2026-10-11.md).
 - [Rehearsal Gate G anterior](G-SAAS-02-E2-2-GATE-G-REHEARSAL-2026-10-05.md).
+- [Gate H — revalidación post-compra](G-SAAS-02-E2-2-GATE-H-POST-PURCHASE-REVALIDATION-2026-10-11.md).
 
 **Fecha de revisión:** 2026-10-11.
