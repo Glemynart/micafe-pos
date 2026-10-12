@@ -12,7 +12,7 @@ ofertas, Trials ni cambios de datos.
 - **Proyecto consultado:** `micafe-pos` (producción).
 - **SHA objetivo y `origin/main`:**
   `eae7db540f420c4932794eefb0421ab1e6b263a4`.
-- **Hora de observación:** `2026-10-12T11:36:56.685Z`.
+- **Hora de observación:** collector `2026-10-12T11:36:56.685Z`; Vercel CLI consultado inmediatamente después, antes de `2026-10-12T11:39:27.765Z`.
 - **Colector:** `scripts/g-saas-02/release-evidence.ts` en la rama actualizada
   de PR #563, con `--project micafe-pos --repo Glemynart/micafe-pos --sha
   eae7db540f420c4932794eefb0421ab1e6b263a4`.
@@ -28,7 +28,7 @@ ofertas, Trials ni cambios de datos.
 | Superficie | Evidencia read-only a la hora de observación | Consecuencia |
 |---|---|---|
 | CI | El run `38242586484` para `eae7db5` estaba `in_progress`; no había aún un run exitoso y completado para el SHA. | El candidato aún no tenía CI post-merge completa. |
-| Vercel | No se observó un estado Vercel exitoso asociado al SHA objetivo en el status de GitHub. | No se acredita que la aplicación servida corresponda al candidato. Este resultado no identifica por sí solo cuál despliegue está actualmente en producción. |
+| Vercel | `vercel list cafeatrato --environment production --limit 10` e `inspect` muestran como último despliegue `READY` el alias `cafeatrato-git-main-glemynarts-projects.vercel.app`, deployment `cafeatrato-2mgbt0pse-glemynarts-projects.vercel.app`, SHA `1c2f155653536b1fd8e1925db931e2354fa41f7d`, creado `2026-10-06T14:52:13.319Z`. No se encontró deployment para `eae7db5`. | `BLOCKED`: producción sirve un SHA anterior; no se acredita que la aplicación corresponda al candidato actual. |
 | Cloud Functions | 80/80 Functions activas, runtime `nodejs22`; 6 hashes de despliegue diferentes, con inventario individual registrado por el colector. Está presente `registrarCompraOperativaV1`; no aparece `registrarCompraBodegaV1`. | No se declara paridad total de código con el candidato. La frontera canónica de compra Bodega aún no está observada como desplegada en producción. No se invocó la callable legacy. |
 | Firestore Rules | Release `projects/micafe-pos/releases/cloud.firestore`, ruleset `d5e205db-0ab4-4db1-b5ec-1534bee39d35`, `updateTime=2026-08-15T04:20:46.318849Z`. SHA-256 normalizado local `69560ea6998352400eca77ce5dfb851864e196053b634f77e4bacd8674769fbb`; SHA remoto `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`. | `MISMATCH`; bloquea Gate I hasta plan de reconciliación y verificación aprobados. |
 | Storage Rules | Release `projects/micafe-pos/releases/firebase.storage/micafe-pos.firebasestorage.app`; SHA local y remoto `fc837a77b952f3f2cf9e6eec24e7962eb0177a992f0776810d4798b5a1ee9f2b`; `updateTime=2026-08-14T01:09:03.643850Z`. | Paridad observada; falta la atestación independiente del release integral. |
