@@ -23,6 +23,16 @@ test("presenta etiquetas permitidas y nunca refleja valores o nombres arbitrario
   assert.equal(mensaje?.includes("correo-interno"), false);
 });
 
+test("traduce el mensaje de Firebase Functions con sufijo de estado HTTP", () => {
+  const mensaje = mensajeSeguroErrorPerfilComercial({
+    code: "functions/invalid-argument",
+    message: "PERFIL_COMERCIAL_INVALIDO [400]",
+    details: { campos: ["departamentoCodigo", "municipioCodigo"] },
+  });
+
+  assert.equal(mensaje, "Revisa código de departamento y código de municipio; no se guardó el perfil.");
+});
+
 test("no convierte errores genéricos ni detalles no controlados en mensajes visibles", () => {
   assert.equal(mensajeSeguroErrorPerfilComercial({ code: "functions/unavailable", message: "PERFIL_COMERCIAL_INVALIDO", details: { campos: ["email"] } }), null);
   assert.equal(mensajeSeguroErrorPerfilComercial({ code: "functions/invalid-argument", message: "otro error", details: { campos: ["email"] } }), null);
