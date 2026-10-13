@@ -197,9 +197,8 @@ y se confirme la carga del listado de Compras.
 
 ## Pendientes y siguiente paso
 
-- Determinar el código/mensaje del HTTP `400` posterior al índice con la
-  respuesta sanitizada de Network y verificar el estado del perfil antes de
-  cualquier nuevo guardado. Luego completar el smoke autenticado del perfil y
+- Corregir en el formulario el dato que incumplió la validación —sin compartir
+  valores comerciales— y completar el smoke autenticado del perfil. Después,
   confirmar que el panel Compras carga; las sondas `401` no sustituyen ese
   recorrido.
 - Repetir los escenarios afectados de Gates F, G y H; la evidencia del
