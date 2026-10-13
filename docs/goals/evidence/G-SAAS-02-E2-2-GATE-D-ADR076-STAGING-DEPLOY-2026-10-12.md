@@ -166,12 +166,33 @@ reintentarse para demostrar la corrección end-to-end.
 No se ejecutó ningún comando contra `micafe-pos`. Esta mutación add-only no
 creó perfil comercial, compra, venta, movimiento de inventario ni ledger.
 
+## Reintento posterior al índice — 2026-10-13
+
+Después de que el índice alcanzó `READY`, se observó otro `POST` a
+`registrarPerfilComercialBodegaV1` desde el preview
+`cafeatrato-git-codex-e2-2-gate-d-adr-52e24c-glemynarts-projects.vercel.app`.
+La solicitud terminó en HTTP `400` a las `2026-10-13T05:32:51.759646Z`.
+Cloud Logging correlaciona la solicitud con la traza
+`82f98beb5ddd9539bfdd38665af154c0` y registra `Callable request verification
+passed` a las `2026-10-13T05:32:51.818855Z`; no registra el código/mensaje de
+dominio ni el cuerpo de respuesta de la callable. Por ello, el 400 es distinto
+del 500 por índice y su causa exacta permanece sin determinar.
+
+La consola del navegador también mostró `[IdleTimer] Cerrando sesion por
+inactividad` entre intentos. Como la verificación de la callable consta como
+aprobada, la evidencia disponible no permite atribuir el 400 al cierre de
+sesión. No se debe repetir el guardado hasta observar el cuerpo sanitizado de
+Response/Preview de esa solicitud y verificar si el perfil está completo; no
+compartir payload, headers, cookies ni datos comerciales reales. Gate D
+funcional permanece `PENDING`, sin evidencia de que el perfil se haya guardado.
+
 ## Pendientes y siguiente paso
 
-- Repetir una sola vez el guardado del perfil comercial en el preview
-  compatible. Confirmar que la callable responde éxito y el panel Compras carga
-  sin `failed-precondition`; el smoke autenticado actual falló y las sondas
-  `401` no sustituyen ese recorrido.
+- Determinar el código/mensaje del HTTP `400` posterior al índice con la
+  respuesta sanitizada de Network y verificar el estado del perfil antes de
+  cualquier nuevo guardado. Luego completar el smoke autenticado del perfil y
+  confirmar que el panel Compras carga; las sondas `401` no sustituyen ese
+  recorrido.
 - Repetir los escenarios afectados de Gates F, G y H; la evidencia del
   namespace anterior no se reutiliza.
 - Mantener Gate I bloqueado hasta disponer de una carpeta productiva separada,
