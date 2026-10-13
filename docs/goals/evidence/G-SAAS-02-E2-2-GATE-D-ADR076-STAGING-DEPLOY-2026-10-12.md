@@ -116,10 +116,91 @@ staging sigue siendo la cuenta Compute preexistente; sus permisos preexistentes
 no se modificaron en este Gate D y deben revalidarse independientemente antes
 de Gate I.
 
+## Smoke autenticado de perfil y compras — 2026-10-13
+
+El administrador de staging abrió `/admin/compras` en el preview compatible.
+La ruta mostró el formulario de primer acceso del perfil comercial, esperado
+por ADR-SAAS-073, antes de renderizar Compras. Al guardar el formulario, la
+callable `registrarPerfilComercialBodegaV1` respondió HTTP `500`. El log de
+Cloud Run a `2026-10-13T05:14:06.532Z` identifica el fallo como
+`FAILED_PRECONDITION: The query requires an index`; la traza termina en la
+lectura de `emisionesRef` dentro de `leerComandoConfiguracionEnTransaccion`
+antes de que la transacción llegue a sus escrituras.
+
+El índice requerido ya está declarado en `firestore.indexes.json` para la
+colección `ventas`, campos `empresaId ASCENDING`, `dian.emitidoEn ASCENDING` y
+`__name__ ASCENDING`, pero la lectura de índices de `micafe-pos-staging` no
+encontró esa definición. El fallo se explica por una diferencia entre el
+manifiesto y el estado remoto; no por Rules ni por el formulario. Este intento
+no guardó el perfil y no creó compra, venta ni movimiento de inventario.
+
+No se creó ni desplegó el índice durante esta verificación. La autorización de
+Gate D que produjo el deploy de Functions excluyó índices, y el deploy general
+del manifiesto raíz no se considera un delta aislado. Antes de reintentar el
+formulario se requiere un preflight complementario que limite la mutación a
+este índice único de staging y su autorización correspondiente. Producción,
+Rules, Functions y datos de negocio no fueron modificados.
+
+## Preflight y deploy aislado del índice faltante — 2026-10-13
+
+El usuario autorizó agregar a Gate D y desplegar exclusivamente el índice
+`ventas(empresaId ASCENDING, dian.emitidoEn ASCENDING, __name__ ASCENDING)` en
+`micafe-pos-staging`; la autorización excluye Rules, Functions, datos y
+producción. El preflight inmediato volvió a leer `firestore.indexes.json`
+(SHA-256 `D697C38F5EAB464E66BE69EF54E54906E6C7653DDA061FEDC61F928424881835`),
+confirmó una única definición con esos campos y encontró 11 índices remotos,
+cero de ellos en el grupo `ventas`. Por tanto, no se desplegó el manifiesto
+raíz ni se alteraron los otros 11 índices.
+
+El primer intento de `gcloud` fue rechazado localmente al analizar los flags y
+no creó un recurso. El segundo envío, construido como un único campo JSON y
+precedido por otra comprobación de ausencia, fue aceptado por Firestore en la
+base `(default)`. El recurso resultante es
+`projects/micafe-pos-staging/databases/(default)/collectionGroups/ventas/indexes/CICAgNiav4AK`,
+con los tres campos y el orden esperados. La última lectura de estado lo mostró
+`READY` a las `2026-10-13T05:29:09Z`. La operación de creación comenzó a las
+`2026-10-13T05:24:37Z`; la lista remota ahora contiene 12 índices en total. El
+deploy aislado del índice queda verificado, pero el guardado autenticado debe
+reintentarse para demostrar la corrección end-to-end.
+
+No se ejecutó ningún comando contra `micafe-pos`. Esta mutación add-only no
+creó perfil comercial, compra, venta, movimiento de inventario ni ledger.
+
+## Reintento posterior al índice — 2026-10-13
+
+Después de que el índice alcanzó `READY`, se observó otro `POST` a
+`registrarPerfilComercialBodegaV1` desde el preview
+`cafeatrato-git-codex-e2-2-gate-d-adr-52e24c-glemynarts-projects.vercel.app`.
+La solicitud terminó en HTTP `400` a las `2026-10-13T05:32:51.759646Z`.
+Cloud Logging correlaciona la solicitud con la traza
+`82f98beb5ddd9539bfdd38665af154c0` y registra `Callable request verification
+passed` a las `2026-10-13T05:32:51.818855Z`; no registra el código/mensaje de
+dominio ni el cuerpo de respuesta de la callable. Posteriormente, el
+responsable compartió solo la respuesta sanitizada de Network:
+`error.status=INVALID_ARGUMENT` y
+`error.message=PERFIL_COMERCIAL_INVALIDO`, sin payload, headers ni datos
+comerciales. Esto confirma un rechazo de validación del perfil y lo distingue
+del 500 por índice, pero no identifica cuál campo falló.
+
+La consola del navegador también mostró `[IdleTimer] Cerrando sesion por
+inactividad` entre intentos. Como la verificación de la callable consta como
+aprobada, la evidencia disponible no permite atribuir el 400 al cierre de
+sesión. En el código desplegado, tanto la validación del payload como la
+validación de dominio fallan antes de confirmar las escrituras de la
+transacción; este rechazo no guarda el perfil. El contrato valida longitudes y
+texto canónico, NIT/DV, correo y teléfono, además de la consistencia entre los
+códigos DIVIPOLA de departamento y municipio. El error público es genérico,
+por lo que no se puede determinar el campo infractor sin inspeccionar los
+valores localmente; no compartir payload, headers, cookies ni datos
+comerciales. Gate D funcional permanece `PENDING` hasta que el perfil se guarde
+y se confirme la carga del listado de Compras.
+
 ## Pendientes y siguiente paso
 
-- Completar el recorrido autenticado de administración de compras Bodega en el
-  preview compatible. Las sondas `401` no sustituyen ese recorrido.
+- Corregir en el formulario el dato que incumplió la validación —sin compartir
+  valores comerciales— y completar el smoke autenticado del perfil. Después,
+  confirmar que el panel Compras carga; las sondas `401` no sustituyen ese
+  recorrido.
 - Repetir los escenarios afectados de Gates F, G y H; la evidencia del
   namespace anterior no se reutiliza.
 - Mantener Gate I bloqueado hasta disponer de una carpeta productiva separada,
@@ -127,5 +208,6 @@ de Gate I.
   compatible y rollback, restore/smoke independientes y autorización de alta
   real. No se ha creado el tenant ni iniciado el Trial.
 
-Producción, Rules, índices, Auth y datos de negocio permanecieron fuera del
-deploy; no hubo compra autenticada ni cambios de inventario.
+Producción, Rules, Functions, Auth y datos de negocio permanecieron fuera del
+deploy. El único cambio remoto fue la creación del índice compuesto indicado en
+`micafe-pos-staging`; no hubo compra autenticada ni cambios de inventario.
