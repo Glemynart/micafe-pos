@@ -64,7 +64,24 @@ En el checkout de staging, con HEAD `32938869a8f37ea0182647a8f777a0a41dd567bf` y
 | `saas-bodega-operations` | Node.js 22 | 6 | `1807ece7429f40e06663a250416571b889dd3748` | 135473 |
 | `saas-tenant-profile` | Node.js 22 | 1 | `a50552d4f895e7fda6b78ad52c28dc66e64f195e` | 102962 |
 
-La allowlist se simuló sin deploy con el parser/matcher de selectores de Firebase CLI 15.33.0: 12 selectores exactos y codificados por codebase (5 + 6 + 1), 12/12 candidatos locales coincidentes y ninguno de los once IDs legacy coincidente. Todos los doce IDs nuevos están ausentes del inventario remoto. Esto acota una publicación futura a altas de endpoint por nombre; **no** equivale a ejecutar el planificador completo del CLI ni demuestra delta de runtime, IAM, APIs, borrados o rollback. Los once IDs legacy solo podrían entrar en una operación de retiro si se selecciona el codebase completo o se pide explícitamente su borrado; no están en esta allowlist.
+Los 12 selectores exactos probados con el parser/matcher de Firebase CLI 15.33.0 son:
+
+```text
+functions:saas-bodega:crearClienteVendedorBodegaV1
+functions:saas-bodega:crearPresentacionComercialBodegaV1
+functions:saas-bodega:actualizarPresentacionComercialBodegaV1
+functions:saas-bodega:crearArticuloInventarioBodegaV1
+functions:saas-bodega:confirmarVentaVendedorBodegaV1
+functions:saas-bodega-operations:consultarCatalogoPresentacionesVendedorBodegaV1
+functions:saas-bodega-operations:consultarClientesVendedorBodegaV1
+functions:saas-bodega-operations:consultarMisVentasVendedorBodegaV1
+functions:saas-bodega-operations:actualizarArticuloInventarioBodegaV1
+functions:saas-bodega-operations:abrirTurnoBodegaV1
+functions:saas-bodega-operations:cerrarTurnoBodegaV1
+functions:saas-tenant-profile:registrarPerfilComercialBodegaV1
+```
+
+El parser/matcher confirmó 12/12 candidatos locales y ninguno de los IDs legacy. Además, se invocó localmente la función pura `calculateChangesets` del planner 15.33.0 con esos endpoints seleccionados y la proyección remota observada: `saas-bodega` = 5 create / 0 update / 0 delete; `saas-bodega-operations` = 6 / 0 / 0; `saas-tenant-profile` = 1 / 0 / 0. Cero endpoints remotos coinciden con los selectores nuevos; las 25 Functions remotas en esos codebases quedan fuera del filtro. Esta simulación del changeset no ejecuta el planificador completo ni sus comprobaciones remotas de APIs/IAM/Secrets; tampoco demuestra delta de runtime ni rollback. Los once IDs legacy no están en la allowlist y no entran en este changeset.
 
 Los doce exports existen en los módulos compilados locales. Los manifiestos de los tres codebases declaran Node.js 22; las dependencias runtime directas son `firebase-admin` y `firebase-functions` con lockfiles locales. No se hallaron archivos `.env*` en los árboles fuente de esos paquetes ni declaraciones runtime `defineSecret`; las pruebas de descubrimiento y module-load pasan. Esto es evidencia estática/local, no una lectura o validación de Secrets en staging.
 
