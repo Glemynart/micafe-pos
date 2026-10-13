@@ -116,10 +116,36 @@ staging sigue siendo la cuenta Compute preexistente; sus permisos preexistentes
 no se modificaron en este Gate D y deben revalidarse independientemente antes
 de Gate I.
 
+## Smoke autenticado de perfil y compras — 2026-10-13
+
+El administrador de staging abrió `/admin/compras` en el preview compatible.
+La ruta mostró el formulario de primer acceso del perfil comercial, esperado
+por ADR-SAAS-073, antes de renderizar Compras. Al guardar el formulario, la
+callable `registrarPerfilComercialBodegaV1` respondió HTTP `500`. El log de
+Cloud Run a `2026-10-13T05:14:06.532Z` identifica el fallo como
+`FAILED_PRECONDITION: The query requires an index`; la traza termina en la
+lectura de `emisionesRef` dentro de `leerComandoConfiguracionEnTransaccion`
+antes de que la transacción llegue a sus escrituras.
+
+El índice requerido ya está declarado en `firestore.indexes.json` para la
+colección `ventas`, campos `empresaId ASCENDING`, `dian.emitidoEn ASCENDING` y
+`__name__ ASCENDING`, pero la lectura de índices de `micafe-pos-staging` no
+encontró esa definición. El fallo se explica por una diferencia entre el
+manifiesto y el estado remoto; no por Rules ni por el formulario. Este intento
+no guardó el perfil y no creó compra, venta ni movimiento de inventario.
+
+No se creó ni desplegó el índice durante esta verificación. La autorización de
+Gate D que produjo el deploy de Functions excluyó índices, y el deploy general
+del manifiesto raíz no se considera un delta aislado. Antes de reintentar el
+formulario se requiere un preflight complementario que limite la mutación a
+este índice único de staging y su autorización correspondiente. Producción,
+Rules, Functions y datos de negocio no fueron modificados.
+
 ## Pendientes y siguiente paso
 
 - Completar el recorrido autenticado de administración de compras Bodega en el
-  preview compatible. Las sondas `401` no sustituyen ese recorrido.
+  preview compatible después del preflight y la corrección del índice. El smoke
+  autenticado actual falló y las sondas `401` no sustituyen ese recorrido.
 - Repetir los escenarios afectados de Gates F, G y H; la evidencia del
   namespace anterior no se reutiliza.
 - Mantener Gate I bloqueado hasta disponer de una carpeta productiva separada,
