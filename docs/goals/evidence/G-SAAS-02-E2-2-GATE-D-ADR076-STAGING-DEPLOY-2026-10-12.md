@@ -141,11 +141,37 @@ formulario se requiere un preflight complementario que limite la mutación a
 este índice único de staging y su autorización correspondiente. Producción,
 Rules, Functions y datos de negocio no fueron modificados.
 
+## Preflight y deploy aislado del índice faltante — 2026-10-13
+
+El usuario autorizó agregar a Gate D y desplegar exclusivamente el índice
+`ventas(empresaId ASCENDING, dian.emitidoEn ASCENDING, __name__ ASCENDING)` en
+`micafe-pos-staging`; la autorización excluye Rules, Functions, datos y
+producción. El preflight inmediato volvió a leer `firestore.indexes.json`
+(SHA-256 `D697C38F5EAB464E66BE69EF54E54906E6C7653DDA061FEDC61F928424881835`),
+confirmó una única definición con esos campos y encontró 11 índices remotos,
+cero de ellos en el grupo `ventas`. Por tanto, no se desplegó el manifiesto
+raíz ni se alteraron los otros 11 índices.
+
+El primer intento de `gcloud` fue rechazado localmente al analizar los flags y
+no creó un recurso. El segundo envío, construido como un único campo JSON y
+precedido por otra comprobación de ausencia, fue aceptado por Firestore en la
+base `(default)`. El recurso resultante es
+`projects/micafe-pos-staging/databases/(default)/collectionGroups/ventas/indexes/CICAgNiav4AK`,
+con los tres campos y el orden esperados. La última lectura de estado lo mostró
+`READY` a las `2026-10-13T05:29:09Z`. La operación de creación comenzó a las
+`2026-10-13T05:24:37Z`; la lista remota ahora contiene 12 índices en total. El
+deploy aislado del índice queda verificado, pero el guardado autenticado debe
+reintentarse para demostrar la corrección end-to-end.
+
+No se ejecutó ningún comando contra `micafe-pos`. Esta mutación add-only no
+creó perfil comercial, compra, venta, movimiento de inventario ni ledger.
+
 ## Pendientes y siguiente paso
 
-- Completar el recorrido autenticado de administración de compras Bodega en el
-  preview compatible después del preflight y la corrección del índice. El smoke
-  autenticado actual falló y las sondas `401` no sustituyen ese recorrido.
+- Repetir una sola vez el guardado del perfil comercial en el preview
+  compatible. Confirmar que la callable responde éxito y el panel Compras carga
+  sin `failed-precondition`; el smoke autenticado actual falló y las sondas
+  `401` no sustituyen ese recorrido.
 - Repetir los escenarios afectados de Gates F, G y H; la evidencia del
   namespace anterior no se reutiliza.
 - Mantener Gate I bloqueado hasta disponer de una carpeta productiva separada,
@@ -153,5 +179,6 @@ Rules, Functions y datos de negocio no fueron modificados.
   compatible y rollback, restore/smoke independientes y autorización de alta
   real. No se ha creado el tenant ni iniciado el Trial.
 
-Producción, Rules, índices, Auth y datos de negocio permanecieron fuera del
-deploy; no hubo compra autenticada ni cambios de inventario.
+Producción, Rules, Functions, Auth y datos de negocio permanecieron fuera del
+deploy. El único cambio remoto fue la creación del índice compuesto indicado en
+`micafe-pos-staging`; no hubo compra autenticada ni cambios de inventario.
