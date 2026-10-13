@@ -1,6 +1,6 @@
 # Gate C — inventario read-only posterior a PR #578
 
-- **Última relectura remota:** Functions `2026-10-13T02:32:00Z`; catálogo completo de APIs `2026-10-13T02:12:55Z` (UTC).
+- **Relecturas remotas:** inventario y catálogo completos originales Functions `2026-10-13T02:32:00Z` / APIs `2026-10-13T02:12:55Z`; verificación posterior al dry-run, aproximadamente `2026-10-13T02:50Z` (UTC), confirmó 44 Functions activas/17 codebases, 53 APIs y cero de los 12 IDs nuevos.
 - **Goal / Milestone / Epic:** `G-SAAS-02` / `M2 — Provisioning y onboarding` / `E2.2 — Configuración inicial`
 **Resultado:** `INCOMPLETE` — inventario remoto observado; preflight de despliegue no aprobado.
 
@@ -85,12 +85,40 @@ El parser/matcher confirmó 12/12 candidatos locales y ninguno de los IDs legacy
 
 Los doce exports existen en los módulos compilados locales. Los manifiestos de los tres codebases declaran Node.js 22; las dependencias runtime directas son `firebase-admin` y `firebase-functions` con lockfiles locales. No se hallaron archivos `.env*` en los árboles fuente de esos paquetes ni declaraciones runtime `defineSecret`; las pruebas de descubrimiento y module-load pasan. Esto es evidencia estática/local, no una lectura o validación de Secrets en staging.
 
+## Revalidación de preparación y efectos del CLI — 2026-10-13
+
+Se ejecutaron los builds locales de los tres paquetes y el discovery del SDK `firebase-functions` a través del runtime delegate de Firebase CLI `15.33.0`, sin desplegar ni llamar a APIs remotas desde ese discovery. El resultado completo fue 17 endpoints en `saas-bodega`, 7 en `saas-bodega-operations` y 1 en `saas-tenant-profile` (25 en total); todos son Gen 2 en `us-central1`, con cero parámetros y cero bindings de Secret. El único `requiredAPI` descubierto por los triggers es `cloudscheduler.googleapis.com` para el schedule de `saas-bodega`. Los otros endpoints no seleccionados incluyen el trigger Firestore de aviso, el schedule de agenda y `registrarCompraBodegaV1`; no forman parte de los 12 selectores aprobados.
+
+Después del build y el empaquetado real del CLI, el helper `prepareFunctionsUpload` reprodujo exactamente los tres `sourceHash` y bytes ya documentados. El dry-run exacto terminó con `Dry run complete!` y empaquetó `functions-bodega` (151171 bytes), `functions-bodega-operations` (135473 bytes) y `functions-tenant-profile` (102962 bytes). El CLI prepara cada codebase completo antes de filtrar el release; por eso también comprueba APIs requeridas por triggers no seleccionados. El `--only` sigue siendo esencial: el changeset puro del planner 15.33.0 con la lectura remota y los filtros exactos continúa siendo 5 creates / 0 updates / 0 deletes, 6 / 0 / 0 y 1 / 0 / 0, respectivamente. El dry-run no imprime un listado de cambios de endpoint, así que el conteo exacto se mantiene atribuido a la simulación reproducible del planner, no al texto del dry-run.
+
+Comando ejecutado exclusivamente contra staging:
+
+```powershell
+$selectors = @(
+  'functions:saas-bodega:crearClienteVendedorBodegaV1',
+  'functions:saas-bodega:crearPresentacionComercialBodegaV1',
+  'functions:saas-bodega:actualizarPresentacionComercialBodegaV1',
+  'functions:saas-bodega:crearArticuloInventarioBodegaV1',
+  'functions:saas-bodega:confirmarVentaVendedorBodegaV1',
+  'functions:saas-bodega-operations:consultarCatalogoPresentacionesVendedorBodegaV1',
+  'functions:saas-bodega-operations:consultarClientesVendedorBodegaV1',
+  'functions:saas-bodega-operations:consultarMisVentasVendedorBodegaV1',
+  'functions:saas-bodega-operations:actualizarArticuloInventarioBodegaV1',
+  'functions:saas-bodega-operations:abrirTurnoBodegaV1',
+  'functions:saas-bodega-operations:cerrarTurnoBodegaV1',
+  'functions:saas-tenant-profile:registrarPerfilComercialBodegaV1'
+)
+.\node_modules\.bin\firebase.cmd deploy --only ($selectors -join ',') --project micafe-pos-staging --dry-run --non-interactive
+```
+
+El dry-run **no es estrictamente read-only**: solicitó asegurar `cloudfunctions`, `cloudbuild`, `artifactregistry`, `firebaseextensions`, `cloudscheduler`, `run`, `eventarc`, `pubsub` y `storage`, y llamó `generateServiceIdentity` para Pub/Sub y Eventarc. La generación de esas dos identidades estaba autorizada previamente por el responsable para `micafe-pos-staging`; las lecturas IAM anteriores y posteriores muestran los bindings autorizados presentes: Pub/Sub `roles/pubsub.serviceAgent` y `roles/iam.serviceAccountTokenCreator`; Eventarc `roles/eventarc.serviceAgent`; cuenta Compute `roles/eventarc.eventReceiver` y `roles/run.invoker`. No afirmo que el POST de generación no haya creado recursos; se registra como efecto potencial del dry-run. No se ejecutaron Rules, Secrets, datos, compras, fixture, tenant ni producción.
+
+La lectura posterior en staging encontró 44/44 Functions `ACTIVE` en 17 codebases, cero de los 12 IDs nuevos y 11/11 IDs legacy todavía `ACTIVE`. El catálogo de APIs permaneció en 53 servicios: todas las APIs que el CLI pidió asegurar ya estaban habilitadas; `cloudtasks.googleapis.com` continúa ausente, coherente con que los codebases no descubren endpoints de tareas. El dry-run no desplegó Functions. La cuenta de servicio de una callable Bodega existente es la Compute predeterminada `192423427245-compute@developer.gserviceaccount.com`, que mantiene `roles/editor` además de los dos bindings autorizados; los nuevos endpoints no declaran otra cuenta y, por tanto, heredan ese default. Es un privilegio preexistente que debe revalidarse para producción; este Gate C no lo amplía ni lo corrige.
+
 ## Evaluación del gate
 
-Este resultado no es `PREFLIGHT = PASS`. El remoto aún sirve los once IDs anteriores mientras el código de `main` expone los nuevos. Además, #578 añade un codebase/function que aún no aparece en staging. Antes de cualquier publicación se requiere un artefacto de preflight que enumere el delta exacto por codebase/ID, analice cómo coexisten las Functions antiguas y nuevas durante el cambio, verifique secretos y dependencias y detalle el rollback compatible con clientes ya abiertos. La lectura `functions:list` no determina esas consecuencias ni autoriza borrados, reemplazos o deploy.
+El preflight confirma una adición acotada: 12 Functions nuevas en `micafe-pos-staging`, repartidas en los tres codebases indicados, sin actualización ni eliminación de endpoints remotos. Las 11 Functions legacy equivalentes permanecen activas, los IDs nuevos no colisionan con los 44 remotos, el dispatcher Bodega apunta a los nombres nuevos, y ambos namespaces delegan en el mismo núcleo de dominio aprobado. El rollback técnico para clientes consiste en revertir el dispatcher al código base anterior a #574 (`9892ab2a006c2e71702569a7bf004ad78129d462`) y conservar las Functions añadidas; no se borran endpoints ni se revierten hechos de inventario/ledger. Las Functions legacy estaban activas al verificar el rollback, por lo que clientes antiguos siguen teniendo su destino.
 
-Se inspeccionaron `firebase deploy --help` y el código del Firebase CLI local `15.33.0`. Su preparación comprueba/asegura APIs y, si el backend contiene Functions Gen 2, invoca `generateServiceIdentity` para Pub/Sub y Eventarc; el helper hace un `POST` a Service Usage, también desde la preparación que precede al dry-run. Por ello `--dry-run` no es una operación estrictamente read-only y no se ejecutó dentro de este PR documental, cuyo alcance excluye cambios de APIs/IAM. La lectura completa de APIs habilitadas se tomó con `gcloud services list --enabled --project=micafe-pos-staging --format=value(config.name)`; devolvió 53 servicios e incluye `cloudscheduler.googleapis.com`, necesario por `reconciliarAgendaPedidosBodegaV1`. `cloudtasks.googleapis.com` no está habilitado y los codebases seleccionados no exportan `onTaskDispatched`. El catálogo completo está en [snapshot de APIs staging](G-SAAS-02-E2-2-GATE-C-STAGING-ENABLED-APIS-2026-10-13.json). Aunque más completa, esta lectura no asigna aún cada API a efectos del planificador Firebase por codebase ni descarta que el CLI intente habilitar otra API. El `--dry-run` queda fuera de este PR y requiere un preflight que identifique y autorice cualquier efecto remoto potencial antes de ejecutarlo.
+El inventario global de la fuente declara 19 codebases frente a 17 codebases remotos con Functions activas; `saas-auth` no tiene Functions activas observadas. Un despliegue global (`--only functions`) queda fuera de esta autorización y podría tener un delta distinto. El comando permitido debe conservar los 12 selectores, el proyecto literal de staging y Firebase CLI `15.33.0`; cualquier delta o binding distinto detiene Gate D.
 
-El manifiesto local contiene 19 codebases mientras la lectura de staging devuelve 17 codebases con Functions activas. ADR-SAAS-076 conserva los once nombres legacy en `saas-auth` y les asigna IDs Bodega únicos a los wrappers Bodega; el inventario actual no observa Functions activas en `saas-auth`. Por tanto, un despliegue global (`--only functions`) no queda cubierto por este inventario y podría tener un delta muy distinto al de los codebases Bodega aprobados. El preflight debe especificar explícitamente cada codebase permitido y comprobar su delta; no inferir que un codebase ausente del remoto está vacío o es seguro de publicar.
-
-Por tanto, Gate C continúa `INCOMPLETE`: ya se dispone de hashes de fuente por codebase, una allowlist exacta a nivel de selector y la lectura completa de APIs, pero aún falta demostrar el plan final del CLI y sus efectos colaterales, compatibilidad de coexistencia con clientes desplegados, cierre de dependencias/Secrets por endpoint y rollback verificable. Gates D/F/G/H no se consideran repetidos para el namespace de #578/ADR-SAAS-076 y Gate I continúa bloqueado. No se ejecutaron comandos de deploy, cambios de Firestore Rules/IAM/Secrets, ni escrituras de datos o tenant. Producción no fue consultada ni modificada.
+**Resultado Gate C: `PREFLIGHT = PASS` solo para el changeset de 12 creates de este artefacto, con los efectos previos de API/service identity declarados arriba.** Esto no es autorización de despliegue ni cierra Gate D: #580 sigue sujeto a auditoría, CI verde, merge y CI post-merge; después se requiere la autorización de Gate D que corresponda al delta actual. Gates D/F/G/H deben repetirse para ADR-SAAS-076/#578 antes de Gate I, que continúa bloqueado. Producción no fue consultada ni modificada.
