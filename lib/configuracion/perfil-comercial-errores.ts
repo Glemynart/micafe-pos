@@ -48,7 +48,8 @@ const camposPorRuta: Record<string, readonly CampoPerfilComercial[]> = {
 };
 
 export function camposPerfilComercialParaRuta(ruta: string): CampoPerfilComercial[] {
-  return [...(camposPorRuta[ruta] ?? [])];
+  if (!Object.prototype.hasOwnProperty.call(camposPorRuta, ruta)) return [];
+  return [...camposPorRuta[ruta]];
 }
 
 function esRegistro(value: unknown): value is Record<string, unknown> {

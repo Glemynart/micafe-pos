@@ -6,7 +6,9 @@ test("mapea únicamente rutas canónicas conocidas a campos del formulario", () 
   assert.deepEqual(camposPerfilComercialParaRuta("identidadFiscal"), ["nit", "digitoVerificacion"]);
   assert.deepEqual(camposPerfilComercialParaRuta("identidadFiscal.contacto.email"), ["email"]);
   assert.deepEqual(camposPerfilComercialParaRuta("localizacion.direccion"), ["departamentoCodigo", "municipioCodigo"]);
-  assert.deepEqual(camposPerfilComercialParaRuta("ruta.interna.desconocida"), []);
+  for (const ruta of ["ruta.interna.desconocida", "constructor", "toString", "__proto__"]) {
+    assert.deepEqual(camposPerfilComercialParaRuta(ruta), []);
+  }
 });
 
 test("presenta etiquetas permitidas y nunca refleja valores o nombres arbitrarios", () => {
