@@ -44,9 +44,11 @@ mantenerla visible si se usa la salida completa del Emulator como evidencia.
 - Regresión local POS/Backoffice Bodega: `PASS` (12/12).
 - Gate D funcional en el preview compatible: `PENDING`; el smoke actual no ha
   superado el formulario de perfil comercial inicial, cuyo último guardado
-  devolvió HTTP `400` después de que el índice requerido quedó `READY`. La
-  causa sigue sin determinarse y el listado autenticado de Compras tampoco se
-  ha verificado. Véase la [evidencia de deploy y smoke Gate D](G-SAAS-02-E2-2-GATE-D-ADR076-STAGING-DEPLOY-2026-10-12.md).
+  devolvió HTTP `400` (`INVALID_ARGUMENT / PERFIL_COMERCIAL_INVALIDO`) después
+  de que el índice requerido quedó `READY`. La respuesta confirma rechazo de
+  validación, pero no identifica el campo; no hay evidencia de que se haya
+  guardado el perfil y el listado autenticado de Compras tampoco se ha
+  verificado. Véase la [evidencia de deploy y smoke Gate D](G-SAAS-02-E2-2-GATE-D-ADR076-STAGING-DEPLOY-2026-10-12.md).
 - Gates F/G/H en `micafe-pos-staging` y namespace ADR-SAAS-076: `NOT EXECUTED`
   por esta evidencia y continúan pendientes de revalidación remota.
 - Gate I, tenant real, Trial y catálogo real: no cambiaron.

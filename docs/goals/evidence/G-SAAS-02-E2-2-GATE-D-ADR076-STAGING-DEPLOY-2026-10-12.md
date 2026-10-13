@@ -175,16 +175,25 @@ La solicitud terminó en HTTP `400` a las `2026-10-13T05:32:51.759646Z`.
 Cloud Logging correlaciona la solicitud con la traza
 `82f98beb5ddd9539bfdd38665af154c0` y registra `Callable request verification
 passed` a las `2026-10-13T05:32:51.818855Z`; no registra el código/mensaje de
-dominio ni el cuerpo de respuesta de la callable. Por ello, el 400 es distinto
-del 500 por índice y su causa exacta permanece sin determinar.
+dominio ni el cuerpo de respuesta de la callable. Posteriormente, el
+responsable compartió solo la respuesta sanitizada de Network:
+`error.status=INVALID_ARGUMENT` y
+`error.message=PERFIL_COMERCIAL_INVALIDO`, sin payload, headers ni datos
+comerciales. Esto confirma un rechazo de validación del perfil y lo distingue
+del 500 por índice, pero no identifica cuál campo falló.
 
 La consola del navegador también mostró `[IdleTimer] Cerrando sesion por
 inactividad` entre intentos. Como la verificación de la callable consta como
 aprobada, la evidencia disponible no permite atribuir el 400 al cierre de
-sesión. No se debe repetir el guardado hasta observar el cuerpo sanitizado de
-Response/Preview de esa solicitud y verificar si el perfil está completo; no
-compartir payload, headers, cookies ni datos comerciales reales. Gate D
-funcional permanece `PENDING`, sin evidencia de que el perfil se haya guardado.
+sesión. En el código desplegado, tanto la validación del payload como la
+validación de dominio fallan antes de confirmar las escrituras de la
+transacción; este rechazo no guarda el perfil. El contrato valida longitudes y
+texto canónico, NIT/DV, correo y teléfono, además de la consistencia entre los
+códigos DIVIPOLA de departamento y municipio. El error público es genérico,
+por lo que no se puede determinar el campo infractor sin inspeccionar los
+valores localmente; no compartir payload, headers, cookies ni datos
+comerciales. Gate D funcional permanece `PENDING` hasta que el perfil se guarde
+y se confirme la carga del listado de Compras.
 
 ## Pendientes y siguiente paso
 
