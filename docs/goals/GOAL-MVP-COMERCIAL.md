@@ -11,7 +11,7 @@
 - **Resultado:** un primer cliente real opera MiCafe POS durante un Trial ANUAL server-side de 30 días, con provisioning reproducible, onboarding, operación crítica, soporte, recuperación cuando aplique y cierre contractual evidenciado.
 - **Estado:** ACTIVO
 - **Inicio formal:** 2026-08-12
-- **Rama base:** `main @ 867299065aaf185470326deb983f8dc91bc11882` (PR #567–#579 integrados; CI post-merge de #579 (`38324356117`) y #578 (`38329940885`) en `success`; ver [auditoría de Gate A](evidence/G-SAAS-02-E2-2-GATE-A-DOCUMENTATION-AUDIT-2026-10-12.md))
+- **Rama base:** `main @ ffcba614da092c8762171d498310794fe049cd95` (PR #567–#577 y #579 integrados; CI post-merge de #579, run `38324356117`, seguía `in_progress` al snapshot `2026-10-12T23:54Z`; ver [auditoría de Gate A](evidence/G-SAAS-02-E2-2-GATE-A-DOCUMENTATION-AUDIT-2026-10-12.md))
 - **Fuente de autorización:** `AUTORIZACIÓN DE EJECUCIÓN — G-SAAS-02`
 - **Decisiones comerciales preservadas:** precio público anual `1.800.000 COP`; oferta específica aprobada para Bodega `1.600.000 COP` por el año, pago manual, Trial de 30 días, todos los módulos disponibles y un Espacio operativo interno. La oferta del tenant no cambia el precio público del Plan.
 
@@ -116,22 +116,25 @@
 
 ## Estado vivo
 
-> **Revalidación del checkpoint — 2026-10-13 01:31 UTC:** PR #578 quedó
+> **Revalidación del checkpoint — 2026-10-13 02:19 UTC:** PR #578 quedó
 > integrado en `main @ 867299065aaf185470326deb983f8dc91bc11882` a las
 > `00:59:19Z`; su CI post-merge `38329940885` terminó `success` a las
-> `01:23:47Z`. Se ejecutó el inventario read-only actual de Gate C desde la
-> carpeta dedicada de staging, en ese SHA y con `--project micafe-pos-staging`.
+> `01:23:47Z`. Se ejecutó el inventario read-only de Gate C desde la carpeta
+> dedicada de staging, en ese SHA y con `--project micafe-pos-staging`; Functions
+> se releyeron a `02:19:02Z` y las APIs a `02:12:55Z`.
 > El inventario encontró 44 Functions activas: los once IDs Bodega anteriores
 > siguen activos; los once IDs nuevos de ADR-SAAS-076 y
 > `registrarPerfilComercialBodegaV1` aún no aparecen. Gate C permanece
 > `INCOMPLETE`, sin deploy ni escrituras. También se leyó el catálogo de APIs
-> habilitadas en staging; están habilitados los servicios centrales de Functions,
-> Cloud Build, Artifact Registry, Run, Eventarc, Pub/Sub, Secret Manager,
-> Firestore, Storage y Rules. No se ejecutó `firebase deploy --dry-run`: Firebase
+> habilitadas en staging; la lectura completa devolvió 53 servicios, incluidos
+> Cloud Scheduler (necesario por la función programada existente) y los servicios
+> centrales de Functions, Cloud Build, Artifact Registry, Run, Eventarc, Pub/Sub,
+> Secret Manager, Firestore, Storage y Rules. Cloud Tasks no está habilitado y
+> los codebases objetivo no exportan tareas. No se ejecutó `firebase deploy --dry-run`: Firebase
 > CLI advierte que aun esa opción podría habilitar APIs, y la lista actual no
 > demuestra por sí sola que no se active ninguna API adicional. Evidencia: [inventario read-only
 > posterior a #578](evidence/G-SAAS-02-E2-2-GATE-C-READONLY-POST-578-2026-10-13.md).
-> La proyección seleccionada de APIs habilitadas se adjunta en [snapshot de
+> La lectura completa de APIs habilitadas se adjunta en [snapshot de
 > APIs staging](evidence/G-SAAS-02-E2-2-GATE-C-STAGING-ENABLED-APIS-2026-10-13.json).
 > Gate C/D usan exclusivamente la carpeta dedicada de staging y el ID literal
 > `micafe-pos-staging`. La carpeta local antes identificada para producción
@@ -153,7 +156,7 @@
   - Evidencia: [recheck de Rules en Emulator](evidence/G-SAAS-02-E2-2-GATE-D-RULES-EMULATOR-RECHECK-2026-10-12.md), [reconciliación read-only de Rules de staging](evidence/G-SAAS-02-E2-2-GATE-D-RULES-READONLY-RECONCILIATION-2026-10-12.md), [inventario read-only posterior a #574](evidence/G-SAAS-02-E2-2-GATE-C-READONLY-NAMESPACE-RECHECK-2026-10-12.md), [reconocimiento read-only de producción](evidence/G-SAAS-02-E2-2-GATE-I-PRODUCTION-READONLY-RECONNAISSANCE-2026-10-12.md), [revalidación contra main 380928](evidence/G-SAAS-02-E2-2-GATE-I-PRODUCTION-READONLY-REVALIDATION-380928-2026-10-12.md), [ADR-SAAS-073 — perfil comercial](../../ADR-SAAS-073-perfil-comercial-primer-acceso-bodega.md), [ADR-SAAS-074 — IDs Bodega únicos iniciales](../../ADR-SAAS-074-namespace-produccion-callables-bodega.md), [ADR-SAAS-076 — namespace completo de once IDs](../../ADR-SAAS-076-alcance-completo-namespace-callables-bodega.md), [ADR-SAAS-075 — bloqueo legacy Bodega](../../ADR-SAAS-075-aislamiento-callable-legacy-compras-bodega.md), [aceptación ADR-SAAS-073/074/075](evidence/G-SAAS-02-E2-2-ADR-SAAS-073-075-ACCEPTANCE-2026-10-12.md), [aceptación de ampliación ADR-SAAS-076](evidence/G-SAAS-02-E2-2-ADR-SAAS-076-ACCEPTANCE-2026-10-12.md), [revalidación de Gate H](evidence/G-SAAS-02-E2-2-GATE-H-RECONNECT-REPLAY-2026-10-12.md).
 - **Estado:** ACTIVO.
 - **PR completados:** PR #558, #559, #560, #561, #562, #563, #564, #565, #566, #567, #568, #569, #570, #571, #572, #573, #574, #575, #576, #577, #578 y #579.
-- **Siguiente PR esperado:** terminar el preflight de Gate C desde un target explícito, no global: la comparación estática muestra 11 IDs Bodega nuevos y 1 callable de perfil (12 nombres solo-local en total), frente a 11 IDs legacy solo-remotos que podrían retirarse; `registrarCompraBodegaV1` conserva su ID. Faltan cambios/hash reales por codebase, comportamiento de eliminación, coexistencia, dependencias/Secrets y rollback. El manifiesto tiene 19 codebases y staging muestra 17 activos; el deploy global no se presume equivalente al cambio Bodega. La consulta read-only de APIs habilitadas no demuestra aún que el deploy no vaya a habilitar otras; `firebase deploy --dry-run` sigue sin ejecutarse por ese posible efecto remoto. Gate C sigue `INCOMPLETE`; no se despliega hasta probar las precondiciones y obtener autorización operativa específica. Después se repiten los gates staging afectados; la evidencia histórica D/F/G/H no certifica el namespace nuevo. Gate I exige una carpeta productiva separada, limpia y verificada, paridad y artefacto productivo aprobados, Rules con plan compatible y rollback, smoke y restore independientes; no se crea ni configura el tenant real antes de esos gates.
+- **Siguiente PR esperado:** cerrar el preflight de Gate C con selectores explícitos, nunca globales. La evidencia read-only posterior a #578 ahora incluye hashes fuente de los tres codebases afectados, una simulación de los 12 selectores exactos (11 IDs de ADR-SAAS-076 + 1 callable de perfil) y el listado completo de APIs habilitadas en staging. Los once IDs legacy permanecen activos y no entran en la allowlist; `registrarCompraBodegaV1` conserva su ID. Aún faltan el plan completo reproducible del CLI sin efectos colaterales no aprobados, compatibilidad de coexistencia con clientes ya desplegados, cierre de dependencias/Secrets por endpoint y rollback verificable. El manifiesto tiene 19 codebases y staging 17 codebases activos; no se presume que un deploy global sea equivalente. Gate C sigue `INCOMPLETE`; no se despliega hasta demostrar el alcance exacto y obtener autorización operativa específica. Después se repiten los gates staging afectados; la evidencia histórica D/F/G/H no certifica el namespace nuevo. Gate I exige una carpeta productiva separada, limpia y verificada, paridad y artefacto productivo aprobados, Rules con plan compatible y rollback, smoke y restore independientes; no se crea ni configura el tenant real antes de esos gates.
 - **Milestone activo:** `M2 — Provisioning y onboarding`.
 - **Epic activo:** `E2.2 — Configuración inicial`.
 

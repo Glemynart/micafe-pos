@@ -1,9 +1,9 @@
 {
-  "capturedAt": "2026-10-13T01:28:20Z",
+  "capturedAt": "2026-10-13T02:19:02Z",
   "projectId": "micafe-pos-staging",
   "region": "us-central1",
   "command": "firebase functions:list --project micafe-pos-staging --json --non-interactive",
-  "firebaseCliVersion": "15.32.1",
+  "firebaseCliVersion": "15.33.0",
   "projection": ["id", "codebase", "state", "hash"],
   "functions": [
     {"id":"abrirTurnoOperativoV1","codebase":"saas-bodega-operations","state":"ACTIVE","hash":"79d49a905e4b34b18212a49ffec02caedfbfc4bf"},
