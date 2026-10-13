@@ -36,5 +36,6 @@ test("traduce el mensaje de Firebase Functions con sufijo de estado HTTP", () =>
 test("no convierte errores genéricos ni detalles no controlados en mensajes visibles", () => {
   assert.equal(mensajeSeguroErrorPerfilComercial({ code: "functions/unavailable", message: "PERFIL_COMERCIAL_INVALIDO", details: { campos: ["email"] } }), null);
   assert.equal(mensajeSeguroErrorPerfilComercial({ code: "functions/invalid-argument", message: "otro error", details: { campos: ["email"] } }), null);
+  assert.equal(mensajeSeguroErrorPerfilComercial({ code: "functions/invalid-argument", message: "PERFIL_COMERCIAL_INVALIDO [500]", details: { campos: ["email"] } }), null);
   assert.equal(mensajeSeguroErrorPerfilComercial({ code: "functions/invalid-argument", message: "PERFIL_COMERCIAL_INVALIDO", details: { campos: ["dato-sensible"] } }), null);
 });

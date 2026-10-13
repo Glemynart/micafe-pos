@@ -58,7 +58,12 @@ function esRegistro(value: unknown): value is Record<string, unknown> {
 
 /** Devuelve solo etiquetas controladas por el cliente; nunca refleja valores ni rutas del servidor. */
 export function mensajeSeguroErrorPerfilComercial(error: unknown): string | null {
-  if (!esRegistro(error) || error.code !== "functions/invalid-argument" || error.message !== "PERFIL_COMERCIAL_INVALIDO") return null;
+  const mensajeEsperado = "PERFIL_COMERCIAL_INVALIDO";
+  if (
+    !esRegistro(error)
+    || error.code !== "functions/invalid-argument"
+    || (error.message !== mensajeEsperado && error.message !== `${mensajeEsperado} [400]`)
+  ) return null;
   if (!esRegistro(error.details) || !Array.isArray(error.details.campos)) return null;
 
   const permitidos = new Set<string>(CAMPOS_PERFIL_COMERCIAL);
