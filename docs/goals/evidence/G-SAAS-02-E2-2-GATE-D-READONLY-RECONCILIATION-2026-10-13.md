@@ -11,7 +11,7 @@
 
 | Superficie | Lectura observada | Resultado |
 |---|---|---|
-| Perfil | `configuraciones/{tenant}` y `empresas/{tenant}` existen; vertical `BODEGA_MVP1`; revisiones 2 y 2; 11/11 campos comerciales requeridos presentes; 1 evento `PERFIL_COMERCIAL_PRIMER_ACCESO_BODEGA` en `auditoria_logs`. | PASS |
+| Perfil | `configuraciones/{tenant}` y `empresas/{tenant}` existen; vertical `BODEGA_MVP1`; revisiones 2 y 2; 11/11 campos de texto requeridos presentes, además de `tipoPersona` válido y `tipoDocumento=NIT` fijado por el handler; 1 evento `PERFIL_COMERCIAL_PRIMER_ACCESO_BODEGA` en `auditoria_logs`. | PASS |
 | Compra sintética | Una compra coincidente: `$1.000 COP`, 1 unidad del producto fixture y un ID de movimiento de inventario. | PASS |
 | Recibo e idempotencia | 1 recibo `registrarCompraBodegaV1`, estado `CONFIRMADO`; 1 registro de idempotencia y 1 evento en `operaciones_auditoria`, enlazados a esa compra. | PASS |
 | Efecto financiero | La compra no contiene `movimientoFinancieroId` y no existe `transacciones_financieras` asociada a ella, coherente con no seleccionar cuenta de pago. | PASS |
