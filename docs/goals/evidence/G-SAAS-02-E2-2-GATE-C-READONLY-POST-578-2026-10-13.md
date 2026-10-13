@@ -24,6 +24,19 @@ El CLI devolvió `status: success` y 44 Functions `ACTIVE` en `us-central1`, dis
 
 El inventario confirma que siguen activos los once IDs Bodega anteriores de ADR-SAAS-076 y no devuelve ninguno de sus once IDs nuevos. También devuelve `registrarCompraBodegaV1` activa en `saas-bodega-operations` y no devuelve `registrarCompraOperativaV1` ni la callable nueva `registrarPerfilComercialBodegaV1`.
 
+## Comparación estática de exports por codebase
+
+Se compararon los `export const` de los entrypoints locales de los cuatro codebases Bodega relacionados con el inventario remoto anterior. Este contraste identifica solo nombres de exports; no es una vista previa del plan de Firebase CLI ni compara el contenido/hash del código desplegado.
+
+| Codebase objetivo | Exports locales | Functions remotas | IDs iguales | Solo local (posibles altas) | Solo remoto (posibles retiros) |
+|---|---:|---:|---:|---|---|
+| `saas-bodega` | 17 | 17 | 12 | 5 IDs nuevos | 5 IDs anteriores |
+| `saas-bodega-operations` | 7 | 7 | 1 | 6 IDs nuevos | 6 IDs anteriores |
+| `saas-bodega-membership` | 1 | 1 | 1 | 0 | 0 |
+| `saas-tenant-profile` | 1 | 0 | 0 | 1 callable nueva | 0 |
+
+Los 11 IDs solo locales y los 11 solo remotos corresponden a los mapeos aceptados en ADR-SAAS-076. `registrarCompraBodegaV1` permanece con el mismo ID en `saas-bodega-operations`; la callable de perfil solo tiene alta local. Los conteos sugieren hasta 12 altas de nuevos IDs, 11 retiros de IDs Bodega anteriores y 1 alta de perfil, pero **no son todavía un delta de deploy aprobado**: faltan los cambios de hash/entorno por codebase, el comportamiento de borrado de IDs remotos ausentes, las dependencias y el plan de coexistencia/rollback.
+
 | Codebase | ID anterior | Estado remoto | ID nuevo | Estado remoto |
 |---|---|---|---|---|
 | `saas-bodega` | `crearClienteVendedorV1` | `ACTIVE` | `crearClienteVendedorBodegaV1` | ausente |
