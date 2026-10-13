@@ -56,7 +56,7 @@ Los 11 IDs solo locales de Bodega y los 11 solo remotos corresponden a los mapeo
 
 ## Paquete fuente y allowlist de endpoints
 
-En el checkout de staging, con HEAD `32938869a8f37ea0182647a8f777a0a41dd567bf` y Firebase CLI `15.33.0`, se reconstruyó el ZIP mediante el helper de empaquetado del CLI (`prepareFunctionsUpload`). Se registró el hash de fuente calculado por Firebase a partir de los contenidos incluidos. El SHA-256 binario del ZIP no se usa como fingerprint reproducible: en dos empaquetados del mismo contenido y tamaño varió, mientras el hash de fuente permaneció idéntico.
+En el checkout de staging, con HEAD `32938869a8f37ea0182647a8f777a0a41dd567bf` y Firebase CLI `15.33.0`, se reconstruyó el ZIP mediante el helper de empaquetado del CLI (`prepareFunctionsUpload`). Se registró el hash de fuente calculado por Firebase a partir de los contenidos incluidos. Aunque ese commit de evidencia no es ancestro de `main @ 867299065aaf185470326deb983f8dc91bc11882`, la comparación local `git diff --exit-code 867299065aaf185470326deb983f8dc91bc11882 32938869a8f37ea0182647a8f777a0a41dd567bf -- firebase.json .firebaserc package.json package-lock.json functions-bodega functions-bodega-operations functions-tenant-profile` no encontró diferencias en la configuración, dependencias ni fuentes de los tres codebases que se empaquetan. El PR #580 solo cambia documentación en esas rutas, así que sus commits no alteran el artefacto verificado. El SHA-256 binario del ZIP no se usa como fingerprint reproducible: en dos empaquetados del mismo contenido y tamaño varió, mientras el hash de fuente permaneció idéntico.
 
 | Codebase fuente | Runtime configurado | Funciones de la allowlist | Hash de fuente Firebase | ZIP (bytes) |
 |---|---|---:|---|---:|
