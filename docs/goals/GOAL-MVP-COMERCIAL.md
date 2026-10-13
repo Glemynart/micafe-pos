@@ -116,12 +116,13 @@
 
 ## Estado vivo
 
-> **Revalidación del checkpoint — 2026-10-13 02:19 UTC:** PR #578 quedó
+> **Revalidación del checkpoint — 2026-10-13 02:32 UTC:** PR #578 quedó
 > integrado en `main @ 867299065aaf185470326deb983f8dc91bc11882` a las
 > `00:59:19Z`; su CI post-merge `38329940885` terminó `success` a las
 > `01:23:47Z`. Se ejecutó el inventario read-only de Gate C desde la carpeta
 > dedicada de staging, en ese SHA y con `--project micafe-pos-staging`; Functions
-> se releyeron a `02:19:02Z` y las APIs a `02:12:55Z`.
+> se releyeron con el CLI local fijado por lockfile a `02:32:00Z` y las APIs a
+> `02:12:55Z`.
 > El inventario encontró 44 Functions activas: los once IDs Bodega anteriores
 > siguen activos; los once IDs nuevos de ADR-SAAS-076 y
 > `registrarPerfilComercialBodegaV1` aún no aparecen. Gate C permanece
@@ -130,9 +131,9 @@
 > Cloud Scheduler (necesario por la función programada existente) y los servicios
 > centrales de Functions, Cloud Build, Artifact Registry, Run, Eventarc, Pub/Sub,
 > Secret Manager, Firestore, Storage y Rules. Cloud Tasks no está habilitado y
-> los codebases objetivo no exportan tareas. No se ejecutó `firebase deploy --dry-run`: Firebase
-> CLI advierte que aun esa opción podría habilitar APIs, y la lista actual no
-> demuestra por sí sola que no se active ninguna API adicional. Evidencia: [inventario read-only
+> los codebases objetivo no exportan tareas. No se ejecutó `firebase deploy --dry-run`: la
+> preparación del CLI puede asegurar APIs y enviar solicitudes de generación de
+> identidades administradas Pub/Sub/Eventarc incluso en dry-run. Evidencia: [inventario read-only
 > posterior a #578](evidence/G-SAAS-02-E2-2-GATE-C-READONLY-POST-578-2026-10-13.md).
 > La lectura completa de APIs habilitadas se adjunta en [snapshot de
 > APIs staging](evidence/G-SAAS-02-E2-2-GATE-C-STAGING-ENABLED-APIS-2026-10-13.json).

@@ -1,8 +1,8 @@
 {
-  "capturedAt": "2026-10-13T02:19:02Z",
+  "capturedAt": "2026-10-13T02:32:00Z",
   "projectId": "micafe-pos-staging",
   "region": "us-central1",
-  "command": "firebase functions:list --project micafe-pos-staging --json --non-interactive",
+  "command": ".\\node_modules\\.bin\\firebase.cmd functions:list --project micafe-pos-staging --json --non-interactive",
   "firebaseCliVersion": "15.33.0",
   "projection": ["id", "codebase", "state", "hash"],
   "functions": [
