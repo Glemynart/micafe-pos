@@ -192,15 +192,19 @@ texto canónico, NIT/DV, correo y teléfono, además de la consistencia entre lo
 códigos DIVIPOLA de departamento y municipio. El error público es genérico,
 por lo que no se puede determinar el campo infractor sin inspeccionar los
 valores localmente; no compartir payload, headers, cookies ni datos
-comerciales. Gate D funcional permanece `PENDING` hasta que el perfil se guarde
-y se confirme la carga del listado de Compras.
+comerciales. Gate D funcional permanece `PENDING` hasta que una lectura
+autenticada y de solo lectura confirme el perfil persistido y la carga del
+listado de Compras.
 
-## Pendientes y siguiente paso
+## Seguimiento de pendientes
 
-- Corregir en el formulario el dato que incumplió la validación —sin compartir
-  valores comerciales— y completar el smoke autenticado del perfil. Después,
-  confirmar que el panel Compras carga; las sondas `401` no sustituyen ese
-  recorrido.
+- **Perfil en la observación inicial (histórico):** en ese momento todavía
+  faltaba corregir el dato que incumplía la validación y completar el smoke
+  autenticado del perfil; las sondas `401` no sustituían ese recorrido. La
+  observación posterior abajo indica que el responsable reportó haber superado
+  el formulario y vio la fila de compra.
+- **Gate D vigente:** hacer la lectura autenticada y de solo lectura del perfil,
+  compra, inventario y auditoría; no repetir formulario ni compra.
 - Repetir los escenarios afectados de Gates F, G y H; la evidencia del
   namespace anterior no se reutiliza.
 - Mantener Gate I bloqueado hasta disponer de una carpeta productiva separada,
@@ -208,6 +212,36 @@ y se confirme la carga del listado de Compras.
   compatible y rollback, restore/smoke independientes y autorización de alta
   real. No se ha creado el tenant ni iniciado el Trial.
 
-Producción, Rules, Functions, Auth y datos de negocio permanecieron fuera del
-deploy. El único cambio remoto fue la creación del índice compuesto indicado en
-`micafe-pos-staging`; no hubo compra autenticada ni cambios de inventario.
+Producción, Rules, Functions y Auth permanecieron fuera del deploy. En el corte
+documentado hasta aquí, el único cambio remoto fue la creación del índice
+compuesto en `micafe-pos-staging`; no se observó una compra autenticada en ese
+momento.
+
+## Observación posterior aportada por el responsable — 2026-10-13
+
+Después de corregir los códigos DIVIPOLA del formulario, el responsable indicó
+que superó la pantalla de primer acceso y compartió una captura del Backoffice
+en Compras. En la captura aparecen una fila de `Proveedor sintético Gate F`
+con fecha mostrada `11/10/2026`, total `$1.000 COP`, además de `1` compra y
+gasto por `$1.000 COP`. Esto es evidencia manual aportada por el responsable;
+la captura no contiene URL ni SHA del deployment, por lo que no identifica con
+certeza qué preview produjo la pantalla. Tampoco demuestra por sí sola que el
+perfil comercial persista en la callable o que compra, saldo físico/reservado,
+ledger y auditoría estén conciliados.
+
+La fila es consistente con la compra sintética de una unidad del producto
+fixture por `$1.000 COP` autorizada para staging. Debe tratarse como una
+mutación persistente ya existente: no repetir la compra ni volver a enviar el
+formulario. Antes de declarar `Gate D = PASS`, realizar únicamente la lectura
+de solo lectura del perfil, compra, inventario y auditoría desde la superficie
+vigente autenticada; si el preview/tenant no puede identificarse, conservar
+Gate D como `UI OBSERVADA / RECONCILIACIÓN PENDIENTE`.
+
+El PR #583 quedó integrado en `main @ 4395ca8b3bb451868ae01534f5b2a9af4408dc29`
+el `2026-10-13T07:15:00Z`, con CI post-merge `38361476760` en `success`. PR
+#584 solo corrige la presentación cliente de detalles allowlisted cuando el
+SDK agrega `[400]`; su commit de código `bc6ef56` pasó CI (`38366232632`) y
+Vercel. La reconciliación documental forma parte del mismo PR, por lo que debe
+verificarse la CI del HEAD final y auditarse el diff completo antes del merge;
+el CI verde del commit de código no sustituye esas verificaciones. Ninguno de
+esos PR modifica Functions, Rules ni datos remotos.
