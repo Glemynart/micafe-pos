@@ -7,6 +7,7 @@ import { initializeApp as initializeClientApp, deleteApp as deleteClientApp } fr
 import { connectAuthEmulator, getAuth as getClientAuth, signInWithCustomToken } from "firebase/auth"
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions"
 import { crearPlantillaConfiguracionRevision1 } from "../../../lib/configuracion/plantilla"
+import { evaluarReadinessConfiguracion } from "../../../lib/configuracion/readiness"
 import { crearIdentificadorInterno } from "../../../functions/src/turnos/identificadores"
 
 const projectId = process.env.E2E_BODEGA_PROJECT_ID ?? "demo-bodega-u4-u5-ui"
@@ -16,7 +17,7 @@ const pepper = process.env.OPERATIONAL_PIN_PEPPER ?? "bodega-u4-u5-local-pepper"
 
 type Actor = { uid: string; codigo: string; rol: "vendedor" | "admin"; permisos: string[]; empresaId: string }
 type TenantFixture = {
-  key: "A" | "B" | "C" | "D" | "E" | "GENERAL"; empresaId: string; nombre: string; vendedor: Actor; admin: Actor
+  key: "A" | "B" | "C" | "D" | "E" | "F" | "GENERAL"; empresaId: string; nombre: string; vendedor: Actor; admin: Actor
   clienteId: string; clienteNombre: string; productoId: string; productoNombre: string; presentacionId: string; presentacionNombre: string
 }
 
@@ -36,15 +37,26 @@ const tenantB = tenantFixture("B", "BODEGA_MVP1")
 const tenantC = tenantFixture("C", "BODEGA_MVP1")
 const tenantD = tenantFixture("D", "BODEGA_MVP1")
 const tenantE = tenantFixture("E", "BODEGA_MVP1")
+const tenantF = tenantFixture("F", "BODEGA_MVP1")
 const tenantGeneral = tenantFixture("GENERAL", "GENERAL")
 let app: ReturnType<typeof initializeApp>
 
-async function seedTenant(db: FirebaseFirestore.Firestore, auth: ReturnType<typeof getAuth>, tenant: TenantFixture, vertical: "BODEGA_MVP1" | "GENERAL") {
-  await db.collection("empresas").doc(tenant.empresaId).set({ estado: "trial", paisFiscal: "CO", esFundacional: tenant.key === "A", nombre: tenant.nombre })
+async function seedTenant(db: FirebaseFirestore.Firestore, auth: ReturnType<typeof getAuth>, tenant: TenantFixture, vertical: "BODEGA_MVP1" | "GENERAL", perfilCompleto = true) {
+  await db.collection("empresas").doc(tenant.empresaId).set({ estado: "trial", paisFiscal: "CO", esFundacional: tenant.key === "A", nombre: tenant.nombre, revision: 1, schemaVersion: 1 })
   const configuracion = crearPlantillaConfiguracionRevision1({ empresaId: tenant.empresaId, vertical, nombreComercial: tenant.nombre, creadaEn: new Date(), actualizadaEn: new Date(), ultimaMutacion: { actorTipo: "SYSTEM", actorId: "e2e", origen: "BOOTSTRAP", commandId: `seed-${tenant.key}-${runId}`, correlationId: `seed-${tenant.key}-${runId}` } })
   configuracion.modulos.habilitados = ["sell", "inventory", "clientes", "shifts"]
   configuracion.pos.metodosPagoHabilitados = ["efectivo", "transferencia"]
   configuracion.pos.permitirPagoMixto = false
+  if (perfilCompleto) {
+    configuracion.identidadFiscal.razonSocial = `${tenant.nombre} S.A.S.`
+    configuracion.identidadFiscal.tipoPersona = "JURIDICA"
+    configuracion.identidadFiscal.tipoDocumento = "NIT"
+    configuracion.identidadFiscal.numeroDocumento = "900373913"
+    configuracion.identidadFiscal.digitoVerificacion = "4"
+    configuracion.identidadFiscal.contacto.email = `contacto-${tenant.key.toLowerCase()}@example.com`
+    configuracion.identidadFiscal.contacto.telefono = "+573001234567"
+    Object.assign(configuracion.localizacion.direccion, { linea1: "Calle de prueba 123", departamentoCodigo: "11", departamentoNombre: "Bogotá D.C.", municipioCodigo: "11001", municipioNombre: "Bogotá" })
+  }
   await db.collection("configuraciones").doc(tenant.empresaId).set(configuracion)
   await db.collection("planes").doc("mvp_comercial").collection("versiones").doc("1").set({ planId: "mvp_comercial", planVersion: 1, estado: "PUBLICADA", capacidades: configuracion.modulos.habilitados, limites: {}, periodicidad: "MENSUAL", grandfathered: false, revision: 1, schemaVersion: 1 })
   await db.collection("suscripciones").doc(tenant.empresaId).set({ empresaId: tenant.empresaId, planId: "mvp_comercial", planVersion: 1, estado: "trialing", trialInicio: "2026-09-01", trialFin: "2099-09-30", revision: 1, schemaVersion: 1 })
@@ -77,6 +89,7 @@ test.beforeAll(async () => {
   await seedTenant(db, auth, tenantC, "BODEGA_MVP1")
   await seedTenant(db, auth, tenantD, "BODEGA_MVP1")
   await seedTenant(db, auth, tenantE, "BODEGA_MVP1")
+  await seedTenant(db, auth, tenantF, "BODEGA_MVP1", false)
   await seedTenant(db, auth, tenantGeneral, "GENERAL")
 })
 test.afterAll(async () => { await deleteApp(app) })
@@ -264,6 +277,47 @@ test("administrador Bodega ve únicamente el backoffice y conserva operaciones d
   await login(page, tenantA.admin, true); await expect(page.getByRole("heading", { name: "Centro de operación" })).toBeVisible(); await page.goto("/pos"); await expect(page).toHaveURL(/\/admin$/); await expect(page.locator(".theme-pos")).toHaveCount(0)
   await page.goto("/admin/catalogo"); await expect(page.getByRole("article").filter({ hasText: tenantA.productoNombre })).toBeVisible(); await expect(page.getByRole("article").filter({ hasText: tenantB.productoNombre })).toHaveCount(0); await page.getByLabel(`Precio ${tenantA.presentacionNombre}`).fill("5500"); await page.getByRole("button", { name: "Guardar" }).click(); await expect.poll(async () => (await getFirestore(app).collection("presentaciones_producto").doc(tenantA.presentacionId).get()).data()?.precioCOP).toBe(5500)
   await page.goto("/admin/clientes"); await expect(page.getByText(tenantA.clienteNombre)).toBeVisible(); await expect(page.getByText(tenantB.clienteNombre)).toHaveCount(0); await page.goto("/admin/inventario"); await expect(page.getByRole("heading", { name: "Existencias en unidad base" })).toBeVisible(); await page.goto("/admin/ventas"); await expect(page.getByRole("heading", { name: "Consulta operativa" })).toBeVisible(); await expect(page.getByText(tenantA.clienteNombre).first()).toBeVisible(); await expect(page.getByText(tenantB.clienteNombre)).toHaveCount(0)
+})
+
+test("admin Bodega completa perfil comercial en primer acceso y entra al panel al reingresar", async ({ page }) => {
+  await page.clock.install({ time: new Date("2026-10-12T12:00:00.000Z") })
+  await login(page, tenantF.admin, true)
+  await expect(page.getByRole("heading", { name: "Datos del negocio" })).toBeVisible()
+  await expect(page.getByText("Guardar y continuar en DEMO")).toBeVisible()
+  const nombreComercial = page.getByLabel("Nombre comercial")
+  await nombreComercial.fill("Borrador local sin guardar")
+  const refresh = page.waitForResponse((response) => response.url().includes("obtenerConfiguracionEmpresa") && response.request().method() === "POST")
+  await page.clock.fastForward(60_000)
+  await refresh
+  await expect(nombreComercial).toHaveValue("Borrador local sin guardar")
+
+  await nombreComercial.fill("  Distribuidora Sintética F   ")
+  await page.getByLabel("Razón social").fill("Distribuidora Sintética F S.A.S.")
+  await page.getByLabel("Tipo de persona").selectOption("JURIDICA")
+  await page.getByLabel("NIT", { exact: true }).fill("900373913")
+  await page.getByLabel("Dígito de verificación").fill("4")
+  await page.getByLabel("Correo de contacto").fill("Diana.Jimenez@Example.com")
+  await page.getByLabel("Teléfono de contacto").fill("+573001234567")
+  await page.getByLabel("Dirección del negocio").fill("Calle de prueba 123")
+  await page.getByLabel("Departamento", { exact: true }).fill("Bogotá D.C.")
+  await page.getByLabel("Código DIVIPOLA del departamento").fill("11")
+  await page.getByLabel("Municipio", { exact: true }).fill("Bogotá")
+  await page.getByLabel("Código DIVIPOLA del municipio").fill("11001")
+  await page.getByRole("button", { name: "Guardar y continuar en DEMO" }).click()
+  await expect(page.getByRole("heading", { name: "Centro de operación" })).toBeVisible()
+
+  const db = getFirestore(app)
+  const [company, config] = await Promise.all([
+    db.collection("empresas").doc(tenantF.empresaId).get(),
+    db.collection("configuraciones").doc(tenantF.empresaId).get(),
+  ])
+  expect(company.data()).toMatchObject({ nombre: "Distribuidora Sintética F", nombreComercial: "Distribuidora Sintética F", estado: "trial" })
+  expect(config.data()?.identidadFiscal).toMatchObject({ razonSocial: "Distribuidora Sintética F S.A.S.", numeroDocumento: "900373913", digitoVerificacion: "4" })
+  expect(config.data()?.identidadFiscal.contacto.email).toBe("diana.jimenez@example.com")
+  expect(evaluarReadinessConfiguracion(config.data() as any).fiscal.lista).toBe(false)
+
+  await page.reload()
+  await expect(page.getByRole("heading", { name: "Centro de operación" })).toBeVisible()
 })
 
 test("el detalle del turno seleccionado refleja el snapshot de cierre en vivo", async ({ page }) => {

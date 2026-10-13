@@ -8,4 +8,5 @@ export * from "./validacion";
 export * from "./operaciones";
 export * from "./readiness";
 export * from "./proyecciones";
+export * from "./perfil-comercial";
 export * from "./legado-paridad";

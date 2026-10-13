@@ -8,6 +8,7 @@ const config = resolve(`.firebase.bodega-${runId}.json`)
 writeFileSync(config, JSON.stringify({
   functions: [
     { source: "functions", codebase: "saas-auth" },
+    { source: "functions-tenant-profile", codebase: "saas-tenant-profile" },
     { source: "functions-operational-auth", codebase: "saas-operational-auth" },
     { source: "functions-tenant-configuration", codebase: "saas-tenant-configuration" },
     { source: "functions-bodega", codebase: "saas-bodega" },
@@ -53,6 +54,7 @@ function compilarCodebaseAislado(source, nombre) {
 try {
   const build = spawnSync(process.execPath, [resolve("functions/node_modules/typescript/bin/tsc"), "-p", "functions/tsconfig.json"], { cwd: process.cwd(), env, stdio: "inherit" })
   if (build.status !== 0) throw new Error("Build Functions falló antes de E2E Bodega.")
+  compilarCodebaseAislado("functions-tenant-profile", "saas-tenant-profile")
   compilarCodebaseAislado("functions-operational-auth", "saas-operational-auth")
   compilarCodebaseAislado("functions-tenant-configuration", "saas-tenant-configuration")
   compilarCodebaseAislado("functions-bodega", "saas-bodega")

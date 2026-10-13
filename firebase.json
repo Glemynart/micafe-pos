@@ -71,6 +71,10 @@
     {
       "source": "functions-bodega-membership",
       "codebase": "saas-bodega-membership"
+    },
+    {
+      "source": "functions-tenant-profile",
+      "codebase": "saas-tenant-profile"
     }
   ],
   "firestore": {
