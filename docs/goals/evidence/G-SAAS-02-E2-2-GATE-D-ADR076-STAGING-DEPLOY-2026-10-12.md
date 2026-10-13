@@ -196,12 +196,15 @@ comerciales. Gate D funcional permanece `PENDING` hasta que una lectura
 autenticada y de solo lectura confirme el perfil persistido y la carga del
 listado de Compras.
 
-## Pendientes al cierre de la observación inicial (histórico)
+## Seguimiento de pendientes
 
-- En ese momento todavía faltaba corregir el dato que incumplía la validación
-  y completar el smoke autenticado del perfil; las sondas `401` no sustituían
-  ese recorrido. La observación posterior abajo indica que el responsable
-  reportó haber superado el formulario y vio la fila de compra.
+- **Perfil en la observación inicial (histórico):** en ese momento todavía
+  faltaba corregir el dato que incumplía la validación y completar el smoke
+  autenticado del perfil; las sondas `401` no sustituían ese recorrido. La
+  observación posterior abajo indica que el responsable reportó haber superado
+  el formulario y vio la fila de compra.
+- **Gate D vigente:** hacer la lectura autenticada y de solo lectura del perfil,
+  compra, inventario y auditoría; no repetir formulario ni compra.
 - Repetir los escenarios afectados de Gates F, G y H; la evidencia del
   namespace anterior no se reutiliza.
 - Mantener Gate I bloqueado hasta disponer de una carpeta productiva separada,
