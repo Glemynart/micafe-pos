@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getFirebaseFunctions } from '@/lib/firebase'
 import { perfilComercialCompleto, requierePasoPerfilComercialBodega } from '@/lib/configuracion'
+import { mensajeSeguroErrorPerfilComercial } from '@/lib/configuracion/perfil-comercial-errores'
 import { normalizarTexto } from '@/lib/configuracion/normalizacion'
 
 type FormularioPerfil = {
@@ -145,7 +146,7 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
         correlationId: crypto.randomUUID(),
       })
       await refrescar()
-    } catch {
+    } catch (cause) {
       // Un timeout puede ocurrir después del commit. Releer primero hace el
       // replay seguro desde la perspectiva del usuario y evita exponer PII.
       try {
@@ -153,7 +154,7 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
       } catch {
         // La pantalla seguirá cerrada por el estado de error del contexto.
       }
-      setError('No pudimos confirmar el guardado. Revisa los datos y vuelve a intentar; si ya se guardaron, continuarás al panel.')
+      setError(mensajeSeguroErrorPerfilComercial(cause) ?? 'No pudimos confirmar el guardado. Revisa los datos y vuelve a intentar; si ya se guardaron, continuarás al panel.')
     } finally {
       setGuardando(false)
     }

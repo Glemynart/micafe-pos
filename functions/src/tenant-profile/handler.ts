@@ -1,6 +1,7 @@
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { ErrorOperacionConfiguracion, perfilComercialCompleto, type OperacionConfiguracion } from "../../../lib/configuracion";
+import { camposPerfilComercialParaRuta, type CampoPerfilComercial } from "../../../lib/configuracion/perfil-comercial-errores";
 import { esTextoCanonico } from "../../../lib/configuracion/normalizacion";
 import {
   ejecutarComandoConfiguracionConEstadoPreleidoEnTransaccion,
@@ -36,7 +37,7 @@ interface PerfilComercialBodega {
   correlationId: string;
 }
 
-function fail(code: HttpsError["code"], message: string): never { throw new HttpsError(code, message); }
+function fail(code: HttpsError["code"], message: string, details?: Record<string, unknown>): never { throw new HttpsError(code, message, details); }
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === "object" && !Array.isArray(value); }
 function id(value: unknown): value is string { return typeof value === "string" && /^[A-Za-z0-9_-]{8,128}$/.test(value); }
 
@@ -62,7 +63,9 @@ function leerPerfil(data: unknown): PerfilComercialBodega {
     municipioNombre: 100,
   } as const;
   const keys = Object.keys(limites) as (keyof typeof limites)[];
-  if (keys.some((key) => !esTextoCanonico(data[key], 1, limites[key])) || (data.tipoPersona !== "NATURAL" && data.tipoPersona !== "JURIDICA")) fail("invalid-argument", "PERFIL_COMERCIAL_INVALIDO");
+  const camposInvalidos: CampoPerfilComercial[] = keys.filter((key) => !esTextoCanonico(data[key], 1, limites[key]));
+  if (data.tipoPersona !== "NATURAL" && data.tipoPersona !== "JURIDICA") camposInvalidos.push("tipoPersona");
+  if (camposInvalidos.length > 0) fail("invalid-argument", "PERFIL_COMERCIAL_INVALIDO", { campos: camposInvalidos });
   if (!Number.isInteger(data.expectedRevision) || (data.expectedRevision as number) < 1 || !id(data.commandId) || !id(data.idempotencyKey) || !id(data.correlationId)) fail("invalid-argument", "ENVELOPE_INVALIDO");
   return data as unknown as PerfilComercialBodega;
 }
@@ -123,7 +126,10 @@ export async function ejecutarRegistrarPerfilComercialBodegaV1(request: Request,
     try {
       resultado = ejecutarComandoConfiguracionConEstadoPreleidoEnTransaccion(db, tx, entrada, contexto, refs, lecturas);
     } catch (error) {
-      if (error instanceof ErrorOperacionConfiguracion) fail("invalid-argument", "PERFIL_COMERCIAL_INVALIDO");
+      if (error instanceof ErrorOperacionConfiguracion) {
+        const campos = camposPerfilComercialParaRuta(error.ruta);
+        fail("invalid-argument", "PERFIL_COMERCIAL_INVALIDO", campos.length > 0 ? { campos } : undefined);
+      }
       throw error;
     }
     if (resultado.idempotente) return { revision: resultado.revision, idempotente: true };

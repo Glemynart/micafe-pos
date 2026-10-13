@@ -189,18 +189,26 @@ test("rechaza configuración o empresa ausentes, revisión de Empresa inválida 
 });
 
 test("rechaza identidad incompleta y NIT/DV no canónicos sin escribir", async () => {
-  for (const data of [
-    { razonSocial: "" },
-    { nit: "900373913", digitoVerificacion: "9" },
-    { email: "EMAIL-INVALIDO" },
-    { telefono: "3001234567" },
-    { municipioCodigo: "12001" },
-    { direccion: "x".repeat(121) },
-    { departamentoNombre: " " },
-    { municipioNombre: "x".repeat(101) },
-  ]) {
+  const casos = [
+    { data: { razonSocial: "" }, campos: ["razonSocial"] },
+    { data: { nit: "900373913", digitoVerificacion: "9" }, campos: ["nit", "digitoVerificacion"] },
+    { data: { email: "EMAIL-INVALIDO" }, campos: ["email"] },
+    { data: { telefono: "3001234567" }, campos: ["telefono"] },
+    { data: { municipioCodigo: "12001" }, campos: ["departamentoCodigo", "municipioCodigo"] },
+    { data: { direccion: "x".repeat(121) }, campos: ["direccion"] },
+    { data: { departamentoNombre: " " }, campos: ["departamentoNombre"] },
+    { data: { municipioNombre: "x".repeat(101) }, campos: ["municipioNombre"] },
+  ];
+  for (const caso of casos) {
     const h = harness();
-    await assert.rejects(() => ejecutarRegistrarPerfilComercialBodegaV1(request(data), h.dependencies), (error: unknown) => error instanceof HttpsError && error.code === "invalid-argument");
+    await assert.rejects(() => ejecutarRegistrarPerfilComercialBodegaV1(request(caso.data), h.dependencies), (error: unknown) => {
+      assert.ok(error instanceof HttpsError);
+      assert.equal(error.code, "invalid-argument");
+      assert.deepEqual((error as HttpsError).details, { campos: caso.campos });
+      assert.equal(JSON.stringify((error as HttpsError).details).includes("900373913"), false);
+      assert.equal(JSON.stringify((error as HttpsError).details).includes("EMAIL-INVALIDO"), false);
+      return true;
+    });
     assert.equal(h.writes.length, 0);
   }
 });
