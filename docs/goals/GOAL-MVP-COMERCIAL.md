@@ -116,46 +116,17 @@
 
 ## Estado vivo
 
-> **Revalidación del checkpoint — 2026-10-13 02:32 UTC:** PR #578 quedó
-> integrado en `main @ 867299065aaf185470326deb983f8dc91bc11882` a las
-> `00:59:19Z`; su CI post-merge `38329940885` terminó `success` a las
-> `01:23:47Z`. Se ejecutó el inventario read-only de Gate C desde la carpeta
-> dedicada de staging, en ese SHA y con `--project micafe-pos-staging`; Functions
-> se releyeron con el CLI local fijado por lockfile a `02:32:00Z` y las APIs a
-> `02:12:55Z`.
-> El inventario encontró 44 Functions activas: los once IDs Bodega anteriores
-> siguen activos; los once IDs nuevos de ADR-SAAS-076 y
-> `registrarPerfilComercialBodegaV1` aún no aparecen. En ese corte Gate C
-> permanecía `INCOMPLETE`; no se había desplegado ni ejecutado un dry-run.
-> También se leyó el catálogo de APIs
-> habilitadas en staging; la lectura completa devolvió 53 servicios, incluidos
-> Cloud Scheduler (necesario por la función programada existente) y los servicios
-> centrales de Functions, Cloud Build, Artifact Registry, Run, Eventarc, Pub/Sub,
-> Secret Manager, Firestore, Storage y Rules. Cloud Tasks no está habilitado y
-> los codebases objetivo no exportan tareas. En ese corte no se ejecutó
-> `firebase deploy --dry-run`: la
-> preparación del CLI puede asegurar APIs y enviar solicitudes de generación de
-> identidades administradas Pub/Sub/Eventarc incluso en dry-run. Evidencia de
-> ese corte: [inventario read-only posterior a #578](evidence/G-SAAS-02-E2-2-GATE-C-READONLY-POST-578-2026-10-13.md).
-> La lectura completa de APIs habilitadas se adjunta en [snapshot de
-> APIs staging](evidence/G-SAAS-02-E2-2-GATE-C-STAGING-ENABLED-APIS-2026-10-13.json).
-> Gate C/D usan exclusivamente la carpeta dedicada de staging y el ID literal
-> `micafe-pos-staging`. La carpeta local antes identificada para producción
-> tiene cambios sin commit y un `firebase.json` de un solo codebase, así que
-> no se usó ni es elegible para Gate I; se requerirá un checkout productivo
-> separado, limpio y verificado antes de esa etapa. No se copiaron artefactos
-> ni se consultó o modificó producción.
-
-> **Revalidación del preflight — 2026-10-13 ~02:50 UTC:** en la misma carpeta
-> dedicada y únicamente contra `micafe-pos-staging` se completaron los builds,
-> discovery local, simulación del planner y dry-run con los 12 selectores
-> exactos. El resultado es `PREFLIGHT = PASS` solo para 5 + 6 + 1 creates,
-> cero updates/deletes; no autoriza Gate D. El dry-run llamó
-> `generateServiceIdentity` para Pub/Sub y Eventarc y pidió asegurar APIs; las
-> lecturas posteriores confirmaron las APIs y bindings pertinentes existentes,
-> pero se conserva el posible efecto de esas solicitudes. No se desplegaron
-> Functions ni se escribieron datos de negocio. Detalle: [preflight y
-> revalidación de Gate C posterior a #578](evidence/G-SAAS-02-E2-2-GATE-C-READONLY-POST-578-2026-10-13.md).
+> **Revalidación del checkpoint — 2026-10-13 00:04 UTC:** PR #579 quedó
+> integrado en `main @ ffcba614`. La rama de PR #578 incorporó ese `main` en
+> el merge `476d892`; el snapshot previo a esta nota registró HEAD
+> `1829241`, Vercel `PASS` y la corrida `38325166411` en curso. La corrida
+> post-merge de #579 (`38324356117`) también seguía en curso, ejecutando el
+> smoke E2E P0-01. Las menciones posteriores al snapshot `23:54Z` que decían
+> que #578 aún debía sincronizar #579 son históricas y quedan supersedidas por
+> este checkpoint; los checks deben terminar en el HEAD final antes del merge.
+> No se ejecutó deploy ni hubo escrituras remotas. Staging y producción siguen
+> separados: Gate C/D usarán su carpeta y `--project micafe-pos-staging`; Gate I
+> usará la carpeta de producción y `--project micafe-pos`.
 
 - **Revalidación productiva read-only:** la lectura base se ejecutó contra `main @ 380928b` el `2026-10-12T17:38:55.281Z` y CI post-merge `38282136197` está en `success`. La relectura Vercel del mismo día encontró que el deployment productivo más reciente `READY` corresponde a `main @ 1c2f155` del 6-oct, ancestro del SHA objetivo con 365 commits posteriores; producción no sirve el `main` certificado actual. Functions: 80/80 activas en Node 22; aparece `registrarCompraOperativaV1` y no aparece `registrarCompraBodegaV1`. La comparación de exports halló cuatro colisiones de IDs Bodega con Functions activas de `saas-auth` en `us-central1`. Firestore Rules continúan en `MISMATCH`; Storage coincide; faltan smoke y restore independientes. PITR está deshabilitado aunque se observan un backup schedule y 35 backups. Resultado `INCOMPLETE`, `collectionErrors=[]`, `readOnly=true`, `productionWrites=false`. Gate I permanece bloqueado; no hubo escrituras productivas. Evidencia: [revalidación contra main 380928](evidence/G-SAAS-02-E2-2-GATE-I-PRODUCTION-READONLY-REVALIDATION-380928-2026-10-12.md).
 
