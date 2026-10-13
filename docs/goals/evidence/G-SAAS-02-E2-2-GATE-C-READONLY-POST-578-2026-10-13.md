@@ -1,8 +1,8 @@
-# Gate C — inventario read-only posterior a PR #578
+# Gate C — inventario y preflight staging posterior a PR #578
 
 - **Relecturas remotas:** inventario y catálogo completos originales Functions `2026-10-13T02:32:00Z` / APIs `2026-10-13T02:12:55Z`; verificación posterior al dry-run, aproximadamente `2026-10-13T02:50Z` (UTC), confirmó 44 Functions activas/17 codebases, 53 APIs y cero de los 12 IDs nuevos.
 - **Goal / Milestone / Epic:** `G-SAAS-02` / `M2 — Provisioning y onboarding` / `E2.2 — Configuración inicial`
-**Resultado:** `INCOMPLETE` — inventario remoto observado; preflight de despliegue no aprobado.
+**Resultado:** `PREFLIGHT = PASS` únicamente para el changeset exacto de 12 creates documentado abajo. Gate D no se ha desplegado ni queda autorizado por este resultado.
 
 ## Alcance y separación de entornos
 
@@ -117,7 +117,7 @@ La lectura posterior en staging encontró 44/44 Functions `ACTIVE` en 17 codebas
 
 ## Evaluación del gate
 
-El preflight confirma una adición acotada: 12 Functions nuevas en `micafe-pos-staging`, repartidas en los tres codebases indicados, sin actualización ni eliminación de endpoints remotos. Las 11 Functions legacy equivalentes permanecen activas, los IDs nuevos no colisionan con los 44 remotos, el dispatcher Bodega apunta a los nombres nuevos, y ambos namespaces delegan en el mismo núcleo de dominio aprobado. El rollback técnico para clientes consiste en revertir el dispatcher al código base anterior a #574 (`9892ab2a006c2e71702569a7bf004ad78129d462`) y conservar las Functions añadidas; no se borran endpoints ni se revierten hechos de inventario/ledger. Las Functions legacy estaban activas al verificar el rollback, por lo que clientes antiguos siguen teniendo su destino.
+El preflight confirma una adición acotada: 12 Functions nuevas en `micafe-pos-staging`, repartidas en los tres codebases indicados, sin actualización ni eliminación de endpoints remotos. Las 11 Functions legacy equivalentes permanecen activas, los IDs nuevos no colisionan con los 44 remotos, el dispatcher Bodega apunta a los nombres nuevos, y ambos namespaces delegan en el mismo núcleo de dominio aprobado. La propuesta de rollback de cliente para un despliegue futuro consiste en revertir el dispatcher al código base anterior a #574 (`9892ab2a006c2e71702569a7bf004ad78129d462`) y conservar las Functions añadidas; no se borrarían endpoints ni se revertirían hechos de inventario/ledger. Este rollback no se ha ejecutado ni ensayado. Las Functions legacy estaban activas en la lectura, por lo que clientes antiguos conservan su destino.
 
 El inventario global de la fuente declara 19 codebases frente a 17 codebases remotos con Functions activas; `saas-auth` no tiene Functions activas observadas. Un despliegue global (`--only functions`) queda fuera de esta autorización y podría tener un delta distinto. El comando permitido debe conservar los 12 selectores, el proyecto literal de staging y Firebase CLI `15.33.0`; cualquier delta o binding distinto detiene Gate D.
 
