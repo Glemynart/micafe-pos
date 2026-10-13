@@ -22,6 +22,7 @@ staging.
 | --- | --- | --- |
 | `npm run e2e:bodega-agenda` | Firestore Emulator, `demo-bodega-agenda` | `PASS`: 8/8 tests; concurrencia de reservas y ventas, hold/replay, aislamiento de tenant/actor, estados inactivos y paginación. |
 | `npm run e2e:bodega-u4-u5` | Auth, Firestore y Functions Emulator; Playwright local, `demo-bodega-u4-u5-ui` | `PASS`: 12/12 tests; solicitud/aprobación/cobro, retry, efectivo sin turno, aislamiento A/B, perfil inicial, turnos, sincronización viva y operaciones UI de Bodega. Duración reportada: 3,7 min. |
+| `npm test --prefix functions-tenant-profile` | Tests locales del codebase `saas-tenant-profile`; sin Emulator activo | `PASS`: 12 pasaron, 1 test de Firestore Emulator omitido por no estar configurado, 0 fallidos. Incluye gate admin/perfil, validación de payload, autoridad tenant, revisión/idempotencia y discovery de una callable sin Secrets. |
 
 Las ejecuciones se realizaron desde el worktree de staging con Node.js 22.23.2.
 Para el segundo runner se instalaron las dependencias faltantes exclusivamente
