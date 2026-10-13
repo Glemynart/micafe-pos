@@ -1,0 +1,21 @@
+{
+  "capturedAt": "2026-10-13T01:31:27Z",
+  "projectId": "micafe-pos-staging",
+  "command": "gcloud services list --enabled --project=micafe-pos-staging --format=value(config.name)",
+  "projection": "Selected deployment-related APIs observed enabled; not an exhaustive deployment requirements manifest.",
+  "enabledServices": [
+    "cloudfunctions.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "run.googleapis.com",
+    "eventarc.googleapis.com",
+    "pubsub.googleapis.com",
+    "secretmanager.googleapis.com",
+    "firestore.googleapis.com",
+    "storage.googleapis.com",
+    "firebaserules.googleapis.com"
+  ],
+  "readOnly": true,
+  "deployDryRunExecuted": false,
+  "interpretation": "This selected API projection does not prove Firebase deploy will not attempt to enable additional APIs."
+}
