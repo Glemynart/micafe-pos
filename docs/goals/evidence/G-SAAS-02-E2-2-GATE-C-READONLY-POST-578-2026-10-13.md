@@ -35,7 +35,7 @@ Se compararon los `export const` de los entrypoints locales de los cuatro codeba
 | `saas-bodega-membership` | 1 | 1 | 1 | 0 | 0 |
 | `saas-tenant-profile` | 1 | 0 | 0 | 1 callable nueva | 0 |
 
-Los 11 IDs solo locales y los 11 solo remotos corresponden a los mapeos aceptados en ADR-SAAS-076. `registrarCompraBodegaV1` permanece con el mismo ID en `saas-bodega-operations`; la callable de perfil solo tiene alta local. Los conteos sugieren hasta 12 altas de nuevos IDs, 11 retiros de IDs Bodega anteriores y 1 alta de perfil, pero **no son todavía un delta de deploy aprobado**: faltan los cambios de hash/entorno por codebase, el comportamiento de borrado de IDs remotos ausentes, las dependencias y el plan de coexistencia/rollback.
+Los 11 IDs solo locales de Bodega y los 11 solo remotos corresponden a los mapeos aceptados en ADR-SAAS-076. `registrarCompraBodegaV1` permanece con el mismo ID en `saas-bodega-operations`; la callable de perfil solo tiene alta local. En total hay 12 exports solo locales: 11 IDs Bodega nuevos y 1 callable de perfil; hay 11 IDs legacy solo remotos (posibles retiros). Estos conteos de nombres **no son todavía un delta de deploy aprobado**: faltan los cambios de hash/entorno por codebase, el comportamiento de borrado de IDs remotos ausentes, las dependencias y el plan de coexistencia/rollback.
 
 | Codebase | ID anterior | Estado remoto | ID nuevo | Estado remoto |
 |---|---|---|---|---|
