@@ -39,7 +39,7 @@ smoke y restore. Esta colección fue read-only; `productionWrites=false`.
 |---|---|---|
 | `origin/main` | Coincide con `bdc39726ac0c555c96abdc60cc1021ff2fc6141c`. | `PASS` |
 | CI | Run `38522735665`, `completed/success`, mismo SHA. | `PASS` |
-| Vercel | No se encontró un estado Vercel exitoso asociado al SHA objetivo. La observación previa de #589 registró como último deployment productivo `READY` uno de `main @ 1c2f155` del 6-oct; esta colección no volvió a listar deployments. | `FOLLOW_UP`: el SHA objetivo no está acreditado como servido en producción. |
+| Vercel | Relectura directa read-only con `vercel ls cafeatrato --scope glemynarts-projects --environment production --limit 100 --json` a las `2026-10-14T07:17:41Z`: 73 deployments, sin siguiente página. El más reciente está `READY`, ref `main`, SHA `1c2f155653536b1fd8e1925db931e2354fa41f7d`, creado `2026-10-06T14:52:13.319Z`; el SHA objetivo `bdc39726ac0c555c96abdc60cc1021ff2fc6141c` tiene 0 coincidencias. | `FOLLOW_UP`: producción continúa sirviendo un SHA anterior; el SHA objetivo no está desplegado. |
 | Functions | 80/80 `ACTIVE`, runtime `nodejs22`; hashes individuales observados. | `PASS` para disponibilidad/runtime, no para la capacidad Bodega. |
 | Callables requeridas | Ausentes `crearClienteVendedorBodegaV1`, `crearPresentacionComercialBodegaV1`, `actualizarPresentacionComercialBodegaV1`, `crearArticuloInventarioBodegaV1`, `confirmarVentaVendedorBodegaV1`, `consultarCatalogoPresentacionesVendedorBodegaV1`, `consultarClientesVendedorBodegaV1`, `consultarMisVentasVendedorBodegaV1`, `actualizarArticuloInventarioBodegaV1`, `abrirTurnoBodegaV1`, `cerrarTurnoBodegaV1`, `registrarCompraBodegaV1` y `registrarPerfilComercialBodegaV1`. `registrarCompraOperativaV1` sigue `ACTIVE`, `nodejs22`, `us-central1`. | `BLOCKED`: el corte Bodega no está desplegado y la ruta legacy sigue activa. |
 | Firestore Rules | Ruleset `d5e205db-0ab4-4db1-b5ec-1534bee39d35`, actualizado `2026-08-15T04:20:46.318849Z`. SHA local `69560ea6998352400eca77ce5dfb851864e196053b634f77e4bacd8674769fbb`; remoto `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`. | `MISMATCH`: no desplegar Rules en bloque. |
@@ -129,6 +129,8 @@ aislado; backups existentes no equivalen a un ensayo de restore.
 - Cambios de aplicación, pruebas y servicios remotos: `0`.
 - Functions, Rules, IAM, Secrets, tráfico, Auth, Firestore, Storage, tenant,
   oferta/Trial, catálogo e inventario: escrituras `0`.
+- Vercel: solo consulta de metadata de deployments productivos; no se ejecutó
+  deployment ni se modificaron aliases/tráfico.
 - Rules API: lecturas de la release activa y su ruleset; no se creó ni desplegó
   ningún ruleset.
 - Artefacto: esta evidencia read-only; la sincronización del Goal está en el
