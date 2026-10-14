@@ -116,3 +116,43 @@ No hubo habilitación de APIs, deploy, escritura, cambio IAM/Secrets ni smoke pr
 - Bloqueo de Vercel: producción sigue en un SHA del 6-oct; publicación manual y smoke requieren autorización/identidad independiente.
 - Falta definir mediante ADR la autoridad web server-side para emisión DIAN; las cuatro llamadas `window.api.factus` no tienen implementación web en `app/api`/Functions. La indisponibilidad aprobada sigue limitada a los dos IDs; no se ha ampliado la política a otros tenants.
 - No se declara Gate I `PASS`.
+
+## Preparación del Trial de Diana — actualización 2026-10-14
+
+La tabla de la revalidación de las 19:03:51Z conserva el estado observado en
+ese instante. La instrucción posterior del responsable fija el objetivo del
+Trial para `2026-10-15`, todavía pendiente de confirmación expresa de Diana.
+No se creó ni activó el tenant real, no se inició el Trial, no se importó el
+catálogo y no hubo escrituras productivas.
+
+El ensayo local `npm run e2e:bodega-u4-u5` terminó con `12 passed` en 2.6
+minutos usando Firebase Emulators, proyecto demo y fixtures aislados. Incluyó
+onboarding del perfil comercial, aislamiento multi-tenant, disponibilidad,
+aprobación y confirmación de ventas, efectivo sin turno con recibido/cambio,
+consumo de inventario y registro financiero. Firebase Functions Emulator
+mostró una advertencia de permiso denegado al consultar Secret Manager del
+proyecto demo; no impidió las pruebas y no se accedió ni cambió ningún secreto.
+Este resultado no sustituye el deploy ni el smoke autenticado productivo.
+
+Para la preparación de Diana se conserva el alcance aprobado: Distribuidora
+Las Jiménez, vertical `BODEGA_MVP1`, Diana como administradora inicial y
+creación posterior de vendedores/roles por ella; oferta anual tenant-specific
+de `1.600.000 COP`, pago manual y Trial de 30 días; catálogo aprobado de 110
+productos con empaques y precios de venta, inventario inicial en cero. No se
+halló en este checkout un artefacto digital aprobado del catálogo para
+importar. No se registran datos comerciales reales ni se inventan credenciales
+durante la preparación. Una vez autorizado el bootstrap, verificar de forma
+read-only estado y periodo del Trial, membresía/rol/claims de Diana, credencial
+temporal, módulos y espacio; Diana completará el perfil al primer acceso y
+creará/asignará roles a sus vendedores. La entrega de credenciales será fuera
+de banda (WhatsApp si Diana lo elige); el sistema no integra ese envío ni se
+registrarán claves en evidencia. Con stock inicial cero, una venta real espera
+el ingreso de inventario por el flujo canónico de compras, una vez que Gate I
+certifique su despliegue productivo.
+
+El Trial podrá comenzar en modo no fiscal conforme a la aceptación operativa,
+pero la emisión DIAN web no está disponible: no existe actualmente una ruta
+web server-side de Factus. Esta limitación no se presenta como emisión fiscal
+funcional ni como cierre de Gate I. El guard UI de ADR-SAAS-079 sigue limitado
+a `Cafe Atrato` y `Prueba`; no se amplió el allowlist al tenant todavía
+inexistente de Diana.
