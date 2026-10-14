@@ -54,7 +54,7 @@ Lecturas de solo consulta realizadas el 2026-10-14, sin modificar producción:
 | Vercel | Deployment `READY` más reciente: `cafeatrato-2mgbt0pse-glemynarts-projects.vercel.app`, alias `cafeatrato-git-main-glemynarts-projects.vercel.app`, SHA `1c2f155653536b1fd8e1925db931e2354fa41f7d`, 2026-10-06. Los deploys automáticos desde `main` están deshabilitados. | El SHA integrado no está publicado; no se hizo publicación manual. Falta autorización específica, fijar SHA y documentar rollback. |
 | Smoke productivo | Sin atestación autenticada para el release objetivo. | Requiere identidad y alcance productivos autorizados; Preview/staging no lo sustituyen. |
 | Restore y PITR | Restore aislado `gsaas02-recovery-20261014` en `southamerica-east1`: `VERIFIED`, `RPO=8.307 h`, `RTO=0.220 h`, `sourceUntouched=true`, `applicationCutover=false`. La evidencia indica artefacto JSON local. PITR está deshabilitado según ADR-SAAS-031; hay schedule diario/35 backups. | Restore independiente verificado; el artefacto JSON no está en este worktree. PITR deshabilitado es política aprobada, no bloqueo. No se restauró `(default)` ni se activó PITR. |
-| Trial de Diana | El propietario confirmó el `2026-10-15` como fecha prevista de inicio. | La fecha no inicia el Trial ni autoriza provisioning/despliegue; iniciar solo cuando los gates y autorizaciones correspondientes estén satisfechos. |
+| Trial de Diana | Una confirmación anterior propuso `2026-10-15`. La instrucción del propietario del `2026-10-14` la supersedió y exige acordar una nueva fecha. | Nueva fecha pendiente; no iniciar el Trial ni provisionar hasta acordarla y satisfacer los gates/autorizaciones correspondientes. |
 
 ### Preflight dirigido de `registrarCompraOperativaV1`
 
