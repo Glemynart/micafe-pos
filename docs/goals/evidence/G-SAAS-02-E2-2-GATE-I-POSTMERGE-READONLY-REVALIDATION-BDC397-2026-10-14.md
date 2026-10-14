@@ -75,6 +75,14 @@ Hallazgos relevantes para el corte Bodega:
   no por vertical, deben identificarse los consumidores directos de cada
   vertical y probarse antes del corte; esta comparación sola no demuestra una
   regresión funcional ni que todas las restricciones sean vertical-neutral.
+- El mapeo de superficie conserva `GENERAL + vendedor -> LEGACY`; esa UI
+  genérica suscribe directamente `/productos` y `/clientes` desde la venta y
+  `/ventas` desde el historial. Las Rules de `main` deniegan esas lecturas al
+  rol `vendedor` sin revisar el vertical. Las pruebas actuales de
+  `firestore-rules/role-invariants.test.ts` cubren el vendedor Bodega, pero no
+  una regresión de `GENERAL + vendedor`. Esto constituye una incompatibilidad
+  probable del próximo Rules cut para tenants `GENERAL` que tengan ese rol; se
+  debe verificar con fixtures/emulator antes de cualquier despliegue.
 - `main` también agrega `/presentaciones_producto/{id}` (lectura no-vendedor,
   sin escrituras) y deniega `/intenciones_pago_reserva/{id}`. El ruleset
   productivo no tiene esos bloques; su catch-all los deniega.
@@ -102,10 +110,12 @@ Vercel o Rules. El gate de staging F sigue `PENDING`; no se declara superado ni
 se usa esta lectura para omitirlo.
 
 El análisis read-only inicial del ruleset desplegado confirmó que el corte de
-compras Bodega aún no rige en producción y que existen diferencias por
-clasificar fuera de ese path. El siguiente paso es construir una matriz de
-compatibilidad y una propuesta reversible por vertical; en paralelo solo se
-pueden preparar atestaciones de smoke/recovery que no alteren destinos.
+compras Bodega aún no rige en producción y que existe una incompatibilidad
+probable para `GENERAL + vendedor` en el Rules source de `main`. El siguiente
+paso es decidir y documentar el alcance vertical de las lecturas protegidas,
+con ADR propuesto si corresponde, y construir una matriz de compatibilidad con
+pruebas Emulator y una propuesta reversible; en paralelo solo se pueden
+preparar atestaciones de smoke/recovery que no alteren destinos.
 Cualquier deploy, restore que modifique un destino, alta de tenant,
 materialización de oferta/Trial o escritura de datos requiere sus precondiciones
 y autorización operativa específicas. Cualquier restore debe usar un destino
