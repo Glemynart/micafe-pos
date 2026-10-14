@@ -260,8 +260,9 @@ un bloqueo.
 
 Vercel producción sigue en `main @ 1c2f155` del 6-oct; no hay publicación ni
 smoke autenticado del SHA actual. La publicación y el smoke requieren
-autorizaciones/identidad independientes. Diana confirmó `2026-10-15` como fecha
-prevista del Trial; no se inició ni se provisionó el tenant. No hubo deploy,
-escritura productiva, cambio IAM/Secrets o restauración de `(default)`.
+autorizaciones/identidad independientes. La fecha objetivo interna del Trial
+es `2026-10-15`; no consta confirmación directa de Diana y debe mantenerse
+pendiente. No se inició ni se provisionó el tenant. No hubo deploy, escritura
+productiva, cambio IAM/Secrets o restauración de `(default)`.
 
 El dictamen de Gate I permanece `INCOMPLETE`.

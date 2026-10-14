@@ -156,3 +156,44 @@ web server-side de Factus. Esta limitación no se presenta como emisión fiscal
 funcional ni como cierre de Gate I. El guard UI de ADR-SAAS-079 sigue limitado
 a `Cafe Atrato` y `Prueba`; no se amplió el allowlist al tenant todavía
 inexistente de Diana.
+
+## Seguimiento PR #596 y fuente visual del catálogo — 2026-10-14
+
+PR #596 (`docs(gate-i): record PR 595 post-merge closeout`) se revalidó para el
+head `7166fc7b1282841b688936b0a6587d6eb2c2a958`. `gh pr checks 596` terminó
+con `Tipos y pruebas`, `Vercel` y `Vercel Preview Comments` en `PASS`; la
+corrida CI `38623113927` concluyó `success` el 2026-10-14T19:48:45Z. La
+auditoría del head no encontró cambios de runtime ni datos fuera del alcance
+documental. El PR continúa abierto; no se integró en esta continuación.
+
+El responsable proporcionó cuatro fotografías de las hojas impresas del
+catálogo. Se verificó una transcripción privada local con filas 1–110
+consecutivas, precios numéricos y stock inicial cero. No se versionaron las
+imágenes ni la transcripción, porque el repositorio remoto es público. El CSV
+local permanece como borrador de trabajo y no se importó. Antes de una carga,
+Diana o la persona responsable del catálogo debe revisar las descripciones
+cuyo empaque/unidad no resulta inequívoco o proporcionar el original editable.
+No se reconstruyeron unidades ni empaques por inferencia.
+
+## Estado comprobable de preparación y Gate I
+
+| Área | Estado | Evidencia / siguiente acción |
+|---|---|---|
+| CI de PR #596 | `PASS` para el head observado | Head `7166fc7`; checks obligatorios completos y verdes. PR sigue `OPEN`, no se declara `DONE` ni se integra en esta actualización. |
+| Fuente de catálogo | `PASS` para recepción; `BLOCKED` para importación | Cuatro fotos recibidas y transcripción local 110/110, precios numéricos, stock cero. Revisión de ambigüedades pendiente de Diana/responsable; importación `NOT EXECUTED`. |
+| Fecha del Trial | `BLOCKED` | `2026-10-15` es fecha objetivo interna; falta confirmación directa de Diana. Tenant/Trial `NOT EXECUTED`. |
+| Onboarding | `PASS` documental; operativo `NOT EXECUTED` | Runbook asigna a Diana completar perfil, crear vendedores/roles y entregar credenciales temporales fuera de banda; no contiene credenciales. No hubo bootstrap real. |
+| Operación DEMO/no fiscal | `PASS` en Emulator | `npm run e2e:bodega-u4-u5`: 12/12; no sustituye smoke productivo ni certifica DIAN. |
+| Gate I / estado general | `INCOMPLETE` | El colector read-only del 2026-10-14 encontró CI/main `PASS`, 104/104 Functions `ACTIVE` en Node 22, hashes reconciliados, Vercel para SHA objetivo `FOLLOW_UP`, Rules/Storage/smoke/recovery independientes `MISSING`, y punto de recuperación observado `PASS`. |
+| `registrarCompraOperativaV1` | `FAIL` de reconciliación | Hash remoto `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`, anterior al guard fuente. Deploy `NOT EXECUTED`; requiere preflight dirigido y autorización explícita. |
+| Firestore Rules | `FAIL` en la última lectura; relectura posterior `NOT EXECUTED` | Evidencia directa del 2026-10-14 registró 14 paths divergentes. El colector posterior no produjo observación de Rules porque `FIREBASE_ACCESS_TOKEN` no estaba configurado en este runner; se requiere una lectura read-only fresca y repetir el diff/preflight. No desplegar Rules. |
+| Vercel producción | `BLOCKED` | No hay estado exitoso para el SHA objetivo. Evidencia directa anterior observó un release viejo; publicación del SHA y política de deploy siguen sin verificarse/autorización. No publicar. |
+| Smoke productivo | `NOT EXECUTED` | Falta identidad y alcance expresamente autorizados. No usar cuentas/credenciales improvisadas. |
+| Storage Rules | `BLOCKED` por atestación vigente | La última lectura directa registrada mostró hashes iguales; el colector posterior reportó atestación independiente `MISSING`. Renovar evidencia read-only antes de certificar. |
+| Restore / PITR | Restore aislado `PASS` histórico; atestación importada `MISSING`; PITR desactivado por decisión | El restore aislado previo permanece documentado/verificado; el colector no incorporó su referencia. PITR deshabilitado sigue alineado con ADR-SAAS-031. No se restauró `(default)` ni se activó PITR. |
+| Escrituras/despliegues productivos | `NOT EXECUTED` | Sin deploy Functions/Rules/Vercel, altas de tenant, escritura de catálogo/inventario, cambio IAM/Secrets ni Trial. |
+
+La relectura de Functions no altera su estado. La brecha DIAN web continúa
+separada: el Trial puede operar sin emisión solo bajo la aceptación acordada;
+la aplicación web no tiene una ruta server-side Factus acreditada, y Gate I no
+se declara `PASS`.
