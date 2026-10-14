@@ -309,3 +309,25 @@ El collector `scripts/g-saas-02/release-evidence.ts` consultó el proyecto
 
 No se realizó deploy, smoke, escritura productiva, creación de tenant, cambio
 IAM/Secrets ni operación PITR durante esta relectura.
+
+### Relectura GET-only de Gate I — 2026-10-14T23:09:09.523Z
+
+El collector `scripts/g-saas-02/release-evidence.ts` consultó `micafe-pos`
+contra `origin/main @ f25ef9b9743511bd5bdedeb24df90269213c99fb`. Resultado
+`INCOMPLETE`, `readOnly=true`, `productionWrites=false` y
+`collectionErrors=[]`.
+
+| Superficie | Evidencia fresca | Estado / siguiente paso |
+|---|---|---|
+| `origin/main` y CI | El SHA objetivo coincide con `origin/main`. Run `38650796029` para el mismo SHA sigue `in_progress`; el job `Tipos y pruebas` ya completó sus pasos iniciales, pero está ejecutando `E2E R1-A Web/PWA`. | SHA `PASS`; CI `FOLLOW_UP`, no declarar `PASS` ni esperar para continuar preparativos independientes. |
+| Firestore Rules | SHA fuente `2dc12a5972c216601a21cbae6be73bd787558f4fdad4a33227f05dee37087b91`; SHA remoto `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`; release actualizado `2026-08-15T04:20:46.318849Z`, ruleset `d5e205db-0ab4-4db1-b5ec-1534bee39d35`. La matriz vigente clasifica 14 diferencias efectivas de permiso. | `MISMATCH`; conservar sin deploy. La reconciliación local/Emulator no reemplaza revisión final de consumidores, preflight y autorización productiva. |
+| Storage Rules | Hash fuente/remoto coincide: `fc837a77b952f3f2cf9e6eec24e7962eb0177a992f0776810d4798b5a1ee9f2b`. | `PASS`; sin cambio requerido. |
+| Functions | 104/104 activas, `nodejs22`; la distribución de hashes por función fue reconciliada. `registrarCompraOperativaV1` sigue con hash remoto `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`, anterior al guard ADR-SAAS-075 de `main`. | Disponibilidad y observación de hashes `PASS`; versión requerida `FAIL`; deploy dirigido `NOT EXECUTED`, pendiente preflight exacto y autorización independiente. |
+| Vercel producción | No se observó un estado Vercel exitoso para el SHA objetivo `f25ef9b`. | Acreditación del SHA `FOLLOW_UP`; publicación `NOT EXECUTED`, requiere autorización específica y rollback fijado. Preview no equivale a producción. |
+| Smoke autenticado | El collector sigue sin atestación independiente. No se han designado identidad existente, tenant, rol y alcance exacto. | `NOT EXECUTED`; no usar identidades supuestas ni efectuar escrituras para completar el gate. |
+| Recovery y PITR | El collector no recibió atestación independiente de restore (`MISSING`); observó PITR `false`, 1 backup schedule y 34 backups en `southamerica-east1`. La evidencia externa separada del restore del 14-oct continúa `VERIFIED`, `RPO=8.307 h`, `RTO=0.220 h`, fuente intacta y sin cutover. | Restore independiente `PASS` por evidencia directa; ausencia de ingestión del collector no lo invalida. PITR deshabilitado permanece aprobado por ADR-SAAS-031 y no es bloqueo. |
+| DIAN web y Trial | La autoridad web server-side de emisión sigue sin estar disponible; ADR-SAAS-079 solo pausa la UI de los dos tenants autorizados y preserva Factus. La fecha `2026-10-15` está confirmada por atestación directa del administrador. | Certificación DIAN web `BLOCKED`; Trial y tenant real `NOT EXECUTED`, sujetos a gates, seguridad y autorizaciones. El modo no fiscal aceptado no certifica Gate I. |
+
+No hubo despliegues, smoke, escrituras productivas, creación de tenant,
+activación de usuarios, cambios IAM/Secrets ni operaciones PITR. Gate I sigue
+`INCOMPLETE`; esta lectura fresca no elimina los bloqueos productivos.

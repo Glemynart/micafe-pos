@@ -146,6 +146,25 @@
 - **Milestone activo:** `M2 — Provisioning y onboarding`.
 - **Epic activo:** `E2.2 — Configuración inicial`.
 
+### Checkpoint vigente — 2026-10-14 — PR #598 y relectura de Gate I
+
+PR #598 quedó integrado por squash en `origin/main @
+f25ef9b9743511bd5bdedeb24df90269213c99fb`. Sus checks de PR terminaron en
+verde; la CI post-merge de `main`, run `38650796029`, sigue `in_progress` en
+`E2E R1-A Web/PWA` y no se declara `PASS`. La relectura GET-only del
+`2026-10-14T23:09:09.523Z` mantuvo Gate I `INCOMPLETE`: Rules no coinciden
+(fuente `2dc12a59`, remoto `c3d98b26`; 14 diferencias efectivas),
+`registrarCompraOperativaV1` conserva el hash remoto anterior al guard
+(`9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`), Vercel no acredita el SHA
+objetivo y el smoke autenticado sigue sin ejecutarse por falta de identidad y
+alcance autorizados. Storage coincide; 104/104 Functions están activas en
+Node.js 22. El restore aislado continúa `PASS` por evidencia independiente y
+PITR deshabilitado sigue aprobado por ADR-SAAS-031. No hubo escrituras ni
+despliegues productivos. El administrador confirma que Diana le comunicó la
+fecha objetivo `2026-10-15`; no se creó tenant ni se inició el Trial. El modo
+no fiscal aceptado para Diana no equivale a cerrar Gate I ni a certificar DIAN
+web. Detalle: [relectura GET-only de Gate I a las 23:09Z](evidence/G-SAAS-02-E2-2-PR595-POSTMERGE-CLOSEOUT-2026-10-14.md#relectura-get-only-de-gate-i--2026-10-14t230909523z).
+
 ### Gate A — auditoría de estado y documentación — 2026-10-12
 
 La auditoría documental registró `DOCUMENTATION = CONSISTENT` para el alcance
