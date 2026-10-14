@@ -6,6 +6,7 @@ import { useAuthContext } from '@/contexts/auth-context'
 import { useEspacios } from '@/contexts/espacios-context'
 import { useConfiguracionEmpresa } from '@/contexts/configuracion-empresa-context'
 import { suscribirHistorialVentas, obtenerVentaPorId, anularVenta as anularVentaFirebase, guardarMetadatosDian } from '@/lib/ventas-service'
+import { ejecutarAccionDianConDisponibilidad, MENSAJE_DIAN_TEMPORALMENTE_INDISPONIBLE, MENSAJE_EMPRESA_DIAN_NO_RESUELTA } from '@/lib/dian-temporary-gate'
 import { TicketBuilder, generateQrDataUri, renderTicket } from '@/lib/tickets'
 import { imprimirTicketHtml, resolverOpcionesImpresion } from '@/lib/tickets/print-service'
 import { adaptarVentaB2AModeloTicket, adaptarVentaDemoAModeloTicket } from '@/lib/reimpresion/venta-ticket-adapter'
@@ -64,7 +65,7 @@ import {
 export function Historial() {
   const { usuario } = useAuthContext()
   const { espacioActivo } = useEspacios()
-  const { proyecciones } = useConfiguracionEmpresa()
+  const { proyecciones, empresaId } = useConfiguracionEmpresa()
   const [ventas, setVentas] = useState<any[]>([])
   const [filtroFecha, setFiltroFecha] = useState("")
   const [tipoPeriodo, setTipoPeriodo] = useState<"dia" | "mes" | "ano">("dia")
@@ -83,28 +84,36 @@ export function Historial() {
   const handleEmitirNota = async () => {
     if (!notaState.venta || !notaState.venta.dian?.cufe) return;
 
-    toast.loading(`Emitiendo Nota ${notaState.type === 'credito' ? 'Crédito' : 'Débito'}...`, { id: 'dian-nota' });
     try {
-      // Necesitamos los items de la venta
-      let ventaCompleta = await obtenerVentaPorId(notaState.venta.id);
+      const resultado = await ejecutarAccionDianConDisponibilidad(empresaId, async () => {
+        toast.loading(`Emitiendo Nota ${notaState.type === 'credito' ? 'Crédito' : 'Débito'}...`, { id: 'dian-nota' });
+        const ventaCompleta = await obtenerVentaPorId(notaState.venta!.id);
+        const payload = {
+          numeroFacturaRef: ventaCompleta.dian?.numero || notaState.venta!.numero || `SETP${notaState.venta!.id}`,
+          cufeRef: notaState.venta!.dian.cufe,
+          motivo: notaState.motivo,
+          items: ventaCompleta.items,
+          total: ventaCompleta.total,
+          cliente: ventaCompleta.cliente || { tipo: 'CC', identificacion: '222222222222', nombre: 'Consumidor Final' },
+          metodoPago: ventaCompleta.metodo_pago || 'efectivo',
+          fecha: ventaCompleta.fecha ? ventaCompleta.fecha.split(' ')[0] : new Date().toISOString().split('T')[0],
+        };
 
-      const payload = {
-        numeroFacturaRef: ventaCompleta.dian?.numero || notaState.venta.numero || `SETP${notaState.venta.id}`,
-        cufeRef: notaState.venta.dian.cufe,
-        motivo: notaState.motivo,
-        items: ventaCompleta.items,
-        total: ventaCompleta.total,
-        cliente: ventaCompleta.cliente || { tipo: 'CC', identificacion: '222222222222', nombre: 'Consumidor Final' },
-        metodoPago: ventaCompleta.metodo_pago || 'efectivo',
-        fecha: ventaCompleta.fecha ? ventaCompleta.fecha.split(' ')[0] : new Date().toISOString().split('T')[0],
-      };
+        if (notaState.type === 'credito') {
+          return (window as any).api.factus.emitirNotaCredito(payload);
+        }
+        return (window as any).api.factus.emitirNotaDebito(payload);
+      });
 
-      let res;
-      if (notaState.type === 'credito') {
-        res = await (window as any).api.factus.emitirNotaCredito(payload);
-      } else {
-        res = await (window as any).api.factus.emitirNotaDebito(payload);
+      if (resultado.estado === 'indisponible') {
+        toast.error(MENSAJE_DIAN_TEMPORALMENTE_INDISPONIBLE, { id: 'dian-nota' });
+        return;
       }
+      if (resultado.estado === 'empresa_no_resuelta') {
+        toast.error(MENSAJE_EMPRESA_DIAN_NO_RESUELTA, { id: 'dian-nota' });
+        return;
+      }
+      const res = resultado.valor;
 
       if (res && res.ok) {
         toast.success(`Nota ${notaState.type === 'credito' ? 'Crédito' : 'Débito'} generada correctamente.`, { id: 'dian-nota' });
@@ -225,31 +234,45 @@ export function Historial() {
       return
     }
     try {
-      toast.loading(`Emitiendo factura a la DIAN para venta #${venta.id}...`, { id: 'dian' });
-      let ventaCompleta = venta;
-      if (!ventaCompleta.items) {
-        ventaCompleta = await obtenerVentaPorId(venta.id);
-      }
+      const resultado = await ejecutarAccionDianConDisponibilidad(empresaId, async () => {
+        toast.loading(`Emitiendo factura a la DIAN para venta #${venta.id}...`, { id: 'dian' });
+        let ventaCompleta = venta;
+        if (!ventaCompleta.items) {
+          ventaCompleta = await obtenerVentaPorId(venta.id);
+        }
 
-      const clientePayload = ventaCompleta.cliente || { tipo: "CC", identificacion: "222222222222", nombre: "Consumidor Final" };
-
-      const factusRes = await (window as any).api.factus.emitir({
-        ventaId: ventaCompleta.id,
-        cliente: {
-          tipo: clientePayload.tipo || "CC",
-          identificacion: clientePayload.identificacion || "222222222222",
-          nombre: clientePayload.nombre || "Consumidor Final",
-          email: clientePayload.email || "consumidor@final.com",
-          telefono: clientePayload.telefono || "3000000000",
-          direccion: clientePayload.direccion || "Colombia"
-        },
-        items: ventaCompleta.items,
-        total: ventaCompleta.total,
-        metodoPago: ventaCompleta.metodoPagoFinal || ventaCompleta.metodo_pago
+        const clientePayload = ventaCompleta.cliente || { tipo: "CC", identificacion: "222222222222", nombre: "Consumidor Final" };
+        const factusRes = await (window as any).api.factus.emitir({
+          ventaId: ventaCompleta.id,
+          cliente: {
+            tipo: clientePayload.tipo || "CC",
+            identificacion: clientePayload.identificacion || "222222222222",
+            nombre: clientePayload.nombre || "Consumidor Final",
+            email: clientePayload.email || "consumidor@final.com",
+            telefono: clientePayload.telefono || "3000000000",
+            direccion: clientePayload.direccion || "Colombia"
+          },
+          items: ventaCompleta.items,
+          total: ventaCompleta.total,
+          metodoPago: ventaCompleta.metodoPagoFinal || ventaCompleta.metodo_pago
+        });
+        const persistido = factusRes.ok
+          ? await persistirMetadatosDian(ventaCompleta, factusRes)
+          : false;
+        return { ventaCompleta, factusRes, persistido };
       });
 
+      if (resultado.estado === 'indisponible') {
+        toast.error(MENSAJE_DIAN_TEMPORALMENTE_INDISPONIBLE, { id: 'dian' });
+        return;
+      }
+      if (resultado.estado === 'empresa_no_resuelta') {
+        toast.error(MENSAJE_EMPRESA_DIAN_NO_RESUELTA, { id: 'dian' });
+        return;
+      }
+
+      const { ventaCompleta, factusRes, persistido } = resultado.valor;
       if (factusRes.ok) {
-        const persistido = await persistirMetadatosDian(ventaCompleta, factusRes);
         if (persistido) {
           toast.success(`Factura emitida exitosamente.`, { id: 'dian' });
         } else {
@@ -275,45 +298,58 @@ export function Historial() {
       return;
     }
 
-    let success = 0;
-    let failed = 0;
-    let sinRegistrar = 0;
+    const resultado = await ejecutarAccionDianConDisponibilidad(empresaId, async () => {
+      let success = 0;
+      let failed = 0;
+      let sinRegistrar = 0;
 
-    toast.loading(`Enviando ${pendientes.length} facturas a la DIAN...`, { id: 'dian-batch' });
+      toast.loading(`Enviando ${pendientes.length} facturas a la DIAN...`, { id: 'dian-batch' });
 
-    for (const venta of pendientes) {
-      try {
-        let ventaCompleta = await obtenerVentaPorId(venta.id);
-        const clientePayload = ventaCompleta.cliente || { tipo: "CC", identificacion: "222222222222", nombre: "Consumidor Final" };
-        const factusRes = await (window as any).api.factus.emitir({
-          ventaId: ventaCompleta.id,
-          cliente: {
-            tipo: clientePayload.tipo || "CC",
-            identificacion: clientePayload.identificacion || "222222222222",
-            nombre: clientePayload.nombre || "Consumidor Final",
-            email: clientePayload.email || "consumidor@final.com",
-            telefono: clientePayload.telefono || "3000000000",
-            direccion: clientePayload.direccion || "Colombia"
-          },
-          items: ventaCompleta.items,
-          total: ventaCompleta.total,
-          metodoPago: ventaCompleta.metodoPagoFinal || ventaCompleta.metodo_pago
-        });
+      for (const venta of pendientes) {
+        try {
+          const ventaCompleta = await obtenerVentaPorId(venta.id);
+          const clientePayload = ventaCompleta.cliente || { tipo: "CC", identificacion: "222222222222", nombre: "Consumidor Final" };
+          const factusRes = await (window as any).api.factus.emitir({
+            ventaId: ventaCompleta.id,
+            cliente: {
+              tipo: clientePayload.tipo || "CC",
+              identificacion: clientePayload.identificacion || "222222222222",
+              nombre: clientePayload.nombre || "Consumidor Final",
+              email: clientePayload.email || "consumidor@final.com",
+              telefono: clientePayload.telefono || "3000000000",
+              direccion: clientePayload.direccion || "Colombia"
+            },
+            items: ventaCompleta.items,
+            total: ventaCompleta.total,
+            metodoPago: ventaCompleta.metodoPagoFinal || ventaCompleta.metodo_pago
+          });
 
-        if (factusRes.ok) {
-          success++;
-          const persistido = await persistirMetadatosDian(ventaCompleta, factusRes);
-          if (!persistido) sinRegistrar++;
-        } else {
+          if (factusRes.ok) {
+            success++;
+            const persistido = await persistirMetadatosDian(ventaCompleta, factusRes);
+            if (!persistido) sinRegistrar++;
+          } else {
+            failed++;
+          }
+        } catch (err) {
           failed++;
         }
-      } catch (err) {
-        failed++;
       }
+
+      return { success, failed, sinRegistrar };
+    });
+
+    if (resultado.estado === 'indisponible') {
+      toast.error(MENSAJE_DIAN_TEMPORALMENTE_INDISPONIBLE, { id: 'dian-batch' });
+      return;
+    }
+    if (resultado.estado === 'empresa_no_resuelta') {
+      toast.error(MENSAJE_EMPRESA_DIAN_NO_RESUELTA, { id: 'dian-batch' });
+      return;
     }
 
     toast.success(
-      `Proceso finalizado. Exitosas: ${success}, Fallidas: ${failed}${sinRegistrar ? `, sin registrar: ${sinRegistrar}` : ''}`,
+      `Proceso finalizado. Exitosas: ${resultado.valor.success}, Fallidas: ${resultado.valor.failed}${resultado.valor.sinRegistrar ? `, sin registrar: ${resultado.valor.sinRegistrar}` : ''}`,
       { id: 'dian-batch' }
     );
     loadVentas();
