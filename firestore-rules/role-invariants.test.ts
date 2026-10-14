@@ -1,5 +1,5 @@
 import { after, before, beforeEach, test } from "node:test";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, getDocs, query, setDoc, where } from "firebase/firestore";
 import { fixtures } from "./fixtures";
 import {
   cleanupRulesTestEnvironment,
@@ -202,4 +202,55 @@ test("GENERAL: vendedor conserva las lecturas directas que usa POS LEGACY", asyn
   await expectAllowed(getDocs(query(collection(firestore, "clientes"), where("empresaId", "==", "empresa-a"), where("activo", "==", true))));
   await expectAllowed(getDocs(query(collection(firestore, "ventas"), where("empresaId", "==", "empresa-a"))));
   await expectAllowed(getDocs(query(collection(firestore, "turnos"), where("empresaId", "==", "empresa-a"))));
+});
+
+test("Gate I: el ledger y las presentaciones excluyen vendedores en ambos verticales", async () => {
+  const adminBodega = await contextFor(fixtures.tenantA.admin);
+  const vendedorBodega = await contextFor(fixtures.tenantA.vendedor);
+  const adminGeneral = await contextFor(fixtures.tenantB.admin);
+  const vendedorGeneral = await contextFor(fixtures.tenantB.vendedor);
+
+  await seedDocument("configuraciones/empresa-a", { vertical: "BODEGA_MVP1" });
+  await seedDocument("configuraciones/empresa-b", { vertical: "GENERAL" });
+  await seedDocument("presentaciones_producto/presentacion-a", { empresaId: "empresa-a", nombre: "Presentación Bodega" });
+  await seedDocument("presentaciones_producto/presentacion-b", { empresaId: "empresa-b", nombre: "Presentación General" });
+  await seedDocument("movimientos_inventario/movimiento-a", { empresaId: "empresa-a", costoTotal: 100 });
+  await seedDocument("movimientos_inventario/movimiento-b", { empresaId: "empresa-b", costoTotal: 200 });
+
+  await expectAllowed(adminBodega.firestore().doc("presentaciones_producto/presentacion-a").get());
+  await expectDenied(vendedorBodega.firestore().doc("presentaciones_producto/presentacion-a").get());
+  await expectAllowed(adminGeneral.firestore().doc("presentaciones_producto/presentacion-b").get());
+  await expectDenied(vendedorGeneral.firestore().doc("presentaciones_producto/presentacion-b").get());
+
+  await expectAllowed(adminBodega.firestore().doc("movimientos_inventario/movimiento-a").get());
+  await expectDenied(vendedorBodega.firestore().doc("movimientos_inventario/movimiento-a").get());
+  await expectAllowed(adminGeneral.firestore().doc("movimientos_inventario/movimiento-b").get());
+  await expectDenied(vendedorGeneral.firestore().doc("movimientos_inventario/movimiento-b").get());
+});
+
+test("Gate I: las ventas son read-only y metadatos DIAN no se escriben desde cliente", async () => {
+  const adminBodega = await contextFor(fixtures.tenantA.admin);
+  const vendedorBodega = await contextFor(fixtures.tenantA.vendedor);
+  const adminGeneral = await contextFor(fixtures.tenantB.admin);
+  const vendedorGeneral = await contextFor(fixtures.tenantB.vendedor);
+  const ventas = [
+    [adminBodega, "ventas/venta-bodega"],
+    [vendedorBodega, "ventas/venta-bodega"],
+    [adminGeneral, "ventas/venta-general"],
+    [vendedorGeneral, "ventas/venta-general"],
+  ] as const;
+
+  await seedDocument("configuraciones/empresa-a", { vertical: "BODEGA_MVP1" });
+  await seedDocument("configuraciones/empresa-b", { vertical: "GENERAL" });
+  await seedDocument("ventas/venta-bodega", { empresaId: "empresa-a", estadoOperativo: "COMPLETO", snapshotFiscal: { id: "bodega" }, consecutivo: 10 });
+  await seedDocument("ventas/venta-general", { empresaId: "empresa-b", estadoOperativo: "COMPLETO", snapshotFiscal: { id: "general" }, consecutivo: 20 });
+
+  await expectAllowed(adminBodega.firestore().doc("ventas/venta-bodega").get());
+  await expectDenied(vendedorBodega.firestore().doc("ventas/venta-bodega").get());
+  await expectAllowed(vendedorGeneral.firestore().doc("ventas/venta-general").get());
+
+  for (const [context, path] of ventas) {
+    await expectDenied(context.firestore().doc(path).update({ dian: { cufe: "synthetic-cufe" } }));
+    await expectDenied(setDoc(doc(context.firestore(), path), { dian: { cufe: "synthetic-cufe" } }, { merge: true }));
+  }
 });
