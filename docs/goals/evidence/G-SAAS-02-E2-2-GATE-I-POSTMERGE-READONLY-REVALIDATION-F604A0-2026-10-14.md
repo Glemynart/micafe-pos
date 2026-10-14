@@ -41,3 +41,90 @@ Esta revalidación fue de lectura y agregación únicamente. No hubo deploy, cam
 ## Estado y límites de salida
 
 Gate I continúa `INCOMPLETE`: falta publicar/verificar el guard de la callable legacy, resolver y autorizar el corte de Rules tras reconciliar el uso productivo de DIAN, desplegar una versión identificable de Vercel, y obtener smoke/restore independientes. No se activa PITR ni se crea tenant/Trial como parte de esta lectura. La autorización de ADR-SAAS-078 cubrió preparar su PR; no habilita deploy.
+
+## Revalidación y preparación fast-track — 2026-10-14T16:49Z
+
+- `origin/main` permanece en `f604a0af1669cc0903859c7271b1da1e3f29cea9`.
+- La CI post-merge de `main`, run `38597025350`, concluyó `success` para ese
+  SHA. La CI del PR #595 sigue `in_progress` en el head
+  `0d3396afe8c48bd38e26db43d147c09a014dd96f`; Vercel Preview y Vercel están
+  en `pass`. No se considera el PR listo para merge mientras quede el check
+  `Tipos y pruebas` pendiente.
+- El collector se volvió a ejecutar a las `2026-10-14T16:46:11.962Z` contra
+  el SHA objetivo: `INCOMPLETE`, `readOnly=true`, `productionWrites=false`,
+  `collectionErrors=[]`. Siguen observándose 104/104 Functions `ACTIVE` en
+  Node 22, las rutas Bodega del alcance presentes y el hash antiguo de
+  `registrarCompraOperativaV1`. Vercel todavía no reporta una publicación del
+  SHA objetivo. Firestore Rules permanece en `MISMATCH`; Storage conserva hash
+  coincidente, pero falta atestación independiente del release.
+- La última lectura de recuperación mantiene PITR deshabilitado y un schedule
+  diario de 35 días. Un backup `READY` con snapshot
+  `2026-10-14T08:20:19.614951Z` se está restaurando, por la política aceptada
+  en ADR-SAAS-031, únicamente a una base aislada del mismo proyecto y región;
+  la operación figura `PROCESSING` al 30 %. El origen `(default)` no se toca,
+  no hay cutover y recovery no es PASS hasta ejecutar el verificador canónico.
+- Validaciones locales ejecutadas desde `main @ f604a0a`, sin acceso a datos
+  productivos: Firestore Rules Emulator `45/45`, Storage Rules Emulator
+  `7/7` y pruebas del contrato de recovery `14/14`. Estas pruebas respaldan
+  la cobertura de código, pero no reemplazan las atestaciones independientes
+  de Rules, Storage, smoke ni recuperación productiva requeridas por el
+  collector.
+
+### Paquete operativo ya preparado
+
+La preparación se apoya en documentos y pruebas existentes; no crea un
+tenant, no inicia el Trial y no habilita escrituras comerciales:
+
+| Artefacto | Referencia | Estado / límite |
+|---|---|---|
+| Checklist de release y transición | `docs/goals/G-SAAS-02-TRIAL-OPERATIONS.md`; `scripts/g-saas-02/trial-transition-preflight.ts` | Procedimiento y preflight read-only existentes; aún no autoriza ejecutar comandos ni alta real. |
+| Matriz Rules y aislamiento | `docs/goals/evidence/G-SAAS-02-E2-2-GATE-I-RULES-COMPATIBILITY-MATRIX-2026-10-14.md`; suite `firestore-rules/run-tests.ts` | 45/45 Emulator. El corte productivo sigue bloqueado hasta reconciliar el writer DIAN y aprobar una migración/corte seguro. |
+| Validación Bodega MVP-1 | `npm run e2e:bodega-u4-u5`, `npm run e2e:bodega-agenda`, `npm run test:bodega-ui` | Runners/scripts existentes; su resultado local o de staging no es un smoke productivo autenticado. |
+| Smoke autenticado | `docs/goals/evidence/G-SAAS-02-SMOKE-OBSERVATION-2026-08-15.md` | Plan mínimo existente; falta canal de sesión productiva autorizado y atestación tenant-safe para el release publicado. No usar fixture/staging como sustituto. |
+| Rollback y recuperación | `docs/goals/G-SAAS-02-TRIAL-OPERATIONS.md`; `docs/goals/evidence/G-SAAS-02-RECOVERY-OBSERVATION-2026-08-15.md` | Rollback de Rules no es un simple revert porque reabriría escrituras directas; restore actual aislado pendiente de verificación. No activar PITR. |
+| Onboarding y aceptación | `docs/goals/G-SAAS-02-TRIAL-OPERATIONS.md` | Oferta de 1.600.000 COP está aprobada internamente, pero no hay tenant ni Trial de Diana. La fecha prevista 13-oct-2026 ya pasó y requiere reprogramación explícita antes del alta; no se infiere un inicio. |
+
+## Estado vigente
+
+Gate I continúa `INCOMPLETE`. Los resultados locales y la restauración aislada
+permiten avanzar la preparación, pero aún faltan el corte compatible de
+Functions/Rules, el release web identificable, el smoke autenticado
+independiente y la autorización operativa del tenant.
+
+## Verificación final de recovery y nueva lectura — 2026-10-14T16:53Z
+
+- La operación de restore aislado terminó `SUCCESSFUL` en
+  `gsaas02-recovery-20261014`, región `southamerica-east1`. El verificador
+  canónico emitió `VERIFIED` a las `16:52:07Z`: destino aislado, huella de los
+  documentos mínimos coincidente, `RPO=8.307 h` (objetivo `≤24 h`) y
+  `RTO=0.220 h` (objetivo `≤4 h`). La verificación hizo solo lecturas;
+  `sourceUntouched=true`, `applicationCutover=false`. Se conservó el resultado
+  JSON en el artefacto local de recovery; el destino aislado no se conectó a la
+  aplicación ni se usó para restaurar `(default)`.
+- Nueva lectura del collector a las `16:53:05Z` con token de operador
+  estrictamente en memoria: `INCOMPLETE`, `readOnly=true`,
+  `productionWrites=false`, `collectionErrors=[]`. CI de `main` continúa
+  `PASS`; Functions 104/104 activas; Firestore Rules `MISMATCH`; Storage
+  `PASS`; Vercel para el SHA objetivo `FOLLOW_UP`; smoke `MISSING`. La sección
+  automática de atestaciones externas del collector sigue marcando recovery
+  `MISSING` porque su entrada `--recovery-ref` solo declara referencias y no
+  admite importar la verificación; el artefacto independiente, en cambio,
+  sí está `VERIFIED`.
+- Agregaciones read-only de Firestore, sin retornar documentos ni IDs:
+  empresas en lifecycle `trial`/`activa` = `2`; ventas con
+  `dian.emitidoEn != null` = `0`. Esto reduce el riesgo de que Rules corte
+  una emisión DIAN ya persistida, pero no demuestra que ninguno de los dos
+  tenants necesite emitir DIAN en adelante. Se mantiene el corte bloqueado
+  hasta confirmar el impacto con los responsables de los tenants activos o
+  resolver el writer por autoridad server-side bajo alcance aprobado.
+- La suite local de agenda Bodega terminó `8/8`; Rules `45/45`, Storage
+  `7/7` y recovery `14/14`. El runner local `e2e:bodega-u4-u5` no llegó a
+  iniciar emuladores por una dependencia TypeScript no instalada en ese
+  checkout; no tocó servicios remotos. La CI completa de `main` en el mismo
+  SHA terminó `success`; por ello no se atribuye a ese fallo local un fallo
+  del producto ni se reporta ese runner como PASS local.
+
+La restauración independiente queda `PASS`; Gate I sigue `INCOMPLETE` por los
+bloqueos de Functions legacy, Rules, Vercel y smoke productivo. No se hizo
+deploy, alta de tenant, escritura comercial, cambio de Rules, IAM, Secrets,
+PITR ni cutover.
