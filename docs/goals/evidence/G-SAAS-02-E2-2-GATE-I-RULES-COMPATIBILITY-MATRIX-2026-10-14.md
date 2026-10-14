@@ -92,7 +92,7 @@ por ruta son parte del preflight.
 | `/saas_platform_bindings/{id}` | Denegada por catch-all. | Denegación explícita de lectura y escritura. | Sin diferencia efectiva de permiso; metadatos de vinculación quedan server-side. | Conservar test de aislamiento y denegación a cliente. |
 | `/turnos/{id}` | Lectura a usuarios autenticados del tenant. | Vendedor Bodega solo lee documentos cuyo `cajeroId` es su UID; GENERAL conserva lectura LEGACY. | Admin y operación consultan turnos; el vendedor Bodega queda limitado a su turno. | Tests Emulator por vertical, dueño/no dueño, turno propio y consulta de colección; validar reglas de query. |
 | `/usuarios/{uid}` | Usuario autenticado del tenant puede leer perfiles del tenant. | `get` propio; sin `list`, alta ni borrado cliente; update propio solo de `ultimoAcceso` y `fcmTokens`. | Perfil/FCM actualizan el propio documento; directorio admin usa backend. Endurecimiento global de privacidad. | Tests de perfil propio/ajeno, FCM/último acceso y denegación de list/escrituras sensibles. |
-| `/ventas/{id}` | Lectura tenant autenticada; transición limitada `PENDIENTE_EFECTOS → COMPLETO` permite actualizar con snapshot fiscal/consecutivo estable. | Lectura igual salvo vendedor Bodega; vendedor GENERAL preservado por #592; todas las escrituras cliente denegadas (`allow update: if false`). | POS/admin consultan ventas. `guardarMetadatosDian()` sigue invocado desde UI con `setDoc` cliente y reintento; P0 lo clasifica como writer legado que Rules endurecidas rechazan. Fiscalidad real está fuera del DEMO inicial, pero el corte global puede afectar tenants existentes que usen DIAN. | Emulator confirma ventas read-only y metadatos DIAN denegados para todos los roles/verticales. Antes del corte global, conciliar uso DIAN productivo; no reabrir la escritura cliente ni afirmar que el flujo fiscal funciona con estas Rules. |
+| `/ventas/{id}` | Lectura tenant autenticada; transición limitada `PENDIENTE_EFECTOS → COMPLETO` permite actualizar con snapshot fiscal/consecutivo estable. | Lectura igual salvo vendedor Bodega; vendedor GENERAL preservado por #592; todas las escrituras cliente denegadas (`allow update: if false`). | POS/admin consultan ventas. `guardarMetadatosDian()` sigue invocado desde UI con `setDoc` cliente y reintento; P0 lo clasifica como writer legado que Rules endurecidas rechazan. La indisponibilidad DIAN fue aceptada solo para las dos empresas actuales de la evidencia post-merge; el ruleset es global y no implementa por sí solo ese alcance. | Emulator confirma ventas read-only y metadatos DIAN denegados para todos los roles/verticales. Antes del corte, aplicar el bloqueo previo a Factus aprobado para esos dos IDs, reenumerar tenants activos/trial y detenerse si el conjunto cambió. No reabrir la escritura cliente ni afirmar que el flujo fiscal funciona con estas Rules. |
 
 El ruleset activo también carece de los helpers de vertical/membresía y de las
 reglas de señales Bodega presentes en `main`. PR #592 ya resolvió para
@@ -100,7 +100,15 @@ reglas de señales Bodega presentes en `main`. PR #592 ya resolvió para
 GENERAL bajo ADR-SAAS-077; esta matriz reemplaza la conclusión histórica que
 suponía que las cuatro lecturas seguían denegadas globalmente. Permanecen las
 preguntas de corte anotadas arriba para compras y para el impacto DIAN en
-tenants existentes. El backoffice Bodega es el único lector directo encontrado
+tenants existentes. El propietario aceptó la indisponibilidad fiscal temporal
+solo para las empresas `1ae0rD9H8t3ZFSBKrrHR` (Cafe Atrato, `activa`) y `Prueba`
+(`trial`), identificadas en la evidencia post-merge del 2026-10-14. Esta
+aceptación operativa fue seguida por la aceptación de ADR-SAAS-079 para
+implementar el guard reversible antes de Factus. La aceptación y el código no
+autorizan Rules ni despliegues. El alcance está en
+[ADR-SAAS-079](../../../ADR-SAAS-079-indisponibilidad-temporal-dian-gate-i.md)
+y su registro en [evidencia de aceptación](G-SAAS-02-E2-2-ADR-SAAS-079-ACCEPTANCE-2026-10-14.md).
+El backoffice Bodega es el único lector directo encontrado
 para presentaciones; no se encontró llamada de aplicación al servicio de
 Kardex.
 
@@ -163,7 +171,7 @@ consultaron secretos, datos de negocio o credenciales.
 |---|---|---|
 | I-01 / HIGH — A01, Tampering | La callable legacy de compras está activa con hash previo al guard ADR-SAAS-075, mientras `main` ya contiene el guard. ADR-SAAS-078 Opción 1 está aceptada explícitamente y el candidato elimina el webhook Wompi del export, sin borrar su módulo. | Tras integrar el candidato, confirmar inmediatamente que el webhook no existe en remoto y hacer preflight exacto de `registrarCompraOperativaV1`. Un deploy solo podría ocurrir con autorización explícita, luego de demostrar operación nueva + replay por hash/tests. Detener ante cualquier otro delta. |
 | I-02 / HIGH — A01, A04 | Rules remoto difiere de `main`; todavía permite escritura directa admin de compras y deniega señales Bodega. Un deploy completo también modifica otros paths. | Completar pruebas por vertical y gates de corte; solo aplicar Rules tras guard legacy y preflight exacto aprobado. |
-| I-03 / MEDIUM — A01 | `guardarMetadatosDian()` conserva un writer cliente que las Rules de `main` niegan; DIAN real está fuera del Trial DEMO inicial, pero se desconoce si otro tenant productivo usa esa ruta. | Antes del corte global, confirmar el impacto en tenants activos. Si DIAN está en uso, resolver la persistencia con autoridad server-side y decisión aprobada; no restablecer la transición cliente insegura. |
+| I-03 / MEDIUM — A01 | `guardarMetadatosDian()` conserva un writer cliente que las Rules de `main` niegan. La indisponibilidad temporal fue aceptada únicamente para Cafe Atrato (`1ae0rD9H8t3ZFSBKrrHR`) y Prueba (`Prueba`), el conjunto `activa`/`trial` observado el 2026-10-14; no cubre empresas futuras. La UI llama Factus antes del write Firestore. | ADR-SAAS-079 está Aceptado; implementar y probar el guard antes de Factus solo para los dos IDs, demostrar que checkout/stock/caja no cambian, reenumerar tenants activos/trial y detenerse si el conjunto cambió. No reabrir el writer cliente; Rules, código y deploy requieren sus aprobaciones propias. |
 | I-04 / MEDIUM — A05 | No se acreditó el SHA Vercel objetivo ni existen atestaciones independientes de smoke y restore. | Alinear Vercel al SHA de release y probar smoke/restore con identidad aprobada y destino aislado, sin usar `(default)`. |
 
 ## Orden recomendado para el corte y reversión
@@ -176,10 +184,14 @@ consultaron secretos, datos de negocio o credenciales.
    solo se considera lista cuando el hash remoto y pruebas confirman el guard
    tanto en operación nueva como en replay.
 2. La suite Emulator cubre lecturas de vendedor por vertical,
-   presentaciones/ledger y denegación de escritura de ventas. Antes de publicar
-   Rules, confirmar si algún tenant productivo depende del writer DIAN legado;
-   si existe, detener el corte y resolverlo por autoridad server-side bajo
-   alcance aprobado. No reabrir el permiso cliente inseguro.
+   presentaciones/ledger y denegación de escritura de ventas. El propietario
+   acepta temporalmente la indisponibilidad DIAN solo para las dos empresas
+   de la evidencia post-merge; esta aceptación no equivale a autorización
+   técnica. ADR-SAAS-079 acepta bloquear emisión individual, lote y notas
+   antes de llamar a Factus para esos IDs y conservar el código fiscal actual.
+   Implementar/probar el guard es prerrequisito previo a
+   Rules. Reenumerar empresas `activa`/`trial` inmediatamente antes del corte;
+   detenerse si la lista difiere. No reabrir el permiso cliente inseguro.
 3. Congelar el SHA y la carpeta aislada de producción; validar proyecto literal
    `micafe-pos`, hashes fuente/Functions, export de Rules, release activa,
    Storage, CI, Vercel, índice y ausencia de deltas no autorizados. La lectura
@@ -205,9 +217,12 @@ para ejecutar el corte.
 
 Las rutas Bodega solicitadas ya están publicadas. Lo pendiente para completar
 Gate I es actualizar y verificar la callable legacy mediante un camino
-aprobado que no dependa de `WOMPI_EVENTS_SECRET`, terminar el preflight de
-Rules y su rollback (incluido el impacto DIAN en tenants existentes), certificar
-un deployment Vercel del mismo SHA y cerrar las atestaciones independientes de
-smoke/recovery requeridas por el release. PITR permanece desactivado según
-ADR-SAAS-031. No se ha creado el tenant de Diana ni iniciado su Trial; esta
-evidencia no los provisiona ni autoriza datos reales.
+aprobado que no dependa de `WOMPI_EVENTS_SECRET`, aprobar e implementar el
+guard DIAN propuesto para el alcance exacto observado, terminar el preflight de
+Rules y su rollback, certificar un deployment Vercel del mismo SHA y cerrar
+las atestaciones independientes de smoke/recovery requeridas por el release.
+El corte de Rules requiere además autorización de despliegue explícita y una
+relectura que confirme que no hay empresas `activa`/`trial` nuevas fuera de las
+dos cubiertas por la aceptación. PITR permanece desactivado según ADR-SAAS-031.
+No se ha creado el tenant de Diana ni iniciado su Trial; esta evidencia no los
+provisiona ni autoriza datos reales.
