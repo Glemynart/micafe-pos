@@ -2,18 +2,19 @@
 
 ## Estado
 
-**Propuesto — requiere aprobación explícita.** No es una decisión aceptada y no
-autoriza modificar ni desplegar Rules.
+**Aceptado — Opción 1, 2026-10-14.** La aprobación fija el alcance vertical
+para la implementación; no autoriza desplegar Rules ni cambia producción.
 
 - **Fecha de propuesta:** 2026-10-14.
+- **Fecha de aceptación:** 2026-10-14.
 - **Goal:** `G-SAAS-02` → `M2` → `E2.2` / Gate I.
 - **Decisor:** responsable del proyecto.
 - **Recomendación técnica:** Lead Engineer.
 - **Relacionado:** ADR-SAAS-041, ADR-SAAS-069 y ADR-SAAS-072.
-- **Límite:** esta propuesta no cambia código, Rules, datos, producción ni
-  configuración de tenant. La implementación requiere que el responsable
-  acepte una opción y un PR separado; cualquier deploy conserva sus gates y
-  autorización operativa propios.
+- **Límite:** esta decisión no cambia por sí misma código, Rules, datos,
+  producción ni configuración de tenant. La implementación requiere un PR
+  separado; cualquier deploy conserva sus gates y autorización operativa
+  propios.
 
 ## Contexto
 
@@ -112,8 +113,7 @@ y no transforma la certificación Bodega en una migración global no aprobada.
 La revisión de acceso de lectura en los otros verticales debe quedar como
 trabajo separado, no como autorización implícita para perpetuarla.
 
-La recomendación no equivale a aceptación. Hasta recibir una opción explícita,
-no implementar ni desplegar el cambio.
+La recomendación fue aceptada explícitamente por el responsable el 2026-10-14.
 
 ## Consecuencias si se acepta la Opción 1
 
@@ -124,7 +124,7 @@ no implementar ni desplegar el cambio.
   `BODEGA_MVP1`, incluyendo lectura permitida/denegada, aislamiento entre
   tenants y pruebas de los consumidores genéricos.
 - La matriz de los demás paths distintos entre Rules remoto y `main` permanece
-  como precondición del corte productivo; aceptar esta opción no certifica el
+  como precondición del corte productivo; esta decisión no certifica el
   ruleset completo.
 
 ## Validación previa a cualquier implementación
@@ -145,8 +145,7 @@ no implementar ni desplegar el cambio.
 - Modificar la política global de todos los roles o verticales.
 - Migrar el POS genérico a callables.
 - Cambiar el contrato de membresías, claims, catálogo o modelo de datos.
-- Aceptar el ADR, desplegar Rules/Functions/Vercel o escribir datos de
-  producción.
+- Desplegar Rules/Functions/Vercel o escribir datos de producción.
 
 ## Referencias
 
@@ -159,3 +158,12 @@ no implementar ni desplegar el cambio.
 - `lib/productos-service.ts`, `lib/clientes-service.ts`, `lib/ventas-service.ts` y
   `lib/turnos-service.ts`
 - [PR #590 — evidencia de Gate I y comparación read-only de Rules](https://github.com/Glemynart/micafe-pos/pull/590)
+
+## Aprobación
+
+- **Opción aceptada:** Opción 1 — proteger las lecturas directas solo para
+  `BODEGA_MVP1` y preservar el contrato `GENERAL + vendedor -> LEGACY`.
+- **Aprobación explícita del responsable:** 2026-10-14.
+- **Alcance autorizado por la decisión:** preparar un PR de implementación y
+  sus pruebas de compatibilidad por vertical. No incluye despliegue, Rules,
+  datos ni cambios en producción.
