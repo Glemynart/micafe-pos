@@ -29,15 +29,16 @@ independientes.
 
 ## Evidencia de solo lectura y límites
 
-La relectura del colector a las `2026-10-14T11:42:17.386Z` verificó SHA, CI,
-Functions, Rules, Storage y metadatos de recuperación. Una consulta directa a
-Vercel durante la misma revisión volvió a comprobar el deployment productivo:
+La relectura del colector a las `2026-10-14T12:02:14.745Z` verificó SHA, CI,
+Functions y metadatos de recuperación. La lectura directa anterior de Rules,
+Storage y Vercel fue a las `2026-10-14T11:42:17Z`; el colector actual no recibió
+una atestación independiente de Rules/Storage:
 
 | Superficie | Resultado observado |
 |---|---|
 | `origin/main` | `34fc2da84836b77b8320df32c05a22aad0158227` |
 | CI post-merge de #593 | Run `38556393442`, SHA `34fc2da84836b77b8320df32c05a22aad0158227`, terminó `completed/success`. |
-| Functions | 104/104 `ACTIVE`, Node.js 22; las 24 funciones Bodega (13 objetivo + 11 soporte) están `ACTIVE`. |
+| Functions | 104/104 `ACTIVE`, Node.js 22; se reconciliaron hashes por Function. Las 24 funciones Bodega (13 objetivo + 11 soporte) están `ACTIVE`. |
 | Compras legacy | `registrarCompraOperativaV1` sigue `ACTIVE`; hash remoto `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`, anterior al guard ADR-SAAS-075 en el código de `main`. |
 | Firestore Rules | `MISMATCH`; release `d5e205db-0ab4-4db1-b5ec-1534bee39d35`, actualizada `2026-08-15T04:20:46Z`. SHA fuente `2dc12a5972c216601a21cbae6be73bd787558f4fdad4a33227f05dee37087b91`; SHA remoto `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`. |
 | Storage Rules | Coinciden con la fuente revisada. |
