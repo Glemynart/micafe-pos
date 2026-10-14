@@ -128,3 +128,18 @@ La restauración independiente queda `PASS`; Gate I sigue `INCOMPLETE` por los
 bloqueos de Functions legacy, Rules, Vercel y smoke productivo. No se hizo
 deploy, alta de tenant, escritura comercial, cambio de Rules, IAM, Secrets,
 PITR ni cutover.
+
+### Reconciliación fiscal agregada — 2026-10-14T16:57Z
+
+Se amplió la verificación sin mostrar ni guardar identificadores o valores
+fiscales: de las 2 empresas `trial`/`activa`, se observaron 2 configuraciones;
+los campos enmascarados de readiness se evaluaron solo en memoria. Ninguna
+tiene completa la identidad fiscal y dirección mínima de readiness, y el
+conteo de ventas con `dian.emitidoEn` continúa en `0`. Esto acredita que,
+al momento de la consulta, no hay un tenant activo listo para emitir DIAN ni
+una emisión DIAN persistida que el corte vaya a interrumpir. No decide si esos
+clientes esperan habilitar DIAN luego. La futura emisión seguirá bloqueada por
+el writer cliente hasta una solución server-side aprobada; antes del deploy
+global de Rules falta confirmar que esa limitación es compatible con las
+operaciones previstas de ambos tenants activos. No se leyeron ni publicaron
+razón social, NIT, IDs de tenant ni documentos de venta.
