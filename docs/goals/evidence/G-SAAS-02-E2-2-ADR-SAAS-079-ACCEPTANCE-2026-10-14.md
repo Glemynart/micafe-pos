@@ -41,3 +41,40 @@ Esta aceptación y autorización de código/PR no autorizan:
 
 Gate I no se declara `PASS`. Los checks, auditoría, preflight y demás atestaciones
 de release permanecen pendientes según su propia evidencia.
+
+## Implementación y verificación local (provisional, en PR #595)
+
+La implementación agrega un guard reversible por igualdad exacta de `empresaId`
+antes de las cuatro llamadas DIAN encontradas en Historial: factura individual,
+lote, nota débito y nota crédito. Los IDs afectados salen antes de invocar
+Factus y antes de leer datos adicionales o persistir `guardarMetadatosDian()`;
+para una empresa no afectada, la acción continúa. Si no se resuelve el tenant,
+la emisión falla cerrada. La integración Factus existente se conserva.
+
+Validaciones locales en el worktree del PR, sobre emuladores/demo y sin
+escrituras productivas:
+
+| Validación | Resultado |
+|---|---|
+| RED TDD: ejecutar la prueba antes del guard | Falló por módulo de guard ausente, como se esperaba. |
+| `npm exec -- tsx --test lib/__tests__/dian-temporary-gate.test.ts` | 4/4 pasaron. Incluye Cafe Atrato, Prueba, tenant ajeno y tenant no resuelto; el callback que representa Factus + metadata no corre para los dos IDs ni para tenant no resuelto. |
+| Mutation audit manual: quitar `Prueba` de la allowlist | Mutante detectado por su prueba específica. |
+| Mutation audit manual: convertir el guard en bloqueo para todo tenant | Mutante detectado por la prueba del tenant ajeno. |
+| `npx tsc --noEmit` | Pasó. |
+| `npm run lint` | Pasó. |
+| `npm run build` | Pasó. |
+| `npm run test:rules` | 45/45 pasaron en Firestore Emulator. |
+| `npm run test:tenant` | 8 pasaron, 1 omitida por requerir fixture de autenticación Firebase real/mock. |
+| `npm run test:auth-foundation` | 436 pasaron, 5 omitidas. |
+| `npm run e2e:p0-06` | 1/1 pasó: ciclo de caja, venta, inventario, arqueo/replay y aislamiento. |
+| `npm run e2e:p1-02` | 1/1 pasó: venta con receta, consumo de insumos e idempotencia multi-tenant. |
+| `git diff --check origin/main...HEAD` | Pasó. |
+
+La regresión E2E es evidencia local para operaciones no fiscales; no equivale a
+smoke autenticado productivo. Las pruebas unitarias verifican el contrato del
+guard y la auditoría de fuente confirmó que las cuatro invocaciones actuales a
+Factus están dentro de él. CI del PR aún debe completar; no se ha autorizado ni
+realizado publicación de Vercel, Rules o Functions. El rollback de código es
+revertir el commit del guard, pero no debe hacerse en producción hasta que la
+indisponibilidad aceptada y el corte seguro de Rules sigan cubiertos; revertir
+no reactiva de forma segura la persistencia fiscal legacy.
