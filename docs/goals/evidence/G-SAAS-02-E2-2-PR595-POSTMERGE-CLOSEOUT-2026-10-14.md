@@ -406,3 +406,55 @@ para el SHA objetivo; recovery observó PITR deshabilitado, un schedule y 34
 backups. Esta lectura renueva el `MISMATCH` de Rules y el `PASS` de Storage,
 pero no autoriza deployments ni sustituye la autorización independiente de
 smoke. No hubo mutaciones productivas.
+
+### Revalidación y procedimiento de corte — 2026-10-14T23:43Z
+
+Esta fotografía se obtuvo desde `origin/main @
+f25ef9b9743511bd5bdedeb24df90269213c99fb`; el collector terminó
+`INCOMPLETE`, `readOnly=true`, `productionWrites=false` y
+`collectionErrors=[]`. Ninguna observación de esta sección autoriza una
+mutación productiva.
+
+| Frente | Evidencia comprobable | Estado |
+|---|---|---|
+| PR #599 | HEAD `256901b46750bb217ed05e8c948ae5a357ea7dce`; diff solo en Goal/evidencia documental. El ruleset activo de GitHub requiere `Tipos y pruebas`; no exige aprobación. A las `23:43:40Z` ese check seguía `in_progress`; Vercel Preview y Vercel Preview Comments estaban en `success`. Sin revisiones; `mergeStateStatus=BLOCKED`. El contenido del diff no contiene correo, teléfono de contacto ni credenciales. Los metadatos de autor de los commits de la rama exponen un correo personal; su valor se omite de esta evidencia. | Auditoría `NO APROBADO PARA MERGE` mientras la privacidad de metadatos no se resuelva y CI siga pendiente. No se reescribió el historial remoto. |
+| `origin/main` y CI | SHA `f25ef9b9743511bd5bdedeb24df90269213c99fb`; run `38650796029`, `completed/success`. | `PASS`. |
+| Firestore Rules | Release `d5e205db-0ab4-4db1-b5ec-1534bee39d35`; fuente `2dc12a5972c216601a21cbae6be73bd787558f4fdad4a33227f05dee37087b91`; remoto `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`. Las 14 divergencias de permiso son `/categorias`, `/clientes`, `/compras`, `/empresas/{empresaId}/bodega_senales`, `/empresas/{empresaId}/bodega_senales_vendedor`, `/intenciones_pago_reserva`, `/movimientos_inventario`, `/presentaciones_producto`, `/productos`, `/saas_platform_binding_external_tenants`, `/saas_platform_bindings`, `/turnos`, `/usuarios` y `/ventas`. Hay 15 diferencias textuales; una es semánticamente equivalente al catch-all. Revisión de consumidores y `npm run test:rules`: 45/45, 0 fallos. | Compatibilidad Emulator `PASS`; producción `MISMATCH`/`BLOCKED`. Sin deploy. |
+| Empresas activas/trial | Consulta proyectada de solo lectura, `2026-10-14T23:43Z`: 2 en estado `activa`/`trial` (1 cada una); el conjunto coincide exactamente con ADR-SAAS-079 y no hay adicionales. No se consultaron nombres ni datos comerciales. | `PASS` para esta fotografía. Repetir inmediatamente antes del corte; no demuestra que un tenant sea seguro para smoke ni autoriza Rules. |
+| `registrarCompraOperativaV1` | Firebase informa `ACTIVE`, Gen2, `nodejs22`, `us-central1`, hash remoto `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`. El código de `origin/main` incluye `BODEGA_USE_CANONICAL` antes de efectos tanto para operación nueva como replay. `npm run build:functions`: `PASS`; `npm run test:auth-foundation`: 441 casos, 436 `PASS`, 5 `SKIP`, 0 fallos. El artefacto compilado local contiene el guard; SHA-256 del archivo `compra-core.js`: `fdc5e205172eddf2eb03f585fdecdcf3550c270ad727c30c7c54f4fb1cbe701c`. | Código, pruebas y artefacto local `PASS`; versión productiva requerida `FAIL`. Deploy dirigido `NOT EXECUTED`. El hash Firebase no se equipara al SHA-256 del archivo local. |
+| Vercel producción | Deployment `dpl_4viR3AppP838CJjtUHYeBLo1W19C`, `READY`, target `production`, alias `cafeatrato-git-main-glemynarts-projects.vercel.app`; API Vercel confirma `main @ 1c2f155653536b1fd8e1925db931e2354fa41f7d` (6-oct). GET al alias respondió HTTP `200`, `server=Vercel`. | Salud del deployment actual `PASS`; SHA objetivo no publicado. Candidato vigente en esta lectura: `f25ef9b9743511bd5bdedeb24df90269213c99fb`. Si #599 se integra antes de publicar, recalcular el HEAD de `main`. Publicación `NOT EXECUTED`. |
+| Smoke autenticado | No hay identidad, empresa/tenant, rol/claims ni alcance productivos designados; la lectura de estados no examinó vertical ni membresías. No se usó `Prueba` como tenant supuesto. | `NOT EXECUTED`. Preparación mínima: cuenta existente dedicada y autorizada, tenant confirmado por el propietario, rol de lectura, configuración propia legible y una lectura cruzada que se deniegue; sin ventas, compras, otras escrituras ni DIAN. No existe tenant real Bodega en producción. |
+| DIAN, recovery y Trial | Sigue sin haber autoridad web server-side de Factus: cuatro callsites `window.api.factus` y persistencia cliente de metadatos DIAN; no hay proveedor en `app/api` ni Functions. Restore aislado previamente verificado: `PASS` (`RPO=8.307 h`, `RTO=0.220 h`); PITR deshabilitado sigue aprobado por ADR-SAAS-031. El runbook registra `2026-10-15` según atestación del administrador; no hay tenant ni Trial iniciados. | DIAN web `BLOCKED` para certificación, sin impedir por sí sola el Trial no fiscal aceptado; recovery/PITR `PASS`/decisión aprobada; Trial `NOT EXECUTED`. |
+
+#### Congelación y reanudación de compras para el corte de Rules (propuesta)
+
+No se encontró un interruptor técnico que detenga todas las compras durante el
+despliegue. La congelación siguiente es manual, no un control técnico; los
+operadores y la ventana no están asignados, por lo que el corte permanece
+`BLOCKED`.
+
+| Paso | Responsable | Acción y señal de control |
+|---|---|---|
+| Autorizar ventana y congelación | Propietario/administrador del proyecto | Fijar hora, duración y tenants participantes; emitir orden de no iniciar compras. La autorización de Rules debe ser específica e independiente. |
+| Detener y drenar compras | Administrador operativo de cada tenant activo/trial, por designar | Cerrar borradores, detener compras nuevas y confirmar cero operaciones en vuelo. Reconciliar cualquier confirmación incierta antes de cortar; no reintentar a ciegas. |
+| Ejecutar release | Operador de release que designe el propietario; actualmente no asignado | Releer SHA, Rules, Functions, Vercel y conjunto de empresas. Con autorización independiente, desplegar la callable dirigida, verificar hash/guard de operación nueva y replay, publicar Vercel del SHA exacto y desplegar Rules como release completa. Detenerse ante cualquier delta adicional. |
+| Verificar durante la pausa | Operador de release y revisor de solo lectura autorizados, ambos por designar | Comparar SHA fuente/remoto de Rules, versión callable, deployment y alias. Observar 5xx, `permission-denied` inesperado en flujos GENERAL y reportes de administradores. No usar compras productivas como sonda. |
+| Reanudar | Propietario/administrador del proyecto, tras confirmación de administradores tenant | Reanudar solo con hashes/alias esperados, comprobaciones de lectura satisfactorias y sin errores de autorización no resueltos; registrar hora y evidencia. |
+
+**Incompatibilidad y forward-fix:** antes del corte, Emulator debe demostrar
+lecturas/escrituras permitidas y denegadas por rol/vertical, incluidas rutas
+GENERAL preservadas por ADR-SAAS-072. Durante el corte, cualquier
+`permission-denied` inesperado en una compra GENERAL, error 5xx, hash/alias
+distinto, falta del guard legacy para Bodega o denegación del acceso Bodega
+esperado obliga a mantener la pausa y detener el resume. Corregir la fuente y
+desplegar un forward-fix aprobado con nueva verificación. No restaurar
+automáticamente las Rules antiguas: reabrirían escrituras directas de compra.
+Cualquier break-glass requiere control alternativo demostrado y autorización
+operativa explícita. Aunque la lectura actual vio dos empresas activas/trial,
+no se examinaron sus verticales/membresías, no se designaron sus operadores y
+no existe una empresa Bodega productiva; esta propuesta no demuestra que el
+corte sea ejecutable hoy.
+
+No se ejecutaron despliegues Rules/Functions/Vercel, smoke autenticado,
+escrituras productivas, cambios IAM/Secrets, alta de empresa/usuario, emisión
+DIAN ni Trial. Gate I permanece `INCOMPLETE`; E2.2 no está certificado.
