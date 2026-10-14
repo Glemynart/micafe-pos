@@ -489,3 +489,15 @@ históricos publicados.
 
 No hubo mutaciones productivas, despliegues, pruebas autenticadas de producción,
 creación/activación de tenant ni inicio de Trial durante esta auditoría.
+
+#### Política de privacidad y contribución — conclusión
+
+| Base | Conclusión |
+|---|---|
+| Política explícita | `MASTER-SECURITY-PLAN.md` prohíbe versionar documentos completos con PII y exige que logs y artefactos de evidencia redacten PII y secretos. ADR-SAAS-012 exige evidencia mínima sin PII innecesaria. `SECURITY.md` prohíbe publicar información sensible en issues. No se encontró `CONTRIBUTING`, ni una política que ordene usar `noreply` en autor/committer, que autorice conservar correos identificables en metadatos Git, o que mandate reescribir historia publicada. |
+| Evidencia | El correo identificable está en tres objetos Git ya publicados; no está en documentación, diff, mensajes, cuerpo/comentario del PR ni evidencia nueva. Las actualizaciones posteriores usan identidad `noreply`. |
+| Aplicación prudente | La evidencia y los logs cumplen minimización al no repetir el dato. La política no permite concluir que conservar los metadatos publicados sea aceptable, ni impone una reescritura con sus riesgos. |
+| Recomendación | Mantener el merge congelado y la rama sin force-push. Se necesita una decisión explícita del titular/responsable de privacidad entre aceptar la conservación informada del historial o autorizar una reescritura coordinada. Aunque se autorice reescribir, no prometer purga completa de objetos históricos, cachés, notificaciones, forks o clones. |
+
+Esta conclusión no crea una autorización de producción ni cambia los estados de
+Gate I, restore, PITR, tenant o Trial.
