@@ -11,7 +11,7 @@
 - **Resultado:** un primer cliente real opera MiCafe POS durante un Trial ANUAL server-side de 30 días, con provisioning reproducible, onboarding, operación crítica, soporte, recuperación cuando aplique y cierre contractual evidenciado.
 - **Estado:** ACTIVO
 - **Inicio formal:** 2026-08-12
-- **Rama base:** `main @ ffcba614da092c8762171d498310794fe049cd95` (PR #567–#577 y #579 integrados; CI post-merge de #579, run `38324356117`, seguía `in_progress` al snapshot `2026-10-12T23:54Z`; ver [auditoría de Gate A](evidence/G-SAAS-02-E2-2-GATE-A-DOCUMENTATION-AUDIT-2026-10-12.md))
+- **Rama base:** `main @ bdc39726ac0c555c96abdc60cc1021ff2fc6141c` (PR #589 integrado; CI post-merge run `38522735665` en verde; ver [revalidación read-only post-merge de Gate I](evidence/G-SAAS-02-E2-2-GATE-I-POSTMERGE-READONLY-REVALIDATION-BDC397-2026-10-14.md))
 - **Fuente de autorización:** `AUTORIZACIÓN DE EJECUCIÓN — G-SAAS-02`
 - **Decisiones comerciales preservadas:** precio público anual `1.800.000 COP`; oferta específica aprobada para Bodega `1.600.000 COP` por el año, pago manual, Trial de 30 días, todos los módulos disponibles y un Espacio operativo interno. La oferta del tenant no cambia el precio público del Plan.
 
