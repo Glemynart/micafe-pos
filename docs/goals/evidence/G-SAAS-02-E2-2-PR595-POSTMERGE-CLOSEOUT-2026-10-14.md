@@ -54,7 +54,7 @@ Lecturas de solo consulta realizadas el 2026-10-14, sin modificar producción:
 | Vercel | Deployment `READY` más reciente: `cafeatrato-2mgbt0pse-glemynarts-projects.vercel.app`, alias `cafeatrato-git-main-glemynarts-projects.vercel.app`, SHA `1c2f155653536b1fd8e1925db931e2354fa41f7d`, 2026-10-06. Los deploys automáticos desde `main` están deshabilitados. | El SHA integrado no está publicado; no se hizo publicación manual. Falta autorización específica, fijar SHA y documentar rollback. |
 | Smoke productivo | Sin atestación autenticada para el release objetivo. | Requiere identidad y alcance productivos autorizados; Preview/staging no lo sustituyen. |
 | Restore y PITR | Restore aislado `gsaas02-recovery-20261014` en `southamerica-east1`: `VERIFIED`, `RPO=8.307 h`, `RTO=0.220 h`, `sourceUntouched=true`, `applicationCutover=false`. La evidencia indica artefacto JSON local. PITR está deshabilitado según ADR-SAAS-031; hay schedule diario/35 backups. | Restore independiente verificado; el artefacto JSON no está en este worktree. PITR deshabilitado es política aprobada, no bloqueo. No se restauró `(default)` ni se activó PITR. |
-| Trial de Diana | `2026-10-15` es la nueva fecha objetivo interna indicada por el responsable el `2026-10-14`; continúa pendiente de confirmación directa de Diana. | No iniciar el Trial ni provisionar hasta que Diana confirme esa fecha y se satisfagan los gates/autorizaciones correspondientes. |
+| Trial de Diana | El responsable informó el `2026-10-14` que Diana confirmó la fecha objetivo `2026-10-15`. | Fecha confirmada según reporte del responsable; el Trial y el tenant siguen `NOT EXECUTED` hasta satisfacer las verificaciones, gates y autorizaciones aplicables. |
 
 ### Estado operativo de los controles
 
@@ -75,7 +75,7 @@ se omitió deliberadamente y no se presume aprobada.
 | Smoke autenticado de producción | `NOT EXECUTED` | Falta identidad y alcance productivos autorizados. Preview y staging no sustituyen esa atestación. |
 | Emisión DIAN web | `BLOCKED` | No existe una ruta web Factus server-side en este repositorio; requiere ADR/arquitectura y trabajo separado. La pausa aceptada no se amplía. |
 | PITR | `PASS` | Deshabilitado según ADR-SAAS-031; no se activó ni se ejecutó restauración productiva. |
-| Tenant, Trial y carga de catálogo de Diana | `NOT EXECUTED` | La fecha objetivo `2026-10-15` aún no tiene confirmación directa de Diana; tenant y transcripción digital tampoco están aprobados para crear/importar. |
+| Tenant, Trial y carga de catálogo de Diana | `NOT EXECUTED` | Diana confirmó, según informó el responsable el `2026-10-14`, la fecha objetivo `2026-10-15`. Tenant y transcripción digital siguen sin autorización para crear/importar; no iniciar hasta satisfacer gates y verificaciones aplicables. |
 
 Gate I continúa `BLOCKED`/`INCOMPLETE`; no se registra un `FAIL` de pruebas
 locales ni se presenta como ejecutado ningún smoke, deploy o escritura productiva.
@@ -144,8 +144,9 @@ No hubo habilitación de APIs, deploy, escritura, cambio IAM/Secrets ni smoke pr
 ## Preparación del Trial de Diana — actualización 2026-10-14
 
 La tabla de la revalidación de las 19:03:51Z conserva el estado observado en
-ese instante. La instrucción posterior del responsable fija el objetivo del
-Trial para `2026-10-15`, todavía pendiente de confirmación expresa de Diana.
+ese instante. En la actualización inicial del runbook, el objetivo del Trial
+para `2026-10-15` todavía estaba pendiente de confirmación; véase la
+confirmación posterior del responsable registrada abajo.
 No se creó ni activó el tenant real, no se inició el Trial, no se importó el
 catálogo y no hubo escrituras productivas.
 
@@ -183,9 +184,14 @@ funcional ni como cierre de Gate I. El guard UI de ADR-SAAS-079 sigue limitado
 a `Cafe Atrato` y `Prueba`; no se amplió el allowlist al tenant todavía
 inexistente de Diana.
 
-La fecha objetivo más reciente para iniciar el Trial es `2026-10-15`, pendiente
-de confirmación directa de Diana. La fecha no se considera acordada por su sola
-repetición en este runbook.
+La fecha objetivo más reciente para iniciar el Trial es `2026-10-15`. El
+responsable informó el `2026-10-14` que Diana confirmó esa fecha. Esta evidencia
+registra el reporte del responsable; no representa inicio del Trial ni
+autorización para crear el tenant. Las verificaciones y autorizaciones
+aplicables siguen siendo condición previa.
+
+No se creó ni activó el tenant real, no se inició el Trial, no se importó el
+catálogo y no hubo escrituras productivas.
 
 ## Snapshot previo de PR #596 y fuente visual del catálogo — 2026-10-14
 
@@ -250,7 +256,7 @@ fbd45436f62eb06950bf9a671e204d9b00679f3d`. Reportó `INCOMPLETE`,
 | Smoke productivo | `NOT EXECUTED` | Sin atestación; falta identidad y alcance de producción autorizados expresamente. No improvisar credenciales ni sustituirlo por Preview/Emulator. |
 | Recovery y PITR | Restore aislado `PASS` previo; collector recovery `MISSING`; PITR `PASS` según decisión | Restore independiente previamente verificado (`RPO=8.307 h`, `RTO=0.220 h`, fuente intacta, sin cutover). Este collector no recibió la atestación. PITR deshabilitado, 1 schedule/35 backups en `southamerica-east1`; no activar PITR ni restaurar `(default)`. |
 | Catálogo y onboarding | Recepción `PASS`; importación `BLOCKED`/`NOT EXECUTED` | Las cuatro fotos son la fuente visual de 110 filas. No existe maestro editable aprobado en ubicaciones consultadas; el CSV privado es borrador estructural, sin cotejo semántico ni aprobación exacta. Diana o responsable debe cotejar y aprobarlo o proporcionar CSV/XLSX aprobado. El runbook deja a Diana como admin inicial, crea vendedores/roles y entrega credencial temporal fuera de banda; bootstrap real `NOT EXECUTED`. |
-| Trial de Diana | `BLOCKED`/`NOT EXECUTED` | `2026-10-15` es fecha objetivo, pendiente de confirmación directa de Diana. No se creó tenant ni se inició el Trial. |
+| Trial de Diana | `BLOCKED`/`NOT EXECUTED` | Diana confirmó, según informó el responsable el `2026-10-14`, la fecha objetivo `2026-10-15`. No se creó tenant ni se inició el Trial; faltan verificaciones, gates y autorizaciones aplicables. |
 | Operación no fiscal | `PASS` en pruebas locales/Emulator; producción `NOT EXECUTED` | E2E Bodega `12/12` local y suites E2E CI verdes. La emisión DIAN web no está disponible; la excepción aprobada aplica solo a `Cafe Atrato` y `Prueba` y no certifica otros tenants. |
 | Cambios productivos | `NOT EXECUTED` | No hubo Rules/Functions/Vercel deploy, smoke autenticado, tenant, importación, escrituras de inventario/finanzas, cambios IAM/Secrets ni PITR. |
 
