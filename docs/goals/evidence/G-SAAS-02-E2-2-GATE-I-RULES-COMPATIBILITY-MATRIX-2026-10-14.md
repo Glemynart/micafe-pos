@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate I: matriz de compatibilidad de Firestore Rules
 
-**Fecha de revisión:** 2026-10-14
+**Fecha de revisión:** 2026-10-14 15:18 UTC
 
 **SHA de código revisado:** `main @ 34fc2da84836b77b8320df32c05a22aad0158227` (PR #593 solo documental; código igual a #592)
 
@@ -29,22 +29,23 @@ independientes.
 
 ## Evidencia de solo lectura y límites
 
-La relectura del colector a las `2026-10-14T12:02:14.745Z` verificó SHA, CI,
-Functions y metadatos de recuperación. La lectura directa anterior de Rules,
-Storage y Vercel fue a las `2026-10-14T11:42:17Z`; el colector actual no recibió
-una atestación independiente de Rules/Storage:
+La relectura read-only del colector a las `2026-10-14T15:18:29.390Z` verificó
+SHA, CI, Functions, Rules, Storage y metadatos de recuperación
+(`collectionErrors=[]`). La API de estado de GitHub no reportó un check Vercel
+exitoso para el SHA objetivo; la última consulta directa de deployments Vercel
+disponible es de las `2026-10-14T11:42:17Z` y debe repetirse antes del release.
 
 | Superficie | Resultado observado |
 |---|---|
 | `origin/main` | `34fc2da84836b77b8320df32c05a22aad0158227` |
 | CI post-merge de #593 | Run `38556393442`, SHA `34fc2da84836b77b8320df32c05a22aad0158227`, terminó `completed/success`. |
-| Functions | 104/104 `ACTIVE`, Node.js 22; se reconciliaron hashes por Function. Las 24 funciones Bodega (13 objetivo + 11 soporte) están `ACTIVE`. |
-| Compras legacy | `registrarCompraOperativaV1` sigue `ACTIVE`; hash remoto `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`, anterior al guard ADR-SAAS-075 en el código de `main`. |
-| Firestore Rules | `MISMATCH`; release `d5e205db-0ab4-4db1-b5ec-1534bee39d35`, actualizada `2026-08-15T04:20:46Z`. SHA fuente `2dc12a5972c216601a21cbae6be73bd787558f4fdad4a33227f05dee37087b91`; SHA remoto `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`. |
-| Storage Rules | Coinciden con la fuente revisada. |
-| Vercel | Consulta directa: 73 deployments; el último `READY` productivo sigue en SHA `1c2f155653536b1fd8e1925db931e2354fa41f7d` del 6-oct. No hay deployment del SHA objetivo. |
+| Functions | A las 15:18Z, 104/104 `ACTIVE`, Node.js 22, hashes reconciliados por Function. Las 24 funciones Bodega (13 objetivo + 11 soporte) están `ACTIVE`; el inventario de las 15:16Z no mostró `wompiReservasWebhookV1`. |
+| Compras legacy | A las 15:18Z, `registrarCompraOperativaV1` sigue `ACTIVE`; hash remoto `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`, anterior al guard ADR-SAAS-075 en el código de `main`. |
+| Firestore Rules | `MISMATCH`; release `d5e205db-0ab4-4db1-b5ec-1534bee39d35`, actualizada `2026-08-15T04:20:46Z`. SHA fuente `2dc12a5972c216601a21cbae6be73bd787558f4fdad4a33227f05dee37087b91`; SHA remoto `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`. Confirmado por lectura directa 15:18Z. |
+| Storage Rules | `PASS`; release `projects/micafe-pos/releases/firebase.storage/micafe-pos.firebasestorage.app`, actualizada `2026-08-14T01:09:03.64385Z`; SHA fuente y remoto `fc837a77b952f3f2cf9e6eec24e7962eb0177a992f0776810d4798b5a1ee9f2b`. Confirmado por lectura directa 15:18Z. |
+| Vercel | El estado consultado a las 15:18Z no acredita un check Vercel exitoso para el SHA objetivo. La consulta directa de las 11:42Z vio 73 deployments y como último `READY` productivo el SHA `1c2f155653536b1fd8e1925db931e2354fa41f7d` del 6-oct; revalidar antes del release. |
 | Smoke independiente | Falta evidencia para el artefacto productivo objetivo. |
-| Recuperación | PITR está deshabilitado; hay un backup schedule y 35 backups en `southamerica-east1`. Existe evidencia de restore aislado independiente PASS del 15-ago; el colector del release actual aún informa `MISSING` porque no recibió una atestación vigente. ADR-SAAS-031 mantiene PITR fuera de alcance. |
+| Recuperación | A las 15:18Z, PITR está deshabilitado; hay un backup schedule y 35 backups en `southamerica-east1`. Existe evidencia de restore aislado independiente PASS del 15-ago; el colector informa `MISSING` porque no recibió una atestación vigente para este release. ADR-SAAS-031 mantiene PITR fuera de alcance. |
 
 Las trece rutas objetivo activas son `crearClienteVendedorBodegaV1`,
 `crearPresentacionComercialBodegaV1`, `actualizarPresentacionComercialBodegaV1`,
@@ -112,8 +113,8 @@ por documento y consulta tenant-scoped para rol y vertical; ventas read-only y
 rechazo de `setDoc(..., { merge: true })` para metadatos DIAN. No se cambió
 `firestore.rules` ni se contactaron documentos de negocio.
 
-ADR-SAAS-078 Opción 1 fue aceptada bajo la autorización del responsable para
-delegar decisiones. El candidato de esta rama conserva
+El responsable aprobó explícitamente ADR-SAAS-078 Opción 1 el `2026-10-14`.
+La aprobación autoriza preparar la PR, pero no desplegar. El candidato de esta rama conserva
 `functions/src/reservas-publicas/wompi.ts` y sus pruebas, pero elimina
 `wompiReservasWebhookV1` del barrel de `saas-auth`; todavía no se hizo deploy
 ni se alteró el proyecto productivo.
@@ -155,12 +156,12 @@ consultaron secretos, datos de negocio o credenciales.
 | Manejo de entradas | Payloads autenticados no fueron ejecutados; validar en pruebas Emulator y Functions existentes antes de release. |
 | Exposición de datos | Riesgos de lecturas amplias y perfiles/ledger identificados en la matriz. |
 | Criptografía | Sin cambio ni revisión criptográfica; no se leyeron ni alteraron llaves. |
-| Integraciones de terceros | El preflight de `saas-auth` se detuvo al resolver `WOMPI_EVENTS_SECRET`; no se leyó ni cambió el secreto. ADR-SAAS-078 Opción 1 está aceptada en la rama de Gate I y retira solo el export del webhook no desplegado, conservando módulo y pruebas. |
-| Manejo de errores | No se consultaron secretos. El preflight histórico de `saas-auth` se detuvo por `WOMPI_EVENTS_SECRET`; el candidato de Gate I ya lo excluye del discovery. Falta verificar el delta productivo después de merge. |
+| Integraciones de terceros | El preflight de `saas-auth` se detuvo al resolver `WOMPI_EVENTS_SECRET`; no se leyó ni cambió el secreto. ADR-SAAS-078 Opción 1 fue aprobada explícitamente y el candidato retira solo el export del webhook no desplegado, conservando módulo y pruebas. |
+| Manejo de errores | No se consultaron secretos. El preflight histórico de `saas-auth` se detuvo por `WOMPI_EVENTS_SECRET`; el candidato de Gate I ya lo excluye del discovery. Falta verificar el delta productivo después de integrar y antes de cualquier deploy. |
 
 | ID / severidad | Hallazgo | Remediación requerida |
 |---|---|---|
-| I-01 / HIGH — A01, Tampering | La callable legacy de compras está activa con hash previo al guard ADR-SAAS-075, mientras `main` ya contiene el guard. ADR-SAAS-078 Opción 1 está aceptada y el candidato elimina el webhook Wompi del export, sin borrar su módulo. | Integrar el candidato, confirmar inmediatamente que el webhook no existe en remoto, hacer preflight exacto de `registrarCompraOperativaV1`, desplegar solo esa actualización y comprobar operación nueva + replay por hash/tests. Detener ante cualquier otro delta. |
+| I-01 / HIGH — A01, Tampering | La callable legacy de compras está activa con hash previo al guard ADR-SAAS-075, mientras `main` ya contiene el guard. ADR-SAAS-078 Opción 1 está aceptada explícitamente y el candidato elimina el webhook Wompi del export, sin borrar su módulo. | Tras integrar el candidato, confirmar inmediatamente que el webhook no existe en remoto y hacer preflight exacto de `registrarCompraOperativaV1`. Un deploy solo podría ocurrir con autorización explícita, luego de demostrar operación nueva + replay por hash/tests. Detener ante cualquier otro delta. |
 | I-02 / HIGH — A01, A04 | Rules remoto difiere de `main`; todavía permite escritura directa admin de compras y deniega señales Bodega. Un deploy completo también modifica otros paths. | Completar pruebas por vertical y gates de corte; solo aplicar Rules tras guard legacy y preflight exacto aprobado. |
 | I-03 / MEDIUM — A01 | `guardarMetadatosDian()` conserva un writer cliente que las Rules de `main` niegan; DIAN real está fuera del Trial DEMO inicial, pero se desconoce si otro tenant productivo usa esa ruta. | Antes del corte global, confirmar el impacto en tenants activos. Si DIAN está en uso, resolver la persistencia con autoridad server-side y decisión aprobada; no restablecer la transición cliente insegura. |
 | I-04 / MEDIUM — A05 | No se acreditó el SHA Vercel objetivo ni existen atestaciones independientes de smoke y restore. | Alinear Vercel al SHA de release y probar smoke/restore con identidad aprobada y destino aislado, sin usar `(default)`. |
@@ -204,7 +205,7 @@ para ejecutar el corte.
 
 Las rutas Bodega solicitadas ya están publicadas. Lo pendiente para completar
 Gate I es actualizar y verificar la callable legacy mediante un camino
-autorizado que no dependa de `WOMPI_EVENTS_SECRET`, terminar el preflight de
+aprobado que no dependa de `WOMPI_EVENTS_SECRET`, terminar el preflight de
 Rules y su rollback (incluido el impacto DIAN en tenants existentes), certificar
 un deployment Vercel del mismo SHA y cerrar las atestaciones independientes de
 smoke/recovery requeridas por el release. PITR permanece desactivado según
