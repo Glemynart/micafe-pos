@@ -54,7 +54,7 @@ Lecturas de solo consulta realizadas el 2026-10-14, sin modificar producción:
 | Vercel | Deployment `READY` más reciente: `cafeatrato-2mgbt0pse-glemynarts-projects.vercel.app`, alias `cafeatrato-git-main-glemynarts-projects.vercel.app`, SHA `1c2f155653536b1fd8e1925db931e2354fa41f7d`, 2026-10-06. Los deploys automáticos desde `main` están deshabilitados. | El SHA integrado no está publicado; no se hizo publicación manual. Falta autorización específica, fijar SHA y documentar rollback. |
 | Smoke productivo | Sin atestación autenticada para el release objetivo. | Requiere identidad y alcance productivos autorizados; Preview/staging no lo sustituyen. |
 | Restore y PITR | Restore aislado `gsaas02-recovery-20261014` en `southamerica-east1`: `VERIFIED`, `RPO=8.307 h`, `RTO=0.220 h`, `sourceUntouched=true`, `applicationCutover=false`. La evidencia indica artefacto JSON local. PITR está deshabilitado según ADR-SAAS-031; hay schedule diario/35 backups. | Restore independiente verificado; el artefacto JSON no está en este worktree. PITR deshabilitado es política aprobada, no bloqueo. No se restauró `(default)` ni se activó PITR. |
-| Trial de Diana | Una confirmación anterior propuso `2026-10-15`. La instrucción del propietario del `2026-10-14` la supersedió y exige acordar una nueva fecha. | Nueva fecha pendiente; no iniciar el Trial ni provisionar hasta acordarla y satisfacer los gates/autorizaciones correspondientes. |
+| Trial de Diana | `2026-10-15` es la nueva fecha objetivo interna indicada por el responsable el `2026-10-14`; continúa pendiente de confirmación directa de Diana. | No iniciar el Trial ni provisionar hasta que Diana confirme esa fecha y se satisfagan los gates/autorizaciones correspondientes. |
 
 ### Preflight dirigido de `registrarCompraOperativaV1`
 
@@ -137,10 +137,12 @@ Este resultado no sustituye el deploy ni el smoke autenticado productivo.
 Para la preparación de Diana se conserva el alcance aprobado: Distribuidora
 Las Jiménez, vertical `BODEGA_MVP1`, Diana como administradora inicial y
 creación posterior de vendedores/roles por ella; oferta anual tenant-specific
-de `1.600.000 COP`, pago manual y Trial de 30 días; catálogo aprobado de 110
-productos con empaques y precios de venta, inventario inicial en cero. No se
-halló en este checkout un artefacto digital aprobado del catálogo para
-importar. No se registran datos comerciales reales ni se inventan credenciales
+de `1.600.000 COP`, pago manual y Trial de 30 días. La aprobación de contenido
+del catálogo (110 productos, empaques y precios de venta, inventario inicial
+en cero) está reportada en la reconciliación previa, pero el CSV local concreto
+no tiene aprobación verificable ni cotejo fila por fila con la fuente visual.
+No se halló un archivo maestro digital editable aprobado para importar. No se
+registran datos comerciales reales ni se inventan credenciales
 durante la preparación. Una vez autorizado el bootstrap, verificar de forma
 read-only estado y periodo del Trial, membresía/rol/claims de Diana, credencial
 temporal, módulos y espacio; Diana completará el perfil al primer acceso y
@@ -157,6 +159,10 @@ funcional ni como cierre de Gate I. El guard UI de ADR-SAAS-079 sigue limitado
 a `Cafe Atrato` y `Prueba`; no se amplió el allowlist al tenant todavía
 inexistente de Diana.
 
+La fecha objetivo más reciente para iniciar el Trial es `2026-10-15`, pendiente
+de confirmación directa de Diana. La fecha no se considera acordada por su sola
+repetición en este runbook.
+
 ## Seguimiento PR #596 y fuente visual del catálogo — 2026-10-14
 
 PR #596 (`docs(gate-i): record PR 595 post-merge closeout`) se revalidó para el
@@ -167,16 +173,34 @@ pruebas 16m26s). La auditoría del head confirmó un diff solo documental, sin
 código runtime, datos ni cambios de producción. El PR continúa abierto y no se
 integra ni declara `DONE` en esta actualización.
 
-El responsable proporcionó cuatro fotografías de las hojas impresas del
-catálogo. En las ubicaciones consultadas del proyecto y recursos disponibles
-no se encontró el archivo digital maestro editable y aprobado de 110 productos
-(CSV o XLSX). Se verificó una transcripción privada local con filas
-1–110 consecutivas, precios numéricos y stock inicial cero. No se versionaron
-las imágenes ni la transcripción, porque el repositorio remoto es público. El
-CSV local permanece como borrador y no se importó. Diana o la persona
-responsable del catálogo debe proporcionar el archivo maestro o validar la
-transcripción y resolver las descripciones cuyo empaque/unidad no resulta
-inequívoco. No se reconstruyeron unidades ni empaques por inferencia.
+El responsable proporcionó cuatro fotografías de las hojas impresas, que sí
+constituyen la fuente visual del catálogo y cubren las filas 1–110. En las
+ubicaciones consultadas del proyecto y recursos disponibles no se encontró el
+archivo maestro digital editable aprobado (CSV o XLSX). La transcripción
+privada local pasó únicamente controles estructurales: 110 filas con numeración
+consecutiva 1–110, cuatro campos esperados sin vacíos, 110 precios numéricos,
+stock cero en las 110 filas y ningún nombre de producto duplicado tras
+normalización. No se realizó cotejo semántico fila por fila contra las fotos y
+la aprobación previa del contenido no acredita la aprobación del CSV concreto.
+El archivo permanece como borrador y no se importó. Diana o la persona
+responsable del catálogo debe aprobar esta transcripción exacta después del
+cotejo y resolver descripciones con empaque/unidad ambiguos, o proporcionar el
+archivo maestro aprobado. La regla documentada `x N unidades` expresa un
+empaque de N y las bebidas fuertes sin múltiplo expreso se venden por unidad;
+no se infieren otros factores. No se versionaron las imágenes ni la
+transcripción, porque el repositorio remoto es público.
+
+La lectura read-only de producción de `2026-10-14T20:51:56Z` mantiene Gate I
+`INCOMPLETE`: 104/104 Functions activas en Node.js 22; el hash remoto de
+`registrarCompraOperativaV1` sigue siendo anterior al guard fuente; Firestore
+Rules conserva el `MISMATCH` descrito en la matriz y Storage coincide. El
+deployment Vercel `READY` más reciente continúa en SHA
+`1c2f155653536b1fd8e1925db931e2354fa41f7d`, no el SHA integrado; no se ejecutó
+smoke autenticado por falta de identidad y alcance productivos autorizados. El
+collector observó PITR deshabilitado, un schedule y 35 backups. El restore
+aislado del 14-oct permanece documentado como `VERIFIED`, aunque su atestación
+externa no fue importada por el collector. No se desplegó ni escribió en
+producción.
 
 ## Estado comprobable de preparación y Gate I
 

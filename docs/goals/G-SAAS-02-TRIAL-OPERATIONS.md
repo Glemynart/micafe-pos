@@ -93,16 +93,21 @@ fixture.
   presentarse como una capacidad activa. La aceptación temporal de operar sin
   emisión no cierra Gate I ni certifica DIAN para otros tenants.
 - Catálogo recibido: el responsable aportó cuatro fotos de las hojas impresas
-  con las filas 1–110. En las ubicaciones consultadas del proyecto y recursos
-  disponibles no se encontró el archivo digital maestro editable y aprobado
-  del catálogo de 110 productos (CSV o XLSX). Diana o la persona
-  responsable del catálogo debe proporcionar ese archivo o validar la
-  transcripción de las fotos y resolver las presentaciones/unidades ambiguas
-  antes de importar. La transcripción privada es solo un borrador con 110 filas
-  consecutivas, precios numéricos y stock inicial cero. Está en
-  `.codex/private/`, ignorada por Git; el repositorio es público, así que no se
-  incorporan las fotos ni los nombres/precios del catálogo a GitHub. No se
-  importó ni escribió en ningún tenant. El costo de compra se organizará
+  que cubren las filas 1–110; esas imágenes son la fuente visual recibida, no
+  un recurso faltante. En las ubicaciones consultadas del proyecto y recursos
+  disponibles no se encontró un archivo maestro digital editable y aprobado
+  (CSV o XLSX). La transcripción privada local supera la validación estructural
+  (110 filas consecutivas, campos completos, precios numéricos y stock inicial
+  cero), pero sigue siendo un borrador: no se ha cotejado fila por fila contra
+  las fotos ni se aprobó ese artefacto digital específico. Diana o la persona
+  responsable del catálogo debe validar la transcripción y resolver las
+  presentaciones/unidades ambiguas, o proporcionar el archivo maestro aprobado,
+  antes de importar. La referencia documentada es que `x N unidades` expresa
+  un empaque de N unidades y que las bebidas fuertes sin múltiplo expreso se
+  venden por unidad; no se extrapola esa regla a descripciones ambiguas. El
+  borrador permanece en `.codex/private/`, ignorado por Git; el repositorio es
+  público, así que no se incorporan las fotos ni nombres/precios del catálogo
+  a GitHub. No se importó ni escribió en ningún tenant. El costo de compra se organizará
   después desde compras reales de Bodega. Con existencias en cero no se confirma
   una venta real hasta ingresar inventario por el flujo canónico de compras,
   una vez que Gate I confirme y certifique su despliegue productivo.

@@ -266,3 +266,25 @@ pendiente. No se inició ni se provisionó el tenant. No hubo deploy, escritura
 productiva, cambio IAM/Secrets o restauración de `(default)`.
 
 El dictamen de Gate I permanece `INCOMPLETE`.
+
+## Relectura directa previa al cierre de #596 — 2026-10-14T20:51:56Z
+
+El colector `release-evidence.ts` leyó `micafe-pos` contra
+`origin/main @ f08fa1ca6466bfc84c39d771f34e494aaf9b2386`. Resultado
+`INCOMPLETE`, `collectionErrors=[]`, `readOnly=true` y
+`productionWrites=false`. CI post-merge `38615549091` terminó `success` para ese
+SHA.
+
+| Superficie | Observación actual | Estado / límite |
+|---|---|---|
+| Functions | 104/104 `ACTIVE`, runtime `nodejs22`. `registrarCompraOperativaV1` conserva el hash remoto `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`; la fuente integrada contiene el guard ADR-SAAS-075 para operación nueva y replay. | Hash remoto anterior; despliegue dirigido `NOT EXECUTED` y sin autorización productiva. |
+| Firestore Rules | Release `projects/micafe-pos/rulesets/d5e205db-0ab4-4db1-b5ec-1534bee39d35`, actualizada `2026-08-15T04:20:46.318849Z`. SHA remoto `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`; fuente de `main` `2dc12a5972c216601a21cbae6be73bd787558f4fdad4a33227f05dee37087b91`. | `MISMATCH`; no desplegar. |
+| Diferencias estructurales de Rules | La comparación directa contó 59 bloques `match` en `main`, 53 en el ruleset remoto y 15 bloques con texto distinto. Catorce son las diferencias de permisos enumeradas en esta matriz. El bloque adicional `/provisionamientos_empresariales/{id}` deniega explícitamente en `main`, mientras que producción lo deniega por el catch-all; no cambia el permiso efectivo. El preámbulo de `main` también tiene helpers de vertical/membresía y reglas de señales Bodega ausentes en el ruleset remoto. | El rótulo de “14 paths” identifica divergencias de comportamiento, no todos los deltas textuales. La comparación no altera Rules y no reemplaza el análisis de dependencias, Emulator ni el preflight del corte. |
+| Storage Rules | SHA remoto y de `main` `fc837a77b952f3f2cf9e6eec24e7962eb0177a992f0776810d4798b5a1ee9f2b`. | `PASS` para igualdad de fuente en esta lectura. |
+| Vercel producción | El deployment más reciente es `dpl_4viR3AppP838CJjtUHYeBLo1W19C`, `READY`, creado `2026-10-06T14:52:13.319Z`, con SHA `1c2f155653536b1fd8e1925db931e2354fa41f7d` y alias `cafeatrato-git-main-glemynarts-projects.vercel.app`. | El SHA integrado `f08fa1ca...` no está publicado; GitHub tampoco acredita un check Vercel exitoso para el SHA objetivo. No publicar. |
+| Smoke autenticado | No se ejecutó. | `NOT EXECUTED`: no hay identidad ni alcance productivos expresamente autorizados, ni tenant real de Diana. No improvisar credenciales o movimientos. |
+| Recuperación / PITR | El colector observó PITR `false`, un backup schedule y 35 backups en `southamerica-east1`. La evidencia independiente del restore aislado del 14-oct sigue registrada como `VERIFIED` (`RPO=8.307 h`, `RTO=0.220 h`); el colector mantiene `MISSING` porque no ingiere esa atestación externa y su artefacto JSON no está en este worktree. | No repetir restore ni activar PITR. La ausencia de ingestión del collector no invalida el resultado ya documentado. |
+
+Esta relectura es informativa y no cambia autorización alguna. No se ejecutaron
+despliegues, escrituras de producción, altas de tenant ni smoke. Gate I continúa
+`INCOMPLETE`.
