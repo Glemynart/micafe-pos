@@ -331,3 +331,33 @@ contra `origin/main @ f25ef9b9743511bd5bdedeb24df90269213c99fb`. Resultado
 No hubo despliegues, smoke, escrituras productivas, creación de tenant,
 activación de usuarios, cambios IAM/Secrets ni operaciones PITR. Gate I sigue
 `INCOMPLETE`; esta lectura fresca no elimina los bloqueos productivos.
+
+### Verificación adicional de preflight — 2026-10-14T23:24Z
+
+Esta actualización complementa la lectura de `23:09Z` sin reemplazar sus
+hashes ni convertir una preparación en autorización:
+
+| Frente | Verificación | Resultado y límite |
+|---|---|---|
+| CI post-merge de `main` | Run `38650796029`, SHA `f25ef9b9743511bd5bdedeb24df90269213c99fb`, actualizado `2026-10-14T23:18:46Z`. | `PASS` (`completed/success`). No equivale a CI de producción publicada ni a cierre de Gate I. |
+| Conjunto `activa`/`trial` | GET completo de `projects/micafe-pos/databases/(default)/documents/empresas`, observado `2026-10-14T23:23:11.482Z`: 2 documentos `activa`/`trial` (1 `activa`, 1 `trial`), ambos IDs del alcance ADR-SAAS-079; 0 adicionales. No se imprimieron nombres ni datos comerciales. | `PASS` para la fotografía observada. Repetir inmediatamente antes de cualquier corte de Rules y detenerse si cambia. No es permiso de despliegue. |
+| Rules en `main` | Comparación de cada fila de la matriz con `firestore.rules` en el SHA fuente de la lectura anterior. `npm run test:rules`: 45/45, 0 fallos. | Compatibilidad local `PASS`; producción `MISMATCH`. La matriz incluye los 14 paths efectivos, sus consumidores y pruebas. Tres cambios textuales son denegaciones explícitas equivalentes al catch-all; otros cambios verticalizan Bodega/preservan GENERAL o endurecen perfiles/ventas. El impacto de `/compras` y el writer DIAN exige orden de corte; el hash remoto no cambió en esta evidencia. |
+| Compra legacy | `npm run build:functions`: `PASS`; `npm run test:auth-foundation`: 441 casos, 436 `PASS`, 5 `SKIP`, 0 fallos. El JavaScript compilado contiene el guard `BODEGA_USE_CANONICAL` tanto para operación nueva como para replay. Callable activa: Gen2, Node.js 22, `us-central1`, `saas-auth`; endpoint `https://us-central1-micafe-pos.cloudfunctions.net/registrarCompraOperativaV1`; hash remoto `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`. | Código/artefacto local verificados; producción aún ejecuta la versión antigua (`FAIL` de versión requerida). Comando dirigido preparado, `NOT EXECUTED`: `firebase deploy --project micafe-pos --only functions:saas-auth:registrarCompraOperativaV1`. No se ejecutó `--dry-run`: la ayuda de Firebase advierte que puede habilitar APIs del proyecto. Rollback ADR-SAAS-075: antes del tenant Bodega real, revertir el código y mantener bloqueados corte de Rules y alta; después, no reabrir la callable ni Rules antiguas, preferir forward-fix/plan aprobado. |
+| Vercel | GET de `vercel inspect` al alias productivo, `2026-10-14T23:24:32.444Z`: deployment `dpl_4viR3AppP838CJjtUHYeBLo1W19C`, `READY`, target `production`, creado `2026-10-06T14:52:13Z`, alias `cafeatrato-git-main-glemynarts-projects.vercel.app`, Node `22.x`. La respuesta no expone SHA; la evidencia directa previa asocia este deployment con `1c2f155653536b1fd8e1925db931e2354fa41f7d`. | Candidato exacto a publicar: `main @ f25ef9b9743511bd5bdedeb24df90269213c99fb`, con CI post-merge `PASS`; el SHA no figura como publicado. Publicación `NOT EXECUTED`. Rollback CLI preparado al deployment conocido `vercel rollback dpl_4viR3AppP838CJjtUHYeBLo1W19C`; verificar el resultado y alias, no ejecutarlo sin autorización. |
+| Smoke autenticado | No se indicó identidad productiva, tenant, rol ni operaciones autorizadas. No se consultaron credenciales. | `NOT EXECUTED`. Requisito mínimo por acordar: cuenta existente y autorizada, tenant de prueba confirmado como tal, rol/claim esperado, una lectura canaria permitida y una lectura cruzada denegada, sin ventas/compras/cambios ni llamadas fiscales. El nombre `Prueba` por sí solo no acredita que el tenant o una cuenta sean seguros para usar. |
+
+La relectura confirma que la fecha `2026-10-15` está asentada en el runbook
+como atestación directa del administrador. No se ha creado/activado tenant,
+usuarios o credenciales; Trial `NOT EXECUTED`. La brecha DIAN web persiste:
+cuatro llamadas UI heredadas a `window.api.factus`, sin proveedor web en
+`app/api` ni Functions; `guardarMetadatosDian()` persiste desde cliente. No se
+inventó una autoridad ni se modificó Factus. La pausa aceptada cubre únicamente
+los dos IDs observados y no convierte la aplicación web en emisor fiscal.
+
+No se ejecutaron cambios productivos. El orden propuesto, sujeto a preflight y
+autorizaciones separadas, es: callable dirigida con verificación del hash y
+guard; publicación manual del SHA `f25ef9b`; finalmente Rules globales tras
+reconfirmar tenants y cerrar el rollback/operador de contingencia. No restaurar
+automáticamente el ruleset anterior: reabriría escrituras de compra. Sigue
+pendiente acordar quién congela esas operaciones y cuál es la vía forward-fix
+si el corte falla.

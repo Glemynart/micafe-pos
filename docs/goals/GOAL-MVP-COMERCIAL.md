@@ -150,8 +150,8 @@
 
 PR #598 quedó integrado por squash en `origin/main @
 f25ef9b9743511bd5bdedeb24df90269213c99fb`. Sus checks de PR terminaron en
-verde; la CI post-merge de `main`, run `38650796029`, sigue `in_progress` en
-`E2E R1-A Web/PWA` y no se declara `PASS`. La relectura GET-only del
+verde. La CI post-merge de `main`, run `38650796029`, terminó
+`completed/success` a las `2026-10-14T23:18:46Z`. La relectura GET-only del
 `2026-10-14T23:09:09.523Z` mantuvo Gate I `INCOMPLETE`: Rules no coinciden
 (fuente `2dc12a59`, remoto `c3d98b26`; 14 diferencias efectivas),
 `registrarCompraOperativaV1` conserva el hash remoto anterior al guard
@@ -163,7 +163,15 @@ PITR deshabilitado sigue aprobado por ADR-SAAS-031. No hubo escrituras ni
 despliegues productivos. El administrador confirma que Diana le comunicó la
 fecha objetivo `2026-10-15`; no se creó tenant ni se inició el Trial. El modo
 no fiscal aceptado para Diana no equivale a cerrar Gate I ni a certificar DIAN
-web. Detalle: [relectura GET-only de Gate I a las 23:09Z](evidence/G-SAAS-02-E2-2-PR595-POSTMERGE-CLOSEOUT-2026-10-14.md#relectura-get-only-de-gate-i--2026-10-14t230909523z).
+web. Una verificación adicional de preflight a las `23:24Z` confirma CI
+post-merge verde, prueba Rules Emulator `45/45`, build Functions `PASS` y
+`test:auth-foundation` `436 PASS / 5 SKIP / 0 FAIL`; no altera el estado remoto:
+Rules siguen en `MISMATCH`, la callable de compras conserva hash anterior, el
+SHA objetivo de Vercel no está acreditado y el smoke sigue `NOT EXECUTED`.
+Fecha de Diana `2026-10-15` confirmada por atestación del administrador; Trial,
+tenant, usuarios y credenciales `NOT EXECUTED`. Detalle: [relectura GET-only de
+Gate I a las 23:09Z](evidence/G-SAAS-02-E2-2-PR595-POSTMERGE-CLOSEOUT-2026-10-14.md#relectura-get-only-de-gate-i--2026-10-14t230909523z) y
+[verificación adicional de preflight a las 23:24Z](evidence/G-SAAS-02-E2-2-PR595-POSTMERGE-CLOSEOUT-2026-10-14.md#verificacion-adicional-de-preflight--2026-10-14t2324z).
 
 ### Gate A — auditoría de estado y documentación — 2026-10-12
 
