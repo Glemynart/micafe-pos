@@ -226,3 +226,38 @@ relectura que confirme que no hay empresas `activa`/`trial` nuevas fuera de las
 dos cubiertas por la aceptación. PITR permanece desactivado según ADR-SAAS-031.
 No se ha creado el tenant de Diana ni iniciado su Trial; esta evidencia no los
 provisiona ni autoriza datos reales.
+
+## Addendum post-merge #595 — 2026-10-14T18:36Z
+
+Este addendum actualiza el estado posterior sin reescribir las observaciones
+históricas de la matriz. PR #595 quedó integrado en
+`origin/main @ f08fa1ca6466bfc84c39d771f34e494aaf9b2386`. ADR-SAAS-079 está
+Aceptado y el guard reversible de interfaz ya bloquea las cuatro acciones
+Factus únicamente para `1ae0rD9H8t3ZFSBKrrHR` y `Prueba`. La CI post-merge
+`38615549091` seguía `in_progress` al corte; no se reporta como `PASS` hasta su
+conclusión definitiva.
+
+La lectura directa de Rules sigue mostrando `MISMATCH` en 14 paths; su corte
+global sigue sin autorización y depende de resolver compatibilidad y autoridad
+servidor de DIAN. La revisión del checkout no encontró el main/preload/IPC ni
+provider que permitiría auditar una invocación directa a `window.api.factus`;
+el guard de PR #595 no es una barrera server-side. La callable legacy de compra
+remota conserva el hash `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`, mientras la
+fuente integrada contiene el guard ADR-SAAS-075 para operación nueva y replay.
+Functions continúa sin autorización productiva de despliegue.
+
+El restore aislado de `2026-10-14` está `VERIFIED` con `RPO=8.307 h`,
+`RTO=0.220 h`, `sourceUntouched=true` y `applicationCutover=false`; por ello,
+la afirmación histórica de que faltaba recovery quedó supersedida. El collector
+no importó la atestación externa (`MISSING`) porque su interfaz no ingiere el
+resultado del verificador; esto no invalida la evidencia independiente de
+recovery. PITR permanece deshabilitado conforme a ADR-SAAS-031 y no se considera
+un bloqueo.
+
+Vercel producción sigue en `main @ 1c2f155` del 6-oct; no hay publicación ni
+smoke autenticado del SHA actual. La publicación y el smoke requieren
+autorizaciones/identidad independientes. Diana confirmó `2026-10-15` como fecha
+prevista del Trial; no se inició ni se provisionó el tenant. No hubo deploy,
+escritura productiva, cambio IAM/Secrets o restauración de `(default)`.
+
+El dictamen de Gate I permanece `INCOMPLETE`.
