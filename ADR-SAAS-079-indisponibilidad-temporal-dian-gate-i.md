@@ -2,9 +2,10 @@
 
 ## Estado
 
-Propuesto — 2026-10-14. La aceptación operativa de la indisponibilidad consta en
-la evidencia de Gate I; este ADR no se considera aceptado y no autoriza cambios
-de código, Rules ni despliegues.
+Aceptado — 2026-10-14. El propietario aprobó explícitamente implementar el
+bloqueo reversible antes de Factus, acotado a las dos empresas enumeradas en
+esta decisión. La aceptación habilita preparación de código y PR; no autoriza
+despliegues ni cambios productivos.
 
 ## Contexto
 
@@ -27,31 +28,42 @@ dos empresas actuales tienen readiness fiscal incompleto. Es evidencia puntual;
 no prueba que no haya solicitudes futuras ni que el mismo alcance aplique a
 empresas creadas después.
 
-## Decisión operativa ya aceptada
+## Decisión operativa aceptada
 
-Se acepta temporalmente no emitir documentos electrónicos DIAN para las dos
-empresas identificadas en la evidencia de Gate I, hasta que exista la ruta
-server-side. Esta aceptación no cambia datos, no elimina la integración Factus,
-no habilita una publicación y no extiende la indisponibilidad a nuevas empresas.
+Se acepta temporalmente no emitir documentos electrónicos DIAN exclusivamente
+para:
 
-## Propuesta técnica
+| Empresa | `empresaId` | Estado observado |
+|---|---|---|
+| Cafe Atrato | `1ae0rD9H8t3ZFSBKrrHR` | `activa` |
+| Prueba | `Prueba` | `trial` |
 
-Antes de publicar Rules que rechacen el writer cliente, agregar un bloqueo
-reversible en el límite de la aplicación que precede a cualquier efecto Factus,
-con alcance explícito a los IDs de las empresas identificadas en la evidencia.
-Debe cubrir emisión individual y por lote, así como emisión de notas débito y
-crédito; la interfaz debe explicar que la función fiscal está temporalmente
-deshabilitada. El código de integración Factus y su lógica de emisión se
-conservan sin borrarse ni reimplementarse. La futura migración server-side se
-tramita en un cambio separado y su activación retira el bloqueo por un cambio
-aprobado.
+La evidencia de origen es la lectura read-only productiva de Gate I del
+2026-10-14. No cambia datos, no elimina la integración Factus, no habilita una
+publicación y no extiende la indisponibilidad a otras empresas presentes o
+futuras. Si la lista de empresas activas/trial cambia, el preflight debe
+detenerse y solicitar una decisión nueva antes de cualquier corte.
 
-La prueba debe demostrar que para esos dos IDs no se invoca Factus y que las
-operaciones no fiscales del POS siguen disponibles. Antes de la publicación,
-un preflight debe revalidar que el conjunto `activa`/`trial` sigue siendo
-exactamente el mismo; cualquier tenant adicional o cambio de identidad detiene
-el corte y requiere una decisión nueva. La propuesta no concede una excepción
-de escritura cliente en Rules.
+## Decisión técnica aceptada
+
+Se implementará en el cliente un guard tenant-aware inmediatamente antes de
+cualquier invocación a Factus desde Historial. Cubre emisión de factura
+individual, lote, nota débito y nota crédito, y compara únicamente el
+`empresaId` del contexto activo con los dos IDs aprobados. La interfaz explicará
+que la emisión fiscal está temporalmente deshabilitada para esta empresa. El
+guard no cambia checkout ni el procesamiento no fiscal de venta, inventario o
+caja.
+
+Se conserva íntegra la implementación y lógica de Factus. El guard es una
+medida temporal de compatibilidad en el límite UI, no una nueva autoridad ni
+un reemplazo de Rules o del backend. La reactivación solo se prepara en un
+cambio posterior a la migración fiscal server-side correspondiente y requiere
+verificar su operación; no se retirará este guard automáticamente.
+
+La prueba debe demostrar que para esos dos IDs no se invoca Factus ni se intenta
+persistir metadatos DIAN y que las operaciones no fiscales del POS siguen
+disponibles. La decisión no concede una excepción de escritura cliente en
+Rules. Todo despliegue conserva su autorización independiente.
 
 ## Alternativas
 
@@ -76,14 +88,14 @@ de escritura cliente en Rules.
 - Lectura e impresión de documentos fiscales históricos no se declaran
   interrumpidas por esta decisión; deben comprobarse por separado si existen
   documentos aplicables.
-- ADR-SAAS-079 requiere aprobación explícita antes de implementar su propuesta.
-  Los despliegues de Rules, Functions y Vercel conservan autorizaciones
-  independientes.
+- La aceptación habilita esta implementación y su PR, no el despliegue de
+  Rules, Functions o Vercel; cada publicación conserva su autorización
+  independiente.
 
 ## Pruebas y rollback requeridos antes de cualquier release
 
 - Cubrir los dos IDs: cada acción DIAN se bloquea antes de invocar Factus.
-- Cubrir tenant fuera de alcance: la propuesta no le aplica; si el conjunto de
+- Cubrir tenant fuera de alcance: la decisión no le aplica; si el conjunto de
   tenants cambió, detenerse y replantear antes de desplegar Rules.
 - Ejecutar Rules Emulator, aislamiento multi-tenant y regresión de venta,
   inventario, caja y Bodega.

@@ -508,6 +508,7 @@ requieren una decisión de producto sobre monetización, límites y operación S
 | ADR-SAAS-074 | Aceptado | Decisión inicial de IDs únicos para cuatro endpoints; su alcance fue ampliado por ADR-SAAS-076. |
 | ADR-SAAS-075 | Aceptado | Callable legacy de compras rechaza Bodega en operaciones nuevas y replay; preserva otros verticales. |
 | ADR-SAAS-076 | Aceptado | Amplía a once IDs duplicados en manifiestos el namespace público único de Bodega; preserva `saas-auth`. |
+| ADR-SAAS-079 | Aceptado | Pausa temporalmente la emisión DIAN antes de Factus solo para dos empresas identificadas; preserva Factus y exige migración server-side verificada para reactivar. No autoriza despliegues. |
 
 ---
 

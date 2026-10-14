@@ -103,8 +103,11 @@ preguntas de corte anotadas arriba para compras y para el impacto DIAN en
 tenants existentes. El propietario aceptó la indisponibilidad fiscal temporal
 solo para las empresas `1ae0rD9H8t3ZFSBKrrHR` (Cafe Atrato, `activa`) y `Prueba`
 (`trial`), identificadas en la evidencia post-merge del 2026-10-14. Esta
-aceptación operativa no es aprobación de ADR, código, Rules ni despliegue. La
-propuesta técnica reversible está en [ADR-SAAS-079 (Propuesto)](../../../ADR-SAAS-079-indisponibilidad-temporal-dian-gate-i.md).
+aceptación operativa fue seguida por la aceptación de ADR-SAAS-079 para
+implementar el guard reversible antes de Factus. La aceptación y el código no
+autorizan Rules ni despliegues. El alcance está en
+[ADR-SAAS-079](../../../ADR-SAAS-079-indisponibilidad-temporal-dian-gate-i.md)
+y su registro en [evidencia de aceptación](G-SAAS-02-E2-2-ADR-SAAS-079-ACCEPTANCE-2026-10-14.md).
 El backoffice Bodega es el único lector directo encontrado
 para presentaciones; no se encontró llamada de aplicación al servicio de
 Kardex.
@@ -168,7 +171,7 @@ consultaron secretos, datos de negocio o credenciales.
 |---|---|---|
 | I-01 / HIGH — A01, Tampering | La callable legacy de compras está activa con hash previo al guard ADR-SAAS-075, mientras `main` ya contiene el guard. ADR-SAAS-078 Opción 1 está aceptada explícitamente y el candidato elimina el webhook Wompi del export, sin borrar su módulo. | Tras integrar el candidato, confirmar inmediatamente que el webhook no existe en remoto y hacer preflight exacto de `registrarCompraOperativaV1`. Un deploy solo podría ocurrir con autorización explícita, luego de demostrar operación nueva + replay por hash/tests. Detener ante cualquier otro delta. |
 | I-02 / HIGH — A01, A04 | Rules remoto difiere de `main`; todavía permite escritura directa admin de compras y deniega señales Bodega. Un deploy completo también modifica otros paths. | Completar pruebas por vertical y gates de corte; solo aplicar Rules tras guard legacy y preflight exacto aprobado. |
-| I-03 / MEDIUM — A01 | `guardarMetadatosDian()` conserva un writer cliente que las Rules de `main` niegan. La indisponibilidad temporal fue aceptada únicamente para Cafe Atrato (`1ae0rD9H8t3ZFSBKrrHR`) y Prueba (`Prueba`), el conjunto actual `activa`/`trial` observado el 2026-10-14; no cubre empresas futuras. La UI llama Factus antes del write Firestore. | ADR-SAAS-079 sigue Propuesto. Antes del corte, bloquear cada acción DIAN antes de Factus solo para los dos IDs, probar que checkout/stock/caja no cambian, reenumerar tenants activos/trial y detenerse si el conjunto varía. No reabrir el writer cliente; Rules, código y deploy requieren sus aprobaciones propias. |
+| I-03 / MEDIUM — A01 | `guardarMetadatosDian()` conserva un writer cliente que las Rules de `main` niegan. La indisponibilidad temporal fue aceptada únicamente para Cafe Atrato (`1ae0rD9H8t3ZFSBKrrHR`) y Prueba (`Prueba`), el conjunto `activa`/`trial` observado el 2026-10-14; no cubre empresas futuras. La UI llama Factus antes del write Firestore. | ADR-SAAS-079 está Aceptado; implementar y probar el guard antes de Factus solo para los dos IDs, demostrar que checkout/stock/caja no cambian, reenumerar tenants activos/trial y detenerse si el conjunto cambió. No reabrir el writer cliente; Rules, código y deploy requieren sus aprobaciones propias. |
 | I-04 / MEDIUM — A05 | No se acreditó el SHA Vercel objetivo ni existen atestaciones independientes de smoke y restore. | Alinear Vercel al SHA de release y probar smoke/restore con identidad aprobada y destino aislado, sin usar `(default)`. |
 
 ## Orden recomendado para el corte y reversión
@@ -184,9 +187,9 @@ consultaron secretos, datos de negocio o credenciales.
    presentaciones/ledger y denegación de escritura de ventas. El propietario
    acepta temporalmente la indisponibilidad DIAN solo para las dos empresas
    de la evidencia post-merge; esta aceptación no equivale a autorización
-   técnica. ADR-SAAS-079 propone bloquear emisión individual, lote y notas
+   técnica. ADR-SAAS-079 acepta bloquear emisión individual, lote y notas
    antes de llamar a Factus para esos IDs y conservar el código fiscal actual.
-   Aceptar el ADR e implementar/probar el guard son prerrequisitos previos a
+   Implementar/probar el guard es prerrequisito previo a
    Rules. Reenumerar empresas `activa`/`trial` inmediatamente antes del corte;
    detenerse si la lista difiere. No reabrir el permiso cliente inseguro.
 3. Congelar el SHA y la carpeta aislada de producción; validar proyecto literal
