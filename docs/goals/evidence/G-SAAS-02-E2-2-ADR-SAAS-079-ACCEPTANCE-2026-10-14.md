@@ -57,7 +57,7 @@ escrituras productivas:
 | Validación | Resultado |
 |---|---|
 | RED TDD: ejecutar la prueba antes del guard | Falló por módulo de guard ausente, como se esperaba. |
-| `npm exec -- tsx --test lib/__tests__/dian-temporary-gate.test.ts` | 4/4 pasaron. Incluye Cafe Atrato, Prueba, tenant ajeno y tenant no resuelto; el callback que representa Factus + metadata no corre para los dos IDs ni para tenant no resuelto. |
+| `npm exec -- tsx --test lib/__tests__/dian-temporary-gate.test.ts` | 10/10 pasaron: matriz de 2 empresas x 4 acciones DIAN, tenant ajeno y tenant no resuelto. El callback que representa Factus + metadata no corre para los dos IDs ni para tenant no resuelto. |
 | Mutation audit manual: quitar `Prueba` de la allowlist | Mutante detectado por su prueba específica. |
 | Mutation audit manual: convertir el guard en bloqueo para todo tenant | Mutante detectado por la prueba del tenant ajeno. |
 | `npx tsc --noEmit` | Pasó. |

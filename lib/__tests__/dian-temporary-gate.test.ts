@@ -6,20 +6,23 @@ const empresasAfectadas = [
   { nombre: "Cafe Atrato", empresaId: "1ae0rD9H8t3ZFSBKrrHR" },
   { nombre: "Prueba", empresaId: "Prueba" },
 ] as const;
+const accionesDian = ["factura individual", "lote", "nota débito", "nota crédito"] as const;
 
 for (const empresa of empresasAfectadas) {
-  test(`la indisponibilidad temporal bloquea Factus y metadatos solo para ${empresa.nombre}`, async () => {
-    const efectos: string[] = [];
+  for (const accion of accionesDian) {
+    test(`${empresa.nombre}: bloquea ${accion} antes de Factus y metadatos DIAN`, async () => {
+      const efectos: string[] = [];
 
-    const resultado = await ejecutarAccionDianConDisponibilidad(empresa.empresaId, async () => {
-      efectos.push("factus");
-      efectos.push("metadatos-dian");
-      return { ok: true };
+      const resultado = await ejecutarAccionDianConDisponibilidad(empresa.empresaId, async () => {
+        efectos.push(`${accion}:factus`);
+        efectos.push(`${accion}:metadatos-dian`);
+        return { ok: true };
+      });
+
+      assert.deepEqual(resultado, { estado: "indisponible" });
+      assert.deepEqual(efectos, []);
     });
-
-    assert.deepEqual(resultado, { estado: "indisponible" });
-    assert.deepEqual(efectos, []);
-  });
+  }
 }
 
 test("un tenant distinto conserva la emisión DIAN y completa sus efectos", async () => {
