@@ -458,3 +458,34 @@ corte sea ejecutable hoy.
 No se ejecutaron despliegues Rules/Functions/Vercel, smoke autenticado,
 escrituras productivas, cambios IAM/Secrets, alta de empresa/usuario, emisión
 DIAN ni Trial. Gate I permanece `INCOMPLETE`; E2.2 no está certificado.
+
+### PR #599 — auditoría de privacidad de metadatos y estado de merge — 2026-10-14T23:53Z
+
+Esta auditoría usa únicamente la rama remota de PR #599. Para evitar ampliar
+la exposición, no reproduce la dirección de correo observada ni la copia en
+logs, comentarios, documentación o commits nuevos.
+
+| Alcance comprobado | Resultado | Estado |
+|---|---|---|
+| Commits publicados de la rama | `0aad4c1`, `148867f` y `256901b` contienen un campo de correo no-`noreply` tanto en `author` como en `committer`; ambos campos coinciden dentro de cada commit. Por estar asociados a la identidad pública de GitHub del autor, el dato es identificable. `23c49c5` usa identidad `noreply`. | `BLOCKED` por observación de privacidad pendiente de decisión humana. La existencia del commit no acredita intención ni consentimiento. |
+| Otros vectores del PR | La comparación `origin/main...HEAD`, asuntos/mensajes de los cuatro commits, cuerpo del PR y su comentario no contienen una dirección de correo. Tampoco se detectaron claves privadas ni asignaciones de credenciales en el diff. | `PASS` para el alcance revisado; no elimina la exposición de los objetos Git ya publicados. |
+| Check obligatorio | Run `38656205637`, HEAD `23c49c5`, sigue `in_progress`: los pasos de tipos, builds y pruebas unitarias visibles terminaron con éxito; está ejecutando E2E. Vercel Preview y Vercel Preview Comments están `PASS`. | `PENDING`; no es admisible declarar el PR aprobado ni integrarlo. |
+| Política de merge | El ruleset de `main` exige `Tipos y pruebas` en verde y rechaza non-fast-forward; no exige revisión de código, aunque aplica aprobación extra a cambios sin atribución. El estado de merge del PR es `BLOCKED`. | `BLOCKED`. |
+
+#### Alternativas evaluadas para los metadatos
+
+| Alternativa | Efecto y riesgos | Decisión actual |
+|---|---|---|
+| Conservar el historial publicado | No cambia referencias, clones ni revisiones y no pone en riesgo trabajo de terceros. La dirección permanece visible en los tres commits y puede continuar retenida por GitHub, notificaciones, cachés, forks o clones incluso si luego se elimina la rama. | Menor riesgo operativo mientras se obtiene la decisión de privacidad. No resuelve la exposición. |
+| Corregir commits todavía no publicados | Configurar una identidad `noreply`, enmendar localmente y publicar por primera vez. No afecta colaboradores ni referencias compartidas. | No aplica a los tres commits: ya están publicados en la rama remota. Se aplicó preventivamente a `23c49c5`. |
+| Reescribir la rama remota | Reemplazar los tres commits por equivalentes con identidad `noreply` requeriría rebase/amend y `push --force-with-lease`; cambia el HEAD, reinicia CI, invalida enlaces de commit/revisión y puede chocar con clones o trabajo no publicado de colaboradores. No garantiza borrar objetos históricos de GitHub, caches, notificaciones o forks. | No ejecutar sin una decisión explícita que acepte esos efectos y coordine a colaboradores. No se hizo force-push ni reescritura. |
+
+**Mitigación recomendada:** mantener congelado el merge de PR #599, preservar la
+rama tal como está y solicitar al titular de la dirección una decisión expresa:
+aceptar la conservación o autorizar una reescritura coordinada. Como medida
+preventiva no invasiva, todos los commits nuevos de esta rama usan identidad
+`noreply`. Ninguna medida documental puede retirar el metadato de los objetos
+históricos publicados.
+
+No hubo mutaciones productivas, despliegues, pruebas autenticadas de producción,
+creación/activación de tenant ni inicio de Trial durante esta auditoría.
