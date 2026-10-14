@@ -361,3 +361,48 @@ reconfirmar tenants y cerrar el rollback/operador de contingencia. No restaurar
 automáticamente el ruleset anterior: reabriría escrituras de compra. Sigue
 pendiente acordar quién congela esas operaciones y cuál es la vía forward-fix
 si el corte falla.
+
+### Relectura GET-only — 2026-10-14T23:29:08.719Z
+
+El collector se ejecutó contra `micafe-pos` para
+`main @ f25ef9b9743511bd5bdedeb24df90269213c99fb`. Resultado
+`INCOMPLETE`, `readOnly=true`, `productionWrites=false` y
+`collectionErrors=[]`.
+
+| Superficie | Resultado de esta lectura | Estado |
+|---|---|---|
+| `origin/main` y CI | SHA objetivo coincide; run `38650796029`, mismo SHA, `completed/success`. | `PASS`. |
+| Vercel | El collector no observó estado Vercel exitoso para el SHA objetivo. | `BLOCKED` para acreditar/publicar; deployment `NOT EXECUTED`. La lectura directa del deployment actual está en la verificación de preflight de 23:24Z. |
+| Functions | 104/104 `ACTIVE`, todas `nodejs22`; se reconciliaron hashes por nombre. `registrarCompraOperativaV1` permanece en `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`. | Disponibilidad `PASS`; versión requerida `FAIL`; deploy dirigido `NOT EXECUTED`. |
+| Firestore Rules | El collector devolvió `rules=null` sin error de colección, por lo que esta corrida no constituye lectura de Rules. La última comparación directa, a las `23:09:09.523Z`, mostró fuente `2dc12a59…`, remoto `c3d98b26…` y 14 diferencias efectivas; comparar antes del corte sigue siendo obligatorio. | Preflight actual de Rules `BLOCKED` por falta de observación fresca; estado conocido `MISMATCH`, no presentado como revalidado a las 23:29Z. |
+| Storage Rules | El collector no recibió una atestación independiente. Última lectura directa: hashes fuente/remoto coincidentes a las `23:09:09.523Z`. | Último resultado `PASS`; falta atestación independiente actual para el release. |
+| Smoke autenticado | Sin atestación ni identidad/tenant/rol/alcance designados. | `NOT EXECUTED`. |
+| Recovery/PITR | El collector observó PITR deshabilitado, un schedule y 34 backups en `southamerica-east1`. La verificación separada del restore aislado continúa `PASS` (`RPO=8.307 h`, `RTO=0.220 h`, fuente intacta y sin cutover). | Restore `PASS` por evidencia independiente; PITR sigue siendo decisión aprobada por ADR-SAAS-031, no bloqueo. |
+
+La lectura de empresas `activa`/`trial` de las `23:23:11.482Z` encontró dos,
+ambas dentro de los IDs aprobados por ADR-SAAS-079 y ninguna adicional; es una
+fotografía que debe renovarse antes de desplegar Rules. No hubo deploy, smoke,
+escritura productiva, creación de tenant, activación de usuarios, cambios de
+IAM/Secrets ni operación PITR. Gate I permanece `INCOMPLETE`.
+
+### Relectura autenticada GET-only de Rules — 2026-10-14T23:30:26.480Z
+
+Se obtuvo una lectura de metadatos y contenido publicado desde Firebase Rules
+API; no se creó ni publicó ningún ruleset. `origin/main` continúa en
+`f25ef9b9743511bd5bdedeb24df90269213c99fb` y CI `38650796029` está
+`completed/success`.
+
+| Servicio | Ruleset/release observado | SHA fuente local | SHA remoto | Resultado |
+|---|---|---|---|---|
+| Firestore | `d5e205db-0ab4-4db1-b5ec-1534bee39d35`, actualizado `2026-08-15T04:20:46.318849Z` | `2dc12a5972c216601a21cbae6be73bd787558f4fdad4a33227f05dee37087b91` | `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3` | `MISMATCH`; la matriz vigente conserva 14 diferencias efectivas. Deploy `NOT EXECUTED`. |
+| Storage | `1df06087-5bca-4822-ba5a-50ac951c9cf4`, actualizado `2026-08-14T01:09:03.643850Z` | `fc837a77b952f3f2cf9e6eec24e7962eb0177a992f0776810d4798b5a1ee9f2b` | `fc837a77b952f3f2cf9e6eec24e7962eb0177a992f0776810d4798b5a1ee9f2b` | `PASS`, sin cambio requerido. |
+
+La relectura completa del collector a `23:30:26.480Z` terminó
+`INCOMPLETE`, `readOnly=true`, `productionWrites=false`, sin errores de
+colección: 104/104 Functions `ACTIVE` en Node.js 22; el hash de
+`registrarCompraOperativaV1` sigue siendo
+`9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`; no observó estado Vercel exitoso
+para el SHA objetivo; recovery observó PITR deshabilitado, un schedule y 34
+backups. Esta lectura renueva el `MISMATCH` de Rules y el `PASS` de Storage,
+pero no autoriza deployments ni sustituye la autorización independiente de
+smoke. No hubo mutaciones productivas.

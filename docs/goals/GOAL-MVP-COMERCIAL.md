@@ -172,6 +172,18 @@ Fecha de Diana `2026-10-15` confirmada por atestación del administrador; Trial,
 tenant, usuarios y credenciales `NOT EXECUTED`. Detalle: [relectura GET-only de
 Gate I a las 23:09Z](evidence/G-SAAS-02-E2-2-PR595-POSTMERGE-CLOSEOUT-2026-10-14.md#relectura-get-only-de-gate-i--2026-10-14t230909523z) y
 [verificación adicional de preflight a las 23:24Z](evidence/G-SAAS-02-E2-2-PR595-POSTMERGE-CLOSEOUT-2026-10-14.md#verificacion-adicional-de-preflight--2026-10-14t2324z).
+La relectura del collector a las `23:29:08.719Z` mantiene `INCOMPLETE` con
+`readOnly=true` y `productionWrites=false`: CI `PASS`, 104/104 Functions
+activas, callable de compras desfasada, Vercel sin estado del SHA objetivo y
+smoke `NOT EXECUTED`. Esa corrida no obtuvo una observación de Rules
+(`rules=null`); el último `MISMATCH` directo sigue siendo el de las 23:09Z y
+debe revalidarse antes del corte. No hubo mutaciones productivas. Ver
+[relectura 23:29Z](evidence/G-SAAS-02-E2-2-PR595-POSTMERGE-CLOSEOUT-2026-10-14.md#relectura-get-only--2026-10-14t232908719z).
+Una lectura autenticada GET-only de Rules API a las `23:30:26.480Z` renovó la
+observación: Firestore sigue `MISMATCH` (`2dc12a59…` vs. `c3d98b26…`, 14
+diferencias efectivas); Storage coincide (`fc837a77…` en ambos lados). La
+callable de compras sigue con el hash anterior y Vercel no acredita el SHA.
+No hubo escrituras. Ver [relectura autenticada de Rules a las 23:30Z](evidence/G-SAAS-02-E2-2-PR595-POSTMERGE-CLOSEOUT-2026-10-14.md#relectura-autenticada-get-only-de-rules--2026-10-14t233026480z).
 
 ### Gate A — auditoría de estado y documentación — 2026-10-12
 
