@@ -46,11 +46,12 @@ pero `firestore-rules/role-invariants.test.ts` no siembra
 El Gate I no debe publicar el ruleset completo hasta resolver ese alcance y
 probarlo.
 
-## Problema y decisión requerida
+## Problema y decisión aceptada
 
-¿Cómo limitar el acceso directo del vendedor Bodega a los datos de negocio sin
-interrumpir el contrato del POS legado en otros verticales, o se debe migrar
-primero ese POS para aplicar una política global de no-lectura directa?
+La decisión aceptada es limitar el acceso directo del vendedor Bodega a los
+datos de negocio sin interrumpir el contrato del POS legado en otros verticales.
+Se adopta la Opción 1; las otras alternativas quedan descartadas para este
+corte de E2.2.
 
 ## Invariantes
 
@@ -115,7 +116,7 @@ trabajo separado, no como autorización implícita para perpetuarla.
 
 La recomendación fue aceptada explícitamente por el responsable el 2026-10-14.
 
-## Consecuencias si se acepta la Opción 1
+## Consecuencias de la Opción 1 aceptada
 
 - Se mantiene el contrato de lectura vigente de `GENERAL` y otros verticales.
 - El vendedor Bodega continúa sin lectura directa de las colecciones cubiertas
