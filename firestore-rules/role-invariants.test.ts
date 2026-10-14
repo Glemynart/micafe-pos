@@ -1,4 +1,5 @@
 import { after, before, beforeEach, test } from "node:test";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { fixtures } from "./fixtures";
 import {
   cleanupRulesTestEnvironment,
@@ -122,6 +123,8 @@ test("Bodega: vendedor no salta DTO por Firestore y solo lee su turno", async ()
   const vendedorA = await contextFor(fixtures.tenantA.vendedor);
   const vendedorB = await contextFor(fixtures.tenantB.vendedor);
   const adminA = await contextFor(fixtures.tenantA.admin);
+  await seedDocument("configuraciones/empresa-a", { vertical: "BODEGA_MVP1" });
+  await seedDocument("configuraciones/empresa-b", { vertical: "BODEGA_MVP1" });
   await seedDocument("productos/bodega-a", { empresaId: "empresa-a", costo: 8 });
   await seedDocument("ventas/bodega-a", { empresaId: "empresa-a", cajeroId: fixtures.tenantA.vendedor.uid, items: [{ costoUnitario: 8 }] });
   await seedDocument("movimientos_inventario/bodega-a", { empresaId: "empresa-a", costoUnitario: 8, costoTotal: 80 });
@@ -144,6 +147,8 @@ test("Bodega U2-A: vendedor no salta la frontera de clientes y administración c
   const vendedorA = await contextFor(fixtures.tenantA.vendedor);
   const vendedorB = await contextFor(fixtures.tenantB.vendedor);
   const adminA = await contextFor(fixtures.tenantA.admin);
+  await seedDocument("configuraciones/empresa-a", { vertical: "BODEGA_MVP1" });
+  await seedDocument("configuraciones/empresa-b", { vertical: "BODEGA_MVP1" });
   const clienteA = "clientes/cliente-bodega-a";
   await seedDocument(clienteA, { empresaId: "empresa-a", nombre: "Cliente A", cedula: "9001", telefono: "3000000000", activo: true, saldo: 999 });
 
@@ -179,4 +184,19 @@ test("Bodega U2-B: vendedor no lee ni muta presentaciones; administración conse
   await expectAllowed(adminA.firestore().doc(presentacionA).get());
   await expectDenied(adminB.firestore().doc(presentacionA).get());
   await expectDenied(adminA.firestore().doc(presentacionA).update({ precioCOP: 1 }));
+});
+
+test("GENERAL: vendedor conserva las lecturas directas que usa POS LEGACY", async () => {
+  const vendedor = await contextFor(fixtures.tenantA.vendedor);
+  await seedDocument("configuraciones/empresa-a", { vertical: "GENERAL" });
+  await seedDocument("productos/producto-general", { empresaId: "empresa-a", nombre: "Producto legacy", espacioId: "espacio-a" });
+  await seedDocument("clientes/cliente-general", { empresaId: "empresa-a", nombre: "Cliente legacy", activo: true });
+  await seedDocument("ventas/venta-general", { empresaId: "empresa-a", cajeroId: "otro-vendedor", estadoOperativo: "COMPLETO" });
+  await seedDocument("turnos/turno-general", { empresaId: "empresa-a", cajeroId: "otro-vendedor", estado: "cerrado" });
+
+  const firestore = vendedor.firestore();
+  await expectAllowed(getDocs(query(collection(firestore, "productos"), where("empresaId", "==", "empresa-a"))));
+  await expectAllowed(getDocs(query(collection(firestore, "clientes"), where("empresaId", "==", "empresa-a"), where("activo", "==", true))));
+  await expectAllowed(getDocs(query(collection(firestore, "ventas"), where("empresaId", "==", "empresa-a"))));
+  await expectAllowed(getDocs(query(collection(firestore, "turnos"), where("empresaId", "==", "empresa-a"))));
 });
