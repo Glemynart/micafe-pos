@@ -28,6 +28,16 @@
 
 Las Rules fueron leídas directamente mediante la API; su comparación sigue en `MISMATCH`. `MISSING` para atestación independiente significa que no se proporcionó evidencia externa al collector, no que no se haya inspeccionado el ruleset.
 
+## Revalidación complementaria — 2026-10-14T16:33Z
+
+- `origin/main` sigue en `f604a0af1669cc0903859c7271b1da1e3f29cea9`. La CI post-merge `38597025350` y la CI del PR #595 (`38597973053`) continúan `in_progress`; ningún check se registra como PASS mientras siga pendiente.
+- Una nueva lectura del collector a las `2026-10-14T16:29:54.494Z` conservó `INCOMPLETE`, `readOnly=true`, `productionWrites=false` y `collectionErrors=[]`; Functions, hashes, Rules, Storage y recuperación no cambiaron frente a la tabla anterior.
+- La consulta directa de deployments Vercel vuelve a mostrar como `READY` más reciente `main @ 1c2f155653536b1fd8e1925db931e2354fa41f7d`, del 6-oct; `f604a0a` no está publicado. `vercel.json` mantiene deshabilitados los deploys automáticos desde `main`.
+- Para acotar el impacto DIAN se ejecutó únicamente una agregación server-side, sin devolver documentos ni identificadores: `ventas` con `dian.emitidoEn IS NOT NULL` = `0`. Esto indica que no se observaron ventas con emisión DIAN persistida en el conteo consultado; no demuestra que ningún tenant activo dependa de emitir en el futuro. El código todavía importa y llama `guardarMetadatosDian()` desde `components/pos/historial.tsx`, y la función hace `setDoc` cliente; las Rules candidatas niegan todas las escrituras de `/ventas`. Por eso el corte global sigue condicionado a confirmar la operación de los tenants activos o a resolver ese writer bajo autoridad de servidor; el conteo `0` no autoriza desplegar Rules.
+- La evidencia de recovery del `2026-08-15` sí registra un restore aislado `SUCCESSFUL` con RPO `0.220 h` y RTO `0.232 h`; sigue siendo una prueba histórica, no una atestación ligada al release actual. La observación de smoke de esa fecha fue anónima y dejó `AUTHENTICATED_TENANT_SMOKE = MISSING`, por lo que tampoco cierra el smoke de Gate I.
+
+Esta revalidación fue de lectura y agregación únicamente. No hubo deploy, cambio de Rules/Vercel/PITR, modificación IAM/Secrets, lectura de documentos de negocio, ni escritura de tenant o datos.
+
 ## Estado y límites de salida
 
 Gate I continúa `INCOMPLETE`: falta publicar/verificar el guard de la callable legacy, resolver y autorizar el corte de Rules tras reconciliar el uso productivo de DIAN, desplegar una versión identificable de Vercel, y obtener smoke/restore independientes. No se activa PITR ni se crea tenant/Trial como parte de esta lectura. La autorización de ADR-SAAS-078 cubrió preparar su PR; no habilita deploy.
