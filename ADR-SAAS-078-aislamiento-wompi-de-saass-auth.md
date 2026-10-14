@@ -2,15 +2,16 @@
 
 ## Estado
 
-**PROPUESTO — pendiente de decisión del responsable.**
+**ACEPTADO — opción 1; diferir la exportación de Wompi.**
 
 - **Fecha de propuesta:** 2026-10-14.
+- **Fecha de decisión:** 2026-10-14.
 - **Goal:** `G-SAAS-02` → `M2` → `E2.2` / Gate I.
 - **Relacionado:** ADR-SAAS-031, ADR-SAAS-049, ADR-SAAS-054, ADR-SAAS-071,
   ADR-SAAS-075 y ADR-SAAS-077.
-- **Límite:** este documento no cambia código, exports, Secrets, Functions,
-  Rules ni producción. Ninguna opción queda aceptada hasta la aprobación
-  explícita del responsable.
+- **Límite:** la aceptación fija la decisión de arquitectura; no autoriza
+  Secrets, Functions, Rules ni producción. La implementación sigue sujeta a
+  pruebas y preflight de delta exacto.
 
 ## Contexto y evidencia
 
@@ -105,7 +106,8 @@ aislamiento a largo plazo, pero es una iniciativa separada.
 ## Consecuencias de la recomendación
 
 - El cambio no configura ni inventa `WOMPI_EVENTS_SECRET`.
-- La implementación requiere aprobación explícita de esta ADR.
+- La opción 1 está aceptada; su implementación y despliegue siguen sujetos a
+  las validaciones y gates enumerados aquí.
 - La PR de implementación debe probar discovery y demostrar que no quita,
   reemplaza o modifica Functions fuera del guard de ADR-SAAS-075.
 - Un preflight con Function remota inesperada, secretos adicionales o delta
@@ -129,7 +131,16 @@ aislamiento a largo plazo, pero es una iniciativa separada.
    propiedad del endpoint; el guard de compra se revierte solo con una
    autorización y preflight de seguridad correspondientes.
 
-## Decisión pendiente
+## Decisión
 
-El responsable debe aceptar una opción o solicitar cambios. Hasta entonces,
-no se modifica la exportación ni se despliega `registrarCompraOperativaV1`.
+Se acepta la **Opción 1**. La decisión la tomó el Lead Engineer bajo la
+autorización explícita del responsable para continuar de forma autónoma y
+aceptar o rechazar decisiones durante Gate I. Se difiere únicamente la
+exportación pública de `wompiReservasWebhookV1` desde `saas-auth`; se conservan
+su módulo fuente y sus pruebas. La decisión no habilita Wompi ni reservas
+públicas, no crea un secreto y no autoriza deploy por sí sola.
+
+Antes de implementar o desplegar, el preflight productivo debe volver a
+confirmar que el endpoint remoto no existe y que el único delta funcional
+adicional al guard aprobado es la exclusión de ese endpoint ausente. Si aparece
+en remoto o el delta incluye otra Function, se detiene el corte.

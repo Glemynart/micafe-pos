@@ -1,7 +1,16 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import test from "node:test";
+import { resolve } from "node:path";
 import { procesarEventoWompi, validarEventoWompi } from "./wompi";
+
+test("el webhook Wompi conserva módulo y pruebas, pero queda fuera del export de saas-auth", () => {
+  const barrel = readFileSync(resolve(__dirname, "../index.ts"), "utf8");
+  const implementation = readFileSync(resolve(__dirname, "wompi.ts"), "utf8");
+  assert.match(implementation, /export const wompiReservasWebhookV1\s*=/);
+  assert.doesNotMatch(barrel, /wompiReservasWebhookV1/);
+});
 
 function evento(overrides: Record<string, unknown> = {}) {
   const secret = "events_test_secret";

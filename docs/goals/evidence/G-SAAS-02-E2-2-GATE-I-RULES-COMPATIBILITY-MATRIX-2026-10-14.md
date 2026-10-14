@@ -111,6 +111,16 @@ por documento y consulta tenant-scoped para rol y vertical; ventas read-only y
 rechazo de `setDoc(..., { merge: true })` para metadatos DIAN. No se cambió
 `firestore.rules` ni se contactaron documentos de negocio.
 
+ADR-SAAS-078 Opción 1 fue aceptada bajo la autorización del responsable para
+delegar decisiones. El candidato de esta rama conserva
+`functions/src/reservas-publicas/wompi.ts` y sus pruebas, pero elimina
+`wompiReservasWebhookV1` del barrel de `saas-auth`; todavía no se hizo deploy
+ni se alteró el proyecto productivo.
+`npm --prefix functions run build` pasó y `npm --prefix functions test` terminó
+con 436 pruebas pasadas, 0 fallas y 5 skips; la suite incluye una regresión que
+comprueba que el módulo y pruebas Wompi se conservan, pero el webhook no queda
+exportado desde `saas-auth`.
+
 El preflight `firebase deploy --dry-run` limitado a las trece callables objetivo
 terminó correctamente sin `--force`; las trece ya están activas, por lo que no
 hay una creación pendiente que justifique republicarlas. El preflight de ambos
@@ -144,24 +154,25 @@ consultaron secretos, datos de negocio o credenciales.
 | Manejo de entradas | Payloads autenticados no fueron ejecutados; validar en pruebas Emulator y Functions existentes antes de release. |
 | Exposición de datos | Riesgos de lecturas amplias y perfiles/ledger identificados en la matriz. |
 | Criptografía | Sin cambio ni revisión criptográfica; no se leyeron ni alteraron llaves. |
-| Integraciones de terceros | El deploy de `saas-auth` depende de `WOMPI_EVENTS_SECRET`; no disponible para el preflight observado. No se alteró. |
-| Manejo de errores | No se consultaron secretos. El preflight `saas-auth` se detuvo por `WOMPI_EVENTS_SECRET`; los errores autenticados de Functions quedan fuera de esta revisión. |
+| Integraciones de terceros | El preflight de `saas-auth` se detuvo al resolver `WOMPI_EVENTS_SECRET`; no se leyó ni cambió el secreto. ADR-SAAS-078 Opción 1 está aceptada en la rama de Gate I y retira solo el export del webhook no desplegado, conservando módulo y pruebas. |
+| Manejo de errores | No se consultaron secretos. El preflight histórico de `saas-auth` se detuvo por `WOMPI_EVENTS_SECRET`; el candidato de Gate I ya lo excluye del discovery. Falta verificar el delta productivo después de merge. |
 
 | ID / severidad | Hallazgo | Remediación requerida |
 |---|---|---|
-| I-01 / HIGH — A01, Tampering | La callable legacy de compras está activa con hash previo al guard ADR-SAAS-075, mientras el source ya lo implementa. | Resolver de forma legítima la dependencia de `saas-auth`, desplegar la actualización de guard y comprobar operación nueva + replay por hash y tests. |
+| I-01 / HIGH — A01, Tampering | La callable legacy de compras está activa con hash previo al guard ADR-SAAS-075, mientras `main` ya contiene el guard. ADR-SAAS-078 Opción 1 está aceptada y el candidato elimina el webhook Wompi del export, sin borrar su módulo. | Integrar el candidato, confirmar inmediatamente que el webhook no existe en remoto, hacer preflight exacto de `registrarCompraOperativaV1`, desplegar solo esa actualización y comprobar operación nueva + replay por hash/tests. Detener ante cualquier otro delta. |
 | I-02 / HIGH — A01, A04 | Rules remoto difiere de `main`; todavía permite escritura directa admin de compras y deniega señales Bodega. Un deploy completo también modifica otros paths. | Completar pruebas por vertical y gates de corte; solo aplicar Rules tras guard legacy y preflight exacto aprobado. |
 | I-03 / MEDIUM — A01 | `guardarMetadatosDian()` conserva un writer cliente que las Rules de `main` niegan; DIAN real está fuera del Trial DEMO inicial, pero se desconoce si otro tenant productivo usa esa ruta. | Antes del corte global, confirmar el impacto en tenants activos. Si DIAN está en uso, resolver la persistencia con autoridad server-side y decisión aprobada; no restablecer la transición cliente insegura. |
 | I-04 / MEDIUM — A05 | No se acreditó el SHA Vercel objetivo ni existen atestaciones independientes de smoke y restore. | Alinear Vercel al SHA de release y probar smoke/restore con identidad aprobada y destino aislado, sin usar `(default)`. |
 
 ## Orden recomendado para el corte y reversión
 
-1. Mantener esta fase sin cambios remotos. Resolver el bloqueo del codebase
-   `saas-auth` por la dependencia `WOMPI_EVENTS_SECRET` mediante disponibilidad
-   legítima del secreto existente o una decisión arquitectónica separada; no
-   copiar secretos ni inventar un valor. La actualización de la callable legacy
-   solo se considera lista cuando el hash remoto contiene y las pruebas
-   confirman el guard para operación nueva y replay.
+1. Mantener esta fase sin cambios remotos. Integrar el candidato de ADR-SAAS-078
+   y, desde la carpeta aislada de producción, confirmar que el endpoint Wompi
+   no existe en remoto. Ejecutar un preflight exacto del target
+   `registrarCompraOperativaV1`; no leer ni inventar `WOMPI_EVENTS_SECRET` y
+   detenerse ante eliminación, creación o actualización adicional. La callable
+   solo se considera lista cuando el hash remoto y pruebas confirman el guard
+   tanto en operación nueva como en replay.
 2. La suite Emulator cubre lecturas de vendedor por vertical,
    presentaciones/ledger y denegación de escritura de ventas. Antes de publicar
    Rules, confirmar si algún tenant productivo depende del writer DIAN legado;
