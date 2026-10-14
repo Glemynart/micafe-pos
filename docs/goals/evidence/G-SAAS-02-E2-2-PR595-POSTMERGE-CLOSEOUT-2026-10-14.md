@@ -84,6 +84,12 @@ confirmado y autorización productiva específica.
 
 El propietario confirmó que para este caso (Gate I / Diana) el destino es web, no Electron. La auditoría encontró cuatro llamadas `window.api.factus` en `components/pos/historial.tsx`, pero no una ruta Factus en `app/api` ni una callable en Functions que emita documentos. Por ello no hay un proveedor web en este repo; en una web pura no debe asumirse que existe el objeto `window.api`. El guard de PR #595 bloquea a los dos tenants aceptados en UI, pero no acredita que otros tenants puedan emitir Factus desde web ni es una barrera server-side. Esta brecha web preexistente requiere una decisión arquitectónica y un cambio separado antes de afirmar la compatibilidad DIAN web; no se implementó ni se amplió el alcance de indisponibilidad.
 
+### Validación local adicional (2026-10-14)
+
+- `npm run test:rules`: PASS en Firestore Emulator (`demo-mt-u4-rules`), 45/45 pruebas, 0 fallos. Esto valida `firestore.rules` de la rama contra su suite local; no acredita compatibilidad de los 14 paths divergentes con todos los clientes ni sustituye un deploy/preflight remoto.
+- `npm run test:tenant`: 8 PASS, 1 SKIP, 0 fallos. El caso omitido declara que requiere sesión real de Firebase Auth o mock del SDK, no presente en esta suite.
+- `git diff --check`: PASS para los cambios documentales locales. Estos resultados no se atribuyen a los checks todavía pendientes de PR #596.
+
 ## Límites y siguientes bloqueos
 
 - Sin despliegues ni escrituras de producción, cambios IAM/Secrets, Trial o smoke autenticado.
