@@ -132,6 +132,8 @@ test("Bodega: vendedor no salta DTO por Firestore y solo lee su turno", async ()
   await seedDocument("turnos/bodega-ajeno", { empresaId: "empresa-a", cajeroId: fixtures.tenantA.cajero.uid });
   await expectDenied(vendedorA.firestore().doc("productos/bodega-a").get());
   await expectDenied(vendedorA.firestore().doc("ventas/bodega-a").get());
+  await expectDenied(getDocs(query(collection(vendedorA.firestore(), "productos"), where("empresaId", "==", "empresa-a"))));
+  await expectDenied(getDocs(query(collection(vendedorA.firestore(), "ventas"), where("empresaId", "==", "empresa-a"))));
   await expectDenied(vendedorA.firestore().doc("movimientos_inventario/bodega-a").get());
   await expectDenied(vendedorB.firestore().doc("movimientos_inventario/bodega-a").get());
   await expectDenied(vendedorA.firestore().doc("movimientos_inventario/bodega-nuevo").set({ empresaId: "empresa-a", cantidad: 1 }));
@@ -154,6 +156,7 @@ test("Bodega U2-A: vendedor no salta la frontera de clientes y administración c
 
   await expectDenied(vendedorA.firestore().doc(clienteA).get());
   await expectDenied(vendedorB.firestore().doc(clienteA).get());
+  await expectDenied(getDocs(query(collection(vendedorA.firestore(), "clientes"), where("empresaId", "==", "empresa-a"))));
   await expectDenied(vendedorA.firestore().doc("clientes/nuevo-vendedor").set({
     empresaId: "empresa-a", nombre: "Intento directo", cedula: "9002", telefono: "3000000001", activo: true,
   }));
