@@ -288,3 +288,24 @@ fbd45436f62eb06950bf9a671e204d9b00679f3d`. Resultado `INCOMPLETE`,
 
 No se ejecutó deploy, smoke, escritura productiva, creación de tenant,
 activación de usuario, emisión DIAN, cambio IAM/Secrets ni operación PITR.
+
+### Relectura GET-only de Gate I — 2026-10-14T22:37:02.623Z
+
+El collector `scripts/g-saas-02/release-evidence.ts` consultó el proyecto
+`micafe-pos` para `main @ fbd45436f62eb06950bf9a671e204d9b00679f3d`. Resultado
+`INCOMPLETE`, `readOnly=true`, `productionWrites=false` y
+`collectionErrors=[]`.
+
+| Superficie | Evidencia | Estado / siguiente paso |
+|---|---|---|
+| `origin/main` y CI | SHA objetivo coincide con `origin/main`; run `38640922904` del mismo SHA está `completed/success`. | `PASS`. |
+| Functions | 104/104 activas en Node.js 22; `registrarCompraOperativaV1` sigue activa con hash `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`, anterior al guard de ADR-SAAS-075 ya presente en `main`. | Disponibilidad `PASS`; versión requerida `FAIL`; deploy dirigido `NOT EXECUTED`, requiere preflight de artefacto y autorización específica. |
+| Firestore Rules | El collector no devolvió observación (`rules=null`) ni error de colección; atestación independiente `MISSING`. La última lectura directa disponible sigue siendo la de 22:26:37.849Z, con SHA fuente `2dc12a5972c216601a21cbae6be73bd787558f4fdad4a33227f05dee37087b91`, SHA remoto `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3` y 14 divergencias efectivas clasificadas en la matriz. | No afirmar que Rules fueron revalidadas a las 22:37. Repetir lectura read-only y verificar tenants activos/trial antes del corte; sin deploy. |
+| Storage Rules | La lectura previa de 22:26 observó igualdad de hashes fuente/remoto; el collector de 22:37 no recibió atestación independiente. | Último resultado directo `PASS`, no actualizado en esta lectura. |
+| Vercel producción | `vercel inspect` del alias productivo sigue resolviendo `dpl_4viR3AppP838CJjtUHYeBLo1W19C`, `READY`, target `production`, creado el 6-oct-2026; la respuesta no expuso SHA de commit. El collector no vio estado Vercel exitoso para `fbd45436`. | SHA objetivo no acreditado (`FAIL`); publicación `NOT EXECUTED`, requiere autorización y rollback específico. |
+| Smoke autenticado | No se encontró atestación; siguen sin designarse identidad, tenant y alcance exactos autorizados. | `NOT EXECUTED`; no improvisar credenciales ni producir escrituras. |
+| Recovery y PITR | Collector observó PITR `false`, un backup schedule y 34 backups en `southamerica-east1`. El restore aislado conserva evidencia separada `VERIFIED`, `RPO=8.307 h`, `RTO=0.220 h`, fuente intacta y sin cutover. | Punto de recuperación observado `PASS`; restore independiente `PASS`; atestación de ingestión `MISSING`. PITR deshabilitado sigue siendo decisión aprobada, no bloqueo. |
+| Fecha de Diana | El administrador del proyecto confirma que Diana le comunicó directamente `2026-10-15`; la fuente es esa atestación, no un mensaje original almacenado. | Fecha `CONFIRMADA`; Trial y tenant `NOT EXECUTED`, sujetos a gates, seguridad y autorizaciones. |
+
+No se realizó deploy, smoke, escritura productiva, creación de tenant, cambio
+IAM/Secrets ni operación PITR durante esta relectura.
