@@ -143,3 +143,94 @@ el writer cliente hasta una solución server-side aprobada; antes del deploy
 global de Rules falta confirmar que esa limitación es compatible con las
 operaciones previstas de ambos tenants activos. No se leyeron ni publicaron
 razón social, NIT, IDs de tenant ni documentos de venta.
+
+### Aceptación operativa DIAN y alcance — 2026-10-14
+
+El propietario acepta la indisponibilidad temporal de facturación electrónica
+DIAN mientras la escritura fiscal migra a servidor, **únicamente para las dos
+empresas existentes identificadas en la lectura productiva de esta fecha**:
+
+| Empresa | ID de empresa | Estado observado |
+|---|---|---|
+| Cafe Atrato | `1ae0rD9H8t3ZFSBKrrHR` | `activa` |
+| Prueba | `Prueba` | `trial` |
+
+La lectura de solo metadatos devolvió esas dos empresas en `activa`/`trial`; el
+resultado es una fotografía del 2026-10-14, no una autorización para empresas
+futuras. Ambas tenían readiness fiscal incompleto y la agregación de ventas
+persistidas con `dian.emitidoEn` devolvió `0`. No se leyeron NIT, direcciones,
+documentos de venta ni credenciales. Antes de un deploy se debe repetir el
+conteo y comparar los IDs; cualquier alta, baja o cambio de estado detiene el
+corte y exige reevaluar su alcance.
+
+La aceptación operativa **no autoriza la implementación técnica ni despliegue**
+de Rules, Functions o Vercel. No se ha cambiado la aplicación para bloquear
+DIAN, ni se ha publicado ningún recurso a raíz de esta decisión. El diseño
+reversible de bloqueo previo a Factus y su retiro tras migración server-side
+está en [ADR-SAAS-079 (Propuesto)](../../../ADR-SAAS-079-indisponibilidad-temporal-dian-gate-i.md);
+requiere aprobación explícita antes de implementación.
+
+#### Operaciones fiscales afectadas por la propuesta
+
+El cliente ejecuta `window.api.factus.emitir()` para emisión individual y en
+lote desde `components/pos/historial.tsx`, y `emitirNotaCredito` /
+`emitirNotaDebito` para notas. Después de emitir, intenta guardar la respuesta
+en `ventas/{id}.dian` mediante `guardarMetadatosDian()` (`setDoc` cliente con
+reintento). Las Rules de `main` deniegan todas las escrituras de ventas. Por
+tanto, antes de publicar ese corte deben bloquearse las acciones DIAN **antes**
+de la invocación externa; desplegar solo Rules podría dejar un documento
+emitido en Factus sin su metadata persistida. Se conserva la implementación
+Factus actual; no se borra ni reimplementa. No se declara afectada la lectura o
+reimpresión de documentos históricos, que requiere validación aparte si aplica.
+
+#### Compatibilidad de la operación no fiscal
+
+En el checkout aislado de `main @ f604a0a`, usando Firebase Emulator/demo y sin
+escrituras productivas, finalizaron:
+
+| Validación | Resultado observado |
+|---|---|
+| `npm run test:rules` | 45/45, 0 fallas. Incluye venta read-only y rechazo de escritura DIAN cliente. |
+| `npm run test:auth-foundation` | 436 pasaron, 5 omitidas, 0 fallas. |
+| `npm run test:tenant` | 8 pasaron, 1 omitida por requisito de sesión de Auth, 0 fallas. |
+| `npm run e2e:p0-06` | 1/1; venta, inventario, caja/turno, cierre, replay y aislamiento multi-tenant. |
+| `npm run e2e:p1-02` | 1/1; venta, ledger de inventario, idempotencia y aislamiento. |
+| `npm run e2e:bodega-agenda` | 8/8. |
+| `npm run e2e:bodega-u4-u5` | 12/12; flujos Bodega/GENERAL, venta e inventario. |
+
+Esto demuestra regresión automatizada local, no certifica disponibilidad en
+producción: sigue faltando el smoke autenticado con el release objetivo.
+
+#### Rules, preflight y rollback
+
+La lectura directa de Rules productivas observó el ruleset
+`d5e205db-0ab4-4db1-b5ec-1534bee39d35` (actualizado `2026-08-15T04:20:46Z`),
+hash remoto `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`;
+`main @ f604a0a` tiene hash fuente
+`2dc12a5972c216601a21cbae6be73bd787558f4fdad4a33227f05dee37087b91`. Difieren
+14 paths de Rules, detallados en la matriz vinculada. En `/ventas/{id}`, la
+remota permite una transición restringida; `main` fija `allow update: if false`
+para que los efectos de inventario/tesorería permanezcan server-authoritative.
+Rules se publica como release de proyecto: no es una actualización exclusiva
+de esos dos IDs.
+
+Preflight requerido antes de solicitar el despliegue: (1) confirmar carpeta
+productiva aislada, `micafe-pos`, SHA y árbol limpio; (2) releer el ruleset/hash
+remoto y reconciliar los 14 paths; (3) reenumerar empresas `activa`/`trial` y
+confirmar exactamente los dos IDs anteriores; (4) verificar el cliente con
+bloqueo fiscal ya publicado y los tests; (5) revisar el delta Rules exacto y
+detenerse ante cualquier mutación adicional. La autorización para desplegar
+Rules sigue pendiente; no se ejecutó deploy ni un dry-run productivo en este
+corte.
+
+Rollback: preferir forward-fix. No restaurar automáticamente el ruleset remoto
+anterior, pues reabriría escrituras directas de compra y el writer cliente de
+ventas. Si se vuelve imprescindible, primero congelar compras afectadas y
+obtener autorización operativa y técnica específica; revertir el bloqueo DIAN
+solo tras verificar que el reemplazo server-side está publicado y autenticado.
+
+Las líneas independientes también continúan: `registrarCompraOperativaV1`
+requiere su preflight y autorización de Functions; Vercel requiere una
+publicación del SHA acordado y su autorización; el smoke requiere una identidad
+de producción autorizada. No se inicia el Trial de Diana: la fecha prevista
+2026-10-13 ya pasó y falta acordar una nueva. Gate I permanece `INCOMPLETE`.
