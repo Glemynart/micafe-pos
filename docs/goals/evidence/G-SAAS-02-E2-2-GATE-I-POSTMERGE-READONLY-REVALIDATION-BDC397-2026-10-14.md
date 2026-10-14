@@ -80,9 +80,12 @@ Hallazgos relevantes para el corte Bodega:
   `/ventas` desde el historial. Las Rules de `main` deniegan esas lecturas al
   rol `vendedor` sin revisar el vertical. Las pruebas actuales de
   `firestore-rules/role-invariants.test.ts` cubren el vendedor Bodega, pero no
-  una regresión de `GENERAL + vendedor`. Esto constituye una incompatibilidad
-  probable del próximo Rules cut para tenants `GENERAL` que tengan ese rol; se
-  debe verificar con fixtures/emulator antes de cualquier despliegue.
+  una regresión de `GENERAL + vendedor`: el test llamado Bodega no siembra
+  `configuraciones/{empresaId}`, así que no prueba el selector de vertical. La
+  regla global niega igual. Esto constituye una incompatibilidad probable del
+  próximo Rules cut para tenants `GENERAL` que tengan ese rol; se debe verificar
+  con fixtures Emulator diferenciados por vertical antes de cualquier
+  despliegue.
 - `main` también agrega `/presentaciones_producto/{id}` (lectura no-vendedor,
   sin escrituras) y deniega `/intenciones_pago_reserva/{id}`. El ruleset
   productivo no tiene esos bloques; su catch-all los deniega.
