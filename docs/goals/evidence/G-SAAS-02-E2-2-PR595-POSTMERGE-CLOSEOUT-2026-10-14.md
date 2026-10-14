@@ -54,7 +54,7 @@ Lecturas de solo consulta realizadas el 2026-10-14, sin modificar producción:
 | Vercel | Deployment `READY` más reciente: `cafeatrato-2mgbt0pse-glemynarts-projects.vercel.app`, alias `cafeatrato-git-main-glemynarts-projects.vercel.app`, SHA `1c2f155653536b1fd8e1925db931e2354fa41f7d`, 2026-10-06. Los deploys automáticos desde `main` están deshabilitados. | El SHA integrado no está publicado; no se hizo publicación manual. Falta autorización específica, fijar SHA y documentar rollback. |
 | Smoke productivo | Sin atestación autenticada para el release objetivo. | Requiere identidad y alcance productivos autorizados; Preview/staging no lo sustituyen. |
 | Restore y PITR | Restore aislado `gsaas02-recovery-20261014` en `southamerica-east1`: `VERIFIED`, `RPO=8.307 h`, `RTO=0.220 h`, `sourceUntouched=true`, `applicationCutover=false`. La evidencia indica artefacto JSON local. PITR está deshabilitado según ADR-SAAS-031; hay schedule diario/35 backups. | Restore independiente verificado; el artefacto JSON no está en este worktree. PITR deshabilitado es política aprobada, no bloqueo. No se restauró `(default)` ni se activó PITR. |
-| Trial de Diana | `2026-10-15` es la nueva fecha objetivo interna indicada por el responsable el `2026-10-14`; continúa pendiente de confirmación directa de Diana. | No iniciar el Trial ni provisionar hasta que Diana confirme esa fecha y se satisfagan los gates/autorizaciones correspondientes. |
+| Trial de Diana | El administrador del proyecto confirma el `2026-10-14` que Diana le comunicó directamente la fecha objetivo `2026-10-15`. | Fecha confirmada según atestación directa del administrador; no se almacena la comunicación original. El Trial y el tenant siguen `NOT EXECUTED` hasta satisfacer las verificaciones, gates y autorizaciones aplicables. |
 
 ### Estado operativo de los controles
 
@@ -75,7 +75,7 @@ se omitió deliberadamente y no se presume aprobada.
 | Smoke autenticado de producción | `NOT EXECUTED` | Falta identidad y alcance productivos autorizados. Preview y staging no sustituyen esa atestación. |
 | Emisión DIAN web | `BLOCKED` | No existe una ruta web Factus server-side en este repositorio; requiere ADR/arquitectura y trabajo separado. La pausa aceptada no se amplía. |
 | PITR | `PASS` | Deshabilitado según ADR-SAAS-031; no se activó ni se ejecutó restauración productiva. |
-| Tenant, Trial y carga de catálogo de Diana | `NOT EXECUTED` | La fecha objetivo `2026-10-15` aún no tiene confirmación directa de Diana; tenant y transcripción digital tampoco están aprobados para crear/importar. |
+| Tenant, Trial y carga de catálogo de Diana | `NOT EXECUTED` | El administrador confirma que Diana le comunicó directamente `2026-10-15`. Tenant y transcripción digital siguen sin autorización para crear/importar; no iniciar hasta satisfacer gates y verificaciones aplicables. |
 
 Gate I continúa `BLOCKED`/`INCOMPLETE`; no se registra un `FAIL` de pruebas
 locales ni se presenta como ejecutado ningún smoke, deploy o escritura productiva.
@@ -144,8 +144,9 @@ No hubo habilitación de APIs, deploy, escritura, cambio IAM/Secrets ni smoke pr
 ## Preparación del Trial de Diana — actualización 2026-10-14
 
 La tabla de la revalidación de las 19:03:51Z conserva el estado observado en
-ese instante. La instrucción posterior del responsable fija el objetivo del
-Trial para `2026-10-15`, todavía pendiente de confirmación expresa de Diana.
+ese instante. En la actualización inicial del runbook, el objetivo del Trial
+para `2026-10-15` todavía estaba pendiente de confirmación; véase la
+confirmación posterior del administrador del proyecto registrada abajo.
 No se creó ni activó el tenant real, no se inició el Trial, no se importó el
 catálogo y no hubo escrituras productivas.
 
@@ -183,19 +184,19 @@ funcional ni como cierre de Gate I. El guard UI de ADR-SAAS-079 sigue limitado
 a `Cafe Atrato` y `Prueba`; no se amplió el allowlist al tenant todavía
 inexistente de Diana.
 
-La fecha objetivo más reciente para iniciar el Trial es `2026-10-15`, pendiente
-de confirmación directa de Diana. La fecha no se considera acordada por su sola
-repetición en este runbook.
+La fecha acordada más reciente para iniciar el Trial es `2026-10-15`. El
+administrador del proyecto confirmó el `2026-10-14` que Diana se la comunicó
+directamente. Esta evidencia conserva la atestación del administrador, sin
+almacenar la comunicación original; no representa inicio del Trial ni
+autorización para crear el tenant. Las verificaciones y autorizaciones
+aplicables siguen siendo condición previa.
 
-## Seguimiento PR #596 y fuente visual del catálogo — 2026-10-14
+No se creó ni activó el tenant real, no se inició el Trial, no se importó el
+catálogo y no hubo escrituras productivas.
 
-PR #596 (`docs(gate-i): record PR 595 post-merge closeout`) se revalidó para el
-head `c5670893098e90a40ce8e72ddcc1ee6c107df0a9`. `gh pr checks 596` terminó
-con `Tipos y pruebas`, `Vercel` y `Vercel Preview Comments` en `PASS`; la
-corrida CI `38627843729` concluyó `success` el 2026-10-14T20:12:55Z (job de
-pruebas 16m26s). La auditoría del head confirmó un diff solo documental, sin
-código runtime, datos ni cambios de producción. El PR continúa abierto y no se
-integra ni declara `DONE` en esta actualización.
+## Snapshot previo de PR #596 y fuente visual del catálogo — 2026-10-14
+
+Este bloque conserva un snapshot preliminar: el head `c5670893098e90a40ce8e72ddcc1ee6c107df0a9` tenía los checks `Tipos y pruebas`, `Vercel` y `Vercel Preview Comments` en `PASS`, con CI `38627843729` completada `success` a las `20:12:55Z`. Después se añadieron los commits `dc59ba6` y `0a64720`, por lo que ese resultado no es el de la revisión final. PR #596 terminó integrado como `fbd45436f62eb06950bf9a671e204d9b00679f3d`; sus checks finales y CI post-merge están en la sección de cierre más abajo.
 
 El responsable proporcionó cuatro fotografías de las hojas impresas, que sí
 constituyen la fuente visual del catálogo y cubren las filas 1–110. En las
@@ -226,25 +227,85 @@ aislado del 14-oct permanece documentado como `VERIFIED`, aunque su atestación
 externa no fue importada por el collector. No se desplegó ni escribió en
 producción.
 
-## Estado comprobable de preparación y Gate I
+## Cierre post-merge de PR #596 y estado vigente de Gate I
+
+### PR #596
+
+| Control | Resultado |
+|---|---|
+| Estado y jerarquía | `MERGED` en `2026-10-14T21:31:25Z`; Goal `G-SAAS-02`, M2, E2.2. |
+| Head integrado | `0a64720f6e71f1079d41e11d123af5c6016ab460`. |
+| Merge SHA y `origin/main` | `fbd45436f62eb06950bf9a671e204d9b00679f3d`; verificado después del merge. |
+| Checks pre-merge | `Tipos y pruebas` run `38637365549`, `Vercel Preview` y `Vercel Preview Comments`: `PASS` para head `0a64720`. La vista Vercel es Preview, no producción. |
+| CI post-merge | Run `38640922904`, SHA `fbd45436f62eb06950bf9a671e204d9b00679f3d`, `completed/success` a las `2026-10-14T21:55:47Z`; job `Tipos y pruebas` completó 109 pasos sin fallos. |
+| Auditoría y mutation audit | `APROBADO PARA MERGE`; cuatro archivos Markdown únicamente. Diff desde `f08fa1ca`: runbook, Goal y dos evidencias; sin runtime, Rules, Functions, catálogo/fotos, datos de cliente, IAM, Secrets ni despliegue. `git diff --check` pasó. |
+
+### Lectura post-merge, solo lectura
+
+El collector `scripts/g-saas-02/release-evidence.ts` se ejecutó de nuevo a las
+`2026-10-14T21:56:43Z` contra `main @
+fbd45436f62eb06950bf9a671e204d9b00679f3d`. Reportó `INCOMPLETE`,
+`readOnly=true`, `productionWrites=false`, `collectionErrors=[]`.
 
 | Área | Estado | Evidencia / siguiente acción |
 |---|---|---|
-| CI de PR #596 | `PASS` | Head `c5670893098e90a40ce8e72ddcc1ee6c107df0a9`; `Tipos y pruebas`, `Vercel` y `Vercel Preview Comments` verdes; run `38627843729`, concluido `success` a las 20:12:55Z. PR sigue `OPEN`; no se declara `DONE` ni se integra en esta actualización. |
-| Fuente de catálogo | `PASS` para recepción; `BLOCKED` para importación | Cuatro fotos recibidas y transcripción local 110/110, precios numéricos, stock cero. Revisión de ambigüedades pendiente de Diana/responsable; importación `NOT EXECUTED`. |
-| Fecha del Trial | `BLOCKED` | `2026-10-15` es fecha objetivo interna; falta confirmación directa de Diana. Tenant/Trial `NOT EXECUTED`. |
-| Onboarding | `PASS` documental; operativo `NOT EXECUTED` | Runbook asigna a Diana completar perfil, crear vendedores/roles y entregar credenciales temporales fuera de banda; no contiene credenciales. No hubo bootstrap real. |
-| Operación DEMO/no fiscal | `PASS` en Emulator | `npm run e2e:bodega-u4-u5`: 12/12; no sustituye smoke productivo ni certifica DIAN. |
-| Gate I / estado general | `INCOMPLETE` | El colector read-only del 2026-10-14 encontró CI/main `PASS`, 104/104 Functions `ACTIVE` en Node 22, hashes reconciliados, Vercel para SHA objetivo `FOLLOW_UP`, Rules/Storage/smoke/recovery independientes `MISSING`, y punto de recuperación observado `PASS`. |
-| `registrarCompraOperativaV1` | `FAIL` de reconciliación | Hash remoto `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`, anterior al guard fuente. Deploy `NOT EXECUTED`; requiere preflight dirigido y autorización explícita. |
-| Firestore Rules | `FAIL` en la última lectura; relectura posterior `NOT EXECUTED` | Evidencia directa del 2026-10-14 registró 14 paths divergentes. El colector posterior no produjo observación de Rules porque `FIREBASE_ACCESS_TOKEN` no estaba configurado en este runner; se requiere una lectura read-only fresca y repetir el diff/preflight. No desplegar Rules. |
-| Vercel producción | `BLOCKED` | No hay estado exitoso para el SHA objetivo. Evidencia directa anterior observó un release viejo; publicación del SHA y política de deploy siguen sin verificarse/autorización. No publicar. |
-| Smoke productivo | `NOT EXECUTED` | Falta identidad y alcance expresamente autorizados. No usar cuentas/credenciales improvisadas. |
-| Storage Rules | `BLOCKED` por atestación vigente | La última lectura directa registrada mostró hashes iguales; el colector posterior reportó atestación independiente `MISSING`. Renovar evidencia read-only antes de certificar. |
-| Restore / PITR | Restore aislado `PASS` histórico; atestación importada `MISSING`; PITR desactivado por decisión | El restore aislado previo permanece documentado/verificado; el colector no incorporó su referencia. PITR deshabilitado sigue alineado con ADR-SAAS-031. No se restauró `(default)` ni se activó PITR. |
-| Escrituras/despliegues productivos | `NOT EXECUTED` | Sin deploy Functions/Rules/Vercel, altas de tenant, escritura de catálogo/inventario, cambio IAM/Secrets ni Trial. |
+| `origin/main` y CI | `PASS` | `origin/main` coincide con `fbd45436`; run `38640922904` del mismo SHA `completed/success`. |
+| Functions | `PASS` disponibilidad / `FAIL` versión requerida | 104/104 activas, Node.js 22 y hashes reconciliados. `registrarCompraOperativaV1` conserva hash remoto `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`, anterior al guard fuente; deploy dirigido `NOT EXECUTED`, requiere preflight y autorización específica. |
+| Firestore Rules | `FAIL` | SHA fuente `2dc12a5972c216601a21cbae6be73bd787558f4fdad4a33227f05dee37087b91`; remoto `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`; 14 divergencias efectivas. No desplegar hasta cerrar compatibilidad y autorización. |
+| Storage Rules | `PASS` | Hash fuente/remoto `fc837a77b952f3f2cf9e6eec24e7962eb0177a992f0776810d4798b5a1ee9f2b` coincide. |
+| Vercel producción | `FAIL` publicación del SHA objetivo | El collector no observó deployment/status para `fbd45436`. La consulta directa anterior observó `READY` en SHA `1c2f155653536b1fd8e1925db931e2354fa41f7d` del 6-oct. Publicación manual `NOT EXECUTED`; falta autorización específica y rollback fijado. |
+| Smoke productivo | `NOT EXECUTED` | Sin atestación; falta identidad y alcance de producción autorizados expresamente. No improvisar credenciales ni sustituirlo por Preview/Emulator. |
+| Recovery y PITR | Restore aislado `PASS` previo; collector recovery `MISSING`; PITR `PASS` según decisión | Restore independiente previamente verificado (`RPO=8.307 h`, `RTO=0.220 h`, fuente intacta, sin cutover). Este collector no recibió la atestación. PITR deshabilitado, 1 schedule/35 backups en `southamerica-east1`; no activar PITR ni restaurar `(default)`. |
+| Catálogo y onboarding | Recepción `PASS`; importación `BLOCKED`/`NOT EXECUTED` | Las cuatro fotos son la fuente visual de 110 filas. No existe maestro editable aprobado en ubicaciones consultadas; el CSV privado es borrador estructural, sin cotejo semántico ni aprobación exacta. Diana o responsable debe cotejar y aprobarlo o proporcionar CSV/XLSX aprobado. El runbook deja a Diana como admin inicial, crea vendedores/roles y entrega credencial temporal fuera de banda; bootstrap real `NOT EXECUTED`. |
+| Trial de Diana | `BLOCKED`/`NOT EXECUTED` | El administrador confirma que Diana le comunicó directamente la fecha objetivo `2026-10-15`. No se creó tenant ni se inició el Trial; faltan verificaciones, gates y autorizaciones aplicables. |
+| Operación no fiscal | `PASS` en pruebas locales/Emulator; producción `NOT EXECUTED` | E2E Bodega `12/12` local y suites E2E CI verdes. La emisión DIAN web no está disponible; la excepción aprobada aplica solo a `Cafe Atrato` y `Prueba` y no certifica otros tenants. |
+| Cambios productivos | `NOT EXECUTED` | No hubo Rules/Functions/Vercel deploy, smoke autenticado, tenant, importación, escrituras de inventario/finanzas, cambios IAM/Secrets ni PITR. |
 
-La relectura de Functions no altera su estado. La brecha DIAN web continúa
-separada: el Trial puede operar sin emisión solo bajo la aceptación acordada;
-la aplicación web no tiene una ruta server-side Factus acreditada, y Gate I no
-se declara `PASS`.
+Gate I permanece `BLOCKED`/`INCOMPLETE`; no se registra un `FAIL` de CI ni
+se interpreta la disponibilidad de Functions como coincidencia de versión.
+Los bloqueos reales son Rules incompatibles, hash de compra antiguo,
+publicación Vercel no acreditada, falta de smoke autenticado y la brecha de
+autoridad web server-side DIAN. El inicio del Trial no depende de cerrar la
+emisión DIAN web, porque operará únicamente en el modo no fiscal aceptado. La
+fecha está confirmada según atestación del administrador; el inicio sigue
+sujeto a gates, verificaciones de seguridad y autorizaciones del Trial.
+
+### Relectura GET-only de Gate I — 2026-10-14T22:26:37.849Z
+
+El collector se ejecutó contra `micafe-pos`, objetivo `main @
+fbd45436f62eb06950bf9a671e204d9b00679f3d`. Resultado `INCOMPLETE`,
+`readOnly=true`, `productionWrites=false`, `collectionErrors=[]`.
+
+| Superficie | Evidencia fresca | Estado / siguiente paso |
+|---|---|---|
+| CI y SHA objetivo | `origin/main` coincide con `fbd45436`; CI `38640922904` para el mismo SHA terminó `success`. | `PASS`. |
+| Firestore Rules | Fuente `2dc12a5972c216601a21cbae6be73bd787558f4fdad4a33227f05dee37087b91`; remoto `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`. La matriz clasifica 14 divergencias efectivas en paths y consumidores. | `FAIL` de reconciliación; mantener sin deploy. Matriz/tests Emulator pasan; antes del corte revalidar tenants activos/trial, dependencias y rollback. Deploy requiere autorización específica. |
+| `registrarCompraOperativaV1` | `ACTIVE`, Gen2, Node.js 22, `us-central1`; hash remoto `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`. El código de `main` contiene el guard de ADR-SAAS-075 en operación nueva y replay; cambio integrado por PR #576, merge `05d6f1c08f866aaf7223ba73782f8e15fe10cb43`. `functions/src/finanzas/compras.test.ts`: 16/16; build de Functions: PASS. | Hash productivo anterior: deploy dirigido `NOT EXECUTED`. Preflight de artefacto/delta exacto y autorización independiente siguen pendientes. Rollback según ADR-SAAS-075: antes del tenant real revertir código y mantener Rules cerradas; después del alta no reabrir la callable, preferir forward-fix. |
+| Vercel | `vercel inspect` del alias productivo resolvió deployment `dpl_4viR3AppP838CJjtUHYeBLo1W19C`, `READY`, creado `2026-10-06T14:52:13.319Z`. La inspección actual no expuso SHA; la lectura directa anterior asoció ese deployment con `1c2f155653536b1fd8e1925db931e2354fa41f7d`. La lista reciente mostró Preview `READY` de PR #598, SHA `94d4be3`, no producción. | `FAIL` de acreditación del SHA actual. Candidato a publicar: `fbd45436f62eb06950bf9a671e204d9b00679f3d`, SHA actual de `main` al momento de la lectura; publicación manual `NOT EXECUTED`, requiere autorización y rollback identificados. |
+| Smoke autenticado | No se encontró atestación ni identidad/tenant productivos aprobados para la prueba. | `NOT EXECUTED`. Preparación mínima: el responsable debe designar un usuario existente, tenant y rol; fijar de antemano si se autoriza solo lectura o una transacción sintética y su alcance. No crear tenant ni movimientos ni usar identidades supuestas. |
+| Storage y recovery | Storage fuente/remoto coincide en `fc837a77b952f3f2cf9e6eec24e7962eb0177a992f0776810d4798b5a1ee9f2b`. Collector: PITR `false`, un schedule, 35 backups en `southamerica-east1`; su atestación de recovery externa figura `MISSING`. El restore aislado del 14-oct tiene evidencia separada `VERIFIED`, `RPO=8.307 h`, `RTO=0.220 h`, fuente intacta y sin cutover. | Storage `PASS`; restore `PASS` por evidencia directa; el `MISSING` de ingestión no invalida el restore. PITR deshabilitado por ADR-SAAS-031 no es bloqueo. |
+| Autoridad DIAN web | Se mantienen cuatro llamadas UI a `window.api.factus` y `guardarMetadatosDian()` cliente; no existe ruta Factus en `app/api` ni callable Functions web. ADR-SAAS-079 limita la pausa UI a `Cafe Atrato` y `Prueba`, sin eliminar Factus. | `BLOCKED` para certificar emisión DIAN web; no inventar endpoint ni reactivar. Requiere arquitectura/ADR aprobada y migración server-side separada. La indisponibilidad DIAN aceptada no impide por sí sola el Trial no fiscal de Diana. |
+
+No se ejecutó deploy, smoke, escritura productiva, creación de tenant,
+activación de usuario, emisión DIAN, cambio IAM/Secrets ni operación PITR.
+
+### Relectura GET-only de Gate I — 2026-10-14T22:37:02.623Z
+
+El collector `scripts/g-saas-02/release-evidence.ts` consultó el proyecto
+`micafe-pos` para `main @ fbd45436f62eb06950bf9a671e204d9b00679f3d`. Resultado
+`INCOMPLETE`, `readOnly=true`, `productionWrites=false` y
+`collectionErrors=[]`.
+
+| Superficie | Evidencia | Estado / siguiente paso |
+|---|---|---|
+| `origin/main` y CI | SHA objetivo coincide con `origin/main`; run `38640922904` del mismo SHA está `completed/success`. | `PASS`. |
+| Functions | 104/104 activas en Node.js 22; `registrarCompraOperativaV1` sigue activa con hash `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`, anterior al guard de ADR-SAAS-075 ya presente en `main`. | Disponibilidad `PASS`; versión requerida `FAIL`; deploy dirigido `NOT EXECUTED`, requiere preflight de artefacto y autorización específica. |
+| Firestore Rules | El collector no devolvió observación (`rules=null`) ni error de colección; atestación independiente `MISSING`. La última lectura directa disponible sigue siendo la de 22:26:37.849Z, con SHA fuente `2dc12a5972c216601a21cbae6be73bd787558f4fdad4a33227f05dee37087b91`, SHA remoto `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3` y 14 divergencias efectivas clasificadas en la matriz. | No afirmar que Rules fueron revalidadas a las 22:37. Repetir lectura read-only y verificar tenants activos/trial antes del corte; sin deploy. |
+| Storage Rules | La lectura previa de 22:26 observó igualdad de hashes fuente/remoto; el collector de 22:37 no recibió atestación independiente. | Último resultado directo `PASS`, no actualizado en esta lectura. |
+| Vercel producción | `vercel inspect` del alias productivo sigue resolviendo `dpl_4viR3AppP838CJjtUHYeBLo1W19C`, `READY`, target `production`, creado el 6-oct-2026; la respuesta no expuso SHA de commit. El collector no vio estado Vercel exitoso para `fbd45436`. | SHA objetivo no acreditado (`FAIL`); publicación `NOT EXECUTED`, requiere autorización y rollback específico. |
+| Smoke autenticado | No se encontró atestación; siguen sin designarse identidad, tenant y alcance exactos autorizados. | `NOT EXECUTED`; no improvisar credenciales ni producir escrituras. |
+| Recovery y PITR | Collector observó PITR `false`, un backup schedule y 34 backups en `southamerica-east1`. El restore aislado conserva evidencia separada `VERIFIED`, `RPO=8.307 h`, `RTO=0.220 h`, fuente intacta y sin cutover. | Punto de recuperación observado `PASS`; restore independiente `PASS`; atestación de ingestión `MISSING`. PITR deshabilitado sigue siendo decisión aprobada, no bloqueo. |
+| Fecha de Diana | El administrador del proyecto confirma que Diana le comunicó directamente `2026-10-15`; la fuente es esa atestación, no un mensaje original almacenado. | Fecha `CONFIRMADA`; Trial y tenant `NOT EXECUTED`, sujetos a gates, seguridad y autorizaciones. |
+
+No se realizó deploy, smoke, escritura productiva, creación de tenant, cambio
+IAM/Secrets ni operación PITR durante esta relectura.
