@@ -71,9 +71,10 @@ fixture.
 
 ### 2.1.1 Preparación específica del Trial de Diana (2026-10-14)
 
-- Fecha objetivo: `2026-10-15`, pendiente de confirmación expresa de Diana.
-  No crear/activar el tenant ni iniciar el Trial mientras falten esa
-  confirmación y los gates/autorizaciones de producción correspondientes.
+- Fecha objetivo reportada: `2026-10-15`. El responsable informó el
+  `2026-10-14` que Diana la confirmó; no se adjuntó una comunicación directa de
+  Diana a esta evidencia. No crear/activar el tenant ni iniciar el Trial hasta
+  completar las verificaciones, gates y autorizaciones aplicables.
 - Cliente previsto: Distribuidora Las Jiménez, vertical `BODEGA_MVP1`;
   Diana será la administradora inicial y creará los usuarios vendedores y
   asignará sus roles. Los datos comerciales reales se capturan en su primer

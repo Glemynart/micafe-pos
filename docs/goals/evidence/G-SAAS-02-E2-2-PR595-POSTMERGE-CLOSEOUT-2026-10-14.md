@@ -54,7 +54,7 @@ Lecturas de solo consulta realizadas el 2026-10-14, sin modificar producción:
 | Vercel | Deployment `READY` más reciente: `cafeatrato-2mgbt0pse-glemynarts-projects.vercel.app`, alias `cafeatrato-git-main-glemynarts-projects.vercel.app`, SHA `1c2f155653536b1fd8e1925db931e2354fa41f7d`, 2026-10-06. Los deploys automáticos desde `main` están deshabilitados. | El SHA integrado no está publicado; no se hizo publicación manual. Falta autorización específica, fijar SHA y documentar rollback. |
 | Smoke productivo | Sin atestación autenticada para el release objetivo. | Requiere identidad y alcance productivos autorizados; Preview/staging no lo sustituyen. |
 | Restore y PITR | Restore aislado `gsaas02-recovery-20261014` en `southamerica-east1`: `VERIFIED`, `RPO=8.307 h`, `RTO=0.220 h`, `sourceUntouched=true`, `applicationCutover=false`. La evidencia indica artefacto JSON local. PITR está deshabilitado según ADR-SAAS-031; hay schedule diario/35 backups. | Restore independiente verificado; el artefacto JSON no está en este worktree. PITR deshabilitado es política aprobada, no bloqueo. No se restauró `(default)` ni se activó PITR. |
-| Trial de Diana | El responsable informó el `2026-10-14` que Diana confirmó la fecha objetivo `2026-10-15`. | Fecha confirmada según reporte del responsable; el Trial y el tenant siguen `NOT EXECUTED` hasta satisfacer las verificaciones, gates y autorizaciones aplicables. |
+| Trial de Diana | El responsable informó el `2026-10-14` que Diana confirmó la fecha objetivo `2026-10-15`; no se adjuntó una comunicación directa de Diana a esta evidencia. | Fecha registrada según reporte del responsable, no validada independientemente; el Trial y el tenant siguen `NOT EXECUTED` hasta satisfacer las verificaciones, gates y autorizaciones aplicables. |
 
 ### Estado operativo de los controles
 
@@ -75,7 +75,7 @@ se omitió deliberadamente y no se presume aprobada.
 | Smoke autenticado de producción | `NOT EXECUTED` | Falta identidad y alcance productivos autorizados. Preview y staging no sustituyen esa atestación. |
 | Emisión DIAN web | `BLOCKED` | No existe una ruta web Factus server-side en este repositorio; requiere ADR/arquitectura y trabajo separado. La pausa aceptada no se amplía. |
 | PITR | `PASS` | Deshabilitado según ADR-SAAS-031; no se activó ni se ejecutó restauración productiva. |
-| Tenant, Trial y carga de catálogo de Diana | `NOT EXECUTED` | Diana confirmó, según informó el responsable el `2026-10-14`, la fecha objetivo `2026-10-15`. Tenant y transcripción digital siguen sin autorización para crear/importar; no iniciar hasta satisfacer gates y verificaciones aplicables. |
+| Tenant, Trial y carga de catálogo de Diana | `NOT EXECUTED` | El responsable informó el `2026-10-14` que Diana confirmó `2026-10-15`; no hay comunicación directa de Diana adjunta. Tenant y transcripción digital siguen sin autorización para crear/importar; no iniciar hasta satisfacer gates y verificaciones aplicables. |
 
 Gate I continúa `BLOCKED`/`INCOMPLETE`; no se registra un `FAIL` de pruebas
 locales ni se presenta como ejecutado ningún smoke, deploy o escritura productiva.
@@ -185,10 +185,11 @@ a `Cafe Atrato` y `Prueba`; no se amplió el allowlist al tenant todavía
 inexistente de Diana.
 
 La fecha objetivo más reciente para iniciar el Trial es `2026-10-15`. El
-responsable informó el `2026-10-14` que Diana confirmó esa fecha. Esta evidencia
-registra el reporte del responsable; no representa inicio del Trial ni
-autorización para crear el tenant. Las verificaciones y autorizaciones
-aplicables siguen siendo condición previa.
+responsable informó el `2026-10-14` que Diana confirmó esa fecha, pero no se
+adjuntó aquí una comunicación directa de Diana ni se verificó de forma
+independiente. Esta evidencia conserva ese reporte y no representa inicio del
+Trial ni autorización para crear el tenant. Las verificaciones y
+autorizaciones aplicables siguen siendo condición previa.
 
 No se creó ni activó el tenant real, no se inició el Trial, no se importó el
 catálogo y no hubo escrituras productivas.
@@ -256,7 +257,7 @@ fbd45436f62eb06950bf9a671e204d9b00679f3d`. Reportó `INCOMPLETE`,
 | Smoke productivo | `NOT EXECUTED` | Sin atestación; falta identidad y alcance de producción autorizados expresamente. No improvisar credenciales ni sustituirlo por Preview/Emulator. |
 | Recovery y PITR | Restore aislado `PASS` previo; collector recovery `MISSING`; PITR `PASS` según decisión | Restore independiente previamente verificado (`RPO=8.307 h`, `RTO=0.220 h`, fuente intacta, sin cutover). Este collector no recibió la atestación. PITR deshabilitado, 1 schedule/35 backups en `southamerica-east1`; no activar PITR ni restaurar `(default)`. |
 | Catálogo y onboarding | Recepción `PASS`; importación `BLOCKED`/`NOT EXECUTED` | Las cuatro fotos son la fuente visual de 110 filas. No existe maestro editable aprobado en ubicaciones consultadas; el CSV privado es borrador estructural, sin cotejo semántico ni aprobación exacta. Diana o responsable debe cotejar y aprobarlo o proporcionar CSV/XLSX aprobado. El runbook deja a Diana como admin inicial, crea vendedores/roles y entrega credencial temporal fuera de banda; bootstrap real `NOT EXECUTED`. |
-| Trial de Diana | `BLOCKED`/`NOT EXECUTED` | Diana confirmó, según informó el responsable el `2026-10-14`, la fecha objetivo `2026-10-15`. No se creó tenant ni se inició el Trial; faltan verificaciones, gates y autorizaciones aplicables. |
+| Trial de Diana | `BLOCKED`/`NOT EXECUTED` | El responsable informó el `2026-10-14` que Diana confirmó la fecha objetivo `2026-10-15`; falta comunicación directa adjunta. No se creó tenant ni se inició el Trial; faltan verificaciones, gates y autorizaciones aplicables. |
 | Operación no fiscal | `PASS` en pruebas locales/Emulator; producción `NOT EXECUTED` | E2E Bodega `12/12` local y suites E2E CI verdes. La emisión DIAN web no está disponible; la excepción aprobada aplica solo a `Cafe Atrato` y `Prueba` y no certifica otros tenants. |
 | Cambios productivos | `NOT EXECUTED` | No hubo Rules/Functions/Vercel deploy, smoke autenticado, tenant, importación, escrituras de inventario/finanzas, cambios IAM/Secrets ni PITR. |
 
@@ -267,3 +268,22 @@ publicación Vercel no acreditada, falta de smoke autenticado y la brecha de
 autoridad web server-side DIAN. El inicio de Diana es independiente de cerrar
 DIAN web solo bajo el modo no fiscal ya aceptado, pero sigue sujeto a su
 confirmación de fecha, gates y autorizaciones del Trial.
+
+### Relectura GET-only de Gate I — 2026-10-14T22:26:37.849Z
+
+El collector se ejecutó contra `micafe-pos`, objetivo `main @
+fbd45436f62eb06950bf9a671e204d9b00679f3d`. Resultado `INCOMPLETE`,
+`readOnly=true`, `productionWrites=false`, `collectionErrors=[]`.
+
+| Superficie | Evidencia fresca | Estado / siguiente paso |
+|---|---|---|
+| CI y SHA objetivo | `origin/main` coincide con `fbd45436`; CI `38640922904` para el mismo SHA terminó `success`. | `PASS`. |
+| Firestore Rules | Fuente `2dc12a5972c216601a21cbae6be73bd787558f4fdad4a33227f05dee37087b91`; remoto `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`. La matriz clasifica 14 divergencias efectivas en paths y consumidores. | `FAIL` de reconciliación; mantener sin deploy. Matriz/tests Emulator pasan; antes del corte revalidar tenants activos/trial, dependencias y rollback. Deploy requiere autorización específica. |
+| `registrarCompraOperativaV1` | `ACTIVE`, Gen2, Node.js 22, `us-central1`; hash remoto `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`. El código de `main` contiene el guard de ADR-SAAS-075 en operación nueva y replay; cambio integrado por PR #576, merge `05d6f1c08f866aaf7223ba73782f8e15fe10cb43`. `functions/src/finanzas/compras.test.ts`: 16/16; build de Functions: PASS. | Hash productivo anterior: deploy dirigido `NOT EXECUTED`. Preflight de artefacto/delta exacto y autorización independiente siguen pendientes. Rollback según ADR-SAAS-075: antes del tenant real revertir código y mantener Rules cerradas; después del alta no reabrir la callable, preferir forward-fix. |
+| Vercel | `vercel inspect` del alias productivo resolvió deployment `dpl_4viR3AppP838CJjtUHYeBLo1W19C`, `READY`, creado `2026-10-06T14:52:13.319Z`. La inspección actual no expuso SHA; la lectura directa anterior asoció ese deployment con `1c2f155653536b1fd8e1925db931e2354fa41f7d`. La lista reciente mostró Preview `READY` de PR #598, SHA `94d4be3`, no producción. | `FAIL` de acreditación del SHA actual. Candidato a publicar: `fbd45436f62eb06950bf9a671e204d9b00679f3d`, SHA actual de `main` al momento de la lectura; publicación manual `NOT EXECUTED`, requiere autorización y rollback identificados. |
+| Smoke autenticado | No se encontró atestación ni identidad/tenant productivos aprobados para la prueba. | `NOT EXECUTED`. Preparación mínima: el responsable debe designar un usuario existente, tenant y rol; fijar de antemano si se autoriza solo lectura o una transacción sintética y su alcance. No crear tenant ni movimientos ni usar identidades supuestas. |
+| Storage y recovery | Storage fuente/remoto coincide en `fc837a77b952f3f2cf9e6eec24e7962eb0177a992f0776810d4798b5a1ee9f2b`. Collector: PITR `false`, un schedule, 35 backups en `southamerica-east1`; su atestación de recovery externa figura `MISSING`. El restore aislado del 14-oct tiene evidencia separada `VERIFIED`, `RPO=8.307 h`, `RTO=0.220 h`, fuente intacta y sin cutover. | Storage `PASS`; restore `PASS` por evidencia directa; el `MISSING` de ingestión no invalida el restore. PITR deshabilitado por ADR-SAAS-031 no es bloqueo. |
+| Autoridad DIAN web | Se mantienen cuatro llamadas UI a `window.api.factus` y `guardarMetadatosDian()` cliente; no existe ruta Factus en `app/api` ni callable Functions web. ADR-SAAS-079 limita la pausa UI a `Cafe Atrato` y `Prueba`, sin eliminar Factus. | `BLOCKED` para certificar emisión DIAN web; no inventar endpoint ni reactivar. Requiere arquitectura/ADR aprobada y migración server-side separada. La indisponibilidad DIAN aceptada no impide por sí sola el Trial no fiscal de Diana. |
+
+No se ejecutó deploy, smoke, escritura productiva, creación de tenant,
+activación de usuario, emisión DIAN, cambio IAM/Secrets ni operación PITR.
