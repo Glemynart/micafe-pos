@@ -56,6 +56,30 @@ Lecturas de solo consulta realizadas el 2026-10-14, sin modificar producción:
 | Restore y PITR | Restore aislado `gsaas02-recovery-20261014` en `southamerica-east1`: `VERIFIED`, `RPO=8.307 h`, `RTO=0.220 h`, `sourceUntouched=true`, `applicationCutover=false`. La evidencia indica artefacto JSON local. PITR está deshabilitado según ADR-SAAS-031; hay schedule diario/35 backups. | Restore independiente verificado; el artefacto JSON no está en este worktree. PITR deshabilitado es política aprobada, no bloqueo. No se restauró `(default)` ni se activó PITR. |
 | Trial de Diana | `2026-10-15` es la nueva fecha objetivo interna indicada por el responsable el `2026-10-14`; continúa pendiente de confirmación directa de Diana. | No iniciar el Trial ni provisionar hasta que Diana confirme esa fecha y se satisfagan los gates/autorizaciones correspondientes. |
 
+### Estado operativo de los controles
+
+`PASS` requiere evidencia observada; `FAIL` indica que un criterio del release
+no coincide; `BLOCKED` indica que no se puede avanzar con seguridad por una
+dependencia o autorización pendiente; `NOT EXECUTED` significa que la acción
+se omitió deliberadamente y no se presume aprobada.
+
+| Control | Estado | Evidencia o condición |
+|---|---|---|
+| PR #595 y CI post-merge | `PASS` | Merge SHA `f08fa1ca6466bfc84c39d771f34e494aaf9b2386`; run `38615549091` completado correctamente. |
+| Reglas Storage | `PASS` | Hash de la fuente coincide con el release remoto observado. |
+| Restore aislado | `PASS` | `VERIFIED`; `sourceUntouched=true`, `applicationCutover=false`. No es un restore sobre producción. |
+| Reglas Firestore | `FAIL` | Hash remoto distinto al de `main`; la matriz contiene 14 divergencias de permisos efectivos. |
+| Hash de `registrarCompraOperativaV1` | `FAIL` | El runtime productivo mantiene un hash anterior al código de `main`. |
+| SHA de Vercel producción | `FAIL` | El deployment `READY` observado es de `2026-10-06` en `1c2f155653536b1fd8e1925db931e2354fa41f7d`, no el SHA objetivo integrado. |
+| Cambios productivos de Rules/Functions/Vercel | `BLOCKED` | No hay autorización productiva específica para esas mutaciones; Rules además requiere resolver compatibilidad. |
+| Smoke autenticado de producción | `NOT EXECUTED` | Falta identidad y alcance productivos autorizados. Preview y staging no sustituyen esa atestación. |
+| Emisión DIAN web | `BLOCKED` | No existe una ruta web Factus server-side en este repositorio; requiere ADR/arquitectura y trabajo separado. La pausa aceptada no se amplía. |
+| PITR | `PASS` | Deshabilitado según ADR-SAAS-031; no se activó ni se ejecutó restauración productiva. |
+| Tenant, Trial y carga de catálogo de Diana | `NOT EXECUTED` | La fecha objetivo `2026-10-15` aún no tiene confirmación directa de Diana; tenant y transcripción digital tampoco están aprobados para crear/importar. |
+
+Gate I continúa `BLOCKED`/`INCOMPLETE`; no se registra un `FAIL` de pruebas
+locales ni se presenta como ejecutado ningún smoke, deploy o escritura productiva.
+
 ### Preflight dirigido de `registrarCompraOperativaV1`
 
 La fuente de `main` exporta la callable desde el codebase `saas-auth`, en
