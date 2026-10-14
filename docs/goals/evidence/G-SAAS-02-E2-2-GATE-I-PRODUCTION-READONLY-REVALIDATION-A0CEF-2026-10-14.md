@@ -70,6 +70,131 @@ catálogo o stock requiere sus gates y autorización operativa propios. La fecha
 prevista del Trial ya pasó; su inicio debe derivarse de la activación canónica,
 no retrofecharse.
 
+## Plan de compatibilidad y rollback — preparación, no ejecución
+
+Este plan concreta el siguiente trabajo permitido por Gate I con las fronteras
+ya aceptadas en ADR-SAAS-063, ADR-SAAS-072 y ADR-SAAS-074/075/076, además de
+R1 §§7 y 9. No cambia esas decisiones ni autoriza un deploy. La evidencia de
+staging no se traslada a producción: el Gate C de staging calculó 12 altas
+para su propio inventario remoto; producción tiene otro estado remoto y su
+delta debe volver a calcularse allí.
+
+### Superficies que el preflight productivo debe resolver
+
+1. **Functions:** la fuente actual separa los handlers Bodega en
+   `saas-bodega`, `saas-bodega-operations` y `saas-tenant-profile`. El
+   inventario productivo del 14-oct observa ausentes los once IDs nuevos de
+   ADR-SAAS-076 y `registrarCompraBodegaV1`, y mantiene activa
+   `registrarCompraOperativaV1`. Antes de cualquier publicación hay que
+   volver a inventariar cada ID, incluidos los exports de perfil, capturar su
+   codebase/región/runtime/hash/revisión, y calcular el delta desde ese
+   inventario; no se presupone que el plan de staging produzca el mismo número
+   de altas, actualizaciones o retiros. La única actualización de
+   `saas-auth` que ADR-SAAS-075 permite preparar es
+   `registrarCompraOperativaV1`; cualquier delta adicional detiene el release.
+   Los nombres legacy no se retiran como parte de esta secuencia.
+2. **Cliente:** mantener la app de producción actual mientras se publican y
+   verifican las rutas nuevas. Antes de publicar el cliente Bodega, comprobar
+   con el artifact exacto que `BODEGA_MVP1` enruta a los IDs nuevos y que
+   `GENERAL` conserva sus IDs legacy. El artifact se construye/promueve
+   explícitamente para Production y debe demostrar `micafe-pos`; un Preview
+   configurado para staging no es promovible como sustituto. ADR-SAAS-063
+   deshabilita el deploy Git automático de `main`, por lo que la publicación
+   Vercel es una operación separada y requiere su autorización de release.
+3. **Compras legacy y Rules:** la ruta legacy debe rechazar Bodega antes de
+   cualquier efecto tanto en operación nueva como en replay; los otros
+   verticales deben conservar su flujo. Después, el cliente debe usar
+   `registrarCompraBodegaV1` y superar sus pruebas de contrato/lectura. Solo
+   entonces se puede plantear el corte de create/delete directo de `/compras`
+   para Bodega, según ADR-SAAS-072. La Rules de Firestore se publican como un
+   ruleset completo: la discrepancia observada incluye cambios de categorías,
+   productos/presentaciones/clientes, ventas, compras, ledger/perfiles y
+   señales/bindings. Por ello no se desplegará el archivo actual en bloque por
+   el solo hecho de necesitar el cierre Bodega. Primero hay que certificar el
+   comportamiento de todo el diff para los verticales/clientes afectados; si
+   esa compatibilidad no se puede demostrar, se detiene el corte y se eleva
+   una propuesta de arquitectura antes de idear overlays o reglas específicas
+   por entorno.
+4. **Recuperación y smoke:** revalidar una atestación independiente del
+   restore en una base aislada a partir de un backup identificable y medir
+   RPO/RTO antes de la primera mutación productiva; la existencia de backups
+   no sustituye ese ensayo. Preparar un smoke independiente asociado al
+   SHA/artifact final. Las sondas `401` solo acreditan la barrera de
+   autenticación, no el flujo de negocio. Si el smoke necesita crear datos o
+   tenant en producción, ese paso requiere autorización operativa explícita
+   separada y un fixture aislado; no forma parte de este preflight.
+
+### Orden de release propuesto
+
+1. Congelar SHA de `main`, cerrar los gates de staging aplicables a ese SHA
+   (incluido el cierre formal de Gate F) y confirmar CI completa. Repetir
+   inmediatamente el preflight desde la carpeta productiva dedicada, limpia,
+   validando ruta, SHA, `firebase.json` y `--project micafe-pos` literal.
+2. Capturar como artefactos de evidencia el estado previo de cada Function,
+   Ruleset/Rules, Storage, deployment Vercel, APIs/identidades requeridas y
+   punto de recovery. Completar aquí la atestación de restore aislado antes
+   de la primera mutación productiva. No reutilizar snapshots ni credenciales
+   de staging.
+3. Calcular y revisar el delta exacto de Functions por ID. La selección debe
+   limitarse a las entradas Bodega aprobadas que falten y a la actualización
+   puntual de `registrarCompraOperativaV1`; cero retiros. No usar un deploy
+   global de codebases. Un `firebase deploy --dry-run` no se presume inocuo:
+   la experiencia de Gate C mostró que puede solicitar APIs/identidades de
+   servicio; sus posibles efectos deben formar parte del preflight y de la
+   autorización.
+4. Solo tras autorización operativa específica, desplegar primero las
+   callables aditivas y la barrera legacy en un corte compatible. Verificar
+   versiones, tráfico/revisiones, ausencia de cambios de IAM/Secrets fuera del
+   alcance, errores de runtime y sondas sin autenticación. Conservar las
+   Functions legacy y no ejecutar compras durante esta verificación.
+5. Publicar después el artifact Vercel compatible con Firebase producción;
+   validar login, resolución de vertical y lecturas/superficies permitidas.
+   Mantener Rules sin cambios hasta tener evidencia de clientes compatibles y
+   de que la ruta legacy rechaza Bodega también durante replay.
+6. Ejecutar smoke independiente con el artifact final antes de Rules, cubriendo
+   los verticales afectados y el routing Bodega. Las sondas `401` no bastan;
+   cualquier operación que escriba necesita fixture aislado y autorización
+   separada. Si no se acredita compatibilidad del cliente, no avanzar al corte.
+7. Tratar el ruleset como una decisión de corte independiente. Antes de
+   cualquier deploy, pasar pruebas Rules para los verticales impactados,
+   revisar el diff remoto/local y obtener aprobación operativa específica.
+   Si no se acredita compatibilidad para toda la publicación atómica, Gate I
+   queda detenido; no se reemplaza el ruleset con una versión parcial no
+   versionada.
+8. Tras un corte autorizado, repetir el smoke, reconciliar los releases
+   realmente observados contra el SHA/artifact y verificar recuperación. Solo
+   después reevaluar el alta real, oferta/Trial, usuarios y catálogo mediante
+   sus autorizaciones propias.
+
+### Límites de rollback
+
+- **Vercel, antes del corte de Rules:** conservar el deployment y alias
+  productivos previos y la versión anterior identificada; un rollback de UI
+  solo es seguro mientras el backend/Rules mantienen compatibilidad con ese
+  cliente. Después del corte de Rules no se vuelve a un cliente que escriba
+  directamente en Firestore.
+- **Functions:** los endpoints nuevos son aditivos y no se borran durante un
+  rollback de cliente. La reversión automática de la barrera de
+  `registrarCompraOperativaV1` no es aceptable una vez que Bodega pueda usar
+  producción; después de ese punto se corrige hacia delante o se requiere un
+  break-glass explícito y auditado. El release debe conservar la revisión
+  previa exacta y probar cómo seleccionarla antes de cualquier deploy.
+- **Rules:** antes de publicar debe existir una copia íntegra verificable del
+  ruleset actualmente servido. Volver al ruleset previo reabriría para Bodega
+  las escrituras directas de `/compras`; por tanto, no es el rollback normal
+  después de activar Bodega. Tras un commit de negocio, no se revierte el dato
+  con rollback de código: solo se corrige mediante comandos compensatorios
+  auditados.
+- **Recovery:** cualquier restore se dirige a un destino aislado, nunca a
+  `(default)` ni a tráfico productivo. Este documento no solicita ni ejecuta
+  restore, despliegue, cambio de IAM/Secrets, Rules, tenant o dato.
+
+**Salida de esta preparación:** el plan de orden y rollback está definido,
+pero no es un preflight ejecutable ni una autorización. Gate I continúa
+`INCOMPLETE` hasta que el delta productivo sea exacto, el corte de Rules sea
+compatible, el smoke/restore estén atestados independientemente y cada
+operación tenga sus gates y autorizaciones.
+
 ## Mutation audit
 
 - Archivos de aplicación/pruebas y servicios remotos: cambios `0`.
