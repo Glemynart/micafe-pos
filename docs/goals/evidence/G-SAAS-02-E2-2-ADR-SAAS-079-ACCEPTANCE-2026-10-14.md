@@ -68,6 +68,7 @@ escrituras productivas:
 | `npm run test:auth-foundation` | 436 pasaron, 5 omitidas. |
 | `npm run e2e:p0-06` | 1/1 pasó: ciclo de caja, venta, inventario, arqueo/replay y aislamiento. |
 | `npm run e2e:p1-02` | 1/1 pasó: venta con receta, consumo de insumos e idempotencia multi-tenant. |
+| `npm run e2e:bodega-u4-u5` | 12/12 pasaron en Emulator: flujos Bodega de vendedor/admin, solicitud de venta, aislamiento entre tenants, inventario y compatibilidad GENERAL LEGACY. |
 | `git diff --check origin/main...HEAD` | Pasó. |
 
 La regresión E2E es evidencia local para operaciones no fiscales; no equivale a
