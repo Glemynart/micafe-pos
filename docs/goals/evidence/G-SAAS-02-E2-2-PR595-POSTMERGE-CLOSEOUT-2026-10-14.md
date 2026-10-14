@@ -22,7 +22,7 @@ No se reclasifica el PR, no se cambia la jerarquía y no se reescribe su descrip
 | Merge SHA completo / `origin/main` | `f08fa1ca6466bfc84c39d771f34e494aaf9b2386` |
 | Base del PR | `f604a0af1669cc0903859c7271b1da1e3f29cea9` |
 | Checks previos al merge | `Tipos y pruebas` (run `38610876988`), `Vercel` y `Vercel Preview Comments`: `success`; Vercel acredita Preview, no producción. |
-| CI post-merge | Run `38615549091`, SHA `f08fa1ca6466bfc84c39d771f34e494aaf9b2386`; su resultado final se añadirá tras concluir. No reportar el estado pendiente como `PASS`. |
+| CI post-merge | Run `38615549091`, SHA `f08fa1ca6466bfc84c39d771f34e494aaf9b2386`; concluyó `success` el 2026-10-14T18:49:57Z. El job `Tipos y pruebas` terminó `success`, sin pasos fallidos. [Ejecución](https://github.com/Glemynart/micafe-pos/actions/runs/38615549091). |
 
 ## Auditoría integrada
 
@@ -82,7 +82,7 @@ confirmados; esto no equivale a un dry-run satisfactorio ni otorga permiso de
 despliegue. Cualquier reintento remoto requiere método de preflight no mutante
 confirmado y autorización productiva específica.
 
-La auditoría de rutas del checkout encontró cuatro invocaciones `window.api.factus` en `components/pos/historial.tsx` y ninguna llamada server-side a Factus en el código presente. El repositorio no contiene el main/preload/IPC/provider de Electron que implementaría ese límite; debe localizarse el companion source para completar la auditoría del boundary. El guard de PR #595 es de UI y no bloquea invocaciones directas a un backend externo. Antes del corte global de Rules se necesita resolver este gap con una arquitectura aceptada; no se implementó aquí.
+El propietario confirmó que para este caso (Gate I / Diana) el destino es web, no Electron. La auditoría encontró cuatro llamadas `window.api.factus` en `components/pos/historial.tsx`, pero no una ruta Factus en `app/api` ni una callable en Functions que emita documentos. Por ello no hay un proveedor web en este repo; en una web pura no debe asumirse que existe el objeto `window.api`. El guard de PR #595 bloquea a los dos tenants aceptados en UI, pero no acredita que otros tenants puedan emitir Factus desde web ni es una barrera server-side. Esta brecha web preexistente requiere una decisión arquitectónica y un cambio separado antes de afirmar la compatibilidad DIAN web; no se implementó ni se amplió el alcance de indisponibilidad.
 
 ## Límites y siguientes bloqueos
 
@@ -90,5 +90,5 @@ La auditoría de rutas del checkout encontró cuatro invocaciones `window.api.fa
 - Bloqueo de Rules: incompatibilidad de 14 paths y necesidad de compatibilidad/server-authority DIAN; requiere preflight fresco, rollback forward-fix y autorización productiva independiente.
 - Bloqueo de Functions: hash remoto antiguo de `registrarCompraOperativaV1`; requiere preflight dirigido y autorización productiva independiente.
 - Bloqueo de Vercel: producción sigue en un SHA del 6-oct; publicación manual y smoke requieren autorización/identidad independiente.
-- Falta completar auditoría del boundary Electron/IPC para DIAN porque su implementación no está en este checkout.
+- Falta definir mediante ADR la autoridad web server-side para emisión DIAN; las cuatro llamadas `window.api.factus` no tienen implementación web en `app/api`/Functions. La indisponibilidad aprobada sigue limitada a los dos IDs; no se ha ampliado la política a otros tenants.
 - No se declara Gate I `PASS`.

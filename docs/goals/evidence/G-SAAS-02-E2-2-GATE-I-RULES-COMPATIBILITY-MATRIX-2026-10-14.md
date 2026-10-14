@@ -81,7 +81,7 @@ por ruta son parte del preflight.
 |---|---|---|---|---|
 | `/categorias/{id}` | Lectura tenant; admin puede crear, actualizar y borrar. | Lectura tenant; escritura admin excluida para `BODEGA_MVP1`. | Bodega administra por callables; confirmar que el admin `GENERAL` sigue usando su ruta directa. | Emulator por vertical/rol; comprobar escrituras admin `GENERAL` permitidas y Bodega directas denegadas. |
 | `/clientes/{id}` | Lectura para usuarios autenticados del tenant. | Igual, excepto vendedor Bodega; vendedor GENERAL preservado por #592. | POS LEGACY consulta clientes directamente; Bodega vendedor usa callable. | Pruebas Emulator para consultas y documentos de ambos verticales, incluido tenant/membresía inactivos. |
-| `/compras/{id}` | Lectura tenant; admin puede crear y borrar directamente. | Lectura tenant; escritura directa excluida para Bodega, conservada para otros verticales. | Bodega usa `registrarCompraBodegaV1`; historial administrativo lee directamente. Legacy callable permanece activa con hash antiguo. | Bloqueante: desplegar y verificar guard server-side de `registrarCompraOperativaV1` también en replay antes de aplicar Rules. Preflight `saas-auth` detenido por `WOMPI_EVENTS_SECRET` no disponible. |
+| `/compras/{id}` | Lectura tenant; admin puede crear y borrar directamente. | Lectura tenant; escritura directa excluida para Bodega, conservada para otros verticales. | Bodega usa `registrarCompraBodegaV1`; historial administrativo lee directamente. Legacy callable permanece activa con hash antiguo. | Bloqueante: desplegar y verificar guard server-side de `registrarCompraOperativaV1` también en replay antes de aplicar Rules. El bloqueo anterior por `WOMPI_EVENTS_SECRET` quedó supersedido por ADR-SAAS-078 y PR #594, que excluyeron el export ausente y conservaron módulo/pruebas; falta completar preflight dirigido. |
 | `/empresas/{empresaId}/bodega_senales/{canal}` | Denegada por catch-all. | `get` Bodega autenticado/membresía activa: canal de disponibilidad para vendedor y solicitudes para admin; sin list ni escritura. | Sincronización viva de disponibilidad y solicitudes; expone únicamente señal técnica, no datos de negocio. | Tests de rol, membresía revocada, canal cruzado, tenant ajeno y denegación de list/escritura. |
 | `/empresas/{empresaId}/bodega_senales_vendedor/{signalId}` | Denegada por catch-all. | `get` solamente del documento cuyo ID coincide con el UID del vendedor Bodega activo; sin list ni escritura. | Aviso de solicitudes dirigido al vendedor. | Tests de UID propio/ajeno, membresía activa/inactiva y denegación de enumeración/escritura. |
 | `/intenciones_pago_reserva/{id}` | Denegada por catch-all. | Denegación explícita de lectura y escritura. | No hay cambio efectivo observado; la autoridad es backend. | Conservar test explícito de denegación y comprobar que no existe consumidor cliente que dependa de lectura. |
@@ -169,9 +169,9 @@ consultaron secretos, datos de negocio o credenciales.
 
 | ID / severidad | Hallazgo | Remediación requerida |
 |---|---|---|
-| I-01 / HIGH — A01, Tampering | La callable legacy de compras está activa con hash previo al guard ADR-SAAS-075, mientras `main` ya contiene el guard. ADR-SAAS-078 Opción 1 está aceptada explícitamente y el candidato elimina el webhook Wompi del export, sin borrar su módulo. | Tras integrar el candidato, confirmar inmediatamente que el webhook no existe en remoto y hacer preflight exacto de `registrarCompraOperativaV1`. Un deploy solo podría ocurrir con autorización explícita, luego de demostrar operación nueva + replay por hash/tests. Detener ante cualquier otro delta. |
+| I-01 / HIGH — A01, Tampering | La callable legacy de compras está activa con hash previo al guard ADR-SAAS-075, mientras `main` ya contiene el guard. ADR-SAAS-078 Opción 1 está integrada por PR #594: el webhook Wompi no se exporta y su módulo/pruebas se conservan; el bloqueo anterior por secreto no es el estado actual. | Confirmar el inventario remoto del webhook y completar preflight exacto de `registrarCompraOperativaV1`. Un deploy solo podría ocurrir con autorización explícita, luego de demostrar operación nueva + replay por hash/tests. Detener ante cualquier otro delta. |
 | I-02 / HIGH — A01, A04 | Rules remoto difiere de `main`; todavía permite escritura directa admin de compras y deniega señales Bodega. Un deploy completo también modifica otros paths. | Completar pruebas por vertical y gates de corte; solo aplicar Rules tras guard legacy y preflight exacto aprobado. |
-| I-03 / MEDIUM — A01 | `guardarMetadatosDian()` conserva un writer cliente que las Rules de `main` niegan. La indisponibilidad temporal fue aceptada únicamente para Cafe Atrato (`1ae0rD9H8t3ZFSBKrrHR`) y Prueba (`Prueba`), el conjunto `activa`/`trial` observado el 2026-10-14; no cubre empresas futuras. La UI llama Factus antes del write Firestore. | ADR-SAAS-079 está Aceptado; implementar y probar el guard antes de Factus solo para los dos IDs, demostrar que checkout/stock/caja no cambian, reenumerar tenants activos/trial y detenerse si el conjunto cambió. No reabrir el writer cliente; Rules, código y deploy requieren sus aprobaciones propias. |
+| I-03 / MEDIUM — A01 | `guardarMetadatosDian()` conserva un writer cliente que las Rules de `main` niegan. La indisponibilidad temporal fue aceptada únicamente para Cafe Atrato (`1ae0rD9H8t3ZFSBKrrHR`) y Prueba (`Prueba`), el conjunto `activa`/`trial` observado el 2026-10-14; no cubre empresas futuras. La UI usa `window.api.factus`, pero para este caso el propietario confirmó que el producto es web, no Electron; el repositorio no contiene proveedor web de Factus en `app/api` ni Functions. | ADR-SAAS-079 y PR #595 bloquean el UI para los dos IDs. La falta de una ruta web significa que no se acredita emisión DIAN funcional para otros tenants tampoco. Definir autoridad server-side web en un ADR separado, conservar el guard actual, demostrar ausencia de efectos fiscales parciales y regresión no fiscal; no reabrir el writer cliente. Rules, código y deploy requieren aprobaciones propias. |
 | I-04 / MEDIUM — A05 | No se acreditó el SHA Vercel objetivo ni existen atestaciones independientes de smoke y restore. | Alinear Vercel al SHA de release y probar smoke/restore con identidad aprobada y destino aislado, sin usar `(default)`. |
 
 ## Orden recomendado para el corte y reversión
@@ -239,12 +239,16 @@ conclusión definitiva.
 
 La lectura directa de Rules sigue mostrando `MISMATCH` en 14 paths; su corte
 global sigue sin autorización y depende de resolver compatibilidad y autoridad
-servidor de DIAN. La revisión del checkout no encontró el main/preload/IPC ni
-provider que permitiría auditar una invocación directa a `window.api.factus`;
-el guard de PR #595 no es una barrera server-side. La callable legacy de compra
-remota conserva el hash `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`, mientras la
-fuente integrada contiene el guard ADR-SAAS-075 para operación nueva y replay.
-Functions continúa sin autorización productiva de despliegue.
+servidor de DIAN. El propietario confirmó que para este caso (Gate I / Diana)
+el destino es web, no Electron.
+Hay cuatro callsites de `window.api.factus` en `components/pos/historial.tsx`,
+pero no existe proveedor web de Factus en `app/api` ni en Functions. Por tanto,
+el guard de PR #595 protege los dos tenants aprobados en UI, pero no acredita
+una ruta DIAN web funcional para tenants ajenos al allowlist. La callable
+legacy de compra remota conserva el hash
+`9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`, mientras la fuente integrada
+contiene el guard ADR-SAAS-075 para operación nueva y replay. Functions
+continúa sin autorización productiva de despliegue.
 
 El restore aislado de `2026-10-14` está `VERIFIED` con `RPO=8.307 h`,
 `RTO=0.220 h`, `sourceUntouched=true` y `applicationCutover=false`; por ello,
