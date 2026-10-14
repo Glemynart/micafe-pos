@@ -88,7 +88,24 @@ El propietario confirmó que para este caso (Gate I / Diana) el destino es web, 
 
 - `npm run test:rules`: PASS en Firestore Emulator (`demo-mt-u4-rules`), 45/45 pruebas, 0 fallos. Esto valida `firestore.rules` de la rama contra su suite local; no acredita compatibilidad de los 14 paths divergentes con todos los clientes ni sustituye un deploy/preflight remoto.
 - `npm run test:tenant`: 8 PASS, 1 SKIP, 0 fallos. El caso omitido declara que requiere sesión real de Firebase Auth o mock del SDK, no presente en esta suite.
+- `npm run build:functions`: PASS (`tsc -p tsconfig.json`). `npm run test:auth-foundation`: 436 PASS, 5 SKIP, 0 fallos (441 pruebas). Las omisiones constan en la suite; estos resultados locales no equivalen a CI verde del PR.
 - `git diff --check`: PASS para los cambios documentales locales. Estos resultados no se atribuyen a los checks todavía pendientes de PR #596.
+
+### Revalidación read-only de producción (2026-10-14T19:03:51Z)
+
+`npx tsx scripts/g-saas-02/release-evidence.ts --project micafe-pos --repo Glemynart/micafe-pos --sha f08fa1ca6466bfc84c39d771f34e494aaf9b2386` terminó con `INCOMPLETE`, `readOnly=true`, `productionWrites=false` y `collectionErrors=[]`.
+
+| Comprobación | Resultado observado | Implicación |
+|---|---|---|
+| `origin/main` y CI | `origin/main = f08fa1ca6466bfc84c39d771f34e494aaf9b2386`; CI `38615549091` para ese SHA `completed/success`. | Integración y CI post-merge confirmadas. |
+| Firestore Rules | Remoto `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`; fuente `2dc12a5972c216601a21cbae6be73bd787558f4fdad4a33227f05dee37087b91`; 14 paths previamente clasificados en la matriz. | `MISMATCH`; no desplegar sin resolver compatibilidad y autorización específica. |
+| Storage Rules | Hash remoto y fuente iguales: `fc837a77b952f3f2cf9e6eec24e7962eb0177a992f0776810d4798b5a1ee9f2b`. | Coincidente en la lectura. |
+| Functions | `104/104 ACTIVE`, runtime `nodejs22`; hash por función reconciliado. `registrarCompraOperativaV1` está `ACTIVE`, Gen2/Node 22/us-central1, entry point idéntico y hash remoto `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`; `gcloud functions describe` reportó `updateTime=2026-08-15T04:26:48.679818552Z`. | El hash sigue siendo anterior al guard esperado. `npm run build:functions` y `npm run test:auth-foundation` pasan localmente; no se desplegó. El dry-run dirigido Firebase previo sigue `INCOMPLETE` porque se interrumpió antes del delta y no debe citarse como aprobado. |
+| Vercel | No hay status exitoso para el SHA objetivo. `vercel list` observó como deployment `READY` más reciente de producción `cafeatrato-2mgbt0pse-glemynarts-projects.vercel.app`, SHA `1c2f155653536b1fd8e1925db931e2354fa41f7d`, target `production`. | El release integrado sigue sin publicación identificable; no se inició deployment. |
+| Smoke y recovery | Smoke independiente `MISSING`. El collector no recibió referencia de atestación del restore, por eso recovery independiente también `MISSING`; por separado, el restore aislado está `VERIFIED`. | Falta smoke productivo autenticado con identidad autorizada. El `MISSING` del collector no invalida el restore aislado documentado. |
+| PITR y backups | PITR `false`, 1 backup schedule y 35 backups en `southamerica-east1`. | Alineado con ADR-SAAS-031; no se activó ni restauró producción. |
+
+No hubo habilitación de APIs, deploy, escritura, cambio IAM/Secrets ni smoke productivo durante esta revalidación.
 
 ## Límites y siguientes bloqueos
 
