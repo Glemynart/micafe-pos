@@ -56,6 +56,32 @@ Lecturas de solo consulta realizadas el 2026-10-14, sin modificar producción:
 | Restore y PITR | Restore aislado `gsaas02-recovery-20261014` en `southamerica-east1`: `VERIFIED`, `RPO=8.307 h`, `RTO=0.220 h`, `sourceUntouched=true`, `applicationCutover=false`. La evidencia indica artefacto JSON local. PITR está deshabilitado según ADR-SAAS-031; hay schedule diario/35 backups. | Restore independiente verificado; el artefacto JSON no está en este worktree. PITR deshabilitado es política aprobada, no bloqueo. No se restauró `(default)` ni se activó PITR. |
 | Trial de Diana | El propietario confirmó el `2026-10-15` como fecha prevista de inicio. | La fecha no inicia el Trial ni autoriza provisioning/despliegue; iniciar solo cuando los gates y autorizaciones correspondientes estén satisfechos. |
 
+### Preflight dirigido de `registrarCompraOperativaV1`
+
+La fuente de `main` exporta la callable desde el codebase `saas-auth`, en
+`us-central1`; el CLI Firebase local es `15.32.1`. Se comprobó que los archivos
+de fuente y `firebase.json` coinciden con `origin/main @
+f08fa1ca6466bfc84c39d771f34e494aaf9b2386`. El target candidato, sin ejecutarlo
+como despliegue, es `functions:saas-auth:registrarCompraOperativaV1`; no debe
+sustituirse por el script que despliega todo `saas-auth`.
+
+Se inició este comando de validación:
+
+```sh
+firebase deploy --project micafe-pos \
+  --only functions:saas-auth:registrarCompraOperativaV1 \
+  --dry-run --non-interactive
+```
+
+El CLI comenzó a comprobar APIs y analizar el codebase; se interrumpió antes de producir una lista final de cambios, porque anunció
+verificaciones de APIs contra producción y el preflight debe permanecer sin
+efectos. Una consulta de Cloud Audit Logs desde `2026-10-14T18:40:00Z` no
+devolvió operaciones de habilitación de Service Usage ni cambios de Cloud
+Functions. Resultado: preflight remoto `INCOMPLETE`, cero despliegues
+confirmados; esto no equivale a un dry-run satisfactorio ni otorga permiso de
+despliegue. Cualquier reintento remoto requiere método de preflight no mutante
+confirmado y autorización productiva específica.
+
 La auditoría de rutas del checkout encontró cuatro invocaciones `window.api.factus` en `components/pos/historial.tsx` y ninguna llamada server-side a Factus en el código presente. El repositorio no contiene el main/preload/IPC/provider de Electron que implementaría ese límite; debe localizarse el companion source para completar la auditoría del boundary. El guard de PR #595 es de UI y no bloquea invocaciones directas a un backend externo. Antes del corte global de Rules se necesita resolver este gap con una arquitectura aceptada; no se implementó aquí.
 
 ## Límites y siguientes bloqueos
