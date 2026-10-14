@@ -72,6 +72,11 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/configuraciones/$(request.auth.token.empresaId))
         && get(/databases/$(database)/documents/configuraciones/$(request.auth.token.empresaId)).data.vertical == 'BODEGA_MVP1';
     }
+    // ADR-SAAS-077: las restricciones de lectura del vendedor son específicas
+    // de Bodega; GENERAL conserva las lecturas directas que usa POS LEGACY.
+    function esVendedorBodegaMvp1() {
+      return esVendedor() && esBodegaMvp1();
+    }
     function membresiaBodegaActiva(empresaId, permiso) {
       let path = /databases/$(database)/documents/membresias/$(empresaId + '_' + request.auth.uid);
       return tieneEmpresaId()
@@ -104,9 +109,9 @@ service cloud.firestore {
       allow delete: if !esBodegaMvp1() && puedeEliminarEnTenant() && esAdmin();
     }
     match /productos/{id} {
-      allow read: if puedeLeerTenant() && esAutenticado() && !esVendedor();
-      // Catálogo, stock y secuencia son autoridad de las callables de
-      // inventario; el cliente conserva únicamente la lectura tenant-aware.
+      allow read: if puedeLeerTenant() && esAutenticado() && !esVendedorBodegaMvp1();
+      // En Bodega el catálogo es callable-only para el vendedor; los verticales
+      // legacy conservan su lectura directa, siempre tenant-aware.
       allow create, update, delete: if false;
     }
     match /presentaciones_producto/{id} {
@@ -146,7 +151,7 @@ service cloud.firestore {
       allow delete: if false;
     }
     match /ventas/{id} {
-      allow read: if puedeLeerTenant() && esAutenticado() && !esVendedor();
+      allow read: if puedeLeerTenant() && esAutenticado() && !esVendedorBodegaMvp1();
       allow create: if false;
       // La Fase 2 es server-authoritative: inventario, tesorería,
       // idempotencia y auditoría deben confirmarse en una transacción Admin
@@ -156,7 +161,8 @@ service cloud.firestore {
       allow delete: if false;
     }
     match /turnos/{id} {
-      allow read: if puedeLeerTenant() && esAutenticado() && (!esVendedor() || resource.data.cajeroId == request.auth.uid);
+      allow read: if puedeLeerTenant() && esAutenticado()
+        && (!esVendedorBodegaMvp1() || resource.data.cajeroId == request.auth.uid);
       allow create: if puedeCrearEnTenant() && esOperativo();
       allow update: if puedeActualizarEnTenant() && esOperativo();
       allow delete: if false;
@@ -230,7 +236,7 @@ service cloud.firestore {
       // Bodega MVP-1: vendedor consulta clientes activos exclusivamente por
       // callable con DTO fijo; así no puede leer documentos completos ni
       // cambiar de tenant mediante una consulta directa.
-      allow read: if puedeLeerTenant() && esAutenticado() && !esVendedor();
+      allow read: if puedeLeerTenant() && esAutenticado() && !esVendedorBodegaMvp1();
       allow create: if puedeCrearEnTenant() && esOperativo();
       allow update: if puedeActualizarEnTenant() && esOperativo();
       allow delete: if puedeEliminarEnTenant() && esOperativo();
