@@ -146,7 +146,7 @@ No hubo habilitación de APIs, deploy, escritura, cambio IAM/Secrets ni smoke pr
 La tabla de la revalidación de las 19:03:51Z conserva el estado observado en
 ese instante. En la actualización inicial del runbook, el objetivo del Trial
 para `2026-10-15` todavía estaba pendiente de confirmación; véase la
-confirmación posterior del responsable registrada abajo.
+confirmación posterior del administrador del proyecto registrada abajo.
 No se creó ni activó el tenant real, no se inició el Trial, no se importó el
 catálogo y no hubo escrituras productivas.
 
@@ -265,9 +265,10 @@ Gate I permanece `BLOCKED`/`INCOMPLETE`; no se registra un `FAIL` de CI ni
 se interpreta la disponibilidad de Functions como coincidencia de versión.
 Los bloqueos reales son Rules incompatibles, hash de compra antiguo,
 publicación Vercel no acreditada, falta de smoke autenticado y la brecha de
-autoridad web server-side DIAN. El inicio de Diana es independiente de cerrar
-DIAN web solo bajo el modo no fiscal ya aceptado, pero sigue sujeto a su
-confirmación de fecha, gates y autorizaciones del Trial.
+autoridad web server-side DIAN. El inicio del Trial no depende de cerrar la
+emisión DIAN web, porque operará únicamente en el modo no fiscal aceptado. La
+fecha está confirmada según atestación del administrador; el inicio sigue
+sujeto a gates, verificaciones de seguridad y autorizaciones del Trial.
 
 ### Relectura GET-only de Gate I — 2026-10-14T22:26:37.849Z
 
