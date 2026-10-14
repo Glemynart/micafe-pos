@@ -69,6 +69,54 @@ habilita readiness fiscal; los vendedores y sus roles los creará Diana. No se
 registran esos datos durante la preparación ni se confunden con datos del
 fixture.
 
+### 2.1.1 Preparación específica del Trial de Diana (2026-10-14)
+
+- Fecha objetivo: `2026-10-15`, pendiente de confirmación expresa de Diana.
+  No crear/activar el tenant ni iniciar el Trial mientras falten esa
+  confirmación y los gates/autorizaciones de producción correspondientes.
+- Cliente previsto: Distribuidora Las Jiménez, vertical `BODEGA_MVP1`;
+  Diana será la administradora inicial y creará los usuarios vendedores y
+  asignará sus roles. Los datos comerciales reales se capturan en su primer
+  acceso; no se inventan NIT, domicilio, correo, teléfono ni credenciales.
+- Después de un bootstrap autorizado, verificar en modo de solo lectura el
+  estado `trial` y su periodo de 30 días, membresía/rol y claims de Diana,
+  credencial temporal, configuración de módulos y espacio operativo. Diana
+  completa su perfil en el primer acceso y verifica cada vendedor después de
+  crearlo. Las credenciales temporales se entregan fuera de banda; el envío
+  por WhatsApp no está integrado al sistema y no se guardan claves en la
+  evidencia.
+- Oferta aprobada internamente: Trial de 30 días, oferta anual específica de
+  `1.600.000 COP`, pago manual. Esto no equivale a aceptación contractual del
+  cliente ni autoriza el bootstrap productivo.
+- Inicio sin facturación electrónica: el Trial operará en modo no fiscal.
+  La emisión DIAN desde la aplicación web no está disponible y no debe
+  presentarse como una capacidad activa. La aceptación temporal de operar sin
+  emisión no cierra Gate I ni certifica DIAN para otros tenants.
+- Catálogo recibido: el responsable aportó cuatro fotos de las hojas impresas
+  que cubren las filas 1–110; esas imágenes son la fuente visual recibida, no
+  un recurso faltante. En las ubicaciones consultadas del proyecto y recursos
+  disponibles no se encontró un archivo maestro digital editable y aprobado
+  (CSV o XLSX). La transcripción privada local supera la validación estructural
+  (110 filas consecutivas, campos completos, precios numéricos y stock inicial
+  cero), pero sigue siendo un borrador: no se ha cotejado fila por fila contra
+  las fotos ni se aprobó ese artefacto digital específico. Diana o la persona
+  responsable del catálogo debe validar la transcripción y resolver las
+  presentaciones/unidades ambiguas, o proporcionar el archivo maestro aprobado,
+  antes de importar. La referencia documentada es que `x N unidades` expresa
+  un empaque de N unidades y que las bebidas fuertes sin múltiplo expreso se
+  venden por unidad; no se extrapola esa regla a descripciones ambiguas. El
+  borrador permanece en `.codex/private/`, ignorado por Git; el repositorio es
+  público, así que no se incorporan las fotos ni nombres/precios del catálogo
+  a GitHub. No se importó ni escribió en ningún tenant. El costo de compra se organizará
+  después desde compras reales de Bodega. Con existencias en cero no se confirma
+  una venta real hasta ingresar inventario por el flujo canónico de compras,
+  una vez que Gate I confirme y certifique su despliegue productivo.
+- Ensayo no productivo: `npm run e2e:bodega-u4-u5` pasó 12/12 pruebas en
+  Firebase Emulators el 2026-10-14, incluyendo perfil comercial, aislamiento
+  entre tenants, disponibilidad, solicitud/aprobación, venta en efectivo sin
+  turno y movimientos de inventario/ledger. Esto valida el flujo de software
+  en fixtures; no acredita deploy, tenant, catálogo ni smoke productivo.
+
 El Backoffice comercial materializa el catálogo público exclusivamente mediante `CrearPlan`, `CrearNuevaVersionPlan` y `PublicarPlan`, bajo `COMERCIAL_GOBERNAR`. Una excepción de precio anual para una Empresa se administra como oferta tenant-specific mediante `CrearOfertaComercialTenant` y `AprobarOfertaComercialTenant`, según ADR-SAAS-061; no crea ni modifica una versión pública del Plan y el precio se resuelve en servidor. La aprobación interna de 1.600.000 COP anuales para Distribuidora Las Jiménez está registrada en [la evidencia comercial de Gate I](evidence/G-SAAS-02-E2-2-GATE-I-COMMERCIAL-OFFER-APPROVAL-2026-10-06.md); no implica aceptación del cliente, registro de la oferta ni autorización de Bootstrap. El Trial de 30 días continúa siendo responsabilidad exclusiva del Bootstrap.
 
 ### 2.2 Transición del tenant mensual histórico
