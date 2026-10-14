@@ -38,7 +38,7 @@ solo lectura: no autoriza deploy ni escrituras productivas.
 | CI | Run `38465098694`, SHA `a0cef89994698e664c0cd2ae7b6676739cfda86e`, `completed/success`. | `PASS` |
 | Vercel | El deployment productivo `READY` más reciente es `cafeatrato-2mgbt0pse-glemynarts-projects.vercel.app`, creado `2026-10-06T14:52:13Z`, asociado a `main @ 1c2f155653536b1fd8e1925db931e2354fa41f7d`. No se observó un estado Vercel exitoso para el SHA objetivo. | `BLOCKED`: no hay evidencia de que producción sirva el candidato actual. |
 | Functions | `firebase functions:list --project micafe-pos --json`: 80/80 `ACTIVE`, todas `nodejs22`; el colector registró y reconcilió los hashes por Function. | `PASS` para estado/runtime; no acredita compatibilidad de Bodega. |
-| Callables Bodega / compras | Los once IDs nuevos de ADR-SAAS-076 están ausentes; también está ausente `registrarCompraBodegaV1`. `registrarCompraOperativaV1` continúa `ACTIVE` en `us-central1`, Node.js 22, codebase `saas-auth`. | `BLOCKED`: aún no está publicada la ruta Bodega y sigue activa la ruta legacy. |
+| Callables Bodega / compras | Los once IDs nuevos de ADR-SAAS-076, `registrarCompraBodegaV1` y `registrarPerfilComercialBodegaV1` están ausentes. `registrarCompraOperativaV1` continúa `ACTIVE` en `us-central1`, Node.js 22, codebase `saas-auth`. | `BLOCKED`: aún no están publicadas las rutas Bodega y sigue activa la ruta legacy. |
 | Firestore Rules | Ruleset `d5e205db-0ab4-4db1-b5ec-1534bee39d35`, actualizado `2026-08-15T04:20:46Z`. SHA local `69560ea6998352400eca77ce5dfb851864e196053b634f77e4bacd8674769fbb`; remoto `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`. | `MISMATCH`; no desplegar el archivo completo sin corte compatible por vertical y rollback probado. |
 | Storage Rules | SHA local y remoto `fc837a77b952f3f2cf9e6eec24e7962eb0177a992f0776810d4798b5a1ee9f2b`. | `PASS` |
 | Smoke independiente | No se proporcionó atestación independiente asociada al candidato productivo. | `MISSING` |
@@ -51,7 +51,26 @@ Los once IDs Bodega ausentes, conforme a ADR-SAAS-076, son:
 `consultarCatalogoPresentacionesVendedorBodegaV1`,
 `consultarClientesVendedorBodegaV1`, `consultarMisVentasVendedorBodegaV1`,
 `actualizarArticuloInventarioBodegaV1`, `abrirTurnoBodegaV1` y
-`cerrarTurnoBodegaV1`.
+`cerrarTurnoBodegaV1`. También están ausentes `registrarCompraBodegaV1` y
+`registrarPerfilComercialBodegaV1`, ambas requeridas para el recorrido E2.2.
+
+## Relectura complementaria del inventario — 2026-10-14, 05:49 hora local
+
+El colector de solo lectura se ejecutó nuevamente contra `micafe-pos` y el SHA
+objetivo `a0cef89994698e664c0cd2ae7b6676739cfda86e`. Confirmó que
+`origin/main` sigue en ese SHA, que CI `38465098694` sigue en `success` y que
+las 80 Functions observadas están `ACTIVE` en Node.js 22. El mapa completo
+Function → hash permitió comprobar que faltan los trece IDs Bodega enumerados
+arriba y que `registrarCompraOperativaV1` continúa publicada.
+
+Esta ejecución no volvió a observar Firestore Rules ni Storage Rules porque no
+se configuró `FIREBASE_ACCESS_TOKEN`; el colector los dejó en `null` sin error
+de colección. Por tanto, los hashes Rules de la tabla anterior siguen siendo
+la última lectura disponible, no una nueva verificación de las 05:49. El estado
+Vercel para el SHA objetivo continúa sin acreditarse y no se aportaron
+atestaciones independientes nuevas de Rules, Storage, smoke o recovery. La
+relectura es complementaria y no constituye preflight de mutación ni autoriza
+deploy.
 
 ## Consecuencia para Gate I
 
