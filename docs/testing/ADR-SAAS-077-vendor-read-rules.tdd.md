@@ -45,3 +45,18 @@ aceptado y del contrato existente de `GENERAL + vendedor -> LEGACY`.
   deploy de Rules.
 - No se desplegaron Rules/Functions ni se hicieron escrituras en staging o
   producción.
+
+## Addendum Gate I — 2026-10-14
+
+Se amplió la evidencia de compatibilidad, sin cambiar `firestore.rules`:
+
+| Garantía | Prueba añadida | Resultado |
+|---|---|---|
+| Admin Bodega/GENERAL puede leer por documento y consulta tenant-scoped presentaciones y ledger; vendedores de ambos verticales no pueden hacerlo. | `Gate I: el ledger y las presentaciones excluyen vendedores en ambos verticales` | Firestore Rules Emulator — PASS |
+| Ventas son read-only para todos los roles, incluyendo consultas tenant-scoped; el writer legado de metadatos DIAN no puede persistir mediante `update` o `setDoc` merge. | `Gate I: las ventas son read-only y metadatos DIAN no se escriben desde cliente` | Firestore Rules Emulator — PASS |
+
+`npm run test:rules`: 45/45 pruebas pasaron, 0 fallas, cancelaciones o skips.
+El proyecto de Emulator fue `demo-mt-u4-rules`; no se usaron credenciales ni
+conexión a Firebase productivo. La denegación de DIAN es intencional en Rules,
+pero su impacto en cualquier tenant productivo que use fiscalidad debe
+conciliarse antes de un corte global.
