@@ -160,26 +160,29 @@ inexistente de Diana.
 ## Seguimiento PR #596 y fuente visual del catálogo — 2026-10-14
 
 PR #596 (`docs(gate-i): record PR 595 post-merge closeout`) se revalidó para el
-head `7166fc7b1282841b688936b0a6587d6eb2c2a958`. `gh pr checks 596` terminó
+head `c5670893098e90a40ce8e72ddcc1ee6c107df0a9`. `gh pr checks 596` terminó
 con `Tipos y pruebas`, `Vercel` y `Vercel Preview Comments` en `PASS`; la
-corrida CI `38623113927` concluyó `success` el 2026-10-14T19:48:45Z. La
-auditoría del head no encontró cambios de runtime ni datos fuera del alcance
-documental. El PR continúa abierto; no se integró en esta continuación.
+corrida CI `38627843729` concluyó `success` el 2026-10-14T20:12:55Z (job de
+pruebas 16m26s). La auditoría del head confirmó un diff solo documental, sin
+código runtime, datos ni cambios de producción. El PR continúa abierto y no se
+integra ni declara `DONE` en esta actualización.
 
 El responsable proporcionó cuatro fotografías de las hojas impresas del
-catálogo. Se verificó una transcripción privada local con filas 1–110
-consecutivas, precios numéricos y stock inicial cero. No se versionaron las
-imágenes ni la transcripción, porque el repositorio remoto es público. El CSV
-local permanece como borrador de trabajo y no se importó. Antes de una carga,
-Diana o la persona responsable del catálogo debe revisar las descripciones
-cuyo empaque/unidad no resulta inequívoco o proporcionar el original editable.
-No se reconstruyeron unidades ni empaques por inferencia.
+catálogo. En las ubicaciones consultadas del proyecto y recursos disponibles
+no se encontró el archivo digital maestro editable y aprobado de 110 productos
+(CSV o XLSX). Se verificó una transcripción privada local con filas
+1–110 consecutivas, precios numéricos y stock inicial cero. No se versionaron
+las imágenes ni la transcripción, porque el repositorio remoto es público. El
+CSV local permanece como borrador y no se importó. Diana o la persona
+responsable del catálogo debe proporcionar el archivo maestro o validar la
+transcripción y resolver las descripciones cuyo empaque/unidad no resulta
+inequívoco. No se reconstruyeron unidades ni empaques por inferencia.
 
 ## Estado comprobable de preparación y Gate I
 
 | Área | Estado | Evidencia / siguiente acción |
 |---|---|---|
-| CI de PR #596 | `PASS` para el head observado | Head `7166fc7`; checks obligatorios completos y verdes. PR sigue `OPEN`, no se declara `DONE` ni se integra en esta actualización. |
+| CI de PR #596 | `PASS` | Head `c5670893098e90a40ce8e72ddcc1ee6c107df0a9`; `Tipos y pruebas`, `Vercel` y `Vercel Preview Comments` verdes; run `38627843729`, concluido `success` a las 20:12:55Z. PR sigue `OPEN`; no se declara `DONE` ni se integra en esta actualización. |
 | Fuente de catálogo | `PASS` para recepción; `BLOCKED` para importación | Cuatro fotos recibidas y transcripción local 110/110, precios numéricos, stock cero. Revisión de ambigüedades pendiente de Diana/responsable; importación `NOT EXECUTED`. |
 | Fecha del Trial | `BLOCKED` | `2026-10-15` es fecha objetivo interna; falta confirmación directa de Diana. Tenant/Trial `NOT EXECUTED`. |
 | Onboarding | `PASS` documental; operativo `NOT EXECUTED` | Runbook asigna a Diana completar perfil, crear vendedores/roles y entregar credenciales temporales fuera de banda; no contiene credenciales. No hubo bootstrap real. |

@@ -92,18 +92,20 @@ fixture.
   La emisión DIAN desde la aplicación web no está disponible y no debe
   presentarse como una capacidad activa. La aceptación temporal de operar sin
   emisión no cierra Gate I ni certifica DIAN para otros tenants.
-- Catálogo aprobado para transcripción: el responsable aportó cuatro fotos de
-  las hojas impresas con las filas 1–110. Se preparó una transcripción local
-  de trabajo con 110 filas consecutivas, precios numéricos y stock inicial en
-  cero. El CSV está en `.codex/private/`, ignorado por Git; el repositorio es
-  público, así que no se incorporan las fotos ni los nombres/precios del
-  catálogo a GitHub. La transcripción sigue siendo borrador: Diana o la persona
-  responsable del catálogo debe confirmar las presentaciones/unidades ambiguas
-  o entregar el original editable antes de importar. No se importó ni escribió
-  en ningún tenant. El costo de compra se organizará después desde compras
-  reales de Bodega. Con existencias en cero no se confirma una venta real hasta
-  ingresar inventario por el flujo canónico de compras, una vez que Gate I
-  confirme y certifique su despliegue productivo.
+- Catálogo recibido: el responsable aportó cuatro fotos de las hojas impresas
+  con las filas 1–110. En las ubicaciones consultadas del proyecto y recursos
+  disponibles no se encontró el archivo digital maestro editable y aprobado
+  del catálogo de 110 productos (CSV o XLSX). Diana o la persona
+  responsable del catálogo debe proporcionar ese archivo o validar la
+  transcripción de las fotos y resolver las presentaciones/unidades ambiguas
+  antes de importar. La transcripción privada es solo un borrador con 110 filas
+  consecutivas, precios numéricos y stock inicial cero. Está en
+  `.codex/private/`, ignorada por Git; el repositorio es público, así que no se
+  incorporan las fotos ni los nombres/precios del catálogo a GitHub. No se
+  importó ni escribió en ningún tenant. El costo de compra se organizará
+  después desde compras reales de Bodega. Con existencias en cero no se confirma
+  una venta real hasta ingresar inventario por el flujo canónico de compras,
+  una vez que Gate I confirme y certifique su despliegue productivo.
 - Ensayo no productivo: `npm run e2e:bodega-u4-u5` pasó 12/12 pruebas en
   Firebase Emulators el 2026-10-14, incluyendo perfil comercial, aislamiento
   entre tenants, disponibilidad, solicitud/aprobación, venta en efectivo sin
