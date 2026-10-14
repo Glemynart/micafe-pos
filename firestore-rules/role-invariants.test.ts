@@ -221,11 +221,19 @@ test("Gate I: el ledger y las presentaciones excluyen vendedores en ambos vertic
   await expectDenied(vendedorBodega.firestore().doc("presentaciones_producto/presentacion-a").get());
   await expectAllowed(adminGeneral.firestore().doc("presentaciones_producto/presentacion-b").get());
   await expectDenied(vendedorGeneral.firestore().doc("presentaciones_producto/presentacion-b").get());
+  await expectAllowed(getDocs(query(collection(adminBodega.firestore(), "presentaciones_producto"), where("empresaId", "==", "empresa-a"))));
+  await expectDenied(getDocs(query(collection(vendedorBodega.firestore(), "presentaciones_producto"), where("empresaId", "==", "empresa-a"))));
+  await expectAllowed(getDocs(query(collection(adminGeneral.firestore(), "presentaciones_producto"), where("empresaId", "==", "empresa-b"))));
+  await expectDenied(getDocs(query(collection(vendedorGeneral.firestore(), "presentaciones_producto"), where("empresaId", "==", "empresa-b"))));
 
   await expectAllowed(adminBodega.firestore().doc("movimientos_inventario/movimiento-a").get());
   await expectDenied(vendedorBodega.firestore().doc("movimientos_inventario/movimiento-a").get());
   await expectAllowed(adminGeneral.firestore().doc("movimientos_inventario/movimiento-b").get());
   await expectDenied(vendedorGeneral.firestore().doc("movimientos_inventario/movimiento-b").get());
+  await expectAllowed(getDocs(query(collection(adminBodega.firestore(), "movimientos_inventario"), where("empresaId", "==", "empresa-a"))));
+  await expectDenied(getDocs(query(collection(vendedorBodega.firestore(), "movimientos_inventario"), where("empresaId", "==", "empresa-a"))));
+  await expectAllowed(getDocs(query(collection(adminGeneral.firestore(), "movimientos_inventario"), where("empresaId", "==", "empresa-b"))));
+  await expectDenied(getDocs(query(collection(vendedorGeneral.firestore(), "movimientos_inventario"), where("empresaId", "==", "empresa-b"))));
 });
 
 test("Gate I: las ventas son read-only y metadatos DIAN no se escriben desde cliente", async () => {
@@ -248,6 +256,11 @@ test("Gate I: las ventas son read-only y metadatos DIAN no se escriben desde cli
   await expectAllowed(adminBodega.firestore().doc("ventas/venta-bodega").get());
   await expectDenied(vendedorBodega.firestore().doc("ventas/venta-bodega").get());
   await expectAllowed(vendedorGeneral.firestore().doc("ventas/venta-general").get());
+  await expectAllowed(adminGeneral.firestore().doc("ventas/venta-general").get());
+  await expectAllowed(getDocs(query(collection(adminBodega.firestore(), "ventas"), where("empresaId", "==", "empresa-a"))));
+  await expectDenied(getDocs(query(collection(vendedorBodega.firestore(), "ventas"), where("empresaId", "==", "empresa-a"))));
+  await expectAllowed(getDocs(query(collection(vendedorGeneral.firestore(), "ventas"), where("empresaId", "==", "empresa-b"))));
+  await expectAllowed(getDocs(query(collection(adminGeneral.firestore(), "ventas"), where("empresaId", "==", "empresa-b"))));
 
   for (const [context, path] of ventas) {
     await expectDenied(context.firestore().doc(path).update({ dian: { cufe: "synthetic-cufe" } }));

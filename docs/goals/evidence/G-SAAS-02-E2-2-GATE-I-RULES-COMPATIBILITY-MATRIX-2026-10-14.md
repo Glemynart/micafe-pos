@@ -75,7 +75,7 @@ el SHA objetivo. `GENERAL` conserva el flujo LEGACY cuando se especifica. La
 presencia de una regla en `main` no autoriza desplegarla: los hallazgos y gates
 por ruta son parte del preflight.
 
-| Path | Rules de producción | Rules en `main @ 2727b55` | Consumidor / impacto | Gate antes del corte |
+| Path | Rules de producción | Rules en `main @ 34fc2da` | Consumidor / impacto | Gate antes del corte |
 |---|---|---|---|---|
 | `/categorias/{id}` | Lectura tenant; admin puede crear, actualizar y borrar. | Lectura tenant; escritura admin excluida para `BODEGA_MVP1`. | Bodega administra por callables; confirmar que el admin `GENERAL` sigue usando su ruta directa. | Emulator por vertical/rol; comprobar escrituras admin `GENERAL` permitidas y Bodega directas denegadas. |
 | `/clientes/{id}` | Lectura para usuarios autenticados del tenant. | Igual, excepto vendedor Bodega; vendedor GENERAL preservado por #592. | POS LEGACY consulta clientes directamente; Bodega vendedor usa callable. | Pruebas Emulator para consultas y documentos de ambos verticales, incluido tenant/membresía inactivos. |
@@ -107,9 +107,9 @@ Kardex.
 La suite completa `npm run test:rules` pasó en el Emulator del proyecto demo:
 45/45 pruebas, 0 fallas. Se añadieron dos casos Gate I en
 `firestore-rules/role-invariants.test.ts`: lecturas de presentaciones/ledger
-por rol y vertical; ventas read-only y rechazo de `setDoc(..., { merge: true
-})` para metadatos DIAN. No se cambió `firestore.rules` ni se contactaron
-documentos de negocio.
+por documento y consulta tenant-scoped para rol y vertical; ventas read-only y
+rechazo de `setDoc(..., { merge: true })` para metadatos DIAN. No se cambió
+`firestore.rules` ni se contactaron documentos de negocio.
 
 El preflight `firebase deploy --dry-run` limitado a las trece callables objetivo
 terminó correctamente sin `--force`; las trece ya están activas, por lo que no
