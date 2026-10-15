@@ -55,3 +55,36 @@ una asignación que modifique facultades.
 
 No se modificaron operadores o facultades, controles de compras, Firestore Rules,
 tenant, membresía, catálogo o Trial de Diana.
+
+### Seguimiento autenticado de gobernanza — 2026-10-15 13:08 America/Bogota
+
+- **Sesión productiva:** `PASS`. La URL visible fue el Backoffice del backend
+  productivo `micafe-pos` en `us-central1.hosted.app`; no se reutilizó la sesión
+  de staging. El encabezado mostró `Contexto validado` y el UID de sesión
+  coincidió con el documento del operador presentado por la consulta canónica.
+- **Consulta de operadores:** `PASS` de solo lectura, en
+  `/backoffice/operadores`, mediante `listarRecursosPlataformaSaas` para el
+  recurso `operadores`. El endpoint exige autenticación y valida
+  `PLATAFORMA_CONSULTAR` más `OPERADORES_GOBERNAR`; el contrato proyecta `uid`,
+  estado, versión de autorización y facultades desde `saas_operadores`.
+- **Operador de la sesión:** activo, autorización v3; su UID termina en `RZ2`.
+  El documento canónico muestra `OPERADORES_GOBERNAR` y
+  `RELEASE_COMPRAS_GOBERNAR`.
+- **Segundo operador listado:** activo, autorización v1; su UID termina en
+  `dC3`. Tiene `PLATAFORMA_CONSULTAR` y `OPERADORES_GOBERNAR`, pero no
+  `RELEASE_COMPRAS_GOBERNAR`.
+- **Límite de identidad:** la proyección no expone correo ni rol de negocio
+  `principal/secundario`. Por tanto, la facultad está presente en el operador
+  autenticado, pero no se afirma que sea el operador principal esperado ni que
+  corresponda a un correo específico. No se cambió ninguna facultad.
+- **Alcance de pausa:** `BLOCKED`. ADR-SAAS-081 requiere tenants, responsables y
+  ventana designados antes del corte. El código expone la transición por
+  `empresaId`, pero no se encontró una consulta canónica de solo lectura para
+  `controles_release_compras`; el panel no acredita esos tres datos. Los dos
+  tenants que aparecen en el resumen del Dashboard no constituyen autorización
+  de alcance. No se inicializó ni pausó ningún control.
+- **PR #611:** en la última lectura antes de este seguimiento, el HEAD
+  `cd2f2870b00516cd273dcff98c5501e1908d09cc` seguía abierto; `Tipos y pruebas`
+  estaba `IN_PROGRESS` y Vercel Preview/Preview Comments estaban `SUCCESS`.
+  Esta actualización documental genera un HEAD nuevo y requiere validar sus
+  propios checks antes de integrar el registro.
