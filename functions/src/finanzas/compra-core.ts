@@ -21,6 +21,7 @@ const object = (value: unknown): value is Record<string, unknown> => !!value && 
 const text = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
 const cantidad = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value > 0;
 const costo = (value: unknown): value is number => typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+const CONTROLES_RELEASE_COMPRAS = "controles_release_compras";
 
 interface SnapshotItem {
   articuloId: string;
@@ -163,6 +164,7 @@ function consolidar(items: SnapshotItem[], empresaId: string, espacioId: string,
 }
 
 async function efectoRegistrarCompra(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<Record<string, unknown>> {
+  await exigirComprasActivasEnTransaccion(tx, db, empresaId, false);
   await revalidarAutoridadFinancieraEnTransaccion(tx, db, { empresaId, actorUid, rol }, "purchases");
   const compraId = crearIdentificadorInterno(empresaId, `compra:${input.commandId}`);
   const compraRef = db.collection("compras").doc(compraId);
@@ -196,6 +198,29 @@ async function efectoRegistrarCompra(tx: any, db: any, empresaId: string, actorU
   });
   if (compra.items.some(item => item.tipo === "producto")) marcarSenalDisponibilidadBodega(tx, db, empresaId);
   return { commandId: input.commandId, compraId, movimientosInventario: movimientos.map(movimiento => movimiento.id), movimientoFinancieroId: movimientoFinanciero?.id ?? null, total: compra.total };
+}
+
+/**
+ * ADR-SAAS-081: el mismo documento que consumen las Rules se lee dentro de
+ * la transacción. Ausencia o forma ambigua fallan cerradas; un replay ya
+ * confirmado puede devolver su recibo durante la pausa sin materializar nada.
+ */
+async function exigirComprasActivasEnTransaccion(tx: any, db: any, empresaId: string, replayConfirmado: boolean): Promise<void> {
+  const control = await tx.get(db.collection(CONTROLES_RELEASE_COMPRAS).doc(empresaId));
+  if (!control.exists) fail("failed-precondition", "COMPRAS_CONTROL_NO_CONFIGURADO");
+  const datos = control.data() as Record<string, unknown>;
+  if (!datos) fail("failed-precondition", "COMPRAS_CONTROL_INVALIDO");
+  if (
+    datos.empresaId !== empresaId
+    || !Number.isSafeInteger(datos.revision)
+    || (datos.revision as number) < 1
+    || (datos.estado !== "ACTIVA" && datos.estado !== "PAUSADA")
+  ) {
+    fail("failed-precondition", "COMPRAS_CONTROL_INVALIDO");
+  }
+  if (datos.estado === "PAUSADA" && !replayConfirmado) {
+    fail("failed-precondition", "COMPRAS_EN_CORTE");
+  }
 }
 
 async function efectoRegistrarCompraBodega(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<Record<string, unknown>> {
@@ -232,11 +257,13 @@ async function efectoRegistrarCompraOperativaLegacy(tx: any, db: any, empresaId:
 
 async function validarReplayCompraOperativaLegacy(tx: any, db: any, empresaId: string): Promise<void> {
   await rechazarCompraLegacyBodegaEnTransaccion(tx, db, empresaId);
+  await exigirComprasActivasEnTransaccion(tx, db, empresaId, true);
 }
 
 async function validarReplayCompraBodega(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<void> {
   await revalidarAutoridadFinancieraEnTransaccion(tx, db, { empresaId, actorUid, rol }, "purchases");
   await validarPoliticaCompraBodegaEnTransaccion(tx, db, empresaId, input);
+  await exigirComprasActivasEnTransaccion(tx, db, empresaId, true);
 }
 
 /** Core transaccional común: solo cambia el tipo canónico de idempotencia. */

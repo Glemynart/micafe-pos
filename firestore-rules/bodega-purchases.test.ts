@@ -46,6 +46,11 @@ test("ADR-072: otro vertical conserva la creación y eliminación legacy de comp
     empresaId: "empresa-b",
     vertical: "GENERAL",
   });
+  await seedDocument("controles_release_compras/empresa-b", {
+    empresaId: "empresa-b",
+    estado: "ACTIVA",
+    revision: 1,
+  });
   await seedDocument(compraExistente, { empresaId: "empresa-b", total: 2400 });
 
   await expectAllowed(adminLegacy.firestore().doc("compras/legacy-directa").set({
@@ -53,4 +58,23 @@ test("ADR-072: otro vertical conserva la creación y eliminación legacy de comp
     total: 2400,
   }));
   await expectAllowed(adminLegacy.firestore().doc(compraExistente).delete());
+});
+
+test("ADR-081: la pausa canónica niega bypass directo y el cliente no puede modificarla", async () => {
+  const adminLegacy = await contextFor(fixtures.tenantB.admin);
+  await seedDocument("configuraciones/empresa-b", { empresaId: "empresa-b", vertical: "GENERAL" });
+  await seedDocument("controles_release_compras/empresa-b", {
+    empresaId: "empresa-b",
+    estado: "PAUSADA",
+    revision: 7,
+  });
+
+  await expectDenied(adminLegacy.firestore().doc("compras/legacy-directa-pausada").set({
+    empresaId: "empresa-b",
+    total: 2400,
+  }));
+  await expectDenied(adminLegacy.firestore().doc("controles_release_compras/empresa-b").update({
+    estado: "ACTIVA",
+    revision: 8,
+  }));
 });

@@ -8,6 +8,7 @@ export const FACULTADES_PLATAFORMA = [
   "ACCESO_RESTABLECER",
   "DUSEMA_TENANT_CONSULTAR",
   "DUSEMA_BINDING_GOBERNAR",
+  "RELEASE_COMPRAS_GOBERNAR",
 ] as const;
 
 export type FacultadPlataforma = (typeof FACULTADES_PLATAFORMA)[number];
@@ -130,7 +131,9 @@ export type TipoAuditoria =
   | "DUSEMA_TENANT_CONSULTADO"
   | "DUSEMA_BINDING_CREADO"
   | "CUENTA_OPERATIVA_PROVISIONADA"
-  | "MEMBRESIA_BODEGA_ESTADO_ACTUALIZADO";
+  | "MEMBRESIA_BODEGA_ESTADO_ACTUALIZADO"
+  | "COMPRAS_PAUSADAS"
+  | "COMPRAS_REANUDADAS";
 
 export type TipoAgregadoAuditoria =
   | "OPERADOR"
@@ -146,7 +149,8 @@ export type TipoAgregadoAuditoria =
   | "SEGURIDAD_PLATAFORMA"
   | "BINDING_DUSEMA"
   | "CUENTA_OPERATIVA"
-  | "MEMBRESIA_BODEGA";
+  | "MEMBRESIA_BODEGA"
+  | "CONTROL_RELEASE_COMPRAS";
 
 export function esFacultadPlataforma(value: unknown): value is FacultadPlataforma {
   return typeof value === "string"

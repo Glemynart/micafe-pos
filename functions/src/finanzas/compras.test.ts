@@ -114,6 +114,7 @@ function seed(db: FakeFirestore, saldo = 0) {
   db.docs.set("espacios/cafeteria", { empresaId, activo: true, nombre: "Cafetería" });
   db.docs.set("productos/cafe", { empresaId, espacioId: "cafeteria", nombre: "Café catálogo", unidad: "und", stock: 2, secuenciaLedger: 0, costo: 100 });
   db.docs.set("cuentas_bancarias/caja-principal", { id: "caja-principal", empresaId, claveOperativa: "caja-principal", nombre: "Caja principal", saldo });
+  db.docs.set(`controles_release_compras/${empresaId}`, { empresaId, estado: "ACTIVA", revision: 1 });
 }
 
 function payload(overrides: Record<string, unknown> = {}) {
@@ -190,6 +191,78 @@ test("Bodega: registra compra con la misma transacción y el nuevo tipo idempote
   assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/disponibilidad`)?.version, 1);
   assert.equal(recibos.length, 1);
   assert.equal(recibos[0][1].tipo, "registrarCompraBodegaV1");
+});
+
+test("ADR-SAAS-081: una compra nueva queda rechazada durante el corte sin efectos parciales", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`controles_release_compras/${empresaId}`, { empresaId, estado: "PAUSADA", revision: 2 });
+  const before = [...db.docs.entries()];
+
+  await assert.rejects(
+    ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("corte-nueva", payload())),
+    error => domain(error, "COMPRAS_EN_CORTE"),
+  );
+
+  assert.deepEqual([...db.docs.entries()], before);
+});
+
+test("ADR-SAAS-081: un replay confirmado sobrevive la pausa sin duplicar efectos", async () => {
+  const db = new FakeFirestore(); seed(db);
+  const command = envelope("corte-replay-confirmado", payload());
+  const first = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
+  const snapshot = [...db.docs.entries()];
+  db.docs.set(`controles_release_compras/${empresaId}`, { empresaId, estado: "PAUSADA", revision: 2 });
+
+  const replay = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
+
+  assert.deepEqual(replay, first);
+  const afterWithoutControl = [...db.docs.entries()].filter(([path]) => path !== `controles_release_compras/${empresaId}`);
+  const beforeWithoutControl = snapshot.filter(([path]) => path !== `controles_release_compras/${empresaId}`);
+  assert.deepEqual(afterWithoutControl, beforeWithoutControl);
+});
+
+test("ADR-SAAS-081: reintento ambiguo sin recibo no materializa una compra durante la pausa", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`controles_release_compras/${empresaId}`, { empresaId, estado: "PAUSADA", revision: 2 });
+  const command = envelope("corte-reintento-sin-recibo", payload());
+
+  await assert.rejects(
+    ejecutarRegistrarCompraOperativaV1(db, contexto, command),
+    error => domain(error, "COMPRAS_EN_CORTE"),
+  );
+  await assert.rejects(
+    ejecutarRegistrarCompraOperativaV1(db, contexto, command),
+    error => domain(error, "COMPRAS_EN_CORTE"),
+  );
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("compras/")).length, 0);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("operaciones_comandos/")).length, 0);
+});
+
+test("ADR-SAAS-081: reanudar explícitamente permite una compra nueva y conserva el aislamiento tenant", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`controles_release_compras/${empresaId}`, { empresaId, estado: "PAUSADA", revision: 2 });
+  db.docs.set("controles_release_compras/empresa-b", { empresaId: "empresa-b", estado: "PAUSADA", revision: 4 });
+  db.docs.set(`controles_release_compras/${empresaId}`, { empresaId, estado: "ACTIVA", revision: 3 });
+
+  const result = await ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("corte-reanudada", payload()));
+
+  assert.ok(db.docs.get(`compras/${result.compraId}`));
+  assert.equal(db.docs.get("controles_release_compras/empresa-b")?.estado, "PAUSADA");
+});
+
+test("ADR-SAAS-081: ausencia o forma ambigua del control falla cerrada", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.delete(`controles_release_compras/${empresaId}`);
+  await assert.rejects(
+    ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("corte-ausente", payload())),
+    error => domain(error, "COMPRAS_CONTROL_NO_CONFIGURADO"),
+  );
+
+  db.docs.set(`controles_release_compras/${empresaId}`, { empresaId, estado: "ACTIVA", revision: 0 });
+  await assert.rejects(
+    ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("corte-ambiguo", payload())),
+    error => domain(error, "COMPRAS_CONTROL_INVALIDO"),
+  );
 });
 
 test("Bodega: revalida permiso antes de devolver el recibo de un replay", async () => {
