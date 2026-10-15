@@ -136,12 +136,14 @@ fecha mediante un cierre anticipado controlado:
 6. actualizar `configuraciones/{empresaId}.modulos.habilitados` mediante el comando canónico de configuración, usando la lista derivada del snapshot vigente;
 7. registrar IDs de comandos, revisiones, SHA desplegado, smoke test y evidencia sin secretos.
 
-El preflight reproducible está disponible como
+El preflight histórico está disponible como
 `npx tsx scripts/g-saas-02/trial-transition-preflight.ts`. Solo acepta lecturas `GET` de Firestore y
-exige `FIREBASE_ACCESS_TOKEN` entregado fuera del repositorio. Requiere declarar
-explícitamente el SHA, CI, hash de Functions, Rules, Storage, Vercel y la
-referencia de recovery junto con `--recovery-verified true` cuando exista una
-atestación independiente. Si se quiere declarar el operador listo, también
+exige `FIREBASE_ACCESS_TOKEN` entregado fuera del repositorio, pero su contrato
+actual todavía exige metadata de Vercel. Por ADR-SAAS-083 no debe usarse para
+certificar este release ni suplirse ese campo con un valor ficticio. Se debe
+adaptar en un cambio de tooling para aceptar evidencia verificable de App
+Hosting antes de declarar el preflight productivo. Sigue siendo read-only y
+no autoriza comandos de transición. Si se quiere declarar el operador listo, también
 requiere `FIREBASE_OPERATOR_ID_TOKEN` para comprobar la callable read-only de
 plataforma; un registro `saas_operadores` por sí solo no basta. Siempre emite
 `productionWrites: false` y
@@ -158,14 +160,19 @@ estado registra recovery como gate pendiente, no como hecho supuesto.
 
 La evidencia automática de release se puede recolectar sin escrituras con:
 `npx tsx scripts/g-saas-02/release-evidence.ts --project micafe-pos --repo Glemynart/micafe-pos`.
-El colector consulta el SHA de `origin/main`, la CI y Vercel mediante `gh api`,
+El colector legado consulta el SHA de `origin/main`, la CI y Vercel mediante `gh api`,
 el inventario y el mapa Function → hash mediante `firebase functions:list`, los releases y
 rulesets efectivos mediante la API GET de Firebase Rules cuando existe
 `FIREBASE_ACCESS_TOKEN`, y el estado read-only de base de datos/backups mediante
 Firebase CLI. Nunca imprime credenciales ni ejecuta deploy. Las referencias
 `--rules-ref`, `--storage-ref`, `--smoke-ref` y `--recovery-ref` se conservan
 como declaradas, pero no se consideran atestaciones independientes por el solo
-hecho de existir. El mapa por Function está verificado en
+hecho de existir. Desde la aceptación de ADR-SAAS-083, el resultado Vercel de
+ese colector es `NOT APPLICABLE TO CURRENT RELEASE` y no acredita App Hosting.
+Para este release registrar directamente el backend, región, build, commit
+fuente, rollout, tráfico, URI, nombres de variables, identidad de ejecución y
+hashes de configuración de Firebase App Hosting; el backend de staging no
+cuenta como producción. El mapa por Function está verificado en
 `docs/goals/evidence/G-SAAS-02-RELEASE-EVIDENCE-2026-08-14-FUNCTIONS.md`.
 La ejecución predeploy está en
 `docs/goals/evidence/G-SAAS-02-RELEASE-EVIDENCE-2026-08-14.md` y la
@@ -255,12 +262,21 @@ Antes del Trial se registra:
 
 - SHA de `main`;
 - resultado de CI;
-- versión desplegada de Vercel;
+- backend, URI, build, rollout y SHA servido de Firebase App Hosting;
 - versión desplegada de Functions;
 - Rules y Storage aplicados;
 - smoke test productivo;
 - punto de recuperación;
 - responsable de rollback.
+
+El deployment productivo, capacidad y SHA de Vercel son
+`NOT APPLICABLE TO CURRENT RELEASE` por ADR-SAAS-083. Las referencias Vercel en
+snapshots anteriores son históricas, no bloquean el release. La lectura del
+2026-10-15 encontró el backend de staging operativo y ningún backend App
+Hosting en el proyecto productivo `micafe-pos`; por tanto, la publicación web
+productiva sigue sin ejecutar y requiere preflight del backend productivo,
+configuración exclusiva de producción, identidad IAM y resolución del riesgo
+Preview de Next.js.
 
 En la observación del `2026-08-15T04:29:09Z`, las 79 Functions activas de
 `origin/main @ 7d9078f` y las Rules/Storage desplegadas quedaron reconciliadas
