@@ -5,6 +5,7 @@
 **PROPUESTO — pendiente de aceptación formal.** Esta propuesta no modifica código ni evidencia remota y no autoriza despliegues o escrituras.
 
 - **Fecha de propuesta:** 2026-10-15.
+- **Última revisión documental:** 2026-10-15.
 - **Goal:** `G-SAAS-02` → `M2 — Provisioning y onboarding` → `E2.2 — Configuración inicial` / Gate I.
 - **Relacionados:** [ADR-SAAS-012](ADR-SAAS-012-auditoria-plataforma-evidencia-no-repudio.md), [ADR-SAAS-060](ADR-SAAS-060-auditoria-membresia-bodega-staging.md) y [ADR-SAAS-081](ADR-SAAS-081-pausa-tecnica-compras-corte-rules.md).
 - **Alcance:** contrato y clasificación de evidencias emitidas por `transicionarPausaComprasSaas`, y propuesta de aclaración histórica append-only.
@@ -36,11 +37,13 @@ La creación inicial en `PAUSADA` es inicialización, no una pausa: no existe un
 
 Un conflicto de revisión, un destino inválido, una transición redundante, un comando sin cambio de estado o un replay idempotente no produce una nueva evidencia de transición con ninguno de esos tres tipos. El replay devuelve el resultado durable y la evidencia ya asociada, si la hay; nunca inventa una transición nueva. Cuando otro requisito contractual obligue a registrar una denegación o conflicto, ese hecho debe usar su tipo y resultado propios, sin etiquetarlo como pausa, reanudación o inicialización confirmada.
 
+La categoría correctiva `COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA` propuesta más abajo es una anotación sobre la calidad semántica de evidencia previa; no es una transición del control, no cambia `estado` ni `revision`, y nunca se cuenta como inicialización, pausa o reanudación.
+
 ### Versionado de la evidencia
 
-Se propone `schemaVersion: 2` para toda nueva evidencia de la familia del control de compras, incluidos `COMPRAS_CONTROL_INICIALIZADO`, `COMPRAS_PAUSADAS` y `COMPRAS_REANUDADAS`. La nueva categoría, la habilitación explícita de los tipos existentes y el agregado usado por la familia son una evolución contractual; no se presume que añadir valores a los enums sea compatible con v1.
+Se propone `schemaVersion: 2` para toda nueva evidencia de la familia del control de compras, incluidos `COMPRAS_CONTROL_INICIALIZADO`, `COMPRAS_PAUSADAS`, `COMPRAS_REANUDADAS` y, si se acepta, `COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA`. La nueva categoría, la habilitación explícita de los tipos existentes y el agregado usado por la familia son una evolución contractual; no se presume que añadir valores a los enums sea compatible con v1.
 
-Si se acepta esta ADR, su efecto contractual queda limitado a lo siguiente: (a) para evidencia v2 de esta familia, sustituye el valor fijo `1` de ADR-SAAS-012 §2.2 por `schemaVersion: 2` y define el campo adicional `detalle` que sigue; (b) añade los tres tipos de transición indicados a la taxonomía de §3.1; (c) permite `CONTROL_RELEASE_COMPRAS` en §3.2; y (d) permite leer sin reescritura las evidencias v1 históricas de esta familia que ya contienen esos tipos/agregado, como compatibilidad de legado. Esa lectura no declara conformidad retroactiva ni permite nuevas escrituras v1. Las demás familias y valores de ADR-SAAS-012 permanecen sin cambios. La copia anidada de la evidencia en la obligación se rige por la versión de evidencia así delimitada; la versión exterior de obligación permanece 1.
+Si se acepta esta ADR, su efecto contractual queda limitado a lo siguiente: (a) para evidencia v2 de esta familia, sustituye el valor fijo `1` de ADR-SAAS-012 §2.2 por `schemaVersion: 2` y define los contratos `detalle` de esta sección; (b) añade los tres tipos de transición y la categoría correctiva propuesta a la taxonomía de §3.1; (c) permite `CONTROL_RELEASE_COMPRAS` en §3.2; y (d) permite leer sin reescritura las evidencias v1 históricas de esta familia que ya contienen los tipos/agregado de compras, como compatibilidad de legado. Esa lectura no declara conformidad retroactiva ni permite nuevas escrituras v1. Las demás familias y valores de ADR-SAAS-012 permanecen sin cambios. La copia anidada de la evidencia en la obligación se rige por la versión de evidencia así delimitada; la versión exterior de obligación permanece 1.
 
 | Documento o evidencia | Versión y tratamiento propuestos |
 |---|---|
@@ -51,6 +54,17 @@ Si se acepta esta ADR, su efecto contractual queda limitado a lo siguiente: (a) 
 | Campo anidado `obligacion.evidencia` | Lleva la versión de la evidencia que materializará: v2 para una nueva transición del control; v1 para obligaciones históricas. No se cambia la versión exterior por inferencia. |
 
 El contrato v2 propuesto conserva los campos base de ADR-SAAS-012 §2.2, con `schemaVersion: 2`, y define para esta familia `agregado.tipo = CONTROL_RELEASE_COMPRAS` y `detalle` como objeto permitido con `estado` (`ACTIVA` o `PAUSADA`) y `fingerprint`, más `verificacionRelease` únicamente cuando corresponda según ADR-SAAS-081. Esta última conserva solo `functionArtifactSha`, `rulesetHash` y `releaseReferencia`. No se admiten otros campos en `detalle`; tipos, límites, presencia condicional y validación deben quedar codificados antes de emitir v2. Los valores existentes de `detalle` en registros v1 se tratan como datos históricos del escritor, no como permiso para ampliar silenciosamente el esquema v1.
+
+Para evitar que el contrato quede abierto a interpretación, los objetos `detalle` de v2 tienen formas cerradas:
+
+| Tipo | Campos exactos de `detalle` |
+|---|---|
+| `COMPRAS_CONTROL_INICIALIZADO`, `COMPRAS_PAUSADAS`, `COMPRAS_REANUDADAS` | `estado`: `ACTIVA` o `PAUSADA`; `fingerprint`: SHA-256 hexadecimal minúsculo de 64 caracteres; `verificacionRelease`: objeto opcional solo para reanudación, con exactamente `functionArtifactSha` y `rulesetHash` (SHA-256 hexadecimal minúsculo de 64 caracteres cada uno) y `releaseReferencia` (1–128 caracteres según `/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/` de `exigirId`). Si no aplica, `verificacionRelease` se omite; nunca se escribe como `null`. |
+| `COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA` | `evidenciaOriginalId`: UUID del documento original; `tipoOriginal`: tipo persistido en el documento fuente; `tipoCorregido`: `COMPRAS_CONTROL_INICIALIZADO`; `revisionOriginal`: objeto exacto `{ esperada: 0, resultante: 1 }`; `estadoDestinoOriginal`: `ACTIVA`; `ocurrioEnOriginal`: timestamp servidor copiado sin alteración de la evidencia fuente. |
+
+Para la aclaración descrita en esta ADR, los valores deben ser `tipoOriginal: COMPRAS_REANUDADAS`, `tipoCorregido: COMPRAS_CONTROL_INICIALIZADO`, `revisionOriginal: { esperada: 0, resultante: 1 }` y `estadoDestinoOriginal: ACTIVA`. La categoría correctiva se limita a esta clasificación histórica semánticamente incorrecta cuya fuente demuestra esos valores. No representa una mutación del control ni reemplaza el documento original.
+
+El código actual valida `verificacionRelease` mediante `exigirId`, pero no valida que los campos llamados SHA tengan forma SHA-256. El contrato propuesto v2 es más estricto; esa validación debe incorporarse y probarse antes de emitir evidencias v2. Esta ADR no afirma que la restricción ya esté implementada.
 
 Los lectores deben:
 
@@ -70,6 +84,24 @@ La evidencia original permanece intacta. Una aclaración futura, únicamente des
 
 La propuesta de reconciliación exige:
 
+| Campo | Valor contractual propuesto |
+|---|---|
+| `schemaVersion` | `2`. |
+| `evidenciaId` | UUID nuevo, igual al ID del documento correctivo y distinto del ID original. |
+| `tipo`, `resultado` | `COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA`, `CONFIRMADO` (confirma que la anotación quedó durable, no una mutación del control). |
+| `origen`, `actor`, `facultad` | Derivados de la sesión/autorización real a través del mecanismo canónico; no se fabrican. Un proceso `SISTEMA` debe usar la combinación permitida por ADR-SAAS-012. La facultad operativa exacta para emitir esta corrección se determina por separado; no se infiere de ADR-SAAS-060/081. |
+| `comando` | `{ id: <nuevo commandId>, tipo: "AclararClasificacionAuditoriaCompras" }`; es un comando correctivo nuevo, distinto del causal original. |
+| `agregado`, `empresaObjetivoId` | `{ tipo: CONTROL_RELEASE_COMPRAS, id: <empresaId original> }` y el mismo `empresaId`, respectivamente. |
+| `revision` | `{ esperada: null, resultante: null }`; la anotación no muta el control. La revisión histórica se conserva solo en `detalle.revisionOriginal`. |
+| `correlacionId`, `causacionId` | Correlación original y command/process ID causal original, solo cuando sean verificables. `causacionId` nunca es el ID de evidencia. |
+| `motivo` | Código `CORRECCION_SEMANTICA_AUDITORIA` y resumen factual acotado conforme ADR-SAAS-012. |
+| `soporte` | `null`, salvo que se ejecute realmente bajo un flujo de soporte aprobado; no se presume ese contexto. |
+| `detalle` | Exactamente el esquema de `COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA` definido en la tabla v2; incluye `evidenciaOriginalId`, tipo original/corregido, revisión/destino originales y timestamp original. |
+| `ocurrioEn`, `registradoEn` | Timestamps asignados por el servidor canónico; el primero es la creación real de esta anotación y el segundo su emisión. El timestamp original se preserva separado como `detalle.ocurrioEnOriginal`. |
+
+El documento original conserva íntegros su ID, tipo, transición y timestamps; la nueva evidencia no lo actualiza, reemplaza ni elimina.
+
+- `evidenciaId`: UUID nuevo, único y propio de la anotación, igual al ID de su nuevo documento y distinto del ID de la evidencia original;
 - un comando correctivo nuevo, con su propio `comando.id`, distinto del comando original;
 - `causacionId` igual al ID verificable del comando/proceso causal original, nunca al ID del documento de evidencia;
 - una referencia inequívoca al documento original, por ejemplo `detalle.evidenciaOriginalId`, sin confundirla con `causacionId`;
@@ -79,7 +111,11 @@ La propuesta de reconciliación exige:
 
 **Decisión contractual pendiente:** ADR-SAAS-012 exige un tipo enumerado y un contrato exacto, pero no define la categoría ni el formato de una aclaración semántica. Por ello, esta propuesta no declara que la anotación pueda emitirse ya. Una aclaración que se materialice como evidencia canónica requiere una categoría/contrato propio, distinto de los tres eventos de transición; se recomienda someter a aceptación `COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA`, con versión 2 y campos explícitos para referenciar la evidencia original, conservar los hechos comprobados y explicar la clasificación corregida. La forma exacta de ese contrato queda pendiente de aprobación formal. Alternativas para la revisión: (a) aceptar esa categoría y definir el esquema exacto en esta ADR o en una ADR posterior; (b) adoptar otro contrato/versionado mediante ADR; o (c) no crear evidencia correctiva hasta una decisión posterior. Reutilizar `COMPRAS_CONTROL_INICIALIZADO` sin una marca contractual específica podría contarse como una segunda inicialización y se considera ambiguo; no se adopta por defecto.
 
+En esta revisión, la opción (a) queda materializada como propuesta concreta en las tablas v2 anteriores: categoría separada y campos definidos. Por tanto, no queda pendiente redactar el contrato mínimo; sí queda pendiente que el aprobador formal acepte, cambie o rechace esta categoría y sus campos. La autorización operativa de una futura escritura sigue siendo separada.
+
 Si no puede verificarse el comando causal o el ID de la evidencia original, la aclaración no se emite hasta resolver la referencia; nunca se inventan identificadores para completar el registro.
+
+El contrato mínimo de la anotación queda definido en esta propuesta; lo pendiente es su aceptación formal y la autorización operativa independiente para una eventual ejecución. El nombre y el contrato no se consideran vigentes por la sola existencia de este borrador.
 
 ## Compatibilidad, cambios necesarios y pruebas para una implementación posterior
 
@@ -110,7 +146,7 @@ Esta ADR no afirma que esas pruebas ya se ejecutaron.
 1. **Mantener v1 y añadir únicamente el tipo.** No recomendada: ADR-SAAS-012 exige versión nueva para una evolución contractual, y ADR-SAAS-060 no documenta una excepción.
 2. **Migrar o reescribir evidencias históricas a v2.** Rechazada: contradice append-only y altera la historia.
 3. **Etiquetar la inicialización como pausa o reanudación.** Rechazada: atribuye una transición que no necesariamente ocurrió.
-4. **Emitir una aclaración correctiva reutilizando el tipo de inicialización sin contrato propio.** No recomendada y pendiente de decisión: puede confundir una anotación con otra inicialización.
+4. **Emitir una aclaración correctiva reutilizando el tipo de inicialización sin contrato propio.** Rechazada: puede confundir una anotación con otra inicialización y no referencia inequívocamente el documento corregido.
 5. **Evolucionar a v2 solo la familia de control de compras y preservar v1 histórico.** Recomendada: versiona el contrato afectado y mantiene lectura retrospectiva sin migración masiva.
 
 ## Consecuencias y límites
