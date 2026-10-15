@@ -78,3 +78,56 @@ deployment adicional de `cafeatrato`, o (b) autorización explícita del
 responsable de Vercel para asumir el riesgo de capacidad con el margen actual.
 La lectura `9,95 GB / 10 GB` por sí sola no satisface ninguno de los dos
 criterios.
+
+## Addendum — inventario selectivo de Deployment Storage
+
+**Corte de inventario:** 2026-10-15. **Operación:** solo lectura mediante
+Vercel CLI 62.1.0 y GitHub CLI; no se eliminaron deployments ni aliases.
+
+Vercel devolvió 23 deployments retenidos para `cafeatrato`. La respuesta de
+listado e inspección no contiene un tamaño total por deployment
+(`reportedDeploymentBytes = null`). Los tamaños de outputs individuales no se
+usan como estimación de espacio recuperable porque comparten digests y no
+representan la atribución de Deployment Storage. Por tanto, el espacio
+recuperable de cada fila es `UNKNOWN`.
+
+| Creado (America/Bogota) | Deployment / estado | Entorno / origen | Alias efectivo o dependencia | Recomendación |
+|---|---|---|---|---|
+| 2026-10-15 03:27 | `dpl_G7YpKTRyckkpRRZk4aHLbMS1DCcd` / READY | Preview PR #605, `dcd7df4` | Alias de rama vigente; PR abierto | CONSERVAR |
+| 2026-10-15 03:24 | `dpl_GnffREdDb9JcCNf594FwFm4ogEGo` / READY | Preview PR #605, `5ad0ac4` | Versión anterior del PR abierto; sin alias vigente propio | INVESTIGAR tras cerrar #605 |
+| 2026-10-15 02:23 | `dpl_7dTbMgcTKCwKQQd4NA3ZFacKunfz` / READY | Preview PR #604, `fe23d94` | Alias de rama vigente; PR fusionado | CONSERVAR mientras el alias siga asignado |
+| 2026-10-15 01:19 | `dpl_9SWSBSmLG3reFfBdYvSi33DZdyZT` / READY | Preview PR #603, `81ca2ed` | Alias de rama vigente; PR fusionado | CONSERVAR mientras el alias siga asignado |
+| 2026-10-15 01:15 | `dpl_C61f7JsxHf7VwUb6FND82VbNGvtZ` / ERROR | Preview PR #603, `cefed23` | Sin alias efectivo; reemplazado por el READY anterior; 0 outputs reportados | CANDIDATO TÉCNICO, NO ELIMINAR: ahorro desconocido y posiblemente nulo |
+| 2026-10-14 23:55 | `dpl_GwhhLFmUQUNgrdqS8Q4ecrmTuVu5` / READY | Preview PR #602, `c125f22` | Alias de rama vigente; PR abierto | CONSERVAR |
+| 2026-10-14 22:56 | `dpl_CAsUHevK6boRGse1xE2tSysJZM5A` / READY | Preview PR #601, `f833636` | Alias de rama vigente; requerido expresamente | CONSERVAR |
+| 2026-10-14 21:18 | `dpl_GJWCBvXu6tPk2uzg4mA6swEbrNp2` / READY | Preview PR #600, `2fbc87b` | Alias de rama vigente; requerido expresamente | CONSERVAR |
+| 2026-10-14 20:24 | `dpl_C51RDR2s5WJb1n8EkuQSpCi7GYC8` / READY | Preview PR #600, `f083e07` | Versión anterior del PR requerido | CONSERVAR hasta cerrar su necesidad de evidencia |
+| 2026-10-14 19:41 | `dpl_7xoXJodiTAefJvqRpXUJWcgMjnxe` / READY | Preview PR #599, `617ec92` | Alias de rama vigente; PR abierto | CONSERVAR |
+| 2026-10-14 14:02 | `dpl_AnTDRdf3CpS6fBvN86Sz1M32ksU5` / READY | Preview PR #597, `c42bcc1` | Alias de rama vigente; PR abierto | CONSERVAR |
+| 2026-10-14 02:54 | `dpl_B2o45NDfjqq353fhL6K8bRdgsRsx` / READY | Preview PR #591, `8841419` | Alias de rama vigente; PR fusionado | CONSERVAR mientras el alias siga asignado |
+| 2026-10-06 22:30 | `dpl_EyGbfDrHwHorBSTbwjsr7oDWkEaQ` / READY | Preview PR #468, `b7ecdb3` | Alias de rama vigente; PR fusionado | CONSERVAR mientras el alias siga asignado |
+| 2026-10-06 09:52 | `dpl_4viR3AppP838CJjtUHYeBLo1W19C` / READY | Producción, `1c2f155` | Sirve los aliases productivos actuales | CONSERVAR — producción |
+| 2026-10-06 05:21 | `dpl_C94KVvQBjS46hvAcNYBryrHUqkrq` / READY | Producción anterior, `23828ce` | Última estable inmediata para recuperación | CONSERVAR — rollback |
+| 2026-10-06 04:21 | `dpl_ALuB2d3eK5q7rntpKgEQqQRjWkos` / READY | Producción anterior, `fb9f7d0` | Parte de las tres producciones más recientes retenidas | CONSERVAR |
+| 2026-10-05 23:10 | `dpl_GoFEeU2pjnnbEgo5jR7F863swYY4` / READY | Producción anterior, `e8ce92d` | Producción histórica; utilidad de rollback no descartada | INVESTIGAR, no borrar en una limpieza de previews |
+| 2026-09-14 02:01 | `dpl_DyeZEaha7QHT2Nhb6sD5FCwx8hs2` / READY | Preview PR #360, `5fc9b04` | PR abierto | CONSERVAR |
+| 2026-09-14 02:01 | `dpl_JDHGYWj6WtPWXGHxEpbGL1rXR4C7` / READY | Preview PR #358, `9ebf2e1` | PR abierto | CONSERVAR |
+| 2026-09-14 02:01 | `dpl_v1yBD8YSvkY3ktiqGMdrBu5WcSrH` / READY | Preview PR #357, `a4d48c2` | PR abierto | CONSERVAR |
+| 2026-09-14 02:01 | `dpl_4daKxcTA886qPykLDhL6MSHf65cq` / READY | Preview PR #359, `ff0f882` | PR abierto | CONSERVAR |
+| 2026-09-14 02:01 | `dpl_BSG12oumZSYb2C7BdAogGEeNyCxx` / READY | Preview PR #361, `8339c16` | PR abierto | CONSERVAR |
+| 2026-08-23 00:52 | `dpl_9AHSdsP7XL3QzokbCHsRYNJKHtPn` / READY | Preview PR #355, `5de3dae` | PR abierto | CONSERVAR |
+
+### Dictamen de limpieza
+
+No hay un deployment cuya eliminación satisfaga simultáneamente los criterios
+de ausencia de dependencia y recuperación demostrable. El único preview
+inequívocamente reemplazado y sin alias efectivo es el build `ERROR` de PR
+#603, pero no publicó outputs y Vercel no informa cuántos bytes liberaría; no se
+eliminó. Las demás versiones sin alias efectivo pertenecen a PR expresamente
+protegidos, PR abiertos o a la cadena de recuperación de producción.
+
+Resultado: `0` deployments eliminados; espacio efectivamente recuperado `0 GB`;
+Usage posterior no se volvió a consultar porque no hubo mutación. La última
+medición autenticada sigue siendo `9,95 GB / 10 GB` y la capacidad para un nuevo
+deployment continúa `UNKNOWN`. El criterio de entrada del release habilitador
+permanece sin satisfacer.
