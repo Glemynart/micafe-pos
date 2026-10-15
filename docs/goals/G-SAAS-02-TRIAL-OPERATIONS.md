@@ -65,7 +65,7 @@ El entorno de ensayo vigente es Firebase App Hosting, no un Preview de Vercel:
 - Proyecto/backend/región: `micafe-pos-staging` / `micafe-pos` / `us-central1`.
 - Rollout observado: `build-2026-10-15-001`, `SUCCEEDED`, 100% de tráfico al build en la lectura registrada.
 - Código del build: `a460f4d33be2ef08991fd0ed898c3e7e24c724b1`; `origin/main` avanzó después a `88d3644a4763b7ca236c58235450c7a946a13dd4` con cambios documentales, sin cambios de aplicación desde el rollout.
-- Runtime: Node 24. Next.js `16.4.1` está en canal Preview de App Hosting; esta aceptación es exclusiva para staging, no equivale a soporte activo ni autoriza producción.
+- Runtime: Node 24. Next.js `16.4.1` está en canal Preview de App Hosting. La aceptación limitada del riesgo para el candidato productivo está registrada en `ADR-SAAS-083`; no equivale a soporte activo ni autoriza crear el backend, configurar IAM/variables o iniciar un rollout.
 - Evidencia del rollout y smoke HTTP: [primer rollout de App Hosting](evidence/G-SAAS-02-E2-2-APPHOSTING-FIRST-ROLLOUT-2026-10-15.md).
 
 La relectura de solo lectura del `2026-10-15T14:14:55Z` encontró 58/58 Functions de staging activas en Node.js 22, incluidas `registrarCompraBodegaV1` y `transicionarPausaComprasSaas`. Sin embargo, las Firestore Rules del proyecto no coinciden con `origin/main`: hash desplegado `69560ea6998352400eca77ce5dfb851864e196053b634f77e4bacd8674769fbb`, frente a `b8fb7ddd5370ddaa3784db4921b2bbbc71e51f285ffde912c3b0650ab1517fdf` en el SHA objetivo. Por ello, este ensayo todavía no certifica la autorización remota ni el aislamiento completo; no desplegar Rules a producción ni provisionar un tenant real basándose solo en el rollout web o en el inventario de Functions.
@@ -147,12 +147,14 @@ fecha mediante un cierre anticipado controlado:
 6. actualizar `configuraciones/{empresaId}.modulos.habilitados` mediante el comando canónico de configuración, usando la lista derivada del snapshot vigente;
 7. registrar IDs de comandos, revisiones, SHA desplegado, smoke test y evidencia sin secretos.
 
-El preflight reproducible está disponible como
+El preflight histórico está disponible como
 `npx tsx scripts/g-saas-02/trial-transition-preflight.ts`. Solo acepta lecturas `GET` de Firestore y
-exige `FIREBASE_ACCESS_TOKEN` entregado fuera del repositorio. Requiere declarar
-explícitamente el SHA, CI, hash de Functions, Rules, Storage, Vercel y la
-referencia de recovery junto con `--recovery-verified true` cuando exista una
-atestación independiente. Si se quiere declarar el operador listo, también
+exige `FIREBASE_ACCESS_TOKEN` entregado fuera del repositorio, pero su contrato
+actual todavía exige metadata de Vercel. Por ADR-SAAS-083 no debe usarse para
+certificar este release ni suplirse ese campo con un valor ficticio. Se debe
+adaptar en un cambio de tooling para aceptar evidencia verificable de App
+Hosting antes de declarar el preflight productivo. Sigue siendo read-only y
+no autoriza comandos de transición. Si se quiere declarar el operador listo, también
 requiere `FIREBASE_OPERATOR_ID_TOKEN` para comprobar la callable read-only de
 plataforma; un registro `saas_operadores` por sí solo no basta. Siempre emite
 `productionWrites: false` y
@@ -169,14 +171,19 @@ estado registra recovery como gate pendiente, no como hecho supuesto.
 
 La evidencia automática de release se puede recolectar sin escrituras con:
 `npx tsx scripts/g-saas-02/release-evidence.ts --project micafe-pos --repo Glemynart/micafe-pos`.
-El colector consulta el SHA de `origin/main`, la CI y Vercel mediante `gh api`,
+El colector legado consulta el SHA de `origin/main`, la CI y Vercel mediante `gh api`,
 el inventario y el mapa Function → hash mediante `firebase functions:list`, los releases y
 rulesets efectivos mediante la API GET de Firebase Rules cuando existe
 `FIREBASE_ACCESS_TOKEN`, y el estado read-only de base de datos/backups mediante
 Firebase CLI. Nunca imprime credenciales ni ejecuta deploy. Las referencias
 `--rules-ref`, `--storage-ref`, `--smoke-ref` y `--recovery-ref` se conservan
 como declaradas, pero no se consideran atestaciones independientes por el solo
-hecho de existir. El mapa por Function está verificado en
+hecho de existir. Desde la aceptación de ADR-SAAS-083, el resultado Vercel de
+ese colector es `NOT APPLICABLE TO CURRENT RELEASE` y no acredita App Hosting.
+Para este release registrar directamente el backend, región, build, commit
+fuente, rollout, tráfico, URI, nombres de variables, identidad de ejecución y
+hashes de configuración de Firebase App Hosting; el backend de staging no
+cuenta como producción. El mapa por Function está verificado en
 `docs/goals/evidence/G-SAAS-02-RELEASE-EVIDENCE-2026-08-14-FUNCTIONS.md`.
 La ejecución predeploy está en
 `docs/goals/evidence/G-SAAS-02-RELEASE-EVIDENCE-2026-08-14.md` y la
@@ -266,12 +273,21 @@ Antes del Trial se registra:
 
 - SHA de `main`;
 - resultado de CI;
-- versión desplegada de Vercel;
+- backend, URI, build, rollout y SHA servido de Firebase App Hosting;
 - versión desplegada de Functions;
 - Rules y Storage aplicados;
 - smoke test productivo;
 - punto de recuperación;
 - responsable de rollback.
+
+El deployment productivo, capacidad y SHA de Vercel son
+`NOT APPLICABLE TO CURRENT RELEASE` por ADR-SAAS-083. Las referencias Vercel en
+snapshots anteriores son históricas, no bloquean el release. La lectura del
+2026-10-15 encontró el backend de staging operativo y ningún backend App
+Hosting en el proyecto productivo `micafe-pos`; por tanto, la publicación web
+productiva sigue sin ejecutar y requiere preflight del backend productivo,
+configuración exclusiva de producción, identidad IAM y resolución del riesgo
+Preview de Next.js.
 
 En la observación del `2026-08-15T04:29:09Z`, las 79 Functions activas de
 `origin/main @ 7d9078f` y las Rules/Storage desplegadas quedaron reconciliadas
