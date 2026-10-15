@@ -23,7 +23,7 @@ tokens.
 | Catálogo en formulario de solicitud | `PASS` limitado | “Nueva” abrió la vista de solicitud y mostró la presentación del fixture. No se seleccionó producto; el resumen permaneció en cero líneas y el botón de envío deshabilitado. |
 | Aviso de sincronización | `OBSERVED; CLEARED AFTER REFRESH` | La vista indicó sincronización temporalmente desconectada. Se usó “Actualizar”; el aviso desapareció y la vista quedó en “Mis ventas”. No se capturó status HTTP ni se afirma recuperación duradera o latencia. |
 | Escrituras de negocio | `NOT EXECUTED` | No se enviaron solicitudes, ventas, pagos, turnos, compras ni cambios de inventario. |
-| Negativo cross-tenant A/B en runtime | `BLOCKED — DELIVERY GATE (NOT EXECUTED; DEFERRED BY PROJECT ADMIN)` | El administrador del proyecto indicó el 2026-10-15 que él ejecutará esta comprobación posteriormente y que no hay urgencia inmediata porque Diana será el único cliente inicial. La demora no levanta el gate: el aislamiento debe probarse antes de entregar a Diana. No hay una segunda identidad+tenant QA autorizada demostrada para esta sesión. No crea una excepción a ADR-SAAS-054 ni autoriza otro tenant o fixture. |
+| Negativo cross-tenant A/B en runtime | `NOT EXECUTED — NON-BLOCKING FOR DIANA'S INITIAL TRIAL; REQUIRED FOR ISOLATION CERTIFICATION` | El administrador del proyecto aclaró el 2026-10-15 que esta prueba no debe bloquear el Trial inicial de Diana porque será la única cliente real por ahora y él la ejecutará después. No hay una segunda identidad+tenant QA autorizada demostrada para esta sesión. La excepción no convierte el control en PASS ni crea una excepción a ADR-SAAS-054 o autoriza otro fixture. |
 
 ## Auditoría de mutaciones
 
@@ -45,30 +45,34 @@ La CI post-merge `38744738763` para `main @ 88d3644a4763b7ca236c58235450c7a946a1
 seguía `in_progress` a `2026-10-15T13:45:48Z`; no se marca PASS aquí. La CI de
 este cambio documental debe comprobarse en su PR.
 
-## Excepción formal de ejecución diferida
+## Excepción formal de clasificación y ejecución diferida
 
 El 2026-10-15, el administrador del proyecto aprobó formalmente diferir el
 negativo cross-tenant A/B de staging y ejecutar personalmente esa prueba más
 adelante. El alcance de la excepción se limita al momento y al responsable de
 esa comprobación. No es una dispensa del criterio de aislamiento ni un
-resultado `PASS`. El mismo día confirmó que el control es bloqueante para
-entregar a Diana, aunque puede esperar porque ella será el único cliente
-inicial; por tanto, no hay urgencia para ejecutar ahora, pero no se debe crear
-el tenant ni concederle acceso productivo antes de cerrar el control.
+resultado `PASS`. Después aclaró que la clasificación correcta es no bloqueante
+para iniciar el Trial de Diana, dado que será la única cliente real inicial y
+él ejecutará la prueba más adelante. Esta excepción solo afecta la secuencia
+del Trial de esa cliente; no certifica aislamiento multi-tenant, no cierra
+Gate I/E2.2 y no sustituye los demás controles de seguridad y provisioning.
 
 La prueba sigue pendiente hasta que se registre evidencia reproducible de una
 lectura propia permitida y de una lectura/modificación cruzada denegada,
 ejecutadas con tenants e identidades QA existentes y autorizados. Se mantiene
 la prohibición de crear otro tenant o fixture establecida por ADR-SAAS-054; si
 la prueba posterior requiere cambiar esa frontera, se necesitará una decisión
-arquitectónica separada. Gate I y E2.2 permanecen incompletos.
+arquitectónica separada. El Trial de Diana no se ha iniciado; esta excepción
+no autoriza por sí sola Bootstrap, activación de usuarios ni entrega de
+credenciales.
 
 ## Siguiente bloqueo concreto
 
-El administrador del proyecto debe ejecutar el negativo A/B posteriormente
-con una segunda empresa de QA ya existente y una identidad/rol autorizados.
-Este control bloquea la entrega a Diana, aunque no requiere atención inmediata
-por ser ella el único cliente inicial. Si no existen y se propone preparar un
-fixture separado, primero debe aprobarse una excepción arquitectónica a
-ADR-SAAS-054. No crear un tenant ni reutilizar una empresa por inferencia. El
-Trial de Diana no se inició y Gate I/E2.2 permanecen incompletos.
+El administrador del proyecto ejecutará el negativo A/B posteriormente con
+una segunda empresa de QA ya existente y una identidad/rol autorizados. La
+prueba es no bloqueante para iniciar el Trial inicial de Diana según la
+excepción registrada, pero sigue siendo necesaria para certificar el
+aislamiento y cerrar E2.2. Si no existen y se propone preparar un fixture
+separado, primero debe aprobarse una excepción arquitectónica a ADR-SAAS-054.
+No crear un tenant ni reutilizar una empresa por inferencia. El Trial de Diana
+no se inició y E2.2 permanece incompleto.
