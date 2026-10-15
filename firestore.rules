@@ -77,6 +77,18 @@ service cloud.firestore {
     function esVendedorBodegaMvp1() {
       return esVendedor() && esBodegaMvp1();
     }
+    // ADR-SAAS-081: la misma autoridad canónica que leen las callables de
+    // compra cierra también los escritores directos durante el corte. La
+    // ausencia o forma inválida del control niega por defecto.
+    function comprasHabilitadasParaTenant() {
+      let control = /databases/$(database)/documents/controles_release_compras/$(request.auth.token.empresaId);
+      return tieneEmpresaId()
+        && exists(control)
+        && get(control).data.empresaId == request.auth.token.empresaId
+        && get(control).data.estado == 'ACTIVA'
+        && get(control).data.revision is int
+        && get(control).data.revision >= 1;
+    }
     function membresiaBodegaActiva(empresaId, permiso) {
       let path = /databases/$(database)/documents/membresias/$(empresaId + '_' + request.auth.uid);
       return tieneEmpresaId()
@@ -208,9 +220,12 @@ service cloud.firestore {
       allow read: if puedeLeerTenant() && esAutenticado();
       // ADR-SAAS-072: Bodega registra compras solo por su callable canónica;
       // los demás verticales conservan temporalmente la ruta legacy.
-      allow create: if !esBodegaMvp1() && puedeCrearEnTenant() && esAdmin();
+      allow create: if !esBodegaMvp1() && comprasHabilitadasParaTenant() && puedeCrearEnTenant() && esAdmin();
       allow update: if false;
-      allow delete: if !esBodegaMvp1() && puedeEliminarEnTenant() && esAdmin();
+      allow delete: if !esBodegaMvp1() && comprasHabilitadasParaTenant() && puedeEliminarEnTenant() && esAdmin();
+    }
+    match /controles_release_compras/{id} {
+      allow read, write: if false;
     }
     // El catalogo se escribe exclusivamente mediante las callables de
     // Proveedores; el cliente solo puede leer datos de su tenant.

@@ -31,6 +31,7 @@ export {
   trasladarEntreCuentasV1,
 } from "./finanzas/callables";
 export { registrarCompraOperativaV1 } from "./finanzas/compras";
+export { transicionarPausaComprasSaas } from "./platform/purchase-release-control";
 export {
   crearArticuloInventarioV1,
   actualizarArticuloInventarioV1,
