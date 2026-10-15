@@ -289,6 +289,10 @@ productiva sigue sin ejecutar y requiere preflight del backend productivo,
 configuración exclusiva de producción, identidad IAM y resolución del riesgo
 Preview de Next.js.
 
+El preflight vigente, sus estados `PREPARADO` y `AUTORIZACIÓN PENDIENTE`, y
+la secuencia de recuperación están en
+[App Hosting production preflight](evidence/G-SAAS-02-E2-2-APPHOSTING-PRODUCTION-PREFLIGHT-2026-10-15.md).
+
 En la observación del `2026-08-15T04:29:09Z`, las 79 Functions activas de
 `origin/main @ 7d9078f` y las Rules/Storage desplegadas quedaron reconciliadas
 con el release. PR #326 dejó la evidencia documental de recovery integrada en
