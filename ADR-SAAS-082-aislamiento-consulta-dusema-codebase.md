@@ -59,7 +59,7 @@ Crear un codebase dedicado `saas-dusema-platform` que descubra únicamente `cons
 
 **Costes:** es redundante para `registrarCompraBodegaV1`, que ya está en `saas-bodega-operations`; no elimina por sí sola el legacy guard aceptado ni el control de pausa de plataforma, y podría romper contratos de otros verticales. No se recomienda.
 
-## Decisión propuesta
+## Decisión
 
 **Decisión aceptada:** adoptar la Opción 1, conforme a la aprobación explícita del responsable del proyecto del 2026-10-15.
 

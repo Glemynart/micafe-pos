@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { HttpsError } from "firebase-functions/v2/https";
 import { ejecutarConsultaTenantDusema, consultarTenantDusemaSaas } from "../../functions/src/platform/dusema-query-callable";
 import { idBindingDusema, PLATFORM_BINDINGS_COLLECTION, type BindingEnvironment } from "../../functions/src/platform/bindings";
 import type { HechoAuditable } from "../../functions/src/platform/audit";
@@ -91,9 +90,9 @@ function request(data: unknown, authenticated = true) {
 }
 
 function isError(error: unknown, code: string, message?: string) {
-  return error instanceof HttpsError
-    && error.code === code
-    && (message === undefined || error.message === message);
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: unknown; message?: unknown };
+  return candidate.code === code && (message === undefined || candidate.message === message);
 }
 
 function seedBinding(db: FakeDb, extra: Documento = {}) {

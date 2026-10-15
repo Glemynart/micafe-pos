@@ -64,7 +64,6 @@ export {
   solicitarSoporteSaas,
   transicionarSoporteSaas,
   listarSoporteTenantSaas,
-  consultarTenantDusemaSaas,
 } from "./platform/callables";
 
 import { onSchedule } from "firebase-functions/v2/scheduler";

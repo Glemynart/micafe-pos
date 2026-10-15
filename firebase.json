@@ -9,6 +9,10 @@
       "codebase": "saas-dusema-binding"
     },
     {
+      "source": "functions-dusema-platform",
+      "codebase": "saas-dusema-platform"
+    },
+    {
       "source": "functions-platform-context",
       "codebase": "saas-platform-context"
     },
