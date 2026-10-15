@@ -23,7 +23,7 @@ tokens.
 | Catálogo en formulario de solicitud | `PASS` limitado | “Nueva” abrió la vista de solicitud y mostró la presentación del fixture. No se seleccionó producto; el resumen permaneció en cero líneas y el botón de envío deshabilitado. |
 | Aviso de sincronización | `OBSERVED; CLEARED AFTER REFRESH` | La vista indicó sincronización temporalmente desconectada. Se usó “Actualizar”; el aviso desapareció y la vista quedó en “Mis ventas”. No se capturó status HTTP ni se afirma recuperación duradera o latencia. |
 | Escrituras de negocio | `NOT EXECUTED` | No se enviaron solicitudes, ventas, pagos, turnos, compras ni cambios de inventario. |
-| Negativo cross-tenant A/B en runtime | `BLOCKED` | Ambas sesiones disponibles usan el mismo tenant sintético. No hay una segunda identidad+tenant QA autorizada demostrada. ADR-SAAS-054 excluye crear otro tenant o fixture bajo la autorización vigente. |
+| Negativo cross-tenant A/B en runtime | `NOT EXECUTED — DEFERRED BY PROJECT ADMIN` | El administrador del proyecto aprobó el 2026-10-15 que él ejecutará esta comprobación posteriormente. No hay una segunda identidad+tenant QA autorizada demostrada para esta sesión. La aprobación aplaza la ejecución; no acepta el control como satisfecho, no crea una excepción a ADR-SAAS-054 y no autoriza crear otro tenant o fixture. |
 
 ## Auditoría de mutaciones
 
@@ -45,10 +45,26 @@ La CI post-merge `38744738763` para `main @ 88d3644a4763b7ca236c58235450c7a946a1
 seguía `in_progress` a `2026-10-15T13:45:48Z`; no se marca PASS aquí. La CI de
 este cambio documental debe comprobarse en su PR.
 
+## Excepción formal de ejecución diferida
+
+El 2026-10-15, el administrador del proyecto aprobó formalmente diferir el
+negativo cross-tenant A/B de staging y ejecutar personalmente esa prueba más
+adelante. El alcance de la excepción se limita al momento y al responsable de
+esa comprobación. No es una dispensa del criterio de aislamiento ni un
+resultado `PASS`.
+
+La prueba sigue pendiente hasta que se registre evidencia reproducible de una
+lectura propia permitida y de una lectura/modificación cruzada denegada,
+ejecutadas con tenants e identidades QA existentes y autorizados. Se mantiene
+la prohibición de crear otro tenant o fixture establecida por ADR-SAAS-054; si
+la prueba posterior requiere cambiar esa frontera, se necesitará una decisión
+arquitectónica separada. Gate I y E2.2 permanecen incompletos.
+
 ## Siguiente bloqueo concreto
 
-Para ejecutar el negativo A/B se requiere identificar una segunda empresa de
-QA ya existente junto con su identidad/rol autorizados, o aprobar formalmente
-una excepción arquitectónica a ADR-SAAS-054 para preparar un fixture separado.
-No crear un tenant ni reutilizar una empresa por inferencia. El Trial de Diana
-no se inició y Gate I/E2.2 permanecen incompletos.
+El administrador del proyecto debe ejecutar el negativo A/B posteriormente
+con una segunda empresa de QA ya existente y una identidad/rol autorizados.
+Si no existen y se propone preparar un fixture separado, primero debe aprobarse
+una excepción arquitectónica a ADR-SAAS-054. No crear un tenant ni reutilizar
+una empresa por inferencia. El Trial de Diana no se inició y Gate I/E2.2
+permanecen incompletos.
