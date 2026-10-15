@@ -1,5 +1,9 @@
 # G-SAAS-02 — Evaluación de Next.js 16.4.1 para App Hosting
 
+> Este documento conserva la evidencia de la evaluación previa al merge. El
+> estado posterior al merge y del primer rollout está registrado en
+> [la evidencia del 15-oct](../goals/evidence/G-SAAS-02-E2-2-APPHOSTING-FIRST-ROLLOUT-2026-10-15.md).
+
 Fecha: 2026-10-15
 
 Goal / Milestone / Epic: `G-SAAS-02 / M2 / E2.2`
