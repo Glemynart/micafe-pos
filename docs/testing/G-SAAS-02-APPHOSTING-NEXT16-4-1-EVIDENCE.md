@@ -1,0 +1,56 @@
+# G-SAAS-02 — Evaluación de Next.js 16.4.1 para App Hosting
+
+Fecha: 2026-10-15
+
+Goal / Milestone / Epic: `G-SAAS-02 / M2 / E2.2`
+
+Base: `origin/main @ cd9d625d079aa0f0c99688e91f353dc8f3218b1f`
+
+Estado: **IMPLEMENTADO Y VALIDADO EN RAMA AISLADA; NO INTEGRADO NI DESPLEGADO**
+
+## Decisión técnica
+
+Se recomienda `next@16.4.1` para el primer rollout **de staging únicamente**. La base ya usa Next.js 16.4.0; el candidato es un parche directo de esa versión y no cambia código de aplicación. Next.js 16.4.1 corrige dos avisos críticos y uno alto publicados el 2026-10-14. El análisis local no encontró directivas `"use cache"`, `"use server"` ni imports de `next/image`; esto reduce la superficie observada, pero no sustituye la actualización del framework.
+
+Firebase App Hosting declara `15.2.x` como la versión activa de Next.js y considera Preview las versiones fuera del rango designado hasta que las marque activas. Por lo tanto, `16.4.1` **no tiene soporte activo de App Hosting**. La alternativa `15.5.28` también queda fuera del rango activo publicado y requeriría una migración hacia atrás desde el runtime 16.4.0 que hoy declara `main`; no hay en esta evidencia una validación funcional de esa migración. El parche 15.2.9 probado en una evaluación previa tampoco es una alternativa aceptable frente a los avisos actuales. La opción elegida minimiza el cambio y mantiene el parche de seguridad más reciente que ya pasó las pruebas del proyecto, aceptando explícitamente el riesgo de canal Preview para staging.
+
+La recomendación no autoriza producción, no cambia el backend, no cambia variables y no constituye aceptación del riesgo para un release productivo. El backend `micafe-pos` aún no tiene un primer rollout; no existe versión previa de App Hosting a la cual volver. Si el adaptador Preview falla, el criterio de recuperación es detener el rollout y corregir el candidato; no volver a publicar Next.js 16.4.0 vulnerable.
+
+## Cambio aislado
+
+- `package.json`: `next` de `16.4.0` a `16.4.1`.
+- `package-lock.json`: resolución correspondiente de Next.js y sus paquetes SWC.
+- No hay cambios de código de aplicación ni configuración de navegador.
+- Rama de trabajo: `codex/e2-2-apphosting-next-16-4-1`.
+- La rama parte del SHA de `main` indicado arriba. Existe un commit local no publicado; todavía no hay PR.
+
+## Validación disponible
+
+La evaluación aislada ejecutó `npm ci` y `npm run build:vercel` con configuración pública exclusiva de `micafe-pos-staging`, sin copiar `.env.local` ni credenciales productivas. Resultado: build PASS, 49 páginas generadas y 11 rutas API dinámicas. También pasaron `npx tsc --noEmit`, `npm run lint` y seis archivos de pruebas de rutas (24 pruebas PASS). La ejecución de build y pruebas se realizó con Node `v24.19.0`.
+
+Como revalidación posterior, `npm audit --omit=dev --audit-level=high` terminó con exit 0 y cero vulnerabilidades en la base actual de npm; `npm ls next --depth=0` confirma `next@16.4.1`; `git diff --check` pasa. En esa revalidación la CLI usó Node `v22.23.2`; no fue una nueva ejecución del build.
+
+La documentación oficial y las notas del release reportan estos avisos del 2026-10-14:
+
+- [RCE en funciones `use cache` con ciertos typed arrays — GHSA-673q-mjm6-r5xr](https://github.com/vercel/next.js/security/advisories/GHSA-673q-mjm6-r5xr), crítico; corregido en 16.4.1.
+- [RCE en el API de optimización de imágenes con SVG — GHSA-2464-fhr4-w9xw](https://github.com/vercel/next.js/security/advisories/GHSA-2464-fhr4-w9xw), crítico; corregido en 16.4.1 y 15.5.28.
+- [DoS del App Router con Server Actions — GHSA-p3m5-59mp-jv5r](https://github.com/vercel/next.js/security/advisories/GHSA-p3m5-59mp-jv5r), alto; corregido en 16.4.1 y 15.5.28.
+
+La salida de `npm audit` no reemplaza las alertas del proveedor publicadas fuera de su base de datos. La selección se basa en las notas de seguridad oficiales además del audit.
+
+## Gate que permanece abierto
+
+`IMPLEMENTADO`: bump de dependencia en rama aislada.
+
+`PROBADO`: build, tipos, lint, pruebas de rutas y audit local según los resultados arriba.
+
+`INTEGRADO`: no.
+`DESPLEGADO`: no; no se inició rollout.
+
+Antes del primer rollout aún deben validarse la identidad y los permisos mínimos de ejecución. La prueba de canary está bloqueada por falta de una vía de impersonación autorizada y por una discrepancia sin resolver entre Service Usage y los metadatos IAM de FCM. No se debe retirar el binding actual `roles/firebase.sdkAdminServiceAgent` hasta demostrar que sus sustitutos cubren el runtime.
+
+## Fuentes oficiales consultadas
+
+- [Compatibilidad de frameworks y soporte de Firebase App Hosting](https://firebase.google.com/docs/app-hosting/frameworks-tooling).
+- [Guía oficial de actualización a Next.js 16](https://nextjs.org/docs/app/guides/upgrading/version-16).
+- [Release de Next.js 16.4.1](https://github.com/vercel/next.js/releases/tag/v16.4.1).
