@@ -1,6 +1,6 @@
 # G-SAAS-02 / M2 / E2.2 — Gate I: actualización read-only de bloqueos
 
-**Observación:** `2026-10-15T14:04:56Z` para Firebase/GitHub; consulta Vercel posterior durante la misma pasada.
+**Observación inicial:** `2026-10-15T14:04:56Z` para Firebase/GitHub; consulta Vercel posterior durante la misma pasada.
 **SHA objetivo:** `origin/main @ 88d3644a4763b7ca236c58235450c7a946a13dd4`.
 **Resultado:** `INCOMPLETE`; esta evidencia no autoriza despliegues ni escrituras productivas.
 
@@ -18,6 +18,36 @@
 | Recovery y PITR | El restore aislado conserva su evidencia `PASS`; PITR deshabilitado es decisión aprobada. | `PASS` / decisión preservada. No repetir restore ni activar PITR sin evidencia nueva o autorización. |
 | DIAN web | No se acredita una autoridad web server-side para emitir con Factus. | `BLOCKED` para certificación fiscal. No impide por sí sola el Trial no fiscal aceptado, pero no se puede presentar como capacidad disponible. |
 | Trial de Diana y catálogo | La fecha confirmada es `2026-10-15`. En esta pasada no se creó tenant, usuario, credencial ni Trial; no se reconsultó si existe provisioning iniciado por otro actor. Las cuatro fotos del catálogo no equivalen a un archivo digital aprobado. | `NOT EXECUTED`. No importar productos/stock sin archivo digital aprobado. Provisionar solo después de demostrar las precondiciones técnicas y de seguridad aplicables; verificar acceso real antes de declarar entrega. |
+
+## Relectura puntual de producción — 2026-10-15T14:22:34Z
+
+El colector `release-evidence.ts` se ejecutó de nuevo contra el mismo SHA,
+con `readOnly=true`, `productionWrites=false` y `collectionErrors=[]`.
+`origin/main` y CI siguieron en `PASS`; no hay estado Vercel exitoso para el
+SHA objetivo. El inventario de Functions seguía en `104/104 ACTIVE`, Node.js
+22. Las Functions consultadas devolvieron:
+
+- `registrarCompraOperativaV1`: `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0` (anterior al artefacto candidato).
+- `registrarCompraBodegaV1`: `fa7f47c21b994a5ebccefded6e548e0f6b193c79`.
+- `confirmarVentaVendedorBodegaV1`: `f41aa6f5340c363a107072b792409e13763bef0f`.
+- `consultarCatalogoPresentacionesVendedorBodegaV1`: `fa7f47c21b994a5ebccefded6e548e0f6b193c79`.
+- `transicionarPausaComprasSaas`: ausente del inventario.
+
+La lectura autenticada de Rules confirmó que Firestore sigue en el ruleset
+`d5e205db-0ab4-4db1-b5ec-1534bee39d35`, con hash desplegado
+`c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`, distinto
+del SHA de `firestore.rules` en `main`. Storage continúa coincidente. El
+Deployment de Vercel consultado sigue siendo el mismo ID productivo, `READY`,
+con ambos aliases previamente registrados; la medición efectiva de capacidad
+para otro deployment sigue `UNKNOWN`. Esta relectura no autoriza publicación.
+
+**Clasificación:** Firestore `FAIL` por mismatch de contenido, sin afirmar un
+fallo runtime; Functions `FAIL` frente al paquete requerido (hash anterior y
+callable de pausa ausente), sin prueba de excepción runtime; Vercel actual
+`READY` pero con SHA objetivo no publicado, y capacidad `UNKNOWN`; smoke
+productivo `NOT EXECUTED`. El conteo semántico de paths no se infiere del hash:
+la matriz previa sigue desactualizada hasta que se recalcule con el ruleset
+remoto exacto y el SHA candidato.
 
 ## Efecto de PR #600 sobre la matriz anterior
 
