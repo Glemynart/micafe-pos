@@ -72,3 +72,47 @@ deploy, cambio IAM/Secrets, lectura de documentos de negocio, inicialización o
 transición de controles, smoke productivo, bootstrap, ni escrituras en Firebase.
 La guía de corte y sus precondiciones siguen en
 [`ADR-SAAS-081`](../../../ADR-SAAS-081-pausa-tecnica-compras-corte-rules.md).
+
+## Revalidación posterior al merge documental #608 — 2026-10-15
+
+PR #608 quedó integrado en `main @ 965691ea21ea8c22749f73dc926ed26d191810b5`.
+Su CI post-merge `38756434996` estaba `in_progress` en la última lectura; no se
+marca `PASS`. El merge solo añadió runbook/evidencia y no cambió código de
+aplicación.
+
+- **App Hosting staging:** backend `projects/micafe-pos-staging/locations/us-central1/backends/micafe-pos`, URI
+  `micafe-pos--micafe-pos-staging.us-central1.hosted.app`, runtime Node 24,
+  rama `main`, rollouts automáticos desactivados. El rollout
+  `build-2026-10-15-001` sigue `SUCCEEDED`, con 100% de tráfico al build; su
+  commit fuente permanece `a460f4d33be2ef08991fd0ed898c3e7e24c724b1`. La URL
+  devolvió HTTP 200. El cambio de documentación en `main` no modifica ese
+  artefacto servido.
+- **App Hosting producción:** el inventario de `micafe-pos` sigue vacío; no hay
+  backend, rollout, identidad runtime ni dominio App Hosting que verificar.
+  Firebase Hosting sí muestra el sitio por defecto `micafe-pos.web.app`, pero
+  la solicitud HTTP observada respondió 404. Esto no identifica un dominio
+  productivo aprobado ni sustituye App Hosting. La URI y dominio productivos
+  permanecen `NOT EXECUTED`/sin acreditar.
+- **Firestore Rules:** release `cloud.firestore` conserva ruleset
+  `d5e205db-0ab4-4db1-b5ec-1534bee39d35`, actualizado
+  `2026-08-15T04:20:46.318849Z`. Comparación directa del contenido remoto con
+  `firestore.rules` de `main` encontró 15 bloques/path con diferencias
+  textuales: los 14 paths funcionalmente distintos de la matriz y el path
+  `/controles_release_compras/{id}`, que en `main` tiene denegación explícita y
+  remotamente cae en el catch-all denegado. Este conteo no equivale a aprobación
+  de compatibilidad; siguen pendientes corte y autorización.
+- **Functions producción:** inventario selectivo sigue mostrando
+  `registrarCompraOperativaV1` activo con hash
+  `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`, anterior al artefacto que incluye
+  el guard requerido; `transicionarPausaComprasSaas` no aparece. La callable
+  `cambiarFacultadesOperadorSaas` está activa en `saas-auth`; el inventario no
+  demuestra que Edge tenga `RELEASE_COMPRAS_GOBERNAR`. No se usó escritura
+  directa ni se verificó la facultad por una vía alternativa.
+- **Trial:** no se creó tenant/usuario/credencial ni se inició el Trial de
+  Diana. Catálogo y stock permanecen sin importar; el archivo digital aprobado
+  aún no está acreditado. Smoke productivo y cross-tenant siguen
+  `NOT EXECUTED`; el cross-tenant no bloquea el inicio del Trial por la decisión
+  registrada, pero sigue pendiente para certificación de aislamiento.
+
+No hubo cambios en Rules, Functions, IAM, Secrets, dominios, App Hosting,
+tenants ni datos productivos durante esta relectura.
