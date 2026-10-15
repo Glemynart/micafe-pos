@@ -1,7 +1,7 @@
 # G-SAAS-02 / M2 / E2.2 — Gate I: actualización read-only de bloqueos
 
-**Observación:** `2026-10-15T14:04:56Z` para Firebase/GitHub; consulta Vercel posterior durante la misma pasada.  
-**SHA objetivo:** `origin/main @ 88d3644a4763b7ca236c58235450c7a946a13dd4`.  
+**Observación:** `2026-10-15T14:04:56Z` para Firebase/GitHub; consulta Vercel posterior durante la misma pasada.
+**SHA objetivo:** `origin/main @ 88d3644a4763b7ca236c58235450c7a946a13dd4`.
 **Resultado:** `INCOMPLETE`; esta evidencia no autoriza despliegues ni escrituras productivas.
 
 ## Deltas verificados
