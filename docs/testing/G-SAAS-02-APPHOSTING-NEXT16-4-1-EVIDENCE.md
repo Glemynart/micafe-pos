@@ -22,7 +22,7 @@ La recomendación no autoriza producción, no cambia el backend, no cambia varia
 - `package-lock.json`: resolución correspondiente de Next.js y sus paquetes SWC.
 - No hay cambios de código de aplicación ni configuración de navegador.
 - Rama de trabajo: `codex/e2-2-apphosting-next-16-4-1`.
-- La rama parte del SHA de `main` indicado arriba. Existe un commit local no publicado; todavía no hay PR.
+- La rama parte del SHA de `main` indicado arriba y fue publicada como PR #606, HEAD `757610d50719885e96f03291eead9a4a7fa4f1cd`. Este SHA sigue sin integrar ni desplegar; los checks de ese HEAD pasaron antes de esta actualización documental.
 
 ## Validación disponible
 
@@ -59,7 +59,12 @@ La ejecución previa de `npm audit --omit=dev --audit-level=high` devolvió cero
 `INTEGRADO`: no.
 `DESPLEGADO`: no; no se inició rollout.
 
-Antes del primer rollout aún deben validarse la identidad y los permisos mínimos de ejecución. La prueba de canary está bloqueada por falta de una vía de impersonación autorizada y por una discrepancia sin resolver entre Service Usage y los metadatos IAM de FCM. No se debe retirar el binding actual `roles/firebase.sdkAdminServiceAgent` hasta demostrar que sus sustitutos cubren el runtime.
+### Revalidación IAM de staging (2026-10-15)
+
+- Firestore: una identidad canary temporal, limitada por condición a `(default)`, permitió lectura de documento inexistente, creación, lectura, consulta y actualización de un documento sintético; la eliminación directa fue denegada. El documento de prueba se limpió con el principal de mantenimiento. No se usó el tenant de Diana.
+- FCM: `fcm.googleapis.com` está habilitada en `micafe-pos-staging`. Un rol temporal con solo `cloudmessaging.messages.create`, enlazado al canary, obtuvo token después de esperar la propagación IAM. Una petición `validate_only=true` con token sintético inválido llegó a FCM y respondió `400 INVALID_ARGUMENT` por el token. Esto demuestra autorización IAM para la validación, no entrega de notificación ni validación de un token QA válido.
+- Limpieza: se retiraron los bindings de proyecto y de impersonación; la cuenta canary fue eliminada y el rol quedó soft-deleted. No hay binding canary activo. La identidad de ejecución de App Hosting no se modificó y conserva `roles/firebaseapphosting.computeRunner`, `roles/firebase.sdkAdminServiceAgent` y `roles/developerconnect.readTokenAccessor`.
+- Resultado: la prueba acotada demuestra permisos canary para operaciones de Firestore ejercitadas y FCM `messages.create`, pero no demuestra todavía que el conjunto sustituya por completo los permisos de la aplicación en ejecución. Antes de retirar el rol actual deben cubrirse las transacciones/batches y demás operaciones Admin SDK realmente usadas, y verificarse las rutas en App Hosting con el rol mínimo. No se inició rollout.
 
 ## Fuentes oficiales consultadas
 
