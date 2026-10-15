@@ -22,7 +22,7 @@ La recomendación no autoriza producción, no cambia el backend, no cambia varia
 - `package-lock.json`: resolución correspondiente de Next.js y sus paquetes SWC.
 - No hay cambios de código de aplicación ni configuración de navegador.
 - Rama de trabajo: `codex/e2-2-apphosting-next-16-4-1`.
-- La rama parte del SHA de `main` indicado arriba y fue publicada como PR #606, HEAD `757610d50719885e96f03291eead9a4a7fa4f1cd`. Este SHA sigue sin integrar ni desplegar; los checks de ese HEAD pasaron antes de esta actualización documental.
+- La rama parte del SHA de `main` indicado arriba y fue publicada como PR #606. El cambio de código es el commit `18c7fcd`; los commits posteriores de la rama actualizan evidencia y no modifican dependencias. El HEAD y los checks vigentes se deben consultar en GitHub antes de integrar; no se ha desplegado App Hosting.
 
 ## Validación disponible
 
