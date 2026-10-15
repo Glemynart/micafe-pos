@@ -71,3 +71,10 @@ habilitador queda limitado a la callable
 Rules, controles de compra, otras Functions Bodega, secretos Dusema, Bootstrap,
 tenant ni Trial. Antes de solicitar el cambio de facultad deben comprobarse los
 dos recursos remotos publicados.
+
+**Criterio de entrada del release habilitador:** solo puede iniciarse cuando
+exista (a) confirmación verificable de capacidad efectiva para completar un
+deployment adicional de `cafeatrato`, o (b) autorización explícita del
+responsable de Vercel para asumir el riesgo de capacidad con el margen actual.
+La lectura `9,95 GB / 10 GB` por sí sola no satisface ninguno de los dos
+criterios.
