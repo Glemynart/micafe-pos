@@ -93,6 +93,13 @@ aplicación.
   la solicitud HTTP observada respondió 404. Esto no identifica un dominio
   productivo aprobado ni sustituye App Hosting. La URI y dominio productivos
   permanecen `NOT EXECUTED`/sin acreditar.
+- **Next.js/App Hosting:** la decisión técnica posterior conserva
+  `next@16.4.1` bajo el canal Preview y acepta ese riesgo de manera limitada;
+  la revalidación de SHA confirma que desde el build staging no cambiaron
+  aplicación ni dependencias. Esto no autoriza una mutación productiva. Antes
+  de crear el backend se deben verificar su ID, región, fuente exacta,
+  identidad de ejecución, variables no secretas/secretas, permisos mínimos,
+  logs y recuperación; después se requiere autorización operativa separada.
 - **Firestore Rules:** release `cloud.firestore` conserva ruleset
   `d5e205db-0ab4-4db1-b5ec-1534bee39d35`, actualizado
   `2026-08-15T04:20:46.318849Z`. Comparación directa del contenido remoto con

@@ -35,6 +35,34 @@ aceptación anterior de Next.js 16.4.1 se limitó a staging; no aprueba el riesg
 Preview para producción. Referencia: [frameworks y herramientas de App
 Hosting](https://firebase.google.com/docs/app-hosting/frameworks-tooling).
 
+## Registro separado de decisión y autorización (2026-10-15)
+
+1. **Decisión técnica:** se conserva `next@16.4.1`, ya integrado en el
+   candidato. La revalidación aplica a `origin/main @
+   965691ea21ea8c22749f73dc926ed26d191810b5`: desde el build servido
+   `a460f4d33be2ef08991fd0ed898c3e7e24c724b1` sólo cambiaron documentos;
+   no hubo cambio de código de aplicación ni de dependencias. La evidencia de
+   build, tipos, lint, pruebas de rutas y audit de `16.4.1` sigue aplicable.
+2. **Aceptación limitada del riesgo Preview:** el administrador acepta evaluar
+   `16.4.1` en el canal Preview de App Hosting para el candidato productivo.
+   No transforma a la versión en soporte activo ni reduce los gates de
+   seguridad. Riesgos: adaptador/framework con soporte de mejor esfuerzo,
+   incompatibilidad de build o runtime, y ausencia de una revisión previa de
+   App Hosting productivo a la que volver.
+3. **Autorización operativa:** `NOT GRANTED` por esta decisión. Crear el
+   backend productivo, configurar IAM o variables, iniciar un rollout, cambiar
+   tráfico o DNS y realizar smoke siguen requiriendo preflight satisfactorio y
+   autorización operativa específica. No se infiere esa autorización de los
+   dos puntos anteriores.
+
+Condiciones de recuperación si se autoriza y falla el rollout: detener la
+promoción/tráfico, conservar logs y build fallido para diagnóstico, y aplicar
+un forward-fix validado. No volver a `16.4.0` ni a `15.2.9`: la evidencia de
+seguridad los mantiene como alternativas no aceptables. Como no existe aún un
+backend App Hosting productivo, tampoco existe un build previo de App Hosting
+al cual revertir; la reversión de la primera activación es no promover el
+candidato o retirar su tráfico sólo mediante el procedimiento autorizado.
+
 ## Decisión
 
 1. Consultar y acreditar producción exclusivamente en Firebase App Hosting.

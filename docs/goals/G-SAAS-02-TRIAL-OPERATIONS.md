@@ -65,7 +65,7 @@ El entorno de ensayo vigente es Firebase App Hosting, no un Preview de Vercel:
 - Proyecto/backend/región: `micafe-pos-staging` / `micafe-pos` / `us-central1`.
 - Rollout observado: `build-2026-10-15-001`, `SUCCEEDED`, 100% de tráfico al build en la lectura registrada.
 - Código del build: `a460f4d33be2ef08991fd0ed898c3e7e24c724b1`; `origin/main` avanzó después a `88d3644a4763b7ca236c58235450c7a946a13dd4` con cambios documentales, sin cambios de aplicación desde el rollout.
-- Runtime: Node 24. Next.js `16.4.1` está en canal Preview de App Hosting; esta aceptación es exclusiva para staging, no equivale a soporte activo ni autoriza producción.
+- Runtime: Node 24. Next.js `16.4.1` está en canal Preview de App Hosting. La aceptación limitada del riesgo para el candidato productivo está registrada en `ADR-SAAS-083`; no equivale a soporte activo ni autoriza crear el backend, configurar IAM/variables o iniciar un rollout.
 - Evidencia del rollout y smoke HTTP: [primer rollout de App Hosting](evidence/G-SAAS-02-E2-2-APPHOSTING-FIRST-ROLLOUT-2026-10-15.md).
 
 La relectura de solo lectura del `2026-10-15T14:14:55Z` encontró 58/58 Functions de staging activas en Node.js 22, incluidas `registrarCompraBodegaV1` y `transicionarPausaComprasSaas`. Sin embargo, las Firestore Rules del proyecto no coinciden con `origin/main`: hash desplegado `69560ea6998352400eca77ce5dfb851864e196053b634f77e4bacd8674769fbb`, frente a `b8fb7ddd5370ddaa3784db4921b2bbbc71e51f285ffde912c3b0650ab1517fdf` en el SHA objetivo. Por ello, este ensayo todavía no certifica la autorización remota ni el aislamiento completo; no desplegar Rules a producción ni provisionar un tenant real basándose solo en el rollout web o en el inventario de Functions.
