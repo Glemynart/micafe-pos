@@ -11,7 +11,7 @@
 - **Resultado:** un primer cliente real opera MiCafe POS durante un Trial ANUAL server-side de 30 días, con provisioning reproducible, onboarding, operación crítica, soporte, recuperación cuando aplique y cierre contractual evidenciado.
 - **Estado:** ACTIVO
 - **Inicio formal:** 2026-08-12
-- **Rama base:** `main @ f604a0af1669cc0903859c7271b1da1e3f29cea9` (PR #594 integrado; CI post-merge `38597025350` estaba `in_progress` a las `2026-10-14T16:21Z`.)
+- **Rama base:** `main @ f25ef9b9743511bd5bdedeb24df90269213c99fb` (PR #598 integrado; CI post-merge `38650796029` terminó `success` a las `2026-10-14T23:18:46Z`; la relectura más reciente está en la evidencia de Gate I vinculada debajo.)
 - **Fuente de autorización:** `AUTORIZACIÓN DE EJECUCIÓN — G-SAAS-02`
 - **Decisiones comerciales preservadas:** precio público anual `1.800.000 COP`; oferta específica aprobada para Bodega `1.600.000 COP` por el año, pago manual, Trial de 30 días, todos los módulos disponibles y un Espacio operativo interno. La oferta del tenant no cambia el precio público del Plan.
 
@@ -145,6 +145,45 @@
 - **Relectura de Gate I (2026-10-14T22:37:02.623Z):** el collector solo lectura confirmó `main @ fbd45436`, CI post-merge `PASS`, 104/104 Functions Node.js 22, hash antiguo de `registrarCompraOperativaV1`, Vercel sin estado para el SHA objetivo, PITR deshabilitado y 34 backups observados. No devolvió Rules (`rules=null`); la última lectura directa de 22:26Z conserva 14 divergencias y requiere renovación antes de cualquier corte. No hubo escrituras productivas; restore aislado continúa `PASS` por evidencia separada.
 - **Milestone activo:** `M2 — Provisioning y onboarding`.
 - **Epic activo:** `E2.2 — Configuración inicial`.
+
+### Checkpoint vigente — 2026-10-14 — PR #598 y relectura de Gate I
+
+PR #598 quedó integrado por squash en `origin/main @
+f25ef9b9743511bd5bdedeb24df90269213c99fb`. Sus checks de PR terminaron en
+verde. La CI post-merge de `main`, run `38650796029`, terminó
+`completed/success` a las `2026-10-14T23:18:46Z`. La relectura GET-only del
+`2026-10-14T23:09:09.523Z` mantuvo Gate I `INCOMPLETE`: Rules no coinciden
+(fuente `2dc12a59`, remoto `c3d98b26`; 14 diferencias efectivas),
+`registrarCompraOperativaV1` conserva el hash remoto anterior al guard
+(`9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`), Vercel no acredita el SHA
+objetivo y el smoke autenticado sigue sin ejecutarse por falta de identidad y
+alcance autorizados. Storage coincide; 104/104 Functions están activas en
+Node.js 22. El restore aislado continúa `PASS` por evidencia independiente y
+PITR deshabilitado sigue aprobado por ADR-SAAS-031. No hubo escrituras ni
+despliegues productivos. El administrador confirma que Diana le comunicó la
+fecha objetivo `2026-10-15`; no se creó tenant ni se inició el Trial. El modo
+no fiscal aceptado para Diana no equivale a cerrar Gate I ni a certificar DIAN
+web. Una verificación adicional de preflight a las `23:24Z` confirma CI
+post-merge verde, prueba Rules Emulator `45/45`, build Functions `PASS` y
+`test:auth-foundation` `436 PASS / 5 SKIP / 0 FAIL`; no altera el estado remoto:
+Rules siguen en `MISMATCH`, la callable de compras conserva hash anterior, el
+SHA objetivo de Vercel no está acreditado y el smoke sigue `NOT EXECUTED`.
+Fecha de Diana `2026-10-15` confirmada por atestación del administrador; Trial,
+tenant, usuarios y credenciales `NOT EXECUTED`. Detalle: [relectura GET-only de
+Gate I a las 23:09Z](evidence/G-SAAS-02-E2-2-PR595-POSTMERGE-CLOSEOUT-2026-10-14.md#relectura-get-only-de-gate-i--2026-10-14t230909523z) y
+[verificación adicional de preflight a las 23:24Z](evidence/G-SAAS-02-E2-2-PR595-POSTMERGE-CLOSEOUT-2026-10-14.md#verificacion-adicional-de-preflight--2026-10-14t2324z).
+La relectura del collector a las `23:29:08.719Z` mantiene `INCOMPLETE` con
+`readOnly=true` y `productionWrites=false`: CI `PASS`, 104/104 Functions
+activas, callable de compras desfasada, Vercel sin estado del SHA objetivo y
+smoke `NOT EXECUTED`. Esa corrida no obtuvo una observación de Rules
+(`rules=null`); el último `MISMATCH` directo sigue siendo el de las 23:09Z y
+debe revalidarse antes del corte. No hubo mutaciones productivas. Ver
+[relectura 23:29Z](evidence/G-SAAS-02-E2-2-PR595-POSTMERGE-CLOSEOUT-2026-10-14.md#relectura-get-only--2026-10-14t232908719z).
+Una lectura autenticada GET-only de Rules API a las `23:30:26.480Z` renovó la
+observación: Firestore sigue `MISMATCH` (`2dc12a59…` vs. `c3d98b26…`, 14
+diferencias efectivas); Storage coincide (`fc837a77…` en ambos lados). La
+callable de compras sigue con el hash anterior y Vercel no acredita el SHA.
+No hubo escrituras. Ver [relectura autenticada de Rules a las 23:30Z](evidence/G-SAAS-02-E2-2-PR595-POSTMERGE-CLOSEOUT-2026-10-14.md#relectura-autenticada-get-only-de-rules--2026-10-14t233026480z).
 
 ### Gate A — auditoría de estado y documentación — 2026-10-12
 
