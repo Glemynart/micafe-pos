@@ -45,3 +45,29 @@ Acciones humanas concretas pendientes:
 5. Para smoke, el responsable debe autorizar una identidad existente, tenant, rol/claims y las rutas de lectura exactas. No usar identidad personal ni tenant por nombre supuesto.
 
 No se necesita volver a solicitar autorización para lecturas/pruebas rutinarias. Las autorizaciones de despliegue de Functions, Rules, Vercel y smoke siguen siendo independientes. No se creó tenant, usuario o credencial; no hubo escrituras productivas. Gate I y E2.2 siguen incompletos.
+
+## Addendum — capacidad Vercel y release habilitador
+
+**Fecha de la evidencia aportada:** 2026-10-15, hora no verificable en la captura recibida.
+
+El responsable aportó una captura autenticada de **Usage** del equipo
+`glemynarts-projects`, filtrada al proyecto `cafeatrato`, que muestra
+Deployment Storage de `9,95 GB` sobre un límite de `10 GB`. La gráfica de cola o
+tiempo de build no se usa como evidencia de almacenamiento. La captura no fue
+adjuntada como archivo a este repositorio, por lo que no se reproduce ni se
+infieren metadatos adicionales.
+
+El margen aritmético de `0,05 GB` es **extremadamente limitado** y no demuestra
+que Vercel acepte ni complete un deployment: el CLI disponible no expone bytes
+por deployment ni una reserva/preflight de capacidad, y no se inició un deploy
+de prueba. Por tanto, la capacidad permanece `UNKNOWN`; no se borraron recursos,
+no se cambió el plan y no se publicó nada.
+
+La CI post-merge de PR #604, run `38701038601`, terminó `success` para
+`main @ cd9d625d079aa0f0c99688e91f353dc8f3218b1f`. Cuando una persona con
+autoridad Vercel confirme capacidad efectiva para publicar, el release
+habilitador queda limitado a la callable
+`saas-auth:cambiarFacultadesOperadorSaas` y al Backoffice de ese SHA. No incluye
+Rules, controles de compra, otras Functions Bodega, secretos Dusema, Bootstrap,
+tenant ni Trial. Antes de solicitar el cambio de facultad deben comprobarse los
+dos recursos remotos publicados.
