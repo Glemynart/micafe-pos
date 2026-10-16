@@ -61,14 +61,16 @@ test("ADR-SAAS-061: no resuelve referencias de aprobación desconocidas", () => 
   }
 });
 
-test("ADR-SAAS-061: la oferta aprobada inicial solo está habilitada en staging", () => {
+test("ADR-SAAS-061: la oferta aprobada inicial está habilitada en staging y producción", () => {
   assert.doesNotThrow(() => exigirRuntimeOfertaTenantStaging("micafe-pos-staging"));
-  assert.throws(
-    () => exigirRuntimeOfertaTenantStaging("micafe-pos"),
-    /OFERTA_COMERCIAL_RUNTIME_DENIED/,
-  );
-  assert.throws(
-    () => exigirRuntimeOfertaTenantStaging(undefined),
-    /OFERTA_COMERCIAL_RUNTIME_DENIED/,
-  );
+  assert.doesNotThrow(() => exigirRuntimeOfertaTenantStaging("micafe-pos"));
+});
+
+test("ADR-SAAS-061: la oferta se mantiene denegada fuera de los proyectos autorizados", () => {
+  for (const projectId of ["micafe-pos-test", "micafe-migration-lab-sebas26", undefined]) {
+    assert.throws(
+      () => exigirRuntimeOfertaTenantStaging(projectId),
+      /OFERTA_COMERCIAL_RUNTIME_DENIED/,
+    );
+  }
 });
