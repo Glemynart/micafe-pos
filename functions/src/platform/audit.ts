@@ -11,6 +11,11 @@ export const AUDITORIA_COLLECTION = "saas_auditoria";
 export const OBLIGACIONES_COLLECTION = "saas_auditoria_obligaciones";
 
 export interface HechoAuditable {
+  /**
+   * La evidencia conserva su propia versión. La obligación exterior permanece
+   * en v1 (ADR-SAAS-012 / ADR-SAAS-084).
+   */
+  schemaVersion?: 1 | 2;
   tipo: TipoAuditoria;
   resultado: ResultadoAuditoria;
   origen?: "PLATAFORMA" | "SISTEMA" | "SOPORTE";
@@ -26,6 +31,65 @@ export interface HechoAuditable {
   /** Evidencia específica del hecho, sin secretos recuperables. */
   detalle?: Record<string, unknown>;
   soporte?: { autorizacionId: string; sesionId: string | null; alcanceCodigo: string } | null;
+}
+
+const TIPOS_CONTROL_COMPRAS = new Set<TipoAuditoria>([
+  "COMPRAS_CONTROL_INICIALIZADO",
+  "COMPRAS_PAUSADAS",
+  "COMPRAS_REANUDADAS",
+  "COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA",
+]);
+const HEX_SHA_256 = /^[a-f0-9]{64}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function objetoExacto(value: unknown, keys: string[]): value is Record<string, unknown> {
+  return !!value
+    && typeof value === "object"
+    && !Array.isArray(value)
+    && Object.keys(value as Record<string, unknown>).every((key) => keys.includes(key))
+    && keys.every((key) => Object.hasOwn(value, key));
+}
+
+/** Valida la única familia autorizada para emitir evidencia v2. */
+function validarHechoV2(hecho: HechoAuditable) {
+  if (hecho.agregado.tipo !== "CONTROL_RELEASE_COMPRAS" || !TIPOS_CONTROL_COMPRAS.has(hecho.tipo)) {
+    throw new Error("AUDIT_EVIDENCE_V2_FAMILY_INVALID");
+  }
+  const detalle = hecho.detalle;
+  if (hecho.tipo === "COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA") {
+    if (!objetoExacto(detalle, ["evidenciaOriginalId", "tipoOriginal", "tipoCorregido", "revisionOriginal", "estadoDestinoOriginal", "ocurrioEnOriginal"])) {
+      throw new Error("AUDIT_EVIDENCE_V2_DETAIL_INVALID");
+    }
+    const revision = detalle.revisionOriginal;
+    if (!objetoExacto(revision, ["esperada", "resultante"])
+      || revision.esperada !== 0 || revision.resultante !== 1
+      || detalle.tipoOriginal !== "COMPRAS_REANUDADAS"
+      || detalle.tipoCorregido !== "COMPRAS_CONTROL_INICIALIZADO"
+      || detalle.estadoDestinoOriginal !== "ACTIVA"
+      || typeof detalle.evidenciaOriginalId !== "string" || !UUID.test(detalle.evidenciaOriginalId)
+      || typeof detalle.ocurrioEnOriginal !== "object") {
+      throw new Error("AUDIT_EVIDENCE_V2_DETAIL_INVALID");
+    }
+    return;
+  }
+  if (!objetoExacto(detalle, ["estado", "fingerprint"]) && !objetoExacto(detalle, ["estado", "fingerprint", "verificacionRelease"])) {
+    throw new Error("AUDIT_EVIDENCE_V2_DETAIL_INVALID");
+  }
+  if ((detalle.estado !== "ACTIVA" && detalle.estado !== "PAUSADA")
+    || typeof detalle.fingerprint !== "string" || !HEX_SHA_256.test(detalle.fingerprint)) {
+    throw new Error("AUDIT_EVIDENCE_V2_DETAIL_INVALID");
+  }
+  if (hecho.tipo === "COMPRAS_REANUDADAS") {
+    const verificacion = detalle.verificacionRelease;
+    if (!objetoExacto(verificacion, ["functionArtifactSha", "rulesetHash", "releaseReferencia"])
+      || typeof verificacion.functionArtifactSha !== "string" || !HEX_SHA_256.test(verificacion.functionArtifactSha)
+      || typeof verificacion.rulesetHash !== "string" || !HEX_SHA_256.test(verificacion.rulesetHash)
+      || typeof verificacion.releaseReferencia !== "string") {
+      throw new Error("AUDIT_EVIDENCE_V2_DETAIL_INVALID");
+    }
+  } else if (Object.hasOwn(detalle, "verificacionRelease")) {
+    throw new Error("AUDIT_EVIDENCE_V2_DETAIL_INVALID");
+  }
 }
 
 function normalizarContenidoAuditable(value: unknown): unknown {
@@ -59,10 +123,12 @@ export function crearObligacionAuditoria(
   hecho: HechoAuditable,
   ids?: { obligacionId: string; evidenciaId: string },
 ): { obligacionId: string; evidenciaId: string } {
+  const schemaVersion = hecho.schemaVersion ?? 1;
+  if (schemaVersion === 2) validarHechoV2(hecho);
   const obligacionId = ids?.obligacionId ?? randomUUID();
   const evidenciaId = ids?.evidenciaId ?? randomUUID();
   const evidencia = {
-    schemaVersion: 1,
+    schemaVersion,
     evidenciaId,
     ...hecho,
     origen: hecho.origen ?? "PLATAFORMA",

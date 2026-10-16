@@ -37,6 +37,8 @@ type VerificacionRelease = {
   releaseReferencia: string;
 };
 
+const SHA_256 = /^[a-f0-9]{64}$/;
+
 function rechazar(codigo: string): never {
   throw new HttpsError("failed-precondition", codigo);
 }
@@ -61,6 +63,9 @@ function validarEntrada(entrada: EntradaTransicionPausaCompras) {
       rulesetHash: exigirId(evidencia.rulesetHash, "VERIFICACION_RELEASE_INVALIDA"),
       releaseReferencia: exigirId(evidencia.releaseReferencia, "VERIFICACION_RELEASE_INVALIDA"),
     };
+    if (!SHA_256.test(verificacionRelease.functionArtifactSha) || !SHA_256.test(verificacionRelease.rulesetHash)) {
+      throw new HttpsError("invalid-argument", "VERIFICACION_RELEASE_INVALIDA");
+    }
   }
   return {
     empresaId,
@@ -172,7 +177,12 @@ export async function transicionarPausaCompras(
     tx.create(recibos.idempotency, recibo);
     tx.create(recibos.command, recibo);
     crearObligacionAuditoria(db, tx, {
-      tipo: input.destino === "PAUSADA" ? "COMPRAS_PAUSADAS" : "COMPRAS_REANUDADAS",
+      schemaVersion: 2,
+      tipo: actual === null
+        ? "COMPRAS_CONTROL_INICIALIZADO"
+        : input.destino === "PAUSADA"
+          ? "COMPRAS_PAUSADAS"
+          : "COMPRAS_REANUDADAS",
       resultado: "CONFIRMADO",
       actor: { tipo: "OPERADOR", uid: actorUid },
       facultad: FACULTAD,

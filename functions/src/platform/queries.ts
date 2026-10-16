@@ -77,13 +77,24 @@ function sanitizar(data: Record<string, any>) {
     "cancelacionProgramadaPara", "capacidades", "limites", "periodicidad", "precio", "grandfathered",
     "snapshotContrato", "ultimoPagoAnualId",
     "versionAutorizacion", "actualizadoEn", "creadoEn", "actualizadaEn", "creadaEn",
-    "tipo", "resultado",
+    "tipo", "resultado", "schemaVersion", "detalle",
     "origen", "actor", "facultad", "comando", "agregado", "empresaObjetivoId",
-    "correlacionId", "motivo", "registradoEn", "autorizacionId", "operadorUid",
+    "correlacionId", "causacionId", "revision", "motivo", "registradoEn", "autorizacionId", "operadorUid",
     "solicitante", "alcanceCodigo", "expiraEn", "version", "provisionamientoId",
     "ultimoPasoConfirmado", "errorRecuperable", "codigo", "versionActual",
   ];
   return Object.fromEntries(permitido.filter((key) => data[key] !== undefined).map((key) => [key, data[key]]));
+}
+
+function proyectarEvidenciaAuditoria(id: string, data: Record<string, any>) {
+  const evidencia = sanitizar(data);
+  return {
+    id,
+    ...evidencia,
+    compatibilidadSchemaVersion: evidencia.schemaVersion === 1 || evidencia.schemaVersion === 2
+      ? "SOPORTADA"
+      : "NO_SOPORTADA",
+  };
 }
 
 export async function listarRecursosPlataforma(
@@ -339,7 +350,7 @@ export async function consultarAuditoriaPlataforma(
   }
   const snap = await q.limit(limite).get();
   return {
-    items: snap.docs.map((doc) => ({ id: doc.id, ...sanitizar(doc.data()) })),
+    items: snap.docs.map((doc) => proyectarEvidenciaAuditoria(doc.id, doc.data())),
     cursor: snap.docs.length === limite ? snap.docs.at(-1)!.id : null,
   };
 }
