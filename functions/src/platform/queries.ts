@@ -9,6 +9,7 @@ import {
   type EstadoCredencialInicialProyectado,
   type VersionPlanDiagnostica,
 } from "./tenant-access-detail";
+import { inspeccionarEvidenciaAuditoria } from "./audit-evidence-contract";
 
 export {
   obtenerDetalleEmpresaPlataforma,
@@ -77,9 +78,9 @@ function sanitizar(data: Record<string, any>) {
     "cancelacionProgramadaPara", "capacidades", "limites", "periodicidad", "precio", "grandfathered",
     "snapshotContrato", "ultimoPagoAnualId",
     "versionAutorizacion", "actualizadoEn", "creadoEn", "actualizadaEn", "creadaEn",
-    "tipo", "resultado", "schemaVersion", "detalle",
+    "tipo", "resultado", "schemaVersion", "evidenciaId",
     "origen", "actor", "facultad", "comando", "agregado", "empresaObjetivoId",
-    "correlacionId", "causacionId", "revision", "motivo", "registradoEn", "autorizacionId", "operadorUid",
+    "correlacionId", "causacionId", "revision", "motivo", "ocurrioEn", "registradoEn", "autorizacionId", "operadorUid",
     "solicitante", "alcanceCodigo", "expiraEn", "version", "provisionamientoId",
     "ultimoPasoConfirmado", "errorRecuperable", "codigo", "versionActual",
   ];
@@ -88,12 +89,16 @@ function sanitizar(data: Record<string, any>) {
 
 function proyectarEvidenciaAuditoria(id: string, data: Record<string, any>) {
   const evidencia = sanitizar(data);
+  const inspeccion = inspeccionarEvidenciaAuditoria(id, data);
   return {
     id,
     ...evidencia,
-    compatibilidadSchemaVersion: evidencia.schemaVersion === 1 || evidencia.schemaVersion === 2
-      ? "SOPORTADA"
-      : "NO_SOPORTADA",
+    compatibilidadSchemaVersion: inspeccion.compatibilidad,
+    ...(inspeccion.diagnostico ? { diagnosticoCompatibilidad: inspeccion.diagnostico } : {}),
+    ...(inspeccion.compatibilidad === "SOPORTADA" && inspeccion.detalleValido
+      ? { detalle: inspeccion.detalleValido }
+      : {}),
+    ...(inspeccion.detalleDiagnostico ? { detalleDiagnostico: inspeccion.detalleDiagnostico } : {}),
   };
 }
 

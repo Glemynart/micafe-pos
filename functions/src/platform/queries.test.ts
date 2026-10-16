@@ -77,7 +77,7 @@ function evidenceFixture(overrides: Record<string, unknown> = {}) {
   const time = Timestamp.fromMillis(1000);
   return {
     schemaVersion: 2,
-    evidenciaId: "evidencia-v2",
+    evidenciaId: "d2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
     tipo: "COMPRAS_CONTROL_INICIALIZADO",
     resultado: "CONFIRMADO",
     origen: "PLATAFORMA",
@@ -102,26 +102,36 @@ test("la proyección valida v1/v2, conserva detalles contractuales y clasifica e
   const v2 = evidenceFixture();
   const v1 = evidenceFixture({
     schemaVersion: 1,
-    evidenciaId: "evidencia-v1-historica",
+    evidenciaId: "a1b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
     tipo: "COMPRAS_REANUDADAS",
     revision: { esperada: 0, resultante: 1 },
   });
   const malformedV2 = evidenceFixture({
-    evidenciaId: "evidencia-v2-malformada",
+    evidenciaId: "b2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
     tipo: "COMPRAS_PAUSADAS",
     detalle: { estado: "ACTIVA", fingerprint: "a".repeat(64) },
   });
   const malformedV1 = evidenceFixture({
     schemaVersion: 1,
-    evidenciaId: "evidencia-v1-malformada",
+    evidenciaId: "c2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
     tipo: "COMPRAS_REANUDADAS",
     detalle: { estado: "PAUSADA", fingerprint: "corta" },
   });
   const unknown = evidenceFixture({
     schemaVersion: 99,
-    evidenciaId: "evidencia-desconocida",
+    evidenciaId: "e2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
     tipo: "FUTURO",
     detalle: { campo: "no reinterpretar" },
+  });
+  const unknownType = evidenceFixture({
+    schemaVersion: 1,
+    evidenciaId: "f2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
+    tipo: "EVENTO_NO_ENUMERADO",
+  });
+  const unknownAggregate = evidenceFixture({
+    schemaVersion: 1,
+    evidenciaId: "a2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
+    agregado: { tipo: "AGREGADO_NO_ENUMERADO", id: "aggregate-a" },
   });
   const db = {
     collection: () => ({
@@ -129,11 +139,13 @@ test("la proyección valida v1/v2, conserva detalles contractuales y clasifica e
         orderBy: () => ({
           limit: () => ({
             get: async () => ({ docs: [
-              { id: "evidencia-v2", data: () => v2 },
-              { id: "evidencia-desconocida", data: () => unknown },
-              { id: "evidencia-v1-historica", data: () => v1 },
-              { id: "evidencia-v2-malformada", data: () => malformedV2 },
-              { id: "evidencia-v1-malformada", data: () => malformedV1 },
+              { id: "d2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => v2 },
+              { id: "e2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => unknown },
+              { id: "a1b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => v1 },
+              { id: "b2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => malformedV2 },
+              { id: "c2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => malformedV1 },
+              { id: "f2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => unknownType },
+              { id: "a2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => unknownAggregate },
             ] }),
           }),
         }),
@@ -141,9 +153,9 @@ test("la proyección valida v1/v2, conserva detalles contractuales y clasifica e
     }),
   };
   const resultado = await consultarAuditoriaPlataforma(db as never, { por: "tipo", valor: "COMPRAS_CONTROL_INICIALIZADO" });
-  assert.equal(resultado.items[0].id, "evidencia-v2");
+  assert.equal(resultado.items[0].id, "d2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a");
   assert.equal(resultado.items[0].schemaVersion, 2);
-  assert.equal(resultado.items[0].compatibilidadSchemaVersion, "SOPORTADA");
+  assert.equal(resultado.items[0].compatibilidadSchemaVersion, "SOPORTADA", JSON.stringify(resultado.items[0]));
   assert.deepEqual(resultado.items[0].detalle, { estado: "ACTIVA", fingerprint: "a".repeat(64) });
   assert.equal(resultado.items[1].schemaVersion, 99);
   assert.equal(resultado.items[1].tipo, "FUTURO");
@@ -157,7 +169,12 @@ test("la proyección valida v1/v2, conserva detalles contractuales y clasifica e
   assert.equal(resultado.items[3].diagnosticoCompatibilidad, "DETALLE_V2_INVALIDO");
   assert.equal(resultado.items[4].compatibilidadSchemaVersion, "INVALIDA");
   assert.equal(resultado.items[4].diagnosticoCompatibilidad, "DETALLE_V1_INVALIDO");
+  assert.equal(resultado.items[5].compatibilidadSchemaVersion, "INVALIDA");
+  assert.equal(resultado.items[5].diagnosticoCompatibilidad, "TIPO_INVALIDO");
+  assert.equal(resultado.items[6].compatibilidadSchemaVersion, "INVALIDA");
+  assert.equal(resultado.items[6].diagnosticoCompatibilidad, "AGREGADO_INVALIDO");
   assert.equal("detalle" in resultado.items[3], false, "no proyecta como válida una forma malformada");
+  assert.equal("detalle" in resultado.items[5], false, "no expone detalles de tipos de evento desconocidos");
 });
 
 // El campo de ordenación de cada recurso debe coincidir con el que su agregado

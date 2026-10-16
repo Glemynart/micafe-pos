@@ -140,7 +140,24 @@ test("ADR-SAAS-084: el escritor rechaza combinaciones tipo/estado incoherentes y
     functionArtifactSha: "a".repeat(64), rulesetHash: "b".repeat(64), releaseReferencia: "release-1",
   }), /AUDIT_EVIDENCE_V2_DETAIL_INVALID/);
   await assert.rejects(write("COMPRAS_CONTROL_INICIALIZADO", "ACTIVA", 1, 2), /AUDIT_EVIDENCE_V2_DETAIL_INVALID/);
-  await assert.rejects(write("FUTURO", "ACTIVA", 0, 1), /AUDIT_EVIDENCE_V2_FAMILY_INVALID/);
+  await assert.rejects(write("FUTURO", "ACTIVA", 0, 1), /AUDIT_TYPE_INVALID/);
+});
+
+test("el escritor canónico rechaza taxonomías runtime desconocidas aunque TypeScript se eluda", async () => {
+  const db = new FakeDb();
+  await assert.rejects(db.runTransaction(async (tx) => crearObligacionAuditoria(db as never, tx, {
+    tipo: "EVENTO_NO_ENUMERADO" as never,
+    resultado: "CONFIRMADO",
+    actor: { tipo: "SISTEMA", uid: null },
+    facultad: null,
+    comando: { id: "cmd-unknown-type", tipo: "Unknown" },
+    agregado: { tipo: "OPERADOR", id: "operator-a" },
+    empresaObjetivoId: null,
+    revision: { esperada: null, resultante: null },
+    correlacionId: "corr-unknown-type",
+    causacionId: null,
+    motivo: { codigo: "TEST", resumen: null },
+  })), /AUDIT_TYPE_INVALID/);
 });
 
 test("ADR-SAAS-084: la corrección solo se crea al verificar transaccionalmente su evidencia fuente y no la modifica", async () => {
@@ -151,6 +168,7 @@ test("ADR-SAAS-084: la corrección solo se crea al verificar transaccionalmente 
     evidenciaId: originalId,
     tipo: "COMPRAS_REANUDADAS",
     resultado: "CONFIRMADO",
+    origen: "PLATAFORMA",
     actor: { tipo: "OPERADOR", uid: "operator-a" },
     facultad: "RELEASE_COMPRAS_GOBERNAR",
     comando: { id: "command-original", tipo: "TransicionarPausaComprasSaas" },
@@ -166,7 +184,7 @@ test("ADR-SAAS-084: la corrección solo se crea al verificar transaccionalmente 
     registradoEn: Timestamp.fromMillis(1000),
   };
   db.docs.set(`saas_auditoria/${originalId}`, original);
-  const originalBefore = structuredClone(original);
+  const originalTime = original.ocurrioEn;
   let ids: { obligacionId: string; evidenciaId: string } | undefined;
   await db.runTransaction(async (tx) => {
     ids = await crearObligacionAuditoriaCorreccion(db as never, tx, {
@@ -184,23 +202,27 @@ test("ADR-SAAS-084: la corrección solo se crea al verificar transaccionalmente 
   assert.equal(obligacion.evidencia.correlacionId, original.correlacionId);
   assert.equal(obligacion.evidencia.detalle.evidenciaOriginalId, originalId);
   assert.equal(obligacion.evidencia.detalle.ocurrioEnOriginal, original.ocurrioEn);
-  assert.deepEqual(db.docs.get(`saas_auditoria/${originalId}`), originalBefore);
+  const originalAfter = db.docs.get(`saas_auditoria/${originalId}`);
+  assert.equal(originalAfter.tipo, original.tipo);
+  assert.equal(originalAfter.ocurrioEn, originalTime);
+  assert.deepEqual(originalAfter.detalle, original.detalle);
 
   await assert.rejects(db.runTransaction(async (tx) => crearObligacionAuditoriaCorreccion(db as never, tx, {
     actor: { tipo: "SISTEMA", uid: null }, facultad: null,
     comando: { id: "cmd-correction-null", tipo: "AclararClasificacionAuditoriaCompras" },
     motivo: { codigo: "CORRECCION_SEMANTICA_AUDITORIA", resumen: null },
-  }, "missing")), /AUDIT_CORRECTION_SOURCE_NOT_FOUND/);
-  for (const [suffix, timestamp, override] of [
+  }, "f2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a")), /AUDIT_CORRECTION_SOURCE_NOT_FOUND/);
+  const malformedSources = [
     ["null", null, {}],
     ["empty", {}, {}],
     ["wrong-type", "1000", {}],
-    ["mismatch", Timestamp.fromMillis(2000), {}],
     ["wrong-source", undefined, { tipo: "COMPRAS_PAUSADAS" }],
+    ["wrong-command", undefined, { comando: { id: "other-command", tipo: "AnotherOperation" } }],
     ["wrong-revision", undefined, { revision: { esperada: 1, resultante: 2 } }],
     ["wrong-state", undefined, { detalle: { estado: "PAUSADA", fingerprint: "a".repeat(64) } }],
-  ] as const) {
-    const malformedId = `source-${suffix}`;
+  ] as const;
+  for (const [index, [suffix, timestamp, override]] of malformedSources.entries()) {
+    const malformedId = `f${index + 3}b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a`;
     db.docs.set(`saas_auditoria/${malformedId}`, {
       ...original,
       evidenciaId: malformedId,

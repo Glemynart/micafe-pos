@@ -6,9 +6,7 @@ import { AuditEvidenceLabel } from "./audit-evidence-label";
 
 test("la evidencia validada conserva su etiqueta normal", () => {
   const markup = renderToStaticMarkup(createElement(AuditEvidenceLabel, {
-    tipo: "COMPRAS_CONTROL_INICIALIZADO",
-    schemaVersion: 2,
-    compatibilidad: "SOPORTADA",
+    item: { id: "evidence-1", tipo: "COMPRAS_CONTROL_INICIALIZADO", schemaVersion: 2, compatibilidadSchemaVersion: "SOPORTADA" },
   }));
   assert.match(markup, /COMPRAS_CONTROL_INICIALIZADO/);
   assert.doesNotMatch(markup, /no soportada|inválida/i);
@@ -16,16 +14,10 @@ test("la evidencia validada conserva su etiqueta normal", () => {
 
 test("la evidencia no soportada o malformada se diferencia del evento validado", () => {
   const unknown = renderToStaticMarkup(createElement(AuditEvidenceLabel, {
-    tipo: "EVENTO_FUTURO",
-    schemaVersion: 99,
-    compatibilidad: "NO_SOPORTADA",
-    diagnostico: "VERSION_NO_SOPORTADA",
+    item: { id: "evidence-2", tipo: "EVENTO_FUTURO", schemaVersion: 99, compatibilidadSchemaVersion: "NO_SOPORTADA", diagnosticoCompatibilidad: "VERSION_NO_SOPORTADA" },
   }));
   const invalid = renderToStaticMarkup(createElement(AuditEvidenceLabel, {
-    tipo: "COMPRAS_PAUSADAS",
-    schemaVersion: 2,
-    compatibilidad: "INVALIDA",
-    diagnostico: "DETALLE_V2_INVALIDO",
+    item: { id: "evidence-3", tipo: "COMPRAS_PAUSADAS", schemaVersion: 2, compatibilidadSchemaVersion: "INVALIDA", diagnosticoCompatibilidad: "DETALLE_V2_INVALIDO" },
   }));
   assert.match(unknown, /Versión de evidencia no soportada/);
   assert.match(unknown, /VERSION_NO_SOPORTADA/);

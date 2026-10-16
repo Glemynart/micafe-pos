@@ -6,6 +6,8 @@ import type {
   TipoAgregadoAuditoria,
   TipoAuditoria,
 } from "./contracts";
+import { TIPOS_AGREGADO_AUDITORIA, TIPOS_AUDITORIA } from "./contracts";
+import { esTimestampFirestore, inspeccionarEvidenciaAuditoria, validarDetalleEvidenciaV2 } from "./audit-evidence-contract";
 
 export const AUDITORIA_COLLECTION = "saas_auditoria";
 export const OBLIGACIONES_COLLECTION = "saas_auditoria_obligaciones";
@@ -34,63 +36,9 @@ export interface HechoAuditable {
 }
 
 const TIPOS_CONTROL_COMPRAS = new Set<TipoAuditoria>([
-  "COMPRAS_CONTROL_INICIALIZADO",
-  "COMPRAS_PAUSADAS",
-  "COMPRAS_REANUDADAS",
-  "COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA",
+  "COMPRAS_CONTROL_INICIALIZADO", "COMPRAS_PAUSADAS", "COMPRAS_REANUDADAS", "COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA",
 ]);
-const HEX_SHA_256 = /^[a-f0-9]{64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function objetoExacto(value: unknown, keys: string[]): value is Record<string, unknown> {
-  return !!value
-    && typeof value === "object"
-    && !Array.isArray(value)
-    && Object.keys(value as Record<string, unknown>).every((key) => keys.includes(key))
-    && keys.every((key) => Object.hasOwn(value, key));
-}
-
-/** Valida la única familia autorizada para emitir evidencia v2. */
-function validarHechoV2(hecho: HechoAuditable) {
-  if (hecho.agregado.tipo !== "CONTROL_RELEASE_COMPRAS" || !TIPOS_CONTROL_COMPRAS.has(hecho.tipo)) {
-    throw new Error("AUDIT_EVIDENCE_V2_FAMILY_INVALID");
-  }
-  const detalle = hecho.detalle;
-  if (hecho.tipo === "COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA") {
-    if (!objetoExacto(detalle, ["evidenciaOriginalId", "tipoOriginal", "tipoCorregido", "revisionOriginal", "estadoDestinoOriginal", "ocurrioEnOriginal"])) {
-      throw new Error("AUDIT_EVIDENCE_V2_DETAIL_INVALID");
-    }
-    const revision = detalle.revisionOriginal;
-    if (!objetoExacto(revision, ["esperada", "resultante"])
-      || revision.esperada !== 0 || revision.resultante !== 1
-      || detalle.tipoOriginal !== "COMPRAS_REANUDADAS"
-      || detalle.tipoCorregido !== "COMPRAS_CONTROL_INICIALIZADO"
-      || detalle.estadoDestinoOriginal !== "ACTIVA"
-      || typeof detalle.evidenciaOriginalId !== "string" || !UUID.test(detalle.evidenciaOriginalId)
-      || typeof detalle.ocurrioEnOriginal !== "object") {
-      throw new Error("AUDIT_EVIDENCE_V2_DETAIL_INVALID");
-    }
-    return;
-  }
-  if (!objetoExacto(detalle, ["estado", "fingerprint"]) && !objetoExacto(detalle, ["estado", "fingerprint", "verificacionRelease"])) {
-    throw new Error("AUDIT_EVIDENCE_V2_DETAIL_INVALID");
-  }
-  if ((detalle.estado !== "ACTIVA" && detalle.estado !== "PAUSADA")
-    || typeof detalle.fingerprint !== "string" || !HEX_SHA_256.test(detalle.fingerprint)) {
-    throw new Error("AUDIT_EVIDENCE_V2_DETAIL_INVALID");
-  }
-  if (hecho.tipo === "COMPRAS_REANUDADAS") {
-    const verificacion = detalle.verificacionRelease;
-    if (!objetoExacto(verificacion, ["functionArtifactSha", "rulesetHash", "releaseReferencia"])
-      || typeof verificacion.functionArtifactSha !== "string" || !HEX_SHA_256.test(verificacion.functionArtifactSha)
-      || typeof verificacion.rulesetHash !== "string" || !HEX_SHA_256.test(verificacion.rulesetHash)
-      || typeof verificacion.releaseReferencia !== "string") {
-      throw new Error("AUDIT_EVIDENCE_V2_DETAIL_INVALID");
-    }
-  } else if (Object.hasOwn(detalle, "verificacionRelease")) {
-    throw new Error("AUDIT_EVIDENCE_V2_DETAIL_INVALID");
-  }
-}
 
 function normalizarContenidoAuditable(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(normalizarContenidoAuditable);
@@ -117,14 +65,23 @@ function evidenciaCoincide(
     === JSON.stringify(normalizarContenidoAuditable(contenidoExistente));
 }
 
-export function crearObligacionAuditoria(
+function crearObligacionAuditoriaInterna(
   db: Firestore,
   tx: Transaction,
   hecho: HechoAuditable,
   ids?: { obligacionId: string; evidenciaId: string },
+  correccionVerificada = false,
 ): { obligacionId: string; evidenciaId: string } {
   const schemaVersion = hecho.schemaVersion ?? 1;
-  if (schemaVersion === 2) validarHechoV2(hecho);
+  if (!TIPOS_AUDITORIA.includes(hecho.tipo) || !TIPOS_AGREGADO_AUDITORIA.includes(hecho.agregado.tipo)) {
+    throw new Error("AUDIT_TYPE_INVALID");
+  }
+  if (schemaVersion !== 1 && schemaVersion !== 2) throw new Error("AUDIT_SCHEMA_VERSION_UNSUPPORTED");
+  if (hecho.tipo === "COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA" && !correccionVerificada) {
+    throw new Error("AUDIT_CORRECTION_REQUIRES_SOURCE");
+  }
+  if (schemaVersion === 1 && TIPOS_CONTROL_COMPRAS.has(hecho.tipo)) throw new Error("AUDIT_PURCHASE_CONTROL_REQUIRES_V2");
+  if (schemaVersion === 2) validarDetalleEvidenciaV2(hecho.tipo, hecho.agregado.tipo, hecho.revision, hecho.resultado, hecho.detalle);
   const obligacionId = ids?.obligacionId ?? randomUUID();
   const evidenciaId = ids?.evidenciaId ?? randomUUID();
   const evidencia = {
@@ -155,6 +112,66 @@ export function crearObligacionAuditoria(
     ultimoErrorCodigo: null,
   });
   return { obligacionId, evidenciaId };
+}
+
+export function crearObligacionAuditoria(
+  db: Firestore,
+  tx: Transaction,
+  hecho: HechoAuditable,
+  ids?: { obligacionId: string; evidenciaId: string },
+): { obligacionId: string; evidenciaId: string } {
+  return crearObligacionAuditoriaInterna(db, tx, hecho, ids);
+}
+
+export async function crearObligacionAuditoriaCorreccion(
+  db: Firestore,
+  tx: Transaction,
+  metadata: Pick<HechoAuditable, "actor" | "facultad" | "comando" | "motivo"> & Partial<Pick<HechoAuditable, "origen" | "soporte">>,
+  evidenciaOriginalId: string,
+  ids?: { obligacionId: string; evidenciaId: string },
+): Promise<{ obligacionId: string; evidenciaId: string }> {
+  if (!UUID.test(evidenciaOriginalId)) throw new Error("AUDIT_CORRECTION_SOURCE_INVALID");
+  const originalRef = db.collection(AUDITORIA_COLLECTION).doc(evidenciaOriginalId);
+  const originalSnapshot = await tx.get(originalRef);
+  if (!originalSnapshot.exists) throw new Error("AUDIT_CORRECTION_SOURCE_NOT_FOUND");
+  const original = originalSnapshot.data() as Record<string, any>;
+  const inspeccion = inspeccionarEvidenciaAuditoria(evidenciaOriginalId, original);
+  if (inspeccion.compatibilidad !== "SOPORTADA"
+    || original.schemaVersion !== 1
+    || original.tipo !== "COMPRAS_REANUDADAS"
+    || original.agregado?.tipo !== "CONTROL_RELEASE_COMPRAS"
+    || original.revision?.esperada !== 0 || original.revision?.resultante !== 1
+    || original.detalle?.estado !== "ACTIVA"
+    || !esTimestampFirestore(original.ocurrioEn)
+    || typeof original.causacionId !== "string" || !original.causacionId
+    || typeof original.correlacionId !== "string" || !original.correlacionId
+    || !original.comando?.id || original.comando.tipo !== "TransicionarPausaComprasSaas"
+    || metadata.comando?.id === original.comando.id
+    || metadata.comando?.tipo !== "AclararClasificacionAuditoriaCompras") {
+    if (!esTimestampFirestore(original.ocurrioEn)) throw new Error("AUDIT_CORRECTION_SOURCE_TIMESTAMP_INVALID");
+    throw new Error("AUDIT_CORRECTION_SOURCE_INVALID");
+  }
+  const hecho: HechoAuditable = {
+    schemaVersion: 2,
+    tipo: "COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA",
+    resultado: "CONFIRMADO",
+    ...metadata,
+    agregado: { tipo: "CONTROL_RELEASE_COMPRAS", id: original.agregado.id },
+    empresaObjetivoId: original.empresaObjetivoId,
+    revision: { esperada: null, resultante: null },
+    correlacionId: original.correlacionId,
+    causacionId: original.causacionId,
+    motivo: metadata.motivo,
+    detalle: {
+      evidenciaOriginalId,
+      tipoOriginal: "COMPRAS_REANUDADAS",
+      tipoCorregido: "COMPRAS_CONTROL_INICIALIZADO",
+      revisionOriginal: { esperada: 0, resultante: 1 },
+      estadoDestinoOriginal: "ACTIVA",
+      ocurrioEnOriginal: original.ocurrioEn,
+    },
+  };
+  return crearObligacionAuditoriaInterna(db, tx, hecho, ids, true);
 }
 
 export async function emitirObligacionAuditoria(
