@@ -138,6 +138,22 @@ test("la proyección valida v1/v2, conserva detalles contractuales y clasifica e
     evidenciaId: "b5b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
     causacionId: "b5b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
   });
+  const selfCorrectionReferenceId = "b6b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a";
+  const selfCorrectionReference = evidenceFixture({
+    schemaVersion: 2,
+    evidenciaId: selfCorrectionReferenceId,
+    tipo: "COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA",
+    revision: { esperada: null, resultante: null },
+    causacionId: "causation-original",
+    detalle: {
+      evidenciaOriginalId: selfCorrectionReferenceId,
+      tipoOriginal: "COMPRAS_REANUDADAS",
+      tipoCorregido: "COMPRAS_CONTROL_INICIALIZADO",
+      revisionOriginal: { esperada: 0, resultante: 1 },
+      estadoDestinoOriginal: "ACTIVA",
+      ocurrioEnOriginal: Timestamp.fromMillis(900),
+    },
+  });
   const db = {
     collection: () => ({
       where: () => ({
@@ -152,6 +168,7 @@ test("la proyección valida v1/v2, conserva detalles contractuales y clasifica e
               { id: "f2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => unknownType },
               { id: "a2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => unknownAggregate },
               { id: "b5b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => selfCausation },
+              { id: selfCorrectionReferenceId, data: () => selfCorrectionReference },
             ] }),
           }),
         }),
@@ -181,6 +198,8 @@ test("la proyección valida v1/v2, conserva detalles contractuales y clasifica e
   assert.equal(resultado.items[6].diagnosticoCompatibilidad, "AGREGADO_INVALIDO");
   assert.equal(resultado.items[7].compatibilidadSchemaVersion, "INVALIDA");
   assert.equal(resultado.items[7].diagnosticoCompatibilidad, "CAUSACION_INVALIDA");
+  assert.equal(resultado.items[8].compatibilidadSchemaVersion, "INVALIDA");
+  assert.equal(resultado.items[8].diagnosticoCompatibilidad, "DETALLE_V2_INVALIDO");
   assert.equal("detalle" in resultado.items[3], false, "no proyecta como válida una forma malformada");
   assert.equal("detalle" in resultado.items[5], false, "no expone detalles de tipos de evento desconocidos");
 });

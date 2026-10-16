@@ -84,6 +84,10 @@ function crearObligacionAuditoriaInterna(
   if (schemaVersion === 2) validarDetalleEvidenciaV2(hecho.tipo, hecho.agregado.tipo, hecho.revision, hecho.resultado, hecho.detalle);
   const obligacionId = ids?.obligacionId ?? randomUUID();
   const evidenciaId = ids?.evidenciaId ?? randomUUID();
+  if (hecho.tipo === "COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA"
+    && hecho.detalle?.evidenciaOriginalId === evidenciaId) {
+    throw new Error("AUDIT_CORRECTION_EVIDENCE_ID_COLLISION");
+  }
   if (hecho.causacionId === evidenciaId) throw new Error("AUDIT_CAUSATION_INVALID");
   const evidencia = {
     schemaVersion,

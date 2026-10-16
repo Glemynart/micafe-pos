@@ -77,7 +77,7 @@ function detalleTransicionValido(tipo: string, detalle: unknown, revision: Recor
     && RELEASE_REFERENCE.test(atestacion.releaseReferencia);
 }
 
-function detalleCorrectivoValido(detalle: unknown, revision: Record<string, unknown>): boolean {
+function detalleCorrectivoValido(docId: string | null, detalle: unknown, revision: Record<string, unknown>): boolean {
   if (!objetoExacto(detalle, ["evidenciaOriginalId", "tipoOriginal", "tipoCorregido", "revisionOriginal", "estadoDestinoOriginal", "ocurrioEnOriginal"])) return false;
   const revisionOriginal = detalle.revisionOriginal;
   return objetoExacto(revisionOriginal, ["esperada", "resultante"])
@@ -87,6 +87,7 @@ function detalleCorrectivoValido(detalle: unknown, revision: Record<string, unkn
     && detalle.tipoCorregido === "COMPRAS_CONTROL_INICIALIZADO"
     && detalle.estadoDestinoOriginal === "ACTIVA"
     && typeof detalle.evidenciaOriginalId === "string" && UUID.test(detalle.evidenciaOriginalId)
+    && (docId === null || detalle.evidenciaOriginalId !== docId)
     && esTimestamp(detalle.ocurrioEnOriginal);
 }
 
@@ -189,7 +190,7 @@ export function inspeccionarEvidenciaAuditoria(docId: string, input: unknown): I
   const revision = input.revision as Record<string, unknown>;
   const detailValid = TRANSICIONES_V2.has(tipo)
     ? input.resultado === "CONFIRMADO" && detalleTransicionValido(tipo, input.detalle, revision)
-    : input.resultado === "CONFIRMADO" && detalleCorrectivoValido(input.detalle, revision);
+    : input.resultado === "CONFIRMADO" && detalleCorrectivoValido(docId, input.detalle, revision);
   if (!detailValid) return { compatibilidad: "INVALIDA", diagnostico: "DETALLE_V2_INVALIDO", detalleDiagnostico: diagnosticarDetalle(input.detalle) };
   return { compatibilidad: "SOPORTADA", detalleValido: input.detalle as Record<string, unknown> };
 }
@@ -199,7 +200,7 @@ export function validarDetalleEvidenciaV2(tipo: string, agregadoTipo: string, re
     throw new Error("AUDIT_EVIDENCE_V2_FAMILY_INVALID");
   }
   const valido = tipo === "COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA"
-    ? resultado === "CONFIRMADO" && detalleCorrectivoValido(detalle, revision)
+    ? resultado === "CONFIRMADO" && detalleCorrectivoValido(null, detalle, revision)
     : resultado === "CONFIRMADO" && detalleTransicionValido(tipo, detalle, revision);
   if (!valido) throw new Error("AUDIT_EVIDENCE_V2_DETAIL_INVALID");
 }

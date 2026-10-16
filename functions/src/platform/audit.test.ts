@@ -226,6 +226,13 @@ test("ADR-SAAS-084: la corrección solo se crea al verificar transaccionalmente 
   assert.deepEqual(originalAfter.detalle, original.detalle);
 
   await assert.rejects(db.runTransaction(async (tx) => crearObligacionAuditoriaCorreccion(db as never, tx, {
+    actor: { tipo: "SISTEMA", uid: null },
+    facultad: null,
+    comando: { id: "cmd-aclaracion-id-colision", tipo: "AclararClasificacionAuditoriaCompras" },
+    motivo: { codigo: "CORRECCION_SEMANTICA_AUDITORIA", resumen: null },
+  }, originalId, { obligacionId: "obligation-collision", evidenciaId: originalId })), /AUDIT_CORRECTION_EVIDENCE_ID_COLLISION/);
+
+  await assert.rejects(db.runTransaction(async (tx) => crearObligacionAuditoriaCorreccion(db as never, tx, {
     actor: { tipo: "SISTEMA", uid: null }, facultad: null,
     comando: { id: "cmd-correction-null", tipo: "AclararClasificacionAuditoriaCompras" },
     motivo: { codigo: "CORRECCION_SEMANTICA_AUDITORIA", resumen: null },
