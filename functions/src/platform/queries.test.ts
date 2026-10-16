@@ -91,6 +91,10 @@ test("la proyección conserva schemaVersion y detalle de v2, y hace explícita u
                 id: "evidencia-desconocida",
                 data: () => ({ schemaVersion: 99, tipo: "FUTURO", detalle: { campo: "no reinterpretar" } }),
               },
+              {
+                id: "evidencia-v1-historica",
+                data: () => ({ schemaVersion: 1, tipo: "COMPRAS_REANUDADAS", detalle: { estado: "ACTIVA" } }),
+              },
             ] }),
           }),
         }),
@@ -111,6 +115,13 @@ test("la proyección conserva schemaVersion y detalle de v2, y hace explícita u
     tipo: "FUTURO",
     detalle: { campo: "no reinterpretar" },
     compatibilidadSchemaVersion: "NO_SOPORTADA",
+  });
+  assert.deepEqual(resultado.items[2], {
+    id: "evidencia-v1-historica",
+    schemaVersion: 1,
+    tipo: "COMPRAS_REANUDADAS",
+    detalle: { estado: "ACTIVA" },
+    compatibilidadSchemaVersion: "SOPORTADA",
   });
 });
 
