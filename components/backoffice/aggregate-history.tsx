@@ -7,6 +7,8 @@ import { EmptyState, ErrorState, EstadoBadge, fecha, LoadingState } from "./ui";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AuditEvidenceLabel } from "./audit-evidence-label";
+import type { ProyeccionEvidenciaAuditoria } from "@/lib/platform/audit-evidence-types";
 
 export type TipoAgregadoHistorial = "EMPRESA" | "SUSCRIPCION";
 
@@ -27,7 +29,7 @@ export function AggregateHistory({
   valor: string;
   vacioDescripcion?: string;
 }) {
-  const [items, setItems] = useState<Record<string, any>[]>([]);
+  const [items, setItems] = useState<ProyeccionEvidenciaAuditoria[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [cargandoMas, setCargandoMas] = useState(false);
@@ -72,7 +74,7 @@ export function AggregateHistory({
               <TableBody>
                 {items.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell><strong className="text-xs">{item.tipo}</strong>{item.motivo?.codigo && <p className="mt-1 text-[11px] text-slate-400">{item.motivo.codigo}</p>}</TableCell>
+                    <TableCell><AuditEvidenceLabel item={item} />{item.motivo?.codigo && <p className="mt-1 text-[11px] text-slate-400">{item.motivo.codigo}</p>}</TableCell>
                     <TableCell><EstadoBadge estado={item.resultado} /></TableCell>
                     <TableCell className="font-mono text-xs">{item.actor?.uid ?? item.actor?.tipo ?? "SISTEMA"}</TableCell>
                     <TableCell className="text-xs text-slate-500">{fecha(item.registradoEn)}</TableCell>

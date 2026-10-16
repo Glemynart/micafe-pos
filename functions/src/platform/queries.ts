@@ -9,6 +9,7 @@ import {
   type EstadoCredencialInicialProyectado,
   type VersionPlanDiagnostica,
 } from "./tenant-access-detail";
+import { inspeccionarEvidenciaAuditoria } from "./audit-evidence-contract";
 
 export {
   obtenerDetalleEmpresaPlataforma,
@@ -77,13 +78,28 @@ function sanitizar(data: Record<string, any>) {
     "cancelacionProgramadaPara", "capacidades", "limites", "periodicidad", "precio", "grandfathered",
     "snapshotContrato", "ultimoPagoAnualId",
     "versionAutorizacion", "actualizadoEn", "creadoEn", "actualizadaEn", "creadaEn",
-    "tipo", "resultado",
+    "tipo", "resultado", "schemaVersion", "evidenciaId",
     "origen", "actor", "facultad", "comando", "agregado", "empresaObjetivoId",
-    "correlacionId", "motivo", "registradoEn", "autorizacionId", "operadorUid",
+    "correlacionId", "causacionId", "revision", "motivo", "ocurrioEn", "registradoEn", "autorizacionId", "operadorUid",
     "solicitante", "alcanceCodigo", "expiraEn", "version", "provisionamientoId",
     "ultimoPasoConfirmado", "errorRecuperable", "codigo", "versionActual",
   ];
   return Object.fromEntries(permitido.filter((key) => data[key] !== undefined).map((key) => [key, data[key]]));
+}
+
+function proyectarEvidenciaAuditoria(id: string, data: Record<string, any>) {
+  const evidencia = sanitizar(data);
+  const inspeccion = inspeccionarEvidenciaAuditoria(id, data);
+  return {
+    id,
+    ...evidencia,
+    compatibilidadSchemaVersion: inspeccion.compatibilidad,
+    ...(inspeccion.diagnostico ? { diagnosticoCompatibilidad: inspeccion.diagnostico } : {}),
+    ...(inspeccion.compatibilidad === "SOPORTADA" && inspeccion.detalleValido
+      ? { detalle: inspeccion.detalleValido }
+      : {}),
+    ...(inspeccion.detalleDiagnostico ? { detalleDiagnostico: inspeccion.detalleDiagnostico } : {}),
+  };
 }
 
 export async function listarRecursosPlataforma(
@@ -339,7 +355,7 @@ export async function consultarAuditoriaPlataforma(
   }
   const snap = await q.limit(limite).get();
   return {
-    items: snap.docs.map((doc) => ({ id: doc.id, ...sanitizar(doc.data()) })),
+    items: snap.docs.map((doc) => proyectarEvidenciaAuditoria(doc.id, doc.data())),
     cursor: snap.docs.length === limite ? snap.docs.at(-1)!.id : null,
   };
 }
