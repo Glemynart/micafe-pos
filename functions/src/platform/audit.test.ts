@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Timestamp } from "firebase-admin/firestore";
 import {
+  crearObligacionAuditoriaCorreccion,
   crearObligacionAuditoria,
   emitirObligacionAuditoria,
   reconciliarObligacionesAuditoria,
@@ -108,6 +110,173 @@ test("el reconciliador emite exactamente una evidencia para una obligación pend
   assert.equal(obligation.estado, "EMITIDA");
   assert.equal(await reconciliarObligacionesAuditoria(db as never, 100), 0);
   assert.equal([...db.docs.keys()].filter((path) => path.startsWith("saas_auditoria/")).length, 1);
+});
+
+test("ADR-SAAS-084: el escritor rechaza combinaciones tipo/estado incoherentes y transiciones inválidas", async () => {
+  const db = new FakeDb();
+  const base = {
+    schemaVersion: 2 as const,
+    resultado: "CONFIRMADO" as const,
+    actor: { tipo: "SISTEMA" as const, uid: null },
+    facultad: null,
+    comando: { id: "cmd-v2", tipo: "TransicionarPausaComprasSaas" },
+    agregado: { tipo: "CONTROL_RELEASE_COMPRAS" as const, id: "empresa-a" },
+    empresaObjetivoId: "empresa-a",
+    correlacionId: "corr-v2",
+    causacionId: null,
+    motivo: { codigo: "TEST", resumen: null },
+  };
+  const write = (tipo: any, estado: any, esperada: number, resultante: number, verificacionRelease?: unknown) => db.runTransaction(async (tx) => {
+    crearObligacionAuditoria(db as never, tx, {
+      ...base,
+      tipo,
+      revision: { esperada, resultante },
+      detalle: { estado, fingerprint: "a".repeat(64), ...(verificacionRelease ? { verificacionRelease } : {}) },
+    });
+  });
+
+  await assert.rejects(write("COMPRAS_PAUSADAS", "ACTIVA", 1, 2), /AUDIT_EVIDENCE_V2_DETAIL_INVALID/);
+  await assert.rejects(write("COMPRAS_REANUDADAS", "PAUSADA", 1, 2, {
+    functionArtifactSha: "a".repeat(64), rulesetHash: "b".repeat(64), releaseReferencia: "release-1",
+  }), /AUDIT_EVIDENCE_V2_DETAIL_INVALID/);
+  await assert.rejects(write("COMPRAS_CONTROL_INICIALIZADO", "ACTIVA", 1, 2), /AUDIT_EVIDENCE_V2_DETAIL_INVALID/);
+  await assert.rejects(write("FUTURO", "ACTIVA", 0, 1), /AUDIT_TYPE_INVALID/);
+});
+
+test("el escritor canónico rechaza taxonomías runtime desconocidas aunque TypeScript se eluda", async () => {
+  const db = new FakeDb();
+  await assert.rejects(db.runTransaction(async (tx) => crearObligacionAuditoria(db as never, tx, {
+    tipo: "EVENTO_NO_ENUMERADO" as never,
+    resultado: "CONFIRMADO",
+    actor: { tipo: "SISTEMA", uid: null },
+    facultad: null,
+    comando: { id: "cmd-unknown-type", tipo: "Unknown" },
+    agregado: { tipo: "OPERADOR", id: "operator-a" },
+    empresaObjetivoId: null,
+    revision: { esperada: null, resultante: null },
+    correlacionId: "corr-unknown-type",
+    causacionId: null,
+    motivo: { codigo: "TEST", resumen: null },
+  })), /AUDIT_TYPE_INVALID/);
+});
+
+test("el escritor rechaza causacionId igual al ID de la evidencia propia", async () => {
+  const db = new FakeDb();
+  const evidenciaId = "b5b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a";
+  await assert.rejects(db.runTransaction(async (tx) => crearObligacionAuditoria(db as never, tx, {
+    tipo: "OPERADOR_INCORPORADO",
+    resultado: "CONFIRMADO",
+    actor: { tipo: "SISTEMA", uid: null },
+    facultad: null,
+    comando: { id: "cmd-self-causation", tipo: "Test" },
+    agregado: { tipo: "OPERADOR", id: "operator-a" },
+    empresaObjetivoId: null,
+    revision: { esperada: null, resultante: null },
+    correlacionId: "corr-self-causation",
+    causacionId: evidenciaId,
+    motivo: { codigo: "TEST", resumen: null },
+  }, { obligacionId: "obligation-self-causation", evidenciaId })), /AUDIT_CAUSATION_INVALID/);
+});
+
+test("ADR-SAAS-084: la corrección solo se crea al verificar transaccionalmente su evidencia fuente y no la modifica", async () => {
+  const db = new FakeDb();
+  const originalId = "d2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a";
+  const original = {
+    schemaVersion: 1,
+    evidenciaId: originalId,
+    tipo: "COMPRAS_REANUDADAS",
+    resultado: "CONFIRMADO",
+    origen: "PLATAFORMA",
+    actor: { tipo: "OPERADOR", uid: "operator-a" },
+    facultad: "RELEASE_COMPRAS_GOBERNAR",
+    comando: { id: "command-original", tipo: "TransicionarPausaComprasSaas" },
+    agregado: { tipo: "CONTROL_RELEASE_COMPRAS", id: "empresa-a" },
+    empresaObjetivoId: "empresa-a",
+    revision: { esperada: 0, resultante: 1 },
+    correlacionId: "corr-original",
+    causacionId: "causation-original",
+    motivo: { codigo: "INICIALIZACION", resumen: null },
+    soporte: null,
+    detalle: { estado: "ACTIVA", fingerprint: "a".repeat(64) },
+    ocurrioEn: Timestamp.fromMillis(1000),
+    registradoEn: Timestamp.fromMillis(1000),
+  };
+  db.docs.set(`saas_auditoria/${originalId}`, original);
+  const originalTime = original.ocurrioEn;
+  let ids: { obligacionId: string; evidenciaId: string } | undefined;
+  await db.runTransaction(async (tx) => {
+    ids = await crearObligacionAuditoriaCorreccion(db as never, tx, {
+      actor: { tipo: "SISTEMA", uid: null },
+      facultad: null,
+      comando: { id: "cmd-aclaracion", tipo: "AclararClasificacionAuditoriaCompras" },
+      motivo: { codigo: "CORRECCION_SEMANTICA_AUDITORIA", resumen: null },
+    }, originalId);
+  });
+  const obligacion = db.docs.get(`saas_auditoria_obligaciones/${ids!.obligacionId}`);
+  assert.equal(obligacion.schemaVersion, 1);
+  assert.equal(obligacion.evidencia.schemaVersion, 2);
+  assert.equal(obligacion.evidencia.evidenciaId, ids!.evidenciaId);
+  assert.equal(obligacion.evidencia.causacionId, original.causacionId);
+  assert.equal(obligacion.evidencia.correlacionId, original.correlacionId);
+  assert.equal(obligacion.evidencia.detalle.evidenciaOriginalId, originalId);
+  assert.equal(obligacion.evidencia.detalle.ocurrioEnOriginal, original.ocurrioEn);
+  const originalAfter = db.docs.get(`saas_auditoria/${originalId}`);
+  assert.equal(originalAfter.tipo, original.tipo);
+  assert.equal(originalAfter.ocurrioEn, originalTime);
+  assert.deepEqual(originalAfter.detalle, original.detalle);
+
+  await assert.rejects(db.runTransaction(async (tx) => crearObligacionAuditoriaCorreccion(db as never, tx, {
+    actor: { tipo: "SISTEMA", uid: null },
+    facultad: null,
+    comando: { id: "cmd-aclaracion-id-colision", tipo: "AclararClasificacionAuditoriaCompras" },
+    motivo: { codigo: "CORRECCION_SEMANTICA_AUDITORIA", resumen: null },
+  }, originalId, { obligacionId: "obligation-collision", evidenciaId: originalId })), /AUDIT_CORRECTION_EVIDENCE_ID_COLLISION/);
+
+  await assert.rejects(db.runTransaction(async (tx) => crearObligacionAuditoriaCorreccion(db as never, tx, {
+    actor: { tipo: "SISTEMA", uid: null }, facultad: null,
+    comando: { id: "cmd-correction-null", tipo: "AclararClasificacionAuditoriaCompras" },
+    motivo: { codigo: "CORRECCION_SEMANTICA_AUDITORIA", resumen: null },
+  }, "f2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a")), /AUDIT_CORRECTION_SOURCE_NOT_FOUND/);
+  const malformedSources = [
+    ["null", null, {}],
+    ["empty", {}, {}],
+    ["wrong-type", "1000", {}],
+    ["wrong-source", undefined, { tipo: "COMPRAS_PAUSADAS" }],
+    ["wrong-command", undefined, { comando: { id: "other-command", tipo: "AnotherOperation" } }],
+    ["wrong-revision", undefined, { revision: { esperada: 1, resultante: 2 } }],
+    ["wrong-state", undefined, { detalle: { estado: "PAUSADA", fingerprint: "a".repeat(64) } }],
+  ] as const;
+  for (const [index, [suffix, timestamp, override]] of malformedSources.entries()) {
+    const malformedId = `f${index + 3}b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a`;
+    db.docs.set(`saas_auditoria/${malformedId}`, {
+      ...original,
+      evidenciaId: malformedId,
+      ocurrioEn: Timestamp.fromMillis(1000),
+      ...(timestamp !== undefined ? { ocurrioEn: timestamp } : {}),
+      ...override,
+    });
+    await assert.rejects(db.runTransaction(async (tx) => crearObligacionAuditoriaCorreccion(db as never, tx, {
+      actor: { tipo: "SISTEMA", uid: null }, facultad: null,
+      comando: { id: `cmd-${suffix}`, tipo: "AclararClasificacionAuditoriaCompras" },
+      motivo: { codigo: "CORRECCION_SEMANTICA_AUDITORIA", resumen: null },
+    }, malformedId)), /AUDIT_CORRECTION_SOURCE_(?:INVALID|TIMESTAMP_INVALID)/, suffix);
+  }
+  await db.runTransaction(async (tx) => {
+    assert.throws(() => crearObligacionAuditoria(db as never, tx, {
+      schemaVersion: 2,
+      tipo: "COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA",
+      resultado: "CONFIRMADO",
+      actor: { tipo: "SISTEMA", uid: null }, facultad: null,
+      comando: { id: "cmd-direct", tipo: "AclararClasificacionAuditoriaCompras" },
+      agregado: { tipo: "CONTROL_RELEASE_COMPRAS", id: "empresa-a" }, empresaObjetivoId: "empresa-a",
+      revision: { esperada: null, resultante: null }, correlacionId: "corr-original", causacionId: "causation-original",
+      motivo: { codigo: "CORRECCION_SEMANTICA_AUDITORIA", resumen: null },
+      detalle: {
+        evidenciaOriginalId: originalId, tipoOriginal: "COMPRAS_REANUDADAS", tipoCorregido: "COMPRAS_CONTROL_INICIALIZADO",
+        revisionOriginal: { esperada: 0, resultante: 1 }, estadoDestinoOriginal: "ACTIVA", ocurrioEnOriginal: null,
+      },
+    }), /AUDIT_CORRECTION_REQUIRES_SOURCE/);
+  });
 });
 
 test("no confirma una obligacion cuando la evidencia preexistente difiere", async () => {

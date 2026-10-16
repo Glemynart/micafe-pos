@@ -3,6 +3,7 @@
 import { httpsCallable } from "firebase/functions";
 import { getFirebaseFunctions } from "@/lib/firebase";
 import type { EntradaBootstrapEmpresarial, ResultadoBootstrapEmpresarial } from "@/lib/bootstrap/contrato";
+import type { ProyeccionEvidenciaAuditoria } from "@/lib/platform/audit-evidence-types";
 
 export const FACULTADES_PLATAFORMA = [
   "OPERADORES_GOBERNAR",
@@ -285,7 +286,7 @@ export const listarSoporteTenant = () =>
   invocar<{ items: Record<string, any>[] }>("listarSoporteTenantSaas");
 
 export const consultarAuditoria = (filtro: Record<string, unknown>, cursor?: string) =>
-  invocar<{ items: Record<string, any>[]; cursor: string | null }>(
+  invocar<{ items: ProyeccionEvidenciaAuditoria[]; cursor: string | null }>(
     "consultarAuditoriaPlataformaSaas",
     { filtro, limite: 50, ...(cursor ? { cursor } : {}) },
   );

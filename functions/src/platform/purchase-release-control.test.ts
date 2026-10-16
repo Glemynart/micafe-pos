@@ -82,17 +82,33 @@ test("ADR-SAAS-081: el control se inicializa, pausa y reanuda con revisión, rec
   assert.equal(db.docs.get("controles_release_compras/empresa-a")?.revision, 2);
   assert.ok([...db.docs.keys()].some(path => path.startsWith("saas_auditoria/")));
   const reanudada = await transicionarPausaCompras(db as never, "op-release", token, entrada("reanudar", "empresa-a", "ACTIVA", 2, {
-    functionArtifactSha: "artifact-sha-1",
-    rulesetHash: "rules-hash-1",
+    functionArtifactSha: "a".repeat(64),
+    rulesetHash: "b".repeat(64),
     releaseReferencia: "gate-i-release-1",
   }));
   assert.equal(reanudada.revision, 3);
   assert.equal(db.docs.get("controles_release_compras/empresa-a")?.estado, "ACTIVA");
   assert.deepEqual(db.docs.get("controles_release_compras/empresa-a")?.ultimaVerificacionRelease, {
-    functionArtifactSha: "artifact-sha-1",
-    rulesetHash: "rules-hash-1",
+    functionArtifactSha: "a".repeat(64),
+    rulesetHash: "b".repeat(64),
     releaseReferencia: "gate-i-release-1",
   });
+
+  const evidencias = [...db.docs.entries()]
+    .filter(([path]) => path.startsWith("saas_auditoria/"))
+    .map(([, evidencia]) => evidencia);
+  assert.deepEqual(evidencias.map((evidencia) => evidencia.tipo), [
+    "COMPRAS_CONTROL_INICIALIZADO",
+    "COMPRAS_PAUSADAS",
+    "COMPRAS_REANUDADAS",
+  ]);
+  assert.ok(evidencias.every((evidencia) => evidencia.schemaVersion === 2));
+  assert.deepEqual(evidencias.map((evidencia) => evidencia.detalle.estado), ["ACTIVA", "PAUSADA", "ACTIVA"]);
+  const obligaciones = [...db.docs.entries()]
+    .filter(([path]) => path.startsWith("saas_auditoria_obligaciones/"))
+    .map(([, obligacion]) => obligacion);
+  assert.ok(obligaciones.every((obligacion) => obligacion.schemaVersion === 1));
+  assert.ok(obligaciones.every((obligacion) => obligacion.evidencia.schemaVersion === 2));
 });
 
 test("ADR-SAAS-081: el mismo envelope es idempotente y una revisión obsoleta no cambia el control", async () => {
@@ -109,6 +125,17 @@ test("ADR-SAAS-081: el mismo envelope es idempotente y una revisión obsoleta no
   );
   assert.equal(db.docs.get("controles_release_compras/empresa-a")?.estado, "ACTIVA");
   assert.equal(db.docs.get("controles_release_compras/empresa-a")?.revision, 1);
+  assert.equal([...db.docs.keys()].filter((path) => path.startsWith("saas_auditoria/")).length, 1);
+});
+
+test("ADR-SAAS-084: inicializar directamente en PAUSADA sigue siendo inicialización, no pausa", async () => {
+  const db = new FakeFirestore(); seed(db);
+  const resultado = await transicionarPausaCompras(db as never, "op-release", token, entrada("inicial-pausada", "empresa-a", "PAUSADA", 0));
+  assert.deepEqual({ estado: resultado.estado, revision: resultado.revision }, { estado: "PAUSADA", revision: 1 });
+  const evidencia = [...db.docs.entries()]
+    .find(([path]) => path.startsWith("saas_auditoria/"))?.[1];
+  assert.equal(evidencia?.tipo, "COMPRAS_CONTROL_INICIALIZADO");
+  assert.equal(evidencia?.schemaVersion, 2);
 });
 
 test("ADR-SAAS-081: un control con estado ambiguo no se repara silenciosamente", async () => {

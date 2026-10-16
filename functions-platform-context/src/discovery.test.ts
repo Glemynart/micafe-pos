@@ -64,11 +64,12 @@ test("el build aislado contiene solo el cierre canónico permitido", () => {
       .filter((line) => line.startsWith(`${platformRoot}${sep}`));
     assert.deepEqual(sourceFiles, [
       resolve(platformRoot, "contracts.ts"),
+      resolve(platformRoot, "audit-evidence-contract.ts"),
       resolve(platformRoot, "audit.ts"),
       resolve(platformRoot, "authorization.ts"),
       resolve(platformRoot, "context-callable.ts"),
     ]);
-    for (const module of ["contracts", "audit", "authorization", "context-callable"]) {
+    for (const module of ["contracts", "audit-evidence-contract", "audit", "authorization", "context-callable"]) {
       assert.equal(existsSync(resolve(sourceRoot, "lib", "functions", "src", "platform", `${module}.js`)), true);
     }
   });

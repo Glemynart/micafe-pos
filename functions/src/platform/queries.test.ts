@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Timestamp } from "firebase-admin/firestore";
 import { consultarAuditoriaPlataforma, listarRecursosPlataforma, obtenerDetalleEmpresaPlataforma, validarFiltroAuditoria } from "./queries";
 
 test("la auditoría exige un filtro selectivo aprobado", () => {
@@ -70,6 +71,137 @@ test("H8 — los demás patrones conservan el límite máximo de 100", async () 
   await consultarAuditoriaPlataforma(db as never, { por: "correlacion", valor: "corr-1" }, 500);
   const limitCall = db.llamadas.find((l) => l.metodo === "limit");
   assert.equal(limitCall?.args[0], 100);
+});
+
+function evidenceFixture(overrides: Record<string, unknown> = {}) {
+  const time = Timestamp.fromMillis(1000);
+  return {
+    schemaVersion: 2,
+    evidenciaId: "d2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
+    tipo: "COMPRAS_CONTROL_INICIALIZADO",
+    resultado: "CONFIRMADO",
+    origen: "PLATAFORMA",
+    actor: { tipo: "OPERADOR", uid: "operator-a" },
+    facultad: "RELEASE_COMPRAS_GOBERNAR",
+    comando: { id: "cmd-1", tipo: "TransicionarPausaComprasSaas" },
+    agregado: { tipo: "CONTROL_RELEASE_COMPRAS", id: "empresa-a" },
+    empresaObjetivoId: "empresa-a",
+    revision: { esperada: 0, resultante: 1 },
+    correlacionId: "corr-1",
+    causacionId: null,
+    motivo: { codigo: "TEST", resumen: null },
+    soporte: null,
+    detalle: { estado: "ACTIVA", fingerprint: "a".repeat(64) },
+    ocurrioEn: time,
+    registradoEn: time,
+    ...overrides,
+  };
+}
+
+test("la proyección valida v1/v2, conserva detalles contractuales y clasifica estructuras y versiones desconocidas", async () => {
+  const v2 = evidenceFixture();
+  const v1 = evidenceFixture({
+    schemaVersion: 1,
+    evidenciaId: "a1b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
+    tipo: "COMPRAS_REANUDADAS",
+    revision: { esperada: 0, resultante: 1 },
+  });
+  const malformedV2 = evidenceFixture({
+    evidenciaId: "b2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
+    tipo: "COMPRAS_PAUSADAS",
+    detalle: { estado: "ACTIVA", fingerprint: "a".repeat(64) },
+  });
+  const malformedV1 = evidenceFixture({
+    schemaVersion: 1,
+    evidenciaId: "c2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
+    tipo: "COMPRAS_REANUDADAS",
+    detalle: { estado: "PAUSADA", fingerprint: "corta" },
+  });
+  const unknown = evidenceFixture({
+    schemaVersion: 99,
+    evidenciaId: "e2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
+    tipo: "FUTURO",
+    detalle: { campo: "no reinterpretar" },
+  });
+  const unknownType = evidenceFixture({
+    schemaVersion: 1,
+    evidenciaId: "f2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
+    tipo: "EVENTO_NO_ENUMERADO",
+  });
+  const unknownAggregate = evidenceFixture({
+    schemaVersion: 1,
+    evidenciaId: "a2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
+    agregado: { tipo: "AGREGADO_NO_ENUMERADO", id: "aggregate-a" },
+  });
+  const selfCausation = evidenceFixture({
+    schemaVersion: 1,
+    evidenciaId: "b5b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
+    causacionId: "b5b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
+  });
+  const selfCorrectionReferenceId = "b6b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a";
+  const selfCorrectionReference = evidenceFixture({
+    schemaVersion: 2,
+    evidenciaId: selfCorrectionReferenceId,
+    tipo: "COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA",
+    revision: { esperada: null, resultante: null },
+    causacionId: "causation-original",
+    detalle: {
+      evidenciaOriginalId: selfCorrectionReferenceId,
+      tipoOriginal: "COMPRAS_REANUDADAS",
+      tipoCorregido: "COMPRAS_CONTROL_INICIALIZADO",
+      revisionOriginal: { esperada: 0, resultante: 1 },
+      estadoDestinoOriginal: "ACTIVA",
+      ocurrioEnOriginal: Timestamp.fromMillis(900),
+    },
+  });
+  const db = {
+    collection: () => ({
+      where: () => ({
+        orderBy: () => ({
+          limit: () => ({
+            get: async () => ({ docs: [
+              { id: "d2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => v2 },
+              { id: "e2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => unknown },
+              { id: "a1b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => v1 },
+              { id: "b2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => malformedV2 },
+              { id: "c2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => malformedV1 },
+              { id: "f2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => unknownType },
+              { id: "a2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => unknownAggregate },
+              { id: "b5b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => selfCausation },
+              { id: selfCorrectionReferenceId, data: () => selfCorrectionReference },
+            ] }),
+          }),
+        }),
+      }),
+    }),
+  };
+  const resultado = await consultarAuditoriaPlataforma(db as never, { por: "tipo", valor: "COMPRAS_CONTROL_INICIALIZADO" });
+  assert.equal(resultado.items[0].id, "d2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a");
+  assert.equal(resultado.items[0].schemaVersion, 2);
+  assert.equal(resultado.items[0].compatibilidadSchemaVersion, "SOPORTADA", JSON.stringify(resultado.items[0]));
+  assert.deepEqual(resultado.items[0].detalle, { estado: "ACTIVA", fingerprint: "a".repeat(64) });
+  assert.equal(resultado.items[1].schemaVersion, 99);
+  assert.equal(resultado.items[1].tipo, "FUTURO");
+  assert.equal(resultado.items[1].compatibilidadSchemaVersion, "NO_SOPORTADA");
+  assert.equal(resultado.items[1].diagnosticoCompatibilidad, "VERSION_NO_SOPORTADA");
+  assert.equal("detalle" in resultado.items[1], false);
+  assert.equal(resultado.items[2].schemaVersion, 1);
+  assert.equal(resultado.items[2].compatibilidadSchemaVersion, "SOPORTADA");
+  assert.deepEqual(resultado.items[2].detalle, { estado: "ACTIVA", fingerprint: "a".repeat(64) });
+  assert.equal(resultado.items[3].compatibilidadSchemaVersion, "INVALIDA");
+  assert.equal(resultado.items[3].diagnosticoCompatibilidad, "DETALLE_V2_INVALIDO");
+  assert.equal(resultado.items[4].compatibilidadSchemaVersion, "INVALIDA");
+  assert.equal(resultado.items[4].diagnosticoCompatibilidad, "DETALLE_V1_INVALIDO");
+  assert.equal(resultado.items[5].compatibilidadSchemaVersion, "INVALIDA");
+  assert.equal(resultado.items[5].diagnosticoCompatibilidad, "TIPO_INVALIDO");
+  assert.equal(resultado.items[6].compatibilidadSchemaVersion, "INVALIDA");
+  assert.equal(resultado.items[6].diagnosticoCompatibilidad, "AGREGADO_INVALIDO");
+  assert.equal(resultado.items[7].compatibilidadSchemaVersion, "INVALIDA");
+  assert.equal(resultado.items[7].diagnosticoCompatibilidad, "CAUSACION_INVALIDA");
+  assert.equal(resultado.items[8].compatibilidadSchemaVersion, "INVALIDA");
+  assert.equal(resultado.items[8].diagnosticoCompatibilidad, "DETALLE_V2_INVALIDO");
+  assert.equal("detalle" in resultado.items[3], false, "no proyecta como válida una forma malformada");
+  assert.equal("detalle" in resultado.items[5], false, "no expone detalles de tipos de evento desconocidos");
 });
 
 // El campo de ordenación de cada recurso debe coincidir con el que su agregado
