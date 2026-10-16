@@ -160,6 +160,24 @@ test("el escritor canónico rechaza taxonomías runtime desconocidas aunque Type
   })), /AUDIT_TYPE_INVALID/);
 });
 
+test("el escritor rechaza causacionId igual al ID de la evidencia propia", async () => {
+  const db = new FakeDb();
+  const evidenciaId = "b5b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a";
+  await assert.rejects(db.runTransaction(async (tx) => crearObligacionAuditoria(db as never, tx, {
+    tipo: "OPERADOR_INCORPORADO",
+    resultado: "CONFIRMADO",
+    actor: { tipo: "SISTEMA", uid: null },
+    facultad: null,
+    comando: { id: "cmd-self-causation", tipo: "Test" },
+    agregado: { tipo: "OPERADOR", id: "operator-a" },
+    empresaObjetivoId: null,
+    revision: { esperada: null, resultante: null },
+    correlacionId: "corr-self-causation",
+    causacionId: evidenciaId,
+    motivo: { codigo: "TEST", resumen: null },
+  }, { obligacionId: "obligation-self-causation", evidenciaId })), /AUDIT_CAUSATION_INVALID/);
+});
+
 test("ADR-SAAS-084: la corrección solo se crea al verificar transaccionalmente su evidencia fuente y no la modifica", async () => {
   const db = new FakeDb();
   const originalId = "d2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a";

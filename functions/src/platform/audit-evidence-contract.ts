@@ -138,6 +138,7 @@ function validarEnvoltura(docId: string, data: Record<string, unknown>): string 
   }
   if (typeof data.correlacionId !== "string" || !data.correlacionId || data.correlacionId.length > 128) return "CORRELACION_INVALIDA";
   if (data.causacionId !== null && (typeof data.causacionId !== "string" || !data.causacionId || data.causacionId.length > 128)) return "CAUSACION_INVALIDA";
+  if (data.causacionId === docId) return "CAUSACION_INVALIDA";
   if (!objetoExacto(data.motivo, ["codigo", "resumen"]) || typeof data.motivo.codigo !== "string"
     || !data.motivo.codigo || data.motivo.codigo.length > 128
     || (data.motivo.resumen !== null && (typeof data.motivo.resumen !== "string" || data.motivo.resumen.length > 256))) return "MOTIVO_INVALIDO";

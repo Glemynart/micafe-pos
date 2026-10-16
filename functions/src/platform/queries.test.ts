@@ -133,6 +133,11 @@ test("la proyección valida v1/v2, conserva detalles contractuales y clasifica e
     evidenciaId: "a2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
     agregado: { tipo: "AGREGADO_NO_ENUMERADO", id: "aggregate-a" },
   });
+  const selfCausation = evidenceFixture({
+    schemaVersion: 1,
+    evidenciaId: "b5b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
+    causacionId: "b5b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
+  });
   const db = {
     collection: () => ({
       where: () => ({
@@ -146,6 +151,7 @@ test("la proyección valida v1/v2, conserva detalles contractuales y clasifica e
               { id: "c2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => malformedV1 },
               { id: "f2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => unknownType },
               { id: "a2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => unknownAggregate },
+              { id: "b5b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a", data: () => selfCausation },
             ] }),
           }),
         }),
@@ -173,6 +179,8 @@ test("la proyección valida v1/v2, conserva detalles contractuales y clasifica e
   assert.equal(resultado.items[5].diagnosticoCompatibilidad, "TIPO_INVALIDO");
   assert.equal(resultado.items[6].compatibilidadSchemaVersion, "INVALIDA");
   assert.equal(resultado.items[6].diagnosticoCompatibilidad, "AGREGADO_INVALIDO");
+  assert.equal(resultado.items[7].compatibilidadSchemaVersion, "INVALIDA");
+  assert.equal(resultado.items[7].diagnosticoCompatibilidad, "CAUSACION_INVALIDA");
   assert.equal("detalle" in resultado.items[3], false, "no proyecta como válida una forma malformada");
   assert.equal("detalle" in resultado.items[5], false, "no expone detalles de tipos de evento desconocidos");
 });
