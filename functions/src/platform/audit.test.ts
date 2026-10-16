@@ -191,6 +191,29 @@ test("ADR-SAAS-084: la corrección solo se crea al verificar transaccionalmente 
     comando: { id: "cmd-correction-null", tipo: "AclararClasificacionAuditoriaCompras" },
     motivo: { codigo: "CORRECCION_SEMANTICA_AUDITORIA", resumen: null },
   }, "missing")), /AUDIT_CORRECTION_SOURCE_NOT_FOUND/);
+  for (const [suffix, timestamp, override] of [
+    ["null", null, {}],
+    ["empty", {}, {}],
+    ["wrong-type", "1000", {}],
+    ["mismatch", Timestamp.fromMillis(2000), {}],
+    ["wrong-source", undefined, { tipo: "COMPRAS_PAUSADAS" }],
+    ["wrong-revision", undefined, { revision: { esperada: 1, resultante: 2 } }],
+    ["wrong-state", undefined, { detalle: { estado: "PAUSADA", fingerprint: "a".repeat(64) } }],
+  ] as const) {
+    const malformedId = `source-${suffix}`;
+    db.docs.set(`saas_auditoria/${malformedId}`, {
+      ...original,
+      evidenciaId: malformedId,
+      ocurrioEn: Timestamp.fromMillis(1000),
+      ...(timestamp !== undefined ? { ocurrioEn: timestamp } : {}),
+      ...override,
+    });
+    await assert.rejects(db.runTransaction(async (tx) => crearObligacionAuditoriaCorreccion(db as never, tx, {
+      actor: { tipo: "SISTEMA", uid: null }, facultad: null,
+      comando: { id: `cmd-${suffix}`, tipo: "AclararClasificacionAuditoriaCompras" },
+      motivo: { codigo: "CORRECCION_SEMANTICA_AUDITORIA", resumen: null },
+    }, malformedId)), /AUDIT_CORRECTION_SOURCE_(?:INVALID|TIMESTAMP_INVALID)/, suffix);
+  }
   await db.runTransaction(async (tx) => {
     assert.throws(() => crearObligacionAuditoria(db as never, tx, {
       schemaVersion: 2,

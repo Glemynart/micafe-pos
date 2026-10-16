@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Timestamp } from "firebase-admin/firestore";
 import { consultarAuditoriaPlataforma, listarRecursosPlataforma, obtenerDetalleEmpresaPlataforma, validarFiltroAuditoria } from "./queries";
 
 test("la auditoría exige un filtro selectivo aprobado", () => {
@@ -72,29 +73,67 @@ test("H8 — los demás patrones conservan el límite máximo de 100", async () 
   assert.equal(limitCall?.args[0], 100);
 });
 
-test("la proyección conserva schemaVersion y detalle de v2, y hace explícita una versión desconocida", async () => {
+function evidenceFixture(overrides: Record<string, unknown> = {}) {
+  const time = Timestamp.fromMillis(1000);
+  return {
+    schemaVersion: 2,
+    evidenciaId: "evidencia-v2",
+    tipo: "COMPRAS_CONTROL_INICIALIZADO",
+    resultado: "CONFIRMADO",
+    origen: "PLATAFORMA",
+    actor: { tipo: "OPERADOR", uid: "operator-a" },
+    facultad: "RELEASE_COMPRAS_GOBERNAR",
+    comando: { id: "cmd-1", tipo: "TransicionarPausaComprasSaas" },
+    agregado: { tipo: "CONTROL_RELEASE_COMPRAS", id: "empresa-a" },
+    empresaObjetivoId: "empresa-a",
+    revision: { esperada: 0, resultante: 1 },
+    correlacionId: "corr-1",
+    causacionId: null,
+    motivo: { codigo: "TEST", resumen: null },
+    soporte: null,
+    detalle: { estado: "ACTIVA", fingerprint: "a".repeat(64) },
+    ocurrioEn: time,
+    registradoEn: time,
+    ...overrides,
+  };
+}
+
+test("la proyección valida v1/v2, conserva detalles contractuales y clasifica estructuras y versiones desconocidas", async () => {
+  const v2 = evidenceFixture();
+  const v1 = evidenceFixture({
+    schemaVersion: 1,
+    evidenciaId: "evidencia-v1-historica",
+    tipo: "COMPRAS_REANUDADAS",
+    revision: { esperada: 0, resultante: 1 },
+  });
+  const malformedV2 = evidenceFixture({
+    evidenciaId: "evidencia-v2-malformada",
+    tipo: "COMPRAS_PAUSADAS",
+    detalle: { estado: "ACTIVA", fingerprint: "a".repeat(64) },
+  });
+  const malformedV1 = evidenceFixture({
+    schemaVersion: 1,
+    evidenciaId: "evidencia-v1-malformada",
+    tipo: "COMPRAS_REANUDADAS",
+    detalle: { estado: "PAUSADA", fingerprint: "corta" },
+  });
+  const unknown = evidenceFixture({
+    schemaVersion: 99,
+    evidenciaId: "evidencia-desconocida",
+    tipo: "FUTURO",
+    detalle: { campo: "no reinterpretar" },
+  });
   const db = {
     collection: () => ({
       where: () => ({
         orderBy: () => ({
           limit: () => ({
             get: async () => ({ docs: [
-              {
-                id: "evidencia-v2",
-                data: () => ({
-                  schemaVersion: 2,
-                  tipo: "COMPRAS_CONTROL_INICIALIZADO",
-                  detalle: { estado: "ACTIVA", fingerprint: "a".repeat(64) },
-                }),
-              },
-              {
-                id: "evidencia-desconocida",
-                data: () => ({ schemaVersion: 99, tipo: "FUTURO", detalle: { campo: "no reinterpretar" } }),
-              },
-              {
-                id: "evidencia-v1-historica",
-                data: () => ({ schemaVersion: 1, tipo: "COMPRAS_REANUDADAS", detalle: { estado: "ACTIVA" } }),
-              },
+              { id: "evidencia-v2", data: () => v2 },
+              { id: "evidencia-desconocida", data: () => unknown },
+              { id: "evidencia-v1-historica", data: () => v1 },
+              { id: "evidencia-v2-malformada", data: () => malformedV2 },
+              { id: "evidencia-v1-malformada", data: () => malformedV1 },
             ] }),
           }),
         }),
@@ -102,27 +141,23 @@ test("la proyección conserva schemaVersion y detalle de v2, y hace explícita u
     }),
   };
   const resultado = await consultarAuditoriaPlataforma(db as never, { por: "tipo", valor: "COMPRAS_CONTROL_INICIALIZADO" });
-  assert.deepEqual(resultado.items[0], {
-    id: "evidencia-v2",
-    schemaVersion: 2,
-    tipo: "COMPRAS_CONTROL_INICIALIZADO",
-    detalle: { estado: "ACTIVA", fingerprint: "a".repeat(64) },
-    compatibilidadSchemaVersion: "SOPORTADA",
-  });
-  assert.deepEqual(resultado.items[1], {
-    id: "evidencia-desconocida",
-    schemaVersion: 99,
-    tipo: "FUTURO",
-    detalle: { campo: "no reinterpretar" },
-    compatibilidadSchemaVersion: "NO_SOPORTADA",
-  });
-  assert.deepEqual(resultado.items[2], {
-    id: "evidencia-v1-historica",
-    schemaVersion: 1,
-    tipo: "COMPRAS_REANUDADAS",
-    detalle: { estado: "ACTIVA" },
-    compatibilidadSchemaVersion: "SOPORTADA",
-  });
+  assert.equal(resultado.items[0].id, "evidencia-v2");
+  assert.equal(resultado.items[0].schemaVersion, 2);
+  assert.equal(resultado.items[0].compatibilidadSchemaVersion, "SOPORTADA");
+  assert.deepEqual(resultado.items[0].detalle, { estado: "ACTIVA", fingerprint: "a".repeat(64) });
+  assert.equal(resultado.items[1].schemaVersion, 99);
+  assert.equal(resultado.items[1].tipo, "FUTURO");
+  assert.equal(resultado.items[1].compatibilidadSchemaVersion, "NO_SOPORTADA");
+  assert.equal(resultado.items[1].diagnosticoCompatibilidad, "VERSION_NO_SOPORTADA");
+  assert.equal("detalle" in resultado.items[1], false);
+  assert.equal(resultado.items[2].schemaVersion, 1);
+  assert.equal(resultado.items[2].compatibilidadSchemaVersion, "SOPORTADA");
+  assert.deepEqual(resultado.items[2].detalle, { estado: "ACTIVA", fingerprint: "a".repeat(64) });
+  assert.equal(resultado.items[3].compatibilidadSchemaVersion, "INVALIDA");
+  assert.equal(resultado.items[3].diagnosticoCompatibilidad, "DETALLE_V2_INVALIDO");
+  assert.equal(resultado.items[4].compatibilidadSchemaVersion, "INVALIDA");
+  assert.equal(resultado.items[4].diagnosticoCompatibilidad, "DETALLE_V1_INVALIDO");
+  assert.equal("detalle" in resultado.items[3], false, "no proyecta como válida una forma malformada");
 });
 
 // El campo de ordenación de cada recurso debe coincidir con el que su agregado
