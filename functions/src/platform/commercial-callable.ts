@@ -1,6 +1,6 @@
 import { getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { exigirRuntimeOfertaTenantStaging } from "./approved-tenant-offers";
+import { exigirRuntimeOfertaTenantPermitido } from "./approved-tenant-offers";
 import { autorizarPlataforma, type TokenPlataforma } from "./authorization";
 import { facultadTransicionEmpresa, obtenerComandoComercial } from "./command-catalog";
 import { ejecutarComandoComercial } from "./commercial-command-executor";
@@ -25,7 +25,7 @@ export const ejecutarComandoComercialSaas = onCall({ region: REGION }, async (re
     throw new HttpsError("invalid-argument", "ENTRADA_COMANDO_INVALIDA");
   }
   if (["CrearOfertaComercialTenant", "AprobarOfertaComercialTenant", "RevocarOfertaComercialTenant"].includes(comando.tipo)) {
-    exigirRuntimeOfertaTenantStaging();
+    exigirRuntimeOfertaTenantPermitido();
   }
   const db = getFirestore();
   const entrada = data.entrada as { destino?: unknown; empresaId?: unknown };
@@ -42,7 +42,7 @@ export const consultarOfertaComercialTenantSaas = onCall({ region: REGION }, asy
   const data = request.data as { codigoAprobacion?: unknown };
   const db = getFirestore();
   await autorizarPlataforma(db, auth.uid, auth.token as TokenPlataforma, "COMERCIAL_GOBERNAR");
-  exigirRuntimeOfertaTenantStaging();
+  exigirRuntimeOfertaTenantPermitido();
   if (typeof data?.codigoAprobacion !== "string") {
     throw new HttpsError("invalid-argument", "OFERTA_COMERCIAL_INVALIDA");
   }

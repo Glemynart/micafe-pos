@@ -75,12 +75,12 @@ export function resolverTerminosOfertaTenantAprobada(
   return { ...aprobacion, precioAcordado: { ...aprobacion.precioAcordado } };
 }
 
-const RUNTIME_STAGING = "micafe-pos-staging";
+const PROJECT_IDS_RUNTIME_PERMITIDOS = new Set(["micafe-pos", "micafe-pos-staging"]);
 
-export function exigirRuntimeOfertaTenantStaging(
+export function exigirRuntimeOfertaTenantPermitido(
   projectId = process.env.GCLOUD_PROJECT ?? process.env.GCP_PROJECT,
 ): void {
-  if (projectId !== RUNTIME_STAGING) {
+  if (!projectId || !PROJECT_IDS_RUNTIME_PERMITIDOS.has(projectId)) {
     throw new HttpsError("failed-precondition", "OFERTA_COMERCIAL_RUNTIME_DENIED");
   }
 }
