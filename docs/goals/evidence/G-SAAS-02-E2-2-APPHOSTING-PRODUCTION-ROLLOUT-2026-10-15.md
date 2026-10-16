@@ -88,3 +88,82 @@ tenant, membresía, catálogo o Trial de Diana.
   estaba `IN_PROGRESS` y Vercel Preview/Preview Comments estaban `SUCCESS`.
   Esta actualización documental genera un HEAD nuevo y requiere validar sus
   propios checks antes de integrar el registro.
+
+## Revalidación de solo lectura posterior a los merges — 2026-10-16
+
+Esta sección agrega una observación posterior sin alterar la evidencia
+histórica del primer rollout. Consultas de App Hosting, Rules, Functions y HTTP
+fueron realizadas el 2026-10-16 entre `19:21:32Z` y `19:27:02Z`; el SHA de
+`main` y el CI se verificaron después, antes de registrar esta actualización.
+
+### Candidato integrado y hosting observado
+
+- `main`: `51d8ec2e4d1e7713a221f1ccf76e3b0da510c354`.
+- CI post-merge: run `38839943997`, `completed/success` para ese SHA.
+- PR #610, #612 y #613 están `MERGED`. PR #613 integró la implementación de
+  ADR-SAAS-084; esto no demuestra que Functions remotas la ejecuten.
+- App Hosting devolvió el backend
+  `projects/micafe-pos/locations/us-central1/backends/micafe-pos`, URL
+  `https://micafe-pos--micafe-pos.us-central1.hosted.app`, runtime `nodejs24`,
+  repositorio `Glemynart/micafe-pos`, rollouts automáticos desactivados y
+  runtime service account
+  `firebase-app-hosting-compute@micafe-pos.iam.gserviceaccount.com`.
+- Build `build-2026-10-15-001`: `READY`; rollout homónimo: `SUCCEEDED`; tráfico
+  observado: 100 % a ese build, cuyo SHA es
+  `5c5c4fdd9164abdca0fe05c9fddb51cea8559a29`. Ese SHA antecede al `main`
+  actual. No se inició un nuevo build ni rollout en esta revalidación.
+- HTTP, sin autenticación: `/` y `/backoffice/operadores` respondieron `200`;
+  `/api/usuarios/tenant` respondió `401`. Esto verifica disponibilidad y
+  rechazo anónimo, no una sesión ni una operación autenticada de gobernanza.
+
+### Functions y Firestore Rules observadas
+
+- La lista productiva de `us-central1` contenía 105 Functions; las funciones
+  relevantes estaban `ACTIVE` en Node.js 22. `registrarCompraBodegaV1` tenía
+  `updateTime=2026-10-14T09:29:23.381Z`,
+  `registrarCompraOperativaV1` `2026-10-15T16:50:25.789Z`,
+  `transicionarPausaComprasSaas` `2026-10-15T16:50:26.772Z` y
+  `cambiarFacultadesOperadorSaas` `2026-10-15T17:12:00.495Z`.
+- Esas actualizaciones preceden al merge de PR #613. No se obtuvo en esta
+  observación un hash de fuente/artefacto que permita afirmar igualdad o
+  divergencia exacta con el código de #613; la reconciliación queda pendiente.
+- La release activa de Firestore Rules era
+  `projects/micafe-pos/releases/cloud.firestore`, ruleset
+  `d5e205db-0ab4-4db1-b5ec-1534bee39d35`, actualizado
+  `2026-08-15T04:20:46.318849Z`. Hash SHA-256 raw UTF-8 del source remoto:
+  `fca6363aa98360535306bd13d70418888760645cd5c5e54ada5c83ceb2f6a887`
+  (14.846 bytes). El source candidato de `main` tenía hash raw UTF-8
+  `b8fb7ddd5370ddaa3784db4921b2bbbc71e51f285ffde912c3b0650ab1517fdf`
+  (18.961 bytes). Ese hash candidato se verificó sobre los bytes canónicos del
+  Git blob en `main`; el checkout Windows tiene `core.autocrlf=true`, por lo
+  que el hash del archivo de trabajo con finales de línea locales no es
+  comparable al hash raw del artefacto remoto.
+- La diferencia de hashes confirma que los bytes de fuente no coinciden; no
+  constituye por sí sola un diff semántico ni vuelve a confirmar una matriz de
+  permisos por ruta. No se desplegaron Rules ni Functions durante esta
+  revalidación.
+
+### Gobernanza y onboarding
+
+- La última evidencia de sesión autenticada productiva continúa siendo la
+  consulta de solo lectura del `2026-10-15 13:08 America/Bogota`: el UID de
+  sesión terminado en `RZ2` estaba activo y tenía `OPERADORES_GOBERNAR` y
+  `RELEASE_COMPRAS_GOBERNAR`. La proyección no expuso correo ni relación
+  principal/secundario. No acredita `BOOTSTRAP_EMPRESARIAL_SOLICITAR` ni fue
+  revalidada el 16-oct.
+- No se determinó el alcance de pausa de compras: siguen faltando IDs exactos
+  de tenants, responsables y ventana. No se inicializó ni pausó ningún control
+  productivo.
+- La última documentación disponible decía que no se había creado el tenant
+  de Distribuidora Las Jiménez ni iniciado su Trial, pero esta revalidación no
+  hizo una lectura canónica de duplicados. Antes de Bootstrap se debe consultar
+  el estado canónico para evitar un tenant duplicado.
+- El smoke cross-tenant permanece `NOT EXECUTED`, no `PASS`. Su postergación no
+  bloquea el Trial inicial por la decisión registrada del administrador, pero
+  no certifica aislamiento multi-tenant. La fecha objetivo `2026-10-15` ya
+  pasó y no hay una nueva fecha confirmada. No existe archivo digital
+  aprobado del catálogo; no se importan catálogo ni existencias.
+
+La revalidación no realizó mutaciones. Gate I y E2.2 permanecen incompletos;
+el rollout exitoso de App Hosting no certifica Rules, Functions, gobernanza,
+provisioning, Trial ni acceso real de Diana.

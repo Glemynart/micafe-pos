@@ -65,10 +65,10 @@ El entorno de ensayo vigente es Firebase App Hosting, no un Preview de Vercel:
 - Proyecto/backend/región: `micafe-pos-staging` / `micafe-pos` / `us-central1`.
 - Rollout observado: `build-2026-10-15-001`, `SUCCEEDED`, 100% de tráfico al build en la lectura registrada.
 - Código del build: `a460f4d33be2ef08991fd0ed898c3e7e24c724b1`; `origin/main` avanzó después a `88d3644a4763b7ca236c58235450c7a946a13dd4` con cambios documentales, sin cambios de aplicación desde el rollout.
-- Runtime: Node 24. Next.js `16.4.1` está en canal Preview de App Hosting. La aceptación limitada del riesgo para el candidato productivo está registrada en `ADR-SAAS-083`; no equivale a soporte activo ni autoriza crear el backend, configurar IAM/variables o iniciar un rollout.
-- Evidencia del rollout y smoke HTTP: [primer rollout de App Hosting](evidence/G-SAAS-02-E2-2-APPHOSTING-FIRST-ROLLOUT-2026-10-15.md).
+- Runtime: Node 24. Next.js `16.4.1` sigue en canal Preview de App Hosting. La aceptación limitada del riesgo para producción está registrada en `ADR-SAAS-083`; no equivale a soporte activo. El backend productivo se creó y tuvo un primer rollout manual autorizado el `2026-10-15`; esto no autoriza otro rollout ni cambios posteriores.
+- Evidencia de staging: [primer rollout staging](evidence/G-SAAS-02-E2-2-APPHOSTING-FIRST-ROLLOUT-2026-10-15.md). Evidencia productiva y revalidación: [rollout y seguimiento read-only](evidence/G-SAAS-02-E2-2-APPHOSTING-PRODUCTION-ROLLOUT-2026-10-15.md).
 
-La relectura de solo lectura del `2026-10-15T14:14:55Z` encontró 58/58 Functions de staging activas en Node.js 22, incluidas `registrarCompraBodegaV1` y `transicionarPausaComprasSaas`. Sin embargo, las Firestore Rules del proyecto no coinciden con `origin/main`: hash desplegado `69560ea6998352400eca77ce5dfb851864e196053b634f77e4bacd8674769fbb`, frente a `b8fb7ddd5370ddaa3784db4921b2bbbc71e51f285ffde912c3b0650ab1517fdf` en el SHA objetivo. Por ello, este ensayo todavía no certifica la autorización remota ni el aislamiento completo; no desplegar Rules a producción ni provisionar un tenant real basándose solo en el rollout web o en el inventario de Functions.
+La última relectura documentada de staging (`2026-10-15T14:14:55Z`) encontró 58/58 Functions activas en Node.js 22, incluidas `registrarCompraBodegaV1` y `transicionarPausaComprasSaas`, y una diferencia de hash entre Rules desplegadas (`69560ea6998352400eca77ce5dfb851864e196053b634f77e4bacd8674769fbb`) y el candidato entonces comparado (`b8fb7ddd5370ddaa3784db4921b2bbbc71e51f285ffde912c3b0650ab1517fdf`). Esa lectura es histórica, no una verificación del estado remoto actual. No acredita compatibilidad de Rules, autorización remota ni aislamiento completo; cualquier decisión de Rules requiere una relectura y comparación semántica vigentes, con sus prerrequisitos independientes.
 
 Antes de provisionar un tenant real, el ensayo debe completar el Bootstrap canónico con `vertical: BODEGA_MVP1` y una identidad de prueba autorizada, confirmar que las Functions y Rules de staging corresponden al SHA probado, verificar los permisos y la configuración de tenant, y comprobar la disponibilidad de secretos operativos requeridos sin exponer valores. El smoke autenticado read-only de staging está registrado en [su evidencia](evidence/G-SAAS-02-E2-2-STAGING-AUTHENTICATED-READONLY-SMOKE-2026-10-15.md): sesión admin persistente y lectura seller pasaron en el alcance observado. El negativo cross-tenant sigue `NOT EXECUTED` y es no bloqueante para iniciar el Trial inicial de Diana por decisión del administrador; no es `PASS` y sigue pendiente para certificar aislamiento multi-tenant. Si una precondición de seguridad aplicable falla, no crear Distribuidora Las Jiménez, usuarios reales ni datos comerciales.
 
@@ -80,13 +80,14 @@ habilita readiness fiscal; los vendedores y sus roles los creará Diana. No se
 registran esos datos durante la preparación ni se confunden con datos del
 fixture.
 
-### 2.1.1 Preparación específica del Trial de Diana (2026-10-14)
+### 2.1.1 Preparación específica del Trial de Diana (revisión 2026-10-16)
 
-- Fecha acordada: `2026-10-15`. El administrador del proyecto confirma el
-  `2026-10-14` que Diana se la comunicó directamente; el runbook registra esta
-  atestación del administrador, sin almacenar la comunicación original. No
-  crear/activar el tenant ni iniciar el Trial hasta completar las
-  verificaciones, gates y autorizaciones aplicables.
+- Fecha objetivo previamente comunicada: `2026-10-15`, según atestación del
+  administrador del `2026-10-14`, sin almacenar la comunicación original.
+  Esa fecha ya transcurrió al revisar este runbook el `2026-10-16`; no hay una
+  fecha nueva confirmada. No se reinicia ni se inicia el Trial por calendario.
+  El tenant y el Trial siguen sujetos a las verificaciones, gates y
+  autorizaciones aplicables.
 - Cliente previsto: Distribuidora Las Jiménez, vertical `BODEGA_MVP1`;
   Diana será la administradora inicial y creará los usuarios vendedores y
   asignará sus roles. Los datos comerciales reales se capturan en su primer
@@ -282,16 +283,26 @@ Antes del Trial se registra:
 
 El deployment productivo, capacidad y SHA de Vercel son
 `NOT APPLICABLE TO CURRENT RELEASE` por ADR-SAAS-083. Las referencias Vercel en
-snapshots anteriores son históricas, no bloquean el release. La lectura del
-2026-10-15 encontró el backend de staging operativo y ningún backend App
-Hosting en el proyecto productivo `micafe-pos`; por tanto, la publicación web
-productiva sigue sin ejecutar y requiere preflight del backend productivo,
-configuración exclusiva de producción, identidad IAM y resolución del riesgo
-Preview de Next.js.
+snapshots anteriores son históricas, no bloquean el release. El backend
+productivo `micafe-pos` en `us-central1` fue creado y recibió un rollout manual
+autorizado: `build-2026-10-15-001` quedó `READY`, su rollout `SUCCEEDED` y se
+observó 100 % del tráfico hacia el SHA `5c5c4fdd9164abdca0fe05c9fddb51cea8559a29`.
+La relectura del `2026-10-16T19:24:46Z` confirmó esa configuración y que los
+rollouts automáticos siguen desactivados. `main` avanzó después a
+`51d8ec2e4d1e7713a221f1ccf76e3b0da510c354`; por tanto, el rollout exitoso no
+prueba que producción sirva el `main` actual. No se ha autorizado otro rollout.
 
-El preflight vigente, sus estados `PREPARADO` y `AUTORIZACIÓN PENDIENTE`, y
-la secuencia de recuperación están en
-[App Hosting production preflight](evidence/G-SAAS-02-E2-2-APPHOSTING-PRODUCTION-PREFLIGHT-2026-10-15.md).
+La respuesta HTTP `200` de `/` y `/backoffice/operadores` confirma únicamente
+que esas rutas responden. La API probada sin sesión devolvió `401`; no es una
+prueba de gobernanza autenticada. La revisión read-only de Rules reportó un
+hash raw remoto diferente del código candidato; aún hace falta reconciliación
+semántica vigente. Las Functions relevantes aparecen activas, pero sus
+actualizaciones observadas preceden al merge de PR #613; no se reconcilió el
+artefacto remoto con el código actual. Estos resultados no cierran Gate I.
+
+El preflight de creación conserva valor histórico; el estado posterior del
+backend, el rollout y sus límites están en
+[la evidencia productiva de App Hosting](evidence/G-SAAS-02-E2-2-APPHOSTING-PRODUCTION-ROLLOUT-2026-10-15.md).
 
 En la observación del `2026-08-15T04:29:09Z`, las 79 Functions activas de
 `origin/main @ 7d9078f` y las Rules/Storage desplegadas quedaron reconciliadas
