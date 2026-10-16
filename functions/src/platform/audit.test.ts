@@ -110,6 +110,56 @@ test("el reconciliador emite exactamente una evidencia para una obligación pend
   assert.equal([...db.docs.keys()].filter((path) => path.startsWith("saas_auditoria/")).length, 1);
 });
 
+test("ADR-SAAS-084: el escritor conserva v1 exterior y admite únicamente la aclaración v2 con referencia UUID", async () => {
+  const db = new FakeDb();
+  let ids: { obligacionId: string; evidenciaId: string } | undefined;
+  await db.runTransaction(async (tx) => {
+    ids = crearObligacionAuditoria(db as never, tx, {
+      schemaVersion: 2,
+      tipo: "COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA",
+      resultado: "CONFIRMADO",
+      actor: { tipo: "SISTEMA", uid: null },
+      facultad: null,
+      comando: { id: "cmd-aclaracion", tipo: "AclararClasificacionAuditoriaCompras" },
+      agregado: { tipo: "CONTROL_RELEASE_COMPRAS", id: "empresa-a" },
+      empresaObjetivoId: "empresa-a",
+      revision: { esperada: null, resultante: null },
+      correlacionId: "corr-original",
+      causacionId: "cmd-causal-original",
+      motivo: { codigo: "CORRECCION_SEMANTICA_AUDITORIA", resumen: null },
+      detalle: {
+        evidenciaOriginalId: "d2b2a1b1-3ff9-4f84-896a-9fb0e86d0e1a",
+        tipoOriginal: "COMPRAS_REANUDADAS",
+        tipoCorregido: "COMPRAS_CONTROL_INICIALIZADO",
+        revisionOriginal: { esperada: 0, resultante: 1 },
+        estadoDestinoOriginal: "ACTIVA",
+        ocurrioEnOriginal: { timestampMillis: 1 },
+      },
+    });
+  });
+  const obligacion = db.docs.get(`saas_auditoria_obligaciones/${ids!.obligacionId}`);
+  assert.equal(obligacion.schemaVersion, 1);
+  assert.equal(obligacion.evidencia.schemaVersion, 2);
+  assert.equal(obligacion.evidencia.evidenciaId, ids!.evidenciaId);
+
+  await db.runTransaction(async (tx) => {
+    assert.throws(() => crearObligacionAuditoria(db as never, tx, {
+      schemaVersion: 2,
+      tipo: "COMPRAS_AUDITORIA_CLASIFICACION_CORREGIDA",
+      resultado: "CONFIRMADO",
+      actor: { tipo: "SISTEMA", uid: null }, facultad: null,
+      comando: { id: "cmd-invalido", tipo: "AclararClasificacionAuditoriaCompras" },
+      agregado: { tipo: "CONTROL_RELEASE_COMPRAS", id: "empresa-a" }, empresaObjetivoId: "empresa-a",
+      revision: { esperada: null, resultante: null }, correlacionId: "corr-original", causacionId: "cmd-causal-original",
+      motivo: { codigo: "CORRECCION_SEMANTICA_AUDITORIA", resumen: null },
+      detalle: {
+        evidenciaOriginalId: "no-es-uuid", tipoOriginal: "COMPRAS_REANUDADAS", tipoCorregido: "COMPRAS_CONTROL_INICIALIZADO",
+        revisionOriginal: { esperada: 0, resultante: 1 }, estadoDestinoOriginal: "ACTIVA", ocurrioEnOriginal: { timestampMillis: 1 },
+      },
+    }), /AUDIT_EVIDENCE_V2_DETAIL_INVALID/);
+  });
+});
+
 test("no confirma una obligacion cuando la evidencia preexistente difiere", async () => {
   const db = new FakeDb();
   let obligacionId = "";

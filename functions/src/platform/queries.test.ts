@@ -72,6 +72,48 @@ test("H8 — los demás patrones conservan el límite máximo de 100", async () 
   assert.equal(limitCall?.args[0], 100);
 });
 
+test("la proyección conserva schemaVersion y detalle de v2, y hace explícita una versión desconocida", async () => {
+  const db = {
+    collection: () => ({
+      where: () => ({
+        orderBy: () => ({
+          limit: () => ({
+            get: async () => ({ docs: [
+              {
+                id: "evidencia-v2",
+                data: () => ({
+                  schemaVersion: 2,
+                  tipo: "COMPRAS_CONTROL_INICIALIZADO",
+                  detalle: { estado: "ACTIVA", fingerprint: "a".repeat(64) },
+                }),
+              },
+              {
+                id: "evidencia-desconocida",
+                data: () => ({ schemaVersion: 99, tipo: "FUTURO", detalle: { campo: "no reinterpretar" } }),
+              },
+            ] }),
+          }),
+        }),
+      }),
+    }),
+  };
+  const resultado = await consultarAuditoriaPlataforma(db as never, { por: "tipo", valor: "COMPRAS_CONTROL_INICIALIZADO" });
+  assert.deepEqual(resultado.items[0], {
+    id: "evidencia-v2",
+    schemaVersion: 2,
+    tipo: "COMPRAS_CONTROL_INICIALIZADO",
+    detalle: { estado: "ACTIVA", fingerprint: "a".repeat(64) },
+    compatibilidadSchemaVersion: "SOPORTADA",
+  });
+  assert.deepEqual(resultado.items[1], {
+    id: "evidencia-desconocida",
+    schemaVersion: 99,
+    tipo: "FUTURO",
+    detalle: { campo: "no reinterpretar" },
+    compatibilidadSchemaVersion: "NO_SOPORTADA",
+  });
+});
+
 // El campo de ordenación de cada recurso debe coincidir con el que su agregado
 // persiste realmente. Un `orderBy` sobre un campo inexistente no lanza error:
 // Firestore excluye los documentos que no lo tienen y el listado se vacía en
