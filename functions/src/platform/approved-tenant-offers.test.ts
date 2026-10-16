@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  exigirRuntimeOfertaTenantStaging,
+  exigirRuntimeOfertaTenantPermitido,
   resolverTerminosOfertaTenantAprobada,
 } from "./approved-tenant-offers";
 
@@ -62,14 +62,14 @@ test("ADR-SAAS-061: no resuelve referencias de aprobación desconocidas", () => 
 });
 
 test("ADR-SAAS-061: la oferta aprobada inicial está habilitada en staging y producción", () => {
-  assert.doesNotThrow(() => exigirRuntimeOfertaTenantStaging("micafe-pos-staging"));
-  assert.doesNotThrow(() => exigirRuntimeOfertaTenantStaging("micafe-pos"));
+  assert.doesNotThrow(() => exigirRuntimeOfertaTenantPermitido("micafe-pos-staging"));
+  assert.doesNotThrow(() => exigirRuntimeOfertaTenantPermitido("micafe-pos"));
 });
 
 test("ADR-SAAS-061: la oferta se mantiene denegada fuera de los proyectos autorizados", () => {
   for (const projectId of ["micafe-pos-test", "micafe-migration-lab-sebas26", undefined]) {
     assert.throws(
-      () => exigirRuntimeOfertaTenantStaging(projectId),
+      () => exigirRuntimeOfertaTenantPermitido(projectId),
       /OFERTA_COMERCIAL_RUNTIME_DENIED/,
     );
   }
