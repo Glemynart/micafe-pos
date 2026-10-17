@@ -38,6 +38,8 @@ import { suscribirCuentasBancarias, type CuentaBancaria } from '@/lib/finanzas-s
 import { suscribirProveedores, type Proveedor } from '@/lib/proveedores-service'
 import { ProveedoresModule } from '@/components/pos/proveedores-module'
 import { formatCurrency } from '@/lib/demo-data'
+import { suscribirPresentacionesBodegaAdmin, type PresentacionBodegaAdmin } from '@/lib/bodega/admin-service'
+import { proyectarMargenCompraPorPresentaciones } from '@/lib/bodega/purchase-margin'
 import {
   esCompraDeInsumos,
   sincronizarUnidadPredeterminadaEnItemsVacios,
@@ -73,6 +75,9 @@ export function PurchasesModule() {
   
   // Usamos una lista unificada de items a comprar (pueden ser insumos o productos)
   const [availableItems, setAvailableItems] = useState<{id: string, nombre: string, unidadMedida: string, costo: number}[]>([])
+  const [presentacionesVenta, setPresentacionesVenta] = useState<PresentacionBodegaAdmin[]>([])
+  const [cargandoPresentacionesVenta, setCargandoPresentacionesVenta] = useState(false)
+  const [errorPresentacionesVenta, setErrorPresentacionesVenta] = useState(false)
   
   const [cargando, setCargando] = useState(true)
   const [registrando, setRegistrando] = useState(false)
@@ -106,6 +111,29 @@ export function PurchasesModule() {
     const unsub = suscribirCuentasBancarias(setCuentas)
     return unsub
   }, [])
+
+  useEffect(() => {
+    if (!esBodega || !showPurchaseDialog) {
+      setPresentacionesVenta([])
+      setCargandoPresentacionesVenta(false)
+      setErrorPresentacionesVenta(false)
+      return
+    }
+
+    setCargandoPresentacionesVenta(true)
+    setErrorPresentacionesVenta(false)
+    return suscribirPresentacionesBodegaAdmin(
+      (data) => {
+        setPresentacionesVenta(data)
+        setCargandoPresentacionesVenta(false)
+      },
+      () => {
+        setPresentacionesVenta([])
+        setCargandoPresentacionesVenta(false)
+        setErrorPresentacionesVenta(true)
+      },
+    )
+  }, [esBodega, showPurchaseDialog])
 
   useEffect(() => {
     if (esBodega) {
@@ -149,6 +177,10 @@ export function PurchasesModule() {
   const lastMonthTotal = compras.length > 1 ? compras.slice(1).reduce((acc, p) => acc + p.total, 0) : 0
   const percentChange = lastMonthTotal > 0 ? ((currentMonthTotal - lastMonthTotal) / lastMonthTotal) * 100 : 0
   const proveedorSeleccionado = proveedores.find((item) => item.id === proveedorId && item.estado === 'ACTIVO')
+  const margenesPorItem = itemsForm.map((item) => proyectarMargenCompraPorPresentaciones(
+    item.costoUnitario,
+    presentacionesVenta.filter((presentacion) => presentacion.productoId === item.insumoId),
+  ))
 
   const updateItem = useCallback((idx: number, field: keyof PurchaseItemForm, value: string | number) => {
     setItemsForm((prev) => {
@@ -491,6 +523,11 @@ export function PurchasesModule() {
 
               <div className="space-y-2">
                 <Label>Items comprados</Label>
+                {esBodega && (
+                  <p className="text-xs text-muted-foreground">
+                    El precio vigente es por presentación. La utilidad y el margen son estimados con el costo por unidad base; registrar la compra no modifica el catálogo.
+                  </p>
+                )}
                 <Card className="bg-secondary/30 border-border">
                   <Table>
                     <TableHeader>
@@ -498,7 +535,7 @@ export function PurchasesModule() {
                         <TableHead className="text-muted-foreground">{esCafeteria ? 'Insumo' : 'Producto'}</TableHead>
                         <TableHead className="text-muted-foreground">Cantidad</TableHead>
                         <TableHead className="text-muted-foreground">Unidad</TableHead>
-                        <TableHead className="text-muted-foreground text-right">Costo Unit.</TableHead>
+                        <TableHead className="text-muted-foreground text-right">{esBodega ? 'Costo / unidad base' : 'Costo Unit.'}</TableHead>
                         <TableHead className="text-muted-foreground text-right">Subtotal</TableHead>
                         <TableHead className="w-10"></TableHead>
                       </TableRow>
@@ -506,7 +543,7 @@ export function PurchasesModule() {
                     <TableBody>
                       {itemsForm.map((item, idx) => (
                         <TableRow key={idx} className="border-border">
-                          <TableCell>
+                          <TableCell className={esBodega ? 'min-w-56' : undefined}>
                             <Select value={item.insumoId} onValueChange={(v) => updateItem(idx, 'insumoId', v)}>
                               <SelectTrigger className="bg-input">
                                 <SelectValue placeholder="Seleccionar" />
@@ -517,6 +554,36 @@ export function PurchasesModule() {
                                 ))}
                               </SelectContent>
                             </Select>
+                            {esBodega && item.insumoId && (
+                              <div className="mt-2 space-y-2 rounded-lg border border-border/70 bg-background/70 p-2 text-left">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                  Precio de venta vigente · margen estimado
+                                </p>
+                                {cargandoPresentacionesVenta ? (
+                                  <p className="text-xs text-muted-foreground">Consultando presentaciones…</p>
+                                ) : errorPresentacionesVenta ? (
+                                  <p className="text-xs text-destructive">No fue posible consultar los precios vigentes.</p>
+                                ) : margenesPorItem[idx].length === 0 ? (
+                                  <p className="text-xs text-muted-foreground">No hay presentaciones activas con precio válido.</p>
+                                ) : margenesPorItem[idx].map((presentacion) => (
+                                  <div key={presentacion.id} className="space-y-0.5 border-t border-border/50 pt-1.5 first:border-0 first:pt-0">
+                                    <div className="flex items-center justify-between gap-2 text-xs">
+                                      <span className="min-w-0 truncate font-medium">
+                                        {presentacion.nombre} · ×{presentacion.factorUnidadBase} {item.unidadMedida}
+                                      </span>
+                                      <span className="shrink-0 font-semibold">{formatCurrency(presentacion.precioCOP)}</span>
+                                    </div>
+                                    {presentacion.utilidadBrutaCOP !== null && presentacion.margenBrutoPorcentaje !== null ? (
+                                      <p className="text-[11px] text-muted-foreground">
+                                        Utilidad bruta: {formatCurrency(presentacion.utilidadBrutaCOP)} · Margen bruto: {presentacion.margenBrutoPorcentaje.toFixed(1)}%
+                                      </p>
+                                    ) : (
+                                      <p className="text-[11px] text-muted-foreground">Ingresa un costo entero por unidad base para calcular.</p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell>
                             <Input
