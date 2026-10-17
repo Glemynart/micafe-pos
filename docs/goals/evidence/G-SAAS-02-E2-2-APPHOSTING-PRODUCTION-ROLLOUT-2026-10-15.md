@@ -167,3 +167,75 @@ fueron realizadas el 2026-10-16 entre `19:21:32Z` y `19:27:02Z`; el SHA de
 La revalidación no realizó mutaciones. Gate I y E2.2 permanecen incompletos;
 el rollout exitoso de App Hosting no certifica Rules, Functions, gobernanza,
 provisioning, Trial ni acceso real de Diana.
+
+## Revalidación de continuidad del release — 2026-10-16 23:58 America/Bogota
+
+Lecturas realizadas contra el SHA actual de `origin/main` y recursos de
+producción. No hubo despliegues, invocaciones ni escrituras comerciales.
+
+- **Git y CI:** `origin/main` es
+  `56e805dcd02fdd536fe65a22e56a34c6bf54b4ae`; run `38995735681` terminó
+  `completed/success` para el mismo SHA. La ejecución incluye la E2E Bodega y
+  las verificaciones de E4.1 en Emulator. Los PR #615, #617 y #618 quedaron
+  integrados antes de este SHA. El checkout compartido sigue sucio y atrasado;
+  no se modificó.
+- **App Hosting:** el backend productivo
+  `projects/micafe-pos/locations/us-central1/backends/micafe-pos` conserva URI
+  `micafe-pos--micafe-pos.us-central1.hosted.app` e identidad
+  `firebase-app-hosting-compute@micafe-pos.iam.gserviceaccount.com`. El build
+  `build-2026-10-15-001` tiene como commit fuente
+  `5c5c4fdd9164abdca0fe05c9fddb51cea8559a29`; el rollout permanece
+  `SUCCEEDED`. Cloud Run reporta revisión lista
+  `micafe-pos-build-2026-10-15-001` con 100 % del tráfico. No se lanzó el SHA
+  actual de `main`.
+- **Efecto de los cambios de oferta:** el diff desde la revalidación de
+  `51d8ec2e…` confirma cambios posteriores en `tenant-offers.tsx`, el guard
+  comercial y sus pruebas. La app productiva aún sirve el SHA anterior, así
+  que no se considera verificada la nueva pantalla ni se envió una operación.
+- **Functions productivas (us-central1):**
+  `ejecutarComandoComercialSaas` sigue `ACTIVE`, `nodejs22`, codebase
+  `saas-auth`, hash `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`, actualizado
+  `2026-08-15T04:27:10Z`;
+  `solicitarBootstrapEmpresarialSaas` sigue `ACTIVE`, `nodejs22`, codebase
+  `saas-auth`, hash `b9a033fcf119a92fa942f158e3b4ac4e609f1983`, actualizado
+  `2026-08-15T04:27:36Z`. `consultarOfertaComercialTenantSaas` devuelve `404`.
+  El candidato separa los exports en `saas-commercial` y `saas-bootstrap`;
+  no se infiere que el despliegue transfiera propiedad sin riesgo ni se hizo
+  una migración productiva. La cuenta runtime de Functions mantiene
+  `roles/editor` en la política directa del proyecto; no se cambió IAM.
+- **Firestore Rules:** la consola productiva sigue marcando como activa la
+  revisión fechada `2026-08-14 23:20` hora local. La lectura API de esta
+  observación devolvió `403`, por lo que no se obtuvo un nuevo hash. La última
+  lectura completa disponible registró ruleset
+  `d5e205db-0ab4-4db1-b5ec-1534bee39d35`, hash remoto
+  `fca6363aa98360535306bd13d70418888760645cd5c5e54ada5c83ceb2f6a887` y hash
+  candidato `b8fb7ddd5370ddaa3784db4921b2bbbc71e51f285ffde912c3b0650ab1517fdf`.
+  La diferencia de bytes no certifica por sí sola la compatibilidad semántica;
+  no se desplegaron Rules.
+- **Gobernanza y tenant:** la lectura canónica de `saas_operadores` confirmó
+  estado `ACTIVO`, versión v3 y facultades
+  `COMERCIAL_GOBERNAR`, `BOOTSTRAP_EMPRESARIAL_SOLICITAR` y
+  `RELEASE_COMPRAS_GOBERNAR` para el operador vinculado a la sesión productiva
+  de Edge ya identificada. Las lecturas de los documentos canónicos del ID
+  acordado `distribuidora-las-jimenez` (`empresas`, `suscripciones`,
+  `configuraciones`, ancla de Bootstrap y oferta
+  `oferta-distribuidora-jimenez-2026`) devolvieron `404`. Esto verifica esos
+  IDs exactos, no una búsqueda de duplicados por nombre en todas las
+  colecciones.
+- **Oferta y Trial:** la oferta anual de COP 1.600.000, pago manual, inicio
+  `2026-10-16` y sin vencimiento sigue siendo una declaración administrativa
+  aceptada por el responsable; la oferta no está persistida y el Trial no
+  comienza hasta completarse el Bootstrap canónico. No existe correo de Diana
+  confirmado; el flujo admite ancla de administrador sin correo, con entrega
+  temporal fuera de banda. No se importó catálogo/stock: el borrador de 110
+  filas sigue pendiente de cotejo y aprobación digital específica.
+- **Autenticación CLI:** la cuenta activa de `gcloud` fue
+  `segucor0526@gmail.com`, pero no hay cuenta autorizada en Firebase CLI. Esto
+  impide usar ahora el flujo CLI de Firebase sin una autenticación interactiva
+  efectuada por el operador; no se solicitaron ni almacenaron credenciales.
+
+**Resultado:** CI `PASS`; App Hosting anterior al candidato; Functions y Rules
+no reconciliadas con `main`; identidad de gobernanza observada con facultades
+comerciales/de Bootstrap/release; tenant, oferta y Trial no creados. Gate I y
+E2.2 permanecen incompletos. La relectura no ejecutó la operación de compra,
+pausas, despliegues, alta comercial ni Bootstrap.
