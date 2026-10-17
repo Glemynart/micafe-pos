@@ -29,18 +29,38 @@ export interface PresentacionBodegaAdmin {
 
 export type VentaBodegaAdmin = VentaBodegaAdminDTO
 
-function suscribirTenant<T>(coleccion: string, map: (id: string, data: Record<string, any>) => T, callback: (items: T[]) => void): Unsubscribe {
+function suscribirTenant<T>(
+  coleccion: string,
+  map: (id: string, data: Record<string, any>) => T,
+  callback: (items: T[]) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
   let unsubscribe = () => {}
   let cancelado = false
   tenantQuery(collection(db, coleccion)).then(query => {
     if (cancelado) return
-    unsubscribe = onSnapshot(query, snapshot => callback(snapshot.docs.map(doc => map(doc.id, doc.data()))))
+    unsubscribe = onSnapshot(
+      query,
+      snapshot => callback(snapshot.docs.map(doc => map(doc.id, doc.data()))),
+      error => onError?.(error),
+    )
+  }).catch(error => {
+    if (onError) onError(error instanceof Error ? error : new Error("No se pudo preparar la consulta del tenant."))
+    else throw error
   })
   return () => { cancelado = true; unsubscribe() }
 }
 
 export const suscribirProductosBodegaAdmin = (callback: (items: ProductoBodegaAdmin[]) => void) => suscribirTenant("productos", (id, data) => ({ id, nombre: String(data.nombre ?? ""), categoriaId: String(data.categoriaId ?? ""), espacioId: String(data.espacioId ?? ""), unidad: String(data.unidadMedida ?? data.unidad ?? "und"), stock: Number(data.stock ?? 0), stockReservado: Number(data.stockReservado ?? 0), stockMinimo: Number(data.stockMinimo ?? 0), activo: data.activo === true }), items => callback(items.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))))
-export const suscribirPresentacionesBodegaAdmin = (callback: (items: PresentacionBodegaAdmin[]) => void) => suscribirTenant("presentaciones_producto", (id, data) => ({ id, productoId: String(data.productoId ?? ""), nombre: String(data.nombre ?? ""), factorUnidadBase: Number(data.factorUnidadBase ?? 0), precioCOP: Number(data.precioCOP ?? 0), activo: data.activo === true }), callback)
+export const suscribirPresentacionesBodegaAdmin = (
+  callback: (items: PresentacionBodegaAdmin[]) => void,
+  onError?: (error: Error) => void,
+) => suscribirTenant(
+  "presentaciones_producto",
+  (id, data) => ({ id, productoId: String(data.productoId ?? ""), nombre: String(data.nombre ?? ""), factorUnidadBase: Number(data.factorUnidadBase ?? 0), precioCOP: Number(data.precioCOP ?? 0), activo: data.activo === true }),
+  callback,
+  onError,
+)
 export const suscribirClientesBodegaAdmin = (callback: (items: Cliente[]) => void) => suscribirTenant("clientes", (id, data) => ({ id, ...data } as Cliente), items => callback(items.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))))
 export const suscribirVentasBodegaAdmin = (callback: (items: VentaBodegaAdmin[]) => void) => suscribirTenant("ventas", (id, data) => proyectarVentaBodegaAdmin(id, data), items => callback(items.filter(item => item.schemaVersion === "BODEGA_MVP1_V1")))
 
