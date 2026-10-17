@@ -7,20 +7,22 @@
 
 - En Bodega, la fila inicial, las nuevas filas y el formulario reiniciado muestran unidades, nunca gramos.
 - En una cafetería que compra insumos, el valor predeterminado sigue siendo gramos.
+- Si vertical/espacio llegan después del montaje, se actualizan solo las filas aún vacías; líneas ya seleccionadas o editadas se conservan.
 - La unidad de los productos seleccionados sigue derivándose del catálogo (`unidades`).
 
 ## RED / GREEN
 
 - **RED:** se añadieron primero los casos del helper predeterminado. `npm exec -- tsx --test lib/bodega/compra-routing.test.ts` terminó con 3 pruebas existentes en PASS y 3 nuevas en FAIL: `unidadMedidaCompraPredeterminada is not a function`.
-- **GREEN:** después de implementar el helper y usarlo en la inicialización, las filas nuevas y el reinicio, el mismo comando pasó 6/6.
+- **RED adicional:** se reprodujo la carga tardía del contexto con 6 casos existentes en PASS y el nuevo caso en FAIL (`sincronizarUnidadPredeterminadaEnItemsVacios is not a function`).
+- **GREEN:** después de implementar el helper y sincronizar únicamente filas vacías, `npm exec -- tsx --test lib/bodega/compra-routing.test.ts` pasó 7/7; la suite Bodega pasó 30/30.
 
 ## Evidencia ejecutada
 
 | Garantía | Validación | Resultado |
 |---|---|---|
-| Bodega muestra unidades y cafetería conserva gramos | `npm exec -- tsx --test lib/bodega/compra-routing.test.ts` | PASS (6/6) |
-| Regresión de la superficie Bodega | PowerShell: `$files = rg --files lib/bodega | Where-Object { $_ -like '*.test.ts' }; npm exec -- tsx --test $files` | PASS (29/29) |
-| Cobertura del helper y la regla de compra | `node --experimental-test-coverage --import tsx --test lib/bodega/compra-routing.test.ts` | PASS (`compra-routing.ts`: 100 % líneas, 95,83 % ramas, 100 % funciones) |
+| Bodega muestra unidades, cafetería conserva gramos y la carga tardía no pisa una fila editada | `npm exec -- tsx --test lib/bodega/compra-routing.test.ts` | PASS (7/7) |
+| Regresión de la superficie Bodega | `npm exec -- tsx --test` sobre los siete `lib/bodega/*.test.ts` | PASS (30/30) |
+| Cobertura del helper y la regla de compra | `node --experimental-test-coverage --import tsx --test lib/bodega/compra-routing.test.ts` | PASS (`compra-routing.ts`: 100 % líneas, 96,77 % ramas, 100 % funciones) |
 | Tipos de la aplicación | `npm exec -- tsc --noEmit` | PASS |
 | Lint de archivos afectados | `npm exec -- eslint components/pos/purchases-module.tsx lib/bodega/compra-routing.ts lib/bodega/compra-routing.test.ts` | PASS |
 | Build de Next.js | `npm run build` | PASS (Next.js 16.4.1) |

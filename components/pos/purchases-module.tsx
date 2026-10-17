@@ -38,7 +38,11 @@ import { suscribirCuentasBancarias, type CuentaBancaria } from '@/lib/finanzas-s
 import { suscribirProveedores, type Proveedor } from '@/lib/proveedores-service'
 import { ProveedoresModule } from '@/components/pos/proveedores-module'
 import { formatCurrency } from '@/lib/demo-data'
-import { esCompraDeInsumos, unidadMedidaCompraPredeterminada } from '@/lib/bodega/compra-routing'
+import {
+  esCompraDeInsumos,
+  sincronizarUnidadPredeterminadaEnItemsVacios,
+  unidadMedidaCompraPredeterminada,
+} from '@/lib/bodega/compra-routing'
 
 interface PurchaseItemForm {
   insumoId: string
@@ -84,6 +88,10 @@ export function PurchasesModule() {
   const [itemsForm, setItemsForm] = useState<PurchaseItemForm[]>([
     { insumoId: '', insumoNombre: '', cantidad: 0, unidadMedida: unidadPredeterminada, costoUnitario: 0 },
   ])
+
+  useEffect(() => {
+    setItemsForm((actuales) => sincronizarUnidadPredeterminadaEnItemsVacios(actuales, unidadPredeterminada))
+  }, [unidadPredeterminada])
 
   useEffect(() => {
     if (!espacioId) return

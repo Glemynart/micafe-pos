@@ -14,3 +14,13 @@ export function unidadMedidaCompraPredeterminada(
 ): "g" | "unidades" {
   return esCompraDeInsumos(vertical, nombreEspacio) ? "g" : "unidades";
 }
+
+export function sincronizarUnidadPredeterminadaEnItemsVacios<
+  T extends { insumoId: string; cantidad: number; costoUnitario: number; unidadMedida: string },
+>(items: readonly T[], unidad: "g" | "unidades"): T[] {
+  return items.map((item) =>
+    item.insumoId || item.cantidad > 0 || item.costoUnitario > 0
+      ? item
+      : { ...item, unidadMedida: unidad },
+  );
+}
