@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { usePlatform } from "@/contexts/platform-context";
 import { comandoComercial, consultarOfertaComercialTenant, envelope, mensajeError, type ResultadoConsultaOfertaComercialTenant } from "@/lib/platform/client";
-import { permiteGestionOfertasTenant } from "@/lib/platform/tenant-offer-guard";
+import { FIREBASE_PRODUCTION_PROJECT_ID, FIREBASE_STAGING_PROJECT_ID, permiteGestionOfertasTenant } from "@/lib/platform/tenant-offer-guard";
 import { firebaseConfig } from "@/lib/firebase";
 import { ErrorState, EstadoBadge, LoadingState, PageIntro } from "./ui";
 
@@ -24,7 +24,13 @@ function precioCop(importe: number) {
 
 export function TenantOfferPage() {
   const { contexto } = usePlatform();
-  const habilitada = permiteGestionOfertasTenant(firebaseConfig.projectId, contexto?.facultades);
+  const projectId = firebaseConfig.projectId;
+  const habilitada = permiteGestionOfertasTenant(projectId, contexto?.facultades);
+  const etiquetaProyecto = projectId === FIREBASE_PRODUCTION_PROJECT_ID
+    ? "PRODUCCIÓN"
+    : projectId === FIREBASE_STAGING_PROJECT_ID
+      ? "STAGING"
+      : "NO AUTORIZADO";
   const [consulta, setConsulta] = useState<ResultadoConsultaOfertaComercialTenant | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +85,7 @@ export function TenantOfferPage() {
           iniciaEn,
           expiraEn: sinVencimiento ? null : expiraEn,
         });
-        toast.success("Borrador de oferta creado en staging.");
+        toast.success(`Borrador de oferta creado en ${etiquetaProyecto}.`);
       } else {
         const oferta = consulta.oferta;
         if (!oferta || oferta.estado !== "BORRADOR" || consulta.ofertaActivaId) return;
@@ -88,7 +94,7 @@ export function TenantOfferPage() {
           expectedRevision: oferta.revision,
           codigoAprobacion: CODIGO_APROBACION,
         });
-        toast.success("Oferta aprobada en staging. Bootstrap no fue ejecutado.");
+        toast.success(`Oferta aprobada en ${etiquetaProyecto}. Bootstrap no fue ejecutado.`);
       }
       await recargar();
     } catch (cause) {
@@ -107,21 +113,21 @@ export function TenantOfferPage() {
   return <>
     <PageIntro
       eyebrow="Condición comercial tenant-specific"
-      title="Oferta de staging"
+      title="Oferta comercial tenant-specific"
       description="Consulta y registra la oferta aprobada para Gate I. Los términos comerciales se resuelven en servidor; la pantalla no cambia el plan público ni ejecuta Bootstrap."
     />
 
     {!habilitada ? (
       <Card className="border-amber-300 bg-amber-50"><CardContent className="flex gap-4 p-6">
         <ShieldCheck className="mt-1 size-5 shrink-0 text-amber-800" />
-        <div><h3 className="font-semibold text-amber-950">Acciones bloqueadas fuera de staging</h3>
-          <p className="mt-1 text-sm leading-relaxed text-amber-900">Esta vista solo funciona cuando Firebase apunta exactamente a <code>micafe-pos-staging</code> y la sesión tiene la facultad <code>COMERCIAL_GOBERNAR</code>. Proyecto detectado: <code>{firebaseConfig.projectId ?? "no configurado"}</code>. No se enviaron solicitudes.</p>
+        <div><h3 className="font-semibold text-amber-950">Acciones bloqueadas para este proyecto o sesión</h3>
+          <p className="mt-1 text-sm leading-relaxed text-amber-900">Esta vista solo funciona en <code>{FIREBASE_PRODUCTION_PROJECT_ID}</code> o <code>{FIREBASE_STAGING_PROJECT_ID}</code> y cuando la sesión tiene la facultad <code>COMERCIAL_GOBERNAR</code>. Proyecto detectado: <code>{projectId ?? "no configurado"}</code>. No se enviaron solicitudes.</p>
         </div>
       </CardContent></Card>
     ) : (
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-950">
-          <div className="flex items-center gap-2"><ShieldCheck className="size-4" /><span><strong>STAGING</strong> · Firebase <code>micafe-pos-staging</code></span></div>
+          <div className="flex items-center gap-2"><ShieldCheck className="size-4" /><span><strong>{etiquetaProyecto}</strong> · Firebase <code>{projectId}</code></span></div>
           <Button variant="outline" size="sm" disabled={cargando || ocupada} onClick={() => void recargar()}><RefreshCw className="mr-2 size-4" />Consultar oferta</Button>
         </div>
 
@@ -182,7 +188,7 @@ export function TenantOfferPage() {
                   <li>La aprobación documenta los términos internos; no afirma aceptación del cliente ni autoriza Bootstrap.</li>
                   <li>El precio público del plan permanece en {precioCop(1_800_000)} COP.</li>
                   <li>Aprobar habilita su consumo por Bootstrap, pero esta página no crea Empresa, suscripción, usuarios ni catálogo.</li>
-                  <li>La UI no contiene escrituras directas a Firestore ni funciona fuera del proyecto de staging.</li>
+                  <li>La UI no contiene escrituras directas a Firestore ni funciona fuera de los proyectos autorizados.</li>
                 </ul>
               </CardContent>
             </Card>
@@ -197,7 +203,7 @@ export function TenantOfferPage() {
           <AlertDialogTitle>{accionPendiente === "crear" ? "Crear el borrador de oferta" : "Aprobar la oferta"}</AlertDialogTitle>
           <AlertDialogDescription>
             {accionPendiente === "crear"
-              ? <>Se registrará en <strong>micafe-pos-staging</strong> la oferta resuelta por servidor para <strong>{autorizacion?.nombreEmpresaObjetivo}</strong>, a partir de la aprobación vigente. Esta acción no crea el tenant ni ejecuta Bootstrap.</>
+              ? <>Se registrará en <strong>{projectId}</strong> la oferta resuelta por servidor para <strong>{autorizacion?.nombreEmpresaObjetivo}</strong>, a partir de la aprobación vigente. Esta acción no crea el tenant ni ejecuta Bootstrap.</>
               : <>La oferta aprobada por <strong>{autorizacion ? `${precioCop(autorizacion.precioAcordado.importe)} ${autorizacion.precioAcordado.moneda}` : "el precio autorizado"}</strong> quedará activa para su eventual consumo atómico por Bootstrap. No se creará el tenant ni se iniciará el Trial.</>}
           </AlertDialogDescription>
         </AlertDialogHeader>
