@@ -31,6 +31,7 @@ autoridad para ventas.
 | GREEN | `npm exec -- tsx --test lib/bodega/purchase-margin.test.ts` | PASS, 5/5. |
 | Cobertura focal | `node --experimental-test-coverage --import tsx --test lib/bodega/purchase-margin.test.ts` | PASS; `purchase-margin.ts`: líneas 100 %, ramas 96,15 %, funciones 100 %. |
 | Regresión Bodega | `npm run test:bodega-ui` | PASS, 35/35. |
+| Reglas Firestore (Emulator local) | `npm run test:rules` | PASS, 46/46; la regla candidata permite leer `presentaciones_producto` al administrador del tenant y deniega lectura al vendedor. No certifica las Rules remotas. |
 | Contrato/idempotencia de compra | `npm run test:purchase-command` | PASS, 4/4. |
 | Lint focal | `npm exec -- eslint components/pos/purchases-module.tsx lib/bodega/admin-service.ts lib/bodega/purchase-margin.ts lib/bodega/purchase-margin.test.ts` | PASS. |
 | Tipos | `npm exec -- tsc --noEmit` | PASS. |
@@ -56,8 +57,14 @@ Las dependencias se instalaron en el worktree aislado con `npm ci
 reportó 11 advisories durante la instalación (4 moderados y 7 altos); no se
 ejecutó `npm audit fix` ni se cambió ninguna dependencia.
 
-No se ejecutaron pruebas visuales de navegador, Emulator, Functions, Firestore,
-Rules, compras remotas ni operaciones productivas. El acceso en producción a
-`presentaciones_producto` depende de Rules compatibles; este cambio no las
+No se ejecutaron pruebas visuales de navegador, Emulator de Functions, acceso
+a Firestore remoto, compras remotas ni operaciones productivas. El acceso en
+producción a `presentaciones_producto` depende de Rules compatibles; este cambio no las
 despliega ni certifica su estado remoto. El build confirma compilación, no
 autenticación ni autorización remota.
+
+La suite de Rules se ejecutó posteriormente el 2026-10-17 sobre el código del
+PR `b8293fda2fda6a6200fca5b933a42822500d0b7e`, con el Firestore Emulator local
+del proyecto demo `demo-mt-u4-rules`; terminó con 46 pruebas aprobadas y cero
+fallidas. Esta evidencia comprueba el archivo candidato `firestore.rules`, no
+el ruleset activo de producción, cuya lectura sigue sin verificarse.
