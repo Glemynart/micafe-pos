@@ -38,7 +38,11 @@ import { suscribirCuentasBancarias, type CuentaBancaria } from '@/lib/finanzas-s
 import { suscribirProveedores, type Proveedor } from '@/lib/proveedores-service'
 import { ProveedoresModule } from '@/components/pos/proveedores-module'
 import { formatCurrency } from '@/lib/demo-data'
-import { esCompraDeInsumos } from '@/lib/bodega/compra-routing'
+import {
+  esCompraDeInsumos,
+  sincronizarUnidadPredeterminadaEnItemsVacios,
+  unidadMedidaCompraPredeterminada,
+} from '@/lib/bodega/compra-routing'
 
 interface PurchaseItemForm {
   insumoId: string
@@ -59,6 +63,7 @@ export function PurchasesModule() {
   const espacioId = espacioActivo?.id ?? ''
   const esBodega = vertical === 'BODEGA_MVP1'
   const esCafeteria = esCompraDeInsumos(vertical, espacioActivo?.nombre)
+  const unidadPredeterminada = unidadMedidaCompraPredeterminada(vertical, espacioActivo?.nombre)
 
   const [searchTerm, setSearchTerm] = useState('')
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
@@ -81,8 +86,12 @@ export function PurchasesModule() {
   const [proveedorId, setProveedorId] = useState('')
   const [proveedores, setProveedores] = useState<Proveedor[]>([])
   const [itemsForm, setItemsForm] = useState<PurchaseItemForm[]>([
-    { insumoId: '', insumoNombre: '', cantidad: 0, unidadMedida: 'g', costoUnitario: 0 },
+    { insumoId: '', insumoNombre: '', cantidad: 0, unidadMedida: unidadPredeterminada, costoUnitario: 0 },
   ])
+
+  useEffect(() => {
+    setItemsForm((actuales) => sincronizarUnidadPredeterminadaEnItemsVacios(actuales, unidadPredeterminada))
+  }, [unidadPredeterminada])
 
   useEffect(() => {
     if (!espacioId) return
@@ -166,7 +175,7 @@ export function PurchasesModule() {
   const addItem = () => {
     setItemsForm((prev) => [
       ...prev,
-      { insumoId: '', insumoNombre: '', cantidad: 0, unidadMedida: 'g', costoUnitario: 0 },
+      { insumoId: '', insumoNombre: '', cantidad: 0, unidadMedida: unidadPredeterminada, costoUnitario: 0 },
     ])
   }
 
@@ -226,7 +235,7 @@ export function PurchasesModule() {
       setProveedorId('')
       setFechaCompra(getHoy())
       setCuentaClaveOperativa('')
-      setItemsForm([{ insumoId: '', insumoNombre: '', cantidad: 0, unidadMedida: 'g', costoUnitario: 0 }])
+      setItemsForm([{ insumoId: '', insumoNombre: '', cantidad: 0, unidadMedida: unidadPredeterminada, costoUnitario: 0 }])
     } catch (err) {
       toast.error('No se pudo confirmar la compra. Puedes reintentar sin cambiar el borrador.')
       console.error(err)
