@@ -1,6 +1,6 @@
 # Evidencia TDD — Unidad predeterminada de compras Bodega
 
-**Goal / Milestone / Epic:** `G-SAAS-02` / `M2` / `E2.2`  
+**Goal / Milestone / Epic:** `G-SAAS-02` / `M2` / `E2.2`
 **Alcance:** mostrar `unidades` en filas vacías de compras de Bodega; conservar `g` para insumos de cafetería. Sin cambios en la autoridad de compra ni en datos.
 
 ## Journey y garantía
