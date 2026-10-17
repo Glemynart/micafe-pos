@@ -1,6 +1,6 @@
 # Evidencia TDD — Navegación de ofertas comerciales en producción
 
-**Goal / Milestone / Epic:** `G-SAAS-02` / `M2` / `E2.2`  
+**Goal / Milestone / Epic:** `G-SAAS-02` / `M2` / `E2.2`
 **Alcance:** hacer descubrible la pantalla de ofertas a operadores con `COMERCIAL_GOBERNAR`; sin escrituras comerciales ni cambios remotos.
 
 ## Journey y garantía
