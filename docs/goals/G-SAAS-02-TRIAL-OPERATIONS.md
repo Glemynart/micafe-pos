@@ -82,12 +82,15 @@ fixture.
 
 ### 2.1.1 Preparación específica del Trial de Diana (revisión 2026-10-16)
 
-- Fecha objetivo previamente comunicada: `2026-10-15`, según atestación del
-  administrador del `2026-10-14`, sin almacenar la comunicación original.
-  Esa fecha ya transcurrió al revisar este runbook el `2026-10-16`; no hay una
-  fecha nueva confirmada. No se reinicia ni se inicia el Trial por calendario.
-  El tenant y el Trial siguen sujetos a las verificaciones, gates y
-  autorizaciones aplicables.
+- La fecha objetivo anterior (`2026-10-15`) ya transcurrió. El responsable
+  reconfirmó en esta sesión, el `2026-10-16`, que Diana acepta la oferta anual
+  de `1.600.000 COP` con pago manual, y fijó la vigencia de la oferta desde
+  `2026-10-16` sin vencimiento. Es una declaración administrativa del
+  responsable, no evidencia directa o firmada de Diana. La vigencia de la
+  oferta no fija ni inicia el Trial: el Trial de 30 días empieza únicamente al
+  completarse el Bootstrap canónico, después de superar sus gates; no se
+  inicia por calendario ni se reinicia. La oferta aún no está persistida y el
+  tenant aún no fue creado.
 - Cliente previsto: Distribuidora Las Jiménez, vertical `BODEGA_MVP1`;
   Diana será la administradora inicial y creará los usuarios vendedores y
   asignará sus roles. Los datos comerciales reales se capturan en su primer
@@ -99,9 +102,12 @@ fixture.
   crearlo. Las credenciales temporales se entregan fuera de banda; el envío
   por WhatsApp no está integrado al sistema y no se guardan claves en la
   evidencia.
-- Oferta aprobada internamente: Trial de 30 días, oferta anual específica de
-  `1.600.000 COP`, pago manual. Esto no equivale a aceptación contractual del
-  cliente ni autoriza el bootstrap productivo.
+- Oferta aprobada internamente: Trial de 30 días y oferta anual específica de
+  `1.600.000 COP`, pago manual. La re-confirmación del responsable y la
+  vigencia acordada se registran en [la evidencia comercial de Gate I](evidence/G-SAAS-02-E2-2-GATE-I-COMMERCIAL-OFFER-APPROVAL-2026-10-06.md).
+  Esta declaración no equivale a un comprobante directo de aceptación, no
+  persiste la oferta y no sustituye los gates ni la autorización operativa del
+  Bootstrap productivo.
 - Inicio sin facturación electrónica: el Trial operará en modo no fiscal.
   La emisión DIAN desde la aplicación web no está disponible y no debe
   presentarse como una capacidad activa. La aceptación temporal de operar sin
