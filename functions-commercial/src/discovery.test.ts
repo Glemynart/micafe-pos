@@ -5,10 +5,63 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import * as packageExports from "./index";
+import {
+  consultarOfertaComercialTenantSaas,
+  ejecutarComandoComercialSaas,
+} from "../../functions/src/platform/commercial-callable";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const sourceRoot = resolve(here, "..");
 const firebaseFunctionsBin = resolve(sourceRoot, "node_modules/firebase-functions/lib/bin/firebase-functions.js");
+
+const canonicalHandlers = {
+  ejecutarComandoComercialSaas,
+  consultarOfertaComercialTenantSaas,
+} as const;
+
+// Frozen read-only Cloud Run observation from staging, 2026-10-17.
+// This contract test does not contact or invoke the remote services.
+const observedFunctionTargets = {
+  ejecutarComandoComercialSaas: "ejecutarComandoComercialSaas",
+  consultarOfertaComercialTenantSaas: "consultarOfertaComercialTenantSaas",
+} as const;
+
+function assertFunctionTargetMatchesHandler(
+  functionId: keyof typeof canonicalHandlers,
+  functionTarget: string,
+): void {
+  if (functionTarget !== functionId) {
+    throw new Error(`FUNCTION_TARGET_MISMATCH:${functionId}:${functionTarget}`);
+  }
+
+  const selectedHandler = packageExports[functionTarget as keyof typeof packageExports];
+  assert.ok(selectedHandler, `FUNCTION_TARGET_EXPORT_MISSING:${functionTarget}`);
+  assert.equal(selectedHandler, canonicalHandlers[functionId]);
+}
+
+test("staging FUNCTION_TARGET selecciona el export canónico de cada callable", () => {
+  for (const [functionId, functionTarget] of Object.entries(observedFunctionTargets)) {
+    assertFunctionTargetMatchesHandler(
+      functionId as keyof typeof canonicalHandlers,
+      functionTarget,
+    );
+  }
+  assert.notEqual(
+    packageExports.ejecutarComandoComercialSaas,
+    packageExports.consultarOfertaComercialTenantSaas,
+  );
+});
+
+test("rechaza una configuración cruzada entre FUNCTION_TARGET y callable", () => {
+  assert.throws(
+    () => assertFunctionTargetMatchesHandler(
+      "ejecutarComandoComercialSaas",
+      "consultarOfertaComercialTenantSaas",
+    ),
+    /FUNCTION_TARGET_MISMATCH:ejecutarComandoComercialSaas:consultarOfertaComercialTenantSaas/,
+  );
+});
 
 async function freePort(): Promise<number> {
   const server = createServer();
@@ -54,6 +107,10 @@ test("el manifiesto comercial declara callables canónicos sin Secrets", async (
     (endpoints.consultarOfertaComercialTenantSaas as { callableTrigger?: unknown }).callableTrigger,
     {},
   );
+  assert.equal(
+    (endpoints.consultarOfertaComercialTenantSaas as { entryPoint?: unknown }).entryPoint,
+    "consultarOfertaComercialTenantSaas",
+  );
   assert.deepEqual(
     (endpoints.ejecutarComandoComercialSaas as { region?: unknown }).region,
     ["us-central1"],
@@ -61,6 +118,10 @@ test("el manifiesto comercial declara callables canónicos sin Secrets", async (
   assert.deepEqual(
     (endpoints.ejecutarComandoComercialSaas as { callableTrigger?: unknown }).callableTrigger,
     {},
+  );
+  assert.equal(
+    (endpoints.ejecutarComandoComercialSaas as { entryPoint?: unknown }).entryPoint,
+    "ejecutarComandoComercialSaas",
   );
   assert.deepEqual(manifest.params ?? [], []);
   const serialized = JSON.stringify(manifest);

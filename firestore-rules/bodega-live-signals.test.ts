@@ -57,6 +57,11 @@ describe("señales Bodega", () => {
       .update({ version: 2 }));
 
     await seedDocument("membresias/empresa-a_tenant-a-vendedor", {
+      empresaId: "empresa-a", uid: "tenant-a-vendedor", rol: "vendedor", permisos: [], estado: "activa", activo: true,
+    });
+    await expectDenied(seller.firestore().doc(sellerSignalPath).get());
+
+    await seedDocument("membresias/empresa-a_tenant-a-vendedor", {
       empresaId: "empresa-a", uid: "tenant-a-vendedor", rol: "vendedor", permisos: ["sell"], estado: "inactiva", activo: false,
     });
     await expectDenied(seller.firestore().doc(sellerSignalPath).get());

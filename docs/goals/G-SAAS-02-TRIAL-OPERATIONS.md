@@ -40,7 +40,7 @@ Antes de crear o modificar un tenant se registra:
 - plan publicado, versión, precio y periodicidad;
 - modo `DEMO` o `FISCAL` elegido;
 - administrador y membresía aprobados;
-- datos de catálogo y equipo recibidos;
+- estado del catálogo documentado: maestro aprobado antes de importar, o aplazamiento autorizado con catálogo vacío explícito. El aplazamiento no permite ventas/compras ni readiness de Bodega; los datos de identidad del administrador siguen siendo precondición del Bootstrap;
 - ventana operativa y responsable;
 - punto de recuperación disponible antes de escribir;
 - rollback aplicable.
@@ -54,8 +54,8 @@ No se usan NIT, credenciales fiscales, PINs o secretos inventados.
 3. Verificar Empresa, Suscripción, membresía, credencial, claims y Espacio.
 4. Confirmar que `configuraciones/{empresaId}.modulos.habilitados` coincide con las capacidades del Plan.
 5. Entregar la credencial temporal por canal fuera de Git y registrar únicamente la referencia de evidencia.
-6. En modo DEMO, validar entrada al POS y una venta no fiscal.
-7. Configurar productos, clientes, usuarios, permisos y flujo inicial del cliente.
+6. En modo DEMO, validar entrada al POS. Una venta no fiscal se valida únicamente después de aprobar y cargar el catálogo, y disponer de existencias mediante el flujo canónico aplicable. Si el catálogo sigue aplazado, registrar la prueba de venta como pendiente y no declarar Bodega lista para vender.
+7. Configurar productos/presentaciones después de recibir y aprobar el maestro digital; completar clientes, usuarios, permisos y flujo inicial conforme a las necesidades declaradas del cliente.
 
 ### 2.1 Gate previo: ensayo Bodega MVP-1 en Firebase App Hosting staging
 
@@ -131,6 +131,20 @@ fixture.
   después desde compras reales de Bodega. Con existencias en cero no se confirma
   una venta real hasta ingresar inventario por el flujo canónico de compras,
   una vez que Gate I confirme y certifique su despliegue productivo.
+- **Aplazamiento autorizado — 2026-10-17:** el responsable decidió esperar la
+  lista definitiva de Diana. Este aplazamiento retira únicamente la carga del
+  catálogo como precondición del Bootstrap/Trial inicial; no aprueba el borrador
+  ni permite importar productos, existencias o completar una venta. El modelo
+  actual admite el tenant vacío: `ejecutarBootstrapEmpresarial` no consulta ni
+  escribe `productos` o `presentaciones_producto`; sí exige Plan publicado,
+  oferta admisible, identidad del administrador y materializa la configuración
+  derivada del Plan, el espacio, membresía, Trial y credencial. La configuración
+  Bodega conserva capacidades permitidas no vacías. La pantalla Bodega muestra
+  un estado explícito cuando no hay presentaciones activas. Esta evidencia local
+  no sustituye el preflight productivo, las facultades del operador ni los gates
+  de release. El tenant vacío será solo Trial no fiscal, no listo para vender;
+  el catálogo aprobado y la existencia inicial siguen pendientes antes de la
+  primera operación comercial.
 - Ensayo no productivo: `npm run e2e:bodega-u4-u5` pasó 12/12 pruebas en
   Firebase Emulators el 2026-10-14, incluyendo perfil comercial, aislamiento
   entre tenants, disponibilidad, solicitud/aprobación, venta en efectivo sin

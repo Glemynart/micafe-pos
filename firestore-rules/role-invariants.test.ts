@@ -263,6 +263,11 @@ test("Gate I: las ventas son read-only y metadatos DIAN no se escriben desde cli
   await expectAllowed(getDocs(query(collection(adminGeneral.firestore(), "ventas"), where("empresaId", "==", "empresa-b"))));
 
   for (const [context, path] of ventas) {
+    await expectDenied(context.firestore().doc(path).set({
+      empresaId: path.endsWith("venta-bodega") ? "empresa-a" : "empresa-b",
+      estado: "pagada",
+    }));
+    await expectDenied(context.firestore().doc(path).delete());
     await expectDenied(context.firestore().doc(path).update({ dian: { cufe: "synthetic-cufe" } }));
     await expectDenied(setDoc(doc(context.firestore(), path), { dian: { cufe: "synthetic-cufe" } }, { merge: true }));
   }
