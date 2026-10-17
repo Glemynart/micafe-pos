@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   esCompraDeInsumos,
   resolverCallableCompra,
+  sincronizarUnidadPredeterminadaEnItemsVacios,
   unidadMedidaCompraPredeterminada,
 } from "./compra-routing";
 
@@ -32,4 +33,21 @@ test("las compras de insumos de cafetería conservan gramos como unidad vacía",
 test("otros contextos de compra usan unidades como valor predeterminado", () => {
   assert.equal(unidadMedidaCompraPredeterminada("GENERAL", "Tienda principal"), "unidades");
   assert.equal(unidadMedidaCompraPredeterminada(null, null), "unidades");
+});
+
+test("una configuración que carga tarde actualiza solo las filas todavía vacías", () => {
+  const items = [
+    { insumoId: "", cantidad: 0, costoUnitario: 0, unidadMedida: "unidades" },
+    { insumoId: "", cantidad: 2, costoUnitario: 0, unidadMedida: "unidades" },
+    { insumoId: "producto-1", cantidad: 0, costoUnitario: 0, unidadMedida: "unidades" },
+  ];
+
+  assert.deepEqual(
+    sincronizarUnidadPredeterminadaEnItemsVacios(items, "g"),
+    [
+      { ...items[0], unidadMedida: "g" },
+      items[1],
+      items[2],
+    ],
+  );
 });
