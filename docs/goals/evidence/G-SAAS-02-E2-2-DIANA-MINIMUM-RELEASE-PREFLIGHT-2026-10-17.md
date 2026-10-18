@@ -2308,3 +2308,279 @@ canónicas siguen `NOT VERIFIED`. No hubo invocaciones, escrituras, cambios de
 IAM/API, despliegues ni operaciones comerciales. El rollout App Hosting está
 confirmado, pero el release/Trial sigue `NO-GO` por las divergencias de Functions,
 la lectura bloqueada de Rules y la falta de verificación autenticada del operador.
+
+### Addendum — alcance corregido del corte E2.2 y compatibilidad con tenants de prueba (2026-10-18 13:59 COT / 18:59Z)
+
+La aclaración del responsable fija el alcance operativo de E2.2 sin ambigüedad:
+el único tenant objetivo es `distribuidora-las-jimenez`, vertical
+`BODEGA_MVP1`. `Cafe Atrato` y `Prueba` son entornos de prueba y quedan fuera
+del corte. No se solicita designarlos, inicializar controles para ellos ni
+modificar sus Rules efectivas, datos o configuración tenant-scoped. Esta
+decisión resuelve la selección de tenants; no es un bloqueo pendiente.
+El ID indicado es el alcance canónico autorizado, no una afirmación de que el
+documento del tenant exista ya; su existencia deberá revalidarse por lectura
+canónica antes de operaciones futuras. Este addendum sustituye cualquier
+formulación anterior que dejara pendiente elegir entre tenants de prueba; no
+resuelve quién ejecutará el corte ni su ventana operativa.
+
+#### Hallazgo sobre el candidato de `main`
+
+Revisión estática de `main @ 1918c0916f6497a34c01cbe17fded15992cfac2f`:
+
+- `firestore.rules:83-97`, `comprasHabilitadasParaTenant()`, exige documento de
+  control v1 coincidente, `ACTIVA` y revisión válida.
+- `firestore.rules:224-230`, `/compras`, niega siempre create/delete directo
+  para Bodega, pero también condiciona create/delete de todos los demás
+  verticales a `comprasHabilitadasParaTenant()`.
+- `functions/src/finanzas/compra-core.ts:208-250` aplica el control fail-closed
+  en el núcleo compartido de compras. La ruta legacy además rechaza Bodega,
+  conforme a ADR-SAAS-075; el cambio de guard en ese núcleo puede también
+  alterar compras no-Bodega que usen el mismo camino.
+
+Por ello, el candidato actual **no demuestra** que incorporar el tenant Bodega
+pueda hacerse sin cambiar el comportamiento efectivo de `Cafe Atrato` y
+`Prueba`. La evidencia de lectura previa del 2026-10-18 encontró cero controles
+para esos tenants; es histórica, no una lectura actual, y no se modifica ni se
+repite aquí. Si siguen sin control, el candidato actual puede denegar compras
+que antes eran permitidas. No se crean controles para compensar ese efecto.
+
+Las Rules de Firestore se publican como una Ruleset global para la base
+`(default)`: no existe una Ruleset por `empresaId`. Un despliegue futuro
+necesariamente actualiza ese recurso global; el requisito de no afectar a los
+tenants de prueba se satisface únicamente si se demuestra que sus permisos y
+resultados efectivos permanecen equivalentes. No significa que el recurso
+global pueda dejarse intacto mientras se despliega Rules para Diana.
+
+#### Plan de release delimitado
+
+El plan separa la infraestructura global de las acciones del tenant objetivo:
+
+| Superficie | Alcance técnico | Acción tenant-scoped | Gate antes de ejecutar |
+|---|---|---|---|
+| Código de compra / Functions | Paquetes y callables concretos, con impacto de código compartido evaluado por vertical. | Ninguna acción sobre `Cafe Atrato` o `Prueba`; el guard de Bodega solo puede bloquear el tenant Bodega. | Aceptación del ADR-SAAS-085 propuesto; PR técnico, pruebas Bodega y no regresión no-Bodega, inventario/plan remoto, artefacto y recuperación verificables y autorización de Functions separada. |
+| Firestore Rules | Una Ruleset global de `(default)`; el diff debe limitarse a la frontera Bodega y preservar semántica no-Bodega. | Solo `distribuidora-las-jimenez` participa en la pausa/control del corte. | Lectura vigente del release/ruleset activo, hash/fuente, compatibilidad de Functions, pruebas por vertical/rol/control/revocación/aislamiento, responsable y ventana confirmados, autorización de Rules independiente y procedimiento forward-fix. |
+| Control de compras | Documento canónico por tenant, manipulado solo por `transicionarPausaComprasSaas`. | Solo `distribuidora-las-jimenez` puede tener control o participar en un corte; nunca los tenants de prueba. Si el tenant es nuevo, primero debe existir la Empresa para que la callable permita inicializarlo. | Revalidar ausencia/presencia canónica; identidad/facultad efectiva, revisión/estado y callable compatibles; autorización de cada transición. Si ya existe, usar el corte completo de ADR-SAAS-081. |
+| Oferta, Bootstrap y Trial | Callables comerciales/Bootstrap y runtime/Secret compartidos, con su propio riesgo de release. | Oferta y alta únicamente para `distribuidora-las-jimenez`, `BODEGA_MVP1`, `CO`; no ejecutadas en esta tarea. | Contratos productivos compatibles, ausencia de duplicados, Plan publicado, operador autenticado con facultades, aceptación del riesgo IAM o remediación separada, aprobaciones individuales y autorización de escritura. |
+
+Secuencia futura propuesta, todavía `NO-GO` y no autorizada:
+
+1. Obtener decisión formal sobre ADR-SAAS-085: control obligatorio Bodega y
+   preservación de la semántica de otros verticales, además del tratamiento de
+   un tenant nuevo no existente al aplicar Rules. Si no se acepta, no cambiar
+   código ni iniciar el Trial por inferencia.
+2. Implementar en PR técnico solo la opción aceptada. Probar Bodega con control
+   ausente/inválido/pausado/activo, escritura directa denegada, callable legacy
+   rechazando Bodega también en replay, y equivalencia de Rules/Functions para
+   verticales no-Bodega sin crear controles ni tocar sus datos.
+3. Antes de cualquier operación remota, revalidar en solo lectura que el
+   tenant objetivo no exista y que no haya compras/operaciones que requieran
+   recuperación; inventariar Ruleset global, Functions, SHA/configuración,
+   artefactos, operador y facultades; preparar planes y recovery. Confirmar
+   responsables/ventana y obtener autorizaciones independientes para Functions
+   y Rules.
+4. Solo si el destino sigue siendo un tenant realmente nuevo, aplicar la
+   excepción propuesta por ADR-SAAS-085: actualizar/verificar primero Functions
+   compatibles y luego la Ruleset global, cuyo diff deberá preservar el
+   comportamiento efectivo no-Bodega. La callable Bodega falla cerrada sin
+   control y Rules ya niega sus escrituras directas, así que no hay ventana de
+   compras habilitadas para el tenant aún inexistente. Verificar todas las
+   invariantes antes de cualquier oferta/Bootstrap. Si el tenant ya existe,
+   esta excepción no aplica: seguir el corte completo de ADR-SAAS-081, solo
+   para `distribuidora-las-jimenez`, con control, pausa, verificación,
+   reanudación atestada y recuperación forward-fix.
+5. Después de certificar el release y con aprobaciones de negocio/escritura
+   separadas, buscar duplicados, crear/aprobar la oferta y ejecutar el
+   Bootstrap canónico. El Bootstrap inicia los 30 días; no se inicia antes de
+   completar los gates de release.
+6. Al existir Empresa, inicializar por la callable canónica el control del
+   único tenant objetivo `expectedRevision: 0 → ACTIVA`; verificar actor,
+   revisión y auditoría antes de habilitar compras o entregar acceso operativo.
+   Si falla, mantener compras bloqueadas y no intentar una escritura directa,
+   reintento ciego o cambio en un tenant de prueba.
+
+El paso 4 para tenant nuevo es una propuesta y **no es todavía una excepción
+aceptada** a la secuencia de ADR-SAAS-081. Se requiere la decisión formal del
+responsable documentada en ADR-SAAS-085 antes de implementar o ejecutar esa
+ruta. No desplegar Rules permisivas como rollback ordinario.
+
+La secuencia no habilita ventas ni compras en un tenant vacío. La decisión
+E2.2 existente permite diferir el catálogo definitivo durante el Trial inicial
+no fiscal, pero el catálogo aprobado sigue siendo requisito para vender,
+comprar o declarar Bodega operativa. La oferta, el Bootstrap, el control de
+compras, Rules y Functions siguen siendo operaciones distintas con
+autorizaciones independientes.
+
+#### Decisión arquitectónica pendiente y estado
+
+El candidato actual aplica el control a todos los verticales y el ADR-SAAS-081
+adoptado lo describe como fail-closed cuando el control falta. Las ADR-SAAS-072
+y 075, en cambio, preservan el comportamiento de otros verticales fuera de
+Bodega. La aclaración de alcance no modifica silenciosamente ninguna ADR. Se
+preparó [ADR-SAAS-085 — Alcance del control de compras Bodega en E2.2](../../../ADR-SAAS-085-alcance-control-compras-bodega-e2-2.md)
+como `PROPUESTO`; recomienda limitar el guard obligatorio al corte Bodega de
+E2.2, pero requiere aceptación explícita antes de tocar código o Rules. Hasta
+entonces prevalece el contrato aceptado actual y no se modifica el candidato.
+
+No se ejecutaron suites ni consultas remotas en esta actualización documental.
+Las referencias de Rules, Functions, App Hosting, tenants y controles citadas
+arriba son evidencia histórica fechada en las secciones anteriores, no
+revalidación del estado remoto actual. La compatibilidad con los tenants de
+prueba queda **no demostrada para el candidato actual**; la selección del
+alcance, en cambio, queda resuelta. Gate I, release productivo y Trial siguen
+`NO-GO`.
+
+### Addendum — revalidación de alcance y superficies remotas (2026-10-18 14:07–14:11 COT / 19:07–19:11Z)
+
+Esta lectura continúa la instrucción de alcance del responsable: la única alta
+y cualquier control tenant-scoped de E2.2 corresponden a
+`distribuidora-las-jimenez`, vertical `BODEGA_MVP1`. `Cafe Atrato` y `Prueba`
+no integran el corte operativo; no se solicita designarlos ni se autoriza
+cambiar sus controles, documentos, datos o configuración. Esta decisión elimina
+la antigua incertidumbre de selección. No elimina la obligación de demostrar
+que los cambios globales de Functions/Rules preservan su comportamiento
+efectivo.
+
+#### Estado integrado
+
+- `git ls-remote origin refs/heads/main`: `1918c0916f6497a34c01cbe17fded15992cfac2f`.
+- PR #628 quedó fusionado en `512b19703a9b6936edd484bf71b7b8f7e3fa7875`;
+  sus checks de CI, Vercel y Preview Comments terminaron `SUCCESS`; CI
+  post-merge `39111383872` terminó `success` para el SHA del merge.
+- PR #629 quedó fusionado en `1918c0916f6497a34c01cbe17fded15992cfac2f`;
+  sus checks de CI, Vercel y Preview Comments terminaron `SUCCESS`; CI
+  post-merge `39149845722` terminó `success` para el SHA de `main`.
+- El checkout aislado de preparación estaba en el mismo SHA que `origin/main`.
+  No se publicaron los cambios locales de este expediente ni se modificó el
+  checkout compartido.
+
+PR #629 integra la validación estricta de `schemaVersion: 1`, forma del control,
+revisión segura, concurrencia y semántica v2 de ADR-SAAS-084 en el código
+candidato. Sus checks prueban el candidato integrado, pero no acreditan que
+Functions o Rules productivas ya lo ejecuten.
+
+#### Rules productivas y candidata exacta
+
+Consulta read-only del release `projects/micafe-pos/releases/cloud.firestore`
+el `2026-10-18T19:07:01.2943941Z`:
+
+- Release activo: `cloud.firestore`; ruleset referenciado:
+  `projects/micafe-pos/rulesets/d5e205db-0ab4-4db1-b5ec-1534bee39d35`.
+- `updateTime` del release: `2026-08-15T04:20:46Z`; creación del ruleset:
+  `2026-08-15T04:20:45Z`.
+- Fuente recuperada: `firestore.rules`, 14.846 bytes UTF-8. SHA-256 de la
+  fuente recibida: `fca6363aa98360535306bd13d70418888760645cd5c5e54ada5c83ceb2f6a887`;
+  SHA-256 con saltos normalizados a LF: `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`.
+- Candidata `firestore.rules` en `main @ 1918c091…`: SHA-256 de bytes del
+  archivo: `a90863d94405e9bd6e39a8fb96a6df370a9974c7363eca42959a856b476a469e`;
+  SHA-256 normalizado a LF: `5f62c36b429507046063ede684dff64c6e667cf2afce51b0f8b73cef8fd51e06`.
+
+En `/compras`, la fuente activa no consulta el control de release para
+autorizar `create`/`delete` del administrador del tenant. La candidata niega
+esas escrituras directas para Bodega, pero además exige control v1 coincidente,
+`ACTIVA` y revisión segura a todos los verticales no-Bodega. Por tanto, como
+cambio global, la candidata **no preserva** hoy la semántica de compras
+no-Bodega: para un tenant sin control, el permiso antes disponible puede
+quedar denegado. La condición exacta de control para cada vertical sí puede
+simularse localmente, pero no se debe compensar creando controles para los
+tenants excluidos.
+
+La suite existente también codifica esa semántica universal: en
+`firestore-rules/bodega-purchases.test.ts`, el caso
+`ADR-081: compras legacy fallan cerrado sin control activo y Bodega sigue callable-only`
+espera que un tenant sintético `GENERAL` sin control no pueda escribir compras
+directas y que solo pueda hacerlo con un control v1 `ACTIVA` válido. Los casos
+de esquema ausente/desconocido y revisión límite también lo hacen fail-closed.
+Es una fixture de Emulator, no una lectura de `Cafe Atrato` o `Prueba`. La suite
+verde de #629 demuestra el contrato candidato actual, no el requisito de
+preservar el comportamiento anterior de no-Bodega. Resolverlo requiere decisión
+formal y cambios de regresión explícitos; no se puede presentar como simple
+ajuste de fixture.
+
+El deploy de Rules reemplazaría el release de la base `(default)` completa; no
+existe Ruleset separada por tenant. La inclusión segura de Diana exige que una
+candidata revisada mantenga equivalencia efectiva no-Bodega y aplique el
+fail-closed Bodega. Esta lectura confirma una divergencia de `/compras`; no es
+una nueva certificación de todos los paths de Gate I. La última matriz de
+divergencias no cubierta por esta lectura sigue pendiente de revalidación antes
+de cualquier deploy.
+
+#### Functions productivas observadas
+
+Consultas `gcloud functions describe --v2`, proyecto `micafe-pos` / región
+`us-central1`, realizadas durante el mismo intervalo. La cuenta CLI activa fue
+`segucor0526@gmail.com`; el proyecto devolvió ID `micafe-pos`, número
+`882525811433`, estado `ACTIVE`.
+
+| Function | Estado / `updateTime` | Codebase / etiqueta hash | Runtime / identidad de build y runtime |
+|---|---|---|---|
+| `ejecutarComandoComercialSaas` | `ACTIVE`, `2026-08-15T04:27:10.213732081Z` | `saas-auth` / `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0` | Node.js 22; Compute default |
+| `solicitarBootstrapEmpresarialSaas` | `ACTIVE`, `2026-08-15T04:27:36.321446180Z` | `saas-auth` / `b9a033fcf119a92fa942f158e3b4ac4e609f1983` | Node.js 22; Compute default |
+| `registrarCompraBodegaV1` | `ACTIVE`, `2026-10-14T09:29:23.381063034Z` | `saas-bodega-operations` / `fa7f47c21b994a5ebccefded6e548e0f6b193c79` | Node.js 22; Compute default |
+| `registrarCompraOperativaV1` | `ACTIVE`, `2026-10-15T16:50:25.789673942Z` | `saas-auth` / `9a0a088d1ee7c3caf1d5d1d087f97328fb646443` | Node.js 22; Compute default |
+| `transicionarPausaComprasSaas` | `ACTIVE`, `2026-10-15T16:50:26.772565182Z` | `saas-auth` / `9a0a088d1ee7c3caf1d5d1d087f97328fb646443` | Node.js 22; Compute default |
+| `consultarOfertaComercialTenantSaas` | `NOT FOUND` (`404`) | No aplica | No aplica |
+
+La identidad de build y runtime reportada para las Functions anteriores es
+`882525811433-compute@developer.gserviceaccount.com`; la etiqueta remota es
+metadata y no una atestación de artefacto fuente. No se descargaron imágenes ni
+se ejecutó código. Las fechas/hash muestran que las Functions de compras y
+control observadas no están revalidadas contra el `main` posterior a PR #629;
+las callables comerciales y Bootstrap siguen etiquetadas bajo `saas-auth`, no
+los codebases candidatos. El control solo puede inicializarse cuando
+`empresas/{empresaId}` existe, según la callable del código candidato en
+`main`; por eso no puede preinicializarse canónicamente para un tenant todavía
+no creado.
+
+#### App Hosting y rollout
+
+Las lecturas REST acotadas a `micafe-pos/us-central1` observaron backend
+`micafe-pos`, URI `micafe-pos--micafe-pos.us-central1.hosted.app`, runtime
+Node.js 24 y reconciliación inactiva. Su único build listado es
+`build-2026-10-15-001`, `READY`, fuente
+`5c5c4fdd9164abdca0fe05c9fddb51cea8559a29`; el rollout homónimo está
+`SUCCEEDED`. La lectura de Cloud Run confirmó 100 % de tráfico a la revisión
+`micafe-pos-build-2026-10-15-001`. El SHA servido no es el `main @ 1918c091…`.
+La API App Hosting consultada no expuso el campo de política de rollout en esta
+respuesta; la lectura de Cloud Run sí acredita el tráfico actual observado.
+
+#### Compatibilidad, alcance y plan actualizado
+
+El resultado es **NO-GO técnico**, no por falta de selección de tenants:
+
+1. No cambiar los controles, datos ni configuración de `Cafe Atrato` o `Prueba`.
+   Solo `distribuidora-las-jimenez` puede recibir acciones de oferta,
+   Bootstrap/Trial o control en E2.2.
+2. No desplegar la Rules candidata ni el `compra-core` de `main` como están:
+   ambos exigen control fuera del vertical Bodega. La corrección debe conservar
+   el fail-closed del flujo Bodega y la ruta legacy rechazada para Bodega,
+   mientras mantiene los resultados no-Bodega previos sin crear controles
+   para otros tenants.
+3. ADR-SAAS-081 está aceptado y es más amplio en su texto que ADR-SAAS-072/075;
+   ADR-SAAS-085 local en estado `PROPUESTO` documenta la tensión y recomienda
+   una delimitación Bodega para este corte. No se modifica contrato/runtime
+   hasta aceptación formal de esa decisión.
+4. Si la relectura canónica confirma que el tenant aún no existe, la callable
+   actual de transición no puede inicializar su control antes de Bootstrap.
+   El plan de ordenar Functions compatibles → Rules global compatible →
+   oferta/Bootstrap del único tenant → transición `expectedRevision: 0` a
+   `ACTIVA` es una excepción de secuencia a ADR-SAAS-081; requiere aceptación
+   explícita en ADR-SAAS-085, pruebas de no-regresión y autorizaciones
+   independientes. Si el tenant ya existe, la excepción de tenant nuevo no
+   aplica y se prepara el corte normal exclusivamente para su ID, manteniendo
+   equivalentes las rutas de los tenants excluidos.
+5. La transición posterior al Bootstrap inicia el control únicamente luego de
+   existir la Empresa. Mientras el control no esté confirmado, las compras
+   Bodega permanecen bloqueadas; no se entrega acceso de operación de compras.
+   Como el Bootstrap inicia el Trial, la ejecución debe ser una secuencia
+   controlada inmediata y el riesgo de consumir tiempo del Trial si falla la
+   transición se mantiene visible; no se afirma que el Trial esté iniciado.
+6. Antes de cada mutación futura se requieren inventario/plan actuales,
+   artefacto y recuperación verificables, compatibilidad local/emulador,
+   operador productivo y facultades canónicas revalidados y autorización
+   específica para Functions, Rules, oferta y Bootstrap. No se ejecutó ninguna.
+
+**Estado:** selección del tenant objetivo resuelta; entornos de prueba fuera del
+corte; Rules/Functions incompatibles para el alcance exigido; ADR-SAAS-085
+pendiente de aceptación; Gate I, release y Trial siguen `NO-GO`. Solo pasaron
+checks de CI de #628/#629 y lecturas remotas de metadatos/contenido; no se
+ejecutaron pruebas locales en esta actualización porque no cambió código.
