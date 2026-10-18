@@ -1457,9 +1457,10 @@ de código; la lectura de artefactos fue estática y de solo lectura.
 
 ### Addendum — datos de entrega administrativa de Diana
 
-En respuesta del responsable durante esta continuación se confirmó que Diana
-autoriza el nombre exacto `Diana Jimenez` para su perfil administrador y que el
-responsable le entregará el código/PIN temporal por WhatsApp. Se registra como
+En respuesta del responsable durante esta continuación se confirmó fuera de
+banda el nombre autorizado para el perfil administrador; el valor se omite de
+esta evidencia pública. El responsable le entregará el código/PIN temporal
+por WhatsApp. Se registra como
 declaración del responsable sobre lo acordado con Diana; no se generó ni envió
 credencial y no se solicitó correo, contraseña, token o código por este medio.
 
@@ -1701,9 +1702,9 @@ verdes de PR #628 todavía corresponden exclusivamente al HEAD remoto
 `fc5a9633b29150072fdd9339e60caf237b9e2c15` y no validan el commit nuevo. La
 evidencia de preflight continúa modificada localmente y sin publicar.
 
-El responsable confirmó que Diana autoriza el nombre `Diana Jimenez` y que él
-entregará el código/PIN temporal por WhatsApp. También confirmó que un
-administrador puede aportar una lectura de Rules solo si ya dispone de los
+El responsable confirmó fuera de banda el nombre autorizado para la cuenta
+administradora y que entregará el código/PIN temporal por WhatsApp. También
+confirmó que un administrador puede aportar una lectura de Rules solo si ya dispone de los
 permisos necesarios. La lectura productiva del ruleset ya está registrada en
 el addendum del 17 de octubre; esta confirmación no concede ni solicita permisos.
 No se generó ni compartió una credencial.
@@ -1725,8 +1726,8 @@ Se actualizó únicamente su descripción para reflejar los checks ya verdes y l
 review humana aún pendiente; no se añadió comentario ni se alteró el HEAD.
 
 La declaración anterior de que faltaban nombre y canal queda superada por la
-confirmación del responsable: Diana autoriza el nombre `Diana Jimenez` y él
-entregará personalmente por WhatsApp el código/PIN temporal cuando el flujo
+confirmación del responsable, fuera de banda, del nombre autorizado para la
+cuenta administradora; su valor se omite en evidencia pública. Él entregará personalmente por WhatsApp el código/PIN temporal cuando el flujo
 canónico lo genere. Es evidencia declarativa, no verificación directa con
 Diana; no se generó ni envió credencial. Permanecen por verificar en el momento
 de operación la identidad/facultades efectivas del operador y las
@@ -1920,11 +1921,11 @@ Secuencia técnica: review/merge gobernado del PR #628; fijar SHA de `main` post
 | Rules/corte | `(default)`, ruleset/hash, lista exacta de tenants, responsable por tenant, ventana, controles/revisiones, pausas por callable, verificación, atestación de reanudación y recuperación forward-fix. Reconocer efecto sobre compras directas de verticales no-Bodega. | Gate I sigue abierto. |
 | IAM Bootstrap | Aceptar riesgo `roles/editor` acotado o aprobar en paquete separado SA dedicada y permisos mínimos probados; no confundirla con App Hosting. | No usar el runtime privilegiado. |
 | Oferta | Autorizar `CrearOfertaComercialTenant` y `AprobarOfertaComercialTenant` para tenant objetivo, Plan anual v2 publicado, COP 1.600.000, pago manual, efectiva `2026-10-16`, sin vencimiento; revalidar duplicados/Plan/operador antes de escribir. | No existe oferta aprobada en producción. |
-| Bootstrap/Trial | Una solicitud canónica para `distribuidora-las-jimenez`, `BODEGA_MVP1`, `CO`, `Diana Jimenez`; operador con facultad efectiva `BOOTSTRAP_EMPRESARIAL_SOLICITAR`; confirmar inicio inmediato de los 30 días y creación de cuenta/membresía. PIN temporal se entrega fuera de banda por el responsable en WhatsApp. | No se crea tenant, usuario ni Trial. |
+| Bootstrap/Trial | Una solicitud canónica para `distribuidora-las-jimenez`, `BODEGA_MVP1`, `CO`, nombre administrador confirmado fuera de banda (valor omitido en evidencia pública); operador con facultad efectiva `BOOTSTRAP_EMPRESARIAL_SOLICITAR`; confirmar inicio inmediato de los 30 días y creación de cuenta/membresía. PIN temporal se entrega fuera de banda por el responsable en WhatsApp. | No se crea tenant, usuario ni Trial. |
 
 Antes de toda escritura comercial, releer UID y `saas_operadores/{uid}` desde la sesión productiva, estado activo y facultad canónica adecuada (`COMERCIAL_GOBERNAR`, `BOOTSTRAP_EMPRESARIAL_SOLICITAR` o `RELEASE_COMPRAS_GOBERNAR`); la identidad `gcloud` no prueba identidad SaaS. Buscar duplicados inmediatamente antes de escribir en rutas canónicas de empresa, suscripción, provisioning/configuración y oferta. Los 404 históricos eran rutas exactas, no una búsqueda de alias, y deben renovarse. No cambiar facultades.
 
-El responsable declaró `Diana Jimenez` como nombre autorizado y que entregará personalmente el PIN por WhatsApp. El correo no es obligatorio para este contrato de Bootstrap y no se inventa. La oferta/precio/fecha son declaraciones del responsable, no una escritura aprobada en producción. Catálogo vacío puede diferirse para iniciar el Trial, pero no permite vender/comprar ni declarar Bodega lista.
+El responsable confirmó fuera de banda el nombre autorizado de la administradora y que entregará personalmente el PIN por WhatsApp; el valor del nombre se omite en esta evidencia pública. El correo no es obligatorio para este contrato de Bootstrap y no se inventa. La oferta/precio/fecha son declaraciones del responsable, no una escritura aprobada en producción. Catálogo vacío puede diferirse para iniciar el Trial, pero no permite vender/comprar ni declarar Bodega lista.
 
 **Estado:** las lecturas actuales confirman que la divergencia remota sigue vigente; no resolvieron las brechas técnicas. Bloqueos técnicos: Rules activas incompatibles, guard ausente en Function Bodega, callable de control productiva v1, callables comerciales/Bootstrap antiguas y App Hosting en SHA anterior. Bloqueos de autorización/gobernanza: review humana del PR #628; aprobaciones independientes por Functions, App Hosting, Rules/corte, IAM, oferta y Bootstrap/Trial; faltan tenants/responsables/ventana del corte. No se desplegó, invocó ni escribió nada; no hubo pausa, cambio IAM/API/Secret, oferta, tenant, cuenta ni Trial. Identidad/facultades actuales del operador en sesión productiva siguen por verificar justo antes de operar.
 
@@ -2164,9 +2165,10 @@ oferta aprobada en producción. Deben autorizarse por separado `CrearOfertaComer
 y `AprobarOfertaComercialTenant`, con `COMERCIAL_GOBERNAR` efectivo y Plan
 publicado revalidado justo antes de ejecutar.
 
-Se conservan las confirmaciones humanas ya recibidas: país `CO`, nombre
-autorizado `Diana Jimenez`, y el responsable le entregará el PIN/código
-temporal por WhatsApp fuera del sistema. El Bootstrap canónico no exige un
+Se conservan las confirmaciones humanas ya recibidas: país `CO` y confirmación
+fuera de banda del nombre autorizado (valor omitido en evidencia pública). El
+responsable le entregará el PIN/código temporal por WhatsApp fuera del sistema.
+El Bootstrap canónico no exige un
 correo para este contrato; no se solicita ni inventa uno. El Goal del
 `2026-10-17` permite iniciar el Trial inicial no fiscal de 30 días con catálogo
 vacío una vez superados los demás gates; el catálogo aprobado sigue siendo
@@ -2194,7 +2196,7 @@ deduce de `RELEASE_COMPRAS_GOBERNAR`.
 | Rules / corte de compras | `BLOCKED`; ruleset `d5e205db…` difiere de candidato `b8fb7ddd…`, Functions aún incompatibles y alcance/tenants/ventana no definidos. | Autorización separada para el release `(default)`, con lista exacta de tenants y responsables, ventana, controles/revisiones, pausa/reanudación por callable, criteria de aborto y forward-fix. |
 | IAM Bootstrap | `BLOCKED`; `roles/editor` efectivo en la runtime SA. | Decisión explícita de riesgo o autorización de paquete IAM separado; sin cambios por conveniencia. |
 | Oferta anual | `BLOCKED`; Plan está publicado pero no existe oferta persistida; operador no verificado. | Autorización específica para crear y, separadamente, aprobar COP 1.600.000/manual/desde `2026-10-16`/sin vencimiento; revalidar duplicados, Plan y facultad. |
-| Bootstrap/Trial | `BLOCKED`; no hay tenant/oferta, función candidata no desplegada y operador no verificado. | Autorización específica para crear `distribuidora-las-jimenez` con `BODEGA_MVP1`, `CO`, `Diana Jimenez` y Trial 30 días; confirmar ausencia canónica, oferta/Plan, facultad efectiva, configuración no vacía y manejo del PIN fuera de banda. |
+| Bootstrap/Trial | `BLOCKED`; no hay tenant/oferta, función candidata no desplegada y operador no verificado. | Autorización específica para crear `distribuidora-las-jimenez` con `BODEGA_MVP1`, `CO`, el nombre administrador confirmado fuera de banda (valor omitido en evidencia pública) y Trial 30 días; confirmar ausencia canónica, oferta/Plan, facultad efectiva, configuración no vacía y manejo del PIN fuera de banda. |
 | Catálogo/readiness | `DEFERIDO PARA TRIAL VACÍO`; borrador no aprobado. | No bloquea el Trial inicial por decisión E2.2; sí bloquea importación, venta, compra y declaración de readiness hasta que el cliente apruebe el maestro. |
 
 **Resultado a 2026-10-18:** E2.2 sigue en ejecución y el release/Trial permanece
@@ -2206,3 +2208,58 @@ productiva. Ninguna autorización individual de esta tabla está concedida por
 este addendum. `git diff --check` se ejecutará tras cerrar la edición local;
 no se repitieron suites runtime porque el código no cambió y los checks vigentes
 de PR #628 corresponden al HEAD remoto auditado, no a este addendum local.
+
+### Addendum — auditoría independiente del PR #628 (2026-10-18 01:15 COT / 06:15Z)
+
+Lectura actual de GitHub: PR #628 permanece abierto, no draft, base `main @
+0ac4e9edf829acdf7213e7a20b722de9a58c2826`, HEAD
+`82558b5f5a41b927a7dca06001c1599e371e8d3a`. El diff contiene diez archivos:
+pruebas de Rules Emulator, pruebas de discovery/autorización, un paso de CI y
+Goal/runbook/evidencia; no cambia Functions runtime, `firestore.rules`, IAM ni
+recursos remotos. El archivo de preflight y sus addenda están ya en el diff
+remoto; en este worktree no había un addendum sin publicar al iniciar la
+revisión. Las secciones anteriores son snapshots fechados, no lecturas actuales.
+
+La API de repositorio confirma `visibility=public`. En el HEAD remoto, el
+preflight incluía el nombre personal completo aprobado para la cuenta
+administradora. La autorización recibida cubre ese nombre como dato de cuenta,
+pero no acredita consentimiento para publicarlo en un repositorio público; no
+es necesario para probar la semántica de Rules, Functions o Bootstrap. Se
+preparó esta redacción local para omitir el valor y conservar solo que fue
+confirmado fuera de banda. Esta corrección no está publicada y no se afirma que
+el HEAD remoto esté anonimizado.
+
+Revisión técnica independiente: no se encontraron defectos de runtime porque
+no hay cambios runtime. Los tests nuevos son locales/Emulator y no certifican
+Rules remotas, continuidad de Functions ni el release productivo. El test de
+discovery comprueba exports y `entryPoint` del manifiesto local más un mapeo
+declarado de `FUNCTION_TARGET`; no equivale a una invocación ni a una verificación
+del artefacto remoto, límite que la evidencia documenta. El test de autorización
+Bootstrap prueba rechazo anónimo antes de Firestore y operador sin la facultad
+requerida; la implementación sigue haciendo la autorización canónica. Las
+pruebas de Rules añadidas cubren los estados descritos, sin cerrar Gate I.
+
+`Tipos y pruebas` para este HEAD seguía `pending` en la consulta más reciente,
+`2026-10-18T06:31:07Z`; el job `117603291445` del run `39103121760` continúa
+`in_progress`. Vercel y Preview Comments están `PASS`. La API de
+reviews devolvió cero reviews; el único comentario es automatizado por Vercel.
+No se trata la falta de review humana como defecto de la propuesta. No se
+repitieron suites completas mientras el workflow de este mismo HEAD seguía
+ejecutándolas.
+
+**Dictamen del HEAD remoto:** `REJECT`. El contenido técnico de tests y
+documentación es coherente con E2.2 y mantiene abiertos los gates productivos,
+pero el cambio publica un dato personal que no es necesario para la evidencia
+técnica y no cuenta con autorización explícita para su divulgación pública. La
+corrección mínima es anonimizar ese valor en el preflight y publicar la
+redacción revisada; después deben terminar los checks del nuevo HEAD. No es un
+rechazo por falta de review humana ni por los bloqueos productivos que el PR
+correctamente mantiene fuera de alcance.
+
+Esta redacción y dictamen son locales. No se editó el PR remoto, no se fusionó y
+no se ejecutaron despliegues, invocaciones ni escrituras de negocio.
+
+La redacción local no elimina la exposición de commits públicos ya existentes.
+La revisión o retirada de esa copia histórica requeriría el procedimiento del
+administrador del repositorio para datos personales y autorización separada;
+no se reescribió historia ni se solicitó una purga.
