@@ -301,6 +301,24 @@ test("ADR-SAAS-081: una revisión agotada no permite comprar si ya no puede paus
   assert.deepEqual([...db.docs.entries()], before);
 });
 
+test("ADR-SAAS-081: una compra se permite en la revisión inmediatamente anterior a la agotada", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`controles_release_compras/${empresaId}`, {
+    schemaVersion: 1,
+    empresaId,
+    estado: "ACTIVA",
+    revision: Number.MAX_SAFE_INTEGER - 1,
+  });
+
+  const result = await ejecutarRegistrarCompraOperativaV1(
+    db,
+    contexto,
+    envelope("revision-previa-agotada", payload()),
+  );
+
+  assert.ok(db.docs.has(`compras/${result.compraId}`));
+});
+
 test("Bodega: revalida permiso antes de devolver el recibo de un replay", async () => {
   const db = new FakeFirestore(); seed(db);
   db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory", "purchases"] } });
