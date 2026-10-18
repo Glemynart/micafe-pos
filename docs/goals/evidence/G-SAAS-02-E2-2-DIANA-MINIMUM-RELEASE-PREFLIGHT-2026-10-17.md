@@ -2547,9 +2547,16 @@ respuesta; la lectura de Cloud Run sí acredita el tráfico actual observado.
 
 El resultado es **NO-GO técnico**, no por falta de selección de tenants:
 
-1. No cambiar los controles, datos ni configuración de `Cafe Atrato` o `Prueba`.
-   Solo `distribuidora-las-jimenez` puede recibir acciones de oferta,
-   Bootstrap/Trial o control en E2.2.
+1. El único objetivo tenant-scoped es `distribuidora-las-jimenez` (`BODEGA_MVP1`).
+   `Cafe Atrato` y `Prueba` quedan fuera del corte: no se les designará, pausará,
+   inicializará control ni cambiarán sus datos o configuración. La Ruleset
+   `cloud.firestore` del `(default)` es global, no separable por `empresaId`;
+   desplegar una versión nueva reemplaza el artefacto compartido aunque la
+   operación no sea tenant-scoped. Para respetar este alcance, esa versión debe
+   conservar las decisiones efectivas de acceso de ambos entornos de prueba.
+   Si “no cambiar sus Rules” prohíbe incluso reemplazar la Ruleset global, no se
+   puede desplegar Rules bajo esa interpretación; no se resolverá alterando los
+   tenants de prueba.
 2. No desplegar la Rules candidata ni el `compra-core` de `main` como están:
    ambos exigen control fuera del vertical Bodega. La corrección debe conservar
    el fail-closed del flujo Bodega y la ruta legacy rechazada para Bodega,
@@ -2559,6 +2566,23 @@ El resultado es **NO-GO técnico**, no por falta de selección de tenants:
    ADR-SAAS-085 local en estado `PROPUESTO` documenta la tensión y recomienda
    una delimitación Bodega para este corte. No se modifica contrato/runtime
    hasta aceptación formal de esa decisión.
+
+La secuencia debe distinguir la infraestructura compartida de las escrituras
+del tenant objetivo:
+
+| Superficie | Alcance real | Condición previa y verificación |
+|---|---|---|
+| Functions de compra/control | Código compartido del proyecto; no es una actualización por tenant y puede cambiar el comportamiento de cualquier tenant que invoque esas callables. | ADR-SAAS-085 aceptado; PR técnico con guard fail-closed para Bodega y regresión de equivalencia no-Bodega; plan dirigido y autorización de Functions independiente. Verificar IDs, región, configuración, artefacto y respuesta antes/después. |
+| Rules `cloud.firestore` (`(default)`) | Ruleset global: no existe despliegue por `empresaId`. No se operan los tenants de prueba, pero el artefacto activo compartido sí se reemplaza. | Diff limitado a Bodega y resultados efectivos equivalentes para los tenants excluidos; Emulator y preflight remoto vigente; autorización de Rules independiente. Abortar ante cualquier diferencia no aprobada. |
+| Oferta, Bootstrap y Trial | Escrituras tenant-scoped exclusivamente para `distribuidora-las-jimenez`. El Bootstrap canónico inicia el Trial. | Duplicados, Plan publicado, sesión/facultades y autorización operativa validados; cada operación comercial requiere su autorización correspondiente. |
+| Control de compras | Solo el documento canónico de `distribuidora-las-jimenez`; no inicializar controles ni ejecutar pausas para `Cafe Atrato` o `Prueba`. | Después de existir la Empresa, transición canónica `expectedRevision: 0` a `ACTIVA`, con auditoría persistida. La secuencia de tenant nuevo es una excepción de ADR-SAAS-081 aún pendiente de aceptación en ADR-SAAS-085. |
+
+La infraestructura compartida no se describe como cambio “solo para Diana”:
+si la restricción significa que ni siquiera puede reemplazarse la Ruleset
+global, se debe mantener el NO-GO para Rules. La condición verificable de esta
+propuesta es no alterar permisos efectivos ni datos tenant-scoped de los dos
+entornos de prueba.
+
 4. Si la relectura canónica confirma que el tenant aún no existe, la callable
    actual de transición no puede inicializar su control antes de Bootstrap.
    El plan de ordenar Functions compatibles → Rules global compatible →
@@ -2584,3 +2608,40 @@ corte; Rules/Functions incompatibles para el alcance exigido; ADR-SAAS-085
 pendiente de aceptación; Gate I, release y Trial siguen `NO-GO`. Solo pasaron
 checks de CI de #628/#629 y lecturas remotas de metadatos/contenido; no se
 ejecutaron pruebas locales en esta actualización porque no cambió código.
+
+### Addendum — aceptación de ADR-SAAS-085 (2026-10-18 14:38 America/Bogota)
+
+El responsable aceptó explícitamente la ADR completa: Opción 2 y secuencia para
+un tenant Bodega nuevo. Este evento supersede las menciones anteriores de esta
+evidencia que describían ADR-SAAS-085 como propuesta pendiente; esas menciones
+se conservan como snapshots históricos.
+
+Decisión vigente: en E2.2 el control obligatorio se aplica a la ruta Bodega y
+se preserva el comportamiento efectivo no-Bodega hasta un corte posterior
+aprobado. `Cafe Atrato` y `Prueba` siguen totalmente fuera de las acciones
+tenant-scoped; no se crean controles ni se cambian sus datos o configuración.
+La Ruleset `(default)` continúa siendo infraestructura global y cualquier
+reemplazo requiere demostrar equivalencia efectiva para esos tenants, además
+de autorización de Rules independiente.
+
+Para un destino Bodega realmente nuevo, sin empresa, compras ni otros
+documentos operativos preexistentes —condición que debe revalidarse por lectura
+inmediatamente antes de la secuencia—, el orden aceptado es: Functions
+compatibles → Rules global compatibles → oferta y Bootstrap del tenant objetivo
+(`distribuidora-las-jimenez`, `BODEGA_MVP1`, país `CO`, nombre autorizado) →
+transición canónica única del control desde `expectedRevision: 0` a `ACTIVA`.
+El Bootstrap inicia el Trial de 30 días; por ello no se inicia antes de superar
+los gates globales y de contar con autorización de las operaciones comerciales.
+Hasta verificar control y auditoría, las compras Bodega permanecen bloqueadas y
+no se entrega acceso de operación comercial. Si el tenant ya existe o hay
+operaciones, esta excepción no aplica y debe prepararse el corte normal de
+ADR-SAAS-081 para ese tenant.
+
+La aceptación habilita preparar implementación y pruebas locales en PR técnico;
+no autoriza deploy de Functions, Rules o App Hosting, cambios IAM, oferta,
+Bootstrap, control ni Trial. Esas operaciones mantienen aprobaciones
+independientes. El estado observado de producción, Rules y Functions continúa
+siendo histórico de la lectura previa; esta decisión no lo revalida. Gate I,
+release y Trial permanecen `NO-GO`. El preflight previo y la evidencia histórica
+siguen disponibles en las secciones anteriores; no se repitieron consultas
+remotas ni pruebas en este addendum.

@@ -1,12 +1,14 @@
 # ADR-SAAS-085 — Alcance del control de compras Bodega en E2.2
 
-**Estado:** PROPUESTO — aceptación del responsable pendiente.
+**Estado:** ACEPTADO — 2026-10-18, por decisión explícita del responsable del proyecto.
 **Fecha de propuesta:** 2026-10-18.
+**Fecha de aceptación:** 2026-10-18.
 **Última revisión:** 2026-10-18.
 **Goal:** `G-SAAS-02` → `M2` → `E2.2`.
-**Decisor:** responsable del proyecto.
+**Decisor:** responsable del proyecto. Aceptación registrada en la conversación de trabajo el 2026-10-18: “Aceptar completa: Opción 2 y secuencia del tenant nuevo”.
 **Relacionados:** ADR-SAAS-071, ADR-SAAS-072, ADR-SAAS-075, ADR-SAAS-081 y ADR-SAAS-084.
-**Límite:** este borrador no autoriza código, despliegues, pausas, Rules, IAM, datos, oferta, tenant, cuenta ni Trial.
+**Supersede parcialmente:** ADR-SAAS-081 únicamente para (a) limitar la aplicación del control obligatorio al flujo Bodega dentro del corte E2.2, preservando el comportamiento efectivo de los verticales no-Bodega excluidos hasta un corte posterior aprobado; y (b) permitir para el tenant Bodega nuevo y vacío de E2.2 la secuencia Functions compatibles → Rules global compatibles → oferta/Bootstrap → inicialización canónica del control. Las demás invariantes y el flujo normal de cortes de ADR-SAAS-081 permanecen vigentes.
+**Límite:** la aceptación habilita la implementación y pruebas locales mediante un PR técnico revisable. No autoriza despliegues, pausas, cambios IAM, datos remotos, oferta, tenant, cuenta ni Trial.
 
 ## Contexto
 
@@ -110,25 +112,25 @@ entre los ADR y el alcance.
 **Ventaja:** no altera ningún contrato ni entorno.
 **Coste:** mantiene E2.2 y el Trial bloqueados.
 
-## Recomendación propuesta
+## Decisión adoptada
 
-Se recomienda discutir y aceptar la Opción 2 para E2.2; no se adopta por
-inferencia. Su compatibilidad requiere un PR técnico separado que preserve los
+Se acepta la **Opción 2** para E2.2. Su compatibilidad requiere un PR técnico separado que preserve los
 invariantes de ADR-SAAS-081 para Bodega y no cambie el comportamiento efectivo
 de los tenants no-Bodega fuera del corte. Una Ruleset desplegada sigue siendo un
 cambio global de infraestructura, por lo que necesita autorización de release
 independiente aunque el diff semántico sea Bodega-específico.
 
-Si el responsable no acepta acotar ADR-SAAS-081, la alternativa segura es la
-Opción 4. La Opción 1 no se ejecuta porque contradice el alcance humano vigente;
-la Opción 3 necesita una decisión de alcance nueva.
+La aceptación no equivale a autorización operativa: cada despliegue global y
+cada escritura tenant-scoped sigue sujeto a su preflight, revisión y
+autorización específica. La Opción 1 se descarta porque contradice el alcance
+aprobado; la Opción 3 queda fuera de alcance.
 
-## Condiciones mínimas para implementar la opción recomendada
+## Condiciones de implementación de la decisión aceptada
 
-1. Precisar la supersesión de ADR-SAAS-081 solo para la aplicabilidad del guard
-   a rutas no-Bodega fuera del corte; conservar la validación de `schemaVersion:
-   1`, empresa, estado, revisión, idempotencia, concurrencia y auditoría del
-   control en las rutas inscritas.
+1. Aplicar la supersesión acotada de ADR-SAAS-081 solo al alcance de E2.2:
+   conservar la ruta legacy no-Bodega fuera del corte y exigir en la ruta Bodega
+   `schemaVersion: 1`, empresa, estado, revisión, idempotencia, concurrencia y
+   auditoría del control.
 2. En Bodega, control ausente, inválido o pausado bloquea compras nuevas; el
    control activo v1 coincidente habilita únicamente la callable canónica. Las
    Rules niegan create/delete cliente de `/compras` para Bodega y la callable
@@ -181,22 +183,22 @@ como una interpretación ya aceptada:
    auditoría se verifiquen, las compras siguen denegadas por Functions; no se
    realiza ninguna compra.
 
-La propuesta no permite omitir la pausa/reanudación de ADR-SAAS-081 para
-tenants existentes alcanzados por un corte. Solo para una alta nueva, sin
-documentos ni transacciones preexistentes, propone no pausar un control
-inexistente y publicar primero los guardas compatibles. Requiere aceptación
-explícita porque modifica el orden de release de ADR-SAAS-081; si la lectura
-previa encuentra que el tenant ya existe o tiene operaciones, esta excepción
-no aplica y el proceso se detiene hasta preparar el corte normal con el alcance
-aprobado. Si el responsable no acepta esta excepción, se mantiene el NO-GO y no
-se inicia el Trial por una secuencia improvisada.
+La excepción aceptada no permite omitir la pausa/reanudación de ADR-SAAS-081
+para tenants existentes alcanzados por un corte. Solo aplica a una alta nueva,
+sin documentos ni transacciones preexistentes: no se pausa un control
+inexistente y primero se publican los guardas compatibles. Si la lectura previa
+encuentra que el tenant ya existe o tiene operaciones, esta excepción no aplica
+y el proceso se detiene hasta preparar el corte normal con el alcance aprobado.
 
 ## Consecuencias y límites
 
-- Hasta la aceptación formal, ADR-SAAS-081 vigente gobierna; no se relajan sus
-  guardas ni se despliega la candidata incompatible.
-- La aceptación no autoriza implementación, despliegue ni escritura. Se
-  requieren PR, pruebas, auditoría, CI y autorizaciones operativas separadas.
+- Antes de esta aceptación, ADR-SAAS-081 gobernaba sin estas excepciones. Desde
+  la aceptación, el alcance queda limitado exactamente a las dos excepciones
+  declaradas en “Supersede parcialmente”; sus demás guardas e invariantes no se
+  relajan.
+- La implementación debe ocurrir en un PR técnico con pruebas, auditoría y CI.
+  Esta decisión no autoriza despliegues ni escrituras remotas: Functions, Rules,
+  oferta y Bootstrap requieren sus autorizaciones operativas independientes.
 - Si no se puede preservar la semántica efectiva de los tenants excluidos en
   Rules y Functions, se mantiene el NO-GO. No se resuelve mediante allowlists
   hardcodeadas por ID ni controles creados para esos tenants.
