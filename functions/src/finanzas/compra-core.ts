@@ -216,8 +216,8 @@ async function exigirComprasActivasEnTransaccion(tx: any, db: any, empresaId: st
     || datos.empresaId !== empresaId
     || !Number.isSafeInteger(datos.revision)
     || (datos.revision as number) < 1
-    || (datos.revision as number) >= Number.MAX_SAFE_INTEGER
     || (datos.estado !== "ACTIVA" && datos.estado !== "PAUSADA")
+    || (datos.estado === "ACTIVA" && (datos.revision as number) >= Number.MAX_SAFE_INTEGER)
   ) {
     fail("failed-precondition", "COMPRAS_CONTROL_INVALIDO");
   }

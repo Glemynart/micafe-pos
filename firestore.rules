@@ -90,6 +90,8 @@ service cloud.firestore {
         && get(control).data.estado == 'ACTIVA'
         && get(control).data.revision is int
         && get(control).data.revision >= 1
+        // Mantiene el mismo límite que Number.isSafeInteger en las Functions:
+        // una revisión activa debe poder incrementarse para pausar el control.
         && get(control).data.revision < 9007199254740991;
     }
     function membresiaBodegaActiva(empresaId, permiso) {

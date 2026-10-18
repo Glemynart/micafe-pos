@@ -139,7 +139,11 @@ export async function transicionarPausaCompras(
     }
     if (revisionActual !== input.expectedRevision) rechazar("CONFLICTO_REVISION_CORTE_COMPRAS");
     if (actual && actual.estado === input.destino) rechazar("TRANSICION_CORTE_COMPRAS_REDUNDANTE");
-    if (actual?.estado === "PAUSADA" && input.destino === "ACTIVA" && !input.verificacionRelease) {
+    const esReanudacion = actual?.estado === "PAUSADA" && input.destino === "ACTIVA";
+    if (input.verificacionRelease && !esReanudacion) {
+      throw new HttpsError("invalid-argument", "VERIFICACION_RELEASE_NO_APLICA");
+    }
+    if (esReanudacion && !input.verificacionRelease) {
       rechazar("VERIFICACION_RELEASE_REQUERIDA");
     }
 

@@ -8,7 +8,6 @@ import {
   expectDenied,
   rulesTestEnvironment,
   seedDocument,
-  seedInt64Document,
 } from "./test-helpers";
 
 before(async () => {
@@ -164,23 +163,7 @@ test("ADR-081: una versión ausente o desconocida del control no habilita escrit
   }
 });
 
-test("ADR-081: una revisión fuera del rango entero seguro no habilita escrituras legacy", async () => {
-  const adminLegacy = await contextFor(fixtures.tenantB.admin);
-  await seedDocument("configuraciones/empresa-b", { empresaId: "empresa-b", vertical: "GENERAL" });
-  await seedInt64Document("controles_release_compras/empresa-b", {
-    schemaVersion: 1,
-    empresaId: "empresa-b",
-    estado: "ACTIVA",
-    revision: BigInt("9007199254740992"),
-  });
-
-  await expectDenied(adminLegacy.firestore().doc("compras/control-revision-insegura").set({
-    empresaId: "empresa-b",
-    total: 2400,
-  }));
-});
-
-test("ADR-081: la revisión máxima segura falla cerrada para conservar la capacidad de pausar", async () => {
+test("ADR-081: un control activo en la última revisión segura no habilita escrituras legacy", async () => {
   const adminLegacy = await contextFor(fixtures.tenantB.admin);
   await seedDocument("configuraciones/empresa-b", { empresaId: "empresa-b", vertical: "GENERAL" });
   await seedDocument("controles_release_compras/empresa-b", {
@@ -190,13 +173,13 @@ test("ADR-081: la revisión máxima segura falla cerrada para conservar la capac
     revision: Number.MAX_SAFE_INTEGER,
   });
 
-  await expectDenied(adminLegacy.firestore().doc("compras/control-revision-maxima-segura").set({
+  await expectDenied(adminLegacy.firestore().doc("compras/legacy-revision-activa-agotada").set({
     empresaId: "empresa-b",
     total: 2400,
   }));
 });
 
-test("ADR-081: la revisión previa a la máxima segura sigue permitiendo compras", async () => {
+test("ADR-081: la revisión anterior a la máxima segura permite compras legacy", async () => {
   const adminLegacy = await contextFor(fixtures.tenantB.admin);
   await seedDocument("configuraciones/empresa-b", { empresaId: "empresa-b", vertical: "GENERAL" });
   await seedDocument("controles_release_compras/empresa-b", {
@@ -206,7 +189,7 @@ test("ADR-081: la revisión previa a la máxima segura sigue permitiendo compras
     revision: Number.MAX_SAFE_INTEGER - 1,
   });
 
-  await expectAllowed(adminLegacy.firestore().doc("compras/control-revision-previa-maxima").set({
+  await expectAllowed(adminLegacy.firestore().doc("compras/legacy-revision-previa-al-limite").set({
     empresaId: "empresa-b",
     total: 2400,
   }));

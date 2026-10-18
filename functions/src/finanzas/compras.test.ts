@@ -221,6 +221,32 @@ test("ADR-SAAS-081: un replay confirmado sobrevive la pausa sin duplicar efectos
   assert.deepEqual(afterWithoutControl, beforeWithoutControl);
 });
 
+test("ADR-SAAS-081: replay confirmado sigue disponible si la pausa consume la última revisión segura", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`controles_release_compras/${empresaId}`, {
+    schemaVersion: 1,
+    empresaId,
+    estado: "ACTIVA",
+    revision: Number.MAX_SAFE_INTEGER - 1,
+  });
+  const command = envelope("corte-replay-revision-final", payload());
+  const first = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
+  const snapshot = [...db.docs.entries()];
+  db.docs.set(`controles_release_compras/${empresaId}`, {
+    schemaVersion: 1,
+    empresaId,
+    estado: "PAUSADA",
+    revision: Number.MAX_SAFE_INTEGER,
+  });
+
+  const replay = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
+
+  assert.deepEqual(replay, first);
+  const afterWithoutControl = [...db.docs.entries()].filter(([path]) => path !== `controles_release_compras/${empresaId}`);
+  const beforeWithoutControl = snapshot.filter(([path]) => path !== `controles_release_compras/${empresaId}`);
+  assert.deepEqual(afterWithoutControl, beforeWithoutControl);
+});
+
 test("ADR-SAAS-081: reintento ambiguo sin recibo no materializa una compra durante la pausa", async () => {
   const db = new FakeFirestore(); seed(db);
   db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "PAUSADA", revision: 2 });
@@ -265,6 +291,59 @@ test("ADR-SAAS-081: ausencia o forma ambigua del control falla cerrada", async (
   );
 });
 
+test("ADR-SAAS-081: un control activo en la última revisión segura falla cerrado", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`controles_release_compras/${empresaId}`, {
+    schemaVersion: 1,
+    empresaId,
+    estado: "ACTIVA",
+    revision: Number.MAX_SAFE_INTEGER,
+  });
+  const before = [...db.docs.entries()];
+
+  await assert.rejects(
+    ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("control-revision-activa-agotada", payload())),
+    error => domain(error, "COMPRAS_CONTROL_INVALIDO"),
+  );
+  assert.deepEqual([...db.docs.entries()], before);
+});
+
+test("ADR-SAAS-081: compra callable funciona una revisión antes del límite de pausa", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`controles_release_compras/${empresaId}`, {
+    schemaVersion: 1,
+    empresaId,
+    estado: "ACTIVA",
+    revision: Number.MAX_SAFE_INTEGER - 1,
+  });
+
+  const result = await ejecutarRegistrarCompraOperativaV1(
+    db,
+    contexto,
+    envelope("control-revision-previa-al-limite", payload()),
+  );
+
+  assert.equal(db.docs.has(`compras/${result.compraId}`), true);
+  assert.equal(db.docs.get(`controles_release_compras/${empresaId}`)?.revision, Number.MAX_SAFE_INTEGER - 1);
+});
+
+test("ADR-SAAS-081: una pausa en la última revisión sigue denegando compras como corte activo", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`controles_release_compras/${empresaId}`, {
+    schemaVersion: 1,
+    empresaId,
+    estado: "PAUSADA",
+    revision: Number.MAX_SAFE_INTEGER,
+  });
+  const before = [...db.docs.entries()];
+
+  await assert.rejects(
+    ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("control-pausado-revision-final", payload())),
+    error => domain(error, "COMPRAS_EN_CORTE"),
+  );
+  assert.deepEqual([...db.docs.entries()], before);
+});
+
 test("ADR-SAAS-081: control sin schemaVersion o con versión desconocida falla cerrado", async () => {
   for (const [suffix, schemaVersion] of [["sin-version", undefined], ["version-desconocida", 2]] as const) {
     const db = new FakeFirestore(); seed(db);
@@ -282,41 +361,6 @@ test("ADR-SAAS-081: control sin schemaVersion o con versión desconocida falla c
     );
     assert.deepEqual([...db.docs.entries()], before);
   }
-});
-
-test("ADR-SAAS-081: una revisión agotada no permite comprar si ya no puede pausarse", async () => {
-  const db = new FakeFirestore(); seed(db);
-  db.docs.set(`controles_release_compras/${empresaId}`, {
-    schemaVersion: 1,
-    empresaId,
-    estado: "ACTIVA",
-    revision: Number.MAX_SAFE_INTEGER,
-  });
-  const before = [...db.docs.entries()];
-
-  await assert.rejects(
-    ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("revision-agotada", payload())),
-    error => domain(error, "COMPRAS_CONTROL_INVALIDO"),
-  );
-  assert.deepEqual([...db.docs.entries()], before);
-});
-
-test("ADR-SAAS-081: una compra se permite en la revisión inmediatamente anterior a la agotada", async () => {
-  const db = new FakeFirestore(); seed(db);
-  db.docs.set(`controles_release_compras/${empresaId}`, {
-    schemaVersion: 1,
-    empresaId,
-    estado: "ACTIVA",
-    revision: Number.MAX_SAFE_INTEGER - 1,
-  });
-
-  const result = await ejecutarRegistrarCompraOperativaV1(
-    db,
-    contexto,
-    envelope("revision-previa-agotada", payload()),
-  );
-
-  assert.ok(db.docs.has(`compras/${result.compraId}`));
 });
 
 test("Bodega: revalida permiso antes de devolver el recibo de un replay", async () => {
