@@ -90,7 +90,7 @@ service cloud.firestore {
         && get(control).data.estado == 'ACTIVA'
         && get(control).data.revision is int
         && get(control).data.revision >= 1
-        && get(control).data.revision <= 9007199254740991;
+        && get(control).data.revision < 9007199254740991;
     }
     function membresiaBodegaActiva(empresaId, permiso) {
       let path = /databases/$(database)/documents/membresias/$(empresaId + '_' + request.auth.uid);

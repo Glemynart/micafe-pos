@@ -146,6 +146,28 @@ test("ADR-SAAS-081: la transición no persiste una revisión fuera del rango ent
   assert.equal([...db.docs.keys()].filter((path) => path.startsWith("saas_auditoria/")).length, 0);
 });
 
+test("ADR-SAAS-081: reanudar no puede agotar la revisión dejando compras sin posibilidad de pausa", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set("controles_release_compras/empresa-a", {
+    schemaVersion: 1,
+    empresaId: "empresa-a",
+    estado: "PAUSADA",
+    revision: Number.MAX_SAFE_INTEGER - 1,
+  });
+  const before = [...db.docs.entries()];
+
+  await assert.rejects(
+    transicionarPausaCompras(db as never, "op-release", token, entrada("reanudar-revision-agotada", "empresa-a", "ACTIVA", Number.MAX_SAFE_INTEGER - 1, {
+      functionArtifactSha: "a".repeat(64),
+      rulesetHash: "b".repeat(64),
+      releaseReferencia: "gate-i-release-1",
+    })),
+    error => domain(error, "REVISION_CORTE_COMPRAS_AGOTADA"),
+  );
+  assert.deepEqual([...db.docs.entries()], before);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("saas_auditoria/")).length, 0);
+});
+
 test("ADR-SAAS-084: inicializar directamente en PAUSADA sigue siendo inicialización, no pausa", async () => {
   const db = new FakeFirestore(); seed(db);
   const resultado = await transicionarPausaCompras(db as never, "op-release", token, entrada("inicial-pausada", "empresa-a", "PAUSADA", 0));

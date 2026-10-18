@@ -284,6 +284,23 @@ test("ADR-SAAS-081: control sin schemaVersion o con versión desconocida falla c
   }
 });
 
+test("ADR-SAAS-081: una revisión agotada no permite comprar si ya no puede pausarse", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`controles_release_compras/${empresaId}`, {
+    schemaVersion: 1,
+    empresaId,
+    estado: "ACTIVA",
+    revision: Number.MAX_SAFE_INTEGER,
+  });
+  const before = [...db.docs.entries()];
+
+  await assert.rejects(
+    ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("revision-agotada", payload())),
+    error => domain(error, "COMPRAS_CONTROL_INVALIDO"),
+  );
+  assert.deepEqual([...db.docs.entries()], before);
+});
+
 test("Bodega: revalida permiso antes de devolver el recibo de un replay", async () => {
   const db = new FakeFirestore(); seed(db);
   db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory", "purchases"] } });

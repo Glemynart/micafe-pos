@@ -180,7 +180,7 @@ test("ADR-081: una revisión fuera del rango entero seguro no habilita escritura
   }));
 });
 
-test("ADR-081: la revisión máxima segura sigue siendo válida para compras legacy", async () => {
+test("ADR-081: la revisión máxima segura falla cerrada para conservar la capacidad de pausar", async () => {
   const adminLegacy = await contextFor(fixtures.tenantB.admin);
   await seedDocument("configuraciones/empresa-b", { empresaId: "empresa-b", vertical: "GENERAL" });
   await seedDocument("controles_release_compras/empresa-b", {
@@ -190,7 +190,23 @@ test("ADR-081: la revisión máxima segura sigue siendo válida para compras leg
     revision: Number.MAX_SAFE_INTEGER,
   });
 
-  await expectAllowed(adminLegacy.firestore().doc("compras/control-revision-maxima-segura").set({
+  await expectDenied(adminLegacy.firestore().doc("compras/control-revision-maxima-segura").set({
+    empresaId: "empresa-b",
+    total: 2400,
+  }));
+});
+
+test("ADR-081: la revisión previa a la máxima segura sigue permitiendo compras", async () => {
+  const adminLegacy = await contextFor(fixtures.tenantB.admin);
+  await seedDocument("configuraciones/empresa-b", { empresaId: "empresa-b", vertical: "GENERAL" });
+  await seedDocument("controles_release_compras/empresa-b", {
+    schemaVersion: 1,
+    empresaId: "empresa-b",
+    estado: "ACTIVA",
+    revision: Number.MAX_SAFE_INTEGER - 1,
+  });
+
+  await expectAllowed(adminLegacy.firestore().doc("compras/control-revision-previa-maxima").set({
     empresaId: "empresa-b",
     total: 2400,
   }));
