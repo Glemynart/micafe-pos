@@ -1058,3 +1058,656 @@ worktree, sin servicios remotos:
 No se repitieron builds ni suites de Functions completas: no cambió código
 runtime. `git diff --check` pasó; Git informó únicamente la conversión de
 line endings LF/CRLF del preflight en Windows.
+
+### Addendum — relectura acotada y preparación de onboarding (2026-10-17)
+
+#### Rules productivas: relectura actual fallida
+
+Lectura GET de `cloud.firestore` en `micafe-pos`, iniciada
+`2026-10-17T23:18:09.4419511Z`. Antes de consultar se verificó mediante
+`gcloud projects describe micafe-pos` que el destino es el proyecto esperado
+`micafe-pos`, número `882525811433`, estado `ACTIVE`. La cuenta activa de gcloud
+era la cuenta operadora ya autenticada; se omite su dirección por privacidad.
+La petición exacta
+`GET https://firebaserules.googleapis.com/v1/projects/micafe-pos/releases/cloud.firestore`
+devolvió HTTP `403 PERMISSION_DENIED`, `reason=SERVICE_DISABLED`,
+`consumer=projects/32555940559`; el mensaje indica que ADC requiere un quota
+project que no está configurado. No se intentó fijar otro proyecto de cuota ni
+se cambiaron APIs, credenciales o IAM.
+
+Esta respuesta no confirma que Rules API esté deshabilitada en `micafe-pos`, no
+identifica un permiso IAM ausente y no contiene un release/ruleset. Por tanto,
+el estado actual del `(default)` sigue `NO VERIFICADO`. La última lectura exitosa
+continúa siendo histórica: ruleset `d5e205db-0ab4-4db1-b5ec-1534bee39d35`, hash
+normalizado `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`
+frente al candidato registrado `b8fb7ddd5370ddaa3784db4921b2bbbc71e51f285ffde912c3b0650ab1517fdf`.
+No se puede declarar que ese par de hashes represente el estado vigente. Gate I
+permanece abierto.
+
+La documentación IAM vigente identifica `roles/firebaserules.viewer` como rol
+de solo lectura que incluye `firebaserules.releases.get` y
+`firebaserules.rulesets.get` (además de sus permisos de listado). Para esta
+consulta con credenciales de usuario también se requiere un quota project en el
+que `firebaserules.googleapis.com` esté habilitada y el permiso
+`serviceusage.services.use`. La evidencia actual no confirma que la cuenta
+operadora tenga esos permisos ni que el consumidor `32555940559` sea el
+proyecto de cuota autorizado. No se solicitó ni aplicó ningún binding o
+habilitación. Referencias: [rol Firebase Rules Viewer](https://docs.cloud.google.com/iam/docs/roles-permissions/firebaserules)
+y [requisitos de ADC/quota project](https://docs.cloud.google.com/docs/authentication/troubleshoot-adc).
+
+#### Lecturas productivas del Backoffice
+
+En el Backoffice productivo, con sesión autenticada y contexto mostrado como
+`Autorización v3` / `Contexto validado`, se consultó la proyección de Empresas y
+se filtró por el ID `distribuidora-las-jimenez`, el nombre exacto
+`Distribuidora Las Jiménez` y las variantes `Jiménez` y `Jimenez`. El listado
+mostró dos registros y `No hay empresas` para esos filtros; no mostró control
+`Cargar más`. La implementación usa `listarRecursos("empresas", { limite: 50 })`
+y ofrece paginación solo cuando hay cursor (`components/backoffice/use-platform-list.ts`
+y `components/backoffice/companies.tsx`). Por tanto, la lectura visible no
+indicó otra página. La consulta de listado la realiza el Backoffice mediante la
+callable de solo lectura `listarRecursosPlataformaSaas`; no se invocaron el
+executor comercial, la consulta de oferta ni el Bootstrap. Esto es una lectura
+de la proyección canónica del Backoffice y no prueba que el ID/nombre siga libre
+al momento de una futura escritura; debe repetirse antes de Bootstrap. No se
+usó búsqueda directa fuera del Backoffice.
+
+En `/backoffice/planes` se observó `mvp_comercial`, versión `2`, estado
+`PUBLICADA`, revisión `2`. La navegación no creó ni retiró planes. Oferta,
+tenant, administrador, membresía y Trial permanecen sin crear; no se invocaron
+operaciones de negocio de oferta, executor comercial ni Bootstrap.
+
+#### App Hosting: SHA candidato y diferencia con el build observado
+
+La consulta de solo lectura `git ls-remote origin refs/heads/main` devolvió
+`0ac4e9edf829acdf7213e7a20b722de9a58c2826`, igual al `origin/main` local. El
+último rollout productivo verificable en esta evidencia continúa siendo el
+build `build-2026-10-15-001`, SHA `5c5c4fdd9164abdca0fe05c9fddb51cea8559a29`,
+100 % de tráfico al build según la lectura histórica; no se reconsultó App
+Hosting en este addendum, por lo que su tráfico actual no se declara renovado.
+
+La comparación local de Git entre ese SHA y `origin/main` abarca 39 archivos
+(1.873 inserciones y 206 eliminaciones), incluyendo código Functions y
+documentación que no equivalen por sí solos a contenido servido por App
+Hosting. El delta visible de la aplicación incluye navegación de ofertas en
+producción, la vista/etiquetas de evidencia de auditoría v2, y la captura de
+costo y presentación de margen/utilidad de compra Bodega; el candidato también
+incluye la unidad predeterminada `unidades` para las filas de compra Bodega. No
+se generó build ni se inició rollout. El SHA `0ac4e9…` es candidato, no una
+autorización operativa ni una afirmación de compatibilidad certificada.
+
+#### Efecto en Gates y siguiente secuencia
+
+Estas lecturas reducen incertidumbre de duplicado y Plan, pero no resuelven la
+brecha de Rules ni la discrepancia de artefacto/build de Functions ya registrada.
+El executor comercial anterior tiene un artefacto identificable, pero su
+recuperación no se probó; para `consultarOfertaComercialTenantSaas` no hay
+revisión anterior observada, y la imagen activa reportada para el executor no
+coincide nominalmente con su source/build. Ninguna restauración está ejecutada
+ni verificada. App Hosting continúa pendiente de revalidación para el SHA
+candidato vigente. No se repitieron suites: el código local cubierto no cambió.
+
+Secuencia comercial pendiente y sin autorización de escritura en esta revisión:
+(1) revalidar duplicados y Plan al momento de operar; (2) crear y aprobar
+canónicamente la oferta tenant-specific anual de COP `1.600.000`, pago manual,
+efectiva desde `2026-10-16` y sin vencimiento; (3) solo después de cerrar los
+gates y con autorización productiva específica, hacer Bootstrap de
+`distribuidora-las-jimenez`, `BODEGA_MVP1`, país `CO`, con identidad y nombre
+administrador autorizados. El Bootstrap inicia el Trial de exactamente 30 días
+al completarse correctamente; la oferta no lo inicia. El catálogo diferido
+permite únicamente un Trial inicial vacío/no fiscal, no ventas, compras ni
+readiness de Bodega. La información aún requerida de Diana es únicamente el
+nombre exacto que autoriza para su cuenta administradora y el canal externo
+seguro para entregar el código/PIN temporal; no se requiere pedirle un correo
+ni credenciales por este chat.
+
+**Estado:** producción permanece `NO-GO`; Gate I sigue abierto por Rules no
+revalidadas, compatibilidad/recuperación de Functions no demostrada y falta de
+release verificable del SHA candidato. No se desplegaron Functions, App Hosting
+ni Rules; no se modificó IAM, Secrets, oferta, tenant, membresía o Trial.
+
+### Addendum — alternativa de lectura en Firebase Console
+
+Durante esta revisión se abrió en Edge la ruta de solo lectura
+`https://console.firebase.google.com/u/0/project/micafe-pos/firestore/rules`.
+La consola mostró «Este proyecto no existe o no tienes permiso para
+visualizarlo». La sesión de Google estaba autenticada, pero la página no mostró
+Rules, release ni ruleset. El mensaje es ambiguo y no demuestra que el proyecto
+no exista, que la API esté deshabilitada o cuál permiso falte. No se intentó
+cambiar de cuenta, fijar un proyecto de cuota, solicitar elevación ni navegar a
+otra superficie administrativa.
+
+La vía alternativa de consola tampoco produjo evidencia remota actualizada:
+el `(default)` permanece `NO VERIFICADO` para esta revisión y Gate I sigue
+abierto. El siguiente paso mínimo es que una identidad administradora ya
+autorizada obtenga, sin cambios de configuración, la versión activa del release
+`cloud.firestore`, su ruleset/source y fecha, o habilite al operador una vía de
+lectura autorizada conforme al procedimiento del proyecto. No se solicita ni
+se aplica aquí ningún cambio IAM/API. Registro local de esta observación:
+`2026-10-17` (la interfaz no expuso una marca de tiempo de consulta con mayor
+precisión).
+
+### Addendum — revalidación read-only del operador productivo
+
+En Edge se abrió `/backoffice/operadores` en el Backoffice productivo. La página
+mostró `Autorización v3` y `Contexto validado`. El identificador de la sesión
+coincidió con el de una fila activa del registro canónico de operadores
+presentado por el Backoffice; se omiten ambos UID y no se observó correo. Esa
+fila activa muestra `OPERADORES_GOBERNAR`, `COMERCIAL_GOBERNAR`,
+`BOOTSTRAP_EMPRESARIAL_SOLICITAR`, `RELEASE_COMPRAS_GOBERNAR` y las facultades
+`LIFECYCLE_GOBERNAR`, `CONSERVACION_GOBERNAR`, `PLATAFORMA_CONSULTAR`,
+`ACCESO_RESTABLECER` y `DUSEMA_TENANT_CONSULTAR`.
+
+La otra fila visible también está `ACTIVO` y muestra
+`OPERADORES_GOBERNAR`, `COMERCIAL_GOBERNAR` y
+`BOOTSTRAP_EMPRESARIAL_SOLICITAR`, pero no `RELEASE_COMPRAS_GOBERNAR`. No se
+asigna a ninguna fila una etiqueta de principal/secundario ni una dirección de
+correo: esa relación no quedó demostrada por esta vista. La pantalla es una
+lectura autenticada del Backoffice; no se invocó ninguna callable de negocio ni
+se cambiaron operadores. Esto acredita el contexto/facultades mostrados en la
+consulta, no sustituye la revalidación server-side de `saas_operadores/{uid}`
+que cada operación mutante hace al ejecutarse. Registro de la observación:
+`2026-10-17T23:31Z` (la pantalla no proporciona timestamp propio).
+
+### Addendum — relectura de App Hosting productivo
+
+Revalidación de solo lectura el `2026-10-17T23:34Z`. `gcloud projects
+describe micafe-pos` confirmó el proyecto esperado `micafe-pos`, número
+`882525811433`, estado `ACTIVE`; había una sola identidad `gcloud` activa (se
+omite su dirección). Firebase CLI local es `15.34.0` y no tenía login propio,
+por lo que no se usó para la lectura. Con el token ya activo de `gcloud` se
+consultó el API oficial App Hosting mediante `GET` sobre el backend exacto
+`projects/micafe-pos/locations/us-central1/backends/micafe-pos`, su recurso
+`rollouts`, el build identificado y `traffic`; todas las respuestas fueron
+exitosas y ninguna solicitud modificó estado.
+
+El backend responde a la URI productiva `micafe-pos--micafe-pos.us-central1.hosted.app`,
+está en `us-central1`, enlaza `Glemynart/micafe-pos` con raíz `/`, y su cuenta
+runtime es `firebase-app-hosting-compute@micafe-pos.iam.gserviceaccount.com`.
+La política de tráfico confirma branch `main` con rollouts automáticos
+deshabilitados. El único rollout listado,
+`build-2026-10-15-001`, está `SUCCEEDED`; el build está `READY`, su `source.commit`
+es exactamente `5c5c4fdd9164abdca0fe05c9fddb51cea8559a29`, y el recurso de
+tráfico asigna 100 % a ese build. Un `HEAD /` a la URI productiva devolvió HTTP
+200. La API mostró variables del SDK y variables del sistema; no se copia ni
+registra aquí ningún valor de configuración.
+
+En contraste, `git ls-remote origin refs/heads/main` devolvió
+`0ac4e9edf829acdf7213e7a20b722de9a58c2826`. El build servido continúa en el SHA
+de producción autorizado previamente, pero no es el `main` actual. Esto
+confirma el estado del backend y el SHA activo, no la compatibilidad integral
+del nuevo candidato ni autoriza un rollout. No se inició build/rollout ni se
+cambió tráfico, configuración, IAM o Functions.
+
+### Addendum — estado remoto de Functions y ausencia de cambios de Rules
+
+Consultas read-only del `2026-10-17T23:34Z` al proyecto exacto
+`micafe-pos`, región `us-central1`, mediante `gcloud functions describe`:
+
+| Callable consultada | Resultado remoto | Configuración relevante |
+|---|---|---|
+| `ejecutarComandoComercialSaas` | `ACTIVE`, actualizada `2026-08-15T04:27:10Z` | Codebase `saas-auth`; entry point exacto; Node.js 22; cuenta de servicio Compute predeterminada; `ALLOW_ALL`; 256 MiB; timeout 60 s; max 20 instancias. Label fuente `firebase-functions-hash` es una etiqueta, no commit atestado. |
+| `consultarOfertaComercialTenantSaas` | `NOT FOUND` al consultar `--gen2 --region=us-central1` | La región coincide con el contrato local; no se afirma ausencia fuera de este recurso/consulta. |
+| `solicitarBootstrapEmpresarialSaas` | `ACTIVE`, actualizada `2026-08-15T04:27:36Z` | Codebase `saas-auth`; entry point exacto; Node.js 22; misma cuenta de servicio; `ALLOW_ALL`; 256 MiB; timeout 60 s; max 20. Referencia de secret declarada `OPERATIONAL_PIN_PEPPER@1`; no se leyó su valor ni se comprobó aquí el permiso runtime `secretAccessor`. |
+
+Esto confirma que producción conserva las dos callables existentes bajo
+`saas-auth`, y que la consulta de oferta no está desplegada en la región
+esperada. La fuente candidata actual las ubica en codebases separados, y
+`functions/src/index.ts` ya no exporta esos nombres; un deploy integral de
+`saas-auth` desde el candidato requeriría revisar su plan de eliminaciones.
+No se ejecutó `deploy`/`dry-run` ni se invocó callable alguna. Las etiquetas de
+Functions no demuestran procedencia exacta del código ni rollback comprobado.
+
+Para aprovechar una vía independiente de solo lectura, se consultó
+`gcloud logging read` en el proyecto `micafe-pos` con filtro limitado a
+`protoPayload.serviceName="firebaserules.googleapis.com"` y métodos
+`CreateRelease`, `UpdateRelease` o `DeleteRelease`, desde
+`2026-10-17T20:09:52Z` (la hora de la última lectura exitosa del release) hasta
+`2026-10-17T23:34:45Z`. Resultado: exit code `0`, cero entradas coincidentes.
+Firebase documenta esos métodos como Admin Activity auditados. Esto aporta
+evidencia de que no aparece un cambio de puntero de release en ese intervalo
+consultado; no recupera la fuente del ruleset ni equivale a una nueva lectura
+del release/Rules. En ausencia de una consulta API autorizada actual, el hash
+activo exacto sigue marcado `NO VERIFICADO` y Gate I permanece abierto.
+
+### Addendum — lectura acotada de Functions y Rules (2026-10-17 18:37 COT)
+
+Se verificó la cuenta `gcloud` activa sin registrar su dirección; el proyecto
+configurado localmente estaba vacío. Todas las consultas indicaron de forma
+explícita `--project=micafe-pos`. `gcloud projects describe micafe-pos`
+confirmó `projectId=micafe-pos`, número `882525811433`, estado `ACTIVE`.
+
+`gcloud functions describe --gen2 --region=us-central1` devolvió:
+
+| Callable | Evidencia actual de solo lectura |
+|---|---|
+| `ejecutarComandoComercialSaas` | `ACTIVE`; `updateTime=2026-08-15T04:27:10.213732081Z`; runtime `nodejs22`; entry point coincidente; codebase etiquetado `saas-auth`; cuenta runtime `882525811433-compute@developer.gserviceaccount.com`; URI `https://ejecutarcomandocomercialsaas-w6qbeqsxfa-uc.a.run.app`; 256 MiB, 60 s, máximo 20 instancias, ingress `ALLOW_ALL`. El label `firebase-functions-hash=9282ced0a7b282ea8573e5ba930efb2e4aee6aa0` no es una atestación de commit. |
+| `consultarOfertaComercialTenantSaas` | La consulta del recurso exacto en `us-central1` devolvió `404 NOT FOUND`. No prueba ausencia en otra región o en otro tipo de recurso. |
+| `solicitarBootstrapEmpresarialSaas` | `ACTIVE`; `updateTime=2026-08-15T04:27:36.321446180Z`; runtime `nodejs22`; entry point coincidente; codebase etiquetado `saas-auth`; cuenta runtime Compute predeterminada; URI `https://solicitarbootstrapempresarialsas-w6qbeqsxfa-uc.a.run.app`; 256 MiB, 60 s, máximo 20 instancias, ingress `ALLOW_ALL`. La evidencia anterior registra referencia a `OPERATIONAL_PIN_PEPPER@1`; no se leyó su valor ni se verificó `secretAccessor` en esta consulta. Ningún endpoint fue invocado. |
+
+Se intentó una lectura directa `GET /v1/projects/micafe-pos/releases/cloud.firestore`
+a las `2026-10-17T23:37:35Z`.
+Respondió `403 PERMISSION_DENIED`, razón `SERVICE_DISABLED`, consumidor
+`projects/32555940559`, con mensaje de que ADC no tiene quota project. No se
+cambió el proyecto de cuota, IAM ni estado de APIs. La respuesta no permite
+identificar el release ni afirmar que la API esté deshabilitada en
+`micafe-pos`; el ruleset/hash activo sigue `NO VERIFICADO`.
+
+Como comprobación indirecta se consultaron Admin Activity logs, solo en
+`micafe-pos`, para `firebaserules.googleapis.com` y métodos
+`CreateRelease`, `UpdateRelease` y `DeleteRelease`, desde
+`2026-10-17T23:34:45Z` hasta `2026-10-17T23:37:35Z`. La consulta terminó con
+código 0 y devolvió cero entradas. Esto solo indica ausencia de coincidencias
+en ese filtro e intervalo; no reemplaza la lectura del release ni acredita el
+hash actual. La consulta no devolvió coincidencias de cambios de Rules en esa
+ventana; la cobertura/retención restante no se infiere de ese resultado.
+
+**Efecto en gates:** las dos callables existentes siguen ubicadas en el
+codebase productivo `saas-auth`, mientras el candidato las separa; el recurso
+de consulta de oferta no se encontró en la región contractual. No se ejecutó
+planner/`dry-run`, despliegue, invocación, escritura, ni cambio de configuración.
+Gate I permanece abierto por incompatibilidad Rules/Functions, Rules remotas
+no revalidadas y requisitos de ADR-SAAS-081 pendientes. El estado productivo
+continúa `NO-GO`.
+
+### Addendum — revisiones de recuperación en producción (2026-10-17; consulta posterior a 23:37Z, hora exacta no capturada)
+
+Lectura acotada de los dos servicios existentes en `micafe-pos`,
+`us-central1`; no se modificó tráfico. Se confirmó que cada servicio mantiene
+100 % en su revisión actual y que existe una revisión anterior `Ready=True`
+sin tráfico. Esto **mejora la evidencia de disponibilidad de un artefacto de
+runtime**, pero no demuestra una restauración funcional ni el mapeo a un commit.
+
+| Callable | Revisión y artefacto anterior exacto observado | Configuración recuperable y límite |
+|---|---|---|
+| `ejecutarComandoComercialSaas` | Actual: `ejecutarcomandocomercialsaas-00016-pid`, 100 %; build `fe8efec1-32df-4b46-80cd-03fc0ff16b64`, source object `gcf-v2-sources-882525811433-us-central1/ejecutarComandoComercialSaas/function-source.zip`, generation `1786768013527885`. Anterior: revisión `ejecutarcomandocomercialsaas-00015-bas`, creada `2026-08-13T03:58:46.397878Z`, `Ready=True`, imagen `us-central1-docker.pkg.dev/micafe-pos/gcf-artifacts/micafe--pos__us--central1__autenticar_operativo@sha256:bc66a362d44ee9989a2049c93a41cd9ec86e5fc3573057bf30d6982085089f53`. | La revisión anterior conserva `FUNCTION_TARGET=ejecutarComandoComercialSaas`, `FUNCTION_SIGNATURE_TYPE=http`, la misma runtime service account Compute predeterminada, 1 CPU, 256 MiB, timeout 60 s y maxScale 20; no declara binding de secreto. Build/source ZIP de esa revisión anterior no se correlacionó con un commit. |
+| `solicitarBootstrapEmpresarialSaas` | Actual: `solicitarbootstrapempresarialsaas-00016-hez`, 100 %; comparte build `fe8efec1-32df-4b46-80cd-03fc0ff16b64`; source object `gcf-v2-sources-882525811433-us-central1/solicitarBootstrapEmpresarialSaas/function-source.zip`, generation `1786768013449627`. Anterior: revisión `solicitarbootstrapempresarialsaas-00015-dex`, creada `2026-08-13T03:58:03.530095Z`, `Ready=True`, la misma imagen digest `bc66a362d44ee9989a2049c93a41cd9ec86e5fc3573057bf30d6982085089f53`. | La revisión anterior conserva `FUNCTION_TARGET=solicitarBootstrapEmpresarialSaas`, `FUNCTION_SIGNATURE_TYPE=http`, la misma runtime service account, 1 CPU, 256 MiB, timeout 60 s, maxScale 20 y referencia a `OPERATIONAL_PIN_PEPPER`, versión 1. El valor nunca se leyó. La relación de la imagen previa con source ZIP/build/commit no quedó establecida. |
+| `consultarOfertaComercialTenantSaas` | Sigue `404 NOT FOUND` al consultar el recurso exacto de Functions Gen2 en `us-central1`; no se observó revisión productiva actual ni previa. | No hay artefacto anterior productivo que restaurar. Si una futura creación se debiera revertir, el baseline sería la ausencia verificada y cualquier retiro del recurso nuevo exigiría autorización separada; un ZIP/revisión de staging no es recuperación de producción. |
+
+La revisión anterior es un candidato exacto de **runtime** conservado por Cloud
+Run, no una recuperación probada. Para una operación futura, el preflight deberá
+volver a comprobar que la revisión y digest siguen disponibles y que el
+mecanismo soportado de Functions/Cloud Run puede dirigir 100 % del servicio a
+esa revisión sin cambiar URI, target o invoker. Si el mecanismo no puede
+confirmarse, detener la publicación y definir otra recuperación antes de
+mutar. Tras una recuperación autorizada, el criterio de éxito será: revisión
+anterior `Ready`, 100 % del tráfico hacia ella, URI/target/región/identidad y
+configuración esperadas, referencia de secreto Bootstrap aún en versión 1, y
+prueba autenticada no mutante con cuenta QA autorizada; logs sin errores
+críticos nuevos. No se ha ejecutado ni verificado esa secuencia. Las revisiones
+de staging enumeradas en secciones anteriores son exclusivamente de staging y
+no sustituyen estos artefactos productivos.
+
+**Clasificación:** recuperación documentada: `SÍ`; artefacto exacto de runtime
+anterior disponible para executor y Bootstrap: `SÍ`, sujeto a revalidación
+inmediatamente antes de uso; fuente/build/commit anterior correlacionado:
+`NO`; recuperación ejecutada y verificada: `NO`. Para la callable de consulta,
+artefacto anterior: `NO`.
+
+### Addendum — Rules `(default)` revalidadas por REST (2026-10-17 18:46 COT)
+
+La lectura de solo lectura se completó a `2026-10-17T23:46:02.730Z` en el
+proyecto objetivo `micafe-pos` (número `882525811433`, `ACTIVE`). Antes del GET
+se comprobó que `firebaserules.googleapis.com` figura habilitada en ese
+proyecto y que la identidad activa posee `serviceusage.services.use` mediante
+`testIamPermissions`. Se especificó `x-goog-user-project: micafe-pos` solo en
+las peticiones REST; no se cambió la cuota ADC persistente, la política IAM ni
+el estado de APIs. Google documenta esta forma por petición y su requisito de
+permiso ([ADC y cuota](https://docs.cloud.google.com/docs/authentication/troubleshoot-adc),
+[cuota por proyecto](https://docs.cloud.google.com/docs/quotas/set-quota-project)).
+
+`GET /v1/projects/micafe-pos/releases/cloud.firestore` devolvió el release
+`projects/micafe-pos/releases/cloud.firestore`, `updateTime` del release
+`2026-08-15T04:20:46.318849Z`, que apunta a
+`projects/micafe-pos/rulesets/d5e205db-0ab4-4db1-b5ec-1534bee39d35`.
+`GET` del ruleset devolvió `firestore.rules`, creado
+`2026-08-15T04:20:45.884943Z`, 14.846 bytes, SHA-256 UTF-8 raw
+`fca6363aa98360535306bd13d70418888760645cd5c5e54ada5c83ceb2f6a887`; tras
+normalizar CRLF/CR a LF: 14.487 bytes, SHA-256
+`c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`.
+
+En la misma comprobación, `git ls-remote origin refs/heads/main` confirmó
+`main @ 0ac4e9edf829acdf7213e7a20b722de9a58c2826`. El blob candidato
+`firestore.rules` tiene 18.961 bytes y SHA-256
+`b8fb7ddd5370ddaa3784db4921b2bbbc71e51f285ffde912c3b0650ab1517fdf` (raw y
+normalizado). El hash activo coincide con la última lectura exitosa y el SHA
+de `main` coincide con el comparado en la matriz semántica previa; por tanto,
+esa matriz vuelve a estar respaldada por la fuente remota actual observada.
+El contenido remoto continúa distinto del candidato. Se mantienen las brechas
+ya enumeradas en la sección “Reconciliación semántica vigente de Rules
+`(default)`”; Gate I no se cierra por haber recuperado el acceso de lectura.
+
+No se desplegaron Rules ni Functions, no se pausaron compras, no se modificaron
+controles/operadores/datos y no se hicieron escrituras productivas.
+
+### Addendum — inspección de artefactos fuente de Functions de compras (2026-10-17)
+
+Inspección de solo lectura entre `2026-10-17T23:49:09Z` y
+`2026-10-17T23:51:36Z`. La cuenta activa de gcloud era la operadora ya
+autenticada; el proyecto por defecto de gcloud estaba sin configurar, así que
+cada consulta de recursos usó `--project=micafe-pos`. Una lectura previa de
+`gcloud projects describe` confirmó `micafe-pos`, número `882525811433`, estado
+`ACTIVE`. No se invocó ningún endpoint ni se inició build.
+
+Se consultó `gcloud functions describe` de forma individual para
+`registrarCompraOperativaV1`, `registrarCompraBodegaV1` y
+`transicionarPausaComprasSaas`, todas Gen2 en `us-central1`, `ACTIVE`, con
+`allTrafficOnLatestRevision=true`, runtime `nodejs22`, 1 CPU, 256 MiB, timeout
+60 s e ingress `ALLOW_ALL`. Sus source objects y generaciones reportados por
+Functions fueron respectivamente:
+
+| Callable | `updateTime` | Source object / generation | ZIP descargado por generación exacta; SHA-256 local |
+|---|---|---|---|
+| `registrarCompraOperativaV1` | `2026-10-15T16:50:25.789673942Z` | `gcf-v2-sources-882525811433-us-central1/registrarCompraOperativaV1/function-source.zip`, `1792083010702967` | 979.638 bytes; `0ae1b15ccb54a4f78c6f1178b8947ab60784556f42b70a5a9741bbc0b801cc57` |
+| `registrarCompraBodegaV1` | `2026-10-14T09:29:23.381063034Z` | `gcf-v2-sources-882525811433-us-central1/registrarCompraBodegaV1/function-source.zip`, `1791970149694527` | 135.473 bytes; `68a24ade9b6e86cb60b4df8c2b6cec9b5db808ede5fa4825e2fcb9f12e238140` |
+| `transicionarPausaComprasSaas` | `2026-10-15T16:50:26.772565182Z` | `gcf-v2-sources-882525811433-us-central1/transicionarPausaComprasSaas/function-source.zip`, `1792082970343879` | 979.638 bytes; `0ae1b15ccb54a4f78c6f1178b8947ab60784556f42b70a5a9741bbc0b801cc57` |
+
+Los ZIP de las dos funciones del codebase general son bytes idénticos pese a
+tener objetos/generaciones separados. El de Bodega pertenece a un paquete
+separado. Se descargaron objetos con la generación fijada (`#generation`) a
+una carpeta temporal para leer el contenido; no se modificó ningún objeto
+Cloud Storage. Los siguientes SHA-256 son de bytes extraídos de esos ZIP, no
+hashes de una imagen ni de un commit.
+
+| Contenido desplegado | SHA-256 extraído | Comparación con `origin/main @ 0ac4e9edf829acdf7213e7a20b722de9a58c2826` y efecto |
+|---|---|---|
+| Executor: `lib/functions/src/finanzas/compra-core.js` | `8c4f0756ee328085c58c56c94e1c97c861e3db3f3ea703c5726e5ff99b342b54` | El artefacto ejecuta `exigirComprasActivasEnTransaccion` en compra nueva; rechaza control ausente/inválido y compra nueva con estado `PAUSADA`. En replay validado permite devolver el recibo confirmado durante la pausa. El `src/finanzas/compra-core.ts` incluido en el mismo ZIP tiene SHA-256 `6edcfb2b983ca1bb184d16395e52ba518006250f7eabdaa0620dc05783f92c46`, idéntico al archivo candidato local; `git diff --quiet origin/main -- functions/src/finanzas/compra-core.ts` confirmó que el archivo coincide con `origin/main` (blob Git SHA-1 `1971e57ddce3e633378a0602c3f6368f62664f35`; no es el SHA-256 del contenido). Esto acredita ese módulo fuente, no todo el ZIP como un commit.
+| Bodega: `lib/functions/src/finanzas/compra-core.js` | `fdc5e205172eddf2eb03f585fdecdcf3550c270ad727c30c7c54f4fb1cbe701c` | El handler `registrarCompraBodegaV1` valida política de Bodega y llama el core común, pero este core no contiene ni invoca el guard de control. La búsqueda de nombres de colección/códigos de error del control en los 71 archivos JS del ZIP no encontró coincidencias. El `src/finanzas/compra-core.ts` candidato no está en ese ZIP. El `src/purchase-policy.ts` de Bodega sí coincide byte por byte con el candidato (`a1cf2b266973233acc9d8a468f476eaef5078dda23d1672bded7655afe55071f`), pero esa política no sustituye el guard. **La callable productiva de Bodega no está acreditada como compatible con ADR-SAAS-081.** |
+| Transición: `lib/functions/src/platform/purchase-release-control.js` | `18519facdd8d753fad98e01933b16872514bbe10d301a1d5d783f0c8d309a169` | El artefacto sí contiene autorización `RELEASE_COMPRAS_GOBERNAR`, transacción, revisión e idempotencia; sin embargo, escribe `schemaVersion: 1` y clasifica solo por destino (`PAUSADA` → `COMPRAS_PAUSADAS`; cualquier otro destino → `COMPRAS_REANUDADAS`). Por tanto, una inicialización `expectedRevision: 0` hacia `ACTIVA` se registra como reanudación. Es incompatible con ADR-SAAS-084 aceptado. |
+
+Como corroboración de la versión desplegada, `audit.js` del ZIP general tiene
+SHA-256 `6afe1fc94020181b3d07d61ea9953f752d14341be818f8f0cf9f31947f198211`
+y emite evidencia v1; `contracts.js` tiene SHA-256
+`63102009e3e591fdae7fb31f4d5d2e3518a0ac41d7d60545ca64000012226a2b` y
+contiene `RELEASE_COMPRAS_GOBERNAR`. Los fuentes `purchase-release-control.ts`,
+`audit.ts` y `contracts.ts` dentro del ZIP no coinciden byte por byte con
+`origin/main`; no se encontró metadata Git en el paquete. No se atribuye el ZIP
+completo a un commit exacto. Para el ZIP Bodega, su `index.js` exporta el target
+canónico `registrarCompraBodegaV1`; el artefacto no aporta guard de release.
+
+#### Efecto actualizado sobre Gate I y recuperación
+
+La incompatibilidad productiva queda confirmada por el contenido del source
+object, además de la diferencia Rules activa/candidata:
+
+1. `registrarCompraOperativaV1` sí contiene el guard en su source package
+   actual, sujeto a las verificaciones de comportamiento ya descritas; no se
+   invocó.
+2. `registrarCompraBodegaV1` carece del guard en su paquete actual. Antes de
+   cualquier Rules release debe desplegarse y verificarse una versión
+   compatible por un paquete y autorización de Functions independientes.
+3. `transicionarPausaComprasSaas` no satisface la semántica/versionado aceptados
+   de ADR-SAAS-084. Su actualización y verificación también requieren un
+   paquete/autorización independiente; no se inicializó ni modificó control.
+4. Siguen pendientes IDs exactos de tenants del corte, responsables, ventana,
+   controles canónicos y pausa verificada que ADR-SAAS-081 exige antes de Rules.
+
+La consulta del ZIP establece el input fuente señalado por la metadata de
+Functions y permite inspección estática, pero no prueba respuestas autenticadas
+ni comportamiento de runtime. La copia local de producción se mantuvo en
+carpeta temporal; los hashes anteriores son evidencia reproducible. No se
+comprobó restauración: los ZIP revisados son las versiones actuales, no un
+rollback; las revisiones anteriores y sus límites siguen según la matriz de
+recuperación previa. Gate I y Trial permanecen `NO-GO`.
+
+No se desplegó, reconstruyó ni invocó ninguna Function; no se alteraron Rules,
+IAM, APIs, secretos, controles, datos, oferta, tenant, membresía, Trial,
+inventario ni compras. No se ejecutaron suites de runtime porque no hubo cambio
+de código; la lectura de artefactos fue estática y de solo lectura.
+
+### Addendum — datos de entrega administrativa de Diana
+
+En respuesta del responsable durante esta continuación se confirmó que Diana
+autoriza el nombre exacto `Diana Jimenez` para su perfil administrador y que el
+responsable le entregará el código/PIN temporal por WhatsApp. Se registra como
+declaración del responsable sobre lo acordado con Diana; no se generó ni envió
+credencial y no se solicitó correo, contraseña, token o código por este medio.
+
+El responsable indicó que un administrador con permisos existentes puede
+aportar la lectura de Rules si hace falta. No fue necesario: la lectura vigente
+del release y ruleset de producción quedó completada en el addendum anterior
+con la identidad ya autenticada y el proyecto de cuota por petición. No se
+solicitó ni aplicó elevación de permisos.
+
+Esta información resuelve únicamente los datos humanos de entrega. No autoriza
+ni ejecuta oferta, Bootstrap, creación de tenant, Trial, activación de acceso,
+release de Functions/Rules/App Hosting, corte de compras ni otras escrituras.
+Siguen siendo obligatorios los gates técnicos y las autorizaciones específicas
+de cada operación productiva.
+
+### Addendum — revalidación puntual de release y PR #628 (2026-10-17 23:57 UTC)
+
+Se revalidó solo la superficie necesaria para decidir el siguiente paso de
+E2.2. La identidad activa de `gcloud` fue `segucor0526@gmail.com`; el proyecto
+explícito `micafe-pos` se confirmó `ACTIVE`, número `882525811433`. El proyecto
+por defecto de gcloud no se usó para seleccionar recursos.
+
+App Hosting se consultó por GET en el backend exacto
+`projects/micafe-pos/locations/us-central1/backends/micafe-pos`, su recurso de
+tráfico, build, rollout y servicio Cloud Run administrado. Backend y servicio
+no están reconciliando; URL `https://micafe-pos--micafe-pos.us-central1.hosted.app`,
+aplicación Firebase `1:882525811433:web:27a44f97b72df9ec4bb678`, raíz `/`, rama
+`main`, rollouts automáticos desactivados, identidad
+`firebase-app-hosting-compute@micafe-pos.iam.gserviceaccount.com`. El build
+`build-2026-10-15-001` continúa identificado en tráfico al 100 % y su metadata
+de fuente apunta exactamente a
+`5c5c4fdd9164abdca0fe05c9fddb51cea8559a29`; rollout con el mismo ID está
+`SUCCEEDED`. Cloud Run confirma revisión Ready
+`micafe-pos-build-2026-10-15-001`, 100 % de tráfico y base Node.js 24. La rama
+`main` observada durante esta revalidación sigue en
+`0ac4e9edf829acdf7213e7a20b722de9a58c2826`; por tanto, el Backoffice sirve un
+SHA anterior al candidato actual. El endpoint Firebase CLI local no estaba
+autenticado; la lectura se completó mediante GET de la API oficial con la
+cuenta gcloud ya autenticada. No se ejecutó CLI de despliegue ni build.
+
+Se repitieron GET de las tres descripciones Gen2 en `us-central1` con proyecto
+explícito. Siguen `ACTIVE`, Node.js 22, 1 CPU, 256 MiB, timeout 60 s,
+ingress `ALLOW_ALL`, identidad Compute predeterminada, y source generation,
+URI y `updateTime` sin variación frente al addendum de inspección de artefactos.
+Esto mantiene vigentes los hashes inspeccionados para esas generaciones. El
+diagnóstico funcional no cambia: el paquete actual de Bodega carece del guard
+de corte; el executor sí lo contiene; la callable de transición aún clasifica
+la inicialización como reanudación y emite v1, contra ADR-SAAS-084.
+
+El release `cloud.firestore` volvió a apuntar al ruleset
+`d5e205db-0ab4-4db1-b5ec-1534bee39d35` (`updateTime` del release
+`2026-08-15T04:20:46.318849Z`). SHA-256 remoto raw
+`fca6363aa98360535306bd13d70418888760645cd5c5e54ada5c83ceb2f6a887`,
+normalizado `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`;
+el candidato de `main` sigue `b8fb7ddd5370ddaa3784db4921b2bbbc71e51f285ffde912c3b0650ab1517fdf`.
+Rules continúan divergentes y Gate I abierto.
+
+`gh pr view 628` confirmó PR abierto a `main`, HEAD
+`fc5a9633b29150072fdd9339e60caf237b9e2c15`, dos commits sobre el `main`
+observado. Para ese mismo HEAD, `Tipos y pruebas`, Vercel y Vercel Preview
+Comments terminaron `SUCCESS`. No hay review humana ni decisión de aprobación;
+no se pidió review, no se publicó comentario y no se fusionó. La revisión local
+puntual del diff no encontró un defecto funcional de alta confianza en los
+tests añadidos; no sustituye la aprobación humana requerida. La modificación
+local de este preflight permanece fuera del HEAD remoto del PR porque no se
+hizo push.
+
+**Consecuencia:** se confirma que el NO-GO no se debe a un backend inexistente
+ni a un build activo: App Hosting sigue sirviendo íntegramente el SHA autorizado
+antiguo. El bloqueo para comenzar el Trial es la divergencia de release:
+Functions Bodega/control y Rules productivas no corresponden a los contratos y
+Rules del candidato; además, el PR de pruebas/documentación sigue sin review
+humana. No se realizó mutación productiva: solo lecturas GET/describe; no hubo
+deploy, invocación, build, cambio IAM/API, compra, pausa, oferta, Bootstrap,
+tenant ni Trial.
+
+### Addendum — capacidad comercial y Bootstrap realmente desplegados (2026-10-18 00:02 UTC)
+
+Se revisaron las callables comerciales/Bootstrap con metadatos actuales y se
+descargaron, solo para inspección local, los dos source objects exactos por sus
+generaciones reportadas por Cloud Functions. A las `2026-10-17T23:59:31Z`, con
+proyecto `micafe-pos` confirmado `ACTIVE` (`882525811433`) y la cuenta gcloud
+ya autenticada, `ejecutarComandoComercialSaas` seguía `ACTIVE`, actualizada
+`2026-08-15T04:27:10.213732081Z`, source generation
+`1786768013527885`. `solicitarBootstrapEmpresarialSaas` seguía `ACTIVE`,
+actualizada `2026-08-15T04:27:36.321446180Z`, source generation
+`1786768013449627`, con referencia declarada a
+`OPERATIONAL_PIN_PEPPER@1`; no se leyó ni expuso el valor del Secret. La
+consulta exacta de `consultarOfertaComercialTenantSaas` en
+`us-central1` devolvió `404 NOT FOUND`.
+
+Se copiaron los objetos con generación fijada, sin alterar Cloud Storage:
+ambos ZIP miden 651.415 bytes y su SHA-256 es
+`c82bc1d52017e475b82faae4bff41a415533d1de01eb7b768eca0b3066e6602b`.
+Los paquetes no contienen metadata Git que permita atribuir todo el ZIP a un
+commit. Inspección estática de los módulos del paquete:
+
+| Módulo/contrato | SHA-256 desplegado | SHA-256 candidato | Hallazgo verificable |
+|---|---|---|---|
+| `src/platform/command-catalog.ts` | `03225c243eb4c19bd8f399bd3bed42403c116493ba21bb7f7b46f9020fb091b1` | `bee003da9bc7e36e00d1f0a58597905b3359b5dda7151f1914e89cd340849aab` | El catálogo desplegado contempla suscripciones/planes, pero no `CrearOfertaComercialTenant`, `AprobarOfertaComercialTenant` ni `RevocarOfertaComercialTenant`. El candidato sí los declara bajo `COMERCIAL_GOBERNAR`. La callable activa no puede crear/aprobar la oferta anual requerida por el Goal. |
+| `src/bootstrap/service.ts` | `1501de19e5b66338f3fe7161ebc1facfca9d576ce890f3c46db7540b37a1bb16` | `31f041b7a7db05c63ded09769fd193fc1d297f170007ea9f58228a7afba666bb` | El servicio desplegado no resuelve una oferta comercial aprobada ni contiene el campo `vertical` en la validación/fingerprint/configuración de Bootstrap. El candidato añade `resolverOfertaComercialBootstrapEnTransaccion`, guarda el `ofertaComercialId` y materializa el vertical. No se puede afirmar que el Bootstrap productivo actual cree un tenant Bodega asociado al acuerdo comercial aprobado. |
+
+El handler desplegado sí exige sesión Firebase y la facultad
+`BOOTSTRAP_EMPRESARIAL_SOLICITAR`, y declara el Secret de PIN. Esto es evidencia
+estática del source object, no una prueba autenticada del runtime ni de que la
+identidad tenga acceso efectivo al Secret. El Trial automático de 30 días que
+aparece en el módulo antiguo tampoco basta: el contrato comercial vigente exige
+la oferta aprobada y el tenant Bodega/configuración correctos. **No invocar el
+Bootstrap actualmente desplegado para Diana.**
+
+La rama `main` conserva las versiones candidatas inspeccionadas; la worktree no
+modificó código. Resolver esta brecha requiere liberar la callable comercial
+con sus comandos/query y el Bootstrap compatible. Como el mismo nombre público
+está hoy bajo `saas-auth` y el candidato lo mueve a `saas-commercial` /
+`saas-bootstrap`, la continuidad/ownership sigue necesitando el procedimiento
+de migración ya identificado, con aprobación de ejecución específica. La
+revisión del laboratorio puede ser un prerrequisito técnico de esa publicación;
+no se ejecutó aquí. No se hizo build, invocación, deploy, ni escritura.
+
+Esta evidencia vuelve concreto el NO-GO: no solo falta promover el SHA de
+App Hosting y alinear Rules/Functions de compras; las operaciones canónicas de
+oferta y Bootstrap disponibles en producción todavía no implementan el
+contrato comercial aprobado para Diana. Se conservan como decisiones
+independientes: review humana de PR #628, autorización/validación del release de
+Functions y App Hosting, y autorización separada de Rules/corte. No se creó ni
+aprobó oferta, empresa, administrador, membresía o Trial.
+
+### Addendum — comprobación puntual de Plan y rutas canónicas (2026-10-18 00:05 UTC)
+
+Con la cuenta gcloud activa `segucor0526@gmail.com`, se volvió a confirmar antes
+de las lecturas el proyecto exacto `micafe-pos`, número `882525811433`, estado
+`ACTIVE`. Se hicieron únicamente solicitudes HTTP `GET` a documentos exactos
+de Firestore `(default)` mediante la API REST; el token OAuth se mantuvo en
+memoria y no se imprimió.
+
+| Ruta exacta consultada | Resultado | Datos mínimos observados |
+|---|---:|---|
+| `empresas/distribuidora-las-jimenez` | 404 | Sin documento en esa ruta canónica exacta. |
+| `ofertas_comerciales_tenant/distribuidora-las-jimenez` | 404 | Sin documento de control en esa ruta exacta. |
+| `ofertas_comerciales_tenant/distribuidora-las-jimenez/ofertas/oferta-distribuidora-jimenez-2026` | 404 | Sin borrador/oferta con ese ID exacto. |
+| `planes/mvp_comercial/versiones/2` | 200 | `PUBLICADA`, `ANUAL`, revisión `2`, precio público `1.800.000 COP`. |
+
+Hora de inicio de la tanda: `2026-10-18T00:05:15Z`; respuesta de Plan: HTTP
+200 a las `2026-10-18T00:05:22Z`. No se hizo una consulta de colección ni una
+búsqueda por nombre, por lo que estos 404 no prueban ausencia de documentos
+con otros IDs o alias comerciales; el preflight canónico del Bootstrap debe
+volver a verificar duplicados inmediatamente antes de cualquier alta. La
+lectura confirma que la versión pública requerida del Plan sigue publicada,
+pero no cambia la brecha de que el source object productivo de la callable
+comercial carece de los comandos de oferta y la callable de Bootstrap carece
+del vínculo de oferta y vertical de Bodega.
+
+No hubo invocaciones, builds, escrituras, despliegues, cambios IAM/APIs ni
+lecturas fuera de esas cuatro rutas en esta comprobación.
+
+### Addendum — precondición de secreto y runtime del Bootstrap (2026-10-18 00:06 UTC)
+
+Con la misma cuenta ya autenticada y tras volver a fijar el proyecto explícito
+`micafe-pos` (`882525811433`, `ACTIVE`), se inspeccionaron solo la metadata de
+`solicitarBootstrapEmpresarialSaas`, la política IAM del secreto exacto, la
+política directa del proyecto y la metadata de la identidad runtime observada.
+No se leyó ninguna versión/valor del secreto.
+
+- `gcloud functions describe solicitarBootstrapEmpresarialSaas --gen2
+  --project=micafe-pos --region=us-central1`: `ACTIVE`, Node.js 22, actualizado
+  `2026-08-15T04:27:36.321446180Z`; runtime
+  `882525811433-compute@developer.gserviceaccount.com`; referencia declarada
+  `OPERATIONAL_PIN_PEPPER@1`.
+- `gcloud secrets get-iam-policy OPERATIONAL_PIN_PEPPER --project=micafe-pos`:
+  ETag `BwZXaKyQhzY=`; política directa del secreto contiene
+  `roles/secretmanager.secretAccessor` para esa identidad, sin condición.
+- `gcloud projects get-iam-policy micafe-pos`: ETag `BwZd5Jnfn5U=`; política
+  directa del proyecto también contiene `roles/editor` para la misma identidad.
+- `gcloud iam service-accounts describe
+  882525811433-compute@developer.gserviceaccount.com --project=micafe-pos`:
+  la cuenta existe en el proyecto, unique ID `108951670150123124953`; la
+  respuesta no informó `disabled: true`.
+
+Esto confirma el grant directo requerido para acceder al secreto y la
+configuración que referencia la versión 1, pero no ejecuta la callable ni
+demuestra una lectura real en runtime; tampoco consulta políticas de deny o
+ancestros. **Riesgo de mínimo privilegio:** el runtime usa la cuenta Compute
+predeterminada y tiene `roles/editor` directamente en producción. No se cambió
+ni se intentó reducir ese binding. Antes de una escritura de Bootstrap, el
+responsable debe decidir si acepta explícitamente ese riesgo para el flujo y
+ventana concretos o autoriza un paquete separado de remediación IAM; no se debe
+seguir si se exige una identidad/permisos distintos sin completar esa decisión.
+
+Las lecturas fueron consultas `describe`/`get-iam-policy` limitadas a la
+callable, el secreto y la identidad exactos. No se invocó la callable, no se
+leyó el PIN pepper, no se alteró IAM/Secret Manager y no se tocó staging.
+
+La revalidación visible del operador autenticado en la sesión actual de Edge
+no pudo completarse: la herramienta de inspección no pudo determinar con
+suficiente confianza la URL de la ventana y detuvo Computer Use antes de
+mostrar contenido de la página. No se interactuó con controles. Por tanto, la
+identidad/facultades del operador conservan únicamente la evidencia histórica
+ya registrada y deben releerse canónicamente justo antes de cualquier
+operación comercial o Bootstrap; no se infiere que la sesión actual sea la
+misma ni que sus facultades sigan vigentes.
+
+### Addendum — capacidades del Plan publicado (2026-10-18 00:08 UTC)
+
+Se releyó el documento exacto `planes/mvp_comercial/versiones/2` en el proyecto
+`micafe-pos` (`882525811433`) para comprobar el requisito de M2 de capacidades
+no vacías. Respondió HTTP 200; estado `PUBLICADA`, periodicidad `ANUAL`, versión
+2, revisión 2, precio público `1.800.000 COP` y nueve capacidades:
+`sell`, `inventory`, `purchases`, `clientes`, `finanzas`, `reservas`, `waste`,
+`shifts`, `cuentas_cobro`. La lectura confirma esa precondición del Plan; no
+aprueba ni persiste la oferta tenant-specific de COP 1.600.000 y no autoriza
+Bootstrap ni Trial. Solicitud `GET` únicamente; sin escritura ni invocación.
+
+### Addendum — auditoría puntual de CI en PR #628 (2026-10-18 00:10 UTC)
+
+La inspección del workflow en el HEAD remoto `fc5a9633b29150072fdd9339e60caf237b9e2c15`
+encontró que el job de Bootstrap construía y ejecutaba `test:discovery` y
+`test:module-load`, pero no el nuevo `test:authorization`. Por tanto, los checks
+verdes de ese HEAD no cubren esa prueba. En el worktree local se añadió una
+línea al paso de CI para ejecutarla después del build, discovery y module-load.
+
+Con dependencias ya presentes, `npm run build` y `npm run test:authorization`
+en `functions-bootstrap` terminaron con código 0; TAP reportó 1 prueba, 1
+aprobada, 0 fallidas. La prueba levanta solo un proceso Node local con módulos
+mockeados; no accede a Firebase ni a endpoints remotos. El ajuste del workflow
+es local, no comprometido ni publicado; no se alteraron lockfiles. El CI verde
+remoto de #628 sigue perteneciendo al HEAD anterior y no valida esta corrección.
+Se requiere actualizar el PR por el flujo autorizado y esperar nuevos checks
+antes de considerar satisfecha la validación de CI; no se hizo push ni comentario.
+
+### Addendum — actualización del estado local y confirmación humana (2026-10-18 00:13 UTC)
+
+La corrección de workflow descrita arriba ya no está solo en el working tree:
+se comprometió localmente como `b5bb78d35ecc6c224426b10c3358b38ec31ea24f`
+(`test(e2.2): run bootstrap authorization test in CI`). El commit cambia
+únicamente `.github/workflows/ci.yml` y la rama local está un commit por delante
+de `origin/codex/e2-2-diana-release-prep`. No se publicó; por tanto, los checks
+verdes de PR #628 todavía corresponden exclusivamente al HEAD remoto
+`fc5a9633b29150072fdd9339e60caf237b9e2c15` y no validan el commit nuevo. La
+evidencia de preflight continúa modificada localmente y sin publicar.
+
+El responsable confirmó que Diana autoriza el nombre `Diana Jimenez` y que él
+entregará el código/PIN temporal por WhatsApp. También confirmó que un
+administrador puede aportar una lectura de Rules solo si ya dispone de los
+permisos necesarios. La lectura productiva del ruleset ya está registrada en
+el addendum del 17 de octubre; esta confirmación no concede ni solicita permisos.
+No se generó ni compartió una credencial.
+
+No se repitieron build ni prueba unitaria: la corrección local de CI solo añade
+la ejecución de `test:authorization`, cuyo build y prueba focalizada ya habían
+terminado correctamente antes del commit. No se hizo push, operación remota,
+invocación, despliegue ni escritura productiva.
