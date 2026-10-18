@@ -101,7 +101,7 @@ async function seed(suffix: string): Promise<Fixture> {
     firestore.collection("cuentas_bancarias").doc("caja-principal").set({
       id: "caja-principal", empresaId, claveOperativa: "caja-principal", nombre: "Caja emulator", saldo: 1_000,
     }),
-    firestore.collection("controles_release_compras").doc(empresaId).set({ empresaId, estado: "ACTIVA", revision: 1 }),
+    firestore.collection("controles_release_compras").doc(empresaId).set({ schemaVersion: 1, empresaId, estado: "ACTIVA", revision: 1 }),
     firestore.collection("saas_operadores").doc("release-operator").set({
       uid: "release-operator", estado: "ACTIVO", facultades: ["RELEASE_COMPRAS_GOBERNAR"], versionAutorizacion: 1,
     }),

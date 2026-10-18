@@ -53,6 +53,7 @@ test("ADR-081: compras legacy fallan cerrado sin control activo y Bodega sigue c
   }));
 
   await seedDocument("controles_release_compras/empresa-b", {
+    schemaVersion: 1,
     empresaId: "empresa-b",
     estado: "PAUSADA",
     revision: 2,
@@ -63,6 +64,7 @@ test("ADR-081: compras legacy fallan cerrado sin control activo y Bodega sigue c
   }));
 
   await seedDocument("controles_release_compras/empresa-b", {
+    schemaVersion: 1,
     empresaId: "empresa-b",
     estado: "ACTIVA",
     revision: 0,
@@ -73,6 +75,7 @@ test("ADR-081: compras legacy fallan cerrado sin control activo y Bodega sigue c
   }));
 
   await seedDocument("controles_release_compras/empresa-b", {
+    schemaVersion: 1,
     empresaId: "empresa-b",
     estado: "ACTIVA",
     revision: 1,
@@ -91,6 +94,7 @@ test("ADR-081: compras legacy fallan cerrado sin control activo y Bodega sigue c
     vertical: "BODEGA_MVP1",
   });
   await seedDocument("controles_release_compras/empresa-a", {
+    schemaVersion: 1,
     empresaId: "empresa-a",
     estado: "ACTIVA",
     revision: 1,
@@ -108,6 +112,7 @@ test("ADR-081: el control de otro tenant no habilita compras legacy", async () =
     vertical: "GENERAL",
   });
   await seedDocument("controles_release_compras/empresa-b", {
+    schemaVersion: 1,
     empresaId: "empresa-a",
     estado: "ACTIVA",
     revision: 1,
@@ -123,6 +128,7 @@ test("ADR-081: la pausa canónica niega bypass directo y el cliente no puede mod
   const adminLegacy = await contextFor(fixtures.tenantB.admin);
   await seedDocument("configuraciones/empresa-b", { empresaId: "empresa-b", vertical: "GENERAL" });
   await seedDocument("controles_release_compras/empresa-b", {
+    schemaVersion: 1,
     empresaId: "empresa-b",
     estado: "PAUSADA",
     revision: 7,
@@ -136,4 +142,23 @@ test("ADR-081: la pausa canónica niega bypass directo y el cliente no puede mod
     estado: "ACTIVA",
     revision: 8,
   }));
+});
+
+test("ADR-081: una versión ausente o desconocida del control no habilita escrituras legacy", async () => {
+  const adminLegacy = await contextFor(fixtures.tenantB.admin);
+  await seedDocument("configuraciones/empresa-b", { empresaId: "empresa-b", vertical: "GENERAL" });
+
+  for (const [suffix, schemaVersion] of [["sin-version", undefined], ["desconocida", 2]] as const) {
+    await seedDocument(`controles_release_compras/empresa-b`, {
+      ...(schemaVersion === undefined ? {} : { schemaVersion }),
+      empresaId: "empresa-b",
+      estado: "ACTIVA",
+      revision: 1,
+    });
+
+    await expectDenied(adminLegacy.firestore().doc(`compras/control-${suffix}`).set({
+      empresaId: "empresa-b",
+      total: 2400,
+    }));
+  }
 });

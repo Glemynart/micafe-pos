@@ -195,7 +195,7 @@ test("Bodega: registra compra con la misma transacción y el nuevo tipo idempote
 
 test("ADR-SAAS-081: una compra nueva queda rechazada durante el corte sin efectos parciales", async () => {
   const db = new FakeFirestore(); seed(db);
-  db.docs.set(`controles_release_compras/${empresaId}`, { empresaId, estado: "PAUSADA", revision: 2 });
+  db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "PAUSADA", revision: 2 });
   const before = [...db.docs.entries()];
 
   await assert.rejects(
@@ -211,7 +211,7 @@ test("ADR-SAAS-081: un replay confirmado sobrevive la pausa sin duplicar efectos
   const command = envelope("corte-replay-confirmado", payload());
   const first = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
   const snapshot = [...db.docs.entries()];
-  db.docs.set(`controles_release_compras/${empresaId}`, { empresaId, estado: "PAUSADA", revision: 2 });
+  db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "PAUSADA", revision: 2 });
 
   const replay = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
 
@@ -223,7 +223,7 @@ test("ADR-SAAS-081: un replay confirmado sobrevive la pausa sin duplicar efectos
 
 test("ADR-SAAS-081: reintento ambiguo sin recibo no materializa una compra durante la pausa", async () => {
   const db = new FakeFirestore(); seed(db);
-  db.docs.set(`controles_release_compras/${empresaId}`, { empresaId, estado: "PAUSADA", revision: 2 });
+  db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "PAUSADA", revision: 2 });
   const command = envelope("corte-reintento-sin-recibo", payload());
 
   await assert.rejects(
@@ -240,9 +240,9 @@ test("ADR-SAAS-081: reintento ambiguo sin recibo no materializa una compra duran
 
 test("ADR-SAAS-081: reanudar explícitamente permite una compra nueva y conserva el aislamiento tenant", async () => {
   const db = new FakeFirestore(); seed(db);
-  db.docs.set(`controles_release_compras/${empresaId}`, { empresaId, estado: "PAUSADA", revision: 2 });
-  db.docs.set("controles_release_compras/empresa-b", { empresaId: "empresa-b", estado: "PAUSADA", revision: 4 });
-  db.docs.set(`controles_release_compras/${empresaId}`, { empresaId, estado: "ACTIVA", revision: 3 });
+  db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "PAUSADA", revision: 2 });
+  db.docs.set("controles_release_compras/empresa-b", { schemaVersion: 1, empresaId: "empresa-b", estado: "PAUSADA", revision: 4 });
+  db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "ACTIVA", revision: 3 });
 
   const result = await ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("corte-reanudada", payload()));
 
@@ -258,7 +258,7 @@ test("ADR-SAAS-081: ausencia o forma ambigua del control falla cerrada", async (
     error => domain(error, "COMPRAS_CONTROL_NO_CONFIGURADO"),
   );
 
-  db.docs.set(`controles_release_compras/${empresaId}`, { empresaId, estado: "ACTIVA", revision: 0 });
+  db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "ACTIVA", revision: 0 });
   await assert.rejects(
     ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("corte-ambiguo", payload())),
     error => domain(error, "COMPRAS_CONTROL_INVALIDO"),

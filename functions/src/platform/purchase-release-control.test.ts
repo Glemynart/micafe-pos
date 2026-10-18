@@ -141,6 +141,7 @@ test("ADR-SAAS-084: inicializar directamente en PAUSADA sigue siendo inicializac
 test("ADR-SAAS-081: un control con estado ambiguo no se repara silenciosamente", async () => {
   const db = new FakeFirestore(); seed(db);
   db.docs.set("controles_release_compras/empresa-a", {
+    schemaVersion: 1,
     empresaId: "empresa-a",
     estado: "DESCONOCIDA",
     revision: 1,
@@ -175,7 +176,7 @@ test("ADR-SAAS-081: una versión ausente o desconocida del control no se migra i
 
 test("ADR-SAAS-081: reanudar exige atestación de los artefactos verificados", async () => {
   const db = new FakeFirestore(); seed(db);
-  db.docs.set("controles_release_compras/empresa-a", { empresaId: "empresa-a", estado: "PAUSADA", revision: 2 });
+  db.docs.set("controles_release_compras/empresa-a", { schemaVersion: 1, empresaId: "empresa-a", estado: "PAUSADA", revision: 2 });
 
   await assert.rejects(
     transicionarPausaCompras(db as never, "op-release", token, entrada("reanudar-sin-evidencia", "empresa-a", "ACTIVA", 2)),
