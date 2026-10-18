@@ -153,6 +153,26 @@ test("ADR-SAAS-081: un control con estado ambiguo no se repara silenciosamente",
   assert.equal(db.docs.get("controles_release_compras/empresa-a")?.estado, "DESCONOCIDA");
 });
 
+test("ADR-SAAS-081: una versión ausente o desconocida del control no se migra implícitamente", async () => {
+  for (const [suffix, schemaVersion] of [["sin-version", undefined], ["version-desconocida", 2]] as const) {
+    const db = new FakeFirestore(); seed(db);
+    const control = {
+      ...(schemaVersion === undefined ? {} : { schemaVersion }),
+      empresaId: "empresa-a",
+      estado: "ACTIVA",
+      revision: 1,
+    };
+    db.docs.set("controles_release_compras/empresa-a", control);
+
+    await assert.rejects(
+      transicionarPausaCompras(db as never, "op-release", token, entrada(suffix, "empresa-a", "PAUSADA", 1)),
+      error => domain(error, "CONTROL_COMPRAS_INVALIDO"),
+    );
+    assert.deepEqual(db.docs.get("controles_release_compras/empresa-a"), control);
+    assert.equal([...db.docs.keys()].filter(path => path.startsWith("saas_auditoria/")).length, 0);
+  }
+});
+
 test("ADR-SAAS-081: reanudar exige atestación de los artefactos verificados", async () => {
   const db = new FakeFirestore(); seed(db);
   db.docs.set("controles_release_compras/empresa-a", { empresaId: "empresa-a", estado: "PAUSADA", revision: 2 });

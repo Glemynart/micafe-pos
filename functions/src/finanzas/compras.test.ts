@@ -114,7 +114,7 @@ function seed(db: FakeFirestore, saldo = 0) {
   db.docs.set("espacios/cafeteria", { empresaId, activo: true, nombre: "Cafetería" });
   db.docs.set("productos/cafe", { empresaId, espacioId: "cafeteria", nombre: "Café catálogo", unidad: "und", stock: 2, secuenciaLedger: 0, costo: 100 });
   db.docs.set("cuentas_bancarias/caja-principal", { id: "caja-principal", empresaId, claveOperativa: "caja-principal", nombre: "Caja principal", saldo });
-  db.docs.set(`controles_release_compras/${empresaId}`, { empresaId, estado: "ACTIVA", revision: 1 });
+  db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "ACTIVA", revision: 1 });
 }
 
 function payload(overrides: Record<string, unknown> = {}) {
@@ -263,6 +263,25 @@ test("ADR-SAAS-081: ausencia o forma ambigua del control falla cerrada", async (
     ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("corte-ambiguo", payload())),
     error => domain(error, "COMPRAS_CONTROL_INVALIDO"),
   );
+});
+
+test("ADR-SAAS-081: control sin schemaVersion o con versión desconocida falla cerrado", async () => {
+  for (const [suffix, schemaVersion] of [["sin-version", undefined], ["version-desconocida", 2]] as const) {
+    const db = new FakeFirestore(); seed(db);
+    db.docs.set(`controles_release_compras/${empresaId}`, {
+      ...(schemaVersion === undefined ? {} : { schemaVersion }),
+      empresaId,
+      estado: "ACTIVA",
+      revision: 1,
+    });
+    const before = [...db.docs.entries()];
+
+    await assert.rejects(
+      ejecutarRegistrarCompraOperativaV1(db, contexto, envelope(`control-${suffix}`, payload())),
+      error => domain(error, "COMPRAS_CONTROL_INVALIDO"),
+    );
+    assert.deepEqual([...db.docs.entries()], before);
+  }
 });
 
 test("Bodega: revalida permiso antes de devolver el recibo de un replay", async () => {
