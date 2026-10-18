@@ -211,7 +211,9 @@ async function exigirComprasActivasEnTransaccion(tx: any, db: any, empresaId: st
   const datos = control.data() as Record<string, unknown>;
   if (!datos) fail("failed-precondition", "COMPRAS_CONTROL_INVALIDO");
   if (
-    datos.empresaId !== empresaId
+    !Number.isSafeInteger(datos.schemaVersion)
+    || datos.schemaVersion !== 1
+    || datos.empresaId !== empresaId
     || !Number.isSafeInteger(datos.revision)
     || (datos.revision as number) < 1
     || (datos.estado !== "ACTIVA" && datos.estado !== "PAUSADA")

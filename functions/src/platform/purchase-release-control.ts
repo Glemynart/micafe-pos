@@ -127,7 +127,9 @@ export async function transicionarPausaCompras(
     const revisionActual = actual === null ? 0 : actual.revision;
     if (
       actual !== null && (
-        !Number.isSafeInteger(revisionActual)
+        !Number.isSafeInteger(actual.schemaVersion)
+        || actual.schemaVersion !== 1
+        || !Number.isSafeInteger(revisionActual)
         || (revisionActual as number) < 1
         || actual.empresaId !== input.empresaId
         || (actual.estado !== "ACTIVA" && actual.estado !== "PAUSADA")
