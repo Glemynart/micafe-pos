@@ -8,6 +8,7 @@ import {
   expectDenied,
   rulesTestEnvironment,
   seedDocument,
+  seedInt64Document,
 } from "./test-helpers";
 
 before(async () => {
@@ -161,4 +162,36 @@ test("ADR-081: una versión ausente o desconocida del control no habilita escrit
       total: 2400,
     }));
   }
+});
+
+test("ADR-081: una revisión fuera del rango entero seguro no habilita escrituras legacy", async () => {
+  const adminLegacy = await contextFor(fixtures.tenantB.admin);
+  await seedDocument("configuraciones/empresa-b", { empresaId: "empresa-b", vertical: "GENERAL" });
+  await seedInt64Document("controles_release_compras/empresa-b", {
+    schemaVersion: 1,
+    empresaId: "empresa-b",
+    estado: "ACTIVA",
+    revision: BigInt("9007199254740992"),
+  });
+
+  await expectDenied(adminLegacy.firestore().doc("compras/control-revision-insegura").set({
+    empresaId: "empresa-b",
+    total: 2400,
+  }));
+});
+
+test("ADR-081: la revisión máxima segura sigue siendo válida para compras legacy", async () => {
+  const adminLegacy = await contextFor(fixtures.tenantB.admin);
+  await seedDocument("configuraciones/empresa-b", { empresaId: "empresa-b", vertical: "GENERAL" });
+  await seedDocument("controles_release_compras/empresa-b", {
+    schemaVersion: 1,
+    empresaId: "empresa-b",
+    estado: "ACTIVA",
+    revision: Number.MAX_SAFE_INTEGER,
+  });
+
+  await expectAllowed(adminLegacy.firestore().doc("compras/control-revision-maxima-segura").set({
+    empresaId: "empresa-b",
+    total: 2400,
+  }));
 });

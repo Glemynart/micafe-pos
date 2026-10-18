@@ -7,12 +7,15 @@ import {
   type RulesTestContext,
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
+import { deleteApp, initializeApp, type App } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 import type { Fixture } from "./fixtures";
 
 export const RULES_TEST_PROJECT_ID = "demo-mt-u4-rules";
 const DEFAULT_FIRESTORE_EMULATOR_HOST = "127.0.0.1:8085";
 
 let environment: RulesTestEnvironment | undefined;
+let adminSeedApp: App | undefined;
 
 /** Carga las Rules locales en el Firestore Emulator iniciado por test:rules. */
 export async function rulesTestEnvironment(): Promise<RulesTestEnvironment> {
@@ -60,6 +63,20 @@ export async function seedDocument(path: string, data: Record<string, unknown>):
   });
 }
 
+/** Siembra un int64 exacto usando Admin SDK, solo contra el emulador local. */
+export async function seedInt64Document(path: string, data: Record<string, unknown>): Promise<void> {
+  const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
+  if (!emulatorHost || !/^(127\.0\.0\.1|localhost|\[::1\]):\d+$/.test(emulatorHost)) {
+    throw new Error("seedInt64Document requiere Firestore Emulator en loopback");
+  }
+
+  if (!adminSeedApp) {
+    adminSeedApp = initializeApp({ projectId: RULES_TEST_PROJECT_ID }, "rules-int64-seed");
+  }
+
+  await getFirestore(adminSeedApp).doc(path).set(data);
+}
+
 /** Simula una escritura de backend/Admin SDK, que no se evalúa contra Rules. */
 export async function writeAsBackend(path: string, data: Record<string, unknown>): Promise<void> {
   await seedDocument(path, data);
@@ -70,6 +87,10 @@ export async function cleanupRulesTestEnvironment(): Promise<void> {
   if (environment) {
     await environment.cleanup();
     environment = undefined;
+  }
+  if (adminSeedApp) {
+    await deleteApp(adminSeedApp);
+    adminSeedApp = undefined;
   }
 }
 
