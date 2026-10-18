@@ -2239,13 +2239,13 @@ Bootstrap prueba rechazo anónimo antes de Firestore y operador sin la facultad
 requerida; la implementación sigue haciendo la autorización canónica. Las
 pruebas de Rules añadidas cubren los estados descritos, sin cerrar Gate I.
 
-`Tipos y pruebas` para este HEAD seguía `pending` en la consulta más reciente,
-`2026-10-18T06:31:07Z`; el job `117603291445` del run `39103121760` continúa
-`in_progress`. Vercel y Preview Comments están `PASS`. La API de
-reviews devolvió cero reviews; el único comentario es automatizado por Vercel.
-No se trata la falta de review humana como defecto de la propuesta. No se
-repitieron suites completas mientras el workflow de este mismo HEAD seguía
-ejecutándolas.
+Los checks de PR #628 para el HEAD remoto `82558b5f5a41b927a7dca06001c1599e371e8d3a`
+terminaron en PASS: `Tipos y pruebas` (run `39103121760`, job
+`117603291445`, duración 26m15s), Vercel y Vercel Preview Comments. Consulta
+verificada el `2026-10-18T06:37:21Z`. La API de reviews devolvió cero reviews;
+el único comentario es automatizado por Vercel. No se trata la falta de review
+humana como defecto de la propuesta. Estos checks no cubren el nuevo commit
+local `7a89294` con la redacción anonimizada.
 
 **Dictamen del HEAD remoto:** `REJECT`. El contenido técnico de tests y
 documentación es coherente con E2.2 y mantiene abiertos los gates productivos,
