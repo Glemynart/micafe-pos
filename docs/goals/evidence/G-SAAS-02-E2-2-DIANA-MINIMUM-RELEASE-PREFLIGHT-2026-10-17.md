@@ -1478,7 +1478,8 @@ de cada operación productiva.
 ### Addendum — revalidación puntual de release y PR #628 (2026-10-17 23:57 UTC)
 
 Se revalidó solo la superficie necesaria para decidir el siguiente paso de
-E2.2. La identidad activa de `gcloud` fue `segucor0526@gmail.com`; el proyecto
+E2.2. La identidad activa de `gcloud` fue verificada; el correo de la cuenta se
+omite en esta evidencia pública. El proyecto
 explícito `micafe-pos` se confirmó `ACTIVE`, número `882525811433`. El proyecto
 por defecto de gcloud no se usó para seleccionar recursos.
 
@@ -1589,7 +1590,7 @@ aprobó oferta, empresa, administrador, membresía o Trial.
 
 ### Addendum — comprobación puntual de Plan y rutas canónicas (2026-10-18 00:05 UTC)
 
-Con la cuenta gcloud activa `segucor0526@gmail.com`, se volvió a confirmar antes
+Con la cuenta gcloud activa verificada (correo omitido en esta evidencia), se volvió a confirmar antes
 de las lecturas el proyecto exacto `micafe-pos`, número `882525811433`, estado
 `ACTIVE`. Se hicieron únicamente solicitudes HTTP `GET` a documentos exactos
 de Firestore `(default)` mediante la API REST; el token OAuth se mantuvo en
@@ -1711,3 +1712,497 @@ No se repitieron build ni prueba unitaria: la corrección local de CI solo añad
 la ejecución de `test:authorization`, cuyo build y prueba focalizada ya habían
 terminado correctamente antes del commit. No se hizo push, operación remota,
 invocación, despliegue ni escritura productiva.
+
+### Addendum — validación final local del PR #628 (2026-10-18 01:19 UTC)
+
+Consulta de solo lectura a GitHub: el PR #628 sigue `OPEN`, base `main` en
+`0ac4e9edf829acdf7213e7a20b722de9a58c2826`, HEAD
+`f8aa7dd894cb8624757edfcc3a471909b41e9706`, merge state `CLEAN`. Para ese HEAD,
+`Tipos y pruebas` (run `39082123892`, job `117541054402`), Vercel y Vercel
+Preview Comments están `SUCCESS`; el run terminó a las `2026-10-18T00:32:09Z`.
+La consulta no encontró reviews ni solicitudes de review. No se fusionó el PR.
+Se actualizó únicamente su descripción para reflejar los checks ya verdes y la
+review humana aún pendiente; no se añadió comentario ni se alteró el HEAD.
+
+La declaración anterior de que faltaban nombre y canal queda superada por la
+confirmación del responsable: Diana autoriza el nombre `Diana Jimenez` y él
+entregará personalmente por WhatsApp el código/PIN temporal cuando el flujo
+canónico lo genere. Es evidencia declarativa, no verificación directa con
+Diana; no se generó ni envió credencial. Permanecen por verificar en el momento
+de operación la identidad/facultades efectivas del operador y las
+autorizaciones productivas independientes.
+
+La revisión estática final del diff frente a `main` confirmó que el cambio de
+runtime está limitado a ejecutar `functions-bootstrap` `test:authorization`
+en CI; la prueba compila el entrypoint y verifica localmente rechazo anónimo y
+falta de la facultad canónica, con Firestore mockeado. Los demás cambios de
+código son pruebas: despacho por `FUNCTION_TARGET` en `saas-commercial` y
+denegaciones de Rules Emulator para compras/ventas y membresía inactiva. No se
+encontró un defecto de alta confianza en ese alcance; `git diff --check`
+terminó sin errores. La revisión local no sustituye una review independiente
+si la gobernanza del PR la exige. Este addendum es solo local: no hubo commit,
+push, comentario, despliegue ni mutación remota.
+
+### Addendum — disponibilidad observable de Edge (2026-10-18 01:22 UTC)
+
+La inspección local de ventanas de Windows, siguiendo el procedimiento de
+Computer Use, devolvió solo ChatGPT y Discord; Microsoft Edge no apareció en
+el inventario de aplicaciones ni ventanas accesibles. No se abrió otra
+ventana, no se navegó ni se interactuó con autenticación. Esto no demuestra
+que no exista una sesión de Edge fuera del inventario accesible, pero deja sin
+verificar la identidad SaaS y las facultades efectivas del operador en
+producción. La cuenta gcloud y la declaración previa de una sesión iniciada no
+sustituyen esa lectura canónica.
+
+### Addendum — revalidación read-only de Functions en staging (2026-10-18 01:22–01:24 UTC)
+
+Antes de consultar se verificó la cuenta gcloud activa (correo omitido en esta
+evidencia) y el proyecto explícito `micafe-pos-staging`, número `192423427245`, estado
+`ACTIVE`. Las lecturas exactas de Functions Gen2 y servicios/revisiones Cloud
+Run no invocaron endpoints ni ejecutaron despliegues.
+
+| Callable | Estado y codebase observados | Build/revisión y tráfico | Configuración observada |
+|---|---|---|---|
+| `ejecutarComandoComercialSaas` | `ACTIVE`, `saas-commercial`, Node.js 22; `updateTime=2026-10-06T09:46:39.969571356Z`; hash-label `c9a4f86d…` | Build `21c2f86c-8878-47ab-984e-4c6bafa5f7ab`; revisión `...00004-luv`, `READY`, 100 % | `us-central1`, 256 MiB, máximo 20 instancias, identidad Compute predeterminada de staging; URI `https://ejecutarcomandocomercialsaas-qn7mt3dyyq-uc.a.run.app` |
+| `consultarOfertaComercialTenantSaas` | `ACTIVE`, `saas-commercial`, Node.js 22; `updateTime=2026-10-06T09:46:32.926002553Z`; hash-label `c9a4f86d…` | Build `21c2f86c-8878-47ab-984e-4c6bafa5f7ab`; revisión `...00001-gug`, 100 % | `us-central1`, 256 MiB, identidad Compute predeterminada de staging; URI `https://consultarofertacomercialtenantsaas-qn7mt3dyyq-uc.a.run.app` |
+| `solicitarBootstrapEmpresarialSaas` | `ACTIVE`, `saas-bootstrap`, Node.js 22; `updateTime=2026-09-21T19:31:04.300277935Z`; hash-label `f046722d…` | Build `75506163-1c64-42d8-8c98-785659ea8598`; revisión `...00002-fig`, `READY`, 100 % | `us-central1`, 256 MiB, máximo 20 instancias, identidad Compute predeterminada de staging; URI `https://solicitarbootstrapempresarialsaas-qn7mt3dyyq-uc.a.run.app` |
+
+Cloud Run confirma 100 % de tráfico a las revisiones activas observadas. Para
+`ejecutarComandoComercialSaas`, la imagen usa el nombre de repositorio de la
+callable de consulta, pero el digest es el mismo digest compartido ya registrado
+para ambos paquetes comerciales. La evidencia del build y de los ZIP idénticos
+explica esa procedencia compartida; el nombre de la imagen por sí solo no
+demuestra despacho incorrecto. La lectura actual de revisión confirma imagen,
+estado Ready y cuenta de servicio; `FUNCTION_TARGET` se conserva de la lectura
+estática previa de las revisiones y no se volvió a consultar en esta tanda.
+
+El registro de despliegue del 6-oct dice que `saas-commercial` **actualizó**
+`ejecutarComandoComercialSaas`; la revisión anterior `...00003-lib` sigue
+`Ready` pero retirada, sin tráfico. ADR-SAAS-044 y la lectura actual confirman
+que Bootstrap ya se sirve bajo `saas-bootstrap`; su artefacto reconstruido es
+anterior y no atribuible a un commit. Por tanto, el cambio de codebase para
+estas rutas ya está materializado en staging y no debe repetirse únicamente
+para probar ownership. Esto no demuestra continuidad de invocaciones durante
+el despliegue, respuesta autenticada ni rollback ejecutado; tampoco prueba que
+los artefactos de staging sean iguales al candidato productivo vigente. El
+paquete comercial staging aún precede a la corrección de guard productivo de
+ofertas (`851c50bc…`) y a la evidencia v2 de auditoría; Bootstrap staging no
+certifica el contrato comercial candidato.
+
+**Conclusión para el plan:** retiro el “nuevo ensayo de transferencia de
+ownership en staging” como siguiente requisito. El desbloqueo técnico ahora es
+comparar/publicar, cuando exista autorización, el código candidato compatible
+en producción y completar sus verificaciones; las autorizaciones de Functions,
+App Hosting, Rules/corte y escrituras comerciales siguen separadas. No hubo
+invocaciones, despliegues, cambios de configuración ni escrituras.
+
+### Addendum — CI del `main` candidato y verificación del preflight local (2026-10-18 01:24 UTC)
+
+GitHub confirma `main @ 0ac4e9edf829acdf7213e7a20b722de9a58c2826`, CI push
+run `39054744192` `success` para ese mismo SHA. PR #628 sigue abierto con base
+en ese `main`, HEAD `f8aa7dd894cb8624757edfcc3a471909b41e9706` y sus tres checks
+(CI, Vercel, Preview Comments) en `PASS`; no hay review registrada. El PR no
+incluye el addendum local posterior de este archivo. `git diff --check` sobre
+el worktree actual terminó sin errores; Git solo avisó de la conversión
+habitual LF/CRLF en Windows. No se repitieron suites porque desde el HEAD
+validado por CI solo se añadieron observaciones documentales locales.
+
+### Addendum — revalidación read-only de Functions staging y producción (2026-10-18 01:22–01:24 UTC)
+
+Antes de consultar se verificó la cuenta gcloud activa (correo omitido en esta
+evidencia). Los proyectos se fijaron explícitamente y respondieron `ACTIVE`: staging
+`micafe-pos-staging` / `192423427245`; producción `micafe-pos` /
+`882525811433`. Se consultó metadata de Functions Gen2 y revisiones Cloud Run
+para los IDs exactos indicados; no se inspeccionaron env vars, secretos, código
+ni documentos de tenants, y no hubo invocaciones ni mutaciones.
+
+| Entorno / callable | Estado, codebase y actualización | Build / revisión / tráfico | Configuración observada |
+|---|---|---|---|
+| Staging `ejecutarComandoComercialSaas` | `ACTIVE`, `saas-commercial`, Node.js 22; `2026-10-06T09:46:39.969571356Z` | Build `21c2f86c-8878-47ab-984e-4c6bafa5f7ab`; revisión `...00004-luv`, `READY`, 100 % | `us-central1`, 256 MiB, máximo 20, Compute predeterminada de staging; URI `https://ejecutarcomandocomercialsaas-qn7mt3dyyq-uc.a.run.app` |
+| Staging `consultarOfertaComercialTenantSaas` | `ACTIVE`, `saas-commercial`, Node.js 22; `2026-10-06T09:46:32.926002553Z` | Mismo build; revisión `...00001-gug`, 100 % | `us-central1`, 256 MiB, Compute predeterminada de staging; URI `https://consultarofertacomercialtenantsaas-qn7mt3dyyq-uc.a.run.app` |
+| Staging `solicitarBootstrapEmpresarialSaas` | `ACTIVE`, `saas-bootstrap`, Node.js 22; `2026-09-21T19:31:04.300277935Z` | Build `75506163-1c64-42d8-8c98-785659ea8598`; revisión `...00002-fig`, `READY`, 100 % | `us-central1`, 256 MiB, máximo 20, Compute predeterminada de staging; URI `https://solicitarbootstrapempresarialsaas-qn7mt3dyyq-uc.a.run.app` |
+| Producción `ejecutarComandoComercialSaas` | `ACTIVE`, `saas-auth`, Node.js 22; `2026-08-15T04:27:10.213732081Z` | Build `fe8efec1-32df-4b46-80cd-03fc0ff16b64`; entry point canónico | `us-central1`, 256 MiB, máximo 20, Compute predeterminada de producción; URI `https://ejecutarcomandocomercialsaas-w6qbeqsxfa-uc.a.run.app` |
+| Producción `solicitarBootstrapEmpresarialSaas` | `ACTIVE`, `saas-auth`, Node.js 22; `2026-08-15T04:27:36.321446180Z` | Mismo build; entry point canónico | `us-central1`, 256 MiB, máximo 20, Compute predeterminada de producción; URI `https://solicitarbootstrapempresarialsas-w6qbeqsxfa-uc.a.run.app` |
+| Producción `registrarCompraBodegaV1` | `ACTIVE`, `saas-bodega-operations`, Node.js 22; `2026-10-14T09:29:23.381063034Z` | Build `604494cb-10f3-46db-a692-5c4d2009eee2` | `us-central1`, 256 MiB, Compute predeterminada de producción; URI `https://registrarcomprabodegav1-w6qbeqsxfa-uc.a.run.app` |
+| Producción `transicionarPausaComprasSaas` | `ACTIVE`, `saas-auth`, Node.js 22; `2026-10-15T16:50:26.772565182Z` | Build `32fe5fec-a4c5-4c9b-9315-a68b5c2d75a7` | `us-central1`, 256 MiB, Compute predeterminada de producción; URI `https://transicionarpausacomprassaas-w6qbeqsxfa-uc.a.run.app` |
+
+La relectura confirma que el cambio de ownership de las callables comerciales
+y Bootstrap ya está materializado en staging; el deploy de `saas-commercial`
+del 6-oct registró una actualización del executor y conservó su revisión previa
+como `Ready` sin tráfico, y Bootstrap se sirve bajo `saas-bootstrap` desde el
+21-sep. Por ello no hace falta repetir una migración de codebase en staging
+solo para probar la capacidad de actualización por ID. Esto no prueba
+continuidad temporal, respuestas autenticadas ni recuperación funcional. Los
+artefactos de staging son versiones fechadas de septiembre/octubre y no
+certifican la candidata productiva actual; el ZIP comercial inspeccionado
+carece de la corrección productiva posterior y de la evidencia v2. La
+procedencia exacta del artefacto de Bootstrap está recuperada por ADR-SAAS-044,
+pero su commit histórico es `NOT RECOVERABLE`.
+
+En producción no cambió la metadata de las dos callables comerciales desde la
+observación previa: ambas siguen en `saas-auth`. `registrarCompraBodegaV1`
+continúa con el build del 14-oct y `transicionarPausaComprasSaas` con el del
+15-oct. Sus etiquetas/build IDs no prueban por sí solos el contenido: se
+conserva la inspección estática exacta del source ZIP ya registrada, que
+encontró el guard ausente en la Function Bodega y la clasificación v1
+incompatible con ADR-SAAS-084 en la callable de transición. Ninguna fue
+invocada en esta relectura.
+
+**Decisión de secuencia:** la migración mecánica de nombres/codebases ya no es
+el bloqueo que justifica otra prueba de staging. Para producción permanece
+necesario autorizar por separado la actualización de Functions candidatas,
+App Hosting y Rules/corte. Antes de esas mutaciones se requiere un plan actual
+que cubra el ownership, la configuración y recuperación; no se infiere que la
+prueba histórica de staging autorice producción. El paquete de oferta/Bootstrap
+sigue sin autorización de escritura y no se ejecutó.
+
+### Addendum — revalidación final de Gate I, release y onboarding (2026-10-17 23:53–23:56 COT / 2026-10-18 04:53–04:56Z)
+
+Lectura acotada para actualizar evidencia, sin repetir suites ni auditoría general. Las consultas remotas se limitaron a `micafe-pos` y `us-central1`, fueron de lectura y no invocaron endpoints.
+
+#### PR #628, estado Git y alcance local
+
+- `gcloud` activo: identidad verificada (correo omitido en esta evidencia); proyecto explícito `micafe-pos`, número `882525811433`, `ACTIVE`. APIs consultables habilitadas: `cloudfunctions.googleapis.com`, `firebaseapphosting.googleapis.com`, `firebaserules.googleapis.com` y `run.googleapis.com`; no se cambió ninguna.
+- `origin/main` y base PR #628: `0ac4e9edf829acdf7213e7a20b722de9a58c2826`. PR #628 sigue `OPEN`, HEAD `f8aa7dd894cb8624757edfcc3a471909b41e9706`, `CLEAN`; `Tipos y pruebas` (run `39082123892`, job `117541054402`), Vercel y Vercel Preview Comments están `PASS`. No hay review ni decisión de aprobación.
+- El diff del PR contiene CI, documentos y pruebas, no código runtime de Functions ni `firestore.rules`. Este preflight ya está incluido en el PR; el addendum local pertenece al mismo alcance y no requiere otro PR. Continúa sin publicar. El único archivo local cambiado sigue siendo este preflight; `git diff --check` pasó. No se repitieron pruebas porque el cambio es documental; CI verde no cubre el texto local.
+- El Goal maestro sigue G-SAAS-02/M2/E2.2 en ejecución, pero su campo “siguiente PR esperado” aún cita `main @ 126affa04417639e9ec566b025d937739262d465`, frente al `main @ 0ac4e9…` observado ahora. No edité el Goal: no hubo evento formal de planificación. El estado del release/Gate I es `NO-GO/BLOCKED`; no equivale a cambiar el estado maestro del Goal, que permanece `ACTIVO`.
+
+#### Rules activas y candidatas
+
+El `GET` de Rules se completó el `2026-10-18T04:54:24Z` (cuota fijada por petición a `micafe-pos`). Release `projects/micafe-pos/releases/cloud.firestore`, `updateTime=2026-08-15T04:20:46.318849Z`, apunta al ruleset `d5e205db-0ab4-4db1-b5ec-1534bee39d35`, creado `2026-08-15T04:20:45.884943Z`. Fuente `firestore.rules`, 14.846 bytes: SHA-256 UTF-8 raw `fca6363aa98360535306bd13d70418888760645cd5c5e54ada5c83ceb2f6a887`; LF-normalizado `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`.
+
+El blob Git candidato de `origin/main @ 0ac4e9…`, y el mismo archivo en el HEAD de PR #628, es 18.961 bytes y SHA-256 `b8fb7ddd5370ddaa3784db4921b2bbbc71e51f285ffde912c3b0650ab1517fdf`. La copia Windows CRLF da 19.403 bytes y raw SHA-256 `9f524f8333a3bf6b7ac298e2ad34358af69fbb9744d56c78dd8d1e7bf4ba5345`; normalizada a LF coincide con el blob Git. Es una diferencia de representación de líneas, no una variación del candidato. La fuente remota y la candidata siguen distintas.
+
+La matriz semántica ya registrada sigue respaldada por hashes actuales:
+
+| Superficie | Diferencia efectiva y dependencia |
+|---|---|
+| `/compras/{id}` | Producción permite a admin crear/borrar directamente sin control. Candidato bloquea escrituras Bodega y exige para otros verticales control existente, empresa coincidente, `ACTIVA` y revisión entera `>=1`. Afecta también escritores directos de otros verticales: falta inventario de tenants/controles alcanzados. |
+| `/controles_release_compras/{id}` | Denegado directamente al cliente en Rules activas y candidatas; las Rules evalúan el control internamente. |
+| `/productos`, `/ventas`, `/clientes`, `/turnos`, `/usuarios`, `/movimientos_inventario`, `/presentaciones_producto` | Candidato aplica restricciones de Bodega/rol más estrictas o cambios puntuales frente al acceso activo/catch-all; conservar pruebas por rol, vertical y tenant. |
+| Señales Bodega y rutas legacy | Candidato permite solo `get` acotado de señales para membresía/UID propio, nunca `list`/escritura; legacy explícitamente denegado no amplía el catch-all actual. |
+
+Gate I necesita pruebas de escritura directa por rol/vertical, control ausente/activo/pausado/cruzado/revisión inválida, membresía revocada, aislamiento tenant, señales no-list/no-write, rutas legacy e integración por callables. El `test:rules` registrado dio 47/47 en Emulator y no se repitió sin cambio de código; no certifica remoto.
+
+ADR-SAAS-081 exige antes de Rules: Functions compatibles (compra operativa, compra Bodega y control), controles inicializados, pausa canónica por tenant y revisión de estado/revisión, deploy de Rules y verificación, luego reanudación con atestación. Si falla la verificación, dejar PAUSADA y forward-fix; no recuperar Rules permisivas. IDs exactos de tenants, responsables y ventana siguen sin definirse; no se autorizó ni realizó corte. Gate I permanece `BLOCKED`.
+
+#### Functions productivas — metadata y incompatibilidades
+
+Se repitieron `gcloud functions describe` de IDs exactos en `micafe-pos/us-central1`; `ACTIVE` es metadata, no prueba de comportamiento autenticado. Las generaciones de ZIP de compras no cambiaron respecto a los paquetes inspeccionados previamente.
+
+| Callable | Estado remoto actual | Diferencia relevante y plan de release |
+|---|---|---|
+| `ejecutarComandoComercialSaas` | `ACTIVE`, Node.js 22, `2026-08-15T04:27:10.213732081Z`, source generation `1786768013527885`; Compute predeterminada; URI `https://ejecutarcomandocomercialsaas-w6qbeqsxfa-uc.a.run.app`. | ZIP actual no incluye comandos de crear/aprobar/revocar oferta. `saas-commercial` actualiza este ID y crea `consultarOfertaComercialTenantSaas`; exigir plan actual que descarte colisión/eliminación/recreación. |
+| `consultarOfertaComercialTenantSaas` | GET exacto en `us-central1`: `404 NOT FOUND`. | Crear solo si el inventario inmediato mantiene la ausencia en la región y el plan enumera ese único alta adicional. |
+| `solicitarBootstrapEmpresarialSaas` | `ACTIVE`, Node.js 22, `2026-08-15T04:27:36.321446180Z`, source generation `1786768013449627`; Compute predeterminada; URI `https://solicitarbootstrapempresarialsas-w6qbeqsxfa-uc.a.run.app`; referencia a `OPERATIONAL_PIN_PEPPER@1`. | ZIP productivo no vincula oferta aprobada ni materializa vertical Bodega. `saas-bootstrap` actualiza el mismo ID; conservar identidad/configuración/secret y no usar la versión actual para Diana. |
+| `registrarCompraOperativaV1` | `ACTIVE`, Node.js 22, `2026-10-15T16:50:25.789673942Z`, generation `1792083010702967`; Compute predeterminada. | El ZIP ya inspeccionado contiene guard para compra nueva y replay. No redeploy si la revalidación del artefacto confirma que sigue idéntico. |
+| `registrarCompraBodegaV1` | `ACTIVE`, Node.js 22, `2026-10-14T09:29:23.381063034Z`, generation `1791970149694527`; Compute predeterminada; URI `https://registrarcomprabodegav1-w6qbeqsxfa-uc.a.run.app`. | El ZIP no contiene guard de ADR-SAAS-081. Requiere actualización dirigida y pruebas nueva/replay/fail-closed antes de Rules. |
+| `transicionarPausaComprasSaas` | `ACTIVE`, Node.js 22, `2026-10-15T16:50:26.772565182Z`, generation `1792082970343879`; Compute predeterminada; URI `https://transicionarpausacomprassaas-w6qbeqsxfa-uc.a.run.app`. | ZIP emite v1 y puede registrar inicialización `0→1 ACTIVA` como reanudación. Actualizar a ADR-SAAS-084 solo tras lectores compatibles; no emitir v2 antes de desplegarlos. |
+
+Staging tiene ya ownership `saas-commercial`/`saas-bootstrap` y tráfico Ready, por lo que no se repite ese ensayo. No acredita continuidad durante la migración, pruebas autenticadas, rollback ejecutado ni equivalencia con el candidato productivo. Cada deploy productivo requiere inventario/plan previo de altas, actualizaciones, bajas y config; abortar ante eliminación/recreación o cambio no previsto de nombre, URI, región, trigger, ingress, runtime o identidad. Los artefactos/revisiones anteriores disponibles son puntos de recuperación, no un rollback probado.
+
+#### App Hosting y IAM de runtime
+
+GET actual confirmó el backend `micafe-pos/us-central1`, URI `micafe-pos--micafe-pos.us-central1.hosted.app`, raíz `/`, repo `Glemynart/micafe-pos`, Cloud Run service `micafe-pos`, Node.js 24, runtime SA `firebase-app-hosting-compute@micafe-pos.iam.gserviceaccount.com` y `reconciling=false`. Las siete variables públicas Firebase observadas apuntan a `micafe-pos`, incluida Functions `us-central1`; valores no repetidos aquí. Cloud Run está Ready y con 100 % de tráfico a `micafe-pos-build-2026-10-15-001`. App Hosting informa build `READY`, rollout `SUCCEEDED`, ambos `build-2026-10-15-001`, fuente exacta `5c5c4fdd9164abdca0fe05c9fddb51cea8559a29`. `main` actual es `0ac4e9…`; el PR #628 HEAD no modifica runtime. No se inició rollout. El GET actual no expuso `rolloutPolicy`; la evidencia previa de automáticos desactivados debe revalidarse justo antes de una publicación. La aceptación de Node 24/Next Preview de ADR-SAAS-083 no autoriza otro rollout.
+
+La runtime SA de Functions no es la de App Hosting. Se verificó que `882525811433-compute@developer.gserviceaccount.com` conserva `roles/editor` directo en el proyecto y `roles/secretmanager.secretAccessor` sobre el Secret exacto `OPERATIONAL_PIN_PEPPER`, sin condición (ETag de política del secreto `BwZXaKyQhzE=`). No se leyó el valor. Antes de Bootstrap, decisión explícita: aceptar temporalmente el privilegio amplio para ese paquete o autorizar remediación IAM independiente. Alternativa a preparar: runtime SA dedicada; Firestore limitado a `(default)` por condición validada/rol custom (sin aislamiento por tenant, y Admin SDK no aplica Firestore Rules); Firebase Auth limitada a `get/create/update` necesarios para usuario/claims; accessor solo en el Secret exacto. No se cambió IAM. Referencias oficiales: [roles Firestore](https://docs.cloud.google.com/iam/docs/roles-permissions/firestore), [atributos de condición Firestore](https://docs.cloud.google.com/iam/docs/conditions-resource-attributes), [roles Firebase Auth](https://docs.cloud.google.com/iam/docs/roles-permissions/firebaseauth) y [Secret Manager](https://docs.cloud.google.com/secret-manager/docs/access-control).
+
+#### Orden de release y decisiones separadas
+
+Secuencia técnica: review/merge gobernado del PR #628; fijar SHA de `main` posterior al merge; planes por paquete de Functions; desplegar y verificar ofertas/Bootstrap y lectores/escritor v2; desplegar y comprobar el guard Bodega y confirmar el bloqueo de la callable legacy; rollout manual del Backoffice al SHA exacto autorizado; luego pruebas posteriores autenticadas no mutantes. Solo después de Gate I y autorización se registra/aprueba oferta; Bootstrap canónico crea tenant/identidad/membresía y comienza una sola vez los 30 días. El corte Rules sigue el orden independiente de ADR-SAAS-081.
+
+| Decisión pendiente | Riesgo y alcance que la autorización debe cubrir | Si no se aprueba |
+|---|---|---|
+| Functions `saas-commercial` | Actualizar executor existente y crear callable de consulta; aceptar explícitamente riesgo de ownership/continuidad, exactos IDs/SHA/config y recuperación. | No hay comandos productivos para crear/aprobar oferta. |
+| Functions `saas-bootstrap` | Actualizar ID existente, preservar URI/Node22/Secret/runtime, decidir riesgo actual `roles/editor` o autorizar cambio IAM separado. | Bootstrap candidato no disponible; no hay tenant/Trial. |
+| Functions compra/control | Actualización dirigida de Bodega guard y transición compatible v2; incluir los checks exactos y evidencia de compatibilidad de lectores. | Gate I y corte bloqueados. No autoriza por sí sola Rules ni pausas. |
+| App Hosting | Rollout manual a SHA exacto de `main` revalidado tras merge; mantener automáticos desactivados y especificar rollback. | Backoffice sigue en `5c5c4fdd…`; no se publica la UI candidata. |
+| Rules/corte | `(default)`, ruleset/hash, lista exacta de tenants, responsable por tenant, ventana, controles/revisiones, pausas por callable, verificación, atestación de reanudación y recuperación forward-fix. Reconocer efecto sobre compras directas de verticales no-Bodega. | Gate I sigue abierto. |
+| IAM Bootstrap | Aceptar riesgo `roles/editor` acotado o aprobar en paquete separado SA dedicada y permisos mínimos probados; no confundirla con App Hosting. | No usar el runtime privilegiado. |
+| Oferta | Autorizar `CrearOfertaComercialTenant` y `AprobarOfertaComercialTenant` para tenant objetivo, Plan anual v2 publicado, COP 1.600.000, pago manual, efectiva `2026-10-16`, sin vencimiento; revalidar duplicados/Plan/operador antes de escribir. | No existe oferta aprobada en producción. |
+| Bootstrap/Trial | Una solicitud canónica para `distribuidora-las-jimenez`, `BODEGA_MVP1`, `CO`, `Diana Jimenez`; operador con facultad efectiva `BOOTSTRAP_EMPRESARIAL_SOLICITAR`; confirmar inicio inmediato de los 30 días y creación de cuenta/membresía. PIN temporal se entrega fuera de banda por el responsable en WhatsApp. | No se crea tenant, usuario ni Trial. |
+
+Antes de toda escritura comercial, releer UID y `saas_operadores/{uid}` desde la sesión productiva, estado activo y facultad canónica adecuada (`COMERCIAL_GOBERNAR`, `BOOTSTRAP_EMPRESARIAL_SOLICITAR` o `RELEASE_COMPRAS_GOBERNAR`); la identidad `gcloud` no prueba identidad SaaS. Buscar duplicados inmediatamente antes de escribir en rutas canónicas de empresa, suscripción, provisioning/configuración y oferta. Los 404 históricos eran rutas exactas, no una búsqueda de alias, y deben renovarse. No cambiar facultades.
+
+El responsable declaró `Diana Jimenez` como nombre autorizado y que entregará personalmente el PIN por WhatsApp. El correo no es obligatorio para este contrato de Bootstrap y no se inventa. La oferta/precio/fecha son declaraciones del responsable, no una escritura aprobada en producción. Catálogo vacío puede diferirse para iniciar el Trial, pero no permite vender/comprar ni declarar Bodega lista.
+
+**Estado:** las lecturas actuales confirman que la divergencia remota sigue vigente; no resolvieron las brechas técnicas. Bloqueos técnicos: Rules activas incompatibles, guard ausente en Function Bodega, callable de control productiva v1, callables comerciales/Bootstrap antiguas y App Hosting en SHA anterior. Bloqueos de autorización/gobernanza: review humana del PR #628; aprobaciones independientes por Functions, App Hosting, Rules/corte, IAM, oferta y Bootstrap/Trial; faltan tenants/responsables/ventana del corte. No se desplegó, invocó ni escribió nada; no hubo pausa, cambio IAM/API/Secret, oferta, tenant, cuenta ni Trial. Identidad/facultades actuales del operador en sesión productiva siguen por verificar justo antes de operar.
+
+### Addendum — dictamen técnico independiente PR #628 (2026-10-18 00:55 COT)
+
+**Dictamen:** `REJECT` para el HEAD remoto auditado; en términos de la auditoría
+del repositorio, `NO APROBADO PARA MERGE`.
+
+#### Estado remoto verificado
+
+- PR #628 sigue `OPEN`, no draft, base `main @
+  0ac4e9edf829acdf7213e7a20b722de9a58c2826`, HEAD
+  `f8aa7dd894cb8624757edfcc3a471909b41e9706`, merge state `CLEAN`.
+- Los checks de ese HEAD terminaron correctamente: `Tipos y pruebas` (run
+  `39082123892`, job `117541054402`), Vercel y Vercel Preview Comments.
+- La revisión API de GitHub devolvió cero reviews y cero comentarios inline; el
+  único comentario de issue es el bot de Vercel. Los cuatro commits del PR
+  terminan en el HEAD auditado. No se registró una review formal en GitHub.
+
+#### Alcance y evaluación técnica
+
+El diff contiene diez archivos: CI, Goal/runbook/preflight y pruebas de Rules,
+descubrimiento comercial y autorización Bootstrap. No cambia código runtime de
+Functions, `firestore.rules`, IAM ni recursos remotos. El Goal mantiene M2/E2.2
+en ejecución y registra el aplazamiento del catálogo sin declarar Bodega lista
+ni cerrar Gate I. Esto es coherente con el objetivo de preparar y endurecer la
+evidencia local; los gates productivos permanecen expresamente abiertos.
+
+Las pruebas añadidas ejercitan en Emulator el control ausente, pausado, revisión
+cero y tenant incorrecto, la denegación de compras Bodega directas, ventas
+client-side y lectura de señal por membresía sin permiso/inactiva. La prueba
+Bootstrap verifica rechazo anónimo antes de Firestore y rechazo de facultad
+incorrecta con Firestore mockeado. La prueba comercial verifica exports y
+`entryPoint` del manifiesto y un caso de target cruzado. Son comprobaciones
+locales; no demuestran por sí solas continuidad de Functions, gobernanza
+autenticada, Rules remotas ni comportamiento productivo. El CI verde observado
+corresponde al HEAD exacto y ejecutó las suites pertinentes. No se repitieron
+suites completas porque el árbol runtime no cambió.
+
+#### Hallazgo importante — privacidad de la evidencia pública
+
+La descripción del PR afirma que la evidencia pública omite correos y UIDs de
+operadores. Sin embargo, el archivo de preflight incluido en el HEAD publica en
+dos lugares la dirección de una cuenta humana de Google Cloud usada para
+consultas. La visibilidad de `Glemynart/micafe-pos` fue verificada como
+`PUBLIC`; el correo no es necesario para preservar la evidencia del proyecto,
+cuenta activa y resultados, y contradice la minimización prometida. No es una
+clave ni un token, pero sí un dato personal innecesario en un artefacto público.
+
+Corrección mínima preparada solo en este worktree: se sustituyeron localmente
+las cinco apariciones encontradas —dos del contenido que está en el PR y tres
+del addendum local— por la indicación de identidad verificada con correo
+omitido. No se alteraron hechos técnicos, nombres de service accounts ni
+credenciales. El HEAD remoto todavía conserva las dos apariciones: la
+corrección no se publicó y por eso no la considero resuelta en el PR.
+
+#### Addendum local y diferencia respecto al PR
+
+El addendum local de revalidación del 18-oct pertenece al mismo artefacto y
+alcance de preflight que el PR; no crea una fase ni requiere abrir otro PR. Es
+una actualización cronológica útil para evitar que el release se lea como una
+auditoría integral o como si el Trial estuviera habilitado. La porción sobre
+HEAD, checks, estado abierto y ausencia de reviews coincide con la lectura
+actual de GitHub. Las otras observaciones remotas conservan sus timestamps y
+se consideran evidencia histórica registrada, no una nueva consulta ejecutada
+durante este dictamen. El addendum no está en el HEAD remoto y no se afirma que
+GitHub lo haya recibido.
+
+#### Criterios y acciones
+
+- **Cumplidos:** trazabilidad con G-SAAS-02/M2/E2.2; límites de no despliegue;
+  tests acotados y alineados con ADR-SAAS-072/081; evidencia que no declara
+  Gate I, release ni Trial completados; CI verde en el HEAD auditado.
+- **No cumplido:** la afirmación de minimización de datos no concuerda con el
+  contenido público del preflight. El PR se rechaza por esta contradicción
+  concreta, no por la falta de una review humana ni por las brechas de release
+  que el PR declara fuera de alcance.
+- **Pendiente:** publicar la redacción local corregida mediante el flujo
+  autorizado, actualizar el HEAD del PR y esperar checks del nuevo HEAD. La
+  corrección local y este dictamen no son una aprobación formal de GitHub.
+- Después de la redacción local, `git diff --check` pasó. No se repitieron
+  suites: el cambio de este dictamen es documental y no altera código ni
+  pruebas. Los checks remotos verdes pertenecen al HEAD anterior; cualquier
+  publicación requerirá validar el nuevo HEAD.
+
+No se publicó ni modificó el PR, no se fusionó y no se ejecutaron operaciones
+remotas de Firebase/GCP. Gate I, release productivo y Trial de Diana siguen
+fuera de este dictamen y en su estado previamente documentado.
+
+### Addendum — revalidación acotada de E2.2 (2026-10-18 01:00–01:04 COT / 06:00–06:04Z)
+
+Lecturas limitadas a `micafe-pos`, `us-central1`, las rutas canónicas exactas
+del tenant/oferta y PR #628. Se usaron `gcloud auth list`, `gcloud projects
+describe`, `gcloud services list --enabled`, `gcloud functions describe`,
+`gcloud builds describe`, `gcloud run services describe/list`, las lecturas
+REST `GET` de Firebase Rules/App Hosting/Firestore y `gh pr view`, `gh pr diff`
+y GitHub API de reviews/comentarios. No se ejecutó `deploy`, `dry-run`,
+invocación, escritura, habilitación de API, cambio IAM, oferta, Bootstrap ni
+operación de compra. La identidad gcloud fue verificada y se omite su correo.
+
+#### GitHub, alcance local y decisión sobre el preflight
+
+- `micafe-pos` se confirmó `ACTIVE`, número `882525811433`; las siete APIs
+  consultadas (`cloudfunctions`, `firebaseapphosting`, `firebaserules`, `run`,
+  `cloudbuild`, `artifactregistry` y `secretmanager`) aparecen habilitadas. No
+  se cambió su estado.
+- La rama sigue `codex/e2-2-diana-release-prep`, HEAD local/remoto de rama
+  `f8aa7dd894cb8624757edfcc3a471909b41e9706`; `origin/main` y base actual de
+  PR #628 son `0ac4e9edf829acdf7213e7a20b722de9a58c2826`. El checkout aislado
+  conserva únicamente este preflight como archivo modificado; no se hizo
+  commit, push, reset ni rebase.
+- PR #628 continúa `OPEN`, base `main`, HEAD
+  `f8aa7dd894cb8624757edfcc3a471909b41e9706`, `mergeState=CLEAN`. `Tipos y
+  pruebas` (run `39082123892`, job `117541054402`), Vercel y Vercel Preview
+  Comments están `SUCCESS` para ese HEAD. La API devuelve cero reviews; el único
+  comentario de issue es de Vercel. Los checks verdes no hacen merge ni
+  resuelven el dictamen anterior.
+- El diff remoto mantiene diez archivos, sin código runtime de Functions ni
+  `firestore.rules`. El valor de correo de la cuenta humana de gcloud todavía
+  aparece dos veces en el diff público; no se reproduce aquí. La copia local
+  de este preflight ya lo omite. La corrección de privacidad y esta actualización
+  afectan el mismo archivo que ya forma parte del PR, por lo que pertenecen al
+  alcance documental del mismo PR, no a un PR funcional separado. No se
+  publicaron porque esta misión no autoriza push; PR #628 permanece `REJECT /
+  NO APROBADO PARA MERGE` hasta actualizar su HEAD, pasar checks y completar el
+  flujo de review.
+- El Goal sigue `G-SAAS-02 / M2 / E2.2` activo. No se actualizó: su referencia
+  de siguiente PR aún muestra una base anterior a `0ac4e9…` y no ocurrió un
+  evento formal de planificación que autorice editarla.
+
+#### Firestore Rules y Gate I
+
+La lectura actual del release `projects/micafe-pos/releases/cloud.firestore`
+apunta al ruleset `d5e205db-0ab4-4db1-b5ec-1534bee39d35`, creado y publicado el
+`2026-08-15T04:20:45Z` y actualizado a las `2026-08-15T04:20:46.318849Z`.
+El hash SHA-256 remoto se mantiene: raw
+`fca6363aa98360535306bd13d70418888760645cd5c5e54ada5c83ceb2f6a887`, LF
+normalizado `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`.
+
+La fuente exacta de `origin/main @ 0ac4e9edf829acdf7213e7a20b722de9a58c2826`
+es blob Git `c74ae890b23146a11e01f36e39f0581447833a58`, 18.961 bytes, SHA-256
+`b8fb7ddd5370ddaa3784db4921b2bbbc71e51f285ffde912c3b0650ab1517fdf`. El
+contenido remoto no coincide con el candidato. Como ambos hashes de fuente
+coinciden con la lectura del 17–18 de octubre, sigue aplicando la matriz
+semántica documentada en este preflight y en
+[`G-SAAS-02-E2-2-GATE-I-RULES-COMPATIBILITY-MATRIX-2026-10-14.md`](G-SAAS-02-E2-2-GATE-I-RULES-COMPATIBILITY-MATRIX-2026-10-14.md): producción permite escritura directa de compra por administrador sin
+consultar el control; el candidato bloquea compra Bodega directa y condiciona
+otros verticales a control coincidente, `ACTIVA` y revisión válida. Esto amplía
+el impacto más allá del tenant Diana. Hay además diferencias de permisos por
+rol/vertical en superficies Bodega ya enumeradas en la matriz; no se infiere
+que el hash igual cierre su compatibilidad.
+
+**Gate I: `BLOCKED`.** El candidato de Rules todavía no está alineado con las
+Functions productivas. Falta desplegar y verificar los guards compatibles de
+compra legacy/Bodega y la implementación ADR-SAAS-084 de control/auditoría v2;
+validar control ausente/activo/pausado/revisión/tenant cruzado, escrituras
+directas, roles/verticales, membresía revocada y aislamiento; e identificar
+para el corte cada tenant afectado, responsable, ventana, estado/revisión del
+control, orden de pausa/reanudación y recuperación forward-fix. ADR-SAAS-081
+prohíbe tratar el ruleset histórico más permisivo como rollback automático. No
+se inicializó ni pausó ningún control y no se desplegaron Rules.
+
+#### Functions productivas observadas
+
+Las seis consultas dirigidas fueron de metadata; no se descargó ni ejecutó
+ningún código remoto. El label `firebase-functions-hash` identifica la metadata
+de despliegue, no una atestación independiente del contenido fuente.
+
+| Callable | Estado, codebase y versión remotos a 2026-10-18 | Delta/precondición |
+|---|---|---|
+| `ejecutarComandoComercialSaas` | `ACTIVE`; `saas-auth`; Node.js 22; actualizado `2026-08-15T04:27:10.213732081Z`; build `fe8efec1-32df-4b46-80cd-03fc0ff16b64`; source generation `1786768013527885`; label hash `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0`; runtime SA Compute predeterminada. | Candidato `saas-commercial` conserva el nombre y añade el export `consultarOfertaComercialTenantSaas`; el ZIP productivo inspeccionado antes no contiene el flujo de ofertas. El cambio de codebase/ownership y continuidad no están demostrados por staging ni por un planner local. |
+| `consultarOfertaComercialTenantSaas` | `NOT_FOUND` en el endpoint de Functions `us-central1`. | El alta solo puede formar parte de un plan de despliegue aprobado si la ausencia se confirma de nuevo y el plan no afecta otros recursos. |
+| `solicitarBootstrapEmpresarialSaas` | `ACTIVE`; `saas-auth`; Node.js 22; actualizado `2026-08-15T04:27:36.321446180Z`; build `fe8efec1-32df-4b46-80cd-03fc0ff16b64`; source generation `1786768013449627`; label hash `b9a033fcf119a92fa942f158e3b4ac4e609f1983`; runtime SA Compute predeterminada. | La versión productiva inspeccionada no implementa el contrato actual de oferta/Bootstrap Bodega. El candidato `saas-bootstrap` exige Auth y facultad `BOOTSTRAP_EMPRESARIAL_SOLICITAR`, y refiere `OPERATIONAL_PIN_PEPPER`; sigue sin probarse continuidad al cambiar ownership. |
+| `registrarCompraOperativaV1` | `ACTIVE`; `saas-auth`; Node.js 22; actualizado `2026-10-15T16:50:25.789673942Z`; build `32fe5fec-a4c5-4c9b-9315-a68b5c2d75a7`; source generation `1792083010702967`; label hash `9a0a088d1ee7c3caf1d5d1d087f97328fb646443`. | La evidencia previa inspeccionó el artefacto con guard para compra nueva/replay. No se redeploya ni se atribuye prueba de Rules por metadata. |
+| `registrarCompraBodegaV1` | `ACTIVE`; `saas-bodega-operations`; Node.js 22; actualizado `2026-10-14T09:29:23.381063034Z`; build `604494cb-10f3-46db-a692-5c4d2009eee2`; source generation `1791970149694527`; label hash `fa7f47c21b994a5ebccefded6e548e0f6b193c79`. | La inspección previa del artefacto encontró ausente el guard ADR-SAAS-081. Metadata y generación no cambiaron; se requiere paquete dirigido y verificación del artefacto compatible antes de Rules. |
+| `transicionarPausaComprasSaas` | `ACTIVE`; `saas-auth`; Node.js 22; actualizado `2026-10-15T16:50:26.772565182Z`; build `32fe5fec-a4c5-4c9b-9315-a68b5c2d75a7`; source generation `1792082970343879`; label hash `9a0a088d1ee7c3caf1d5d1d087f97328fb646443`. | El artefacto productivo previamente inspeccionado emite v1 y puede etiquetar `0→1 ACTIVA` como reanudación. El código candidato en `main` sí contiene `schemaVersion: 2` y clasifica inicialización; no está servido. ADR-SAAS-084 exige lectores compatibles antes de emitir v2. |
+
+Los builds observados para esos paquetes (`fe8efec1…`, `32fe5fec…` y
+`604494cb…`) terminaron `SUCCESS` y registran como `serviceAccount` de build
+`882525811433-compute@developer.gserviceaccount.com`. La cuenta es también la
+runtime SA de las cinco Functions consultadas; esta coincidencia no convierte
+los permisos de build y ejecución en el mismo rol lógico. La política directa
+del proyecto, ETag `BwZd5Jnfn5U=`, confirma `roles/editor` para esa identidad;
+la política del Secret `OPERATIONAL_PIN_PEPPER`, ETag `BwZXaKyQhzY=`, confirma
+`roles/secretmanager.secretAccessor` para esa misma cuenta. Existe la versión
+habilitada `1`; no se leyó el valor. La SA de App Hosting es distinta.
+
+Esto conserva un riesgo P1 de mínimo privilegio. Antes de usar el runtime de
+Bootstrap, el responsable debe decidir expresamente entre aceptar
+temporalmente `roles/editor` para el alcance/ventana concretos o autorizar una
+remediación IAM separada con SA dedicada y permisos mínimos probados. No se
+concedieron ni retiraron roles. Recuperación: builds/servicios previos existen,
+pero no se demostró restauración funcional de Functions con fuente/config
+correspondiente; no se marca rollback como probado. Staging demuestra estado
+Ready y pruebas limitadas del flujo, no continuidad durante cambio de
+codebase, identidad/auth productivas, rollback productivo ni equivalencia de
+artefactos.
+
+#### App Hosting productivo
+
+La lectura actual confirma el backend `micafe-pos` en `us-central1`, URL
+`https://micafe-pos--micafe-pos.us-central1.hosted.app`, repositorio
+`Glemynart/micafe-pos`, raíz `/`, y runtime service account
+`firebase-app-hosting-compute@micafe-pos.iam.gserviceaccount.com`. El build
+`build-2026-10-15-001` permanece `READY`, el rollout asociado `SUCCEEDED`, y la
+fuente efectiva es exactamente `5c5c4fdd9164abdca0fe05c9fddb51cea8559a29`.
+Cloud Run reporta `micafe-pos-build-2026-10-15-001` Ready con 100 % del tráfico;
+la imagen usa el runtime base Node.js 24. No se inició otro build/rollout.
+
+La fuente candidata actual de `main` es `0ac4e9…`, posterior al build servido;
+el HEAD abierto `f8aa7dd…` añade evidencia/pruebas/documentación, no código de
+aplicación, pero no está integrado. Los cambios web posteriores al rollout
+incluyen navegación comercial y ajustes de compra Bodega registrados en los
+checkpoints de #621, #623 y #626. No hay autorización de promoción. La lectura
+actual del recurso backend no devolvió el campo `rolloutPolicy`, así que el
+estado de rollouts automáticos no quedó revalidado en esta consulta; debe
+comprobarse de nuevo antes de publicar. La revisión existente/imagen previa es
+un punto de recuperación, no un rollback de tráfico ensayado en este paquete.
+
+#### Oferta, tenant, identidad y Trial
+
+Lectura Firestore de rutas exactas en `(default)`:
+
+| Ruta | Resultado |
+|---|---|
+| `planes/mvp_comercial/versiones/2` | `FOUND`, `estado=PUBLICADA`, `periodicidad=ANUAL`, `revision=2`. |
+| `empresas/distribuidora-las-jimenez` | `404`. |
+| `ofertas_comerciales_tenant/distribuidora-las-jimenez` | `404`. |
+| `ofertas_comerciales_tenant/distribuidora-las-jimenez/ofertas/oferta-distribuidora-jimenez-2026` | `404`. |
+
+Los `404` cubren esas rutas exactas, no descartan un duplicado con otro ID;
+antes de escribir se requiere la búsqueda canónica/idempotente desde el
+Backoffice/flujo autorizado, no una escritura directa. La oferta anual de COP
+`1.600.000`, pago manual, efectiva desde `2026-10-16` y sin vencimiento sigue
+siendo una declaración de aceptación del responsable; no existe documento de
+oferta aprobada en producción. Deben autorizarse por separado `CrearOfertaComercialTenant`
+y `AprobarOfertaComercialTenant`, con `COMERCIAL_GOBERNAR` efectivo y Plan
+publicado revalidado justo antes de ejecutar.
+
+Se conservan las confirmaciones humanas ya recibidas: país `CO`, nombre
+autorizado `Diana Jimenez`, y el responsable le entregará el PIN/código
+temporal por WhatsApp fuera del sistema. El Bootstrap canónico no exige un
+correo para este contrato; no se solicita ni inventa uno. El Goal del
+`2026-10-17` permite iniciar el Trial inicial no fiscal de 30 días con catálogo
+vacío una vez superados los demás gates; el catálogo aprobado sigue siendo
+obligatorio antes de vender/comprar o declarar Bodega operativa. El Trial no
+existe hoy y solo empezaría con Bootstrap canónico exitoso.
+
+El inventario CUA actual mostró Brave sin tab productiva y el IAB en staging;
+no mostró una sesión de Edge/Backoffice de producción. La afirmación anterior
+de que hay una sesión activa no acredita hoy el UID. No se pudo confirmar la
+identidad efectiva ni leer `saas_operadores/{uid}` en el contexto productivo;
+antes de cualquier escritura un operador debe abrir la consola productiva y se
+deberán verificar UID, estado activo y la facultad concreta (`COMERCIAL_GOBERNAR`
+para la oferta o `BOOTSTRAP_EMPRESARIAL_SOLICITAR` para Bootstrap). No se
+deduce de `RELEASE_COMPRAS_GOBERNAR`.
+
+#### Estado consolidado de gates y autorizaciones separadas
+
+| Gate/operación | Estado actual | Qué lo cierra / qué habilitaría |
+|---|---|---|
+| PR #628 / código y evidencia | `BLOCKED`; checks verdes pero PR abierto y rechazado por dos apariciones de correo humano en evidencia pública. La redacción local está corregida; no está en GitHub. | Autorizar publicar únicamente el preflight corregido; verificar el nuevo HEAD/checks y completar review/merge según gobernanza. |
+| Functions `saas-commercial` | `BLOCKED`; producción antigua, nuevo `consultarOferta…` ausente y cambio de ownership sin continuidad demostrada. | Autorización propia para el SHA/codebase/targets exactos, plan que enumere altas/actualizaciones/bajas, evidencia de configuración y recuperación; abortar si hay delete/recreate, ID, URI, región, trigger o ingress inesperado. |
+| Functions `saas-bootstrap` | `BLOCKED`; producción antigua y riesgo `roles/editor` del runtime. | Autorización distinta para `solicitarBootstrapEmpresarialSaas`, preservando región/URI/identidad/Secret; además decisión IAM explícita de aceptación temporal o remediación separada. |
+| Functions de compras/control | `BLOCKED`; Bodega carece del guard en el artefacto observado y control prod no cumple v2. | Autorizaciones dirigidas independientes para los targets exactos, con lectores v1/v2 validados, pruebas requeridas y artefactos/hash posterior. No habilitan Rules ni pausas. |
+| App Hosting | `BLOCKED`; producción sirve `5c5c4fdd…`, no el `main` actual; política automática no expuesta por lectura actual. | Autorización de rollout manual para un SHA exacto posterior a merge, más prueba de automáticos desactivados, plan, verificación de build/tráfico y recuperación. |
+| Rules / corte de compras | `BLOCKED`; ruleset `d5e205db…` difiere de candidato `b8fb7ddd…`, Functions aún incompatibles y alcance/tenants/ventana no definidos. | Autorización separada para el release `(default)`, con lista exacta de tenants y responsables, ventana, controles/revisiones, pausa/reanudación por callable, criteria de aborto y forward-fix. |
+| IAM Bootstrap | `BLOCKED`; `roles/editor` efectivo en la runtime SA. | Decisión explícita de riesgo o autorización de paquete IAM separado; sin cambios por conveniencia. |
+| Oferta anual | `BLOCKED`; Plan está publicado pero no existe oferta persistida; operador no verificado. | Autorización específica para crear y, separadamente, aprobar COP 1.600.000/manual/desde `2026-10-16`/sin vencimiento; revalidar duplicados, Plan y facultad. |
+| Bootstrap/Trial | `BLOCKED`; no hay tenant/oferta, función candidata no desplegada y operador no verificado. | Autorización específica para crear `distribuidora-las-jimenez` con `BODEGA_MVP1`, `CO`, `Diana Jimenez` y Trial 30 días; confirmar ausencia canónica, oferta/Plan, facultad efectiva, configuración no vacía y manejo del PIN fuera de banda. |
+| Catálogo/readiness | `DEFERIDO PARA TRIAL VACÍO`; borrador no aprobado. | No bloquea el Trial inicial por decisión E2.2; sí bloquea importación, venta, compra y declaración de readiness hasta que el cliente apruebe el maestro. |
+
+**Resultado a 2026-10-18:** E2.2 sigue en ejecución y el release/Trial permanece
+`NO-GO`. Lo nuevo confirmado es que PR, Rules, Functions, App Hosting, Plan y
+rutas exactas del tenant/oferta no cambiaron respecto de la evidencia previa;
+se actualizaron hashes/metadata y se registraron las confirmaciones humanas de
+nombre y canal PIN. No se resolvió ningún gate técnico ni se hizo escritura
+productiva. Ninguna autorización individual de esta tabla está concedida por
+este addendum. `git diff --check` se ejecutará tras cerrar la edición local;
+no se repitieron suites runtime porque el código no cambió y los checks vigentes
+de PR #628 corresponden al HEAD remoto auditado, no a este addendum local.
