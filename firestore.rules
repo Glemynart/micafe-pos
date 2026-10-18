@@ -84,10 +84,15 @@ service cloud.firestore {
       let control = /databases/$(database)/documents/controles_release_compras/$(request.auth.token.empresaId);
       return tieneEmpresaId()
         && exists(control)
+        && get(control).data.schemaVersion is int
+        && get(control).data.schemaVersion == 1
         && get(control).data.empresaId == request.auth.token.empresaId
         && get(control).data.estado == 'ACTIVA'
         && get(control).data.revision is int
-        && get(control).data.revision >= 1;
+        && get(control).data.revision >= 1
+        // Mantiene el mismo límite que Number.isSafeInteger en las Functions:
+        // una revisión activa debe poder incrementarse para pausar el control.
+        && get(control).data.revision < 9007199254740991;
     }
     function membresiaBodegaActiva(empresaId, permiso) {
       let path = /databases/$(database)/documents/membresias/$(empresaId + '_' + request.auth.uid);

@@ -127,7 +127,9 @@ export async function transicionarPausaCompras(
     const revisionActual = actual === null ? 0 : actual.revision;
     if (
       actual !== null && (
-        !Number.isSafeInteger(revisionActual)
+        !Number.isSafeInteger(actual.schemaVersion)
+        || actual.schemaVersion !== 1
+        || !Number.isSafeInteger(revisionActual)
         || (revisionActual as number) < 1
         || actual.empresaId !== input.empresaId
         || (actual.estado !== "ACTIVA" && actual.estado !== "PAUSADA")
@@ -137,11 +139,21 @@ export async function transicionarPausaCompras(
     }
     if (revisionActual !== input.expectedRevision) rechazar("CONFLICTO_REVISION_CORTE_COMPRAS");
     if (actual && actual.estado === input.destino) rechazar("TRANSICION_CORTE_COMPRAS_REDUNDANTE");
-    if (actual?.estado === "PAUSADA" && input.destino === "ACTIVA" && !input.verificacionRelease) {
+    const esReanudacion = actual?.estado === "PAUSADA" && input.destino === "ACTIVA";
+    if (input.verificacionRelease && !esReanudacion) {
+      throw new HttpsError("invalid-argument", "VERIFICACION_RELEASE_NO_APLICA");
+    }
+    if (esReanudacion && !input.verificacionRelease) {
       rechazar("VERIFICACION_RELEASE_REQUERIDA");
     }
 
     const revision = input.expectedRevision + 1;
+    if (
+      !Number.isSafeInteger(revision)
+      || (input.destino === "ACTIVA" && revision >= Number.MAX_SAFE_INTEGER)
+    ) {
+      rechazar("REVISION_CORTE_COMPRAS_AGOTADA");
+    }
     const obligacionId = randomUUID();
     const evidenciaId = randomUUID();
     const durable: ResultadoTransicionPausaCompras = {

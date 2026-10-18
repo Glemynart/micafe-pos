@@ -128,6 +128,73 @@ test("ADR-SAAS-081: el mismo envelope es idempotente y una revisión obsoleta no
   assert.equal([...db.docs.keys()].filter((path) => path.startsWith("saas_auditoria/")).length, 1);
 });
 
+test("ADR-SAAS-081: la transición no persiste una revisión fuera del rango entero seguro", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set("controles_release_compras/empresa-a", {
+    schemaVersion: 1,
+    empresaId: "empresa-a",
+    estado: "ACTIVA",
+    revision: Number.MAX_SAFE_INTEGER,
+  });
+  const before = [...db.docs.entries()];
+
+  await assert.rejects(
+    transicionarPausaCompras(db as never, "op-release", token, entrada("revision-agotada", "empresa-a", "PAUSADA", Number.MAX_SAFE_INTEGER)),
+    error => domain(error, "REVISION_CORTE_COMPRAS_AGOTADA"),
+  );
+  assert.deepEqual([...db.docs.entries()], before);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("saas_auditoria/")).length, 0);
+});
+
+test("ADR-SAAS-081: la transición puede alcanzar exactamente la última revisión segura", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set("controles_release_compras/empresa-a", {
+    schemaVersion: 1,
+    empresaId: "empresa-a",
+    estado: "ACTIVA",
+    revision: Number.MAX_SAFE_INTEGER - 1,
+  });
+
+  const resultado = await transicionarPausaCompras(
+    db as never,
+    "op-release",
+    token,
+    entrada("ultima-revision-segura", "empresa-a", "PAUSADA", Number.MAX_SAFE_INTEGER - 1),
+  );
+
+  assert.equal(resultado.revision, Number.MAX_SAFE_INTEGER);
+  assert.equal(db.docs.get("controles_release_compras/empresa-a")?.revision, Number.MAX_SAFE_INTEGER);
+  assert.equal(db.docs.get("controles_release_compras/empresa-a")?.estado, "PAUSADA");
+  assert.equal([...db.docs.keys()].filter((path) => path.startsWith("saas_auditoria/")).length, 1);
+});
+
+test("ADR-SAAS-081: reanudar en la última revisión dejaría el control activo sin posibilidad de pausa", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set("controles_release_compras/empresa-a", {
+    schemaVersion: 1,
+    empresaId: "empresa-a",
+    estado: "PAUSADA",
+    revision: Number.MAX_SAFE_INTEGER - 1,
+  });
+  const before = [...db.docs.entries()];
+
+  await assert.rejects(
+    transicionarPausaCompras(
+      db as never,
+      "op-release",
+      token,
+      entrada("reanudar-ultima-revision", "empresa-a", "ACTIVA", Number.MAX_SAFE_INTEGER - 1, {
+        functionArtifactSha: "a".repeat(64),
+        rulesetHash: "b".repeat(64),
+        releaseReferencia: "gate-i-release-1",
+      }),
+    ),
+    error => domain(error, "REVISION_CORTE_COMPRAS_AGOTADA"),
+  );
+  assert.deepEqual([...db.docs.entries()], before);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("saas_auditoria/")).length, 0);
+});
+
 test("ADR-SAAS-084: inicializar directamente en PAUSADA sigue siendo inicialización, no pausa", async () => {
   const db = new FakeFirestore(); seed(db);
   const resultado = await transicionarPausaCompras(db as never, "op-release", token, entrada("inicial-pausada", "empresa-a", "PAUSADA", 0));
@@ -141,6 +208,7 @@ test("ADR-SAAS-084: inicializar directamente en PAUSADA sigue siendo inicializac
 test("ADR-SAAS-081: un control con estado ambiguo no se repara silenciosamente", async () => {
   const db = new FakeFirestore(); seed(db);
   db.docs.set("controles_release_compras/empresa-a", {
+    schemaVersion: 1,
     empresaId: "empresa-a",
     estado: "DESCONOCIDA",
     revision: 1,
@@ -153,15 +221,81 @@ test("ADR-SAAS-081: un control con estado ambiguo no se repara silenciosamente",
   assert.equal(db.docs.get("controles_release_compras/empresa-a")?.estado, "DESCONOCIDA");
 });
 
+test("ADR-SAAS-081: una versión ausente o desconocida del control no se migra implícitamente", async () => {
+  for (const [suffix, schemaVersion] of [["sin-version", undefined], ["version-desconocida", 2]] as const) {
+    const db = new FakeFirestore(); seed(db);
+    const control = {
+      ...(schemaVersion === undefined ? {} : { schemaVersion }),
+      empresaId: "empresa-a",
+      estado: "ACTIVA",
+      revision: 1,
+    };
+    db.docs.set("controles_release_compras/empresa-a", control);
+
+    await assert.rejects(
+      transicionarPausaCompras(db as never, "op-release", token, entrada(suffix, "empresa-a", "PAUSADA", 1)),
+      error => domain(error, "CONTROL_COMPRAS_INVALIDO"),
+    );
+    assert.deepEqual(db.docs.get("controles_release_compras/empresa-a"), control);
+    assert.equal([...db.docs.keys()].filter(path => path.startsWith("saas_auditoria/")).length, 0);
+  }
+});
+
 test("ADR-SAAS-081: reanudar exige atestación de los artefactos verificados", async () => {
   const db = new FakeFirestore(); seed(db);
-  db.docs.set("controles_release_compras/empresa-a", { empresaId: "empresa-a", estado: "PAUSADA", revision: 2 });
+  db.docs.set("controles_release_compras/empresa-a", { schemaVersion: 1, empresaId: "empresa-a", estado: "PAUSADA", revision: 2 });
 
   await assert.rejects(
     transicionarPausaCompras(db as never, "op-release", token, entrada("reanudar-sin-evidencia", "empresa-a", "ACTIVA", 2)),
     error => domain(error, "VERIFICACION_RELEASE_REQUERIDA"),
   );
   assert.equal(db.docs.get("controles_release_compras/empresa-a")?.estado, "PAUSADA");
+});
+
+test("ADR-SAAS-084: una atestación de release no se acepta en la inicialización", async () => {
+  const db = new FakeFirestore(); seed(db);
+
+  await assert.rejects(
+    transicionarPausaCompras(
+      db as never,
+      "op-release",
+      token,
+      entrada("atestacion-inicializacion", "empresa-a", "ACTIVA", 0, {
+        functionArtifactSha: "a".repeat(64),
+        rulesetHash: "b".repeat(64),
+        releaseReferencia: "gate-i-release-1",
+      }),
+    ),
+    error => error instanceof HttpsError
+      && error.code === "invalid-argument"
+      && error.message === "VERIFICACION_RELEASE_NO_APLICA",
+  );
+  assert.equal(db.docs.has("controles_release_compras/empresa-a"), false);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("saas_auditoria/")).length, 0);
+});
+
+test("ADR-SAAS-084: una atestación de release no se acepta al pausar", async () => {
+  const db = new FakeFirestore(); seed(db);
+  const control = { schemaVersion: 1, empresaId: "empresa-a", estado: "ACTIVA", revision: 1 };
+  db.docs.set("controles_release_compras/empresa-a", control);
+  const before = [...db.docs.entries()];
+
+  await assert.rejects(
+    transicionarPausaCompras(
+      db as never,
+      "op-release",
+      token,
+      entrada("atestacion-pausa", "empresa-a", "PAUSADA", 1, {
+        functionArtifactSha: "a".repeat(64),
+        rulesetHash: "b".repeat(64),
+        releaseReferencia: "gate-i-release-1",
+      }),
+    ),
+    error => error instanceof HttpsError
+      && error.code === "invalid-argument"
+      && error.message === "VERIFICACION_RELEASE_NO_APLICA",
+  );
+  assert.deepEqual([...db.docs.entries()], before);
 });
 
 test("ADR-SAAS-081: una facultad ausente no puede pausar y los tenants no se cruzan", async () => {
