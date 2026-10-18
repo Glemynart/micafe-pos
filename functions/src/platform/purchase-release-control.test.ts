@@ -128,6 +128,24 @@ test("ADR-SAAS-081: el mismo envelope es idempotente y una revisión obsoleta no
   assert.equal([...db.docs.keys()].filter((path) => path.startsWith("saas_auditoria/")).length, 1);
 });
 
+test("ADR-SAAS-081: la transición no persiste una revisión fuera del rango entero seguro", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set("controles_release_compras/empresa-a", {
+    schemaVersion: 1,
+    empresaId: "empresa-a",
+    estado: "ACTIVA",
+    revision: Number.MAX_SAFE_INTEGER,
+  });
+  const before = [...db.docs.entries()];
+
+  await assert.rejects(
+    transicionarPausaCompras(db as never, "op-release", token, entrada("revision-agotada", "empresa-a", "PAUSADA", Number.MAX_SAFE_INTEGER)),
+    error => domain(error, "REVISION_CORTE_COMPRAS_AGOTADA"),
+  );
+  assert.deepEqual([...db.docs.entries()], before);
+  assert.equal([...db.docs.keys()].filter((path) => path.startsWith("saas_auditoria/")).length, 0);
+});
+
 test("ADR-SAAS-084: inicializar directamente en PAUSADA sigue siendo inicialización, no pausa", async () => {
   const db = new FakeFirestore(); seed(db);
   const resultado = await transicionarPausaCompras(db as never, "op-release", token, entrada("inicial-pausada", "empresa-a", "PAUSADA", 0));

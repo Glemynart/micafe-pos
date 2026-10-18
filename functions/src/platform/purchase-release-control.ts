@@ -144,6 +144,7 @@ export async function transicionarPausaCompras(
     }
 
     const revision = input.expectedRevision + 1;
+    if (!Number.isSafeInteger(revision)) rechazar("REVISION_CORTE_COMPRAS_AGOTADA");
     const obligacionId = randomUUID();
     const evidenciaId = randomUUID();
     const durable: ResultadoTransicionPausaCompras = {
