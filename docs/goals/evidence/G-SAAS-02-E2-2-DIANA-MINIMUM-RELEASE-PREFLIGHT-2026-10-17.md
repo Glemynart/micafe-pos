@@ -2263,3 +2263,48 @@ La redacción local no elimina la exposición de commits públicos ya existentes
 La revisión o retirada de esa copia histórica requeriría el procedimiento del
 administrador del repositorio para datos personales y autorización separada;
 no se reescribió historia ni se solicitó una purga.
+
+### Addendum — revalidación productiva de solo lectura (2026-10-18 01:45 COT / 06:45Z)
+
+Se verificó `gcloud auth list`: una identidad CLI activa coincide con la cuenta
+operadora indicada previamente. Esto no acredita la sesión SaaS ni sus facultades.
+`gcloud projects describe micafe-pos` devolvió proyecto `micafe-pos`, número
+`882525811433`, estado `ACTIVE`.
+
+`gcloud functions list --project=micafe-pos --regions=us-central1 --format=json`
+devolvió los siguientes recursos relevantes (solo lectura):
+
+| Callable | Estado / actualización | Codebase y hash observado | Runtime / actor efectivo |
+|---|---|---|---|
+| `ejecutarComandoComercialSaas` | `ACTIVE`, `2026-08-15T04:27:10Z` | `saas-auth`, `9282ced0a7b282ea8573e5ba930efb2e4aee6aa0` | Gen2, Node 22, `FUNCTION_TARGET` coincide; runtime SA Compute predeterminada del proyecto. |
+| `solicitarBootstrapEmpresarialSaas` | `ACTIVE`, `2026-08-15T04:27:36Z` | `saas-auth`, `b9a033fcf119a92fa942f158e3b4ac4e609f1983` | Gen2, Node 22, `FUNCTION_TARGET` coincide; runtime SA Compute predeterminada del proyecto. |
+| `registrarCompraBodegaV1` | `ACTIVE`, `2026-10-14T09:29:23Z` | `saas-bodega-operations`, `fa7f47c21b994a5ebccefded6e548e0f6b193c79` | Gen2, Node 22, `FUNCTION_TARGET` coincide; runtime SA Compute predeterminada del proyecto. |
+| `transicionarPausaComprasSaas` | `ACTIVE`, `2026-10-15T16:50:26Z` | `saas-auth`, `9a0a088d1ee7c3caf1d5d1d087f97328fb646443` | Gen2, Node 22, `FUNCTION_TARGET` coincide; runtime SA Compute predeterminada del proyecto. |
+
+`consultarOfertaComercialTenantSaas` no apareció en el inventario completo de
+`us-central1`; la conclusión se limita a esa región. La Function de Bootstrap
+y la comercial siguen en `saas-auth`, por lo que permanece el riesgo de
+continuidad/ownership descrito en el preflight. No se invocó ninguna callable.
+
+Para App Hosting, la API oficial permitió lecturas GET acotadas a
+`micafe-pos/us-central1`: existe el backend `micafe-pos`, actualizado el
+`2026-10-15T17:49:24Z`, con la aplicación web asociada ya documentada. El único
+build listado es `build-2026-10-15-001`, estado `READY`, fuente exacta
+`5c5c4fdd9164abdca0fe05c9fddb51cea8559a29`; su rollout homónimo está
+`SUCCEEDED` y el recurso Traffic asigna 100 % a ese build. La identidad de
+backend observada es `firebase-app-hosting-compute@micafe-pos.iam.gserviceaccount.com`.
+Estas lecturas no prueban runtime/arranque autenticado ni autorizan otro rollout.
+
+La API `firebaserules.googleapis.com` aparece habilitada en el proyecto objetivo,
+pero la lectura GET de `projects/micafe-pos/releases` falló con
+`403 PERMISSION_DENIED`, razón `SERVICE_DISABLED`, consumidor/proyecto de cuota
+`32555940559`. No se habilitó API ni se cambió el proyecto de cuota; Rules activas
+y Gate I siguen sin revalidación remota vigente.
+
+La inspección de ventanas del escritorio no encontró Microsoft Edge abierto; la
+única ventana de navegador visible era Brave con WhatsApp y no se inspeccionó.
+Por tanto, la identidad autenticada en Backoffice productivo y sus facultades
+canónicas siguen `NOT VERIFIED`. No hubo invocaciones, escrituras, cambios de
+IAM/API, despliegues ni operaciones comerciales. El rollout App Hosting está
+confirmado, pero el release/Trial sigue `NO-GO` por las divergencias de Functions,
+la lectura bloqueada de Rules y la falta de verificación autenticada del operador.
