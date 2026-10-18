@@ -39,13 +39,39 @@ test("ADR-072: Bodega admin conserva lectura tenant-aware pero no escribe compra
   await expectDenied(adminBodega.firestore().doc(compraExistente).delete());
 });
 
-test("ADR-072: otro vertical conserva la creación y eliminación legacy de compras", async () => {
+test("ADR-081: compras legacy fallan cerrado sin control activo y Bodega sigue callable-only", async () => {
   const adminLegacy = await contextFor(fixtures.tenantB.admin);
   const compraExistente = "compras/legacy-existente";
   await seedDocument("configuraciones/empresa-b", {
     empresaId: "empresa-b",
     vertical: "GENERAL",
   });
+
+  await expectDenied(adminLegacy.firestore().doc("compras/legacy-sin-control").set({
+    empresaId: "empresa-b",
+    total: 2400,
+  }));
+
+  await seedDocument("controles_release_compras/empresa-b", {
+    empresaId: "empresa-b",
+    estado: "PAUSADA",
+    revision: 2,
+  });
+  await expectDenied(adminLegacy.firestore().doc("compras/legacy-control-pausado").set({
+    empresaId: "empresa-b",
+    total: 2400,
+  }));
+
+  await seedDocument("controles_release_compras/empresa-b", {
+    empresaId: "empresa-b",
+    estado: "ACTIVA",
+    revision: 0,
+  });
+  await expectDenied(adminLegacy.firestore().doc("compras/legacy-control-revision-cero").set({
+    empresaId: "empresa-b",
+    total: 2400,
+  }));
+
   await seedDocument("controles_release_compras/empresa-b", {
     empresaId: "empresa-b",
     estado: "ACTIVA",
@@ -58,6 +84,39 @@ test("ADR-072: otro vertical conserva la creación y eliminación legacy de comp
     total: 2400,
   }));
   await expectAllowed(adminLegacy.firestore().doc(compraExistente).delete());
+
+  const adminBodega = await contextFor(fixtures.tenantA.admin);
+  await seedDocument("configuraciones/empresa-a", {
+    empresaId: "empresa-a",
+    vertical: "BODEGA_MVP1",
+  });
+  await seedDocument("controles_release_compras/empresa-a", {
+    empresaId: "empresa-a",
+    estado: "ACTIVA",
+    revision: 1,
+  });
+  await expectDenied(adminBodega.firestore().doc("compras/bodega-aun-requiere-callable").set({
+    empresaId: "empresa-a",
+    total: 1200,
+  }));
+});
+
+test("ADR-081: el control de otro tenant no habilita compras legacy", async () => {
+  const adminLegacy = await contextFor(fixtures.tenantB.admin);
+  await seedDocument("configuraciones/empresa-b", {
+    empresaId: "empresa-b",
+    vertical: "GENERAL",
+  });
+  await seedDocument("controles_release_compras/empresa-b", {
+    empresaId: "empresa-a",
+    estado: "ACTIVA",
+    revision: 1,
+  });
+
+  await expectDenied(adminLegacy.firestore().doc("compras/control-de-otro-tenant").set({
+    empresaId: "empresa-b",
+    total: 2400,
+  }));
 });
 
 test("ADR-081: la pausa canónica niega bypass directo y el cliente no puede modificarla", async () => {

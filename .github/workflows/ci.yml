@@ -214,6 +214,7 @@ jobs:
           npm run build
           npm run test:discovery
           npm run test:module-load
+          npm run test:authorization
         working-directory: functions-bootstrap
 
       - name: Build y discovery del codebase Operational auth
