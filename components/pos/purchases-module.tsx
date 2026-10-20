@@ -254,7 +254,7 @@ export function PurchasesModule() {
   }
 
   return (
-    <div className="flex flex-col h-full p-4 gap-4">
+    <div className={cn("flex flex-col h-full p-4 gap-4", esBodega && "bodega-purchases")}>
       <div className="flex flex-col justify-between gap-4 bg-card/80 backdrop-blur-xl p-6 rounded-[2rem] border border-border/50 shadow-sm">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-foreground flex items-center gap-3">
@@ -269,6 +269,7 @@ export function PurchasesModule() {
           <div className="relative w-full">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
+              aria-label="Buscar compras por proveedor"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por proveedor..."
@@ -415,16 +416,16 @@ export function PurchasesModule() {
       </Card>
 
       <Dialog open={showPurchaseDialog} onOpenChange={setShowPurchaseDialog}>
-        <DialogContent className="bg-card border-border sm:max-w-4xl">
+        <DialogContent className={cn("bg-card border-border w-[calc(100vw-1.5rem)] max-h-[94dvh] sm:max-w-4xl", esBodega && "bodega-purchase-dialog")}>
           <DialogHeader>
             <DialogTitle className="text-foreground">Registrar Compra</DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Registra una nueva compra a proveedor
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh]">
+          <ScrollArea className="max-h-[min(68dvh,760px)]">
             <div className="space-y-4 py-4 pr-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Proveedor</Label>
                   {!esBodega && <Select value={proveedorId || '__manual__'} onValueChange={(value) => setProveedorId(value === '__manual__' ? '' : value)}>
@@ -478,6 +479,7 @@ export function PurchasesModule() {
                     Se descontará {formatCurrency(totalCompra)} de <strong>{cuentas.find(c => c.claveOperativa === cuentaClaveOperativa)?.nombre}</strong> al registrar.
                   </p>
                 )}
+                {esBodega && !cuentaClaveOperativa && <p className="text-xs text-muted-foreground">Sin cuenta seleccionada, la compra se registra sin descontar saldo en Finanzas.</p>}
               </div>
 
               <div className="space-y-2">
