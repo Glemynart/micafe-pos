@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter, Geist_Mono } from 'next/font/google'
+import { Barlow_Condensed, Inter, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/react'
 import './globals.css'
 
@@ -10,6 +10,11 @@ const inter = Inter({
 const geistMono = Geist_Mono({ 
   subsets: ["latin"],
   variable: "--font-mono"
+});
+const bodegaDisplay = Barlow_Condensed({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  variable: "--font-bodega-display",
 });
 
 export const metadata: Metadata = {
@@ -34,7 +39,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className="bg-background" suppressHydrationWarning>
-      <body className={`${inter.variable} ${geistMono.variable} font-sans antialiased`} suppressHydrationWarning>
+      <body className={`${inter.variable} ${geistMono.variable} ${bodegaDisplay.variable} font-sans antialiased`} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {children}
           <ShadcnToaster />
