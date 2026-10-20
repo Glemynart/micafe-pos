@@ -488,6 +488,44 @@
 .bodega-seller-nav { background: #0c202af5; }
 .bodega-seller-nav button[aria-pressed=true] { position: relative; color: #f2c36c; }
 .bodega-seller-nav button[aria-pressed=true]::before { content: ''; position: absolute; top: 0; width: 2rem; height: .2rem; border-radius: 0 0 .2rem .2rem; background: #efbd65; }
+.bodega-seller-view { min-width: 0; }
+.bodega-seller-heading { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem; }
+.bodega-seller-heading > div:first-child { min-width: 0; max-width: 43rem; }
+.bodega-seller-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.bodega-seller-summary { display: flex; flex-wrap: wrap; gap: .6rem; margin: 0 0 1rem; }
+.bodega-seller-summary span { display: flex; align-items: baseline; gap: .4rem; border: 1px solid #34515b; border-radius: .8rem; background: #19343f; padding: .65rem .85rem; color: #b8c9ca; font-size: .75rem; }
+.bodega-seller-summary strong { color: #f2c36c; font-size: 1rem; font-variant-numeric: tabular-nums; }
+.bodega-seller-panel { min-width: 0; border: 1px solid #36505a; border-radius: 1.15rem; background: linear-gradient(145deg, #19333d, #132832); padding: 1rem; box-shadow: 0 16px 28px -25px #000; }
+.bodega-seller-pill { display: inline-flex; align-items: center; border: 1px solid #45616a; border-radius: 999px; padding: .25rem .55rem; color: #d2e0dc; font-size: .7rem; }
+.bodega-seller-status { max-width: 100%; border-radius: 999px; padding: .35rem .6rem; font-size: .7rem; font-weight: 750; text-align: center; }
+.bodega-request-card, .bodega-agenda-card { overflow: hidden; }
+.bodega-request-lines { display: grid; gap: .55rem; margin: 1rem 0; border-top: 1px solid #3a555d; border-bottom: 1px solid #3a555d; padding: .85rem 0; }
+.bodega-request-line { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .3rem 1rem; color: #dce5e1; font-size: .85rem; }
+.bodega-request-line span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.bodega-request-line span:last-child { flex: none; color: #f1d396; font-variant-numeric: tabular-nums; }
+.bodega-agenda-top { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: .6rem 1rem; }
+.bodega-agenda-top h2 { overflow-wrap: anywhere; font-size: 1.05rem; font-weight: 750; }
+.bodega-agenda-card > p { overflow-wrap: anywhere; }
+.bodega-client-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: .75rem; }
+.bodega-client-card { display: flex; align-items: start; gap: .85rem; }
+.bodega-client-initial { display: grid; flex: none; height: 2.5rem; width: 2.5rem; place-items: center; border-radius: .8rem; background: #e9b655; color: #142d36; font-weight: 800; }
+.bodega-client-card h2 { overflow-wrap: anywhere; font-weight: 750; }
+.bodega-client-card p { margin-top: .2rem; color: #bdd0cd; font-size: .8rem; overflow-wrap: anywhere; }
+.bodega-client-card span { display: inline-block; margin-top: .5rem; border-radius: 999px; background: #31505a; padding: .2rem .5rem; color: #dce6e1; font-size: .72rem; overflow-wrap: anywhere; }
+.bodega-history-list { display: grid; gap: .75rem; }
+.bodega-history-card { overflow: hidden; }
+.bodega-history-top { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem; }
+.bodega-history-customer { min-width: 0; flex: 1 1 14rem; }
+.bodega-history-eyebrow { margin-bottom: .25rem; color: #e6bc6e; font-size: .68rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.bodega-history-customer h2 { overflow-wrap: anywhere; font-size: 1rem; font-weight: 750; line-height: 1.35; }
+.bodega-history-amount { color: #5be0ae; font-size: 1.15rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bodega-history-meta { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem .6rem; margin-top: .75rem; }
+.bodega-history-meta time { margin-left: auto; color: #b6c9ca; font-size: .75rem; }
+.bodega-history-cash { margin-top: .7rem; color: #dce6e1; font-size: .75rem; }
+.bodega-history-cash span { color: #8ea7aa; }
+.bodega-history-reference { margin-top: .75rem; border-top: 1px solid #3a555d; padding-top: .65rem; color: #a9c0c2; font-size: .75rem; }
+.bodega-history-reference summary { width: fit-content; cursor: pointer; }
+.bodega-history-reference code { display: block; margin-top: .45rem; color: #dce6e1; overflow-wrap: anywhere; user-select: all; }
 @media (min-width: 640px) {
   .bodega-catalog-list, .bodega-inventory-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bodega-kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
