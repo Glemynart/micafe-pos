@@ -121,7 +121,28 @@ test("ADR-085: vertical o configuración no verificables no habilitan compra dir
   await seedDocument("configuraciones/empresa-b", { empresaId: "empresa-a", vertical: "GENERAL" });
   await expectDenied(adminLegacy.firestore().doc("compras/config-tenant-cruzado").set({ empresaId: "empresa-b", total: 2400 }));
   await seedDocument("configuraciones/empresa-b", { empresaId: "empresa-b", vertical: "VERTICAL_DESCONOCIDO" });
-  await expectDenied(adminLegacy.firestore().doc("compras/control-de-otro-tenant").set({
+  await expectDenied(adminLegacy.firestore().doc("compras/vertical-desconocido").set({
+    empresaId: "empresa-b",
+    total: 2400,
+  }));
+});
+
+test("ADR-085: el control activo con empresaId embebida cruzada no habilita compra directa", async () => {
+  const adminLegacy = await contextFor(fixtures.tenantB.admin);
+  await seedDocument("configuraciones/empresa-b", {
+    empresaId: "empresa-b",
+    vertical: "GENERAL",
+  });
+  // El path sí es el del tenant autenticado y los demás campos son válidos;
+  // la única discrepancia es la empresaId almacenada dentro del control.
+  await seedDocument("controles_release_compras/empresa-b", {
+    schemaVersion: 1,
+    empresaId: "empresa-a",
+    estado: "ACTIVA",
+    revision: 1,
+  });
+
+  await expectDenied(adminLegacy.firestore().doc("compras/control-empresa-embebida-cruzada").set({
     empresaId: "empresa-b",
     total: 2400,
   }));
