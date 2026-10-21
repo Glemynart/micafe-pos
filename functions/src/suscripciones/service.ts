@@ -5,6 +5,7 @@ import { esFechaComercial, esIdComercial, fechaComercialUtc, rangoComercialValid
 import {
   ofertaComercialActivaRef,
   ofertaComercialRef,
+  incrementarRevisionOfertaComercial,
   validarControlOfertaComercial,
   validarOfertaComercialPersistida,
   validarOfertaComercialEntrada,
@@ -180,7 +181,7 @@ export async function crearOfertaComercialTenant(
     validarPlanBaseParaOferta(planSnap.data() as PlanVersion, terminos.precioAcordado);
 
     const controlRevisionAnterior = control?.revision ?? 0;
-    const controlRevision = controlRevisionAnterior + 1;
+    const controlRevision = incrementarRevisionOfertaComercial(controlRevisionAnterior);
     if (controlSnap.exists) {
       tx.update(controlRef, { revision: controlRevision, actualizadaEn: FieldValue.serverTimestamp() });
     } else {
@@ -273,9 +274,10 @@ export async function aprobarOfertaComercialTenant(
     const planSnap = await tx.get(planRef);
     if (!planSnap.exists) fail("not-found", "PLAN_NOT_FOUND");
     validarPlanBaseParaOferta(planSnap.data() as PlanVersion, terminos.precioAcordado);
-    const revision = oferta.revision + 1;
+    const revision = incrementarRevisionOfertaComercial(oferta.revision);
+    const controlRevision = incrementarRevisionOfertaComercial(control.revision);
     tx.update(ofertaRef, { estado: "APROBADA", revision, aprobadaEn: FieldValue.serverTimestamp(), actualizadaEn: FieldValue.serverTimestamp() });
-    tx.update(controlRef, { ofertaActivaId: oferta.ofertaId, revision: control.revision + 1, actualizadaEn: FieldValue.serverTimestamp() });
+    tx.update(controlRef, { ofertaActivaId: oferta.ofertaId, revision: controlRevision, actualizadaEn: FieldValue.serverTimestamp() });
     const resultado = { empresaId: terminos.empresaIdObjetivo, ofertaId: terminos.ofertaId, revision };
     registrar(tx, db, registro, terminos.empresaIdObjetivo, fingerprint, resultado, "OfertaComercialTenantAprobada", "OFERTA_COMERCIAL_TENANT", oferta.revision, revision, ctx);
     return { ...resultado, idempotente: false };
@@ -301,15 +303,21 @@ export async function revocarOfertaComercialTenant(
     const ofertaData = ofertaSnap.data();
     validarOfertaComercialPersistida(ofertaData);
     const oferta = ofertaData;
+    if (oferta.ofertaId !== entrada.ofertaId) {
+      fail("failed-precondition", "OFERTA_COMERCIAL_INVALIDA");
+    }
     if (oferta.empresaIdObjetivo !== entrada.empresaId
       || !["BORRADOR", "APROBADA"].includes(oferta.estado)
       || oferta.revision !== entrada.expectedRevision) {
       fail("failed-precondition", "OFERTA_COMERCIAL_TRANSITION_INVALIDA");
     }
-    const revision = oferta.revision + 1;
+    const revision = incrementarRevisionOfertaComercial(oferta.revision);
+    const controlRevision = control.ofertaActivaId === oferta.ofertaId
+      ? incrementarRevisionOfertaComercial(control.revision)
+      : null;
     tx.update(ofertaRef, { estado: "REVOCADA", revision, revocadaEn: FieldValue.serverTimestamp(), actualizadaEn: FieldValue.serverTimestamp() });
-    if (control.ofertaActivaId === oferta.ofertaId) {
-      tx.update(controlRef, { ofertaActivaId: null, revision: control.revision + 1, actualizadaEn: FieldValue.serverTimestamp() });
+    if (controlRevision !== null) {
+      tx.update(controlRef, { ofertaActivaId: null, revision: controlRevision, actualizadaEn: FieldValue.serverTimestamp() });
     }
     const resultado = { empresaId: entrada.empresaId, ofertaId: entrada.ofertaId, revision };
     registrar(tx, db, entrada, entrada.empresaId, fingerprint, resultado, "OfertaComercialTenantRevocada", "OFERTA_COMERCIAL_TENANT", oferta.revision, revision, ctx);

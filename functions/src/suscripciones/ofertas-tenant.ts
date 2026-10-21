@@ -22,6 +22,14 @@ function rechazar(codigo: "invalid-argument" | "failed-precondition", mensaje: s
   throw new HttpsError(codigo, mensaje);
 }
 
+/** The persisted revision must remain a safe integer after every transition. */
+export function incrementarRevisionOfertaComercial(revision: number): number {
+  if (!Number.isSafeInteger(revision) || revision < 0 || revision >= Number.MAX_SAFE_INTEGER) {
+    rechazar("failed-precondition", "OFERTA_COMERCIAL_TRANSITION_INVALIDA");
+  }
+  return revision + 1;
+}
+
 export function validarPrecioAcordado(value: unknown): asserts value is { importe: number; moneda: string } {
   const precio = value as { importe?: unknown; moneda?: unknown } | null;
   if (!precio
@@ -163,16 +171,18 @@ export async function resolverOfertaComercialBootstrapEnTransaccion(
   }
   validarPlanBaseParaOferta(entrada.planBase, oferta.precioAcordado);
 
+  const revisionOfertaNueva = incrementarRevisionOfertaComercial(oferta.revision);
+  const revisionControlNueva = incrementarRevisionOfertaComercial(control.revision);
   tx.update(ofertaRef, {
     estado: "CONSUMIDA",
-    revision: oferta.revision + 1,
+    revision: revisionOfertaNueva,
     consumidaPor: { empresaId: entrada.empresaId, provisionamientoId: entrada.provisionamientoId },
     consumidaEn: FieldValue.serverTimestamp(),
     actualizadaEn: FieldValue.serverTimestamp(),
   });
   tx.update(controlRef, {
     ofertaActivaId: null,
-    revision: control.revision + 1,
+    revision: revisionControlNueva,
     actualizadaEn: FieldValue.serverTimestamp(),
   });
   return {

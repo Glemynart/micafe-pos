@@ -8,6 +8,7 @@ import { fechaComercialUtc } from "../../../lib/suscripciones/contrato";
 import type { EntradaBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
 import { ejecutarBootstrapEmpresarial } from "./service";
 import { ofertaComercialActivaRef, ofertaComercialRef } from "../suscripciones/ofertas-tenant";
+import { revocarOfertaComercialTenant } from "../suscripciones/service";
 
 const EMULATOR_PROJECT_ID = "demo-e2-2-bootstrap-offer-emulator";
 const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
@@ -92,6 +93,121 @@ async function seedApprovedOffer(db: Firestore, empresaId: string, ofertaId: str
     }),
   ]);
 }
+
+test("ADR-SAAS-061 Firestore Emulator: revocar rechaza ID persistido distinto sin modificar oferta, control, comando ni auditoría", {
+  timeout: 30_000,
+  skip: !hasLoopbackEmulator,
+}, async (t) => {
+  const { app, db } = createEmulatorDb();
+  t.after(async () => deleteApp(app));
+  const suffix = randomUUID().replaceAll("-", "_");
+  const empresaId = `emulator_offer_id_${suffix}`;
+  const ofertaIdSolicitada = `oferta_requested_${suffix}`;
+  const commandId = `cmd_revoke_mismatch_${suffix}`;
+  const idempotencyKey = `idem_revoke_mismatch_${suffix}`;
+  const correlationId = `corr_revoke_mismatch_${suffix}`;
+  const controlRef = ofertaComercialActivaRef(db, empresaId);
+  const ofertaRef = ofertaComercialRef(db, empresaId, ofertaIdSolicitada);
+  const controlInicial = { empresaId, ofertaActivaId: ofertaIdSolicitada, revision: 3 };
+  const ofertaInicial = {
+    schemaVersion: 1,
+    ofertaId: `oferta_embedded_${suffix}`,
+    empresaIdObjetivo: empresaId,
+    planIdBase: "mvp_comercial",
+    planVersionBase: 2,
+    periodicidad: "ANUAL",
+    precioAcordado: { importe: 1_600_000, moneda: "COP" },
+    estado: "APROBADA",
+    iniciaEn: "2026-10-16",
+    expiraEn: null,
+    motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
+    referenciaAprobacion: "ADR-SAAS-061-EMULATOR-TEST",
+    revision: 2,
+  };
+  await Promise.all([controlRef.set(controlInicial), ofertaRef.set(ofertaInicial)]);
+
+  await assert.rejects(
+    revocarOfertaComercialTenant(db, {
+      commandId,
+      idempotencyKey,
+      correlationId,
+      causationId: `cause_${suffix}`,
+      expectedRevision: ofertaInicial.revision,
+      motivo: "OFERTA_COMERCIAL_TENANT_REVOCAR",
+      empresaId,
+      ofertaId: ofertaIdSolicitada,
+    }, { actorId: "operator_emulator", origen: "PLATFORM" }),
+    /OFERTA_COMERCIAL_INVALIDA/,
+  );
+
+  const [controlDespues, ofertaDespues, comandos, commandIds, auditorias, eventos] = await Promise.all([
+    controlRef.get(),
+    ofertaRef.get(),
+    db.collection("comandos_comerciales").where("commandId", "==", commandId).get(),
+    db.collection("configuracion_command_ids").where("commandId", "==", commandId).get(),
+    db.collection("auditoria_logs").where("commandId", "==", commandId).get(),
+    db.collection("eventos_dominio").where("commandId", "==", commandId).get(),
+  ]);
+  assert.deepEqual(controlDespues.data(), controlInicial);
+  assert.deepEqual(ofertaDespues.data(), ofertaInicial);
+  assert.equal(comandos.size, 0);
+  assert.equal(commandIds.size, 0);
+  assert.equal(auditorias.size, 0);
+  assert.equal(eventos.size, 0);
+});
+
+test("ADR-SAAS-061 Firestore Emulator: Bootstrap rechaza incrementar una revisión agotada sin crear el tenant", {
+  timeout: 30_000,
+  skip: !hasLoopbackEmulator,
+}, async (t) => {
+  const { app, db } = createEmulatorDb();
+  t.after(async () => deleteApp(app));
+  await seedPlanAndAdmin(db);
+
+  for (const caso of ["oferta", "control"] as const) {
+    await t.test(`no escribe si se agota la revisión de ${caso}`, async () => {
+      const suffix = randomUUID().replaceAll("-", "_");
+      const empresaId = `emulator_revision_${caso}_${suffix}`;
+      const ofertaId = `oferta_revision_${caso}_${suffix}`;
+      const controlRef = ofertaComercialActivaRef(db, empresaId);
+      const ofertaRef = ofertaComercialRef(db, empresaId, ofertaId);
+      await seedApprovedOffer(db, empresaId, ofertaId);
+      if (caso === "oferta") {
+        await ofertaRef.update({ revision: Number.MAX_SAFE_INTEGER });
+      } else {
+        await controlRef.update({ revision: Number.MAX_SAFE_INTEGER });
+      }
+      const controlInicial = (await controlRef.get()).data();
+      const ofertaInicial = (await ofertaRef.get()).data();
+
+      await assert.rejects(
+        ejecutarBootstrapEmpresarial(
+          db,
+          bootstrapInput(empresaId, suffix),
+          claimsEmitter,
+          ownerVerifier,
+          undefined,
+          undefined,
+          credentialIssuerSucceeds(empresaId),
+        ),
+        /OFERTA_COMERCIAL_TRANSITION_INVALIDA/,
+      );
+
+      const [empresa, suscripcion, provisionamientos, controlDespues, ofertaDespues] = await Promise.all([
+        db.collection("empresas").doc(empresaId).get(),
+        db.collection("suscripciones").doc(empresaId).get(),
+        db.collection("provisionamientos_empresariales").where("empresaId", "==", empresaId).get(),
+        controlRef.get(),
+        ofertaRef.get(),
+      ]);
+      assert.equal(empresa.exists, false);
+      assert.equal(suscripcion.exists, false);
+      assert.equal(provisionamientos.size, 0);
+      assert.deepEqual(controlDespues.data(), controlInicial);
+      assert.deepEqual(ofertaDespues.data(), ofertaInicial);
+    });
+  }
+});
 
 const ownerVerifier = async () => {};
 const claimsEmitter = async () => {};
