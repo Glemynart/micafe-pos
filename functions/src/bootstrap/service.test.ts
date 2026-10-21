@@ -322,7 +322,7 @@ test("ADR-SAAS-061: Bootstrap resuelve y consume atómicamente una oferta anual 
     periodicidad: "ANUAL",
     precioAcordado: { importe: 1600000, moneda: "COP" },
     estado: "APROBADA",
-    iniciaEn: "2026-10-05",
+    iniciaEn: "2026-10-16",
     expiraEn: null,
     motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
     referenciaAprobacion: "ADR-SAAS-061",
@@ -349,6 +349,12 @@ test("ADR-SAAS-061: Bootstrap resuelve y consume atómicamente una oferta anual 
 
   assert.equal(creado.estado, "COMPLETED");
   const suscripcion = db.read(`suscripciones/${empresaId}`);
+  assert.equal(suscripcion.estado, "trialing");
+  assert.equal(
+    Date.parse(`${suscripcion.trialFin}T00:00:00.000Z`) - Date.parse(`${suscripcion.trialInicio}T00:00:00.000Z`),
+    30 * 24 * 60 * 60 * 1000,
+    "Bootstrap Bodega con oferta anual debe crear un Trial exacto de 30 días",
+  );
   assert.deepEqual(suscripcion.snapshotContrato.precio, { importe: 1600000, moneda: "COP" });
   assert.deepEqual(db.read("planes/mvp_comercial/versiones/2").precio, { importe: 1800000, moneda: "COP" });
   assert.equal(db.read(ofertaComercialRef(db as never, empresaId, ofertaId).path).estado, "CONSUMIDA");
@@ -396,6 +402,209 @@ test("ADR-SAAS-061: Bootstrap resuelve y consume atómicamente una oferta anual 
   assert.equal(db.read(`empresas/${empresaVencida}`), undefined);
 });
 
+test("ADR-SAAS-061: Bootstrap rechaza un control de oferta existente sin revisión ni puntero canónico", async () => {
+  const db = new Db();
+  const empresaId = "empresa_control_oferta_invalido";
+  db.seed("planes/plan_pos_pro/versiones/1", {
+    planId: "plan_pos_pro",
+    planVersion: 1,
+    estado: "PUBLICADA",
+    codigo: "PLAN_PRO",
+    capacidades: ["sell", "inventory", "purchases", "shifts"],
+    limites: {},
+    periodicidad: "ANUAL",
+    precio: { importe: 1800000, moneda: "COP" },
+    grandfathered: false,
+    revision: 1,
+    schemaVersion: 1,
+  });
+  db.seed(ofertaComercialActivaRef(db as never, empresaId).path, {
+    empresaId,
+    ofertaActivaId: null,
+  });
+
+  await assert.rejects(
+    ejecutarBootstrapEmpresarial(db as any, {
+      ...entradaBase,
+      empresaId,
+      idempotencyKey: "idem_control_oferta_invalido",
+      commandId: "cmd_control_oferta_invalido",
+      correlationId: "corr_control_oferta_invalido",
+      causationId: "cause_control_oferta_invalido",
+    }, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso),
+    /OFERTA_COMERCIAL_CONTROL_INVALIDO/,
+  );
+  assert.equal(db.read(`empresas/${empresaId}`), undefined);
+  assert.equal(db.read(`suscripciones/${empresaId}`), undefined);
+});
+
+test("ADR-SAAS-061: Bootstrap falla cerrado si la identidad persistida de la oferta no coincide con su puntero", async (t) => {
+  const casos = [
+    { nombre: "ID embebido distinto al documento apuntado", schemaVersion: 1, revision: 2, ofertaId: "otra_oferta", periodicidad: "ANUAL" },
+    { nombre: "revisión de oferta no positiva", schemaVersion: 1, revision: 0, ofertaId: "oferta_canonica", periodicidad: "ANUAL" },
+    { nombre: "versión de oferta desconocida", schemaVersion: 2, revision: 1, ofertaId: "oferta_canonica", periodicidad: "ANUAL" },
+    { nombre: "periodicidad persistida distinta de ANUAL", schemaVersion: 1, revision: 1, ofertaId: "oferta_canonica", periodicidad: "MENSUAL" },
+  ];
+
+  for (const [indice, caso] of casos.entries()) {
+    await t.test(caso.nombre, async () => {
+      const db = new Db();
+      const empresaId = `empresa_oferta_malformada_${indice}`;
+      const ofertaId = "oferta_canonica";
+      db.seed("planes/plan_pos_pro/versiones/1", {
+        planId: "plan_pos_pro",
+        planVersion: 1,
+        estado: "PUBLICADA",
+        codigo: "PLAN_PRO",
+        capacidades: ["sell", "inventory", "purchases", "shifts"],
+        limites: {},
+        periodicidad: "ANUAL",
+        precio: { importe: 1800000, moneda: "COP" },
+        grandfathered: false,
+        revision: 1,
+        schemaVersion: 1,
+      });
+      db.seed(ofertaComercialActivaRef(db as never, empresaId).path, {
+        empresaId,
+        ofertaActivaId: ofertaId,
+        revision: 1,
+      });
+      db.seed(ofertaComercialRef(db as never, empresaId, ofertaId).path, {
+        schemaVersion: caso.schemaVersion,
+        ofertaId: caso.ofertaId,
+        empresaIdObjetivo: empresaId,
+        planIdBase: "plan_pos_pro",
+        planVersionBase: 1,
+        periodicidad: caso.periodicidad,
+        precioAcordado: { importe: 1600000, moneda: "COP" },
+        estado: "APROBADA",
+        iniciaEn: "2026-10-16",
+        expiraEn: null,
+        motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
+        referenciaAprobacion: "ADR-SAAS-061",
+        revision: caso.revision,
+      });
+
+      await assert.rejects(
+        ejecutarBootstrapEmpresarial(db as any, {
+          ...entradaBase,
+          empresaId,
+          idempotencyKey: `idem_oferta_malformada_${indice}`,
+          commandId: `cmd_oferta_malformada_${indice}`,
+          correlationId: `corr_oferta_malformada_${indice}`,
+          causationId: `cause_oferta_malformada_${indice}`,
+        }, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso),
+        /OFERTA_COMERCIAL_INVALIDA/,
+      );
+      assert.equal(db.read(`empresas/${empresaId}`), undefined);
+      assert.equal(db.read(`suscripciones/${empresaId}`), undefined);
+      assert.equal(db.read(ofertaComercialRef(db as never, empresaId, ofertaId).path).estado, "APROBADA");
+      assert.equal(db.read(ofertaComercialActivaRef(db as never, empresaId).path).ofertaActivaId, ofertaId);
+    });
+  }
+});
+
+test("ADR-SAAS-061: tenant existente no consume la oferta ni crea un segundo Trial", async () => {
+  const db = new Db();
+  const empresaId = "empresa_bootstrap_duplicada";
+  const ofertaId = "oferta_bootstrap_duplicada";
+  db.seed("planes/plan_pos_pro/versiones/1", {
+    planId: "plan_pos_pro", planVersion: 1, estado: "PUBLICADA", codigo: "PLAN_PRO",
+    capacidades: ["sell", "inventory", "purchases", "shifts"], limites: {}, periodicidad: "ANUAL",
+    precio: { importe: 1800000, moneda: "COP" }, grandfathered: false, revision: 1, schemaVersion: 1,
+  });
+  db.seed(`empresas/${empresaId}`, { empresaId, estado: "trial", revision: 1 });
+  db.seed(ofertaComercialActivaRef(db as never, empresaId).path, { empresaId, ofertaActivaId: ofertaId, revision: 1 });
+  db.seed(ofertaComercialRef(db as never, empresaId, ofertaId).path, {
+    schemaVersion: 1, ofertaId, empresaIdObjetivo: empresaId, planIdBase: "plan_pos_pro", planVersionBase: 1,
+    periodicidad: "ANUAL", precioAcordado: { importe: 1600000, moneda: "COP" }, estado: "APROBADA",
+    iniciaEn: "2026-10-16", expiraEn: null, motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
+    referenciaAprobacion: "ADR-SAAS-061", revision: 1,
+  });
+
+  await assert.rejects(
+    ejecutarBootstrapEmpresarial(db as any, {
+      ...entradaBase, empresaId, idempotencyKey: "idem_bootstrap_duplicado", commandId: "cmd_bootstrap_duplicado",
+      correlationId: "corr_bootstrap_duplicado", causationId: "cause_bootstrap_duplicado",
+    }, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso),
+    /EMPRESA_ALREADY_EXISTS/,
+  );
+  assert.equal(db.read(`empresas/${empresaId}`).estado, "trial");
+  assert.equal(db.read(`suscripciones/${empresaId}`), undefined);
+  assert.equal(db.read(ofertaComercialRef(db as never, empresaId, ofertaId).path).estado, "APROBADA");
+  assert.equal(db.read(ofertaComercialActivaRef(db as never, empresaId).path).ofertaActivaId, ofertaId);
+  assert.equal([...db.docs.keys()].some((path) => path.startsWith("provisionamientos_empresariales/")), false);
+});
+
+test("ADR-SAAS-061: fallo posterior al commit conserva consumo único y permite recuperar el mismo Bootstrap", async () => {
+  const db = new Db();
+  const empresaId = "empresa_oferta_recovery";
+  const ofertaId = "oferta_recovery";
+  db.seed("planes/mvp_comercial/versiones/2", {
+    planId: "mvp_comercial", planVersion: 2, estado: "PUBLICADA", codigo: "MVP_COMERCIAL",
+    capacidades: ["sell", "inventory", "purchases", "shifts"], limites: {}, periodicidad: "ANUAL",
+    precio: { importe: 1800000, moneda: "COP" }, grandfathered: false, revision: 2, schemaVersion: 1,
+  });
+  db.seed(ofertaComercialActivaRef(db as never, empresaId).path, { empresaId, ofertaActivaId: ofertaId, revision: 1 });
+  db.seed(ofertaComercialRef(db as never, empresaId, ofertaId).path, {
+    schemaVersion: 1, ofertaId, empresaIdObjetivo: empresaId, planIdBase: "mvp_comercial", planVersionBase: 2,
+    periodicidad: "ANUAL", precioAcordado: { importe: 1600000, moneda: "COP" }, estado: "APROBADA",
+    iniciaEn: "2026-10-16", expiraEn: null, motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
+    referenciaAprobacion: "ADR-SAAS-061", revision: 1,
+  });
+  const entrada: EntradaBootstrapEmpresarial = {
+    ...entradaBase, empresaId, vertical: "BODEGA_MVP1", planId: "mvp_comercial", planVersion: 2,
+    commandId: "cmd_offer_recovery", idempotencyKey: "idem_offer_recovery",
+    correlationId: "corr_offer_recovery", causationId: "cause_offer_recovery",
+  };
+
+  const issuerQueFalla = async () => { throw new Error("CREDENTIAL_PROVIDER_TEMPORARY_FAILURE"); };
+  const primerIntento = await ejecutarBootstrapEmpresarial(
+    db as any, entrada, async () => {}, ownerExistente, undefined, undefined, issuerQueFalla,
+  );
+  assert.equal(primerIntento.estado, "RETRYABLE_FAILURE");
+  assert.equal(db.read(`empresas/${empresaId}`)?.estado, "trial");
+  assert.equal(db.read(`suscripciones/${empresaId}`)?.snapshotContrato.precio.importe, 1600000);
+  assert.equal(db.read(ofertaComercialRef(db as never, empresaId, ofertaId).path)?.estado, "CONSUMIDA");
+  assert.equal(db.read(ofertaComercialActivaRef(db as never, empresaId).path)?.ofertaActivaId, null);
+
+  const segundoIntento = await ejecutarBootstrapEmpresarial(
+    db as any, entrada, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso,
+  );
+  assert.equal(segundoIntento.estado, "COMPLETED");
+  assert.equal(segundoIntento.idempotente, true);
+  assert.equal(db.read(`suscripciones/${empresaId}`)?.snapshotContrato.precio.importe, 1600000);
+  assert.equal(db.read(ofertaComercialRef(db as never, empresaId, ofertaId).path)?.estado, "CONSUMIDA");
+  assert.equal([...db.docs.keys()].filter((path) => path === `empresas/${empresaId}`).length, 1);
+  assert.equal([...db.docs.keys()].filter((path) => path === `suscripciones/${empresaId}`).length, 1);
+  assert.equal([...db.docs.keys()].filter((path) => path.startsWith("provisionamientos_empresariales/")).length, 1);
+});
+
+test("Bodega con Plan anual rechaza duraciones distintas de 30 días antes del commit", async (t) => {
+  for (const trialDias of [29, 31]) {
+    await t.test(`${trialDias} días`, async () => {
+      const db = new Db();
+      const empresaId = `empresa_trial_bodega_${trialDias}`;
+      db.seed("planes/plan_pos_pro/versiones/1", {
+        planId: "plan_pos_pro", planVersion: 1, estado: "PUBLICADA", codigo: "PLAN_PRO",
+        capacidades: ["sell", "inventory", "purchases", "shifts"], limites: {}, periodicidad: "ANUAL",
+        precio: { importe: 1800000, moneda: "COP" }, grandfathered: false, revision: 1, schemaVersion: 1,
+      });
+      await assert.rejects(
+        ejecutarBootstrapEmpresarial(db as any, {
+          ...entradaBase, empresaId, vertical: "BODEGA_MVP1", trialDias,
+          idempotencyKey: `idem_trial_bodega_${trialDias}`, commandId: `cmd_trial_bodega_${trialDias}`,
+          correlationId: `corr_trial_bodega_${trialDias}`, causationId: `cause_trial_bodega_${trialDias}`,
+        }, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso),
+        /TRIAL_ANUAL_DEBE_SER_30_DIAS/,
+      );
+      assert.equal(db.read(`empresas/${empresaId}`), undefined);
+      assert.equal(db.read(`suscripciones/${empresaId}`), undefined);
+      assert.equal(db.read(ofertaComercialActivaRef(db as never, empresaId).path), undefined);
+    });
+  }
+});
+
 test("Bodega MVP1: Bootstrap propaga el vertical y excluye módulos de restaurante", async () => {
   const db = new Db();
   db.seed("planes/plan_pos_pro/versiones/1", {
@@ -424,6 +633,25 @@ test("Bodega MVP1: Bootstrap propaga el vertical y excluye módulos de restauran
   assert.equal(config.modulos.habilitados.includes("salon"), false);
   assert.equal(config.modulos.habilitados.includes("reservas"), false);
   assert.deepEqual(db.read("permisos_roles/vendedor").permisos, ["sell", "shifts"]);
+  const suscripcion = db.read("suscripciones/empresa_bodega_sintetica");
+  assert.equal(suscripcion.estado, "trialing");
+  assert.deepEqual(
+    suscripcion.snapshotContrato.precio,
+    { importe: 1800000, moneda: "COP" },
+    "sin oferta tenant, Bootstrap conserva el precio público del Plan",
+  );
+  assert.equal(
+    Date.parse(`${suscripcion.trialFin}T00:00:00.000Z`) - Date.parse(`${suscripcion.trialInicio}T00:00:00.000Z`),
+    30 * 24 * 60 * 60 * 1000,
+    "Bootstrap Bodega inicia un Trial de 30 días sin catálogo inicial",
+  );
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("productos/")), false);
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("presentaciones_producto/")), false);
+  assert.equal(
+    db.read("ofertas_comerciales_tenant/empresa_bodega_sintetica"),
+    undefined,
+    "la ausencia de oferta no crea un control comercial implícito",
+  );
 });
 
 test("Bodega MVP1: Bootstrap rechaza vertical fuera del contrato cerrado", async () => {

@@ -59,6 +59,62 @@ export function validarOfertaComercialEntrada(entrada: {
   validarPrecioAcordado(entrada.precioAcordado);
 }
 
+export type ControlOfertaComercial = {
+  ofertaActivaId: string | null;
+  revision: number;
+};
+
+/** Only a missing control document means that the tenant has no offer control yet. */
+export function validarControlOfertaComercial(value: unknown, empresaIdEsperada: string): ControlOfertaComercial {
+  const control = value as { empresaId?: unknown; ofertaActivaId?: unknown; revision?: unknown } | null;
+  if (!control
+    || typeof control !== "object"
+    || Array.isArray(control)
+    || control.empresaId !== empresaIdEsperada
+    || !Number.isSafeInteger(control.revision)
+    || (control.revision as number) < 1
+    || !(control.ofertaActivaId === null || esIdComercial(control.ofertaActivaId))) {
+    rechazar("failed-precondition", "OFERTA_COMERCIAL_CONTROL_INVALIDO");
+  }
+  return {
+    ofertaActivaId: control.ofertaActivaId as string | null,
+    revision: control.revision as number,
+  };
+}
+
+/** Validates the shared persisted offer contract used by read, approval and Bootstrap. */
+export function validarOfertaComercialPersistida(value: unknown): asserts value is OfertaComercialTenant {
+  const oferta = value as OfertaComercialTenant | null;
+  if (!oferta
+    || typeof oferta !== "object"
+    || Array.isArray(oferta)
+    || oferta.schemaVersion !== 1
+    || !esIdComercial(oferta.ofertaId)
+    || !esIdComercial(oferta.empresaIdObjetivo)
+    || !esIdComercial(oferta.planIdBase)
+    || !Number.isSafeInteger(oferta.planVersionBase)
+    || (oferta.planVersionBase as number) < 1
+    || oferta.periodicidad !== "ANUAL"
+    || !["BORRADOR", "APROBADA", "CONSUMIDA", "REVOCADA", "EXPIRADA"].includes(oferta.estado)
+    || !Number.isSafeInteger(oferta.revision)
+    || (oferta.revision as number) < 1
+    || typeof oferta.motivoCodigo !== "string"
+    || !oferta.motivoCodigo.trim()) {
+    rechazar("failed-precondition", "OFERTA_COMERCIAL_INVALIDA");
+  }
+
+  validarOfertaComercialEntrada({
+    empresaId: oferta.empresaIdObjetivo,
+    ofertaId: oferta.ofertaId,
+    planIdBase: oferta.planIdBase,
+    planVersionBase: oferta.planVersionBase,
+    precioAcordado: oferta.precioAcordado,
+    iniciaEn: oferta.iniciaEn,
+    expiraEn: oferta.expiraEn,
+    referenciaAprobacion: oferta.referenciaAprobacion,
+  });
+}
+
 export type OfertaConsumida = {
   ofertaId: string;
   precioAcordado: { importe: number; moneda: string };
@@ -83,35 +139,26 @@ export async function resolverOfertaComercialBootstrapEnTransaccion(
   const controlRef = ofertaComercialActivaRef(db, entrada.empresaId);
   const controlSnap = await tx.get(controlRef);
   if (!controlSnap.exists) return null;
-  const control = controlSnap.data() as { ofertaActivaId?: unknown; revision?: unknown };
-  if (control.ofertaActivaId === null || control.ofertaActivaId === undefined) return null;
-  if (typeof control.ofertaActivaId !== "string" || !Number.isInteger(control.revision)) {
-    rechazar("failed-precondition", "OFERTA_COMERCIAL_CONTROL_INVALIDO");
-  }
+  const control = validarControlOfertaComercial(controlSnap.data(), entrada.empresaId);
+  if (control.ofertaActivaId === null) return null;
 
   const ofertaRef = ofertaComercialRef(db, entrada.empresaId, control.ofertaActivaId);
   const ofertaSnap = await tx.get(ofertaRef);
   if (!ofertaSnap.exists) rechazar("failed-precondition", "OFERTA_COMERCIAL_INEXISTENTE");
-  const oferta = ofertaSnap.data() as OfertaComercialTenant;
+  const ofertaData = ofertaSnap.data();
+  validarOfertaComercialPersistida(ofertaData);
+  const oferta = ofertaData;
+  if (oferta.ofertaId !== control.ofertaActivaId) {
+    rechazar("failed-precondition", "OFERTA_COMERCIAL_INVALIDA");
+  }
   const hoy = fechaComercialUtc();
-  validarOfertaComercialEntrada({
-    empresaId: oferta.empresaIdObjetivo,
-    ofertaId: oferta.ofertaId,
-    planIdBase: oferta.planIdBase,
-    planVersionBase: oferta.planVersionBase,
-    precioAcordado: oferta.precioAcordado,
-    iniciaEn: oferta.iniciaEn,
-    expiraEn: oferta.expiraEn,
-    referenciaAprobacion: oferta.referenciaAprobacion,
-  });
-  if (oferta.estado !== "APROBADA"
-    || oferta.empresaIdObjetivo !== entrada.empresaId
+  if (oferta.empresaIdObjetivo !== entrada.empresaId
     || oferta.planIdBase !== entrada.planId
     || oferta.planVersionBase !== entrada.planVersion
     || oferta.periodicidad !== "ANUAL"
+    || oferta.estado !== "APROBADA"
     || oferta.iniciaEn > hoy
-    || (oferta.expiraEn !== null && hoy >= oferta.expiraEn)
-    || !Number.isInteger(oferta.revision)) {
+    || (oferta.expiraEn !== null && hoy >= oferta.expiraEn)) {
     rechazar("failed-precondition", "OFERTA_COMERCIAL_NO_ADMISIBLE");
   }
   validarPlanBaseParaOferta(entrada.planBase, oferta.precioAcordado);
@@ -125,7 +172,7 @@ export async function resolverOfertaComercialBootstrapEnTransaccion(
   });
   tx.update(controlRef, {
     ofertaActivaId: null,
-    revision: (control.revision as number) + 1,
+    revision: control.revision + 1,
     actualizadaEn: FieldValue.serverTimestamp(),
   });
   return {
