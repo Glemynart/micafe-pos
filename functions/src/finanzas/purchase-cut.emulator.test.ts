@@ -4,7 +4,8 @@ import test from "node:test";
 import { deleteApp, initializeApp } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
-import { ejecutarRegistrarCompraOperativaV1, type ContextoFinancieroOperativo } from "./compras";
+import { ejecutarRegistrarCompraBodegaV1 } from "./compra-core";
+import type { ContextoFinancieroOperativo } from "./compras";
 import { transicionarPausaCompras } from "../platform/purchase-release-control";
 
 const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
@@ -91,6 +92,11 @@ async function seed(suffix: string): Promise<Fixture> {
   const espacioId = `espacio-${suffix}-${runId}`;
   await Promise.all([
     firestore.collection("empresas").doc(empresaId).set({ empresaId, estado: "activa", esFundacional: true }),
+    firestore.collection("configuraciones").doc(empresaId).set({
+      empresaId,
+      vertical: "BODEGA_MVP1",
+      modulos: { habilitados: ["inventory", "purchases"] },
+    }),
     firestore.collection("membresias").doc(`${empresaId}_${actorUid}`).set({
       empresaId, uid: actorUid, rol: "admin", permisos: ["purchases"], estado: "activa", activo: true, nombre: "Admin emulator",
     }),
@@ -190,7 +196,7 @@ test("ADR-SAAS-081 Emulator: pausa concurrente se linealiza después de la compr
     controlRead,
     continuePurchase,
   );
-  const purchase = ejecutarRegistrarCompraOperativaV1(guardedDb, fixture.contexto, command("in-flight", fixture.payload));
+  const purchase = ejecutarRegistrarCompraBodegaV1(guardedDb, fixture.contexto, command("in-flight", fixture.payload));
 
   await within(controlRead.promise, "compra-no-leyo-control");
   // El Emulator serializa la transición que escribe el control detrás de la
@@ -215,7 +221,7 @@ test("ADR-SAAS-081 Emulator: pausa concurrente se linealiza después de la compr
     pauseAudit: 1,
   });
   await assert.rejects(
-    ejecutarRegistrarCompraOperativaV1(emulatorDb(), fixture.contexto, command("after-pause", fixture.payload)),
+    ejecutarRegistrarCompraBodegaV1(emulatorDb(), fixture.contexto, command("after-pause", fixture.payload)),
     error => domain(error, "COMPRAS_EN_CORTE"),
   );
   assert.deepEqual(await effects(fixture), {
@@ -240,7 +246,7 @@ test("ADR-SAAS-081 Emulator: cliente desconectado no confirma sin respuesta y re
   // envelope pendiente y el servidor lo reevalúa al reconectar.
   let unsentClientState: "PENDIENTE" | "CONFIRMADA" = "PENDIENTE";
   await assert.rejects(
-    ejecutarRegistrarCompraOperativaV1(emulatorDb(), unsent.contexto, unsentCommand),
+    ejecutarRegistrarCompraBodegaV1(emulatorDb(), unsent.contexto, unsentCommand),
     error => domain(error, "COMPRAS_EN_CORTE"),
   );
   assert.equal(unsentClientState, "PENDIENTE");
@@ -252,10 +258,10 @@ test("ADR-SAAS-081 Emulator: cliente desconectado no confirma sin respuesta y re
   const ambiguousCommand = command("offline-ambiguous", ambiguous.payload);
   // El servidor confirma la primera solicitud, pero el cliente pierde su
   // respuesta: no cambia el estado local hasta que recibe el replay.
-  const serverResult = await ejecutarRegistrarCompraOperativaV1(emulatorDb(), ambiguous.contexto, ambiguousCommand);
+  const serverResult = await ejecutarRegistrarCompraBodegaV1(emulatorDb(), ambiguous.contexto, ambiguousCommand);
   let ambiguousClientState: "PENDIENTE" | "CONFIRMADA" = "PENDIENTE";
   await pause(ambiguous, "offline-ambiguous");
-  const replay = await ejecutarRegistrarCompraOperativaV1(emulatorDb(), ambiguous.contexto, ambiguousCommand);
+  const replay = await ejecutarRegistrarCompraBodegaV1(emulatorDb(), ambiguous.contexto, ambiguousCommand);
   ambiguousClientState = "CONFIRMADA";
 
   assert.deepEqual(replay, serverResult);

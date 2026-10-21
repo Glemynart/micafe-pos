@@ -77,9 +77,9 @@ service cloud.firestore {
     function esVendedorBodegaMvp1() {
       return esVendedor() && esBodegaMvp1();
     }
-    // ADR-SAAS-081: la misma autoridad canónica que leen las callables de
-    // compra cierra también los escritores directos durante el corte. La
-    // ausencia o forma inválida del control niega por defecto.
+    // Conserva el guard de control ya efectivo en la base para las compras
+    // directas no-Bodega. ADR-SAAS-085 limita el nuevo corte a Bodega, pero no
+    // convierte la ausencia/pausa de un control legacy en permiso de escritura.
     function comprasHabilitadasParaTenant() {
       let control = /databases/$(database)/documents/controles_release_compras/$(request.auth.token.empresaId);
       return tieneEmpresaId()
@@ -93,6 +93,18 @@ service cloud.firestore {
         // Mantiene el mismo límite que Number.isSafeInteger en las Functions:
         // una revisión activa debe poder incrementarse para pausar el control.
         && get(control).data.revision < 9007199254740991;
+    }
+    // Configuración legacy reconocida y control previo activo son ambos
+    // necesarios: la primera evita clasificar verticales ambiguos como GENERAL;
+    // el segundo preserva la semántica efectiva de la base.
+    function comprasLegacyHabilitadas() {
+      let configuracion = /databases/$(database)/documents/configuraciones/$(request.auth.token.empresaId);
+      return tieneEmpresaId()
+        && comprasHabilitadasParaTenant()
+        && exists(configuracion)
+        && get(configuracion).data.empresaId == request.auth.token.empresaId
+        && (!get(configuracion).data.keys().hasAny(['vertical'])
+          || get(configuracion).data.vertical == 'GENERAL');
     }
     function membresiaBodegaActiva(empresaId, permiso) {
       let path = /databases/$(database)/documents/membresias/$(empresaId + '_' + request.auth.uid);
@@ -223,11 +235,12 @@ service cloud.firestore {
 
     match /compras/{id} {
       allow read: if puedeLeerTenant() && esAutenticado();
-      // ADR-SAAS-072: Bodega registra compras solo por su callable canónica;
-      // los demás verticales conservan temporalmente la ruta legacy.
-      allow create: if !esBodegaMvp1() && comprasHabilitadasParaTenant() && puedeCrearEnTenant() && esAdmin();
+      // ADR-SAAS-085: Bodega queda callable-only y exige su control en el
+      // backend. GENERAL (incluido el formato legacy sin vertical) conserva la
+      // ruta directa admin anterior, independiente del control del corte Bodega.
+      allow create: if comprasLegacyHabilitadas() && puedeCrearEnTenant() && esAdmin();
       allow update: if false;
-      allow delete: if !esBodegaMvp1() && comprasHabilitadasParaTenant() && puedeEliminarEnTenant() && esAdmin();
+      allow delete: if comprasLegacyHabilitadas() && puedeEliminarEnTenant() && esAdmin();
     }
     match /controles_release_compras/{id} {
       allow read, write: if false;

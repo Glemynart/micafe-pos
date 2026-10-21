@@ -110,11 +110,17 @@ const legacyBodega = (error: unknown) => domain(error, "BODEGA_USE_CANONICAL")
 
 function seed(db: FakeFirestore, saldo = 0) {
   db.docs.set(`empresas/${empresaId}`, { estado: "activa", esFundacional: true });
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "GENERAL", modulos: { habilitados: ["inventory", "purchases"] } });
   db.docs.set(`membresias/${empresaId}_${contexto.actorUid}`, { empresaId, uid: contexto.actorUid, rol: contexto.rol, permisos: ["purchases"], estado: "activa", activo: true, nombre: "Administradora" });
   db.docs.set("espacios/cafeteria", { empresaId, activo: true, nombre: "Cafetería" });
   db.docs.set("productos/cafe", { empresaId, espacioId: "cafeteria", nombre: "Café catálogo", unidad: "und", stock: 2, secuenciaLedger: 0, costo: 100 });
   db.docs.set("cuentas_bancarias/caja-principal", { id: "caja-principal", empresaId, claveOperativa: "caja-principal", nombre: "Caja principal", saldo });
   db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "ACTIVA", revision: 1 });
+}
+
+function seedBodega(db: FakeFirestore, saldo = 0) {
+  seed(db, saldo);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory", "purchases"] } });
 }
 
 function payload(overrides: Record<string, unknown> = {}) {
@@ -142,6 +148,97 @@ test("P0-12: confirma compra con snapshots del catálogo, inventario y costo en 
   assert.equal(db.docs.get(`movimientos_inventario/compra:${result.compraId}:producto:cafe:0`)?.referenciaId, result.compraId);
   assert.equal(db.docs.get(`empresas/${empresaId}/bodega_senales/disponibilidad`)?.version, 1);
   assert.equal([...db.docs.keys()].filter(key => key.startsWith("transacciones_financieras/")).length, 0);
+});
+
+test("ADR-SAAS-085: GENERAL conserva el control de compras efectivo en la base", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.delete(`controles_release_compras/${empresaId}`);
+  const command = envelope("legacy-general-without-control", payload());
+  const before = [...db.docs.entries()];
+
+  await assert.rejects(
+    ejecutarRegistrarCompraOperativaV1(db, contexto, command),
+    error => domain(error, "COMPRAS_CONTROL_NO_CONFIGURADO"),
+  );
+  assert.deepEqual([...db.docs.entries()], before);
+});
+
+test("ADR-SAAS-085: GENERAL no permite compra nueva cuando el control existente está pausado", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "PAUSADA", revision: 2 });
+  const before = [...db.docs.entries()];
+
+  await assert.rejects(
+    ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("legacy-general-paused", payload())),
+    error => domain(error, "COMPRAS_EN_CORTE"),
+  );
+  assert.deepEqual([...db.docs.entries()], before);
+});
+
+test("ADR-SAAS-085: replay legacy confirmado conserva idempotencia durante pausa", async () => {
+  const db = new FakeFirestore(); seed(db);
+  const command = envelope("legacy-replay-during-pause", payload());
+  const first = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
+  const beforePause = [...db.docs.entries()];
+  db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "PAUSADA", revision: 2 });
+
+  const replay = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
+
+  assert.deepEqual(replay, first);
+  assert.deepEqual(
+    [...db.docs.entries()].filter(([path]) => path !== `controles_release_compras/${empresaId}`),
+    beforePause.filter(([path]) => path !== `controles_release_compras/${empresaId}`),
+  );
+});
+
+test("ADR-SAAS-085: configuración legacy sin vertical conserva compra con control activo", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, modulos: { habilitados: ["inventory", "purchases"] } });
+  const command = envelope("legacy-missing-vertical-without-control", payload());
+
+  const first = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
+  const snapshot = [...db.docs.entries()];
+  const replay = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
+
+  assert.deepEqual(replay, first);
+  assert.deepEqual([...db.docs.entries()], snapshot);
+  assert.equal(db.docs.get("productos/cafe")?.stock, 4);
+});
+
+test("ADR-SAAS-085: control ausente sigue cerrando la compra Bodega canónica", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory", "purchases"] } });
+  db.docs.delete(`controles_release_compras/${empresaId}`);
+  const before = [...db.docs.entries()];
+
+  await assert.rejects(
+    ejecutarRegistrarCompraBodegaV1(db, contexto, envelope("bodega-without-control", payload())),
+    error => domain(error, "COMPRAS_CONTROL_NO_CONFIGURADO"),
+  );
+
+  assert.deepEqual([...db.docs.entries()], before);
+});
+
+test("ADR-SAAS-085: callable legacy falla cerrada con configuración ausente, cruzada o vertical desconocida", async () => {
+  const casos = [
+    { nombre: "ausente", configurar: (db: FakeFirestore) => db.docs.delete(`configuraciones/${empresaId}`) },
+    { nombre: "cruzada", configurar: (db: FakeFirestore) => db.docs.set(`configuraciones/${empresaId}`, { empresaId: "otro-tenant", vertical: "GENERAL" }) },
+    { nombre: "vertical desconocida", configurar: (db: FakeFirestore) => db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "VERTICAL_NO_SOPORTADA" }) },
+  ];
+
+  for (const [index, caso] of casos.entries()) {
+    const db = new FakeFirestore(); seed(db);
+    caso.configurar(db);
+    db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "ACTIVA", revision: 1 });
+    const before = [...db.docs.entries()];
+
+    await assert.rejects(
+      ejecutarRegistrarCompraOperativaV1(db, contexto, envelope(`legacy-invalid-config-${index}`, payload())),
+      error => domain(error, "CONFIGURACION_INVALIDA"),
+      caso.nombre,
+    );
+    assert.deepEqual([...db.docs.entries()], before, caso.nombre);
+  }
 });
 
 test("ADR-SAAS-075: la callable legacy rechaza una compra nueva de Bodega sin efectos parciales", async () => {
@@ -193,27 +290,27 @@ test("Bodega: registra compra con la misma transacción y el nuevo tipo idempote
   assert.equal(recibos[0][1].tipo, "registrarCompraBodegaV1");
 });
 
-test("ADR-SAAS-081: una compra nueva queda rechazada durante el corte sin efectos parciales", async () => {
-  const db = new FakeFirestore(); seed(db);
+test("ADR-SAAS-081: una compra Bodega nueva queda rechazada durante el corte sin efectos parciales", async () => {
+  const db = new FakeFirestore(); seedBodega(db);
   db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "PAUSADA", revision: 2 });
   const before = [...db.docs.entries()];
 
   await assert.rejects(
-    ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("corte-nueva", payload())),
+    ejecutarRegistrarCompraBodegaV1(db, contexto, envelope("corte-nueva", payload())),
     error => domain(error, "COMPRAS_EN_CORTE"),
   );
 
   assert.deepEqual([...db.docs.entries()], before);
 });
 
-test("ADR-SAAS-081: un replay confirmado sobrevive la pausa sin duplicar efectos", async () => {
-  const db = new FakeFirestore(); seed(db);
+test("ADR-SAAS-081: un replay Bodega confirmado sobrevive la pausa sin duplicar efectos", async () => {
+  const db = new FakeFirestore(); seedBodega(db);
   const command = envelope("corte-replay-confirmado", payload());
-  const first = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
+  const first = await ejecutarRegistrarCompraBodegaV1(db, contexto, command);
   const snapshot = [...db.docs.entries()];
   db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "PAUSADA", revision: 2 });
 
-  const replay = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
+  const replay = await ejecutarRegistrarCompraBodegaV1(db, contexto, command);
 
   assert.deepEqual(replay, first);
   const afterWithoutControl = [...db.docs.entries()].filter(([path]) => path !== `controles_release_compras/${empresaId}`);
@@ -221,8 +318,8 @@ test("ADR-SAAS-081: un replay confirmado sobrevive la pausa sin duplicar efectos
   assert.deepEqual(afterWithoutControl, beforeWithoutControl);
 });
 
-test("ADR-SAAS-081: replay confirmado sigue disponible si la pausa consume la última revisión segura", async () => {
-  const db = new FakeFirestore(); seed(db);
+test("ADR-SAAS-081: replay Bodega confirmado sigue disponible si la pausa consume la última revisión segura", async () => {
+  const db = new FakeFirestore(); seedBodega(db);
   db.docs.set(`controles_release_compras/${empresaId}`, {
     schemaVersion: 1,
     empresaId,
@@ -230,7 +327,7 @@ test("ADR-SAAS-081: replay confirmado sigue disponible si la pausa consume la ú
     revision: Number.MAX_SAFE_INTEGER - 1,
   });
   const command = envelope("corte-replay-revision-final", payload());
-  const first = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
+  const first = await ejecutarRegistrarCompraBodegaV1(db, contexto, command);
   const snapshot = [...db.docs.entries()];
   db.docs.set(`controles_release_compras/${empresaId}`, {
     schemaVersion: 1,
@@ -239,7 +336,7 @@ test("ADR-SAAS-081: replay confirmado sigue disponible si la pausa consume la ú
     revision: Number.MAX_SAFE_INTEGER,
   });
 
-  const replay = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
+  const replay = await ejecutarRegistrarCompraBodegaV1(db, contexto, command);
 
   assert.deepEqual(replay, first);
   const afterWithoutControl = [...db.docs.entries()].filter(([path]) => path !== `controles_release_compras/${empresaId}`);
@@ -247,52 +344,52 @@ test("ADR-SAAS-081: replay confirmado sigue disponible si la pausa consume la ú
   assert.deepEqual(afterWithoutControl, beforeWithoutControl);
 });
 
-test("ADR-SAAS-081: reintento ambiguo sin recibo no materializa una compra durante la pausa", async () => {
-  const db = new FakeFirestore(); seed(db);
+test("ADR-SAAS-081: reintento Bodega ambiguo sin recibo no materializa compra durante la pausa", async () => {
+  const db = new FakeFirestore(); seedBodega(db);
   db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "PAUSADA", revision: 2 });
   const command = envelope("corte-reintento-sin-recibo", payload());
 
   await assert.rejects(
-    ejecutarRegistrarCompraOperativaV1(db, contexto, command),
+    ejecutarRegistrarCompraBodegaV1(db, contexto, command),
     error => domain(error, "COMPRAS_EN_CORTE"),
   );
   await assert.rejects(
-    ejecutarRegistrarCompraOperativaV1(db, contexto, command),
+    ejecutarRegistrarCompraBodegaV1(db, contexto, command),
     error => domain(error, "COMPRAS_EN_CORTE"),
   );
   assert.equal([...db.docs.keys()].filter(path => path.startsWith("compras/")).length, 0);
   assert.equal([...db.docs.keys()].filter(path => path.startsWith("operaciones_comandos/")).length, 0);
 });
 
-test("ADR-SAAS-081: reanudar explícitamente permite una compra nueva y conserva el aislamiento tenant", async () => {
-  const db = new FakeFirestore(); seed(db);
+test("ADR-SAAS-081: reanudar explícitamente permite compra Bodega y conserva aislamiento tenant", async () => {
+  const db = new FakeFirestore(); seedBodega(db);
   db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "PAUSADA", revision: 2 });
   db.docs.set("controles_release_compras/empresa-b", { schemaVersion: 1, empresaId: "empresa-b", estado: "PAUSADA", revision: 4 });
   db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "ACTIVA", revision: 3 });
 
-  const result = await ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("corte-reanudada", payload()));
+  const result = await ejecutarRegistrarCompraBodegaV1(db, contexto, envelope("corte-reanudada", payload()));
 
   assert.ok(db.docs.get(`compras/${result.compraId}`));
   assert.equal(db.docs.get("controles_release_compras/empresa-b")?.estado, "PAUSADA");
 });
 
-test("ADR-SAAS-081: ausencia o forma ambigua del control falla cerrada", async () => {
-  const db = new FakeFirestore(); seed(db);
+test("ADR-SAAS-081: ausencia o forma ambigua del control Bodega falla cerrada", async () => {
+  const db = new FakeFirestore(); seedBodega(db);
   db.docs.delete(`controles_release_compras/${empresaId}`);
   await assert.rejects(
-    ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("corte-ausente", payload())),
+    ejecutarRegistrarCompraBodegaV1(db, contexto, envelope("corte-ausente", payload())),
     error => domain(error, "COMPRAS_CONTROL_NO_CONFIGURADO"),
   );
 
   db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "ACTIVA", revision: 0 });
   await assert.rejects(
-    ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("corte-ambiguo", payload())),
+    ejecutarRegistrarCompraBodegaV1(db, contexto, envelope("corte-ambiguo", payload())),
     error => domain(error, "COMPRAS_CONTROL_INVALIDO"),
   );
 });
 
-test("ADR-SAAS-081: un control activo en la última revisión segura falla cerrado", async () => {
-  const db = new FakeFirestore(); seed(db);
+test("ADR-SAAS-081: un control Bodega activo en la última revisión segura falla cerrado", async () => {
+  const db = new FakeFirestore(); seedBodega(db);
   db.docs.set(`controles_release_compras/${empresaId}`, {
     schemaVersion: 1,
     empresaId,
@@ -302,14 +399,14 @@ test("ADR-SAAS-081: un control activo en la última revisión segura falla cerra
   const before = [...db.docs.entries()];
 
   await assert.rejects(
-    ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("control-revision-activa-agotada", payload())),
+    ejecutarRegistrarCompraBodegaV1(db, contexto, envelope("control-revision-activa-agotada", payload())),
     error => domain(error, "COMPRAS_CONTROL_INVALIDO"),
   );
   assert.deepEqual([...db.docs.entries()], before);
 });
 
-test("ADR-SAAS-081: compra callable funciona una revisión antes del límite de pausa", async () => {
-  const db = new FakeFirestore(); seed(db);
+test("ADR-SAAS-081: compra Bodega callable funciona una revisión antes del límite de pausa", async () => {
+  const db = new FakeFirestore(); seedBodega(db);
   db.docs.set(`controles_release_compras/${empresaId}`, {
     schemaVersion: 1,
     empresaId,
@@ -317,7 +414,7 @@ test("ADR-SAAS-081: compra callable funciona una revisión antes del límite de 
     revision: Number.MAX_SAFE_INTEGER - 1,
   });
 
-  const result = await ejecutarRegistrarCompraOperativaV1(
+  const result = await ejecutarRegistrarCompraBodegaV1(
     db,
     contexto,
     envelope("control-revision-previa-al-limite", payload()),
@@ -327,8 +424,8 @@ test("ADR-SAAS-081: compra callable funciona una revisión antes del límite de 
   assert.equal(db.docs.get(`controles_release_compras/${empresaId}`)?.revision, Number.MAX_SAFE_INTEGER - 1);
 });
 
-test("ADR-SAAS-081: una pausa en la última revisión sigue denegando compras como corte activo", async () => {
-  const db = new FakeFirestore(); seed(db);
+test("ADR-SAAS-081: una pausa en la última revisión sigue denegando compras Bodega", async () => {
+  const db = new FakeFirestore(); seedBodega(db);
   db.docs.set(`controles_release_compras/${empresaId}`, {
     schemaVersion: 1,
     empresaId,
@@ -338,15 +435,15 @@ test("ADR-SAAS-081: una pausa en la última revisión sigue denegando compras co
   const before = [...db.docs.entries()];
 
   await assert.rejects(
-    ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("control-pausado-revision-final", payload())),
+    ejecutarRegistrarCompraBodegaV1(db, contexto, envelope("control-pausado-revision-final", payload())),
     error => domain(error, "COMPRAS_EN_CORTE"),
   );
   assert.deepEqual([...db.docs.entries()], before);
 });
 
-test("ADR-SAAS-081: control sin schemaVersion o con versión desconocida falla cerrado", async () => {
+test("ADR-SAAS-081: control Bodega sin schemaVersion o con versión desconocida falla cerrado", async () => {
   for (const [suffix, schemaVersion] of [["sin-version", undefined], ["version-desconocida", 2]] as const) {
-    const db = new FakeFirestore(); seed(db);
+    const db = new FakeFirestore(); seedBodega(db);
     db.docs.set(`controles_release_compras/${empresaId}`, {
       ...(schemaVersion === undefined ? {} : { schemaVersion }),
       empresaId,
@@ -356,7 +453,7 @@ test("ADR-SAAS-081: control sin schemaVersion o con versión desconocida falla c
     const before = [...db.docs.entries()];
 
     await assert.rejects(
-      ejecutarRegistrarCompraOperativaV1(db, contexto, envelope(`control-${suffix}`, payload())),
+      ejecutarRegistrarCompraBodegaV1(db, contexto, envelope(`control-${suffix}`, payload())),
       error => domain(error, "COMPRAS_CONTROL_INVALIDO"),
     );
     assert.deepEqual([...db.docs.entries()], before);
