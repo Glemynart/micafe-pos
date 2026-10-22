@@ -164,6 +164,8 @@ function consolidar(items: SnapshotItem[], empresaId: string, espacioId: string,
 }
 
 async function efectoRegistrarCompra(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<Record<string, unknown>> {
+  // ADR-SAAS-085 delimita el corte nuevo a Bodega, pero preservar la ruta
+  // legacy significa conservar el guard de control que ya tenía la base.
   await exigirComprasActivasEnTransaccion(tx, db, empresaId, false);
   await revalidarAutoridadFinancieraEnTransaccion(tx, db, { empresaId, actorUid, rol }, "purchases");
   const compraId = crearIdentificadorInterno(empresaId, `compra:${input.commandId}`);
@@ -244,12 +246,24 @@ async function validarPoliticaCompraBodegaEnTransaccion(tx: any, db: any, empres
 
 async function rechazarCompraLegacyBodegaEnTransaccion(tx: any, db: any, empresaId: string): Promise<void> {
   const configuracion = await tx.get(db.collection("configuraciones").doc(empresaId));
-  if (configuracion.data()?.vertical === "BODEGA_MVP1") {
+  const datos = configuracion.data() as Record<string, unknown> | undefined;
+  if (!configuracion.exists || !datos) {
+    throw new HttpsError("failed-precondition", "No fue posible registrar la compra.", { code: "CONFIGURACION_INVALIDA" });
+  }
+  if (datos.empresaId !== empresaId) {
+    throw new HttpsError("failed-precondition", "No fue posible registrar la compra.", { code: "CONFIGURACION_INVALIDA" });
+  }
+  if (datos.vertical === "BODEGA_MVP1") {
     throw new HttpsError(
       "failed-precondition",
       "Las compras Bodega deben registrarse mediante registrarCompraBodegaV1.",
       { code: "BODEGA_USE_CANONICAL" },
     );
+  }
+  // Los documentos antiguos sin vertical equivalen a GENERAL. Un valor
+  // desconocido no debe ser interpretado como un tenant legacy habilitado.
+  if (datos.vertical !== undefined && datos.vertical !== "GENERAL") {
+    throw new HttpsError("failed-precondition", "No fue posible registrar la compra.", { code: "CONFIGURACION_INVALIDA" });
   }
 }
 
