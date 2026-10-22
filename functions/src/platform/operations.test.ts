@@ -548,7 +548,7 @@ test("ADR-SAAS-061: la plataforma crea, aprueba y revoca una oferta específica 
     motivoCodigo: "OFERTA_COMERCIAL_TENANT_REGISTRAR",
     codigoAprobacion,
     expectedRevision: 1,
-    iniciaEn: "2026-10-05",
+    iniciaEn: "2026-10-16",
     expiraEn: null,
     precioAcordado: { importe: 1, moneda: "COP" },
   } as never), /OFERTA_COMERCIAL_TERMINOS_CLIENTE_NO_ADMITIDOS/);
@@ -561,13 +561,16 @@ test("ADR-SAAS-061: la plataforma crea, aprueba y revoca una oferta específica 
     causationId: null,
     motivoCodigo: "OFERTA_COMERCIAL_TENANT_REGISTRAR",
     codigoAprobacion,
-    iniciaEn: "2026-10-05",
+    iniciaEn: "2026-10-16",
     expiraEn: null,
     expectedRevision: 1,
   } as never);
-  assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).precioAcordado.importe, 1_600_000);
-  assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).referenciaAprobacion, "G-SAAS-02-PO-OFFER-DISTRIBUIDORA-LAS-JIMENEZ-2026-10-06");
-  assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).estado, "BORRADOR");
+  const ofertaBorrador = db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`);
+  assert.equal(ofertaBorrador.precioAcordado.importe, 1_600_000);
+  assert.equal(ofertaBorrador.referenciaAprobacion, "G-SAAS-02-PO-OFFER-DISTRIBUIDORA-LAS-JIMENEZ-2026-10-06");
+  assert.equal(ofertaBorrador.estado, "BORRADOR");
+  assert.equal(ofertaBorrador.iniciaEn, "2026-10-16");
+  assert.equal(ofertaBorrador.expiraEn, null);
 
   await ejecutarComandoComercial(db as never, "operador_1", "AprobarOfertaComercialTenant" as never, {
     commandId: "cmd_oferta_aprobar_1",
@@ -579,6 +582,8 @@ test("ADR-SAAS-061: la plataforma crea, aprueba y revoca una oferta específica 
     expectedRevision: 1,
   } as never);
   assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).estado, "APROBADA");
+  assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).iniciaEn, "2026-10-16");
+  assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).expiraEn, null);
   assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}`).ofertaActivaId, ofertaId);
   assert.deepEqual(db.read("planes/mvp_comercial/versiones/2").precio, { importe: 1800000, moneda: "COP" });
 
@@ -596,6 +601,204 @@ test("ADR-SAAS-061: la plataforma crea, aprueba y revoca una oferta específica 
   assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}`).ofertaActivaId, null);
   assert.ok(db.docsByPrefix("saas_auditoria/").some((e) => e.tipo === "OFERTA_COMERCIAL_TENANT_APROBADA"));
   assert.ok(db.docsByPrefix("saas_auditoria/").some((e) => e.tipo === "OFERTA_COMERCIAL_TENANT_REVOCADA"));
+});
+
+test("ADR-SAAS-061: crear oferta rechaza un control existente con puntero no canónico sin escribir", async () => {
+  const db = new Db();
+  db.seed("planes/mvp_comercial/versiones/2", {
+    planId: "mvp_comercial", planVersion: 2, estado: "PUBLICADA", codigo: "MVP_COMERCIAL",
+    capacidades: ["sell"], limites: {}, periodicidad: "ANUAL",
+    precio: { importe: 1800000, moneda: "COP" }, grandfathered: false, revision: 2, schemaVersion: 1,
+  });
+  db.seed("ofertas_comerciales_tenant/distribuidora-las-jimenez", {
+    empresaId: "distribuidora-las-jimenez", ofertaActivaId: "../otra/oferta", revision: 1,
+  });
+
+  await assert.rejects(
+    ejecutarComandoComercial(db as never, "operador_1", "CrearOfertaComercialTenant" as never, {
+      commandId: "cmd_oferta_control_roto", idempotencyKey: "idem_oferta_control_roto",
+      correlationId: "corr_oferta_control_roto", causationId: null, motivoCodigo: "OFERTA_COMERCIAL_TENANT_REGISTRAR",
+      codigoAprobacion: "GATE_I_OFFER_1", expectedRevision: 1, iniciaEn: "2026-10-16", expiraEn: null,
+    } as never),
+    /OFERTA_COMERCIAL_CONTROL_INVALIDO/,
+  );
+  assert.equal(db.countByPrefix("ofertas_comerciales_tenant/distribuidora-las-jimenez/ofertas/"), 0);
+  assert.equal(db.countByPrefix("comandos_comerciales/"), 0);
+});
+
+test("ADR-SAAS-061: revocar oferta rechaza una periodicidad persistida incompatible sin escribir", async () => {
+  const db = new Db();
+  const empresaId = "distribuidora-las-jimenez";
+  const ofertaId = "oferta-malformada-periodicidad";
+  db.seed(`ofertas_comerciales_tenant/${empresaId}`, {
+    empresaId, ofertaActivaId: ofertaId, revision: 2,
+  });
+  db.seed(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`, {
+    schemaVersion: 1,
+    ofertaId,
+    empresaIdObjetivo: empresaId,
+    planIdBase: "mvp_comercial",
+    planVersionBase: 2,
+    periodicidad: "MENSUAL",
+    precioAcordado: { importe: 1600000, moneda: "COP" },
+    estado: "APROBADA",
+    iniciaEn: "2026-10-16",
+    expiraEn: null,
+    motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
+    referenciaAprobacion: "ADR-SAAS-061",
+    revision: 2,
+  });
+
+  await assert.rejects(
+    ejecutarComandoComercial(db as never, "operador_1", "RevocarOfertaComercialTenant" as never, {
+      commandId: "cmd_oferta_periodicidad_invalida", idempotencyKey: "idem_oferta_periodicidad_invalida",
+      correlationId: "corr_oferta_periodicidad_invalida", causationId: null,
+      motivoCodigo: "OFERTA_COMERCIAL_TENANT_REVOCAR", empresaId, ofertaId, expectedRevision: 2,
+    } as never),
+    /OFERTA_COMERCIAL_INVALIDA/,
+  );
+  assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).estado, "APROBADA");
+  assert.equal(db.countByPrefix("comandos_comerciales/"), 0);
+});
+
+test("ADR-SAAS-061: revocar oferta rechaza el ofertaId persistido que no coincide con su ruta, sin escribir", async () => {
+  const db = new Db();
+  const empresaId = "distribuidora-las-jimenez";
+  const ofertaIdSolicitada = "oferta-canonica-revocacion";
+  const controlPath = `ofertas_comerciales_tenant/${empresaId}`;
+  const ofertaPath = `${controlPath}/ofertas/${ofertaIdSolicitada}`;
+  const controlInicial = { empresaId, ofertaActivaId: ofertaIdSolicitada, revision: 4 };
+  // Documento otherwise-valid: el mismatch del ID es la única condición inválida.
+  const ofertaInicial = {
+    schemaVersion: 1,
+    ofertaId: "oferta-embebida-distinta",
+    empresaIdObjetivo: empresaId,
+    planIdBase: "mvp_comercial",
+    planVersionBase: 2,
+    periodicidad: "ANUAL",
+    precioAcordado: { importe: 1_600_000, moneda: "COP" },
+    estado: "APROBADA",
+    iniciaEn: "2026-10-16",
+    expiraEn: null,
+    motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
+    referenciaAprobacion: "ADR-SAAS-061-TEST",
+    revision: 2,
+  };
+  db.seed(controlPath, controlInicial);
+  db.seed(ofertaPath, ofertaInicial);
+
+  await assert.rejects(
+    ejecutarComandoComercial(db as never, "operador_1", "RevocarOfertaComercialTenant" as never, {
+      commandId: "cmd_revocar_id_no_coincide",
+      idempotencyKey: "idem_revocar_id_no_coincide",
+      correlationId: "corr_revocar_id_no_coincide",
+      causationId: null,
+      motivoCodigo: "OFERTA_COMERCIAL_TENANT_REVOCAR",
+      empresaId,
+      ofertaId: ofertaIdSolicitada,
+      expectedRevision: 2,
+    } as never),
+    /OFERTA_COMERCIAL_INVALIDA/,
+  );
+
+  assert.deepEqual(db.read(ofertaPath), ofertaInicial);
+  assert.deepEqual(db.read(controlPath), controlInicial);
+  assert.equal(db.countByPrefix("comandos_comerciales/"), 0);
+  assert.equal(db.countByPrefix("configuracion_command_ids/"), 0);
+  assert.equal(db.countByPrefix("auditoria_logs/"), 0);
+  assert.equal(db.countByPrefix("eventos_dominio/"), 0);
+});
+
+test("ADR-SAAS-061: revocar oferta no incrementa una revisión fuera del rango seguro", async (t) => {
+  for (const caso of ["oferta", "control"] as const) {
+    await t.test(`rechaza incremento agotado en ${caso} sin escrituras`, async () => {
+      const db = new Db();
+      const empresaId = "distribuidora-las-jimenez";
+      const ofertaId = `oferta-revision-${caso}`;
+      const controlPath = `ofertas_comerciales_tenant/${empresaId}`;
+      const ofertaPath = `${controlPath}/ofertas/${ofertaId}`;
+      const controlInicial = {
+        empresaId,
+        ofertaActivaId: ofertaId,
+        revision: caso === "control" ? Number.MAX_SAFE_INTEGER : 4,
+      };
+      const ofertaInicial = {
+        schemaVersion: 1,
+        ofertaId,
+        empresaIdObjetivo: empresaId,
+        planIdBase: "mvp_comercial",
+        planVersionBase: 2,
+        periodicidad: "ANUAL",
+        precioAcordado: { importe: 1_600_000, moneda: "COP" },
+        estado: "APROBADA",
+        iniciaEn: "2026-10-16",
+        expiraEn: null,
+        motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
+        referenciaAprobacion: "ADR-SAAS-061-TEST",
+        revision: caso === "oferta" ? Number.MAX_SAFE_INTEGER : 2,
+      };
+      db.seed(controlPath, controlInicial);
+      db.seed(ofertaPath, ofertaInicial);
+      const documentosIniciales = structuredClone([...db.docs.entries()]);
+
+      await assert.rejects(
+        ejecutarComandoComercial(db as never, "operador_1", "RevocarOfertaComercialTenant" as never, {
+          commandId: `cmd_revocar_revision_${caso}`,
+          idempotencyKey: `idem_revocar_revision_${caso}`,
+          correlationId: `corr_revocar_revision_${caso}`,
+          causationId: null,
+          motivoCodigo: "OFERTA_COMERCIAL_TENANT_REVOCAR",
+          empresaId,
+          ofertaId,
+          expectedRevision: ofertaInicial.revision,
+        } as never),
+        /OFERTA_COMERCIAL_TRANSITION_INVALIDA/,
+      );
+
+      assert.deepEqual([...db.docs.entries()], documentosIniciales);
+    });
+  }
+});
+
+test("ADR-SAAS-061: la última transición segura puede alcanzar Number.MAX_SAFE_INTEGER", async () => {
+  const db = new Db();
+  const empresaId = "distribuidora-las-jimenez";
+  const ofertaId = "oferta-ultima-revision-segura";
+  const controlPath = `ofertas_comerciales_tenant/${empresaId}`;
+  const ofertaPath = `${controlPath}/ofertas/${ofertaId}`;
+  db.seed(controlPath, { empresaId, ofertaActivaId: ofertaId, revision: 4 });
+  db.seed(ofertaPath, {
+    schemaVersion: 1,
+    ofertaId,
+    empresaIdObjetivo: empresaId,
+    planIdBase: "mvp_comercial",
+    planVersionBase: 2,
+    periodicidad: "ANUAL",
+    precioAcordado: { importe: 1_600_000, moneda: "COP" },
+    estado: "APROBADA",
+    iniciaEn: "2026-10-16",
+    expiraEn: null,
+    motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
+    referenciaAprobacion: "ADR-SAAS-061-TEST",
+    revision: Number.MAX_SAFE_INTEGER - 1,
+  });
+
+  const resultado = await ejecutarComandoComercial(db as never, "operador_1", "RevocarOfertaComercialTenant" as never, {
+    commandId: "cmd_revocar_ultima_revision_segura",
+    idempotencyKey: "idem_revocar_ultima_revision_segura",
+    correlationId: "corr_revocar_ultima_revision_segura",
+    causationId: null,
+    motivoCodigo: "OFERTA_COMERCIAL_TENANT_REVOCAR",
+    empresaId,
+    ofertaId,
+    expectedRevision: Number.MAX_SAFE_INTEGER - 1,
+  } as never);
+
+  assert.equal((resultado as { idempotente: boolean }).idempotente, false);
+  assert.equal(db.read(ofertaPath).revision, Number.MAX_SAFE_INTEGER);
+  assert.equal(db.read(ofertaPath).estado, "REVOCADA");
+  assert.equal(db.read(controlPath).revision, 5);
+  assert.equal(db.read(controlPath).ofertaActivaId, null);
 });
 
 test("ActualizarDatosAdministrativosEmpresa rechaza por conflicto de revisión, sin escribir nada", async () => {

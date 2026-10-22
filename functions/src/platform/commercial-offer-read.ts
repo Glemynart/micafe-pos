@@ -1,16 +1,13 @@
 import { HttpsError } from "firebase-functions/v2/https";
 import type { Firestore } from "firebase-admin/firestore";
-import { esIdComercial, type EstadoOfertaComercialTenant, type OfertaComercialTenant } from "../../../lib/suscripciones/contrato";
+import { type OfertaComercialTenant } from "../../../lib/suscripciones/contrato";
 import { resolverTerminosOfertaTenantAprobada, type TerminosOfertaTenantAprobada } from "./approved-tenant-offers";
-import { ofertaComercialActivaRef, ofertaComercialRef, validarOfertaComercialEntrada } from "../suscripciones/ofertas-tenant";
-
-const ESTADOS_OFERTA: readonly EstadoOfertaComercialTenant[] = [
-  "BORRADOR",
-  "APROBADA",
-  "CONSUMIDA",
-  "REVOCADA",
-  "EXPIRADA",
-];
+import {
+  ofertaComercialActivaRef,
+  ofertaComercialRef,
+  validarControlOfertaComercial,
+  validarOfertaComercialPersistida,
+} from "../suscripciones/ofertas-tenant";
 
 export type OfertaComercialTenantAdminView = Pick<
   OfertaComercialTenant,
@@ -52,48 +49,26 @@ export async function consultarOfertaComercialTenant(
   let controlRevision = 1;
   let ofertaActivaId: string | null = null;
   if (controlSnap.exists) {
-    const control = controlSnap.data() as { revision?: unknown; ofertaActivaId?: unknown };
-    if (!Number.isInteger(control.revision) || (control.revision as number) < 1) {
-      throw new HttpsError("failed-precondition", "OFERTA_COMERCIAL_CONTROL_INVALIDO");
-    }
-    controlRevision = control.revision as number;
-    if (control.ofertaActivaId !== null && control.ofertaActivaId !== undefined) {
-      if (!esIdComercial(control.ofertaActivaId)) {
-        throw new HttpsError("failed-precondition", "OFERTA_COMERCIAL_CONTROL_INVALIDO");
-      }
-      ofertaActivaId = control.ofertaActivaId;
-    }
+    const control = validarControlOfertaComercial(controlSnap.data(), empresaId);
+    controlRevision = control.revision;
+    ofertaActivaId = control.ofertaActivaId;
   }
 
   if (!ofertaSnap.exists) return { autorizacion, oferta: null, controlRevision, ofertaActivaId };
 
-  const data = ofertaSnap.data() as OfertaComercialTenant;
-  if (data.schemaVersion !== 1
-    || data.ofertaId !== ofertaId
+  const persistedData = ofertaSnap.data();
+  validarOfertaComercialPersistida(persistedData);
+  const data = persistedData;
+  if (data.ofertaId !== ofertaId
     || data.empresaIdObjetivo !== empresaId
     || data.planIdBase !== autorizacion.planIdBase
-    || !Number.isInteger(data.planVersionBase)
     || data.planVersionBase !== autorizacion.planVersionBase
     || data.periodicidad !== "ANUAL"
     || data.precioAcordado?.importe !== autorizacion.precioAcordado.importe
     || data.precioAcordado?.moneda !== autorizacion.precioAcordado.moneda
-    || data.referenciaAprobacion !== autorizacion.referenciaAprobacion
-    || !ESTADOS_OFERTA.includes(data.estado)
-    || !Number.isInteger(data.revision)
-    || data.revision < 1) {
+    || data.referenciaAprobacion !== autorizacion.referenciaAprobacion) {
     throw new HttpsError("failed-precondition", "OFERTA_COMERCIAL_INVALIDA");
   }
-
-  validarOfertaComercialEntrada({
-    empresaId: data.empresaIdObjetivo,
-    ofertaId: data.ofertaId,
-    planIdBase: data.planIdBase,
-    planVersionBase: data.planVersionBase,
-    precioAcordado: data.precioAcordado,
-    iniciaEn: data.iniciaEn,
-    expiraEn: data.expiraEn,
-    referenciaAprobacion: data.referenciaAprobacion,
-  });
 
   return {
     autorizacion,

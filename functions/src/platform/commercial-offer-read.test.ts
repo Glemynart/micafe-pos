@@ -25,7 +25,11 @@ test("ADR-SAAS-061: consulta solo empresa/oferta indicadas y devuelve campos per
   const ofertaId = "oferta-distribuidora-jimenez-2026";
   const codigoAprobacion = "GATE_I_OFFER_1";
   const referenciaAprobacion = "G-SAAS-02-PO-OFFER-DISTRIBUIDORA-LAS-JIMENEZ-2026-10-06";
-  db.seed(`ofertas_comerciales_tenant/${empresaId}`, { ofertaActivaId: ofertaId, revision: 3 });
+  db.seed(`ofertas_comerciales_tenant/${empresaId}`, {
+    empresaId,
+    ofertaActivaId: ofertaId,
+    revision: 3,
+  });
   db.seed(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`, {
     schemaVersion: 1,
     ofertaId,
@@ -35,7 +39,7 @@ test("ADR-SAAS-061: consulta solo empresa/oferta indicadas y devuelve campos per
     periodicidad: "ANUAL",
     precioAcordado: { importe: 1600000, moneda: "COP" },
     estado: "APROBADA",
-    iniciaEn: "2026-10-05",
+    iniciaEn: "2026-10-16",
     expiraEn: null,
     motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
     referenciaAprobacion,
@@ -70,7 +74,7 @@ test("ADR-SAAS-061: consulta solo empresa/oferta indicadas y devuelve campos per
     periodicidad: "ANUAL",
     precioAcordado: { importe: 1600000, moneda: "COP" },
     estado: "APROBADA",
-    iniciaEn: "2026-10-05",
+    iniciaEn: "2026-10-16",
     expiraEn: null,
     motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
     referenciaAprobacion,
@@ -105,5 +109,72 @@ test("ADR-SAAS-061: el registro queda bloqueado si falta el control del agregado
   await assert.rejects(
     consultarOfertaComercialTenant(db as never, codigoAprobacion),
     /OFERTA_COMERCIAL_CONTROL_INEXISTENTE/,
+  );
+});
+
+test("ADR-SAAS-061: la consulta rechaza un control existente sin puntero activo canónico", async () => {
+  const db = fakeDb();
+  db.seed("ofertas_comerciales_tenant/distribuidora-las-jimenez", { revision: 1 });
+
+  await assert.rejects(
+    consultarOfertaComercialTenant(db as never, "GATE_I_OFFER_1"),
+    /OFERTA_COMERCIAL_CONTROL_INVALIDO/,
+  );
+});
+
+test("ADR-SAAS-061: la consulta rechaza un control sin empresaId persistida", async () => {
+  const db = fakeDb();
+  db.seed("ofertas_comerciales_tenant/distribuidora-las-jimenez", {
+    ofertaActivaId: null,
+    revision: 1,
+  });
+
+  await assert.rejects(
+    consultarOfertaComercialTenant(db as never, "GATE_I_OFFER_1"),
+    /OFERTA_COMERCIAL_CONTROL_INVALIDO/,
+  );
+});
+
+test("ADR-SAAS-061: la consulta rechaza un puntero que no puede ser un ID canónico", async () => {
+  const db = fakeDb();
+  db.seed("ofertas_comerciales_tenant/distribuidora-las-jimenez", {
+    empresaId: "distribuidora-las-jimenez",
+    ofertaActivaId: "../ofertas/oferta-ajena",
+    revision: 1,
+  });
+
+  await assert.rejects(
+    consultarOfertaComercialTenant(db as never, "GATE_I_OFFER_1"),
+    /OFERTA_COMERCIAL_CONTROL_INVALIDO/,
+  );
+});
+
+test("ADR-SAAS-061: la consulta rechaza un control cuyo tenant embebido contradice la ruta", async () => {
+  const db = fakeDb();
+  db.seed("ofertas_comerciales_tenant/distribuidora-las-jimenez", {
+    empresaId: "otro_tenant",
+    ofertaActivaId: null,
+    revision: 1,
+  });
+
+  await assert.rejects(
+    consultarOfertaComercialTenant(db as never, "GATE_I_OFFER_1"),
+    /OFERTA_COMERCIAL_CONTROL_INVALIDO/,
+  );
+});
+
+test("ADR-SAAS-061: Bootstrap y consulta usan el mismo schemaVersion de oferta persistida", async () => {
+  const db = fakeDb();
+  db.seed("ofertas_comerciales_tenant/distribuidora-las-jimenez", {
+    empresaId: "distribuidora-las-jimenez", ofertaActivaId: null, revision: 1,
+  });
+  db.seed(
+    "ofertas_comerciales_tenant/distribuidora-las-jimenez/ofertas/oferta-distribuidora-jimenez-2026",
+    { schemaVersion: 2 },
+  );
+
+  await assert.rejects(
+    consultarOfertaComercialTenant(db as never, "GATE_I_OFFER_1"),
+    /OFERTA_COMERCIAL_INVALIDA/,
   );
 });
