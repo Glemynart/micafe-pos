@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test"
+import { resolve } from "node:path"
 
 const baseURL = process.env.E2E_BODEGA_BASE_URL ?? "http://127.0.0.1:3010"
+const outputDir = process.env.E2E_BODEGA_OUTPUT_DIR ?? `${process.env.TEMP ?? "."}/bodega-u4-u5-playwright`
 
 export default defineConfig({
   testDir: "./tests/e2e/bodega-u4-u5",
@@ -8,8 +10,11 @@ export default defineConfig({
   workers: 1,
   timeout: 60_000,
   expect: { timeout: 20_000 },
-  reporter: "list",
-  outputDir: process.env.E2E_BODEGA_OUTPUT_DIR ?? `${process.env.TEMP ?? "."}/bodega-u4-u5-playwright`,
+  reporter: [
+    "list",
+    ["json", { outputFile: resolve(outputDir, "playwright-report.json") }],
+  ],
+  outputDir,
   use: { baseURL, trace: "retain-on-failure", screenshot: "only-on-failure", ...devices["Desktop Chrome"] },
   webServer: {
     command: "cross-env NEXT_PUBLIC_USE_EMULATORS=1 next dev --webpack -H 127.0.0.1 -p 3010",

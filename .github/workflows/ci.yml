@@ -437,7 +437,7 @@ jobs:
         with:
           name: e2e-bodega-u4-u5-${{ github.run_id }}
           path: ${{ runner.temp }}/e2e-bodega-u4-u5/
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
 
       - name: E2E Bodega — agenda, reservas y aislamiento en Emulator
