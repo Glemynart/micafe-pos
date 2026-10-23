@@ -216,8 +216,10 @@ estos puntos:
 
 ## Pruebas requeridas antes de considerar un despliegue
 
-Un PR de implementación posterior —solo tras la aceptación de esta ADR— deberá
-demostrar como mínimo:
+El PR #636 ya propone la implementación de este contrato y no debe integrarse
+antes de que esta ADR quede aceptada en `main`. Antes de su integración y de
+considerar cualquier despliegue, esa implementación deberá demostrar como
+mínimo:
 
 - **Discovery/package:** exports exactos, `FUNCTION_TARGET` correcto,
   región `us-central1`, cero Secrets y cero params sensibles.
