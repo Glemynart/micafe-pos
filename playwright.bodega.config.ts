@@ -11,7 +11,7 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 20_000 },
   reporter: [
-    "list",
+    ["list"],
     ["json", { outputFile: resolve(outputDir, "playwright-report.json") }],
   ],
   outputDir,
