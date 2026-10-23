@@ -25,6 +25,12 @@
 | Contrato callable con Firestore local, autorización, errores de entrada y aislamiento de lectura | `npx firebase --project demo-e2-2-commercial-callable emulators:exec --only firestore "npm --prefix functions run test:commercial-offer-callable:emulator"` | PASS (10/10; loopback, proyecto `demo-*`) |
 | Orden de autenticación/autorización, validación estricta y sanitización de errores | `commercial-offer-callable-contract.test.ts` | PASS (8/8) |
 | Clasificación de entradas nuevas frente a estado persistido inconsistente | `commercial-offer-read.test.ts` | PASS (11/11) |
+
+Las 19 pruebas focalizadas se ejecutaron en la rama `codex/e2-2-commercial-callable-tests`, dentro de `functions/`, sobre el código del commit `293a2c24f23fedcd59e5b0f213566e6bfe5f5711`, con este comando:
+
+```powershell
+npx --no-install tsx --test src/platform/commercial-offer-read.test.ts src/platform/commercial-offer-callable-contract.test.ts
+```
 | Regresión de la suite `test:auth-foundation` | `npm run test:auth-foundation` | PASS (494 aprobadas, 0 fallidas, 25 omitidas) |
 | Integridad del diff | `git diff --check` | PASS |
 
