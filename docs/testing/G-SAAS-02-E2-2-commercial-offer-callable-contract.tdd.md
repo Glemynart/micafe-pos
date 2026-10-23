@@ -27,10 +27,11 @@
 | Regresión de la suite `test:auth-foundation` | `npm run test:auth-foundation` | PASS (494 aprobadas, 0 fallidas, 25 omitidas) |
 | Integridad del diff | `git diff --check` | PASS |
 
-## Validaciones pendientes y límites
+## Validaciones locales no disponibles y resultado de CI
 
 - El build local de Functions no terminó: esta worktree no tenía instaladas las dependencias raíz (`dotenv` y módulos `firebase/*`).
-- No se pudo instalar `functions-commercial` localmente: npm informó `ECONNRESET` y la repetición sin red no encontró `google-auth-library@10.9.1` en caché. Por eso, su build y `test:discovery` quedan a cargo de CI para el nuevo head; no se afirman como aprobados.
+- No se pudo instalar `functions-commercial` localmente: npm informó `ECONNRESET` y la repetición sin red no encontró `google-auth-library@10.9.1` en caché.
+- CI completo del head de código `e4d89138622ca236f6c97a04ead2fe5af33d344d` terminó en PASS en la ejecución `39977095422` (2026-10-23 15:49:43 UTC). Para ese SHA pasaron `Build de Functions`, `Build del codebase Commercial`, `Discovery secret-free del codebase Commercial`, `Prueba integrada de consulta comercial en Firestore Emulator`, el workflow completo y la auditoría automática E4.2. El resultado del build/discovery queda respaldado por CI, no por una ejecución local.
 - No se midió cobertura.
 - CI verde, conformidad arquitectónica y autorización de despliegue son estados distintos. La ejecución local en Emulator prueba el contrato de este código; no prueba staging ni producción. ADR-SAAS-086 requiere quedar integrado según su PR dependiente antes de considerar este código para merge; ningún resultado aquí autoriza desplegar `saas-commercial`.
 - No se ejecutaron operaciones comerciales, Bootstrap, escrituras remotas ni despliegues. Las escrituras de fixtures ocurrieron solo en el Firestore Emulator local `demo-e2-2-commercial-callable`.
