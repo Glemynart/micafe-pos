@@ -30,18 +30,25 @@ export function incrementarRevisionOfertaComercial(revision: number): number {
   return revision + 1;
 }
 
-export function validarPrecioAcordado(value: unknown): asserts value is { importe: number; moneda: string } {
+function validarPrecioAcordadoConError(
+  value: unknown,
+  codigoError: "invalid-argument" | "failed-precondition",
+): asserts value is { importe: number; moneda: string } {
   const precio = value as { importe?: unknown; moneda?: unknown } | null;
   if (!precio
     || !Number.isSafeInteger(precio.importe)
     || (precio.importe as number) <= 0
     || typeof precio.moneda !== "string"
     || !/^[A-Z]{3}$/.test(precio.moneda)) {
-    rechazar("invalid-argument", "OFERTA_COMERCIAL_PRECIO_INVALIDO");
+    rechazar(codigoError, "OFERTA_COMERCIAL_PRECIO_INVALIDO");
   }
 }
 
-export function validarOfertaComercialEntrada(entrada: {
+export function validarPrecioAcordado(value: unknown): asserts value is { importe: number; moneda: string } {
+  validarPrecioAcordadoConError(value, "invalid-argument");
+}
+
+type EntradaOfertaComercial = {
   empresaId: unknown;
   ofertaId: unknown;
   planIdBase: unknown;
@@ -50,7 +57,12 @@ export function validarOfertaComercialEntrada(entrada: {
   iniciaEn: unknown;
   expiraEn: unknown;
   referenciaAprobacion: unknown;
-}) {
+};
+
+function validarOfertaComercialConError(
+  entrada: EntradaOfertaComercial,
+  codigoError: "invalid-argument" | "failed-precondition",
+) {
   if (!esIdComercial(entrada.empresaId)
     || !esIdComercial(entrada.ofertaId)
     || !esIdComercial(entrada.planIdBase)
@@ -62,9 +74,13 @@ export function validarOfertaComercialEntrada(entrada: {
     || typeof entrada.referenciaAprobacion !== "string"
     || entrada.referenciaAprobacion.length < 1
     || entrada.referenciaAprobacion.length > 160) {
-    rechazar("invalid-argument", "OFERTA_COMERCIAL_INVALIDA");
+    rechazar(codigoError, "OFERTA_COMERCIAL_INVALIDA");
   }
-  validarPrecioAcordado(entrada.precioAcordado);
+  validarPrecioAcordadoConError(entrada.precioAcordado, codigoError);
+}
+
+export function validarOfertaComercialEntrada(entrada: EntradaOfertaComercial) {
+  validarOfertaComercialConError(entrada, "invalid-argument");
 }
 
 export type ControlOfertaComercial = {
@@ -111,7 +127,7 @@ export function validarOfertaComercialPersistida(value: unknown): asserts value 
     rechazar("failed-precondition", "OFERTA_COMERCIAL_INVALIDA");
   }
 
-  validarOfertaComercialEntrada({
+  validarOfertaComercialConError({
     empresaId: oferta.empresaIdObjetivo,
     ofertaId: oferta.ofertaId,
     planIdBase: oferta.planIdBase,
@@ -120,7 +136,7 @@ export function validarOfertaComercialPersistida(value: unknown): asserts value 
     iniciaEn: oferta.iniciaEn,
     expiraEn: oferta.expiraEn,
     referenciaAprobacion: oferta.referenciaAprobacion,
-  });
+  }, "failed-precondition");
 }
 
 export type OfertaConsumida = {

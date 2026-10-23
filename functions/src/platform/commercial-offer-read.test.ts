@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { HttpsError } from "firebase-functions/v2/https";
+import { validarOfertaComercialEntrada } from "../suscripciones/ofertas-tenant";
 import { consultarOfertaComercialTenant } from "./commercial-offer-read";
 
 function fakeDb() {
@@ -19,7 +21,7 @@ function fakeDb() {
   };
 }
 
-test("ADR-SAAS-061: consulta solo empresa/oferta indicadas y devuelve campos permitidos", async () => {
+test("ADR-SAAS-061: consulta solo la oferta del tenant aprobado y devuelve campos permitidos", async () => {
   const db = fakeDb();
   const empresaId = "distribuidora-las-jimenez";
   const ofertaId = "oferta-distribuidora-jimenez-2026";
@@ -45,6 +47,15 @@ test("ADR-SAAS-061: consulta solo empresa/oferta indicadas y devuelve campos per
     referenciaAprobacion,
     revision: 2,
     internalCredential: "must-not-leak",
+  });
+  db.seed("ofertas_comerciales_tenant/tenant-vecino-sintetico", {
+    empresaId: "tenant-vecino-sintetico",
+    ofertaActivaId: "oferta-vecina",
+    secretSentinel: "must-not-read-neighbor-control",
+  });
+  db.seed("ofertas_comerciales_tenant/tenant-vecino-sintetico/ofertas/oferta-vecina", {
+    empresaIdObjetivo: "tenant-vecino-sintetico",
+    secretSentinel: "must-not-read-neighbor-offer",
   });
 
   const result = await consultarOfertaComercialTenant(db as never, codigoAprobacion);
@@ -96,10 +107,12 @@ test("ADR-SAAS-061: una oferta inexistente devuelve la aprobación y control ini
 });
 
 test("ADR-SAAS-061: la consulta rechaza referencias de aprobación desconocidas", async () => {
+  const db = fakeDb();
   await assert.rejects(
-    consultarOfertaComercialTenant(fakeDb() as never, "codigo-no-aprobado"),
+    consultarOfertaComercialTenant(db as never, "codigo-no-aprobado"),
     /OFERTA_COMERCIAL_APROBACION_NOT_FOUND/,
   );
+  assert.deepEqual(db.reads, []);
 });
 
 test("ADR-SAAS-061: el registro queda bloqueado si falta el control del agregado", async () => {
@@ -160,6 +173,56 @@ test("ADR-SAAS-061: la consulta rechaza un control cuyo tenant embebido contradi
   await assert.rejects(
     consultarOfertaComercialTenant(db as never, "GATE_I_OFFER_1"),
     /OFERTA_COMERCIAL_CONTROL_INVALIDO/,
+  );
+});
+
+test("la entrada de una oferta nueva conserva invalid-argument para un precio inválido", () => {
+  assert.throws(
+    () => validarOfertaComercialEntrada({
+      empresaId: "distribuidora-las-jimenez",
+      ofertaId: "oferta-distribuidora-jimenez-2026",
+      planIdBase: "mvp_comercial",
+      planVersionBase: 2,
+      precioAcordado: { importe: 0, moneda: "COP" },
+      iniciaEn: "2026-10-16",
+      expiraEn: null,
+      referenciaAprobacion: "G-SAAS-02-PO-OFFER-DISTRIBUIDORA-LAS-JIMENEZ-2026-10-06",
+    }),
+    (error: unknown) => error instanceof HttpsError
+      && error.code === "invalid-argument"
+      && error.message === "OFERTA_COMERCIAL_PRECIO_INVALIDO",
+  );
+});
+
+test("ADR-SAAS-061: precio persistido inválido es una precondición inconsistente", async () => {
+  const db = fakeDb();
+  db.seed("ofertas_comerciales_tenant/distribuidora-las-jimenez", {
+    empresaId: "distribuidora-las-jimenez", ofertaActivaId: null, revision: 1,
+  });
+  db.seed(
+    "ofertas_comerciales_tenant/distribuidora-las-jimenez/ofertas/oferta-distribuidora-jimenez-2026",
+    {
+      schemaVersion: 1,
+      ofertaId: "oferta-distribuidora-jimenez-2026",
+      empresaIdObjetivo: "distribuidora-las-jimenez",
+      planIdBase: "mvp_comercial",
+      planVersionBase: 2,
+      periodicidad: "ANUAL",
+      precioAcordado: { importe: 0, moneda: "COP" },
+      estado: "APROBADA",
+      iniciaEn: "2026-10-16",
+      expiraEn: null,
+      motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
+      referenciaAprobacion: "G-SAAS-02-PO-OFFER-DISTRIBUIDORA-LAS-JIMENEZ-2026-10-06",
+      revision: 2,
+    },
+  );
+
+  await assert.rejects(
+    consultarOfertaComercialTenant(db as never, "GATE_I_OFFER_1"),
+    (error: unknown) => error instanceof HttpsError
+      && error.code === "failed-precondition"
+      && error.message === "OFERTA_COMERCIAL_PRECIO_INVALIDO",
   );
 });
 

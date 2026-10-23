@@ -1,5 +1,6 @@
 import { getFirestore } from "firebase-admin/firestore";
-import { HttpsError, onCall } from "firebase-functions/v2/https";
+import type { Firestore } from "firebase-admin/firestore";
+import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/https";
 import { exigirRuntimeOfertaTenantPermitido } from "./approved-tenant-offers";
 import { autorizarPlataforma, type TokenPlataforma } from "./authorization";
 import { facultadTransicionEmpresa, obtenerComandoComercial } from "./command-catalog";
@@ -37,14 +38,89 @@ export const ejecutarComandoComercialSaas = onCall({ region: REGION }, async (re
 });
 
 /** ADR-SAAS-061: lectura puntual de una oferta, protegida por la facultad comercial. */
-export const consultarOfertaComercialTenantSaas = onCall({ region: REGION }, async (request) => {
-  const auth = exigirAuth(request);
-  const data = request.data as { codigoAprobacion?: unknown };
-  const db = getFirestore();
-  await autorizarPlataforma(db, auth.uid, auth.token as TokenPlataforma, "COMERCIAL_GOBERNAR");
-  exigirRuntimeOfertaTenantPermitido();
-  if (typeof data?.codigoAprobacion !== "string") {
+type ConsultaOfertaDependencies = {
+  getFirestore: () => Firestore;
+  autorizar: typeof autorizarPlataforma;
+  exigirRuntime: typeof exigirRuntimeOfertaTenantPermitido;
+  consultarOferta: typeof consultarOfertaComercialTenant;
+};
+
+const ERRORES_CONSULTA_PUBLICOS = new Set([
+  "permission-denied:PLATFORM_ACCESS_DENIED",
+  "failed-precondition:PLATFORM_CONTEXT_STALE",
+  "failed-precondition:OFERTA_COMERCIAL_RUNTIME_DENIED",
+  "failed-precondition:OFERTA_COMERCIAL_APROBACION_NOT_FOUND",
+  "failed-precondition:OFERTA_COMERCIAL_CONTROL_INEXISTENTE",
+  "failed-precondition:OFERTA_COMERCIAL_CONTROL_INVALIDO",
+  "failed-precondition:OFERTA_COMERCIAL_INVALIDA",
+  "failed-precondition:OFERTA_COMERCIAL_PRECIO_INVALIDO",
+  "invalid-argument:OFERTA_COMERCIAL_APROBACION_INVALIDA",
+  "invalid-argument:OFERTA_COMERCIAL_TERMINOS_CLIENTE_NO_ADMITIDOS",
+  "invalid-argument:OFERTA_COMERCIAL_INVALIDA",
+]);
+
+function exigirRequestConsultaOferta(data: unknown): string {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
     throw new HttpsError("invalid-argument", "OFERTA_COMERCIAL_INVALIDA");
   }
-  return consultarOfertaComercialTenant(db, data.codigoAprobacion);
-});
+
+  const payload = data as Record<string, unknown>;
+  const keys = Object.keys(payload);
+  if (keys.length !== 1
+    || keys[0] !== "codigoAprobacion"
+    || !Object.hasOwn(payload, "codigoAprobacion")) {
+    throw new HttpsError("invalid-argument", "OFERTA_COMERCIAL_INVALIDA");
+  }
+
+  const code = payload.codigoAprobacion;
+  if (typeof code !== "string" || code.length === 0 || code.length > 64) {
+    throw new HttpsError("invalid-argument", "OFERTA_COMERCIAL_INVALIDA");
+  }
+  for (let index = 0; index < code.length; index += 1) {
+    if (code.charCodeAt(index) > 0x7f) {
+      throw new HttpsError("invalid-argument", "OFERTA_COMERCIAL_INVALIDA");
+    }
+  }
+  return code;
+}
+
+function normalizarErrorConsultaOferta(error: unknown): HttpsError {
+  if (error instanceof HttpsError
+    && ERRORES_CONSULTA_PUBLICOS.has(`${error.code}:${error.message}`)) {
+    return new HttpsError(error.code, error.message);
+  }
+  return new HttpsError("internal", "OFERTA_COMERCIAL_LECTURA_ERROR");
+}
+
+/** Permite probar el contrato de entrada y errores sin servicios remotos. */
+export function crearManejadorConsultaOfertaComercial(
+  dependencies: ConsultaOfertaDependencies = {
+    getFirestore,
+    autorizar: autorizarPlataforma,
+    exigirRuntime: exigirRuntimeOfertaTenantPermitido,
+    consultarOferta: consultarOfertaComercialTenant,
+  },
+) {
+  return async (request: CallableRequest<unknown>) => {
+    const auth = exigirAuth(request);
+    try {
+      const db = dependencies.getFirestore();
+      await dependencies.autorizar(
+        db,
+        auth.uid,
+        auth.token as TokenPlataforma,
+        "COMERCIAL_GOBERNAR",
+      );
+      const codigoAprobacion = exigirRequestConsultaOferta(request.data);
+      dependencies.exigirRuntime();
+      return await dependencies.consultarOferta(db, codigoAprobacion);
+    } catch (error) {
+      throw normalizarErrorConsultaOferta(error);
+    }
+  };
+}
+
+export const consultarOfertaComercialTenantSaas = onCall(
+  { region: REGION },
+  crearManejadorConsultaOfertaComercial(),
+);

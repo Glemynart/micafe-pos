@@ -13,6 +13,7 @@
     "test:p1-02:emulator": "tsx --test src/finanzas/p1-02.emulator.test.ts",
     "test:p1-04:emulator": "tsx --test src/salon/p1-04.emulator.test.ts",
     "test:email:integration": "tsx --test src/email-integration.test.ts",
+    "test:commercial-offer-callable:emulator": "tsx --test src/platform/commercial-callable.emulator.test.ts",
     "bootstrap:operator-saas": "tsx src/platform/initial-bootstrap-cli.ts"
   },
   "dependencies": {
