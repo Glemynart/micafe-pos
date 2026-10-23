@@ -122,7 +122,7 @@ test("consultar oferta callable rechaza código ausente, vacío y de tipo incorr
   }
 });
 
-test("consultar oferta callable devuelve solo la oferta aprobada y no permite elegir otro tenant", {
+test("consultar oferta callable devuelve solo la oferta aprobada y no muta el estado comercial", {
   skip: !hasEmulator,
 }, async () => {
   requireEmulator(db);
@@ -132,7 +132,6 @@ test("consultar oferta callable devuelve solo la oferta aprobada y no permite el
 
   const controlRef = db.collection("ofertas_comerciales_tenant").doc(APPROVED_TENANT_ID);
   const offerRef = controlRef.collection("ofertas").doc(APPROVED_OFFER_ID);
-  const neighboringTenantRef = db.collection("ofertas_comerciales_tenant").doc("tenant-vecino-sintetico");
   const control = { empresaId: APPROVED_TENANT_ID, ofertaActivaId: APPROVED_OFFER_ID, revision: 3 };
   const offer = {
     schemaVersion: 1,
@@ -153,24 +152,11 @@ test("consultar oferta callable devuelve solo la oferta aprobada y no permite el
   await Promise.all([
     controlRef.set(control),
     offerRef.set(offer),
-    neighboringTenantRef.set({
-      empresaId: "tenant-vecino-sintetico",
-      ofertaActivaId: "oferta-vecina",
-      secretSentinel: "neighbor-data-must-not-leak",
-    }),
-    neighboringTenantRef.collection("ofertas").doc("oferta-vecina").set({
-      empresaIdObjetivo: "tenant-vecino-sintetico",
-      secretSentinel: "neighbor-offer-must-not-leak",
-    }),
   ]);
   const controlBefore = (await controlRef.get()).data();
   const offerBefore = (await offerRef.get()).data();
 
-  const result = await callable.run(request({
-    codigoAprobacion: APPROVAL_CODE,
-    empresaIdObjetivo: "tenant-vecino-sintetico",
-    ofertaId: "oferta-vecina",
-  }, auth)) as {
+  const result = await callable.run(request({ codigoAprobacion: APPROVAL_CODE }, auth)) as {
     autorizacion: { empresaIdObjetivo: string };
     oferta: { empresaIdObjetivo: string } | null;
   };
@@ -178,8 +164,6 @@ test("consultar oferta callable devuelve solo la oferta aprobada y no permite el
   assert.equal(result.autorizacion.empresaIdObjetivo, APPROVED_TENANT_ID);
   assert.equal(result.oferta?.empresaIdObjetivo, APPROVED_TENANT_ID);
   assert.equal(JSON.stringify(result).includes("must-not-leak"), false);
-  assert.equal(JSON.stringify(result).includes("neighbor-data"), false);
-  assert.equal(JSON.stringify(result).includes("neighbor-offer"), false);
   assert.deepEqual((await controlRef.get()).data(), controlBefore);
   assert.deepEqual((await offerRef.get()).data(), offerBefore);
   assert.equal((await db.collection("saas_auditoria").where("actor.uid", "==", uid).get()).size, 0);

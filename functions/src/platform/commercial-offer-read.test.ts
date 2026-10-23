@@ -19,7 +19,7 @@ function fakeDb() {
   };
 }
 
-test("ADR-SAAS-061: consulta solo empresa/oferta indicadas y devuelve campos permitidos", async () => {
+test("ADR-SAAS-061: consulta solo la oferta del tenant aprobado y devuelve campos permitidos", async () => {
   const db = fakeDb();
   const empresaId = "distribuidora-las-jimenez";
   const ofertaId = "oferta-distribuidora-jimenez-2026";
@@ -45,6 +45,15 @@ test("ADR-SAAS-061: consulta solo empresa/oferta indicadas y devuelve campos per
     referenciaAprobacion,
     revision: 2,
     internalCredential: "must-not-leak",
+  });
+  db.seed("ofertas_comerciales_tenant/tenant-vecino-sintetico", {
+    empresaId: "tenant-vecino-sintetico",
+    ofertaActivaId: "oferta-vecina",
+    secretSentinel: "must-not-read-neighbor-control",
+  });
+  db.seed("ofertas_comerciales_tenant/tenant-vecino-sintetico/ofertas/oferta-vecina", {
+    empresaIdObjetivo: "tenant-vecino-sintetico",
+    secretSentinel: "must-not-read-neighbor-offer",
   });
 
   const result = await consultarOfertaComercialTenant(db as never, codigoAprobacion);
@@ -96,10 +105,12 @@ test("ADR-SAAS-061: una oferta inexistente devuelve la aprobación y control ini
 });
 
 test("ADR-SAAS-061: la consulta rechaza referencias de aprobación desconocidas", async () => {
+  const db = fakeDb();
   await assert.rejects(
-    consultarOfertaComercialTenant(fakeDb() as never, "codigo-no-aprobado"),
+    consultarOfertaComercialTenant(db as never, "codigo-no-aprobado"),
     /OFERTA_COMERCIAL_APROBACION_NOT_FOUND/,
   );
+  assert.deepEqual(db.reads, []);
 });
 
 test("ADR-SAAS-061: el registro queda bloqueado si falta el control del agregado", async () => {
