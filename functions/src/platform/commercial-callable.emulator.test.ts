@@ -198,12 +198,38 @@ test("consultar oferta callable rechaza código ausente, vacío y de tipo incorr
   const auth = operatorAuth(uid, ["COMERCIAL_GOBERNAR"]);
   await seedOperator(db, uid, ["COMERCIAL_GOBERNAR"]);
 
-  for (const data of [null, {}, { codigoAprobacion: null }, { codigoAprobacion: 42 }, { codigoAprobacion: "" }]) {
+  for (const data of [
+    null,
+    [],
+    {},
+    { codigoAprobacion: null },
+    { codigoAprobacion: 42 },
+    { codigoAprobacion: "" },
+    { codigoAprobacion: "GATE_I_OFFER_1", empresaId: "tenant-ajeno" },
+    { codigoAprobacion: "GATE_I_OFFER_1", ofertaId: "oferta-ajena" },
+    { codigoAprobacion: "GATE_I_ÓFFER_1" },
+    { codigoAprobacion: "A".repeat(65) },
+  ]) {
     await assert.rejects(
       callable.run(request(data, auth)),
       (error: unknown) => error instanceof HttpsError && error.code === "invalid-argument",
     );
   }
+});
+
+test("consultar oferta callable admite códigos ASCII de hasta 64 caracteres", {
+  skip: !hasEmulator,
+}, async () => {
+  requireEmulator(db);
+  const uid = `commercial-reader-max-code-${randomUUID()}`;
+  await seedOperator(db, uid, ["COMERCIAL_GOBERNAR"]);
+
+  await assert.rejects(
+    callable.run(request({ codigoAprobacion: "A".repeat(64) }, operatorAuth(uid, ["COMERCIAL_GOBERNAR"]))),
+    (error: unknown) => error instanceof HttpsError
+      && error.code === "failed-precondition"
+      && error.message === "OFERTA_COMERCIAL_APROBACION_NOT_FOUND",
+  );
 });
 
 test("consultar oferta callable devuelve solo la oferta autorizada, aísla tenant vecino y no muta estado comercial", {
