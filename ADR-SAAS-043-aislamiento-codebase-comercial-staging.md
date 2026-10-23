@@ -4,6 +4,19 @@
 
 **Aceptado.**
 
+### Vigencia y supersession parcial — 2026-10-23
+
+**Superseded parcialmente por ADR-SAAS-086 — 2026-10-23.** ADR-SAAS-086
+supersede únicamente la cardinalidad original de este ADR. `saas-commercial`
+puede declarar exactamente las dos
+callables `ejecutarComandoComercialSaas` y
+`consultarOfertaComercialTenantSaas`, bajo los límites de ADR-SAAS-086. La
+decisión y sus criterios originales se conservan debajo como trazabilidad; sus
+cláusulas de “una callable/exclusivamente `ejecutarComandoComercialSaas`” dejan
+de regir. Todos los demás controles y límites de ADR-SAAS-043 continúan
+vigentes. La aceptación de ADR-SAAS-086 no acredita conformidad del código ni
+autoriza despliegues.
+
 Este ADR formaliza una frontera de discovery y despliegue. Autoriza una
 implementación local aislada; no autoriza Secrets, despliegues, comandos
 comerciales, provisioning, creación de tenants ni producción.

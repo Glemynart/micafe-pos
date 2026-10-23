@@ -2,13 +2,18 @@
 
 ## Estado
 
-**Propuesto — pendiente de revisión y aprobación humana explícita.**
+**Aceptado — 2026-10-23.**
 
-La autorización recibida el 2026-10-23 permite preparar la Opción A como
-propuesta documental. No acepta este ADR, no cambia ADR-SAAS-043 ni autoriza
-implementación, despliegue, invocación remota u operaciones comerciales.
+El usuario delegó expresamente al Lead Engineer la elección de la alternativa
+más conveniente. Se adopta la Opción A, incluida la excepción
+limitada de auditoría append-only descrita en esta ADR. Esta aceptación resuelve
+la cardinalidad documental; no demuestra conformidad de la implementación ni
+autoriza implementación, invocación remota, despliegue u operaciones
+comerciales.
 
 - **Fecha de propuesta:** 2026-10-23.
+- **Fecha de aceptación:** 2026-10-23, por delegación expresa del usuario
+  para elegir la alternativa técnica más conveniente.
 - **Base documental revisada:** `origin/main @
   bdbf069db0329f81f5b00c949ae2c435097469b9`, verificada antes de crear la
   rama.
@@ -21,11 +26,11 @@ implementación, despliegue, invocación remota u operaciones comerciales.
   [ADR-SAAS-063](ADR-SAAS-063-politica-release-vercel-main.md) y
   [ADR-SAAS-083](ADR-SAAS-083-app-hosting-produccion.md).
 
-Si se acepta la Opción A, esta ADR **supersede únicamente** la restricción de
-ADR-SAAS-043 que limita `saas-commercial` a una callable. ADR-SAAS-043
-conserva sus demás controles de frontera, discovery, Secrets, región,
-preflight y despliegue. Hasta esa aceptación, ADR-SAAS-043 sigue vigente y la
-diferencia con el export actual permanece abierta.
+Esta ADR **supersede únicamente** la restricción de ADR-SAAS-043 que limita
+`saas-commercial` a una callable. ADR-SAAS-043 conserva sus demás controles de
+frontera, discovery, Secrets, región, preflight y despliegue. La implementación
+actual todavía debe demostrar los criterios de conformidad y pruebas de esta
+ADR antes de poder considerarse arquitectónicamente conforme.
 
 ## Contexto y problema
 
@@ -78,9 +83,9 @@ append-only de una denegación. Si el requisito humano fuera cero escrituras de
 cualquier tipo, incluida auditoría, esta Opción A no puede aceptarse sin una
 decisión arquitectónica adicional sobre ese comportamiento.
 
-## Decisión solicitada — Opción A
+## Decisión adoptada — Opción A (2026-10-23)
 
-Autorizar exactamente dos exports en `saas-commercial`:
+Se autorizan exactamente dos exports en `saas-commercial`:
 
 1. `ejecutarComandoComercialSaas`, manteniendo el contrato, los controles y
    el alcance ya aceptados por ADR-SAAS-043.
@@ -165,30 +170,31 @@ compatibilidad y migración. Esta ADR no propone ejecutar ese cambio.
   compatibilidad adicionales; una reubicación apresurada podría romper
   consumidores o duplicar autoridad.
 
-## Recomendación
+## Justificación de la decisión
 
-Recomiendo la Opción A, pendiente de aprobación. Es el cambio documental mínimo
-que permite alinear la frontera de oferta aprobada por ADR-SAAS-061 con los dos
-exports presentes en el candidato, sin inferir que el código aprobó su propia
-arquitectura.
+La Opción A es la resolución documental mínima que alinea la frontera de
+oferta aprobada por ADR-SAAS-061 con los dos exports presentes en el candidato,
+sin inferir que el código aprobó su propia arquitectura. Mantiene una sola
+frontera comercial, acota la cardinalidad a dos operaciones nombradas y
+conserva las demás restricciones de aislamiento de ADR-SAAS-043.
 
-La recomendación depende de que quien apruebe acepte expresamente que “solo
-lectura” excluye mutaciones comerciales, pero permite la escritura de auditoría
-de seguridad ante una denegación. La revisión debe rechazar o pausar esta opción
-si requiere cero escrituras de auditoría.
+La decisión incorpora expresamente que “solo lectura” excluye mutaciones
+comerciales, pero permite la escritura de auditoría de seguridad ante una
+denegación. Si una política futura exige cero escrituras de cualquier clase,
+incluida auditoría, deberá abrirse otra decisión arquitectónica antes de cambiar
+ese comportamiento.
 
 ## Criterios de aceptación arquitectónica
 
 La arquitectura solo se considerará conforme después de que se cumplan todos
 estos puntos:
 
-1. Aprobación humana expresa de la Opción A, incluido el límite de auditoría
-   denegada; el estado de esta ADR cambia a `Aceptado` solo después de esa
-   decisión.
-2. ADR-SAAS-043 se sincroniza mediante una nota/enmienda trazable que indique
-   que su cardinalidad fue supersedida solo para permitir estos dos exports;
-   sus demás restricciones permanecen vigentes.
-3. `saas-commercial` descubre exactamente las dos callable aprobadas en
+1. La decisión arquitectónica de esta ADR está aceptada, incluido el límite de
+   auditoría denegada; esto resuelve la cardinalidad, pero no acredita la
+   implementación.
+2. ADR-SAAS-043 contiene una nota trazable que limita la supersession a la
+   cardinalidad y mantiene vigentes sus demás restricciones.
+3. `saas-commercial` descubre exactamente las dos callables aprobadas en
    `us-central1`, sin parámetros ni Secrets.
 4. El endpoint respeta autenticación, `COMERCIAL_GOBERNAR`, allowlist,
    validación de request, tenant binding y respuesta mínima descritos arriba.
@@ -259,8 +265,10 @@ autorización.
 ## Estados que no se deben confundir
 
 - **Build y pruebas:** acreditan los bytes y checks concretos ejecutados.
-- **Conformidad arquitectónica:** permanece pendiente mientras esta propuesta
-  no se acepte y mientras no se demuestren los controles requeridos.
+- **Decisión arquitectónica:** aceptada para la cardinalidad y los límites
+  descritos en ADR-SAAS-086.
+- **Conformidad arquitectónica:** permanece pendiente hasta que el código,
+  manifiesto y pruebas demuestren todos los criterios y gates de esta ADR.
 - **Autorización de despliegue:** no concedida por este ADR, su aprobación, el
   merge de un PR documental ni un CI verde.
 
@@ -282,8 +290,10 @@ efectivamente autorizados.
 
 ## Revisión y aprobación
 
-La persona responsable debe aceptar expresamente la Opción A y su excepción
-limitada de auditoría, elegir la Opción B o proponer otra resolución. El merge
-de este PR, el CI verde, las pruebas de discovery y la presencia de código no
-constituyen aceptación. Hasta que exista esa decisión, ADR-SAAS-043 conserva
-precedencia y ningún despliegue de `saas-commercial` queda autorizado.
+El usuario delegó expresamente el 2026-10-23 al Lead Engineer la elección de
+la alternativa más conveniente; en ejercicio de esa autorización se adoptó
+la Opción A, incluida su excepción limitada de auditoría. La decisión está
+tomada y registrada aquí. El PR sigue sujeto a su revisión y merge normales. El
+merge, CI verde, pruebas de discovery y presencia de código no demuestran por
+sí solos conformidad arquitectónica. Ningún despliegue de `saas-commercial`
+queda autorizado por esta aceptación.
