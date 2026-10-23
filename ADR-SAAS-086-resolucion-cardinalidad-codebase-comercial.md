@@ -64,8 +64,8 @@ staging.
 | `functions/src/platform/approved-tenant-offers.ts` | Resuelve términos desde una allowlist server-side; rechaza código vacío/desconocido y ofrece un helper que rechaza campos comerciales no confiables cuando recibe el objeto completo. | La consulta actual invoca el resolver solo con el código; por ello no se verificó que el endpoint rechace campos adicionales del request. |
 | `functions/src/platform/commercial-offer-read.ts` | Lee el control y la oferta mediante dos referencias derivadas del mapeo aprobado en servidor; valida identificadores y términos persistidos y construye una proyección de campos permitidos. | Esta función de dominio no cubre por sí sola autenticación ni autorización. |
 | `functions/src/platform/commercial-callable.ts` y `commercial-offer-read.ts` | El camino autorizado de consulta no llama comandos mutantes ni ejecuta Bootstrap. La consulta de dominio usa lecturas Firestore. | `autorizarPlataforma` puede emitir un evento de auditoría durable cuando deniega. La callable no es estrictamente “cero escrituras” en todas las rutas. |
-| `functions/src/platform/commercial-offer-read.test.ts` | Prueba allowlist, referencias leídas, proyección de respuesta, rechazo de aprobación desconocida, control/tenant/puntero inválidos y schemaVersion. El cambio de prueba incluido en PR #636 siembra además un tenant vecino y afirma que solo se leen las referencias aprobadas. | Prueba la función de dominio, no el wrapper callable ni el comportamiento A/B a través de Firestore Emulator. |
-| PR #636, `functions/src/platform/commercial-callable.emulator.test.ts` (no integrado en la base) | En el head `4b5d8a19a4cd7dd6d4146169412369775cd1a1f8`, contiene nueve casos de callable con Firestore Emulator: no autenticado; facultad ausente; operador canónico ausente; operador suspendido; UID canónico divergente; contexto obsoleto; entradas ausentes, de tipo incorrecto o vacías; lectura de oferta aprobada sin mutación comercial ni filtración del sentinel; código no aprobado. El paso dedicado del run `39940320433` terminó con 9 pruebas, 9 aprobadas, 0 fallidas y 0 omitidas; el workflow completo también concluyó `success`. | PR #636 sigue abierto y sus cambios no forman parte de `origin/main`. La evidencia es del head del PR en Emulator, no de staging. En el límite callable aún no cubre campos adicionales, longitud/ASCII, errores inesperados sanitizados, tenant A/B ni fallo del escritor de auditoría; la prueba A/B del helper no sustituye esa cobertura. |
+| `functions/src/platform/commercial-offer-read.test.ts` | Prueba allowlist, referencias leídas, proyección de respuesta, rechazo de aprobación desconocida, control/tenant/puntero inválidos y schemaVersion. El cambio de prueba incluido en PR #636 siembra además un tenant vecino y afirma que solo se leen las referencias aprobadas. | Prueba la función de dominio con `fakeDb`; no prueba por sí sola el wrapper ni autenticación/autorización. |
+| PR #636, `functions/src/platform/commercial-callable.emulator.test.ts` (no integrado en la base) | En el head `5756fcb32dc91764f610989b345f248226b3876d`, contiene nueve casos de callable con Firestore Emulator: no autenticado; facultad ausente; operador canónico ausente; operador suspendido; UID canónico divergente; contexto obsoleto; entradas ausentes, de tipo incorrecto o vacías; lectura aprobada sin mutación comercial ni filtración de sentinels de credenciales o tenant vecino; código no aprobado. El paso dedicado del run `39952474302` terminó con 9 pruebas, 9 aprobadas, 0 fallidas y 0 omitidas; el workflow completo también concluyó `success`. | PR #636 sigue abierto y sus cambios no forman parte de `origin/main`. La evidencia es del head del PR en Emulator, no de staging. En el límite callable aún no cubre campos adicionales, longitud/ASCII, errores inesperados sanitizados, el orden de lecturas ni fallo del escritor de auditoría. |
 | `functions/src/platform/authorization.test.ts` | Prueba autorización con operador activo, UID/facultad/contexto válidos y denegaciones por operador o contexto. | Prueba el helper aislado; no prueba que la callable invoque el helper ni el side effect de auditoría. |
 | `functions/src/platform/approved-tenant-offers.test.ts` | Prueba que comandos de oferta resuelven términos desde la allowlist y rechazan campos comerciales aportados por el cliente. | No demuestra que el wrapper de consulta rechace campos adicionales: no pasa el request completo al resolver. |
 | `functions-commercial/src/discovery.test.ts` | Prueba targets, región, cardinalidad observada, manifest sin params y nombres de Secrets ausentes. | Es evidencia de discovery local; no acredita deploy, IAM ni estado remoto. |
@@ -141,13 +141,15 @@ todos. PR #636 aporta cobertura directa del wrapper en Emulator para los nueve
 casos descritos en la tabla; el paso dedicado registró 9 aprobados, 0 fallidos
 y 0 omitidos, y el workflow completo concluyó `success`. Como el PR sigue
 abierto, esa evidencia no está integrada en `origin/main` y no acredita el
-comportamiento remoto. La prueba de dominio de lectura sí cubre referencias
-exactas y un tenant vecino sintético, pero no invoca la callable. Permanecen
-sin demostrar la validación estricta del objeto de entrada (incluidos campos
-adicionales, ASCII y longitud máxima), el manejo sanitizado de errores
-inesperados, el aislamiento A/B a través de la callable y el orden de lecturas
-del wrapper. La auditoría de denegación cubre varios motivos de rechazo, pero
-no demuestra aún el comportamiento ante fallo del escritor de auditoría.
+comportamiento remoto. La prueba unitaria del helper registra solo las
+referencias aprobadas y contiene un tenant vecino; la prueba callable en
+Emulator siembra otro vecino y comprueba que no se filtre en la respuesta ni se
+modifiquen sus documentos. El wrapper no instrumenta sus lecturas Firestore en
+esa prueba, así que la verificación de rutas exactas depende de la prueba del
+helper y de la revisión del código. Permanecen sin demostrar la validación
+estricta del objeto de entrada (incluidos campos adicionales, ASCII y longitud
+máxima), el manejo sanitizado de errores inesperados, el orden de lecturas del
+wrapper y el comportamiento ante fallo del escritor de auditoría.
 
 ## Opción B conservada como alternativa
 
