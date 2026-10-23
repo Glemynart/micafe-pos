@@ -7,9 +7,9 @@
 El usuario delegó expresamente al Lead Engineer la elección de la alternativa
 más conveniente. Se adopta la Opción A, incluida la excepción
 limitada de auditoría append-only descrita en esta ADR. Esta aceptación resuelve
-la cardinalidad documental; no demuestra conformidad de la implementación ni
-autoriza implementación, invocación remota, despliegue u operaciones
-comerciales.
+la cardinalidad documental y permite implementar bajo sus límites; no demuestra
+conformidad de la implementación ni autoriza invocaciones remotas, despliegues u
+operaciones comerciales.
 
 - **Fecha de propuesta:** 2026-10-23.
 - **Fecha de aceptación:** 2026-10-23, por delegación expresa del usuario
@@ -253,8 +253,11 @@ conformidad arquitectónica.
 
 ## Gate de despliegue separado
 
-La aceptación de esta ADR permitiría preparar un PR técnico; no autoriza
-despliegue. Antes de autorizar una ejecución en staging se requerirían:
+La aceptación de esta ADR permite implementar bajo los límites aprobados. PR
+#636 ya contiene una propuesta de implementación y debe satisfacer los criterios
+de esta ADR; su CI verde no equivale a revisión arquitectónica ni a conformidad
+del runtime. La aceptación tampoco autoriza despliegue. Antes de autorizar una
+ejecución en staging se requerirían:
 
 1. PR técnico integrado o aprobado para revisión operativa, con auditoría de
    arquitectura y seguridad, pruebas aplicables verdes y SHA exacto.
