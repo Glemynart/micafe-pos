@@ -206,7 +206,7 @@ test("consultar oferta callable rechaza código ausente, vacío y de tipo incorr
   }
 });
 
-test("consultar oferta callable devuelve solo la oferta aprobada y no muta el estado comercial", {
+test("consultar oferta callable devuelve solo la oferta autorizada, aísla tenant vecino y no muta estado comercial", {
   skip: !hasEmulator,
 }, async () => {
   requireEmulator(db);
@@ -216,6 +216,10 @@ test("consultar oferta callable devuelve solo la oferta aprobada y no muta el es
 
   const controlRef = db.collection("ofertas_comerciales_tenant").doc(APPROVED_TENANT_ID);
   const offerRef = controlRef.collection("ofertas").doc(APPROVED_OFFER_ID);
+  const neighborTenantId = `commercial-neighbor-${randomUUID()}`;
+  const neighborOfferId = `neighbor-offer-${randomUUID()}`;
+  const neighborControlRef = db.collection("ofertas_comerciales_tenant").doc(neighborTenantId);
+  const neighborOfferRef = neighborControlRef.collection("ofertas").doc(neighborOfferId);
   const control = { empresaId: APPROVED_TENANT_ID, ofertaActivaId: APPROVED_OFFER_ID, revision: 3 };
   const offer = {
     schemaVersion: 1,
@@ -233,12 +237,28 @@ test("consultar oferta callable devuelve solo la oferta aprobada y no muta el es
     revision: 2,
     credentialSentinel: "must-not-leak",
   };
+  const neighborControl = {
+    empresaId: neighborTenantId,
+    ofertaActivaId: neighborOfferId,
+    revision: 99,
+    credentialSentinel: "neighbor-control-must-not-leak",
+  };
+  const neighborOffer = {
+    ...offer,
+    ofertaId: neighborOfferId,
+    empresaIdObjetivo: neighborTenantId,
+    credentialSentinel: "neighbor-offer-must-not-leak",
+  };
   await Promise.all([
     controlRef.set(control),
     offerRef.set(offer),
+    neighborControlRef.set(neighborControl),
+    neighborOfferRef.set(neighborOffer),
   ]);
   const controlBefore = (await controlRef.get()).data();
   const offerBefore = (await offerRef.get()).data();
+  const neighborControlBefore = (await neighborControlRef.get()).data();
+  const neighborOfferBefore = (await neighborOfferRef.get()).data();
 
   const result = await callable.run(request({ codigoAprobacion: APPROVAL_CODE }, auth)) as {
     autorizacion: { empresaIdObjetivo: string };
@@ -248,8 +268,13 @@ test("consultar oferta callable devuelve solo la oferta aprobada y no muta el es
   assert.equal(result.autorizacion.empresaIdObjetivo, APPROVED_TENANT_ID);
   assert.equal(result.oferta?.empresaIdObjetivo, APPROVED_TENANT_ID);
   assert.equal(JSON.stringify(result).includes("must-not-leak"), false);
+  assert.equal(JSON.stringify(result).includes(neighborTenantId), false);
+  assert.equal(JSON.stringify(result).includes("neighbor-control-must-not-leak"), false);
+  assert.equal(JSON.stringify(result).includes("neighbor-offer-must-not-leak"), false);
   assert.deepEqual((await controlRef.get()).data(), controlBefore);
   assert.deepEqual((await offerRef.get()).data(), offerBefore);
+  assert.deepEqual((await neighborControlRef.get()).data(), neighborControlBefore);
+  assert.deepEqual((await neighborOfferRef.get()).data(), neighborOfferBefore);
   assert.equal((await db.collection("saas_auditoria").where("actor.uid", "==", uid).get()).size, 0);
   assert.equal((await db.collection("saas_auditoria_obligaciones").where("evidencia.actor.uid", "==", uid).get()).size, 0);
 });
