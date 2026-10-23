@@ -52,27 +52,56 @@ function request(data: unknown, auth?: CallableRequest<unknown>["auth"]): Callab
   return { data, auth: auth ?? null } as CallableRequest<unknown>;
 }
 
-function operatorAuth(uid: string, faculties: string[]): NonNullable<CallableRequest<unknown>["auth"]> {
+function operatorAuth(
+  uid: string,
+  faculties: string[],
+  versionAutorizacion = 1,
+): NonNullable<CallableRequest<unknown>["auth"]> {
   return {
     uid,
     token: {
-      saas: { operador: true, versionAutorizacion: 1, facultades: faculties },
+      saas: { operador: true, versionAutorizacion, facultades: faculties },
     } as never,
   };
 }
 
-async function seedOperator(database: Firestore, uid: string, faculties: string[]): Promise<void> {
+async function seedOperator(
+  database: Firestore,
+  uid: string,
+  faculties: string[],
+  overrides: { uid?: string; estado?: "ACTIVO" | "SUSPENDIDO" | "REVOCADO"; versionAutorizacion?: number } = {},
+): Promise<void> {
   await database.collection("saas_operadores").doc(uid).set({
     schemaVersion: 1,
     uid,
     estado: "ACTIVO",
     facultades: faculties,
     versionAutorizacion: 1,
+    ...overrides,
   });
 }
 
 function requireEmulator(database: Firestore | undefined): asserts database is Firestore {
   assert.ok(hasEmulator && database, "Firestore Emulator must run on a loopback host");
+}
+
+async function expectDeniedWithAudit(
+  database: Firestore,
+  uid: string,
+  auth: NonNullable<CallableRequest<unknown>["auth"]>,
+  expected: { code: string; message: string; auditType: string },
+): Promise<void> {
+  await assert.rejects(
+    callable.run(request({ codigoAprobacion: APPROVAL_CODE }, auth)),
+    (error: unknown) => error instanceof HttpsError
+      && error.code === expected.code
+      && error.message === expected.message,
+  );
+
+  const evidence = await database.collection("saas_auditoria").where("actor.uid", "==", uid).get();
+  assert.equal(evidence.size, 1);
+  assert.equal(evidence.docs[0].data().tipo, expected.auditType);
+  assert.equal(evidence.docs[0].data().resultado, "DENEGADO");
 }
 
 test("consultar oferta callable rechaza solicitudes no autenticadas", {
@@ -104,6 +133,61 @@ test("consultar oferta callable exige COMERCIAL_GOBERNAR y audita la denegación
   assert.equal(evidence.size, 1);
   assert.equal(evidence.docs[0].data().tipo, "FACULTAD_AUSENTE");
   assert.equal(evidence.docs[0].data().resultado, "DENEGADO");
+});
+
+test("consultar oferta callable deniega y audita un operador sin registro canónico", {
+  skip: !hasEmulator,
+}, async () => {
+  requireEmulator(db);
+  const uid = `commercial-reader-missing-operator-${randomUUID()}`;
+
+  await expectDeniedWithAudit(db, uid, operatorAuth(uid, ["COMERCIAL_GOBERNAR"]), {
+    code: "permission-denied",
+    message: "PLATFORM_ACCESS_DENIED",
+    auditType: "AUTORIZACION_DENEGADA",
+  });
+});
+
+test("consultar oferta callable deniega y audita un operador suspendido", {
+  skip: !hasEmulator,
+}, async () => {
+  requireEmulator(db);
+  const uid = `commercial-reader-suspended-operator-${randomUUID()}`;
+  await seedOperator(db, uid, ["COMERCIAL_GOBERNAR"], { estado: "SUSPENDIDO" });
+
+  await expectDeniedWithAudit(db, uid, operatorAuth(uid, ["COMERCIAL_GOBERNAR"]), {
+    code: "permission-denied",
+    message: "PLATFORM_ACCESS_DENIED",
+    auditType: "OPERADOR_INACTIVO",
+  });
+});
+
+test("consultar oferta callable deniega y audita el UID canónico divergente", {
+  skip: !hasEmulator,
+}, async () => {
+  requireEmulator(db);
+  const uid = `commercial-reader-uid-mismatch-${randomUUID()}`;
+  await seedOperator(db, uid, ["COMERCIAL_GOBERNAR"], { uid: "different-canonical-operator" });
+
+  await expectDeniedWithAudit(db, uid, operatorAuth(uid, ["COMERCIAL_GOBERNAR"]), {
+    code: "permission-denied",
+    message: "PLATFORM_ACCESS_DENIED",
+    auditType: "OPERADOR_INACTIVO",
+  });
+});
+
+test("consultar oferta callable deniega y audita un contexto de plataforma obsoleto", {
+  skip: !hasEmulator,
+}, async () => {
+  requireEmulator(db);
+  const uid = `commercial-reader-stale-context-${randomUUID()}`;
+  await seedOperator(db, uid, ["COMERCIAL_GOBERNAR"], { versionAutorizacion: 2 });
+
+  await expectDeniedWithAudit(db, uid, operatorAuth(uid, ["COMERCIAL_GOBERNAR"], 1), {
+    code: "failed-precondition",
+    message: "PLATFORM_CONTEXT_STALE",
+    auditType: "CONTEXTO_PLATAFORMA_OBSOLETO",
+  });
 });
 
 test("consultar oferta callable rechaza código ausente, vacío y de tipo incorrecto", {
