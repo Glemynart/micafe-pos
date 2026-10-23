@@ -31,6 +31,7 @@
 ## Validaciones locales no disponibles y resultado de CI
 
 - El build local de Functions no terminó: esta worktree no tenía instaladas las dependencias raíz (`dotenv` y módulos `firebase/*`).
+- La repetición post-corrección del Emulator no pudo arrancar: el entorno tiene OpenJDK 17.0.20.1 y firebase-tools requiere JDK 21 o superior; ese intento no ejecutó pruebas de Emulator.
 - No se pudo instalar `functions-commercial` localmente: npm informó `ECONNRESET` y la repetición sin red no encontró `google-auth-library@10.9.1` en caché.
 - CI completo del head de código `e4d89138622ca236f6c97a04ead2fe5af33d344d` terminó en PASS en la ejecución `39977095422` (2026-10-23 15:49:43 UTC). Para ese SHA pasaron `Build de Functions`, `Build del codebase Commercial`, `Discovery secret-free del codebase Commercial`, `Prueba integrada de consulta comercial en Firestore Emulator`, el workflow completo y la auditoría automática E4.2. El resultado del build/discovery queda respaldado por CI, no por una ejecución local.
 - No se midió cobertura.
