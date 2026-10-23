@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { HttpsError } from "firebase-functions/v2/https";
+import { validarOfertaComercialEntrada } from "../suscripciones/ofertas-tenant";
 import { consultarOfertaComercialTenant } from "./commercial-offer-read";
 
 function fakeDb() {
@@ -171,6 +173,56 @@ test("ADR-SAAS-061: la consulta rechaza un control cuyo tenant embebido contradi
   await assert.rejects(
     consultarOfertaComercialTenant(db as never, "GATE_I_OFFER_1"),
     /OFERTA_COMERCIAL_CONTROL_INVALIDO/,
+  );
+});
+
+test("la entrada de una oferta nueva conserva invalid-argument para un precio inválido", () => {
+  assert.throws(
+    () => validarOfertaComercialEntrada({
+      empresaId: "distribuidora-las-jimenez",
+      ofertaId: "oferta-distribuidora-jimenez-2026",
+      planIdBase: "mvp_comercial",
+      planVersionBase: 2,
+      precioAcordado: { importe: 0, moneda: "COP" },
+      iniciaEn: "2026-10-16",
+      expiraEn: null,
+      referenciaAprobacion: "G-SAAS-02-PO-OFFER-DISTRIBUIDORA-LAS-JIMENEZ-2026-10-06",
+    }),
+    (error: unknown) => error instanceof HttpsError
+      && error.code === "invalid-argument"
+      && error.message === "OFERTA_COMERCIAL_PRECIO_INVALIDO",
+  );
+});
+
+test("ADR-SAAS-061: precio persistido inválido es una precondición inconsistente", async () => {
+  const db = fakeDb();
+  db.seed("ofertas_comerciales_tenant/distribuidora-las-jimenez", {
+    empresaId: "distribuidora-las-jimenez", ofertaActivaId: null, revision: 1,
+  });
+  db.seed(
+    "ofertas_comerciales_tenant/distribuidora-las-jimenez/ofertas/oferta-distribuidora-jimenez-2026",
+    {
+      schemaVersion: 1,
+      ofertaId: "oferta-distribuidora-jimenez-2026",
+      empresaIdObjetivo: "distribuidora-las-jimenez",
+      planIdBase: "mvp_comercial",
+      planVersionBase: 2,
+      periodicidad: "ANUAL",
+      precioAcordado: { importe: 0, moneda: "COP" },
+      estado: "APROBADA",
+      iniciaEn: "2026-10-16",
+      expiraEn: null,
+      motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
+      referenciaAprobacion: "G-SAAS-02-PO-OFFER-DISTRIBUIDORA-LAS-JIMENEZ-2026-10-06",
+      revision: 2,
+    },
+  );
+
+  await assert.rejects(
+    consultarOfertaComercialTenant(db as never, "GATE_I_OFFER_1"),
+    (error: unknown) => error instanceof HttpsError
+      && error.code === "failed-precondition"
+      && error.message === "OFERTA_COMERCIAL_PRECIO_INVALIDO",
   );
 });
 

@@ -16,14 +16,15 @@
 
 - **RED:** con la implementación previa y los nuevos casos del Emulator, 9/10 pruebas pasaron y la prueba de rechazo de propiedades extra falló (`Missing expected rejection`). La evidencia reproduce la brecha que corrige este cambio.
 - **GREEN:** con la validación estricta y la normalización de errores, la suite de `consultarOfertaComercialTenantSaas` en Firestore Emulator pasó 10/10.
-- **GREEN focalizado:** las pruebas unitarias inyectadas del contrato pasaron 6/6.
+- **GREEN focalizado tras revisión:** las pruebas del contrato y la lectura de oferta pasaron 19/19 (8 de la callable y 11 del dominio/lectura). Incluyen corrupción de precio persistido como `failed-precondition`, validación de nueva entrada como `invalid-argument`, y rechazo de filtrar un `invalid-argument` de corrupción como error público de cliente.
 
 ## Evidencia ejecutada
 
 | Garantía | Validación | Resultado |
 |---|---|---|
 | Contrato callable con Firestore local, autorización, errores de entrada y aislamiento de lectura | `npx firebase --project demo-e2-2-commercial-callable emulators:exec --only firestore "npm --prefix functions run test:commercial-offer-callable:emulator"` | PASS (10/10; loopback, proyecto `demo-*`) |
-| Orden de autenticación/autorización, validación estricta y sanitización de errores | Pruebas unitarias de `commercial-offer-callable-contract.test.ts` | PASS (6/6) |
+| Orden de autenticación/autorización, validación estricta y sanitización de errores | `commercial-offer-callable-contract.test.ts` | PASS (8/8) |
+| Clasificación de entradas nuevas frente a estado persistido inconsistente | `commercial-offer-read.test.ts` | PASS (11/11) |
 | Regresión de la suite `test:auth-foundation` | `npm run test:auth-foundation` | PASS (494 aprobadas, 0 fallidas, 25 omitidas) |
 | Integridad del diff | `git diff --check` | PASS |
 

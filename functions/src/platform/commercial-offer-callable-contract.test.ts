@@ -147,6 +147,41 @@ test("consulta traduce errores internos a un error estable sin rutas ni detalles
   }
 });
 
+test("consulta no publica el error de precio persistido como invalid-argument del cliente", async () => {
+  const state = handlerWith({
+    consultarOferta: async () => {
+      throw new HttpsError("invalid-argument", "OFERTA_COMERCIAL_PRECIO_INVALIDO");
+    },
+  });
+
+  await assert.rejects(
+    state.handler(request({ codigoAprobacion: VALID_CODE })),
+    (error: unknown) => error instanceof HttpsError
+      && error.code === "internal"
+      && error.message === "OFERTA_COMERCIAL_LECTURA_ERROR",
+  );
+});
+
+test("consulta conserva la precondición para precio persistido inconsistente", async () => {
+  const state = handlerWith({
+    consultarOferta: async () => {
+      throw new HttpsError(
+        "failed-precondition",
+        "OFERTA_COMERCIAL_PRECIO_INVALIDO",
+        { documentPath: "private/tenant/path" },
+      );
+    },
+  });
+
+  await assert.rejects(
+    state.handler(request({ codigoAprobacion: VALID_CODE })),
+    (error: unknown) => error instanceof HttpsError
+      && error.code === "failed-precondition"
+      && error.message === "OFERTA_COMERCIAL_PRECIO_INVALIDO"
+      && error.details === undefined,
+  );
+});
+
 test("consulta conserva errores de dominio conocidos sin propagar detalles internos", async () => {
   const state = handlerWith({
     consultarOferta: async () => {
