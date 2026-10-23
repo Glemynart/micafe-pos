@@ -47,21 +47,25 @@ En `origin/main @ bdbf069d`, `functions-commercial/src/index.ts` exporta:
 La existencia del código, sus pruebas o un build exitoso no resuelven el
 conflicto documental ni demuestran conformidad arquitectónica.
 
-## Evidencia de código revisada
+## Evidencia revisada
 
-La revisión fue estática, sobre los archivos integrados en el SHA indicado.
-No inspeccionó un runtime remoto ni ejecutó pruebas en esta tarea.
+La revisión de código fue estática, sobre los archivos integrados en el SHA
+indicado. La observación de runtime abajo fue solo de lectura y no consultó
+variables de entorno ni identificó el commit del despliegue. Las pruebas de
+Emulator se ejecutaron en el workflow CI indicado; no son una validación de
+staging.
 
 | Archivo | Evidencia observada | Límite de la evidencia |
 |---|---|---|
 | `functions-commercial/src/index.ts` | Exporta exactamente las dos callables anteriores. | No demuestra qué revisión está desplegada. |
+| `firebase functions:list --project micafe-pos-staging` (2026-10-23) | `saas-commercial` reporta activas `ejecutarComandoComercialSaas` y `consultarOfertaComercialTenantSaas`, ambas en `us-central1`, Node.js 22 y con el mismo hash CLI `c9a4f86d04ac3754bfb76879f1639f6820485e9`. | Ese hash no identifica un commit Git ni demuestra que el runtime corresponda a `origin/main`; la observación no resuelve conformidad arquitectónica ni autoriza un despliegue. |
 | `functions/src/platform/commercial-callable.ts` | Ambas usan `us-central1`. La consulta exige `request.auth`, llama `autorizarPlataforma(..., "COMERCIAL_GOBERNAR")`, comprueba el proyecto runtime y comprueba que `codigoAprobacion` sea string. | El wrapper no rechaza explícitamente propiedades adicionales. No se encontró prueba directa del wrapper que cubra autenticación, autorización y errores como callable. |
 | `functions/src/platform/authorization.ts` | La autorización valida documento del operador, UID, estado `ACTIVO`, marca de operador del token, versión de autorización y facultad. | Es una facultad global de plataforma; no es una membresía del usuario en el tenant objetivo. |
 | `functions/src/platform/approved-tenant-offers.ts` | Resuelve términos desde una allowlist server-side; rechaza código vacío/desconocido y ofrece un helper que rechaza campos comerciales no confiables cuando recibe el objeto completo. | La consulta actual invoca el resolver solo con el código; por ello no se verificó que el endpoint rechace campos adicionales del request. |
 | `functions/src/platform/commercial-offer-read.ts` | Lee el control y la oferta mediante dos referencias derivadas del mapeo aprobado en servidor; valida identificadores y términos persistidos y construye una proyección de campos permitidos. | Esta función de dominio no cubre por sí sola autenticación ni autorización. |
 | `functions/src/platform/commercial-callable.ts` y `commercial-offer-read.ts` | El camino autorizado de consulta no llama comandos mutantes ni ejecuta Bootstrap. La consulta de dominio usa lecturas Firestore. | `autorizarPlataforma` puede emitir un evento de auditoría durable cuando deniega. La callable no es estrictamente “cero escrituras” en todas las rutas. |
 | `functions/src/platform/commercial-offer-read.test.ts` | Prueba allowlist, referencias leídas, proyección de respuesta, rechazo de aprobación desconocida, control/tenant/puntero inválidos y schemaVersion. | Prueba la función de dominio, no el wrapper callable ni el comportamiento con Firestore Emulator. |
-| PR #636, `functions/src/platform/commercial-callable.emulator.test.ts` (no integrado en la base) | En el head `4b5d8a19a4cd7dd6d4146169412369775cd1a1f8`, contiene nueve casos de callable con Firestore Emulator: no autenticado; facultad ausente; operador canónico ausente; operador suspendido; UID canónico divergente; contexto obsoleto; entradas ausentes, de tipo incorrecto o vacías; lectura de oferta aprobada sin mutación comercial ni filtración del sentinel; código desconocido. El paso dedicado `Prueba integrada de consulta comercial en Firestore Emulator` terminó correctamente en CI run `39940320433`. | PR #636 sigue abierto; el workflow completo de ese run seguía ejecutándose al actualizar esta evidencia, y los cambios no forman parte de `origin/main`. No cubre campos adicionales, longitud/ASCII, errores inesperados sanitizados, aislamiento A/B ni fallo del escritor de auditoría; tampoco acredita staging. |
+| PR #636, `functions/src/platform/commercial-callable.emulator.test.ts` (no integrado en la base) | En el head `4b5d8a19a4cd7dd6d4146169412369775cd1a1f8`, contiene nueve casos de callable con Firestore Emulator: no autenticado; facultad ausente; operador canónico ausente; operador suspendido; UID canónico divergente; contexto obsoleto; entradas ausentes, de tipo incorrecto o vacías; lectura de oferta aprobada sin mutación comercial ni filtración del sentinel; código desconocido. El paso dedicado del run `39940320433` terminó con 9 pruebas, 9 aprobadas, 0 fallidas y 0 omitidas; el workflow completo también concluyó `success`. | PR #636 sigue abierto y sus cambios no forman parte de `origin/main`. La evidencia es del head del PR en Emulator, no de staging. No cubre campos adicionales, longitud/ASCII, errores inesperados sanitizados, aislamiento A/B ni fallo del escritor de auditoría. |
 | `functions/src/platform/authorization.test.ts` | Prueba autorización con operador activo, UID/facultad/contexto válidos y denegaciones por operador o contexto. | Prueba el helper aislado; no prueba que la callable invoque el helper ni el side effect de auditoría. |
 | `functions/src/platform/approved-tenant-offers.test.ts` | Prueba que comandos de oferta resuelven términos desde la allowlist y rechazan campos comerciales aportados por el cliente. | No demuestra que el wrapper de consulta rechace campos adicionales: no pasa el request completo al resolver. |
 | `functions-commercial/src/discovery.test.ts` | Prueba targets, región, cardinalidad observada, manifest sin params y nombres de Secrets ausentes. | Es evidencia de discovery local; no acredita deploy, IAM ni estado remoto. |
@@ -134,10 +138,10 @@ nueva decisión arquitectónica.
 
 La evidencia estática confirma algunos controles del contrato actual, pero no
 todos. PR #636 aporta cobertura directa del wrapper en Emulator para los nueve
-casos descritos en la tabla; el paso dedicado de CI terminó correctamente,
-pero el PR sigue abierto y no está integrado en `origin/main`, y el workflow
-completo aún no había terminado al registrar esta evidencia. Esto no acredita
-el comportamiento remoto. Permanecen sin demostrar la validación estricta del
+casos descritos en la tabla; el paso dedicado registró 9 aprobados, 0 fallidos
+y 0 omitidos, y el workflow completo concluyó `success`. Como el PR sigue
+abierto, esa evidencia no está integrada en `origin/main` y no acredita el
+comportamiento remoto. Permanecen sin demostrar la validación estricta del
 objeto de entrada (incluidos campos adicionales, ASCII y longitud máxima), el
 manejo sanitizado de errores inesperados, el aislamiento A/B y los casos
 restantes de tenant binding y orden de lecturas. La auditoría de denegación
