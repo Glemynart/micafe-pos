@@ -70,7 +70,7 @@ staging.
 | `functions/src/platform/commercial-offer-read.ts` | Lee el control y la oferta mediante dos referencias derivadas del mapeo aprobado en servidor; valida identificadores y términos persistidos y construye una proyección de campos permitidos. | Esta función de dominio no cubre por sí sola autenticación ni autorización. |
 | `functions/src/platform/commercial-callable.ts` y `commercial-offer-read.ts` | El camino autorizado de consulta no llama comandos mutantes ni ejecuta Bootstrap. La consulta de dominio usa lecturas Firestore. | `autorizarPlataforma` puede emitir un evento de auditoría durable cuando deniega. La callable no es estrictamente “cero escrituras” en todas las rutas. |
 | `functions/src/platform/commercial-offer-read.test.ts` | Prueba allowlist, referencias leídas, proyección de respuesta, rechazo de aprobación desconocida, control/tenant/puntero inválidos y schemaVersion. El cambio de prueba incluido en PR #636 siembra además un tenant vecino y afirma que solo se leen las referencias aprobadas. | Prueba la función de dominio con `fakeDb`; no prueba por sí sola el wrapper ni autenticación/autorización. |
-| PR #636, `functions/src/platform/commercial-callable.emulator.test.ts` (no integrado en la base) | En el head `5756fcb32dc91764f610989b345f248226b3876d`, contiene nueve casos de callable con Firestore Emulator: no autenticado; facultad ausente; operador canónico ausente; operador suspendido; UID canónico divergente; contexto obsoleto; entradas ausentes, de tipo incorrecto o vacías; lectura aprobada sin mutación comercial ni filtración de sentinels de credenciales o tenant vecino; código no aprobado. El paso dedicado del run `39952474302` terminó con 9 pruebas, 9 aprobadas, 0 fallidas y 0 omitidas; el workflow completo también concluyó `success`. | PR #636 sigue abierto y sus cambios no forman parte de `origin/main`. La evidencia es del head del PR en Emulator, no de staging. En el límite callable aún no cubre campos adicionales, longitud/ASCII, errores inesperados sanitizados, el orden de lecturas ni fallo del escritor de auditoría. |
+| PR #636 (snapshot histórico), `functions/src/platform/commercial-callable.emulator.test.ts` (no integrado en la base) | En el head `5756fcb32dc91764f610989b345f248226b3876d`, contiene nueve casos de callable con Firestore Emulator: no autenticado; facultad ausente; operador canónico ausente; operador suspendido; UID canónico divergente; contexto obsoleto; entradas ausentes, de tipo incorrecto o vacías; lectura aprobada sin mutación comercial ni filtración de sentinels de credenciales o tenant vecino; código no aprobado. El paso dedicado del run `39952474302` terminó con 9 pruebas, 9 aprobadas, 0 fallidas y 0 omitidas; el workflow completo también concluyó `success`. | PR #636 sigue abierto y sus cambios no forman parte de `origin/main`. La evidencia es del head del PR en Emulator, no de staging. En el límite callable aún no cubre campos adicionales, longitud/ASCII, errores inesperados sanitizados, el orden de lecturas ni fallo del escritor de auditoría. |
 | `functions/src/platform/authorization.test.ts` | Prueba autorización con operador activo, UID/facultad/contexto válidos y denegaciones por operador o contexto. | Prueba el helper aislado; no prueba que la callable invoque el helper ni el side effect de auditoría. |
 | `functions/src/platform/approved-tenant-offers.test.ts` | Prueba que comandos de oferta resuelven términos desde la allowlist y rechazan campos comerciales aportados por el cliente. | No demuestra que el wrapper de consulta rechace campos adicionales: no pasa el request completo al resolver. |
 | `functions-commercial/src/discovery.test.ts` | Prueba targets, región, cardinalidad observada, manifest sin params y nombres de Secrets ausentes. | Es evidencia de discovery local; no acredita deploy, IAM ni estado remoto. |
@@ -141,20 +141,31 @@ nueva decisión arquitectónica.
    y cero parámetros sensibles, preservando el objetivo secret-free de
    ADR-SAAS-043.
 
-La evidencia estática confirma algunos controles del contrato actual, pero no
-todos. PR #636 aporta cobertura directa del wrapper en Emulator para los nueve
-casos descritos en la tabla; el paso dedicado registró 9 aprobados, 0 fallidos
-y 0 omitidos, y el workflow completo concluyó `success`. Como el PR sigue
-abierto, esa evidencia no está integrada en `origin/main` y no acredita el
-comportamiento remoto. La prueba unitaria del helper registra solo las
-referencias aprobadas y contiene un tenant vecino; la prueba callable en
-Emulator siembra otro vecino y comprueba que no se filtre en la respuesta ni se
-modifiquen sus documentos. El wrapper no instrumenta sus lecturas Firestore en
-esa prueba, así que la verificación de rutas exactas depende de la prueba del
-helper y de la revisión del código. Permanecen sin demostrar la validación
-estricta del objeto de entrada (incluidos campos adicionales, ASCII y longitud
-máxima), el manejo sanitizado de errores inesperados, el orden de lecturas del
-wrapper y el comportamiento ante fallo del escritor de auditoría.
+La evaluación inicial de los límites del wrapper quedó registrada para el head histórico
+`5756fcb32dc91764f610989b345f248226b3876d` de PR #636. En ese head la suite tenía
+nueve casos; en esa instantánea aún no cubría validación estricta de campos,
+ASCII/longitud, sanitización de errores, orden de lecturas ni fallo del escritor
+de auditoría. Esa observación no describe el head actual.
+
+**Actualización de evidencia (2026-10-23).** El head actual de PR #636 es
+`77af89e71e37e20c227ff54be7b2fd8f5c5ae6c8`. La suite callable de Firestore
+Emulator pasó 10/10; las pruebas unitarias inyectadas del contrato pasaron 6/6;
+`test:auth-foundation` terminó con 494 aprobadas, 0 fallidas y 25 omitidas. El CI
+completo de ese head, [run #39981847145](https://github.com/Glemynart/micafe-pos/actions/runs/39981847145),
+terminó `success`, incluidos build web/Functions, build y discovery secret-free
+de Commercial, Emulator de la callable y las suites E2E/E4.1/E4.2. El código y
+las pruebas de esa rama cubren ahora campos adicionales y ASCII/límite de
+entrada, autorización antes de la lectura, auditoría denegada fail-closed,
+errores inesperados sanitizados, proyección permitida, ausencia de escrituras
+comerciales y tenant vecino sin exposición ni mutación.
+
+PR #636 continúa abierto y sus cambios no están integrados en `origin/main`. La
+evidencia anterior prueba ese head en CI y Emulator, no el runtime remoto ni
+staging. La prueba `commercial-offer-read.test.ts` verifica las referencias
+exactas leídas con un `fakeDb`; la prueba callable en Emulator verifica
+aislamiento observable y ausencia de mutaciones, pero no instrumenta cada
+lectura interna del wrapper. La conformidad del código queda pendiente de
+integración y revisión; no se autoriza despliegue por esta evidencia.
 
 ## Opción B conservada como alternativa
 
