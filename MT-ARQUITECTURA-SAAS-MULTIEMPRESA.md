@@ -522,7 +522,9 @@ requieren una decisión de producto sobre monetización, límites y operación S
 2. **SUPERSEDED:** distribución Electron. El producto soportado es Web/PWA.
 3. **PENDIENTE DE PRODUCTO:** alcance fiscal multi-país.
 4. **PENDIENTE DE PRODUCTO:** duración comercial futura del trial y renovación.
-   El Trial inicial de 30 días fue una decisión del MVP.
+   El Trial inicial de 30 días es el estándar del MVP. ADR-SAAS-087 autoriza
+   una única excepción de 15 días para Distribuidora Las Jiménez; no cambia el
+   estándar ni se extiende a otras ofertas.
 5. **PENDIENTE DE PRODUCTO:** períodos de gracia, retención y política de
    suspensión/reactivación comercial.
 6. **PENDIENTE DE PRODUCTO:** dimensiones monetizadas, precios y límites.

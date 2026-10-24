@@ -49,7 +49,9 @@ No se usan NIT, credenciales fiscales, PINs o secretos inventados.
 
 ## 2. Provisioning y onboarding
 
-1. Confirmar el plan ANUAL publicado y el Trial de 30 días.
+1. Confirmar el plan ANUAL publicado y el plazo aplicable: 30 días por regla
+   general; para Distribuidora Las Jiménez, 15 días únicamente si la oferta v2
+   satisface ADR-SAAS-087.
 2. Ejecutar el comando canónico de bootstrap con envelope e idempotencia.
 3. Verificar Empresa, Suscripción, membresía, credencial, claims y Espacio.
 4. Confirmar que `configuraciones/{empresaId}.modulos.habilitados` coincide con las capacidades del Plan.
@@ -63,8 +65,8 @@ El entorno de ensayo vigente es Firebase App Hosting, no un Preview de Vercel:
 
 - URL: `https://micafe-pos--micafe-pos-staging.us-central1.hosted.app`.
 - Proyecto/backend/región: `micafe-pos-staging` / `micafe-pos` / `us-central1`.
-- Rollout observado: `build-2026-10-15-001`, `SUCCEEDED`, 100% de tráfico al build en la lectura registrada.
-- Código del build: `a460f4d33be2ef08991fd0ed898c3e7e24c724b1`; `origin/main` avanzó después a `88d3644a4763b7ca236c58235450c7a946a13dd4` con cambios documentales, sin cambios de aplicación desde el rollout.
+- Relectura read-only `2026-10-23`: rollout `build-2026-10-23-001`, `SUCCEEDED`, 100% del tráfico; su fuente es `main @ 6ea1a8c65d58ed8c64fa09b028ddc74860632e62`. El backend mantiene `rolloutPolicy.disabled=true`, así que no se infiere que los merges posteriores se hayan desplegado.
+- `origin/main` vigente en esta revisión: `bf8336211371814db7010beaf107b0e77d551b77`, posterior al código servido. Los merges #639 y #640 no están en staging. La lectura aquí solo revalidó App Hosting; no acredita Functions ni Rules para el SHA vigente.
 - Runtime: Node 24. Next.js `16.4.1` sigue en canal Preview de App Hosting. La aceptación limitada del riesgo para producción está registrada en `ADR-SAAS-083`; no equivale a soporte activo. El backend productivo se creó y tuvo un primer rollout manual autorizado el `2026-10-15`; esto no autoriza otro rollout ni cambios posteriores.
 - Evidencia de staging: [primer rollout staging](evidence/G-SAAS-02-E2-2-APPHOSTING-FIRST-ROLLOUT-2026-10-15.md). Evidencia productiva y revalidación: [rollout y seguimiento read-only](evidence/G-SAAS-02-E2-2-APPHOSTING-PRODUCTION-ROLLOUT-2026-10-15.md).
 
@@ -80,57 +82,57 @@ habilita readiness fiscal; los vendedores y sus roles los creará Diana. No se
 registran esos datos durante la preparación ni se confunden con datos del
 fixture.
 
-### 2.1.1 Preparación específica del Trial de Diana (revisión 2026-10-16)
+### 2.1.1 Preparación específica del Trial de Diana (revisión 2026-10-23)
 
-- La fecha objetivo anterior (`2026-10-15`) ya transcurrió. El responsable
-  reconfirmó en esta sesión, el `2026-10-16`, que Diana acepta la oferta anual
-  de `1.600.000 COP` con pago manual, y fijó la vigencia de la oferta desde
-  `2026-10-16` sin vencimiento. Es una declaración administrativa del
-  responsable, no evidencia directa o firmada de Diana. La vigencia de la
-  oferta no fija ni inicia el Trial: el Trial de 30 días empieza únicamente al
-  completarse el Bootstrap canónico, después de superar sus gates; no se
-  inicia por calendario ni se reinicia. La oferta aún no está persistida y el
-  tenant aún no fue creado.
+- El responsable aprobó el `2026-10-23` la excepción de Trial anual de 15 días
+  para este caso y confirmó la aceptación expresa de Diana. La oferta es de
+  `1.600.000 COP`, con pago manual; la política general sigue en 30 días. El
+  identificador opaco de aceptación y el alcance están en
+  [ADR-SAAS-087](../../ADR-SAAS-087-excepcion-trial-15-dias-diana.md). La
+  oferta todavía no está persistida y el tenant todavía no fue creado.
+- La vigencia de elegibilidad de una oferta no inicia el Trial. Para Diana, el
+  plazo de 15 días se deriva exclusivamente de la oferta v2 aprobada y
+  validada server-side durante el Bootstrap canónico autorizado por
+  `BOOTSTRAP_EMPRESARIAL_SOLICITAR`; la callable pública de autoservicio no
+  puede consumir esta excepción. El Bootstrap fija el inicio al confirmar la
+  operación, calcula el intervalo UTC semiabierto `[inicio, fin)` y un replay
+  idempotente conserva las fechas originales. Las ofertas v1 y los demás
+  clientes conservan el Trial anual de 30 días. Esta decisión no autoriza
+  registrar la oferta, crear el tenant, ejecutar Bootstrap/Trial ni desplegar.
 - Cliente previsto: Distribuidora Las Jiménez, vertical `BODEGA_MVP1`;
   Diana será la administradora inicial y creará los usuarios vendedores y
   asignará sus roles. Los datos comerciales reales se capturan en su primer
   acceso; no se inventan NIT, domicilio, correo, teléfono ni credenciales.
-- Después de un bootstrap autorizado, verificar en modo de solo lectura el
-  estado `trial` y su periodo de 30 días, membresía/rol y claims de Diana,
-  credencial temporal, configuración de módulos y espacio operativo. Diana
+- Después de un Bootstrap autorizado, verificar en modo de solo lectura el
+  estado `trial` y los 15 días exactos de Diana, con fechas coincidentes en la
+  oferta consumida, `snapshotContrato` v2, suscripción y evento de auditoría;
+  verificar también membresía/rol y claims de Diana, credencial temporal,
+  configuración de módulos y espacio operativo. Diana
   completa su perfil en el primer acceso y verifica cada vendedor después de
   crearlo. Las credenciales temporales se entregan fuera de banda; el envío
   por WhatsApp no está integrado al sistema y no se guardan claves en la
   evidencia.
-- Oferta aprobada internamente: Trial de 30 días y oferta anual específica de
-  `1.600.000 COP`, pago manual. La re-confirmación del responsable y la
-  vigencia acordada se registran en [la evidencia comercial de Gate I](evidence/G-SAAS-02-E2-2-GATE-I-COMMERCIAL-OFFER-APPROVAL-2026-10-06.md).
-  Esta declaración no equivale a un comprobante directo de aceptación, no
-  persiste la oferta y no sustituye los gates ni la autorización operativa del
-  Bootstrap productivo.
+- Oferta aprobada internamente: oferta anual específica de `1.600.000 COP`,
+  pago manual; para Diana se aplica la excepción de 15 días de ADR-SAAS-087 y
+  para toda oferta sin esa excepción rige el estándar de 30 días de
+  ADR-SAAS-028. La aprobación no persiste la oferta ni sustituye los gates o
+  la autorización operativa del Bootstrap productivo.
 - Inicio sin facturación electrónica: el Trial operará en modo no fiscal.
   La emisión DIAN desde la aplicación web no está disponible y no debe
   presentarse como una capacidad activa. La aceptación temporal de operar sin
   emisión no cierra Gate I ni certifica DIAN para otros tenants.
-- Catálogo recibido: el responsable aportó cuatro fotos de las hojas impresas
-  que cubren las filas 1–110; esas imágenes son la fuente visual recibida, no
-  un recurso faltante. En las ubicaciones consultadas del proyecto y recursos
-  disponibles no se encontró un archivo maestro digital editable y aprobado
-  (CSV o XLSX). La transcripción privada local supera la validación estructural
-  (110 filas consecutivas, campos completos, precios numéricos y stock inicial
-  cero), pero sigue siendo un borrador: no se ha cotejado fila por fila contra
-  las fotos ni se aprobó ese artefacto digital específico. Diana o la persona
-  responsable del catálogo debe validar la transcripción y resolver las
-  presentaciones/unidades ambiguas, o proporcionar el archivo maestro aprobado,
-  antes de importar. La referencia documentada es que `x N unidades` expresa
-  un empaque de N unidades y que las bebidas fuertes sin múltiplo expreso se
-  venden por unidad; no se extrapola esa regla a descripciones ambiguas. El
-  borrador permanece en `.codex/private/`, ignorado por Git; el repositorio es
-  público, así que no se incorporan las fotos ni nombres/precios del catálogo
-  a GitHub. No se importó ni escribió en ningún tenant. El costo de compra se organizará
-  después desde compras reales de Bodega. Con existencias en cero no se confirma
-  una venta real hasta ingresar inventario por el flujo canónico de compras,
-  una vez que Gate I confirme y certifique su despliegue productivo.
+- Catálogo final recibido: el archivo `DISTRIBUIDORA LAS JIMENEZ (1).xlsx` es
+  la fuente para preparar la importación; el CSV privado previo queda obsoleto
+  y no debe usarse. La lectura conserva separadas las listas de precios a
+  tienda y consumidor final. Ninguna se importa todavía: el archivo no define
+  unidad base, presentación/factor o SKU y contiene dos precios de venta frente
+  al único `precioCOP` por presentación del modelo POS. Una vista previa
+  privada separada conserva ambas listas y marca esas ambigüedades por fila;
+  no corrige ni modifica el Excel original. El inventario inicial sigue
+  pendiente y no se inventan existencias. El costo de compra se organizará
+  después desde compras reales de Bodega. No se escribió en ningún tenant; una
+  venta requiere catálogo aprobado y existencias registradas por el flujo
+  canónico de compras, una vez que Gate I confirme y certifique el despliegue.
 - **Aplazamiento autorizado — 2026-10-17:** el responsable decidió esperar la
   lista definitiva de Diana. Este aplazamiento retira únicamente la carga del
   catálogo como precondición del Bootstrap/Trial inicial; no aprueba el borrador
@@ -151,7 +153,7 @@ fixture.
   turno y movimientos de inventario/ledger. Esto valida el flujo de software
   en fixtures; no acredita deploy, tenant, catálogo ni smoke productivo.
 
-El Backoffice comercial materializa el catálogo público exclusivamente mediante `CrearPlan`, `CrearNuevaVersionPlan` y `PublicarPlan`, bajo `COMERCIAL_GOBERNAR`. Una excepción de precio anual para una Empresa se administra como oferta tenant-specific mediante `CrearOfertaComercialTenant` y `AprobarOfertaComercialTenant`, según ADR-SAAS-061; no crea ni modifica una versión pública del Plan y el precio se resuelve en servidor. La aprobación interna de 1.600.000 COP anuales para Distribuidora Las Jiménez está registrada en [la evidencia comercial de Gate I](evidence/G-SAAS-02-E2-2-GATE-I-COMMERCIAL-OFFER-APPROVAL-2026-10-06.md); no implica aceptación del cliente, registro de la oferta ni autorización de Bootstrap. El Trial de 30 días continúa siendo responsabilidad exclusiva del Bootstrap.
+El Backoffice comercial materializa el catálogo público exclusivamente mediante `CrearPlan`, `CrearNuevaVersionPlan` y `PublicarPlan`, bajo `COMERCIAL_GOBERNAR`. Una excepción de precio anual para una Empresa se administra como oferta tenant-specific mediante `CrearOfertaComercialTenant` y `AprobarOfertaComercialTenant`, según ADR-SAAS-061; no crea ni modifica una versión pública del Plan y el precio se resuelve en servidor. La oferta anual de `1.600.000 COP` para Distribuidora Las Jiménez conserva pago manual y aplica la excepción de 15 días de ADR-SAAS-087; fuera de ese caso, el estándar de Trial sigue en 30 días. La aprobación no implica registro de la oferta ni autorización de Bootstrap. El Bootstrap resuelve y calcula las fechas del Trial server-side.
 
 ### 2.2 Transición del tenant mensual histórico
 

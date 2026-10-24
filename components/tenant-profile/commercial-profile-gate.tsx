@@ -28,6 +28,14 @@ type FormularioPerfil = {
   municipioNombre: string
 }
 
+type SobreComandoPerfil = {
+  fingerprint: string
+  expectedRevision: number
+  commandId: string
+  idempotencyKey: string
+  correlationId: string
+}
+
 const vacio: FormularioPerfil = {
   nombreComercial: '', razonSocial: '', tipoPersona: '', nit: '', digitoVerificacion: '', email: '', telefono: '',
   direccion: '', departamentoCodigo: '', departamentoNombre: '', municipioCodigo: '', municipioNombre: '',
@@ -61,6 +69,7 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
   const [formTenantId, setFormTenantId] = useState<string | null>(null)
   const borradorModificado = useRef(false)
   const formularioRef = useRef<HTMLFormElement>(null)
+  const sobreComandoPendiente = useRef<SobreComandoPerfil | null>(null)
 
   const tenantCoincide = !!empresaId && empresaConfigId === empresaId && membresia?.empresaId === empresaId && membresia.uid === usuario?.uid
   const adminActivo = !!membresia && membresia.rol === 'admin' && membresia.estado === 'activa' && membresia.activo
@@ -78,6 +87,7 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
     if (!empresaId || !proyecciones || empresaConfigId !== empresaId) return
     const formularioPersistido = serializarPerfil(proyecciones.identidad, proyecciones.localizacion.direccion)
     if (formTenantId !== empresaId) {
+      sobreComandoPendiente.current = null
       borradorModificado.current = false
       setForm(formularioPersistido)
       setFormTenantId(empresaId)
@@ -115,6 +125,7 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
 
   function update<K extends keyof FormularioPerfil>(field: K, value: FormularioPerfil[K]) {
     borradorModificado.current = true
+    sobreComandoPendiente.current = null
     setMensajeExito(null)
     setForm((current) => ({ ...current, [field]: value }))
   }
@@ -162,17 +173,35 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
       setGuardando(false)
       return
     }
-    try {
-      const enviar = httpsCallable(getFirebaseFunctions('us-central1'), 'registrarPerfilComercialBodegaV1')
-      await enviar({
-        ...(avanceParcial ? datosPerfil : perfilNormalizado),
+    const datosAEnviar = avanceParcial ? datosPerfil : perfilNormalizado
+    const fingerprint = JSON.stringify([avanceParcial, datosAEnviar])
+    if (sobreComandoPendiente.current?.fingerprint !== fingerprint) {
+      sobreComandoPendiente.current = {
+        fingerprint,
         expectedRevision: revision,
         commandId: crypto.randomUUID(),
         idempotencyKey: crypto.randomUUID(),
         correlationId: crypto.randomUUID(),
+      }
+    }
+    const sobre = sobreComandoPendiente.current
+    try {
+      const enviar = httpsCallable(getFirebaseFunctions('us-central1'), 'registrarPerfilComercialBodegaV1')
+      await enviar({
+        ...datosAEnviar,
+        expectedRevision: sobre.expectedRevision,
+        commandId: sobre.commandId,
+        idempotencyKey: sobre.idempotencyKey,
+        correlationId: sobre.correlationId,
       })
+      sobreComandoPendiente.current = null
       borradorModificado.current = false
-      await refrescar()
+      try {
+        await refrescar()
+      } catch {
+        setError('El perfil se guardó, pero no pudimos actualizar la pantalla. Recarga para continuar.')
+        return
+      }
       if (avanceParcial) setMensajeExito('Avance guardado. Puedes volver después; los campos pendientes seguirán aquí.')
     } catch (cause) {
       // Un timeout puede ocurrir después del commit. Releer primero hace el

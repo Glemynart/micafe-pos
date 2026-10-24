@@ -295,6 +295,7 @@ test("G-SAAS-02: Bootstrap materializa los módulos del Plan en un tenant DEMO",
 
 test("ADR-SAAS-061: Bootstrap resuelve y consume atómicamente una oferta anual específica sin alterar el catálogo público", async () => {
   const db = new Db();
+  const registrarBootstrapPlataforma = () => ({ obligacionId: "audit_bootstrap_jimenez_test" });
   const empresaId = "distribuidora-las-jimenez";
   const ofertaId = "oferta-distribuidora-jimenez-2026";
   db.seed("planes/mvp_comercial/versiones/2", {
@@ -345,7 +346,7 @@ test("ADR-SAAS-061: Bootstrap resuelve y consume atómicamente una oferta anual 
   };
 
   const creado = await ejecutarBootstrapEmpresarial(
-    db as any, entrada, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso,
+    db as any, entrada, async () => {}, ownerExistente, registrarBootstrapPlataforma, undefined, credencialIssuerExitoso,
   );
 
   assert.equal(creado.estado, "COMPLETED");
@@ -362,7 +363,7 @@ test("ADR-SAAS-061: Bootstrap resuelve y consume atómicamente una oferta anual 
   assert.equal(db.read(ofertaComercialActivaRef(db as never, empresaId).path).ofertaActivaId, null);
 
   const replay = await ejecutarBootstrapEmpresarial(
-    db as any, entrada, async () => { throw new Error("NO_DEBE_EMITIR_CLAIMS"); }, ownerExistente, undefined, undefined, credencialIssuerExitoso,
+    db as any, entrada, async () => { throw new Error("NO_DEBE_EMITIR_CLAIMS"); }, ownerExistente, registrarBootstrapPlataforma, undefined, credencialIssuerExitoso,
   );
   assert.equal(replay.idempotente, true);
   assert.deepEqual(db.read(`suscripciones/${empresaId}`).snapshotContrato.precio, { importe: 1600000, moneda: "COP" });
@@ -427,7 +428,8 @@ test("ADR-SAAS-087: Bootstrap obtiene 15 días de la oferta v2 aprobada, y snaps
     correlationId: "corr_trial_diana_15", causationId: "cause_trial_diana_15", trialDias: 30,
   };
 
-  const creado = await ejecutarBootstrapEmpresarial(db as any, entrada, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso);
+  const observer = () => ({ obligacionId: "audit_trial_diana_15" });
+  const creado = await ejecutarBootstrapEmpresarial(db as any, entrada, async () => {}, ownerExistente, observer, undefined, credencialIssuerExitoso);
   const suscripcion = db.read(`suscripciones/${empresaId}`);
   const oferta = db.read(ofertaComercialRef(db as never, empresaId, ofertaId).path);
   const eventoTrial = [...db.docs.values()].find((documento) => documento.comando === "TrialIniciado");
@@ -449,8 +451,10 @@ test("ADR-SAAS-087: Bootstrap obtiene 15 días de la oferta v2 aprobada, y snaps
     { inicio: suscripcion.trialInicio, fin: suscripcion.trialFin, trialDias: 15, ofertaId },
   );
   assert.deepEqual(suscripcion.snapshotContrato.precio, { importe: 1600000, moneda: "COP" });
+  assert.equal([...db.docs.keys()].some((path) => path.startsWith("pagos_saas/")), false);
+  assert.equal([...db.docs.values()].some((documento) => documento.comando === "SuscripcionPagoAnualConfirmado"), false);
 
-  const replay = await ejecutarBootstrapEmpresarial(db as any, entrada, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso);
+  const replay = await ejecutarBootstrapEmpresarial(db as any, entrada, async () => {}, ownerExistente, observer, undefined, credencialIssuerExitoso);
   assert.equal(replay.idempotente, true);
   assert.equal(db.read(`suscripciones/${empresaId}`).trialFin, suscripcion.trialFin);
   assert.equal([...db.docs.values()].filter((documento) => documento.comando === "TrialIniciado").length, 1);
@@ -485,6 +489,21 @@ test("ADR-SAAS-087: la oferta v2 no puede aplicar la excepción a otra empresa",
   assert.equal(db.read(`empresas/${empresaId}`), undefined);
   assert.equal(db.read(`suscripciones/${empresaId}`), undefined);
   assert.equal(db.read(ofertaComercialRef(db as never, empresaId, ofertaId).path).estado, "APROBADA");
+});
+
+test("ADR-SAAS-087: la excepción solo se consume por el Bootstrap de plataforma auditado", async () => {
+  const db = new Db();
+  await assert.rejects(
+    ejecutarBootstrapEmpresarial(db as any, {
+      ...entradaBase, empresaId: "distribuidora-las-jimenez", planId: "mvp_comercial", planVersion: 2,
+      commandId: "cmd_trial_diana_self_service", idempotencyKey: "idem_trial_diana_self_service",
+      correlationId: "corr_trial_diana_self_service", causationId: "cause_trial_diana_self_service",
+    }, async () => {}, ownerExistente, undefined, undefined, credencialIssuerExitoso),
+    /BOOTSTRAP_TRIAL_EXCEPTION_REQUIRES_PLATFORM/,
+  );
+  assert.equal(db.read("bootstrap_identidades_owner/distribuidora-las-jimenez"), undefined);
+  assert.equal(db.read("empresas/distribuidora-las-jimenez"), undefined);
+  assert.equal(db.read("suscripciones/distribuidora-las-jimenez"), undefined);
 });
 
 test("ADR-SAAS-087: Bootstrap ignora cualquier intento de pedir 15 días desde el payload", async () => {
@@ -559,7 +578,7 @@ test("ADR-SAAS-061: Bootstrap falla cerrado si la identidad persistida de la ofe
   const casos = [
     { nombre: "ID embebido distinto al documento apuntado", schemaVersion: 1, revision: 2, ofertaId: "otra_oferta", periodicidad: "ANUAL" },
     { nombre: "revisión de oferta no positiva", schemaVersion: 1, revision: 0, ofertaId: "oferta_canonica", periodicidad: "ANUAL" },
-    { nombre: "versión de oferta desconocida", schemaVersion: 2, revision: 1, ofertaId: "oferta_canonica", periodicidad: "ANUAL" },
+    { nombre: "versión de oferta desconocida", schemaVersion: 3, revision: 1, ofertaId: "oferta_canonica", periodicidad: "ANUAL" },
     { nombre: "periodicidad persistida distinta de ANUAL", schemaVersion: 1, revision: 1, ofertaId: "oferta_canonica", periodicidad: "MENSUAL" },
   ];
 

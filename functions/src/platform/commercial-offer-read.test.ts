@@ -33,7 +33,7 @@ test("ADR-SAAS-061: consulta solo la oferta del tenant aprobado y devuelve campo
     revision: 3,
   });
   db.seed(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`, {
-    schemaVersion: 1,
+    schemaVersion: 2,
     ofertaId,
     empresaIdObjetivo: empresaId,
     planIdBase: "mvp_comercial",
@@ -45,6 +45,8 @@ test("ADR-SAAS-061: consulta solo la oferta del tenant aprobado y devuelve campo
     expiraEn: null,
     motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
     referenciaAprobacion,
+    trialDias: 15,
+    referenciaAceptacionCliente: "G-SAAS-02-DIANA-TRIAL-15-DIAS-ACEPTADO-2026-10-23",
     revision: 2,
     internalCredential: "must-not-leak",
   });
@@ -67,6 +69,7 @@ test("ADR-SAAS-061: consulta solo la oferta del tenant aprobado y devuelve campo
   assert.equal(result.controlRevision, 3);
   assert.equal(result.ofertaActivaId, ofertaId);
   assert.deepEqual(result.autorizacion, {
+    schemaVersion: 2,
     ofertaId,
     empresaIdObjetivo: empresaId,
     nombreEmpresaObjetivo: "Distribuidora Las Jiménez",
@@ -76,8 +79,11 @@ test("ADR-SAAS-061: consulta solo la oferta del tenant aprobado y devuelve campo
     precioAcordado: { importe: 1600000, moneda: "COP" },
     motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
     referenciaAprobacion,
+    trialDias: 15,
+    referenciaAceptacionCliente: "G-SAAS-02-DIANA-TRIAL-15-DIAS-ACEPTADO-2026-10-23",
   });
   assert.deepEqual(result.oferta, {
+    schemaVersion: 2,
     ofertaId,
     empresaIdObjetivo: empresaId,
     planIdBase: "mvp_comercial",
@@ -89,6 +95,8 @@ test("ADR-SAAS-061: consulta solo la oferta del tenant aprobado y devuelve campo
     expiraEn: null,
     motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
     referenciaAprobacion,
+    trialDias: 15,
+    referenciaAceptacionCliente: "G-SAAS-02-DIANA-TRIAL-15-DIAS-ACEPTADO-2026-10-23",
     revision: 2,
   });
   assert.equal(JSON.stringify(result).includes("must-not-leak"), false);
@@ -240,4 +248,27 @@ test("ADR-SAAS-061: Bootstrap y consulta usan el mismo schemaVersion de oferta p
     consultarOfertaComercialTenant(db as never, "GATE_I_OFFER_1"),
     /OFERTA_COMERCIAL_INVALIDA/,
   );
+});
+
+test("ADR-SAAS-087: consulta rechaza una oferta v1 donde la aprobación vigente exige el plazo v2", async () => {
+  const db = fakeDb();
+  db.seed("ofertas_comerciales_tenant/distribuidora-las-jimenez", {
+    empresaId: "distribuidora-las-jimenez", ofertaActivaId: "oferta-distribuidora-jimenez-2026", revision: 1,
+  });
+  db.seed("ofertas_comerciales_tenant/distribuidora-las-jimenez/ofertas/oferta-distribuidora-jimenez-2026", {
+    schemaVersion: 1,
+    ofertaId: "oferta-distribuidora-jimenez-2026",
+    empresaIdObjetivo: "distribuidora-las-jimenez",
+    planIdBase: "mvp_comercial",
+    planVersionBase: 2,
+    periodicidad: "ANUAL",
+    precioAcordado: { importe: 1_600_000, moneda: "COP" },
+    estado: "APROBADA",
+    iniciaEn: "2026-10-16",
+    expiraEn: null,
+    motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
+    referenciaAprobacion: "G-SAAS-02-PO-OFFER-DISTRIBUIDORA-LAS-JIMENEZ-2026-10-06",
+    revision: 2,
+  });
+  await assert.rejects(consultarOfertaComercialTenant(db as never, "GATE_I_OFFER_1"), /OFERTA_COMERCIAL_INVALIDA/);
 });

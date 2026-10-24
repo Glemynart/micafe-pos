@@ -242,6 +242,7 @@ export const comandoComercial = (tipo: string, entrada: Record<string, unknown>)
   invocar<Record<string, unknown>>("ejecutarComandoComercialSaas", { tipo, entrada });
 
 export type OfertaComercialTenantAdmin = {
+  schemaVersion: 1 | 2;
   ofertaId: string;
   empresaIdObjetivo: string;
   planIdBase: string;
@@ -253,11 +254,16 @@ export type OfertaComercialTenantAdmin = {
   expiraEn: string | null;
   motivoCodigo: string;
   referenciaAprobacion: string;
+  trialDias?: 15;
+  referenciaAceptacionCliente?: string;
+  trialInicio?: string;
+  trialFin?: string;
   revision: number;
 };
 
 export type ResultadoConsultaOfertaComercialTenant = {
   autorizacion: {
+    schemaVersion: 2;
     ofertaId: string;
     empresaIdObjetivo: string;
     nombreEmpresaObjetivo: string;
@@ -267,6 +273,8 @@ export type ResultadoConsultaOfertaComercialTenant = {
     precioAcordado: { importe: number; moneda: string };
     motivoCodigo: string;
     referenciaAprobacion: string;
+    trialDias: 15;
+    referenciaAceptacionCliente: string;
   };
   oferta: OfertaComercialTenantAdmin | null;
   controlRevision: number;

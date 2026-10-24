@@ -1,12 +1,14 @@
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import {
+  calcularVigenciaTrialUtc,
   esFechaComercial,
   esIdComercial,
   fechaComercialUtc,
   type OfertaComercialTenant,
   type PlanVersion,
 } from "../../../lib/suscripciones/contrato";
+import { esOfertaTrial15Autorizada } from "../platform/approved-tenant-offers";
 
 export const OFERTAS_COMERCIALES_TENANT_COLLECTION = "ofertas_comerciales_tenant";
 
@@ -49,6 +51,7 @@ export function validarPrecioAcordado(value: unknown): asserts value is { import
 }
 
 type EntradaOfertaComercial = {
+  schemaVersion?: unknown;
   empresaId: unknown;
   ofertaId: unknown;
   planIdBase: unknown;
@@ -56,13 +59,17 @@ type EntradaOfertaComercial = {
   precioAcordado: unknown;
   iniciaEn: unknown;
   expiraEn: unknown;
+  motivoCodigo?: unknown;
   referenciaAprobacion: unknown;
+  trialDias?: unknown;
+  referenciaAceptacionCliente?: unknown;
 };
 
 function validarOfertaComercialConError(
   entrada: EntradaOfertaComercial,
   codigoError: "invalid-argument" | "failed-precondition",
 ) {
+  const schemaVersion = entrada.schemaVersion ?? 1;
   if (!esIdComercial(entrada.empresaId)
     || !esIdComercial(entrada.ofertaId)
     || !esIdComercial(entrada.planIdBase)
@@ -73,10 +80,30 @@ function validarOfertaComercialConError(
     || (typeof entrada.expiraEn === "string" && entrada.iniciaEn >= entrada.expiraEn)
     || typeof entrada.referenciaAprobacion !== "string"
     || entrada.referenciaAprobacion.length < 1
-    || entrada.referenciaAprobacion.length > 160) {
+    || entrada.referenciaAprobacion.length > 160
+    || (schemaVersion !== 1 && schemaVersion !== 2)) {
     rechazar(codigoError, "OFERTA_COMERCIAL_INVALIDA");
   }
   validarPrecioAcordadoConError(entrada.precioAcordado, codigoError);
+  if (schemaVersion === 1) {
+    if (entrada.trialDias !== undefined || entrada.referenciaAceptacionCliente !== undefined) {
+      rechazar(codigoError, "OFERTA_COMERCIAL_INVALIDA");
+    }
+  } else if (!esOfertaTrial15Autorizada({
+    schemaVersion,
+    ofertaId: entrada.ofertaId as string,
+    empresaIdObjetivo: entrada.empresaId as string,
+    planIdBase: entrada.planIdBase as string,
+    planVersionBase: entrada.planVersionBase as number,
+    periodicidad: "ANUAL",
+    precioAcordado: entrada.precioAcordado as { importe: number; moneda: string },
+    motivoCodigo: entrada.motivoCodigo as string,
+    referenciaAprobacion: entrada.referenciaAprobacion,
+    trialDias: entrada.trialDias as 15,
+    referenciaAceptacionCliente: entrada.referenciaAceptacionCliente as string,
+  })) {
+    rechazar(codigoError, "OFERTA_COMERCIAL_TRIAL_EXCEPTION_INVALIDA");
+  }
 }
 
 export function validarOfertaComercialEntrada(entrada: EntradaOfertaComercial) {
@@ -112,7 +139,7 @@ export function validarOfertaComercialPersistida(value: unknown): asserts value 
   if (!oferta
     || typeof oferta !== "object"
     || Array.isArray(oferta)
-    || oferta.schemaVersion !== 1
+    || (oferta.schemaVersion !== 1 && oferta.schemaVersion !== 2)
     || !esIdComercial(oferta.ofertaId)
     || !esIdComercial(oferta.empresaIdObjetivo)
     || !esIdComercial(oferta.planIdBase)
@@ -127,6 +154,25 @@ export function validarOfertaComercialPersistida(value: unknown): asserts value 
     rechazar("failed-precondition", "OFERTA_COMERCIAL_INVALIDA");
   }
 
+  if (oferta.schemaVersion === 1) {
+    if ("trialDias" in oferta || "referenciaAceptacionCliente" in oferta || "trialInicio" in oferta || "trialFin" in oferta) {
+      rechazar("failed-precondition", "OFERTA_COMERCIAL_INVALIDA");
+    }
+  } else {
+    if (!esOfertaTrial15Autorizada(oferta)) {
+      rechazar("failed-precondition", "OFERTA_COMERCIAL_TRIAL_EXCEPTION_INVALIDA");
+    }
+    const tieneInicio = oferta.trialInicio !== undefined;
+    const tieneFin = oferta.trialFin !== undefined;
+    if (tieneInicio !== tieneFin
+      || (tieneInicio && (!esFechaComercial(oferta.trialInicio) || !esFechaComercial(oferta.trialFin)
+        || (Date.parse(`${oferta.trialFin}T00:00:00.000Z`) - Date.parse(`${oferta.trialInicio}T00:00:00.000Z`)) !== 15 * 86_400_000))
+      || (oferta.estado === "CONSUMIDA" && !tieneInicio)
+      || (oferta.estado !== "CONSUMIDA" && tieneInicio)) {
+      rechazar("failed-precondition", "OFERTA_COMERCIAL_TRIAL_VIGENCIA_INVALIDA");
+    }
+  }
+
   validarOfertaComercialConError({
     empresaId: oferta.empresaIdObjetivo,
     ofertaId: oferta.ofertaId,
@@ -135,14 +181,28 @@ export function validarOfertaComercialPersistida(value: unknown): asserts value 
     precioAcordado: oferta.precioAcordado,
     iniciaEn: oferta.iniciaEn,
     expiraEn: oferta.expiraEn,
+    motivoCodigo: oferta.motivoCodigo,
     referenciaAprobacion: oferta.referenciaAprobacion,
+    schemaVersion: oferta.schemaVersion,
+    ...(oferta.schemaVersion === 2 ? {
+      trialDias: oferta.trialDias,
+      referenciaAceptacionCliente: oferta.referenciaAceptacionCliente,
+    } : {}),
   }, "failed-precondition");
 }
 
-export type OfertaConsumida = {
+type OfertaConsumidaBase = {
   ofertaId: string;
+  empresaIdObjetivo: string;
   precioAcordado: { importe: number; moneda: string };
+  trialInicio: string;
+  trialFin: string;
 };
+
+export type OfertaConsumida = OfertaConsumidaBase & (
+  | { schemaVersion: 1; trialDias: number }
+  | { schemaVersion: 2; trialDias: 15; referenciaAceptacionCliente: string }
+);
 
 /**
  * Resuelve y consume una oferta ya APROBADA antes de escribir el núcleo del
@@ -159,6 +219,7 @@ export async function resolverOfertaComercialBootstrapEnTransaccion(
     planBase: PlanVersion;
     provisionamientoId: string;
   },
+  reloj: Date = new Date(),
 ): Promise<OfertaConsumida | null> {
   const controlRef = ofertaComercialActivaRef(db, entrada.empresaId);
   const controlSnap = await tx.get(controlRef);
@@ -175,7 +236,7 @@ export async function resolverOfertaComercialBootstrapEnTransaccion(
   if (oferta.ofertaId !== control.ofertaActivaId) {
     rechazar("failed-precondition", "OFERTA_COMERCIAL_INVALIDA");
   }
-  const hoy = fechaComercialUtc();
+  const hoy = fechaComercialUtc(reloj);
   if (oferta.empresaIdObjetivo !== entrada.empresaId
     || oferta.planIdBase !== entrada.planId
     || oferta.planVersionBase !== entrada.planVersion
@@ -187,12 +248,19 @@ export async function resolverOfertaComercialBootstrapEnTransaccion(
   }
   validarPlanBaseParaOferta(entrada.planBase, oferta.precioAcordado);
 
+  const trialDias = oferta.schemaVersion === 2 ? oferta.trialDias : 30;
+  const vigencia = calcularVigenciaTrialUtc(reloj, trialDias);
+
   const revisionOfertaNueva = incrementarRevisionOfertaComercial(oferta.revision);
   const revisionControlNueva = incrementarRevisionOfertaComercial(control.revision);
   tx.update(ofertaRef, {
     estado: "CONSUMIDA",
     revision: revisionOfertaNueva,
     consumidaPor: { empresaId: entrada.empresaId, provisionamientoId: entrada.provisionamientoId },
+    ...(oferta.schemaVersion === 2 ? {
+      trialInicio: vigencia.inicio,
+      trialFin: vigencia.fin,
+    } : {}),
     consumidaEn: FieldValue.serverTimestamp(),
     actualizadaEn: FieldValue.serverTimestamp(),
   });
@@ -201,10 +269,16 @@ export async function resolverOfertaComercialBootstrapEnTransaccion(
     revision: revisionControlNueva,
     actualizadaEn: FieldValue.serverTimestamp(),
   });
-  return {
+  const consumidaBase = {
     ofertaId: oferta.ofertaId,
+    empresaIdObjetivo: oferta.empresaIdObjetivo,
     precioAcordado: { ...oferta.precioAcordado },
+    trialInicio: vigencia.inicio,
+    trialFin: vigencia.fin,
   };
+  return oferta.schemaVersion === 2
+    ? { ...consumidaBase, schemaVersion: 2, trialDias: oferta.trialDias, referenciaAceptacionCliente: oferta.referenciaAceptacionCliente }
+    : { ...consumidaBase, schemaVersion: 1, trialDias };
 }
 
 export function validarPlanBaseParaOferta(plan: PlanVersion, precioAcordado: { importe: number; moneda: string }) {

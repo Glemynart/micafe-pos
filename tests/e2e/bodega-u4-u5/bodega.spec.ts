@@ -292,16 +292,36 @@ test("admin Bodega completa perfil comercial en primer acceso y entra al panel a
   await expect(nombreComercial).toHaveValue("Borrador local sin guardar")
 
   await nombreComercial.fill("  Distribuidora Sintética F   ")
+  const solicitudesPerfil: Record<string, unknown>[] = []
+  let perderPrimeraRespuesta = true
   await page.route("**/registrarPerfilComercialBodegaV1**", async route => {
-    await new Promise(resolve => setTimeout(resolve, 300))
+    solicitudesPerfil.push(JSON.parse(route.request().postData() ?? "{}").data)
+    if (perderPrimeraRespuesta) {
+      perderPrimeraRespuesta = false
+      await route.fetch()
+      await route.abort("failed")
+      return
+    }
     await route.continue()
   })
   await page.getByRole("button", { name: "Guardar avance" }).click()
+  await expect(page.getByRole("alert")).toBeVisible()
+  const db = getFirestore(app)
+  await expect.poll(async () => (await db.collection("configuraciones").doc(tenantF.empresaId).get()).data()?.revision).toBe(2)
+  await page.getByRole("button", { name: "Guardar avance" }).click()
   await expect(nombreComercial).toBeDisabled()
-  await expect(page.getByLabel("Razón social")).toBeDisabled()
   await expect(page.getByRole("status")).toHaveText("Avance guardado. Puedes volver después; los campos pendientes seguirán aquí.")
   await expect(nombreComercial).toBeEnabled()
   await page.unroute("**/registrarPerfilComercialBodegaV1**")
+  expect(solicitudesPerfil).toHaveLength(2)
+  expect(solicitudesPerfil[1].commandId).toBe(solicitudesPerfil[0].commandId)
+  expect(solicitudesPerfil[1].idempotencyKey).toBe(solicitudesPerfil[0].idempotencyKey)
+  const [auditoriasPerfil, eventosPerfil] = await Promise.all([
+    db.collection("auditoria_logs").where("empresaId", "==", tenantF.empresaId).where("commandId", "==", `perfil-bodega-${solicitudesPerfil[0].commandId}`).get(),
+    db.collection("eventos_dominio").where("empresaId", "==", tenantF.empresaId).where("commandId", "==", `perfil-bodega-${solicitudesPerfil[0].commandId}`).get(),
+  ])
+  expect(auditoriasPerfil.size).toBe(1)
+  expect(eventosPerfil.size).toBe(1)
   await expect(page.getByRole("heading", { name: "Datos del negocio" })).toBeVisible()
 
   await page.reload()
@@ -323,7 +343,6 @@ test("admin Bodega completa perfil comercial en primer acceso y entra al panel a
   await page.getByRole("button", { name: "Guardar y continuar en DEMO" }).click()
   await expect(page.getByRole("heading", { name: "Centro de operación" })).toBeVisible()
 
-  const db = getFirestore(app)
   const [company, config] = await Promise.all([
     db.collection("empresas").doc(tenantF.empresaId).get(),
     db.collection("configuraciones").doc(tenantF.empresaId).get(),

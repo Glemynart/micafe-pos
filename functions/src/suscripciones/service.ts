@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
-import { esFechaComercial, esIdComercial, fechaComercialUtc, rangoComercialValido, readinessComercial, transicionesEmpresa, transicionesSuscripcion, type EmpresaLifecycle, type OfertaComercialTenant, type PlanVersion, type RelacionContractual, type SnapshotContrato, type Suscripcion } from "../../../lib/suscripciones/contrato";
+import { esFechaComercial, esIdComercial, esSnapshotContratoCompatible, fechaComercialUtc, rangoComercialValido, readinessComercial, transicionesEmpresa, transicionesSuscripcion, type EmpresaLifecycle, type OfertaComercialTenant, type PlanVersion, type RelacionContractual, type SnapshotContrato, type Suscripcion } from "../../../lib/suscripciones/contrato";
 import {
   ofertaComercialActivaRef,
   ofertaComercialRef,
@@ -10,7 +10,9 @@ import {
   validarOfertaComercialPersistida,
   validarOfertaComercialEntrada,
   validarPlanBaseParaOferta,
+  type OfertaConsumida,
 } from "./ofertas-tenant";
+import { esExcepcionTrial15Autorizada } from "../platform/approved-tenant-offers";
 import {
   ejecutarComandoConfiguracionConEstadoPreleidoEnTransaccion,
   leerComandoConfiguracionEnTransaccion,
@@ -70,6 +72,7 @@ function construirSnapshotContrato(
   inicio: string,
   fin: string,
   precioContrato?: { importe: number; moneda: string },
+  ofertaComercial?: OfertaConsumida,
 ): SnapshotContrato | undefined {
   if (plan.periodicidad !== "ANUAL") return undefined;
   validarOfertaPlan(plan);
@@ -78,19 +81,32 @@ function construirSnapshotContrato(
   if (!Number.isSafeInteger(precio.importe) || precio.importe <= 0 || precio.moneda !== plan.precio!.moneda) {
     fail("invalid-argument", "SNAPSHOT_CONTRATO_INVALIDO");
   }
-  return {
-    schemaVersion: 1,
+  if (ofertaComercial?.schemaVersion === 2
+    && !esExcepcionTrial15Autorizada(ofertaComercial)) {
+    fail("failed-precondition", "TRIAL_EXCEPTION_NOT_AUTHORIZED");
+  }
+  const snapshotBase = {
     planId: plan.planId,
     planVersion: plan.planVersion,
     codigoPlan: plan.codigo,
-    periodicidad: "ANUAL",
+    periodicidad: "ANUAL" as const,
     precio: { importe: precio.importe, moneda: precio.moneda },
     capacidades: [...plan.capacidades],
     limites: JSON.parse(JSON.stringify(plan.limites ?? {})) as PlanVersion["limites"],
-    sedeConceptual: { cantidad: 1 },
+    sedeConceptual: { cantidad: 1 as const },
     fiscalidad: null,
     vigencia: { inicio, fin },
   };
+  if (ofertaComercial?.schemaVersion === 2) {
+    return {
+      ...snapshotBase,
+      schemaVersion: 2,
+      trialDias: 15,
+      ofertaComercialId: ofertaComercial.ofertaId,
+      referenciaAceptacionCliente: ofertaComercial.referenciaAceptacionCliente!,
+    };
+  }
+  return { ...snapshotBase, schemaVersion: 1 };
 }
 
 function diasEntre(inicio: string, fin: string) {
@@ -130,6 +146,7 @@ export async function retirarVersionPlan(db: Firestore, entrada: Envelope & { pl
 export async function crearOfertaComercialTenant(
   db: Firestore,
   entrada: Envelope & {
+    schemaVersion?: 1 | 2;
     empresaId: string;
     ofertaId: string;
     planIdBase: string;
@@ -141,12 +158,15 @@ export async function crearOfertaComercialTenant(
     expiraEn: string | null;
     motivoCodigo: string;
     referenciaAprobacion: string;
+    trialDias?: 15;
+    referenciaAceptacionCliente?: string;
   },
   ctx: ContextoComercial,
 ) {
   validar(entrada);
   const registro = { ...entrada, motivo: entrada.motivoCodigo };
   const terminos = {
+    schemaVersion: entrada.schemaVersion ?? 1,
     ofertaId: entrada.ofertaId,
     empresaIdObjetivo: entrada.empresaId,
     planIdBase: entrada.planIdBase,
@@ -155,6 +175,8 @@ export async function crearOfertaComercialTenant(
     precioAcordado: entrada.precioAcordado,
     motivoCodigo: entrada.motivoCodigo,
     referenciaAprobacion: entrada.referenciaAprobacion,
+    ...(entrada.trialDias !== undefined ? { trialDias: entrada.trialDias } : {}),
+    ...(entrada.referenciaAceptacionCliente !== undefined ? { referenciaAceptacionCliente: entrada.referenciaAceptacionCliente } : {}),
   };
   validarOfertaComercialEntrada({ ...registro, empresaId: terminos.empresaIdObjetivo });
   const fingerprint = hash(registro);
@@ -193,21 +215,28 @@ export async function crearOfertaComercialTenant(
         actualizadaEn: FieldValue.serverTimestamp(),
       });
     }
-    const oferta: OfertaComercialTenant = {
-      schemaVersion: 1,
+    const ofertaBase = {
       ofertaId: terminos.ofertaId,
       empresaIdObjetivo: terminos.empresaIdObjetivo,
       planIdBase: terminos.planIdBase,
       planVersionBase: terminos.planVersionBase,
       periodicidad: terminos.periodicidad,
       precioAcordado: { ...terminos.precioAcordado },
-      estado: "BORRADOR",
+      estado: "BORRADOR" as const,
       iniciaEn: registro.iniciaEn,
       expiraEn: registro.expiraEn,
       motivoCodigo: terminos.motivoCodigo,
       referenciaAprobacion: terminos.referenciaAprobacion,
       revision: 1,
     };
+    const oferta: OfertaComercialTenant = terminos.schemaVersion === 2
+      ? {
+        ...ofertaBase,
+        schemaVersion: 2,
+        trialDias: terminos.trialDias!,
+        referenciaAceptacionCliente: terminos.referenciaAceptacionCliente!,
+      }
+      : { ...ofertaBase, schemaVersion: 1 };
     tx.create(ofertaRef, { ...oferta, creadaEn: FieldValue.serverTimestamp(), actualizadaEn: FieldValue.serverTimestamp() });
     const resultado = { empresaId: terminos.empresaIdObjetivo, ofertaId: terminos.ofertaId, revision: 1, controlRevision };
     registrar(tx, db, registro, terminos.empresaIdObjetivo, fingerprint, resultado, "OfertaComercialTenantCreada", "OFERTA_COMERCIAL_TENANT", 0, 1, ctx);
@@ -218,6 +247,7 @@ export async function crearOfertaComercialTenant(
 export async function aprobarOfertaComercialTenant(
   db: Firestore,
   entrada: Envelope & {
+    schemaVersion?: 1 | 2;
     empresaId: string;
     ofertaId: string;
     planIdBase: string;
@@ -227,12 +257,15 @@ export async function aprobarOfertaComercialTenant(
     expectedRevision: number;
     motivoCodigo: string;
     referenciaAprobacion: string;
+    trialDias?: 15;
+    referenciaAceptacionCliente?: string;
   },
   ctx: ContextoComercial,
 ) {
   validar(entrada);
   const registro = { ...entrada, motivo: entrada.motivoCodigo };
   const terminos = {
+    schemaVersion: entrada.schemaVersion ?? 1,
     ofertaId: entrada.ofertaId,
     empresaIdObjetivo: entrada.empresaId,
     planIdBase: entrada.planIdBase,
@@ -241,6 +274,8 @@ export async function aprobarOfertaComercialTenant(
     precioAcordado: entrada.precioAcordado,
     motivoCodigo: entrada.motivoCodigo,
     referenciaAprobacion: entrada.referenciaAprobacion,
+    ...(entrada.trialDias !== undefined ? { trialDias: entrada.trialDias } : {}),
+    ...(entrada.referenciaAceptacionCliente !== undefined ? { referenciaAceptacionCliente: entrada.referenciaAceptacionCliente } : {}),
   };
   const fingerprint = hash(registro);
   return db.runTransaction(async (tx) => {
@@ -261,7 +296,13 @@ export async function aprobarOfertaComercialTenant(
       || oferta.periodicidad !== terminos.periodicidad
       || oferta.precioAcordado?.importe !== terminos.precioAcordado.importe
       || oferta.precioAcordado?.moneda !== terminos.precioAcordado.moneda
+    || oferta.schemaVersion !== terminos.schemaVersion
       || oferta.referenciaAprobacion !== terminos.referenciaAprobacion) {
+      fail("failed-precondition", "OFERTA_COMERCIAL_APROBACION_NO_COINCIDE");
+    }
+    if (oferta.schemaVersion === 2
+      && (oferta.trialDias !== terminos.trialDias
+        || oferta.referenciaAceptacionCliente !== terminos.referenciaAceptacionCliente)) {
       fail("failed-precondition", "OFERTA_COMERCIAL_APROBACION_NO_COINCIDE");
     }
     if (oferta.empresaIdObjetivo !== terminos.empresaIdObjetivo
@@ -337,6 +378,8 @@ export type OpcionesTrial = {
   fingerprintInput?: unknown;
   /** ADR-SAAS-061: importe resuelto por servidor desde una oferta consumida. */
   precioContrato?: { importe: number; moneda: string };
+  /** Server-resolved offer evidence from Bootstrap's transaction; never payload input. */
+  ofertaComercial?: OfertaConsumida;
 };
 
 export function referenciasTrial(db: Firestore, entrada: Envelope & { empresaId: string; planId: string; planVersion: number }) {
@@ -383,12 +426,32 @@ export async function crearSuscripcionTrialEnTransaccion(
   })();
   if (!lecturas.plan.exists || (lecturas.plan.data() as PlanVersion).estado !== "PUBLICADA") fail("failed-precondition", "PLAN_NOT_ADMISSIBLE");
   const planData = lecturas.plan.data() as PlanVersion;
-  if (planData.periodicidad === "ANUAL" && diasEntre(entrada.trialInicio, entrada.trialFin) !== 30) fail("invalid-argument", "TRIAL_ANUAL_DEBE_SER_30_DIAS");
+  const trialDias = diasEntre(entrada.trialInicio, entrada.trialFin);
+  const ofertaComercial = opciones?.ofertaComercial;
+  if (ofertaComercial?.schemaVersion === 2
+    && (planData.periodicidad !== "ANUAL"
+      || ofertaComercial.empresaIdObjetivo !== entrada.empresaId
+      || !esExcepcionTrial15Autorizada(ofertaComercial)
+      || trialDias !== 15)) {
+    fail("failed-precondition", "TRIAL_EXCEPTION_NOT_AUTHORIZED");
+  }
+  if (planData.periodicidad === "ANUAL"
+    && trialDias !== (ofertaComercial?.schemaVersion === 2 ? 15 : 30)) {
+    fail("invalid-argument", "TRIAL_ANUAL_DEBE_SER_30_DIAS");
+  }
   if (lecturas.suscripcion.exists) fail("already-exists", "SUSCRIPCION_EXISTS");
-  const snapshotContrato = construirSnapshotContrato(planData, entrada.trialInicio, entrada.trialFin, opciones?.precioContrato);
+  const snapshotContrato = construirSnapshotContrato(planData, entrada.trialInicio, entrada.trialFin, opciones?.precioContrato, ofertaComercial);
   const s: Suscripcion = { empresaId: entrada.empresaId, planId: entrada.planId, planVersion: entrada.planVersion, estado: "trialing", trialInicio: entrada.trialInicio, trialFin: entrada.trialFin, ...(snapshotContrato ? { snapshotContrato } : {}), revision: 1, schemaVersion: 1 };
   tx.create(db.collection("suscripciones").doc(entrada.empresaId), { ...s, creadaEn: FieldValue.serverTimestamp() });
-  const r = { empresaId: s.empresaId, revision: 1, trialInicio: s.trialInicio, trialFin: s.trialFin };
+  const r = {
+    empresaId: s.empresaId,
+    revision: 1,
+    trialInicio: s.trialInicio,
+    trialFin: s.trialFin,
+    trialDias,
+    ...(ofertaComercial ? { ofertaComercialId: ofertaComercial.ofertaId } : {}),
+    ...(ofertaComercial?.schemaVersion === 2 ? { referenciaAceptacionCliente: ofertaComercial.referenciaAceptacionCliente } : {}),
+  };
   registrar(tx, db, entrada, s.empresaId, f, r, "TrialIniciado", "SUSCRIPCION", 0, 1, ctx);
   return { ...r, idempotente: false };
 }
@@ -453,7 +516,7 @@ export async function crearSuscripcionTrial(
   });
 }
 
-export async function transicionarSuscripcion(db: Firestore, entrada: Envelope & { empresaId: string; destino: Suscripcion["estado"]; graceFin?: string; periodoInicio?: string; periodoFin?: string }, ctx: ContextoComercial) { validar(entrada); if (!esIdComercial(entrada.empresaId) || !["trialing","active","past_due","suspended","canceled"].includes(entrada.destino) || (entrada.graceFin !== undefined && !esFechaComercial(entrada.graceFin))) fail("invalid-argument", "SUSCRIPCION_INVALIDA"); const f = hash(entrada); return db.runTransaction(async tx => { const p = await previo(tx, db, entrada, entrada.empresaId, f); if (p) return { ...p, idempotente: true }; const ref = db.collection("suscripciones").doc(entrada.empresaId), snap = await tx.get(ref); if (!snap.exists) fail("not-found", "SUSCRIPCION_NOT_FOUND"); const s = snap.data() as Suscripcion; if (s.revision !== entrada.expectedRevision || !transicionesSuscripcion[s.estado].includes(entrada.destino)) fail("failed-precondition", "SUSCRIPCION_TRANSITION_INVALID"); if (s.snapshotContrato?.periodicidad === "ANUAL" && entrada.destino === "past_due") fail("failed-precondition", "GRACIA_NO_APLICA"); if (s.snapshotContrato?.periodicidad === "ANUAL" && entrada.destino === "active") fail("failed-precondition", "PAGO_ANUAL_REQUERIDO"); if (entrada.destino === "past_due" && (!entrada.graceFin || (s.periodoFin && entrada.graceFin < s.periodoFin))) fail("invalid-argument", "GRACIA_INVALIDA"); if (entrada.destino === "active" && (!entrada.periodoInicio || !entrada.periodoFin || entrada.periodoInicio >= entrada.periodoFin || !esFechaComercial(entrada.periodoInicio) || !esFechaComercial(entrada.periodoFin))) fail("invalid-argument", "PERIODO_INVALIDO"); const revision = s.revision + 1; const upd: Record<string, any> = { estado: entrada.destino, revision, actualizadaEn: FieldValue.serverTimestamp() }; if (entrada.destino === "past_due") { upd.graceFin = entrada.graceFin; } else { upd.graceFin = FieldValue.delete(); } if (entrada.destino === "active") { upd.periodoInicio = entrada.periodoInicio; upd.periodoFin = entrada.periodoFin; upd.cancelacionProgramadaPara = FieldValue.delete(); } if (entrada.destino === "canceled") { upd.canceladaEn = fechaComercialUtc(); } tx.update(ref, upd); const r = { empresaId: s.empresaId, revision }; registrar(tx, db, entrada, s.empresaId, f, r, `Suscripcion${toPascal(entrada.destino)}`, "SUSCRIPCION", s.revision, revision, ctx); return { ...r, idempotente: false }; }); }
+export async function transicionarSuscripcion(db: Firestore, entrada: Envelope & { empresaId: string; destino: Suscripcion["estado"]; graceFin?: string; periodoInicio?: string; periodoFin?: string }, ctx: ContextoComercial) { validar(entrada); if (!esIdComercial(entrada.empresaId) || !["trialing","active","past_due","suspended","canceled"].includes(entrada.destino) || (entrada.graceFin !== undefined && !esFechaComercial(entrada.graceFin))) fail("invalid-argument", "SUSCRIPCION_INVALIDA"); const f = hash(entrada); return db.runTransaction(async tx => { const p = await previo(tx, db, entrada, entrada.empresaId, f); if (p) return { ...p, idempotente: true }; const ref = db.collection("suscripciones").doc(entrada.empresaId), snap = await tx.get(ref); if (!snap.exists) fail("not-found", "SUSCRIPCION_NOT_FOUND"); const s = snap.data() as Suscripcion; if (s.snapshotContrato && !esSnapshotContratoCompatible(s.snapshotContrato)) fail("failed-precondition", "SNAPSHOT_CONTRATO_VERSION_UNSUPPORTED"); if (s.revision !== entrada.expectedRevision || !transicionesSuscripcion[s.estado].includes(entrada.destino)) fail("failed-precondition", "SUSCRIPCION_TRANSITION_INVALID"); if (s.snapshotContrato?.periodicidad === "ANUAL" && entrada.destino === "past_due") fail("failed-precondition", "GRACIA_NO_APLICA"); if (s.snapshotContrato?.periodicidad === "ANUAL" && entrada.destino === "active") fail("failed-precondition", "PAGO_ANUAL_REQUERIDO"); if (entrada.destino === "past_due" && (!entrada.graceFin || (s.periodoFin && entrada.graceFin < s.periodoFin))) fail("invalid-argument", "GRACIA_INVALIDA"); if (entrada.destino === "active" && (!entrada.periodoInicio || !entrada.periodoFin || entrada.periodoInicio >= entrada.periodoFin || !esFechaComercial(entrada.periodoInicio) || !esFechaComercial(entrada.periodoFin))) fail("invalid-argument", "PERIODO_INVALIDO"); const revision = s.revision + 1; const upd: Record<string, any> = { estado: entrada.destino, revision, actualizadaEn: FieldValue.serverTimestamp() }; if (entrada.destino === "past_due") { upd.graceFin = entrada.graceFin; } else { upd.graceFin = FieldValue.delete(); } if (entrada.destino === "active") { upd.periodoInicio = entrada.periodoInicio; upd.periodoFin = entrada.periodoFin; upd.cancelacionProgramadaPara = FieldValue.delete(); } if (entrada.destino === "canceled") { upd.canceladaEn = fechaComercialUtc(); } tx.update(ref, upd); const r = { empresaId: s.empresaId, revision }; registrar(tx, db, entrada, s.empresaId, f, r, `Suscripcion${toPascal(entrada.destino)}`, "SUSCRIPCION", s.revision, revision, ctx); return { ...r, idempotente: false }; }); }
 export async function renovarSuscripcion(db: Firestore, entrada: Envelope & { empresaId: string; periodoInicio: string; periodoFin: string }, ctx: ContextoComercial) {
   validar(entrada); if (!esIdComercial(entrada.empresaId) || !esFechaComercial(entrada.periodoInicio) || !esFechaComercial(entrada.periodoFin) || entrada.periodoInicio >= entrada.periodoFin) fail("invalid-argument", "PERIODO_INVALIDO");
   const f = hash(entrada); return db.runTransaction(async tx => { const p = await previo(tx, db, entrada, entrada.empresaId, f); if (p) return { ...p, idempotente: true }; const ref = db.collection("suscripciones").doc(entrada.empresaId), snap = await tx.get(ref); if (!snap.exists) fail("not-found", "SUSCRIPCION_NOT_FOUND"); const s = snap.data() as Suscripcion; if (s.snapshotContrato?.periodicidad === "ANUAL") fail("failed-precondition", "PAGO_ANUAL_REQUERIDO"); if (s.revision !== entrada.expectedRevision || s.estado !== "active") fail("failed-precondition", "SUSCRIPCION_RENEWAL_INVALID"); const revision = s.revision + 1; tx.update(ref, { periodoInicio: entrada.periodoInicio, periodoFin: entrada.periodoFin, revision, actualizadaEn: FieldValue.serverTimestamp() }); const r = { empresaId: s.empresaId, revision }; registrar(tx, db, entrada, s.empresaId, f, r, "SuscripcionRenovada", "SUSCRIPCION", s.revision, revision, ctx); return { ...r, idempotente: false }; });
@@ -494,6 +557,7 @@ export async function confirmarPagoAnualSuscripcion(
     const empresa = empresaSnap.data() as { estado: string; revision: number };
     if (!s.snapshotContrato || s.snapshotContrato.periodicidad !== "ANUAL") fail("failed-precondition", "SUSCRIPCION_NO_ANUAL");
     const snapshot = s.snapshotContrato!;
+    if (!esSnapshotContratoCompatible(snapshot)) fail("failed-precondition", "SNAPSHOT_CONTRATO_VERSION_UNSUPPORTED");
     if (!Number.isInteger(s.revision) || s.revision !== entrada.expectedRevision) fail("failed-precondition", "SUSCRIPCION_REVISION_CONFLICT");
     if (!Number.isInteger(empresa.revision)) fail("failed-precondition", "EMPRESA_REVISION_INVALIDA");
     const hoy = fechaComercialUtc();
