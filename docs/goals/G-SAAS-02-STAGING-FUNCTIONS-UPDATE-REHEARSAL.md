@@ -1,6 +1,6 @@
 # G-SAAS-02 — Ensayo limitado de actualización y recuperación de Functions en staging
 
-Estado: `PREPARADO — NO AUTORIZADO PARA EJECUCIÓN`  
+Estado: `PREPARADO PARA DECISIÓN — SHA GIT PREVIO NO DEMOSTRADO; NO AUTORIZADO PARA EJECUCIÓN`
 Fecha: 2026-10-24  
 Última revisión: 2026-10-24
 
@@ -37,12 +37,37 @@ Lectura sin mutaciones de `micafe-pos-staging`, región `us-central1`:
 | Hash de artefacto Firebase | `3d920444431b39896439f7102d78d46c2e3a5c2c` |
 | Build anterior | Cloud Build `507ac908-bae5-49d5-a354-bb84c7f26c68` (`SUCCESS`) |
 | Fuente inmutable anterior | `gs://gcf-v2-sources-192423427245-us-central1/consultarContextoPlataforma/function-source.zip#1792796958918929` |
+| SHA-256 de ese ZIP | `88252db06efea6cad82824cdb6af5620b785894e691d4b0bb428ee21e731b501` |
+| Revisión Cloud Run que sirve tráfico | `consultarcontextoplataforma-00002-leh` (100 %) |
+| Digest de imagen de esa revisión | `sha256:b7668d084fac44359a8d11191fd3c3d16faae0eb25b843f5cfdad1df4ab30edd` |
 
-El hash Firebase ni la fuente inmutable de Cloud Build incluyen un commit Git
-que pueda comprobarse localmente. La recuperación exige identificar antes de
-ejecutar el commit Git exacto que generó esa revisión, desde evidencia de
-despliegue inmutable o registros de Firebase CLI; no se infiere del hash ni
-del objeto GCS.
+## Procedencia investigada — sin vínculo verificable a un SHA Git
+
+Se consultaron el recurso Cloud Functions v2, el Build, sus logs, los logs de
+auditoría disponibles, la revisión Cloud Run y el objeto GCS fijado por
+generación. El Build `507ac908-…` terminó `SUCCESS`, pero `sourceProvenance`
+está vacío; no contiene `repoSource`, repositorio ni `commitSha`. El log
+registra que `FETCHSOURCE` tomó el ZIP de GCS indicado arriba. El objeto no
+tiene metadatos personalizados de procedencia. El ZIP mide 56.715 bytes y su
+contenido incluye fuentes y archivos compilados, pero no `.git` ni un SHA Git
+completo. Su SHA-256 identifica esos bytes, no un commit.
+
+Los registros de auditoría y anotaciones de la revisión identifican el uso de
+Firebase CLI, el codebase, el Build y el hash de despliegue; no registran un
+SHA Git. `firebase-functions-hash` es una etiqueta de despliegue, sin una
+correspondencia demostrada con un commit. La consulta de procedencia de
+Artifact Registry no pudo completarse porque Container Analysis no está
+habilitado y la identidad disponible no tiene acceso para esa consulta; no
+se habilitó el servicio ni se ampliaron permisos. Por ello, no se puede
+afirmar que no exista evidencia en algún otro sistema, pero la evidencia
+remota disponible no permite vincular inequívocamente este Build, ZIP o
+imagen con un SHA Git exacto.
+
+La revisión `consultarcontextoplataforma-00002-leh` y el digest de imagen sí
+identifican el runtime que sirve actualmente el 100 % del tráfico. Una
+revisión anterior distinta (`…00001-cov`) también aparece en el historial,
+pero no es la revisión actualmente servida y no debe usarse como destino de
+recuperación de este ensayo.
 
 ## Precondiciones obligatorias
 
@@ -54,10 +79,14 @@ del objeto GCS.
 4. Un responsable de plataforma con identidad ya autorizada para invocar
    `consultarContextoPlataforma`; nunca imprimir, copiar ni registrar su
    token.
-5. Commit Git previo recuperable (`SHA_PREVIO`) identificado y validado contra
-   la configuración remota antes de desplegar. Sin este dato no se autoriza
-   actualización, pues tampoco habría recuperación reproducible.
-6. Ninguna otra operación remota en curso sobre esa Function.
+5. Antes de desplegar, confirmar que la revisión de referencia
+   `consultarcontextoplataforma-00002-leh` sigue existiendo y que su digest
+   continúa siendo el registrado. Esta referencia permite plantear un retorno
+   del tráfico al runtime previo; no sustituye un SHA de fuente.
+6. Acordar que la recuperación, si se requiere, será un retorno de tráfico a
+   esa revisión inmutable. Si se exige poder reconstruir el estado de
+   Functions desde un commit Git, detenerse: ese SHA previo no está probado.
+7. Ninguna otra operación remota en curso sobre esa Function.
 
 ## Preparación local verificable
 
@@ -115,29 +144,67 @@ El ensayo es satisfactorio solo con las cuatro condiciones anteriores y con
 evidencia de pre/post snapshot y de la llamada de solo lectura. No demuestra
 migración de codebase ni autoriza producción.
 
-## Aborto y recuperación
+## Aborto y opciones de recuperación
 
-Abortar antes de cualquier llamada si cambia el SHA, la CI no es verde, falta
-`SHA_PREVIO`, la Function no está `ACTIVE`, o el snapshot difiere en URI,
-región, runtime, cuenta de servicio, trigger o referencias de secretos.
+Abortar antes de la actualización si cambia el SHA candidato o la CI no está
+verde; si la Function no está `ACTIVE`; si cambia cualquiera de los campos
+protegidos del snapshot; o si la revisión/digest de referencia ya no existe o
+no coincide. Si el despliegue crea una revisión con diferencias inesperadas,
+detener el ensayo y solicitar autorización específica de recuperación.
 
-Si la actualización ya ocurrió y aparece una desviación, detener el ensayo y
-solicitar autorización específica de recuperación. Con un checkout limpio de
-`SHA_PREVIO`, el mecanismo compatible es el mismo despliegue dirigido:
+### Opción 1 — restaurar exactamente el runtime que sirve hoy
+
+La revisión y digest actuales están identificados directamente. Si la
+revisión sigue disponible después del ensayo, el mecanismo documentado de
+Cloud Run para volver a una revisión previa es reasignarle el 100 % del
+tráfico:
 
 ```powershell
-firebase deploy --project micafe-pos-staging --only functions:saas-platform-context:consultarContextoPlataforma
+gcloud run services update-traffic consultarcontextoplataforma `
+  --project micafe-pos-staging --region us-central1 `
+  --to-revisions consultarcontextoplataforma-00002-leh=100
 ```
 
-Después se repiten el snapshot y la llamada autenticada de solo lectura, y se
-exige que concuerden con la evidencia previa. Este rollback está preparado,
-pero **no está probado** hasta ejecutarlo bajo su autorización específica.
+Después se comprobaría que el servicio asigna 100 % a esa revisión, que el
+digest servido es el registrado y que una invocación autenticada de solo
+lectura tiene el resultado esperado. Esto restaura el runtime inmutable
+anterior, pero no revierte `buildConfig.source`, Build, etiquetas ni otra
+metadata de Cloud Functions al estado previo. El recurso muestra
+`allTrafficOnLatestRevision=true`; el efecto de este retorno sobre una
+posterior actualización mediante Firebase CLI debe tratarse como riesgo y
+verificarse antes de volver a desplegar. La operación cambia tráfico remoto,
+requiere autorización específica y no se ha ejecutado ni probado.
+
+### Opción 2 — recuperar código desde la fuente GCS fijada
+
+El ZIP de generación `1792796958918929`, verificado por SHA-256, conserva los
+bytes de la fuente empaquetada. Recompilar o volver a desplegar esa fuente
+puede recuperar el código fuente exacto del paquete, pero producirá un Build
+y una revisión nuevos; no garantiza el mismo digest de imagen ni restaura
+idénticamente la revisión Cloud Run. Antes de usar esta vía falta validar un
+procedimiento dirigido que preserve la generación GCS y el resto de la
+configuración de la Function. No se incluye un comando de ejecución no
+verificado.
+
+### Opción 3 — volver a desplegar desde Git
+
+Un SHA de `main` elegido y aprobado permitiría hacer una recuperación de
+código versionado, pero, al no ser el SHA histórico demostrado, sería una
+reversión deliberada a ese código y no una restauración probada del estado
+previo. `firebase deploy` desde ese checkout también generaría un nuevo Build
+y runtime; no recuperaría la imagen exacta por sí solo.
+
+Ninguna opción de recuperación se ha ensayado. La opción 1 es la única que
+apunta a la revisión runtime actualmente identificada; las opciones 2 y 3
+reconstruyen código y generan artefactos nuevos.
 
 ## Riesgos abiertos
 
 - El ensayo valida actualización y recuperación de una Function que ya ocupa
   su codebase objetivo; no valida traslado entre codebases.
-- Falta vincular la revisión remota anterior con un `SHA_PREVIO` Git
-  recuperable. Es un bloqueo para autorizar cualquier actualización.
+- Falta el vínculo entre artefacto y SHA Git histórico. No se debe inventar
+  `SHA_PREVIO` ni declarar una recuperación Git reproducible.
+- El retorno de tráfico a la revisión exacta actual es una alternativa
+  identificada, pero requiere autorización y todavía no se ha probado.
 - La llamada autenticada requiere una sesión de plataforma existente y
   autorizada; no se crearán credenciales ni se expondrán tokens.
