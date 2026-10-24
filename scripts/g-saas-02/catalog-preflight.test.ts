@@ -115,7 +115,7 @@ test("creates a row decision template that preserves separate lists without expo
   assert.equal(JSON.stringify(template).includes("1800"), false);
 });
 
-test("leaves consumer-only products as an inclusion decision without creating a second tariff", () => {
+test("defers consumer-only products until a store tariff is explicitly approved", () => {
   const report = analyzeCatalogWorkbook(workbook(
     [["PRODUCTO", "AL COSTO", "PRECIO VENTA"], ["Producto tienda", 100, 150]],
     [["Producto", "Precio"], ["Producto consumidor", 180]],
@@ -124,10 +124,11 @@ test("leaves consumer-only products as an inclusion decision without creating a 
   const template = createCatalogDecisionTemplate(report, { bytes: 2048, sha256: "b".repeat(64) });
 
   assert.ok(consumerRow);
-  assert.ok(consumerRow.issueCodes.includes("consumer_only_product_disposition_unresolved"));
+  assert.ok(consumerRow.issueCodes.includes("consumer_only_missing_store_price_deferred"));
   assert.equal(consumerRow.decisions.selectedPriceSource, "reference_only");
-  assert.ok(report.classification.humanDecisions.some((item) => /solo aparecen en PRECIOS CONS FINAL/.test(item)));
-  assert.ok(template.globalDecisionsPending.some((item) => /solo aparecen en PRECIOS CONS FINAL/.test(item)));
+  assert.ok(report.classification.deferredByPlan.some((item) => /PRECIOS CONS FINAL.*PRECIOS A TIENDA/.test(item)));
+  assert.ok(!report.classification.humanDecisions.some((item) => /Confirmar si las .*PRECIOS CONS FINAL/.test(item)));
+  assert.ok(!template.globalDecisionsPending.some((item) => /solo aparecen en PRECIOS CONS FINAL/.test(item)));
 });
 
 test("distinguishes absent schema columns from blank row values", () => {
