@@ -150,29 +150,22 @@ test("P0-12: confirma compra con snapshots del catálogo, inventario y costo en 
   assert.equal([...db.docs.keys()].filter(key => key.startsWith("transacciones_financieras/")).length, 0);
 });
 
-test("ADR-SAAS-085: GENERAL conserva el control de compras efectivo en la base", async () => {
+test("ADR-SAAS-085: GENERAL conserva compras legacy sin control de Bodega", async () => {
   const db = new FakeFirestore(); seed(db);
   db.docs.delete(`controles_release_compras/${empresaId}`);
   const command = envelope("legacy-general-without-control", payload());
-  const before = [...db.docs.entries()];
-
-  await assert.rejects(
-    ejecutarRegistrarCompraOperativaV1(db, contexto, command),
-    error => domain(error, "COMPRAS_CONTROL_NO_CONFIGURADO"),
-  );
-  assert.deepEqual([...db.docs.entries()], before);
+  const result = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
+  assert.equal(db.docs.has(`compras/${result.compraId}`), true);
+  assert.equal(db.docs.get("productos/cafe")?.stock, 4);
+  assert.equal(db.docs.has(`controles_release_compras/${empresaId}`), false);
 });
 
-test("ADR-SAAS-085: GENERAL no permite compra nueva cuando el control existente está pausado", async () => {
+test("ADR-SAAS-085: el control pausado de Bodega no altera la compra legacy GENERAL", async () => {
   const db = new FakeFirestore(); seed(db);
   db.docs.set(`controles_release_compras/${empresaId}`, { schemaVersion: 1, empresaId, estado: "PAUSADA", revision: 2 });
-  const before = [...db.docs.entries()];
-
-  await assert.rejects(
-    ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("legacy-general-paused", payload())),
-    error => domain(error, "COMPRAS_EN_CORTE"),
-  );
-  assert.deepEqual([...db.docs.entries()], before);
+  const result = await ejecutarRegistrarCompraOperativaV1(db, contexto, envelope("legacy-general-paused", payload()));
+  assert.equal(db.docs.has(`compras/${result.compraId}`), true);
+  assert.equal(db.docs.get("productos/cafe")?.stock, 4);
 });
 
 test("ADR-SAAS-085: replay legacy confirmado conserva idempotencia durante pausa", async () => {
@@ -191,9 +184,10 @@ test("ADR-SAAS-085: replay legacy confirmado conserva idempotencia durante pausa
   );
 });
 
-test("ADR-SAAS-085: configuración legacy sin vertical conserva compra con control activo", async () => {
+test("ADR-SAAS-085: configuración legacy sin vertical conserva compra sin control", async () => {
   const db = new FakeFirestore(); seed(db);
   db.docs.set(`configuraciones/${empresaId}`, { empresaId, modulos: { habilitados: ["inventory", "purchases"] } });
+  db.docs.delete(`controles_release_compras/${empresaId}`);
   const command = envelope("legacy-missing-vertical-without-control", payload());
 
   const first = await ejecutarRegistrarCompraOperativaV1(db, contexto, command);
