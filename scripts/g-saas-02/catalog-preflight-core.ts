@@ -19,7 +19,33 @@ export interface CatalogWorkbookLike {
 }
 
 type CatalogKind = "store" | "consumer";
-type SourceField = "productName" | "cost" | "salePrice";
+type CoreSourceField = "productName" | "cost" | "salePrice";
+type ModelField = "category" | "baseUnit" | "presentation" | "conversionFactor" | "initialStock";
+type SourceField = CoreSourceField | ModelField;
+type DecisionField = "category" | "baseUnit" | "presentation" | "conversionFactor" | "selectedPriceSource" | "costUnitBasis";
+
+export interface CatalogRowDecision {
+  sourceList: CatalogKind;
+  sourceSheet: string;
+  sourceRow: number;
+  candidateCrossListRows: number[];
+  issueCodes: string[];
+  decisions: Record<DecisionField, string | null>;
+}
+
+export interface CatalogDecisionTemplate {
+  schemaVersion: "1.0";
+  mode: "local-human-review-only";
+  source: { bytes: number; sha256: string };
+  importReady: false;
+  writesPerformed: false;
+  includesProductNamesOrPrices: false;
+  globalDecisionsPending: string[];
+  lists: {
+    store: CatalogRowDecision[];
+    consumer: CatalogRowDecision[];
+  };
+}
 
 interface HeaderMap {
   rowNumber: number;
@@ -31,6 +57,10 @@ interface NormalizedRecord {
   rowNumber: number;
   productName: string;
   validPrice: boolean;
+  validCost: boolean | null;
+  hasFormula: boolean;
+  missingSourceFields: string[];
+  duplicateProductName: boolean;
 }
 
 interface SheetReport {
@@ -79,6 +109,7 @@ export interface CatalogPreflightReport {
     storeSheetRow: number;
     consumerSheetRow: number;
   }>;
+  rowDecisions: CatalogRowDecision[];
   classification: {
     confirmedSourceDataIssues: string[];
     schemaMappingGaps: string[];
@@ -89,18 +120,26 @@ export interface CatalogPreflightReport {
 
 const MAX_HEADER_SEARCH_ROWS = 15;
 
-const FIELD_ALIASES: Record<SourceField, string[]> = {
+const FIELD_ALIASES: Record<CoreSourceField, string[]> = {
   productName: ["PRODUCTO"],
   cost: ["AL COSTO"],
   salePrice: ["PRECIO VENTA", "PRECIO"],
 };
 
-const MODEL_FIELD_ALIASES: Record<string, string[]> = {
+const MODEL_FIELD_ALIASES: Record<ModelField, string[]> = {
   category: ["CATEGORIA", "CATEGORÍA"],
   baseUnit: ["UNIDAD BASE", "UNIDAD", "UNIDAD DE MEDIDA"],
   presentation: ["PRESENTACION", "PRESENTACIÓN", "EMPAQUE"],
   conversionFactor: ["FACTOR", "FACTOR CONVERSION", "FACTOR DE CONVERSION"],
   initialStock: ["INVENTARIO INICIAL", "STOCK", "EXISTENCIAS"],
+};
+
+const MODEL_FIELD_ISSUE_NAMES: Record<ModelField, string> = {
+  category: "category",
+  baseUnit: "base_unit",
+  presentation: "presentation",
+  conversionFactor: "conversion_factor",
+  initialStock: "initial_stock",
 };
 
 function normalizeText(value: string): string {
@@ -160,7 +199,7 @@ function kindFromSheetName(sheetName: string): CatalogKind | null {
   return null;
 }
 
-function headerAliasesFor(kind: CatalogKind, field: SourceField): string[] {
+function headerAliasesFor(kind: CatalogKind, field: CoreSourceField): string[] {
   if (kind === "consumer" && field === "cost") return [];
   return FIELD_ALIASES[field];
 }
@@ -182,7 +221,7 @@ function findHeader(worksheet: CatalogWorksheetLike, kind: CatalogKind): HeaderM
     const columns: HeaderMap["columns"] = {};
     for (const field of ["productName", "cost", "salePrice"] as const) {
       const aliases = headerAliasesFor(kind, field).map(normalizeText);
-      const matches = aliases.flatMap((alias) => normalizedHeaders.get(alias) ?? []);
+      const matches = [...new Set(aliases.flatMap((alias) => normalizedHeaders.get(alias) ?? []))];
       if (matches.length > 1) throw new Error("El esquema de encabezados es ambiguo.");
       if (matches.length === 1) {
         columns[field] = matches[0];
@@ -190,8 +229,14 @@ function findHeader(worksheet: CatalogWorksheetLike, kind: CatalogKind): HeaderM
       }
     }
 
-    for (const [modelField, aliases] of Object.entries(MODEL_FIELD_ALIASES)) {
-      if (aliases.some((alias) => normalizedHeaders.has(normalizeText(alias)))) fields.add(modelField);
+    for (const modelField of Object.keys(MODEL_FIELD_ALIASES) as ModelField[]) {
+      const aliases = MODEL_FIELD_ALIASES[modelField];
+      const matches = [...new Set(aliases.flatMap((alias) => normalizedHeaders.get(normalizeText(alias)) ?? []))];
+      if (matches.length > 1) throw new Error("El esquema de encabezados es ambiguo.");
+      if (matches.length === 1) {
+        columns[modelField as keyof typeof MODEL_FIELD_ALIASES] = matches[0];
+        fields.add(modelField);
+      }
     }
 
     if (columns.productName && columns.salePrice) {
@@ -231,13 +276,32 @@ function analyzeSheet(worksheet: CatalogWorksheetLike, kind: CatalogKind): Sheet
     if (productName === "") rowsMissingProductName += 1;
     if (!validPrice) rowsMissingPositiveIntegerPrice += 1;
 
+    let validCost: boolean | null = null;
     if (header.columns.cost) {
       const costCell = row.getCell(header.columns.cost);
       const costHasFormula = isFormula(costCell);
       rowHasFormula ||= costHasFormula;
-      const validCost = !costHasFormula && parsePositiveInteger(costCell.value);
+      validCost = !costHasFormula && parsePositiveInteger(costCell.value);
       if (!validCost) rowsMissingPositiveIntegerCost += 1;
       else rowsWithAmbiguousCostBasis += 1;
+    }
+
+    const missingSourceFields: string[] = [];
+    for (const field of ["category", "baseUnit", "presentation", "conversionFactor"] as const) {
+      const column = header.columns[field];
+      if (!column) {
+        missingSourceFields.push(`${MODEL_FIELD_ISSUE_NAMES[field]}_not_in_source_header`);
+        continue;
+      }
+      const cell = row.getCell(column);
+      const cellHasFormula = isFormula(cell);
+      rowHasFormula ||= cellHasFormula;
+      if (cellHasFormula) continue;
+      if (cellText(cell) === "") {
+        missingSourceFields.push(`${MODEL_FIELD_ISSUE_NAMES[field]}_value_missing`);
+      } else if (field === "conversionFactor" && !parsePositiveInteger(cell.value)) {
+        missingSourceFields.push("conversion_factor_invalid");
+      }
     }
     if (rowHasFormula) rowsWithFormula += 1;
 
@@ -246,12 +310,12 @@ function analyzeSheet(worksheet: CatalogWorksheetLike, kind: CatalogKind): Sheet
       rows.push(rowNumber);
       nameRows.set(productName, rows);
     }
-    records.push({ rowNumber, productName, validPrice });
+    records.push({ rowNumber, productName, validPrice, validCost, hasFormula: rowHasFormula, missingSourceFields, duplicateProductName: false });
   }
 
-  const rowsWithDuplicateProductName = [...nameRows.values()]
-    .filter((rows) => rows.length > 1)
-    .reduce((count, rows) => count + rows.length, 0);
+  const duplicateNames = new Set([...nameRows.values()].filter((rows) => rows.length > 1).flat());
+  for (const record of records) record.duplicateProductName = duplicateNames.has(record.rowNumber);
+  const rowsWithDuplicateProductName = duplicateNames.size;
 
   return {
     kind,
@@ -304,12 +368,44 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
     consumerRowsByName.set(record.productName, rows);
   }
   const crossListMatchReferences: CatalogPreflightReport["crossListMatchReferences"] = [];
+  const candidateRowsByStore = new Map<number, number[]>();
+  const candidateRowsByConsumer = new Map<number, number[]>();
   for (const record of store.records) {
     if (!record.productName) continue;
     for (const consumerRow of consumerRowsByName.get(record.productName) ?? []) {
       crossListMatchReferences.push({ storeSheetRow: record.rowNumber, consumerSheetRow: consumerRow });
+      candidateRowsByStore.set(record.rowNumber, [...(candidateRowsByStore.get(record.rowNumber) ?? []), consumerRow]);
+      candidateRowsByConsumer.set(consumerRow, [...(candidateRowsByConsumer.get(consumerRow) ?? []), record.rowNumber]);
     }
   }
+
+  const decisionsForSheet = (sheet: SheetReport): CatalogRowDecision[] => sheet.records.map((record) => {
+    const issueCodes: string[] = [];
+    if (!record.productName) issueCodes.push("product_name_missing");
+    if (!record.validPrice) issueCodes.push("sale_price_missing_or_invalid");
+    if (record.validCost === false) issueCodes.push("cost_missing_or_invalid");
+    if (record.hasFormula) issueCodes.push("formula_not_evaluated");
+    if (record.duplicateProductName) issueCodes.push("duplicate_product_name_within_list");
+    issueCodes.push(...record.missingSourceFields);
+    if (sheet.kind === "store" && record.validCost === true) issueCodes.push("cost_unit_basis_unresolved");
+
+    return {
+      sourceList: sheet.kind,
+      sourceSheet: sheet.sourceSheet,
+      sourceRow: record.rowNumber,
+      candidateCrossListRows: (sheet.kind === "store" ? candidateRowsByStore : candidateRowsByConsumer).get(record.rowNumber) ?? [],
+      issueCodes,
+      decisions: {
+        category: null,
+        baseUnit: null,
+        presentation: null,
+        conversionFactor: null,
+        selectedPriceSource: null,
+        costUnitBasis: sheet.kind === "store" && record.validCost === true ? null : "not_applicable",
+      },
+    };
+  });
+  const rowDecisions = [...decisionsForSheet(store), ...decisionsForSheet(consumer)];
 
   const reports = [store, consumer];
   const sourceRows = reports.reduce((sum, report) => sum + report.sourceRows, 0);
@@ -336,6 +432,7 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
       storeCostRowsWithUnresolvedUnitBasis: store.decisionReferences.rowsWithAmbiguousCostBasis,
     },
     crossListMatchReferences,
+    rowDecisions,
     classification: {
       confirmedSourceDataIssues: [
         ...(rowsMissingProductName > 0 ? [`${rowsMissingProductName} filas sin nombre de producto.`] : []),
@@ -355,7 +452,7 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
           : []),
       ],
       humanDecisions: [
-        "Las dos listas deben conservarse separadas: el modelo Bodega vigente guarda un precio actual por presentación; Diana debe definir cuál lista aplica a cada operación o solicitar una decisión de producto/arquitectura.",
+        "Conforme a ADR-SAAS-041 y ADR-SAAS-070, confirmar un único precio vigente por presentación para todos los compradores, seleccionando la fuente aprobada para ese precio. Tarifas diferenciadas por comprador requieren un nuevo alcance y ADR.",
         ...(crossListMatchReferences.length > 0
           ? ["Las coincidencias por nombre entre listas son referencias candidatas; requieren confirmación y no se fusionan automáticamente."]
           : []),
@@ -364,6 +461,30 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
         "El inventario inicial se excluye de este preflight y lo registrará Diana posteriormente según el plan vigente.",
         "Este informe no genera carga útil de importación ni afirma que el catálogo esté listo para importar.",
       ],
+    },
+  };
+}
+
+export function createCatalogDecisionTemplate(
+  report: CatalogPreflightReport,
+  source: { bytes: number; sha256: string },
+): CatalogDecisionTemplate {
+  return {
+    schemaVersion: "1.0",
+    mode: "local-human-review-only",
+    source,
+    importReady: false,
+    writesPerformed: false,
+    includesProductNamesOrPrices: false,
+    globalDecisionsPending: [
+      "Con ADR-SAAS-041 y ADR-SAAS-070, confirmar para cada presentación un solo precio vigente y su fuente aprobada (tienda o consumidor final); ese precio aplica a todos los compradores del tenant. No cargar dos tarifas simultáneas ni precios por comprador. Una diferenciación requiere nuevo alcance y ADR.",
+      "Confirmar si las coincidencias por nombre entre listas representan el mismo producto; las filas relacionadas son solo candidatas.",
+      "Confirmar las categorías, unidades base, presentaciones y factores enteros de conversión para cada fila.",
+      "Definir la unidad o presentación a la que corresponde cada valor AL COSTO marcado como ambiguo.",
+    ],
+    lists: {
+      store: report.rowDecisions.filter((row) => row.sourceList === "store"),
+      consumer: report.rowDecisions.filter((row) => row.sourceList === "consumer"),
     },
   };
 }

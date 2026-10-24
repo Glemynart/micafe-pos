@@ -126,9 +126,19 @@ fixture.
   y no debe usarse. La lectura conserva separadas las listas de precios a
   tienda y consumidor final. Ninguna se importa todavía: el archivo no define
   unidad base, presentación/factor o SKU y contiene dos precios de venta frente
-  al único `precioCOP` por presentación del modelo POS. Una vista previa
-  privada separada conserva ambas listas y marca esas ambigüedades por fila;
-  no corrige ni modifica el Excel original. El inventario inicial sigue
+  al único `precioCOP` por presentación del modelo POS. Para preparar una
+  plantilla privada de revisión por fila, ejecutar localmente:
+  `npm run g-saas-02:catalog-preflight -- --file "<ruta.xlsx>" --decisions-output "<carpeta-nueva>"`.
+  El directorio nuevo contiene un CSV separado para cada lista y un manifiesto
+  con SHA-256 y conteos. Los CSV contienen referencias de hoja/fila, motivos
+  detectados y campos de decisión vacíos; no contienen nombres ni precios y no
+  fusionan coincidencias. Conforme a ADR-SAAS-041 y ADR-SAAS-070, cada
+  presentación tendrá un solo precio vigente para todos los compradores del
+  tenant; se debe seleccionar una única fuente aprobada. Tarifas diferenciadas
+  por comprador requieren un nuevo alcance y ADR. El factor de conversión se
+  valida como entero positivo. El comando rechaza sobrescribir un directorio
+  existente y no crea carga útil de importación. No corrige ni modifica el Excel
+  original. El inventario inicial sigue
   pendiente y no se inventan existencias. El costo de compra se organizará
   después desde compras reales de Bodega. No se escribió en ningún tenant; una
   venta requiere catálogo aprobado y existencias registradas por el flujo
