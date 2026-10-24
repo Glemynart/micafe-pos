@@ -18,19 +18,24 @@ type TenantReader = typeof exigirTenantActivo;
 type ConfigurationReader = typeof leerConfiguracionEmpresa;
 type Dependencies = { db?: Firestore; exigirTenant?: TenantReader; leerConfiguracion?: ConfigurationReader };
 
-interface PerfilComercialBodega {
-  nombreComercial: string;
-  razonSocial: string;
-  tipoPersona: "NATURAL" | "JURIDICA";
-  nit: string;
-  digitoVerificacion: string;
-  email: string;
-  telefono: string;
-  direccion: string;
-  departamentoCodigo: string;
-  departamentoNombre: string;
-  municipioCodigo: string;
-  municipioNombre: string;
+const limitesCamposPerfil = {
+  nombreComercial: 120,
+  razonSocial: 240,
+  nit: 15,
+  digitoVerificacion: 1,
+  email: 254,
+  telefono: 20,
+  direccion: 120,
+  departamentoCodigo: 2,
+  departamentoNombre: 100,
+  municipioCodigo: 5,
+  municipioNombre: 100,
+} as const;
+
+type CampoTextoPerfil = keyof typeof limitesCamposPerfil;
+
+interface PerfilComercialBodega extends Partial<Record<CampoTextoPerfil, string>> {
+  tipoPersona?: "NATURAL" | "JURIDICA";
   expectedRevision: number;
   commandId: string;
   idempotencyKey: string;
@@ -49,43 +54,43 @@ function leerPerfil(data: unknown): PerfilComercialBodega {
     "expectedRevision", "commandId", "idempotencyKey", "correlationId",
   ]);
   if (Object.keys(data).some((key) => !allowed.has(key))) fail("invalid-argument", "PERFIL_COMERCIAL_INVALIDO");
-  const limites = {
-    nombreComercial: 120,
-    razonSocial: 240,
-    nit: 15,
-    digitoVerificacion: 1,
-    email: 254,
-    telefono: 20,
-    direccion: 120,
-    departamentoCodigo: 2,
-    departamentoNombre: 100,
-    municipioCodigo: 5,
-    municipioNombre: 100,
-  } as const;
-  const keys = Object.keys(limites) as (keyof typeof limites)[];
-  const camposInvalidos: CampoPerfilComercial[] = keys.filter((key) => !esTextoCanonico(data[key], 1, limites[key]));
-  if (data.tipoPersona !== "NATURAL" && data.tipoPersona !== "JURIDICA") camposInvalidos.push("tipoPersona");
+  const keys = Object.keys(limitesCamposPerfil) as CampoTextoPerfil[];
+  const camposInvalidos: CampoPerfilComercial[] = keys.filter((key) => data[key] !== undefined
+    && !esTextoCanonico(data[key], 1, limitesCamposPerfil[key]));
+  if (data.tipoPersona !== undefined && data.tipoPersona !== "NATURAL" && data.tipoPersona !== "JURIDICA") camposInvalidos.push("tipoPersona");
+  const nitIncluido = data.nit !== undefined;
+  const dvIncluido = data.digitoVerificacion !== undefined;
+  if (nitIncluido !== dvIncluido) camposInvalidos.push("nit", "digitoVerificacion");
+  if (keys.every((key) => data[key] === undefined) && data.tipoPersona === undefined) {
+    fail("invalid-argument", "PERFIL_COMERCIAL_INVALIDO");
+  }
   if (camposInvalidos.length > 0) fail("invalid-argument", "PERFIL_COMERCIAL_INVALIDO", { campos: camposInvalidos });
   if (!Number.isInteger(data.expectedRevision) || (data.expectedRevision as number) < 1 || !id(data.commandId) || !id(data.idempotencyKey) || !id(data.correlationId)) fail("invalid-argument", "ENVELOPE_INVALIDO");
   return data as unknown as PerfilComercialBodega;
 }
 
 function operaciones(perfil: PerfilComercialBodega): OperacionConfiguracion[] {
-  return [
-    { tipo: "SET", ruta: "identidadFiscal.nombreComercial", valor: perfil.nombreComercial },
-    { tipo: "SET", ruta: "identidadFiscal.razonSocial", valor: perfil.razonSocial },
-    { tipo: "SET", ruta: "identidadFiscal.tipoPersona", valor: perfil.tipoPersona },
-    { tipo: "SET", ruta: "identidadFiscal.tipoDocumento", valor: "NIT" },
-    { tipo: "SET", ruta: "identidadFiscal.numeroDocumento", valor: perfil.nit },
-    { tipo: "SET", ruta: "identidadFiscal.digitoVerificacion", valor: perfil.digitoVerificacion },
-    { tipo: "SET", ruta: "identidadFiscal.contacto.email", valor: perfil.email },
-    { tipo: "SET", ruta: "identidadFiscal.contacto.telefono", valor: perfil.telefono },
-    { tipo: "SET", ruta: "localizacion.direccion.linea1", valor: perfil.direccion },
-    { tipo: "SET", ruta: "localizacion.direccion.departamentoCodigo", valor: perfil.departamentoCodigo },
-    { tipo: "SET", ruta: "localizacion.direccion.departamentoNombre", valor: perfil.departamentoNombre },
-    { tipo: "SET", ruta: "localizacion.direccion.municipioCodigo", valor: perfil.municipioCodigo },
-    { tipo: "SET", ruta: "localizacion.direccion.municipioNombre", valor: perfil.municipioNombre },
+  const destinos: readonly [CampoTextoPerfil, OperacionConfiguracion["ruta"]][] = [
+    ["nombreComercial", "identidadFiscal.nombreComercial"],
+    ["razonSocial", "identidadFiscal.razonSocial"],
+    ["nit", "identidadFiscal.numeroDocumento"],
+    ["digitoVerificacion", "identidadFiscal.digitoVerificacion"],
+    ["email", "identidadFiscal.contacto.email"],
+    ["telefono", "identidadFiscal.contacto.telefono"],
+    ["direccion", "localizacion.direccion.linea1"],
+    ["departamentoCodigo", "localizacion.direccion.departamentoCodigo"],
+    ["departamentoNombre", "localizacion.direccion.departamentoNombre"],
+    ["municipioCodigo", "localizacion.direccion.municipioCodigo"],
+    ["municipioNombre", "localizacion.direccion.municipioNombre"],
   ];
+  const cambios: OperacionConfiguracion[] = destinos.flatMap(([campo, ruta]) => perfil[campo] === undefined
+    ? []
+    : [{ tipo: "SET", ruta, valor: perfil[campo] }]);
+  if (perfil.tipoPersona !== undefined) cambios.push({ tipo: "SET", ruta: "identidadFiscal.tipoPersona", valor: perfil.tipoPersona });
+  if (perfil.nit !== undefined && perfil.digitoVerificacion !== undefined) {
+    cambios.push({ tipo: "SET", ruta: "identidadFiscal.tipoDocumento", valor: "NIT" });
+  }
+  return cambios;
 }
 
 /** Guarda el perfil comercial de primer acceso sin completar ni habilitar requisitos fiscales. */
@@ -135,14 +140,16 @@ export async function ejecutarRegistrarPerfilComercialBodegaV1(request: Request,
     if (resultado.idempotente) return { revision: resultado.revision, idempotente: true };
     if (perfilComercialCompleto(actual)) fail("failed-precondition", "PERFIL_COMERCIAL_YA_COMPLETO");
 
-    const empresa = lecturas.empresaSnap.data() as Record<string, unknown>;
-    if (!Number.isInteger(empresa.revision) || (empresa.revision as number) < 1) fail("failed-precondition", "EMPRESA_REVISION_INVALIDA");
-    tx.update(refs.empresaRef, {
-      nombre: perfil.nombreComercial,
-      nombreComercial: perfil.nombreComercial,
-      revision: (empresa.revision as number) + 1,
-      actualizadaEn: FieldValue.serverTimestamp(),
-    });
+    if (perfil.nombreComercial !== undefined && perfil.nombreComercial !== actual.identidadFiscal.nombreComercial) {
+      const empresa = lecturas.empresaSnap.data() as Record<string, unknown>;
+      if (!Number.isInteger(empresa.revision) || (empresa.revision as number) < 1) fail("failed-precondition", "EMPRESA_REVISION_INVALIDA");
+      tx.update(refs.empresaRef, {
+        nombre: perfil.nombreComercial,
+        nombreComercial: perfil.nombreComercial,
+        revision: (empresa.revision as number) + 1,
+        actualizadaEn: FieldValue.serverTimestamp(),
+      });
+    }
     return { revision: resultado.revision, idempotente: false };
   });
 }

@@ -57,8 +57,10 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
   const [form, setForm] = useState<FormularioPerfil>(vacio)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [mensajeExito, setMensajeExito] = useState<string | null>(null)
   const [formTenantId, setFormTenantId] = useState<string | null>(null)
   const borradorModificado = useRef(false)
+  const formularioRef = useRef<HTMLFormElement>(null)
 
   const tenantCoincide = !!empresaId && empresaConfigId === empresaId && membresia?.empresaId === empresaId && membresia.uid === usuario?.uid
   const adminActivo = !!membresia && membresia.rol === 'admin' && membresia.estado === 'activa' && membresia.activo
@@ -113,14 +115,27 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
 
   function update<K extends keyof FormularioPerfil>(field: K, value: FormularioPerfil[K]) {
     borradorModificado.current = true
+    setMensajeExito(null)
     setForm((current) => ({ ...current, [field]: value }))
   }
 
-  async function guardar(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  async function guardar(avanceParcial: boolean) {
     if (!Number.isInteger(revision) || revision === null) return
+    if (avanceParcial) {
+      const campos = Array.from(formularioRef.current?.elements ?? [])
+      for (const elemento of campos) {
+        if (!(elemento instanceof HTMLInputElement) && !(elemento instanceof HTMLSelectElement)) continue
+        if (!elemento.value.trim()) continue
+        if (!elemento.checkValidity()) {
+          elemento.reportValidity()
+          setError('Revisa los campos resaltados antes de guardar el avance.')
+          return
+        }
+      }
+    }
     setGuardando(true)
     setError(null)
+    setMensajeExito(null)
     const perfilNormalizado: FormularioPerfil = {
       ...form,
       nombreComercial: normalizarTexto(form.nombreComercial),
@@ -136,16 +151,29 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
       municipioNombre: normalizarTexto(form.municipioNombre),
     }
     setForm(perfilNormalizado)
+    const datosPerfil = Object.fromEntries(Object.entries(perfilNormalizado).filter(([, valor]) => valor !== ''))
+    if (avanceParcial && Object.keys(datosPerfil).length === 0) {
+      setError('Ingresa al menos un dato antes de guardar el avance.')
+      setGuardando(false)
+      return
+    }
+    if (avanceParcial && ((datosPerfil.nit === undefined) !== (datosPerfil.digitoVerificacion === undefined))) {
+      setError('Para guardar el NIT, completa también el dígito de verificación.')
+      setGuardando(false)
+      return
+    }
     try {
       const enviar = httpsCallable(getFirebaseFunctions('us-central1'), 'registrarPerfilComercialBodegaV1')
       await enviar({
-        ...perfilNormalizado,
+        ...(avanceParcial ? datosPerfil : perfilNormalizado),
         expectedRevision: revision,
         commandId: crypto.randomUUID(),
         idempotencyKey: crypto.randomUUID(),
         correlationId: crypto.randomUUID(),
       })
+      borradorModificado.current = false
       await refrescar()
+      if (avanceParcial) setMensajeExito('Avance guardado. Puedes volver después; los campos pendientes seguirán aquí.')
     } catch (cause) {
       // Un timeout puede ocurrir después del commit. Releer primero hace el
       // replay seguro desde la perspectiva del usuario y evita exponer PII.
@@ -163,7 +191,7 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
   const campo = (key: keyof FormularioPerfil, etiqueta: string, type = 'text', props: ComponentProps<typeof Input> = {}) => (
     <label className="grid gap-1.5 text-sm font-medium" htmlFor={`perfil-${key}`}>
       {etiqueta}
-      <Input id={`perfil-${key}`} name={key} type={type} required value={form[key]} onChange={(event) => update(key, event.target.value as never)} {...props} />
+      <Input id={`perfil-${key}`} name={key} type={type} required value={form[key]} onChange={(event) => update(key, event.target.value as never)} {...props} disabled={guardando} />
     </label>
   )
 
@@ -177,13 +205,13 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
       </div>
     </div>
 
-    <form className="grid gap-4" onSubmit={(event) => void guardar(event)}>
+    <form ref={formularioRef} className="grid gap-4" onSubmit={(event) => { event.preventDefault(); void guardar(false) }}>
       <div className="grid gap-4 sm:grid-cols-2">
         {campo('nombreComercial', 'Nombre comercial', 'text', { maxLength: 120 })}
         {campo('razonSocial', 'Razón social', 'text', { maxLength: 240 })}
       </div>
       <label className="grid gap-1.5 text-sm font-medium" htmlFor="perfil-tipoPersona">Tipo de persona
-        <select id="perfil-tipoPersona" required value={form.tipoPersona} onChange={(event) => update('tipoPersona', event.target.value as FormularioPerfil['tipoPersona'])} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+        <select id="perfil-tipoPersona" required disabled={guardando} value={form.tipoPersona} onChange={(event) => update('tipoPersona', event.target.value as FormularioPerfil['tipoPersona'])} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
           <option value="">Selecciona una opción</option><option value="NATURAL">Natural</option><option value="JURIDICA">Jurídica</option>
         </select>
       </label>
@@ -204,7 +232,12 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
       </div>
       <p className="text-xs leading-relaxed text-muted-foreground">Podrás continuar en modo DEMO sin facturación electrónica. Régimen, actividad económica y numeración se configuran después, si el negocio decide activar la facturación.</p>
       {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
-      <Button type="submit" disabled={guardando} className="mt-1 w-full">
+      {mensajeExito && <p role="status" className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">{mensajeExito}</p>}
+      <p className="text-xs text-muted-foreground">Guardar avance conserva los datos válidos en la configuración del negocio. Para continuar en DEMO, completa todos los campos obligatorios.</p>
+      <Button type="button" variant="outline" disabled={guardando} onClick={() => void guardar(true)}>
+        {guardando ? <><LoaderCircle className="size-4 animate-spin" /> Guardando avance…</> : 'Guardar avance'}
+      </Button>
+      <Button type="submit" disabled={guardando} className="w-full">
         {guardando ? <><LoaderCircle className="size-4 animate-spin" /> Guardando perfil…</> : 'Guardar y continuar en DEMO'}
       </Button>
     </form>
