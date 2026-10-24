@@ -41,6 +41,11 @@ function nonNegativeNumber(value: unknown, code: string): number {
   return value as number;
 }
 
+function nonNegativeIntegerMoney(value: unknown, code: string): number {
+  if (!number(value) || !Number.isSafeInteger(value) || value < 0) fail("invalid-argument", code);
+  return value as number;
+}
+
 function articleType(value: unknown): TipoArticulo {
   if (!TIPOS_ARTICULO.includes(value as TipoArticulo)) fail("invalid-argument", "ARTICULO_TIPO_INVALIDO");
   return value as TipoArticulo;
@@ -75,7 +80,7 @@ function commonArticleFields(data: Data, partial: boolean): Data {
   const result: Data = {};
   if (data.nombre !== undefined) result.nombre = requiredText(data.nombre, "NOMBRE_ARTICULO_INVALIDO");
   if (data.precio !== undefined) result.precio = nonNegativeNumber(data.precio, "PRECIO_INVALIDO");
-  if (data.costo !== undefined) result.costo = nonNegativeNumber(data.costo, "COSTO_INVALIDO");
+  if (data.costo !== undefined) result.costo = nonNegativeIntegerMoney(data.costo, "COSTO_INVALIDO");
   if (data.stock !== undefined) result.stock = nonNegativeNumber(data.stock, "STOCK_INVALIDO");
   if (data.stockMinimo !== undefined) result.stockMinimo = nonNegativeNumber(data.stockMinimo, "STOCK_MINIMO_INVALIDO");
   if (data.imagenUrl !== undefined) result.imagenUrl = data.imagenUrl === null ? null : requiredText(data.imagenUrl, "IMAGEN_INVALIDA", 2048);
