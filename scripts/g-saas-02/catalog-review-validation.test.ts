@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import * as catalogReviewValidation from "./catalog-review-validation-core.js";
 import { validateDianaCatalogReview } from "./catalog-review-validation-core.js";
 import type { CatalogCellLike, CatalogWorkbookLike } from "./catalog-preflight-core.js";
@@ -333,4 +336,49 @@ test("does not build a plan when any operational store mapping is incomplete or 
     sourceSha256: SOURCE_HASH,
     reviewSha256: "f".repeat(64),
   }), null);
+});
+
+
+test("writes offline plans to a new local file and refuses input overwrite or replacement", async () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "diana-catalog-plan-"));
+  try {
+    const sourcePath = path.join(directory, "source.xlsx");
+    const reviewPath = path.join(directory, "review.xlsx");
+    const outputPath = path.join(directory, "plan.json");
+    writeFileSync(sourcePath, "source");
+    writeFileSync(reviewPath, "review");
+    const plan = buildPlan({
+      sourceWorkbook: sourceWorkbook(),
+      reviewWorkbook: reviewWorkbook(),
+      sourceSha256: SOURCE_HASH,
+      reviewSha256: "b".repeat(64),
+    });
+    assert.ok(plan);
+
+    const writerModule = await import("./catalog-offline-plan-writer.js").catch(() => null);
+    assert.ok(writerModule, "exclusive offline plan writer is not implemented");
+    const writer = Reflect.get(writerModule, "writeDianaCatalogOfflinePlan");
+    assert.equal(typeof writer, "function");
+    const digest = (writer as (plan: ExpectedPlan, output: string, protectedInputs: string[]) => string)(
+      plan,
+      outputPath,
+      [sourcePath, reviewPath],
+    );
+    assert.match(digest, /^[a-f0-9]{64}$/);
+    assert.equal(JSON.parse(readFileSync(outputPath, "utf8")).safety.writesPerformed, false);
+    assert.throws(() => (writer as (plan: ExpectedPlan, output: string, protectedInputs: string[]) => string)(
+      plan,
+      outputPath,
+      [sourcePath, reviewPath],
+    ));
+    assert.throws(() => (writer as (plan: ExpectedPlan, output: string, protectedInputs: string[]) => string)(
+      plan,
+      sourcePath,
+      [sourcePath, reviewPath],
+    ), /coincidir/);
+    assert.equal(readFileSync(sourcePath, "utf8"), "source");
+    assert.equal(readFileSync(reviewPath, "utf8"), "review");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
