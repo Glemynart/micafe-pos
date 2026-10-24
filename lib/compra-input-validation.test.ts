@@ -13,16 +13,30 @@ test("rechaza cantidades fraccionarias que el ledger de inventario no puede apli
   assert.equal(validarEntradaCompra([{ cantidad: 1.5, costoUnitario: 300 }]), "CANTIDAD_INVALIDA");
 });
 
-test("rechaza cantidades no positivas o fuera del rango entero seguro", () => {
+test("rechaza cantidades fuera del rango entero seguro", () => {
   assert.equal(validarEntradaCompra([{ cantidad: Number.MAX_SAFE_INTEGER + 1, costoUnitario: 300 }]), "CANTIDAD_INVALIDA");
+});
+
+test("rechaza cantidades cero o negativas", () => {
+  assert.deepEqual(
+    [0, -1].map((cantidad) => validarEntradaCompra([{ cantidad, costoUnitario: 300 }])),
+    ["CANTIDAD_INVALIDA", "CANTIDAD_INVALIDA"],
+  );
 });
 
 test("rechaza costos unitarios fraccionarios que el servidor rechazaría", () => {
   assert.equal(validarEntradaCompra([{ cantidad: 1, costoUnitario: 300.5 }]), "COSTO_INVALIDO");
 });
 
-test("rechaza costos unitarios no positivos o fuera del rango entero seguro", () => {
+test("rechaza costos unitarios fuera del rango entero seguro", () => {
   assert.equal(validarEntradaCompra([{ cantidad: 1, costoUnitario: Number.MAX_SAFE_INTEGER + 1 }]), "COSTO_INVALIDO");
+});
+
+test("rechaza costos unitarios cero o negativos", () => {
+  assert.deepEqual(
+    [0, -1].map((costoUnitario) => validarEntradaCompra([{ cantidad: 1, costoUnitario }])),
+    ["COSTO_INVALIDO", "COSTO_INVALIDO"],
+  );
 });
 
 test("rechaza productos cantidad por costo cuyo subtotal excede el entero seguro", () => {
