@@ -8,6 +8,11 @@ lectura el precio vigente de cada presentación activa. Para cada presentación
 calcula utilidad bruta y margen estimados. La compra no cambia precios ni
 presentaciones del catálogo.
 
+El catálogo administrativo también muestra el costo base persistido del
+producto y proyecta costo por presentación, utilidad bruta y margen con el
+mismo cálculo. Esta vista es solo de lectura: no envía costos al vendedor, no
+modifica el precio y no aplica automáticamente un porcentaje de ganancia.
+
 La semántica sigue ADR-SAAS-041 y ADR-SAAS-070: el precio de venta vigente es
 `precioCOP` por presentación y su factor es `factorUnidadBase`. Si el costo de
 compra por unidad base es `C`, el factor de la presentación es `F` y su precio
