@@ -135,9 +135,13 @@ fixture.
   `npm run g-saas-02:catalog-preflight -- --file "<ruta.xlsx>" --decisions-output "<carpeta-nueva>"`.
   El directorio nuevo contiene un CSV separado para cada lista y un manifiesto
   con SHA-256 y conteos. Los CSV contienen referencias de hoja/fila, motivos
-  detectados y campos de decisión vacíos; no contienen nombres ni precios y no
-  fusionan coincidencias. Tarifas diferenciadas por comprador requieren un
-  nuevo alcance y ADR. El factor de conversión se
+  detectados y campos que requieren revisión humana; no contienen nombres ni
+  precios y no fusionan coincidencias. `selected_price_source` queda en `store`
+  para filas de tienda y `reference_only` para consumidor final. Las filas de
+  consumidor sin coincidencia de tienda señalan que Diana debe decidir si se
+  excluyen o se incorporan a “PRECIOS A TIENDA” con un precio único aprobado.
+  Tarifas diferenciadas por comprador requieren un nuevo alcance y ADR. El
+  factor de conversión se
   valida como entero positivo. El comando rechaza sobrescribir un directorio
   existente y no crea carga útil de importación. No corrige ni modifica el Excel
   original. El inventario inicial sigue

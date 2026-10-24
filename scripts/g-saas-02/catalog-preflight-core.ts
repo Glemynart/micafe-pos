@@ -381,6 +381,7 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
 
   const decisionsForSheet = (sheet: SheetReport): CatalogRowDecision[] => sheet.records.map((record) => {
     const issueCodes: string[] = [];
+    const candidateCrossListRows = (sheet.kind === "store" ? candidateRowsByStore : candidateRowsByConsumer).get(record.rowNumber) ?? [];
     if (!record.productName) issueCodes.push("product_name_missing");
     if (!record.validPrice) issueCodes.push("sale_price_missing_or_invalid");
     if (record.validCost === false) issueCodes.push("cost_missing_or_invalid");
@@ -388,24 +389,30 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
     if (record.duplicateProductName) issueCodes.push("duplicate_product_name_within_list");
     issueCodes.push(...record.missingSourceFields);
     if (sheet.kind === "store" && record.validCost === true) issueCodes.push("cost_unit_basis_unresolved");
+    if (sheet.kind === "consumer" && candidateCrossListRows.length === 0) {
+      issueCodes.push("consumer_only_product_disposition_unresolved");
+    }
 
     return {
       sourceList: sheet.kind,
       sourceSheet: sheet.sourceSheet,
       sourceRow: record.rowNumber,
-      candidateCrossListRows: (sheet.kind === "store" ? candidateRowsByStore : candidateRowsByConsumer).get(record.rowNumber) ?? [],
+      candidateCrossListRows,
       issueCodes,
       decisions: {
         category: null,
         baseUnit: null,
         presentation: null,
         conversionFactor: null,
-        selectedPriceSource: null,
+        selectedPriceSource: sheet.kind === "store" ? "store" : "reference_only",
         costUnitBasis: sheet.kind === "store" && record.validCost === true ? null : "not_applicable",
       },
     };
   });
   const rowDecisions = [...decisionsForSheet(store), ...decisionsForSheet(consumer)];
+  const consumerOnlyRows = rowDecisions.filter(
+    (row) => row.sourceList === "consumer" && row.candidateCrossListRows.length === 0,
+  );
 
   const reports = [store, consumer];
   const sourceRows = reports.reduce((sum, report) => sum + report.sourceRows, 0);
@@ -452,9 +459,12 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
           : []),
       ],
       humanDecisions: [
-        "Conforme a ADR-SAAS-041 y ADR-SAAS-070, confirmar un único precio vigente por presentación para todos los compradores, seleccionando la fuente aprobada para ese precio. Tarifas diferenciadas por comprador requieren un nuevo alcance y ADR.",
+        "Precio operativo confirmado: usar PRECIO VENTA de PRECIOS A TIENDA como fuente del único precio por presentación para todos los compradores, conforme a ADR-SAAS-041 y ADR-SAAS-070. Tarifas diferenciadas por comprador requieren un nuevo alcance y ADR.",
         ...(crossListMatchReferences.length > 0
           ? ["Las coincidencias por nombre entre listas son referencias candidatas; requieren confirmación y no se fusionan automáticamente."]
+          : []),
+        ...(consumerOnlyRows.length > 0
+          ? [`Confirmar si las ${consumerOnlyRows.length} filas que solo aparecen en PRECIOS CONS FINAL se excluyen de esta carga o se incorporan a PRECIOS A TIENDA con un precio único aprobado; no cargarlas como segunda tarifa.`]
           : []),
       ],
       deferredByPlan: [
@@ -477,8 +487,10 @@ export function createCatalogDecisionTemplate(
     writesPerformed: false,
     includesProductNamesOrPrices: false,
     globalDecisionsPending: [
-      "Con ADR-SAAS-041 y ADR-SAAS-070, confirmar para cada presentación un solo precio vigente y su fuente aprobada (tienda o consumidor final); ese precio aplica a todos los compradores del tenant. No cargar dos tarifas simultáneas ni precios por comprador. Una diferenciación requiere nuevo alcance y ADR.",
       "Confirmar si las coincidencias por nombre entre listas representan el mismo producto; las filas relacionadas son solo candidatas.",
+      ...(report.rowDecisions.some((row) => row.sourceList === "consumer" && row.candidateCrossListRows.length === 0)
+        ? ["Confirmar si los productos que solo aparecen en PRECIOS CONS FINAL se excluyen de esta carga o se incorporan a PRECIOS A TIENDA con un precio único aprobado; no cargar la lista como segunda tarifa."]
+        : []),
       "Confirmar las categorías, unidades base, presentaciones y factores enteros de conversión para cada fila.",
       "Definir la unidad o presentación a la que corresponde cada valor AL COSTO marcado como ambiguo.",
     ],
