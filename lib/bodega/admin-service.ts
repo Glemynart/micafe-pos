@@ -5,18 +5,9 @@ import { crearEnvelopeInventario, ejecutarComandoInventario } from "@/lib/invent
 import { resolverCallableOperacionBodega } from "./operation-routing"
 import { proyectarVentaBodegaAdmin, type VentaBodegaAdminDTO } from "@/lib/bodega/ui-contract"
 import type { Cliente } from "@/lib/clientes-service"
+import { proyectarProductoBodegaAdmin, type ProductoBodegaAdmin } from "@/lib/bodega/product-admin-projection"
 
-export interface ProductoBodegaAdmin {
-  id: string
-  nombre: string
-  categoriaId: string
-  espacioId: string
-  unidad: string
-  stock: number
-  stockReservado: number
-  stockMinimo: number
-  activo: boolean
-}
+export type { ProductoBodegaAdmin } from "@/lib/bodega/product-admin-projection"
 
 export interface PresentacionBodegaAdmin {
   id: string
@@ -51,7 +42,7 @@ function suscribirTenant<T>(
   return () => { cancelado = true; unsubscribe() }
 }
 
-export const suscribirProductosBodegaAdmin = (callback: (items: ProductoBodegaAdmin[]) => void) => suscribirTenant("productos", (id, data) => ({ id, nombre: String(data.nombre ?? ""), categoriaId: String(data.categoriaId ?? ""), espacioId: String(data.espacioId ?? ""), unidad: String(data.unidadMedida ?? data.unidad ?? "und"), stock: Number(data.stock ?? 0), stockReservado: Number(data.stockReservado ?? 0), stockMinimo: Number(data.stockMinimo ?? 0), activo: data.activo === true }), items => callback(items.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))))
+export const suscribirProductosBodegaAdmin = (callback: (items: ProductoBodegaAdmin[]) => void) => suscribirTenant("productos", proyectarProductoBodegaAdmin, items => callback(items.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))))
 export const suscribirPresentacionesBodegaAdmin = (
   callback: (items: PresentacionBodegaAdmin[]) => void,
   onError?: (error: Error) => void,
