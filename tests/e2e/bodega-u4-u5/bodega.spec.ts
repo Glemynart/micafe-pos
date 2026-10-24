@@ -292,8 +292,16 @@ test("admin Bodega completa perfil comercial en primer acceso y entra al panel a
   await expect(nombreComercial).toHaveValue("Borrador local sin guardar")
 
   await nombreComercial.fill("  Distribuidora Sintética F   ")
+  await page.route("**/registrarPerfilComercialBodegaV1**", async route => {
+    await new Promise(resolve => setTimeout(resolve, 300))
+    await route.continue()
+  })
   await page.getByRole("button", { name: "Guardar avance" }).click()
+  await expect(nombreComercial).toBeDisabled()
+  await expect(page.getByLabel("Razón social")).toBeDisabled()
   await expect(page.getByRole("status")).toHaveText("Avance guardado. Puedes volver después; los campos pendientes seguirán aquí.")
+  await expect(nombreComercial).toBeEnabled()
+  await page.unroute("**/registrarPerfilComercialBodegaV1**")
   await expect(page.getByRole("heading", { name: "Datos del negocio" })).toBeVisible()
 
   await page.reload()
