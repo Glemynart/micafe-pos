@@ -100,6 +100,43 @@ test("G-SAAS-02: crear artículo con stock inicial emite catálogo y kardex ató
   assert.equal([...db.docs.keys()].filter(path => path.startsWith("operaciones_comandos/")).length, 1);
 });
 
+test("G-SAAS-02: crear producto o insumo rechaza costos que no sean COP enteros seguros sin escribir", async () => {
+  for (const articuloTipo of ["producto", "insumo"] as const) {
+    for (const costo of [1.5, Number.MAX_SAFE_INTEGER + 1]) {
+      const db = new FakeFirestore(); seedAuth(db);
+      const before = structuredClone([...db.docs.entries()]);
+      const data = articuloTipo === "producto"
+        ? { nombre: "Tinto", categoriaId: "bebidas", unidad: "und", costo, espacioId: "espacio-a", stock: 0 }
+        : { nombre: "Café", unidadMedida: "g", costo, espacioId: "espacio-a", stock: 0 };
+
+      await assert.rejects(
+        ejecutarCrearArticuloInventarioV1(db, contexto, envelope(`crear-${articuloTipo}-${costo}`, { articuloTipo, data })),
+        error => domain(error, "COSTO_INVALIDO"),
+      );
+      assert.deepEqual([...db.docs.entries()], before);
+    }
+  }
+});
+
+test("G-SAAS-02: actualizar producto o insumo rechaza costos fraccionarios sin mutar el artículo", async () => {
+  for (const [articuloTipo, id, path] of [
+    ["producto", "producto-a", "productos/producto-a"],
+    ["insumo", "insumo-a", "insumos/insumo-a"],
+  ] as const) {
+    const db = new FakeFirestore(); seedAuth(db);
+    db.docs.set(path, { empresaId: "empresa-a", nombre: "Artículo", costo: 100, stock: 0, secuenciaLedger: 0, espacioId: "espacio-a" });
+    const before = structuredClone([...db.docs.entries()]);
+
+    await assert.rejects(
+      ejecutarActualizarArticuloInventarioV1(db, contexto, envelope(`actualizar-${id}-costo-fraccionario`, {
+        articuloTipo, articuloId: id, data: { costo: 100.5 },
+      })),
+      error => domain(error, "COSTO_INVALIDO"),
+    );
+    assert.deepEqual([...db.docs.entries()], before);
+  }
+});
+
 test("G-SAAS-02: ajustar stock resuelve el delta server-side y replay no duplica", async () => {
   const db = new FakeFirestore(); seedAuth(db);
   db.docs.set("productos/producto-1", { empresaId: "empresa-a", nombre: "Tinto", unidad: "und", costo: 0, stock: 10, secuenciaLedger: 1, espacioId: "espacio-a" });
