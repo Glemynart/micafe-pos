@@ -170,10 +170,16 @@ digest servido es el registrado y que una invocación autenticada de solo
 lectura tiene el resultado esperado. Esto restaura el runtime inmutable
 anterior, pero no revierte `buildConfig.source`, Build, etiquetas ni otra
 metadata de Cloud Functions al estado previo. El recurso muestra
-`allTrafficOnLatestRevision=true`; el efecto de este retorno sobre una
-posterior actualización mediante Firebase CLI debe tratarse como riesgo y
-verificarse antes de volver a desplegar. La operación cambia tráfico remoto,
-requiere autorización específica y no se ha ejecutado ni probado.
+`allTrafficOnLatestRevision=true`. La documentación de la API Cloud Functions
+v2 especifica que, en `functions.create` o `functions.patch`, ese valor hace
+que la revisión desplegada reciba el 100 % del tráfico e ignore cualquier
+reparto configurado. Por tanto, un posterior `patch` con ese valor puede
+revertir un retorno manual de tráfico. No se verificó si el Firebase CLI
+usado por este repositorio envía ese campo en su siguiente despliegue; antes
+de cualquier redeploy hay que comprobar ese comportamiento y volver a
+verificar el tráfico. [Referencia API](https://docs.cloud.google.com/functions/docs/reference/rest/v2/projects.locations.functions#ServiceConfig).
+La operación cambia tráfico remoto, requiere autorización específica y no
+se ha ejecutado ni probado.
 
 ### Opción 2 — recuperar código desde la fuente GCS fijada
 
