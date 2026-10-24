@@ -24,11 +24,13 @@ function worksheet(name: string, rows: unknown[][]): CatalogWorkbookLike["worksh
   };
 }
 
-function sourceWorkbook(cost = 1200): CatalogWorkbookLike {
+function sourceWorkbook(cost = 1200, includeConsumerOnly = false): CatalogWorkbookLike {
+  const consumerRows: unknown[][] = [["Cafe", 2100]];
+  if (includeConsumerOnly) consumerRows.push(["Producto referencia", 2400]);
   return {
     worksheets: [
       worksheet("PRECIOS A TIENDA", [["PRODUCTO", "AL COSTO", "PRECIO VENTA"], ["Café", cost, 1800]]),
-      worksheet("PRECIOS CONS FINAL", [["PRODUCTO", "PRECIO VENTA"], ["Cafe", 2100]]),
+      worksheet("PRECIOS CONS FINAL", [["PRODUCTO", "PRECIO VENTA"], ...consumerRows]),
     ],
   };
 }
@@ -262,7 +264,7 @@ function buildPlan(input: PlanInput): ExpectedPlan | null {
 
 test("builds a local review-only plan from the approved store price and exact unit cost", () => {
   const plan = buildPlan({
-    sourceWorkbook: sourceWorkbook(),
+    sourceWorkbook: sourceWorkbook(1200, true),
     reviewWorkbook: reviewWorkbook({ addConsumerOnly: true }),
     sourceSha256: SOURCE_HASH,
     reviewSha256: "b".repeat(64),
@@ -305,7 +307,7 @@ test("builds a local review-only plan from the approved store price and exact un
 
 test("keeps unresolved consumer-list matches as reference-only and does not block a complete store plan", () => {
   const plan = buildPlan({
-    sourceWorkbook: sourceWorkbook(),
+    sourceWorkbook: sourceWorkbook(1200, true),
     reviewWorkbook: reviewWorkbook({ sameProduct: "Por confirmar", addConsumerOnly: true }),
     sourceSha256: SOURCE_HASH,
     reviewSha256: "c".repeat(64),

@@ -408,6 +408,52 @@ function validateConsumerRows(
   return { deferred, candidatePairs, candidateDecisionsPending };
 }
 
+export interface DianaCatalogOfflinePlanInput extends DianaCatalogReviewValidationInput {
+  reviewSha256: string;
+}
+
+export interface DianaCatalogOfflinePlan {
+  planSchemaVersion: "1.0";
+  mode: "offline-review-only";
+  sourceSha256: string;
+  reviewSha256: string;
+  proposal: {
+    status: "requires-human-review";
+    granularity: "one-presentation-per-store-source-row";
+    salesPriceSource: "PRECIOS A TIENDA.PRECIO VENTA";
+    costPolicy: "AL COSTO exact per base unit; no automatic markup";
+    productGroupingInferred: false;
+    presentations: Array<{
+      sourceRow: number;
+      reviewRow: number;
+      name: string;
+      category: string;
+      baseUnit: string;
+      presentation: string;
+      unitsPerPresentation: number;
+      salesPriceCop: number;
+      sourceCostCop: number;
+      costBasis: "UNIDAD BASE" | "PRESENTACION / EMPAQUE";
+      costCopPerBaseUnit: number;
+    }>;
+  };
+  consumerReference: {
+    salesPricesApplied: false;
+    consumerOnlyRowsDeferred: number;
+    crossListCandidates: number;
+    crossListDecisionsPending: number;
+    crossListCandidatesMerged: false;
+  };
+  initialStockIncluded: false;
+  safety: {
+    firebaseAccessed: false;
+    writesPerformed: false;
+    importReady: false;
+    executable: false;
+    deploymentAuthorized: false;
+  };
+}
+
 export function validateDianaCatalogReview(input: DianaCatalogReviewValidationInput): DianaCatalogReviewValidationReport {
   const validationErrors: string[] = [];
   const guideHash = guideSourceHash(input.reviewWorkbook, validationErrors);
@@ -487,5 +533,75 @@ export function validateDianaCatalogReview(input: DianaCatalogReviewValidationIn
       ...(consumerReview.deferred > 0 ? ["Las filas solo consumidor permanecen diferidas hasta recibir una presentación y PRECIO VENTA de tienda aprobados."] : []),
       "Este validador no produce payload de importación. La carga de catálogo e inventario exige el flujo aprobado, datos completos y Gate I.",
     ],
+  };
+}
+
+export function buildDianaCatalogOfflinePlan(input: DianaCatalogOfflinePlanInput): DianaCatalogOfflinePlan | null {
+  if (!/^[a-f0-9]{64}$/i.test(input.reviewSha256)) return null;
+  const report = validateDianaCatalogReview(input);
+  if (!report.reviewValid || !report.sourceMatches || !report.operationalMappingsComplete) return null;
+
+  const errors: string[] = [];
+  const source = sourceList(input.sourceWorkbook, "store", errors);
+  const reviewSheet = findSheet(input.reviewWorkbook, "Precios tienda");
+  const header = reviewSheet ? findHeader(reviewSheet, STORE_HEADERS) : null;
+  if (!source || !reviewSheet || !header || errors.length > 0) return null;
+
+  const rows = templateRows(reviewSheet, header, STORE_HEADERS);
+  const presentations: DianaCatalogOfflinePlan["proposal"]["presentations"] = [];
+  for (const row of rows) {
+    const sourceRow = row.sourceRow;
+    if (sourceRow === null) return null;
+    const original = source.records.get(sourceRow);
+    const factor = positiveInteger(row.fields.conversionFactor);
+    const costBasis = normalizeText(row.fields.costBasis.text);
+    if (!original || original.price === null || original.cost === null || factor === null) return null;
+    if (costBasis !== "UNIDAD BASE" && costBasis !== "PRESENTACION / EMPAQUE") return null;
+    const costCopPerBaseUnit = costBasis === "UNIDAD BASE" ? original.cost : original.cost / factor;
+    if (!Number.isSafeInteger(costCopPerBaseUnit)) return null;
+    presentations.push({
+      sourceRow,
+      reviewRow: row.rowNumber,
+      name: original.name,
+      category: row.fields.category.text.trim(),
+      baseUnit: row.fields.baseUnit.text.trim(),
+      presentation: row.fields.presentation.text.trim(),
+      unitsPerPresentation: factor,
+      salesPriceCop: original.price,
+      sourceCostCop: original.cost,
+      costBasis,
+      costCopPerBaseUnit,
+    });
+  }
+  if (presentations.length === 0 || presentations.length !== report.totals.storeRowsMapped) return null;
+
+  return {
+    planSchemaVersion: "1.0",
+    mode: "offline-review-only",
+    sourceSha256: input.sourceSha256.toLocaleLowerCase("en-US"),
+    reviewSha256: input.reviewSha256.toLocaleLowerCase("en-US"),
+    proposal: {
+      status: "requires-human-review",
+      granularity: "one-presentation-per-store-source-row",
+      salesPriceSource: "PRECIOS A TIENDA.PRECIO VENTA",
+      costPolicy: "AL COSTO exact per base unit; no automatic markup",
+      productGroupingInferred: false,
+      presentations,
+    },
+    consumerReference: {
+      salesPricesApplied: false,
+      consumerOnlyRowsDeferred: report.totals.consumerRowsDeferred,
+      crossListCandidates: report.totals.candidateCrossListPairs,
+      crossListDecisionsPending: report.totals.candidateDecisionsPending,
+      crossListCandidatesMerged: false,
+    },
+    initialStockIncluded: false,
+    safety: {
+      firebaseAccessed: false,
+      writesPerformed: false,
+      importReady: false,
+      executable: false,
+      deploymentAuthorized: false,
+    },
   };
 }
