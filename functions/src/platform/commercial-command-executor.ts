@@ -82,6 +82,7 @@ export async function ejecutarComandoComercial(
       correlationId: entrada.correlationId,
       causationId: entrada.causationId ?? entrada.commandId,
       expectedRevision: entrada.expectedRevision,
+      schemaVersion: terminos.schemaVersion,
       empresaId: terminos.empresaIdObjetivo,
       ofertaId: terminos.ofertaId,
       planIdBase: terminos.planIdBase,
@@ -93,6 +94,10 @@ export async function ejecutarComandoComercial(
       motivo: terminos.motivoCodigo,
       iniciaEn: entrada.iniciaEn,
       expiraEn: entrada.expiraEn,
+      ...(terminos.schemaVersion === 2 ? {
+        trialDias: terminos.trialDias,
+        referenciaAceptacionCliente: terminos.referenciaAceptacionCliente,
+      } : {}),
     };
     agregado = { tipo: "OFERTA_COMERCIAL_TENANT", id: terminos.ofertaId };
     plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entradaAuditoria, agregado, terminos.empresaIdObjetivo, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));
@@ -108,6 +113,7 @@ export async function ejecutarComandoComercial(
       correlationId: entrada.correlationId,
       causationId: entrada.causationId ?? entrada.commandId,
       expectedRevision: entrada.expectedRevision,
+      schemaVersion: terminos.schemaVersion,
       empresaId: terminos.empresaIdObjetivo,
       ofertaId: terminos.ofertaId,
       planIdBase: terminos.planIdBase,
@@ -117,6 +123,10 @@ export async function ejecutarComandoComercial(
       motivoCodigo: terminos.motivoCodigo,
       referenciaAprobacion: terminos.referenciaAprobacion,
       motivo: terminos.motivoCodigo,
+      ...(terminos.schemaVersion === 2 ? {
+        trialDias: terminos.trialDias,
+        referenciaAceptacionCliente: terminos.referenciaAceptacionCliente,
+      } : {}),
     };
     agregado = { tipo: "OFERTA_COMERCIAL_TENANT", id: terminos.ofertaId };
     plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entradaAuditoria, agregado, terminos.empresaIdObjetivo, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }));

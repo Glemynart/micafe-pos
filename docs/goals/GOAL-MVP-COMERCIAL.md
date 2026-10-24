@@ -1,4 +1,4 @@
-# Goal — G-SAAS-02: Primer cliente real operando un Trial de 30 días
+# Goal — G-SAAS-02: Primer cliente real operando un Trial anual
 
 > G-SAAS-02 es el Goal activo. G-SAAS-01 permanece documentado debajo como
 > baseline histórico completado. Este Goal no se cierra por compilación, CI,
@@ -8,12 +8,12 @@
 ## Identidad estable
 
 - **Goal:** `G-SAAS-02`
-- **Resultado:** un primer cliente real opera MiCafe POS durante un Trial ANUAL server-side de 30 días, con provisioning reproducible, onboarding, operación crítica, soporte, recuperación cuando aplique y cierre contractual evidenciado.
+- **Resultado:** un primer cliente real opera MiCafe POS durante el Trial ANUAL server-side establecido por su contrato; la regla general es 30 días y ADR-SAAS-087 autoriza únicamente 15 días para Distribuidora Las Jiménez. Incluye provisioning reproducible, onboarding, operación crítica, soporte, recuperación cuando aplique y cierre contractual evidenciado.
 - **Estado:** ACTIVO
 - **Inicio formal:** 2026-08-12
 - **Rama base:** `main @ de0d37d8497e394f90b186875e33f28e1aec2693` (PR #621 integrado; CI post-merge `39012228598` terminó `success` para este SHA.)
 - **Fuente de autorización:** `AUTORIZACIÓN DE EJECUCIÓN — G-SAAS-02`
-- **Decisiones comerciales preservadas:** precio público anual `1.800.000 COP`; oferta específica aprobada para Bodega `1.600.000 COP` por el año, pago manual, Trial de 30 días, todos los módulos disponibles y un Espacio operativo interno. La oferta del tenant no cambia el precio público del Plan.
+- **Decisiones comerciales preservadas:** precio público anual `1.800.000 COP`; oferta específica aprobada para Bodega `1.600.000 COP` por el año, pago manual, Trial estándar de 30 días y excepción individual de 15 días solo para Distribuidora Las Jiménez según ADR-SAAS-087; todos los módulos disponibles y un Espacio operativo interno. La oferta del tenant no cambia el precio público del Plan.
 
 ## Alcance
 
@@ -26,7 +26,7 @@
 - Rules, Storage, Functions, aislamiento tenant y auditoría.
 - Backoffice, soporte, diagnóstico, rollback, recuperación e incidentes.
 - Release identificable, smoke productivo y evidencia del tenant de referencia.
-- Trial real completo de 30 días y decisión final de conversión o suspensión según contrato.
+- Trial real completo durante el plazo contractual aprobado (30 días por regla general; 15 días para Distribuidora Las Jiménez por ADR-SAAS-087) y decisión final de conversión o suspensión según contrato.
 
 ## Fuera de alcance
 
@@ -69,11 +69,11 @@
 | E4.1 Release certificado | SHA, CI, rollout y dominio de Firebase App Hosting, Functions, Rules/Storage y smoke productivo registrados. | PENDIENTE |
 | E4.2 Soporte y recuperación | Procedimientos de acceso, lifecycle, diagnóstico, incidentes, rollback y recuperación validados. | PENDIENTE |
 
-### M5 — Trial real de 30 días — PENDIENTE
+### M5 — Trial real según contrato — PENDIENTE
 
 | Epic | Resultado | Estado |
 |---|---|---|
-| E5.1 Operación real | El cliente opera durante 30 días sin reinicio artificial del Trial. | PENDIENTE |
+| E5.1 Operación real | El cliente opera durante el plazo del contrato aprobado (30 días estándar; 15 días para Distribuidora Las Jiménez por ADR-SAAS-087), sin reinicio artificial del Trial. | PENDIENTE |
 | E5.2 Incidentes y estabilidad | Incidentes, correcciones, despliegues y evidencia se registran sin ocultar fallos. | PENDIENTE |
 
 ### M6 — Cierre contractual — PENDIENTE
@@ -89,7 +89,7 @@
 - **M2:** ningún tenant nuevo se inicia sin las capacidades no vacías derivadas del Plan y su configuración. Esto no exige que existan ya documentos de productos: solo se permite catálogo vacío durante el Trial inicial no fiscal bajo la decisión E2.2 registrada; no equivale a readiness para vender o comprar. El bootstrap es idempotente y reproducible.
 - **M3:** cada operación crítica tiene pruebas automatizadas y, cuando corresponda, validación productiva con el tenant de referencia.
 - **M4:** no se inicia el Trial con divergencia entre aplicación, Functions, Rules, Storage o SHA certificado.
-- **M5:** el Trial permanece abierto hasta completar 30 días de operación real.
+- **M5:** el Trial permanece abierto hasta completar el plazo contractual aprobado; no se extiende ni reinicia artificialmente.
 - **M6:** el Goal solo puede cerrarse con evidencia de conversión o suspensión según contrato.
 
 ## Definition of Done
@@ -100,7 +100,7 @@
 - Las operaciones necesarias del cliente pasan en producción.
 - Backoffice, soporte, diagnóstico, incidentes, rollback y recuperación están probados o documentados como no aplicables con evidencia.
 - SHA, CI, despliegues y smoke productivo están registrados.
-- El cliente completa 30 días reales de Trial.
+- El cliente completa el plazo real de Trial registrado en el contrato aprobado.
 - Se registran incidentes, correcciones y cambios sin reiniciar artificialmente el Trial.
 - Conversión o suspensión queda aplicada y auditada.
 - La auditoría final del Goal confirma que toda la evidencia es consistente.
@@ -115,6 +115,9 @@
 - Rules y Storage quedaron sincronizadas con `origin/main @ a644d1d` mediante un deploy controlado y verificación read-only posterior. El release productivo completo y la recuperación productiva aún no están certificados.
 
 ## Estado vivo
+
+- **Aceptación de ADR-SAAS-087 — 2026-10-23:** el responsable aprobó una excepción de Trial de 15 días para la oferta anual manual de `1.600.000 COP` dirigida exclusivamente a `distribuidora-las-jimenez`; el responsable confirmó la aceptación expresa de Diana. La política general de 30 días permanece vigente. La implementación requiere oferta y snapshot v2, autoridad server-side, autorización de plataforma y auditoría; la aceptación no registra la oferta, crea el tenant, ejecuta Bootstrap/Trial ni autoriza despliegues. La decisión está vinculada al Epic activo E2.2. Detalle: [ADR-SAAS-087](../../ADR-SAAS-087-excepcion-trial-15-dias-diana.md).
+- **Checkpoint post-merge PR #639/#640 — 2026-10-23:** `origin/main @ bf8336211371814db7010beaf107b0e77d551b77`; ambos PR están fusionados y sus checks del PR terminaron `SUCCESS`. La corrida post-merge de CI `40052412480` seguía `in_progress` al consultar. La lectura read-only actual de App Hosting confirma backend `micafe-pos` en `micafe-pos-staging/us-central1`, rollout `build-2026-10-23-001` en `SUCCEEDED`, 100 % del tráfico en esa revisión y origen `6ea1a8c65d58ed8c64fa09b028ddc74860632e62`; `rolloutPolicy.disabled=true`. Staging está detrás del `main` vigente. No se ejecutó rollout ni hubo escrituras remotas. E2.2 y Gate I continúan incompletos.
 
 - **Decisión de prioridad E2.2 — 2026-10-17:** el catálogo definitivo queda aplazado hasta que Diana entregue su lista. La inspección local del Bootstrap confirma que la operación materializa Empresa, configuración derivada del Plan, espacio, membresía, oferta/Trial y estructuras reservadas sin leer ni crear productos o presentaciones; las pruebas focalizadas de Bootstrap DEMO y Bodega pasan con el catálogo ausente. Esta decisión permite continuar el onboarding no fiscal sin catálogo, pero no cierra E2.2, no declara Bodega lista para operar y no autoriza escrituras productivas. La importación/carga y la prueba de venta permanecen pendientes hasta aprobar el maestro y satisfacer Gate I.
 
@@ -162,13 +165,14 @@
   - Evidencia: [recheck de Rules en Emulator](evidence/G-SAAS-02-E2-2-GATE-D-RULES-EMULATOR-RECHECK-2026-10-12.md), [reconciliación read-only de Rules de staging](evidence/G-SAAS-02-E2-2-GATE-D-RULES-READONLY-RECONCILIATION-2026-10-12.md), [inventario read-only posterior a #574](evidence/G-SAAS-02-E2-2-GATE-C-READONLY-NAMESPACE-RECHECK-2026-10-12.md), [reconocimiento read-only de producción](evidence/G-SAAS-02-E2-2-GATE-I-PRODUCTION-READONLY-RECONNAISSANCE-2026-10-12.md), [revalidación contra main 380928](evidence/G-SAAS-02-E2-2-GATE-I-PRODUCTION-READONLY-REVALIDATION-380928-2026-10-12.md), [ADR-SAAS-073 — perfil comercial](../../ADR-SAAS-073-perfil-comercial-primer-acceso-bodega.md), [ADR-SAAS-074 — IDs Bodega únicos iniciales](../../ADR-SAAS-074-namespace-produccion-callables-bodega.md), [ADR-SAAS-076 — namespace completo de once IDs](../../ADR-SAAS-076-alcance-completo-namespace-callables-bodega.md), [ADR-SAAS-075 — bloqueo legacy Bodega](../../ADR-SAAS-075-aislamiento-callable-legacy-compras-bodega.md), [aceptación ADR-SAAS-073/074/075](evidence/G-SAAS-02-E2-2-ADR-SAAS-073-075-ACCEPTANCE-2026-10-12.md), [aceptación de ampliación ADR-SAAS-076](evidence/G-SAAS-02-E2-2-ADR-SAAS-076-ACCEPTANCE-2026-10-12.md), [revalidación de Gate H](evidence/G-SAAS-02-E2-2-GATE-H-RECONNECT-REPLAY-2026-10-12.md).
 - **Estado de Gate I al 2026-10-14 (snapshot histórico):** Goal rector `G-SAAS-02`, Milestone activo `M2 — Provisioning y onboarding` y Epic activo `E2.2 — Configuración inicial`; PR #596 quedó integrado en `main @ fbd45436f62eb06950bf9a671e204d9b00679f3d` y su CI post-merge `38640922904` terminó `success`. `G-MVP-01` permanece histórico/completado según su sección de estado histórico y reconciliación PR #241. Gate D staging queda conciliado y Gate F/G/H conservan `PASS` para sus escenarios certificados. La lectura read-only de `2026-10-14T22:26:37.849Z` confirmó 14 divergencias efectivas de Firestore Rules, hash remoto anterior de `registrarCompraOperativaV1`, falta de acreditación de Vercel para el SHA integrado y smoke autenticado ausente. Functions: 104/104 activas en Node.js 22; Storage coincide. El restore aislado del 14-oct sigue verificado por evidencia separada; PITR continúa deshabilitado según ADR-SAAS-031. No se había creado el tenant real ni iniciado el Trial. Las cuatro fotos del catálogo fueron recibidas, pero no había archivo maestro editable aprobado. La aceptación reportada por el administrador fija la fecha objetivo del Trial en `2026-10-15`; no se ha iniciado ni provisionado. El estado posterior de App Hosting y los límites actuales están en el checkpoint del 15-oct y la [evidencia de rollout](evidence/G-SAAS-02-E2-2-APPHOSTING-FIRST-ROLLOUT-2026-10-15.md).
 - **Estado:** ACTIVO.
-- **PR completados:** PR #558, #559, #560, #561, #562, #563, #564, #565, #566, #567, #568, #569, #570, #571, #572, #573, #574, #575, #576, #577, #578, #579, #580, #581, #582, #583, #584, #585, #586, #587, #589, #590, #591, #592, #593, #594, #595, #596, #603, #606, #608, #609, #610, #611, #612, #613, #615, #617, #618, #619, #621, #623, #624, #626, #628, #629, #630, #631 y #632.
+- **PR completados:** PR #558, #559, #560, #561, #562, #563, #564, #565, #566, #567, #568, #569, #570, #571, #572, #573, #574, #575, #576, #577, #578, #579, #580, #581, #582, #583, #584, #585, #586, #587, #589, #590, #591, #592, #593, #594, #595, #596, #603, #606, #608, #609, #610, #611, #612, #613, #615, #617, #618, #619, #621, #623, #624, #626, #628, #629, #630, #631, #632, #639, #640 y #641.
 - **Checkpoint post-merge #609 — 2026-10-15:** `origin/main @ bdcf384c2c22248b002d2e4d32defee7f97cb686`; ADR-SAAS-083 separa la decisión técnica, la aceptación limitada del riesgo Preview y la autorización operativa. No se creó backend ni hubo mutaciones productivas. El preflight vigente está en [su evidencia](evidence/G-SAAS-02-E2-2-APPHOSTING-PRODUCTION-PREFLIGHT-2026-10-15.md).
 - **Aceptación formal ADR-SAAS-084 — 2026-10-15; integración 2026-10-16:** el aprobador autorizado aceptó la decisión completa y PR #612 quedó integrado en `main @ 2af24e47c4cbdc4fb1dbfe0f20ce92033b79258`. PR #613 implementó el contrato en `main @ 51d8ec2e4d1e7713a221f1ccf76e3b0da510c354`. La aceptación e integración no sustituyen la verificación de Functions remotas ni autorizan desplegar; tampoco autorizan una anotación correctiva histórica.
 - **Checkpoint App Hosting productivo — 2026-10-15, revalidado 2026-10-16:** el backend `micafe-pos` de Firebase App Hosting existe en `micafe-pos/us-central1`; su primer build `build-2026-10-15-001` está `READY`, su rollout homónimo `SUCCEEDED` y el tráfico observado es 100 % al SHA autorizado `5c5c4fdd9164abdca0fe05c9fddb51cea8559a29`. El `main` actual avanzó a `51d8ec2e…`; con rollouts automáticos desactivados, no se infiere que sirva ese SHA más reciente ni se inició otro rollout. El HTTP 200 confirma disponibilidad de rutas, no una sesión autenticada. Evidencia: [rollout y revalidación productiva](evidence/G-SAAS-02-E2-2-APPHOSTING-PRODUCTION-ROLLOUT-2026-10-15.md). Esto no cierra Gate I/E2.2.
 - **Checkpoint post-merge #630–#632 — 2026-10-23:** `origin/main @ 0ccaddfd12765328e7eafe8ec1a5c595cba40032`; CI post-merge [run 39715447904](https://github.com/Glemynart/micafe-pos/actions/runs/39715447904) terminó `success` para ese SHA. PR #630 se integró en `6b9f86e9a5ac5b06554b5de081cb2d2ae2e5bbb3` e integró ADR-SAAS-085 aceptado y su alcance Bodega; PR #631 se integró en `7a28d92063101eb440dd7d4962160b4add6bc452` y preservó la semántica efectiva de control de compras no-Bodega; PR #632 se integró en `0ccaddfd12765328e7eafe8ec1a5c595cba40032` y endureció la correspondencia tenant/oferta entre consulta y Bootstrap. Esos merges cierran esos PR, no M2, E2.2 ni Gate I. El preflight read-only de staging reportó App Hosting en `39aa469…`, distinto del candidato `0ccaddf…`; no se declara staging alineado, ni que Functions/Rules ejecuten el candidato, ni que Diana esté lista. Los PR no crearon oferta, tenant o Trial ni autorizaron despliegues o escrituras.
 - **Aceptación de ADR-SAAS-086 — 2026-10-23:** el usuario delegó expresamente al Lead Engineer la elección de la alternativa técnica más conveniente. Se aceptó la Opción A, incluida la auditoría de seguridad append-only como único efecto persistente permitido por denegación; ADR-SAAS-043 queda supersedida solo en el requisito de una callable y conserva sus demás controles. La aceptación resuelve la decisión arquitectónica, pero no demuestra que el código o las pruebas cumplan el contrato, no declara listo staging ni autoriza despliegue, invocación remota, operaciones comerciales o acceso de Diana.
-- **Siguiente paso esperado:** revisar el PR #636, ya abierto, contra el contrato aceptado en [ADR-SAAS-086](../../ADR-SAAS-086-resolucion-cardinalidad-codebase-comercial.md): validación estricta de entrada, tenant binding, respuesta y errores seguros, auditoría de denegaciones y sus fallos, discovery secret-free y pruebas de regresión requeridas. El PR #636 no se integra antes de este PR documental; sus checks verdes no sustituyen la revisión arquitectónica ni validan el runtime. Mantener separados build, conformidad arquitectónica y autorización operativa. Cualquier despliegue futuro requiere su propio alcance, preflight vigente, SHA y entorno identificados, recuperación y autorización expresa independiente. E2.2 permanece como Epic activo dentro de M2. La referencia histórica de 2026-09-12 a E2.1 como Epic activo antecede al campo vivo actual; E2.1 sigue `EN EJECUCIÓN` según la tabla como resultado pendiente, sin que este checkpoint habilite trabajo paralelo ni el alta/Bootstrap del tenant real. Gate I y E2.2 continúan incompletos.
+- **Checkpoint post-merge PR #641 — 2026-10-23:** PR #641 quedó integrado por squash en `main @ ae662b15ed7ab07e23e38235d18dff35ad40eb8d`. ADR-SAAS-087 quedó aceptado en el PR: los Trials anuales conservan 30 días como regla general y la oferta v2 aprobada de Distribuidora Las Jiménez es la única excepción de 15 días; las ofertas v1 permanecen en 30 días. La oferta, tenant, Bootstrap y Trial no se han materializado. Los tres checks del PR terminaron en verde; CI post-merge [run 40059350825](https://github.com/Glemynart/micafe-pos/actions/runs/40059350825) seguía `in_progress` en la última lectura. La lectura de staging observa App Hosting `build-2026-10-23-001` en `6ea1a8c65d58ed8c64fa09b028ddc74860632e62`, por lo que no sirve el SHA integrado; `saas-commercial` (2 exports) y `saas-bootstrap` (1 export) están `ACTIVE`, pero no se pudo vincular su código remoto al SHA candidato. La lectura directa de Rules devolvió `403` por falta de quota project en las credenciales locales, por lo que su alineación efectiva sigue sin verificarse. No hubo despliegues ni escrituras. M2/E2.2 y Gate I siguen incompletos.
+- **Siguiente paso esperado:** completar un preflight read-only focalizado de staging para `main @ ae662b15ed7ab07e23e38235d18dff35ad40eb8d`, renovando la evidencia de Rules y preservando una referencia de rollback para Functions. Si ese gate pasa, cualquier rollout manual requiere autorización operativa independiente para el SHA y los recursos exactos. Después se verificará el release antes de solicitar por separado las operaciones de oferta y Bootstrap/Trial; la preparación del catálogo puede continuar en paralelo y no bloquea el primer acceso administrativo no fiscal. No se autoriza por este checkpoint ninguna escritura ni despliegue.
 - **Relectura de Gate I (2026-10-14T22:37:02.623Z):** el collector solo lectura confirmó `main @ fbd45436`, CI post-merge `PASS`, 104/104 Functions Node.js 22, hash antiguo de `registrarCompraOperativaV1`, Vercel sin estado para el SHA objetivo, PITR deshabilitado y 34 backups observados. No devolvió Rules (`rules=null`); la última lectura directa de 22:26Z conserva 14 divergencias y requiere renovación antes de cualquier corte. No hubo escrituras productivas; restore aislado continúa `PASS` por evidencia separada.
 - **Milestone activo:** `M2 — Provisioning y onboarding`.
 - **Epic activo:** `E2.2 — Configuración inicial`.

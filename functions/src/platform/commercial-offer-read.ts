@@ -23,7 +23,13 @@ export type OfertaComercialTenantAdminView = Pick<
   | "motivoCodigo"
   | "referenciaAprobacion"
   | "revision"
->;
+  | "schemaVersion"
+> & {
+  trialDias?: number;
+  referenciaAceptacionCliente?: string;
+  trialInicio?: string;
+  trialFin?: string;
+};
 
 export async function consultarOfertaComercialTenant(
   db: Firestore,
@@ -66,7 +72,12 @@ export async function consultarOfertaComercialTenant(
     || data.periodicidad !== "ANUAL"
     || data.precioAcordado?.importe !== autorizacion.precioAcordado.importe
     || data.precioAcordado?.moneda !== autorizacion.precioAcordado.moneda
-    || data.referenciaAprobacion !== autorizacion.referenciaAprobacion) {
+    || data.referenciaAprobacion !== autorizacion.referenciaAprobacion
+    || (data.schemaVersion !== autorizacion.schemaVersion
+      && !(autorizacion.schemaVersion === 2 && data.schemaVersion === 1))
+    || (data.schemaVersion === 2
+      && (data.trialDias !== autorizacion.trialDias
+        || data.referenciaAceptacionCliente !== autorizacion.referenciaAceptacionCliente))) {
     throw new HttpsError("failed-precondition", "OFERTA_COMERCIAL_INVALIDA");
   }
 
@@ -85,6 +96,12 @@ export async function consultarOfertaComercialTenant(
       motivoCodigo: data.motivoCodigo,
       referenciaAprobacion: data.referenciaAprobacion,
       revision: data.revision,
+      schemaVersion: data.schemaVersion,
+      ...(data.schemaVersion === 2 ? {
+        trialDias: data.trialDias,
+        referenciaAceptacionCliente: data.referenciaAceptacionCliente,
+        ...(data.trialInicio ? { trialInicio: data.trialInicio, trialFin: data.trialFin } : {}),
+      } : { trialDias: 30 }),
     },
     controlRevision,
     ofertaActivaId,
