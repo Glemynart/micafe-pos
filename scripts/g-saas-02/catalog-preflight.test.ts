@@ -59,7 +59,7 @@ test("reports schema gaps and does not treat missing inventory as an error", () 
   assert.equal(report.totals.rowsMissingProductName, 0);
   assert.equal(report.totals.rowsMissingPositiveIntegerPrice, 0);
   assert.equal(report.classification.deferredByPlan.some((item) => item.includes("inventario inicial")), true);
-  assert.match(report.classification.humanDecisions[0], /precio operativo confirmado/);
+  assert.match(report.classification.humanDecisions[0], /Precio operativo confirmado/);
   assert.match(report.classification.humanDecisions[0], /PRECIOS A TIENDA/);
   assert.match(report.classification.humanDecisions[0], /todos los compradores/);
 });
