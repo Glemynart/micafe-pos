@@ -231,13 +231,19 @@ export function PurchasesModule() {
       return
     }
 
-    const errorValidacion = validarEntradaCompra(itemsValidos)
+    const tipoArticulo = esCafeteria ? 'insumo' : 'producto'
+    const errorValidacion = validarEntradaCompra(itemsValidos.map((item) => ({
+      tipo: tipoArticulo,
+      articuloId: item.insumoId,
+      cantidad: item.cantidad,
+      costoUnitario: item.costoUnitario,
+    })))
     if (errorValidacion === 'CANTIDAD_INVALIDA') {
-      toast.error('La cantidad de cada artículo debe ser un entero positivo en su unidad de inventario.')
+      toast.error('Las cantidades acumuladas por artículo deben formar un entero positivo en su unidad de inventario.')
       return
     }
     if (errorValidacion === 'COSTO_INVALIDO') {
-      toast.error('El costo unitario debe ser un entero positivo en COP.')
+      toast.error('Cada costo y el costo unitario consolidado deben ser enteros positivos en COP.')
       return
     }
     if (errorValidacion === 'TOTAL_COMPRA_INVALIDO') {
@@ -605,9 +611,7 @@ export function PurchasesModule() {
                               type="number"
                               className="bg-input w-24"
                               placeholder="0"
-                              min={1}
-                              max={Number.MAX_SAFE_INTEGER}
-                              step={1}
+                              step="any"
                               value={item.cantidad || ''}
                               onChange={(e) => updateItem(idx, 'cantidad', e.target.value)}
                             />
