@@ -22,7 +22,7 @@ type CatalogKind = "store" | "consumer";
 type CoreSourceField = "productName" | "cost" | "salePrice";
 type ModelField = "category" | "baseUnit" | "presentation" | "conversionFactor" | "initialStock";
 type SourceField = CoreSourceField | ModelField;
-type DecisionField = "category" | "baseUnit" | "presentation" | "conversionFactor" | "salePricePolicy" | "costUnitBasis";
+type DecisionField = "category" | "baseUnit" | "presentation" | "conversionFactor" | "selectedPriceSource" | "costUnitBasis";
 
 export interface CatalogRowDecision {
   sourceList: CatalogKind;
@@ -296,7 +296,12 @@ function analyzeSheet(worksheet: CatalogWorksheetLike, kind: CatalogKind): Sheet
       const cell = row.getCell(column);
       const cellHasFormula = isFormula(cell);
       rowHasFormula ||= cellHasFormula;
-      if (cellHasFormula || cellText(cell) === "") missingSourceFields.push(`${MODEL_FIELD_ISSUE_NAMES[field]}_value_missing`);
+      if (cellHasFormula) continue;
+      if (cellText(cell) === "") {
+        missingSourceFields.push(`${MODEL_FIELD_ISSUE_NAMES[field]}_value_missing`);
+      } else if (field === "conversionFactor" && !parsePositiveInteger(cell.value)) {
+        missingSourceFields.push("conversion_factor_invalid");
+      }
     }
     if (rowHasFormula) rowsWithFormula += 1;
 
@@ -395,7 +400,7 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
         baseUnit: null,
         presentation: null,
         conversionFactor: null,
-        salePricePolicy: null,
+        selectedPriceSource: null,
         costUnitBasis: sheet.kind === "store" && record.validCost === true ? null : "not_applicable",
       },
     };
@@ -472,7 +477,7 @@ export function createCatalogDecisionTemplate(
     writesPerformed: false,
     includesProductNamesOrPrices: false,
     globalDecisionsPending: [
-      "Definir cómo se conserva la distinción entre precio a tienda y precio al consumidor final, porque el modelo vigente guarda un precio actual por presentación.",
+      "Con ADR-SAAS-041 y ADR-SAAS-070, confirmar para cada presentación un solo precio vigente y su fuente aprobada (tienda o consumidor final); ese precio aplica a todos los compradores del tenant. No cargar dos tarifas simultáneas ni precios por comprador. Una diferenciación requiere nuevo alcance y ADR.",
       "Confirmar si las coincidencias por nombre entre listas representan el mismo producto; las filas relacionadas son solo candidatas.",
       "Confirmar las categorías, unidades base, presentaciones y factores enteros de conversión para cada fila.",
       "Definir la unidad o presentación a la que corresponde cada valor AL COSTO marcado como ambiguo.",

@@ -184,7 +184,7 @@ function serializeDecisionRows(rows: CatalogRowDecision[]): string {
     "base_unit",
     "presentation",
     "conversion_factor",
-    "selected_price_policy",
+    "selected_price_source",
     "cost_unit_basis",
     "review_status",
   ];
@@ -197,7 +197,7 @@ function serializeDecisionRows(rows: CatalogRowDecision[]): string {
     row.decisions.baseUnit ?? "",
     row.decisions.presentation ?? "",
     row.decisions.conversionFactor ?? "",
-    row.decisions.salePricePolicy ?? "",
+    row.decisions.selectedPriceSource ?? "",
     row.decisions.costUnitBasis ?? "",
     "",
   ].map(csvCell).join(","));

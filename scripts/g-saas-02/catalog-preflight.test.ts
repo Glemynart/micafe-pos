@@ -101,8 +101,12 @@ test("creates a row decision template that preserves separate lists without expo
   assert.equal(template.lists.store[0].decisions.category, null);
   assert.equal(template.lists.store[0].decisions.costUnitBasis, null);
   assert.equal(template.lists.consumer[0].decisions.costUnitBasis, "not_applicable");
+  assert.equal(template.lists.store[0].decisions.selectedPriceSource, null);
   assert.ok(template.lists.store[0].issueCodes.includes("cost_unit_basis_unresolved"));
   assert.ok(template.lists.store[0].issueCodes.includes("category_not_in_source_header"));
+  assert.match(template.globalDecisionsPending[0], /un solo precio vigente/);
+  assert.match(template.globalDecisionsPending[0], /todos los compradores/);
+  assert.match(template.globalDecisionsPending[0], /ADR-SAAS-041 y ADR-SAAS-070/);
   assert.equal(JSON.stringify(template).includes("Café molido"), false);
   assert.equal(JSON.stringify(template).includes("1500"), false);
   assert.equal(JSON.stringify(template).includes("1800"), false);
@@ -120,6 +124,24 @@ test("distinguishes absent schema columns from blank row values", () => {
   assert.ok(row.issueCodes.includes("presentation_value_missing"));
   assert.ok(!row.issueCodes.includes("base_unit_value_missing"));
   assert.ok(!row.issueCodes.includes("conversion_factor_value_missing"));
+  assert.ok(!row.issueCodes.includes("conversion_factor_invalid"));
+});
+
+test("rejects non-positive, fractional, and non-numeric conversion factors", () => {
+  const report = analyzeCatalogWorkbook(workbook(
+    [
+      ["PRODUCTO", "AL COSTO", "PRECIO VENTA", "CATEGORIA", "UNIDAD", "PRESENTACION", "FACTOR"],
+      ["Producto cero", 20, 30, "Bebidas", "unidad", "unidad", 0],
+      ["Producto fraccion", 20, 30, "Bebidas", "unidad", "paca", 1.5],
+      ["Producto texto", 20, 30, "Bebidas", "unidad", "caja", "abc"],
+      ["Producto válido", 20, 30, "Bebidas", "unidad", "caja", 12],
+    ],
+    [["Producto", "Precio"], ["Producto B", 40]],
+  ));
+
+  const storeRows = report.rowDecisions.filter((row) => row.sourceList === "store");
+  assert.deepEqual(storeRows.map((row) => row.issueCodes.includes("conversion_factor_invalid")), [true, true, true, false]);
+  assert.ok(!storeRows[3].issueCodes.includes("conversion_factor_value_missing"));
 });
 
 test("marks every duplicated normalized name within its own list", () => {

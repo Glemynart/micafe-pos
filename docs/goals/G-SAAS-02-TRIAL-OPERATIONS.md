@@ -132,7 +132,11 @@ fixture.
   El directorio nuevo contiene un CSV separado para cada lista y un manifiesto
   con SHA-256 y conteos. Los CSV contienen referencias de hoja/fila, motivos
   detectados y campos de decisión vacíos; no contienen nombres ni precios y no
-  fusionan coincidencias. El comando rechaza sobrescribir un directorio
+  fusionan coincidencias. Conforme a ADR-SAAS-041 y ADR-SAAS-070, cada
+  presentación tendrá un solo precio vigente para todos los compradores del
+  tenant; se debe seleccionar una única fuente aprobada. Tarifas diferenciadas
+  por comprador requieren un nuevo alcance y ADR. El factor de conversión se
+  valida como entero positivo. El comando rechaza sobrescribir un directorio
   existente y no crea carga útil de importación. No corrige ni modifica el Excel
   original. El inventario inicial sigue
   pendiente y no se inventan existencias. El costo de compra se organizará
