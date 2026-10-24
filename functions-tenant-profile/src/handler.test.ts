@@ -88,6 +88,18 @@ const request = (data: Doc = {}, tokenEmpresaId = "tenant-bodega") => ({
   },
 });
 
+const requestParcial = (campos: Doc, data: Doc = {}) => ({
+  auth: { uid: "admin-diana", token: { empresaId: "tenant-bodega", rol: "admin" } },
+  data: {
+    ...campos,
+    expectedRevision: 1,
+    commandId: "profile-draft-command-01",
+    idempotencyKey: "profile-draft-idempotency-01",
+    correlationId: "profile-draft-correlation-01",
+    ...data,
+  },
+});
+
 test("guarda el perfil comercial en la configuración canónica y sincroniza Empresa en una transacción", async () => {
   const h = harness();
   const resultado = await ejecutarRegistrarPerfilComercialBodegaV1(request(), h.dependencies);
@@ -113,6 +125,59 @@ test("guarda el perfil comercial en la configuración canónica y sincroniza Emp
   assert.equal(JSON.stringify(audit).includes("900373913"), false);
   assert.equal(JSON.stringify(audit).includes("contacto@example.com"), false);
   assert.equal(JSON.stringify(audit).includes("Calle 1"), false);
+});
+
+test("guarda un avance parcial y permite completar el perfil en una sesión posterior", async () => {
+  const h = harness();
+  const avance = await ejecutarRegistrarPerfilComercialBodegaV1(
+    requestParcial({ nombreComercial: "Distribuidora Las Jiménez" }),
+    h.dependencies,
+  );
+
+  assert.deepEqual(avance, { revision: 2, idempotente: false });
+  const configParcial = h.docs.get("configuraciones/tenant-bodega")! as ReturnType<typeof crearPlantillaConfiguracionRevision1>;
+  assert.equal(configParcial.identidadFiscal.nombreComercial, "Distribuidora Las Jiménez");
+  assert.equal(configParcial.identidadFiscal.razonSocial, undefined);
+  assert.equal(perfilComercialCompleto(configParcial), false);
+  assert.equal(h.docs.get("empresas/tenant-bodega")!.nombre, "Distribuidora Las Jiménez");
+  assert.equal(h.docs.get("empresas/tenant-bodega")!.revision, 2);
+  assert.equal(h.docs.get("empresas/tenant-bodega")!.estado, "trial");
+
+  const reanudado = await ejecutarRegistrarPerfilComercialBodegaV1(request({
+    expectedRevision: 2,
+    commandId: "profile-resume-command-01",
+    idempotencyKey: "profile-resume-idempotency-01",
+    correlationId: "profile-resume-correlation-01",
+  }), h.dependencies);
+
+  assert.deepEqual(reanudado, { revision: 3, idempotente: false });
+  const configCompleta = h.docs.get("configuraciones/tenant-bodega")! as ReturnType<typeof crearPlantillaConfiguracionRevision1>;
+  assert.equal(perfilComercialCompleto(configCompleta), true);
+  assert.equal(configCompleta.identidadFiscal.razonSocial, "Distribuidora Las Jiménez S.A.S.");
+  assert.equal(h.docs.get("empresas/tenant-bodega")!.revision, 2);
+  assert.equal(h.writes.filter(({ path }) => path === "empresas/tenant-bodega").length, 1);
+  assert.equal(h.writes.some(({ path }) => path.startsWith("suscripciones/") || path.startsWith("ventas/")), false);
+});
+
+test("rechaza un avance vacío o un NIT sin dígito de verificación", async () => {
+  const vacio = harness();
+  await assert.rejects(
+    () => ejecutarRegistrarPerfilComercialBodegaV1(requestParcial({}), vacio.dependencies),
+    (error: unknown) => error instanceof HttpsError && error.code === "invalid-argument",
+  );
+  assert.equal(vacio.writes.length, 0);
+
+  const nitIncompleto = harness();
+  await assert.rejects(
+    () => ejecutarRegistrarPerfilComercialBodegaV1(requestParcial({ nit: "900373913" }), nitIncompleto.dependencies),
+    (error: unknown) => {
+      assert.ok(error instanceof HttpsError);
+      assert.equal(error.code, "invalid-argument");
+      assert.deepEqual(error.details, { campos: ["nit", "digitoVerificacion"] });
+      return true;
+    },
+  );
+  assert.equal(nitIncompleto.writes.length, 0);
 });
 
 test("el paso inicial solo intercepta admins activos del tenant Bodega incompleto", () => {

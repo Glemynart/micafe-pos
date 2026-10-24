@@ -292,6 +292,15 @@ test("admin Bodega completa perfil comercial en primer acceso y entra al panel a
   await expect(nombreComercial).toHaveValue("Borrador local sin guardar")
 
   await nombreComercial.fill("  Distribuidora Sintética F   ")
+  await page.getByRole("button", { name: "Guardar avance" }).click()
+  await expect(page.getByRole("status")).toHaveText("Avance guardado. Puedes volver después; los campos pendientes seguirán aquí.")
+  await expect(page.getByRole("heading", { name: "Datos del negocio" })).toBeVisible()
+
+  await page.reload()
+  await expect(page.getByRole("heading", { name: "Datos del negocio" })).toBeVisible()
+  await expect(page.getByLabel("Nombre comercial")).toHaveValue("Distribuidora Sintética F")
+  await expect(page.getByLabel("Razón social")).toHaveValue("")
+
   await page.getByLabel("Razón social").fill("Distribuidora Sintética F S.A.S.")
   await page.getByLabel("Tipo de persona").selectOption("JURIDICA")
   await page.getByLabel("NIT", { exact: true }).fill("900373913")
