@@ -3,8 +3,9 @@ import test from "node:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import * as catalogReviewValidation from "./catalog-review-validation-core.js";
-import { validateDianaCatalogReview } from "./catalog-review-validation-core.js";
+import { buildDianaCatalogOfflinePlan, validateDianaCatalogReview } from "./catalog-review-validation-core.js";
+import type { DianaCatalogOfflinePlan } from "./catalog-review-validation-core.js";
+import { writeDianaCatalogOfflinePlan } from "./catalog-offline-plan-writer.js";
 import type { CatalogCellLike, CatalogWorkbookLike } from "./catalog-preflight-core.js";
 
 const SOURCE_HASH = "a".repeat(64);
@@ -225,44 +226,10 @@ test("rejects missing source rows, duplicate rows, and formulas in review decisi
   assert.ok(formula.validationErrors.some((error) => /fórmula/.test(error)));
 });
 
+type PlanInput = Parameters<typeof buildDianaCatalogOfflinePlan>[0];
 
-
-type PlanInput = Parameters<typeof validateDianaCatalogReview>[0] & { reviewSha256: string };
-type ExpectedPlan = {
-  planSchemaVersion: string;
-  sourceSha256: string;
-  reviewSha256: string;
-  proposal: {
-    granularity: string;
-    salesPriceSource: string;
-    presentations: Array<{
-      sourceRow: number;
-      reviewRow: number;
-      name: string;
-      category: string;
-      baseUnit: string;
-      presentation: string;
-      unitsPerPresentation: number;
-      salesPriceCop: number;
-      sourceCostCop: number;
-      costBasis: string;
-      costCopPerBaseUnit: number;
-    }>;
-  };
-  consumerReference: {
-    salesPricesApplied: boolean;
-    consumerOnlyRowsDeferred: number;
-    crossListCandidates: number;
-    crossListDecisionsPending: number;
-    crossListCandidatesMerged: boolean;
-  };
-  initialStockIncluded: boolean;
-  safety: { firebaseAccessed: boolean; writesPerformed: boolean; importReady: boolean; executable: boolean; deploymentAuthorized: boolean };
-};
-function buildPlan(input: PlanInput): ExpectedPlan | null {
-  const builder = Reflect.get(catalogReviewValidation, "buildDianaCatalogOfflinePlan");
-  assert.equal(typeof builder, "function", "offline catalog plan builder is not implemented");
-  return (builder as (value: PlanInput) => ExpectedPlan | null)(input);
+function buildPlan(input: PlanInput): DianaCatalogOfflinePlan | null {
+  return buildDianaCatalogOfflinePlan(input);
 }
 
 test("builds a local review-only plan from the approved store price and exact unit cost", () => {
@@ -339,7 +306,7 @@ test("does not build a plan when any operational store mapping is incomplete or 
 });
 
 
-test("writes offline plans to a new local file and refuses input overwrite or replacement", async () => {
+test("writes offline plans to a new local file and refuses input overwrite or replacement", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "diana-catalog-plan-"));
   try {
     const sourcePath = path.join(directory, "source.xlsx");
@@ -355,27 +322,11 @@ test("writes offline plans to a new local file and refuses input overwrite or re
     });
     assert.ok(plan);
 
-    const writerModule = await import("./catalog-offline-plan-writer.js").catch(() => null);
-    assert.ok(writerModule, "exclusive offline plan writer is not implemented");
-    const writer = Reflect.get(writerModule, "writeDianaCatalogOfflinePlan");
-    assert.equal(typeof writer, "function");
-    const digest = (writer as (plan: ExpectedPlan, output: string, protectedInputs: string[]) => string)(
-      plan,
-      outputPath,
-      [sourcePath, reviewPath],
-    );
+    const digest = writeDianaCatalogOfflinePlan(plan, outputPath, [sourcePath, reviewPath]);
     assert.match(digest, /^[a-f0-9]{64}$/);
     assert.equal(JSON.parse(readFileSync(outputPath, "utf8")).safety.writesPerformed, false);
-    assert.throws(() => (writer as (plan: ExpectedPlan, output: string, protectedInputs: string[]) => string)(
-      plan,
-      outputPath,
-      [sourcePath, reviewPath],
-    ));
-    assert.throws(() => (writer as (plan: ExpectedPlan, output: string, protectedInputs: string[]) => string)(
-      plan,
-      sourcePath,
-      [sourcePath, reviewPath],
-    ), /coincidir/);
+    assert.throws(() => writeDianaCatalogOfflinePlan(plan, outputPath, [sourcePath, reviewPath]));
+    assert.throws(() => writeDianaCatalogOfflinePlan(plan, sourcePath, [sourcePath, reviewPath]), /coincidir/);
     assert.equal(readFileSync(sourcePath, "utf8"), "source");
     assert.equal(readFileSync(reviewPath, "utf8"), "review");
   } finally {

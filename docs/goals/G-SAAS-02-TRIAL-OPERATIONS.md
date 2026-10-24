@@ -172,6 +172,25 @@ fixture.
   confirma únicamente que el mapeo operativo y las coincidencias revisadas
   pasan este validador, no que el catálogo sea importable ni que un despliegue
   esté autorizado.
+  Cuando el mapeo operativo esté completo, puede generarse un plan JSON local y
+  revisable sin cargar datos:
+  `npm run g-saas-02:catalog-review-plan -- --source "<excel-original.xlsx>" --review "<excel-revisado-por-diana.xlsx>" --out "<ruta-nueva.json>"`.
+  La carpeta de salida debe existir y el archivo no debe existir; el comando no
+  crea carpetas ni sobrescribe archivos, y rechaza rutas que apunten a cualquiera
+  de los dos Excel. El JSON lleva SHA-256 del origen, de la revisión y de su
+  contenido. Incluye una propuesta por fila de “PRECIOS A TIENDA”, el precio POS
+  de esa hoja y el costo exacto por unidad base, sin aplicar el 10 %. No infiere
+  agrupación de productos, no incluye existencias ni usa precios de consumidor.
+  Las coincidencias pendientes solo aparecen como conteos y no se fusionan; las
+  filas solo consumidor siguen diferidas. El archivo contiene nombres y precios
+  del cliente: debe mantenerse local y no subirse al repositorio.
+  El plan siempre declara revisión humana requerida, `importReady=false`,
+  `executable=false`, `firebaseAccessed=false` y `writesPerformed=false`; no es
+  carga útil ni aprobación comercial. Si el mapeo de cualquiera de las filas
+  tienda está incompleto, el proceso termina con código `3` y no crea salida.
+  `2` indica origen o plantilla inválidos; `0` solo significa que se generó una
+  propuesta local revisable, no autoriza importación, Trial ni despliegue.
+
 - **Aplazamiento autorizado — 2026-10-17:** el responsable decidió esperar la
   lista definitiva de Diana. Este aplazamiento retira únicamente la carga del
   catálogo como precondición del Bootstrap/Trial inicial; no aprueba el borrador
