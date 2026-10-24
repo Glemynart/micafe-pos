@@ -294,6 +294,11 @@ jobs:
       - name: Pruebas unitarias de preflight E2E
         run: npm run test:e2e:preflight
 
+      - name: Validaciones locales del catálogo G-SAAS-02
+        run: |
+          npm run test:g-saas-02:catalog-preflight
+          npm run test:g-saas-02:catalog-review-validation
+
       - name: Guard read-only para despliegue de Functions de producción
         run: npm run test:g-saas-02:production-functions-preflight
 

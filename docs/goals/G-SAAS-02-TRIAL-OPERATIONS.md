@@ -155,6 +155,23 @@ fixture.
   costo guardado y el precio/factor aprobados. No se escribió en ningún tenant; una
   venta requiere catálogo aprobado y existencias registradas por el flujo
   canónico de compras, una vez que Gate I confirme y certifique el despliegue.
+
+  Cuando Diana devuelva la plantilla Excel completada, se puede contrastar
+  localmente con el original sin subirla ni generar una carga de importación:
+  `npm run g-saas-02:catalog-review-validate -- --source "<excel-original.xlsx>" --review "<excel-revisado-por-diana.xlsx>"`.
+  El validador compara el SHA-256 registrado en `Guía`, preserva las filas,
+  nombres, costos y precios de origen, valida las referencias cruzadas y revisa
+  categoría, unidad, presentación, factor entero positivo y base de `AL COSTO`.
+  Emite conteos y errores por índice de fila, no nombres ni precios. Si el costo
+  corresponde a una presentación, exige división exacta por el factor y no
+  redondea. La opción “Otra base” queda pendiente de normalización aunque Diana
+  la describa. Un resultado válido no declara el catálogo listo: siguen pendientes
+  la revisión comercial de Diana y Gate I. El comando es de solo lectura y no
+  crea un payload ni escribe en Firebase. El código de salida `2` señala una
+  divergencia de origen o plantilla y `3` una revisión aún incompleta; `0`
+  confirma únicamente que el mapeo operativo y las coincidencias revisadas
+  pasan este validador, no que el catálogo sea importable ni que un despliegue
+  esté autorizado.
 - **Aplazamiento autorizado — 2026-10-17:** el responsable decidió esperar la
   lista definitiva de Diana. Este aplazamiento retira únicamente la carga del
   catálogo como precondición del Bootstrap/Trial inicial; no aprueba el borrador
