@@ -452,7 +452,7 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
           : []),
       ],
       humanDecisions: [
-        "Las dos listas deben conservarse separadas: el modelo Bodega vigente guarda un precio actual por presentación; Diana debe definir cuál lista aplica a cada operación o solicitar una decisión de producto/arquitectura.",
+        "Conforme a ADR-SAAS-041 y ADR-SAAS-070, confirmar un único precio vigente por presentación para todos los compradores, seleccionando la fuente aprobada para ese precio. Tarifas diferenciadas por comprador requieren un nuevo alcance y ADR.",
         ...(crossListMatchReferences.length > 0
           ? ["Las coincidencias por nombre entre listas son referencias candidatas; requieren confirmación y no se fusionan automáticamente."]
           : []),
