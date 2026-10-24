@@ -250,7 +250,7 @@ test("ADR-SAAS-061: Bootstrap y consulta usan el mismo schemaVersion de oferta p
   );
 });
 
-test("ADR-SAAS-087: consulta rechaza una oferta v1 donde la aprobación vigente exige el plazo v2", async () => {
+test("ADR-SAAS-087: consulta conserva una oferta v1 existente con Trial de 30 días", async () => {
   const db = fakeDb();
   db.seed("ofertas_comerciales_tenant/distribuidora-las-jimenez", {
     empresaId: "distribuidora-las-jimenez", ofertaActivaId: "oferta-distribuidora-jimenez-2026", revision: 1,
@@ -270,5 +270,9 @@ test("ADR-SAAS-087: consulta rechaza una oferta v1 donde la aprobación vigente 
     referenciaAprobacion: "G-SAAS-02-PO-OFFER-DISTRIBUIDORA-LAS-JIMENEZ-2026-10-06",
     revision: 2,
   });
-  await assert.rejects(consultarOfertaComercialTenant(db as never, "GATE_I_OFFER_1"), /OFERTA_COMERCIAL_INVALIDA/);
+  const result = await consultarOfertaComercialTenant(db as never, "GATE_I_OFFER_1");
+  assert.equal(result.autorizacion.trialDias, 15);
+  assert.equal(result.oferta?.schemaVersion, 1);
+  assert.equal(result.oferta?.trialDias, 30);
+  assert.equal(result.oferta?.referenciaAceptacionCliente, undefined);
 });

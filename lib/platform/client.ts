@@ -254,7 +254,7 @@ export type OfertaComercialTenantAdmin = {
   expiraEn: string | null;
   motivoCodigo: string;
   referenciaAprobacion: string;
-  trialDias?: 15;
+  trialDias?: number;
   referenciaAceptacionCliente?: string;
   trialInicio?: string;
   trialFin?: string;

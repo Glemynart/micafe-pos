@@ -25,7 +25,7 @@ export type OfertaComercialTenantAdminView = Pick<
   | "revision"
   | "schemaVersion"
 > & {
-  trialDias?: 15;
+  trialDias?: number;
   referenciaAceptacionCliente?: string;
   trialInicio?: string;
   trialFin?: string;
@@ -73,10 +73,10 @@ export async function consultarOfertaComercialTenant(
     || data.precioAcordado?.importe !== autorizacion.precioAcordado.importe
     || data.precioAcordado?.moneda !== autorizacion.precioAcordado.moneda
     || data.referenciaAprobacion !== autorizacion.referenciaAprobacion
-    || data.schemaVersion !== autorizacion.schemaVersion
-    || (autorizacion.schemaVersion === 2
-      && (data.schemaVersion !== 2
-        || data.trialDias !== autorizacion.trialDias
+    || (data.schemaVersion !== autorizacion.schemaVersion
+      && !(autorizacion.schemaVersion === 2 && data.schemaVersion === 1))
+    || (data.schemaVersion === 2
+      && (data.trialDias !== autorizacion.trialDias
         || data.referenciaAceptacionCliente !== autorizacion.referenciaAceptacionCliente))) {
     throw new HttpsError("failed-precondition", "OFERTA_COMERCIAL_INVALIDA");
   }
@@ -101,7 +101,7 @@ export async function consultarOfertaComercialTenant(
         trialDias: data.trialDias,
         referenciaAceptacionCliente: data.referenciaAceptacionCliente,
         ...(data.trialInicio ? { trialInicio: data.trialInicio, trialFin: data.trialFin } : {}),
-      } : {}),
+      } : { trialDias: 30 }),
     },
     controlRevision,
     ofertaActivaId,
