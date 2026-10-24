@@ -443,6 +443,9 @@ jobs:
       - name: E2E Bodega — agenda, reservas y aislamiento en Emulator
         run: npm run e2e:bodega-agenda
 
+      - name: E2E corte de compras — concurrencia e idempotencia en Emulator
+        run: npm run e2e:purchase-cut
+
       - name: E2E B2 de eventos públicos tenant-aware en Emulator
         run: npm run e2e:b2-eventos
 
