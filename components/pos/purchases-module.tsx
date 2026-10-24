@@ -32,6 +32,7 @@ import {
   type CompraItem,
 } from '@/lib/compras-service'
 import { obtenerComandoCompraPendiente, type ComandoCompraPendiente } from '@/lib/compra-command'
+import { validarEntradaCompra } from '@/lib/compra-input-validation'
 import { suscribirInsumos, type Insumo } from '@/lib/insumos-service'
 import { suscribirProductos, type Producto } from '@/lib/productos-service'
 import { suscribirCuentasBancarias, type CuentaBancaria } from '@/lib/finanzas-service'
@@ -227,6 +228,20 @@ export function PurchasesModule() {
     const itemsValidos = itemsForm.filter((i) => i.insumoId && i.cantidad > 0)
     if (itemsValidos.length === 0) {
       toast.error('Debe agregar al menos un insumo con cantidad')
+      return
+    }
+
+    const errorValidacion = validarEntradaCompra(itemsValidos)
+    if (errorValidacion === 'CANTIDAD_INVALIDA') {
+      toast.error('La cantidad de cada artículo debe ser un entero positivo en su unidad de inventario.')
+      return
+    }
+    if (errorValidacion === 'COSTO_INVALIDO') {
+      toast.error('El costo unitario debe ser un entero positivo en COP.')
+      return
+    }
+    if (errorValidacion === 'TOTAL_COMPRA_INVALIDO') {
+      toast.error('El total de la compra excede el rango de COP que puede procesarse con seguridad.')
       return
     }
 
@@ -590,6 +605,9 @@ export function PurchasesModule() {
                               type="number"
                               className="bg-input w-24"
                               placeholder="0"
+                              min={1}
+                              max={Number.MAX_SAFE_INTEGER}
+                              step={1}
                               value={item.cantidad || ''}
                               onChange={(e) => updateItem(idx, 'cantidad', e.target.value)}
                             />
@@ -600,6 +618,9 @@ export function PurchasesModule() {
                               type="number"
                               className="bg-input w-32 text-right"
                               placeholder="$0"
+                              min={1}
+                              max={Number.MAX_SAFE_INTEGER}
+                              step={1}
                               value={item.costoUnitario || ''}
                               onChange={(e) => updateItem(idx, 'costoUnitario', e.target.value)}
                             />
