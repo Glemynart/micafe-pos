@@ -129,12 +129,14 @@ test("guarda el perfil comercial en la configuración canónica y sincroniza Emp
 
 test("guarda un avance parcial y permite completar el perfil en una sesión posterior", async () => {
   const h = harness();
-  const avance = await ejecutarRegistrarPerfilComercialBodegaV1(
-    requestParcial({ nombreComercial: "Distribuidora Las Jiménez" }),
-    h.dependencies,
-  );
+  const solicitudAvance = requestParcial({ nombreComercial: "Distribuidora Las Jiménez" });
+  const avance = await ejecutarRegistrarPerfilComercialBodegaV1(solicitudAvance, h.dependencies);
 
   assert.deepEqual(avance, { revision: 2, idempotente: false });
+  const cantidadEscriturasTrasAvance = h.writes.length;
+  const reintento = await ejecutarRegistrarPerfilComercialBodegaV1(solicitudAvance, h.dependencies);
+  assert.deepEqual(reintento, { revision: 2, idempotente: true });
+  assert.equal(h.writes.length, cantidadEscriturasTrasAvance);
   const configParcial = h.docs.get("configuraciones/tenant-bodega")! as ReturnType<typeof crearPlantillaConfiguracionRevision1>;
   assert.equal(configParcial.identidadFiscal.nombreComercial, "Distribuidora Las Jiménez");
   assert.equal(configParcial.identidadFiscal.razonSocial, undefined);

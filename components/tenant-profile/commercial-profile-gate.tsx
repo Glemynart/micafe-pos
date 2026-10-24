@@ -191,7 +191,7 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
   const campo = (key: keyof FormularioPerfil, etiqueta: string, type = 'text', props: ComponentProps<typeof Input> = {}) => (
     <label className="grid gap-1.5 text-sm font-medium" htmlFor={`perfil-${key}`}>
       {etiqueta}
-      <Input id={`perfil-${key}`} name={key} type={type} required value={form[key]} onChange={(event) => update(key, event.target.value as never)} {...props} />
+      <Input id={`perfil-${key}`} name={key} type={type} required value={form[key]} onChange={(event) => update(key, event.target.value as never)} {...props} disabled={guardando} />
     </label>
   )
 
@@ -211,7 +211,7 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
         {campo('razonSocial', 'Razón social', 'text', { maxLength: 240 })}
       </div>
       <label className="grid gap-1.5 text-sm font-medium" htmlFor="perfil-tipoPersona">Tipo de persona
-        <select id="perfil-tipoPersona" required value={form.tipoPersona} onChange={(event) => update('tipoPersona', event.target.value as FormularioPerfil['tipoPersona'])} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+        <select id="perfil-tipoPersona" required disabled={guardando} value={form.tipoPersona} onChange={(event) => update('tipoPersona', event.target.value as FormularioPerfil['tipoPersona'])} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
           <option value="">Selecciona una opción</option><option value="NATURAL">Natural</option><option value="JURIDICA">Jurídica</option>
         </select>
       </label>
