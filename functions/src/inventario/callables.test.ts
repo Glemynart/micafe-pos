@@ -100,6 +100,39 @@ test("G-SAAS-02: crear artículo con stock inicial emite catálogo y kardex ató
   assert.equal([...db.docs.keys()].filter(path => path.startsWith("operaciones_comandos/")).length, 1);
 });
 
+test("G-SAAS-02: crear producto rechaza una categoría de otro tenant sin escribir", async () => {
+  const db = new FakeFirestore(); seedAuth(db);
+  db.docs.set("categorias/categoria-b", { empresaId: "empresa-b", espacioId: "espacio-b", activo: true });
+  const before = structuredClone([...db.docs.entries()]);
+
+  await assert.rejects(
+    ejecutarCrearArticuloInventarioV1(db, contexto, envelope("crear-producto-categoria-ajena", {
+      articuloTipo: "producto",
+      data: { nombre: "Tinto", categoriaId: "categoria-b", unidad: "und", costo: 100, espacioId: "espacio-a", stock: 0 },
+    })),
+    error => domain(error, "CATEGORIA_INVALIDA"),
+  );
+  assert.deepEqual([...db.docs.entries()], before);
+});
+
+test("G-SAAS-02: cambiar la categoría de un producto rechaza referencias de otro tenant", async () => {
+  const db = new FakeFirestore(); seedAuth(db);
+  db.docs.set("categorias/categoria-b", { empresaId: "empresa-b", espacioId: "espacio-b", activo: true });
+  db.docs.set("productos/producto-a", {
+    empresaId: "empresa-a", nombre: "Tinto", categoriaId: "categoria-a", unidad: "und", costo: 100,
+    stock: 0, secuenciaLedger: 0, espacioId: "espacio-a", activo: true,
+  });
+  const before = structuredClone([...db.docs.entries()]);
+
+  await assert.rejects(
+    ejecutarActualizarArticuloInventarioV1(db, contexto, envelope("mover-producto-categoria-ajena", {
+      articuloTipo: "producto", articuloId: "producto-a", data: { categoriaId: "categoria-b" },
+    })),
+    error => domain(error, "CATEGORIA_INVALIDA"),
+  );
+  assert.deepEqual([...db.docs.entries()], before);
+});
+
 test("G-SAAS-02: crear producto o insumo rechaza costos que no sean COP enteros seguros sin escribir", async () => {
   for (const articuloTipo of ["producto", "insumo"] as const) {
     for (const costo of [1.5, Number.MAX_SAFE_INTEGER + 1]) {
