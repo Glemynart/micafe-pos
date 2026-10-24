@@ -5,7 +5,6 @@ export {
   actualizarMembresia,
 } from "./operational-auth";
 export {
-  crearIncorporacionDirecta,
   crearIncorporacionEmail,
   reenviarIncorporacionEmail,
   cancelarIncorporacionEmail,

@@ -10,6 +10,7 @@ writeFileSync(config, JSON.stringify({
     { source: "functions", codebase: "saas-auth" },
     { source: "functions-tenant-profile", codebase: "saas-tenant-profile" },
     { source: "functions-operational-auth", codebase: "saas-operational-auth" },
+    { source: "functions-operational-onboarding", codebase: "saas-operational-onboarding" },
     { source: "functions-tenant-configuration", codebase: "saas-tenant-configuration" },
     { source: "functions-bodega", codebase: "saas-bodega" },
     { source: "functions-bodega-operations", codebase: "saas-bodega-operations" },
@@ -56,6 +57,7 @@ try {
   if (build.status !== 0) throw new Error("Build Functions falló antes de E2E Bodega.")
   compilarCodebaseAislado("functions-tenant-profile", "saas-tenant-profile")
   compilarCodebaseAislado("functions-operational-auth", "saas-operational-auth")
+  compilarCodebaseAislado("functions-operational-onboarding", "saas-operational-onboarding")
   compilarCodebaseAislado("functions-tenant-configuration", "saas-tenant-configuration")
   compilarCodebaseAislado("functions-bodega", "saas-bodega")
   compilarCodebaseAislado("functions-bodega-operations", "saas-bodega-operations")
