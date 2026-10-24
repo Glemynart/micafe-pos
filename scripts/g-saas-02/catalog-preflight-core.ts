@@ -287,20 +287,22 @@ function analyzeSheet(worksheet: CatalogWorksheetLike, kind: CatalogKind): Sheet
     }
 
     const missingSourceFields: string[] = [];
-    for (const field of ["category", "baseUnit", "presentation", "conversionFactor"] as const) {
-      const column = header.columns[field];
-      if (!column) {
-        missingSourceFields.push(`${MODEL_FIELD_ISSUE_NAMES[field]}_not_in_source_header`);
-        continue;
-      }
-      const cell = row.getCell(column);
-      const cellHasFormula = isFormula(cell);
-      rowHasFormula ||= cellHasFormula;
-      if (cellHasFormula) continue;
-      if (cellText(cell) === "") {
-        missingSourceFields.push(`${MODEL_FIELD_ISSUE_NAMES[field]}_value_missing`);
-      } else if (field === "conversionFactor" && !parsePositiveInteger(cell.value)) {
-        missingSourceFields.push("conversion_factor_invalid");
+    if (kind === "store") {
+      for (const field of ["category", "baseUnit", "presentation", "conversionFactor"] as const) {
+        const column = header.columns[field];
+        if (!column) {
+          missingSourceFields.push(`${MODEL_FIELD_ISSUE_NAMES[field]}_not_in_source_header`);
+          continue;
+        }
+        const cell = row.getCell(column);
+        const cellHasFormula = isFormula(cell);
+        rowHasFormula ||= cellHasFormula;
+        if (cellHasFormula) continue;
+        if (cellText(cell) === "") {
+          missingSourceFields.push(`${MODEL_FIELD_ISSUE_NAMES[field]}_value_missing`);
+        } else if (field === "conversionFactor" && !parsePositiveInteger(cell.value)) {
+          missingSourceFields.push("conversion_factor_invalid");
+        }
       }
     }
     if (rowHasFormula) rowsWithFormula += 1;
@@ -390,7 +392,7 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
     issueCodes.push(...record.missingSourceFields);
     if (sheet.kind === "store" && record.validCost === true) issueCodes.push("cost_unit_basis_unresolved");
     if (sheet.kind === "consumer" && candidateCrossListRows.length === 0) {
-      issueCodes.push("consumer_only_product_disposition_unresolved");
+      issueCodes.push("consumer_only_missing_store_price_deferred");
     }
 
     return {
@@ -449,10 +451,10 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
         ...(rowsWithDuplicateProductName > 0 ? [`${rowsWithDuplicateProductName} filas repiten nombres normalizados dentro de su lista.`] : []),
       ],
       schemaMappingGaps: [
-        ...(reports.some((report) => !report.fieldAvailability.category) ? ["La fuente no aporta categoría para todas las listas."] : []),
-        ...(reports.some((report) => !report.fieldAvailability.baseUnit) ? ["La fuente no aporta unidad base para todas las listas."] : []),
-        ...(reports.some((report) => !report.fieldAvailability.presentation || !report.fieldAvailability.conversionFactor)
-          ? ["La fuente no permite mapear presentación y factor de conversión requeridos por el modelo Bodega."]
+        ...(!store.fieldAvailability.category ? ["La lista operativa PRECIOS A TIENDA no aporta categoría."] : []),
+        ...(!store.fieldAvailability.baseUnit ? ["La lista operativa PRECIOS A TIENDA no aporta unidad base."] : []),
+        ...(!store.fieldAvailability.presentation || !store.fieldAvailability.conversionFactor
+          ? ["La lista operativa PRECIOS A TIENDA no permite mapear presentación y factor de conversión requeridos por el modelo Bodega."]
           : []),
         ...(store.decisionReferences.rowsWithAmbiguousCostBasis > 0
           ? ["AL COSTO tiene valores, pero la fuente no identifica si corresponden a unidad base o presentación."]
@@ -463,12 +465,12 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
         ...(crossListMatchReferences.length > 0
           ? ["Las coincidencias por nombre entre listas son referencias candidatas; requieren confirmación y no se fusionan automáticamente."]
           : []),
-        ...(consumerOnlyRows.length > 0
-          ? [`Confirmar si las ${consumerOnlyRows.length} filas que solo aparecen en PRECIOS CONS FINAL se excluyen de esta carga o se incorporan a PRECIOS A TIENDA con un precio único aprobado; no cargarlas como segunda tarifa.`]
-          : []),
       ],
       deferredByPlan: [
         "El inventario inicial se excluye de este preflight y lo registrará Diana posteriormente según el plan vigente.",
+        ...(consumerOnlyRows.length > 0
+          ? [`Las ${consumerOnlyRows.length} filas que solo aparecen en PRECIOS CONS FINAL quedan fuera del catálogo operativo hasta que Diana apruebe su presentación y un PRECIO VENTA en PRECIOS A TIENDA.`]
+          : []),
         "Este informe no genera carga útil de importación ni afirma que el catálogo esté listo para importar.",
       ],
     },
@@ -488,10 +490,7 @@ export function createCatalogDecisionTemplate(
     includesProductNamesOrPrices: false,
     globalDecisionsPending: [
       "Confirmar si las coincidencias por nombre entre listas representan el mismo producto; las filas relacionadas son solo candidatas.",
-      ...(report.rowDecisions.some((row) => row.sourceList === "consumer" && row.candidateCrossListRows.length === 0)
-        ? ["Confirmar si los productos que solo aparecen en PRECIOS CONS FINAL se excluyen de esta carga o se incorporan a PRECIOS A TIENDA con un precio único aprobado; no cargar la lista como segunda tarifa."]
-        : []),
-      "Confirmar las categorías, unidades base, presentaciones y factores enteros de conversión para cada fila.",
+      "Confirmar las categorías, unidades base, presentaciones y factores enteros de conversión para cada fila de PRECIOS A TIENDA.",
       "Definir la unidad o presentación a la que corresponde cada valor AL COSTO marcado como ambiguo.",
     ],
     lists: {

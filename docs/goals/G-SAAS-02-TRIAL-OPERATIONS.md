@@ -127,10 +127,12 @@ fixture.
   tienda y consumidor final. El usuario confirmó que `PRECIO VENTA` de
   “PRECIOS A TIENDA” será la única tarifa operativa del POS para todos los
   compradores, conforme a ADR-SAAS-041 y ADR-SAAS-070; “PRECIOS CONS FINAL” no
-  será una segunda tarifa. Si se desean incluir productos que solo aparecen en
-  esta última hoja, Diana debe confirmar un precio único para cada presentación.
-  Nada se importa todavía: el archivo no define unidad base, presentación/factor
-  o SKU. Para preparar una
+  será una segunda tarifa. El preflight actual identifica 107 filas operativas
+  de tienda y 55 filas de referencia de consumidor final; 51 de estas últimas
+  quedan diferidas hasta que Diana apruebe su presentación y un precio en la
+  lista de tienda. Nada se importa todavía: “PRECIOS A TIENDA” no define
+  categoría, unidad base, presentación/factor ni SKU. Las filas de consumidor
+  son referencia y no necesitan esos campos para la carga operativa actual. Para preparar una
   plantilla privada de revisión por fila, ejecutar localmente:
   `npm run g-saas-02:catalog-preflight -- --file "<ruta.xlsx>" --decisions-output "<carpeta-nueva>"`.
   El directorio nuevo contiene un CSV separado para cada lista y un manifiesto
@@ -138,8 +140,9 @@ fixture.
   detectados y campos que requieren revisión humana; no contienen nombres ni
   precios y no fusionan coincidencias. `selected_price_source` queda en `store`
   para filas de tienda y `reference_only` para consumidor final. Las filas de
-  consumidor sin coincidencia de tienda señalan que Diana debe decidir si se
-  excluyen o se incorporan a “PRECIOS A TIENDA” con un precio único aprobado.
+  consumidor sin coincidencia de tienda quedan diferidas fuera del catálogo
+  operativo hasta que Diana apruebe su presentación y un `PRECIO VENTA` en
+  “PRECIOS A TIENDA”; nunca se importan como segunda tarifa.
   Tarifas diferenciadas por comprador requieren un nuevo alcance y ADR. El
   factor de conversión se
   valida como entero positivo. El comando rechaza sobrescribir un directorio
