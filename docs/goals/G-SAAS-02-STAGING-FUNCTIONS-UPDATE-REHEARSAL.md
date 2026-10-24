@@ -35,11 +35,14 @@ Lectura sin mutaciones de `micafe-pos-staging`, región `us-central1`:
 | Trigger | Callable HTTPS; sin `eventTrigger` observado |
 | Referencias de secretos | Ninguna observada |
 | Hash de artefacto Firebase | `3d920444431b39896439f7102d78d46c2e3a5c2c` |
+| Build anterior | Cloud Build `507ac908-bae5-49d5-a354-bb84c7f26c68` (`SUCCESS`) |
+| Fuente inmutable anterior | `gs://gcf-v2-sources-192423427245-us-central1/consultarContextoPlataforma/function-source.zip#1792796958918929` |
 
-El hash Firebase no es un commit Git local ni basta para reconstruir la
-versión anterior. La recuperación exige identificar antes de ejecutar el
-commit Git exacto que generó esa revisión, desde evidencia de despliegue
-inmutable o registros de Cloud Build/CLI; no se infiere del hash.
+El hash Firebase ni la fuente inmutable de Cloud Build incluyen un commit Git
+que pueda comprobarse localmente. La recuperación exige identificar antes de
+ejecutar el commit Git exacto que generó esa revisión, desde evidencia de
+despliegue inmutable o registros de Firebase CLI; no se infiere del hash ni
+del objeto GCS.
 
 ## Precondiciones obligatorias
 
