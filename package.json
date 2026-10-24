@@ -20,7 +20,7 @@
     "build": "next build",
     "build:vercel": "node scripts/verify-pos-deploy-env.mjs && next build",
     "deploy:functions:staging": "firebase deploy --project staging --only functions:saas-auth",
-    "deploy:functions:production": "firebase deploy --project production --only functions:saas-auth",
+    "deploy:functions:production": "tsx scripts/g-saas-02/production-functions-deploy-preflight.ts && firebase deploy --project production --only functions:saas-auth",
     "deploy:rules:staging": "firebase deploy --project staging --only firestore:rules,storage",
     "deploy:rules:production": "firebase deploy --project production --only firestore:rules,storage",
     "start": "next start -H 0.0.0.0",
@@ -80,6 +80,7 @@
     "e2e:operator-portal": "node scripts/e2e/operator-portal-runner.mjs",
     "test:g-saas-02:preflight": "tsx --test scripts/g-saas-02/trial-transition-preflight.test.ts",
     "test:g-saas-02:catalog-preflight": "tsx --test scripts/g-saas-02/catalog-preflight.test.ts",
+    "test:g-saas-02:production-functions-preflight": "tsx --test scripts/g-saas-02/production-functions-deploy-preflight.test.ts",
     "g-saas-02:catalog-preflight": "tsx scripts/g-saas-02/catalog-preflight.ts",
     "test:g-saas-02:recovery": "tsx --test scripts/g-saas-02/recovery-restore-core.test.ts scripts/g-saas-02/recovery-restore-api.test.ts scripts/g-saas-02/recovery-verify-core.test.ts",
     "test:g-saas-02:release-evidence": "tsx --test scripts/g-saas-02/release-evidence-core.test.ts scripts/g-saas-02/rules-api-headers.test.ts"
