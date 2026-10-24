@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import * as catalogReviewValidation from "./catalog-review-validation-core.js";
 import { validateDianaCatalogReview } from "./catalog-review-validation-core.js";
 import type { CatalogCellLike, CatalogWorkbookLike } from "./catalog-preflight-core.js";
 
@@ -217,4 +218,117 @@ test("rejects missing source rows, duplicate rows, and formulas in review decisi
   const formula = validateDianaCatalogReview({ sourceWorkbook: sourceWorkbook(), reviewWorkbook: formulaReview, sourceSha256: SOURCE_HASH });
   assert.equal(formula.reviewValid, false);
   assert.ok(formula.validationErrors.some((error) => /fórmula/.test(error)));
+});
+
+
+
+type PlanInput = Parameters<typeof validateDianaCatalogReview>[0] & { reviewSha256: string };
+type ExpectedPlan = {
+  planSchemaVersion: string;
+  sourceSha256: string;
+  reviewSha256: string;
+  proposal: {
+    granularity: string;
+    salesPriceSource: string;
+    presentations: Array<{
+      sourceRow: number;
+      reviewRow: number;
+      name: string;
+      category: string;
+      baseUnit: string;
+      presentation: string;
+      unitsPerPresentation: number;
+      salesPriceCop: number;
+      sourceCostCop: number;
+      costBasis: string;
+      costCopPerBaseUnit: number;
+    }>;
+  };
+  consumerReference: {
+    salesPricesApplied: boolean;
+    consumerOnlyRowsDeferred: number;
+    crossListCandidates: number;
+    crossListDecisionsPending: number;
+    crossListCandidatesMerged: boolean;
+  };
+  initialStockIncluded: boolean;
+  safety: { firebaseAccessed: boolean; writesPerformed: boolean; importReady: boolean; executable: boolean; deploymentAuthorized: boolean };
+};
+function buildPlan(input: PlanInput): ExpectedPlan | null {
+  const builder = Reflect.get(catalogReviewValidation, "buildDianaCatalogOfflinePlan");
+  assert.equal(typeof builder, "function", "offline catalog plan builder is not implemented");
+  return (builder as (value: PlanInput) => ExpectedPlan | null)(input);
+}
+
+test("builds a local review-only plan from the approved store price and exact unit cost", () => {
+  const plan = buildPlan({
+    sourceWorkbook: sourceWorkbook(),
+    reviewWorkbook: reviewWorkbook({ addConsumerOnly: true }),
+    sourceSha256: SOURCE_HASH,
+    reviewSha256: "b".repeat(64),
+  });
+
+  assert.ok(plan);
+  assert.equal(plan.planSchemaVersion, "1.0");
+  assert.equal(plan.sourceSha256, SOURCE_HASH);
+  assert.equal(plan.reviewSha256, "b".repeat(64));
+  assert.equal(plan.proposal.granularity, "one-presentation-per-store-source-row");
+  assert.equal(plan.proposal.salesPriceSource, "PRECIOS A TIENDA.PRECIO VENTA");
+  assert.equal(plan.proposal.presentations.length, 1);
+  assert.deepEqual(plan.proposal.presentations[0], {
+    sourceRow: 2,
+    reviewRow: 5,
+    name: "Café",
+    category: "Abarrotes",
+    baseUnit: "unidad",
+    presentation: "paquete x 12",
+    unitsPerPresentation: 12,
+    salesPriceCop: 1800,
+    sourceCostCop: 1200,
+    costBasis: "PRESENTACION / EMPAQUE",
+    costCopPerBaseUnit: 100,
+  });
+  assert.equal(plan.consumerReference.salesPricesApplied, false);
+  assert.equal(plan.consumerReference.consumerOnlyRowsDeferred, 1);
+  assert.equal(plan.consumerReference.crossListCandidatesMerged, false);
+  assert.equal(plan.initialStockIncluded, false);
+  assert.equal(plan.safety.firebaseAccessed, false);
+  assert.equal(plan.safety.writesPerformed, false);
+  assert.equal(plan.safety.importReady, false);
+  assert.equal(plan.safety.executable, false);
+  assert.equal(plan.safety.deploymentAuthorized, false);
+  const serialized = JSON.stringify(plan);
+  assert.equal(serialized.includes("2100"), false);
+  assert.equal(serialized.includes("2400"), false);
+  assert.equal(serialized.includes("Producto referencia"), false);
+});
+
+test("keeps unresolved consumer-list matches as reference-only and does not block a complete store plan", () => {
+  const plan = buildPlan({
+    sourceWorkbook: sourceWorkbook(),
+    reviewWorkbook: reviewWorkbook({ sameProduct: "Por confirmar", addConsumerOnly: true }),
+    sourceSha256: SOURCE_HASH,
+    reviewSha256: "c".repeat(64),
+  });
+
+  assert.ok(plan);
+  assert.equal(plan.consumerReference.crossListCandidates, 1);
+  assert.equal(plan.consumerReference.crossListDecisionsPending, 1);
+  assert.equal(plan.proposal.presentations.length, 1);
+  assert.equal(plan.proposal.presentations[0].salesPriceCop, 1800);
+});
+
+test("does not build a plan when any operational store mapping is incomplete or source identity differs", () => {
+  assert.equal(buildPlan({
+    sourceWorkbook: sourceWorkbook(),
+    reviewWorkbook: reviewWorkbook({ category: "", factor: "", costBasis: "Por confirmar" }),
+    sourceSha256: SOURCE_HASH,
+    reviewSha256: "d".repeat(64),
+  }), null);
+  assert.equal(buildPlan({
+    sourceWorkbook: sourceWorkbook(),
+    reviewWorkbook: reviewWorkbook({ hash: "e".repeat(64) }),
+    sourceSha256: SOURCE_HASH,
+    reviewSha256: "f".repeat(64),
+  }), null);
 });
