@@ -126,9 +126,11 @@ test("defers consumer-only products until a store tariff is explicitly approved"
   assert.ok(consumerRow);
   assert.ok(consumerRow.issueCodes.includes("consumer_only_missing_store_price_deferred"));
   assert.equal(consumerRow.decisions.selectedPriceSource, "reference_only");
+  assert.ok(!consumerRow.issueCodes.some((code) => /^(category|base_unit|presentation|conversion_factor)_/.test(code)));
   assert.ok(report.classification.deferredByPlan.some((item) => /PRECIOS CONS FINAL.*PRECIOS A TIENDA/.test(item)));
   assert.ok(!report.classification.humanDecisions.some((item) => /Confirmar si las .*PRECIOS CONS FINAL/.test(item)));
   assert.ok(!template.globalDecisionsPending.some((item) => /solo aparecen en PRECIOS CONS FINAL/.test(item)));
+  assert.ok(template.globalDecisionsPending.some((item) => /cada fila de PRECIOS A TIENDA/.test(item)));
 });
 
 test("distinguishes absent schema columns from blank row values", () => {
