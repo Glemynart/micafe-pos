@@ -59,7 +59,8 @@ test("reports schema gaps and does not treat missing inventory as an error", () 
   assert.equal(report.totals.rowsMissingProductName, 0);
   assert.equal(report.totals.rowsMissingPositiveIntegerPrice, 0);
   assert.equal(report.classification.deferredByPlan.some((item) => item.includes("inventario inicial")), true);
-  assert.match(report.classification.humanDecisions[0], /un único precio vigente por presentación/);
+  assert.match(report.classification.humanDecisions[0], /Precio operativo confirmado/);
+  assert.match(report.classification.humanDecisions[0], /PRECIOS A TIENDA/);
   assert.match(report.classification.humanDecisions[0], /todos los compradores/);
 });
 
@@ -103,15 +104,30 @@ test("creates a row decision template that preserves separate lists without expo
   assert.equal(template.lists.store[0].decisions.category, null);
   assert.equal(template.lists.store[0].decisions.costUnitBasis, null);
   assert.equal(template.lists.consumer[0].decisions.costUnitBasis, "not_applicable");
-  assert.equal(template.lists.store[0].decisions.selectedPriceSource, null);
+  assert.equal(template.lists.store[0].decisions.selectedPriceSource, "store");
+  assert.equal(template.lists.consumer[0].decisions.selectedPriceSource, "reference_only");
   assert.ok(template.lists.store[0].issueCodes.includes("cost_unit_basis_unresolved"));
   assert.ok(template.lists.store[0].issueCodes.includes("category_not_in_source_header"));
-  assert.match(template.globalDecisionsPending[0], /un solo precio vigente/);
-  assert.match(template.globalDecisionsPending[0], /todos los compradores/);
-  assert.match(template.globalDecisionsPending[0], /ADR-SAAS-041 y ADR-SAAS-070/);
+  assert.equal(template.globalDecisionsPending.some((item) => /seleccionar una única fuente/.test(item)), false);
+  assert.match(template.globalDecisionsPending.join(" "), /coincidencias por nombre/);
   assert.equal(JSON.stringify(template).includes("Café molido"), false);
   assert.equal(JSON.stringify(template).includes("1500"), false);
   assert.equal(JSON.stringify(template).includes("1800"), false);
+});
+
+test("leaves consumer-only products as an inclusion decision without creating a second tariff", () => {
+  const report = analyzeCatalogWorkbook(workbook(
+    [["PRODUCTO", "AL COSTO", "PRECIO VENTA"], ["Producto tienda", 100, 150]],
+    [["Producto", "Precio"], ["Producto consumidor", 180]],
+  ));
+  const consumerRow = report.rowDecisions.find((row) => row.sourceList === "consumer");
+  const template = createCatalogDecisionTemplate(report, { bytes: 2048, sha256: "b".repeat(64) });
+
+  assert.ok(consumerRow);
+  assert.ok(consumerRow.issueCodes.includes("consumer_only_product_disposition_unresolved"));
+  assert.equal(consumerRow.decisions.selectedPriceSource, "reference_only");
+  assert.ok(report.classification.humanDecisions.some((item) => /solo aparecen en PRECIOS CONS FINAL/.test(item)));
+  assert.ok(template.globalDecisionsPending.some((item) => /solo aparecen en PRECIOS CONS FINAL/.test(item)));
 });
 
 test("distinguishes absent schema columns from blank row values", () => {
