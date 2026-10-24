@@ -121,6 +121,13 @@ async function validarEspacio(tx: any, db: any, empresaId: string, espacioId: st
   if (!espacio.exists || espacio.data()?.empresaId !== empresaId) fail("failed-precondition", "ESPACIO_INVALIDO");
 }
 
+async function validarCategoriaProducto(tx: any, db: any, empresaId: string, categoriaId: string) {
+  const categoria = await tx.get(db.collection("categorias").doc(categoriaId));
+  if (!categoria.exists || categoria.data()?.empresaId !== empresaId) {
+    fail("failed-precondition", "CATEGORIA_INVALIDA");
+  }
+}
+
 async function actorNombre(tx: any, db: any, actorUid: string): Promise<string> {
   const usuario = await tx.get(db.collection("usuarios").doc(actorUid));
   const nombre = usuario.data()?.nombre;
@@ -202,6 +209,7 @@ async function efectoCrearArticulo(tx: any, db: any, empresaId: string, actorUid
   rejectAuthorityFields(data, ["empresaId", "id", "secuenciaLedger", "creadoEn", "actualizadoEn"]);
   const espacioId = data.espacioId as string;
   await validarEspacio(tx, db, empresaId, espacioId);
+  if (tipo === "producto") await validarCategoriaProducto(tx, db, empresaId, data.categoriaId as string);
   const nombre = data.nombre as string;
   const actor = await actorNombre(tx, db, actorUid);
   const id = crearIdentificadorInterno(empresaId, `${tipo}:${input.commandId}`);
@@ -240,6 +248,9 @@ async function efectoActualizarArticulo(tx: any, db: any, empresaId: string, act
   const articulo = await tx.get(ref);
   if (!articulo.exists || articulo.data()?.empresaId !== empresaId) fail("not-found", "ARTICULO_NO_ENCONTRADO");
   const actual = articulo.data() as Data;
+  if (tipo === "producto" && data.categoriaId !== undefined) {
+    await validarCategoriaProducto(tx, db, empresaId, data.categoriaId as string);
+  }
   if (tipo === "producto") {
     const stockActualProducto: unknown = actual.stock ?? 0;
     const stockReservado: unknown = actual.stockReservado ?? 0;
