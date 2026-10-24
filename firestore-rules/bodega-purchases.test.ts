@@ -39,7 +39,7 @@ test("ADR-072: Bodega admin conserva lectura tenant-aware pero no escribe compra
   await expectDenied(adminBodega.firestore().doc(compraExistente).delete());
 });
 
-test("ADR-085: GENERAL conserva su control efectivo y Bodega permanece callable-only", async () => {
+test("ADR-085: GENERAL conserva escrituras legacy sin control y Bodega permanece callable-only", async () => {
   const adminLegacy = await contextFor(fixtures.tenantB.admin);
   const compraExistente = "compras/legacy-existente";
   await seedDocument("configuraciones/empresa-b", {
@@ -47,10 +47,19 @@ test("ADR-085: GENERAL conserva su control efectivo y Bodega permanece callable-
     vertical: "GENERAL",
   });
 
-  await expectDenied(adminLegacy.firestore().doc("compras/legacy-sin-control").set({
+  await expectAllowed(adminLegacy.firestore().doc("compras/legacy-sin-control").set({
     empresaId: "empresa-b",
     total: 2400,
   }));
+  await seedDocument(compraExistente, { empresaId: "empresa-b", total: 2400 });
+  await expectAllowed(adminLegacy.firestore().doc(compraExistente).delete());
+  await seedDocument("configuraciones/empresa-b", { empresaId: "empresa-b" });
+  await expectAllowed(adminLegacy.firestore().doc("compras/legacy-sin-vertical-sin-control").set({
+    empresaId: "empresa-b",
+    total: 2400,
+  }));
+  await seedDocument("configuraciones/empresa-b", { empresaId: "empresa-b", vertical: "GENERAL" });
+
   await seedDocument("controles_release_compras/empresa-b", {
     schemaVersion: 1,
     empresaId: "empresa-b",
@@ -61,28 +70,13 @@ test("ADR-085: GENERAL conserva su control efectivo y Bodega permanece callable-
     empresaId: "empresa-b",
     total: 2400,
   }));
-  await seedDocument(compraExistente, { empresaId: "empresa-b", total: 2400 });
-  await expectAllowed(adminLegacy.firestore().doc(compraExistente).delete());
-
   await seedDocument("controles_release_compras/empresa-b", {
     schemaVersion: 1,
     empresaId: "empresa-b",
     estado: "PAUSADA",
     revision: 2,
   });
-  await expectDenied(adminLegacy.firestore().doc("compras/legacy-control-pausado").set({
-    empresaId: "empresa-b",
-    total: 2400,
-  }));
-
-  await seedDocument("configuraciones/empresa-b", { empresaId: "empresa-b" });
-  await seedDocument("controles_release_compras/empresa-b", {
-    schemaVersion: 1,
-    empresaId: "empresa-b",
-    estado: "ACTIVA",
-    revision: 3,
-  });
-  await expectAllowed(adminLegacy.firestore().doc("compras/legacy-sin-vertical-con-control-activo").set({
+  await expectAllowed(adminLegacy.firestore().doc("compras/legacy-control-pausado").set({
     empresaId: "empresa-b",
     total: 2400,
   }));
@@ -127,7 +121,7 @@ test("ADR-085: vertical o configuración no verificables no habilitan compra dir
   }));
 });
 
-test("ADR-085: el control activo con empresaId embebida cruzada no habilita compra directa", async () => {
+test("ADR-085: un control ajeno no cambia la escritura legacy GENERAL fuera del corte", async () => {
   const adminLegacy = await contextFor(fixtures.tenantB.admin);
   await seedDocument("configuraciones/empresa-b", {
     empresaId: "empresa-b",
@@ -142,13 +136,13 @@ test("ADR-085: el control activo con empresaId embebida cruzada no habilita comp
     revision: 1,
   });
 
-  await expectDenied(adminLegacy.firestore().doc("compras/control-empresa-embebida-cruzada").set({
+  await expectAllowed(adminLegacy.firestore().doc("compras/control-empresa-embebida-cruzada").set({
     empresaId: "empresa-b",
     total: 2400,
   }));
 });
 
-test("ADR-085: la ruta legacy de GENERAL consulta el control y el cliente no puede modificarlo", async () => {
+test("ADR-085: GENERAL conserva escrituras durante pausa y el cliente no puede modificar el control", async () => {
   const adminLegacy = await contextFor(fixtures.tenantB.admin);
   await seedDocument("configuraciones/empresa-b", { empresaId: "empresa-b", vertical: "GENERAL" });
   await seedDocument("controles_release_compras/empresa-b", {
@@ -168,7 +162,7 @@ test("ADR-085: la ruta legacy de GENERAL consulta el control y el cliente no pue
     estado: "PAUSADA",
     revision: 8,
   });
-  await expectDenied(adminLegacy.firestore().doc("compras/legacy-directa-pausada").set({
+  await expectAllowed(adminLegacy.firestore().doc("compras/legacy-directa-pausada").set({
     empresaId: "empresa-b",
     total: 2400,
   }));

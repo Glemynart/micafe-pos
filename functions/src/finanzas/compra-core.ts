@@ -164,9 +164,6 @@ function consolidar(items: SnapshotItem[], empresaId: string, espacioId: string,
 }
 
 async function efectoRegistrarCompra(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<Record<string, unknown>> {
-  // ADR-SAAS-085 delimita el corte nuevo a Bodega, pero preservar la ruta
-  // legacy significa conservar el guard de control que ya tenía la base.
-  await exigirComprasActivasEnTransaccion(tx, db, empresaId, false);
   await revalidarAutoridadFinancieraEnTransaccion(tx, db, { empresaId, actorUid, rol }, "purchases");
   const compraId = crearIdentificadorInterno(empresaId, `compra:${input.commandId}`);
   const compraRef = db.collection("compras").doc(compraId);
@@ -203,9 +200,9 @@ async function efectoRegistrarCompra(tx: any, db: any, empresaId: string, actorU
 }
 
 /**
- * ADR-SAAS-081: el mismo documento que consumen las Rules se lee dentro de
- * la transacción. Ausencia o forma ambigua fallan cerradas; un replay ya
- * confirmado puede devolver su recibo durante la pausa sin materializar nada.
+ * ADR-SAAS-085 mantiene este control en el corte Bodega. La ruta legacy GENERAL
+ * queda fuera hasta una migración aprobada. Ausencia o forma ambigua fallan
+ * cerradas; un replay confirmado puede sobrevivir la pausa sin materializar.
  */
 async function exigirComprasActivasEnTransaccion(tx: any, db: any, empresaId: string, replayConfirmado: boolean): Promise<void> {
   const control = await tx.get(db.collection(CONTROLES_RELEASE_COMPRAS).doc(empresaId));
@@ -230,6 +227,7 @@ async function exigirComprasActivasEnTransaccion(tx: any, db: any, empresaId: st
 
 async function efectoRegistrarCompraBodega(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<Record<string, unknown>> {
   await validarPoliticaCompraBodegaEnTransaccion(tx, db, empresaId, input);
+  await exigirComprasActivasEnTransaccion(tx, db, empresaId, false);
   return efectoRegistrarCompra(tx, db, empresaId, actorUid, rol, input);
 }
 
@@ -274,7 +272,6 @@ async function efectoRegistrarCompraOperativaLegacy(tx: any, db: any, empresaId:
 
 async function validarReplayCompraOperativaLegacy(tx: any, db: any, empresaId: string): Promise<void> {
   await rechazarCompraLegacyBodegaEnTransaccion(tx, db, empresaId);
-  await exigirComprasActivasEnTransaccion(tx, db, empresaId, true);
 }
 
 async function validarReplayCompraBodega(tx: any, db: any, empresaId: string, actorUid: string, rol: string, input: Envelope): Promise<void> {

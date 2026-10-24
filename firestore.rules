@@ -77,30 +77,12 @@ service cloud.firestore {
     function esVendedorBodegaMvp1() {
       return esVendedor() && esBodegaMvp1();
     }
-    // Conserva el guard de control ya efectivo en la base para las compras
-    // directas no-Bodega. ADR-SAAS-085 limita el nuevo corte a Bodega, pero no
-    // convierte la ausencia/pausa de un control legacy en permiso de escritura.
-    function comprasHabilitadasParaTenant() {
-      let control = /databases/$(database)/documents/controles_release_compras/$(request.auth.token.empresaId);
-      return tieneEmpresaId()
-        && exists(control)
-        && get(control).data.schemaVersion is int
-        && get(control).data.schemaVersion == 1
-        && get(control).data.empresaId == request.auth.token.empresaId
-        && get(control).data.estado == 'ACTIVA'
-        && get(control).data.revision is int
-        && get(control).data.revision >= 1
-        // Mantiene el mismo límite que Number.isSafeInteger en las Functions:
-        // una revisión activa debe poder incrementarse para pausar el control.
-        && get(control).data.revision < 9007199254740991;
-    }
-    // Configuración legacy reconocida y control previo activo son ambos
-    // necesarios: la primera evita clasificar verticales ambiguos como GENERAL;
-    // el segundo preserva la semántica efectiva de la base.
+    // ADR-SAAS-085 limita el control obligatorio de compras a Bodega en este
+    // corte. El camino legacy GENERAL conserva sus escrituras directas; la
+    // configuración evita concederlas a Bodega o a verticales desconocidos.
     function comprasLegacyHabilitadas() {
       let configuracion = /databases/$(database)/documents/configuraciones/$(request.auth.token.empresaId);
       return tieneEmpresaId()
-        && comprasHabilitadasParaTenant()
         && exists(configuracion)
         && get(configuracion).data.empresaId == request.auth.token.empresaId
         && (!get(configuracion).data.keys().hasAny(['vertical'])
