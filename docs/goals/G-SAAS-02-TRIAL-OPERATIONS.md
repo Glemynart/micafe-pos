@@ -124,23 +124,28 @@ fixture.
 - Catálogo final recibido: el archivo `DISTRIBUIDORA LAS JIMENEZ (1).xlsx` es
   la fuente para preparar la importación; el CSV privado previo queda obsoleto
   y no debe usarse. La lectura conserva separadas las listas de precios a
-  tienda y consumidor final. Ninguna se importa todavía: el archivo no define
-  unidad base, presentación/factor o SKU y contiene dos precios de venta frente
-  al único `precioCOP` por presentación del modelo POS. Para preparar una
+  tienda y consumidor final. El usuario confirmó que `PRECIO VENTA` de
+  “PRECIOS A TIENDA” será la única tarifa operativa del POS para todos los
+  compradores, conforme a ADR-SAAS-041 y ADR-SAAS-070; “PRECIOS CONS FINAL” no
+  será una segunda tarifa. Si se desean incluir productos que solo aparecen en
+  esta última hoja, Diana debe confirmar un precio único para cada presentación.
+  Nada se importa todavía: el archivo no define unidad base, presentación/factor
+  o SKU. Para preparar una
   plantilla privada de revisión por fila, ejecutar localmente:
   `npm run g-saas-02:catalog-preflight -- --file "<ruta.xlsx>" --decisions-output "<carpeta-nueva>"`.
   El directorio nuevo contiene un CSV separado para cada lista y un manifiesto
   con SHA-256 y conteos. Los CSV contienen referencias de hoja/fila, motivos
   detectados y campos de decisión vacíos; no contienen nombres ni precios y no
-  fusionan coincidencias. Conforme a ADR-SAAS-041 y ADR-SAAS-070, cada
-  presentación tendrá un solo precio vigente para todos los compradores del
-  tenant; se debe seleccionar una única fuente aprobada. Tarifas diferenciadas
-  por comprador requieren un nuevo alcance y ADR. El factor de conversión se
+  fusionan coincidencias. Tarifas diferenciadas por comprador requieren un
+  nuevo alcance y ADR. El factor de conversión se
   valida como entero positivo. El comando rechaza sobrescribir un directorio
   existente y no crea carga útil de importación. No corrige ni modifica el Excel
   original. El inventario inicial sigue
-  pendiente y no se inventan existencias. El costo de compra se organizará
-  después desde compras reales de Bodega. No se escribió en ningún tenant; una
+  pendiente y no se inventan existencias. `AL COSTO` es candidato a alimentar el
+  dato de costo del producto, pero su unidad/presentación no está definida y no
+  se mapeará hasta que Diana la confirme. El 10 % indicado como valor general no
+  se aplicará automáticamente: la vista administrativa de costo y margen usa el
+  costo guardado y el precio/factor aprobados. No se escribió en ningún tenant; una
   venta requiere catálogo aprobado y existencias registradas por el flujo
   canónico de compras, una vez que Gate I confirme y certifique el despliegue.
 - **Aplazamiento autorizado — 2026-10-17:** el responsable decidió esperar la
