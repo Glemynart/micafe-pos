@@ -138,8 +138,9 @@ fixture.
   detectados y campos que requieren revisión humana; no contienen nombres ni
   precios y no fusionan coincidencias. `selected_price_source` queda en `store`
   para filas de tienda y `reference_only` para consumidor final. Las filas de
-  consumidor sin coincidencia de tienda señalan que Diana debe decidir si se
-  excluyen o se incorporan a “PRECIOS A TIENDA” con un precio único aprobado.
+  consumidor sin coincidencia de tienda quedan diferidas fuera del catálogo
+  operativo hasta que Diana apruebe su presentación y un `PRECIO VENTA` en
+  “PRECIOS A TIENDA”; nunca se importan como segunda tarifa.
   Tarifas diferenciadas por comprador requieren un nuevo alcance y ADR. El
   factor de conversión se
   valida como entero positivo. El comando rechaza sobrescribir un directorio
