@@ -133,6 +133,18 @@ test("G-SAAS-02: cambiar la categoría de un producto rechaza referencias de otr
   assert.deepEqual([...db.docs.entries()], before);
 });
 
+test("G-SAAS-02: crear producto conserva una categoría del mismo tenant", async () => {
+  const db = new FakeFirestore(); seedAuth(db);
+  db.docs.set("categorias/categoria-a", { empresaId: "empresa-a", espacioId: "espacio-a", activo: true });
+
+  const result = await ejecutarCrearArticuloInventarioV1(db, contexto, envelope("crear-producto-categoria-propia", {
+    articuloTipo: "producto",
+    data: { nombre: "Tinto", categoriaId: "categoria-a", unidad: "und", costo: 100, espacioId: "espacio-a", stock: 0 },
+  }));
+
+  assert.equal(db.docs.get("productos/" + result.articuloId)?.categoriaId, "categoria-a");
+});
+
 test("G-SAAS-02: crear producto o insumo rechaza costos que no sean COP enteros seguros sin escribir", async () => {
   for (const articuloTipo of ["producto", "insumo"] as const) {
     for (const costo of [1.5, Number.MAX_SAFE_INTEGER + 1]) {
