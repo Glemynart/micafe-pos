@@ -17,6 +17,7 @@ test("ADR-SAAS-061: resuelve los términos aprobados en servidor desde su refere
   });
 
   assert.deepEqual(terminos, {
+    schemaVersion: 2,
     ofertaId: "oferta-distribuidora-jimenez-2026",
     empresaIdObjetivo: "distribuidora-las-jimenez",
     nombreEmpresaObjetivo: "Distribuidora Las Jiménez",
@@ -26,6 +27,8 @@ test("ADR-SAAS-061: resuelve los términos aprobados en servidor desde su refere
     precioAcordado: { importe: 1_600_000, moneda: "COP" },
     motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
     referenciaAprobacion: referencia,
+    trialDias: 15,
+    referenciaAceptacionCliente: "G-SAAS-02-DIANA-TRIAL-15-DIAS-ACEPTADO-2026-10-23",
   });
 
   terminos.precioAcordado.importe = 1;
@@ -44,6 +47,9 @@ test("ADR-SAAS-061: rechaza campos comerciales aportados o manipulados por la UI
     { importe: 1 },
     { periodicidad: "MENSUAL" },
     { motivo: "PRECIO_DISTINTO" },
+    { trialDias: 30 },
+    { trialDias: 15 },
+    { referenciaAceptacionCliente: "aceptacion-aportada-por-cliente" },
   ]) {
     assert.throws(
       () => resolverTerminosOfertaTenantAprobada(codigoAprobacion, { codigoAprobacion, ...intento }),

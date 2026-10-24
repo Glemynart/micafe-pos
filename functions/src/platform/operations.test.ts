@@ -567,6 +567,9 @@ test("ADR-SAAS-061: la plataforma crea, aprueba y revoca una oferta específica 
   } as never);
   const ofertaBorrador = db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`);
   assert.equal(ofertaBorrador.precioAcordado.importe, 1_600_000);
+  assert.equal(ofertaBorrador.schemaVersion, 2);
+  assert.equal(ofertaBorrador.trialDias, 15);
+  assert.equal(ofertaBorrador.referenciaAceptacionCliente, "G-SAAS-02-DIANA-TRIAL-15-DIAS-ACEPTADO-2026-10-23");
   assert.equal(ofertaBorrador.referenciaAprobacion, "G-SAAS-02-PO-OFFER-DISTRIBUIDORA-LAS-JIMENEZ-2026-10-06");
   assert.equal(ofertaBorrador.estado, "BORRADOR");
   assert.equal(ofertaBorrador.iniciaEn, "2026-10-16");
@@ -582,6 +585,8 @@ test("ADR-SAAS-061: la plataforma crea, aprueba y revoca una oferta específica 
     expectedRevision: 1,
   } as never);
   assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).estado, "APROBADA");
+  assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).schemaVersion, 2);
+  assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).trialDias, 15);
   assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).iniciaEn, "2026-10-16");
   assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}/ofertas/${ofertaId}`).expiraEn, null);
   assert.equal(db.read(`ofertas_comerciales_tenant/${empresaId}`).ofertaActivaId, ofertaId);

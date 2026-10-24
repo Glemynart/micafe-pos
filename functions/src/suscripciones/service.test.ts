@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { FieldValue } from "firebase-admin/firestore";
-import { esFechaComercial, fechaComercialUtc, readinessComercial, type Suscripcion } from "../../../lib/suscripciones/contrato";
+import { esFechaComercial, esSnapshotContratoCompatible, fechaComercialUtc, readinessComercial, type Suscripcion } from "../../../lib/suscripciones/contrato";
 import { actualizarBorradorPlan, cambiarPlanSuscripcion, confirmarPagoAnualSuscripcion, crearPlan, crearNuevaVersionPlan, crearSuscripcionActiva, crearSuscripcionTrial, crearSuscripcionTrialEnTransaccion, programarCancelacionSuscripcion, publicarPlan, renovarSuscripcion, retirarVersionPlan, revocarCancelacionSuscripcion, suspenderPeriodoAnualVencido, suspenderTrialVencido, transicionarEmpresa, transicionarSuscripcion } from "./service";
 
 class Ref { constructor(public path: string) {} collection(id: string) { return new Ref(`${this.path}/${id}`); } doc(id: string) { return new Ref(`${this.path}/${id}`); } }
@@ -135,6 +135,62 @@ test("B3 valida fechas comerciales canónicas y readiness con límites inclusivo
   assert.equal(readinessComercial(sActive, "2026-07-30"), true); assert.equal(readinessComercial(sActive, "2026-07-31"), false);
   const sTrial: Suscripcion = { empresaId: "empresa_1", planId: "plan_base", planVersion: 1, estado: "trialing", trialInicio: "2026-07-01", trialFin: "2026-07-31", revision: 1, schemaVersion: 1 };
   assert.equal(readinessComercial(sTrial, "2026-07-30"), true); assert.equal(readinessComercial(sTrial, "2026-07-31"), false);
+});
+
+test("ADR-SAAS-087 permite snapshots v1/v2 válidos y bloquea versiones o vigencias desconocidas", () => {
+  const snapshotBase = {
+    planId: "mvp_comercial",
+    planVersion: 2,
+    codigoPlan: "MVP_COMERCIAL",
+    periodicidad: "ANUAL",
+    precio: { importe: 1_600_000, moneda: "COP" },
+    capacidades: ["sell"],
+    limites: {},
+    sedeConceptual: { cantidad: 1 },
+    fiscalidad: null,
+  };
+  const v1 = { ...snapshotBase, schemaVersion: 1, vigencia: { inicio: "2026-10-25", fin: "2027-10-25" } };
+  const v2 = {
+    ...snapshotBase,
+    schemaVersion: 2,
+    periodicidad: "ANUAL",
+    precio: { importe: 1_600_000, moneda: "COP" },
+    trialDias: 15,
+    ofertaComercialId: "oferta-distribuidora-jimenez-2026",
+    referenciaAceptacionCliente: "G-SAAS-02-DIANA-TRIAL-15-DIAS-ACEPTADO-2026-10-23",
+    vigencia: { inicio: "2026-10-25", fin: "2026-11-09" },
+  };
+  assert.equal(esSnapshotContratoCompatible(v1), true);
+  assert.equal(esSnapshotContratoCompatible(v2), true);
+  assert.equal(esSnapshotContratoCompatible({ ...v2, schemaVersion: 3 }), false);
+  assert.equal(esSnapshotContratoCompatible({ ...v2, trialDias: 30 }), false);
+  assert.equal(esSnapshotContratoCompatible({ ...v2, vigencia: { inicio: "2026-10-25", fin: "2026-11-10" } }), false);
+  assert.equal(esSnapshotContratoCompatible({ ...v2, referenciaAceptacionCliente: "spoofed" }), false);
+
+  const trialV2: Suscripcion = {
+    empresaId: "distribuidora-las-jimenez", planId: "mvp_comercial", planVersion: 2,
+    estado: "trialing", trialInicio: "2026-10-25", trialFin: "2026-11-09", revision: 1, schemaVersion: 1,
+    snapshotContrato: v2 as any,
+  };
+  assert.equal(readinessComercial(trialV2, "2026-11-08"), true);
+  assert.equal(readinessComercial(trialV2, "2026-11-09"), false);
+  assert.equal(readinessComercial({ ...trialV2, snapshotContrato: { ...v2, schemaVersion: 3 } as any }, "2026-11-08"), false);
+});
+
+test("ADR-SAAS-087 el lifecycle rechaza un snapshot desconocido sin recibo ni transición", async () => {
+  const db = new Db();
+  db.seed("empresas/empresa_snapshot_desconocido", { empresaId: "empresa_snapshot_desconocido", estado: "suspendida", revision: 1 });
+  db.seed("suscripciones/empresa_snapshot_desconocido", {
+    empresaId: "empresa_snapshot_desconocido", planId: "mvp_comercial", planVersion: 2,
+    estado: "active", periodoInicio: "2026-01-01", periodoFin: "2027-01-01", revision: 1, schemaVersion: 1,
+    snapshotContrato: { schemaVersion: 3, periodicidad: "ANUAL", vigencia: { inicio: "2026-01-01", fin: "2027-01-01" } },
+  });
+  const pagar = { ...env("snapshot_unknown_payment"), empresaId: "empresa_snapshot_desconocido", referenciaPago: "REC-SNAPSHOT-001" };
+  await assert.rejects(confirmarPagoAnualSuscripcion(db as any, pagar, ctx), /SNAPSHOT_CONTRATO_VERSION_UNSUPPORTED/);
+  await assert.rejects(transicionarSuscripcion(db as any, { ...env("snapshot_unknown_transition"), empresaId: "empresa_snapshot_desconocido", destino: "suspended" }, ctx), /SNAPSHOT_CONTRATO_VERSION_UNSUPPORTED/);
+  await assert.rejects(transicionarEmpresa(db as any, { ...env("snapshot_unknown_activate"), empresaId: "empresa_snapshot_desconocido", destino: "activa" }, ctx), /READINESS_COMERCIAL_INCOMPLETA/);
+  assert.equal(db.read("suscripciones/empresa_snapshot_desconocido").estado, "active");
+  assert.equal([...db.docs.keys()].some((path) => path.startsWith("pagos_saas/")), false);
 });
 
 test("B3 publica versiones inmutables, permite crear versiones superiores y mantiene grandfathering", async () => {

@@ -139,6 +139,8 @@ export function TenantOfferPage() {
                 <dl className="grid gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
                   <div><dt className="text-xs uppercase tracking-wide text-slate-500">Plan base</dt><dd className="mt-1 font-medium">{autorizacion?.planIdBase} · v{autorizacion?.planVersionBase}</dd></div>
                   <div><dt className="text-xs uppercase tracking-wide text-slate-500">Periodicidad</dt><dd className="mt-1 font-medium">Anual</dd></div>
+                  <div><dt className="text-xs uppercase tracking-wide text-slate-500">Trial aprobado</dt><dd className="mt-1 font-medium">{autorizacion?.trialDias} días · aceptación registrada</dd></div>
+                  <div><dt className="text-xs uppercase tracking-wide text-slate-500">Pago</dt><dd className="mt-1 font-medium">Manual, sin cobro automático</dd></div>
                   <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-slate-500">Precio acordado</dt><dd className="mt-1 flex items-center gap-2 text-lg font-semibold"><CircleDollarSign className="size-5 text-cyan-700" />{autorizacion ? precioCop(autorizacion.precioAcordado.importe) : "—"} {autorizacion?.precioAcordado.moneda}</dd></div>
                 </dl>
 
@@ -146,7 +148,9 @@ export function TenantOfferPage() {
                   <div className="space-y-4 rounded-xl border p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="font-semibold">Oferta existente</h4><EstadoBadge estado={oferta.estado} /></div>
                     <p className="font-mono text-sm text-slate-600">{oferta.ofertaId} · revisión {oferta.revision}</p>
+                    <p className="text-sm text-slate-600">Contrato v{oferta.schemaVersion} · Trial {oferta.trialDias ?? 30} días</p>
                     <p className="text-sm text-slate-600">Vigencia: {oferta.iniciaEn} a {oferta.expiraEn ?? "sin vencimiento"}</p>
+                    {oferta.trialInicio && oferta.trialFin ? <p className="text-sm text-slate-600">Trial consumido: {oferta.trialInicio} a {oferta.trialFin} (fin exclusivo)</p> : null}
                     {consulta?.ofertaActivaId === oferta.ofertaId ? <p className="text-sm font-medium text-emerald-700">Es la oferta activa para Bootstrap. El tenant aún no ha sido creado por esta pantalla.</p> : null}
                     {oferta.estado === "BORRADOR" ? (
                       <Button disabled={!puedeAprobar || ocupada} onClick={() => setAccionPendiente("aprobar")}>
@@ -185,7 +189,7 @@ export function TenantOfferPage() {
                 <ul className="space-y-3 text-sm leading-relaxed text-slate-600">
                   <li>La lectura puntual y cada cambio pasan por Functions y revalidan <code>COMERCIAL_GOBERNAR</code>.</li>
                   <li>Crear genera solo un borrador; aprobar es una acción separada y auditada.</li>
-                  <li>La aprobación documenta los términos internos; no afirma aceptación del cliente ni autoriza Bootstrap.</li>
+                  <li>La aceptación expresa del plazo de 15 días está referenciada en la aprobación. La oferta aprobada no autoriza Bootstrap ni activa el Trial.</li>
                   <li>El precio público del plan permanece en {precioCop(1_800_000)} COP.</li>
                   <li>Aprobar habilita su consumo por Bootstrap, pero esta página no crea Empresa, suscripción, usuarios ni catálogo.</li>
                   <li>La UI no contiene escrituras directas a Firestore ni funciona fuera de los proyectos autorizados.</li>
@@ -203,8 +207,8 @@ export function TenantOfferPage() {
           <AlertDialogTitle>{accionPendiente === "crear" ? "Crear el borrador de oferta" : "Aprobar la oferta"}</AlertDialogTitle>
           <AlertDialogDescription>
             {accionPendiente === "crear"
-              ? <>Se registrará en <strong>{projectId}</strong> la oferta resuelta por servidor para <strong>{autorizacion?.nombreEmpresaObjetivo}</strong>, a partir de la aprobación vigente. Esta acción no crea el tenant ni ejecuta Bootstrap.</>
-              : <>La oferta aprobada por <strong>{autorizacion ? `${precioCop(autorizacion.precioAcordado.importe)} ${autorizacion.precioAcordado.moneda}` : "el precio autorizado"}</strong> quedará activa para su eventual consumo atómico por Bootstrap. No se creará el tenant ni se iniciará el Trial.</>}
+              ? <>Se registrará en <strong>{projectId}</strong> la oferta anual por <strong>{autorizacion ? `${precioCop(autorizacion.precioAcordado.importe)} ${autorizacion.precioAcordado.moneda}` : "el precio autorizado"}</strong> con Trial de <strong>{autorizacion?.trialDias} días</strong>, resuelta por servidor para <strong>{autorizacion?.nombreEmpresaObjetivo}</strong>. Esta acción no crea el tenant ni ejecuta Bootstrap.</>
+              : <>La oferta anual aprobada por <strong>{autorizacion ? `${precioCop(autorizacion.precioAcordado.importe)} ${autorizacion.precioAcordado.moneda}` : "el precio autorizado"}</strong> con Trial de <strong>{autorizacion?.trialDias} días</strong> quedará activa para su eventual consumo atómico por Bootstrap. No se creará el tenant ni se iniciará el Trial.</>}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

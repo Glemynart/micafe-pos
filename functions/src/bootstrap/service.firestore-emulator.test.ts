@@ -7,7 +7,7 @@ import { MODULOS_CONFIGURACION } from "../../../lib/configuracion";
 import { fechaComercialUtc } from "../../../lib/suscripciones/contrato";
 import type { EntradaBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
 import { ejecutarBootstrapEmpresarial } from "./service";
-import { ofertaComercialActivaRef, ofertaComercialRef } from "../suscripciones/ofertas-tenant";
+import { ofertaComercialActivaRef, ofertaComercialRef, resolverOfertaComercialBootstrapEnTransaccion } from "../suscripciones/ofertas-tenant";
 import { revocarOfertaComercialTenant } from "../suscripciones/service";
 
 const EMULATOR_PROJECT_ID = "demo-e2-2-bootstrap-offer-emulator";
@@ -402,4 +402,94 @@ test("ADR-SAAS-061 Firestore Emulator: Trial anual de 29 o 31 días no escribe n
     assert.equal((await ofertaComercialRef(db, empresaId, ofertaId).get()).data()?.estado, "APROBADA");
     assert.equal((await ofertaComercialActivaRef(db, empresaId).get()).data()?.ofertaActivaId, ofertaId);
   }
+});
+
+test("ADR-SAAS-087 Firestore Emulator: consume la oferta v2 aprobada con vigencia UTC exacta y replay del puntero", {
+  timeout: 30_000,
+  skip: !hasLoopbackEmulator,
+}, async (t) => {
+  const { app, db } = createEmulatorDb();
+  const empresaId = "distribuidora-las-jimenez";
+  const ofertaId = "oferta-distribuidora-jimenez-2026";
+  const controlRef = ofertaComercialActivaRef(db, empresaId);
+  const ofertaRef = ofertaComercialRef(db, empresaId, ofertaId);
+  t.after(async () => {
+    await Promise.all([controlRef.delete(), ofertaRef.delete()]);
+    await deleteApp(app);
+  });
+
+  await seedPlanAndAdmin(db);
+  await Promise.all([
+    controlRef.set({ empresaId, ofertaActivaId: ofertaId, revision: 1 }),
+    ofertaRef.set({
+      schemaVersion: 2,
+      ofertaId,
+      empresaIdObjetivo: empresaId,
+      planIdBase: "mvp_comercial",
+      planVersionBase: 2,
+      periodicidad: "ANUAL",
+      precioAcordado: { importe: 1_600_000, moneda: "COP" },
+      estado: "APROBADA",
+      iniciaEn: "2026-10-16",
+      expiraEn: null,
+      motivoCodigo: "PRECIO_ESPECIAL_ANUAL",
+      referenciaAprobacion: "G-SAAS-02-PO-OFFER-DISTRIBUIDORA-LAS-JIMENEZ-2026-10-06",
+      trialDias: 15,
+      referenciaAceptacionCliente: "G-SAAS-02-DIANA-TRIAL-15-DIAS-ACEPTADO-2026-10-23",
+      revision: 1,
+    }),
+  ]);
+
+  const reloj = new Date("2026-12-24T23:45:00.000Z");
+  const consumida = await db.runTransaction((tx) => resolverOfertaComercialBootstrapEnTransaccion(db, tx, {
+    empresaId,
+    planId: "mvp_comercial",
+    planVersion: 2,
+    planBase: {
+      planId: "mvp_comercial",
+      codigo: "MVP_COMERCIAL",
+      planVersion: 2,
+      estado: "PUBLICADA",
+      capacidades: [...MODULOS_CONFIGURACION],
+      limites: {},
+      periodicidad: "ANUAL",
+      precio: { importe: 1_800_000, moneda: "COP" },
+      grandfathered: false,
+      revision: 2,
+      schemaVersion: 1,
+    },
+    provisionamientoId: "prov_diana_trial_15_emulator",
+  }, reloj));
+
+  assert.deepEqual({
+    schemaVersion: consumida?.schemaVersion,
+    trialDias: consumida?.trialDias,
+    inicio: consumida?.trialInicio,
+    fin: consumida?.trialFin,
+  }, { schemaVersion: 2, trialDias: 15, inicio: "2026-12-24", fin: "2027-01-08" });
+  const ofertaPersistida = (await ofertaRef.get()).data();
+  assert.deepEqual({
+    schemaVersion: ofertaPersistida?.schemaVersion,
+    ofertaId: ofertaPersistida?.ofertaId,
+    empresaIdObjetivo: ofertaPersistida?.empresaIdObjetivo,
+    estado: ofertaPersistida?.estado,
+    revision: ofertaPersistida?.revision,
+    consumidaPor: ofertaPersistida?.consumidaPor,
+    trialInicio: ofertaPersistida?.trialInicio,
+    trialFin: ofertaPersistida?.trialFin,
+  }, {
+    schemaVersion: 2,
+    ofertaId,
+    empresaIdObjetivo: empresaId,
+    estado: "CONSUMIDA",
+    revision: 2,
+    consumidaPor: { empresaId, provisionamientoId: "prov_diana_trial_15_emulator" },
+    trialInicio: "2026-12-24",
+    trialFin: "2027-01-08",
+  });
+  assert.ok(ofertaPersistida?.consumidaEn);
+  assert.ok(ofertaPersistida?.actualizadaEn);
+  const control = (await controlRef.get()).data();
+  assert.equal(control?.ofertaActivaId, null);
+  assert.equal(control?.revision, 2);
 });

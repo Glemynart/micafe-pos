@@ -2,13 +2,14 @@ import { createHash } from "node:crypto";
 import { FieldValue, getFirestore, type Firestore, type Transaction } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
-import { esIdComercial, fechaComercialUtc, type PlanVersion } from "../../../lib/suscripciones/contrato";
+import { calcularVigenciaTrialUtc, esIdComercial, fechaComercialUtc, type PlanVersion } from "../../../lib/suscripciones/contrato";
 import type { EntradaBootstrapEmpresarial, ProvisionamientoEmpresarial, ResultadoBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
 import { inicializarConfiguracionEmpresaConEstadoPreleidoEnTransaccion } from "../configuracion/service";
 import { crearSuscripcionTrialEnTransaccion, referenciasTrial } from "../suscripciones/service";
 import { resolverOfertaComercialBootstrapEnTransaccion } from "../suscripciones/ofertas-tenant";
 import { actualizarClaimsTenant, normalizarPermisosEfectivos, PERMISOS_VENDEDOR, permisosPredeterminados } from "../operational-auth";
 import { emitirCredencialInicial } from "../platform/emitir-credencial-inicial";
+import { esTenantConTrial15Autorizado } from "../platform/approved-tenant-offers";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 
 /**
@@ -168,6 +169,9 @@ export async function ejecutarBootstrapEmpresarial(
   const db = dbParam ?? getFirestore();
   if (!entrada) return fail("invalid-argument", "ENTRADA_REQUERIDA");
   validarEntradaBootstrap(entrada);
+  if (esTenantConTrial15Autorizado(entrada.empresaId) && !coreCommitObserver) {
+    fail("failed-precondition", "BOOTSTRAP_TRIAL_EXCEPTION_REQUIRES_PLATFORM");
+  }
 
   const provisionamientoId = id("prov", entrada.idempotencyKey);
   const provRef = db.collection(PROVISIONAMIENTOS_COLLECTION).doc(provisionamientoId);
@@ -181,6 +185,14 @@ export async function ejecutarBootstrapEmpresarial(
   const planSnap = await planVersionRef.get();
   if (!planSnap.exists || (planSnap.data() as PlanVersion).estado !== "PUBLICADA") {
     fail("failed-precondition", "PLAN_NOT_PUBLISHED");
+  }
+  const planContratado = planSnap.data() as PlanVersion;
+  const trialDiasSolicitados = entrada.trialDias ?? 30;
+  if (!Number.isSafeInteger(trialDiasSolicitados) || trialDiasSolicitados < 1) {
+    fail("invalid-argument", "TRIAL_INVALIDO");
+  }
+  if (planContratado.periodicidad === "ANUAL" && trialDiasSolicitados !== 30) {
+    fail("invalid-argument", "TRIAL_ANUAL_DEBE_SER_30_DIAS");
   }
   const permisos = await permisosPredeterminados("admin", db);
 
@@ -228,15 +240,7 @@ export async function ejecutarBootstrapEmpresarial(
   });
 
   // 3. Commit atómico del núcleo (Transacción Firestore)
-  const trialDias = entrada.trialDias ?? 30;
-  const planContratado = planSnap.data() as PlanVersion;
-  if (planContratado.periodicidad === "ANUAL" && trialDias !== 30) {
-    fail("invalid-argument", "TRIAL_ANUAL_DEBE_SER_30_DIAS");
-  }
-  const hoyMs = Date.now();
-  const trialInicio = fechaComercialUtc(new Date(hoyMs));
-  const trialFin = fechaComercialUtc(new Date(hoyMs + trialDias * 86400000));
-  const entradaTrial = {
+  const entradaTrialBase = {
     commandId: entrada.commandId,
     idempotencyKey: `sub_${entrada.idempotencyKey}`,
     correlationId: entrada.correlationId,
@@ -246,10 +250,8 @@ export async function ejecutarBootstrapEmpresarial(
     empresaId: entrada.empresaId,
     planId: entrada.planId,
     planVersion: entrada.planVersion,
-    trialInicio,
-    trialFin,
   };
-  const refsTrial = referenciasTrial(db, entradaTrial);
+  const refsTrial = referenciasTrial(db, entradaTrialBase);
 
   const transaccionResultado = await db.runTransaction(async (tx) => {
     const provSnap = await tx.get(provRef);
@@ -291,13 +293,21 @@ export async function ejecutarBootstrapEmpresarial(
     if (!planTrialSnap.exists || (planTrialSnap.data() as PlanVersion).estado !== "PUBLICADA") {
       fail("failed-precondition", "PLAN_NOT_PUBLISHED");
     }
+    const relojTrial = new Date();
     const ofertaComercial = await resolverOfertaComercialBootstrapEnTransaccion(db, tx, {
       empresaId: entrada.empresaId,
       planId: entrada.planId,
       planVersion: entrada.planVersion,
       planBase: planTrialSnap.data() as PlanVersion,
       provisionamientoId,
-    });
+    }, relojTrial);
+    const trialDiasEfectivos = ofertaComercial?.trialDias ?? trialDiasSolicitados;
+    const vigenciaTrial = ofertaComercial
+      ? { inicio: ofertaComercial.trialInicio, fin: ofertaComercial.trialFin }
+      : calcularVigenciaTrialUtc(relojTrial, trialDiasEfectivos);
+    const trialInicio = vigenciaTrial.inicio;
+    const trialFin = vigenciaTrial.fin;
+    const entradaTrial = { ...entradaTrialBase, trialInicio, trialFin };
     const permisosVendedor = normalizarPermisosEfectivos(plantillaVendedorSnap.data()?.permisos);
     if (plantillaVendedorSnap.exists && (permisosVendedor?.length !== PERMISOS_VENDEDOR.length
       || permisosVendedor.some((permiso, indice) => permiso !== PERMISOS_VENDEDOR[indice]))) {
@@ -420,7 +430,10 @@ export async function ejecutarBootstrapEmpresarial(
         plan: planTrialSnap,
         suscripcion: subSnap,
       },
-      { precioContrato: ofertaComercial?.precioAcordado },
+      {
+        precioContrato: ofertaComercial?.precioAcordado,
+        ...(ofertaComercial ? { ofertaComercial } : {}),
+      },
     );
 
     // G. Registro de Provisionamiento (CORE_COMMITTED)
