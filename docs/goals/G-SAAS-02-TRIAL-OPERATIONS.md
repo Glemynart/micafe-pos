@@ -167,7 +167,11 @@ fixture.
   redondea. La opción “Otra base” queda pendiente de normalización aunque Diana
   la describa. Un resultado válido no declara el catálogo listo: siguen pendientes
   la revisión comercial de Diana y Gate I. El comando es de solo lectura y no
-  crea un payload ni escribe en Firebase.
+  crea un payload ni escribe en Firebase. El código de salida `2` señala una
+  divergencia de origen o plantilla y `3` una revisión aún incompleta; `0`
+  confirma únicamente que el mapeo operativo y las coincidencias revisadas
+  pasan este validador, no que el catálogo sea importable ni que un despliegue
+  esté autorizado.
 - **Aplazamiento autorizado — 2026-10-17:** el responsable decidió esperar la
   lista definitiva de Diana. Este aplazamiento retira únicamente la carga del
   catálogo como precondición del Bootstrap/Trial inicial; no aprueba el borrador

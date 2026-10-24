@@ -35,6 +35,7 @@ async function main(): Promise<void> {
 
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   if (!report.reviewValid || !report.sourceMatches) process.exitCode = 2;
+  else if (!report.reviewDecisionsComplete) process.exitCode = 3;
 }
 
 main().catch(() => {

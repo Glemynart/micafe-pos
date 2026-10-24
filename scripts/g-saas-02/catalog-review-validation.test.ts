@@ -87,6 +87,7 @@ test("validates the current Diana workbook without exposing prices or preparing 
   assert.equal(report.reviewValid, true);
   assert.equal(report.sourceMatches, true);
   assert.equal(report.operationalMappingsComplete, true);
+  assert.equal(report.reviewDecisionsComplete, true);
   assert.equal(report.totals.storeRowsMatchedToSource, 1);
   assert.equal(report.totals.storeRowsMapped, 1);
   assert.equal(report.totals.candidateCrossListPairs, 1);
@@ -134,6 +135,7 @@ test("keeps incomplete mappings pending and refuses fractional cost conversion",
     sourceSha256: SOURCE_HASH,
   });
   assert.equal(missingMapping.operationalMappingsComplete, false);
+  assert.equal(missingMapping.reviewDecisionsComplete, false);
   assert.equal(missingMapping.totals.storeRowsPending, 1);
   assert.equal(missingMapping.importReady, false);
 
@@ -171,6 +173,7 @@ test("counts consumer-only rows as deferred and leaves unresolved matches for Di
   assert.equal(report.totals.consumerRowsDeferred, 1);
   assert.equal(report.totals.candidateDecisionsPending, 1);
   assert.equal(report.operationalMappingsComplete, true);
+  assert.equal(report.reviewDecisionsComplete, false);
   assert.equal(report.importReady, false);
 });
 

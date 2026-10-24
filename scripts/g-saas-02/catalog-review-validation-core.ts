@@ -12,6 +12,7 @@ export interface DianaCatalogReviewValidationReport {
   reviewValid: boolean;
   sourceMatches: boolean;
   operationalMappingsComplete: boolean;
+  reviewDecisionsComplete: boolean;
   importReady: false;
   writesPerformed: false;
   totals: {
@@ -455,12 +456,14 @@ export function validateDianaCatalogReview(input: DianaCatalogReviewValidationIn
 
   const reviewValid = validationErrors.length === 0;
   const operationalMappingsComplete = reviewValid && sourceMatches && storeRows.length > 0 && mapping.pending === 0;
+  const reviewDecisionsComplete = operationalMappingsComplete && consumerReview.candidateDecisionsPending === 0;
   return {
     reportSchemaVersion: "1.0",
     mode: "read-only-local-review-validation",
     reviewValid,
     sourceMatches,
     operationalMappingsComplete,
+    reviewDecisionsComplete,
     importReady: false,
     writesPerformed: false,
     totals: {
@@ -478,10 +481,10 @@ export function validateDianaCatalogReview(input: DianaCatalogReviewValidationIn
     },
     validationErrors: [...new Set(validationErrors)],
     pendingRequirements: [
-      "Resolver con Diana todas las categorías, unidades base, presentaciones y factores positivos de las filas tienda.",
-      "Confirmar la base de AL COSTO; si corresponde a presentación, el costo debe dividir exactamente por el factor para expresarse en COP por unidad base.",
-      "Resolver las coincidencias por nombre sin fusionar automáticamente productos ni presentaciones distintas.",
-      "Las filas solo consumidor permanecen diferidas hasta recibir una presentación y PRECIO VENTA de tienda aprobados.",
+      ...(mapping.pending > 0 ? ["Resolver con Diana las categorías, unidades base, presentaciones y factores positivos de las filas tienda."] : []),
+      ...(mapping.pending > 0 ? ["Confirmar la base de AL COSTO; si corresponde a presentación, el costo debe dividir exactamente por el factor para expresarse en COP por unidad base."] : []),
+      ...(consumerReview.candidateDecisionsPending > 0 ? ["Resolver las coincidencias por nombre sin fusionar automáticamente productos ni presentaciones distintas."] : []),
+      ...(consumerReview.deferred > 0 ? ["Las filas solo consumidor permanecen diferidas hasta recibir una presentación y PRECIO VENTA de tienda aprobados."] : []),
       "Este validador no produce payload de importación. La carga de catálogo e inventario exige el flujo aprobado, datos completos y Gate I.",
     ],
   };
