@@ -89,8 +89,8 @@ export function evaluateDianaProductionFunctionsPreflight(input: {
   deployedFunctions: readonly DeployedDianaFunction[];
 }): DianaProductionFunctionsPreflightResult {
   const blockers: string[] = [];
-  const codebases = [...new Set(DIANA_PRODUCTION_FUNCTIONS.map(({ codebase }) => codebase))];
-  const expectedNames = new Set(DIANA_PRODUCTION_FUNCTIONS.map(({ name }) => name));
+  const codebases: string[] = [...new Set(DIANA_PRODUCTION_FUNCTIONS.map(({ codebase }) => codebase))];
+  const expectedNames = new Set<string>(DIANA_PRODUCTION_FUNCTIONS.map(({ name }) => name));
 
   if (input.projectId !== DIANA_PRODUCTION_PROJECT_ID) {
     blockers.push(`PROJECT_MISMATCH: se esperaba ${DIANA_PRODUCTION_PROJECT_ID}.`);

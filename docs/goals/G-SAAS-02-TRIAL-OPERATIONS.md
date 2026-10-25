@@ -213,6 +213,20 @@ fixture.
 
 El Backoffice comercial materializa el catálogo público exclusivamente mediante `CrearPlan`, `CrearNuevaVersionPlan` y `PublicarPlan`, bajo `COMERCIAL_GOBERNAR`. Una excepción de precio anual para una Empresa se administra como oferta tenant-specific mediante `CrearOfertaComercialTenant` y `AprobarOfertaComercialTenant`, según ADR-SAAS-061; no crea ni modifica una versión pública del Plan y el precio se resuelve en servidor. La oferta anual de `1.600.000 COP` para Distribuidora Las Jiménez conserva pago manual y aplica la excepción de 15 días de ADR-SAAS-087; fuera de ese caso, el estándar de Trial sigue en 30 días. La aprobación no implica registro de la oferta ni autorización de Bootstrap. El Bootstrap resuelve y calcula las fechas del Trial server-side.
 
+### 2.1.2 Preflight dirigido de Functions para el alta de Diana
+
+Antes de preparar un release que permita el onboarding productivo, se puede
+ejecutar `npm run g-saas-02:diana-production-functions-preflight`. El comando
+consulta únicamente nombres, etiquetas de codebase, estado y generación de las
+Functions de `micafe-pos`; compara esos metadatos con los tres exports
+esperados en `saas-commercial` y `saas-bootstrap` y con `firebase.json`. No
+solicita variables de entorno ni valores de secretos, y no ejecuta despliegues
+ni escrituras. Un resultado `INVENTORY_CONSISTENT` solo confirma que esa
+comparación estructural no encontró bloqueos: no certifica el release, la
+seguridad de una migración de codebase, la reversibilidad, Rules, App Hosting,
+la identidad de Diana ni autoriza operaciones productivas. Cualquier
+despliegue requiere el gate y la autorización operativa independientes.
+
 ### 2.2 Transición del tenant mensual histórico
 
 La transición de Café Atrato conserva el Trial histórico y nunca lo reinicia.

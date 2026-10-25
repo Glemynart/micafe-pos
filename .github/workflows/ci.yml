@@ -303,6 +303,9 @@ jobs:
       - name: Guard read-only para despliegue de Functions de producción
         run: npm run test:g-saas-02:production-functions-preflight
 
+      - name: Preflight read-only dirigido para onboarding de Diana
+        run: npm run test:g-saas-02:diana-production-functions-preflight
+
       - name: Configuración del service worker de Firebase Messaging
         run: npm run test:firebase-push-service-worker
 
