@@ -3,13 +3,34 @@ import test from "node:test";
 import { evaluarReleaseEvidence, type ReleaseEvidenceInput } from "./release-evidence-core";
 
 const SHA = "a".repeat(40);
+const APP_HOSTING_BUILD = "projects/micafe-pos/locations/us-central1/backends/micafe-pos/builds/build-123";
+const APP_HOSTING_TRAFFIC_BUILD = "projects/882525811433/locations/us-central1/backends/micafe-pos/builds/build-123";
 
 function input(overrides: Partial<ReleaseEvidenceInput> = {}): ReleaseEvidenceInput {
   return {
+    projectId: "micafe-pos",
     targetSha: SHA,
     originMainSha: SHA,
     ci: { runId: "123", headSha: SHA, status: "completed", conclusion: "success" },
-    vercel: { state: "success", targetUrl: "https://vercel.example/deploy" },
+    appHosting: {
+      projectId: "micafe-pos",
+      locationId: "us-central1",
+      backendId: "micafe-pos",
+      backendName: "projects/micafe-pos/locations/us-central1/backends/micafe-pos",
+      backendUri: "https://micafe-pos--micafe-pos.us-central1.hosted.app",
+      backendReconciled: true,
+      trafficReconciled: true,
+      trafficUpdateTime: "2026-10-25T01:00:00Z",
+      currentTrafficSplits: [{ build: APP_HOSTING_TRAFFIC_BUILD, canonicalBuild: APP_HOSTING_BUILD, percent: 100 }],
+      builds: [{
+        name: APP_HOSTING_BUILD,
+        resourceName: APP_HOSTING_BUILD,
+        state: "READY",
+        sourceSha: SHA,
+        imageDigest: "f".repeat(64),
+        rolloutState: "SUCCEEDED",
+      }],
+    },
     functions: { count: 2, activeCount: 2, runtimes: ["nodejs22"], hashes: ["f".repeat(40)], hashCounts: { ["f".repeat(40)]: 2 } },
     external: {
       rules: { reference: "rules://evidence", independentlyVerified: true },
@@ -24,9 +45,82 @@ function input(overrides: Partial<ReleaseEvidenceInput> = {}): ReleaseEvidenceIn
 test("release evidence completa solo cuando todos los gates son independientes", () => {
   const result = evaluarReleaseEvidence(input());
   assert.equal(result.status, "COMPLETE");
+  assert.equal(result.schemaVersion, 2);
   assert.equal(result.productionWrites, false);
   assert.equal(result.automatic.ciGreen, true);
+  assert.equal(result.automatic.appHostingVerified, true);
   assert.equal(result.automatic.functionsHash, "f".repeat(40));
+});
+
+test("App Hosting requiere que el build servido proceda del SHA objetivo", () => {
+  const result = evaluarReleaseEvidence(input({
+    appHosting: {
+      ...input().appHosting!,
+      builds: [{ ...input().appHosting!.builds[0]!, sourceSha: "b".repeat(40) }],
+    },
+  }));
+  assert.equal(result.status, "INCOMPLETE");
+  assert.equal(result.automatic.appHostingVerified, false);
+  assert.equal(result.checks.find((check) => check.id === "APPHOSTING_SERVES_TARGET_SHA")?.status, "MISMATCH");
+});
+
+test("App Hosting no pasa si el tráfico no está reconciliado o no apunta al 100% a un único build", () => {
+  const base = input().appHosting!;
+  const result = evaluarReleaseEvidence(input({
+    appHosting: {
+      ...base,
+      trafficReconciled: false,
+      currentTrafficSplits: [
+        { build: APP_HOSTING_TRAFFIC_BUILD, canonicalBuild: APP_HOSTING_BUILD, percent: 50 },
+        { build: `${APP_HOSTING_TRAFFIC_BUILD}-other`, canonicalBuild: `${APP_HOSTING_BUILD}-other`, percent: 50 },
+      ],
+    },
+  }));
+  assert.equal(result.status, "INCOMPLETE");
+  assert.equal(result.checks.find((check) => check.id === "APPHOSTING_SERVES_TARGET_SHA")?.status, "FOLLOW_UP");
+});
+
+test("un proyecto o backend de staging nunca satisface el gate productivo", () => {
+  const result = evaluarReleaseEvidence(input({
+    projectId: "micafe-pos-staging",
+    appHosting: {
+      ...input().appHosting!,
+      projectId: "micafe-pos-staging",
+      backendName: "projects/micafe-pos-staging/locations/us-central1/backends/micafe-pos",
+    },
+  }));
+  assert.equal(result.status, "INCOMPLETE");
+  assert.equal(result.checks.find((check) => check.id === "APPHOSTING_PRODUCTION_BACKEND_URI")?.status, "MISMATCH");
+  assert.equal(result.checks.find((check) => check.id === "APPHOSTING_SERVES_TARGET_SHA")?.status, "MISMATCH");
+});
+
+test("App Hosting exige build READY y rollout SUCCEEDED", () => {
+  const base = input().appHosting!;
+  const result = evaluarReleaseEvidence(input({
+    appHosting: {
+      ...base,
+      builds: [{ ...base.builds[0]!, state: "BUILDING", rolloutState: null }],
+    },
+  }));
+  assert.equal(result.status, "INCOMPLETE");
+  assert.equal(result.checks.find((check) => check.id === "APPHOSTING_SERVES_TARGET_SHA")?.status, "FOLLOW_UP");
+});
+
+test("la URI de App Hosting debe ser HTTPS y parseable", () => {
+  const base = input().appHosting!;
+  const result = evaluarReleaseEvidence(input({
+    appHosting: { ...base, backendUri: "https://" },
+  }));
+  assert.equal(result.status, "INCOMPLETE");
+  assert.equal(result.checks.find((check) => check.id === "APPHOSTING_PRODUCTION_BACKEND_URI")?.status, "FOLLOW_UP");
+});
+
+test("acepta el hostname principal que entrega App Hosting sin esquema", () => {
+  const base = input().appHosting!;
+  const result = evaluarReleaseEvidence(input({
+    appHosting: { ...base, backendUri: "micafe-pos--micafe-pos.us-central1.hosted.app" },
+  }));
+  assert.equal(result.checks.find((check) => check.id === "APPHOSTING_PRODUCTION_BACKEND_URI")?.status, "PASS");
 });
 
 test("hashes múltiples de Functions quedan registrados para reconciliación", () => {

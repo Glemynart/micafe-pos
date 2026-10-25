@@ -264,21 +264,30 @@ revalidación actual está en
 `docs/goals/evidence/G-SAAS-02-TRANSITION-PREFLIGHT-2026-08-14-8f0fa6f.md`; su
 estado registra recovery como gate pendiente, no como hecho supuesto.
 
-La evidencia automática de release se puede recolectar sin escrituras con:
-`npx tsx scripts/g-saas-02/release-evidence.ts --project micafe-pos --repo Glemynart/micafe-pos`.
-El colector legado consulta el SHA de `origin/main`, la CI y Vercel mediante `gh api`,
-el inventario y el mapa Function → hash mediante `firebase functions:list`, los releases y
-rulesets efectivos mediante la API GET de Firebase Rules cuando existe
-`FIREBASE_ACCESS_TOKEN`, y el estado read-only de base de datos/backups mediante
-Firebase CLI. Nunca imprime credenciales ni ejecuta deploy. Las referencias
+La evidencia automática de release se puede recolectar sin escrituras con un SHA
+explícito aprobado:
+`npx tsx scripts/g-saas-02/release-evidence.ts --project micafe-pos --repo Glemynart/micafe-pos --sha <SHA_APROBADO> --apphosting-backend micafe-pos --apphosting-location us-central1`.
+El colector consulta la CI mediante `gh api`, el inventario y el mapa Function →
+hash mediante `firebase functions:list`, los releases y rulesets efectivos
+mediante la API GET de Firebase Rules y backend/tráfico/rollouts/build de App
+Hosting mediante la API GET regional cuando existe `FIREBASE_ACCESS_TOKEN`, y
+el estado read-only de base de datos/backups mediante Firebase CLI. La
+comprobación App Hosting enlaza el SHA Git completo del build con su rollout
+`SUCCEEDED` y el tráfico actual al 100 %. Usa field masks limitados y no solicita
+`Backend.overrideEnv` ni `Build.Config.effectiveEnv`. El token nunca se imprime
+ni se incluye en la salida; los endpoints son GET y no ejecutan deploy. Las
+referencias
 `--rules-ref`, `--storage-ref`, `--smoke-ref` y `--recovery-ref` se conservan
 como declaradas, pero no se consideran atestaciones independientes por el solo
-hecho de existir. Desde la aceptación de ADR-SAAS-083, el resultado Vercel de
-ese colector es `NOT APPLICABLE TO CURRENT RELEASE` y no acredita App Hosting.
-Para este release registrar directamente el backend, región, build, commit
-fuente, rollout, tráfico, URI, nombres de variables, identidad de ejecución y
-hashes de configuración de Firebase App Hosting; el backend de staging no
-cuenta como producción. El mapa por Function está verificado en
+hecho de existir. Vercel no forma parte del contrato de evidencia desde
+ADR-SAAS-083. El collector verifica exclusivamente el backend productivo
+`micafe-pos` en `us-central1`; un proyecto, región o backend de staging no puede
+satisfacer el gate. La revisión independiente de dominio/DNS, Rules, Storage,
+smoke autenticado y recuperación sigue siendo necesaria: el collector no la
+infiere ni la sustituye. Los permisos de lectura App Hosting requeridos son
+`firebaseapphosting.backends.get`, `firebaseapphosting.traffic.get`,
+`firebaseapphosting.rollouts.list` y `firebaseapphosting.builds.get`; no requiere
+lectura de Secret Manager. El mapa por Function está verificado en
 `docs/goals/evidence/G-SAAS-02-RELEASE-EVIDENCE-2026-08-14-FUNCTIONS.md`.
 La ejecución predeploy está en
 `docs/goals/evidence/G-SAAS-02-RELEASE-EVIDENCE-2026-08-14.md` y la

@@ -3,11 +3,13 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { evaluarReleaseEvidence, type CiObservation, type FunctionsObservation, type RecoveryObservation, type ReleaseEvidenceInput, type RulesObservation, type RulesReleaseObservation, type VercelObservation } from "./release-evidence-core";
+import { collectAppHostingReleaseEvidence } from "./apphosting-release";
+import { evaluarReleaseEvidence, type CiObservation, type FunctionsObservation, type RecoveryObservation, type ReleaseEvidenceInput, type RulesObservation, type RulesReleaseObservation } from "./release-evidence-core";
 import { createRulesApiHeaders } from "./rules-api-headers";
 
 const argumentos = new Set([
   "--project", "--repo", "--sha", "--out", "--rules-ref", "--storage-ref", "--smoke-ref", "--recovery-ref",
+  "--apphosting-backend", "--apphosting-location",
 ]);
 
 function argumento(nombre: string): string | undefined {
@@ -19,6 +21,8 @@ function validarArgumentos(): void {
   for (let index = 2; index < process.argv.length; index += 1) {
     const value = process.argv[index];
     if (!argumentos.has(value)) throw new Error(`Argumento no permitido: ${value}`);
+    const next = process.argv[index + 1];
+    if (!next || next.startsWith("--")) throw new Error(`${value} requiere un valor.`);
     index += 1;
   }
 }
@@ -68,24 +72,6 @@ function obtenerCi(repo: string, sha: string): { observation: CiObservation | nu
       status: String(run.status ?? ""),
       conclusion: run.conclusion == null ? null : String(run.conclusion),
       url: run.html_url == null ? null : String(run.html_url),
-    },
-  };
-}
-
-function obtenerVercel(repo: string, sha: string): { observation: VercelObservation | null; error?: string } {
-  const response = leerJson("gh", ["api", `repos/${repo}/commits/${sha}/status`]);
-  if (response.error) return { observation: null, error: response.error };
-  const statuses = (response.value as { statuses?: Array<Record<string, unknown>> })?.statuses ?? [];
-  const vercelStatuses = statuses
-    .filter((status) => String(status.context ?? "").toLowerCase().includes("vercel"))
-    .sort((left, right) => String(right.updated_at ?? "").localeCompare(String(left.updated_at ?? "")));
-  const status = vercelStatuses[0];
-  if (!status) return { observation: null };
-  return {
-    observation: {
-      state: String(status.state ?? ""),
-      targetUrl: status.target_url == null ? null : String(status.target_url),
-      updatedAt: status.updated_at == null ? null : String(status.updated_at),
     },
   };
 }
@@ -233,21 +219,29 @@ async function main(): Promise<void> {
   if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(project)) throw new Error("--project tiene un formato no permitido.");
   const targetSha = argumento("--sha") ?? shaLocal();
   if (!targetSha) throw new Error("No fue posible resolver origin/main; use --sha explícitamente.");
+  const appHostingBackend = argumento("--apphosting-backend") ?? "micafe-pos";
+  const appHostingLocation = argumento("--apphosting-location") ?? "us-central1";
 
   const collectionErrors: string[] = [];
   const ci = obtenerCi(repo, targetSha);
-  const vercel = obtenerVercel(repo, targetSha);
+  const appHosting = await collectAppHostingReleaseEvidence({
+    projectId: project,
+    locationId: appHostingLocation,
+    backendId: appHostingBackend,
+    accessToken: process.env.FIREBASE_ACCESS_TOKEN ?? "",
+  });
   const functions = obtenerFunctions(project);
   const rules = await obtenerRules(project);
   const recovery = obtenerRecovery(project);
-  for (const result of [ci, vercel, functions, recovery]) if (result.error) collectionErrors.push(result.error);
+  for (const result of [ci, appHosting, functions, recovery]) if (result.error) collectionErrors.push(result.error);
   collectionErrors.push(...rules.errors);
 
   const input: ReleaseEvidenceInput = {
+    projectId: project,
     targetSha,
     originMainSha: shaLocal(),
     ci: ci.observation,
-    vercel: vercel.observation,
+    appHosting: appHosting.observation,
     functions: functions.observation,
     rules: rules.observation,
     recovery: recovery.observation,
