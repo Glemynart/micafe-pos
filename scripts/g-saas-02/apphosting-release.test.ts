@@ -119,6 +119,35 @@ test("rechaza una referencia de build a otro ID de proyecto", async () => {
   assert.equal(requestCount, 2);
 });
 
+test("rechaza una referencia numérica de build que no pertenece al proyecto productivo", async () => {
+  const responses = standardResponses();
+  responses[1] = response({
+    name: `${backendName}/traffic`,
+    current: {
+      splits: [{
+        build: `projects/999999999999/locations/${locationId}/backends/${backendId}/builds/build-2026-10-25-001`,
+        percent: 100,
+      }],
+    },
+    reconciling: false,
+  });
+  let requestCount = 0;
+  const result = await collectAppHostingReleaseEvidence({
+    projectId,
+    locationId,
+    backendId,
+    accessToken,
+    fetcher: async () => {
+      requestCount += 1;
+      return responses.shift() ?? response({});
+    },
+  });
+
+  assert.equal(result.observation, null);
+  assert.match(result.error ?? "", /fuera del backend solicitado/);
+  assert.equal(requestCount, 2);
+});
+
 test("un error de permisos no incluye cuerpo ni credencial en la evidencia", async () => {
   const result = await collectAppHostingReleaseEvidence({
     projectId,
