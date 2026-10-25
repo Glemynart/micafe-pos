@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { validateDianaCatalogReview } from "./catalog-review-validation-core.js";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { buildDianaCatalogOfflinePlan, validateDianaCatalogReview } from "./catalog-review-validation-core.js";
+import type { DianaCatalogOfflinePlan } from "./catalog-review-validation-core.js";
+import { writeDianaCatalogOfflinePlan } from "./catalog-offline-plan-writer.js";
 import type { CatalogCellLike, CatalogWorkbookLike } from "./catalog-preflight-core.js";
 
 const SOURCE_HASH = "a".repeat(64);
@@ -23,11 +28,13 @@ function worksheet(name: string, rows: unknown[][]): CatalogWorkbookLike["worksh
   };
 }
 
-function sourceWorkbook(cost = 1200): CatalogWorkbookLike {
+function sourceWorkbook(cost = 1200, includeConsumerOnly = false): CatalogWorkbookLike {
+  const consumerRows: unknown[][] = [["Cafe", 2100]];
+  if (includeConsumerOnly) consumerRows.push(["Producto referencia", 2400]);
   return {
     worksheets: [
       worksheet("PRECIOS A TIENDA", [["PRODUCTO", "AL COSTO", "PRECIO VENTA"], ["Café", cost, 1800]]),
-      worksheet("PRECIOS CONS FINAL", [["PRODUCTO", "PRECIO VENTA"], ["Cafe", 2100]]),
+      worksheet("PRECIOS CONS FINAL", [["PRODUCTO", "PRECIO VENTA"], ...consumerRows]),
     ],
   };
 }
@@ -217,4 +224,112 @@ test("rejects missing source rows, duplicate rows, and formulas in review decisi
   const formula = validateDianaCatalogReview({ sourceWorkbook: sourceWorkbook(), reviewWorkbook: formulaReview, sourceSha256: SOURCE_HASH });
   assert.equal(formula.reviewValid, false);
   assert.ok(formula.validationErrors.some((error) => /fórmula/.test(error)));
+});
+
+type PlanInput = Parameters<typeof buildDianaCatalogOfflinePlan>[0];
+
+function buildPlan(input: PlanInput): DianaCatalogOfflinePlan | null {
+  return buildDianaCatalogOfflinePlan(input);
+}
+
+test("builds a local review-only plan from the approved store price and exact unit cost", () => {
+  const plan = buildPlan({
+    sourceWorkbook: sourceWorkbook(1200, true),
+    reviewWorkbook: reviewWorkbook({ addConsumerOnly: true }),
+    sourceSha256: SOURCE_HASH,
+    reviewSha256: "b".repeat(64),
+  });
+
+  assert.ok(plan);
+  assert.equal(plan.planSchemaVersion, "1.0");
+  assert.equal(plan.sourceSha256, SOURCE_HASH);
+  assert.equal(plan.reviewSha256, "b".repeat(64));
+  assert.equal(plan.proposal.granularity, "one-presentation-per-store-source-row");
+  assert.equal(plan.proposal.salesPriceSource, "PRECIOS A TIENDA.PRECIO VENTA");
+  assert.equal(plan.proposal.presentations.length, 1);
+  assert.deepEqual(plan.proposal.presentations[0], {
+    sourceRow: 2,
+    reviewRow: 5,
+    name: "Café",
+    category: "Abarrotes",
+    baseUnit: "unidad",
+    presentation: "paquete x 12",
+    unitsPerPresentation: 12,
+    salesPriceCop: 1800,
+    sourceCostCop: 1200,
+    costBasis: "PRESENTACION / EMPAQUE",
+    costCopPerBaseUnit: 100,
+  });
+  assert.equal(plan.consumerReference.salesPricesApplied, false);
+  assert.equal(plan.consumerReference.consumerOnlyRowsDeferred, 1);
+  assert.equal(plan.consumerReference.crossListCandidatesMerged, false);
+  assert.equal(plan.initialStockIncluded, false);
+  assert.equal(plan.safety.firebaseAccessed, false);
+  assert.equal(plan.safety.writesPerformed, false);
+  assert.equal(plan.safety.importReady, false);
+  assert.equal(plan.safety.executable, false);
+  assert.equal(plan.safety.deploymentAuthorized, false);
+  const serialized = JSON.stringify(plan);
+  assert.equal(serialized.includes("2100"), false);
+  assert.equal(serialized.includes("2400"), false);
+  assert.equal(serialized.includes("Producto referencia"), false);
+});
+
+test("keeps unresolved consumer-list matches as reference-only and does not block a complete store plan", () => {
+  const plan = buildPlan({
+    sourceWorkbook: sourceWorkbook(1200, true),
+    reviewWorkbook: reviewWorkbook({ sameProduct: "Por confirmar", addConsumerOnly: true }),
+    sourceSha256: SOURCE_HASH,
+    reviewSha256: "c".repeat(64),
+  });
+
+  assert.ok(plan);
+  assert.equal(plan.consumerReference.crossListCandidates, 1);
+  assert.equal(plan.consumerReference.crossListDecisionsPending, 1);
+  assert.equal(plan.proposal.presentations.length, 1);
+  assert.equal(plan.proposal.presentations[0].salesPriceCop, 1800);
+});
+
+test("does not build a plan when any operational store mapping is incomplete or source identity differs", () => {
+  assert.equal(buildPlan({
+    sourceWorkbook: sourceWorkbook(),
+    reviewWorkbook: reviewWorkbook({ category: "", factor: "", costBasis: "Por confirmar" }),
+    sourceSha256: SOURCE_HASH,
+    reviewSha256: "d".repeat(64),
+  }), null);
+  assert.equal(buildPlan({
+    sourceWorkbook: sourceWorkbook(),
+    reviewWorkbook: reviewWorkbook({ hash: "e".repeat(64) }),
+    sourceSha256: SOURCE_HASH,
+    reviewSha256: "f".repeat(64),
+  }), null);
+});
+
+
+test("writes offline plans to a new local file and refuses input overwrite or replacement", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "diana-catalog-plan-"));
+  try {
+    const sourcePath = path.join(directory, "source.xlsx");
+    const reviewPath = path.join(directory, "review.xlsx");
+    const outputPath = path.join(directory, "plan.json");
+    writeFileSync(sourcePath, "source");
+    writeFileSync(reviewPath, "review");
+    const plan = buildPlan({
+      sourceWorkbook: sourceWorkbook(),
+      reviewWorkbook: reviewWorkbook(),
+      sourceSha256: SOURCE_HASH,
+      reviewSha256: "b".repeat(64),
+    });
+    assert.ok(plan);
+
+    const digest = writeDianaCatalogOfflinePlan(plan, outputPath, [sourcePath, reviewPath]);
+    assert.match(digest, /^[a-f0-9]{64}$/);
+    assert.equal(JSON.parse(readFileSync(outputPath, "utf8")).safety.writesPerformed, false);
+    assert.throws(() => writeDianaCatalogOfflinePlan(plan, outputPath, [sourcePath, reviewPath]));
+    assert.throws(() => writeDianaCatalogOfflinePlan(plan, sourcePath, [sourcePath, reviewPath]), /coincidir/);
+    assert.equal(readFileSync(sourcePath, "utf8"), "source");
+    assert.equal(readFileSync(reviewPath, "utf8"), "review");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });

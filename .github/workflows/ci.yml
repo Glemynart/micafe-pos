@@ -298,6 +298,7 @@ jobs:
         run: |
           npm run test:g-saas-02:catalog-preflight
           npm run test:g-saas-02:catalog-review-validation
+          npm run test:g-saas-02:catalog-offline-plan
 
       - name: Guard read-only para despliegue de Functions de producción
         run: npm run test:g-saas-02:production-functions-preflight
