@@ -46,7 +46,10 @@
     },
     {
       "source": "functions-bodega",
-      "codebase": "saas-bodega"
+      "codebase": "saas-bodega",
+      "predeploy": [
+        "npm --prefix functions-bodega run build"
+      ]
     },
     {
       "source": "functions-platform-tenant-access",

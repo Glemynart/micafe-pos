@@ -4,7 +4,7 @@
   "main": "lib/functions-bodega/src/index.js",
   "engines": { "node": "22" },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node scripts/clean-build-output.cjs && tsc -p tsconfig.json",
     "test": "tsx --test src/*.test.ts",
     "test:discovery": "tsx --test src/discovery.test.ts",
     "test:module-load": "tsx --test src/module-load.test.ts"
