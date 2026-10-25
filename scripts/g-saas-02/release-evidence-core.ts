@@ -8,10 +8,32 @@ export interface CiObservation {
   url?: string | null;
 }
 
-export interface VercelObservation {
+export interface AppHostingTrafficSplitObservation {
+  build: string;
+  canonicalBuild: string | null;
+  percent: number;
+}
+
+export interface AppHostingBuildObservation {
+  name: string;
+  resourceName: string;
   state: string;
-  targetUrl?: string | null;
-  updatedAt?: string | null;
+  sourceSha: string | null;
+  imageDigest: string | null;
+  rolloutState: string | null;
+}
+
+export interface AppHostingObservation {
+  projectId: string;
+  locationId: string;
+  backendId: string;
+  backendName: string;
+  backendUri: string | null;
+  backendReconciled: boolean;
+  trafficReconciled: boolean;
+  trafficUpdateTime: string | null;
+  currentTrafficSplits: readonly AppHostingTrafficSplitObservation[];
+  builds: readonly AppHostingBuildObservation[];
 }
 
 export interface FunctionsObservation {
@@ -52,10 +74,11 @@ export interface RecoveryObservation {
 }
 
 export interface ReleaseEvidenceInput {
+  projectId: string;
   targetSha: string;
   originMainSha: string | null;
   ci: CiObservation | null;
-  vercel: VercelObservation | null;
+  appHosting: AppHostingObservation | null;
   functions: FunctionsObservation | null;
   rules?: RulesObservation | null;
   recovery?: RecoveryObservation | null;
@@ -76,7 +99,9 @@ export interface ReleaseEvidenceCheck {
 
 export interface ReleaseEvidenceResult {
   contract: "G-SAAS-02-RELEASE-EVIDENCE";
+  schemaVersion: 2;
   observedAt: string;
+  projectId: string;
   targetSha: string;
   readOnly: true;
   productionWrites: false;
@@ -85,8 +110,8 @@ export interface ReleaseEvidenceResult {
   automatic: {
     ciGreen: boolean;
     ci: CiObservation | null;
-    vercelVerified: boolean;
-    vercel: VercelObservation | null;
+    appHostingVerified: boolean;
+    appHosting: AppHostingObservation | null;
     functions: FunctionsObservation | null;
     functionsHash: string | null;
     functionsUniform: boolean;
@@ -104,6 +129,23 @@ export interface ReleaseEvidenceResult {
 
 function isSha(value: string | null | undefined): value is string {
   return typeof value === "string" && /^[0-9a-f]{40}$/i.test(value);
+}
+
+function isHttpsUri(value: string | null): boolean {
+  if (!value) return false;
+  try {
+    const candidate = /^https:\/\//i.test(value) ? value : `https://${value}`;
+    const uri = new URL(candidate);
+    return uri.protocol === "https:"
+      && uri.hostname.length > 0
+      && uri.username.length === 0
+      && uri.password.length === 0
+      && uri.search.length === 0
+      && uri.hash.length === 0
+      && (uri.pathname === "/" || uri.pathname === "");
+  } catch {
+    return false;
+  }
 }
 
 function externalStatus(gate: ExternalGateObservation): ReleaseEvidenceStatus {
@@ -168,15 +210,65 @@ export function evaluarReleaseEvidence(input: ReleaseEvidenceInput): ReleaseEvid
       : "No existe una ejecución CI exitosa y completada para el SHA objetivo.",
   );
 
-  const vercelVerified = input.vercel?.state === "success";
+  const appHosting = input.appHosting;
+  const appHostingTargetMatches = appHosting !== null
+    && input.projectId === "micafe-pos"
+    && appHosting.projectId === "micafe-pos"
+    && appHosting.locationId === "us-central1"
+    && appHosting.backendId === "micafe-pos"
+    && appHosting.backendName === "projects/micafe-pos/locations/us-central1/backends/micafe-pos";
+  const appHostingUriStatus: ReleaseEvidenceStatus = appHosting === null
+    ? "MISSING"
+    : !appHostingTargetMatches
+      ? "MISMATCH"
+      : appHosting.backendReconciled && isHttpsUri(appHosting.backendUri)
+        ? "PASS"
+        : "FOLLOW_UP";
   addCheck(
     checks,
-    "VERCEL_STATUS_FOR_TARGET",
-    vercelVerified ? "PASS" : "FOLLOW_UP",
-    vercelVerified
-      ? "GitHub reporta el deployment Vercel del SHA objetivo como exitoso."
-      : "No existe un estado Vercel exitoso observado para el SHA objetivo.",
+    "APPHOSTING_PRODUCTION_BACKEND_URI",
+    appHostingUriStatus,
+    appHostingUriStatus === "PASS"
+      ? "El backend productivo esperado de Firebase App Hosting existe, está reconciliado y expone su URI principal."
+      : appHostingUriStatus === "MISMATCH"
+        ? "La evidencia de App Hosting corresponde a otro proyecto, región o backend distinto del productivo aprobado."
+        : appHostingUriStatus === "MISSING"
+          ? "No se obtuvo evidencia del backend productivo de Firebase App Hosting."
+          : "El backend productivo de Firebase App Hosting no está reconciliado o no expone una URI verificable.",
   );
+
+  const activeTrafficSplits = appHosting?.currentTrafficSplits.filter((split) => split.percent > 0) ?? [];
+  const servingBuild = activeTrafficSplits.length === 1 && activeTrafficSplits[0]?.percent === 100
+    ? appHosting?.builds.find((build) => build.name === activeTrafficSplits[0]?.canonicalBuild)
+    : undefined;
+  const trafficTotal = appHosting?.currentTrafficSplits.reduce((total, split) => total + split.percent, 0) ?? 0;
+  const appHostingTrafficValid = appHostingTargetMatches
+    && appHosting?.trafficReconciled === true
+    && activeTrafficSplits.length === 1
+    && activeTrafficSplits[0]?.percent === 100
+    && activeTrafficSplits[0]?.canonicalBuild !== null
+    && trafficTotal === 100;
+  let appHostingServingStatus: ReleaseEvidenceStatus;
+  if (appHosting === null) appHostingServingStatus = "MISSING";
+  else if (!appHostingTargetMatches) appHostingServingStatus = "MISMATCH";
+  else if (!appHostingTrafficValid || !servingBuild || servingBuild.state !== "READY" || servingBuild.rolloutState !== "SUCCEEDED") {
+    appHostingServingStatus = "FOLLOW_UP";
+  } else if (!servingBuild.sourceSha) appHostingServingStatus = "MISSING";
+  else if (servingBuild.sourceSha.toLowerCase() !== input.targetSha.toLowerCase()) appHostingServingStatus = "MISMATCH";
+  else appHostingServingStatus = "PASS";
+  addCheck(
+    checks,
+    "APPHOSTING_SERVES_TARGET_SHA",
+    appHostingServingStatus,
+    appHostingServingStatus === "PASS"
+      ? "El rollout exitoso y la asignación actual del 100 % enlazan el build READY con el SHA objetivo exacto."
+      : appHostingServingStatus === "MISMATCH"
+        ? "App Hosting sirve otro SHA Git o el destino observado no es el backend productivo esperado."
+        : appHostingServingStatus === "MISSING"
+          ? "El build activo de App Hosting no expone un SHA Git verificable."
+          : "Falta confirmar tráfico único al 100 %, reconciliación, estado READY o rollout exitoso del build activo.",
+  );
+  const appHostingVerified = appHostingUriStatus === "PASS" && appHostingServingStatus === "PASS";
 
   const functions = input.functions;
   const functionsActive = functions !== null
@@ -275,7 +367,9 @@ export function evaluarReleaseEvidence(input: ReleaseEvidenceInput): ReleaseEvid
 
   return {
     contract: "G-SAAS-02-RELEASE-EVIDENCE",
+    schemaVersion: 2,
     observedAt: new Date().toISOString(),
+    projectId: input.projectId,
     targetSha: input.targetSha,
     readOnly: true,
     productionWrites: false,
@@ -284,8 +378,8 @@ export function evaluarReleaseEvidence(input: ReleaseEvidenceInput): ReleaseEvid
     automatic: {
       ciGreen,
       ci: input.ci,
-      vercelVerified,
-      vercel: input.vercel,
+      appHostingVerified,
+      appHosting,
       functions: input.functions,
       functionsHash: functionsUniform ? functionHashes[0] ?? null : null,
       functionsUniform,

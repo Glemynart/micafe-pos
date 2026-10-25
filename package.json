@@ -89,7 +89,7 @@
     "g-saas-02:catalog-review-plan": "tsx scripts/g-saas-02/catalog-offline-plan.ts",
     "g-saas-02:diana-production-functions-preflight": "tsx scripts/g-saas-02/diana-production-functions-preflight-cli.ts",
     "test:g-saas-02:recovery": "tsx --test scripts/g-saas-02/recovery-restore-core.test.ts scripts/g-saas-02/recovery-restore-api.test.ts scripts/g-saas-02/recovery-verify-core.test.ts",
-    "test:g-saas-02:release-evidence": "tsx --test scripts/g-saas-02/release-evidence-core.test.ts scripts/g-saas-02/rules-api-headers.test.ts"
+    "test:g-saas-02:release-evidence": "tsx --test scripts/g-saas-02/release-evidence-core.test.ts scripts/g-saas-02/apphosting-release.test.ts scripts/g-saas-02/rules-api-headers.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

@@ -521,6 +521,9 @@ jobs:
       - name: Auditoría automática E4.2 de release readiness
         run: npm run test:e4-02:contract
 
+      - name: Colector read-only de evidencia App Hosting para G-SAAS-02
+        run: npm run test:g-saas-02:release-evidence
+
       - name: Generar evidencia E4.2 de release readiness
         run: npm run e4-02:readiness
         env:
