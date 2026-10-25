@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { ActivacionCredencial } from '@/components/auth/activacion-credencial'
+import { persistAdminUsername, readRememberedAdminUsername } from '@/lib/auth/admin-username-storage'
 import { Store, Loader2, ShieldAlert, Eye, EyeOff } from 'lucide-react'
 
 function AdminLoginContent() {
@@ -21,8 +22,7 @@ function AdminLoginContent() {
   const [recordar, setRecordar] = useState(true)
 
   useEffect(() => {
-    const saved = localStorage.getItem("admin_user")
-    if (saved) setUsername(saved)
+    setUsername(readRememberedAdminUsername())
   }, [])
 
   const notAdmin = params.get('error') === 'not_admin'
@@ -30,7 +30,6 @@ function AdminLoginContent() {
 
   useEffect(() => {
     if (!authCargando && usuario) {
-      if (recordar) localStorage.setItem("admin_user", username)
       if (usuario.rol === 'admin' || usuario.rol === 'marketing') {
         router.replace(from)
       }
@@ -42,10 +41,12 @@ function AdminLoginContent() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     limpiarError()
-    if (!username.trim() || !password.trim()) return
+    const codigo = username.trim()
+    if (!codigo || !password.trim()) return
+    persistAdminUsername(codigo, recordar)
     setLogging(true)
     try {
-      await login(username.trim(), password)
+      await login(codigo, password)
     } finally {
       setLogging(false)
     }
@@ -144,7 +145,11 @@ function AdminLoginContent() {
                     type="checkbox"
                     id="recordar"
                     checked={recordar}
-                    onChange={(e) => setRecordar(e.target.checked)}
+                    onChange={(e) => {
+                      const habilitado = e.target.checked
+                      setRecordar(habilitado)
+                      if (!habilitado) persistAdminUsername(username, false)
+                    }}
                     className="w-4 h-4 rounded border-border bg-input accent-primary"
                   />
                   <label htmlFor="recordar" className="text-xs text-muted-foreground cursor-pointer">Recordar usuario</label>
