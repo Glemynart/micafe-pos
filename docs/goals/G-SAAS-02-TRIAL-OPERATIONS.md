@@ -30,6 +30,102 @@ embargo, conserva su suscripción mensual histórica y su Trial
 `2026-08-03`–`2026-09-02`; por tanto, todavía no se considera iniciado el
 Trial anual de este Goal.
 
+Los documentos de agosto anteriores y su referencia al Trial mensual de Café
+Atrato son antecedentes del tenant histórico, no evidencia del estado de
+Distribuidora Las Jiménez. Para Diana, aplica el estado vigente de abajo.
+
+## Estado vigente — 2026-10-25
+
+La observación de solo lectura del proyecto `micafe-pos` a las
+`2026-10-25T19:38:38Z` se hizo contra `main @
+9d16054395a1deef4aaa029a5e94c7c28d7118b0`. El colector devolvió
+`INCOMPLETE`, `readOnly=true` y `productionWrites=false`:
+
+- **App Hosting:** el backend productivo existe y está reconciliado. El build
+  `build-2026-10-25-002` está `READY`, su rollout está `SUCCEEDED` y sirve el
+  100 % del tráfico, pero su fuente es `93755442c41db9909f3f20d2fe4ed32d285e41cf`,
+  no el SHA actual. No se hizo rollout como parte de esta observación. El PR
+  #671 solo modifica la construcción/empaquetado de Functions.
+- **Functions:** 107/107 observadas activas en Node.js 22. Se reconcilió la
+  distribución de hashes de despliegue, pero esa evidencia no vincula por sí
+  sola cada paquete con un SHA Git. El artefacto de
+  `crearArticuloInventarioBodegaV1` continúa siendo la generación
+  `1791970149962712`; su JavaScript compilado no contiene las validaciones de
+  categoría del mismo tenant ni de costo entero en COP presentes en el código
+  versionado. La lectura directa la confirma `ACTIVE`, Gen2, `us-central1`,
+  Node.js 22, codebase `saas-bodega`, como callable HTTPS sin trigger de evento;
+  usa `882525811433-compute@developer.gserviceaccount.com` y expone
+  `https://creararticuloinventariobodegav1-w6qbeqsxfa-uc.a.run.app`. El PR #671
+  asegura un build limpio antes de empaquetar, pero no actualiza la Function
+  activa.
+- **Inventario Functions/codebases — 2026-10-25T19:48Z:** `firebase
+  functions:list --project micafe-pos` observó 107/107 `ACTIVE`, 107 Gen2,
+  107 en `us-central1` y Node.js 22; no encontró nombres duplicados. Los
+  codebases desplegados son `saas-auth` 65, `saas-bodega` 16,
+  `saas-bodega-membership` 1, `saas-bodega-operations` 7, `saas-bootstrap` 1,
+  `saas-commercial` 2, `saas-operational-activation` 1,
+  `saas-operational-auth` 1, `saas-operational-onboarding` 1,
+  `saas-operator-summary` 1, `saas-platform-context` 1,
+  `saas-platform-credential-recovery` 3, `saas-platform-resources` 2,
+  `saas-platform-tenant-access` 2, `saas-tenant-configuration` 1,
+  `saas-tenant-credential-recovery` 1 y `saas-tenant-profile` 1. El
+  `firebase.json` versionado declara 20 codebases; no hay Functions desplegadas
+  en `saas-dusema-binding`, `saas-dusema-platform` ni
+  `saas-platform-financial-account-provisioning`. Los dos primeros están fuera
+  del Goal Café Atrato. La ausencia del último deja sin callable productiva
+  `provisionarCuentaOperativaTenantSaas`; no se ha demostrado que bloqueara el
+  catálogo o el acceso inicial de Diana.
+- **Aviso de solicitudes:** `notificarSolicitudVentaBodegaPendienteV1` no está
+  desplegada. El dispatcher programado existente procesa el outbox como
+  recuperación con una cadencia de hasta cinco minutos; la solicitud permanece
+  consultable en Backoffice. La notificación inmediata prevista por ADR-SAAS-065
+  no está certificada en producción.
+- **Rules:** Firestore coincide exactamente con `firestore.rules` del SHA
+  observado (ruleset `07e7341c-d86c-450a-b19d-b5ce41e14437`, SHA-256
+  `6a33992cff8a2d23bb7cda37308a32e652ebd35396766e14ed615a663673f5e2`).
+  Storage coincide con `storage.rules` (ruleset
+  `1df06087-5bca-4822-ba5a-50ac951c9cf4`, SHA-256
+  `fc837a77b952f3f2cf9e6eec24e7962eb0177a992f0776810d4798b5a1ee9f2b`). No
+  se requiere volver a publicar Rules por el cambio de SHA: el contenido
+  efectivo coincide.
+- **Readiness independiente:** smoke productivo y atestación independiente de
+  recuperación faltan. Se observó PITR deshabilitado, una programación de
+  backups, 35 backups y ubicación `southamerica-east1`; esto no demuestra una
+  restauración actual. Las 48 pruebas Rules Emulator y la certificación
+  Emulator/E2E de CI son evidencia automatizada, no sustituyen esos dos gates.
+- **Acceso de Diana:** el responsable informó haber recibido las credenciales
+  del administrador tras autorizar el Bootstrap. No se observó un login de
+  Diana ni un smoke autenticado en esta revisión. El colector de release no
+  consulta Empresa, oferta, suscripción o membresía; su estado actual no queda
+  certificado por esta evidencia.
+- **Catálogo:** el Excel fuente revisado tiene SHA-256
+  `13385cc5a5081a4309b7e05da5f9e2412f8f13bc067cec70d8dc6972bd2fd51e` y la
+  validación de la plantilla confirmó que corresponde a ese origen, pero
+  mantiene incompleto el mapeo operacional y `importReady=false`. Contiene 107 filas de
+  `PRECIOS A TIENDA` y 55 de `PRECIOS CONS FINAL`; 51 referencias exclusivas de
+  consumidor quedan diferidas y cuatro cruces entre listas permanecen en
+  cuarentena. Hay cero productos completamente mapeados o importados. Los 107
+  productos de tienda todavía requieren categoría, unidad base, presentación,
+  factor de conversión y base/unidad de `AL COSTO`; los 103 sin cruce ambiguo
+  también requieren ese mapeo. El POS conserva `PRECIO VENTA` de tienda como
+  tarifa única y `AL COSTO` como costo, sin aplicar automáticamente el 10 %.
+- **Inventario:** no se encontró una fuente fiable de cantidades. El Excel
+  aprobado no contiene conteo; una copia anterior tiene 113 cantidades vacías
+  y solo 98 nombres coincidentes. La plantilla de conteo local está preparada
+  pero sin cantidades confirmadas. No se cargaron productos ni existencias.
+  El catálogo vacío no bloquea el acceso y configuración administrativa inicial
+  del Trial autorizado, pero sí impide declarar ventas y compras listas.
+
+Los checks del PR #671 y el CI completo
+([run `40224499187`](https://github.com/Glemynart/micafe-pos/actions/runs/40224499187))
+terminaron `success`, incluidos build, pruebas, Emulator, E2E y E4.1/E4.2. La
+CI post-merge ([run `40226607685`](https://github.com/Glemynart/micafe-pos/actions/runs/40226607685))
+terminó `success` para `main @ 9d16054395a1deef4aaa029a5e94c7c28d7118b0`, sin
+fallos. Interpretar cada resultado por su SHA. CI verde no autoriza un despliegue.
+El SHA servido por App Hosting, las Functions sin
+reconciliación exacta de fuente, el smoke autenticado y la recuperación siguen
+siendo gates separados.
+
 ## 1. Gate de entrada
 
 Antes de crear o modificar un tenant se registra:
@@ -59,9 +155,10 @@ No se usan NIT, credenciales fiscales, PINs o secretos inventados.
 6. En modo DEMO, validar entrada al POS. Una venta no fiscal se valida únicamente después de aprobar y cargar el catálogo, y disponer de existencias mediante el flujo canónico aplicable. Si el catálogo sigue aplazado, registrar la prueba de venta como pendiente y no declarar Bodega lista para vender.
 7. Configurar productos/presentaciones después de recibir y aprobar el maestro digital; completar clientes, usuarios, permisos y flujo inicial conforme a las necesidades declaradas del cliente.
 
-### 2.1 Gate previo: ensayo Bodega MVP-1 en Firebase App Hosting staging
+### 2.1 Evidencia histórica: ensayo Bodega MVP-1 en App Hosting staging
 
-El entorno de ensayo vigente es Firebase App Hosting, no un Preview de Vercel:
+El ensayo siguiente es histórico; no es el destino productivo ni un requisito
+para mantener un staging permanente:
 
 - URL: `https://micafe-pos--micafe-pos-staging.us-central1.hosted.app`.
 - Proyecto/backend/región: `micafe-pos-staging` / `micafe-pos` / `us-central1`.
@@ -83,6 +180,9 @@ registran esos datos durante la preparación ni se confunden con datos del
 fixture.
 
 ### 2.1.1 Preparación específica del Trial de Diana (revisión 2026-10-23)
+
+Este apartado refleja el estado conocido al 23-octubre; el estado de
+provisionamiento y acceso más reciente se consigna en “Estado vigente”.
 
 - El responsable aprobó el `2026-10-23` la excepción de Trial anual de 15 días
   para este caso y confirmó la aceptación expresa de Diana. La oferta es de
