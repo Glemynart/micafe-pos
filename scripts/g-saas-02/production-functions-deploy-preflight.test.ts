@@ -48,6 +48,12 @@ test("el build limpio de Bodega elimina salida obsoleta y permite crear el paque
 
     assert.equal(existsSync(staleArtifact), false, "el build debe retirar JS obsoleto de lib");
     assert.equal(existsSync(entrypoint), true, "el entrypoint declarado debe existir tras compilar");
+    const compiledExports = require(entrypoint) as Record<string, unknown>;
+    assert.equal(
+      typeof compiledExports.crearArticuloInventarioBodegaV1,
+      "function",
+      "el artefacto compilado debe exponer la callable usada por producción",
+    );
 
     const { prepareFunctionsUpload } = require(resolve(
       repositoryRoot,
