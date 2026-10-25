@@ -288,3 +288,81 @@ SHA.
 Esta relectura es informativa y no cambia autorización alguna. No se ejecutaron
 despliegues, escrituras de producción, altas de tenant ni smoke. Gate I continúa
 `INCOMPLETE`.
+
+## Reconciliación post-#631/#649 y preflight del candidato — 2026-10-25
+
+**Revisado:** `2026-10-25T06:15Z`
+**Candidato:** `origin/main @ 76b8a4fc284ddf46db0f82655173a3fffbd00573`
+**CI:** run `40164731593`, `completed/success` para el SHA exacto.
+**Propósito:** actualizar la interpretación de `/compras` y conservar esta matriz como gate previo a publicar Rules. Esta relectura no publica ni autoriza por sí sola Rules.
+
+La comparación de `firestore.rules` entre la base documental de esta matriz
+(`34fc2da84836b77b8320df32c05a22aad0158227`) y el candidato muestra que los
+únicos cambios efectivos posteriores corresponden al alcance de compras de
+#629, #631 y #649. Los merges #631 y #649 preservan explícitamente el flujo
+legacy para tenants `GENERAL`; la regla no debe describirse como “admin puede
+escribir compras en cualquier vertical”.
+
+| Operación en `/compras/{id}` | Rules productivas observadas | Candidato `76b8a4f` | Consumidor e impacto comprobado |
+|---|---|---|---|
+| Lectura | Lectura autenticada tenant-aware. | Sin cambio: `puedeLeerTenant() && esAutenticado()`. | El historial y las vistas administrativas consultan compras dentro del tenant. |
+| Crear | Administrador tenant podía crear directamente sin distinguir vertical/configuración. | Requiere configuración existente, `configuraciones/{empresaId}.empresaId` igual al tenant del token y `vertical` ausente (legacy) o `GENERAL`; además requiere permiso tenant y rol admin. `BODEGA_MVP1`, vertical desconocido, configuración ausente o tenant cruzado quedan denegados. | `lib/compras-service.ts` dirige Bodega a `registrarCompraBodegaV1` y GENERAL/legacy a `registrarCompraOperativaV1`. No se encontró un writer web directo de `/compras` en la aplicación actual. La callable legacy también debe conservar su rechazo de Bodega por ADR-SAAS-075. |
+| Actualizar | Según el ruleset observado, aplicaban las reglas generales históricas de escritura tenant. | Denegada para todos los clientes (`allow update: if false`). | No se encontró consumidor cliente que edite compras existentes; la corrección de una compra no se habilita por esta regla. |
+| Borrar | Administrador tenant podía borrar directamente sin distinguir vertical/configuración. | Mismas comprobaciones de tenant/configuración/vertical que para crear, más permiso tenant y rol admin. Bodega y estados no verificables se deniegan. | El flujo de Bodega no usa borrado cliente; GENERAL conserva la ruta legacy aprobada. |
+| `/controles_release_compras/{id}` | Denegación por catch-all. | Denegación explícita de lectura/escritura. | El control es autoridad server-side; ni GENERAL ni Bodega pueden leerlo o alterarlo desde cliente. |
+
+### Efecto de #631 y #649 y pruebas disponibles
+
+- #631 conserva el comportamiento legacy de GENERAL frente al control de corte
+  de compras, sin abrir el camino directo de Bodega.
+- #649 conserva la escritura admin GENERAL tanto con `vertical: GENERAL` como
+  con el formato legacy sin campo `vertical`; un control activo o pausado de
+  otro alcance no cambia ese comportamiento.
+- La prueba
+  `firestore-rules/bodega-purchases.test.ts` cubre escritura y borrado Bodega
+  denegados, GENERAL y legado permitidos, configuración ausente/mal asociada y
+  vertical desconocido denegados, independencia del control y denegación de
+  escritura del control. La suite Emulator de Rules registró `48/48 PASS`
+  después de #649. No se repitió porque `firestore.rules` y esa suite no han
+  cambiado después de #649.
+- La callable `registrarCompraOperativaV1` está activa y requiere actualizarse
+  al candidato con el guard ADR-SAAS-075 antes de publicar Rules. El smoke de
+  compra no forma parte de esta matriz: no se ejecutan compras ni escrituras
+  productivas para demostrarlo.
+
+### Otras superficies y alcance de autorización
+
+El resto de las divergencias efectivas ya clasificadas en las catorce rutas de
+la matriz original sigue vigente. En particular, GENERAL conserva las lecturas
+legacy de productos, clientes y turnos; las lecturas de perfil quedan limitadas
+al propio UID y el directorio administrativo usa backend; las escrituras de
+ventas siguen denegadas al cliente, incluido el writer DIAN legado. La pausa
+DIAN aceptada por ADR-SAAS-079 aplica únicamente a los tenants aprobados que
+constan en la evidencia vigente, no a empresas futuras. Los documentos SaaS y
+los controles de release siguen siendo server-authoritative y no se abren a
+lectura/escritura cliente. No se amplió el alcance de permisos por inferencia.
+
+La lectura field-mask de `empresas.estado` a las `2026-10-25T06:15:15Z`
+encontró exactamente dos tenants activos/en Trial: `1ae0rD9H8t3ZFSBKrrHR`
+(`activa`) y `Prueba` (`trial`), sin página adicional. La política de Rules es
+global; la lectura deberá repetirse inmediatamente antes de publicar. Si el
+conjunto cambia, se detiene solo Rules y se recalcula el alcance DIAN aceptado.
+
+### Snapshot remoto y recuperación de Rules
+
+| Superficie | Producción leída el 2026-10-25 | Candidato | Resultado |
+|---|---|---|---|
+| Firestore Rules | Release `d5e205db-0ab4-4db1-b5ec-1534bee39d35`; SHA-256 `c3d98b265c4031bc3bf304b74389ece22feaed2d7afe909fe7ea00f86a6a92f3`. | SHA-256 `6a33992cff8a2d23bb7cda37308a32e652ebd35396766e14ed615a663673f5e2`. | `MISMATCH`; la publicación sigue pendiente. |
+| Storage Rules | SHA-256 remoto y candidato `fc837a77b952f3f2cf9e6eec24e7962eb0177a992f0776810d4798b5a1ee9f2b`. | Igual. | `PASS`; no hay cambio de Storage requerido por este corte. |
+
+Rules se publican atómicamente. Volver sin evaluación al ruleset anterior
+reabriría la escritura directa de compras Bodega y perdería las denegaciones
+añadidas en otras rutas. El procedimiento de recuperación de esta etapa es un
+forward-fix compatible; cualquier vuelta temporal al ruleset previo exige
+contener primero las escrituras afectadas. La existencia del ruleset anterior
+no acredita una recuperación probada.
+
+**Estado de esta actualización:** compatibilidad de compras GENERAL/Bodega y
+efectos de #631/#649 reconciliados con el candidato. Functions, Rules y App
+Hosting aún no están certificados conjuntamente; no se afirma conformidad de
+release ni readiness de ventas/compras.
