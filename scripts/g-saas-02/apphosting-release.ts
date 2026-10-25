@@ -19,6 +19,10 @@ interface ReadResult {
   error?: string;
 }
 
+const APPHOSTING_PROJECT_NUMBERS: Readonly<Record<string, string>> = {
+  "micafe-pos": "882525811433",
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -68,7 +72,7 @@ function canonicalChildResourceName(
   const match = /^projects\/([^/]+)\/locations\/([^/]+)\/backends\/([^/]+)\/(builds|rollouts)\/([^/]+)$/.exec(name);
   if (!match) return null;
   const [, projectRef, locationId, backendId, resourceKind, resourceId] = match;
-  if (projectRef !== options.projectId && !/^\d+$/.test(projectRef ?? "")) return null;
+  if (projectRef !== options.projectId && APPHOSTING_PROJECT_NUMBERS[options.projectId] !== projectRef) return null;
   if (locationId !== options.locationId || backendId !== options.backendId || resourceKind !== kind) return null;
   return `${resourcePath(options)}/${kind}/${resourceId}`;
 }
