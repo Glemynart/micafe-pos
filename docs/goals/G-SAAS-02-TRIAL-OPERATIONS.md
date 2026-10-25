@@ -120,8 +120,9 @@ Los checks del PR #671 y el CI completo
 ([run `40224499187`](https://github.com/Glemynart/micafe-pos/actions/runs/40224499187))
 terminaron `success`, incluidos build, pruebas, Emulator, E2E y E4.1/E4.2. La
 CI post-merge ([run `40226607685`](https://github.com/Glemynart/micafe-pos/actions/runs/40226607685))
-seguía `in_progress` en la observación más reciente; interpretar cada resultado
-por su SHA. CI verde no autoriza un despliegue. El SHA servido por App Hosting, las Functions sin
+terminó `success` para `main @ 9d16054395a1deef4aaa029a5e94c7c28d7118b0`, sin
+fallos. Interpretar cada resultado por su SHA. CI verde no autoriza un despliegue.
+El SHA servido por App Hosting, las Functions sin
 reconciliación exacta de fuente, el smoke autenticado y la recuperación siguen
 siendo gates separados.
 
