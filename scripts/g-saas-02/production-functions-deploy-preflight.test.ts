@@ -11,12 +11,18 @@ import {
 
 const repositoryRoot = resolve(import.meta.dirname, "../..");
 const firebaseConfig = JSON.parse(readFileSync(resolve(repositoryRoot, "firebase.json"), "utf8")) as {
-  functions: Array<{ source: string; codebase: string }>;
+  functions: Array<{ source: string; codebase: string; predeploy?: string[] }>;
 };
 const packageJson = JSON.parse(readFileSync(resolve(repositoryRoot, "package.json"), "utf8")) as {
   scripts: Record<string, string | undefined>;
 };
 const configuredCodebases = firebaseConfig.functions.map(({ codebase }) => codebase);
+
+test("compila functions-bodega antes de cualquier despliegue de su codebase", () => {
+  const bodega = firebaseConfig.functions.find(({ codebase }) => codebase === "saas-bodega");
+
+  assert.deepEqual(bodega?.predeploy, ["npm --prefix functions-bodega run build"]);
+});
 
 function deployedFunction(
   name: string,
