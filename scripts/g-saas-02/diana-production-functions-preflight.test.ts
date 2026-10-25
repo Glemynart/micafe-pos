@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DIANA_PRODUCTION_FUNCTIONS,
+  collectNamedFunctionExports,
   evaluateDianaProductionFunctionsPreflight,
   type DeployedDianaFunction,
 } from "./diana-production-functions-preflight.js";
@@ -168,4 +169,22 @@ test("el allowlist versionado contiene exactamente las tres funciones requeridas
     { name: "consultarOfertaComercialTenantSaas", codebase: "saas-commercial", source: "functions-commercial", mayBeNew: true },
     { name: "solicitarBootstrapEmpresarialSaas", codebase: "saas-bootstrap", source: "functions-bootstrap", mayBeNew: false },
   ]);
+});
+
+test("reconoce exports nombrados directos, reexports y aliases del entrypoint", () => {
+  assert.deepEqual(collectNamedFunctionExports(`
+    export { alpha, beta as betaPublica } from "./domain";
+    export const gamma = () => undefined;
+    export async function delta() {}
+    export class epsilon {}
+  `), ["alpha", "betaPublica", "delta", "epsilon", "gamma"]);
+});
+
+test("rechaza codebases configurados duplicados", () => {
+  const result = evaluate({
+    codebases: [...configuredCodebases, { codebase: "saas-commercial", source: "functions-commercial" }],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.blockers.includes("CODEBASE_DUPLICATED:saas-commercial"));
 });
