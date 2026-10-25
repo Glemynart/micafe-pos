@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import {
@@ -10,6 +12,7 @@ import {
 } from "./production-functions-deploy-preflight-core.js";
 
 const repositoryRoot = resolve(import.meta.dirname, "../..");
+const require = createRequire(import.meta.url);
 const firebaseConfig = JSON.parse(readFileSync(resolve(repositoryRoot, "firebase.json"), "utf8")) as {
   functions: Array<{ source: string; codebase: string; predeploy?: string[] }>;
 };
@@ -22,6 +25,57 @@ test("compila functions-bodega antes de cualquier despliegue de su codebase", ()
   const bodega = firebaseConfig.functions.find(({ codebase }) => codebase === "saas-bodega");
 
   assert.deepEqual(bodega?.predeploy, ["npm --prefix functions-bodega run build"]);
+});
+
+test("el build limpio de Bodega elimina salida obsoleta y permite crear el paquete de Functions", async () => {
+  const sourceDir = resolve(repositoryRoot, "functions-bodega");
+  const bodegaPackage = JSON.parse(readFileSync(resolve(sourceDir, "package.json"), "utf8")) as { main: string };
+  const outputDir = resolve(sourceDir, "lib");
+  const staleArtifact = resolve(outputDir, `__codex_stale_${process.pid}.js`);
+  const entrypoint = resolve(sourceDir, bodegaPackage.main);
+  const npmCli = process.env.npm_execpath;
+  assert.ok(npmCli, "npm debe exponer su CLI para ejecutar el mismo build configurado en predeploy");
+  mkdirSync(outputDir, { recursive: true });
+  writeFileSync(staleArtifact, "stale output must not be packaged");
+
+  let packagePath: string | undefined;
+  try {
+    execFileSync(process.execPath, [npmCli, "--prefix", "functions-bodega", "run", "build"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      stdio: "pipe",
+    });
+
+    assert.equal(existsSync(staleArtifact), false, "el build debe retirar JS obsoleto de lib");
+    assert.equal(existsSync(entrypoint), true, "el entrypoint declarado debe existir tras compilar");
+
+    const { prepareFunctionsUpload } = require(resolve(
+      repositoryRoot,
+      "node_modules/firebase-tools/lib/deploy/functions/prepareFunctionsUpload.js",
+    )) as {
+      prepareFunctionsUpload: (
+        projectDir: string,
+        sourceDir: string,
+        config: { ignore: string[] },
+        additionalSources: string[],
+        runtimeConfig: undefined,
+        options: { exportType: "zip" },
+      ) => Promise<{ pathToSource: string }>;
+    };
+    const packaged = await prepareFunctionsUpload(
+      repositoryRoot,
+      sourceDir,
+      { ignore: ["node_modules", ".git"] },
+      [],
+      undefined,
+      { exportType: "zip" },
+    );
+    packagePath = packaged.pathToSource;
+    assert.ok(statSync(packagePath).size > 0, "Firebase CLI debe producir un paquete local no vacío");
+  } finally {
+    rmSync(staleArtifact, { force: true });
+    if (packagePath) rmSync(packagePath, { force: true });
+  }
 });
 
 function deployedFunction(
