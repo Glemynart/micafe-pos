@@ -41,7 +41,7 @@ export function LoginScreen() {
           </div>
 
           <div className="space-y-0.5">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">POS Empresarial</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Dusema POS</h1>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Punto de venta</p>
           </div>
         </CardHeader>
@@ -118,7 +118,7 @@ export function LoginScreen() {
             </Button>
 
             <p className="text-center text-[11px] text-muted-foreground pt-1">
-              POS Empresarial
+              Dusema POS
             </p>
           </form>
           )}

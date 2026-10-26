@@ -81,7 +81,7 @@ export function BottomNav() {
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-border/60 bg-card lg:flex">
       <div className="flex h-18 items-center gap-3 border-b border-border/60 px-6">
         <Store className="size-6 text-primary" aria-hidden="true" />
-        <div><p className="text-lg font-bold tracking-tight">MiCafe POS</p><p className="text-[10px] font-medium uppercase tracking-[.18em] text-muted-foreground">Espacio de trabajo</p></div>
+        <div><p className="text-lg font-bold tracking-tight">Dusema POS</p><p className="text-[10px] font-medium uppercase tracking-[.18em] text-muted-foreground">Espacio de trabajo</p></div>
       </div>
       <nav aria-label="Navegación principal de administración" className="flex-1 space-y-1 overflow-y-auto px-3 py-6">
         <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[.18em] text-muted-foreground">Tu negocio</p>

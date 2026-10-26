@@ -25,7 +25,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   const navegacion = <>
     <Link href="/backoffice" onClick={() => setOpen(false)} className="flex h-20 shrink-0 items-center gap-3 border-b border-border/60 px-6">
       <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm"><ShieldCheck className="size-5" /></span>
-      <span><strong className="block text-lg tracking-tight">MiCafe</strong><small className="text-[10px] font-medium uppercase tracking-[.16em] text-muted-foreground">Control de plataforma</small></span>
+      <span><strong className="block text-lg tracking-tight">Dusema POS</strong><small className="text-[10px] font-medium uppercase tracking-[.16em] text-muted-foreground">Control de plataforma</small></span>
     </Link>
     <nav aria-label="Navegación de plataforma" className="flex-1 space-y-6 overflow-y-auto px-3 py-6">
       {grupos.map(grupo => {

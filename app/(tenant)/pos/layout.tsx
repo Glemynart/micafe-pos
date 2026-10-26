@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "POS Empresarial",
+  title: "Dusema POS",
   description: "Plataforma empresarial de punto de venta",
 }
 

@@ -13,10 +13,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'POS Empresarial',
+  title: 'Dusema POS',
   description: 'Plataforma empresarial de punto de venta',
   openGraph: {
-    title: 'POS Empresarial',
+    title: 'Dusema POS',
     description: 'Plataforma empresarial de punto de venta',
     type: 'website',
     locale: 'es_CO',

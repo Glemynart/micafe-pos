@@ -18,6 +18,8 @@ El aviso de notificaciones pasa a ocupar espacio en el contenido, con opción te
 
 ## Compatibilidad y límites
 
+Por solicitud del responsable, la marca visible del software es **Dusema POS** en administración, POS de vendedores, Backoffice, metadatos y nombre instalable PWA. Se conservan los identificadores técnicos `micafe-pos`, dominios, claves de almacenamiento y marcas propias del negocio Café Atrato. Este cambio de presentación no renombra proyectos ni recursos remotos.
+
 - No se agregan endpoints, esquemas, persistencia de dominio ni integraciones.
 - Se conservan los payloads y servicios de productos, presentaciones, clientes, inventario, venta, agenda, ofertas y suscripciones.
 - Búsquedas y estados de apertura de editores son locales. La creación de clientes bloquea envíos simultáneos mientras su petición está pendiente.

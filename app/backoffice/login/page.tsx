@@ -46,7 +46,7 @@ export default function BackofficeLoginPage() {
             <span className="grid size-11 place-items-center rounded-2xl bg-slate-950 text-cyan-300">
               <ShieldCheck className="size-5" />
             </span>
-            <strong className="text-base text-foreground">MiCafe SaaS</strong>
+            <strong className="text-base text-foreground">Dusema POS</strong>
           </div>
           <form onSubmit={submit} aria-describedby="login-description">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Backoffice SaaS</p>

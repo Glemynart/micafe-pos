@@ -15,13 +15,13 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: "POS Empresarial Admin",
+  title: "Dusema POS · Administración",
   description: "Panel de administración empresarial",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "POS Empresarial",
+    title: "Dusema POS",
   },
 }
 

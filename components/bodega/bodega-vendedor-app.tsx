@@ -287,7 +287,7 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   return (
     <div className="seller-workspace min-h-screen bg-background text-foreground lg:pl-60">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-border/60 bg-card lg:flex">
-        <div className="flex h-18 items-center gap-3 border-b border-border/60 px-6"><Store className="size-6 text-primary" /><div><p className="font-bold tracking-tight">MiCafe POS</p><p className="text-[10px] uppercase tracking-[.16em] text-muted-foreground">Espacio de ventas</p></div></div>
+        <div className="flex h-18 items-center gap-3 border-b border-border/60 px-6"><Store className="size-6 text-primary" /><div><p className="font-bold tracking-tight">Dusema POS</p><p className="text-[10px] uppercase tracking-[.16em] text-muted-foreground">Espacio de ventas</p></div></div>
         <nav aria-label="Navegación del vendedor" className="flex-1 space-y-1 p-3 pt-6">{sellerTabs.map(item => <button key={item.id} type="button" aria-pressed={tab === item.id} onClick={() => setTab(item.id)} className={cn("flex min-h-11 w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors", tab === item.id ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50")}><item.icon className="size-[18px] shrink-0" />{item.label}</button>)}</nav>
         <div className="m-4 rounded-xl bg-muted/40 p-4"><p className="text-sm font-semibold">{usuario.nombre}</p><p className="mt-1 text-xs text-muted-foreground">Vendedor</p></div>
       </aside>

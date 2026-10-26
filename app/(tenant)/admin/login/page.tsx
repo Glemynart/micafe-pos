@@ -71,7 +71,7 @@ function AdminLoginContent() {
               <Store className="h-8 w-8 text-primary-foreground" />
             </div>
             <div className="text-center">
-              <h1 className="text-xl font-bold text-foreground">MiCafe POS</h1>
+              <h1 className="text-xl font-bold text-foreground">Dusema POS</h1>
               <p className="text-sm text-muted-foreground">Administración de tu negocio</p>
             </div>
           </div>

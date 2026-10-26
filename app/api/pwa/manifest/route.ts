@@ -9,8 +9,8 @@ const ESTADOS_PUBLICABLES = new Set(["trial", "activa"])
 
 function manifestNeutral() {
   return {
-    name: "POS Empresarial",
-    short_name: "POS Empresarial",
+    name: "Dusema POS",
+    short_name: "Dusema POS",
     description: "Panel de administración empresarial",
     start_url: "/admin",
     scope: "/admin",
@@ -42,7 +42,7 @@ export async function GET(req: Request) {
       return NextResponse.json(manifestNeutral(), { headers: { "Cache-Control": "no-store" } })
     }
 
-    const nombre = branding.nombreVisible || configuracion?.identidadFiscal?.nombreComercial || "POS Empresarial"
+    const nombre = branding.nombreVisible || configuracion?.identidadFiscal?.nombreComercial || "Dusema POS"
     const icono = branding.assets?.iconoAplicacion?.ubicacion || branding.assets?.favicon?.ubicacion
     const lightPrimary = branding.paletas.light.primary || "#334155"
     const lightBackground = branding.paletas.light.background || "#f8fafc"
