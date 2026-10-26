@@ -5,6 +5,7 @@ import {
   ejecutarConsultarCatalogoPresentacionesVendedor,
   ejecutarCrearPresentacionComercialV1,
   normalizarReferenciaPresentacionComercial,
+  resolverPrecioCanalBodega,
   resolverPresentacionComercialEnTransaccion,
 } from "./presentaciones";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
@@ -201,6 +202,41 @@ test("U2-B: el resolver futuro usa factor/precio persistidos y rechaza precio en
   assert.deepEqual({ factor: canonica.factorUnidadBase, precio: canonica.precioCOP, producto: canonica.productoId }, { factor: 24, precio: 12000, producto: "producto-empresa-a" });
   assert.throws(() => normalizarReferenciaPresentacionComercial({ productoId: "producto-empresa-a", presentacionId: creada.presentacionId, precioCOP: 500 }), /PAYLOAD_INVALIDO/);
   assert.throws(() => normalizarReferenciaPresentacionComercial({ empresaId: "empresa-b", productoId: "producto-empresa-a", presentacionId: creada.presentacionId }), /PAYLOAD_INVALIDO/);
+});
+
+test("ADR-092: conserva precioCOP histórico como tarifa tienda y exige precio retail explícito", async () => {
+  const db = new FakeFirestore(); seed(db);
+  const creada = await create(db, "tarifas", {
+    productoId: "producto-empresa-a",
+    nombre: "Caja",
+    factorUnidadBase: 24,
+    precioTiendaCOP: 24000,
+    precioConsumidorFinalCOP: 30000,
+  });
+  const canonica = await db.runTransaction(tx => resolverPresentacionComercialEnTransaccion(tx, db, "empresa-a", { productoId: "producto-empresa-a", presentacionId: creada.presentacionId }));
+  assert.equal(canonica.precioCOP, 24000);
+  assert.equal(canonica.precioTiendaCOP, 24000);
+  assert.equal(canonica.precioConsumidorFinalCOP, 30000);
+  assert.equal(resolverPrecioCanalBodega(canonica, "tienda"), 24000);
+  assert.equal(resolverPrecioCanalBodega(canonica, "consumidor_final"), 30000);
+
+  const legacy = await create(db, "legado", payload("producto-empresa-a", 6, 6000, "Paca"));
+  const legacyCanonica = await db.runTransaction(tx => resolverPresentacionComercialEnTransaccion(tx, db, "empresa-a", { productoId: "producto-empresa-a", presentacionId: legacy.presentacionId }));
+  assert.equal(legacyCanonica.precioTiendaCOP, 6000);
+  assert.equal(legacyCanonica.precioConsumidorFinalCOP, null);
+  assert.throws(() => resolverPrecioCanalBodega(legacyCanonica, "consumidor_final"), /PRECIO_CONSUMIDOR_FINAL_NO_CONFIGURADO/);
+});
+
+test("ADR-092: no acepta tarifas de tienda inconsistentes y permite retirar una tarifa retail", async () => {
+  const db = new FakeFirestore(); seed(db);
+  await assert.rejects(create(db, "tarifa-inconsistente", {
+    productoId: "producto-empresa-a", nombre: "Caja", factorUnidadBase: 24, precioCOP: 24000, precioTiendaCOP: 25000,
+  }), /PRECIO_TIENDA_INCONSISTENTE/);
+  const creada = await create(db, "tarifa-retail", {
+    productoId: "producto-empresa-a", nombre: "Caja", factorUnidadBase: 24, precioTiendaCOP: 24000, precioConsumidorFinalCOP: 30000,
+  });
+  await ejecutarActualizarPresentacionComercialV1(db, adminA, envelope("retirar-retail", { presentacionId: creada.presentacionId, precioConsumidorFinalCOP: null }));
+  assert.equal(db.docs.get(`presentaciones_producto/${creada.presentacionId}`)?.precioConsumidorFinalCOP, null);
 });
 
 test("U2-B: acepta referencias de presentación generadas por el identificador interno canónico", () => {
