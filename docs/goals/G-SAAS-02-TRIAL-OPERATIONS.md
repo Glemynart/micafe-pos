@@ -221,9 +221,19 @@ provisionamiento y acceso más reciente se consigna en “Estado vigente”.
   La emisión DIAN desde la aplicación web no está disponible y no debe
   presentarse como una capacidad activa. La aceptación temporal de operar sin
   emisión no cierra Gate I ni certifica DIAN para otros tenants.
-- Catálogo final recibido: el archivo `DISTRIBUIDORA LAS JIMENEZ (1).xlsx` es
-  la fuente para preparar la importación; el CSV privado previo queda obsoleto
-  y no debe usarse. La lectura conserva separadas las listas de precios a
+- Catálogo — actualización vigente por ADR-SAAS-092: el archivo más reciente
+  recibido, `DISTRIBUIDORA LAS JIMENEZ (2).xlsx`, sustituye al archivo `(1)`
+  como fuente privada de revisión. Para Bodega, ADR-SAAS-092 supersede
+  explícitamente la tarifa única de ADR-SAAS-070: cada presentación puede tener
+  tarifa de tienda y tarifa de consumidor final. Esta última solo se puede
+  importar mediante una asociación explícita, revisable y aprobada con una
+  presentación de tienda; nunca por coincidencia aproximada de nombres. Hasta
+  que exista esa asociación y el corte de código correspondiente, el catálogo
+  actual conserva el precio de tienda, no habilita Nevera ni ventas retail, y
+  no se importan datos ni existencias. El siguiente detalle conserva el
+  preflight histórico anterior a ADR-SAAS-092; no define la política vigente.
+  El CSV privado previo queda obsoleto y no debe usarse. La lectura conserva
+  separadas las listas de precios a
   tienda y consumidor final. El usuario confirmó que `PRECIO VENTA` de
   “PRECIOS A TIENDA” será la única tarifa operativa del POS para todos los
   compradores, conforme a ADR-SAAS-041 y ADR-SAAS-070; “PRECIOS CONS FINAL” no
