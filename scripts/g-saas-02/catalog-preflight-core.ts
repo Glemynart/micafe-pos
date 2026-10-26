@@ -1,8 +1,9 @@
+import { sugerirCategoriaCatalogoDiana, type SugerenciaCategoriaCatalogoDiana } from "../../lib/bodega/diana-catalog-category-suggestions.js";
+
 export interface CatalogCellLike {
   value?: unknown;
   text?: string;
 }
-
 export interface CatalogRowLike {
   cellCount: number;
   getCell(columnNumber: number): CatalogCellLike;
@@ -30,6 +31,7 @@ export interface CatalogRowDecision {
   sourceRow: number;
   candidateCrossListRows: number[];
   issueCodes: string[];
+  categorySuggestion: SugerenciaCategoriaCatalogoDiana | null;
   decisions: Record<DecisionField, string | null>;
 }
 
@@ -401,6 +403,7 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
       sourceRow: record.rowNumber,
       candidateCrossListRows,
       issueCodes,
+      categorySuggestion: sheet.kind === "store" ? sugerirCategoriaCatalogoDiana(record.productName) : null,
       decisions: {
         category: null,
         baseUnit: null,
@@ -462,6 +465,7 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
       ],
       humanDecisions: [
         "Precio operativo confirmado: usar PRECIO VENTA de PRECIOS A TIENDA como fuente del único precio por presentación para todos los compradores, conforme a ADR-SAAS-041 y ADR-SAAS-070. Tarifas diferenciadas por comprador requieren un nuevo alcance y ADR.",
+        "Las categorías sugeridas por reglas locales son recomendaciones de este catálogo; confirma o corrige cada valor antes de importarlo. Las filas sin coincidencia clara requieren revisión manual.",
         ...(crossListMatchReferences.length > 0
           ? ["Las coincidencias por nombre entre listas son referencias candidatas; requieren confirmación y no se fusionan automáticamente."]
           : []),

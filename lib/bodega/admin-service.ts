@@ -6,6 +6,7 @@ import { resolverCallableOperacionBodega } from "./operation-routing"
 import { proyectarVentaBodegaAdmin, type VentaBodegaAdminDTO } from "@/lib/bodega/ui-contract"
 import type { Cliente } from "@/lib/clientes-service"
 import { proyectarProductoBodegaAdmin, type ProductoBodegaAdmin } from "@/lib/bodega/product-admin-projection"
+import type { CatalogImportSnapshot } from "@/lib/bodega/diana-catalog-import"
 
 export type { ProductoBodegaAdmin } from "@/lib/bodega/product-admin-projection"
 
@@ -61,10 +62,39 @@ export async function listarEspaciosBodega(): Promise<Array<{ id: string; nombre
   return snapshot.docs.map(doc => ({ id: doc.id, nombre: String(doc.data().nombre ?? doc.id) }))
 }
 
-export async function listarCategoriasBodega(): Promise<Array<{ id: string; nombre: string }>> {
+export async function listarCategoriasBodega(): Promise<Array<{ id: string; nombre: string; espacioId: string }>> {
   const query = await tenantQuery(collection(db, "categorias"))
   const snapshot = await getDocs(query)
-  return snapshot.docs.map(doc => ({ id: doc.id, nombre: String(doc.data().nombre ?? doc.id) }))
+  return snapshot.docs.map(doc => ({ id: doc.id, nombre: String(doc.data().nombre ?? doc.id), espacioId: String(doc.data().espacioId ?? "") }))
+}
+
+export async function obtenerSnapshotCatalogoBodega(): Promise<CatalogImportSnapshot> {
+  const [categoriesQuery, productsQuery, presentationsQuery] = await Promise.all([
+    tenantQuery(collection(db, "categorias")),
+    tenantQuery(collection(db, "productos")),
+    tenantQuery(collection(db, "presentaciones_producto")),
+  ])
+  const [categories, products, presentations] = await Promise.all([
+    getDocs(categoriesQuery),
+    getDocs(productsQuery),
+    getDocs(presentationsQuery),
+  ])
+  return {
+    categorias: categories.docs.map(doc => ({
+      id: doc.id,
+      nombre: String(doc.data().nombre ?? doc.id),
+      espacioId: String(doc.data().espacioId ?? ""),
+    })),
+    productos: products.docs.map(doc => proyectarProductoBodegaAdmin(doc.id, doc.data())),
+    presentaciones: presentations.docs.map(doc => ({
+      id: doc.id,
+      productoId: String(doc.data().productoId ?? ""),
+      nombre: String(doc.data().nombre ?? ""),
+      factorUnidadBase: Number(doc.data().factorUnidadBase ?? 0),
+      precioCOP: Number(doc.data().precioCOP ?? 0),
+      activo: doc.data().activo === true,
+    })),
+  }
 }
 
 export async function crearProductoBodega(data: { nombre: string; categoriaId: string; espacioId: string; unidad: string; stock: number; stockMinimo: number; costo: number }): Promise<string> {

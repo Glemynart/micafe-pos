@@ -82,6 +82,7 @@
     "test:g-saas-02:catalog-preflight": "tsx --test scripts/g-saas-02/catalog-preflight.test.ts scripts/g-saas-02/catalog-xlsx-reader.test.ts",
     "test:g-saas-02:catalog-review-validation": "tsx --test scripts/g-saas-02/catalog-review-validation.test.ts",
     "test:g-saas-02:catalog-offline-plan": "tsx --test scripts/g-saas-02/catalog-offline-plan.test.ts",
+    "test:g-saas-02:catalog-import": "tsx --test lib/bodega/diana-catalog-category-suggestions.test.ts lib/bodega/diana-catalog-import.test.ts scripts/g-saas-02/catalog-preflight.test.ts scripts/g-saas-02/catalog-xlsx-reader.test.ts scripts/g-saas-02/catalog-review-validation.test.ts scripts/g-saas-02/catalog-offline-plan.test.ts",
     "test:g-saas-02:production-functions-preflight": "tsx --test scripts/g-saas-02/production-functions-deploy-preflight.test.ts",
     "test:g-saas-02:diana-production-functions-preflight": "tsx --test scripts/g-saas-02/diana-production-functions-preflight.test.ts",
     "g-saas-02:catalog-preflight": "tsx scripts/g-saas-02/catalog-preflight.ts",
