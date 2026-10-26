@@ -136,7 +136,7 @@ export function TenantOfferPage() {
             <Card>
               <CardContent className="space-y-6 p-6">
                 <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">Oferta autorizada</p><h3 className="mt-2 text-xl font-semibold">{autorizacion?.nombreEmpresaObjetivo ?? "Oferta Gate I"}</h3><p className="mt-1 font-mono text-sm text-slate-500">{autorizacion?.empresaIdObjetivo}</p></div>
-                <dl className="grid gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
+                <dl className="grid gap-4 rounded-xl bg-slate-50 p-4 @xl:grid-cols-2">
                   <div><dt className="text-xs uppercase tracking-wide text-slate-500">Plan base</dt><dd className="mt-1 font-medium">{autorizacion?.planIdBase} · v{autorizacion?.planVersionBase}</dd></div>
                   <div><dt className="text-xs uppercase tracking-wide text-slate-500">Periodicidad</dt><dd className="mt-1 font-medium">Anual</dd></div>
                   <div><dt className="text-xs uppercase tracking-wide text-slate-500">Trial aprobado</dt><dd className="mt-1 font-medium">{autorizacion?.trialDias} días · aceptación registrada</dd></div>
@@ -166,7 +166,7 @@ export function TenantOfferPage() {
                       <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">La empresa ya tiene activa otra oferta ({consulta.ofertaActivaId}). No se creará otro borrador; primero debe resolverse esa oferta por el flujo canónico.</p>
                     ) : (
                       <>
-                        <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid gap-4 @xl:grid-cols-2">
                           <div className="grid gap-1"><Label htmlFor="oferta-inicia">Inicia el</Label><Input id="oferta-inicia" type="date" value={iniciaEn} onChange={(event) => setIniciaEn(event.target.value)} required /></div>
                           <div className="grid gap-1"><Label htmlFor="oferta-expira">Vence el</Label><Input id="oferta-expira" type="date" min={iniciaEn} value={expiraEn} onChange={(event) => setExpiraEn(event.target.value)} disabled={sinVencimiento} required={!sinVencimiento} /></div>
                         </div>

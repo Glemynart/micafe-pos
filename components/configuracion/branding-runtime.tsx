@@ -28,7 +28,7 @@ export function BrandingRuntime() {
     if (branding.favicon) { if (!icon) { icon = document.createElement('link'); icon.rel = 'icon'; document.head.appendChild(icon) } icon.href = branding.favicon } else icon?.remove()
     return () => {
       for (const variable of variables) root.style.removeProperty(variable)
-      document.title = 'POS Empresarial'
+      document.title = 'Dusema POS'
       if (branding.favicon) icon?.remove()
       if (manifest) manifest.href = manifestOriginal
     }

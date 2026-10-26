@@ -38,6 +38,7 @@
     "test:purchase-command": "tsx --test lib/compra-command.test.ts lib/compra-input-validation.test.ts",
     "test:bodega-ui": "tsx --test lib/bodega/*.test.ts",
     "test:firebase-push-service-worker": "tsx --test lib/__tests__/firebase-push-service-worker.test.ts",
+    "test:admin-service-worker": "tsx --test lib/__tests__/admin-service-worker.test.ts",
     "test:onboarding": "tsx --test lib/__tests__/onboarding.test.ts",
     "test:backfill": "tsx --test scripts/lib/__tests__/*.test.ts",
     "test:p0-01:verifier": "tsx --test scripts/p0-01/verifier.test.ts",

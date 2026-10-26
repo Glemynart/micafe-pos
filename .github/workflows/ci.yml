@@ -309,6 +309,9 @@ jobs:
       - name: Configuración del service worker de Firebase Messaging
         run: npm run test:firebase-push-service-worker
 
+      - name: Actualización del HTML de administración entre releases
+        run: npm run test:admin-service-worker
+
       - name: Pruebas de tickets
         run: npm run test:tickets
 

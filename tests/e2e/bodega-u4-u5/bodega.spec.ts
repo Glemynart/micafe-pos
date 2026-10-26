@@ -117,7 +117,7 @@ async function aprobarSolicitudEnBackoffice(browser: import("@playwright/test").
   const adminPage = await context.newPage()
   try {
     await login(adminPage, tenant.admin, true)
-    await expect(adminPage.getByRole("heading", { name: "Centro de operación" })).toBeVisible()
+    await expect(adminPage.getByRole("heading", { name: "Tu negocio, de un vistazo" })).toBeVisible()
     await adminPage.goto("/admin/solicitudes")
     await expect(adminPage.getByRole("heading", { name: "Solicitudes de venta" })).toBeVisible()
     const referencia = solicitudId.length > 18 ? `…${solicitudId.slice(-8).toUpperCase()}` : solicitudId
@@ -132,7 +132,7 @@ async function aprobarSolicitudEnBackoffice(browser: import("@playwright/test").
 
 test("vendedor solicita transferencia, admin aprueba y el pago materializa una única venta", async ({ page, browser }) => {
   test.setTimeout(120_000)
-  await login(page, tenantA.vendedor); await expect(page.getByText("Bodega móvil")).toBeVisible()
+  await login(page, tenantA.vendedor); await expect(page.getByText("Tu espacio de ventas")).toBeVisible()
   await page.getByRole("button", { name: tenantA.productoNombre }).click(); await expect(page.getByRole("button", { name: "Enviar solicitud" })).toBeEnabled(); await expect(page.getByText("Sin turno")).toBeVisible()
   await page.getByRole("button", { name: "Enviar solicitud" }).click()
   await expect(page.getByRole("heading", { name: "Mis solicitudes" })).toBeVisible()
@@ -167,11 +167,11 @@ test("vendedor solicita transferencia, admin aprueba y el pago materializa una �
   const movimientosCaja = await db.collection("transacciones_financieras").where("empresaId", "==", tenantA.empresaId).where("cuentaDocumentoId", "==", "caja-principal").get(); expect(movimientosCaja.size).toBe(0)
   await page.goto("/admin")
   await expect(page.getByText(/Acceso denegado|Sesión activa en la caja|Tu cuenta no tiene permisos de administrador/)).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Centro de operación" })).toHaveCount(0)
+  await expect(page.getByRole("heading", { name: "Tu negocio, de un vistazo" })).toHaveCount(0)
 })
 
 test("reintento tras perder la respuesta de la venta conserva una sola solicitud y sus efectos", async ({ page, browser }) => {
-  await login(page, tenantC.vendedor); await expect(page.getByText("Bodega móvil")).toBeVisible()
+  await login(page, tenantC.vendedor); await expect(page.getByText("Tu espacio de ventas")).toBeVisible()
   const db = getFirestore(app)
   await page.getByRole("button", { name: tenantC.productoNombre }).click()
   await page.getByRole("button", { name: "Enviar solicitud" }).click()
@@ -236,10 +236,10 @@ test("reintento tras perder la respuesta de la venta conserva una sola solicitud
 })
 
 test("vendedor aprobado confirma efectivo sin turno con recibido y cambio persistidos", async ({ page, browser }) => {
-  await login(page, tenantE.vendedor); await expect(page.getByText("Bodega móvil")).toBeVisible()
+  await login(page, tenantE.vendedor); await expect(page.getByText("Tu espacio de ventas")).toBeVisible()
   const db = getFirestore(app)
   const solicitudesAntes = new Set((await db.collection("empresas").doc(tenantE.empresaId).collection("solicitudes_venta_bodega").get()).docs.map(solicitud => solicitud.id))
-  await page.getByRole("button", { name: tenantE.productoNombre }).click(); await page.getByLabel(`Cantidad de ${tenantE.presentacionNombre}`).fill("2"); await page.getByRole("button", { name: "Enviar solicitud" }).click(); await expect(page.getByRole("heading", { name: "Mis solicitudes" })).toBeVisible()
+  await page.getByRole("button", { name: tenantE.productoNombre }).click(); await page.getByRole("spinbutton", { name: `Cantidad de ${tenantE.presentacionNombre}`, exact: true }).fill("2"); await page.getByRole("button", { name: "Enviar solicitud" }).click(); await expect(page.getByRole("heading", { name: "Mis solicitudes" })).toBeVisible()
   const solicitudesDespues = await db.collection("empresas").doc(tenantE.empresaId).collection("solicitudes_venta_bodega").get()
   const solicitudNueva = solicitudesDespues.docs.find(solicitud => !solicitudesAntes.has(solicitud.id))
   expect(solicitudNueva).toBeTruthy()
@@ -262,7 +262,7 @@ test("vendedor aprobado confirma efectivo sin turno con recibido y cambio persis
 })
 
 test("Bodega conserva aislamiento A/B en UI y callable real", async ({ page }) => {
-  await login(page, tenantA.vendedor); await expect(page.getByText("Bodega móvil")).toBeVisible(); await expect(page.locator(`option[value="${tenantA.clienteId}"]`)).toHaveCount(1); await expect(page.getByRole("button", { name: tenantA.productoNombre })).toBeVisible(); await expect(page.locator(`option[value="${tenantB.clienteId}"]`)).toHaveCount(0); await expect(page.getByRole("button", { name: tenantB.productoNombre })).toHaveCount(0)
+  await login(page, tenantA.vendedor); await expect(page.getByText("Tu espacio de ventas")).toBeVisible(); await expect(page.locator(`option[value="${tenantA.clienteId}"]`)).toHaveCount(1); await expect(page.getByRole("button", { name: tenantA.productoNombre })).toBeVisible(); await expect(page.locator(`option[value="${tenantB.clienteId}"]`)).toHaveCount(0); await expect(page.getByRole("button", { name: tenantB.productoNombre })).toHaveCount(0)
   const clienteA = await clienteAutenticado(tenantA.vendedor)
   try {
     const crearSolicitud = httpsCallable(clienteA.functions, "crearSolicitudVentaBodegaV1")
@@ -274,8 +274,8 @@ test("Bodega conserva aislamiento A/B en UI y callable real", async ({ page }) =
 })
 
 test("administrador Bodega ve únicamente el backoffice y conserva operaciones de A", async ({ page }) => {
-  await login(page, tenantA.admin, true); await expect(page.getByRole("heading", { name: "Centro de operación" })).toBeVisible(); await page.goto("/pos"); await expect(page).toHaveURL(/\/admin$/); await expect(page.locator(".theme-pos")).toHaveCount(0)
-  await page.goto("/admin/catalogo"); await expect(page.getByRole("article").filter({ hasText: tenantA.productoNombre })).toBeVisible(); await expect(page.getByRole("article").filter({ hasText: tenantB.productoNombre })).toHaveCount(0); await page.getByLabel(`Precio ${tenantA.presentacionNombre}`).fill("5500"); await page.getByRole("button", { name: "Guardar" }).click(); await expect.poll(async () => (await getFirestore(app).collection("presentaciones_producto").doc(tenantA.presentacionId).get()).data()?.precioCOP).toBe(5500)
+  await login(page, tenantA.admin, true); await expect(page.getByRole("heading", { name: "Tu negocio, de un vistazo" })).toBeVisible(); await page.goto("/pos"); await expect(page).toHaveURL(/\/admin$/); await expect(page.locator(".theme-pos")).toHaveCount(0)
+  await page.goto("/admin/catalogo"); await expect(page.getByRole("article").filter({ hasText: tenantA.productoNombre })).toBeVisible(); await expect(page.getByRole("article").filter({ hasText: tenantB.productoNombre })).toHaveCount(0); await page.getByRole("article").filter({ hasText: tenantA.productoNombre }).locator("summary").click(); await page.getByLabel(`Precio ${tenantA.presentacionNombre}`).fill("5500"); await page.getByRole("button", { name: "Guardar" }).click(); await expect.poll(async () => (await getFirestore(app).collection("presentaciones_producto").doc(tenantA.presentacionId).get()).data()?.precioCOP).toBe(5500)
   await page.goto("/admin/clientes"); await expect(page.getByText(tenantA.clienteNombre)).toBeVisible(); await expect(page.getByText(tenantB.clienteNombre)).toHaveCount(0); await page.goto("/admin/inventario"); await expect(page.getByRole("heading", { name: "Existencias en unidad base" })).toBeVisible(); await page.goto("/admin/ventas"); await expect(page.getByRole("heading", { name: "Consulta operativa" })).toBeVisible(); await expect(page.getByText(tenantA.clienteNombre).first()).toBeVisible(); await expect(page.getByText(tenantB.clienteNombre)).toHaveCount(0)
 })
 
@@ -339,7 +339,7 @@ test("admin Bodega completa perfil comercial en primer acceso y entra al panel a
   await page.getByLabel("Departamento", { exact: true }).fill("BOGOTÁ, D.C.")
   await page.getByLabel("Ciudad o municipio", { exact: true }).fill("BOGOTÁ, D.C.")
   await page.getByRole("button", { name: "Guardar y continuar en DEMO" }).click()
-  await expect(page.getByRole("heading", { name: "Centro de operación" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Tu negocio, de un vistazo" })).toBeVisible()
 
   const [company, config] = await Promise.all([
     db.collection("empresas").doc(tenantF.empresaId).get(),
@@ -352,7 +352,7 @@ test("admin Bodega completa perfil comercial en primer acceso y entra al panel a
   expect(evaluarReadinessConfiguracion(config.data() as any).fiscal.lista).toBe(false)
 
   await page.reload()
-  await expect(page.getByRole("heading", { name: "Centro de operación" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Tu negocio, de un vistazo" })).toBeVisible()
 })
 
 test("el detalle del turno seleccionado refleja el snapshot de cierre en vivo", async ({ page }) => {
@@ -405,7 +405,7 @@ test("el detalle del turno seleccionado refleja el snapshot de cierre en vivo", 
 })
 
 test("administrador Bodega B solo consulta su propio catálogo", async ({ page }) => {
-  await login(page, tenantB.admin, true); await expect(page).toHaveURL(/\/admin$/); await expect(page.getByRole("heading", { name: "Centro de operación" })).toBeVisible()
+  await login(page, tenantB.admin, true); await expect(page).toHaveURL(/\/admin$/); await expect(page.getByRole("heading", { name: "Tu negocio, de un vistazo" })).toBeVisible()
   await page.goto("/admin/catalogo"); await expect(page.getByRole("article").filter({ hasText: tenantB.productoNombre })).toBeVisible(); await expect(page.getByText(tenantA.productoNombre)).toHaveCount(0)
 })
 
@@ -482,5 +482,5 @@ test("administrador Bodega crea vendedor mediante la incorporación canónica", 
 })
 
 test("GENERAL autorizado conserva el POS legacy en /pos", async ({ page }) => {
-  await login(page, tenantGeneral.admin); await expect(page.locator(".theme-pos")).toBeVisible(); await expect(page.getByText("Bodega móvil")).toHaveCount(0); await expect(page).not.toHaveURL(/\/admin$/)
+  await login(page, tenantGeneral.admin); await expect(page.locator(".theme-pos")).toBeVisible(); await expect(page.getByText("Tu espacio de ventas")).toHaveCount(0); await expect(page).not.toHaveURL(/\/admin$/)
 })

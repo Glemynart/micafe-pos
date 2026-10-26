@@ -33,10 +33,21 @@ test.describe("P0-01 — certificación operativa en emuladores", () => {
       });
 
       await test.step("navegación PWA según el Plan", async () => {
-        const bottomNav = page.locator("nav.fixed.bottom-0");
-        await expect(bottomNav.getByRole("link", { name: "Reservas", exact: true })).toBeVisible();
-        await expect(bottomNav.getByRole("link", { name: "Finanzas", exact: true })).toBeVisible();
-        await expect(bottomNav.getByRole("link", { name: "Turnos", exact: true })).toBeVisible();
+        const viewportOriginal = page.viewportSize();
+        for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+          await page.setViewportSize(viewport);
+          const navigation = page.getByRole("navigation", {
+            name: viewport.width >= 1024
+              ? "Navegación principal de administración"
+              : "Navegación móvil de administración",
+            exact: true,
+          });
+          await expect(navigation).toBeVisible();
+          for (const nombre of ["Reservas", "Finanzas", "Turnos"]) {
+            await expect(navigation.getByRole("link", { name: nombre, exact: true })).toBeVisible();
+          }
+        }
+        if (viewportOriginal) await page.setViewportSize(viewportOriginal);
       });
 
       await test.step("configuración y POS tenant-aware", async () => {

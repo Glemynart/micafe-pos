@@ -3,6 +3,68 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Administración responsive. Usa los tokens de branding vigentes del tenant. */
+@layer components {
+  .admin-action {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground shadow-xs transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50;
+  }
+  .admin-editor-form {
+    @apply grid min-w-0 gap-4;
+  }
+  .admin-editor-form > div {
+    @apply min-w-0;
+  }
+  .admin-editor-form label {
+    @apply block min-w-0 text-sm font-medium;
+  }
+  .admin-editor-form input,
+  .admin-editor-form select,
+  .admin-editor-form textarea {
+    @apply w-full min-w-0 rounded-xl border border-border bg-background px-3 text-base outline-none transition-shadow focus:border-primary focus:ring-3 focus:ring-primary/10;
+  }
+  .admin-editor-form input,
+  .admin-editor-form select {
+    @apply min-h-11;
+  }
+  .admin-editor-form button[type="submit"] {
+    @apply mt-2 w-full;
+  }
+  .tenant-admin label {
+    @apply min-w-0;
+  }
+  .tenant-admin input:not([type="checkbox"]):not([type="radio"]),
+  .tenant-admin select,
+  .tenant-admin textarea {
+    @apply min-w-0 outline-none transition-shadow focus:border-primary focus:ring-3 focus:ring-primary/10;
+  }
+  .platform-workspace [data-slot="card"] {
+    @apply min-w-0 rounded-2xl border-border/70 bg-card shadow-xs;
+  }
+  .platform-workspace [data-slot="card-content"] {
+    container-type: inline-size;
+  }
+  .platform-workspace [data-slot="input"],
+  .platform-workspace [data-slot="select-trigger"],
+  .platform-workspace [data-slot="button"] {
+    @apply min-h-11 rounded-xl;
+  }
+  .platform-workspace [data-slot="table-head"] {
+    @apply h-12 bg-muted/25 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground;
+  }
+  .platform-workspace [data-slot="table-cell"] {
+    @apply px-4 py-4;
+  }
+  .seller-workspace input,
+  .seller-workspace select,
+  .seller-workspace textarea {
+    @apply min-w-0 text-base outline-none transition-shadow focus:border-primary focus:ring-3 focus:ring-primary/10;
+  }
+  .seller-workspace button:focus-visible,
+  .tenant-admin button:focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+}
+
 /* ──────────────────────────────────────────────────────────────
    Referencia visual legacy desactivada; la base activa es SaaS neutral.
    Navy  #051D41  → oklch(0.24 0.075 262)
@@ -104,6 +166,7 @@
 /* Base SaaS neutral. El Branding tenant solo sobreescribe tokens semánticos
    validados en runtime; nunca se materializan estilos empresariales aquí. */
 :root {
+  --radius: 0.75rem;
   --navy: #334155;
   --navy-soft: #475569;
   --gold: #64748b;

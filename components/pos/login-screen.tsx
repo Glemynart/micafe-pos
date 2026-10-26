@@ -1,5 +1,6 @@
 'use client'
 
+import { WorkspaceWelcome } from "@/components/pwa/workspace-welcome"
 import { useState, useEffect } from 'react'
 import { Store, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,15 +9,6 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { ActivacionCredencial } from '@/components/auth/activacion-credencial'
 import { useAuthContext } from '@/contexts/auth-context'
-
-const PARTICULAS = [
-  { left: '18%', delay: '0s', duration: '3.2s', scale: 1 },
-  { left: '35%', delay: '0.6s', duration: '3.5s', scale: 0.8 },
-  { left: '52%', delay: '1.1s', duration: '3.0s', scale: 1.1 },
-  { left: '28%', delay: '1.7s', duration: '3.4s', scale: 0.9 },
-  { left: '46%', delay: '2.2s', duration: '3.1s', scale: 1 },
-  { left: '62%', delay: '2.8s', duration: '3.6s', scale: 0.85 },
-]
 
 export function LoginScreen() {
   const { login, iniciandoSesion, errorLogin, limpiarError, activacionPendiente } = useAuthContext()
@@ -35,35 +27,10 @@ export function LoginScreen() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
-      {/* Orbes de fondo derivados del tema SaaS neutral. */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -left-40 w-[36rem] h-[36rem] bg-primary/10 rounded-full blur-[140px]" />
-        <div className="absolute -bottom-40 -right-40 w-[40rem] h-[40rem] bg-secondary/70 rounded-full blur-[120px]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[30rem] h-[30rem] bg-accent/10 rounded-full blur-[100px]" />
-      </div>
-
-      {/* Steam particles */}
-      <div className="absolute inset-0 pointer-events-none">
-        {PARTICULAS.map((p, i) => (
-          <div
-            key={i}
-            className="absolute"
-            style={{
-              left: p.left,
-              bottom: '28%',
-              animation: `steam ${p.duration} ease-in-out infinite`,
-              animationDelay: p.delay,
-              transform: `scale(${p.scale})`,
-              opacity: 0,
-            }}
-          >
-            <div className="w-2 h-10 bg-gradient-to-t from-primary/25 via-primary/10 to-transparent rounded-full blur-[2px]" />
-          </div>
-        ))}
-      </div>
-
-      <Card className="w-full max-w-sm mx-4 bg-card border-border shadow-2xl animate-scale-in relative z-10 rounded-2xl">
+    <div className="grid min-h-dvh bg-background lg:grid-cols-2">
+      <WorkspaceWelcome label="Punto de venta" />
+      <div className="flex min-w-0 items-center justify-center px-5 py-10 sm:px-10">
+      <Card className="w-full max-w-md rounded-2xl border-border/70 bg-card shadow-xs">
         <CardHeader className="text-center pb-1 pt-8">
           {/* Logo mark */}
           <div className="mx-auto mb-5 relative">
@@ -74,7 +41,7 @@ export function LoginScreen() {
           </div>
 
           <div className="space-y-0.5">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">POS Empresarial</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Dusema POS</h1>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Punto de venta</p>
           </div>
         </CardHeader>
@@ -151,21 +118,13 @@ export function LoginScreen() {
             </Button>
 
             <p className="text-center text-[11px] text-muted-foreground pt-1">
-              POS Empresarial
+              Dusema POS
             </p>
           </form>
           )}
         </CardContent>
       </Card>
-
-      <style>{`
-        @keyframes steam {
-          0%, 100% { transform: translateY(0) scale(var(--steam-scale, 1)); opacity: 0; }
-          20% { opacity: 0.22; }
-          50% { transform: translateY(-120px) scale(calc(var(--steam-scale, 1) * 0.7)); opacity: 0.08; }
-          80% { opacity: 0; }
-        }
-      `}</style>
+      </div>
     </div>
   )
 }

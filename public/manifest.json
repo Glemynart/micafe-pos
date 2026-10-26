@@ -1,6 +1,6 @@
 {
-  "name": "POS Empresarial",
-  "short_name": "POS Empresarial",
+  "name": "Dusema POS",
+  "short_name": "Dusema POS",
   "description": "Panel de administracion empresarial",
   "start_url": "/admin",
   "scope": "/admin",

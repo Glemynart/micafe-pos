@@ -11,19 +11,17 @@ import { CommercialProfileGate } from "@/components/tenant-profile/commercial-pr
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   themeColor: "#334155",
 }
 
 export const metadata: Metadata = {
-  title: "POS Empresarial Admin",
+  title: "Dusema POS · Administración",
   description: "Panel de administración empresarial",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "POS Empresarial",
+    title: "Dusema POS",
   },
 }
 
@@ -32,11 +30,10 @@ export default function AdminAuthLayout({ children }: { children: React.ReactNod
     <AdminGuard>
       <SwRegister />
       <MarketingGuard>
-        <FcmManagerWrapper />
         <IdleTimer />
-        <AdminHeader />
-        <div className="tenant-admin min-h-[100dvh] bg-background pb-20">
-          <main className="max-w-lg mx-auto px-4 pt-4"><CommercialProfileGate>{children}</CommercialProfileGate></main>
+        <div className="tenant-admin min-h-[100dvh] bg-background pb-24 lg:pb-8 lg:pl-64">
+          <AdminHeader />
+          <main id="admin-content" className="@container mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 lg:px-10 lg:py-9"><FcmManagerWrapper /><CommercialProfileGate>{children}</CommercialProfileGate></main>
           <BottomNav />
         </div>
       </MarketingGuard>

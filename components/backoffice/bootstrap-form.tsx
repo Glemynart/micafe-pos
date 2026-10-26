@@ -95,7 +95,7 @@ export function BootstrapForm() {
           <CardDescription>Selecciona un plan publicado. La versión se asigna automáticamente para conservar el contrato comercial del tenant.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
+          <form onSubmit={submit} className="grid gap-5 @xl:grid-cols-2">
             <Field name="empresaId" label="ID opaco de Empresa" placeholder="empresa_acme_01" required disabled={Boolean(entradaBootstrap)} />
             <div className="sm:col-span-2"><Field name="nombreComercial" label="Nombre comercial" placeholder="Café Central" required disabled={Boolean(entradaBootstrap)} /></div>
             <div className="sm:col-span-2 space-y-2">

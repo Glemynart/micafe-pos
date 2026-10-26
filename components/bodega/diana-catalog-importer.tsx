@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Upload } from "lucide-react";
 import { construirBusquedaWebProducto } from "@/lib/bodega/category-suggestions";
 import { sugerirCategoriaCatalogoDiana } from "@/lib/bodega/diana-catalog-category-suggestions";
 import {
@@ -100,18 +101,21 @@ export function DianaCatalogImporter({ tenantId, espacios, onRunningChange }: { 
     return suggestion.estado === "SUGERIDA" && suggestion.categoria !== item.row.category;
   }).length;
   return (
-    <section className="mb-5 rounded-2xl border border-emerald-700/30 bg-card p-4">
-      <h2 className="font-semibold">Importar catálogo revisado de Distribuidora Las Jiménez</h2>
-      <p className="mt-2 text-sm text-muted-foreground">Carga únicamente un plan generado con el proceso offline después de revisar categoría, unidad base, presentación, factor y base de costo. El importador usa las callables oficiales del tenant, toma el precio de tienda como tarifa única, crea el stock en cero y no incluye la lista de consumidor ni existencias.</p>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <label className="text-sm">Plan JSON revisado
-          <input type="file" accept=".json,application/json" disabled={corriendo} onChange={event => { void cargarArchivo(event.currentTarget.files?.[0]); event.currentTarget.value = "" }} className="mt-1 block w-full rounded-lg border border-border bg-background p-2" />
+    <details className="group mb-5 rounded-2xl border border-border/70 bg-card p-5 shadow-xs sm:p-6">
+      <summary onClick={event => { if (corriendo) event.preventDefault() }} className="flex cursor-pointer list-none items-center gap-3"><span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/5 text-primary"><Upload className="size-5" aria-hidden="true" /></span><span className="flex-1"><span className="block text-[10px] font-semibold uppercase tracking-[.16em] text-muted-foreground">Carga masiva · Distribuidora Las Jiménez</span><span className="mt-1 block font-semibold tracking-tight">{corriendo ? "Importación en curso…" : "Importar catálogo revisado"}</span></span><span className="text-xs font-medium text-muted-foreground group-open:hidden">Abrir +</span></summary>
+      <div className="mt-5 border-t border-border/60 pt-1">
+      <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">Carga el plan JSON revisado con categorías, unidades, presentaciones y costos confirmados. Se usará el precio de tienda como tarifa única y el inventario empezará en cero; la lista de consumidor y las existencias quedan fuera de esta carga.</p>
+      <div className="mt-5 grid items-center gap-5 @xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <label className="relative flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-primary/30 bg-primary/[.025] p-4 text-center transition-colors hover:bg-primary/5 focus-within:ring-3 focus-within:ring-ring/30">
+          <Upload className="mb-1 size-5 text-primary" aria-hidden="true" /><span className="text-sm font-semibold">Seleccionar plan JSON revisado</span><span className="text-xs text-muted-foreground">{archivo || "Archivo .json · máximo 2 MiB"}</span>
+          <input type="file" aria-label="Plan JSON revisado" accept=".json,application/json" disabled={corriendo} onChange={event => { void cargarArchivo(event.currentTarget.files?.[0]); event.currentTarget.value = "" }} className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed" />
         </label>
-        <label className="text-sm">Espacio de destino
-          <select value={espacioId} onChange={event => { void cambiarEspacio(event.target.value) }} disabled={corriendo || espacios.length === 0} className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3">
+        <label className="min-w-0 text-sm font-medium">Espacio de destino
+          <select value={espacioId} onChange={event => { void cambiarEspacio(event.target.value) }} disabled={corriendo || espacios.length === 0} className="mt-2 h-11 w-full min-w-0 rounded-xl border border-border bg-background px-3">
             <option value="">Seleccionar</option>
             {espacios.map(space => <option key={space.id} value={space.id}>{space.nombre}</option>)}
           </select>
+          <span className="mt-2 block text-xs font-normal leading-relaxed text-muted-foreground">Revisarás el contenido y los posibles duplicados antes de confirmar.</span>
         </label>
       </div>
       {archivo && <p className="mt-2 text-xs text-muted-foreground">Plan cargado: {archivo} · tenant activo: {tenantId}</p>}
@@ -152,6 +156,7 @@ export function DianaCatalogImporter({ tenantId, espacios, onRunningChange }: { 
       {progreso && corriendo && <p role="status" className="mt-3 text-sm">{progreso.fase}: {progreso.completadas}/{progreso.total}</p>}
       {resultado && <p role="status" className="mt-3 rounded-xl border border-emerald-600/30 bg-emerald-600/5 p-3 text-sm">Terminado: {resultado.categoriasCreadas} categorías, {resultado.productosCreados} productos y {resultado.presentacionesCreadas} presentaciones creadas. Revisa la conciliación del catálogo antes de habilitar ventas o compras.</p>}
       {error && <p role="alert" className="mt-3 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm">{error}</p>}
-    </section>
+      </div>
+    </details>
   );
 }

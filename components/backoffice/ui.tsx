@@ -8,8 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export function PageIntro({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: ReactNode }) {
   return (
-    <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-      <div><p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-700">{eyebrow}</p><h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{title}</h2><p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">{description}</p></div>
+    <div className="mb-8 flex flex-col gap-5 @3xl:flex-row @3xl:items-end @3xl:justify-between">
+      <div><p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">{eyebrow}</p><h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{title}</h1><p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">{description}</p></div>
       {action}
     </div>
   );
@@ -32,15 +32,15 @@ export function EstadoBadge({ estado }: { estado?: unknown }) {
 }
 
 export function LoadingState({ label = "Cargando datos de plataforma…" }: { label?: string }) {
-  return <Card><CardContent className="flex min-h-48 items-center justify-center gap-3 text-sm text-slate-500"><LoaderCircle className="size-5 animate-spin" />{label}</CardContent></Card>;
+  return <Card><CardContent className="flex min-h-48 items-center justify-center gap-3 text-sm text-muted-foreground"><LoaderCircle className="size-5 animate-spin" />{label}</CardContent></Card>;
 }
 
 export function EmptyState({ title = "Sin resultados", description = "No existen registros para los filtros actuales." }: { title?: string; description?: string }) {
-  return <Card><CardContent className="flex min-h-48 flex-col items-center justify-center text-center"><Inbox className="mb-3 size-8 text-slate-300" /><p className="font-medium">{title}</p><p className="mt-1 text-sm text-slate-500">{description}</p></CardContent></Card>;
+  return <Card><CardContent className="flex min-h-64 flex-col items-center justify-center px-6 py-12 text-center"><Inbox className="mb-3 size-8 text-muted-foreground/40" /><p className="font-medium">{title}</p><p className="mt-1 text-sm text-muted-foreground">{description}</p></CardContent></Card>;
 }
 
 export function ErrorState({ message, retry }: { message: string; retry?: () => void }) {
-  return <Card className="border-rose-200"><CardContent className="flex min-h-40 flex-col items-center justify-center text-center"><AlertCircle className="mb-3 size-8 text-rose-500" /><p className="font-medium">No fue posible cargar la información</p><p className="mt-1 max-w-lg text-sm text-slate-500">{message}</p>{retry && <Button variant="outline" className="mt-4" onClick={retry}><RefreshCw className="mr-2 size-4" />Reintentar</Button>}</CardContent></Card>;
+  return <Card className="border-rose-200"><CardContent className="flex min-h-40 flex-col items-center justify-center text-center"><AlertCircle className="mb-3 size-8 text-rose-500" /><p className="font-medium">No fue posible cargar la información</p><p className="mt-1 max-w-lg text-sm text-muted-foreground">{message}</p>{retry && <Button variant="outline" className="mt-4" onClick={retry}><RefreshCw className="mr-2 size-4" />Reintentar</Button>}</CardContent></Card>;
 }
 
 export function fecha(value: unknown) {
