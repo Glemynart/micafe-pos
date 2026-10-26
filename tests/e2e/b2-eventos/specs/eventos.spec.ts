@@ -18,7 +18,7 @@ test.describe("B2 — lectura pública tenant-aware de eventos", () => {
     await limpiarFixtureB2()
   })
 
-  test("la landing muestra solo eventos del tenant contextualizado y no consulta Firestore desde el cliente", async ({ page }, testInfo) => {
+  test("la landing preservada muestra solo eventos del tenant contextualizado y no consulta Firestore desde el cliente", async ({ page }, testInfo) => {
     const consoleErrors: string[] = []
     const pageErrors: string[] = []
     const directFirestoreRequests: string[] = []
@@ -42,7 +42,7 @@ test.describe("B2 — lectura pública tenant-aware de eventos", () => {
       }
     })
 
-    await page.goto("/")
+    await page.goto("/landing")
     await expect(page.getByTestId("public-events")).toBeVisible()
     await expect(page.getByText("Evento público A", { exact: true })).toBeVisible()
     await expect(page.getByText("Evento público B", { exact: true })).toHaveCount(0)
@@ -62,6 +62,13 @@ test.describe("B2 — lectura pública tenant-aware de eventos", () => {
       apiFailures,
       tenantSlug: B2_PUBLIC_SLUG_A,
     }, null, 2)}\n`)
+  })
+
+  test("la raíz dirige al POS", async ({ request }) => {
+    const response = await request.get("/", { maxRedirects: 0 })
+
+    expect(response.status()).toBe(307)
+    expect(response.headers()["location"]).toBe("/pos")
   })
 
   test("el endpoint aísla tenants y rechaza contexto inexistente, ambiguo o suspendido", async ({ request }) => {
