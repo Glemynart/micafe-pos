@@ -31,28 +31,30 @@ export function AdminHeader() {
     : branding.logo
 
   return (
-    <header className="sticky top-0 z-40 bg-card/95 backdrop-blur-sm border-b border-border px-4 h-14 flex items-center justify-between">
-      <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-sm">
+    <header className="sticky top-0 z-40 flex h-18 items-center justify-between gap-4 border-b border-border/60 bg-card/95 px-4 backdrop-blur-md sm:px-6 lg:px-10">
+      <a href="#admin-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:rounded-lg focus:bg-card focus:p-3">Ir al contenido</a>
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
           {logo ? (
             <img src={logo} alt="" className="h-6 w-6 rounded object-contain" />
           ) : (
             <Store className="h-4 w-4 text-primary-foreground" />
           )}
         </div>
-        <div>
-          <p className="text-sm font-semibold text-foreground leading-none">{branding.nombreVisible}</p>
-          <p className="text-[10px] text-muted-foreground">
-            {usuario?.rol === "admin" ? "Admin" : usuario?.rol === "marketing" ? "Marketing" : usuario?.rol}
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold tracking-tight text-foreground sm:text-base">{branding.nombreVisible}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {usuario?.rol === "admin" ? "Administración del negocio" : usuario?.rol === "marketing" ? "Marketing" : usuario?.rol}
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-3">
         {usuario?.rol === "admin" && (
           <Link
             href="/admin/soporte-saas"
-            className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="flex size-11 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+            aria-label="Autorizaciones de soporte SaaS"
             title="Autorizaciones de soporte SaaS"
           >
             <Headphones className="h-4 w-4" />
@@ -66,7 +68,8 @@ export function AdminHeader() {
         </div>
         <button
           onClick={handleLogout}
-          className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted transition-colors"
+          className="flex size-11 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-destructive focus-visible:outline-2 focus-visible:outline-ring"
+          aria-label="Cerrar sesión"
           title="Cerrar sesion"
         >
           <LogOut className="h-4 w-4" />

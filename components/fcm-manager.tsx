@@ -8,7 +8,7 @@ import { leerContenidoPush } from '@/lib/fcm-notification-content'
 import { registrarFirebasePushServiceWorker } from '@/lib/firebase-push-registration'
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
 import { toast } from 'sonner'
-import { Bell } from 'lucide-react'
+import { Bell, X } from 'lucide-react'
 
 export function FcmManager() {
   const { usuario } = useAuthContext()
@@ -103,15 +103,15 @@ export function FcmManager() {
 
   if (needsPermission && puedeRecibirAgenda) {
     return (
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-sm bg-[#051D41]/95 backdrop-blur-md border border-blue-500/30 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-4">
-        <div className="bg-blue-500/20 p-2 rounded-full">
-          <Bell className="w-5 h-5 text-blue-400" />
+      <div className="mx-auto mb-6 flex w-full max-w-[1440px] flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-card p-4 text-foreground shadow-xs sm:flex-nowrap" role="region" aria-label="Notificaciones del negocio">
+        <div className="rounded-xl bg-primary/5 p-2.5 text-primary">
+          <Bell className="size-5" aria-hidden="true" />
         </div>
         <div className="flex-1">
-          <h4 className="font-bold text-sm text-white/90">
+          <h4 className="text-sm font-semibold">
             {usuario?.rol === 'vendedor' ? 'Recordatorios de pedidos' : 'Alertas operativas'}
           </h4>
-          <p className="text-[11px] text-white/60 leading-tight mt-0.5">
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             {usuario?.rol === 'vendedor'
               ? 'Activa las notificaciones para recibir avisos de tu agenda de pedidos.'
               : 'Activa las notificaciones para recibir avisos operativos de tu empresa.'}
@@ -119,10 +119,11 @@ export function FcmManager() {
         </div>
         <button
           onClick={() => requestPermissionAndGetToken(true)}
-          className="bg-blue-500 hover:bg-blue-600 transition-colors text-white px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap"
+          className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-semibold whitespace-nowrap text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-ring"
         >
           Activar
         </button>
+        <button type="button" onClick={() => setNeedsPermission(false)} aria-label="Recordar más tarde las notificaciones" className="flex size-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"><X className="size-4" /></button>
       </div>
     )
   }

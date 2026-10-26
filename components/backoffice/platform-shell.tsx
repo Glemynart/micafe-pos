@@ -1,65 +1,57 @@
-'use client'
+"use client"
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ChevronRight, LogOut, Menu, ShieldCheck, X } from "lucide-react";
-import { useState, type ReactNode } from "react";
-import { usePlatform } from "@/contexts/platform-context";
-import { obtenerNavegacionVisible } from "@/components/backoffice/platform-navigation";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { ChevronRight, LogOut, Menu, ShieldCheck } from "lucide-react"
+import { useState, type ReactNode } from "react"
+import { usePlatform } from "@/contexts/platform-context"
+import { obtenerNavegacionVisible } from "@/components/backoffice/platform-navigation"
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+
+const grupos = [
+  { label: "OPERACIÓN", paths: ["/backoffice", "/backoffice/empresas"] },
+  { label: "COMERCIAL", paths: ["/backoffice/planes", "/backoffice/ofertas", "/backoffice/suscripciones"] },
+  { label: "GESTIÓN", paths: ["/backoffice/operadores", "/backoffice/auditoria", "/backoffice/soporte", "/backoffice/configuracion"] },
+]
 
 export function PlatformShell({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const pathname = usePathname();
-  const { contexto, tiene, logout } = usePlatform();
-  const items = obtenerNavegacionVisible(tiene);
-  const actual = items.findLast((item) => pathname.startsWith(item.href));
-
-  return (
-    <div className="min-h-screen bg-slate-100 text-slate-950">
-      {open && <button aria-label="Cerrar navegación" className="fixed inset-0 z-30 bg-slate-950/50 lg:hidden" onClick={() => setOpen(false)} />}
-      <aside className={cn(
-        "fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-slate-800 bg-slate-950 text-slate-200 transition-transform lg:translate-x-0",
-        open ? "translate-x-0" : "-translate-x-full",
-      )}>
-        <div className="flex h-20 items-center justify-between border-b border-slate-800 px-6">
-          <Link href="/backoffice" className="flex items-center gap-3" onClick={() => setOpen(false)}>
-            <span className="grid size-10 place-items-center rounded-xl bg-cyan-400 text-slate-950"><ShieldCheck className="size-5" /></span>
-            <span><strong className="block tracking-tight">MiCafe SaaS</strong><small className="text-slate-500">Control de plataforma</small></span>
-          </Link>
-          <button className="lg:hidden" onClick={() => setOpen(false)}><X className="size-5" /></button>
-        </div>
-        <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-          {items.map((item) => {
-            const active = item.href === "/backoffice" ? pathname === item.href : pathname.startsWith(item.href);
-            return (
-              <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
-                className={cn("flex items-center gap-3 rounded-xl px-4 py-3 text-sm transition", active ? "bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-950/30" : "text-slate-400 hover:bg-slate-900 hover:text-white")}>
-                <item.icon className="size-4" /><span className="flex-1">{item.label}</span>{active && <ChevronRight className="size-4" />}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="border-t border-slate-800 p-4">
-          <div className="mb-3 rounded-xl bg-slate-900 px-4 py-3 text-xs text-slate-400">
-            <span className="block truncate font-mono text-slate-200">{contexto?.uid}</span>
-            Autorización v{contexto?.versionAutorizacion}
-          </div>
-          <Button variant="ghost" className="w-full justify-start text-slate-400 hover:bg-slate-900 hover:text-white" onClick={() => void logout()}>
-            <LogOut className="mr-2 size-4" /> Cerrar sesión
-          </Button>
-        </div>
-      </aside>
-      <div className="lg:pl-72">
-        <header className="sticky top-0 z-20 flex h-20 items-center gap-4 border-b bg-white/90 px-5 backdrop-blur lg:px-10">
-          <button aria-label="Abrir navegación" className="rounded-lg border p-2 lg:hidden" onClick={() => setOpen(true)}><Menu className="size-5" /></button>
-          <div><p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Backoffice</p><h1 className="font-semibold">{actual?.label ?? "Plataforma"}</h1></div>
-          <span className="ml-auto inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700"><span className="size-2 rounded-full bg-emerald-500" /> Contexto validado</span>
-        </header>
-        <main className="mx-auto max-w-7xl p-5 lg:p-10">{children}</main>
-      </div>
+  const [open, setOpen] = useState(false)
+  const pathname = usePathname()
+  const { contexto, tiene, logout } = usePlatform()
+  const items = obtenerNavegacionVisible(tiene)
+  const actual = items.findLast(item => pathname.startsWith(item.href))
+  const navegacion = <>
+    <Link href="/backoffice" onClick={() => setOpen(false)} className="flex h-20 shrink-0 items-center gap-3 border-b border-border/60 px-6">
+      <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm"><ShieldCheck className="size-5" /></span>
+      <span><strong className="block text-lg tracking-tight">MiCafe</strong><small className="text-[10px] font-medium uppercase tracking-[.16em] text-muted-foreground">Control de plataforma</small></span>
+    </Link>
+    <nav aria-label="Navegación de plataforma" className="flex-1 space-y-6 overflow-y-auto px-3 py-6">
+      {grupos.map(grupo => {
+        const visibles = items.filter(item => grupo.paths.includes(item.href))
+        if (visibles.length === 0) return null
+        return <div key={grupo.label}><p className="mb-2 px-3 text-[10px] font-semibold tracking-[.16em] text-muted-foreground">{grupo.label}</p><div className="space-y-1">{visibles.map(item => {
+          const active = item.href === "/backoffice" ? pathname === item.href : pathname.startsWith(item.href)
+          return <Link key={item.href} href={item.href} onClick={() => setOpen(false)} aria-current={active ? "page" : undefined} className={cn("flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring", active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}><item.icon className="size-[18px] shrink-0" /><span className="flex-1">{item.label}</span>{active && <ChevronRight className="size-4" />}</Link>
+        })}</div></div>
+      })}
+    </nav>
+    <div className="border-t border-border/60 p-4">
+      <details className="mb-3 rounded-xl bg-muted/40 px-3 py-3 text-xs text-muted-foreground"><summary className="cursor-pointer font-medium text-foreground">Identidad de la sesión</summary><span className="mt-2 block break-all font-mono">{contexto?.uid}</span><span className="mt-1 block">Autorización v{contexto?.versionAutorizacion}</span></details>
+      <Button variant="ghost" className="min-h-11 w-full justify-start text-muted-foreground" onClick={() => void logout()}><LogOut className="mr-2 size-4" />Cerrar sesión</Button>
     </div>
-  );
+  </>
+  return <div className="platform-workspace min-h-screen bg-background text-foreground">
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-border/60 bg-card lg:flex">{navegacion}</aside>
+    <div className="lg:pl-64">
+      <header className="sticky top-0 z-30 flex h-20 items-center gap-4 border-b border-border/60 bg-card/95 px-4 backdrop-blur-md sm:px-6 lg:px-10">
+        <Sheet open={open} onOpenChange={setOpen}><SheetTrigger asChild><button type="button" aria-label="Abrir navegación" className="flex size-11 items-center justify-center rounded-xl border border-border lg:hidden"><Menu className="size-5" /></button></SheetTrigger><SheetContent side="left" className="w-[min(320px,90vw)] gap-0 bg-card"><SheetTitle className="sr-only">Menú de plataforma</SheetTitle><SheetDescription className="sr-only">Accesos disponibles para tu operador.</SheetDescription>{navegacion}</SheetContent></Sheet>
+        <a href="#platform-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:rounded-lg focus:bg-card focus:p-3">Ir al contenido</a>
+        <div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-muted-foreground">Backoffice</p><p className="mt-1 truncate text-sm font-medium">{actual?.label ?? "Plataforma"}</p></div>
+        <span className="ml-auto inline-flex shrink-0 items-center gap-2 rounded-full border border-emerald-700/15 bg-emerald-500/5 px-3 py-2 text-[11px] font-medium text-emerald-700 dark:text-emerald-400"><span className="size-1.5 rounded-full bg-emerald-500" /><span className="hidden sm:inline">Contexto validado</span><span className="sm:hidden">Validado</span></span>
+      </header>
+      <main id="platform-content" className="@container mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 lg:px-10 lg:py-9">{children}</main>
+    </div>
+  </div>
 }
-

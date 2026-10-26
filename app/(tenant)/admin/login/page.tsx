@@ -1,5 +1,6 @@
 'use client'
 
+import { WorkspaceWelcome } from "@/components/pwa/workspace-welcome"
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuthContext } from '@/contexts/auth-context'
@@ -61,22 +62,23 @@ function AdminLoginContent() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background flex flex-col">
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-sm space-y-6">
+    <div className="grid min-h-dvh bg-background lg:grid-cols-2">
+      <WorkspaceWelcome label="Administración" />
+      <div className="flex min-w-0 flex-col items-center justify-center px-5 py-10 sm:px-10">
+        <div className="w-full max-w-md space-y-8">
           <div className="flex flex-col items-center gap-3">
             <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg">
               <Store className="h-8 w-8 text-primary-foreground" />
             </div>
             <div className="text-center">
-              <h1 className="text-xl font-bold text-foreground">POS Empresarial Admin</h1>
-              <p className="text-sm text-muted-foreground">Panel de administracion remoto</p>
+              <h1 className="text-xl font-bold text-foreground">MiCafe POS</h1>
+              <p className="text-sm text-muted-foreground">Administración de tu negocio</p>
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-2xl p-6 backdrop-blur-sm">
+          <div className="rounded-2xl border border-border/70 bg-card p-6 shadow-xs sm:p-8">
             <div className="pb-4">
-              <h2 className="text-lg font-bold text-foreground">Iniciar Sesion</h2>
+              <h2 className="text-lg font-bold text-foreground">Bienvenido de nuevo</h2>
               <p className="text-sm text-muted-foreground">Accede con tu cuenta de administrador</p>
             </div>
             <div>

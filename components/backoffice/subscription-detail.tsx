@@ -109,10 +109,10 @@ export function SubscriptionDetail({ empresaId }: { empresaId: string }) {
         action={<Button variant="outline" asChild><Link href="/backoffice/suscripciones"><ArrowLeft className="mr-2 size-4" />Suscripciones</Link></Button>}
       />
       {!suscripcion ? <EmptyState title="Sin suscripción materializada" description="Esta empresa no tiene una referencia comercial activa." /> : (
-        <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+        <div className="grid gap-6 @4xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)]">
           <Card>
             <CardHeader><CardTitle>Estado comercial</CardTitle></CardHeader>
-            <CardContent className="grid gap-5 sm:grid-cols-2">
+            <CardContent className="grid gap-5 @xl:grid-cols-2">
               <Datum label="Estado"><EstadoBadge estado={suscripcion.estado} /></Datum>
               <Datum label="Revisión">{suscripcion.revision ?? "—"}</Datum>
               <Datum label="Período">{suscripcion.periodoInicio ?? "—"} → {suscripcion.periodoFin ?? "—"}</Datum>
@@ -144,10 +144,10 @@ export function SubscriptionDetail({ empresaId }: { empresaId: string }) {
               <p className="text-xs leading-relaxed text-slate-400">Cada acción invoca el comando comercial canónico con revisión esperada; no escribe el documento directamente.</p>
             </CardContent>
           </Card>
-          <Card className="lg:col-span-2">
+          <Card className="@4xl:col-span-2">
             <CardHeader><CardTitle>Plan contratado</CardTitle></CardHeader>
             <CardContent>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 @xl:grid-cols-2">
                 <Datum label="Plan contratado">{suscripcion.planId ?? "—"}</Datum>
                 <Datum label="Versión contratada">{suscripcion.planVersion ? `v${suscripcion.planVersion}` : "—"}</Datum>
                 {suscripcion.snapshotContrato && <>
