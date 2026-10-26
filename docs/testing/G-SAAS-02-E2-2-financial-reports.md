@@ -35,7 +35,7 @@ ADR-SAAS-016 mantiene separados los registros DEMO de la fiscalidad. La pantalla
 
 - CSV UTF-8 con BOM y separador `;`: una fila por línea, referencia de venta, fecha UTC explícita, vendedor, producto, presentación, cantidades, ingreso, costo histórico, utilidad y medio. Los textos potencialmente interpretables como fórmulas se neutralizan y se escapan comillas; costos desconocidos permanecen vacíos. No incluye datos del cliente ni credenciales. Se genera localmente después de una lectura autorizada.
 - XLSX público y vacío: `public/templates/dusema-auxiliar-contable.xlsx`. No contiene información real de Diana ni conexión a Firebase. La excepción explícita a `.gitignore` se limita a este archivo. No se incluyen otros Excel privados.
-- Hojas: Resumen, Desgloses, Ventas, Gastos, Patrimonio y Guía. Incluye fórmulas mensuales, medios de pago, vendedores y productos/presentaciones; soportes y revisión fiscal permanecen como datos a completar. Las tablas de entrada tienen 1.000 filas, el desglose admite 50 vendedores y 200 presentaciones. Los rangos deben ampliarse antes de superar esos límites.
+- Hojas: Resumen, Ventas y Gastos. Resume por mes, medio de pago y vendedor; las entradas se concentran en dos tablas simples con soporte o nota. Ventas admite 500 filas y Gastos 300. Los rangos deben ampliarse antes de superar esos límites.
 - El CSV y la plantilla son entregas separadas: no existe una importación automática del CSV a la plantilla ni un exportador fiscal. La plantilla se completa con registros conciliados y soportados; no se presenta en DIAN.
 - SHA-256 de la plantilla: `03b62f416b394051b64c2dede3a10466858568dfab325d77c2a8d4673dcdd880`.
 
@@ -55,7 +55,7 @@ La guía cita las páginas oficiales consultadas el 2026-10-26: [DIAN, preparaci
 
 Pruebas del cálculo: `lib/bodega/financial-report.test.ts`, incorporadas por el patrón existente de `npm run test:bodega-ui`. Cubren snapshots, efectivo/cambio, transferencia, vendedor/admin, aislamiento, duplicados, ceros, anulaciones, límites temporales, factores, reconciliación, rankings y CSV. Ejecutar además TypeScript, build, lint de archivos afectados y `npm run test:reportes` para preservar GENERAL.
 
-La plantilla se verificó con entradas ficticias transitorias: venta pagada de 100.000, costo 60.000, gasto 10.000 y venta anulada separada; utilidad bruta 40.000 y resultado tras gastos 30.000. Se probaron costo ausente y cero. Se retiraron esos datos antes de exportar y se reabrió el XLSX con 5.581 fórmulas sin errores. Las seis hojas se renderizaron y revisaron visualmente. No se afirma validación en la instalación de Excel de Diana ni adecuación fiscal de sus datos.
+La plantilla se verificó con entradas ficticias transitorias: venta pagada de 100.000, costo 60.000, gasto 10.000 y venta anulada separada; utilidad bruta 40.000 y resultado tras gastos 30.000. Se probaron costo ausente y cero. Se retiraron esos datos antes de exportar. Las tres hojas se renderizaron y revisaron visualmente. No se afirma validación en la instalación de Excel de Diana ni adecuación fiscal de sus datos.
 
 La revisión visual del panel utiliza componentes reales y fixtures ficticios, sin red Firebase ni comandos de negocio. La evidencia provisional y checks del SHA final se registran en el PR; no se infiere ejecución por este documento.
 
