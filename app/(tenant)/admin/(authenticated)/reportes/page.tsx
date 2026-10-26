@@ -9,6 +9,10 @@ import { generarReporteVentas, obtenerRangoFechas, type ReporteVentas } from "@/
 import { suscribirUsuarios, type Usuario } from "@/lib/permisos-service"
 import { crearIndiceNombres } from "@/lib/actor-display"
 import { resolverNombreVisibleVendedor } from "@/lib/reportes-vendedores"
+import { useAuthContext } from "@/contexts/auth-context"
+import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
+import { useModulosHabilitados } from "@/contexts/modulos-context"
+import { BodegaReportesAdmin } from "@/components/bodega/bodega-financial-report"
 
 const periodos = [
   { key: "today", label: "Hoy" },
@@ -17,6 +21,19 @@ const periodos = [
 ]
 
 export default function ReportesPage() {
+  const { usuario } = useAuthContext()
+  const { estado, vertical } = useConfiguracionEmpresa()
+  const { modulos } = useModulosHabilitados()
+  if (estado !== "LISTA") return <p role="status" className="p-6 text-sm text-muted-foreground">Verificando la configuración del negocio…</p>
+  if (vertical === "BODEGA_MVP1") {
+    if (usuario?.rol !== "admin") return <p role="alert" className="p-6 text-sm">Reportes reservados a la administración de Bodega.</p>
+    if (!modulos.includes("reports")) return <p role="alert" className="p-6 text-sm">El módulo de reportes no está habilitado para este negocio.</p>
+    return <BodegaReportesAdmin />
+  }
+  return <LegacyReportesPage />
+}
+
+function LegacyReportesPage() {
   const [periodo, setPeriodo] = useState("today")
   const [reporte, setReporte] = useState<ReporteVentas | null>(null)
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
