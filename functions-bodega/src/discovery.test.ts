@@ -37,7 +37,7 @@ test("saas-bodega descubre callables, scheduler ADR-064 y trigger push ADR-065 s
     "convertirProgramacionPedidoBodegaV1", "crearArticuloInventarioBodegaV1", "crearCategoriaBodegaV1",
     "crearClienteVendedorBodegaV1", "crearPresentacionComercialBodegaV1", "crearProgramacionPedidoBodegaV1",
     "crearSolicitudVentaBodegaV1", "notificarSolicitudVentaBodegaPendienteV1", "reconciliarAgendaPedidosBodegaV1", "resolverProgramacionPedidoBodegaV1",
-    "resolverSolicitudVentaBodegaV1", "sugerirCategoriasBodegaV1",
+    "resolverSolicitudVentaBodegaV1",
   ]);
   for (const [name, endpoint] of Object.entries(endpoints)) {
     assert.deepEqual(endpoint.region, ["us-central1"]);
@@ -51,7 +51,6 @@ test("saas-bodega descubre callables, scheduler ADR-064 y trigger push ADR-065 s
       assert.equal(JSON.stringify(endpoint.eventTrigger).includes("empresas/{empresaId}/solicitudes_venta_bodega/{solicitudId}"), true);
     } else {
       assert.deepEqual(endpoint.callableTrigger, {});
-      if (name === "sugerirCategoriasBodegaV1") assert.equal(endpoint.serviceAccountEmail, "bodega-catalog-ai@demo-bodega.iam.gserviceaccount.com");
     }
   }
   assert.deepEqual(result.params ?? [], []);
