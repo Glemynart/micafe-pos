@@ -50,6 +50,8 @@ Validar a 390 px, 768 px y 1440 px, incluyendo un ancho intermedio con navegaci�
 
 La ejecución CI `40357635885` encontró un selector E2E P0-01 ligado al antiguo contenedor `nav.fixed.bottom-0`: en escritorio la navegación ahora es lateral. La prueba conserva la comprobación de Reservas, Finanzas y Turnos derivados del Plan y la ejecuta a 1440 y 390 px usando los nombres accesibles de cada navegación. Restaura el viewport antes de continuar los mismos flujos POS, espacios y Finanzas. El error posterior de subida de evidencia Bodega fue consecuencia de que P0-01 detuvo el flujo antes de ejecutar aquella suite; no demuestra un fallo funcional Bodega. La corrección requiere ejecución E2E y CI, sin omitir suites ni modificar protecciones.
 
+Los E2E Bodega se adaptan a los encabezados visibles del rediseño y abren «Presentaciones y precios» antes de editar. El caso de efectivo selecciona exactamente el `spinbutton` de cantidad: una búsqueda parcial por etiqueta coincidía también con los nuevos botones accesibles de aumentar/reducir. Se conservan las comprobaciones de pago, recibido, cambio, stock, idempotencia, señales y aislamiento A/B, además de GENERAL y la incorporación canónica.
+
 El PR registra los resultados de TypeScript, build, suites de Bodega y Backoffice y revisión visual. No se infiere éxito por este documento. Antes del rollout se verifica el SHA de la rama y que el destino y la configuración pública Firebase correspondan a staging. Después se comprueban build, rollout y tráfico servido. Las pruebas autenticadas en staging requieren su identidad QA existente; no se reutilizan credenciales productivas ni se crean usuarios como parte de este corte.
 
 El CLI instalado admite el corte dirigido desde un commit publicado de la rama, sin merge:

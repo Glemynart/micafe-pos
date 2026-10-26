@@ -239,7 +239,7 @@ test("vendedor aprobado confirma efectivo sin turno con recibido y cambio persis
   await login(page, tenantE.vendedor); await expect(page.getByText("Tu espacio de ventas")).toBeVisible()
   const db = getFirestore(app)
   const solicitudesAntes = new Set((await db.collection("empresas").doc(tenantE.empresaId).collection("solicitudes_venta_bodega").get()).docs.map(solicitud => solicitud.id))
-  await page.getByRole("button", { name: tenantE.productoNombre }).click(); await page.getByLabel(`Cantidad de ${tenantE.presentacionNombre}`).fill("2"); await page.getByRole("button", { name: "Enviar solicitud" }).click(); await expect(page.getByRole("heading", { name: "Mis solicitudes" })).toBeVisible()
+  await page.getByRole("button", { name: tenantE.productoNombre }).click(); await page.getByRole("spinbutton", { name: `Cantidad de ${tenantE.presentacionNombre}`, exact: true }).fill("2"); await page.getByRole("button", { name: "Enviar solicitud" }).click(); await expect(page.getByRole("heading", { name: "Mis solicitudes" })).toBeVisible()
   const solicitudesDespues = await db.collection("empresas").doc(tenantE.empresaId).collection("solicitudes_venta_bodega").get()
   const solicitudNueva = solicitudesDespues.docs.find(solicitud => !solicitudesAntes.has(solicitud.id))
   expect(solicitudNueva).toBeTruthy()
