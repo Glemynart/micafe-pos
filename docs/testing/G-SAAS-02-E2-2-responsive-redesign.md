@@ -24,6 +24,12 @@ El aviso de notificaciones pasa a ocupar espacio en el contenido, con opción te
 - Los fixtures de diseño están fuera del código desplegable y usan datos ficticios; sus operaciones remotas están desactivadas.
 - El rediseño no certifica importación, catálogo, stock, ventas, compras, aislamiento ni Gate I.
 
+## Hallazgo durante la publicación de staging
+
+La primera comprobación del corte `070542c` encontró una página detenida en «Verificando acceso al tenant…». El HTML que devolvía la caché del service worker v2 referenciaba un chunk JavaScript y una hoja CSS que respondían 404; una petición de red a la misma ruta no referenciaba esos archivos. Cargar la ruta con una URL nueva mostró el acceso rediseñado. No era evidencia de un fallo de credenciales.
+
+El shell admin v3 prioriza HTML de red y conserva la copia como fallback de error de conexión. Solo intercepta navegaciones GET del mismo origen bajo `/admin`; no intercepta RSC, chunks ni operaciones mutantes. Su activación elimina exclusivamente cachés antiguas `micafe-admin-*`, sin borrar cookies, identidad, datos tenant ni cachés ajenas. No fuerza recargas que puedan perder formularios abiertos. Las pruebas verifican la espera por el HTML nuevo, fallback, errores HTTP y alcance de la limpieza; la prueba de Firebase Messaging se conserva.
+
 ## Matriz de revisión
 
 Validar a 390 px, 768 px y 1440 px, incluyendo un ancho intermedio con navegación lateral. Revisar:
