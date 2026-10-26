@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type ComponentProps, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ComponentProps, type FormEvent, type ReactNode } from 'react'
 import { httpsCallable } from 'firebase/functions'
 import { Building2, LoaderCircle, ShieldAlert } from 'lucide-react'
 import { useAuthContext } from '@/contexts/auth-context'
@@ -12,6 +12,8 @@ import { getFirebaseFunctions } from '@/lib/firebase'
 import { perfilComercialCompleto, requierePasoPerfilComercialBodega } from '@/lib/configuracion'
 import { mensajeSeguroErrorPerfilComercial } from '@/lib/configuracion/perfil-comercial-errores'
 import { normalizarTexto } from '@/lib/configuracion/normalizacion'
+import { puedeDiferirPerfilComercialDiana } from '@/lib/configuracion/perfil-comercial-gate'
+import { departamentosDivipola, municipiosPorDepartamento, resolverDepartamentoDivipola, resolverMunicipioDivipola, validarUbicacionDivipola } from '@/lib/territory/divipola'
 
 type FormularioPerfil = {
   nombreComercial: string
@@ -67,12 +69,21 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [mensajeExito, setMensajeExito] = useState<string | null>(null)
   const [formTenantId, setFormTenantId] = useState<string | null>(null)
+  const [perfilDiferidoEstaSesion, setPerfilDiferidoEstaSesion] = useState(false)
   const borradorModificado = useRef(false)
   const formularioRef = useRef<HTMLFormElement>(null)
   const sobreComandoPendiente = useRef<SobreComandoPerfil | null>(null)
 
   const tenantCoincide = !!empresaId && empresaConfigId === empresaId && membresia?.empresaId === empresaId && membresia.uid === usuario?.uid
   const adminActivo = !!membresia && membresia.rol === 'admin' && membresia.estado === 'activa' && membresia.activo
+  const puedeDiferirPerfil = puedeDiferirPerfilComercialDiana({
+    empresaId,
+    vertical,
+    rolMembresia: membresia?.rol,
+    membresiaActiva: adminActivo,
+    tenantCoincide,
+    estadoConfiguracion: estado,
+  })
   const perfil = proyecciones ? { identidadFiscal: proyecciones.identidad, localizacion: proyecciones.localizacion } : null
   const requierePerfil = !!perfil && requierePasoPerfilComercialBodega({
     vertical,
@@ -82,6 +93,11 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
     empresaCoincide: tenantCoincide,
     configuracion: perfil,
   })
+  const municipiosDisponibles = useMemo(() => municipiosPorDepartamento(form.departamentoCodigo), [form.departamentoCodigo])
+
+  useEffect(() => {
+    setPerfilDiferidoEstaSesion(false)
+  }, [empresaId, usuario?.uid])
 
   useEffect(() => {
     if (!empresaId || !proyecciones || empresaConfigId !== empresaId) return
@@ -117,7 +133,7 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
     </div>
   }
 
-  if (!requierePerfil || perfilComercialCompleto(perfil!)) return <>{children}</>
+  if (!requierePerfil || perfilComercialCompleto(perfil!) || (puedeDiferirPerfil && perfilDiferidoEstaSesion)) return <>{children}</>
 
   if (formTenantId !== empresaId) {
     return <div className="grid min-h-[60vh] place-items-center text-sm text-muted-foreground"><span className="flex items-center gap-2"><LoaderCircle className="size-5 animate-spin" /> Preparando el perfil del negocio…</span></div>
@@ -130,8 +146,45 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
     setForm((current) => ({ ...current, [field]: value }))
   }
 
+  function updateDepartamento(nombre: string) {
+    borradorModificado.current = true
+    sobreComandoPendiente.current = null
+    setMensajeExito(null)
+    const departamento = resolverDepartamentoDivipola(nombre)
+    setForm(current => ({
+      ...current,
+      departamentoNombre: departamento?.nombre ?? nombre,
+      departamentoCodigo: departamento?.codigo ?? '',
+      municipioNombre: '',
+      municipioCodigo: '',
+    }))
+  }
+
+  function updateMunicipio(nombre: string) {
+    borradorModificado.current = true
+    sobreComandoPendiente.current = null
+    setMensajeExito(null)
+    const municipio = resolverMunicipioDivipola(form.departamentoCodigo, nombre)
+    setForm(current => ({
+      ...current,
+      municipioNombre: municipio?.municipio ?? nombre,
+      municipioCodigo: municipio?.municipioCodigo ?? '',
+    }))
+  }
+
   async function guardar(avanceParcial: boolean) {
     if (!Number.isInteger(revision) || revision === null) return
+    const departamentoIngresado = !!(form.departamentoNombre.trim() || form.departamentoCodigo.trim())
+    const municipioIngresado = !!(form.municipioNombre.trim() || form.municipioCodigo.trim())
+    const departamentoValido = !!resolverDepartamentoDivipola(form.departamentoNombre)
+      && departamentosDivipola.some(item => item.codigo === form.departamentoCodigo
+        && item.nombre === resolverDepartamentoDivipola(form.departamentoNombre)?.nombre)
+    const municipioValido = validarUbicacionDivipola(form)
+    if ((!avanceParcial && !municipioValido)
+      || (avanceParcial && ((departamentoIngresado && !departamentoValido) || (municipioIngresado && !municipioValido)))) {
+      setError('Selecciona el departamento y el municipio desde las opciones de búsqueda para guardar sus códigos oficiales.')
+      return
+    }
     if (avanceParcial) {
       const campos = Array.from(formularioRef.current?.elements ?? [])
       for (const elemento of campos) {
@@ -254,11 +307,16 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
       </div>
       {campo('direccion', 'Dirección del negocio', 'text', { maxLength: 120, autoComplete: 'street-address' })}
       <div className="grid gap-4 sm:grid-cols-2">
-        {campo('departamentoNombre', 'Departamento', 'text', { maxLength: 100 })}
-        {campo('departamentoCodigo', 'Código DIVIPOLA del departamento', 'text', { inputMode: 'numeric', maxLength: 2, pattern: '[0-9]{2}' })}
-        {campo('municipioNombre', 'Municipio', 'text', { maxLength: 100 })}
-        {campo('municipioCodigo', 'Código DIVIPOLA del municipio', 'text', { inputMode: 'numeric', maxLength: 5, pattern: '[0-9]{5}' })}
+        <label className="grid gap-1.5 text-sm font-medium" htmlFor="perfil-departamentoNombre">Departamento
+          <Input id="perfil-departamentoNombre" name="departamentoNombre" type="text" list="perfil-divipola-departamentos" autoComplete="address-level1" required maxLength={100} value={form.departamentoNombre} onChange={event => updateDepartamento(event.target.value)} disabled={guardando} />
+          <datalist id="perfil-divipola-departamentos">{departamentosDivipola.map(item => <option key={item.codigo} value={item.nombre} />)}</datalist>
+        </label>
+        <label className="grid gap-1.5 text-sm font-medium" htmlFor="perfil-municipioNombre">Ciudad o municipio
+          <Input id="perfil-municipioNombre" name="municipioNombre" type="text" list="perfil-divipola-municipios" autoComplete="address-level2" required maxLength={100} value={form.municipioNombre} onChange={event => updateMunicipio(event.target.value)} disabled={guardando || !form.departamentoCodigo} />
+          <datalist id="perfil-divipola-municipios">{municipiosDisponibles.map(item => <option key={item.municipioCodigo} value={item.municipio} />)}</datalist>
+        </label>
       </div>
+      <p className="-mt-2 text-xs text-muted-foreground">El código territorial se asigna automáticamente al elegir una opción válida; no necesitas conocerlo ni escribirlo.</p>
       <p className="text-xs leading-relaxed text-muted-foreground">Podrás continuar en modo DEMO sin facturación electrónica. Régimen, actividad económica y numeración se configuran después, si el negocio decide activar la facturación.</p>
       {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
       {mensajeExito && <p role="status" className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">{mensajeExito}</p>}
@@ -270,5 +328,11 @@ export function CommercialProfileGate({ children }: { children: ReactNode }) {
         {guardando ? <><LoaderCircle className="size-4 animate-spin" /> Guardando perfil…</> : 'Guardar y continuar en DEMO'}
       </Button>
     </form>
+    {puedeDiferirPerfil && <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4">
+      <p className="text-sm">Para este tenant puedes entrar a DEMO y completar los datos del negocio después. El perfil seguirá pendiente y no se activa facturación.</p>
+      <Button type="button" variant="outline" className="mt-3 w-full" onClick={() => setPerfilDiferidoEstaSesion(true)}>
+        Continuar en DEMO y completar después
+      </Button>
+    </div>}
   </section>
 }
