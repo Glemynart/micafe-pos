@@ -6,6 +6,7 @@ import { resolverCallableOperacionBodega } from "./operation-routing"
 import { proyectarVentaBodegaAdmin, type VentaBodegaAdminDTO } from "@/lib/bodega/ui-contract"
 import type { Cliente } from "@/lib/clientes-service"
 import { proyectarProductoBodegaAdmin, type ProductoBodegaAdmin } from "@/lib/bodega/product-admin-projection"
+import type { CategoriaBodegaIaId } from "@/lib/bodega/category-taxonomy"
 
 export type { ProductoBodegaAdmin } from "@/lib/bodega/product-admin-projection"
 
@@ -19,6 +20,15 @@ export interface PresentacionBodegaAdmin {
 }
 
 export type VentaBodegaAdmin = VentaBodegaAdminDTO
+
+export interface SugerenciaCategoriaBodega {
+  itemId: string
+  nombre: string
+  categoriaId: CategoriaBodegaIaId
+  categoria: string
+  confianza: "ALTA" | "MEDIA" | "BAJA"
+  razon: string
+}
 
 function suscribirTenant<T>(
   coleccion: string,
@@ -93,4 +103,14 @@ export async function actualizarPresentacionBodega(payload: { presentacionId: st
 
 export async function crearCategoriaBodega(payload: { espacioId: string; nombre: string; icono?: string }): Promise<{ categoriaId: string; idempotente: boolean }> {
   return ejecutarComandoBodega("crearCategoriaBodegaV1", "categoria", payload)
+}
+
+export async function sugerirCategoriasBodegaIA(items: Array<{ itemId: string; nombre: string }>): Promise<SugerenciaCategoriaBodega[]> {
+  const { httpsCallable } = await import("firebase/functions")
+  const callable = httpsCallable<{ items: Array<{ itemId: string; nombre: string }> }, { items: SugerenciaCategoriaBodega[] }>(
+    getFirebaseFunctions(),
+    resolverCallableOperacionBodega("BODEGA_MVP1", "sugerirCategoriasBodegaV1"),
+  )
+  const result = await callable({ items })
+  return result.data.items
 }

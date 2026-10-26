@@ -27,17 +27,17 @@ async function manifest(value: number): Promise<Record<string, unknown>> {
 
 test("saas-bodega descubre callables, scheduler ADR-064 y trigger push ADR-065 sin Secrets", async () => {
   const value = await port();
-  const child = spawn(process.execPath, [bin], { cwd: sourceRoot, env: { ...process.env, FUNCTIONS_CONTROL_API: "true", PORT: String(value) }, stdio: "pipe" });
+  const child = spawn(process.execPath, [bin], { cwd: sourceRoot, env: { ...process.env, GCLOUD_PROJECT: "demo-bodega", GOOGLE_CLOUD_PROJECT: "demo-bodega", FUNCTIONS_CONTROL_API: "true", PORT: String(value) }, stdio: "pipe" });
   after(() => child.kill());
   const result = await manifest(value);
-  const endpoints = result.endpoints as Record<string, { region?: unknown; callableTrigger?: unknown; scheduleTrigger?: { schedule?: unknown; timeZone?: unknown }; eventTrigger?: { eventType?: unknown; eventFilters?: Record<string, unknown> } }>;
+  const endpoints = result.endpoints as Record<string, { region?: unknown; serviceAccountEmail?: unknown; callableTrigger?: unknown; scheduleTrigger?: { schedule?: unknown; timeZone?: unknown }; eventTrigger?: { eventType?: unknown; eventFilters?: Record<string, unknown> } }>;
   assert.deepEqual(Object.keys(endpoints).sort(), [
     "actualizarPresentacionComercialBodegaV1", "cancelarProgramacionPedidoBodegaV1", "cancelarSolicitudVentaBodegaV1",
     "confirmarVentaVendedorBodegaV1", "consultarAgendaPedidosBodegaV1", "consultarSolicitudesVentaBodegaV1",
     "convertirProgramacionPedidoBodegaV1", "crearArticuloInventarioBodegaV1", "crearCategoriaBodegaV1",
     "crearClienteVendedorBodegaV1", "crearPresentacionComercialBodegaV1", "crearProgramacionPedidoBodegaV1",
     "crearSolicitudVentaBodegaV1", "notificarSolicitudVentaBodegaPendienteV1", "reconciliarAgendaPedidosBodegaV1", "resolverProgramacionPedidoBodegaV1",
-    "resolverSolicitudVentaBodegaV1",
+    "resolverSolicitudVentaBodegaV1", "sugerirCategoriasBodegaV1",
   ]);
   for (const [name, endpoint] of Object.entries(endpoints)) {
     assert.deepEqual(endpoint.region, ["us-central1"]);
@@ -49,7 +49,10 @@ test("saas-bodega descubre callables, scheduler ADR-064 y trigger push ADR-065 s
       assert.equal(endpoint.callableTrigger, undefined);
       assert.equal(endpoint.eventTrigger?.eventType, "google.cloud.firestore.document.v1.created");
       assert.equal(JSON.stringify(endpoint.eventTrigger).includes("empresas/{empresaId}/solicitudes_venta_bodega/{solicitudId}"), true);
-    } else assert.deepEqual(endpoint.callableTrigger, {});
+    } else {
+      assert.deepEqual(endpoint.callableTrigger, {});
+      if (name === "sugerirCategoriasBodegaV1") assert.equal(endpoint.serviceAccountEmail, "bodega-catalog-ai@demo-bodega.iam.gserviceaccount.com");
+    }
   }
   assert.deepEqual(result.params ?? [], []);
   const serialized = JSON.stringify(result).toLowerCase();
