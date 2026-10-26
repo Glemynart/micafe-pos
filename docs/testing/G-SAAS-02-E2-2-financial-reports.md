@@ -35,7 +35,7 @@ ADR-SAAS-016 mantiene separados los registros DEMO de la fiscalidad. La pantalla
 
 - CSV UTF-8 con BOM y separador `;`: una fila por línea, referencia de venta, fecha UTC explícita, vendedor, producto, presentación, cantidades, ingreso, costo histórico, utilidad y medio. Los textos potencialmente interpretables como fórmulas se neutralizan y se escapan comillas; costos desconocidos permanecen vacíos. No incluye datos del cliente ni credenciales. Se genera localmente después de una lectura autorizada.
 - XLSX público y vacío: `public/templates/dusema-auxiliar-contable.xlsx`. No contiene información real de Diana ni conexión a Firebase. La excepción explícita a `.gitignore` se limita a este archivo. No se incluyen otros Excel privados.
-- Hojas: Resumen, Ventas y Gastos. Resume por mes, medio de pago y vendedor; las entradas se concentran en dos tablas simples con soporte o nota. Ventas admite 500 filas y Gastos 300. Los rangos deben ampliarse antes de superar esos límites.
+- Hojas: Resumen, Ventas y Gastos. Resume por mes y medio de pago; las entradas se concentran en dos tablas simples con soporte o nota. Ventas admite 500 filas y Gastos 300. Los rangos deben ampliarse antes de superar esos límites. El desglose por vendedor se consulta exclusivamente en el panel administrativo del POS.
 - El CSV y la plantilla son entregas separadas: no existe una importación automática del CSV a la plantilla ni un exportador fiscal. La plantilla se completa con registros conciliados y soportados; no se presenta en DIAN.
 - SHA-256 de la plantilla: `03b62f416b394051b64c2dede3a10466858568dfab325d77c2a8d4673dcdd880`.
 
