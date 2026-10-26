@@ -22,7 +22,6 @@ import { ejecutarCrearArticuloInventarioV1 } from "../../functions/src/inventari
 import { ejecutarCrearCategoriaBodegaV1 } from "../../functions/src/bodega/categorias";
 import { leerConfiguracionEmpresa } from "../../functions/src/configuracion/reader";
 import { exigirTenantActivo } from "../../functions/src/tenant-configuration/authority";
-import { sugerirCategoriasBodegaParaTenant } from "./category-ai";
 import {
   ejecutarCancelarProgramacionPedidoBodegaV1,
   ejecutarConsultarAgendaPedidosBodegaV1,
@@ -34,10 +33,6 @@ import {
 if (!getApps().length) initializeApp();
 
 const REGION = "us-central1";
-const PROJECT_ID = process.env.GCLOUD_PROJECT ?? process.env.GOOGLE_CLOUD_PROJECT;
-const CATALOG_AI_SERVICE_ACCOUNT = PROJECT_ID
-  ? `bodega-catalog-ai@${PROJECT_ID}.iam.gserviceaccount.com`
-  : undefined;
 
 async function contextoOperativo(request: Parameters<typeof exigirTenantActivo>[0], db: ReturnType<typeof getFirestore>) {
   const tenant = await exigirTenantActivo(request, db);
@@ -48,19 +43,6 @@ async function contextoOperativo(request: Parameters<typeof exigirTenantActivo>[
 export const crearCategoriaBodegaV1 = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   return ejecutarCrearCategoriaBodegaV1(db, await contextoOperativo(request, db), request.data);
-});
-
-/** Solo propone categorías; no crea ni modifica datos del catálogo. */
-export const sugerirCategoriasBodegaV1 = onCall({
-  region: REGION,
-  timeoutSeconds: 30,
-  maxInstances: 2,
-  ...(CATALOG_AI_SERVICE_ACCOUNT ? { serviceAccount: CATALOG_AI_SERVICE_ACCOUNT } : {}),
-}, async (request) => {
-  const db = getFirestore();
-  const tenant = await exigirTenantActivo(request, db);
-  const configuracion = await leerConfiguracionEmpresa(db, tenant.id);
-  return sugerirCategoriasBodegaParaTenant(request.data, tenant, configuracion);
 });
 
 export const crearClienteVendedorBodegaV1 = onCall({ region: REGION }, async (request) => {

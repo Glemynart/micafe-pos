@@ -6,7 +6,7 @@ import { Boxes, CalendarDays, CheckCircle2, CircleDollarSign, PackagePlus, Refre
 import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
 import { useAuthContext } from "@/contexts/auth-context"
 import { actualizarCliente, crearCliente, eliminarCliente, type Cliente } from "@/lib/clientes-service"
-import { ajustarStockProductoBodega, crearCategoriaBodega, crearPresentacionBodega, crearProductoBodega, listarCategoriasBodega, listarEspaciosBodega, sugerirCategoriasBodegaIA, suscribirClientesBodegaAdmin, suscribirPresentacionesBodegaAdmin, suscribirProductosBodegaAdmin, suscribirVentasBodegaAdmin, actualizarPresentacionBodega, type PresentacionBodegaAdmin, type ProductoBodegaAdmin, type SugerenciaCategoriaBodega, type VentaBodegaAdmin } from "@/lib/bodega/admin-service"
+import { ajustarStockProductoBodega, crearCategoriaBodega, crearPresentacionBodega, crearProductoBodega, listarCategoriasBodega, listarEspaciosBodega, suscribirClientesBodegaAdmin, suscribirPresentacionesBodegaAdmin, suscribirProductosBodegaAdmin, suscribirVentasBodegaAdmin, actualizarPresentacionBodega, type PresentacionBodegaAdmin, type ProductoBodegaAdmin, type VentaBodegaAdmin } from "@/lib/bodega/admin-service"
 import { calcularCambioEfectivoBodega, formatearFechaBodega, formatearReferenciaSolicitud, mensajeErrorBodega } from "@/lib/bodega/ui-contract"
 import { construirConfirmacionVentaBodega, type ConfirmacionVentaBodega, type LineaCarritoBodega, type MetodoPagoBodega, type ResultadoVentaBodega, type SolicitudVentaBodegaDTO } from "@/lib/bodega/ui-contract"
 import { cancelarSolicitudVentaBodega, consultarSolicitudesVentaBodega, resolverSolicitudVentaBodega } from "@/lib/bodega/solicitudes-service"
@@ -15,7 +15,7 @@ import { suscribirTurnoActivo, type Turno } from "@/lib/turnos-service"
 import { crearDetectorCambioSenalBodega, registrarRecuperacionEnLineaBodega, suscribirSenalBodega } from "@/lib/bodega/live-signals-service"
 import { crearRefrescoCoalescido } from "@/lib/bodega/refresh-coalescido"
 import { proyectarMargenCompraPorPresentaciones } from "@/lib/bodega/purchase-margin"
-import { CATEGORIAS_BODEGA_IA, type CategoriaBodegaIaId } from "@/lib/bodega/category-taxonomy"
+import { CATEGORIAS_BODEGA, construirBusquedaWebProducto, clasificarProductosBodega, type CategoriaSugeribleBodegaId, type SugerenciaCategoriaBodega } from "@/lib/bodega/category-suggestions"
 
 const money = (value: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(value)
 const cards = [
@@ -73,7 +73,7 @@ export function BodegaCatalogoAdmin() {
   const [presentacion, setPresentacion] = useState({ productoId: "", nombre: "", factorUnidadBase: 1, precioCOP: 0 })
   const [nombresParaClasificar, setNombresParaClasificar] = useState("")
   const [sugerencias, setSugerencias] = useState<SugerenciaCategoriaBodega[]>([])
-  const [categoriasCorregidas, setCategoriasCorregidas] = useState<Record<string, CategoriaBodegaIaId>>({})
+  const [categoriasCorregidas, setCategoriasCorregidas] = useState<Record<string, CategoriaSugeribleBodegaId>>({})
   const [error, setError] = useState(""); const [guardando, setGuardando] = useState(false)
   useEffect(() => { void Promise.all([listarEspaciosBodega(), listarCategoriasBodega()]).then(([spaces, categories]) => { setEspacios(spaces); setCategorias(categories); setCategoria(actual => ({ ...actual, espacioId: actual.espacioId || spaces[0]?.id || "" })); setProducto(actual => ({ ...actual, espacioId: actual.espacioId || spaces[0]?.id || "", categoriaId: actual.categoriaId || categories[0]?.id || "" })) }).catch(e => setError(mensajeErrorBodega(e))) }, [])
   const run = async (action: () => Promise<unknown>) => { if (guardando) return; setGuardando(true); setError(""); try { await action() } catch (e) { setError(mensajeErrorBodega(e)) } finally { setGuardando(false) } }
@@ -83,30 +83,33 @@ export function BodegaCatalogoAdmin() {
       setError("Escribe entre 1 y 25 nombres de producto, uno por línea.")
       return
     }
-    void run(async () => {
-      const resultado = await sugerirCategoriasBodegaIA(nombres.map((nombre, index) => ({ itemId: `fila-${index + 1}`, nombre })))
-      setSugerencias(resultado)
-      setCategoriasCorregidas({})
-    })
+    if (nombres.some(nombre => nombre.length > 120)) {
+      setError("Cada nombre debe tener máximo 120 caracteres.")
+      return
+    }
+    setError("")
+    setSugerencias(clasificarProductosBodega(nombres.map((nombre, index) => ({ itemId: `fila-${index + 1}`, nombre }))))
+    setCategoriasCorregidas({})
   }
   if (cargando) return <AdminLoading />
   return <AdminSection eyebrow="Catálogo Bodega" title="Productos, presentaciones y precios" description="El stock físico se mantiene separado de las unidades retenidas por pedidos agendados.">
     {error && <ErrorBox>{error}</ErrorBox>}
     <section className="mb-5 rounded-2xl border border-primary/30 bg-card p-4">
-      <h2 className="flex items-center gap-2 font-semibold"><Sparkles className="h-4 w-4 text-primary" />Sugerir categorías con IA</h2>
-      <p className="mt-2 text-sm text-muted-foreground">Pega hasta 25 nombres, uno por línea. Se enviarán a Google Vertex AI para sugerencias. No incluyas precios, costos, inventario ni datos personales.</p>
+      <h2 className="flex items-center gap-2 font-semibold"><Sparkles className="h-4 w-4 text-primary" />Ayuda para categorizar</h2>
+      <p className="mt-2 text-sm text-muted-foreground">Pega hasta 25 nombres, uno por línea. Las sugerencias se calculan localmente en tu navegador. Para los casos por revisar, solo se enviará el nombre a Google si pulsas “Buscar en Google”. No incluyas precios, costos, inventario ni datos personales.</p>
       <textarea aria-label="Nombres de productos para sugerir categorías" value={nombresParaClasificar} onChange={event => { setNombresParaClasificar(event.target.value); setSugerencias([]); setCategoriasCorregidas({}) }} rows={5} maxLength={4000} className="mt-3 w-full rounded-xl border border-border bg-background p-3 text-sm" placeholder={"Aguardiente Antioqueño\nVive 100"} />
-      <button type="button" onClick={clasificarNombres} disabled={guardando} className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50">{guardando ? <><RefreshCw className="size-4 animate-spin" />Consultando…</> : <><Sparkles className="size-4" />Generar sugerencias</>}</button>
+      <button type="button" onClick={clasificarNombres} className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"><Sparkles className="size-4" />Clasificar nombres</button>
       {sugerencias.length > 0 && <div className="mt-4 space-y-2" aria-live="polite">{sugerencias.map(item => {
         const categoriaId = categoriasCorregidas[item.itemId] ?? item.categoriaId
         return <article key={item.itemId} className="rounded-xl border border-border p-3">
           <p className="font-medium">{item.nombre}</p>
           <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
-            <label className="text-sm">Categoría sugerida (puedes corregirla)<select aria-label={`Categoría para ${item.nombre}`} value={categoriaId} onChange={event => setCategoriasCorregidas(current => ({ ...current, [item.itemId]: event.target.value as CategoriaBodegaIaId }))} className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3">{Object.entries(CATEGORIAS_BODEGA_IA).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
-            <span className="text-xs text-muted-foreground">Confianza {item.confianza.toLowerCase()}</span>
+            <label className="text-sm">Categoría sugerida (puedes corregirla)<select aria-label={`Categoría para ${item.nombre}`} value={categoriaId} onChange={event => setCategoriasCorregidas(current => ({ ...current, [item.itemId]: event.target.value as CategoriaSugeribleBodegaId }))} className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3">{Object.entries(CATEGORIAS_BODEGA).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+            <span className="text-xs text-muted-foreground">{item.estado === "SUGERIDA" ? "Coincidencia local" : "Revisión manual"}</span>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">{item.razon}</p>
-          <button type="button" onClick={() => setCategoria(current => ({ ...current, nombre: CATEGORIAS_BODEGA_IA[categoriaId] }))} className="mt-2 rounded-lg border border-border px-3 py-2 text-xs font-semibold">Preparar en formulario de categoría</button>
+          {item.estado === "REVISAR" && <a href={construirBusquedaWebProducto(item.nombre)} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block rounded-lg border border-border px-3 py-2 text-xs font-semibold">Buscar en Google</a>}
+          <button type="button" onClick={() => setCategoria(current => ({ ...current, nombre: CATEGORIAS_BODEGA[categoriaId] }))} className="mt-2 ml-2 rounded-lg border border-border px-3 py-2 text-xs font-semibold">Preparar en formulario de categoría</button>
         </article>
       })}</div>}
       <p className="mt-3 text-xs text-muted-foreground">Las sugerencias no se guardan ni crean productos o categorías. Puedes preparar el nombre en el formulario de abajo y confirmar allí la creación manual.</p>
