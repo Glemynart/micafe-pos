@@ -291,6 +291,28 @@ provisionamiento y acceso más reciente se consigna en “Estado vigente”.
   `2` indica origen o plantilla inválidos; `0` solo significa que se generó una
   propuesta local revisable, no autoriza importación, Trial ni despliegue.
 
+  La pantalla de Catálogo del admin de Distribuidora Las Jiménez acepta ese
+  JSON como plan de entrada después de validar el mapeo completo. La vista previa
+  vuelve a consultar el catálogo del tenant, muestra las huellas de origen y
+  revisión, los casos sin regla local y las diferencias entre la sugerencia de
+  categoría y la categoría elegida. Las sugerencias son reglas locales; los casos
+  dudosos pueden abrir una búsqueda web manual únicamente al pulsar el enlace.
+  Smirnoff Tamarindo Picante se clasifica como `Vodka`, según confirmación del
+  responsable. El plan conserva separadas las filas de consumidor y no importa
+  sus precios ni las existencias.
+
+  Solo después de la revisión del operador y de marcar la confirmación explícita,
+  el importador llama secuencialmente las callables Bodega existentes para crear
+  categorías, productos y presentaciones. La identidad y tenant los determina la
+  sesión autenticada y los valida el servidor; el cliente no escribe Firestore
+  directamente. Cada artículo comienza con stock y stock mínimo en cero. Si una
+  etapa falla, no hay borrado compensatorio: detenerse, volver a cargar el mismo
+  JSON en el mismo espacio seleccionado, revisar el preflight actualizado y
+  reanudar únicamente si los elementos ya creados coinciden exactamente. Durante
+  el lote no deben hacerse altas manuales desde otra sesión. Un conflicto o dato
+  distinto exige revisión manual. Importar el catálogo no certifica inventario,
+  compras, ventas, Gate I, despliegue ni preparación para producción.
+
 - **Aplazamiento autorizado — 2026-10-17:** el responsable decidió esperar la
   lista definitiva de Diana. Este aplazamiento retira únicamente la carga del
   catálogo como precondición del Bootstrap/Trial inicial; no aprueba el borrador

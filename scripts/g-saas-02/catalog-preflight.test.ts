@@ -90,7 +90,7 @@ test("fails closed if a price list is missing or duplicated", () => {
 
 test("creates a row decision template that preserves separate lists without exposing names or prices", () => {
   const report = analyzeCatalogWorkbook(workbook(
-    [["PRODUCTO", "AL COSTO", "PRECIO VENTA"], ["Café molido", 1000, 1500]],
+    [["PRODUCTO", "AL COSTO", "PRECIO VENTA"], ["Café molido", 1000, 1500], ["Corona Cero", 1300, 1700]],
     [["Producto", "Precio"], ["Cafe molido", 1800]],
   ));
   const template = createCatalogDecisionTemplate(report, { bytes: 2048, sha256: "a".repeat(64) });
@@ -98,11 +98,15 @@ test("creates a row decision template that preserves separate lists without expo
   assert.equal(template.importReady, false);
   assert.equal(template.writesPerformed, false);
   assert.equal(template.includesProductNamesOrPrices, false);
-  assert.deepEqual(template.lists.store.map((row) => row.sourceRow), [2]);
+  assert.deepEqual(template.lists.store.map((row) => row.sourceRow), [2, 3]);
   assert.deepEqual(template.lists.consumer.map((row) => row.sourceRow), [2]);
   assert.deepEqual(template.lists.store[0].candidateCrossListRows, [2]);
   assert.equal(template.lists.store[0].decisions.category, null);
   assert.equal(template.lists.store[0].decisions.costUnitBasis, null);
+  assert.equal(template.lists.store[0].categorySuggestion?.estado, "REVISAR");
+  assert.equal(template.lists.store[1].decisions.category, null);
+  assert.equal(template.lists.store[1].categorySuggestion?.categoria, "Cervezas sin alcohol");
+  assert.doesNotMatch(JSON.stringify(template), /Corona/i);
   assert.equal(template.lists.consumer[0].decisions.costUnitBasis, "not_applicable");
   assert.equal(template.lists.store[0].decisions.selectedPriceSource, "store");
   assert.equal(template.lists.consumer[0].decisions.selectedPriceSource, "reference_only");
