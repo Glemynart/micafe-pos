@@ -6,6 +6,7 @@ import { esMembresiaAutorizada } from "../turnos/executor";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 import { aplicarMovimientosInventarioEnTransaccion } from "../inventario/ledger";
 import { ejecutarCerrarTurnoOperativoV1 as ejecutarCerrarTurnoOperativoNeutral } from "../bodega/close-turn";
+import { SCHEMA_VERSION_VENTA_BODEGA_CREDITO } from "../bodega-vendedor/ventas-contract";
 
 const REGION = "us-central1";
 const MOVIMIENTOS = "transacciones_financieras";
@@ -463,6 +464,7 @@ async function efectoLiquidarCuentaCobroV1(tx: any, db: any, empresaId: string, 
   const venta = await tx.get(ventaRef);
   if (!venta.exists || venta.data()?.empresaId !== empresaId) fail("not-found", "VENTA_NO_ENCONTRADA");
   const ventaData = venta.data() as Record<string, any>;
+  if (ventaData.schemaVersion === SCHEMA_VERSION_VENTA_BODEGA_CREDITO) fail("failed-precondition", "ABONOS_BODEGA_REQUERIDOS");
   if (ventaData.metodoPago !== "cuenta_cobro" || ventaData.estado !== "pendiente") fail("failed-precondition", "VENTA_NO_PENDIENTE");
   if (ventaData.estadoOperativo !== "COMPLETO") fail("failed-precondition", "VENTA_NO_PENDIENTE");
   const total = ventaData.totales?.total;

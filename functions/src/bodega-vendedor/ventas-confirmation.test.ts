@@ -276,6 +276,44 @@ test("U3-C: transferencia usa la cuenta canónica sin turno ni movimiento de caj
   assert.equal(db.docs.get("cuentas_bancarias/banco-u3c")?.saldo, 20000);
 });
 
+test("ADR-091: vendedor confirma entrega pendiente sin ingreso y actualiza cartera solo una vez", async () => {
+  const db = new FakeDb(); seed(db);
+  const pendingCommand = comando({
+    commandId: "cmd-pendiente", idempotencyKey: "idem-pendiente",
+    payload: { clienteId: "cliente-u3c", lineas: [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 2 }], metodoPago: "pendiente", solicitudId: "solicitud-u3c" },
+  });
+  const result = await ejecutarConfirmarVentaBodegaV1(db, contexto, pendingCommand) as any;
+  const replay = await ejecutarConfirmarVentaBodegaV1(db, contexto, pendingCommand) as any;
+  assert.equal(result.ventaId, replay.ventaId);
+  assert.equal(result.estado, "pendiente");
+  assert.equal(result.saldoPendienteCOP, 40000);
+  const venta = db.docs.get(`ventas/${result.ventaId}`)!;
+  assert.equal(venta.schemaVersion, "BODEGA_MVP1_V2");
+  assert.equal(venta.metodoPago, "cuenta_cobro");
+  assert.equal(venta.estado, "pendiente");
+  assert.equal(venta.totalAbonadoCOP, 0);
+  assert.equal(venta.saldoPendienteCOP, 40000);
+  assert.equal(db.docs.get("clientes/cliente-u3c")?.saldoPendienteBodegaCOP, 40000);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("transacciones_financieras/")).length, 0);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("movimientos_inventario/")).length, 1);
+  assert.equal(db.docs.get("productos/producto-u3c")?.stock, 52);
+});
+
+test("ADR-091: administración no puede marcar una venta a crédito sin la ruta de cuenta autorizada", async () => {
+  const db = new FakeDb(); seed(db);
+  const before = [...db.docs.entries()];
+  const adminContext: ContextoFinancieroOperativo = { empresaId, actorUid: "admin-u3c", rol: "admin" };
+  await assert.rejects(ejecutarConfirmarVentaBodegaV1(db, adminContext, comando({
+    commandId: "cmd-admin-pendiente", idempotencyKey: "idem-admin-pendiente",
+    payload: { clienteId: "cliente-u3c", lineas: [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 1 }], metodoPago: "pendiente" },
+  })), error => dominio(error, "CREDITO_VENDEDOR_REQUERIDO"));
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("ventas/")), false);
+  assert.equal(db.docs.get("productos/producto-u3c")?.stock, 100);
+  assert.equal(db.docs.get("clientes/cliente-u3c")?.saldoPendienteBodegaCOP, undefined);
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("transacciones_financieras/")), false);
+  assert.deepEqual([...db.docs.entries()], before);
+});
+
 const FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST;
 test("U3-C Emulator: doble confirmación real conserva un único conjunto atómico de efectos", { skip: !FIRESTORE_EMULATOR_HOST }, async () => {
   if (!FIRESTORE_EMULATOR_HOST?.startsWith("127.0.0.1:") || process.env.GOOGLE_APPLICATION_CREDENTIALS) throw new Error("U3-C requiere Emulator local sin credenciales reales.");

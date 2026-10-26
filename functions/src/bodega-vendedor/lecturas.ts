@@ -38,6 +38,9 @@ export function proyectarVentaVendedor(venta: Record<string, any>) {
     turnoId: text(venta.turnoId) ? venta.turnoId : null,
     montoRecibidoCOP: montoSeguro(venta.pago?.montoRecibidoCOP),
     cambioCOP: montoSeguro(venta.pago?.cambioCOP),
+    totalAbonadoCOP: montoSeguro(venta.totalAbonadoCOP),
+    saldoPendienteCOP: montoSeguro(venta.saldoPendienteCOP),
+    fechaCompromisoPagoLocal: text(venta.fechaCompromisoPagoLocal) ? venta.fechaCompromisoPagoLocal : null,
   };
 }
 

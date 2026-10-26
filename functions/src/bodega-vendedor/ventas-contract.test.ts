@@ -35,11 +35,13 @@ function seed(db: FakeFirestore, overrides: { rol?: string; permisos?: string[];
   return { empresaId, actorUid: uid, rol: "vendedor" };
 }
 
-test("U3-A contrato: acepta el mínimo, causationId texto o null y los dos medios aprobados", () => {
+test("U3-A contrato: acepta el mínimo, causationId texto o null y pago pendiente", () => {
   assert.equal(normalizarComandoConfirmacionVentaBodega(base()).payload.metodoPago, "efectivo");
   const { montoRecibidoCOP: _montoRecibidoCOP, ...payloadSinRecibido } = base().payload;
   const transferencia = { ...base(), causationId: "causa-1", payload: { ...payloadSinRecibido, metodoPago: "transferencia" as const } };
   assert.equal(normalizarComandoConfirmacionVentaBodega(transferencia).causationId, "causa-1");
+  const pendiente = { ...base(), payload: { ...payloadSinRecibido, metodoPago: "pendiente" as const } };
+  assert.equal(normalizarComandoConfirmacionVentaBodega(pendiente).payload.metodoPago, "pendiente");
 });
 
 test("ADR-068 contrato: efectivo exige recibido entero y transferencia lo rechaza", () => {

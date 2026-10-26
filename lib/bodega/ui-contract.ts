@@ -1,6 +1,8 @@
 export const MAX_LINEAS_BODEGA = 50
 
-export type MetodoPagoBodega = "efectivo" | "transferencia"
+export type MetodoPagoBodega = "efectivo" | "transferencia" | "pendiente"
+export const METODO_PAGO_BODEGA_PREDETERMINADO: MetodoPagoBodega = "pendiente"
+export type MetodoAbonoBodega = "efectivo" | "transferencia"
 
 export interface ClienteVendedorDTO {
   id: string
@@ -12,6 +14,35 @@ export interface ClienteVendedorDTO {
   direccion: string | null
   barrioZona: string | null
   activo: boolean
+  saldoPendienteCOP: number
+}
+
+export interface FacturaPendienteBodegaDTO {
+  ventaId: string
+  fecha: unknown
+  totalCOP: number
+  totalAbonadoCOP: number
+  saldoPendienteCOP: number
+  fechaCompromisoPagoLocal: string | null
+}
+
+export interface CarteraClienteBodegaDTO {
+  clienteId: string
+  facturas: FacturaPendienteBodegaDTO[]
+  saldoPendienteCOP: number
+}
+
+export interface ComandoAbonoVentaBodega {
+  commandId: string
+  idempotencyKey: string
+  correlationId: string
+  causationId: string | null
+  payload: {
+    ventaId: string
+    montoCOP: number
+    metodoPago: MetodoAbonoBodega
+    fechaCompromisoPagoLocal?: string
+  }
 }
 
 export interface PresentacionVendedorDTO {
@@ -167,7 +198,9 @@ export interface ResultadoVentaBodegaCompletada {
   total: number
   montoRecibidoCOP?: number
   cambioCOP?: number
-  movimientoFinancieroId: string
+  movimientoFinancieroId?: string
+  estado?: "pendiente"
+  saldoPendienteCOP?: number
   movimientosInventario: string[]
   turnoId: string | null
   solicitudId?: string
@@ -195,6 +228,9 @@ export interface VentaVendedorDTO {
   turnoId: string | null
   montoRecibidoCOP: number | null
   cambioCOP: number | null
+  totalAbonadoCOP?: number | null
+  saldoPendienteCOP?: number | null
+  fechaCompromisoPagoLocal?: string | null
 }
 
 export interface VentaBodegaAdminDTO {
@@ -209,6 +245,7 @@ export interface VentaBodegaAdminDTO {
   turnoId: string | null
   montoRecibidoCOP: number | null
   cambioCOP: number | null
+  saldoPendienteCOP: number | null
 }
 
 const montoCOPSeguro = (value: unknown): number | null => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null
@@ -226,6 +263,7 @@ export function proyectarVentaBodegaAdmin(id: string, data: Record<string, any>)
     turnoId: typeof data.turnoId === "string" && data.turnoId.trim() ? data.turnoId : null,
     montoRecibidoCOP: montoCOPSeguro(data.pago?.montoRecibidoCOP),
     cambioCOP: montoCOPSeguro(data.pago?.cambioCOP),
+    saldoPendienteCOP: montoCOPSeguro(data.saldoPendienteCOP),
   }
 }
 
@@ -302,7 +340,7 @@ export function construirConfirmacionVentaBodega(input: {
 }): ConfirmacionVentaBodega {
   if (input.lineas.length === 0 || input.lineas.length > MAX_LINEAS_BODEGA) throw new Error("LINEAS_INVALIDAS")
   if (input.metodoPago === "efectivo" && (!Number.isSafeInteger(input.montoRecibidoCOP) || (input.montoRecibidoCOP as number) < 0)) throw new Error("MONTO_RECIBIDO_INVALIDO")
-  if (input.metodoPago === "transferencia" && input.montoRecibidoCOP !== undefined) throw new Error("MONTO_RECIBIDO_NO_APLICA")
+  if (input.metodoPago !== "efectivo" && input.montoRecibidoCOP !== undefined) throw new Error("MONTO_RECIBIDO_NO_APLICA")
   const lineas = input.lineas.map((linea) => {
     if (!Number.isSafeInteger(linea.cantidad) || linea.cantidad <= 0) throw new Error("CANTIDAD_INVALIDA")
     return {
@@ -326,6 +364,36 @@ export function construirConfirmacionVentaBodega(input: {
       ...(input.solicitudId ? { solicitudId: requerido(input.solicitudId, "SOLICITUD") } : {}),
     },
   }
+}
+
+export function construirComandoAbonoVentaBodega(input: {
+  ventaId: string
+  montoCOP: number
+  metodoPago: MetodoAbonoBodega
+  fechaCompromisoPagoLocal?: string
+  generarId?: () => string
+}): ComandoAbonoVentaBodega {
+  if (!Number.isSafeInteger(input.montoCOP) || input.montoCOP <= 0) throw new Error("ABONO_INVALIDO")
+  if (input.fechaCompromisoPagoLocal !== undefined && !fechaLocalValidaBodega(input.fechaCompromisoPagoLocal)) throw new Error("FECHA_COMPROMISO_INVALIDA")
+  const generarId = input.generarId ?? (() => crypto.randomUUID())
+  const commandId = `bodega-abono:${generarId()}`
+  return {
+    commandId,
+    idempotencyKey: commandId,
+    correlationId: `bodega-abono:${generarId()}`,
+    causationId: null,
+    payload: {
+      ventaId: requerido(input.ventaId, "VENTA"), montoCOP: input.montoCOP, metodoPago: input.metodoPago,
+      ...(input.fechaCompromisoPagoLocal ? { fechaCompromisoPagoLocal: input.fechaCompromisoPagoLocal } : {}),
+    },
+  }
+}
+
+function fechaLocalValidaBodega(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const [year, month, day] = value.split("-").map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
 }
 
 export function calcularCambioEfectivoBodega(totalCOP: number, montoRecibidoCOP: number): number | null {
@@ -358,6 +426,11 @@ export function mensajeErrorBodega(error: unknown): string {
   const candidate = error as { code?: string; message?: string; details?: { code?: string } }
   const code = candidate?.details?.code ?? candidate?.code ?? candidate?.message ?? ""
   if (code.includes("MONTO_RECIBIDO")) return "El efectivo recibido debe ser un valor entero igual o mayor al total."
+  if (code.includes("ABONO_SUPERA_SALDO")) return "El abono supera el saldo pendiente. Actualiza la cuenta y vuelve a intentarlo."
+  if (code.includes("ABONO_INVALIDO")) return "El abono debe ser un importe entero mayor que cero."
+  if (code.includes("SALDO_CLIENTE_INCONSISTENTE") || code.includes("SALDO_VENTA_INCONSISTENTE")) return "El saldo de esta cuenta requiere revisión administrativa. No se aplicó el abono."
+  if (code.includes("CARTERA_SUPERA_LIMITE")) return "Esta cuenta tiene demasiadas facturas abiertas para mostrarlas. Contacta al administrador."
+  if (code.includes("VENTA_NO_PENDIENTE")) return "La factura ya no tiene un saldo pendiente. Actualiza la cuenta."
   if (code.includes("TURNO_CERRADO")) return "El turno activo no está disponible. Actualiza la vista y vuelve a intentarlo."
   if (code.includes("STOCK_INSUFICIENTE")) return "No hay existencias suficientes para completar la venta."
   if (code.includes("SOLICITUD_APROBACION_REQUERIDA")) return "La solicitud de venta debe estar aprobada antes de confirmar el pago."
