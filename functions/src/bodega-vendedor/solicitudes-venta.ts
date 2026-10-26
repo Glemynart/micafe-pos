@@ -96,7 +96,10 @@ export function proyectarComercialSolicitud(resolution: Awaited<ReturnType<typeo
     cantidad: linea.cantidadPresentaciones,
     factorUnidadBase: linea.factorUnidadBase,
     cantidadUnidadBase: linea.cantidadUnidadBase,
+    canal: linea.canal,
+    precioBasePresentacionCOP: linea.precioBasePresentacionCOP,
     precioPresentacionCOP: linea.precioPresentacionCOP,
+    ofertaId: linea.ofertaId,
     subtotalCOP: linea.subtotalCOP,
   }));
   const totalCOP = lineas.reduce((total, linea) => total + linea.subtotalCOP, 0);

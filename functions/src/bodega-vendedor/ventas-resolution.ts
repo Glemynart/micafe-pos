@@ -1,5 +1,5 @@
 import { HttpsError } from "firebase-functions/v2/https";
-import { resolverComercialBodegaEnTransaccion, type ResolucionComercialBodega } from "./presentaciones";
+import { resolverComercialBodegaEnTransaccion, type CanalPrecioBodega, type ResolucionComercialBodega } from "./presentaciones";
 import { aplicarMovimientosInventarioEnTransaccion, type MovimientoInventarioServer } from "../inventario/ledger";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 import { revalidarAutoridadVentaBodegaEnTransaccion } from "./ventas-authority";
@@ -27,7 +27,10 @@ export interface LineaComercialBodegaResuelta {
   cantidadPresentaciones: number;
   factorUnidadBase: number;
   cantidadUnidadBase: number;
+  canal: CanalPrecioBodega;
+  precioBasePresentacionCOP: number;
   precioPresentacionCOP: number;
+  ofertaId: null;
   subtotalCOP: number;
   costoUnidadBaseCOP: number;
   costoPresentacionCOP: number;
@@ -83,7 +86,7 @@ async function resolverClienteBodegaEnTransaccion(tx: any, db: any, empresaId: s
   };
 }
 
-function resolverLinea(comercial: ResolucionComercialBodega, cantidadPresentaciones: number): LineaComercialBodegaResuelta {
+function resolverLinea(comercial: ResolucionComercialBodega, cantidadPresentaciones: number, canal: CanalPrecioBodega): LineaComercialBodegaResuelta {
   const cantidadUnidadBase = productoSeguro(cantidadPresentaciones, comercial.factorUnidadBase, "CANTIDAD_UNIDAD_BASE_INVALIDA");
   const subtotalCOP = productoSeguro(cantidadPresentaciones, comercial.precioCOP, "SUBTOTAL_BODEGA_INVALIDO");
   const costoPresentacionCOP = productoNoNegativoSeguro(comercial.factorUnidadBase, comercial.costoUnidadBaseCOP, "COSTO_PRESENTACION_INVALIDO");
@@ -97,7 +100,10 @@ function resolverLinea(comercial: ResolucionComercialBodega, cantidadPresentacio
     cantidadPresentaciones,
     factorUnidadBase: comercial.factorUnidadBase,
     cantidadUnidadBase,
+    canal,
+    precioBasePresentacionCOP: comercial.precioTiendaCOP,
     precioPresentacionCOP: comercial.precioCOP,
+    ofertaId: null,
     subtotalCOP,
     costoUnidadBaseCOP: comercial.costoUnidadBaseCOP,
     costoPresentacionCOP,
@@ -122,11 +128,12 @@ export async function resolverVentaBodegaEnTransaccion(
   const consumos = new Map<string, ConsumoInventarioBodega>();
 
   for (const intento of comandoCanonico.payload.lineas) {
+    const canal: CanalPrecioBodega = "tienda";
     const comercial = await resolverComercialBodegaEnTransaccion(tx, db, contexto.empresaId, {
       productoId: intento.productoId,
       presentacionId: intento.presentacionId,
-    });
-    const linea = resolverLinea(comercial, intento.cantidad);
+    }, canal);
+    const linea = resolverLinea(comercial, intento.cantidad, canal);
     lineas.push(linea);
     const previo = consumos.get(linea.productoId);
     consumos.set(linea.productoId, previo
