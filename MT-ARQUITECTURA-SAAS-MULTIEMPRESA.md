@@ -2,7 +2,7 @@
 
 > **Estado:** ✅ Aprobado como vista arquitectónica consolidada del proyecto.
 > **Base funcional revisada:** `main @ 65a9fb85d9159eb949ffaf18c5a99ed6377b1554` (cierre del MVP).
-> **Última revisión:** 2026-08-11.
+> **Última revisión:** 2026-10-26 (sincronización acotada de ADR-SAAS-091/092).
 > **Reconciliación documental:** PR #241; este SHA no pretende identificar el tip actual de `main`.
 > **Alcance vigente:** MT-U0 a MT-U8 completados; MT-U9→MT-U11 son unidades
 > candidatas post-MVP y MT-U12 está retirada/superseded por la decisión Web/PWA-only.
@@ -84,6 +84,7 @@ necesita una membresía explícita o una impersonación separada y auditada.
 - **Membresía:** relación usuario–empresa con rol, permisos y estado.
 - **Configuración:** parámetros editables y preferencias de una empresa, sin contadores.
 - **Espacio:** establecimiento o sucursal dentro de la empresa; no es frontera de seguridad.
+- **Ubicación interna de inventario Bodega:** subdivisión operativa dentro del Espacio único, como Bodega o Nevera; no crea otro Espacio, sede técnica, tenant ni frontera de seguridad. Saldo y movimientos se mantienen por ubicación bajo ADR-SAAS-091.
 - **Numeración:** autorización y secuencia fiscal independiente.
 - **Asignación de numeración:** selección determinista por alcance y tipo documental.
 - **Plan:** oferta comercial global y versionada.
@@ -510,6 +511,8 @@ requieren una decisión de producto sobre monetización, límites y operación S
 | ADR-SAAS-076 | Aceptado | Amplía a once IDs duplicados en manifiestos el namespace público único de Bodega; preserva `saas-auth`. |
 | ADR-SAAS-079 | Aceptado | Pausa temporalmente la emisión DIAN antes de Factus solo para dos empresas identificadas; preserva Factus y exige migración server-side verificada para reactivar. No autoriza despliegues. |
 | ADR-SAAS-082 | Aceptado | Aísla `consultarTenantDusemaSaas` en `saas-dusema-platform`; conserva el backoffice compartido y saca sus seis parámetros S2S del discovery de `saas-auth`. No autoriza Secrets ni despliegues. |
+| ADR-SAAS-091 | Aceptado | Bodega: venta a crédito al entregar, abonos parciales, compromisos de pago y ubicación/cuenta operativa de Nevera a costo; preserva aislamiento y snapshots. Implementación y migraciones sujetas a PR y gates. |
+| ADR-SAAS-092 | Aceptado | Bodega: precio mayorista y consumidor final por presentación y ofertas temporales con precio final por canal; resolución server-side y snapshots inmutables. Implementación sujeta a PR y gates. |
 
 ---
 

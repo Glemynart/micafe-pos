@@ -53,6 +53,16 @@
 - **Integración:** rama independiente desde `main`; el responsable indicó no esperar los checks de #675 y continuar trabajo independiente. PR #675 ya se fusionó en `main@c083810c536ec42895eaf16d1b6603727b80a91a`; este corte de reportes se actualiza contra ese SHA y tampoco autoriza despliegues.
 - **Estado:** preparación en curso; no certifica Gate I ni la entrega funcional de Diana.
 
+## Planificación aprobada — crédito, nevera y ofertas Bodega (2026-10-26)
+
+- **Goal / Milestone / Epic:** `G-SAAS-02 → M2 → E2.2`, con validación posterior en `M3 / E3.1`.
+- **Alcance funcional autorizado:** conservar la solicitud/aprobación previa de Bodega; permitir que la venta se materialice al entregar el pedido y se elija pago inmediato en efectivo/transferencia o venta pendiente de pago; registrar abonos parciales, fechas de compromiso y saldos de clientes actualizados; representar Nevera como ubicación interna de inventario y cuenta operativa de control; registrar ventas al detalle al precio de consumidor final; y permitir ofertas con inicio, vencimiento opcional por fecha/hora o cierre manual.
+- **Decisiones comerciales confirmadas:** el cargo de control de Nevera se valoriza a costo de adquisición; las ofertas se configuran con precio final por presentación y canal. El cargo/abono de control de Nevera debe mantenerse separado de ingresos retail para no contabilizar dos veces la misma mercancía.
+- **Aceptación de arquitectura — 2026-10-26:** el responsable aceptó ADR-SAAS-091 y ADR-SAAS-092 después de revisar sus propuestas en PR #678. Los ADR superseden únicamente las exclusiones y el precio único expresamente identificados; no cambian otros verticales ni autorizan despliegues, migraciones remotas o escrituras.
+- **Siguiente PR técnico:** cambios separados para (1) venta a crédito, abonos, compromisos de pago e inventario/cuenta de Nevera y (2) precios por canal y ofertas. El trabajo debe conservar ventas y saldos tenant-aware, autoridad server-side, idempotencia, auditoría y compatibilidad con solicitudes y agenda existentes. Las pruebas afectadas de E2.2/Gates F–H se reabren antes de Gate I.
+- **Límites:** no registrar abonos, cargar/transferir inventario, cambiar precios, crear ofertas ni desplegar por esta planificación. No implica aprobación fiscal o contable de reportes como declaración DIAN.
+- **Estado:** expansión de alcance y arquitectura aprobadas; implementación, certificación de E2.2, Gate I y declaración de Bodega lista para vender continúan pendientes.
+
 ## Milestones y Epics activos/propuestos
 
 ### M1 — Baseline y remediaciones previas — COMPLETADO
