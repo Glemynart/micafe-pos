@@ -1,5 +1,6 @@
 import { HttpsError } from "firebase-functions/v2/https";
 import { resolverComercialBodegaEnTransaccion, type CanalPrecioBodega, type ResolucionComercialBodega } from "./presentaciones";
+import { resolverOfertaPrecioBodegaEnTransaccion } from "./ofertas";
 import { aplicarMovimientosInventarioEnTransaccion, type MovimientoInventarioServer } from "../inventario/ledger";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 import { revalidarAutoridadVentaBodegaEnTransaccion } from "./ventas-authority";
@@ -30,7 +31,7 @@ export interface LineaComercialBodegaResuelta {
   canal: CanalPrecioBodega;
   precioBasePresentacionCOP: number;
   precioPresentacionCOP: number;
-  ofertaId: null;
+  ofertaId: string | null;
   subtotalCOP: number;
   costoUnidadBaseCOP: number;
   costoPresentacionCOP: number;
@@ -86,9 +87,14 @@ async function resolverClienteBodegaEnTransaccion(tx: any, db: any, empresaId: s
   };
 }
 
-function resolverLinea(comercial: ResolucionComercialBodega, cantidadPresentaciones: number, canal: CanalPrecioBodega): LineaComercialBodegaResuelta {
+function resolverLinea(
+  comercial: ResolucionComercialBodega,
+  cantidadPresentaciones: number,
+  canal: CanalPrecioBodega,
+  precio: { ofertaId: string | null; precioAplicadoCOP: number },
+): LineaComercialBodegaResuelta {
   const cantidadUnidadBase = productoSeguro(cantidadPresentaciones, comercial.factorUnidadBase, "CANTIDAD_UNIDAD_BASE_INVALIDA");
-  const subtotalCOP = productoSeguro(cantidadPresentaciones, comercial.precioCOP, "SUBTOTAL_BODEGA_INVALIDO");
+  const subtotalCOP = productoSeguro(cantidadPresentaciones, precio.precioAplicadoCOP, "SUBTOTAL_BODEGA_INVALIDO");
   const costoPresentacionCOP = productoNoNegativoSeguro(comercial.factorUnidadBase, comercial.costoUnidadBaseCOP, "COSTO_PRESENTACION_INVALIDO");
   const costoTotalLineaCOP = productoNoNegativoSeguro(cantidadPresentaciones, costoPresentacionCOP, "COSTO_TOTAL_BODEGA_INVALIDO");
   return {
@@ -101,9 +107,9 @@ function resolverLinea(comercial: ResolucionComercialBodega, cantidadPresentacio
     factorUnidadBase: comercial.factorUnidadBase,
     cantidadUnidadBase,
     canal,
-    precioBasePresentacionCOP: comercial.precioTiendaCOP,
-    precioPresentacionCOP: comercial.precioCOP,
-    ofertaId: null,
+    precioBasePresentacionCOP: comercial.precioCOP,
+    precioPresentacionCOP: precio.precioAplicadoCOP,
+    ofertaId: precio.ofertaId,
     subtotalCOP,
     costoUnidadBaseCOP: comercial.costoUnidadBaseCOP,
     costoPresentacionCOP,
@@ -133,7 +139,12 @@ export async function resolverVentaBodegaEnTransaccion(
       productoId: intento.productoId,
       presentacionId: intento.presentacionId,
     }, canal);
-    const linea = resolverLinea(comercial, intento.cantidad, canal);
+    const precio = await resolverOfertaPrecioBodegaEnTransaccion(tx, db, contexto.empresaId, {
+      presentacionId: comercial.id,
+      canal,
+      precioBaseCOP: comercial.precioCOP,
+    });
+    const linea = resolverLinea(comercial, intento.cantidad, canal, precio);
     lineas.push(linea);
     const previo = consumos.get(linea.productoId);
     consumos.set(linea.productoId, previo

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { deleteApp, initializeApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { normalizarComandoConfirmacionVentaBodega } from "./ventas-contract";
 import { aplicarConsumosInventarioBodegaEnTransaccion, resolverVentaBodegaEnTransaccion } from "./ventas-resolution";
@@ -20,8 +20,21 @@ class Ref {
   get id() { return this.path.split("/").at(-1)!; }
 }
 
-class Collection {
-  constructor(private readonly db: FakeFirestore, private readonly name: string) {}
+class Query {
+  constructor(private readonly db: FakeFirestore, private readonly name: string, private readonly filters: Array<[string, unknown]> = []) {}
+  where(field: string, _operator: string, value: unknown) { return new Query(this.db, this.name, [...this.filters, [field, value]]); }
+  async get() {
+    const prefix = `${this.name}/`;
+    const docs = [...this.db.docs.entries()]
+      .filter(([path, data]) => path.startsWith(prefix) && !path.slice(prefix.length).includes("/")
+        && this.filters.every(([field, value]) => data[field] === value))
+      .map(([path, data]) => ({ id: path.slice(prefix.length), data: () => data }));
+    return { docs };
+  }
+}
+
+class Collection extends Query {
+  constructor(private readonly db: FakeFirestore, private readonly name: string) { super(db, name); }
   doc(id: string) { return new Ref(`${this.name}/${id}`); }
 }
 
@@ -29,7 +42,7 @@ class Transaction {
   private readonly creates: Array<[Ref, Data]> = [];
   private readonly updates: Array<[Ref, Data]> = [];
   constructor(private readonly db: FakeFirestore) {}
-  async get(ref: Ref) { return new Snapshot(ref.id, this.db.docs.get(ref.path)); }
+  async get(ref: Ref | Query): Promise<any> { return ref instanceof Query ? ref.get() : new Snapshot(ref.id, this.db.docs.get(ref.path)); }
   create(ref: Ref, data: Data) {
     if (this.db.docs.has(ref.path) || this.creates.some(([pending]) => pending.path === ref.path)) throw new Error("already-exists");
     this.creates.push([ref, structuredClone(data)]);
@@ -112,6 +125,20 @@ test("U3-B: conserva líneas comerciales y consolida presentaciones del mismo pr
   assert.equal(db.docs.get("productos/producto-a")?.stock, 25);
   assert.equal([...db.docs.entries()].filter(([path, data]) => path.startsWith("movimientos_inventario/") && data.tipo === "venta").length, 1);
   assert.equal([...db.docs.keys()].some(path => path.startsWith("ventas/")), false);
+});
+
+test("ADR-092: la venta congela precio base, precio final y oferta vigente resueltos por servidor", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set("ofertas_bodega/oferta-activa", {
+    empresaId, estado: "ACTIVA", inicioEn: Timestamp.fromMillis(0), finEn: null,
+    lineas: [{ presentacionId: "caja-a", canal: "tienda", precioFinalCOP: 18_000 }],
+  });
+  const result = await resolverYAplicar(db, command([{ productoId: "producto-a", presentacionId: "caja-a", cantidad: 2 }], "oferta"));
+  assert.equal(result.resolucion.lineas[0]?.canal, "tienda");
+  assert.equal(result.resolucion.lineas[0]?.precioBasePresentacionCOP, 20_000);
+  assert.equal(result.resolucion.lineas[0]?.precioPresentacionCOP, 18_000);
+  assert.equal(result.resolucion.lineas[0]?.ofertaId, "oferta-activa");
+  assert.equal(result.resolucion.lineas[0]?.subtotalCOP, 36_000);
 });
 
 test("U3-B: stock exacto y superior se consumen en unidad base; insuficiente no deja efectos", async () => {
