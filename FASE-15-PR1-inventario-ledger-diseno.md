@@ -133,6 +133,12 @@ Cada tipo declara su `clase` y si forma **par** con otro. Justificación incluid
 | `traslado_salida` | salida | ↔ `traslado_entrada` | Futuro — mueve existencias entre espacios/bodegas |
 | `traslado_entrada` | entrada | ↔ `traslado_salida` | Futuro |
 
+ADR-SAAS-091 acepta de forma acotada `traslado_salida`/`traslado_entrada` para
+la operación Bodega MVP-1 entre ubicaciones internas del mismo Espacio. Esta
+excepción no habilita transferencias entre Espacios, sucursales o verticales;
+la implementación debe conservar el par atómico, `movimientoRelacionadoId`,
+costo, secuencias e idempotencia y cumplir los gates de migración de §12.
+
 ### Nota arquitectónica sobre "anulación"
 
 **La anulación NO es un tipo de movimiento.** Es una *operación* que emite los contramovimientos correspondientes a los movimientos del hecho anulado (una venta anulada genera `devolucion_venta` equivalentes a sus `venta`/`consumo_receta`). Modelarla como tipo propio rompería el invariante I3 y duplicaría semántica. Lo mismo aplica a "eliminar una compra": emite `devolucion_compra`. Esta distinción mantiene el catálogo mínimo y auditable.

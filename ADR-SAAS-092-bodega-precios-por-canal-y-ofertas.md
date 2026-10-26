@@ -2,14 +2,19 @@
 
 ## Estado
 
-**PROPUESTO — 2026-10-26. Pendiente de aprobación explícita.**
+**ACEPTADO — 2026-10-26.**
+
+- **Fecha de propuesta:** 2026-10-26.
+- **Fecha de aceptación:** 2026-10-26.
+- **Aprobación:** el responsable aprobó expresamente ADR-SAAS-091 y ADR-SAAS-092
+  en respuesta a la solicitud de aceptar ambas propuestas en PR #678.
 
 - **Goal:** `G-SAAS-02` → `M2` → `E2.2`; validación posterior en `M3 / E3.1`.
 - **Decisor de alcance:** responsable del proyecto.
 - **Recomendación técnica:** Lead Engineer.
 - **Relacionados:** ADR-SAAS-041, ADR-SAAS-042, ADR-SAAS-062, ADR-SAAS-070,
   ADR-SAAS-091.
-- **Supersede propuesto:** ADR-SAAS-041 §8 solo en su requisito de un precio
+- **Supersede parcialmente:** ADR-SAAS-041 §8 solo en su requisito de un precio
   único por presentación, y en la exclusión de promociones; ADR-SAAS-062 solo
   en cuanto el snapshot comercial también debe incluir canal y oferta
   vigente; ADR-SAAS-070 únicamente en su adopción de precio único para todos
@@ -201,10 +206,11 @@ Antes de autorizar despliegue, pruebas locales/Emulator y CI deben demostrar:
 - No autoriza crear oferta, registrar venta, transferir inventario ni desplegar
   Functions, Rules o App Hosting.
 
-## Aprobación pendiente
+## Registro de aceptación
 
 El responsable aprobó funcionalmente precios distintos por canal y confirmó
 que las ofertas deben configurarse con precio final por presentación/canal.
-La propuesta de autoridad, vigencia, resolución server-side, migración y
-compatibilidad permanece `Propuesta`; requiere aprobación explícita antes de
-implementar.
+También aprobó expresamente la arquitectura de esta ADR. Queda habilitada la
+implementación local después de integrar la aceptación y sincronizar los
+documentos maestros. La aceptación no confirma la importación de precios,
+creación de ofertas, ventas, migraciones remotas ni despliegues.
