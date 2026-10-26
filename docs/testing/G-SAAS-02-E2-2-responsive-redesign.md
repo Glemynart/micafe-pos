@@ -10,7 +10,7 @@
 
 La administración deja el contenedor fijo de 512 px y pasa a un espacio de trabajo con navegación lateral en escritorio y navegación inferior en móvil. El catálogo ofrece editores de categoría, producto y presentación en diálogos con foco y desplazamiento propio. La carga masiva y el asistente local se despliegan cuando se necesitan; las fichas de producto separan existencias de la edición de presentaciones y precios. El directorio de clientes ofrece búsqueda y un editor enfocado. Inicio e inventario incorporan orientación útil para un negocio todavía vacío.
 
-El POS Bodega de vendedores utiliza el mismo vocabulario visual, conserva el catálogo y el resumen de pedido, incorpora navegación lateral en PC y controles inferiores en móvil. Agenda, solicitudes y ventas conservan sus comandos y estados. Los accesos de administración y POS usan una composición de dos paneles en PC y un formulario compacto en celular.
+El POS Bodega de vendedores utiliza el mismo vocabulario visual, conserva el catálogo y el resumen de pedido, incorpora navegación lateral en PC y controles inferiores en móvil. En celular, un acceso fijo permite llegar al pedido sin recorrer todo el catálogo; los controles de cantidad tienen objetivos táctiles de 44 px. Agenda, solicitudes y ventas conservan sus comandos y estados. Los accesos de administración y POS usan una composición de dos paneles en PC y un formulario compacto en celular.
 
 Backoffice organiza navegación por operación, comercial y gestión, con menú móvil accesible. El inicio combina indicadores reales y accesos autorizados; el directorio empresarial usa filas adaptables para identificar negocios y estados. Formularios, fichas, tablas y diálogos comparten espaciado y controles táctiles. La visibilidad de operaciones sigue usando las facultades existentes.
 
@@ -41,6 +41,12 @@ Validar a 390 px, 768 px y 1440 px, incluyendo un ancho intermedio con navegaci�
 ## Validaciones y publicación
 
 El PR registra los resultados de TypeScript, build, suites de Bodega y Backoffice y revisión visual. No se infiere éxito por este documento. Antes del rollout se verifica el SHA de la rama y que el destino y la configuración pública Firebase correspondan a staging. Después se comprueban build, rollout y tráfico servido. Las pruebas autenticadas en staging requieren su identidad QA existente; no se reutilizan credenciales productivas ni se crean usuarios como parte de este corte.
+
+El CLI instalado admite el corte dirigido desde un commit publicado de la rama, sin merge:
+
+```powershell
+firebase --project micafe-pos-staging apphosting:rollouts:create micafe-pos --git-commit <SHA-completo-validado> --force --non-interactive
+```
 
 ## Recuperación
 
