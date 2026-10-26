@@ -55,7 +55,7 @@ async function seedTenant(db: FirebaseFirestore.Firestore, auth: ReturnType<type
     configuracion.identidadFiscal.digitoVerificacion = "4"
     configuracion.identidadFiscal.contacto.email = `contacto-${tenant.key.toLowerCase()}@example.com`
     configuracion.identidadFiscal.contacto.telefono = "+573001234567"
-    Object.assign(configuracion.localizacion.direccion, { linea1: "Calle de prueba 123", departamentoCodigo: "11", departamentoNombre: "Bogotá D.C.", municipioCodigo: "11001", municipioNombre: "Bogotá" })
+    Object.assign(configuracion.localizacion.direccion, { linea1: "Calle de prueba 123", departamentoCodigo: "11", departamentoNombre: "BOGOTÁ, D.C.", municipioCodigo: "11001", municipioNombre: "BOGOTÁ, D.C." })
   }
   await db.collection("configuraciones").doc(tenant.empresaId).set(configuracion)
   await db.collection("planes").doc("mvp_comercial").collection("versiones").doc("1").set({ planId: "mvp_comercial", planVersion: 1, estado: "PUBLICADA", capacidades: configuracion.modulos.habilitados, limites: {}, periodicidad: "MENSUAL", grandfathered: false, revision: 1, schemaVersion: 1 })
@@ -336,10 +336,8 @@ test("admin Bodega completa perfil comercial en primer acceso y entra al panel a
   await page.getByLabel("Correo de contacto").fill("Diana.Jimenez@Example.com")
   await page.getByLabel("Teléfono de contacto").fill("+573001234567")
   await page.getByLabel("Dirección del negocio").fill("Calle de prueba 123")
-  await page.getByLabel("Departamento", { exact: true }).fill("Bogotá D.C.")
-  await page.getByLabel("Código DIVIPOLA del departamento").fill("11")
-  await page.getByLabel("Municipio", { exact: true }).fill("Bogotá")
-  await page.getByLabel("Código DIVIPOLA del municipio").fill("11001")
+  await page.getByLabel("Departamento", { exact: true }).fill("BOGOTÁ, D.C.")
+  await page.getByLabel("Ciudad o municipio", { exact: true }).fill("BOGOTÁ, D.C.")
   await page.getByRole("button", { name: "Guardar y continuar en DEMO" }).click()
   await expect(page.getByRole("heading", { name: "Centro de operación" })).toBeVisible()
 
@@ -350,6 +348,7 @@ test("admin Bodega completa perfil comercial en primer acceso y entra al panel a
   expect(company.data()).toMatchObject({ nombre: "Distribuidora Sintética F", nombreComercial: "Distribuidora Sintética F", estado: "trial" })
   expect(config.data()?.identidadFiscal).toMatchObject({ razonSocial: "Distribuidora Sintética F S.A.S.", numeroDocumento: "900373913", digitoVerificacion: "4" })
   expect(config.data()?.identidadFiscal.contacto.email).toBe("diana.jimenez@example.com")
+  expect(config.data()?.localizacion.direccion).toMatchObject({ departamentoCodigo: "11", departamentoNombre: "BOGOTÁ, D.C.", municipioCodigo: "11001", municipioNombre: "BOGOTÁ, D.C." })
   expect(evaluarReadinessConfiguracion(config.data() as any).fiscal.lista).toBe(false)
 
   await page.reload()
