@@ -44,6 +44,7 @@ const bodegaTabs = [
   { href: "/admin/clientes", label: "Clientes", icon: Users },
   { href: "/admin/inventario", label: "Stock", icon: Boxes },
   { href: "/admin/ventas", label: "Ventas", icon: ShoppingBag },
+  { href: "/admin/reportes", label: "Reportes", icon: BarChart3, modulo: "reports" },
 ]
 
 const moreModulos = ["usuarios", "permisos", "mermas", "gastos", "cuentas_cobro", "compras"]
@@ -66,7 +67,7 @@ export function BottomNav() {
   const modSet = new Set(modulos)
 
   const tabs = vertical === "BODEGA_MVP1" && usuario?.rol === "admin"
-    ? bodegaTabs
+    ? bodegaTabs.filter(t => !t.modulo || modSet.has(t.modulo))
     : usuario?.rol === "marketing"
     ? marketingTabs
     : adminTabs.filter((t) => !t.modulo || modSet.has(t.modulo))

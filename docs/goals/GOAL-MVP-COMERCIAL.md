@@ -45,6 +45,14 @@
 - **Gate de revisión del diseño:** el responsable revisó el diseño en staging y autorizó integrar PR #675 el 2026-10-26, sujeto a auditoría y CI completamente verde. La marca visible solicitada es Dusema POS. Esta integración no autoriza publicar el rediseño en producción.
 - **Estado:** preparación en curso; no certifica Gate I, catálogo, inventario ni entrega funcional.
 
+## Planificación aprobada — reportes operativos Bodega (2026-10-26)
+
+- **Goal / Milestone / Epic:** `G-SAAS-02 → M2 → E2.2`.
+- **Solicitud aprobada:** el responsable solicita ventas mensuales, utilidad, ventas por vendedor, medios de pago, productos más/menos vendidos y un auxiliar Excel para organizar información con el contador. El corte mínimo reutiliza ventas y costos históricos existentes conforme a ADR-SAAS-041/042; no introduce contabilidad fiscal ni una autoridad de costos nueva.
+- **Siguiente PR esperado:** reportes Bodega para admin con módulo `reports` habilitado, consulta de solo lectura, utilidad bruta identificada, rankings por ingresos o cantidades de una misma unidad y exportación operativa CSV más plantilla XLSX vacía. La ganancia neta y la declaración de renta no se infieren de las ventas. No incluye registro de gastos, migraciones, Rules, Functions ni datos.
+- **Integración:** rama independiente desde `main`; el responsable indicó no esperar los checks de #675 y continuar trabajo independiente. PR #675 ya se fusionó en `main@c083810c536ec42895eaf16d1b6603727b80a91a`; este corte de reportes se actualiza contra ese SHA y tampoco autoriza despliegues.
+- **Estado:** preparación en curso; no certifica Gate I ni la entrega funcional de Diana.
+
 ## Milestones y Epics activos/propuestos
 
 ### M1 — Baseline y remediaciones previas — COMPLETADO
