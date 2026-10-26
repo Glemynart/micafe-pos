@@ -2,7 +2,7 @@
 
 ## Estado
 
-**ACEPTADO — 2026-10-25 por selección expresa del responsable del producto.**
+**SUPERSEDIDO por ADR-SAAS-090 — 2026-10-26, por aprobación expresa del responsable del producto.**
 
 - **Goal / Milestone / Epic:** `G-SAAS-02 → M2 — Provisioning y onboarding → E2.2 — Configuración inicial`.
 - **Decisión de producto:** agregar al Backoffice Bodega una ayuda de IA para categorizar nombres de productos.
