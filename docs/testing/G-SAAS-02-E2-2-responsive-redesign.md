@@ -3,7 +3,7 @@
 - Goal → Milestone → Epic: `G-SAAS-02 → M2 → E2.2`.
 - Base: `392abd8d77e4d23792367978892741ccd106cb34` (PR #674).
 - Alcance aprobado por el responsable el 2026-10-26: rediseño de administración, POS Bodega de vendedores y Backoffice para PC y celular.
-- Integración: **PR abierto, sin merge hasta revisión del responsable**.
+- Integración: el responsable revisó el diseño en staging y autorizó el merge de PR #675 el 2026-10-26, condicionado a auditoría y checks completos en verde. La autorización no equivale a merge realizado ni a despliegue productivo.
 - Publicación autorizada: únicamente App Hosting de `micafe-pos-staging`, desde el SHA validado de la rama. No autoriza producción ni cambios de Functions, Rules, datos o identidad.
 
 ## Resultado visual
@@ -47,6 +47,8 @@ Validar a 390 px, 768 px y 1440 px, incluyendo un ancho intermedio con navegaci�
 9. Modos claro/oscuro y nombres largos.
 
 ## Validaciones y publicación
+
+La ejecución CI `40357635885` encontró un selector E2E P0-01 ligado al antiguo contenedor `nav.fixed.bottom-0`: en escritorio la navegación ahora es lateral. La prueba conserva la comprobación de Reservas, Finanzas y Turnos derivados del Plan y la ejecuta a 1440 y 390 px usando los nombres accesibles de cada navegación. Restaura el viewport antes de continuar los mismos flujos POS, espacios y Finanzas. El error posterior de subida de evidencia Bodega fue consecuencia de que P0-01 detuvo el flujo antes de ejecutar aquella suite; no demuestra un fallo funcional Bodega. La corrección requiere ejecución E2E y CI, sin omitir suites ni modificar protecciones.
 
 El PR registra los resultados de TypeScript, build, suites de Bodega y Backoffice y revisión visual. No se infiere éxito por este documento. Antes del rollout se verifica el SHA de la rama y que el destino y la configuración pública Firebase correspondan a staging. Después se comprueban build, rollout y tráfico servido. Las pruebas autenticadas en staging requieren su identidad QA existente; no se reutilizan credenciales productivas ni se crean usuarios como parte de este corte.
 

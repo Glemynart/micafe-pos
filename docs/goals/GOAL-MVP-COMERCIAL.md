@@ -42,7 +42,7 @@
 - **Goal / Milestone / Epic:** `G-SAAS-02 → M2 → E2.2`.
 - **Aprobación de alcance:** el responsable solicita un rediseño integral de administración, POS Bodega de vendedores y Backoffice, con experiencias adaptadas a PC y celular. Este corte sustituye la disposición comprimida que dificulta la configuración inicial de Diana; conserva contratos, comandos, permisos y condiciones comerciales.
 - **Siguiente PR esperado:** nueva estructura visual, navegación responsive, formularios enfocados, listados y estados vacíos coherentes. Validar pantallas y acciones en PC y celular, utilizando datos sintéticos para la revisión local.
-- **Gate de revisión del diseño:** mantener el PR abierto y sin merge; publicar exclusivamente App Hosting de `micafe-pos-staging` desde el SHA de la rama validada. El responsable revisa el resultado antes de autorizar la integración. No se despliega este rediseño en producción.
+- **Gate de revisión del diseño:** el responsable revisó el diseño en staging y autorizó integrar PR #675 el 2026-10-26, sujeto a auditoría y CI completamente verde. La marca visible solicitada es Dusema POS. Esta integración no autoriza publicar el rediseño en producción.
 - **Estado:** preparación en curso; no certifica Gate I, catálogo, inventario ni entrega funcional.
 
 ## Milestones y Epics activos/propuestos
