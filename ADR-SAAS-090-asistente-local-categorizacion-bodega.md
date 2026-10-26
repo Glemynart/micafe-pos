@@ -14,7 +14,7 @@
 
 El catálogo de Distribuidora Las Jiménez requiere asignar categorías, pero el Backoffice registra productos manualmente y no hay importación masiva aprobada. ADR-SAAS-089, aceptado el 2026-10-25, eligió una callable que envía nombres a Gemini en Vertex AI y requiere API, identidad de runtime e IAM. El 2026-10-26, el responsable aprobó reemplazar esa solución por reglas locales y búsqueda web manual en casos dudosos.
 
-El PR #673 está abierto y ahora contiene la implementación local junto con otros cambios de configuración inicial. Los checks del nuevo HEAD deben terminar antes de solicitar merge. No se afirma que la callable Vertex o sus recursos estén desplegados; su estado remoto se debe verificar antes de cualquier limpieza.
+El cambio presentado en el PR #673 agrupa la implementación local con otros cambios de configuración inicial. No se afirma que la callable Vertex o sus recursos estén desplegados; su estado remoto se debe verificar antes de cualquier limpieza. La integración del PR y cualquier despliegue posterior son decisiones operativas separadas.
 
 El sistema ya tiene una taxonomía inicial para Bodega: aguas, gaseosas y sodas, jugos y bebidas de fruta, hidratantes, energizantes, cervezas, licores, maltas y otros por revisar. Ejemplos expresos del dominio incluyen aguardiente, ron y vodka como licores, y Vive 100 y Speed Max como energizantes.
 
