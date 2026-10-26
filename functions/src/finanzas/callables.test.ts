@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { HttpsError } from "firebase-functions/v2/https";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
+import { SCHEMA_VERSION_VENTA_BODEGA_CREDITO } from "../bodega-vendedor/ventas-contract";
 import { manejarAnularVentaOperativaV1, importesPagoVenta, type ContextoFinancieroOperativo } from "./anulaciones";
 
 type Data = Record<string, any>;
@@ -117,6 +118,22 @@ test("U3-A: la anulación genérica rechaza una venta Bodega sin efectos", async
   await assert.rejects(manejarAnularVentaOperativaV1(db, { auth: { uid: actor.actorUid, token: { empresaId, rol: actor.rol } }, data: envelope("bodega-protegida") }), error => domain(error, "ANULACION_BODEGA_NO_DISPONIBLE"));
   assert.deepEqual([...db.docs], before);
   assert.equal(db.docs.get(`transacciones_financieras/${fuente}`)?.tipo, "ingreso");
+});
+
+test("ADR-091: la anulación genérica rechaza una venta Bodega v2 sin mutarla", async () => {
+  const db = new FakeFirestore();
+  db.docs.set("ventas/bodega-credito", {
+    empresaId, schemaVersion: SCHEMA_VERSION_VENTA_BODEGA_CREDITO, estado: "pendiente",
+    estadoOperativo: "COMPLETO", metodoPago: "cuenta_cobro", totalAbonadoCOP: 200,
+    saldoPendienteCOP: 800, totales: { total: 1000 },
+  });
+  seedAuth(db);
+  const before = structuredClone([...db.docs]);
+  await assert.rejects(
+    anular(db, actor, envelope("bodega-credito")),
+    error => domain(error, "ANULACION_BODEGA_NO_DISPONIBLE"),
+  );
+  assert.deepEqual([...db.docs], before);
 });
 
 test("R1-B.1: fondos insuficientes abortan atómicamente la compensación", async () => {

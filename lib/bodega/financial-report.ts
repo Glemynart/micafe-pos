@@ -7,7 +7,7 @@ export interface LineaReporte {
   costoCOP: number | null; utilidadCOP: number | null; metodo: string;
 }
 export interface ReporteBodega {
-  mes: string; ventas: number; ingresoCOP: number; costoRegistradoCOP: number;
+  mes: string; ventas: number; ingresoCOP: number; recaudadoCOP: number; saldoPendienteBodegaCOP: number; costoRegistradoCOP: number;
   utilidadBrutaCOP: number | null; lineasSinCosto: number; lineasCostoCero: number;
   pagos: { efectivo: number; transferencia: number };
   vendedores: Array<{ id: string; nombre: string; ventas: number; ingresoCOP: number }>;
@@ -36,11 +36,12 @@ function verificarTenant(fuente: FuenteReporte, empresaId: string) {
 /** No recibe precios/costos actuales: solo snapshots canónicos de cada venta. */
 export function calcularReporteBodega(input: {
   empresaId: string; mes: string; ventas: readonly FuenteReporte[];
-  productos: readonly FuenteReporte[]; nombres?: ReadonlyMap<string,string>;
+  productos: readonly FuenteReporte[]; movimientos?: readonly FuenteReporte[]; clientes?: readonly FuenteReporte[];
+  nombres?: ReadonlyMap<string,string>;
 }): ReporteBodega {
   if (!texto(input.empresaId)) throw new Error('Tenant no disponible.');
   const {inicio,fin}=rangoMesBogota(input.mes);
-  const resultado: ReporteBodega={mes:input.mes,ventas:0,ingresoCOP:0,costoRegistradoCOP:0,utilidadBrutaCOP:null,lineasSinCosto:0,lineasCostoCero:0,pagos:{efectivo:0,transferencia:0},vendedores:[],productos:[],lineas:[],anuladas:0};
+  const resultado: ReporteBodega={mes:input.mes,ventas:0,ingresoCOP:0,recaudadoCOP:0,saldoPendienteBodegaCOP:0,costoRegistradoCOP:0,utilidadBrutaCOP:null,lineasSinCosto:0,lineasCostoCero:0,pagos:{efectivo:0,transferencia:0},vendedores:[],productos:[],lineas:[],anuladas:0};
   const productos=new Map<string,ProductoReporte>();
   for(const fuente of input.productos){
     verificarTenant(fuente,input.empresaId);
@@ -54,15 +55,27 @@ export function calcularReporteBodega(input: {
     if(ids.has(fuente.id)) throw new Error('Venta duplicada en el reporte.');
     ids.add(fuente.id);
     const v=fuente.data;
-    if(v.schemaVersion!=='BODEGA_MVP1_V1') continue;
+    if(v.schemaVersion!=='BODEGA_MVP1_V1' && v.schemaVersion!=='BODEGA_MVP1_V2') continue;
     const cuando=fecha(v.fecha); if(!cuando) invalidar();
     if(cuando<inicio || cuando>=fin) continue;
     if(v.estado==='anulada'){resultado.anuladas++;continue;}
-    if(v.estado!=='pagada' || v.estadoOperativo!=='COMPLETO') continue;
+    if(v.estadoOperativo!=='COMPLETO') continue;
     const totales=mapa(v.totales);
     if(!numero(totales.total) || totales.total===0 || totales.impuestos!==0 || !Array.isArray(v.items) || v.items.length===0) invalidar();
-    if(v.metodoPago!=='efectivo' && v.metodoPago!=='transferencia') invalidar();
-    const metodo=v.metodoPago;
+    const esCreditoBodega=v.schemaVersion==='BODEGA_MVP1_V2';
+    if(esCreditoBodega){
+      if(v.metodoPago!=='cuenta_cobro' || (v.estado!=='pendiente' && v.estado!=='pagada')
+        || !numero(v.totalAbonadoCOP) || !numero(v.saldoPendienteCOP)
+        || v.totalAbonadoCOP+v.saldoPendienteCOP!==totales.total
+        || (v.estado==='pendiente' && v.saldoPendienteCOP===0)
+        || (v.estado==='pagada' && v.saldoPendienteCOP!==0)) invalidar();
+    }else{
+      if(v.estado!=='pagada') continue;
+      if(v.metodoPago!=='efectivo' && v.metodoPago!=='transferencia') invalidar();
+      resultado.recaudadoCOP=sumar(resultado.recaudadoCOP,totales.total);
+      resultado.pagos[v.metodoPago]=sumar(resultado.pagos[v.metodoPago],totales.total);
+    }
+    const metodo=esCreditoBodega?'cuenta_cobro':v.metodoPago as 'efectivo'|'transferencia';
     const actor=texto(v.cajeroId)?v.cajeroId:'sin-identificar';
     const snapshot=texto(v.cajeroNombre) && v.cajeroNombre!==actor?v.cajeroNombre.trim():null;
     const actual=input.nombres?.get(actor)?.trim();
@@ -87,9 +100,31 @@ export function calcularReporteBodega(input: {
     }
     if(sumaLineas!==totales.total) invalidar();
     resultado.ventas++;resultado.ingresoCOP=sumar(resultado.ingresoCOP,totales.total);
-    resultado.pagos[metodo]=sumar(resultado.pagos[metodo],totales.total);
     const vendedor=vendedores.get(actor)??{id:actor,nombre,ventas:0,ingresoCOP:0};
     vendedor.ventas++;vendedor.ingresoCOP=sumar(vendedor.ingresoCOP,totales.total);vendedores.set(actor,vendedor);
+  }
+  const movimientosIds=new Set<string>();
+  for(const fuente of input.movimientos??[]){
+    verificarTenant(fuente,input.empresaId);
+    if(movimientosIds.has(fuente.id)) invalidar();
+    movimientosIds.add(fuente.id);
+    const m=fuente.data;
+    if(m.categoria!=='cuentas_cobro' || m.tipo!=='ingreso' || m.referenciaColeccion!=='ventas') continue;
+    const cuando=fecha(m.fecha); if(!cuando) invalidar();
+    if(cuando<inicio || cuando>=fin) continue;
+    if(!numero(m.monto) || m.monto===0) invalidar();
+    const cuenta=m.cuentaClaveSnapshot;
+    const metodo=cuenta==='caja-principal'?'efectivo':cuenta==='bancolombia'?'transferencia':null;
+    if(!metodo) invalidar();
+    resultado.recaudadoCOP=sumar(resultado.recaudadoCOP,m.monto);
+    resultado.pagos[metodo]=sumar(resultado.pagos[metodo],m.monto);
+  }
+  for(const fuente of input.clientes??[]){
+    verificarTenant(fuente,input.empresaId);
+    const saldo=fuente.data.saldoPendienteBodegaCOP;
+    if(saldo===undefined || saldo===null) continue;
+    if(!numero(saldo)) invalidar();
+    resultado.saldoPendienteBodegaCOP=sumar(resultado.saldoPendienteBodegaCOP,saldo);
   }
   resultado.utilidadBrutaCOP=resultado.ventas>0 && resultado.lineasSinCosto===0?resultado.ingresoCOP-resultado.costoRegistradoCOP:null;
   resultado.vendedores=[...vendedores.values()].sort((a,b)=>b.ingresoCOP-a.ingresoCOP || a.nombre.localeCompare(b.nombre,'es'));

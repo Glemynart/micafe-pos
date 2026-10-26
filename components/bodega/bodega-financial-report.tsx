@@ -45,7 +45,7 @@ export function BodegaReportesAdmin() {
     if (lectura?.key !== key || !lectura.datos) return null
     try {
       const nombres = new Map((perfiles?.key === scope ? perfiles.usuarios : []).map(u => [u.uid, u.nombre]))
-      return { reporte: calcularReporteBodega({ empresaId: lectura.datos.empresaId, mes, ventas: lectura.datos.ventas, productos: lectura.datos.productos, nombres }) }
+      return { reporte: calcularReporteBodega({ empresaId: lectura.datos.empresaId, mes, ventas: lectura.datos.ventas, movimientos: lectura.datos.movimientos, clientes: lectura.datos.clientes, productos: lectura.datos.productos, nombres }) }
     } catch (error) { return { error: error instanceof Error ? error.message : "Los datos no permiten construir un reporte fiable." } }
   }, [lectura, key, perfiles, scope, mes])
   const reporte = vista?.reporte
@@ -71,20 +71,23 @@ export function BodegaReportesAdmin() {
     {cargando && <p role="status" className="rounded-[16px] border border-border bg-card p-8 text-sm text-muted-foreground">Consultando registros del tenant…</p>}
     {error && <p role="alert" className="rounded-[16px] border border-destructive/30 bg-destructive/5 p-5 text-sm text-destructive">{error}</p>}
     {!cargando && !error && reporte && <>
-      <div className="grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-4">
+      <div className="grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-5">
         <Metrica icon={CircleDollarSign} label="Ventas del mes" value={cop(reporte.ingresoCOP)} />
         <Metrica icon={TrendingUp} label="Utilidad bruta registrada" value={reporte.utilidadBrutaCOP === null ? "Sin determinar" : cop(reporte.utilidadBrutaCOP)} />
-        <Metrica icon={ShoppingBag} label="Ventas pagadas" value={String(reporte.ventas)} />
+        <Metrica icon={ShoppingBag} label="Recaudado en el mes" value={cop(reporte.recaudadoCOP)} />
+        <Metrica icon={CircleDollarSign} label="Saldo por cobrar Bodega" value={cop(reporte.saldoPendienteBodegaCOP)} />
+        <Metrica icon={ShoppingBag} label="Ventas entregadas" value={String(reporte.ventas)} />
         <Metrica icon={Users} label="Operadores con ventas" value={String(reporte.vendedores.length)} />
       </div>
       <div className="rounded-[16px] border border-border/70 bg-card p-5 text-sm leading-relaxed text-muted-foreground">
-        <p>La utilidad bruta usa el costo histórico guardado al vender. No descuenta gastos del negocio ni determina renta o impuestos.</p>
+        <p>Ventas del mes corresponde a mercancía entregada. Recaudado y medios de pago cuentan ingresos recibidos en el mes, incluidos abonos de cuentas por cobrar. El saldo por cobrar es el balance vigente del Bodega y no un saldo histórico al cierre del mes.</p>
+        <p className="mt-2">La utilidad bruta usa el costo histórico guardado al vender. No descuenta gastos del negocio ni determina renta o impuestos.</p>
         {reporte.lineasSinCosto > 0 && <p className="mt-2 text-amber-800 dark:text-amber-300">Hay {reporte.lineasSinCosto} líneas sin costo histórico válido. La utilidad del período queda sin determinar.</p>}
         {reporte.lineasCostoCero > 0 && <p className="mt-2 text-amber-800 dark:text-amber-300">{reporte.lineasCostoCero} líneas tienen costo registrado en cero. Revisa esos costos antes de interpretar la utilidad.</p>}
         <p className="mt-2">Se excluyen {reporte.anuladas} ventas anuladas. Los datos son operativos y no acreditan facturación fiscal.</p>
       </div>
       <div className="grid gap-5 @4xl:grid-cols-2">
-        <section className="rounded-[16px] border border-border/70 bg-card p-5"><h2 className="text-lg font-semibold">Medios de pago</h2><p className="mt-1 text-xs text-muted-foreground">Valor de las ventas cobradas; el efectivo no incluye el cambio devuelto.</p><dl className="mt-5 divide-y divide-border/60">{Object.entries(reporte.pagos).map(([metodo,total]) => <div key={metodo} className="flex justify-between gap-4 py-3"><dt className="capitalize">{metodo}</dt><dd className="font-semibold tabular-nums">{cop(total)}</dd></div>)}</dl></section>
+        <section className="rounded-[16px] border border-border/70 bg-card p-5"><h2 className="text-lg font-semibold">Medios de pago</h2><p className="mt-1 text-xs text-muted-foreground">Ingresos recibidos durante el mes; el efectivo no incluye el cambio devuelto.</p><dl className="mt-5 divide-y divide-border/60">{Object.entries(reporte.pagos).map(([metodo,total]) => <div key={metodo} className="flex justify-between gap-4 py-3"><dt className="capitalize">{metodo}</dt><dd className="font-semibold tabular-nums">{cop(total)}</dd></div>)}</dl></section>
         <section className="rounded-[16px] border border-border/70 bg-card p-5"><h2 className="text-lg font-semibold">Ventas por operador</h2><p className="mt-1 text-xs text-muted-foreground">Vendedor que ejecutó la venta. Incluye ventas directas de administración.</p>{reporte.vendedores.length === 0 ? <Vacio /> : <div className="mt-5 divide-y divide-border/60">{reporte.vendedores.map(v => <div key={v.id} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><p className="break-words text-sm font-medium">{v.nombre}</p><p className="text-xs text-muted-foreground">{v.ventas} ventas</p></div><strong className="shrink-0 text-sm tabular-nums">{cop(v.ingresoCOP)}</strong></div>)}</div>}</section>
       </div>
       <section className="space-y-4"><div className="flex flex-wrap items-end justify-between gap-4"><h2 className="text-xl font-semibold">Productos del mes</h2><div className="flex flex-wrap gap-3"><label className="text-xs font-medium">Clasificar por<select value={criterio} onChange={e => setCriterio(e.target.value as "ingreso" | "cantidad")} className="mt-1 block h-11 rounded-xl border border-border bg-card px-3 text-sm"><option value="ingreso">Ingresos COP</option><option value="cantidad">Cantidad vendida</option></select></label>{criterio === "cantidad" && unidades.length > 0 && <label className="text-xs font-medium">Unidad base<select value={unidad} onChange={e => setUnidadElegida(e.target.value)} className="mt-1 block h-11 rounded-xl border border-border bg-card px-3 text-sm">{unidades.map(u => <option key={u} value={u}>{u}</option>)}</select></label>}</div></div><div className="grid gap-5 @4xl:grid-cols-2"><Ranking title="Más vendidos" criterio={criterio} productos={ranking.filter(p => criterio === "ingreso" ? p.ingresoCOP > 0 : p.unidadesBase > 0).slice(0,10)} /><Ranking title="Menos vendidos" criterio={criterio} productos={menores} /></div></section>

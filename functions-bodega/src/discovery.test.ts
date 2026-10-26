@@ -33,10 +33,10 @@ test("saas-bodega descubre callables, scheduler ADR-064 y trigger push ADR-065 s
   const endpoints = result.endpoints as Record<string, { region?: unknown; serviceAccountEmail?: unknown; callableTrigger?: unknown; scheduleTrigger?: { schedule?: unknown; timeZone?: unknown }; eventTrigger?: { eventType?: unknown; eventFilters?: Record<string, unknown> } }>;
   assert.deepEqual(Object.keys(endpoints).sort(), [
     "actualizarPresentacionComercialBodegaV1", "cancelarProgramacionPedidoBodegaV1", "cancelarSolicitudVentaBodegaV1",
-    "confirmarVentaVendedorBodegaV1", "consultarAgendaPedidosBodegaV1", "consultarSolicitudesVentaBodegaV1",
+    "confirmarVentaVendedorBodegaV1", "consultarAgendaPedidosBodegaV1", "consultarCarteraClienteBodegaV1", "consultarSolicitudesVentaBodegaV1",
     "convertirProgramacionPedidoBodegaV1", "crearArticuloInventarioBodegaV1", "crearCategoriaBodegaV1",
     "crearClienteVendedorBodegaV1", "crearPresentacionComercialBodegaV1", "crearProgramacionPedidoBodegaV1",
-    "crearSolicitudVentaBodegaV1", "notificarSolicitudVentaBodegaPendienteV1", "reconciliarAgendaPedidosBodegaV1", "resolverProgramacionPedidoBodegaV1",
+    "crearSolicitudVentaBodegaV1", "notificarSolicitudVentaBodegaPendienteV1", "reconciliarAgendaPedidosBodegaV1", "registrarAbonoVentaBodegaV1", "resolverProgramacionPedidoBodegaV1",
     "resolverSolicitudVentaBodegaV1",
   ]);
   for (const [name, endpoint] of Object.entries(endpoints)) {

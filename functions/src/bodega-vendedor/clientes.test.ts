@@ -73,7 +73,9 @@ test("U2-A: vendedor consulta solo clientes activos de su tenant mediante DTO fi
 
   assert.deepEqual(respuestaA.clientes.map((cliente) => cliente.id), ["a-activo", "legacy"]);
   assert.deepEqual(respuestaB.clientes.map((cliente) => cliente.id), ["b-activo"]);
-  assert.equal(JSON.stringify(respuestaA).includes("saldo"), false);
+  assert.equal(respuestaA.clientes[0].saldoPendienteCOP, 0);
+  assert.equal(respuestaA.clientes[1].saldoPendienteCOP, 0);
+  assert.equal(JSON.stringify(respuestaA).includes('"saldo":'), false);
   assert.equal(JSON.stringify(respuestaA).includes("limiteCredito"), false);
   assert.equal(respuestaA.clientes[1].contacto, null);
   await assert.rejects(ejecutarConsultarClientesVendedor(db, contextoVendedor, { empresaId: "empresa-b" }), /PAYLOAD_INVALIDO/);

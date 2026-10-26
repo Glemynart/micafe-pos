@@ -19,6 +19,7 @@ import {
   idEventoSolicitudVentaBodegaPendiente,
 } from "../../functions/src/bodega-vendedor/solicitudes-venta";
 import { ejecutarCrearArticuloInventarioV1 } from "../../functions/src/inventario/callables";
+import { consultarCarteraClienteBodegaV1, registrarAbonoVentaBodegaV1 } from "../../functions/src/bodega-vendedor/credit-payments";
 import { ejecutarCrearCategoriaBodegaV1 } from "../../functions/src/bodega/categorias";
 import { leerConfiguracionEmpresa } from "../../functions/src/configuracion/reader";
 import { exigirTenantActivo } from "../../functions/src/tenant-configuration/authority";
@@ -76,6 +77,8 @@ export const confirmarVentaVendedorBodegaV1 = onCall({ region: REGION }, async (
   const db = getFirestore();
   return ejecutarConfirmarVentaBodegaV1(db, await contextoOperativo(request, db), request.data);
 });
+
+export { consultarCarteraClienteBodegaV1, registrarAbonoVentaBodegaV1 };
 
 export const crearSolicitudVentaBodegaV1 = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();

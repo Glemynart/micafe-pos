@@ -54,7 +54,7 @@ export const suscribirPresentacionesBodegaAdmin = (
   onError,
 )
 export const suscribirClientesBodegaAdmin = (callback: (items: Cliente[]) => void) => suscribirTenant("clientes", (id, data) => ({ id, ...data } as Cliente), items => callback(items.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))))
-export const suscribirVentasBodegaAdmin = (callback: (items: VentaBodegaAdmin[]) => void) => suscribirTenant("ventas", (id, data) => proyectarVentaBodegaAdmin(id, data), items => callback(items.filter(item => item.schemaVersion === "BODEGA_MVP1_V1")))
+export const suscribirVentasBodegaAdmin = (callback: (items: VentaBodegaAdmin[]) => void) => suscribirTenant("ventas", (id, data) => proyectarVentaBodegaAdmin(id, data), items => callback(items.filter(item => item.schemaVersion === "BODEGA_MVP1_V1" || item.schemaVersion === "BODEGA_MVP1_V2")))
 
 export async function listarEspaciosBodega(): Promise<Array<{ id: string; nombre: string }>> {
   const query = await tenantQuery(collection(db, "espacios"), where("activo", "==", true))

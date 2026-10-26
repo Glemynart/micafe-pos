@@ -10,7 +10,7 @@ import {
   type ContextoFinancieroOperativo,
 } from "../bodega/operational-core";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
-import { SCHEMA_VERSION_VENTA_BODEGA, normalizarComandoConfirmacionVentaBodega, type ComandoConfirmacionVentaBodega, type LineaVentaBodegaPersistida } from "./ventas-contract";
+import { SCHEMA_VERSION_VENTA_BODEGA, SCHEMA_VERSION_VENTA_BODEGA_CREDITO, normalizarComandoConfirmacionVentaBodega, type ComandoConfirmacionVentaBodega, type LineaVentaBodegaPersistida } from "./ventas-contract";
 import { aplicarConsumosInventarioBodegaEnTransaccion, resolverVentaBodegaEnTransaccion } from "./ventas-resolution";
 import { esCambioComercialNoVigente, proyectarComercialSolicitud } from "./solicitudes-venta";
 import { marcarSenalDisponibilidadBodega, marcarSenalSolicitudesAdminBodega, marcarSenalSolicitudesVendedorBodega } from "./live-signals";
@@ -179,19 +179,27 @@ export async function ejecutarConfirmarVentaBodegaV1(db: any, contexto: Contexto
       }
     }
     const total = sumaSegura(resolucion.lineas.map(linea => linea.subtotalCOP));
+    const esPendiente = comando.payload.metodoPago === "pendiente";
     const esEfectivo = comando.payload.metodoPago === "efectivo";
+    if (esPendiente && rol !== "vendedor") fail("permission-denied", "CREDITO_VENDEDOR_REQUERIDO");
     const montoRecibidoCOP = esEfectivo ? comando.payload.montoRecibidoCOP : undefined;
     if (esEfectivo && (!Number.isSafeInteger(montoRecibidoCOP) || (montoRecibidoCOP as number) < total)) {
       fail("failed-precondition", "MONTO_RECIBIDO_INVALIDO");
     }
     const cambioCOP = esEfectivo ? (montoRecibidoCOP as number) - total : undefined;
-    const cuenta = await resolverCuentaOperativa(tx, firestore, empresaId, esEfectivo ? "caja-principal" : "bancolombia");
+    const cuenta = esPendiente ? null : await resolverCuentaOperativa(tx, firestore, empresaId, esEfectivo ? "caja-principal" : "bancolombia");
     const turnoId = esEfectivo
       ? await resolverTurnoRecaudoPropioOpcionalEnTransaccion(tx, firestore, empresaId, actorUid)
       : null;
     const ventaId = crearIdentificadorInterno(empresaId, `venta-bodega:${comando.commandId}`);
     const ventaRef = firestore.collection("ventas").doc(ventaId);
     if ((await tx.get(ventaRef)).exists) fail("already-exists", "COMMAND_ID_CONFLICT");
+    const clienteRef = esPendiente ? firestore.collection("clientes").doc(resolucion.cliente.id) : null;
+    const clienteCuenta = clienteRef ? await tx.get(clienteRef) : null;
+    const saldoClienteActual = clienteCuenta?.data()?.saldoPendienteBodegaCOP ?? 0;
+    if (esPendiente && (!clienteCuenta?.exists || clienteCuenta.data()?.empresaId !== empresaId
+      || !Number.isSafeInteger(saldoClienteActual) || saldoClienteActual < 0
+      || !Number.isSafeInteger(saldoClienteActual + total))) fail("failed-precondition", "SALDO_CLIENTE_INCONSISTENTE");
     const reservaAgenda = solicitud
       ? await prepararConsumoReservaAgenda(tx, firestore, empresaId, solicitud, resolucion, Date.now())
       : null;
@@ -214,25 +222,27 @@ export async function ejecutarConfirmarVentaBodegaV1(db: any, contexto: Contexto
       }
       throw error;
     }
-    const ingreso = writeMovement(tx, firestore, {
+    const ingreso = cuenta ? writeMovement(tx, firestore, {
       empresaId, command: comando, key: `venta-bodega:${comando.commandId}:pago`, account: cuenta,
       tipo: "ingreso", monto: total, categoria: "ventas", actorUid, rol, turnoId, ventaId,
-    });
+    }) : null;
     const lineas = lineasPersistidas(resolucion.lineas);
     tx.create(ventaRef, {
-      id: ventaId, empresaId, schemaVersion: SCHEMA_VERSION_VENTA_BODEGA,
-      estado: "pagada", estadoOperativo: "COMPLETO", modoOperacion: "BODEGA_MVP1",
+      id: ventaId, empresaId, schemaVersion: esPendiente ? SCHEMA_VERSION_VENTA_BODEGA_CREDITO : SCHEMA_VERSION_VENTA_BODEGA,
+      estado: esPendiente ? "pendiente" : "pagada", estadoOperativo: "COMPLETO", modoOperacion: "BODEGA_MVP1",
       cajeroId: actorUid,
       clienteId: resolucion.cliente.id, clienteNombreSnapshot: resolucion.cliente.nombre,
       clienteDocumentoSnapshot: resolucion.cliente.cedula, items: lineas,
-      metodoPago: comando.payload.metodoPago,
-      pago: { metodo: comando.payload.metodoPago, ...(esEfectivo ? { montoRecibidoCOP, cambioCOP } : {}) },
+      metodoPago: esPendiente ? "cuenta_cobro" : comando.payload.metodoPago,
+      pago: { metodo: esPendiente ? "cuenta_cobro" : comando.payload.metodoPago, ...(esEfectivo ? { montoRecibidoCOP, cambioCOP } : {}) },
+      ...(esPendiente ? { totalAbonadoCOP: 0, saldoPendienteCOP: total } : {}),
       turnoId, totales: { subtotal: total, impuestos: 0, total },
       commandId: comando.commandId, idempotencyKey: comando.idempotencyKey,
       correlationId: comando.correlationId, causationId: comando.causationId,
       fecha: FieldValue.serverTimestamp(), efectosOperativosEn: FieldValue.serverTimestamp(),
       ...(reservaAgenda ? { programacionId: solicitud?.programacionId } : {}),
     });
+    if (clienteRef && clienteCuenta) tx.update(clienteRef, { saldoPendienteBodegaCOP: saldoClienteActual + total });
     if (solicitudRef) tx.update(solicitudRef, {
       estado: "EJECUTADA", ejecucion: { actorUid, revision: solicitud?.revision, ventaId, commandId: comando.commandId },
       actualizadaEn: FieldValue.serverTimestamp(),
@@ -257,11 +267,12 @@ export async function ejecutarConfirmarVentaBodegaV1(db: any, contexto: Contexto
     }
     return {
       commandId: comando.commandId, ventaId, estadoOperativo: "COMPLETO" as const,
-      metodoPago: comando.payload.metodoPago, total,
+      metodoPago: esPendiente ? "cuenta_cobro" : comando.payload.metodoPago, total,
+      ...(esPendiente ? { estado: "pendiente", saldoPendienteCOP: total } : {}),
       ...(esEfectivo ? { montoRecibidoCOP, cambioCOP } : {}),
       ...(solicitudId ? { solicitudId } : {}),
       ...(reservaAgenda ? { programacionId: solicitud?.programacionId } : {}),
-      movimientoFinancieroId: ingreso.id,
+      ...(ingreso ? { movimientoFinancieroId: ingreso.id } : {}),
       movimientosInventario: movimientosInventario.map(movimiento => movimiento.id),
       turnoId,
     };

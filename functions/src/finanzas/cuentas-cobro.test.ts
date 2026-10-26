@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { HttpsError } from "firebase-functions/v2/https";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
+import { SCHEMA_VERSION_VENTA_BODEGA_CREDITO } from "../bodega-vendedor/ventas-contract";
 import {
   ejecutarLiquidarCuentaCobroV1,
   type ContextoFinancieroOperativo,
@@ -143,6 +144,26 @@ async function liquidar(db: FakeFirestore, contexto: ContextoFinancieroOperativo
   seedAuth(db, contexto);
   return ejecutarLiquidarCuentaCobroV1(db, contexto, data);
 }
+
+test("ADR-091: la liquidación heredada no puede saltarse los abonos de una venta Bodega v2", async () => {
+  const db = new FakeFirestore();
+  seedAuth(db);
+  seedCuenta(db, empresaId, "bancolombia");
+  seedVenta(db, "venta-bodega-v2", {
+    schemaVersion: SCHEMA_VERSION_VENTA_BODEGA_CREDITO,
+    estado: "pendiente",
+    estadoOperativo: "COMPLETO",
+    totalAbonadoCOP: 200,
+    saldoPendienteCOP: 800,
+    totales: { subtotal: 1000, impuestos: 0, total: 1000 },
+  });
+  const before = structuredClone([...db.docs]);
+  await assert.rejects(
+    liquidar(db, actor, comando("venta-bodega-v2", "transferencia")),
+    error => dominio(error, "ABONOS_BODEGA_REQUERIDOS"),
+  );
+  assert.deepEqual([...db.docs], before);
+});
 
 test("P0-04: liquida una venta DEMO sin alterar su contenido comercial ni crear evidencia fiscal", async () => {
   const db = new FakeFirestore();

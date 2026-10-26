@@ -49,7 +49,7 @@ export function normalizarEntradaClienteVendedor(data: unknown) {
   };
 }
 
-/** DTO fijo para vendedor: ni saldo, ni empresaId ni campos administrativos atraviesan la frontera. */
+/** DTO fijo para vendedor: solo muestra su saldo operativo Bodega; omite empresaId y campos administrativos. */
 export function proyectarClienteVendedor(cliente: Record<string, unknown>) {
   const texto = (campo: string): string | null => typeof cliente[campo] === "string" && cliente[campo].trim() ? cliente[campo] : null;
   return {
@@ -62,6 +62,8 @@ export function proyectarClienteVendedor(cliente: Record<string, unknown>) {
     direccion: texto("direccion"),
     barrioZona: texto("barrioZona"),
     activo: cliente.activo === true,
+    saldoPendienteCOP: Number.isSafeInteger(cliente.saldoPendienteBodegaCOP) && (cliente.saldoPendienteBodegaCOP as number) >= 0
+      ? cliente.saldoPendienteBodegaCOP as number : 0,
   };
 }
 

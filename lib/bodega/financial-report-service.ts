@@ -4,12 +4,16 @@ import { getEmpresaId } from '@/lib/tenant';
 import { rangoMesBogota, type FuenteReporte } from './financial-report';
 
 export const MAX_VENTAS_REPORTE = 1000;
+export const MAX_MOVIMIENTOS_REPORTE = 5000;
+export const MAX_CLIENTES_REPORTE = 2000;
 export const MAX_PRODUCTOS_REPORTE = 2000;
 export interface DatosReporteBodega {
   empresaId: string;
   uid: string;
   consultadoEn: string;
   ventas: FuenteReporte[];
+  movimientos: FuenteReporte[];
+  clientes: FuenteReporte[];
   productos: FuenteReporte[];
 }
 
@@ -24,17 +28,22 @@ export async function leerReporteBodega(mes: string): Promise<DatosReporteBodega
   if (!m || m.empresaId !== empresaId || m.uid !== usuario.uid || m.rol !== 'admin' || m.estado !== 'activa' || m.activo !== true) {
     throw new Error('El reporte requiere una membresía administradora activa.');
   }
-  const [ventas, productos] = await Promise.all([
+  const [ventas, movimientos, clientes, productos] = await Promise.all([
     getDocsFromServer(query(collection(db, 'ventas'), where('empresaId', '==', empresaId), where('fecha', '>=', Timestamp.fromDate(inicio)), where('fecha', '<', Timestamp.fromDate(fin)), orderBy('fecha', 'asc'), limit(MAX_VENTAS_REPORTE + 1))),
+    getDocsFromServer(query(collection(db, 'transacciones_financieras'), where('empresaId', '==', empresaId), where('fecha', '>=', Timestamp.fromDate(inicio)), where('fecha', '<', Timestamp.fromDate(fin)), orderBy('fecha', 'asc'), limit(MAX_MOVIMIENTOS_REPORTE + 1))),
+    getDocsFromServer(query(collection(db, 'clientes'), where('empresaId', '==', empresaId), limit(MAX_CLIENTES_REPORTE + 1))),
     getDocsFromServer(query(collection(db, 'productos'), where('empresaId', '==', empresaId), limit(MAX_PRODUCTOS_REPORTE + 1))),
   ]);
-  if (ventas.size > MAX_VENTAS_REPORTE || productos.size > MAX_PRODUCTOS_REPORTE) {
+  if (ventas.size > MAX_VENTAS_REPORTE || movimientos.size > MAX_MOVIMIENTOS_REPORTE
+    || clientes.size > MAX_CLIENTES_REPORTE || productos.size > MAX_PRODUCTOS_REPORTE) {
     throw new Error('El período supera el límite de lectura del reporte. No se muestran totales parciales.');
   }
   if (auth.currentUser?.uid !== usuario.uid) throw new Error('La sesión cambió durante la consulta.');
   return {
     empresaId, uid: usuario.uid, consultadoEn: new Date().toISOString(),
     ventas: ventas.docs.map(d => ({ id: d.id, data: d.data() })),
+    movimientos: movimientos.docs.map(d => ({ id: d.id, data: d.data() })),
+    clientes: clientes.docs.map(d => ({ id: d.id, data: d.data() })),
     productos: productos.docs.map(d => ({ id: d.id, data: d.data() })),
   };
 }

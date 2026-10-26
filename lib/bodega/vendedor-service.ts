@@ -1,7 +1,7 @@
 import { httpsCallable } from "firebase/functions"
 import { getFirebaseFunctions } from "@/lib/firebase"
 import { resolverCallableOperacionBodega } from "./operation-routing"
-import type { ClienteVendedorDTO, ConfirmacionVentaBodega, PresentacionVendedorDTO, ResultadoVentaBodega, VentaVendedorDTO } from "./ui-contract"
+import type { CarteraClienteBodegaDTO, ClienteVendedorDTO, ComandoAbonoVentaBodega, ConfirmacionVentaBodega, PresentacionVendedorDTO, ResultadoVentaBodega, VentaVendedorDTO } from "./ui-contract"
 
 async function invocar<TEntrada, TSalida>(nombre: string, data: TEntrada): Promise<TSalida> {
   const callable = httpsCallable<TEntrada, TSalida>(getFirebaseFunctions(), resolverCallableOperacionBodega("BODEGA_MVP1", nombre))
@@ -26,4 +26,12 @@ export async function confirmarVentaBodega(envelope: ConfirmacionVentaBodega): P
 
 export async function consultarMisVentasBodega(): Promise<VentaVendedorDTO[]> {
   return (await invocar<Record<string, never>, { ventas: VentaVendedorDTO[] }>("consultarMisVentasVendedorV1", {})).ventas
+}
+
+export async function consultarCarteraClienteBodega(clienteId: string): Promise<CarteraClienteBodegaDTO> {
+  return invocar<{ clienteId: string }, CarteraClienteBodegaDTO>("consultarCarteraClienteBodegaV1", { clienteId })
+}
+
+export async function registrarAbonoVentaBodega(command: ComandoAbonoVentaBodega) {
+  return invocar<ComandoAbonoVentaBodega, { ventaId: string; saldoPendienteCOP: number; estado: string }>("registrarAbonoVentaBodegaV1", command)
 }

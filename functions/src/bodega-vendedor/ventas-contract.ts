@@ -3,6 +3,7 @@ import { MAX_BODEGA_REFERENCE_ID_LENGTH } from "./identificadores";
 
 /** Identifica inequívocamente las ventas cuya compensación pertenece a U3-E. */
 export const SCHEMA_VERSION_VENTA_BODEGA = "BODEGA_MVP1_V1" as const;
+export const SCHEMA_VERSION_VENTA_BODEGA_CREDITO = "BODEGA_MVP1_V2" as const;
 
 /**
  * El máximo se fija en 50 líneas: U3-B necesitará, por línea, dos lecturas de
@@ -26,7 +27,7 @@ export interface ComandoConfirmacionVentaBodega {
   payload: {
     clienteId: string;
     lineas: LineaVentaBodegaIntento[];
-    metodoPago: "efectivo" | "transferencia";
+    metodoPago: "efectivo" | "transferencia" | "pendiente";
     montoRecibidoCOP?: number;
     solicitudId?: string;
   };
@@ -99,7 +100,7 @@ export function normalizarComandoConfirmacionVentaBodega(raw: unknown): ComandoC
   if (!Array.isArray(payload.lineas) || payload.lineas.length === 0 || payload.lineas.length > MAX_LINEAS_BODEGA_U3) {
     fail("invalid-argument", "LINEAS_BODEGA_INVALIDAS");
   }
-  if (payload.metodoPago !== "efectivo" && payload.metodoPago !== "transferencia") fail("invalid-argument", "METODO_PAGO_BODEGA_INVALIDO");
+  if (payload.metodoPago !== "efectivo" && payload.metodoPago !== "transferencia" && payload.metodoPago !== "pendiente") fail("invalid-argument", "METODO_PAGO_BODEGA_INVALIDO");
   if (payload.metodoPago === "efectivo") {
     if (typeof payload.montoRecibidoCOP !== "number" || !Number.isSafeInteger(payload.montoRecibidoCOP) || payload.montoRecibidoCOP < 0) {
       fail("invalid-argument", "MONTO_RECIBIDO_INVALIDO");
@@ -115,7 +116,7 @@ export function normalizarComandoConfirmacionVentaBodega(raw: unknown): ComandoC
     payload: {
       clienteId: requiredText(payload.clienteId, "CLIENTE_ID_INVALIDO"),
       lineas: (payload.lineas as unknown[]).map(normalizarLinea),
-      metodoPago: payload.metodoPago as "efectivo" | "transferencia",
+      metodoPago: payload.metodoPago as "efectivo" | "transferencia" | "pendiente",
       ...(payload.metodoPago === "efectivo" ? { montoRecibidoCOP: payload.montoRecibidoCOP as number } : {}),
       ...(payload.solicitudId === undefined ? {} : { solicitudId: (payload.solicitudId as string).trim() }),
     },

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { construirConfirmacionVentaBodega, construirSolicitudVentaBodega, crearProtectorDobleEnvio, MAX_LINEAS_BODEGA, mensajeErrorBodega, resolverSuperficieBodega, fechaDesdeSerializacionBodega, formatearFechaBodega, formatearReferenciaSolicitud, calcularCambioEfectivoBodega, proyectarVentaBodegaAdmin } from "./ui-contract"
+import { construirComandoAbonoVentaBodega, construirConfirmacionVentaBodega, construirSolicitudVentaBodega, crearProtectorDobleEnvio, MAX_LINEAS_BODEGA, METODO_PAGO_BODEGA_PREDETERMINADO, mensajeErrorBodega, resolverSuperficieBodega, fechaDesdeSerializacionBodega, formatearFechaBodega, formatearReferenciaSolicitud, calcularCambioEfectivoBodega, proyectarVentaBodegaAdmin } from "./ui-contract"
 
 test("U4 construye exactamente el envelope certificado sin campos de autoridad", () => {
   let secuencia = 0
@@ -38,6 +38,23 @@ test("ADR-068: el envelope de efectivo conserva recibido y calcula el cambio sin
   assert.equal(calcularCambioEfectivoBodega(0, 25000), null)
   assert.throws(() => construirConfirmacionVentaBodega({ clienteId: "cliente", lineas: [{ productoId: "p", presentacionId: "u", cantidad: 1 }], metodoPago: "efectivo" }), /MONTO_RECIBIDO_INVALIDO/)
   assert.throws(() => construirConfirmacionVentaBodega({ clienteId: "cliente", lineas: [{ productoId: "p", presentacionId: "u", cantidad: 1 }], metodoPago: "efectivo", montoRecibidoCOP: Number.MAX_SAFE_INTEGER + 1 }), /MONTO_RECIBIDO_INVALIDO/)
+})
+
+test("ADR-091: vendedor puede confirmar entrega pendiente y construir un abono válido", () => {
+  assert.equal(METODO_PAGO_BODEGA_PREDETERMINADO, "pendiente")
+  const venta = construirConfirmacionVentaBodega({
+    clienteId: "cliente", lineas: [{ productoId: "producto", presentacionId: "unidad", cantidad: 1 }],
+    metodoPago: "pendiente", generarId: () => "pendiente",
+  })
+  assert.equal(venta.payload.metodoPago, "pendiente")
+  assert.equal(venta.payload.montoRecibidoCOP, undefined)
+  assert.throws(() => construirConfirmacionVentaBodega({ clienteId: "cliente", lineas: [{ productoId: "p", presentacionId: "u", cantidad: 1 }], metodoPago: "pendiente", montoRecibidoCOP: 100 }), /MONTO_RECIBIDO_NO_APLICA/)
+  let seq = 0
+  const abono = construirComandoAbonoVentaBodega({ ventaId: "venta", montoCOP: 2500, metodoPago: "efectivo", fechaCompromisoPagoLocal: "2026-11-02", generarId: () => String(++seq) })
+  assert.equal(abono.payload.montoCOP, 2500)
+  assert.equal(abono.payload.fechaCompromisoPagoLocal, "2026-11-02")
+  assert.throws(() => construirComandoAbonoVentaBodega({ ventaId: "venta", montoCOP: 0, metodoPago: "efectivo" }), /ABONO_INVALIDO/)
+  assert.throws(() => construirComandoAbonoVentaBodega({ ventaId: "venta", montoCOP: 1, metodoPago: "efectivo", fechaCompromisoPagoLocal: "2026-02-30" }), /FECHA_COMPROMISO_INVALIDA/)
 })
 
 test("ADR-068: la proyección administrativa identifica efectivo sin turno y conserva recibido/cambio", () => {
