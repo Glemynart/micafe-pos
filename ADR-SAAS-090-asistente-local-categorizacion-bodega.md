@@ -12,9 +12,9 @@
 
 ## Contexto
 
-El catálogo de Distribuidora Las Jiménez requiere asignar categorías, pero el Backoffice registra productos manualmente y no hay importación masiva aprobada. ADR-SAAS-089, aceptado el 2026-10-25, eligió una callable que envía nombres a Gemini en Vertex AI y requiere API, identidad de runtime e IAM. El responsable del producto ahora solicita retirar Vertex y eligió como dirección para evaluar reglas locales más una búsqueda web manual para los casos dudosos.
+El catálogo de Distribuidora Las Jiménez requiere asignar categorías, pero el Backoffice registra productos manualmente y no hay importación masiva aprobada. ADR-SAAS-089, aceptado el 2026-10-25, eligió una callable que envía nombres a Gemini en Vertex AI y requiere API, identidad de runtime e IAM. El 2026-10-26, el responsable aprobó reemplazar esa solución por reglas locales y búsqueda web manual en casos dudosos.
 
-El PR #673 está abierto y contiene la implementación de Vertex junto con otros cambios de configuración inicial. Sus checks reportados están verdes, pero el PR no está integrado. Esta propuesta no afirma que la callable o Vertex estén desplegados; su estado remoto se debe verificar antes de cualquier implementación o limpieza.
+El PR #673 está abierto y ahora contiene la implementación local junto con otros cambios de configuración inicial. Los checks del nuevo HEAD deben terminar antes de solicitar merge. No se afirma que la callable Vertex o sus recursos estén desplegados; su estado remoto se debe verificar antes de cualquier limpieza.
 
 El sistema ya tiene una taxonomía inicial para Bodega: aguas, gaseosas y sodas, jugos y bebidas de fruta, hidratantes, energizantes, cervezas, licores, maltas y otros por revisar. Ejemplos expresos del dominio incluyen aguardiente, ron y vodka como licores, y Vive 100 y Speed Max como energizantes.
 
@@ -61,7 +61,7 @@ Callable server-side con inferencia y confirmación humana.
 
 **Costos:** requiere servicio, permisos, identidad y costo operativo; envía nombres a Google Cloud. El responsable del producto pidió retirarlo para este alcance.
 
-## Decisión propuesta
+## Decisión
 
 Se adopta la opción A para la primera versión:
 
@@ -71,7 +71,7 @@ Se adopta la opción A para la primera versión:
 4. La persona revisa las fuentes y elige o corrige la categoría en el formulario manual existente. Una sugerencia o una búsqueda nunca crea una categoría/producto, no asigna automáticamente una categoría y no persiste resultados.
 5. Se conserva la taxonomía existente. La lista inicial de alias se limita a términos inequívocos y ejemplos ya documentados; los nombres ambiguos —por ejemplo `Light 330` o `Saviloe`— quedan para revisión.
 6. No se añade callable, dependencia de inferencia, API, secreto, cuenta de servicio, permiso IAM, almacenamiento ni nuevo contrato remoto.
-7. ADR-SAAS-089 queda supersedida por esta decisión. El PR de implementación retirará la callable Vertex y actualizará esa ADR para mantener la trazabilidad histórica.
+7. ADR-SAAS-089 queda supersedida por esta decisión. El PR #673 retira la callable Vertex y actualiza esa ADR para mantener la trazabilidad histórica.
 
 ## Seguridad y privacidad
 
