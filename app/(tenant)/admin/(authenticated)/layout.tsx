@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   title: "Dusema POS · Administración",
   description: "Panel de administración empresarial",
   manifest: "/manifest.json",
+  icons: {
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

@@ -118,6 +118,27 @@ function AdminLoginContent() {
                     className="w-full h-11 px-4 rounded-xl bg-input border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50"
                   />
                 </div>
+                <label
+                  htmlFor="recordar"
+                  className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted/60 focus-within:ring-2 focus-within:ring-primary/50"
+                >
+                  <input
+                    type="checkbox"
+                    id="recordar"
+                    checked={recordar}
+                    onChange={(e) => {
+                      const habilitado = e.currentTarget.checked
+                      setRecordar(habilitado)
+                      if (!habilitado) persistAdminUsername(username, false)
+                    }}
+                    aria-describedby="recordar-hint"
+                    className="h-5 w-5 shrink-0 accent-primary"
+                  />
+                  <span className="flex flex-col leading-tight">
+                    <span className="font-medium">Recordar usuario</span>
+                    <span id="recordar-hint" className="mt-1 text-xs text-muted-foreground">Solo se guarda el código; nunca el PIN.</span>
+                  </span>
+                </label>
                 <div className="space-y-2">
                   <label htmlFor="pass" className="text-sm font-medium text-muted-foreground">PIN de 6 dígitos</label>
                   <div className="relative">
@@ -140,20 +161,6 @@ function AdminLoginContent() {
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="recordar"
-                    checked={recordar}
-                    onChange={(e) => {
-                      const habilitado = e.target.checked
-                      setRecordar(habilitado)
-                      if (!habilitado) persistAdminUsername(username, false)
-                    }}
-                    className="w-4 h-4 rounded border-border bg-input accent-primary"
-                  />
-                  <label htmlFor="recordar" className="text-xs text-muted-foreground cursor-pointer">Recordar usuario</label>
                 </div>
                 {errorLogin && (
                   <p className="text-sm text-red-400 bg-red-500/10 p-3 rounded-lg">{errorLogin}</p>
