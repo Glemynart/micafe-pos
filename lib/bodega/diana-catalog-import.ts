@@ -11,11 +11,12 @@ export interface DianaCatalogImportRow {
   salesPriceCop: number;
   sourceCostCop: number;
   costBasis: "UNIDAD BASE" | "PRESENTACION / EMPAQUE";
-  costCopPerBaseUnit: number;
+  /** Exact purchase cost of the sold package. Never rounded to base units. */
+  costCopPerPresentation: number;
 }
 
 export interface DianaCatalogImportPlan {
-  planSchemaVersion: "1.0";
+  planSchemaVersion: "1.1";
   mode: "offline-review-only";
   sourceSha256: string;
   reviewSha256: string;
@@ -23,7 +24,7 @@ export interface DianaCatalogImportPlan {
     status: "requires-human-review";
     granularity: "one-presentation-per-store-source-row";
     salesPriceSource: "PRECIOS A TIENDA.PRECIO VENTA";
-    costPolicy: "AL COSTO exact per base unit; no automatic markup";
+    costPolicy: "AL COSTO exact per presentation; no automatic markup";
     productGroupingInferred: false;
     presentations: DianaCatalogImportRow[];
   };
@@ -68,6 +69,7 @@ export interface CatalogImportPresentation {
   nombre: string;
   factorUnidadBase: number;
   precioCOP: number;
+  costoPresentacionCOP: number | null;
   activo: boolean;
 }
 
@@ -146,12 +148,12 @@ export function validarPlanImportacionCatalogo(value: unknown): string[] {
   const errors: string[] = [];
   if (!isObject(value)) return ["El archivo no contiene un plan JSON válido."];
   const plan = value as unknown as Partial<DianaCatalogImportPlan>;
-  if (plan.planSchemaVersion !== "1.0" || plan.mode !== "offline-review-only") errors.push("El archivo no es un plan offline de catálogo versión 1.0.");
+  if (plan.planSchemaVersion !== "1.1" || plan.mode !== "offline-review-only") errors.push("El archivo no es un plan offline de catálogo versión 1.1.");
   if (!/^[a-f0-9]{64}$/i.test(String(plan.sourceSha256 ?? "")) || !/^[a-f0-9]{64}$/i.test(String(plan.reviewSha256 ?? ""))) errors.push("Falta el SHA-256 válido del origen o de la revisión.");
   if (plan.proposal?.status !== "requires-human-review"
     || plan.proposal.granularity !== "one-presentation-per-store-source-row"
     || plan.proposal.salesPriceSource !== "PRECIOS A TIENDA.PRECIO VENTA"
-    || plan.proposal.costPolicy !== "AL COSTO exact per base unit; no automatic markup"
+    || plan.proposal.costPolicy !== "AL COSTO exact per presentation; no automatic markup"
     || plan.proposal.productGroupingInferred !== false) {
     errors.push("El plan no conserva las decisiones comerciales de catálogo aprobadas.");
   }
@@ -184,10 +186,16 @@ export function validarPlanImportacionCatalogo(value: unknown): string[] {
       if (!(Object.values(CATEGORIAS_CATALOGO_DIANA) as string[]).includes(row.category)) errors.push(`La categoría de la fila ${index + 1} no pertenece a las 17 categorías aprobadas.`);
       if (typeof row.baseUnit !== "string" || row.baseUnit.trim() === "" || row.baseUnit.trim().length > 32) errors.push(`La unidad base de la fila ${index + 1} no es válida.`);
       if (typeof row.presentation !== "string" || row.presentation.trim() === "" || row.presentation.trim().length > 120) errors.push(`La presentación de la fila ${index + 1} no es válida.`);
-      if (!positiveInteger(row.unitsPerPresentation) || !positiveInteger(row.salesPriceCop) || !positiveInteger(row.sourceCostCop) || !positiveInteger(row.costCopPerBaseUnit)) errors.push(`La fila ${index + 1} contiene precio, costo o factor inválido.`);
+      if (!positiveInteger(row.unitsPerPresentation) || !positiveInteger(row.salesPriceCop) || !positiveInteger(row.sourceCostCop) || !positiveInteger(row.costCopPerPresentation)) errors.push(`La fila ${index + 1} contiene precio, costo o factor inválido.`);
       if (row.costBasis !== "UNIDAD BASE" && row.costBasis !== "PRESENTACION / EMPAQUE") errors.push(`La base de costo de la fila ${index + 1} no es válida.`);
-      else if (row.costBasis === "UNIDAD BASE" && row.sourceCostCop !== row.costCopPerBaseUnit) errors.push(`El costo por unidad base de la fila ${index + 1} no coincide con su origen.`);
-      else if (row.costBasis === "PRESENTACION / EMPAQUE" && row.sourceCostCop / row.unitsPerPresentation !== row.costCopPerBaseUnit) errors.push(`El costo de la fila ${index + 1} no se convierte exactamente a la unidad base.`);
+      else {
+        const expectedPresentationCost = row.costBasis === "UNIDAD BASE"
+          ? row.sourceCostCop * row.unitsPerPresentation
+          : row.sourceCostCop;
+        if (!Number.isSafeInteger(expectedPresentationCost) || expectedPresentationCost !== row.costCopPerPresentation) {
+          errors.push(`El costo exacto de presentación de la fila ${index + 1} no coincide con su origen.`);
+        }
+      }
     }
   }
   return [...new Set(errors)];
@@ -247,7 +255,7 @@ export function prepararImportacionCatalogo(
       const existing = existingProducts[0];
       if (existing.id !== productoId) errores.push(`El producto «${row.name}» ya existe y no pertenece a este lote; no se creará un duplicado.`);
       else if (existing.categoriaId !== categoriaId || existing.espacioId !== espacioId || existing.unidad !== row.baseUnit
-        || existing.costoUnidadBaseCOP !== row.costCopPerBaseUnit || !existing.activo) {
+        || existing.costoUnidadBaseCOP !== 0 || !existing.activo) {
         errores.push(`El producto «${row.name}» ya existe con datos distintos al plan; requiere revisión manual.`);
       } else productoExistente = true;
     }
@@ -259,7 +267,8 @@ export function prepararImportacionCatalogo(
     if (existingPresentations.length === 1) {
       const existing = existingPresentations[0];
       if (existing.id !== presentacionId) errores.push(`La presentación «${row.presentation}» de «${row.name}» ya existe con otra identidad.`);
-      else if (existing.factorUnidadBase !== row.unitsPerPresentation || existing.precioCOP !== row.salesPriceCop || !existing.activo) {
+      else if (existing.factorUnidadBase !== row.unitsPerPresentation || existing.precioCOP !== row.salesPriceCop
+        || existing.costoPresentacionCOP !== row.costCopPerPresentation || !existing.activo) {
         errores.push(`La presentación «${row.presentation}» de «${row.name}» ya existe con datos distintos al plan.`);
       } else presentacionExistente = true;
     }
@@ -321,7 +330,9 @@ export async function ejecutarImportacionCatalogo(
           categoriaId: idsCategorias.get(normalized(item.row.category)) ?? item.categoriaId,
           espacioId: preparado.espacioId,
           unidad: item.row.baseUnit,
-          costo: item.row.costCopPerBaseUnit,
+          // The exact source cost belongs to the package. Keeping a rounded
+          // unit cost here would fabricate financial data for Diana.
+          costo: 0,
           stock: 0,
           stockMinimo: 0,
           activo: true,
@@ -339,6 +350,7 @@ export async function ejecutarImportacionCatalogo(
         nombre: item.row.presentation,
         factorUnidadBase: item.row.unitsPerPresentation,
         precioCOP: item.row.salesPriceCop,
+        costoPresentacionCOP: item.row.costCopPerPresentation,
         activo: true,
       });
       if (typeof result.presentacionId !== "string" || result.presentacionId === "") throw new Error(`No se confirmó la presentación de la fila de origen ${item.row.sourceRow}.`);

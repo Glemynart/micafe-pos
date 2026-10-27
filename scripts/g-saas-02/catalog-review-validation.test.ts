@@ -135,7 +135,7 @@ test("rejects non-positive source prices and costs instead of treating them as v
   assert.ok(invalid.validationErrors.some((error) => /inválidos/.test(error)));
 });
 
-test("keeps incomplete mappings pending and refuses fractional cost conversion", () => {
+test("keeps incomplete mappings pending and accepts exact package costs without rounding", () => {
   const missingMapping = validateDianaCatalogReview({
     sourceWorkbook: sourceWorkbook(),
     reviewWorkbook: reviewWorkbook({ category: "", factor: "", costBasis: "Por confirmar" }),
@@ -148,12 +148,12 @@ test("keeps incomplete mappings pending and refuses fractional cost conversion",
 
   const fractionalCost = validateDianaCatalogReview({
     sourceWorkbook: sourceWorkbook(1201),
-    reviewWorkbook: reviewWorkbook(),
+    reviewWorkbook: reviewWorkbook({ storeCost: 1201 }),
     sourceSha256: SOURCE_HASH,
   });
-  assert.equal(fractionalCost.operationalMappingsComplete, false);
+  assert.equal(fractionalCost.operationalMappingsComplete, true);
   assert.equal(fractionalCost.totals.costsNotExactlyConvertibleToBaseUnit, 1);
-  assert.ok(fractionalCost.validationErrors.some((error) => /sin redondeo/.test(error)));
+  assert.equal(fractionalCost.validationErrors.some((error) => /sin redondeo/.test(error)), false);
 
   const unsupportedBasis = validateDianaCatalogReview({
     sourceWorkbook: sourceWorkbook(),
@@ -232,7 +232,7 @@ function buildPlan(input: PlanInput): DianaCatalogOfflinePlan | null {
   return buildDianaCatalogOfflinePlan(input);
 }
 
-test("builds a local review-only plan from the approved store price and exact unit cost", () => {
+test("builds a local review-only plan from the approved store price and exact presentation cost", () => {
   const plan = buildPlan({
     sourceWorkbook: sourceWorkbook(1200, true),
     reviewWorkbook: reviewWorkbook({ addConsumerOnly: true }),
@@ -241,7 +241,7 @@ test("builds a local review-only plan from the approved store price and exact un
   });
 
   assert.ok(plan);
-  assert.equal(plan.planSchemaVersion, "1.0");
+  assert.equal(plan.planSchemaVersion, "1.1");
   assert.equal(plan.sourceSha256, SOURCE_HASH);
   assert.equal(plan.reviewSha256, "b".repeat(64));
   assert.equal(plan.proposal.granularity, "one-presentation-per-store-source-row");
@@ -258,7 +258,7 @@ test("builds a local review-only plan from the approved store price and exact un
     salesPriceCop: 1800,
     sourceCostCop: 1200,
     costBasis: "PRESENTACION / EMPAQUE",
-    costCopPerBaseUnit: 100,
+    costCopPerPresentation: 1200,
   });
   assert.equal(plan.consumerReference.salesPricesApplied, false);
   assert.equal(plan.consumerReference.consumerOnlyRowsDeferred, 1);
