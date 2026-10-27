@@ -14,6 +14,12 @@ import {
 } from "./ofertas-tenant";
 import { esExcepcionTrial15Autorizada } from "../platform/approved-tenant-offers";
 import {
+  CONCESION_REPORTES_DIANA,
+  esContratoActualElegibleParaReportes,
+  huellaSnapshotContrato,
+  type ConcesionCapacidadReportes,
+} from "./capacidad-concesion";
+import {
   ejecutarComandoConfiguracionConEstadoPreleidoEnTransaccion,
   leerComandoConfiguracionEnTransaccion,
   referenciasComandoConfiguracion,
@@ -776,6 +782,141 @@ export async function actualizarDatosAdministrativosEmpresa(db: Firestore, entra
     const r = { empresaId: entrada.empresaId, nombreComercial, revision };
     registrar(tx, db, entrada, entrada.empresaId, f, r, "EmpresaDatosAdministrativosActualizados", "EMPRESA", empresa.revision, revision, ctx);
     return { ...r, idempotente: false };
+  });
+}
+
+/** ADR-SAAS-095: concesión contractual y auditada de reports solo a Diana. */
+export async function concederCapacidadReportesDiana(
+  db: Firestore,
+  entrada: Envelope & { empresaId: string },
+  ctx: ContextoComercial,
+) {
+  validar(entrada);
+  if (entrada.empresaId !== CONCESION_REPORTES_DIANA.empresaId) {
+    fail("invalid-argument", "CONCESION_REPORTS_TENANT_NO_ADMITIDO");
+  }
+  const fingerprint = hash(entrada);
+  return db.runTransaction(async (tx) => {
+    const repetido = await previo(tx, db, entrada, entrada.empresaId, fingerprint);
+    if (repetido) return { ...repetido, idempotente: true };
+
+    const suscripcionRef = db.collection("suscripciones").doc(entrada.empresaId);
+    const empresaRef = db.collection("empresas").doc(entrada.empresaId);
+    const concesionRef = suscripcionRef.collection("concesionesCapacidad")
+      .doc(CONCESION_REPORTES_DIANA.concesionId);
+    const revocacionRef = concesionRef.collection("revocaciones").doc("adr-saas-095");
+    const [suscripcionSnap, empresaSnap, concesionSnap, revocacionSnap] = await Promise.all([
+      tx.get(suscripcionRef), tx.get(empresaRef), tx.get(concesionRef), tx.get(revocacionRef),
+    ]);
+    if (!suscripcionSnap.exists) fail("not-found", "SUSCRIPCION_NOT_FOUND");
+    if (!empresaSnap.exists) fail("not-found", "EMPRESA_NOT_FOUND");
+    if (concesionSnap.exists) fail("already-exists", "CONCESION_REPORTS_YA_EXISTE");
+    if (revocacionSnap.exists) fail("failed-precondition", "CONCESION_REPORTS_REVOCADA");
+
+    const suscripcion = suscripcionSnap.data() as Suscripcion;
+    const empresa = empresaSnap.data() as { estado: string };
+    if (suscripcion.revision !== entrada.expectedRevision) {
+      fail("failed-precondition", "SUSCRIPCION_REVISION_CONFLICT");
+    }
+    if (!esContratoActualElegibleParaReportes(
+      entrada.empresaId,
+      empresa.estado,
+      suscripcion,
+      fechaComercialUtc(),
+    )) {
+      fail("failed-precondition", "CONCESION_REPORTS_CONTRATO_NO_ELEGIBLE");
+    }
+
+    const concesion: ConcesionCapacidadReportes = {
+      schemaVersion: 1,
+      concesionId: CONCESION_REPORTES_DIANA.concesionId,
+      empresaId: CONCESION_REPORTES_DIANA.empresaId,
+      capacidad: CONCESION_REPORTES_DIANA.capacidad,
+      planId: CONCESION_REPORTES_DIANA.planId,
+      planVersion: CONCESION_REPORTES_DIANA.planVersion,
+      revisionSuscripcionAlConceder: suscripcion.revision,
+      huellaSnapshotContrato: huellaSnapshotContrato(suscripcion.snapshotContrato!),
+      concedidaPor: ctx.actorId,
+      commandId: entrada.commandId,
+      creadaEn: FieldValue.serverTimestamp(),
+    };
+    tx.create(concesionRef, concesion);
+    const resultado = {
+      empresaId: entrada.empresaId,
+      concesionId: concesion.concesionId,
+      capacidad: concesion.capacidad,
+      revision: suscripcion.revision,
+    };
+    registrar(
+      tx, db, entrada, entrada.empresaId, fingerprint, resultado,
+      "ConcesionCapacidadReportesDianaCreada", "SUSCRIPCION",
+      suscripcion.revision, suscripcion.revision, ctx,
+    );
+    return { ...resultado, idempotente: false };
+  });
+}
+
+/** ADR-SAAS-095: revocación compensatoria append-only, sin borrar la concesión. */
+export async function revocarCapacidadReportesDiana(
+  db: Firestore,
+  entrada: Envelope & { empresaId: string },
+  ctx: ContextoComercial,
+) {
+  validar(entrada);
+  if (entrada.empresaId !== CONCESION_REPORTES_DIANA.empresaId) {
+    fail("invalid-argument", "CONCESION_REPORTS_TENANT_NO_ADMITIDO");
+  }
+  const fingerprint = hash(entrada);
+  return db.runTransaction(async (tx) => {
+    const repetido = await previo(tx, db, entrada, entrada.empresaId, fingerprint);
+    if (repetido) return { ...repetido, idempotente: true };
+
+    const suscripcionRef = db.collection("suscripciones").doc(entrada.empresaId);
+    const concesionRef = suscripcionRef.collection("concesionesCapacidad")
+      .doc(CONCESION_REPORTES_DIANA.concesionId);
+    const revocacionRef = concesionRef.collection("revocaciones").doc("adr-saas-095");
+    const [suscripcionSnap, concesionSnap, revocacionSnap] = await Promise.all([
+      tx.get(suscripcionRef), tx.get(concesionRef), tx.get(revocacionRef),
+    ]);
+    if (!suscripcionSnap.exists) fail("not-found", "SUSCRIPCION_NOT_FOUND");
+    if (!concesionSnap.exists) fail("not-found", "CONCESION_REPORTS_NOT_FOUND");
+    if (revocacionSnap.exists) fail("already-exists", "CONCESION_REPORTS_YA_REVOCADA");
+
+    const suscripcion = suscripcionSnap.data() as Suscripcion;
+    const concesion = concesionSnap.data() as ConcesionCapacidadReportes;
+    if (suscripcion.revision !== entrada.expectedRevision) {
+      fail("failed-precondition", "SUSCRIPCION_REVISION_CONFLICT");
+    }
+    if (concesion.empresaId !== entrada.empresaId
+      || concesion.concesionId !== CONCESION_REPORTES_DIANA.concesionId
+      || concesion.capacidad !== CONCESION_REPORTES_DIANA.capacidad) {
+      fail("failed-precondition", "CONCESION_REPORTS_INVALIDA");
+    }
+
+    tx.create(revocacionRef, {
+      schemaVersion: 1,
+      revocacionId: "adr-saas-095",
+      concesionId: concesion.concesionId,
+      empresaId: entrada.empresaId,
+      capacidad: CONCESION_REPORTES_DIANA.capacidad,
+      revisionSuscripcionAlRevocar: suscripcion.revision,
+      revocadaPor: ctx.actorId,
+      commandId: entrada.commandId,
+      motivo: entrada.motivo,
+      creadaEn: FieldValue.serverTimestamp(),
+    });
+    const resultado = {
+      empresaId: entrada.empresaId,
+      concesionId: concesion.concesionId,
+      capacidad: concesion.capacidad,
+      revision: suscripcion.revision,
+    };
+    registrar(
+      tx, db, entrada, entrada.empresaId, fingerprint, resultado,
+      "ConcesionCapacidadReportesDianaRevocada", "SUSCRIPCION",
+      suscripcion.revision, suscripcion.revision, ctx,
+    );
+    return { ...resultado, idempotente: false };
   });
 }
 

@@ -121,6 +121,8 @@ test("las colecciones SaaS quedan denegadas para todo cliente, incluso claims le
     "membresias/empresa-a_usuario-a",
     "planes/basico",
     "suscripciones/empresa-a",
+    "suscripciones/empresa-a/concesionesCapacidad/reports-diana-mvp-comercial-v2",
+    "suscripciones/empresa-a/concesionesCapacidad/reports-diana-mvp-comercial-v2/revocaciones/adr-saas-095",
     "pagos_saas/pago-prueba",
     "invitaciones/token-prueba",
     "incorporaciones/incorporacion-prueba",

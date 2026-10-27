@@ -11,12 +11,14 @@ import {
   crearPlan,
   crearSuscripcionActiva,
   crearSuscripcionTrial,
+  concederCapacidadReportesDiana,
   programarCancelacionSuscripcion,
   publicarPlan,
   renovarSuscripcion,
   retirarVersionPlan,
   revocarOfertaComercialTenant,
   revocarCancelacionSuscripcion,
+  revocarCapacidadReportesDiana,
   transicionarEmpresa,
   transicionarSuscripcion,
 } from "../suscripciones/service";
@@ -222,6 +224,18 @@ export async function ejecutarComandoComercial(
     agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
     plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }), (r: any) => ({ relacionId: r.relacionId, reciboId: r.reciboId }));
     resultado = await confirmarPagoAnualRelacionContractual(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
+  } else if (tipo === "ConcederCapacidadReportesDiana") {
+    facultad = "COMERCIAL_GOBERNAR";
+    evento = "SUSCRIPCION_CAPACIDAD_REPORTES_CONCEDIDA";
+    agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
+    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }), (r: any) => ({ concesionId: r.concesionId, capacidad: r.capacidad }));
+    resultado = await concederCapacidadReportesDiana(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
+  } else if (tipo === "RevocarCapacidadReportesDiana") {
+    facultad = "COMERCIAL_GOBERNAR";
+    evento = "SUSCRIPCION_CAPACIDAD_REPORTES_REVOCADA";
+    agregado = { tipo: "SUSCRIPCION", id: entrada.empresaId };
+    plan = planificarConfirmacionAuditoria(db, actorUid, facultad, tipo, entrada, agregado, empresaObjetivoId, evento, (r: any) => ({ esperada: Number.isInteger(entrada.expectedRevision) ? entrada.expectedRevision : null, resultante: Number.isInteger(r.revision) ? r.revision : null }), (r: any) => ({ concesionId: r.concesionId, capacidad: r.capacidad }));
+    resultado = await revocarCapacidadReportesDiana(db, dominio as never, { ...ctxBase, obligacionId: plan.obligacionId, registrarResultadoEnTransaccion: plan.registrarEnTransaccion });
   } else if (tipo === "ActualizarDatosAdministrativosEmpresa") {
     facultad = "LIFECYCLE_GOBERNAR";
     evento = "EMPRESA_DATOS_ADMINISTRATIVOS_ACTUALIZADOS";

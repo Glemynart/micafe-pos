@@ -8,6 +8,7 @@ import { ejecutarComandoConfiguracion } from "../configuracion/service";
 import { suspenderTrialVencido } from "../suscripciones/service";
 import type { EntradaBootstrapEmpresarial } from "../../../lib/bootstrap/contrato";
 import { crearPlantillaConfiguracionRevision1 } from "../../../lib/configuracion";
+import { fechaComercialUtc } from "../../../lib/suscripciones/contrato";
 
 // Réplica del fake usado en functions/src/bootstrap/service.test.ts, extendida con un
 // mecanismo de fallo de una sola vez para simular una emisión de evidencia que falla
@@ -985,4 +986,64 @@ test("G-SAAS-02 completa la secuencia post-vencimiento sin reescribir el contrat
   } finally {
     globalThis.Date = relojOriginal;
   }
+});
+
+test("ADR-SAAS-095: el comando concede y revoca reports por la ruta comercial auditada", async () => {
+  const db = new Db();
+  const empresaId = "distribuidora-las-jimenez";
+  const inicio = fechaComercialUtc();
+  const finTrial = fechaComercialUtc(new Date(Date.now() + 15 * 86_400_000));
+  const finPeriodo = fechaComercialUtc(new Date(Date.now() + 380 * 86_400_000));
+  const snapshot = {
+    schemaVersion: 2,
+    planId: "mvp_comercial",
+    planVersion: 2,
+    codigoPlan: "MVP_COMERCIAL",
+    periodicidad: "ANUAL",
+    precio: { importe: 1_600_000, moneda: "COP" },
+    capacidades: ["sell", "inventory", "purchases", "shifts", "waste", "clientes", "finanzas"],
+    limites: {},
+    sedeConceptual: { cantidad: 1 },
+    fiscalidad: null,
+    vigencia: { inicio, fin: finTrial },
+    trialDias: 15,
+    ofertaComercialId: "oferta-distribuidora-jimenez-2026",
+    referenciaAceptacionCliente: "G-SAAS-02-DIANA-TRIAL-15-DIAS-ACEPTADO-2026-10-23",
+  };
+  db.seed(`empresas/${empresaId}`, { empresaId, estado: "trial", revision: 1 });
+  db.seed(`suscripciones/${empresaId}`, {
+    empresaId, planId: "mvp_comercial", planVersion: 2, estado: "trialing",
+    trialInicio: inicio, trialFin: finTrial, snapshotContrato: snapshot, revision: 1, schemaVersion: 1,
+  });
+  const snapshotOriginal = JSON.stringify(db.read(`suscripciones/${empresaId}`).snapshotContrato);
+  const entradaBase = {
+    idempotencyKey: "idem_reports_grant_executor",
+    correlationId: "corr_reports_grant_executor",
+    causationId: null,
+    motivoCodigo: "ADR_SAAS_095_REPORTS_DIANA",
+    expectedRevision: 1,
+    empresaId,
+  };
+  const grant = await ejecutarComandoComercial(db as never, "operador_1", "ConcederCapacidadReportesDiana", {
+    ...entradaBase,
+    commandId: "cmd_reports_grant_executor",
+  } as any);
+  assert.equal(grant.idempotente, false);
+  assert.equal(grant.capacidad, "reports");
+  assert.equal(JSON.stringify(db.read(`suscripciones/${empresaId}`).snapshotContrato), snapshotOriginal);
+  assert.ok(db.docsByPrefix("saas_auditoria/").some((e) => e.tipo === "SUSCRIPCION_CAPACIDAD_REPORTES_CONCEDIDA"));
+
+  const retry = await ejecutarComandoComercial(db as never, "operador_1", "ConcederCapacidadReportesDiana", {
+    ...entradaBase,
+    commandId: "cmd_reports_grant_executor",
+  } as any);
+  assert.equal(retry.idempotente, true);
+
+  const revoke = await ejecutarComandoComercial(db as never, "operador_1", "RevocarCapacidadReportesDiana", {
+    ...entradaBase,
+    commandId: "cmd_reports_revoke_executor",
+    idempotencyKey: "idem_reports_revoke_executor",
+  } as any);
+  assert.equal(revoke.idempotente, false);
+  assert.ok(db.docsByPrefix("saas_auditoria/").some((e) => e.tipo === "SUSCRIPCION_CAPACIDAD_REPORTES_REVOCADA"));
 });

@@ -1,8 +1,9 @@
 import { HttpsError } from "firebase-functions/v2/https";
 import type { Firestore } from "firebase-admin/firestore";
-import type { PlanVersion, Suscripcion } from "../../../lib/suscripciones/contrato";
+import { esSnapshotContratoCompatible, fechaComercialUtc, type PlanVersion, type Suscripcion } from "../../../lib/suscripciones/contrato";
 import { resolverModulosHabilitados } from "../../../lib/configuracion/modulos-plan";
 import { leerRelacionContractualVigente } from "../suscripciones/relacion-vigente";
+import { CONCESION_REPORTES_DIANA, esConcesionReportesEfectiva } from "../suscripciones/capacidad-concesion";
 
 /** Resuelve la versión de Plan contratada, no la versión actualmente visible. */
 export async function resolverModulosInicialesDelPlan(
@@ -25,6 +26,40 @@ export async function resolverModulosInicialesDelPlan(
   if (!suscripcionSnap.exists) throw new HttpsError("failed-precondition", "SUSCRIPCION_NOT_FOUND");
 
   const suscripcion = suscripcionSnap.data() as Suscripcion;
+  if (suscripcion.snapshotContrato) {
+    if (!esSnapshotContratoCompatible(suscripcion.snapshotContrato)
+      || suscripcion.snapshotContrato.planId !== suscripcion.planId
+      || suscripcion.snapshotContrato.planVersion !== suscripcion.planVersion) {
+      throw new HttpsError("failed-precondition", "SNAPSHOT_CONTRATO_VERSION_UNSUPPORTED");
+    }
+    const capacidades = [...suscripcion.snapshotContrato.capacidades];
+    if (!capacidades.includes(CONCESION_REPORTES_DIANA.capacidad)
+      && empresaId === CONCESION_REPORTES_DIANA.empresaId
+      && suscripcion.planId === CONCESION_REPORTES_DIANA.planId
+      && suscripcion.planVersion === CONCESION_REPORTES_DIANA.planVersion) {
+      const suscripcionRef = db.collection("suscripciones").doc(empresaId);
+      const concesionRef = suscripcionRef.collection("concesionesCapacidad")
+        .doc(CONCESION_REPORTES_DIANA.concesionId);
+      const revocacionRef = concesionRef.collection("revocaciones").doc("adr-saas-095");
+      const [empresaSnap, concesionSnap, revocacionSnap] = await Promise.all([
+        db.collection("empresas").doc(empresaId).get(),
+        concesionRef.get(),
+        revocacionRef.get(),
+      ]);
+      if (esConcesionReportesEfectiva(
+        concesionSnap.data(),
+        empresaId,
+        empresaSnap.data()?.estado,
+        suscripcion,
+        revocacionSnap.exists,
+        fechaComercialUtc(),
+      )) {
+        capacidades.push(CONCESION_REPORTES_DIANA.capacidad);
+      }
+    }
+    return resolverModulosHabilitados(capacidades, capacidades);
+  }
+
   const planSnap = await db.collection("planes").doc(suscripcion.planId)
     .collection("versiones").doc(String(suscripcion.planVersion)).get();
   if (!planSnap.exists) throw new HttpsError("failed-precondition", "PLAN_VERSION_NOT_FOUND");
