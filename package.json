@@ -34,7 +34,7 @@
     "test:turnos-history": "tsx --test lib/__tests__/turnos-history-subscription.test.ts lib/__tests__/turnos-history-selection.test.ts",
     "test:membresias": "tsx --test lib/__tests__/membresias.test.ts",
     "test:configuracion": "tsx --test lib/configuracion/__tests__/*.test.ts",
-    "test:backoffice-ui": "tsx --test components/backoffice/*.test.tsx lib/auth/admin-username-storage.test.ts",
+    "test:backoffice-ui": "tsx --test components/backoffice/*.test.tsx lib/auth/admin-username-storage.test.ts lib/auth/operator-code-storage.test.ts",
     "test:purchase-command": "tsx --test lib/compra-command.test.ts lib/compra-input-validation.test.ts",
     "test:bodega-ui": "tsx --test lib/bodega/*.test.ts",
     "test:firebase-push-service-worker": "tsx --test lib/__tests__/firebase-push-service-worker.test.ts",
