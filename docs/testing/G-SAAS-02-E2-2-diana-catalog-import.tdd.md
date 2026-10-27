@@ -36,6 +36,9 @@ existentes.
 - El stock y stock mínimo empiezan en cero. Los conteos ausentes del nombre
   quedan como `assumed_single_unit`, con factor uno y aviso para que Diana los
   corrija después de la carga. El plan no establece existencias físicas.
+- `Club Colombia Dorada x 330` se interpreta como botella de 330 ml (factor
+  uno), no como empaque de 330 unidades. La [ficha oficial del fabricante](https://www.clubcolombia.com.co/node/93126)
+  respalda esta lectura y hay una prueba de regresión para el patrón del nombre.
 - Los IDs de documentos son tenant-scoped; los command IDs son deterministas a
   partir del SHA-256 de origen y la fila o categoría. El preflight detecta
   nombres existentes ajenos al lote, discrepancias en una reanudación y una
