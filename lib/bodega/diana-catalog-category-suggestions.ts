@@ -41,7 +41,7 @@ const REGLAS: ReadonlyArray<{
   { categoriaId: "CERVEZAS_NACIONALES", alias: ["club colombia", "costena", "aguila", "poker", "pilsen"] },
   { categoriaId: "CERVEZAS_IMPORTADAS", alias: ["budweiser", "coronita", "corona"] },
   { categoriaId: "CERVEZAS_SIN_ALCOHOL", alias: ["cerveza sin alcohol", "corona cero"] },
-  { categoriaId: "SODAS_Y_AGUA_TONICA", alias: ["canada dry", "agua tonica", "bretaña", "soda"] },
+  { categoriaId: "SODAS_Y_AGUA_TONICA", alias: ["canada dry", "canadry", "agua tonica", "bretaña", "soda"] },
   { categoriaId: "GASEOSAS", alias: ["coca cola", "big cola", "postobon", "quatro", "gaseosa"] },
   { categoriaId: "JUGOS_Y_NECTARES", alias: ["del valle", "cifrut", "nutiva", "hit", "jugo", "nectar"] },
   { categoriaId: "HIDRATANTES_Y_ELECTROLITOS", alias: ["gatorade", "sporade", "electrolit", "hidralyte", "electrolitos", "hidratante"] },

@@ -23,6 +23,7 @@ test("covers the 17 categories and the examples Diana supplied", () => {
     ["Corona Cero", "CERVEZAS_SIN_ALCOHOL"],
     ["Bretaña", "SODAS_Y_AGUA_TONICA"],
     ["Canada Dry", "SODAS_Y_AGUA_TONICA"],
+    ["Canadry", "SODAS_Y_AGUA_TONICA"],
     ["Coca-Cola", "GASEOSAS"],
     ["Big Cola", "GASEOSAS"],
     ["Postobón", "GASEOSAS"],
