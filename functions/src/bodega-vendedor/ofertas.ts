@@ -24,7 +24,7 @@ const object = (value: unknown): value is Record<string, unknown> => !!value && 
 const text = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
 const positiveInteger = (value: unknown): value is number => typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 
-type LineaOferta = { presentacionId: string; canal: CanalPrecioBodega; precioFinalCOP: number };
+type LineaOferta = { presentacionId: string; precioFinalCOP: number; canal?: CanalPrecioBodega };
 function only(value: Record<string, unknown>, allowed: readonly string[]) {
   if (Object.keys(value).some(key => !allowed.includes(key))) fail("invalid-argument", "PAYLOAD_OFERTA_INVALIDO");
 }
@@ -57,7 +57,7 @@ function millis(value: unknown): number | null {
     : null;
 }
 
-function parseLineas(value: unknown): LineaOferta[] {
+function parseLineas(value: unknown, allowLegacyConsumerFinal = false): LineaOferta[] {
   if (!Array.isArray(value) || value.length === 0 || value.length > MAX_LINES) fail("invalid-argument", "LINEAS_OFERTA_INVALIDAS");
   const seen = new Set<string>();
   return (value as unknown[]).map((raw: unknown): LineaOferta => {
@@ -65,12 +65,17 @@ function parseLineas(value: unknown): LineaOferta[] {
     const data = raw as Record<string, unknown>;
     only(data, ["presentacionId", "canal", "precioFinalCOP"]);
     const presentacionId = requiredText(data.presentacionId, "PRESENTACION_OFERTA_INVALIDA", 1024);
-    if (data.canal !== "tienda" && data.canal !== "consumidor_final") fail("invalid-argument", "CANAL_OFERTA_INVALIDO");
+    if (data.canal !== undefined && data.canal !== "tienda" && data.canal !== "consumidor_final") fail("invalid-argument", "CANAL_OFERTA_INVALIDO");
+    if (data.canal === "consumidor_final" && !allowLegacyConsumerFinal) fail("failed-precondition", "PRECIO_CONSUMIDOR_FINAL_PERTENECE_A_NEVERA");
     if (!positiveInteger(data.precioFinalCOP)) fail("invalid-argument", "PRECIO_OFERTA_INVALIDO");
-    const key = `${presentacionId}:${data.canal}`;
+    const key = allowLegacyConsumerFinal ? `${presentacionId}:${data.canal ?? "catalogo"}` : presentacionId;
     if (seen.has(key)) fail("invalid-argument", "LINEA_OFERTA_DUPLICADA");
     seen.add(key);
-    return { presentacionId, canal: data.canal as CanalPrecioBodega, precioFinalCOP: data.precioFinalCOP as number };
+    return {
+      presentacionId,
+      precioFinalCOP: data.precioFinalCOP as number,
+      ...(allowLegacyConsumerFinal && data.canal ? { canal: data.canal as CanalPrecioBodega } : {}),
+    };
   });
 }
 
@@ -121,12 +126,24 @@ function isOpen(value: Record<string, unknown>) {
   return value.estado === "ACTIVA" && value.cerradaEn === undefined;
 }
 
+function catalogoOferta(value: Record<string, unknown>): "BODEGA" | "NEVERA" {
+  if (value.catalogoId === undefined || value.catalogoId === null) return "BODEGA";
+  if (value.catalogoId === "BODEGA" || value.catalogoId === "NEVERA") return value.catalogoId;
+  return fail("failed-precondition", "CATALOGO_OFERTA_INVALIDO");
+}
+
+function perteneceABodega(value: unknown): boolean {
+  if (!object(value)) return false;
+  const catalogoId = value.catalogoId;
+  return catalogoId === undefined || catalogoId === null || catalogoId === "BODEGA";
+}
+
 function intervalsOverlap(startA: number, endA: number | null, startB: number, endB: number | null) {
   return startA < (endB ?? Number.POSITIVE_INFINITY) && startB < (endA ?? Number.POSITIVE_INFINITY);
 }
 
 function lineasDeOferta(value: Record<string, unknown>): LineaOferta[] {
-  try { return parseLineas(value.lineas); }
+  try { return parseLineas(value.lineas, true); }
   catch { return fail("failed-precondition", "OFERTA_PERSISTIDA_INVALIDA"); }
 }
 
@@ -135,13 +152,14 @@ async function validarSinSolapes(tx: any, db: any, empresaId: string, entrada: R
   for (const snapshot of offers.docs) {
     if (snapshot.id === excluirOfertaId) continue;
     const actual = snapshot.data() as Record<string, unknown>;
+    if (catalogoOferta(actual) !== "BODEGA") continue;
     if (!isOpen(actual)) continue;
     const inicio = millis(actual.inicioEn); const fin = actual.finEn === null ? null : millis(actual.finEn);
     if (inicio === null) fail("failed-precondition", "OFERTA_PERSISTIDA_INVALIDA");
     if (actual.finEn !== null && fin === null) fail("failed-precondition", "OFERTA_PERSISTIDA_INVALIDA");
     const existingLines = lineasDeOferta(actual);
     for (const line of entrada.lineas) {
-      if (existingLines.some(other => other.presentacionId === line.presentacionId && other.canal === line.canal)
+      if (existingLines.some(other => other.canal !== "consumidor_final" && other.presentacionId === line.presentacionId)
         && intervalsOverlap(inicio as number, fin as number | null, entrada.inicioEn.toMillis(), entrada.finEn?.toMillis() ?? null)) {
         fail("already-exists", "OFERTA_SUPERPUESTA");
       }
@@ -155,13 +173,18 @@ async function resolverPrecioBaseOfertaEnTransaccion(tx: any, db: any, empresaId
   if (!presentacionSnap.exists || presentacionSnap.data()?.empresaId !== empresaId || !text(productoId)) {
     fail("not-found", "PRESENTACION_OFERTA_NO_ENCONTRADA");
   }
+  if (!perteneceABodega(presentacionSnap.data())) fail("failed-precondition", "PRESENTACION_OFERTA_FUERA_CATALOGO_BODEGA");
+  const productoSnap = await tx.get(db.collection("productos").doc(productoId as string));
+  if (!productoSnap.exists || productoSnap.data()?.empresaId !== empresaId || !perteneceABodega(productoSnap.data())) {
+    fail("failed-precondition", "PRESENTACION_OFERTA_FUERA_CATALOGO_BODEGA");
+  }
   const presentacion = await resolverPresentacionComercialEnTransaccion(
     tx,
     db,
     empresaId,
     normalizarReferenciaPresentacionComercial({ productoId, presentacionId: line.presentacionId }),
   );
-  return resolverPrecioCanalBodega(presentacion, line.canal);
+  return resolverPrecioCanalBodega(presentacion, "tienda");
 }
 
 async function crearOferta(tx: any, db: any, empresaId: string, actorUid: string, contexto: ContextoFinancieroOperativo, input: Envelope) {
@@ -176,7 +199,7 @@ async function crearOferta(tx: any, db: any, empresaId: string, actorUid: string
   const ref = db.collection(COLLECTION).doc(ofertaId);
   if ((await tx.get(ref)).exists) fail("already-exists", "COMMAND_ID_CONFLICT");
   tx.create(ref, {
-    id: ofertaId, empresaId, nombre: entrada.nombre, estado: "ACTIVA", inicioEn: entrada.inicioEn, finEn: entrada.finEn,
+    id: ofertaId, empresaId, catalogoId: "BODEGA", nombre: entrada.nombre, estado: "ACTIVA", inicioEn: entrada.inicioEn, finEn: entrada.finEn,
     lineas: entrada.lineas, revision: 1, creadoPor: actorUid, creadoEn: FieldValue.serverTimestamp(), actualizadoEn: FieldValue.serverTimestamp(),
   });
   return { commandId: input.commandId, ofertaId, estado: "ACTIVA", revision: 1 };
@@ -188,6 +211,7 @@ async function cerrarOferta(tx: any, db: any, empresaId: string, actorUid: strin
   const ref = db.collection(COLLECTION).doc(ofertaId);
   const snap = await tx.get(ref);
   if (!snap.exists || snap.data()?.empresaId !== empresaId) fail("not-found", "OFERTA_NO_ENCONTRADA");
+  if (catalogoOferta(snap.data() as Record<string, unknown>) !== "BODEGA") fail("failed-precondition", "OFERTA_FUERA_CATALOGO_BODEGA");
   if (snap.data()?.estado === "CERRADA") return { commandId: input.commandId, ofertaId, estado: "CERRADA", idempotente: true };
   if (snap.data()?.estado !== "ACTIVA") fail("failed-precondition", "OFERTA_PERSISTIDA_INVALIDA");
   tx.update(ref, { estado: "CERRADA", cerradaPor: actorUid, cerradaEn: FieldValue.serverTimestamp(), actualizadoEn: FieldValue.serverTimestamp() });
@@ -201,6 +225,8 @@ async function actualizarOferta(tx: any, db: any, empresaId: string, actorUid: s
   const snap = await tx.get(ref);
   if (!snap.exists || snap.data()?.empresaId !== empresaId) fail("not-found", "OFERTA_NO_ENCONTRADA");
   const actual = snap.data() as Record<string, unknown>;
+  if (catalogoOferta(actual) !== "BODEGA") fail("failed-precondition", "OFERTA_FUERA_CATALOGO_BODEGA");
+  if (lineasDeOferta(actual).some(line => line.canal === "consumidor_final")) fail("failed-precondition", "OFERTA_LEGADA_FUERA_DE_CATALOGO_BODEGA");
   if (actual.estado !== "ACTIVA" || actual.cerradaEn !== undefined) fail("failed-precondition", "OFERTA_NO_EDITABLE");
   const inicioActual = millis(actual.inicioEn);
   const finActual = actual.finEn === null ? null : millis(actual.finEn);
@@ -262,6 +288,7 @@ export async function ejecutarConsultarOfertasBodegaV1(db: any, contexto: Contex
     if (snapshot.docs.length > MAX_LISTED_OFFERS) fail("resource-exhausted", "DEMASIADAS_OFERTAS_PARA_CONSULTAR");
     const ofertas = snapshot.docs.map((doc: any) => {
       const offer = doc.data() as Record<string, unknown>;
+      if (catalogoOferta(offer) !== "BODEGA") return null;
       const inicioEn = millis(offer.inicioEn);
       const finEn = offer.finEn === null ? null : millis(offer.finEn);
       if (offer.empresaId !== contexto.empresaId || !text(offer.nombre)
@@ -278,8 +305,9 @@ export async function ejecutarConsultarOfertasBodegaV1(db: any, contexto: Contex
         actualizadoEnMillis: millis(offer.actualizadoEn),
       };
     });
-    ofertas.sort((a: any, b: any) => b.inicioEnMillis - a.inicioEnMillis);
-    return { ofertas };
+    const ofertasBodega = ofertas.filter((offer: any) => offer !== null);
+    ofertasBodega.sort((a: any, b: any) => b.inicioEnMillis - a.inicioEnMillis);
+    return { ofertas: ofertasBodega };
   });
 }
 
@@ -288,19 +316,20 @@ export async function resolverOfertaPrecioBodegaEnTransaccion(
   tx: any,
   db: any,
   empresaId: string,
-  input: { presentacionId: string; canal: CanalPrecioBodega; precioBaseCOP: number },
+  input: { presentacionId: string; precioBaseCOP: number },
   nowMillis = Date.now(),
 ): Promise<{ ofertaId: string | null; precioAplicadoCOP: number }> {
   const offers = await tx.get(db.collection(COLLECTION).where("empresaId", "==", empresaId));
   const found: Array<{ ofertaId: string; precioFinalCOP: number }> = [];
   for (const snapshot of offers.docs) {
     const offer = snapshot.data() as Record<string, unknown>;
+    if (catalogoOferta(offer) !== "BODEGA") continue;
     if (!isOpen(offer)) continue;
     const start = millis(offer.inicioEn); const end = offer.finEn === null ? null : millis(offer.finEn);
     if (start === null) fail("failed-precondition", "OFERTA_PERSISTIDA_INVALIDA");
     if (offer.finEn !== null && end === null) fail("failed-precondition", "OFERTA_PERSISTIDA_INVALIDA");
     if (nowMillis < (start as number) || (end !== null && nowMillis >= end)) continue;
-    const line = lineasDeOferta(offer).find(candidate => candidate.presentacionId === input.presentacionId && candidate.canal === input.canal);
+    const line = lineasDeOferta(offer).find(candidate => candidate.canal !== "consumidor_final" && candidate.presentacionId === input.presentacionId);
     if (line) found.push({ ofertaId: snapshot.id, precioFinalCOP: line.precioFinalCOP });
   }
   if (found.length > 1) fail("failed-precondition", "OFERTAS_SUPERPUESTAS_PERSISTIDAS");
