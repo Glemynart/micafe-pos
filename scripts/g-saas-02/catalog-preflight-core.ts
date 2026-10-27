@@ -174,6 +174,9 @@ export function suggestPackaging(productName: string): PackagingSuggestion {
   if (normalizeText(productName) === "CLUB COLOMBIA DORADA X 330") {
     return { presentation: "Botella 330 ml", conversionFactor: 1, quantityEvidence: "assumed_single_unit" };
   }
+  if (normalizeText(productName) === "SPEED MAX BOTELLA 12 UNDS") {
+    return { presentation: "Caja x 12", conversionFactor: 12, quantityEvidence: "explicit_count" };
+  }
   const explicitCounts = [...productName.matchAll(/(?:^|\s)(?:x|×)\s*(\d{1,3})(?:\s*(?:unds?|unidades?|u\b))?(?=\s|$)/giu)]
     .map((match) => Number(match[1]));
   const sixPackCount = /\b(?:six\s*[- ]?pack|sixpak|6\s*[- ]?pack)\b/iu.test(productName) ? [6] : [];

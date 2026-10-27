@@ -150,6 +150,7 @@ test("suggests explicit package factors and marks names without quantity as unit
       ["Smirnoff Lata sixpak", 1000, 1500],
       ["Águila negra 330", 1000, 1500],
       ["Club Colombia Dorada x 330", 1000, 1500],
+      ["Speed Max Botella 12 unds", 1000, 1500],
     ],
     [["Producto", "Precio"], ["Águila negra 330", 1800]],
   ));
@@ -159,8 +160,9 @@ test("suggests explicit package factors and marks names without quantity as unit
     { priceChannel: "tienda", baseUnit: "unidad", presentation: "Six pack", conversionFactor: 6, quantityEvidence: "explicit_count" },
     { priceChannel: "tienda", baseUnit: "unidad", presentation: "Unidad individual", conversionFactor: 1, quantityEvidence: "assumed_single_unit" },
     { priceChannel: "tienda", baseUnit: "unidad", presentation: "Botella 330 ml", conversionFactor: 1, quantityEvidence: "assumed_single_unit" },
+    { priceChannel: "tienda", baseUnit: "unidad", presentation: "Caja x 12", conversionFactor: 12, quantityEvidence: "explicit_count" },
   ]);
-  assert.equal(report.totals.storeRowsWithExplicitPackageCount, 2);
+  assert.equal(report.totals.storeRowsWithExplicitPackageCount, 3);
   assert.equal(report.totals.storeRowsDefaultedToOneUnit, 2);
   assert.equal(report.totals.storeRowsWithAmbiguousPackageCount, 0);
 });
