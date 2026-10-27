@@ -9,12 +9,18 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { ActivacionCredencial } from '@/components/auth/activacion-credencial'
 import { useAuthContext } from '@/contexts/auth-context'
+import { persistOperatorCode, readRememberedOperatorCode } from '@/lib/auth/operator-code-storage'
 
 export function LoginScreen() {
   const { login, iniciandoSesion, errorLogin, limpiarError, activacionPendiente } = useAuthContext()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [rememberCode, setRememberCode] = useState(true)
+
+  useEffect(() => {
+    setUsername(readRememberedOperatorCode())
+  }, [])
 
   useEffect(() => {
     if (errorLogin && (username || password)) limpiarError()
@@ -23,6 +29,7 @@ export function LoginScreen() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!username.trim() || !password) return
+    persistOperatorCode(username, rememberCode)
     await login(username, password)
   }
 
@@ -65,6 +72,30 @@ export function LoginScreen() {
                 autoFocus
               />
             </div>
+
+            <label
+              htmlFor="remember-operator-code"
+              className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted/60 focus-within:ring-2 focus-within:ring-primary/50"
+            >
+              <input
+                type="checkbox"
+                id="remember-operator-code"
+                checked={rememberCode}
+                onChange={(event) => {
+                  const enabled = event.currentTarget.checked
+                  setRememberCode(enabled)
+                  if (!enabled) persistOperatorCode(username, false)
+                }}
+                aria-describedby="remember-operator-code-hint"
+                className="h-5 w-5 shrink-0 accent-primary"
+              />
+              <span className="flex flex-col leading-tight">
+                <span className="font-medium">Recordar código operativo</span>
+                <span id="remember-operator-code-hint" className="mt-1 text-xs text-muted-foreground">
+                  Solo se guarda el código; nunca el PIN.
+                </span>
+              </span>
+            </label>
 
             <div className="space-y-2">
               <Label htmlFor="password" className="text-sm font-medium text-muted-foreground">PIN de 6 dígitos</Label>
