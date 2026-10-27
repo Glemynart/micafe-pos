@@ -288,7 +288,7 @@ export function BodegaInventarioAdmin() {
   const [error, setError] = useState("")
   if (cargando) return <AdminLoading />
   const visibles = productos.filter(p => p.nombre.toLocaleLowerCase("es").includes(busqueda.toLocaleLowerCase("es")))
-  return <AdminSection eyebrow="Inventario" title={catalogo === "BODEGA" ? "Existencias de Bodega" : "Existencias de Nevera"} description={catalogo === "BODEGA" ? "Las ventas y los ajustes respetan las unidades reservadas por pedidos agendados." : "Registra el inventario propio de Nevera. La carga no descuenta existencias de Bodega."}>
+  return <AdminSection eyebrow="Inventario" title={catalogo === "BODEGA" ? "Existencias en unidad base" : "Existencias de Nevera"} description={catalogo === "BODEGA" ? "Las ventas y los ajustes respetan las unidades reservadas por pedidos agendados." : "Registra el inventario propio de Nevera. La carga no descuenta existencias de Bodega."}>
     {error && <ErrorBox>{error}</ErrorBox>}
     <div className="mb-6 grid gap-3 sm:grid-cols-2">
       <label className="grid gap-1 text-xs font-medium text-muted-foreground">Catálogo de inventario
