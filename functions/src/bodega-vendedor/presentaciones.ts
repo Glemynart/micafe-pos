@@ -86,6 +86,23 @@ function normalizarPrecios(data: Record<string, unknown>, requerido: boolean) {
   };
 }
 
+function normalizarPrecios(data: Record<string, unknown>, requerido: boolean) {
+  const precioHistorico = data.precioCOP;
+  const precioTienda = data.precioTiendaCOP;
+  if (requerido && precioHistorico === undefined && precioTienda === undefined) fail("invalid-argument", "PRECIO_TIENDA_COP_REQUERIDO");
+  if (precioHistorico !== undefined && !positiveInteger(precioHistorico)) fail("invalid-argument", "PRECIO_COP_INVALIDO");
+  if (precioTienda !== undefined && !positiveInteger(precioTienda)) fail("invalid-argument", "PRECIO_TIENDA_COP_INVALIDO");
+  if (precioHistorico !== undefined && precioTienda !== undefined && precioHistorico !== precioTienda) fail("invalid-argument", "PRECIO_TIENDA_INCONSISTENTE");
+  if (data.precioConsumidorFinalCOP !== undefined && data.precioConsumidorFinalCOP !== null && !positiveInteger(data.precioConsumidorFinalCOP)) {
+    fail("invalid-argument", "PRECIO_CONSUMIDOR_FINAL_COP_INVALIDO");
+  }
+  const precioTiendaCanonico = (precioTienda ?? precioHistorico) as number | undefined;
+  return {
+    ...(precioTiendaCanonico === undefined ? {} : { precioTiendaCOP: precioTiendaCanonico, precioCOP: precioTiendaCanonico }),
+    ...(data.precioConsumidorFinalCOP === undefined ? {} : { precioConsumidorFinalCOP: data.precioConsumidorFinalCOP === null ? null : data.precioConsumidorFinalCOP as number }),
+  };
+}
+
 function normalizeCreate(raw: unknown) {
   if (!object(raw)) fail("invalid-argument", "PAYLOAD_INVALIDO");
   const data = raw as Record<string, unknown>;
