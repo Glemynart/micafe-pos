@@ -53,6 +53,7 @@ function reviewWorkbook(options: {
   sameProduct?: string;
   includeConsumerCandidate?: boolean;
   addConsumerOnly?: boolean;
+  manualConsumerAssociation?: boolean;
 } = {}): CatalogWorkbookLike {
   const hash = options.hash ?? SOURCE_HASH;
   const storeHeader = [
@@ -72,8 +73,9 @@ function reviewWorkbook(options: {
     options.includeConsumerCandidate === false ? "" : 2, options.includeConsumerCandidate === false ? "" : options.candidateProduct ?? "Café",
     options.includeConsumerCandidate === false ? "" : options.candidatePrice ?? 1800,
     options.includeConsumerCandidate === false ? "" : options.sameProduct ?? "Sí - misma presentación", ""]];
-  if (options.addConsumerOnly) consumerRows.push([3, "Producto referencia", 2400,
-    "Diferido: falta precio aprobado en lista de tienda", "", "", "", "", ""]);
+  if (options.addConsumerOnly) consumerRows.push(options.manualConsumerAssociation
+    ? [3, "Producto referencia", 2400, "Asociación manual; revisar presentación", 2, "Café", 1800, "Sí - misma presentación", "Asociado manualmente por revisión"]
+    : [3, "Producto referencia", 2400, "Diferido: falta asociación con producto base", "", "", "", "", ""]);
 
   return {
     worksheets: [
@@ -184,6 +186,57 @@ test("counts consumer-only rows as deferred and leaves unresolved matches for Di
   assert.equal(report.importReady, false);
 });
 
+test("accepts an explicit manual consumer-to-store association and uses the retail price only after same-presentation approval", () => {
+  const inputSource = {
+    worksheets: [
+      worksheet("PRECIOS A TIENDA", [["PRODUCTO", "AL COSTO", "PRECIO VENTA"], ["Café", 1200, 1800]]),
+      worksheet("PRECIOS CONS FINAL", [["PRODUCTO", "PRECIO VENTA"], ["Producto alterno", 2400]]),
+    ],
+  };
+  const inputReview = reviewWorkbook({ consumerCandidate: "" });
+  const consumerSheet = inputReview.worksheets[2];
+  const getConsumerRow = consumerSheet.getRow.bind(consumerSheet);
+  consumerSheet.getRow = (rowNumber) => {
+    if (rowNumber !== 5) return getConsumerRow(rowNumber);
+    const values: unknown[] = [2, "Producto alterno", 2400, "Asociación manual; revisar presentación", 2, "Café", 1800, "Sí - misma presentación", "Asociado manualmente por revisión"];
+    return {
+      cellCount: values.length,
+      getCell: (column) => ({ value: values[column - 1] }),
+    };
+  };
+  const input = {
+    sourceWorkbook: inputSource,
+    reviewWorkbook: inputReview,
+    sourceSha256: SOURCE_HASH,
+  };
+  const report = validateDianaCatalogReview(input);
+  assert.equal(report.reviewValid, true);
+  assert.equal(report.totals.candidateCrossListPairs, 1);
+
+  const plan = buildPlan({ ...input, reviewSha256: "f".repeat(64) });
+  assert.ok(plan);
+  assert.equal(plan.proposal.presentations[0].consumerSourceRow, 2);
+  assert.equal(plan.proposal.presentations[0].consumerFinalPriceCop, 2400);
+  assert.equal(plan.consumerReference.consumerRowsDeferred, 0);
+});
+
+test("rejects a manual consumer association that does not match the referenced store row", () => {
+  const workbook = reviewWorkbook({ addConsumerOnly: true, manualConsumerAssociation: true });
+  const consumer = workbook.worksheets[2];
+  const getRow = consumer.getRow.bind(consumer);
+  consumer.getRow = (rowNumber) => {
+    const row = getRow(rowNumber);
+    if (rowNumber !== 6) return row;
+    return {
+      ...row,
+      getCell: (column) => column === 6 ? { value: "Producto inventado" } : row.getCell(column),
+    };
+  };
+  const report = validateDianaCatalogReview({ sourceWorkbook: sourceWorkbook(1200, true), reviewWorkbook: workbook, sourceSha256: SOURCE_HASH });
+  assert.equal(report.reviewValid, false);
+  assert.ok(report.validationErrors.some((error) => /no coinciden con la fila tienda/.test(error)));
+});
+
 test("detects broken candidate references and consumer data that is not source-backed", () => {
   const wrongCandidate = validateDianaCatalogReview({
     sourceWorkbook: sourceWorkbook(),
@@ -232,7 +285,7 @@ function buildPlan(input: PlanInput): DianaCatalogOfflinePlan | null {
   return buildDianaCatalogOfflinePlan(input);
 }
 
-test("builds a local review-only plan from the approved store price and exact presentation cost", () => {
+test("builds a local review-only plan with channel prices and exact presentation cost only for approved mappings", () => {
   const plan = buildPlan({
     sourceWorkbook: sourceWorkbook(1200, true),
     reviewWorkbook: reviewWorkbook({ addConsumerOnly: true }),
@@ -241,11 +294,12 @@ test("builds a local review-only plan from the approved store price and exact pr
   });
 
   assert.ok(plan);
-  assert.equal(plan.planSchemaVersion, "1.1");
+  assert.equal(plan.planSchemaVersion, "2.0");
   assert.equal(plan.sourceSha256, SOURCE_HASH);
   assert.equal(plan.reviewSha256, "b".repeat(64));
   assert.equal(plan.proposal.granularity, "one-presentation-per-store-source-row");
   assert.equal(plan.proposal.salesPriceSource, "PRECIOS A TIENDA.PRECIO VENTA");
+  assert.equal(plan.proposal.consumerPriceSource, "PRECIOS CONS FINAL.PRECIO VENTA");
   assert.equal(plan.proposal.presentations.length, 1);
   assert.deepEqual(plan.proposal.presentations[0], {
     sourceRow: 2,
@@ -255,14 +309,17 @@ test("builds a local review-only plan from the approved store price and exact pr
     baseUnit: "unidad",
     presentation: "paquete x 12",
     unitsPerPresentation: 12,
-    salesPriceCop: 1800,
+    packagingQuantityEvidence: "assumed_single_unit",
+    salesPriceStoreCop: 1800,
+    consumerSourceRow: 2,
+    consumerFinalPriceCop: 2100,
     sourceCostCop: 1200,
     costBasis: "PRESENTACION / EMPAQUE",
     costCopPerPresentation: 1200,
   });
-  assert.equal(plan.consumerReference.salesPricesApplied, false);
-  assert.equal(plan.consumerReference.consumerOnlyRowsDeferred, 1);
-  assert.equal(plan.consumerReference.crossListCandidatesMerged, false);
+  assert.equal(plan.consumerReference.consumerPricesApplied, true);
+  assert.equal(plan.consumerReference.consumerRowsDeferred, 1);
+  assert.equal(plan.consumerReference.samePresentationPricesApplied, 1);
   assert.equal(plan.initialStockIncluded, false);
   assert.equal(plan.safety.firebaseAccessed, false);
   assert.equal(plan.safety.writesPerformed, false);
@@ -270,12 +327,13 @@ test("builds a local review-only plan from the approved store price and exact pr
   assert.equal(plan.safety.executable, false);
   assert.equal(plan.safety.deploymentAuthorized, false);
   const serialized = JSON.stringify(plan);
-  assert.equal(serialized.includes("2100"), false);
+  assert.equal(serialized.includes("2100"), true);
+  assert.equal(serialized.includes('"consumerSourceRow":2'), true);
   assert.equal(serialized.includes("2400"), false);
   assert.equal(serialized.includes("Producto referencia"), false);
 });
 
-test("keeps unresolved consumer-list matches as reference-only and does not block a complete store plan", () => {
+test("keeps unresolved consumer prices deferred without blocking a complete store plan", () => {
   const plan = buildPlan({
     sourceWorkbook: sourceWorkbook(1200, true),
     reviewWorkbook: reviewWorkbook({ sameProduct: "Por confirmar", addConsumerOnly: true }),
@@ -286,8 +344,26 @@ test("keeps unresolved consumer-list matches as reference-only and does not bloc
   assert.ok(plan);
   assert.equal(plan.consumerReference.crossListCandidates, 1);
   assert.equal(plan.consumerReference.crossListDecisionsPending, 1);
+  assert.equal(plan.consumerReference.consumerPricesApplied, false);
+  assert.equal(plan.consumerReference.consumerRowsDeferred, 2);
+  assert.equal(plan.consumerReference.samePresentationPricesApplied, 0);
   assert.equal(plan.proposal.presentations.length, 1);
-  assert.equal(plan.proposal.presentations[0].salesPriceCop, 1800);
+  assert.equal(plan.proposal.presentations[0].salesPriceStoreCop, 1800);
+  assert.equal(plan.proposal.presentations[0].consumerFinalPriceCop, null);
+});
+
+test("keeps retail prices for a distinct presentation out of the existing store presentation", () => {
+  const plan = buildPlan({
+    sourceWorkbook: sourceWorkbook(),
+    reviewWorkbook: reviewWorkbook({ sameProduct: "Mismo producto - presentación distinta" }),
+    sourceSha256: SOURCE_HASH,
+    reviewSha256: "c".repeat(64),
+  });
+
+  assert.ok(plan);
+  assert.equal(plan.consumerReference.consumerRowsDeferred, 1);
+  assert.equal(plan.consumerReference.samePresentationPricesApplied, 0);
+  assert.equal(plan.proposal.presentations[0].consumerFinalPriceCop, null);
 });
 
 test("does not build a plan when any operational store mapping is incomplete or source identity differs", () => {

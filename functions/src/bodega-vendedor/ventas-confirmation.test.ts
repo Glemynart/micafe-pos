@@ -56,7 +56,7 @@ function seed(db: FakeDb) {
   db.docs.set("turnos/turno-u3c", { empresaId, cajeroId: "vendedor-u3c", estado: "abierto" });
   db.docs.set(`membresias/${empresaId}_admin-u3c`, { empresaId, uid: "admin-u3c", rol: "admin", permisos: ["sell"], estado: "activa", activo: true });
   const intentLineas = [{ productoId: "producto-u3c", presentacionId: "caja-u3c", cantidad: 2 }];
-  const commercialLine = { productoId: "producto-u3c", productoNombre: "Producto", unidadBase: "unidad", presentacionId: "caja-u3c", presentacionNombre: "Caja", cantidad: 2, factorUnidadBase: 24, cantidadUnidadBase: 48, precioPresentacionCOP: 20000, subtotalCOP: 40000 };
+  const commercialLine = { productoId: "producto-u3c", productoNombre: "Producto", unidadBase: "unidad", presentacionId: "caja-u3c", presentacionNombre: "Caja", cantidad: 2, factorUnidadBase: 24, cantidadUnidadBase: 48, canal: "tienda", precioBasePresentacionCOP: 20000, precioPresentacionCOP: 20000, ofertaId: null, subtotalCOP: 40000 };
   const huellaComercial = crearHuellaSemantica({ clienteId: "cliente-u3c", lineas: [commercialLine], totalCOP: 40000 });
   db.docs.set(`empresas/${empresaId}/solicitudes_venta_bodega/solicitud-u3c`, {
     solicitudId: "solicitud-u3c", empresaId, solicitanteUid: contexto.actorUid, clienteId: "cliente-u3c", intentoLineas: intentLineas,
@@ -245,6 +245,32 @@ test("precio cambiado después de aprobación invalida la solicitud atómicament
   assert.equal(db.docs.get("cuentas_bancarias/caja-principal")?.saldo, 0);
 });
 
+test("solicitud aprobada con el snapshot previo se invalida y no reinterpreta el precio por canal", async () => {
+  const db = new FakeDb(); seed(db);
+  const requestPath = `empresas/${empresaId}/solicitudes_venta_bodega/solicitud-u3c`;
+  const current = db.docs.get(requestPath)!;
+  const legacyLine = {
+    productoId: "producto-u3c", productoNombre: "Producto", unidadBase: "unidad",
+    presentacionId: "caja-u3c", presentacionNombre: "Caja", cantidad: 2,
+    factorUnidadBase: 24, cantidadUnidadBase: 48, precioPresentacionCOP: 20000, subtotalCOP: 40000,
+  };
+  const legacyHash = crearHuellaSemantica({ clienteId: "cliente-u3c", lineas: [legacyLine], totalCOP: 40000 });
+  db.docs.set(requestPath, {
+    ...current,
+    lineas: [legacyLine],
+    huellaComercial: legacyHash,
+    aprobacion: { ...current.aprobacion, huellaComercial: legacyHash },
+  });
+
+  const result = await ejecutarConfirmarVentaBodegaV1(db, contexto, comando()) as any;
+  assert.equal(result.estado, "INVALIDADA");
+  assert.equal(result.motivo, "CATALOGO_CAMBIADO");
+  assert.equal(db.docs.get(requestPath)?.estado, "INVALIDADA");
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("ventas/")), false);
+  assert.equal(db.docs.get("productos/producto-u3c")?.stock, 100);
+  assert.equal(db.docs.get("cuentas_bancarias/caja-principal")?.saldo, 0);
+});
+
 test("ADR-068: un bloqueo de turno inconsistente falla cerrado antes de efectos", async () => {
   const sinTurno = new FakeDb(); seed(sinTurno);
   sinTurno.docs.set(`turnos_activos/${crearIdentificadorInterno(empresaId, "vendedor-u3c")}`, { empresaId, cajeroId: "vendedor-u3c", turnoId: "turno-inexistente" });
@@ -335,7 +361,7 @@ test("U3-C Emulator: doble confirmación real conserva un único conjunto atómi
     batch.set(db.collection("turnos").doc(`turno-${suffix}`), { empresaId: empresa, cajeroId: actor, estado: "abierto" });
     batch.set(db.collection("turnos_activos").doc(lockId), { empresaId: empresa, cajeroId: actor, turnoId: `turno-${suffix}` });
     const intentLineas = command.payload.lineas;
-    const commercialLine = { productoId, productoNombre: "Producto", unidadBase: "unidad", presentacionId, presentacionNombre: "Unidad", cantidad: 6, factorUnidadBase: 1, cantidadUnidadBase: 6, precioPresentacionCOP: 1000, subtotalCOP: 6000 };
+    const commercialLine = { productoId, productoNombre: "Producto", unidadBase: "unidad", presentacionId, presentacionNombre: "Unidad", cantidad: 6, factorUnidadBase: 1, cantidadUnidadBase: 6, canal: "tienda", precioBasePresentacionCOP: 1000, precioPresentacionCOP: 1000, ofertaId: null, subtotalCOP: 6000 };
     const huellaComercial = crearHuellaSemantica({ clienteId, lineas: [commercialLine], totalCOP: 6000 });
     batch.set(db.collection("empresas").doc(empresa).collection("solicitudes_venta_bodega").doc(solicitudId), {
       solicitudId, empresaId: empresa, solicitanteUid: actor, clienteId, intentoLineas: intentLineas,

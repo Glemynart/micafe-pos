@@ -1,4 +1,5 @@
 import type { CatalogCellLike, CatalogWorkbookLike, CatalogWorksheetLike } from "./catalog-preflight-core.js";
+import { suggestPackaging } from "./catalog-preflight-core.js";
 
 export interface DianaCatalogReviewValidationInput {
   sourceWorkbook: CatalogWorkbookLike;
@@ -374,14 +375,12 @@ function validateConsumerRows(
     if (Object.keys(fields).some((field) => fields[field].formula)) errors.push("Una decisión de consumidor contiene una fórmula y requiere revisión manual.");
     const sourceRow = row.sourceRow;
     const expected = sourceRow === null ? [] : candidates.get(sourceRow) ?? [];
-    if (expected.length > 1) errors.push("Una fila consumidora tiene más de un candidato tienda y requiere decisión manual.");
-    const candidateRow = expected[0];
+    const candidateRow = positiveInteger(fields.storeCandidate);
     const storeCandidate = fields.storeCandidate;
-    if (!equalOptionalRowReference(storeCandidate, candidateRow)) errors.push("La referencia tienda de una fila consumidora no coincide con los candidatos del Excel fuente.");
 
-    if (candidateRow === undefined) {
+    if (candidateRow === null) {
       deferred += 1;
-      if (fields.status.text !== "Diferido: falta precio aprobado en lista de tienda") errors.push("Una fila solo consumidor no conserva su estado de diferida.");
+      if (fields.status.text !== "Diferido: falta asociación con producto base") errors.push("Una fila solo consumidor no conserva su estado de diferida.");
       if (fields.candidateProduct.text !== "" || fields.storePrice.text !== "" || fields.sameProduct.text !== "") {
         errors.push("Una fila sin candidato tienda contiene una asociación o tarifa operativa.");
       }
@@ -389,12 +388,16 @@ function validateConsumerRows(
     }
 
     candidatePairs += 1;
-    if (fields.status.text !== "Coincidencia por nombre; revisar presentación") errors.push("Una coincidencia candidata no conserva su etiqueta de revisión.");
+    const isNameCandidate = expected.includes(candidateRow);
+    const expectedStatus = isNameCandidate
+      ? "Coincidencia por nombre; revisar presentación"
+      : "Asociación manual; revisar presentación";
+    if (fields.status.text !== expectedStatus) errors.push("La fila asociada no conserva la etiqueta de coincidencia o asociación manual esperada.");
     const storeRecord = store.records.get(candidateRow);
     const productMatches = storeRecord?.name === fields.candidateProduct.text.trim();
     const priceMatches = storeRecord?.price !== null && storeRecord?.price !== undefined
       && positiveInteger(fields.storePrice) === storeRecord.price;
-    if (!productMatches || !priceMatches || fields.candidateProduct.formula || fields.storePrice.formula) {
+    if (!storeRecord || !productMatches || !priceMatches || storeCandidate.formula || fields.candidateProduct.formula || fields.storePrice.formula) {
       errors.push("Los datos de una referencia candidata no coinciden con la fila tienda del Excel fuente.");
     }
     const decision = normalizeText(fields.sameProduct.text);
@@ -410,7 +413,7 @@ export interface DianaCatalogOfflinePlanInput extends DianaCatalogReviewValidati
 }
 
 export interface DianaCatalogOfflinePlan {
-  planSchemaVersion: "1.1";
+  planSchemaVersion: "2.0";
   mode: "offline-review-only";
   sourceSha256: string;
   reviewSha256: string;
@@ -418,6 +421,7 @@ export interface DianaCatalogOfflinePlan {
     status: "requires-human-review";
     granularity: "one-presentation-per-store-source-row";
     salesPriceSource: "PRECIOS A TIENDA.PRECIO VENTA";
+    consumerPriceSource: "PRECIOS CONS FINAL.PRECIO VENTA";
     costPolicy: "AL COSTO exact per presentation; no automatic markup";
     productGroupingInferred: false;
     presentations: Array<{
@@ -428,18 +432,21 @@ export interface DianaCatalogOfflinePlan {
       baseUnit: string;
       presentation: string;
       unitsPerPresentation: number;
-      salesPriceCop: number;
+      packagingQuantityEvidence: "explicit_count" | "assumed_single_unit" | "ambiguous_count";
+      salesPriceStoreCop: number;
+      consumerSourceRow: number | null;
+      consumerFinalPriceCop: number | null;
       sourceCostCop: number;
       costBasis: "UNIDAD BASE" | "PRESENTACION / EMPAQUE";
       costCopPerPresentation: number;
     }>;
   };
   consumerReference: {
-    salesPricesApplied: false;
-    consumerOnlyRowsDeferred: number;
+    consumerPricesApplied: boolean;
+    consumerRowsDeferred: number;
     crossListCandidates: number;
     crossListDecisionsPending: number;
-    crossListCandidatesMerged: false;
+    samePresentationPricesApplied: number;
   };
   initialStockIncluded: false;
   safety: {
@@ -492,9 +499,7 @@ export function validateDianaCatalogReview(input: DianaCatalogReviewValidationIn
     const expected = expectedCandidates(sourceStore, sourceConsumer);
     mapping = validateStoreRows(storeRows, sourceStore, expected.storeToConsumer, validationErrors);
     consumerReview = validateConsumerRows(consumerRows, sourceConsumer, sourceStore, expected.consumerToStore, validationErrors);
-    if (expected.storeToConsumer.size !== storeRows.length || expected.consumerToStore.size !== consumerReview.candidatePairs) {
-      validationErrors.push("La cantidad de referencias cruzadas no coincide con las listas fuente.");
-    }
+    if (expected.storeToConsumer.size !== storeRows.length) validationErrors.push("La plantilla no conserva la lista de candidatos de consumidor por fila tienda.");
   }
 
   const reviewValid = validationErrors.length === 0;
@@ -527,7 +532,7 @@ export function validateDianaCatalogReview(input: DianaCatalogReviewValidationIn
       ...(mapping.pending > 0 ? ["Resolver con Diana las categorías, unidades base, presentaciones y factores positivos de las filas tienda."] : []),
       ...(mapping.pending > 0 ? ["Confirmar la base de AL COSTO (unidad base o presentación/empaque) para conservar el costo real de Diana."] : []),
       ...(consumerReview.candidateDecisionsPending > 0 ? ["Resolver las coincidencias por nombre sin fusionar automáticamente productos ni presentaciones distintas."] : []),
-      ...(consumerReview.deferred > 0 ? ["Las filas solo consumidor permanecen diferidas hasta recibir una presentación y PRECIO VENTA de tienda aprobados."] : []),
+      ...(consumerReview.deferred > 0 ? ["Las tarifas consumidor sin una asociación aprobada como la misma presentación permanecen diferidas."] : []),
       "Este validador no produce payload de importación. La carga de catálogo e inventario exige el flujo aprobado, datos completos y Gate I.",
     ],
   };
@@ -540,16 +545,32 @@ export function buildDianaCatalogOfflinePlan(input: DianaCatalogOfflinePlanInput
 
   const errors: string[] = [];
   const source = sourceList(input.sourceWorkbook, "store", errors);
+  const sourceConsumer = sourceList(input.sourceWorkbook, "consumer", errors);
   const reviewSheet = findSheet(input.reviewWorkbook, "Precios tienda");
+  const reviewConsumerSheet = findSheet(input.reviewWorkbook, "Consumidor referencia");
   const header = reviewSheet ? findHeader(reviewSheet, STORE_HEADERS) : null;
-  if (!source || !reviewSheet || !header || errors.length > 0) return null;
+  const consumerHeader = reviewConsumerSheet ? findHeader(reviewConsumerSheet, CONSUMER_HEADERS) : null;
+  if (!source || !sourceConsumer || !reviewSheet || !header || !reviewConsumerSheet || !consumerHeader || errors.length > 0) return null;
 
   const rows = templateRows(reviewSheet, header, STORE_HEADERS);
+  const consumerRows = templateRows(reviewConsumerSheet, consumerHeader, CONSUMER_HEADERS);
+  const consumerPriceByStoreRow = new Map<number, { sourceRow: number; price: number }>();
+  for (const consumerRow of consumerRows) {
+    const sourceRow = consumerRow.sourceRow;
+    const storeRow = positiveInteger(consumerRow.fields.storeCandidate);
+    const decision = normalizeText(consumerRow.fields.sameProduct.text);
+    if (sourceRow === null || storeRow === null || decision !== "SI - MISMA PRESENTACION") continue;
+    const consumerSource = sourceConsumer.records.get(sourceRow);
+    if (consumerSource?.price === null || consumerSource?.price === undefined) return null;
+    if (consumerPriceByStoreRow.has(storeRow)) return null;
+    consumerPriceByStoreRow.set(storeRow, { sourceRow, price: consumerSource.price });
+  }
   const presentations: DianaCatalogOfflinePlan["proposal"]["presentations"] = [];
   for (const row of rows) {
     const sourceRow = row.sourceRow;
     if (sourceRow === null) return null;
     const original = source.records.get(sourceRow);
+    const consumerPrice = consumerPriceByStoreRow.get(sourceRow);
     const factor = positiveInteger(row.fields.conversionFactor);
     const costBasis = normalizeText(row.fields.costBasis.text);
     if (!original || original.price === null || original.cost === null || factor === null) return null;
@@ -564,16 +585,20 @@ export function buildDianaCatalogOfflinePlan(input: DianaCatalogOfflinePlanInput
       baseUnit: row.fields.baseUnit.text.trim(),
       presentation: row.fields.presentation.text.trim(),
       unitsPerPresentation: factor,
-      salesPriceCop: original.price,
+      packagingQuantityEvidence: suggestPackaging(original.name).quantityEvidence,
+      salesPriceStoreCop: original.price,
+      consumerSourceRow: consumerPrice?.sourceRow ?? null,
+      consumerFinalPriceCop: consumerPrice?.price ?? null,
       sourceCostCop: original.cost,
       costBasis,
       costCopPerPresentation,
     });
   }
   if (presentations.length === 0 || presentations.length !== report.totals.storeRowsMapped) return null;
+  const samePresentationPricesApplied = presentations.filter((row) => row.consumerFinalPriceCop !== null).length;
 
   return {
-    planSchemaVersion: "1.1",
+    planSchemaVersion: "2.0",
     mode: "offline-review-only",
     sourceSha256: input.sourceSha256.toLocaleLowerCase("en-US"),
     reviewSha256: input.reviewSha256.toLocaleLowerCase("en-US"),
@@ -581,16 +606,17 @@ export function buildDianaCatalogOfflinePlan(input: DianaCatalogOfflinePlanInput
       status: "requires-human-review",
       granularity: "one-presentation-per-store-source-row",
       salesPriceSource: "PRECIOS A TIENDA.PRECIO VENTA",
+      consumerPriceSource: "PRECIOS CONS FINAL.PRECIO VENTA",
       costPolicy: "AL COSTO exact per presentation; no automatic markup",
       productGroupingInferred: false,
       presentations,
     },
     consumerReference: {
-      salesPricesApplied: false,
-      consumerOnlyRowsDeferred: report.totals.consumerRowsDeferred,
+      consumerPricesApplied: samePresentationPricesApplied > 0,
+      consumerRowsDeferred: sourceConsumer.records.size - samePresentationPricesApplied,
       crossListCandidates: report.totals.candidateCrossListPairs,
       crossListDecisionsPending: report.totals.candidateDecisionsPending,
-      crossListCandidatesMerged: false,
+      samePresentationPricesApplied,
     },
     initialStockIncluded: false,
     safety: {

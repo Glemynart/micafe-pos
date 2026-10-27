@@ -62,16 +62,14 @@ function emptyPayload(data: unknown) {
   if (data !== undefined && (!object(data) || Object.keys(data).length !== 0)) fail("invalid-argument", "PAYLOAD_INVALIDO");
 }
 
-function requireBodegaCatalogAuthority(tx: any, db: any, empresaId: string, rol: string, contexto: ContextoFinancieroOperativo) {
-  return (async () => {
+export async function exigirAutoridadCatalogoBodega(tx: any, db: any, contexto: ContextoFinancieroOperativo) {
     await revalidarAutoridadFinancieraEnTransaccion(tx, db, contexto, "inventory");
-    if (rol !== "admin") fail("permission-denied", "ROL_NO_AUTORIZADO");
-    const configSnap = await tx.get(db.collection("configuraciones").doc(empresaId));
+    if (contexto.rol !== "admin") fail("permission-denied", "ROL_NO_AUTORIZADO");
+    const configSnap = await tx.get(db.collection("configuraciones").doc(contexto.empresaId));
     const configuracion = configSnap.data() as Record<string, any> | undefined;
-    if (!configSnap.exists || configuracion?.empresaId !== empresaId || (configuracion.vertical ?? "GENERAL") !== "BODEGA_MVP1" || !Array.isArray(configuracion.modulos?.habilitados) || !configuracion.modulos.habilitados.includes("inventory")) {
+    if (!configSnap.exists || configuracion?.empresaId !== contexto.empresaId || (configuracion.vertical ?? "GENERAL") !== "BODEGA_MVP1" || !Array.isArray(configuracion.modulos?.habilitados) || !configuracion.modulos.habilitados.includes("inventory")) {
       fail("permission-denied", "CATALOGO_BODEGA_NO_AUTORIZADO");
     }
-  })();
 }
 
 function normalizarPrecios(data: Record<string, unknown>, requerido: boolean) {
@@ -217,7 +215,7 @@ export async function resolverComercialBodegaEnTransaccion(tx: any, db: any, emp
 }
 
 async function crearPresentacion(tx: any, db: any, empresaId: string, actorUid: string, rol: string, contexto: ContextoFinancieroOperativo, input: Envelope) {
-  await requireBodegaCatalogAuthority(tx, db, empresaId, rol, contexto);
+  await exigirAutoridadCatalogoBodega(tx, db, contexto);
   const entrada = normalizeCreate(input.payload);
   const productoSnap = await tx.get(db.collection("productos").doc(entrada.productoId));
   if (!productoSnap.exists || productoSnap.data()?.empresaId !== empresaId) fail("not-found", "PRODUCTO_NO_ENCONTRADO");
@@ -245,7 +243,7 @@ async function crearPresentacion(tx: any, db: any, empresaId: string, actorUid: 
 }
 
 async function actualizarPresentacion(tx: any, db: any, empresaId: string, actorUid: string, rol: string, contexto: ContextoFinancieroOperativo, input: Envelope) {
-  await requireBodegaCatalogAuthority(tx, db, empresaId, rol, contexto);
+  await exigirAutoridadCatalogoBodega(tx, db, contexto);
   const entrada = normalizeUpdate(input.payload);
   const ref = db.collection(COLLECTION).doc(entrada.presentacionId);
   const snap = await tx.get(ref);

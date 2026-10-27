@@ -21,6 +21,7 @@
     "../functions/src/bodega/operational-core.ts",
     "../functions/src/bodega-vendedor/clientes.ts",
     "../functions/src/bodega-vendedor/presentaciones.ts",
+    "../functions/src/bodega-vendedor/ofertas.ts",
     "../functions/src/bodega-vendedor/ventas-authority.ts",
     "../functions/src/bodega-vendedor/ventas-confirmation.ts",
     "../functions/src/bodega-vendedor/ventas-contract.ts",

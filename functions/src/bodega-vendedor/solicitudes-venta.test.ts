@@ -121,7 +121,10 @@ test("crear solicitud resuelve cliente, presentaciones, factor, precio y total s
   assert.equal(result.totalCOP, 10_000);
   assert.equal(result.lineas[0].factorUnidadBase, 10);
   assert.equal(result.lineas[0].cantidadUnidadBase, 20);
+  assert.equal(result.lineas[0].canal, "tienda");
+  assert.equal(result.lineas[0].precioBasePresentacionCOP, 5_000);
   assert.equal(result.lineas[0].precioPresentacionCOP, 5_000);
+  assert.equal(result.lineas[0].ofertaId, null);
   assert.equal("costoUnidadBaseCOP" in result.lineas[0], false);
   const stored = db.docs.get(`${collectionPath}/${result.solicitudId}`)!;
   assert.equal(stored.clienteId, "cliente-1");

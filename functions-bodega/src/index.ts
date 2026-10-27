@@ -10,6 +10,12 @@ import {
   ejecutarActualizarPresentacionComercialV1,
   ejecutarCrearPresentacionComercialV1,
 } from "../../functions/src/bodega-vendedor/presentaciones";
+import {
+  ejecutarActualizarOfertaBodegaV1,
+  ejecutarCerrarOfertaBodegaV1,
+  ejecutarConsultarOfertasBodegaV1,
+  ejecutarCrearOfertaBodegaV1,
+} from "../../functions/src/bodega-vendedor/ofertas";
 import { ejecutarConfirmarVentaBodegaV1 } from "../../functions/src/bodega-vendedor/ventas-confirmation";
 import {
   ejecutarCancelarSolicitudVentaBodegaV1,
@@ -66,6 +72,26 @@ export const crearPresentacionComercialBodegaV1 = onCall({ region: REGION }, asy
 export const actualizarPresentacionComercialBodegaV1 = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   return ejecutarActualizarPresentacionComercialV1(db, await contextoOperativo(request, db), request.data);
+});
+
+export const crearOfertaBodegaV1 = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  return ejecutarCrearOfertaBodegaV1(db, await contextoOperativo(request, db), request.data);
+});
+
+export const cerrarOfertaBodegaV1 = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  return ejecutarCerrarOfertaBodegaV1(db, await contextoOperativo(request, db), request.data);
+});
+
+export const actualizarOfertaBodegaV1 = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  return ejecutarActualizarOfertaBodegaV1(db, await contextoOperativo(request, db), request.data);
+});
+
+export const consultarOfertasBodegaV1 = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  return ejecutarConsultarOfertasBodegaV1(db, await contextoOperativo(request, db), request.data);
 });
 
 export const crearArticuloInventarioBodegaV1 = onCall({ region: REGION }, async (request) => {
