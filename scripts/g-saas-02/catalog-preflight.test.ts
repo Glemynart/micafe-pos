@@ -61,9 +61,20 @@ test("reports schema gaps and does not treat missing inventory as an error", () 
   assert.equal(report.totals.storeRowsNeedingCategoryReview, 1);
   assert.equal(report.totals.storeRowsDefaultedToOneUnit, 1);
   assert.equal(report.classification.deferredByPlan.some((item) => item.includes("inventario inicial")), true);
-  assert.match(report.classification.humanDecisions[0], /canal tienda/);
-  assert.match(report.classification.humanDecisions[0], /consumidor final/);
-  assert.match(report.classification.humanDecisions[0], /ADR-SAAS-092/);
+  assert.match(report.classification.humanDecisions[0], /catálogo Bodega/);
+  assert.match(report.classification.humanDecisions[0], /catálogo Nevera independiente/);
+});
+
+test("reports category coverage separately for Bodega and Nevera", () => {
+  const report = analyzeCatalogWorkbook(workbook(
+    [["PRODUCTO", "AL COSTO", "PRECIO VENTA"], ["Aguardiente Antioqueño", 100, 150], ["Marca sin regla", 200, 250]],
+    [["Producto", "Precio"], ["Coca Cola", 180], ["Té Hatsu", 220]],
+  ));
+
+  assert.equal(report.totals.storeRowsWithCategorySuggestion, 1);
+  assert.equal(report.totals.storeRowsNeedingCategoryReview, 1);
+  assert.equal(report.totals.consumerRowsWithCategorySuggestion, 2);
+  assert.equal(report.totals.consumerRowsNeedingCategoryReview, 0);
 });
 
 test("flags missing or ambiguous prices and formula cells without evaluating them", () => {
@@ -76,7 +87,8 @@ test("flags missing or ambiguous prices and formula cells without evaluating the
   assert.equal(report.totals.rowsMissingProductName, 1);
   assert.equal(report.totals.rowsMissingPositiveIntegerCost, 1);
   assert.equal(report.totals.rowsMissingPositiveIntegerPrice, 3);
-  assert.equal(report.totals.storeCostRowsWithUnresolvedUnitBasis, 2);
+  assert.equal(report.totals.storeCostRowsWithUnresolvedUnitBasis, 0);
+  assert.equal(report.sheets[0].decisionReferences.rowsWithAmbiguousCostBasis, 0);
   assert.equal(report.classification.confirmedSourceDataIssues.some((item) => item.includes("fórmulas")), true);
   assert.ok(report.rowDecisions.find((row) => row.sourceList === "store" && row.sourceRow === 2)?.issueCodes.includes("formula_not_evaluated"));
   assert.ok(report.rowDecisions.find((row) => row.sourceList === "store" && row.sourceRow === 2)?.issueCodes.includes("sale_price_missing_or_invalid"));
@@ -97,7 +109,7 @@ test("creates a row decision template that preserves separate lists without expo
   ));
   const template = createCatalogDecisionTemplate(report, { bytes: 2048, sha256: "a".repeat(64) });
 
-  assert.equal(template.schemaVersion, "1.1");
+  assert.equal(template.schemaVersion, "2.0");
   assert.equal(template.importReady, false);
   assert.equal(template.writesPerformed, false);
   assert.equal(template.includesProductNamesOrPrices, false);
@@ -105,26 +117,26 @@ test("creates a row decision template that preserves separate lists without expo
   assert.deepEqual(template.lists.consumer.map((row) => row.sourceRow), [2]);
   assert.deepEqual(template.lists.store[0].candidateCrossListRows, [2]);
   assert.equal(template.lists.store[0].decisions.category, null);
-  assert.equal(template.lists.store[0].decisions.costUnitBasis, null);
+  assert.equal(template.lists.store[0].decisions.costUnitBasis, "PRESENTACION / EMPAQUE");
   assert.equal(template.lists.store[0].categorySuggestion?.estado, "REVISAR");
-  assert.equal(template.lists.store[1].decisions.category, null);
+  assert.equal(template.lists.store[1].decisions.category, "Cervezas sin alcohol");
   assert.equal(template.lists.store[1].categorySuggestion?.categoria, "Cervezas sin alcohol");
-  assert.equal(template.lists.store[0].mappingSuggestion.priceChannel, "tienda");
-  assert.equal(template.lists.consumer[0].mappingSuggestion.priceChannel, "consumidor_final");
+  assert.equal(template.lists.store[0].mappingSuggestion.catalogId, "BODEGA");
+  assert.equal(template.lists.consumer[0].mappingSuggestion.catalogId, "NEVERA");
   assert.doesNotMatch(JSON.stringify(template), /Corona/i);
   assert.equal(template.lists.consumer[0].decisions.costUnitBasis, "not_applicable");
   assert.equal(template.lists.store[0].decisions.selectedPriceSource, "store");
   assert.equal(template.lists.consumer[0].decisions.selectedPriceSource, "consumer");
-  assert.ok(template.lists.store[0].issueCodes.includes("cost_unit_basis_unresolved"));
+  assert.ok(!template.lists.store[0].issueCodes.includes("cost_unit_basis_unresolved"));
   assert.ok(template.lists.store[0].issueCodes.includes("category_not_in_source_header"));
   assert.equal(template.globalDecisionsPending.some((item) => /seleccionar una única fuente/.test(item)), false);
-  assert.match(template.globalDecisionsPending.join(" "), /Asociar explícitamente cada fila PRECIOS CONS FINAL/);
+  assert.match(template.globalDecisionsPending.join(" "), /Bodega y Nevera no se asociarán/);
   assert.equal(JSON.stringify(template).includes("Café molido"), false);
   assert.equal(JSON.stringify(template).includes("1500"), false);
   assert.equal(JSON.stringify(template).includes("1800"), false);
 });
 
-test("defers consumer-only products until their product association is explicitly reviewed", () => {
+test("keeps consumer-only products in independent Nevera without requiring transfer association", () => {
   const report = analyzeCatalogWorkbook(workbook(
     [["PRODUCTO", "AL COSTO", "PRECIO VENTA"], ["Producto tienda", 100, 150]],
     [["Producto", "Precio"], ["Producto consumidor", 180]],
@@ -133,13 +145,13 @@ test("defers consumer-only products until their product association is explicitl
   const template = createCatalogDecisionTemplate(report, { bytes: 2048, sha256: "b".repeat(64) });
 
   assert.ok(consumerRow);
-  assert.ok(consumerRow.issueCodes.includes("consumer_only_requires_explicit_product_mapping"));
+  assert.ok(!consumerRow.issueCodes.includes("consumer_only_requires_explicit_product_mapping"));
   assert.equal(consumerRow.decisions.selectedPriceSource, "consumer");
   assert.ok(!consumerRow.issueCodes.some((code) => /^(category|base_unit|presentation|conversion_factor)_/.test(code)));
-  assert.ok(report.classification.deferredByPlan.some((item) => /asociación explícita/.test(item)));
+  assert.ok(report.classification.deferredByPlan.some((item) => /asociación solo será necesaria.*transferencia futura/.test(item)));
   assert.ok(!report.classification.humanDecisions.some((item) => /Confirmar si las .*PRECIOS CONS FINAL/.test(item)));
   assert.ok(!template.globalDecisionsPending.some((item) => /solo aparecen en PRECIOS CONS FINAL/.test(item)));
-  assert.ok(template.globalDecisionsPending.some((item) => /cada fila de PRECIOS A TIENDA/.test(item)));
+  assert.ok(template.globalDecisionsPending.some((item) => /categoría no tuvo coincidencia local/.test(item)));
 });
 
 test("suggests explicit package factors and marks names without quantity as unit defaults", () => {
@@ -156,15 +168,53 @@ test("suggests explicit package factors and marks names without quantity as unit
   ));
   const rows = report.rowDecisions.filter((row) => row.sourceList === "store");
   assert.deepEqual(rows.map((row) => row.mappingSuggestion), [
-    { priceChannel: "tienda", baseUnit: "unidad", presentation: "Empaque x 38", conversionFactor: 38, quantityEvidence: "explicit_count" },
-    { priceChannel: "tienda", baseUnit: "unidad", presentation: "Six pack", conversionFactor: 6, quantityEvidence: "explicit_count" },
-    { priceChannel: "tienda", baseUnit: "unidad", presentation: "Unidad individual", conversionFactor: 1, quantityEvidence: "assumed_single_unit" },
-    { priceChannel: "tienda", baseUnit: "unidad", presentation: "Botella 330 ml", conversionFactor: 1, quantityEvidence: "assumed_single_unit" },
-    { priceChannel: "tienda", baseUnit: "unidad", presentation: "Caja x 12", conversionFactor: 12, quantityEvidence: "explicit_count" },
+    { catalogId: "BODEGA", baseUnit: "unidad", presentation: "Empaque x 38", conversionFactor: 38, quantityEvidence: "explicit_count" },
+    { catalogId: "BODEGA", baseUnit: "unidad", presentation: "Six pack", conversionFactor: 6, quantityEvidence: "explicit_count" },
+    { catalogId: "BODEGA", baseUnit: "unidad", presentation: "Unidad individual", conversionFactor: 1, quantityEvidence: "assumed_single_unit" },
+    { catalogId: "BODEGA", baseUnit: "unidad", presentation: "Botella 330 ml", conversionFactor: 1, quantityEvidence: "assumed_single_unit" },
+    { catalogId: "BODEGA", baseUnit: "unidad", presentation: "Caja x 12", conversionFactor: 12, quantityEvidence: "explicit_count" },
   ]);
   assert.equal(report.totals.storeRowsWithExplicitPackageCount, 3);
   assert.equal(report.totals.storeRowsDefaultedToOneUnit, 2);
   assert.equal(report.totals.storeRowsWithAmbiguousPackageCount, 0);
+});
+
+test("uses independent Nevera packaging: individual by default, explicit six-pack factor when named", () => {
+  const report = analyzeCatalogWorkbook(workbook(
+    [["PRODUCTO", "AL COSTO", "PRECIO VENTA"], ["Aguardiente Antioqueño", 1000, 1500]],
+    [["Producto", "Precio"], ["Agua Cielo personal", 1800], ["Corona lata Sixpak", 9000]],
+  ));
+  const consumerRows = report.rowDecisions.filter((row) => row.sourceList === "consumer");
+  assert.deepEqual(consumerRows.map((row) => row.mappingSuggestion), [
+    { catalogId: "NEVERA", baseUnit: "unidad", presentation: "Unidad individual", conversionFactor: 1, quantityEvidence: "administrator_confirmed_individual" },
+    { catalogId: "NEVERA", baseUnit: "unidad", presentation: "Six pack", conversionFactor: 6, quantityEvidence: "explicit_count" },
+  ]);
+  assert.deepEqual(consumerRows.map((row) => row.decisions.conversionFactor), ["1", "6"]);
+});
+
+test("separates Diana-confirmed individual liquors from Bodega rows needing package-count correction", () => {
+  const report = analyzeCatalogWorkbook(workbook(
+    [
+      ["PRODUCTO", "AL COSTO", "PRECIO VENTA"],
+      ["Aguardiente Antioqueño Media", 1000, 1500],
+      ["Ron Caldas Gran Reserva", 1000, 1500],
+      ["Smirnoff Vodka Botella", 1000, 1500],
+      ["Águila Negra 330", 1000, 1500],
+      ["Electrolit", 1000, 1500],
+    ],
+    [["Producto", "Precio"], ["Agua Cielo", 1800]],
+  ));
+  const rows = report.rowDecisions.filter(row => row.sourceList === "store");
+  assert.deepEqual(rows.map(row => row.mappingSuggestion.quantityEvidence), [
+    "administrator_confirmed_individual",
+    "administrator_confirmed_individual",
+    "administrator_confirmed_individual",
+    "assumed_single_unit",
+    "assumed_single_unit",
+  ]);
+  assert.equal(report.totals.storeRowsConfirmedIndividualByPolicy, 3);
+  assert.equal(report.totals.storeRowsDefaultedToOneUnit, 2);
+  assert.equal(report.totals.consumerRowsConfirmedIndividualByPolicy, 1);
 });
 
 test("distinguishes absent schema columns from blank row values", () => {

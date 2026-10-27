@@ -22,36 +22,46 @@ export const CATEGORIAS_CATALOGO_DIANA = {
   BEBIDAS_DE_ALOE_VERA: "Bebidas de aloe vera",
 } as const;
 
+/** Nevera tiene una taxonomía independiente y admite categorías fuera del surtido Bodega. */
+export const CATEGORIAS_CATALOGO_NEVERA = {
+  ...CATEGORIAS_CATALOGO_DIANA,
+  BEBIDAS_DE_TE: "Tés y bebidas de té",
+} as const;
+
 export type CategoriaCatalogoDianaId = keyof typeof CATEGORIAS_CATALOGO_DIANA;
+export type CategoriaCatalogoNeveraId = keyof typeof CATEGORIAS_CATALOGO_NEVERA;
+export type CatalogoDianaId = "BODEGA" | "NEVERA";
 
 export interface SugerenciaCategoriaCatalogoDiana {
-  categoriaId: CategoriaCatalogoDianaId | null;
+  categoriaId: CategoriaCatalogoNeveraId | null;
   categoria: string | null;
   estado: "SUGERIDA" | "REVISAR";
   razon: string;
 }
 
 const REGLAS: ReadonlyArray<{
-  categoriaId: CategoriaCatalogoDianaId;
+  categoriaId: CategoriaCatalogoNeveraId;
   alias: readonly string[];
+  catalogo?: CatalogoDianaId;
 }> = [
   { categoriaId: "AGUA_EMBOTELLADA", alias: ["agua embotellada", "agua pool", "pool", "agua cielo", "cielo", "agua cristal", "cristal"] },
   { categoriaId: "AGUA_DE_COCO", alias: ["agua de coco"] },
   { categoriaId: "AGUARDIENTES", alias: ["amarillo de manzanares", "aguardiente antioqueno", "antioqueno", "aguardiente"] },
-  { categoriaId: "CERVEZAS_NACIONALES", alias: ["club colombia", "costena", "aguila", "poker", "pilsen"] },
+  { categoriaId: "CERVEZAS_NACIONALES", alias: ["club colombia", "costena", "costeñita", "aguila", "poker", "pilsen", "light", "cerveza"] },
   { categoriaId: "CERVEZAS_IMPORTADAS", alias: ["budweiser", "coronita", "corona"] },
   { categoriaId: "CERVEZAS_SIN_ALCOHOL", alias: ["cerveza sin alcohol", "corona cero"] },
   { categoriaId: "SODAS_Y_AGUA_TONICA", alias: ["canada dry", "canadry", "agua tonica", "bretaña", "soda"] },
-  { categoriaId: "GASEOSAS", alias: ["coca cola", "big cola", "postobon", "quatro", "gaseosa"] },
+  { categoriaId: "GASEOSAS", alias: ["coca cola", "big cola", "postobon", "quatro", "gaseosa", "h2oh", "h2o", "premio"] },
   { categoriaId: "JUGOS_Y_NECTARES", alias: ["del valle", "cifrut", "nutiva", "hit", "jugo", "nectar"] },
   { categoriaId: "HIDRATANTES_Y_ELECTROLITOS", alias: ["gatorade", "sporade", "electrolit", "hidralyte", "electrolitos", "hidratante"] },
   { categoriaId: "BEBIDAS_ENERGIZANTES", alias: ["vive 100", "speed max", "energizante"] },
   { categoriaId: "BEBIDAS_DE_MALTA", alias: ["bebida de malta", "malta"] },
   { categoriaId: "BEBIDAS_BASE_CERVEZA_MALTA", alias: ["cola y pola"] },
   { categoriaId: "RON", alias: ["ron caldas", "ron esencial", "ron tradicional", "ron"] },
-  { categoriaId: "VODKA", alias: ["smirnoff vodka", "smirnoff tamarindo picante", "smirnoff tamarindo", "vodka"] },
+  { categoriaId: "VODKA", alias: ["smirnoff vodka", "smirnoff tamarindo picante", "smirnoff tamarindo", "smirnoff", "vodka"] },
   { categoriaId: "COCTELES_PREPARADOS", alias: ["reeds", "coctel", "bebida alcoholica preparada"] },
   { categoriaId: "BEBIDAS_DE_ALOE_VERA", alias: ["saviloe", "aloe vera"] },
+  { categoriaId: "BEBIDAS_DE_TE", alias: ["hatsu tea", "hatsu te", "te hatsu"], catalogo: "NEVERA" },
 ];
 
 function normalizar(value: string): string {
@@ -63,10 +73,11 @@ function contieneFrase(nombre: string, alias: string): boolean {
   return ` ${nombre} `.includes(` ${normalizar(alias)} `);
 }
 
-export function sugerirCategoriaCatalogoDiana(nombre: string): SugerenciaCategoriaCatalogoDiana {
+export function sugerirCategoriaCatalogoDiana(nombre: string, catalogo: CatalogoDianaId = "BODEGA"): SugerenciaCategoriaCatalogoDiana {
   const limpio = nombre.trim().replace(/\s+/g, " ");
   const normalizado = normalizar(limpio);
-  const coincidencias = REGLAS.flatMap(regla => regla.alias
+  const reglasCatalogo = REGLAS.filter(regla => !regla.catalogo || regla.catalogo === catalogo);
+  const coincidencias = reglasCatalogo.flatMap(regla => regla.alias
     .filter(alias => contieneFrase(normalizado, alias))
     .map(alias => ({ categoriaId: regla.categoriaId, alias: normalizar(alias) })));
 
@@ -84,7 +95,7 @@ export function sugerirCategoriaCatalogoDiana(nombre: string): SugerenciaCategor
   const categoriaId = categorias[0];
   return {
     categoriaId,
-    categoria: CATEGORIAS_CATALOGO_DIANA[categoriaId],
+    categoria: CATEGORIAS_CATALOGO_NEVERA[categoriaId],
     estado: "SUGERIDA",
     razon: "Coincidencia con una regla local; confirma o corrige antes de importar.",
   };

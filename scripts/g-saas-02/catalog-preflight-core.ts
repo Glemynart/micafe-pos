@@ -27,7 +27,7 @@ type DecisionField = "category" | "baseUnit" | "presentation" | "conversionFacto
 type PackagingSuggestion = {
   presentation: string | null;
   conversionFactor: number | null;
-  quantityEvidence: "explicit_count" | "assumed_single_unit" | "ambiguous_count";
+  quantityEvidence: "explicit_count" | "administrator_confirmed_individual" | "assumed_single_unit" | "ambiguous_count";
 };
 
 export interface CatalogRowDecision {
@@ -38,17 +38,17 @@ export interface CatalogRowDecision {
   issueCodes: string[];
   categorySuggestion: SugerenciaCategoriaCatalogoDiana | null;
   mappingSuggestion: {
-    priceChannel: "tienda" | "consumidor_final";
+    catalogId: "BODEGA" | "NEVERA";
     baseUnit: "unidad";
     presentation: string | null;
     conversionFactor: number | null;
-    quantityEvidence: "explicit_count" | "assumed_single_unit" | "ambiguous_count";
+    quantityEvidence: "explicit_count" | "administrator_confirmed_individual" | "assumed_single_unit" | "ambiguous_count";
   };
   decisions: Record<DecisionField, string | null>;
 }
 
 export interface CatalogDecisionTemplate {
-  schemaVersion: "1.1";
+  schemaVersion: "2.0";
   mode: "local-human-review-only";
   source: { bytes: number; sha256: string };
   importReady: false;
@@ -104,7 +104,7 @@ interface SheetReport {
 }
 
 export interface CatalogPreflightReport {
-  reportSchemaVersion: "1.1";
+  reportSchemaVersion: "2.0";
   mode: "read-only-local-preflight";
   importReady: false;
   writesPerformed: false;
@@ -120,9 +120,13 @@ export interface CatalogPreflightReport {
     storeCostRowsWithUnresolvedUnitBasis: number;
     storeRowsWithCategorySuggestion: number;
     storeRowsNeedingCategoryReview: number;
+    consumerRowsWithCategorySuggestion: number;
+    consumerRowsNeedingCategoryReview: number;
     storeRowsWithExplicitPackageCount: number;
+    storeRowsConfirmedIndividualByPolicy: number;
     storeRowsDefaultedToOneUnit: number;
     storeRowsWithAmbiguousPackageCount: number;
+    consumerRowsConfirmedIndividualByPolicy: number;
   };
   crossListMatchReferences: Array<{
     storeSheetRow: number;
@@ -170,7 +174,7 @@ function normalizeText(value: string): string {
     .toLocaleUpperCase("es-CO");
 }
 
-export function suggestPackaging(productName: string): PackagingSuggestion {
+export function suggestPackaging(productName: string, catalog: CatalogKind = "store"): PackagingSuggestion {
   if (normalizeText(productName) === "CLUB COLOMBIA DORADA X 330") {
     return { presentation: "Botella 330 ml", conversionFactor: 1, quantityEvidence: "assumed_single_unit" };
   }
@@ -195,6 +199,12 @@ export function suggestPackaging(productName: string): PackagingSuggestion {
       conversionFactor: count,
       quantityEvidence: "explicit_count",
     };
+  }
+  if (catalog === "store" && /\b(?:aguardiente|ron|vodka|smirnoff)\b/iu.test(productName)) {
+    return { presentation: "Unidad individual", conversionFactor: 1, quantityEvidence: "administrator_confirmed_individual" };
+  }
+  if (catalog === "consumer") {
+    return { presentation: "Unidad individual", conversionFactor: 1, quantityEvidence: "administrator_confirmed_individual" };
   }
   return { presentation: "Unidad individual", conversionFactor: 1, quantityEvidence: "assumed_single_unit" };
 }
@@ -306,7 +316,6 @@ function analyzeSheet(worksheet: CatalogWorksheetLike, kind: CatalogKind): Sheet
   let rowsMissingPositiveIntegerCost = 0;
   let rowsMissingPositiveIntegerPrice = 0;
   let rowsWithFormula = 0;
-  let rowsWithAmbiguousCostBasis = 0;
   const nameRows = new Map<string, number[]>();
 
   for (let rowNumber = header.rowNumber + 1; rowNumber <= worksheet.rowCount; rowNumber += 1) {
@@ -331,7 +340,7 @@ function analyzeSheet(worksheet: CatalogWorksheetLike, kind: CatalogKind): Sheet
       rowHasFormula ||= costHasFormula;
       validCost = !costHasFormula && parsePositiveInteger(costCell.value);
       if (!validCost) rowsMissingPositiveIntegerCost += 1;
-      else rowsWithAmbiguousCostBasis += 1;
+      // Diana confirmed AL COSTO is the full package/presentation purchase cost.
     }
 
     const missingSourceFields: string[] = [];
@@ -387,7 +396,8 @@ function analyzeSheet(worksheet: CatalogWorksheetLike, kind: CatalogKind): Sheet
       conversionFactor: header.fields.has("conversionFactor"),
       initialStock: header.fields.has("initialStock"),
     },
-    decisionReferences: { rowsWithAmbiguousCostBasis },
+    // The approved source semantics fix AL COSTO to the full package cost.
+    decisionReferences: { rowsWithAmbiguousCostBasis: 0 },
     records,
   };
 }
@@ -438,31 +448,28 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
     if (record.hasFormula) issueCodes.push("formula_not_evaluated");
     if (record.duplicateProductName) issueCodes.push("duplicate_product_name_within_list");
     issueCodes.push(...record.missingSourceFields);
-    if (sheet.kind === "store" && record.validCost === true) issueCodes.push("cost_unit_basis_unresolved");
-    if (sheet.kind === "consumer" && candidateCrossListRows.length === 0) {
-      issueCodes.push("consumer_only_requires_explicit_product_mapping");
-    }
-
-    const packaging = suggestPackaging(record.productName);
+    const packaging = suggestPackaging(record.productName, sheet.kind === "store" ? "store" : "consumer");
+    const catalogId = sheet.kind === "store" ? "BODEGA" : "NEVERA";
+    const categorySuggestion = sugerirCategoriaCatalogoDiana(record.productName, catalogId);
     return {
       sourceList: sheet.kind,
       sourceSheet: sheet.sourceSheet,
       sourceRow: record.rowNumber,
       candidateCrossListRows,
       issueCodes,
-      categorySuggestion: sheet.kind === "store" ? sugerirCategoriaCatalogoDiana(record.productName) : null,
+      categorySuggestion,
       mappingSuggestion: {
-        priceChannel: sheet.kind === "store" ? "tienda" : "consumidor_final",
+        catalogId,
         baseUnit: "unidad",
         ...packaging,
       },
       decisions: {
-        category: null,
-        baseUnit: null,
-        presentation: null,
-        conversionFactor: null,
+        category: categorySuggestion.estado === "SUGERIDA" ? categorySuggestion.categoria : null,
+        baseUnit: "unidad",
+        presentation: packaging.presentation,
+        conversionFactor: String(packaging.conversionFactor ?? ""),
         selectedPriceSource: sheet.kind === "store" ? "store" : "consumer",
-        costUnitBasis: sheet.kind === "store" && record.validCost === true ? null : "not_applicable",
+        costUnitBasis: sheet.kind === "store" && record.validCost === true ? "PRESENTACION / EMPAQUE" : "not_applicable",
       },
     };
   });
@@ -480,7 +487,7 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
   const rowsWithDuplicateProductName = reports.reduce((sum, report) => sum + report.rowsWithDuplicateProductName, 0);
 
   return {
-    reportSchemaVersion: "1.1",
+    reportSchemaVersion: "2.0",
     mode: "read-only-local-preflight",
     importReady: false,
     writesPerformed: false,
@@ -493,12 +500,17 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
       rowsWithFormula,
       rowsWithDuplicateProductName,
       crossListExactNameMatches: crossListMatchReferences.length,
-      storeCostRowsWithUnresolvedUnitBasis: store.decisionReferences.rowsWithAmbiguousCostBasis,
+      // Diana confirmed AL COSTO is the full package/presentation purchase cost.
+      storeCostRowsWithUnresolvedUnitBasis: 0,
       storeRowsWithCategorySuggestion: rowDecisions.filter((row) => row.sourceList === "store" && row.categorySuggestion?.estado === "SUGERIDA").length,
       storeRowsNeedingCategoryReview: rowDecisions.filter((row) => row.sourceList === "store" && row.categorySuggestion?.estado !== "SUGERIDA").length,
+      consumerRowsWithCategorySuggestion: rowDecisions.filter((row) => row.sourceList === "consumer" && row.categorySuggestion?.estado === "SUGERIDA").length,
+      consumerRowsNeedingCategoryReview: rowDecisions.filter((row) => row.sourceList === "consumer" && row.categorySuggestion?.estado !== "SUGERIDA").length,
       storeRowsWithExplicitPackageCount: rowDecisions.filter((row) => row.sourceList === "store" && row.mappingSuggestion.quantityEvidence === "explicit_count").length,
+      storeRowsConfirmedIndividualByPolicy: rowDecisions.filter((row) => row.sourceList === "store" && row.mappingSuggestion.quantityEvidence === "administrator_confirmed_individual").length,
       storeRowsDefaultedToOneUnit: rowDecisions.filter((row) => row.sourceList === "store" && row.mappingSuggestion.quantityEvidence === "assumed_single_unit").length,
       storeRowsWithAmbiguousPackageCount: rowDecisions.filter((row) => row.sourceList === "store" && row.mappingSuggestion.quantityEvidence === "ambiguous_count").length,
+      consumerRowsConfirmedIndividualByPolicy: rowDecisions.filter((row) => row.sourceList === "consumer" && row.mappingSuggestion.quantityEvidence === "administrator_confirmed_individual").length,
     },
     crossListMatchReferences,
     rowDecisions,
@@ -516,23 +528,19 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
         ...(!store.fieldAvailability.presentation || !store.fieldAvailability.conversionFactor
           ? ["La lista operativa PRECIOS A TIENDA no permite mapear presentación y factor de conversión requeridos por el modelo Bodega."]
           : []),
-        ...(store.decisionReferences.rowsWithAmbiguousCostBasis > 0
-          ? ["AL COSTO tiene valores, pero la fuente no identifica si corresponden a unidad base o presentación."]
-          : []),
       ],
       humanDecisions: [
-        "PRECIOS A TIENDA.PRECIO VENTA alimenta el canal tienda y PRECIOS CONS FINAL.PRECIO VENTA alimenta el canal consumidor final; cada fila retail requiere asociación y relación de presentación revisadas, conforme a ADR-SAAS-092.",
-        "Las cantidades explícitas del nombre (por ejemplo, x 38 o sixpak) generan una sugerencia de factor; sin cantidad explícita se sugiere unidad individual. Confirma estas sugerencias antes de importar.",
-        "La base de AL COSTO no se infiere del precio de venta; confirma si el costo fuente corresponde a la unidad base o al empaque.",
-        "Las categorías sugeridas por reglas locales son recomendaciones de este catálogo; confirma o corrige cada valor antes de importarlo. Las filas sin coincidencia clara requieren revisión manual.",
+        "PRECIOS A TIENDA.PRECIO VENTA y AL COSTO alimentan, respectivamente, el precio de venta y el costo exacto del empaque en el catálogo Bodega. PRECIOS CONS FINAL.PRECIO VENTA alimenta un catálogo Nevera independiente; no es un segundo canal de Bodega.",
+        "Las cantidades explícitas del nombre (por ejemplo, x 38, x 12 o sixpak) generan un factor sugerido. Si el nombre no especifica cantidad, se propone una unidad individual y Diana podrá corregirla después; solo los conteos ambiguos requieren revisión antes de importar.",
+        "Las categorías con regla local se prellenan por catálogo. Las filas sin coincidencia inequívoca quedan pendientes de revisión; no se inventa una categoría.",
         ...(crossListMatchReferences.length > 0
-          ? ["Las coincidencias exactas por nombre entre listas son referencias candidatas; las diferencias de presentación requieren decisión explícita y no se fusionan automáticamente."]
+          ? ["Los nombres coincidentes entre listas son solo referencias para una transferencia futura; no crean identidad ni asociación y no bloquean importar cada catálogo por separado."]
           : []),
       ],
       deferredByPlan: [
         "El inventario inicial se excluye de este preflight y lo registrará Diana posteriormente según el plan vigente.",
         ...(consumerOnlyRows.length > 0
-          ? [`Las ${consumerOnlyRows.length} filas que solo aparecen en PRECIOS CONS FINAL requieren una asociación explícita con un producto base antes de generar una presentación retail.`]
+          ? [`Las ${consumerOnlyRows.length} filas exclusivas de PRECIOS CONS FINAL se importan en Nevera sin costo ni asociación Bodega; la asociación solo será necesaria para una transferencia futura.`]
           : []),
         "Este informe no genera carga útil de importación ni afirma que el catálogo esté listo para importar.",
       ],
@@ -545,16 +553,16 @@ export function createCatalogDecisionTemplate(
   source: { bytes: number; sha256: string },
 ): CatalogDecisionTemplate {
   return {
-    schemaVersion: "1.1",
+    schemaVersion: "2.0",
     mode: "local-human-review-only",
     source,
     importReady: false,
     writesPerformed: false,
     includesProductNamesOrPrices: false,
     globalDecisionsPending: [
-      "Asociar explícitamente cada fila PRECIOS CONS FINAL con el producto de PRECIOS A TIENDA y decidir si usa la misma presentación o una presentación retail distinta.",
-      "Confirmar las categorías, unidades base, presentaciones y factores enteros de conversión para cada fila de PRECIOS A TIENDA; las sugerencias no son decisiones aprobadas.",
-      "Definir la unidad o presentación a la que corresponde cada valor AL COSTO marcado como ambiguo.",
+      "Revisar las filas cuya categoría no tuvo coincidencia local y las cantidades de empaque ambiguas; las filas sin cantidad explícita se proponen como unidad individual para que Diana pueda corregirlas después.",
+      "Validar que el archivo de revisión corresponde al SHA-256 de la fuente vigente antes de generar el plan offline.",
+      "Las coincidencias entre Bodega y Nevera no se asociarán al importar; si se requiere una transferencia, se revisará después con producto, presentación y factor aprobados.",
     ],
     lists: {
       store: report.rowDecisions.filter((row) => row.sourceList === "store"),

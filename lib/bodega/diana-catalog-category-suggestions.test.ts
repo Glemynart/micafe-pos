@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   CATEGORIAS_CATALOGO_DIANA,
+  CATEGORIAS_CATALOGO_NEVERA,
   sugerirCategoriaCatalogoDiana,
 } from "./diana-catalog-category-suggestions";
 
@@ -64,6 +65,22 @@ test("prefers the most specific Colombian product rule", () => {
 test("classifies Smirnoff Tamarindo as vodka after the explicit category decision", () => {
   assert.equal(sugerirCategoriaCatalogoDiana("Smirnoff Tamarindo Picante").categoriaId, "VODKA");
   assert.equal(sugerirCategoriaCatalogoDiana("Smirnoff Tamarindo saborizado").categoriaId, "VODKA");
+  assert.equal(sugerirCategoriaCatalogoDiana("Smirnoff Lata sixpak").categoriaId, "VODKA");
+});
+
+test("applies Diana's beer decisions to Costeñita and Light and keeps Nevera categories independent", () => {
+  assert.equal(sugerirCategoriaCatalogoDiana("Costeñita x 38 unds").categoriaId, "CERVEZAS_NACIONALES");
+  assert.equal(sugerirCategoriaCatalogoDiana("Light 750ml x 16 unds").categoriaId, "CERVEZAS_NACIONALES");
+  assert.equal(sugerirCategoriaCatalogoDiana("Cerveza Caja Fria").categoriaId, "CERVEZAS_NACIONALES");
+  assert.equal(sugerirCategoriaCatalogoDiana("Hatsu Tea 400ml").estado, "REVISAR");
+  assert.equal(sugerirCategoriaCatalogoDiana("Hatsu Tea 400ml", "NEVERA").categoriaId, "BEBIDAS_DE_TE");
+  assert.equal(CATEGORIAS_CATALOGO_NEVERA.BEBIDAS_DE_TE, "Tés y bebidas de té");
+  assert.equal(Object.keys(CATEGORIAS_CATALOGO_DIANA).length, 17);
+});
+
+test("classifies Colombian H2OH and Premio products as gaseosas in Nevera", () => {
+  assert.equal(sugerirCategoriaCatalogoDiana("H2O personal", "NEVERA").categoriaId, "GASEOSAS");
+  assert.equal(sugerirCategoriaCatalogoDiana("Premio Personal", "NEVERA").categoriaId, "GASEOSAS");
 });
 
 test("normalizes accents and punctuation and leaves unknown names for review", () => {

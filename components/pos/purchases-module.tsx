@@ -124,6 +124,7 @@ export function PurchasesModule() {
     setCargandoPresentacionesVenta(true)
     setErrorPresentacionesVenta(false)
     return suscribirPresentacionesBodegaAdmin(
+      "BODEGA",
       (data) => {
         setPresentacionesVenta(data)
         setCargandoPresentacionesVenta(false)
