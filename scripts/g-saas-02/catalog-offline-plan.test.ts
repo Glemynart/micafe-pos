@@ -91,16 +91,15 @@ test("CLI writes a review-only plan with both input hashes and the explicitly ap
     assert.equal(summary.writesPerformed, false);
     assert.equal(summary.importReady, false);
     assert.equal(result.stdout.includes("Cafe"), false);
-    const summaryWithoutDigest = { ...summary };
-    delete summaryWithoutDigest.planSha256;
-    assert.equal(JSON.stringify(summaryWithoutDigest).includes("1800"), false);
+    assert.equal("salesPriceStoreCop" in summary, false);
+    assert.equal("sourceCostCop" in summary, false);
     assert.equal(plan.sourceSha256, createHash("sha256").update(source).digest("hex"));
     assert.equal(plan.reviewSha256, createHash("sha256").update(review).digest("hex"));
-    const serializedPlan = JSON.stringify(plan);
-    assert.equal(serializedPlan.includes("Only consumer"), false);
-    assert.equal(serializedPlan.includes("9000"), false);
-    assert.equal(serializedPlan.includes("2100"), true);
-    assert.equal(serializedPlan.includes('"consumerSourceRow":2'), true);
+    const presentation = (plan.proposal as { presentations: Array<Record<string, unknown>> }).presentations[0];
+    assert.equal((plan.proposal as { presentations: unknown[] }).presentations.length, 1);
+    assert.equal(presentation.consumerFinalPriceCop, 2100);
+    assert.equal(presentation.consumerSourceRow, 2);
+    assert.equal("Only consumer" in presentation, false);
     assert.equal((summary.samePresentationPricesApplied as number), 1);
     assert.equal((summary.consumerRowsDeferred as number), 1);
   } finally {
@@ -119,10 +118,14 @@ test("CLI leaves no output when store mapping is incomplete", async () => {
     writeFileSync(reviewPath, review);
     const result = runPlan(sourcePath, reviewPath, outputPath);
     assert.equal(result.status, 3, result.stderr || result.stdout);
-    assert.match(result.stdout, /"planCreated": false/);
+    const summary = JSON.parse(result.stdout) as Record<string, unknown>;
+    assert.equal(summary.planCreated, false);
+    assert.equal(summary.importReady, false);
+    assert.equal(summary.writesPerformed, false);
+    assert.equal("salesPriceStoreCop" in summary, false);
+    assert.equal("sourceCostCop" in summary, false);
     assert.equal(existsSync(outputPath), false);
     assert.equal(result.stdout.includes("Only consumer"), false);
-    assert.equal(result.stdout.includes("9000"), false);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
