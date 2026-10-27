@@ -106,7 +106,7 @@ test("CLI writes a review-only plan with independent Bodega and Nevera proposals
     assert.equal("Only consumer" in presentation, false);
     assert.equal(summary.bodegaPresentationProposals, 1);
     assert.equal(summary.neveraPresentationProposals, 2);
-    assert.equal(summary.transferMappingsPending, 2);
+    assert.equal(summary.directStockEntriesPending, 2);
     assert.equal(summary.consumerRowsImportedSeparately, 2);
   } finally {
     rmSync(directory, { recursive: true, force: true });

@@ -175,8 +175,12 @@ export async function crearProductoBodega(data: { nombre: string; categoriaId: s
   return result.articuloId
 }
 
-export async function ajustarStockProductoBodega(productoId: string, stock: number): Promise<void> {
-  await ejecutarComandoInventario(resolverCallableOperacionBodega("BODEGA_MVP1", "actualizarArticuloInventarioV1"), crearEnvelopeInventario({ articuloTipo: "producto", articuloId: productoId, data: { stock } }, "ajuste_administrativo_bodega"))
+export async function ajustarStockProductoBodega(productoId: string, stock: number, catalogoId: CatalogoImportId = "BODEGA", costoCOP?: number): Promise<void> {
+  await ejecutarComandoInventario(
+    resolverCallableOperacionBodega("BODEGA_MVP1", "actualizarArticuloInventarioV1"),
+    crearEnvelopeInventario({ articuloTipo: "producto", articuloId: productoId, data: { catalogoId, stock, ...(costoCOP === undefined ? {} : { costo: costoCOP }) } },
+      catalogoId === "NEVERA" ? "ajuste_administrativo_nevera" : "ajuste_administrativo_bodega"),
+  )
 }
 
 async function ejecutarComandoBodega<T>(nombre: string, prefijo: string, payload: Record<string, unknown>): Promise<T> {

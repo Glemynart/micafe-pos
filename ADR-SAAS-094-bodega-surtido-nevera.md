@@ -2,7 +2,7 @@
 
 ## Estado
 
-**ACEPTADO — 2026-10-27.** La persona responsable aprobó la propuesta completa en esta conversación: dos catálogos independientes, correspondencias manuales con factor explícito, transferencias atómicas/idempotentes, costo exacto por capas FIFO y ofertas aisladas por catálogo. Esta aceptación autoriza la implementación versionada y sus pruebas; no autoriza importación/backfill remoto, transferencia de existencias ni despliegues.
+**ACEPTADO — 2026-10-27; parcialmente supersedido por ADR-SAAS-096.** La persona responsable aprobó dos catálogos independientes, correspondencias manuales con factor explícito para transferencias y ofertas aisladas por catálogo. ADR-SAAS-096 reemplaza el requisito de transferencia para cargar existencias Nevera: su inventario se registra directamente y no descuenta Bodega. Los requisitos previos de transferencias quedan históricos y no habilitan ese flujo. Esta aceptación autoriza implementación versionada y pruebas; no autoriza importación/backfill remoto, carga/transferencia de existencias ni despliegues.
 
 - **Goal:** G-SAAS-02 → M2 → E2.2; la certificación operativa continúa en M3 / E3.1 y M4 / E4.1.
 - **Relacionado:** ADR-SAAS-091, ADR-SAAS-092 y ADR-SAAS-093.

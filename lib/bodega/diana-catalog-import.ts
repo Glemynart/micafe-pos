@@ -53,7 +53,7 @@ export interface DianaCatalogImportPlan {
     status: "requires-human-review";
     granularity: "one-presentation-per-consumer-source-row";
     salesPriceSource: "PRECIOS CONS FINAL.PRECIO VENTA";
-    costPolicy: "pending explicit Bodega transfer mapping";
+    costPolicy: "pending direct Nevera inventory intake";
     stockInitial: 0;
     productGroupingInferred: false;
     presentations: DianaCatalogNeveraRow[];
@@ -61,7 +61,7 @@ export interface DianaCatalogImportPlan {
   consumerReference: {
     consumerRowsInNevera: number;
     crossListCandidates: number;
-    transferMappingsPending: number;
+    directStockEntriesPending: number;
   };
   initialStockIncluded: false;
   safety: {
@@ -224,7 +224,7 @@ export function validarPlanImportacionCatalogo(value: unknown): string[] {
   }
   if (!plan.consumerReference || !Number.isSafeInteger(plan.consumerReference.consumerRowsInNevera) || plan.consumerReference.consumerRowsInNevera <= 0
     || !Number.isSafeInteger(plan.consumerReference.crossListCandidates) || plan.consumerReference.crossListCandidates < 0
-    || !Number.isSafeInteger(plan.consumerReference.transferMappingsPending) || plan.consumerReference.transferMappingsPending !== plan.consumerReference.consumerRowsInNevera) {
+    || !Number.isSafeInteger(plan.consumerReference.directStockEntriesPending) || plan.consumerReference.directStockEntriesPending !== plan.consumerReference.consumerRowsInNevera) {
     errors.push("El plan no conserva las dos listas como catálogos separados.");
   }
   const rows = plan.proposal?.presentations;
@@ -261,7 +261,7 @@ export function validarPlanImportacionCatalogo(value: unknown): string[] {
   if (plan.neveraCatalog?.catalogId !== "NEVERA" || plan.neveraCatalog.status !== "requires-human-review"
     || plan.neveraCatalog.granularity !== "one-presentation-per-consumer-source-row"
     || plan.neveraCatalog.salesPriceSource !== "PRECIOS CONS FINAL.PRECIO VENTA"
-    || plan.neveraCatalog.costPolicy !== "pending explicit Bodega transfer mapping"
+    || plan.neveraCatalog.costPolicy !== "pending direct Nevera inventory intake"
     || plan.neveraCatalog.stockInitial !== 0 || plan.neveraCatalog.productGroupingInferred !== false) {
     errors.push("El plan no define un catálogo Nevera independiente con costo/stock pendientes.");
   }
@@ -391,7 +391,7 @@ export function prepararImportacionCatalogo(
         advertencias.push(`La presentación «${row.presentation}» de «${row.name}» conserva una tarifa consumidor heredada en Bodega. Se preservará sin usarla; debe reconciliarse antes de activar ventas Nevera.`);
       }
       if (catalogoId === "NEVERA" && existing.costoPresentacionCOP !== null) {
-        errores.push(`La presentación «${row.presentation}» de «${row.name}» conserva un costo sin transferencia aprobada; resuélvelo antes de importar Nevera.`);
+        errores.push(`La presentación «${row.presentation}» de «${row.name}» conserva un costo que este plan no puede reemplazar; concílialo manualmente antes de importar Nevera.`);
       }
       const cambiaFactor = existing.factorUnidadBase !== row.unitsPerPresentation;
       const cambiaCosto = existing.costoPresentacionCOP !== costoObjetivo;
@@ -479,7 +479,7 @@ export async function ejecutarImportacionCatalogo(
           espacioId: preparado.espacioId,
           unidad: item.row.baseUnit,
           // The exact Bodega source cost belongs to its package presentation.
-          // Nevera has no assigned cost until an approved transfer exists.
+          // Nevera cost and stock are recorded later as a direct inventory entry.
           ...(preparado.catalogoId === "BODEGA" ? { costo: 0 } : {}),
           stock: 0,
           stockMinimo: 0,

@@ -77,7 +77,7 @@ async function main(): Promise<void> {
     bodegaPresentationProposals: plan.proposal.presentations.length,
     neveraPresentationProposals: plan.neveraCatalog.presentations.length,
     consumerRowsImportedSeparately: plan.consumerReference.consumerRowsInNevera,
-    transferMappingsPending: plan.consumerReference.transferMappingsPending,
+    directStockEntriesPending: plan.consumerReference.directStockEntriesPending,
     importReady: false,
     firebaseAccessed: false,
     writesPerformed: false,

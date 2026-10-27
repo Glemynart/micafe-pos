@@ -2,7 +2,7 @@
 
 ## Estado
 
-**ACEPTADO — 2026-10-26.**
+**ACEPTADO — 2026-10-26; parcialmente supersedido por ADR-SAAS-096.** El origen de existencias Nevera descrito como transferencia desde Bodega queda reemplazado por carga directa sobre el catálogo Nevera. El modelo de crédito de clientes, cuenta operativa, cargos/abonos al costo y controles de venta permanece vigente.
 
 - **Fecha de propuesta:** 2026-10-26.
 - **Fecha de aceptación:** 2026-10-26.

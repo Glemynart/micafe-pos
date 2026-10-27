@@ -182,7 +182,7 @@ test("ADR-SAAS-094: producto no puede migrar de catálogo después de crearse", 
   assert.deepEqual([...db.docs.entries()], before);
 });
 
-test("ADR-SAAS-094: stock y costo Nevera requieren el futuro comando de transferencia", async () => {
+test("ADR-SAAS-096: el stock Nevera se carga directamente sin tocar Bodega", async () => {
   for (const data of [
     { stock: 1, costo: 0 },
     { stock: 0, costo: 1 },
@@ -195,17 +195,18 @@ test("ADR-SAAS-094: stock y costo Nevera requieren el futuro comando de transfer
         articuloTipo: "producto",
         data: { nombre: "Bebida", categoriaId: "categoria-nevera", catalogoId: "NEVERA", unidad: "unidad", ...data, espacioId: "espacio-a" },
       })),
-      error => domain(error, "NEVERA_REQUIERE_TRANSFERENCIA"),
+      error => domain(error, "NEVERA_STOCK_INICIAL_NO_PERMITIDO"),
     );
   }
 
   const db = new FakeFirestore(); seedAuth(db);
   db.docs.set("productos/producto-nevera", { empresaId: "empresa-a", catalogoId: "NEVERA", nombre: "Bebida", stock: 0, costo: 0, secuenciaLedger: 0, espacioId: "espacio-a", activo: true });
+  db.docs.set("productos/producto-bodega", { empresaId: "empresa-a", catalogoId: "BODEGA", nombre: "Bebida", stock: 18, costo: 900, secuenciaLedger: 0, espacioId: "espacio-a", activo: true });
   await assert.rejects(
     ejecutarActualizarArticuloInventarioV1(db, contexto, envelope("ajuste-stock-nevera", {
       articuloTipo: "producto", articuloId: "producto-nevera", data: { stock: 1 },
     })),
-    error => domain(error, "NEVERA_REQUIERE_TRANSFERENCIA"),
+    error => domain(error, "COSTO_NEVERA_REQUERIDO"),
   );
 
   const before = structuredClone([...db.docs.entries()]);
@@ -213,9 +214,50 @@ test("ADR-SAAS-094: stock y costo Nevera requieren el futuro comando de transfer
     ejecutarActualizarArticuloInventarioV1(db, contexto, envelope("ajuste-stock-inicial-nevera", {
       articuloTipo: "producto", articuloId: "producto-nevera", data: { stockInicial: 1 },
     })),
-    error => domain(error, "NEVERA_REQUIERE_TRANSFERENCIA"),
+    error => domain(error, "NEVERA_STOCK_INICIAL_NO_PERMITIDO"),
   );
   assert.deepEqual([...db.docs.entries()], before);
+
+  const comando = envelope("cargar-stock-nevera", {
+    articuloTipo: "producto", articuloId: "producto-nevera", data: { stock: 12, costo: 1250 },
+  }, "carga_inicial_nevera");
+  const result = await ejecutarActualizarArticuloInventarioV1(db, contexto, comando);
+  const movement = db.docs.get(`movimientos_inventario/${result.movimientoId}`);
+  assert.equal(db.docs.get("productos/producto-nevera")?.stock, 12);
+  assert.equal(db.docs.get("productos/producto-nevera")?.costo, 1250);
+  assert.equal(movement?.tipo, "ajuste_positivo");
+  assert.equal(movement?.cantidad, 12);
+  assert.equal(movement?.costoUnitario, 1250);
+  assert.equal(movement?.costoTotal, 15_000);
+  assert.equal(db.docs.get("productos/producto-bodega")?.stock, 18);
+  assert.equal(db.docs.get("productos/producto-bodega")?.costo, 900);
+  db.docs.set("productos/producto-nevera-inactivo", { empresaId: "empresa-a", catalogoId: "NEVERA", nombre: "Inactivo", stock: 0, costo: 0, secuenciaLedger: 0, espacioId: "espacio-a", activo: false });
+  const beforeInactive = structuredClone([...db.docs.entries()]);
+  await assert.rejects(
+    ejecutarActualizarArticuloInventarioV1(db, contexto, envelope("ajustar-inactivo-nevera", {
+      articuloTipo: "producto", articuloId: "producto-nevera-inactivo", data: { stock: 1, costo: 1250 },
+    })),
+    error => domain(error, "PRODUCTO_INACTIVO"),
+  );
+  assert.deepEqual([...db.docs.entries()], beforeInactive);
+  const afterIntake = structuredClone([...db.docs.entries()]);
+  await assert.rejects(
+    ejecutarActualizarArticuloInventarioV1(db, contexto, envelope("cambiar-costo-sin-entrada-nevera", {
+      articuloTipo: "producto", articuloId: "producto-nevera", data: { stock: 12, costo: 1300 },
+    })),
+    error => domain(error, "COSTO_NEVERA_REQUIERE_ENTRADA"),
+  );
+  assert.deepEqual([...db.docs.entries()], afterIntake);
+  await assert.rejects(
+    ejecutarActualizarArticuloInventarioV1(db, contexto, envelope("cambiar-costo-al-reducir-nevera", {
+      articuloTipo: "producto", articuloId: "producto-nevera", data: { stock: 11, costo: 1300 },
+    })),
+    error => domain(error, "COSTO_NEVERA_REQUIERE_ENTRADA"),
+  );
+  assert.deepEqual([...db.docs.entries()], afterIntake);
+  await ejecutarActualizarArticuloInventarioV1(db, contexto, comando);
+  assert.equal(db.docs.get("productos/producto-nevera")?.stock, 12);
+  assert.equal([...db.docs.keys()].filter(path => path.startsWith("movimientos_inventario/")).length, 1);
 
   const creado = new FakeFirestore(); seedAuth(creado);
   creado.docs.set("categorias/categoria-nevera", { empresaId: "empresa-a", espacioId: "espacio-a", activo: true, catalogoId: "NEVERA" });
