@@ -22,6 +22,12 @@ import { toast } from "sonner"
 import { DianaCatalogImporter } from "@/components/bodega/diana-catalog-importer"
 
 const money = (value: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(value)
+const formatCopInput = (value: number) => value > 0 ? new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 }).format(value) : ""
+const parseCopInput = (value: string) => {
+  const digits = value.replace(/\D/g, "")
+  const parsed = Number(digits)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0
+}
 const cards = [
   { href: "/admin/catalogo", label: "Productos y precios", detail: "Catálogo base y presentaciones", icon: Tags },
   { href: "/admin/clientes", label: "Clientes", detail: "Directorio comercial", icon: Users },
@@ -160,8 +166,8 @@ export function BodegaCatalogoAdmin() {
       return <article key={p.id} className="@container/product min-w-0 rounded-2xl border border-border/70 bg-card p-5 shadow-xs">
         <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/5 text-primary"><Boxes className="size-5" /></span><div className="min-w-0"><h3 className="break-words font-semibold tracking-tight">{p.nombre}</h3><p className="mt-1 text-xs text-muted-foreground">Unidad base: {p.unidad}</p></div></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium ${p.activo ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>{p.activo ? "Activo" : "Inactivo"}</span></div>
         <dl className="my-5 grid grid-cols-3 divide-x divide-border/60 rounded-xl bg-muted/25 px-1 py-3">{[{label:"Stock físico",value:p.stock},{label:"Reservado",value:p.stockReservado},{label:"Disponible",value:Math.max(0,p.stock-p.stockReservado)}].map(metric => <div key={metric.label} className="px-3"><dt className="text-[10px] text-muted-foreground">{metric.label}</dt><dd className="mt-1 text-xl font-semibold tracking-tight tabular-nums">{metric.value}</dd></div>)}</dl>
-        <p className="text-xs text-muted-foreground">Costo por unidad: <span className="font-medium text-foreground">{p.costoUnidadBaseCOP > 0 ? money(p.costoUnidadBaseCOP) : "Sin registrar"}</span></p>
-        <details className="group mt-4 border-t border-border/60 pt-4"><summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium">Presentaciones y precios<span className="rounded-lg bg-primary/5 px-2 py-1 text-xs text-primary">{items.length} <span className="ml-1 group-open:hidden">+</span></span></summary><div className="mt-4 grid gap-3 @2xl/product:grid-cols-2">{items.map(item => <PresentacionRow key={item.id} item={item} costoUnidadBaseCOP={p.costoUnidadBaseCOP} unidadBase={p.unidad} onSave={(precioTiendaCOP, precioConsumidorFinalCOP, activo) => run(() => actualizarPresentacionBodega({ presentacionId: item.id, precioTiendaCOP, precioConsumidorFinalCOP: precioConsumidorFinalCOP > 0 ? precioConsumidorFinalCOP : null, activo }))} />)}{items.length === 0 && <p className="text-sm text-muted-foreground">Crea una presentación para asignar sus precios de venta.</p>}</div></details>
+        <p className="text-xs text-muted-foreground">Costo base por unidad: <span className="font-medium text-foreground">{p.costoUnidadBaseCOP > 0 ? money(p.costoUnidadBaseCOP) : "Sin registrar"}</span></p>
+        <details className="group mt-4 border-t border-border/60 pt-4"><summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium">Presentaciones y precios<span className="rounded-lg bg-primary/5 px-2 py-1 text-xs text-primary">{items.length} <span className="ml-1 group-open:hidden">+</span></span></summary><div className="mt-4 grid gap-3 @2xl/product:grid-cols-2">{items.map(item => <PresentacionRow key={item.id} item={item} costoUnidadBaseCOP={p.costoUnidadBaseCOP} unidadBase={p.unidad} onSave={(precioTiendaCOP, precioConsumidorFinalCOP, costoPresentacionCOP, activo) => run(() => actualizarPresentacionBodega({ presentacionId: item.id, precioTiendaCOP, precioConsumidorFinalCOP: precioConsumidorFinalCOP > 0 ? precioConsumidorFinalCOP : null, ...(costoPresentacionCOP === null ? {} : { costoPresentacionCOP }), activo }))} />)}{items.length === 0 && <p className="text-sm text-muted-foreground">Crea una presentación para asignar sus precios de venta.</p>}</div></details>
       </article>
     })}</div>
   </AdminSection>
@@ -171,32 +177,47 @@ function PresentacionRow({ item, costoUnidadBaseCOP, unidadBase, onSave }: {
   item: PresentacionBodegaAdmin
   costoUnidadBaseCOP: number
   unidadBase: string
-  onSave(precioTiendaCOP: number, precioConsumidorFinalCOP: number, active: boolean): void
+  onSave(precioTiendaCOP: number, precioConsumidorFinalCOP: number, costoPresentacionCOP: number | null, active: boolean): void
 }) {
-  const [precioTienda, setPrecioTienda] = useState(item.precioTiendaCOP)
-  const [precioConsumidorFinal, setPrecioConsumidorFinal] = useState(item.precioConsumidorFinalCOP ?? 0)
-  const [margen] = proyectarMargenCompraPorPresentaciones(costoUnidadBaseCOP, [item])
+  const [precioTienda, setPrecioTienda] = useState(formatCopInput(item.precioTiendaCOP))
+  const [precioConsumidorFinal, setPrecioConsumidorFinal] = useState(formatCopInput(item.precioConsumidorFinalCOP ?? 0))
+  const [costoPresentacion, setCostoPresentacion] = useState(formatCopInput(item.costoPresentacionCOP ?? 0))
+  const costoEditado = parseCopInput(costoPresentacion)
+  const [margen] = proyectarMargenCompraPorPresentaciones(costoUnidadBaseCOP, [{
+    ...item,
+    costoPresentacionCOP: costoEditado || item.costoPresentacionCOP,
+  }])
+  const precioTiendaEditado = parseCopInput(precioTienda)
 
   return (
     <div className="rounded-xl bg-muted/40 p-3">
       <p className="text-sm font-semibold">{item.nombre}</p>
       <p className="text-xs text-muted-foreground">× {item.factorUnidadBase} unidades base ({unidadBase})</p>
-      <p className="mt-1 text-xs text-muted-foreground">Tienda: {money(item.precioTiendaCOP)} · Consumidor final: {item.precioConsumidorFinalCOP === null ? "Pendiente" : money(item.precioConsumidorFinalCOP)}</p>
+      <p className="mt-1 text-xs text-muted-foreground">Venta a tienda: {money(item.precioTiendaCOP)} por presentación · Consumidor final: {item.precioConsumidorFinalCOP === null ? "Pendiente" : money(item.precioConsumidorFinalCOP)}</p>
       {margen && margen.costoPresentacionCOP !== null && margen.utilidadBrutaCOP !== null && margen.margenBrutoPorcentaje !== null ? (
-        <dl className="mt-3 grid grid-cols-2 gap-3 rounded-xl border border-border/60 bg-card p-3"><div><dt className="text-[10px] text-muted-foreground">Costo estimado</dt><dd className="mt-1 text-sm font-semibold">{money(margen.costoPresentacionCOP)}</dd></div><div><dt className="text-[10px] text-muted-foreground">Utilidad estimada</dt><dd className="mt-1 text-sm font-semibold">{money(margen.utilidadBrutaCOP)}</dd></div><div className="col-span-2 flex items-center justify-between border-t border-border/60 pt-2"><dt className="text-[10px] text-muted-foreground">Margen bruto estimado</dt><dd className="text-sm font-semibold">{margen.margenBrutoPorcentaje.toFixed(1)}%</dd></div></dl>
+        <dl className="mt-3 grid grid-cols-2 gap-3 rounded-xl border border-border/60 bg-card p-3"><div><dt className="text-[10px] text-muted-foreground">Costo de compra por presentación</dt><dd className="mt-1 text-sm font-semibold">{money(margen.costoPresentacionCOP)}</dd></div><div><dt className="text-[10px] text-muted-foreground">Utilidad bruta estimada</dt><dd className="mt-1 text-sm font-semibold">{money(margen.utilidadBrutaCOP)}</dd></div><div className="col-span-2 flex items-center justify-between border-t border-border/60 pt-2"><dt className="text-[10px] text-muted-foreground">Margen bruto sobre la venta</dt><dd className="text-sm font-semibold">{margen.margenBrutoPorcentaje.toFixed(1)}%</dd></div></dl>
       ) : (
         <p className="mt-1 text-xs text-muted-foreground">
-          {costoUnidadBaseCOP <= 0
-            ? "Registra un costo positivo por unidad base para calcular la utilidad estimada."
+          {costoUnidadBaseCOP <= 0 && !item.costoPresentacionCOP
+            ? "Registra el costo de compra de esta presentación para calcular la utilidad estimada."
             : !item.activo
               ? "La presentación está inactiva; no se calcula utilidad estimada."
               : "Verifica el factor y el precio vigentes de esta presentación para calcular la utilidad estimada."}
         </p>
       )}
       <div className="mt-2 grid gap-2">
-        <input aria-label={`Precio tienda ${item.nombre}`} type="number" min={1} value={precioTienda} onChange={e => setPrecioTienda(Number(e.target.value))} className="h-9 min-w-0 rounded-lg border border-border bg-background px-2" />
-        <input aria-label={`Precio consumidor final ${item.nombre}`} type="number" min={1} value={precioConsumidorFinal} onChange={e => setPrecioConsumidorFinal(Number(e.target.value))} className="h-9 min-w-0 rounded-lg border border-border bg-background px-2" placeholder="Consumidor final (opcional)" />
-        <button onClick={() => onSave(precioTienda, precioConsumidorFinal, item.activo)} className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground">Guardar precios</button>
+        <label className="grid gap-1 text-xs font-medium">Costo de compra por presentación (COP)
+          <input aria-label={`Costo de compra por presentación ${item.nombre}`} inputMode="numeric" type="text" value={costoPresentacion} onFocus={e => setCostoPresentacion(e.currentTarget.value.replace(/\./g, ""))} onChange={e => setCostoPresentacion(e.target.value.replace(/\D/g, ""))} onBlur={() => setCostoPresentacion(formatCopInput(parseCopInput(costoPresentacion)))} placeholder="Sin registrar" className="h-9 min-w-0 rounded-lg border border-border bg-background px-2" />
+        </label>
+        <p className="text-[11px] text-muted-foreground">Valor pagado por este empaque completo (×{item.factorUnidadBase} {unidadBase}); no el costo de una unidad suelta.</p>
+        <label className="grid gap-1 text-xs font-medium">Precio de venta a tienda por presentación (COP)
+          <input aria-label={`Precio tienda ${item.nombre}`} inputMode="numeric" type="text" value={precioTienda} onFocus={e => setPrecioTienda(e.currentTarget.value.replace(/\./g, ""))} onChange={e => setPrecioTienda(e.target.value.replace(/\D/g, ""))} onBlur={() => setPrecioTienda(formatCopInput(parseCopInput(precioTienda)))} className="h-9 min-w-0 rounded-lg border border-border bg-background px-2" />
+        </label>
+        <label className="grid gap-1 text-xs font-medium">Precio consumidor final por presentación (COP, opcional)
+          <input aria-label={`Precio consumidor final ${item.nombre}`} inputMode="numeric" type="text" value={precioConsumidorFinal} onFocus={e => setPrecioConsumidorFinal(e.currentTarget.value.replace(/\./g, ""))} onChange={e => setPrecioConsumidorFinal(e.target.value.replace(/\D/g, ""))} onBlur={() => setPrecioConsumidorFinal(formatCopInput(parseCopInput(precioConsumidorFinal)))} placeholder="Sin precio configurado" className="h-9 min-w-0 rounded-lg border border-border bg-background px-2" />
+        </label>
+        <p className="text-[11px] text-muted-foreground">Vacío significa “pendiente”, no precio gratis. Sin un precio definido no se vende por este canal.</p>
+        <button disabled={precioTiendaEditado <= 0} onClick={() => onSave(precioTiendaEditado, parseCopInput(precioConsumidorFinal), costoEditado || item.costoPresentacionCOP, item.activo)} className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">Guardar costo y precios</button>
       </div>
     </div>
   )
@@ -339,6 +360,19 @@ export function BodegaVentaDirectaAdmin() {
   const [tieneComandoPendiente, setTieneComandoPendiente] = useState(false)
   useEffect(() => usuario?.uid ? suscribirTurnoActivo(usuario.uid, setTurno) : undefined, [usuario?.uid])
   const presentacionesActivas = useMemo(() => presentaciones.filter(item => item.activo && productos.some(producto => producto.id === item.productoId && producto.activo)), [presentaciones, productos])
+  const presentacionesAgrupadas = useMemo(() => {
+    const grupos = new Map<string, { productoId: string; nombreProducto: string; presentaciones: PresentacionBodegaAdmin[] }>()
+    for (const presentacion of presentacionesActivas) {
+      const producto = productos.find(item => item.id === presentacion.productoId)
+      if (!producto) continue
+      const grupo = grupos.get(producto.id) ?? { productoId: producto.id, nombreProducto: producto.nombre, presentaciones: [] }
+      grupo.presentaciones.push(presentacion)
+      grupos.set(producto.id, grupo)
+    }
+    return [...grupos.values()]
+      .map(grupo => ({ ...grupo, presentaciones: [...grupo.presentaciones].sort((a, b) => a.nombre.localeCompare(b.nombre, "es")) }))
+      .sort((a, b) => a.nombreProducto.localeCompare(b.nombreProducto, "es"))
+  }, [presentacionesActivas, productos])
   const lineasDetalle = carrito.map(linea => {
     const presentacion = presentacionesActivas.find(item => item.id === linea.presentacionId)
     const producto = productos.find(item => item.id === linea.productoId)
@@ -379,7 +413,7 @@ export function BodegaVentaDirectaAdmin() {
     {venta && "ventaId" in venta && <p role="status" className="mb-4 rounded-xl bg-emerald-500/10 p-3 text-sm text-emerald-700">Venta registrada: {venta.ventaId} · {money(venta.total)}.{venta.montoRecibidoCOP !== undefined && <> Recibido {money(venta.montoRecibidoCOP)}; cambio {money(venta.cambioCOP ?? 0)}.{venta.turnoId ? ` Turno ${venta.turnoId}.` : " Efectivo sin turno; revisar por venta y fecha."}</>}</p>}
     <div className="space-y-4 rounded-2xl border border-border bg-card p-4">
       <label className="block text-sm">Cliente<select aria-label="Cliente de venta" disabled={tieneComandoPendiente} value={clienteId} onChange={event => setClienteId(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3"><option value="">Seleccionar cliente</option>{clientes.filter(cliente => cliente.activo).map(cliente => <option key={cliente.id} value={cliente.id}>{cliente.nombre}</option>)}</select></label>
-      <div className="flex gap-2"><select aria-label="Presentación de venta" disabled={tieneComandoPendiente} value={presentacionId} onChange={event => setPresentacionId(event.target.value)} className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-background px-3"><option value="">Seleccionar presentación</option>{presentacionesActivas.map(item => <option key={item.id} value={item.id}>{item.nombre} · {money(item.precioCOP)}</option>)}</select><button onClick={agregar} disabled={tieneComandoPendiente || !presentacionId} className="rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50">Agregar</button></div>
+      <div className="flex gap-2"><select aria-label="Presentación de venta" disabled={tieneComandoPendiente} value={presentacionId} onChange={event => setPresentacionId(event.target.value)} className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-background px-3"><option value="">Seleccionar producto y presentación</option>{presentacionesAgrupadas.map(grupo => <optgroup key={grupo.productoId} label={grupo.nombreProducto}>{grupo.presentaciones.map(item => <option key={item.id} value={item.id}>{item.nombre} · ×{item.factorUnidadBase} · {money(item.precioCOP)}</option>)}</optgroup>)}</select><button onClick={agregar} disabled={tieneComandoPendiente || !presentacionId} className="rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50">Agregar</button></div>
       <div className="space-y-2">{lineasDetalle.map(linea => <div key={linea.presentacionId} className="flex items-center justify-between rounded-xl bg-muted/40 p-3"><div><p className="text-sm font-semibold">{linea.nombreProducto}</p><p className="text-xs text-muted-foreground">{linea.cantidad} × {linea.presentacion}</p></div><div className="flex items-center gap-3"><strong>{money(linea.precioCOP * linea.cantidad)}</strong><button aria-label={`Quitar ${linea.presentacion}`} disabled={tieneComandoPendiente} onClick={() => setCarrito(current => current.filter(item => item.presentacionId !== linea.presentacionId))} className="text-sm text-destructive disabled:opacity-50">Quitar</button></div></div>)}</div>
       <div className="flex justify-between border-t border-border pt-3"><span className="text-sm text-muted-foreground">Total estimado; servidor vuelve a resolver precio</span><strong>{money(estimado)}</strong></div>
       <div className="grid grid-cols-2 gap-2">{(["efectivo", "transferencia"] as const).map(method => <button key={method} disabled={tieneComandoPendiente} onClick={() => setMetodoPago(method)} className={`rounded-xl border px-3 py-3 text-sm font-semibold capitalize ${metodoPago === method ? "border-primary bg-primary/10" : "border-border"}`}>{method}</button>)}</div>

@@ -546,7 +546,7 @@ export function PurchasesModule() {
                 <Label>Items comprados</Label>
                 {esBodega && (
                   <p className="text-xs text-muted-foreground">
-                    El precio vigente es por presentación. La utilidad y el margen son estimados con el costo por unidad base; registrar la compra no modifica el catálogo.
+                    La cantidad y el costo de esta compra se registran por unidad base; este costo no actualiza el catálogo. Para calcular el margen de una caja completa, configura su costo de compra en Catálogo, dentro de la presentación.
                   </p>
                 )}
                 <Card className="bg-secondary/30 border-border">
