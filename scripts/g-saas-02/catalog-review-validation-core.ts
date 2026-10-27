@@ -1,5 +1,6 @@
 import type { CatalogCellLike, CatalogWorkbookLike, CatalogWorksheetLike } from "./catalog-preflight-core.js";
 import { suggestPackaging } from "./catalog-preflight-core.js";
+import { CATEGORIAS_CATALOGO_DIANA, CATEGORIAS_CATALOGO_NEVERA } from "../../lib/bodega/diana-catalog-category-suggestions.js";
 
 export interface DianaCatalogReviewValidationInput {
   sourceWorkbook: CatalogWorkbookLike;
@@ -23,7 +24,9 @@ export interface DianaCatalogReviewValidationReport {
     storeRowsPending: number;
     consumerSourceRows: number;
     consumerRowsMatchedToSource: number;
-    consumerRowsDeferred: number;
+    consumerRowsWithoutStoreCandidate: number;
+    consumerRowsMapped: number;
+    consumerRowsPending: number;
     candidateCrossListPairs: number;
     candidateDecisionsPending: number;
     costsNotExactlyConvertibleToBaseUnit: number;
@@ -75,6 +78,10 @@ const CONSUMER_HEADERS = {
   sourceRow: ["FILA EXCEL FUENTE"],
   product: ["PRODUCTO (FUENTE)"],
   price: ["PRECIO CONSUMIDOR (COP, REFERENCIA)"],
+  category: ["CATEGORIA"],
+  baseUnit: ["UNIDAD BASE"],
+  presentation: ["PRESENTACION / EMPAQUE"],
+  conversionFactor: ["UNIDADES BASE POR PRESENTACION"],
   status: ["ESTADO"],
   storeCandidate: ["FILA CANDIDATA TIENDA (EXCEL)"],
   candidateProduct: ["PRODUCTO CANDIDATO TIENDA"],
@@ -337,21 +344,16 @@ function validateStoreRows(
     if (Object.keys(fields).some((field) => fields[field].formula)) errors.push("Una decisión de tienda contiene una fórmula y requiere revisión manual.");
     const coreMappingComplete = [category, baseUnit, presentation].every((value) => !value.formula && value.text.trim() !== "") && factor !== null;
     if (fields.conversionFactor.text !== "" && factor === null) errors.push("El factor de conversión debe ser un entero positivo seguro.");
-    const basisIsUnit = basis === "UNIDAD BASE";
     const basisIsPresentation = basis === "PRESENTACION / EMPAQUE";
     const basisOther = basis === "OTRA BASE (DESCRIBIR)";
-    if (basis !== "" && !basisIsUnit && !basisIsPresentation && !basisOther && basis !== "POR CONFIRMAR") {
-      errors.push("La base de AL COSTO no coincide con una opción de la plantilla.");
-    }
-    let costSourceValid = false;
     const original = sourceRow === null ? undefined : source.records.get(sourceRow);
-    if (basisIsUnit && original?.cost !== null && original?.cost !== undefined) costSourceValid = true;
-    if (basisIsPresentation && original?.cost !== null && original?.cost !== undefined && factor !== null) {
-      costSourceValid = true;
-      if (original.cost % factor !== 0) costsNotExactlyConvertible += 1;
+    const costSourceValid = basisIsPresentation && original?.cost !== null && original?.cost !== undefined;
+    if (!basisIsPresentation) errors.push("AL COSTO debe conservarse exactamente como costo total de la presentación/empaque, según la confirmación de Diana.");
+    if (category.text.trim() && !(Object.values(CATEGORIAS_CATALOGO_DIANA) as string[]).includes(category.text.trim())) {
+      errors.push("La categoría de Bodega no pertenece a las 17 categorías aprobadas.");
     }
 
-    const basisComplete = (basisIsUnit || basisIsPresentation) && costSourceValid;
+    const basisComplete = costSourceValid;
     if (basisOther && notes === "") errors.push("Una base de AL COSTO marcada como otra requiere una nota descriptiva.");
     const fieldFormula = Object.keys(fields).some((field) => fields[field].formula);
     if (coreMappingComplete && basisComplete && !fieldFormula) mapped += 1;
@@ -380,7 +382,6 @@ function validateConsumerRows(
 
     if (candidateRow === null) {
       deferred += 1;
-      if (fields.status.text !== "Diferido: falta asociación con producto base") errors.push("Una fila solo consumidor no conserva su estado de diferida.");
       if (fields.candidateProduct.text !== "" || fields.storePrice.text !== "" || fields.sameProduct.text !== "") {
         errors.push("Una fila sin candidato tienda contiene una asociación o tarifa operativa.");
       }
@@ -401,11 +402,33 @@ function validateConsumerRows(
       errors.push("Los datos de una referencia candidata no coinciden con la fila tienda del Excel fuente.");
     }
     const decision = normalizeText(fields.sameProduct.text);
-    if (fields.sameProduct.formula) errors.push("La decisión de coincidencia contiene una fórmula y requiere revisión manual.");
-    else if (decision === "" || decision === "POR CONFIRMAR") candidateDecisionsPending += 1;
-    else if (!CANDIDATE_DECISIONS.has(decision)) errors.push("La decisión de coincidencia no corresponde a una opción admitida.");
+    if (fields.sameProduct.formula) errors.push("La referencia informativa contiene una fórmula y requiere revisión manual.");
+    else if (decision !== "" && decision !== "POR CONFIRMAR" && !CANDIDATE_DECISIONS.has(decision)) errors.push("La referencia informativa no corresponde a una opción admitida.");
   }
   return { deferred, candidatePairs, candidateDecisionsPending };
+}
+
+function validateConsumerCatalogRows(rows: TemplateRow[], errors: string[]): { mapped: number; pending: number } {
+  let mapped = 0;
+  let pending = 0;
+  const categories = new Set<string>(Object.values(CATEGORIAS_CATALOGO_NEVERA));
+  for (const row of rows) {
+    const fields = row.fields;
+    const category = fields.category;
+    const unit = fields.baseUnit;
+    const presentation = fields.presentation;
+    const factor = positiveInteger(fields.conversionFactor);
+    if ([category, unit, presentation, fields.conversionFactor].some(value => value.formula)) {
+      errors.push("Una decisión de Nevera contiene una fórmula y requiere revisión manual.");
+      pending += 1;
+      continue;
+    }
+    if (category.text.trim() && !categories.has(category.text.trim())) errors.push("La categoría de Nevera no pertenece a las categorías permitidas para ese catálogo.");
+    if (fields.conversionFactor.text.trim() && factor === null) errors.push("El factor de conversión de Nevera debe ser un entero positivo seguro.");
+    if (categories.has(category.text.trim()) && unit.text.trim() !== "" && presentation.text.trim() !== "" && factor !== null) mapped += 1;
+    else pending += 1;
+  }
+  return { mapped, pending };
 }
 
 export interface DianaCatalogOfflinePlanInput extends DianaCatalogReviewValidationInput {
@@ -413,15 +436,16 @@ export interface DianaCatalogOfflinePlanInput extends DianaCatalogReviewValidati
 }
 
 export interface DianaCatalogOfflinePlan {
-  planSchemaVersion: "2.0";
+  planSchemaVersion: "3.0";
   mode: "offline-review-only";
   sourceSha256: string;
   reviewSha256: string;
   proposal: {
+    catalogId: "BODEGA";
     status: "requires-human-review";
     granularity: "one-presentation-per-store-source-row";
     salesPriceSource: "PRECIOS A TIENDA.PRECIO VENTA";
-    consumerPriceSource: "PRECIOS CONS FINAL.PRECIO VENTA";
+    consumerPriceSource: null;
     costPolicy: "AL COSTO exact per presentation; no automatic markup";
     productGroupingInferred: false;
     presentations: Array<{
@@ -432,21 +456,42 @@ export interface DianaCatalogOfflinePlan {
       baseUnit: string;
       presentation: string;
       unitsPerPresentation: number;
-      packagingQuantityEvidence: "explicit_count" | "assumed_single_unit" | "ambiguous_count";
+      packagingQuantityEvidence: "explicit_count" | "administrator_confirmed_individual" | "assumed_single_unit" | "ambiguous_count";
       salesPriceStoreCop: number;
-      consumerSourceRow: number | null;
-      consumerFinalPriceCop: number | null;
+      consumerSourceRow: null;
+      consumerFinalPriceCop: null;
       sourceCostCop: number;
-      costBasis: "UNIDAD BASE" | "PRESENTACION / EMPAQUE";
+      costBasis: "PRESENTACION / EMPAQUE";
       costCopPerPresentation: number;
     }>;
   };
+  neveraCatalog: {
+    catalogId: "NEVERA";
+    status: "requires-human-review";
+    granularity: "one-presentation-per-consumer-source-row";
+    salesPriceSource: "PRECIOS CONS FINAL.PRECIO VENTA";
+    costPolicy: "pending explicit Bodega transfer mapping";
+    stockInitial: 0;
+    productGroupingInferred: false;
+    presentations: Array<{
+      sourceRow: number;
+      reviewRow: number;
+      name: string;
+      category: string;
+      baseUnit: string;
+      presentation: string;
+      unitsPerPresentation: number;
+      packagingQuantityEvidence: "explicit_count" | "administrator_confirmed_individual" | "assumed_single_unit" | "ambiguous_count";
+      salesPriceConsumerFinalCop: number;
+      sourceCostCop: null;
+      costCopPerPresentation: null;
+      bodegaAssociation: null;
+    }>;
+  };
   consumerReference: {
-    consumerPricesApplied: boolean;
-    consumerRowsDeferred: number;
+    consumerRowsInNevera: number;
     crossListCandidates: number;
-    crossListDecisionsPending: number;
-    samePresentationPricesApplied: number;
+    transferMappingsPending: number;
   };
   initialStockIncluded: false;
   safety: {
@@ -483,6 +528,7 @@ export function validateDianaCatalogReview(input: DianaCatalogReviewValidationIn
   let mismatchedSourceValues = 0;
   let mapping = { mapped: 0, pending: storeRows.length, costsNotExactlyConvertible: 0 };
   let consumerReview = { deferred: 0, candidatePairs: 0, candidateDecisionsPending: 0 };
+  let consumerMapping = { mapped: 0, pending: consumerRows.length };
 
   if (sourceStore && storeRows.length > 0) {
     const result = compareImmutableSourceFields(storeRows, sourceStore, "store", validationErrors);
@@ -499,12 +545,16 @@ export function validateDianaCatalogReview(input: DianaCatalogReviewValidationIn
     const expected = expectedCandidates(sourceStore, sourceConsumer);
     mapping = validateStoreRows(storeRows, sourceStore, expected.storeToConsumer, validationErrors);
     consumerReview = validateConsumerRows(consumerRows, sourceConsumer, sourceStore, expected.consumerToStore, validationErrors);
+    consumerMapping = validateConsumerCatalogRows(consumerRows, validationErrors);
     if (expected.storeToConsumer.size !== storeRows.length) validationErrors.push("La plantilla no conserva la lista de candidatos de consumidor por fila tienda.");
   }
 
   const reviewValid = validationErrors.length === 0;
-  const operationalMappingsComplete = reviewValid && sourceMatches && storeRows.length > 0 && mapping.pending === 0;
-  const reviewDecisionsComplete = operationalMappingsComplete && consumerReview.candidateDecisionsPending === 0;
+  const operationalMappingsComplete = reviewValid && sourceMatches && storeRows.length > 0 && mapping.pending === 0
+    && consumerRows.length > 0 && consumerMapping.pending === 0;
+  // Cross-catalog name matches are informational only; ADR-SAAS-094 forbids
+  // inferring identity from them and does not require a transfer mapping to import.
+  const reviewDecisionsComplete = operationalMappingsComplete;
   return {
     reportSchemaVersion: "1.0",
     mode: "read-only-local-review-validation",
@@ -521,7 +571,9 @@ export function validateDianaCatalogReview(input: DianaCatalogReviewValidationIn
       storeRowsPending: mapping.pending,
       consumerSourceRows: sourceConsumer?.records.size ?? 0,
       consumerRowsMatchedToSource: consumerMatched,
-      consumerRowsDeferred: consumerReview.deferred,
+      consumerRowsWithoutStoreCandidate: consumerReview.deferred,
+      consumerRowsMapped: consumerMapping.mapped,
+      consumerRowsPending: consumerMapping.pending,
       candidateCrossListPairs: consumerReview.candidatePairs,
       candidateDecisionsPending: consumerReview.candidateDecisionsPending,
       costsNotExactlyConvertibleToBaseUnit: mapping.costsNotExactlyConvertible,
@@ -530,9 +582,9 @@ export function validateDianaCatalogReview(input: DianaCatalogReviewValidationIn
     validationErrors: [...new Set(validationErrors)],
     pendingRequirements: [
       ...(mapping.pending > 0 ? ["Resolver con Diana las categorías, unidades base, presentaciones y factores positivos de las filas tienda."] : []),
-      ...(mapping.pending > 0 ? ["Confirmar la base de AL COSTO (unidad base o presentación/empaque) para conservar el costo real de Diana."] : []),
-      ...(consumerReview.candidateDecisionsPending > 0 ? ["Resolver las coincidencias por nombre sin fusionar automáticamente productos ni presentaciones distintas."] : []),
-      ...(consumerReview.deferred > 0 ? ["Las tarifas consumidor sin una asociación aprobada como la misma presentación permanecen diferidas."] : []),
+      ...(mapping.pending > 0 ? ["Conservar AL COSTO exactamente como costo total de la presentación/empaque; no dividirlo entre unidades base."] : []),
+      ...(consumerMapping.pending > 0 ? ["Resolver por separado las categorías, unidades, presentaciones y factores positivos de las filas Nevera."] : []),
+      ...(consumerReview.deferred > 0 ? ["Las filas Nevera se importan como catálogo independiente sin costo ni asociación; la correspondencia será necesaria solo para transferencias futuras."] : []),
       "Este validador no produce payload de importación. La carga de catálogo e inventario exige el flujo aprobado, datos completos y Gate I.",
     ],
   };
@@ -554,28 +606,16 @@ export function buildDianaCatalogOfflinePlan(input: DianaCatalogOfflinePlanInput
 
   const rows = templateRows(reviewSheet, header, STORE_HEADERS);
   const consumerRows = templateRows(reviewConsumerSheet, consumerHeader, CONSUMER_HEADERS);
-  const consumerPriceByStoreRow = new Map<number, { sourceRow: number; price: number }>();
-  for (const consumerRow of consumerRows) {
-    const sourceRow = consumerRow.sourceRow;
-    const storeRow = positiveInteger(consumerRow.fields.storeCandidate);
-    const decision = normalizeText(consumerRow.fields.sameProduct.text);
-    if (sourceRow === null || storeRow === null || decision !== "SI - MISMA PRESENTACION") continue;
-    const consumerSource = sourceConsumer.records.get(sourceRow);
-    if (consumerSource?.price === null || consumerSource?.price === undefined) return null;
-    if (consumerPriceByStoreRow.has(storeRow)) return null;
-    consumerPriceByStoreRow.set(storeRow, { sourceRow, price: consumerSource.price });
-  }
   const presentations: DianaCatalogOfflinePlan["proposal"]["presentations"] = [];
   for (const row of rows) {
     const sourceRow = row.sourceRow;
     if (sourceRow === null) return null;
     const original = source.records.get(sourceRow);
-    const consumerPrice = consumerPriceByStoreRow.get(sourceRow);
     const factor = positiveInteger(row.fields.conversionFactor);
     const costBasis = normalizeText(row.fields.costBasis.text);
     if (!original || original.price === null || original.cost === null || factor === null) return null;
-    if (costBasis !== "UNIDAD BASE" && costBasis !== "PRESENTACION / EMPAQUE") return null;
-    const costCopPerPresentation = costBasis === "UNIDAD BASE" ? original.cost * factor : original.cost;
+    if (costBasis !== "PRESENTACION / EMPAQUE") return null;
+    const costCopPerPresentation = original.cost;
     if (!Number.isSafeInteger(costCopPerPresentation) || costCopPerPresentation <= 0) return null;
     presentations.push({
       sourceRow,
@@ -585,38 +625,69 @@ export function buildDianaCatalogOfflinePlan(input: DianaCatalogOfflinePlanInput
       baseUnit: row.fields.baseUnit.text.trim(),
       presentation: row.fields.presentation.text.trim(),
       unitsPerPresentation: factor,
-      packagingQuantityEvidence: suggestPackaging(original.name).quantityEvidence,
+      packagingQuantityEvidence: suggestPackaging(original.name, "store").quantityEvidence,
       salesPriceStoreCop: original.price,
-      consumerSourceRow: consumerPrice?.sourceRow ?? null,
-      consumerFinalPriceCop: consumerPrice?.price ?? null,
+      consumerSourceRow: null,
+      consumerFinalPriceCop: null,
       sourceCostCop: original.cost,
       costBasis,
       costCopPerPresentation,
     });
   }
   if (presentations.length === 0 || presentations.length !== report.totals.storeRowsMapped) return null;
-  const samePresentationPricesApplied = presentations.filter((row) => row.consumerFinalPriceCop !== null).length;
+  const neveraPresentations: DianaCatalogOfflinePlan["neveraCatalog"]["presentations"] = [];
+  for (const row of consumerRows) {
+    const sourceRow = row.sourceRow;
+    if (sourceRow === null) return null;
+    const original = sourceConsumer.records.get(sourceRow);
+    const factor = positiveInteger(row.fields.conversionFactor);
+    if (!original || original.price === null || factor === null) return null;
+    neveraPresentations.push({
+      sourceRow,
+      reviewRow: row.rowNumber,
+      name: original.name,
+      category: row.fields.category.text.trim(),
+      baseUnit: row.fields.baseUnit.text.trim(),
+      presentation: row.fields.presentation.text.trim(),
+      unitsPerPresentation: factor,
+      packagingQuantityEvidence: suggestPackaging(original.name, "consumer").quantityEvidence,
+      salesPriceConsumerFinalCop: original.price,
+      sourceCostCop: null,
+      costCopPerPresentation: null,
+      bodegaAssociation: null,
+    });
+  }
+  if (neveraPresentations.length === 0 || neveraPresentations.length !== report.totals.consumerRowsMapped) return null;
 
   return {
-    planSchemaVersion: "2.0",
+    planSchemaVersion: "3.0",
     mode: "offline-review-only",
     sourceSha256: input.sourceSha256.toLocaleLowerCase("en-US"),
     reviewSha256: input.reviewSha256.toLocaleLowerCase("en-US"),
     proposal: {
+      catalogId: "BODEGA",
       status: "requires-human-review",
       granularity: "one-presentation-per-store-source-row",
       salesPriceSource: "PRECIOS A TIENDA.PRECIO VENTA",
-      consumerPriceSource: "PRECIOS CONS FINAL.PRECIO VENTA",
+      consumerPriceSource: null,
       costPolicy: "AL COSTO exact per presentation; no automatic markup",
       productGroupingInferred: false,
       presentations,
     },
+    neveraCatalog: {
+      catalogId: "NEVERA",
+      status: "requires-human-review",
+      granularity: "one-presentation-per-consumer-source-row",
+      salesPriceSource: "PRECIOS CONS FINAL.PRECIO VENTA",
+      costPolicy: "pending explicit Bodega transfer mapping",
+      stockInitial: 0,
+      productGroupingInferred: false,
+      presentations: neveraPresentations,
+    },
     consumerReference: {
-      consumerPricesApplied: samePresentationPricesApplied > 0,
-      consumerRowsDeferred: sourceConsumer.records.size - samePresentationPricesApplied,
+      consumerRowsInNevera: neveraPresentations.length,
       crossListCandidates: report.totals.candidateCrossListPairs,
-      crossListDecisionsPending: report.totals.candidateDecisionsPending,
-      samePresentationPricesApplied,
+      transferMappingsPending: neveraPresentations.length,
     },
     initialStockIncluded: false,
     safety: {
