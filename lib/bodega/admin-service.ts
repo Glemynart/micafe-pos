@@ -6,14 +6,13 @@ import { resolverCallableOperacionBodega } from "./operation-routing"
 import { proyectarVentaBodegaAdmin, type VentaBodegaAdminDTO } from "@/lib/bodega/ui-contract"
 import type { Cliente } from "@/lib/clientes-service"
 import { proyectarProductoBodegaAdmin, type ProductoBodegaAdmin } from "@/lib/bodega/product-admin-projection"
-import type { CatalogImportSnapshot, CatalogoImportId } from "@/lib/bodega/diana-catalog-import"
-import { perteneceAlCatalogo } from "@/lib/bodega/catalog-scope"
+import { perteneceAlCatalogo, type CatalogoId } from "@/lib/bodega/catalog-scope"
 
 export type { ProductoBodegaAdmin } from "@/lib/bodega/product-admin-projection"
 
 export interface PresentacionBodegaAdmin {
   id: string
-  catalogoId: CatalogoImportId
+  catalogoId: CatalogoId
   productoId: string
   nombre: string
   factorUnidadBase: number
@@ -22,6 +21,12 @@ export interface PresentacionBodegaAdmin {
   precioConsumidorFinalCOP: number | null
   costoPresentacionCOP: number | null
   activo: boolean
+}
+
+export interface CatalogSnapshot {
+  categorias: Array<{ id: string; nombre: string; espacioId: string; catalogoId: CatalogoId }>
+  productos: ProductoBodegaAdmin[]
+  presentaciones: PresentacionBodegaAdmin[]
 }
 
 export type VentaBodegaAdmin = VentaBodegaAdminDTO
@@ -73,7 +78,7 @@ function suscribirTenant<T>(
   return () => { cancelado = true; unsubscribe() }
 }
 
-export const suscribirProductosBodegaAdmin = (catalogo: CatalogoImportId, callback: (items: ProductoBodegaAdmin[]) => void) => suscribirTenant(
+export const suscribirProductosBodegaAdmin = (catalogo: CatalogoId, callback: (items: ProductoBodegaAdmin[]) => void) => suscribirTenant(
   "productos",
   proyectarProductoBodegaAdmin,
   items => callback(items.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))),
@@ -81,7 +86,7 @@ export const suscribirProductosBodegaAdmin = (catalogo: CatalogoImportId, callba
   data => perteneceAlCatalogo(data, catalogo),
 )
 export const suscribirPresentacionesBodegaAdmin = (
-  catalogo: CatalogoImportId,
+  catalogo: CatalogoId,
   callback: (items: PresentacionBodegaAdmin[]) => void,
   onError?: (error: Error) => void,
 ) => suscribirTenant(
@@ -90,7 +95,7 @@ export const suscribirPresentacionesBodegaAdmin = (
     const precioTiendaCOP = Number(data.precioTiendaCOP ?? data.precioCOP ?? 0)
     const precioConsumidorFinalCOP = Number(data.precioConsumidorFinalCOP)
     const costoPresentacionCOP = Number(data.costoPresentacionCOP)
-    const catalogoId: CatalogoImportId = data.catalogoId === "NEVERA" ? "NEVERA" : "BODEGA"
+    const catalogoId: CatalogoId = data.catalogoId === "NEVERA" ? "NEVERA" : "BODEGA"
     return { id, catalogoId, productoId: String(data.productoId ?? ""), nombre: String(data.nombre ?? ""), factorUnidadBase: Number(data.factorUnidadBase ?? 0), precioCOP: precioTiendaCOP, precioTiendaCOP, precioConsumidorFinalCOP: Number.isSafeInteger(precioConsumidorFinalCOP) && precioConsumidorFinalCOP > 0 ? precioConsumidorFinalCOP : null, costoPresentacionCOP: Number.isSafeInteger(costoPresentacionCOP) && costoPresentacionCOP > 0 ? costoPresentacionCOP : null, activo: data.activo === true }
   },
   callback,
@@ -106,15 +111,13 @@ export async function listarEspaciosBodega(): Promise<Array<{ id: string; nombre
   return snapshot.docs.map(doc => ({ id: doc.id, nombre: String(doc.data().nombre ?? doc.id) }))
 }
 
-export async function listarCategoriasBodega(catalogo: CatalogoImportId): Promise<Array<{ id: string; nombre: string; espacioId: string; catalogoId: CatalogoImportId }>> {
+export async function listarCategoriasBodega(catalogo: CatalogoId): Promise<Array<{ id: string; nombre: string; espacioId: string; catalogoId: CatalogoId }>> {
   const query = await tenantQuery(collection(db, "categorias"))
   const snapshot = await getDocs(query)
   return snapshot.docs.filter(doc => perteneceAlCatalogo(doc.data(), catalogo)).map(doc => ({ id: doc.id, nombre: String(doc.data().nombre ?? doc.id), espacioId: String(doc.data().espacioId ?? ""), catalogoId: doc.data().catalogoId === "NEVERA" ? "NEVERA" : "BODEGA" }))
 }
 
-async function leerSnapshotCatalogoBodega(catalogo?: CatalogoImportId): Promise<CatalogImportSnapshot> {
-  // Only the import preflight intentionally reads both catalogs to detect
-  // collisions and existing data before a selected catalog is imported.
+async function leerSnapshotCatalogoBodega(catalogo: CatalogoId): Promise<CatalogSnapshot> {
   const [categoriesQuery, productsQuery, presentationsQuery] = await Promise.all([
     tenantQuery(collection(db, "categorias")),
     tenantQuery(collection(db, "productos")),
@@ -130,13 +133,10 @@ async function leerSnapshotCatalogoBodega(catalogo?: CatalogoImportId): Promise<
   if ([...categories.docs, ...products.docs, ...presentations.docs].some(doc => !isKnownCatalog(doc.data()))) {
     throw new Error("El catálogo contiene un discriminador desconocido; se requiere reconciliación antes de continuar.")
   }
-  // A broad, tenant-scoped snapshot is used only for import collision checks.
-  // View-facing snapshots stay limited to one catalog.
-  const selected = (data: Record<string, unknown>) => catalogo === undefined || perteneceAlCatalogo(data, catalogo)
-  const categoriasSeleccionadas = categories.docs.filter(doc => selected(doc.data()))
-  const productosSeleccionados = products.docs.filter(doc => selected(doc.data()))
+  const categoriasSeleccionadas = categories.docs.filter(doc => perteneceAlCatalogo(doc.data(), catalogo))
+  const productosSeleccionados = products.docs.filter(doc => perteneceAlCatalogo(doc.data(), catalogo))
   const productoIds = new Set(productosSeleccionados.map(doc => doc.id))
-  const presentacionesSeleccionadas = presentations.docs.filter(doc => selected(doc.data()) && productoIds.has(String(doc.data().productoId ?? "")))
+  const presentacionesSeleccionadas = presentations.docs.filter(doc => perteneceAlCatalogo(doc.data(), catalogo) && productoIds.has(String(doc.data().productoId ?? "")))
   return {
     categorias: categoriasSeleccionadas.map(doc => ({
       id: doc.id,
@@ -162,20 +162,16 @@ async function leerSnapshotCatalogoBodega(catalogo?: CatalogoImportId): Promise<
   }
 }
 
-export async function obtenerSnapshotCatalogoBodega(catalogo: CatalogoImportId = "BODEGA"): Promise<CatalogImportSnapshot> {
+export async function obtenerSnapshotCatalogoBodega(catalogo: CatalogoId = "BODEGA"): Promise<CatalogSnapshot> {
   return leerSnapshotCatalogoBodega(catalogo)
 }
 
-export async function obtenerSnapshotCatalogosParaImportacion(): Promise<CatalogImportSnapshot> {
-  return leerSnapshotCatalogoBodega()
-}
-
-export async function crearProductoBodega(data: { nombre: string; categoriaId: string; catalogoId?: CatalogoImportId; espacioId: string; unidad: string; stock: number; stockMinimo: number; costo: number }): Promise<string> {
+export async function crearProductoBodega(data: { nombre: string; categoriaId: string; catalogoId?: CatalogoId; espacioId: string; unidad: string; stock: number; stockMinimo: number; costo: number }): Promise<string> {
   const result = await ejecutarComandoInventario<{ articuloId: string }>(resolverCallableOperacionBodega("BODEGA_MVP1", "crearArticuloInventarioV1"), crearEnvelopeInventario({ articuloTipo: "producto", data: { ...data, activo: true } }))
   return result.articuloId
 }
 
-export async function ajustarStockProductoBodega(productoId: string, stock: number, catalogoId: CatalogoImportId = "BODEGA", costoCOP?: number): Promise<void> {
+export async function ajustarStockProductoBodega(productoId: string, stock: number, catalogoId: CatalogoId = "BODEGA", costoCOP?: number): Promise<void> {
   await ejecutarComandoInventario(
     resolverCallableOperacionBodega("BODEGA_MVP1", "actualizarArticuloInventarioV1"),
     crearEnvelopeInventario({ articuloTipo: "producto", articuloId: productoId, data: { catalogoId, stock, ...(costoCOP === undefined ? {} : { costo: costoCOP }) } },
@@ -198,7 +194,7 @@ export async function actualizarPresentacionBodega(payload: { presentacionId: st
   await ejecutarComandoBodega("actualizarPresentacionComercialV1", "presentacion", payload)
 }
 
-export async function crearCategoriaBodega(payload: { espacioId: string; catalogoId?: CatalogoImportId; nombre: string; icono?: string }): Promise<{ categoriaId: string; idempotente: boolean }> {
+export async function crearCategoriaBodega(payload: { espacioId: string; catalogoId?: CatalogoId; nombre: string; icono?: string }): Promise<{ categoriaId: string; idempotente: boolean }> {
   return ejecutarComandoBodega("crearCategoriaBodegaV1", "categoria", payload)
 }
 
