@@ -90,7 +90,11 @@ test("oferta: falla cerrada para vendedor, precio por encima de base y solape de
   await assert.rejects(ejecutarCrearOfertaBodegaV1(db, vendedor, envelope("vendedor", payload())), error => domain(error, "ROLE_FORBIDDEN"));
   await assert.rejects(ejecutarCrearOfertaBodegaV1(db, admin, envelope("cara", payload({ lineas: [{ presentacionId: "presentacion-ofertas", canal: "tienda", precioFinalCOP: 1_001 }] }))), error => domain(error, "PRECIO_OFERTA_SUPERA_BASE"));
   const primera = await ejecutarCrearOfertaBodegaV1(db, admin, envelope("primera", payload())) as any;
-  assert.equal(db.docs.get(`ofertas_bodega/${primera.ofertaId}`)!.lineas[0].canal, undefined, "los clientes anteriores con canal tienda se normalizan al catálogo");
+  assert.equal(db.docs.get(`ofertas_bodega/${primera.ofertaId}`)!.lineas[0].canal, "tienda", "se conserva canal tienda para compatibilidad con resolvedores aún desplegados");
+  const legacyClientPrice = await db.runTransaction(tx => resolverOfertaPrecioBodegaEnTransaccion(
+    tx, db, empresaId, { presentacionId: "presentacion-ofertas", precioBaseCOP: 1_000 }, Date.UTC(2026, 9, 26, 13),
+  ));
+  assert.deepEqual(legacyClientPrice, { ofertaId: primera.ofertaId, precioAplicadoCOP: 800 });
   await assert.rejects(ejecutarCrearOfertaBodegaV1(db, admin, envelope("solape", payload({ inicioLocalBogota: "2026-10-26T09:00" }))), error => domain(error, "OFERTA_SUPERPUESTA"));
 });
 
@@ -209,7 +213,7 @@ test("oferta: edición auditada permite cambiar una programación futura y repla
   const saved = db.docs.get(`ofertas_bodega/${created.ofertaId}`)!;
   assert.equal(saved.revision, 2);
   assert.equal(saved.nombre, "Oferta actualizada");
-  assert.equal(saved.lineas[0].canal, undefined, "la edición también normaliza el canal histórico de tienda");
+  assert.equal(saved.lineas[0].canal, "tienda", "se conserva canal tienda en la edición para compatibilidad con resolvedores aún desplegados");
   const audit = [...db.docs.values()].find(value => value.tipo === "actualizarOfertaBodegaV1");
   assert.deepEqual((audit?.referencias as Data).antes, primera.antes);
   assert.deepEqual((audit?.referencias as Data).despues, primera.despues);

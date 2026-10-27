@@ -74,7 +74,7 @@ function parseLineas(value: unknown, allowLegacyConsumerFinal = false): LineaOfe
     return {
       presentacionId,
       precioFinalCOP: data.precioFinalCOP as number,
-      ...(allowLegacyConsumerFinal && data.canal ? { canal: data.canal as CanalPrecioBodega } : {}),
+      ...(data.canal ? { canal: data.canal as CanalPrecioBodega } : {}),
     };
   });
 }
@@ -329,7 +329,8 @@ export async function resolverOfertaPrecioBodegaEnTransaccion(
     if (start === null) fail("failed-precondition", "OFERTA_PERSISTIDA_INVALIDA");
     if (offer.finEn !== null && end === null) fail("failed-precondition", "OFERTA_PERSISTIDA_INVALIDA");
     if (nowMillis < (start as number) || (end !== null && nowMillis >= end)) continue;
-    const line = lineasDeOferta(offer).find(candidate => candidate.canal !== "consumidor_final" && candidate.presentacionId === input.presentacionId);
+    const line = lineasDeOferta(offer).find(candidate => (candidate.canal === undefined || candidate.canal === "tienda")
+      && candidate.presentacionId === input.presentacionId);
     if (line) found.push({ ofertaId: snapshot.id, precioFinalCOP: line.precioFinalCOP });
   }
   if (found.length > 1) fail("failed-precondition", "OFERTAS_SUPERPUESTAS_PERSISTIDAS");
