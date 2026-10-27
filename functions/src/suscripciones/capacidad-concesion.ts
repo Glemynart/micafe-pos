@@ -25,11 +25,19 @@ export interface ConcesionCapacidadReportes {
   capacidad: typeof CONCESION_REPORTES_DIANA.capacidad;
   planId: typeof CONCESION_REPORTES_DIANA.planId;
   planVersion: typeof CONCESION_REPORTES_DIANA.planVersion;
-  revisionSuscripcionAlConceder: number;
+  tipoContrato: "SUSCRIPCION" | "RELACION_CONTRACTUAL";
+  contratoId: string;
+  revisionContratoAlConceder: number;
   huellaSnapshotContrato: string;
   concedidaPor: string;
   commandId: string;
   creadaEn: unknown;
+}
+
+export interface VinculoContratoReportes {
+  tipoContrato: ConcesionCapacidadReportes["tipoContrato"];
+  contratoId: string;
+  revision: number;
 }
 
 function canonizar(value: unknown): unknown {
@@ -84,6 +92,7 @@ export function esConcesionReportesEfectiva(
   empresaId: string,
   estadoEmpresa: unknown,
   suscripcion: Suscripcion,
+  contratoVigente: VinculoContratoReportes,
   revocada: boolean,
   hoy: string,
 ): concesion is ConcesionCapacidadReportes {
@@ -97,9 +106,11 @@ export function esConcesionReportesEfectiva(
     && data.capacidad === CONCESION_REPORTES_DIANA.capacidad
     && data.planId === CONCESION_REPORTES_DIANA.planId
     && data.planVersion === CONCESION_REPORTES_DIANA.planVersion
-    && Number.isSafeInteger(data.revisionSuscripcionAlConceder)
-    && (data.revisionSuscripcionAlConceder as number) > 0
-    && (data.revisionSuscripcionAlConceder as number) <= suscripcion.revision
+    && data.tipoContrato === contratoVigente.tipoContrato
+    && data.contratoId === contratoVigente.contratoId
+    && Number.isSafeInteger(data.revisionContratoAlConceder)
+    && (data.revisionContratoAlConceder as number) > 0
+    && (data.revisionContratoAlConceder as number) <= contratoVigente.revision
     && typeof data.huellaSnapshotContrato === "string"
     && data.huellaSnapshotContrato === huellaSnapshotContrato(snapshot)
     && esContratoActualElegibleParaReportes(

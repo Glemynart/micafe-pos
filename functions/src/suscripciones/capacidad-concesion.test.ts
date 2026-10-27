@@ -101,6 +101,41 @@ function seedEligible(db: Db) {
   db.seed(`suscripciones/${CONCESION_REPORTES_DIANA.empresaId}`, suscripcion());
 }
 
+function relation(overrides: Partial<{
+  relacionId: string;
+  revision: number;
+  snapshotContrato: SnapshotContrato;
+}> = {}) {
+  return {
+    schemaVersion: 1 as const,
+    relacionId: "rel_diana_trial",
+    empresaId: CONCESION_REPORTES_DIANA.empresaId,
+    estado: "trialing" as const,
+    planId: CONCESION_REPORTES_DIANA.planId,
+    planVersion: CONCESION_REPORTES_DIANA.planVersion,
+    snapshotContrato: structuredClone(snapshot),
+    origen: "bootstrap" as const,
+    relacionAnteriorId: null,
+    trialInicio,
+    trialFin,
+    revision: 3,
+    ...overrides,
+  };
+}
+
+function seedEligibleRelation(db: Db) {
+  const empresaId = CONCESION_REPORTES_DIANA.empresaId;
+  db.seed(`empresas/${empresaId}`, { empresaId, estado: "trial", revision: 4 });
+  // La raíz conserva una suscripción histórica; la relación vigente es la autoridad.
+  db.seed(`suscripciones/${empresaId}`, {
+    empresaId, planId: "legacy", planVersion: 1, estado: "suspended", revision: 2, schemaVersion: 1,
+  });
+  db.seed(`suscripciones/${empresaId}/relaciones/_vigente`, {
+    relacionVigenteId: "rel_diana_trial",
+  });
+  db.seed(`suscripciones/${empresaId}/relaciones/rel_diana_trial`, relation());
+}
+
 test("la concesión solo acepta el contrato anual vigente y operativo de Diana", () => {
   assert.equal(esContratoActualElegibleParaReportes(
     CONCESION_REPORTES_DIANA.empresaId, "trial", suscripcion(), trialInicio,
@@ -131,14 +166,21 @@ test("la concesión queda ligada a la huella y al ciclo de vida del mismo snapsh
     capacidad: "reports",
     planId: CONCESION_REPORTES_DIANA.planId,
     planVersion: CONCESION_REPORTES_DIANA.planVersion,
-    revisionSuscripcionAlConceder: 1,
+    tipoContrato: "SUSCRIPCION",
+    contratoId: CONCESION_REPORTES_DIANA.empresaId,
+    revisionContratoAlConceder: 1,
     huellaSnapshotContrato: huellaSnapshotContrato(snapshot),
     concedidaPor: "operator_1",
     commandId: "cmd_reports_grant",
     creadaEn: null,
   };
-  assert.equal(esConcesionReportesEfectiva(concesion, inicio.empresaId, "trial", inicio, false, trialInicio), true);
-  assert.equal(esConcesionReportesEfectiva(concesion, inicio.empresaId, "trial", inicio, true, trialInicio), false);
+  const vinculo = { tipoContrato: "SUSCRIPCION" as const, contratoId: inicio.empresaId, revision: 1 };
+  assert.equal(esConcesionReportesEfectiva(concesion, inicio.empresaId, "trial", inicio, vinculo, false, trialInicio), true);
+  assert.equal(esConcesionReportesEfectiva(concesion, inicio.empresaId, "trial", inicio, vinculo, true, trialInicio), false);
+  assert.equal(esConcesionReportesEfectiva(
+    concesion, inicio.empresaId, "trial", inicio,
+    { ...vinculo, tipoContrato: "RELACION_CONTRACTUAL", contratoId: "rel_otro" }, false, trialInicio,
+  ), false);
 
   const sameContractActive = suscripcion({
     estado: "active",
@@ -148,7 +190,9 @@ test("la concesión queda ligada a la huella y al ciclo de vida del mismo snapsh
     periodoFin: finPeriodoAnual,
     revision: 4,
   });
-  assert.equal(esConcesionReportesEfectiva(concesion, sameContractActive.empresaId, "activa", sameContractActive, false, trialFin), true);
+  assert.equal(esConcesionReportesEfectiva(concesion, sameContractActive.empresaId, "activa", sameContractActive, {
+    ...vinculo, revision: 4,
+  }, false, trialFin), true);
 
   const renewedSnapshot = structuredClone(snapshot);
   renewedSnapshot.fiscalidad = { pais: "CO" };
@@ -161,7 +205,9 @@ test("la concesión queda ligada a la huella y al ciclo de vida del mismo snapsh
     revision: 5,
     snapshotContrato: renewedSnapshot,
   });
-  assert.equal(esConcesionReportesEfectiva(concesion, renewed.empresaId, "activa", renewed, false, fechaEn(381)), false);
+  assert.equal(esConcesionReportesEfectiva(concesion, renewed.empresaId, "activa", renewed, {
+    ...vinculo, revision: 5,
+  }, false, fechaEn(381)), false);
 });
 
 test("la concesión es transaccional, idempotente, tenant-bound y no muta el snapshot ni la suscripción", async () => {
@@ -193,7 +239,7 @@ test("la concesión es transaccional, idempotente, tenant-bound y no muta el sna
   seedEligible(staleDb);
   await assert.rejects(
     concederCapacidadReportesDiana(staleDb as unknown as Firestore, { ...env("stale", 2), empresaId: CONCESION_REPORTES_DIANA.empresaId }, ctx),
-    (error: unknown) => error instanceof HttpsError && error.message === "SUSCRIPCION_REVISION_CONFLICT",
+    (error: unknown) => error instanceof HttpsError && error.message === "CONTRATO_REPORTES_REVISION_CONFLICT",
   );
 });
 
@@ -240,7 +286,9 @@ test("el resolver solo suma reports con concesión no revocada y contrato raíz 
     capacidad: "reports",
     planId: sub.planId,
     planVersion: sub.planVersion,
-    revisionSuscripcionAlConceder: 1,
+    tipoContrato: "SUSCRIPCION",
+    contratoId: companyId,
+    revisionContratoAlConceder: 1,
     huellaSnapshotContrato: huellaSnapshotContrato(snapshot),
   });
   const allowed = await resolverModulosInicialesDelPlan(resolverDb as unknown as Firestore, companyId);
@@ -249,6 +297,78 @@ test("el resolver solo suma reports con concesión no revocada y contrato raíz 
   db.seed(`${concessionPath}/revocaciones/adr-saas-095`, { revocacionId: "adr-saas-095" });
   const revoked = await resolverModulosInicialesDelPlan(resolverDb as unknown as Firestore, companyId);
   assert.equal(revoked.includes("reports"), false);
+});
+
+test("el resolver aplica la concesión solo a la relación contractual que la originó", async () => {
+  const db = new Db();
+  seedEligibleRelation(db);
+  const companyId = CONCESION_REPORTES_DIANA.empresaId;
+  const concessionPath = `suscripciones/${companyId}/concesionesCapacidad/${CONCESION_REPORTES_DIANA.concesionId}`;
+  db.seed(concessionPath, {
+    schemaVersion: 1,
+    concesionId: CONCESION_REPORTES_DIANA.concesionId,
+    empresaId: companyId,
+    capacidad: "reports",
+    planId: CONCESION_REPORTES_DIANA.planId,
+    planVersion: CONCESION_REPORTES_DIANA.planVersion,
+    tipoContrato: "RELACION_CONTRACTUAL",
+    contratoId: "rel_diana_trial",
+    revisionContratoAlConceder: 3,
+    huellaSnapshotContrato: huellaSnapshotContrato(snapshot),
+  });
+  const reference = (path: string): any => ({
+    collection: (child: string) => reference(`${path}/${child}`),
+    doc: (child: string) => reference(`${path}/${child}`),
+    get: async () => new Snap(db.read(path)),
+  });
+  const resolverDb = { collection: (name: string) => reference(name) };
+
+  const allowed = await resolverModulosInicialesDelPlan(resolverDb as unknown as Firestore, companyId);
+  assert.ok(allowed.includes("reports"));
+
+  db.seed(`suscripciones/${companyId}/relaciones/_vigente`, { relacionVigenteId: "rel_diana_renewal" });
+  db.seed(`suscripciones/${companyId}/relaciones/rel_diana_renewal`, relation({
+    relacionId: "rel_diana_renewal",
+    revision: 1,
+  }));
+  const renewal = await resolverModulosInicialesDelPlan(resolverDb as unknown as Firestore, companyId);
+  assert.equal(renewal.includes("reports"), false);
+});
+
+test("concede y revoca reports contra la revisión e identidad de la relación vigente", async () => {
+  const db = new Db();
+  seedEligibleRelation(db);
+  const empresaId = CONCESION_REPORTES_DIANA.empresaId;
+  const rootBefore = JSON.stringify(db.read(`suscripciones/${empresaId}`));
+  await assert.rejects(
+    concederCapacidadReportesDiana(db as unknown as Firestore, { ...env("relation-stale", 2), empresaId }, ctx),
+    (error: unknown) => error instanceof HttpsError && error.message === "CONTRATO_REPORTES_REVISION_CONFLICT",
+  );
+  const entrada = { ...env("relation-grant", 3), empresaId };
+  const granted = await concederCapacidadReportesDiana(db as unknown as Firestore, entrada, ctx);
+  assert.equal(granted.idempotente, false);
+  assert.equal(granted.tipoContrato, "RELACION_CONTRACTUAL");
+  assert.equal(granted.contratoId, "rel_diana_trial");
+  assert.equal(granted.revision, 3);
+  assert.equal(JSON.stringify(db.read(`suscripciones/${empresaId}`)), rootBefore);
+
+  const path = `suscripciones/${empresaId}/concesionesCapacidad/${CONCESION_REPORTES_DIANA.concesionId}`;
+  const saved = db.read(path) as ConcesionCapacidadReportes;
+  assert.equal(saved.tipoContrato, "RELACION_CONTRACTUAL");
+  assert.equal(saved.contratoId, "rel_diana_trial");
+  assert.equal(saved.revisionContratoAlConceder, 3);
+  assert.equal(saved.huellaSnapshotContrato, huellaSnapshotContrato(snapshot));
+
+  const retry = await concederCapacidadReportesDiana(db as unknown as Firestore, entrada, ctx);
+  assert.equal(retry.idempotente, true);
+
+  const revoked = await revocarCapacidadReportesDiana(db as unknown as Firestore, {
+    ...env("relation-revoke", 3), empresaId,
+  }, ctx);
+  assert.equal(revoked.tipoContrato, "RELACION_CONTRACTUAL");
+  const revocation = db.read(`${path}/revocaciones/adr-saas-095`);
+  assert.equal(revocation.contratoId, "rel_diana_trial");
+  assert.equal(revocation.revisionContratoAlRevocar, 3);
 });
 
 test("la lectura de configuración filtra una capacidad guardada cuando ya no pertenece al contrato", () => {

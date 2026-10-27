@@ -18,7 +18,9 @@ import {
   esContratoActualElegibleParaReportes,
   huellaSnapshotContrato,
   type ConcesionCapacidadReportes,
+  type VinculoContratoReportes,
 } from "./capacidad-concesion";
+import { proyectarSuscripcionDesdeRelacion } from "./relacion-vigente";
 import {
   ejecutarComandoConfiguracionConEstadoPreleidoEnTransaccion,
   leerComandoConfiguracionEnTransaccion,
@@ -786,6 +788,45 @@ export async function actualizarDatosAdministrativosEmpresa(db: Firestore, entra
 }
 
 /** ADR-SAAS-095: concesión contractual y auditada de reports solo a Diana. */
+async function leerContratoReportesEnTransaccion(
+  tx: any,
+  db: Firestore,
+  empresaId: string,
+  suscripcionRaiz: Suscripcion,
+): Promise<{ suscripcion: Suscripcion; vinculo: VinculoContratoReportes }> {
+  const relacionesRef = db.collection("suscripciones").doc(empresaId).collection("relaciones");
+  const controlSnap = await tx.get(relacionesRef.doc("_vigente"));
+  if (!controlSnap.exists) {
+    return {
+      suscripcion: suscripcionRaiz,
+      vinculo: { tipoContrato: "SUSCRIPCION", contratoId: empresaId, revision: suscripcionRaiz.revision },
+    };
+  }
+
+  const relacionId = controlSnap.data()?.relacionVigenteId;
+  if (typeof relacionId !== "string" || !esIdComercial(relacionId)) {
+    fail("failed-precondition", "RELACION_CONTRACTUAL_INVALIDA");
+  }
+  const relacionSnap = await tx.get(relacionesRef.doc(relacionId));
+  if (!relacionSnap.exists) fail("failed-precondition", "RELACION_CONTRACTUAL_NOT_FOUND");
+  const relacion = relacionSnap.data() as RelacionContractual;
+  if (relacion.relacionId !== relacionId
+    || relacion.empresaId !== empresaId
+    || relacion.schemaVersion !== 1
+    || !Number.isSafeInteger(relacion.revision)
+    || relacion.revision < 1) {
+    fail("failed-precondition", "RELACION_CONTRACTUAL_INVALIDA");
+  }
+  return {
+    suscripcion: proyectarSuscripcionDesdeRelacion(suscripcionRaiz, relacion),
+    vinculo: {
+      tipoContrato: "RELACION_CONTRACTUAL",
+      contratoId: relacion.relacionId,
+      revision: relacion.revision,
+    },
+  };
+}
+
 export async function concederCapacidadReportesDiana(
   db: Firestore,
   entrada: Envelope & { empresaId: string },
@@ -813,10 +854,12 @@ export async function concederCapacidadReportesDiana(
     if (concesionSnap.exists) fail("already-exists", "CONCESION_REPORTS_YA_EXISTE");
     if (revocacionSnap.exists) fail("failed-precondition", "CONCESION_REPORTS_REVOCADA");
 
-    const suscripcion = suscripcionSnap.data() as Suscripcion;
+    const suscripcionRaiz = suscripcionSnap.data() as Suscripcion;
+    const contrato = await leerContratoReportesEnTransaccion(tx, db, entrada.empresaId, suscripcionRaiz);
+    const suscripcion = contrato.suscripcion;
     const empresa = empresaSnap.data() as { estado: string };
-    if (suscripcion.revision !== entrada.expectedRevision) {
-      fail("failed-precondition", "SUSCRIPCION_REVISION_CONFLICT");
+    if (contrato.vinculo.revision !== entrada.expectedRevision) {
+      fail("failed-precondition", "CONTRATO_REPORTES_REVISION_CONFLICT");
     }
     if (!esContratoActualElegibleParaReportes(
       entrada.empresaId,
@@ -834,7 +877,9 @@ export async function concederCapacidadReportesDiana(
       capacidad: CONCESION_REPORTES_DIANA.capacidad,
       planId: CONCESION_REPORTES_DIANA.planId,
       planVersion: CONCESION_REPORTES_DIANA.planVersion,
-      revisionSuscripcionAlConceder: suscripcion.revision,
+      tipoContrato: contrato.vinculo.tipoContrato,
+      contratoId: contrato.vinculo.contratoId,
+      revisionContratoAlConceder: contrato.vinculo.revision,
       huellaSnapshotContrato: huellaSnapshotContrato(suscripcion.snapshotContrato!),
       concedidaPor: ctx.actorId,
       commandId: entrada.commandId,
@@ -845,12 +890,14 @@ export async function concederCapacidadReportesDiana(
       empresaId: entrada.empresaId,
       concesionId: concesion.concesionId,
       capacidad: concesion.capacidad,
-      revision: suscripcion.revision,
+      tipoContrato: contrato.vinculo.tipoContrato,
+      contratoId: contrato.vinculo.contratoId,
+      revision: contrato.vinculo.revision,
     };
     registrar(
       tx, db, entrada, entrada.empresaId, fingerprint, resultado,
       "ConcesionCapacidadReportesDianaCreada", "SUSCRIPCION",
-      suscripcion.revision, suscripcion.revision, ctx,
+      contrato.vinculo.revision, contrato.vinculo.revision, ctx,
     );
     return { ...resultado, idempotente: false };
   });
@@ -882,15 +929,35 @@ export async function revocarCapacidadReportesDiana(
     if (!concesionSnap.exists) fail("not-found", "CONCESION_REPORTS_NOT_FOUND");
     if (revocacionSnap.exists) fail("already-exists", "CONCESION_REPORTS_YA_REVOCADA");
 
-    const suscripcion = suscripcionSnap.data() as Suscripcion;
     const concesion = concesionSnap.data() as ConcesionCapacidadReportes;
-    if (suscripcion.revision !== entrada.expectedRevision) {
-      fail("failed-precondition", "SUSCRIPCION_REVISION_CONFLICT");
-    }
     if (concesion.empresaId !== entrada.empresaId
       || concesion.concesionId !== CONCESION_REPORTES_DIANA.concesionId
-      || concesion.capacidad !== CONCESION_REPORTES_DIANA.capacidad) {
+      || concesion.capacidad !== CONCESION_REPORTES_DIANA.capacidad
+      || !esIdComercial(concesion.contratoId)) {
       fail("failed-precondition", "CONCESION_REPORTS_INVALIDA");
+    }
+
+    let revisionContrato = 0;
+    if (concesion.tipoContrato === "RELACION_CONTRACTUAL") {
+      const relacionSnap = await tx.get(suscripcionRef.collection("relaciones").doc(concesion.contratoId));
+      if (!relacionSnap.exists) fail("failed-precondition", "CONCESION_REPORTS_CONTRATO_NOT_FOUND");
+      const relacion = relacionSnap.data() as RelacionContractual;
+      if (relacion.relacionId !== concesion.contratoId
+        || relacion.empresaId !== entrada.empresaId
+        || relacion.schemaVersion !== 1
+        || !Number.isSafeInteger(relacion.revision)
+        || relacion.revision < 1) {
+        fail("failed-precondition", "CONCESION_REPORTS_CONTRATO_INVALIDO");
+      }
+      revisionContrato = relacion.revision;
+    } else if (concesion.tipoContrato === "SUSCRIPCION" && concesion.contratoId === entrada.empresaId) {
+      if (!suscripcionSnap.exists) fail("not-found", "SUSCRIPCION_NOT_FOUND");
+      revisionContrato = (suscripcionSnap.data() as Suscripcion).revision;
+    } else {
+      fail("failed-precondition", "CONCESION_REPORTS_CONTRATO_INVALIDO");
+    }
+    if (revisionContrato !== entrada.expectedRevision) {
+      fail("failed-precondition", "CONTRATO_REPORTES_REVISION_CONFLICT");
     }
 
     tx.create(revocacionRef, {
@@ -899,7 +966,9 @@ export async function revocarCapacidadReportesDiana(
       concesionId: concesion.concesionId,
       empresaId: entrada.empresaId,
       capacidad: CONCESION_REPORTES_DIANA.capacidad,
-      revisionSuscripcionAlRevocar: suscripcion.revision,
+      tipoContrato: concesion.tipoContrato,
+      contratoId: concesion.contratoId,
+      revisionContratoAlRevocar: revisionContrato,
       revocadaPor: ctx.actorId,
       commandId: entrada.commandId,
       motivo: entrada.motivo,
@@ -909,12 +978,14 @@ export async function revocarCapacidadReportesDiana(
       empresaId: entrada.empresaId,
       concesionId: concesion.concesionId,
       capacidad: concesion.capacidad,
-      revision: suscripcion.revision,
+      tipoContrato: concesion.tipoContrato,
+      contratoId: concesion.contratoId,
+      revision: revisionContrato,
     };
     registrar(
       tx, db, entrada, entrada.empresaId, fingerprint, resultado,
       "ConcesionCapacidadReportesDianaRevocada", "SUSCRIPCION",
-      suscripcion.revision, suscripcion.revision, ctx,
+      revisionContrato, revisionContrato, ctx,
     );
     return { ...resultado, idempotente: false };
   });
