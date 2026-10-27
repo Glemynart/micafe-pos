@@ -1,22 +1,25 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { BadgePercent, CalendarClock, CircleCheck, Clock3, Plus, RefreshCw, Tag, X } from "lucide-react"
+import { BadgePercent, CalendarClock, Check, ChevronsUpDown, CircleCheck, Clock3, Plus, RefreshCw, Tag, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   actualizarOfertaBodega,
   cerrarOfertaBodega,
   consultarOfertasBodega,
   crearOfertaBodega,
   obtenerSnapshotCatalogoBodega,
-  type CanalOfertaBodega,
-  type LineaOfertaBodegaAdmin,
+  type LineaOfertaBodegaInput,
   type OfertaBodegaAdmin,
 } from "@/lib/bodega/admin-service"
+import { filtrarPresentacionesOferta, type PresentacionOfertaBuscable } from "@/lib/bodega/offer-presentation-search"
 import { mensajeErrorBodega } from "@/lib/bodega/ui-contract"
 
 type Catalogo = Awaited<ReturnType<typeof obtenerSnapshotCatalogoBodega>>
-type LineaFormulario = LineaOfertaBodegaAdmin & { key: string }
+type LineaFormulario = LineaOfertaBodegaInput & { key: string }
+type OpcionPresentacionOferta = PresentacionOfertaBuscable & { presentacion: Catalogo["presentaciones"][number] }
 
 const moneda = (value: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(value)
 
@@ -42,6 +45,45 @@ function mostrarFechaBogota(millis: number): string {
   return new Intl.DateTimeFormat("es-CO", {
     timeZone: "America/Bogota", dateStyle: "medium", timeStyle: "short",
   }).format(new Date(millis))
+}
+
+function SelectorPresentacionOferta({
+  opciones,
+  value,
+  onChange,
+}: {
+  opciones: OpcionPresentacionOferta[]
+  value: string
+  onChange: (presentacionId: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [consulta, setConsulta] = useState("")
+  const seleccionada = opciones.find(opcion => opcion.id === value)
+  const filtradas = useMemo(() => filtrarPresentacionesOferta(opciones, consulta), [opciones, consulta])
+
+  return <Popover open={open} onOpenChange={siguiente => { setOpen(siguiente); if (!siguiente) setConsulta("") }}>
+    <PopoverTrigger asChild>
+      <Button type="button" variant="outline" role="combobox" aria-expanded={open} className="mt-1.5 h-11 w-full justify-between rounded-xl font-normal">
+        <span className="min-w-0 truncate text-left">{seleccionada ? `${seleccionada.productoNombre} · ${seleccionada.presentacionNombre}` : "Buscar producto o presentación…"}</span>
+        <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" aria-hidden="true" />
+      </Button>
+    </PopoverTrigger>
+    <PopoverContent align="start" className="w-[min(var(--radix-popover-trigger-width),calc(100vw-2rem))] p-0" sideOffset={4}>
+      <Command shouldFilter={false}>
+        <CommandInput value={consulta} onValueChange={setConsulta} placeholder="Buscar producto, presentación o empaque…" />
+        <CommandList>
+          <CommandEmpty>{consulta ? "No hay productos o presentaciones que coincidan." : "No hay presentaciones Bodega disponibles."}</CommandEmpty>
+          {filtradas.map(opcion => <CommandItem key={opcion.id} value={opcion.id} onSelect={() => { onChange(opcion.id); setConsulta(""); setOpen(false) }}>
+            <Check className={`size-4 shrink-0 ${opcion.id === value ? "opacity-100" : "opacity-0"}`} aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium">{opcion.productoNombre}</span>
+              <span className="block truncate text-xs text-muted-foreground">{opcion.presentacionNombre} · {opcion.factorUnidadBase} {opcion.factorUnidadBase === 1 ? "unidad" : "unidades"} base</span>
+            </span>
+          </CommandItem>)}
+        </CommandList>
+      </Command>
+    </PopoverContent>
+  </Popover>
 }
 
 function estadoVisible(oferta: OfertaBodegaAdmin, now: number) {
@@ -85,6 +127,13 @@ export function BodegaOfertasAdmin() {
   const productos = useMemo(() => new Map(catalogo?.productos.map(item => [item.id, item.nombre]) ?? []), [catalogo])
   const presentaciones = useMemo(() => catalogo?.presentaciones.filter(item => item.activo) ?? [], [catalogo])
   const presentacionPorId = useMemo(() => new Map(presentaciones.map(item => [item.id, item])), [presentaciones])
+  const opcionesPresentacion = useMemo(() => presentaciones.map(presentacion => ({
+    id: presentacion.id,
+    productoNombre: productos.get(presentacion.productoId) ?? "Producto",
+    presentacionNombre: presentacion.nombre,
+    factorUnidadBase: presentacion.factorUnidadBase,
+    presentacion,
+  })), [presentaciones, productos])
 
   function iniciarNueva() {
     setEditando(null); setNombre(""); setInicio(ahoraBogotaParaInput()); setFin(""); setLineas([])
@@ -92,17 +141,17 @@ export function BodegaOfertasAdmin() {
   }
 
   function iniciarEdicion(oferta: OfertaBodegaAdmin) {
-    if (oferta.estado !== "ACTIVA" || oferta.inicioEnMillis <= Date.now()) return
+    if (oferta.estado !== "ACTIVA" || oferta.inicioEnMillis <= Date.now() || oferta.lineas.some(line => line.canal === "consumidor_final")) return
     setEditando(oferta.ofertaId); setNombre(oferta.nombre)
     setInicio(fechaBogotaParaInput(oferta.inicioEnMillis))
     setFin(oferta.finEnMillis === null ? "" : fechaBogotaParaInput(oferta.finEnMillis))
-    setLineas(oferta.lineas.map((line, index) => ({ ...line, key: `${oferta.ofertaId}-${index}` })))
+    setLineas(oferta.lineas.map((line, index) => ({ presentacionId: line.presentacionId, precioFinalCOP: line.precioFinalCOP, key: `${oferta.ofertaId}-${index}` })))
     setConfirmarCierre(null); setError(""); setMensaje("")
     document.getElementById("offer-editor")?.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
   function agregarLinea() {
-    setLineas(current => [...current, { key: `line-${Date.now()}-${current.length}`, presentacionId: "", canal: "tienda", precioFinalCOP: 0 }])
+    setLineas(current => [...current, { key: `line-${Date.now()}-${current.length}`, presentacionId: "", precioFinalCOP: 0 }])
   }
 
   function actualizarLinea(key: string, changes: Partial<LineaFormulario>) {
@@ -113,9 +162,9 @@ export function BodegaOfertasAdmin() {
     event.preventDefault()
     setError(""); setMensaje("")
     const invalidLine = lineas.some(line => !line.presentacionId || !Number.isSafeInteger(line.precioFinalCOP) || line.precioFinalCOP <= 0)
-    const keys = lineas.map(line => `${line.presentacionId}:${line.canal}`)
+    const keys = lineas.map(line => line.presentacionId)
     if (!nombre.trim() || !inicio || lineas.length === 0 || invalidLine || new Set(keys).size !== keys.length) {
-      setError("Completa el nombre, la hora de inicio y al menos una línea válida sin presentaciones/canales repetidos.")
+      setError("Completa el nombre, la hora de inicio y al menos una línea válida sin repetir presentaciones.")
       return
     }
     setGuardando(true)
@@ -123,7 +172,7 @@ export function BodegaOfertasAdmin() {
       const payload = {
         nombre: nombre.trim(), inicioLocalBogota: inicio,
         finLocalBogota: fin || null,
-        lineas: lineas.map(line => ({ presentacionId: line.presentacionId, canal: line.canal, precioFinalCOP: line.precioFinalCOP })),
+        lineas: lineas.map(line => ({ presentacionId: line.presentacionId, canal: "tienda" as const, precioFinalCOP: line.precioFinalCOP })),
       }
       const estabaEditando = Boolean(editando)
       if (editando) await actualizarOfertaBodega({ ofertaId: editando, ...payload })
@@ -148,7 +197,7 @@ export function BodegaOfertasAdmin() {
 
   return <div className="space-y-7">
     <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-      <div><p className="text-[11px] font-semibold uppercase tracking-[.18em] text-primary">Promociones Bodega</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Ofertas</h1><p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">Programa precios promocionales por presentación y canal. Las horas se interpretan en Colombia; al vencer, el POS vuelve automáticamente al precio base.</p></div>
+      <div><p className="text-[11px] font-semibold uppercase tracking-[.18em] text-primary">Promociones Bodega</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Ofertas</h1><p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">Programa precios promocionales por presentación del catálogo Bodega. Las horas se interpretan en Colombia; al vencer, el POS vuelve automáticamente al precio base.</p></div>
       <Button type="button" variant="outline" className="shrink-0" onClick={() => { setCargando(true); void actualizarLista() }} disabled={guardando}><RefreshCw className="size-4" />Actualizar</Button>
     </header>
 
@@ -172,8 +221,8 @@ export function BodegaOfertasAdmin() {
             const presentation = presentacionPorId.get(line.presentacionId)
             const productoNombre = presentation ? productos.get(presentation.productoId) ?? "Producto" : ""
             return <div key={line.key} className="grid gap-3 rounded-xl border border-border/70 bg-muted/20 p-3 sm:grid-cols-[minmax(0,2fr)_minmax(130px,1fr)_minmax(150px,1fr)_auto] sm:items-end">
-              <label className="text-sm font-medium">Presentación {index + 1}<select value={line.presentacionId} onChange={event => actualizarLinea(line.key, { presentacionId: event.target.value })} required className="mt-1.5 h-11 w-full rounded-xl border border-border bg-background px-3 font-normal"><option value="">Selecciona producto</option>{presentaciones.map(item => <option key={item.id} value={item.id}>{productos.get(item.productoId) ?? "Producto"} · {item.nombre}</option>)}</select>{presentation && <span className="mt-1 block text-xs font-normal text-muted-foreground">{productoNombre} · factor {presentation.factorUnidadBase}</span>}</label>
-              <label className="text-sm font-medium">Canal<select value={line.canal} onChange={event => actualizarLinea(line.key, { canal: event.target.value as CanalOfertaBodega })} className="mt-1.5 h-11 w-full rounded-xl border border-border bg-background px-3 font-normal"><option value="tienda">Tienda</option><option value="consumidor_final">Consumidor final</option></select></label>
+              <label className="text-sm font-medium">Presentación {index + 1}<SelectorPresentacionOferta opciones={opcionesPresentacion} value={line.presentacionId} onChange={presentacionId => actualizarLinea(line.key, { presentacionId })} />{presentation && <span className="mt-1 block text-xs font-normal text-muted-foreground">{productoNombre} · factor {presentation.factorUnidadBase}</span>}</label>
+              <div className="pb-2 text-sm text-muted-foreground">Catálogo: <span className="font-medium text-foreground">Bodega</span></div>
               <label className="text-sm font-medium">Precio final COP<input type="number" inputMode="numeric" min={1} step={1} value={line.precioFinalCOP || ""} onChange={event => actualizarLinea(line.key, { precioFinalCOP: event.target.value === "" ? 0 : Number(event.target.value) })} required className="mt-1.5 h-11 w-full rounded-xl border border-border bg-background px-3 font-normal" placeholder="0" /></label>
               <Button type="button" size="icon" variant="ghost" aria-label="Quitar presentación" onClick={() => setLineas(current => current.filter(item => item.key !== line.key))}><X className="size-4" /></Button>
             </div>
@@ -192,12 +241,14 @@ export function BodegaOfertasAdmin() {
         : ofertas.length === 0 ? <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center"><CircleCheck className="mx-auto size-8 text-muted-foreground" /><p className="mt-3 font-medium">Todavía no hay ofertas</p><p className="mt-1 text-sm text-muted-foreground">Cuando programes una, aparecerá aquí.</p></div>
           : <div className="grid gap-3">{ofertas.map(oferta => {
             const status = estadoVisible(oferta, ahora)
-            const editable = oferta.estado === "ACTIVA" && oferta.inicioEnMillis > ahora
+            const hasLegacyConsumerLine = oferta.lineas.some(line => line.canal === "consumidor_final")
+            const editable = oferta.estado === "ACTIVA" && oferta.inicioEnMillis > ahora && !hasLegacyConsumerLine
             return <article key={oferta.ofertaId} className="rounded-2xl border border-border/70 bg-card p-4 shadow-xs sm:p-5">
               <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="truncate text-base font-semibold">{oferta.nombre}</h3><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${status.className}`}>{status.label}</span></div><p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground"><Clock3 className="size-4 shrink-0" />{mostrarFechaBogota(oferta.inicioEnMillis)}{oferta.finEnMillis === null ? " · Sin vencimiento" : ` – ${mostrarFechaBogota(oferta.finEnMillis)}`}</p></div>
                 <div className="flex shrink-0 flex-wrap gap-2">{editable && <Button type="button" size="sm" variant="outline" onClick={() => iniciarEdicion(oferta)} disabled={guardando}>Editar</Button>}{oferta.estado === "ACTIVA" && (confirmarCierre === oferta.ofertaId ? <><Button type="button" size="sm" variant="destructive" onClick={() => void cerrar(oferta.ofertaId)} disabled={guardando}>Confirmar cierre</Button><Button type="button" size="sm" variant="ghost" onClick={() => setConfirmarCierre(null)}>Cancelar</Button></> : <Button type="button" size="sm" variant="outline" onClick={() => setConfirmarCierre(oferta.ofertaId)} disabled={guardando}>Cerrar oferta</Button>)}</div>
               </div>
-              <ul className="mt-4 grid gap-2 sm:grid-cols-2">{oferta.lineas.map((line, index) => { const presentation = presentacionPorId.get(line.presentacionId); return <li key={`${line.presentacionId}-${line.canal}-${index}`} className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-muted/35 px-3 py-2.5 text-sm"><span className="min-w-0 truncate">{presentation ? `${productos.get(presentation.productoId) ?? "Producto"} · ${presentation.nombre}` : "Presentación no disponible"}<span className="ml-1 text-xs text-muted-foreground">({line.canal === "tienda" ? "Tienda" : "Consumidor final"})</span></span><span className="shrink-0 font-semibold tabular-nums">{moneda(line.precioFinalCOP)}</span></li> })}</ul>
+              {hasLegacyConsumerLine && <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">Esta oferta conserva una línea histórica de consumidor final; se muestra sin editar para no convertirla en una oferta del catálogo Bodega.</p>}
+              <ul className="mt-4 grid gap-2 sm:grid-cols-2">{oferta.lineas.map((line, index) => { const presentation = presentacionPorId.get(line.presentacionId); return <li key={`${line.presentacionId}-${line.canal ?? "catalog"}-${index}`} className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-muted/35 px-3 py-2.5 text-sm"><span className="min-w-0 truncate">{presentation ? `${productos.get(presentation.productoId) ?? "Producto"} · ${presentation.nombre}` : "Presentación no disponible"}<span className="ml-1 text-xs text-muted-foreground">({line.canal === "consumidor_final" ? "Consumidor final · legado" : "Catálogo Bodega"})</span></span><span className="shrink-0 font-semibold tabular-nums">{moneda(line.precioFinalCOP)}</span></li> })}</ul>
             </article>
           })}</div>}
       <p className="text-xs leading-relaxed text-muted-foreground">La consulta y los cambios usan la sesión del tenant actual. Los precios de ofertas pasadas no modifican ventas o solicitudes ya registradas.</p>

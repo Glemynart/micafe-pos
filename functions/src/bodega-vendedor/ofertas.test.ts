@@ -70,23 +70,55 @@ function payload(overrides: Data = {}) {
 
 test("oferta: alta admin guarda UTC Bogotá y aplica solo dentro de su ventana", async () => {
   const db = new FakeDb(); seed(db);
-  const created = await ejecutarCrearOfertaBodegaV1(db, admin, envelope("crear", payload())) as any;
+  const created = await ejecutarCrearOfertaBodegaV1(db, admin, envelope("crear", payload({
+    lineas: [{ presentacionId: "presentacion-ofertas", precioFinalCOP: 800 }],
+  }))) as any;
   const stored = db.docs.get(`ofertas_bodega/${created.ofertaId}`)!;
+  assert.equal(stored.catalogoId, "BODEGA");
+  assert.equal(stored.lineas[0].canal, undefined, "las ofertas nuevas se guardan por catálogo y presentación");
   assert.equal(stored.inicioEn.toMillis(), Date.UTC(2026, 9, 26, 13, 0));
   assert.equal(stored.finEn.toMillis(), Date.UTC(2026, 9, 26, 15, 0));
-  const price = async (now: number) => db.runTransaction(tx => resolverOfertaPrecioBodegaEnTransaccion(tx, db, empresaId, { presentacionId: "presentacion-ofertas", canal: "tienda", precioBaseCOP: 1_000 }, now));
+  const price = async (now: number) => db.runTransaction(tx => resolverOfertaPrecioBodegaEnTransaccion(tx, db, empresaId, { presentacionId: "presentacion-ofertas", precioBaseCOP: 1_000 }, now));
   assert.deepEqual(await price(Date.UTC(2026, 9, 26, 12, 59)), { ofertaId: null, precioAplicadoCOP: 1_000 });
   assert.deepEqual(await price(Date.UTC(2026, 9, 26, 13, 0)), { ofertaId: created.ofertaId, precioAplicadoCOP: 800 });
   assert.deepEqual(await price(Date.UTC(2026, 9, 26, 14, 59)), { ofertaId: created.ofertaId, precioAplicadoCOP: 800 });
   assert.deepEqual(await price(Date.UTC(2026, 9, 26, 15, 0)), { ofertaId: null, precioAplicadoCOP: 1_000 });
 });
 
-test("oferta: falla cerrada para vendedor, precio por encima de base y solape de presentación/canal", async () => {
+test("oferta: falla cerrada para vendedor, precio por encima de base y solape de presentación", async () => {
   const db = new FakeDb(); seed(db);
   await assert.rejects(ejecutarCrearOfertaBodegaV1(db, vendedor, envelope("vendedor", payload())), error => domain(error, "ROLE_FORBIDDEN"));
   await assert.rejects(ejecutarCrearOfertaBodegaV1(db, admin, envelope("cara", payload({ lineas: [{ presentacionId: "presentacion-ofertas", canal: "tienda", precioFinalCOP: 1_001 }] }))), error => domain(error, "PRECIO_OFERTA_SUPERA_BASE"));
-  await ejecutarCrearOfertaBodegaV1(db, admin, envelope("primera", payload()));
+  const primera = await ejecutarCrearOfertaBodegaV1(db, admin, envelope("primera", payload())) as any;
+  assert.equal(db.docs.get(`ofertas_bodega/${primera.ofertaId}`)!.lineas[0].canal, "tienda", "se conserva canal tienda para compatibilidad con resolvedores aún desplegados");
+  const legacyClientPrice = await db.runTransaction(tx => resolverOfertaPrecioBodegaEnTransaccion(
+    tx, db, empresaId, { presentacionId: "presentacion-ofertas", precioBaseCOP: 1_000 }, Date.UTC(2026, 9, 26, 13),
+  ));
+  assert.deepEqual(legacyClientPrice, { ofertaId: primera.ofertaId, precioAplicadoCOP: 800 });
   await assert.rejects(ejecutarCrearOfertaBodegaV1(db, admin, envelope("solape", payload({ inicioLocalBogota: "2026-10-26T09:00" }))), error => domain(error, "OFERTA_SUPERPUESTA"));
+});
+
+test("oferta: la callable Bodega rechaza precios de consumidor final", async () => {
+  const db = new FakeDb(); seed(db);
+  const consumerLine = [{ presentacionId: "presentacion-ofertas", canal: "consumidor_final", precioFinalCOP: 1_200 }];
+  await assert.rejects(
+    ejecutarCrearOfertaBodegaV1(db, admin, envelope("canal-retail", payload({ lineas: consumerLine }))),
+    error => domain(error, "PRECIO_CONSUMIDOR_FINAL_PERTENECE_A_NEVERA"),
+  );
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("ofertas_bodega/")), false);
+});
+
+test("oferta: la callable Bodega rechaza presentaciones identificadas como Nevera", async () => {
+  const db = new FakeDb(); seed(db);
+  db.docs.set("productos/producto-nevera", { empresaId, catalogoId: "NEVERA", nombre: "Producto retail", unidadMedida: "unidad", espacioId: "espacio", activo: true, costo: 100 });
+  db.docs.set("presentaciones_producto/presentacion-nevera", { empresaId, catalogoId: "NEVERA", productoId: "producto-nevera", nombre: "Unidad", factorUnidadBase: 1, precioCOP: 1_500, precioTiendaCOP: 1_500, activo: true });
+  await assert.rejects(
+    ejecutarCrearOfertaBodegaV1(db, admin, envelope("oferta-presentacion-nevera", payload({
+      lineas: [{ presentacionId: "presentacion-nevera", precioFinalCOP: 1_200 }],
+    }))),
+    error => domain(error, "PRESENTACION_OFERTA_FUERA_CATALOGO_BODEGA"),
+  );
+  assert.equal([...db.docs.keys()].some(path => path.startsWith("ofertas_bodega/")), false);
 });
 
 test("oferta: cierre manual deja de aplicar y un cierre repetido no modifica de nuevo la oferta", async () => {
@@ -95,7 +127,7 @@ test("oferta: cierre manual deja de aplicar y un cierre repetido no modifica de 
   const first = await ejecutarCerrarOfertaBodegaV1(db, admin, envelope("cerrar", { ofertaId: created.ofertaId })) as any;
   const second = await ejecutarCerrarOfertaBodegaV1(db, admin, envelope("cerrar-otra-vez", { ofertaId: created.ofertaId })) as any;
   assert.equal(first.idempotente, false); assert.equal(second.idempotente, true);
-  const effective = await db.runTransaction(tx => resolverOfertaPrecioBodegaEnTransaccion(tx, db, empresaId, { presentacionId: "presentacion-ofertas", canal: "tienda", precioBaseCOP: 1_000 }, Date.UTC(2026, 9, 27)));
+  const effective = await db.runTransaction(tx => resolverOfertaPrecioBodegaEnTransaccion(tx, db, empresaId, { presentacionId: "presentacion-ofertas", precioBaseCOP: 1_000 }, Date.UTC(2026, 9, 27)));
   assert.deepEqual(effective, { ofertaId: null, precioAplicadoCOP: 1_000 });
 });
 
@@ -117,6 +149,45 @@ test("oferta: consulta devuelve DTO limitado al tenant y solo permite admin con 
   assert.equal("creadoPor" in result.ofertas[0], false);
   await assert.rejects(ejecutarConsultarOfertasBodegaV1(db, vendedor, {}), error => domain(error, "ROLE_FORBIDDEN"));
   await assert.rejects(ejecutarConsultarOfertasBodegaV1(db, admin, { empresaId }), error => domain(error, "PAYLOAD_OFERTA_INVALIDO"));
+});
+
+test("oferta: consulta Bodega excluye Nevera y conserva las líneas históricas de solo lectura", async () => {
+  const db = new FakeDb(); seed(db);
+  const legacyRef = "ofertas_bodega/oferta-legada";
+  db.docs.set(legacyRef, {
+    empresaId, nombre: "Histórica", estado: "ACTIVA", inicioEn: Timestamp.fromMillis(Date.UTC(2099, 5, 1, 13)), finEn: null,
+    lineas: [{ presentacionId: "presentacion-ofertas", canal: "consumidor_final", precioFinalCOP: 1_200 }],
+  });
+  db.docs.set("ofertas_bodega/oferta-nevera", {
+    empresaId, catalogoId: "NEVERA", nombre: "Nevera", estado: "ACTIVA", inicioEn: Timestamp.fromMillis(Date.UTC(2099, 5, 1, 13)), finEn: null,
+    lineas: [{ presentacionId: "presentacion-ofertas", precioFinalCOP: 700 }],
+  });
+
+  const result = await ejecutarConsultarOfertasBodegaV1(db, admin, {}) as any;
+  assert.deepEqual(result.ofertas.map((offer: Data) => offer.ofertaId), ["oferta-legada"]);
+  assert.equal(result.ofertas[0].lineas[0].canal, "consumidor_final");
+  await assert.rejects(
+    ejecutarActualizarOfertaBodegaV1(db, admin, envelope("editar-legada", {
+      ofertaId: "oferta-legada", nombre: "Convertida", inicioLocalBogota: "2099-06-01T08:00", finLocalBogota: null,
+      lineas: [{ presentacionId: "presentacion-ofertas", canal: "tienda", precioFinalCOP: 900 }],
+    }), Date.UTC(2099, 4, 1)),
+    error => domain(error, "OFERTA_LEGADA_FUERA_DE_CATALOGO_BODEGA"),
+  );
+  await assert.rejects(
+    ejecutarCerrarOfertaBodegaV1(db, admin, envelope("cerrar-nevera", { ofertaId: "oferta-nevera" })),
+    error => domain(error, "OFERTA_FUERA_CATALOGO_BODEGA"),
+  );
+  await assert.rejects(
+    ejecutarActualizarOfertaBodegaV1(db, admin, envelope("editar-nevera", {
+      ofertaId: "oferta-nevera", nombre: "Cambio", inicioLocalBogota: "2099-06-01T08:00", finLocalBogota: null,
+      lineas: [{ presentacionId: "presentacion-ofertas", precioFinalCOP: 600 }],
+    }), Date.UTC(2099, 4, 1)),
+    error => domain(error, "OFERTA_FUERA_CATALOGO_BODEGA"),
+  );
+  const effective = await db.runTransaction(tx => resolverOfertaPrecioBodegaEnTransaccion(
+    tx, db, empresaId, { presentacionId: "presentacion-ofertas", precioBaseCOP: 1_000 }, Date.UTC(2099, 5, 1, 14),
+  ));
+  assert.deepEqual(effective, { ofertaId: null, precioAplicadoCOP: 1_000 });
 });
 
 test("oferta: edición auditada permite cambiar una programación futura y replays conservan el resultado", async () => {
@@ -142,6 +213,7 @@ test("oferta: edición auditada permite cambiar una programación futura y repla
   const saved = db.docs.get(`ofertas_bodega/${created.ofertaId}`)!;
   assert.equal(saved.revision, 2);
   assert.equal(saved.nombre, "Oferta actualizada");
+  assert.equal(saved.lineas[0].canal, "tienda", "se conserva canal tienda en la edición para compatibilidad con resolvedores aún desplegados");
   const audit = [...db.docs.values()].find(value => value.tipo === "actualizarOfertaBodegaV1");
   assert.deepEqual((audit?.referencias as Data).antes, primera.antes);
   assert.deepEqual((audit?.referencias as Data).despues, primera.despues);

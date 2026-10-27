@@ -142,7 +142,6 @@ export async function resolverVentaBodegaEnTransaccion(
     }, canal);
     const precio = await resolverOfertaPrecioBodegaEnTransaccion(tx, db, contexto.empresaId, {
       presentacionId: comercial.id,
-      canal,
       precioBaseCOP: comercial.precioCOP,
     });
     const linea = resolverLinea(comercial, intento.cantidad, canal, precio);

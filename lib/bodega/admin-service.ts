@@ -7,6 +7,7 @@ import { proyectarVentaBodegaAdmin, type VentaBodegaAdminDTO } from "@/lib/bodeg
 import type { Cliente } from "@/lib/clientes-service"
 import { proyectarProductoBodegaAdmin, type ProductoBodegaAdmin } from "@/lib/bodega/product-admin-projection"
 import type { CatalogImportSnapshot } from "@/lib/bodega/diana-catalog-import"
+import { perteneceAlCatalogo } from "@/lib/bodega/catalog-scope"
 
 export type { ProductoBodegaAdmin } from "@/lib/bodega/product-admin-projection"
 
@@ -27,8 +28,15 @@ export type VentaBodegaAdmin = VentaBodegaAdminDTO
 export type CanalOfertaBodega = "tienda" | "consumidor_final"
 export interface LineaOfertaBodegaAdmin {
   presentacionId: string
-  canal: CanalOfertaBodega
+  /** Present only on historical channel-based lines; new offers are scoped by catalog + presentation. */
+  canal?: CanalOfertaBodega
   precioFinalCOP: number
+}
+export interface LineaOfertaBodegaInput {
+  presentacionId: string
+  precioFinalCOP: number
+  /** Transitional payload for Functions deployed before the catalog-based contract. */
+  canal?: "tienda"
 }
 export interface OfertaBodegaAdmin {
   ofertaId: string
@@ -104,14 +112,20 @@ export async function obtenerSnapshotCatalogoBodega(): Promise<CatalogImportSnap
     getDocs(productsQuery),
     getDocs(presentationsQuery),
   ])
+  const categoriasBodega = categories.docs.filter(doc => perteneceAlCatalogo(doc.data(), "BODEGA"))
+  const productosBodega = products.docs.filter(doc => perteneceAlCatalogo(doc.data(), "BODEGA"))
+  const productoIdsBodega = new Set(productosBodega.map(doc => doc.id))
+  const presentacionesBodega = presentations.docs.filter(doc =>
+    perteneceAlCatalogo(doc.data(), "BODEGA") && productoIdsBodega.has(String(doc.data().productoId ?? "")),
+  )
   return {
-    categorias: categories.docs.map(doc => ({
+    categorias: categoriasBodega.map(doc => ({
       id: doc.id,
       nombre: String(doc.data().nombre ?? doc.id),
       espacioId: String(doc.data().espacioId ?? ""),
     })),
-    productos: products.docs.map(doc => proyectarProductoBodegaAdmin(doc.id, doc.data())),
-    presentaciones: presentations.docs.map(doc => ({
+    productos: productosBodega.map(doc => proyectarProductoBodegaAdmin(doc.id, doc.data())),
+    presentaciones: presentacionesBodega.map(doc => ({
       id: doc.id,
       productoId: String(doc.data().productoId ?? ""),
       nombre: String(doc.data().nombre ?? ""),
@@ -165,7 +179,7 @@ export async function crearOfertaBodega(payload: {
   nombre: string
   inicioLocalBogota: string
   finLocalBogota: string | null
-  lineas: LineaOfertaBodegaAdmin[]
+  lineas: LineaOfertaBodegaInput[]
 }): Promise<{ ofertaId: string; estado: "ACTIVA" }> {
   return ejecutarComandoBodega<{ ofertaId: string; estado: "ACTIVA" }>("crearOfertaBodegaV1", "oferta", payload)
 }
@@ -175,7 +189,7 @@ export async function actualizarOfertaBodega(payload: {
   nombre: string
   inicioLocalBogota: string
   finLocalBogota: string | null
-  lineas: LineaOfertaBodegaAdmin[]
+  lineas: LineaOfertaBodegaInput[]
 }): Promise<{ ofertaId: string; estado: "ACTIVA"; revision: number }> {
   return ejecutarComandoBodega<{ ofertaId: string; estado: "ACTIVA"; revision: number }>("actualizarOfertaBodegaV1", "oferta-edicion", payload)
 }
