@@ -22,10 +22,10 @@ const row = {
   salesPriceCop: 4500,
   sourceCostCop: 3000,
   costBasis: "UNIDAD BASE" as const,
-  costCopPerBaseUnit: 3000,
+  costCopPerPresentation: 3000,
 };
 const plan = {
-  planSchemaVersion: "1.0",
+  planSchemaVersion: "1.1",
   mode: "offline-review-only",
   sourceSha256,
   reviewSha256,
@@ -33,7 +33,7 @@ const plan = {
     status: "requires-human-review",
     granularity: "one-presentation-per-store-source-row",
     salesPriceSource: "PRECIOS A TIENDA.PRECIO VENTA",
-    costPolicy: "AL COSTO exact per base unit; no automatic markup",
+    costPolicy: "AL COSTO exact per presentation; no automatic markup",
     productGroupingInferred: false,
     presentations: [row],
   },
@@ -48,7 +48,7 @@ test("accepts only a complete offline plan with the approved category taxonomy",
   assert.deepEqual(validarPlanImportacionCatalogo(plan), []);
   assert.ok(validarPlanImportacionCatalogo({ ...plan, proposal: { ...plan.proposal, presentations: [{ ...row, category: "Licores" }] } }).length > 0);
   assert.ok(validarPlanImportacionCatalogo({ ...plan, initialStockIncluded: true }).length > 0);
-  assert.ok(validarPlanImportacionCatalogo({ ...plan, proposal: { ...plan.proposal, presentations: [{ ...row, costCopPerBaseUnit: 2000 }] } }).length > 0);
+  assert.ok(validarPlanImportacionCatalogo({ ...plan, proposal: { ...plan.proposal, presentations: [{ ...row, costCopPerPresentation: 2000 }] } }).length > 0);
 });
 
 test("builds stable product identifiers and flags unrelated same-name products", () => {
@@ -57,7 +57,7 @@ test("builds stable product identifiers and flags unrelated same-name products",
   const productId = crearIdInternoCatalogo(tenantId, `producto:${commandId}`);
   assert.equal(productId, crearIdentificadorInterno(tenantId, `producto:${commandId}`));
   const prepared = prepararImportacionCatalogo(plan, tenantId, spaceId, {
-    categorias: [], productos: [{ id: "manual-product", nombre: row.name, categoriaId: "cat", espacioId: spaceId, unidad: "unidad", costoUnidadBaseCOP: 3000, stock: 0, stockMinimo: 0, activo: true }],
+    categorias: [], productos: [{ id: "manual-product", nombre: row.name, categoriaId: "cat", espacioId: spaceId, unidad: "unidad", costoUnidadBaseCOP: 0, stock: 0, stockMinimo: 0, activo: true }],
     presentaciones: [],
   });
   assert.ok(prepared.errores.some(error => error.includes("ya existe")));
@@ -88,8 +88,8 @@ test("recognizes an identical prior row and allows safe resume", () => {
   const categoryId = crearIdInternoCatalogo(tenantId, `categoria:${categoryCommandId}`);
   const prepared = prepararImportacionCatalogo(plan, tenantId, spaceId, {
     categorias: [{ id: categoryId, nombre: row.category, espacioId: spaceId }],
-    productos: [{ id: productId, nombre: row.name, categoriaId: categoryId, espacioId: spaceId, unidad: row.baseUnit, costoUnidadBaseCOP: row.costCopPerBaseUnit, stock: 0, stockMinimo: 0, activo: true }],
-    presentaciones: [{ id: presentationId, productoId: productId, nombre: row.presentation, factorUnidadBase: row.unitsPerPresentation, precioCOP: row.salesPriceCop, activo: true }],
+    productos: [{ id: productId, nombre: row.name, categoriaId: categoryId, espacioId: spaceId, unidad: row.baseUnit, costoUnidadBaseCOP: 0, stock: 0, stockMinimo: 0, activo: true }],
+    presentaciones: [{ id: presentationId, productoId: productId, nombre: row.presentation, factorUnidadBase: row.unitsPerPresentation, precioCOP: row.salesPriceCop, costoPresentacionCOP: row.costCopPerPresentation, activo: true }],
   });
   assert.deepEqual(prepared.errores, []);
   assert.equal(prepared.resumen.productosPorCrear, 0);
@@ -121,6 +121,16 @@ test("imports through server-authoritative commands in order and always starts s
   assert.equal(productPayload.articuloTipo, "producto");
   assert.equal(productPayload.data.stock, 0);
   assert.equal(productPayload.data.stockMinimo, 0);
+  assert.equal(productPayload.data.costo, 0);
+  assert.equal(calls[2].payload.costoPresentacionCOP, row.costCopPerPresentation);
   assert.equal(result.productosCreados, 1);
   assert.equal(result.presentacionesCreadas, 1);
+});
+
+test("preserves a source package cost that cannot divide into whole COP base units", () => {
+  const packageRow = { ...row, unitsPerPresentation: 12, sourceCostCop: 19_000, costBasis: "PRESENTACION / EMPAQUE" as const, costCopPerPresentation: 19_000 };
+  const packagePlan = { ...plan, proposal: { ...plan.proposal, presentations: [packageRow] } };
+  assert.deepEqual(validarPlanImportacionCatalogo(packagePlan), []);
+  const prepared = prepararImportacionCatalogo(packagePlan, tenantId, spaceId, { categorias: [], productos: [], presentaciones: [] });
+  assert.deepEqual(prepared.errores, []);
 });

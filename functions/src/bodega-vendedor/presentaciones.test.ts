@@ -6,6 +6,7 @@ import {
   ejecutarCrearPresentacionComercialV1,
   normalizarReferenciaPresentacionComercial,
   resolverPrecioCanalBodega,
+  resolverComercialBodegaEnTransaccion,
   resolverPresentacionComercialEnTransaccion,
 } from "./presentaciones";
 import { crearIdentificadorInterno } from "../turnos/identificadores";
@@ -89,7 +90,7 @@ function seed(db: FakeFirestore, empresaId = "empresa-a") {
   db.docs.set(`membresias/${empresaId}_admin-a`, { empresaId, uid: "admin-a", rol: "admin", permisos: ["inventory"], estado: "activa", activo: true });
   db.docs.set(`membresias/${empresaId}_vendedor-a`, { empresaId, uid: "vendedor-a", rol: "vendedor", permisos: ["sell"], estado: "activa", activo: true });
   db.docs.set(`configuraciones/${empresaId}`, { empresaId, vertical: "BODEGA_MVP1", modulos: { habilitados: ["inventory", "sell"] } });
-  db.docs.set(`productos/producto-${empresaId}`, { empresaId, nombre: `Producto ${empresaId}`, unidad: "unidad", activo: true, stock: 50, costo: 700 });
+  db.docs.set(`productos/producto-${empresaId}`, { empresaId, nombre: `Producto ${empresaId}`, unidad: "unidad", espacioId: "espacio-bodega", activo: true, stock: 50, costo: 700 });
 }
 
 function payload(productoId: string, factorUnidadBase: number, precioCOP: number, nombre = "Unidad") {
@@ -237,6 +238,24 @@ test("ADR-092: no acepta tarifas de tienda inconsistentes y permite retirar una 
   });
   await ejecutarActualizarPresentacionComercialV1(db, adminA, envelope("retirar-retail", { presentacionId: creada.presentacionId, precioConsumidorFinalCOP: null }));
   assert.equal(db.docs.get(`presentaciones_producto/${creada.presentacionId}`)?.precioConsumidorFinalCOP, null);
+});
+
+test("ADR-093: conserva costo exacto por presentación sin redondear la unidad base", async () => {
+  const db = new FakeFirestore(); seed(db);
+  const creada = await create(db, "costo-empaque", {
+    productoId: "producto-empresa-a",
+    nombre: "Caja x 12",
+    factorUnidadBase: 12,
+    precioTiendaCOP: 24_000,
+    costoPresentacionCOP: 19_000,
+  });
+  const canonica = await db.runTransaction(tx => resolverPresentacionComercialEnTransaccion(tx, db, "empresa-a", { productoId: "producto-empresa-a", presentacionId: creada.presentacionId }));
+  assert.equal(canonica.costoPresentacionCOP, 19_000);
+  const comercial = await db.runTransaction(tx => resolverComercialBodegaEnTransaccion(tx, db, "empresa-a", { productoId: "producto-empresa-a", presentacionId: creada.presentacionId }));
+  assert.equal(comercial.costoPresentacionCOP, 19_000);
+  await assert.rejects(create(db, "costo-invalido", {
+    productoId: "producto-empresa-a", nombre: "Caja inválida", factorUnidadBase: 12, precioTiendaCOP: 24_000, costoPresentacionCOP: 19_000.5,
+  }), /COSTO_PRESENTACION_COP_INVALIDO/);
 });
 
 test("U2-B: acepta referencias de presentación generadas por el identificador interno canónico", () => {

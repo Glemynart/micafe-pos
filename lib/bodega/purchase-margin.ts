@@ -3,6 +3,8 @@ export interface PresentacionPrecioVenta {
   nombre: string
   factorUnidadBase: number
   precioCOP: number
+  /** Exact package cost when the supplier cost cannot be represented per unit. */
+  costoPresentacionCOP?: number | null
   activo: boolean
 }
 
@@ -27,10 +29,13 @@ export function proyectarMargenCompraPorPresentaciones(
       && presentacion.precioCOP > 0,
     )
     .map((presentacion) => {
-      const costoCalculado = costoCompraValido
-        ? costoCompraUnidadBase * presentacion.factorUnidadBase
-        : Number.NaN;
-      const costoPresentacionCOP = Number.isSafeInteger(costoCalculado) ? costoCalculado : null;
+      const costoDirecto = presentacion.costoPresentacionCOP;
+      const costoCalculado = Number.isSafeInteger(costoDirecto) && (costoDirecto as number) > 0
+        ? costoDirecto
+        : costoCompraValido
+          ? costoCompraUnidadBase * presentacion.factorUnidadBase
+          : Number.NaN;
+      const costoPresentacionCOP: number | null = Number.isSafeInteger(costoCalculado) ? Number(costoCalculado) : null;
       const utilidadCalculada = costoPresentacionCOP === null
         ? Number.NaN
         : presentacion.precioCOP - costoPresentacionCOP;

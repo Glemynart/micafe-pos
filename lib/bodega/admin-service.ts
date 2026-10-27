@@ -18,6 +18,7 @@ export interface PresentacionBodegaAdmin {
   precioCOP: number
   precioTiendaCOP: number
   precioConsumidorFinalCOP: number | null
+  costoPresentacionCOP: number | null
   activo: boolean
 }
 
@@ -54,7 +55,8 @@ export const suscribirPresentacionesBodegaAdmin = (
   (id, data) => {
     const precioTiendaCOP = Number(data.precioTiendaCOP ?? data.precioCOP ?? 0)
     const precioConsumidorFinalCOP = Number(data.precioConsumidorFinalCOP)
-    return { id, productoId: String(data.productoId ?? ""), nombre: String(data.nombre ?? ""), factorUnidadBase: Number(data.factorUnidadBase ?? 0), precioCOP: precioTiendaCOP, precioTiendaCOP, precioConsumidorFinalCOP: Number.isSafeInteger(precioConsumidorFinalCOP) && precioConsumidorFinalCOP > 0 ? precioConsumidorFinalCOP : null, activo: data.activo === true }
+    const costoPresentacionCOP = Number(data.costoPresentacionCOP)
+    return { id, productoId: String(data.productoId ?? ""), nombre: String(data.nombre ?? ""), factorUnidadBase: Number(data.factorUnidadBase ?? 0), precioCOP: precioTiendaCOP, precioTiendaCOP, precioConsumidorFinalCOP: Number.isSafeInteger(precioConsumidorFinalCOP) && precioConsumidorFinalCOP > 0 ? precioConsumidorFinalCOP : null, costoPresentacionCOP: Number.isSafeInteger(costoPresentacionCOP) && costoPresentacionCOP > 0 ? costoPresentacionCOP : null, activo: data.activo === true }
   },
   callback,
   onError,
@@ -98,6 +100,7 @@ export async function obtenerSnapshotCatalogoBodega(): Promise<CatalogImportSnap
       nombre: String(doc.data().nombre ?? ""),
       factorUnidadBase: Number(doc.data().factorUnidadBase ?? 0),
       precioCOP: Number(doc.data().precioTiendaCOP ?? doc.data().precioCOP ?? 0),
+      costoPresentacionCOP: Number.isSafeInteger(Number(doc.data().costoPresentacionCOP)) && Number(doc.data().costoPresentacionCOP) > 0 ? Number(doc.data().costoPresentacionCOP) : null,
       activo: doc.data().activo === true,
     })),
   }
@@ -119,11 +122,11 @@ async function ejecutarComandoBodega<T>(nombre: string, prefijo: string, payload
   return result.data as T
 }
 
-export async function crearPresentacionBodega(payload: { productoId: string; nombre: string; factorUnidadBase: number; precioTiendaCOP: number; precioConsumidorFinalCOP?: number }) {
+export async function crearPresentacionBodega(payload: { productoId: string; nombre: string; factorUnidadBase: number; precioTiendaCOP: number; precioConsumidorFinalCOP?: number; costoPresentacionCOP?: number }) {
   await ejecutarComandoBodega("crearPresentacionComercialV1", "presentacion", { ...payload, activo: true })
 }
 
-export async function actualizarPresentacionBodega(payload: { presentacionId: string; nombre?: string; factorUnidadBase?: number; precioTiendaCOP?: number; precioConsumidorFinalCOP?: number | null; activo?: boolean }) {
+export async function actualizarPresentacionBodega(payload: { presentacionId: string; nombre?: string; factorUnidadBase?: number; precioTiendaCOP?: number; precioConsumidorFinalCOP?: number | null; costoPresentacionCOP?: number; activo?: boolean }) {
   await ejecutarComandoBodega("actualizarPresentacionComercialV1", "presentacion", payload)
 }
 

@@ -86,7 +86,8 @@ async function resolverClienteBodegaEnTransaccion(tx: any, db: any, empresaId: s
 function resolverLinea(comercial: ResolucionComercialBodega, cantidadPresentaciones: number): LineaComercialBodegaResuelta {
   const cantidadUnidadBase = productoSeguro(cantidadPresentaciones, comercial.factorUnidadBase, "CANTIDAD_UNIDAD_BASE_INVALIDA");
   const subtotalCOP = productoSeguro(cantidadPresentaciones, comercial.precioCOP, "SUBTOTAL_BODEGA_INVALIDO");
-  const costoPresentacionCOP = productoNoNegativoSeguro(comercial.factorUnidadBase, comercial.costoUnidadBaseCOP, "COSTO_PRESENTACION_INVALIDO");
+  const costoPresentacionCOP = comercial.costoPresentacionCOP;
+  if (!Number.isSafeInteger(costoPresentacionCOP) || costoPresentacionCOP < 0) fail("failed-precondition", "COSTO_PRESENTACION_INVALIDO");
   const costoTotalLineaCOP = productoNoNegativoSeguro(cantidadPresentaciones, costoPresentacionCOP, "COSTO_TOTAL_BODEGA_INVALIDO");
   return {
     productoId: comercial.productoId,
