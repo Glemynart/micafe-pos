@@ -163,7 +163,7 @@ test("G-SAAS-02: crear producto acepta el ID determinista largo de categoría de
 });
 
 test("G-SAAS-02: crear producto rechaza IDs de categoría que no caben en una referencia Firestore", async () => {
-  for (const categoriaId of ["x".repeat(1501), "categoria/con-separador"]) {
+  for (const categoriaId of ["x".repeat(1501), "é".repeat(751), "categoria/con-separador", ".", "..", "__system__"]) {
     const db = new FakeFirestore(); seedAuth(db);
     const before = structuredClone([...db.docs.entries()]);
     await assert.rejects(
