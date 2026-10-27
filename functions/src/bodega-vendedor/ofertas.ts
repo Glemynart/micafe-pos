@@ -16,6 +16,7 @@ import {
 
 const COLLECTION = "ofertas_bodega";
 const MAX_LINES = 200;
+const MAX_LISTED_OFFERS = 500;
 const fail = (code: HttpsError["code"], domain: string): never => {
   throw new HttpsError(code, "No fue posible gestionar la oferta Bodega.", { code: domain });
 };
@@ -97,6 +98,25 @@ function normalizeClose(payload: unknown) {
   return { ofertaId: requiredText(data.ofertaId, "OFERTA_ID_INVALIDO", 1024) };
 }
 
+function normalizeUpdate(payload: unknown) {
+  if (!object(payload)) fail("invalid-argument", "PAYLOAD_OFERTA_INVALIDO");
+  const data = payload as Record<string, unknown>;
+  only(data, ["ofertaId", "nombre", "inicioLocalBogota", "finLocalBogota", "lineas"]);
+  const ofertaId = requiredText(data.ofertaId, "OFERTA_ID_INVALIDO", 1024);
+  const cambios = normalizeCreate({
+    nombre: data.nombre,
+    inicioLocalBogota: data.inicioLocalBogota,
+    finLocalBogota: data.finLocalBogota,
+    lineas: data.lineas,
+  });
+  return { ofertaId, cambios };
+}
+
+function normalizeRead(payload: unknown) {
+  if (payload === undefined) return;
+  if (!object(payload) || Object.keys(payload).length !== 0) fail("invalid-argument", "PAYLOAD_OFERTA_INVALIDO");
+}
+
 function isOpen(value: Record<string, unknown>) {
   return value.estado === "ACTIVA" && value.cerradaEn === undefined;
 }
@@ -110,9 +130,10 @@ function lineasDeOferta(value: Record<string, unknown>): LineaOferta[] {
   catch { return fail("failed-precondition", "OFERTA_PERSISTIDA_INVALIDA"); }
 }
 
-async function validarSinSolapes(tx: any, db: any, empresaId: string, entrada: ReturnType<typeof normalizeCreate>) {
+async function validarSinSolapes(tx: any, db: any, empresaId: string, entrada: ReturnType<typeof normalizeCreate>, excluirOfertaId?: string) {
   const offers = await tx.get(db.collection(COLLECTION).where("empresaId", "==", empresaId));
   for (const snapshot of offers.docs) {
+    if (snapshot.id === excluirOfertaId) continue;
     const actual = snapshot.data() as Record<string, unknown>;
     if (!isOpen(actual)) continue;
     const inicio = millis(actual.inicioEn); const fin = actual.finEn === null ? null : millis(actual.finEn);
@@ -156,9 +177,9 @@ async function crearOferta(tx: any, db: any, empresaId: string, actorUid: string
   if ((await tx.get(ref)).exists) fail("already-exists", "COMMAND_ID_CONFLICT");
   tx.create(ref, {
     id: ofertaId, empresaId, nombre: entrada.nombre, estado: "ACTIVA", inicioEn: entrada.inicioEn, finEn: entrada.finEn,
-    lineas: entrada.lineas, creadoPor: actorUid, creadoEn: FieldValue.serverTimestamp(), actualizadoEn: FieldValue.serverTimestamp(),
+    lineas: entrada.lineas, revision: 1, creadoPor: actorUid, creadoEn: FieldValue.serverTimestamp(), actualizadoEn: FieldValue.serverTimestamp(),
   });
-  return { commandId: input.commandId, ofertaId, estado: "ACTIVA" };
+  return { commandId: input.commandId, ofertaId, estado: "ACTIVA", revision: 1 };
 }
 
 async function cerrarOferta(tx: any, db: any, empresaId: string, actorUid: string, contexto: ContextoFinancieroOperativo, input: Envelope) {
@@ -173,12 +194,93 @@ async function cerrarOferta(tx: any, db: any, empresaId: string, actorUid: strin
   return { commandId: input.commandId, ofertaId, estado: "CERRADA", idempotente: false };
 }
 
+async function actualizarOferta(tx: any, db: any, empresaId: string, actorUid: string, contexto: ContextoFinancieroOperativo, input: Envelope, nowMillis: number) {
+  await exigirAutoridadCatalogoBodega(tx, db, contexto);
+  const { ofertaId, cambios } = normalizeUpdate(input.payload);
+  const ref = db.collection(COLLECTION).doc(ofertaId);
+  const snap = await tx.get(ref);
+  if (!snap.exists || snap.data()?.empresaId !== empresaId) fail("not-found", "OFERTA_NO_ENCONTRADA");
+  const actual = snap.data() as Record<string, unknown>;
+  if (actual.estado !== "ACTIVA" || actual.cerradaEn !== undefined) fail("failed-precondition", "OFERTA_NO_EDITABLE");
+  const inicioActual = millis(actual.inicioEn);
+  const finActual = actual.finEn === null ? null : millis(actual.finEn);
+  if (inicioActual === null) fail("failed-precondition", "OFERTA_PERSISTIDA_INVALIDA");
+  if (actual.finEn !== null && finActual === null) fail("failed-precondition", "OFERTA_PERSISTIDA_INVALIDA");
+  const inicioActualMillis = inicioActual as number;
+  if (inicioActualMillis <= nowMillis) fail("failed-precondition", "OFERTA_YA_INICIADA");
+
+  for (const line of cambios.lineas) {
+    const precioBaseCOP = await resolverPrecioBaseOfertaEnTransaccion(tx, db, empresaId, line);
+    if (line.precioFinalCOP > precioBaseCOP) fail("invalid-argument", "PRECIO_OFERTA_SUPERA_BASE");
+  }
+  await validarSinSolapes(tx, db, empresaId, cambios, ofertaId);
+  const revisionActual = actual.revision === undefined ? 1 : actual.revision;
+  if (!Number.isSafeInteger(revisionActual) || (revisionActual as number) < 1) fail("failed-precondition", "OFERTA_PERSISTIDA_INVALIDA");
+  const nuevaRevision = (revisionActual as number) + 1;
+  const antes = {
+    nombre: actual.nombre,
+    inicioEnMillis: inicioActualMillis,
+    finEnMillis: finActual,
+    lineas: lineasDeOferta(actual),
+  };
+  const despues = {
+    nombre: cambios.nombre,
+    inicioEnMillis: cambios.inicioEn.toMillis(),
+    finEnMillis: cambios.finEn?.toMillis() ?? null,
+    lineas: cambios.lineas,
+  };
+  tx.update(ref, {
+    nombre: cambios.nombre,
+    inicioEn: cambios.inicioEn,
+    finEn: cambios.finEn,
+    lineas: cambios.lineas,
+    revision: nuevaRevision,
+    actualizadoPor: actorUid,
+    actualizadoEn: FieldValue.serverTimestamp(),
+  });
+  return { commandId: input.commandId, ofertaId, estado: "ACTIVA", revision: nuevaRevision, antes, despues };
+}
+
 export async function ejecutarCrearOfertaBodegaV1(db: any, contexto: ContextoFinancieroOperativo, data: unknown) {
   return executeConContexto(db, contexto, data, "crearOfertaBodegaV1", (tx, firestore, empresaId, actorUid, _rol, input) => crearOferta(tx, firestore, empresaId, actorUid, contexto, input));
 }
 
 export async function ejecutarCerrarOfertaBodegaV1(db: any, contexto: ContextoFinancieroOperativo, data: unknown) {
   return executeConContexto(db, contexto, data, "cerrarOfertaBodegaV1", (tx, firestore, empresaId, actorUid, _rol, input) => cerrarOferta(tx, firestore, empresaId, actorUid, contexto, input));
+}
+
+export async function ejecutarActualizarOfertaBodegaV1(db: any, contexto: ContextoFinancieroOperativo, data: unknown, nowMillis = Date.now()) {
+  return executeConContexto(db, contexto, data, "actualizarOfertaBodegaV1", (tx, firestore, empresaId, actorUid, _rol, input) => actualizarOferta(tx, firestore, empresaId, actorUid, contexto, input, nowMillis));
+}
+
+/** Admin-only read model; Firestore Rules remain closed to direct offer reads. */
+export async function ejecutarConsultarOfertasBodegaV1(db: any, contexto: ContextoFinancieroOperativo, data: unknown) {
+  normalizeRead(data);
+  return db.runTransaction(async (tx: any) => {
+    await exigirAutoridadCatalogoBodega(tx, db, contexto);
+    const snapshot = await tx.get(db.collection(COLLECTION).where("empresaId", "==", contexto.empresaId).limit(MAX_LISTED_OFFERS + 1));
+    if (snapshot.docs.length > MAX_LISTED_OFFERS) fail("resource-exhausted", "DEMASIADAS_OFERTAS_PARA_CONSULTAR");
+    const ofertas = snapshot.docs.map((doc: any) => {
+      const offer = doc.data() as Record<string, unknown>;
+      const inicioEn = millis(offer.inicioEn);
+      const finEn = offer.finEn === null ? null : millis(offer.finEn);
+      if (offer.empresaId !== contexto.empresaId || !text(offer.nombre)
+        || (offer.estado !== "ACTIVA" && offer.estado !== "CERRADA") || inicioEn === null
+        || (offer.finEn !== null && finEn === null)) fail("failed-precondition", "OFERTA_PERSISTIDA_INVALIDA");
+      return {
+        ofertaId: doc.id,
+        nombre: offer.nombre,
+        estado: offer.estado,
+        inicioEnMillis: inicioEn,
+        finEnMillis: finEn,
+        lineas: lineasDeOferta(offer),
+        creadoEnMillis: millis(offer.creadoEn),
+        actualizadoEnMillis: millis(offer.actualizadoEn),
+      };
+    });
+    ofertas.sort((a: any, b: any) => b.inicioEnMillis - a.inicioEnMillis);
+    return { ofertas };
+  });
 }
 
 /** Returns only a current effective price. It deliberately never mutates an expired offer. */

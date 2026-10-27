@@ -23,6 +23,23 @@ export interface PresentacionBodegaAdmin {
 
 export type VentaBodegaAdmin = VentaBodegaAdminDTO
 
+export type CanalOfertaBodega = "tienda" | "consumidor_final"
+export interface LineaOfertaBodegaAdmin {
+  presentacionId: string
+  canal: CanalOfertaBodega
+  precioFinalCOP: number
+}
+export interface OfertaBodegaAdmin {
+  ofertaId: string
+  nombre: string
+  estado: "ACTIVA" | "CERRADA"
+  inicioEnMillis: number
+  finEnMillis: number | null
+  lineas: LineaOfertaBodegaAdmin[]
+  creadoEnMillis: number | null
+  actualizadoEnMillis: number | null
+}
+
 function suscribirTenant<T>(
   coleccion: string,
   map: (id: string, data: Record<string, any>) => T,
@@ -129,4 +146,33 @@ export async function actualizarPresentacionBodega(payload: { presentacionId: st
 
 export async function crearCategoriaBodega(payload: { espacioId: string; nombre: string; icono?: string }): Promise<{ categoriaId: string; idempotente: boolean }> {
   return ejecutarComandoBodega("crearCategoriaBodegaV1", "categoria", payload)
+}
+
+export async function consultarOfertasBodega(): Promise<OfertaBodegaAdmin[]> {
+  const callable = (await import("firebase/functions")).httpsCallable(getFirebaseFunctions(), resolverCallableOperacionBodega("BODEGA_MVP1", "consultarOfertasBodegaV1"))
+  const result = await callable({})
+  return (result.data as { ofertas: OfertaBodegaAdmin[] }).ofertas
+}
+
+export async function crearOfertaBodega(payload: {
+  nombre: string
+  inicioLocalBogota: string
+  finLocalBogota: string | null
+  lineas: LineaOfertaBodegaAdmin[]
+}): Promise<{ ofertaId: string; estado: "ACTIVA" }> {
+  return ejecutarComandoBodega<{ ofertaId: string; estado: "ACTIVA" }>("crearOfertaBodegaV1", "oferta", payload)
+}
+
+export async function actualizarOfertaBodega(payload: {
+  ofertaId: string
+  nombre: string
+  inicioLocalBogota: string
+  finLocalBogota: string | null
+  lineas: LineaOfertaBodegaAdmin[]
+}): Promise<{ ofertaId: string; estado: "ACTIVA"; revision: number }> {
+  return ejecutarComandoBodega<{ ofertaId: string; estado: "ACTIVA"; revision: number }>("actualizarOfertaBodegaV1", "oferta-edicion", payload)
+}
+
+export async function cerrarOfertaBodega(ofertaId: string): Promise<{ ofertaId: string; estado: "CERRADA"; idempotente: boolean }> {
+  return ejecutarComandoBodega<{ ofertaId: string; estado: "CERRADA"; idempotente: boolean }>("cerrarOfertaBodegaV1", "oferta-cierre", { ofertaId })
 }

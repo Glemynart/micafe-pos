@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import {
+  ejecutarActualizarOfertaBodegaV1,
   ejecutarCerrarOfertaBodegaV1,
+  ejecutarConsultarOfertasBodegaV1,
   ejecutarCrearOfertaBodegaV1,
   resolverOfertaPrecioBodegaEnTransaccion,
 } from "./ofertas";
@@ -13,12 +16,14 @@ type Data = Record<string, any>;
 class Ref { constructor(readonly path: string) {} get id() { return this.path.split("/").at(-1)!; } }
 class Snapshot { constructor(readonly ref: Ref, private readonly value: Data | undefined) {} get exists() { return this.value !== undefined; } get id() { return this.ref.id; } data() { return this.value; } }
 class Query {
-  constructor(private readonly db: FakeDb, private readonly name: string, private readonly filters: Array<[string, unknown]> = []) {}
-  where(field: string, _operator: string, value: unknown) { return new Query(this.db, this.name, [...this.filters, [field, value]]); }
+  constructor(private readonly db: FakeDb, private readonly name: string, private readonly filters: Array<[string, unknown]> = [], private readonly max = Infinity) {}
+  where(field: string, _operator: string, value: unknown) { return new Query(this.db, this.name, [...this.filters, [field, value]], this.max); }
+  limit(value: number) { return new Query(this.db, this.name, this.filters, value); }
   async get() {
     const prefix = `${this.name}/`;
     const docs = [...this.db.docs.entries()]
       .filter(([path, value]) => path.startsWith(prefix) && !path.slice(prefix.length).includes("/") && this.filters.every(([field, expected]) => value[field] === expected))
+      .slice(0, this.max)
       .map(([path, value]) => new Snapshot(new Ref(path), value));
     return { docs };
   }
@@ -92,4 +97,74 @@ test("oferta: cierre manual deja de aplicar y un cierre repetido no modifica de 
   assert.equal(first.idempotente, false); assert.equal(second.idempotente, true);
   const effective = await db.runTransaction(tx => resolverOfertaPrecioBodegaEnTransaccion(tx, db, empresaId, { presentacionId: "presentacion-ofertas", canal: "tienda", precioBaseCOP: 1_000 }, Date.UTC(2026, 9, 27)));
   assert.deepEqual(effective, { ofertaId: null, precioAplicadoCOP: 1_000 });
+});
+
+test("oferta: consulta devuelve DTO limitado al tenant y solo permite admin con permiso de catálogo", async () => {
+  const db = new FakeDb(); seed(db);
+  const created = await ejecutarCrearOfertaBodegaV1(db, admin, envelope("crear-consulta", payload())) as any;
+  db.docs.set("ofertas_bodega/oferta-otro-tenant", {
+    empresaId: "otra-empresa", nombre: "No debe filtrarse", estado: "ACTIVA",
+    inicioEn: Timestamp.fromMillis(Date.UTC(2026, 9, 26, 13)), finEn: null,
+    lineas: [{ presentacionId: "presentacion-ajena", canal: "tienda", precioFinalCOP: 10 }],
+  });
+
+  const result = await ejecutarConsultarOfertasBodegaV1(db, admin, {}) as any;
+  assert.equal(result.ofertas.length, 1);
+  assert.equal(result.ofertas[0].ofertaId, created.ofertaId);
+  assert.equal(result.ofertas[0].nombre, "Oferta de prueba");
+  assert.equal(result.ofertas[0].inicioEnMillis, Date.UTC(2026, 9, 26, 13));
+  assert.equal(result.ofertas[0].finEnMillis, Date.UTC(2026, 9, 26, 15));
+  assert.equal("creadoPor" in result.ofertas[0], false);
+  await assert.rejects(ejecutarConsultarOfertasBodegaV1(db, vendedor, {}), error => domain(error, "ROLE_FORBIDDEN"));
+  await assert.rejects(ejecutarConsultarOfertasBodegaV1(db, admin, { empresaId }), error => domain(error, "PAYLOAD_OFERTA_INVALIDO"));
+});
+
+test("oferta: edición auditada permite cambiar una programación futura y replays conservan el resultado", async () => {
+  const db = new FakeDb(); seed(db);
+  const inicioAnterior = "2099-06-01T08:00";
+  const finAnterior = "2099-06-01T10:00";
+  const created = await ejecutarCrearOfertaBodegaV1(db, admin, envelope("crear-editar", payload({
+    inicioLocalBogota: inicioAnterior, finLocalBogota: finAnterior,
+  }))) as any;
+  const actualizacion = envelope("editar-futura", {
+    ofertaId: created.ofertaId,
+    nombre: "Oferta actualizada",
+    inicioLocalBogota: "2099-06-01T09:00",
+    finLocalBogota: "2099-06-01T11:00",
+    lineas: [{ presentacionId: "presentacion-ofertas", canal: "tienda", precioFinalCOP: 750 }],
+  });
+  const primera = await ejecutarActualizarOfertaBodegaV1(db, admin, actualizacion, Date.UTC(2099, 4, 1)) as any;
+  const replay = await ejecutarActualizarOfertaBodegaV1(db, admin, actualizacion, Date.UTC(2099, 4, 1)) as any;
+  assert.equal(primera.revision, 2);
+  assert.equal(primera.antes.nombre, "Oferta de prueba");
+  assert.equal(primera.despues.nombre, "Oferta actualizada");
+  assert.deepEqual(replay, primera);
+  const saved = db.docs.get(`ofertas_bodega/${created.ofertaId}`)!;
+  assert.equal(saved.revision, 2);
+  assert.equal(saved.nombre, "Oferta actualizada");
+  const audit = [...db.docs.values()].find(value => value.tipo === "actualizarOfertaBodegaV1");
+  assert.deepEqual((audit?.referencias as Data).antes, primera.antes);
+  assert.deepEqual((audit?.referencias as Data).despues, primera.despues);
+});
+
+test("oferta: no permite editar una oferta iniciada, cruzar tenant o solapar otra oferta", async () => {
+  const db = new FakeDb(); seed(db);
+  const active = await ejecutarCrearOfertaBodegaV1(db, admin, envelope("crear-iniciada", payload())) as any;
+  const futureA = await ejecutarCrearOfertaBodegaV1(db, admin, envelope("crear-futura-a", payload({
+    inicioLocalBogota: "2099-06-01T08:00", finLocalBogota: "2099-06-01T10:00",
+  }))) as any;
+  const foreign = { ...db.docs.get(`ofertas_bodega/${futureA.ofertaId}`)!, empresaId: "otra-empresa" };
+  db.docs.set("ofertas_bodega/oferta-otro-tenant", foreign);
+  await ejecutarCrearOfertaBodegaV1(db, admin, envelope("crear-futura-b", payload({
+    inicioLocalBogota: "2099-06-01T10:00", finLocalBogota: "2099-06-01T12:00",
+  })));
+
+  const update = (ofertaId: string, start: string, end: string) => envelope(`update-${ofertaId}-${start}`, {
+    ofertaId, nombre: "Cambio", inicioLocalBogota: start, finLocalBogota: end,
+    lineas: [{ presentacionId: "presentacion-ofertas", canal: "tienda", precioFinalCOP: 700 }],
+  });
+  await assert.rejects(ejecutarActualizarOfertaBodegaV1(db, admin, update(active.ofertaId, "2099-06-01T07:00", "2099-06-01T08:00"), Date.UTC(2026, 9, 26, 13)), error => domain(error, "OFERTA_YA_INICIADA"));
+  await assert.rejects(ejecutarActualizarOfertaBodegaV1(db, vendedor, update(futureA.ofertaId, "2099-06-01T08:00", "2099-06-01T10:00"), Date.UTC(2099, 4, 1)), error => domain(error, "ROLE_FORBIDDEN"));
+  await assert.rejects(ejecutarActualizarOfertaBodegaV1(db, admin, update("oferta-otro-tenant", "2099-06-01T08:00", "2099-06-01T10:00"), Date.UTC(2099, 4, 1)), error => domain(error, "OFERTA_NO_ENCONTRADA"));
+  await assert.rejects(ejecutarActualizarOfertaBodegaV1(db, admin, update(futureA.ofertaId, "2099-06-01T09:00", "2099-06-01T11:00"), Date.UTC(2099, 4, 1)), error => domain(error, "OFERTA_SUPERPUESTA"));
 });

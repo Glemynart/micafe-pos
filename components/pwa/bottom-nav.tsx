@@ -51,6 +51,7 @@ const moreModulos = ["usuarios", "permisos", "mermas", "gastos", "cuentas_cobro"
 
 const bodegaDesktopTabs = [
   ...bodegaTabs,
+  { href: "/admin/ofertas", label: "Ofertas", icon: Tags },
   { href: "/admin/compras", label: "Compras", icon: PackagePlus },
   { href: "/admin/vender", label: "Registrar venta", icon: CircleDollarSign },
   { href: "/admin/solicitudes", label: "Solicitudes", icon: ClipboardCheck },

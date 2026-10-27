@@ -11,7 +11,9 @@ import {
   ejecutarCrearPresentacionComercialV1,
 } from "../../functions/src/bodega-vendedor/presentaciones";
 import {
+  ejecutarActualizarOfertaBodegaV1,
   ejecutarCerrarOfertaBodegaV1,
+  ejecutarConsultarOfertasBodegaV1,
   ejecutarCrearOfertaBodegaV1,
 } from "../../functions/src/bodega-vendedor/ofertas";
 import { ejecutarConfirmarVentaBodegaV1 } from "../../functions/src/bodega-vendedor/ventas-confirmation";
@@ -80,6 +82,16 @@ export const crearOfertaBodegaV1 = onCall({ region: REGION }, async (request) =>
 export const cerrarOfertaBodegaV1 = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   return ejecutarCerrarOfertaBodegaV1(db, await contextoOperativo(request, db), request.data);
+});
+
+export const actualizarOfertaBodegaV1 = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  return ejecutarActualizarOfertaBodegaV1(db, await contextoOperativo(request, db), request.data);
+});
+
+export const consultarOfertasBodegaV1 = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  return ejecutarConsultarOfertasBodegaV1(db, await contextoOperativo(request, db), request.data);
 });
 
 export const crearArticuloInventarioBodegaV1 = onCall({ region: REGION }, async (request) => {
