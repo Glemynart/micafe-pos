@@ -15,6 +15,7 @@ import { marcarSenalDisponibilidadBodega } from "../bodega-vendedor/live-signals
 const REGION = "us-central1";
 const TIPOS_ARTICULO = ["producto", "insumo"] as const;
 type TipoArticulo = typeof TIPOS_ARTICULO[number];
+type CatalogoProducto = "BODEGA" | "NEVERA";
 
 type Data = Record<string, unknown>;
 
@@ -74,6 +75,22 @@ function articleId(value: unknown): string {
   return requiredText(value, "ARTICULO_ID_INVALIDO", 160);
 }
 
+function catalogId(value: unknown): CatalogoProducto {
+  if (value !== "BODEGA" && value !== "NEVERA") fail("invalid-argument", "CATALOGO_INVALIDO");
+  return value as CatalogoProducto;
+}
+
+function effectiveCatalogId(value: unknown): CatalogoProducto {
+  return value === undefined || value === null ? "BODEGA" : catalogId(value);
+}
+
+async function exigirCatalogoBodega(tx: any, db: any, empresaId: string) {
+  const config = await tx.get(db.collection("configuraciones").doc(empresaId));
+  if (!config.exists || config.data()?.empresaId !== empresaId || config.data()?.vertical !== "BODEGA_MVP1") {
+    fail("permission-denied", "CATALOGO_BODEGA_NO_AUTORIZADO");
+  }
+}
+
 function ensureOnlyKnownFields(data: Data, allowed: string[]) {
   const unknown = Object.keys(data).find(key => !allowed.includes(key));
   if (unknown) fail("invalid-argument", "CAMPO_ARTICULO_NO_PERMITIDO");
@@ -83,7 +100,7 @@ function commonArticleFields(data: Data, partial: boolean): Data {
   ensureOnlyKnownFields(data, [
     "nombre", "precio", "costo", "stock", "stockMinimo", "imagenUrl", "categoriaId",
     "espacioId", "activo", "descripcion", "unidad", "icono", "impuestoTipo", "consignadorId",
-    "stockInicial", "codigo", "iva", "precioFraccion", "unidadMedida",
+    "stockInicial", "codigo", "iva", "precioFraccion", "unidadMedida", "catalogoId",
   ]);
   const result: Data = {};
   if (data.nombre !== undefined) result.nombre = requiredText(data.nombre, "NOMBRE_ARTICULO_INVALIDO");
@@ -100,6 +117,7 @@ function commonArticleFields(data: Data, partial: boolean): Data {
   }
   if (data.descripcion !== undefined) result.descripcion = typeof data.descripcion === "string" ? data.descripcion.trim().slice(0, 1000) : fail("invalid-argument", "DESCRIPCION_INVALIDA");
   if (data.unidad !== undefined) result.unidad = requiredText(data.unidad, "UNIDAD_INVALIDA", 32);
+  if (data.catalogoId !== undefined) result.catalogoId = catalogId(data.catalogoId);
   if (data.unidadMedida !== undefined) result.unidadMedida = requiredText(data.unidadMedida, "UNIDAD_INVALIDA", 32);
   if (data.icono !== undefined) result.icono = requiredText(data.icono, "ICONO_INVALIDO", 80);
   if (data.impuestoTipo !== undefined) result.impuestoTipo = requiredText(data.impuestoTipo, "IMPUESTO_TIPO_INVALIDO", 40);
@@ -117,8 +135,9 @@ function validateArticlePayload(tipo: TipoArticulo, raw: unknown, partial: boole
   if (tipo === "producto") {
     if (!partial && !text(data.categoriaId)) fail("invalid-argument", "CATEGORIA_INVALIDA");
     if (!partial && !text(data.unidad)) data.unidad = "und";
-  } else if (!partial && !text(data.unidadMedida)) {
-    fail("invalid-argument", "UNIDAD_INVALIDA");
+  } else {
+    if (data.catalogoId !== undefined) fail("invalid-argument", "CATALOGO_NO_APLICA_A_INSUMO");
+    if (!partial && !text(data.unidadMedida)) fail("invalid-argument", "UNIDAD_INVALIDA");
   }
   if (!partial && !text(data.espacioId)) fail("invalid-argument", "ESPACIO_INVALIDO");
   return data;
@@ -129,10 +148,13 @@ async function validarEspacio(tx: any, db: any, empresaId: string, espacioId: st
   if (!espacio.exists || espacio.data()?.empresaId !== empresaId) fail("failed-precondition", "ESPACIO_INVALIDO");
 }
 
-async function validarCategoriaProducto(tx: any, db: any, empresaId: string, categoriaId: string) {
+async function validarCategoriaProducto(tx: any, db: any, empresaId: string, categoriaId: string, expectedCatalogId: CatalogoProducto) {
   const categoria = await tx.get(db.collection("categorias").doc(categoriaId));
   if (!categoria.exists || categoria.data()?.empresaId !== empresaId) {
     fail("failed-precondition", "CATEGORIA_INVALIDA");
+  }
+  if (effectiveCatalogId(categoria.data()?.catalogoId) !== expectedCatalogId) {
+    fail("failed-precondition", "CATEGORIA_CATALOGO_INVALIDO");
   }
 }
 
@@ -217,7 +239,17 @@ async function efectoCrearArticulo(tx: any, db: any, empresaId: string, actorUid
   rejectAuthorityFields(data, ["empresaId", "id", "secuenciaLedger", "creadoEn", "actualizadoEn"]);
   const espacioId = data.espacioId as string;
   await validarEspacio(tx, db, empresaId, espacioId);
-  if (tipo === "producto") await validarCategoriaProducto(tx, db, empresaId, data.categoriaId as string);
+  if (tipo === "producto") {
+    const catalogoId = effectiveCatalogId(data.catalogoId);
+    if (data.catalogoId !== undefined) await exigirCatalogoBodega(tx, db, empresaId);
+    const stockInicial = (data.stock as number | undefined) ?? 0;
+    const costoInicial = (data.costo as number | undefined) ?? 0;
+    const stockInicialDeclarado = (data.stockInicial as number | undefined) ?? 0;
+    if (catalogoId === "NEVERA" && (stockInicial !== 0 || stockInicialDeclarado !== 0 || costoInicial !== 0)) {
+      fail("failed-precondition", "NEVERA_REQUIERE_TRANSFERENCIA");
+    }
+    await validarCategoriaProducto(tx, db, empresaId, data.categoriaId as string, catalogoId);
+  }
   const nombre = data.nombre as string;
   const actor = await actorNombre(tx, db, actorUid);
   const id = crearIdentificadorInterno(empresaId, `${tipo}:${input.commandId}`);
@@ -241,7 +273,7 @@ async function efectoCrearArticulo(tx: any, db: any, empresaId: string, actorUid
     empresaId, actorUid, actorNombre: actor, tipo, id, nombre, unidad, espacioId,
     cantidad: stock, costoUnitario: (data.costo as number | undefined) ?? 0, commandId: input.commandId,
   });
-  if (tipo === "producto") marcarSenalDisponibilidadBodega(tx, db, empresaId);
+  if (tipo === "producto" && effectiveCatalogId(data.catalogoId) === "BODEGA") marcarSenalDisponibilidadBodega(tx, db, empresaId);
   return { commandId: input.commandId, articuloTipo: tipo, articuloId: id, movimientoId: movimiento?.id ?? null };
 }
 
@@ -256,8 +288,19 @@ async function efectoActualizarArticulo(tx: any, db: any, empresaId: string, act
   const articulo = await tx.get(ref);
   if (!articulo.exists || articulo.data()?.empresaId !== empresaId) fail("not-found", "ARTICULO_NO_ENCONTRADO");
   const actual = articulo.data() as Data;
+  if (tipo === "producto" && effectiveCatalogId(actual.catalogoId) === "NEVERA"
+    && (data.stock !== undefined || data.costo !== undefined
+      || (data.stockInicial !== undefined && data.stockInicial !== 0))) {
+    fail("failed-precondition", "NEVERA_REQUIERE_TRANSFERENCIA");
+  }
+  if (tipo === "producto" && data.catalogoId !== undefined) {
+    await exigirCatalogoBodega(tx, db, empresaId);
+    if (catalogId(data.catalogoId) !== effectiveCatalogId(actual.catalogoId)) {
+      fail("failed-precondition", "CATALOGO_PRODUCTO_INMUTABLE");
+    }
+  }
   if (tipo === "producto" && data.categoriaId !== undefined) {
-    await validarCategoriaProducto(tx, db, empresaId, data.categoriaId as string);
+    await validarCategoriaProducto(tx, db, empresaId, data.categoriaId as string, effectiveCatalogId(data.catalogoId ?? actual.catalogoId));
   }
   if (tipo === "producto") {
     const stockActualProducto: unknown = actual.stock ?? 0;
@@ -308,7 +351,7 @@ async function efectoActualizarArticulo(tx: any, db: any, empresaId: string, act
   if (Object.keys(metadata).length > 0) {
     tx.update(ref, { ...metadata, actualizadoEn: FieldValue.serverTimestamp() });
   }
-  if (tipo === "producto" && (delta !== 0 || Object.keys(metadata).length > 0)) marcarSenalDisponibilidadBodega(tx, db, empresaId);
+  if (tipo === "producto" && effectiveCatalogId(actual.catalogoId) === "BODEGA" && (delta !== 0 || Object.keys(metadata).length > 0)) marcarSenalDisponibilidadBodega(tx, db, empresaId);
   return { commandId: input.commandId, articuloTipo: tipo, articuloId: id, movimientoId };
 }
 

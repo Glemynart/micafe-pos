@@ -97,6 +97,18 @@ function payload(productoId: string, factorUnidadBase: number, precioCOP: number
   return { productoId, nombre, factorUnidadBase, precioCOP };
 }
 
+function snapshotDocumentos(db: FakeFirestore) {
+  const normalizar = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(normalizar);
+    if (value && typeof value === "object") {
+      if (value.constructor?.name === "ServerTimestampTransform") return "<server-timestamp>";
+      return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, normalizar(item)]));
+    }
+    return value;
+  };
+  return normalizar([...db.docs.entries()]);
+}
+
 async function create(db: FakeFirestore, commandId: string, data: Data, contexto = adminA) {
   return ejecutarCrearPresentacionComercialV1(db, contexto, envelope(commandId, data));
 }
@@ -205,39 +217,47 @@ test("U2-B: el resolver futuro usa factor/precio persistidos y rechaza precio en
   assert.throws(() => normalizarReferenciaPresentacionComercial({ empresaId: "empresa-b", productoId: "producto-empresa-a", presentacionId: creada.presentacionId }), /PAYLOAD_INVALIDO/);
 });
 
-test("ADR-092: conserva precioCOP histórico como tarifa tienda y exige precio retail explícito", async () => {
+test("ADR-SAAS-094: Bodega tiene una tarifa y rechaza precio retail operativo", async () => {
   const db = new FakeFirestore(); seed(db);
-  const creada = await create(db, "tarifas", {
-    productoId: "producto-empresa-a",
-    nombre: "Caja",
-    factorUnidadBase: 24,
-    precioTiendaCOP: 24000,
-    precioConsumidorFinalCOP: 30000,
-  });
+  await assert.rejects(create(db, "tarifa-retail-prohibida", {
+    productoId: "producto-empresa-a", nombre: "Caja", factorUnidadBase: 24,
+    precioTiendaCOP: 24000, precioConsumidorFinalCOP: 30000,
+  }), /PRECIO_CONSUMIDOR_FINAL_PERTENECE_A_NEVERA/);
+  const creada = await create(db, "tarifas", payload("producto-empresa-a", 24, 24000, "Caja"));
   const canonica = await db.runTransaction(tx => resolverPresentacionComercialEnTransaccion(tx, db, "empresa-a", { productoId: "producto-empresa-a", presentacionId: creada.presentacionId }));
   assert.equal(canonica.precioCOP, 24000);
   assert.equal(canonica.precioTiendaCOP, 24000);
-  assert.equal(canonica.precioConsumidorFinalCOP, 30000);
   assert.equal(resolverPrecioCanalBodega(canonica, "tienda"), 24000);
-  assert.equal(resolverPrecioCanalBodega(canonica, "consumidor_final"), 30000);
+  assert.throws(() => resolverPrecioCanalBodega(canonica, "consumidor_final"), /PRECIO_CONSUMIDOR_FINAL_PERTENECE_A_NEVERA/);
 
   const legacy = await create(db, "legado", payload("producto-empresa-a", 6, 6000, "Paca"));
+  const legacyDoc = db.docs.get(`presentaciones_producto/${legacy.presentacionId}`)!;
+  legacyDoc.precioConsumidorFinalCOP = 7200;
   const legacyCanonica = await db.runTransaction(tx => resolverPresentacionComercialEnTransaccion(tx, db, "empresa-a", { productoId: "producto-empresa-a", presentacionId: legacy.presentacionId }));
   assert.equal(legacyCanonica.precioTiendaCOP, 6000);
-  assert.equal(legacyCanonica.precioConsumidorFinalCOP, null);
-  assert.throws(() => resolverPrecioCanalBodega(legacyCanonica, "consumidor_final"), /PRECIO_CONSUMIDOR_FINAL_NO_CONFIGURADO/);
+  assert.throws(() => resolverPrecioCanalBodega(legacyCanonica, "consumidor_final"), /PRECIO_CONSUMIDOR_FINAL_PERTENECE_A_NEVERA/);
+  await assert.rejects(
+    ejecutarActualizarPresentacionComercialV1(db, adminA, envelope("borrar-precio-retail-legado", { presentacionId: legacy.presentacionId, precioConsumidorFinalCOP: null })),
+    /PRECIO_CONSUMIDOR_FINAL_LEGADO_PROTEGIDO/,
+  );
+  assert.equal(db.docs.get(`presentaciones_producto/${legacy.presentacionId}`)?.precioConsumidorFinalCOP, 7200);
 });
 
-test("ADR-092: no acepta tarifas de tienda inconsistentes y permite retirar una tarifa retail", async () => {
+test("ADR-SAAS-094: no acepta tarifas inconsistentes y el catálogo vendedor no expone el precio legado", async () => {
   const db = new FakeFirestore(); seed(db);
   await assert.rejects(create(db, "tarifa-inconsistente", {
     productoId: "producto-empresa-a", nombre: "Caja", factorUnidadBase: 24, precioCOP: 24000, precioTiendaCOP: 25000,
   }), /PRECIO_TIENDA_INCONSISTENTE/);
-  const creada = await create(db, "tarifa-retail", {
-    productoId: "producto-empresa-a", nombre: "Caja", factorUnidadBase: 24, precioTiendaCOP: 24000, precioConsumidorFinalCOP: 30000,
-  });
-  await ejecutarActualizarPresentacionComercialV1(db, adminA, envelope("retirar-retail", { presentacionId: creada.presentacionId, precioConsumidorFinalCOP: null }));
-  assert.equal(db.docs.get(`presentaciones_producto/${creada.presentacionId}`)?.precioConsumidorFinalCOP, null);
+  const creada = await create(db, "tarifa-única", payload("producto-empresa-a", 24, 24000, "Caja"));
+  db.docs.get(`presentaciones_producto/${creada.presentacionId}`)!.precioConsumidorFinalCOP = 30000;
+  const catalogo = await ejecutarConsultarCatalogoPresentacionesVendedor(db, {
+    empresaId: "empresa-a", rol: "vendedor", permisos: ["sell"], vertical: "BODEGA_MVP1", inventoryHabilitado: true,
+  }, {});
+  const dto = catalogo.presentaciones.find(item => item.presentacionId === creada.presentacionId)!;
+  assert.equal(dto.precioCOP, 24000);
+  assert.equal("precioConsumidorFinalCOP" in dto, false);
+  await ejecutarActualizarPresentacionComercialV1(db, adminA, envelope("mantener-retail-legado", { presentacionId: creada.presentacionId, precioConsumidorFinalCOP: 30000 }));
+  assert.equal(db.docs.get(`presentaciones_producto/${creada.presentacionId}`)?.precioConsumidorFinalCOP, 30000);
 });
 
 test("ADR-093: conserva costo exacto por presentación sin redondear la unidad base", async () => {
@@ -256,6 +276,71 @@ test("ADR-093: conserva costo exacto por presentación sin redondear la unidad b
   await assert.rejects(create(db, "costo-invalido", {
     productoId: "producto-empresa-a", nombre: "Caja inválida", factorUnidadBase: 12, precioTiendaCOP: 24_000, costoPresentacionCOP: 19_000.5,
   }), /COSTO_PRESENTACION_COP_INVALIDO/);
+});
+
+test("ADR-SAAS-094: Nevera persiste su catálogo y no aparece en el catálogo de vendedores Bodega", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set("productos/producto-nevera", {
+    empresaId: "empresa-a", catalogoId: "NEVERA", nombre: "Corona tradicional", categoriaId: "categoria-nevera",
+    unidad: "unidad", espacioId: "espacio-bodega", activo: true, stock: 0, costo: 0,
+  });
+  const creada = await create(db, "presentacion-nevera", payload("producto-nevera", 1, 7000, "Unidad"));
+  assert.equal(db.docs.get(`presentaciones_producto/${creada.presentacionId}`)?.catalogoId, "NEVERA");
+  await assert.rejects(
+    db.runTransaction(tx => resolverComercialBodegaEnTransaccion(tx, db, "empresa-a", { productoId: "producto-nevera", presentacionId: creada.presentacionId })),
+    /PRESENTACION_FUERA_CATALOGO_BODEGA/,
+  );
+  const catalogo = await ejecutarConsultarCatalogoPresentacionesVendedor(db, {
+    empresaId: "empresa-a", rol: "vendedor", permisos: ["sell"], vertical: "BODEGA_MVP1", inventoryHabilitado: true,
+  }, {});
+  assert.equal(catalogo.presentaciones.some(item => item.productoId === "producto-nevera"), false);
+});
+
+test("ADR-SAAS-094: costo Nevera requiere transferencia y su catálogo admite un solo precio", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set("productos/producto-nevera", {
+    empresaId: "empresa-a", catalogoId: "NEVERA", nombre: "Corona tradicional", categoriaId: "categoria-nevera",
+    unidad: "unidad", espacioId: "espacio-bodega", activo: true, stock: 0,
+  });
+  const beforeCreate = snapshotDocumentos(db);
+  await assert.rejects(
+    create(db, "presentacion-nevera-con-costo", { ...payload("producto-nevera", 1, 7000), costoPresentacionCOP: 5000 }),
+    /NEVERA_REQUIERE_TRANSFERENCIA/,
+  );
+  await assert.rejects(
+    create(db, "presentacion-nevera-doble-precio", { ...payload("producto-nevera", 1, 7000), precioConsumidorFinalCOP: 8000 }),
+    /NEVERA_UN_PRECIO_POR_CATALOGO/,
+  );
+  assert.deepEqual(snapshotDocumentos(db), beforeCreate);
+
+  const creada = await create(db, "presentacion-nevera-sin-costo", payload("producto-nevera", 1, 7000));
+  const beforeUpdate = snapshotDocumentos(db);
+  await assert.rejects(
+    ejecutarActualizarPresentacionComercialV1(db, adminA, envelope("costo-nevera-sin-transferencia", {
+      presentacionId: creada.presentacionId, costoPresentacionCOP: 5000,
+    })),
+    /NEVERA_REQUIERE_TRANSFERENCIA/,
+  );
+  await assert.rejects(
+    ejecutarActualizarPresentacionComercialV1(db, adminA, envelope("precio-nevera-doble-catalogo", {
+      presentacionId: creada.presentacionId, precioConsumidorFinalCOP: 8000,
+    })),
+    /NEVERA_UN_PRECIO_POR_CATALOGO/,
+  );
+  assert.deepEqual(snapshotDocumentos(db), beforeUpdate);
+});
+
+test("ADR-SAAS-094: el resolver rechaza una presentación cuyo catálogo no coincide con el producto", async () => {
+  const db = new FakeFirestore(); seed(db);
+  db.docs.set("presentaciones_producto/presentacion-cruzada", {
+    empresaId: "empresa-a", productoId: "producto-empresa-a", catalogoId: "NEVERA", nombre: "Unidad", factorUnidadBase: 1, precioCOP: 5000, activo: true,
+  });
+  await assert.rejects(
+    db.runTransaction(tx => resolverPresentacionComercialEnTransaccion(tx, db, "empresa-a", {
+      productoId: "producto-empresa-a", presentacionId: "presentacion-cruzada",
+    })),
+    /PRESENTACION_CATALOGO_INVALIDO/,
+  );
 });
 
 test("U2-B: acepta referencias de presentación generadas por el identificador interno canónico", () => {

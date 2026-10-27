@@ -54,11 +54,11 @@ async function fixtures(incompleteStoreMapping = false): Promise<{ source: Buffe
     { name: "Guía", rows: [["SHA-256 del archivo", sourceHash]] },
     {
       name: "Precios tienda",
-      rows: [[], [], [], ["N.º de lista", "Fila Excel fuente", "Producto (fuente)", "AL COSTO (COP)", "PRECIO VENTA POS (COP)", "Categoría", "Unidad base", "Presentación / empaque", "Unidades base por presentación", "AL COSTO corresponde a", "Fila candidata consumidor (Excel)", "Notas de Diana"], [1, 2, "Cafe", 1200, 1800, incompleteStoreMapping ? "" : "Abarrotes", "unidad", "paquete x 12", 12, "Presentación / empaque", 2, ""]],
+      rows: [[], [], [], ["N.º de lista", "Fila Excel fuente", "Producto (fuente)", "AL COSTO (COP)", "PRECIO VENTA POS (COP)", "Categoría", "Unidad base", "Presentación / empaque", "Unidades base por presentación", "AL COSTO corresponde a", "Fila candidata consumidor (Excel)", "Notas de Diana"], [1, 2, "Cafe", 1200, 1800, incompleteStoreMapping ? "" : "Gaseosas", "unidad", "paquete x 12", 12, "Presentación / empaque", 2, ""]],
     },
     {
       name: "Consumidor referencia",
-      rows: [[], [], [], ["Fila Excel fuente", "Producto (fuente)", "Precio consumidor (COP, referencia)", "Estado", "Fila candidata tienda (Excel)", "Producto candidato tienda", "PRECIO VENTA POS (COP)", "¿Mismo producto y presentación?", "Notas de Diana"], [2, "Cafe", 2100, "Coincidencia por nombre; revisar presentación", 2, "Cafe", 1800, "Sí - misma presentación", "Confirmado"], [3, "Only consumer", 9000, "Diferido: falta asociación con producto base", "", "", "", "", ""]],
+      rows: [[], [], [], ["Fila Excel fuente", "Producto (fuente)", "Precio consumidor (COP, referencia)", "Categoría", "Unidad base", "Presentación / empaque", "Unidades base por presentación", "Estado", "Fila candidata tienda (Excel)", "Producto candidato tienda", "PRECIO VENTA POS (COP)", "¿Mismo producto y presentación?", "Notas de Diana"], [2, "Cafe", 2100, "Gaseosas", "unidad", "Unidad", 1, "Coincidencia por nombre; revisar presentación", 2, "Cafe", 1800, "Sí - misma presentación", "Confirmado"], [3, "Only consumer", 9000, "Agua embotellada", "unidad", "Unidad", 1, "Diferido: falta asociación con producto base", "", "", "", "", ""]],
     },
   ]);
   return { source, review };
@@ -73,7 +73,7 @@ function runPlan(sourcePath: string, reviewPath: string, outputPath: string) {
   });
 }
 
-test("CLI writes a review-only plan with both input hashes and the explicitly approved matching consumer tariff", async () => {
+test("CLI writes a review-only plan with independent Bodega and Nevera proposals", async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "diana-catalog-cli-"));
   try {
     const { source, review } = await fixtures();
@@ -96,12 +96,18 @@ test("CLI writes a review-only plan with both input hashes and the explicitly ap
     assert.equal(plan.sourceSha256, createHash("sha256").update(source).digest("hex"));
     assert.equal(plan.reviewSha256, createHash("sha256").update(review).digest("hex"));
     const presentation = (plan.proposal as { presentations: Array<Record<string, unknown>> }).presentations[0];
+    const nevera = (plan.neveraCatalog as { presentations: Array<Record<string, unknown>> }).presentations;
     assert.equal((plan.proposal as { presentations: unknown[] }).presentations.length, 1);
-    assert.equal(presentation.consumerFinalPriceCop, 2100);
-    assert.equal(presentation.consumerSourceRow, 2);
+    assert.equal(presentation.consumerFinalPriceCop, null);
+    assert.equal(presentation.consumerSourceRow, null);
+    assert.equal(nevera.length, 2);
+    assert.equal(nevera[0].salesPriceConsumerFinalCop, 2100);
+    assert.equal(nevera[0].bodegaAssociation, null);
     assert.equal("Only consumer" in presentation, false);
-    assert.equal((summary.samePresentationPricesApplied as number), 1);
-    assert.equal((summary.consumerRowsDeferred as number), 1);
+    assert.equal(summary.bodegaPresentationProposals, 1);
+    assert.equal(summary.neveraPresentationProposals, 2);
+    assert.equal(summary.transferMappingsPending, 2);
+    assert.equal(summary.consumerRowsImportedSeparately, 2);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
