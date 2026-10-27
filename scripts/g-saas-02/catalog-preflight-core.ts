@@ -534,13 +534,13 @@ export function analyzeCatalogWorkbook(workbook: CatalogWorkbookLike): CatalogPr
         "Las cantidades explícitas del nombre (por ejemplo, x 38, x 12 o sixpak) generan un factor sugerido. Si el nombre no especifica cantidad, se propone una unidad individual y Diana podrá corregirla después; solo los conteos ambiguos requieren revisión antes de importar.",
         "Las categorías con regla local se prellenan por catálogo. Las filas sin coincidencia inequívoca quedan pendientes de revisión; no se inventa una categoría.",
         ...(crossListMatchReferences.length > 0
-          ? ["Los nombres coincidentes entre listas son solo referencias para una transferencia futura; no crean identidad ni asociación y no bloquean importar cada catálogo por separado."]
+          ? ["Los nombres coincidentes entre listas son informativos; no crean identidad, asociación ni movimiento entre catálogos."]
           : []),
       ],
       deferredByPlan: [
         "El inventario inicial se excluye de este preflight y lo registrará Diana posteriormente según el plan vigente.",
         ...(consumerOnlyRows.length > 0
-          ? [`Las ${consumerOnlyRows.length} filas exclusivas de PRECIOS CONS FINAL se importan en Nevera sin costo ni asociación Bodega; la asociación solo será necesaria para una transferencia futura.`]
+          ? [`Las ${consumerOnlyRows.length} filas exclusivas de PRECIOS CONS FINAL pertenecen a Nevera, sin costo ni asociación Bodega; Diana registrará costo y existencias después, directamente en ese catálogo.`]
           : []),
         "Este informe no genera carga útil de importación ni afirma que el catálogo esté listo para importar.",
       ],
@@ -562,7 +562,7 @@ export function createCatalogDecisionTemplate(
     globalDecisionsPending: [
       "Revisar las filas cuya categoría no tuvo coincidencia local y las cantidades de empaque ambiguas; las filas sin cantidad explícita se proponen como unidad individual para que Diana pueda corregirlas después.",
       "Validar que el archivo de revisión corresponde al SHA-256 de la fuente vigente antes de generar el plan offline.",
-      "Las coincidencias entre Bodega y Nevera no se asociarán al importar; si se requiere una transferencia, se revisará después con producto, presentación y factor aprobados.",
+      "Las coincidencias entre Bodega y Nevera son referencias informativas y nunca se importan como asociaciones; ambos catálogos se administran por separado.",
     ],
     lists: {
       store: report.rowDecisions.filter((row) => row.sourceList === "store"),

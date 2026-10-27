@@ -6,7 +6,7 @@
 > `ADR-SAAS-015`; esta aceptación no convierte el resto de R1 en arquitectura
 > aceptada ni autoriza otras operaciones server-authoritative.
 >
-> **Alcance:** autoridad de escritura para turnos, caja, cuentas, ledger financiero, ledger de inventario, efectos de ventas, anulaciones, compras, ajustes, **traslados financieros entre cuentas**, producción y devoluciones. El traslado de inventario entre ubicaciones no forma parte del alcance general de R1; ADR-SAAS-091 acepta una excepción acotada para Bodega MVP-1 entre ubicaciones internas del mismo Espacio.
+> **Alcance:** autoridad de escritura para turnos, caja, cuentas, ledger financiero, ledger de inventario, efectos de ventas, anulaciones, compras, ajustes, **traslados financieros entre cuentas**, producción y devoluciones. El traslado de inventario entre ubicaciones no forma parte del alcance general de R1. Para Bodega MVP-1, ADR-SAAS-096 permite registrar existencias directamente por catálogo en Nevera; no define un traslado entre inventarios.
 >
 > **Precondición:** arquitectura SaaS vigente; B1 de configuración empresarial canónica; B2 Fiscal Core y `snapshotFiscal`; y el cutover operativo B7 con su backfill de `estadoOperativo`, ya certificados conforme a sus autoridades. Estos nombres no se refieren al documento conceptual `MT-U10-B6-B7-cierre-arquitectonico.md`.
 
@@ -78,7 +78,7 @@ R1 no:
 - reemplaza los ledgers existentes por un modelo contable nuevo;
 - introduce una UX, panel o flujo comercial nuevo;
 - cambia el significado de compras, mermas, producción, traslados o devoluciones.
-- la excepción Bodega de ADR-SAAS-091 altera R1 genérico: solo define crédito/abonos y traslados internos entre Bodega y Nevera dentro de un Espacio; los otros verticales y traslados entre Espacios/sedes siguen bajo sus contratos vigentes.
+- la excepción Bodega de ADR-SAAS-091 altera R1 genérico para crédito/abonos y la cuenta operativa de Nevera. ADR-SAAS-096 define la carga de stock Nevera como mutación server-authoritative del artículo Nevera; no transfiere existencias desde Bodega. Los otros verticales y traslados entre Espacios/sedes siguen bajo sus contratos vigentes.
 
 ## 3. Invariantes de compatibilidad
 
@@ -176,7 +176,7 @@ La contención de documentos calientes (cuenta, artículo, insumo o turno) se re
 - Tipo, clase y signo son compatibles; cantidad nunca es cero.
 - Clave idempotente, secuencia y saldo posterior se calculan en servidor.
 - `stock` y `secuenciaLedger` se actualizan junto al movimiento.
-- Compra, merma, ajuste, producción y devolución preservan referencias de origen y relaciones compensatorias. El traslado general de inventario entre Espacios/sedes queda reservado para una fase posterior de FASE-15 y no se declara cubierto por R1. La única excepción es Bodega MVP-1 bajo ADR-SAAS-091: traslado atómico entre ubicaciones internas del mismo Espacio, con salida/entrada append-only enlazadas, costo y stock total conservados, sin venta ni ingreso. No omite los gates de migración de FASE-15 §12.
+- Compra, merma, ajuste, producción y devolución preservan referencias de origen y relaciones compensatorias. El traslado general de inventario entre Espacios/sedes queda reservado para una fase posterior de FASE-15 y no se declara cubierto por R1. Para Bodega MVP-1, el ajuste directo de stock Nevera se limita al artículo Nevera bajo ADR-SAAS-096; no modifica stock Bodega ni crea venta o ingreso. No omite los gates de migración de FASE-15 §12.
 - Durante las fases 0 a 3 de FASE-15 §12, I9 permanece suspendido y la reconciliación es solo de lectura. Al migrar el primer escritor R1 de un artículo, su `inventario_inicial` y el primer movimiento se emiten co-atómicamente. La ruta legacy se cierra antes de activar la denegación de Rules de inventario; la reconciliación autoritativa y caché desde ledger solo se habilitan en Fase 4. R1 no exige backfill histórico ni altera stock o snapshots legados.
 
 ### 6.3 Ventas y anulaciones

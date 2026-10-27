@@ -296,7 +296,7 @@ test("ADR-SAAS-094: Nevera persiste su catálogo y no aparece en el catálogo de
   assert.equal(catalogo.presentaciones.some(item => item.productoId === "producto-nevera"), false);
 });
 
-test("ADR-SAAS-094: costo Nevera requiere transferencia y su catálogo admite un solo precio", async () => {
+test("ADR-SAAS-096: costo Nevera se registra por unidad base y su catálogo admite un solo precio", async () => {
   const db = new FakeFirestore(); seed(db);
   db.docs.set("productos/producto-nevera", {
     empresaId: "empresa-a", catalogoId: "NEVERA", nombre: "Corona tradicional", categoriaId: "categoria-nevera",
@@ -305,7 +305,7 @@ test("ADR-SAAS-094: costo Nevera requiere transferencia y su catálogo admite un
   const beforeCreate = snapshotDocumentos(db);
   await assert.rejects(
     create(db, "presentacion-nevera-con-costo", { ...payload("producto-nevera", 1, 7000), costoPresentacionCOP: 5000 }),
-    /NEVERA_REQUIERE_TRANSFERENCIA/,
+    /NEVERA_COSTO_DEBE_SER_UNIDAD_BASE/,
   );
   await assert.rejects(
     create(db, "presentacion-nevera-doble-precio", { ...payload("producto-nevera", 1, 7000), precioConsumidorFinalCOP: 8000 }),
@@ -319,7 +319,7 @@ test("ADR-SAAS-094: costo Nevera requiere transferencia y su catálogo admite un
     ejecutarActualizarPresentacionComercialV1(db, adminA, envelope("costo-nevera-sin-transferencia", {
       presentacionId: creada.presentacionId, costoPresentacionCOP: 5000,
     })),
-    /NEVERA_REQUIERE_TRANSFERENCIA/,
+    /NEVERA_COSTO_DEBE_SER_UNIDAD_BASE/,
   );
   await assert.rejects(
     ejecutarActualizarPresentacionComercialV1(db, adminA, envelope("precio-nevera-doble-catalogo", {

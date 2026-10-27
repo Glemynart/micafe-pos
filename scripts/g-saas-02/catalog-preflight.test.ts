@@ -130,7 +130,7 @@ test("creates a row decision template that preserves separate lists without expo
   assert.ok(!template.lists.store[0].issueCodes.includes("cost_unit_basis_unresolved"));
   assert.ok(template.lists.store[0].issueCodes.includes("category_not_in_source_header"));
   assert.equal(template.globalDecisionsPending.some((item) => /seleccionar una única fuente/.test(item)), false);
-  assert.match(template.globalDecisionsPending.join(" "), /Bodega y Nevera no se asociarán/);
+  assert.match(template.globalDecisionsPending.join(" "), /referencias informativas y nunca se importan como asociaciones/);
   assert.equal(JSON.stringify(template).includes("Café molido"), false);
   assert.equal(JSON.stringify(template).includes("1500"), false);
   assert.equal(JSON.stringify(template).includes("1800"), false);
@@ -148,7 +148,7 @@ test("keeps consumer-only products in independent Nevera without requiring trans
   assert.ok(!consumerRow.issueCodes.includes("consumer_only_requires_explicit_product_mapping"));
   assert.equal(consumerRow.decisions.selectedPriceSource, "consumer");
   assert.ok(!consumerRow.issueCodes.some((code) => /^(category|base_unit|presentation|conversion_factor)_/.test(code)));
-  assert.ok(report.classification.deferredByPlan.some((item) => /asociación solo será necesaria.*transferencia futura/.test(item)));
+  assert.ok(report.classification.deferredByPlan.some((item) => /Diana registrará costo y existencias después, directamente en ese catálogo/.test(item)));
   assert.ok(!report.classification.humanDecisions.some((item) => /Confirmar si las .*PRECIOS CONS FINAL/.test(item)));
   assert.ok(!template.globalDecisionsPending.some((item) => /solo aparecen en PRECIOS CONS FINAL/.test(item)));
   assert.ok(template.globalDecisionsPending.some((item) => /categoría no tuvo coincidencia local/.test(item)));

@@ -470,7 +470,7 @@ export interface DianaCatalogOfflinePlan {
     status: "requires-human-review";
     granularity: "one-presentation-per-consumer-source-row";
     salesPriceSource: "PRECIOS CONS FINAL.PRECIO VENTA";
-    costPolicy: "pending explicit Bodega transfer mapping";
+    costPolicy: "pending direct Nevera inventory intake";
     stockInitial: 0;
     productGroupingInferred: false;
     presentations: Array<{
@@ -491,7 +491,7 @@ export interface DianaCatalogOfflinePlan {
   consumerReference: {
     consumerRowsInNevera: number;
     crossListCandidates: number;
-    transferMappingsPending: number;
+    directStockEntriesPending: number;
   };
   initialStockIncluded: false;
   safety: {
@@ -584,7 +584,7 @@ export function validateDianaCatalogReview(input: DianaCatalogReviewValidationIn
       ...(mapping.pending > 0 ? ["Resolver con Diana las categorías, unidades base, presentaciones y factores positivos de las filas tienda."] : []),
       ...(mapping.pending > 0 ? ["Conservar AL COSTO exactamente como costo total de la presentación/empaque; no dividirlo entre unidades base."] : []),
       ...(consumerMapping.pending > 0 ? ["Resolver por separado las categorías, unidades, presentaciones y factores positivos de las filas Nevera."] : []),
-      ...(consumerReview.deferred > 0 ? ["Las filas Nevera se importan como catálogo independiente sin costo ni asociación; la correspondencia será necesaria solo para transferencias futuras."] : []),
+      ...(consumerReview.deferred > 0 ? ["Las filas Nevera se importan como catálogo independiente sin costo ni asociación; el costo y el inventario se registran después directamente en Nevera."] : []),
       "Este validador no produce payload de importación. La carga de catálogo e inventario exige el flujo aprobado, datos completos y Gate I.",
     ],
   };
@@ -679,7 +679,7 @@ export function buildDianaCatalogOfflinePlan(input: DianaCatalogOfflinePlanInput
       status: "requires-human-review",
       granularity: "one-presentation-per-consumer-source-row",
       salesPriceSource: "PRECIOS CONS FINAL.PRECIO VENTA",
-      costPolicy: "pending explicit Bodega transfer mapping",
+      costPolicy: "pending direct Nevera inventory intake",
       stockInitial: 0,
       productGroupingInferred: false,
       presentations: neveraPresentations,
@@ -687,7 +687,7 @@ export function buildDianaCatalogOfflinePlan(input: DianaCatalogOfflinePlanInput
     consumerReference: {
       consumerRowsInNevera: neveraPresentations.length,
       crossListCandidates: report.totals.candidateCrossListPairs,
-      transferMappingsPending: neveraPresentations.length,
+      directStockEntriesPending: neveraPresentations.length,
     },
     initialStockIncluded: false,
     safety: {

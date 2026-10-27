@@ -2,7 +2,7 @@
 
 > **Estado:** ✅ Aprobado como vista arquitectónica consolidada del proyecto.
 > **Base funcional revisada:** `main @ 65a9fb85d9159eb949ffaf18c5a99ed6377b1554` (cierre del MVP).
-> **Última revisión:** 2026-10-27 (aceptación y sincronización de ADR-SAAS-094 y ADR-SAAS-095).
+> **Última revisión:** 2026-10-27 (sincronización de ADR-SAAS-096).
 > **Reconciliación documental:** PR #241; este SHA no pretende identificar el tip actual de `main`.
 > **Alcance vigente:** MT-U0 a MT-U8 completados; MT-U9→MT-U11 son unidades
 > candidatas post-MVP y MT-U12 está retirada/superseded por la decisión Web/PWA-only.
@@ -85,8 +85,8 @@ necesita una membresía explícita o una impersonación separada y auditada.
 - **Membresía:** relación usuario–empresa con rol, permisos y estado.
 - **Configuración:** parámetros editables y preferencias de una empresa, sin contadores.
 - **Espacio:** establecimiento o sucursal dentro de la empresa; no es frontera de seguridad.
-- **Ubicación interna de inventario Bodega:** subdivisión operativa dentro del Espacio único, como Bodega o Nevera; no crea otro Espacio, sede técnica, tenant ni frontera de seguridad. Saldo y movimientos se mantienen por ubicación bajo ADR-SAAS-091.
-- **Catálogos Bodega/Nevera:** cada catálogo mantiene identidades tenant-aware propias para productos, categorías y presentaciones; los nombres coincidentes no crean una asociación. Una transferencia entre catálogos requiere correspondencia y factor aprobados, costo exacto y movimiento atómico/idempotente conforme a ADR-SAAS-094.
+- **Inventario Bodega/Nevera:** los catálogos tienen identidades de producto tenant-aware independientes. Stock Nevera se registra directamente en su artículo por una operación server-authoritative; no es transferencia ni descuenta el artículo homónimo de Bodega (ADR-SAAS-096). La clasificación operativa no crea otra frontera de seguridad.
+- **Catálogos Bodega/Nevera:** cada catálogo mantiene identidades propias para productos, categorías y presentaciones; los nombres coincidentes no crean una asociación. Precios y ofertas quedan scoped al catálogo. El costo registrado en Nevera no se infiere desde Bodega ni desde el precio retail; costeo de ventas y subledger continúan sujetos a sus gates.
 - **Numeración:** autorización y secuencia fiscal independiente.
 - **Asignación de numeración:** selección determinista por alcance y tipo documental.
 - **Plan:** oferta comercial global y versionada.
@@ -522,7 +522,8 @@ requieren una decisión de producto sobre monetización, límites y operación S
 | ADR-SAAS-091 | Aceptado | Bodega: venta a crédito al entregar, abonos parciales, compromisos de pago y ubicación/cuenta operativa de Nevera a costo; preserva aislamiento y snapshots. Implementación y migraciones sujetas a PR y gates. |
 | ADR-SAAS-092 | Aceptado, alcance de catálogo supersedido parcialmente por ADR-SAAS-094 | Define la vigencia, edición/cierre y snapshots de ofertas; sus dos precios por presentación/canal se reemplazan por catálogos separados. Implementación y migraciones sujetas a PR y gates. |
 | ADR-SAAS-093 | Aceptado | Conserva el costo exacto por presentación en COP, sin redondear a costo unitario; compatibilidad y migraciones sujetas a PR y gates. |
-| ADR-SAAS-094 | Aceptado | Catálogos Bodega/Nevera independientes, asociación y factor explícitos para transferencias, costo FIFO exacto y ofertas aisladas por catálogo. No autoriza operaciones remotas. |
+| ADR-SAAS-094 | Aceptado, parcialmente supersedido por ADR-SAAS-096 | Catálogos independientes y ofertas aisladas; el requisito de correspondencia/transferencia para cargar stock Nevera queda supersedido. No autoriza operaciones remotas. |
+| ADR-SAAS-096 | Aceptado; supersede parcialmente ADR-SAAS-091/094 | Stock Nevera se registra directamente por catálogo con tenant, costo y movimiento idempotente; no transfiere ni modifica Bodega. No autoriza carga remota, subledger ni ventas retail. |
 | ADR-SAAS-095 | Aceptado | Concesión contractual append-only e idempotente de `reports` solo para Distribuidora Las Jiménez; preserva Plan y snapshot. Escritura y despliegue requieren gate operativo. |
 
 ---

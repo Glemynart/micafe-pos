@@ -325,7 +325,7 @@ test("builds a local review-only plan with two independent catalogs and exact Bo
   assert.equal(plan.neveraCatalog.presentations[0].salesPriceConsumerFinalCop, 2100);
   assert.equal(plan.neveraCatalog.presentations[0].bodegaAssociation, null);
   assert.equal(plan.consumerReference.consumerRowsInNevera, 2);
-  assert.equal(plan.consumerReference.transferMappingsPending, 2);
+  assert.equal(plan.consumerReference.directStockEntriesPending, 2);
   assert.equal(plan.initialStockIncluded, false);
   assert.equal(plan.safety.firebaseAccessed, false);
   assert.equal(plan.safety.writesPerformed, false);
@@ -339,7 +339,7 @@ test("builds a local review-only plan with two independent catalogs and exact Bo
   assert.equal(serialized.includes("Producto referencia"), true);
 });
 
-test("keeps future transfer mapping pending without merging a Nevera price into Bodega", () => {
+test("keeps cross-catalog name matches informational without merging Nevera into Bodega", () => {
   const plan = buildPlan({
     sourceWorkbook: sourceWorkbook(1200, true),
     reviewWorkbook: reviewWorkbook({ sameProduct: "Por confirmar", addConsumerOnly: true }),
@@ -349,7 +349,7 @@ test("keeps future transfer mapping pending without merging a Nevera price into 
 
   assert.ok(plan);
   assert.equal(plan.consumerReference.crossListCandidates, 1);
-  assert.equal(plan.consumerReference.transferMappingsPending, 2);
+  assert.equal(plan.consumerReference.directStockEntriesPending, 2);
   assert.equal(plan.proposal.presentations.length, 1);
   assert.equal(plan.proposal.presentations[0].salesPriceStoreCop, 1800);
   assert.equal(plan.proposal.presentations[0].consumerFinalPriceCop, null);
@@ -365,7 +365,7 @@ test("keeps retail prices for a distinct presentation out of the existing store 
   });
 
   assert.ok(plan);
-  assert.equal(plan.consumerReference.transferMappingsPending, 1);
+  assert.equal(plan.consumerReference.directStockEntriesPending, 1);
   assert.equal(plan.proposal.presentations[0].consumerFinalPriceCop, null);
 });
 

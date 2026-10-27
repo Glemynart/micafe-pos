@@ -232,7 +232,7 @@ async function crearPresentacion(tx: any, db: any, empresaId: string, actorUid: 
   if (productoSnap.data()?.activo !== true) fail("failed-precondition", "PRODUCTO_INACTIVO");
   const catalogoId = effectiveCatalogId(productoSnap.data()?.catalogoId);
   if (catalogoId === "NEVERA" && entrada.costoPresentacionCOP !== undefined) {
-    fail("failed-precondition", "NEVERA_REQUIERE_TRANSFERENCIA");
+    fail("failed-precondition", "NEVERA_COSTO_DEBE_SER_UNIDAD_BASE");
   }
   if (catalogoId === "NEVERA" && entrada.precioConsumidorFinalCOP !== undefined && entrada.precioConsumidorFinalCOP !== null) {
     fail("failed-precondition", "NEVERA_UN_PRECIO_POR_CATALOGO");
@@ -277,7 +277,7 @@ async function actualizarPresentacion(tx: any, db: any, empresaId: string, actor
   const catalogoId = effectiveCatalogId(producto.catalogoId);
   if (effectiveCatalogId(snap.data()?.catalogoId) !== catalogoId) fail("failed-precondition", "PRESENTACION_CATALOGO_INVALIDO");
   if (catalogoId === "NEVERA" && entrada.changes.costoPresentacionCOP !== undefined) {
-    fail("failed-precondition", "NEVERA_REQUIERE_TRANSFERENCIA");
+    fail("failed-precondition", "NEVERA_COSTO_DEBE_SER_UNIDAD_BASE");
   }
   if (catalogoId === "NEVERA" && entrada.changes.precioConsumidorFinalCOP !== undefined && entrada.changes.precioConsumidorFinalCOP !== null) {
     fail("failed-precondition", "NEVERA_UN_PRECIO_POR_CATALOGO");

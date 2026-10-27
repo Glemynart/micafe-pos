@@ -246,7 +246,7 @@ async function efectoCrearArticulo(tx: any, db: any, empresaId: string, actorUid
     const costoInicial = (data.costo as number | undefined) ?? 0;
     const stockInicialDeclarado = (data.stockInicial as number | undefined) ?? 0;
     if (catalogoId === "NEVERA" && (stockInicial !== 0 || stockInicialDeclarado !== 0 || costoInicial !== 0)) {
-      fail("failed-precondition", "NEVERA_REQUIERE_TRANSFERENCIA");
+      fail("failed-precondition", "NEVERA_STOCK_INICIAL_NO_PERMITIDO");
     }
     await validarCategoriaProducto(tx, db, empresaId, data.categoriaId as string, catalogoId);
   }
@@ -288,10 +288,12 @@ async function efectoActualizarArticulo(tx: any, db: any, empresaId: string, act
   const articulo = await tx.get(ref);
   if (!articulo.exists || articulo.data()?.empresaId !== empresaId) fail("not-found", "ARTICULO_NO_ENCONTRADO");
   const actual = articulo.data() as Data;
-  if (tipo === "producto" && effectiveCatalogId(actual.catalogoId) === "NEVERA"
-    && (data.stock !== undefined || data.costo !== undefined
-      || (data.stockInicial !== undefined && data.stockInicial !== 0))) {
-    fail("failed-precondition", "NEVERA_REQUIERE_TRANSFERENCIA");
+  const catalogoArticulo = tipo === "producto" ? effectiveCatalogId(actual.catalogoId) : null;
+  if (catalogoArticulo === "NEVERA" && actual.activo === false && (data.stock !== undefined || data.costo !== undefined)) {
+    fail("failed-precondition", "PRODUCTO_INACTIVO");
+  }
+  if (catalogoArticulo === "NEVERA" && data.stockInicial !== undefined && data.stockInicial !== 0) {
+    fail("failed-precondition", "NEVERA_STOCK_INICIAL_NO_PERMITIDO");
   }
   if (tipo === "producto" && data.catalogoId !== undefined) {
     await exigirCatalogoBodega(tx, db, empresaId);
@@ -324,6 +326,17 @@ async function efectoActualizarArticulo(tx: any, db: any, empresaId: string, act
   const objetivo = data.stock as number | undefined;
   const stockActual = (actual.stock as number | undefined) ?? 0;
   const delta = objetivo === undefined ? 0 : objetivo - stockActual;
+  const costoActual = (actual.costo as number | undefined) ?? 0;
+  const costoNuevo = (data.costo as number | undefined) ?? costoActual;
+  if (catalogoArticulo === "NEVERA" && objetivo !== undefined && !Number.isSafeInteger(objetivo)) {
+    fail("invalid-argument", "STOCK_INVALIDO");
+  }
+  if (catalogoArticulo === "NEVERA" && (objetivo ?? stockActual) > 0 && costoNuevo <= 0) {
+    fail("failed-precondition", "COSTO_NEVERA_REQUERIDO");
+  }
+  if (catalogoArticulo === "NEVERA" && data.costo !== undefined && costoNuevo !== costoActual && delta <= 0) {
+    fail("failed-precondition", "COSTO_NEVERA_REQUIERE_ENTRADA");
+  }
   const metadata = { ...data };
   delete metadata.stock;
   delete metadata.secuenciaLedger;
@@ -337,7 +350,7 @@ async function efectoActualizarArticulo(tx: any, db: any, empresaId: string, act
       unidad: ((tipo === "producto" ? actual.unidad : actual.unidadMedida) as string) ?? "und",
       tipo: delta > 0 ? "ajuste_positivo" : "ajuste_negativo",
       cantidad: delta,
-      costoUnitario: (actual.costo as number | undefined) ?? 0,
+      costoUnitario: catalogoArticulo === "NEVERA" && delta > 0 ? costoNuevo : costoActual,
       espacioId,
       usuarioId: actorUid,
       usuarioNombre: actor,
