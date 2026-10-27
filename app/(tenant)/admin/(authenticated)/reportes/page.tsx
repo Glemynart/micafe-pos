@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, BarChart3, TrendingUp, DollarSign, ShoppingCart, Users, Package, ChevronDown, ChevronUp } from "lucide-react"
+import { Loader2, BarChart3, TrendingUp, DollarSign, ShoppingCart, Users, Package, ChevronDown, ChevronUp, FileBarChart2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatCurrency } from "@/lib/demo-data"
 import { generarReporteVentas, obtenerRangoFechas, type ReporteVentas } from "@/lib/reportes-service"
@@ -13,6 +13,10 @@ import { useAuthContext } from "@/contexts/auth-context"
 import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
 import { useModulosHabilitados } from "@/contexts/modulos-context"
 import { BodegaReportesAdmin } from "@/components/bodega/bodega-financial-report"
+import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
+
+const DIANA_EMPRESA_ID = "distribuidora-las-jimenez"
 
 const periodos = [
   { key: "today", label: "Hoy" },
@@ -22,15 +26,81 @@ const periodos = [
 
 export default function ReportesPage() {
   const { usuario } = useAuthContext()
-  const { estado, vertical } = useConfiguracionEmpresa()
+  const { empresaId, estado, vertical, revision, proyecciones, ejecutar } = useConfiguracionEmpresa()
   const { modulos } = useModulosHabilitados()
   if (estado !== "LISTA") return <p role="status" className="p-6 text-sm text-muted-foreground">Verificando la configuración del negocio…</p>
   if (vertical === "BODEGA_MVP1") {
     if (usuario?.rol !== "admin") return <p role="alert" className="p-6 text-sm">Reportes reservados a la administración de Bodega.</p>
-    if (!modulos.includes("reports")) return <p role="alert" className="p-6 text-sm">El módulo de reportes no está habilitado para este negocio.</p>
+    if (!modulos.includes("reports")) {
+      if (empresaId === DIANA_EMPRESA_ID) {
+        return <HabilitarReportesDiana
+          revision={revision}
+          modulos={proyecciones?.modulos.habilitados ?? []}
+          ejecutar={ejecutar}
+        />
+      }
+      return <p role="alert" className="p-6 text-sm">El módulo de reportes no está habilitado para este negocio.</p>
+    }
     return <BodegaReportesAdmin />
   }
   return <LegacyReportesPage />
+}
+
+function HabilitarReportesDiana({
+  revision,
+  modulos,
+  ejecutar,
+}: {
+  revision: number | null
+  modulos: string[]
+  ejecutar: ReturnType<typeof useConfiguracionEmpresa>["ejecutar"]
+}) {
+  const [guardando, setGuardando] = useState(false)
+
+  async function habilitar() {
+    if (revision === null) {
+      toast.error("No se pudo leer la revisión actual de configuración.")
+      return
+    }
+    setGuardando(true)
+    const nonce = globalThis.crypto.randomUUID().replaceAll("-", "")
+    try {
+      await ejecutar("actualizarConfiguracionEmpresa", {
+        expectedRevision: revision,
+        idempotencyKey: `idem_reports_${nonce}`,
+        commandId: `cmd_reports_${nonce}`,
+        correlationId: `corr_reports_${nonce}`,
+        motivo: "HABILITAR_REPORTES_OPERATIVOS_Diana",
+        operaciones: [{
+          tipo: "SET",
+          ruta: "modulos.habilitados",
+          valor: [...new Set([...modulos, "reports"])],
+        }],
+      })
+      toast.success("Reportes habilitados para este negocio.")
+    } catch {
+      toast.error("No se pudo habilitar. La capacidad debe estar concedida y la configuración vigente.")
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <section className="mx-auto max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-sm" aria-labelledby="reports-setup-title">
+      <div className="flex items-start gap-4">
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><FileBarChart2 className="size-5" /></span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reportes del negocio</p>
+          <h1 id="reports-setup-title" className="mt-1 text-xl font-semibold">Activar reportes operativos</h1>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Después de que plataforma conceda la capacidad, la administración puede activar este módulo de solo lectura. La activación se valida contra el contrato vigente de Distribuidora Las Jiménez; no cambia el plan, el precio ni el plazo.</p>
+          <Button className="mt-5" onClick={() => void habilitar()} disabled={guardando || revision === null}>
+            {guardando && <Loader2 className="mr-2 size-4 animate-spin" />}
+            Habilitar reportes
+          </Button>
+        </div>
+      </div>
+    </section>
+  )
 }
 
 function LegacyReportesPage() {
