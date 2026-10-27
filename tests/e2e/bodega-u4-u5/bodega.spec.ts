@@ -94,8 +94,11 @@ test.beforeAll(async () => {
 })
 test.afterAll(async () => { await deleteApp(app) })
 
-async function login(page: import("@playwright/test").Page, actor: Actor, adminRoute = false) {
-  await page.goto(adminRoute ? "/admin/login" : "/pos")
+async function login(page: import("@playwright/test").Page, actor: Actor, adminRoute = false, adminFrom?: string) {
+  const adminLoginUrl = adminRoute
+    ? `/admin/login${adminFrom ? `?from=${encodeURIComponent(adminFrom)}` : ""}`
+    : "/pos"
+  await page.goto(adminLoginUrl)
   await page.locator(adminRoute ? "#user" : "#username").fill(actor.codigo)
   await page.locator(adminRoute ? "#pass" : "#password").fill(pin)
   await page.getByRole("button", { name: adminRoute ? "Ingresar" : "Iniciar Sesión" }).click()
@@ -274,7 +277,7 @@ test("Bodega conserva aislamiento A/B en UI y callable real", async ({ page }) =
 })
 
 test("administrador Bodega ve únicamente el backoffice y conserva operaciones de A", async ({ page }) => {
-  await login(page, tenantA.admin, true); await expect(page.getByRole("heading", { name: "Tu negocio, de un vistazo" })).toBeVisible(); await page.goto("/pos"); await expect(page).toHaveURL(/\/admin$/); await expect(page.locator(".theme-pos")).toHaveCount(0)
+  await login(page, tenantA.admin, true, "/admin/reportes"); await expect(page.getByRole("heading", { name: "Tu negocio, de un vistazo" })).toBeVisible(); await page.goto("/pos"); await expect(page).toHaveURL(/\/admin$/); await expect(page.locator(".theme-pos")).toHaveCount(0)
   await page.goto("/admin/catalogo"); await expect(page.getByRole("article").filter({ hasText: tenantA.productoNombre })).toBeVisible(); await expect(page.getByRole("article").filter({ hasText: tenantB.productoNombre })).toHaveCount(0); await page.getByRole("article").filter({ hasText: tenantA.productoNombre }).locator("summary").click(); await page.getByLabel(`Precio tienda ${tenantA.presentacionNombre}`).fill("5500"); await page.getByRole("button", { name: "Guardar precios" }).click(); await expect.poll(async () => (await getFirestore(app).collection("presentaciones_producto").doc(tenantA.presentacionId).get()).data()?.precioCOP).toBe(5500)
   await page.goto("/admin/clientes"); await expect(page.getByText(tenantA.clienteNombre)).toBeVisible(); await expect(page.getByText(tenantB.clienteNombre)).toHaveCount(0); await page.goto("/admin/inventario"); await expect(page.getByRole("heading", { name: "Existencias en unidad base" })).toBeVisible(); await page.goto("/admin/ventas"); await expect(page.getByRole("heading", { name: "Consulta operativa" })).toBeVisible(); await expect(page.getByText(tenantA.clienteNombre).first()).toBeVisible(); await expect(page.getByText(tenantB.clienteNombre)).toHaveCount(0)
 })
