@@ -137,7 +137,7 @@ test("rejects non-positive source prices and costs instead of treating them as v
   assert.ok(invalid.validationErrors.some((error) => /inválidos/.test(error)));
 });
 
-test("keeps incomplete mappings pending and refuses fractional cost conversion", () => {
+test("keeps incomplete mappings pending and accepts exact package costs without rounding", () => {
   const missingMapping = validateDianaCatalogReview({
     sourceWorkbook: sourceWorkbook(),
     reviewWorkbook: reviewWorkbook({ category: "", factor: "", costBasis: "Por confirmar" }),
@@ -150,12 +150,12 @@ test("keeps incomplete mappings pending and refuses fractional cost conversion",
 
   const fractionalCost = validateDianaCatalogReview({
     sourceWorkbook: sourceWorkbook(1201),
-    reviewWorkbook: reviewWorkbook(),
+    reviewWorkbook: reviewWorkbook({ storeCost: 1201 }),
     sourceSha256: SOURCE_HASH,
   });
-  assert.equal(fractionalCost.operationalMappingsComplete, false);
+  assert.equal(fractionalCost.operationalMappingsComplete, true);
   assert.equal(fractionalCost.totals.costsNotExactlyConvertibleToBaseUnit, 1);
-  assert.ok(fractionalCost.validationErrors.some((error) => /sin redondeo/.test(error)));
+  assert.equal(fractionalCost.validationErrors.some((error) => /sin redondeo/.test(error)), false);
 
   const unsupportedBasis = validateDianaCatalogReview({
     sourceWorkbook: sourceWorkbook(),
@@ -285,7 +285,7 @@ function buildPlan(input: PlanInput): DianaCatalogOfflinePlan | null {
   return buildDianaCatalogOfflinePlan(input);
 }
 
-test("builds a local review-only plan with both channels only when the same presentation is explicitly approved", () => {
+test("builds a local review-only plan with channel prices and exact presentation cost only for approved mappings", () => {
   const plan = buildPlan({
     sourceWorkbook: sourceWorkbook(1200, true),
     reviewWorkbook: reviewWorkbook({ addConsumerOnly: true }),
@@ -309,12 +309,13 @@ test("builds a local review-only plan with both channels only when the same pres
     baseUnit: "unidad",
     presentation: "paquete x 12",
     unitsPerPresentation: 12,
+    packagingQuantityEvidence: "assumed_single_unit",
     salesPriceStoreCop: 1800,
     consumerSourceRow: 2,
     consumerFinalPriceCop: 2100,
     sourceCostCop: 1200,
     costBasis: "PRESENTACION / EMPAQUE",
-    costCopPerBaseUnit: 100,
+    costCopPerPresentation: 1200,
   });
   assert.equal(plan.consumerReference.consumerPricesApplied, true);
   assert.equal(plan.consumerReference.consumerRowsDeferred, 1);

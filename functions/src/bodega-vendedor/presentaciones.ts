@@ -32,6 +32,8 @@ export interface PresentacionComercialCanonica {
   precioCOP: number;
   precioTiendaCOP: number;
   precioConsumidorFinalCOP: number | null;
+  /** Exact COP cost of this package when configured; legacy uses product cost. */
+  costoPresentacionCOP: number | null;
   activo: boolean;
 }
 
@@ -42,6 +44,7 @@ export interface ResolucionComercialBodega extends PresentacionComercialCanonica
   unidadBase: string;
   espacioId: string;
   costoUnidadBaseCOP: number;
+  costoPresentacionCOP: number;
 }
 
 function requiredText(value: unknown, code: string, max = 120): string {
@@ -86,10 +89,17 @@ function normalizarPrecios(data: Record<string, unknown>, requerido: boolean) {
   };
 }
 
+function normalizarCostoPresentacion(data: Record<string, unknown>, requerido: boolean) {
+  const costo = data.costoPresentacionCOP;
+  if (requerido && costo === undefined) return {};
+  if (costo !== undefined && !positiveInteger(costo)) fail("invalid-argument", "COSTO_PRESENTACION_COP_INVALIDO");
+  return costo === undefined ? {} : { costoPresentacionCOP: costo as number };
+}
+
 function normalizeCreate(raw: unknown) {
   if (!object(raw)) fail("invalid-argument", "PAYLOAD_INVALIDO");
   const data = raw as Record<string, unknown>;
-  only(data, ["productoId", "nombre", "factorUnidadBase", "precioCOP", "precioTiendaCOP", "precioConsumidorFinalCOP", "activo"]);
+  only(data, ["productoId", "nombre", "factorUnidadBase", "precioCOP", "precioTiendaCOP", "precioConsumidorFinalCOP", "costoPresentacionCOP", "activo"]);
   if (!positiveInteger(data.factorUnidadBase)) fail("invalid-argument", "FACTOR_UNIDAD_BASE_INVALIDO");
   if (data.activo !== undefined && !active(data.activo)) fail("invalid-argument", "ESTADO_PRESENTACION_INVALIDO");
   return {
@@ -97,6 +107,7 @@ function normalizeCreate(raw: unknown) {
     nombre: requiredText(data.nombre, "NOMBRE_PRESENTACION_INVALIDO"),
     factorUnidadBase: data.factorUnidadBase as number,
     ...normalizarPrecios(data, true),
+    ...normalizarCostoPresentacion(data, false),
     activo: (data.activo ?? true) as boolean,
   };
 }
@@ -104,7 +115,7 @@ function normalizeCreate(raw: unknown) {
 function normalizeUpdate(raw: unknown) {
   if (!object(raw)) fail("invalid-argument", "PAYLOAD_INVALIDO");
   const data = raw as Record<string, unknown>;
-  only(data, ["presentacionId", "nombre", "factorUnidadBase", "precioCOP", "precioTiendaCOP", "precioConsumidorFinalCOP", "activo"]);
+  only(data, ["presentacionId", "nombre", "factorUnidadBase", "precioCOP", "precioTiendaCOP", "precioConsumidorFinalCOP", "costoPresentacionCOP", "activo"]);
   const presentacionId = requiredText(data.presentacionId, "PRESENTACION_ID_INVALIDO", MAX_BODEGA_REFERENCE_ID_LENGTH);
   const changes: Record<string, unknown> = {};
   if (data.nombre !== undefined) changes.nombre = requiredText(data.nombre, "NOMBRE_PRESENTACION_INVALIDO");
@@ -113,6 +124,7 @@ function normalizeUpdate(raw: unknown) {
     changes.factorUnidadBase = data.factorUnidadBase;
   }
   Object.assign(changes, normalizarPrecios(data, false));
+  Object.assign(changes, normalizarCostoPresentacion(data, false));
   if (data.activo !== undefined) {
     if (!active(data.activo)) fail("invalid-argument", "ESTADO_PRESENTACION_INVALIDO");
     changes.activo = data.activo;
@@ -149,8 +161,10 @@ async function resolverPresentacionDesdeProductoEnTransaccion(tx: any, db: any, 
   if (data.activo !== true) fail("failed-precondition", "PRESENTACION_INACTIVA");
   const precioTiendaCOP = data.precioTiendaCOP ?? data.precioCOP;
   const precioConsumidorFinalCOP = data.precioConsumidorFinalCOP;
+  const costoPresentacionCOP = data.costoPresentacionCOP;
   if (!text(data.nombre) || !positiveInteger(data.factorUnidadBase) || !positiveInteger(precioTiendaCOP)
-    || (precioConsumidorFinalCOP !== undefined && precioConsumidorFinalCOP !== null && !positiveInteger(precioConsumidorFinalCOP))) fail("failed-precondition", "PRESENTACION_INVALIDA");
+    || (precioConsumidorFinalCOP !== undefined && precioConsumidorFinalCOP !== null && !positiveInteger(precioConsumidorFinalCOP))
+    || (costoPresentacionCOP !== undefined && costoPresentacionCOP !== null && !positiveInteger(costoPresentacionCOP))) fail("failed-precondition", "PRESENTACION_INVALIDA");
   return {
     id: presentacionSnap.id,
     empresaId,
@@ -160,6 +174,7 @@ async function resolverPresentacionDesdeProductoEnTransaccion(tx: any, db: any, 
     precioCOP: precioTiendaCOP as number,
     precioTiendaCOP: precioTiendaCOP as number,
     precioConsumidorFinalCOP: precioConsumidorFinalCOP === undefined || precioConsumidorFinalCOP === null ? null : precioConsumidorFinalCOP as number,
+    costoPresentacionCOP: costoPresentacionCOP === undefined || costoPresentacionCOP === null ? null : costoPresentacionCOP as number,
     activo: true,
   };
 }
@@ -186,6 +201,8 @@ export async function resolverComercialBodegaEnTransaccion(tx: any, db: any, emp
   const unidadBase = text(producto.unidadMedida) ? producto.unidadMedida : producto.unidad;
   if (!text(producto.nombre) || !text(unidadBase) || !text(producto.espacioId)) fail("failed-precondition", "PRODUCTO_INVENTARIABLE_INVALIDO");
   if (typeof producto.costo !== "number" || !Number.isSafeInteger(producto.costo) || producto.costo < 0) fail("failed-precondition", "PRODUCTO_COSTO_INVALIDO");
+  const costoPresentacionCOP = presentacion.costoPresentacionCOP ?? (producto.costo as number) * presentacion.factorUnidadBase;
+  if (!Number.isSafeInteger(costoPresentacionCOP) || costoPresentacionCOP < 0) fail("failed-precondition", "COSTO_PRESENTACION_INVALIDO");
   return {
     ...presentacion,
     precioCOP: resolverPrecioCanalBodega(presentacion, canal),
@@ -193,6 +210,7 @@ export async function resolverComercialBodegaEnTransaccion(tx: any, db: any, emp
     unidadBase: (unidadBase as string).trim(),
     espacioId: (producto.espacioId as string).trim(),
     costoUnidadBaseCOP: producto.costo as number,
+    costoPresentacionCOP,
   };
 }
 
@@ -214,6 +232,7 @@ async function crearPresentacion(tx: any, db: any, empresaId: string, actorUid: 
     precioCOP: entrada.precioCOP,
     precioTiendaCOP: entrada.precioTiendaCOP,
     precioConsumidorFinalCOP: entrada.precioConsumidorFinalCOP ?? null,
+    ...(entrada.costoPresentacionCOP === undefined ? {} : { costoPresentacionCOP: entrada.costoPresentacionCOP }),
     activo: entrada.activo,
     creadoPor: actorUid,
     creadoEn: FieldValue.serverTimestamp(),
@@ -300,9 +319,11 @@ export async function ejecutarConsultarCatalogoPresentacionesVendedor(db: any, c
     const producto = typeof data.productoId === "string" ? productos.get(data.productoId) : undefined;
     const precioTiendaCOP = data.precioTiendaCOP ?? data.precioCOP;
     const precioConsumidorFinalCOP = data.precioConsumidorFinalCOP;
+    const costoPresentacionCOP = data.costoPresentacionCOP;
     if (!producto || !positiveInteger(data.factorUnidadBase) || !positiveInteger(precioTiendaCOP)
-      || (precioConsumidorFinalCOP !== undefined && precioConsumidorFinalCOP !== null && !positiveInteger(precioConsumidorFinalCOP)) || !text(data.nombre)) return [];
-    return [proyectarCatalogoPresentacionesVendedor(producto, { id: snap.id, empresaId: contexto.empresaId, productoId: data.productoId as string, nombre: (data.nombre as string).trim(), factorUnidadBase: data.factorUnidadBase as number, precioCOP: precioTiendaCOP as number, precioTiendaCOP: precioTiendaCOP as number, precioConsumidorFinalCOP: precioConsumidorFinalCOP === undefined || precioConsumidorFinalCOP === null ? null : precioConsumidorFinalCOP as number, activo: true })];
+      || (precioConsumidorFinalCOP !== undefined && precioConsumidorFinalCOP !== null && !positiveInteger(precioConsumidorFinalCOP))
+      || (costoPresentacionCOP !== undefined && costoPresentacionCOP !== null && !positiveInteger(costoPresentacionCOP)) || !text(data.nombre)) return [];
+    return [proyectarCatalogoPresentacionesVendedor(producto, { id: snap.id, empresaId: contexto.empresaId, productoId: data.productoId as string, nombre: (data.nombre as string).trim(), factorUnidadBase: data.factorUnidadBase as number, precioCOP: precioTiendaCOP as number, precioTiendaCOP: precioTiendaCOP as number, precioConsumidorFinalCOP: precioConsumidorFinalCOP === undefined || precioConsumidorFinalCOP === null ? null : precioConsumidorFinalCOP as number, costoPresentacionCOP: costoPresentacionCOP === undefined || costoPresentacionCOP === null ? null : costoPresentacionCOP as number, activo: true })];
   });
   return { presentaciones: catalogo };
 }

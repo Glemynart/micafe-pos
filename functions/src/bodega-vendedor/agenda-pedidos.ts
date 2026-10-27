@@ -9,6 +9,7 @@ import {
 import { crearIdentificadorInterno } from "../turnos/identificadores";
 import { revalidarAutoridadVentaBodegaEnTransaccion } from "./ventas-authority";
 import { resolverVentaBodegaEnTransaccion } from "./ventas-resolution";
+import { proyectarComercialSolicitud } from "./solicitudes-venta";
 import { marcarSenalDisponibilidadBodega, marcarSenalSolicitudesAdminBodega, marcarSenalSolicitudesVendedorBodega } from "./live-signals";
 
 const AGENDA = "agenda_pedidos_bodega";
@@ -457,18 +458,12 @@ export async function ejecutarConvertirProgramacionPedidoBodegaV1(db: any, conte
     const resolution = await resolverVentaBodegaEnTransaccion(tx, firestore, contexto, saleCommand(command, { clienteId: data.clienteId, lineas }));
     const requestId = crearIdentificadorInterno(empresaId, `solicitud-venta-bodega:${input.commandId}`);
     const requestRef = firestore.collection("empresas").doc(empresaId).collection("solicitudes_venta_bodega").doc(requestId);
-    const saleLines = resolution.lineas.map(line => ({
-      productoId: line.productoId, productoNombre: line.productoNombreSnapshot, unidadBase: line.unidadBaseSnapshot,
-      presentacionId: line.presentacionId, presentacionNombre: line.presentacionNombreSnapshot,
-      cantidad: line.cantidadPresentaciones, factorUnidadBase: line.factorUnidadBase,
-      cantidadUnidadBase: line.cantidadUnidadBase, precioPresentacionCOP: line.precioPresentacionCOP, subtotalCOP: line.subtotalCOP,
-    }));
-    const totalCOP = saleLines.reduce((sum, line) => sum + line.subtotalCOP, 0);
-    if (!Number.isSafeInteger(totalCOP) || totalCOP <= 0) fail("failed-precondition", "TOTAL_BODEGA_INVALIDO");
-    const huellaComercial = crearHuellaSemantica({ clienteId: resolution.cliente.id, lineas: saleLines, totalCOP });
+    // Reuse the same canonical projection as direct requests so later
+    // revalidation fingerprints the exact same channel, offer and price fields.
+    const commercial = proyectarComercialSolicitud(resolution);
     tx.create(requestRef, {
-      solicitudId: requestId, empresaId, solicitanteUid: actorUid, clienteId: resolution.cliente.id,
-      intentoLineas: lineas, lineas: saleLines, totalCOP, huellaComercial,
+      solicitudId: requestId, empresaId, solicitanteUid: actorUid, clienteId: commercial.cliente.id,
+      intentoLineas: lineas, lineas: commercial.lineas, totalCOP: commercial.totalCOP, huellaComercial: commercial.huellaComercial,
       estado: "PENDIENTE_APROBACION", revision: 1, programacionId: payload.programacionId,
       reservaIds: data.reservaIds ?? [],
       creadaEn: FieldValue.serverTimestamp(), actualizadaEn: FieldValue.serverTimestamp(),

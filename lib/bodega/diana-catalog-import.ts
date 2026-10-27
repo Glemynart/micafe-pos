@@ -8,12 +8,14 @@ export interface DianaCatalogImportRow {
   baseUnit: string;
   presentation: string;
   unitsPerPresentation: number;
+  packagingQuantityEvidence: "explicit_count" | "assumed_single_unit" | "ambiguous_count";
   salesPriceStoreCop: number;
   consumerSourceRow: number | null;
   consumerFinalPriceCop: number | null;
   sourceCostCop: number;
   costBasis: "UNIDAD BASE" | "PRESENTACION / EMPAQUE";
-  costCopPerBaseUnit: number;
+  /** Exact purchase cost of the sold package. Never rounded to base units. */
+  costCopPerPresentation: number;
 }
 
 export interface DianaCatalogImportPlan {
@@ -26,7 +28,7 @@ export interface DianaCatalogImportPlan {
     granularity: "one-presentation-per-store-source-row";
     salesPriceSource: "PRECIOS A TIENDA.PRECIO VENTA";
     consumerPriceSource: "PRECIOS CONS FINAL.PRECIO VENTA";
-    costPolicy: "AL COSTO exact per base unit; no automatic markup";
+    costPolicy: "AL COSTO exact per presentation; no automatic markup";
     productGroupingInferred: false;
     presentations: DianaCatalogImportRow[];
   };
@@ -73,6 +75,7 @@ export interface CatalogImportPresentation {
   precioCOP: number;
   precioTiendaCOP: number;
   precioConsumidorFinalCOP: number | null;
+  costoPresentacionCOP: number | null;
   activo: boolean;
 }
 
@@ -157,7 +160,7 @@ export function validarPlanImportacionCatalogo(value: unknown): string[] {
     || plan.proposal.granularity !== "one-presentation-per-store-source-row"
     || plan.proposal.salesPriceSource !== "PRECIOS A TIENDA.PRECIO VENTA"
     || plan.proposal.consumerPriceSource !== "PRECIOS CONS FINAL.PRECIO VENTA"
-    || plan.proposal.costPolicy !== "AL COSTO exact per base unit; no automatic markup"
+    || plan.proposal.costPolicy !== "AL COSTO exact per presentation; no automatic markup"
     || plan.proposal.productGroupingInferred !== false) {
     errors.push("El plan no conserva las decisiones comerciales de catálogo aprobadas.");
   }
@@ -197,15 +200,22 @@ export function validarPlanImportacionCatalogo(value: unknown): string[] {
       if (!(Object.values(CATEGORIAS_CATALOGO_DIANA) as string[]).includes(row.category)) errors.push(`La categoría de la fila ${index + 1} no pertenece a las 17 categorías aprobadas.`);
       if (typeof row.baseUnit !== "string" || row.baseUnit.trim() === "" || row.baseUnit.trim().length > 32) errors.push(`La unidad base de la fila ${index + 1} no es válida.`);
       if (typeof row.presentation !== "string" || row.presentation.trim() === "" || row.presentation.trim().length > 120) errors.push(`La presentación de la fila ${index + 1} no es válida.`);
-      if (!positiveInteger(row.unitsPerPresentation) || !positiveInteger(row.salesPriceStoreCop) || !positiveInteger(row.sourceCostCop) || !positiveInteger(row.costCopPerBaseUnit)) errors.push(`La fila ${index + 1} contiene precio, costo o factor inválido.`);
+      if (row.packagingQuantityEvidence !== "explicit_count" && row.packagingQuantityEvidence !== "assumed_single_unit" && row.packagingQuantityEvidence !== "ambiguous_count") errors.push(`La fila ${index + 1} no registra evidencia válida de unidades por empaque.`);
+      if (!positiveInteger(row.unitsPerPresentation) || !positiveInteger(row.salesPriceStoreCop) || !positiveInteger(row.sourceCostCop) || !positiveInteger(row.costCopPerPresentation)) errors.push(`La fila ${index + 1} contiene precio, costo o factor inválido.`);
       if (row.consumerSourceRow !== null && !positiveInteger(row.consumerSourceRow)) errors.push(`La fila ${index + 1} tiene una referencia inválida a consumidor final.`);
       if (row.consumerSourceRow !== null && seenConsumerRows.has(row.consumerSourceRow)) errors.push(`La fila consumidor ${row.consumerSourceRow} está asociada más de una vez.`);
       if (row.consumerSourceRow !== null) seenConsumerRows.add(row.consumerSourceRow);
       if (row.consumerFinalPriceCop !== null && !positiveInteger(row.consumerFinalPriceCop)) errors.push(`La fila ${index + 1} contiene un precio consumidor inválido.`);
       if ((row.consumerSourceRow === null) !== (row.consumerFinalPriceCop === null)) errors.push(`La fila ${index + 1} debe conservar juntos la referencia y el precio consumidor aprobados.`);
       if (row.costBasis !== "UNIDAD BASE" && row.costBasis !== "PRESENTACION / EMPAQUE") errors.push(`La base de costo de la fila ${index + 1} no es válida.`);
-      else if (row.costBasis === "UNIDAD BASE" && row.sourceCostCop !== row.costCopPerBaseUnit) errors.push(`El costo por unidad base de la fila ${index + 1} no coincide con su origen.`);
-      else if (row.costBasis === "PRESENTACION / EMPAQUE" && row.sourceCostCop / row.unitsPerPresentation !== row.costCopPerBaseUnit) errors.push(`El costo de la fila ${index + 1} no se convierte exactamente a la unidad base.`);
+      else {
+        const expectedPresentationCost = row.costBasis === "UNIDAD BASE"
+          ? row.sourceCostCop * row.unitsPerPresentation
+          : row.sourceCostCop;
+        if (!Number.isSafeInteger(expectedPresentationCost) || expectedPresentationCost !== row.costCopPerPresentation) {
+          errors.push(`El costo exacto de presentación de la fila ${index + 1} no coincide con su origen.`);
+        }
+      }
     }
   }
   if (Array.isArray(rows)) {
@@ -269,7 +279,7 @@ export function prepararImportacionCatalogo(
       const existing = existingProducts[0];
       if (existing.id !== productoId) errores.push(`El producto «${row.name}» ya existe y no pertenece a este lote; no se creará un duplicado.`);
       else if (existing.categoriaId !== categoriaId || existing.espacioId !== espacioId || existing.unidad !== row.baseUnit
-        || existing.costoUnidadBaseCOP !== row.costCopPerBaseUnit || !existing.activo) {
+        || existing.costoUnidadBaseCOP !== 0 || !existing.activo) {
         errores.push(`El producto «${row.name}» ya existe con datos distintos al plan; requiere revisión manual.`);
       } else productoExistente = true;
     }
@@ -282,7 +292,8 @@ export function prepararImportacionCatalogo(
       const existing = existingPresentations[0];
       if (existing.id !== presentacionId) errores.push(`La presentación «${row.presentation}» de «${row.name}» ya existe con otra identidad.`);
       else if (existing.factorUnidadBase !== row.unitsPerPresentation || existing.precioCOP !== row.salesPriceStoreCop
-        || existing.precioTiendaCOP !== row.salesPriceStoreCop || existing.precioConsumidorFinalCOP !== row.consumerFinalPriceCop || !existing.activo) {
+        || existing.precioTiendaCOP !== row.salesPriceStoreCop || existing.precioConsumidorFinalCOP !== row.consumerFinalPriceCop
+        || existing.costoPresentacionCOP !== row.costCopPerPresentation || !existing.activo) {
         errores.push(`La presentación «${row.presentation}» de «${row.name}» ya existe con datos distintos al plan.`);
       } else presentacionExistente = true;
     }
@@ -344,7 +355,9 @@ export async function ejecutarImportacionCatalogo(
           categoriaId: idsCategorias.get(normalized(item.row.category)) ?? item.categoriaId,
           espacioId: preparado.espacioId,
           unidad: item.row.baseUnit,
-          costo: item.row.costCopPerBaseUnit,
+          // The exact source cost belongs to the package. Keeping a rounded
+          // unit cost here would fabricate financial data for Diana.
+          costo: 0,
           stock: 0,
           stockMinimo: 0,
           activo: true,
@@ -364,6 +377,7 @@ export async function ejecutarImportacionCatalogo(
         precioCOP: item.row.salesPriceStoreCop,
         precioTiendaCOP: item.row.salesPriceStoreCop,
         precioConsumidorFinalCOP: item.row.consumerFinalPriceCop,
+        costoPresentacionCOP: item.row.costCopPerPresentation,
         activo: true,
       });
       if (typeof result.presentacionId !== "string" || result.presentacionId === "") throw new Error(`No se confirmó la presentación de la fila de origen ${item.row.sourceRow}.`);

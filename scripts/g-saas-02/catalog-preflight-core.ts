@@ -170,7 +170,7 @@ function normalizeText(value: string): string {
     .toLocaleUpperCase("es-CO");
 }
 
-function suggestPackaging(productName: string): PackagingSuggestion {
+export function suggestPackaging(productName: string): PackagingSuggestion {
   const explicitCounts = [...productName.matchAll(/(?:^|\s)(?:x|×)\s*(\d{1,3})(?:\s*(?:unds?|unidades?|u\b))?(?=\s|$)/giu)]
     .map((match) => Number(match[1]));
   const sixPackCount = /\b(?:six\s*[- ]?pack|sixpak|6\s*[- ]?pack)\b/iu.test(productName) ? [6] : [];

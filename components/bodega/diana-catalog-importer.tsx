@@ -95,6 +95,7 @@ export function DianaCatalogImporter({ tenantId, espacios, onRunningChange }: { 
   };
 
   const rows = preparado?.filas ?? [];
+  const packagingReviewRows = rows.filter(item => item.row.packagingQuantityEvidence !== "explicit_count");
   const reviewNeeded = rows.filter(item => sugerirCategoriaCatalogoDiana(item.row.name).estado === "REVISAR").length;
   const categoryDisagreements = rows.filter(item => {
     const suggestion = sugerirCategoriaCatalogoDiana(item.row.name);
@@ -124,6 +125,7 @@ export function DianaCatalogImporter({ tenantId, espacios, onRunningChange }: { 
           <p>Productos: {preparado.resumen.productosTotales} ({preparado.resumen.productosPorCrear} nuevos)</p>
           <p>Categorías: {preparado.resumen.categoriasTotales} ({preparado.resumen.categoriasPorCrear} nuevas)</p>
           <p>Presentaciones: {preparado.filas.length} ({preparado.resumen.presentacionesPorCrear} nuevas)</p>
+          <p>Productos cuyo nombre fuente no indica unidades por empaque: {packagingReviewRows.length} (confirmar presentación con Diana)</p>
           <p>Sin regla local: {reviewNeeded} (requieren confirmación manual)</p>
           <p>Diferencias entre sugerencia local y plan: {categoryDisagreements} (revisar antes de importar)</p>
           <p>Filas consumidor diferidas: {plan?.consumerReference.consumerRowsDeferred ?? 0}</p>
@@ -135,7 +137,7 @@ export function DianaCatalogImporter({ tenantId, espacios, onRunningChange }: { 
         <div className="mt-3 max-h-96 overflow-auto rounded-xl border border-border">
           <table className="w-full min-w-[800px] text-left text-xs">
             <caption className="sr-only">Vista previa del catálogo y categorías antes de la importación</caption>
-            <thead className="sticky top-0 bg-muted"><tr><th scope="col" className="p-2">Origen</th><th scope="col" className="p-2">Producto</th><th scope="col" className="p-2">Categoría del plan</th><th scope="col" className="p-2">Regla local</th><th scope="col" className="p-2">Presentación</th><th scope="col" className="p-2">Precio tienda</th><th scope="col" className="p-2">Precio consumidor</th><th scope="col" className="p-2">Costo base</th></tr></thead>
+            <thead className="sticky top-0 bg-muted"><tr><th scope="col" className="p-2">Origen</th><th scope="col" className="p-2">Producto</th><th scope="col" className="p-2">Categoría del plan</th><th scope="col" className="p-2">Regla local</th><th scope="col" className="p-2">Presentación</th><th scope="col" className="p-2">Precio tienda</th><th scope="col" className="p-2">Precio consumidor</th><th scope="col" className="p-2">Costo del empaque</th></tr></thead>
             <tbody>{rows.map(item => {
               const suggestion = sugerirCategoriaCatalogoDiana(item.row.name);
               return <tr key={item.row.sourceRow} className="border-t border-border align-top">
@@ -143,10 +145,10 @@ export function DianaCatalogImporter({ tenantId, espacios, onRunningChange }: { 
                 <td className="p-2 font-medium">{item.row.name}</td>
                 <td className="p-2">{item.row.category}</td>
                 <td className="p-2">{suggestion.estado === "SUGERIDA" ? suggestion.categoria : "Revisar"}{suggestion.estado === "SUGERIDA" && suggestion.categoria !== item.row.category && <><br /><span className="font-semibold text-amber-700">Difiere del plan: confirma manualmente</span><br /><a href={construirBusquedaWebProducto(item.row.name)} target="_blank" rel="noopener noreferrer" className="underline">Buscar producto en Colombia</a></>}{suggestion.estado === "REVISAR" && <><br /><a href={construirBusquedaWebProducto(item.row.name)} target="_blank" rel="noopener noreferrer" className="underline">Buscar producto en Colombia</a></>}</td>
-                <td className="p-2">{item.row.presentation} × {item.row.unitsPerPresentation} {item.row.baseUnit}</td>
+                <td className="p-2">{item.row.presentation} × {item.row.unitsPerPresentation} {item.row.baseUnit}{item.row.packagingQuantityEvidence === "assumed_single_unit" && <><br /><span className="font-semibold text-amber-700">El nombre fuente no indica unidades por empaque</span></>}{item.row.packagingQuantityEvidence === "ambiguous_count" && <><br /><span className="font-semibold text-amber-700">Cantidad del empaque ambigua en el nombre fuente</span></>}</td>
                 <td className="p-2">{item.row.salesPriceStoreCop.toLocaleString("es-CO")} COP</td>
                 <td className="p-2">{item.row.consumerFinalPriceCop === null ? "Diferido" : <>{item.row.consumerFinalPriceCop.toLocaleString("es-CO")} COP<br /><span className="text-muted-foreground">Origen fila {item.row.consumerSourceRow}</span></>}</td>
-                <td className="p-2">{item.row.costCopPerBaseUnit.toLocaleString("es-CO")} COP</td>
+                <td className="p-2">{item.row.costCopPerPresentation.toLocaleString("es-CO")} COP</td>
               </tr>;
             })}</tbody>
           </table>

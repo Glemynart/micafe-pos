@@ -1,4 +1,5 @@
 import type { CatalogCellLike, CatalogWorkbookLike, CatalogWorksheetLike } from "./catalog-preflight-core.js";
+import { suggestPackaging } from "./catalog-preflight-core.js";
 
 export interface DianaCatalogReviewValidationInput {
   sourceWorkbook: CatalogWorkbookLike;
@@ -342,18 +343,15 @@ function validateStoreRows(
     if (basis !== "" && !basisIsUnit && !basisIsPresentation && !basisOther && basis !== "POR CONFIRMAR") {
       errors.push("La base de AL COSTO no coincide con una opción de la plantilla.");
     }
-    let costExactlyRepresentable = false;
+    let costSourceValid = false;
     const original = sourceRow === null ? undefined : source.records.get(sourceRow);
-    if (basisIsUnit && original?.cost !== null && original?.cost !== undefined) costExactlyRepresentable = true;
+    if (basisIsUnit && original?.cost !== null && original?.cost !== undefined) costSourceValid = true;
     if (basisIsPresentation && original?.cost !== null && original?.cost !== undefined && factor !== null) {
-      costExactlyRepresentable = original.cost % factor === 0;
-      if (!costExactlyRepresentable) costsNotExactlyConvertible += 1;
-    }
-    if (basisIsPresentation && original?.cost !== null && original?.cost !== undefined && factor !== null && original.cost % factor !== 0) {
-      errors.push("AL COSTO de una fila no se convierte a COP entero por unidad base sin redondeo.");
+      costSourceValid = true;
+      if (original.cost % factor !== 0) costsNotExactlyConvertible += 1;
     }
 
-    const basisComplete = (basisIsUnit || basisIsPresentation) && costExactlyRepresentable;
+    const basisComplete = (basisIsUnit || basisIsPresentation) && costSourceValid;
     if (basisOther && notes === "") errors.push("Una base de AL COSTO marcada como otra requiere una nota descriptiva.");
     const fieldFormula = Object.keys(fields).some((field) => fields[field].formula);
     if (coreMappingComplete && basisComplete && !fieldFormula) mapped += 1;
@@ -424,7 +422,7 @@ export interface DianaCatalogOfflinePlan {
     granularity: "one-presentation-per-store-source-row";
     salesPriceSource: "PRECIOS A TIENDA.PRECIO VENTA";
     consumerPriceSource: "PRECIOS CONS FINAL.PRECIO VENTA";
-    costPolicy: "AL COSTO exact per base unit; no automatic markup";
+    costPolicy: "AL COSTO exact per presentation; no automatic markup";
     productGroupingInferred: false;
     presentations: Array<{
       sourceRow: number;
@@ -434,12 +432,13 @@ export interface DianaCatalogOfflinePlan {
       baseUnit: string;
       presentation: string;
       unitsPerPresentation: number;
+      packagingQuantityEvidence: "explicit_count" | "assumed_single_unit" | "ambiguous_count";
       salesPriceStoreCop: number;
       consumerSourceRow: number | null;
       consumerFinalPriceCop: number | null;
       sourceCostCop: number;
       costBasis: "UNIDAD BASE" | "PRESENTACION / EMPAQUE";
-      costCopPerBaseUnit: number;
+      costCopPerPresentation: number;
     }>;
   };
   consumerReference: {
@@ -531,7 +530,7 @@ export function validateDianaCatalogReview(input: DianaCatalogReviewValidationIn
     validationErrors: [...new Set(validationErrors)],
     pendingRequirements: [
       ...(mapping.pending > 0 ? ["Resolver con Diana las categorías, unidades base, presentaciones y factores positivos de las filas tienda."] : []),
-      ...(mapping.pending > 0 ? ["Confirmar la base de AL COSTO; si corresponde a presentación, el costo debe dividir exactamente por el factor para expresarse en COP por unidad base."] : []),
+      ...(mapping.pending > 0 ? ["Confirmar la base de AL COSTO (unidad base o presentación/empaque) para conservar el costo real de Diana."] : []),
       ...(consumerReview.candidateDecisionsPending > 0 ? ["Resolver las coincidencias por nombre sin fusionar automáticamente productos ni presentaciones distintas."] : []),
       ...(consumerReview.deferred > 0 ? ["Las tarifas consumidor sin una asociación aprobada como la misma presentación permanecen diferidas."] : []),
       "Este validador no produce payload de importación. La carga de catálogo e inventario exige el flujo aprobado, datos completos y Gate I.",
@@ -576,8 +575,8 @@ export function buildDianaCatalogOfflinePlan(input: DianaCatalogOfflinePlanInput
     const costBasis = normalizeText(row.fields.costBasis.text);
     if (!original || original.price === null || original.cost === null || factor === null) return null;
     if (costBasis !== "UNIDAD BASE" && costBasis !== "PRESENTACION / EMPAQUE") return null;
-    const costCopPerBaseUnit = costBasis === "UNIDAD BASE" ? original.cost : original.cost / factor;
-    if (!Number.isSafeInteger(costCopPerBaseUnit)) return null;
+    const costCopPerPresentation = costBasis === "UNIDAD BASE" ? original.cost * factor : original.cost;
+    if (!Number.isSafeInteger(costCopPerPresentation) || costCopPerPresentation <= 0) return null;
     presentations.push({
       sourceRow,
       reviewRow: row.rowNumber,
@@ -586,12 +585,13 @@ export function buildDianaCatalogOfflinePlan(input: DianaCatalogOfflinePlanInput
       baseUnit: row.fields.baseUnit.text.trim(),
       presentation: row.fields.presentation.text.trim(),
       unitsPerPresentation: factor,
+      packagingQuantityEvidence: suggestPackaging(original.name).quantityEvidence,
       salesPriceStoreCop: original.price,
       consumerSourceRow: consumerPrice?.sourceRow ?? null,
       consumerFinalPriceCop: consumerPrice?.price ?? null,
       sourceCostCop: original.cost,
       costBasis,
-      costCopPerBaseUnit,
+      costCopPerPresentation,
     });
   }
   if (presentations.length === 0 || presentations.length !== report.totals.storeRowsMapped) return null;
@@ -607,7 +607,7 @@ export function buildDianaCatalogOfflinePlan(input: DianaCatalogOfflinePlanInput
       granularity: "one-presentation-per-store-source-row",
       salesPriceSource: "PRECIOS A TIENDA.PRECIO VENTA",
       consumerPriceSource: "PRECIOS CONS FINAL.PRECIO VENTA",
-      costPolicy: "AL COSTO exact per base unit; no automatic markup",
+      costPolicy: "AL COSTO exact per presentation; no automatic markup",
       productGroupingInferred: false,
       presentations,
     },

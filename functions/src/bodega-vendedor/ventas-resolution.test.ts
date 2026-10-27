@@ -141,6 +141,18 @@ test("ADR-092: la venta congela precio base, precio final y oferta vigente resue
   assert.equal(result.resolucion.lineas[0]?.subtotalCOP, 36_000);
 });
 
+test("ADR-093: snapshot de venta conserva el costo exacto del empaque", async () => {
+  const db = new FakeFirestore(); seed(db, 24);
+  db.docs.set("productos/producto-a", { ...db.docs.get("productos/producto-a"), costo: 0 });
+  db.docs.set("presentaciones_producto/caja-a", {
+    ...db.docs.get("presentaciones_producto/caja-a"), costoPresentacionCOP: 19_000,
+  });
+  const result = await resolverYAplicar(db, command([{ productoId: "producto-a", presentacionId: "caja-a", cantidad: 1 }], "costo-empaque"));
+  assert.equal(result.resolucion.lineas[0]?.costoPresentacionCOP, 19_000);
+  assert.equal(result.resolucion.lineas[0]?.costoTotalLineaCOP, 19_000);
+  assert.equal(result.movimientos[0]?.costoUnitario, 0);
+});
+
 test("U3-B: stock exacto y superior se consumen en unidad base; insuficiente no deja efectos", async () => {
   const exacto = new FakeFirestore(); seed(exacto, 48);
   await resolverYAplicar(exacto, command([{ productoId: "producto-a", presentacionId: "caja-a", cantidad: 2 }], "exacto"));
