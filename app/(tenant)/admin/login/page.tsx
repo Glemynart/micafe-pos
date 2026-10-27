@@ -27,15 +27,14 @@ function AdminLoginContent() {
   }, [])
 
   const notAdmin = params.get('error') === 'not_admin'
-  const from = params.get('from') ?? '/admin'
 
   useEffect(() => {
     if (!authCargando && usuario) {
       if (usuario.rol === 'admin' || usuario.rol === 'marketing') {
-        router.replace(from)
+        router.replace('/admin')
       }
     }
-  }, [authCargando, usuario, router, from])
+  }, [authCargando, usuario, router])
 
   const sesionNoAdmin = !authCargando && usuario && usuario.rol !== 'admin' && usuario.rol !== 'marketing'
 
