@@ -48,6 +48,11 @@ test("ConfirmarPagoAnualRelacionContractual exige la facultad comercial", () => 
   );
 });
 
+test("la concesión y revocación de reportes Diana exigen la facultad comercial", () => {
+  assert.equal(obtenerComandoComercial("ConcederCapacidadReportesDiana").facultad, "COMERCIAL_GOBERNAR");
+  assert.equal(obtenerComandoComercial("RevocarCapacidadReportesDiana").facultad, "COMERCIAL_GOBERNAR");
+});
+
 function dbEmpresas(docs: Record<string, { estado: string } | { uid: string; estado: string; facultades: string[]; versionAutorizacion: number }>) {
   return {
     collection: (name: string) => ({
