@@ -49,9 +49,9 @@
 
 - **Goal / Milestone / Epic:** `G-SAAS-02 → M2 → E2.2`.
 - **Solicitud aprobada:** el responsable solicita ventas mensuales, utilidad, ventas por vendedor, medios de pago, productos más/menos vendidos y un auxiliar Excel para organizar información con el contador. El corte mínimo reutiliza ventas y costos históricos existentes conforme a ADR-SAAS-041/042; no introduce contabilidad fiscal ni una autoridad de costos nueva.
-- **Siguiente PR esperado:** reportes Bodega para admin con módulo `reports` habilitado, consulta de solo lectura, utilidad bruta identificada, rankings por ingresos o cantidades de una misma unidad y exportación operativa CSV más plantilla XLSX vacía. La ganancia neta y la declaración de renta no se infieren de las ventas. No incluye registro de gastos, migraciones, Rules, Functions ni datos.
+- **Implementación de la vista:** PR #676 integró los reportes Bodega para admin con consulta de solo lectura, utilidad bruta identificada, rankings homogéneos y exportación operativa CSV más plantilla XLSX vacía. La ganancia neta y la declaración de renta no se infieren de las ventas.
 - **Integración:** rama independiente desde `main`; el responsable indicó no esperar los checks de #675 y continuar trabajo independiente. PR #675 ya se fusionó en `main@c083810c536ec42895eaf16d1b6603727b80a91a`; este corte de reportes se actualiza contra ese SHA y tampoco autoriza despliegues.
-- **Estado:** preparación en curso; no certifica Gate I ni la entrega funcional de Diana.
+- **Estado al 2026-10-27:** la vista está integrada en #676; el acceso estaba deshabilitado porque Plan v2, snapshot y configuración de Diana omitían `reports`. ADR-SAAS-095 fue aceptado para habilitarlo mediante concesión contractual solo a Diana; implementación y activación siguen pendientes.
 
 ## Planificación aprobada — crédito, catálogos Bodega/Nevera y ofertas (2026-10-26; actualización 2026-10-27)
 
@@ -69,6 +69,14 @@
 - **Decisión:** dos catálogos tenant-aware con IDs independientes: Bodega para las 107 filas de `PRECIOS A TIENDA` y Nevera para las 55 filas de `PRECIOS CONS FINAL`. Nombres coincidentes no crean identidad ni asociación. Las categorías, productos, presentaciones, precios y ofertas pertenecen a su catálogo.
 - **Transferencia interna:** solo con asociación origen/destino y factor aprobados; movimiento atómico e idempotente; valoración exacta COP mediante capas FIFO con asignación entera determinista.
 - **Alcance habilitado:** implementar y probar el contrato en PRs versionados. No incluye carga de filas, creación de asociaciones reales, transferencia de inventario, publicación de Rules, despliegue ni activación de ventas Nevera.
+
+## Aceptación de ADR-SAAS-095 — 2026-10-27
+
+- **Goal / Milestone / Epic:** `G-SAAS-02 → M2 → E2.2`; Gate I y validación productiva siguen pendientes.
+- **Decisión:** conceder únicamente `reports` al contrato vigente de `distribuidora-las-jimenez`, mediante autoridad comercial de plataforma, registro append-only e idempotente ligado a la revisión y huella del contrato. Las capacidades efectivas se derivan del snapshot y concesiones vigentes; el Plan v2 y su snapshot no se editan.
+- **Condiciones comerciales:** no cambia el precio anual de `1.600.000 COP`, el Trial aprobado de 15 días ni el plazo anual existente. Ningún otro tenant recibe la concesión. La renovación futura requiere una decisión separada.
+- **Siguiente PR:** implementar el comando y resolver la capacidad efectiva, con pruebas de autorización, aislamiento, idempotencia, expiración/revocación, configuración y Rules. No implica registrar la concesión, activar módulos, desplegar o escribir datos en Firebase.
+- **Estado:** arquitectura aprobada; implementación pendiente.
 
 ## Milestones y Epics activos/propuestos
 

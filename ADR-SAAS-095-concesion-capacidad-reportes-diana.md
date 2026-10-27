@@ -2,7 +2,7 @@
 
 ## Estado
 
-**PROPUESTO — 2026-10-27.** La decisión de negocio registrada en esta conversación limita la capacidad a Distribuidora Las Jiménez, sin cambiar el precio ni el plazo contractual. La arquitectura de concesión descrita aquí aún no está aprobada ni implementada.
+**ACEPTADO — 2026-10-27.** El responsable aprobó expresamente la alternativa A: concesión contractual auditada e idempotente, limitada a `reports` para `distribuidora-las-jimenez`, sin cambiar el Plan, precio, Trial ni plazo. La aceptación autoriza implementación y pruebas; no concede ni ejecuta escrituras o despliegues en producción.
 
 - **Goal:** `G-SAAS-02 → M2 → E2.2`.
 - **Relacionado:** ADR-SAAS-041, ADR-SAAS-042, ADR-SAAS-087; implementación de reportes en PR #676 y guía `docs/testing/G-SAAS-02-E2-2-financial-reports.md`.
@@ -21,11 +21,11 @@ El preflight read-only de producción del 2026-10-27 confirma que:
 
 Por ello, la advertencia refleja el contrato y configuración actuales. La callable de configuración deriva módulos permitidos del Plan/snapshot y rechaza capacidades fuera de esa fuente. Añadir `reports` solo a la configuración, modificar la versión publicada o editar el snapshot contractual omitiría la autoridad vigente y dejaría el contrato incoherente.
 
-La respuesta del responsable “Solo Diana, mismo precio y plazo” autoriza la intención comercial para esta única empresa, pero no define todavía la autoridad técnica persistente que debe representar una capacidad extra sobre un snapshot inmutable.
+El responsable confirmó el alcance “Solo Diana, mismo precio y plazo” y aprobó la concesión técnica de este ADR el 2026-10-27. El contrato base permanece inmutable; la capacidad adicional queda representada por la concesión aquí definida.
 
-## Decisión propuesta
+## Decisión
 
-Adoptar una **concesión contractual adicional, append-only y limitada a reportes** para el contrato vigente de Distribuidora Las Jiménez:
+Se adopta una **concesión contractual adicional, append-only y limitada a reportes** para el contrato vigente de Distribuidora Las Jiménez:
 
 1. Crear un registro bajo `suscripciones/{empresaId}/concesionesCapacidad/{concesionId}`, escrito exclusivamente por la autoridad comercial de plataforma. El registro vincula la concesión con el ID y revisión del contrato/suscripción, `planId`, `planVersion` y huella del snapshot al que se aplica.
 2. La primera versión acepta exclusivamente:
@@ -82,6 +82,6 @@ Conserva el contrato sin nueva autoridad, pero no satisface el uso de reportes s
 8. Emulator prueba Rules y el aislamiento cross-tenant. E2E comprueba mensaje deshabilitado antes, disponibilidad después de concesión + activación, consulta admin, y denegación a vendedor/otro tenant.
 9. Un preflight productivo de solo lectura confirma el objetivo exacto antes de la autorización separada de la escritura. Después del despliegue, una verificación independiente confirma la versión de Functions, la concesión, la configuración y la carga del reporte.
 
-## Aprobación requerida
+## Aprobación registrada
 
-El responsable debe aprobar o rechazar explícitamente la alternativa A como mecanismo arquitectónico. Hasta entonces, el estado del ADR permanece **PROPUESTO**, el código y la configuración remota no se modifican, y el módulo permanece deshabilitado.
+El responsable aprobó expresamente la alternativa A el 2026-10-27 y autorizó continuar con su implementación. El alta de esa concesión y cualquier despliegue o cambio de configuración en producción requieren su preflight y gate operativo correspondiente.
