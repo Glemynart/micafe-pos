@@ -27,8 +27,10 @@ function requiredText(value: unknown, code: string, max = 120): string {
 function normalize(payload: unknown) {
   if (!object(payload)) fail("invalid-argument", "PAYLOAD_CATEGORIA_INVALIDO");
   const data = payload as Data;
-  const allowed = new Set(["espacioId", "nombre", "icono"]);
+  const allowed = new Set(["espacioId", "nombre", "icono", "catalogoId"]);
   if (Object.keys(data).some(key => !allowed.has(key))) fail("invalid-argument", "PAYLOAD_CATEGORIA_INVALIDO");
+  const catalogoId = data.catalogoId === undefined ? "BODEGA" : data.catalogoId;
+  if (catalogoId !== "BODEGA" && catalogoId !== "NEVERA") fail("invalid-argument", "CATALOGO_INVALIDO");
   const icono = data.icono === undefined || data.icono === null || data.icono === ""
     ? null
     : requiredText(data.icono, "ICONO_CATEGORIA_INVALIDO", 80);
@@ -36,6 +38,7 @@ function normalize(payload: unknown) {
     espacioId: requiredText(data.espacioId, "ESPACIO_INVALIDO", 160),
     nombre: requiredText(data.nombre, "NOMBRE_CATEGORIA_INVALIDO"),
     icono,
+    catalogoId,
   };
 }
 
@@ -64,6 +67,7 @@ async function crearCategoria(tx: any, db: any, empresaId: string, actorUid: str
     id: categoriaId,
     empresaId,
     espacioId: value.espacioId,
+    catalogoId: value.catalogoId,
     nombre: value.nombre,
     icono: value.icono,
     activo: true,

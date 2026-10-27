@@ -80,6 +80,33 @@ test("ADR-052: replay compatible no duplica categoría ni auditoría", async () 
   assert.equal([...db.docs.keys()].filter(key => key.startsWith("operaciones_auditoria/")).length, 1);
 });
 
+test("ADR-SAAS-094: categoría Nevera lleva una identidad de catálogo explícita", async () => {
+  const db = new FakeFirestore(); seed(db);
+  const result = await ejecutarCrearCategoriaBodegaV1(db, adminA, envelope("categoria-nevera", {
+    espacioId: "espacio-empresa-a", nombre: "Vodka", catalogoId: "NEVERA",
+  }));
+  const categoria = db.docs.get(`categorias/${result.categoriaId}`);
+  assert.equal(categoria?.catalogoId, "NEVERA");
+
+  await ejecutarCrearCategoriaBodegaV1(db, adminA, envelope("categoria-bodega", {
+    espacioId: "espacio-empresa-a", nombre: "Vodka", catalogoId: "BODEGA",
+  }));
+  const sameName = [...db.docs.values()].filter(value => value.nombre === "Vodka");
+  assert.deepEqual(sameName.map(value => value.catalogoId).sort(), ["BODEGA", "NEVERA"]);
+});
+
+test("ADR-SAAS-094: rechaza un identificador de catálogo desconocido sin escribir", async () => {
+  const db = new FakeFirestore(); seed(db);
+  const before = structuredClone([...db.docs]);
+  await assert.rejects(
+    ejecutarCrearCategoriaBodegaV1(db, adminA, envelope("categoria-catalogo-invalido", {
+      espacioId: "espacio-empresa-a", nombre: "Bebidas", catalogoId: "OTRO",
+    })),
+    error => domain(error, "CATALOGO_INVALIDO"),
+  );
+  assert.deepEqual([...db.docs], before);
+});
+
 test("ADR-052: la operación rechaza autoridad de cliente y espacio de otro tenant", async () => {
   const db = new FakeFirestore(); seed(db); seed(db, "empresa-b");
   const before = structuredClone([...db.docs]);

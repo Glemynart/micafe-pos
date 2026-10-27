@@ -1,4 +1,4 @@
-import { CATEGORIAS_CATALOGO_DIANA } from "./diana-catalog-category-suggestions";
+import { CATEGORIAS_CATALOGO_DIANA, CATEGORIAS_CATALOGO_NEVERA } from "./diana-catalog-category-suggestions";
 
 export interface DianaCatalogImportRow {
   sourceRow: number;
@@ -8,36 +8,60 @@ export interface DianaCatalogImportRow {
   baseUnit: string;
   presentation: string;
   unitsPerPresentation: number;
-  packagingQuantityEvidence: "explicit_count" | "assumed_single_unit" | "ambiguous_count";
+  packagingQuantityEvidence: "explicit_count" | "administrator_confirmed_individual" | "assumed_single_unit" | "ambiguous_count";
   salesPriceStoreCop: number;
-  consumerSourceRow: number | null;
-  consumerFinalPriceCop: number | null;
+  consumerSourceRow: null;
+  consumerFinalPriceCop: null;
   sourceCostCop: number;
-  costBasis: "UNIDAD BASE" | "PRESENTACION / EMPAQUE";
+  costBasis: "PRESENTACION / EMPAQUE";
   /** Exact purchase cost of the sold package. Never rounded to base units. */
   costCopPerPresentation: number;
 }
 
+export interface DianaCatalogNeveraRow {
+  sourceRow: number;
+  reviewRow: number;
+  name: string;
+  category: string;
+  baseUnit: string;
+  presentation: string;
+  unitsPerPresentation: number;
+  packagingQuantityEvidence: "explicit_count" | "administrator_confirmed_individual" | "assumed_single_unit" | "ambiguous_count";
+  salesPriceConsumerFinalCop: number;
+  sourceCostCop: null;
+  costCopPerPresentation: null;
+  bodegaAssociation: null;
+}
+
 export interface DianaCatalogImportPlan {
-  planSchemaVersion: "2.0";
+  planSchemaVersion: "3.0";
   mode: "offline-review-only";
   sourceSha256: string;
   reviewSha256: string;
   proposal: {
+    catalogId: "BODEGA";
     status: "requires-human-review";
     granularity: "one-presentation-per-store-source-row";
     salesPriceSource: "PRECIOS A TIENDA.PRECIO VENTA";
-    consumerPriceSource: "PRECIOS CONS FINAL.PRECIO VENTA";
+    consumerPriceSource: null;
     costPolicy: "AL COSTO exact per presentation; no automatic markup";
     productGroupingInferred: false;
     presentations: DianaCatalogImportRow[];
   };
+  neveraCatalog: {
+    catalogId: "NEVERA";
+    status: "requires-human-review";
+    granularity: "one-presentation-per-consumer-source-row";
+    salesPriceSource: "PRECIOS CONS FINAL.PRECIO VENTA";
+    costPolicy: "pending explicit Bodega transfer mapping";
+    stockInitial: 0;
+    productGroupingInferred: false;
+    presentations: DianaCatalogNeveraRow[];
+  };
   consumerReference: {
-    consumerPricesApplied: boolean;
-    consumerRowsDeferred: number;
+    consumerRowsInNevera: number;
     crossListCandidates: number;
-    crossListDecisionsPending: number;
-    samePresentationPricesApplied: number;
+    transferMappingsPending: number;
   };
   initialStockIncluded: false;
   safety: {
@@ -53,6 +77,7 @@ export interface CatalogImportCategory {
   id: string;
   nombre: string;
   espacioId: string;
+  catalogoId?: "BODEGA" | "NEVERA";
 }
 
 export interface CatalogImportProduct {
@@ -63,8 +88,10 @@ export interface CatalogImportProduct {
   unidad: string;
   costoUnidadBaseCOP: number;
   stock: number;
+  stockReservado?: number;
   stockMinimo: number;
   activo: boolean;
+  catalogoId?: "BODEGA" | "NEVERA";
 }
 
 export interface CatalogImportPresentation {
@@ -77,6 +104,22 @@ export interface CatalogImportPresentation {
   precioConsumidorFinalCOP: number | null;
   costoPresentacionCOP: number | null;
   activo: boolean;
+  catalogoId?: "BODEGA" | "NEVERA";
+}
+
+export type CatalogoImportId = "BODEGA" | "NEVERA";
+
+export interface CatalogImportRow {
+  sourceRow: number;
+  reviewRow: number;
+  name: string;
+  category: string;
+  baseUnit: string;
+  presentation: string;
+  unitsPerPresentation: number;
+  packagingQuantityEvidence: "explicit_count" | "administrator_confirmed_individual" | "assumed_single_unit" | "ambiguous_count";
+  salesPriceCop: number;
+  costCopPerPresentation: number | null;
 }
 
 export interface CatalogImportSnapshot {
@@ -89,24 +132,33 @@ export interface ImportacionCatalogoPreparada {
   plan: DianaCatalogImportPlan;
   tenantId: string;
   espacioId: string;
+  catalogoId: CatalogoImportId;
   errores: string[];
+  advertencias: string[];
   categorias: Array<{ nombre: string; commandId: string; categoriaId: string | null }>;
   filas: Array<{
-    row: DianaCatalogImportRow;
+    row: CatalogImportRow;
     categoriaId: string;
     productoCommandId: string;
     productoId: string;
     productoExistente: boolean;
+    productoActualizar: boolean;
+    productoActual: CatalogImportProduct | null;
+    productoCategoriaActualNombre: string | null;
     presentacionCommandId: string;
     presentacionId: string;
     presentacionExistente: boolean;
+    presentacionActualizar: boolean;
+    presentacionActual: CatalogImportPresentation | null;
   }>;
   resumen: {
     productosTotales: number;
     categoriasTotales: number;
     categoriasPorCrear: number;
     productosPorCrear: number;
+    productosPorActualizar: number;
     presentacionesPorCrear: number;
+    presentacionesPorActualizar: number;
   };
 }
 
@@ -138,28 +190,29 @@ export function crearIdInternoCatalogo(tenantId: string, segmento: string): stri
   return `r1a-${base64UrlUtf8(JSON.stringify([tenantId, segmento]))}`;
 }
 
-export function crearComandoProductoCatalogo(sourceSha256: string, sourceRow: number): string {
-  return `catalogo-diana:${sourceSha256}:producto:${sourceRow}`;
+export function crearComandoProductoCatalogo(sourceSha256: string, sourceRow: number, catalogoId: CatalogoImportId = "BODEGA"): string {
+  return `catalogo-diana:${sourceSha256}:${catalogoId}:producto:${sourceRow}`;
 }
 
-function crearComandoCategoria(sourceSha256: string, category: string): string {
-  return `catalogo-diana:${sourceSha256}:categoria:${slug(category)}`;
+function crearComandoCategoria(sourceSha256: string, category: string, catalogoId: CatalogoImportId): string {
+  return `catalogo-diana:${sourceSha256}:${catalogoId}:categoria:${slug(category)}`;
 }
 
-function crearComandoPresentacion(sourceSha256: string, sourceRow: number): string {
-  return `catalogo-diana:${sourceSha256}:presentacion:${sourceRow}`;
+function crearComandoPresentacion(sourceSha256: string, sourceRow: number, catalogoId: CatalogoImportId): string {
+  return `catalogo-diana:${sourceSha256}:${catalogoId}:presentacion:${sourceRow}`;
 }
 
 export function validarPlanImportacionCatalogo(value: unknown): string[] {
   const errors: string[] = [];
   if (!isObject(value)) return ["El archivo no contiene un plan JSON válido."];
   const plan = value as unknown as Partial<DianaCatalogImportPlan>;
-  if (plan.planSchemaVersion !== "2.0" || plan.mode !== "offline-review-only") errors.push("El archivo no es un plan offline de catálogo versión 2.0.");
+  if (plan.planSchemaVersion !== "3.0" || plan.mode !== "offline-review-only") errors.push("El archivo no es un plan offline de catálogo versión 3.0; los planes anteriores mezclaban las listas.");
   if (!/^[a-f0-9]{64}$/i.test(String(plan.sourceSha256 ?? "")) || !/^[a-f0-9]{64}$/i.test(String(plan.reviewSha256 ?? ""))) errors.push("Falta el SHA-256 válido del origen o de la revisión.");
   if (plan.proposal?.status !== "requires-human-review"
+    || plan.proposal.catalogId !== "BODEGA"
     || plan.proposal.granularity !== "one-presentation-per-store-source-row"
     || plan.proposal.salesPriceSource !== "PRECIOS A TIENDA.PRECIO VENTA"
-    || plan.proposal.consumerPriceSource !== "PRECIOS CONS FINAL.PRECIO VENTA"
+    || plan.proposal.consumerPriceSource !== null
     || plan.proposal.costPolicy !== "AL COSTO exact per presentation; no automatic markup"
     || plan.proposal.productGroupingInferred !== false) {
     errors.push("El plan no conserva las decisiones comerciales de catálogo aprobadas.");
@@ -169,21 +222,16 @@ export function validarPlanImportacionCatalogo(value: unknown): string[] {
     || plan.safety?.importReady !== false || plan.safety?.executable !== false || plan.safety?.deploymentAuthorized !== false) {
     errors.push("El archivo debe provenir del generador offline y no contener banderas de ejecución o autorización.");
   }
-  if (!plan.consumerReference || !Number.isSafeInteger(plan.consumerReference.consumerRowsDeferred) || plan.consumerReference.consumerRowsDeferred < 0
+  if (!plan.consumerReference || !Number.isSafeInteger(plan.consumerReference.consumerRowsInNevera) || plan.consumerReference.consumerRowsInNevera <= 0
     || !Number.isSafeInteger(plan.consumerReference.crossListCandidates) || plan.consumerReference.crossListCandidates < 0
-    || !Number.isSafeInteger(plan.consumerReference.crossListDecisionsPending) || plan.consumerReference.crossListDecisionsPending < 0
-    || !Number.isSafeInteger(plan.consumerReference.samePresentationPricesApplied) || plan.consumerReference.samePresentationPricesApplied < 0
-    || plan.consumerReference.crossListDecisionsPending > plan.consumerReference.crossListCandidates
-    || plan.consumerReference.samePresentationPricesApplied > plan.consumerReference.crossListCandidates
-    || plan.consumerReference.consumerPricesApplied !== (plan.consumerReference.samePresentationPricesApplied > 0)) {
-    errors.push("El plan tiene un resumen inválido de tarifas consumidor revisadas.");
+    || !Number.isSafeInteger(plan.consumerReference.transferMappingsPending) || plan.consumerReference.transferMappingsPending !== plan.consumerReference.consumerRowsInNevera) {
+    errors.push("El plan no conserva las dos listas como catálogos separados.");
   }
   const rows = plan.proposal?.presentations;
   if (!Array.isArray(rows) || rows.length === 0 || rows.length > 107) errors.push("El plan debe contener entre 1 y 107 filas de tienda.");
   if (Array.isArray(rows)) {
     const seenSourceRows = new Set<number>();
     const seenNames = new Set<string>();
-    const seenConsumerRows = new Set<number>();
     for (const [index, item] of rows.entries()) {
       if (!isObject(item)) {
         errors.push(`La fila ${index + 1} no tiene una estructura válida.`);
@@ -197,36 +245,54 @@ export function validarPlanImportacionCatalogo(value: unknown): string[] {
       const nameKey = typeof row.name === "string" ? normalized(row.name) : "";
       if (nameKey && seenNames.has(nameKey)) errors.push(`El producto «${row.name}» aparece más de una vez en el plan.`);
       if (nameKey) seenNames.add(nameKey);
-      if (!(Object.values(CATEGORIAS_CATALOGO_DIANA) as string[]).includes(row.category)) errors.push(`La categoría de la fila ${index + 1} no pertenece a las 17 categorías aprobadas.`);
+      if (!(Object.values(CATEGORIAS_CATALOGO_DIANA) as string[]).includes(row.category)) errors.push(`La categoría Bodega de la fila ${index + 1} no pertenece a las 17 categorías aprobadas.`);
       if (typeof row.baseUnit !== "string" || row.baseUnit.trim() === "" || row.baseUnit.trim().length > 32) errors.push(`La unidad base de la fila ${index + 1} no es válida.`);
       if (typeof row.presentation !== "string" || row.presentation.trim() === "" || row.presentation.trim().length > 120) errors.push(`La presentación de la fila ${index + 1} no es válida.`);
-      if (row.packagingQuantityEvidence !== "explicit_count" && row.packagingQuantityEvidence !== "assumed_single_unit" && row.packagingQuantityEvidence !== "ambiguous_count") errors.push(`La fila ${index + 1} no registra evidencia válida de unidades por empaque.`);
+      if (row.packagingQuantityEvidence !== "explicit_count" && row.packagingQuantityEvidence !== "administrator_confirmed_individual" && row.packagingQuantityEvidence !== "assumed_single_unit" && row.packagingQuantityEvidence !== "ambiguous_count") errors.push(`La fila ${index + 1} no registra evidencia válida de unidades por empaque.`);
+      if (row.packagingQuantityEvidence === "administrator_confirmed_individual" && row.unitsPerPresentation !== 1) errors.push(`La fila ${index + 1} contradice la decisión de unidad individual confirmada por administración.`);
       if (!positiveInteger(row.unitsPerPresentation) || !positiveInteger(row.salesPriceStoreCop) || !positiveInteger(row.sourceCostCop) || !positiveInteger(row.costCopPerPresentation)) errors.push(`La fila ${index + 1} contiene precio, costo o factor inválido.`);
-      if (row.consumerSourceRow !== null && !positiveInteger(row.consumerSourceRow)) errors.push(`La fila ${index + 1} tiene una referencia inválida a consumidor final.`);
-      if (row.consumerSourceRow !== null && seenConsumerRows.has(row.consumerSourceRow)) errors.push(`La fila consumidor ${row.consumerSourceRow} está asociada más de una vez.`);
-      if (row.consumerSourceRow !== null) seenConsumerRows.add(row.consumerSourceRow);
-      if (row.consumerFinalPriceCop !== null && !positiveInteger(row.consumerFinalPriceCop)) errors.push(`La fila ${index + 1} contiene un precio consumidor inválido.`);
-      if ((row.consumerSourceRow === null) !== (row.consumerFinalPriceCop === null)) errors.push(`La fila ${index + 1} debe conservar juntos la referencia y el precio consumidor aprobados.`);
-      if (row.costBasis !== "UNIDAD BASE" && row.costBasis !== "PRESENTACION / EMPAQUE") errors.push(`La base de costo de la fila ${index + 1} no es válida.`);
-      else {
-        const expectedPresentationCost = row.costBasis === "UNIDAD BASE"
-          ? row.sourceCostCop * row.unitsPerPresentation
-          : row.sourceCostCop;
-        if (!Number.isSafeInteger(expectedPresentationCost) || expectedPresentationCost !== row.costCopPerPresentation) {
-          errors.push(`El costo exacto de presentación de la fila ${index + 1} no coincide con su origen.`);
-        }
+      if (row.consumerSourceRow !== null || row.consumerFinalPriceCop !== null) errors.push(`La fila Bodega ${index + 1} no puede incluir una tarifa del catálogo Nevera.`);
+      if (row.costBasis !== "PRESENTACION / EMPAQUE") errors.push(`El costo de la fila ${index + 1} debe ser el valor exacto del empaque según la confirmación de Diana.`);
+      else if (row.sourceCostCop !== row.costCopPerPresentation) {
+        errors.push(`El costo del empaque de la fila ${index + 1} no coincide exactamente con la fuente.`);
       }
     }
   }
-  if (Array.isArray(rows)) {
-    const appliedRows = rows.filter((item) => isObject(item) && (item as unknown as DianaCatalogImportRow).consumerFinalPriceCop !== null).length;
-    if (plan.consumerReference?.samePresentationPricesApplied !== appliedRows) errors.push("El conteo de precios consumidor aplicados no coincide con las filas del plan.");
+  if (plan.neveraCatalog?.catalogId !== "NEVERA" || plan.neveraCatalog.status !== "requires-human-review"
+    || plan.neveraCatalog.granularity !== "one-presentation-per-consumer-source-row"
+    || plan.neveraCatalog.salesPriceSource !== "PRECIOS CONS FINAL.PRECIO VENTA"
+    || plan.neveraCatalog.costPolicy !== "pending explicit Bodega transfer mapping"
+    || plan.neveraCatalog.stockInitial !== 0 || plan.neveraCatalog.productGroupingInferred !== false) {
+    errors.push("El plan no define un catálogo Nevera independiente con costo/stock pendientes.");
+  }
+  const neveraRows = plan.neveraCatalog?.presentations;
+  if (!Array.isArray(neveraRows) || neveraRows.length === 0 || neveraRows.length > 55
+    || neveraRows.length !== plan.consumerReference?.consumerRowsInNevera) errors.push("El catálogo Nevera debe incluir entre 1 y 55 filas propias.");
+  if (Array.isArray(neveraRows)) {
+    const seenSourceRows = new Set<number>();
+    const seenNames = new Set<string>();
+    for (const [index, item] of neveraRows.entries()) {
+      if (!isObject(item)) { errors.push(`La fila Nevera ${index + 1} no tiene una estructura válida.`); continue; }
+      const row = item as unknown as DianaCatalogNeveraRow;
+      const key = typeof row.name === "string" ? normalized(row.name) : "";
+      if (!positiveInteger(row.sourceRow) || !positiveInteger(row.reviewRow) || seenSourceRows.has(row.sourceRow)) errors.push(`La fila Nevera ${index + 1} tiene referencia de origen inválida o duplicada.`);
+      seenSourceRows.add(row.sourceRow);
+      if (!key || key.length > 120 || seenNames.has(key)) errors.push(`La fila Nevera ${index + 1} tiene nombre vacío, largo o duplicado dentro de ese catálogo.`);
+      seenNames.add(key);
+      if (!(Object.values(CATEGORIAS_CATALOGO_NEVERA) as string[]).includes(row.category)) errors.push(`La categoría Nevera ${index + 1} no pertenece a las categorías permitidas para ese catálogo.`);
+      if (typeof row.baseUnit !== "string" || !row.baseUnit.trim() || row.baseUnit.length > 32) errors.push(`La unidad base Nevera ${index + 1} es inválida.`);
+      if (typeof row.presentation !== "string" || !row.presentation.trim() || row.presentation.length > 120) errors.push(`La presentación Nevera ${index + 1} es inválida.`);
+      if (row.packagingQuantityEvidence !== "explicit_count" && row.packagingQuantityEvidence !== "administrator_confirmed_individual" && row.packagingQuantityEvidence !== "assumed_single_unit" && row.packagingQuantityEvidence !== "ambiguous_count") errors.push(`La fila Nevera ${index + 1} no registra evidencia válida de unidades por empaque.`);
+      if (row.packagingQuantityEvidence === "administrator_confirmed_individual" && row.unitsPerPresentation !== 1) errors.push(`La fila Nevera ${index + 1} contradice la decisión de unidad individual confirmada por administración.`);
+      if (!positiveInteger(row.unitsPerPresentation) || !positiveInteger(row.salesPriceConsumerFinalCop)) errors.push(`La fila Nevera ${index + 1} tiene precio o factor inválido.`);
+      if (row.sourceCostCop !== null || row.costCopPerPresentation !== null || row.bodegaAssociation !== null) errors.push(`La fila Nevera ${index + 1} contiene costo o asociación Bodega inferidos automáticamente.`);
+    }
   }
   return [...new Set(errors)];
 }
 
-function productCommandId(plan: DianaCatalogImportPlan, sourceRow: number): string {
-  return crearComandoProductoCatalogo(plan.sourceSha256, sourceRow);
+function productCommandId(plan: DianaCatalogImportPlan, sourceRow: number, catalogoId: CatalogoImportId): string {
+  return crearComandoProductoCatalogo(plan.sourceSha256, sourceRow, catalogoId);
 }
 
 export function prepararImportacionCatalogo(
@@ -234,8 +300,10 @@ export function prepararImportacionCatalogo(
   tenantId: string,
   espacioId: string,
   snapshot: CatalogImportSnapshot,
+  catalogoId: CatalogoImportId = "BODEGA",
 ): ImportacionCatalogoPreparada {
   const errores = validarPlanImportacionCatalogo(value);
+  const advertencias: string[] = [];
   if (!tenantId.trim()) errores.push("No se pudo verificar el tenant activo.");
   if (!espacioId.trim()) errores.push("Selecciona un espacio operativo.");
   if (errores.length > 0) {
@@ -243,23 +311,39 @@ export function prepararImportacionCatalogo(
       plan: value as DianaCatalogImportPlan,
       tenantId,
       espacioId,
+      catalogoId,
       errores: [...new Set(errores)],
+      advertencias,
       categorias: [],
       filas: [],
-      resumen: { productosTotales: 0, categoriasTotales: 0, categoriasPorCrear: 0, productosPorCrear: 0, presentacionesPorCrear: 0 },
+      resumen: { productosTotales: 0, categoriasTotales: 0, categoriasPorCrear: 0, productosPorCrear: 0, productosPorActualizar: 0, presentacionesPorCrear: 0, presentacionesPorActualizar: 0 },
     };
   }
   const plan = value as DianaCatalogImportPlan;
-  const names = [...new Set((plan?.proposal?.presentations ?? []).map(row => row.category))];
+  const sourceRows: CatalogImportRow[] = catalogoId === "BODEGA"
+    ? plan.proposal.presentations.map(row => ({
+      sourceRow: row.sourceRow, reviewRow: row.reviewRow, name: row.name, category: row.category,
+      baseUnit: row.baseUnit, presentation: row.presentation, unitsPerPresentation: row.unitsPerPresentation,
+      packagingQuantityEvidence: row.packagingQuantityEvidence, salesPriceCop: row.salesPriceStoreCop,
+      costCopPerPresentation: row.costCopPerPresentation,
+    }))
+    : plan.neveraCatalog.presentations.map(row => ({
+      sourceRow: row.sourceRow, reviewRow: row.reviewRow, name: row.name, category: row.category,
+      baseUnit: row.baseUnit, presentation: row.presentation, unitsPerPresentation: row.unitsPerPresentation,
+      packagingQuantityEvidence: row.packagingQuantityEvidence, salesPriceCop: row.salesPriceConsumerFinalCop,
+      costCopPerPresentation: null,
+    }));
+  const catalogoEfectivo = (value: "BODEGA" | "NEVERA" | undefined) => value ?? "BODEGA";
+  const names = [...new Set(sourceRows.map(row => row.category))];
   const categorias = names.map(nombre => {
-    const commandId = crearComandoCategoria(plan.sourceSha256, nombre);
+    const commandId = crearComandoCategoria(plan.sourceSha256, nombre, catalogoId);
     const expectedId = crearIdInternoCatalogo(tenantId, `categoria:${commandId}`);
-    const expectedCategory = snapshot.categorias.find(category => category.id === expectedId);
+    const expectedCategory = snapshot.categorias.find(category => category.id === expectedId && catalogoEfectivo(category.catalogoId) === catalogoId);
     if (expectedCategory && (expectedCategory.espacioId !== espacioId || normalized(expectedCategory.nombre) !== normalized(nombre))) {
       errores.push(`La categoría «${nombre}» de este lote ya existe en otro espacio o con otro nombre; reanuda en el espacio original y no cambies el plan.`);
     }
-    const matches = snapshot.categorias.filter(category => category.espacioId === espacioId && normalized(category.nombre) === normalized(nombre));
-    if (matches.length > 1) errores.push(`La categoría «${nombre}» está duplicada en el espacio seleccionado.`);
+    const matches = snapshot.categorias.filter(category => catalogoEfectivo(category.catalogoId) === catalogoId && category.espacioId === espacioId && normalized(category.nombre) === normalized(nombre));
+    if (matches.length > 1) errores.push(`La categoría «${nombre}» está duplicada en el catálogo y espacio seleccionados.`);
     return {
       nombre,
       commandId,
@@ -268,43 +352,77 @@ export function prepararImportacionCatalogo(
   });
   const categoryIds = new Map(categorias.map(category => [normalized(category.nombre), category.categoriaId
     ?? crearIdInternoCatalogo(tenantId, `categoria:${category.commandId}`)]));
-  const filas = (plan?.proposal?.presentations ?? []).map(row => {
-    const commandId = productCommandId(plan, row.sourceRow);
-    const productoId = crearIdInternoCatalogo(tenantId, `producto:${commandId}`);
+  const filas = sourceRows.map(row => {
+    const commandId = productCommandId(plan, row.sourceRow, catalogoId);
+    let productoId = crearIdInternoCatalogo(tenantId, `producto:${commandId}`);
     const categoriaId = categoryIds.get(normalized(row.category)) ?? "";
-    const existingProducts = snapshot.productos.filter(product => normalized(product.nombre) === normalized(row.name));
+    const existingProducts = snapshot.productos.filter(product => catalogoEfectivo(product.catalogoId) === catalogoId && normalized(product.nombre) === normalized(row.name));
     let productoExistente = false;
+    let productoActualizar = false;
+    let existingProduct: CatalogImportProduct | undefined;
     if (existingProducts.length > 1) errores.push(`Hay varios productos existentes llamados «${row.name}»; resuelve la duplicidad antes de importar.`);
     if (existingProducts.length === 1) {
       const existing = existingProducts[0];
-      if (existing.id !== productoId) errores.push(`El producto «${row.name}» ya existe y no pertenece a este lote; no se creará un duplicado.`);
-      else if (existing.categoriaId !== categoriaId || existing.espacioId !== espacioId || existing.unidad !== row.baseUnit
+      if (existing.espacioId !== espacioId || existing.unidad !== row.baseUnit
         || existing.costoUnidadBaseCOP !== 0 || !existing.activo) {
         errores.push(`El producto «${row.name}» ya existe con datos distintos al plan; requiere revisión manual.`);
-      } else productoExistente = true;
+      } else {
+        productoId = existing.id;
+        existingProduct = existing;
+        productoExistente = true;
+        productoActualizar = existing.categoriaId !== categoriaId;
+      }
     }
-    const presentacionCommandId = crearComandoPresentacion(plan.sourceSha256, row.sourceRow);
-    const presentacionId = crearIdInternoCatalogo(tenantId, `presentacion:${productoId}:${presentacionCommandId}`);
-    const existingPresentations = snapshot.presentaciones.filter(presentation => presentation.productoId === productoId && normalized(presentation.nombre) === normalized(row.presentation));
+    const presentacionCommandId = crearComandoPresentacion(plan.sourceSha256, row.sourceRow, catalogoId);
+    let presentacionId = crearIdInternoCatalogo(tenantId, `presentacion:${productoId}:${presentacionCommandId}`);
+    const existingPresentations = snapshot.presentaciones.filter(presentation => presentation.productoId === productoId && catalogoEfectivo(presentation.catalogoId) === catalogoId && normalized(presentation.nombre) === normalized(row.presentation));
     let presentacionExistente = false;
+    let presentacionActualizar = false;
+    let presentacionActual: CatalogImportPresentation | null = null;
     if (existingPresentations.length > 1) errores.push(`La presentación «${row.presentation}» está duplicada para «${row.name}».`);
     if (existingPresentations.length === 1) {
       const existing = existingPresentations[0];
-      if (existing.id !== presentacionId) errores.push(`La presentación «${row.presentation}» de «${row.name}» ya existe con otra identidad.`);
-      else if (existing.factorUnidadBase !== row.unitsPerPresentation || existing.precioCOP !== row.salesPriceStoreCop
-        || existing.precioTiendaCOP !== row.salesPriceStoreCop || existing.precioConsumidorFinalCOP !== row.consumerFinalPriceCop
-        || existing.costoPresentacionCOP !== row.costCopPerPresentation || !existing.activo) {
-        errores.push(`La presentación «${row.presentation}» de «${row.name}» ya existe con datos distintos al plan.`);
-      } else presentacionExistente = true;
+      presentacionActual = existing;
+      presentacionId = existing.id;
+      presentacionExistente = true;
+      const costoObjetivo = catalogoId === "BODEGA" ? row.costCopPerPresentation : null;
+      if (!existing.activo) errores.push(`La presentación «${row.presentation}» de «${row.name}» está inactiva; no se reactivará automáticamente.`);
+      if (catalogoId === "BODEGA" && existing.precioConsumidorFinalCOP !== null) {
+        advertencias.push(`La presentación «${row.presentation}» de «${row.name}» conserva una tarifa consumidor heredada en Bodega. Se preservará sin usarla; debe reconciliarse antes de activar ventas Nevera.`);
+      }
+      if (catalogoId === "NEVERA" && existing.costoPresentacionCOP !== null) {
+        errores.push(`La presentación «${row.presentation}» de «${row.name}» conserva un costo sin transferencia aprobada; resuélvelo antes de importar Nevera.`);
+      }
+      const cambiaFactor = existing.factorUnidadBase !== row.unitsPerPresentation;
+      const cambiaCosto = existing.costoPresentacionCOP !== costoObjetivo;
+      if ((cambiaFactor || cambiaCosto) && ((existingProduct?.stock ?? 0) > 0 || (existingProduct?.stockReservado ?? 0) > 0)) {
+        errores.push(`La presentación «${row.presentation}» de «${row.name}» cambiaría factor o costo con inventario existente; requiere conciliación manual.`);
+      }
+      if ((existingProduct?.stockReservado ?? 0) > 0 && (existing.precioCOP !== row.salesPriceCop || existing.precioTiendaCOP !== row.salesPriceCop)) {
+        errores.push(`La presentación «${row.presentation}» de «${row.name}» tiene unidades reservadas y un cambio de precio pendiente; revalida las solicitudes antes de importar.`);
+      }
+      presentacionActualizar = existing.nombre !== row.presentation || cambiaFactor
+        || existing.precioCOP !== row.salesPriceCop || existing.precioTiendaCOP !== row.salesPriceCop
+        || cambiaCosto;
+    } else {
+      const sameFactor = snapshot.presentaciones.some(presentation => presentation.productoId === productoId
+        && catalogoEfectivo(presentation.catalogoId) === catalogoId
+        && presentation.factorUnidadBase === row.unitsPerPresentation);
+      if (sameFactor) errores.push(`«${row.name}» ya tiene una presentación con factor ${row.unitsPerPresentation}; confirma manualmente si la fila fuente corresponde a esa presentación.`);
     }
-    return { row, categoriaId, productoCommandId: commandId, productoId, productoExistente, presentacionCommandId, presentacionId, presentacionExistente };
+    const productoCategoriaActualNombre = existingProduct
+      ? snapshot.categorias.find(category => category.id === existingProduct.categoriaId)?.nombre ?? existingProduct.categoriaId
+      : null;
+    return { row, categoriaId, productoCommandId: commandId, productoId, productoExistente, productoActualizar, productoActual: existingProduct ?? null, productoCategoriaActualNombre, presentacionCommandId, presentacionId, presentacionExistente, presentacionActualizar, presentacionActual };
   });
   const categoriasPorCrear = categorias.filter(category => category.categoriaId === null).length;
   return {
     plan,
     tenantId,
     espacioId,
+    catalogoId,
     errores: [...new Set(errores)],
+    advertencias: [...new Set(advertencias)],
     categorias,
     filas,
     resumen: {
@@ -312,7 +430,9 @@ export function prepararImportacionCatalogo(
       categoriasTotales: categorias.length,
       categoriasPorCrear,
       productosPorCrear: filas.filter(row => !row.productoExistente).length,
+      productosPorActualizar: filas.filter(row => row.productoActualizar).length,
       presentacionesPorCrear: filas.filter(row => !row.presentacionExistente).length,
+      presentacionesPorActualizar: filas.filter(row => row.presentacionActualizar).length,
     },
   };
 }
@@ -324,17 +444,19 @@ export async function ejecutarImportacionCatalogo(
   preparado: ImportacionCatalogoPreparada,
   ejecutarComando: CatalogImportCommand,
   onProgress?: (progress: CatalogImportProgress) => void,
-): Promise<{ categoriasCreadas: number; productosCreados: number; presentacionesCreadas: number }> {
+): Promise<{ categoriasCreadas: number; productosCreados: number; productosActualizados: number; presentacionesCreadas: number; presentacionesActualizadas: number }> {
   if (preparado.errores.length > 0) throw new Error("El preflight del catálogo contiene bloqueos y no permite importar.");
   const idsCategorias = new Map<string, string>();
   let categoriasCreadas = 0;
   let productosCreados = 0;
+  let productosActualizados = 0;
   let presentacionesCreadas = 0;
+  let presentacionesActualizadas = 0;
   let done = 0;
   for (const category of preparado.categorias) {
     let id = category.categoriaId;
     if (!id) {
-      const result = await ejecutarComando("crearCategoriaBodegaV1", category.commandId, { espacioId: preparado.espacioId, nombre: category.nombre });
+      const result = await ejecutarComando("crearCategoriaBodegaV1", category.commandId, { espacioId: preparado.espacioId, catalogoId: preparado.catalogoId, nombre: category.nombre });
       if (typeof result.categoriaId !== "string" || result.categoriaId === "") throw new Error(`No se confirmó la categoría «${category.nombre}».`);
       id = result.categoriaId;
       categoriasCreadas += 1;
@@ -353,11 +475,12 @@ export async function ejecutarImportacionCatalogo(
         data: {
           nombre: item.row.name,
           categoriaId: idsCategorias.get(normalized(item.row.category)) ?? item.categoriaId,
+          catalogoId: preparado.catalogoId,
           espacioId: preparado.espacioId,
           unidad: item.row.baseUnit,
-          // The exact source cost belongs to the package. Keeping a rounded
-          // unit cost here would fabricate financial data for Diana.
-          costo: 0,
+          // The exact Bodega source cost belongs to its package presentation.
+          // Nevera has no assigned cost until an approved transfer exists.
+          ...(preparado.catalogoId === "BODEGA" ? { costo: 0 } : {}),
           stock: 0,
           stockMinimo: 0,
           activo: true,
@@ -366,6 +489,13 @@ export async function ejecutarImportacionCatalogo(
       if (typeof result.articuloId !== "string" || result.articuloId === "") throw new Error(`No se confirmó el producto de la fila de origen ${item.row.sourceRow}.`);
       productoId = result.articuloId;
       productosCreados += 1;
+    } else if (item.productoActualizar) {
+      await ejecutarComando("actualizarArticuloInventarioV1", item.productoCommandId, {
+        articuloTipo: "producto",
+        articuloId: productoId,
+        data: { catalogoId: preparado.catalogoId, categoriaId: idsCategorias.get(normalized(item.row.category)) ?? item.categoriaId },
+      });
+      productosActualizados += 1;
     }
     done += 1;
     onProgress?.({ fase: "productos", completadas: done, total: preparado.filas.length });
@@ -374,16 +504,27 @@ export async function ejecutarImportacionCatalogo(
         productoId,
         nombre: item.row.presentation,
         factorUnidadBase: item.row.unitsPerPresentation,
-        precioCOP: item.row.salesPriceStoreCop,
-        precioTiendaCOP: item.row.salesPriceStoreCop,
-        precioConsumidorFinalCOP: item.row.consumerFinalPriceCop,
-        costoPresentacionCOP: item.row.costCopPerPresentation,
+        precioCOP: item.row.salesPriceCop,
+        precioTiendaCOP: item.row.salesPriceCop,
+        precioConsumidorFinalCOP: null,
+        ...(item.row.costCopPerPresentation === null ? {} : { costoPresentacionCOP: item.row.costCopPerPresentation }),
         activo: true,
       });
       if (typeof result.presentacionId !== "string" || result.presentacionId === "") throw new Error(`No se confirmó la presentación de la fila de origen ${item.row.sourceRow}.`);
       presentacionesCreadas += 1;
       onProgress?.({ fase: "presentaciones", completadas: presentacionesCreadas, total: preparado.resumen.presentacionesPorCrear });
+    } else if (item.presentacionActualizar) {
+      await ejecutarComando("actualizarPresentacionComercialV1", item.presentacionCommandId, {
+        presentacionId: item.presentacionId,
+        nombre: item.row.presentation,
+        factorUnidadBase: item.row.unitsPerPresentation,
+        precioCOP: item.row.salesPriceCop,
+        precioTiendaCOP: item.row.salesPriceCop,
+        ...(item.row.costCopPerPresentation === null ? {} : { costoPresentacionCOP: item.row.costCopPerPresentation }),
+      });
+      presentacionesActualizadas += 1;
+      onProgress?.({ fase: "presentaciones", completadas: presentacionesCreadas + presentacionesActualizadas, total: preparado.resumen.presentacionesPorCrear + preparado.resumen.presentacionesPorActualizar });
     }
   }
-  return { categoriasCreadas, productosCreados, presentacionesCreadas };
+  return { categoriasCreadas, productosCreados, productosActualizados, presentacionesCreadas, presentacionesActualizadas };
 }

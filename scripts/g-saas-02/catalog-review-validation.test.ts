@@ -62,20 +62,21 @@ function reviewWorkbook(options: {
     "Unidades base por presentación", "AL COSTO corresponde a", "Fila candidata consumidor (Excel)", "Notas de Diana",
   ];
   const consumerHeader = [
-    "Fila Excel fuente", "Producto (fuente)", "Precio consumidor (COP, referencia)", "Estado",
+    "Fila Excel fuente", "Producto (fuente)", "Precio consumidor (COP, referencia)", "Categoría", "Unidad base",
+    "Presentación / empaque", "Unidades base por presentación", "Estado",
     "Fila candidata tienda (Excel)", "Producto candidato tienda", "PRECIO VENTA POS (COP)",
     "¿Mismo producto y presentación?", "Notas de Diana",
   ];
   const storeRow: unknown[] = [1, 2, options.storeProduct ?? "Café", options.storeCost ?? 1200, options.storePrice ?? 1800,
-    options.category ?? "Abarrotes", "unidad", "paquete x 12", options.factor ?? 12,
+    options.category ?? "Gaseosas", "unidad", "paquete x 12", options.factor ?? 12,
     options.costBasis ?? "Presentación / empaque", options.consumerCandidate ?? 2, ""];
-  const consumerRows: unknown[][] = [[2, "Cafe", 2100, "Coincidencia por nombre; revisar presentación",
+  const consumerRows: unknown[][] = [[2, "Cafe", 2100, "Gaseosas", "unidad", "Unidad", 1, "Coincidencia por nombre; revisar presentación",
     options.includeConsumerCandidate === false ? "" : 2, options.includeConsumerCandidate === false ? "" : options.candidateProduct ?? "Café",
     options.includeConsumerCandidate === false ? "" : options.candidatePrice ?? 1800,
     options.includeConsumerCandidate === false ? "" : options.sameProduct ?? "Sí - misma presentación", ""]];
   if (options.addConsumerOnly) consumerRows.push(options.manualConsumerAssociation
-    ? [3, "Producto referencia", 2400, "Asociación manual; revisar presentación", 2, "Café", 1800, "Sí - misma presentación", "Asociado manualmente por revisión"]
-    : [3, "Producto referencia", 2400, "Diferido: falta asociación con producto base", "", "", "", "", ""]);
+    ? [3, "Producto referencia", 2400, "Agua embotellada", "unidad", "Unidad", 1, "Asociación manual; revisar presentación", 2, "Café", 1800, "Sí - misma presentación", "Asociado manualmente por revisión"]
+    : [3, "Producto referencia", 2400, "Agua embotellada", "unidad", "Unidad", 1, "Diferido: falta asociación con producto base", "", "", "", "", ""]);
 
   return {
     worksheets: [
@@ -154,7 +155,7 @@ test("keeps incomplete mappings pending and accepts exact package costs without 
     sourceSha256: SOURCE_HASH,
   });
   assert.equal(fractionalCost.operationalMappingsComplete, true);
-  assert.equal(fractionalCost.totals.costsNotExactlyConvertibleToBaseUnit, 1);
+  assert.equal(fractionalCost.totals.costsNotExactlyConvertibleToBaseUnit, 0);
   assert.equal(fractionalCost.validationErrors.some((error) => /sin redondeo/.test(error)), false);
 
   const unsupportedBasis = validateDianaCatalogReview({
@@ -167,7 +168,7 @@ test("keeps incomplete mappings pending and accepts exact package costs without 
   assert.ok(unsupportedBasis.validationErrors.some((error) => /entero positivo/.test(error)));
 });
 
-test("counts consumer-only rows as deferred and leaves unresolved matches for Diana", () => {
+test("keeps consumer-only rows separate without requiring a transfer association", () => {
   const report = validateDianaCatalogReview({
     sourceWorkbook: {
       worksheets: [
@@ -179,14 +180,14 @@ test("counts consumer-only rows as deferred and leaves unresolved matches for Di
     sourceSha256: SOURCE_HASH,
   });
 
-  assert.equal(report.totals.consumerRowsDeferred, 1);
-  assert.equal(report.totals.candidateDecisionsPending, 1);
+  assert.equal(report.totals.consumerRowsWithoutStoreCandidate, 1);
+  assert.equal(report.totals.candidateDecisionsPending, 0);
   assert.equal(report.operationalMappingsComplete, true);
-  assert.equal(report.reviewDecisionsComplete, false);
+  assert.equal(report.reviewDecisionsComplete, true);
   assert.equal(report.importReady, false);
 });
 
-test("accepts an explicit manual consumer-to-store association and uses the retail price only after same-presentation approval", () => {
+test("keeps a reviewed cross-list candidate out of both catalog identities and prices", () => {
   const inputSource = {
     worksheets: [
       worksheet("PRECIOS A TIENDA", [["PRODUCTO", "AL COSTO", "PRECIO VENTA"], ["Café", 1200, 1800]]),
@@ -198,7 +199,7 @@ test("accepts an explicit manual consumer-to-store association and uses the reta
   const getConsumerRow = consumerSheet.getRow.bind(consumerSheet);
   consumerSheet.getRow = (rowNumber) => {
     if (rowNumber !== 5) return getConsumerRow(rowNumber);
-    const values: unknown[] = [2, "Producto alterno", 2400, "Asociación manual; revisar presentación", 2, "Café", 1800, "Sí - misma presentación", "Asociado manualmente por revisión"];
+    const values: unknown[] = [2, "Producto alterno", 2400, "Agua embotellada", "unidad", "Unidad", 1, "Asociación manual; revisar presentación", 2, "Café", 1800, "Sí - misma presentación", "Asociado manualmente por revisión"];
     return {
       cellCount: values.length,
       getCell: (column) => ({ value: values[column - 1] }),
@@ -215,9 +216,11 @@ test("accepts an explicit manual consumer-to-store association and uses the reta
 
   const plan = buildPlan({ ...input, reviewSha256: "f".repeat(64) });
   assert.ok(plan);
-  assert.equal(plan.proposal.presentations[0].consumerSourceRow, 2);
-  assert.equal(plan.proposal.presentations[0].consumerFinalPriceCop, 2400);
-  assert.equal(plan.consumerReference.consumerRowsDeferred, 0);
+  assert.equal(plan.proposal.presentations[0].consumerSourceRow, null);
+  assert.equal(plan.proposal.presentations[0].consumerFinalPriceCop, null);
+  assert.equal(plan.neveraCatalog.presentations[0].name, "Producto alterno");
+  assert.equal(plan.neveraCatalog.presentations[0].salesPriceConsumerFinalCop, 2400);
+  assert.equal(plan.neveraCatalog.presentations[0].bodegaAssociation, null);
 });
 
 test("rejects a manual consumer association that does not match the referenced store row", () => {
@@ -229,7 +232,7 @@ test("rejects a manual consumer association that does not match the referenced s
     if (rowNumber !== 6) return row;
     return {
       ...row,
-      getCell: (column) => column === 6 ? { value: "Producto inventado" } : row.getCell(column),
+      getCell: (column) => column === 10 ? { value: "Producto inventado" } : row.getCell(column),
     };
   };
   const report = validateDianaCatalogReview({ sourceWorkbook: sourceWorkbook(1200, true), reviewWorkbook: workbook, sourceSha256: SOURCE_HASH });
@@ -252,7 +255,7 @@ test("detects broken candidate references and consumer data that is not source-b
     reviewWorkbook: reviewWorkbook({ includeConsumerCandidate: false }),
     sourceSha256: SOURCE_HASH,
   });
-  assert.equal(noCandidate.reviewValid, false);
+  assert.equal(noCandidate.reviewValid, true);
 });
 
 test("rejects missing source rows, duplicate rows, and formulas in review decisions", () => {
@@ -272,7 +275,7 @@ test("rejects missing source rows, duplicate rows, and formulas in review decisi
   sheet.getRow = (rowNumber) => {
     const row = getRow(rowNumber);
     if (rowNumber !== 5) return row;
-    return { ...row, getCell: (column) => column === 6 ? { value: { formula: "\"Abarrotes\"", result: "Abarrotes" } } : row.getCell(column) };
+    return { ...row, getCell: (column) => column === 6 ? { value: { formula: "\"Gaseosas\"", result: "Gaseosas" } } : row.getCell(column) };
   };
   const formula = validateDianaCatalogReview({ sourceWorkbook: sourceWorkbook(), reviewWorkbook: formulaReview, sourceSha256: SOURCE_HASH });
   assert.equal(formula.reviewValid, false);
@@ -285,7 +288,7 @@ function buildPlan(input: PlanInput): DianaCatalogOfflinePlan | null {
   return buildDianaCatalogOfflinePlan(input);
 }
 
-test("builds a local review-only plan with channel prices and exact presentation cost only for approved mappings", () => {
+test("builds a local review-only plan with two independent catalogs and exact Bodega presentation cost", () => {
   const plan = buildPlan({
     sourceWorkbook: sourceWorkbook(1200, true),
     reviewWorkbook: reviewWorkbook({ addConsumerOnly: true }),
@@ -294,32 +297,35 @@ test("builds a local review-only plan with channel prices and exact presentation
   });
 
   assert.ok(plan);
-  assert.equal(plan.planSchemaVersion, "2.0");
+  assert.equal(plan.planSchemaVersion, "3.0");
   assert.equal(plan.sourceSha256, SOURCE_HASH);
   assert.equal(plan.reviewSha256, "b".repeat(64));
   assert.equal(plan.proposal.granularity, "one-presentation-per-store-source-row");
   assert.equal(plan.proposal.salesPriceSource, "PRECIOS A TIENDA.PRECIO VENTA");
-  assert.equal(plan.proposal.consumerPriceSource, "PRECIOS CONS FINAL.PRECIO VENTA");
+  assert.equal(plan.proposal.consumerPriceSource, null);
   assert.equal(plan.proposal.presentations.length, 1);
   assert.deepEqual(plan.proposal.presentations[0], {
     sourceRow: 2,
     reviewRow: 5,
     name: "Café",
-    category: "Abarrotes",
+    category: "Gaseosas",
     baseUnit: "unidad",
     presentation: "paquete x 12",
     unitsPerPresentation: 12,
     packagingQuantityEvidence: "assumed_single_unit",
     salesPriceStoreCop: 1800,
-    consumerSourceRow: 2,
-    consumerFinalPriceCop: 2100,
+    consumerSourceRow: null,
+    consumerFinalPriceCop: null,
     sourceCostCop: 1200,
     costBasis: "PRESENTACION / EMPAQUE",
     costCopPerPresentation: 1200,
   });
-  assert.equal(plan.consumerReference.consumerPricesApplied, true);
-  assert.equal(plan.consumerReference.consumerRowsDeferred, 1);
-  assert.equal(plan.consumerReference.samePresentationPricesApplied, 1);
+  assert.equal(plan.neveraCatalog.catalogId, "NEVERA");
+  assert.equal(plan.neveraCatalog.presentations.length, 2);
+  assert.equal(plan.neveraCatalog.presentations[0].salesPriceConsumerFinalCop, 2100);
+  assert.equal(plan.neveraCatalog.presentations[0].bodegaAssociation, null);
+  assert.equal(plan.consumerReference.consumerRowsInNevera, 2);
+  assert.equal(plan.consumerReference.transferMappingsPending, 2);
   assert.equal(plan.initialStockIncluded, false);
   assert.equal(plan.safety.firebaseAccessed, false);
   assert.equal(plan.safety.writesPerformed, false);
@@ -328,12 +334,12 @@ test("builds a local review-only plan with channel prices and exact presentation
   assert.equal(plan.safety.deploymentAuthorized, false);
   const serialized = JSON.stringify(plan);
   assert.equal(serialized.includes("2100"), true);
-  assert.equal(serialized.includes('"consumerSourceRow":2'), true);
-  assert.equal(serialized.includes("2400"), false);
-  assert.equal(serialized.includes("Producto referencia"), false);
+  assert.equal(serialized.includes('"consumerSourceRow":2'), false);
+  assert.equal(serialized.includes("2400"), true);
+  assert.equal(serialized.includes("Producto referencia"), true);
 });
 
-test("keeps unresolved consumer prices deferred without blocking a complete store plan", () => {
+test("keeps future transfer mapping pending without merging a Nevera price into Bodega", () => {
   const plan = buildPlan({
     sourceWorkbook: sourceWorkbook(1200, true),
     reviewWorkbook: reviewWorkbook({ sameProduct: "Por confirmar", addConsumerOnly: true }),
@@ -343,13 +349,11 @@ test("keeps unresolved consumer prices deferred without blocking a complete stor
 
   assert.ok(plan);
   assert.equal(plan.consumerReference.crossListCandidates, 1);
-  assert.equal(plan.consumerReference.crossListDecisionsPending, 1);
-  assert.equal(plan.consumerReference.consumerPricesApplied, false);
-  assert.equal(plan.consumerReference.consumerRowsDeferred, 2);
-  assert.equal(plan.consumerReference.samePresentationPricesApplied, 0);
+  assert.equal(plan.consumerReference.transferMappingsPending, 2);
   assert.equal(plan.proposal.presentations.length, 1);
   assert.equal(plan.proposal.presentations[0].salesPriceStoreCop, 1800);
   assert.equal(plan.proposal.presentations[0].consumerFinalPriceCop, null);
+  assert.equal(plan.neveraCatalog.presentations.length, 2);
 });
 
 test("keeps retail prices for a distinct presentation out of the existing store presentation", () => {
@@ -361,8 +365,7 @@ test("keeps retail prices for a distinct presentation out of the existing store 
   });
 
   assert.ok(plan);
-  assert.equal(plan.consumerReference.consumerRowsDeferred, 1);
-  assert.equal(plan.consumerReference.samePresentationPricesApplied, 0);
+  assert.equal(plan.consumerReference.transferMappingsPending, 1);
   assert.equal(plan.proposal.presentations[0].consumerFinalPriceCop, null);
 });
 
