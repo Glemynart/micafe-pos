@@ -74,7 +74,7 @@ test("venta Bodega materializada por U3-C aparece únicamente en las ventas del 
   fake.docs.set("cuentas_bancarias/banco", { id: "banco", empresaId, claveOperativa: "bancolombia", saldo: 0, nombre: "Banco" });
   const contexto: ContextoFinancieroOperativo = { empresaId, actorUid, rol: "vendedor" };
   const intentoLineas = [{ productoId: "producto", presentacionId: "presentacion", cantidad: 1 }];
-  const lineaComercial = { productoId: "producto", productoNombre: "Producto", unidadBase: "unidad", presentacionId: "presentacion", presentacionNombre: "Unidad", cantidad: 1, factorUnidadBase: 1, cantidadUnidadBase: 1, precioPresentacionCOP: 1000, subtotalCOP: 1000 };
+  const lineaComercial = { productoId: "producto", productoNombre: "Producto", unidadBase: "unidad", presentacionId: "presentacion", presentacionNombre: "Unidad", cantidad: 1, factorUnidadBase: 1, cantidadUnidadBase: 1, canal: "tienda", precioBasePresentacionCOP: 1000, precioPresentacionCOP: 1000, ofertaId: null, subtotalCOP: 1000 };
   const huellaComercial = crearHuellaSemantica({ clienteId: "cliente", lineas: [lineaComercial], totalCOP: 1000 });
   fake.docs.set(`empresas/${empresaId}/solicitudes_venta_bodega/solicitud`, {
     solicitudId: "solicitud", empresaId, solicitanteUid: actorUid, clienteId: "cliente", intentoLineas,
