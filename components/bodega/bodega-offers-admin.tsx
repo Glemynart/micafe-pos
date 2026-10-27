@@ -1,8 +1,10 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { BadgePercent, CalendarClock, CircleCheck, Clock3, Plus, RefreshCw, Tag, X } from "lucide-react"
+import { BadgePercent, CalendarClock, Check, ChevronsUpDown, CircleCheck, Clock3, Plus, RefreshCw, Tag, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   actualizarOfertaBodega,
   cerrarOfertaBodega,
@@ -13,10 +15,12 @@ import {
   type LineaOfertaBodegaAdmin,
   type OfertaBodegaAdmin,
 } from "@/lib/bodega/admin-service"
+import { filtrarPresentacionesOferta, type PresentacionOfertaBuscable } from "@/lib/bodega/offer-presentation-search"
 import { mensajeErrorBodega } from "@/lib/bodega/ui-contract"
 
 type Catalogo = Awaited<ReturnType<typeof obtenerSnapshotCatalogoBodega>>
 type LineaFormulario = LineaOfertaBodegaAdmin & { key: string }
+type OpcionPresentacionOferta = PresentacionOfertaBuscable & { presentacion: Catalogo["presentaciones"][number] }
 
 const moneda = (value: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(value)
 
@@ -42,6 +46,45 @@ function mostrarFechaBogota(millis: number): string {
   return new Intl.DateTimeFormat("es-CO", {
     timeZone: "America/Bogota", dateStyle: "medium", timeStyle: "short",
   }).format(new Date(millis))
+}
+
+function SelectorPresentacionOferta({
+  opciones,
+  value,
+  onChange,
+}: {
+  opciones: OpcionPresentacionOferta[]
+  value: string
+  onChange: (presentacionId: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [consulta, setConsulta] = useState("")
+  const seleccionada = opciones.find(opcion => opcion.id === value)
+  const filtradas = useMemo(() => filtrarPresentacionesOferta(opciones, consulta), [opciones, consulta])
+
+  return <Popover open={open} onOpenChange={siguiente => { setOpen(siguiente); if (!siguiente) setConsulta("") }}>
+    <PopoverTrigger asChild>
+      <Button type="button" variant="outline" role="combobox" aria-expanded={open} className="mt-1.5 h-11 w-full justify-between rounded-xl font-normal">
+        <span className="min-w-0 truncate text-left">{seleccionada ? `${seleccionada.productoNombre} · ${seleccionada.presentacionNombre}` : "Buscar producto o presentación…"}</span>
+        <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" aria-hidden="true" />
+      </Button>
+    </PopoverTrigger>
+    <PopoverContent align="start" className="w-[min(var(--radix-popover-trigger-width),calc(100vw-2rem))] p-0" sideOffset={4}>
+      <Command shouldFilter={false}>
+        <CommandInput value={consulta} onValueChange={setConsulta} placeholder="Buscar por nombre de producto…" />
+        <CommandList>
+          <CommandEmpty>{consulta ? "No hay productos o presentaciones que coincidan." : "No hay presentaciones Bodega disponibles."}</CommandEmpty>
+          {filtradas.map(opcion => <CommandItem key={opcion.id} value={opcion.id} onSelect={() => { onChange(opcion.id); setConsulta(""); setOpen(false) }}>
+            <Check className={`size-4 shrink-0 ${opcion.id === value ? "opacity-100" : "opacity-0"}`} aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium">{opcion.productoNombre}</span>
+              <span className="block truncate text-xs text-muted-foreground">{opcion.presentacionNombre} · {opcion.factorUnidadBase} {opcion.factorUnidadBase === 1 ? "unidad" : "unidades"} base</span>
+            </span>
+          </CommandItem>)}
+        </CommandList>
+      </Command>
+    </PopoverContent>
+  </Popover>
 }
 
 function estadoVisible(oferta: OfertaBodegaAdmin, now: number) {
@@ -85,6 +128,13 @@ export function BodegaOfertasAdmin() {
   const productos = useMemo(() => new Map(catalogo?.productos.map(item => [item.id, item.nombre]) ?? []), [catalogo])
   const presentaciones = useMemo(() => catalogo?.presentaciones.filter(item => item.activo) ?? [], [catalogo])
   const presentacionPorId = useMemo(() => new Map(presentaciones.map(item => [item.id, item])), [presentaciones])
+  const opcionesPresentacion = useMemo(() => presentaciones.map(presentacion => ({
+    id: presentacion.id,
+    productoNombre: productos.get(presentacion.productoId) ?? "Producto",
+    presentacionNombre: presentacion.nombre,
+    factorUnidadBase: presentacion.factorUnidadBase,
+    presentacion,
+  })), [presentaciones, productos])
 
   function iniciarNueva() {
     setEditando(null); setNombre(""); setInicio(ahoraBogotaParaInput()); setFin(""); setLineas([])
@@ -172,7 +222,7 @@ export function BodegaOfertasAdmin() {
             const presentation = presentacionPorId.get(line.presentacionId)
             const productoNombre = presentation ? productos.get(presentation.productoId) ?? "Producto" : ""
             return <div key={line.key} className="grid gap-3 rounded-xl border border-border/70 bg-muted/20 p-3 sm:grid-cols-[minmax(0,2fr)_minmax(130px,1fr)_minmax(150px,1fr)_auto] sm:items-end">
-              <label className="text-sm font-medium">Presentación {index + 1}<select value={line.presentacionId} onChange={event => actualizarLinea(line.key, { presentacionId: event.target.value })} required className="mt-1.5 h-11 w-full rounded-xl border border-border bg-background px-3 font-normal"><option value="">Selecciona producto</option>{presentaciones.map(item => <option key={item.id} value={item.id}>{productos.get(item.productoId) ?? "Producto"} · {item.nombre}</option>)}</select>{presentation && <span className="mt-1 block text-xs font-normal text-muted-foreground">{productoNombre} · factor {presentation.factorUnidadBase}</span>}</label>
+              <label className="text-sm font-medium">Presentación {index + 1}<SelectorPresentacionOferta opciones={opcionesPresentacion} value={line.presentacionId} onChange={presentacionId => actualizarLinea(line.key, { presentacionId })} />{presentation && <span className="mt-1 block text-xs font-normal text-muted-foreground">{productoNombre} · factor {presentation.factorUnidadBase}</span>}</label>
               <label className="text-sm font-medium">Canal<select value={line.canal} onChange={event => actualizarLinea(line.key, { canal: event.target.value as CanalOfertaBodega })} className="mt-1.5 h-11 w-full rounded-xl border border-border bg-background px-3 font-normal"><option value="tienda">Tienda</option><option value="consumidor_final">Consumidor final</option></select></label>
               <label className="text-sm font-medium">Precio final COP<input type="number" inputMode="numeric" min={1} step={1} value={line.precioFinalCOP || ""} onChange={event => actualizarLinea(line.key, { precioFinalCOP: event.target.value === "" ? 0 : Number(event.target.value) })} required className="mt-1.5 h-11 w-full rounded-xl border border-border bg-background px-3 font-normal" placeholder="0" /></label>
               <Button type="button" size="icon" variant="ghost" aria-label="Quitar presentación" onClick={() => setLineas(current => current.filter(item => item.key !== line.key))}><X className="size-4" /></Button>
