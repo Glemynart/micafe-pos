@@ -6,6 +6,13 @@ Estado: `BORRADOR OPERATIVO` hasta validar el flujo con el tenant de referencia.
 
 La certificacion read-only del tenant acepta `Empresa.estado = trial` durante el periodo contractual inicial; no se exige activar la suscripcion anual para certificar el provisioning y el onboarding.
 
+## Estado vigente — 2026-10-27
+
+- ADR-SAAS-094 está aceptado para `G-SAAS-02 → M2 → E2.2`. El Excel `DISTRIBUIDORA LAS JIMENEZ (2).xlsx` define dos catálogos independientes: 107 productos de Bodega (`PRECIOS A TIENDA`) y 55 productos de Nevera (`PRECIOS CONS FINAL`). Cada catálogo tendrá IDs, categorías, presentaciones, precios y ofertas propios. No se crean asociaciones por similitud de nombres.
+- Una transferencia Bodega→Nevera requerirá correspondencia y factor de conversión aprobados, ejecución atómica/idempotente y costo COP exacto con capas FIFO. Productos Nevera sin asociación/costo/stock verificado permanecen con stock cero y no vendibles. Stock inicial importado: cero.
+- Los comandos y CSV del preflight previo a ADR-SAAS-094 no representan el contrato actual ni deben usarse para generar una carga nueva hasta que la herramienta se actualice para producir planes independientes por catálogo. Las cuatro tarifas consumidor previamente persistidas en presentaciones Bodega requieren reconciliación de solo lectura; no se mueven ni eliminan automáticamente.
+- La aprobación habilita implementación y pruebas locales en PR. No autoriza importar datos a Firebase, transferir existencias, publicar Rules, desplegar o activar ventas retail. E2.2 y Gate I siguen incompletos.
+
 Este runbook acompaña al Goal `G-SAAS-02`. No autoriza escrituras productivas por sí mismo ni sustituye el acceso administrativo aprobado, un backup o el registro de cambios.
 
 La lectura productiva actual del tenant de referencia está registrada en
@@ -221,9 +228,10 @@ provisionamiento y acceso más reciente se consigna en “Estado vigente”.
   La emisión DIAN desde la aplicación web no está disponible y no debe
   presentarse como una capacidad activa. La aceptación temporal de operar sin
   emisión no cierra Gate I ni certifica DIAN para otros tenants.
-- Catálogo — actualización vigente por ADR-SAAS-092: el archivo más reciente
+- Preflight histórico de catálogo — supersedido por ADR-SAAS-094 (no define la
+  política vigente ni debe usarse para crear un nuevo plan): el archivo más reciente
   recibido, `DISTRIBUIDORA LAS JIMENEZ (2).xlsx`, sustituye al archivo `(1)`
-  como fuente privada de revisión. Para Bodega, ADR-SAAS-092 supersede
+  como fuente privada de revisión. En la propuesta anterior, ADR-SAAS-092 supersede
   explícitamente la tarifa única de ADR-SAAS-070: cada presentación puede tener
   tarifa de tienda y tarifa de consumidor final. Esta última solo se puede
   importar mediante una asociación explícita, revisable y aprobada con una
