@@ -2,8 +2,8 @@
 
 ## Estado
 
-`PREPARADO LOCALMENTE — pendiente de datos comerciales revisados y de integrar
-el corte de tarifas por canal.`
+`PREPARADO LOCALMENTE — pendiente de preflight final del catálogo y del corte
+operativo autorizado de carga.`
 
 Este documento concreta la entrada de datos requerida por ADR-SAAS-092. No
 autoriza importaciones, escritura en Firebase, creación de Nevera, ofertas ni
@@ -45,25 +45,31 @@ redondeo de costo ni asociaciones por similitud.
 ## Efecto previsto en el catálogo
 
 1. `MISMA_PRESENTACION`: se conserva la presentación de tienda y se completa
-   su `precioConsumidorFinalCOP` con el precio retail revisado.
-2. `PRESENTACION_RETAIL_DISTINTA`: se conserva el producto y su costo por
-   unidad base; se crea una presentación retail separada con factor explícito,
-   tarifa tienda solamente si Diana también la define, y tarifa retail de la
-   fila de consumidor.
+   su `precioConsumidorFinalCOP` con el precio retail revisado. El costo exacto
+   de esa presentación se conserva desde la fila fuente de tienda.
+2. `PRESENTACION_RETAIL_DISTINTA`: se conserva el producto y se crea una
+   presentación retail separada solo con factor explícito y tarifa retail de la
+   fila de consumidor. Su costo se completa únicamente cuando existe un costo
+   fuente exacto para esa presentación o un costo exacto por unidad base. No se
+   obtiene dividiendo y redondeando el costo del empaque de tienda.
 3. Sin asociación aprobada: la fila retail permanece diferida. Nunca habilita
    una venta desde Nevera y no modifica el precio de tienda.
 
-El inventario inicial seguirá en cero. El costo de una presentación retail se
-deriva únicamente del costo canónico del producto y de su factor entero; una
-conversión no exacta bloquea el plan y requiere corregir la base comercial.
+El inventario inicial seguirá en cero; Diana contará y corregirá las existencias
+después de que los productos estén cargados. La falta de una cantidad en el
+nombre se conserva como evidencia (`assumed_single_unit`) y no bloquea la fila
+de tienda aprobada: el factor inicial será uno y quedará señalado para revisión.
+Un costo retail que no pueda establecerse exactamente deja esa presentación
+diferida; no altera ni bloquea la importación del catálogo de tienda.
 
 ## Criterios para generar un plan importable
 
 - La fuente y la revisión tienen SHA-256 registrados.
-- Las 107 filas de tienda mantienen categoría, unidad base, presentación,
-  factor y base de costo completos.
+- Las 107 filas de tienda conservan categoría, unidad base, presentación,
+  factor, evidencia del conteo del empaque, tarifa y costo fuente exactos.
 - Cada tarifa retail que se vaya a usar desde Nevera tiene asociación explícita
-  y un precio fuente válido.
+  y un precio fuente válido; si se habilita su costo, debe ser exacto para esa
+  presentación y no aproximado desde el costo del empaque de tienda.
 - Las filas retail diferidas se enumeran sin crear presentaciones ni precios.
 - La vista previa compara contra el snapshot actualizado del tenant y rechaza
   duplicados, diferencias de identidad o reanudaciones incompatibles.
@@ -75,4 +81,6 @@ conversión no exacta bloquea el plan y requiere corregir la base comercial.
 Falta que Diana confirme las asociaciones y factores de las filas retail cuyo
 nombre o empaque no coincide literalmente con la lista tienda. Sin esos datos,
 se puede importar solo el catálogo de tienda tras su propio preflight, pero no
-se puede habilitar Nevera ni ventas al consumidor final de forma segura.
+se puede habilitar Nevera ni ventas al consumidor final de forma segura. Diana
+corregirá las cantidades físicas después de la carga; el lote inicial no crea
+existencias y todas comienzan en cero.
