@@ -36,6 +36,14 @@ function optionalText(value: unknown, code: string, max = 160): string | null {
   return requiredText(value, code, max);
 }
 
+function categoryId(value: unknown): string {
+  const id = requiredText(value, "CATEGORIA_INVALIDA", 1500);
+  if (Buffer.byteLength(id, "utf8") > 1500 || id.includes("/") || id === "." || id === ".." || /^__.*__$/.test(id)) {
+    fail("invalid-argument", "CATEGORIA_INVALIDA");
+  }
+  return id;
+}
+
 function nonNegativeNumber(value: unknown, code: string): number {
   if (!number(value) || value < 0) fail("invalid-argument", code);
   return value as number;
@@ -84,7 +92,7 @@ function commonArticleFields(data: Data, partial: boolean): Data {
   if (data.stock !== undefined) result.stock = nonNegativeNumber(data.stock, "STOCK_INVALIDO");
   if (data.stockMinimo !== undefined) result.stockMinimo = nonNegativeNumber(data.stockMinimo, "STOCK_MINIMO_INVALIDO");
   if (data.imagenUrl !== undefined) result.imagenUrl = data.imagenUrl === null ? null : requiredText(data.imagenUrl, "IMAGEN_INVALIDA", 2048);
-  if (data.categoriaId !== undefined) result.categoriaId = requiredText(data.categoriaId, "CATEGORIA_INVALIDA");
+  if (data.categoriaId !== undefined) result.categoriaId = categoryId(data.categoriaId);
   if (data.espacioId !== undefined) result.espacioId = requiredText(data.espacioId, "ESPACIO_INVALIDO");
   if (data.activo !== undefined) {
     if (typeof data.activo !== "boolean") fail("invalid-argument", "ACTIVO_INVALIDO");

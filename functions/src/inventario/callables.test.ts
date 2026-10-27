@@ -145,6 +145,38 @@ test("G-SAAS-02: crear producto conserva una categoría del mismo tenant", async
   assert.equal(db.docs.get("productos/" + result.articuloId)?.categoriaId, "categoria-a");
 });
 
+test("G-SAAS-02: crear producto acepta el ID determinista largo de categoría del importador", async () => {
+  const tenantId = "distribuidora-las-jimenez";
+  const ctx: ContextoFinancieroOperativo = { empresaId: tenantId, actorUid: "admin-a", rol: "admin" };
+  const db = new FakeFirestore(); seedAuth(db, ctx);
+  const commandId = "catalogo-diana:b8e7358b277508e7c9dd2bac33c9bcb333f4b6899f71e2cc9c188a98ba44f704:categoria:agua-embotellada";
+  const categoriaId = `r1a-${Buffer.from(JSON.stringify([tenantId, `categoria:${commandId}`]), "utf8").toString("base64url")}`;
+  assert.equal(categoriaId.length, 202);
+  db.docs.set(`categorias/${categoriaId}`, { empresaId: tenantId, espacioId: "espacio-a", activo: true });
+
+  const result = await ejecutarCrearArticuloInventarioV1(db, ctx, envelope("crear-producto-catalogo-diana", {
+    articuloTipo: "producto",
+    data: { nombre: "Agua Pool Con Gas x 20 unds", categoriaId, unidad: "unidad", costo: 0, espacioId: "espacio-a", stock: 0 },
+  }));
+
+  assert.equal(db.docs.get(`productos/${result.articuloId}`)?.categoriaId, categoriaId);
+});
+
+test("G-SAAS-02: crear producto rechaza IDs de categoría que no caben en una referencia Firestore", async () => {
+  for (const categoriaId of ["x".repeat(1501), "categoria/con-separador"]) {
+    const db = new FakeFirestore(); seedAuth(db);
+    const before = structuredClone([...db.docs.entries()]);
+    await assert.rejects(
+      ejecutarCrearArticuloInventarioV1(db, contexto, envelope(`categoria-id-invalido-${categoriaId.length}`, {
+        articuloTipo: "producto",
+        data: { nombre: "Tinto", categoriaId, unidad: "und", costo: 0, espacioId: "espacio-a", stock: 0 },
+      })),
+      error => domain(error, "CATEGORIA_INVALIDA"),
+    );
+    assert.deepEqual([...db.docs.entries()], before);
+  }
+});
+
 test("G-SAAS-02: crear producto o insumo rechaza costos que no sean COP enteros seguros sin escribir", async () => {
   for (const articuloTipo of ["producto", "insumo"] as const) {
     for (const costo of [1.5, Number.MAX_SAFE_INTEGER + 1]) {
