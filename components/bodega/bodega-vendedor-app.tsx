@@ -57,6 +57,9 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   const [nextCursorAgenda, setNextCursorAgenda] = useState<string | null>(null)
   const [procesandoAgenda, setProcesandoAgenda] = useState("")
   const [clienteId, setClienteId] = useState("")
+  const [carteraClientePedido, setCarteraClientePedido] = useState<CarteraClienteBodegaDTO | null>(null)
+  const [cargandoCarteraPedido, setCargandoCarteraPedido] = useState(false)
+  const [errorCarteraPedido, setErrorCarteraPedido] = useState("")
   const [carrito, setCarrito] = useState<LineaVisual[]>([])
   const [metodosPago, setMetodosPago] = useState<Record<string, MetodoPagoBodega>>({})
   const [montosRecibidos, setMontosRecibidos] = useState<Record<string, number | undefined>>({})
@@ -74,6 +77,7 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
   const comandosVentaPendientes = useRef(new Map<string, ConfirmacionVentaBodega>())
   const suscripcionSenal = useRef<ReturnType<typeof suscribirSenalBodega> | null>(null)
   const agendaConsultaEnCurso = useRef(false)
+  const consultaCarteraPedidoId = useRef(0)
   const guardiaEnvio = useRef(crearProtectorDobleEnvio())
 
   const cargar = useCallback(async () => {
@@ -104,6 +108,41 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
     suscripcionSenal.current?.reconectar()
     return actualizarCatalogo()
   }, [actualizarCatalogo])
+
+  const actualizarCarteraClientePedido = useCallback(async (id: string) => {
+    const consultaId = ++consultaCarteraPedidoId.current
+    if (!id) {
+      setCarteraClientePedido(null)
+      setCargandoCarteraPedido(false)
+      setErrorCarteraPedido("")
+      return
+    }
+    setCarteraClientePedido(null)
+    setCargandoCarteraPedido(true)
+    setErrorCarteraPedido("")
+    try {
+      const carteraActual = await consultarCarteraClienteBodega(id)
+      if (consultaId !== consultaCarteraPedidoId.current) return
+      setCarteraClientePedido(carteraActual)
+      setClientes(actual => actual.map(cliente => cliente.id === id
+        ? { ...cliente, saldoPendienteCOP: carteraActual.saldoPendienteCOP }
+        : cliente))
+    } catch (cause) {
+      if (consultaId === consultaCarteraPedidoId.current) setErrorCarteraPedido(mensajeErrorBodega(cause))
+    } finally {
+      if (consultaId === consultaCarteraPedidoId.current) setCargandoCarteraPedido(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (tab === "venta") void actualizarCarteraClientePedido(clienteId)
+    else {
+      consultaCarteraPedidoId.current += 1
+      setCarteraClientePedido(null)
+      setCargandoCarteraPedido(false)
+      setErrorCarteraPedido("")
+    }
+  }, [tab, clienteId, actualizarCarteraClientePedido])
 
   const actualizarAgenda = useCallback(async (cursor?: string | null, preservarPaginas = false) => {
     if (agendaConsultaEnCurso.current) return
@@ -316,15 +355,34 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
               <fieldset className="mb-4"><legend className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Tipo de atención</legend><div className="grid grid-cols-3 gap-2"><button type="button" aria-pressed={tipoPedido === "venta"} onClick={() => setTipoPedido("venta")} className={cn("rounded-lg border px-2 py-2 text-xs font-semibold", tipoPedido === "venta" ? "border-primary bg-primary text-primary-foreground" : "border-border/70 text-foreground")}>Venta de hoy</button><button type="button" aria-pressed={tipoPedido === "hoy"} onClick={() => setTipoPedido("hoy")} className={cn("rounded-lg border px-2 py-2 text-xs font-semibold", tipoPedido === "hoy" ? "border-primary bg-primary text-primary-foreground" : "border-border/70 text-foreground")}>Pedido para hoy</button><button type="button" aria-pressed={tipoPedido === "agendar"} onClick={() => setTipoPedido("agendar")} className={cn("rounded-lg border px-2 py-2 text-xs font-semibold", tipoPedido === "agendar" ? "border-primary bg-primary text-primary-foreground" : "border-border/70 text-foreground")}>Agendar entrega</button></div></fieldset>
               {tipoPedido !== "venta" && <div className="mb-4 space-y-3 rounded-xl border border-amber-300/20 bg-amber-300/5 p-3">{tipoPedido === "hoy" ? <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">Pedido para hoy · {hoy}</p> : <label className="block text-sm">Fecha de entrega preferida<input required type="date" min={manana} value={fechaAgendadaVigente} onChange={event => setFechaAgendada(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-border/70 bg-background px-3 text-foreground" /></label>}<div className="grid grid-cols-2 gap-2"><label className="text-xs text-foreground">Desde (opcional)<input type="time" step={900} value={franjaDesde} onChange={event => setFranjaDesde(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-border/70 bg-background px-2 text-foreground" /></label><label className="text-xs text-foreground">Hasta (opcional)<input type="time" step={900} value={franjaHasta} onChange={event => setFranjaHasta(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-border/70 bg-background px-2 text-foreground" /></label></div><p className="text-[11px] text-muted-foreground">La franja es una preferencia. Administración debe aceptar para retener stock; no se confirma precio, venta ni entrega exacta.</p></div>}
               <label htmlFor="seller-client" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Cliente</label><div className="mt-2 flex gap-2"><select id="seller-client" value={clienteId} onChange={e => setClienteId(e.target.value)} className="h-11 min-w-0 flex-1 rounded-xl border border-border/70 bg-background px-3 text-sm"><option value="">Seleccionar cliente</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nombre} · {c.cedula}</option>)}</select><button aria-label="Crear cliente" onClick={() => setMostrarCliente(true)} className="rounded-xl bg-muted/60 px-3 hover:bg-muted"><UserPlus className="h-4 w-4" /></button></div>
+              {clienteId && <section aria-label="Cuenta pendiente del cliente" className="mt-3 rounded-xl border border-amber-300/30 bg-amber-300/10 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div aria-live="polite">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-100">Saldo de pedidos anteriores</p>
+                    {cargandoCarteraPedido ? <p role="status" className="mt-1 text-sm text-muted-foreground">Actualizando saldo…</p>
+                      : errorCarteraPedido ? <p role="alert" className="mt-1 text-sm text-rose-800 dark:text-rose-200">No se pudo consultar la cartera.</p>
+                        : carteraClientePedido?.clienteId === clienteId && <p className="mt-1 text-lg font-bold tabular-nums">{money(carteraClientePedido.saldoPendienteCOP)} <span className="text-xs font-normal text-muted-foreground">· {carteraClientePedido.facturas.length} facturas pendientes</span></p>}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {errorCarteraPedido
+                      ? <button type="button" disabled={cargandoCarteraPedido} onClick={() => void actualizarCarteraClientePedido(clienteId)} className="min-h-10 rounded-lg border border-border/70 px-3 text-xs font-semibold disabled:opacity-50">Reintentar</button>
+                      : <button type="button" disabled={cargandoCarteraPedido} onClick={() => void actualizarCarteraClientePedido(clienteId)} className="flex min-h-10 items-center gap-2 rounded-lg border border-border/70 px-3 text-xs font-semibold disabled:opacity-50"><RefreshCw className={cn("size-3.5", cargandoCarteraPedido && "animate-spin")} />Actualizar saldo</button>}
+                    <button type="button" onClick={() => setTab("clientes")} className="flex min-h-10 items-center gap-2 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground">
+                      <CircleDollarSign className="size-4" /> Ver facturas y registrar abono
+                    </button>
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">Si el cliente paga una deuda anterior al hacer este pedido, registra el abono en su cuenta. Este pedido nuevo no aplica pagos automáticamente.</p>
+              </section>}
               <div className="my-4 space-y-3">{carrito.length === 0 && <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center"><ShoppingCart className="mx-auto mb-3 size-7 text-muted-foreground/50" /><p className="text-sm font-medium">Tu pedido empieza aquí</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Selecciona un cliente y añade productos del catálogo.</p></div>}{carrito.map(linea => <div key={linea.presentacionId} className="rounded-xl bg-muted/40 p-3"><div className="flex justify-between gap-3"><div><p className="text-sm font-semibold">{linea.productoNombre}</p><p className="text-xs text-muted-foreground">{linea.presentacionNombre}</p></div><p className="text-sm font-semibold">{money(linea.precioCOP * linea.cantidad)}</p></div><div className="mt-2 flex items-center gap-2"><button aria-label={`Reducir cantidad de ${linea.presentacionNombre}`} onClick={() => cantidad(linea.presentacionId, linea.cantidad - 1)} className="size-11 shrink-0 rounded-xl bg-muted/60">−</button><input aria-label={`Cantidad de ${linea.presentacionNombre}`} type="number" min={1} value={linea.cantidad} onChange={e => cantidad(linea.presentacionId, Number(e.target.value))} className="h-11 w-16 rounded-xl bg-background text-center" /><button aria-label={`Aumentar cantidad de ${linea.presentacionNombre}`} onClick={() => cantidad(linea.presentacionId, linea.cantidad + 1)} className="size-11 shrink-0 rounded-xl bg-muted/60">+</button></div></div>)}</div>
               <div className="border-t border-border/70 pt-4"><div className="flex justify-between text-sm text-muted-foreground"><span>{tipoPedido === "venta" ? "Total visual estimado" : "Precio de referencia de hoy"}</span><strong className="text-lg text-foreground">{money(estimado)}</strong></div><p className="mt-1 text-[11px] text-muted-foreground">{tipoPedido === "venta" ? "El total autoritativo llegará con la respuesta del servidor." : "El precio y el stock se volverán a resolver cuando se atienda el pedido."}</p></div>
               <button disabled={enviando || carrito.length === 0 || !clienteId || (tipoPedido === "agendar" && !fechaAgendadaVigente) || (!!franjaDesde !== !!franjaHasta)} onClick={() => void (tipoPedido === "venta" ? enviarSolicitud() : enviarProgramacion())} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40">{tipoPedido === "venta" ? <ClipboardList className="h-5 w-5" /> : <CalendarDays className="h-5 w-5" />}{enviando ? "Enviando…" : tipoPedido === "venta" ? "Enviar solicitud de venta" : tipoPedido === "hoy" ? "Enviar pedido para hoy" : "Agendar entrega"}</button>
             </aside>
           </div>
-        ) : tab === "solicitudes" ? <SolicitudesView solicitudes={solicitudes} metodosPago={metodosPago} setMetodoPago={(id, method) => setMetodosPago(current => ({ ...current, [id]: method }))} montosRecibidos={montosRecibidos} setMontoRecibido={(id, value) => setMontosRecibidos(current => ({ ...current, [id]: value }))} tieneConfirmacionPendiente={solicitudId => (["efectivo", "transferencia", "pendiente"] as const).some(method => comandosVentaPendientes.current.has(`${solicitudId}:${method}`))} enviando={enviando} turnoAbierto={!!turno} onConfirmar={solicitud => void confirmarSolicitud(solicitud)} onCancelar={solicitud => void cancelarSolicitud(solicitud)} onActualizar={() => void actualizarSolicitudesConReconectar()} onCrearOtra={() => setTab("venta")} /> : tab === "agenda" ? <BodegaAgendaVendedor programaciones={agenda} hoy={hoy} cargando={cargandoAgenda} cargandoMas={cargandoMasAgenda} hayMas={!!nextCursorAgenda} procesando={procesandoAgenda} onActualizar={() => void actualizarAgenda()} onCargarMas={() => void actualizarAgenda(nextCursorAgenda)} onCancelar={item => void cancelarProgramacion(item)} onConvertir={item => void convertirProgramacion(item)} /> : tab === "clientes" ? <ClientesView clientes={clientes} onCrear={() => setMostrarCliente(true)} /> : <HistorialView ventas={ventas} />}
+        ) : tab === "solicitudes" ? <SolicitudesView solicitudes={solicitudes} metodosPago={metodosPago} setMetodoPago={(id, method) => setMetodosPago(current => ({ ...current, [id]: method }))} montosRecibidos={montosRecibidos} setMontoRecibido={(id, value) => setMontosRecibidos(current => ({ ...current, [id]: value }))} tieneConfirmacionPendiente={solicitudId => (["efectivo", "transferencia", "pendiente"] as const).some(method => comandosVentaPendientes.current.has(`${solicitudId}:${method}`))} enviando={enviando} turnoAbierto={!!turno} onConfirmar={solicitud => void confirmarSolicitud(solicitud)} onCancelar={solicitud => void cancelarSolicitud(solicitud)} onActualizar={() => void actualizarSolicitudesConReconectar()} onCrearOtra={() => setTab("venta")} /> : tab === "agenda" ? <BodegaAgendaVendedor programaciones={agenda} hoy={hoy} cargando={cargandoAgenda} cargandoMas={cargandoMasAgenda} hayMas={!!nextCursorAgenda} procesando={procesandoAgenda} onActualizar={() => void actualizarAgenda()} onCargarMas={() => void actualizarAgenda(nextCursorAgenda)} onCancelar={item => void cancelarProgramacion(item)} onConvertir={item => void convertirProgramacion(item)} /> : tab === "clientes" ? <ClientesView clientes={clientes} clienteInicial={clienteId} onCrear={() => setMostrarCliente(true)} /> : <HistorialView ventas={ventas} />}
       </main>
 
-      {carrito.length > 0 && <a href="#seller-cart" className="fixed inset-x-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-xl lg:hidden"><span className="flex items-center gap-2"><ShoppingCart className="size-5" />Ver pedido ({carrito.length})</span><span className="tabular-nums">{money(estimado)}</span></a>}
+      {tab === "venta" && carrito.length > 0 && <a href="#seller-cart" className="fixed inset-x-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-xl lg:hidden"><span className="flex items-center gap-2"><ShoppingCart className="size-5" />Ver pedido ({carrito.length})</span><span className="tabular-nums">{money(estimado)}</span></a>}
       <nav aria-label="Navegación móvil de ventas" className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"><div className="mx-auto flex h-18 max-w-2xl">{sellerTabs.map(item => <button key={item.id} type="button" aria-pressed={tab === item.id} onClick={() => setTab(item.id)} className={cn("flex min-w-0 flex-1 flex-col items-center justify-center gap-1.5 text-[10px] font-semibold", tab === item.id ? "text-primary" : "text-muted-foreground")}><span className={cn("rounded-xl px-4 py-1.5", tab === item.id && "bg-primary/10")}><item.icon className="size-5" /></span>{item.label}</button>)}</div></nav>
       {mostrarCliente && <CrearClienteModal onCerrar={() => setMostrarCliente(false)} onCreado={cliente => { setClientes(actual => [...actual, cliente].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))); setClienteId(cliente.id); setMostrarCliente(false) }} />}
     </div>
@@ -367,8 +425,8 @@ function SolicitudesView({ solicitudes, metodosPago, setMetodoPago, montosRecibi
   </section>
 }
 
-function ClientesView({ clientes, onCrear }: { clientes: ClienteVendedorDTO[]; onCrear(): void }) {
-  const [seleccionado, setSeleccionado] = useState("")
+function ClientesView({ clientes, clienteInicial, onCrear }: { clientes: ClienteVendedorDTO[]; clienteInicial: string; onCrear(): void }) {
+  const [seleccionado, setSeleccionado] = useState(clienteInicial)
   const [cartera, setCartera] = useState<CarteraClienteBodegaDTO | null>(null)
   const [cargandoCartera, setCargandoCartera] = useState(false)
   const [guardandoAbono, setGuardandoAbono] = useState("")
@@ -377,12 +435,22 @@ function ClientesView({ clientes, onCrear }: { clientes: ClienteVendedorDTO[]; o
   const [fechas, setFechas] = useState<Record<string, string>>({})
   const [error, setError] = useState("")
   const comandosAbonoPendientes = useRef(new Map<string, ComandoAbonoVentaBodega>())
-  const cargarCartera = async (clienteId: string) => {
+  const consultaCarteraId = useRef(0)
+  const cargarCartera = useCallback(async (clienteId: string) => {
+    const consultaId = ++consultaCarteraId.current
     setSeleccionado(clienteId); setCartera(null); setCargandoCartera(true); setError("")
-    try { setCartera(await consultarCarteraClienteBodega(clienteId)) }
-    catch (cause) { setCartera(null); setError(mensajeErrorBodega(cause)) }
-    finally { setCargandoCartera(false) }
-  }
+    try {
+      const carteraActual = await consultarCarteraClienteBodega(clienteId)
+      if (consultaId === consultaCarteraId.current) setCartera(carteraActual)
+    } catch (cause) {
+      if (consultaId === consultaCarteraId.current) { setCartera(null); setError(mensajeErrorBodega(cause)) }
+    } finally {
+      if (consultaId === consultaCarteraId.current) setCargandoCartera(false)
+    }
+  }, [])
+  useEffect(() => {
+    if (clienteInicial) void cargarCartera(clienteInicial)
+  }, [clienteInicial, cargarCartera])
   const registrarAbono = async (factura: CarteraClienteBodegaDTO["facturas"][number]) => {
     const montoCOP = Number(montos[factura.ventaId] ?? "")
     if (!Number.isSafeInteger(montoCOP) || montoCOP <= 0 || montoCOP > factura.saldoPendienteCOP) {
