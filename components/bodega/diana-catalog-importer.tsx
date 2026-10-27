@@ -104,7 +104,7 @@ export function DianaCatalogImporter({ tenantId, espacios, onRunningChange }: { 
     <details className="group mb-5 rounded-2xl border border-border/70 bg-card p-5 shadow-xs sm:p-6">
       <summary onClick={event => { if (corriendo) event.preventDefault() }} className="flex cursor-pointer list-none items-center gap-3"><span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/5 text-primary"><Upload className="size-5" aria-hidden="true" /></span><span className="flex-1"><span className="block text-[10px] font-semibold uppercase tracking-[.16em] text-muted-foreground">Carga masiva · Distribuidora Las Jiménez</span><span className="mt-1 block font-semibold tracking-tight">{corriendo ? "Importación en curso…" : "Importar catálogo revisado"}</span></span><span className="text-xs font-medium text-muted-foreground group-open:hidden">Abrir +</span></summary>
       <div className="mt-5 border-t border-border/60 pt-1">
-      <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">Carga el plan JSON revisado con categorías, unidades, presentaciones y costos confirmados. Se usará el precio de tienda como tarifa única y el inventario empezará en cero; la lista de consumidor y las existencias quedan fuera de esta carga.</p>
+      <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">Carga el plan JSON revisado con categorías, unidades, presentaciones y costos confirmados. El plan conserva los precios de tienda y solo aplica el precio consumidor cuando se aprobó que es la misma presentación; las presentaciones retail distintas o sin asociación quedan diferidas. El inventario empieza en cero.</p>
       <div className="mt-5 grid items-center gap-5 @xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <label className="relative flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-primary/30 bg-primary/[.025] p-4 text-center transition-colors hover:bg-primary/5 focus-within:ring-3 focus-within:ring-ring/30">
           <Upload className="mb-1 size-5 text-primary" aria-hidden="true" /><span className="text-sm font-semibold">Seleccionar plan JSON revisado</span><span className="text-xs text-muted-foreground">{archivo || "Archivo .json · máximo 2 MiB"}</span>
@@ -126,7 +126,8 @@ export function DianaCatalogImporter({ tenantId, espacios, onRunningChange }: { 
           <p>Presentaciones: {preparado.filas.length} ({preparado.resumen.presentacionesPorCrear} nuevas)</p>
           <p>Sin regla local: {reviewNeeded} (requieren confirmación manual)</p>
           <p>Diferencias entre sugerencia local y plan: {categoryDisagreements} (revisar antes de importar)</p>
-          <p>Filas consumidor diferidas: {plan?.consumerReference.consumerOnlyRowsDeferred ?? 0}</p>
+          <p>Filas consumidor diferidas: {plan?.consumerReference.consumerRowsDeferred ?? 0}</p>
+          <p>Precios retail confirmados para la misma presentación: {plan?.consumerReference.samePresentationPricesApplied ?? 0}</p>
           <p>Coincidencias entre listas aún sin resolver: {plan?.consumerReference.crossListDecisionsPending ?? 0}</p>
         </div>
         {plan && <p className="mt-2 break-all text-[11px] text-muted-foreground">SHA-256 fuente: {plan.sourceSha256} · revisión: {plan.reviewSha256}</p>}
@@ -134,7 +135,7 @@ export function DianaCatalogImporter({ tenantId, espacios, onRunningChange }: { 
         <div className="mt-3 max-h-96 overflow-auto rounded-xl border border-border">
           <table className="w-full min-w-[800px] text-left text-xs">
             <caption className="sr-only">Vista previa del catálogo y categorías antes de la importación</caption>
-            <thead className="sticky top-0 bg-muted"><tr><th scope="col" className="p-2">Origen</th><th scope="col" className="p-2">Producto</th><th scope="col" className="p-2">Categoría del plan</th><th scope="col" className="p-2">Regla local</th><th scope="col" className="p-2">Presentación</th><th scope="col" className="p-2">Precio</th><th scope="col" className="p-2">Costo base</th></tr></thead>
+            <thead className="sticky top-0 bg-muted"><tr><th scope="col" className="p-2">Origen</th><th scope="col" className="p-2">Producto</th><th scope="col" className="p-2">Categoría del plan</th><th scope="col" className="p-2">Regla local</th><th scope="col" className="p-2">Presentación</th><th scope="col" className="p-2">Precio tienda</th><th scope="col" className="p-2">Precio consumidor</th><th scope="col" className="p-2">Costo base</th></tr></thead>
             <tbody>{rows.map(item => {
               const suggestion = sugerirCategoriaCatalogoDiana(item.row.name);
               return <tr key={item.row.sourceRow} className="border-t border-border align-top">
@@ -143,14 +144,15 @@ export function DianaCatalogImporter({ tenantId, espacios, onRunningChange }: { 
                 <td className="p-2">{item.row.category}</td>
                 <td className="p-2">{suggestion.estado === "SUGERIDA" ? suggestion.categoria : "Revisar"}{suggestion.estado === "SUGERIDA" && suggestion.categoria !== item.row.category && <><br /><span className="font-semibold text-amber-700">Difiere del plan: confirma manualmente</span><br /><a href={construirBusquedaWebProducto(item.row.name)} target="_blank" rel="noopener noreferrer" className="underline">Buscar producto en Colombia</a></>}{suggestion.estado === "REVISAR" && <><br /><a href={construirBusquedaWebProducto(item.row.name)} target="_blank" rel="noopener noreferrer" className="underline">Buscar producto en Colombia</a></>}</td>
                 <td className="p-2">{item.row.presentation} × {item.row.unitsPerPresentation} {item.row.baseUnit}</td>
-                <td className="p-2">{item.row.salesPriceCop.toLocaleString("es-CO")} COP</td>
+                <td className="p-2">{item.row.salesPriceStoreCop.toLocaleString("es-CO")} COP</td>
+                <td className="p-2">{item.row.consumerFinalPriceCop === null ? "Diferido" : <>{item.row.consumerFinalPriceCop.toLocaleString("es-CO")} COP<br /><span className="text-muted-foreground">Origen fila {item.row.consumerSourceRow}</span></>}</td>
                 <td className="p-2">{item.row.costCopPerBaseUnit.toLocaleString("es-CO")} COP</td>
               </tr>;
             })}</tbody>
           </table>
         </div>
         {preparado.errores.length > 0 && <div role="alert" className="mt-3 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm"><strong>Importación bloqueada:</strong><ul className="mt-1 list-disc pl-5">{preparado.errores.map((item, index) => <li key={index}>{item}</li>)}</ul></div>}
-        {preparado.errores.length === 0 && <label className="mt-3 flex items-start gap-2 text-sm"><input type="checkbox" checked={confirmado} onChange={event => setConfirmado(event.target.checked)} disabled={corriendo} className="mt-1" /><span>Confirmo que revisé todas las filas, incluidas las sugerencias ausentes o distintas, y que el plan representa el catálogo de tienda aprobado. Entiendo que las categorías, productos y presentaciones se crearán mediante acciones separadas, sin existencias, y que una interrupción se reanuda cargando el mismo plan.</span></label>}
+        {preparado.errores.length === 0 && <label className="mt-3 flex items-start gap-2 text-sm"><input type="checkbox" checked={confirmado} onChange={event => setConfirmado(event.target.checked)} disabled={corriendo} className="mt-1" /><span>Confirmo que revisé todas las filas, categorías, canales, presentaciones, costos y sugerencias. Los precios consumidor solo se cargarán donde el plan confirme la misma presentación; las demás filas retail quedan diferidas. Productos y presentaciones se crearán sin existencias, y una interrupción se reanuda cargando el mismo plan.</span></label>}
         <button type="button" onClick={() => { void importar() }} disabled={!confirmado || preparado.errores.length > 0 || corriendo} className="mt-3 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">{corriendo ? "Importando…" : "Importar plan revisado"}</button>
       </>}
       {progreso && corriendo && <p role="status" className="mt-3 text-sm">{progreso.fase}: {progreso.completadas}/{progreso.total}</p>}

@@ -58,10 +58,12 @@ test("reports schema gaps and does not treat missing inventory as an error", () 
   assert.equal(report.sheets[0].fieldAvailability.initialStock, false);
   assert.equal(report.totals.rowsMissingProductName, 0);
   assert.equal(report.totals.rowsMissingPositiveIntegerPrice, 0);
+  assert.equal(report.totals.storeRowsNeedingCategoryReview, 1);
+  assert.equal(report.totals.storeRowsDefaultedToOneUnit, 1);
   assert.equal(report.classification.deferredByPlan.some((item) => item.includes("inventario inicial")), true);
-  assert.match(report.classification.humanDecisions[0], /Precio operativo confirmado/);
-  assert.match(report.classification.humanDecisions[0], /PRECIOS A TIENDA/);
-  assert.match(report.classification.humanDecisions[0], /todos los compradores/);
+  assert.match(report.classification.humanDecisions[0], /canal tienda/);
+  assert.match(report.classification.humanDecisions[0], /consumidor final/);
+  assert.match(report.classification.humanDecisions[0], /ADR-SAAS-092/);
 });
 
 test("flags missing or ambiguous prices and formula cells without evaluating them", () => {
@@ -95,6 +97,7 @@ test("creates a row decision template that preserves separate lists without expo
   ));
   const template = createCatalogDecisionTemplate(report, { bytes: 2048, sha256: "a".repeat(64) });
 
+  assert.equal(template.schemaVersion, "1.1");
   assert.equal(template.importReady, false);
   assert.equal(template.writesPerformed, false);
   assert.equal(template.includesProductNamesOrPrices, false);
@@ -106,20 +109,22 @@ test("creates a row decision template that preserves separate lists without expo
   assert.equal(template.lists.store[0].categorySuggestion?.estado, "REVISAR");
   assert.equal(template.lists.store[1].decisions.category, null);
   assert.equal(template.lists.store[1].categorySuggestion?.categoria, "Cervezas sin alcohol");
+  assert.equal(template.lists.store[0].mappingSuggestion.priceChannel, "tienda");
+  assert.equal(template.lists.consumer[0].mappingSuggestion.priceChannel, "consumidor_final");
   assert.doesNotMatch(JSON.stringify(template), /Corona/i);
   assert.equal(template.lists.consumer[0].decisions.costUnitBasis, "not_applicable");
   assert.equal(template.lists.store[0].decisions.selectedPriceSource, "store");
-  assert.equal(template.lists.consumer[0].decisions.selectedPriceSource, "reference_only");
+  assert.equal(template.lists.consumer[0].decisions.selectedPriceSource, "consumer");
   assert.ok(template.lists.store[0].issueCodes.includes("cost_unit_basis_unresolved"));
   assert.ok(template.lists.store[0].issueCodes.includes("category_not_in_source_header"));
   assert.equal(template.globalDecisionsPending.some((item) => /seleccionar una única fuente/.test(item)), false);
-  assert.match(template.globalDecisionsPending.join(" "), /coincidencias por nombre/);
+  assert.match(template.globalDecisionsPending.join(" "), /Asociar explícitamente cada fila PRECIOS CONS FINAL/);
   assert.equal(JSON.stringify(template).includes("Café molido"), false);
   assert.equal(JSON.stringify(template).includes("1500"), false);
   assert.equal(JSON.stringify(template).includes("1800"), false);
 });
 
-test("defers consumer-only products until a store tariff is explicitly approved", () => {
+test("defers consumer-only products until their product association is explicitly reviewed", () => {
   const report = analyzeCatalogWorkbook(workbook(
     [["PRODUCTO", "AL COSTO", "PRECIO VENTA"], ["Producto tienda", 100, 150]],
     [["Producto", "Precio"], ["Producto consumidor", 180]],
@@ -128,13 +133,34 @@ test("defers consumer-only products until a store tariff is explicitly approved"
   const template = createCatalogDecisionTemplate(report, { bytes: 2048, sha256: "b".repeat(64) });
 
   assert.ok(consumerRow);
-  assert.ok(consumerRow.issueCodes.includes("consumer_only_missing_store_price_deferred"));
-  assert.equal(consumerRow.decisions.selectedPriceSource, "reference_only");
+  assert.ok(consumerRow.issueCodes.includes("consumer_only_requires_explicit_product_mapping"));
+  assert.equal(consumerRow.decisions.selectedPriceSource, "consumer");
   assert.ok(!consumerRow.issueCodes.some((code) => /^(category|base_unit|presentation|conversion_factor)_/.test(code)));
-  assert.ok(report.classification.deferredByPlan.some((item) => /PRECIOS CONS FINAL.*PRECIOS A TIENDA/.test(item)));
+  assert.ok(report.classification.deferredByPlan.some((item) => /asociación explícita/.test(item)));
   assert.ok(!report.classification.humanDecisions.some((item) => /Confirmar si las .*PRECIOS CONS FINAL/.test(item)));
   assert.ok(!template.globalDecisionsPending.some((item) => /solo aparecen en PRECIOS CONS FINAL/.test(item)));
   assert.ok(template.globalDecisionsPending.some((item) => /cada fila de PRECIOS A TIENDA/.test(item)));
+});
+
+test("suggests explicit package factors and marks names without quantity as unit defaults", () => {
+  const report = analyzeCatalogWorkbook(workbook(
+    [
+      ["PRODUCTO", "AL COSTO", "PRECIO VENTA"],
+      ["Costeñita x 38 unds", 1000, 1500],
+      ["Smirnoff Lata sixpak", 1000, 1500],
+      ["Águila negra 330", 1000, 1500],
+    ],
+    [["Producto", "Precio"], ["Águila negra 330", 1800]],
+  ));
+  const rows = report.rowDecisions.filter((row) => row.sourceList === "store");
+  assert.deepEqual(rows.map((row) => row.mappingSuggestion), [
+    { priceChannel: "tienda", baseUnit: "unidad", presentation: "Empaque x 38", conversionFactor: 38, quantityEvidence: "explicit_count" },
+    { priceChannel: "tienda", baseUnit: "unidad", presentation: "Six pack", conversionFactor: 6, quantityEvidence: "explicit_count" },
+    { priceChannel: "tienda", baseUnit: "unidad", presentation: "Unidad individual", conversionFactor: 1, quantityEvidence: "assumed_single_unit" },
+  ]);
+  assert.equal(report.totals.storeRowsWithExplicitPackageCount, 2);
+  assert.equal(report.totals.storeRowsDefaultedToOneUnit, 1);
+  assert.equal(report.totals.storeRowsWithAmbiguousPackageCount, 0);
 });
 
 test("distinguishes absent schema columns from blank row values", () => {

@@ -47,18 +47,18 @@ async function workbookBuffer(sheets: Sheet[]): Promise<Buffer> {
 async function fixtures(incompleteStoreMapping = false): Promise<{ source: Buffer; review: Buffer }> {
   const source = await workbookBuffer([
     { name: "PRECIOS A TIENDA", rows: [["PRODUCTO", "AL COSTO", "PRECIO VENTA"], ["Cafe", 1200, 1800]] },
-    { name: "PRECIOS CONS FINAL", rows: [["PRODUCTO", "PRECIO VENTA"], ["Only consumer", 9000]] },
+    { name: "PRECIOS CONS FINAL", rows: [["PRODUCTO", "PRECIO VENTA"], ["Cafe", 2100], ["Only consumer", 9000]] },
   ]);
   const sourceHash = createHash("sha256").update(source).digest("hex");
   const review = await workbookBuffer([
     { name: "Guía", rows: [["SHA-256 del archivo", sourceHash]] },
     {
       name: "Precios tienda",
-      rows: [[], [], [], ["N.º de lista", "Fila Excel fuente", "Producto (fuente)", "AL COSTO (COP)", "PRECIO VENTA POS (COP)", "Categoría", "Unidad base", "Presentación / empaque", "Unidades base por presentación", "AL COSTO corresponde a", "Fila candidata consumidor (Excel)", "Notas de Diana"], [1, 2, "Cafe", 1200, 1800, incompleteStoreMapping ? "" : "Abarrotes", "unidad", "paquete x 12", 12, "Presentación / empaque", "", ""]],
+      rows: [[], [], [], ["N.º de lista", "Fila Excel fuente", "Producto (fuente)", "AL COSTO (COP)", "PRECIO VENTA POS (COP)", "Categoría", "Unidad base", "Presentación / empaque", "Unidades base por presentación", "AL COSTO corresponde a", "Fila candidata consumidor (Excel)", "Notas de Diana"], [1, 2, "Cafe", 1200, 1800, incompleteStoreMapping ? "" : "Abarrotes", "unidad", "paquete x 12", 12, "Presentación / empaque", 2, ""]],
     },
     {
       name: "Consumidor referencia",
-      rows: [[], [], [], ["Fila Excel fuente", "Producto (fuente)", "Precio consumidor (COP, referencia)", "Estado", "Fila candidata tienda (Excel)", "Producto candidato tienda", "PRECIO VENTA POS (COP)", "¿Mismo producto y presentación?", "Notas de Diana"], [2, "Only consumer", 9000, "Diferido: falta precio aprobado en lista de tienda", "", "", "", "", ""]],
+      rows: [[], [], [], ["Fila Excel fuente", "Producto (fuente)", "Precio consumidor (COP, referencia)", "Estado", "Fila candidata tienda (Excel)", "Producto candidato tienda", "PRECIO VENTA POS (COP)", "¿Mismo producto y presentación?", "Notas de Diana"], [2, "Cafe", 2100, "Coincidencia por nombre; revisar presentación", 2, "Cafe", 1800, "Sí - misma presentación", "Confirmado"], [3, "Only consumer", 9000, "Diferido: falta asociación con producto base", "", "", "", "", ""]],
     },
   ]);
   return { source, review };
@@ -73,7 +73,7 @@ function runPlan(sourcePath: string, reviewPath: string, outputPath: string) {
   });
 }
 
-test("CLI writes a review-only plan with both input hashes and no consumer tariff", async () => {
+test("CLI writes a review-only plan with both input hashes and the explicitly approved matching consumer tariff", async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "diana-catalog-cli-"));
   try {
     const { source, review } = await fixtures();
@@ -91,12 +91,18 @@ test("CLI writes a review-only plan with both input hashes and no consumer tarif
     assert.equal(summary.writesPerformed, false);
     assert.equal(summary.importReady, false);
     assert.equal(result.stdout.includes("Cafe"), false);
-    assert.equal(result.stdout.includes("1800"), false);
+    const summaryWithoutDigest = { ...summary };
+    delete summaryWithoutDigest.planSha256;
+    assert.equal(JSON.stringify(summaryWithoutDigest).includes("1800"), false);
     assert.equal(plan.sourceSha256, createHash("sha256").update(source).digest("hex"));
     assert.equal(plan.reviewSha256, createHash("sha256").update(review).digest("hex"));
     const serializedPlan = JSON.stringify(plan);
     assert.equal(serializedPlan.includes("Only consumer"), false);
     assert.equal(serializedPlan.includes("9000"), false);
+    assert.equal(serializedPlan.includes("2100"), true);
+    assert.equal(serializedPlan.includes('"consumerSourceRow":2'), true);
+    assert.equal((summary.samePresentationPricesApplied as number), 1);
+    assert.equal((summary.consumerRowsDeferred as number), 1);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

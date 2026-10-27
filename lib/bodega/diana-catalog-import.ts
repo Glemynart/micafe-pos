@@ -8,14 +8,16 @@ export interface DianaCatalogImportRow {
   baseUnit: string;
   presentation: string;
   unitsPerPresentation: number;
-  salesPriceCop: number;
+  salesPriceStoreCop: number;
+  consumerSourceRow: number | null;
+  consumerFinalPriceCop: number | null;
   sourceCostCop: number;
   costBasis: "UNIDAD BASE" | "PRESENTACION / EMPAQUE";
   costCopPerBaseUnit: number;
 }
 
 export interface DianaCatalogImportPlan {
-  planSchemaVersion: "1.0";
+  planSchemaVersion: "2.0";
   mode: "offline-review-only";
   sourceSha256: string;
   reviewSha256: string;
@@ -23,16 +25,17 @@ export interface DianaCatalogImportPlan {
     status: "requires-human-review";
     granularity: "one-presentation-per-store-source-row";
     salesPriceSource: "PRECIOS A TIENDA.PRECIO VENTA";
+    consumerPriceSource: "PRECIOS CONS FINAL.PRECIO VENTA";
     costPolicy: "AL COSTO exact per base unit; no automatic markup";
     productGroupingInferred: false;
     presentations: DianaCatalogImportRow[];
   };
   consumerReference: {
-    salesPricesApplied: false;
-    consumerOnlyRowsDeferred: number;
+    consumerPricesApplied: boolean;
+    consumerRowsDeferred: number;
     crossListCandidates: number;
     crossListDecisionsPending: number;
-    crossListCandidatesMerged: false;
+    samePresentationPricesApplied: number;
   };
   initialStockIncluded: false;
   safety: {
@@ -68,6 +71,8 @@ export interface CatalogImportPresentation {
   nombre: string;
   factorUnidadBase: number;
   precioCOP: number;
+  precioTiendaCOP: number;
+  precioConsumidorFinalCOP: number | null;
   activo: boolean;
 }
 
@@ -146,11 +151,12 @@ export function validarPlanImportacionCatalogo(value: unknown): string[] {
   const errors: string[] = [];
   if (!isObject(value)) return ["El archivo no contiene un plan JSON válido."];
   const plan = value as unknown as Partial<DianaCatalogImportPlan>;
-  if (plan.planSchemaVersion !== "1.0" || plan.mode !== "offline-review-only") errors.push("El archivo no es un plan offline de catálogo versión 1.0.");
+  if (plan.planSchemaVersion !== "2.0" || plan.mode !== "offline-review-only") errors.push("El archivo no es un plan offline de catálogo versión 2.0.");
   if (!/^[a-f0-9]{64}$/i.test(String(plan.sourceSha256 ?? "")) || !/^[a-f0-9]{64}$/i.test(String(plan.reviewSha256 ?? ""))) errors.push("Falta el SHA-256 válido del origen o de la revisión.");
   if (plan.proposal?.status !== "requires-human-review"
     || plan.proposal.granularity !== "one-presentation-per-store-source-row"
     || plan.proposal.salesPriceSource !== "PRECIOS A TIENDA.PRECIO VENTA"
+    || plan.proposal.consumerPriceSource !== "PRECIOS CONS FINAL.PRECIO VENTA"
     || plan.proposal.costPolicy !== "AL COSTO exact per base unit; no automatic markup"
     || plan.proposal.productGroupingInferred !== false) {
     errors.push("El plan no conserva las decisiones comerciales de catálogo aprobadas.");
@@ -160,14 +166,21 @@ export function validarPlanImportacionCatalogo(value: unknown): string[] {
     || plan.safety?.importReady !== false || plan.safety?.executable !== false || plan.safety?.deploymentAuthorized !== false) {
     errors.push("El archivo debe provenir del generador offline y no contener banderas de ejecución o autorización.");
   }
-  if (plan.consumerReference?.salesPricesApplied !== false || plan.consumerReference?.crossListCandidatesMerged !== false) {
-    errors.push("El plan no puede aplicar tarifas de consumidor ni fusionar coincidencias entre listas.");
+  if (!plan.consumerReference || !Number.isSafeInteger(plan.consumerReference.consumerRowsDeferred) || plan.consumerReference.consumerRowsDeferred < 0
+    || !Number.isSafeInteger(plan.consumerReference.crossListCandidates) || plan.consumerReference.crossListCandidates < 0
+    || !Number.isSafeInteger(plan.consumerReference.crossListDecisionsPending) || plan.consumerReference.crossListDecisionsPending < 0
+    || !Number.isSafeInteger(plan.consumerReference.samePresentationPricesApplied) || plan.consumerReference.samePresentationPricesApplied < 0
+    || plan.consumerReference.crossListDecisionsPending > plan.consumerReference.crossListCandidates
+    || plan.consumerReference.samePresentationPricesApplied > plan.consumerReference.crossListCandidates
+    || plan.consumerReference.consumerPricesApplied !== (plan.consumerReference.samePresentationPricesApplied > 0)) {
+    errors.push("El plan tiene un resumen inválido de tarifas consumidor revisadas.");
   }
   const rows = plan.proposal?.presentations;
   if (!Array.isArray(rows) || rows.length === 0 || rows.length > 107) errors.push("El plan debe contener entre 1 y 107 filas de tienda.");
   if (Array.isArray(rows)) {
     const seenSourceRows = new Set<number>();
     const seenNames = new Set<string>();
+    const seenConsumerRows = new Set<number>();
     for (const [index, item] of rows.entries()) {
       if (!isObject(item)) {
         errors.push(`La fila ${index + 1} no tiene una estructura válida.`);
@@ -184,11 +197,20 @@ export function validarPlanImportacionCatalogo(value: unknown): string[] {
       if (!(Object.values(CATEGORIAS_CATALOGO_DIANA) as string[]).includes(row.category)) errors.push(`La categoría de la fila ${index + 1} no pertenece a las 17 categorías aprobadas.`);
       if (typeof row.baseUnit !== "string" || row.baseUnit.trim() === "" || row.baseUnit.trim().length > 32) errors.push(`La unidad base de la fila ${index + 1} no es válida.`);
       if (typeof row.presentation !== "string" || row.presentation.trim() === "" || row.presentation.trim().length > 120) errors.push(`La presentación de la fila ${index + 1} no es válida.`);
-      if (!positiveInteger(row.unitsPerPresentation) || !positiveInteger(row.salesPriceCop) || !positiveInteger(row.sourceCostCop) || !positiveInteger(row.costCopPerBaseUnit)) errors.push(`La fila ${index + 1} contiene precio, costo o factor inválido.`);
+      if (!positiveInteger(row.unitsPerPresentation) || !positiveInteger(row.salesPriceStoreCop) || !positiveInteger(row.sourceCostCop) || !positiveInteger(row.costCopPerBaseUnit)) errors.push(`La fila ${index + 1} contiene precio, costo o factor inválido.`);
+      if (row.consumerSourceRow !== null && !positiveInteger(row.consumerSourceRow)) errors.push(`La fila ${index + 1} tiene una referencia inválida a consumidor final.`);
+      if (row.consumerSourceRow !== null && seenConsumerRows.has(row.consumerSourceRow)) errors.push(`La fila consumidor ${row.consumerSourceRow} está asociada más de una vez.`);
+      if (row.consumerSourceRow !== null) seenConsumerRows.add(row.consumerSourceRow);
+      if (row.consumerFinalPriceCop !== null && !positiveInteger(row.consumerFinalPriceCop)) errors.push(`La fila ${index + 1} contiene un precio consumidor inválido.`);
+      if ((row.consumerSourceRow === null) !== (row.consumerFinalPriceCop === null)) errors.push(`La fila ${index + 1} debe conservar juntos la referencia y el precio consumidor aprobados.`);
       if (row.costBasis !== "UNIDAD BASE" && row.costBasis !== "PRESENTACION / EMPAQUE") errors.push(`La base de costo de la fila ${index + 1} no es válida.`);
       else if (row.costBasis === "UNIDAD BASE" && row.sourceCostCop !== row.costCopPerBaseUnit) errors.push(`El costo por unidad base de la fila ${index + 1} no coincide con su origen.`);
       else if (row.costBasis === "PRESENTACION / EMPAQUE" && row.sourceCostCop / row.unitsPerPresentation !== row.costCopPerBaseUnit) errors.push(`El costo de la fila ${index + 1} no se convierte exactamente a la unidad base.`);
     }
+  }
+  if (Array.isArray(rows)) {
+    const appliedRows = rows.filter((item) => isObject(item) && (item as unknown as DianaCatalogImportRow).consumerFinalPriceCop !== null).length;
+    if (plan.consumerReference?.samePresentationPricesApplied !== appliedRows) errors.push("El conteo de precios consumidor aplicados no coincide con las filas del plan.");
   }
   return [...new Set(errors)];
 }
@@ -259,7 +281,8 @@ export function prepararImportacionCatalogo(
     if (existingPresentations.length === 1) {
       const existing = existingPresentations[0];
       if (existing.id !== presentacionId) errores.push(`La presentación «${row.presentation}» de «${row.name}» ya existe con otra identidad.`);
-      else if (existing.factorUnidadBase !== row.unitsPerPresentation || existing.precioCOP !== row.salesPriceCop || !existing.activo) {
+      else if (existing.factorUnidadBase !== row.unitsPerPresentation || existing.precioCOP !== row.salesPriceStoreCop
+        || existing.precioTiendaCOP !== row.salesPriceStoreCop || existing.precioConsumidorFinalCOP !== row.consumerFinalPriceCop || !existing.activo) {
         errores.push(`La presentación «${row.presentation}» de «${row.name}» ya existe con datos distintos al plan.`);
       } else presentacionExistente = true;
     }
@@ -338,7 +361,9 @@ export async function ejecutarImportacionCatalogo(
         productoId,
         nombre: item.row.presentation,
         factorUnidadBase: item.row.unitsPerPresentation,
-        precioCOP: item.row.salesPriceCop,
+        precioCOP: item.row.salesPriceStoreCop,
+        precioTiendaCOP: item.row.salesPriceStoreCop,
+        precioConsumidorFinalCOP: item.row.consumerFinalPriceCop,
         activo: true,
       });
       if (typeof result.presentacionId !== "string" || result.presentacionId === "") throw new Error(`No se confirmó la presentación de la fila de origen ${item.row.sourceRow}.`);

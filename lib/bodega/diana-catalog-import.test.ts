@@ -19,13 +19,15 @@ const row = {
   baseUnit: "unidad",
   presentation: "Botella 330 ml",
   unitsPerPresentation: 1,
-  salesPriceCop: 4500,
+  salesPriceStoreCop: 4500,
+  consumerSourceRow: 33,
+  consumerFinalPriceCop: 5200,
   sourceCostCop: 3000,
   costBasis: "UNIDAD BASE" as const,
   costCopPerBaseUnit: 3000,
 };
 const plan = {
-  planSchemaVersion: "1.0",
+  planSchemaVersion: "2.0",
   mode: "offline-review-only",
   sourceSha256,
   reviewSha256,
@@ -33,11 +35,12 @@ const plan = {
     status: "requires-human-review",
     granularity: "one-presentation-per-store-source-row",
     salesPriceSource: "PRECIOS A TIENDA.PRECIO VENTA",
+    consumerPriceSource: "PRECIOS CONS FINAL.PRECIO VENTA",
     costPolicy: "AL COSTO exact per base unit; no automatic markup",
     productGroupingInferred: false,
     presentations: [row],
   },
-  consumerReference: { salesPricesApplied: false, consumerOnlyRowsDeferred: 51, crossListCandidates: 4, crossListDecisionsPending: 0, crossListCandidatesMerged: false },
+  consumerReference: { consumerPricesApplied: true, consumerRowsDeferred: 54, crossListCandidates: 4, crossListDecisionsPending: 0, samePresentationPricesApplied: 1 },
   initialStockIncluded: false,
   safety: { firebaseAccessed: false, writesPerformed: false, importReady: false, executable: false, deploymentAuthorized: false },
 };
@@ -49,6 +52,7 @@ test("accepts only a complete offline plan with the approved category taxonomy",
   assert.ok(validarPlanImportacionCatalogo({ ...plan, proposal: { ...plan.proposal, presentations: [{ ...row, category: "Licores" }] } }).length > 0);
   assert.ok(validarPlanImportacionCatalogo({ ...plan, initialStockIncluded: true }).length > 0);
   assert.ok(validarPlanImportacionCatalogo({ ...plan, proposal: { ...plan.proposal, presentations: [{ ...row, costCopPerBaseUnit: 2000 }] } }).length > 0);
+  assert.ok(validarPlanImportacionCatalogo({ ...plan, proposal: { ...plan.proposal, presentations: [{ ...row, consumerFinalPriceCop: -1 }] } }).length > 0);
 });
 
 test("builds stable product identifiers and flags unrelated same-name products", () => {
@@ -89,7 +93,7 @@ test("recognizes an identical prior row and allows safe resume", () => {
   const prepared = prepararImportacionCatalogo(plan, tenantId, spaceId, {
     categorias: [{ id: categoryId, nombre: row.category, espacioId: spaceId }],
     productos: [{ id: productId, nombre: row.name, categoriaId: categoryId, espacioId: spaceId, unidad: row.baseUnit, costoUnidadBaseCOP: row.costCopPerBaseUnit, stock: 0, stockMinimo: 0, activo: true }],
-    presentaciones: [{ id: presentationId, productoId: productId, nombre: row.presentation, factorUnidadBase: row.unitsPerPresentation, precioCOP: row.salesPriceCop, activo: true }],
+    presentaciones: [{ id: presentationId, productoId: productId, nombre: row.presentation, factorUnidadBase: row.unitsPerPresentation, precioCOP: row.salesPriceStoreCop, precioTiendaCOP: row.salesPriceStoreCop, precioConsumidorFinalCOP: row.consumerFinalPriceCop, activo: true }],
   });
   assert.deepEqual(prepared.errores, []);
   assert.equal(prepared.resumen.productosPorCrear, 0);
@@ -121,6 +125,9 @@ test("imports through server-authoritative commands in order and always starts s
   assert.equal(productPayload.articuloTipo, "producto");
   assert.equal(productPayload.data.stock, 0);
   assert.equal(productPayload.data.stockMinimo, 0);
+  const presentationPayload = calls[2].payload as Record<string, unknown>;
+  assert.equal(presentationPayload.precioTiendaCOP, row.salesPriceStoreCop);
+  assert.equal(presentationPayload.precioConsumidorFinalCOP, row.consumerFinalPriceCop);
   assert.equal(result.productosCreados, 1);
   assert.equal(result.presentacionesCreadas, 1);
 });

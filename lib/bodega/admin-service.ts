@@ -115,6 +115,10 @@ export async function obtenerSnapshotCatalogoBodega(): Promise<CatalogImportSnap
       nombre: String(doc.data().nombre ?? ""),
       factorUnidadBase: Number(doc.data().factorUnidadBase ?? 0),
       precioCOP: Number(doc.data().precioTiendaCOP ?? doc.data().precioCOP ?? 0),
+      precioTiendaCOP: Number(doc.data().precioTiendaCOP ?? doc.data().precioCOP ?? 0),
+      precioConsumidorFinalCOP: Number.isSafeInteger(Number(doc.data().precioConsumidorFinalCOP)) && Number(doc.data().precioConsumidorFinalCOP) > 0
+        ? Number(doc.data().precioConsumidorFinalCOP)
+        : null,
       activo: doc.data().activo === true,
     })),
   }
