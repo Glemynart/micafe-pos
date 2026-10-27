@@ -73,6 +73,7 @@ function seedAuth(db: FakeFirestore, ctx = contexto, permisos = ["inventory", "w
   db.docs.set(`membresias/${ctx.empresaId}_${ctx.actorUid}`, {
     empresaId: ctx.empresaId, uid: ctx.actorUid, rol: ctx.rol, permisos, estado: "activa", activo: true,
   });
+  db.docs.set(`configuraciones/${ctx.empresaId}`, { empresaId: ctx.empresaId, vertical: "BODEGA_MVP1" });
   db.docs.set(`usuarios/${ctx.actorUid}`, { nombre: "Administradora" });
   db.docs.set(`espacios/espacio-a`, { empresaId: ctx.empresaId, nombre: "Cafetería" });
 }
@@ -143,6 +144,89 @@ test("G-SAAS-02: crear producto conserva una categoría del mismo tenant", async
   }));
 
   assert.equal(db.docs.get("productos/" + result.articuloId)?.categoriaId, "categoria-a");
+});
+
+test("ADR-SAAS-094: producto y categoría Nevera quedan aislados con IDs de catálogo", async () => {
+  const db = new FakeFirestore(); seedAuth(db);
+  db.docs.set("categorias/categoria-nevera", { empresaId: "empresa-a", espacioId: "espacio-a", activo: true, catalogoId: "NEVERA" });
+  db.docs.set("categorias/categoria-bodega", { empresaId: "empresa-a", espacioId: "espacio-a", activo: true, catalogoId: "BODEGA" });
+
+  const nevera = await ejecutarCrearArticuloInventarioV1(db, contexto, envelope("crear-nevera", {
+    articuloTipo: "producto",
+    data: { nombre: "Corona tradicional", categoriaId: "categoria-nevera", catalogoId: "NEVERA", unidad: "unidad", costo: 0, espacioId: "espacio-a", stock: 0 },
+  }));
+  assert.equal(db.docs.get(`productos/${nevera.articuloId}`)?.catalogoId, "NEVERA");
+
+  await assert.rejects(
+    ejecutarCrearArticuloInventarioV1(db, contexto, envelope("crear-bodega-categoria-nevera", {
+      articuloTipo: "producto",
+      data: { nombre: "Corona no debe cruzar", categoriaId: "categoria-nevera", catalogoId: "BODEGA", unidad: "unidad", costo: 0, espacioId: "espacio-a", stock: 0 },
+    })),
+    error => domain(error, "CATEGORIA_CATALOGO_INVALIDO"),
+  );
+});
+
+test("ADR-SAAS-094: producto no puede migrar de catálogo después de crearse", async () => {
+  const db = new FakeFirestore(); seedAuth(db);
+  db.docs.set("productos/producto-nevera", {
+    empresaId: "empresa-a", catalogoId: "NEVERA", nombre: "Vodka", categoriaId: "categoria-nevera", unidad: "unidad",
+    costo: 0, stock: 0, secuenciaLedger: 0, espacioId: "espacio-a", activo: true,
+  });
+  const before = structuredClone([...db.docs.entries()]);
+  await assert.rejects(
+    ejecutarActualizarArticuloInventarioV1(db, contexto, envelope("mover-nevera-a-bodega", {
+      articuloTipo: "producto", articuloId: "producto-nevera", data: { catalogoId: "BODEGA" },
+    })),
+    error => domain(error, "CATALOGO_PRODUCTO_INMUTABLE"),
+  );
+  assert.deepEqual([...db.docs.entries()], before);
+});
+
+test("ADR-SAAS-094: stock y costo Nevera requieren el futuro comando de transferencia", async () => {
+  for (const data of [
+    { stock: 1, costo: 0 },
+    { stock: 0, costo: 1 },
+    { stockInicial: 1 },
+  ]) {
+    const db = new FakeFirestore(); seedAuth(db);
+    db.docs.set("categorias/categoria-nevera", { empresaId: "empresa-a", espacioId: "espacio-a", activo: true, catalogoId: "NEVERA" });
+    await assert.rejects(
+      ejecutarCrearArticuloInventarioV1(db, contexto, envelope(`crear-nevera-${data.stock}-${data.costo}`, {
+        articuloTipo: "producto",
+        data: { nombre: "Bebida", categoriaId: "categoria-nevera", catalogoId: "NEVERA", unidad: "unidad", ...data, espacioId: "espacio-a" },
+      })),
+      error => domain(error, "NEVERA_REQUIERE_TRANSFERENCIA"),
+    );
+  }
+
+  const db = new FakeFirestore(); seedAuth(db);
+  db.docs.set("productos/producto-nevera", { empresaId: "empresa-a", catalogoId: "NEVERA", nombre: "Bebida", stock: 0, costo: 0, secuenciaLedger: 0, espacioId: "espacio-a", activo: true });
+  await assert.rejects(
+    ejecutarActualizarArticuloInventarioV1(db, contexto, envelope("ajuste-stock-nevera", {
+      articuloTipo: "producto", articuloId: "producto-nevera", data: { stock: 1 },
+    })),
+    error => domain(error, "NEVERA_REQUIERE_TRANSFERENCIA"),
+  );
+
+  const before = structuredClone([...db.docs.entries()]);
+  await assert.rejects(
+    ejecutarActualizarArticuloInventarioV1(db, contexto, envelope("ajuste-stock-inicial-nevera", {
+      articuloTipo: "producto", articuloId: "producto-nevera", data: { stockInicial: 1 },
+    })),
+    error => domain(error, "NEVERA_REQUIERE_TRANSFERENCIA"),
+  );
+  assert.deepEqual([...db.docs.entries()], before);
+
+  const creado = new FakeFirestore(); seedAuth(creado);
+  creado.docs.set("categorias/categoria-nevera", { empresaId: "empresa-a", espacioId: "espacio-a", activo: true, catalogoId: "NEVERA" });
+  const nevera = await ejecutarCrearArticuloInventarioV1(creado, contexto, envelope("crear-nevera-stock-cero", {
+    articuloTipo: "producto",
+    data: { nombre: "Bebida retail", categoriaId: "categoria-nevera", catalogoId: "NEVERA", unidad: "unidad", costo: 0, stock: 0, stockInicial: 0, espacioId: "espacio-a" },
+  }));
+  const productoNevera = creado.docs.get(`productos/${nevera.articuloId}`);
+  assert.equal(productoNevera?.stock, 0);
+  assert.equal(productoNevera?.stockInicial, 0);
+  assert.equal([...creado.docs.values()].filter(doc => doc.articuloId === nevera.articuloId && doc.cantidad !== undefined).length, 0);
 });
 
 test("G-SAAS-02: crear producto acepta el ID determinista largo de categoría del importador", async () => {

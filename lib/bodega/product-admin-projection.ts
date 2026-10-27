@@ -1,5 +1,6 @@
 export interface ProductoBodegaAdmin {
   id: string;
+  catalogoId: "BODEGA" | "NEVERA";
   nombre: string;
   categoriaId: string;
   espacioId: string;
@@ -17,6 +18,7 @@ export function proyectarProductoBodegaAdmin(
 ): ProductoBodegaAdmin {
   return {
     id,
+    catalogoId: data.catalogoId === "NEVERA" ? "NEVERA" : "BODEGA",
     nombre: String(data.nombre ?? ""),
     categoriaId: String(data.categoriaId ?? ""),
     espacioId: String(data.espacioId ?? ""),
