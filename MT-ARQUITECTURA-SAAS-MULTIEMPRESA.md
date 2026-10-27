@@ -2,7 +2,7 @@
 
 > **Estado:** ✅ Aprobado como vista arquitectónica consolidada del proyecto.
 > **Base funcional revisada:** `main @ 65a9fb85d9159eb949ffaf18c5a99ed6377b1554` (cierre del MVP).
-> **Última revisión:** 2026-10-27 (aceptación y sincronización de ADR-SAAS-094).
+> **Última revisión:** 2026-10-27 (aceptación y sincronización de ADR-SAAS-094 y ADR-SAAS-095).
 > **Reconciliación documental:** PR #241; este SHA no pretende identificar el tip actual de `main`.
 > **Alcance vigente:** MT-U0 a MT-U8 completados; MT-U9→MT-U11 son unidades
 > candidatas post-MVP y MT-U12 está retirada/superseded por la decisión Web/PWA-only.
@@ -46,6 +46,7 @@ el ciclo de vida de suscripciones descrito aquí.
 | **D-7 — Bootstrap** | El núcleo empresarial nace atómicamente; los claims se completan mediante una saga idempotente y recuperable. | ADR-SAAS-007 |
 | **D-8 — Autoridad fiscal** | La selección de numeración es explícita y el número se asigna atómicamente con la venta. | ADR-SAAS-008 |
 | **D-9 — Enforcement** | Claims proyectan contexto; el estado canónico de la empresa se impone en backend y Firestore. | ADR-SAAS-009 |
+| **D-10 — Concesión contractual de capacidad** | Una capacidad adicional requiere autoridad comercial de plataforma, vínculo al contrato vigente y evidencia append-only; no muta el Plan publicado ni el snapshot. | ADR-SAAS-095 |
 
 ---
 
@@ -381,6 +382,12 @@ comandos administrativos idempotentes. `cancelaAlFinal` mantiene la suscripción
 el período. El vencimiento de trial o gracia puede solicitar la suspensión empresarial a través del
 servicio de lifecycle.
 
+### 11.3 Concesión contractual de capacidades adicionales
+
+ADR-SAAS-095 establece que una capacidad adicional no se incorpora mediante edición de un Plan publicado ni alterando el snapshot contractual. Se representa en una concesión append-only, emitida por la autoridad comercial de plataforma, ligada a la revisión y huella del contrato, y aplicada solo mientras ese contrato siga vigente. El resolver combina capacidades del contrato con concesiones válidas; el tenant no puede concedérselas a sí mismo.
+
+La primera aplicación es deliberadamente específica: `reports` para `distribuidora-las-jimenez`, sin cambio de precio o plazo. No amplía el Plan general ni se propaga a renovaciones o a otros tenants. La configuración habilitada sigue siendo tenant-owned y pasa por el comando de configuración existente.
+
 La monetización concreta, precios, pasarela y enforcement de límites medidos permanecen fuera del
 programa actual.
 
@@ -516,6 +523,7 @@ requieren una decisión de producto sobre monetización, límites y operación S
 | ADR-SAAS-092 | Aceptado, alcance de catálogo supersedido parcialmente por ADR-SAAS-094 | Define la vigencia, edición/cierre y snapshots de ofertas; sus dos precios por presentación/canal se reemplazan por catálogos separados. Implementación y migraciones sujetas a PR y gates. |
 | ADR-SAAS-093 | Aceptado | Conserva el costo exacto por presentación en COP, sin redondear a costo unitario; compatibilidad y migraciones sujetas a PR y gates. |
 | ADR-SAAS-094 | Aceptado | Catálogos Bodega/Nevera independientes, asociación y factor explícitos para transferencias, costo FIFO exacto y ofertas aisladas por catálogo. No autoriza operaciones remotas. |
+| ADR-SAAS-095 | Aceptado | Concesión contractual append-only e idempotente de `reports` solo para Distribuidora Las Jiménez; preserva Plan y snapshot. Escritura y despliegue requieren gate operativo. |
 
 ---
 
