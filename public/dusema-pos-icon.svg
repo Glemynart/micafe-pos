@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Dusema POS">
+  <rect width="512" height="512" fill="#15304a" />
+  <circle cx="385" cy="133" r="28" fill="#43d3d1" />
+  <path d="M132 112h108c103 0 160 53 160 144s-57 144-160 144H132V112Z" fill="#ffffff" />
+  <path d="M215 190v132h25c55 0 82-24 82-66s-27-66-82-66h-25Z" fill="#15304a" />
+  <path d="M132 112h24v288h-24z" fill="#43d3d1" />
+</svg>

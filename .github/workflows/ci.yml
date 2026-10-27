@@ -312,6 +312,9 @@ jobs:
       - name: Actualización del HTML de administración entre releases
         run: npm run test:admin-service-worker
 
+      - name: Manifiestos e iconos de instalación PWA
+        run: npm run test:pwa-manifest
+
       - name: Pruebas de tickets
         run: npm run test:tickets
 

@@ -1,15 +1,17 @@
 {
   "name": "Dusema POS",
   "short_name": "Dusema POS",
-  "description": "Panel de administracion empresarial",
+  "description": "Punto de venta y administración empresarial",
+  "id": "/admin",
   "start_url": "/admin",
   "scope": "/admin",
   "display": "standalone",
+  "prefer_related_applications": false,
   "background_color": "#f8fafc",
   "theme_color": "#334155",
   "orientation": "portrait",
   "icons": [
-    { "src": "/placeholder-logo.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/placeholder-logo.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/dusema-pos-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/dusema-pos-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }
