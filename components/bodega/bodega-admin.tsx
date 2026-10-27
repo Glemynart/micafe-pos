@@ -15,6 +15,7 @@ import { suscribirTurnoActivo, type Turno } from "@/lib/turnos-service"
 import { crearDetectorCambioSenalBodega, registrarRecuperacionEnLineaBodega, suscribirSenalBodega } from "@/lib/bodega/live-signals-service"
 import { crearRefrescoCoalescido } from "@/lib/bodega/refresh-coalescido"
 import { proyectarMargenCompraPorPresentaciones } from "@/lib/bodega/purchase-margin"
+import { filtrarProductosCatalogoBodega } from "@/lib/bodega/catalog-filter"
 import { CATEGORIAS_BODEGA, construirBusquedaWebProducto, clasificarProductosBodega, type CategoriaSugeribleBodegaId, type SugerenciaCategoriaBodega } from "@/lib/bodega/category-suggestions"
 import { BodegaEditorDialog, BodegaEmptyState, BodegaSearch } from "@/components/bodega/admin-ui"
 import { toast } from "sonner"
@@ -94,8 +95,10 @@ export function BodegaCatalogoAdmin() {
   const [error, setError] = useState(""); const [guardando, setGuardando] = useState(false)
   const [importandoCatalogo, setImportandoCatalogo] = useState(false)
   const [busquedaCatalogo, setBusquedaCatalogo] = useState("")
+  const [categoriaFiltroCatalogo, setCategoriaFiltroCatalogo] = useState("todas")
   const [categoriaAbierta, setCategoriaAbierta] = useState(false)
-  const productosVisibles = productos.filter(item => item.nombre.toLocaleLowerCase("es").includes(busquedaCatalogo.toLocaleLowerCase("es")))
+  const categoriasOrdenadas = useMemo(() => [...categorias].sort((a, b) => a.nombre.localeCompare(b.nombre, "es")), [categorias])
+  const productosVisibles = filtrarProductosCatalogoBodega(productos, busquedaCatalogo, categoriaFiltroCatalogo)
   useEffect(() => { void Promise.all([listarEspaciosBodega(), listarCategoriasBodega()]).then(([spaces, categories]) => { setEspacios(spaces); setCategorias(categories); setCategoria(actual => ({ ...actual, espacioId: actual.espacioId || spaces[0]?.id || "" })); setProducto(actual => ({ ...actual, espacioId: actual.espacioId || spaces[0]?.id || "", categoriaId: actual.categoriaId || categories[0]?.id || "" })) }).catch(e => setError(mensajeErrorBodega(e))) }, [])
   const run = async (action: () => Promise<unknown>) => { if (guardando || importandoCatalogo) return; setGuardando(true); setError(""); try { await action() } catch (e) { setError(mensajeErrorBodega(e)) } finally { setGuardando(false) } }
   const clasificarNombres = () => {
@@ -150,8 +153,8 @@ export function BodegaCatalogoAdmin() {
       <p className="mt-3 text-xs text-muted-foreground">Las sugerencias no se guardan ni crean productos o categorías. Puedes preparar el nombre en el formulario de abajo y confirmar allí la creación manual.</p>
     </details>
     {empresaId === "distribuidora-las-jimenez" && <DianaCatalogImporter tenantId={empresaId} espacios={espacios} onRunningChange={setImportandoCatalogo} />}
-    <div className="my-6 flex flex-col gap-3 border-t border-border/60 pt-6 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-lg font-semibold tracking-tight">Tus productos <span className="ml-2 rounded-lg bg-primary/5 px-2 py-1 text-xs text-primary">{productos.length}</span></h2><p className="mt-1 text-sm text-muted-foreground">Precios, presentaciones y disponibilidad.</p></div><BodegaSearch label="Buscar productos" placeholder="Buscar por nombre..." value={busquedaCatalogo} onChange={setBusquedaCatalogo} /></div>
-    {productosVisibles.length === 0 && <BodegaEmptyState icon={PackagePlus} title={productos.length === 0 ? "Tu catálogo empieza aquí" : "Sin coincidencias"} description={productos.length === 0 ? "Importa el plan revisado o crea tu primera categoría y producto con las acciones de arriba." : "Prueba con otro nombre de producto."} />}
+    <div className="my-6 flex flex-col gap-4 border-t border-border/60 pt-6 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-lg font-semibold tracking-tight">Tus productos <span className="ml-2 rounded-lg bg-primary/5 px-2 py-1 text-xs text-primary">{productos.length}</span></h2><p className="mt-1 text-sm text-muted-foreground">{productosVisibles.length === productos.length ? "Precios, presentaciones y disponibilidad." : `Mostrando ${productosVisibles.length} de ${productos.length} productos.`}</p></div><div className="grid w-full gap-2 sm:max-w-2xl sm:grid-cols-2"><BodegaSearch label="Buscar productos" placeholder="Buscar por nombre..." value={busquedaCatalogo} onChange={setBusquedaCatalogo} /><label className="grid gap-1 text-xs font-medium text-muted-foreground">Filtrar por categoría<select aria-label="Filtrar productos por categoría" value={categoriaFiltroCatalogo} onChange={event => setCategoriaFiltroCatalogo(event.target.value)} className="h-11 w-full rounded-xl border border-border/70 bg-background px-3 text-sm font-normal text-foreground"><option value="todas">Todas las categorías</option>{categoriasOrdenadas.map(item => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label></div></div>
+    {productosVisibles.length === 0 && <BodegaEmptyState icon={PackagePlus} title={productos.length === 0 ? "Tu catálogo empieza aquí" : "Sin coincidencias"} description={productos.length === 0 ? "Importa el plan revisado o crea tu primera categoría y producto con las acciones de arriba." : "Prueba con otro nombre o elige otra categoría."} />}
     <div className="grid gap-4 @4xl:grid-cols-2">{productosVisibles.map(p => {
       const items = presentaciones.filter(item => item.productoId === p.id)
       return <article key={p.id} className="@container/product min-w-0 rounded-2xl border border-border/70 bg-card p-5 shadow-xs">
