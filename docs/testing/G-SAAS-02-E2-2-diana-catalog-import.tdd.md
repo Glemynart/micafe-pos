@@ -121,8 +121,9 @@ de borrado para “deshacer” la carga.
   ambiguo 0; `importReady=false`, sin acceso ni escrituras Firebase.
 - `git diff --check`: PASS.
 
-Son validaciones locales de esta rama; no hay CI de PR para este conjunto de
-cambios.
+La lista anterior registra las validaciones locales de esta rama. El CI del PR
+corrió por separado y terminó en verde para el commit `6d0f136` (run
+`40513627187`); cualquier commit posterior requiere verificar su propio CI.
 
 Estas validaciones no equivalen a una llamada remota, una importación real,
 disponibilidad de inventario ni certificación de Gate I. No se invocaron
