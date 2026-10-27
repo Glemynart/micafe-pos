@@ -2,10 +2,12 @@
 
 ## Estado
 
-**PROPUESTO — pendiente de aprobación.** No autoriza implementar en producción,
-crear eventos de apertura, registrar ventas, modificar datos, Rules ni desplegar.
+**ACEPTADO — 2026-10-27.** El responsable aprobó la Alternativa A. Autoriza
+implementar y probar el contrato en PRs; no autoriza crear eventos de apertura,
+registrar ventas, modificar datos/Rules ni desplegar recursos remotos.
 
 - **Fecha de propuesta:** 2026-10-27.
+- **Fecha de aceptación:** 2026-10-27.
 - **Goal:** `G-SAAS-02` → `M2` → `E2.2`.
 - **Relacionados:** ADR-SAAS-091, ADR-SAAS-094 y ADR-SAAS-096.
 - **Supersede parcialmente:** ADR-SAAS-091 solo respecto del origen del cargo
@@ -27,7 +29,7 @@ conserva los movimientos y el costo unitario, pero deja `loteId` y
 `capasConsumidasDetalle` en `null`; por ello todavía no demuestra costo FIFO ni
 un saldo de control reconstruible para el stock ya cargado.
 
-## Decisión propuesta
+## Decisión aceptada
 
 Separar tres registros relacionados, todos tenant-aware y server-authoritative:
 
@@ -171,3 +173,16 @@ apertura con valores supuestos.
 - Rules, Functions y App Hosting se despliegan por separado después de CI,
   Emulator, preflight de compatibilidad y autorización operativa. Este ADR no
   certifica el release ni autoriza ese corte.
+
+## Registro de aceptación
+
+El responsable respondió **«Aprobar alternativa A (Recomendada)»** el
+2026-10-27. Queda aprobado que las entradas directas positivas de stock generen
+capa FIFO y cargo interno al costo; que las ventas retail Nevera consuman FIFO y
+generen un abono interno por el costo vendido; y que la apertura inicial se
+reconstruya desde el ledger completo, sin inventar costos si la conciliación no
+cuadra. Un ajuste de salida autorizado se registra separado de cualquier pago.
+
+La aceptación habilita la implementación en código y las pruebas locales y de
+Emulator. El preflight y eventual apertura en Firebase, el despliegue y la
+activación de ventas son gates operativos independientes.

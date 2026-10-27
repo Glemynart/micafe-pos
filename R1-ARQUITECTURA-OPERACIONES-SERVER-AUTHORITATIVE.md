@@ -6,7 +6,7 @@
 > `ADR-SAAS-015`; esta aceptación no convierte el resto de R1 en arquitectura
 > aceptada ni autoriza otras operaciones server-authoritative.
 >
-> **Alcance:** autoridad de escritura para turnos, caja, cuentas, ledger financiero, ledger de inventario, efectos de ventas, anulaciones, compras, ajustes, **traslados financieros entre cuentas**, producción y devoluciones. El traslado de inventario entre ubicaciones no forma parte del alcance general de R1. Para Bodega MVP-1, ADR-SAAS-096 permite registrar existencias directamente por catálogo en Nevera; no define un traslado entre inventarios.
+> **Alcance:** autoridad de escritura para turnos, caja, cuentas, ledger financiero, ledger de inventario, efectos de ventas, anulaciones, compras, ajustes, **traslados financieros entre cuentas**, producción y devoluciones. El traslado de inventario entre ubicaciones no forma parte del alcance general de R1. Para Bodega MVP-1, ADR-SAAS-096 define la carga directa de Nevera y ADR-SAAS-097 añade su venta retail no fiscal, FIFO y cuenta operativa de control; no hay transferencia Bodega→Nevera.
 >
 > **Precondición:** arquitectura SaaS vigente; B1 de configuración empresarial canónica; B2 Fiscal Core y `snapshotFiscal`; y el cutover operativo B7 con su backfill de `estadoOperativo`, ya certificados conforme a sus autoridades. Estos nombres no se refieren al documento conceptual `MT-U10-B6-B7-cierre-arquitectonico.md`.
 
@@ -71,14 +71,20 @@ Callable R1 autenticada
 
 ### 2.2 No objetivos
 
-R1 no:
+R1 general no:
 
 - rediseña entidades, roles, membresías, claims, lifecycle, planes ni suscripciones;
 - modifica la configuración B1, numeración B2 ni el `snapshotFiscal`;
 - reemplaza los ledgers existentes por un modelo contable nuevo;
-- introduce una UX, panel o flujo comercial nuevo;
+- introduce una UX, panel o flujo comercial nuevo fuera de las excepciones Bodega acotadas por ADR-SAAS-091 y ADR-SAAS-097;
 - cambia el significado de compras, mermas, producción, traslados o devoluciones.
-- la excepción Bodega de ADR-SAAS-091 altera R1 genérico para crédito/abonos y la cuenta operativa de Nevera. ADR-SAAS-096 define la carga de stock Nevera como mutación server-authoritative del artículo Nevera; no transfiere existencias desde Bodega. Los otros verticales y traslados entre Espacios/sedes siguen bajo sus contratos vigentes.
+
+Las excepciones Bodega de ADR-SAAS-091/097 añaden crédito/abonos de clientes
+y venta retail Nevera no fiscal con cuenta de control al costo. ADR-SAAS-096
+define la carga directa del artículo Nevera; ADR-SAAS-097 añade capas FIFO,
+cargo al recibir stock y abono interno al vender. Ninguna excepción cambia la
+autoridad fiscal B2 ni los contratos de otros verticales o traslados entre
+Espacios/sedes.
 
 ## 3. Invariantes de compatibilidad
 
@@ -157,6 +163,7 @@ La contención de documentos calientes (cuenta, artículo, insumo o turno) se re
 | Producción | `registrarProduccionOperativaV1` | Valida receta, insumos, producto resultante y política vigente de stock. | Salidas de insumos, entrada de producto, stocks/secuencias, recibo, auditoría. | Efectos inseparables. Reversión por producción compensatoria. |
 | Devolución | `registrarDevolucionOperativaV1` | Lee compra o venta origen; valida tenant, estado y cantidad no devuelta previamente. | Movimientos de inventario, efecto financiero cuando aplique, recibo, auditoría. | Clave origen/línea. Nunca edita el documento ni movimiento original. |
 | Fase 2 de venta | `aplicarEfectosVentaOperativaV1` | Lee venta. Exige exactamente `PENDIENTE_EFECTOS`; deriva ítems, pago y cuentas desde la venta fiscal, no desde payload. | Ledger inventario, stock/secuencia, cuentas, transacciones, venta `COMPLETO`, recibo, auditoría. | Preserva OPE-02/OPE-04/OPE-06. Reintento devuelve la venta completa sin duplicar efectos. |
+| Venta retail Bodega Nevera (ADR-SAAS-097) | Callable Bodega específica, definida en el PR de implementación | Deriva tenant/actor/membresía y valida permiso `sell`; resuelve precio/oferta y catálogo Nevera en servidor. No crea venta fiscal ni cuenta por cobrar externa. | Venta pagada retail, movimiento de stock, consumo de capas FIFO, evento de abono de control por costo y recibo/auditoría; transacción atómica. | Idempotencia por comando; efectivo/transferencia retail se registra una vez. Abono interno no es ingreso ni pago del consumidor. Sin fallback a Bodega. |
 | Anulación de venta | `anularVentaOperativaV1` | Pre-efectos: exige `PENDIENTE_EFECTOS`. Post-efectos: exige `COMPLETO` y rol actual autorizado. No acepta efectos calculados por cliente. | Venta, reversos de ledger/caja cuando corresponda, recibo, auditoría. | Preserva snapshot y estados terminales. La anulación post-efectos siempre es compensatoria. |
 
 ## 6. Validaciones obligatorias por dominio
@@ -177,6 +184,7 @@ La contención de documentos calientes (cuenta, artículo, insumo o turno) se re
 - Clave idempotente, secuencia y saldo posterior se calculan en servidor.
 - `stock` y `secuenciaLedger` se actualizan junto al movimiento.
 - Compra, merma, ajuste, producción y devolución preservan referencias de origen y relaciones compensatorias. El traslado general de inventario entre Espacios/sedes queda reservado para una fase posterior de FASE-15 y no se declara cubierto por R1. Para Bodega MVP-1, el ajuste directo de stock Nevera se limita al artículo Nevera bajo ADR-SAAS-096; no modifica stock Bodega ni crea venta o ingreso. No omite los gates de migración de FASE-15 §12.
+- Para Bodega Nevera, ADR-SAAS-097 exige que la entrada directa positiva escriba movimiento, capa FIFO y cargo de control en una transacción; la salida por venta o ajuste consume capas con su referencia de origen. El preflight de apertura es de solo lectura; las ventas quedan deshabilitadas si el historial no reconstruye el stock/costo actual. La venta retail registra el ingreso una sola vez y el abono interno al costo FIFO en la misma transacción.
 - Durante las fases 0 a 3 de FASE-15 §12, I9 permanece suspendido y la reconciliación es solo de lectura. Al migrar el primer escritor R1 de un artículo, su `inventario_inicial` y el primer movimiento se emiten co-atómicamente. La ruta legacy se cierra antes de activar la denegación de Rules de inventario; la reconciliación autoritativa y caché desde ledger solo se habilitan en Fase 4. R1 no exige backfill histórico ni altera stock o snapshots legados.
 
 ### 6.3 Ventas y anulaciones
