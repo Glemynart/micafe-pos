@@ -337,6 +337,12 @@ async function efectoActualizarArticulo(tx: any, db: any, empresaId: string, act
   if (catalogoArticulo === "NEVERA" && data.costo !== undefined && costoNuevo !== costoActual && delta <= 0) {
     fail("failed-precondition", "COSTO_NEVERA_REQUIERE_ENTRADA");
   }
+  if (catalogoArticulo === "NEVERA" && delta < 0 && _rol !== "admin") {
+    fail("permission-denied", "AJUSTE_SALIDA_NEVERA_ADMIN_REQUERIDO");
+  }
+  const motivoAjusteNevera = catalogoArticulo === "NEVERA" && delta < 0
+    ? requiredText(input.motivo, "MOTIVO_AJUSTE_NEVERA_REQUERIDO", 240)
+    : input.motivo ?? "ajuste_administrativo";
   const metadata = { ...data };
   delete metadata.stock;
   delete metadata.secuenciaLedger;
@@ -355,9 +361,12 @@ async function efectoActualizarArticulo(tx: any, db: any, empresaId: string, act
       usuarioId: actorUid,
       usuarioNombre: actor,
       claveIdempotencia: movementKey(input.commandId, tipo, id, "ajuste"),
+      ...(catalogoArticulo ? { catalogoId: catalogoArticulo } : {}),
+      commandId: input.commandId,
+      ...(catalogoArticulo === "NEVERA" && delta < 0 ? { eventoControlNevera: "AJUSTE_SALIDA" as const } : {}),
       referenciaColeccion: collection,
       referenciaId: id,
-      motivo: input.motivo ?? "ajuste_administrativo",
+      motivo: motivoAjusteNevera,
     }]);
     movimientoId = movimiento[0]?.id ?? null;
   }

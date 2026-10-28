@@ -40,7 +40,7 @@ async function discoverCodebase(codebaseRoot: string): Promise<Record<string, un
   }
 }
 
-test("saas-bodega-operations descubre exactamente siete callables Gen2 sin Secrets", async () => {
+test("saas-bodega-operations descubre exactamente ocho callables Gen2 sin Secrets", async () => {
   const port = await freePort();
   const child = spawn(process.execPath, [bin], { cwd: sourceRoot, env: { ...process.env, FUNCTIONS_CONTROL_API: "true", PORT: String(port) }, stdio: "pipe" });
   after(() => child.kill());
@@ -50,6 +50,7 @@ test("saas-bodega-operations descubre exactamente siete callables Gen2 sin Secre
     "abrirTurnoBodegaV1",
     "actualizarArticuloInventarioBodegaV1",
     "cerrarTurnoBodegaV1",
+    "consultarCatalogoNeveraVendedorBodegaV1",
     "consultarCatalogoPresentacionesVendedorBodegaV1",
     "consultarClientesVendedorBodegaV1",
     "consultarMisVentasVendedorBodegaV1",

@@ -1,4 +1,8 @@
 import { FieldValue } from "firebase-admin/firestore";
+import { crearIdentificadorInterno } from "../turnos/identificadores";
+import { idCapaFifoNevera, planificarConsumoFifoNevera, type CapaFifoNevera, type ConsumoCapaFifoNevera } from "./nevera-fifo";
+
+const MAX_CAPAS_FIFO_NEVERA_POR_PRODUCTO = 300;
 
 export type ArticuloTipo = "producto" | "insumo";
 
@@ -25,6 +29,9 @@ export interface MovimientoInventarioParams {
   claveIdempotencia: string;
   referenciaColeccion: string;
   referenciaId: string;
+  catalogoId?: "BODEGA" | "NEVERA";
+  eventoControlNevera?: "ABONO_VENTA" | "AJUSTE_SALIDA";
+  commandId?: string;
   motivo?: string | null;
   actualizarCosto?: boolean;
   /** Opt-in para rutas que no admiten stock negativo (Bodega U3). */
@@ -45,8 +52,8 @@ export interface MovimientoInventarioServer extends Omit<MovimientoInventarioPar
   referenciaColeccion: string | null;
   referenciaId: string | null;
   movimientoRelacionadoId: null;
-  loteId: null;
-  capasConsumidasDetalle: null;
+  loteId: string | null;
+  capasConsumidasDetalle: ConsumoCapaFifoNevera[] | null;
   fecha: unknown;
   secuenciaArticulo: number;
   motivo: string | null;
@@ -129,6 +136,11 @@ interface EntradaPendiente {
   secuenciaActual: number;
   costoApertura: number;
   aperturaRef: any | null;
+  capasFifo: Array<{ ref: any; data: CapaFifoNevera }>;
+  consumoFifo: ConsumoCapaFifoNevera[];
+  costoTotalFifo: number | null;
+  nuevaCapaRef: any | null;
+  habilitarFifoNevera: boolean;
 }
 
 /**
@@ -173,7 +185,7 @@ export async function aplicarMovimientosInventarioEnTransaccion(
       ) {
         fallo("INVENTARIO_MOVIMIENTO_INCONSISTENTE");
       }
-      lote.push({ params, movimientoRef, articuloRef, existente, saldoActual: 0, stockReservado: 0, secuenciaActual: 0, costoApertura: 0, aperturaRef: null });
+      lote.push({ params, movimientoRef, articuloRef, existente, saldoActual: 0, stockReservado: 0, secuenciaActual: 0, costoApertura: 0, aperturaRef: null, capasFifo: [], consumoFifo: [], costoTotalFifo: null, nuevaCapaRef: null, habilitarFifoNevera: false });
       continue;
     }
 
@@ -196,6 +208,47 @@ export async function aplicarMovimientosInventarioEnTransaccion(
     const saldoActual = saldoRaw as number;
     const stockReservado = stockReservadoRaw as number;
     const secuenciaActual = secuenciaRaw as number;
+    let capasFifo: Array<{ ref: any; data: CapaFifoNevera }> = [];
+    let consumoFifo: ConsumoCapaFifoNevera[] = [];
+    let costoTotalFifo: number | null = null;
+    let nuevaCapaRef: any | null = null;
+    let habilitarFifoNevera = false;
+    if (params.catalogoId === "NEVERA") {
+      if (params.articuloTipo !== "producto" || data.catalogoId !== "NEVERA") fallo("CATALOGO_NEVERA_INVALIDO");
+      if (!Number.isSafeInteger(params.cantidad)) fallo("CANTIDAD_FIFO_INVALIDA");
+      if (params.cantidad > 0 && (!Number.isSafeInteger(params.costoUnitario) || params.costoUnitario <= 0)) fallo("COSTO_ENTRADA_FIFO_INVALIDO");
+      if (secuenciaActual === 0 && saldoActual > 0) fallo("NEVERA_REQUIERE_APERTURA_FIFO");
+      const query = db.collection("capas_fifo_nevera")
+        .where("empresaId", "==", params.empresaId)
+        .where("productoId", "==", params.articuloId)
+        .where("estado", "==", "ACTIVA")
+        .orderBy("secuenciaArticulo", "asc")
+        .limit(MAX_CAPAS_FIFO_NEVERA_POR_PRODUCTO + 1);
+      const capasSnapshot = await tx.get(query);
+      if (capasSnapshot.docs.length > MAX_CAPAS_FIFO_NEVERA_POR_PRODUCTO) fallo("NEVERA_FIFO_REQUIERE_CONCILIACION");
+      capasFifo = capasSnapshot.docs.map((snapshot: any) => ({ ref: snapshot.ref, data: { ...(snapshot.data() as CapaFifoNevera), id: snapshot.id } }));
+      const unidadesFifo = capasFifo.reduce((sum, capa) => sum + capa.data.unidadesRestantes, 0);
+      if (!Number.isSafeInteger(unidadesFifo)) fallo("NEVERA_FIFO_REQUIERE_CONCILIACION");
+      const estadoFifo = data.fifoNeveraEstado;
+      const aperturaInicialVacia = estadoFifo !== "LISTO" && secuenciaActual === 0 && saldoActual === 0 && unidadesFifo === 0 && params.cantidad > 0;
+      if (!aperturaInicialVacia && (estadoFifo !== "LISTO" || unidadesFifo !== saldoActual)) fallo("NEVERA_REQUIERE_APERTURA_FIFO");
+      habilitarFifoNevera = aperturaInicialVacia;
+      if (params.cantidad < 0) {
+        try {
+          const plan = planificarConsumoFifoNevera(capasFifo.map(capa => capa.data), Math.abs(params.cantidad));
+          consumoFifo = plan.consumos;
+          costoTotalFifo = plan.costoTotalCOP;
+        } catch (error) {
+          if (error instanceof Error && "codigo" in error) fallo((error as Error & { codigo: string }).codigo);
+          throw error;
+        }
+      } else {
+        costoTotalFifo = params.cantidad * params.costoUnitario;
+        if (!Number.isSafeInteger(costoTotalFifo)) fallo("COSTO_FIFO_DESBORDADO");
+        nuevaCapaRef = db.collection("capas_fifo_nevera").doc(idCapaFifoNevera(params.empresaId, params.articuloId, movimientoRef.id));
+        if ((await tx.get(nuevaCapaRef)).exists) fallo("NEVERA_FIFO_REQUIERE_CONCILIACION");
+      }
+    }
     const consumoReserva = params.consumirStockReservado ?? 0;
     const liberacionReserva = params.liberarStockReservado ?? 0;
     if (consumoReserva + liberacionReserva > stockReservado) fallo("STOCK_RESERVADO_INSUFICIENTE");
@@ -226,7 +279,32 @@ export async function aplicarMovimientosInventarioEnTransaccion(
       secuenciaActual,
       costoApertura: numeroFinito(costoRaw) && costoRaw >= 0 ? costoRaw : 0,
       aperturaRef,
+      capasFifo,
+      consumoFifo,
+      costoTotalFifo,
+      nuevaCapaRef,
+      habilitarFifoNevera,
     });
+  }
+
+  const deltasControlPrevistos = new Map<string, number>();
+  for (const entrada of lote) {
+    if (entrada.existente || entrada.params.catalogoId !== "NEVERA") continue;
+    const importe = entrada.costoTotalFifo;
+    if (importe === null || !Number.isSafeInteger(importe) || importe <= 0) fallo("COSTO_CONTROL_NEVERA_INVALIDO");
+    const importeCOP = importe as number;
+    const delta: number = entrada.params.cantidad > 0 ? importeCOP : -importeCOP;
+    deltasControlPrevistos.set(entrada.params.empresaId, (deltasControlPrevistos.get(entrada.params.empresaId) ?? 0) + delta);
+  }
+  const cuentasControl = new Map<string, { ref: any; existe: boolean; saldo: number; delta: number }>();
+  for (const [empresaId, delta] of deltasControlPrevistos) {
+    if (!Number.isSafeInteger(delta)) fallo("COSTO_CONTROL_NEVERA_INVALIDO");
+    const cuentaSnap = await tx.get(db.collection("cuentas_control_nevera").doc(empresaId));
+    const saldo = cuentaSnap.exists ? cuentaSnap.data()?.saldoCOP : 0;
+    if (!Number.isSafeInteger(saldo) || (saldo as number) < 0) fallo("CONTROL_NEVERA_INCONSISTENTE");
+    if (delta < 0 && !cuentaSnap.exists) fallo("CONTROL_NEVERA_INCONSISTENTE");
+    if (!Number.isSafeInteger((saldo as number) + delta) || (saldo as number) + delta < 0) fallo("SALDO_CONTROL_NEVERA_INSUFICIENTE");
+    cuentasControl.set(empresaId, { ref: db.collection("cuentas_control_nevera").doc(empresaId), existe: cuentaSnap.exists, saldo: saldo as number, delta });
   }
 
   const resultado: MovimientoInventarioServer[] = [];
@@ -238,7 +316,7 @@ export async function aplicarMovimientosInventarioEnTransaccion(
 
     const { params } = entrada;
     let secuenciaBase = entrada.secuenciaActual;
-    if (entrada.aperturaRef) {
+    if (entrada.aperturaRef && params.catalogoId !== "NEVERA") {
       secuenciaBase += 1;
       const apertura = {
         id: entrada.aperturaRef.id,
@@ -290,18 +368,73 @@ export async function aplicarMovimientosInventarioEnTransaccion(
       claveIdempotencia: params.claveIdempotencia,
       clase: catalogo.clase,
       signo: catalogo.signo,
-      costoTotal: Math.abs(params.cantidad) * params.costoUnitario,
+      costoTotal: entrada.costoTotalFifo ?? Math.abs(params.cantidad) * params.costoUnitario,
       saldoCantidadDespues,
       saldoValorDespues: null,
       referenciaColeccion: params.referenciaColeccion,
       referenciaId: params.referenciaId,
       movimientoRelacionadoId: null,
-      loteId: null,
-      capasConsumidasDetalle: null,
+      loteId: params.catalogoId === "NEVERA" && params.cantidad > 0 ? entrada.nuevaCapaRef?.id ?? null : null,
+      capasConsumidasDetalle: params.catalogoId === "NEVERA" && params.cantidad < 0 ? entrada.consumoFifo : null,
       fecha: FieldValue.serverTimestamp(),
       secuenciaArticulo,
       motivo: params.motivo ?? null,
+      ...(params.catalogoId ? { catalogoId: params.catalogoId } : {}),
     };
+
+    if (params.catalogoId === "NEVERA") {
+      if (params.cantidad > 0 && entrada.nuevaCapaRef) {
+        tx.create(entrada.nuevaCapaRef, {
+          id: entrada.nuevaCapaRef.id,
+          empresaId: params.empresaId,
+          catalogoId: "NEVERA",
+          productoId: params.articuloId,
+          movimientoOrigenId: movimiento.id,
+          secuenciaArticulo,
+          unidadesIniciales: params.cantidad,
+          unidadesRestantes: params.cantidad,
+          costoUnitarioCOP: params.costoUnitario,
+          estado: "ACTIVA",
+          creadoEn: FieldValue.serverTimestamp(),
+        });
+      } else if (params.cantidad < 0) {
+        const consumoPorId = new Map(entrada.consumoFifo.map(item => [item.capaId, item]));
+        for (const capa of entrada.capasFifo) {
+          const consumo = consumoPorId.get(capa.data.id);
+          if (!consumo) continue;
+          tx.update(capa.ref, {
+            unidadesRestantes: consumo.unidadesRestantes,
+            estado: consumo.unidadesRestantes === 0 ? "AGOTADA" : "ACTIVA",
+            actualizadoEn: FieldValue.serverTimestamp(),
+          });
+        }
+      }
+      const importeCOP = entrada.costoTotalFifo;
+      if (importeCOP === null || !Number.isSafeInteger(importeCOP) || importeCOP <= 0) fallo("COSTO_CONTROL_NEVERA_INVALIDO");
+      const importeControlCOP = importeCOP as number;
+      const esCargo = params.cantidad > 0;
+      const tipoControl = esCargo ? "CARGO_ENTRADA" : (params.eventoControlNevera ?? (params.tipo === "venta" ? "ABONO_VENTA" : "AJUSTE_SALIDA"));
+      if (!esCargo && tipoControl !== "ABONO_VENTA" && tipoControl !== "AJUSTE_SALIDA") fallo("EVENTO_CONTROL_NEVERA_INVALIDO");
+      const controlId = crearIdentificadorInterno(params.empresaId, `control-nevera:${movimiento.id}`);
+      tx.create(db.collection("cuentas_control_nevera_movimientos").doc(controlId), {
+        id: controlId,
+        schemaVersion: "NEVERA_CONTROL_V1",
+        empresaId: params.empresaId,
+        catalogoId: "NEVERA",
+        tipo: tipoControl,
+        importeCOP: importeControlCOP,
+        saldoDeltaCOP: esCargo ? importeControlCOP : -importeControlCOP,
+        actorUid: params.usuarioId,
+        actorNombreSnapshot: params.usuarioNombre,
+        commandId: params.commandId ?? params.claveIdempotencia,
+        movimientoId: movimiento.id,
+        referenciaColeccion: params.referenciaColeccion,
+        referenciaId: params.referenciaId,
+        detalleCapas: params.cantidad < 0 ? entrada.consumoFifo : [{ capaId: entrada.nuevaCapaRef?.id ?? movimiento.id, secuenciaArticulo, cantidad: params.cantidad, costoUnitarioCOP: params.costoUnitario, costoTotalCOP: importeControlCOP }],
+        motivo: params.motivo ?? null,
+        creadoEn: FieldValue.serverTimestamp(),
+      });
+    }
 
     tx.create(entrada.movimientoRef, movimiento);
     const actualizacion: Record<string, unknown> = {
@@ -313,8 +446,24 @@ export async function aplicarMovimientosInventarioEnTransaccion(
       actualizacion.stockReservado = entrada.stockReservado - cambioReserva;
     }
     if (params.actualizarCosto) actualizacion.costo = params.costoUnitario;
+    if (entrada.habilitarFifoNevera) {
+      actualizacion.fifoNeveraEstado = "LISTO";
+      actualizacion.fifoNeveraVersion = 1;
+    }
     tx.update(entrada.articuloRef, actualizacion);
     resultado.push(movimiento);
+  }
+
+  for (const [empresaId, cuenta] of cuentasControl) {
+    const data = {
+      empresaId,
+      catalogoId: "NEVERA",
+      schemaVersion: "NEVERA_CONTROL_V1",
+      saldoCOP: cuenta.saldo + cuenta.delta,
+      actualizadoEn: FieldValue.serverTimestamp(),
+    };
+    if (cuenta.existe) tx.update(cuenta.ref, data);
+    else tx.create(cuenta.ref, data);
   }
 
   return resultado;

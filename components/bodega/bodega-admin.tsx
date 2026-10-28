@@ -19,6 +19,8 @@ import { filtrarProductosCatalogoBodega } from "@/lib/bodega/catalog-filter"
 import type { CatalogoId } from "@/lib/bodega/catalog-scope"
 import { BodegaEditorDialog, BodegaEmptyState, BodegaSearch } from "@/components/bodega/admin-ui"
 import { toast } from "sonner"
+import { NeveraRetailView } from "@/components/bodega/nevera-retail-view"
+import { NeveraAperturaAdmin } from "@/components/bodega/nevera-apertura-admin"
 
 const money = (value: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(value)
 const formatCopInput = (value: number) => value > 0 ? new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 }).format(value) : ""
@@ -242,12 +244,14 @@ export function BodegaInventarioAdmin() {
   const { productos, cargando } = useBodegaAdminData(catalogo)
   const [ediciones, setEdiciones] = useState<Record<string, number>>({})
   const [costos, setCostos] = useState<Record<string, number>>({})
+  const [motivosAjuste, setMotivosAjuste] = useState<Record<string, string>>({})
   const [guardando, setGuardando] = useState<Record<string, boolean>>({})
   const [error, setError] = useState("")
   if (cargando) return <AdminLoading />
   const visibles = productos.filter(p => p.nombre.toLocaleLowerCase("es").includes(busqueda.toLocaleLowerCase("es")))
   return <AdminSection eyebrow="Inventario" title={catalogo === "BODEGA" ? "Existencias en unidad base" : "Existencias de Nevera"} description={catalogo === "BODEGA" ? "Las ventas y los ajustes respetan las unidades reservadas por pedidos agendados." : "Registra el inventario propio de Nevera. La carga no descuenta existencias de Bodega."}>
     {error && <ErrorBox>{error}</ErrorBox>}
+    {catalogo === "NEVERA" && <NeveraAperturaAdmin />}
     <div className="mb-6 grid gap-3 sm:grid-cols-2">
       <label className="grid gap-1 text-xs font-medium text-muted-foreground">Catálogo de inventario
         <select aria-label="Catálogo de inventario" value={catalogo} onChange={event => { setCatalogo(event.target.value as CatalogoId); setEdiciones({}); setCostos({}) }} className="h-11 rounded-xl border border-border bg-background px-3 text-sm font-normal text-foreground">
@@ -262,6 +266,8 @@ export function BodegaInventarioAdmin() {
       const stockObjetivo = ediciones[p.id] ?? p.stock
       const costoObjetivo = costos[p.id] ?? p.costoUnidadBaseCOP
       const guardandoProducto = guardando[p.id] === true
+      const motivoRequerido = catalogo === "NEVERA" && stockObjetivo < p.stock
+      const motivo = motivosAjuste[p.id] ?? ""
       const costoInvalido = catalogo === "NEVERA" && stockObjetivo > 0 && (!Number.isSafeInteger(costoObjetivo) || costoObjetivo <= 0)
       const costoSinEntrada = catalogo === "NEVERA" && costoObjetivo !== p.costoUnidadBaseCOP && stockObjetivo <= p.stock
       const productoInactivo = catalogo === "NEVERA" && !p.activo
@@ -270,12 +276,15 @@ export function BodegaInventarioAdmin() {
         {catalogo === "NEVERA" && <label className="mt-3 grid gap-1 text-xs font-medium">Costo de compra por unidad base (COP)
           <input aria-label={`Costo de compra ${p.nombre}`} type="number" inputMode="numeric" min={0} step={1} value={costoObjetivo} onChange={event => setCostos({ ...costos, [p.id]: Number(event.target.value) })} className="h-10 min-w-0 rounded-xl border border-border bg-background px-3" />
         </label>}
-        <div className="mt-3 flex gap-2"><input aria-label={`Nuevo stock ${p.nombre}`} type="number" min={p.stockReservado} step={1} value={stockObjetivo} onChange={event => setEdiciones({ ...ediciones, [p.id]: Number(event.target.value) })} className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-background px-3" /><button disabled={guardandoProducto || costoInvalido || costoSinEntrada || productoInactivo} onClick={() => {
+        <div className="mt-3 flex gap-2"><input aria-label={`Nuevo stock ${p.nombre}`} type="number" min={p.stockReservado} step={1} value={stockObjetivo} onChange={event => setEdiciones({ ...ediciones, [p.id]: Number(event.target.value) })} className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-background px-3" /><button disabled={guardandoProducto || costoInvalido || costoSinEntrada || productoInactivo || (motivoRequerido && motivo.trim().length < 3)} onClick={() => {
           setError(""); setGuardando({ ...guardando, [p.id]: true })
-          void ajustarStockProductoBodega(p.id, stockObjetivo, catalogo, catalogo === "NEVERA" ? costoObjetivo : undefined)
+          void ajustarStockProductoBodega(p.id, stockObjetivo, catalogo, catalogo === "NEVERA" ? costoObjetivo : undefined, motivoRequerido ? motivo : undefined)
             .catch(err => setError(mensajeErrorBodega(err)))
             .finally(() => setGuardando(current => ({ ...current, [p.id]: false })))
         }} className="rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">{guardandoProducto ? "Guardando…" : catalogo === "NEVERA" ? "Guardar stock y costo" : "Ajustar"}</button></div>
+        {motivoRequerido && <label className="mt-3 grid gap-1 text-xs font-medium">Motivo de salida requerido
+          <input aria-label={`Motivo de ajuste de salida ${p.nombre}`} value={motivo} onChange={event => setMotivosAjuste(current => ({ ...current, [p.id]: event.target.value }))} placeholder="Merma, corrección de conteo…" maxLength={240} className="h-10 rounded-xl border border-border bg-background px-3 text-sm" />
+        </label>}
         {costoSinEntrada && <p className="mt-2 text-xs text-destructive">Para cambiar el costo, aumenta el stock en esta misma entrada.</p>}
         {productoInactivo && <p className="mt-2 text-xs text-muted-foreground">Activa el producto antes de ajustar su inventario.</p>}
         {catalogo === "NEVERA" && <p className="mt-2 text-[11px] text-muted-foreground">La cantidad se registra directamente en Nevera con movimiento de inventario. No es una compra ni modifica Bodega.</p>}
@@ -355,7 +364,8 @@ export function BodegaSolicitudesAdmin() {
 }
 
 export function BodegaVentaDirectaAdmin() {
-  const { productos, presentaciones, clientes, cargando } = useBodegaAdminData()
+  const [modoVenta, setModoVenta] = useState<CatalogoId>("BODEGA")
+  const { productos, presentaciones, clientes, cargando } = useBodegaAdminData(modoVenta)
   const { usuario } = useAuthContext()
   const [turno, setTurno] = useState<Turno | null>(null)
   const [clienteId, setClienteId] = useState("")
@@ -417,7 +427,10 @@ export function BodegaVentaDirectaAdmin() {
   }
 
   if (cargando) return <AdminLoading />
+  const selectorCatalogo = <div role="group" aria-label="Catálogo para vender" className="mb-5 grid grid-cols-2 gap-2 rounded-2xl bg-muted/50 p-1"><button type="button" aria-pressed={modoVenta === "BODEGA"} onClick={() => setModoVenta("BODEGA")} className={`min-h-11 rounded-xl px-3 text-sm font-semibold ${modoVenta === "BODEGA" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}>Bodega · clientes</button><button type="button" aria-pressed={modoVenta === "NEVERA"} onClick={() => setModoVenta("NEVERA")} className={`min-h-11 rounded-xl px-3 text-sm font-semibold ${modoVenta === "NEVERA" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}>Nevera · retail</button></div>
+  if (modoVenta === "NEVERA") return <AdminSection eyebrow="Venta administrativa directa" title="Venta de Nevera" description="Venta retail al consumidor final, separada de las ventas y la cartera de clientes Bodega.">{selectorCatalogo}<NeveraRetailView /></AdminSection>
   return <AdminSection eyebrow="Venta administrativa directa" title="Registrar venta" description="La administradora puede vender directamente por el comando canónico. No crea ni aprueba una solicitud propia.">
+    {selectorCatalogo}
     {error && <ErrorBox>{error}</ErrorBox>}
     {tieneComandoPendiente && <p role="status" className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800">El resultado del intento anterior no se pudo confirmar. Reintenta la misma venta; sus datos quedan bloqueados para evitar duplicados o cambios accidentales.</p>}
     {venta && "ventaId" in venta && <p role="status" className="mb-4 rounded-xl bg-emerald-500/10 p-3 text-sm text-emerald-700">Venta registrada: {venta.ventaId} · {money(venta.total)}.{venta.montoRecibidoCOP !== undefined && <> Recibido {money(venta.montoRecibidoCOP)}; cambio {money(venta.cambioCOP ?? 0)}.{venta.turnoId ? ` Turno ${venta.turnoId}.` : " Efectivo sin turno; revisar por venta y fecha."}</>}</p>}

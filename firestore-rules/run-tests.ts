@@ -6,3 +6,4 @@ import "./inventory-kardex.test";
 import "./reservas-agendas.test";
 import "./global-platform.test";
 import "./bodega-live-signals.test";
+import "./nevera-private-data.test";

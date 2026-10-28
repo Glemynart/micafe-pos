@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { CalendarDays, CheckCircle2, CircleDollarSign, ClipboardList, LogOut, Package, Plus, RefreshCw, Search, ShoppingCart, Store, UserPlus, Users } from "lucide-react"
+import { CalendarDays, CheckCircle2, CircleDollarSign, ClipboardList, LogOut, Package, Plus, RefreshCw, Search, ShoppingCart, Snowflake, Store, UserPlus, Users } from "lucide-react"
 import type { Usuario } from "@/lib/auth-service"
 import { suscribirTurnoActivo, type Turno } from "@/lib/turnos-service"
 import { cn } from "@/lib/utils"
@@ -9,15 +9,17 @@ import { calcularCambioEfectivoBodega, construirComandoAbonoVentaBodega, constru
 import { confirmarVentaBodega, consultarCarteraClienteBodega, consultarCatalogoBodega, consultarClientesVendedor, consultarMisVentasBodega, crearClienteVendedor, registrarAbonoVentaBodega } from "@/lib/bodega/vendedor-service"
 import { cancelarSolicitudVentaBodega, consultarSolicitudesVentaBodega, crearSolicitudVentaBodega } from "@/lib/bodega/solicitudes-service"
 import { BodegaAgendaVendedor } from "@/components/bodega/bodega-agenda-vendedor"
+import { NeveraRetailView } from "@/components/bodega/nevera-retail-view"
 import { cancelarProgramacionPedidoBodega, consultarAgendaPedidosBodega, construirCancelacionProgramacionPedidoBodega, construirConversionProgramacionPedidoBodega, convertirProgramacionPedidoBodega, crearProgramacionPedidoBodega, type Envelope } from "@/lib/bodega/agenda-service"
 import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
 import { FcmManagerWrapper } from "@/components/fcm-manager-wrapper"
 import { crearRefrescoCoalescido } from "@/lib/bodega/refresh-coalescido"
 import { crearDetectorCambioSenalBodega, registrarRecuperacionEnLineaBodega, suscribirSenalBodega } from "@/lib/bodega/live-signals-service"
 
-type Tab = "venta" | "solicitudes" | "agenda" | "clientes" | "historial"
+type Tab = "venta" | "nevera" | "solicitudes" | "agenda" | "clientes" | "historial"
 const sellerTabs = [
   { id: "venta", label: "Nueva venta", icon: ShoppingCart },
+  { id: "nevera", label: "Nevera", icon: Snowflake },
   { id: "solicitudes", label: "Solicitudes", icon: ClipboardList },
   { id: "agenda", label: "Agenda", icon: CalendarDays },
   { id: "clientes", label: "Clientes", icon: Users },
@@ -397,7 +399,7 @@ export function BodegaVendedorApp({ usuario, onLogout }: { usuario: Usuario; onL
               <button disabled={enviando || carrito.length === 0 || !clienteId || (tipoPedido === "agendar" && !fechaAgendadaVigente) || (!!franjaDesde !== !!franjaHasta)} onClick={() => void (tipoPedido === "venta" ? enviarSolicitud() : enviarProgramacion())} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40">{tipoPedido === "venta" ? <ClipboardList className="h-5 w-5" /> : <CalendarDays className="h-5 w-5" />}{enviando ? "Enviando…" : tipoPedido === "venta" ? "Enviar solicitud de venta" : tipoPedido === "hoy" ? "Enviar pedido para hoy" : "Agendar entrega"}</button>
             </aside>
           </div>
-        ) : tab === "solicitudes" ? <SolicitudesView solicitudes={solicitudes} metodosPago={metodosPago} setMetodoPago={(id, method) => setMetodosPago(current => ({ ...current, [id]: method }))} montosRecibidos={montosRecibidos} setMontoRecibido={(id, value) => setMontosRecibidos(current => ({ ...current, [id]: value }))} tieneConfirmacionPendiente={solicitudId => (["efectivo", "transferencia", "pendiente"] as const).some(method => comandosVentaPendientes.current.has(`${solicitudId}:${method}`))} enviando={enviando} turnoAbierto={!!turno} onConfirmar={solicitud => void confirmarSolicitud(solicitud)} onCancelar={solicitud => void cancelarSolicitud(solicitud)} onActualizar={() => void actualizarSolicitudesConReconectar()} onCrearOtra={() => setTab("venta")} /> : tab === "agenda" ? <BodegaAgendaVendedor programaciones={agenda} hoy={hoy} cargando={cargandoAgenda} cargandoMas={cargandoMasAgenda} hayMas={!!nextCursorAgenda} procesando={procesandoAgenda} onActualizar={() => void actualizarAgenda()} onCargarMas={() => void actualizarAgenda(nextCursorAgenda)} onCancelar={item => void cancelarProgramacion(item)} onConvertir={item => void convertirProgramacion(item)} /> : tab === "clientes" ? <ClientesView clientes={clientes} clienteInicial={clienteId} onCrear={() => setMostrarCliente(true)} /> : <HistorialView ventas={ventas} />}
+        ) : tab === "nevera" ? <NeveraRetailView /> : tab === "solicitudes" ? <SolicitudesView solicitudes={solicitudes} metodosPago={metodosPago} setMetodoPago={(id, method) => setMetodosPago(current => ({ ...current, [id]: method }))} montosRecibidos={montosRecibidos} setMontoRecibido={(id, value) => setMontosRecibidos(current => ({ ...current, [id]: value }))} tieneConfirmacionPendiente={solicitudId => (["efectivo", "transferencia", "pendiente"] as const).some(method => comandosVentaPendientes.current.has(`${solicitudId}:${method}`))} enviando={enviando} turnoAbierto={!!turno} onConfirmar={solicitud => void confirmarSolicitud(solicitud)} onCancelar={solicitud => void cancelarSolicitud(solicitud)} onActualizar={() => void actualizarSolicitudesConReconectar()} onCrearOtra={() => setTab("venta")} /> : tab === "agenda" ? <BodegaAgendaVendedor programaciones={agenda} hoy={hoy} cargando={cargandoAgenda} cargandoMas={cargandoMasAgenda} hayMas={!!nextCursorAgenda} procesando={procesandoAgenda} onActualizar={() => void actualizarAgenda()} onCargarMas={() => void actualizarAgenda(nextCursorAgenda)} onCancelar={item => void cancelarProgramacion(item)} onConvertir={item => void convertirProgramacion(item)} /> : tab === "clientes" ? <ClientesView clientes={clientes} clienteInicial={clienteId} onCrear={() => setMostrarCliente(true)} /> : <HistorialView ventas={ventas} />}
       </main>
 
       {tab === "venta" && carrito.length > 0 && <a href="#seller-cart" className="fixed inset-x-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-xl lg:hidden"><span className="flex items-center gap-2"><ShoppingCart className="size-5" />Ver pedido ({carrito.length})</span><span className="tabular-nums">{money(estimado)}</span></a>}

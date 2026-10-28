@@ -25,6 +25,7 @@ import {
   idEventoSolicitudVentaBodegaPendiente,
 } from "../../functions/src/bodega-vendedor/solicitudes-venta";
 import { ejecutarCrearArticuloInventarioV1 } from "../../functions/src/inventario/callables";
+import { abrirProductoNeveraV1, preflightAperturaNeveraV1, registrarVentaRetailNeveraV1 } from "../../functions/src/bodega-vendedor/nevera-retail";
 import { consultarCarteraClienteBodegaV1, registrarAbonoVentaBodegaV1 } from "../../functions/src/bodega-vendedor/credit-payments";
 import { ejecutarCrearCategoriaBodegaV1 } from "../../functions/src/bodega/categorias";
 import { leerConfiguracionEmpresa } from "../../functions/src/configuracion/reader";
@@ -171,3 +172,5 @@ export const reconciliarAgendaPedidosBodegaV1 = onSchedule(
   { region: REGION, schedule: "every 5 minutes", timeZone: "UTC" },
   async () => { await reconciliarAgendaPedidosBodega(getFirestore(), getMessaging()); },
 );
+
+export { abrirProductoNeveraV1, preflightAperturaNeveraV1, registrarVentaRetailNeveraV1 };

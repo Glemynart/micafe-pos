@@ -13,6 +13,7 @@ const CALLABLES_BODEGA: Readonly<Record<string, string>> = {
   consultarCarteraClienteBodegaV1: "consultarCarteraClienteBodegaV1",
   registrarAbonoVentaBodegaV1: "registrarAbonoVentaBodegaV1",
   consultarCatalogoPresentacionesVendedorV1: "consultarCatalogoPresentacionesVendedorBodegaV1",
+  consultarCatalogoNeveraVendedorV1: "consultarCatalogoNeveraVendedorBodegaV1",
   consultarClientesVendedorV1: "consultarClientesVendedorBodegaV1",
   consultarMisVentasVendedorV1: "consultarMisVentasVendedorBodegaV1",
   actualizarArticuloInventarioV1: "actualizarArticuloInventarioBodegaV1",
