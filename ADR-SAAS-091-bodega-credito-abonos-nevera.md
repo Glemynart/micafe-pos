@@ -2,7 +2,7 @@
 
 ## Estado
 
-**ACEPTADO — 2026-10-26; parcialmente supersedido por ADR-SAAS-096.** El origen de existencias Nevera descrito como transferencia desde Bodega queda reemplazado por carga directa sobre el catálogo Nevera. El modelo de crédito de clientes, cuenta operativa, cargos/abonos al costo y controles de venta permanece vigente.
+**ACEPTADO — 2026-10-26; parcialmente supersedido por ADR-SAAS-096 y ADR-SAAS-097.** El origen de existencias Nevera descrito como transferencia desde Bodega queda reemplazado por carga directa sobre el catálogo Nevera (ADR-SAAS-096); ADR-SAAS-097 determina el cargo directo, FIFO y venta retail. Quedan supersedidos los requisitos de transferencia Bodega↔Nevera de «Requisitos confirmados», «Opción 3», el diagrama, los permisos, la compatibilidad y los criterios de aceptación. El modelo de crédito de clientes y sus abonos permanece vigente.
 
 - **Fecha de propuesta:** 2026-10-26.
 - **Fecha de aceptación:** 2026-10-26.
@@ -63,9 +63,9 @@ Nevera, confirmó que el cargo de control se valorice al costo de adquisición.
    para el siguiente pago. Un nuevo compromiso conserva el anterior en el
    historial; no cambia el saldo, no agrega intereses y no bloquea ventas
    automáticamente.
-5. La administración controla al menos las ubicaciones internas Bodega y
-   Nevera dentro del único Espacio operativo. Los traslados preservan el stock
-   total del tenant y no crean ventas ni ingresos.
+5. La administración controla el inventario independiente de Bodega y Nevera
+   dentro del tenant. La carga de Nevera es directa y no descuenta Bodega
+   (ADR-SAAS-096); sus capas FIFO y cuenta de control siguen ADR-SAAS-097.
 6. Las ventas al detalle desde Nevera usan el canal consumidor final y su
    precio vigente. Una cuenta interna de Nevera permite controlar la mercancía
    cargada a costo y la que ya se vendió. No se presenta como cliente fiscal ni
@@ -94,15 +94,16 @@ por cobrar; luego las ventas al detalle producirían otras ventas.
   mercancía y confundir una ubicación propia con un tercero. Requiere una
   decisión contable y tributaria adicional. No se recomienda para el MVP.
 
-### Opción 3 — Ubicación interna y subledger operativo a costo (recomendada)
+### Opción 3 — Catálogo Nevera y subledger operativo a costo (recomendada)
 
-La carga a Nevera es un traslado interno y abre un cargo de control por el
-costo snapshot de las unidades trasladadas. La venta al consumidor reconoce
-una sola venta real al precio de consumidor final, reduce el stock de Nevera y
-genera un abono operativo por el costo snapshot de lo vendido. El saldo de
-control refleja el costo de mercancía todavía asignada a Nevera; no es ingreso,
-cuenta por cobrar externa ni documento fiscal. Las ventas a crédito de clientes
-reales usan otra cuenta por cobrar, ligada a cada venta.
+La carga a Nevera se registra directamente sobre su catálogo y abre un cargo
+de control por el costo snapshot del stock ingresado (ADR-SAAS-096/097). La
+venta al consumidor reconoce una sola venta real al precio de consumidor final,
+reduce el stock de Nevera y genera un abono operativo por el costo snapshot de
+lo vendido. El saldo de control refleja el costo de mercancía todavía asignada
+a Nevera; no es ingreso, cuenta por cobrar externa ni documento fiscal. Las
+ventas a crédito de clientes reales usan otra cuenta por cobrar, ligada a cada
+venta.
 
 - **A favor:** conserva la trazabilidad de lo cargado a Nevera, el saldo de
   producto bajo su custodia y el valor vendido sin duplicar el ingreso retail.
@@ -122,8 +123,8 @@ solicitud del vendedor
        cuenta por cobrar       → venta pendiente
   → abonos parciales por venta y cliente; saldo = total − abonos
 
-traslado Bodega → Nevera
-  → movimiento de inventario interno a costo snapshot
+carga directa al catálogo Nevera
+  → movimiento positivo y capa FIFO al costo snapshot
   → cargo operativo de Nevera al mismo costo
   → venta al detalle desde Nevera
   → venta consumidor final a precio retail y pago registrado una sola vez
@@ -146,7 +147,8 @@ operativo: no se trata como vencimiento fiscal, no altera el saldo, no genera
 interés ni bloquea pedidos/ventas por sí mismo.
 
 Los cargos/abonos de control de Nevera serán append-only, idempotentes y
-vinculados a los comandos de traslado o venta que los originan. El cargo se
+vinculados a los comandos de carga directa, ajuste o venta que los originan
+(ADR-SAAS-096/097). El cargo se
 valora con el costo unitario snapshot validado por el servidor; al vender al
 detalle, el abono interno usa el costo total snapshot de las unidades vendidas,
 no el efectivo recibido del consumidor. El ingreso de la venta retail se
@@ -173,7 +175,7 @@ venta cancelada o anulada.
 
 - Las Functions derivan tenant/actor de Auth y membresía y verifican lifecycle,
   rol y `sell` en la misma transacción de la mutación.
-- Solo admin gestiona ubicaciones, traslados de carga y ajustes de inventario;
+- Solo admin gestiona la carga directa y los ajustes de inventario Nevera;
   vendedor solo puede crear solicitudes/confirmar ventas dentro de la
   autorización vigente y registrar abonos de efectivo/transferencia que
   recibió. Admin puede consultar y registrar correcciones por comandos
@@ -190,15 +192,14 @@ venta cancelada o anulada.
 
 ## Cambios y compatibilidad requeridos antes de implementar
 
-1. Diseñar ubicaciones internas subordinadas al Espacio, con balances por
-   ubicación y un ledger que conserve el agregado del artículo. Compra y
-   apertura inicial ingresan a Bodega; traslado genera salida/entrada atómicas;
-   venta consume solo de la ubicación seleccionada. `espacioId` continúa
-   significando Espacio, no ubicación.
-2. Definir esquema versionado para ventas a crédito/abonos y para el subledger
-   interno de Nevera. Los lectores actuales deben seguir leyendo ventas
-   `BODEGA_MVP1_V1` y cuentas de cobro existentes; no se reescriben ventas,
-   movimientos ni transacciones históricas.
+1. La propuesta original de balance por ubicación y traslado Bodega→Nevera
+   quedó supersedida para estos catálogos por ADR-SAAS-094/096. La carga directa
+   Nevera opera sobre su artículo independiente y `espacioId` continúa
+   significando Espacio, no catálogo ni ubicación.
+2. Implementar el esquema versionado de ventas a crédito/abonos y el subledger
+   interno de Nevera conforme a ADR-SAAS-097. Los lectores actuales deben
+   seguir leyendo ventas `BODEGA_MVP1_V1` y cuentas de cobro existentes; no se
+   reescriben ventas, movimientos ni transacciones históricas.
 3. Preparar un backfill idempotente que asigne el stock preexistente a Bodega,
    preserve saldos y secuencias, detecte duplicados/inconsistencias y tenga
    reporte de dry-run. No se autoriza ejecutarlo en este ADR.
@@ -228,10 +229,10 @@ Antes de autorizar despliegue, el PR técnico deberá demostrar como mínimo:
 4. Una venta con varios abonos conserva importe, medio de pago, actor,
    timestamps y referencias; saldo de cliente y factura coincide con la suma
    append-only.
-5. Traslados Bodega↔Nevera preservan stock agregado/costo, son idempotentes,
-   no generan ventas ni ingresos y no aceptan cantidades superiores a
-   disponibilidad.
-6. Cada venta retail desde Nevera consume stock de esa ubicación, usa precio
+5. La carga directa Nevera registra movimiento, capa y cargo de control de
+   forma atómica e idempotente, sin alterar producto, stock, precio ni ledger
+   Bodega; la venta retail consume solo el catálogo Nevera conforme a ADR-097.
+6. Cada venta retail desde Nevera consume stock de ese catálogo, usa precio
    consumidor final, genera un solo ingreso de venta y abona el costo correcto
    al subledger; ubicación/cliente de otra empresa se rechaza.
 7. Backfill dry-run y repetición demuestran cero cambio de saldos, sin

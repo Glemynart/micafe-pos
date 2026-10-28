@@ -49,7 +49,7 @@ Registra saldo y costo en el artículo Nevera identificado, con ledger de invent
 
 - Ya no se necesita correspondencia Bodega↔Nevera para registrar el inventario Nevera.
 - Un ajuste de existencias no prueba una compra ni realiza un movimiento financiero. Si se requiere registrar compras/egresos o la cuenta operativa de Nevera, debe usarse o implementarse su flujo específico.
-- Un costo por unidad base describe la carga registrada; el costeo FIFO de lotes y los abonos del subledger durante venta requieren implementación y validación antes de autorizar ventas retail.
+- Un costo por unidad base describe la carga registrada; el costeo FIFO de lotes y los abonos del subledger durante venta quedan definidos por ADR-SAAS-097 y requieren implementación, reconciliación y validación antes de autorizar ventas retail.
 - El catálogo Nevera importado con saldo cero no cambia por aceptar este ADR. No se cargan datos remotos.
 
 ## Registro de aceptación

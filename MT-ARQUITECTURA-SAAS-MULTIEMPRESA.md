@@ -85,8 +85,8 @@ necesita una membresía explícita o una impersonación separada y auditada.
 - **Membresía:** relación usuario–empresa con rol, permisos y estado.
 - **Configuración:** parámetros editables y preferencias de una empresa, sin contadores.
 - **Espacio:** establecimiento o sucursal dentro de la empresa; no es frontera de seguridad.
-- **Inventario Bodega/Nevera:** los catálogos tienen identidades de producto tenant-aware independientes. Stock Nevera se registra directamente en su artículo por una operación server-authoritative; no es transferencia ni descuenta el artículo homónimo de Bodega (ADR-SAAS-096). La clasificación operativa no crea otra frontera de seguridad.
-- **Catálogos Bodega/Nevera:** cada catálogo mantiene identidades propias para productos, categorías y presentaciones; los nombres coincidentes no crean una asociación. Precios y ofertas quedan scoped al catálogo. El costo registrado en Nevera no se infiere desde Bodega ni desde el precio retail; costeo de ventas y subledger continúan sujetos a sus gates.
+- **Inventario Bodega/Nevera:** los catálogos tienen identidades de producto tenant-aware independientes. Stock Nevera se registra directamente en su artículo por una operación server-authoritative; no es transferencia ni descuenta el artículo homónimo de Bodega (ADR-SAAS-096). La entrada positiva crea una capa FIFO y un cargo interno al costo; una venta retail consume esa capa y genera un abono de control al costo vendido (ADR-SAAS-097). La clasificación operativa no crea otra frontera de seguridad.
+- **Catálogos Bodega/Nevera:** cada catálogo mantiene identidades propias para productos, categorías y presentaciones; los nombres coincidentes no crean una asociación. Precios y ofertas quedan scoped al catálogo. El costo registrado en Nevera no se infiere desde Bodega ni desde el precio retail. El subledger de control es interno, no representa una cuenta por cobrar externa ni un segundo ingreso; su apertura requiere reconciliar el ledger y bloquear ventas si la reconstrucción no cuadra.
 - **Numeración:** autorización y secuencia fiscal independiente.
 - **Asignación de numeración:** selección determinista por alcance y tipo documental.
 - **Plan:** oferta comercial global y versionada.
@@ -523,8 +523,9 @@ requieren una decisión de producto sobre monetización, límites y operación S
 | ADR-SAAS-092 | Aceptado, alcance de catálogo supersedido parcialmente por ADR-SAAS-094 | Define la vigencia, edición/cierre y snapshots de ofertas; sus dos precios por presentación/canal se reemplazan por catálogos separados. Implementación y migraciones sujetas a PR y gates. |
 | ADR-SAAS-093 | Aceptado | Conserva el costo exacto por presentación en COP, sin redondear a costo unitario; compatibilidad y migraciones sujetas a PR y gates. |
 | ADR-SAAS-094 | Aceptado, parcialmente supersedido por ADR-SAAS-096 | Catálogos independientes y ofertas aisladas; el requisito de correspondencia/transferencia para cargar stock Nevera queda supersedido. No autoriza operaciones remotas. |
-| ADR-SAAS-096 | Aceptado; supersede parcialmente ADR-SAAS-091/094 | Stock Nevera se registra directamente por catálogo con tenant, costo y movimiento idempotente; no transfiere ni modifica Bodega. No autoriza carga remota, subledger ni ventas retail. |
+| ADR-SAAS-096 | Aceptado; supersede parcialmente ADR-SAAS-091/094 | Stock Nevera se registra directamente por catálogo con tenant, costo y movimiento idempotente; no transfiere ni modifica Bodega. El subledger y la venta retail quedan definidos por ADR-SAAS-097. |
 | ADR-SAAS-095 | Aceptado | Concesión contractual append-only e idempotente de `reports` solo para Distribuidora Las Jiménez; preserva Plan y snapshot. Escritura y despliegue requieren gate operativo. |
+| ADR-SAAS-097 | Aceptado — 2026-10-27 | Ventas retail Nevera con capas FIFO, cargos directos al costo, abonos internos al costo vendido y reconstrucción fail-closed de apertura. Implementación por PR; apertura remota, Rules y despliegue requieren gates separados. |
 
 ---
 
