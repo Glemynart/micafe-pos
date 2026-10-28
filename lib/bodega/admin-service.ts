@@ -171,11 +171,11 @@ export async function crearProductoBodega(data: { nombre: string; categoriaId: s
   return result.articuloId
 }
 
-export async function ajustarStockProductoBodega(productoId: string, stock: number, catalogoId: CatalogoId = "BODEGA", costoCOP?: number): Promise<void> {
+export async function ajustarStockProductoBodega(productoId: string, stock: number, catalogoId: CatalogoId = "BODEGA", costoCOP?: number, motivo?: string): Promise<void> {
   await ejecutarComandoInventario(
     resolverCallableOperacionBodega("BODEGA_MVP1", "actualizarArticuloInventarioV1"),
     crearEnvelopeInventario({ articuloTipo: "producto", articuloId: productoId, data: { catalogoId, stock, ...(costoCOP === undefined ? {} : { costo: costoCOP }) } },
-      catalogoId === "NEVERA" ? "ajuste_administrativo_nevera" : "ajuste_administrativo_bodega"),
+      catalogoId === "NEVERA" ? (motivo?.trim() || null) : "ajuste_administrativo_bodega"),
   )
 }
 

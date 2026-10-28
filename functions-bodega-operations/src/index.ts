@@ -8,6 +8,7 @@ import {
   ejecutarConsultarCatalogoPresentacionesVendedor,
 } from "../../functions/src/bodega-vendedor/presentaciones";
 import { ejecutarConsultarMisVentasVendedor } from "../../functions/src/bodega-vendedor/lecturas";
+import { ejecutarConsultarCatalogoNeveraVendedorV1 } from "../../functions/src/bodega-vendedor/nevera-retail";
 import { ejecutarActualizarArticuloInventarioV1 } from "../../functions/src/inventario/callables";
 import { ejecutarCerrarTurnoOperativoV1 } from "../../functions/src/bodega/close-turn";
 import { manejarAbrirTurnoOperativo } from "../../functions/src/turnos/callable";
@@ -38,6 +39,12 @@ export const consultarCatalogoPresentacionesVendedorBodegaV1 = onCall({ region: 
   const db = getFirestore();
   const contexto = await contextoVendedor(request, db);
   return ejecutarConsultarCatalogoPresentacionesVendedor(db, contexto, request.data);
+});
+
+export const consultarCatalogoNeveraVendedorBodegaV1 = onCall({ region: REGION }, async request => {
+  const db = getFirestore();
+  const contexto = await contextoVendedor(request, db);
+  return ejecutarConsultarCatalogoNeveraVendedorV1(db, contexto, request.data);
 });
 
 export const consultarClientesVendedorBodegaV1 = onCall({ region: REGION }, async (request) => {

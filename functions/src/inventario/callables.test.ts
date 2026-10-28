@@ -24,6 +24,27 @@ class Ref {
 class Collection {
   constructor(private readonly name: string, private readonly db: FakeFirestore) {}
   doc(id: string) { return new Ref(`${this.name}/${id}`, this.db); }
+  where(field: string, operator: "==", value: unknown) { return new Query(this.name, this.db).where(field, operator, value); }
+}
+
+class Query {
+  private readonly filters: Array<[string, unknown]> = [];
+  constructor(private readonly name: string, private readonly db: FakeFirestore) {}
+  where(field: string, operator: "==", value: unknown) {
+    assert.equal(operator, "==");
+    this.filters.push([field, value]);
+    return this;
+  }
+  orderBy(_field?: string, _direction?: string) { return this; }
+  limit(_count?: number) { return this; }
+  snapshots() {
+    const prefix = `${this.name}/`;
+    const docs = [...this.db.docs.entries()]
+      .filter(([path, data]) => path.startsWith(prefix) && !path.slice(prefix.length).includes("/"))
+      .filter(([, data]) => this.filters.every(([field, value]) => data[field] === value))
+      .map(([path, data]) => new Snapshot(path.slice(prefix.length), data, new Ref(path, this.db)));
+    return { docs };
+  }
 }
 
 class Transaction {
@@ -31,7 +52,9 @@ class Transaction {
   private readonly updates: Array<[Ref, Data]> = [];
   private readonly sets: Array<[Ref, Data, boolean]> = [];
   constructor(private readonly db: FakeFirestore) {}
-  async get(ref: Ref) { return new Snapshot(ref.id, this.db.docs.get(ref.path), ref); }
+  async get(ref: Ref | Query) {
+    return ref instanceof Query ? ref.snapshots() : new Snapshot(ref.id, this.db.docs.get(ref.path), ref);
+  }
   create(ref: Ref, data: Data) {
     if (this.db.docs.has(ref.path) || this.creates.some(([pending]) => pending.path === ref.path)) throw new Error("already-exists");
     this.creates.push([ref, structuredClone(data)]);
