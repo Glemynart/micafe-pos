@@ -8,6 +8,22 @@ revisado. La política de dos catálogos de ADR-SAAS-094 supersede las reglas
 anteriores de precio por canal de ADR-SAAS-092. No añade APIs ni autoridad nueva;
 usa las callables Bodega existentes.
 
+## Estado actual — función retirada de la aplicación
+
+El responsable confirmó que la carga de los catálogos y existencias de Diana ya
+se completó. Por ello, esta versión del importador y la ayuda de categorización
+se retiraron de la interfaz de administración: los productos nuevos se agregan
+manualmente. Se conservan el lector y el plan offline como evidencia y
+herramientas de revisión; ya no existe un botón de importación en el POS.
+
+El inventario Nevera se carga directamente en su catálogo según ADR-SAAS-096;
+las menciones históricas a transferir stock desde Bodega en este TDD quedan
+supersedidas. La carga de existencias no habilita ventas Nevera ni constituye
+capas FIFO o saldo de la cuenta interna de control.
+
+El comportamiento detallado a continuación describe el corte histórico que se
+usó para la carga inicial, no una función disponible para operación diaria.
+
 ## Comportamiento
 
 - El preflight local conserva ambas listas como catálogos independientes y registra SHA-256 de la

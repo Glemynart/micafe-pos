@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ArrowUpRight, Boxes, CalendarDays, CheckCircle2, CircleDollarSign, PackagePlus, RefreshCw, Settings, Sparkles, Tags, Users, XCircle } from "lucide-react"
+import { ArrowUpRight, Boxes, CalendarDays, CheckCircle2, CircleDollarSign, PackagePlus, RefreshCw, Settings, Tags, Users, XCircle } from "lucide-react"
 import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-context"
 import { useAuthContext } from "@/contexts/auth-context"
 import { actualizarCliente, crearCliente, eliminarCliente, type Cliente } from "@/lib/clientes-service"
@@ -16,11 +16,9 @@ import { crearDetectorCambioSenalBodega, registrarRecuperacionEnLineaBodega, sus
 import { crearRefrescoCoalescido } from "@/lib/bodega/refresh-coalescido"
 import { proyectarMargenCompraPorPresentaciones } from "@/lib/bodega/purchase-margin"
 import { filtrarProductosCatalogoBodega } from "@/lib/bodega/catalog-filter"
-import { CATEGORIAS_BODEGA, construirBusquedaWebProducto, clasificarProductosBodega, type CategoriaSugeribleBodegaId, type SugerenciaCategoriaBodega } from "@/lib/bodega/category-suggestions"
+import type { CatalogoId } from "@/lib/bodega/catalog-scope"
 import { BodegaEditorDialog, BodegaEmptyState, BodegaSearch } from "@/components/bodega/admin-ui"
 import { toast } from "sonner"
-import { DianaCatalogImporter } from "@/components/bodega/diana-catalog-importer"
-import type { CatalogoImportId } from "@/lib/bodega/diana-catalog-import"
 
 const money = (value: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(value)
 const formatCopInput = (value: number) => value > 0 ? new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 }).format(value) : ""
@@ -41,7 +39,7 @@ const cards = [
   { href: "/admin/permisos", label: "Configuración operativa", detail: "Usuarios y permisos existentes", icon: Settings },
 ]
 
-export function useBodegaAdminData(catalogo: CatalogoImportId = "BODEGA") {
+export function useBodegaAdminData(catalogo: CatalogoId = "BODEGA") {
   const [productos, setProductos] = useState<ProductoBodegaAdmin[]>([])
   const [presentaciones, setPresentaciones] = useState<PresentacionBodegaAdmin[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -91,20 +89,15 @@ export function BodegaAdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 export function BodegaCatalogoAdmin() {
-  const [catalogo, setCatalogo] = useState<CatalogoImportId>("BODEGA")
+  const [catalogo, setCatalogo] = useState<CatalogoId>("BODEGA")
   const [categoriaFiltro, setCategoriaFiltro] = useState("todas")
   const { productos, presentaciones, cargando } = useBodegaAdminData(catalogo)
-  const { empresaId } = useConfiguracionEmpresa()
   const [espacios, setEspacios] = useState<Array<{ id: string; nombre: string }>>([])
-  const [categorias, setCategorias] = useState<Array<{ id: string; nombre: string; espacioId: string; catalogoId: CatalogoImportId }>>([])
+  const [categorias, setCategorias] = useState<Array<{ id: string; nombre: string; espacioId: string; catalogoId: CatalogoId }>>([])
   const [categoria, setCategoria] = useState({ espacioId: "", nombre: "", icono: "" })
   const [producto, setProducto] = useState({ nombre: "", categoriaId: "", espacioId: "", unidad: "unidad", stock: 0, stockMinimo: 0, costo: 0 })
   const [presentacion, setPresentacion] = useState({ productoId: "", nombre: "", factorUnidadBase: 1, precioTiendaCOP: 0 })
-  const [nombresParaClasificar, setNombresParaClasificar] = useState("")
-  const [sugerencias, setSugerencias] = useState<SugerenciaCategoriaBodega[]>([])
-  const [categoriasCorregidas, setCategoriasCorregidas] = useState<Record<string, CategoriaSugeribleBodegaId>>({})
   const [error, setError] = useState(""); const [guardando, setGuardando] = useState(false)
-  const [importandoCatalogo, setImportandoCatalogo] = useState(false)
   const [busquedaCatalogo, setBusquedaCatalogo] = useState("")
   const [categoriaAbierta, setCategoriaAbierta] = useState(false)
   const categoriasVisibles = useMemo(() => categorias.filter(item => item.catalogoId === catalogo), [categorias, catalogo])
@@ -120,62 +113,27 @@ export function BodegaCatalogoAdmin() {
     if (productos.some(item => item.catalogoId === catalogo && item.id === presentacion.productoId)) return
     setPresentacion(actual => ({ ...actual, productoId: productos.find(item => item.catalogoId === catalogo && item.activo)?.id ?? "" }))
   }, [catalogo, productos, presentacion.productoId])
-  const run = async (action: () => Promise<unknown>) => { if (guardando || importandoCatalogo) return; setGuardando(true); setError(""); try { await action() } catch (e) { setError(mensajeErrorBodega(e)) } finally { setGuardando(false) } }
-  const clasificarNombres = () => {
-    const nombres = nombresParaClasificar.split(/\r?\n/).map(nombre => nombre.trim()).filter(Boolean)
-    if (nombres.length < 1 || nombres.length > 25) {
-      setError("Escribe entre 1 y 25 nombres de producto, uno por línea.")
-      return
-    }
-    if (nombres.some(nombre => nombre.length > 120)) {
-      setError("Cada nombre debe tener máximo 120 caracteres.")
-      return
-    }
-    setError("")
-    setSugerencias(clasificarProductosBodega(nombres.map((nombre, index) => ({ itemId: `fila-${index + 1}`, nombre }))))
-    setCategoriasCorregidas({})
-  }
+  const run = async (action: () => Promise<unknown>) => { if (guardando) return; setGuardando(true); setError(""); try { await action() } catch (e) { setError(mensajeErrorBodega(e)) } finally { setGuardando(false) } }
   if (cargando) return <AdminLoading />
   return <AdminSection eyebrow="Catálogo Bodega" title="Catálogo de productos" description="Organiza tus productos, precios y presentaciones para vender con claridad.">
     {error && <ErrorBox>{error}</ErrorBox>}
-    <div className="mb-5 max-w-sm"><label className="text-sm font-medium">Catálogo activo<select aria-label="Catálogo activo" value={catalogo} onChange={event => { setCatalogo(event.target.value as CatalogoImportId) }} className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3"><option value="BODEGA">Bodega · precios a tienda</option><option value="NEVERA">Nevera · precios consumidor final</option></select></label><p className="mt-2 text-xs text-muted-foreground">Los listados devuelven solo productos, presentaciones y categorías del catálogo elegido. Los registros Bodega antiguos sin discriminador siguen clasificados como Bodega.</p></div>
+    <div className="mb-5 max-w-sm"><label className="text-sm font-medium">Catálogo activo<select aria-label="Catálogo activo" value={catalogo} onChange={event => { setCatalogo(event.target.value as CatalogoId) }} className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3"><option value="BODEGA">Bodega · precios a tienda</option><option value="NEVERA">Nevera · precios consumidor final</option></select></label><p className="mt-2 text-xs text-muted-foreground">Los listados devuelven solo productos, presentaciones y categorías del catálogo elegido. Los registros Bodega antiguos sin discriminador siguen clasificados como Bodega.</p></div>
     <div className="mb-6 flex flex-wrap gap-2">
-      <BodegaEditorDialog title="Nueva categoría" description="Organiza tus productos por familia." icon={Tags} disabled={guardando || importandoCatalogo} open={categoriaAbierta} onOpenChange={setCategoriaAbierta}>
-<form onSubmit={e => { e.preventDefault(); void run(async () => { const result = await crearCategoriaBodega({ espacioId: categoria.espacioId, catalogoId: catalogo, nombre: categoria.nombre, ...(categoria.icono.trim() ? { icono: categoria.icono } : {}) }); const actualizadas = await listarCategoriasBodega(catalogo); setCategorias(actualizadas); setProducto(actual => ({ ...actual, categoriaId: result.categoriaId })); setCategoria(actual => ({ ...actual, nombre: "", icono: "" })); toast.success("Guardado correctamente") }) }} className="admin-editor-form"><div className="grid gap-4 @md:grid-cols-2"><Input label="Nombre" value={categoria.nombre} onChange={nombre => setCategoria({ ...categoria, nombre })} required /><Input label="Icono (opcional)" value={categoria.icono} onChange={icono => setCategoria({ ...categoria, icono })} /><label className="text-sm">Espacio<select required value={categoria.espacioId} onChange={e => setCategoria({ ...categoria, espacioId: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3"><option value="">Seleccionar</option>{espacios.map(item => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label></div>{error && <ErrorBox>{error}</ErrorBox>}<Submit disabled={guardando || importandoCatalogo || espacios.length === 0}>Crear categoría en {catalogo}</Submit>
+      <BodegaEditorDialog title="Nueva categoría" description="Organiza tus productos por familia." icon={Tags} disabled={guardando} open={categoriaAbierta} onOpenChange={setCategoriaAbierta}>
+<form onSubmit={e => { e.preventDefault(); void run(async () => { const result = await crearCategoriaBodega({ espacioId: categoria.espacioId, catalogoId: catalogo, nombre: categoria.nombre, ...(categoria.icono.trim() ? { icono: categoria.icono } : {}) }); const actualizadas = await listarCategoriasBodega(catalogo); setCategorias(actualizadas); setProducto(actual => ({ ...actual, categoriaId: result.categoriaId })); setCategoria(actual => ({ ...actual, nombre: "", icono: "" })); toast.success("Guardado correctamente") }) }} className="admin-editor-form"><div className="grid gap-4 @md:grid-cols-2"><Input label="Nombre" value={categoria.nombre} onChange={nombre => setCategoria({ ...categoria, nombre })} required /><Input label="Icono (opcional)" value={categoria.icono} onChange={icono => setCategoria({ ...categoria, icono })} /><label className="text-sm">Espacio<select required value={categoria.espacioId} onChange={e => setCategoria({ ...categoria, espacioId: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3"><option value="">Seleccionar</option>{espacios.map(item => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label></div>{error && <ErrorBox>{error}</ErrorBox>}<Submit disabled={guardando || espacios.length === 0}>Crear categoría en {catalogo}</Submit>
       </form>
       </BodegaEditorDialog>
-      <BodegaEditorDialog primary title="Nuevo producto" description="Registra la unidad base y los datos iniciales del producto." icon={PackagePlus} disabled={guardando || importandoCatalogo}>
-<form onSubmit={e => { e.preventDefault(); void run(async () => { const values = catalogo === "NEVERA" ? { ...producto, costo: 0, stock: 0, stockMinimo: 0 } : producto; await crearProductoBodega({ ...values, catalogoId: catalogo }); setProducto({ ...producto, nombre: "", stock: 0, stockMinimo: 0, costo: 0 }); toast.success("Guardado correctamente") }) }} className="admin-editor-form"><div className="grid gap-4 @md:grid-cols-2"><Input label="Nombre" value={producto.nombre} onChange={nombre => setProducto({ ...producto, nombre })} required /><label className="text-sm">Categoría<select required value={producto.categoriaId} onChange={e => setProducto({ ...producto, categoriaId: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3"><option value="">Seleccionar</option>{categoriasVisibles.map(item => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label><Input label="Unidad base" value={producto.unidad} onChange={unidad => setProducto({ ...producto, unidad })} required /><label className="text-sm">Espacio<select required value={producto.espacioId} onChange={e => setProducto({ ...producto, espacioId: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3"><option value="">Seleccionar</option>{espacios.map(item => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>{catalogo === "BODEGA" ? <><NumberInput label="Costo por unidad base" value={producto.costo} onChange={costo => setProducto({ ...producto, costo })} /><NumberInput label="Stock inicial" value={producto.stock} onChange={stock => setProducto({ ...producto, stock })} /><NumberInput label="Stock mínimo" value={producto.stockMinimo} onChange={stockMinimo => setProducto({ ...producto, stockMinimo })} /></> : <p className="rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">Nevera inicia sin costo asignado ni existencias. Registra el costo y el stock desde Inventario cuando tengas el conteo físico.</p>}</div>{error && <ErrorBox>{error}</ErrorBox>}<Submit disabled={guardando || importandoCatalogo || espacios.length === 0 || categoriasVisibles.length === 0}>Crear producto en {catalogo}</Submit>
+      <BodegaEditorDialog primary title="Nuevo producto" description="Registra la unidad base y los datos iniciales del producto." icon={PackagePlus} disabled={guardando}>
+<form onSubmit={e => { e.preventDefault(); void run(async () => { const values = catalogo === "NEVERA" ? { ...producto, costo: 0, stock: 0, stockMinimo: 0 } : producto; await crearProductoBodega({ ...values, catalogoId: catalogo }); setProducto({ ...producto, nombre: "", stock: 0, stockMinimo: 0, costo: 0 }); toast.success("Guardado correctamente") }) }} className="admin-editor-form"><div className="grid gap-4 @md:grid-cols-2"><Input label="Nombre" value={producto.nombre} onChange={nombre => setProducto({ ...producto, nombre })} required /><label className="text-sm">Categoría<select required value={producto.categoriaId} onChange={e => setProducto({ ...producto, categoriaId: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3"><option value="">Seleccionar</option>{categoriasVisibles.map(item => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label><Input label="Unidad base" value={producto.unidad} onChange={unidad => setProducto({ ...producto, unidad })} required /><label className="text-sm">Espacio<select required value={producto.espacioId} onChange={e => setProducto({ ...producto, espacioId: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3"><option value="">Seleccionar</option>{espacios.map(item => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>{catalogo === "BODEGA" ? <><NumberInput label="Costo por unidad base" value={producto.costo} onChange={costo => setProducto({ ...producto, costo })} /><NumberInput label="Stock inicial" value={producto.stock} onChange={stock => setProducto({ ...producto, stock })} /><NumberInput label="Stock mínimo" value={producto.stockMinimo} onChange={stockMinimo => setProducto({ ...producto, stockMinimo })} /></> : <p className="rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">Nevera inicia sin costo asignado ni existencias. Registra el costo y el stock desde Inventario cuando tengas el conteo físico.</p>}</div>{error && <ErrorBox>{error}</ErrorBox>}<Submit disabled={guardando || espacios.length === 0 || categoriasVisibles.length === 0}>Crear producto en {catalogo}</Submit>
       </form>
       </BodegaEditorDialog>
-      <BodegaEditorDialog title="Nueva presentación" description={catalogo === "BODEGA" ? "Define el empaque y el precio a tienda." : "Define la unidad de venta y el precio retail independiente de Bodega."} icon={Tags} disabled={guardando || importandoCatalogo}>
-<form onSubmit={e => { e.preventDefault(); void run(async () => { await crearPresentacionBodega({ productoId: presentacion.productoId, nombre: presentacion.nombre, factorUnidadBase: presentacion.factorUnidadBase, precioTiendaCOP: presentacion.precioTiendaCOP }); setPresentacion({ ...presentacion, nombre: "", factorUnidadBase: 1, precioTiendaCOP: 0 }); toast.success("Guardado correctamente") }) }} className="admin-editor-form"><div className="grid gap-4 @md:grid-cols-2"><label className="text-sm">Producto<select required value={presentacion.productoId} onChange={e => setPresentacion({ ...presentacion, productoId: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3"><option value="">Seleccionar</option>{productos.filter(p => p.activo && p.catalogoId === catalogo).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></label><Input label="Nombre comercial" value={presentacion.nombre} onChange={nombre => setPresentacion({ ...presentacion, nombre })} required /><NumberInput min={1} label="Factor a unidad base" value={presentacion.factorUnidadBase} onChange={factorUnidadBase => setPresentacion({ ...presentacion, factorUnidadBase })} /><NumberInput min={1} label={catalogo === "BODEGA" ? "Precio a tienda COP" : "Precio retail COP"} value={presentacion.precioTiendaCOP} onChange={precioTiendaCOP => setPresentacion({ ...presentacion, precioTiendaCOP })} /></div>{error && <ErrorBox>{error}</ErrorBox>}<Submit disabled={guardando || importandoCatalogo}>Crear presentación</Submit>
+      <BodegaEditorDialog title="Nueva presentación" description={catalogo === "BODEGA" ? "Define el empaque y el precio a tienda." : "Define la unidad de venta y el precio retail independiente de Bodega."} icon={Tags} disabled={guardando}>
+<form onSubmit={e => { e.preventDefault(); void run(async () => { await crearPresentacionBodega({ productoId: presentacion.productoId, nombre: presentacion.nombre, factorUnidadBase: presentacion.factorUnidadBase, precioTiendaCOP: presentacion.precioTiendaCOP }); setPresentacion({ ...presentacion, nombre: "", factorUnidadBase: 1, precioTiendaCOP: 0 }); toast.success("Guardado correctamente") }) }} className="admin-editor-form"><div className="grid gap-4 @md:grid-cols-2"><label className="text-sm">Producto<select required value={presentacion.productoId} onChange={e => setPresentacion({ ...presentacion, productoId: e.target.value })} className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3"><option value="">Seleccionar</option>{productos.filter(p => p.activo && p.catalogoId === catalogo).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></label><Input label="Nombre comercial" value={presentacion.nombre} onChange={nombre => setPresentacion({ ...presentacion, nombre })} required /><NumberInput min={1} label="Factor a unidad base" value={presentacion.factorUnidadBase} onChange={factorUnidadBase => setPresentacion({ ...presentacion, factorUnidadBase })} /><NumberInput min={1} label={catalogo === "BODEGA" ? "Precio a tienda COP" : "Precio retail COP"} value={presentacion.precioTiendaCOP} onChange={precioTiendaCOP => setPresentacion({ ...presentacion, precioTiendaCOP })} /></div>{error && <ErrorBox>{error}</ErrorBox>}<Submit disabled={guardando}>Crear presentación</Submit>
       </form>
       </BodegaEditorDialog>
     </div>
-    <details className="group mb-5 rounded-2xl border border-border/70 bg-card p-5 shadow-xs">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-semibold"><span className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" />Ayuda para categorizar</span><span className="text-xs font-medium text-muted-foreground group-open:hidden">Abrir +</span></summary>
-      <p className="mt-2 text-sm text-muted-foreground">Pega hasta 25 nombres, uno por línea. Las sugerencias se calculan localmente en tu navegador. Para los casos por revisar, solo se enviará el nombre a Google si pulsas “Buscar en Google”. No incluyas precios, costos, inventario ni datos personales.</p>
-      <textarea aria-label="Nombres de productos para sugerir categorías" value={nombresParaClasificar} onChange={event => { setNombresParaClasificar(event.target.value); setSugerencias([]); setCategoriasCorregidas({}) }} rows={5} maxLength={4000} className="mt-3 w-full rounded-xl border border-border bg-background p-3 text-sm" placeholder={"Aguardiente Antioqueño\nVive 100"} />
-      <button type="button" onClick={clasificarNombres} className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"><Sparkles className="size-4" />Clasificar nombres</button>
-      {sugerencias.length > 0 && <div className="mt-4 space-y-2" aria-live="polite">{sugerencias.map(item => {
-        const categoriaId = categoriasCorregidas[item.itemId] ?? item.categoriaId
-        return <article key={item.itemId} className="rounded-xl border border-border p-3">
-          <p className="font-medium">{item.nombre}</p>
-          <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
-            <label className="text-sm">Categoría sugerida (puedes corregirla)<select aria-label={`Categoría para ${item.nombre}`} value={categoriaId} onChange={event => setCategoriasCorregidas(current => ({ ...current, [item.itemId]: event.target.value as CategoriaSugeribleBodegaId }))} className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3">{Object.entries(CATEGORIAS_BODEGA).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
-            <span className="text-xs text-muted-foreground">{item.estado === "SUGERIDA" ? "Coincidencia local" : "Revisión manual"}</span>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">{item.razon}</p>
-          {item.estado === "REVISAR" && <a href={construirBusquedaWebProducto(item.nombre)} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block rounded-lg border border-border px-3 py-2 text-xs font-semibold">Buscar en Google</a>}
-          <button type="button" onClick={() => { setCategoria(current => ({ ...current, nombre: CATEGORIAS_BODEGA[categoriaId] })); setCategoriaAbierta(true) }} className="mt-2 ml-2 rounded-lg border border-border px-3 py-2 text-xs font-semibold">Preparar en formulario de categoría</button>
-        </article>
-      })}</div>}
-      <p className="mt-3 text-xs text-muted-foreground">Las sugerencias no se guardan ni crean productos o categorías. Puedes preparar el nombre en el formulario de abajo y confirmar allí la creación manual.</p>
-    </details>
-    {empresaId === "distribuidora-las-jimenez" && <DianaCatalogImporter tenantId={empresaId} espacios={espacios} onRunningChange={setImportandoCatalogo} />}
     <div className="my-6 flex flex-col gap-3 border-t border-border/60 pt-6 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-lg font-semibold tracking-tight">{catalogo === "BODEGA" ? "Productos de Bodega" : "Productos de Nevera"} <span className="ml-2 rounded-lg bg-primary/5 px-2 py-1 text-xs text-primary">{productosVisibles.length}</span></h2><p className="mt-1 text-sm text-muted-foreground">Precios, presentaciones y disponibilidad de este catálogo.</p></div><div className="grid w-full gap-2 sm:max-w-2xl sm:grid-cols-2"><BodegaSearch label="Buscar productos" placeholder="Buscar por nombre..." value={busquedaCatalogo} onChange={setBusquedaCatalogo} /><label className="grid gap-1 text-xs font-medium text-muted-foreground">Filtrar por categoría<select aria-label="Filtrar productos por categoría" value={categoriaFiltro} onChange={event => setCategoriaFiltro(event.target.value)} className="h-11 w-full rounded-xl border border-border/70 bg-background px-3 text-sm font-normal text-foreground"><option value="todas">Todas las categorías</option>{categoriasOrdenadas.map(item => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label></div></div>
-    {productosVisibles.length === 0 && <BodegaEmptyState icon={PackagePlus} title={productos.length === 0 ? "Catálogo vacío" : "Sin coincidencias"} description={productos.length === 0 ? "Importa el plan revisado o crea una categoría y producto para este catálogo." : "Prueba otro nombre o elige otra categoría."} />}
+    {productosVisibles.length === 0 && <BodegaEmptyState icon={PackagePlus} title={productos.length === 0 ? "Catálogo vacío" : "Sin coincidencias"} description={productos.length === 0 ? "Crea una categoría y agrega los productos de este catálogo." : "Prueba otro nombre o elige otra categoría."} />}
     <div className="grid gap-4 @4xl:grid-cols-2">{productosVisibles.map(p => {
       const items = presentaciones.filter(item => item.productoId === p.id)
       return <article key={p.id} className="@container/product min-w-0 rounded-2xl border border-border/70 bg-card p-5 shadow-xs">
@@ -280,7 +238,7 @@ function ClienteAdminRow({ cliente, onError }: { cliente: Cliente; onError(messa
 
 export function BodegaInventarioAdmin() {
   const [busqueda, setBusqueda] = useState("")
-  const [catalogo, setCatalogo] = useState<CatalogoImportId>("BODEGA")
+  const [catalogo, setCatalogo] = useState<CatalogoId>("BODEGA")
   const { productos, cargando } = useBodegaAdminData(catalogo)
   const [ediciones, setEdiciones] = useState<Record<string, number>>({})
   const [costos, setCostos] = useState<Record<string, number>>({})
@@ -292,7 +250,7 @@ export function BodegaInventarioAdmin() {
     {error && <ErrorBox>{error}</ErrorBox>}
     <div className="mb-6 grid gap-3 sm:grid-cols-2">
       <label className="grid gap-1 text-xs font-medium text-muted-foreground">Catálogo de inventario
-        <select aria-label="Catálogo de inventario" value={catalogo} onChange={event => { setCatalogo(event.target.value as CatalogoImportId); setEdiciones({}); setCostos({}) }} className="h-11 rounded-xl border border-border bg-background px-3 text-sm font-normal text-foreground">
+        <select aria-label="Catálogo de inventario" value={catalogo} onChange={event => { setCatalogo(event.target.value as CatalogoId); setEdiciones({}); setCostos({}) }} className="h-11 rounded-xl border border-border bg-background px-3 text-sm font-normal text-foreground">
           <option value="BODEGA">Bodega</option><option value="NEVERA">Nevera</option>
         </select>
       </label>
