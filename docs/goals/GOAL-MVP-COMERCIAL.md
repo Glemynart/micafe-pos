@@ -63,6 +63,18 @@
 - **Límites:** la aceptación de ADR-SAAS-097 permite implementar y probar en PR/Emulator, pero no ejecutar apertura, registrar ventas, modificar Rules ni desplegar remotamente. No implica aprobación fiscal o contable de reportes como declaración DIAN.
 - **Estado:** expansión de alcance y arquitectura aprobadas; implementación, certificación de E2.2, Gate I y declaración de Bodega lista para vender continúan pendientes.
 
+## Checkpoint post-merge PR #699 — proveedores Bodega (2026-10-30)
+
+- PR #699 quedó integrado por squash en `main @ 8b3e7e3215a9b0ceb59158557f56a944c8cc5dec`. Habilita desde Compras Bodega el directorio tenant-aware de proveedores existente; altas, cambios e inactivaciones siguen usando callables con autorización de admin, mientras Firestore mantiene las escrituras directas denegadas.
+- Los checks del PR `Tipos y pruebas`, Vercel y Vercel Preview Comments terminaron `SUCCESS`. El CI post-merge `41094177667` se encontraba `in_progress` al registrar este checkpoint. El merge no crea proveedores ni registra compras.
+
+## Aceptación de ADR-SAAS-098 — recibo interno de venta Bodega (2026-10-30)
+
+- **Goal / Milestone / Epic:** `G-SAAS-02 → M2 → E2.2`, con certificación posterior en `M3 / E3.1`.
+- **Decisión:** el responsable aceptó asignar un consecutivo interno, único por tenant, al confirmar la entrega y materializar la venta canónica Bodega. El documento se titulará **“Recibo interno de venta”**, conservará un snapshot comercial inmutable y podrá imprimirse o reimprimirse sin escrituras. Para ventas a crédito mostrará el saldo inicial; los abonos posteriores no alteran el recibo histórico.
+- **Límite:** el recibo llevará la leyenda “No es factura electrónica ni documento fiscal”. No sustituye facturación DIAN, no numera solicitudes previas y no cambia los contratos de aprobación, entrega, inventario, crédito o abonos de ADR-SAAS-062/064/091. La aceptación habilita implementación y pruebas en PR; despliegue y emisión productiva requieren gates separados.
+- **Estado:** arquitectura aceptada; implementación pendiente. Detalle: [ADR-SAAS-098](../../ADR-SAAS-098-bodega-comprobante-interno-venta.md).
+
 ## Aceptación de ADR-SAAS-094 — 2026-10-27
 
 - **Goal / Milestone / Epic:** `G-SAAS-02 → M2 → E2.2`; Gate I y la validación operativa continúan pendientes.
