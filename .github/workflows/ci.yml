@@ -360,6 +360,9 @@ jobs:
       - name: Pruebas de Functions
         run: npm run test:auth-foundation
 
+      - name: Confirmación de ventas Bodega y folio concurrente en Firestore Emulator
+        run: npx firebase --project demo-bodega-u3c-confirmacion emulators:exec --only firestore "npm --prefix functions run test:bodega-sale-confirmation:emulator"
+
       - name: Prueba integrada de consulta comercial en Firestore Emulator
         run: npx firebase --project demo-e2-2-commercial-callable emulators:exec --only firestore "npm --prefix functions run test:commercial-offer-callable:emulator"
 

@@ -99,12 +99,15 @@ function seed(overrides: { saldoPendienteCOP?: number; totalAbonadoCOP?: number;
 
 test("abono parcial append-only actualiza saldos e idempotencia sin exponer costos en la consulta", async () => {
   const db = seed();
+  const reciboHistorico = { version: "BODEGA_RECIBO_INTERNO_V1", folioInterno: "BOD-000001", saldoInicialCOP: 10000, fechaConfirmacionIso: "2026-10-30T15:00:00.000Z" };
+  db.docs.get("ventas/venta-credito-a")!.reciboInterno = reciboHistorico;
   const data = command("uno");
   const first = await ejecutarRegistrarAbonoVentaBodegaV1(db, contexto, data);
   const replay = await ejecutarRegistrarAbonoVentaBodegaV1(db, contexto, data);
   assert.deepEqual(replay, first);
   assert.equal(first.saldoPendienteCOP, 6000);
   assert.equal(db.docs.get("ventas/venta-credito-a")?.totalAbonadoCOP, 4000);
+  assert.deepEqual(db.docs.get("ventas/venta-credito-a")?.reciboInterno, reciboHistorico);
   assert.equal(db.docs.get("clientes/cliente-credito-a")?.saldoPendienteBodegaCOP, 6000);
   assert.equal(db.docs.get("cuentas_bancarias/bancolombia")?.saldo, 4000);
   assert.equal(movements(db), 1);
