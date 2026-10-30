@@ -1,16 +1,17 @@
-# ADR-SAAS-098 — Comprobante interno numerado para ventas Bodega
+# ADR-SAAS-098 — Recibo interno numerado de venta Bodega
 
 ## Estado
 
-**PROPUESTO — 2026-10-30. No aprobado.**
+**ACEPTADO — 2026-10-30 por el responsable del proyecto.**
 
 - **Goal / Milestone / Epic:** `G-SAAS-02 → M2 → E2.2`, con certificación
   posterior en `M3 / E3.1`.
 - **Decisor de alcance:** responsable del proyecto.
 - **Recomendación técnica:** Lead Engineer.
 - **Relacionados:** ADR-SAAS-042, ADR-SAAS-062, ADR-SAAS-064 y ADR-SAAS-091.
-- **Límite:** esta propuesta no autoriza implementación, despliegue, emisión de
-  documentos productivos ni escrituras en Firebase.
+- **Límite:** la aceptación habilita la implementación y sus pruebas en PR.
+  No autoriza despliegues, emisión de documentos en producción ni escrituras
+  en Firebase.
 
 ## Contexto
 
@@ -69,7 +70,7 @@ entrega. El papel se llamaría **pedido** y no factura ni comprobante de venta.
 - **Resultado:** viable solo si la necesidad principal es numerar solicitudes,
   no emitir una evidencia de la mercancía efectivamente entregada.
 
-### Opción C — Comprobante interno numerado al confirmar la venta entregada
+### Opción C — Recibo interno numerado al confirmar la venta entregada
 
 Asignar el consecutivo dentro de la misma operación server-authoritative que
 confirma la venta Bodega al entregar el pedido. Guardar en la venta un snapshot
@@ -98,9 +99,9 @@ electrónica o modalidad fiscal aplicable al tenant.
 - **Resultado:** fuera de este ADR; requiere decisión y certificación fiscal
   separadas.
 
-## Decisión recomendada
+## Decisión aceptada
 
-Adoptar la **Opción C** y mostrar el documento como **“Comprobante interno de
+Adoptar la **Opción C** y mostrar el documento como **“Recibo interno de
 venta”**. Aunque en conversación se le llame “factura interna”, el título
 impreso no debe afirmar que sea factura electrónica, documento equivalente,
 soporte fiscal o documento con numeración DIAN.
@@ -109,7 +110,7 @@ El consecutivo se asignará únicamente cuando se confirme la entrega y se cree
 la venta canónica. La venta puede quedar pagada o pendiente de pago de acuerdo
 con ADR-SAAS-091. La solicitud o agenda previa no consume un número de venta.
 
-### Contrato propuesto
+### Contrato aprobado
 
 - El servidor asigna un entero consecutivo monotónico, único por tenant y tipo
   de documento Bodega. El cliente no propone ni puede modificar el número.
@@ -139,8 +140,8 @@ con ADR-SAAS-091. La solicitud o agenda previa no consume un número de venta.
 - La presentación será imprimible desde Web/PWA. No se exige un proveedor
   externo ni guardar un PDF generado en Storage.
 
-El documento debe incluir una leyenda visible: **“Comprobante interno de
-venta. No es factura electrónica ni documento fiscal.”** La factura electrónica
+El documento debe incluir una leyenda visible: **“Recibo interno de venta. No
+es factura electrónica ni documento fiscal.”** La factura electrónica
 o la modalidad de documento equivalente que corresponda a Diana se mantiene
 separada y no queda satisfecha por este comprobante.
 
@@ -206,19 +207,16 @@ dependencias, reglas efectivas y orden de despliegue antes de publicarse.
   correcciones financieras se realizan con los comandos compensatorios
   existentes; nunca editando la secuencia o borrando el comprobante.
 
-## Decisiones que siguen pendientes
+## Decisiones de implementación que permanecen abiertas
 
-- Aceptar o rechazar la Opción C y el momento propuesto de emisión: al confirmar
-  la entrega como venta canónica, no al crear el pedido previo.
-- Confirmar el rótulo recomendado “Comprobante interno de venta”. El título
-  “Factura” no se usará como afirmación fiscal; si se requiere factura fiscal,
-  habrá que abrir un alcance de readiness/Integración DIAN separado.
 - El diseño visual final del papel (carta, media carta o ticket) se define en
   el PR de interfaz, sin cambiar el contrato de datos ni la autoridad del folio.
 
 ## Registro de aprobación
 
-Pendiente. La instrucción del responsable de que sea un documento interno para
-entregar al cliente aprueba esa intención de producto, pero esta ADR presenta
-para revisión la autoridad, secuencia, snapshot y momento de emisión. No se
-registrará como aceptada hasta recibir aprobación explícita de esta decisión.
+El responsable aprobó la Opción C: consecutivo transaccional al confirmar la
+entrega como venta canónica, con snapshot inmutable e impresión/reimpresión de
+solo lectura. Confirmó el rótulo **“Recibo interno de venta”**. La leyenda
+visible aclara que no es factura electrónica ni documento fiscal. La aprobación
+autoriza implementar y probar en PR; despliegue, emisión productiva y cualquier
+escritura remota conservan sus gates operativos independientes.

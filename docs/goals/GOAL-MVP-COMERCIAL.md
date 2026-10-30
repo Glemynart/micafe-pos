@@ -63,6 +63,13 @@
 - **Límites:** la aceptación de ADR-SAAS-097 permite implementar y probar en PR/Emulator, pero no ejecutar apertura, registrar ventas, modificar Rules ni desplegar remotamente. No implica aprobación fiscal o contable de reportes como declaración DIAN.
 - **Estado:** expansión de alcance y arquitectura aprobadas; implementación, certificación de E2.2, Gate I y declaración de Bodega lista para vender continúan pendientes.
 
+## Aceptación de ADR-SAAS-098 — recibo interno de venta Bodega (2026-10-30)
+
+- **Goal / Milestone / Epic:** `G-SAAS-02 → M2 → E2.2`, con certificación posterior en `M3 / E3.1`.
+- **Decisión:** el responsable aceptó asignar un consecutivo interno, único por tenant, al confirmar la entrega y materializar la venta canónica Bodega. El documento se titulará **“Recibo interno de venta”**, conservará un snapshot comercial inmutable y podrá imprimirse o reimprimirse sin escrituras. Para ventas a crédito mostrará el saldo inicial; los abonos posteriores no alteran el recibo histórico.
+- **Límite:** el recibo llevará la leyenda “No es factura electrónica ni documento fiscal”. No sustituye facturación DIAN, no numera solicitudes previas y no cambia los contratos de aprobación, entrega, inventario, crédito o abonos de ADR-SAAS-062/064/091. La aceptación habilita implementación y pruebas en PR; despliegue y emisión productiva requieren gates separados.
+- **Estado:** arquitectura aceptada; implementación pendiente. Detalle: [ADR-SAAS-098](../../ADR-SAAS-098-bodega-comprobante-interno-venta.md).
+
 ## Aceptación de ADR-SAAS-094 — 2026-10-27
 
 - **Goal / Milestone / Epic:** `G-SAAS-02 → M2 → E2.2`; Gate I y la validación operativa continúan pendientes.
