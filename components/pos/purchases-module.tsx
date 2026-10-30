@@ -138,12 +138,8 @@ export function PurchasesModule() {
   }, [esBodega, showPurchaseDialog])
 
   useEffect(() => {
-    if (esBodega) {
-      setProveedores([])
-      return
-    }
     return suscribirProveedores(setProveedores)
-  }, [esBodega])
+  }, [])
 
   useEffect(() => {
     if (!espacioId) return
@@ -342,9 +338,9 @@ export function PurchasesModule() {
             <Plus className="h-5 w-5 mr-2" />
             Registrar Compra
           </Button>
-          {!esBodega && <Button variant="outline" onClick={() => setShowProvidersDialog(true)} className="h-12 rounded-2xl font-bold px-4">
+          <Button variant="outline" onClick={() => setShowProvidersDialog(true)} className="h-12 rounded-2xl font-bold px-4">
             Proveedores
-          </Button>}
+          </Button>
         </div>
       </div>
 
@@ -490,7 +486,10 @@ export function PurchasesModule() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Proveedor</Label>
-                  {!esBodega && <Select value={proveedorId || '__manual__'} onValueChange={(value) => setProveedorId(value === '__manual__' ? '' : value)}>
+                  <Select value={proveedorId || '__manual__'} onValueChange={(value) => {
+                    setProveedorId(value === '__manual__' ? '' : value)
+                    if (value !== '__manual__') setProveedor('')
+                  }}>
                     <SelectTrigger className="bg-input">
                       <SelectValue placeholder="Selecciona un proveedor" />
                     </SelectTrigger>
@@ -500,8 +499,8 @@ export function PurchasesModule() {
                         <SelectItem key={item.id} value={item.id}>{item.nombre}</SelectItem>
                       ))}
                     </SelectContent>
-                  </Select>}
-                  {(esBodega || !proveedorId) && (
+                  </Select>
+                  {!proveedorId && (
                     <Input
                       value={proveedor}
                       onChange={(e) => setProveedor(e.target.value)}
@@ -667,14 +666,14 @@ export function PurchasesModule() {
         </DialogContent>
       </Dialog>
 
-      {!esBodega && <Dialog open={showProvidersDialog} onOpenChange={setShowProvidersDialog}>
+      <Dialog open={showProvidersDialog} onOpenChange={setShowProvidersDialog}>
         <DialogContent className="bg-card border-border sm:max-w-5xl h-[80vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle className="sr-only">Gestión de proveedores</DialogTitle>
           </DialogHeader>
           <ProveedoresModule />
         </DialogContent>
-      </Dialog>}
+      </Dialog>
 
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
         <DialogContent className="bg-card border-border max-w-lg">
