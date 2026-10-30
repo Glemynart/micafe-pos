@@ -1,6 +1,7 @@
 import { getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { exigirTenantActivo } from "../tenant-configuration/authority";
+import { normalizarReciboInternoVentaBodega } from "../../../lib/bodega/recibo-interno";
 
 const REGION = "us-central1";
 const fail = (code: HttpsError["code"], message: string): never => { throw new HttpsError(code, message); };
@@ -41,6 +42,7 @@ export function proyectarVentaVendedor(venta: Record<string, any>) {
     totalAbonadoCOP: montoSeguro(venta.totalAbonadoCOP),
     saldoPendienteCOP: montoSeguro(venta.saldoPendienteCOP),
     fechaCompromisoPagoLocal: text(venta.fechaCompromisoPagoLocal) ? venta.fechaCompromisoPagoLocal : null,
+    reciboInterno: normalizarReciboInternoVentaBodega(venta.reciboInterno),
   };
 }
 

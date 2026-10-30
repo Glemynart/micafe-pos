@@ -1,3 +1,5 @@
+import { normalizarReciboInternoVentaBodega, type ReciboInternoVentaBodega } from "@/lib/bodega/recibo-interno"
+
 export const MAX_LINEAS_BODEGA = 50
 
 export type MetodoPagoBodega = "efectivo" | "transferencia" | "pendiente"
@@ -204,6 +206,7 @@ export interface ResultadoVentaBodegaCompletada {
   movimientosInventario: string[]
   turnoId: string | null
   solicitudId?: string
+  reciboInterno: ReciboInternoVentaBodega
 }
 
 export interface ResultadoSolicitudVentaInvalidada {
@@ -231,6 +234,7 @@ export interface VentaVendedorDTO {
   totalAbonadoCOP?: number | null
   saldoPendienteCOP?: number | null
   fechaCompromisoPagoLocal?: string | null
+  reciboInterno?: ReciboInternoVentaBodega | null
 }
 
 export interface VentaBodegaAdminDTO {
@@ -246,6 +250,7 @@ export interface VentaBodegaAdminDTO {
   montoRecibidoCOP: number | null
   cambioCOP: number | null
   saldoPendienteCOP: number | null
+  reciboInterno?: ReciboInternoVentaBodega | null
 }
 
 const montoCOPSeguro = (value: unknown): number | null => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null
@@ -264,6 +269,7 @@ export function proyectarVentaBodegaAdmin(id: string, data: Record<string, any>)
     montoRecibidoCOP: montoCOPSeguro(data.pago?.montoRecibidoCOP),
     cambioCOP: montoCOPSeguro(data.pago?.cambioCOP),
     saldoPendienteCOP: montoCOPSeguro(data.saldoPendienteCOP),
+    reciboInterno: normalizarReciboInternoVentaBodega(data.reciboInterno),
   }
 }
 

@@ -86,8 +86,9 @@ test("venta Bodega materializada por U3-C aparece únicamente en las ventas del 
   assert.equal(ventas.ventas.length, 1);
   assert.equal(ventas.ventas[0]?.total, 1000);
   assert.equal(ventas.ventas[0]?.cliente, "Tienda");
+  assert.equal(ventas.ventas[0]?.reciboInterno?.folioInterno, "BOD-000001");
   assert.equal(JSON.stringify(ventas).includes("cajeroId"), false);
-  assert.equal(JSON.stringify(ventas).includes("costoUnitario"), false);
+  assert.equal(JSON.stringify(ventas).includes("costo"), false);
   assert.equal([...fake.docs.values()].find(value => value.schemaVersion === "BODEGA_MVP1_V1")?.cajeroId, actorUid);
   assert.equal(fake.docs.has(`turnos_activos/${crearIdentificadorInterno(empresaId, actorUid)}`), false);
 });

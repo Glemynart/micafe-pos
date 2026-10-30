@@ -14,6 +14,8 @@ import { SCHEMA_VERSION_VENTA_BODEGA, SCHEMA_VERSION_VENTA_BODEGA_CREDITO, norma
 import { aplicarConsumosInventarioBodegaEnTransaccion, resolverVentaBodegaEnTransaccion } from "./ventas-resolution";
 import { esCambioComercialNoVigente, proyectarComercialSolicitud } from "./solicitudes-venta";
 import { marcarSenalDisponibilidadBodega, marcarSenalSolicitudesAdminBodega, marcarSenalSolicitudesVendedorBodega } from "./live-signals";
+import { guardarSecuenciaReciboInterno, leerSiguienteSecuenciaReciboInterno } from "./recibo-interno-sequence";
+import { RECIBO_INTERNO_BODEGA_VERSION, type ReciboInternoVentaBodega } from "../../../lib/bodega/recibo-interno";
 
 const REGION = "us-central1";
 const AGENDA = "agenda_pedidos_bodega";
@@ -204,6 +206,17 @@ export async function ejecutarConfirmarVentaBodegaV1(db: any, contexto: Contexto
       ? await prepararConsumoReservaAgenda(tx, firestore, empresaId, solicitud, resolucion, Date.now())
       : null;
 
+    // Se lee antes de cualquier escritura. El contador y la venta se confirman
+    // en esta misma transacción, por lo que no consume folios en fallos/replays.
+    const empresaSnapshot = await tx.get(firestore.collection("empresas").doc(empresaId));
+    if (!empresaSnapshot.exists || empresaSnapshot.data()?.estado === undefined) fail("failed-precondition", "EMPRESA_NO_OPERATIVA");
+    let secuenciaRecibo;
+    try { secuenciaRecibo = await leerSiguienteSecuenciaReciboInterno(tx, firestore, empresaId); }
+    catch (error) {
+      if (error instanceof Error && error.message === "SECUENCIA_RECIBO_INTERNO_INVALIDA") fail("failed-precondition", "SECUENCIA_RECIBO_INTERNO_INVALIDA");
+      throw error;
+    }
+
     // Todas las lecturas (autoridad, hechos comerciales, cuenta, turno y venta)
     // ya ocurrieron; el ledger estricto conserva sus propias lecturas antes de escribir.
     let movimientosInventario;
@@ -227,6 +240,48 @@ export async function ejecutarConfirmarVentaBodegaV1(db: any, contexto: Contexto
       tipo: "ingreso", monto: total, categoria: "ventas", actorUid, rol, turnoId, ventaId,
     }) : null;
     const lineas = lineasPersistidas(resolucion.lineas);
+    const fechaConfirmacionIso = new Date().toISOString();
+    const descuentoCOP = resolucion.lineas.reduce((sum, linea) => {
+      const descuentoUnitario = Math.max(0, linea.precioBasePresentacionCOP - linea.precioPresentacionCOP);
+      const siguiente = sum + descuentoUnitario * linea.cantidadPresentaciones;
+      if (!Number.isSafeInteger(siguiente)) fail("failed-precondition", "TOTAL_BODEGA_INVALIDO");
+      return siguiente;
+    }, 0);
+    const subtotalCOP = total + descuentoCOP;
+    if (!Number.isSafeInteger(subtotalCOP)) fail("failed-precondition", "TOTAL_BODEGA_INVALIDO");
+    const reciboInterno: ReciboInternoVentaBodega = {
+      version: RECIBO_INTERNO_BODEGA_VERSION,
+      empresaId,
+      nombreComercialSnapshot: typeof empresaSnapshot.data()?.nombreComercial === "string" && empresaSnapshot.data().nombreComercial.trim()
+        ? empresaSnapshot.data().nombreComercial.trim()
+        : null,
+      consecutivo: secuenciaRecibo.consecutivo,
+      folioInterno: secuenciaRecibo.folioInterno,
+      fechaConfirmacionIso,
+      cliente: { id: resolucion.cliente.id, nombre: resolucion.cliente.nombre },
+      lineas: resolucion.lineas.map(linea => ({
+        productoId: linea.productoId,
+        nombreProducto: linea.productoNombreSnapshot,
+        presentacionId: linea.presentacionId,
+        nombrePresentacion: linea.presentacionNombreSnapshot,
+        cantidad: linea.cantidadPresentaciones,
+        factorUnidadBase: linea.factorUnidadBase,
+        unidadBase: linea.unidadBaseSnapshot,
+        precioBaseCOP: linea.precioBasePresentacionCOP,
+        precioUnitarioCOP: linea.precioPresentacionCOP,
+        subtotalCOP: linea.subtotalCOP,
+        ofertaId: linea.ofertaId,
+      })),
+      subtotalCOP,
+      descuentoCOP,
+      totalCOP: total,
+      metodoPago: esPendiente ? "cuenta_cobro" : esEfectivo ? "efectivo" : "transferencia",
+      estadoPagoInicial: esPendiente ? "PENDIENTE" : "PAGADA",
+      saldoInicialCOP: esPendiente ? total : 0,
+      montoRecibidoCOP: esEfectivo ? montoRecibidoCOP! : null,
+      cambioCOP: esEfectivo ? cambioCOP! : null,
+    };
+    guardarSecuenciaReciboInterno(tx, empresaId, secuenciaRecibo);
     tx.create(ventaRef, {
       id: ventaId, empresaId, schemaVersion: esPendiente ? SCHEMA_VERSION_VENTA_BODEGA_CREDITO : SCHEMA_VERSION_VENTA_BODEGA,
       estado: esPendiente ? "pendiente" : "pagada", estadoOperativo: "COMPLETO", modoOperacion: "BODEGA_MVP1",
@@ -237,6 +292,7 @@ export async function ejecutarConfirmarVentaBodegaV1(db: any, contexto: Contexto
       pago: { metodo: esPendiente ? "cuenta_cobro" : comando.payload.metodoPago, ...(esEfectivo ? { montoRecibidoCOP, cambioCOP } : {}) },
       ...(esPendiente ? { totalAbonadoCOP: 0, saldoPendienteCOP: total } : {}),
       turnoId, totales: { subtotal: total, impuestos: 0, total },
+      reciboInterno,
       commandId: comando.commandId, idempotencyKey: comando.idempotencyKey,
       correlationId: comando.correlationId, causationId: comando.causationId,
       fecha: FieldValue.serverTimestamp(), efectosOperativosEn: FieldValue.serverTimestamp(),
@@ -268,6 +324,7 @@ export async function ejecutarConfirmarVentaBodegaV1(db: any, contexto: Contexto
     return {
       commandId: comando.commandId, ventaId, estadoOperativo: "COMPLETO" as const,
       metodoPago: esPendiente ? "cuenta_cobro" : comando.payload.metodoPago, total,
+      reciboInterno,
       ...(esPendiente ? { estado: "pendiente", saldoPendienteCOP: total } : {}),
       ...(esEfectivo ? { montoRecibidoCOP, cambioCOP } : {}),
       ...(solicitudId ? { solicitudId } : {}),
