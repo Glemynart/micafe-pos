@@ -442,7 +442,7 @@ test("U3-C Emulator: doble confirmación real conserva un único conjunto atómi
     assert.equal((await db.collection("operaciones_comandos").where("empresaId", "==", empresa).get()).size, 2);
     assert.equal((await db.collection("transacciones_financieras").where("empresaId", "==", empresa).get()).size, 2);
     const inventario = await db.collection("movimientos_inventario").where("empresaId", "==", empresa).get();
-    assert.equal(inventario.size, 2); assert.deepEqual(inventario.docs.map(doc => doc.data().cantidad).sort(), [-6, -1]);
+    assert.equal(inventario.size, 2); assert.deepEqual(inventario.docs.map(doc => doc.data().cantidad).sort((a, b) => a - b), [-6, -1]);
     assert.equal((await db.collection("productos").doc(productoId).get()).data()?.stock, 4);
     assert.equal((await db.collection("productos").doc(`${productoId}-2`).get()).data()?.stock, 9);
     assert.equal((await db.collection("empresas").doc(empresa).collection("secuencias_documentales").doc("recibo-interno-venta-bodega").get()).data()?.ultimoConsecutivo, 2);
