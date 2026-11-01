@@ -60,7 +60,7 @@ export async function enviarPushAdmins(params: PushParams): Promise<{ enviados: 
         if (TOKEN_INVALID_CODES.has(code)) {
           tokensInvalidos.push(token)
         } else {
-          console.error(`[push] Error enviando a token ${token.slice(0, 12)}...:`, code || err?.message)
+          console.error('[push] Error enviando notificación FCM:', code || 'unknown')
         }
       }
     }
@@ -71,9 +71,9 @@ export async function enviarPushAdmins(params: PushParams): Promise<{ enviados: 
           fcmTokens: FieldValue.arrayRemove(...tokensInvalidos)
         })
         purgados += tokensInvalidos.length
-        console.log(`[push] Purgados ${tokensInvalidos.length} tokens inválidos de ${userDoc.id}`)
+        console.log(`[push] Purgados ${tokensInvalidos.length} tokens FCM inválidos`)
       } catch (err) {
-        console.error(`[push] Error purgando tokens de ${userDoc.id}:`, err)
+        console.error('[push] Error purgando tokens FCM inválidos:', err instanceof Error ? err.name : 'unknown')
       }
     }
   }
