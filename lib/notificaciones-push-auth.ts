@@ -28,9 +28,9 @@ export function puedeEnviarPushTenant(
   claims: ClaimsPush,
   membresia: MembresiaPush | undefined,
 ): boolean {
-  if (!claimsPushAutorizados(claims)) return false
+  if (!claimsPushAutorizados(claims) || !membresia) return false
 
-  return membresia?.uid === claims.uid
+  return membresia.uid === claims.uid
     && membresia.empresaId === claims.empresaId
     && membresia.rol === claims.rol
     && membresia.estado === 'activa'
