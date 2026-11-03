@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
-import { getAdminAuth } from '@/lib/firebase-admin'
+import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin'
 import { enviarPushAdmins } from '@/lib/notificaciones-push'
+import { procesarSolicitudPush } from '@/lib/notificaciones-push-endpoint'
+import type { ClaimsPush } from '@/lib/notificaciones-push-auth'
 
 // D-NOTIF-02 D3: '*' es seguro porque la auth es Bearer idToken (no cookies),
 // sin Access-Control-Allow-Credentials.
@@ -19,38 +21,15 @@ export async function OPTIONS() {
 }
 
 export async function POST(req: Request) {
-  try {
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return jsonCors({ error: 'No autorizado' }, 401)
-    }
+  const resultado = await procesarSolicitudPush(req, {
+    verifyIdToken: async (token, checkRevoked) =>
+      await getAdminAuth().verifyIdToken(token, checkRevoked) as ClaimsPush,
+    obtenerMembresia: async (empresaId, uid) => {
+      const snap = await getAdminDb().collection('membresias').doc(`${empresaId}_${uid}`).get()
+      return snap.exists ? snap.data() : undefined
+    },
+    enviarPushAdmins,
+  })
 
-    const idToken = authHeader.split('Bearer ')[1]
-    const decoded = await getAdminAuth().verifyIdToken(idToken)
-
-    const rol = decoded.rol
-
-    if ((rol !== 'admin' && rol !== 'cajero' && rol !== 'supervisor') || typeof decoded.empresaId !== 'string') {
-      return jsonCors({ error: 'Permisos insuficientes' }, 403)
-    }
-
-    const body = await req.json()
-    const { title, message, url } = body
-
-    if (!title || typeof title !== 'string' || !message || typeof message !== 'string') {
-      return jsonCors({ error: 'Se requieren title y message (string)' }, 400)
-    }
-
-    const result = await enviarPushAdmins({
-      empresaId: decoded.empresaId,
-      title,
-      body: message,
-      url: typeof url === 'string' ? url : undefined,
-    })
-
-    return jsonCors({ success: true, ...result })
-  } catch (error: any) {
-    console.error('Error enviando notificacion:', error)
-    return jsonCors({ error: error.message }, 500)
-  }
+  return jsonCors(resultado.body, resultado.status)
 }
