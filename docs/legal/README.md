@@ -18,6 +18,11 @@ Hobby y sus límites; la exportación se diseña en
 [ADR-SAAS-100 Propuesto](../../ADR-SAAS-100-exportacion-salida-tenant.md).
 Ninguno de esos resultados acredita firma de contratos o entrega de datos reales.
 
+El [cierre de comprobaciones accesibles](CIERRE-COMPROBACIONES-2026-11.md)
+incorpora las respuestas del prestador, ciclos reales de Storage/logs, ausencia
+de TTL y metadatos de 48 colecciones raíz. Identifica las capacidades todavía
+no implementadas que impiden declarar exigibilidad o cumplimiento completo.
+
 Trazabilidad: `G-SAAS-02 → M2 → E2.2`, preparación documental del onboarding
 comercial autorizada por el responsable en este chat. Base técnica:
 `ce70af69754d98d5d61311dd2673423a9d471eef`.

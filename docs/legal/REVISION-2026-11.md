@@ -25,6 +25,10 @@ también que los ciclos internos Google impiden extender el plazo del schedule
 FireStore a una promesa global de eliminación física. ADR-SAAS-100 propone la
 entrega completa por tenant, todavía pendiente de aprobación e implementación.
 
+El [cierre de comprobaciones](CIERRE-COMPROBACIONES-2026-11.md) registra los
+límites finales: supresión integral y exportador siguen sin implementación
+verificada; no son comprobaciones pendientes que se resuelvan con otra auditoría.
+
 | Requisito | Resultado y acción necesaria |
 |---|---|
 | Identificar al prestador | Incluido nombre, NIT, dirección, correo y teléfono. RUT no verificado. |

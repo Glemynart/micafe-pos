@@ -4,6 +4,11 @@ Fecha: 2026-11-23. Estado: **PROPUESTO PARA APROBACIÓN; NO ACTIVADO**.
 Complementa los borradores y ADR-SAAS-099; no crea obligaciones aceptadas ni
 ejecuta borrado, exportación, migración o cambios de proveedor.
 
+La [comprobación posterior](CIERRE-COMPROBACIONES-2026-11.md) confirmó Gmail
+personal, términos online Google, soft delete de siete días en Storage y logs
+globales de 30/400 días. Los plazos propuestos de esta matriz no son políticas
+efectivas de esos servicios; los logs obligatorios se tratan por separado.
+
 ## 1. Evidencia comprobada
 
 Consulta remota exclusivamente de metadatos en `micafe-pos`, el 2026-11-23:

@@ -3,6 +3,11 @@
 Fecha: 2026-11-23. Revisión pública de instrumentos y consultas autenticadas de
 metadatos; no acredita firma por el prestador ni sustituye análisis jurídico.
 
+Actualización: el prestador confirmó Gmail personal y contratación online Google
+sin contrato aparte. La tabla por producto y las comprobaciones técnicas quedan
+en [cierre de comprobaciones](CIERRE-COMPROBACIONES-2026-11.md). Esto resuelve el
+tipo de cuenta/régimen declarado; no inventa fecha o versión histórica aceptada.
+
 ## Google
 
 Los [términos Firebase](https://firebase.google.com/terms) remiten a instrumentos
@@ -54,18 +59,21 @@ coste independiente. No se cambió plan, integración o protecciones en esta rev
 
 ## Correo
 
-El contacto declarado es una dirección `@gmail.com`. No permite inferir si hay
-servicio Workspace/Personal contratado, acuerdo empresarial, MFA o administración
-organizacional. No se consultó su bandeja ni configuración privada.
+El prestador confirmó que el contacto es Gmail personal. No se verificaron MFA,
+recepción ni configuración privada; no se consultó la bandeja de correo.
 
 La [documentación Google de cuentas gestionadas](https://support.google.com/accounts/answer/181692?hl=es)
 distingue el contrato empresarial de los términos de servicios adicionales.
 No afirmar que el Cloud DPA cubre automáticamente el correo personal.
 
-**Pendiente concreto:** confirmar tipo de cuenta y términos aplicables; comprobar
-recepción y protección del canal. El expediente mínimo puede llevar identificador
+**Pendiente concreto:** comprobar recepción y protección del canal y el tratamiento
+que se hará de la correspondencia. El expediente mínimo puede llevar identificador
 y enlace a entrega autenticada; no adjuntar bases completas, credenciales o PIN.
 Un buzón empresarial es una alternativa, no una compra autorizada en este corte.
+
+El tipo de cuenta ya quedó confirmado como personal. La recomendación es minimizar
+datos en el correo y no asumir cobertura Workspace. El plan por sí solo no decide
+si cada uso es lícito o ilícito: falta contrastar finalidad, rol y salvaguardas.
 
 ## GitHub y evidencia de aceptación
 
