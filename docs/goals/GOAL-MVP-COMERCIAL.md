@@ -29,8 +29,9 @@
   y App Hosting. Corregir el bloqueo de seguridad demostrado de Next.js 16.4.1
   mediante parche de la serie 16.4 antes de integrar.
 - **Estado:** implementación local en curso. Exportación integral, supresión y
-  aceptación obligatoria no se declaran disponibles. ADR-SAAS-099 y ADR-SAAS-101
-  siguen Propuestos; los términos no se vuelven exigibles con este evento.
+  aceptación obligatoria no se declaran disponibles. ADR-SAAS-101 fue aceptado
+  expresamente para implementación y pruebas sintéticas en Emulator, sin borrados
+  reales. ADR-SAAS-099 sigue Propuesto; los términos no se vuelven exigibles.
 
 - Provisionamiento reproducible de un tenant de referencia.
 - Onboarding DEMO como ruta inicial recomendada cuando el cliente no requiera fiscalidad real.

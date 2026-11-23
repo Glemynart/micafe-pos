@@ -2,10 +2,11 @@
 
 ## Estado
 
-**Propuesto**, 2026-11-23. `G-SAAS-02 → M2 → E2.2`.
-La orden de resolver las deficiencias autoriza investigación, propuesta y
-herramientas de preflight. No se atribuye aprobación a estas nuevas reglas de
-destrucción ni se supersede implícitamente la inmutabilidad de ledger/contratos.
+**Aceptado para implementación y pruebas locales**, 2026-11-23.
+`G-SAAS-02 → M2 → E2.2`. El responsable aprobó expresamente
+«Aprobar ADR-SAAS-101 para pruebas locales». La aprobación permite ensayos
+sintéticos en Emulator; no autoriza borrados reales ni altera la inmutabilidad
+operativa de ledger/contratos en producción.
 
 ## Problema
 
@@ -27,7 +28,7 @@ incumplir deberes de conservación o afectar referencias/usuarios compartidos.
 
 C. Conservar todo indefinidamente. Rechazada: contradice finalidad y temporalidad.
 
-## Diseño propuesto
+## Diseño aceptado para ensayo local
 
 - Preflight no mutante con proyecto, tenant, terminación efectiva, entrega de
   datos, fundamento/plazo por categoría, referencias y holds legales verificados.
@@ -41,7 +42,7 @@ C. Conservar todo indefinidamente. Rechazada: contradice finalidad y temporalida
   de comercio si existe deber legal vigente sin la revisión correspondiente.
 - Al concluir conservación, destrucción de ese archivo únicamente mediante nuevo
   corte autorizado que resuelva expresamente la excepción a la inmutabilidad de
-  conservación. Este ADR propuesto todavía no concede esa excepción.
+  conservación. Este ADR no concede esa excepción para datos reales.
 - Identidad Auth solo si es exclusiva, no existen otras membresías/dependencias
   y la autorización la incluye. Nunca `deleteUser` por un UID de payload aislado.
 - Objetos Storage: ruta y generación exactas; registrar soft delete de siete días
@@ -64,9 +65,14 @@ verificar ausencia dirigida y conservación del tenant vecino. Recuperación nun
 es restaurar una base global sobre producción; reanudación idempotente y revisión
 por categoría, con restauración solo si es legal y está expresamente autorizada.
 
-El primer corte de código incorpora **solo un planificador puro** que devuelve
-`PREVIEW_ONLY`, `executable=false`, bloqueos y referencias opacas. No implementa
-un ejecutor de borrado ni permite convertir el resultado en aprobación remota.
+El planificador puro conserva `PREVIEW_ONLY`, `executable=false`. El ejecutor de
+ensayo admite exclusivamente `demo-dusema-erasure`, loopback IPv4 y la colección
+sintética `legal_exit_fixtures`, con marcador de fixture obligatorio. No existe
+adaptador de destrucción de datos comerciales, Auth o Storage reales.
+El lote está limitado a 100 documentos sin subcolecciones: se verifica operador,
+retención, tenant y versión; eliminación y comprobante opaco se confirman
+atómicamente. La repetición verifica ausencia y rechaza documentos recreados.
+No hay reintento automático de commits cuyo resultado sea incierto.
 El borrado remoto sigue bloqueado aunque el preflight no encuentre obstáculos.
 
 Referencias: ADR-SAAS-028/029/031/093/094/096/097, ADR-SAAS-100 y

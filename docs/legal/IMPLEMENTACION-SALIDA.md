@@ -2,7 +2,7 @@
 
 Fecha: 2026-11-23. `G-SAAS-02 / M2 / E2.2`.
 ADR-SAAS-100 aceptado para implementar por la orden posterior «ok resuelve eso».
-ADR-SAAS-099 y ADR-SAAS-101 permanecen Propuestos. No hay aceptación legal real
+ADR-SAAS-101 aceptado expresamente para pruebas locales; ADR-SAAS-099 sigue Propuesto. No hay aceptación legal real
 del cliente ni cambios en producción atribuibles a estos archivos.
 
 ## Corte de proveedores
@@ -53,7 +53,7 @@ automática al importarlos:
 ## Límite material antes de usar datos reales
 
 **El núcleo no es todavía un exportador integral de producción.** La lista
-`PENDING_ROOTS` identifica configuraciones/contratos y otros dominios sin adaptador
+`PENDING_ROOTS` identifica dominios operativos y de auditoría sin adaptador
 completo. Si aparecen entre las colecciones raíz, se rechaza la exportación con
 `EXPORT_ADAPTER_REQUIRED` antes de generar un paquete. No consultar por empresaId
 un singleton que puede no tener ese campo para fingir que está vacío.
@@ -68,14 +68,27 @@ campos automáticamente usando payloads reales. No cambiar `PENDING_ROOTS` por
 vacío para conseguir un estado COMPLETE. El estado del manifiesto es
 `COMPLETE_DECLARED_SCOPE`, no certificación legal o fiscal.
 
-No existe ejecutor de purga. ADR-SAAS-101 propone resolver las invariantes de
-ledger/conservación antes de implementarlo. Un preview sin bloqueos sigue sin
-autorizar borrado. Tampoco está implementado el flujo de aceptación ADR-SAAS-099.
+Existe un ejecutor exclusivamente sintético en `emulator-erasure.mjs`, limitado
+a `demo-dusema-erasure`, `127.0.0.1` y fixtures marcados. No admite colecciones
+comerciales, Auth ni Storage. Revalida autorización por etapa, bloquea holds,
+identidades compartidas, ledger, evidencia contractual, referencias sin comprobar
+y entrega pendiente. Usa precondiciones updateTime y un comprobante atómico sin
+payloads personales; la repetición verifica ausencia y detecta recreación.
+No constituye un ejecutor productivo ni prueba eliminación física de backups.
+Un preview sin bloqueos sigue sin autorizar borrado real. Tampoco está
+implementado el flujo de aceptación ADR-SAAS-099.
+
+El inventario de metadatos identificó 48 raíces; nueve requieren aún adaptador:
+`agendas`, `auditoria_logs`, `comandas_cocina`, `configuracion`, `eventos_dominio`,
+`numeraciones`, `operaciones_auditoria`, `pedidos_activos`, `reservas`.
+Los adaptadores de configuración canónica y contratos ya tienen esquemas cerrados;
+esto no acredita cobertura de todos los documentos históricos.
 
 ## Validación reproducible
 
 ```powershell
 node --test scripts/legal/legal-tools.test.mjs
+npx firebase --project demo-dusema-erasure emulators:exec --only firestore "node --test scripts/legal/emulator-erasure.test.mjs"
 npx tsc --noEmit
 npm run build
 ```
@@ -85,3 +98,12 @@ abonos, cambios de autoridad, versión/campo desconocido, paginación, presupues
 snapshot vencido, generación/ruta de archivo, cifrado, clave errónea, alteración
 de contenido y salida privada en Windows. No se ejecutó exportación real ni
 supresión contra Firebase.
+
+Resultado local del 2026-11-23: 18 pruebas del núcleo de salida aprobadas,
+TypeScript aprobado y dos pruebas de supresión aprobadas con Firestore Emulator
+real y JDK 21 (ninguna omitida). El ensayo verificó tenant vecino, holds, identidad
+compartida, ledger/contrato, referencias, entrega, plazo, subcolecciones,
+revocación, conflicto updateTime, atomicidad, repetición y recreación.
+No se desplegaron herramientas ni se borraron datos reales. El ensayo usa una
+colección sintética específica: no acredita aún adaptadores de destrucción de
+documentos operativos, Auth, Storage o restauración de backups.

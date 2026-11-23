@@ -315,6 +315,9 @@ jobs:
       - name: Aislamiento y protección de herramientas de salida de datos
         run: node --test scripts/legal/legal-tools.test.mjs
 
+      - name: Supresión sintética y conservación en Firestore Emulator
+        run: npx firebase --project demo-dusema-erasure emulators:exec --only firestore "node --test scripts/legal/emulator-erasure.test.mjs"
+
       - name: Actualización del HTML de administración entre releases
         run: npm run test:admin-service-worker
 
