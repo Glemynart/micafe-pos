@@ -31,8 +31,7 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
   if (!Array.isArray(roots) || new Set(roots).size !== roots.length) fail('EXPORT_INVALID_ROOT_INVENTORY');
   for (const name of roots) {
     if (!SCHEMAS[name] && !INTERNAL_ROOTS.has(name) && !PENDING_ROOTS.has(name)) fail('EXPORT_UNKNOWN_COLLECTION');
-    // Missing canonical-path adapters must not masquerade as an empty tenant
-    // through a where(empresaId) query (some singleton docs have no such field).
+    // Missing adapters must not masquerade as empty tenant results.
     if (PENDING_ROOTS.has(name)) fail('EXPORT_ADAPTER_REQUIRED');
   }
 

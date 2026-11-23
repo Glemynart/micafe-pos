@@ -53,10 +53,10 @@ automática al importarlos:
 ## Límite material antes de usar datos reales
 
 **El núcleo no es todavía un exportador integral de producción.** La lista
-`PENDING_ROOTS` identifica dominios operativos y de auditoría sin adaptador
-completo. Si aparecen entre las colecciones raíz, se rechaza la exportación con
-`EXPORT_ADAPTER_REQUIRED` antes de generar un paquete. No consultar por empresaId
-un singleton que puede no tener ese campo para fingir que está vacío.
+`PENDING_ROOTS` identifica dominios sin adaptador completo. Si aparecen entre las
+colecciones raíz, se rechaza la exportación con `EXPORT_ADAPTER_REQUIRED` antes
+de generar un paquete. No consultar por empresaId un singleton que puede no tener
+ese campo para fingir que está vacío.
 
 Los adaptadores ya definidos tampoco autorizan versiones futuras desconocidas.
 Antes de ejecutar, completar los de dominio/campos canónicos, vincular una petición
@@ -78,11 +78,14 @@ No constituye un ejecutor productivo ni prueba eliminación física de backups.
 Un preview sin bloqueos sigue sin autorizar borrado real. Tampoco está
 implementado el flujo de aceptación ADR-SAAS-099.
 
-El inventario de metadatos identificó 48 raíces; nueve requieren aún adaptador:
-`agendas`, `auditoria_logs`, `comandas_cocina`, `configuracion`, `eventos_dominio`,
-`numeraciones`, `operaciones_auditoria`, `pedidos_activos`, `reservas`.
-Los adaptadores de configuración canónica y contratos ya tienen esquemas cerrados;
-esto no acredita cobertura de todos los documentos históricos.
+El inventario de metadatos de `micafe-pos` a las 19:30 UTC del 2026-11-23
+identificó 48 raíces. De ellas, `operaciones_auditoria` es la única que aún
+requiere adaptador. Sus `referencias` e intenciones abarcan comandos heterogéneos;
+se mantiene como bloqueo en vez de exportarlos mediante un volcado genérico.
+`configuracion/general` es un archivo histórico global y está excluido del paquete
+de un tenant; la configuración vigente viaja desde `configuraciones/{empresaId}`.
+Los adaptadores nuevos reflejan contratos actuales, pero no acreditan cobertura
+de todos los documentos históricos ni sus campos aún desconocidos.
 
 ## Validación reproducible
 

@@ -2,6 +2,7 @@
 export const SCHEMA_VERSION = 'DUSEMA_EXIT_V1';
 export const scalar = 'scalar';
 export const fields = (names) => Object.fromEntries(names.split(/\s+/).filter(Boolean).map(name => [name, scalar]));
+export const recordOf = schema => ({ $record: schema });
 const common = fields('id empresaId schemaVersion version revision catalogoId creadoEn creadaEn actualizadoEn actualizadaEn fecha estado activo espacioId');
 const item = fields(`id productoId articuloId articuloTipo productoNombreSnapshot productoNombre nombre articuloNombre
   unidad unidadBase unidadBaseSnapshot presentacionId presentacionNombre presentacionNombreSnapshot cantidad
@@ -14,6 +15,15 @@ const payment = fields('metodo montoRecibidoCOP cambioCOP montoCOP cuentaId');
 const receipt = {
   ...fields('version empresaId nombreComercialSnapshot consecutivo folioInterno fechaConfirmacionIso subtotalCOP descuentoCOP totalCOP metodoPago montoRecibidoCOP cambioCOP'),
   cliente: fields('id nombre'), lineas: [item],
+};
+const modifier = { ...fields('grupoId nombreGrupo'), opcionIds: [scalar], opciones: [{ ...fields('opcionId nombre cocinaNombre'), precioDelta: scalar }] };
+const salonItem = {
+  ...fields('id uid name code price cost category emoji stock impuestoTipo iva impoconsumo hasRecipe quantity schemaVersion configurationKey precioBaseUnitario cantidadEnviada enviadoCocina'),
+  modificadores: [modifier],
+};
+const pedidoMovement = {
+  ...fields('tipo pedidoRelacionadoId mesaOrigenId mesaDestinoId nombreMesaOrigen nombreMesaDestino fecha cajeroId'),
+  items: [{ ...fields('uid name'), quantity: scalar }],
 };
 const adapter = (extra, nested = {}) => ({ ...common, ...fields(extra), ...nested });
 const price = fields('importe moneda');
@@ -82,9 +92,21 @@ export const SCHEMAS = Object.freeze({
   relaciones: subscription,
   ofertas_comerciales_tenant: adapter('ofertaActivaId'),
   ofertas: adapter('ofertaId empresaIdObjetivo planIdBase planVersionBase periodicidad iniciaEn expiraEn motivoCodigo referenciaAprobacion trialDias referenciaAceptacionCliente trialInicio trialFin', { precioAcordado: price, consumidaPor: fields('empresaId provisionamientoId') }),
+  pedidos_activos: adapter('mesaId nombreMesa cajeroId estado activo inicioAlquiler fechaPago ventaId unionDestinoId actualizadoEn', {
+    items: [salonItem], comandaIds: [scalar], movimientos: [pedidoMovement],
+  }),
+  comandas_cocina: adapter('pedidoId mesaId nombreMesa espacioId cajeroId estado tipo creadoEn completadoEn', {
+    items: [{ ...fields('uid name notas'), quantity: scalar, modificadores: [modifier] }],
+  }),
+  reservas: adapter('mesaId espacioId fechaInicio fechaFin fechaLocal bloques montoTotal clienteNombre clienteEmail clienteTelefono referenciaPago referenciaTransaccion estadoPago estadoReserva fechaCreacion holdExpira ventaId', { items: [item] }),
+  agendas: adapter('mesaId espacioId actualizadoEn', { bloques: recordOf(fields('reservaId estado holdExpira creadoEn')) }),
+  numeraciones: adapter('numeracionId paisFiscal tipoDocumento scope prefijo resolucion rangoInicio rangoFin ultimoAsignado vigenciaDesde vigenciaHasta estado revision'),
+  auditoria_logs: adapter(`accion detalle uid timestamp agregado comando revisionAnterior revisionNueva actorId actorUid actorTipo origen motivo impactoFiscal incorporacionId tokenVersion mecanismo correo accionId ocurridoEn categoria recurso resultado
+    evento tipo schemaVersion`, { rutas: [scalar], seccionesAfectadas: [scalar], metadata: fields('motivo codigo actor estado') }),
+  eventos_dominio: adapter('eventId tipo version agregado revisionAnterior revisionNueva actorId actorTipo origen motivo impactoFiscal schemaVersion', { rutas: [scalar], seccionesAfectadas: [scalar] }),
 });
 
-export const INTERNAL_ROOTS = new Set(`bootstrap_identidades_owner comandos_comerciales configuracion_comandos
+export const INTERNAL_ROOTS = new Set(`bootstrap_identidades_owner comandos_comerciales configuracion configuracion_comandos
   configuracion_command_ids credenciales_operativas incorporaciones operaciones_comandos operaciones_command_idempotency
   permisos_roles planes provisionamientos_empresariales reservas_codigos_operativos restablecimientos_credencial
   saas_auditoria saas_auditoria_obligaciones saas_comandos saas_operadores saas_soporte_autorizaciones
@@ -93,7 +115,7 @@ export const INTERNAL_ROOTS = new Set(`bootstrap_identidades_owner comandos_come
 // These sources need explicit adapters before a populated source can be delivered.
 // They are NEVER silently omitted or exported using an unconstrained object schema.
 export const PENDING_ROOTS = new Set(`agendas auditoria_logs comandas_cocina configuracion
-  eventos eventos_dominio eventos_operativos modificador_grupos pedidos_activos producto_modificador_grupos
+  eventos eventos_operativos modificador_grupos producto_modificador_grupos
   reservas numeraciones asignaciones_numeracion pagos_saas operaciones_auditoria
   agenda_pedidos_bodega reservas_stock_bodega solicitudes_venta_bodega`.split(/\s+/));
 
@@ -130,6 +152,14 @@ export function projectDocument(data, schema, depth = 0) {
         if ([...url.searchParams.keys()].some(k => /^(token|access_token|x-goog-signature|googleaccessid|x-amz-signature)$/i.test(k))) throw new Error('EXPORT_PRIVATE_URL_REQUIRES_ASSET_REFERENCE');
       }
       result[key] = value;
+    } else if (rule && typeof rule === 'object' && !Array.isArray(rule) && Object.hasOwn(rule, '$record')) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('EXPORT_INVALID_RECORD');
+      const entries = Object.create(null);
+      for (const [recordKey, recordValue] of Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) {
+        if (!/^[A-Za-z0-9_-]{1,120}$/.test(recordKey)) throw new Error('EXPORT_INVALID_RECORD_KEY');
+        entries[recordKey] = projectDocument(recordValue, rule.$record, depth + 1);
+      }
+      result[key] = entries;
     } else if (Array.isArray(rule)) {
       if (!Array.isArray(value)) throw new Error('EXPORT_INVALID_ARRAY');
       result[key] = value.map(v => rule[0] === scalar ? projectDocument({ v }, { v: scalar }, depth + 1).v : projectDocument(v, rule[0], depth + 1));

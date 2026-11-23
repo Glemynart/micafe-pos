@@ -7,6 +7,7 @@ import { planRetention } from './retention-plan.mjs';
 import { createOperatorAuthorizer } from './operator-authority.mjs';
 import { createStorageReader } from './storage-source.mjs';
 import { savePrivateBundle } from './private-output.mjs';
+import { inspectCoverage, INTERNAL_ROOTS, projectDocument, SCHEMAS } from './export-schema.mjs';
 import { mkdtemp, readFile, unlink, rmdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -197,6 +198,24 @@ test('legacy users are selected only from fully scanned tenant memberships', asy
   assert.equal(page.documents[0].id, 'member-a');
   assert.equal(calls.at(-1).body.documents.length, 1);
   assert.match(calls.at(-1).body.documents[0], /usuarios\/member-a$/);
+});
+
+test('closed adapters cover salon, reservations, fiscal numbering and audit records', () => {
+  const roots = ['agendas', 'auditoria_logs', 'comandas_cocina', 'eventos_dominio', 'numeraciones', 'pedidos_activos', 'reservas', 'configuracion', 'operaciones_auditoria'];
+  const coverage = inspectCoverage(roots);
+  assert.equal(coverage.mode, 'METADATA_ONLY');
+  assert.equal(coverage.productionExportCertified, false);
+  assert.deepEqual(coverage.classifications.filter(row => row.status === 'ADAPTER_REQUIRED').map(row => row.name), ['operaciones_auditoria']);
+  assert.ok(INTERNAL_ROOTS.has('configuracion'));
+  const agenda = projectDocument({ empresaId: 'tenant-a', mesaId: 'mesa-a', bloques: { '09': { reservaId: 'res-a', estado: 'confirmado' } } }, SCHEMAS.agendas);
+  assert.equal(agenda.bloques['09'].reservaId, 'res-a');
+  assert.throws(() => projectDocument({ empresaId: 'tenant-a', mesaId: 'mesa-a', bloques: { '09': { reservaId: 'res-a', ownerUid: 'secret' } } }, SCHEMAS.agendas), /UNSUPPORTED_FIELD/);
+  assert.throws(() => projectDocument({ empresaId: 'tenant-a', mesaId: 'mesa-a', bloques: { '../bad': { reservaId: 'res-a', estado: 'hold' } } }, SCHEMAS.agendas), /INVALID_RECORD_KEY/);
+  assert.throws(() => projectDocument({ empresaId: 'tenant-a', mesaId: 'mesa-a', bloques: [] }, SCHEMAS.agendas), /INVALID_RECORD/);
+  const pedido = projectDocument({ empresaId: 'tenant-a', items: [{ id: 'line-a', name: 'synthetic', quantity: 1, modificadores: [{ grupoId: 'g', opcionIds: ['o'] }] }] }, SCHEMAS.pedidos_activos);
+  assert.equal(pedido.items[0].modificadores[0].opcionIds[0], 'o');
+  assert.throws(() => projectDocument({ empresaId: 'tenant-a', items: [{ id: 'line-a', name: 'synthetic', quantity: 1, customPriceSecret: 'x' }] }, SCHEMAS.pedidos_activos), /UNSUPPORTED_FIELD/);
+  assert.throws(() => projectDocument({ empresaId: 'tenant-a', referencias: { fieldNotReviewed: 'value' } }, { ...SCHEMAS.eventos_dominio, referencias: { ventaId: 'scalar' } }), /UNSUPPORTED_FIELD/);
 });
 
 test('canonical root is queried by document name and signed asset URLs do not leak', async () => {
