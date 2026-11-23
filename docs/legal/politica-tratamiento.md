@@ -1,6 +1,6 @@
 # Política de tratamiento de datos personales — Dusema POS
 
-**BORRADOR 0.1 — 2026-11-23. Fecha de entrada en vigencia pendiente de aprobación.**
+**BORRADOR 0.2 — 2026-11-23. Fecha de entrada en vigencia pendiente de aprobación.**
 
 ## 1. Identidad y roles
 
@@ -66,6 +66,14 @@ Se aplican las reglas legales para completar reclamos, remitirlos al competente
 y dejar constancia de su trámite. Antes de acudir a la SIC se agota la consulta
 o reclamo cuando la ley así lo exige.
 
+Para reclamos incompletos se requiere subsanar dentro de los cinco días siguientes
+a recibirlos; el desistimiento opera si pasan dos meses desde el requerimiento
+sin respuesta. La remisión al competente se realiza en hasta dos días hábiles,
+informando al interesado. Recibido el reclamo completo, se incorpora la anotación
+de reclamo pendiente y su motivo en hasta dos días hábiles y se mantiene hasta
+resolverlo. Estas son obligaciones operativas; no se afirma que exista hoy una
+pantalla o automatización para cumplirlas.
+
 Si Dusema actúa como encargado, canaliza y colabora con el responsable sin
 divulgar información de otros titulares ni alterar datos sin instrucción válida.
 
@@ -82,6 +90,19 @@ que un contrato con un proveedor extranjero cubre cualquier transferencia.
 
 Los requerimientos de autoridades se atienden previa comprobación de competencia
 y alcance, conservando evidencia y limitando la entrega a lo exigible.
+
+Los incidentes se registran, contienen y evalúan para determinar las notificaciones
+al responsable y a la SIC que correspondan. No estar obligado al RNBD no elimina
+la obligación de reportar incidentes en los términos aplicables. El procedimiento
+debe identificar responsable, fecha de detección y conocimiento, alcance, medidas
+y seguimiento, sin exponer datos adicionales a los afectados.
+
+La navegación debe informar sobre almacenamiento local y tecnologías efectivas:
+recordatorio opcional del código operativo, sesión, PWA y notificaciones, cuando
+se utilicen. Recordar código no significa conservar el PIN. Los permisos del
+navegador para notificaciones no sustituyen autorizaciones de publicidad o de
+tratamiento. Un inventario técnico debe precisar duración y finalidad antes de
+publicar; no se instala un banner que afirme cookies inexistentes.
 
 ## 6. Conservación y cambios
 

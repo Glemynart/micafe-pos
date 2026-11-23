@@ -1,6 +1,6 @@
 # Términos del servicio — Dusema POS
 
-**BORRADOR 0.1 — 2026-11-23. Pendiente de revisión y aprobación. Sin vigencia contractual.**
+**BORRADOR 0.2 — 2026-11-23. Pendiente de revisión y aprobación. Sin vigencia contractual.**
 
 ## 1. Prestador y contacto
 
@@ -40,6 +40,21 @@ plazos. Los derechos imperativos y las devoluciones que legalmente correspondan
 se respetan; no se pacta una exclusión general de reembolsos.
 
 ## 4. Cuentas y uso permitido
+
+Cuando la contratación configure una relación de consumo, se aplican la Ley
+1480 de 2011 y sus modificaciones, incluida la Ley 2439 de 2024. El retracto,
+cuando proceda, se ejerce dentro de cinco días hábiles de celebrar el contrato
+de servicios. Debe evaluarse la excepción por comienzo de ejecución acordado
+con el consumidor; no se presume por crear la cuenta o marcar una casilla.
+La devolución por retracto electrónico se tramita en el plazo legal de hasta
+quince días calendario, bajo sus presupuestos. La reversión de pagos es un
+mecanismo distinto y solo aplica cuando concurran sus requisitos legales.
+
+Antes de contratar se informa precio total, impuestos y cargos aplicables,
+duración, prestaciones, restricciones y condiciones de activación. Se permite
+revisar y corregir la solicitud, descargar las condiciones y recibir constancia
+de contratación. Aceptar no autoriza cargos adicionales o cambios unilaterales.
+El flujo debe identificar y conservar la prueba del consentimiento expreso.
 
 El negocio asigna usuarios y permisos según sus responsabilidades. Cada persona
 debe proteger su acceso, evitar compartir credenciales y comunicar usos no
@@ -103,6 +118,10 @@ que requieran aceptación no se aplicarán retroactivamente por la sola publicac
 La evidencia histórica y condiciones particulares aceptadas se conservan.
 
 Las partes pueden presentar solicitudes o reclamaciones al correo de contacto.
+Cuando aplique el régimen de consumo, las reclamaciones directas se responden
+en el término legal correspondiente y el canal electrónico debe permitir
+conservar fecha, seguimiento y respuesta. Debe ofrecerse acceso visible al sitio
+de la [Superintendencia de Industria y Comercio](https://www.sic.gov.co/).
 Rige la legislación colombiana, sin excluir autoridades competentes, derechos de
 los titulares ni normas imperativas de protección al consumidor cuando apliquen.
 

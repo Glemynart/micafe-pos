@@ -3,6 +3,11 @@
 Estado: **BORRADOR PARA REVISIÓN; NO PUBLICADO NI EXIGIBLE COMO NUEVA VERSIÓN**.
 Preparación: 2026-11-23. Versión de trabajo: `0.1`.
 
+Revisión normativa del mismo día: términos y política avanzan a `0.2`.
+Véanse [hallazgos y fuentes](REVISION-2026-11.md) y
+[ADR-SAAS-099 propuesto](../../ADR-SAAS-099-aceptacion-legal-versionada.md).
+La revisión no cierra los pendientes ni convierte el texto en exigible.
+
 Trazabilidad: `G-SAAS-02 → M2 → E2.2`, preparación documental del onboarding
 comercial autorizada por el responsable en este chat. Base técnica:
 `ce70af69754d98d5d61311dd2673423a9d471eef`.
