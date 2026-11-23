@@ -102,7 +102,7 @@ snapshot vencido, generación/ruta de archivo, cifrado, clave errónea, alteraci
 de contenido y salida privada en Windows. No se ejecutó exportación real ni
 supresión contra Firebase.
 
-Resultado local del 2026-11-23: 18 pruebas del núcleo de salida aprobadas,
+Resultado local del 2026-11-23: 19 pruebas del núcleo de salida aprobadas,
 TypeScript aprobado y dos pruebas de supresión aprobadas con Firestore Emulator
 real y JDK 21 (ninguna omitida). El ensayo verificó tenant vecino, holds, identidad
 compartida, ledger/contrato, referencias, entrega, plazo, subcolecciones,

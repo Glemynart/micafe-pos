@@ -28,10 +28,14 @@
   incompatibilidad del uso comercial observado con Hobby, preservando GitHub CI
   y App Hosting. Corregir el bloqueo de seguridad demostrado de Next.js 16.4.1
   mediante parche de la serie 16.4 antes de integrar.
-- **Estado:** implementación local en curso. Exportación integral, supresión y
-  aceptación obligatoria no se declaran disponibles. ADR-SAAS-101 fue aceptado
-  expresamente para implementación y pruebas sintéticas en Emulator, sin borrados
-  reales. ADR-SAAS-099 sigue Propuesto; los términos no se vuelven exigibles.
+- **Estado al 2026-11-23:** el PR #704 está abierto como draft con su CI en curso;
+  el build local con Next.js 16.4.6 pasó. La salida de datos tiene una base segura
+  con 19 pruebas, la cobertura de metadatos cubre 47 de 48 raíces y una raíz
+  (`operaciones_auditoria`) sigue bloqueada por su payload heterogéneo. La
+  supresión se implementó y probó solo con fixtures sintéticos en Emulator.
+  Ninguna capacidad de exportación/supresión se declara certificada para producción.
+  ADR-SAAS-101 habilita únicamente implementación y pruebas locales; ADR-SAAS-099
+  sigue Propuesto y los términos no se vuelven exigibles.
 
 - Provisionamiento reproducible de un tenant de referencia.
 - Onboarding DEMO como ruta inicial recomendada cuando el cliente no requiera fiscalidad real.
