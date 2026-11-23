@@ -30,8 +30,9 @@
   mediante parche de la serie 16.4 antes de integrar.
 - **Estado al 2026-11-23:** el PR #704 está abierto como draft con su CI en curso;
   el build local con Next.js 16.4.6 pasó. La salida de datos tiene una base segura
-  con 19 pruebas, la cobertura de metadatos cubre 47 de 48 raíces y una raíz
-  (`operaciones_auditoria`) sigue bloqueada por su payload heterogéneo. La
+  con 19 pruebas y la cobertura de metadatos clasifica 48 de 48 raíces. Los
+  esquemas históricos aún pueden detener la exportación si aparece un campo o
+  subcolección desconocidos; la certificación de producción sigue falsa. La
   supresión se implementó y probó solo con fixtures sintéticos en Emulator.
   Ninguna capacidad de exportación/supresión se declara certificada para producción.
   ADR-SAAS-101 habilita únicamente implementación y pruebas locales; ADR-SAAS-099

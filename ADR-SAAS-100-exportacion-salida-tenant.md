@@ -48,7 +48,7 @@ no por IDs suministrados sin comprobar ni por frontend.
 | Grupo | Fuentes comprobadas en código | Selección/entrega propuesta |
 |---|---|---|
 | Catálogo/inventario | `productos`, `categorias`, `presentaciones_producto`, `movimientos_inventario`, `espacios` | Filtro `empresaId`, IDs y catálogo Bodega/Nevera; cantidades/costos exactos sin recalcular. |
-| Operación/finanzas | 25 colecciones de MT-U3, incluidas ventas, compras, clientes, proveedores fuera de esa lista, cuentas y transacciones | Clasificar cada adaptador; no exportar íntegramente `auditoria_logs` sin allowlist de campos. |
+| Operación/finanzas | Colecciones operativas, recibos, cuentas y transacciones; metadatos actuales inventariados en 48 raíces | Adaptadores versionados con allowlist cerrada, incluidas `auditoria_logs` y `operaciones_auditoria`; documentos con campos/resultados históricos desconocidos detienen la exportación. |
 | Crédito | `ventas/{id}/abonos_bodega`, `compromisos_pago_bodega` | Solo bajo ventas ya verificadas; comprobar también `empresaId` del hijo. |
 | Nevera | `capas_fifo_nevera`, `cuentas_control_nevera`, `cuentas_control_nevera_movimientos` | Validar tenant por campo y/o ID canónico, con esquema explícito; preservar capas y saldos. |
 | Pedidos Bodega | `empresas/{id}/solicitudes_venta_bodega`, `agenda_pedidos_bodega`, `reservas_stock_bodega`, `secuencias_documentales` | Subcolecciones acotadas a raíz verificada. |

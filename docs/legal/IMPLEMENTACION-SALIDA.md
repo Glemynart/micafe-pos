@@ -78,14 +78,19 @@ No constituye un ejecutor productivo ni prueba eliminación física de backups.
 Un preview sin bloqueos sigue sin autorizar borrado real. Tampoco está
 implementado el flujo de aceptación ADR-SAAS-099.
 
-El inventario de metadatos de `micafe-pos` a las 19:30 UTC del 2026-11-23
-identificó 48 raíces. De ellas, `operaciones_auditoria` es la única que aún
-requiere adaptador. Sus `referencias` e intenciones abarcan comandos heterogéneos;
-se mantiene como bloqueo en vez de exportarlos mediante un volcado genérico.
+El inventario de metadatos de `micafe-pos` a las 19:37 UTC del 2026-11-23
+identificó 48 raíces y las 48 tienen clasificación: adaptador cerrado o fuente
+interna excluida. `operaciones_auditoria` tiene una proyección cerrada para las
+formas conocidas de finanzas, inventario, reservas, salón y turnos. Un campo o
+resultado histórico que no coincida detiene la exportación; no se usa un volcado
+genérico.
 `configuracion/general` es un archivo histórico global y está excluido del paquete
 de un tenant; la configuración vigente viaja desde `configuraciones/{empresaId}`.
-Los adaptadores nuevos reflejan contratos actuales, pero no acreditan cobertura
-de todos los documentos históricos ni sus campos aún desconocidos.
+`rootAdaptersComplete=true` solo significa que cada nombre de raíz está
+clasificado. `productionExportCertified=false`: no se leyeron payloads de tenants
+ni se comprobó cada documento legado, subcolección, campo/versionado o referencia
+contra un paquete real. El primer uso requiere ensayos de esquema completos con
+fixtures representativos y corroborar el comportamiento de `readTime` de la API.
 
 ## Validación reproducible
 
@@ -107,6 +112,7 @@ TypeScript aprobado y dos pruebas de supresión aprobadas con Firestore Emulator
 real y JDK 21 (ninguna omitida). El ensayo verificó tenant vecino, holds, identidad
 compartida, ledger/contrato, referencias, entrega, plazo, subcolecciones,
 revocación, conflicto updateTime, atomicidad, repetición y recreación.
+El preflight de metadatos clasificó 48/48 raíces actuales.
 No se desplegaron herramientas ni se borraron datos reales. El ensayo usa una
 colección sintética específica: no acredita aún adaptadores de destrucción de
 documentos operativos, Auth, Storage o restauración de backups.

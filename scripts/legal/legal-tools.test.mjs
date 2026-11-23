@@ -205,7 +205,8 @@ test('closed adapters cover salon, reservations, fiscal numbering and audit reco
   const coverage = inspectCoverage(roots);
   assert.equal(coverage.mode, 'METADATA_ONLY');
   assert.equal(coverage.productionExportCertified, false);
-  assert.deepEqual(coverage.classifications.filter(row => row.status === 'ADAPTER_REQUIRED').map(row => row.name), ['operaciones_auditoria']);
+  assert.equal(coverage.rootAdaptersComplete, true);
+  assert.deepEqual(coverage.classifications.filter(row => row.status === 'ADAPTER_REQUIRED'), []);
   assert.ok(INTERNAL_ROOTS.has('configuracion'));
   const agenda = projectDocument({ empresaId: 'tenant-a', mesaId: 'mesa-a', bloques: { '09': { reservaId: 'res-a', estado: 'confirmado' } } }, SCHEMAS.agendas);
   assert.equal(agenda.bloques['09'].reservaId, 'res-a');
@@ -216,6 +217,28 @@ test('closed adapters cover salon, reservations, fiscal numbering and audit reco
   assert.equal(pedido.items[0].modificadores[0].opcionIds[0], 'o');
   assert.throws(() => projectDocument({ empresaId: 'tenant-a', items: [{ id: 'line-a', name: 'synthetic', quantity: 1, customPriceSecret: 'x' }] }, SCHEMAS.pedidos_activos), /UNSUPPORTED_FIELD/);
   assert.throws(() => projectDocument({ empresaId: 'tenant-a', referencias: { fieldNotReviewed: 'value' } }, { ...SCHEMAS.eventos_dominio, referencias: { ventaId: 'scalar' } }), /UNSUPPORTED_FIELD/);
+  const operation = projectDocument({ empresaId: 'tenant-a', tipo: 'registrarEgresoOperativoV1', resultado: 'CONFIRMADO', actor: { uid: 'operator-a', rolEfectivo: 'admin' }, comando: { id: 'cmd-a', tipo: 'registrarEgresoOperativoV1', huella: 'hash' }, referencias: { egresoId: 'egreso-a', movimientoId: 'mov-a' } }, SCHEMAS.operaciones_auditoria);
+  assert.equal(operation.referencias.egresoId, 'egreso-a');
+  assert.throws(() => projectDocument({ empresaId: 'tenant-a', tipo: 'registrarEgresoOperativoV1', resultado: 'CONFIRMADO', referencias: { amountWithoutSchema: 12 } }, SCHEMAS.operaciones_auditoria), /UNSUPPORTED_FIELD/);
+  const reservationAudit = projectDocument({
+    empresaId: 'tenant-a', tipo: 'crearProgramacionPedidoBodegaV1', resultado: 'CONFIRMADO',
+    referencias: { programacionId: 'agenda-a', programaciones: [{
+      programacionId: 'agenda-a', estado: 'RESERVADA', revision: 1,
+      cliente: { id: 'client-a', nombre: 'Synthetic', direccion: null },
+      franja: { desde: '09:00', hasta: '10:00' },
+      lineas: [{ productoId: 'prod-a', presentacionId: 'pack-a', cantidad: 1 }],
+    }] },
+  }, SCHEMAS.operaciones_auditoria);
+  assert.equal(reservationAudit.referencias.programaciones[0].franja.desde, '09:00');
+  const agendaReference = projectDocument({ empresaId: 'tenant-a', tipo: 'crearProgramacionPedidoBodegaV1', resultado: 'CONFIRMADO', referencias: {
+    programacionId: 'agenda-a', estado: 'PENDIENTE_REVISION', revision: 1, clienteId: 'client-a',
+    cliente: { id: 'client-a', nombre: 'Synthetic' }, fechaLocal: '2026-11-23',
+    franja: { desde: '09:00', hasta: '10:00' }, zonaHoraria: 'America/Bogota',
+    lineas: [{ productoId: 'prod-a', presentacionId: 'pack-a', cantidad: 1 }],
+    stockReservadoUnidadBase: 0, solicitanteUid: 'operator-a', solicitudId: null,
+    reservaExpiraEn: null, creadaEn: '2026-11-23T12:00:00Z', actualizadaEn: '2026-11-23T12:00:00Z',
+  } }, SCHEMAS.operaciones_auditoria);
+  assert.equal(agendaReference.referencias.zonaHoraria, 'America/Bogota');
 });
 
 test('canonical root is queried by document name and signed asset URLs do not leak', async () => {

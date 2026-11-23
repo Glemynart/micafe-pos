@@ -25,6 +25,30 @@ const pedidoMovement = {
   ...fields('tipo pedidoRelacionadoId mesaOrigenId mesaDestinoId nombreMesaOrigen nombreMesaDestino fecha cajeroId'),
   items: [{ ...fields('uid name'), quantity: scalar }],
 };
+const operationResultLine = fields('productoId productoNombre unidadBase presentacionId presentacionNombre cantidad factorUnidadBase cantidadUnidadBase canal precioFinalCOP');
+const inventoryIncident = fields('tipo itemId itemNombre stockAnterior cantidadSolicitada');
+const publicAgenda = {
+  ...fields('programacionId estado revision clienteId fechaLocal zonaHoraria stockReservadoUnidadBase solicitanteUid solicitudId reservaExpiraEn creadaEn actualizadaEn'),
+  cliente: fields('id nombre direccion'), franja: fields('desde hasta'), lineas: [operationResultLine],
+};
+const offerSnapshot = {
+  ...fields('nombre inicioEnMillis finEnMillis'),
+  lineas: [{ ...fields('presentacionId canal'), precioFinalCOP: scalar }],
+};
+const operationReferences = {
+  ...fields(`commandId turnoId turnoRecaudoId turnoCompensacion cajeroId solicitanteUid estado estadoOperativo estadoReserva idempotente aplicado movimientoId movimientoFinancieroId compraId egresoId liquidacionId ventaId pedidoId pedidoOrigenId pedidoNuevoId pedidoDestinoId itemUid solicitudId programacionId reservaId categoriaId articuloTipo articuloId mermaId abonoId ofertaId presentacionId productoId clienteId catalogoId cuentaDocumentoId cuentaClaveOperativa metodoPago metodoPagoFinal relevoCajeroId relevoTurnoId ledgerHash fechaLocal zonaHoraria reservaExpiraEn fechaCompromisoPagoLocal creadaEn actualizadaEn
+    efectivoEsperado diferenciaEfectivo depositoNeto revision saldoPendienteCOP totalAbonadoCOP total montoRecibidoCOP cambioCOP montoCOP stockReservadoUnidadBase items capasCreadas cargoAperturaCOP saldoControlCOP precioAplicadoCOP`),
+  movimientos: [scalar], movimientosInventario: [scalar], cuentaControlMovimientoIds: [scalar], comandaIds: [scalar], pedidosOrigenIds: [scalar],
+  incidenciasInventario: [inventoryIncident],
+  lineas: [operationResultLine],
+  franja: fields('desde hasta'),
+  programaciones: [publicAgenda],
+  cliente: fields('id nombre direccion'), reciboInterno: receipt,
+  antes: offerSnapshot, despues: offerSnapshot,
+};
+const operationActor = fields('uid rolEfectivo');
+const operationCommand = fields('id tipo idempotencyKey huella correlationId');
+const operationIntent = fields('baseApertura notasApertura');
 const adapter = (extra, nested = {}) => ({ ...common, ...fields(extra), ...nested });
 const price = fields('importe moneda');
 const snapshot = {
@@ -104,6 +128,10 @@ export const SCHEMAS = Object.freeze({
   auditoria_logs: adapter(`accion detalle uid timestamp agregado comando revisionAnterior revisionNueva actorId actorUid actorTipo origen motivo impactoFiscal incorporacionId tokenVersion mecanismo correo accionId ocurridoEn categoria recurso resultado
     evento tipo schemaVersion`, { rutas: [scalar], seccionesAfectadas: [scalar], metadata: fields('motivo codigo actor estado') }),
   eventos_dominio: adapter('eventId tipo version agregado revisionAnterior revisionNueva actorId actorTipo origen motivo impactoFiscal schemaVersion', { rutas: [scalar], seccionesAfectadas: [scalar] }),
+  operaciones_auditoria: adapter('tipo resultado correlationId causationId estado', {
+    actor: operationActor, comando: operationCommand, motivo: scalar, intencion: operationIntent,
+    referencias: operationReferences,
+  }),
 });
 
 export const INTERNAL_ROOTS = new Set(`bootstrap_identidades_owner comandos_comerciales configuracion configuracion_comandos
@@ -116,7 +144,7 @@ export const INTERNAL_ROOTS = new Set(`bootstrap_identidades_owner comandos_come
 // They are NEVER silently omitted or exported using an unconstrained object schema.
 export const PENDING_ROOTS = new Set(`agendas auditoria_logs comandas_cocina configuracion
   eventos eventos_operativos modificador_grupos producto_modificador_grupos
-  reservas numeraciones asignaciones_numeracion pagos_saas operaciones_auditoria
+  reservas numeraciones asignaciones_numeracion pagos_saas
   agenda_pedidos_bodega reservas_stock_bodega solicitudes_venta_bodega`.split(/\s+/));
 
 export const TECHNICAL_FIELDS = new Set(`commandId idempotencyKey correlationId causationId creadoPor actualizadoPor
