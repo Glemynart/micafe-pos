@@ -17,6 +17,21 @@
 
 ## Alcance
 
+### Preparación legal y salida de datos — 2026-11-23
+
+- **Goal / Milestone / Epic:** `G-SAAS-02 → M2 → E2.2`.
+- **Autorización:** tras el informe de comprobaciones, el responsable ordenó
+  resolver las deficiencias de proveedores, exportación y supresión.
+- **Decisión:** ADR-SAAS-100 alternativa A aceptada para implementación y pruebas
+  controladas; no autoriza extracción, entrega o borrado de datos reales.
+- **Siguiente corte:** retirar Analytics y despliegues automáticos Vercel por
+  incompatibilidad del uso comercial observado con Hobby, preservando GitHub CI
+  y App Hosting. Corregir el bloqueo de seguridad demostrado de Next.js 16.4.1
+  mediante parche de la serie 16.4 antes de integrar.
+- **Estado:** implementación local en curso. Exportación integral, supresión y
+  aceptación obligatoria no se declaran disponibles. ADR-SAAS-099 y ADR-SAAS-101
+  siguen Propuestos; los términos no se vuelven exigibles con este evento.
+
 - Provisionamiento reproducible de un tenant de referencia.
 - Onboarding DEMO como ruta inicial recomendada cuando el cliente no requiera fiscalidad real.
 - Materialización de capacidades del Plan en la configuración efectiva del tenant.

@@ -2,10 +2,15 @@
 
 ## Estado y alcance
 
-**Propuesto**, 2026-11-23. `G-SAAS-02 → M2 → E2.2`.
-Solicitud del responsable: trabajar también en exportación segura y proveedores.
-No hay aprobación todavía de esta nueva frontera de entrega/persistencia local.
-No crea exportaciones ni autoriza extraer datos de Diana durante la preparación.
+**Aceptado para implementación controlada**, 2026-11-23.
+`G-SAAS-02 → M2 → E2.2`. Tras recibir el cierre de comprobaciones, el responsable
+ordenó expresamente «ok resuelve eso», incluyendo proveedores, exportación y
+procedimiento de supresión. Se adopta la alternativa A de este diseño para
+implementar y validar localmente. Esa instrucción de ejecución sustituye la
+aprobación anterior condicionada a que todo estuviera ya listo; no declara que
+esa condición se haya satisfecho. No acepta ADR-SAAS-099 ni certifica legalidad.
+Las ejecuciones con datos reales y cualquier eliminación remota requieren su
+corte operativo. No se autoriza extraer datos de Diana durante la preparación.
 
 ## Problema y decisión recomendada
 
