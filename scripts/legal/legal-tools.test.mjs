@@ -41,7 +41,7 @@ test('unknown field, source and child stop completion without disclosing their v
   await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, internalNote: 'SECRET_VALUE' } }], hasMore: false }) }) }), /^Error: EXPORT_UNSUPPORTED_FIELD$/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['unknown_source'] }) }), /EXPORT_UNKNOWN_COLLECTION/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ listChildren: async () => ['secret_children'] }) }), /EXPORT_UNCLASSIFIED_SUBCOLLECTION/);
-  await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['configuraciones'] }) }), /EXPORT_ADAPTER_REQUIRED/);
+  await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['configuracion'] }) }), /EXPORT_ADAPTER_REQUIRED/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, schemaVersion: 'FUTURE' } }], hasMore: false }) }) }), /EXPORT_UNSUPPORTED_SCHEMA_VERSION/);
 });
 test('revoked operator, unverified request and changed authority fail closed', async () => {
@@ -170,4 +170,42 @@ test('private output writes authenticated ciphertext outside Git, with a fresh d
     if (result) { await unlink(result.output); await rmdir(dirname(result.output)); }
     await rmdir(parent);
   }
+});
+
+test('canonical subscription path includes legacy control and rejects a conflicting tenant field', async () => {
+  const source = fixture({ listRoots: async () => ['suscripciones'], listAssets: async () => [],
+    listChildren: async ctx => ctx.path === 'suscripciones/tenant-a' ? ['relaciones'] : [],
+    readPage: async ctx => ({ readTime: ctx.readTime, hasMore: false, documents: ctx.path === 'suscripciones'
+      ? [{ id: 'tenant-a', data: { estado: 'active', revision: 1 } }]
+      : [{ id: '_vigente', data: { relacionVigenteId: 'relation-a' } }] }),
+  });
+  assert.equal((await exportTenant({ ...input, source })).manifest.totalDocuments, 2);
+  await assert.rejects(exportTenant({ ...input, source: { ...source, readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'tenant-a', data: { empresaId: 'tenant-b', estado: 'active' } }], hasMore: false }) } }), /EXPORT_CROSS_TENANT/);
+});
+test('legacy users are selected only from fully scanned tenant memberships', async () => {
+  const calls = [];
+  const source = createReadSource({ project: input.project, tenant: input.tenant, getAccessToken: async () => 'SYNTHETIC', authorize: fixture().authorize, storage: {}, fetchImpl: async (url, options) => {
+    const body = JSON.parse(options.body); calls.push({ url, body });
+    const name = `projects/${input.project}/databases/(default)/documents/`;
+    return { ok: true, json: async () => url.endsWith(':batchGet')
+      ? [{ readTime: input.readTime, found: { name: name + 'usuarios/member-a', fields: { nombre: { stringValue: 'Synthetic member' } } } }]
+      : [{ readTime: input.readTime, document: { name: name + 'membresias/member-a_tenant-a', fields: { uid: { stringValue: 'member-a' }, empresaId: { stringValue: input.tenant } } } }] };
+  } });
+  await assert.rejects(source.readPage({ ...input, path: 'usuarios', limit: 200 }), /MEMBERSHIP_NOT_SCANNED/);
+  await source.readPage({ ...input, path: 'membresias', limit: 200 });
+  const page = await source.readPage({ ...input, path: 'usuarios', limit: 200 });
+  assert.equal(page.documents[0].id, 'member-a');
+  assert.equal(calls.at(-1).body.documents.length, 1);
+  assert.match(calls.at(-1).body.documents[0], /usuarios\/member-a$/);
+});
+
+test('canonical root is queried by document name and signed asset URLs do not leak', async () => {
+  let body;
+  const source = createReadSource({ project: input.project, tenant: input.tenant, getAccessToken: async () => 'SYNTHETIC', authorize: fixture().authorize, storage: {}, fetchImpl: async (_, options) => {
+    body = JSON.parse(options.body); return { ok: true, json: async () => [] };
+  } });
+  await source.readPage({ ...input, path: 'configuraciones', limit: 200 });
+  assert.equal(body.structuredQuery.where.fieldFilter.field.fieldPath, '__name__');
+  assert.match(body.structuredQuery.where.fieldFilter.value.referenceValue, /configuraciones\/tenant-a$/);
+  await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, imagenUrl: 'https://example.test/image?token=SYNTHETIC_SECRET' } }], hasMore: false }) }) }), /^Error: EXPORT_PRIVATE_URL_REQUIRES_ASSET_REFERENCE$/);
 });

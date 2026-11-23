@@ -1,7 +1,10 @@
+import { SINGLETON_ROOTS } from './export-schema.mjs';
 // Read-only REST transport. Deliberately no commit, patch, delete or upload method.
 export function createReadSource({ project, tenant, getAccessToken, authorize, storage, fetchImpl = fetch }) {
   const origin = 'https://firestore.googleapis.com/v1';
   const base = `projects/${project}/databases/(default)/documents`;
+  let membershipTime, membershipsComplete = false;
+  const memberIds = new Set();
   async function request(suffix, body) {
     const token = await getAccessToken();
     const response = await fetchImpl(`${origin}/${base}${suffix}`, {
@@ -31,6 +34,20 @@ export function createReadSource({ project, tenant, getAccessToken, authorize, s
     listChildren: context => listCollections(context.path, context.readTime),
     async readPage(context) {
       if (context.project !== project || context.tenant !== tenant) throw new Error('EXPORT_SOURCE_CONTEXT_MISMATCH');
+      if (context.path === 'usuarios') {
+        if (!membershipsComplete || membershipTime !== context.readTime) throw new Error('EXPORT_MEMBERSHIP_NOT_SCANNED');
+        const ids = [...memberIds].sort().filter(id => !context.after || id > context.after).slice(0, context.limit);
+        if (!ids.length) return { readTime: context.readTime, documents: [], hasMore: false };
+        const rows = await request(':batchGet', { documents: ids.map(id => `${base}/usuarios/${id}`), readTime: context.readTime });
+        if (!Array.isArray(rows) || rows.length !== ids.length) throw new Error('EXPORT_MEMBERSHIP_USER_MISSING');
+        const documents = rows.map(row => {
+          if (!row.found || !row.found.name.startsWith(`${base}/usuarios/`) || (row.readTime && Date.parse(row.readTime) !== Date.parse(context.readTime))) throw new Error('EXPORT_MEMBERSHIP_USER_MISSING');
+          const id = row.found.name.slice(`${base}/usuarios/`.length);
+          if (!ids.includes(id)) throw new Error('EXPORT_CROSS_TENANT');
+          return { id, data: decodeFields(row.found.fields ?? {}) };
+        }).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+        return { readTime: context.readTime, documents, hasMore: ids.length === context.limit };
+      }
       const segments = context.path.split('/');
       if (segments.some(segment => !/^[A-Za-z0-9_:-]+$/.test(segment)) || segments.length % 2 !== 1) throw new Error('EXPORT_INVALID_SOURCE_PATH');
       const collectionId = segments.pop();
@@ -38,7 +55,9 @@ export function createReadSource({ project, tenant, getAccessToken, authorize, s
       const parentResource = `${base}${parent}`;
       const query = {
         from: [{ collectionId }],
-        where: { fieldFilter: { field: { fieldPath: 'empresaId' }, op: 'EQUAL', value: { stringValue: tenant } } },
+        ...(segments.length ? {} : { where: { fieldFilter: SINGLETON_ROOTS.has(collectionId)
+          ? { field: { fieldPath: '__name__' }, op: 'EQUAL', value: { referenceValue: `${base}/${collectionId}/${tenant}` } }
+          : { field: { fieldPath: 'empresaId' }, op: 'EQUAL', value: { stringValue: tenant } } } }),
         orderBy: [{ field: { fieldPath: '__name__' }, direction: 'ASCENDING' }], limit: context.limit,
         ...(context.after ? { startAt: { values: [{ referenceValue: `${parentResource}/${collectionId}/${context.after}` }], before: false } } : {}),
       };
@@ -50,6 +69,15 @@ export function createReadSource({ project, tenant, getAccessToken, authorize, s
         if (!row.document.name.startsWith(prefix) || row.document.name.slice(prefix.length).includes('/')) throw new Error('EXPORT_WRONG_DOCUMENT_PATH');
         return { id: row.document.name.slice(prefix.length), data: decodeFields(row.document.fields ?? {}) };
       });
+      if (context.path === 'membresias') {
+        if (!context.after) { memberIds.clear(); membershipTime = context.readTime; membershipsComplete = false; }
+        if (membershipTime !== context.readTime) throw new Error('EXPORT_INCONSISTENT_PAGE');
+        for (const document of documents) {
+          if (document.data.empresaId !== tenant || typeof document.data.uid !== 'string' || !/^[A-Za-z0-9_-]{1,120}$/.test(document.data.uid)) throw new Error('EXPORT_INVALID_MEMBERSHIP');
+          memberIds.add(document.data.uid);
+        }
+        membershipsComplete = documents.length < context.limit;
+      }
       return { readTime: context.readTime, documents, hasMore: documents.length === context.limit };
     },
     listAssets: context => storage.list(context),

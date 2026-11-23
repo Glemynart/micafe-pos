@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto';
-import { SCHEMAS, SCHEMA_VERSION, INTERNAL_ROOTS, PENDING_ROOTS, projectDocument } from './export-schema.mjs';
+import { SCHEMAS, SCHEMA_VERSION, INTERNAL_ROOTS, PENDING_ROOTS, SINGLETON_ROOTS, projectDocument } from './export-schema.mjs';
 
 const idPattern = /^[a-zA-Z0-9_-]{1,120}$/;
 const hash = value => createHash('sha256').update(value).digest('hex');
 const fail = code => { throw new Error(code); };
-const childSchemas = { ventas: ['abonos_bodega', 'compromisos_pago_bodega'], empresas: ['secuencias_documentales', 'solicitudes_venta_bodega', 'agenda_pedidos_bodega', 'reservas_stock_bodega'] };
+const childSchemas = { ventas: ['abonos_bodega', 'compromisos_pago_bodega'], empresas: ['secuencias_documentales', 'solicitudes_venta_bodega', 'agenda_pedidos_bodega', 'reservas_stock_bodega'], suscripciones: ['relaciones'], ofertas_comerciales_tenant: ['ofertas'] };
 
 /** Read-only source port. The engine has no database mutation or filesystem API. */
 export async function exportTenant({ project, tenant, readTime, sourceSha, requestId, source, now = () => Date.now(), maxDocuments = 10000, maxBytes = 50_000_000 }) {
@@ -15,6 +15,7 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
   if (age < 0 || age > 60_000) fail('EXPORT_INVALID_READ_TIME');
   const context = Object.freeze({ project, tenant, readTime, requestId });
   const files = [], counts = [], seen = new Set();
+  const memberUids = new Set();
   let totalDocuments = 0, totalBytes = 0;
   let initialProof;
   async function authorize() {
@@ -45,7 +46,12 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
       if (!page || page.readTime !== readTime || !Array.isArray(page.documents) || page.documents.length > 200) fail('EXPORT_INCONSISTENT_PAGE');
       for (const document of page.documents) {
         if (!idPattern.test(document.id) || (after && document.id <= after)) fail('EXPORT_UNSTABLE_PAGINATION');
-        if (!document.data || document.data.empresaId !== tenant) fail('EXPORT_CROSS_TENANT');
+        if (!document.data) fail('EXPORT_CROSS_TENANT');
+        const scopedByParent = path.includes('/') && seen.has(path.split('/').slice(0, -1).join('/'));
+        const scopedByCanonicalId = SINGLETON_ROOTS.has(path) && document.id === tenant;
+        const scopedByMembership = path === 'usuarios' && memberUids.has(document.id);
+        const owner = name === 'ofertas' ? document.data.empresaIdObjetivo : document.data.empresaId;
+        if (owner !== tenant && !(owner === undefined && (scopedByParent || scopedByCanonicalId || scopedByMembership))) fail('EXPORT_CROSS_TENANT');
         const fullPath = `${path}/${document.id}`;
         if (seen.has(fullPath)) fail('EXPORT_DUPLICATE_DOCUMENT');
         seen.add(fullPath);
@@ -55,6 +61,10 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
           if (!versions.includes(document.data.schemaVersion)) fail('EXPORT_UNSUPPORTED_SCHEMA_VERSION');
         }
         const data = projectDocument(document.data, SCHEMAS[name]);
+        if (path === 'membresias') {
+          if (typeof data.uid !== 'string' || !idPattern.test(data.uid)) fail('EXPORT_INVALID_MEMBERSHIP');
+          memberUids.add(data.uid);
+        }
         if (data.id !== undefined && data.id !== document.id) fail('EXPORT_DOCUMENT_ID_MISMATCH');
         const line = JSON.stringify({ id: document.id, data });
         totalDocuments++; count++;
