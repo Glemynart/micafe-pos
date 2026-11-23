@@ -88,6 +88,13 @@ completarse antes de publicar. Las transmisiones o transferencias internacionale
 se evaluarán conforme al rol del receptor y los requisitos legales; no se presume
 que un contrato con un proveedor extranjero cubre cualquier transferencia.
 
+La revisión técnica identificó Google/Firebase/GCP para infraestructura,
+autenticación, archivos y notificaciones; Vercel en desarrollo/previews y un
+componente de analítica; y el correo Gmail de contacto declarado. Sus funciones,
+regiones verificadas y contratos pendientes se detallan en el
+[inventario operativo](OPERACION-Y-CONSERVACION.md). No afirmar que todos los
+datos permanecen en Colombia ni atribuir a toda la plataforma una sola región.
+
 Los requerimientos de autoridades se atienden previa comprobación de competencia
 y alcance, conservando evidencia y limitando la entrega a lo exigible.
 
@@ -111,6 +118,12 @@ finalidades y obligaciones justificadas lo requieran. Antes de publicar se debe
 aprobar una matriz con plazos por categoría, reglas de supresión o anonimización,
 bloqueo por obligación legal y ciclo de eliminación de respaldos. Esta redacción
 no afirma que exista hoy borrado automático.
+
+Se comprobó respaldo diario de Firestore con retención de 35 días. Esta retención
+no determina la de archivos Storage, correo, logs o cachés de dispositivos. La
+supresión del dato activo debe contemplar su permanencia residual en respaldos,
+acceso restringido y reaplicación de supresiones al restaurar. Véase la
+[matriz propuesta](OPERACION-Y-CONSERVACION.md), pendiente de aprobación y ejecución.
 
 La versión final indicará fecha de vigencia. Los cambios sustanciales se comunicarán
 oportunamente y requerirán nueva autorización cuando corresponda.

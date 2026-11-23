@@ -117,6 +117,12 @@ Textos finales, representación, conservación, inventario de proveedores y proc
 de salida deben resolverse antes de exigirlos. El nuevo codebase y Rules requieren
 PR, preflight y autorización operativa; este ADR no los despliega.
 La evidencia contiene datos personales: aprobar retención y acceso antes de crearla.
+
+La [propuesta operativa](docs/legal/OPERACION-Y-CONSERVACION.md) documenta el backup
+real de 35 días, regiones y mecanismos comprobados. Identifica como dependencia
+no implementada la exportación completa de tenant y no la absorbe en este ADR.
+La aceptación condicional del responsable no se transforma en estado Aceptado
+por cerrar únicamente el texto; las condiciones materiales pendientes se conservan.
 No se promete que una huella o UID demuestre por sí solo validez jurídica plena.
 
 Rollback: desactivar únicamente exigibilidad mediante mecanismo autorizado,

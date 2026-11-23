@@ -12,6 +12,12 @@ Los textos mejoran la separación contrato/autorización y responsable/encargado
 Todavía faltan decisiones y evidencias operativas para publicarlos como finales.
 Un checkbox por sí solo no acredita cumplimiento de protección de datos.
 
+Actualización del mismo corte: se verificaron metadatos remotos del backup diario
+de 35 días y regiones de recursos, y se concretaron las alternativas en
+[operación y conservación](OPERACION-Y-CONSERVACION.md). No se ejecutó restore ni
+se probó exportación completa. La presencia de Analytics y caché persistente
+se confirma en código, sin acreditar recepción de eventos o borrado al logout.
+
 | Requisito | Resultado y acción necesaria |
 |---|---|
 | Identificar al prestador | Incluido nombre, NIT, dirección, correo y teléfono. RUT no verificado. |

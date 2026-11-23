@@ -8,6 +8,11 @@ Véanse [hallazgos y fuentes](REVISION-2026-11.md) y
 [ADR-SAAS-099 propuesto](../../ADR-SAAS-099-aceptacion-legal-versionada.md).
 La revisión no cierra los pendientes ni convierte el texto en exigible.
 
+La [propuesta operativa concreta](OPERACION-Y-CONSERVACION.md) incorpora
+metadatos remotos de backups/regiones, proveedores identificados y opciones de
+conservación, soporte y salida. Distingue hechos comprobados de condiciones por
+aprobar y de mecanismos todavía no implementados.
+
 Trazabilidad: `G-SAAS-02 → M2 → E2.2`, preparación documental del onboarding
 comercial autorizada por el responsable en este chat. Base técnica:
 `ce70af69754d98d5d61311dd2673423a9d471eef`.
@@ -43,6 +48,13 @@ verificación del RUT, registro de marca ni constitución de una sociedad.
    comprobar que el correo y teléfono publicados reciben solicitudes.
 8. Determinar fecha de vigencia y aprobar una versión final. Las fechas de estos
    borradores no constituyen fecha de aceptación de los clientes existentes.
+
+Avance: backup diario Firestore de 35 días y snapshots recientes `READY`
+comprobados solo por metadatos; soporte temporal de diagnóstico y CSV parcial
+comprobados en código. Pendientes materiales: acuerdos efectivos con proveedores,
+exportación completa de tenant, supresión/ciclo de archivos y limpieza de caché.
+La aprobación condicionada del responsable no se registra como aceptación de
+ADR-SAAS-099 mientras estas condiciones sigan sin resolverse.
 
 ## Siguiente corte técnico propuesto
 
