@@ -13,6 +13,11 @@ metadatos remotos de backups/regiones, proveedores identificados y opciones de
 conservación, soporte y salida. Distingue hechos comprobados de condiciones por
 aprobar y de mecanismos todavía no implementados.
 
+La [comprobación de proveedores](PROVEEDORES-EVIDENCIA-2026-11.md) confirmó Vercel
+Hobby y sus límites; la exportación se diseña en
+[ADR-SAAS-100 Propuesto](../../ADR-SAAS-100-exportacion-salida-tenant.md).
+Ninguno de esos resultados acredita firma de contratos o entrega de datos reales.
+
 Trazabilidad: `G-SAAS-02 → M2 → E2.2`, preparación documental del onboarding
 comercial autorizada por el responsable en este chat. Base técnica:
 `ce70af69754d98d5d61311dd2673423a9d471eef`.

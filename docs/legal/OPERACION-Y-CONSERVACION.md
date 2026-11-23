@@ -61,6 +61,10 @@ la cuenta ni suficiencia para cada tratamiento:
 - [Privacidad de Analytics](https://vercel.com/docs/analytics/privacy-policy):
   revisar campos/eventos, URL y exclusión de identificadores sensibles.
 
+Actualización verificada: el equipo Vercel consultado está en plan Hobby. No
+atribuirle cobertura del DPA Pro/Enterprise ni asumir aptitud para uso comercial.
+Véase [evidencia contractual](PROVEEDORES-EVIDENCIA-2026-11.md).
+
 **Recomendación:** no añadir integraciones. Para el primer corte legal,
 retirar Analytics no esencial o acreditar su tratamiento concreto antes de
 publicar una política que lo describa. Cualquiera de esas acciones requiere su
@@ -89,6 +93,13 @@ fundamento, alcance mínimo, responsable y próxima revisión. No seguir usando 
 datos en operación ordinaria o publicidad. La restauración debe reaplicar el
 registro de supresiones y restricciones antes de devolver acceso; restaurar un
 backup no autoriza resucitar tratamientos ya terminados.
+
+**Límite de la propuesta de 95 días:** no es plazo de eliminación física total.
+Los términos públicos Google contemplan otros ciclos de eliminación interna en
+sus respectivos supuestos, incluidos máximos de hasta 180 días; su cómputo y
+aplicabilidad dependen del contrato/operación. No publicar un máximo global de
+35/95 días para todos los sistemas. Antes de fijarlo deben distinguirse datos
+activos, snapshots controlados, copias de servicio y excepciones legales.
 
 ## 4. Soporte, privacidad y reclamaciones
 
@@ -152,6 +163,10 @@ incluir otros clientes y no se entrega al negocio. La entrega propuesta necesita
 una herramienta o procedimiento autorizado y validado antes de prometer esos
 plazos. No desarrollar un exportador dentro del PR de aceptación sin admitir
 expresamente esa dependencia en el Goal y su diseño.
+
+Preparación técnica: [ADR-SAAS-100](../../ADR-SAAS-100-exportacion-salida-tenant.md),
+en Propuesto, define adaptadores para crédito/FIFO/subcolecciones, snapshot de
+lectura y exclusión de secretos. Todavía no implementa ni ejecuta el exportador.
 
 La ventana de salida no obliga a mantener ventas o escrituras después del fin
 contractual. Solicitud tardía, obligación de conservación o disputa requieren

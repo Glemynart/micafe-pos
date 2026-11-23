@@ -18,6 +18,13 @@ de 35 días y regiones de recursos, y se concretaron las alternativas en
 se probó exportación completa. La presencia de Analytics y caché persistente
 se confirma en código, sin acreditar recepción de eventos o borrado al logout.
 
+La comprobación posterior del equipo Vercel confirmó `hobby`; el DPA público
+Pro/Enterprise no acredita cobertura de esa cuenta. Véase
+[expediente de proveedores](PROVEEDORES-EVIDENCIA-2026-11.md). Se identificó
+también que los ciclos internos Google impiden extender el plazo del schedule
+FireStore a una promesa global de eliminación física. ADR-SAAS-100 propone la
+entrega completa por tenant, todavía pendiente de aprobación e implementación.
+
 | Requisito | Resultado y acción necesaria |
 |---|---|
 | Identificar al prestador | Incluido nombre, NIT, dirección, correo y teléfono. RUT no verificado. |
