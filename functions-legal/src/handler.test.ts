@@ -113,6 +113,27 @@ test("rechaza rol distinto de admin y membresía inactiva", async () => {
   await assert.rejects(aceptarDocumentosLegalesTenant(request(), seller.dependencies), (error: unknown) => error instanceof HttpsError && error.code === "permission-denied");
   const inactive = harness({ active: false, bundle: READY_BUNDLE });
   await assert.rejects(aceptarDocumentosLegalesTenant(request(), inactive.dependencies), (error: unknown) => error instanceof HttpsError && error.code === "permission-denied");
+  for (const rol of ["marketing", "saas_operador"]) {
+    const nonAdmin = harness({ bundle: READY_BUNDLE });
+    const auth = request().auth!;
+    await assert.rejects(
+      aceptarDocumentosLegalesTenant(request({}, { auth: { ...auth, token: { ...auth.token, rol } } }), nonAdmin.dependencies),
+      (error: unknown) => error instanceof HttpsError && error.code === "permission-denied",
+    );
+    assert.equal(nonAdmin.writes.length, 0);
+  }
+  const mismatch = harness({ bundle: READY_BUNDLE });
+  const adminAuth = request().auth!;
+  await assert.rejects(
+    aceptarDocumentosLegalesTenant(request({}, { auth: { ...adminAuth, token: { ...adminAuth.token, empresaId: "tenant-b" } } }), mismatch.dependencies),
+    (error: unknown) => error instanceof HttpsError && error.code === "permission-denied",
+  );
+  const operatorWithoutMembership = harness({ bundle: READY_BUNDLE });
+  await assert.rejects(
+    aceptarDocumentosLegalesTenant(request({}, { auth: { uid: "operator-a", token: { empresaId: "tenant-a", rol: "admin", auth_time: 1_700_000_000 } } }), operatorWithoutMembership.dependencies),
+    (error: unknown) => error instanceof HttpsError && error.code === "permission-denied",
+  );
+  assert.equal(operatorWithoutMembership.writes.length, 0);
 });
 
 test("rechaza el payload con autoridad o versiones enviadas por el cliente", async () => {
