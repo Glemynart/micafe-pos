@@ -12,6 +12,12 @@ test('exportación sintética usa consultas REST aisladas por tenant', async () 
     const response = await fetch(`${base}/productos/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' }, body: JSON.stringify({ fields: { empresaId: { stringValue: tenant }, nombre: { stringValue: nombre }, stock: { integerValue: '3' } } }) });
     assert.equal(response.ok, true);
   }
+  for (const [tenant, marker] of [['tenant-a', 'ADMIN_PROPIO'], ['tenant-b', 'ADMIN_AJENO']]) {
+    const company = await fetch(`${base}/empresas/${tenant}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' }, body: JSON.stringify({ fields: { empresaId: { stringValue: tenant }, nombre: { stringValue: 'Empresa sintética' } } }) });
+    assert.equal(company.ok, true);
+    const receipt = await fetch(`${base}/empresas/${tenant}/aceptacionesLegales/recibo`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' }, body: JSON.stringify({ fields: { empresaId: { stringValue: tenant }, uid: { stringValue: marker }, bundleId: { stringValue: 'bundle-sintetico' }, aceptadoEn: { timestampValue: '2026-11-24T00:00:00Z' }, documentos: { arrayValue: { values: [{ mapValue: { fields: { id: { stringValue: 'terminos' }, version: { stringValue: '1' }, sha256: { stringValue: 'a'.repeat(64) } } } }] } } } }) });
+    assert.equal(receipt.ok, true);
+  }
   const readTime = new Date().toISOString();
   const tenant = 'tenant-a', requestId = 'synthetic-request';
   const source = createReadSource({ project, tenant, getAccessToken: async () => 'owner',
@@ -21,7 +27,10 @@ test('exportación sintética usa consultas REST aisladas por tenant', async () 
   });
   const bundle = await exportTenant({ project, tenant, requestId, readTime, sourceSha: 'a'.repeat(40), source });
   assert.equal(verifyBundle(bundle), true);
-  assert.equal(bundle.manifest.totalDocuments, 1);
+  assert.equal(bundle.manifest.totalDocuments, 3);
   assert.match(JSON.stringify(bundle), /PRODUCTO_PROPIO/);
   assert.doesNotMatch(JSON.stringify(bundle), /PRODUCTO_AJENO/);
+  assert.match(JSON.stringify(bundle), /ADMIN_PROPIO/);
+  assert.doesNotMatch(JSON.stringify(bundle), /ADMIN_AJENO/);
+  assert.ok(bundle.files.some(file => file.name === 'empresas/tenant-a/aceptacionesLegales.jsonl'));
 });
