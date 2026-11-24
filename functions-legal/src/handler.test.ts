@@ -34,7 +34,13 @@ function harness(options: { rol?: string; active?: boolean; bundle?: BundleLegal
     return {
       path,
       get: async () => snapshot(records.get(path)),
-      collection: (child: string) => ({ doc: (childId: string) => docRef(`${path}/${child}`, childId) }),
+      collection: (child: string) => ({
+        doc: (childId: string) => docRef(`${path}/${child}`, childId),
+        limit: (limit: number) => ({ get: async () => ({ docs: [...records.entries()]
+          .filter(([key]) => key.startsWith(`${path}/${child}/`) && !key.slice(`${path}/${child}/`.length).includes("/"))
+          .sort(([a], [b]) => a.localeCompare(b)).slice(0, limit)
+          .map(([key, value]) => ({ id: key.split("/").at(-1), data: () => value })) }) }),
+      }),
     };
   };
   const db: any = {
@@ -128,6 +134,10 @@ test("aceptación contractual se registra una vez, con actor, tenant, bundle, ha
   assert.equal(state.aceptacionId, result.aceptacionId);
   assert.equal(state.documentosAceptados?.length, 2);
   assert.equal(state.sha256CondicionesComerciales, saved.sha256CondicionesComerciales);
+  assert.equal(state.historial.length, 1);
+  assert.equal(state.historial[0].uid, "admin-a");
+  assert.equal(state.historial[0].aceptacionId, result.aceptacionId);
+  assert.equal(state.historialLimitado, false);
 });
 
 test("rechaza rol distinto de admin y membresía inactiva", async () => {
@@ -219,6 +229,10 @@ test("una relación contractual nueva exige una aceptación y un recibo nuevos",
   const renewed = await aceptarDocumentosLegalesTenant(request({ referenciaContrato: renewedReference }), h.dependencies);
   assert.notEqual(renewed.aceptacionId, first.aceptacionId);
   assert.equal(h.writes.length, 2);
+  h.records.set("empresas/tenant-b/aceptacionesLegales/foreign", { empresaId: "tenant-b", uid: "foreign-user" });
+  const history = await consultarEstadoLegalTenant(request(undefined as never, { data: undefined }), h.dependencies);
+  assert.equal(history.historial.length, 2);
+  assert.ok(history.historial.every((entry: { uid: string }) => entry.uid === "admin-a"));
 });
 
 test("rechaza reutilizar un recibo si cambió el snapshot bajo la misma referencia", async () => {

@@ -35,6 +35,8 @@ export interface EstadoLegalTenant {
   documentos: DocumentoLegalCliente[];
   documentosAceptados: Array<Pick<DocumentoLegalCliente, "id" | "version" | "sha256">> | null;
   sha256CondicionesComerciales: string | null;
+  historial: Array<{ aceptacionId: string; uid: string; bundleId: string; referenciaContrato: string; aceptadoEn: string; documentos: Array<Pick<DocumentoLegalCliente, "id" | "version" | "sha256">> }>;
+  historialLimitado: boolean;
 }
 
 export interface ReciboAceptacionLegal {

@@ -171,6 +171,11 @@ export function AdminLegalDocuments() {
         </form>}
 
         {recibo && estado.aceptado && <button type="button" onClick={() => descargarRecibo(estado, recibo)} className="inline-flex min-h-10 items-center gap-2 rounded-lg border px-4 text-sm font-semibold"><Download className="size-4" />Descargar recibo de aceptación</button>}
+        <section className="rounded-xl border bg-card p-5" aria-label="Historial de aceptaciones">
+          <h2 className="font-semibold">Historial de aceptaciones</h2>
+          {!Array.isArray(estado.historial) ? <p className="mt-2 text-sm text-amber-900">El historial aún no está disponible. Inténtalo más tarde.</p> : estado.historial.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">Aún no hay aceptaciones registradas.</p> : <ul className="mt-3 space-y-3">{estado.historial.map((item) => <li key={item.aceptacionId} className="rounded-lg border p-3 text-sm"><p className="font-medium">{new Date(item.aceptadoEn).toLocaleString("es-CO")} · {item.bundleId}</p><p>Administrador: {item.uid} · Contrato: {item.referenciaContrato}</p><p>{item.documentos.map((doc) => `${LABELS[doc.id] ?? doc.id} v${doc.version}`).join(" · ")}</p></li>)}</ul>}
+          {estado.historialLimitado && <p className="mt-3 text-sm text-amber-900">Se muestran hasta 50 registros. Contacta a soporte para consultar los demás.</p>}
+        </section>
       </>}
     </section>
   );
