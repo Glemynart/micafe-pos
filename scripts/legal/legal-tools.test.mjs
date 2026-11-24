@@ -137,6 +137,13 @@ test('hash mismatch invalidates delivery', async () => {
   bundle.files[0].content += 'changed';
   assert.throws(() => verifyBundle(bundle), /EXPORT_HASH_MISMATCH/);
 });
+test('el verificador rechaza metadatos de archivo alterados aunque el contenido coincida', async () => {
+  const bundle = await exportTenant({ ...input, source: fixture() });
+  const asset = bundle.files.find(file => file.name.startsWith('assets/'));
+  assert.ok(asset);
+  asset.originalPath = 'tenants/tenant-a/otro-archivo.png';
+  assert.throws(() => verifyBundle(bundle), /EXPORT_METADATA_MISMATCH/);
+});
 test('Firestore scalar decoder rejects precision loss and opaque types', () => {
   assert.equal(decodeFields({ cost: { integerValue: '23900' } }).cost, 23900);
   assert.equal(decodeFields({ when: { timestampValue: '2026-11-23T12:00:00.123456Z' } }).when, '2026-11-23T12:00:00.123456Z');

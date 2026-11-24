@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { SCHEMAS, SCHEMA_VERSION, INTERNAL_ROOTS, PENDING_ROOTS, SINGLETON_ROOTS, projectDocument } from './export-schema.mjs';
 
 const idPattern = /^[a-zA-Z0-9_-]{1,120}$/;
@@ -128,6 +129,8 @@ export function verifyBundle(bundle) {
     if (typeof file.name !== 'string' || names.has(file.name)) fail('EXPORT_INVALID_BUNDLE');
     names.add(file.name);
     const expected = bundle.manifest.files.find(f => f.name === file.name);
+    const { content, ...metadata } = file;
+    if (!expected || !isDeepStrictEqual(metadata, expected)) fail('EXPORT_METADATA_MISMATCH');
     const bytes = file.encoding === 'base64' ? Buffer.from(file.content, 'base64') : Buffer.from(file.content, 'utf8');
     if (!expected || bytes.byteLength !== expected.bytes || hash(bytes) !== expected.sha256) fail('EXPORT_HASH_MISMATCH');
   }
