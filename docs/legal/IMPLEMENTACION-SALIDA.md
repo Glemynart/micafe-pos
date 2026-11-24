@@ -2,8 +2,10 @@
 
 Fecha: 2026-11-23. `G-SAAS-02 / M2 / E2.2`.
 ADR-SAAS-100 aceptado para implementar por la orden posterior «ok resuelve eso».
-ADR-SAAS-101 aceptado expresamente para pruebas locales; ADR-SAAS-099 sigue Propuesto. No hay aceptación legal real
-del cliente ni cambios en producción atribuibles a estos archivos.
+ADR-SAAS-101 aceptado expresamente para implementación y pruebas locales.
+ADR-SAAS-099 aceptado por separado para implementar aceptación legal versionada;
+PR #706 contiene ese flujo técnico, pero sigue sin integrar ni desplegar. No hay
+aceptación legal real del cliente ni cambios en producción atribuibles a estos archivos.
 
 ## Corte de proveedores
 
@@ -75,8 +77,9 @@ identidades compartidas, ledger, evidencia contractual, referencias sin comproba
 y entrega pendiente. Usa precondiciones updateTime y un comprobante atómico sin
 payloads personales; la repetición verifica ausencia y detecta recreación.
 No constituye un ejecutor productivo ni prueba eliminación física de backups.
-Un preview sin bloqueos sigue sin autorizar borrado real. Tampoco está
-implementado el flujo de aceptación ADR-SAAS-099.
+Un preview sin bloqueos sigue sin autorizar borrado real. El flujo de aceptación
+ADR-SAAS-099 está implementado en PR #706; su bundle permanece en `PREPARACION`,
+no ha sido integrado ni desplegado y no existen aceptaciones de clientes en producción.
 
 El inventario de metadatos de `micafe-pos` a las 19:37 UTC del 2026-11-23
 identificó 48 raíces y las 48 tienen clasificación: adaptador cerrado o fuente

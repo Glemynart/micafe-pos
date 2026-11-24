@@ -162,16 +162,20 @@ de información de otros tenants y excluir secretos, hashes de PIN, tokens,
 credenciales e información de plataforma ajena a la entrega. Entregar por canal
 autenticado y restringido; evitar adjuntar dumps completos a Gmail.
 
-**Limitación actual:** el CSV de reportes es parcial. No se verificó un exportador
-integral tenant-aware listo para usar; un export Firestore de toda la base puede
-incluir otros clientes y no se entrega al negocio. La entrega propuesta necesita
-una herramienta o procedimiento autorizado y validado antes de prometer esos
-plazos. No desarrollar un exportador dentro del PR de aceptación sin admitir
-expresamente esa dependencia en el Goal y su diseño.
+**Limitación actual:** el CSV de reportes es parcial. El exportador local de
+ADR-SAAS-100 tiene lectura acotada por tenant, allowlists versionadas, cifrado y
+pruebas con datos sintéticos; clasifica las 48 raíces observadas. No se leyeron
+payloads reales ni se realizó una entrega. `productionExportCertified=false`:
+faltan verificar esquemas históricos, referencias, subcolecciones y consistencia
+de `readTime` con evidencia representativa antes de usarlo con datos reales. Un
+export Firestore de toda la base puede incluir otros clientes y no se entrega al
+negocio.
 
-Preparación técnica: [ADR-SAAS-100](../../ADR-SAAS-100-exportacion-salida-tenant.md),
-en Propuesto, define adaptadores para crédito/FIFO/subcolecciones, snapshot de
-lectura y exclusión de secretos. Todavía no implementa ni ejecuta el exportador.
+Preparación técnica: [ADR-SAAS-100](../../ADR-SAAS-100-exportacion-salida-tenant.md)
+está aceptado para implementación y pruebas controladas. El ejecutor local de
+supresión solo admite fixtures sintéticos en Firestore Emulator; no borra datos
+productivos, Auth ni Storage, ni demuestra eliminación física de respaldos.
+Ninguna de estas herramientas está certificada para una salida real.
 
 La ventana de salida no obliga a mantener ventas o escrituras después del fin
 contractual. Solicitud tardía, obligación de conservación o disputa requieren
@@ -186,8 +190,8 @@ revisión del caso y derechos aplicables; no autoriza una eliminación precipita
   y proceso de supresión; escoger archivo/procedimiento con control de acceso.
 - Validar exportación completa, ciclo de Storage y caché local. No prometerlos como
   implementados por estar escritos en una política.
-- Mantener ADR-SAAS-099 en Propuesto hasta cerrar su aprobación. Su preparación
-  puede continuar, pero no activar exigibilidad frente a Diana con estos pendientes.
+- ADR-SAAS-099 está aceptado para implementar aceptación legal versionada; esa
+  aprobación no finaliza los textos ni activa exigibilidad frente a Diana.
 
 ## Fuentes
 

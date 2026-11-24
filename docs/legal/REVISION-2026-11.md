@@ -26,9 +26,11 @@ Firestore a una promesa global de eliminación física. ADR-SAAS-100 fue aceptad
 para implementar y probar de forma controlada la entrega completa por tenant;
 la exportación integral todavía no está certificada ni habilitada para datos reales.
 
-El [cierre de comprobaciones](CIERRE-COMPROBACIONES-2026-11.md) registra los
-límites finales: supresión integral y exportador siguen sin implementación
-verificada; no son comprobaciones pendientes que se resuelvan con otra auditoría.
+El [cierre de comprobaciones](CIERRE-COMPROBACIONES-2026-11.md) registra el estado
+real: hay herramientas locales de exportación y supresión con datos sintéticos,
+pero ninguna está certificada para producción. El exportador no ha leído datos
+reales; la supresión no se ha ejecutado contra datos reales ni cubre Auth,
+Storage o la eliminación física de respaldos.
 
 | Requisito | Resultado y acción necesaria |
 |---|---|

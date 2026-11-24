@@ -103,11 +103,12 @@ La lectura no inspeccionó subcolecciones de cada tenant. El código confirma
 abonos/compromisos bajo ventas y agenda/pedidos bajo empresas, por lo que exportar
 solo raíces perdería información.
 
-**Resultado:** alcance de ADR-SAAS-100 fundamentado; no existe evidencia de una
-exportación integral ejecutable y validada. Antes de crear una promesa de entrega,
-implementar bajo diseño aprobado y validar con dos tenants sintéticos, schemas,
-referencias, readTime, generaciones de objetos y exclusión de secretos. No se
-necesita extraer datos de Diana para realizar esas primeras pruebas.
+**Resultado:** el exportador local de ADR-SAAS-100 está implementado y cuenta con
+pruebas sintéticas, incluida la clasificación de las 48 raíces observadas. No se
+ha realizado exportación real ni se han verificado payloads históricos, referencias,
+subcolecciones y consistencia de `readTime` contra una entrega de producción;
+`productionExportCertified=false`. No se necesita extraer datos de Diana para
+seguir fortaleciendo las pruebas con datos sintéticos.
 
 ## 5. Decisión operativa resultante
 
@@ -115,18 +116,19 @@ Las comprobaciones ya no dependen de una duda genérica sobre proveedores:
 
 1. Google online y Gmail personal están identificados por declaración y fuentes.
 2. Vercel Hobby es un problema concreto de uso/contrato a resolver.
-3. Exportación y supresión integral son capacidades pendientes de implementación
-   y validación, no hechos que otra auditoría documental pueda demostrar.
+3. Exportación y supresión tienen una base local probada con datos sintéticos,
+   pero no están certificadas ni habilitadas para operaciones reales.
 4. Plazos comerciales de soporte/salida y matriz de conservación siguen propuestos;
    aprobarlos no equivale a que su ejecución esté implementada.
 
 No repetir una auditoría general ni exigir una aceptación ficticia del cliente.
 ADR-SAAS-100 y ADR-SAAS-099 ya fueron aceptados para implementación controlada;
 sus diseños no equivalen a pruebas completas, despliegue ni exigibilidad. El PR
-#706 contiene la aceptación legal versionada y sus recibos, todavía sin integrar
-ni desplegar. El PR #704 prepara retirar Vercel comercial y corregir Next.js, pero
-sigue separado y sin integrar. Antes de publicación/exigibilidad siguen pendientes
-la exportación sintética completa, la implementación y verificación de supresión,
-la resolución del uso comercial de Vercel y la aprobación jurídica final de los
-textos frente al tratamiento efectivo. Ningún resultado de este informe acredita
-legalidad integral, aceptación de Diana ni un consentimiento retroactivo.
+#706 contiene la aceptación legal versionada y sus recibos; sigue en borrador y no
+está integrado ni desplegado. El PR #704 prepara retirar
+Vercel comercial y corregir Next.js; continúa separado y GitHub lo marca detrás de
+`main`. Antes de publicación/exigibilidad siguen pendientes la certificación de
+exportación/supresión para casos reales, resolver el uso comercial de Vercel y la
+aprobación jurídica final de los textos frente al tratamiento efectivo. Ningún
+resultado de este informe acredita legalidad integral, aceptación de Diana ni un
+consentimiento retroactivo.
