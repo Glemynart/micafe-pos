@@ -33,6 +33,7 @@ test("Emulator: recibo contractual es atómico, append-only e idempotente ante c
   const app = initializeApp({ projectId: "demo-legal-acceptance" }, `legal-${runId}`);
   const db = getFirestore(app);
   const empresaRef = db.collection("empresas").doc(empresaId);
+  const empresaAjenaRef = db.collection("empresas").doc(`other-${runId}`);
   const membresiaRef = db.collection("membresias").doc(`${empresaId}_${uid}`);
   const suscripcionRef = db.collection("suscripciones").doc(empresaId);
   const relacionesRef = suscripcionRef.collection("relaciones");
@@ -67,6 +68,7 @@ test("Emulator: recibo contractual es atómico, append-only e idempotente ante c
       batch.create(empresaRef.collection("aceptacionesLegales").doc(id), { ...records.docs[0].data(), aceptacionId: id, uid: actor });
     }
     await batch.commit();
+    await empresaAjenaRef.collection("aceptacionesLegales").doc("foreign").set({ uid: "FOREIGN_SHOULD_NOT_APPEAR" });
     const firstPage = await consultarEstadoLegalTenant({ ...request, data: {} }, dependencies);
     assert.equal(firstPage.historial.length, 50);
     assert.ok(firstPage.siguienteCursor);
@@ -74,10 +76,11 @@ test("Emulator: recibo contractual es atómico, append-only e idempotente ante c
     assert.equal(secondPage.historial.length, 2);
     assert.equal(secondPage.siguienteCursor, null);
     assert.equal(new Set([...firstPage.historial, ...secondPage.historial].map(item => item.aceptacionId)).size, 52);
+    assert.doesNotMatch(JSON.stringify([firstPage.historial, secondPage.historial]), /FOREIGN_SHOULD_NOT_APPEAR/);
   } finally {
     const receipts = await empresaRef.collection("aceptacionesLegales").get();
     await Promise.all(receipts.docs.map((doc) => doc.ref.delete()));
-    await Promise.all([empresaRef.delete(), membresiaRef.delete(), relacionesRef.doc("_vigente").delete(), relacionesRef.doc(relacionId).delete(), suscripcionRef.delete()]);
+    await Promise.all([empresaAjenaRef.collection("aceptacionesLegales").doc("foreign").delete(), empresaRef.delete(), membresiaRef.delete(), relacionesRef.doc("_vigente").delete(), relacionesRef.doc(relacionId).delete(), suscripcionRef.delete()]);
     await deleteApp(app);
   }
 });

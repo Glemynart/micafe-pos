@@ -4,6 +4,12 @@ Alcance: G-SAAS-02 / M2 / E2.2, rama `codex/e2-2-legal-acceptance`,
 PR #706, candidato `3140e92472a5bcdeb499bf38ba51b8c682b67217`.
 La matriz registra observaciones y no constituye dictamen ni aprobación jurídica.
 
+La [Ley 527 de 1999, artículos 5 a 8](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=4276)
+reconoce los mensajes de datos y establece condiciones para identificar al
+iniciador, reflejar su aprobación y preservar integridad. Los hashes y la sesión
+aportan evidencia técnica; no prueban por sí solos representación legal, control
+exclusivo de credenciales ni equivalencia automática con firma digital certificada.
+
 | Requisito | Estado y evidencia | Riesgo | Acción y criterio de cierre |
 |---|---|---|---|
 | Cuatro documentos | Versiones 0.2 en `docs/legal` y `public/legal/v0.2`, catálogo con hashes y estado BORRADOR | Prometer capacidades inexistentes o condiciones sin verificar | Contrastar cada afirmación, preparar versión revisable y obtener aprobación aplicable antes de EXIGIBLE |
