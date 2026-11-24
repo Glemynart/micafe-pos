@@ -42,8 +42,13 @@ test('unknown field, source and child stop completion without disclosing their v
   await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, internalNote: 'SECRET_VALUE' } }], hasMore: false }) }) }), /^Error: EXPORT_UNSUPPORTED_FIELD$/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['unknown_source'] }) }), /EXPORT_UNKNOWN_COLLECTION/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ listChildren: async () => ['secret_children'] }) }), /EXPORT_UNCLASSIFIED_SUBCOLLECTION/);
-  await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['agendas'] }) }), /EXPORT_ADAPTER_REQUIRED/);
+  await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['eventos_operativos'] }) }), /EXPORT_ADAPTER_REQUIRED/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, schemaVersion: 'FUTURE' } }], hasMore: false }) }) }), /EXPORT_UNSUPPORTED_SCHEMA_VERSION/);
+});
+test('un adaptador definido no se bloquea por la lista histórica de pendientes', async () => {
+  const source = fixture({ listRoots: async () => ['numeraciones'], readPage: async ctx => ({ readTime: ctx.readTime, documents: [], hasMore: false }) });
+  const bundle = await exportTenant({ ...input, source });
+  assert.equal(bundle.manifest.totalDocuments, 0);
 });
 test('la configuración histórica global se excluye sin consultarse ni entregarse', async () => {
   const bundle = await exportTenant({ ...input, source: fixture({

@@ -32,7 +32,7 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
   for (const name of roots) {
     if (!SCHEMAS[name] && !INTERNAL_ROOTS.has(name) && !PENDING_ROOTS.has(name)) fail('EXPORT_UNKNOWN_COLLECTION');
     // Missing adapters must not masquerade as empty tenant results.
-    if (PENDING_ROOTS.has(name)) fail('EXPORT_ADAPTER_REQUIRED');
+    if (PENDING_ROOTS.has(name) && !SCHEMAS[name]) fail('EXPORT_ADAPTER_REQUIRED');
   }
 
   async function collect(path, name) {
