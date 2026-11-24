@@ -42,8 +42,14 @@ test('unknown field, source and child stop completion without disclosing their v
   await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, internalNote: 'SECRET_VALUE' } }], hasMore: false }) }) }), /^Error: EXPORT_UNSUPPORTED_FIELD$/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['unknown_source'] }) }), /EXPORT_UNKNOWN_COLLECTION/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ listChildren: async () => ['secret_children'] }) }), /EXPORT_UNCLASSIFIED_SUBCOLLECTION/);
-  await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['eventos_operativos'] }) }), /EXPORT_ADAPTER_REQUIRED/);
+  await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['eventos'] }) }), /EXPORT_ADAPTER_REQUIRED/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, schemaVersion: 'FUTURE' } }], hasMore: false }) }) }), /EXPORT_UNSUPPORTED_SCHEMA_VERSION/);
+});
+test('eventos operativos exportan referencias comerciales y excluyen datos internos', () => {
+  const data = projectDocument({ empresaId: 'tenant-a', schemaVersion: 1, eventoId: 'e1', tipo: 'RECORDATORIO_AGENDA_PEDIDO', agregado: { tipo: 'PROGRAMACION_PEDIDO_BODEGA', id: 'p1' }, actor: { uid: 'u1', rolEfectivo: 'admin' }, payloadOperativo: { programacionId: 'p1', fechaLocal: '2026-11-24', zonaHoraria: 'America/Bogota', etapa: 'HOY' }, estadoDespacho: 'ENVIADO', intentos: 1, claimId: 'INTERNAL', ultimoErrorCodigo: 'INTERNAL' }, SCHEMAS.eventos_operativos);
+  assert.equal(data.payloadOperativo.programacionId, 'p1');
+  assert.doesNotMatch(JSON.stringify(data), /INTERNAL/);
+  assert.throws(() => projectDocument({ empresaId: 'tenant-a', payloadOperativo: { desconocido: 'x' } }, SCHEMAS.eventos_operativos), /EXPORT_UNSUPPORTED_FIELD/);
 });
 test('un adaptador definido no se bloquea por la lista histórica de pendientes', async () => {
   const source = fixture({ listRoots: async () => ['numeraciones'], readPage: async ctx => ({ readTime: ctx.readTime, documents: [], hasMore: false }) });

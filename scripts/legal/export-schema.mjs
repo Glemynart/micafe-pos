@@ -75,6 +75,10 @@ const configuration = adapter('vertical', {
 const subscription = adapter('relacionId relacionVigenteId planId planVersion periodicidad origen relacionAnteriorId trialInicio trialFin periodoInicio periodoFin graceFin cancelacionProgramadaPara canceladaEn ultimoPagoAnualId', { snapshotContrato: snapshot });
 export const SINGLETON_ROOTS = new Set(['empresas', 'configuraciones', 'suscripciones', 'ofertas_comerciales_tenant', 'cuentas_control_nevera']);
 export const SCHEMAS = Object.freeze({
+  eventos_operativos: adapter('eventoId tipo fechaProgramada fechaDisponible estadoDespacho intentos ultimoIntentoEn despachadoEn', {
+    agregado: fields('tipo id'), actor: operationActor,
+    payloadOperativo: fields('programacionId fechaLocal zonaHoraria etapa solicitudId'),
+  }),
   productos: adapter('nombre descripcion categoria categoriaId unidad unidadMedida costo precio stock stockReservado stockMinimo imagen imagenUrl codigo codigoBarras sku permiteFraccionamiento'),
   categorias: adapter('nombre icono orden color'),
   presentaciones_producto: adapter('productoId nombre factorUnidadBase precioCOP precioTiendaCOP precioConsumidorFinalCOP costoPresentacionCOP'),
@@ -147,7 +151,7 @@ export const PENDING_ROOTS = new Set(`agendas auditoria_logs comandas_cocina
   reservas numeraciones asignaciones_numeracion pagos_saas
   agenda_pedidos_bodega reservas_stock_bodega solicitudes_venta_bodega`.split(/\s+/));
 
-export const TECHNICAL_FIELDS = new Set(`commandId idempotencyKey correlationId causationId creadoPor actualizadoPor
+export const TECHNICAL_FIELDS = new Set(`commandId idempotencyKey correlationId causationId creadoPor actualizadoPor claimId reclamadoEn ultimoErrorCodigo
   pinHash token tokenDigest tokenVersion fcmTokens password refreshToken accessToken firebaseStorageDownloadTokens reclamosPrivacidadAbiertos`.split(/\s+/));
 
 export function inspectCoverage(roots) {
