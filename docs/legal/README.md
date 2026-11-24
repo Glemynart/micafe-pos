@@ -1,11 +1,11 @@
 # Dusema POS — borradores legales
 
 Estado: **BORRADOR PARA REVISIÓN; NO PUBLICADO NI EXIGIBLE COMO NUEVA VERSIÓN**.
-Preparación: 2026-11-23. Versión de trabajo: `0.1`.
+Preparación: 2026-11-23. Versión de trabajo: `0.2`.
 
 Revisión normativa del mismo día: términos y política avanzan a `0.2`.
 Véanse [hallazgos y fuentes](REVISION-2026-11.md) y
-[ADR-SAAS-099 propuesto](../../ADR-SAAS-099-aceptacion-legal-versionada.md).
+[ADR-SAAS-099 aceptado para implementación](../../ADR-SAAS-099-aceptacion-legal-versionada.md).
 La revisión no cierra los pendientes ni convierte el texto en exigible.
 
 La [propuesta operativa concreta](OPERACION-Y-CONSERVACION.md) incorpora
@@ -63,32 +63,33 @@ Avance: backup diario Firestore de 35 días y snapshots recientes `READY`
 comprobados solo por metadatos; soporte temporal de diagnóstico y CSV parcial
 comprobados en código. Pendientes materiales: acuerdos efectivos con proveedores,
 exportación completa de tenant, supresión/ciclo de archivos y limpieza de caché.
-La aprobación condicionada del responsable no se registra como aceptación de
-ADR-SAAS-099 mientras estas condiciones sigan sin resolverse.
+ADR-SAAS-099 está aceptado para implementar la aceptación versionada; estos
+pendientes siguen impidiendo publicar los textos como finales o exigirlos.
 
-## Siguiente corte técnico propuesto
+## Corte técnico de aceptación versionada
 
-Reemplazar el contenido histórico de `/terminos` solo cuando los textos estén
-aprobados. Publicar documentos accesibles antes de aceptar y permitir descargar
+La ruta histórica `/terminos` se reemplazó en la rama con una vista del borrador,
+claramente marcada como no vigente. La versión final se mostrará solo después de
+su aprobación. Publicar documentos accesibles antes de aceptar y permitir descargar
 la versión exacta. El representante del negocio acepta el contrato; la
 autorización personal corresponde al titular o a quien esté legitimado. Un
 administrador no puede autorizar indiscriminadamente por todos sus clientes.
 
-Diseñar mediante ADR **Propuesto** la autoridad y persistencia de la aceptación:
-identidad autenticada, tenant, capacidad de representación declarada, documento,
-versión y huella del contenido, fecha de servidor y evidencia de la acción
-afirmativa. Conservar versiones históricas y separar aceptación contractual,
-autorización personal y publicidad opcional. No guardar PIN, contraseña o tokens.
-La necesidad y conservación de IP u otros metadatos requieren justificación.
+ADR-SAAS-099 aceptado define la autoridad y persistencia: identidad autenticada,
+tenant, facultad declarada de representación, documentos/versiones/huellas,
+fecha de servidor y evidencia de acción afirmativa. La implementación separa
+aceptación contractual de autorizaciones personales. No guarda PIN, contraseñas,
+tokens ni IP/UA. Las pruebas cubren autorización, aislamiento, idempotencia,
+huellas y Rules. No cambia snapshots, precio, Trial, pagos ni plazo.
 
-Probar autorización, aislamiento, idempotencia, versiones, rechazo de aceptación
-por terceros y compatibilidad con contratos existentes. No alterar snapshots,
-precio, Trial, pagos o plazo como efecto de aceptar los documentos. Definir el
-tratamiento de clientes existentes y del rechazo antes de imponer un bloqueo.
-
-Este corte solo incorpora borradores Markdown. No implementa aceptación, no
-publica páginas, no registra consentimientos y no modifica contratos existentes.
-Rollback documental: revertir exclusivamente el commit que agrega estos archivos.
+El corte técnico en curso prepara vistas y descargas versionadas de estos
+borradores y un registro autenticado de aceptación. El catálogo legal permanece
+en `PREPARACION`: no se ofrece una aceptación contractual de textos sin aprobación
+final, ni se bloquean clientes existentes. No se registran consentimientos
+personales desde la aceptación del contrato empresarial. Las dos callables, las
+Rules y el codebase dedicado requieren desplegarse en un corte posterior; no hay
+escrituras ni aceptación de clientes en producción. Las condiciones para tratar
+clientes existentes y exigir una versión siguen pendientes de decisión y release.
 
 ## Fuentes oficiales consultadas
 
@@ -99,5 +100,6 @@ Rollback documental: revertir exclusivamente el commit que agrega estos archivos
 - [Ley 1480 de 2011](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=44306): aplicación condicionada a la relación de consumo.
 
 Las fuentes orientan la revisión; los borradores no constituyen certificación de
-cumplimiento. Validación de este corte: consistencia, enlaces locales y
-`git diff --check`; no requiere builds ni pruebas de aplicación.
+cumplimiento. La rama añade validaciones automatizadas de hashes, Functions y
+Rules; el estado de ejecución de esas validaciones se reporta en el PR. Ningún
+resultado técnico por sí solo certifica cumplimiento jurídico.

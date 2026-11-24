@@ -345,6 +345,10 @@ service cloud.firestore {
       // Empresa.estado solo transiciona mediante el servicio backend canónico.
       allow create, update, delete: if false;
     }
+    match /empresas/{empresaId}/aceptacionesLegales/{aceptacionId} {
+      // Recibos legales inmutables: solo se consultan/crean desde saas-legal.
+      allow read, write: if false;
+    }
     match /empresas/{empresaId}/bodega_senales/{canal} {
       // Señales técnicas; los datos de negocio siguen siendo callable-only.
       allow get: if canal == 'disponibilidad'

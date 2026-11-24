@@ -5,7 +5,7 @@ import { useConfiguracionEmpresa } from "@/contexts/configuracion-empresa-contex
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Store, LogOut, Headphones } from "lucide-react"
+import { Store, LogOut, Headphones, FileText } from "lucide-react"
 import Link from "next/link"
 
 export function AdminHeader() {
@@ -58,6 +58,16 @@ export function AdminHeader() {
             title="Autorizaciones de soporte SaaS"
           >
             <Headphones className="h-4 w-4" />
+          </Link>
+        )}
+        {usuario?.rol === "admin" && (
+          <Link
+            href="/admin/documentos-legales"
+            className="flex size-11 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+            aria-label="Documentos legales del negocio"
+            title="Documentos legales del negocio"
+          >
+            <FileText className="h-4 w-4" />
           </Link>
         )}
         <div className="hidden sm:flex items-center gap-2">

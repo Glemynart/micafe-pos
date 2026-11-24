@@ -82,6 +82,10 @@
     {
       "source": "functions-tenant-profile",
       "codebase": "saas-tenant-profile"
+    },
+    {
+      "source": "functions-legal",
+      "codebase": "saas-legal"
     }
   ],
   "firestore": {

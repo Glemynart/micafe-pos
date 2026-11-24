@@ -35,8 +35,10 @@
   subcolección desconocidos; la certificación de producción sigue falsa. La
   supresión se implementó y probó solo con fixtures sintéticos en Emulator.
   Ninguna capacidad de exportación/supresión se declara certificada para producción.
-  ADR-SAAS-101 habilita únicamente implementación y pruebas locales; ADR-SAAS-099
-  sigue Propuesto y los términos no se vuelven exigibles.
+  ADR-SAAS-101 habilita únicamente implementación y pruebas locales. El responsable
+  aceptó ADR-SAAS-099 para implementar aceptación legal versionada; el corte técnico
+  está en preparación. Los textos legales continúan como borradores, no son exigibles
+  ni se han aceptado en producción.
 
 - Provisionamiento reproducible de un tenant de referencia.
 - Onboarding DEMO como ruta inicial recomendada cuando el cliente no requiera fiscalidad real.

@@ -1,7 +1,7 @@
 # Revisión normativa y operativa — corte 2026-11-23
 
 Estado: **NO LISTO PARA EXIGIR ACEPTACIÓN EN PRODUCCIÓN**.
-Alcance: borradores 0.2, código de `main@ce70af6` y fuentes oficiales accesibles
+Alcance: borradores 0.2, código previo de `main@ce70af6` y fuentes oficiales accesibles
 durante esta revisión. No equivale a dictamen jurídico ni a una búsqueda exhaustiva
 de toda la legislación o de decisiones no indexadas a noviembre de 2026.
 
@@ -34,7 +34,7 @@ verificada; no son comprobaciones pendientes que se resuelvan con otra auditorí
 | Identificar al prestador | Incluido nombre, NIT, dirección, correo y teléfono. RUT no verificado. |
 | Términos accesibles y conservables | `/terminos` actual sigue referido a coworking y reservas. Sustituirlo con versión final descargable y archivo histórico. |
 | Oferta y condiciones particulares | ADR-SAAS-028/029 conservan snapshots. Aceptación legal no puede modificar precio, Trial, vigencia ni capacidades. |
-| Prueba de aceptación | No encontré un registro legal versionado en las superficies de login/contrato inspeccionadas. Propuesta en ADR-SAAS-099. |
+| Prueba de aceptación | La revisión inicial no encontró evidencia versionada; la implementación de ADR-SAAS-099 está en curso en una rama aparte, no desplegada. No hay aceptaciones reales. |
 | Autorización de datos | Debe informarse antes de recoger datos y obtenerse cuando proceda; contrato empresarial no autoriza por todos los titulares. |
 | Consultas/reclamos | Plazos y trámite incluidos. Falta establecer registro, responsable de seguimiento y anotación de reclamo en datos afectados. |
 | Conservación | Falta matriz con plazos justificados por categoría y respaldo. No inventar diez años para toda la información. |
@@ -45,6 +45,17 @@ verificada; no son comprobaciones pendientes que se resuelvan con otra auditorí
 | Comunicaciones | No incluir publicidad en aceptación obligatoria. Revisar Ley 2300/2023 si se habilita cobranza/contacto comercial y el régimen aplica. |
 | Fiscalidad | Recibo interno no es factura DIAN. Revisar por separado deberes tributarios del prestador; estos textos no los satisfacen. |
 | Sesión, PWA y almacenamiento | Código confirma recordatorio opcional del código en admin y sesión Firebase. Inventariar persistencia y permisos antes de describirlos como definitivos. |
+
+## Implementación técnica aprobada
+
+El responsable aceptó ADR-SAAS-099 el 2026-11-23 para implementar los documentos
+públicos versionados y el registro server-side de aceptación contractual del
+representante administrador. Esta rama prepara la implementación y mantiene el
+bundle en `PREPARACION`: los textos continúan siendo borradores; no se aceptan en
+producción, no se bloquean accesos y no se han desplegado Functions o Rules. La
+aceptación contractual tampoco representa autorización personal de clientes,
+empleados u otros titulares. Los pendientes de la tabla siguen abiertos antes de
+declarar los documentos vigentes o exigirlos.
 
 ## Fuentes y vigencia observada
 
@@ -76,8 +87,9 @@ verificada; no son comprobaciones pendientes que se resuelvan con otra auditorí
 Se consultó Context7 para el modelo callable de Firebase y el bypass de Rules
 del Admin SDK. La autorización tenant debe comprobarse explícitamente en servidor.
 
-## Decisión solicitada
+## Estado tras la aprobación del diseño
 
-Aprobar o ajustar ADR-SAAS-099 antes de implementar autoridad, persistencia y
-enforcement. En paralelo pueden cerrarse proveedores, conservación y términos de
-soporte/salida. La revisión jurídica no reemplaza esos datos operativos faltantes.
+ADR-SAAS-099 fue aceptado para implementar autoridad y persistencia de la
+aceptación contractual. Los proveedores, conservación y términos de soporte/salida
+siguen pendientes antes de publicar textos finales o activar enforcement. La
+revisión jurídica no reemplaza esos datos operativos faltantes.

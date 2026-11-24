@@ -3,6 +3,7 @@
 import { WorkspaceWelcome } from "@/components/pwa/workspace-welcome"
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { useAuthContext } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -174,6 +175,12 @@ function AdminLoginContent() {
               )}
             </div>
           </div>
+          <nav aria-label="Documentos legales" className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+            <Link className="underline underline-offset-4" href="/terminos">Términos</Link>
+            <Link className="underline underline-offset-4" href="/privacidad">Privacidad</Link>
+            <Link className="underline underline-offset-4" href="/anexo-tratamiento">Anexo de tratamiento</Link>
+            <Link className="underline underline-offset-4" href="/aviso-autorizacion">Aviso de datos</Link>
+          </nav>
         </div>
       </div>
     </div>
