@@ -40,7 +40,7 @@ function harness(options: { rol?: string; active?: boolean; bundle?: BundleLegal
     },
   };
   records.set("empresas/tenant-a", { estado: "trial", nombreComercial: "Empresa de prueba" });
-  records.set("membresias/tenant-a/admin-a", {
+  records.set("membresias/tenant-a_admin-a", {
     empresaId: "tenant-a", uid: "admin-a", rol: options.rol ?? "admin",
     estado: options.active === false ? "inactiva" : "activa", activo: options.active !== false,
   });

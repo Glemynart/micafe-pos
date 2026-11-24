@@ -13,10 +13,14 @@ const sourceById: Record<string, string> = {
   "anexo-tratamiento": "anexo-tratamiento.md",
 };
 
+function bytesLf(path: string): Buffer {
+  return Buffer.from(readFileSync(path, "utf8").replace(/\r\n/g, "\n"), "utf8");
+}
+
 test("cada huella pública coincide con el borrador legal y la descarga exacta", () => {
   for (const document of BUNDLE_LEGAL_ACTUAL.documentos) {
-    const source = readFileSync(resolve(repository, "docs/legal", sourceById[document.id]!));
-    const download = readFileSync(resolve(repository, "public", document.rutaPublica.slice(1)));
+    const source = bytesLf(resolve(repository, "docs/legal", sourceById[document.id]!));
+    const download = bytesLf(resolve(repository, "public", document.rutaPublica.slice(1)));
     const hash = createHash("sha256").update(source).digest("hex");
     assert.equal(hash, document.sha256, `${document.id} debe coincidir con la huella del servidor`);
     assert.deepEqual(download, source, `${document.id} debe poder descargarse sin alterar sus bytes`);
