@@ -37,6 +37,7 @@ export interface EstadoLegalTenant {
   sha256CondicionesComerciales: string | null;
   historial: Array<{ aceptacionId: string; uid: string; bundleId: string; referenciaContrato: string; aceptadoEn: string; documentos: Array<Pick<DocumentoLegalCliente, "id" | "version" | "sha256">> }>;
   historialLimitado: boolean;
+  siguienteCursor: string | null;
 }
 
 export interface ReciboAceptacionLegal {
@@ -50,9 +51,9 @@ export interface ReciboAceptacionLegal {
   documentos: Array<Pick<DocumentoLegalCliente, "id" | "version" | "sha256">>;
 }
 
-export async function consultarEstadoLegalTenant(): Promise<EstadoLegalTenant> {
-  const callable = httpsCallable<void, EstadoLegalTenant>(getFirebaseFunctions(), "consultarEstadoLegalTenant");
-  return (await callable()).data;
+export async function consultarEstadoLegalTenant(cursor?: string): Promise<EstadoLegalTenant> {
+  const callable = httpsCallable<{ cursor?: string }, EstadoLegalTenant>(getFirebaseFunctions(), "consultarEstadoLegalTenant");
+  return (await callable(cursor ? { cursor } : {})).data;
 }
 
 export async function aceptarDocumentosLegalesTenant(input: {

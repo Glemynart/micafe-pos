@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createHash } from "node:crypto";
 import { HttpsError } from "firebase-functions/v2/https";
 import { aceptarDocumentosLegalesTenant, consultarEstadoLegalTenant } from "../../functions/src/legal/handler";
 import { BUNDLE_LEGAL_ACTUAL, type BundleLegal } from "../../functions/src/legal/catalog";
@@ -36,10 +37,15 @@ function harness(options: { rol?: string; active?: boolean; bundle?: BundleLegal
       get: async () => snapshot(records.get(path)),
       collection: (child: string) => ({
         doc: (childId: string) => docRef(`${path}/${child}`, childId),
-        limit: (limit: number) => ({ get: async () => ({ docs: [...records.entries()]
+        orderBy: () => {
+          let cursor: string | undefined;
+          const query = { startAfter: (value: string) => { cursor = value; return query; }, limit: (limit: number) => ({ get: async () => ({ docs: [...records.entries()]
           .filter(([key]) => key.startsWith(`${path}/${child}/`) && !key.slice(`${path}/${child}/`.length).includes("/"))
+          .filter(([key]) => !cursor || key.split("/").at(-1)! > cursor)
           .sort(([a], [b]) => a.localeCompare(b)).slice(0, limit)
-          .map(([key, value]) => ({ id: key.split("/").at(-1), data: () => value })) }) }),
+          .map(([key, value]) => ({ id: key.split("/").at(-1), data: () => value })) }) }) };
+          return query;
+        },
       }),
     };
   };
@@ -281,4 +287,23 @@ test("rechaza recibos sin identidad o fecha verificable en consulta y reintento"
     await assert.rejects(aceptarDocumentosLegalesTenant(request(), h.dependencies), isDataLoss);
     assert.equal(h.writes.length, 1);
   }
+});
+
+test("pagina todo el historial del tenant sin repetir y rechaza cursores inválidos", async () => {
+  const h = harness({ bundle: READY_BUNDLE });
+  await aceptarDocumentosLegalesTenant(request(), h.dependencies);
+  const receipt = h.records.get(h.writes[0].path)!;
+  for (let i = 0; i < 54; i++) {
+    const actor = `admin-history-${i}`;
+    const id = createHash("sha256").update(["tenant-a", REFERENCIA_CONTRATO, actor, READY_BUNDLE.id].join("\n")).digest("hex");
+    h.records.set(`empresas/tenant-a/aceptacionesLegales/${id}`, { ...receipt, aceptacionId: id, uid: actor });
+  }
+  const first = await consultarEstadoLegalTenant(request(undefined as never, { data: undefined }), h.dependencies);
+  assert.equal(first.historial.length, 50);
+  assert.ok(first.siguienteCursor);
+  const second = await consultarEstadoLegalTenant(request(undefined as never, { data: { cursor: first.siguienteCursor } }), h.dependencies);
+  assert.equal(second.historial.length, 5);
+  assert.equal(second.siguienteCursor, null);
+  assert.equal(new Set([...first.historial, ...second.historial].map(item => item.aceptacionId)).size, 55);
+  await assert.rejects(consultarEstadoLegalTenant(request(undefined as never, { data: { cursor: "../otro" } }), h.dependencies), (error: unknown) => error instanceof HttpsError && error.code === "invalid-argument");
 });

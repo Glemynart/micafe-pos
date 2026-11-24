@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
+import { FieldPath, FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import { HttpsError } from "firebase-functions/v2/https";
 import { esSnapshotContratoCompatible, type SnapshotContrato } from "../../../lib/suscripciones/contrato";
@@ -216,9 +216,10 @@ function fechaReciboValida(value: unknown): Date | null {
   }
 }
 
-async function consultarHistorialLegal(db: any, empresaId: string) {
-  const resultado = await db.collection("empresas").doc(empresaId).collection("aceptacionesLegales")
-    .limit(51).get();
+async function consultarHistorialLegal(db: any, empresaId: string, cursor: string | null) {
+  let query = db.collection("empresas").doc(empresaId).collection("aceptacionesLegales").orderBy(FieldPath.documentId());
+  if (cursor) query = query.startAfter(cursor);
+  const resultado = await query.limit(51).get();
   const documentos = resultado.docs.slice(0, 50);
   const historial = documentos.map((snap: any) => {
     const r = snap.data();
@@ -229,6 +230,7 @@ async function consultarHistorialLegal(db: any, empresaId: string) {
       || r.aceptacionId !== snap.id || snap.id !== idAceptacion(empresaId, r.referenciaContrato, r.uid, r.bundleId)
       || typeof r.sha256CondicionesComerciales !== "string" || !/^[a-f0-9]{64}$/.test(r.sha256CondicionesComerciales)
       || !snapshotCondicionesCoincide(r.condicionesComerciales, r.sha256CondicionesComerciales)
+      || r.condicionesComerciales?.referenciaContrato !== r.referenciaContrato
       || !Array.isArray(r.documentos) || !r.documentos.length
       || r.documentos.some((doc: any) => !doc || typeof doc.id !== "string" || typeof doc.version !== "string" || !/^[a-f0-9]{64}$/.test(doc.sha256))
       || !fecha) fail("data-loss", "No fue posible verificar el historial de aceptaciones.");
@@ -236,17 +238,20 @@ async function consultarHistorialLegal(db: any, empresaId: string) {
       aceptadoEn: fecha.toISOString(), documentos: r.documentos.map((doc: any) => ({ id: doc.id, version: doc.version, sha256: doc.sha256 })) };
   });
   historial.sort((a: { aceptadoEn: string }, b: { aceptadoEn: string }) => b.aceptadoEn.localeCompare(a.aceptadoEn));
-  return { historial, historialLimitado: resultado.docs.length > 50 };
+  return { historial, historialLimitado: resultado.docs.length > 50,
+    siguienteCursor: resultado.docs.length > 50 ? documentos[documentos.length - 1].id : null };
 }
 
 /** Estado mínimo visible al administrador del tenant; los textos no se reconstruyen desde el cliente. */
 export async function consultarEstadoLegalTenant(request: Request, dependencies: Dependencies = {}) {
+  const data = request.data === undefined || request.data === null ? {} : leerObjeto(request.data);
+  if (Object.keys(data).some(key => key !== "cursor") || (data.cursor !== undefined && (typeof data.cursor !== "string" || !/^[a-f0-9]{64}$/.test(data.cursor)))) fail("invalid-argument", "Cursor de historial inválido.");
   const { db, empresaId, uid } = await exigirAdminTenant(request, dependencies);
   const bundle = dependencies.bundle ?? BUNDLE_LEGAL_ACTUAL;
   const [company, contract, historialLegal] = await Promise.all([
     db.collection("empresas").doc(empresaId).get(),
     leerContratoVigente(db, empresaId),
-    consultarHistorialLegal(db, empresaId),
+    consultarHistorialLegal(db, empresaId, typeof data.cursor === "string" ? data.cursor : null),
   ]);
   if (!company.exists) fail("permission-denied", ERROR_ACCESS);
 

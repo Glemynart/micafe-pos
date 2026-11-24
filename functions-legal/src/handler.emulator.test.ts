@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import test from "node:test";
 import { deleteApp, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
-import { aceptarDocumentosLegalesTenant } from "../../functions/src/legal/handler";
+import { aceptarDocumentosLegalesTenant, consultarEstadoLegalTenant } from "../../functions/src/legal/handler";
 import { BUNDLE_LEGAL_ACTUAL, type BundleLegal } from "../../functions/src/legal/catalog";
 
 const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
@@ -60,6 +60,20 @@ test("Emulator: recibo contractual es atómico, append-only e idempotente ante c
     assert.match(records.docs[0].data().sha256CondicionesComerciales, /^[a-f0-9]{64}$/);
     assert.equal(records.docs[0].data().condicionesComerciales.precio.importe, 1800000);
     assert.equal(records.docs[0].data().aceptadoEn.toDate() instanceof Date, true);
+    const batch = db.batch();
+    for (let i = 0; i < 51; i++) {
+      const actor = `admin-history-${i}`;
+      const id = createHash("sha256").update([empresaId, referenciaContrato, actor, bundle.id].join("\n")).digest("hex");
+      batch.create(empresaRef.collection("aceptacionesLegales").doc(id), { ...records.docs[0].data(), aceptacionId: id, uid: actor });
+    }
+    await batch.commit();
+    const firstPage = await consultarEstadoLegalTenant({ ...request, data: {} }, dependencies);
+    assert.equal(firstPage.historial.length, 50);
+    assert.ok(firstPage.siguienteCursor);
+    const secondPage = await consultarEstadoLegalTenant({ ...request, data: { cursor: firstPage.siguienteCursor } }, dependencies);
+    assert.equal(secondPage.historial.length, 2);
+    assert.equal(secondPage.siguienteCursor, null);
+    assert.equal(new Set([...firstPage.historial, ...secondPage.historial].map(item => item.aceptacionId)).size, 52);
   } finally {
     const receipts = await empresaRef.collection("aceptacionesLegales").get();
     await Promise.all(receipts.docs.map((doc) => doc.ref.delete()));

@@ -40,6 +40,7 @@ export function AdminLegalDocuments() {
   const [recibo, setRecibo] = useState<ReciboAceptacionLegal | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [terminos, setTerminos] = useState(false);
   const [anexo, setAnexo] = useState(false);
   const [facultad, setFacultad] = useState(false);
@@ -73,6 +74,21 @@ export function AdminLegalDocuments() {
   }, [usuario?.rol]);
 
   useEffect(() => { void cargar(); }, [cargar]);
+
+  const cargarMas = async () => {
+    const cursor = estado?.siguienteCursor;
+    if (!cursor || loadingHistory) return;
+    setLoadingHistory(true);
+    setError(null);
+    try {
+      const page = await consultarEstadoLegalTenant(cursor);
+      setEstado(previous => previous && previous.empresaId === page.empresaId && previous.siguienteCursor === cursor
+        ? { ...previous, historial: [...previous.historial, ...page.historial], historialLimitado: page.historialLimitado, siguienteCursor: page.siguienteCursor }
+        : previous);
+    } catch {
+      setError("No fue posible cargar más aceptaciones. Inténtalo de nuevo.");
+    } finally { setLoadingHistory(false); }
+  };
 
   const enviar = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -174,7 +190,7 @@ export function AdminLegalDocuments() {
         <section className="rounded-xl border bg-card p-5" aria-label="Historial de aceptaciones">
           <h2 className="font-semibold">Historial de aceptaciones</h2>
           {!Array.isArray(estado.historial) ? <p className="mt-2 text-sm text-amber-900">El historial aún no está disponible. Inténtalo más tarde.</p> : estado.historial.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">Aún no hay aceptaciones registradas.</p> : <ul className="mt-3 space-y-3">{estado.historial.map((item) => <li key={item.aceptacionId} className="rounded-lg border p-3 text-sm"><p className="font-medium">{new Date(item.aceptadoEn).toLocaleString("es-CO")} · {item.bundleId}</p><p>Administrador: {item.uid} · Contrato: {item.referenciaContrato}</p><p>{item.documentos.map((doc) => `${LABELS[doc.id] ?? doc.id} v${doc.version}`).join(" · ")}</p></li>)}</ul>}
-          {estado.historialLimitado && <p className="mt-3 text-sm text-amber-900">Se muestran hasta 50 registros. Contacta a soporte para consultar los demás.</p>}
+          {estado.siguienteCursor && <button type="button" disabled={loadingHistory} onClick={() => void cargarMas()} className="mt-3 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50">{loadingHistory ? "Cargando…" : "Cargar más aceptaciones"}</button>}
         </section>
       </>}
     </section>
