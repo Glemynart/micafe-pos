@@ -1,6 +1,6 @@
 # Proveedores — evidencia contractual y límites
 
-Fecha: 2026-11-23. Revisión pública de instrumentos y consultas autenticadas de
+Fecha: 2026-11-24. Revisión pública de instrumentos y consultas autenticadas de
 metadatos; no acredita firma por el prestador ni sustituye análisis jurídico.
 
 Actualización: el prestador confirmó Gmail personal y contratación online Google
@@ -50,15 +50,23 @@ a uso personal o no comercial. No asumir que un preview comercial queda exento.
 
 La producción observada está en Firebase App Hosting. PR #704 se fusionó en
 `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`: retiró Analytics y configuró
-`git.deploymentEnabled=false`, que deshabilita nuevos despliegues Git de Vercel
-para todas las ramas. No deshabilitó GitHub CI ni App Hosting. La configuración
-no borra previews existentes; no se verificó su expiración, acceso ni contenido.
+`git.deploymentEnabled=false`, que detiene nuevos despliegues Git de Vercel en
+todas las ramas. No deshabilitó GitHub CI ni App Hosting.
 
-La medida reduce el tratamiento futuro por Vercel, pero no cierra el inventario
-de despliegues históricos ni acredita eliminación de sus datos. Antes de publicar
-la política final hay que confirmar que esas URLs no exponen datos del tenant y
-retirar o dejar expirar las que ya no deban estar disponibles. No se cambió el
-plan de Vercel ni se acreditó cobertura de su DPA para Hobby.
+Revisión autenticada del 2026-11-24: entre los 100 despliegues más recientes
+listados, el preview más reciente asociado a #706 usa el commit anterior
+`ff422718a852ca9344569b6882496cbf7860cb69`; no aparece un preview del head actual
+`0b60aedea15eb17af413aa802ca342764fd06aaf`. La protección del proyecto indica
+SSO para `all_except_custom_domains`; el alias observado es `.vercel.app`, no un
+dominio personalizado. Esto acredita que el preview listado requiere acceso SSO,
+no que su contenido haya sido revisado ni que todos los despliegues históricos
+estén protegidos. No se borraron ni se solicitó borrar artefactos.
+
+La medida reduce despliegues nuevos, pero no elimina previews ni acredita borrado
+de sus datos. Antes de cerrar el inventario histórico falta revisar contenido,
+vigencia y protección de cada URL que se conserve. El plan Hobby sigue observado;
+su compatibilidad con el uso comercial y la cobertura del DPA Pro/Enterprise no
+están acreditadas. No se cambió el plan ni se modificaron despliegues.
 
 ## Correo
 
@@ -93,8 +101,8 @@ en Git únicamente estado, referencia no secreta y conclusión sustentada.
 
 ## Decisiones pendientes
 
-1. Comprobar las URLs y el contenido de despliegues Vercel históricos; la
-   configuración de #704 solo impide nuevos despliegues Git automáticos.
+1. Revisar contenido, vigencia y protección de los despliegues Vercel históricos;
+   #704 impide nuevos despliegues Git automáticos, no elimina los existentes.
 2. Acreditar contratos Google/correo/GitHub en la cuenta; no inventar firmas ni
    aceptar nuevos acuerdos en nombre del prestador sin mandato específico.
 3. ADR-SAAS-100 ya fue aceptado para implementación y pruebas controladas. Completar

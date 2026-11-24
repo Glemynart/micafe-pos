@@ -116,6 +116,9 @@ test("aceptación contractual se registra una vez, con actor, tenant, bundle, ha
   assert.equal(saved.empresaId, "tenant-a");
   assert.equal(saved.uid, "admin-a");
   assert.equal(saved.facultadRepresentacionDeclarada, true);
+  assert.equal(saved.referenciaContrato, REFERENCIA_CONTRATO);
+  assert.equal(saved.condicionesComerciales.precio.importe, 1800000);
+  assert.match(saved.sha256CondicionesComerciales, /^[a-f0-9]{64}$/);
   assert.equal(saved.documentos.length, 2);
   assert.ok(saved.documentos.every((doc: Stored) => READY_BUNDLE.documentos.find((item) => item.id === doc.id)?.sha256 === doc.sha256));
   assert.equal("pin" in saved || "password" in saved || "token" in saved, false);
@@ -123,6 +126,8 @@ test("aceptación contractual se registra una vez, con actor, tenant, bundle, ha
   const state = await consultarEstadoLegalTenant(request(undefined as never, { data: undefined }), h.dependencies);
   assert.equal(state.aceptado, true);
   assert.equal(state.aceptacionId, result.aceptacionId);
+  assert.equal(state.documentosAceptados?.length, 2);
+  assert.equal(state.sha256CondicionesComerciales, saved.sha256CondicionesComerciales);
 });
 
 test("rechaza rol distinto de admin y membresía inactiva", async () => {
@@ -195,4 +200,58 @@ test("usa la relación contractual vigente por encima del snapshot raíz histór
   const accepted = await aceptarDocumentosLegalesTenant(request({ referenciaContrato: "relacion:contrato-actual" }), h.dependencies);
   assert.equal(accepted.idempotente, false);
   assert.equal(h.writes.length, 1);
+});
+
+
+test("una relación contractual nueva exige una aceptación y un recibo nuevos", async () => {
+  const h = harness({ bundle: READY_BUNDLE });
+  const first = await aceptarDocumentosLegalesTenant(request(), h.dependencies);
+  const renewedReference = "relacion:contrato-renovado";
+  h.records.set("suscripciones/tenant-a/relaciones/_vigente", { relacionVigenteId: "contrato-renovado" });
+  h.records.set("suscripciones/tenant-a/relaciones/contrato-renovado", {
+    relacionId: "contrato-renovado", empresaId: "tenant-a", schemaVersion: 1, revision: 2,
+    snapshotContrato: { ...SNAPSHOT_CONTRATO, precio: { importe: 1900000, moneda: "COP" } },
+  });
+
+  const state = await consultarEstadoLegalTenant(request(undefined as never, { data: undefined }), h.dependencies);
+  assert.equal(state.aceptado, false);
+  assert.equal(state.requiereAceptacion, true);
+  const renewed = await aceptarDocumentosLegalesTenant(request({ referenciaContrato: renewedReference }), h.dependencies);
+  assert.notEqual(renewed.aceptacionId, first.aceptacionId);
+  assert.equal(h.writes.length, 2);
+});
+
+test("rechaza reutilizar un recibo si cambió el snapshot bajo la misma referencia", async () => {
+  const h = harness({ bundle: READY_BUNDLE });
+  h.records.set("suscripciones/tenant-a/relaciones/_vigente", { relacionVigenteId: "contrato-actual" });
+  h.records.set("suscripciones/tenant-a/relaciones/contrato-actual", {
+    relacionId: "contrato-actual", empresaId: "tenant-a", schemaVersion: 1, revision: 4,
+    snapshotContrato: SNAPSHOT_CONTRATO,
+  });
+  const reference = "relacion:contrato-actual";
+  await aceptarDocumentosLegalesTenant(request({ referenciaContrato: reference }), h.dependencies);
+  h.records.set("suscripciones/tenant-a/relaciones/contrato-actual", {
+    relacionId: "contrato-actual", empresaId: "tenant-a", schemaVersion: 1, revision: 4,
+    snapshotContrato: { ...SNAPSHOT_CONTRATO, precio: { importe: 2000000, moneda: "COP" } },
+  });
+  await assert.rejects(
+    consultarEstadoLegalTenant(request(undefined as never, { data: undefined }), h.dependencies),
+    (error: unknown) => error instanceof HttpsError && error.code === "data-loss",
+  );
+});
+
+test("rechaza un recibo alterado aunque conserve la huella original", async () => {
+  const h = harness({ bundle: READY_BUNDLE });
+  await aceptarDocumentosLegalesTenant(request(), h.dependencies);
+  const path = h.writes[0].path;
+  const receipt = h.records.get(path)!;
+  h.records.set(path, {
+    ...receipt,
+    condicionesComerciales: { ...receipt.condicionesComerciales, precio: { importe: 1, moneda: "COP" } },
+  });
+
+  await assert.rejects(
+    consultarEstadoLegalTenant(request(undefined as never, { data: undefined }), h.dependencies),
+    (error: unknown) => error instanceof HttpsError && error.code === "data-loss",
+  );
 });

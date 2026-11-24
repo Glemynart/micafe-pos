@@ -33,6 +33,8 @@ export interface EstadoLegalTenant {
     trialDias: number | null;
   } | null;
   documentos: DocumentoLegalCliente[];
+  documentosAceptados: Array<Pick<DocumentoLegalCliente, "id" | "version" | "sha256">> | null;
+  sha256CondicionesComerciales: string | null;
 }
 
 export interface ReciboAceptacionLegal {
@@ -40,6 +42,10 @@ export interface ReciboAceptacionLegal {
   bundleId: string;
   idempotente: boolean;
   aceptadoEn: string | null;
+  referenciaContrato: string;
+  sha256CondicionesComerciales: string;
+  condicionesComerciales: NonNullable<EstadoLegalTenant["condicionesComerciales"]>;
+  documentos: Array<Pick<DocumentoLegalCliente, "id" | "version" | "sha256">>;
 }
 
 export async function consultarEstadoLegalTenant(): Promise<EstadoLegalTenant> {

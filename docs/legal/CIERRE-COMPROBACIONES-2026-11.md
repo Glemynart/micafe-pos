@@ -1,4 +1,4 @@
-# Cierre de comprobaciones accesibles — 2026-11-23
+# Cierre de comprobaciones accesibles — 2026-11-24
 
 Estado: **COMPROBACIONES DE LECTURA REALIZADAS; NO LISTO PARA EXIGIBILIDAD**.
 No es dictamen jurídico integral. No se ejecutó exportación de datos, borrado,
@@ -16,7 +16,7 @@ para reconocer un acuerdo online ni fingir que se leyó un contrato privado.
 | Firestore, Functions, Storage, App Hosting y Authentication | Términos Firebase remiten a Google Cloud Terms y términos específicos; Cloud DPA incorporado | Régimen identificado mediante tabla oficial vigente consultada y declaración del prestador. No usar el DPA Firebase como único instrumento para estos servicios. |
 | Cloud Messaging | Términos Google APIs y Firebase Data Processing and Security Terms según tabla oficial | Régimen identificado; no equipararlo automáticamente con Auth o ubicación de Firestore. |
 | Gmail personal | Términos generales, condiciones del servicio y política Google aplicables al país/cuenta | Tipo de cuenta confirmado. No hay evidencia de DPA Workspace contratado. No declarar ilegal su uso por ser Gmail, ni ofrecer las garantías de Workspace. Revisar finalidad/rol de cada envío y minimizar datos. |
-| Vercel | Equipo Hobby; DPA publicado con alcance Pro/Enterprise | Incompatibilidad pendiente de resolver para uso comercial y cobertura pretendida. No se resuelve escribiendo una cláusula del cliente. |
+| Vercel | Equipo Hobby; DPA publicado con alcance Pro/Enterprise | Compatibilidad del uso comercial y cobertura pretendida siguen sin acreditar. No se resuelve escribiendo una cláusula del cliente. |
 | GitHub | Repositorio público, titular tipo User; instrumento público DPA identificado | No introducir expedientes o exportaciones de clientes en Git. La existencia del DPA público no acredita por sí sola cobertura de la cuenta/productos. |
 
 Fuentes oficiales consultadas:
@@ -39,10 +39,11 @@ Fuentes oficiales consultadas:
 
 **Recomendación:** mantener Google/App Hosting; limitar Gmail a recepción de
 solicitudes y comunicaciones mínimas, sin dumps o credenciales. No contratar
-Workspace por inferencia. Preparar retiro de Analytics/Vercel comercial antes de
-dar ese proveedor por resuelto. Las obligaciones colombianas responsable/encargado
-y la circulación internacional se revisan por tratamiento; no se certifican solo
-por usar un proveedor conocido.
+Workspace por inferencia. Vercel ya no recibe Analytics del código productivo ni
+crea previews Git automáticos; aún requiere resolver la aptitud contractual de
+los previews históricos y del plan para uso comercial. Las obligaciones colombianas
+responsable/encargado y la circulación internacional se revisan por tratamiento;
+no se certifican solo por usar un proveedor conocido.
 
 ## 2. Conservación efectiva: consultas remotas de metadatos
 
@@ -115,7 +116,7 @@ seguir fortaleciendo las pruebas con datos sintéticos.
 Las comprobaciones ya no dependen de una duda genérica sobre proveedores:
 
 1. Google online y Gmail personal están identificados por declaración y fuentes.
-2. Vercel Hobby es un problema concreto de uso/contrato a resolver.
+2. Vercel Hobby permanece como asunto contractual; el flujo Git automático está detenido.
 3. Exportación y supresión tienen una base local probada con datos sintéticos,
    pero no están certificadas ni habilitadas para operaciones reales.
 4. Plazos comerciales de soporte/salida y matriz de conservación siguen propuestos;
@@ -123,11 +124,11 @@ Las comprobaciones ya no dependen de una duda genérica sobre proveedores:
 
 No repetir una auditoría general ni exigir una aceptación ficticia del cliente.
 ADR-SAAS-100 y ADR-SAAS-099 ya fueron aceptados para implementación controlada;
-sus diseños no equivalen a pruebas completas, despliegue ni exigibilidad. El PR
+sus diseños no equivalen a certificación, despliegue ni exigibilidad. El PR
 #706 contiene la aceptación legal versionada y sus recibos; sigue en borrador y no
-está integrado ni desplegado. El PR #704 prepara retirar
-Vercel comercial y corregir Next.js; continúa separado y GitHub lo marca detrás de
-`main`. Antes de publicación/exigibilidad siguen pendientes la certificación de
+está integrado ni desplegado. El PR #704 ya está integrado en `main`; detuvo nuevos
+despliegues Git de Vercel y retiró Analytics, sin borrar previews históricos.
+Antes de publicación/exigibilidad siguen pendientes la certificación de
 exportación/supresión para casos reales, resolver el uso comercial de Vercel y la
 aprobación jurídica final de los textos frente al tratamiento efectivo. Ningún
 resultado de este informe acredita legalidad integral, aceptación de Diana ni un

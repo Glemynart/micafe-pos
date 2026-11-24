@@ -61,11 +61,17 @@ Persistencia separada del snapshot, bajo:
 `empresas/{empresaId}/aceptacionesLegales/{aceptacionId}`.
 Registro append-only con `schemaVersion`, tenant, UID, relación contractual,
 declaración de representación, bundle y versiones/hashes de documentos,
-`aceptadoEn` de servidor y correlación. ID determinista por tenant, relación,
-UID y bundle; un retry idéntico devuelve el mismo recibo. Una aceptación de otro
-admin genera evidencia propia. No sobrescribir el historial ni aceptar versiones
-desconocidas u obsoletas. Autorizaciones personales usan registros distintos
-vinculados al titular y finalidades, con revocaciones registradas por separado.
+`aceptadoEn` de servidor y correlación. Conserva además la referencia de la
+relación y la proyección exacta de las condiciones comerciales que se mostraron,
+con SHA-256 canónico de esa proyección. El ID determinista incluye tenant,
+relación contractual, UID y bundle; un retry idéntico devuelve el mismo recibo.
+Una relación renovada o una aceptación de otro admin genera evidencia propia.
+En consulta y reintento, el servidor vuelve a validar actor, relación, bundle,
+documentos y que el contenido de condiciones del recibo coincida con su huella;
+si hay alteración responde con error de integridad. No sobrescribir el historial
+ni aceptar versiones desconocidas u obsoletas. Autorizaciones personales usan
+registros distintos vinculados al titular y finalidades, con revocaciones
+registradas por separado.
 
 Catálogo legal aprobado empaquetado y versionado en el servidor; SHA-256 de bytes
 UTF-8 con LF, generados desde una única fuente y sin reconstruir textos desde HTML.

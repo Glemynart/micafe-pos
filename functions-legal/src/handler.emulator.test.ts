@@ -56,6 +56,9 @@ test("Emulator: recibo contractual es atómico, append-only e idempotente ante c
     assert.equal(first.aceptacionId, replay.aceptacionId);
     assert.equal(records.size, 1);
     assert.equal(records.docs[0].data().empresaId, empresaId);
+    assert.equal(records.docs[0].data().referenciaContrato, referenciaContrato);
+    assert.match(records.docs[0].data().sha256CondicionesComerciales, /^[a-f0-9]{64}$/);
+    assert.equal(records.docs[0].data().condicionesComerciales.precio.importe, 1800000);
     assert.equal(records.docs[0].data().aceptadoEn.toDate() instanceof Date, true);
   } finally {
     const receipts = await empresaRef.collection("aceptacionesLegales").get();

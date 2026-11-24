@@ -1,8 +1,9 @@
-# Revisión normativa y operativa — corte 2026-11-23
+# Revisión normativa y operativa — corte 2026-11-24
 
 Estado: **NO LISTO PARA EXIGIR ACEPTACIÓN EN PRODUCCIÓN**.
-Alcance: borradores 0.2, código previo de `main@ce70af6` y fuentes oficiales accesibles
-durante esta revisión. No equivale a dictamen jurídico ni a una búsqueda exhaustiva
+Alcance: borradores 0.2, implementación propuesta en PR #706 sobre
+`main@aa1c4fe` y fuentes oficiales accesibles durante esta revisión. No equivale
+a dictamen jurídico ni a una búsqueda exhaustiva
 de toda la legislación o de decisiones no indexadas a noviembre de 2026.
 
 ## Resultado
@@ -17,7 +18,9 @@ de 35 días y regiones de recursos, y se concretaron las alternativas en
 [operación y conservación](OPERACION-Y-CONSERVACION.md). No se ejecutó restore ni
 se probó exportación completa. PR #704 retiró Analytics y deshabilitó despliegues
 Git automáticos de Vercel en todas las ramas. La caché persistente continúa en
-código; los despliegues Vercel históricos no se inventariaron ni eliminaron.
+código. La revisión autenticada del 2026-11-24 encontró que el preview más
+reciente de #706 usa un commit anterior al actual y que el alias `.vercel.app`
+observado requiere SSO; no revisó el contenido ni eliminó previews históricos.
 
 La comprobación posterior del equipo Vercel confirmó `hobby`; el DPA público
 Pro/Enterprise no acredita cobertura de esa cuenta. Véase
@@ -35,14 +38,14 @@ Storage o la eliminación física de respaldos.
 
 | Requisito | Resultado y acción necesaria |
 |---|---|
-| Identificar al prestador | Incluye nombre, NIT, dirección, correo y teléfono declarados. El borrador ahora identifica la dirección como judicial para cumplir la información de comercio electrónico; falta cotejar NIT/dirección contra el RUT antes de publicar. |
+| Identificar al prestador | Incluye nombre, NIT, dirección, correo y teléfono declarados. El prestador afirma que NIT y dirección corresponden al RUT; no se inspeccionó el documento. El borrador identifica la dirección como judicial. |
 | Términos accesibles y conservables | En `main`, `/terminos` sigue referido a coworking y reservas. PR #706 lo reemplaza por borradores versionados y descargables; la versión final y su publicación siguen pendientes. |
 | Oferta y condiciones particulares | ADR-SAAS-028/029 conservan snapshots. Aceptación legal no puede modificar precio, Trial, vigencia ni capacidades. |
-| Prueba de aceptación | PR #706 implementa el registro de ADR-SAAS-099 y presenta la versión exacta de los documentos junto con plan, precio registrado, periodicidad, vigencia y capacidades del snapshot contractual vigente. La callable vuelve a comprobar la referencia del contrato dentro de la transacción y rechaza snapshots ausentes o desactualizados. El PR sigue sin integrar ni desplegar; no hay aceptaciones reales. |
+| Prueba de aceptación | PR #706 implementa el registro de ADR-SAAS-099 y presenta la versión exacta de los documentos junto con plan, precio registrado, periodicidad, vigencia y capacidades del snapshot contractual vigente. El recibo vincula relación, actor, bundle, versiones, condiciones comerciales y huella; consulta y reintento verifican que la proyección guardada corresponda a su hash. La callable revalida la relación dentro de la transacción. El PR sigue sin integrar ni desplegar; no hay aceptaciones reales. |
 | Autorización de datos | Debe informarse antes de recoger datos y obtenerse cuando proceda; contrato empresarial no autoriza por todos los titulares. |
 | Consultas/reclamos | Plazos y trámite incluidos. Falta establecer registro, responsable de seguimiento y anotación de reclamo en datos afectados. |
 | Conservación | Falta matriz con plazos justificados por categoría y respaldo. No inventar diez años para toda la información. |
-| Proveedores y circulación internacional | PR #704 redujo el uso futuro de Vercel, pero falta inventariar sus despliegues históricos y comprobar los acuerdos de Google/correo/GitHub y las ubicaciones efectivas. Tener Firebase no prueba por sí solo un contrato de transmisión suficiente. |
+| Proveedores y circulación internacional | PR #704 retiró Analytics y detuvo nuevos despliegues Git de Vercel. El preview actual listado requiere SSO; falta revisar contenido/vigencia de despliegues históricos y comprobar acuerdos Google/correo/GitHub y ubicaciones efectivas. Tener Firebase no prueba por sí solo un contrato de transmisión suficiente. |
 | Incidentes | Hace falta procedimiento practicable, evidencia de detección, evaluación y canal SIC aplicable. No esperar a estar obligado al RNBD. |
 | RNBD | El prestador declarado es persona natural. La lista de obligados publicada por SIC no lo incluye por ese solo carácter; subsisten las demás obligaciones de datos. Reevaluar si cambia el sujeto. |
 | Consumo electrónico | Aplicabilidad por relación concreta. Añadida Ley 2439/2024, información previa, aceptación y retracto cuando proceda; cerrar reclamaciones y constancia de contratación en el flujo. |

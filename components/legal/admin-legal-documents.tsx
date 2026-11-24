@@ -20,7 +20,10 @@ function descargarRecibo(estado: EstadoLegalTenant, recibo: ReciboAceptacionLega
     aceptacionId: recibo.aceptacionId,
     bundleId: recibo.bundleId,
     aceptadoEn: recibo.aceptadoEn,
-    documentos: estado.documentos.filter((doc) => doc.tipo === "CONTRACTUAL").map(({ id, version, sha256 }) => ({ id, version, sha256 })),
+    referenciaContrato: recibo.referenciaContrato,
+    sha256CondicionesComerciales: recibo.sha256CondicionesComerciales,
+    condicionesComerciales: recibo.condicionesComerciales,
+    documentos: recibo.documentos,
   };
   const blob = new Blob([JSON.stringify(contenido, null, 2)], { type: "application/json;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -49,8 +52,18 @@ export function AdminLegalDocuments() {
     try {
       const current = await consultarEstadoLegalTenant();
       setEstado(current);
-      setRecibo(current.aceptado && current.aceptacionId
-        ? { aceptacionId: current.aceptacionId, bundleId: current.bundleId, idempotente: true, aceptadoEn: current.aceptadoEn }
+      setRecibo(current.aceptado && current.aceptacionId && current.condicionesComerciales
+        && current.sha256CondicionesComerciales && current.documentosAceptados
+        ? {
+            aceptacionId: current.aceptacionId,
+            bundleId: current.bundleId,
+            idempotente: true,
+            aceptadoEn: current.aceptadoEn,
+            referenciaContrato: current.condicionesComerciales.referenciaContrato,
+            sha256CondicionesComerciales: current.sha256CondicionesComerciales,
+            condicionesComerciales: current.condicionesComerciales,
+            documentos: current.documentosAceptados,
+          }
         : null);
     } catch {
       setError("No fue posible consultar los documentos del negocio. Actualiza e inténtalo de nuevo.");
@@ -76,7 +89,15 @@ export function AdminLegalDocuments() {
         referenciaContrato: estado.condicionesComerciales.referenciaContrato,
       });
       setRecibo(result);
-      setEstado((previous) => previous ? { ...previous, aceptado: true, requiereAceptacion: false, aceptacionId: result.aceptacionId, aceptadoEn: result.aceptadoEn } : previous);
+      setEstado((previous) => previous ? {
+        ...previous,
+        aceptado: true,
+        requiereAceptacion: false,
+        aceptacionId: result.aceptacionId,
+        aceptadoEn: result.aceptadoEn,
+        documentosAceptados: result.documentos,
+        sha256CondicionesComerciales: result.sha256CondicionesComerciales,
+      } : previous);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible registrar la aceptación.");
     } finally {

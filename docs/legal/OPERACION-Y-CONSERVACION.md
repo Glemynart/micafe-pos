@@ -28,8 +28,8 @@ Consulta remota exclusivamente de metadatos en `micafe-pos`, el 2026-11-23:
 Comprobación de código, no de telemetría ni de configuración de cuentas:
 
 - `lib/firebase.ts`: caché persistente Firestore con múltiples pestañas.
-- `app/layout.tsx`: incluye `@vercel/analytics` cuando `NODE_ENV=production`.
-  No se confirmó que el endpoint reciba datos desde el dominio productivo.
+- `app/layout.tsx` en `main@aa1c4fe`: PR #704 retiró `@vercel/analytics` del
+  layout productivo. No se certifica la recepción histórica de eventos.
 - `functions/src/email-invitation-delivery.ts`: puerto de entrega pendiente;
   no integra un proveedor real de invitaciones en esa implementación.
 - `lib/bodega/financial-report.ts`: CSV de ventas operativas; no es una
@@ -47,7 +47,7 @@ del contrato del proveedor, todos sus subencargados o la ubicación de cada dato
 | Proveedor/servicio | Tratamiento identificado | Evidencia y pendiente |
 |---|---|---|
 | Google / Firebase / Google Cloud | Autenticación, base de datos, ejecución, hosting, archivos, logs y notificaciones según funciones habilitadas | Servicios en código; regiones anteriores confirmadas para recursos indicados. Vincular cuenta/contrato aplicable, versiones de términos y subencargados. No atribuir residencia Brasil a Auth, FCM o soporte sin evidencia específica. |
-| Vercel | Builds/previews históricos | PR #704 retiró Analytics y configuró `git.deploymentEnabled=false` para todas las ramas. No se borran despliegues anteriores con ese ajuste; faltan inventario, verificación de acceso/contenido y expiración. El plan Hobby continúa sin cobertura DPA Pro/Enterprise acreditada. |
+| Vercel | Builds/previews históricos | PR #704 retiró Analytics y configuró `git.deploymentEnabled=false` para todas las ramas. Revisión del 2026-11-24: los 100 despliegues más recientes listados no contienen preview del head actual; el más reciente de #706 es del commit anterior `ff422718a852ca9344569b6882496cbf7860cb69`. El proyecto exige SSO para todos salvo dominios personalizados; el alias `.vercel.app` observado está protegido. No se revisó el contenido ni se borraron previews históricos. El plan Hobby continúa sin cobertura DPA Pro/Enterprise acreditada y su compatibilidad comercial sigue pendiente. |
 | Google / correo Gmail indicado por el prestador | Consultas, soporte y reclamaciones que se envíen a `segucor0526@gmail.com` | Correo declarado por el titular. No se ha verificado recepción, administración, MFA, retención ni si existe contrato empresarial. No equiparar automáticamente Gmail personal con Workspace contratado. |
 | GitHub | Código, CI, PR y evidencias de desarrollo | Repositorio y CI existentes. Evitar datos personales de clientes, secretos y dumps en logs/artefactos. No es el respaldo de la base operativa. Revisar contrato y retención efectiva de artefactos. |
 
