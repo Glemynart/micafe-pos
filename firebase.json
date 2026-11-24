@@ -85,7 +85,10 @@
     },
     {
       "source": "functions-legal",
-      "codebase": "saas-legal"
+      "codebase": "saas-legal",
+      "predeploy": [
+        "npm --prefix functions-legal run build"
+      ]
     }
   ],
   "firestore": {

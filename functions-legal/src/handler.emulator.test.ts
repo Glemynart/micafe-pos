@@ -12,7 +12,7 @@ const empresaId = `legal-acceptance-${runId}`;
 const uid = `admin-${runId}`;
 const bundle: BundleLegal = { ...BUNDLE_LEGAL_ACTUAL, estado: "EXIGIBLE", documentos: BUNDLE_LEGAL_ACTUAL.documentos.map((doc) => ({ ...doc, estado: "PUBLICADO" })) };
 
-test("Emulator: recibo contractual es atómico, append-only e idempotente", { skip: !emulatorHost }, async () => {
+test("Emulator: recibo contractual es atómico, append-only e idempotente ante concurrencia", { skip: !emulatorHost }, async () => {
   if (!emulatorHost?.startsWith("127.0.0.1:") && !emulatorHost?.startsWith("localhost:")) throw new Error("La prueba exige Firestore Emulator en loopback.");
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) throw new Error("La prueba no debe usar credenciales reales.");
   const app = initializeApp({ projectId: "demo-legal-acceptance" }, `legal-${runId}`);
@@ -24,11 +24,15 @@ test("Emulator: recibo contractual es atómico, append-only e idempotente", { sk
   try {
     await empresaRef.set({ estado: "trial", nombreComercial: "Empresa sintética" });
     await membresiaRef.set({ empresaId, uid, rol: "admin", estado: "activa", activo: true });
-    const first = await aceptarDocumentosLegalesTenant(request, dependencies);
-    const replay = await aceptarDocumentosLegalesTenant(request, dependencies);
+    const [first, replay] = await Promise.all([
+      aceptarDocumentosLegalesTenant(request, dependencies),
+      aceptarDocumentosLegalesTenant({
+        ...request,
+        data: { ...request.data, correlationId: `retry-${runId}` },
+      }, dependencies),
+    ]);
     const records = await empresaRef.collection("aceptacionesLegales").get();
-    assert.equal(first.idempotente, false);
-    assert.equal(replay.idempotente, true);
+    assert.deepEqual([first.idempotente, replay.idempotente].sort(), [false, true]);
     assert.equal(first.aceptacionId, replay.aceptacionId);
     assert.equal(records.size, 1);
     assert.equal(records.docs[0].data().empresaId, empresaId);
