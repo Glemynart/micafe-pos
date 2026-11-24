@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Download, FileText, Loader2, RefreshCw } from "lucide-react";
 import { useAuthContext } from "@/contexts/auth-context";
 import { aceptarDocumentosLegalesTenant, consultarEstadoLegalTenant, type EstadoLegalTenant, type ReciboAceptacionLegal } from "@/lib/legal/legal-acceptance-service";
+import { rutaDocumentoAceptado } from "@/lib/legal/historical-documents";
 
 const LABELS: Record<string, string> = {
   terminos: "Términos del servicio",
@@ -189,7 +190,7 @@ export function AdminLegalDocuments() {
         {recibo && estado.aceptado && <button type="button" onClick={() => descargarRecibo(estado, recibo)} className="inline-flex min-h-10 items-center gap-2 rounded-lg border px-4 text-sm font-semibold"><Download className="size-4" />Descargar recibo de aceptación</button>}
         <section className="rounded-xl border bg-card p-5" aria-label="Historial de aceptaciones">
           <h2 className="font-semibold">Historial de aceptaciones</h2>
-          {!Array.isArray(estado.historial) ? <p className="mt-2 text-sm text-amber-900">El historial aún no está disponible. Inténtalo más tarde.</p> : estado.historial.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">Aún no hay aceptaciones registradas.</p> : <ul className="mt-3 space-y-3">{estado.historial.map((item) => <li key={item.aceptacionId} className="rounded-lg border p-3 text-sm"><p className="font-medium">{new Date(item.aceptadoEn).toLocaleString("es-CO")} · {item.bundleId}</p><p>Administrador: {item.uid} · Contrato: {item.referenciaContrato}</p><p>{item.documentos.map((doc) => `${LABELS[doc.id] ?? doc.id} v${doc.version}`).join(" · ")}</p></li>)}</ul>}
+          {!Array.isArray(estado.historial) ? <p className="mt-2 text-sm text-amber-900">El historial aún no está disponible. Inténtalo más tarde.</p> : estado.historial.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">Aún no hay aceptaciones registradas.</p> : <ul className="mt-3 space-y-3">{estado.historial.map((item) => <li key={item.aceptacionId} className="rounded-lg border p-3 text-sm"><p className="font-medium">{new Date(item.aceptadoEn).toLocaleString("es-CO")} · {item.bundleId}</p><p>Administrador: {item.uid} · Contrato: {item.referenciaContrato}</p><ul className="mt-2 space-y-1">{item.documentos.map((doc) => { const path = rutaDocumentoAceptado(doc); return <li key={`${doc.id}:${doc.version}`}>{path ? <a className="underline" href={path} download>{LABELS[doc.id] ?? doc.id} v{doc.version}</a> : <span>{LABELS[doc.id] ?? doc.id} v{doc.version} · Archivo histórico no disponible; solicita una copia a soporte.</span>}</li>; })}</ul></li>)}</ul>}
           {estado.siguienteCursor && <button type="button" disabled={loadingHistory} onClick={() => void cargarMas()} className="mt-3 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50">{loadingHistory ? "Cargando…" : "Cargar más aceptaciones"}</button>}
         </section>
       </>}

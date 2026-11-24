@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import { BUNDLE_LEGAL_ACTUAL } from "../../functions/src/legal/catalog";
+import { rutaDocumentoAceptado } from "../../lib/legal/historical-documents";
 
 const repository = resolve(import.meta.dirname, "../..");
 const sourceById: Record<string, string> = {
@@ -26,4 +27,16 @@ test("cada huella pública coincide con el borrador legal y la descarga exacta",
     assert.deepEqual(download, source, `${document.id} debe poder descargarse sin alterar sus bytes`);
   }
   assert.equal(BUNDLE_LEGAL_ACTUAL.estado, "PREPARACION");
+});
+
+test("el historial solo enlaza un archivo archivado con huella coincidente", () => {
+  for (const id of ["terminos", "anexo-tratamiento"] as const) {
+    const doc = BUNDLE_LEGAL_ACTUAL.documentos.find(item => item.id === id)!;
+    const path = rutaDocumentoAceptado(doc);
+    assert.equal(path, doc.rutaPublica);
+    assert.equal(createHash("sha256").update(bytesLf(resolve(repository, "public", path!.slice(1)))).digest("hex"), doc.sha256);
+    assert.equal(rutaDocumentoAceptado({ ...doc, sha256: "0".repeat(64) }), null);
+    assert.equal(rutaDocumentoAceptado({ ...doc, version: "../../otra" }), null);
+  }
+  assert.equal(rutaDocumentoAceptado({ id: "desconocido", version: "0.2", sha256: "0".repeat(64) }), null);
 });
