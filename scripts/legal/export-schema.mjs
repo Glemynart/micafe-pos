@@ -142,7 +142,7 @@ export const INTERNAL_ROOTS = new Set(`bootstrap_identidades_owner comandos_come
 
 // These sources need explicit adapters before a populated source can be delivered.
 // They are NEVER silently omitted or exported using an unconstrained object schema.
-export const PENDING_ROOTS = new Set(`agendas auditoria_logs comandas_cocina configuracion
+export const PENDING_ROOTS = new Set(`agendas auditoria_logs comandas_cocina
   eventos eventos_operativos modificador_grupos producto_modificador_grupos
   reservas numeraciones asignaciones_numeracion pagos_saas
   agenda_pedidos_bodega reservas_stock_bodega solicitudes_venta_bodega`.split(/\s+/));

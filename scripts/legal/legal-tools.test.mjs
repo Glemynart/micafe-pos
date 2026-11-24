@@ -42,8 +42,18 @@ test('unknown field, source and child stop completion without disclosing their v
   await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, internalNote: 'SECRET_VALUE' } }], hasMore: false }) }) }), /^Error: EXPORT_UNSUPPORTED_FIELD$/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['unknown_source'] }) }), /EXPORT_UNKNOWN_COLLECTION/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ listChildren: async () => ['secret_children'] }) }), /EXPORT_UNCLASSIFIED_SUBCOLLECTION/);
-  await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['configuracion'] }) }), /EXPORT_ADAPTER_REQUIRED/);
+  await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['agendas'] }) }), /EXPORT_ADAPTER_REQUIRED/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, schemaVersion: 'FUTURE' } }], hasMore: false }) }) }), /EXPORT_UNSUPPORTED_SCHEMA_VERSION/);
+});
+test('la configuración histórica global se excluye sin consultarse ni entregarse', async () => {
+  const bundle = await exportTenant({ ...input, source: fixture({
+    listRoots: async () => ['configuracion'],
+    readPage: async () => { throw new Error('GLOBAL_NO_DEBE_LEERSE'); },
+    listAssets: async () => [],
+  }) });
+  assert.equal(bundle.manifest.totalDocuments, 0);
+  assert.equal(bundle.files.length, 0);
+  assert.ok(bundle.manifest.sources.some(source => source.path === 'configuracion' && source.excluded));
 });
 test('la salida comercial excluye expedientes de reclamo y el indicador interno', async () => {
   const bundle = await exportTenant({ ...input, source: fixture({
