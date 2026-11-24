@@ -1,6 +1,6 @@
 # Anexo de tratamiento por cuenta del negocio — Dusema POS
 
-**BORRADOR 0.1 — 2026-11-23. Pendiente de revisión y aceptación contractual.**
+**BORRADOR 0.2 — 2026-11-23. Pendiente de revisión y aceptación contractual.**
 
 ## 1. Partes y objeto
 

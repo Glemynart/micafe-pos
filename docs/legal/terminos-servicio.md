@@ -5,9 +5,10 @@
 ## 1. Prestador y contacto
 
 El servicio Dusema POS es prestado por Sebastián Agudelo Muñoz, NIT
-1000292576-3, con domicilio en Apartadó, Antioquia, Colombia, y dirección de
-correspondencia Calle 92 #95A-119. Contacto: segucor0526@gmail.com y
-+57 310 333 7837. La dirección de correspondencia no implica atención presencial.
+1000292576-3, con domicilio en Apartadó, Antioquia, Colombia. El prestador indica
+como dirección para notificaciones judiciales y correspondencia Calle 92
+#95A-119. Contacto: segucor0526@gmail.com y +57 310 333 7837. La dirección no
+implica atención presencial.
 
 ## 2. Objeto y contratación
 

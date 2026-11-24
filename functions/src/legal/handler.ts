@@ -2,7 +2,9 @@ import { createHash } from "node:crypto";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import { HttpsError } from "firebase-functions/v2/https";
+import { esSnapshotContratoCompatible, type SnapshotContrato } from "../../../lib/suscripciones/contrato";
 import { exigirTenantActivo } from "../tenant-configuration/authority";
+import { leerRelacionContractualVigente } from "../suscripciones/relacion-vigente";
 import { BUNDLE_LEGAL_ACTUAL, type BundleLegal } from "./catalog";
 
 type Request = { auth?: { uid: string; token: Record<string, unknown> }; data?: unknown };
@@ -19,6 +21,22 @@ type Dependencies = {
 const ERROR_AUTH = "Autenticación requerida.";
 const ERROR_ACCESS = "Acceso denegado.";
 const CORRELATION = /^[A-Za-z0-9._:-]{1,100}$/;
+const CONTRACT_REFERENCE = /^[A-Za-z0-9._:-]{1,120}$/;
+
+type CondicionesComercialesTenant = {
+  referenciaContrato: string;
+  codigoPlan: string;
+  planVersion: number;
+  periodicidad: "ANUAL";
+  precio: { importe: number; moneda: string };
+  vigencia: { inicio: string; fin: string };
+  capacidades: string[];
+  limites: Record<string, { unidad: string; valor: number }>;
+  fiscalidad: { pais?: string; modalidad?: string; habilitada?: boolean } | null;
+  trialDias: number | null;
+};
+
+type ContratoVigente = { snapshot: SnapshotContrato; referencia: string };
 
 function fail(code: HttpsError["code"], message: string): never {
   throw new HttpsError(code, message);
@@ -31,17 +49,89 @@ function leerObjeto(value: unknown): Record<string, unknown> {
 
 function leerEntradaAceptacion(value: unknown) {
   const data = leerObjeto(value);
-  const keys = new Set(["bundleId", "aceptoTerminos", "aceptoAnexo", "declaroFacultad", "correlationId"]);
+  const keys = new Set(["bundleId", "aceptoTerminos", "aceptoAnexo", "declaroFacultad", "correlationId", "referenciaContrato"]);
   if (Object.keys(data).some((key) => !keys.has(key))
     || data.aceptoTerminos !== true
     || data.aceptoAnexo !== true
     || data.declaroFacultad !== true
     || typeof data.bundleId !== "string"
     || typeof data.correlationId !== "string"
-    || !CORRELATION.test(data.correlationId)) {
+    || !CORRELATION.test(data.correlationId)
+    || typeof data.referenciaContrato !== "string"
+    || !CONTRACT_REFERENCE.test(data.referenciaContrato)) {
     fail("invalid-argument", "Debes aceptar los documentos contractuales y declarar tu facultad de representación.");
   }
-  return { bundleId: data.bundleId, correlationId: data.correlationId };
+  return { bundleId: data.bundleId, correlationId: data.correlationId, referenciaContrato: data.referenciaContrato };
+}
+
+function validarContrato(snapshot: unknown, revision: unknown, relacionId?: unknown): ContratoVigente | null {
+  if (!esSnapshotContratoCompatible(snapshot) || !Number.isSafeInteger(revision) || (revision as number) < 1) return null;
+  const referencia = typeof relacionId === "string" && /^[A-Za-z0-9_-]{1,100}$/.test(relacionId)
+    ? `relacion:${relacionId}`
+    : `suscripcion:r${revision}`;
+  return { snapshot, referencia };
+}
+
+function proyectarCondiciones(contrato: ContratoVigente): CondicionesComercialesTenant {
+  const snapshot = contrato.snapshot;
+  const limites = Object.fromEntries(Object.entries(snapshot.limites)
+    .filter(([ , value ]) => !!value && typeof value.unidad === "string"
+      && Number.isSafeInteger(value.valor) && value.valor >= 0)
+    .sort(([left], [right]) => left.localeCompare(right)));
+  const rawFiscalidad = snapshot.fiscalidad;
+  const fiscalidad = rawFiscalidad ? {
+    ...(typeof rawFiscalidad.pais === "string" ? { pais: rawFiscalidad.pais } : {}),
+    ...(typeof rawFiscalidad.modalidad === "string" ? { modalidad: rawFiscalidad.modalidad } : {}),
+    ...(typeof rawFiscalidad.habilitada === "boolean" ? { habilitada: rawFiscalidad.habilitada } : {}),
+  } : null;
+  return {
+    referenciaContrato: contrato.referencia,
+    codigoPlan: snapshot.codigoPlan,
+    planVersion: snapshot.planVersion,
+    periodicidad: snapshot.periodicidad,
+    precio: { importe: snapshot.precio.importe, moneda: snapshot.precio.moneda },
+    vigencia: { inicio: snapshot.vigencia.inicio, fin: snapshot.vigencia.fin },
+    capacidades: [...snapshot.capacidades].sort(),
+    limites,
+    fiscalidad,
+    trialDias: "trialDias" in snapshot ? snapshot.trialDias : null,
+  };
+}
+
+async function leerContratoVigente(db: any, empresaId: string): Promise<ContratoVigente | null> {
+  const subscriptionRef = db.collection("suscripciones").doc(empresaId);
+  const [subscriptionSnap, relation] = await Promise.all([
+    subscriptionRef.get(),
+    leerRelacionContractualVigente(db, empresaId),
+  ]);
+  const subscription = subscriptionSnap.data();
+  if (relation) return validarContrato(relation.snapshotContrato, relation.revision, relation.relacionId);
+  if (subscription?.empresaId !== empresaId) return null;
+  return validarContrato(subscription?.snapshotContrato, subscription?.revision);
+}
+
+async function leerContratoVigenteEnTransaccion(db: any, tx: any, empresaId: string): Promise<ContratoVigente | null> {
+  const subscriptionRef = db.collection("suscripciones").doc(empresaId);
+  const relationsRef = subscriptionRef.collection("relaciones");
+  const [subscriptionSnap, controlSnap] = await Promise.all([
+    tx.get(subscriptionRef),
+    tx.get(relationsRef.doc("_vigente")),
+  ]);
+  if (controlSnap.exists) {
+    const relacionId = controlSnap.data()?.relacionVigenteId;
+    if (typeof relacionId !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(relacionId)) {
+      fail("failed-precondition", "No fue posible verificar el contrato vigente. Actualiza la pantalla.");
+    }
+    const relationSnap = await tx.get(relationsRef.doc(relacionId));
+    const relation = relationSnap.data();
+    if (!relationSnap.exists || relation?.relacionId !== relacionId || relation?.empresaId !== empresaId || relation?.schemaVersion !== 1) {
+      fail("failed-precondition", "No fue posible verificar el contrato vigente. Actualiza la pantalla.");
+    }
+    return validarContrato(relation.snapshotContrato, relation.revision, relation.relacionId);
+  }
+  const subscription = subscriptionSnap.data();
+  if (subscription?.empresaId !== empresaId) return null;
+  return validarContrato(subscription?.snapshotContrato, subscription?.revision);
 }
 
 function idAceptacion(empresaId: string, uid: string, bundleId: string): string {
@@ -87,7 +177,10 @@ function aceptaBundle(bundle: BundleLegal): boolean {
 export async function consultarEstadoLegalTenant(request: Request, dependencies: Dependencies = {}) {
   const { db, empresaId, uid } = await exigirAdminTenant(request, dependencies);
   const bundle = dependencies.bundle ?? BUNDLE_LEGAL_ACTUAL;
-  const company = await db.collection("empresas").doc(empresaId).get();
+  const [company, contract] = await Promise.all([
+    db.collection("empresas").doc(empresaId).get(),
+    leerContratoVigente(db, empresaId),
+  ]);
   if (!company.exists) fail("permission-denied", ERROR_ACCESS);
 
   const habilitado = aceptaBundle(bundle);
@@ -107,6 +200,7 @@ export async function consultarEstadoLegalTenant(request: Request, dependencies:
     aceptado: habilitado && !!acceptance?.exists,
     aceptacionId: acceptance?.exists ? id : null,
     aceptadoEn: acceptedAt instanceof Date ? acceptedAt.toISOString() : null,
+    condicionesComerciales: contract ? proyectarCondiciones(contract) : null,
     documentos: bundle.documentos,
   };
 }
@@ -126,6 +220,10 @@ export async function aceptarDocumentosLegalesTenant(request: Request, dependenc
     const [empresaSnap, membershipSnap, receiptSnap] = await Promise.all([
       tx.get(empresaRef), tx.get(membershipRef), tx.get(ref),
     ]);
+    const contract = await leerContratoVigenteEnTransaccion(db, tx, empresaId);
+    if (!contract || contract.referencia !== input.referenciaContrato) {
+      fail("failed-precondition", "El contrato cambió o no tiene un snapshot verificable. Actualiza la pantalla antes de aceptar.");
+    }
     const company = empresaSnap.data();
     const membership = membershipSnap.data();
     if (!empresaSnap.exists || !["activa", "trial"].includes(company?.estado)

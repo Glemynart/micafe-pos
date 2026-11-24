@@ -5,7 +5,8 @@
 ## 1. Identidad y roles
 
 Sebastián Agudelo Muñoz, NIT 1000292576-3, domicilio en Apartadó, Antioquia,
-dirección Calle 92 #95A-119, Colombia; correo segucor0526@gmail.com y teléfono
+dirección para notificaciones y correspondencia indicada: Calle 92 #95A-119,
+Colombia; correo segucor0526@gmail.com y teléfono
 +57 310 333 7837, es el prestador de Dusema POS y punto de atención de privacidad.
 
 Actúa como responsable respecto de los datos cuyas finalidades determina para

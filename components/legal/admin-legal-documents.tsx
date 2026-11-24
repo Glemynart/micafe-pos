@@ -63,7 +63,7 @@ export function AdminLegalDocuments() {
 
   const enviar = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!estado || !terminos || !anexo || !facultad) return;
+    if (!estado?.condicionesComerciales || !terminos || !anexo || !facultad) return;
     setSaving(true);
     setError(null);
     try {
@@ -73,6 +73,7 @@ export function AdminLegalDocuments() {
         aceptoAnexo: true,
         declaroFacultad: true,
         correlationId: crypto.randomUUID(),
+        referenciaContrato: estado.condicionesComerciales.referenciaContrato,
       });
       setRecibo(result);
       setEstado((previous) => previous ? { ...previous, aceptado: true, requiereAceptacion: false, aceptacionId: result.aceptacionId, aceptadoEn: result.aceptadoEn } : previous);
@@ -112,6 +113,23 @@ export function AdminLegalDocuments() {
           </div>
         </div>
 
+        <div className="rounded-xl border bg-card p-5">
+          <h2 className="font-semibold">Condiciones comerciales actuales</h2>
+          {estado.condicionesComerciales ? <>
+            <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div><dt className="text-xs text-muted-foreground">Plan</dt><dd className="font-medium">{estado.condicionesComerciales.codigoPlan} · v{estado.condicionesComerciales.planVersion}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Precio registrado en el contrato</dt><dd className="font-medium">{new Intl.NumberFormat("es-CO", { style: "currency", currency: estado.condicionesComerciales.precio.moneda, maximumFractionDigits: 0 }).format(estado.condicionesComerciales.precio.importe)}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Periodicidad</dt><dd className="font-medium">{estado.condicionesComerciales.periodicidad}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Vigencia registrada</dt><dd className="font-medium">{estado.condicionesComerciales.vigencia.inicio} – {estado.condicionesComerciales.vigencia.fin}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Trial</dt><dd className="font-medium">{estado.condicionesComerciales.trialDias === null ? "No indicado en el snapshot" : `${estado.condicionesComerciales.trialDias} días`}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Fiscalidad</dt><dd className="font-medium">{estado.condicionesComerciales.fiscalidad ? [estado.condicionesComerciales.fiscalidad.modalidad, estado.condicionesComerciales.fiscalidad.habilitada === undefined ? null : estado.condicionesComerciales.fiscalidad.habilitada ? "Habilitada" : "No habilitada"].filter(Boolean).join(" · ") || "Configuración sin detalle" : "No especificada en el snapshot"}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Módulos</dt><dd className="font-medium">{estado.condicionesComerciales.capacidades.length ? estado.condicionesComerciales.capacidades.join(", ") : "No especificados"}</dd></div>
+            </dl>
+            {Object.keys(estado.condicionesComerciales.limites).length > 0 && <p className="mt-3 text-sm"><span className="font-medium">Límites:</span> {Object.entries(estado.condicionesComerciales.limites).map(([key, value]) => `${key}: ${value.valor} ${value.unidad}`).join(" · ")}</p>}
+            <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">El snapshot no indica si el precio incluye IVA u otros cargos. Ese detalle debe confirmarse y quedar definido antes de publicar condiciones exigibles.</p>
+          </> : <p className="mt-2 text-sm text-amber-900">No hay un snapshot contractual vigente que pueda verificarse. La aceptación quedará bloqueada hasta corregir o completar ese dato.</p>}
+        </div>
+
         <div className="overflow-hidden rounded-xl border bg-card">
           <div className="border-b p-4"><h2 className="font-semibold">Bundle {estado.bundleId}</h2><p className="mt-1 text-xs text-muted-foreground">Identificador estable; cada archivo se publica y descarga en su versión exacta.</p></div>
           <ul className="divide-y">
@@ -122,7 +140,7 @@ export function AdminLegalDocuments() {
           </ul>
         </div>
 
-        {estado.requiereAceptacion && !estado.aceptado && <form onSubmit={enviar} className="space-y-4 rounded-xl border bg-card p-5">
+        {estado.requiereAceptacion && !estado.aceptado && estado.condicionesComerciales && <form onSubmit={enviar} className="space-y-4 rounded-xl border bg-card p-5">
           <h2 className="font-semibold">Aceptar condiciones del negocio</h2>
           <label className="flex gap-3 text-sm"><input type="checkbox" checked={terminos} onChange={(e) => setTerminos(e.target.checked)} /><span>He leído y acepto los <Link className="underline" href="/terminos">Términos del servicio</Link>.</span></label>
           <label className="flex gap-3 text-sm"><input type="checkbox" checked={anexo} onChange={(e) => setAnexo(e.target.checked)} /><span>He leído y acepto el <Link className="underline" href="/anexo-tratamiento">Anexo de tratamiento de datos por cuenta del negocio</Link>.</span></label>

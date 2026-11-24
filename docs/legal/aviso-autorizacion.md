@@ -1,11 +1,12 @@
 # Aviso de privacidad y autorización — Dusema POS
 
-**BORRADOR 0.1 — 2026-11-23. No publicado; no registra consentimientos.**
+**BORRADOR 0.2 — 2026-11-23. No publicado; no registra consentimientos.**
 
 ## Aviso propuesto para datos propios del servicio
 
 Sebastián Agudelo Muñoz, NIT 1000292576-3, prestador de Dusema POS, con
-domicilio en Apartadó, Antioquia y dirección Calle 92 #95A-119, tratará los datos
+domicilio en Apartadó, Antioquia y dirección para notificaciones y correspondencia
+indicada Calle 92 #95A-119, tratará los datos
 de identificación, contacto y relación con el servicio para gestionar la
 contratación, acceso autorizado, soporte, seguridad y obligaciones aplicables.
 

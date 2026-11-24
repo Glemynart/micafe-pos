@@ -11,6 +11,20 @@ const READY_BUNDLE: BundleLegal = {
   documentos: BUNDLE_LEGAL_ACTUAL.documentos.map((doc) => ({ ...doc, estado: "PUBLICADO" })),
 };
 const SERVER_DATE = new Date("2026-11-23T18:00:00.000Z");
+const SNAPSHOT_CONTRATO = {
+  schemaVersion: 1,
+  planId: "mvp_comercial",
+  planVersion: 2,
+  codigoPlan: "MVP_COMERCIAL",
+  periodicidad: "ANUAL" as const,
+  precio: { importe: 1800000, moneda: "COP" },
+  capacidades: ["sell", "inventory"],
+  limites: {},
+  sedeConceptual: { cantidad: 1 as const },
+  fiscalidad: null,
+  vigencia: { inicio: "2026-11-23", fin: "2027-11-23" },
+};
+const REFERENCIA_CONTRATO = "suscripcion:r1";
 
 function harness(options: { rol?: string; active?: boolean; bundle?: BundleLegal; revoked?: boolean } = {}) {
   const records = new Map<string, Stored>();
@@ -44,6 +58,7 @@ function harness(options: { rol?: string; active?: boolean; bundle?: BundleLegal
     empresaId: "tenant-a", uid: "admin-a", rol: options.rol ?? "admin",
     estado: options.active === false ? "inactiva" : "activa", activo: options.active !== false,
   });
+  records.set("suscripciones/tenant-a", { empresaId: "tenant-a", revision: 1, snapshotContrato: SNAPSHOT_CONTRATO });
   const dependencies = {
     db,
     bundle: options.bundle ?? BUNDLE_LEGAL_ACTUAL,
@@ -61,7 +76,7 @@ function snapshot(data: Stored | undefined) {
 function request(data: Stored = {}, overrides: Stored = {}) {
   return {
     auth: { uid: "admin-a", token: { empresaId: "tenant-a", rol: "admin", auth_time: 1_700_000_000 } },
-    data: { bundleId: READY_BUNDLE.id, aceptoTerminos: true, aceptoAnexo: true, declaroFacultad: true, correlationId: "legal-correlation-01", ...data },
+    data: { bundleId: READY_BUNDLE.id, aceptoTerminos: true, aceptoAnexo: true, declaroFacultad: true, correlationId: "legal-correlation-01", referenciaContrato: REFERENCIA_CONTRATO, ...data },
     ...overrides,
   };
 }
@@ -72,6 +87,8 @@ test("el bundle en borrador se muestra, pero no se presenta como aceptación exi
   assert.equal(state.estado, "PREPARACION");
   assert.equal(state.requiereAceptacion, false);
   assert.equal(state.aceptado, false);
+  assert.equal(state.condicionesComerciales?.precio.importe, 1800000);
+  assert.equal(state.condicionesComerciales?.trialDias, null);
   assert.ok(state.documentos.every((doc) => doc.estado === "BORRADOR"));
   assert.equal(h.writes.length, 0);
 });
@@ -148,4 +165,34 @@ test("rechaza sesiones revocadas", async () => {
   const h = harness({ bundle: READY_BUNDLE, revoked: true });
   await assert.rejects(aceptarDocumentosLegalesTenant(request(), h.dependencies), (error: unknown) => error instanceof HttpsError && error.code === "unauthenticated");
   assert.equal(h.writes.length, 0);
+});
+
+test("no permite aceptar sin snapshot contractual ni con una referencia desactualizada", async () => {
+  const missing = harness({ bundle: READY_BUNDLE });
+  missing.records.delete("suscripciones/tenant-a");
+  await assert.rejects(aceptarDocumentosLegalesTenant(request(), missing.dependencies), (error: unknown) => error instanceof HttpsError && error.code === "failed-precondition");
+  assert.equal(missing.writes.length, 0);
+
+  const stale = harness({ bundle: READY_BUNDLE });
+  stale.records.set("suscripciones/tenant-a", { empresaId: "tenant-a", revision: 2, snapshotContrato: SNAPSHOT_CONTRATO });
+  await assert.rejects(aceptarDocumentosLegalesTenant(request(), stale.dependencies), (error: unknown) => error instanceof HttpsError && error.code === "failed-precondition");
+  assert.equal(stale.writes.length, 0);
+});
+
+test("usa la relación contractual vigente por encima del snapshot raíz histórico", async () => {
+  const h = harness({ bundle: READY_BUNDLE });
+  const snapshotActual = { ...SNAPSHOT_CONTRATO, precio: { importe: 1900000, moneda: "COP" } };
+  h.records.set("suscripciones/tenant-a/relaciones/_vigente", { relacionVigenteId: "contrato-actual" });
+  h.records.set("suscripciones/tenant-a/relaciones/contrato-actual", {
+    relacionId: "contrato-actual", empresaId: "tenant-a", schemaVersion: 1, revision: 4, snapshotContrato: snapshotActual,
+  });
+
+  const state = await consultarEstadoLegalTenant(request(undefined as never, { data: undefined }), h.dependencies);
+  assert.equal(state.condicionesComerciales?.precio.importe, 1900000);
+  assert.equal(state.condicionesComerciales?.referenciaContrato, "relacion:contrato-actual");
+
+  await assert.rejects(aceptarDocumentosLegalesTenant(request(), h.dependencies), (error: unknown) => error instanceof HttpsError && error.code === "failed-precondition");
+  const accepted = await aceptarDocumentosLegalesTenant(request({ referenciaContrato: "relacion:contrato-actual" }), h.dependencies);
+  assert.equal(accepted.idempotente, false);
+  assert.equal(h.writes.length, 1);
 });

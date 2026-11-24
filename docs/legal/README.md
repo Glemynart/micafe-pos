@@ -3,7 +3,7 @@
 Estado: **BORRADOR PARA REVISIÓN; NO PUBLICADO NI EXIGIBLE COMO NUEVA VERSIÓN**.
 Preparación: 2026-11-23. Versión de trabajo: `0.2`.
 
-Revisión normativa del mismo día: términos y política avanzan a `0.2`.
+Revisión normativa del mismo día: los cuatro documentos se versionan como `0.2`.
 Véanse [hallazgos y fuentes](REVISION-2026-11.md) y
 [ADR-SAAS-099 aceptado para implementación](../../ADR-SAAS-099-aceptacion-legal-versionada.md).
 La revisión no cierra los pendientes ni convierte el texto en exigible.

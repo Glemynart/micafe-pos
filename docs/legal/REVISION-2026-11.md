@@ -34,10 +34,10 @@ Storage o la eliminación física de respaldos.
 
 | Requisito | Resultado y acción necesaria |
 |---|---|
-| Identificar al prestador | Incluido nombre, NIT, dirección, correo y teléfono. RUT no verificado. |
+| Identificar al prestador | Incluye nombre, NIT, dirección, correo y teléfono declarados. El borrador ahora identifica la dirección como judicial para cumplir la información de comercio electrónico; falta cotejar NIT/dirección contra el RUT antes de publicar. |
 | Términos accesibles y conservables | En `main`, `/terminos` sigue referido a coworking y reservas. PR #706 lo reemplaza por borradores versionados y descargables; la versión final y su publicación siguen pendientes. |
 | Oferta y condiciones particulares | ADR-SAAS-028/029 conservan snapshots. Aceptación legal no puede modificar precio, Trial, vigencia ni capacidades. |
-| Prueba de aceptación | La revisión inicial no encontró evidencia versionada. PR #706 implementa el registro de ADR-SAAS-099; aún no está integrado ni desplegado. No hay aceptaciones reales. |
+| Prueba de aceptación | PR #706 implementa el registro de ADR-SAAS-099 y presenta la versión exacta de los documentos junto con plan, precio registrado, periodicidad, vigencia y capacidades del snapshot contractual vigente. La callable vuelve a comprobar la referencia del contrato dentro de la transacción y rechaza snapshots ausentes o desactualizados. El PR sigue sin integrar ni desplegar; no hay aceptaciones reales. |
 | Autorización de datos | Debe informarse antes de recoger datos y obtenerse cuando proceda; contrato empresarial no autoriza por todos los titulares. |
 | Consultas/reclamos | Plazos y trámite incluidos. Falta establecer registro, responsable de seguimiento y anotación de reclamo en datos afectados. |
 | Conservación | Falta matriz con plazos justificados por categoría y respaldo. No inventar diez años para toda la información. |
