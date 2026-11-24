@@ -13,7 +13,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from 
 const grupos = [
   { label: "OPERACIÓN", paths: ["/backoffice", "/backoffice/empresas"] },
   { label: "COMERCIAL", paths: ["/backoffice/planes", "/backoffice/ofertas", "/backoffice/suscripciones"] },
-  { label: "GESTIÓN", paths: ["/backoffice/operadores", "/backoffice/auditoria", "/backoffice/soporte", "/backoffice/configuracion"] },
+  { label: "GESTIÓN", paths: ["/backoffice/operadores", "/backoffice/auditoria", "/backoffice/soporte", "/backoffice/privacidad", "/backoffice/configuracion"] },
 ]
 
 export function PlatformShell({ children }: { children: ReactNode }) {

@@ -14,6 +14,7 @@ export const FACULTADES_PLATAFORMA = [
   "PLATAFORMA_CONSULTAR",
   "ACCESO_RESTABLECER",
   "RELEASE_COMPRAS_GOBERNAR",
+  "PRIVACIDAD_RECLAMOS_TRAMITAR",
   "DUSEMA_TENANT_CONSULTAR",
 ] as const;
 
@@ -69,6 +70,30 @@ async function invocar<T>(nombre: string, data: unknown = {}): Promise<T> {
 
 export const consultarContexto = () =>
   invocar<ContextoPlataforma>("consultarContextoPlataforma");
+
+export interface ReclamoPrivacidad {
+  casoId: string;
+  clienteId: string;
+  estado: "VERIFICADO" | "ABIERTO" | "RESUELTO";
+  leyenda: string | null;
+  motivo: string | null;
+  vencimientoAnotacion: string;
+  vencimientoRespuesta: string;
+  respuestaDocumentada: boolean;
+  respuestaRef?: string | null;
+}
+
+export interface ReclamoRecibido {
+  casoId: string;
+  estado: "RECIBIDO";
+  vencimientoRequerimiento: string;
+}
+
+export const tramitarReclamo = (data: Record<string, string | boolean>) =>
+  invocar<{ casoId: string; estado: ReclamoPrivacidad["estado"] | "RECIBIDO" }>("tramitarReclamoPrivacidadSaas", data);
+
+export const consultarReclamo = (casoId: string) =>
+  invocar<ReclamoPrivacidad | ReclamoRecibido>("tramitarReclamoPrivacidadSaas", { accion: "CONSULTAR", casoId });
 
 export const listarRecursos = (
   recurso: RecursoPlataforma,

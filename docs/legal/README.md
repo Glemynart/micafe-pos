@@ -41,6 +41,11 @@ verificación del RUT, registro de marca ni constitución de una sociedad.
 
 ## Revisión necesaria antes de publicar
 
+La [decisión operativa de vigencia, reclamos y salida](VIGENCIA-Y-TRAMITE.md)
+fija la fecha prevista y los plazos por categoría, con el resultado del ensayo
+sintético. El mecanismo para tramitar reclamos reales está en el
+[ADR-SAAS-102 aceptado para implementación](../../ADR-SAAS-102-tramite-reclamos-privacidad.md).
+
 1. Validar jurídicamente las cláusulas y los datos de identificación del prestador.
 2. Definir tiempos reales de atención, disponibilidad y recuperación. No ofrecer
    un SLA, respaldo periódico o restauración garantizada sin evidencia operativa.

@@ -252,9 +252,17 @@ service cloud.firestore {
       // callable con DTO fijo; así no puede leer documentos completos ni
       // cambiar de tenant mediante una consulta directa.
       allow read: if puedeLeerTenant() && esAutenticado() && !esVendedorBodegaMvp1();
-      allow create: if puedeCrearEnTenant() && esOperativo();
-      allow update: if puedeActualizarEnTenant() && esOperativo();
-      allow delete: if puedeEliminarEnTenant() && esOperativo();
+      allow create: if puedeCrearEnTenant() && esOperativo()
+        && !('reclamosPrivacidadAbiertos' in request.resource.data);
+      allow update: if puedeActualizarEnTenant() && esOperativo()
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['reclamosPrivacidadAbiertos'])
+        && (resource.data.get('reclamosPrivacidadAbiertos', 0) == 0
+          || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['creadoEn']));
+      allow delete: if puedeEliminarEnTenant() && esOperativo()
+        && resource.data.get('reclamosPrivacidadAbiertos', 0) == 0;
+    }
+    match /privacidad_reclamos/{casoId} {
+      allow read, write: if false;
     }
     match /cuentas_bancarias/{id} {
       allow read: if puedeLeerTenant() && esOperativo();

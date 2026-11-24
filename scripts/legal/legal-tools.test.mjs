@@ -45,6 +45,20 @@ test('unknown field, source and child stop completion without disclosing their v
   await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['configuracion'] }) }), /EXPORT_ADAPTER_REQUIRED/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, schemaVersion: 'FUTURE' } }], hasMore: false }) }) }), /EXPORT_UNSUPPORTED_SCHEMA_VERSION/);
 });
+test('la salida comercial excluye expedientes de reclamo y el indicador interno', async () => {
+  const bundle = await exportTenant({ ...input, source: fixture({
+    listRoots: async () => ['clientes', 'privacidad_reclamos'],
+    readPage: async ctx => {
+      assert.equal(ctx.path, 'clientes');
+      return { readTime: ctx.readTime, documents: [{
+        id: 'a', data: { empresaId: 'tenant-a', nombre: 'Cliente sintético', reclamosPrivacidadAbiertos: 1 },
+      }], hasMore: false };
+    },
+  }) });
+  assert.equal(bundle.manifest.totalDocuments, 1);
+  assert.doesNotMatch(bundle.files[0].content, /reclamosPrivacidadAbiertos/);
+  assert.ok(bundle.manifest.sources.some(source => source.path === 'privacidad_reclamos' && source.excluded));
+});
 test('revoked operator, unverified request and changed authority fail closed', async () => {
   const valid = await fixture().authorize();
   for (const invalid of [{ active: false }, { canConserve: false }, { requestVerified: false }, { tenant: 'tenant-b' }]) {

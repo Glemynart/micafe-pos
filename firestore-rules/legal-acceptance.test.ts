@@ -1,7 +1,7 @@
 import { after, before, test } from "node:test";
 import { randomUUID } from "node:crypto";
 import { fixtures } from "./fixtures";
-import { cleanupRulesTestEnvironment, contextFor, expectDenied, rulesTestEnvironment, seedDocument } from "./test-helpers";
+import { cleanupRulesTestEnvironment, clearRulesData, contextFor, expectDenied, rulesTestEnvironment, seedDocument } from "./test-helpers";
 
 before(async () => { await rulesTestEnvironment(); });
 after(async () => { await cleanupRulesTestEnvironment(); });
@@ -20,4 +20,25 @@ test("ADR-SAAS-099: el recibo legal es inaccesible directamente desde clientes",
     await expectDenied(db.doc(path).delete());
     await expectDenied(db.collection("empresas/empresa-a/aceptacionesLegales").get());
   }
+});
+
+test("ADR-SAAS-102: el expediente y el indicador quedan bajo autoridad de servidor", async () => {
+  await clearRulesData();
+  const suffix = randomUUID();
+  const path = `privacidad_reclamos/${suffix}`;
+  const customer = `clientes/${suffix}`;
+  await seedDocument(path, { empresaId: "empresa-a", motivo: "Sintético" });
+  await seedDocument(customer, { empresaId: "empresa-a", reclamosPrivacidadAbiertos: 1 });
+  const admin = (await contextFor(fixtures.tenantA.admin)).firestore();
+  const seller = (await contextFor(fixtures.tenantA.vendedor)).firestore();
+  for (const db of [admin, seller]) {
+    await expectDenied(db.doc(path).get());
+    await expectDenied(db.doc(path).update({ motivo: "alterado" }));
+  }
+  await admin.doc(customer).update({ nombre: "Corrección sintética" });
+  await expectDenied(admin.doc(customer).update({ reclamosPrivacidadAbiertos: 0 }));
+  await expectDenied(admin.doc(customer).delete());
+  await expectDenied(admin.doc(`clientes/nuevo-${suffix}`).set({
+    empresaId: "empresa-a", reclamosPrivacidadAbiertos: 1,
+  }));
 });

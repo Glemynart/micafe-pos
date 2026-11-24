@@ -1,5 +1,5 @@
 import {
-  Activity, Building2, ClipboardList, Headphones, LayoutDashboard, PackageOpen, Settings, Tag, Users,
+  Activity, Building2, ClipboardList, Headphones, LayoutDashboard, PackageOpen, Settings, ShieldCheck, Tag, Users,
 } from "lucide-react";
 import type { FacultadPlataforma } from "@/lib/platform/client";
 
@@ -19,6 +19,7 @@ export const navegacionPlataforma: ItemNavegacion[] = [
   { href: "/backoffice/operadores", label: "Operadores", icon: Users, facultad: "PLATAFORMA_CONSULTAR" },
   { href: "/backoffice/auditoria", label: "Auditoría", icon: ClipboardList, facultad: "PLATAFORMA_CONSULTAR" },
   { href: "/backoffice/soporte", label: "Soporte", icon: Headphones },
+  { href: "/backoffice/privacidad", label: "Reclamos de privacidad", icon: ShieldCheck, facultad: "PRIVACIDAD_RECLAMOS_TRAMITAR" },
   { href: "/backoffice/configuracion", label: "Configuración", icon: Settings },
 ];
 

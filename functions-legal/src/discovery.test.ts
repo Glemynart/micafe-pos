@@ -15,7 +15,7 @@ async function freePort() {
   return address.port;
 }
 
-test("saas-legal descubre únicamente sus dos callables", async () => {
+test("saas-legal descubre únicamente sus callables declaradas", async () => {
   const port = await freePort();
   const bin = resolve(import.meta.dirname, "../node_modules/firebase-functions/lib/bin/firebase-functions.js");
   const child = spawn(process.execPath, [bin], { cwd: resolve(import.meta.dirname, ".."), env: { ...process.env, FUNCTIONS_CONTROL_API: "true", PORT: String(port) } });
@@ -29,7 +29,7 @@ test("saas-legal descubre únicamente sus dos callables", async () => {
     await new Promise((done) => setTimeout(done, 100));
   }
   assert.ok(payload);
-  assert.deepEqual(Object.keys(payload.endpoints).sort(), ["aceptarDocumentosLegalesTenant", "consultarEstadoLegalTenant"]);
+  assert.deepEqual(Object.keys(payload.endpoints).sort(), ["aceptarDocumentosLegalesTenant", "consultarEstadoLegalTenant", "tramitarReclamoPrivacidadSaas"]);
   assert.deepEqual(payload.endpoints.consultarEstadoLegalTenant.region, ["us-central1"]);
   assert.deepEqual(payload.endpoints.aceptarDocumentosLegalesTenant.region, ["us-central1"]);
   assert.deepEqual(payload.params ?? [], []);

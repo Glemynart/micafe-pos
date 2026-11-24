@@ -32,6 +32,9 @@
   expiración o acceso.
 - **Siguiente corte:** completar la certificación de salida/supresión y los
   pendientes operativos y jurídicos antes de marcar vigentes los textos legales.
+- **Reclamos de privacidad, 2026-11-24:** ADR-SAAS-102, alternativa A, aceptado
+  para implementar y verificar primero en el directorio de clientes. Su
+  activación con datos reales queda pendiente de la validación del flujo.
 - **Estado al 2026-11-23:** el build local con Next.js 16.4.6 pasó. La salida de
   datos tiene una base segura
   con 19 pruebas y la cobertura de metadatos clasifica 48 de 48 raíces. Los
