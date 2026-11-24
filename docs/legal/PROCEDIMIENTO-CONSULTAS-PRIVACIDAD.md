@@ -1,0 +1,55 @@
+# Procedimiento operativo de consultas de datos personales
+
+Estado: preparación para revisión y ensayo. Este procedimiento no certifica que
+el Backoffice gestione consultas: la implementación actual cubre reclamos de
+fichas de clientes conforme a ADR-SAAS-102. Hasta que exista y se verifique la
+gestión de consultas, el responsable debe emplear un expediente restringido y
+un mecanismo de seguimiento fuera del POS; no registrar el contenido sensible
+en issues, commits o canales públicos.
+
+## Alcance y clasificación
+
+Una **consulta** solicita conocer la información personal vinculada al titular;
+un **reclamo** solicita corrección, actualización, supresión o denuncia un
+incumplimiento. Una solicitud puede contener ambas partes: registrar y tramitar
+cada una con su plazo y evidencia. Una consulta no crea automáticamente la
+leyenda de reclamo. Si Dusema recibe una solicitud sobre datos tratados por
+cuenta de un negocio, identificar el responsable y coordinar con él sin asumir
+que el representante del negocio puede actuar por todos sus clientes.
+
+## Recepción y seguimiento
+
+1. Registrar consecutivo único, fecha y hora de recepción en Colombia, canal,
+   tipo de solicitud, responsable de su atención y estado. Mantener el mensaje
+   y documentos de identidad en un repositorio restringido; en el expediente
+   operativo registrar una referencia, no copias innecesarias de los documentos.
+2. Verificar identidad y legitimación por un medio apropiado al riesgo. Si se
+   requieren datos adicionales, solicitarlos de forma proporcional y conservar
+   constancia del requerimiento. No enviar información personal sin verificación.
+3. Identificar fuentes pertinentes y el papel de Dusema. Si otra organización es
+   responsable, documentar el traslado y la comunicación al solicitante cuando
+   corresponda. No consultar datos de otros negocios ajenos a la solicitud.
+4. Para la consulta aplicar el término máximo de diez días hábiles desde su
+   recepción. Si no puede atenderse a tiempo, comunicar los motivos y la fecha
+   de respuesta antes de vencer ese término; la respuesta no puede superar los
+   cinco días hábiles adicionales previstos en la ley. Registrar vencimientos,
+   calendario aplicado y constancia del aviso, si se utiliza la extensión.
+5. Preparar una respuesta verificable con la información vinculada al titular,
+   de forma que no se divulguen innecesariamente datos de otras personas. Enviar
+   por un canal adecuado y conservar referencia, fecha y prueba de entrega o
+   intento, sin incluir contraseñas, PIN ni enlaces públicos permanentes.
+6. Cerrar solo después de registrar el resultado y la constancia de respuesta;
+   conservar evidencia bajo la matriz aplicable y revisar excepciones legales.
+   Si la solicitud contiene reclamos abiertos, seguirlos por separado hasta su
+   cierre; no presentar el cierre de la consulta como cierre de los reclamos.
+
+## Verificación pendiente para operación integrada
+
+Se necesita un registro de consultas con autorización explícita, aislamiento
+entre empresas, cálculo de plazos, asignación, respuesta, cierre y pruebas de
+concurrencia. ADR-SAAS-102 describe reclamos, no acredita esta capacidad. Antes
+de declararla operativa se debe ensayar el recorrido completo en staging y
+comprobar la facultad y las restricciones vigentes en cada acción.
+
+Fuentes: [Ley 1581 de 2012, artículos 14 y 15](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981)
+y [Decreto 1074 de 2015](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=76608).
