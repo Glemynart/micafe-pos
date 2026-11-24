@@ -90,9 +90,11 @@ se evaluarán conforme al rol del receptor y los requisitos legales; no se presu
 que un contrato con un proveedor extranjero cubre cualquier transferencia.
 
 La revisión técnica identificó Google/Firebase/GCP para infraestructura,
-autenticación, archivos y notificaciones; Vercel en desarrollo/previews y un
-componente de analítica; y el correo Gmail de contacto declarado. Sus funciones,
-regiones verificadas y contratos pendientes se detallan en el
+autenticación, archivos y notificaciones; Vercel para builds/previews históricos;
+y el correo Gmail de contacto declarado. PR #704 retiró Analytics y deshabilitó
+nuevos despliegues Git automáticos de Vercel en todas las ramas. Ese ajuste no
+elimina previews previos, cuyo acceso y contenido aún deben verificarse. Sus
+funciones, regiones verificadas y contratos pendientes se detallan en el
 [inventario operativo](OPERACION-Y-CONSERVACION.md). No afirmar que todos los
 datos permanecen en Colombia ni atribuir a toda la plataforma una sola región.
 

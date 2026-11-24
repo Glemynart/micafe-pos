@@ -24,12 +24,16 @@
   resolver las deficiencias de proveedores, exportación y supresión.
 - **Decisión:** ADR-SAAS-100 alternativa A aceptada para implementación y pruebas
   controladas; no autoriza extracción, entrega o borrado de datos reales.
-- **Siguiente corte:** retirar Analytics y despliegues automáticos Vercel por
-  incompatibilidad del uso comercial observado con Hobby, preservando GitHub CI
-  y App Hosting. Corregir el bloqueo de seguridad demostrado de Next.js 16.4.1
-  mediante parche de la serie 16.4 antes de integrar.
-- **Estado al 2026-11-23:** el PR #704 está abierto como draft con su CI en curso;
-  el build local con Next.js 16.4.6 pasó. La salida de datos tiene una base segura
+- **Corte de privacidad integrado:** PR #704 quedó fusionado por squash en
+  `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`. Retiró Vercel Analytics,
+  actualizó Next.js a 16.4.6 y deshabilitó los despliegues Git automáticos de
+  Vercel para todas las ramas, preservando GitHub CI y Firebase App Hosting.
+  Esta configuración no elimina despliegues Vercel históricos ni verifica su
+  expiración o acceso.
+- **Siguiente corte:** completar la certificación de salida/supresión y los
+  pendientes operativos y jurídicos antes de marcar vigentes los textos legales.
+- **Estado al 2026-11-23:** el build local con Next.js 16.4.6 pasó. La salida de
+  datos tiene una base segura
   con 19 pruebas y la cobertura de metadatos clasifica 48 de 48 raíces. Los
   esquemas históricos aún pueden detener la exportación si aparece un campo o
   subcolección desconocidos; la certificación de producción sigue falsa. La

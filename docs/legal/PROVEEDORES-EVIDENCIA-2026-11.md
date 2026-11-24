@@ -48,14 +48,17 @@ No se acredita cobertura de ese DPA para la cuenta Hobby observada.
 Los [términos, sección Hobby](https://vercel.com/legal/terms) restringen ese plan
 a uso personal o no comercial. No asumir que un preview comercial queda exento.
 
-La producción observada está en App Hosting; esto no elimina el uso de Vercel
-para previews/checks ni el componente Analytics incluido en el código.
+La producción observada está en Firebase App Hosting. PR #704 se fusionó en
+`main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`: retiró Analytics y configuró
+`git.deploymentEnabled=false`, que deshabilita nuevos despliegues Git de Vercel
+para todas las ramas. No deshabilitó GitHub CI ni App Hosting. La configuración
+no borra previews existentes; no se verificó su expiración, acceso ni contenido.
 
-**Recomendación sin nuevo gasto:** preparar retiro de Analytics y evaluar retiro
-de previews comerciales Vercel manteniendo validación GitHub y App Hosting. Antes
-de desactivar integración/checks, revisar ruleset y dependencias reales para no
-romper merges. Alternativa: plan apto y contrato aplicable, con autorización de
-coste independiente. No se cambió plan, integración o protecciones en esta revisión.
+La medida reduce el tratamiento futuro por Vercel, pero no cierra el inventario
+de despliegues históricos ni acredita eliminación de sus datos. Antes de publicar
+la política final hay que confirmar que esas URLs no exponen datos del tenant y
+retirar o dejar expirar las que ya no deban estar disponibles. No se cambió el
+plan de Vercel ni se acreditó cobertura de su DPA para Hobby.
 
 ## Correo
 
@@ -90,8 +93,8 @@ en Git únicamente estado, referencia no secreta y conclusión sustentada.
 
 ## Decisiones pendientes
 
-1. Elegir retiro de Vercel comercial o contratación apta. Recomendada retirada
-   preparada con comprobación de checks; no ejecutar desactivaciones a ciegas.
+1. Comprobar las URLs y el contenido de despliegues Vercel históricos; la
+   configuración de #704 solo impide nuevos despliegues Git automáticos.
 2. Acreditar contratos Google/correo/GitHub en la cuenta; no inventar firmas ni
    aceptar nuevos acuerdos en nombre del prestador sin mandato específico.
 3. ADR-SAAS-100 ya fue aceptado para implementación y pruebas controladas. Completar

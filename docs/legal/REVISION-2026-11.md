@@ -15,8 +15,9 @@ Un checkbox por sí solo no acredita cumplimiento de protección de datos.
 Actualización del mismo corte: se verificaron metadatos remotos del backup diario
 de 35 días y regiones de recursos, y se concretaron las alternativas en
 [operación y conservación](OPERACION-Y-CONSERVACION.md). No se ejecutó restore ni
-se probó exportación completa. La presencia de Analytics y caché persistente
-se confirma en código, sin acreditar recepción de eventos o borrado al logout.
+se probó exportación completa. PR #704 retiró Analytics y deshabilitó despliegues
+Git automáticos de Vercel en todas las ramas. La caché persistente continúa en
+código; los despliegues Vercel históricos no se inventariaron ni eliminaron.
 
 La comprobación posterior del equipo Vercel confirmó `hobby`; el DPA público
 Pro/Enterprise no acredita cobertura de esa cuenta. Véase
@@ -41,7 +42,7 @@ Storage o la eliminación física de respaldos.
 | Autorización de datos | Debe informarse antes de recoger datos y obtenerse cuando proceda; contrato empresarial no autoriza por todos los titulares. |
 | Consultas/reclamos | Plazos y trámite incluidos. Falta establecer registro, responsable de seguimiento y anotación de reclamo en datos afectados. |
 | Conservación | Falta matriz con plazos justificados por categoría y respaldo. No inventar diez años para toda la información. |
-| Proveedores y circulación internacional | Falta inventario efectivo y comprobar acuerdos con proveedores. Tener Firebase no prueba por sí solo un contrato de transmisión suficiente. |
+| Proveedores y circulación internacional | PR #704 redujo el uso futuro de Vercel, pero falta inventariar sus despliegues históricos y comprobar los acuerdos de Google/correo/GitHub y las ubicaciones efectivas. Tener Firebase no prueba por sí solo un contrato de transmisión suficiente. |
 | Incidentes | Hace falta procedimiento practicable, evidencia de detección, evaluación y canal SIC aplicable. No esperar a estar obligado al RNBD. |
 | RNBD | El prestador declarado es persona natural. La lista de obligados publicada por SIC no lo incluye por ese solo carácter; subsisten las demás obligaciones de datos. Reevaluar si cambia el sujeto. |
 | Consumo electrónico | Aplicabilidad por relación concreta. Añadida Ley 2439/2024, información previa, aceptación y retracto cuando proceda; cerrar reclamaciones y constancia de contratación en el flujo. |

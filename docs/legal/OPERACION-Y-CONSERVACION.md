@@ -47,7 +47,7 @@ del contrato del proveedor, todos sus subencargados o la ubicación de cada dato
 | Proveedor/servicio | Tratamiento identificado | Evidencia y pendiente |
 |---|---|---|
 | Google / Firebase / Google Cloud | Autenticación, base de datos, ejecución, hosting, archivos, logs y notificaciones según funciones habilitadas | Servicios en código; regiones anteriores confirmadas para recursos indicados. Vincular cuenta/contrato aplicable, versiones de términos y subencargados. No atribuir residencia Brasil a Auth, FCM o soporte sin evidencia específica. |
-| Vercel | Builds/previews y componente Analytics | Configuración del repositorio y componente raíz confirmados; plan y alcance efectivo del DPA/Analytics pendientes. Previews deben usar datos sintéticos y no copiar credenciales o datos del tenant. |
+| Vercel | Builds/previews históricos | PR #704 retiró Analytics y configuró `git.deploymentEnabled=false` para todas las ramas. No se borran despliegues anteriores con ese ajuste; faltan inventario, verificación de acceso/contenido y expiración. El plan Hobby continúa sin cobertura DPA Pro/Enterprise acreditada. |
 | Google / correo Gmail indicado por el prestador | Consultas, soporte y reclamaciones que se envíen a `segucor0526@gmail.com` | Correo declarado por el titular. No se ha verificado recepción, administración, MFA, retención ni si existe contrato empresarial. No equiparar automáticamente Gmail personal con Workspace contratado. |
 | GitHub | Código, CI, PR y evidencias de desarrollo | Repositorio y CI existentes. Evitar datos personales de clientes, secretos y dumps en logs/artefactos. No es el respaldo de la base operativa. Revisar contrato y retención efectiva de artefactos. |
 
@@ -70,10 +70,11 @@ Actualización verificada: el equipo Vercel consultado está en plan Hobby. No
 atribuirle cobertura del DPA Pro/Enterprise ni asumir aptitud para uso comercial.
 Véase [evidencia contractual](PROVEEDORES-EVIDENCIA-2026-11.md).
 
-**Recomendación:** no añadir integraciones. Para el primer corte legal,
-retirar Analytics no esencial o acreditar su tratamiento concreto antes de
-publicar una política que lo describa. Cualquiera de esas acciones requiere su
-corte técnico; este documento no modifica el componente.
+**Estado:** PR #704 retiró Analytics del código y detuvo nuevos despliegues Git
+automáticos en Vercel. La política final debe describir con precisión los
+despliegues históricos que permanezcan accesibles. No reactivar Analytics ni
+despliegues comerciales Vercel sin revisar previamente el plan y el instrumento
+contractual aplicable.
 
 ## 3. Matriz de conservación propuesta
 

@@ -14,7 +14,8 @@ conservación, soporte y salida. Distingue hechos comprobados de condiciones por
 aprobar y de mecanismos todavía no implementados.
 
 La [comprobación de proveedores](PROVEEDORES-EVIDENCIA-2026-11.md) confirmó Vercel
-Hobby y sus límites; la exportación se diseña en
+Hobby y sus límites. PR #704 retiró Analytics y deshabilitó nuevos despliegues Git
+automáticos, pero no elimina los previews históricos. La exportación se diseña en
 [ADR-SAAS-100 aceptado para implementación controlada](../../ADR-SAAS-100-exportacion-salida-tenant.md).
 Ninguno de esos resultados acredita firma de contratos o entrega de datos reales.
 
