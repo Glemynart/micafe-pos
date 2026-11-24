@@ -83,14 +83,17 @@ aceptación contractual de autorizaciones personales. No guarda PIN, contraseña
 tokens ni IP/UA. Las pruebas cubren autorización, aislamiento, idempotencia,
 huellas y Rules. No cambia snapshots, precio, Trial, pagos ni plazo.
 
-El corte técnico en curso prepara vistas y descargas versionadas de estos
-borradores y un registro autenticado de aceptación. El catálogo legal permanece
-en `PREPARACION`: no se ofrece una aceptación contractual de textos sin aprobación
-final, ni se bloquean clientes existentes. No se registran consentimientos
-personales desde la aceptación del contrato empresarial. Las dos callables, las
-Rules y el codebase dedicado requieren desplegarse en un corte posterior; no hay
-escrituras ni aceptación de clientes en producción. Las condiciones para tratar
-clientes existentes y exigir una versión siguen pendientes de decisión y release.
+El flujo técnico de aceptación versionada está implementado en PR #706. El
+2026-11-24 se desplegaron las dos callables del codebase `saas-legal` y las Rules
+en `micafe-pos-staging` y `micafe-pos`. Los Rulesets activos coinciden con el
+candidato desplegado. Ambas callables responden `UNAUTHENTICATED` (HTTP 401) sin
+credenciales. No se ejecutó un smoke autenticado ni se registraron aceptaciones
+durante el corte. El PR sigue abierto en draft; App Hosting no ha recibido este
+candidato. El catálogo legal permanece en `PREPARACION`: los textos siguen siendo
+borradores, no se ofrece su aceptación contractual y no se bloquean clientes
+existentes. No se registran consentimientos personales desde la aceptación del
+contrato empresarial. Las condiciones para tratar clientes existentes y exigir
+una versión siguen pendientes de decisión y release.
 
 ## Fuentes oficiales consultadas
 

@@ -41,7 +41,7 @@ Storage o la eliminación física de respaldos.
 | Identificar al prestador | Incluye nombre, NIT, dirección, correo y teléfono declarados. El prestador afirma que NIT y dirección corresponden al RUT; no se inspeccionó el documento. El borrador identifica la dirección como judicial. |
 | Términos accesibles y conservables | En `main`, `/terminos` sigue referido a coworking y reservas. PR #706 lo reemplaza por borradores versionados y descargables; la versión final y su publicación siguen pendientes. |
 | Oferta y condiciones particulares | ADR-SAAS-028/029 conservan snapshots. Aceptación legal no puede modificar precio, Trial, vigencia ni capacidades. |
-| Prueba de aceptación | PR #706 implementa el registro de ADR-SAAS-099 y presenta la versión exacta de los documentos junto con plan, precio registrado, periodicidad, vigencia y capacidades del snapshot contractual vigente. El recibo vincula relación, actor, bundle, versiones, condiciones comerciales y huella; consulta y reintento verifican que la proyección guardada corresponda a su hash. La callable revalida la relación dentro de la transacción. El PR sigue sin integrar ni desplegar; no hay aceptaciones reales. |
+| Prueba de aceptación | PR #706 implementa el registro de ADR-SAAS-099 y presenta la versión exacta de los documentos junto con el snapshot comercial. El recibo vincula relación, actor, bundle, versiones, condiciones comerciales y huella; consulta y reintento verifican su integridad. El 2026-11-24 se desplegaron las dos callables y Rules en staging y producción; Rules coincide con el candidato y ambas callables responden `UNAUTHENTICATED` sin credenciales. El PR sigue abierto en draft y App Hosting no recibió el candidato. No se ejecutó smoke autenticado ni se registraron aceptaciones durante el corte. |
 | Autorización de datos | Debe informarse antes de recoger datos y obtenerse cuando proceda; contrato empresarial no autoriza por todos los titulares. |
 | Consultas/reclamos | Plazos y trámite incluidos. Falta establecer registro, responsable de seguimiento y anotación de reclamo en datos afectados. |
 | Conservación | Falta matriz con plazos justificados por categoría y respaldo. No inventar diez años para toda la información. |
@@ -57,9 +57,12 @@ Storage o la eliminación física de respaldos.
 
 El responsable aceptó ADR-SAAS-099 el 2026-11-23 para implementar los documentos
 públicos versionados y el registro server-side de aceptación contractual del
-representante administrador. Esta rama prepara la implementación y mantiene el
-bundle en `PREPARACION`: los textos continúan siendo borradores; no se aceptan en
-producción, no se bloquean accesos y no se han desplegado Functions o Rules. La
+representante administrador. El 2026-11-24 se desplegaron las dos callables del
+codebase `saas-legal` y las Rules en staging y producción desde el candidato
+`81ba393f2f85956934b484f0ae9b32923b10e0aa`. El bundle sigue en `PREPARACION`:
+los textos continúan siendo borradores, no se aceptan y no se bloquean accesos.
+El PR permanece abierto en draft, por lo que App Hosting no ha recibido este
+candidato. No se hizo smoke autenticado ni se registraron aceptaciones. La
 aceptación contractual tampoco representa autorización personal de clientes,
 empleados u otros titulares. Los pendientes de la tabla siguen abiertos antes de
 declarar los documentos vigentes o exigirlos.

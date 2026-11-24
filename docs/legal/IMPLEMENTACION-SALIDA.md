@@ -1,11 +1,15 @@
 # Implementación controlada de salida — estado real
 
-Fecha: 2026-11-23. `G-SAAS-02 / M2 / E2.2`.
+Fecha de actualización: 2026-11-24. `G-SAAS-02 / M2 / E2.2`.
 ADR-SAAS-100 aceptado para implementar por la orden posterior «ok resuelve eso».
 ADR-SAAS-101 aceptado expresamente para implementación y pruebas locales.
-ADR-SAAS-099 aceptado por separado para implementar aceptación legal versionada;
-PR #706 contiene ese flujo técnico, pero sigue sin integrar ni desplegar. No hay
-aceptación legal real del cliente ni cambios en producción atribuibles a estos archivos.
+ADR-SAAS-099 aceptado por separado para implementar aceptación legal versionada.
+El 2026-11-24 se desplegaron las dos callables `saas-legal` y Firestore Rules en
+staging y producción desde `81ba393f2f85956934b484f0ae9b32923b10e0aa`; las Rules
+activas coinciden con el candidato. Ambas callables rechazan peticiones anónimas
+con `UNAUTHENTICATED` (HTTP 401). PR #706 continúa abierto en draft y App Hosting
+no recibió el candidato. No se ejecutó smoke autenticado ni se registraron
+aceptaciones durante el corte.
 
 ## Corte de proveedores
 
@@ -78,8 +82,10 @@ y entrega pendiente. Usa precondiciones updateTime y un comprobante atómico sin
 payloads personales; la repetición verifica ausencia y detecta recreación.
 No constituye un ejecutor productivo ni prueba eliminación física de backups.
 Un preview sin bloqueos sigue sin autorizar borrado real. El flujo de aceptación
-ADR-SAAS-099 está implementado en PR #706; su bundle permanece en `PREPARACION`,
-no ha sido integrado ni desplegado y no existen aceptaciones de clientes en producción.
+ADR-SAAS-099 está implementado en PR #706; su bundle permanece en `PREPARACION`.
+Las Functions y Rules se desplegaron en staging y producción el 2026-11-24, pero
+el PR no se ha integrado ni App Hosting ha recibido el candidato. No se ejecutó
+smoke autenticado ni se registraron aceptaciones durante ese corte.
 
 El inventario de metadatos de `micafe-pos` a las 19:37 UTC del 2026-11-23
 identificó 48 raíces y las 48 tienen clasificación: adaptador cerrado o fuente
