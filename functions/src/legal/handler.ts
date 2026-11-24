@@ -207,6 +207,15 @@ function snapshotCondicionesCoincide(value: unknown, expectedHash: string): bool
   }
 }
 
+function fechaReciboValida(value: unknown): Date | null {
+  try {
+    const fecha = (value as { toDate?: () => unknown } | null)?.toDate?.();
+    return fecha instanceof Date && Number.isFinite(fecha.getTime()) ? fecha : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Estado mínimo visible al administrador del tenant; los textos no se reconstruyen desde el cliente. */
 export async function consultarEstadoLegalTenant(request: Request, dependencies: Dependencies = {}) {
   const { db, empresaId, uid } = await exigirAdminTenant(request, dependencies);
@@ -226,6 +235,8 @@ export async function consultarEstadoLegalTenant(request: Request, dependencies:
   const acceptance = acceptanceRef ? await acceptanceRef.ref.get() : null;
   const receipt = acceptance?.exists ? acceptance.data() : undefined;
   if (receipt && (receipt.schemaVersion !== 1
+    || receipt.aceptacionId !== acceptanceRef?.id
+    || !fechaReciboValida(receipt.aceptadoEn)
     || receipt.empresaId !== empresaId
     || receipt.uid !== uid
     || receipt.relacion !== "ADMIN_TENANT_REPRESENTANTE_DECLARADO"
@@ -237,7 +248,7 @@ export async function consultarEstadoLegalTenant(request: Request, dependencies:
     || JSON.stringify(receipt.documentos) !== JSON.stringify(documentosContratados(bundle)))) {
     fail("data-loss", "La aceptación guardada no coincide con el contrato o documentos vigentes.");
   }
-  const acceptedAt = receipt?.aceptadoEn?.toDate?.();
+  const acceptedAt = receipt ? fechaReciboValida(receipt.aceptadoEn) : null;
 
   return {
     empresaId,
@@ -308,6 +319,8 @@ export async function aceptarDocumentosLegalesTenant(request: Request, dependenc
     if (receiptSnap.exists) {
       const previous = receiptSnap.data();
       const same = previous?.empresaId === empresaId
+        && previous?.aceptacionId === id
+        && !!fechaReciboValida(previous?.aceptadoEn)
         && previous?.uid === uid
         && previous?.schemaVersion === 1
         && previous?.relacion === "ADMIN_TENANT_REPRESENTANTE_DECLARADO"
@@ -326,7 +339,8 @@ export async function aceptarDocumentosLegalesTenant(request: Request, dependenc
 
   const saved = await ref.get();
   const receipt = saved.data();
-  const aceptadoEn = receipt?.aceptadoEn?.toDate?.();
+  const aceptadoEn = fechaReciboValida(receipt?.aceptadoEn);
+  if (!saved.exists || receipt?.aceptacionId !== id || !aceptadoEn) fail("data-loss", "No fue posible verificar el recibo de aceptación.");
   return {
     aceptacionId: id,
     bundleId: bundle.id,

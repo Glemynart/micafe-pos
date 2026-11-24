@@ -255,3 +255,16 @@ test("rechaza un recibo alterado aunque conserve la huella original", async () =
     (error: unknown) => error instanceof HttpsError && error.code === "data-loss",
   );
 });
+
+test("rechaza recibos sin identidad o fecha verificable en consulta y reintento", async () => {
+  for (const cambio of [{ aceptacionId: "otro" }, { aceptadoEn: null }, { aceptadoEn: { toDate: () => new Date("invalid") } }]) {
+    const h = harness({ bundle: READY_BUNDLE });
+    await aceptarDocumentosLegalesTenant(request(), h.dependencies);
+    const path = h.writes[0].path;
+    h.records.set(path, { ...h.records.get(path), ...cambio });
+    const isDataLoss = (error: unknown) => error instanceof HttpsError && error.code === "data-loss";
+    await assert.rejects(consultarEstadoLegalTenant(request(undefined as never, { data: undefined }), h.dependencies), isDataLoss);
+    await assert.rejects(aceptarDocumentosLegalesTenant(request(), h.dependencies), isDataLoss);
+    assert.equal(h.writes.length, 1);
+  }
+});
