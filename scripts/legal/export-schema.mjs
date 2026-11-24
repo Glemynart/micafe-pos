@@ -75,6 +75,14 @@ const configuration = adapter('vertical', {
 const subscription = adapter('relacionId relacionVigenteId planId planVersion periodicidad origen relacionAnteriorId trialInicio trialFin periodoInicio periodoFin graceFin cancelacionProgramadaPara canceladaEn ultimoPagoAnualId', { snapshotContrato: snapshot });
 export const SINGLETON_ROOTS = new Set(['empresas', 'configuraciones', 'suscripciones', 'ofertas_comerciales_tenant', 'cuentas_control_nevera']);
 export const SCHEMAS = Object.freeze({
+  aceptacionesLegales: adapter('aceptacionId uid relacion referenciaContrato sha256CondicionesComerciales facultadRepresentacionDeclarada bundleId aceptadoEn', {
+    documentos: [fields('id version sha256')],
+    condicionesComerciales: {
+      ...fields('referenciaContrato codigoPlan planVersion periodicidad trialDias'),
+      precio: price, vigencia: fields('inicio fin'), capacidades: [scalar],
+      limites: recordOf(fields('unidad valor')), fiscalidad: fields('pais modalidad habilitada'),
+    },
+  }),
   eventos_operativos: adapter('eventoId tipo fechaProgramada fechaDisponible estadoDespacho intentos ultimoIntentoEn despachadoEn', {
     agregado: fields('tipo id'), actor: operationActor,
     payloadOperativo: fields('programacionId fechaLocal zonaHoraria etapa solicitudId'),

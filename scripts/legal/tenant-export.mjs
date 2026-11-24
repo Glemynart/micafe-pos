@@ -4,7 +4,7 @@ import { SCHEMAS, SCHEMA_VERSION, INTERNAL_ROOTS, PENDING_ROOTS, SINGLETON_ROOTS
 const idPattern = /^[a-zA-Z0-9_-]{1,120}$/;
 const hash = value => createHash('sha256').update(value).digest('hex');
 const fail = code => { throw new Error(code); };
-const childSchemas = { ventas: ['abonos_bodega', 'compromisos_pago_bodega'], empresas: ['secuencias_documentales', 'solicitudes_venta_bodega', 'agenda_pedidos_bodega', 'reservas_stock_bodega'], suscripciones: ['relaciones'], ofertas_comerciales_tenant: ['ofertas'] };
+const childSchemas = { ventas: ['abonos_bodega', 'compromisos_pago_bodega'], empresas: ['aceptacionesLegales', 'secuencias_documentales', 'solicitudes_venta_bodega', 'agenda_pedidos_bodega', 'reservas_stock_bodega'], suscripciones: ['relaciones'], ofertas_comerciales_tenant: ['ofertas'] };
 
 /** Read-only source port. The engine has no database mutation or filesystem API. */
 export async function exportTenant({ project, tenant, readTime, sourceSha, requestId, source, now = () => Date.now(), maxDocuments = 10000, maxBytes = 50_000_000 }) {

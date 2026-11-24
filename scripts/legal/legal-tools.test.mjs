@@ -51,6 +51,17 @@ test('eventos operativos exportan referencias comerciales y excluyen datos inter
   assert.doesNotMatch(JSON.stringify(data), /INTERNAL/);
   assert.throws(() => projectDocument({ empresaId: 'tenant-a', payloadOperativo: { desconocido: 'x' } }, SCHEMAS.eventos_operativos), /EXPORT_UNSUPPORTED_FIELD/);
 });
+test('exporta recibo legal del tenant con versiones y condiciones, sin correlación interna', async () => {
+  const source = fixture({ listRoots: async () => ['empresas'], listAssets: async () => [],
+    listChildren: async ({ path }) => path === 'empresas/tenant-a' ? ['aceptacionesLegales'] : [],
+    readPage: async ctx => ({ readTime: ctx.readTime, hasMore: false, documents: ctx.path === 'empresas' ? [{ id: 'tenant-a', data: { empresaId: 'tenant-a', nombre: 'Empresa' } }] : [{ id: 'receipt', data: { empresaId: 'tenant-a', schemaVersion: 1, aceptacionId: 'receipt', uid: 'admin-a', relacion: 'ADMIN_TENANT_REPRESENTANTE_DECLARADO', referenciaContrato: 'relacion:r1', facultadRepresentacionDeclarada: true, bundleId: 'v1', aceptadoEn: '2026-11-24T12:00:00.000Z', documentos: [{ id: 'terminos', version: '1', sha256: 'a'.repeat(64) }], condicionesComerciales: { referenciaContrato: 'relacion:r1', precio: { importe: 1600000, moneda: 'COP' }, capacidades: ['sell'], limites: { usuarios: { unidad: 'cantidad', valor: 2 } }, fiscalidad: null }, correlationId: 'INTERNO' } }] }),
+  });
+  const bundle = await exportTenant({ ...input, source });
+  assert.equal(bundle.manifest.totalDocuments, 2);
+  assert.match(JSON.stringify(bundle), /aceptacionesLegales/);
+  assert.match(JSON.stringify(bundle), /1600000/);
+  assert.doesNotMatch(JSON.stringify(bundle), /INTERNO/);
+});
 test('un adaptador definido no se bloquea por la lista histórica de pendientes', async () => {
   const source = fixture({ listRoots: async () => ['numeraciones'], readPage: async ctx => ({ readTime: ctx.readTime, documents: [], hasMore: false }) });
   const bundle = await exportTenant({ ...input, source });
