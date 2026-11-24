@@ -22,8 +22,9 @@ La comprobación posterior del equipo Vercel confirmó `hobby`; el DPA público
 Pro/Enterprise no acredita cobertura de esa cuenta. Véase
 [expediente de proveedores](PROVEEDORES-EVIDENCIA-2026-11.md). Se identificó
 también que los ciclos internos Google impiden extender el plazo del schedule
-FireStore a una promesa global de eliminación física. ADR-SAAS-100 propone la
-entrega completa por tenant, todavía pendiente de aprobación e implementación.
+Firestore a una promesa global de eliminación física. ADR-SAAS-100 fue aceptado
+para implementar y probar de forma controlada la entrega completa por tenant;
+la exportación integral todavía no está certificada ni habilitada para datos reales.
 
 El [cierre de comprobaciones](CIERRE-COMPROBACIONES-2026-11.md) registra los
 límites finales: supresión integral y exportador siguen sin implementación
@@ -32,9 +33,9 @@ verificada; no son comprobaciones pendientes que se resuelvan con otra auditorí
 | Requisito | Resultado y acción necesaria |
 |---|---|
 | Identificar al prestador | Incluido nombre, NIT, dirección, correo y teléfono. RUT no verificado. |
-| Términos accesibles y conservables | `/terminos` actual sigue referido a coworking y reservas. Sustituirlo con versión final descargable y archivo histórico. |
+| Términos accesibles y conservables | En `main`, `/terminos` sigue referido a coworking y reservas. PR #706 lo reemplaza por borradores versionados y descargables; la versión final y su publicación siguen pendientes. |
 | Oferta y condiciones particulares | ADR-SAAS-028/029 conservan snapshots. Aceptación legal no puede modificar precio, Trial, vigencia ni capacidades. |
-| Prueba de aceptación | La revisión inicial no encontró evidencia versionada; la implementación de ADR-SAAS-099 está en curso en una rama aparte, no desplegada. No hay aceptaciones reales. |
+| Prueba de aceptación | La revisión inicial no encontró evidencia versionada. PR #706 implementa el registro de ADR-SAAS-099; aún no está integrado ni desplegado. No hay aceptaciones reales. |
 | Autorización de datos | Debe informarse antes de recoger datos y obtenerse cuando proceda; contrato empresarial no autoriza por todos los titulares. |
 | Consultas/reclamos | Plazos y trámite incluidos. Falta establecer registro, responsable de seguimiento y anotación de reclamo en datos afectados. |
 | Conservación | Falta matriz con plazos justificados por categoría y respaldo. No inventar diez años para toda la información. |

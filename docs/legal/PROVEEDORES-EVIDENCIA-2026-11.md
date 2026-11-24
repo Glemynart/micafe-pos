@@ -94,5 +94,7 @@ en Git únicamente estado, referencia no secreta y conclusión sustentada.
    preparada con comprobación de checks; no ejecutar desactivaciones a ciegas.
 2. Acreditar contratos Google/correo/GitHub en la cuenta; no inventar firmas ni
    aceptar nuevos acuerdos en nombre del prestador sin mandato específico.
-3. Aprobar ADR-SAAS-100 para implementar primero exportación sintética/local.
-   La aceptación legal de ADR-SAAS-099 y la exigibilidad productiva siguen separadas.
+3. ADR-SAAS-100 ya fue aceptado para implementación y pruebas controladas. Completar
+   exportación sintética/local y sus gates antes de ofrecer una entrega real.
+   ADR-SAAS-099 autoriza por separado la implementación de aceptación versionada;
+   ninguno autoriza escrituras, extracción o exigibilidad en producción.

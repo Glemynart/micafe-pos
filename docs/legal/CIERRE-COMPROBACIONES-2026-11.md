@@ -121,8 +121,12 @@ Las comprobaciones ya no dependen de una duda genérica sobre proveedores:
    aprobarlos no equivale a que su ejecución esté implementada.
 
 No repetir una auditoría general ni exigir una aceptación ficticia del cliente.
-El siguiente corte debe resolver Vercel y aprobar explícitamente el diseño de
-exportación/aceptación antes de implementarlo; sus pruebas preceden publicación
-y exigibilidad. La revisión jurídica final debe contrastar los textos finales y
-el tratamiento efectivo. Ningún resultado de este informe acredita legalidad
-integral, aceptación de Diana ni un consentimiento retroactivo.
+ADR-SAAS-100 y ADR-SAAS-099 ya fueron aceptados para implementación controlada;
+sus diseños no equivalen a pruebas completas, despliegue ni exigibilidad. El PR
+#706 contiene la aceptación legal versionada y sus recibos, todavía sin integrar
+ni desplegar. El PR #704 prepara retirar Vercel comercial y corregir Next.js, pero
+sigue separado y sin integrar. Antes de publicación/exigibilidad siguen pendientes
+la exportación sintética completa, la implementación y verificación de supresión,
+la resolución del uso comercial de Vercel y la aprobación jurídica final de los
+textos frente al tratamiento efectivo. Ningún resultado de este informe acredita
+legalidad integral, aceptación de Diana ni un consentimiento retroactivo.
