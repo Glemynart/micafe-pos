@@ -42,7 +42,8 @@ test('unknown field, source and child stop completion without disclosing their v
   await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, internalNote: 'SECRET_VALUE' } }], hasMore: false }) }) }), /^Error: EXPORT_UNSUPPORTED_FIELD$/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['unknown_source'] }) }), /EXPORT_UNKNOWN_COLLECTION/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ listChildren: async () => ['secret_children'] }) }), /EXPORT_UNCLASSIFIED_SUBCOLLECTION/);
-  await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['eventos'] }) }), /EXPORT_ADAPTER_REQUIRED/);
+  const emptyEvents = await exportTenant({ ...input, source: fixture({ listRoots: async () => ['eventos'] }) });
+  assert.ok(emptyEvents.manifest.sources.some(source => source.path === 'eventos' && source.count === 0));
   await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, schemaVersion: 'FUTURE' } }], hasMore: false }) }) }), /EXPORT_UNSUPPORTED_SCHEMA_VERSION/);
 });
 test('eventos operativos exportan referencias comerciales y excluyen datos internos', () => {
@@ -292,6 +293,62 @@ test('closed adapters cover salon, reservations, fiscal numbering and audit reco
     reservaExpiraEn: null, creadaEn: '2026-11-23T12:00:00Z', actualizadaEn: '2026-11-23T12:00:00Z',
   } }, SCHEMAS.operaciones_auditoria);
   assert.equal(agendaReference.referencias.zonaHoraria, 'America/Bogota');
+});
+
+test('tenant exit adapters cover events, modifiers, contract payments, and Bodega request history', () => {
+  const roots = [
+    'eventos', 'modificador_grupos', 'producto_modificador_grupos',
+    'asignaciones_numeracion', 'pagos_saas', 'agenda_pedidos_bodega',
+    'reservas_stock_bodega', 'solicitudes_venta_bodega',
+  ];
+  const coverage = inspectCoverage(roots);
+  assert.equal(coverage.rootAdaptersComplete, true);
+  assert.deepEqual(coverage.classifications.filter(row => row.status !== 'ADAPTER_DEFINED'), []);
+
+  const event = projectDocument({ empresaId: 'tenant-a', titulo: 'Evento', descripcion: 'Detalle', fecha: '2026-11-25', hora: '18:00', categoria: 'Otro', activo: true, creadoPor: 'operator-a' }, SCHEMAS.eventos);
+  assert.equal(event.titulo, 'Evento');
+  assert.equal(event.creadoPor, undefined);
+
+  const group = projectDocument({ empresaId: 'tenant-a', nombre: 'Tamaño', minSeleccion: 0, maxSeleccion: 1, activo: true, opciones: [{ id: 'grande', nombre: 'Grande', precioDelta: 1000, activo: true, orden: 1, default: false }] }, SCHEMAS.modificador_grupos);
+  assert.equal(group.opciones[0].precioDelta, 1000);
+
+  const relation = projectDocument({ empresaId: 'tenant-a', productoId: 'coffee-a', grupoId: 'group-a', activo: true, opcionesPermitidas: ['grande'], opcionOverrides: { grande: { precioDelta: 1500, activo: true } } }, SCHEMAS.producto_modificador_grupos);
+  assert.equal(relation.opcionOverrides.grande.precioDelta, 1500);
+
+  const assignment = projectDocument({ empresaId: 'tenant-a', scope: 'EMPRESA', tipoDocumento: 'pos', numeracionId: 'pos-1', estado: 'VIGENTE', revision: 2, schemaVersion: 1 }, SCHEMAS.asignaciones_numeracion);
+  assert.equal(assignment.numeracionId, 'pos-1');
+
+  const payment = projectDocument({
+    empresaId: 'tenant-a', reciboId: 'receipt-a', referenciaPago: 'REF-1', confirmadoPor: 'platform-operator', importe: 1600000, moneda: 'COP',
+    periodoInicio: '2026-11-25', periodoFin: '2027-11-25', snapshotContrato: {
+      schemaVersion: 2, planId: 'mvp', planVersion: 2, codigoPlan: 'MVP', periodicidad: 'ANUAL', trialDias: 15,
+      precio: { importe: 1600000, moneda: 'COP' }, capacidades: ['sell'], limites: {}, sedeConceptual: { cantidad: 1 },
+      fiscalidad: null, vigencia: { inicio: '2026-11-25', fin: '2027-11-25' },
+    },
+  }, SCHEMAS.pagos_saas);
+  assert.equal(payment.importe, 1600000);
+  assert.equal(payment.confirmadoPor, undefined);
+
+  const agenda = projectDocument({
+    empresaId: 'tenant-a', programacionId: 'agenda-a', clienteId: 'client-a', solicitanteUid: 'seller-a',
+    fechaLocal: '2026-11-25', zonaHoraria: 'America/Bogota', estado: 'RESERVADA', revision: 2,
+    lineas: [{ productoId: 'product-a', productoNombre: 'Agua', unidadBase: 'unidad', presentacionId: 'pack-a', presentacionNombre: 'Caja x 24', cantidad: 1, factorUnidadBase: 24, cantidadUnidadBase: 24 }],
+    franja: { desde: '09:00', hasta: '10:00' }, reservaIds: ['hold-a'], aprobacion: { actorUid: 'admin-a', revision: 2 },
+  }, SCHEMAS.agenda_pedidos_bodega);
+  assert.equal(agenda.lineas[0].cantidadUnidadBase, 24);
+
+  const hold = projectDocument({ empresaId: 'tenant-a', reservaId: 'hold-a', programacionId: 'agenda-a', productoId: 'product-a', productoNombreSnapshot: 'Agua', unidadBaseSnapshot: 'unidad', cantidadUnidadBase: 24, estado: 'ACTIVA', liberadaPor: 'admin-a' }, SCHEMAS.reservas_stock_bodega);
+  assert.equal(hold.cantidadUnidadBase, 24);
+
+  const request = projectDocument({
+    empresaId: 'tenant-a', solicitudId: 'request-a', solicitanteUid: 'seller-a', clienteId: 'client-a', estado: 'EJECUTADA', revision: 1, totalCOP: 27000,
+    intentoLineas: [{ productoId: 'product-a', presentacionId: 'pack-a', cantidad: 1 }],
+    lineas: [{ productoId: 'product-a', productoNombre: 'Agua', unidadBase: 'unidad', presentacionId: 'pack-a', presentacionNombre: 'Caja x 24', cantidad: 1, factorUnidadBase: 24, cantidadUnidadBase: 24, canal: 'tienda', precioBasePresentacionCOP: 27000, precioPresentacionCOP: 27000, ofertaId: null, subtotalCOP: 27000 }],
+    ejecucion: { actorUid: 'admin-a', revision: 1, ventaId: 'sale-a', commandId: 'internal-command' },
+  }, SCHEMAS.solicitudes_venta_bodega);
+  assert.equal(request.lineas[0].subtotalCOP, 27000);
+  assert.equal(request.ejecucion.commandId, undefined);
+  assert.throws(() => projectDocument({ empresaId: 'tenant-a', solicitudId: 'request-a', unreviewed: 'private' }, SCHEMAS.solicitudes_venta_bodega), /EXPORT_UNSUPPORTED_FIELD/);
 });
 
 test('canonical root is queried by document name and signed asset URLs do not leak', async () => {

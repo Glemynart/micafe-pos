@@ -87,6 +87,14 @@ export const SCHEMAS = Object.freeze({
     agregado: fields('tipo id'), actor: operationActor,
     payloadOperativo: fields('programacionId fechaLocal zonaHoraria etapa solicitudId'),
   }),
+  eventos: adapter('titulo descripcion fecha hora imagenUrl categoria activo'),
+  modificador_grupos: adapter('nombre descripcion minSeleccion maxSeleccion orden', {
+    opciones: [fields('id nombre precioDelta activo orden default cocinaNombre')],
+  }),
+  producto_modificador_grupos: adapter('productoId grupoId orden minSeleccion maxSeleccion', {
+    opcionesPermitidas: [scalar],
+    opcionOverrides: recordOf(fields('precioDelta activo')),
+  }),
   productos: adapter('nombre descripcion categoria categoriaId unidad unidadMedida costo precio stock stockReservado stockMinimo imagen imagenUrl codigo codigoBarras sku permiteFraccionamiento'),
   categorias: adapter('nombre icono orden color'),
   presentaciones_producto: adapter('productoId nombre factorUnidadBase precioCOP precioTiendaCOP precioConsumidorFinalCOP costoPresentacionCOP'),
@@ -128,6 +136,28 @@ export const SCHEMAS = Object.freeze({
   relaciones: subscription,
   ofertas_comerciales_tenant: adapter('ofertaActivaId'),
   ofertas: adapter('ofertaId empresaIdObjetivo planIdBase planVersionBase periodicidad iniciaEn expiraEn motivoCodigo referenciaAprobacion trialDias referenciaAceptacionCliente trialInicio trialFin', { precioAcordado: price, consumidaPor: fields('empresaId provisionamientoId') }),
+  pagos_saas: adapter('reciboId relacionId relacionRevision suscripcionRevision referenciaPago confirmadoEn importe moneda periodoInicio periodoFin', {
+    snapshotContrato: snapshot,
+  }),
+  asignaciones_numeracion: adapter('scope tipoDocumento numeracionId estado'),
+  agenda_pedidos_bodega: adapter('programacionId clienteId solicitanteUid fechaLocal zonaHoraria huellaIntencion estado stockReservadoUnidadBase solicitudId reservaExpiraEn convertidaEn', {
+    franja: fields('desde hasta'),
+    lineas: [{ ...fields('productoId productoNombre unidadBase presentacionId presentacionNombre cantidad factorUnidadBase cantidadUnidadBase') }],
+    reservaIds: [scalar],
+    aprobacion: fields('actorUid revision'),
+    rechazo: fields('actorUid creadoEn'),
+    cancelacion: fields('actorUid'),
+  }),
+  reservas_stock_bodega: adapter('reservaId programacionId productoId productoNombreSnapshot unidadBaseSnapshot cantidadUnidadBase estado expiraEn liberadaPor'),
+  solicitudes_venta_bodega: adapter('solicitudId solicitanteUid clienteId huellaComercial totalCOP estado revision motivoInvalidacion programacionId', {
+    intentoLineas: [fields('productoId presentacionId cantidad')],
+    lineas: [{ ...fields('productoId productoNombre unidadBase presentacionId presentacionNombre cantidad factorUnidadBase cantidadUnidadBase canal precioBasePresentacionCOP precioPresentacionCOP ofertaId subtotalCOP') }],
+    aprobacion: fields('actorUid revision totalCOP huellaComercial expiraEn'),
+    rechazo: fields('actorUid revision'),
+    cancelacion: fields('actorUid revision'),
+    ejecucion: fields('actorUid revision ventaId'),
+    reservaIds: [scalar],
+  }),
   pedidos_activos: adapter('mesaId nombreMesa cajeroId estado activo inicioAlquiler fechaPago ventaId unionDestinoId actualizadoEn', {
     items: [salonItem], comandaIds: [scalar], movimientos: [pedidoMovement],
   }),
@@ -155,12 +185,10 @@ export const INTERNAL_ROOTS = new Set(`bootstrap_identidades_owner comandos_come
 // These sources need explicit adapters before a populated source can be delivered.
 // They are NEVER silently omitted or exported using an unconstrained object schema.
 export const PENDING_ROOTS = new Set(`agendas auditoria_logs comandas_cocina
-  eventos eventos_operativos modificador_grupos producto_modificador_grupos
-  reservas numeraciones asignaciones_numeracion pagos_saas
-  agenda_pedidos_bodega reservas_stock_bodega solicitudes_venta_bodega`.split(/\s+/));
+  eventos_operativos reservas numeraciones`.split(/\s+/));
 
 export const TECHNICAL_FIELDS = new Set(`commandId idempotencyKey correlationId causationId creadoPor actualizadoPor claimId reclamadoEn ultimoErrorCodigo
-  pinHash token tokenDigest tokenVersion fcmTokens password refreshToken accessToken firebaseStorageDownloadTokens reclamosPrivacidadAbiertos`.split(/\s+/));
+  confirmadoPor pinHash token tokenDigest tokenVersion fcmTokens password refreshToken accessToken firebaseStorageDownloadTokens reclamosPrivacidadAbiertos`.split(/\s+/));
 
 export function inspectCoverage(roots) {
   if (!Array.isArray(roots) || roots.some(name => typeof name !== 'string') || new Set(roots).size !== roots.length) throw new Error('EXPORT_INVALID_ROOT_INVENTORY');
