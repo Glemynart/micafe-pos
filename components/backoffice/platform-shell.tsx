@@ -20,6 +20,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
   const { contexto, tiene, logout } = usePlatform()
+  const operadorAutorizado = contexto?.estado === "ACTIVO"
   const items = obtenerNavegacionVisible(tiene)
   const actual = items.findLast(item => pathname.startsWith(item.href))
   const navegacion = <>
@@ -49,7 +50,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
         <Sheet open={open} onOpenChange={setOpen}><SheetTrigger asChild><button type="button" aria-label="Abrir navegación" className="flex size-11 items-center justify-center rounded-xl border border-border lg:hidden"><Menu className="size-5" /></button></SheetTrigger><SheetContent side="left" className="w-[min(320px,90vw)] gap-0 bg-card"><SheetTitle className="sr-only">Menú de plataforma</SheetTitle><SheetDescription className="sr-only">Accesos disponibles para tu operador.</SheetDescription>{navegacion}</SheetContent></Sheet>
         <a href="#platform-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:rounded-lg focus:bg-card focus:p-3">Ir al contenido</a>
         <div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-muted-foreground">Backoffice</p><p className="mt-1 truncate text-sm font-medium">{actual?.label ?? "Plataforma"}</p></div>
-        <span className="ml-auto inline-flex shrink-0 items-center gap-2 rounded-full border border-emerald-700/15 bg-emerald-500/5 px-3 py-2 text-[11px] font-medium text-emerald-700 dark:text-emerald-400"><span className="size-1.5 rounded-full bg-emerald-500" /><span className="hidden sm:inline">Contexto validado</span><span className="sm:hidden">Validado</span></span>
+        <span role="status" aria-label={operadorAutorizado ? "Operador de plataforma autorizado" : "Autorización de plataforma no validada"} className={cn("ml-auto inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-[11px] font-medium", operadorAutorizado ? "border-emerald-700/15 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400" : "border-amber-700/20 bg-amber-500/5 text-amber-800 dark:text-amber-300")}><span className={cn("size-1.5 rounded-full", operadorAutorizado ? "bg-emerald-500" : "bg-amber-500")} /><span className="hidden sm:inline">{operadorAutorizado ? "Operador autorizado" : "Acceso no validado"}</span><span className="sm:hidden">{operadorAutorizado ? "Autorizado" : "Pendiente"}</span></span>
       </header>
       <main id="platform-content" className="@container mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 lg:px-10 lg:py-9">{children}</main>
     </div>
