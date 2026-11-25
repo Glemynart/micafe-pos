@@ -149,16 +149,19 @@ async function requerirSubsanacion(db: Firestore, actor: Actor, data: Record<str
     await autorizarPlataforma(db, actor.uid, actor.token, FACULTAD, tx);
     const casoRef = db.collection("privacidad_reclamos").doc(casoId);
     const caso = (await tx.get(casoRef)).data();
-    if (!caso || caso.estado !== "RECIBIDO" || caso.operadorUid !== actor.uid
-      || !(caso.recibidoEn instanceof Timestamp)) denegar();
+    if (!caso || caso.operadorUid !== actor.uid || !(caso.recibidoEn instanceof Timestamp)) denegar();
     const existente = requerimientoSubsanacion(caso);
     if (existente) {
       if (existente.fecha !== fecha || existente.referencia !== referencia) {
         throw new HttpsError("already-exists", "RECLAMO_REQUERIMIENTO_DISTINTO");
       }
+      if (!["RECIBIDO", "ABIERTO", "RESUELTO", "DESISTIDO"].includes(caso.estado)) {
+        throw new HttpsError("failed-precondition", "RECLAMO_ESTADO_INVALIDO");
+      }
       validarSubsanacionRecibida(caso, existente);
-      return { casoId, estado: "RECIBIDO", idempotente: true };
+      return { casoId, estado: caso.estado as string, idempotente: true };
     }
+    if (caso.estado !== "RECIBIDO") denegar();
     validarSubsanacionRecibida(caso, undefined);
     const version = versionCalendario(caso);
     const vence = vencimientoRequerimiento(caso, version);

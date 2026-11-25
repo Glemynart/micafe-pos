@@ -86,6 +86,10 @@ test("Reclamos: autoridad, concurrencia, cierre parcial y aislamiento", { skip: 
     const [registro, reintento] = await Promise.all([send(completa), send(completa)]);
     assert.equal(registro.casoId, radicado.casoId);
     assert.deepEqual(registro, reintento);
+    assert.deepEqual(await send(requerimiento), {
+      casoId: radicado.casoId, estado: "ABIERTO", idempotente: true,
+    });
+    await assert.rejects(send({ ...requerimiento, referencia: "requerimiento-cambiado" }), /RECLAMO_REQUERIMIENTO_DISTINTO/);
     await assert.rejects(send({ ...completa, motivo: "otro motivo" }), /RECLAMO_REGISTRO_DISTINTO/);
     const expedienteCompleto = (await db.collection("privacidad_reclamos").doc(radicado.casoId).get()).data();
     assert.equal(expedienteCompleto!.calendarioVersion, PRIVACY_CALENDAR_V2);
@@ -122,6 +126,10 @@ test("Reclamos: autoridad, concurrencia, cierre parcial y aislamiento", { skip: 
     const firstDesist = await send(desistimiento);
     assert.equal(firstDesist.idempotente, false);
     assert.equal((await send(desistimiento)).idempotente, true);
+    assert.deepEqual(await send({ accion: "REQUERIR_SUBSANACION", casoId: oldCase.casoId,
+      fechaEnvio: requestOld, referencia: "requerimiento-legacy" }), {
+      casoId: oldCase.casoId, estado: "DESISTIDO", idempotente: true,
+    });
     assert.equal((await run(oldCase.casoId, "CONSULTAR")).estado, "DESISTIDO");
     await assert.rejects(send({ ...desistimiento, referenciaVerificacion: "otra-revision" }), /RECLAMO_DESISTIMIENTO_DISTINTO/);
     await assert.rejects(send({ ...entrada, consecutivo: `legacy-${suffix}`, recibido: receivedOld,

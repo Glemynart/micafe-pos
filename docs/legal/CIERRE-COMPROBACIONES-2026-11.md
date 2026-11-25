@@ -848,3 +848,20 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
 - No se desplegaron Firestore Rules ni se hizo ningún cambio en producción.
   Siguen pendientes el smoke funcional autenticado y los gates jurídicos y
   operativos enumerados arriba; este rollout no certifica cumplimiento legal.
+
+## Corrección de idempotencia para requerimientos — 2026-11-25 19:44 UTC
+
+- La revisión de ADR-SAAS-104 encontró que repetir un requerimiento idéntico
+  después de completar o desistir el caso era rechazado por la validación de
+  estado antes de comprobar la referencia write-once. Se cambió el orden: la
+  repetición idéntica retorna el estado actual como no-op, y una referencia o
+  fecha distinta sigue rechazándose; los casos sin requerimiento aún exigen
+  estado `RECIBIDO` para crear uno nuevo.
+- Se añadieron regresiones para reintentar después de completar y después de
+  desistir. `npm --prefix functions-legal run build` pasó; la suite unitaria
+  pasó con 22 pruebas y omitió las tres pruebas Emulator por no estar iniciado;
+  al iniciarlo con JDK 21, la suite Emulator pasó 3/3 (aceptación, reclamos y
+  consultas), usando solamente el proyecto demo sintético.
+- `git diff --check` pasó. Esta corrección aún no está desplegada en staging;
+  requiere CI verde en el SHA nuevo y un despliegue dirigido de `saas-legal`
+  seguido de verificación. No se cambiaron Rules ni se escribieron datos reales.
