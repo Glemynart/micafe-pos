@@ -126,10 +126,58 @@ No repetir una auditoría general ni exigir una aceptación ficticia del cliente
 ADR-SAAS-100 y ADR-SAAS-099 ya fueron aceptados para implementación controlada;
 sus diseños no equivalen a certificación, despliegue ni exigibilidad. El PR
 #706 contiene la aceptación legal versionada y sus recibos; sigue en borrador y no
-está integrado ni desplegado. El PR #704 ya está integrado en `main`; detuvo nuevos
+está integrado ni desplegado en producción. App Hosting de staging sí recibió el
+candidato `6e63c172d4cba7cc68c6f756148c84a79589e44e`; su smoke y límites se registran
+abajo. El PR #704 ya está integrado en `main`; detuvo nuevos
 despliegues Git de Vercel y retiró Analytics, sin borrar previews históricos.
 Antes de publicación/exigibilidad siguen pendientes la certificación de
 exportación/supresión para casos reales, resolver el uso comercial de Vercel y la
 aprobación jurídica final de los textos frente al tratamiento efectivo. Ningún
 resultado de este informe acredita legalidad integral, aceptación de Diana ni un
 consentimiento retroactivo.
+
+## Actualización de staging — 2026-11-25 UTC
+
+Esta evidencia posterior supersede solo el estado del corte de staging descrito
+en la matriz del 2026-11-24. No cambia `main`, el estado PREPARACION ni los gates
+de producción.
+
+- Candidato verificado: `6e63c172d4cba7cc68c6f756148c84a79589e44e`. PR #706 continúa
+  abierto en borrador; el check CI del SHA exacto terminó `SUCCESS`.
+- App Hosting `micafe-pos-staging`: rollout creado expresamente desde ese SHA y
+  finalizado con éxito. Cloud Run confirma `micafe-pos-build-2026-11-25-001`
+  `Ready=True`, latest-created/latest-ready, y 100 % del tráfico; digest
+  `sha256:0a4539c6f455e005c6ac83106f7230313762012160a3a6f7ff3f07a7a1a77282`.
+  El backend App Hosting ya no estaba reconciliando al verificarlo. Producción no
+  recibió este rollout.
+- Las callables `tramitarConsultaPrivacidadSaas` y
+  `cambiarFacultadesOperadorSaas` responden `401 UNAUTHENTICATED` ante una petición
+  sin sesión. Ambas están `ACTIVE`, usan Node.js 22 y la cuenta de ejecución
+  predeterminada de Compute. La consulta pertenece a `saas-legal` (hash de
+  despliegue `30d4b0a39eb5dc37e28f8fe49b6c046fcc52ed1c`, URI
+  `https://tramitarconsultaprivacidadsaas-qn7mt3dyyq-uc.a.run.app`); la gestión de
+  facultades pertenece a `saas-auth` (hash `68140cfb0d60432a2f3c181e4827a5a98db4d760`,
+  URI `https://cambiarfacultadesoperadorsaas-qn7mt3dyyq-uc.a.run.app`). El resultado
+  acredita disponibilidad y rechazo anónimo, no funcionamiento autenticado.
+- La pantalla pública de los cuatro documentos (`/terminos`, `/privacidad`,
+  `/aviso-autorizacion`, `/anexo-tratamiento`) muestra versión 0.2 y “Borrador · no
+  exigible”. No hay aceptación habilitada ni se registró consentimiento.
+- La sesión integrada autenticada pudo abrir `/backoffice/consultas-privacidad`,
+  pero recibió “No tienes permiso para tramitar consultas de privacidad”. Esto
+  confirma denegación para esa identidad; no se concedieron facultades ni se
+  consultaron o modificaron expedientes.
+- El despliegue de Functions informó que Firebase CLI generaba/aseguraba identidades
+  de servicio de Pub/Sub y Eventarc. Las lecturas IAM de descripción fallaron por
+  falta de `iam.serviceAccounts.get` y las consultas disponibles de auditoría no
+  devolvieron eventos. Por tanto, no se puede distinguir con la evidencia accesible
+  si las identidades fueron nuevas o preexistentes. No se modificó IAM para
+  investigarlo; queda documentado como límite de evidencia, no como incidente
+  resuelto ni como prueba de ausencia de cambios.
+
+**Resultado del smoke:** staging muestra los borradores y las protecciones de
+autorización esperadas. Sigue pendiente un recorrido autenticado positivo para
+consultas con un operador de pruebas identificado y facultado de forma explícita;
+no debe otorgarse la capacidad a la sesión actual por defecto. La recepción externa
+de correo, exportación/supresión real, vigencia/aprobación de textos, condiciones de
+proveedores y el preflight productivo continúan abiertos. Este corte no autoriza
+publicar los textos ni desplegar a producción.

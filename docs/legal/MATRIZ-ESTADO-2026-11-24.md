@@ -3,6 +3,9 @@
 Alcance: G-SAAS-02 / M2 / E2.2, rama `codex/e2-2-legal-acceptance`,
 PR #706, candidato `3140e92472a5bcdeb499bf38ba51b8c682b67217`.
 La matriz registra observaciones y no constituye dictamen ni aprobación jurídica.
+El apéndice “Actualización de staging — 2026-11-25 UTC” al final de
+`CIERRE-COMPROBACIONES-2026-11.md` supersede el estado de staging y App Hosting
+de esta instantánea; el resto de los pendientes aquí listados sigue vigente.
 
 La [Ley 527 de 1999, artículos 5 a 8](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=4276)
 reconoce los mensajes de datos y establece condiciones para identificar al
@@ -42,3 +45,18 @@ esta observación no demuestra que las rutas afectadas sean o no explotables.
    documentos como borrador hasta que estén listos y aprobados.
 4. Preparar ensayo de salida, seguridad, despliegue coordinado y recuperación;
    después ejecutar los cortes autorizados y verificar resultados.
+
+## Apéndice operativo — staging, 2026-11-25 UTC
+
+PR #706 sigue en borrador. El SHA `6e63c172d4cba7cc68c6f756148c84a79589e44e`
+pasó CI y se desplegó en `micafe-pos-staging`: la revisión App Hosting
+`micafe-pos-build-2026-11-25-001` quedó Ready con 100 % del tráfico. La interfaz
+pública sirve los cuatro documentos 0.2 como borradores no exigibles. Las nuevas
+callables rechazan peticiones anónimas con 401. La ruta de consultas se negó a la
+sesión autenticada de prueba por no tener la facultad específica; no se la amplió.
+
+El preflight no pudo determinar si Firebase reutilizó o creó identidades de
+servicio Pub/Sub/Eventarc: faltó permiso IAM de lectura y las consultas de logs
+disponibles no devolvieron eventos. El límite no demuestra que no hubiera cambios.
+No se alteró IAM ni se desplegó a producción. Véase la evidencia detallada en
+`CIERRE-COMPROBACIONES-2026-11.md`.
