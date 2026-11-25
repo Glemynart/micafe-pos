@@ -7,8 +7,8 @@
 El negocio identificado en la oferta aceptada determina las finalidades de sus
 datos personales operativos como responsable. Sebastián Agudelo Muñoz, NIT
 1000292576-3, prestador de Dusema POS, actúa como encargado para prestar las
-operaciones contratadas sobre esos datos. Sus contactos constan en los
-[términos del servicio](terminos-servicio.md).
+operaciones contratadas sobre esos datos. Sus contactos se informan en los
+términos del servicio.
 
 Este anexo regula el tratamiento por cuenta del negocio; no elimina las
 responsabilidades propias de cada parte ni cubre tratamientos que el prestador
@@ -98,5 +98,5 @@ Las partes acordarán el mecanismo de verificación antes de ofrecer auditorías
 presenciales o acceso irrestricto a infraestructura compartida.
 
 La aceptación de este anexo no cambia plan, precio, fechas de Trial o vigencia del
-contrato del negocio. La revisión final debe cerrar los pendientes del
-[índice de revisión](README.md) antes de solicitar aceptación.
+contrato del negocio. La revisión final debe cerrar los pendientes del índice
+interno del proyecto antes de solicitar aceptación.

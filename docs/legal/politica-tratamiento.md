@@ -94,9 +94,9 @@ autenticación, archivos y notificaciones; Vercel para builds/previews históric
 y el correo Gmail de contacto declarado. PR #704 retiró Analytics y deshabilitó
 nuevos despliegues Git automáticos de Vercel en todas las ramas. Ese ajuste no
 elimina previews previos, cuyo acceso y contenido aún deben verificarse. Sus
-funciones, regiones verificadas y contratos pendientes se detallan en el
-inventario operativo interno. No afirmar que todos los datos permanecen en
-Colombia ni atribuir a toda la plataforma una sola región.
+funciones, regiones verificadas y contratos pendientes constan en el inventario
+operativo interno. No afirmar que todos los datos permanecen en Colombia ni
+atribuir a toda la plataforma una sola región.
 
 El código también contiene integraciones condicionales en superficies heredadas:
 Wompi para el checkout de reservas públicas, Make.com para un webhook opcional de
@@ -104,9 +104,8 @@ eventos, Google Maps y Google Fonts en la landing, y un enlace de consulta DIAN
 que lleva el CUFE como parámetro. No se ha confirmado que todas estén activas en
 producción ni que formen parte de la oferta actual de Dusema POS. Antes de
 publicar esta política como definitiva se verificará el uso por entorno, los datos
-transmitidos, los contratos aplicables y si esas rutas siguen disponibles. La
-descripción técnica y sus límites están en el inventario de proveedores de
-`docs/legal/PROVEEDORES-EVIDENCIA-2026-11.md`.
+transmitidos, los contratos aplicables y si esas rutas siguen disponibles. El
+inventario interno mantiene la descripción técnica y los límites de esta revisión.
 
 Los requerimientos de autoridades se atienden previa comprobación de competencia
 y alcance, conservando evidencia y limitando la entrega a lo exigible.
@@ -135,10 +134,11 @@ no afirma que exista hoy borrado automático.
 Se comprobó respaldo diario de Firestore con retención de 35 días. Esta retención
 no determina la de archivos Storage, correo, logs o cachés de dispositivos. La
 supresión del dato activo debe contemplar su permanencia residual en respaldos,
-acceso restringido y reaplicación de supresiones al restaurar. Véase la
-[matriz propuesta](OPERACION-Y-CONSERVACION.md), pendiente de aprobación y ejecución.
+acceso restringido y reaplicación de supresiones al restaurar. La matriz propuesta
+de conservación está pendiente de aprobación y ejecución.
 
 La versión final indicará fecha de vigencia. Los cambios sustanciales se comunicarán
 oportunamente y requerirán nueva autorización cuando corresponda.
 
-Base normativa y pendientes: [índice de revisión](README.md).
+La base normativa y los pendientes constan en el índice interno de revisión del
+proyecto.

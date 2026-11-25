@@ -27,9 +27,9 @@ export const BUNDLE_LEGAL_ACTUAL: BundleLegal = {
   estado: "PREPARACION",
   documentosContractualesRequeridos: ["terminos", "anexo-tratamiento"],
   documentos: [
-    { id: "terminos", titulo: "Términos del servicio", version: "0.2", sha256: "0aa156f6234bf6d99b4f81d06fd4bd60048af63b16b42a78e44b100f505c4a52", rutaPublica: "/legal/v0.2/terminos-servicio.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
-    { id: "politica-tratamiento", titulo: "Política de tratamiento de datos personales", version: "0.2", sha256: "f62815919becba1af5a852b8e10c9fb1b0f475e7bfd7c115528be7c26f46aa8b", rutaPublica: "/legal/v0.2/politica-tratamiento.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
-    { id: "aviso-autorizacion", titulo: "Aviso y autorización de datos", version: "0.2", sha256: "8e82e6f14ed39e7b54d266856bb3b0155d4702cdd50bd9e04d77f022f783d391", rutaPublica: "/legal/v0.2/aviso-autorizacion.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
-    { id: "anexo-tratamiento", titulo: "Anexo de tratamiento por cuenta del negocio", version: "0.2", sha256: "fea2422ee7520accc1bb56fb68f0d9a27dd05527b29a9686dd1f2958ceac5638", rutaPublica: "/legal/v0.2/anexo-tratamiento.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
+    { id: "terminos", titulo: "Términos del servicio", version: "0.2", sha256: "3da9b709eb5e043fcf3bb106a5e2e155e23c49ff1f8b2aadf603296020e27ea7", rutaPublica: "/legal/v0.2/terminos-servicio.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
+    { id: "politica-tratamiento", titulo: "Política de tratamiento de datos personales", version: "0.2", sha256: "fe859ffdf359910fbf3a52eb0daf175f4e4f5fc40b91554f16e0100d9402f9eb", rutaPublica: "/legal/v0.2/politica-tratamiento.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
+    { id: "aviso-autorizacion", titulo: "Aviso y autorización de datos", version: "0.2", sha256: "848b8c97898dde33576996f00cc4c3efaba9aa1eed152cdb408de12d94afac1b", rutaPublica: "/legal/v0.2/aviso-autorizacion.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
+    { id: "anexo-tratamiento", titulo: "Anexo de tratamiento por cuenta del negocio", version: "0.2", sha256: "5fa27aebf552c079b19b5c0bd85745c7cdc6a72f15aee49b8155485ff11d4aa2", rutaPublica: "/legal/v0.2/anexo-tratamiento.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
   ],
 };
