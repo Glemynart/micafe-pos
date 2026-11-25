@@ -1,14 +1,18 @@
 # Términos del servicio — Dusema POS
 
-**BORRADOR 0.2 — 2026-11-25. Pendiente de revisión y aprobación. Sin vigencia contractual.**
+**BORRADOR 0.3 — 2026-11-25. Pendiente de revisión y aprobación. Sin vigencia contractual.**
 
 ## 1. Prestador y contacto
 
-El servicio Dusema POS es prestado por Sebastián Agudelo Muñoz, NIT
-1000292576-3, con domicilio en Apartadó, Antioquia, Colombia. El prestador indica
-como dirección para notificaciones judiciales y correspondencia Calle 92
+El servicio Dusema POS es prestado por Sebastián Agudelo Muñoz, con NIT
+1000292576-3 y domicilio declarado en Apartadó, Antioquia, Colombia. El prestador
+indica como dirección para notificaciones judiciales y correspondencia Calle 92
 #95A-119. Contacto: segucor0526@gmail.com y +57 310 333 7837. La dirección no
-implica atención presencial.
+implica atención presencial. La identidad, el NIT y la dirección fueron
+suministrados por el prestador y deben cotejarse con el RUT antes de publicar
+una versión definitiva. El correo, el teléfono y el canal postal también se
+incorporan según lo declarado; su recepción, monitoreo y seguimiento deben
+probarse antes de anunciarlos como canales operativos.
 
 ## 2. Objeto y contratación
 
@@ -45,7 +49,7 @@ una eventual suspensión deben quedar definidos en las condiciones particulares
 antes de ofrecerla como condición contractual. La suspensión no implica por sí
 sola la eliminación de la información del negocio.
 
-## 4. Cuentas y uso permitido
+## 4. Contratación, cuentas y uso permitido
 
 Cuando la contratación configure una relación de consumo, se aplican la Ley
 1480 de 2011 y sus modificaciones, incluida la Ley 2439 de 2024. La calidad de
@@ -67,10 +71,22 @@ de pagos es un mecanismo distinto y solo aplica cuando concurran sus requisitos
 legales.
 
 Antes de contratar se informa precio total, impuestos y cargos aplicables,
-duración, prestaciones, restricciones y condiciones de activación. Se permite
-revisar y corregir la solicitud, descargar las condiciones y recibir constancia
-de contratación. Aceptar no autoriza cargos adicionales o cambios unilaterales.
-El flujo debe identificar y conservar la prueba del consentimiento expreso.
+duración, prestaciones, restricciones y condiciones de activación, así como el
+medio de pago y la fecha o forma de inicio de la prestación que corresponda.
+Aceptar no autoriza cargos adicionales o cambios unilaterales.
+
+Si la relación es de consumo y se celebra por comercio electrónico, el flujo de
+contratación debe, antes de finalizar, mostrar un resumen completo, imprimible y
+descargable de la operación; permitir revisar, corregir o cancelar; pedir
+aceptación expresa e inequívoca; conservar su prueba; y enviar confirmación por
+un medio electrónico a más tardar el día calendario siguiente, con el tiempo de
+la operación, precio total, impuestos y gastos, medio de pago y demás datos
+legalmente exigidos. Debe informar también cómo ejercer retracto, cuando proceda,
+y la reversión del pago si concurren sus requisitos. La descripción de este
+deber en los términos no prueba que la interfaz actual lo cumpla: el flujo debe
+verificarse antes de ofrecer esa modalidad como contratación de consumo ([Ley
+1480 de 2011, arts. 47, 50 y 58](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=44306);
+[Ley 2439 de 2024](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=257116)).
 
 El negocio asigna usuarios y permisos según sus responsabilidades. Cada persona
 debe proteger su acceso, evitar compartir credenciales y comunicar usos no
@@ -133,11 +149,19 @@ Las versiones nuevas tendrán identificación y comunicación previa. Los cambio
 que requieran aceptación no se aplicarán retroactivamente por la sola publicación.
 La evidencia histórica y condiciones particulares aceptadas se conservan.
 
-Las partes pueden presentar solicitudes o reclamaciones al correo de contacto.
-Cuando aplique el régimen de consumo, las reclamaciones directas se responden
-en el término legal correspondiente y el canal electrónico debe permitir
-conservar fecha, seguimiento y respuesta. Debe ofrecerse acceso visible al sitio
-de la [Superintendencia de Industria y Comercio — Protección al Consumidor](https://sedeelectronica.sic.gov.co/temas/proteccion-al-consumidor/que-hacemos).
+Los canales de atención se usarán una vez se haya comprobado que reciben,
+registran y permiten asignar seguimiento a las solicitudes. El correo y teléfono
+indicados en la sección 1 son datos declarados; este borrador no acredita que
+sean canales operativos ni que emitan constancia de radicación.
+
+Las consultas y reclamos sobre datos personales siguen los canales y plazos de
+la política de tratamiento; ese trámite no sustituye las PQR de consumo. Si una
+oferta configura una relación de consumo celebrada por comercio electrónico, el
+prestador debe habilitar en ese mismo medio un mecanismo para radicar PQR con
+fecha y hora y consultar su seguimiento. Cuando aplique el artículo 58(5)(c) de
+la Ley 1480 de 2011, la reclamación directa de consumo se responde dentro de
+quince (15) días hábiles. Debe ofrecerse acceso visible al sitio de la
+[Superintendencia de Industria y Comercio — Protección al Consumidor](https://sedeelectronica.sic.gov.co/temas/proteccion-al-consumidor/que-hacemos).
 Rige la legislación colombiana, sin excluir autoridades competentes, derechos de
 los titulares ni normas imperativas de protección al consumidor cuando apliquen.
 

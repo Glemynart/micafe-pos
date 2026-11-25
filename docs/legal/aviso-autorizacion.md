@@ -1,6 +1,6 @@
-# Aviso de privacidad y autorización — Dusema POS
+# Aviso de privacidad de Dusema POS
 
-**BORRADOR / PREPARACIÓN 0.2 — revisión 2026-11-25. No publicado ni vigente; no registra consentimientos.**
+**BORRADOR / PREPARACIÓN 0.3 — revisión 2026-11-25. No publicado ni vigente; no registra consentimientos.**
 
 ## Aviso propuesto para datos propios del servicio
 
@@ -26,22 +26,25 @@ sus titulares como responsable. Este aviso de Dusema no sustituye el aviso ni la
 autorización que corresponda al negocio, y la aceptación del contrato SaaS por su
 representante no autoriza tratamientos de datos de terceros.
 
-Puedes conocer, actualizar y rectificar tus datos, solicitar información y prueba
-de autorización, y pedir supresión o revocatoria cuando proceda. Los canales de
-solicitud están pendientes de prueba; los datos de contacto propuestos constan
-arriba. Antes de recolectar datos, debe estar disponible la política completa
+Puedes conocer, acceder gratuitamente, actualizar y rectificar tus datos,
+solicitar información y prueba de autorización, presentar una queja ante la SIC,
+y pedir supresión o revocatoria cuando proceda. Los canales de solicitud están
+pendientes de prueba; los datos de contacto propuestos constan arriba. Antes de
+recolectar datos, debe estar disponible la política completa
 mediante un enlace público y descargable, junto con su versión y fecha. El enlace
 definitivo, el aviso correspondiente al formulario y su versión deben comprobarse
 antes de publicar o solicitar una manifestación.
 
-## Controles separados propuestos
+## Contrato y autorización personal son manifestaciones distintas
 
 Controles distintos, inicialmente desmarcados cuando correspondan, con acceso al
 contenido y versión exactos:
 
 - **Contrato:** «Declaro estar facultado para representar al negocio y acepto
   los Términos del servicio y el Anexo de tratamiento identificados en esta pantalla».
-- **Autorización de datos personales, solo si es legalmente necesaria:** no usar
+- **Autorización de datos personales, cuando corresponda:** la autorización es
+  la regla general y solo puede omitirse si concurre una excepción legal
+  aplicable. No usar
   una casilla genérica que abarque todos los datos o todas las finalidades de la
   política. El formulario debe identificar los datos concretos y cada finalidad
   específica para los que solicita autorización, enlazar el aviso y la política
@@ -68,6 +71,12 @@ el acceso contratado.
 Este aviso no reemplaza el aviso ni la autorización que el negocio deba obtener
 de sus propios clientes o empleados. El representante no consiente por todos
 ellos mediante la casilla contractual.
+
+Dusema POS no registra en esta pantalla la autorización de los clientes,
+proveedores o personal del negocio. El administrador debe poner a disposición
+el aviso y la política de su negocio y documentar la autorización cuando aplique,
+utilizando un proceso propio que permita consultar esa evidencia posteriormente.
+La aceptación del contrato SaaS no cumple ese paso.
 
 No marcar aceptaciones de Diana ni de otros clientes de manera administrativa,
 retroactiva o por haber usado la plataforma. El flujo futuro debe ofrecer la

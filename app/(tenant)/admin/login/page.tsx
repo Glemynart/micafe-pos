@@ -21,10 +21,12 @@ function AdminLoginContent() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [logging, setLogging] = useState(false)
-  const [recordar, setRecordar] = useState(true)
+  const [recordar, setRecordar] = useState(false)
 
   useEffect(() => {
-    setUsername(readRememberedAdminUsername())
+    const remembered = readRememberedAdminUsername()
+    setUsername(remembered)
+    setRecordar(Boolean(remembered))
   }, [])
 
   const notAdmin = params.get('error') === 'not_admin'

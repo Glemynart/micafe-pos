@@ -1,6 +1,6 @@
 # Anexo de tratamiento por cuenta del negocio — Dusema POS
 
-**BORRADOR 0.2 — revisión operativa 2026-11-25. No está vigente ni aceptado.**
+**BORRADOR 0.3 — revisión operativa 2026-11-25. No está vigente ni aceptado.**
 
 Este texto sirve para preparar un acuerdo de transmisión; no acredita que exista
 un contrato de transmisión vigente con un negocio ni con un proveedor. No debe
@@ -216,3 +216,25 @@ y validación de la exportación/supresión que se ofrezca.
 - [SIC, concepto sobre Firebase y tratamiento por cuenta de responsable](https://sedeelectronica.sic.gov.co/publicaciones/boletin-juridico/concepto/uso-de-firebase-en-almacenamiento-de-datos-y-cumplimiento-normativo-en-colombia).
 - [SIC, alcance de Circular Externa 002 de 2025](https://sedeelectronica.sic.gov.co/publicaciones/boletin-juridico/concepto/alcance-de-la-circular-002-de-2025-sobre-transferencias-internacionales-de-datos).
 - [Ley 2573 de 2026](https://www.cancilleria.gov.co/normograma/compilacion/docs/ley_2573_2026.htm), cuya aplicación al tratamiento de cartera de un negocio específico debe determinarse antes de habilitar ese uso.
+
+## Ficha de tratamiento por tenant — completar antes de aceptar
+
+Esta ficha hace parte del anexo de cada negocio y debe llenarse con información
+verificada. Un campo pendiente impide presentar el anexo como completo o como una
+instrucción suficiente para activar el tratamiento correspondiente.
+
+| Elemento | Información que debe acordarse y conservarse |
+|---|---|
+| Negocio responsable | Razón social/nombre, NIT o identificación, tenant, representante y facultad verificados. |
+| Contacto de privacidad del negocio | Persona o área designada, canal de atención probado y suplencia operativa. |
+| Titulares y categorías de datos | Clientes, proveedores, usuarios u otros grupos; campos efectivamente habilitados y datos que no se tratarán. |
+| Finalidad e instrucciones | Finalidad específica por módulo, operaciones permitidas, fuente de instrucciones y representantes que pueden modificarlas. |
+| Naturaleza y duración | Operaciones, frecuencia, plazo de servicio y eventos de inicio/terminación del tratamiento. |
+| Subencargados y circulación | Proveedor, producto, finalidad, categorías, país/región, instrumento aplicable y condición de cada flujo. |
+| Seguridad y atención | Medidas comprobadas, canales para consultas/reclamos e incidentes, responsables y tiempos de aviso acordados. |
+| Salida | Formato, alcance, mecanismo, plazo y costo de entrega; instrucción de devolución, supresión o conservación legal; tratamiento de respaldos. |
+
+La ficha no amplía los permisos del producto ni acredita por sí sola una
+autorización personal. Cualquier dato sensible, datos de menores, nueva finalidad,
+subencargado o flujo internacional requiere evaluación previa y, cuando proceda,
+una instrucción y base jurídica documentadas antes de habilitarlo.

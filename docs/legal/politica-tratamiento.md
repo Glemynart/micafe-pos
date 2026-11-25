@@ -1,6 +1,6 @@
 # Política de tratamiento de datos personales — Dusema POS
 
-**BORRADOR / PREPARACIÓN 0.2 — revisión 2026-11-25. No publicado ni vigente; fecha de entrada en vigor pendiente de aprobación.**
+**BORRADOR / PREPARACIÓN 0.3 — revisión 2026-11-25. No publicado ni vigente; fecha de entrada en vigor pendiente de aprobación.**
 
 ## 1. Identidad y roles
 
@@ -42,13 +42,23 @@ publicar. Una categoría no autoriza por sí sola cualquier uso.
 
 ### 2.2 Datos tratados por cuenta del negocio
 
-Los datos personales incluidos por el negocio en clientes, empleados, vendedores,
-proveedores y sus operaciones se tratan para prestar las funciones que el negocio
-habilita, bajo sus instrucciones documentadas y el anexo de tratamiento. El
-negocio debe determinar y comunicar a sus titulares las finalidades, obtener las
-autorizaciones que procedan y atender sus solicitudes como responsable. Esta
-política no sustituye el aviso ni la política del negocio ni convierte la
-aceptación del contrato SaaS en autorización de esos titulares.
+Según los módulos que habilite, el negocio puede registrar nombre, documento y
+teléfono de clientes; nombre, identificación tributaria, teléfono, correo y
+dirección de proveedores; nombre, rol y código operativo de sus usuarios; y
+referencias de pedidos, ventas, compras, pagos, cartera, abonos e inventario
+asociadas a esas personas. Los campos efectivamente obligatorios dependen del
+formulario; en el directorio de clientes, documento y teléfono son opcionales.
+El negocio determina y comunica la finalidad de cada dato, limita su captura a
+lo necesario y obtiene y conserva la autorización cuando corresponda. La
+aceptación del contrato SaaS no autoriza el tratamiento de datos de clientes,
+empleados, vendedores o proveedores del negocio.
+
+Antes de recolectar esos datos, el negocio debe poner a disposición su propio
+aviso y política, y conservar evidencia de la autorización cuando sea exigible.
+El enlace a la política de Dusema informa sobre los tratamientos propios de
+Dusema y no sustituye los documentos del negocio. El POS no registra hoy la
+autorización de esos titulares; el negocio debe documentarla por un medio válido
+que permita consultarla después.
 
 La lista final de campos y operaciones debe cotejarse con la implementación antes
 de publicar. No se autoriza recopilar datos ajenos a las finalidades informadas.
@@ -63,19 +73,30 @@ jurídica o autorización que corresponda antes de habilitarlo.
 
 ## 3. Autorización, datos sensibles y menores
 
-Cuando la ley exija autorización, debe obtenerse antes del tratamiento afectado,
-con información previa sobre los datos y cada finalidad específica, mediante una
-manifestación consultable posteriormente; el responsable conserva prueba de ella.
-Una casilla contractual, la lectura de esta política, el silencio o el uso del
-servicio no equivalen por sí solos a una autorización general. Cada formulario
-debe limitar la autorización a sus datos y finalidades concretos. Si la ley
-permite el tratamiento sin autorización, su fundamento debe documentarse; no se
-debe mostrar una casilla ficticia.
+Como regla general, el responsable obtiene autorización previa, expresa e
+informada antes o a más tardar al recolectar los datos, mediante un mecanismo
+que permita consultarla posteriormente. Solo puede tratar datos sin autorización
+cuando concurra una excepción legal aplicable, incluida alguna de las previstas
+en el artículo 10 de la Ley 1581 de 2012; el fundamento debe identificarse y
+documentarse para ese tratamiento. Al solicitar autorización se informan con
+claridad los datos, cada finalidad específica, los derechos y el contacto del
+responsable. Una casilla contractual, la lectura de esta política, una casilla
+premarcada, el silencio o que un administrador cargue los datos de otra persona
+no demuestran por sí solos la autorización de ese titular. Si se usa un formulario
+electrónico, debe presentar la opción afirmativa sin marcar, mostrar las
+finalidades concretas y conservar evidencia consultable. La ley no exige que la
+autorización se obtenga mediante una casilla cuando exista otro medio válido.
 
-El servicio no solicita datos sensibles o de menores como requisito ordinario.
-Si aparece un tratamiento de esa naturaleza, debe evaluarse su procedencia y las
-garantías especiales antes de habilitarlo. No se autoriza al negocio a cargarlos
-indiscriminadamente ni se presume consentimiento por representación empresarial.
+Los formularios actuales no incluyen campos específicos para edad o datos
+sensibles, pero el directorio de clientes no valida la edad y no impide que el
+negocio registre a una persona menor. Por ello no se afirma que esos datos nunca
+puedan aparecer. La protección legal de los datos de menores no equivale a una
+prohibición absoluta de todo tratamiento: exige las condiciones reforzadas que
+correspondan, la prevalencia de sus derechos y el análisis del interés superior.
+Este módulo no implementa esas salvaguardas; por precaución operativa, no debe
+usarse para registrar datos de menores o datos sensibles hasta que se evalúe y
+habilite el tratamiento concreto con sus garantías. No se presume que el
+administrador esté legitimado para autorizar por cada titular.
 
 ## 4. Derechos y atención
 
@@ -158,12 +179,19 @@ de incidentes. El procedimiento debe identificar responsable, fechas relevantes,
 alcance, medidas y seguimiento, sin exponer datos adicionales a los afectados;
 la operación y sus canales siguen pendientes de comprobación.
 
-La navegación debe informar sobre almacenamiento local y tecnologías efectivas:
-recordatorio opcional del código operativo, sesión, PWA y notificaciones, cuando
-se utilicen. Recordar código no significa conservar el PIN. Los permisos del
-navegador para notificaciones no sustituyen autorizaciones de publicidad o de
-tratamiento. Un inventario técnico debe precisar duración y finalidad antes de
-publicar; no se instala un banner que afirme cookies inexistentes.
+En los inicios de sesión de administración y del POS, la opción «Recordar usuario»
+o «Recordar código operativo» inicia desmarcada. Si la persona la activa, el código
+se guarda en `localStorage` del navegador de ese dispositivo y permanece allí
+hasta que el usuario desactive la opción o borre los datos del navegador; el PIN
+no se guarda. Esta función no es una cookie y no sincroniza el código con otros
+dispositivos. El usuario puede desactivar la opción para retirar el código local.
+
+Cuando se habilitan notificaciones push, el navegador solicita permiso y el
+sistema puede tratar un token FCM y el estado del permiso para enviar avisos
+operativos. El permiso del navegador no equivale a autorización publicitaria ni
+a autorización general de tratamiento. El retiro o limpieza del token al cerrar
+sesión es de mejor esfuerzo y no acredita eliminación inmediata en todos los
+sistemas. No se instala un banner que afirme cookies inexistentes.
 
 ## 6. Conservación y cambios
 

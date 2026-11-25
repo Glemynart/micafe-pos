@@ -1,9 +1,11 @@
 # Dusema POS — borradores legales
 
 Estado: **BORRADOR PARA REVISIÓN; NO PUBLICADO NI EXIGIBLE COMO NUEVA VERSIÓN**.
-Preparación: 2026-11-23; revisión documental: 2026-11-25. Versión de trabajo: `0.2`.
+Preparación: 2026-11-23; revisión documental: 2026-11-25. Versión de trabajo: `0.3`.
 
-Revisión normativa del 2026-11-25: los cuatro documentos se versionan como `0.2`.
+La revisión de términos, política, aviso y anexo del 2026-11-25 produjo la versión de trabajo `0.3`.
+La `0.2` permanece archivada sin cambios en `public/legal/v0.2`; `0.3` conserva
+la misma etapa de borrador y no es exigible.
 Véanse [hallazgos y fuentes](REVISION-2026-11.md) y
 [ADR-SAAS-099 aceptado para implementación](../../ADR-SAAS-099-aceptacion-legal-versionada.md).
 La revisión no cierra los pendientes ni convierte el texto en exigible.
@@ -32,7 +34,7 @@ comercial autorizada por el responsable en este chat. Base técnica:
 
 - [Términos del servicio](terminos-servicio.md).
 - [Política de tratamiento](politica-tratamiento.md).
-- [Aviso y autorización](aviso-autorizacion.md).
+- [Aviso de privacidad](aviso-autorizacion.md).
 - [Anexo de tratamiento por cuenta del negocio](anexo-tratamiento.md).
 
 Estos borradores usan los datos suministrados por el prestador. No acreditan

@@ -687,3 +687,47 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
 - El anexo y la operación siguen sin acreditación de contratos/subencargados activos por producto/cuenta, persona/área y canales de privacidad operativos, manejo de incidentes, exportación integral real y supresión productiva. Diez años de conservación aplican a los libros/papeles comerciales que corresponda preservar, no automáticamente a toda PII; el SLA de exportación total debe ser contractual, no presentarse como plazo legal general.
 - Estado release: PR #706 `OPEN`/`DRAFT`, `ca21a1f` tiene CI `45650590494` `SUCCESS`. El commit local `da01478` y los tres informes aún no están en la rama remota ni cubiertos por CI. Producción no recibió cambios de este corte. Los documentos continúan `BORRADOR`/`PREPARACION`; no aprobar ni exigir aceptaciones.
 - Fuentes oficiales consultadas: Ley 1581/2012, Decreto 1074/2015, Leyes 1480/2011 y 2439/2024, Ley 527/1999, Ley 2573/2026, SIC Resolución 65387/2024 y material SIC de autorización/incidentes. Los informes enlazan los artículos/páginas específicos y distinguen obligación condicionada de recomendación.
+
+## Candidato documental y ajustes de consentimiento — 2026-11-25
+
+- La revisión paralela de v0.3 motivó una nueva edición local de los términos,
+  la política, el aviso y el anexo. Los cambios están en el worktree y todavía
+  no son parte de la rama remota ni están cubiertos por CI. La copia pública de
+  trabajo se conserva en `public/legal/v0.3`; los cuatro documentos v0.2 no se
+  modifican.
+- Los términos explicitan que, si una contratación concreta constituye una
+  relación de consumo celebrada electrónicamente, el flujo debe mostrar resumen
+  completo descargable, permitir corrección/cancelación, registrar aceptación
+  expresa, enviar confirmación dentro del plazo legal con datos completos y
+  explicar retracto/reversión cuando procedan. La UI actual no está certificada
+  para ese flujo. La obligación de radicar PQR en el mismo medio, con fecha/hora
+  y seguimiento, sigue siendo condicional a que aplique el régimen de consumo y
+  no se considera satisfecha por el Backoffice de privacidad.
+- El aviso enumera acceso gratuito y queja ante la SIC; la política aclara que
+  el tratamiento de datos de menores tiene condiciones reforzadas y no una
+  prohibición absoluta, pero que el módulo actual no implementa esas garantías.
+  Los códigos locales de login pasan a opt-in explícito; las claves heredadas
+  que no tengan prueba de selección afirmativa se eliminan al leerlas. Nunca se
+  guarda el PIN.
+- El anexo incorpora una ficha por tenant para detallar responsable, contacto,
+  titulares/datos, finalidades/instrucciones, duración, subencargados/regiones,
+  seguridad/atención y salida. No está completada para ningún cliente y no
+  constituye un contrato aceptado.
+- Pendientes externos/operativos que bloquean versión definitiva: cotejar
+  identidad/NIT/dirección con RUT; nombrar formalmente persona/área de privacidad
+  y probar sus canales; confirmar proveedores, servicios, transferencias y
+  subencargados por cuenta; implementar y ensayar el canal PQR de consumo si
+  Dusema realiza contratación de consumo por comercio electrónico; probar la
+  recepción y el registro íntegro de solicitudes, incidentes, exportación y
+  supresión en escenarios autorizados; completar la ficha de tratamiento por
+  tenant y acordar salida y retención por categoría.
+- El expediente de privacidad conserva la fecha declarada de recepción y un
+  timestamp de registro en Backoffice, pero no necesariamente la hora ni el
+  canal original donde llegó la solicitud. La evidencia externa debe conservarse
+  de forma restringida; una mejora del modelo de entrada requiere reconciliarla
+  con ADR-SAAS-102/104 antes de cambiar el contrato de datos. Esta limitación no
+  equivale por sí sola a incumplimiento del plazo legal, pero impide afirmar que
+  el sistema prueba la hora/canal originales.
+- El run `45655584641` sigue asociado al SHA `dd70c4b` y estaba `in_progress`
+  cuando se redactó este apunte. No cubre estos cambios locales. No se publica
+  ni se activa la versión v0.3, y no se hizo despliegue productivo.

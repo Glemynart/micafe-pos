@@ -17,10 +17,12 @@ export function LoginScreen() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [rememberCode, setRememberCode] = useState(true)
+  const [rememberCode, setRememberCode] = useState(false)
 
   useEffect(() => {
-    setUsername(readRememberedOperatorCode())
+    const remembered = readRememberedOperatorCode()
+    setUsername(remembered)
+    setRememberCode(Boolean(remembered))
   }, [])
 
   useEffect(() => {

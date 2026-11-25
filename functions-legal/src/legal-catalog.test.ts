@@ -40,3 +40,16 @@ test("el historial solo enlaza un archivo archivado con huella coincidente", () 
   }
   assert.equal(rutaDocumentoAceptado({ id: "desconocido", version: "0.2", sha256: "0".repeat(64) }), null);
 });
+
+test("la revisión 0.3 conserva los borradores 0.2 archivados sin mutarlos", () => {
+  const archived = [
+    ["terminos-servicio.md", "d1af0b746a61e93bfaae505eced6359d4f807d9f62f952dce8b94e4918feca7c"],
+    ["politica-tratamiento.md", "23f6df3d56a79639665124ed1507cd584887ce1cd4b0352262207546d346049d"],
+    ["aviso-autorizacion.md", "43e87345b3b54c71c668e5abe281c0f43d7da9e7f70d33f92aedf092806dd55d"],
+    ["anexo-tratamiento.md", "058f97dab35538c9e657b84ae778d3b1abb641a4f29e5ed73a891caebe12b9b2"],
+  ] as const;
+  for (const [file, expectedHash] of archived) {
+    const bytes = bytesLf(resolve(repository, "public/legal/v0.2", file));
+    assert.equal(createHash("sha256").update(bytes).digest("hex"), expectedHash, `${file} v0.2 debe permanecer inmutable`);
+  }
+});
