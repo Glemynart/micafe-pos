@@ -517,3 +517,26 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   `e12ae9a47b78f75b33df301496fd63601db2c723`, seguía `in_progress` en el smoke
   E2E P0-01 a las 11:17 UTC. No iniciar un nuevo run ni atribuirle resultados
   anteriores.
+
+## Revalidación de App Hosting y Rules — 2026-11-25 11:49 UTC
+
+- Consulta de solo lectura a los backends y tráfico de App Hosting:
+  - Producción `micafe-pos`: build `build-2026-11-24-002`, `READY`, 100% del
+    tráfico; su `codebase.hash` es
+    `aa1c4fece1386edc6ba31b439a2be98ed9216d0b`, el `main` actual (#704).
+  - Staging `micafe-pos-staging`: build `build-2026-11-25-001`, `READY`, rollout
+    `SUCCEEDED`, 100% del tráfico; commit
+    `6e63c172d4cba7cc68c6f756148c84a79589e44e`.
+- HTTP sin autenticación: staging devuelve `200` en `/terminos`, `/privacidad`,
+  `/aviso-autorizacion` y `/anexo-tratamiento`. En producción `/terminos` aún
+  muestra «Términos y Privacidad - Café Atrato»; las otras tres rutas devuelven
+  `404`. El candidato legal de #706 no está publicado en producción.
+- La consulta `GET projects/{project}/releases` a Firebase Rules devolvió `403`
+  tanto para `micafe-pos` como para `micafe-pos-staging`; no fue posible comparar
+  el release/hash activo con el candidato. El permiso de solo lectura requerido
+  por la API es `firebaserules.releases.list`; no se cambió IAM. Fuentes: [Rules
+  REST API](https://firebase.google.com/docs/reference/rules/rest) y [permisos de
+  Firebase Rules](https://firebase.google.com/docs/projects/iam/permissions).
+- Estas consultas no hicieron escrituras, no desplegaron Rules ni App Hosting y
+  no ejecutaron smoke autenticado. Producción permanece en `main@aa1c4fe`; no se
+  debe publicar el release legal mientras los gates abiertos sigan sin evidencia.
