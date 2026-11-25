@@ -1,0 +1,540 @@
+{
+  "observedAtUtc": "2026-11-25T15:16:42Z",
+  "scope": "glemynarts-projects",
+  "project": "cafeatrato",
+  "environment": "preview",
+  "count": 106,
+  "note": "Only preview deployment metadata, without creator identities, secrets, or application data. Collected before authorized cleanup.",
+  "deployments": [
+    {
+      "url": "cafeatrato-rff3vr895-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-11-24T05:12:06Z"
+    },
+    {
+      "url": "cafeatrato-2omgg2n8o-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-11-24T04:33:19Z"
+    },
+    {
+      "url": "cafeatrato-norxutfp4-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-11-24T04:31:21Z"
+    },
+    {
+      "url": "cafeatrato-fqtzp2l5x-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-11-24T03:45:32Z"
+    },
+    {
+      "url": "cafeatrato-aap45oqdc-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-11-24T03:39:07Z"
+    },
+    {
+      "url": "cafeatrato-jgqu5hqlf-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-11-24T01:26:42Z"
+    },
+    {
+      "url": "cafeatrato-b0zk3gw39-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-11-24T00:43:12Z"
+    },
+    {
+      "url": "cafeatrato-c2f33nuat-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-11-23T20:07:47Z"
+    },
+    {
+      "url": "cafeatrato-bb9rpzvpk-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-11-03T04:10:48Z"
+    },
+    {
+      "url": "cafeatrato-9sr6owcma-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-11-01T17:13:28Z"
+    },
+    {
+      "url": "cafeatrato-nqrum3d4u-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-11-01T08:05:37Z"
+    },
+    {
+      "url": "cafeatrato-5py373kha-glemynarts-projects.vercel.app",
+      "state": "ERROR",
+      "createdAtUtc": "2026-11-01T08:02:21Z"
+    },
+    {
+      "url": "cafeatrato-4qiie0wv2-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-30T18:47:02Z"
+    },
+    {
+      "url": "cafeatrato-d9se6yi4g-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-30T17:40:41Z"
+    },
+    {
+      "url": "cafeatrato-5jhz3q27x-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-30T16:57:35Z"
+    },
+    {
+      "url": "cafeatrato-qjb6jom9u-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-30T16:55:16Z"
+    },
+    {
+      "url": "cafeatrato-8j7ilvsig-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-30T16:54:34Z"
+    },
+    {
+      "url": "cafeatrato-4tnfvlicu-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-30T07:48:42Z"
+    },
+    {
+      "url": "cafeatrato-vnrsl3qet-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-30T07:46:29Z"
+    },
+    {
+      "url": "cafeatrato-ofid98235-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-28T01:41:48Z"
+    },
+    {
+      "url": "cafeatrato-hferom38q-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-28T00:52:07Z"
+    },
+    {
+      "url": "cafeatrato-3fbl6ed3u-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-28T00:22:48Z"
+    },
+    {
+      "url": "cafeatrato-4z4xftx7c-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-28T00:21:08Z"
+    },
+    {
+      "url": "cafeatrato-7e0k7vz2l-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-28T00:13:25Z"
+    },
+    {
+      "url": "cafeatrato-pa14x3aap-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T23:28:29Z"
+    },
+    {
+      "url": "cafeatrato-df80syfxh-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T23:20:48Z"
+    },
+    {
+      "url": "cafeatrato-kucz1mlbr-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T23:18:29Z"
+    },
+    {
+      "url": "cafeatrato-2fsa4j2ik-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T21:02:17Z"
+    },
+    {
+      "url": "cafeatrato-11n7yqa71-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T20:34:09Z"
+    },
+    {
+      "url": "cafeatrato-m4jzste0l-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T20:07:54Z"
+    },
+    {
+      "url": "cafeatrato-j4iyafagn-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T19:36:58Z"
+    },
+    {
+      "url": "cafeatrato-e882w0kvw-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T19:08:33Z"
+    },
+    {
+      "url": "cafeatrato-pujceovrm-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T18:24:49Z"
+    },
+    {
+      "url": "cafeatrato-ns6pzocoh-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T17:26:09Z"
+    },
+    {
+      "url": "cafeatrato-15mumv2mv-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T16:53:14Z"
+    },
+    {
+      "url": "cafeatrato-r0vxngsxm-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T16:35:09Z"
+    },
+    {
+      "url": "cafeatrato-n0akt6jmp-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T16:25:47Z"
+    },
+    {
+      "url": "cafeatrato-96yyeub5c-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T16:02:32Z"
+    },
+    {
+      "url": "cafeatrato-9dfjlpjla-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T15:06:42Z"
+    },
+    {
+      "url": "cafeatrato-ql35bd77v-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T14:39:22Z"
+    },
+    {
+      "url": "cafeatrato-1dnm8qrii-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T14:37:05Z"
+    },
+    {
+      "url": "cafeatrato-6p4c993as-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T14:36:52Z"
+    },
+    {
+      "url": "cafeatrato-k29clw7ai-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T14:10:09Z"
+    },
+    {
+      "url": "cafeatrato-l91764ovm-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T13:37:12Z"
+    },
+    {
+      "url": "cafeatrato-7naasab7x-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T13:12:07Z"
+    },
+    {
+      "url": "cafeatrato-la6car6vk-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T12:45:06Z"
+    },
+    {
+      "url": "cafeatrato-r6leara8h-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T12:45:06Z"
+    },
+    {
+      "url": "cafeatrato-o6zn57il2-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T12:33:25Z"
+    },
+    {
+      "url": "cafeatrato-aenw3v0c0-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T12:13:43Z"
+    },
+    {
+      "url": "cafeatrato-nsilqlm3o-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T11:10:17Z"
+    },
+    {
+      "url": "cafeatrato-5uvxngshi-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T11:06:21Z"
+    },
+    {
+      "url": "cafeatrato-r0onqvy04-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T09:26:15Z"
+    },
+    {
+      "url": "cafeatrato-k6hr26gmu-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T09:14:27Z"
+    },
+    {
+      "url": "cafeatrato-mxyq5o97b-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T09:10:23Z"
+    },
+    {
+      "url": "cafeatrato-19ff3wcs8-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T07:39:40Z"
+    },
+    {
+      "url": "cafeatrato-iib5cay1n-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T06:28:55Z"
+    },
+    {
+      "url": "cafeatrato-3chvddu1t-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T06:28:04Z"
+    },
+    {
+      "url": "cafeatrato-lmz0aknkg-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T05:17:03Z"
+    },
+    {
+      "url": "cafeatrato-e13w57o4x-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T05:10:25Z"
+    },
+    {
+      "url": "cafeatrato-l2spjymtm-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T05:05:49Z"
+    },
+    {
+      "url": "cafeatrato-n1mg2656m-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T04:59:46Z"
+    },
+    {
+      "url": "cafeatrato-ritr1wo0i-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T04:24:38Z"
+    },
+    {
+      "url": "cafeatrato-3o6jg2npw-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T03:44:33Z"
+    },
+    {
+      "url": "cafeatrato-6bgr59h84-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-27T00:12:27Z"
+    },
+    {
+      "url": "cafeatrato-hn7hthx3h-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T23:21:11Z"
+    },
+    {
+      "url": "cafeatrato-2fy8wh79t-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T23:20:05Z"
+    },
+    {
+      "url": "cafeatrato-7h3vctfvc-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T22:52:10Z"
+    },
+    {
+      "url": "cafeatrato-k5hew5wxk-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T21:59:32Z"
+    },
+    {
+      "url": "cafeatrato-ofhjqmcba-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T20:48:52Z"
+    },
+    {
+      "url": "cafeatrato-eus41qkrr-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T20:44:05Z"
+    },
+    {
+      "url": "cafeatrato-hfsqhow8s-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T20:23:38Z"
+    },
+    {
+      "url": "cafeatrato-5lb80u810-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T20:13:47Z"
+    },
+    {
+      "url": "cafeatrato-2z06j5og2-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T19:22:13Z"
+    },
+    {
+      "url": "cafeatrato-frlilxa6i-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T19:21:43Z"
+    },
+    {
+      "url": "cafeatrato-bfn5eue31-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T18:54:02Z"
+    },
+    {
+      "url": "cafeatrato-kurs2acg9-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T18:50:57Z"
+    },
+    {
+      "url": "cafeatrato-kg2n8fyby-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T18:36:10Z"
+    },
+    {
+      "url": "cafeatrato-2pist13xg-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T18:29:59Z"
+    },
+    {
+      "url": "cafeatrato-kqon0qn5i-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T18:23:35Z"
+    },
+    {
+      "url": "cafeatrato-769v2beol-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T18:03:28Z"
+    },
+    {
+      "url": "cafeatrato-8os87mw7q-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T17:58:46Z"
+    },
+    {
+      "url": "cafeatrato-mtytns4sg-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T17:42:16Z"
+    },
+    {
+      "url": "cafeatrato-enypuxag0-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T17:38:41Z"
+    },
+    {
+      "url": "cafeatrato-n598chcnc-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T16:17:07Z"
+    },
+    {
+      "url": "cafeatrato-60qz4zbjx-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T15:50:33Z"
+    },
+    {
+      "url": "cafeatrato-1yhuxllqa-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T15:43:53Z"
+    },
+    {
+      "url": "cafeatrato-peqr8di4w-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T08:50:25Z"
+    },
+    {
+      "url": "cafeatrato-j3xaodj32-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T06:42:53Z"
+    },
+    {
+      "url": "cafeatrato-8axs7oc0v-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T06:07:15Z"
+    },
+    {
+      "url": "cafeatrato-mzgxqxeph-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T06:05:22Z"
+    },
+    {
+      "url": "cafeatrato-nhe2tt57n-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T01:41:47Z"
+    },
+    {
+      "url": "cafeatrato-htvi2th38-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-26T01:15:30Z"
+    },
+    {
+      "url": "cafeatrato-3qtptlz28-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-25T20:01:05Z"
+    },
+    {
+      "url": "cafeatrato-jigc9sbbt-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-25T19:52:50Z"
+    },
+    {
+      "url": "cafeatrato-4d8jn4sz6-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-25T19:07:13Z"
+    },
+    {
+      "url": "cafeatrato-hqvymd3is-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-25T18:51:15Z"
+    },
+    {
+      "url": "cafeatrato-nst3lucee-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-25T18:13:31Z"
+    },
+    {
+      "url": "cafeatrato-286qbugf0-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-15T04:55:40Z"
+    },
+    {
+      "url": "cafeatrato-2reguv4ki-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-14T19:02:46Z"
+    },
+    {
+      "url": "cafeatrato-7npp00s5r-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-14T07:54:06Z"
+    },
+    {
+      "url": "cafeatrato-1j7haumkf-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-10-07T03:30:50Z"
+    },
+    {
+      "url": "cafeatrato-en9pqal5h-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-09-14T07:01:37Z"
+    },
+    {
+      "url": "cafeatrato-d0jmcbn4q-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-09-14T07:01:37Z"
+    },
+    {
+      "url": "cafeatrato-77bq157ej-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-09-14T07:01:36Z"
+    },
+    {
+      "url": "cafeatrato-74cyxaa01-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-09-14T07:01:34Z"
+    },
+    {
+      "url": "cafeatrato-g0kxcolt1-glemynarts-projects.vercel.app",
+      "state": "READY",
+      "createdAtUtc": "2026-09-14T07:01:32Z"
+    }
+  ]
+}

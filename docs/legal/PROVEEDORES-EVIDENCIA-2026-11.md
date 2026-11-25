@@ -199,3 +199,22 @@ en Git únicamente estado, referencia no secreta y conclusión sustentada.
 4. Confirmar las integraciones condicionales Wompi, Make.com, Maps, Fonts y FCM
    descritas arriba y revisar el CUFE del QR DIAN; no inferir estado activo por
    existencia de código.
+
+### Retirada de previews — 2026-11-25 15:20 UTC
+
+La lista autenticada del proyecto `cafeatrato` devolvió 106 deployments de
+preview y ninguno tenía alias personalizado. Se retiraron los 106; la consulta
+posterior devolvió cero y un endpoint archivado responde 404. El manifiesto de
+URLs, estado y fecha, sin identidad de creador, está en
+`evidence/vercel-cafeatrato-previews-2026-11-25.json` con SHA-256
+`59a79ada6f26a03545e5de2b50b396a9a3b57a3361c3b4ba4fc85db20b9c19fd`.
+
+Se conservaron los cuatro deployments `production` ocultos por SSO para no
+borrar artefactos de producción sin autorización específica. No tienen alias
+personalizado y cada URL consultada devuelve 302 a SSO. Firebase App Hosting
+sigue prestando `pos.dusema.com/pos`; la ruta respondió 200 después de la
+limpieza. El equipo Vercel sigue en Hobby y los cuatro despliegues/proyecto
+remanentes no quedan acreditados como compatibles con sus términos no comerciales
+ni con el DPA Pro/Enterprise. No hubo cambio de plan o cobros. Este pendiente
+requiere retirar esos artefactos/proyecto o resolverlo mediante un plan/contrato
+comercial autorizado; no se presume que la retirada de previews lo resuelva.

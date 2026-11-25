@@ -634,3 +634,29 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
 - El run `45626959540` para `db3a6b8ab02e07ea2ea1d36598dff14bafc0c723` terminó
   `SUCCESS` a las 14:14:03 UTC. Esa CI no sustituye el smoke de interfaz, la
   revisión jurídica, una exportación real ni los demás gates de liberación.
+
+## Mitigación de previews Vercel — 2026-11-25 15:20 UTC
+
+- Vercel CLI 62.1.0 enumeró 106 deployments `preview` del proyecto `cafeatrato`,
+  creados entre el 2026-09-14 y el 2026-11-24 05:12 UTC: 105 `READY`, 1 `ERROR`.
+  Todos eran URLs de deployment `*.vercel.app`; no había alias personalizado.
+- Se archivó el manifiesto de URLs, estado y fecha (sin identidad de creador,
+  secretos ni datos de aplicación) en
+  `docs/legal/evidence/vercel-cafeatrato-previews-2026-11-25.json`, SHA-256
+  `59a79ada6f26a03545e5de2b50b396a9a3b57a3361c3b4ba4fc85db20b9c19fd`.
+- Con la autorización de gestión de previews de este Goal, se retiraron los 106
+  deployments `preview` en lotes dirigidos. La consulta posterior devuelve cero
+  previews y un URL archivado devuelve HTTP 404. No se modificó DNS, el dominio
+  operativo ni ningún deployment de Firebase/App Hosting.
+- Los cuatro deployments Vercel `production` se conservaron: continúan `READY`,
+  sin alias personalizado; sus cuatro URLs devuelven HTTP 302 a SSO. No hay
+  evidencia de que el tráfico de `pos.dusema.com` dependa de Vercel; su ruta
+  `/pos` respondió HTTP 200 tras la limpieza.
+- No se cambió el plan Hobby ni se incurrió en cobros. Sus términos actuales
+  restringen Hobby a uso personal/no comercial y permiten uso del contenido para
+  entrenamiento de modelos; el DPA publicado cubre Pro/Enterprise. La limpieza
+  reduce la superficie de previews, pero no resuelve la compatibilidad contractual
+  de conservar los cuatro deployments `production` y el proyecto. Tampoco prueba
+  eliminación de datos retenidos internamente por el proveedor. No se afirma que
+  Vercel haya usado contenido de Dusema para entrenamiento ni que haya recibido
+  datos personales de clientes.
