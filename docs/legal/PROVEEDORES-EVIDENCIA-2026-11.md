@@ -54,19 +54,34 @@ La producción observada está en Firebase App Hosting. PR #704 se fusionó en
 todas las ramas. No deshabilitó GitHub CI ni App Hosting.
 
 Revisión autenticada del 2026-11-24: entre los 100 despliegues más recientes
-listados, el preview más reciente asociado a #706 usa el commit anterior
-`ff422718a852ca9344569b6882496cbf7860cb69`; no aparece un preview del head actual
-`0b60aedea15eb17af413aa802ca342764fd06aaf`. La protección del proyecto indica
-SSO para `all_except_custom_domains`; el alias observado es `.vercel.app`, no un
-dominio personalizado. Esto acredita que el preview listado requiere acceso SSO,
-no que su contenido haya sido revisado ni que todos los despliegues históricos
-estén protegidos. No se borraron ni se solicitó borrar artefactos.
+listados, el preview más reciente asociado a #706 usaba un commit anterior al head
+de entonces. En el corte del 2026-11-25 se recorrieron las páginas de la lista:
+110 despliegues en total, 106 previews y 4 de producción, desde el 2026-09-14
+hasta el 2026-11-24. El preview más reciente se creó el 2026-11-24 a las
+05:12:06 UTC, antes del merge de #704 a las 05:20:32 UTC; no apareció un preview
+posterior. La configuración `git.deploymentEnabled=false` sigue en `main`.
 
-La medida reduce despliegues nuevos, pero no elimina previews ni acredita borrado
-de sus datos. Antes de cerrar el inventario histórico falta revisar contenido,
-vigencia y protección de cada URL que se conserve. El plan Hobby sigue observado;
-su compatibilidad con el uso comercial y la cobertura del DPA Pro/Enterprise no
-están acreditadas. No se cambió el plan ni se modificaron despliegues.
+La protección SSO continúa configurada como `all_except_custom_domains`. Tres
+URLs de preview consultadas sin sesión respondieron HTTP 302; esas muestras
+requieren SSO, pero no sustituyen una inspección individual del contenido de los
+106 previews. No se borraron previews: están restringidos en las muestras y
+conservan evidencia de PRs anteriores.
+
+Hallazgo distinto: los cuatro despliegues de producción siguen `READY`. El alias
+estable `cafeatrato.vercel.app` responde HTTP 200; las otras dos variantes de
+alias verificadas redirigen a SSO. El alias estable está excluido por la
+configuración `all_except_custom_domains`, por lo que su contenido permanece
+público. No se inspeccionó el cuerpo para evitar registrar datos de la página y
+no se pausó el sitio, porque esa acción interrumpiría una URL de producción. Esto
+deja pendiente decidir su retiro o restricción.
+
+El equipo Hobby activo ya había sido observado mediante la API del equipo. Los
+términos vigentes desde el 2026-10-19 limitan Hobby a uso personal o no comercial;
+el DPA de Vercel publicado aplica a clientes Pro/Enterprise. Por eso no queda
+acreditada la aptitud contractual del alias productivo para el uso comercial de
+Dusema POS. No se cambió el plan ni se incurrió en cargos. La configuración
+actual reduce nuevas publicaciones Git, pero no elimina despliegues ni resuelve
+el uso comercial del alias estable.
 
 ## Correo
 

@@ -181,3 +181,69 @@ no debe otorgarse la capacidad a la sesión actual por defecto. La recepción ex
 de correo, exportación/supresión real, vigencia/aprobación de textos, condiciones de
 proveedores y el preflight productivo continúan abiertos. Este corte no autoriza
 publicar los textos ni desplegar a producción.
+
+## Actualización comparativa de producción y Vercel — 2026-11-25 UTC
+
+Esta comprobación es de solo lectura y no altera el corte anterior.
+
+### PR y aplicación
+
+- PR #706 continúa `OPEN` y `DRAFT`, con candidato
+  `f213088356da8289dfb160454de2e73d14213eac`, base `main` en
+  `aa1c4fece1386edc6ba31b439a2be98ed9216d0b`, un check de CI `SUCCESS` y sin
+  hilos de revisión sin resolver. `CLEAN` describe la relación GitHub con la
+  base; no equivale a aprobación jurídica ni a autorización de publicación.
+- App Hosting de producción sigue sirviendo la revisión
+  `micafe-pos-build-2026-11-24-002` al 100 % del tráfico. No se obtuvo en esta
+  consulta una procedencia que la vincule al candidato de #706.
+- En staging, las cuatro rutas legales responden HTTP 200 y muestran versión
+  0.2 como borrador no exigible. En producción, `/terminos` responde HTTP 200,
+  pero no muestra esa versión ni el marcador de borrador; las otras tres rutas
+  (`/privacidad`, `/aviso-autorizacion`, `/anexo-tratamiento`) responden 404.
+  Por tanto, la vista productiva no contiene el conjunto legal actual.
+- La lista de Functions de producción contiene las funciones existentes de
+  aceptación/consulta de estado y una versión anterior de
+  `cambiarFacultadesOperadorSaas`; no contiene
+  `tramitarConsultaPrivacidadSaas` ni `tramitarReclamoPrivacidadSaas`. Staging
+  sí las tiene activas. No se desplegó este candidato a producción.
+
+### Rules
+
+La consulta de solo lectura al API de Firebase Rules devolvió HTTP 403 para
+`micafe-pos` y `micafe-pos-staging` con la identidad disponible. No se pudo
+revalidar qué Ruleset está activo en este momento. El 403 no demuestra que falten
+Rules ni que estén incorrectas; la verificación previa documentada no se presenta
+como comprobación actual. No se amplió IAM ni se publicó Rules.
+
+### Vercel
+
+- `main` conserva `git.deploymentEnabled=false`, integrado en PR #704 el
+  2026-11-24 a las 05:20:32 UTC. La consulta paginada encontró 110 despliegues
+  históricos: 106 previews y 4 de producción, creados entre el 14 de septiembre
+  y el 24 de noviembre. El preview más reciente fue creado el 24 de noviembre a
+  las 05:12:06 UTC, antes de integrar #704; no apareció uno posterior.
+- Tres URLs de preview probadas sin sesión respondieron HTTP 302. El proyecto
+  informa protección SSO `all_except_custom_domains`; las URLs de preview probadas
+  requieren autenticación. No se eliminaron despliegues: la protección observada
+  reduce exposición y la lista incluye evidencia histórica de PRs anteriores.
+- Los cuatro despliegues productivos de Vercel siguen `READY` y el alias
+  `cafeatrato.vercel.app` responde HTTP 200. Es distinto de las URLs de preview.
+  El inventario de cuenta previamente consultado registra el equipo en Hobby
+  activo; la consulta actual de despliegues no mostró el plan. Los términos de
+  Vercel vigentes desde el 19 de octubre de 2026 limitan Hobby al uso personal o
+  no comercial, y su DPA publicado aplica a clientes Pro y Enterprise. No queda
+  acreditada la aptitud de este alias productivo para el uso comercial de Dusema
+  POS. No se pausó el sitio ni se cambió el plan por el posible impacto público y
+  de facturación.
+
+Fuentes primarias actuales consultadas: [términos de Vercel, sección Hobby](https://vercel.com/legal/terms)
+y [DPA de Vercel](https://vercel.com/legal/dpa). La publicación de previews y la
+existencia de una protección SSO no resuelven la restricción de uso comercial del
+plan.
+
+**Resultado del corte:** producción no está certificada para esta liberación.
+Quedan bloqueantes la publicación/aprobación de los textos, la comprobación
+actual de Rules con una identidad autorizada, las nuevas Functions y la interfaz
+del PR #706, además de resolver el uso comercial del alias productivo de Vercel.
+La exportación y supresión reales tampoco están certificadas. No se activa
+aceptación ni se declara cumplimiento legal integral.
