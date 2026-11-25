@@ -821,3 +821,30 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   “Términos y Privacidad - Café Atrato”; `/privacidad`,
   `/aviso-autorizacion` y `/anexo-tratamiento` no están disponibles (404).
   No se desplegó ni modificó ningún entorno.
+
+## Rollout controlado del paquete v0.3 a staging — 2026-11-25 19:36 UTC
+
+- Functions: `firebase deploy --only functions:saas-legal` terminó con éxito en
+  `micafe-pos-staging`. El inventario posterior muestra las cuatro callables
+  esperadas en estado `ACTIVE`, runtime Node.js 22:
+  `consultarEstadoLegalTenant`, `aceptarDocumentosLegalesTenant`,
+  `tramitarConsultaPrivacidadSaas` y `tramitarReclamoPrivacidadSaas`.
+- Las cuatro URLs rechazaron POST sin credenciales con HTTP `401`. Esto confirma
+  que los endpoints exigen autenticación; no es un smoke funcional autenticado.
+- App Hosting: rollout `build-2026-11-25-003` terminó `SUCCEEDED`; el build está
+  `READY` y su `source.codebase.commit` coincide exactamente con
+  `520b7b271978e6a4e29fff0390111f9adb51ccfa`. Cloud Run reporta la revisión
+  `micafe-pos-build-2026-11-25-003` como la última lista y con 100 % del tráfico.
+- Las cuatro rutas legales de staging (`/terminos`, `/privacidad`,
+  `/aviso-autorizacion` y `/anexo-tratamiento`) respondieron HTTP `200`,
+  muestran `v0.3` y siguen marcadas como borrador/no exigibles. La actualización
+  despliega el paquete preparatorio; no publica ni activa los documentos.
+- El preflight de Functions imprimió que Firebase CLI estaba generando las
+  identidades administradas de Pub/Sub y Eventarc. Una consulta IAM posterior
+  devolvió HTTP `404` para las cuentas esperadas de ambos agentes de servicio en
+  el proyecto staging. No se modificaron políticas IAM. La evidencia no permite
+  atribuir un cambio persistente a `GenerateServiceIdentity`; se conserva el
+  límite de evidencia sobre esa invocación.
+- No se desplegaron Firestore Rules ni se hizo ningún cambio en producción.
+  Siguen pendientes el smoke funcional autenticado y los gates jurídicos y
+  operativos enumerados arriba; este rollout no certifica cumplimiento legal.
