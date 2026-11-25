@@ -889,6 +889,37 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   pasó con 22 pruebas y omitió las tres pruebas Emulator por no estar iniciado;
   al iniciarlo con JDK 21, la suite Emulator pasó 3/3 (aceptación, reclamos y
   consultas), usando solamente el proyecto demo sintético.
-- `git diff --check` pasó. Esta corrección aún no está desplegada en staging;
-  requiere CI verde en el SHA nuevo y un despliegue dirigido de `saas-legal`
-  seguido de verificación. No se cambiaron Rules ni se escribieron datos reales.
+- `git diff --check` pasó. El despliegue y las verificaciones posteriores se
+  registran en la sección siguiente. No se cambiaron Rules ni se escribieron
+  datos reales.
+
+## Rollout de idempotencia de reclamos en staging — 2026-11-25
+
+- CI del PR #706 terminó `SUCCESS` en el SHA exacto
+  `5af87a36bba2fe13f5679a71763614aaecdc6010` (run `45689796036`). Pasaron tipos,
+  builds, pruebas legales/Rules/Storage, E2E del portal/PWA/Bodega y E4.1/E4.2.
+- El run emitió avisos de mantenimiento de GitHub Actions para acciones Node 20
+  y `actions/setup-java@v4`; no fueron fallos del check.
+- Desde ese checkout se ejecutó
+  `firebase deploy --only functions:saas-legal --project micafe-pos-staging --non-interactive`;
+  el CLI terminó `Deploy complete`. No se usó `--force`, no se desplegaron Rules
+  ni App Hosting, y no se modificó producción. La diferencia desde el commit de
+  App Hosting `520b7b2` solo contiene dos archivos de Functions y este documento;
+  el frontend no cambió y no requería otro rollout.
+- `firebase functions:list` posterior muestra activas, callable, Node.js 22 y
+  `us-central1` las cuatro funciones del codebase: `consultarEstadoLegalTenant`,
+  `aceptarDocumentosLegalesTenant`, `tramitarConsultaPrivacidadSaas` y
+  `tramitarReclamoPrivacidadSaas`.
+- POST sin credenciales a cada una de las cuatro URLs de staging devolvió HTTP
+  `401`, confirmando que el endpoint rechaza solicitudes no autenticadas. No es
+  prueba funcional positiva autenticada del registro de un expediente.
+- Firebase CLI volvió a informar generación de identidades de Pub/Sub y
+  Eventarc. La consulta directa de cuentas de servicio devolvió
+  `PERMISSION_DENIED` para `iam.serviceAccounts.get`; por tanto no se puede
+  concluir si esas identidades fueron creadas o ya existían. No se amplió IAM.
+- La captura del Backoffice acredita únicamente que `/backoffice/privacidad`
+  carga en la sesión mostrada. La pestaña del navegador integrado no apareció
+  entre las ventanas controlables disponibles; no se interactuó con Brave ni
+  Edge ni se registró un reclamo desde la sesión.
+- El PR #706 sigue `OPEN`/`DRAFT`; no se fusionó. Los documentos continúan
+  `BORRADOR`/`PREPARACION`, sin publicación exigible ni aprobación jurídica.
