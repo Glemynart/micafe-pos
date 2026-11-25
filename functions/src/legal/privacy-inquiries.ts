@@ -79,8 +79,16 @@ export async function tramitarConsultaPrivacidad(db: Firestore, actor: Actor, in
     await autorizarPlataforma(db, actor.uid, actor.token, FACULTAD, tx);
     const ref = db.collection("privacidad_consultas").doc(casoId);
     const caso = (await tx.get(ref)).data();
-    if (caso?.estado === "RECIBIDA" && caso.operadorUid === actor.uid && accion === "CONSULTAR" && caso.recibidoEn instanceof Timestamp) {
-      return { casoId, estado: "RECIBIDA", vencimientoRespuesta: caso.vencimientoRespuesta, respuestaDocumentada: false, respuestaRef: null };
+    if (caso?.estado === "RECIBIDA" && caso.operadorUid === actor.uid && caso.recibidoEn instanceof Timestamp
+      && typeof caso.vencimientoRespuesta === "string") {
+      if (accion === "CONSULTAR") return { casoId, estado: "RECIBIDA", vencimientoRespuesta: caso.vencimientoProrroga ?? caso.vencimientoRespuesta, respuestaDocumentada: false, respuestaRef: null };
+      if (accion === "PRORROGAR") {
+        if (caso.prorrogaRef === referencia && caso.prorrogaMotivo === resultado) return { casoId, estado: "RECIBIDA" };
+        if (caso.prorrogaRef || fechaBogota(Date.now()) > caso.vencimientoRespuesta) return fail("failed-precondition");
+        tx.update(ref, { prorrogaRef: referencia, prorrogaMotivo: resultado, prorrogaRegistradaEn: FieldValue.serverTimestamp(), vencimientoProrroga: sumarHabiles(caso.vencimientoRespuesta, 5) });
+        return { casoId, estado: "RECIBIDA" };
+      }
+      return fail("permission-denied");
     }
     if (!caso || caso.operadorUid !== actor.uid || caso.identidadVerificada !== true || !ID.test(caso.empresaId ?? "")
       || !ID.test(caso.identidadRef ?? "") || !ID.test(caso.instruccionRef ?? "") || !["ABIERTA", "RESPONDIDA"].includes(caso.estado)

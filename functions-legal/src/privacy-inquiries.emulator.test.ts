@@ -28,6 +28,8 @@ test("Consultas: facultad separada, idempotencia, plazos, aislamiento y respuest
     caseId = receivedCase.casoId;
     assert.equal(receivedCase.estado, "RECIBIDA");
     assert.equal((await tramitarConsultaPrivacidad(db, actor, { accion: "CONSULTAR", casoId: caseId })).vencimientoRespuesta, sumarHabiles(received, 10));
+    await assert.rejects(tramitarConsultaPrivacidad(db, actor, { accion: "RESPONDER", casoId: caseId, referencia: "respuesta", resultado: "comunicada" }), /CONSULTA_PRIVACIDAD_NO_DISPONIBLE/);
+    await tramitarConsultaPrivacidad(db, actor, { accion: "PRORROGAR", casoId: caseId, referencia: "aviso", resultado: "Revisión en curso" });
     const [first, replay] = await Promise.all([tramitarConsultaPrivacidad(db, actor, input), tramitarConsultaPrivacidad(db, actor, input)]);
     caseId = first.casoId;
     assert.equal(first.casoId, receivedCase.casoId);
@@ -36,7 +38,7 @@ test("Consultas: facultad separada, idempotencia, plazos, aislamiento y respuest
     await assert.rejects(tramitarConsultaPrivacidad(db, otherActor, { accion: "CONSULTAR", casoId: caseId }), /CONSULTA_PRIVACIDAD_NO_DISPONIBLE/);
     await assert.rejects(tramitarConsultaPrivacidad(db, actor, { ...input, identidadRef: "otra" }), /CONSULTA_PRIVACIDAD_NO_DISPONIBLE/);
     let detail = await tramitarConsultaPrivacidad(db, actor, { accion: "CONSULTAR", casoId: caseId });
-    assert.equal(detail.vencimientoRespuesta, sumarHabiles(received, 10));
+    assert.equal(detail.vencimientoRespuesta, sumarHabiles(sumarHabiles(received, 10), 5));
     await tramitarConsultaPrivacidad(db, actor, { accion: "PRORROGAR", casoId: caseId, referencia: "aviso", resultado: "Revisión en curso" });
     detail = await tramitarConsultaPrivacidad(db, actor, { accion: "CONSULTAR", casoId: caseId });
     assert.equal(detail.vencimientoRespuesta, sumarHabiles(sumarHabiles(received, 10), 5));
