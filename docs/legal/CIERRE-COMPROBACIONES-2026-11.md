@@ -1031,5 +1031,22 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
 - Este resultado supersede la lectura anterior que indicaba que producción
   conservaba el ruleset `2a122fe8-7e11-479c-aff0-66f4c5f7d60b`. Solo acredita
   Rules: #706 sigue abierto/en borrador, el candidato de App Hosting no está en
-  producción y no se ejecutó smoke autenticado ni se certificó la exportación
-  integral con datos y archivos reales.
+  producción; no se probaron operaciones autenticadas ni se certificó la
+  exportación integral con datos y archivos reales.
+- Como comprobación separada, Edge cargó con una sesión de operador autorizado
+  la ruta de staging
+  `https://micafe-pos--micafe-pos-staging.us-central1.hosted.app/backoffice/privacidad`;
+  el contexto se mostró validado y los formularios estaban vacíos. Esto acredita
+  un smoke autenticado de lectura de la interfaz. No se envió un reclamo ni se
+  probó una escritura callable, la facultad específica de conservación, el
+  aislamiento en una operación ni el exportador productivo.
+- El usuario aportó recortes del RUT. Los campos visibles de identidad, contacto,
+  dirección y actividades coinciden con los datos declarados anteriormente;
+  los recortes no muestran la fecha de actualización y no acreditan por sí solos
+  autenticidad o vigencia ante DIAN. No se guardó el RUT en el repositorio.
+- El responsable reporta autorización de Diana para exportar su tenant, con la
+  condición de no requerir una cuenta de ese tenant. No hace falta iniciar sesión
+  como Diana: la herramienta exige un token de un operador SaaS de producción
+  activo con `CONSERVACION_GOBERNAR`, y una referencia de solicitud verificable.
+  La autorización reportada aún no está vinculada a una referencia verificada;
+  no se leyeron datos operativos ni archivos reales.
