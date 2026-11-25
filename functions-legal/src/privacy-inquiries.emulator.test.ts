@@ -53,6 +53,8 @@ test("Consultas: facultad separada, idempotencia, plazos, aislamiento y respuest
     await assert.rejects(tramitarConsultaPrivacidad(db, actor, { accion: "CONSULTAR", casoId: caseId }), /CONSULTA_PRIVACIDAD_NO_DISPONIBLE/);
     await record.update({ vencimientoRespuesta: originalDeadline, vencimientoProrroga: "2099-12-31" });
     await assert.rejects(tramitarConsultaPrivacidad(db, actor, { accion: "CONSULTAR", casoId: caseId }), /CONSULTA_PRIVACIDAD_NO_DISPONIBLE/);
+    await record.update({ vencimientoProrroga: sumarHabiles(originalDeadline, 5), calendarioVersion: "DESCONOCIDA" });
+    await assert.rejects(tramitarConsultaPrivacidad(db, actor, { accion: "CONSULTAR", casoId: caseId }), /CONSULTA_PRIVACIDAD_NO_DISPONIBLE/);
     await operator.update({ estado: "REVOCADO", versionAutorizacion: 2 });
     await assert.rejects(tramitarConsultaPrivacidad(db, actor, { accion: "CONSULTAR", casoId: caseId }), /PLATFORM_ACCESS_DENIED/);
   } finally {

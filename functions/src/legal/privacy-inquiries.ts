@@ -19,7 +19,8 @@ type Actor = { uid: string; token: TokenPlataforma };
 function casoIntegro(casoId: string, caso: FirebaseFirestore.DocumentData | undefined): boolean {
   if (!caso || typeof caso.empresaId !== "string" || !ID.test(caso.empresaId)
     || typeof caso.consecutivo !== "string" || !ID.test(caso.consecutivo)
-    || !(caso.recibidoEn instanceof Timestamp) || typeof caso.vencimientoRespuesta !== "string") return false;
+    || !(caso.recibidoEn instanceof Timestamp) || typeof caso.vencimientoRespuesta !== "string"
+    || caso.calendarioVersion !== PRIVACY_CALENDAR_VERSION) return false;
   const expected = createHash("sha256").update(JSON.stringify([caso.empresaId, caso.consecutivo])).digest("hex");
   try {
     const original = sumarHabiles(fechaBogota(caso.recibidoEn.toMillis()), 10);
