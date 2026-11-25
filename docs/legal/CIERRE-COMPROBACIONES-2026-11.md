@@ -356,3 +356,33 @@ el uso comercial de Vercel y alojar las superficies necesarias en un servicio
 con condiciones adecuadas; la alternativa contractual requiere que el titular
 decida y habilite un plan comercial, pues puede generar cargos. Ninguna de estas
 acciones se ejecutó en esta comprobación.
+
+## Revalidación de App Hosting, rutas legales y CI — 2026-11-25 UTC
+
+- La consulta read-only del API de App Hosting confirmó producción en
+  `build-2026-11-24-002`, rollout `SUCCEEDED`, estado `READY` y 100 % del tráfico;
+  su fuente es `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`. Staging sirve
+  `build-2026-11-25-001`, rollout `SUCCEEDED`, estado `READY` y 100 % del tráfico,
+  con fuente `6e63c172d4cba7cc68c6f756148c84a79589e44e`. No se encontró rollout
+  del HEAD actual de #706 en producción.
+- La comprobación HTTP repetida obtuvo en staging `200` para las cuatro rutas
+  (`/terminos`, `/privacidad`, `/aviso-autorizacion`, `/anexo-tratamiento`);
+  todas muestran la versión 0.2 como borrador. En `pos.dusema.com`, `/terminos`
+  devuelve `200` con la página anterior de Café Atrato y sin la marca de borrador;
+  las otras tres rutas devuelven `404`. Esta diferencia se mantiene y bloquea
+  publicar o exigir el conjunto legal vigente.
+- PR #706 continúa `OPEN`, `DRAFT` y `BLOCKED`, con HEAD
+  `243b4b3e768bcf8680cd3249059fdc44015c10c1`, sin decisión de revisión registrada.
+  El run `45588855887` del HEAD exacto seguía `in_progress` a las 09:59 UTC, con
+  pasos E2E y certificaciones Emulator pendientes; no se declara CI verde para
+  este SHA.
+- No se concedió la facultad `PRIVACIDAD_CONSULTAS_TRAMITAR`. La sesión autenticada
+  previamente observada en staging fue denegada por falta de esa facultad. El
+  recorrido autenticado positivo sigue pendiente; para concederla, un operador
+  distinto del destinatario debe usar la gestión oficial y tener
+  `OPERADORES_GOBERNAR`. No se ampliaron permisos ni se modificaron datos.
+
+**Resultado:** este corte actualiza el estado operativo, pero no cambia las
+conclusiones de exigibilidad, certificación, revisión jurídica, exportación ni
+supresión. No se integró ni se desplegó #706; no se aceptaron documentos ni se
+escribió en producción.
