@@ -129,3 +129,29 @@ propuestas no aprobadas, no hay limpieza automática certificada, y el alcance d
 las Leyes 1266/2573 para cartera/suplantación requiere determinarse por actividad.
 La revisión es técnica/documental, no dictamen jurídico ni certificación
 integral.
+
+## Auditoría de autoridad y captura de datos — HEAD 22314854 — 2026-11-25
+
+La revisión estática del candidato no encontró un bypass obvio de autorización
+ni de aislamiento en las funciones legales examinadas. La callable de aceptación
+revalida membresía `admin` y registra la declaración afirmativa de facultad; no
+verifica por una fuente externa la representación legal. Esto sigue el diseño
+aceptado en ADR-SAAS-099. El recibo acredita una declaración del administrador,
+no una verificación independiente de representación. No se debe describirlo ni
+publicarlo como tal.
+
+El formulario POS de clientes recoge nombre, documento y teléfono sin mostrar
+un aviso al titular ni registrar una autorización por persona. El aviso 0.2
+asigna correctamente al negocio cliente la responsabilidad de informar y obtener
+autorización cuando corresponda, y aclara que la aceptación del contrato SaaS no
+cubre a terceros. No se observó el proceso externo que usaría cada negocio; por
+tanto, no se certifica que el registro de clientes esté precedido por aviso o
+autorización válida. Antes de habilitar este flujo como legalmente verificado se
+debe comprobar ese procedimiento con el negocio o aprobar un diseño separado
+para informar y registrar autorizaciones dentro del POS. No se infiere una
+infracción automática ni se guarda una autorización genérica en nombre del
+titular.
+
+El smoke autenticado positivo de staging y la recepción de correo desde una
+cuenta externa no se verificaron en esta auditoría. El gate de aceptación sigue
+en `PREPARACION`, por lo que el candidato no registra aceptaciones.
