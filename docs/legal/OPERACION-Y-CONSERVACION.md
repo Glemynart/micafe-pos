@@ -243,10 +243,59 @@ Procedimiento ejecutable manualmente sin crear una nueva base de clientes:
    Revisar vencimientos cada día hábil. Registrar causa y comunicación de las
    extensiones dentro de sus límites.
 
-Incidentes: contener y preservar evidencia mínima; registrar detección y cuándo
-se informó al encargado de atenderlos; evaluar afectados y obligaciones de
-reporte. El plazo de reporte SIC aplicable no se sustituye por el objetivo de
-respuesta comercial. Comunicar al cliente oportunamente sin revelar secretos.
+### Respuesta a incidentes de seguridad de datos personales — borrador operativo
+
+Este flujo orienta la respuesta; no está certificado ni reemplaza las
+instrucciones vigentes de la SIC. Antes de activarlo deben asignarse formalmente
+la persona titular y su suplente, comprobar acceso a los canales de reporte y
+realizar un simulacro con datos sintéticos. Mientras no se designen, el incidente
+se escala de inmediato al prestador y no se declara que existe cobertura continua.
+
+1. **Recibir y contener.** Abrir un expediente restringido. Registrar hora de
+   detección, quién detectó, hora en que se informó al área designada, fuente,
+   sistemas/tenants potencialmente afectados y acciones iniciales. Proteger
+   personas y datos, limitar accesos comprometidos y preservar evidencia útil;
+   no borrar registros, alterar evidencia ni poner secretos o datos personales
+   en Issues, PRs o chats públicos.
+2. **Evaluar alcance y roles.** Determinar qué datos personales, titulares,
+   operaciones, productos, proveedores y regiones pueden estar afectados; separar
+   hechos verificados de hipótesis; identificar si Dusema actúa como responsable,
+   encargado o ambos por tratamientos diferentes. Coordinar con el negocio
+   responsable y subencargados sin divulgar información de otros tenants.
+3. **Calcular el plazo regulatorio.** La SIC indica que el reporte aplicable se
+   realiza dentro de los quince (15) días hábiles siguientes al momento en que
+   el incidente se detecta y se pone en conocimiento de la persona/área encargada
+   de atenderlo. No esperar a terminar la investigación para iniciar el cómputo.
+   Si el responsable está obligado a inscribir bases en el RNBD, el reporte se
+   presenta por ese registro; los responsables no obligados y los encargados usan
+   el aplicativo/canal de incidentes dispuesto por la SIC. La obligación RNBD de
+   Dusema debe clasificarse por su naturaleza, activos y régimen antes de un
+   incidente, no improvisarse durante la respuesta.
+4. **Reportar y coordinar.** El responsable del caso prepara un reporte factual,
+   presenta la comunicación SIC por el canal aplicable dentro del término y
+   conserva número/acuse. Si Dusema es encargado, notifica al negocio responsable
+   y coopera con la decisión del responsable; no retrasa un deber regulatorio
+   propio esperando una instrucción del tenant. Las comunicaciones a titulares,
+   autoridades adicionales y clientes se deciden por el rol, los hechos, la ley
+   y los contratos concretos; no se promete aviso universal ni se omite uno
+   exigible por esperar certeza absoluta.
+5. **Cerrar y prevenir repetición.** Registrar línea de tiempo, impacto,
+   decisiones, destinatarios, medidas, evidencia de entrega y responsable de
+   cada acción correctiva. Revisar la conservación de evidencia y el acceso al
+   expediente; documentar hallazgos confirmados y pendientes. Cerrar solo cuando
+   las obligaciones aplicables se hayan atendido o tengan un dueño y vencimiento.
+
+Registro mínimo del caso: identificador restringido; fecha/hora de detección y
+conocimiento del área; roles por tratamiento; sistemas/tenants/categorías
+afectados; nivel de certeza; decisiones y fundamentos; plazo y canal SIC;
+notificaciones requeridas; medidas de contención y recuperación; referencias a
+evidencia; responsable, suplente, vencimientos y cierre. No copiar payloads,
+credenciales o datos de otros negocios a este registro.
+
+El término de reporte SIC y los canales se verifican con el [concepto oficial de
+la SIC sobre reporte de incidentes](https://sedeelectronica.sic.gov.co/publicaciones/boletin-juridico/concepto/cumplimiento-de-la-obligacion-del-reporte-de-incidentes-de-seguridad)
+y las instrucciones vigentes al momento del evento. El reporte no sustituye el
+objetivo de aviso contractual del encargado ni las demás obligaciones aplicables.
 
 ## 6. Salida y entrega de datos
 

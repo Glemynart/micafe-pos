@@ -713,6 +713,10 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   titulares/datos, finalidades/instrucciones, duración, subencargados/regiones,
   seguridad/atención y salida. No está completada para ningún cliente y no
   constituye un contrato aceptado.
+- Se preparó un runbook interno de respuesta a incidentes con contención,
+  clasificación de roles, inicio del término SIC, reporte y cierre. Sigue como
+  borrador: falta designar titular/suplente, confirmar la obligación RNBD y sus
+  canales, y hacer un simulacro autorizado con datos sintéticos.
 - Pendientes externos/operativos que bloquean versión definitiva: cotejar
   identidad/NIT/dirección con RUT; nombrar formalmente persona/área de privacidad
   y probar sus canales; confirmar proveedores, servicios, transferencias y
@@ -731,3 +735,18 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
 - El run `45655584641` sigue asociado al SHA `dd70c4b` y estaba `in_progress`
   cuando se redactó este apunte. No cubre estos cambios locales. No se publica
   ni se activa la versión v0.3, y no se hizo despliegue productivo.
+
+## Validación técnica adicional del candidato v0.3 — 2026-11-25
+
+- En el worktree con el catálogo v0.3, `npm run test:backoffice-ui` pasó 34/34;
+  `npm --prefix functions-legal test` pasó 22 pruebas con tres suites Emulator
+  inicialmente omitidas porque no había emulator activo; el build de
+  `functions-legal`, `npx tsc --noEmit` y `npm run build` también pasaron.
+- Después de instalar Temurin JDK 21.0.13 se ejecutaron esas tres suites bajo
+  Firestore Emulator de proyecto demo; aceptación, reclamos y consultas pasaron
+  3/3. Se usó `JAVA_HOME` de manera temporal para el proceso de prueba; la
+  instalación global sigue apuntando a JDK 17.
+- `git diff --check` no reportó errores. Estos resultados son validación local;
+  no sustituyen la CI del SHA final, smoke autenticado, revisión jurídica,
+  designación/canales operativos ni aprobación de documentos. No hubo escrituras
+  en Firestore real, producción ni despliegues.
