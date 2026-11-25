@@ -24,8 +24,13 @@ test("Consultas: facultad separada, idempotencia, plazos, aislamiento y respuest
     await assert.rejects(tramitarConsultaPrivacidad(db, actor, input), /PLATFORM_ACCESS_DENIED/);
     await operator.update({ facultades: ["PRIVACIDAD_CONSULTAS_TRAMITAR"] });
     await assert.rejects(tramitarConsultaPrivacidad(db, actor, { ...input, verificacionConfirmada: false }), /CONSULTA_PRIVACIDAD_NO_DISPONIBLE/);
+    const receivedCase = await tramitarConsultaPrivacidad(db, actor, { accion: "RECIBIR", empresaId: tenant, consecutivo: input.consecutivo, recibido: received });
+    caseId = receivedCase.casoId;
+    assert.equal(receivedCase.estado, "RECIBIDA");
+    assert.equal((await tramitarConsultaPrivacidad(db, actor, { accion: "CONSULTAR", casoId: caseId })).vencimientoRespuesta, sumarHabiles(received, 10));
     const [first, replay] = await Promise.all([tramitarConsultaPrivacidad(db, actor, input), tramitarConsultaPrivacidad(db, actor, input)]);
     caseId = first.casoId;
+    assert.equal(first.casoId, receivedCase.casoId);
     assert.deepEqual(first, replay);
     await otherOperator.set({ uid: otherUid, estado: "ACTIVO", versionAutorizacion: 1, facultades: ["PRIVACIDAD_CONSULTAS_TRAMITAR"] });
     await assert.rejects(tramitarConsultaPrivacidad(db, otherActor, { accion: "CONSULTAR", casoId: caseId }), /CONSULTA_PRIVACIDAD_NO_DISPONIBLE/);

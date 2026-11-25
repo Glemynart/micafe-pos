@@ -98,7 +98,7 @@ export const consultarReclamo = (casoId: string) =>
 
 export interface ConsultaPrivacidad {
   casoId: string;
-  estado: "ABIERTA" | "RESPONDIDA";
+  estado: "RECIBIDA" | "ABIERTA" | "RESPONDIDA";
   vencimientoRespuesta: string;
   respuestaDocumentada: boolean;
   respuestaRef: string | null;

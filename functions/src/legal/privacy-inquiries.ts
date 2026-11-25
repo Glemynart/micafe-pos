@@ -22,6 +22,25 @@ export async function tramitarConsultaPrivacidad(db: Firestore, actor: Actor, in
   if (!input || typeof input !== "object" || Array.isArray(input)) return fail("invalid-argument");
   const data = input as Record<string, unknown>;
   const accion = data.accion;
+  if (accion === "RECIBIR") {
+    if (Object.keys(data).some(key => !["accion", "empresaId", "consecutivo", "recibido"].includes(key))) return fail("invalid-argument");
+    const empresaId = id(data.empresaId), consecutivo = id(data.consecutivo), recibidoEn = date(data.recibido);
+    const casoId = createHash("sha256").update(JSON.stringify([empresaId, consecutivo])).digest("hex");
+    return db.runTransaction(async tx => {
+      await autorizarPlataforma(db, actor.uid, actor.token, FACULTAD, tx);
+      const ref = db.collection("privacidad_consultas").doc(casoId);
+      const existing = (await tx.get(ref)).data();
+      if (existing) {
+        if (existing.operadorUid !== actor.uid) return fail("permission-denied");
+        if (!(existing.recibidoEn instanceof Timestamp) || !existing.recibidoEn.isEqual(recibidoEn)) return fail("already-exists");
+        return { casoId, estado: existing.estado as string };
+      }
+      if (!(await tx.get(db.collection("empresas").doc(empresaId))).exists) return fail("permission-denied");
+      tx.create(ref, { empresaId, consecutivo, operadorUid: actor.uid, recibidoEn, registradoEn: FieldValue.serverTimestamp(),
+        vencimientoRespuesta: sumarHabiles(fechaBogota(recibidoEn.toMillis()), 10), calendarioVersion: PRIVACY_CALENDAR_VERSION, estado: "RECIBIDA" });
+      return { casoId, estado: "RECIBIDA" };
+    });
+  }
   if (accion === "REGISTRAR") {
     if (Object.keys(data).some(key => !["accion", "empresaId", "consecutivo", "recibido", "identidadRef", "instruccionRef", "verificacionConfirmada"].includes(key)) || data.verificacionConfirmada !== true) return fail("invalid-argument");
     const empresaId = id(data.empresaId), consecutivo = id(data.consecutivo);
@@ -35,13 +54,18 @@ export async function tramitarConsultaPrivacidad(db: Firestore, actor: Actor, in
       const existing = (await tx.get(ref)).data();
       if (existing) {
         if (existing.operadorUid !== actor.uid) return fail("permission-denied");
-        if (existing.huellaRegistro !== huella) return fail("already-exists");
-        return { casoId, estado: existing.estado as string };
+        if (existing.estado !== "RECIBIDA") {
+          if (existing.huellaRegistro !== huella) return fail("already-exists");
+          return { casoId, estado: existing.estado as string };
+        }
+        if (!(existing.recibidoEn instanceof Timestamp) || !existing.recibidoEn.isEqual(recibidoEn)) return fail("already-exists");
       }
-      if (!(await tx.get(db.collection("empresas").doc(empresaId))).exists) return fail("permission-denied");
-      tx.create(ref, { empresaId, consecutivo, operadorUid: actor.uid, identidadRef, instruccionRef,
-        identidadVerificada: true, huellaRegistro: huella, recibidoEn, registradoEn: FieldValue.serverTimestamp(),
-        vencimientoRespuesta: sumarHabiles(fechaBogota(recibidoEn.toMillis()), 10), calendarioVersion: PRIVACY_CALENDAR_VERSION, estado: "ABIERTA" });
+      if (!existing && !(await tx.get(db.collection("empresas").doc(empresaId))).exists) return fail("permission-denied");
+      const expediente = { empresaId, consecutivo, operadorUid: actor.uid, identidadRef, instruccionRef,
+        identidadVerificada: true, huellaRegistro: huella, recibidoEn,
+        vencimientoRespuesta: sumarHabiles(fechaBogota(recibidoEn.toMillis()), 10), calendarioVersion: PRIVACY_CALENDAR_VERSION, estado: "ABIERTA" };
+      if (existing) tx.update(ref, { ...expediente, verificadoEn: FieldValue.serverTimestamp() });
+      else tx.create(ref, { ...expediente, registradoEn: FieldValue.serverTimestamp() });
       return { casoId, estado: "ABIERTA" };
     });
   }
@@ -55,6 +79,9 @@ export async function tramitarConsultaPrivacidad(db: Firestore, actor: Actor, in
     await autorizarPlataforma(db, actor.uid, actor.token, FACULTAD, tx);
     const ref = db.collection("privacidad_consultas").doc(casoId);
     const caso = (await tx.get(ref)).data();
+    if (caso?.estado === "RECIBIDA" && caso.operadorUid === actor.uid && accion === "CONSULTAR" && caso.recibidoEn instanceof Timestamp) {
+      return { casoId, estado: "RECIBIDA", vencimientoRespuesta: caso.vencimientoRespuesta, respuestaDocumentada: false, respuestaRef: null };
+    }
     if (!caso || caso.operadorUid !== actor.uid || caso.identidadVerificada !== true || !ID.test(caso.empresaId ?? "")
       || !ID.test(caso.identidadRef ?? "") || !ID.test(caso.instruccionRef ?? "") || !["ABIERTA", "RESPONDIDA"].includes(caso.estado)
       || !(caso.recibidoEn instanceof Timestamp) || typeof caso.vencimientoRespuesta !== "string") return fail("permission-denied");

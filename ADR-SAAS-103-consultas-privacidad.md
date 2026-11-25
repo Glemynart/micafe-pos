@@ -24,8 +24,10 @@ idénticos son idempotentes y los conflictos se rechazan. La información entreg
 al titular permanece en un canal restringido externo, no en el expediente ni en
 la exportación comercial ordinaria. La función no envía correo ni verifica por sí
 misma los soportes; esas actuaciones deben comprobarse y documentarse por el
-operador. Registro incompleto, reasignación y consultas ajenas a un tenant no se
-ofrecen automáticamente: requieren procedimiento documentado y alcance adicional.
+operador. Se admite registrar la recepción pendiente de verificación y completar
+la identidad después usando el mismo consecutivo, conservando el plazo original.
+La reasignación y consultas ajenas a un tenant no se ofrecen automáticamente:
+requieren procedimiento documentado y alcance adicional.
 
 ## Gates
 

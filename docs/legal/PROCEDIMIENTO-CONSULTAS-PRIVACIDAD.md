@@ -49,8 +49,8 @@ ADR-SAAS-103 implementa el registro de consultas verificadas con autorización
 específica, plazo, asignación al operador y registro de respuesta. Pasaron pruebas
 de concurrencia y facultad en Emulator; esto no acredita interfaz ni operación en
 producción. Se requiere ensayar el recorrido en staging y comprobar facultad,
-aislamiento y restricciones. La recepción incompleta y reasignación no están
-automatizadas y requieren seguimiento externo documentado.
+aislamiento y restricciones. La recepción pendiente de verificación se registra
+con el plazo original; la reasignación requiere seguimiento externo documentado.
 
 Fuentes: [Ley 1581 de 2012, artículos 14 y 15](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981)
 y [Decreto 1074 de 2015](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=76608).
