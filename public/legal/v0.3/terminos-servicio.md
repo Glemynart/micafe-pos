@@ -72,7 +72,7 @@ legales.
 
 Antes de contratar se informa precio total, impuestos y cargos aplicables,
 duración, prestaciones, restricciones y condiciones de activación, así como el
-medio de pago y la fecha o forma de inicio de la prestación que corresponda.
+medio de pago y el tiempo de entrega o inicio de la prestación que corresponda.
 Aceptar no autoriza cargos adicionales o cambios unilaterales.
 
 Si la relación es de consumo y se celebra por comercio electrónico, el flujo de
@@ -80,8 +80,9 @@ contratación debe, antes de finalizar, mostrar un resumen completo, imprimible 
 descargable de la operación; permitir revisar, corregir o cancelar; pedir
 aceptación expresa e inequívoca; conservar su prueba; y enviar confirmación por
 un medio electrónico a más tardar el día calendario siguiente, con el tiempo de
-la operación, precio total, impuestos y gastos, medio de pago y demás datos
-legalmente exigidos. Debe informar también cómo ejercer retracto, cuando proceda,
+entrega o prestación, precio exacto con impuestos y gastos, y la forma en que se
+realizó el pago, junto con la demás información que exija la ley. Debe informar
+también cómo ejercer retracto, cuando proceda,
 y la reversión del pago si concurren sus requisitos. La descripción de este
 deber en los términos no prueba que la interfaz actual lo cumpla: el flujo debe
 verificarse antes de ofrecer esa modalidad como contratación de consumo ([Ley
@@ -162,6 +163,9 @@ fecha y hora y consultar su seguimiento. Cuando aplique el artículo 58(5)(c) de
 la Ley 1480 de 2011, la reclamación directa de consumo se responde dentro de
 quince (15) días hábiles. Debe ofrecerse acceso visible al sitio de la
 [Superintendencia de Industria y Comercio — Protección al Consumidor](https://sedeelectronica.sic.gov.co/temas/proteccion-al-consumidor/que-hacemos).
+La obligación de PQR en el medio de comercio electrónico está prevista en el
+artículo 50(g) de la [Ley 1480 de 2011](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=44306),
+modificado por la [Ley 2439 de 2024](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=257116).
 Rige la legislación colombiana, sin excluir autoridades competentes, derechos de
 los titulares ni normas imperativas de protección al consumidor cuando apliquen.
 
