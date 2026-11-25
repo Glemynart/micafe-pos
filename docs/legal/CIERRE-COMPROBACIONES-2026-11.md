@@ -940,3 +940,33 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   `vercel.com/sso-api`. No se modificaron ni eliminaron; los previews actuales
   están vacíos. La aptitud contractual del plan Hobby para cualquier uso
   remanente sigue sin resolverse. No hubo cambios en `pos.dusema.com` ni en Firebase.
+
+## Revalidación read-only de Firebase — 2026-11-25 21:08 UTC
+
+- Las cuatro rutas legales de staging responden HTTP `200`. En producción,
+  `/terminos` responde `200`; `/privacidad`, `/aviso-autorizacion` y
+  `/anexo-tratamiento` responden `404`.
+- `firebase functions:list` informa 68 Functions listadas en staging; el codebase
+  `saas-legal` contiene cuatro (`aceptarDocumentosLegalesTenant`,
+  `consultarEstadoLegalTenant`, `tramitarConsultaPrivacidadSaas` y
+  `tramitarReclamoPrivacidadSaas`), Node.js 22, hash de codebase
+  `cbad43a2af26e692ac86648c1368a0e661cb93e2`. Producción informa 117 Functions;
+  `saas-legal` contiene únicamente las dos primeras, Node.js 22, hash
+  `f8fe2c7a72eaf763790eab2d5944f668f04801c7`. Estos hashes de Firebase no son
+  SHA de Git y no prueban por sí solos la procedencia de un release.
+- `apphosting:backends:list` muestra como fechas de actualización del backend
+  staging `2026-11-25 14:33:51` y del backend de producción
+  `2026-11-24 00:24:17`. Esta salida no identifica el commit servido; la última
+  evidencia de procedencia consultada apunta staging a `520b7b2` y producción a
+  `main@aa1c4fe`, no al candidato #706.
+- `gcloud run services describe` confirma que staging sirve
+  `micafe-pos-build-2026-11-25-003` al 100 % desde la imagen
+  `us-central1-docker.pkg.dev/micafe-pos-staging/firebaseapphosting-images/micafe-pos:build-2026-11-25-003`; producción sirve
+  `micafe-pos-build-2026-11-24-002` al 100 % desde
+  `us-central1-docker.pkg.dev/micafe-pos/firebaseapphosting-images/micafe-pos:build-2026-11-24-002`. Las revisiones de Cloud Run confirman
+  tráfico e imagen; la procedencia Git corresponde al metadato de App Hosting
+  registrado arriba. El candidato #706 no está desplegado en ninguno de los dos
+  entornos. No se desplegaron recursos en esta revalidación.
+- En la consulta del PR #706, el HEAD `cb45adae8d4b0ca7a7ea471fff1899195a2cb8e0`
+  y su CI `45701250548` seguían en curso. No se atribuye a este SHA el CI verde
+  de un commit anterior.
