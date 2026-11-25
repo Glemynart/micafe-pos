@@ -454,3 +454,20 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   devuelven `404`. El paquete legal de #706 no está publicado en producción.
 - El run `45590883573` corresponde al SHA remoto `84edd3136b13d4fb885db7be541d97f500628cfc` y seguía `in_progress` a las 10:24 UTC; el job `Tipos y pruebas` estaba en el E2E Bodega de solicitud, aprobación y venta canónica. `gh pr checks 706` mostraba `pending`. No se atribuye ese resultado al HEAD local posterior `d7d6f7f`, que aún no se ha enviado.
 - No se cambiaron facultades, Rules, Functions, App Hosting ni registros productivos en esta revalidación.
+
+## Revalidación de producción y CI — 2026-11-25 10:48 UTC
+
+- Producción vuelve a servir `/terminos` con el título histórico «Términos y
+  Privacidad - Café Atrato» (`200`); `/privacidad`, `/aviso-autorizacion` y
+  `/anexo-tratamiento` devuelven `404`. Los documentos de #706 siguen sin estar
+  publicados en producción.
+- Staging devuelve `200` para las cuatro rutas legales y para los shells HTML
+  de `/backoffice/operadores` y `/backoffice/consultas-privacidad`. El código
+  HTTP de estas dos páginas no demuestra autenticación ni facultades efectivas.
+- PR #706 sigue abierto y en borrador, con base remota
+  `aa1c4fece1386edc6ba31b439a2be98ed9216d0b` y HEAD remoto
+  `ec8b928c4767f3d5156dd85845109bd0ca1214eb`. Su run `45595698705` seguía
+  `in_progress` a las 10:48 UTC: 106 de 127 pasos completados, en el E2E Bodega
+  de solicitud, aprobación y venta canónica; no había fallos reportados.
+  El commit local `38ddeb3` no estaba incluido en ese run ni enviado al PR.
+- No se modificaron recursos ni datos productivos durante esta revalidación.
