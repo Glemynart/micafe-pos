@@ -310,3 +310,49 @@ Dusema ni a todos los negocios clientes sin análisis jurídico por rol.
 - El flujo de reclamos permite registrar una recepción incompleta y calcula el plazo de cinco días, pero no tiene una acción/campo que deje constancia en Backoffice de la solicitud de subsanación enviada. El procedimiento exige conservar tal constancia; por ahora debe quedar en un expediente externo restringido y ese canal no se ha probado. La recepción completa, anotación, respuesta y cierre sí tienen acciones del caso, cubiertas por las pruebas automatizadas. No se certifica el trámite integral de reclamos hasta comprobar el canal externo o aprobar una extensión del flujo con su decisión de persistencia.
 
 **Resultado:** CI del candidato aprobado; E4.2 no aplicable como certificación del Goal activo; operación integral de reclamos, smoke autenticado, Rules productivas, exportación/supresión reales, revisión factual/jurídica y producción siguen pendientes. El estado del PR continúa **NO APROBADO PARA MERGE**.
+
+## Revalidación de Vercel — 2026-11-25 09:44 UTC
+
+- La consulta autenticada de solo lectura a la API de Vercel confirmó que el
+  equipo `glemynarts-projects` está en el plan `hobby` activo. El proyecto
+  `cafeatrato` corresponde al repositorio público `Glemynart/micafe-pos`. Los
+  términos de Vercel vigentes desde el 19 de octubre de 2026 reservan Hobby al
+  uso personal o no comercial; la guía de uso justo requiere Pro o Enterprise
+  para uso comercial. No hay evidencia de que el uso de Vercel por este SaaS
+  cumpla esa condición.
+- El alias público `cafeatrato.vercel.app` responde `HTTP 200` y apunta al
+  deployment de producción `e8ce92d235a181248d9dc162efc55c3ad1cef4c2`, creado
+  el 6 de octubre de 2026. Ese SHA es anterior al `main` y al release candidato
+  actuales. No se pausó el proyecto, retiró el alias ni cambió el plan: hacerlo
+  podría afectar una URL pública o generar cargos.
+- La configuración consultada informa protección SSO `all_except_custom_domains`
+  y protección de forks habilitada. Tres muestras de URL de preview —el preview
+  más reciente de #706 (`ff422718`), uno de #705 y uno de Dependabot del 14 de
+  septiembre— respondieron `HTTP 302` a Vercel SSO sin sesión. Esto confirma la
+  protección de esas muestras, no de cada deployment histórico. El alias
+  productivo `cafeatrato.vercel.app` respondió `HTTP 200`.
+- La API del proyecto informa la política heredada del equipo: 30 días para
+  previews, producción, cancelados y fallidos, con al menos 10 deployments
+  conservados (`expirationSettings` del proyecto es nulo).
+  Aun así, el inventario contiene 110 deployments (106 previews y 4 de
+  producción), desde el 14 de septiembre hasta el 24 de noviembre; el más
+  antiguo continúa listado y redirige a SSO. La política de Vercel contempla
+  excepciones de retención, por lo que no se deduce una falla ni una eliminación
+  automática completa de esa configuración. No se borró ningún deployment y la
+  limpieza/expiración efectiva no queda certificada.
+- Vercel documenta que Standard Protection protege previews y URLs de
+  deployment, mientras los dominios de producción permanecen públicos. Las
+  previews probadas están protegidas; la protección no resuelve la aptitud
+  contractual del plan Hobby ni la exposición del alias productivo.
+
+Fuentes oficiales: [Términos de Vercel](https://vercel.com/legal/terms),
+[uso justo de Hobby](https://vercel.com/docs/limits/fair-use-guidelines),
+[protección de deployments](https://vercel.com/docs/deployment-protection) y
+[retención de deployments](https://vercel.com/docs/deployment-retention).
+
+**Bloqueo Vercel:** antes de tratar el hosting Vercel de este SaaS como apto para
+uso comercial se debe resolver el plan Hobby. La alternativa técnica es retirar
+el uso comercial de Vercel y alojar las superficies necesarias en un servicio
+con condiciones adecuadas; la alternativa contractual requiere que el titular
+decida y habilite un plan comercial, pues puede generar cargos. Ninguna de estas
+acciones se ejecutó en esta comprobación.
