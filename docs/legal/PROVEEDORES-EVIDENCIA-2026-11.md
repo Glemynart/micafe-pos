@@ -39,12 +39,22 @@ Fuentes oficiales: [Términos de Firebase](https://firebase.google.com/terms),
 [Firebase Data Processing and Security Terms](https://firebase.google.com/terms/data-processing-terms)
 y [Google Cloud DPA](https://cloud.google.com/terms/data-processing-addendum).
 
-Las cláusulas de supresión contemplan hasta 180 días en sus supuestos y un
-periodo de recuperación adicional al terminar la relación con Google. Terminar el
-contrato de un tenant no termina automáticamente nuestra cuenta Google.
-No prometer eliminación física de todas las copias en 35 o 95 días: esos números
-solo describen el schedule de backups controlado y las hipótesis documentadas.
-Separar supresión activa, snapshots propios y eliminación interna del proveedor.
+La cláusula 6 de los [Firebase Data Processing and Security Terms](https://firebase.google.com/terms/data-processing-terms)
+consultados dispone que una instrucción de borrado durante la vigencia se cumple
+tan pronto como sea razonablemente posible y en un máximo de 180 días, salvo
+retención exigida por ley. Al terminar el acuerdo, la cláusula 6.2 contempla un
+periodo de recuperación de hasta 30 días y luego el mismo máximo de 180 días.
+La documentación técnica general de [eliminación en Google Cloud](https://docs.cloud.google.com/docs/security/deletion),
+actualizada el 2026-11-10, describe como objetivo marcar datos en hasta 24 horas,
+eliminarlos de sistemas activos generalmente en unos dos meses y expirar copias
+de backup dentro de seis meses desde la solicitud. La guía técnica y los términos
+no demuestran por sí solos qué instrumento fue aceptado por esta cuenta ni el
+ciclo exacto de cada producto Firebase usado; eso sigue pendiente de vincularse
+con el acuerdo online y el servicio concreto. Terminar el contrato de un tenant
+no termina automáticamente nuestra cuenta Google. No prometer eliminación física
+de todas las copias en 35 o 95 días: esos números describen el schedule de backups
+controlado y una hipótesis interna, no el ciclo global de proveedor. Separar
+supresión activa, snapshots propios y eliminación del proveedor.
 
 Regiones de Firestore/Cloud Run/Storage constan en OPERACION-Y-CONSERVACION.md;
 no prueban ubicación exclusiva de Auth, FCM, logs, soporte o subencargados.
