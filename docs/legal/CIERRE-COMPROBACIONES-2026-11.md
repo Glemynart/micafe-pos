@@ -416,10 +416,13 @@ y [Boletín Jurídico 124 — SFC](https://www.superfinanciera.gov.co/publicacio
 - El artículo 15 de la Ley 1581 de 2012 fija cinco días siguientes para pedir
   subsanar un reclamo incompleto, sin añadir la palabra «hábiles» en esa frase.
   El artículo 62 de la Ley 4 de 1913 contiene la regla general de cómputo de
-  términos legales en días. Función Pública, en el Concepto 148831 de 2025,
-  reproduce la regla según la cual los sábados son hábiles por regla general,
-  salvo que una norma general aplicable los declare inhábiles; el concepto
-  concreto trata de empleo público y no resuelve específicamente la Ley 1581.
+  términos legales en días. La Corte Suprema, en sentencia del 28 de marzo de
+  1984, interpretó que el artículo 62 se aplica a plazos legales también en
+  relaciones entre particulares. Función Pública, en el Concepto 148831 de
+  2025, reproduce la regla general y recoge jurisprudencia administrativa sobre
+  sábados hábiles, pero su caso concreto trata de empleo público y no resuelve
+  cómo se determina la vacancia operativa de Dusema ni el artículo 15 de la Ley
+  1581.
 - El código presente en #706 usa un calendario lunes-viernes y excluye sábados
   para calcular también consultas (10 + 5 días hábiles) y reclamos completos
   (anotación en 2, respuesta en 15 y extensión en 8), además del requerimiento
@@ -435,6 +438,7 @@ y [Boletín Jurídico 124 — SFC](https://www.superfinanciera.gov.co/publicacio
 
 Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/default/files/normatividad/Ley_1581_2012.pdf),
 [Ley 4 de 1913, art. 62 — Función Pública](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=8426),
+[Corte Suprema, sentencia 28-03-1984](https://cortesuprema.gov.co/corte/wp-content/uploads/2022/07/SC-28-03-1984.pdf),
 [Concepto 148831 de 2025 — Función Pública](https://www1.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=261616),
 [Resolución SIC 55022 de 2021](https://sedeelectronica.sic.gov.co/sites/default/files/estados/072022/RE55022-2021.pdf).
 

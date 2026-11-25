@@ -25,12 +25,17 @@ plazos expresados en días y meses.
 - El artículo 62 de la Ley 4 de 1913 establece que los plazos legales en días
   excluyen feriados y días de vacancia, salvo disposición contraria, y que los
   plazos en meses se computan por calendario.
-- El Concepto 148831 de 2025 de Función Pública reproduce la regla general de
-  que los términos fijados en días se entienden hábiles y cita jurisprudencia
-  según la cual el sábado es hábil por regla general, excepto cuando una regla
-  general aplicable lo declare inhábil. El concepto advierte que su respuesta
-  concreta trata de empleo público; es orientación interpretativa secundaria,
-  no decisión de la SIC sobre el artículo 15 de la Ley 1581.
+- La Corte Suprema de Justicia, en sentencia del 28 de marzo de 1984, interpretó
+  que el artículo 62 regula cómo se computan los plazos fijados en las leyes,
+  también cuando gobiernan relaciones entre particulares. Esto respalda que
+  «días siguientes» del artículo 15 se computen conforme a esa regla general.
+- El Concepto 148831 de 2025 de Función Pública reproduce el entendimiento de
+  que los términos fijados en días se entienden hábiles. También recoge
+  jurisprudencia del Consejo de Estado según la cual el sábado es hábil por
+  regla general en el cómputo administrativo, salvo que una norma general
+  aplicable lo declare inhábil. Esa última proposición se refiere a la
+  organización administrativa y no resuelve por sí sola cómo se califica la
+  vacancia de una entidad privada como Dusema.
 - La resolución SIC 55022 de 2021 reproduce el texto del artículo 15, pero en
   la búsqueda oficial realizada no se localizó una interpretación SIC que
   resuelva específicamente si el término de subsanación incluye sábados.
@@ -42,14 +47,15 @@ plazos expresados en días y meses.
   los vencimientos calculados con lunes-viernes pueden resultar posteriores al
   plazo.
 
-La interpretación más respaldada por las fuentes generales es contar los
-plazos legales en días como hábiles, incluyendo sábados salvo que una regla
-aplicable los declare inhábiles, y excluir domingos y feriados. Para no afirmar
-que esa doctrina general resuelve por sí sola la operación de Dusema, se propone
-adoptarla como regla de cálculo y registrar expresamente la política de atención
-que se aplique. La revisión jurídica final debe validar la aplicabilidad a la
-Ley 1581 y a Dusema antes de declarar conformidad. Hasta entonces, el calendario
-lunes-viernes no debe presentarse como validado.
+La interpretación más respaldada por las fuentes generales es contar estos
+plazos como hábiles y excluir feriados y vacancias legales. Para el sábado, la
+fuente administrativa indica que suele contarse como hábil cuando no hay una
+regla general que lo declare inhábil, pero no resuelve de forma directa la
+vacancia operativa de Dusema. Se recomienda contar sábados como hábiles salvo
+que el prestador documente y valide jurídicamente una regla de vacancia
+aplicable; además, debe existir cobertura operativa para cumplir vencimientos
+que caigan sábado. La revisión jurídica final debe validar el artículo 15 y la
+aplicación concreta a Dusema antes de declarar conformidad.
 
 El helper compartido también calcula las consultas (10 días más extensión de 5)
 y reclamos completos (anotación en 2, respuesta en 15 y extensión de 8). La
@@ -186,5 +192,6 @@ Elegir **A** y conservar `privacidad_reclamos/{casoId}` como autoridad del caso.
 
 - [Ley 1581 de 2012, artículo 15](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981).
 - [Ley 4 de 1913, artículo 62](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=8426).
+- [Corte Suprema de Justicia, sentencia de 28 de marzo de 1984](https://cortesuprema.gov.co/corte/wp-content/uploads/2022/07/SC-28-03-1984.pdf), sobre la aplicación del artículo 62 a plazos legales en relaciones entre particulares.
 - [Concepto 148831 de 2025 — Función Pública](https://www1.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=261616), que recoge la regla general de cómputo y la jurisprudencia citada sobre sábados; su conclusión concreta trata empleo público.
 - [Resolución SIC 55022 de 2021](https://sedeelectronica.sic.gov.co/sites/default/files/estados/072022/RE55022-2021.pdf), que cita el artículo 15 sin resolver en el texto revisado el tratamiento de sábados.
