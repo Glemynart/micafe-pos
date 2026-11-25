@@ -772,6 +772,11 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
 - La designación de una persona o área para atender privacidad debe formalizarse;
   el suplente solicitado por el runbook se clasifica como control de continuidad,
   no como una obligación legal autónoma.
+- Para Google/Firebase, los instrumentos públicos cambian por producto; la falta
+  de un contrato en papel separado no prueba que no haya términos de tratamiento
+  incorporados al acuerdo online. Sigue pendiente vincular la aceptación de la
+  cuenta contratante, versión, productos realmente usados y opciones de ubicación.
+  La matriz está en `docs/legal/PROVEEDORES-EVIDENCIA-2026-11.md`.
 - Permanecen bloqueos operativos: probar canales/archivo restringido, completar
   la ficha de tratamiento por tenant, acreditar acuerdos y subencargados efectivos,
   verificar el RUT, smoke autenticado, y certificar exportación/supresión en el

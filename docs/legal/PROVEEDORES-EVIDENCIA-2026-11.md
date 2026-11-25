@@ -18,6 +18,27 @@ las partes. El [Cloud DPA](https://cloud.google.com/terms/data-processing-addend
 está incorporado a los acuerdos allí definidos, con fecha efectiva según aceptación
 o acuerdo. Debe conservarse evidencia de la cuenta y contrato realmente aplicables.
 
+La tabla pública de Firebase, modificada el 2026-09-24, separa productos por
+instrumento. A esa fecha, Firestore, Functions, Storage, App Hosting y Auth
+aparecen bajo los Google Cloud Platform Terms; Firebase Cloud Messaging aparece
+bajo Google APIs Terms junto con Firebase Data Processing and Security Terms.
+Esto describe la documentación pública, no prueba qué versión o entidad aceptó
+el proyecto ni que un producto condicional esté activado. Que no exista un PDF
+firmado aparte no demuestra por sí solo ausencia de términos de tratamiento:
+hay que cotejar el producto, la cuenta contratante, el acuerdo online aceptado y
+la cobertura correspondiente. La página de Firebase advierte además que, si no
+se ofrece y selecciona una ubicación de datos para el servicio, los datos pueden
+procesarse donde Google o sus agentes mantengan instalaciones.
+
+| Productos del stack | Instrumento publicado a 2026-09-24 | Estado probatorio del proyecto |
+|---|---|---|
+| Firestore, Functions, Storage, App Hosting, Authentication | Google Cloud Platform Terms y sus términos específicos; revisar Cloud DPA aplicable. | El uso aparece en código/infraestructura; falta vincular cuenta, aceptación y configuración de ubicación por servicio. |
+| Firebase Cloud Messaging | Google APIs Terms y Firebase Data Processing and Security Terms. | El código puede usar FCM sujeto a permisos/configuración; falta verificar activación, instrumento de la cuenta y uso efectivo. |
+
+Fuentes oficiales: [Términos de Firebase](https://firebase.google.com/terms),
+[Firebase Data Processing and Security Terms](https://firebase.google.com/terms/data-processing-terms)
+y [Google Cloud DPA](https://cloud.google.com/terms/data-processing-addendum).
+
 Las cláusulas de supresión contemplan hasta 180 días en sus supuestos y un
 periodo de recuperación adicional al terminar la relación con Google. Terminar el
 contrato de un tenant no termina automáticamente nuestra cuenta Google.
