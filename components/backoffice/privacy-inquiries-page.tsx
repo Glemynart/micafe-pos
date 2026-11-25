@@ -18,6 +18,7 @@ export function PrivacyInquiriesPage() {
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
   const reassignCommand = useRef<string | null>(null);
+  const recoveryCommand = useRef<string | null>(null);
   if (!tiene("PRIVACIDAD_CONSULTAS_TRAMITAR")) return <p>No tienes permiso para tramitar consultas de privacidad.</p>;
   async function execute(operation: () => Promise<void>) {
     setPending(true); setError("");
@@ -60,6 +61,15 @@ export function PrivacyInquiriesPage() {
       reassignCommand.current = null; setCaso(null); setMessage("Consulta reasignada. El operador destinatario podrá continuar el trámite.");
     });
   }
+  async function recover(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const element = event.currentTarget, form = new FormData(element);
+    recoveryCommand.current ??= crypto.randomUUID();
+    await execute(async () => {
+      await tramitarConsultaPrivacidad({ accion: "RECUPERAR", casoId: value(form, "casoId"), destinoUid: value(form, "destinoUid"), motivoRef: value(form, "motivoRef"), comandoId: recoveryCommand.current! });
+      recoveryCommand.current = null; setCaso(null); setMessage("Consulta recuperada y asignada. El operador destinatario podrá continuar el trámite."); element.reset();
+    });
+  }
   return <div className="space-y-5">
     <PageIntro eyebrow="Privacidad" title="Consultas de datos personales" description="Registra la solicitud, controla el plazo y conserva la referencia de la respuesta." />
     {error && <p role="alert" className="rounded-lg border p-3 text-sm text-red-800">{error}</p>}
@@ -72,6 +82,7 @@ export function PrivacyInquiriesPage() {
       <Button>Registrar consulta</Button>
     </fieldset></form>
     <form onSubmit={lookup} className="flex flex-wrap items-end gap-3 rounded-xl border p-5"><Label className="grid min-w-60 flex-1 gap-1">Código de consulta<Input value={casoId} onChange={event => setCasoId(event.target.value)} required /></Label><Button disabled={pending}>Consultar</Button></form>
+    {tiene("OPERADORES_GOBERNAR") && <details className="rounded-xl border p-5"><summary className="cursor-pointer font-semibold">Recuperar consulta de operador inactivo</summary><p className="mt-2 text-sm">Disponible solo si el operador anterior está suspendido, revocado o ya no existe. La acción queda registrada.</p><form onSubmit={recover} className="mt-3 grid gap-3 sm:grid-cols-2"><Label className="grid gap-1">Código de consulta<Input name="casoId" maxLength={120} required /></Label><Label className="grid gap-1">UID del operador destinatario<Input name="destinoUid" maxLength={120} required /></Label><Label className="grid gap-1">Referencia del motivo<Input name="motivoRef" maxLength={120} required /></Label><Button disabled={pending}>Recuperar consulta</Button></form></details>}
     {caso && <section className="space-y-3 rounded-xl border p-5"><h2 className="font-semibold">Consulta {caso.casoId}</h2><p>Estado: {caso.estado} · Vencimiento: {caso.vencimientoRespuesta}</p>
       {caso.estado === "RECIBIDA" && <><p>La consulta está pendiente de verificación. El plazo se cuenta desde la recepción.</p><form onSubmit={document} className="grid gap-3 sm:grid-cols-2"><input type="hidden" name="accion" value="PRORROGAR" /><Label className="grid gap-1">Referencia del aviso de prórroga<Input name="referencia" maxLength={120} required /></Label><Label className="grid gap-1">Motivo comunicado, sin datos sensibles<Input name="resultado" maxLength={500} required /></Label><Button disabled={pending}>Registrar aviso</Button></form></>}
       {caso.estado === "ABIERTA" && <form onSubmit={document} className="grid gap-3 sm:grid-cols-2"><Label className="grid gap-1">Actuación<select name="accion" className="min-h-10 rounded-md border px-3"><option value="RESPONDER">Registrar respuesta comunicada y cerrar</option><option value="PRORROGAR">Registrar aviso de prórroga</option></select></Label><Label className="grid gap-1">Referencia de la comunicación<Input name="referencia" maxLength={120} required /></Label><Label className="grid gap-1 sm:col-span-2">Resultado o motivo, sin datos sensibles<Input name="resultado" maxLength={500} required /></Label><Button disabled={pending}>Guardar actuación</Button></form>}

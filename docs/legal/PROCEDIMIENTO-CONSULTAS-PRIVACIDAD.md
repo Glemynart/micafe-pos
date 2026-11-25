@@ -51,8 +51,9 @@ de concurrencia y facultad en Emulator; esto no acredita interfaz ni operación 
 producción. Se requiere ensayar el recorrido en staging y comprobar facultad,
 aislamiento y restricciones. La recepción pendiente de verificación se registra
 con el plazo original; el operador asignado puede reasignar a otro operador
-autorizado. La recuperación de expedientes de operadores revocados todavía
-requiere un procedimiento de gobierno separado.
+autorizado. La recuperación de expedientes de operadores inactivos requiere las
+facultades conjuntas de privacidad y gobierno, y conserva una constancia; este
+flujo sigue pendiente de ensayo en staging.
 
 Fuentes: [Ley 1581 de 2012, artículos 14 y 15](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981)
 y [Decreto 1074 de 2015](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=76608).

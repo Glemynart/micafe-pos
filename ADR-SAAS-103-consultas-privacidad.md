@@ -29,8 +29,11 @@ la identidad después usando el mismo consecutivo, conservando el plazo original
 El operador asignado puede reasignar un expediente abierto a otro operador activo
 con la facultad específica. La operación verifica el destino y escribe una
 constancia inmutable en la misma transacción; los reintentos idénticos son
-idempotentes. No permite recuperar automáticamente expedientes asignados a un
-operador revocado; ese caso necesita un procedimiento de gobierno adicional.
+idempotentes. La recuperación de un expediente cuyo operador fue suspendido,
+revocado o eliminado requiere que el actor tenga tanto la facultad de consultas
+como `OPERADORES_GOBERNAR`; el destinatario debe estar activo y contar con la
+facultad de consultas. La transferencia y su constancia son atómicas y no
+modifican facultades. No puede usarse para retirar casos a operadores activos.
 Consultas ajenas a un tenant requieren alcance adicional.
 
 ## Gates

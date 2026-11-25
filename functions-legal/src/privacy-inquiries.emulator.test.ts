@@ -19,6 +19,7 @@ test("Consultas: facultad separada, idempotencia, plazos, aislamiento y respuest
   const input = { accion: "REGISTRAR", empresaId: tenant, consecutivo: `qa-${suffix}`, recibido: received, identidadRef: "verificacion", instruccionRef: "instruccion", verificacionConfirmada: true };
   let caseId: string | undefined;
   let reassignedId: string | undefined;
+  let recoveredId: string | undefined;
   try {
     await company.set({ estado: "trial" });
     await operator.set({ uid, estado: "ACTIVO", versionAutorizacion: 1, facultades: ["PRIVACIDAD_RECLAMOS_TRAMITAR"] });
@@ -71,8 +72,17 @@ test("Consultas: facultad separada, idempotencia, plazos, aislamiento y respuest
     await assert.rejects(tramitarConsultaPrivacidad(db, actor, { accion: "CONSULTAR", casoId: reassignedId }), /CONSULTA_PRIVACIDAD_NO_DISPONIBLE/);
     assert.equal((await tramitarConsultaPrivacidad(db, otherActor, { accion: "CONSULTAR", casoId: reassignedId })).estado, "ABIERTA");
     assert.equal((await db.collection("privacidad_consultas").doc(reassignedId).collection("reasignaciones").get()).size, 1);
+    const recoverCase = await tramitarConsultaPrivacidad(db, actor, { ...input, consecutivo: `recovery-${suffix}` });
+    recoveredId = recoverCase.casoId;
+    const recovery = { accion: "RECUPERAR", casoId: recoveredId, destinoUid: otherUid, motivoRef: "operador-inactivo", comandoId: "recuperacion-1" };
+    await assert.rejects(tramitarConsultaPrivacidad(db, otherActor, recovery), /PLATFORM_ACCESS_DENIED/);
+    await otherOperator.update({ facultades: ["PRIVACIDAD_CONSULTAS_TRAMITAR", "OPERADORES_GOBERNAR"] });
+    await assert.rejects(tramitarConsultaPrivacidad(db, otherActor, recovery), /CONSULTA_PRIVACIDAD_NO_DISPONIBLE/);
     await operator.update({ estado: "REVOCADO", versionAutorizacion: 2 });
     await assert.rejects(tramitarConsultaPrivacidad(db, actor, { accion: "CONSULTAR", casoId: caseId }), /PLATFORM_ACCESS_DENIED/);
+    assert.equal((await tramitarConsultaPrivacidad(db, otherActor, recovery)).idempotente, false);
+    assert.equal((await tramitarConsultaPrivacidad(db, otherActor, recovery)).idempotente, true);
+    assert.equal((await tramitarConsultaPrivacidad(db, otherActor, { accion: "CONSULTAR", casoId: recoveredId })).estado, "ABIERTA");
   } finally {
     if (caseId) await db.collection("privacidad_consultas").doc(caseId).delete();
     if (reassignedId) {
@@ -80,6 +90,12 @@ test("Consultas: facultad separada, idempotencia, plazos, aislamiento y respuest
       const events = await transferRef.collection("reasignaciones").get();
       await Promise.all(events.docs.map(doc => doc.ref.delete()));
       await transferRef.delete();
+    }
+    if (recoveredId) {
+      const recoveryRef = db.collection("privacidad_consultas").doc(recoveredId);
+      const events = await recoveryRef.collection("reasignaciones").get();
+      await Promise.all(events.docs.map(doc => doc.ref.delete()));
+      await recoveryRef.delete();
     }
     await Promise.all([operator.delete(), otherOperator.delete(), company.delete()]);
     await deleteApp(app);

@@ -41,6 +41,35 @@ export async function tramitarConsultaPrivacidad(db: Firestore, actor: Actor, in
   if (!input || typeof input !== "object" || Array.isArray(input)) return fail("invalid-argument");
   const data = input as Record<string, unknown>;
   const accion = data.accion;
+  if (accion === "RECUPERAR") {
+    if (Object.keys(data).some(key => !["accion", "casoId", "destinoUid", "motivoRef", "comandoId"].includes(key))) return fail("invalid-argument");
+    const casoId = id(data.casoId), destinoUid = id(data.destinoUid), motivoRef = id(data.motivoRef), comandoId = id(data.comandoId);
+    const eventoId = createHash("sha256").update(JSON.stringify(["RECUPERAR", casoId, actor.uid, comandoId])).digest("hex");
+    return db.runTransaction(async tx => {
+      await autorizarPlataforma(db, actor.uid, actor.token, FACULTAD, tx);
+      await autorizarPlataforma(db, actor.uid, actor.token, "OPERADORES_GOBERNAR", tx);
+      const casoRef = db.collection("privacidad_consultas").doc(casoId);
+      const eventoRef = casoRef.collection("reasignaciones").doc(eventoId);
+      const [casoSnap, eventoSnap, destinoSnap] = await Promise.all([
+        tx.get(casoRef), tx.get(eventoRef), tx.get(db.collection("saas_operadores").doc(destinoUid)),
+      ]);
+      const evento = eventoSnap.data();
+      if (evento) {
+        if (evento.actorUid !== actor.uid || evento.destinoUid !== destinoUid || evento.motivoRef !== motivoRef) return fail("already-exists");
+        return { casoId, estado: "REASIGNADA", idempotente: true };
+      }
+      const caso = casoSnap.data(), destino = destinoSnap.data();
+      if (!caso || !casoIntegro(casoId, caso) || !["RECIBIDA", "ABIERTA"].includes(caso.estado)
+        || typeof caso.operadorUid !== "string" || !ID.test(caso.operadorUid) || caso.operadorUid === destinoUid) return fail("failed-precondition");
+      const origen = (await tx.get(db.collection("saas_operadores").doc(caso.operadorUid))).data();
+      if (origen && !["REVOCADO", "SUSPENDIDO"].includes(origen.estado)) return fail("failed-precondition");
+      if (!destino || destino.uid !== destinoUid || destino.estado !== "ACTIVO" || !Array.isArray(destino.facultades)
+        || !destino.facultades.includes(FACULTAD) || !Number.isSafeInteger(destino.versionAutorizacion) || destino.versionAutorizacion < 1) return fail("permission-denied");
+      tx.update(casoRef, { operadorUid: destinoUid, reasignadoEn: FieldValue.serverTimestamp() });
+      tx.create(eventoRef, { tipo: "RECUPERACION", actorUid: actor.uid, origenUid: caso.operadorUid, destinoUid, motivoRef, comandoId, registradoEn: FieldValue.serverTimestamp() });
+      return { casoId, estado: "REASIGNADA", idempotente: false };
+    });
+  }
   if (accion === "REASIGNAR") {
     if (Object.keys(data).some(key => !["accion", "casoId", "destinoUid", "motivoRef", "comandoId"].includes(key))) return fail("invalid-argument");
     const casoId = id(data.casoId), destinoUid = id(data.destinoUid), motivoRef = id(data.motivoRef), comandoId = id(data.comandoId);
