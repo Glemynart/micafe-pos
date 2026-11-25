@@ -410,3 +410,28 @@ escribió en producción.
 Fuentes oficiales: [Ley 2573/2026 — MINTIC](https://normograma.mintic.gov.co/mintic/compilacion/docs/ley_2573_2026.htm),
 [Carta Circular 77 — SFC](https://www.superfinanciera.gov.co/publicaciones/10115975/cartas-circulares-2026/)
 y [Boletín Jurídico 124 — SFC](https://www.superfinanciera.gov.co/publicaciones/10116313/boletin-juridico-no-124/).
+
+## Revisión del término de subsanación — 2026-11-25
+
+- El artículo 15 de la Ley 1581 de 2012 fija cinco días siguientes para pedir
+  subsanar un reclamo incompleto, sin añadir la palabra «hábiles» en esa frase.
+  El artículo 62 de la Ley 4 de 1913 contiene la regla general de cómputo de
+  términos legales en días. Función Pública, en el Concepto 148831 de 2025,
+  reproduce la regla según la cual los sábados son hábiles por regla general,
+  salvo que una norma general aplicable los declare inhábiles; el concepto
+  concreto trata de empleo público y no resuelve específicamente la Ley 1581.
+- El código presente en #706 usa un calendario lunes-viernes y excluye sábados.
+  No encontramos evidencia de que Dusema haya declarado el sábado inhábil para
+  este cómputo. En consecuencia, no se certifica que la fecha actualmente
+  calculada para el requerimiento sea conforme: podría exceder el término si el
+  sábado cuenta como hábil.
+- La recomendación de ADR-SAAS-104 es versionar el calendario para contar
+  sábados como hábiles y excluir domingos y festivos, a menos que una regla
+  aplicable a Dusema establezca otra cosa. La aplicación de esa regla al
+  artículo 15 y a Dusema continúa pendiente de revisión jurídica final; no se
+  recalculan casos históricos ni se activa el flujo real con este ADR propuesto.
+
+Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/default/files/normatividad/Ley_1581_2012.pdf),
+[Ley 4 de 1913, art. 62 — Función Pública](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=8426),
+[Concepto 148831 de 2025 — Función Pública](https://www1.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=261616),
+[Resolución SIC 55022 de 2021](https://sedeelectronica.sic.gov.co/sites/default/files/estados/072022/RE55022-2021.pdf).
