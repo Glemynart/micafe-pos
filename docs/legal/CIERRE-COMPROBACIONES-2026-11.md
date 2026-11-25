@@ -386,3 +386,27 @@ acciones se ejecutó en esta comprobación.
 conclusiones de exigibilidad, certificación, revisión jurídica, exportación ni
 supresión. No se integró ni se desplegó #706; no se aceptaron documentos ni se
 escribió en producción.
+
+## Actualización normativa — Ley 2573 y Carta Circular 77 — 2026-11-25
+
+- El texto oficial de la Ley 2573 fija vigencia general seis meses después de su
+  promulgación del 19 de mayo de 2026; por ello inició el 19 de noviembre de 2026.
+  Los parágrafos 1 y 2 del artículo 5 rigen desde la promulgación.
+- La SFC publicó el 18 de noviembre la Carta Circular 77, que comunica un
+  protocolo para entidades bajo vigilancia de esa Superintendencia. El Boletín
+  Jurídico 124 de la SFC indica que la Ley 2573 no define “demás establecimientos
+  comerciales con esta competencia”, que trasladó la pregunta de alcance a la SIC
+  y que, para las medidas de los artículos 7 y 8 discutidas en ese concepto,
+  resulta relevante si la entidad es fuente de información sobre la obligación.
+- Este protocolo de la SFC no acredita que Dusema esté bajo la vigilancia de la
+  SFC ni resuelve el alcance para Dusema o para los comercios clientes. La búsqueda
+  de fuentes oficiales SIC realizada el 25 de noviembre no localizó un protocolo
+  general aplicable; es un resultado de búsqueda, no prueba de inexistencia.
+  Tampoco hay evidencia en el código revisado de que Dusema reporte obligaciones a
+  operadores de información. Sigue pendiente evaluar por separado el rol de cada
+  negocio que vende a crédito y el de Dusema como proveedor de software antes de
+  declarar conformidad o diseñar un flujo específico de suplantación.
+
+Fuentes oficiales: [Ley 2573/2026 — MINTIC](https://normograma.mintic.gov.co/mintic/compilacion/docs/ley_2573_2026.htm),
+[Carta Circular 77 — SFC](https://www.superfinanciera.gov.co/publicaciones/10115975/cartas-circulares-2026/)
+y [Boletín Jurídico 124 — SFC](https://www.superfinanciera.gov.co/publicaciones/10116313/boletin-juridico-no-124/).
