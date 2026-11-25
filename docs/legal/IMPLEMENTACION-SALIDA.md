@@ -58,16 +58,23 @@ automática al importarlos:
 
 ## Límite material antes de usar datos reales
 
-**El núcleo no es todavía un exportador integral de producción.** La lista
-`PENDING_ROOTS` identifica dominios sin adaptador completo. Si aparecen entre las
-colecciones raíz, se rechaza la exportación con `EXPORT_ADAPTER_REQUIRED` antes
-de generar un paquete. No consultar por empresaId un singleton que puede no tener
-ese campo para fingir que está vacío.
+**El núcleo no está certificado todavía como exportador integral de producción.**
+`PENDING_ROOTS` conserva una guardia histórica fail-closed: rechaza una raíz de esa
+lista únicamente si no existe un esquema explícito en `SCHEMAS`. En el candidato
+actual las seis raíces de esa lista (`agendas`, `auditoria_logs`,
+`comandas_cocina`, `eventos_operativos`, `reservas` y `numeraciones`) ya tienen
+allowlists; por eso no bloquean hoy la exportación por `EXPORT_ADAPTER_REQUIRED`.
+El preflight de metadatos de 2026-11-25 clasificó las 48 raíces observadas como
+`ADAPTER_DEFINED` o `EXCLUDED_INTERNAL`. Esto solo verifica nombres de raíces,
+no todos los payloads reales, campos históricos, subcolecciones o referencias.
+No consultar por empresaId un singleton que puede no tener ese campo para fingir
+que está vacío.
 
-Los adaptadores ya definidos tampoco autorizan versiones futuras desconocidas.
-Antes de ejecutar, completar los de dominio/campos canónicos, vincular una petición
-verificada y probar consistencia del API real en un entorno aislado. Las pruebas
-unitarias con respuestas sintéticas no acreditan readTime/restore en Cloud.
+Los adaptadores definidos tampoco autorizan versiones futuras desconocidas. Antes
+de ejecutar con datos reales, comparar cada forma de documento y subcolección con
+las allowlists mediante fixtures representativos, vincular una petición verificada
+y probar consistencia del API real en un entorno aislado. Las pruebas unitarias
+con respuestas sintéticas no acreditan readTime/restore en Cloud.
 
 Una fuente nueva debe clasificarse: nunca convertir un rechazo en bypass o ampliar
 campos automáticamente usando payloads reales. No cambiar `PENDING_ROOTS` por
