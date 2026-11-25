@@ -302,3 +302,11 @@ general comenzó el 19 de noviembre de 2026; el alcance de “establecimientos
 comerciales con esta competencia” sigue sin definición en el texto y la SFC
 remitió las preguntas de alcance a la SIC. No se atribuye su cumplimiento a
 Dusema ni a todos los negocios clientes sin análisis jurídico por rol.
+
+## Revisión del CI y de las capacidades del trámite — 2026-11-25 08:47 UTC
+
+- El run `45575219149` terminó `SUCCESS` para el HEAD `6ba86adfd276bbb8cf852f2e853ab203cb0916c3` a las 08:47:40 UTC. No hubo pasos fallidos ni omitidos; pasaron las suites legales, Rules, E2E y E4.1. Esto acredita CI en Emulator y repositorio, no producción.
+- El artefacto E4.2 `e4-02-1795596454706` declara `G-MVP-01/M4/E4.2` y `READY_WITH_CONDITIONAL_CAPABILITIES`. Su campo `commit` es el merge sintético normal de GitHub `6f585be12daa306a7cc4821305f9633e6545f30f`, con padres `main@aa1c4fe` y el HEAD del PR; no es una discrepancia de código. La discrepancia es de jerarquía: el Goal activo es `G-SAAS-02/M2/E2.2`, pero `scripts/release/e4-02-release-readiness.mjs` fija `G-MVP-01` y hace pasar `E4.2-GOAL-STRUCTURE` buscando títulos y estado en la sección histórica del Goal. Ese resultado no certifica la preparación del Goal activo ni el release legal de #706. No se modificó el runner porque esa corrección de alcance/gobernanza es independiente del PR E2.2.
+- El flujo de reclamos permite registrar una recepción incompleta y calcula el plazo de cinco días, pero no tiene una acción/campo que deje constancia en Backoffice de la solicitud de subsanación enviada. El procedimiento exige conservar tal constancia; por ahora debe quedar en un expediente externo restringido y ese canal no se ha probado. La recepción completa, anotación, respuesta y cierre sí tienen acciones del caso, cubiertas por las pruebas automatizadas. No se certifica el trámite integral de reclamos hasta comprobar el canal externo o aprobar una extensión del flujo con su decisión de persistencia.
+
+**Resultado:** CI del candidato aprobado; E4.2 no aplicable como certificación del Goal activo; operación integral de reclamos, smoke autenticado, Rules productivas, exportación/supresión reales, revisión factual/jurídica y producción siguen pendientes. El estado del PR continúa **NO APROBADO PARA MERGE**.
