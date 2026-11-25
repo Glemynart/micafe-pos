@@ -435,3 +435,16 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
 [Ley 4 de 1913, art. 62 — Función Pública](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=8426),
 [Concepto 148831 de 2025 — Función Pública](https://www1.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=261616),
 [Resolución SIC 55022 de 2021](https://sedeelectronica.sic.gov.co/sites/default/files/estados/072022/RE55022-2021.pdf).
+
+## Revalidación de rutas y CI — 2026-11-25 10:24 UTC
+
+- Staging devolvió `200` en las cuatro rutas legales y cada una aún muestra la
+  versión 0.2 como borrador. `/backoffice/operadores` y
+  `/backoffice/consultas-privacidad` también devuelven `200` al solicitar el
+  HTML sin sesión; esto comprueba únicamente que carga el shell, no la identidad
+  autenticada ni las facultades de ningún operador.
+- `pos.dusema.com/terminos` sigue devolviendo `200` con “Términos y Privacidad -
+  Café Atrato”; `/privacidad`, `/aviso-autorizacion` y `/anexo-tratamiento`
+  devuelven `404`. El paquete legal de #706 no está publicado en producción.
+- El run `45590883573` corresponde al SHA remoto `84edd3136b13d4fb885db7be541d97f500628cfc` y seguía `in_progress` a las 10:24 UTC; el job `Tipos y pruebas` estaba en el E2E Bodega de solicitud, aprobación y venta canónica. `gh pr checks 706` mostraba `pending`. No se atribuye ese resultado al HEAD local posterior `d7d6f7f`, que aún no se ha enviado.
+- No se cambiaron facultades, Rules, Functions, App Hosting ni registros productivos en esta revalidación.
