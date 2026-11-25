@@ -661,10 +661,10 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   Vercel haya usado contenido de Dusema para entrenamiento ni que haya recibido
   datos personales de clientes.
 
-## Reconciliación posterior — 2026-11-25 15:48 UTC
+## Reconciliación posterior — 2026-11-25 16:00 UTC
 
-- PR #706 permanece `OPEN`/`DRAFT`, basado en `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`. El HEAD remoto es `9ec4a2ba872369727b3713d4c9185e39d0b2fa56`; el run exacto `45644571720` sigue `in_progress`. El E2E activo avanzó al backfill idempotente B3-B. No se despliega ni se atribuye una CI anterior a este SHA.
-- App Hosting staging sirve `micafe-pos-build-2026-11-25-002` al 100 %, desde `42006b7e8b36dfab529c81589107554e1adee899`, un ancestro del PR cinco commits detrás del HEAD remoto. Las cuatro rutas legales responden HTTP 200 y conservan el marcador de borrador. No se probó aceptación autenticada; el candidato exacto de #706 aún no está desplegado.
+- `origin/codex/e2-2-legal-acceptance` apunta a `f2d078be7d0257060907c4cce13694f9b0e4fde6`. Sin embargo, la API de PR #706 y `refs/pull/706/head` continúan señalando `9ec4a2ba872369727b3713d4c9185e39d0b2fa56`; el listado de commits del PR también termina en ese SHA. No hay run de CI para `f2d078b`. El run `45644571720` terminó `SUCCESS` únicamente para `9ec4a2b`; la discrepancia impide considerar #706 actualizado o fusionable.
+- App Hosting staging sirve `micafe-pos-build-2026-11-25-002` al 100 %, desde `42006b7e8b36dfab529c81589107554e1adee899`, seis commits antes de la punta de la rama remota. Las cuatro rutas legales responden HTTP 200 y conservan el marcador de borrador. No se probó aceptación autenticada ni se desplegó el SHA `f2d078b`.
 - El comentario de Vercel del PR conserva una URL de preview obsoleta. `vercel inspect` ya no encuentra el deployment y la URL devuelve HTTP 404, coherente con el inventario posterior de cero previews. Los cuatro deployments de producción siguen protegidos por SSO; el plan Hobby y sus términos siguen pendientes de resolver.
 - La revisión documental independiente quedó en `docs/legal/evidence/REVISION-PARALELA-TERMINOS-2026-11-25.md`. No encontró un error textual verificable en los cuatro borradores; no equivale a concepto o aprobación jurídica. Los documentos siguen `BORRADOR`/`PREPARACION` y no se habilitó aceptación.
-- El commit documental local `38a3751` contiene esa revisión y esta reconciliación; todavía no se ha sincronizado con la rama remota. No se hicieron cambios en producción.
+- No se hicieron cambios en producción. La descripción del PR tampoco se actualizó: el intento con GitHub CLI fue rechazado por la política automática de comandos (`blocked by policy`), y no se intentó eludir el bloqueo.
