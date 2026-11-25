@@ -13,7 +13,9 @@ todos los servicios, proyectos, cuentas, clientes o ubicaciones.
 
 ## 1. Evidencia comprobada
 
-Consulta remota exclusivamente de metadatos en `micafe-pos`, el 2026-11-23:
+Consulta remota exclusivamente de metadatos en `micafe-pos`, el 2026-11-23. Los
+valores que siguen son una observación histórica de esa fecha; la revalidación
+posterior consta en la subsección 1.1:
 
 - Firestore `(default)` en `southamerica-east1` (Brasil); PITR deshabilitado.
 - Schedule diario `fa16b7c4-ecb8-418f-bf3a-815da592fabc` con retención
@@ -33,6 +35,43 @@ Consulta remota exclusivamente de metadatos en `micafe-pos`, el 2026-11-23:
   conservación de todos los logs ni una demostración de que no existan otros
   buckets, vistas o copias. El contenido y la clasificación de cada registro
   requieren inventario adicional.
+
+### 1.1 Revalidación de metadatos — 2026-11-25 16:05 UTC
+
+Consultas de solo lectura en los proyectos `micafe-pos` y
+`micafe-pos-staging`; no se leyeron payloads Firestore ni contenido de objetos,
+y no se modificó ninguna política:
+
+- En producción, `gcloud firestore databases list` confirmó `(default)` en
+  `southamerica-east1`. `gcloud firestore backups schedules list` devolvió un
+  schedule diario con `retention=3024000s` (35 días). En staging, la misma
+  consulta devolvió una lista vacía: no se observó un schedule de backups.
+- En producción, `gcloud logging buckets describe` confirmó `_Default` en 30
+  días y `_Required` en 400 días. Solo se consultaron esos buckets globales.
+- `gcloud storage buckets list` mostró tres buckets de producción en
+  `US-CENTRAL1`. Sus metadatos raw informan soft delete de `604800s` (7 días)
+  en cada uno y no muestran `retentionPolicy` bucket-level. Esto describe la
+  posibilidad de recuperación configurada; no prueba una purga física.
+- Para `micafe-pos.firebasestorage.app`, el metadato raw informa
+  `uniformBucketLevelAccess=false` y `publicAccessPrevention=inherited`.
+  La ACL del bucket, la ACL predeterminada de objetos y la política IAM no
+  contienen `allUsers` ni `allAuthenticatedUsers`. Una enumeración paginada de
+  ACL de objetos con `projection=full` recorrió los siete objetos activos y no
+  encontró ACL pública. No se descargó contenido. Este resultado no audita
+  objetos en soft delete, contenido público permitido por Firebase Storage
+  Rules ni servicios ajenos a ese bucket.
+- En staging, el bucket `micafe-pos-staging-e2-2-prov-192423427245` tiene
+  retención bucket-level de `2592000s` (30 días), soft delete de siete días y
+  prevención de acceso público `enforced`. El bucket
+  `micafe-pos-staging-e2-2-src-192423427245` tiene soft delete de siete días y
+  prevención `enforced`, sin retención bucket-level reportada. Los buckets de
+  fuentes/uploads de Functions también reportan soft delete de siete días.
+
+La evidencia de comandos y resultados del corte se documenta en
+[`CIERRE-COMPROBACIONES-2026-11.md`](CIERRE-COMPROBACIONES-2026-11.md). Son
+metadatos de recursos observados, no prueba de vencimiento real, supresión
+integral, ausencia de copias, configuración de cada servicio o plazo contractual
+aprobado. Los plazos de esta propuesta permanecen sin aprobar ni activar.
 
 Comprobación de código, no de telemetría ni de configuración de cuentas:
 
