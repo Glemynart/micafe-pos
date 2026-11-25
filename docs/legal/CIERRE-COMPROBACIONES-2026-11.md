@@ -970,3 +970,40 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
 - En la consulta del PR #706, el HEAD `cb45adae8d4b0ca7a7ea471fff1899195a2cb8e0`
   y su CI `45701250548` seguían en curso. No se atribuye a este SHA el CI verde
   de un commit anterior.
+
+## Rollout manual del HEAD #706 a App Hosting staging — 2026-11-25 22:28 UTC
+
+- CI del HEAD `0248b1fe46b4a4d3ac759f61f0d7b8bb918cf284` terminó `SUCCESS` en
+  el run `45706024559`, incluyendo E4.1 y E4.2. El PR #706 continúa abierto y
+  en borrador.
+- Se creó un rollout manual únicamente en el backend `micafe-pos` del proyecto
+  `micafe-pos-staging`, fijado al commit exacto `0248b1f`. El build
+  `build-2026-11-25-004` quedó `READY`; el rollout quedó `SUCCEEDED` y la API
+  reportó 100 % del tráfico actual en ese build. La fuente del build informa el
+  mismo SHA. Producción no fue modificada.
+- Antes del rollout, las Rules de Firestore activas en staging eran el ruleset
+  `766510d4-1cd6-44bb-a693-2e1e7589030f`; su SHA-256 normalizado
+  `9e0e320647998323e997d172a80200bf8f7f14871700dbbc6ce6d4391d6bc948`
+  coincide con `firestore.rules` del HEAD. El codebase `saas-legal` mantenía
+  sus cuatro Functions `ACTIVE`; entre `5af87a3` y `0248b1f` no hay cambios de
+  Functions, Rules ni `functions-legal`.
+- Una lectura HTTP sin credenciales de `/backoffice/privacidad` respondió `200`
+  y entregó el título `Backoffice · Dusema POS`. Se revisaron 15 assets JS y
+  todos respondieron; el literal corregido `Operador autorizado` está en los
+  assets del build actual. Esto comprueba despliegue y contenido estático, no
+  una sesión autenticada, autorización efectiva de la callable ni un envío del
+  formulario. La captura de pantalla del usuario muestra la página anterior,
+  pero no incluye dominio/URL, por lo que no identifica independientemente el
+  entorno.
+- La lectura de Rules de producción devolvió el ruleset
+  `2a122fe8-7e11-479c-aff0-66f4c5f7d60b`, actualizado
+  `2026-11-24T07:54:19Z`, con SHA normalizado
+  `37b4eb4fb7a2b6a65080f50c22e9fc5ba09676a64aed59db9c2e098fb6bd154e`.
+  No coincide con el candidato: producción aún no tiene las restricciones del
+  campo server-owned `clientes.reclamosPrivacidadAbiertos` del PR #706. No se
+  cambiaron Rules ni IAM productivos. Este mismatch y la ausencia de smoke
+  autenticado impiden certificar el corte legal de producción.
+- Resultado: el cambio de etiqueta y la página están en staging; los documentos
+  siguen como borrador. No se creó un reclamo sintético ni real desde el
+  formulario, no se publicó aceptación obligatoria y no se desplegó a
+  producción.
