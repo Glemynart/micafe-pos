@@ -796,3 +796,17 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   [Resolución SIC 56579 de 2025](https://sedeelectronica.sic.gov.co/sites/default/files/normativa/Resoluci%C3%B3n%20No.%2056579-2025.pdf),
   [Ley 1581 de 2012](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981)
   y [Decreto 1074 de 2015](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=76608).
+
+## Smoke visual de reclamos en staging — 2026-11-25 18:55 UTC
+
+- En el navegador integrado se observó la ruta
+  `https://micafe-pos--micafe-pos-staging.us-central1.hosted.app/backoffice/privacidad`.
+  La captura proporcionada por el responsable muestra “Contexto validado”, el
+  módulo “Reclamos de privacidad”, la sección para registrar recepción
+  incompleta y el formulario de reclamo verificado. No aparecen casos ni datos
+  personales en la captura.
+- Esto acredita que la interfaz de staging cargó en la sesión mostrada. La
+  captura no expone el UID/identidad autenticada y no demuestra una lectura o
+  escritura exitosa de una callable ni el guardado de un expediente sintético.
+  El smoke funcional autenticado permanece incompleto; no se crearon casos ni
+  se modificaron datos reales o producción.
