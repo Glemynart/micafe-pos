@@ -28,7 +28,10 @@ function casoIntegro(casoId: string, caso: FirebaseFirestore.DocumentData | unde
     return casoId === expected && caso.vencimientoRespuesta === original && (!tieneProrroga
       || (typeof caso.prorrogaRef === "string" && ID.test(caso.prorrogaRef)
         && typeof caso.prorrogaMotivo === "string" && !!caso.prorrogaMotivo.trim()
-        && caso.vencimientoProrroga === sumarHabiles(original, 5)));
+        && caso.prorrogaRegistradaEn instanceof Timestamp
+        && caso.vencimientoProrroga === sumarHabiles(original, 5)))
+      && (caso.estado !== "RESPONDIDA" || (typeof caso.respuestaRef === "string" && ID.test(caso.respuestaRef)
+        && typeof caso.resultado === "string" && !!caso.resultado.trim() && caso.respondidaEn instanceof Timestamp));
   }
   catch { return false; }
 }
