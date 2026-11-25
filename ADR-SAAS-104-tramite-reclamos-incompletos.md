@@ -39,17 +39,27 @@ plazos expresados en días y meses.
 - El código usa `CO-LEY51-LUN-VIE-V1`, que excluye sábados, domingos y festivos.
   La fuente revisada no demuestra que Dusema haya adoptado una regla general
   aplicable que declare inhábiles los sábados. Si el sábado se considera hábil,
-  el vencimiento calculado con lunes-viernes puede resultar posterior al plazo.
+  los vencimientos calculados con lunes-viernes pueden resultar posteriores al
+  plazo.
 
 La interpretación más respaldada por las fuentes generales es contar los
 plazos legales en días como hábiles, incluyendo sábados salvo que una regla
 aplicable los declare inhábiles, y excluir domingos y feriados. Para no afirmar
 que esa doctrina general resuelve por sí sola la operación de Dusema, se propone
 adoptarla como regla de cálculo y registrar expresamente la política de atención
-que se aplique. La revisión jurídica final debe validar la aplicabilidad al
-artículo 15 de la Ley 1581 y a Dusema antes de declarar conformidad. Hasta
-entonces, el calendario lunes-viernes no debe presentarse como validado para
-este término.
+que se aplique. La revisión jurídica final debe validar la aplicabilidad a la
+Ley 1581 y a Dusema antes de declarar conformidad. Hasta entonces, el calendario
+lunes-viernes no debe presentarse como validado.
+
+El helper compartido también calcula las consultas (10 días más extensión de 5)
+y reclamos completos (anotación en 2, respuesta en 15 y extensión de 8). La
+decisión de calendario afecta todos esos términos, no solo los cinco días de
+subsanación. Una implementación debe introducir una versión de calendario nueva
+para casos futuros y resolver cada caso histórico usando `calendarioVersion`;
+no debe cambiar vencimientos ya guardados ni interpretar fechas viejas con la
+nueva regla. Antes de escribir el cambio, se requiere especificar compatibilidad
+con casos que no tengan versión o vencimiento persistidos y pruebas que cubran
+ambos calendarios sin invalidar expedientes abiertos.
 
 ## Problema
 
@@ -110,12 +120,17 @@ Elegir **A** y conservar `privacidad_reclamos/{casoId}` como autoridad del caso.
 - Mantener autorización `PRIVACIDAD_RECLAMOS_TRAMITAR`, ownership por operador,
   aislamiento de Rules y lectura restringida actuales. No otorgar facultades ni
   cambiar reglas de acceso.
-- Actualizar el calendario versionado para contar sábados como hábiles y
-  excluir domingos y feriados, salvo que una regla aplicable a Dusema declare
-  inhábil el sábado; probar los cinco días, los términos explícitos en días
-  hábiles y vencimientos en festivo. No recalcular en bloque expedientes
-  existentes: conservar su fecha y versión histórica y revisar manualmente
-  cualquier caso abierto antes de usarlo en operación real.
+- Actualizar el calendario versionado de los nuevos expedientes para contar
+  sábados como hábiles y excluir domingos y feriados, salvo que una regla
+  aplicable a Dusema declare inhábil el sábado. Aplicar la misma convención a
+  consultas (10 + 5 días hábiles), anotación (2), respuesta (15) y extensión
+  (8); validar las fechas de cada escenario.
+- Conservar los vencimientos y la versión del calendario en expedientes
+  existentes. El lector debe seguir reconociendo la versión antigua y calcular
+  valores de respaldo conforme a ella, sin reinterpretarlos con la nueva. No
+  recalcular en bloque casos abiertos; identificar y revisar manualmente los
+  casos cuyo vencimiento ya fue calculado bajo la versión previa antes de usar
+  el flujo en operación real.
 - Para los dos meses se computan meses calendario y se aplica la regla legal
   para el vencimiento que caiga en día feriado o de vacancia. La aplicación
   concreta a Dusema requiere la revisión jurídica final indicada arriba.

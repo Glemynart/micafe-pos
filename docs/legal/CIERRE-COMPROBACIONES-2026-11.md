@@ -420,16 +420,18 @@ y [Boletín Jurídico 124 — SFC](https://www.superfinanciera.gov.co/publicacio
   reproduce la regla según la cual los sábados son hábiles por regla general,
   salvo que una norma general aplicable los declare inhábiles; el concepto
   concreto trata de empleo público y no resuelve específicamente la Ley 1581.
-- El código presente en #706 usa un calendario lunes-viernes y excluye sábados.
-  No encontramos evidencia de que Dusema haya declarado el sábado inhábil para
-  este cómputo. En consecuencia, no se certifica que la fecha actualmente
-  calculada para el requerimiento sea conforme: podría exceder el término si el
-  sábado cuenta como hábil.
-- La recomendación de ADR-SAAS-104 es versionar el calendario para contar
-  sábados como hábiles y excluir domingos y festivos, a menos que una regla
-  aplicable a Dusema establezca otra cosa. La aplicación de esa regla al
-  artículo 15 y a Dusema continúa pendiente de revisión jurídica final; no se
-  recalculan casos históricos ni se activa el flujo real con este ADR propuesto.
+- El código presente en #706 usa un calendario lunes-viernes y excluye sábados
+  para calcular también consultas (10 + 5 días hábiles) y reclamos completos
+  (anotación en 2, respuesta en 15 y extensión en 8), además del requerimiento
+  de subsanación. No encontramos evidencia de que Dusema haya declarado el
+  sábado inhábil para estos términos. No se certifica que las fechas calculadas
+  sean conformes: podrían exceder el plazo si el sábado cuenta como hábil.
+- La recomendación de ADR-SAAS-104 es versionar una regla común que cuente
+  sábados como hábiles y excluya domingos y festivos, a menos que una regla
+  aplicable a Dusema establezca otra cosa. La aplicación de esa regla a la Ley
+  1581 y a Dusema continúa pendiente de revisión jurídica final. El cambio debe
+  conservar fechas y cómputo histórico por versión y no recalcular casos abiertos.
+  No se activa el flujo real con el ADR propuesto.
 
 Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/default/files/normatividad/Ley_1581_2012.pdf),
 [Ley 4 de 1913, art. 62 — Función Pública](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=8426),
