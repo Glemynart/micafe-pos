@@ -60,3 +60,19 @@ servicio Pub/Sub/Eventarc: faltó permiso IAM de lectura y las consultas de logs
 disponibles no devolvieron eventos. El límite no demuestra que no hubiera cambios.
 No se alteró IAM ni se desplegó a producción. Véase la evidencia detallada en
 `CIERRE-COMPROBACIONES-2026-11.md`.
+
+## Revalidación de estado — 2026-11-25 20:55 UTC
+
+Este apéndice reemplaza las filas anteriores cuando describen estados de staging,
+exportación, Vercel o PR que ya cambiaron. La evidencia cronológica completa está
+en [Cierre de comprobaciones](CIERRE-COMPROBACIONES-2026-11.md).
+
+| Requisito | Estado verificado | Pendiente para cierre |
+|---|---|---|
+| Documentos y aceptación | Staging sirve v0.3 como `BORRADOR`/no exigible; producción conserva `/terminos` histórico y las otras tres rutas no están publicadas. Aceptación versionada está implementada; no se registró aceptación real. | Verificar los datos del prestador contra RUT y cerrar revisión factual/jurídica antes de publicar o exigir aceptación. |
+| Consultas y reclamos | Las cuatro callables legales están `ACTIVE` en staging; sin autenticación devolvieron 401. El grant de consultas/reclamos para el operador de prueba consta en Firestore y Auth. La captura confirma que la bandeja abre, no que una callable autenticada escriba o lea un expediente. Producción carece de las dos callables de consultas/reclamos. | Completar smoke autenticado sintético de staging y luego el corte productivo autorizado. No hay expedientes reales creados. |
+| Exportación | 48/48 raíces están clasificadas; las seis raíces históricamente pendientes tienen allowlists. La suite local `scripts/legal/legal-tools.test.mjs` pasó 26/26. `productionExportCertified=false`. | Ensayar payloads históricos, referencias, subcolecciones, archivos y `readTime` con datos reales autorizados y alcance mínimo; no hay exportación integral real. |
+| Supresión y conservación | Planificador permanece `PREVIEW_ONLY`; el ejecutor está limitado a fixtures sintéticos en Emulator. | Falta procedimiento y evidencia de supresión real; no se ejecutó borrado de datos productivos ni se certificaron límites de backups. |
+| Vercel | `git.deploymentEnabled=false`; el inventario read-only devolvió 0 previews. El alias antiguo del PR responde 404. Cuatro deployments `production` permanecen `READY`; su alias compartido redirige a SSO. | Resolver la aptitud contractual del plan Hobby para cualquier uso remanente. No se borraron los cuatro deployments. |
+| Release | PR #706 sigue `OPEN`/`DRAFT`, base `main@aa1c4fe`; el SHA `cea9bcd` tiene CI `45698887417` en curso. `main` remoto continúa en `aa1c4fe`. | Esperar CI del SHA exacto, completar gates externos, auditar y no fusionar ni desplegar documentos borrador. |
+| Hechos y canales | No apareció un RUT de Sebastián en los nombres de archivo revisados; los documentos llamados `RUT LAURA` no se abrieron. No hay conexión Gmail confirmada para la prueba externa. | Aportar/verificar el RUT y completar ida y vuelta desde una cuenta externa; no se cambia el plan ni se da por probado el canal. |

@@ -923,3 +923,20 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   Edge ni se registró un reclamo desde la sesión.
 - El PR #706 sigue `OPEN`/`DRAFT`; no se fusionó. Los documentos continúan
   `BORRADOR`/`PREPARACION`, sin publicación exigible ni aprobación jurídica.
+
+## Revalidación read-only de Vercel — 2026-11-25 20:55 UTC
+
+- La configuración local mantiene `git.deploymentEnabled=false`. La
+  documentación oficial de Vercel confirma que esto desactiva despliegues
+  automáticos Git para todas las ramas; `vercel list` es un inventario de
+  despliegues y no crea ni modifica recursos. Referencias: [CLI `vercel list`](https://vercel.com/docs/cli/list)
+  y [configuración Git](https://vercel.com/docs/project-configuration/git-configuration#git.deploymentenabled).
+- `vercel list cafeatrato --environment preview --limit 100 --json` devolvió
+  cero deployments de preview en `glemynarts-projects`. El enlace de preview
+  incluido por el bot de Vercel en el comentario histórico de este PR devolvió
+  HTTP `404`; dicho comentario no acredita que el preview continúe disponible.
+- El inventario de producción aún devuelve cuatro deployments `READY` antiguos;
+  comparten el alias generado de `main`, que actualmente redirige HTTP `302` a
+  `vercel.com/sso-api`. No se modificaron ni eliminaron; los previews actuales
+  están vacíos. La aptitud contractual del plan Hobby para cualquier uso
+  remanente sigue sin resolverse. No hubo cambios en `pos.dusema.com` ni en Firebase.
