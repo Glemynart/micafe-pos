@@ -158,10 +158,12 @@ sean canales operativos ni que emitan constancia de radicación.
 Las consultas y reclamos sobre datos personales siguen los canales y plazos de
 la política de tratamiento; ese trámite no sustituye las PQR de consumo. Si una
 oferta configura una relación de consumo celebrada por comercio electrónico, el
-prestador debe habilitar en ese mismo medio un mecanismo para radicar PQR con
-fecha y hora y consultar su seguimiento. Cuando aplique el artículo 58(5)(c) de
-la Ley 1480 de 2011, la reclamación directa de consumo se responde dentro de
-quince (15) días hábiles. Debe ofrecerse acceso visible al sitio de la
+prestador debe disponer en ese mismo medio canales de fácil acceso y atención
+que orienten y asistan al consumidor, permitan radicar PQR y den trazabilidad.
+Debe quedar constancia mediante un número de registro o radicado, fecha y hora
+de radicación, y un mecanismo para el seguimiento posterior. Cuando aplique el
+artículo 58(5)(c) de la Ley 1480 de 2011, la reclamación directa de consumo se
+responde dentro de quince (15) días hábiles. Debe ofrecerse acceso visible al sitio de la
 [Superintendencia de Industria y Comercio — Protección al Consumidor](https://sedeelectronica.sic.gov.co/temas/proteccion-al-consumidor/que-hacemos).
 La obligación de PQR en el medio de comercio electrónico está prevista en el
 artículo 50(g) de la [Ley 1480 de 2011](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=44306),

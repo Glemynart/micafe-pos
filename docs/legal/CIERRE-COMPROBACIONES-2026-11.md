@@ -715,8 +715,11 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   constituye un contrato aceptado.
 - Se preparó un runbook interno de respuesta a incidentes con contención,
   clasificación de roles, inicio del término SIC, reporte y cierre. Sigue como
-  borrador: falta designar titular/suplente, confirmar la obligación RNBD y sus
-  canales, y hacer un simulacro autorizado con datos sintéticos.
+  borrador: falta formalizar la persona o área responsable y probar sus canales.
+  El suplente sigue pendiente como control interno de continuidad, no como un
+  requisito legal independiente. También falta clasificar la obligación RNBD
+  con el RUT y la naturaleza del sujeto, verificar el canal de reporte aplicable
+  y hacer un simulacro autorizado con datos sintéticos.
 - Pendientes externos/operativos que bloquean versión definitiva: cotejar
   identidad/NIT/dirección con RUT; nombrar formalmente persona/área de privacidad
   y probar sus canales; confirmar proveedores, servicios, transferencias y
@@ -750,3 +753,37 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   no sustituyen la CI del SHA final, smoke autenticado, revisión jurídica,
   designación/canales operativos ni aprobación de documentos. No hubo escrituras
   en Firestore real, producción ni despliegues.
+
+## Revisión jurídica paralela adicional — 2026-11-25
+
+- Tres revisiones independientes de solo lectura cubrieron términos, privacidad,
+  anexo de encargado, RNBD y operación. No encontraron otra omisión sustantiva
+  en la separación responsable/encargado, autorización de titulares o supresión.
+- Se amplió la sección de PQR de consumo electrónico para incluir, cuando aplique,
+  canales de fácil acceso y atención, orientación y asistencia, trazabilidad,
+  radicado, fecha y hora, y seguimiento posterior, según el artículo 50(g) de la
+  Ley 1480 modificado por la Ley 2439. El flujo de PQR de consumo aún no está
+  implementado ni probado; el texto no lo presenta como una capacidad disponible.
+- Se precisó RNBD: la Resolución SIC 56579 de 2025 (art. 12) dispone inscripción
+  para sociedades y ESAL con activos totales iguales o superiores a 100.000 UVT,
+  y personas jurídicas públicas. No se presume obligación ni exención antes de
+  cotejar el RUT y determinar la naturaleza del responsable. No estar obligado
+  al RNBD no elimina las demás obligaciones de protección de datos.
+- La designación de una persona o área para atender privacidad debe formalizarse;
+  el suplente solicitado por el runbook se clasifica como control de continuidad,
+  no como una obligación legal autónoma.
+- Permanecen bloqueos operativos: probar canales/archivo restringido, completar
+  la ficha de tratamiento por tenant, acreditar acuerdos y subencargados efectivos,
+  verificar el RUT, smoke autenticado, y certificar exportación/supresión en el
+  alcance autorizado. Los flujos de aceptación no se habilitan y los documentos
+  siguen en `BORRADOR`/`PREPARACION`.
+- El flujo legal aún no conserva evidencia propia del envío del requerimiento de
+  subsanación de un reclamo incompleto; ADR-SAAS-104 mantiene ese paso como
+  trabajo aprobado pendiente. Hasta completarlo y probarlo, el runbook debe usar
+  un expediente externo restringido y no afirmar que Backoffice acredita el
+  envío.
+- Fuentes primarias: [artículo 50(g) consolidado de Ley 1480](https://normograma.mintic.gov.co/mintic/compilacion/docs/ley_1480_2011.htm),
+  [Ley 2439 de 2024](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=257116),
+  [Resolución SIC 56579 de 2025](https://sedeelectronica.sic.gov.co/sites/default/files/normativa/Resoluci%C3%B3n%20No.%2056579-2025.pdf),
+  [Ley 1581 de 2012](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981)
+  y [Decreto 1074 de 2015](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=76608).
