@@ -782,6 +782,10 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   trabajo aprobado pendiente. Hasta completarlo y probarlo, el runbook debe usar
   un expediente externo restringido y no afirmar que Backoffice acredita el
   envío.
+- Se recorrió el runbook mediante un ejercicio documental de mesa con un
+  escenario ficticio. Resultado parcial: la secuencia y distinción de roles se
+  entienden, pero no se verificaron responsables, canal SIC/RNBD ni archivo real.
+  Evidencia: `docs/legal/evidence/SIMULACRO-INCIDENTE-EN-MESA-2026-11-25.md`.
 - Fuentes primarias: [artículo 50(g) consolidado de Ley 1480](https://normograma.mintic.gov.co/mintic/compilacion/docs/ley_1480_2011.htm),
   [Ley 2439 de 2024](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=257116),
   [Resolución SIC 56579 de 2025](https://sedeelectronica.sic.gov.co/sites/default/files/normativa/Resoluci%C3%B3n%20No.%2056579-2025.pdf),
