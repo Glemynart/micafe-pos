@@ -7,8 +7,8 @@
 El negocio identificado en la oferta aceptada determina las finalidades de sus
 datos personales operativos como responsable. Sebastián Agudelo Muñoz, NIT
 1000292576-3, prestador de Dusema POS, actúa como encargado para prestar las
-operaciones contratadas sobre esos datos. Sus contactos constan en los
-[términos del servicio](terminos-servicio.md).
+operaciones contratadas sobre esos datos. Sus contactos se informan en los
+términos del servicio.
 
 Este anexo regula el tratamiento por cuenta del negocio; no elimina las
 responsabilidades propias de cada parte ni cubre tratamientos que el prestador
@@ -59,6 +59,22 @@ identificados en un inventario contractual, con función, ubicación efectiva y
 obligaciones equivalentes según corresponda. Antes de publicar se debe completar
 ese inventario y definir cómo se autorizan y notifican cambios relevantes.
 
+La revisión técnica del 2026-11-25 identificó este alcance preliminar:
+
+| Proveedor/servicio | Función identificada | Estado antes de aceptación |
+|---|---|---|
+| Google Cloud / Firebase | Autenticación, Firestore, Storage, App Hosting, Functions, logs y FCM según módulo | Las regiones solo están verificadas para los recursos identificados en el inventario interno; falta acreditar los términos/DPA aplicables a la cuenta y sus subencargados. |
+| Vercel | Builds y previews históricos | No se observó en el runtime productivo de Firebase; plan Hobby y contenido de previews requieren cierre. No se acredita cobertura DPA para ese plan. |
+| Gmail personal | Canal de contacto y correspondencia de privacidad | Cuenta declarada por el prestador; faltan verificación de recepción, medidas de protección y base contractual empresarial. |
+| Wompi, Make.com, Google Maps y Google Fonts | Integraciones presentes en código de reserva pública/eventos/landing heredados | No se confirmó si están habilitadas ni si forman parte del servicio Dusema contratado. Esta lista no autoriza su uso con datos del negocio; el estado y el alcance deben verificarse antes. |
+
+Esta tabla no constituye aún una lista contractual definitiva de subencargados.
+Antes de aceptar el anexo se precisarán, para cada flujo realmente utilizado, los
+productos, finalidades, categorías de datos, países/regiones, instrumentos y
+mecanismo de aviso/cambio. El CUFE que el navegador lleva al catálogo de consulta
+de la DIAN es una comunicación puntual al validador fiscal, no una instrucción
+general para que la DIAN procese datos por cuenta de Dusema.
+
 Las transmisiones internacionales exigen el instrumento aplicable y las
 transferencias requieren su análisis separado. No se autoriza aquí una lista
 abierta de destinatarios o países desconocidos.
@@ -82,5 +98,5 @@ Las partes acordarán el mecanismo de verificación antes de ofrecer auditorías
 presenciales o acceso irrestricto a infraestructura compartida.
 
 La aceptación de este anexo no cambia plan, precio, fechas de Trial o vigencia del
-contrato del negocio. La revisión final debe cerrar los pendientes del
-[índice de revisión](README.md) antes de solicitar aceptación.
+contrato del negocio. La revisión final debe cerrar los pendientes del índice
+interno del proyecto antes de solicitar aceptación.

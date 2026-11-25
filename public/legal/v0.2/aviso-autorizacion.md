@@ -45,4 +45,4 @@ No marcar aceptaciones de Diana ni de otros clientes de manera administrativa,
 retroactiva o por haber usado la plataforma. El flujo futuro debe ofrecer la
 versión aprobada a quien corresponda y conservar evidencia de su acción.
 
-Diseño técnico pendiente: [índice de revisión](README.md).
+Diseño técnico pendiente según el índice interno de revisión del proyecto.

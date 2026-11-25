@@ -126,4 +126,5 @@ de la [Superintendencia de Industria y Comercio](https://www.sic.gov.co/).
 Rige la legislación colombiana, sin excluir autoridades competentes, derechos de
 los titulares ni normas imperativas de protección al consumidor cuando apliquen.
 
-Referencias y pendientes de publicación: [índice de revisión](README.md).
+Referencias y pendientes de publicación constan en el índice interno de revisión
+del proyecto.

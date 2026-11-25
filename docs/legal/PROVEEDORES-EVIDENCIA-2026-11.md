@@ -1,6 +1,6 @@
 # Proveedores — evidencia contractual y límites
 
-Fecha: 2026-11-24. Revisión pública de instrumentos y consultas autenticadas de
+Fecha: 2026-11-25. Revisión pública de instrumentos y consultas autenticadas de
 metadatos; no acredita firma por el prestador ni sustituye análisis jurídico.
 
 Actualización: el prestador confirmó Gmail personal y contratación online Google
@@ -97,6 +97,32 @@ que se hará de la correspondencia. El expediente mínimo puede llevar identific
 y enlace a entrega autenticada; no adjuntar bases completas, credenciales o PIN.
 Un buzón empresarial es una alternativa, no una compra autorizada en este corte.
 
+## Integraciones adicionales detectadas en el código
+
+Revisión de código: 2026-11-25. Estas integraciones aparecen en rutas o módulos
+heredados; su presencia en el repositorio no demuestra que estén activas en cada
+entorno. No se verificó la configuración runtime de sus variables ni los acuerdos
+aplicables. Deben quedar en la política solo con alcance condicional y confirmarse
+antes de habilitar esas funciones comercialmente.
+
+| Servicio | Flujo observado | Datos que el código envía o conserva | Estado/evidencia pendiente |
+|---|---|---|---|
+| Wompi | Widget `checkout.wompi.co` en `/reservar`; callable de reserva crea la reserva y una intención de pago, y el webhook confirma el resultado | El formulario conserva nombre, correo, teléfono, sala/espacio, bloques y fecha en Firestore. Al widget se pasan moneda, importe, referencia, firma de integridad y llave pública; el código revisado no le pasa esos tres datos de contacto en la configuración del widget. | `RESERVAS_PUBLICAS_ENABLED` y llaves no se comprobaron en runtime. Verificar productos, contrato y política de Wompi, campos que el widget recopila y si la ruta heredada se ofrece a clientes de Dusema. |
+| Make.com | `lib/eventos-service.ts` hace POST a `NEXT_PUBLIC_MAKE_WEBHOOK_URL` cuando se crea un evento y la variable existe | ID del evento, `empresaId`, título, descripción, fecha, hora, URL de imagen y categoría. La variable tiene prefijo `NEXT_PUBLIC_`; si se configura, su URL queda disponible al cliente. | No se comprobó si la variable está configurada ni quién controla el escenario destino. Confirmar finalidad, minimización, contrato/subencargados y controles contra invocaciones no autorizadas antes de habilitarlo. |
+| Google Maps Platform | La landing heredada renderiza el mapa de Café Atrato con `@vis.gl/react-google-maps` | Solicitudes del navegador al servicio de mapas y coordenadas estáticas de Café Atrato; el componente revisado no entrega datos del POS al mapa. | La llave runtime y restricciones no se inspeccionaron. La página/alias público heredado sigue siendo una superficie separada que debe clasificarse. |
+| Google Fonts | La landing heredada solicita Pacifico desde `fonts.googleapis.com` | Solicitud del navegador al proveedor; no se observó envío explícito de datos del tenant desde el código. | Confirmar si la landing sigue publicada y si se conserva la dependencia externa antes de describirla como activa. |
+| DIAN, catálogo de documentos | El generador de tiquete construye un enlace de consulta QR cuando hay CUFE | El CUFE se incluye como `documentKey` en la URL de consulta que abre el navegador. | Es un enlace de validación documental, no un subencargado de Dusema por esta sola integración. Verificar el proveedor/flujo de facturación usado y la semántica actual del endpoint antes de afirmar que este enlace constituye una factura electrónica. |
+
+FCM forma parte del stack Google/Firebase ya inventariado: el cliente obtiene un
+token de mensajería cuando el usuario acepta notificaciones y el backend puede
+enviar mensajes push. La habilitación depende de permisos del dispositivo y de la
+configuración; no se atribuyen finalidades publicitarias por defecto.
+
+**Acción correctiva documental:** antes de publicar versión definitiva, conciliar
+esta tabla con variables y despliegues reales, distinguir rutas heredadas de
+funciones de Dusema POS y completar los instrumentos/roles de cada proveedor.
+No publicar la lista como exhaustiva hasta terminar esa conciliación.
+
 El tipo de cuenta ya quedó confirmado como personal. La recomendación es minimizar
 datos en el correo y no asumir cobertura Workspace. El plan por sí solo no decide
 si cada uso es lícito o ilícito: falta contrastar finalidad, rol y salvaguardas.
@@ -124,3 +150,6 @@ en Git únicamente estado, referencia no secreta y conclusión sustentada.
    exportación sintética/local y sus gates antes de ofrecer una entrega real.
    ADR-SAAS-099 autoriza por separado la implementación de aceptación versionada;
    ninguno autoriza escrituras, extracción o exigibilidad en producción.
+4. Confirmar las integraciones condicionales Wompi, Make.com, Maps, Fonts y FCM
+   descritas arriba y revisar el CUFE del QR DIAN; no inferir estado activo por
+   existencia de código.

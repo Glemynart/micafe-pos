@@ -95,8 +95,18 @@ y el correo Gmail de contacto declarado. PR #704 retiró Analytics y deshabilit�
 nuevos despliegues Git automáticos de Vercel en todas las ramas. Ese ajuste no
 elimina previews previos, cuyo acceso y contenido aún deben verificarse. Sus
 funciones, regiones verificadas y contratos pendientes se detallan en el
-[inventario operativo](OPERACION-Y-CONSERVACION.md). No afirmar que todos los
-datos permanecen en Colombia ni atribuir a toda la plataforma una sola región.
+inventario operativo interno. No afirmar que todos los datos permanecen en
+Colombia ni atribuir a toda la plataforma una sola región.
+
+El código también contiene integraciones condicionales en superficies heredadas:
+Wompi para el checkout de reservas públicas, Make.com para un webhook opcional de
+eventos, Google Maps y Google Fonts en la landing, y un enlace de consulta DIAN
+que lleva el CUFE como parámetro. No se ha confirmado que todas estén activas en
+producción ni que formen parte de la oferta actual de Dusema POS. Antes de
+publicar esta política como definitiva se verificará el uso por entorno, los datos
+transmitidos, los contratos aplicables y si esas rutas siguen disponibles. La
+descripción técnica y sus límites están en el inventario de proveedores de
+`docs/legal/PROVEEDORES-EVIDENCIA-2026-11.md`.
 
 Los requerimientos de autoridades se atienden previa comprobación de competencia
 y alcance, conservando evidencia y limitando la entrega a lo exigible.
