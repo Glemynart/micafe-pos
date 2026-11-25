@@ -170,7 +170,7 @@
     "dotenv": "^16.6.1",
     "eslint": "^10.8.1",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "fast-xml-parser": "5.11.2",
+    "fast-xml-parser": "5.12.1",
     "firebase-tools": "^15.24.0",
     "postcss": "^8.5",
     "tailwindcss": "^4.3.0",
