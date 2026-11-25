@@ -145,3 +145,21 @@ jurídico ni certifica su aplicación concreta a Dusema.
 - [Ley 1581 de 2012, arts. 14, 15, 17 y 18](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981).
 - [Ley 962 de 2005, art. 28](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=17004).
 - [Ley 51 de 1983, art. 1](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=4954).
+
+## Actualización de despliegue — 25 de noviembre de 2026, 13:31 UTC
+
+La nota anterior describía el estado antes del corte de staging. El SHA
+`42006b7e8b36dfab529c81589107554e1adee899` ahora está publicado únicamente en
+staging: App Hosting `build-2026-11-25-002`, rollout `SUCCEEDED`, 100% de tráfico;
+Rules del candidato coincidentes con el release activo de staging y Functions
+legales activas. La verificación HTTP confirmó que las cuatro páginas continúan
+marcadas como borrador. Las callables rechazan llamadas anónimas, pero no se ha
+completado un smoke autenticado en Backoffice.
+
+Producción no fue desplegada: aún sirve la ruta histórica de términos, faltan
+las otras tres rutas y las Functions de consultas/reclamos de privacidad; las
+Rules activas difieren del candidato. No se concedieron permisos ni se
+tramitaron casos reales. Los documentos siguen en `PREPARACION`; su publicación,
+aceptación contractual y habilitación operativa esperan la validación factual y
+jurídica y los gates restantes. Esta revalidación no certifica cumplimiento
+legal ni exportación/supresión integral.

@@ -560,3 +560,58 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
 - Estas consultas no hicieron escrituras, no desplegaron Rules ni App Hosting y
   no ejecutaron smoke autenticado. Producción permanece en `main@aa1c4fe`; no se
   debe publicar el release legal mientras los gates abiertos sigan sin evidencia.
+
+## Revalidación verificable de staging y producción — 2026-11-25 13:31 UTC
+
+- PR #706 sigue abierto y en borrador. El SHA remoto exacto es
+  `42006b7e8b36dfab529c81589107554e1adee899`, con base
+  `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`. Los checks `Tipos y pruebas`
+  y `App Hosting - Rollout (micafe-pos-staging/us-central1/micafe-pos)` están en
+  `SUCCESS`; no hay review ni aprobación de auditoría registrada.
+- Staging: App Hosting build `build-2026-11-25-002` está `READY`; el rollout
+  correspondiente está `SUCCEEDED` y Cloud Run sirve
+  `micafe-pos-build-2026-11-25-002` al 100%. El recurso Build atribuye el origen
+  al SHA exacto del PR. Las cuatro rutas legales responden `200` y el contenido
+  marca los documentos como borradores. `/backoffice/privacidad` entrega el
+  shell HTML, lo cual no prueba una sesión ni autorización.
+- Staging: el release de Firestore Rules apunta al ruleset
+  `766510d4-1cd6-44bb-a693-2e1e7589030f`, actualizado a las 13:09:42 UTC. El
+  contenido fuente remoto coincide exactamente con `firestore.rules` después de
+  normalizar CRLF/LF. Están `ACTIVE` las cuatro Functions legales:
+  `aceptarDocumentosLegalesTenant`, `consultarEstadoLegalTenant`,
+  `tramitarConsultaPrivacidadSaas` y `tramitarReclamoPrivacidadSaas`.
+- Las cuatro callables de staging rechazaron una invocación anónima con HTTP 401
+  `UNAUTHENTICATED`. Es evidencia negativa de autenticación, no un smoke positivo
+  ni prueba de tramitación autorizada.
+- Producción no recibió este corte. Cloud Run conserva
+  `micafe-pos-build-2026-11-24-002` al 100%; el Build API consultado no expuso un
+  SHA de origen. El release de Firestore Rules apunta al ruleset
+  `2a122fe8-7e11-479c-aff0-66f4c5f7d60b`; su fuente difiere de las Rules del
+  candidato. La web de producción aún sirve en `/terminos` el título histórico
+  «Términos y Privacidad - Café Atrato» y devuelve `404` en las otras tres rutas
+  legales. `tramitarConsultaPrivacidadSaas` y `tramitarReclamoPrivacidadSaas` no
+  están desplegadas en producción.
+- No se concedió ninguna facultad ni se abrió o modificó un expediente real. El
+  smoke positivo requiere un operador distinto del objetivo con
+  `OPERADORES_GOBERNAR`; el Backoffice identifica al operador objetivo por su UID
+  de Auth, reemplaza el conjunto completo de facultades y revoca sus tokens al
+  guardar. La facultad para consultas y la facultad para reclamos son separadas;
+  el objetivo debe volver a iniciar sesión después de la concesión.
+- Firebase CLI informó que generaba o consultaba las service identities de
+  Pub/Sub y Eventarc. La lectura actual de la política IAM de staging confirma
+  que existen y muestra `roles/pubsub.serviceAgent` y
+  `roles/iam.serviceAccountTokenCreator` para Pub/Sub, y
+  `roles/eventarc.serviceAgent` para Eventarc. No se ejecutó un comando manual
+  para editar bindings IAM, pero no puede descartarse un efecto de
+  `GenerateServiceIdentity` durante el deploy. La cuenta operadora no tiene
+  `iam.serviceAccounts.get`, por lo que no se obtuvieron las fechas de creación;
+  tampoco se vieron eventos coincidentes de generación, creación o cambio de
+  política en los logs consultables de 13:00–13:25 UTC. La ausencia de logs no
+  prueba que no hubiera cambios. Este límite no bloquea el smoke de staging; no
+  se considera resuelto ni autoriza ampliar IAM en producción.
+- Los documentos v0.2 permanecen en `PREPARACION`; no hay activación contractual,
+  publicación en producción, exportación integral real ni certificación de
+  supresión. Siguen pendientes la identidad y concesión de prueba, smoke
+  autenticado, verificación factual/jurídica, prueba externa del canal de correo,
+  exportación/supresión controladas y aptitud contractual de los previews
+  remanentes de Vercel Hobby. No se desplegó nada a producción.

@@ -106,3 +106,37 @@ resultado, sin datos personales ni referencias sensibles.
   autorizada del Ruleset, la verificación de datos y proveedores, la prueba externa
   del correo, la certificación de salida/supresión y los gates de release siguen
   abiertos.
+
+## Revalidación después del corte técnico — 25 de noviembre de 2026, 13:31 UTC
+
+- El candidato `42006b7e8b36dfab529c81589107554e1adee899` ya está desplegado en
+  `micafe-pos-staging`: App Hosting build `build-2026-11-25-002` (`READY`),
+  rollout `SUCCEEDED` y revisión Cloud Run con 100% del tráfico. Este dato
+  sustituye la nota anterior que decía que el HEAD no se había desplegado.
+- El release `cloud.firestore` de staging apunta a
+  `766510d4-1cd6-44bb-a693-2e1e7589030f`; el contenido devuelto por Rules REST
+  coincide exactamente con el `firestore.rules` actual, normalizando finales de
+  línea. Producción sigue en el ruleset
+  `2a122fe8-7e11-479c-aff0-66f4c5f7d60b`, cuyo contenido no coincide con este
+  candidato. No se publicaron Rules en producción.
+- En staging están `ACTIVE` las Functions legales de aceptación, consulta de
+  estado, consultas de privacidad y reclamos de privacidad. Las cuatro
+  rechazaron solicitudes sin autenticación con HTTP 401. No se ha probado una
+  operación autenticada.
+- Las cuatro rutas públicas de documentos en staging responden `200` y continúan
+  presentando el paquete 0.2 como borrador. El shell de `/backoffice/privacidad`
+  responde `200` sin sesión, lo que no prueba acceso autenticado.
+- No se concedió facultad a `segucor0526@gmail.com` ni a otra identidad. El flujo
+  oficial es `/backoffice/operadores`; requiere seleccionar el UID global
+  existente en Firebase Auth. La persona que guarda debe ser un operador
+  diferente con `OPERADORES_GOBERNAR`. `Guardar facultades` reemplaza el conjunto
+  completo: preservar las facultades existentes y agregar solo las necesarias
+  (`PRIVACIDAD_CONSULTAS_TRAMITAR` para consultas y
+  `PRIVACIDAD_RECLAMOS_TRAMITAR` si también tramitará reclamos). Al guardar se
+  revocan los tokens del objetivo y este debe iniciar sesión otra vez. No se
+  guardaron ni solicitaron contraseñas o PIN.
+- Producción no fue modificada: mantiene la revisión de App Hosting
+  `micafe-pos-build-2026-11-24-002`, las rutas legales históricas/incompletas y
+  no tiene desplegadas las dos Functions de privacidad. Sin publicación de
+  documentos definitivos y aprobación jurídica, la UI en staging no habilita
+  aceptación ni tramitación de casos reales.
