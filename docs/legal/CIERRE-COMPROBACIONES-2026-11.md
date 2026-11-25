@@ -1007,3 +1007,29 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   siguen como borrador. No se creó un reclamo sintético ni real desde el
   formulario, no se publicó aceptación obligatoria y no se desplegó a
   producción.
+
+## Despliegue aislado de Firestore Rules a producción — 2026-11-25 23:35 UTC
+
+- Inmediatamente antes del despliegue se revalidaron en solo lectura los estados
+  activos/Trial: aparecieron tres documentos, incluidos el tenant de Diana, el
+  tenant fundacional y un fixture histórico. Solo se leyeron identificadores y
+  estados; no se consultaron documentos operativos ni archivos. El fixture se
+  identificó por su antigüedad y su falta de cambios desde la creación.
+- `firebase deploy --only firestore:rules --project micafe-pos --non-interactive`
+  terminó `Deploy complete`. No se desplegaron Functions, App Hosting, Storage
+  Rules ni se modificaron IAM o datos.
+- A las `2026-11-25T23:44:19Z`, una lectura autenticada de la API de Firebase
+  Rules confirmó el release activo `cloud.firestore`, ruleset
+  `23b49a84-6282-4df1-9c97-60513697c5d7`, actualizado
+  `2026-11-25T23:35:48.074157Z`. El SHA-256 del contenido fuente, normalizando
+  CRLF/LF, es
+  `9e0e320647998323e997d172a80200bf8f7f14871700dbbc6ce6d4391d6bc948`; coincide
+  exactamente con `firestore.rules` del HEAD #706 y con el release activo de
+  staging (`766510d4-1cd6-44bb-a693-2e1e7589030f`).
+- Firebase CLI mostró la advertencia no fatal `Unused function: esMarketing`.
+  El deploy terminó correctamente; no se amplió IAM para silenciarla.
+- Este resultado supersede la lectura anterior que indicaba que producción
+  conservaba el ruleset `2a122fe8-7e11-479c-aff0-66f4c5f7d60b`. Solo acredita
+  Rules: #706 sigue abierto/en borrador, el candidato de App Hosting no está en
+  producción y no se ejecutó smoke autenticado ni se certificó la exportación
+  integral con datos y archivos reales.
