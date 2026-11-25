@@ -104,7 +104,7 @@ export interface ConsultaPrivacidad {
   respuestaRef: string | null;
 }
 export const tramitarConsultaPrivacidad = (data: Record<string, string | boolean>) =>
-  invocar<{ casoId: string; estado: ConsultaPrivacidad["estado"] }>("tramitarConsultaPrivacidadSaas", data);
+  invocar<{ casoId: string; estado: ConsultaPrivacidad["estado"] | "REASIGNADA" }>("tramitarConsultaPrivacidadSaas", data);
 export const consultarConsultaPrivacidad = (casoId: string) =>
   invocar<ConsultaPrivacidad>("tramitarConsultaPrivacidadSaas", { accion: "CONSULTAR", casoId });
 

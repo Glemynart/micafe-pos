@@ -26,8 +26,12 @@ la exportación comercial ordinaria. La función no envía correo ni verifica po
 misma los soportes; esas actuaciones deben comprobarse y documentarse por el
 operador. Se admite registrar la recepción pendiente de verificación y completar
 la identidad después usando el mismo consecutivo, conservando el plazo original.
-La reasignación y consultas ajenas a un tenant no se ofrecen automáticamente:
-requieren procedimiento documentado y alcance adicional.
+El operador asignado puede reasignar un expediente abierto a otro operador activo
+con la facultad específica. La operación verifica el destino y escribe una
+constancia inmutable en la misma transacción; los reintentos idénticos son
+idempotentes. No permite recuperar automáticamente expedientes asignados a un
+operador revocado; ese caso necesita un procedimiento de gobierno adicional.
+Consultas ajenas a un tenant requieren alcance adicional.
 
 ## Gates
 

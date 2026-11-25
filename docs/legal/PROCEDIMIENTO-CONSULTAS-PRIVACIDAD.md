@@ -50,7 +50,9 @@ específica, plazo, asignación al operador y registro de respuesta. Pasaron pru
 de concurrencia y facultad en Emulator; esto no acredita interfaz ni operación en
 producción. Se requiere ensayar el recorrido en staging y comprobar facultad,
 aislamiento y restricciones. La recepción pendiente de verificación se registra
-con el plazo original; la reasignación requiere seguimiento externo documentado.
+con el plazo original; el operador asignado puede reasignar a otro operador
+autorizado. La recuperación de expedientes de operadores revocados todavía
+requiere un procedimiento de gobierno separado.
 
 Fuentes: [Ley 1581 de 2012, artículos 14 y 15](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981)
 y [Decreto 1074 de 2015](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=76608).

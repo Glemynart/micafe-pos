@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { usePlatform } from "@/contexts/platform-context";
 import { consultarConsultaPrivacidad, tramitarConsultaPrivacidad, type ConsultaPrivacidad } from "@/lib/platform/client";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,9 @@ export function PrivacyInquiriesPage() {
   const [casoId, setCasoId] = useState("");
   const [caso, setCaso] = useState<ConsultaPrivacidad | null>(null);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
+  const reassignCommand = useRef<string | null>(null);
   if (!tiene("PRIVACIDAD_CONSULTAS_TRAMITAR")) return <p>No tienes permiso para tramitar consultas de privacidad.</p>;
   async function execute(operation: () => Promise<void>) {
     setPending(true); setError("");
@@ -49,9 +51,19 @@ export function PrivacyInquiriesPage() {
       setCaso(await consultarConsultaPrivacidad(caso.casoId));
     });
   }
+  async function reassign(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (!caso) return;
+    const form = new FormData(event.currentTarget);
+    reassignCommand.current ??= crypto.randomUUID();
+    await execute(async () => {
+      await tramitarConsultaPrivacidad({ accion: "REASIGNAR", casoId: caso.casoId, destinoUid: value(form, "destinoUid"), motivoRef: value(form, "motivoRef"), comandoId: reassignCommand.current! });
+      reassignCommand.current = null; setCaso(null); setMessage("Consulta reasignada. El operador destinatario podrá continuar el trámite.");
+    });
+  }
   return <div className="space-y-5">
     <PageIntro eyebrow="Privacidad" title="Consultas de datos personales" description="Registra la solicitud, controla el plazo y conserva la referencia de la respuesta." />
     {error && <p role="alert" className="rounded-lg border p-3 text-sm text-red-800">{error}</p>}
+    {message && <p role="status" className="rounded-lg border p-3 text-sm">{message}</p>}
     <details className="rounded-xl border p-5"><summary className="cursor-pointer font-semibold">Registrar recepción pendiente de verificación</summary><form onSubmit={receive} className="mt-4 grid gap-3 sm:grid-cols-2"><Label className="grid gap-1">ID de empresa<Input name="empresaId" maxLength={120} required /></Label><Label className="grid gap-1">Consecutivo de recepción<Input name="consecutivo" maxLength={120} required /></Label><Label className="grid gap-1">Fecha de recepción en Colombia<Input type="date" name="recibido" required /></Label><Button disabled={pending}>Registrar recepción</Button></form><p className="mt-3 text-sm">Para completar la verificación, usa el mismo consecutivo, empresa y fecha en el formulario siguiente.</p></details>
     <form onSubmit={register} className="space-y-3 rounded-xl border p-5"><h2 className="font-semibold">Registrar consulta verificada</h2><fieldset disabled={pending} className="grid gap-3 sm:grid-cols-2">
       {[ ["empresaId", "ID de empresa"], ["consecutivo", "Consecutivo de recepción"], ["identidadRef", "Referencia de identidad verificada"], ["instruccionRef", "Referencia de instrucción del negocio"] ].map(([name, label]) => <Label key={name} className="grid gap-1">{label}<Input name={name} maxLength={120} required /></Label>)}
@@ -63,6 +75,7 @@ export function PrivacyInquiriesPage() {
     {caso && <section className="space-y-3 rounded-xl border p-5"><h2 className="font-semibold">Consulta {caso.casoId}</h2><p>Estado: {caso.estado} · Vencimiento: {caso.vencimientoRespuesta}</p>
       {caso.estado === "RECIBIDA" && <><p>La consulta está pendiente de verificación. El plazo se cuenta desde la recepción.</p><form onSubmit={document} className="grid gap-3 sm:grid-cols-2"><input type="hidden" name="accion" value="PRORROGAR" /><Label className="grid gap-1">Referencia del aviso de prórroga<Input name="referencia" maxLength={120} required /></Label><Label className="grid gap-1">Motivo comunicado, sin datos sensibles<Input name="resultado" maxLength={500} required /></Label><Button disabled={pending}>Registrar aviso</Button></form></>}
       {caso.estado === "ABIERTA" && <form onSubmit={document} className="grid gap-3 sm:grid-cols-2"><Label className="grid gap-1">Actuación<select name="accion" className="min-h-10 rounded-md border px-3"><option value="RESPONDER">Registrar respuesta comunicada y cerrar</option><option value="PRORROGAR">Registrar aviso de prórroga</option></select></Label><Label className="grid gap-1">Referencia de la comunicación<Input name="referencia" maxLength={120} required /></Label><Label className="grid gap-1 sm:col-span-2">Resultado o motivo, sin datos sensibles<Input name="resultado" maxLength={500} required /></Label><Button disabled={pending}>Guardar actuación</Button></form>}
+      {caso.estado !== "RESPONDIDA" && <form onSubmit={reassign} className="grid gap-3 border-t pt-4 sm:grid-cols-2"><Label className="grid gap-1">UID del operador destinatario<Input name="destinoUid" maxLength={120} required /></Label><Label className="grid gap-1">Referencia del motivo<Input name="motivoRef" maxLength={120} required /></Label><Button disabled={pending}>Reasignar consulta</Button></form>}
       {caso.estado === "RESPONDIDA" && <p>Respuesta registrada. Referencia: {caso.respuestaRef}</p>}
     </section>}
   </div>;

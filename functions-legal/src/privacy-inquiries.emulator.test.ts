@@ -18,6 +18,7 @@ test("Consultas: facultad separada, idempotencia, plazos, aislamiento y respuest
   const received = fechaBogota(Date.now());
   const input = { accion: "REGISTRAR", empresaId: tenant, consecutivo: `qa-${suffix}`, recibido: received, identidadRef: "verificacion", instruccionRef: "instruccion", verificacionConfirmada: true };
   let caseId: string | undefined;
+  let reassignedId: string | undefined;
   try {
     await company.set({ estado: "trial" });
     await operator.set({ uid, estado: "ACTIVO", versionAutorizacion: 1, facultades: ["PRIVACIDAD_RECLAMOS_TRAMITAR"] });
@@ -57,10 +58,29 @@ test("Consultas: facultad separada, idempotencia, plazos, aislamiento y respuest
     await assert.rejects(tramitarConsultaPrivacidad(db, actor, { accion: "CONSULTAR", casoId: caseId }), /CONSULTA_PRIVACIDAD_NO_DISPONIBLE/);
     await record.update({ calendarioVersion: "CO-LEY51-LUN-VIE-V1", respuestaRef: null });
     await assert.rejects(tramitarConsultaPrivacidad(db, actor, { accion: "CONSULTAR", casoId: caseId }), /CONSULTA_PRIVACIDAD_NO_DISPONIBLE/);
+    const transferCase = await tramitarConsultaPrivacidad(db, actor, { ...input, consecutivo: `handoff-${suffix}` });
+    reassignedId = transferCase.casoId;
+    const handoff = { accion: "REASIGNAR", casoId: reassignedId, destinoUid: otherUid, motivoRef: "turno-siguiente", comandoId: "comando-1" };
+    await otherOperator.update({ facultades: ["PRIVACIDAD_RECLAMOS_TRAMITAR"] });
+    await assert.rejects(tramitarConsultaPrivacidad(db, actor, handoff), /CONSULTA_PRIVACIDAD_NO_DISPONIBLE/);
+    await otherOperator.update({ facultades: ["PRIVACIDAD_CONSULTAS_TRAMITAR"] });
+    const firstTransfer = await tramitarConsultaPrivacidad(db, actor, handoff);
+    assert.equal(firstTransfer.idempotente, false);
+    assert.equal((await tramitarConsultaPrivacidad(db, actor, handoff)).idempotente, true);
+    await assert.rejects(tramitarConsultaPrivacidad(db, actor, { ...handoff, motivoRef: "distinto" }), /CONSULTA_PRIVACIDAD_NO_DISPONIBLE/);
+    await assert.rejects(tramitarConsultaPrivacidad(db, actor, { accion: "CONSULTAR", casoId: reassignedId }), /CONSULTA_PRIVACIDAD_NO_DISPONIBLE/);
+    assert.equal((await tramitarConsultaPrivacidad(db, otherActor, { accion: "CONSULTAR", casoId: reassignedId })).estado, "ABIERTA");
+    assert.equal((await db.collection("privacidad_consultas").doc(reassignedId).collection("reasignaciones").get()).size, 1);
     await operator.update({ estado: "REVOCADO", versionAutorizacion: 2 });
     await assert.rejects(tramitarConsultaPrivacidad(db, actor, { accion: "CONSULTAR", casoId: caseId }), /PLATFORM_ACCESS_DENIED/);
   } finally {
     if (caseId) await db.collection("privacidad_consultas").doc(caseId).delete();
+    if (reassignedId) {
+      const transferRef = db.collection("privacidad_consultas").doc(reassignedId);
+      const events = await transferRef.collection("reasignaciones").get();
+      await Promise.all(events.docs.map(doc => doc.ref.delete()));
+      await transferRef.delete();
+    }
     await Promise.all([operator.delete(), otherOperator.delete(), company.delete()]);
     await deleteApp(app);
   }

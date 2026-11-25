@@ -30,6 +30,7 @@ test("ADR-SAAS-102: el expediente y el indicador quedan bajo autoridad de servid
   const customer = `clientes/${suffix}`;
   await seedDocument(path, { empresaId: "empresa-a", motivo: "Sintético" });
   await seedDocument(inquiryPath, { empresaId: "empresa-a", estado: "ABIERTA" });
+  await seedDocument(`${inquiryPath}/reasignaciones/evento`, { origenUid: "synthetic" });
   await seedDocument(customer, { empresaId: "empresa-a", reclamosPrivacidadAbiertos: 1 });
   const admin = (await contextFor(fixtures.tenantA.admin)).firestore();
   const seller = (await contextFor(fixtures.tenantA.vendedor)).firestore();
@@ -42,6 +43,8 @@ test("ADR-SAAS-102: el expediente y el indicador quedan bajo autoridad de servid
     await expectDenied(db.doc(inquiryPath).set({ empresaId: "empresa-a" }));
     await expectDenied(db.doc(inquiryPath).delete());
     await expectDenied(db.collection("privacidad_consultas").get());
+    await expectDenied(db.doc(`${inquiryPath}/reasignaciones/evento`).get());
+    await expectDenied(db.doc(`${inquiryPath}/reasignaciones/evento`).delete());
   }
   await admin.doc(customer).update({ nombre: "Corrección sintética" });
   await expectDenied(admin.doc(customer).update({ reclamosPrivacidadAbiertos: 0 }));
