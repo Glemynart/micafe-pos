@@ -188,14 +188,19 @@ Esta comprobación es de solo lectura y no altera el corte anterior.
 
 ### PR y aplicación
 
-- PR #706 continúa `OPEN` y `DRAFT`, con candidato
-  `f213088356da8289dfb160454de2e73d14213eac`, base `main` en
-  `aa1c4fece1386edc6ba31b439a2be98ed9216d0b`, un check de CI `SUCCESS` y sin
-  hilos de revisión sin resolver. `CLEAN` describe la relación GitHub con la
-  base; no equivale a aprobación jurídica ni a autorización de publicación.
-- App Hosting de producción sigue sirviendo la revisión
-  `micafe-pos-build-2026-11-24-002` al 100 % del tráfico. No se obtuvo en esta
-  consulta una procedencia que la vincule al candidato de #706.
+- PR #706 continúa `OPEN` y `DRAFT`. A las 06:35 UTC el HEAD observado era
+  `06c333b82e77fcb5587ff7d58054710532321838`, con base `main` en
+  `aa1c4fece1386edc6ba31b439a2be98ed9216d0b`. `Tipos y pruebas` terminó
+  `SUCCESS` (128 pasos); no había revisiones de código enviadas. El único
+  comentario era el aviso de preview de Vercel del 2026-11-24. `CLEAN` describe
+  la relación GitHub con la base; no equivale a aprobación jurídica ni a
+  autorización de publicación.
+- App Hosting de producción sirve `build-2026-11-24-002`, `READY`, con 100 % del
+  tráfico. La consulta del recurso Build confirmó que su `source.codebase.uri`
+  apunta a `aa1c4fece1386edc6ba31b439a2be98ed9216d0b`, integrado mediante #704;
+  no corresponde al candidato #706. En staging, `build-2026-11-25-001` tiene
+  rollout `SUCCEEDED`, 100 % del tráfico y origen
+  `6e63c172d4cba7cc68c6f756148c84a79589e44e`. No hay rollout de #706 a producción.
 - En staging, las cuatro rutas legales responden HTTP 200 y muestran versión
   0.2 como borrador no exigible. En producción, `/terminos` responde HTTP 200,
   pero no muestra esa versión ni el marcador de borrador; las otras tres rutas
