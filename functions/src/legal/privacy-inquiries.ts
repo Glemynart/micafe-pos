@@ -16,6 +16,21 @@ const date = (value: unknown): Timestamp => {
   return Timestamp.fromMillis(millis);
 };
 type Actor = { uid: string; token: TokenPlataforma };
+function casoIntegro(casoId: string, caso: FirebaseFirestore.DocumentData | undefined): boolean {
+  if (!caso || typeof caso.empresaId !== "string" || !ID.test(caso.empresaId)
+    || typeof caso.consecutivo !== "string" || !ID.test(caso.consecutivo)
+    || !(caso.recibidoEn instanceof Timestamp) || typeof caso.vencimientoRespuesta !== "string") return false;
+  const expected = createHash("sha256").update(JSON.stringify([caso.empresaId, caso.consecutivo])).digest("hex");
+  try {
+    const original = sumarHabiles(fechaBogota(caso.recibidoEn.toMillis()), 10);
+    const tieneProrroga = caso.prorrogaRef !== undefined || caso.prorrogaMotivo !== undefined || caso.vencimientoProrroga !== undefined;
+    return casoId === expected && caso.vencimientoRespuesta === original && (!tieneProrroga
+      || (typeof caso.prorrogaRef === "string" && ID.test(caso.prorrogaRef)
+        && typeof caso.prorrogaMotivo === "string" && !!caso.prorrogaMotivo.trim()
+        && caso.vencimientoProrroga === sumarHabiles(original, 5)));
+  }
+  catch { return false; }
+}
 
 /** Expediente restringido: guarda referencias a verificaciones, nunca copias de identidad. */
 export async function tramitarConsultaPrivacidad(db: Firestore, actor: Actor, input: unknown) {
@@ -31,6 +46,7 @@ export async function tramitarConsultaPrivacidad(db: Firestore, actor: Actor, in
       const ref = db.collection("privacidad_consultas").doc(casoId);
       const existing = (await tx.get(ref)).data();
       if (existing) {
+        if (!casoIntegro(casoId, existing)) return fail("failed-precondition");
         if (existing.operadorUid !== actor.uid) return fail("permission-denied");
         if (!(existing.recibidoEn instanceof Timestamp) || !existing.recibidoEn.isEqual(recibidoEn)) return fail("already-exists");
         return { casoId, estado: existing.estado as string };
@@ -53,6 +69,7 @@ export async function tramitarConsultaPrivacidad(db: Firestore, actor: Actor, in
       const ref = db.collection("privacidad_consultas").doc(casoId);
       const existing = (await tx.get(ref)).data();
       if (existing) {
+        if (!casoIntegro(casoId, existing)) return fail("failed-precondition");
         if (existing.operadorUid !== actor.uid) return fail("permission-denied");
         if (existing.estado !== "RECIBIDA") {
           if (existing.huellaRegistro !== huella) return fail("already-exists");
@@ -79,6 +96,8 @@ export async function tramitarConsultaPrivacidad(db: Firestore, actor: Actor, in
     await autorizarPlataforma(db, actor.uid, actor.token, FACULTAD, tx);
     const ref = db.collection("privacidad_consultas").doc(casoId);
     const caso = (await tx.get(ref)).data();
+    if (!caso || caso.operadorUid !== actor.uid) return fail("permission-denied");
+    if (!casoIntegro(casoId, caso)) return fail("failed-precondition");
     if (caso?.estado === "RECIBIDA" && caso.operadorUid === actor.uid && caso.recibidoEn instanceof Timestamp
       && typeof caso.vencimientoRespuesta === "string") {
       if (accion === "CONSULTAR") return { casoId, estado: "RECIBIDA", vencimientoRespuesta: caso.vencimientoProrroga ?? caso.vencimientoRespuesta, respuestaDocumentada: false, respuestaRef: null };
