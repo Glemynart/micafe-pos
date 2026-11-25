@@ -55,8 +55,9 @@ archivos en un ensayo representativo antes de ofrecerla como disponible.
 
 1. Registrar fecha de recepción y consecutivo. Verificar identidad, facultad,
    dato afectado y motivo. Si falta información, requerirla dentro de los cinco
-   días siguientes. Si corresponde a otro responsable, trasladar dentro de dos
-   días hábiles e informar al titular.
+   días siguientes y guardar la referencia opaca del soporte, fecha declarada,
+   operador y hora de registro. Si corresponde a otro responsable, trasladar
+   dentro de dos días hábiles e informar al titular.
 2. Con el reclamo completo, poner la leyenda «reclamo en trámite» y su motivo en
    el registro afectado dentro de dos días hábiles. Restringir el detalle. Un
    correo o el expediente por sí solos no sustituyen la anotación.
@@ -91,12 +92,11 @@ actualiza el indicador de la ficha en una transacción. Las Rules protegen el
 expediente y los cambios directos al indicador. Para cerrar hay que documentar
 primero la referencia y el resultado de la respuesta comunicada.
 
-Los plazos se calculan con fecha civil de Bogotá, de lunes a viernes y con
-festivos nacionales fijos, trasladados y móviles de la Ley 51 de 1983. Se guarda
-la versión del calendario y los vencimientos calculados con la apertura. Si
-aplica un día no hábil adicional o un calendario distinto al de atención
-ordinaria, verificar el vencimiento del expediente con el responsable. La
-prórroga exige referencia de aviso, motivo y registro dentro del plazo inicial.
+Los expedientes históricos conservan su calendario V1 (lunes a viernes,
+excluidos domingos y festivos) y los vencimientos guardados. No se recalculan en
+bloque. En V1, una versión ausente solo se admite si la estructura y los
+vencimientos coinciden con el comportamiento anterior. Una versión desconocida
+o inconsistente falla cerrada.
 
 En Emulator se verificaron reintentos, dos reclamos concurrentes, cierre
 parcial, falta de facultad/instrucción/respuesta, operador revocado y separación
@@ -113,6 +113,25 @@ fecha canónica de creación quedan fuera del primer adaptador. Los casos fuera
 del directorio, los desistimientos y el traslado al responsable se gestionan
 en el registro restringido con sus plazos. Validar Rules, callable, registro de
 la nueva facultad y App Hosting en ese orden antes de activar el acceso real.
+
+### ADR-SAAS-104 aceptado; implementación pendiente
+
+Para expedientes nuevos, la versión V2 cuenta sábados no festivos como hábiles,
+excluye domingos y festivos colombianos, y debe tener cobertura operativa los
+sábados. Las consultas, anotación, respuesta y extensiones usan la misma
+versión que quedó registrada al abrir el caso. Los vencimientos persistidos no
+se reinterpretan al cambiar de calendario. La fecha de un acto externo que
+declara el operador queda separada de la hora server-side en que la registró.
+
+En un reclamo incompleto, Backoffice debe permitir anotar el requerimiento de
+subsanación, registrar fecha/referencia de recepción de la información y
+completar el mismo expediente si su recepción ocurrió dentro de dos meses. El
+desistimiento será manual, posterior al término, con referencia de verificación
+del canal externo; no se cierra automáticamente ni se elimina el caso. Estos
+metadatos son referencias opacas, no copias de mensajes o identificaciones. El
+flujo nuevo no está implementado ni habilitado para casos reales. La decisión
+de calendario es operativa, no concepto jurídico: la conformidad específica de
+Dusema sigue pendiente de revisión jurídica profesional.
 
 ## Fuentes
 

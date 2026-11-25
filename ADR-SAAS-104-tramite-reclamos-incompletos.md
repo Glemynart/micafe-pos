@@ -1,7 +1,12 @@
 # ADR-SAAS-104 — Evidencia y cierre de reclamos incompletos
 
-Estado: **Propuesto — requiere aprobación explícita antes de implementar**.
+Estado: **Aceptado para implementación y validación sintética/staging — 2026-11-25**.
 Goal: `G-SAAS-02 → M2 → E2.2`.
+
+La aceptación es una decisión de arquitectura y operación interna delegada por
+el responsable. No constituye concepto jurídico profesional, no certifica la
+interpretación legal para Dusema, no publica los documentos y no autoriza
+escrituras reales ni despliegues productivos.
 
 ## Contexto
 
@@ -131,12 +136,38 @@ Elegir **A** y conservar `privacidad_reclamos/{casoId}` como autoridad del caso.
   aplicable a Dusema declare inhábil el sábado. Aplicar la misma convención a
   consultas (10 + 5 días hábiles), anotación (2), respuesta (15) y extensión
   (8); validar las fechas de cada escenario.
+- La versión `CO-LEY51-SAB-DOM-FEST-V2` cuenta sábados no festivos como hábiles.
+  Un vencimiento expresado en meses se calcula por calendario; si cae domingo o
+  festivo se extiende al siguiente día computable. Debe existir cobertura
+  operativa los sábados. Antes de afirmar cumplimiento jurídico, un abogado
+  colombiano debe validar su aplicación concreta a Dusema.
 - Conservar los vencimientos y la versión del calendario en expedientes
   existentes. El lector debe seguir reconociendo la versión antigua y calcular
   valores de respaldo conforme a ella, sin reinterpretarlos con la nueva. No
   recalcular en bloque casos abiertos; identificar y revisar manualmente los
   casos cuyo vencimiento ya fue calculado bajo la versión previa antes de usar
   el flujo en operación real.
+- Para compatibilidad, un expediente histórico sin `calendarioVersion` se
+  interpreta únicamente como V1 si su estructura y los vencimientos persistidos
+  son consistentes con V1. Los vencimientos persistidos siempre prevalecen; solo
+  se reconstruye una fecha ausente desde su fecha de origen usando V1. Una
+  versión desconocida o una inconsistencia falla cerrada. Todo expediente nuevo
+  escribe V2 y sus vencimientos en la misma transacción.
+- La fecha civil de envío/recepción que declara el operador se guarda separada
+  del timestamp server-side de registro. Se exige fecha no futura, referencia
+  opaca y operador; el sistema no valida el canal externo. Un registro tardío
+  conserva ambos tiempos y no prueba por sí solo que el acto externo ocurriera
+  en la fecha declarada.
+- La solicitud de subsanación queda write-once con fecha declarada, referencia
+  opaca, UID del operador y timestamp de registro. La recepción de la
+  subsanación debe quedar documentada por fecha y referencia antes de completar
+  el reclamo; se permite registrarla después solo si la fecha declarada cae
+  dentro de los dos meses y el caso no fue desistido. El servidor no infiere la
+  recepción desde el registro tardío.
+- El desistimiento requiere superar íntegramente los dos meses y el ajuste al
+  siguiente día computable si el vencimiento cae domingo/festivo; exige
+  atestación y referencia de la verificación externa. Reintentos idénticos son
+  no-op; la acción nunca borra ni reabre el caso.
 - Para los dos meses se computan meses calendario y se aplica la regla legal
   para el vencimiento que caiga en día feriado o de vacancia. La aplicación
   concreta a Dusema requiere la revisión jurídica final indicada arriba.
