@@ -471,3 +471,25 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   de solicitud, aprobación y venta canónica; no había fallos reportados.
   El commit local `38ddeb3` no estaba incluido en ese run ni enviado al PR.
 - No se modificaron recursos ni datos productivos durante esta revalidación.
+
+## Revalidación de Vercel y CI — 2026-11-25 11:00 UTC
+
+- La CLI autenticada confirmó que el equipo Vercel `glemynarts-projects` está
+  en Hobby. `vercel inspect` clasificó `cafeatrato.vercel.app` como alias del
+  deployment de producción `cafeatrato-f9n5lfjee-glemynarts-projects.vercel.app`,
+  ID `dpl_GoFEeU2pjnnbEgo5jR7F863swYY4`, `Ready`. Una petición HTTP al alias
+  devolvió `200` y el título «POS Empresarial».
+- Los [Términos de Vercel](https://vercel.com/legal/terms), actualizados el
+  2026-10-19, permiten el plan Hobby solo para uso personal o no comercial y
+  reservan el uso de contenido del cliente en Hobby o en una prueba Pro para
+  entrenamiento de modelos de IA/ML. El DPA publicado no se acredita para el
+  equipo Hobby. No hay evidencia en esta comprobación de que datos de clientes
+  hayan sido transmitidos a Vercel ni de que se hayan usado para entrenar.
+- El alias productivo está activo bajo una cuenta cuyo plan no permite el uso
+  comercial; la aptitud contractual queda **NO APROBADA** hasta retirar el uso
+  comercial de ese hosting o contar con una autorización contractual válida.
+  No se cambió el plan, se pausó o borró el proyecto ni se modificó el alias.
+- El run `45595698705` cubre el HEAD remoto
+  `ec8b928c4767f3d5156dd85845109bd0ca1214eb` y terminó `success` el
+  2026-11-25 a las 10:58:17 UTC. PR #706 sigue abierto y en borrador. Los commits
+  locales `38ddeb3` y `b824835` aún no forman parte de ese run ni del PR.

@@ -83,6 +83,29 @@ Dusema POS. No se cambió el plan ni se incurrió en cargos. La configuración
 actual reduce nuevas publicaciones Git, pero no elimina despliegues ni resuelve
 el uso comercial del alias estable.
 
+Revalidación autenticada del 2026-11-25 a las 11:00 UTC: `vercel teams list
+--json` confirmó que `glemynarts-projects` continúa en `hobby`. `vercel inspect
+https://cafeatrato.vercel.app` identificó el deployment de producción
+`cafeatrato-f9n5lfjee-glemynarts-projects.vercel.app`, ID
+`dpl_GoFEeU2pjnnbEgo5jR7F863swYY4`, estado `Ready`, creado el 2026-10-06 a las
+04:10:07 UTC. Una solicitud HTTP al alias estable devolvió `200` con el título
+«POS Empresarial».
+
+Los [Términos de Vercel](https://vercel.com/legal/terms), actualizados el
+2026-10-19, limitan Hobby a uso personal o no comercial y disponen que el
+contenido del cliente en Hobby o en una prueba Pro puede utilizarse para entrenar
+modelos de IA/ML. El servicio principal usa Firebase para sus datos operativos;
+esta comprobación no demuestra que datos de clientes hayan sido enviados a
+Vercel ni que Vercel haya entrenado modelos con contenido de Dusema. El DPA
+publicado limita su cobertura a planes Pro/Enterprise; no se acredita cobertura
+para el equipo Hobby observado.
+
+El alias es una superficie pública de producción asociada a un equipo Hobby y
+sirve contenido del POS. No se hizo upgrade, pausa, borrado ni cambio de alias.
+La elegibilidad comercial no es una incertidumbre documental: el plan y el
+estado del deployment están confirmados; falta resolver su retiro o la migración
+a un plan comercial con la autorización económica correspondiente.
+
 ## Correo
 
 El prestador confirmó que el contacto es Gmail personal. No se verificaron MFA,
