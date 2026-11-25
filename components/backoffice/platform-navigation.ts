@@ -20,6 +20,7 @@ export const navegacionPlataforma: ItemNavegacion[] = [
   { href: "/backoffice/auditoria", label: "Auditoría", icon: ClipboardList, facultad: "PLATAFORMA_CONSULTAR" },
   { href: "/backoffice/soporte", label: "Soporte", icon: Headphones },
   { href: "/backoffice/privacidad", label: "Reclamos de privacidad", icon: ShieldCheck, facultad: "PRIVACIDAD_RECLAMOS_TRAMITAR" },
+  { href: "/backoffice/consultas-privacidad", label: "Consultas de privacidad", icon: ShieldCheck, facultad: "PRIVACIDAD_CONSULTAS_TRAMITAR" },
   { href: "/backoffice/configuracion", label: "Configuración", icon: Settings },
 ];
 

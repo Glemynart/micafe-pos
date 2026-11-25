@@ -29,7 +29,7 @@ test("saas-legal descubre únicamente sus callables declaradas", async () => {
     await new Promise((done) => setTimeout(done, 100));
   }
   assert.ok(payload);
-  assert.deepEqual(Object.keys(payload.endpoints).sort(), ["aceptarDocumentosLegalesTenant", "consultarEstadoLegalTenant", "tramitarReclamoPrivacidadSaas"]);
+  assert.deepEqual(Object.keys(payload.endpoints).sort(), ["aceptarDocumentosLegalesTenant", "consultarEstadoLegalTenant", "tramitarConsultaPrivacidadSaas", "tramitarReclamoPrivacidadSaas"]);
   assert.deepEqual(payload.endpoints.consultarEstadoLegalTenant.region, ["us-central1"]);
   assert.deepEqual(payload.endpoints.aceptarDocumentosLegalesTenant.region, ["us-central1"]);
   assert.deepEqual(payload.params ?? [], []);

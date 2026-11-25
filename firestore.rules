@@ -264,6 +264,9 @@ service cloud.firestore {
     match /privacidad_reclamos/{casoId} {
       allow read, write: if false;
     }
+    match /privacidad_consultas/{casoId} {
+      allow read, write: if false;
+    }
     match /cuentas_bancarias/{id} {
       allow read: if puedeLeerTenant() && esOperativo();
       allow create, update, delete: if false;

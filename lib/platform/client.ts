@@ -15,6 +15,7 @@ export const FACULTADES_PLATAFORMA = [
   "ACCESO_RESTABLECER",
   "RELEASE_COMPRAS_GOBERNAR",
   "PRIVACIDAD_RECLAMOS_TRAMITAR",
+  "PRIVACIDAD_CONSULTAS_TRAMITAR",
   "DUSEMA_TENANT_CONSULTAR",
 ] as const;
 
@@ -94,6 +95,18 @@ export const tramitarReclamo = (data: Record<string, string | boolean>) =>
 
 export const consultarReclamo = (casoId: string) =>
   invocar<ReclamoPrivacidad | ReclamoRecibido>("tramitarReclamoPrivacidadSaas", { accion: "CONSULTAR", casoId });
+
+export interface ConsultaPrivacidad {
+  casoId: string;
+  estado: "ABIERTA" | "RESPONDIDA";
+  vencimientoRespuesta: string;
+  respuestaDocumentada: boolean;
+  respuestaRef: string | null;
+}
+export const tramitarConsultaPrivacidad = (data: Record<string, string | boolean>) =>
+  invocar<{ casoId: string; estado: ConsultaPrivacidad["estado"] }>("tramitarConsultaPrivacidadSaas", data);
+export const consultarConsultaPrivacidad = (casoId: string) =>
+  invocar<ConsultaPrivacidad>("tramitarConsultaPrivacidadSaas", { accion: "CONSULTAR", casoId });
 
 export const listarRecursos = (
   recurso: RecursoPlataforma,

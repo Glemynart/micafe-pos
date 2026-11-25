@@ -1,0 +1,76 @@
+import { createHash } from "node:crypto";
+import { FieldValue, Timestamp, type Firestore } from "firebase-admin/firestore";
+import { HttpsError } from "firebase-functions/v2/https";
+import { autorizarPlataforma, type TokenPlataforma } from "../platform/authorization";
+import { fechaBogota, PRIVACY_CALENDAR_VERSION, sumarHabiles } from "./privacy-calendar";
+
+const FACULTAD = "PRIVACIDAD_CONSULTAS_TRAMITAR";
+const ID = /^[A-Za-z0-9_-]{1,120}$/;
+const fail = (code: "invalid-argument" | "permission-denied" | "already-exists" | "failed-precondition") => { throw new HttpsError(code, "CONSULTA_PRIVACIDAD_NO_DISPONIBLE"); };
+const id = (value: unknown): string => typeof value === "string" && ID.test(value) ? value : fail("invalid-argument");
+const text = (value: unknown): string => typeof value === "string" && value.trim().length > 0 && value.trim().length <= 500 ? value.trim() : fail("invalid-argument");
+const date = (value: unknown): Timestamp => {
+  if (typeof value !== "string" || !/^20\d\d-\d\d-\d\d$/.test(value)) return fail("invalid-argument");
+  const millis = Date.parse(`${value}T00:00:00-05:00`);
+  if (!Number.isFinite(millis) || fechaBogota(millis) !== value || millis > Date.now()) return fail("invalid-argument");
+  return Timestamp.fromMillis(millis);
+};
+type Actor = { uid: string; token: TokenPlataforma };
+
+/** Expediente restringido: guarda referencias a verificaciones, nunca copias de identidad. */
+export async function tramitarConsultaPrivacidad(db: Firestore, actor: Actor, input: unknown) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return fail("invalid-argument");
+  const data = input as Record<string, unknown>;
+  const accion = data.accion;
+  if (accion === "REGISTRAR") {
+    if (Object.keys(data).some(key => !["accion", "empresaId", "consecutivo", "recibido", "identidadRef", "instruccionRef", "verificacionConfirmada"].includes(key)) || data.verificacionConfirmada !== true) return fail("invalid-argument");
+    const empresaId = id(data.empresaId), consecutivo = id(data.consecutivo);
+    const identidadRef = id(data.identidadRef), instruccionRef = id(data.instruccionRef);
+    const recibidoEn = date(data.recibido);
+    const casoId = createHash("sha256").update(JSON.stringify([empresaId, consecutivo])).digest("hex");
+    const huella = createHash("sha256").update(JSON.stringify([empresaId, consecutivo, data.recibido, identidadRef, instruccionRef])).digest("hex");
+    return db.runTransaction(async tx => {
+      await autorizarPlataforma(db, actor.uid, actor.token, FACULTAD, tx);
+      const ref = db.collection("privacidad_consultas").doc(casoId);
+      const existing = (await tx.get(ref)).data();
+      if (existing) {
+        if (existing.operadorUid !== actor.uid) return fail("permission-denied");
+        if (existing.huellaRegistro !== huella) return fail("already-exists");
+        return { casoId, estado: existing.estado as string };
+      }
+      if (!(await tx.get(db.collection("empresas").doc(empresaId))).exists) return fail("permission-denied");
+      tx.create(ref, { empresaId, consecutivo, operadorUid: actor.uid, identidadRef, instruccionRef,
+        identidadVerificada: true, huellaRegistro: huella, recibidoEn, registradoEn: FieldValue.serverTimestamp(),
+        vencimientoRespuesta: sumarHabiles(fechaBogota(recibidoEn.toMillis()), 10), calendarioVersion: PRIVACY_CALENDAR_VERSION, estado: "ABIERTA" });
+      return { casoId, estado: "ABIERTA" };
+    });
+  }
+  if (!["CONSULTAR", "PRORROGAR", "RESPONDER"].includes(String(accion))) return fail("invalid-argument");
+  if (Object.keys(data).some(key => !["accion", "casoId", "referencia", "resultado"].includes(key))) return fail("invalid-argument");
+  const casoId = id(data.casoId);
+  const referencia = accion === "CONSULTAR" ? undefined : id(data.referencia);
+  const resultado = accion === "CONSULTAR" ? undefined : text(data.resultado);
+  if (accion === "CONSULTAR" && (data.referencia !== undefined || data.resultado !== undefined)) return fail("invalid-argument");
+  return db.runTransaction(async tx => {
+    await autorizarPlataforma(db, actor.uid, actor.token, FACULTAD, tx);
+    const ref = db.collection("privacidad_consultas").doc(casoId);
+    const caso = (await tx.get(ref)).data();
+    if (!caso || caso.operadorUid !== actor.uid || caso.identidadVerificada !== true || !ID.test(caso.empresaId ?? "")
+      || !ID.test(caso.identidadRef ?? "") || !ID.test(caso.instruccionRef ?? "") || !["ABIERTA", "RESPONDIDA"].includes(caso.estado)
+      || !(caso.recibidoEn instanceof Timestamp) || typeof caso.vencimientoRespuesta !== "string") return fail("permission-denied");
+    if (accion === "CONSULTAR") return { casoId, estado: caso.estado, vencimientoRespuesta: caso.vencimientoProrroga ?? caso.vencimientoRespuesta,
+      respuestaDocumentada: caso.estado === "RESPONDIDA", respuestaRef: caso.respuestaRef ?? null };
+    if (accion === "PRORROGAR") {
+      if (caso.prorrogaRef === referencia && caso.prorrogaMotivo === resultado) return { casoId, estado: caso.estado };
+      if (caso.estado !== "ABIERTA" || caso.prorrogaRef || fechaBogota(Date.now()) > caso.vencimientoRespuesta) return fail("failed-precondition");
+      tx.update(ref, { prorrogaRef: referencia, prorrogaMotivo: resultado, prorrogaRegistradaEn: FieldValue.serverTimestamp(), vencimientoProrroga: sumarHabiles(caso.vencimientoRespuesta, 5) });
+      return { casoId, estado: "ABIERTA" };
+    }
+    if (caso.estado === "RESPONDIDA") {
+      if (caso.respuestaRef !== referencia || caso.resultado !== resultado) return fail("already-exists");
+      return { casoId, estado: "RESPONDIDA" };
+    }
+    tx.update(ref, { estado: "RESPONDIDA", respuestaRef: referencia, resultado, respondidaEn: FieldValue.serverTimestamp() });
+    return { casoId, estado: "RESPONDIDA" };
+  });
+}

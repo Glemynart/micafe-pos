@@ -150,7 +150,7 @@ export const INTERNAL_ROOTS = new Set(`bootstrap_identidades_owner comandos_come
   configuracion_command_ids credenciales_operativas incorporaciones operaciones_comandos operaciones_command_idempotency
   permisos_roles planes provisionamientos_empresariales reservas_codigos_operativos restablecimientos_credencial
   saas_auditoria saas_auditoria_obligaciones saas_comandos saas_operadores saas_soporte_autorizaciones
-  saas_platform_bindings saas_platform_binding_external_tenants invitaciones consumo controles_release_compras privacidad_reclamos`.split(/\s+/));
+  saas_platform_bindings saas_platform_binding_external_tenants invitaciones consumo controles_release_compras privacidad_reclamos privacidad_consultas`.split(/\s+/));
 
 // These sources need explicit adapters before a populated source can be delivered.
 // They are NEVER silently omitted or exported using an unconstrained object schema.

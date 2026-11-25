@@ -1,8 +1,8 @@
 # Procedimiento operativo de consultas de datos personales
 
-Estado: preparación para revisión y ensayo. Este procedimiento no certifica que
-el Backoffice gestione consultas: la implementación actual cubre reclamos de
-fichas de clientes conforme a ADR-SAAS-102. Hasta que exista y se verifique la
+Estado: preparación para revisión y ensayo. ADR-SAAS-103 incorpora una ruta
+de consultas verificadas en la rama de desarrollo; todavía no está desplegada ni
+se ha ensayado el recorrido de interfaz en staging. Hasta que se verifique la
 gestión de consultas, el responsable debe emplear un expediente restringido y
 un mecanismo de seguimiento fuera del POS; no registrar el contenido sensible
 en issues, commits o canales públicos.
@@ -45,11 +45,12 @@ que el representante del negocio puede actuar por todos sus clientes.
 
 ## Verificación pendiente para operación integrada
 
-Se necesita un registro de consultas con autorización explícita, aislamiento
-entre empresas, cálculo de plazos, asignación, respuesta, cierre y pruebas de
-concurrencia. ADR-SAAS-102 describe reclamos, no acredita esta capacidad. Antes
-de declararla operativa se debe ensayar el recorrido completo en staging y
-comprobar la facultad y las restricciones vigentes en cada acción.
+ADR-SAAS-103 implementa el registro de consultas verificadas con autorización
+específica, plazo, asignación al operador y registro de respuesta. Pasaron pruebas
+de concurrencia y facultad en Emulator; esto no acredita interfaz ni operación en
+producción. Se requiere ensayar el recorrido en staging y comprobar facultad,
+aislamiento y restricciones. La recepción incompleta y reasignación no están
+automatizadas y requieren seguimiento externo documentado.
 
 Fuentes: [Ley 1581 de 2012, artículos 14 y 15](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981)
 y [Decreto 1074 de 2015](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=76608).
