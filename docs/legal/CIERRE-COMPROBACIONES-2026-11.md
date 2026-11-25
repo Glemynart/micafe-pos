@@ -116,7 +116,9 @@ seguir fortaleciendo las pruebas con datos sintéticos.
 Las comprobaciones ya no dependen de una duda genérica sobre proveedores:
 
 1. Google online y Gmail personal están identificados por declaración y fuentes.
-2. Vercel Hobby permanece como asunto contractual; el flujo Git automático está detenido.
+2. Se retiró el alias público estable de Vercel y las direcciones `cafeatrato-*`
+   verificadas requieren SSO o están retiradas; el equipo sigue en Hobby, así que
+   la aptitud contractual de los deployments internos remanentes sigue sin resolver.
 3. Exportación y supresión tienen una base local probada con datos sintéticos,
    pero no están certificadas ni habilitadas para operaciones reales.
 4. Plazos comerciales de soporte/salida y matriz de conservación siguen propuestos;
@@ -493,3 +495,25 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   `ec8b928c4767f3d5156dd85845109bd0ca1214eb` y terminó `success` el
   2026-11-25 a las 10:58:17 UTC. PR #706 sigue abierto y en borrador. Los commits
   locales `38ddeb3` y `b824835` aún no forman parte de ese run ni del PR.
+
+## Revalidación de acceso Vercel — 2026-11-25 11:17 UTC
+
+- Se retiró el alias público estable `cafeatrato.vercel.app` sin eliminar ni
+  pausar su deployment. La verificación posterior obtuvo `404
+  DEPLOYMENT_NOT_FOUND`.
+- La paginación de `vercel alias list` produjo 123 aliases `cafeatrato-*` en el
+  equipo. Las solicitudes HEAD, sin seguir redirecciones, resultaron en 46 `302`
+  a SSO, 76 `410` y una `404`; ninguna devolvió `200`.
+- Las cuatro URLs de deployments de producción y el preview de #706 dieron `302`
+  a SSO en comprobaciones separadas. Esta evidencia no inspecciona el contenido
+  protegido ni descarta deployments o recursos que no aparezcan en el inventario
+  de aliases.
+- `pos.dusema.com` conserva su ruta Firebase: `/` redirige `307` a `/pos`, y
+  `/pos` respondió `200`.
+- No se actualizó el plan ni se borraron deployments. Vercel sigue en Hobby y
+  almacena los deployments protegidos; por eso la compatibilidad contractual de
+  ese uso remanente aún no se declara resuelta.
+- El CI exacto de #706, run `45600820307` para
+  `e12ae9a47b78f75b33df301496fd63601db2c723`, seguía `in_progress` en el smoke
+  E2E P0-01 a las 11:17 UTC. No iniciar un nuevo run ni atribuirle resultados
+  anteriores.

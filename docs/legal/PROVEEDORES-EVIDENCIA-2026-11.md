@@ -106,6 +106,26 @@ La elegibilidad comercial no es una incertidumbre documental: el plan y el
 estado del deployment están confirmados; falta resolver su retiro o la migración
 a un plan comercial con la autorización económica correspondiente.
 
+### Mitigación verificada — 2026-11-25 11:17 UTC
+
+Por autorización del corte legal se retiró únicamente el alias estable
+`cafeatrato.vercel.app` mediante `vercel alias remove`. No se borró ni pausó el
+deployment. La comprobación HTTP posterior devolvió `404 DEPLOYMENT_NOT_FOUND`.
+El dominio operativo `pos.dusema.com` quedó intacto: la raíz respondió `307` a
+`/pos` y `/pos` respondió `200` desde Firebase App Hosting.
+
+La consulta paginada de aliases del equipo encontró 123 aliases `cafeatrato-*`;
+una comprobación HEAD sin seguir redirecciones obtuvo 46 respuestas `302` a SSO,
+76 respuestas `410` y una `404`. También se verificaron por separado las cuatro
+URLs de deployments de producción y la URL de preview del PR #706: los cinco
+redireccionaron a SSO. No queda una respuesta pública `200` entre esas 123
+direcciones y aliases comprobados. Esto verifica acceso HTTP, no inspecciona el
+contenido protegido ni prueba ausencia de otros recursos/despliegues sin alias.
+
+El equipo continúa en Hobby y los deployments siguen alojados en Vercel; por ello
+la elegibilidad contractual de ese uso interno/remanente no se declara resuelta.
+No se actualizó el plan, no se borraron deployments y no se incurrió en cargos.
+
 ## Correo
 
 El prestador confirmó que el contacto es Gmail personal. No se verificaron MFA,
@@ -165,8 +185,11 @@ en Git únicamente estado, referencia no secreta y conclusión sustentada.
 
 ## Decisiones pendientes
 
-1. Revisar contenido, vigencia y protección de los despliegues Vercel históricos;
-   #704 impide nuevos despliegues Git automáticos, no elimina los existentes.
+1. El alias estable público fue retirado y las 123 direcciones `cafeatrato-*`
+   consultadas ya no sirven una respuesta HTTP pública `200`. Los deployments
+   protegidos y sus contenidos siguen alojados; #704 deshabilita los nuevos
+   despliegues Git automáticos. Resolver si mantener ese uso interno de Vercel
+   Hobby es compatible con los términos aplicables, sin suponer cobertura DPA.
 2. Acreditar contratos Google/correo/GitHub en la cuenta; no inventar firmas ni
    aceptar nuevos acuerdos en nombre del prestador sin mandato específico.
 3. ADR-SAAS-100 ya fue aceptado para implementación y pruebas controladas. Completar
