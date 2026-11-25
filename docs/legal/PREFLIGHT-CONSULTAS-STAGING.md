@@ -140,3 +140,19 @@ resultado, sin datos personales ni referencias sensibles.
   no tiene desplegadas las dos Functions de privacidad. Sin publicación de
   documentos definitivos y aprobación jurídica, la UI en staging no habilita
   aceptación ni tramitación de casos reales.
+
+## Revalidación de facultades en staging — 25 de noviembre de 2026, 14:18 UTC
+
+- Una consulta de solo lectura, dirigida explícitamente al proyecto
+  `micafe-pos-staging`, encontró la cuenta de prueba en Firebase Auth y su
+  registro `saas_operadores` en estado `ACTIVO`, con `versionAutorizacion=2`.
+- Tanto el registro de Firestore como los claims actuales de Auth contienen
+  `PRIVACIDAD_CONSULTAS_TRAMITAR` y `PRIVACIDAD_RECLAMOS_TRAMITAR`; el claim de
+  operador está activo. No se persistieron UID, correo, secretos ni facultades
+  ajenas al alcance.
+- El usuario informa que inició sesión con esa identidad y la pestaña está en
+  `/backoffice/privacidad`. No fue posible observar el contenido renderizado ni
+  ejecutar una acción autenticada. El grant y su proyección quedan confirmados;
+  no se marca como smoke positivo de interfaz ni como trámite probado.
+- No se crearon ni leyeron expedientes reales. Producción no fue consultada ni
+  modificada durante esta verificación.

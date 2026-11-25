@@ -615,3 +615,22 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   autenticado, verificación factual/jurídica, prueba externa del canal de correo,
   exportación/supresión controladas y aptitud contractual de los previews
   remanentes de Vercel Hobby. No se desplegó nada a producción.
+
+## Verificación posterior de facultades — 2026-11-25 14:18 UTC
+
+- Para el smoke autorizado de staging, una consulta de solo lectura con el
+  proyecto fijado explícitamente en `micafe-pos-staging` encontró el operador de
+  prueba activo, `versionAutorizacion=2`, y las facultades separadas
+  `PRIVACIDAD_CONSULTAS_TRAMITAR` y `PRIVACIDAD_RECLAMOS_TRAMITAR` tanto en
+  Firestore (`saas_operadores`) como en los claims actuales de Firebase Auth.
+  No se persistieron el UID, correo, ni otras facultades.
+- El usuario informa que tiene abierta la sesión de Glemynart y el contexto del
+  navegador integrado reporta `/backoffice/privacidad`. No se observó el
+  contenido DOM/visual ni se ejecutó una operación autenticada. Por ello, la
+  concesión y su proyección de claims quedan verificadas; autorización efectiva
+  en interfaz y trámite sintético siguen `NOT VERIFIED`.
+- No se registró ningún expediente ni se leyeron datos personales de titulares.
+  No hubo cambios en producción.
+- El run `45626959540` para `db3a6b8ab02e07ea2ea1d36598dff14bafc0c723` terminó
+  `SUCCESS` a las 14:14:03 UTC. Esa CI no sustituye el smoke de interfaz, la
+  revisión jurídica, una exportación real ni los demás gates de liberación.
