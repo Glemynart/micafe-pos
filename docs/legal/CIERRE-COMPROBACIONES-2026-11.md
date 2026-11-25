@@ -252,3 +252,53 @@ actual de Rules con una identidad autorizada, las nuevas Functions y la interfaz
 del PR #706, además de resolver el uso comercial del alias productivo de Vercel.
 La exportación y supresión reales tampoco están certificadas. No se activa
 aceptación ni se declara cumplimiento legal integral.
+
+## Revalidación del candidato y rutas — 2026-11-25 07:06 UTC
+
+- `main` remoto sigue en `aa1c4fece1386edc6ba31b439a2be98ed9216d0b`. PR #706 está
+  abierto y en borrador, HEAD `f26f8b6c1fc29a37cddddfa9365f7c15dfee0a01`, base
+  `main`, sin reviews ni decisión de aprobación. El run `45562213980` del SHA
+  exacto terminó `SUCCESS`; el PR continúa abierto y no se integró.
+- App Hosting staging mantiene 100 % del tráfico en
+  `build-2026-11-25-001`. Su rollout exacto está `SUCCEEDED`, el build `READY`, y
+  `source.codebase.commit` es `6e63c172d4cba7cc68c6f756148c84a79589e44e`; no es
+  el HEAD actual de #706. Producción permanece 100 % en
+  `build-2026-11-24-002`, `READY`, con origen
+  `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`.
+- Las Functions de privacidad y gobierno de facultades están `ACTIVE`, Node.js 22,
+  en staging. En producción siguen ausentes `tramitarConsultaPrivacidadSaas` y
+  `tramitarReclamoPrivacidadSaas`; la función productiva de facultades es una
+  revisión anterior. No se desplegó ninguna Function en este corte.
+- La lectura de releases de Firebase Rules devolvió `403` en ambos proyectos con
+  la identidad disponible. No se puede certificar qué Ruleset está activo hoy;
+  tampoco se amplió IAM ni se publicó Rules para superar la denegación.
+- La página pública de staging `/privacidad` responde `200` y contiene “Borrador”.
+  `/backoffice/operadores` entrega el shell de la aplicación (`200` sin sesión),
+  lo cual no prueba la identidad ni los permisos de una sesión. El smoke positivo
+  de la bandeja sigue sin ejecutarse. La identidad probada anteriormente fue
+  denegada por carecer de la facultad; no se ha concedido la nueva facultad a
+  ningún operador.
+- Revalidación de las cuatro rutas: en staging `/terminos`, `/privacidad`,
+  `/aviso-autorizacion` y `/anexo-tratamiento` responden `200` y muestran
+  “Borrador”/“no exigible”. En producción `/terminos` responde `200` con el título
+  “Términos y Privacidad - Café Atrato”; las otras tres rutas responden `404`.
+  El conjunto legal actual no está publicado en producción.
+- El recorrido de gobierno requiere un actor distinto del objetivo con
+  `OPERADORES_GOBERNAR`, y la cuenta objetivo debe existir en Firebase Auth. La
+  pantalla solicita el UID global; para editar facultades reemplaza el conjunto
+  completo, así que debe conservarse `PLATAFORMA_CONSULTAR` y las facultades
+  existentes, agregando solo `PRIVACIDAD_CONSULTAS_TRAMITAR`. Guardar incrementa
+  la versión de autorización y revoca los refresh tokens del objetivo. No se hizo
+  ningún cambio de autorización.
+- `https://pos.dusema.com/` responde `307` a `/pos`; `/pos` responde `200` con
+  título “Dusema POS”. El alias separado `cafeatrato.vercel.app` sigue respondiendo
+  `200` con título “POS Empresarial”. No se cambió ese alias ni se borró o pausó
+  ningún deployment de Vercel.
+
+El CI verde solo certifica ese commit para CI; no certifica Rules, permisos,
+exportación real, supresión, aprobación jurídica ni publicación en producción.
+La actualización de `REVISION-2026-11.md` incorpora la Ley 2573/2026: su vigencia
+general comenzó el 19 de noviembre de 2026; el alcance de “establecimientos
+comerciales con esta competencia” sigue sin definición en el texto y la SFC
+remitió las preguntas de alcance a la SIC. No se atribuye su cumplimiento a
+Dusema ni a todos los negocios clientes sin análisis jurídico por rol.

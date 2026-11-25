@@ -1,4 +1,4 @@
-# Preflight de consultas en staging — 24 de noviembre de 2026
+# Preflight de consultas en staging — 24–25 de noviembre de 2026
 
 Proyecto objetivo: `micafe-pos-staging`, región `us-central1`. Esta preparación
 no autoriza conceder facultades en producción ni registrar casos reales.
@@ -45,3 +45,40 @@ no autoriza conceder facultades en producción ni registrar casos reales.
 
 La CI y las pruebas de Emulator no sustituyen esta secuencia ni una aprobación
 jurídica. Cualquier operación productiva exige su propio preflight y compatibilidad.
+
+## Revalidación de solo lectura — 25 de noviembre de 2026
+
+- App Hosting staging usa `micafe-pos-build-2026-11-25-001`, con 100 % del tráfico.
+  El recurso `Rollout` exacto está `SUCCEEDED`; el `Build` está `READY` y su
+  `source.codebase.commit` es `6e63c172d4cba7cc68c6f756148c84a79589e44e`. Esto
+  prueba el release de staging observado, no el HEAD actual de #706.
+- En producción el backend sigue en `build-2026-11-24-002`, `READY`, 100 % del
+  tráfico, con origen `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`. No se
+  publicó el candidato de #706.
+- El inventario de Functions confirma en staging activas
+  `cambiarFacultadesOperadorSaas`, `tramitarConsultaPrivacidadSaas` y
+  `tramitarReclamoPrivacidadSaas`, Node.js 22. La función de consultas devuelve
+  denegación para la identidad de prueba que se presentó; no se le otorgó la
+  facultad. En producción no están desplegadas las dos Functions de privacidad.
+- El smoke positivo de la bandeja sigue pendiente. La pantalla de consultas
+  puede abrirse, pero una sesión autenticada sin
+  `PRIVACIDAD_CONSULTAS_TRAMITAR` ve el mensaje de acceso denegado; abrir una ruta
+  no demuestra que el usuario tenga permiso para operar expedientes.
+- El flujo oficial de gobierno está en `/backoffice/operadores`. La interfaz pide
+  el UID global que ya exista en Firebase Auth. Para un operador existente, el
+  botón `Facultades` y `Guardar facultades` reemplazan el conjunto completo; se
+  deben conservar `PLATAFORMA_CONSULTAR` y las facultades previas, agregando solo
+  `PRIVACIDAD_CONSULTAS_TRAMITAR`. El actor debe ser una identidad distinta del
+  objetivo y tener `OPERADORES_GOBERNAR`. Al guardar se incrementa la versión de
+  autorización y se revocan los tokens de la cuenta objetivo, que debe iniciar
+  sesión otra vez. Si la cuenta todavía no es operadora, primero se incorpora su
+  UID por el mismo flujo; la pantalla no busca por correo ni crea credenciales.
+- #706 sigue abierto y en borrador. Su HEAD es
+  `f26f8b6c1fc29a37cddddfa9365f7c15dfee0a01`; el CI `45562213980` terminó
+  `SUCCESS` para ese SHA. `main` sigue en `aa1c4fece1386edc6ba31b439a2be98ed9216d0b`.
+  El CI verde no sustituye el smoke autenticado, la lectura de Rules ni los demás
+  gates y no autoriza por sí mismo a publicar producción.
+
+No se ha concedido ningún permiso ni se han registrado, consultado o modificado
+expedientes reales. El smoke debe usar un caso ficticio y registrar solo el
+resultado, sin datos personales ni referencias sensibles.
