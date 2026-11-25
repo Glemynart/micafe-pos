@@ -82,3 +82,27 @@ jurídica. Cualquier operación productiva exige su propio preflight y compatibi
 No se ha concedido ningún permiso ni se han registrado, consultado o modificado
 expedientes reales. El smoke debe usar un caso ficticio y registrar solo el
 resultado, sin datos personales ni referencias sensibles.
+
+## Revalidación del candidato y cobertura — 25 de noviembre de 2026, 08:16 UTC
+
+- PR #706 conserva HEAD `aa26c0074f010bea84f8b98125b44153149a68c2`, base
+  `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`, y continúa `OPEN`/`DRAFT`.
+  El run `45570973981` del SHA exacto terminó `SUCCESS` a las 08:16:09 UTC,
+  incluidas las pruebas de Functions, Rules, E2E P0-01 y la certificación E4.1.
+  El éxito de CI no satisface los gates externos de publicación ni equivale a
+  aprobación para merge.
+- Preflight de producción `METADATA_ONLY` a las 07:58:33 UTC: inventario de 48
+  raíces; todas clasificadas `ADAPTER_DEFINED` o `EXCLUDED_INTERNAL`, con
+  `rootAdaptersComplete=true`. No leyó payloads, campos, documentos ni archivos;
+  `productionExportCertified` sigue `false`.
+- Revalidación HTTP del 25 de noviembre: las cuatro rutas de staging responden
+  `200` y muestran los documentos como borrador/no exigibles. En producción,
+  `/terminos` sigue sirviendo el título histórico “Términos y Privacidad - Café
+  Atrato” y `/privacidad`, `/aviso-autorizacion` y `/anexo-tratamiento` responden
+  `404`; el conjunto de documentos v0.2 no está publicado allí.
+- No se concedió ninguna facultad a operadores y no se ejecutó el smoke positivo.
+  Para concederla se requiere un operador gobernante distinto del UID objetivo;
+  no se pudo verificar la sesión integrada activa desde esta revisión. La lectura
+  autorizada del Ruleset, la verificación de datos y proveedores, la prueba externa
+  del correo, la certificación de salida/supresión y los gates de release siguen
+  abiertos.
