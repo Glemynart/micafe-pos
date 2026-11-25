@@ -6,7 +6,10 @@ const bogota = new Intl.DateTimeFormat("en-CA", {
   timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit",
 });
 
-export const PRIVACY_CALENDAR_VERSION = "CO-LEY51-LUN-VIE-V1";
+export const PRIVACY_CALENDAR_V1 = "CO-LEY51-LUN-VIE-V1";
+export const PRIVACY_CALENDAR_V2 = "CO-LEY51-SAB-DOM-FEST-V2";
+export const PRIVACY_CALENDAR_VERSION = PRIVACY_CALENDAR_V2;
+export type PrivacyCalendarVersion = typeof PRIVACY_CALENDAR_V1 | typeof PRIVACY_CALENDAR_V2;
 
 export function fechaBogota(millis: number): string {
   const parts = bogota.formatToParts(millis);
@@ -39,15 +42,55 @@ function festivos(year: number): Set<number> {
   ]);
 }
 
-export function sumarHabiles(fecha: string, cantidad: number): string {
+function fechaValida(fecha: string): number {
   let cursor = Date.parse(fecha + "T00:00:00Z");
-  if (!/^20\d\d-\d\d-\d\d$/.test(fecha) || !Number.isFinite(cursor) || iso(cursor) !== fecha
-    || !Number.isInteger(cantidad) || cantidad < 1 || cantidad > 30) throw new Error("PLAZO_INVALIDO");
+  if (!/^20\d\d-\d\d-\d\d$/.test(fecha) || !Number.isFinite(cursor) || iso(cursor) !== fecha) {
+    throw new Error("PLAZO_INVALIDO");
+  }
+  return cursor;
+}
+
+function habil(cursor: number, version: PrivacyCalendarVersion): boolean {
+  const date = new Date(cursor);
+  const weekday = date.getUTCDay();
+  return weekday !== 0 && (version === PRIVACY_CALENDAR_V2 || weekday !== 6)
+    && !festivos(date.getUTCFullYear()).has(cursor);
+}
+
+export function sumarHabiles(
+  fecha: string,
+  cantidad: number,
+  version: PrivacyCalendarVersion = PRIVACY_CALENDAR_VERSION,
+): string {
+  let cursor = fechaValida(fecha);
+  if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 30
+    || ![PRIVACY_CALENDAR_V1, PRIVACY_CALENDAR_V2].includes(version)) throw new Error("PLAZO_INVALIDO");
   while (cantidad > 0) {
     cursor += DAY;
-    const date = new Date(cursor);
-    const weekDay = date.getUTCDay();
-    if (weekDay !== 0 && weekDay !== 6 && !festivos(date.getUTCFullYear()).has(cursor)) cantidad--;
+    if (habil(cursor, version)) cantidad--;
   }
   return iso(cursor);
+}
+
+/** Meses calendario; si el día no existe en el mes destino, usa su último día. */
+export function sumarMesesCalendario(fecha: string, cantidad: number): string {
+  const cursor = fechaValida(fecha);
+  if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 24) throw new Error("PLAZO_INVALIDO");
+  const original = new Date(cursor);
+  const destino = new Date(Date.UTC(original.getUTCFullYear(), original.getUTCMonth() + cantidad, 1));
+  const ultimoDia = new Date(Date.UTC(destino.getUTCFullYear(), destino.getUTCMonth() + 1, 0)).getUTCDate();
+  destino.setUTCDate(Math.min(original.getUTCDate(), ultimoDia));
+  return iso(destino.getTime());
+}
+
+/** Conserva el sábado de V2; extiende domingo y festivo al siguiente día computable. */
+export function ajustarAlSiguienteHabil(fecha: string, version: PrivacyCalendarVersion): string {
+  let cursor = fechaValida(fecha);
+  if (![PRIVACY_CALENDAR_V1, PRIVACY_CALENDAR_V2].includes(version)) throw new Error("PLAZO_INVALIDO");
+  while (!habil(cursor, version)) cursor += DAY;
+  return iso(cursor);
+}
+
+export function vencimientoDosMeses(fecha: string, version: PrivacyCalendarVersion): string {
+  return ajustarAlSiguienteHabil(sumarMesesCalendario(fecha, 2), version);
 }

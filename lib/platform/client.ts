@@ -86,12 +86,20 @@ export interface ReclamoPrivacidad {
 
 export interface ReclamoRecibido {
   casoId: string;
-  estado: "RECIBIDO";
+  empresaId: string;
+  consecutivo: string;
+  fechaRecepcion: string;
+  estado: "RECIBIDO" | "DESISTIDO";
   vencimientoRequerimiento: string;
+  fechaRequerimiento: string | null;
+  requerimientoRef: string | null;
+  vencimientoSubsanacion: string | null;
+  subsanacionRecibida: boolean;
+  desistimientoVerificacionRef: string | null;
 }
 
 export const tramitarReclamo = (data: Record<string, string | boolean>) =>
-  invocar<{ casoId: string; estado: ReclamoPrivacidad["estado"] | "RECIBIDO" }>("tramitarReclamoPrivacidadSaas", data);
+  invocar<{ casoId: string; estado: ReclamoPrivacidad["estado"] | "RECIBIDO" | "DESISTIDO"; idempotente?: boolean }>("tramitarReclamoPrivacidadSaas", data);
 
 export const consultarReclamo = (casoId: string) =>
   invocar<ReclamoPrivacidad | ReclamoRecibido>("tramitarReclamoPrivacidadSaas", { accion: "CONSULTAR", casoId });

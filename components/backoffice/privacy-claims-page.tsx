@@ -27,6 +27,7 @@ export function PrivacyClaimsPage() {
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState("");
   const [mensaje, setMensaje] = useState("");
+  const casoIncompleto = reclamo?.estado === "RECIBIDO" ? reclamo : null;
 
   if (!tiene("PRIVACIDAD_RECLAMOS_TRAMITAR")) return <p>Tu usuario no tiene permiso para tramitar reclamos de privacidad.</p>;
 
@@ -45,11 +46,16 @@ export function PrivacyClaimsPage() {
     const element = event.currentTarget;
     const form = new FormData(element);
     await ejecutar(async () => {
+      const valoresRegistro = Object.fromEntries(camposRegistro.map(([key]) => [key, valor(form, key)]));
       const resultado = await tramitarReclamo({
         accion: "REGISTRAR",
-        ...Object.fromEntries(camposRegistro.map(([key]) => [key, valor(form, key)])),
+        ...valoresRegistro,
         motivo: valor(form, "motivo"), recibido: valor(form, "recibido"), completo: valor(form, "completo"),
         verificacionConfirmada: form.get("verificacion") === "on",
+        ...(casoIncompleto?.fechaRequerimiento ? {
+          subsanacionRecibida: valor(form, "subsanacionRecibida"),
+          subsanacionRef: valor(form, "subsanacionRef"),
+        } : {}),
       });
       setCasoId(resultado.casoId);
       setMensaje("Reclamo registrado. Conserva el código para consultarlo.");
@@ -79,6 +85,35 @@ export function PrivacyClaimsPage() {
     }, true);
   }
 
+  async function requerirSubsanacion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!casoIncompleto) return;
+    const form = new FormData(event.currentTarget);
+    await ejecutar(async () => {
+      await tramitarReclamo({
+        accion: "REQUERIR_SUBSANACION", casoId: casoIncompleto.casoId,
+        fechaEnvio: valor(form, "fechaEnvio"), referencia: valor(form, "referencia"),
+      });
+      setReclamo(await consultarReclamo(casoIncompleto.casoId));
+      setMensaje("Requerimiento documentado. Conserva el soporte en el expediente restringido.");
+    });
+  }
+
+  async function desistir(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!casoIncompleto) return;
+    const form = new FormData(event.currentTarget);
+    await ejecutar(async () => {
+      await tramitarReclamo({
+        accion: "DESISTIR_POR_FALTA_DE_SUBSANACION", casoId: casoIncompleto.casoId,
+        referenciaVerificacion: valor(form, "referenciaVerificacion"),
+        verificacionConfirmada: form.get("verificacionNoRecepcion") === "on",
+      });
+      setReclamo(await consultarReclamo(casoIncompleto.casoId));
+      setMensaje("Desistimiento documentado. El expediente permanece conservado.");
+    });
+  }
+
   async function documentar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!reclamo) return;
@@ -93,7 +128,7 @@ export function PrivacyClaimsPage() {
   }
 
   async function cerrar() {
-    if (!reclamo || reclamo.estado === "RECIBIDO" || !reclamo.respuestaRef) return;
+    if (!reclamo || reclamo.estado !== "ABIERTO" || !reclamo.respuestaRef) return;
     const { casoId, respuestaRef } = reclamo;
     await ejecutar(async () => {
       await tramitarReclamo({ accion: "CERRAR", casoId, respuestaRef });
@@ -120,21 +155,32 @@ export function PrivacyClaimsPage() {
       </details>
     </CardContent></Card>
     <Card><CardContent className="space-y-4">
-      <h2 className="font-semibold">Registrar reclamo verificado</h2>
+      <h2 className="font-semibold">{casoIncompleto ? "Completar el reclamo recibido" : "Registrar reclamo verificado"}</h2>
       <p className="text-sm text-muted-foreground">Guarda los soportes en el expediente privado. Aquí usa referencias, sin adjuntar documentos de identidad.</p>
       <form onSubmit={registrar}><fieldset disabled={ocupado} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          {camposRegistro.map(([name, label]) => <Label key={name} className="grid gap-2">{label}
+          {casoIncompleto && <>
+            <input type="hidden" name="consecutivo" value={casoIncompleto.consecutivo} />
+            <input type="hidden" name="empresaId" value={casoIncompleto.empresaId} />
+          </>}
+          {camposRegistro.filter(([name]) => !casoIncompleto || (name !== "consecutivo" && name !== "empresaId"))
+            .map(([name, label]) => <Label key={name} className="grid gap-2">{label}
             <Input name={name} maxLength={120} pattern="[a-zA-Z0-9_\-]+" required />
           </Label>)}
-          <Label className="grid gap-2">Fecha de recepción en Colombia<Input name="recibido" type="date" required /></Label>
+          {casoIncompleto
+            ? <><input type="hidden" name="recibido" value={casoIncompleto.fechaRecepcion} /><p className="text-sm">Recepción original: {casoIncompleto.fechaRecepcion}</p></>
+            : <Label className="grid gap-2">Fecha de recepción en Colombia<Input name="recibido" type="date" required /></Label>}
           <Label className="grid gap-2">Fecha en que quedó completo<Input name="completo" type="date" required /></Label>
+          {casoIncompleto?.fechaRequerimiento && <>
+            <Label className="grid gap-2">Fecha de recepción de la subsanación<Input name="subsanacionRecibida" type="date" required /></Label>
+            <Label className="grid gap-2">Referencia de la subsanación<Input name="subsanacionRef" maxLength={120} pattern="[a-zA-Z0-9_\-]+" required /></Label>
+          </>}
         </div>
         <Label className="grid gap-2">Motivo<Textarea name="motivo" maxLength={500} required /></Label>
         <Label className="flex items-start gap-2"><input type="checkbox" name="verificacion" required />
           Revisé la identidad, la ficha, la instrucción del negocio y la constancia de traslado.
         </Label>
-        <Button>Registrar y anotar en la ficha</Button>
+        <Button>{casoIncompleto ? "Completar y anotar en la ficha" : "Registrar y anotar en la ficha"}</Button>
       </fieldset></form>
     </CardContent></Card>
     <Card><CardContent className="space-y-4">
@@ -145,12 +191,33 @@ export function PrivacyClaimsPage() {
         </Label>
         <Button disabled={ocupado}>Consultar</Button>
       </form>
-      {reclamo?.estado === "RECIBIDO" && <div className="space-y-1 border-t pt-4 text-sm">
+      {casoIncompleto && <div className="space-y-3 border-t pt-4 text-sm">
         <p className="font-medium">Recibido. Falta completar el reclamo.</p>
-        <p>Plazo para solicitar la información faltante: {reclamo.vencimientoRequerimiento}</p>
-        <p className="text-muted-foreground">Cuando esté completo, usa el mismo consecutivo, empresa y fecha de recepción.</p>
+        <p>Plazo para solicitar la información faltante: {casoIncompleto.vencimientoRequerimiento}</p>
+        {casoIncompleto.fechaRequerimiento
+          ? <>
+            <p>Requerimiento enviado: {casoIncompleto.fechaRequerimiento} · referencia {casoIncompleto.requerimientoRef}</p>
+            <p>Plazo para recibir la subsanación: {casoIncompleto.vencimientoSubsanacion}</p>
+            <p className="text-muted-foreground">Si la información llegó dentro del plazo, completa el formulario superior con la fecha y referencia de recepción.</p>
+            {!casoIncompleto.subsanacionRecibida && <form onSubmit={desistir} className="space-y-3 rounded-lg border p-3">
+              <p>El desistimiento requiere revisar el canal externo después del vencimiento.</p>
+              <Label className="grid gap-2">Referencia de la verificación externa<Input name="referenciaVerificacion" maxLength={120} pattern="[a-zA-Z0-9_\-]+" required /></Label>
+              <Label className="flex items-start gap-2"><input type="checkbox" name="verificacionNoRecepcion" required />Confirmo que revisé el canal y no se recibió la subsanación.</Label>
+              <Button variant="outline">Registrar desistimiento</Button>
+            </form>}
+          </>
+          : <form onSubmit={requerirSubsanacion} className="space-y-3 rounded-lg border p-3">
+            <p className="text-muted-foreground">Registra el envío real y conserva su soporte en el expediente restringido.</p>
+            <Label className="grid gap-2">Fecha de envío en Colombia<Input name="fechaEnvio" type="date" required /></Label>
+            <Label className="grid gap-2">Referencia del requerimiento<Input name="referencia" maxLength={120} pattern="[a-zA-Z0-9_\-]+" required /></Label>
+            <Button variant="outline">Registrar requerimiento</Button>
+          </form>}
       </div>}
-      {reclamo && reclamo.estado !== "RECIBIDO" && <section className="space-y-4 border-t pt-4" aria-label="Detalle del reclamo">
+      {reclamo?.estado === "DESISTIDO" && <section className="space-y-2 border-t pt-4 text-sm" aria-label="Reclamo desistido">
+        <p className="font-medium">Desistido por falta de subsanación</p>
+        <p>Se conserva el expediente y la referencia de verificación: {reclamo.desistimientoVerificacionRef}</p>
+      </section>}
+      {reclamo && "clienteId" in reclamo && <section className="space-y-4 border-t pt-4" aria-label="Detalle del reclamo">
         <p className="font-medium">{reclamo.estado === "RESUELTO" ? "Resuelto" : reclamo.leyenda ?? "Verificado"}</p>
         {reclamo.motivo && <p className="break-words text-sm">{reclamo.motivo}</p>}
         <dl className="grid gap-3 text-sm sm:grid-cols-2">

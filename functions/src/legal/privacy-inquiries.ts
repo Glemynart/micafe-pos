@@ -2,7 +2,10 @@ import { createHash } from "node:crypto";
 import { FieldValue, Timestamp, type Firestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { autorizarPlataforma, type TokenPlataforma } from "../platform/authorization";
-import { fechaBogota, PRIVACY_CALENDAR_VERSION, sumarHabiles } from "./privacy-calendar";
+import {
+  fechaBogota, PRIVACY_CALENDAR_V1, PRIVACY_CALENDAR_VERSION, sumarHabiles,
+  type PrivacyCalendarVersion,
+} from "./privacy-calendar";
 
 const FACULTAD = "PRIVACIDAD_CONSULTAS_TRAMITAR";
 const ID = /^[A-Za-z0-9_-]{1,120}$/;
@@ -17,19 +20,21 @@ const date = (value: unknown): Timestamp => {
 };
 type Actor = { uid: string; token: TokenPlataforma };
 function casoIntegro(casoId: string, caso: FirebaseFirestore.DocumentData | undefined): boolean {
+  const version: PrivacyCalendarVersion | undefined = caso?.calendarioVersion === undefined
+    ? PRIVACY_CALENDAR_V1 : caso.calendarioVersion;
   if (!caso || typeof caso.empresaId !== "string" || !ID.test(caso.empresaId)
     || typeof caso.consecutivo !== "string" || !ID.test(caso.consecutivo)
     || !(caso.recibidoEn instanceof Timestamp) || typeof caso.vencimientoRespuesta !== "string"
-    || caso.calendarioVersion !== PRIVACY_CALENDAR_VERSION) return false;
+    || (version !== PRIVACY_CALENDAR_V1 && version !== PRIVACY_CALENDAR_VERSION)) return false;
   const expected = createHash("sha256").update(JSON.stringify([caso.empresaId, caso.consecutivo])).digest("hex");
   try {
-    const original = sumarHabiles(fechaBogota(caso.recibidoEn.toMillis()), 10);
+    const original = sumarHabiles(fechaBogota(caso.recibidoEn.toMillis()), 10, version);
     const tieneProrroga = caso.prorrogaRef !== undefined || caso.prorrogaMotivo !== undefined || caso.vencimientoProrroga !== undefined;
     return casoId === expected && caso.vencimientoRespuesta === original && (!tieneProrroga
       || (typeof caso.prorrogaRef === "string" && ID.test(caso.prorrogaRef)
         && typeof caso.prorrogaMotivo === "string" && !!caso.prorrogaMotivo.trim()
         && caso.prorrogaRegistradaEn instanceof Timestamp
-        && caso.vencimientoProrroga === sumarHabiles(original, 5)))
+        && caso.vencimientoProrroga === sumarHabiles(original, 5, version)))
       && (caso.estado !== "RESPONDIDA" || (typeof caso.respuestaRef === "string" && ID.test(caso.respuestaRef)
         && typeof caso.resultado === "string" && !!caso.resultado.trim() && caso.respondidaEn instanceof Timestamp));
   }
@@ -113,7 +118,8 @@ export async function tramitarConsultaPrivacidad(db: Firestore, actor: Actor, in
       }
       if (!(await tx.get(db.collection("empresas").doc(empresaId))).exists) return fail("permission-denied");
       tx.create(ref, { empresaId, consecutivo, operadorUid: actor.uid, recibidoEn, registradoEn: FieldValue.serverTimestamp(),
-        vencimientoRespuesta: sumarHabiles(fechaBogota(recibidoEn.toMillis()), 10), calendarioVersion: PRIVACY_CALENDAR_VERSION, estado: "RECIBIDA" });
+        vencimientoRespuesta: sumarHabiles(fechaBogota(recibidoEn.toMillis()), 10, PRIVACY_CALENDAR_VERSION),
+        calendarioVersion: PRIVACY_CALENDAR_VERSION, estado: "RECIBIDA" });
       return { casoId, estado: "RECIBIDA" };
     });
   }
@@ -140,7 +146,8 @@ export async function tramitarConsultaPrivacidad(db: Firestore, actor: Actor, in
       if (!existing && !(await tx.get(db.collection("empresas").doc(empresaId))).exists) return fail("permission-denied");
       const expediente = { empresaId, consecutivo, operadorUid: actor.uid, identidadRef, instruccionRef,
         identidadVerificada: true, huellaRegistro: huella, recibidoEn,
-        vencimientoRespuesta: sumarHabiles(fechaBogota(recibidoEn.toMillis()), 10), calendarioVersion: PRIVACY_CALENDAR_VERSION, estado: "ABIERTA" };
+        vencimientoRespuesta: sumarHabiles(fechaBogota(recibidoEn.toMillis()), 10, PRIVACY_CALENDAR_VERSION),
+        calendarioVersion: PRIVACY_CALENDAR_VERSION, estado: "ABIERTA" };
       if (existing) tx.update(ref, { ...expediente, verificadoEn: FieldValue.serverTimestamp() });
       else tx.create(ref, { ...expediente, registradoEn: FieldValue.serverTimestamp() });
       return { casoId, estado: "ABIERTA" };
@@ -158,13 +165,14 @@ export async function tramitarConsultaPrivacidad(db: Firestore, actor: Actor, in
     const caso = (await tx.get(ref)).data();
     if (!caso || caso.operadorUid !== actor.uid) return fail("permission-denied");
     if (!casoIntegro(casoId, caso)) return fail("failed-precondition");
+    const calendarioVersion: PrivacyCalendarVersion = caso.calendarioVersion ?? PRIVACY_CALENDAR_V1;
     if (caso?.estado === "RECIBIDA" && caso.operadorUid === actor.uid && caso.recibidoEn instanceof Timestamp
       && typeof caso.vencimientoRespuesta === "string") {
       if (accion === "CONSULTAR") return { casoId, estado: "RECIBIDA", vencimientoRespuesta: caso.vencimientoProrroga ?? caso.vencimientoRespuesta, respuestaDocumentada: false, respuestaRef: null };
       if (accion === "PRORROGAR") {
         if (caso.prorrogaRef === referencia && caso.prorrogaMotivo === resultado) return { casoId, estado: "RECIBIDA" };
         if (caso.prorrogaRef || fechaBogota(Date.now()) > caso.vencimientoRespuesta) return fail("failed-precondition");
-        tx.update(ref, { prorrogaRef: referencia, prorrogaMotivo: resultado, prorrogaRegistradaEn: FieldValue.serverTimestamp(), vencimientoProrroga: sumarHabiles(caso.vencimientoRespuesta, 5) });
+        tx.update(ref, { prorrogaRef: referencia, prorrogaMotivo: resultado, prorrogaRegistradaEn: FieldValue.serverTimestamp(), vencimientoProrroga: sumarHabiles(caso.vencimientoRespuesta, 5, calendarioVersion) });
         return { casoId, estado: "RECIBIDA" };
       }
       return fail("permission-denied");
@@ -177,7 +185,7 @@ export async function tramitarConsultaPrivacidad(db: Firestore, actor: Actor, in
     if (accion === "PRORROGAR") {
       if (caso.prorrogaRef === referencia && caso.prorrogaMotivo === resultado) return { casoId, estado: caso.estado };
       if (caso.estado !== "ABIERTA" || caso.prorrogaRef || fechaBogota(Date.now()) > caso.vencimientoRespuesta) return fail("failed-precondition");
-      tx.update(ref, { prorrogaRef: referencia, prorrogaMotivo: resultado, prorrogaRegistradaEn: FieldValue.serverTimestamp(), vencimientoProrroga: sumarHabiles(caso.vencimientoRespuesta, 5) });
+      tx.update(ref, { prorrogaRef: referencia, prorrogaMotivo: resultado, prorrogaRegistradaEn: FieldValue.serverTimestamp(), vencimientoProrroga: sumarHabiles(caso.vencimientoRespuesta, 5, calendarioVersion) });
       return { casoId, estado: "ABIERTA" };
     }
     if (caso.estado === "RESPONDIDA") {

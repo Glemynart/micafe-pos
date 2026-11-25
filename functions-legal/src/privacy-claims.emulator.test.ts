@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { deleteApp, initializeApp } from "firebase-admin/app";
-import { getFirestore, Timestamp } from "firebase-admin/firestore";
+import { FieldValue, getFirestore, Timestamp } from "firebase-admin/firestore";
 import { tramitarReclamoPrivacidad } from "../../functions/src/legal/privacy-claims";
-import { fechaBogota, sumarHabiles } from "../../functions/src/legal/privacy-calendar";
+import {
+  fechaBogota, PRIVACY_CALENDAR_V1, PRIVACY_CALENDAR_V2, sumarHabiles, vencimientoDosMeses,
+} from "../../functions/src/legal/privacy-calendar";
 
 const host = process.env.FIRESTORE_EMULATOR_HOST;
 test("Reclamos: autoridad, concurrencia, cierre parcial y aislamiento", { skip: !host }, async () => {
@@ -71,10 +73,24 @@ test("Reclamos: autoridad, concurrencia, cierre parcial y aislamiento", { skip: 
     assert.equal(radicado.estado, "RECIBIDO");
     assert.equal((await ficha.get()).get("reclamosPrivacidadAbiertos"), 1);
     assert.equal((await run(radicado.casoId, "CONSULTAR")).vencimientoRequerimiento, sumarHabiles(hoy, 5));
-    const [registro, reintento] = await Promise.all([send(entrada), send(entrada)]);
+    const requerimiento = { accion: "REQUERIR_SUBSANACION", casoId: radicado.casoId, fechaEnvio: hoy, referencia: "requerimiento-1" };
+    const [reqPrimero, reqReintento] = await Promise.all([send(requerimiento), send(requerimiento)]);
+    assert.deepEqual([reqPrimero.idempotente, reqReintento.idempotente].sort(), [false, true]);
+    await assert.rejects(send({ ...requerimiento, referencia: "requerimiento-distinto" }), /RECLAMO_REQUERIMIENTO_DISTINTO/);
+    const pendiente = await run(radicado.casoId, "CONSULTAR");
+    assert.equal(pendiente.vencimientoSubsanacion, vencimientoDosMeses(hoy, PRIVACY_CALENDAR_V2));
+    await assert.rejects(send({ accion: "DESISTIR_POR_FALTA_DE_SUBSANACION", casoId: radicado.casoId,
+      referenciaVerificacion: "buzon-revisado", verificacionConfirmada: true }), /RECLAMO_PLAZO_SUBSANACION_VIGENTE/);
+    await assert.rejects(send(entrada), /RECLAMO_SUBSANACION_SIN_CONSTANCIA/);
+    const completa = { ...entrada, subsanacionRecibida: hoy, subsanacionRef: "subsanacion-1" };
+    const [registro, reintento] = await Promise.all([send(completa), send(completa)]);
     assert.equal(registro.casoId, radicado.casoId);
     assert.deepEqual(registro, reintento);
-    await assert.rejects(send({ ...entrada, motivo: "otro motivo" }), /RECLAMO_REGISTRO_DISTINTO/);
+    await assert.rejects(send({ ...completa, motivo: "otro motivo" }), /RECLAMO_REGISTRO_DISTINTO/);
+    const expedienteCompleto = (await db.collection("privacidad_reclamos").doc(radicado.casoId).get()).data();
+    assert.equal(expedienteCompleto!.calendarioVersion, PRIVACY_CALENDAR_V2);
+    assert.equal(expedienteCompleto!.subsanacionRecibidaRef, "subsanacion-1");
+    assert.ok(expedienteCompleto!.subsanacionRegistradaEn instanceof Timestamp);
     assert.equal((await ficha.get()).get("reclamosPrivacidadAbiertos"), 2);
     let consulta = await run(registro.casoId, "CONSULTAR");
     assert.equal(consulta.vencimientoAnotacion, sumarHabiles(hoy, 2));
@@ -87,6 +103,48 @@ test("Reclamos: autoridad, concurrencia, cierre parcial y aislamiento", { skip: 
     assert.equal((await run(registro.casoId, "CONSULTAR")).respuestaRef, "respuesta-final");
     await run(registro.casoId, "CERRAR", "respuesta-final");
     assert.equal((await ficha.get()).get("reclamosPrivacidadAbiertos"), 1);
+
+    const fechaAtras = (days: number) => fechaBogota(Date.now() - days * 86_400_000);
+    const receivedOld = fechaAtras(130), requestOld = fechaAtras(129);
+    const oldCase = await send({ accion: "RECIBIR", consecutivo: `legacy-${suffix}`, empresaId: "empresa-a", recibido: receivedOld });
+    const oldRequestTs = Timestamp.fromMillis(Date.parse(`${requestOld}T00:00:00-05:00`));
+    await db.collection("privacidad_reclamos").doc(oldCase.casoId).update({
+      calendarioVersion: FieldValue.delete(),
+      vencimientoRequerimiento: sumarHabiles(receivedOld, 5, PRIVACY_CALENDAR_V1),
+      fechaRequerimiento: requestOld, requerimientoRef: "requerimiento-legacy",
+      requerimientoOperadorUid: uid, requerimientoRegistradoEn: oldRequestTs,
+      vencimientoSubsanacion: vencimientoDosMeses(requestOld, PRIVACY_CALENDAR_V1),
+    });
+    assert.equal((await run(oldCase.casoId, "CONSULTAR")).vencimientoSubsanacion,
+      vencimientoDosMeses(requestOld, PRIVACY_CALENDAR_V1));
+    const desistimiento = { accion: "DESISTIR_POR_FALTA_DE_SUBSANACION", casoId: oldCase.casoId,
+      referenciaVerificacion: "revision-buzon-legacy", verificacionConfirmada: true };
+    const firstDesist = await send(desistimiento);
+    assert.equal(firstDesist.idempotente, false);
+    assert.equal((await send(desistimiento)).idempotente, true);
+    assert.equal((await run(oldCase.casoId, "CONSULTAR")).estado, "DESISTIDO");
+    await assert.rejects(send({ ...desistimiento, referenciaVerificacion: "otra-revision" }), /RECLAMO_DESISTIMIENTO_DISTINTO/);
+    await assert.rejects(send({ ...entrada, consecutivo: `legacy-${suffix}`, recibido: receivedOld,
+      completo: fechaAtras(128) }), /RECLAMO_REGISTRO_DISTINTO/);
+
+    const receivedV1 = fechaAtras(1);
+    const legacyOpen = await send({ ...entrada, consecutivo: `legacy-open-${suffix}`, recibido: receivedV1, completo: receivedV1 });
+    const legacyOpenRef = db.collection("privacidad_reclamos").doc(legacyOpen.casoId);
+    const v1ResponseDeadline = sumarHabiles(receivedV1, 15, PRIVACY_CALENDAR_V1);
+    await legacyOpenRef.update({
+      calendarioVersion: FieldValue.delete(),
+      vencimientoAnotacion: FieldValue.delete(),
+      vencimientoRespuesta: v1ResponseDeadline,
+    });
+    const legacyDetail = await run(legacyOpen.casoId, "CONSULTAR");
+    assert.equal(legacyDetail.vencimientoAnotacion, sumarHabiles(receivedV1, 2, PRIVACY_CALENDAR_V1));
+    await legacyOpenRef.update({ vencimientoRespuesta: "2099-12-31" });
+    await assert.rejects(run(legacyOpen.casoId, "CONSULTAR"), /RECLAMO_PLAZO_INCONSISTENTE/);
+    await legacyOpenRef.update({ vencimientoRespuesta: v1ResponseDeadline });
+    await send({ casoId: legacyOpen.casoId, accion: "PRORROGAR", respuestaRef: "aviso-v1", resultado: "Prórroga histórica" });
+    assert.equal((await run(legacyOpen.casoId, "CONSULTAR")).vencimientoRespuesta,
+      sumarHabiles(v1ResponseDeadline, 8, PRIVACY_CALENDAR_V1));
+
     await operator.update({ estado: "REVOCADO", versionAutorizacion: 2 });
     await assert.rejects(run(sinRespuesta.id, "CONSULTAR"), /PLATFORM_ACCESS_DENIED/);
   } finally {

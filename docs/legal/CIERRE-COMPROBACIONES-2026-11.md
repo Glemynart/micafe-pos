@@ -431,12 +431,32 @@ y [Boletín Jurídico 124 — SFC](https://www.superfinanciera.gov.co/publicacio
   de subsanación. No encontramos evidencia de que Dusema haya declarado el
   sábado inhábil para estos términos. No se certifica que las fechas calculadas
   sean conformes: podrían exceder el plazo si el sábado cuenta como hábil.
-- La recomendación de ADR-SAAS-104 es versionar una regla común que cuente
-  sábados como hábiles y excluya domingos y festivos, a menos que una regla
-  aplicable a Dusema establezca otra cosa. La aplicación de esa regla a la Ley
-  1581 y a Dusema continúa pendiente de revisión jurídica final. El cambio debe
-  conservar fechas y cómputo histórico por versión y no recalcular casos abiertos.
-  No se activa el flujo real con el ADR propuesto.
+- ADR-SAAS-104 se aceptó el 2026-11-25 para implementación y validación
+  sintética/staging. La versión V2 cuenta sábados no festivos, excluye domingos
+  y festivos, y mantiene el cómputo V1 en expedientes históricos. La aceptación
+  es operativa y no constituye revisión jurídica final para Dusema.
+
+## Implementación local de reclamos incompletos — 2026-11-25
+
+- PR #706 incorpora acciones server-side para registrar el requerimiento de
+  subsanación, completar el mismo caso con fecha/referencia de recepción y
+  desistir manualmente después de documentar una verificación del canal externo.
+  No hay correo automático, cierre por reloj, borrado ni escritura productiva.
+- La callable mantiene la misma facultad, operador asignado y aislamiento. Los
+  campos se escriben en el expediente existente; los reintentos son idempotentes
+  y las constancias no reemplazables. El sistema separa fecha declarada de
+  timestamp server-side y no confirma por sí mismo el canal externo.
+- V2 se aplica a expedientes nuevos. Los registros sin `calendarioVersion` se
+  validan como V1; se preservan fechas guardadas y los datos incompatibles o con
+  versión desconocida se rechazan. No se modifican reglas ni se recalculan
+  expedientes en lote.
+- Validación local: 21 pruebas unitarias legales, 32 de Backoffice, 3 recorridos
+  de Emulator, TypeScript, build de Functions, build de Next.js y ESLint
+  focalizado pasaron. El Emulator requirió seleccionar el JDK 21 ya instalado
+  para ese proceso; no se cambió la instalación ni la configuración del sistema.
+- Sigue pendiente el smoke autenticado en staging y el rollout. Los documentos
+  continúan en borrador; la implementación no equivale a aprobación jurídica ni
+  activa el flujo para datos reales.
 
 Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/default/files/normatividad/Ley_1581_2012.pdf),
 [Ley 4 de 1913, art. 62 — Función Pública](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=8426),

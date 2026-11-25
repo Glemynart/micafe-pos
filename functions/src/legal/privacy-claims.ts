@@ -2,7 +2,10 @@ import { FieldValue, Timestamp, type Firestore } from "firebase-admin/firestore"
 import { HttpsError } from "firebase-functions/v2/https";
 import { autorizarPlataforma, type TokenPlataforma } from "../platform/authorization";
 import { createHash } from "node:crypto";
-import { fechaBogota, PRIVACY_CALENDAR_VERSION, sumarHabiles } from "./privacy-calendar";
+import {
+  fechaBogota, PRIVACY_CALENDAR_V1, PRIVACY_CALENDAR_VERSION, sumarHabiles,
+  vencimientoDosMeses, type PrivacyCalendarVersion,
+} from "./privacy-calendar";
 
 const FACULTAD = "PRIVACIDAD_RECLAMOS_TRAMITAR";
 const ID = /^[a-zA-Z0-9_-]{1,120}$/;
@@ -35,6 +38,175 @@ function fechaVerificada(value: unknown): Timestamp {
   return Timestamp.fromMillis(millis);
 }
 
+function fechaCivil(value: unknown): string {
+  return fechaBogota(fechaVerificada(value).toMillis());
+}
+
+function versionCalendario(caso: FirebaseFirestore.DocumentData): PrivacyCalendarVersion {
+  // Records created before versioning used the Monday-Friday V1 implementation.
+  const version = caso.calendarioVersion === undefined ? PRIVACY_CALENDAR_V1 : caso.calendarioVersion;
+  if (version !== PRIVACY_CALENDAR_V1 && version !== PRIVACY_CALENDAR_VERSION) {
+    throw new HttpsError("failed-precondition", "RECLAMO_CALENDARIO_INVALIDO");
+  }
+  return version;
+}
+
+function vencimientoRequerimiento(caso: FirebaseFirestore.DocumentData, version: PrivacyCalendarVersion): string {
+  if (!(caso.recibidoEn instanceof Timestamp)) denegar();
+  const esperado = sumarHabiles(fechaBogota(caso.recibidoEn.toMillis()), 5, version);
+  if (caso.vencimientoRequerimiento !== undefined && caso.vencimientoRequerimiento !== esperado) {
+    throw new HttpsError("failed-precondition", "RECLAMO_PLAZO_INCONSISTENTE");
+  }
+  return caso.vencimientoRequerimiento ?? esperado;
+}
+
+function requerimientoSubsanacion(caso: FirebaseFirestore.DocumentData) {
+  const campos = [caso.fechaRequerimiento, caso.requerimientoRef, caso.requerimientoOperadorUid,
+    caso.requerimientoRegistradoEn, caso.vencimientoSubsanacion];
+  if (campos.every(value => value === undefined)) return undefined;
+  const version = versionCalendario(caso);
+  const fecha = typeof caso.fechaRequerimiento === "string" ? fechaCivil(caso.fechaRequerimiento) : "";
+  const vencimiento = fecha ? vencimientoDosMeses(fecha, version) : "";
+  if (!fecha || typeof caso.requerimientoRef !== "string" || !ID.test(caso.requerimientoRef)
+    || caso.requerimientoOperadorUid !== caso.operadorUid
+    || !(caso.requerimientoRegistradoEn instanceof Timestamp)
+    || caso.vencimientoSubsanacion !== vencimiento
+    || !(caso.recibidoEn instanceof Timestamp)
+    || fecha < fechaBogota(caso.recibidoEn.toMillis())
+    || fecha > vencimientoRequerimiento(caso, version)) {
+    throw new HttpsError("failed-precondition", "RECLAMO_REQUERIMIENTO_INCONSISTENTE");
+  }
+  return { fecha, referencia: caso.requerimientoRef as string, vencimiento };
+}
+
+function referenciaDesistimiento(caso: FirebaseFirestore.DocumentData, requerimiento: ReturnType<typeof requerimientoSubsanacion>) {
+  if (caso.estado !== "DESISTIDO") return null;
+  if (!requerimiento || typeof caso.desistimientoVerificacionRef !== "string"
+    || !ID.test(caso.desistimientoVerificacionRef) || caso.desistidaPorUid !== caso.operadorUid
+    || !(caso.desistimientoRegistradoEn instanceof Timestamp)
+    || caso.subsanacionRecibidaEn !== undefined || caso.subsanacionRecibidaRef !== undefined) {
+    throw new HttpsError("failed-precondition", "RECLAMO_DESISTIMIENTO_INCONSISTENTE");
+  }
+  return caso.desistimientoVerificacionRef as string;
+}
+
+function validarSubsanacionRecibida(
+  caso: FirebaseFirestore.DocumentData,
+  requerimiento: ReturnType<typeof requerimientoSubsanacion>,
+): boolean {
+  const campos = [caso.subsanacionRecibidaEn, caso.subsanacionRecibidaRef, caso.subsanacionRegistradaEn];
+  if (campos.every(value => value === undefined)) {
+    if (requerimiento && ["ABIERTO", "RESUELTO", "VERIFICADO"].includes(caso.estado)) {
+      throw new HttpsError("failed-precondition", "RECLAMO_SUBSANACION_SIN_CONSTANCIA");
+    }
+    return false;
+  }
+  if (!requerimiento || !(caso.subsanacionRecibidaEn instanceof Timestamp)
+    || typeof caso.subsanacionRecibidaRef !== "string" || !ID.test(caso.subsanacionRecibidaRef)
+    || !(caso.subsanacionRegistradaEn instanceof Timestamp)
+    || !(caso.completoEn instanceof Timestamp)
+    || ["RECIBIDO", "DESISTIDO"].includes(caso.estado)) {
+    throw new HttpsError("failed-precondition", "RECLAMO_SUBSANACION_INCONSISTENTE");
+  }
+  const fecha = fechaBogota(caso.subsanacionRecibidaEn.toMillis());
+  if (fecha < requerimiento.fecha || fecha > requerimiento.vencimiento
+    || caso.subsanacionRecibidaEn.toMillis() > caso.completoEn.toMillis()) {
+    throw new HttpsError("failed-precondition", "RECLAMO_SUBSANACION_FUERA_DE_PLAZO");
+  }
+  return true;
+}
+
+function vencimientosReclamo(caso: FirebaseFirestore.DocumentData, version: PrivacyCalendarVersion) {
+  if (!(caso.recibidoEn instanceof Timestamp) || !(caso.completoEn instanceof Timestamp)) denegar();
+  const anotacionEsperada = sumarHabiles(fechaBogota(caso.completoEn.toMillis()), 2, version);
+  const respuestaEsperada = sumarHabiles(fechaBogota(caso.recibidoEn.toMillis()), 15, version);
+  if ((caso.vencimientoAnotacion !== undefined && caso.vencimientoAnotacion !== anotacionEsperada)
+    || (caso.vencimientoRespuesta !== undefined && caso.vencimientoRespuesta !== respuestaEsperada)) {
+    throw new HttpsError("failed-precondition", "RECLAMO_PLAZO_INCONSISTENTE");
+  }
+  const tieneProrroga = [caso.prorrogaRef, caso.prorrogaMotivo, caso.prorrogaRegistradaEn, caso.vencimientoProrroga]
+    .some(value => value !== undefined);
+  const vencimientoProrroga = tieneProrroga ? sumarHabiles(respuestaEsperada, 8, version) : undefined;
+  if (tieneProrroga && (typeof caso.prorrogaRef !== "string" || !ID.test(caso.prorrogaRef)
+    || typeof caso.prorrogaMotivo !== "string" || !caso.prorrogaMotivo.trim()
+    || !(caso.prorrogaRegistradaEn instanceof Timestamp)
+    || caso.vencimientoProrroga !== vencimientoProrroga)) {
+    throw new HttpsError("failed-precondition", "RECLAMO_PRORROGA_INCONSISTENTE");
+  }
+  return {
+    vencimientoAnotacion: caso.vencimientoAnotacion ?? anotacionEsperada,
+    vencimientoRespuesta: caso.vencimientoProrroga ?? caso.vencimientoRespuesta ?? respuestaEsperada,
+    vencimientoRespuestaBase: caso.vencimientoRespuesta ?? respuestaEsperada,
+  };
+}
+
+async function requerirSubsanacion(db: Firestore, actor: Actor, data: Record<string, unknown>) {
+  if (Object.keys(data).some(key => !["accion", "casoId", "fechaEnvio", "referencia"].includes(key))) entradaInvalida();
+  const casoId = identificador(data.casoId);
+  const fecha = fechaCivil(data.fechaEnvio);
+  const referencia = identificador(data.referencia);
+  return db.runTransaction(async tx => {
+    await autorizarPlataforma(db, actor.uid, actor.token, FACULTAD, tx);
+    const casoRef = db.collection("privacidad_reclamos").doc(casoId);
+    const caso = (await tx.get(casoRef)).data();
+    if (!caso || caso.estado !== "RECIBIDO" || caso.operadorUid !== actor.uid
+      || !(caso.recibidoEn instanceof Timestamp)) denegar();
+    const existente = requerimientoSubsanacion(caso);
+    if (existente) {
+      if (existente.fecha !== fecha || existente.referencia !== referencia) {
+        throw new HttpsError("already-exists", "RECLAMO_REQUERIMIENTO_DISTINTO");
+      }
+      validarSubsanacionRecibida(caso, existente);
+      return { casoId, estado: "RECIBIDO", idempotente: true };
+    }
+    validarSubsanacionRecibida(caso, undefined);
+    const version = versionCalendario(caso);
+    const vence = vencimientoRequerimiento(caso, version);
+    const recibido = fechaBogota(caso.recibidoEn.toMillis());
+    if (fecha < recibido || fecha > vence || fechaBogota(Date.now()) > vence) {
+      throw new HttpsError("failed-precondition", "RECLAMO_REQUERIMIENTO_FUERA_DE_PLAZO");
+    }
+    tx.update(casoRef, {
+      fechaRequerimiento: fecha, requerimientoRef: referencia, requerimientoOperadorUid: actor.uid,
+      requerimientoRegistradoEn: FieldValue.serverTimestamp(), vencimientoSubsanacion: vencimientoDosMeses(fecha, version),
+    });
+    return { casoId, estado: "RECIBIDO", idempotente: false };
+  });
+}
+
+async function desistirPorFaltaDeSubsanacion(db: Firestore, actor: Actor, data: Record<string, unknown>) {
+  if (Object.keys(data).some(key => !["accion", "casoId", "referenciaVerificacion", "verificacionConfirmada"].includes(key))
+    || data.verificacionConfirmada !== true) entradaInvalida();
+  const casoId = identificador(data.casoId);
+  const referenciaVerificacion = identificador(data.referenciaVerificacion);
+  return db.runTransaction(async tx => {
+    await autorizarPlataforma(db, actor.uid, actor.token, FACULTAD, tx);
+    const casoRef = db.collection("privacidad_reclamos").doc(casoId);
+    const caso = (await tx.get(casoRef)).data();
+    if (!caso || caso.operadorUid !== actor.uid) denegar();
+    const requerimiento = requerimientoSubsanacion(caso);
+    validarSubsanacionRecibida(caso, requerimiento);
+    if (caso.estado === "DESISTIDO") {
+      if (referenciaDesistimiento(caso, requerimiento) !== referenciaVerificacion) {
+        throw new HttpsError("already-exists", "RECLAMO_DESISTIMIENTO_DISTINTO");
+      }
+      return { casoId, estado: "DESISTIDO", idempotente: true };
+    }
+    if (caso.estado !== "RECIBIDO") throw new HttpsError("failed-precondition", "RECLAMO_ESTADO_INVALIDO");
+    if (!requerimiento) {
+      throw new HttpsError("failed-precondition", "RECLAMO_SUBSANACION_PENDIENTE_O_INCONSISTENTE");
+    }
+    if (fechaBogota(Date.now()) <= requerimiento.vencimiento) {
+      throw new HttpsError("failed-precondition", "RECLAMO_PLAZO_SUBSANACION_VIGENTE");
+    }
+    tx.update(casoRef, {
+      estado: "DESISTIDO", desistimientoVerificacionRef: referenciaVerificacion,
+      desistidaPorUid: actor.uid, desistimientoRegistradoEn: FieldValue.serverTimestamp(),
+    });
+    return { casoId, estado: "DESISTIDO", idempotente: false };
+  });
+}
+
 const claveCaso = (empresaId: string, consecutivo: string) =>
   createHash("sha256").update(JSON.stringify([empresaId, consecutivo])).digest("hex");
 
@@ -54,13 +226,17 @@ async function recibir(db: Firestore, actor: Actor, data: Record<string, unknown
       if (!(existente.recibidoEn instanceof Timestamp) || !existente.recibidoEn.isEqual(recibidoEn)) {
         throw new HttpsError("already-exists", "RECLAMO_REGISTRO_DISTINTO");
       }
+      const version = versionCalendario(existente);
+      vencimientoRequerimiento(existente, version);
+      const requerimiento = requerimientoSubsanacion(existente);
+      validarSubsanacionRecibida(existente, requerimiento);
       return { casoId, estado: existente.estado as string };
     }
     if (!(await tx.get(db.collection("empresas").doc(tenant))).exists) denegar();
     tx.create(casoRef, {
       consecutivo: radicado, empresaId: tenant, operadorUid: actor.uid,
       estado: "RECIBIDO", recibidoEn, radicadoEn: FieldValue.serverTimestamp(),
-      vencimientoRequerimiento: sumarHabiles(fechaBogota(recibidoEn.toMillis()), 5),
+      vencimientoRequerimiento: sumarHabiles(fechaBogota(recibidoEn.toMillis()), 5, PRIVACY_CALENDAR_VERSION),
       calendarioVersion: PRIVACY_CALENDAR_VERSION,
     });
     return { casoId, estado: "RECIBIDO" };
@@ -69,8 +245,11 @@ async function recibir(db: Firestore, actor: Actor, data: Record<string, unknown
 
 async function registrar(db: Firestore, actor: Actor, data: Record<string, unknown>) {
   const { accion, consecutivo, empresaId, clienteId, motivo, instruccionRef,
-    identidadRef, recibido, completo, trasladoRef, verificacionConfirmada, ...extra } = data;
+    identidadRef, recibido, completo, trasladoRef, verificacionConfirmada,
+    subsanacionRecibida, subsanacionRef, ...extra } = data;
   if (accion !== "REGISTRAR" || Object.keys(extra).length || verificacionConfirmada !== true) entradaInvalida();
+  const tieneSubsanacion = subsanacionRecibida !== undefined || subsanacionRef !== undefined;
+  if (tieneSubsanacion && (typeof subsanacionRecibida !== "string" || typeof subsanacionRef !== "string")) entradaInvalida();
   const datos = {
     consecutivo: identificador(consecutivo), empresaId: identificador(empresaId),
     clienteId: identificador(clienteId), motivo: textoBreve(motivo),
@@ -80,14 +259,21 @@ async function registrar(db: Firestore, actor: Actor, data: Record<string, unkno
   const recibidoEn = fechaVerificada(recibido);
   const completoEn = fechaVerificada(completo);
   if (completoEn.toMillis() < recibidoEn.toMillis()) entradaInvalida();
+  const subsanacionEn = tieneSubsanacion ? fechaVerificada(subsanacionRecibida) : undefined;
+  const referenciaSubsanacion = tieneSubsanacion ? identificador(subsanacionRef) : undefined;
+  if (subsanacionEn && subsanacionEn.toMillis() > completoEn.toMillis()) entradaInvalida();
   const casoId = claveCaso(datos.empresaId, datos.consecutivo);
-  const huella = createHash("sha256").update(JSON.stringify([datos, recibido, completo])).digest("hex");
+  const huella = createHash("sha256").update(JSON.stringify(tieneSubsanacion
+    ? [datos, recibido, completo, subsanacionRecibida, referenciaSubsanacion]
+    : [datos, recibido, completo])).digest("hex");
   return db.runTransaction(async tx => {
     await autorizarPlataforma(db, actor.uid, actor.token, FACULTAD, tx);
     const casoRef = db.collection("privacidad_reclamos").doc(casoId);
     const anterior = (await tx.get(casoRef)).data();
     if (anterior) {
       if (anterior.operadorUid !== actor.uid) denegar();
+      const reqAnterior = requerimientoSubsanacion(anterior);
+      validarSubsanacionRecibida(anterior, reqAnterior);
       if (anterior.estado !== "RECIBIDO") {
         if (anterior.huellaRegistro !== huella) throw new HttpsError("already-exists", "RECLAMO_REGISTRO_DISTINTO");
         return { casoId, estado: anterior.estado as string };
@@ -96,19 +282,36 @@ async function registrar(db: Firestore, actor: Actor, data: Record<string, unkno
         throw new HttpsError("already-exists", "RECLAMO_REGISTRO_DISTINTO");
       }
     }
+    const calendarioVersion = anterior ? versionCalendario(anterior) : PRIVACY_CALENDAR_VERSION;
+    const requerimiento = anterior ? requerimientoSubsanacion(anterior) : undefined;
+    if (requerimiento) {
+      if (!subsanacionEn || !referenciaSubsanacion) {
+        throw new HttpsError("failed-precondition", "RECLAMO_SUBSANACION_SIN_CONSTANCIA");
+      }
+      const fechaSubsanacion = fechaBogota(subsanacionEn.toMillis());
+      if (fechaSubsanacion < requerimiento.fecha || fechaSubsanacion > requerimiento.vencimiento) {
+        throw new HttpsError("failed-precondition", "RECLAMO_SUBSANACION_FUERA_DE_PLAZO");
+      }
+    } else if (tieneSubsanacion) {
+      throw new HttpsError("failed-precondition", "RECLAMO_SUBSANACION_SIN_REQUERIMIENTO");
+    }
     const fichaRef = db.collection("clientes").doc(datos.clienteId);
     const ficha = (await tx.get(fichaRef)).data();
     if (!ficha || ficha.empresaId !== datos.empresaId || !(ficha.creadoEn instanceof Timestamp)) denegar();
     const abiertos: unknown = ficha.reclamosPrivacidadAbiertos ?? 0;
     if (typeof abiertos !== "number" || !Number.isSafeInteger(abiertos) || abiertos < 0
       || abiertos >= Number.MAX_SAFE_INTEGER) throw new HttpsError("failed-precondition", "RECLAMO_INDICADOR_INCONSISTENTE");
-    const vencimientoAnotacion = sumarHabiles(fechaBogota(completoEn.toMillis()), 2);
-    const vencimientoRespuesta = sumarHabiles(fechaBogota(recibidoEn.toMillis()), 15);
+    const vencimientoAnotacion = sumarHabiles(fechaBogota(completoEn.toMillis()), 2, calendarioVersion);
+    const vencimientoRespuesta = sumarHabiles(fechaBogota(recibidoEn.toMillis()), 15, calendarioVersion);
     const expediente = {
       ...datos, huellaRegistro: huella, operadorUid: actor.uid, identidadVerificada: true,
       fichaCreadaEn: ficha.creadoEn, recibidoEn, completoEn,
-      vencimientoAnotacion, vencimientoRespuesta, calendarioVersion: PRIVACY_CALENDAR_VERSION,
+      vencimientoAnotacion, vencimientoRespuesta, calendarioVersion,
       estado: "ABIERTO", anotadoEn: FieldValue.serverTimestamp(), verificadoEn: FieldValue.serverTimestamp(),
+      ...(subsanacionEn && referenciaSubsanacion ? {
+        subsanacionRecibidaEn: subsanacionEn, subsanacionRecibidaRef: referenciaSubsanacion,
+        subsanacionRegistradaEn: FieldValue.serverTimestamp(),
+      } : {}),
     };
     if (anterior) tx.update(casoRef, expediente);
     else tx.create(casoRef, expediente);
@@ -145,13 +348,34 @@ export async function tramitarReclamoPrivacidad(
   if (data && typeof data === "object" && "accion" in data && data.accion === "RECIBIR") {
     return recibir(db, actor, data as Record<string, unknown>);
   }
+  if (data && typeof data === "object" && "accion" in data && data.accion === "REQUERIR_SUBSANACION") {
+    return requerirSubsanacion(db, actor, data as Record<string, unknown>);
+  }
+  if (data && typeof data === "object" && "accion" in data && data.accion === "DESISTIR_POR_FALTA_DE_SUBSANACION") {
+    return desistirPorFaltaDeSubsanacion(db, actor, data as Record<string, unknown>);
+  }
   const { casoId, accion, respuestaRef, resultado } = normalizar(data);
   return db.runTransaction(async tx => {
     await autorizarPlataforma(db, actor.uid, actor.token, FACULTAD, tx);
     const casoRef = db.collection("privacidad_reclamos").doc(casoId);
     const caso = (await tx.get(casoRef)).data();
-    if (caso?.estado === "RECIBIDO" && caso.operadorUid === actor.uid && accion === "CONSULTAR") {
-      return { casoId, estado: "RECIBIDO", vencimientoRequerimiento: caso.vencimientoRequerimiento };
+    if ((caso?.estado === "RECIBIDO" || caso?.estado === "DESISTIDO")
+      && caso.operadorUid === actor.uid && accion === "CONSULTAR") {
+      const version = versionCalendario(caso);
+      const requerimiento = requerimientoSubsanacion(caso);
+      const subsanacionRecibida = validarSubsanacionRecibida(caso, requerimiento);
+      const referencia = referenciaDesistimiento(caso, requerimiento);
+      return {
+        casoId, empresaId: caso.empresaId, consecutivo: caso.consecutivo,
+        estado: caso.estado as "RECIBIDO" | "DESISTIDO",
+        fechaRecepcion: fechaBogota(caso.recibidoEn.toMillis()),
+        vencimientoRequerimiento: vencimientoRequerimiento(caso, version),
+        fechaRequerimiento: requerimiento?.fecha ?? null,
+        requerimientoRef: requerimiento?.referencia ?? null,
+        vencimientoSubsanacion: requerimiento?.vencimiento ?? null,
+        subsanacionRecibida,
+        desistimientoVerificacionRef: referencia,
+      };
     }
     if (!caso || caso.operadorUid !== actor.uid || caso.identidadVerificada !== true
       || typeof caso.empresaId !== "string" || !ID.test(caso.empresaId)
@@ -163,6 +387,10 @@ export async function tramitarReclamoPrivacidad(
       || !(caso.completoEn instanceof Timestamp)
       || caso.completoEn.toMillis() < caso.recibidoEn.toMillis()
       || caso.completoEn.toMillis() > Date.now()) denegar();
+    const calendarioVersion = versionCalendario(caso);
+    const requerimiento = requerimientoSubsanacion(caso);
+    validarSubsanacionRecibida(caso, requerimiento);
+    const vencimientos = vencimientosReclamo(caso, calendarioVersion);
 
     if (accion === "CERRAR" && caso.estado === "RESUELTO") {
       if (caso.respuestaRef !== respuestaRef) {
@@ -173,9 +401,8 @@ export async function tramitarReclamoPrivacidad(
     if (accion === "CONSULTAR" && caso.estado === "RESUELTO") {
       return {
         casoId, clienteId: caso.clienteId, estado: caso.estado, leyenda: null, motivo: null,
-        vencimientoAnotacion: caso.vencimientoAnotacion ?? sumarHabiles(fechaBogota(caso.completoEn.toMillis()), 2),
-        vencimientoRespuesta: caso.vencimientoProrroga ?? caso.vencimientoRespuesta
-          ?? sumarHabiles(fechaBogota(caso.recibidoEn.toMillis()), 15),
+        vencimientoAnotacion: vencimientos.vencimientoAnotacion,
+        vencimientoRespuesta: vencimientos.vencimientoRespuesta,
         respuestaDocumentada: true,
       };
     }
@@ -198,9 +425,8 @@ export async function tramitarReclamoPrivacidad(
         motivo: caso.estado === "ABIERTO" ? caso.motivo : null,
         recibidoEnMillis: caso.recibidoEn.toMillis(),
         completoEnMillis: caso.completoEn.toMillis(),
-        vencimientoAnotacion: caso.vencimientoAnotacion ?? sumarHabiles(fechaBogota(caso.completoEn.toMillis()), 2),
-        vencimientoRespuesta: caso.vencimientoProrroga ?? caso.vencimientoRespuesta
-          ?? sumarHabiles(fechaBogota(caso.recibidoEn.toMillis()), 15),
+        vencimientoAnotacion: vencimientos.vencimientoAnotacion,
+        vencimientoRespuesta: vencimientos.vencimientoRespuesta,
         respuestaDocumentada: typeof caso.respuestaVerificadaRef === "string",
         respuestaRef: typeof caso.respuestaVerificadaRef === "string" ? caso.respuestaVerificadaRef : null,
       };
@@ -215,12 +441,12 @@ export async function tramitarReclamoPrivacidad(
         });
       } else {
         if (caso.prorrogaRef === respuestaRef && caso.prorrogaMotivo === resultado) return { casoId, estado: "ABIERTO" };
-        const vence: string = caso.vencimientoRespuesta ?? sumarHabiles(fechaBogota(caso.recibidoEn.toMillis()), 15);
+        const vence = vencimientos.vencimientoRespuestaBase;
         if (caso.prorrogaRef || caso.respuestaVerificadaRef || fechaBogota(Date.now()) > vence) {
           throw new HttpsError("failed-precondition", "RECLAMO_PRORROGA_NO_DISPONIBLE");
         }
         tx.update(casoRef, { prorrogaRef: respuestaRef, prorrogaMotivo: resultado,
-          prorrogaRegistradaEn: FieldValue.serverTimestamp(), vencimientoProrroga: sumarHabiles(vence, 8) });
+          prorrogaRegistradaEn: FieldValue.serverTimestamp(), vencimientoProrroga: sumarHabiles(vence, 8, calendarioVersion) });
       }
       return { casoId, estado: "ABIERTO" };
     }

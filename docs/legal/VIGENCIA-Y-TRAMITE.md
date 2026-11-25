@@ -114,24 +114,30 @@ del directorio, los desistimientos y el traslado al responsable se gestionan
 en el registro restringido con sus plazos. Validar Rules, callable, registro de
 la nueva facultad y App Hosting en ese orden antes de activar el acceso real.
 
-### ADR-SAAS-104 aceptado; implementación pendiente
+### ADR-SAAS-104 aceptado; implementación local en PR #706
 
 Para expedientes nuevos, la versión V2 cuenta sábados no festivos como hábiles,
-excluye domingos y festivos colombianos, y debe tener cobertura operativa los
-sábados. Las consultas, anotación, respuesta y extensiones usan la misma
-versión que quedó registrada al abrir el caso. Los vencimientos persistidos no
-se reinterpretan al cambiar de calendario. La fecha de un acto externo que
-declara el operador queda separada de la hora server-side en que la registró.
+excluye domingos y festivos colombianos, y requiere cobertura operativa los
+sábados. Consultas, anotación, respuesta y extensiones usan la versión guardada
+al abrir el caso. Los vencimientos persistidos se validan y no se reinterpretan
+con otro calendario. Los casos históricos sin versión solo se leen como V1 si
+sus fechas son consistentes; una versión desconocida o un vencimiento alterado
+falla cerrado. No hay recálculo en bloque.
 
-En un reclamo incompleto, Backoffice debe permitir anotar el requerimiento de
-subsanación, registrar fecha/referencia de recepción de la información y
-completar el mismo expediente si su recepción ocurrió dentro de dos meses. El
-desistimiento será manual, posterior al término, con referencia de verificación
-del canal externo; no se cierra automáticamente ni se elimina el caso. Estos
-metadatos son referencias opacas, no copias de mensajes o identificaciones. El
-flujo nuevo no está implementado ni habilitado para casos reales. La decisión
-de calendario es operativa, no concepto jurídico: la conformidad específica de
-Dusema sigue pendiente de revisión jurídica profesional.
+La rama de PR #706 implementa el registro write-once del requerimiento de
+subsanación y su fecha, la recepción con fecha/referencia y la finalización del
+mismo expediente dentro de los dos meses, además del desistimiento manual tras
+verificar el canal externo. Los reintentos idénticos son idempotentes. Se
+guardan referencias opacas y timestamps del servidor, no copias de mensajes ni
+identificaciones. La aplicación no envía ni verifica el correo externo.
+
+Validación local del 2026-11-25: Emulator de Firestore pasó las pruebas de
+reclamos, consultas y recibo; las pruebas unitarias legales, las pruebas de
+Backoffice, TypeScript, build de Functions, build de Next.js y ESLint focalizado
+pasaron. No se hizo smoke en staging con operador autenticado. PR #706 sigue
+abierto y en draft; este cambio no está desplegado ni habilitado para casos
+reales. La regla de sábado es una decisión operativa interna; no es concepto
+jurídico ni certifica su aplicación concreta a Dusema.
 
 ## Fuentes
 
