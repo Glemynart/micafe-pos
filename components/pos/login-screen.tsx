@@ -2,6 +2,7 @@
 
 import { WorkspaceWelcome } from "@/components/pwa/workspace-welcome"
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { Store, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -58,6 +59,11 @@ export function LoginScreen() {
             <ActivacionCredencial />
           ) : (
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+            <nav aria-label="Información de privacidad" className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+              <Link className="underline underline-offset-4" href="/privacidad">Política de privacidad</Link>
+              <Link className="underline underline-offset-4" href="/aviso-autorizacion">Aviso de datos</Link>
+            </nav>
+
             <div className="space-y-2">
               <Label htmlFor="username" className="text-sm font-medium text-muted-foreground">Código operativo</Label>
               <Input

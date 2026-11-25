@@ -1,47 +1,63 @@
 # Vigencia, reclamos y salida de datos
 
-Decisión operativa del 24 de noviembre de 2026, bajo G-SAAS-02, M2, E2.2.
-Aplicable a la primera versión definitiva. El paquete 0.2 conserva su estado
-de borrador y sus huellas.
+**Borrador de decisión operativa — 24 de noviembre de 2026**, bajo G-SAAS-02,
+M2, E2.2. No está vigente ni publicado para aceptación. La fecha prevista solo
+puede usarse después de cerrar los gates técnicos, de proveedores, recepción de
+solicitudes, salida de datos y revisión jurídica. El paquete 0.2 conserva su
+estado de borrador y sus huellas.
 
 ## Vigencia
 
-Fecha prevista: 15 de diciembre de 2026, 00:00, hora de Colombia. Solo se usa
-si la versión definitiva se publica y se comprueba de antemano el canal de
-reclamos, el mecanismo para anotar el reclamo en el registro afectado y el
-alcance de la entrega que se ofrece. Si falta alguna comprobación, la fecha
-efectiva será el día de publicación de la versión definitiva, sin retroactividad.
-La versión publicada indicará la fecha exacta. Para negocios existentes,
-comunicar antes de aplicar los cambios y recabar aceptación cuando corresponda.
-No cambiar precio, vigencia comercial ni acceso por la sola publicación.
+Fecha objetivo no aprobada: 15 de diciembre de 2026, 00:00, hora de Colombia.
+No se activa automáticamente por llegar esa fecha. Se requiere publicación de
+una versión definitiva, fecha visible, canales funcionales, capacidad de salida
+verificada, tratamiento contractual de proveedores y revisión jurídica. Si no
+se cumplen los requisitos, la fecha queda sin efecto hasta fijar una nueva.
+Para negocios existentes, comunicar los cambios con anticipación y obtener la
+aceptación que corresponda. No cambiar precio, Trial, vigencia comercial ni
+acceso por publicar un documento.
 
 ## Vigencia de las bases y conservación
 
 | Categoría | Plazo y acción |
 | --- | --- |
-| Operación del negocio y accesos exclusivos | Mientras se presta el servicio. A la terminación efectiva, retirar el acceso ordinario y reservar 30 días calendario para solicitar la entrega. Revisar cada expediente al día 30 y programar, como objetivo interno, la supresión o anonimización de datos prescindibles para el día 60. Verificar entrega, instrucciones y dependencias antes de ejecutar. |
-| Soporte e incidencias ordinarias | Hasta 12 meses desde cierre. Antes, retirar adjuntos que dejaron de ser necesarios. Una reclamación, incidente abierto u obligación de conservación exige expediente separado y revisión de la justificación. |
-| Expedientes de privacidad ordinarios | Hasta 12 meses desde cierre para seguimiento. Si hay controversia, requerimiento u obligación aplicable, conservar la evidencia mínima de forma restringida hasta que cese su fundamento, con revisión trimestral. |
+| Operación del negocio y accesos exclusivos | Propuesta: mientras se presta el servicio. A la terminación efectiva, retirar el acceso ordinario y reservar 30 días calendario para solicitar la entrega. Revisar cada expediente al día 30 y programar, como objetivo interno, la supresión o anonimización de datos prescindibles para el día 60. Verificar entrega, instrucciones y dependencias antes de ejecutar. No hay TTL ni job que implemente este objetivo; supresión real en producción no fue probada. |
+| Soporte e incidencias ordinarias | Propuesta pendiente: hasta 12 meses desde cierre. Antes, retirar adjuntos que dejaron de ser necesarios. Una reclamación, incidente abierto u obligación de conservación exige expediente separado y revisión de la justificación. No está configurado ni aceptado como plazo contractual. |
+| Expedientes de privacidad ordinarios | Propuesta pendiente: hasta 12 meses desde cierre para seguimiento. Si hay controversia, requerimiento u obligación aplicable, conservar la evidencia mínima de forma restringida hasta que cese su fundamento, con revisión trimestral. No está configurado ni aprobado. |
 | Contrato, recibos y papeles propios del comerciante | Durante la relación y, cuando la pieza clasifique como libro o papel de comercio, diez años desde el último asiento, documento o comprobante de esa categoría. Para evidencia fuera de esa categoría, documentar el fundamento específico y revisar su necesidad al cierre y anualmente. No aplicar diez años a todo el catálogo, los usuarios ni los logs. |
-| Logs y respaldos administrados | Firestore: 35 días desde el snapshot según el schedule observado. Storage: siete días recuperables desde el borrado por soft delete observado. En Logging global se observaron 30 días para `_Default` y 400 para `_Required`. Son ciclos de recursos específicos y pueden coexistir con otros ciclos del proveedor. |
+| Logs y respaldos administrados | Evidencia de metadatos en recursos concretos: Firestore backups diarios con retención de 35 días desde cada snapshot; Storage soft delete recuperable por 7 días en los buckets examinados; Cloud Logging global `_Default` 30 días y `_Required` 400 días. No se certificó la expiración real ni se inventarió cada log, bucket, exportación o copia. Son ciclos de servicio, no plazos contractuales aprobados ni garantía de supresión global. |
 
-Suspender el tratamiento ordinario al vencer su finalidad. Documentar por
-categoría cualquier deber de conservar, orden, disputa o referencia compartida.
-No eliminar el ledger, la evidencia obligatoria ni identidades compartidas por
-un trámite automático. El día 60 es un objetivo para sistemas activos dentro
-del alcance verificable. No es una garantía de purga integral ni de respaldos.
+Suspender el tratamiento ordinario al vencer su finalidad. Los períodos de 30,
+60, 90 días y 12 meses son propuestas; la Ley 1581 exige conservar durante el
+tiempo razonable y necesario para la finalidad, sin perjuicio de deberes legales
+o contractuales aplicables, pero no fija un único plazo general para todo SaaS.
+Documentar por categoría cualquier deber de conservar, orden, disputa o
+referencia compartida. No eliminar el ledger, la evidencia obligatoria ni
+identidades compartidas por un trámite automático. El día 60 es solo un objetivo
+propuesto para sistemas activos dentro del alcance verificable. No es una
+garantía de purga integral ni de respaldos. Una supresión de sistemas activos
+puede dejar datos en backups Firestore anteriores hasta por 35 días adicionales;
+el límite aritmético de 95 días depende de ejecutar la supresión activa a más
+tardar el día 60 y no cubre copias no inventariadas. Tampoco se ha probado la
+restauración del backup ni la expiración de objetos Storage de prueba.
 
 ## Entrega al terminar
 
-Una entrega estándar sin costo adicional. Recibir solicitudes por el canal de
-soporte durante 30 días calendario desde la terminación. Acusar recibo y
-comunicar el alcance inicial en dos días hábiles. Objetivo de entrega: diez días
-hábiles desde la verificación de identidad y facultad, para los datos cuya
-proyección y entrega estén verificadas. Si falta cobertura, identificar dominios
-faltantes, comunicar la fecha estimada y mantener el expediente abierto. Los
-plazos de hábeas data se tramitan por separado, incluso fuera de esa ventana.
+Propuesta pendiente: incluir una entrega estándar sin costo adicional y recibir
+solicitudes durante 30 días calendario desde la terminación. El acuse dentro de
+dos días hábiles y la entrega dentro de diez días hábiles desde verificar
+identidad/facultad son objetivos comerciales propuestos, no oferta aceptada ni
+capacidad certificada. El canal de soporte no se ha comprobado como recepción
+operativa. Si falta cobertura técnica, no se genera ni entrega un paquete parcial
+como si fuera completo; se informan los límites y se deja constancia. Los plazos
+de hábeas data se atienden por su régimen propio, incluso fuera de esa ventana.
 
-Entregar en CSV o JSON, según el formato disponible, catálogo y presentaciones,
+La exportación real no se ha ejecutado y `productionExportCertified=false`.
+El prototipo local probado con datos sintéticos no acredita cobertura de
+esquemas históricos, referencias, Storage ni consistencia de una entrega real.
+No leer ni entregar datos de producción hasta cerrar ese gate.
+
+El alcance propuesto sería CSV o JSON, según el formato disponible, catálogo y presentaciones,
 inventario y movimientos, clientes y proveedores del negocio, pedidos, compras,
 ventas y abonos, documentos comerciales propios y configuración operativa.
 Incluir archivos propios autorizados cuando pueda verificarse su pertenencia.
@@ -52,6 +68,25 @@ su contenido. La exportación integral requiere validar fuentes históricas y
 archivos en un ensayo representativo antes de ofrecerla como disponible.
 
 ## Trámite de reclamos
+
+Cada parte debe designar una persona o área responsable de tramitar solicitudes
+de titulares (Decreto 1074 de 2015, art. 2.2.2.25.4.4). El nombre, delegación,
+canal funcional y archivo restringido de Dusema y los de cada negocio deben
+verificarse antes de ofrecer el trámite en producción. Para datos tratados por
+cuenta de un tenant, Dusema conserva la fecha original, informa al responsable
+y presta asistencia; el traslado no reinicia términos. La identidad del titular
+y su legitimación se validan antes de revelar información. El administrador del
+tenant no queda facultado automáticamente para ejercer derechos por los clientes
+del negocio. La asignación contractual no elimina los deberes legales propios de
+responsable o encargado según la operación.
+
+Una oposición al cobro por presunta suplantación debe salir de la cola ordinaria
+de cartera, evitar que el cobro continúe automáticamente y escalarse para
+determinar las medidas exigibles bajo las Leyes 1266 de 2008 y 2573 de 2026
+antes de cualquier circulación externa. Es una precaución operativa, no una
+conclusión de que la Ley 2573 aplique a todo comerciante. Su aplicabilidad a cada
+establecimiento requiere determinar si tiene la competencia descrita por esa
+norma; no se presume por conceder crédito en el POS.
 
 1. Registrar fecha de recepción y consecutivo. Verificar identidad, facultad,
    dato afectado y motivo. Si falta información, requerirla dentro de los cinco
@@ -124,6 +159,14 @@ con otro calendario. Los casos históricos sin versión solo se leen como V1 si
 sus fechas son consistentes; una versión desconocida o un vencimiento alterado
 falla cerrado. No hay recálculo en bloque.
 
+El calendario V2 es una decisión operativa interna, no una interpretación
+jurídica definitiva sobre el alcance de «cinco días siguientes» para Dusema. El
+artículo 15 de la Ley 1581 no llama expresamente hábiles a esos cinco días; las
+reglas generales de cómputo y la calificación de sábados para una operación
+privada requieren validación jurídica para el caso concreto. No dejar vencer un
+reclamo por esta incertidumbre: documentar la recepción y usar el vencimiento
+conservador que indique el sistema mientras se obtiene revisión.
+
 La rama de PR #706 implementa el registro write-once del requerimiento de
 subsanación y su fecha, la recepción con fecha/referencia y la finalización del
 mismo expediente dentro de los dos meses, además del desistimiento manual tras
@@ -141,10 +184,15 @@ jurídico ni certifica su aplicación concreta a Dusema.
 
 ## Fuentes
 
+- [Ley 1581 de 2012, arts. 14, 15 y 18](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981).
+- [Decreto 1074 de 2015, arts. 2.2.2.25.2.8, 2.2.2.25.4.4 y 2.2.2.25.5.1–.2](https://cancilleria.gov.co/sites/default/files/Normograma/docs/pdf/decreto_1074_2015_pr026.pdf).
 - [Decreto 1074 de 2015, arts. 2.2.2.25.2.8 y 2.2.2.25.3.1](https://www.cancilleria.gov.co/sites/default/files/Normograma/docs/decreto_1074_2015_pr025.htm).
 - [Ley 1581 de 2012, arts. 14, 15, 17 y 18](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981).
 - [Ley 962 de 2005, art. 28](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=17004).
 - [Ley 51 de 1983, art. 1](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=4954).
+- [SIC, Concepto sobre Firebase](https://sedeelectronica.sic.gov.co/publicaciones/boletin-juridico/concepto/uso-de-firebase-en-almacenamiento-de-datos-y-cumplimiento-normativo-en-colombia).
+- [SIC, alcance de Circular Externa 002 de 2025](https://sedeelectronica.sic.gov.co/publicaciones/boletin-juridico/concepto/alcance-de-la-circular-002-de-2025-sobre-transferencias-internacionales-de-datos).
+- [Ley 2573 de 2026](https://www.cancilleria.gov.co/normograma/compilacion/docs/ley_2573_2026.htm) y [Ley 1266 de 2008](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=34488), para evaluar separadamente datos de cartera y alegaciones de suplantación.
 
 ## Actualización de despliegue — 25 de noviembre de 2026, 13:31 UTC
 

@@ -107,3 +107,25 @@ ADR-SAAS-099 fue aceptado para implementar autoridad y persistencia de la
 aceptación contractual. Los proveedores, conservación y términos de soporte/salida
 siguen pendientes antes de publicar textos finales o activar enforcement. La
 revisión jurídica no reemplaza esos datos operativos faltantes.
+
+## Revisión documental y decisión de vigencia — 2026-11-25
+
+En la rama de PR #706 se revisaron los cuatro documentos 0.2 y sus copias
+públicas. Los pares internos/públicos tienen bytes idénticos y el catálogo
+legal se sincronizó con sus hashes SHA-256 normalizados. Se mantuvieron
+`BORRADOR` y `PREPARACION`; no se habilitaron aceptaciones. Los logins de admin
+tenant, Backoffice y POS muestran enlaces a privacidad/aviso antes de pedir
+credenciales; solo el admin tenant ve además los documentos contractuales. Los
+enlaces no registran autorización ni consentimiento.
+
+Decisión del revisor técnico: **NO APROBADO PARA VIGENCIA O EXIGIBILIDAD** con
+la evidencia actual. Siguen pendientes el cotejo de identificación/dirección y
+calidad fiscal con el RUT; designar formalmente a la persona o área de privacidad
+y probar canales y archivo restringido; determinar proveedores, cuentas,
+subencargados, flujos y ubicaciones que realmente operan; cerrar finalidades,
+instrucciones y bases jurídicas por tratamiento; probar un smoke autenticado;
+y certificar exportación y supresión reales. Los plazos de retención/salida son
+propuestas no aprobadas, no hay limpieza automática certificada, y el alcance de
+las Leyes 1266/2573 para cartera/suplantación requiere determinarse por actividad.
+La revisión es técnica/documental, no dictamen jurídico ni certificación
+integral.

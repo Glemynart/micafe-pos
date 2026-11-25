@@ -1,9 +1,9 @@
 # Dusema POS — borradores legales
 
 Estado: **BORRADOR PARA REVISIÓN; NO PUBLICADO NI EXIGIBLE COMO NUEVA VERSIÓN**.
-Preparación: 2026-11-23. Versión de trabajo: `0.2`.
+Preparación: 2026-11-23; revisión documental: 2026-11-25. Versión de trabajo: `0.2`.
 
-Revisión normativa del mismo día: los cuatro documentos se versionan como `0.2`.
+Revisión normativa del 2026-11-25: los cuatro documentos se versionan como `0.2`.
 Véanse [hallazgos y fuentes](REVISION-2026-11.md) y
 [ADR-SAAS-099 aceptado para implementación](../../ADR-SAAS-099-aceptacion-legal-versionada.md).
 La revisión no cierra los pendientes ni convierte el texto en exigible.
@@ -112,3 +112,27 @@ Las fuentes orientan la revisión; los borradores no constituyen certificación 
 cumplimiento. La rama añade validaciones automatizadas de hashes, Functions y
 Rules; el estado de ejecución de esas validaciones se reporta en el PR. Ningún
 resultado técnico por sí solo certifica cumplimiento jurídico.
+
+## Revisión documental del 2026-11-25
+
+Se revisaron en paralelo términos, política, aviso, anexo y documentos
+operativos. Los cuatro espejos internos/públicos coinciden y el catálogo
+versionado usa sus hashes actuales. Los textos continúan en `BORRADOR` y el
+bundle en `PREPARACION`; no hay versión exigible ni aceptación registrada.
+Las fechas y plazos propuestos en la matriz de conservación no están aprobados
+ni configurados como borrado automático.
+
+La política y el aviso separan el contrato del negocio de las autorizaciones
+personales de sus clientes, empleados y otros titulares. Los logins de admin,
+Backoffice y POS muestran enlaces a privacidad/aviso antes de pedir credenciales;
+solo el admin tenant ve también los documentos contractuales. Los enlaces no
+registran consentimiento.
+
+La auditoría de vigencia es **NO APROBADA**. Antes de publicar o exigir una
+versión definitiva deben cotejarse los datos del prestador con el RUT, designar
+formalmente a la persona/área de privacidad y comprobar sus canales y archivo
+restringido; cerrar productos, cuentas, subencargados y ubicaciones efectivos;
+validar datos, finalidades e instrucciones por tratamiento; y completar el
+smoke autenticado, exportación y supresión reales. El inventario de proveedores
+aún incluye integraciones heredadas no confirmadas. La revisión no es un
+dictamen jurídico ni una certificación integral.

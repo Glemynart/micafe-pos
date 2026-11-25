@@ -1,6 +1,6 @@
 # Términos del servicio — Dusema POS
 
-**BORRADOR 0.2 — 2026-11-23. Pendiente de revisión y aprobación. Sin vigencia contractual.**
+**BORRADOR 0.2 — 2026-11-25. Pendiente de revisión y aprobación. Sin vigencia contractual.**
 
 ## 1. Prestador y contacto
 
@@ -40,16 +40,31 @@ particular y sus reglas vigentes. No se introducen aquí nuevas penalidades ni
 plazos. Los derechos imperativos y las devoluciones que legalmente correspondan
 se respetan; no se pacta una exclusión general de reembolsos.
 
+Las causales, el alcance, la notificación, la duración y el restablecimiento de
+una eventual suspensión deben quedar definidos en las condiciones particulares
+antes de ofrecerla como condición contractual. La suspensión no implica por sí
+sola la eliminación de la información del negocio.
+
 ## 4. Cuentas y uso permitido
 
 Cuando la contratación configure una relación de consumo, se aplican la Ley
-1480 de 2011 y sus modificaciones, incluida la Ley 2439 de 2024. El retracto,
-cuando proceda, se ejerce dentro de cinco días hábiles de celebrar el contrato
-de servicios. Debe evaluarse la excepción por comienzo de ejecución acordado
-con el consumidor; no se presume por crear la cuenta o marcar una casilla.
-La devolución por retracto electrónico se tramita en el plazo legal de hasta
-quince días calendario, bajo sus presupuestos. La reversión de pagos es un
-mecanismo distinto y solo aplica cuando concurran sus requisitos legales.
+1480 de 2011 y sus modificaciones, incluida la Ley 2439 de 2024. La calidad de
+consumidor depende del destino final del servicio y de si la necesidad
+empresarial está intrínsecamente ligada a la actividad económica; no se presume
+ni se descarta únicamente por la forma jurídica del cliente. El retracto,
+cuando proceda, se ejerce dentro de cinco días hábiles contados desde la
+celebración del contrato de servicios. Debe evaluarse la excepción legal cuando
+la prestación haya comenzado con acuerdo del consumidor; no se presume por
+crear la cuenta ni por una aceptación general que no documente ese acuerdo.
+
+En comercio electrónico, la devolución por retracto se realiza dentro del plazo
+legal de hasta quince días calendario desde el ejercicio del derecho y una vez
+se cumplan las condiciones legales aplicables, incluida la entrega de los datos
+correctos y completos requeridos y la devolución del producto cuando corresponda.
+El prestador debe informar claramente las opciones de devolución disponibles;
+no se presume que el sistema procese automáticamente reembolsos. La reversión
+de pagos es un mecanismo distinto y solo aplica cuando concurran sus requisitos
+legales.
 
 Antes de contratar se informa precio total, impuestos y cargos aplicables,
 duración, prestaciones, restricciones y condiciones de activación. Se permite
@@ -122,7 +137,7 @@ Las partes pueden presentar solicitudes o reclamaciones al correo de contacto.
 Cuando aplique el régimen de consumo, las reclamaciones directas se responden
 en el término legal correspondiente y el canal electrónico debe permitir
 conservar fecha, seguimiento y respuesta. Debe ofrecerse acceso visible al sitio
-de la [Superintendencia de Industria y Comercio](https://www.sic.gov.co/).
+de la [Superintendencia de Industria y Comercio — Protección al Consumidor](https://sedeelectronica.sic.gov.co/temas/proteccion-al-consumidor/que-hacemos).
 Rige la legislación colombiana, sin excluir autoridades competentes, derechos de
 los titulares ni normas imperativas de protección al consumidor cuando apliquen.
 

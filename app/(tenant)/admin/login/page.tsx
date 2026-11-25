@@ -81,6 +81,12 @@ function AdminLoginContent() {
               <h2 className="text-lg font-bold text-foreground">Bienvenido de nuevo</h2>
               <p className="text-sm text-muted-foreground">Accede con tu cuenta de administrador</p>
             </div>
+            <nav aria-label="Documentos legales" className="mb-5 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+              <Link className="underline underline-offset-4" href="/terminos">Términos</Link>
+              <Link className="underline underline-offset-4" href="/privacidad">Privacidad</Link>
+              <Link className="underline underline-offset-4" href="/anexo-tratamiento">Anexo de tratamiento</Link>
+              <Link className="underline underline-offset-4" href="/aviso-autorizacion">Aviso de datos</Link>
+            </nav>
             <div>
               {activacionPendiente ? (
                 <ActivacionCredencial />
@@ -175,12 +181,6 @@ function AdminLoginContent() {
               )}
             </div>
           </div>
-          <nav aria-label="Documentos legales" className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-            <Link className="underline underline-offset-4" href="/terminos">Términos</Link>
-            <Link className="underline underline-offset-4" href="/privacidad">Privacidad</Link>
-            <Link className="underline underline-offset-4" href="/anexo-tratamiento">Anexo de tratamiento</Link>
-            <Link className="underline underline-offset-4" href="/aviso-autorizacion">Aviso de datos</Link>
-          </nav>
         </div>
       </div>
     </div>

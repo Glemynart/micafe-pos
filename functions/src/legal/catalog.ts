@@ -19,17 +19,17 @@ export interface BundleLegal {
 }
 
 /**
- * Huellas de los archivos publicados en public/legal/v0.2. Los cuatro textos
- * son borradores; el estado del bundle evita presentarlos como contrato vigente.
+ * Huellas exactas de los borradores en public/legal/v0.2. El estado del bundle
+ * evita presentarlos como documentos vigentes o exigibles.
  */
 export const BUNDLE_LEGAL_ACTUAL: BundleLegal = {
   id: "dusema-pos-2026-11-v0.2",
   estado: "PREPARACION",
   documentosContractualesRequeridos: ["terminos", "anexo-tratamiento"],
   documentos: [
-    { id: "terminos", titulo: "Términos del servicio", version: "0.2", sha256: "3da9b709eb5e043fcf3bb106a5e2e155e23c49ff1f8b2aadf603296020e27ea7", rutaPublica: "/legal/v0.2/terminos-servicio.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
-    { id: "politica-tratamiento", titulo: "Política de tratamiento de datos personales", version: "0.2", sha256: "fe859ffdf359910fbf3a52eb0daf175f4e4f5fc40b91554f16e0100d9402f9eb", rutaPublica: "/legal/v0.2/politica-tratamiento.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
-    { id: "aviso-autorizacion", titulo: "Aviso y autorización de datos", version: "0.2", sha256: "848b8c97898dde33576996f00cc4c3efaba9aa1eed152cdb408de12d94afac1b", rutaPublica: "/legal/v0.2/aviso-autorizacion.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
-    { id: "anexo-tratamiento", titulo: "Anexo de tratamiento por cuenta del negocio", version: "0.2", sha256: "5fa27aebf552c079b19b5c0bd85745c7cdc6a72f15aee49b8155485ff11d4aa2", rutaPublica: "/legal/v0.2/anexo-tratamiento.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
+    { id: "terminos", titulo: "Términos del servicio", version: "0.2", sha256: "d1af0b746a61e93bfaae505eced6359d4f807d9f62f952dce8b94e4918feca7c", rutaPublica: "/legal/v0.2/terminos-servicio.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
+    { id: "politica-tratamiento", titulo: "Política de tratamiento de datos personales", version: "0.2", sha256: "23f6df3d56a79639665124ed1507cd584887ce1cd4b0352262207546d346049d", rutaPublica: "/legal/v0.2/politica-tratamiento.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
+    { id: "aviso-autorizacion", titulo: "Aviso y autorización de datos", version: "0.2", sha256: "43e87345b3b54c71c668e5abe281c0f43d7da9e7f70d33f92aedf092806dd55d", rutaPublica: "/legal/v0.2/aviso-autorizacion.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
+    { id: "anexo-tratamiento", titulo: "Anexo de tratamiento por cuenta del negocio", version: "0.2", sha256: "058f97dab35538c9e657b84ae778d3b1abb641a4f29e5ed73a891caebe12b9b2", rutaPublica: "/legal/v0.2/anexo-tratamiento.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
   ],
 };
