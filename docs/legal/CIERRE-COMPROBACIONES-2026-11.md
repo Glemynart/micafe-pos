@@ -299,11 +299,10 @@ aceptación ni se declara cumplimiento legal integral.
 
 El CI verde solo certifica ese commit para CI; no certifica Rules, permisos,
 exportación real, supresión, aprobación jurídica ni publicación en producción.
-La actualización de `REVISION-2026-11.md` incorpora la Ley 2573/2026: su vigencia
-general comenzó el 19 de noviembre de 2026; el alcance de “establecimientos
-comerciales con esta competencia” sigue sin definición en el texto y la SFC
-remitió las preguntas de alcance a la SIC. No se atribuye su cumplimiento a
-Dusema ni a todos los negocios clientes sin análisis jurídico por rol.
+La actualización de `REVISION-2026-11.md` incorpora la Ley 2573/2026. La fecha
+exacta de su entrada en vigor se corrige en la revisión normativa posterior de
+este expediente; no se atribuye su cumplimiento a Dusema ni a todos los negocios
+clientes sin análisis jurídico por rol.
 
 ## Revisión del CI y de las capacidades del trámite — 2026-11-25 08:47 UTC
 
@@ -392,14 +391,22 @@ escribió en producción.
 ## Actualización normativa — Ley 2573 y Carta Circular 77 — 2026-11-25
 
 - El texto oficial de la Ley 2573 fija vigencia general seis meses después de su
-  promulgación del 19 de mayo de 2026; por ello inició el 19 de noviembre de 2026.
-  Los parágrafos 1 y 2 del artículo 5 rigen desde la promulgación.
+  promulgación. El encabezado indica 19 de mayo de 2026, pero el Diario Oficial
+  53.496 consta fechado el 20 de mayo; el artículo 52 de la Ley 4 de 1913 define
+  promulgación por la inserción en el periódico oficial. Por ello no debe
+  afirmarse el 19 de noviembre como fecha exacta basándose solo en la sanción.
+  Al 25 de noviembre ya transcurrió el período de seis meses bajo los cómputos
+  posibles desde esas dos fechas. La fecha diaria exacta requiere validación
+  jurídica por la redacción «dentro de los seis meses». Los parágrafos 1 y 2 del
+  artículo 5 rigen desde la promulgación.
 - La SFC publicó el 18 de noviembre la Carta Circular 77, que comunica un
-  protocolo para entidades bajo vigilancia de esa Superintendencia. El Boletín
-  Jurídico 124 de la SFC indica que la Ley 2573 no define “demás establecimientos
-  comerciales con esta competencia”, que trasladó la pregunta de alcance a la SIC
-  y que, para las medidas de los artículos 7 y 8 discutidas en ese concepto,
-  resulta relevante si la entidad es fuente de información sobre la obligación.
+  protocolo de atención de reportes de suplantación. La SFC clasifica las cartas
+  circulares como informativas y no como regulación; la Carta Circular 77 no
+  resuelve por sí misma el alcance para todo comercio. El Boletín Jurídico 124
+  indica que la Ley 2573 no define “demás establecimientos comerciales con esta
+  competencia”, que trasladó la pregunta de alcance a la SIC y que, para las
+  medidas de los artículos 7 y 8 discutidas en ese concepto, resulta relevante
+  si la entidad es fuente de información sobre la obligación.
 - Este protocolo de la SFC no acredita que Dusema esté bajo la vigilancia de la
   SFC ni resuelve el alcance para Dusema o para los comercios clientes. La búsqueda
   de fuentes oficiales SIC realizada el 25 de noviembre no localizó un protocolo
@@ -410,8 +417,28 @@ escribió en producción.
   declarar conformidad o diseñar un flujo específico de suplantación.
 
 Fuentes oficiales: [Ley 2573/2026 — MINTIC](https://normograma.mintic.gov.co/mintic/compilacion/docs/ley_2573_2026.htm),
+[Ley 4 de 1913, arts. 52, 59 y 60](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=8426),
+[Cartas Circulares 2026 — SFC](https://www.superfinanciera.gov.co/publicaciones/10115975/cartas-circulares-2026/),
 [Carta Circular 77 — SFC](https://www.superfinanciera.gov.co/publicaciones/10115975/cartas-circulares-2026/)
 y [Boletín Jurídico 124 — SFC](https://www.superfinanciera.gov.co/publicaciones/10116313/boletin-juridico-no-124/).
+
+## Revalidación de Vercel y alias históricos — 2026-11-25 19:52 UTC
+
+- `vercel list cafeatrato` muestra cuatro deployments de entorno Production con
+  estado `Ready`, de aproximadamente 50 días de antigüedad. Las cuatro URLs
+  únicas devuelven la página de acceso de Vercel cuando se consultan sin sesión;
+  ninguna mostró contenido de Café Atrato. Esto confirma una barrera de acceso
+  anónimo para esas cuatro muestras, no la eliminación de los deployments.
+- `https://cafeatrato.vercel.app/` devolvió la respuesta `DEPLOYMENT_NOT_FOUND`;
+  el alias que antes servía la landing ya no la publica. La raíz productiva
+  `https://pos.dusema.com/` sigue en Firebase App Hosting (GET `200`, título
+  “Dusema POS”), no en Vercel. No se borró ni cambió ningún deployment, alias,
+  plan o dominio en esta revalidación.
+- El estado previo del equipo Vercel Hobby y las limitaciones de uso comercial
+  siguen documentados. La verificación nueva confirma que los deployments
+  antiguos están protegidos y que el alias público antiguo no está asignado;
+  no determina por sí sola si conservar deployments protegidos cumple los
+  términos del plan ni acredita su borrado definitivo.
 
 ## Revisión del término de subsanación — 2026-11-25
 
