@@ -810,3 +810,14 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   escritura exitosa de una callable ni el guardado de un expediente sintético.
   El smoke funcional autenticado permanece incompleto; no se crearon casos ni
   se modificaron datos reales o producción.
+
+## Verificación HTTP de documentos — 2026-11-25 18:58 UTC
+
+- Consulta GET de solo lectura a las cuatro rutas legales de staging: todas
+  respondieron `200` y muestran la versión `v0.2` como borrador/no exigible.
+  Por tanto, la interfaz del PR puede mostrar la bandeja actualizada mientras
+  el paquete `v0.3` de la rama aún no se sirve en staging.
+- En producción, `/terminos` respondió `200` con el título histórico
+  “Términos y Privacidad - Café Atrato”; `/privacidad`,
+  `/aviso-autorizacion` y `/anexo-tratamiento` no están disponibles (404).
+  No se desplegó ni modificó ningún entorno.
