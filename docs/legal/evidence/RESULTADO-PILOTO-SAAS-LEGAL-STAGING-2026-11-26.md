@@ -84,3 +84,16 @@ El piloto no certifica el manejo integral de datos legales ni autoriza publicar 
 - No se modificó producción, Rules, cuentas compartidas ni otros codebases.
   El PR #706 sigue `OPEN`/`DRAFT`; esta evidencia corresponde al corte de staging,
   no a un release productivo ni a una aprobación jurídica final.
+
+### Integridad del bundle servido
+
+Se descargaron los bytes de las cuatro rutas públicas y se comparó su SHA-256
+con el valor declarado en `lib/legal/legal-bundle.ts`. Las cuatro coincidieron
+exactamente:
+
+| Archivo | SHA-256 servido y esperado | Resultado |
+|---|---|---|
+| `terminos-servicio.md` | `0f6509480588051f312b37e1bf352ff7c70721857f19ccd56b02640d53ffe059` | Coincide |
+| `politica-tratamiento.md` | `3b81fed45a99637cd9b6dc5ecd09766544e1161239d8ddcdb183f9b621d4e244` | Coincide |
+| `aviso-autorizacion.md` | `42e9338cae72059cad52aeb8c96e0e4946c0fadfd56dedfffa443bd50a7ea8dd` | Coincide |
+| `anexo-tratamiento.md` | `e8a9f52ade5ea2785bac7f2c79976b1d7d57ad73710d1b752ae5ed9a8cf87b6e` | Coincide |
