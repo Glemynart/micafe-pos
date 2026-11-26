@@ -1087,3 +1087,28 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   POS. La política y el anexo v0.4 conservan una advertencia condicional para
   cada negocio; no se declara que Dusema cumpla por cuenta del negocio con un
   eventual proceso de suplantación, ni se añade una promesa de función inexistente.
+
+## Revalidación de rutas y autorización del piloto — 2026-11-26 02:25 UTC
+
+- `HEAD` a las rutas, sin sesión ni envío de datos: staging
+  `/backoffice/privacidad` respondió `200`; producción en `pos.dusema.com` y el
+  host de App Hosting respondió `404` para `/backoffice/privacidad`; producción
+  `/terminos` respondió `200`. Esto comprueba disponibilidad HTTP, no contenido,
+  autorización ni un recorrido autenticado en producción.
+- En staging se observó la página con el estado «Operador autorizado». Se
+  rellenó parcialmente el formulario con referencias de prueba sintéticas, pero
+  Computer Use se detuvo al no poder confirmar la URL vigente. No se pulsó
+  «Registrar», no se creó un caso y no hubo escritura de formulario en Firestore.
+  El smoke de escritura y la prueba de aislamiento siguen pendientes.
+- El responsable confirma que el negocio autoriza el piloto con la condición de
+  no necesitar una cuenta ni sesión del tenant. El diseño de exportación ya usa
+  una identidad de operador SaaS de producción con `CONSERVACION_GOBERNAR`; no
+  requiere autenticarse como el negocio. Antes de leer datos operativos aún debe
+  verificarse el soporte/referencia de la instrucción y la facultad del operador.
+  La afirmación recibida en esta conversación no se ha convertido en un soporte
+  independiente dentro del expediente. No se leyeron documentos operativos ni
+  archivos reales y `productionExportCertified=false`.
+- PR #706 permanece `OPEN`/`DRAFT`, con base `main@aa1c4fe` y HEAD
+  `8aa41f2`. El run `45734253581` del HEAD terminó `success`; esto no cierra los
+  gates de staging, salida real, conservación/supresión, publicación ni revisión
+  jurídica descritos en el PR.
