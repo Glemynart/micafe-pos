@@ -1314,3 +1314,54 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   afirma que las cuatro callables estén listas para producción. No hubo
   escrituras de datos de negocio, mutaciones IAM ni cambios productivos en esta
   revalidación.
+
+## Revalidación de RUT, marco legal, rutas públicas y CI — 2026-11-26 13:49 UTC
+
+- El prestador compartió imágenes parciales de su RUT. La clasificación visible
+  corresponde a persona natural y los datos de identificación/contacto que ya
+  aparecen en `public/legal/v0.5/` coinciden con esas imágenes. No se incorporó
+  el documento ni sus imágenes al repositorio y no se consultó el QR o un servicio
+  de la DIAN; la evidencia valida consistencia con lo aportado, no autenticidad
+  independiente del RUT ni representación de una persona jurídica distinta.
+- El prestador señaló que él mismo atenderá los casos de privacidad. La política
+  identifica a Sebastián Agudelo Muñoz como contacto principal y declara que no
+  existe suplente; esta revisión no prueba disponibilidad continua ni operación
+  de los canales. El estado del correo personal sigue pendiente de recuperar la
+  capacidad y completar una prueba externa de ida y vuelta; el usuario había
+  diferido resolver la cuota del buzón.
+- La revisión de fuentes oficiales confirma: Ley 1581 de 2012, arts. 14–15, fija
+  los términos de consultas y reclamos de hábeas data; Ley 1480 de 2011, art.
+  50(g), modificado por Ley 2439 de 2024, exige un mecanismo electrónico de PQR
+  con constancia y seguimiento cuando sea una relación de consumo por comercio
+  electrónico; la Ley 2573 de 2026 fue promulgada el 19 de mayo y su regla
+  general de vigencia a seis meses comienza el 19 de noviembre de 2026, pero su
+  alcance sobre cartera aplica a establecimientos con la competencia descrita
+  por esa ley y no se presume para todo SaaS o tendero. La SIC describe como
+  obligados al RNBD a sociedades y entidades sin ánimo de lucro con activos
+  superiores a 100.000 UVT y personas jurídicas públicas; con la clasificación
+  de persona natural que muestra el RUT aportado, no se identifica obligación
+  de RNBD para el prestador en esa calidad. Las demás obligaciones de la Ley
+  1581 continúan aplicando. La clasificación se debe revisar si cambia el sujeto
+  que presta el servicio o el régimen.
+- Fuentes primarias consultadas: [Ley 1581 de 2012 — Función Pública](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981),
+  [Ley 1480 de 2011 — Función Pública](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=44306),
+  [Ley 2439 de 2024 — Función Pública](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=257116),
+  [Ley 2573 de 2026 — Función Pública](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=277136),
+  y [SIC — sujetos obligados al RNBD](https://sedeelectronica.sic.gov.co/publicaciones/boletin-juridico/concepto/cuales-personas-estan-obligadas-realizar-el-registro-de-bases-de-datos-personales-en-el-rnbd).
+- Sondas HTTP `GET` sin autenticación: `pos.dusema.com/terminos` devuelve 200,
+  pero el título servido continúa siendo «Términos y Privacidad - Café Atrato»;
+  `/privacidad`, `/aviso-autorizacion` y `/anexo-tratamiento` devuelven 404.
+  `cafeatrato.vercel.app` devuelve 404, lo que confirma que el alias estable ya
+  no sirve una página pública; esto no demuestra que los artefactos protegidos
+  de Vercel hayan sido borrados. La raíz `pos.dusema.com` redirige a `/pos`.
+  Las cuatro rutas legales de staging devuelven 200. Estas sondas no probaron
+  aceptación, permisos, persistencia ni aislamiento.
+- CI del HEAD exacto `f8ede4e46a23704e5e6d80b229cea6023f82d80c` terminó `success`
+  en el run `45826327305`: el job `Tipos y pruebas` completó 128 pasos sin
+  fallos. PR #706 sigue abierto y Draft, sin revisiones humanas. El merge state
+  `CLEAN` y CI verde no satisfacen los gates autenticados ni la aprobación
+  factual/jurídica; no se hizo merge ni despliegue a producción.
+- Computer Use listó una ventana de Edge titulada «Backoffice · Dusema POS» y
+  detuvo el intento de capturar su estado porque no pudo verificar la URL actual
+  con suficiente confianza. No se navegó ni se ejecutó smoke autenticado; no se
+  usaron credenciales, cookies o datos de sesión.

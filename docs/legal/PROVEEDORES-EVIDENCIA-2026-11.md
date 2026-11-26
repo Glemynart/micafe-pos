@@ -259,3 +259,15 @@ remanentes no quedan acreditados como compatibles con sus términos no comercial
 ni con el DPA Pro/Enterprise. No hubo cambio de plan o cobros. Este pendiente
 requiere retirar esos artefactos/proyecto o resolverlo mediante un plan/contrato
 comercial autorizado; no se presume que la retirada de previews lo resuelva.
+
+### Revalidación HTTP pública — 2026-11-26 13:49 UTC
+
+Solicitudes `GET` sin autenticación confirmaron que `https://cafeatrato.vercel.app`
+ahora devuelve HTTP 404. Esto corrige la disponibilidad observada anteriormente
+del alias estable, pero no demuestra que los cuatro deployments `production`
+protegidos se hayan borrado, que el proyecto Vercel esté eliminado o que sus
+artefactos hayan expirado. No se modificó el plan, los deployments, el proyecto
+ni sus permisos. `pos.dusema.com` redirige al POS en App Hosting; las rutas
+legales productivas siguen incompletas. El uso comercial previo/persistente del
+equipo Hobby y la cobertura del DPA no se consideran resueltos por el 404 del
+alias público.

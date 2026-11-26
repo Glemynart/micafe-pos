@@ -104,3 +104,22 @@ inventario de VMs y global de recursos sigue incompleto. No se creó identidad n
 binding. `roles/datastore.user` y `roles/firebaseauth.viewer` son candidatos
 documentados para revisión, no permisos ya aprobados o concedidos. Véase el
 [preflight de solo lectura](evidence/PREFLIGHT-PRODUCCION-READONLY-2026-11-26.md).
+
+## Reconciliación factual y de release — 2026-11-26 13:49 UTC
+
+Esta sección supersede los estados anteriores de rutas, CI y verificación de
+identidad del prestador; véase el registro con evidencia en
+[Cierre de comprobaciones](CIERRE-COMPROBACIONES-2026-11.md).
+
+| Requisito | Estado verificado | Pendiente para cierre |
+|---|---|---|
+| Identidad del prestador | Imágenes parciales del RUT aportadas por el prestador indican persona natural; los datos ya publicados en el borrador v0.5 coinciden. No se guardó el RUT en Git ni se verificó el QR/DIAN. El prestador designó a Sebastián Agudelo Muñoz como contacto operativo principal; no hay suplente. | Confirmar que el prestador contractual seguirá siendo esa misma persona natural y operar/probar los canales. No hace falta pedir de nuevo el RUT para la consistencia de estos campos; la evidencia no acredita autenticidad independiente ni firma de documentos. |
+| RNBD | La orientación pública de la SIC identifica como obligados a sociedades y entidades sin ánimo de lucro con activos superiores a 100.000 UVT y personas jurídicas públicas. La clase de persona natural visible en el RUT no cae en esas categorías por sí sola. | Revisar si cambia la persona que presta el servicio o se crea una persona jurídica; las restantes obligaciones de protección de datos siguen aplicando. |
+| Marco legal actualizado | Se cotejaron Leyes 1581/2012, 1480/2011, 2439/2024 y 2573/2026 en fuentes oficiales. La vigencia general de la Ley 2573 inicia seis meses después de su promulgación (19-may-2026); su ámbito de cartera no se presume para todo usuario de crédito comercial. | Mantener evaluación específica por rol, servicio y hecho; no tratar la mención legal como certificación ni como habilitación de reportes de crédito. |
+| Sitio y documentos | `pos.dusema.com` redirige a `/pos`; `/terminos` productivo sirve todavía título de Café Atrato y las otras tres rutas legales devuelven 404. Las cuatro rutas de staging responden 200. | Publicar documentos solo después de revisión factual/jurídica, vigencia y cierre de operación de canales. |
+| Vercel | El alias público `cafeatrato.vercel.app` ahora responde 404. | No acredita borrado de los cuatro deployments `production` protegidos ni resuelve compatibilidad comercial de Hobby/DPA. No se cambió el plan ni se borraron artefactos. |
+| PR y CI | #706 está OPEN/DRAFT, HEAD `f8ede4e`, base `main@aa1c4fe`, sin revisiones humanas. CI `45826327305` terminó success (128 pasos). | Smoke autenticado de staging, gates de exportación/supresión, revisión de proveedores y cierre de textos. Sin merge ni producción. |
+
+Fuentes primarias y evidencia técnica enlazadas en el apartado de revalidación del
+cierre. Las sondas HTTP prueban disponibilidad de rutas, no aceptación, roles,
+persistencia, aislamiento ni cumplimiento legal integral.
