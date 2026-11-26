@@ -1,13 +1,14 @@
 # Anexo de tratamiento por cuenta del negocio — Dusema POS
 
-**BORRADOR 0.3 — revisión operativa 2026-11-25. No está vigente ni aceptado.**
+**BORRADOR 0.4 — revisión operativa 2026-11-25. No está vigente ni aceptado.**
 
 Este texto sirve para preparar un acuerdo de transmisión; no acredita que exista
 un contrato de transmisión vigente con un negocio ni con un proveedor. No debe
 publicarse como definitivo ni usarse para afirmar cumplimiento certificado. La
 identidad y el contacto de cada parte, las instrucciones, los subencargados, las
 ubicaciones, los controles y los compromisos de salida deben completarse y
-aprobarse antes de su aceptación.
+aprobarse antes de su aceptación. En cada anexo deben completarse los datos del
+negocio, su representante autorizado y el alcance de sus tratamientos.
 
 ## 1. Partes y objeto
 
@@ -15,7 +16,8 @@ El negocio que figure en el contrato y en la configuración del tenant determina
 las finalidades y los medios esenciales de tratamiento de los datos personales
 que introduce o administra en Dusema POS para sus clientes, proveedores y
 personal; respecto de esas operaciones actúa como responsable. Sebastián Agudelo
-Muñoz, NIT 1000292576-3, prestador identificado del servicio Dusema POS, actúa
+Muñoz, NIT 1000292576-3, prestador de Dusema POS y contacto operativo de
+privacidad designado por el prestador, actúa
 como encargado únicamente cuando trata esos datos siguiendo instrucciones
 documentadas del negocio.
 

@@ -2,14 +2,16 @@
 
 **BORRADOR OPERATIVO — 2026-11-25. No está activado para titulares.**
 
-El release de privacidad observado está solo en staging. La comprobación HTTP
-confirmó que las rutas presentan los avisos de borrador y que las callables
-rechazan llamadas anónimas; no hubo smoke autenticado ni prueba de atención de un
-caso. Producción no tiene el corte completo de rutas, Rules y Functions. Este
-procedimiento no constituye un servicio operativo ni un canal de recepción
-verificado. Antes de tratar solicitudes reales desde Backoffice deben designarse
-las personas/áreas de privacidad, verificar el canal y repositorio restringido,
-y completar el ensayo autorizado en staging y los gates de producción.
+Las rutas y Functions de privacidad están disponibles en staging; producción
+recibió únicamente el corte aislado de Firestore Rules. Una sesión autenticada
+de Edge cargó en staging la ruta `/backoffice/privacidad` con contexto validado,
+pero no presentó un caso ni probó una callable autorizada. En producción siguen
+pendientes App Hosting, las Functions de consultas y reclamos y el recorrido
+autenticado. Este procedimiento aún no constituye un servicio operativo ni un
+canal de recepción verificado. El prestador designó a Sebastián Agudelo Muñoz,
+administrador de Dusema, como contacto operativo principal de sus solicitudes;
+falta designar un sustituto, probar los canales y validar el repositorio
+restringido antes de activar casos reales.
 
 La obligación legal de atender una solicitud no desaparece por esos límites
 técnicos. Mientras el flujo no esté activado, cada parte debe aplicar el medio
@@ -36,10 +38,12 @@ concede crédito; su alcance requiere análisis para cada establecimiento.
 Los roles se determinan por tratamiento. Si Dusema opera datos de clientes o
 proveedores por instrucciones de un negocio tenant, Dusema es encargado y el
 negocio es responsable de esa operación. Dusema puede ser responsable
-independiente respecto de datos que usa para sus propios fines. Ambos deben
-designar una persona o área para derechos de titulares (Decreto 1074 de 2015,
-art. 2.2.2.25.4.4); los nombres, canales y delegaciones todavía deben quedar
-documentados para el servicio definitivo.
+independiente respecto de datos que usa para sus propios fines. El prestador
+designó a Sebastián Agudelo Muñoz como contacto operativo principal de Dusema
+para solicitudes dirigidas al servicio. Cada negocio cliente debe designar su
+propia persona o área para los tratamientos de los que es responsable (Decreto
+1074 de 2015, art. 2.2.2.25.4.4). El sustituto de Dusema, los canales funcionales
+y las delegaciones de cada negocio aún deben documentarse.
 
 Si Dusema recibe una solicitud relativa a datos de un tenant, conserva la fecha
 original, identifica el titular y el tratamiento pertinente, avisa al negocio

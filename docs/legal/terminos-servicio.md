@@ -1,6 +1,6 @@
 # Términos del servicio — Dusema POS
 
-**BORRADOR 0.3 — 2026-11-25. Pendiente de revisión y aprobación. Sin vigencia contractual.**
+**BORRADOR 0.4 — 2026-11-25. Pendiente de revisión y aprobación. Sin vigencia contractual.**
 
 ## 1. Prestador y contacto
 
@@ -8,11 +8,9 @@ El servicio Dusema POS es prestado por Sebastián Agudelo Muñoz, con NIT
 1000292576-3 y domicilio declarado en Apartadó, Antioquia, Colombia. El prestador
 indica como dirección para notificaciones judiciales y correspondencia Calle 92
 #95A-119. Contacto: segucor0526@gmail.com y +57 310 333 7837. La dirección no
-implica atención presencial. La identidad, el NIT y la dirección fueron
-suministrados por el prestador y deben cotejarse con el RUT antes de publicar
-una versión definitiva. El correo, el teléfono y el canal postal también se
-incorporan según lo declarado; su recepción, monitoreo y seguimiento deben
-probarse antes de anunciarlos como canales operativos.
+implica atención presencial. El correo, el teléfono y el canal postal se
+incorporan según lo declarado por el prestador; su recepción, monitoreo y
+seguimiento deben estar disponibles para anunciarlos como canales operativos.
 
 ## 2. Objeto y contratación
 

@@ -70,9 +70,12 @@ archivos en un ensayo representativo antes de ofrecerla como disponible.
 ## Trámite de reclamos
 
 Cada parte debe designar una persona o área responsable de tramitar solicitudes
-de titulares (Decreto 1074 de 2015, art. 2.2.2.25.4.4). El nombre, delegación,
-canal funcional y archivo restringido de Dusema y los de cada negocio deben
-verificarse antes de ofrecer el trámite en producción. Para datos tratados por
+de titulares (Decreto 1074 de 2015, art. 2.2.2.25.4.4). El prestador designó a
+Sebastián Agudelo Muñoz, administrador de Dusema, como contacto operativo
+principal para solicitudes dirigidas a Dusema; falta documentar un sustituto,
+probar los canales y verificar el archivo restringido. Cada negocio debe
+designar y registrar su propio contacto para sus tratamientos antes de ofrecer
+el trámite en producción. Para datos tratados por
 cuenta de un tenant, Dusema conserva la fecha original, informa al responsable
 y presta asistencia; el traslado no reinicia términos. La identidad del titular
 y su legitimación se validan antes de revelar información. El administrador del

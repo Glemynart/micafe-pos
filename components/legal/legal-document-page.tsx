@@ -4,10 +4,10 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 const DOCUMENTOS = {
-  terminos: { title: "Términos del servicio", file: "terminos-servicio.md", download: "/legal/v0.3/terminos-servicio.md" },
-  privacidad: { title: "Política de tratamiento de datos personales", file: "politica-tratamiento.md", download: "/legal/v0.3/politica-tratamiento.md" },
-  aviso: { title: "Aviso de privacidad de Dusema POS", file: "aviso-autorizacion.md", download: "/legal/v0.3/aviso-autorizacion.md" },
-  anexo: { title: "Anexo de tratamiento por cuenta del negocio", file: "anexo-tratamiento.md", download: "/legal/v0.3/anexo-tratamiento.md" },
+  terminos: { title: "Términos del servicio", file: "terminos-servicio.md", download: "/legal/v0.4/terminos-servicio.md" },
+  privacidad: { title: "Política de tratamiento de datos personales", file: "politica-tratamiento.md", download: "/legal/v0.4/politica-tratamiento.md" },
+  aviso: { title: "Aviso de privacidad de Dusema POS", file: "aviso-autorizacion.md", download: "/legal/v0.4/aviso-autorizacion.md" },
+  anexo: { title: "Anexo de tratamiento por cuenta del negocio", file: "anexo-tratamiento.md", download: "/legal/v0.4/anexo-tratamiento.md" },
 } as const;
 
 export type LegalDocumentKey = keyof typeof DOCUMENTOS;
@@ -82,7 +82,7 @@ function renderMarkdown(content: string): ReactNode[] {
 
 export function LegalDocumentPage({ documentKey }: { documentKey: LegalDocumentKey }) {
   const document = DOCUMENTOS[documentKey];
-  const sourcePath = path.join(process.cwd(), "public", "legal", "v0.3", document.file);
+  const sourcePath = path.join(process.cwd(), "public", "legal", "v0.4", document.file);
   const content = readFileSync(sourcePath, "utf8");
 
   return (
@@ -90,7 +90,7 @@ export function LegalDocumentPage({ documentKey }: { documentKey: LegalDocumentK
       <article className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-10">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-5">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Dusema POS · versión 0.3</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Dusema POS · versión 0.4</p>
             <h1 className="mt-2 text-2xl font-bold sm:text-3xl">{document.title}</h1>
           </div>
           <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">Borrador · no exigible</span>

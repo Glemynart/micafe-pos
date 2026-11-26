@@ -1,17 +1,16 @@
 # Aviso de privacidad de Dusema POS
 
-**BORRADOR / PREPARACIÓN 0.3 — revisión 2026-11-25. No publicado ni vigente; no registra consentimientos.**
+**BORRADOR / PREPARACIÓN 0.4 — revisión 2026-11-25. No publicado ni vigente; no registra consentimientos.**
 
 ## Aviso propuesto para datos propios del servicio
 
 Sebastián Agudelo Muñoz, prestador declarado de Dusema POS, identificado según
 los datos suministrados con NIT 1000292576-3, con domicilio declarado en Apartadó,
 Antioquia y dirección indicada para notificaciones y correspondencia Calle 92
-#95A-119, es el contacto de privacidad propuesto. La identidad y calidad fiscal
-deben cotejarse con el RUT antes de publicar la versión definitiva. El correo
-segucor0526@gmail.com, el teléfono +57 310 333 7837 y la dirección se incorporan
-según lo informado por el prestador; debe probarse que reciben solicitudes antes
-de anunciarlos como canales habilitados.
+#95A-119, es el contacto operativo de privacidad designado por el prestador. El
+correo segucor0526@gmail.com, el teléfono +57 310 333 7837 y la dirección se
+incorporan según lo informado; su recepción efectiva debe estar disponible
+antes de anunciarlos como canales habilitados.
 
 Para los datos que Dusema trata con finalidades propias —como los de identificación
 y contacto del contratante, cuentas autorizadas, soporte y relación comercial—

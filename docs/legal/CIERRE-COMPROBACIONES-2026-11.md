@@ -1044,9 +1044,9 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   dirección y actividades coinciden con los datos declarados anteriormente;
   los recortes no muestran la fecha de actualización y no acreditan por sí solos
   autenticidad o vigencia ante DIAN. No se guardó el RUT en el repositorio.
-- El responsable reporta autorización de Diana para exportar su tenant, con la
-  condición de no requerir una cuenta de ese tenant. No hace falta iniciar sesión
-  como Diana: la herramienta exige un token de un operador SaaS de producción
-  activo con `CONSERVACION_GOBERNAR`, y una referencia de solicitud verificable.
-  La autorización reportada aún no está vinculada a una referencia verificada;
-  no se leyeron datos operativos ni archivos reales.
+- El responsable confirma que Diana autoriza un piloto de exportación de su
+  tenant bajo la condición de no iniciar sesión ni usar una cuenta de ese tenant.
+  No hace falta una cuenta de Diana: la herramienta exige un token de un operador
+  SaaS de producción activo con `CONSERVACION_GOBERNAR` y una referencia de
+  solicitud verificable. La autorización confirmada aún no está vinculada a esa
+  referencia; no se leyeron datos operativos ni archivos reales.

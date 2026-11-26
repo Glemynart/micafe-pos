@@ -1,19 +1,15 @@
 # Política de tratamiento de datos personales — Dusema POS
 
-**BORRADOR / PREPARACIÓN 0.3 — revisión 2026-11-25. No publicado ni vigente; fecha de entrada en vigor pendiente de aprobación.**
+**BORRADOR / PREPARACIÓN 0.4 — revisión 2026-11-25. No publicado ni vigente; fecha de entrada en vigor pendiente de aprobación.**
 
 ## 1. Identidad y roles
 
-Sebastián Agudelo Muñoz, prestador declarado de Dusema POS, identificado según
-los datos suministrados con NIT 1000292576-3, con domicilio declarado en
-Apartadó, Antioquia, y dirección para notificaciones y correspondencia indicada
-Calle 92 #95A-119, Colombia; correo segucor0526@gmail.com y teléfono
-+57 310 333 7837, es el punto de contacto de privacidad propuesto.
-
-La identidad y calidad fiscal deben cotejarse con el RUT antes de publicar una
-versión definitiva. El correo, teléfono y dirección se incluyen según lo
-informado por el prestador; la recepción efectiva de solicitudes por esos medios
-debe probarse antes de anunciarlos como canales habilitados.
+Sebastián Agudelo Muñoz, prestador de Dusema POS, identificado con NIT
+1000292576-3, con domicilio en Apartadó, Antioquia, y dirección para
+notificaciones y correspondencia en Calle 92 #95A-119, Colombia; correo
+segucor0526@gmail.com y teléfono +57 310 333 7837, es el contacto operativo
+principal de privacidad designado por el prestador para los tratamientos propios
+de Dusema. El prestador no ha designado un sustituto operativo.
 
 Actúa como responsable respecto de los datos para los cuales determina las
 finalidades de contratación, soporte y administración propia del servicio.
@@ -110,9 +106,11 @@ Los medios propuestos para solicitudes son segucor0526@gmail.com, el teléfono
 pendiente de prueba antes de publicar. Una vez habilitados, indicar nombre, medio
 de respuesta, petición y datos que permitan localizar el registro. Solo se
 solicitará información proporcional para verificar identidad o representación;
-no enviar PIN, contraseñas ni tokens. La designación formal de la persona o área
-responsable de privacidad también debe documentarse. El prestador se propone
-para esa función; quien resulte designado atenderá o coordinará el trámite.
+no enviar PIN, contraseñas ni tokens. Sebastián Agudelo Muñoz, como administrador
+del servicio, atenderá o coordinará operativamente las solicitudes dirigidas a
+Dusema. Esta asignación identifica el contacto del prestador y no cambia los
+roles de responsable y encargado, ni sustituye a la persona o área que cada
+negocio cliente debe designar respecto de sus propios tratamientos.
 
 Las consultas se atienden en hasta diez días hábiles desde su recepción. Si no
 es posible responder dentro de ese término, se comunica el motivo y la fecha de

@@ -53,3 +53,16 @@ test("la revisión 0.3 conserva los borradores 0.2 archivados sin mutarlos", () 
     assert.equal(createHash("sha256").update(bytes).digest("hex"), expectedHash, `${file} v0.2 debe permanecer inmutable`);
   }
 });
+
+test("la revisión 0.4 conserva los borradores 0.3 archivados sin mutarlos", () => {
+  const archived = [
+    ["terminos-servicio.md", "9ff861615098ec8a6f569ac2a66514fdee4a9c37a7bdee09fb47257b126b09d4"],
+    ["politica-tratamiento.md", "f5a66894035a13e1b1c4ea09106f48eba9b28f567525d19b59ae619ede3e28d2"],
+    ["aviso-autorizacion.md", "686dd5cd457f41d49a6114f1b9b7bd5a22b8ac565c23b7c27d1813350655c4fe"],
+    ["anexo-tratamiento.md", "70af5c2b1dc183b264b8fd0c59934d10cbae6a09efd1efc5bbe99079b4cd4f92"],
+  ] as const;
+  for (const [file, expectedHash] of archived) {
+    const bytes = bytesLf(resolve(repository, "public/legal/v0.3", file));
+    assert.equal(createHash("sha256").update(bytes).digest("hex"), expectedHash, `${file} v0.3 debe permanecer inmutable`);
+  }
+});
