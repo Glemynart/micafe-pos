@@ -64,3 +64,113 @@ documentos operativos ni objetos de Storage.
 Este registro no certifica el contenido jurídico, una exportación integral,
 supresión productiva, entrega a Diana ni publicación de los textos. No se hicieron
 escrituras de Firebase, cambios de IAM ni despliegues.
+
+## Revalidación integral de despliegues y flujo sintético — 2026-11-26 08:47 UTC
+
+Esta observación supersede las referencias anteriores a un CI todavía en curso y
+revalida las rutas, el candidato, funciones, reglas y despliegues. Todas las
+consultas de infraestructura fueron de lectura; no se desplegó ni alteró IAM.
+
+### PR #706 y controles
+
+- `main` observado: `aa1c4fece1386edc6ba31b439a2be98ed9216d0b`. HEAD del PR:
+  `674578ab12ff111ee31ed2d8e050532d565157ff`. El PR está `OPEN`, `DRAFT`,
+  `CLEAN` contra esa base y no tiene revisiones humanas registradas.
+- CI `45759580226` terminó `SUCCESS` el 2026-11-26 a las 08:30:51 UTC. El único
+  job (`Tipos y pruebas`) completó 128 pasos, sin fallos. Incluyó E2E de Operator
+  Portal, R1-A, P0-01, Bodega, compras, E4.1 y E4.2.
+- El intento inicial de este HEAD falló en el login E2E de Bodega; el rerun del
+  mismo SHA pasó sin cambio de código. La falla fue intermitente, pero no hay
+  evidencia que determine su causa raíz.
+- No hay revisiones ni comentarios de código. Hay un comentario automático de
+  Vercel del 2026-11-24 que marca listo un preview; su URL hoy responde 404 y la
+  lista actual de previews de Vercel devuelve cero. La descripción del PR aún
+  contiene estado de CI anterior. El intento de corregirla por GitHub CLI fue
+  rechazado por la política de ejecución, así que no se presenta como actualizada.
+
+### App Hosting y rutas públicas
+
+| Entorno | Revisión servida | Procedencia | Estado y tráfico |
+|---|---|---|---|
+| Producción | `micafe-pos-build-2026-11-24-002` | `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b` (`#704`) | `Ready=True`, 100 % |
+| Staging | `micafe-pos-build-2026-11-25-004` | `0248b1fe46b4a4d3ac759f61f0d7b8bb918cf284` | `Ready=True`, 100 % |
+
+El HEAD actual de #706 no es la revisión servida en ninguno de los dos entornos.
+Los builds fueron cotejados con App Hosting y el tráfico con Cloud Run. Firebase
+CLI documenta `apphosting:backends:list` como consulta de backends; el API de
+App Hosting registra la procedencia de cada build.
+
+La lectura HTTP de las rutas obtuvo:
+
+| Ruta | Producción (`pos.dusema.com`) | Staging |
+|---|---|---|
+| `/terminos` | 200, título “Términos y Privacidad - Café Atrato” | 200, Dusema POS |
+| `/privacidad` | 404 | 200, Dusema POS |
+| `/aviso-autorizacion` | 404 | 200, Dusema POS |
+| `/anexo-tratamiento` | 404 | 200, Dusema POS |
+
+Por tanto, los documentos Dusema no están publicados en producción.
+
+### Funciones y Firebase Rules
+
+- Producción: `aceptarDocumentosLegalesTenant` y `consultarEstadoLegalTenant`
+  están `ACTIVE` en `saas-legal`, runtime Node.js 22. Las funciones
+  `tramitarConsultaPrivacidadSaas` y `tramitarReclamoPrivacidadSaas` no aparecen
+  en el inventario productivo.
+- Staging: las cuatro funciones anteriores están `ACTIVE` en `saas-legal`,
+  runtime Node.js 22.
+- Las funciones listadas en ambos proyectos usan la cuenta Compute
+  predeterminada. No se cambió esta identidad ni sus permisos.
+- La lista de releases de Firebase Rules devolvió HTTP 403 tanto para producción
+  como para staging. No se puede identificar el ruleset activo con esta identidad;
+  403 no prueba que falten reglas.
+
+### Reclamo sintético en staging
+
+Se ejecutó una consulta Firestore limitada al tenant sintético
+`E2_2-BODEGA-STAGING-FIXTURE` y al expediente `QA-ADR102-20261124-01`. La
+consulta proyectó solo identificadores sintéticos, estado, marcas de verificación
+y fechas; no leyó el motivo, el identificador del cliente ni contenido de
+adjuntos.
+
+- Existe en `micafe-pos-staging`, `privacidad_reclamos`.
+- Estado `RESUELTO`; identidad marcada verificada; recepción, completitud y
+  anotación presentes; existe referencia de respuesta y `cerradoEn` es
+  `2026-11-24T19:59:09.495Z`.
+- Esta evidencia confirma que el recorrido sintético alcanzó el estado cerrado
+  en staging. El despliegue que hoy sirve staging es el commit `0248b1fe`, no el
+  HEAD `674578a` del PR; tampoco prueba aceptación contractual o funcionamiento
+  productivo.
+
+### Vercel y canales
+
+- La consulta actual de deployments devolvió cero previews y cuatro deployments
+  `Production` en estado `READY`. No se borró ninguno. La URL del comentario de
+  preview del PR responde 404, aunque el comentario histórico aún dice `Ready`.
+- La inspección disponible del proyecto no expone el plan de facturación. La
+  aptitud comercial y contractual de Vercel sigue sin verificarse.
+- El mandato recibido reporta que el correo de contacto recibió y contestó una
+  prueba desde la misma cuenta. No se consultó un buzón ni un registro de correo
+  desde las herramientas disponibles en esta revalidación; por ello se registra
+  como reporte del responsable, no como evidencia independiente de canal externo.
+
+### Decisión de release actual
+
+**NO APROBADO PARA MERGE.** Tampoco está aprobada la publicación o exigibilidad
+legal. El CI está verde, pero producción
+no sirve los documentos ni las funciones de trámite; faltan revisar la
+descripción desactualizada del PR, Rules verificables, el plan/alcance contractual
+de Vercel, evidencia independiente del canal de correo, revisión jurídica final y
+el piloto de exportación real protegido por su operador y referencia verificable.
+La supresión real sigue sin autorización y no se ejecutó. No se leyeron datos de
+clientes o archivos de producción.
+
+### Referencias técnicas
+
+- [Firebase CLI](https://firebase.google.com/docs/cli), consulta de funciones y
+  App Hosting.
+- [App Hosting: consultar rollouts](https://firebase.google.com/docs/reference/apphosting/rest/v1beta/projects.locations.backends.rollouts/list)
+  y [builds](https://firebase.google.com/docs/reference/apphosting/rest/v1beta/projects.locations.backends.builds/get).
+- [Firebase Rules: releases](https://firebase.google.com/docs/reference/rules/rest/v1/projects.releases/list).
+- [Vercel CLI: listar deployments](https://vercel.com/docs/cli/list) e
+  [inspeccionar uno](https://vercel.com/docs/cli/inspect).
