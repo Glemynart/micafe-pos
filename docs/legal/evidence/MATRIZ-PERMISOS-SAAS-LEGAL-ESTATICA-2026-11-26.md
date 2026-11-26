@@ -1,10 +1,10 @@
 # Preflight estático de permisos — `saas-legal`
 
-**Fecha:** 2026-11-26 19:47 UTC
-**Fuente de operaciones Firestore/Auth:** checkout `codex/e2-2-legal-acceptance`, HEAD `eeadcdad8d7e7b01bb90eccd71d5981b22263ef1`; la selección de identidad runtime y su prueba están incluidas en esta revisión.
-**Estado:** inventario derivado de código; no es matriz final de IAM ni evidencia de ejecución con identidad dedicada.
+**Fecha:** 2026-11-26 (preflight estático: 19:47 UTC)
+**Fuente de operaciones Firestore/Auth:** checkout `codex/e2-2-legal-acceptance`, HEAD `6f218eb220cd325aa58ad1f7e87689cb11d29aa9`.
+**Estado:** inventario derivado de código. El resultado posterior del piloto de staging está documentado en [resultado del piloto](RESULTADO-PILOTO-SAAS-LEGAL-STAGING-2026-11-26.md); la suficiencia efectiva de permisos aún no está certificada.
 
-Este preflight avanza el paso 2 de [ADR-SAAS-105](../../../ADR-SAAS-105-identidades-runtime-functions-minimo-privilegio.md) solo para el codebase `saas-legal`. No modifica IAM, no crea service accounts y no despliega Functions.
+Este documento registra la matriz estática del paso 2 de [ADR-SAAS-105](../../../ADR-SAAS-105-identidades-runtime-functions-minimo-privilegio.md) solo para el codebase `saas-legal`. El inventario se preparó antes del piloto; las escrituras IAM y el despliegue posteriores se registran en el resultado enlazado arriba.
 
 ## Superficie encontrada
 
@@ -27,16 +27,22 @@ La matriz cubre las dependencias directas y los helpers invocados por esas rutas
 
 | Servicio | Permiso que justifica el código | Candidato por verificar antes del piloto |
 |---|---|---|
-| Firestore | Lecturas de documentos, consultas de colecciones, transacciones y escrituras en las rutas enumeradas. La tabla oficial de la API requiere `datastore.entities.get` para `get`; `datastore.entities.get` + `datastore.entities.list` para `list`; `datastore.databases.get` para iniciar o revertir una transacción; y `datastore.entities.create`, `.update` o `.delete` según cada escritura/commit. | Candidato de rol personalizado limitado a `datastore.databases.get` y `datastore.entities.{get,list,create,update,delete}`. Google marca estos permisos como `SUPPORTED` en roles personalizados. Esto cubre los métodos Firestore observados en el código, pero no demuestra aún que sea suficiente para todo el comportamiento del Admin SDK o la identidad real. El proyecto staging no tiene habilitada la API de Policy Simulator y no se habilitará para este piloto; se comprobarán los flujos positivos/negativos y Cloud Audit Logs tras desplegar. Si los logs de acceso requeridos no están disponibles, detener la certificación y pedir alcance separado para habilitarlos. `roles/datastore.user` es más amplio e incluye permisos de metadatos/listado no justificados por este inventario. El IAM de Firestore opera sobre el recurso de base de datos/proyecto, no separa documentos por tenant; callables, validación server-side y Rules siguen siendo controles separados. |
-| Firebase Authentication | `getAuth().getUser(uid)` en validación de sesión y `verifyIdToken(token, true)` para comprobar revocación de sesión en reclamos y consultas. No se crean, actualizan ni eliminan usuarios. | Candidato de rol personalizado con solo `firebaseauth.users.get`, marcado `SUPPORTED` por Google para roles personalizados. No otorgar `firebaseauth.admin`, `firebaseauth.editor` ni `roles/firebaseauth.viewer` sin demostrar que se necesitan sus permisos adicionales. Confirmar suficiencia con Policy Simulator y logs positivos/negativos de staging. |
+| Firestore | Lecturas de documentos, consultas de colecciones, transacciones y escrituras en las rutas enumeradas. La tabla oficial de la API requiere `datastore.entities.get` para `get`; `datastore.entities.get` + `datastore.entities.list` para `list`; `datastore.databases.get` para iniciar o revertir una transacción; y `datastore.entities.create`, `.update` o `.delete` según cada escritura/commit. | Rol personalizado de staging aplicado con `datastore.databases.get` y `datastore.entities.{get,list,create,update,delete}`. El despliegue y las revisiones activas están comprobados, pero no se ha ejecutado una operación autenticada con la identidad para demostrar suficiencia. Policy Simulator no está habilitado y no se habilitará en este corte; verificar con flujos autenticados y Cloud Audit Logs. Si los logs requeridos no están disponibles, detener la certificación y pedir alcance separado para habilitarlos. `roles/datastore.user` es más amplio e incluye permisos de metadatos/listado no justificados por este inventario. El IAM de Firestore opera sobre el recurso de base de datos/proyecto, no separa documentos por tenant; callables, validación server-side y Rules siguen siendo controles separados. |
+| Firebase Authentication | `getAuth().getUser(uid)` en validación de sesión y `verifyIdToken(token, true)` para comprobar revocación de sesión en reclamos y consultas. No se crean, actualizan ni eliminan usuarios. | Rol personalizado de staging aplicado con solo `firebaseauth.users.get`, marcado `SUPPORTED` por Google para roles personalizados. La suficiencia efectiva aún no se ha probado. No otorgar `firebaseauth.admin`, `firebaseauth.editor` ni `roles/firebaseauth.viewer` sin demostrar que se necesitan sus permisos adicionales. |
 | Cloud Functions invoker | Invocación del endpoint callable público; la autenticación de negocio la realiza el código. | No es un permiso runtime adicional para acceder a datos. Revisar la configuración del invoker por separado de la identidad runtime. |
 | Cloud Logging, Storage, Secret Manager, Pub/Sub, Scheduler, Cloud Tasks, HTTP externo | No se encontró uso directo en los archivos ni helpers revisados. Los errores de autorización producen una escritura de evidencia en Firestore; no invocan una API de Logging desde el código. | No añadir roles para estos servicios a la cuenta runtime por anticipado. Verificar registros y configuración de plataforma durante el piloto, sin confundirlos con permisos de la identidad runtime. |
 
 Referencias oficiales consultadas el 2026-11-26: [Firestore Native mode — permisos por método de API](https://docs.cloud.google.com/firestore/native/docs/security/iam), [Firestore IAM roles](https://docs.cloud.google.com/iam/docs/roles-permissions/firestore), [Firebase Authentication IAM](https://docs.cloud.google.com/iam/docs/roles-permissions/firebaseauth), [soporte de permisos en roles personalizados](https://docs.cloud.google.com/iam/docs/custom-roles-permissions-support) y [IAM de Cloud Run functions](https://docs.cloud.google.com/functions/docs/concepts/iam). Google recomienda sustituir el Editor de la cuenta Compute predeterminada por roles menos permisivos y usar Policy Simulator antes de modificar bindings.
 
-## Evidencia disponible y faltante
+## Resultado del piloto y evidencia faltante
 
-## Configuración propuesta del piloto de staging
+El 2026-11-26 la cuenta y el rol descritos abajo se crearon en `micafe-pos-staging`, se vinculó el rol a esa cuenta y se desplegó solo `functions:saas-legal`. Las cuatro funciones quedaron `ACTIVE` con 100 % de tráfico en la revisión nueva. No se hizo ningún cambio en producción, Cloud Scheduler, la cuenta Compute compartida ni sus bindings. No se crearon claves.
+
+La solicitud callable sin autenticación a `consultarEstadoLegalTenant` devolvió `401 UNAUTHENTICATED`, como se esperaba; esa ruta rechaza antes de acceder a Firestore. Esto prueba la barrera de autenticación del endpoint, no los permisos de la cuenta runtime. No se completó un smoke autenticado de solo lectura, no se verificó suficiencia IAM con lecturas/escrituras reales y no se envió un reclamo sintético. La consulta de Cloud Logging no encontró errores de permisos, pero tampoco hubo una llamada autenticada que los pudiera ejercitar.
+
+Firebase CLI mostró que intentó asegurar/generar las identidades de Pub/Sub y Eventarc. La consulta de auditoría no encontró registros `GenerateServiceIdentity`; `iam.serviceAccounts.get` denegó la inspección directa de esas identidades. Los bindings `roles/pubsub.serviceAgent` y `roles/eventarc.serviceAgent` ya aparecen en evidencia de staging del 2026-10-09, por lo que no se afirma que esta ejecución haya creado identidades nuevas ni que el asunto esté resuelto.
+
+## Configuración aplicada en staging
 
 - Proyecto: `micafe-pos-staging`; funciones objetivo: las cuatro callables del
   codebase `saas-legal` en `us-central1`.
@@ -48,13 +54,13 @@ Referencias oficiales consultadas el 2026-11-26: [Firestore Native mode — perm
   funciones con `GCLOUD_PROJECT=micafe-pos-staging`; en `micafe-pos` y otros
   proyectos conserva `serviceAccount: "default"` hasta que haya un corte y una
   autorización propios. La configuración se aplica a las cuatro callables.
-- El preflight read-only de staging mostró que las funciones objetivo usan hoy
-  la cuenta Compute predeterminada; un job de Cloud Scheduler también la usa.
-  El piloto no modifica ese job, no quita permisos a la cuenta Compute y no
-  concede roles a workloads ajenos al codebase.
-- El usuario autorizó crear la identidad y el binding de staging y desplegar
-  únicamente ese codebase. Las escrituras aún no se han ejecutado; primero se
-  revisará este cambio en el PR y deberán pasar sus controles.
+- El preflight previo encontró las cuatro funciones objetivo y un job de Cloud
+  Scheduler usando la cuenta Compute predeterminada. El piloto cambió solo la
+  identidad runtime de esas funciones; no modificó el job ni los bindings de la
+  cuenta Compute, y no concedió roles a workloads ajenos al codebase.
+- La autorización operativa del responsable fue limitada a staging. La creación
+  del recurso, rol, binding y despliegue quedó verificada en el resultado
+  enlazado al inicio de este documento.
 
 La identidad y el rol son propios del piloto, no una configuración productiva.
 No se crean claves de cuenta de servicio. El binding del rol de datos es a
@@ -64,10 +70,10 @@ enumeradas arriba.
 
 - Código revisado: `functions-legal/src/index.ts`, `functions-legal/src/runtime-identity.ts`, `functions-legal/src/runtime-identity.test.ts`, `functions/src/legal/handler.ts`, `privacy-claims.ts`, `privacy-inquiries.ts`, `functions/src/platform/authorization.ts`, `functions/src/platform/audit.ts`, `functions/src/tenant-configuration/authority.ts` y `functions/src/suscripciones/relacion-vigente.ts`.
 - Suites en el repositorio: pruebas unitarias de handler/catálogo y pruebas Emulator para aceptación, reclamos y consultas. Estas pruebas validan lógica con servicios emulados; no demuestran autorización IAM de la cuenta runtime real.
-- La sonda staging sin credenciales devolvió 401 y no ejercitó escrituras. **No** es evidencia para confirmar permisos de lectura/escritura de Firestore o `firebaseauth.users.get`.
-- No existe aún la identidad runtime dedicada en staging ni hay logs positivos del piloto. El usuario autorizó la operación solo para staging; se ejecutará después de revisar el PR y pasar CI.
+- La sonda staging sin credenciales devolvió 401 y no ejercitó escrituras. **No** es evidencia para confirmar permisos de Firestore o `firebaseauth.users.get`.
+- Falta un smoke autenticado de solo lectura y evidencia efectiva de acceso a Firestore/Auth con esta identidad. El envío de un reclamo de prueba también sigue pendiente de confirmación inmediata.
 - El inventario de este documento no cubre las otras 20 codebases ni los workloads no consultables. El inventario global sigue incompleto: las APIs de Compute Engine y Cloud Asset Inventory estaban deshabilitadas en el preflight y no se habilitaron. Este límite bloquea migraciones productivas y la retirada de `roles/editor`, no autoriza ampliar el piloto staging ni su rol.
 
 ## Decisión de este preflight
 
-La matriz estática de `saas-legal` es una base revisable y no demuestra privilegio mínimo efectivo. La autorización operativa del usuario cubre únicamente el piloto de staging después de la revisión del PR y los checks; no cubre producción ni retirar `roles/editor` de la cuenta Compute. El piloto solo se cierra después de probar flujos autenticados positivos y negativos, confirmar permisos efectivos mediante Policy Simulator/Cloud Audit Logs y comprobar que no aparezcan dependencias fuera de esta matriz. Si falta un permiso, detener este codebase y revisar el diseño; no ampliar a Editor como recuperación automática.
+La matriz estática de `saas-legal` no demuestra privilegio mínimo efectivo. El piloto sigue abierto hasta probar un flujo autenticado positivo de solo lectura y los rechazos pertinentes, obtener evidencia disponible de Cloud Audit Logs y comprobar que no aparezcan dependencias fuera de esta matriz. Policy Simulator no se habilitó. Si faltan permisos o evidencia, detener este codebase y revisar el diseño; no ampliar a Editor como recuperación automática.

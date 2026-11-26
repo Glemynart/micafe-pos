@@ -107,9 +107,12 @@ documento. Las Rules y las pruebas de aislamiento continúan siendo obligatorias
 
 - La aceptación autoriza implementar la arquitectura y probarla en Emulator.
   El piloto de runtime en staging requiere crear una identidad, asignarle
-  bindings IAM y desplegar el codebase; esas escrituras y el despliegue siguen
-  siendo un gate operativo separado, aún no autorizado. No autoriza cambios IAM
-  ni despliegues en producción ni quitar el binding `roles/editor`.
+  bindings IAM y desplegar el codebase como gate operativo separado. El
+  responsable autorizó ese piloto únicamente para `micafe-pos-staging` el
+  2026-11-26; su resultado y los límites de verificación están en
+  [`RESULTADO-PILOTO-SAAS-LEGAL-STAGING-2026-11-26.md`](docs/legal/evidence/RESULTADO-PILOTO-SAAS-LEGAL-STAGING-2026-11-26.md).
+  La autorización no incluye IAM ni despliegues en producción ni quitar el
+  binding `roles/editor`.
 - La matriz de permisos, nombres de cuentas y roles concretos se deben incluir
   en un PR de implementación revisable antes de crear las cuentas o bindings.
 - Los permisos runtime deben distinguirse de permisos de despliegue y de roles
