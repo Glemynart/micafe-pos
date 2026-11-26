@@ -1062,3 +1062,28 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   incluidos permisos, idempotencia, concurrencia y aislamiento sintético. El
   Emulator se apagó al finalizar; no se consultaron datos ni hubo escrituras en
   staging o producción.
+
+## Revisión normativa de crédito comercial — 2026-11-26 UTC
+
+- La Ley Estatutaria 2573 de 2026 fue publicada en el Diario Oficial 53.496 del
+  20 de mayo de 2026. Su artículo 13 dispone entrada en vigor dentro de los seis
+  meses siguientes a la promulgación, con una excepción para dos parágrafos del
+  artículo 5. La ficha de Función Pública también muestra el 19 de mayo como
+  fecha de vigencia, aunque el artículo 13 difiere la vigencia de la mayoría de
+  sus disposiciones. En cualquiera de las fechas, al 25 de noviembre de 2026 ya
+  transcurrieron seis meses. Fuentes oficiales: [texto de Cancillería](https://www.cancilleria.gov.co/normograma/compilacion/docs/ley_2573_2026.htm)
+  y [Gestor Normativo de Función Pública](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=277136).
+- La ley regula respuestas frente a suplantación y cobro/reporte de obligaciones
+  para operadores de telecomunicaciones, entidades financieras-crediticias y
+  establecimientos comerciales «con esta competencia». Sus artículos 8 y 9
+  prevén suspensión de cobro cuando se informa suplantación y regulan la
+  continuidad según el trámite posterior. No se concluye que toda tienda que
+  conceda plazo quede automáticamente dentro de ese ámbito; la actividad real y
+  cualquier reporte o gestión externa deben evaluarse por negocio.
+- Revisión del código POS: la cuenta de crédito Bodega registra internamente
+  saldos, abonos y compromisos de pago; no se encontraron integraciones para
+  reportar a operadores de información ni automatizaciones de cobranza. Esta es
+  una conclusión limitada al código revisado, no a procesos manuales fuera del
+  POS. La política y el anexo v0.4 conservan una advertencia condicional para
+  cada negocio; no se declara que Dusema cumpla por cuenta del negocio con un
+  eventual proceso de suplantación, ni se añade una promesa de función inexistente.
