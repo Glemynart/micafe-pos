@@ -1427,3 +1427,48 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   autenticado, pero Computer Use no pudo determinar la URL con confianza y
   detuvo la inspección antes de interactuar. No se navegó, hicieron clics,
   usaron credenciales ni consultaron información del tenant.
+
+## Smoke autenticado limitado en staging — 2026-11-26 16:00 UTC
+
+- Se inspeccionó únicamente la ventana de Microsoft Edge identificada como
+  Backoffice. La barra de direcciones y el documento accesible confirmaron la URL
+  exacta `https://micafe-pos--micafe-pos-staging.us-central1.hosted.app/backoffice/privacidad`.
+- La aplicación mostró el estado `Operador autorizado` y cargó el formulario de
+  reclamo verificado con el fixture `E2_2-BODEGA-STAGING-FIXTURE` y referencias
+  marcadas como `SMOKE`. No se usaron datos de un titular real.
+- No se completaron las fechas ni se pulsó `Registrar y anotar en la ficha`;
+  no se creó ni modificó un reclamo. Esta observación verifica autenticación
+  visible y render de ruta, pero no ejecución positiva de callable, autorización
+  backend, persistencia ni aislamiento.
+- La pantalla de staging sigue en el build previamente observado; el HEAD actual
+  del PR no está desplegado allí. No se hizo aceptación legal, exportación,
+  cambio IAM ni despliegue.
+
+## Fuente SIC revisada — servicios de nube
+
+- Se consultó el concepto de la Oficina Asesora Jurídica SIC, radicado 24-538790
+  (enero de 2025), sobre tratamiento mediante computación en la nube. La SIC
+  describe al proveedor como encargado cuando trata datos por cuenta e
+  instrucciones del responsable y recomienda documentar alcance, actividades y
+  obligaciones mediante un instrumento jurídico. El mismo concepto advierte que
+  sus opiniones son orientativas y no resuelven casos particulares; se registra
+  como orientación oficial no vinculante, no como concepto jurídico para Dusema.
+- Fuente: [SIC, concepto sobre uso de Firebase y protección de datos en Colombia](https://sedeelectronica.sic.gov.co/sites/default/files/publicaciones/24-538790.pdf).
+  La verificación de contratos, cuentas, subencargados y tratamiento efectivo de
+  proveedores continúa pendiente antes de publicar el anexo.
+
+## Corrección de estado Vercel — 2026-11-26 16:08 UTC
+
+La observación de las 15:12 que infería que no existían aliases se basó en la
+salida de `vercel ls`, que omite el arreglo `aliases` de cada Deployment. La
+reconsulta devolvió cuatro deployments `READY` de producción; `vercel inspect`
+de una muestra confirmó los aliases de proyecto y rama. HEAD sin credenciales
+a las cuatro URLs directas de deployment y a ambos aliases devolvió `302` a
+Vercel SSO; al seguir el flujo, las seis terminaron en `vercel.com/login` (`200`).
+`cafeatrato.vercel.app` devuelve `404`.
+
+**Conclusión vigente:** deployments y aliases existen, pero los seis endpoints
+probados no entregaron contenido de aplicación a solicitudes anónimas. No se
+probó que todos los recursos estén protegidos ni se borraron o pausaron los
+artefactos. El plan Hobby sigue sin resolverse contractualmente. La evidencia
+completa está en [`PROVEEDORES-EVIDENCIA-2026-11.md`](PROVEEDORES-EVIDENCIA-2026-11.md).

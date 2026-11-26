@@ -315,3 +315,31 @@ cuenta o resolver la cobertura contractual. No se modificó el plan, no se
 borraron deployments y no se incurrió en cargos. El siguiente paso externo
 concreto es que el propietario confirme la pausa escribiendo el nombre del
 proyecto en la CLI interactiva; el dominio de POS permanece en App Hosting.
+
+### Corrección de inventario y protección de Vercel — 2026-11-26 16:08 UTC
+
+La observación de las 15:12 que decía que las cuatro URLs no tenían alias se
+basó en `vercel ls`, cuya salida no incluye el arreglo `aliases` de cada
+Deployment. La reconsulta distingue metadatos de alias y respuesta pública:
+
+- `vercel ls cafeatrato --scope glemynarts-projects --environment production`
+  devolvió cuatro deployments `READY`, todos `target=production`; la metadata
+  incluye el alias de rama `cafeatrato-git-main-glemynarts-projects.vercel.app`.
+- `vercel inspect` del deployment `cafeatrato-2mgbt0pse-glemynarts-projects.vercel.app`
+  devolvió aliases de proyecto y rama: `cafeatrato-glemynarts-projects.vercel.app`
+  y `cafeatrato-git-main-glemynarts-projects.vercel.app`.
+- Se hicieron solicitudes HEAD sin credenciales a las cuatro URLs directas de
+  deployment y a ambos aliases. Las seis respondieron `302` a `vercel.com/sso-api`;
+  al seguir la redirección terminaron en `vercel.com/login` (`200`), no en la
+  aplicación. `cafeatrato.vercel.app` devuelve `404`.
+- **Conclusión corregida:** los deployments y aliases siguen existiendo, pero
+  las seis direcciones comprobadas están protegidas por SSO y no sirvieron
+  contenido de aplicación a una solicitud anónima. Esta prueba no acredita que
+  todos los recursos o artefactos estén protegidos ni elimina la restricción
+  comercial del plan Hobby. No se pausó ni eliminó el proyecto, no se borraron
+  deployments y no se cambió el plan.
+
+El plan Hobby y la aptitud contractual siguen pendientes; la pausa requiere que
+el propietario confirme el nombre del proyecto en la terminal interactiva. Esta
+corrección sustituye solo las conclusiones previas de «sin alias» y no cambia la
+fecha de la consulta anterior.
