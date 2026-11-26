@@ -1050,3 +1050,15 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   SaaS de producción activo con `CONSERVACION_GOBERNAR` y una referencia de
   solicitud verificable. La autorización confirmada aún no está vinculada a esa
   referencia; no se leyeron datos operativos ni archivos reales.
+- En una revalidación manual de Edge del 2026-11-26, la pestaña con contexto
+  `Operador autorizado` seguía en staging y el formulario permanecía vacío. Al
+  abrir `https://pos.dusema.com/backoffice/privacidad`, producción respondió
+  `404`. No se usó una cuenta de Diana ni se enviaron datos; la interfaz productiva
+  para vincular la solicitud y operar el piloto no está publicada.
+- A las `2026-11-26T00:30Z`, la suite legal de Emulator se ejecutó con el JDK
+  Temurin 21 ya instalado, seleccionado mediante `JAVA_HOME` solo para el proceso.
+  `firebase emulators:exec --project demo-legal-acceptance --only firestore`
+  terminó correctamente: aceptación legal, reclamos y consultas pasaron `3/3`,
+  incluidos permisos, idempotencia, concurrencia y aislamiento sintético. El
+  Emulator se apagó al finalizar; no se consultaron datos ni hubo escrituras en
+  staging o producción.
