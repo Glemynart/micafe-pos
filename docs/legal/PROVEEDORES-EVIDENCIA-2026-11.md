@@ -179,17 +179,21 @@ No se actualizó el plan, no se borraron deployments y no se incurrió en cargos
 
 ## Correo
 
-El prestador confirmó que el contacto es Gmail personal. No se verificaron MFA,
-recepción ni configuración privada; no se consultó la bandeja de correo.
+El prestador confirmó que el contacto es Gmail personal. En la instrucción de
+cierre del 2026-11-26 reportó que el buzón envió y respondió una prueba desde la
+misma cuenta. Se conserva como dato declarado, no como evidencia externa
+independiente: no demuestra recepción desde un tercero, MFA, archivo restringido
+ni continuidad operativa. No se consultó la bandeja de correo.
 
 La [documentación Google de cuentas gestionadas](https://support.google.com/accounts/answer/181692?hl=es)
 distingue el contrato empresarial de los términos de servicios adicionales.
 No afirmar que el Cloud DPA cubre automáticamente el correo personal.
 
-**Pendiente concreto:** comprobar recepción y protección del canal y el tratamiento
-que se hará de la correspondencia. El expediente mínimo puede llevar identificador
-y enlace a entrega autenticada; no adjuntar bases completas, credenciales o PIN.
-Un buzón empresarial es una alternativa, no una compra autorizada en este corte.
+**Pendiente concreto:** completar la prueba externa de ida y vuelta, comprobar
+protección del canal y definir el tratamiento de la correspondencia. El expediente
+mínimo puede llevar identificador y enlace a entrega autenticada; no adjuntar
+bases completas, credenciales o PIN. Un buzón empresarial es una alternativa,
+no una compra autorizada en este corte.
 
 ## Integraciones adicionales detectadas en el código
 
