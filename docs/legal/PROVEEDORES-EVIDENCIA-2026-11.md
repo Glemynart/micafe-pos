@@ -45,6 +45,16 @@ procesarse donde Google o sus agentes mantengan instalaciones.
 | Firestore, Functions, Storage, App Hosting, Authentication | Google Cloud Platform Terms y sus términos específicos; revisar Cloud DPA aplicable. | El uso aparece en código/infraestructura; falta vincular cuenta, aceptación y configuración de ubicación por servicio. |
 | Firebase Cloud Messaging | Google APIs Terms y Firebase Data Processing and Security Terms. | El código puede usar FCM sujeto a permisos/configuración; falta verificar activación, instrumento de la cuenta y uso efectivo. |
 
+Revisión pública de fuentes oficiales — 2026-11-26: los [términos de Firebase](https://firebase.google.com/terms)
+mantienen la fecha de modificación del 2026-09-24 y la clasificación de la tabla.
+La [página de privacidad y seguridad de Firebase](https://firebase.google.com/support/privacy/), actualizada el
+2026-11-16, explica que el cliente normalmente controla los datos de sus usuarios,
+que Google generalmente actúa como encargado respecto de los datos enviados por
+el cliente, y que ciertos productos bajo GCP quedan cubiertos por el Cloud DPA.
+Esto confirma la distinción por producto, pero no demuestra qué cuenta aceptó los
+términos del proyecto, la versión aceptada ni la localización efectiva de cada
+recurso.
+
 Fuentes oficiales: [Términos de Firebase](https://firebase.google.com/terms),
 [Firebase Data Processing and Security Terms](https://firebase.google.com/terms/data-processing-terms)
 y [Google Cloud DPA](https://cloud.google.com/terms/data-processing-addendum).
