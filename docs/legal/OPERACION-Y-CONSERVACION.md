@@ -221,8 +221,9 @@ entrada, aunque llegue fuera del horario propuesto.
 Canales declarados: correo `segucor0526@gmail.com` y teléfono `3103337837`;
 pertenecen a la persona natural identificada como prestador. El prestador designó
 a Sebastián Agudelo Muñoz como contacto operativo principal de privacidad para
-solicitudes dirigidas a Dusema. No hay suplente y esto no declara cobertura
-continua. Aún no se comprobaron recepción, seguridad de la cuenta ni archivo
+solicitudes dirigidas a Dusema. No hay suplente, lo que representa un riesgo de
+continuidad, no una exigencia legal autónoma identificada; esto tampoco declara
+cobertura continua. Aún no se comprobaron recepción, seguridad de la cuenta ni archivo
 restringido; tampoco se activa el procedimiento hasta validar un medio de
 recepción y conservación con acceso restringido. No anunciar el teléfono como
 WhatsApp. Para datos tratados por cuenta de un tenant, este contacto coordina
@@ -254,7 +255,8 @@ Procedimiento ejecutable manualmente sin crear una nueva base de clientes:
 
 Este flujo orienta la respuesta; no está certificado ni reemplaza las
 instrucciones vigentes de la SIC. Sebastián Agudelo Muñoz es el contacto
-operativo principal designado por el prestador; no se ha designado suplente.
+operativo principal designado por el prestador. No se ha designado suplente;
+esta es una brecha de continuidad, no una condición legal autónoma identificada.
 Antes de activarlo faltan comprobar acceso a los canales de reporte y realizar un
 simulacro con datos sintéticos. Mientras tanto, el incidente se escala de
 inmediato al prestador y no se declara que existe cobertura continua.
@@ -297,7 +299,7 @@ Registro mínimo del caso: identificador restringido; fecha/hora de detección y
 conocimiento del área; roles por tratamiento; sistemas/tenants/categorías
 afectados; nivel de certeza; decisiones y fundamentos; plazo y canal SIC;
 notificaciones requeridas; medidas de contención y recuperación; referencias a
-evidencia; responsable, suplente, vencimientos y cierre. No copiar payloads,
+evidencia; responsable, suplente si existe, vencimientos y cierre. No copiar payloads,
 credenciales o datos de otros negocios a este registro.
 
 El término de reporte SIC y los canales se verifican con el [concepto oficial de
@@ -351,8 +353,9 @@ revisión del caso y derechos aplicables; no autoriza una eliminación precipita
 - Fijar fundamento y plazo de evidencia legal no cubierta por papeles de comercio.
 - Acreditar términos aplicables de Google, Vercel y correo sin compartir secretos.
 - Verificar los canales de privacidad de Dusema y el registro de acceso
-  restringido; Sebastián Agudelo Muñoz está designado como contacto principal,
-  pero no hay suplente ni cobertura continua. Cada negocio debe identificar su
+  restringido; Sebastián Agudelo Muñoz está designado como contacto principal.
+  No hay suplente ni cobertura continua, un riesgo de continuidad y no una
+  condición legal autónoma identificada. Cada negocio debe identificar su
   propio responsable para los datos que trata.
 - Determinar si la operación de cartera del tenant cae bajo Ley 1266 de 2008 o
   Ley 2573 de 2026 antes de habilitar procesos de reporte o atención de

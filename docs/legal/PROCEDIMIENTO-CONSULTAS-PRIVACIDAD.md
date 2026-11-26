@@ -1,6 +1,6 @@
 # Procedimiento operativo de consultas de datos personales
 
-**BORRADOR OPERATIVO — 2026-11-25. No está activado para titulares.**
+**BORRADOR OPERATIVO — revisión 2026-11-26. No está activado para titulares.**
 
 Las rutas y Functions de privacidad están disponibles en staging; producción
 recibió únicamente el corte aislado de Firestore Rules. Una sesión autenticada
@@ -9,9 +9,10 @@ pero no presentó un caso ni probó una callable autorizada. En producción sigu
 pendientes App Hosting, las Functions de consultas y reclamos y el recorrido
 autenticado. Este procedimiento aún no constituye un servicio operativo ni un
 canal de recepción verificado. El prestador designó a Sebastián Agudelo Muñoz,
-administrador de Dusema, como contacto operativo principal de sus solicitudes;
-falta designar un sustituto, probar los canales y validar el repositorio
-restringido antes de activar casos reales.
+administrador de Dusema, como contacto operativo principal de sus solicitudes.
+No se designó suplente; esto se registra como riesgo de continuidad, no como
+requisito legal autónomo identificado. Falta probar los canales y validar el
+repositorio restringido antes de activar casos reales.
 
 La obligación legal de atender una solicitud no desaparece por esos límites
 técnicos. Mientras el flujo no esté activado, cada parte debe aplicar el medio
@@ -42,8 +43,9 @@ independiente respecto de datos que usa para sus propios fines. El prestador
 designó a Sebastián Agudelo Muñoz como contacto operativo principal de Dusema
 para solicitudes dirigidas al servicio. Cada negocio cliente debe designar su
 propia persona o área para los tratamientos de los que es responsable (Decreto
-1074 de 2015, art. 2.2.2.25.4.4). El sustituto de Dusema, los canales funcionales
-y las delegaciones de cada negocio aún deben documentarse.
+1074 de 2015, art. 2.2.2.25.4.4). Un suplente de Dusema es una medida recomendada
+de continuidad, no una condición legal autónoma; los canales funcionales y las
+delegaciones de cada negocio aún deben documentarse.
 
 Si Dusema recibe una solicitud relativa a datos de un tenant, conserva la fecha
 original, identifica el titular y el tratamiento pertinente, avisa al negocio

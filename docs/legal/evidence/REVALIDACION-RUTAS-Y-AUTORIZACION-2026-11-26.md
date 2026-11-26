@@ -344,3 +344,20 @@ ejecución local no certifica el staging ni producción y no utilizó datos real
 resolver el gate de runtime de staging y desplegar el codebase legal actualizado.
 No hubo escrituras de negocio, exportación ni supresión real. La auditoría sigue
 **NO APROBADO PARA MERGE**; tampoco se publicó ni activó ningún documento legal.
+
+## Reconciliación de responsable y RNBD — 2026-11-26 18:46 UTC
+
+- El prestador confirmó que él, como administrador de Dusema, atenderá las
+  solicitudes dirigidas al servicio. La política y el procedimiento operativo
+  identifican a Sebastián Agudelo Muñoz como contacto principal. No se designó
+  suplente; se clasifica como riesgo de continuidad, no como requisito legal
+  autónomo identificado. Esta designación no acredita que los canales externos,
+  el archivo restringido o la recepción operativa hayan sido probados.
+- El RUT aportado muestra al prestador como persona natural. Con esa clasificación,
+  no se identifica obligación de inscripción del prestador en el RNBD bajo los
+  sujetos descritos en la Resolución SIC 56579 de 2025, art. 12, y el criterio
+  de la SIC en la Resolución 17116 de 2022; revaluar si cambia el sujeto o el
+  régimen. Las demás obligaciones de protección de datos permanecen.
+- Fuentes consultadas: [Resolución SIC 56579 de 2025, art. 12 — compilación
+  oficial de MinTIC](https://normograma.mintic.gov.co/mintic/compilacion/docs/resolucion_superindustria_56579_2025.htm)
+  y [Resolución SIC 17116 de 2022](https://sedeelectronica.sic.gov.co/sites/default/files/boletin-juridico/boletin/docs/Resolucion%2017116.pdf).

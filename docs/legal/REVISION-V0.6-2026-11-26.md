@@ -64,8 +64,10 @@ hasta cerrar esa capacidad y los proveedores efectivos.
    electrónico y el alcance de obligaciones por cartera/suplantación.
 2. Confirmar identidad contractual/dirección con documentos fuente; el RUT
    aportado fue cotejado visualmente, no validado independientemente ante DIAN.
-3. Probar correo/canales externos, responsable y sustituto, archivo restringido,
-   notificaciones y recorrido autenticado de reclamo/anotación en staging.
+3. Probar correo/canales externos del responsable ya designado, archivo
+   restringido, notificaciones y recorrido autenticado de reclamo/anotación en
+   staging. No hay suplente; se recomienda como control de continuidad, no se
+   identifica como condición legal autónoma.
 4. Cerrar inventario de proveedores, subencargados, regiones, cuentas y contratos
    de transmisión; resolver uso comercial residual de Vercel Hobby.
 5. Certificar exportación representativa autorizada y supresión por categorías,

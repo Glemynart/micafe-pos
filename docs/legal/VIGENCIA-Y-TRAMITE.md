@@ -75,7 +75,8 @@ archivos en un ensayo representativo antes de ofrecerla como disponible.
 Cada parte debe designar una persona o área responsable de tramitar solicitudes
 de titulares (Decreto 1074 de 2015, art. 2.2.2.25.4.4). El prestador designó a
 Sebastián Agudelo Muñoz, administrador de Dusema, como contacto operativo
-principal para solicitudes dirigidas a Dusema; falta documentar un sustituto,
+principal para solicitudes dirigidas a Dusema. No hay suplente; se trata de un
+riesgo de continuidad, no de una condición legal autónoma identificada. Falta
 probar los canales y verificar el archivo restringido. Cada negocio debe
 designar y registrar su propio contacto para sus tratamientos antes de ofrecer
 el trámite en producción. Para datos tratados por

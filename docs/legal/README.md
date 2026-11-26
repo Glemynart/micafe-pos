@@ -72,8 +72,9 @@ sintético. El mecanismo para tramitar reclamos reales está en el
 6. Evaluar si corresponde inscripción en RNBD según sujeto obligado y régimen
    vigente; no afirmar que todo SaaS debe inscribirse.
 7. El prestador designó a Sebastián Agudelo Muñoz como contacto operativo
-   principal de privacidad. Falta documentar un sustituto y comprobar que los
-   canales publicados reciben solicitudes y se protegen adecuadamente.
+   principal de privacidad. No hay suplente, lo que es un riesgo de continuidad,
+   no un requisito legal autónomo identificado. Aún deben probarse los canales y
+   el archivo restringido antes de activar casos reales.
 8. El objetivo de publicación es 2026-12-15 00:00, hora de Colombia, solo si
    los gates cierran. Confirmar la fecha del release definitivo, comunicarla y
    ofrecer aceptación de la versión exacta; no hay efecto retroactivo para

@@ -9,7 +9,8 @@ Sebastián Agudelo Muñoz, prestador de Dusema POS, identificado con NIT
 notificaciones y correspondencia en Calle 92 #95A-119, Colombia; correo
 segucor0526@gmail.com y teléfono +57 310 333 7837, es el contacto operativo
 principal de privacidad designado por el prestador para los tratamientos propios
-de Dusema. El prestador no ha designado un sustituto operativo.
+de Dusema. La atención de solicitudes se asigna a este contacto; esta información
+no implica disponibilidad continua.
 
 Actúa como responsable respecto de los datos para los cuales determina las
 finalidades de contratación, soporte y administración propia del servicio.
