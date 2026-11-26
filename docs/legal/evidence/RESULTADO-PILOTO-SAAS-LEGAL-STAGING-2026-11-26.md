@@ -39,16 +39,19 @@ Las cuatro funciones reportan estado `ACTIVE`; la revisión lista como `latestRe
 ## Verificación funcional y límites
 
 - Un POST callable sin credenciales a `consultarEstadoLegalTenant` devolvió `401 UNAUTHENTICATED` con el mensaje genérico esperado. El handler exige autenticación antes de obtener Firestore. Esta prueba verifica el rechazo anónimo; **no** verifica una lectura autenticada ni los permisos runtime de Firestore/Auth.
-- No se ejecutó un smoke autenticado de solo lectura con la sesión del navegador. En esta sesión no hay herramienta disponible para controlar la pestaña Edge; no se accedió a tokens/cookies ni se usó una credencial nueva.
-- No se registró ni envió el reclamo sintético de prueba.
-- La búsqueda de logs de error de las cuatro funciones desde el despliegue no devolvió entradas; no hubo invocación autenticada que permitiera inferir suficiencia IAM.
+- Smoke autenticado parcial en Backoffice staging, 2026-11-26 entre 20:46 y 20:49 UTC: la UI mostró un operador de plataforma autorizado. Se registró una recepción incompleta con consecutivo `SMOKE-STAGING-INCOMP-20261126-01`, tenant fixture `E2_2-BODEGA-STAGING-FIXTURE`, fecha 2026-11-26 y sin datos de titulares. La consulta inmediata devolvió estado `RECIBIDO` y vencimiento de subsanación `2026-12-02`. El caso usa el ID determinista `84cc6695e459db0263f77415d379f8ffd6d30b445916f0dd0d09408ab0143b51`.
+- Ese recorrido prueba una escritura y consulta autenticadas del expediente de recepción en staging y la lectura de su vencimiento. No prueba las cuatro callables, el permiso de consulta a Firebase Auth, la anotación en la ficha del cliente, la verificación completa, aislamiento negativo entre tenants ni la respuesta/cierre del caso. No se accedió a tokens o cookies ni se usó una credencial nueva.
+- La recepción es sintética y quedó en estado `RECIBIDO`; no se envió reclamación a una persona, requerimiento, correo ni respuesta externa. No se marcó una verificación real de identidad.
+- La búsqueda de logs de error de las cuatro funciones desde el despliegue no devolvió entradas. Esto no demuestra por sí solo que todos los permisos sean suficientes.
+- Cloud Run registra entradas `INFO`/`DEBUG` para `tramitarreclamoprivacidadsaas` en la ventana del smoke. No aparecieron entradas de Cloud Audit con `saas-legal-runtime` como principal; no se infiere el principal efectivo ni las operaciones de datos únicamente desde esos logs.
 - Firebase CLI informó que aseguraba/generaba identidades para Pub/Sub y Eventarc. La búsqueda de auditoría por `GenerateServiceIdentity` no devolvió entradas. La inspección directa recibió `iam.serviceAccounts.get` denegado y el listado de cuentas no incluyó esas identidades administradas; evidencia de staging del 2026-10-09 ya documenta sus bindings de servicio. Por eso no se atribuye creación nueva a este deploy ni se marca resuelto el hallazgo.
 - Policy Simulator API sigue deshabilitada y no se habilitó para este corte.
 
 ## Pendientes para cerrar el piloto
 
-1. Ejecutar un flujo autenticado de solo lectura que invoque `consultarEstadoLegalTenant` y compruebe Firestore/Auth bajo la identidad dedicada, sin enviar el formulario de reclamo.
+1. Invocar autenticadamente `consultarEstadoLegalTenant` y comprobar su lectura de Firestore/Auth; completar la prueba de anotación en el cliente fixture solo con datos y referencias explícitamente sintéticos, además de denegaciones de aislamiento entre tenants.
 2. Revisar Cloud Audit Logs para confirmar las operaciones efectivas y detectar denegaciones. Si no hay evidencia disponible, detenerse y solicitar alcance separado antes de habilitar APIs o ampliar logs.
-3. Reconciliar la generación de identidades Pub/Sub/Eventarc con evidencia suficiente; no modificar esos service agents como parte de este piloto.
+3. Completar los estados de requerimiento, subsanación y cierre únicamente con evidencia sintética que no afirme comunicaciones reales; probar correo externo por separado antes de declarar ese canal operativo.
+4. Reconciliar la generación de identidades Pub/Sub/Eventarc con evidencia suficiente; no modificar esos service agents como parte de este piloto.
 
 El piloto no certifica el manejo integral de datos legales ni autoriza publicar los documentos v0.6 como vigentes. El PR #706 permanece abierto y en borrador; no se fusionó.
