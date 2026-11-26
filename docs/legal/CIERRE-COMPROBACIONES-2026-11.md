@@ -1407,3 +1407,23 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   `14:42:05 UTC`, incluidos E4.1 y E4.2. El smoke autenticado de staging y la
   revisión factual/legal siguen pendientes. PR #706 continúa `OPEN`/`DRAFT`;
   no hubo merge ni despliegue productivo.
+
+## Revalidación de producción y PR #706 — 2026-11-26 15:12 UTC
+
+- Se consultaron de nuevo, mediante `GET` público sin sesión, las cuatro rutas
+  legales de `pos.dusema.com`: `/terminos` respondió `200` con el título
+  «Términos y Privacidad - Café Atrato»; `/privacidad`, `/aviso-autorizacion`
+  y `/anexo-tratamiento` respondieron `404`. No se enviaron datos ni se
+  realizaron escrituras.
+- PR #706 permanece `OPEN`/`DRAFT`, con `base=main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`
+  y `HEAD=e6e5bbd8e432c8118672c4e3fb2f3b197b82e9c8`; merge state `CLEAN`, sin
+  revisión humana registrada. El run CI `45841985895`, para ese SHA exacto,
+  terminó `SUCCESS` el 2026-11-26 a las `15:03:50 UTC`.
+- El check verde no resuelve los gates abiertos: los cuatro documentos están
+  `BORRADOR`/`PREPARACION`; no hay smoke autenticado de aceptación en staging,
+  certificación de exportación/supresión real ni revisión factual/jurídica final.
+  No se fusionó #706 ni se desplegó a producción.
+- Se intentó capturar la ventana identificada como Edge para el smoke
+  autenticado, pero Computer Use no pudo determinar la URL con confianza y
+  detuvo la inspección antes de interactuar. No se navegó, hicieron clics,
+  usaron credenciales ni consultaron información del tenant.
