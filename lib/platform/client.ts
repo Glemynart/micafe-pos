@@ -78,6 +78,7 @@ export interface ReclamoPrivacidad {
   estado: "VERIFICADO" | "ABIERTO" | "RESUELTO";
   leyenda: string | null;
   motivo: string | null;
+  motivosActivos: string[];
   vencimientoAnotacion: string;
   vencimientoRespuesta: string;
   respuestaDocumentada: boolean;

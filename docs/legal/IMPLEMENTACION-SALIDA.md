@@ -133,6 +133,18 @@ ni se comprobó cada documento legado, subcolección, campo/versionado o referen
 contra un paquete real. El primer uso requiere ensayos de esquema completos con
 fixtures representativos y corroborar el comportamiento de `readTime` de la API.
 
+La exportación limita `maxBytes` al tamaño exacto del artefacto cifrado (JSON,
+escapes, expansión Base64 y envoltura AES-GCM), además de detener entradas que ya
+superan ese presupuesto. `totalBytes` en el manifiesto sigue contando bytes de
+fuente antes de codificación. La CLI calcula `sourceSha` solo si el checkout está
+limpio, incluidas las rutas sin seguimiento; así el manifiesto no atribuye a un
+commit contenido local distinto.
+
+La subcolección privada `clientes/{id}/anotaciones_privacidad` se descubre y se
+clasifica en el manifiesto como `PRIVATE_PRIVACY_CASE_DATA`, pero no se recorren
+sus documentos ni se entregan sus motivos en la salida comercial ordinaria. El
+expediente restringido de reclamos queda separado de la exportación tenant-wide.
+
 ## Validación reproducible
 
 ```powershell

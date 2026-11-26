@@ -94,6 +94,23 @@ test('la salida comercial excluye expedientes de reclamo y el indicador interno'
   assert.doesNotMatch(bundle.files[0].content, /reclamosPrivacidadAbiertos/);
   assert.ok(bundle.manifest.sources.some(source => source.path === 'privacidad_reclamos' && source.excluded));
 });
+test('la exportación clasifica las anotaciones privadas de la ficha y nunca lee sus motivos', async () => {
+  let readPrivatePath = false;
+  const bundle = await exportTenant({ ...input, source: fixture({
+    listRoots: async () => ['clientes'],
+    listChildren: async ({ path }) => path === 'clientes/a' ? ['anotaciones_privacidad'] : [],
+    readPage: async ctx => {
+      if (ctx.path !== 'clientes') { readPrivatePath = true; throw new Error('PRIVATE_REASON_READ'); }
+      return { readTime: ctx.readTime, documents: [{ id: 'a', data: { empresaId: 'tenant-a', nombre: 'Cliente sintético', reclamosPrivacidadAbiertos: 1 } }], hasMore: false };
+    },
+    listAssets: async () => [],
+  }) });
+  assert.equal(readPrivatePath, false);
+  assert.equal(bundle.manifest.totalDocuments, 1);
+  assert.ok(bundle.manifest.sources.some(source => source.path === 'clientes/anotaciones_privacidad'
+    && source.excluded === 'PRIVATE_PRIVACY_CASE_DATA'));
+  assert.doesNotMatch(JSON.stringify(bundle), /motivo privado sintético/);
+});
 test('revoked operator, unverified request and changed authority fail closed', async () => {
   const valid = await fixture().authorize();
   for (const invalid of [{ active: false }, { canConserve: false }, { requestVerified: false }, { tenant: 'tenant-b' }]) {
@@ -114,6 +131,17 @@ test('pagination, empty source, metadata and document budgets', async () => {
   assert.ok(result.manifest.sources.some(s => s.path === 'proveedores' && s.count === 0));
   await assert.rejects(exportTenant({ ...input, source, maxDocuments: 1 }), /EXPORT_BUDGET_EXCEEDED/);
   await assert.rejects(exportTenant({ ...input, source, maxBytes: 2 }), /EXPORT_BUDGET_EXCEEDED/);
+});
+test('the byte budget caps the exact encrypted artifact, including base64 and JSON overhead', async () => {
+  const source = fixture({ listRoots: async () => [], listAssets: async () => [], listChildren: async () => [] });
+  const options = { ...input, source, maxBytes: 1_000_000 };
+  const bundle = await exportTenant(options);
+  const artifactBytes = encryptBundle(bundle, Buffer.alloc(32, 7)).byteLength;
+  assert.equal((await exportTenant({ ...options, maxBytes: artifactBytes })).manifest.status, 'COMPLETE_DECLARED_SCOPE');
+  await assert.rejects(exportTenant({ ...options, maxBytes: artifactBytes - 1 }), /EXPORT_BUDGET_EXCEEDED/);
+
+  const assetSource = fixture({ listRoots: async () => [], listAssets: async () => [{ name: 'tenants/tenant-a/archive.bin', generation: '8', bytes: 100 }], readAsset: async () => Buffer.alloc(100) });
+  await assert.rejects(exportTenant({ ...input, source: assetSource, maxBytes: 120 }), /EXPORT_BUDGET_EXCEEDED/);
 });
 test('expired snapshot aborts rather than mixing in current reads', async () => {
   let ticks = 0;

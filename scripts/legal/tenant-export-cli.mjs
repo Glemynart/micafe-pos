@@ -85,8 +85,13 @@ function accessToken() {
   } catch { throw new Error('EXPORT_CLOUD_CREDENTIAL_UNAVAILABLE'); }
 }
 
-function currentSourceSha(repository) {
+export function currentSourceSha(repository) {
   try {
+    const status = execFileSync('git', ['status', '--porcelain=v1', '--untracked-files=all'], {
+      cwd: repository, encoding: 'utf8', windowsHide: true, timeout: 10_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    if (status.trim()) throw new Error();
     const value = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repository, encoding: 'utf8', windowsHide: true, timeout: 10_000, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
     if (!/^[a-f0-9]{40}$/.test(value)) throw new Error();
     return value;

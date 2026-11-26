@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseArgs } from './tenant-export-cli.mjs';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { currentSourceSha, parseArgs } from './tenant-export-cli.mjs';
 
 const valid = [
   '--project', 'micafe-pos',
@@ -32,4 +36,32 @@ test('rejects production scope widening, caller-selected buckets, and implicit e
   ]), /USAGE/);
   assert.throws(() => parseArgs([...valid, '--bucket', 'other-project.firebasestorage.app']), /USAGE/);
   assert.throws(() => parseArgs(valid.filter(value => value !== '--execute')), /USAGE/);
+});
+
+test('source revision rejects staged, unstaged, and untracked repository content', async () => {
+  const repository = await mkdtemp(join(tmpdir(), 'dusema-export-source-'));
+  const git = (...args) => execFileSync('git', args, { cwd: repository, stdio: 'ignore', windowsHide: true });
+  try {
+    git('init');
+    git('config', 'user.email', 'codex-test@example.invalid');
+    git('config', 'user.name', 'Codex test');
+    await writeFile(join(repository, 'tracked.txt'), 'committed');
+    git('add', 'tracked.txt');
+    git('commit', '-m', 'fixture');
+    assert.match(currentSourceSha(repository), /^[a-f0-9]{40}$/);
+
+    await writeFile(join(repository, 'untracked.txt'), 'not committed');
+    assert.throws(() => currentSourceSha(repository), /EXPORT_SOURCE_REVISION_UNAVAILABLE/);
+    await rm(join(repository, 'untracked.txt'));
+
+    await writeFile(join(repository, 'tracked.txt'), 'modified');
+    assert.throws(() => currentSourceSha(repository), /EXPORT_SOURCE_REVISION_UNAVAILABLE/);
+    git('checkout', '--', 'tracked.txt');
+
+    await writeFile(join(repository, 'tracked.txt'), 'staged');
+    git('add', 'tracked.txt');
+    assert.throws(() => currentSourceSha(repository), /EXPORT_SOURCE_REVISION_UNAVAILABLE/);
+  } finally {
+    await rm(repository, { recursive: true, force: true });
+  }
 });

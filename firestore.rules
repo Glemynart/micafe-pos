@@ -260,6 +260,9 @@ service cloud.firestore {
           || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['creadoEn']));
       allow delete: if puedeEliminarEnTenant() && esOperativo()
         && resource.data.get('reclamosPrivacidadAbiertos', 0) == 0;
+      match /anotaciones_privacidad/{casoId} {
+        allow read, write: if false;
+      }
     }
     match /privacidad_reclamos/{casoId} {
       allow read, write: if false;

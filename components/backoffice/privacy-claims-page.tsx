@@ -218,8 +218,13 @@ export function PrivacyClaimsPage() {
         <p>Se conserva el expediente y la referencia de verificación: {reclamo.desistimientoVerificacionRef}</p>
       </section>}
       {reclamo && "clienteId" in reclamo && <section className="space-y-4 border-t pt-4" aria-label="Detalle del reclamo">
-        <p className="font-medium">{reclamo.estado === "RESUELTO" ? "Resuelto" : reclamo.leyenda ?? "Verificado"}</p>
-        {reclamo.motivo && <p className="break-words text-sm">{reclamo.motivo}</p>}
+        <p className="font-medium">Caso consultado: {reclamo.estado === "RESUELTO" ? "Resuelto" : reclamo.leyenda ?? "Verificado"}</p>
+        {reclamo.motivosActivos.length > 0 && <div className="space-y-1 text-sm">
+          <p>Motivos de reclamos abiertos en esta ficha</p>
+          <ul className="list-disc space-y-1 pl-5">
+            {reclamo.motivosActivos.map((motivo, index) => <li key={`${index}-${motivo}`} className="break-words">{motivo}</li>)}
+          </ul>
+        </div>}
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <div><dt className="text-muted-foreground">Plazo de anotación</dt><dd>{reclamo.vencimientoAnotacion}</dd></div>
           <div><dt className="text-muted-foreground">Plazo de respuesta</dt><dd>{reclamo.vencimientoRespuesta}</dd></div>

@@ -6,7 +6,9 @@ const idPattern = /^[a-zA-Z0-9_-]{1,120}$/;
 const hash = value => createHash('sha256').update(value).digest('hex');
 const fail = code => { throw new Error(code); };
 const urlTokenParameters = /^(token|access_token|x-goog-signature|googleaccessid|x-amz-signature)$/i;
-const childSchemas = { ventas: ['abonos_bodega', 'compromisos_pago_bodega'], empresas: ['aceptacionesLegales', 'secuencias_documentales', 'solicitudes_venta_bodega', 'agenda_pedidos_bodega', 'reservas_stock_bodega'], suscripciones: ['relaciones'], ofertas_comerciales_tenant: ['ofertas'] };
+const childSchemas = { ventas: ['abonos_bodega', 'compromisos_pago_bodega'], empresas: ['aceptacionesLegales', 'secuencias_documentales', 'solicitudes_venta_bodega', 'agenda_pedidos_bodega', 'reservas_stock_bodega'], suscripciones: ['relaciones'], ofertas_comerciales_tenant: ['ofertas'], clientes: [] };
+const excludedChildSchemas = { clientes: { anotaciones_privacidad: 'PRIVATE_PRIVACY_CASE_DATA' } };
+const encryptedEnvelopeOverheadBytes = Buffer.byteLength('DUSEMA-EXIT-V2\n') + 12 + 16;
 
 function resolveTenantAssetUrl(value, { project, tenant, assetsByName }) {
   let url;
@@ -87,7 +89,7 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
   const age = started - Date.parse(readTime);
   if (age < 0 || age > 60_000) fail('EXPORT_INVALID_READ_TIME');
   const context = Object.freeze({ project, tenant, readTime, requestId });
-  const files = [], counts = [], seen = new Set();
+  const files = [], counts = [], seen = new Set(), excludedChildren = new Set();
   const memberUids = new Set();
   let totalDocuments = 0, totalBytes = 0;
   let initialProof;
@@ -152,6 +154,11 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
         const children = await source.listChildren({ ...context, path: fullPath });
         if (!Array.isArray(children) || new Set(children).size !== children.length) fail('EXPORT_INVALID_CHILD_INVENTORY');
         for (const child of children.sort()) {
+          const exclusion = excludedChildSchemas[name]?.[child];
+          if (exclusion) {
+            excludedChildren.add(`${name}/${child}`);
+            continue;
+          }
           if (!(childSchemas[name] ?? []).includes(child)) fail('EXPORT_UNCLASSIFIED_SUBCOLLECTION');
           await collect(`${fullPath}/${child}`, child);
         }
@@ -170,6 +177,9 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
   for (const name of roots.sort()) {
     if (INTERNAL_ROOTS.has(name)) { counts.push({ path: name, excluded: 'PLATFORM_OR_CREDENTIAL_DATA' }); continue; }
     await collect(name, name);
+  }
+  for (const path of [...excludedChildren].sort()) {
+    counts.push({ path, excluded: excludedChildSchemas[path.split('/')[0]][path.split('/')[1]] });
   }
   // Assets are listed before Firestore payloads so URLs can be normalized and
   // missing Storage permissions fail before any tenant documents are read.
@@ -192,8 +202,13 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
     totalDocuments, totalBytes, sources: counts.sort((a, b) => a.path.localeCompare(b.path)),
     files: files.map(({ content, ...metadata }) => metadata).sort((a, b) => a.name.localeCompare(b.name)),
   };
+  // maxBytes limits the exact encrypted file size, including JSON escaping,
+  // base64 expansion, metadata, and the AES-GCM envelope.
+  const bundle = { manifest, files };
+  const encryptedBytes = Buffer.byteLength(JSON.stringify(bundle), 'utf8') + encryptedEnvelopeOverheadBytes;
+  if (encryptedBytes > maxBytes) fail('EXPORT_BUDGET_EXCEEDED');
   // Only returned after every source, asset, budget and authority check passed.
-  return { manifest, files };
+  return bundle;
 }
 
 export function verifyBundle(bundle) {

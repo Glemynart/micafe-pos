@@ -124,10 +124,16 @@ ni el correo completo.
 
 La callable `tramitarReclamoPrivacidadSaas` revalida el token y su revocación,
 el operador, la facultad `PRIVACIDAD_RECLAMOS_TRAMITAR`, la asignación al caso
-y la ficha canónica. El motivo queda en el expediente. La consulta autorizada
-devuelve la leyenda y el motivo del caso asignado. Completar el expediente
-actualiza el indicador de la ficha en una transacción. Las Rules protegen el
-expediente y los cambios directos al indicador. Para cerrar hay que documentar
+y la ficha canónica. En una misma transacción, cada reclamo abierto conserva su
+motivo en el expediente privado y en
+`clientes/{clienteId}/anotaciones_privacidad/{casoId}`; el indicador de la ficha
+debe coincidir con el número de anotaciones activas. Una consulta autorizada
+desde un caso verificado devuelve la leyenda y todos los motivos activos de esa
+ficha, incluso si el caso consultado ya se resolvió. El cierre elimina solo la
+anotación activa de ese caso; el expediente conserva el historial. Las Rules
+deniegan acceso directo del cliente a la subcolección y protegen el expediente
+y el indicador. La exportación comercial clasifica esa subcolección como
+información privada excluida y no lee sus motivos. Para cerrar hay que documentar
 primero la referencia y el resultado de la respuesta comunicada.
 
 Los expedientes históricos conservan su calendario V1 (lunes a viernes,

@@ -213,6 +213,34 @@ async function desistirPorFaltaDeSubsanacion(db: Firestore, actor: Actor, data: 
 const claveCaso = (empresaId: string, consecutivo: string) =>
   createHash("sha256").update(JSON.stringify([empresaId, consecutivo])).digest("hex");
 
+type AnotacionPrivacidad = { casoId: string; motivo: string };
+
+async function leerAnotacionesAbiertas(
+  tx: FirebaseFirestore.Transaction,
+  fichaRef: FirebaseFirestore.DocumentReference,
+  empresaId: string,
+): Promise<AnotacionPrivacidad[]> {
+  const snapshot = await tx.get(fichaRef.collection("anotaciones_privacidad"));
+  return snapshot.docs.map(documento => {
+    const anotacion = documento.data();
+    if (!ID.test(documento.id) || anotacion.casoId !== documento.id
+      || anotacion.clienteId !== fichaRef.id || anotacion.empresaId !== empresaId
+      || anotacion.estado !== "ABIERTO" || typeof anotacion.motivo !== "string"
+      || !anotacion.motivo.trim() || anotacion.motivo.length > 500
+      || !(anotacion.anotadoEn instanceof Timestamp)) {
+      throw new HttpsError("failed-precondition", "RECLAMO_ANOTACION_INCONSISTENTE");
+    }
+    return { casoId: documento.id, motivo: anotacion.motivo };
+  });
+}
+
+function validarIndicadorAbiertos(valor: unknown, anotaciones: AnotacionPrivacidad[]): asserts valor is number {
+  if (typeof valor !== "number" || !Number.isSafeInteger(valor) || valor < 0
+    || valor !== anotaciones.length) {
+    throw new HttpsError("failed-precondition", "RECLAMO_INDICADOR_INCONSISTENTE");
+  }
+}
+
 async function recibir(db: Firestore, actor: Actor, data: Record<string, unknown>) {
   const { accion, empresaId, consecutivo, recibido, ...extra } = data;
   if (accion !== "RECIBIR" || Object.keys(extra).length) entradaInvalida();
@@ -279,6 +307,15 @@ async function registrar(db: Firestore, actor: Actor, data: Record<string, unkno
       validarSubsanacionRecibida(anterior, reqAnterior);
       if (anterior.estado !== "RECIBIDO") {
         if (anterior.huellaRegistro !== huella) throw new HttpsError("already-exists", "RECLAMO_REGISTRO_DISTINTO");
+        if (anterior.estado === "ABIERTO") {
+          const fichaRef = db.collection("clientes").doc(datos.clienteId);
+          const anotacion = (await tx.get(fichaRef.collection("anotaciones_privacidad").doc(casoId))).data();
+          if (!anotacion || anotacion.casoId !== casoId || anotacion.empresaId !== datos.empresaId
+            || anotacion.clienteId !== datos.clienteId || anotacion.estado !== "ABIERTO"
+            || anotacion.motivo !== datos.motivo || !(anotacion.anotadoEn instanceof Timestamp)) {
+            throw new HttpsError("failed-precondition", "RECLAMO_ANOTACION_INCONSISTENTE");
+          }
+        }
         return { casoId, estado: anterior.estado as string };
       }
       if (!(anterior.recibidoEn instanceof Timestamp) || !anterior.recibidoEn.isEqual(recibidoEn)) {
@@ -302,8 +339,11 @@ async function registrar(db: Firestore, actor: Actor, data: Record<string, unkno
     const ficha = (await tx.get(fichaRef)).data();
     if (!ficha || ficha.empresaId !== datos.empresaId || !(ficha.creadoEn instanceof Timestamp)) denegar();
     const abiertos: unknown = ficha.reclamosPrivacidadAbiertos ?? 0;
-    if (typeof abiertos !== "number" || !Number.isSafeInteger(abiertos) || abiertos < 0
-      || abiertos >= Number.MAX_SAFE_INTEGER) throw new HttpsError("failed-precondition", "RECLAMO_INDICADOR_INCONSISTENTE");
+    const anotacionesAbiertas = await leerAnotacionesAbiertas(tx, fichaRef, datos.empresaId);
+    validarIndicadorAbiertos(abiertos, anotacionesAbiertas);
+    if (abiertos >= Number.MAX_SAFE_INTEGER) throw new HttpsError("failed-precondition", "RECLAMO_INDICADOR_INCONSISTENTE");
+    const anotacionRef = fichaRef.collection("anotaciones_privacidad").doc(casoId);
+    if ((await tx.get(anotacionRef)).exists) throw new HttpsError("failed-precondition", "RECLAMO_ANOTACION_INCONSISTENTE");
     const vencimientoAnotacion = sumarHabiles(fechaBogota(completoEn.toMillis()), 2, calendarioVersion);
     const vencimientoRespuesta = sumarHabiles(fechaBogota(recibidoEn.toMillis()), 15, calendarioVersion);
     const expediente = {
@@ -318,6 +358,10 @@ async function registrar(db: Firestore, actor: Actor, data: Record<string, unkno
     };
     if (anterior) tx.update(casoRef, expediente);
     else tx.create(casoRef, expediente);
+    tx.create(anotacionRef, {
+      casoId, clienteId: datos.clienteId, empresaId: datos.empresaId,
+      motivo: datos.motivo, estado: "ABIERTO", anotadoEn: FieldValue.serverTimestamp(),
+    });
     tx.update(fichaRef, { reclamosPrivacidadAbiertos: abiertos + 1 });
     return { casoId, estado: "ABIERTO" };
   });
@@ -401,14 +445,6 @@ export async function tramitarReclamoPrivacidad(
       }
       return { casoId, estado: "RESUELTO" };
     }
-    if (accion === "CONSULTAR" && caso.estado === "RESUELTO") {
-      return {
-        casoId, clienteId: caso.clienteId, estado: caso.estado, leyenda: null, motivo: null,
-        vencimientoAnotacion: vencimientos.vencimientoAnotacion,
-        vencimientoRespuesta: vencimientos.vencimientoRespuesta,
-        respuestaDocumentada: true,
-      };
-    }
     const fichaRef = db.collection("clientes").doc(caso.clienteId);
     const ficha = (await tx.get(fichaRef)).data();
     if (!ficha || ficha.empresaId !== caso.empresaId
@@ -416,9 +452,10 @@ export async function tramitarReclamoPrivacidad(
       || !(ficha.creadoEn instanceof Timestamp)
       || !ficha.creadoEn.isEqual(caso.fichaCreadaEn)) denegar();
     const abiertos: unknown = ficha.reclamosPrivacidadAbiertos ?? 0;
-    if (typeof abiertos !== "number" || !Number.isSafeInteger(abiertos) || abiertos < 0
-      || (caso.estado === "ABIERTO" && abiertos === 0)) {
-      throw new HttpsError("failed-precondition", "RECLAMO_INDICADOR_INCONSISTENTE");
+    const anotacionesAbiertas = await leerAnotacionesAbiertas(tx, fichaRef, caso.empresaId);
+    validarIndicadorAbiertos(abiertos, anotacionesAbiertas);
+    if (caso.estado === "ABIERTO" && !anotacionesAbiertas.some(anotacion => anotacion.casoId === casoId)) {
+      throw new HttpsError("failed-precondition", "RECLAMO_ANOTACION_INCONSISTENTE");
     }
 
     if (accion === "CONSULTAR") {
@@ -426,6 +463,7 @@ export async function tramitarReclamoPrivacidad(
         casoId, clienteId: caso.clienteId, estado: caso.estado,
         leyenda: abiertos > 0 ? "reclamo en trámite" : null,
         motivo: caso.estado === "ABIERTO" ? caso.motivo : null,
+        motivosActivos: anotacionesAbiertas.map(anotacion => anotacion.motivo),
         recibidoEnMillis: caso.recibidoEn.toMillis(),
         completoEnMillis: caso.completoEn.toMillis(),
         vencimientoAnotacion: vencimientos.vencimientoAnotacion,
@@ -462,6 +500,21 @@ export async function tramitarReclamoPrivacidad(
       || typeof caso.resultadoVerificado !== "string" || !caso.resultadoVerificado.trim()
       || caso.resultadoVerificado.length > 500)) denegar();
     const estado = abrir ? "ABIERTO" : "RESUELTO";
+    const anotacionRef = fichaRef.collection("anotaciones_privacidad").doc(casoId);
+    if (abrir) {
+      if (anotacionesAbiertas.some(anotacion => anotacion.casoId === casoId)) {
+        throw new HttpsError("failed-precondition", "RECLAMO_ANOTACION_INCONSISTENTE");
+      }
+      tx.create(anotacionRef, {
+        casoId, clienteId: caso.clienteId, empresaId: caso.empresaId,
+        motivo: caso.motivo, estado: "ABIERTO", anotadoEn: FieldValue.serverTimestamp(),
+      });
+    } else {
+      if (!anotacionesAbiertas.some(anotacion => anotacion.casoId === casoId)) {
+        throw new HttpsError("failed-precondition", "RECLAMO_ANOTACION_INCONSISTENTE");
+      }
+      tx.delete(anotacionRef);
+    }
     tx.update(fichaRef, { reclamosPrivacidadAbiertos: abrir ? abiertos + 1 : abiertos - 1 });
     tx.update(casoRef, abrir
       ? { estado, anotadoEn: FieldValue.serverTimestamp() }

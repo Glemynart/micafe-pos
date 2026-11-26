@@ -28,10 +28,12 @@ test("ADR-SAAS-102: el expediente y el indicador quedan bajo autoridad de servid
   const path = `privacidad_reclamos/${suffix}`;
   const inquiryPath = `privacidad_consultas/${suffix}`;
   const customer = `clientes/${suffix}`;
+  const privateAnnotation = `${customer}/anotaciones_privacidad/case-${suffix}`;
   await seedDocument(path, { empresaId: "empresa-a", motivo: "Sintético" });
   await seedDocument(inquiryPath, { empresaId: "empresa-a", estado: "ABIERTA" });
   await seedDocument(`${inquiryPath}/reasignaciones/evento`, { origenUid: "synthetic" });
   await seedDocument(customer, { empresaId: "empresa-a", reclamosPrivacidadAbiertos: 1 });
+  await seedDocument(privateAnnotation, { empresaId: "empresa-a", clienteId: suffix, motivo: "Motivo privado sintético" });
   const admin = (await contextFor(fixtures.tenantA.admin)).firestore();
   const seller = (await contextFor(fixtures.tenantA.vendedor)).firestore();
   const otherTenant = (await contextFor(fixtures.tenantB.admin)).firestore();
@@ -49,6 +51,8 @@ test("ADR-SAAS-102: el expediente y el indicador quedan bajo autoridad de servid
   await admin.doc(customer).update({ nombre: "Corrección sintética" });
   await expectDenied(admin.doc(customer).update({ reclamosPrivacidadAbiertos: 0 }));
   await expectDenied(admin.doc(customer).delete());
+  await expectDenied(admin.doc(privateAnnotation).get());
+  await expectDenied(admin.doc(privateAnnotation).set({ motivo: "Intento de escritura" }));
   await expectDenied(admin.doc(`clientes/nuevo-${suffix}`).set({
     empresaId: "empresa-a", reclamosPrivacidadAbiertos: 1,
   }));

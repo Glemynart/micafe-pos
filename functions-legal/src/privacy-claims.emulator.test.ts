@@ -37,7 +37,7 @@ test("Reclamos: autoridad, concurrencia, cierre parcial y aislamiento", { skip: 
       operator.set({ uid, estado: "ACTIVO", versionAutorizacion: 1, facultades: ["CONSERVACION_GOBERNAR"] }),
       db.collection("empresas").doc("empresa-a").set({ estado: "activa" }),
       ficha.set({ empresaId: "empresa-a", creadoEn: created }),
-      a.set(base), b.set(base), ajeno.set({ ...base, empresaId: "empresa-b" }),
+      a.set(base), b.set({ ...base, motivo: "Acceso sintético" }), ajeno.set({ ...base, empresaId: "empresa-b" }),
       sinInstruccion.set({ ...base, instruccionRef: null }),
       sinRespuesta.set({ ...base, respuestaVerificadaRef: null }),
     ]);
@@ -47,16 +47,22 @@ test("Reclamos: autoridad, concurrencia, cierre parcial y aislamiento", { skip: 
     await assert.rejects(run(sinInstruccion.id, "ABRIR"), /RECLAMO_NO_AUTORIZADO/);
     await Promise.all([run(a.id, "ABRIR"), run(a.id, "ABRIR"), run(b.id, "ABRIR")]);
     assert.equal((await ficha.get()).get("reclamosPrivacidadAbiertos"), 2);
-    assert.equal((await run(a.id, "CONSULTAR")).motivo, base.motivo);
+    const consultaInicial = await run(a.id, "CONSULTAR");
+    assert.equal(consultaInicial.motivosActivos.length, 2);
+    assert.deepEqual(new Set(consultaInicial.motivosActivos), new Set([base.motivo, "Acceso sintético"]));
     assert.equal((await ficha.get()).get("motivo"), undefined);
     await assert.rejects(run(a.id, "CERRAR", "distinta"), /RECLAMO_NO_AUTORIZADO/);
     await run(a.id, "CERRAR", "respuesta");
     await run(a.id, "CERRAR", "respuesta");
     assert.equal((await a.get()).get("resultado"), "Rectificado");
-    assert.equal((await run(b.id, "CONSULTAR")).leyenda, "reclamo en trámite");
+    const consultaParcial = await run(a.id, "CONSULTAR");
+    assert.equal(consultaParcial.estado, "RESUELTO");
+    assert.equal(consultaParcial.leyenda, "reclamo en trámite");
+    assert.deepEqual(consultaParcial.motivosActivos, ["Acceso sintético"]);
     assert.equal((await ficha.get()).get("reclamosPrivacidadAbiertos"), 1);
     await run(b.id, "CERRAR", "respuesta");
     assert.equal((await ficha.get()).get("reclamosPrivacidadAbiertos"), 0);
+    assert.deepEqual((await run(b.id, "CONSULTAR")).motivosActivos, []);
     await run(sinRespuesta.id, "ABRIR");
     await assert.rejects(run(sinRespuesta.id, "CERRAR", "respuesta"), /RECLAMO_NO_AUTORIZADO/);
     const hoy = fechaBogota(Date.now());
