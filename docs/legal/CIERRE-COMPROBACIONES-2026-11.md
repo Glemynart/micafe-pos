@@ -1236,3 +1236,30 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   formatos conocidos de claves privadas, tokens GitHub, llaves API de Firebase,
   tokens de Slack o claves secretas de pagos. No es una auditoría exhaustiva de
   secretos ni prueba ausencia de credenciales con formatos no cubiertos.
+
+## Rollout de borradores legales en staging — 2026-11-26 12:40 UTC
+
+- El commit `14fed08083e8983d95a7ee5e8c96d7d8e6c1ba3d` corrigió las cuatro páginas
+  públicas para leer la versión del bundle legal actual, en lugar de fijar v0.4.
+  El CI del SHA terminó `success` (`45817392199`, job `Tipos y pruebas`).
+- App Hosting staging, backend `micafe-pos` en `us-central1`, creó el rollout
+  `build-2026-11-26-002`. El build está `READY`, el rollout `SUCCEEDED` y la fuente
+  del build coincide exactamente con `14fed08083e8983d95a7ee5e8c96d7d8e6c1ba3d`.
+  La división de tráfico observada dirige el 100 % a ese build.
+- Solicitudes HTTP GET sin sesión a `/terminos`, `/privacidad`,
+  `/aviso-autorizacion` y `/anexo-tratamiento` respondieron 200. Cada página
+  muestra su título Dusema POS, enlace al archivo versionado correspondiente de
+  `public/legal/v0.5/` y la marca `Borrador`.
+- Este rollout fue solo de App Hosting staging. No se registraron aceptaciones,
+  no se ejecutaron escrituras de datos de negocio, no se modificó IAM ni se
+  desplegó a producción. Functions y Firestore Rules no se actualizaron en este
+  corte; el piloto de identidad runtime de `saas-legal` permanece sujeto al gate
+  operativo separado de ADR-SAAS-105.
+- No se completó smoke autenticado: Computer Use volvió a detenerse porque no
+  pudo verificar con certeza la URL actual de Edge. Las solicitudes anónimas
+  solo prueban disponibilidad y contenido público, no permisos, aceptación,
+  persistencia, aislamiento ni integración con las callables.
+- Los cuatro documentos continúan en borrador/no exigibles. Las rutas legales
+  de producción, la revisión factual/jurídica, la exportación integral real y
+  la supresión productiva siguen pendientes. El despliegue de staging no cierra
+  esos gates ni certifica cumplimiento legal.
