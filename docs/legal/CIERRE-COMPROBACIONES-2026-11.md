@@ -1384,3 +1384,26 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   `E2E Bodega — solicitud, aprobación y venta canónica`. No se reinició el run.
 - No se hizo merge ni se desplegó a producción. No se consultaron datos del
   negocio, no se escribieron aceptaciones ni se modificaron Rules o IAM.
+
+## Preflight estático de permisos `saas-legal` — 2026-11-26 14:34 UTC
+
+- Se revisó el codebase `saas-legal` y sus helpers. La matriz estática de
+  colecciones, acciones Firestore y APIs candidatas está en
+  [`MATRIZ-PERMISOS-SAAS-LEGAL-ESTATICA-2026-11-26.md`](evidence/MATRIZ-PERMISOS-SAAS-LEGAL-ESTATICA-2026-11-26.md).
+- El código justifica lecturas/escrituras Firestore y la lectura
+  `firebaseauth.users.get`; no se encontró acceso directo de este codebase a
+  Storage, Secret Manager, Pub/Sub, Scheduler, Cloud Tasks, Cloud Logging API
+  o servicios HTTP externos. Los candidatos de IAM permanecen sin confirmar
+  hasta el piloto autenticado con una cuenta runtime propia.
+- Las suites Emulator cubren la lógica, pero no las autorizaciones IAM de la
+  cuenta runtime. La sonda staging anónima 401 tampoco las prueba. No se creó
+  una cuenta, binding ni despliegue como parte de esta revisión.
+- `Compute Engine` y `Cloud Asset Inventory` continúan sin inventario global
+  porque sus APIs estaban deshabilitadas; no se habilitaron. El documento no
+  cierra el paso 1 de ADR-SAAS-105 para los otros codebases/workloads ni
+  permite retirar `roles/editor`.
+- El run `45837709758` para HEAD
+  `36c4677ff76f066cde2b429ec7eb4f305137a190` terminó `success` a las
+  `14:42:05 UTC`, incluidos E4.1 y E4.2. El smoke autenticado de staging y la
+  revisión factual/legal siguen pendientes. PR #706 continúa `OPEN`/`DRAFT`;
+  no hubo merge ni despliegue productivo.
