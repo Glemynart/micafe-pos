@@ -1365,3 +1365,22 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   detuvo el intento de capturar su estado porque no pudo verificar la URL actual
   con suficiente confianza. No se navegó ni se ejecutó smoke autenticado; no se
   usaron credenciales, cookies o datos de sesión.
+
+## Revalidación de contenido legal servido y CI — 2026-11-26 14:15 UTC
+
+- Se repitieron solicitudes HTTP `GET` sin autenticación y se extrajo únicamente
+  el estado, `<title>` y marcadores de versión/borrador. Producción responde
+  `200` en `/terminos`, pero conserva el título «Términos y Privacidad - Café
+  Atrato»; `/privacidad`, `/aviso-autorizacion` y `/anexo-tratamiento` dan `404`.
+  En staging las cuatro rutas responden `200`, muestran títulos Dusema POS y
+  marcadores `v0.5`/`BORRADOR`. No se habilitó aceptación contractual.
+- El código vigente mantiene el bundle `PREPARACION`, con los cuatro documentos
+  en estado `BORRADOR`; el handler rechaza aceptar ese bundle. Esta protección
+  estática y las sondas HTTP no equivalen a una prueba autenticada.
+- PR #706 está `OPEN`/`DRAFT`, HEAD
+  `2519d7de3bcfbac1c8e95031d8e9f0d764493f4f`, base
+  `aa1c4fece1386edc6ba31b439a2be98ed9216d0b`, sin revisiones humanas. El run CI
+  `45833933687` sigue `in_progress`; al consultar, el paso activo era
+  `E2E Bodega — solicitud, aprobación y venta canónica`. No se reinició el run.
+- No se hizo merge ni se desplegó a producción. No se consultaron datos del
+  negocio, no se escribieron aceptaciones ni se modificaron Rules o IAM.
