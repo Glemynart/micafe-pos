@@ -174,3 +174,38 @@ clientes o archivos de producción.
 - [Firebase Rules: releases](https://firebase.google.com/docs/reference/rules/rest/v1/projects.releases/list).
 - [Vercel CLI: listar deployments](https://vercel.com/docs/cli/list) e
   [inspeccionar uno](https://vercel.com/docs/cli/inspect).
+
+## Revalidación del plan Vercel y CI del HEAD actual — 2026-11-26 09:17 UTC
+
+- Rama del PR #706: `codex/e2-2-legal-acceptance`; HEAD
+  `0a237841a40951a21805370c251cca03420fb84c`, base `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`;
+  `0` commits detrás. PR `OPEN`, `DRAFT`, sin reviews humanas.
+- El run CI `45787122516` de ese HEAD terminó `success` a las 09:17 UTC.
+  `Tipos y pruebas` completó 128 pasos, sin fallos ni pasos omitidos.
+- La descripción de GitHub sigue mostrando el HEAD anterior `674578a` y el CI
+  viejo. No se editó porque la acción `gh pr edit` fue bloqueada por revisión
+  automática de ejecución; no se eludió el control.
+- `vercel billing overview --scope glemynarts-projects`, ejecutado con Vercel
+  CLI `65.17.0`, informó el plan `Hobby`. No se retuvo ni se copió información
+  de facturación adicional y no se modificó el plan. La documentación oficial
+  limita Hobby a uso personal/no comercial; revisar
+  [plan Hobby](https://vercel.com/docs/plans/hobby) y
+  [uso comercial](https://vercel.com/docs/limits/fair-use-guidelines).
+- Una solicitud HTTP `HEAD` a `https://pos.dusema.com/` respondió `200` en
+  `/pos`, con servidor `envoy` y sin encabezado `x-vercel-id`; esta respuesta
+  confirma el comportamiento actual del dominio raíz, no el estado de los
+  deployments directos de Vercel. La última lista de deployments consultada
+  tenía cero previews y cuatro deployments `Production` `READY`; no se borró
+  ni modificó ninguno.
+- El formulario de reclamo sintético `SMOKE-STAGING-20261125-D3A80E3212D2`
+  quedó sin enviar. Computer Use se detuvo al no poder volver a verificar la
+  URL actual de Edge. No se creó un nuevo reclamo ni se modificaron datos reales.
+
+### Decisión vigente
+
+**NO APROBADO PARA MERGE.** El check verde no cierra los gates de publicación:
+los documentos siguen `BORRADOR`/`PREPARACION`, no hay revisión humana, la
+descripción del PR no coincide con el HEAD, Rules actuales no se pudieron
+verificar (consulta anterior 403), y el proyecto Vercel está en Hobby mientras
+mantiene deployments de producción. No se desplegaron cambios, no se actualizaron
+Rules ni IAM y no se ejecutaron exportaciones o supresiones reales.
