@@ -41,7 +41,7 @@ test("las páginas públicas resuelven la misma versión y ruta del bundle vigen
   for (const [pageKey, documentId] of publicDocuments) {
     const document = obtenerDocumentoLegalPublico(pageKey);
     assert.equal(document.id, documentId);
-    assert.equal(document.version, "0.5");
+    assert.equal(document.version, "0.6");
     assert.equal(document.estado, "BORRADOR");
     assert.ok(document.rutaPublica.startsWith(`/legal/v${document.version}/`));
     assert.ok(readFileSync(resolve(repository, "public", document.rutaPublica.slice(1)), "utf8"));
@@ -49,18 +49,23 @@ test("las páginas públicas resuelven la misma versión y ruta del bundle vigen
 
   assert.match(page, /obtenerDocumentoLegalPublico\(documentKey\)/);
   assert.match(page, /document\.rutaPublica/);
-  assert.doesNotMatch(page, /v0\.4/);
+  assert.doesNotMatch(page, /v0\.5/);
 });
 
 test("el historial solo enlaza un archivo archivado con huella coincidente", () => {
-  for (const id of ["terminos", "anexo-tratamiento"] as const) {
-    const doc = BUNDLE_LEGAL_ACTUAL.documentos.find(item => item.id === id)!;
+  const archived = [
+    { id: "terminos", version: "0.5", sha256: "b0bd935ccea3708852a5567946105b1d0dfe9ade2e321738d347d52071a3232e", path: "/legal/v0.5/terminos-servicio.md" },
+    { id: "anexo-tratamiento", version: "0.5", sha256: "e26cff7a70312e84ededabbbcf022ace8044e90d0f5d3a5baec6fe4836e56682", path: "/legal/v0.5/anexo-tratamiento.md" },
+  ] as const;
+  for (const doc of archived) {
     const path = rutaDocumentoAceptado(doc);
-    assert.equal(path, doc.rutaPublica);
+    assert.equal(path, doc.path);
     assert.equal(createHash("sha256").update(bytesLf(resolve(repository, "public", path!.slice(1)))).digest("hex"), doc.sha256);
     assert.equal(rutaDocumentoAceptado({ ...doc, sha256: "0".repeat(64) }), null);
     assert.equal(rutaDocumentoAceptado({ ...doc, version: "../../otra" }), null);
   }
+  const currentDraft = BUNDLE_LEGAL_ACTUAL.documentos.find(item => item.id === "terminos")!;
+  assert.equal(rutaDocumentoAceptado(currentDraft), null);
   assert.equal(rutaDocumentoAceptado({ id: "desconocido", version: "0.2", sha256: "0".repeat(64) }), null);
 });
 
@@ -100,5 +105,18 @@ test("la revisión 0.5 conserva los borradores 0.4 archivados sin mutarlos", () 
   for (const [file, expectedHash] of archived) {
     const bytes = bytesLf(resolve(repository, "public/legal/v0.4", file));
     assert.equal(createHash("sha256").update(bytes).digest("hex"), expectedHash, `${file} v0.4 debe permanecer inmutable`);
+  }
+});
+
+test("la revisión 0.6 conserva inmutable el bundle público 0.5", () => {
+  const archived = [
+    ["terminos-servicio.md", "b0bd935ccea3708852a5567946105b1d0dfe9ade2e321738d347d52071a3232e"],
+    ["politica-tratamiento.md", "f532ba15e4f4d51205ed80717d819d9321dd527e4569c1a132c9154cf29ba4a6"],
+    ["aviso-autorizacion.md", "6425ba3c4bf154842a8ab7a01c01e2770a99ef1d51e8f2d33ade29a657aa4839"],
+    ["anexo-tratamiento.md", "e26cff7a70312e84ededabbbcf022ace8044e90d0f5d3a5baec6fe4836e56682"],
+  ] as const;
+  for (const [file, expectedHash] of archived) {
+    const bytes = bytesLf(resolve(repository, "public/legal/v0.5", file));
+    assert.equal(createHash("sha256").update(bytes).digest("hex"), expectedHash, `${file} v0.5 debe permanecer inmutable`);
   }
 });

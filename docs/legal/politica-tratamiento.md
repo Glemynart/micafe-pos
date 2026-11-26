@@ -1,6 +1,6 @@
 # Política de tratamiento de datos personales — Dusema POS
 
-**BORRADOR / PREPARACIÓN 0.5 — revisión 2026-11-26. No está vigente ni es exigible; fecha de entrada en vigor pendiente de aprobación.**
+**BORRADOR / PREPARACIÓN 0.6 — revisión 2026-11-26. No está vigente ni es exigible. Fecha objetivo de release: 2026-12-15 00:00, hora de Colombia, condicionada a cerrar los gates; si no se cierran, se aplaza.**
 
 ## 1. Identidad y roles
 
@@ -205,22 +205,37 @@ sistemas. No se instala un banner que afirme cookies inexistentes.
 
 ## 6. Conservación y cambios
 
-Las bases de contratación, usuarios, soporte y operación existirán mientras sus
-finalidades y obligaciones justificadas lo requieran. Antes de publicar se debe
-aprobar una matriz con plazos por categoría, reglas de supresión o anonimización,
-bloqueo por obligación legal y ciclo de eliminación de respaldos. Esta redacción
-no afirma que exista hoy borrado automático.
+Las categorías y plazos de esta versión son decisiones operativas seleccionadas
+para el borrador 0.6, sujetas a revisión jurídica y a comprobar que el proceso
+pueda ejecutarlas. La fecha objetivo de release es el 15 de diciembre de 2026 a
+las 00:00, hora de Colombia. La fecha efectiva será la del release definitivo
+posterior al cierre de los gates; si el release se aplaza, también se aplaza la
+vigencia. Publicar la política informativa no equivale a autorización personal ni
+produce efecto retroactivo.
 
-Se comprobó respaldo diario de Firestore con retención de 35 días. Esta retención
-no determina la de archivos Storage, correo, logs o cachés de dispositivos. La
-supresión del dato activo debe contemplar su permanencia residual en respaldos,
-acceso restringido y reaplicación de supresiones al restaurar. La matriz propuesta
-de conservación está pendiente de aprobación y ejecución.
+| Categoría | Período previsto y disposición |
+|---|---|
+| Datos operativos del negocio y accesos exclusivos | Durante el servicio. Tras terminación efectiva, se retira el acceso ordinario y se permite solicitar la entrega durante 30 días calendario. Los datos prescindibles se suprimirán o anonimizarán de sistemas activos dentro de 60 días calendario, luego de verificar la entrega, instrucciones, dependencias y ausencia de deber documentado de conservación. No hay hoy TTL/job certificado que cumpla este objetivo. |
+| Solicitudes ordinarias de soporte | Hasta 12 meses desde el cierre. Se eliminan antes los adjuntos que dejen de ser necesarios. Un reclamo, incidente, obligación o controversia se conserva por separado, con fundamento, acceso restringido y revisión periódica. |
+| Expedientes de privacidad | Hasta 12 meses desde el cierre como regla operativa. Si hay controversia, requerimiento u obligación aplicable, se conserva solo la evidencia mínima mientras subsista el fundamento, con revisión trimestral. |
+| Contratos, aceptaciones y documentos comerciales | Durante la relación y por el plazo legal que corresponda a cada documento. Cuando califiquen como libros o papeles de comercio, el objetivo es conservarlos diez años desde el último asiento, documento o comprobante de esa categoría; esa regla no se extiende automáticamente a todos los datos del tenant, usuarios o logs. Los demás soportes requieren fundamento y plazo propios. |
+| Paquete local de exportación | Cifrado y restringido hasta confirmar la entrega; eliminar la copia temporal dentro de siete días calendario después de confirmar. El flujo aún no automatiza ni certifica ese borrado. |
+| Logs, cachés y respaldos de proveedores | Se observan ciclos concretos, no una promesa global: backups Firestore diarios de 35 días; soft delete de siete días en buckets examinados; Cloud Logging global `_Default` 30 días y `_Required` 400 días. No se inventariaron todas las copias ni se probó su expiración; los datos pueden persistir después de la supresión activa según el ciclo del recurso. |
 
-La versión final indicará la fecha de entrada en vigencia y el período de vigencia
-de las bases o categorías de datos. La matriz de conservación y supresión continúa
-pendiente de aprobación factual y operativa. Los cambios sustanciales se
-comunicarán antes de aplicarse y requerirán nueva autorización cuando corresponda.
+Los períodos de 30 días, 60 días y 12 meses son objetivos operativos del
+prestador, no términos que la Ley 1581 imponga de forma general a todo SaaS.
+No se conservan datos más allá de su finalidad sin fundamento; tampoco se
+eliminan registros sujetos a deber legal, instrucción válida, controversia o
+retención documentada. Una restauración debe reaplicar las restricciones y
+supresiones vigentes antes de devolver datos al uso ordinario. El objetivo de
+60 días para sistemas activos no es garantía de purga integral: el ciclo
+observado de backups puede dejar snapshots hasta 35 días adicionales después
+de la supresión activa y hay otros destinos no inventariados. No se ha probado
+la exportación integral ni la supresión real en producción.
+
+Los cambios sustanciales se comunicarán antes de aplicarse y requerirán nueva
+aceptación contractual o autorización personal cuando corresponda. La fecha
+objetivo no activa ni modifica contratos existentes por sí sola.
 
 La base normativa y los pendientes constan en el índice interno de revisión del
 proyecto.

@@ -1,6 +1,6 @@
 # Anexo de tratamiento por cuenta del negocio — Dusema POS
 
-**BORRADOR 0.5 — revisión operativa 2026-11-26. No está vigente ni aceptado.**
+**BORRADOR 0.6 — revisión operativa 2026-11-26. No está vigente ni aceptado. Fecha objetivo de release: 2026-12-15, condicionada a cerrar los gates; si no se cierran, se aplaza.**
 
 Este texto sirve para preparar un acuerdo de transmisión; no acredita que exista
 un contrato de transmisión vigente con un negocio ni con un proveedor. No debe
@@ -190,21 +190,38 @@ clasificación y los destinos efectivos de cada flujo están pendientes.
 
 ## 6. Terminación, entrega y supresión
 
-Antes de aceptar el anexo, las partes deben acordar un procedimiento verificable
-de devolución, alcance, formato, canal, costo si lo hubiera y plazo, así como la
-instrucción al terminar el servicio: devolución, supresión o conservación legal.
-Los plazos operativos del documento interno de conservación son propuestas y no
-una oferta aceptada ni una capacidad certificada.
+Al terminar el servicio, el responsable puede solicitar una entrega estándar
+dentro de treinta (30) días calendario, previa verificación de identidad y
+facultad. El borrador establece como objetivo responder el alcance y método en
+dos (2) días hábiles y completar la entrega ordinaria dentro de diez (10) días
+hábiles desde la verificación. El alcance previsto comprende clientes y
+proveedores del negocio, catálogo y presentaciones, inventario y movimientos,
+compras, pedidos, ventas, abonos, recibos internos y configuración operativa;
+puede incluir archivos propios si su pertenencia y cobertura se verifican. Se
+conservan IDs y referencias cuando el formato lo permita. La entrega se limita
+a datos y archivos cuya cobertura pueda verificarse, en CSV/JSON cuando aplique,
+por canal restringido y sin incluir datos de otros negocios, credenciales ni
+información interna de plataforma. La capacidad de exportación integral no está
+certificada; por ello estos plazos aún no son un compromiso activo ni se debe
+presentar un paquete parcial como completo.
 
-La conservación exigida por ley debe delimitar categorías, fundamento, acceso y
-revisión; no autoriza usar los datos para otras finalidades. A la fecha, la
-exportación integral real no está certificada y la supresión real no ha sido
-probada. El plan Firestore observado conserva backups diarios por 35 días; el
-soft delete de los buckets Storage examinados permite recuperación por siete
-días; los sinks globales de Cloud Logging observados retienen 30 días en
-`_Default` y 400 en `_Required`. Son observaciones de recursos concretos, no
-garantía de borrado físico total. La supresión probada en Emulator no demuestra
-eliminación en producción, Auth, Storage, respaldos, logs ni copias de proveedores.
+Al recibir una instrucción válida de terminación, el encargado debe cesar el
+tratamiento operativo que ya no sea necesario, salvo la ventana de salida o una
+instrucción/documento de conservación con fundamento. El objetivo es suprimir o
+anonimizar los datos prescindibles de sistemas activos dentro de sesenta (60)
+días calendario desde la terminación. Antes debe comprobar la entrega solicitada,
+dependencias, identidades compartidas y retenciones documentadas; las excepciones
+se aíslan, limitan a su finalidad y revisan. La terminación no implica borrado
+inmediato y esta meta no es una purga global certificada.
+
+La evidencia disponible es específica: backups diarios Firestore con 35 días de
+retención; soft delete recuperable por siete días en los buckets Storage
+examinados; y sinks globales de Cloud Logging observados de 30 días en `_Default`
+y 400 en `_Required`. No se ha certificado la expiración de esos objetos, ni se
+inventariaron todas las copias o proveedores. La supresión probada en Emulator no
+demuestra eliminación en producción, Auth, Storage, respaldos, logs, cachés ni
+copias de subencargados. Si se restaura información, deben reaplicarse las
+supresiones y restricciones registradas antes de habilitar el uso ordinario.
 
 ## 7. Evidencia y condiciones particulares
 

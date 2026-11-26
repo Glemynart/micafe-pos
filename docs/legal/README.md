@@ -1,20 +1,20 @@
 # Dusema POS — borradores legales
 
 Estado: **BORRADOR PARA REVISIÓN; NO VIGENTE NI EXIGIBLE COMO NUEVA VERSIÓN**.
-Preparación: 2026-11-23; revisiones documentales: 2026-11-25 y 2026-11-26. Versión de trabajo: `0.5`.
+Preparación: 2026-11-23; revisiones documentales: 2026-11-25 y 2026-11-26. Versión de trabajo: `0.6`.
 
 La revisión de términos, política, aviso y anexo del 2026-11-25 produjo la
 versión de trabajo `0.3`; las revisiones posteriores produjeron `0.4` y `0.5`.
-`0.2` a `0.4` permanecen como versiones históricas en sus rutas públicas. La
-`0.5` es el borrador vigente de trabajo, todavía no exigible.
+`0.2` a `0.5` permanecen como versiones históricas inmutables en sus rutas
+públicas. La `0.6` es el borrador vigente de trabajo, todavía no exigible.
 Véanse [hallazgos y fuentes](REVISION-2026-11.md) y
 [ADR-SAAS-099 aceptado para implementación](../../ADR-SAAS-099-aceptacion-legal-versionada.md).
 La revisión no cierra los pendientes ni convierte el texto en exigible.
 
-La [propuesta operativa concreta](OPERACION-Y-CONSERVACION.md) incorpora
-metadatos remotos de backups/regiones, proveedores identificados y opciones de
-conservación, soporte y salida. Distingue hechos comprobados de condiciones por
-aprobar y de mecanismos todavía no implementados.
+La [decisión operativa para el borrador 0.6](OPERACION-Y-CONSERVACION.md)
+incorpora metadatos remotos de backups/regiones y fija objetivos por categoría
+para conservación y salida. Distingue esos objetivos de los ciclos observados
+de proveedores y de mecanismos todavía no implementados.
 
 La [comprobación de proveedores](PROVEEDORES-EVIDENCIA-2026-11.md) confirmó Vercel
 Hobby y sus límites. PR #704 retiró Analytics y deshabilitó nuevos despliegues Git
@@ -60,9 +60,9 @@ sintético. El mecanismo para tramitar reclamos reales está en el
    validación independiente ante DIAN.
 2. Definir tiempos reales de atención, disponibilidad y recuperación. No ofrecer
    un SLA, respaldo periódico o restauración garantizada sin evidencia operativa.
-3. Aprobar matriz de conservación por categoría, obligaciones legales, plazo de
-   entrega/exportación al terminar y tratamiento de copias de seguridad. La
-   ausencia de borrado automático actual no justifica conservación indefinida.
+3. Validar factual y técnicamente los plazos seleccionados en v0.6, implementar
+   o asignar las tareas de salida/supresión y documentar los ciclos de copias.
+   La ausencia de borrado automático actual no justifica conservación indefinida.
 4. Inventariar proveedores, destinatarios, países/regiones efectivos y contratos
    de transmisión. Google/Firebase/GCP aparece en la arquitectura; deben
    verificarse también hosting, correo y cualquier otro proveedor efectivo.
@@ -74,8 +74,10 @@ sintético. El mecanismo para tramitar reclamos reales está en el
 7. El prestador designó a Sebastián Agudelo Muñoz como contacto operativo
    principal de privacidad. Falta documentar un sustituto y comprobar que los
    canales publicados reciben solicitudes y se protegen adecuadamente.
-8. Determinar fecha de vigencia y aprobar una versión final. Las fechas de estos
-   borradores no constituyen fecha de aceptación de los clientes existentes.
+8. El objetivo de publicación es 2026-12-15 00:00, hora de Colombia, solo si
+   los gates cierran. Confirmar la fecha del release definitivo, comunicarla y
+   ofrecer aceptación de la versión exacta; no hay efecto retroactivo para
+   clientes existentes.
 
 Avance: backup diario Firestore de 35 días y snapshots recientes `READY`
 comprobados solo por metadatos; soporte temporal de diagnóstico y CSV parcial
@@ -154,3 +156,20 @@ tratamiento; y completar el smoke autenticado y la evidencia de exportación y
 supresión dentro de su alcance. El inventario de proveedores aún incluye
 integraciones heredadas no confirmadas. La revisión no es un dictamen jurídico
 ni una certificación integral.
+
+## Revisión documental 0.6 — 2026-11-26
+
+La revisión 0.6 alinea términos, política, aviso, anexo y catálogo versionado
+con la decisión operativa delegada: objetivo de release 2026-12-15, ventana de
+salida de 30 días calendario, objetivo de supresión/anonimización activa dentro
+de 60 días y conservación ordinaria de soporte y expedientes de privacidad hasta
+12 meses, con excepciones documentadas. La versión 0.5 y sus hashes se conservan
+sin cambios. La decisión no se ha activado ni se presenta como obligación legal
+general; el bundle sigue en `PREPARACION` y los cuatro documentos en `BORRADOR`.
+
+La fecha solo será efectiva con el release definitivo y cierre de sus gates. Los
+plazos no certifican exportación, borrado, expiración de respaldos, cumplimiento
+jurídico integral ni capacidad de atención. Continúan pendientes los canales y
+archivo restringido, smoke autenticado positivo, acuerdos/alcance de proveedores,
+exportación real autorizada, supresión real, control de copias y revisión jurídica
+externa. Detalle y fuentes oficiales: [revisión v0.6](REVISION-V0.6-2026-11-26.md).

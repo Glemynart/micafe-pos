@@ -1,40 +1,43 @@
 # Vigencia, reclamos y salida de datos
 
-**Borrador de decisión operativa — 24 de noviembre de 2026**, bajo G-SAAS-02,
-M2, E2.2. No está vigente ni publicado para aceptación. La fecha prevista solo
-puede usarse después de cerrar los gates técnicos, de proveedores, recepción de
-solicitudes, salida de datos y revisión jurídica. El paquete 0.2 conserva su
-estado de borrador y sus huellas.
+**Decisión operativa delegada — 26 de noviembre de 2026**, bajo G-SAAS-02, M2,
+E2.2. El responsable delegó la selección de vigencia y plazos de conservación.
+Esta decisión orienta el borrador 0.6; no publica los documentos ni los hace
+exigibles. La fecha objetivo de release es 15 de diciembre de 2026, 00:00,
+hora de Colombia, condicionada a cerrar los gates técnicos, de proveedores,
+recepción de solicitudes, salida de datos y revisión jurídica. Si no se cierran,
+no habrá activación automática en esa fecha.
 
 ## Vigencia
 
-Fecha objetivo no aprobada: 15 de diciembre de 2026, 00:00, hora de Colombia.
-No se activa automáticamente por llegar esa fecha. Se requiere publicación de
-una versión definitiva, fecha visible, canales funcionales, capacidad de salida
-verificada, tratamiento contractual de proveedores y revisión jurídica. Si no
-se cumplen los requisitos, la fecha queda sin efecto hasta fijar una nueva.
-Para negocios existentes, comunicar los cambios con anticipación y obtener la
-aceptación que corresponda. No cambiar precio, Trial, vigencia comercial ni
-acceso por publicar un documento.
+Fecha objetivo de publicación: 15 de diciembre de 2026, 00:00, hora de Colombia.
+La fecha efectiva será la del release definitivo posterior al cierre de los
+gates; si el release se aplaza, también se aplaza la fecha efectiva. Términos y
+anexo contractual aplicarán a cada negocio solo después de que su administrador
+autorizado acepte la versión exacta y el servidor registre la aceptación. La
+política se hará pública desde el release; el aviso no sustituye una autorización
+personal cuando esta sea necesaria. No hay efecto retroactivo ni cambio de precio,
+Trial, vigencia comercial o acceso por la sola publicación.
 
 ## Vigencia de las bases y conservación
 
-| Categoría | Plazo y acción |
+| Categoría | Decisión de retención para el release, sujeta a ejecución verificable |
 | --- | --- |
-| Operación del negocio y accesos exclusivos | Propuesta: mientras se presta el servicio. A la terminación efectiva, retirar el acceso ordinario y reservar 30 días calendario para solicitar la entrega. Revisar cada expediente al día 30 y programar, como objetivo interno, la supresión o anonimización de datos prescindibles para el día 60. Verificar entrega, instrucciones y dependencias antes de ejecutar. No hay TTL ni job que implemente este objetivo; supresión real en producción no fue probada. |
-| Soporte e incidencias ordinarias | Propuesta pendiente: hasta 12 meses desde cierre. Antes, retirar adjuntos que dejaron de ser necesarios. Una reclamación, incidente abierto u obligación de conservación exige expediente separado y revisión de la justificación. No está configurado ni aceptado como plazo contractual. |
-| Expedientes de privacidad ordinarios | Propuesta pendiente: hasta 12 meses desde cierre para seguimiento. Si hay controversia, requerimiento u obligación aplicable, conservar la evidencia mínima de forma restringida hasta que cese su fundamento, con revisión trimestral. No está configurado ni aprobado. |
+| Operación del negocio y accesos exclusivos | Durante el servicio. Tras terminación efectiva, retirar acceso ordinario y permitir solicitar entrega durante 30 días calendario. Suprimir o anonimizar datos prescindibles de sistemas activos dentro de 60 días calendario, después de verificar entrega, instrucciones, dependencias y ausencia de deber de conservación. No hay TTL/job que lo implemente; no se ha certificado supresión real. |
+| Soporte e incidencias ordinarias | Hasta 12 meses desde cierre; eliminar antes los adjuntos que dejaron de ser necesarios. Una reclamación, incidente abierto u obligación exige expediente separado, fundamento documentado y acceso restringido. |
+| Expedientes de privacidad ordinarios | Hasta 12 meses desde cierre. Si hay controversia, requerimiento u obligación aplicable, conservar la evidencia mínima restringida hasta que cese su fundamento y revisar trimestralmente. |
 | Contrato, recibos y papeles propios del comerciante | Durante la relación y, cuando la pieza clasifique como libro o papel de comercio, diez años desde el último asiento, documento o comprobante de esa categoría. Para evidencia fuera de esa categoría, documentar el fundamento específico y revisar su necesidad al cierre y anualmente. No aplicar diez años a todo el catálogo, los usuarios ni los logs. |
-| Logs y respaldos administrados | Evidencia de metadatos en recursos concretos: Firestore backups diarios con retención de 35 días desde cada snapshot; Storage soft delete recuperable por 7 días en los buckets examinados; Cloud Logging global `_Default` 30 días y `_Required` 400 días. No se certificó la expiración real ni se inventarió cada log, bucket, exportación o copia. Son ciclos de servicio, no plazos contractuales aprobados ni garantía de supresión global. |
+| Paquete local de exportación | Mantenerlo cifrado y con acceso restringido hasta confirmar la entrega; eliminar la copia temporal dentro de los 7 días calendario siguientes a esa confirmación y conservar solo recibo mínimo. El flujo no está certificado ni automatiza ese borrado. |
+| Logs y respaldos administrados | Evidencia de metadatos en recursos concretos: Firestore backups diarios con retención de 35 días desde cada snapshot; Storage soft delete recuperable por 7 días en los buckets examinados; Cloud Logging global `_Default` 30 días y `_Required` 400 días. No se certificó la expiración real ni se inventarió cada log, bucket, exportación o copia. Son ciclos observados del proveedor, no una garantía global de supresión. |
 
 Suspender el tratamiento ordinario al vencer su finalidad. Los períodos de 30,
-60, 90 días y 12 meses son propuestas; la Ley 1581 exige conservar durante el
-tiempo razonable y necesario para la finalidad, sin perjuicio de deberes legales
-o contractuales aplicables, pero no fija un único plazo general para todo SaaS.
+60 días y 12 meses son decisiones operativas del prestador, no plazos que la Ley
+1581 imponga a todo SaaS. La ley exige conservar durante el tiempo razonable y
+necesario para la finalidad, sin perjuicio de deberes legales o contractuales.
 Documentar por categoría cualquier deber de conservar, orden, disputa o
 referencia compartida. No eliminar el ledger, la evidencia obligatoria ni
-identidades compartidas por un trámite automático. El día 60 es solo un objetivo
-propuesto para sistemas activos dentro del alcance verificable. No es una
+identidades compartidas por un trámite automático. El día 60 es el objetivo
+operativo para sistemas activos dentro del alcance verificable. No es una
 garantía de purga integral ni de respaldos. Una supresión de sistemas activos
 puede dejar datos en backups Firestore anteriores hasta por 35 días adicionales;
 el límite aritmético de 95 días depende de ejecutar la supresión activa a más

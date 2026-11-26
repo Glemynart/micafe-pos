@@ -1,13 +1,15 @@
-# Operación, proveedores y conservación — propuesta concreta
+# Operación, proveedores y conservación — decisión operativa para borrador 0.6
 
-Fecha: 2026-11-25. Estado: **BORRADOR OPERATIVO; NO APROBADO NI ACTIVADO**.
-Complementa los borradores y ADR-SAAS-099; no crea obligaciones aceptadas ni
+Fecha: 2026-11-26. Estado: **DECISIÓN OPERATIVA DEL PRESTADOR PARA EL BORRADOR 0.6; NO PUBLICADA NI ACTIVADA**.
+La fecha objetivo es 2026-12-15 00:00, hora de Colombia, condicionada a cerrar
+los gates. Esta decisión no activa contratos, no prueba capacidad técnica ni
 ejecuta borrado, exportación, migración o cambios de proveedor.
 
 La [comprobación posterior](CIERRE-COMPROBACIONES-2026-11.md) registró Gmail
 personal, términos online Google, soft delete de siete días en los buckets
 examinados y sinks globales de Cloud Logging con retenciones de 30/400 días. Los
-plazos de la matriz son propuestas, no políticas aceptadas ni tareas configuradas.
+plazos se seleccionaron para el borrador 0.6; aún no son compromisos vigentes ni
+tareas configuradas.
 La evidencia es de recursos concretos; no acredita una retención uniforme para
 todos los servicios, proyectos, cuentas, clientes o ubicaciones.
 
@@ -166,19 +168,21 @@ la transmisión a un encargado. La Circular SIC 002 de 2025 trata casos de
 transferencia de tecnología con datos personales o tecnologías para tratarlos;
 no se usa aquí como regla general para toda operación SaaS.
 
-## 4. Matriz de conservación propuesta
+## 4. Matriz de conservación seleccionada para el borrador 0.6
 
-Los plazos de esta tabla son **propuestas operativas**, salvo la obligación legal
-expresamente indicada. No se han configurado TTL ni tareas de eliminación.
+Los plazos de esta tabla son **decisiones operativas del prestador para el
+borrador 0.6**, salvo la obligación legal expresamente indicada. No son plazos
+generales impuestos por la ley ni compromisos activados. No se han configurado
+TTL ni tareas de eliminación.
 
-| Categoría | Plazo y punto de partida propuestos | Disposición y límite |
+| Categoría | Plazo previsto y punto de partida | Disposición y límite |
 |---|---|---|
-| Datos operativos del negocio | Durante el contrato; ventana de salida de 30 días calendario tras terminación efectiva | Permitir solicitar entrega; no confundir suspensión temporal por impago con terminación. Borrar o anonimizar de sistemas activos en hasta 60 días calendario desde terminación, tras verificar entrega/instrucciones y ausencia de deber de conservación. |
-| Usuarios y membresías exclusivos del tenant terminado | Acceso según contrato; eliminación de datos no necesarios dentro del mismo plazo de 60 días | Verificar dependencias y otros tenants antes de borrar identidad Auth; no borrar UID compartido, credenciales de otro negocio ni evidencia sujeta a conservación. |
-| Logs de Cloud Logging observados | `_Default`: 30 días; `_Required`: 400 días | Configuración observada para sinks globales concretos, no política uniforme ni plazo aprobado. Falta inventariar contenido, sinks/buckets adicionales, posibles retenciones propias y acceso. No prometer 90 días ni supresión anterior a la expiración efectiva del proveedor. |
-| Soporte ordinario | 12 meses desde cierre del caso | Eliminar adjuntos innecesarios antes y anonimizar métricas. Si el caso es reclamación/contrato/incidente, clasificar su evidencia por fundamento, sin conservar toda la bandeja por defecto. |
+| Datos operativos del negocio | Durante el contrato; ventana para solicitar salida de 30 días calendario tras terminación efectiva | No confundir suspensión temporal por impago con terminación. Objetivo de suprimir o anonimizar datos prescindibles de sistemas activos dentro de 60 días calendario, tras verificar entrega, instrucciones/dependencias y ausencia de deber documentado de conservación. |
+| Usuarios y membresías exclusivos del tenant terminado | Retirar acceso ordinario al terminar; objetivo de depuración dentro del mismo plazo de 60 días | Verificar dependencias y otros tenants antes de borrar identidad Auth; no borrar UID compartido, credenciales de otro negocio ni evidencia sujeta a conservación. |
+| Logs de Cloud Logging observados | `_Default`: 30 días; `_Required`: 400 días | Configuración observada para sinks globales concretos, no política uniforme de Dusema. Falta inventariar contenido, sinks/buckets adicionales y retenciones propias. No prometer supresión anterior a la expiración efectiva del proveedor. |
+| Soporte ordinario | Hasta 12 meses desde cierre del caso | Eliminar adjuntos innecesarios antes y anonimizar métricas. Si el caso es reclamación/contrato/incidente, clasificar su evidencia por fundamento, sin conservar toda la bandeja por defecto. |
 | Libros y papeles de comercio del propio prestador | Diez años desde último asiento, documento o comprobante, cuando corresponda a esa categoría | Art. 28 Ley 962/2005. Determinar documentos concretos con revisión contable/jurídica. No aplicar automáticamente a todo el tenant ni a toda telemetría. |
-| Aceptaciones y autorizaciones | Mientras sustenten la relación/finalidad y durante el plazo legal justificado para acreditar obligaciones o atender reclamaciones | Clasificar si son papeles de comercio sujetos a diez años; si no, fijar el fundamento y plazo específico antes de crear evidencia. Retener solo documento/versiones y datos probatorios necesarios. No suplir esta decisión con retención infinita. |
+| Aceptaciones y autorizaciones | Durante la relación y el plazo legal que corresponda a cada evidencia | Clasificar si son papeles de comercio sujetos a diez años; si no, conservar solo el fundamento y plazo específico. Retener solo documento/versiones y datos probatorios necesarios. No suplir esta decisión con retención infinita. |
 | Recordatorio de código en dispositivo | Hasta que el usuario lo desactive, borre almacenamiento o se aplique la política de dispositivo | Es opcional y solo guarda el código. Advertir uso de dispositivos compartidos. No prometer limpieza remota de todos los navegadores. |
 | Caché Firestore, PWA y sesión en dispositivo | Ligada al ciclo de uso y cierre seguro de sesión | Pendiente probar limpieza/aislamiento efectivo. No afirmar que logout elimina IndexedDB: no se encontró una limpieza explícita en las superficies inspeccionadas. |
 | Backups Firestore | 35 días desde cada snapshot, según el schedule observado | PITR estaba deshabilitado y había snapshots `READY`; no se ejecutó restauración. Un dato eliminado de sistemas activos puede seguir en snapshots existentes hasta su expiración. El cálculo condicional de hasta 95 días (60 días objetivo + 35 de backup) no incluye copias adicionales y no es una garantía global. |
@@ -199,7 +203,7 @@ datos en operación ordinaria o publicidad. La restauración debe reaplicar el
 registro de supresiones y restricciones antes de devolver acceso; restaurar un
 backup no autoriza resucitar tratamientos ya terminados.
 
-**Límite de la propuesta de 95 días:** no es plazo de eliminación física total.
+**Límite del cálculo de 95 días:** no es plazo de eliminación física total.
 Los términos públicos Google contemplan otros ciclos de eliminación interna en
 sus respectivos supuestos, incluidos máximos de hasta 180 días; su cómputo y
 aplicabilidad dependen del contrato/operación. No publicar un máximo global de
@@ -208,7 +212,7 @@ activos, snapshots controlados, copias de servicio y excepciones legales.
 
 ## 5. Soporte, privacidad y reclamaciones
 
-Propuesta comercial aún no aprobada: atención lunes a viernes, 08:00–17:00, hora
+Propuesta comercial fuera de esta decisión: atención lunes a viernes, 08:00–17:00, hora
 de Colombia, excepto festivos. Objetivo inicial de respuesta de soporte: dos días
 hábiles. No es compromiso vigente de resolución ni servicio 24/7. No reduce
 términos legales, cuya recepción y cómputo se registran desde la fecha real de
@@ -303,14 +307,17 @@ objetivo de aviso contractual del encargado ni las demás obligaciones aplicable
 
 ## 6. Salida y entrega de datos
 
-Propuesta: solicitud de entrega dentro de 30 días calendario desde terminación;
-respuesta con alcance y método en dos días hábiles y entrega ordinaria dentro de
-diez días hábiles desde verificar identidad/representación. Las obligaciones
-legales de acceso gratuito de titulares se atienden por su régimen propio.
+Decisión operativa para el borrador 0.6: aceptar solicitudes de entrega dentro
+de 30 días calendario desde terminación; responder con alcance y método en dos
+días hábiles y entregar ordinariamente dentro de diez días hábiles desde
+verificar identidad/representación. No es una obligación legal general de
+exportar un tenant completo en ese plazo y no se vuelve compromiso activo hasta
+publicar/aceptar los documentos y certificar el proceso. Los derechos de acceso
+de titulares se atienden por su régimen propio.
 
-La propuesta de precio es incluir una entrega estándar por terminación sin cargo
-adicional; trabajos extraordinarios requerirían presupuesto y autorización. Ni
-el precio ni el alcance/plazo están aceptados como compromiso comercial vigente.
+El borrador establece una entrega estándar por terminación sin cargo adicional;
+trabajos extraordinarios requerirán presupuesto y autorización previa. Esta
+condición no está activa mientras los documentos sigan en preparación.
 
 Formato propuesto: CSV/JSON con IDs, referencias, moneda y fechas UTC, más archivos
 propios autorizados y manifiesto de alcance, conteos y hashes. Verificar ausencia
@@ -337,9 +344,10 @@ La ventana de salida no obliga a mantener ventas o escrituras después del fin
 contractual. Solicitud tardía, obligación de conservación o disputa requieren
 revisión del caso y derechos aplicables; no autoriza una eliminación precipitada.
 
-## 7. Decisiones y comprobaciones restantes
+## 7. Comprobaciones restantes para poder publicar y activar las decisiones
 
-- Aprobar o ajustar plazos y condiciones propuestos de soporte/salida/conservación.
+- Probar que los plazos de salida/conservación pueden cumplirse y desarrollar o
+  asignar responsables a las tareas de supresión todavía manuales.
 - Fijar fundamento y plazo de evidencia legal no cubierta por papeles de comercio.
 - Acreditar términos aplicables de Google, Vercel y correo sin compartir secretos.
 - Verificar los canales de privacidad de Dusema y el registro de acceso
@@ -372,5 +380,7 @@ revisión del caso y derechos aplicables; no autoriza una eliminación precipita
 - [SIC, alcance de la Circular 002 de 2025](https://sedeelectronica.sic.gov.co/publicaciones/boletin-juridico/concepto/alcance-de-la-circular-002-de-2025-sobre-transferencias-internacionales-de-datos).
 - [Ley 2573 de 2026](https://www.cancilleria.gov.co/normograma/compilacion/docs/ley_2573_2026.htm).
 
-Los plazos recomendados de 30/60/90 días, 12 meses y soporte/salida no provienen
-de una obligación general de SaaS: son decisiones comerciales/operativas pendientes.
+Los plazos operativos 30/60 días y 12 meses, y la entrega de salida, no provienen
+de una obligación general de SaaS. El prestador los seleccionó para el borrador
+0.6; no están activados ni deben ofrecerse hasta pasar la revisión factual,
+jurídica y técnica correspondiente.

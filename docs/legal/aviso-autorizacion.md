@@ -1,6 +1,6 @@
 # Aviso de privacidad de Dusema POS
 
-**BORRADOR / PREPARACIÓN 0.5 — revisión 2026-11-26. No está vigente ni registra consentimientos.**
+**BORRADOR / PREPARACIÓN 0.6 — revisión 2026-11-26. No está vigente ni registra consentimientos. Fecha objetivo de release: 2026-12-15, condicionada a cerrar los gates; si no se cierran, se aplaza.**
 
 ## Aviso propuesto para datos propios del servicio
 

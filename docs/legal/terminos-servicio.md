@@ -1,6 +1,6 @@
 # Términos del servicio — Dusema POS
 
-**BORRADOR 0.5 — 2026-11-26. Pendiente de revisión y aprobación. No está vigente ni es exigible.**
+**BORRADOR 0.6 — 2026-11-26. No está vigente ni es exigible. Fecha objetivo de release: 2026-12-15 00:00, hora de Colombia, condicionada a cerrar los gates; si no se cierran, se aplaza.**
 
 ## 1. Prestador y contacto
 
@@ -132,15 +132,34 @@ dolo, culpa grave ni derechos que legalmente sean irrenunciables.
 
 ## 8. Salida y conservación
 
-Al finalizar, el negocio puede solicitar por el canal de soporte la entrega de su
-información, previa verificación de identidad y representación. Formato, alcance,
-plazo, costos si proceden y acceso durante la transición deben quedar definidos
-en el acuerdo de salida antes de publicar esta versión como definitiva.
+Al terminar el servicio, el negocio podrá solicitar una entrega estándar de su
+información dentro de los treinta (30) días calendario siguientes, previa
+verificación de identidad y facultad. El borrador propone responder con alcance
+y método dentro de dos (2) días hábiles y completar la entrega ordinaria dentro
+de diez (10) días hábiles desde la verificación. La entrega queda limitada a los
+datos y archivos cuya cobertura e integridad puedan comprobarse, en formato
+CSV/JSON cuando corresponda, por canal restringido y sin información de otros
+negocios, secretos o datos internos de plataforma. El alcance previsto incluye
+clientes y proveedores del negocio, catálogo y presentaciones, inventario y
+movimientos, compras, pedidos, ventas, abonos, recibos internos y configuración
+operativa; puede incluir archivos propios si su pertenencia y cobertura pueden
+verificarse. Se conservarán IDs y referencias para mantener relaciones cuando
+sea técnicamente posible. El alcance extraordinario requerirá cotización y
+autorización previa. Estos tiempos aún no son un compromiso vigente: la
+exportación integral no está certificada y esta versión no se ofrece para
+aceptación.
 
-La terminación no implica eliminación inmediata. La conservación y posterior
-supresión deben seguir finalidades, instrucciones válidas y deberes legales;
-no se autoriza retención indefinida. Deben definirse los plazos concretos y el
-tratamiento de respaldos en la matriz de conservación pendiente.
+La terminación retira el acceso ordinario. Como objetivo operativo, los datos
+operativos prescindibles se suprimirán o anonimizarán de sistemas activos dentro
+de sesenta (60) días calendario desde la terminación, después de atender la
+solicitud de salida y verificar instrucciones, dependencias y ausencia de un
+deber documentado de conservación. Los documentos y evidencias que deban
+conservarse por obligación legal se aislarán, limitarán a esa finalidad y
+revisarán según su fundamento; no se aplica un plazo único de diez años a todo
+el tenant. La supresión en sistemas activos no elimina de inmediato copias de
+respaldo, logs, cachés o copias de proveedores: sus ciclos y límites conocidos
+se explican en la política de tratamiento. No se promete purga integral hoy;
+el proceso aún no está certificado ni automatizado.
 
 ## 9. Cambios y controversias
 
