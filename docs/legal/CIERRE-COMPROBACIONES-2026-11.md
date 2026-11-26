@@ -1472,3 +1472,37 @@ probados no entregaron contenido de aplicación a solicitudes anónimas. No se
 probó que todos los recursos estén protegidos ni se borraron o pausaron los
 artefactos. El plan Hobby sigue sin resolverse contractualmente. La evidencia
 completa está en [`PROVEEDORES-EVIDENCIA-2026-11.md`](PROVEEDORES-EVIDENCIA-2026-11.md).
+
+## Piloto runtime `saas-legal` y smoke parcial de reclamo — 2026-11-26
+
+- En `micafe-pos-staging`, las cuatro funciones legales siguen `ACTIVE`, con
+  100 % del tráfico en sus revisiones `00005` y la identidad
+  `saas-legal-runtime@micafe-pos-staging.iam.gserviceaccount.com`. El despliegue
+  acotado del codebase `saas-legal` generó Cloud Build
+  `2f93e123-3c54-441a-a193-6a6d8d82b894` (`SUCCESS`) desde el checkout verificado
+  en el SHA `6f218eb220cd325aa58ad1f7e87689cb11d29aa9`.
+- Desde la UI de Backoffice en Edge, con estado visible `Operador autorizado`,
+  se creó y consultó una recepción incompleta sintética para el fixture
+  `E2_2-BODEGA-STAGING-FIXTURE`. El expediente
+  `SMOKE-STAGING-INCOMP-20261126-01` quedó `RECIBIDO`, con vencimiento
+  2026-12-02. Esta operación demuestra escritura y lectura autenticadas de esa
+  ruta; no demuestra verificación de identidad, anotación del cliente,
+  aislamiento negativo entre tenants ni el ciclo completo en el runtime actual.
+- Existe un caso sintético histórico cerrado (`QA-ADR102-20261124-01`), pero la
+  revalidación lo vincula al despliegue anterior `0248b1fe`; no se usa como
+  evidencia del runtime actual. No se envió correo ni se afirmó una comunicación
+  externa en el smoke actual.
+- No apareció un principal `saas-legal-runtime` en Cloud Audit Logs. Los logs
+  de Cloud Run no bastan para atribuir el principal efectivo. Firebase CLI
+  informó la operación de aseguramiento/generación de identidades Pub/Sub y
+  Eventarc; la evidencia consultada no confirma creación nueva ni resolución
+  del hallazgo. Policy Simulator sigue deshabilitada.
+- CI del PR #706 para HEAD `403acdfced36beb99579bdf7e261037e9499faf4`
+  terminó `SUCCESS` en el run `45898554585`; el PR sigue `OPEN`/`DRAFT`, sin
+  merge. No se cambiaron producción, Rules, Scheduler, la cuenta Compute
+  compartida ni recursos ajenos al alcance; no se crearon claves ni se retiró
+  `roles/editor`.
+- Evidencia detallada, con revisiones/horas y límites: [resultado del piloto
+  staging](evidence/RESULTADO-PILOTO-SAAS-LEGAL-STAGING-2026-11-26.md). La
+  revisión factual/jurídica, exportación integral real, supresión real y
+  publicación de los documentos siguen pendientes.
