@@ -297,3 +297,50 @@ ejecución local no certifica el staging ni producción y no utilizó datos real
   para un piloto real de exportación, la certificación de supresión y los
   puntos de proveedor/Vercel ya descritos arriba. No se desplegó, no se cambió
   IAM y no se leyeron ni borraron datos reales.
+
+## Revalidación de despliegues y smoke — 2026-11-26 18:21 UTC
+
+- PR #706 sigue `OPEN`/`DRAFT`, base `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`,
+  HEAD `66ebf26d87f1bc6ea7e76ab75450d419dc094479`; no hay commits de `main`
+  pendientes de incorporar. El run `45868739735` para este SHA terminó en
+  `success`; `Tipos y pruebas` está verde.
+- En App Hosting staging, el build `build-2026-11-26-002` (`READY`) recibe el
+  100 % del tráfico y tiene rollout `SUCCEEDED`. Su origen es
+  `14fed08083e8983d95a7ee5e8c96d7d8e6c1ba3d`. La comparación del código de la
+  pantalla de reclamos y de sus handlers con el HEAD actual no mostró diferencias;
+  el candidato completo no está publicado porque aún difiere en el bundle legal
+  v0.6, que continúa en borrador.
+- Rules de staging se consultaron por Firebase Rules API con cabecera de cuota,
+  sin cambiar ADC, IAM ni APIs. El release `cloud.firestore` actualizado a las
+  `2026-11-26T12:55:33.812853Z` apunta al Ruleset
+  `a204c10c-4742-4c63-aa30-8ee390777ec3`. Su `firestore.rules` coincide en
+  contenido con el archivo local tras normalizar saltos de línea. Las reglas
+  deniegan lectura/escritura directa para `privacidad_reclamos`,
+  `privacidad_consultas` y `clientes/{id}/anotaciones_privacidad`; la suite de
+  Rules del SHA actual pasó en CI. No se volvió a desplegar Rules.
+- Las cuatro Functions de `saas-legal` siguen `ACTIVE`, Node.js 22, y su última
+  actualización fue el `2026-11-25T20:26Z`, con hash de codebase
+  `cbad43a2af26e692ac86648c1368a0e661cb93e2`. Usan
+  `192423427245-compute@developer.gserviceaccount.com`; en staging esa cuenta
+  conserva `roles/editor`, `roles/eventarc.eventReceiver` y `roles/run.invoker`.
+  El commit actual `704377270eb647cacd54fed067b687c77fcfdcf6` modifica el flujo
+  de reclamos después de aquella actualización. No se desplegó la versión nueva.
+- ADR-SAAS-105 deja el piloto de `saas-legal` condicionado a un gate operativo
+  separado para una identidad runtime dedicada y permisos mínimos. No se creó
+  la cuenta, no se modificaron bindings y no se desplegaron Functions. La API de
+  Policy Simulator, Cloud Asset Inventory y Compute Engine no figura habilitada
+  en staging; no se habilitó ninguna.
+- Revalidación HTTP: producción mantiene `/terminos` HTTP 200 con el título
+  histórico de Café Atrato y las otras tres rutas legales en HTTP 404. Las cuatro
+  rutas de staging responden HTTP 200 con el paquete v0.5 en borrador; v0.6 no
+  está publicado.
+- En Edge, la ruta exacta `/backoffice/privacidad` de staging muestra una sesión
+  de operador autorizado y un formulario con valores sintéticos. No se enviaron
+  fechas, no se pulsó «Registrar y anotar en la ficha» y no se creó ni cambió un
+  caso. La observación no es smoke positivo de callable, persistencia o
+  aislamiento.
+
+**Resultado:** el smoke autenticado de extremo a extremo sigue pendiente hasta
+resolver el gate de runtime de staging y desplegar el codebase legal actualizado.
+No hubo escrituras de negocio, exportación ni supresión real. La auditoría sigue
+**NO APROBADO PARA MERGE**; tampoco se publicó ni activó ningún documento legal.
