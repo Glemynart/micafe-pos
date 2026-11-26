@@ -51,6 +51,12 @@ automática al importarlos:
   No ofrece `commit`, `delete` o mutaciones.
 - `storage-source.mjs`: lista solo prefijo tenant y pide generación exacta con
   precondición. No utiliza ni entrega tokens públicos de descarga.
+- Las URLs de Firebase Storage tokenizadas de imágenes del catálogo, eventos y
+  branding se resuelven contra ese inventario antes de leer documentos: el
+  paquete sustituye cada URL por una referencia al asset cifrado y generación
+  exacta. El manifiesto incluye el conteo de Storage; un archivo no encontrado
+  detiene la exportación. Las URLs HTTPS externas limpias se conservan como
+  referencia, no se descargan ni se declaran como archivos del bundle.
 - `encrypted-bundle.mjs` y `private-output.mjs`: AES-256-GCM autenticado; escritura
   de ciphertext en directorio nuevo y restringido, fuera de Git/Downloads/Codex.
   La clave de 32 bytes la aporta un canal seguro del llamador y no se escribe

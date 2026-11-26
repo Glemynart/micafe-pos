@@ -5,7 +5,79 @@ import { SCHEMAS, SCHEMA_VERSION, INTERNAL_ROOTS, PENDING_ROOTS, SINGLETON_ROOTS
 const idPattern = /^[a-zA-Z0-9_-]{1,120}$/;
 const hash = value => createHash('sha256').update(value).digest('hex');
 const fail = code => { throw new Error(code); };
+const urlTokenParameters = /^(token|access_token|x-goog-signature|googleaccessid|x-amz-signature)$/i;
 const childSchemas = { ventas: ['abonos_bodega', 'compromisos_pago_bodega'], empresas: ['aceptacionesLegales', 'secuencias_documentales', 'solicitudes_venta_bodega', 'agenda_pedidos_bodega', 'reservas_stock_bodega'], suscripciones: ['relaciones'], ofertas_comerciales_tenant: ['ofertas'] };
+
+function resolveTenantAssetUrl(value, { project, tenant, assetsByName }) {
+  let url;
+  try { url = new URL(value); }
+  catch {
+    if (/^https?:\/\//i.test(value)) fail('EXPORT_INVALID_URL');
+    return value;
+  }
+  if (url.username || url.password) fail('EXPORT_PRIVATE_URL_REQUIRES_ASSET_REFERENCE');
+  if (url.protocol !== 'https:') fail('EXPORT_INSECURE_ASSET_URL');
+  if (url.hostname.toLowerCase() !== 'firebasestorage.googleapis.com') {
+    if ([...url.searchParams.keys()].some(key => urlTokenParameters.test(key))) fail('EXPORT_PRIVATE_URL_REQUIRES_ASSET_REFERENCE');
+    return value;
+  }
+  const match = /^\/v0\/b\/([^/]+)\/o\/(.+)$/.exec(url.pathname);
+  if (!match) fail('EXPORT_INVALID_ASSET_REFERENCE');
+  let bucket, objectName;
+  try { bucket = decodeURIComponent(match[1]); objectName = decodeURIComponent(match[2]); }
+  catch { fail('EXPORT_INVALID_ASSET_REFERENCE'); }
+  if (bucket !== `${project}.firebasestorage.app`) fail('EXPORT_ASSET_BUCKET_MISMATCH');
+  if (!objectName.startsWith(`tenants/${tenant}/`) || objectName.split('/').some(part => !part || part === '.' || part === '..' || part.includes('\\'))) fail('EXPORT_CROSS_TENANT');
+  const asset = assetsByName.get(objectName);
+  if (!asset) fail('EXPORT_ASSET_REFERENCE_NOT_FOUND');
+  return { type: 'TENANT_STORAGE_ASSET', bundleFile: `assets/${hash(objectName)}.bin`, generation: asset.generation };
+}
+
+function validateAssetInventory(assets, tenant) {
+  const prefix = `tenants/${tenant}/`, byName = new Map();
+  if (!Array.isArray(assets) || assets.length > 10000) fail('EXPORT_INVALID_ASSET_INVENTORY');
+  for (const asset of assets) {
+    if (!asset || typeof asset.name !== 'string' || !asset.name.startsWith(prefix)
+      || asset.name.includes('\\') || asset.name.split('/').some(part => !part || part === '.' || part === '..')
+      || !/^\d+$/.test(asset.generation) || !Number.isSafeInteger(asset.bytes) || asset.bytes < 0
+      || byName.has(asset.name)) fail('EXPORT_INVALID_ASSET');
+    byName.set(asset.name, asset);
+  }
+  return byName;
+}
+
+function verifyAssetReferences(bundle) {
+  const assets = new Map();
+  const paths = new Set();
+  for (const file of bundle.files) {
+    if (file.encoding !== 'base64') continue;
+    if (typeof file.originalPath !== 'string' || !file.originalPath.startsWith(`tenants/${bundle.manifest.tenant}/`)
+      || file.name !== `assets/${hash(file.originalPath)}.bin` || !/^\d+$/.test(file.generation)
+      || paths.has(file.originalPath)) fail('EXPORT_INVALID_ASSET');
+    paths.add(file.originalPath);
+    assets.set(file.name, file);
+  }
+  const storageInventory = bundle.manifest.sources.find(source => source.path === `storage/tenants/${bundle.manifest.tenant}`);
+  if (!storageInventory || !Number.isSafeInteger(storageInventory.count) || storageInventory.count !== assets.size) fail('EXPORT_ASSET_INVENTORY_MISMATCH');
+  function visit(value) {
+    if (!value || typeof value !== 'object') return;
+    if (value.type === 'TENANT_STORAGE_ASSET') {
+      if (Object.keys(value).sort().join(',') !== 'bundleFile,generation,type') fail('EXPORT_INVALID_ASSET_REFERENCE');
+      const asset = assets.get(value.bundleFile);
+      if (!asset || asset.generation !== value.generation) fail('EXPORT_UNRESOLVED_ASSET_REFERENCE');
+      return;
+    }
+    for (const child of Object.values(value)) visit(child);
+  }
+  for (const file of bundle.files) {
+    if (!file.name.endsWith('.jsonl')) continue;
+    for (const line of file.content.split('\n').filter(Boolean)) {
+      let row;
+      try { row = JSON.parse(line); } catch { fail('EXPORT_INVALID_JSONL'); }
+      visit(row);
+    }
+  }
+}
 
 /** Read-only source port. The engine has no database mutation or filesystem API. */
 export async function exportTenant({ project, tenant, readTime, sourceSha, requestId, source, now = () => Date.now(), maxDocuments = 10000, maxBytes = 50_000_000 }) {
@@ -28,6 +100,9 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
   }
   const firstProof = await authorize();
   initialProof = firstProof;
+  await authorize();
+  const assets = await source.listAssets(context);
+  const assetsByName = validateAssetInventory(assets, tenant);
   const roots = await source.listRoots(context);
   if (!Array.isArray(roots) || new Set(roots).size !== roots.length) fail('EXPORT_INVALID_ROOT_INVENTORY');
   for (const name of roots) {
@@ -60,7 +135,9 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
           const versions = name === 'ventas' ? ['BODEGA_MVP1_V1', 'BODEGA_MVP1_V2', 'BODEGA_MVP1_NEVERA_RETAIL_V1'] : [1, 2];
           if (!versions.includes(document.data.schemaVersion)) fail('EXPORT_UNSUPPORTED_SCHEMA_VERSION');
         }
-        const data = projectDocument(document.data, SCHEMAS[name]);
+        const data = projectDocument(document.data, SCHEMAS[name], 0, {
+          resolveTenantAsset: value => resolveTenantAssetUrl(value, { project, tenant, assetsByName }),
+        });
         if (path === 'membresias') {
           if (typeof data.uid !== 'string' || !idPattern.test(data.uid)) fail('EXPORT_INVALID_MEMBERSHIP');
           memberUids.add(data.uid);
@@ -94,21 +171,17 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
     if (INTERNAL_ROOTS.has(name)) { counts.push({ path: name, excluded: 'PLATFORM_OR_CREDENTIAL_DATA' }); continue; }
     await collect(name, name);
   }
-  // Files must be versioned by the storage adapter; no signed/download URL is accepted.
-  const assets = await source.listAssets(context);
-  if (!Array.isArray(assets)) fail('EXPORT_INVALID_ASSET_INVENTORY');
-  const assetNames = new Set();
-  for (const asset of assets) {
+  // Assets are listed before Firestore payloads so URLs can be normalized and
+  // missing Storage permissions fail before any tenant documents are read.
+  for (const asset of assetsByName.values()) {
     await authorize();
-    const prefix = `tenants/${tenant}/`;
-    if (typeof asset.name !== 'string' || !asset.name.startsWith(prefix) || asset.name.includes('\\') || asset.name.split('/').some(part => !part || part === '.' || part === '..') || !/^\d+$/.test(asset.generation) || assetNames.has(asset.name)) fail('EXPORT_INVALID_ASSET');
-    assetNames.add(asset.name);
     if (!Number.isSafeInteger(asset.bytes) || asset.bytes < 0 || totalBytes + asset.bytes > maxBytes) fail('EXPORT_BUDGET_EXCEEDED');
     const bytes = await source.readAsset({ ...context, name: asset.name, generation: asset.generation });
     if (!(bytes instanceof Uint8Array) || bytes.byteLength !== asset.bytes) fail('EXPORT_ASSET_CHANGED');
     totalBytes += bytes.byteLength;
     files.push({ name: `assets/${hash(asset.name)}.bin`, originalPath: asset.name, generation: asset.generation, content: Buffer.from(bytes).toString('base64'), encoding: 'base64', bytes: bytes.byteLength, sha256: hash(bytes) });
   }
+  counts.push({ path: `storage/tenants/${tenant}`, count: assetsByName.size });
   const finalProof = await authorize();
   if (finalProof.uid !== firstProof.uid || finalProof.authorizationVersion !== firstProof.authorizationVersion) fail('EXPORT_AUTHORITY_CHANGED');
   const manifest = {
@@ -129,10 +202,12 @@ export function verifyBundle(bundle) {
     || !idPattern.test(manifest.project) || !idPattern.test(manifest.tenant) || !idPattern.test(manifest.requestId)
     || !idPattern.test(manifest.requestReference) || !idPattern.test(manifest.actorUid)
     || !/^[a-f0-9]{40}$/.test(manifest.sourceSha) || !Array.isArray(bundle.files)
-    || !Array.isArray(manifest.files) || bundle.files.length !== manifest.files.length) fail('EXPORT_INVALID_BUNDLE');
+    || !Array.isArray(manifest.files) || !Array.isArray(manifest.sources)
+    || bundle.files.length !== manifest.files.length) fail('EXPORT_INVALID_BUNDLE');
   const names = new Set();
   for (const file of bundle.files) {
     if (typeof file.name !== 'string' || names.has(file.name)) fail('EXPORT_INVALID_BUNDLE');
+    if (file.encoding !== undefined && file.encoding !== 'base64') fail('EXPORT_INVALID_BUNDLE');
     names.add(file.name);
     const expected = manifest.files.find(f => f.name === file.name);
     const { content, ...metadata } = file;
@@ -140,5 +215,6 @@ export function verifyBundle(bundle) {
     const bytes = file.encoding === 'base64' ? Buffer.from(file.content, 'base64') : Buffer.from(file.content, 'utf8');
     if (!expected || bytes.byteLength !== expected.bytes || hash(bytes) !== expected.sha256) fail('EXPORT_HASH_MISMATCH');
   }
+  verifyAssetReferences(bundle);
   return true;
 }

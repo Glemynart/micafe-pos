@@ -1149,7 +1149,7 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   de autorización en Firestore; por eso la afirmación reportada de Diana aún debe
   vincularse a esa referencia antes de ejecutar.
 - `node --test scripts/legal/legal-tools.test.mjs scripts/legal/tenant-export-cli.test.mjs`:
-  32/32 aprobadas. ESLint focalizado, `node --check` de CLI/runner y
+  34/34 aprobadas. ESLint focalizado, `node --check` de CLI/runner y
   `git diff --check` aprobaron.
 - El ensayo REST contra Firestore Emulator pasó 1/1 con Temurin JDK 21. El primer
   intento tomó Java 17 y Firebase CLI lo rechazó; se repitió seleccionando el JDK
@@ -1157,3 +1157,19 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
 - No se ejecutó el CLI, no se leyeron payloads ni objetos Storage de Diana, y no
   se creó un paquete. `productionExportCertified=false` permanece. La validación
   sintética no certifica compatibilidad con los campos históricos reales.
+
+## Integridad de referencias Storage — corrección añadida al candidato
+
+- La inspección de los flujos de productos y eventos confirmó que almacenan
+  `getDownloadURL()` de Firebase Storage en `productos.imagenUrl` y
+  `eventos.imagenUrl`. El comportamiento previo rechazaba URLs con token, así
+  que un export integral podía fallar aunque los archivos estuvieran presentes.
+- El candidato ahora inventaría primero `tenants/{tenant}/`, resuelve URLs
+  Firebase del bucket esperado a referencias de archivo del bundle, comprueba
+  generación/ruta exactas y rechaza referencias huérfanas o cruzadas antes de
+  completar. Tokens no se copian. El verificador relaciona cada referencia con
+  un asset entregado y el manifiesto registra la cantidad de objetos Storage.
+- Las pruebas focales locales pasaron 34/34, incluyendo conversión de URL con
+  token, rechazo de asset faltante y cierre previo a leer Firestore cuando falla
+  el inventario Storage. Este cambio aún no está en CI; requiere otro
+  commit y un run nuevo. No se consultaron archivos ni documentos productivos.

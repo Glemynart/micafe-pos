@@ -415,3 +415,49 @@ test('canonical root is queried by document name and signed asset URLs do not le
   assert.match(body.structuredQuery.where.fieldFilter.value.referenceValue, /configuraciones\/tenant-a$/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, imagenUrl: 'https://example.test/image?token=SYNTHETIC_SECRET' } }], hasMore: false }) }) }), /^Error: EXPORT_PRIVATE_URL_REQUIRES_ASSET_REFERENCE$/);
 });
+
+test('tenant Storage URLs are replaced with verified encrypted-bundle asset references', async () => {
+  const objectName = 'tenants/tenant-a/productos/e/image.png';
+  const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${input.project}.firebasestorage.app/o/${encodeURIComponent(objectName)}?alt=media&token=SYNTHETIC_SECRET`;
+  const base = fixture();
+  const source = {
+    ...base,
+    readPage: async ctx => ctx.path === 'productos'
+      ? { readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, imagenUrl: downloadUrl } }], hasMore: false }
+      : base.readPage(ctx),
+  };
+  const bundle = await exportTenant({ ...input, source });
+  const productFile = bundle.files.find(file => file.name === 'productos.jsonl');
+  const productRow = JSON.parse(productFile.content);
+  const ref = productRow.data.imagenUrl;
+  const asset = bundle.files.find(file => file.encoding === 'base64');
+  assert.equal(ref.type, 'TENANT_STORAGE_ASSET');
+  assert.equal(ref.bundleFile, asset.name);
+  assert.equal(ref.generation, asset.generation);
+  assert.doesNotMatch(JSON.stringify(bundle), /SYNTHETIC_SECRET/);
+  assert.equal(bundle.manifest.sources.find(sourceRow => sourceRow.path === 'storage/tenants/tenant-a').count, 1);
+  assert.equal(verifyBundle(bundle), true);
+  const incomplete = structuredClone(bundle);
+  incomplete.files = incomplete.files.filter(file => file.name !== asset.name);
+  incomplete.manifest.files = incomplete.manifest.files.filter(file => file.name !== asset.name);
+  incomplete.manifest.sources.find(sourceRow => sourceRow.path === 'storage/tenants/tenant-a').count = 0;
+  assert.throws(() => verifyBundle(incomplete), /EXPORT_UNRESOLVED_ASSET_REFERENCE/);
+
+  const missing = fixture({ listAssets: async () => [] });
+  await assert.rejects(exportTenant({ ...input, source: {
+    ...missing,
+    readPage: async ctx => ctx.path === 'productos'
+      ? { readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, imagenUrl: downloadUrl } }], hasMore: false }
+      : missing.readPage(ctx),
+  } }), /EXPORT_ASSET_REFERENCE_NOT_FOUND/);
+});
+
+test('Storage inventory failure stops before any Firestore tenant payload is read', async () => {
+  let documentReads = 0;
+  const source = fixture({
+    listAssets: async () => { throw new Error('EXPORT_STORAGE_HTTP_403'); },
+    readPage: async ctx => { documentReads++; return { readTime: ctx.readTime, documents: [], hasMore: false }; },
+  });
+  await assert.rejects(exportTenant({ ...input, source }), /EXPORT_STORAGE_HTTP_403/);
+  assert.equal(documentReads, 0);
+});

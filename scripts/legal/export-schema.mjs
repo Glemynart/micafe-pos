@@ -1,6 +1,7 @@
 // Versioned allowlists. Unknown fields stop certification; no arbitrary raw dump.
 export const SCHEMA_VERSION = 'DUSEMA_EXIT_V2';
 export const scalar = 'scalar';
+export const tenantAssetReference = 'tenantAssetReference';
 export const fields = (names) => Object.fromEntries(names.split(/\s+/).filter(Boolean).map(name => [name, scalar]));
 export const recordOf = schema => ({ $record: schema });
 const common = fields('id empresaId schemaVersion version revision catalogoId creadoEn creadaEn actualizadoEn actualizadaEn fecha estado activo espacioId');
@@ -56,14 +57,14 @@ const snapshot = {
   precio: price, capacidades: [scalar], limites: {}, sedeConceptual: fields('cantidad'),
   fiscalidad: fields('pais modalidad habilitada'), vigencia: fields('inicio fin'),
 };
-const brandingAsset = fields('ubicacion versionContenido tipo');
+const brandingAsset = { ...fields('versionContenido tipo'), ubicacion: tenantAssetReference };
 const palette = fields('primary onPrimary secondary onSecondary accent onAccent surface onSurface background onBackground success onSuccess warning onWarning danger onDanger info onInfo');
 const configuration = adapter('vertical', {
   identidadFiscal: { ...fields('nombreComercial razonSocial tipoPersona tipoDocumento numeroDocumento digitoVerificacion regimenTributario actividadEconomicaPrincipal'), responsabilidadesFiscales: [scalar], contacto: fields('email telefono') },
   localizacion: { ...fields('paisFiscal moneda idioma zonaHoraria'), direccion: fields('linea1 linea2 departamentoCodigo departamentoNombre municipioCodigo municipioNombre codigoPostal') },
   impuestos: fields('preciosIncluyenImpuestos impuestoTipoPredeterminado politicaRedondeo'),
   branding: { ...fields('modelVersion nombreVisible modoVisual'), assets: { logoPrincipal: brandingAsset, logoModoOscuro: brandingAsset, favicon: brandingAsset, iconoAplicacion: brandingAsset }, paletas: { light: palette, dark: palette } },
-  ticket: fields('logoDocumentoUrl mensajePie mostrarLogoDocumento mostrarRazonSocial mostrarDireccion mostrarTelefono mostrarDesgloseImpuestos'),
+  ticket: { ...fields('mensajePie mostrarLogoDocumento mostrarRazonSocial mostrarDireccion mostrarTelefono mostrarDesgloseImpuestos'), logoDocumentoUrl: tenantAssetReference },
   impresion: fields('formatoPapel copiasVenta copiasCierre autoImprimirVenta autoAbrirCajon'),
   pos: { ...fields('metodoPagoPredeterminado permitirPagoMixto permitirVentaSinExistencias requerirClienteEnCuentaCobro'), metodosPagoHabilitados: [scalar] },
   caja: { ...fields('baseAperturaSugerida umbralAlertaFaltante permitirRelevo'), rolesConTurnoObligatorio: [scalar] },
@@ -87,7 +88,7 @@ export const SCHEMAS = Object.freeze({
     agregado: fields('tipo id'), actor: operationActor,
     payloadOperativo: fields('programacionId fechaLocal zonaHoraria etapa solicitudId'),
   }),
-  eventos: adapter('titulo descripcion fecha hora imagenUrl categoria activo'),
+  eventos: { ...adapter('titulo descripcion fecha hora categoria activo'), imagenUrl: tenantAssetReference },
   modificador_grupos: adapter('nombre descripcion minSeleccion maxSeleccion orden', {
     opciones: [fields('id nombre precioDelta activo orden default cocinaNombre')],
   }),
@@ -95,7 +96,7 @@ export const SCHEMAS = Object.freeze({
     opcionesPermitidas: [scalar],
     opcionOverrides: recordOf(fields('precioDelta activo')),
   }),
-  productos: adapter('nombre descripcion categoria categoriaId unidad unidadMedida costo precio stock stockReservado stockMinimo imagen imagenUrl codigo codigoBarras sku permiteFraccionamiento'),
+  productos: { ...adapter('nombre descripcion categoria categoriaId unidad unidadMedida costo precio stock stockReservado stockMinimo codigo codigoBarras sku permiteFraccionamiento'), imagen: tenantAssetReference, imagenUrl: tenantAssetReference, image: tenantAssetReference },
   categorias: adapter('nombre icono orden color'),
   presentaciones_producto: adapter('productoId nombre factorUnidadBase precioCOP precioTiendaCOP precioConsumidorFinalCOP costoPresentacionCOP'),
   clientes: adapter('nombre cedula tipoDocumento nit telefono correo email contacto direccion barrioZona saldoPendienteBodegaCOP'),
@@ -202,7 +203,7 @@ export function inspectCoverage(roots) {
   };
 }
 
-export function projectDocument(data, schema, depth = 0) {
+export function projectDocument(data, schema, depth = 0, context = {}) {
   if (depth > 24) throw new Error('EXPORT_MAX_DEPTH');
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('EXPORT_INVALID_DOCUMENT');
   const result = Object.create(null);
@@ -212,11 +213,21 @@ export function projectDocument(data, schema, depth = 0) {
     if (!Object.hasOwn(schema, key)) throw new Error('EXPORT_UNSUPPORTED_FIELD');
     const value = data[key], rule = schema[key];
     if (value === null) { result[key] = null; continue; }
-    if (rule === scalar) {
+    if (rule === tenantAssetReference) {
+      if (typeof value !== 'string') throw new Error('EXPORT_INVALID_ASSET_REFERENCE');
+      if (typeof context.resolveTenantAsset !== 'function') {
+        if (/^https:\/\/firebasestorage\.googleapis\.com\//i.test(value)) throw new Error('EXPORT_ASSET_RESOLVER_REQUIRED');
+        let url;
+        try { url = new URL(value); } catch {}
+        if (url && (url.username || url.password || [...url.searchParams.keys()].some(name => /^(token|access_token|x-goog-signature|googleaccessid|x-amz-signature)$/i.test(name)))) throw new Error('EXPORT_PRIVATE_URL_REQUIRES_ASSET_REFERENCE');
+        result[key] = value;
+      } else result[key] = context.resolveTenantAsset(value);
+    } else if (rule === scalar) {
       if (!['string', 'number', 'boolean'].includes(typeof value) || (typeof value === 'number' && !Number.isFinite(value))) throw new Error('EXPORT_INVALID_SCALAR');
       if (typeof value === 'string' && /^https?:\/\//i.test(value)) {
         let url;
         try { url = new URL(value); } catch { throw new Error('EXPORT_INVALID_URL'); }
+        if (url.username || url.password) throw new Error('EXPORT_PRIVATE_URL_REQUIRES_ASSET_REFERENCE');
         if ([...url.searchParams.keys()].some(k => /^(token|access_token|x-goog-signature|googleaccessid|x-amz-signature)$/i.test(k))) throw new Error('EXPORT_PRIVATE_URL_REQUIRES_ASSET_REFERENCE');
       }
       result[key] = value;
@@ -225,13 +236,13 @@ export function projectDocument(data, schema, depth = 0) {
       const entries = Object.create(null);
       for (const [recordKey, recordValue] of Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) {
         if (!/^[A-Za-z0-9_-]{1,120}$/.test(recordKey)) throw new Error('EXPORT_INVALID_RECORD_KEY');
-        entries[recordKey] = projectDocument(recordValue, rule.$record, depth + 1);
+        entries[recordKey] = projectDocument(recordValue, rule.$record, depth + 1, context);
       }
       result[key] = entries;
     } else if (Array.isArray(rule)) {
       if (!Array.isArray(value)) throw new Error('EXPORT_INVALID_ARRAY');
-      result[key] = value.map(v => rule[0] === scalar ? projectDocument({ v }, { v: scalar }, depth + 1).v : projectDocument(v, rule[0], depth + 1));
-    } else result[key] = projectDocument(value, rule, depth + 1);
+      result[key] = value.map(v => rule[0] === scalar ? projectDocument({ v }, { v: scalar }, depth + 1, context).v : projectDocument(v, rule[0], depth + 1, context));
+    } else result[key] = projectDocument(value, rule, depth + 1, context);
   }
   return result;
 }

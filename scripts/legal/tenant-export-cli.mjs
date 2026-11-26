@@ -108,12 +108,15 @@ async function main() {
   }
   const sourceSha = currentSourceSha(fileURLToPath(new URL('../../', import.meta.url)));
   const requestId = randomUUID();
+  stdout.write(`Alcance fijado: ${options.project}/${options.tenant}\nBucket: ${options.bucket}\n`);
   const requestReference = (await promptLine(`Referencia externa verificable de la autorización de Diana para ${options.tenant}: `)).trim();
   if (!/^[a-zA-Z0-9_-]{1,120}$/.test(requestReference)) throw new Error('EXPORT_REQUEST_REFERENCE_REQUIRED');
-  const attestation = await promptLine('Verifiqué la instrucción del representante para este proyecto y tenant. Escribe VERIFICADO para continuar: ');
-  if (attestation !== 'VERIFICADO') throw new Error('EXPORT_REQUEST_NOT_VERIFIED');
-  const executionConfirmation = await promptLine('Esto leerá datos reales del tenant y sus archivos para crear un bundle cifrado. Escribe EXPORTAR para continuar: ');
-  if (executionConfirmation !== 'EXPORTAR') throw new Error('EXPORT_CANCELLED');
+  const attestationText = `VERIFICADO ${options.project}/${options.tenant}`;
+  const attestation = await promptLine(`Verifiqué la instrucción del representante para este alcance. Escribe "${attestationText}": `);
+  if (attestation !== attestationText) throw new Error('EXPORT_REQUEST_NOT_VERIFIED');
+  const executionText = `EXPORTAR ${options.project}/${options.tenant}`;
+  const executionConfirmation = await promptLine(`Esto leerá los datos y archivos reales de ${options.project}/${options.tenant}, y creará un bundle cifrado. Escribe "${executionText}" para continuar: `);
+  if (executionConfirmation !== executionText) throw new Error('EXPORT_CANCELLED');
 
   let token = '';
   let key;
