@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { SINGLETON_ROOTS } from './export-schema.mjs';
 // Read-only REST transport. Deliberately no commit, patch, delete or upload method.
 export function createReadSource({ project, tenant, getAccessToken, authorize, storage, fetchImpl = fetch }) {
@@ -30,6 +31,27 @@ export function createReadSource({ project, tenant, getAccessToken, authorize, s
   }
   return Object.freeze({
     authorize,
+    async establishReadTime(context) {
+      if (context.project !== project || context.tenant !== tenant) throw new Error('EXPORT_SOURCE_CONTEXT_MISMATCH');
+      // A point-in-time export needs a timestamp issued by Firestore, not the
+      // local clock. Query a random exact document name and discard the
+      // response; Firestore returns readTime even when the query has no match.
+      const probeId = `dusema-export-read-time-probe-${randomUUID()}`;
+      const rows = await request(':runQuery', {
+        structuredQuery: {
+          from: [{ collectionId: 'empresas' }],
+          where: { fieldFilter: {
+            field: { fieldPath: '__name__' }, op: 'EQUAL',
+            value: { referenceValue: `${base}/empresas/${probeId}` },
+          } },
+          limit: 1,
+        },
+      });
+      if (!Array.isArray(rows) || rows.some(row => row?.document)) throw new Error('EXPORT_READ_TIME_PROBE_INVALID');
+      const readTimes = [...new Set(rows.map(row => row?.readTime).filter(value => typeof value === 'string'))];
+      if (readTimes.length !== 1 || !Number.isFinite(Date.parse(readTimes[0]))) throw new Error('EXPORT_READ_TIME_UNAVAILABLE');
+      return readTimes[0];
+    },
     listRoots: context => listCollections('', context.readTime),
     listChildren: context => listCollections(context.path, context.readTime),
     async readPage(context) {

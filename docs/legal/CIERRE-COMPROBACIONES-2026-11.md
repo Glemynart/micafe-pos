@@ -1112,3 +1112,26 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   `8aa41f2`. El run `45734253581` del HEAD terminó `success`; esto no cierra los
   gates de staging, salida real, conservación/supresión, publicación ni revisión
   jurídica descritos en el PR.
+
+## Preflight de lectura puntual de Firestore — 2026-11-26
+
+- ADR-SAAS-100 requiere fijar `readTime` desde Firestore y reutilizarlo durante
+  todas las lecturas del paquete. `RunQueryResponse` entrega el tiempo del
+  servidor también cuando la consulta no encuentra documentos.
+- `scripts/legal/firestore-source.mjs` ahora obtiene ese tiempo con un nombre de
+  documento aleatorio, consulta exacta y sin devolver documentos al llamador. Si
+  aparece una colisión o falta `readTime`, la operación se cierra sin continuar.
+- La prueba de producción a `micafe-pos` ejecutó solo esa consulta exacta con un
+  ID aleatorio inexistente: `RunQuery` respondió con `readTime` y cero documentos.
+  No se consultaron colecciones del tenant ni se leyeron archivos. La consulta
+  inicial con un ID reservado por Firestore respondió `INVALID_ARGUMENT`; se
+  corrigió y se repitió con el formato válido.
+- `node --test scripts/legal/legal-tools.test.mjs`: 27/27 aprobadas; `git diff
+  --check`: aprobado.
+- Esto valida el mecanismo puntual de obtener el snapshot en producción, no los
+  adaptadores/campos históricos del tenant, Storage, autorización del operador,
+  referencia verificable de Diana, salida privada ni una exportación integral.
+  No cambia `productionExportCertified=false`.
+- PR #706 sigue `OPEN`/`DRAFT`. El run `45742932500` sigue activo sobre el HEAD
+  anterior `a9c3bc5`; el cambio de este preflight requiere su propia CI cuando se
+  publique en la rama.

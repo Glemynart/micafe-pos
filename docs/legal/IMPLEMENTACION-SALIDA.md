@@ -1,6 +1,6 @@
 # Implementación controlada de salida — estado real
 
-Fecha de actualización: 2026-11-24. `G-SAAS-02 / M2 / E2.2`.
+Fecha de actualización: 2026-11-26. `G-SAAS-02 / M2 / E2.2`.
 ADR-SAAS-100 aceptado para implementar por la orden posterior «ok resuelve eso».
 ADR-SAAS-101 aceptado expresamente para implementación y pruebas locales.
 ADR-SAAS-099 aceptado por separado para implementar aceptación legal versionada.
@@ -44,7 +44,10 @@ automática al importarlos:
 - `operator-authority.mjs`: verificación de ID token con revocación, audiencia,
   operador actual y facultad de conservación, además de petición verificada.
   La verificación de la petición es una dependencia obligatoria, sin default permisivo.
-- `firestore-source.mjs`: transporte REST de lectura; filtros tenant y `readTime`.
+- `firestore-source.mjs`: transporte REST de lectura; obtiene el `readTime` del
+  servidor con una consulta exacta aleatoria sin resultados y reutiliza ese
+  snapshot en las páginas. El preflight de producción de 2026-11-26 recibió el
+  `readTime` y cero documentos.
   No ofrece `commit`, `delete` o mutaciones.
 - `storage-source.mjs`: lista solo prefijo tenant y pide generación exacta con
   precondición. No utiliza ni entrega tokens públicos de descarga.
@@ -55,6 +58,12 @@ automática al importarlos:
 - `retention-plan.mjs`: planificador sin mutaciones; siempre `PREVIEW_ONLY` y
   `executable=false`, con bloqueos por conservación, hold, identidad compartida,
   referencias no verificadas y entrega pendiente.
+
+El ejecutable disponible, `coverage-cli.mjs`, enumera metadatos de colecciones y
+no exporta payloads. Todavía no existe un runner productivo que conecte la
+identidad Firebase verificada del operador, una solicitud de salida verificable,
+las fuentes reales y el directorio privado cifrado. No usar `coverage-cli.mjs`
+como si certificara una entrega integral.
 
 ## Límite material antes de usar datos reales
 

@@ -162,7 +162,24 @@ test('REST adapter uses snapshot, tenant filter, document-name cursor and no wri
   assert.equal(calls[0].body.readTime, input.readTime);
   assert.equal(calls[0].body.structuredQuery.where.fieldFilter.value.stringValue, 'tenant-a');
   assert.equal(calls[0].body.structuredQuery.startAt.before, false);
-  assert.deepEqual(Object.keys(source).sort(), ['authorize', 'listAssets', 'listChildren', 'listRoots', 'readAsset', 'readPage']);
+  assert.deepEqual(Object.keys(source).sort(), ['authorize', 'establishReadTime', 'listAssets', 'listChildren', 'listRoots', 'readAsset', 'readPage']);
+});
+test('Firestore snapshot time comes from an empty server query and rejects payloads or bad context', async () => {
+  const calls = [];
+  const source = createReadSource({ project: input.project, tenant: input.tenant, getAccessToken: async () => 'TEST_TOKEN', authorize: fixture().authorize, storage: {}, fetchImpl: async (url, options) => {
+    calls.push({ url, body: JSON.parse(options.body), method: options.method });
+    return { ok: true, json: async () => [{ readTime: input.readTime }] };
+  } });
+  assert.equal(await source.establishReadTime(input), input.readTime);
+  assert.match(calls[0].url, /documents:runQuery$/);
+  assert.equal(calls[0].body.readTime, undefined);
+  const probeResource = calls[0].body.structuredQuery.where.fieldFilter.value.referenceValue;
+  assert.match(probeResource, new RegExp(`^projects/${input.project}/databases/\\(default\\)/documents/empresas/dusema-export-read-time-probe-[0-9a-f-]{36}$`));
+  assert.equal(calls[0].body.structuredQuery.limit, 1);
+  await assert.rejects(source.establishReadTime({ ...input, tenant: 'tenant-b' }), /EXPORT_SOURCE_CONTEXT_MISMATCH/);
+
+  const invalidSource = createReadSource({ project: input.project, tenant: input.tenant, getAccessToken: async () => 'TEST_TOKEN', authorize: fixture().authorize, storage: {}, fetchImpl: async () => ({ ok: true, json: async () => [{ readTime: input.readTime, document: { name: 'unexpected' } }] }) });
+  await assert.rejects(invalidSource.establishReadTime(input), /EXPORT_READ_TIME_PROBE_INVALID/);
 });
 test('retention planner never executes and blocks legal evidence, holds and shared identities', () => {
   const base = { tenant: 'tenant-a', terminatedAt: '2026-08-01T00:00:00Z', now: input.readTime, policyApproved: true, deliveryConfirmed: true };
