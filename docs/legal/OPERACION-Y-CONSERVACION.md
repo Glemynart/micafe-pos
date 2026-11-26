@@ -215,11 +215,14 @@ términos legales, cuya recepción y cómputo se registran desde la fecha real d
 entrada, aunque llegue fuera del horario propuesto.
 
 Canales declarados: correo `segucor0526@gmail.com` y teléfono `3103337837`;
-pertenecen a la persona natural identificada como prestador. No se ha comprobado
-recepción, seguridad de la cuenta, archivo restringido ni disponibilidad del
-canal. No anunciar el teléfono como WhatsApp. Antes de activar el trámite hay
-que designar formalmente la persona o área responsable de privacidad y validar
-un medio de recepción y conservación con acceso restringido.
+pertenecen a la persona natural identificada como prestador. El prestador designó
+a Sebastián Agudelo Muñoz como contacto operativo principal de privacidad para
+solicitudes dirigidas a Dusema. No hay suplente y esto no declara cobertura
+continua. Aún no se comprobaron recepción, seguridad de la cuenta ni archivo
+restringido; tampoco se activa el procedimiento hasta validar un medio de
+recepción y conservación con acceso restringido. No anunciar el teléfono como
+WhatsApp. Para datos tratados por cuenta de un tenant, este contacto coordina
+con su responsable sin sustituirlo ni cambiar sus instrucciones.
 
 Procedimiento ejecutable manualmente sin crear una nueva base de clientes:
 
@@ -246,10 +249,11 @@ Procedimiento ejecutable manualmente sin crear una nueva base de clientes:
 ### Respuesta a incidentes de seguridad de datos personales — borrador operativo
 
 Este flujo orienta la respuesta; no está certificado ni reemplaza las
-instrucciones vigentes de la SIC. Antes de activarlo deben asignarse formalmente
-la persona titular y su suplente, comprobar acceso a los canales de reporte y
-realizar un simulacro con datos sintéticos. Mientras no se designen, el incidente
-se escala de inmediato al prestador y no se declara que existe cobertura continua.
+instrucciones vigentes de la SIC. Sebastián Agudelo Muñoz es el contacto
+operativo principal designado por el prestador; no se ha designado suplente.
+Antes de activarlo faltan comprobar acceso a los canales de reporte y realizar un
+simulacro con datos sintéticos. Mientras tanto, el incidente se escala de
+inmediato al prestador y no se declara que existe cobertura continua.
 
 1. **Recibir y contener.** Abrir un expediente restringido. Registrar hora de
    detección, quién detectó, hora en que se informó al área designada, fuente,
@@ -338,8 +342,10 @@ revisión del caso y derechos aplicables; no autoriza una eliminación precipita
 - Aprobar o ajustar plazos y condiciones propuestos de soporte/salida/conservación.
 - Fijar fundamento y plazo de evidencia legal no cubierta por papeles de comercio.
 - Acreditar términos aplicables de Google, Vercel y correo sin compartir secretos.
-- Designar y verificar responsables/personas o áreas de privacidad de Dusema y
-  de cada negocio; cerrar contacto y registro de acceso restringido.
+- Verificar los canales de privacidad de Dusema y el registro de acceso
+  restringido; Sebastián Agudelo Muñoz está designado como contacto principal,
+  pero no hay suplente ni cobertura continua. Cada negocio debe identificar su
+  propio responsable para los datos que trata.
 - Determinar si la operación de cartera del tenant cae bajo Ley 1266 de 2008 o
   Ley 2573 de 2026 antes de habilitar procesos de reporte o atención de
   suplantación; el repositorio no resuelve el alcance para establecimientos

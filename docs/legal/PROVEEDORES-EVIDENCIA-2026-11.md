@@ -8,6 +8,16 @@ sin contrato aparte. La tabla por producto y las comprobaciones técnicas quedan
 en [cierre de comprobaciones](CIERRE-COMPROBACIONES-2026-11.md). Esto resuelve el
 tipo de cuenta/régimen declarado; no inventa fecha o versión histórica aceptada.
 
+La [FAQ oficial de Firebase](https://firebase.google.com/support/faq) indica que
+aceptar los términos de Firebase es requisito para usar todas sus capacidades,
+que se aceptan desde Firebase Console, una vez por cuenta de Google y no a nivel
+de proyecto para todos sus miembros; la aceptación no se realiza por CLI, REST
+ni Terraform. El prestador reportó que hubo aceptación online, por lo que la
+ausencia de un contrato firmado aparte no se trata por sí sola como falta de
+acuerdo. Sin embargo, no se identificó de forma independiente qué cuenta de
+Google aceptó, ni la fecha o versión conservada; el reporte no se extiende a
+cuentas de los demás miembros del proyecto.
+
 ## Google
 
 Los [términos Firebase](https://firebase.google.com/terms) remiten a instrumentos

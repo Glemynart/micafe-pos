@@ -1203,5 +1203,36 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   un asset entregado y el manifiesto registra la cantidad de objetos Storage.
 - Las pruebas focales locales pasaron 34/34, incluyendo conversión de URL con
   token, rechazo de asset faltante y cierre previo a leer Firestore cuando falla
-  el inventario Storage. Este cambio aún no está en CI; requiere otro
-  commit y un run nuevo. No se consultaron archivos ni documentos productivos.
+  el inventario Storage. En ese corte el cambio aún no estaba en CI y requería
+  otro commit y un run nuevo; su estado posterior está en la revalidación que
+  sigue. No se consultaron archivos ni documentos productivos.
+
+## Revalidación pública de rutas y CI — 2026-11-26 10:41 UTC
+
+- Se hicieron únicamente solicitudes HTTP GET sin sesión ni envío de datos.
+  En `pos.dusema.com`, `/` y `/pos` respondieron 200 con título `Dusema POS`;
+  `/terminos` respondió 200 con título `Términos y Privacidad - Café Atrato`,
+  mientras `/privacidad`, `/aviso-autorizacion` y `/anexo-tratamiento`
+  respondieron 404. En el host oficial de App Hosting staging, las cuatro rutas
+  legales respondieron 200 con títulos de Dusema POS.
+- La lectura confirma que los documentos del candidato están disponibles en
+  staging y que producción no sirve todavía el conjunto legal Dusema. No se
+  registraron aceptaciones ni se hicieron cambios a App Hosting, Functions,
+  Rules, datos o IAM.
+- PR #706 seguía `OPEN`/`DRAFT`, base `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`,
+  HEAD `a79294649bd330216173fecc48c72b9fbd6e684e`, sin revisiones humanas y con
+  estado de merge `BLOCKED`. El run `45801081945` de ese HEAD seguía
+  `in_progress` a las 10:41 UTC, ejecutando `E2E Bodega — solicitud, aprobación
+  y venta canónica`; quedaban 20 pasos y no había fallos observados. El mismo run
+  terminó `success` a las 10:47:50 UTC para ese HEAD. Esto valida ese candidato,
+  no los cambios documentales locales que se agregan después ni el smoke
+  autenticado.
+- En la consulta posterior al CI, PR #706 seguía `OPEN`/`DRAFT`, sin revisión
+  humana; base `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`, HEAD
+  `a79294649bd330216173fecc48c72b9fbd6e684e` y `mergeStateStatus=CLEAN`.
+- Computer Use no pudo identificar con confianza la URL de Edge, por lo que no
+  se completó el smoke autenticado de staging en esta revalidación.
+- Un barrido de alta confianza en los 111 archivos modificados del PR no encontró
+  formatos conocidos de claves privadas, tokens GitHub, llaves API de Firebase,
+  tokens de Slack o claves secretas de pagos. No es una auditoría exhaustiva de
+  secretos ni prueba ausencia de credenciales con formatos no cubiertos.
