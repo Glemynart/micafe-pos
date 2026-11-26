@@ -54,16 +54,26 @@ automática al importarlos:
 - `encrypted-bundle.mjs` y `private-output.mjs`: AES-256-GCM autenticado; escritura
   de ciphertext en directorio nuevo y restringido, fuera de Git/Downloads/Codex.
   La clave de 32 bytes la aporta un canal seguro del llamador y no se escribe
-  junto al paquete. No hay CLI para imprimir documentos o secretos.
+  junto al paquete. El CLI no imprime documentos ni secretos.
 - `retention-plan.mjs`: planificador sin mutaciones; siempre `PREVIEW_ONLY` y
   `executable=false`, con bloqueos por conservación, hold, identidad compartida,
   referencias no verificadas y entrega pendiente.
+- `tenant-export-runner.mjs`: valida el directorio privado antes de leer payloads,
+  revalida la autoridad durante el recorrido y verifica el round-trip del bundle
+  cifrado; solo devuelve metadatos.
+- `tenant-export-cli.mjs`: candidato local de solo lectura, limitado en producción
+  al tenant `distribuidora-las-jimenez`; deriva el bucket del proyecto y requiere
+  una referencia externa de autorización verificada, operador con
+  `CONSERVACION_GOBERNAR`, credenciales de lectura existentes y confirmación
+  interactiva. No requiere cuenta ni sesión del tenant.
 
-El ejecutable disponible, `coverage-cli.mjs`, enumera metadatos de colecciones y
-no exporta payloads. Todavía no existe un runner productivo que conecte la
-identidad Firebase verificada del operador, una solicitud de salida verificable,
-las fuentes reales y el directorio privado cifrado. No usar `coverage-cli.mjs`
-como si certificara una entrega integral.
+El ejecutable `coverage-cli.mjs` enumera metadatos; no exporta payloads. El nuevo
+runner/CLI está implementado en la rama de trabajo, pero todavía no se ha
+ejecutado con datos reales. La referencia se verifica por atestación interactiva
+del operador frente al soporte externo; el CLI no consulta un expediente de
+autorización en Firestore. La declaración reportada de autorización de Diana no
+se convierte por sí sola en una referencia verificable. No usar
+`coverage-cli.mjs` como si certificara una entrega integral.
 
 ## Límite material antes de usar datos reales
 
@@ -120,7 +130,8 @@ fixtures representativos y corroborar el comportamiento de `readTime` de la API.
 ## Validación reproducible
 
 ```powershell
-node --test scripts/legal/legal-tools.test.mjs
+node --test scripts/legal/legal-tools.test.mjs scripts/legal/tenant-export-cli.test.mjs
+npx firebase --project demo-dusema-export emulators:exec --only firestore "node --test scripts/legal/emulator-export.test.mjs"
 npx firebase --project demo-dusema-erasure emulators:exec --only firestore "node --test scripts/legal/emulator-erasure.test.mjs"
 npx tsc --noEmit
 npm run build

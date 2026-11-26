@@ -22,8 +22,8 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
   async function authorize() {
     if (now() - started >= 45 * 60_000 || now() - Date.parse(readTime) >= 60 * 60_000) fail('EXPORT_READ_WINDOW_EXPIRED');
     const proof = await source.authorize(context);
-    if (!proof || proof.project !== project || proof.tenant !== tenant || proof.requestId !== requestId || proof.active !== true || proof.canConserve !== true || proof.requestVerified !== true || !idPattern.test(proof.uid) || !Number.isSafeInteger(proof.authorizationVersion) || proof.authorizationVersion < 1) fail('EXPORT_AUTHORIZATION_DENIED');
-    if (initialProof && (proof.uid !== initialProof.uid || proof.authorizationVersion !== initialProof.authorizationVersion)) fail('EXPORT_AUTHORITY_CHANGED');
+    if (!proof || proof.project !== project || proof.tenant !== tenant || proof.requestId !== requestId || proof.active !== true || proof.canConserve !== true || proof.requestVerified !== true || !idPattern.test(proof.requestReference) || !idPattern.test(proof.uid) || !Number.isSafeInteger(proof.authorizationVersion) || proof.authorizationVersion < 1) fail('EXPORT_AUTHORIZATION_DENIED');
+    if (initialProof && (proof.uid !== initialProof.uid || proof.authorizationVersion !== initialProof.authorizationVersion || proof.requestReference !== initialProof.requestReference)) fail('EXPORT_AUTHORITY_CHANGED');
     return proof;
   }
   const firstProof = await authorize();
@@ -113,6 +113,7 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
   if (finalProof.uid !== firstProof.uid || finalProof.authorizationVersion !== firstProof.authorizationVersion) fail('EXPORT_AUTHORITY_CHANGED');
   const manifest = {
     schemaVersion: SCHEMA_VERSION, status: 'COMPLETE_DECLARED_SCOPE', project, tenant, sourceSha, requestId,
+    requestReference: firstProof.requestReference,
     actorUid: firstProof.uid, readTime, consistency: 'FIRESTORE_SNAPSHOT_STORAGE_GENERATIONS',
     startedAt: new Date(started).toISOString(), finishedAt: new Date(now()).toISOString(),
     totalDocuments, totalBytes, sources: counts.sort((a, b) => a.path.localeCompare(b.path)),
@@ -123,12 +124,17 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
 }
 
 export function verifyBundle(bundle) {
-  if (bundle?.manifest?.schemaVersion !== SCHEMA_VERSION || bundle.manifest.status !== 'COMPLETE_DECLARED_SCOPE' || !Array.isArray(bundle.files) || !Array.isArray(bundle.manifest.files) || bundle.files.length !== bundle.manifest.files.length) fail('EXPORT_INVALID_BUNDLE');
+  const manifest = bundle?.manifest;
+  if (manifest?.schemaVersion !== SCHEMA_VERSION || manifest.status !== 'COMPLETE_DECLARED_SCOPE'
+    || !idPattern.test(manifest.project) || !idPattern.test(manifest.tenant) || !idPattern.test(manifest.requestId)
+    || !idPattern.test(manifest.requestReference) || !idPattern.test(manifest.actorUid)
+    || !/^[a-f0-9]{40}$/.test(manifest.sourceSha) || !Array.isArray(bundle.files)
+    || !Array.isArray(manifest.files) || bundle.files.length !== manifest.files.length) fail('EXPORT_INVALID_BUNDLE');
   const names = new Set();
   for (const file of bundle.files) {
     if (typeof file.name !== 'string' || names.has(file.name)) fail('EXPORT_INVALID_BUNDLE');
     names.add(file.name);
-    const expected = bundle.manifest.files.find(f => f.name === file.name);
+    const expected = manifest.files.find(f => f.name === file.name);
     const { content, ...metadata } = file;
     if (!expected || !isDeepStrictEqual(metadata, expected)) fail('EXPORT_METADATA_MISMATCH');
     const bytes = file.encoding === 'base64' ? Buffer.from(file.content, 'base64') : Buffer.from(file.content, 'utf8');

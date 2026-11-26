@@ -1,5 +1,5 @@
 // Versioned allowlists. Unknown fields stop certification; no arbitrary raw dump.
-export const SCHEMA_VERSION = 'DUSEMA_EXIT_V1';
+export const SCHEMA_VERSION = 'DUSEMA_EXIT_V2';
 export const scalar = 'scalar';
 export const fields = (names) => Object.fromEntries(names.split(/\s+/).filter(Boolean).map(name => [name, scalar]));
 export const recordOf = schema => ({ $record: schema });

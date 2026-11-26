@@ -7,6 +7,7 @@ import { planRetention } from './retention-plan.mjs';
 import { createOperatorAuthorizer } from './operator-authority.mjs';
 import { createStorageReader } from './storage-source.mjs';
 import { savePrivateBundle } from './private-output.mjs';
+import { runPrivateTenantExport } from './tenant-export-runner.mjs';
 import { inspectCoverage, INTERNAL_ROOTS, projectDocument, SCHEMAS } from './export-schema.mjs';
 import { mkdtemp, readFile, unlink, rmdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -19,7 +20,8 @@ const product = { empresaId: 'tenant-a', nombre: 'Agua de prueba', stock: 0, cos
 function fixture(extra = {}) {
   const data = { productos: [{ id: 'a', data: product }], ventas: [{ id: 'sale', data: { empresaId: 'tenant-a', schemaVersion: 'BODEGA_MVP1_V2', saldoPendienteCOP: 27000 } }], 'ventas/sale/abonos_bodega': [{ id: 'pay', data: { empresaId: 'tenant-a', montoCOP: 1000, ventaId: 'sale' } }] };
   return {
-    authorize: async () => ({ ...input, uid: 'operator-a', active: true, canConserve: true, requestVerified: true, authorizationVersion: 1 }),
+    authorize: async () => ({ ...input, uid: 'operator-a', requestReference: 'request-reference', active: true, canConserve: true, requestVerified: true, authorizationVersion: 1 }),
+    establishReadTime: async () => input.readTime,
     listRoots: async () => ['productos', 'ventas', 'credenciales_operativas'],
     readPage: async ctx => ({ readTime: ctx.readTime, documents: (data[ctx.path] ?? []).filter(doc => !ctx.after || doc.id > ctx.after), hasMore: false }),
     listChildren: async ctx => ctx.path === 'ventas/sale' ? ['abonos_bodega'] : [],
@@ -206,7 +208,8 @@ test('real authority adapter verifies revoked tokens, project, current operator 
     verifyRequest: async () => ({ verified: true, ...input, reference: 'request-reference' }),
   };
   assert.equal((await createOperatorAuthorizer(config)(input)).uid, 'operator-a');
-  assert.equal(verifies, 1);
+  assert.equal((await createOperatorAuthorizer(config)(input)).requestReference, 'request-reference');
+  assert.equal(verifies, 2);
   await assert.rejects(createOperatorAuthorizer({ ...config, auth: { verifyIdToken: async () => ({ ...claims, aud: 'another-project' }) } })(input), /^Error: EXPORT_AUTHORIZATION_DENIED$/);
   await assert.rejects(createOperatorAuthorizer({ ...config, verifyRequest: async () => ({ verified: true, ...input, tenant: 'tenant-b', reference: 'x' }) })(input), /EXPORT_AUTHORIZATION_DENIED/);
   operator.estado = 'REVOCADO';
@@ -242,6 +245,40 @@ test('private output writes authenticated ciphertext outside Git, with a fresh d
     if (result) { await unlink(result.output); await rmdir(dirname(result.output)); }
     await rmdir(parent);
   }
+});
+
+test('private export runner verifies authority, server snapshot and encrypted output before returning metadata', async () => {
+  const parent = await mkdtemp(join(tmpdir(), 'dusema-runner-test-'));
+  const repository = fileURLToPath(new URL('../../', import.meta.url));
+  const source = fixture();
+  let result;
+  try {
+    result = await runPrivateTenantExport({
+      ...input, source, key: Buffer.alloc(32, 4), outputParent: parent, repository,
+    });
+    assert.equal(result.manifest.status, 'COMPLETE_DECLARED_SCOPE');
+    assert.equal(result.manifest.requestReference, 'request-reference');
+    assert.equal(result.manifest.totalDocuments, 3);
+    assert.equal(decryptBundle(await readFile(result.output.output), Buffer.alloc(32, 4)).manifest.actorUid, 'operator-a');
+    assert.equal(Object.hasOwn(result, 'files'), false);
+  } finally {
+    if (result) { await unlink(result.output.output); await rmdir(dirname(result.output.output)); }
+    await rmdir(parent);
+  }
+});
+
+test('private export runner rejects an unsafe output path before any tenant read', async () => {
+  const source = fixture();
+  let authorizations = 0;
+  let snapshots = 0;
+  source.authorize = async () => { authorizations++; return fixture().authorize(); };
+  source.establishReadTime = async () => { snapshots++; return input.readTime; };
+  const repository = fileURLToPath(new URL('../../', import.meta.url));
+  await assert.rejects(runPrivateTenantExport({
+    ...input, source, key: Buffer.alloc(32, 4), outputParent: repository, repository,
+  }), /EXPORT_UNSAFE_OUTPUT_DIRECTORY/);
+  assert.equal(authorizations, 0);
+  assert.equal(snapshots, 0);
 });
 
 test('canonical subscription path includes legacy control and rejects a conflicting tenant field', async () => {

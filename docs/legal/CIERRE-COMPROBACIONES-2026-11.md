@@ -1135,3 +1135,25 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
 - PR #706 sigue `OPEN`/`DRAFT`. El run `45742932500` sigue activo sobre el HEAD
   anterior `a9c3bc5`; el cambio de este preflight requiere su propia CI cuando se
   publique en la rama.
+
+## Runner local de exportación — validación sintética
+
+- `tenant-export-runner.mjs` valida el directorio de salida antes de leer datos,
+  exige autorización de operador y referencia del pedido, fija un `readTime`,
+  cifra el bundle y comprueba su round-trip sin entregar payloads al llamador.
+- `tenant-export-cli.mjs` deriva el bucket del proyecto y restringe el piloto de
+  producción a `distribuidora-las-jimenez`. No requiere cuenta ni sesión de ese
+  tenant: requiere token Firebase de un operador SaaS activo con
+  `CONSERVACION_GOBERNAR`, ADC/gcloud para lecturas y una referencia externa que
+  el operador verifique de forma interactiva. La CLI no consulta un expediente
+  de autorización en Firestore; por eso la afirmación reportada de Diana aún debe
+  vincularse a esa referencia antes de ejecutar.
+- `node --test scripts/legal/legal-tools.test.mjs scripts/legal/tenant-export-cli.test.mjs`:
+  32/32 aprobadas. ESLint focalizado, `node --check` de CLI/runner y
+  `git diff --check` aprobaron.
+- El ensayo REST contra Firestore Emulator pasó 1/1 con Temurin JDK 21. El primer
+  intento tomó Java 17 y Firebase CLI lo rechazó; se repitió seleccionando el JDK
+  21 instalado, sin conectar a Firebase remoto.
+- No se ejecutó el CLI, no se leyeron payloads ni objetos Storage de Diana, y no
+  se creó un paquete. `productionExportCertified=false` permanece. La validación
+  sintética no certifica compatibilidad con los campos históricos reales.

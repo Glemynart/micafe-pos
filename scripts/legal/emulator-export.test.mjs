@@ -21,7 +21,7 @@ test('exportación sintética usa consultas REST aisladas por tenant', async () 
   const readTime = new Date().toISOString();
   const tenant = 'tenant-a', requestId = 'synthetic-request';
   const source = createReadSource({ project, tenant, getAccessToken: async () => 'owner',
-    authorize: async () => ({ project, tenant, requestId, uid: 'operator-a', active: true, canConserve: true, requestVerified: true, authorizationVersion: 1 }),
+    authorize: async () => ({ project, tenant, requestId, requestReference: 'synthetic-proof', uid: 'operator-a', active: true, canConserve: true, requestVerified: true, authorizationVersion: 1 }),
     storage: { list: async () => [], read: async () => { throw new Error('UNEXPECTED_ASSET'); } },
     fetchImpl: (url, options) => fetch(url.replace('https://firestore.googleapis.com/v1', `http://${host}/v1`), options),
   });

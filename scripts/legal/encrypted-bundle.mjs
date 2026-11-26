@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:crypto';
 import { verifyBundle } from './tenant-export.mjs';
 
-const magic = Buffer.from('DUSEMA-EXIT-V1\n');
+const magic = Buffer.from('DUSEMA-EXIT-V2\n');
 export function encryptBundle(bundle, key) {
   verifyBundle(bundle);
   if (!(key instanceof Uint8Array) || key.byteLength !== 32) throw new Error('EXPORT_KEY_MUST_BE_32_BYTES');
