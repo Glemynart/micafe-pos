@@ -1263,3 +1263,54 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
   de producción, la revisión factual/jurídica, la exportación integral real y
   la supresión productiva siguen pendientes. El despliegue de staging no cierra
   esos gates ni certifica cumplimiento legal.
+
+## Rules y Functions legales — revalidación posterior, 2026-11-26 13:07 UTC
+
+- Tras el rollout App Hosting, se publicó `firestore.rules` solo en staging.
+  El release `projects/micafe-pos-staging/releases/cloud.firestore` quedó
+  actualizado a `2026-11-26T12:55:33.812853Z`; SHA-256 de fuente desplegada y
+  archivo del checkout: `8ceb842a7c74e4677474f11a56c6624152c3ce29668500e39760abee0904bb0d`.
+  Firebase CLI compiló las Rules y las liberó correctamente; avisó que
+  `esMarketing` no se usa. No se desplegaron índices.
+- El CI del commit documental `d78de992d5444efb6a632fb2868f94bb5ccb052d`
+  terminó `success` (run `45822786520`).
+- En producción, el release `cloud.firestore` sigue en el ruleset
+  `23b49a84-6282-4df1-9c97-60513697c5d7`, actualizado
+  `2026-11-25T23:35:48.074157Z`, con SHA-256
+  `9e0e320647998323e997d172a80200bf8f7f14871700dbbc6ce6d4391d6bc948`.
+  `origin/main:firestore.rules` tiene
+  `8e3cbf9be534e238ccb67cf455cfaec9fb8aecc798f0d420929190f8228c9fbb`; el
+  candidato de la rama tiene `8ceb842a7c74e4677474f11a56c6624152c3ce29668500e39760abee0904bb0d`.
+- La comparación textual del release productivo con el candidato encontró como
+  única diferencia el bloque explícito que niega
+  `clientes/{id}/anotaciones_privacidad/{casoId}`. El release también contiene
+  `match /{document=**} { allow read, write: if false; }`, por lo que no hay una
+  regla que conceda acceso al path no declarado. Firebase documenta que rutas
+  sin una regla `allow` que las habilite quedan denegadas ([reglas de Cloud
+  Firestore](https://firebase.google.com/docs/firestore/security/rules-structure)).
+  El hash productivo está fuera de sincronía, pero esta diferencia específica
+  no abre la subcolección. No se desplegaron Rules en producción.
+- La API de Cloud Functions v2 confirmó las cuatro callables legales activas en
+  staging (`nodejs22`), actualizadas el 25 de noviembre entre `20:26:36Z` y
+  `20:26:47Z`; usan la cuenta Compute predeterminada. No se acreditó que su
+  código corresponda al HEAD actual ni se cambiaron en este corte.
+- En producción están activas `consultarEstadoLegalTenant` y
+  `aceptarDocumentosLegalesTenant`, actualizadas el 24 de noviembre a las
+  `07:53Z`; `tramitarReclamoPrivacidadSaas` y
+  `tramitarConsultaPrivacidadSaas` responden 404. No se desplegaron Functions.
+  El flujo de aceptación y la bandeja de privacidad no están completos en
+  producción.
+- Una sonda HTTP `POST` sin credenciales y con `{data:{}}` contra las cuatro
+  callables de staging devolvió 401 en cada una. No se enviaron datos personales
+  ni se generaron escrituras. Esto solo comprueba el rechazo sin autenticación;
+  no prueba los flujos positivos autenticados, el tenant, los roles ni la
+  persistencia.
+- La revalidación pública de `pos.dusema.com` encontró `/terminos` con el título
+  histórico de Café Atrato y 404 en `/privacidad`, `/aviso-autorizacion` y
+  `/anexo-tratamiento`. App Hosting productivo sirve el build
+  `build-2026-11-24-002`, fuente `main@aa1c4fe`, con 100 % del tráfico.
+- El piloto `saas-legal` con identidad runtime propia requiere un gate operativo
+  separado por ADR-SAAS-105. Sin ese piloto y smoke autenticado de staging no se
+  afirma que las cuatro callables estén listas para producción. No hubo
+  escrituras de datos de negocio, mutaciones IAM ni cambios productivos en esta
+  revalidación.
