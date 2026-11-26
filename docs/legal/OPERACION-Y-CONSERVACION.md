@@ -278,9 +278,16 @@ inmediato al prestador y no se declara que existe cobertura continua.
    de atenderlo. No esperar a terminar la investigación para iniciar el cómputo.
    Si el responsable está obligado a inscribir bases en el RNBD, el reporte se
    presenta por ese registro; los responsables no obligados y los encargados usan
-   el aplicativo/canal de incidentes dispuesto por la SIC. La obligación RNBD de
-   Dusema debe clasificarse por su naturaleza, activos y régimen antes de un
-   incidente, no improvisarse durante la respuesta.
+   el aplicativo/canal de incidentes dispuesto por la SIC. Para el prestador
+   actual, el RUT aportado lo identifica como persona natural. El artículo
+   2.2.2.26.1.2 del Decreto 1074 de 2015 y la orientación de la SIC limitan la
+   inscripción obligatoria a las categorías allí previstas; con la evidencia
+   actual no se atribuye a Dusema persona natural deber de inscripción en RNBD.
+   Esta conclusión cubre solo al prestador actual y debe revalidarse si cambia
+   la persona contratante o se constituye una persona jurídica. No elimina las
+   demás obligaciones de protección de datos. Cada tenant debe clasificar por
+   separado su propia obligación. Para incidentes propios de Dusema, el canal
+   SIC aplicable a responsables no obligados sigue pendiente de prueba operativa.
 4. **Reportar y coordinar.** El responsable del caso prepara un reporte factual,
    presenta la comunicación SIC por el canal aplicable dentro del término y
    conserva número/acuse. Si Dusema es encargado, notifica al negocio responsable
@@ -306,6 +313,10 @@ El término de reporte SIC y los canales se verifican con el [concepto oficial d
 la SIC sobre reporte de incidentes](https://sedeelectronica.sic.gov.co/publicaciones/boletin-juridico/concepto/cumplimiento-de-la-obligacion-del-reporte-de-incidentes-de-seguridad)
 y las instrucciones vigentes al momento del evento. El reporte no sustituye el
 objetivo de aviso contractual del encargado ni las demás obligaciones aplicables.
+La clasificación del RNBD se contrasta con el [artículo 2.2.2.26.1.2 del
+Decreto 1074 de 2015](https://cancilleria.gov.co/sites/default/files/Normograma/docs/decreto_1074_2015_pr026.htm)
+y la [orientación de la SIC sobre responsables obligados al
+RNBD](https://sedeelectronica.sic.gov.co/index.php/publicaciones/boletin-juridico/concepto/cuales-personas-estan-obligadas-realizar-el-registro-de-bases-de-datos-personales-en-el-rnbd).
 
 ## 6. Salida y entrega de datos
 

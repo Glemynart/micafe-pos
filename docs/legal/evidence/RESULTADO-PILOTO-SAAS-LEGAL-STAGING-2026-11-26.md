@@ -56,3 +56,31 @@ Las cuatro funciones reportan estado `ACTIVE`; la revisión lista como `latestRe
 4. Reconciliar la generación de identidades Pub/Sub/Eventarc con evidencia suficiente; no modificar esos service agents como parte de este piloto.
 
 El piloto no certifica el manejo integral de datos legales ni autoriza publicar los documentos v0.6 como vigentes. El PR #706 permanece abierto y en borrador; no se fusionó.
+
+## Revalidación de App Hosting en staging — 2026-11-26 22:49 UTC
+
+- El CI del candidato exacto `4c9460f49f675983e36733e77ef5ca1095a19d36`
+  terminó `SUCCESS` en el run
+  [45903441242](https://github.com/Glemynart/micafe-pos/actions/runs/45903441242).
+- Se creó manualmente un rollout solo en `micafe-pos-staging`, backend
+  `micafe-pos`, región `us-central1`. Rollout y Build
+  `build-2026-11-26-003` quedaron `SUCCEEDED`/`READY`; el `source.codebase.commit`
+  es exactamente `4c9460f49f675983e36733e77ef5ca1095a19d36`. Cloud Run reporta
+  `micafe-pos-build-2026-11-26-003` como `latestReadyRevision` y 100 % del
+  tráfico. La revisión anterior `micafe-pos-build-2026-11-26-002` quedó
+  preservada.
+- Las cuatro rutas `/legal/v0.6/{terminos-servicio,politica-tratamiento,
+  aviso-autorizacion,anexo-tratamiento}.md` devolvieron HTTP 200 y sus
+  encabezados indican borrador/no vigente/no exigible. Esto valida la entrega
+  pública de esos archivos; no valida la pantalla autenticada de aceptación.
+- Las cuatro Functions legales continúan `ACTIVE`, al 100 % y con
+  `saas-legal-runtime`. No se observaron errores Cloud Run de esas cuatro
+  funciones en las últimas 24 horas. La cuenta no tiene claves administradas
+  por usuario.
+- El endpoint `/backoffice/privacidad` devuelve el shell HTTP 200; esa respuesta
+  anónima no verifica autorización ni una acción autenticada. El expediente
+  sintético previo sigue en `RECIBIDO`; en este rollout no se envió ni se cerró
+  otro caso, no se verificó identidad real ni se mandó correo.
+- No se modificó producción, Rules, cuentas compartidas ni otros codebases.
+  El PR #706 sigue `OPEN`/`DRAFT`; esta evidencia corresponde al corte de staging,
+  no a un release productivo ni a una aprobación jurídica final.

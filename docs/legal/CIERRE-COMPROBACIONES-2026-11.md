@@ -1506,3 +1506,23 @@ completa está en [`PROVEEDORES-EVIDENCIA-2026-11.md`](PROVEEDORES-EVIDENCIA-202
   staging](evidence/RESULTADO-PILOTO-SAAS-LEGAL-STAGING-2026-11-26.md). La
   revisión factual/jurídica, exportación integral real, supresión real y
   publicación de los documentos siguen pendientes.
+
+## Revalidación de App Hosting legal en staging — 2026-11-26 22:49 UTC
+
+- El run `45903441242` terminó `SUCCESS` para HEAD
+  `4c9460f49f675983e36733e77ef5ca1095a19d36`. Se inició el rollout manual de
+  App Hosting solamente en `micafe-pos-staging`; `build-2026-11-26-003` quedó
+  `SUCCEEDED`/`READY`, con procedencia exacta del commit y 100 % del tráfico en
+  `micafe-pos-build-2026-11-26-003`. La revisión anterior queda disponible.
+- Las cuatro rutas públicas v0.6 devuelven `200` y advierten que son borradores
+  no vigentes ni exigibles. `/backoffice/privacidad` también entrega HTTP 200,
+  pero no se completó el smoke autenticado en el navegador: la herramienta
+  Computer Use no pudo confirmar la URL de Edge con suficiente confianza.
+- Las Functions legales permanecen en sus revisiones `00005`, 100 % de tráfico,
+  con la identidad dedicada `saas-legal-runtime`; no se encontraron errores
+  Cloud Run en las últimas 24 horas. No se cambiaron producción, Rules ni
+  recursos fuera del codebase legal.
+- Esta actualización reemplaza para staging la observación anterior de que la
+  interfaz no correspondía al candidato. No cierra el flujo autenticado de
+  aceptación/tramitación, la exportación real, la supresión real, los gates
+  contractuales ni la revisión factual/jurídica.
