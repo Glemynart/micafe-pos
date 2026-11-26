@@ -76,3 +76,31 @@ en [Cierre de comprobaciones](CIERRE-COMPROBACIONES-2026-11.md).
 | Vercel | `git.deploymentEnabled=false`; el inventario read-only devolvió 0 previews. El alias antiguo del PR responde 404. Cuatro deployments `production` permanecen `READY`; su alias compartido redirige a SSO. | Resolver la aptitud contractual del plan Hobby para cualquier uso remanente. No se borraron los cuatro deployments. |
 | Release | PR #706 sigue `OPEN`/`DRAFT`, base `main@aa1c4fe`; el SHA `cea9bcd` tiene CI `45698887417` en curso. `main` remoto continúa en `aa1c4fe`. | Esperar CI del SHA exacto, completar gates externos, auditar y no fusionar ni desplegar documentos borrador. |
 | Hechos y canales | No apareció un RUT de Sebastián en los nombres de archivo revisados; los documentos llamados `RUT LAURA` no se abrieron. No hay conexión Gmail confirmada para la prueba externa. | Aportar/verificar el RUT y completar ida y vuelta desde una cuenta externa; no se cambia el plan ni se da por probado el canal. |
+
+## Revalidación de producción — 2026-11-26 UTC
+
+La evidencia read-only más reciente está en
+[`PREFLIGHT-PRODUCCION-READONLY-2026-11-26.md`](evidence/PREFLIGHT-PRODUCCION-READONLY-2026-11-26.md).
+App Hosting sirve `main@aa1c4fe` y no el HEAD de #706; las dos Functions de
+aceptación legal están activas desde el 2026-11-24. No se pudo leer el release
+activo de Firestore Rules por HTTP 403. Las 117 Functions observadas comparten
+la cuenta Compute predeterminada con `roles/editor`; ADR-SAAS-105 fue aceptado
+para piloto por codebase en staging, sin permiso de IAM o deploy productivo.
+Continúan sin smoke autenticado y sin exportación integral con datos/archivos
+reales.
+
+## Revalidación de identidades runtime — 2026-11-26 04:38 UTC
+
+ADR-SAAS-105 alternativa C fue aceptado para implementación y pruebas; el
+responsable no autorizó cambios IAM ni despliegues productivos. La consulta
+read-only confirmó 117 Functions en `us-central1` con la cuenta Compute y
+`roles/editor`, además de seis jobs de Scheduler que la usan como identidad
+OIDC. Cloud Run devolvió 118 servicios en 42 de 43 ubicaciones consultadas: las
+117 Functions y un servicio Firebase App Hosting con identidad separada. No se
+encontraron Cloud Run Jobs en las 42 ubicaciones respondidas. No existe una
+cuenta runtime `saas-legal` en staging. `compute.googleapis.com` y
+`cloudasset.googleapis.com` están deshabilitadas; no se activaron, así que el
+inventario de VMs y global de recursos sigue incompleto. No se creó identidad ni
+binding. `roles/datastore.user` y `roles/firebaseauth.viewer` son candidatos
+documentados para revisión, no permisos ya aprobados o concedidos. Véase el
+[preflight de solo lectura](evidence/PREFLIGHT-PRODUCCION-READONLY-2026-11-26.md).

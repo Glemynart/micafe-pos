@@ -4,6 +4,14 @@ Estado: **COMPROBACIONES DE LECTURA REALIZADAS; NO LISTO PARA EXIGIBILIDAD**.
 No es dictamen jurídico integral. No se ejecutó exportación de datos, borrado,
 despliegue, aceptación de acuerdos o cambio de plan.
 
+La consulta read-only posterior del 2026-11-26 registró el estado actual de
+App Hosting, Functions, IAM y Rules en
+[`evidence/PREFLIGHT-PRODUCCION-READONLY-2026-11-26.md`](evidence/PREFLIGHT-PRODUCCION-READONLY-2026-11-26.md).
+Detectó que 117 Functions usan la cuenta Compute predeterminada con
+`roles/editor`; la migración queda propuesta en
+[`ADR-SAAS-105`](../../ADR-SAAS-105-identidades-runtime-functions-minimo-privilegio.md)
+y no se cambiaron permisos. La versión de Rules no pudo leerse por HTTP 403.
+
 ## 1. Contratos aplicables: resultados
 
 El prestador declaró en este chat: **Gmail personal** y **términos online de
@@ -1157,6 +1165,30 @@ Fuentes: [Ley 1581, art. 15 — SIC](https://sedeelectronica.sic.gov.co/sites/de
 - No se ejecutó el CLI, no se leyeron payloads ni objetos Storage de Diana, y no
   se creó un paquete. `productionExportCertified=false` permanece. La validación
   sintética no certifica compatibilidad con los campos históricos reales.
+
+## Revalidación de consumidores de identidad runtime — 2026-11-26
+
+- El responsable aceptó ADR-SAAS-105, alternativa C, para migración gradual por
+  codebase y piloto de `saas-legal` en staging. No autorizó cambios IAM ni
+  despliegues productivos; no se creó identidad ni binding.
+- El inventario read-only confirmó 117 Functions en `us-central1` con la cuenta
+  Compute predeterminada y `roles/editor`; encontró seis jobs Scheduler usando
+  la misma cuenta para OIDC. En 42 de 43 ubicaciones consultadas se observaron
+  118 servicios Cloud Run (117 Functions y un servicio App Hosting); no hubo
+  Cloud Run Jobs en las 42 ubicaciones respondidas. App Engine no tiene
+  aplicación y staging no tiene una cuenta dedicada a `saas-legal`.
+- `compute.googleapis.com` y `cloudasset.googleapis.com` están deshabilitadas.
+  No se habilitaron para obtener permisos de lectura. Por ello faltan las VMs y
+  una búsqueda global de recursos; no se puede concluir que los seis Scheduler
+  y los servicios enumerados sean todos los consumidores existentes.
+- En el código de `saas-legal`, las APIs observadas son Firestore y Admin Auth;
+  no se observó uso de Storage ni Pub/Sub. `roles/datastore.user` es de alcance
+  proyecto y permite leer/escribir datos; `roles/firebaseauth.viewer` incluye
+  `firebaseauth.users.get`, además de lecturas de configuración/proyecto. Ambos
+  quedan como candidatos para validación, no como asignaciones aprobadas.
+- La matriz final y cualquier cuenta/binding de staging deben quedar en un PR
+  revisable. La cuenta Compute conservará sus bindings hasta terminar el
+  inventario global y validar los consumidores programados y restantes.
 
 ## Integridad de referencias Storage — corrección añadida al candidato
 

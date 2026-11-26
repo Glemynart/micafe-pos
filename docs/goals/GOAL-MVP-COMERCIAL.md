@@ -43,6 +43,20 @@
   reales ni despliegue. Siguiente paso: implementar solicitud de subsanación,
   recepción documentada y desistimiento manual verificable en el mismo
   expediente, con pruebas de migración/versiones y actualizar el runbook.
+- **Identidades runtime, 2026-11-26:** la consulta read-only encontró 117
+  Functions productivas v2 usando la cuenta Compute predeterminada con
+  `roles/editor`. ADR-SAAS-105 fue aceptado para migración gradual por codebase,
+  comenzando con piloto en staging. No se autorizó cambiar IAM ni desplegar en
+  producción; la cuenta compartida no se puede reducir hasta inventariar todos
+  sus consumidores. El inventario adicional encontró seis jobs de Cloud
+  Scheduler usando esa identidad OIDC; en Cloud Run se observaron únicamente
+  esas Functions y App Hosting. No existe aún una identidad dedicada
+  `saas-legal` en staging. Compute Engine y Cloud Asset Inventory no pudieron
+  verificarse porque sus APIs están deshabilitadas; no se habilitaron. Antes de
+  abrir el PR de migración faltan completar la matriz de permisos y el
+  inventario global; la creación/bindings de staging requiere su gate operativo
+  separado. Evidencia y límites en
+  [preflight productivo](../legal/evidence/PREFLIGHT-PRODUCCION-READONLY-2026-11-26.md).
 - **Estado al 2026-11-23:** el build local con Next.js 16.4.6 pasó. La salida de
   datos tiene una base segura
   con 19 pruebas y la cobertura de metadatos clasifica 48 de 48 raíces. Los
