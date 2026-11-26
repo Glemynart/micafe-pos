@@ -271,3 +271,33 @@ ni sus permisos. `pos.dusema.com` redirige al POS en App Hosting; las rutas
 legales productivas siguen incompletas. El uso comercial previo/persistente del
 equipo Hobby y la cobertura del DPA no se consideran resueltos por el 404 del
 alias público.
+
+### Revalidación Vercel y dominio operativo — 2026-11-26 15:12 UTC
+
+`vercel project inspect cafeatrato --scope glemynarts-projects` confirmó el
+proyecto `cafeatrato` en el equipo `glemynarts-projects`. La lista autenticada
+actual devolvió cuatro deployments, todos con `target=production` y sin alias;
+las cuatro URLs directas respondieron HTTP `302` al comprobarlas sin seguir
+redirecciones. Esta respuesta no inspeccionó contenido ni prueba por sí sola el
+destino de SSO. No se encontró alias público en la lista de deployments.
+
+El dominio operativo no depende de ese proyecto: `pos.dusema.com/` respondió
+`307` y `/pos` respondió `200` en la comprobación HEAD sin seguir redirecciones.
+La consulta de producción legal quedó registrada en
+[`CIERRE-COMPROBACIONES-2026-11.md`](CIERRE-COMPROBACIONES-2026-11.md).
+
+Se intentó pausar `cafeatrato` para mantener sus artefactos sin atender tráfico.
+La CLI devolvió `interactive_confirmation_required` y ordenó que una persona
+ejecute el comando en una terminal interactiva y escriba el nombre del proyecto;
+por tanto, **no se pausó ni cambió el proyecto**. La acción no se eludió mediante
+API. Si el propietario confirma manualmente esa pausa, Vercel documenta que el
+proyecto puede reanudarse desde Settings o REST API y que las visitas mostrarán
+`503` mientras permanezca pausado ([gestión oficial de proyectos Vercel](https://vercel.com/docs/projects/managing-projects)).
+
+El equipo sigue observado como Hobby, cuyos términos limitan el plan a uso
+personal/no comercial; el DPA publicado aplica a planes Pro/Enterprise. La
+pausa aún no está ejecutada y no equivale a borrar los artefactos, cerrar la
+cuenta o resolver la cobertura contractual. No se modificó el plan, no se
+borraron deployments y no se incurrió en cargos. El siguiente paso externo
+concreto es que el propietario confirme la pausa escribiendo el nombre del
+proyecto en la CLI interactiva; el dominio de POS permanece en App Hosting.
