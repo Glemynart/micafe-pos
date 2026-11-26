@@ -1,6 +1,6 @@
 # Términos del servicio — Dusema POS
 
-**BORRADOR 0.4 — 2026-11-25. Pendiente de revisión y aprobación. Sin vigencia contractual.**
+**BORRADOR 0.5 — 2026-11-26. Pendiente de revisión y aprobación. No está vigente ni es exigible.**
 
 ## 1. Prestador y contacto
 

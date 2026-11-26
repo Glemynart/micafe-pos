@@ -1,11 +1,12 @@
 # Dusema POS — borradores legales
 
-Estado: **BORRADOR PARA REVISIÓN; NO PUBLICADO NI EXIGIBLE COMO NUEVA VERSIÓN**.
-Preparación: 2026-11-23; revisión documental: 2026-11-25. Versión de trabajo: `0.3`.
+Estado: **BORRADOR PARA REVISIÓN; NO VIGENTE NI EXIGIBLE COMO NUEVA VERSIÓN**.
+Preparación: 2026-11-23; revisiones documentales: 2026-11-25 y 2026-11-26. Versión de trabajo: `0.5`.
 
-La revisión de términos, política, aviso y anexo del 2026-11-25 produjo la versión de trabajo `0.3`.
-La `0.2` permanece archivada sin cambios en `public/legal/v0.2`; `0.3` conserva
-la misma etapa de borrador y no es exigible.
+La revisión de términos, política, aviso y anexo del 2026-11-25 produjo la
+versión de trabajo `0.3`; las revisiones posteriores produjeron `0.4` y `0.5`.
+`0.2` a `0.4` permanecen como versiones históricas en sus rutas públicas. La
+`0.5` es el borrador vigente de trabajo, todavía no exigible.
 Véanse [hallazgos y fuentes](REVISION-2026-11.md) y
 [ADR-SAAS-099 aceptado para implementación](../../ADR-SAAS-099-aceptacion-legal-versionada.md).
 La revisión no cierra los pendientes ni convierte el texto en exigible.
@@ -17,7 +18,10 @@ aprobar y de mecanismos todavía no implementados.
 
 La [comprobación de proveedores](PROVEEDORES-EVIDENCIA-2026-11.md) confirmó Vercel
 Hobby y sus límites. PR #704 retiró Analytics y deshabilitó nuevos despliegues Git
-automáticos, pero no elimina los previews históricos. La exportación se diseña en
+automáticos; después se retiraron 106 previews y el alias público Café Atrato.
+Quedan cuatro deployments directos de producción restringidos por SSO; no se
+cambió el plan ni se borraron esos deployments. La aptitud contractual del uso
+residual sigue sin resolverse. La exportación se diseña en
 [ADR-SAAS-100 aceptado para implementación controlada](../../ADR-SAAS-100-exportacion-salida-tenant.md).
 Ninguno de esos resultados acredita firma de contratos o entrega de datos reales.
 
@@ -37,8 +41,11 @@ comercial autorizada por el responsable en este chat. Base técnica:
 - [Aviso de privacidad](aviso-autorizacion.md).
 - [Anexo de tratamiento por cuenta del negocio](anexo-tratamiento.md).
 
-Estos borradores usan los datos suministrados por el prestador. No acreditan
-verificación del RUT, registro de marca ni constitución de una sociedad.
+Estos borradores usan los datos suministrados por el prestador. El extracto del
+RUT que el prestador compartió el 2026-11-26 se cotejó con los datos de
+identificación que aparecen en los borradores; no se hizo una consulta
+independiente a DIAN. Esto no acredita registro de marca ni constitución de una
+sociedad.
 «Dusema POS» identifica el servicio; el prestador indicado es una persona natural.
 
 ## Revisión necesaria antes de publicar
@@ -48,7 +55,9 @@ fija la fecha prevista y los plazos por categoría, con el resultado del ensayo
 sintético. El mecanismo para tramitar reclamos reales está en el
 [ADR-SAAS-102 aceptado para implementación](../../ADR-SAAS-102-tramite-reclamos-privacidad.md).
 
-1. Validar jurídicamente las cláusulas y los datos de identificación del prestador.
+1. Completar la revisión jurídica de las cláusulas y conservar la trazabilidad
+   de los datos del prestador; el RUT suministrado fue cotejado, pero no hubo
+   validación independiente ante DIAN.
 2. Definir tiempos reales de atención, disponibilidad y recuperación. No ofrecer
    un SLA, respaldo periódico o restauración garantizada sin evidencia operativa.
 3. Aprobar matriz de conservación por categoría, obligaciones legales, plazo de
@@ -62,8 +71,9 @@ sintético. El mecanismo para tramitar reclamos reales está en el
    queda excluido ni prometer facturación DIAN no habilitada.
 6. Evaluar si corresponde inscripción en RNBD según sujeto obligado y régimen
    vigente; no afirmar que todo SaaS debe inscribirse.
-7. Designar formalmente al prestador como encargado de atender privacidad y
-   comprobar que el correo y teléfono publicados reciben solicitudes.
+7. El prestador designó a Sebastián Agudelo Muñoz como contacto operativo
+   principal de privacidad. Falta documentar un sustituto y comprobar que los
+   canales publicados reciben solicitudes y se protegen adecuadamente.
 8. Determinar fecha de vigencia y aprobar una versión final. Las fechas de estos
    borradores no constituyen fecha de aceptación de los clientes existentes.
 
@@ -73,6 +83,11 @@ comprobados en código. Pendientes materiales: acuerdos efectivos con proveedore
 exportación completa de tenant, supresión/ciclo de archivos y limpieza de caché.
 ADR-SAAS-099 está aceptado para implementar la aceptación versionada; estos
 pendientes siguen impidiendo publicar los textos como finales o exigirlos.
+
+La revisión 0.5 documenta además que las imágenes del módulo de eventos son
+públicas y descargables, y que eliminar el evento no retira el archivo de Storage.
+La interfaz de administración ahora lo advierte; la eliminación automática del
+asset sigue pendiente y no se declara implementada.
 
 ## Corte técnico de aceptación versionada
 
@@ -130,11 +145,12 @@ Backoffice y POS muestran enlaces a privacidad/aviso antes de pedir credenciales
 solo el admin tenant ve también los documentos contractuales. Los enlaces no
 registran consentimiento.
 
-La auditoría de vigencia es **NO APROBADA**. Antes de publicar o exigir una
-versión definitiva deben cotejarse los datos del prestador con el RUT, designar
-formalmente a la persona/área de privacidad y comprobar sus canales y archivo
-restringido; cerrar productos, cuentas, subencargados y ubicaciones efectivos;
-validar datos, finalidades e instrucciones por tratamiento; y completar el
-smoke autenticado, exportación y supresión reales. El inventario de proveedores
-aún incluye integraciones heredadas no confirmadas. La revisión no es un
-dictamen jurídico ni una certificación integral.
+La auditoría de vigencia sigue **NO APROBADA**. El RUT suministrado ya se cotejó
+con los campos de identificación de los borradores, sin consulta independiente a
+DIAN. Antes de publicar o exigir una versión definitiva aún deben comprobarse los
+canales y el archivo restringido; cerrar productos, cuentas, subencargados y
+ubicaciones efectivos; validar datos, finalidades e instrucciones por
+tratamiento; y completar el smoke autenticado y la evidencia de exportación y
+supresión dentro de su alcance. El inventario de proveedores aún incluye
+integraciones heredadas no confirmadas. La revisión no es un dictamen jurídico
+ni una certificación integral.

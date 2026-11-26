@@ -38,16 +38,16 @@ Storage o la eliminación física de respaldos.
 
 | Requisito | Resultado y acción necesaria |
 |---|---|
-| Identificar al prestador | Incluye nombre, NIT, dirección, correo y teléfono declarados. El prestador afirma que NIT y dirección corresponden al RUT; no se inspeccionó el documento. El borrador identifica la dirección como judicial. |
+| Identificar al prestador | Incluye nombre, NIT, dirección, correo y teléfono declarados. El extracto del RUT que el prestador suministró el 2026-11-26 se cotejó con los campos de identificación de los borradores; no se hizo consulta independiente a DIAN. El borrador identifica la dirección como judicial. |
 | Términos accesibles y conservables | En `main`, `/terminos` sigue referido a coworking y reservas. PR #706 lo reemplaza por borradores versionados y descargables; la versión final y su publicación siguen pendientes. |
 | Oferta y condiciones particulares | ADR-SAAS-028/029 conservan snapshots. Aceptación legal no puede modificar precio, Trial, vigencia ni capacidades. |
 | Prueba de aceptación | PR #706 implementa el registro de ADR-SAAS-099 y presenta la versión exacta de los documentos junto con el snapshot comercial. El recibo vincula relación, actor, bundle, versiones, condiciones comerciales y huella; consulta y reintento verifican su integridad. El 2026-11-24 se desplegaron las dos callables y Rules en staging y producción; Rules coincide con el candidato y ambas callables responden `UNAUTHENTICATED` sin credenciales. El PR sigue abierto en draft y App Hosting no recibió el candidato. No se ejecutó smoke autenticado ni se registraron aceptaciones durante el corte. |
 | Autorización de datos | Debe informarse antes de recoger datos y obtenerse cuando proceda; contrato empresarial no autoriza por todos los titulares. |
 | Consultas/reclamos | Plazos y trámite incluidos. Falta establecer registro, responsable de seguimiento y anotación de reclamo en datos afectados. |
 | Conservación | Falta matriz con plazos justificados por categoría y respaldo. No inventar diez años para toda la información. |
-| Proveedores y circulación internacional | PR #704 retiró Analytics y detuvo nuevos despliegues Git de Vercel. El preview actual listado requiere SSO; falta revisar contenido/vigencia de despliegues históricos y comprobar acuerdos Google/correo/GitHub y ubicaciones efectivas. La inspección de código del 2026-11-25 identificó además Wompi, Make.com, Google Maps/Fonts y el envío del CUFE a la consulta DIAN en superficies heredadas/condicionales; no se confirmó su activación en runtime ni su pertenencia al servicio Dusema contratado. El inventario debe conciliarlos antes de publicar. Tener Firebase no prueba por sí solo un contrato de transmisión suficiente. |
+| Proveedores y circulación internacional | PR #704 retiró Analytics y detuvo nuevos despliegues Git de Vercel. En la revisión del 2026-11-26 se retiraron 106 previews y el alias público Café Atrato; cuatro deployments `Production` siguen en Vercel detrás de SSO, con plan Hobby y aptitud contractual residual sin resolver. También faltan acuerdos Google/correo/GitHub y ubicaciones efectivas. La inspección de código del 2026-11-25 identificó además Wompi, Make.com, Google Maps/Fonts y el envío del CUFE a la consulta DIAN en superficies heredadas/condicionales; no se confirmó su activación en runtime ni su pertenencia al servicio Dusema contratado. El inventario debe conciliarlos antes de publicar. Tener Firebase no prueba por sí solo un contrato de transmisión suficiente. |
 | Incidentes | Hace falta procedimiento practicable, evidencia de detección, evaluación y canal SIC aplicable. No esperar a estar obligado al RNBD. |
-| RNBD | El prestador se declaró persona natural, pero falta cotejar el RUT para verificar quién es el responsable. La regla vigente de la SIC incluye sociedades y entidades sin ánimo de lucro con activos totales iguales o superiores a 100.000 UVT, y personas jurídicas públicas; no incluye a personas naturales por ese solo carácter. Confirmar naturaleza y, si aplica, activos frente al umbral antes de concluir. Las demás obligaciones de protección de datos subsisten aunque no haya inscripción. |
+| RNBD | El RUT suministrado confirma persona natural. La regla vigente de la SIC incluye sociedades y entidades sin ánimo de lucro con activos totales iguales o superiores a 100.000 UVT, y personas jurídicas públicas; no incluye a personas naturales por ese solo carácter. Con la información disponible no se atribuye al prestador una obligación de inscripción por ser persona natural; las demás obligaciones de protección de datos subsisten. |
 | Consumo electrónico | Aplicabilidad por relación concreta. Añadida Ley 2439/2024, información previa, aceptación y retracto cuando proceda; cerrar reclamaciones y constancia de contratación en el flujo. |
 | Comunicaciones | No incluir publicidad en aceptación obligatoria. Revisar Ley 2300/2023 si se habilita cobranza/contacto comercial y el régimen aplica. |
 | Suplantación en obligaciones de crédito | La regla general de vigencia de la Ley Estatutaria 2573/2026 comenzó el 19-11-2026, seis meses después de su promulgación el 19-05-2026; los parágrafos 1 y 2 del artículo 5 rigen desde la promulgación. La SFC expidió la Carta Circular 77 el 18-11-2026 con un protocolo dirigido a entidades bajo su vigilancia; no se extiende automáticamente a Dusema ni a todos los comercios. En su Boletín Jurídico 124, la SFC indica que la expresión “demás establecimientos comerciales con esta competencia” carece de definición en la ley y que trasladó a la SIC la pregunta de alcance. Para los artículos 7 y 8 identifica como elemento relevante si la entidad es fuente de información respecto de la obligación discutida. En la inspección del código no se encontró integración de Dusema con operadores de información ni flujo específico de suplantación; tampoco se acreditó que Dusema o sus clientes actúen como fuente respecto de esas obligaciones. Una búsqueda de fuentes SIC oficiales al 25-11 no localizó un protocolo general, pero no prueba que no exista. No concluir que Dusema o todos sus clientes estén dentro o fuera del ámbito. Antes de declarar listos los flujos de crédito y privacidad, obtener análisis jurídico por rol y definir si algún negocio requiere un procedimiento distinto al trámite de consultas/reclamos de la Ley 1581. |
@@ -156,3 +156,25 @@ titular.
 El smoke autenticado positivo de staging y la recepción de correo desde una
 cuenta externa no se verificaron en esta auditoría. El gate de aceptación sigue
 en `PREPARACION`, por lo que el candidato no registra aceptaciones.
+
+## Revisión de imágenes de eventos públicas — 2026-11-26
+
+La ruta de administración sube imágenes a
+`tenants/{empresaId}/eventos/{eventoId}/{archivo}`. `storage.rules` permite
+lectura anónima para ese prefijo, y la página pública usa la URL descargable.
+El formulario decía solo que el archivo se almacenaba dentro del tenant, sin
+explicar su visibilidad. Además, `eliminarEvento` borra el documento Firestore,
+pero no el objeto Storage; una persona que conserve la URL puede seguir
+consultándolo. No se inspeccionaron objetos reales ni se cambió Storage Rules.
+
+La interfaz ahora advierte sobre la publicación pública y la persistencia del
+archivo después de borrar el evento. La política y el anexo de trabajo 0.5
+describen el comportamiento; 0.4 permanece inmutable. Sigue pendiente un flujo
+controlado para retirar assets de forma verificable, con tratamiento de fallos
+entre Firestore y Storage. No se declara que la eliminación completa esté
+implementada.
+
+La [SIC explica](https://sedeelectronica.sic.gov.co/noticias/sic-expide-guia-para-el-correcto-tratamiento-de-las-fotografias-como-datos-personales)
+que una fotografía es dato personal cuando permite identificar a una o varias
+personas naturales. Esta referencia fundamenta el aviso preventivo, no determina
+la base jurídica de cada publicación.

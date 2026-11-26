@@ -1,6 +1,6 @@
 # Anexo de tratamiento por cuenta del negocio — Dusema POS
 
-**BORRADOR 0.4 — revisión operativa 2026-11-25. No está vigente ni aceptado.**
+**BORRADOR 0.5 — revisión operativa 2026-11-26. No está vigente ni aceptado.**
 
 Este texto sirve para preparar un acuerdo de transmisión; no acredita que exista
 un contrato de transmisión vigente con un negocio ni con un proveedor. No debe
@@ -89,6 +89,16 @@ automático de todos los titulares.
 No debe incorporar datos sensibles o de menores sin evaluación y habilitación
 expresa de un tratamiento legalmente procedente. La contratación no sustituye
 autorizaciones individuales ni habilita usos incompatibles.
+
+Cuando use el módulo de eventos, el negocio debe indicar solo imágenes cuyo uso
+y publicación estén amparados por una base jurídica aplicable y, cuando proceda,
+por autorización previa e informada. Las imágenes guardadas para eventos se
+pueden consultar y descargar sin iniciar sesión desde la página pública. Borrar
+el registro del evento no elimina automáticamente el archivo. Su retiro requiere
+una operación separada de Storage; hoy el POS no tiene un flujo integrado para
+solicitarla ni verificarla. Esta advertencia describe el comportamiento técnico
+observado y no reemplaza las obligaciones de ninguna de las partes ni promete
+que copias o respaldos se eliminen de inmediato.
 
 ## 4. Obligaciones del encargado
 

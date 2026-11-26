@@ -1,6 +1,6 @@
 # Política de tratamiento de datos personales — Dusema POS
 
-**BORRADOR / PREPARACIÓN 0.4 — revisión 2026-11-25. No publicado ni vigente; fecha de entrada en vigor pendiente de aprobación.**
+**BORRADOR / PREPARACIÓN 0.5 — revisión 2026-11-26. No está vigente ni es exigible; fecha de entrada en vigor pendiente de aprobación.**
 
 ## 1. Identidad y roles
 
@@ -60,6 +60,15 @@ La lista final de campos y operaciones debe cotejarse con la implementación ant
 de publicar. No se autoriza recopilar datos ajenos a las finalidades informadas.
 La información empresarial también queda protegida por confidencialidad aunque
 no toda ella constituya dato personal.
+
+El módulo de eventos permite al negocio subir imágenes para mostrarlas en una
+página pública. En la configuración observada, cualquier visitante puede ver
+y descargar el archivo sin iniciar sesión. Una fotografía que permita identificar
+a una persona puede ser dato personal; el negocio determina la finalidad y debe
+contar con la base jurídica y la autorización que correspondan antes de publicarla.
+Eliminar el registro del evento no elimina automáticamente el archivo de Storage;
+su enlace directo puede seguir disponible hasta que se procese una eliminación
+separada. Este flujo técnico de retiro aún no está integrado al POS.
 
 La publicidad requiere finalidad y autorización independiente cuando corresponda;
 no se condiciona el servicio a aceptarla. Este borrador no autoriza vender bases
@@ -152,8 +161,11 @@ que un contrato con un proveedor extranjero cubre cualquier transferencia.
 La revisión técnica identificó Google/Firebase/GCP para infraestructura,
 autenticación, archivos y notificaciones; Vercel para builds/previews históricos;
 y el correo Gmail de contacto declarado. PR #704 retiró Analytics y deshabilitó
-nuevos despliegues Git automáticos de Vercel en todas las ramas. Ese ajuste no
-elimina previews previos, cuyo acceso y contenido aún deben verificarse. Sus
+nuevos despliegues Git automáticos de Vercel. En la revisión del 2026-11-26 se
+retiraron 106 previews y su alias público de Café Atrato; cuatro deployments
+marcados `Production` permanecen en Vercel y redirigen a SSO. Producción sirve
+desde Firebase App Hosting. No se cambió el plan Hobby ni se eliminaron esos
+deployments; la aptitud contractual del uso residual sigue sin resolverse. Sus
 funciones, regiones verificadas y contratos pendientes constan en el inventario
 operativo interno. No afirmar que todos los datos permanecen en Colombia ni
 atribuir a toda la plataforma una sola región.
@@ -212,3 +224,7 @@ comunicarán antes de aplicarse y requerirán nueva autorización cuando corresp
 
 La base normativa y los pendientes constan en el índice interno de revisión del
 proyecto.
+
+La SIC advierte que solo las fotografías que permitan identificar a una o varias
+personas naturales son datos personales; el uso y la finalidad deben evaluarse
+para cada imagen. Véase la [guía de la SIC sobre tratamiento de fotografías](https://sedeelectronica.sic.gov.co/noticias/sic-expide-guia-para-el-correcto-tratamiento-de-las-fotografias-como-datos-personales).

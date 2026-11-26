@@ -1,6 +1,6 @@
 # Aviso de privacidad de Dusema POS
 
-**BORRADOR / PREPARACIÓN 0.4 — revisión 2026-11-25. No publicado ni vigente; no registra consentimientos.**
+**BORRADOR / PREPARACIÓN 0.5 — revisión 2026-11-26. No está vigente ni registra consentimientos.**
 
 ## Aviso propuesto para datos propios del servicio
 

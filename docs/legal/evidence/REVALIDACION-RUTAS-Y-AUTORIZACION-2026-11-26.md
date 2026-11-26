@@ -205,7 +205,65 @@ clientes o archivos de producción.
 
 **NO APROBADO PARA MERGE.** El check verde no cierra los gates de publicación:
 los documentos siguen `BORRADOR`/`PREPARACION`, no hay revisión humana, la
-descripción del PR no coincide con el HEAD, Rules actuales no se pudieron
-verificar (consulta anterior 403), y el proyecto Vercel está en Hobby mientras
-mantiene deployments de producción. No se desplegaron cambios, no se actualizaron
-Rules ni IAM y no se ejecutaron exportaciones o supresiones reales.
+descripción del PR no coincide con el HEAD y el proyecto Vercel está en Hobby
+mientras mantiene deployments de producción. Rules aún no estaban verificadas
+en esta observación. No se desplegaron cambios, no se actualizaron Rules ni IAM
+y no se ejecutaron exportaciones o supresiones reales.
+
+## Verificación de Rules con proyecto de cuota — 2026-11-26 09:22 UTC
+
+La consulta anterior recibió 403 porque las credenciales ADC locales no tenían
+proyecto de cuota. Google documenta que una petición REST puede enviar
+`x-goog-user-project` sin cambiar la configuración persistente de ADC; el
+principal debe contar con `serviceusage.services.use` en el proyecto de cuota.
+Se usó esa cabecera solo en solicitudes `GET` a Firebase Rules API. No se cambió
+ADC, IAM ni el estado de APIs.
+
+| Proyecto | Release | Actualizado (UTC) | Ruleset | Comparación con el archivo local |
+|---|---|---|---|---|
+| `micafe-pos` | `projects/micafe-pos/releases/cloud.firestore` | `2026-11-25T23:35:48.074157Z` | `projects/micafe-pos/rulesets/23b49a84-6282-4df1-9c97-60513697c5d7` | `firestore.rules`: contenido exacto tras normalizar BOM y saltos de línea |
+| `micafe-pos-staging` | `projects/micafe-pos-staging/releases/cloud.firestore` | `2026-11-25T13:09:42.616507Z` | `projects/micafe-pos-staging/rulesets/766510d4-1cd6-44bb-a693-2e1e7589030f` | `firestore.rules`: contenido exacto tras normalizar BOM y saltos de línea |
+| `micafe-pos` | `projects/micafe-pos/releases/firebase.storage/micafe-pos.firebasestorage.app` | `2026-08-14T01:09:03.643850Z` | `projects/micafe-pos/rulesets/1df06087-5bca-4822-ba5a-50ac951c9cf4` | `storage.rules`: contenido exacto tras normalizar BOM y saltos de línea |
+
+Esto verifica qué source está asociado a los releases canónicos y su paridad con
+el checkout observado. No reemplaza la revisión semántica de cada regla ni
+pruebas de autorización en runtime. La lectura de releases y reglas está
+documentada en [Firebase Rules API](https://firebase.google.com/docs/reference/rules/rest/v1/projects.releases/list), y el uso de la cabecera de cuota en
+[Google Cloud REST authentication](https://docs.cloud.google.com/docs/authentication/rest).
+
+### Estado posterior de esta evidencia
+
+La incertidumbre de Rules ya no es un gate abierto. El PR #706 sigue
+`OPEN`/`DRAFT`; su HEAD observado es `292dbf5bb7eae2da8fc6d98c4b0f85bab54f61d4`
+y el CI `45790845009` todavía estaba `in_progress` a las 09:22 UTC. La
+descripción del PR y la ausencia de revisión humana siguen sin resolverse.
+
+## Seguimiento — CI y revisión de exposición pública de eventos — 09:40 UTC
+
+- El run `45790845009` finalizó a las `09:39:51 UTC` con `SUCCESS` para el
+  commit `292dbf5bb7eae2da8fc6d98c4b0f85bab54f61d4`. La CI cubre ese commit,
+  no los cambios locales 0.5 que aún no se han validado ni publicado.
+- La ruta `tenants/{empresaId}/eventos/{eventoId}/{archivo}` permite lectura
+  anónima en `storage.rules`; `eliminarEvento` elimina solamente el registro de
+  Firestore. El archivo puede seguir accesible por su URL descargable. La
+  evidencia es una revisión estática de reglas y código, sin lectura de objetos.
+- Se actualizó la pantalla de eventos para explicar la visibilidad pública y que
+  la eliminación del evento no borra el archivo. No se cambió Storage Rules ni
+  se eliminaron assets. La versión de trabajo de los cuatro documentos pasó a
+  `0.5`; `0.4` sigue preservada.
+- El flujo de retiro verificable de un archivo público continúa pendiente. No se
+  ejecutó una operación contra producción ni staging.
+
+## Pruebas sintéticas de privacidad en Emulator — 2026-11-26
+
+Firebase CLI rechazó primero Java 17; la instalación existente de Temurin 21 se
+seleccionó solo para el proceso mediante `PATH` temporal, sin cambiar la
+configuración permanente. Con el proyecto demo `demo-legal-acceptance`, se ejecutó
+el mismo comando de CI para Firestore Emulator:
+
+`npx firebase --project demo-legal-acceptance emulators:exec --only firestore "npm --prefix functions-legal run test:emulator"`
+
+Resultado: 3/3 pruebas pasaron — recibo contractual atómico/append-only e
+idempotente, trámite de reclamos y trámite de consultas, incluyendo autoridad,
+aislamiento y concurrencia sintéticos. El emulador se apagó al completar. Esta
+ejecución local no certifica el staging ni producción y no utilizó datos reales.
