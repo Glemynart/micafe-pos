@@ -255,7 +255,7 @@ instrucción suficiente para activar el tratamiento correspondiente.
 | Elemento | Información que debe acordarse y conservarse |
 |---|---|
 | Negocio responsable | Razón social/nombre, NIT o identificación, tenant, representante y facultad verificados. |
-| Contacto de privacidad del negocio | Persona o área designada, canal de atención probado y suplencia operativa. |
+| Contacto de privacidad del negocio | Persona o área designada y canal probado; contacto suplente recomendado como control de continuidad. |
 | Titulares y categorías de datos | Clientes, proveedores, usuarios u otros grupos; campos efectivamente habilitados y datos que no se tratarán. |
 | Finalidad e instrucciones | Finalidad específica por módulo, operaciones permitidas, fuente de instrucciones y representantes que pueden modificarlas. |
 | Naturaleza y duración | Operaciones, frecuencia, plazo de servicio y eventos de inicio/terminación del tratamiento. |
