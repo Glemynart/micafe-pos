@@ -46,16 +46,22 @@
 - **Identidades runtime, 2026-11-26:** la consulta read-only encontró 117
   Functions productivas v2 usando la cuenta Compute predeterminada con
   `roles/editor`. ADR-SAAS-105 fue aceptado para migración gradual por codebase,
-  comenzando con piloto en staging. No se autorizó cambiar IAM ni desplegar en
-  producción; la cuenta compartida no se puede reducir hasta inventariar todos
-  sus consumidores. El inventario adicional encontró seis jobs de Cloud
-  Scheduler usando esa identidad OIDC; en Cloud Run se observaron únicamente
-  esas Functions y App Hosting. No existe aún una identidad dedicada
-  `saas-legal` en staging. Compute Engine y Cloud Asset Inventory no pudieron
-  verificarse porque sus APIs están deshabilitadas; no se habilitaron. Antes de
-  abrir el PR de migración faltan completar la matriz de permisos y el
-  inventario global; la creación/bindings de staging requiere su gate operativo
-  separado. Evidencia y límites en
+  comenzando con piloto en staging. El responsable autorizó el 2026-11-26 crear
+  una identidad para las cuatro callables `saas-legal` de staging, asignarle un
+  rol personalizado limitado a Firestore/Auth y desplegar únicamente ese
+  codebase; la autorización no incluye producción ni retirar `roles/editor`.
+  El PR de implementación deja la cuenta, el rol, el alcance de permisos y la
+  selección por proyecto revisables antes de ejecutar cambios. El preflight
+  read-only de staging encontró las funciones objetivo y un job de Cloud
+  Scheduler usando la cuenta Compute predeterminada; no se modificarán otros
+  workloads ni esa cuenta compartida.
+  La consulta productiva encontró seis jobs de Cloud Scheduler usando esa
+  identidad OIDC; en Cloud Run se observaron únicamente esas Functions y App
+  Hosting. La matriz estática de `saas-legal` ya está documentada. El inventario
+  global sigue incompleto porque Compute Engine y Cloud Asset Inventory no
+  pudieron verificarse con sus APIs deshabilitadas; no se habilitaron. Ese
+  límite bloquea producción y la retirada de Editor, no el piloto acotado en
+  staging. Evidencia y límites en
   [preflight productivo](../legal/evidence/PREFLIGHT-PRODUCCION-READONLY-2026-11-26.md).
 - **Estado al 2026-11-23:** el build local con Next.js 16.4.6 pasó. La salida de
   datos tiene una base segura

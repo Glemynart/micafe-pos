@@ -18,7 +18,7 @@ async function freePort() {
 test("saas-legal descubre únicamente sus callables declaradas", async () => {
   const port = await freePort();
   const bin = resolve(import.meta.dirname, "../node_modules/firebase-functions/lib/bin/firebase-functions.js");
-  const child = spawn(process.execPath, [bin], { cwd: resolve(import.meta.dirname, ".."), env: { ...process.env, FUNCTIONS_CONTROL_API: "true", PORT: String(port) } });
+  const child = spawn(process.execPath, [bin], { cwd: resolve(import.meta.dirname, ".."), env: { ...process.env, GCLOUD_PROJECT: "micafe-pos-staging", FUNCTIONS_CONTROL_API: "true", PORT: String(port) } });
   after(() => child.kill());
   let payload: any;
   for (let attempt = 0; attempt < 50; attempt += 1) {
@@ -30,6 +30,9 @@ test("saas-legal descubre únicamente sus callables declaradas", async () => {
   }
   assert.ok(payload);
   assert.deepEqual(Object.keys(payload.endpoints).sort(), ["aceptarDocumentosLegalesTenant", "consultarEstadoLegalTenant", "tramitarConsultaPrivacidadSaas", "tramitarReclamoPrivacidadSaas"]);
+  for (const endpoint of Object.values(payload.endpoints) as Array<{ serviceAccountEmail?: string }>) {
+    assert.equal(endpoint.serviceAccountEmail, "saas-legal-runtime@micafe-pos-staging.iam.gserviceaccount.com");
+  }
   assert.deepEqual(payload.endpoints.consultarEstadoLegalTenant.region, ["us-central1"]);
   assert.deepEqual(payload.endpoints.aceptarDocumentosLegalesTenant.region, ["us-central1"]);
   assert.deepEqual(payload.params ?? [], []);

@@ -1,0 +1,11 @@
+title: SaaS Legal Runtime (staging)
+description: Minimum data permissions for the four saas-legal callable functions in micafe-pos-staging. No IAM administration or infrastructure permissions.
+stage: BETA
+includedPermissions:
+  - datastore.databases.get
+  - datastore.entities.create
+  - datastore.entities.delete
+  - datastore.entities.get
+  - datastore.entities.list
+  - datastore.entities.update
+  - firebaseauth.users.get
