@@ -267,3 +267,33 @@ Resultado: 3/3 pruebas pasaron — recibo contractual atómico/append-only e
 idempotente, trámite de reclamos y trámite de consultas, incluyendo autoridad,
 aislamiento y concurrencia sintéticos. El emulador se apagó al completar. Esta
 ejecución local no certifica el staging ni producción y no utilizó datos reales.
+
+## Revalidación posterior del candidato y publicación — 2026-11-26 17:27 UTC
+
+- `main` continúa en `aa1c4fece1386edc6ba31b439a2be98ed9216d0b`; el HEAD revisado
+  de PR #706 es `d036207e4b215be2721c8cf884a6c2d199a21135`, sin commits de `main`
+  pendientes de incorporar. El PR sigue `OPEN`/`DRAFT`, `CLEAN`, sin revisión
+  humana registrada.
+- El run `45863707804` para ese HEAD terminó `success`; `Tipos y pruebas`
+  completó en 19m 2s, sin pasos fallidos ni pendientes. `gh pr checks 706`
+  mostró un check y todos en verde. La evidencia E4.1 es solo de Emulator,
+  con `productionWrites=false` y `credentialsRemoved=true`. El reporte E4.2
+  corresponde al baseline histórico `G-MVP-01/M4/E4.2`, no certifica este corte
+  legal. Registra seguimiento de dependencias (raíz: 4 moderadas; Functions: 1
+  baja y 6 moderadas; ninguna alta o crítica), sin hacer fallar ese check.
+- Una lectura HTTP pública a `https://pos.dusema.com` obtuvo `/terminos` HTTP
+  200 con título antiguo de Café Atrato y `/privacidad`, `/aviso-autorizacion`
+  y `/anexo-tratamiento` HTTP 404. No se publicó el paquete v0.6.
+- En staging, las cuatro rutas respondieron HTTP 200 con el paquete v0.5 marcado
+  como borrador. El candidato v0.6 no está servido. Estas lecturas verifican
+  render público, no aceptación ni persistencia.
+- En Edge estaba abierta la página `/backoffice/privacidad` de staging. El
+  intento de observación encontró un diálogo de Firewall de Windows para
+  OpenJDK y se detuvo sin interactuar con el permiso. No se ejecutó un smoke
+  positivo nuevo de callable, persistencia y aislamiento.
+- Resultado de auditoría para el corte: **NO APROBADO PARA MERGE**. Siguen
+  pendientes el smoke autenticado positivo de staging, la revisión jurídica y
+  factual humana de los borradores, la evidencia verificable de instrucción
+  para un piloto real de exportación, la certificación de supresión y los
+  puntos de proveedor/Vercel ya descritos arriba. No se desplegó, no se cambió
+  IAM y no se leyeron ni borraron datos reales.
