@@ -1561,6 +1561,11 @@ completa está en [`PROVEEDORES-EVIDENCIA-2026-11.md`](PROVEEDORES-EVIDENCIA-202
   con HTML inicial sin los marcadores probados de formularios/historial
   privado. El HTTP 200 solo demuestra que carga la carcasa; no es smoke
   autenticado positivo ni prueba de autorización del operador.
+- Se descargaron en memoria 15 bundles JavaScript referenciados por
+  `/backoffice/privacidad`; uno contiene el rótulo
+  `Referencia interna provisional de respuesta`. Esto confirma que el cambio
+  llegó al artefacto servido, no que un expediente se renderice correctamente
+  bajo una sesión autenticada.
 - Alcance no demostrado: acceso positivo autenticado, aceptación por un
   administrador tenant, tramitación completa de un reclamo, aislamiento
   negativo con dos identidades tenant, y visualización autenticada del
