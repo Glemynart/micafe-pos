@@ -1531,3 +1531,43 @@ completa está en [`PROVEEDORES-EVIDENCIA-2026-11.md`](PROVEEDORES-EVIDENCIA-202
   interfaz no correspondía al candidato. No cierra el flujo autenticado de
   aceptación/tramitación, la exportación real, la supresión real, los gates
   contractuales ni la revisión factual/jurídica.
+
+## Despliegue controlado de PR #706 en staging — 2026-11-27
+
+- CI del SHA exacto `1d101b30a280b2ece419398c942213af81f23248`: [run
+  46015348673](https://github.com/Glemynart/micafe-pos/actions/runs/46015348673),
+  `success`; `Tipos y pruebas` completó 128 pasos sin pendientes.
+- Firebase Functions: se ejecutó
+  `firebase deploy --only functions:saas-legal --project micafe-pos-staging --non-interactive`.
+  El CLI terminó `Deploy complete`; actualizó las cuatro funciones legales, sin
+  seleccionar Rules ni otro codebase. Las cuatro están `ACTIVE`, Node.js 22, y
+  conservan `saas-legal-runtime@micafe-pos-staging.iam.gserviceaccount.com`.
+- La salida del CLI incluyó mensajes de aseguramiento de APIs y generación de
+  service identities Pub/Sub/Eventarc. La operación terminó correctamente en
+  staging, pero no acredita si creó identidades nuevas ni resuelve el hallazgo
+  separado de `GenerateServiceIdentity` en producción.
+- POST sin autenticación a `consultarEstadoLegalTenant`,
+  `aceptarDocumentosLegalesTenant`, `tramitarConsultaPrivacidadSaas` y
+  `tramitarReclamoPrivacidadSaas` devolvió `401` en los cuatro casos. No se
+  incluyeron identidad ni datos del tenant; no se escribieron documentos.
+- App Hosting: rollout manual de `micafe-pos` al commit
+  `1d101b30a280b2ece419398c942213af81f23248`, sin modificar producción.
+  `build-2026-11-27-002` está `READY`, su rollout `SUCCEEDED`, y la revisión
+  `micafe-pos-build-2026-11-27-002` tiene 100 % del tráfico de staging. El build
+  `build-2026-11-27-001` estaba activo antes de este corte.
+- GET anónimo a `/terminos`, `/privacidad`, `/aviso-autorizacion` y
+  `/anexo-tratamiento` devolvió 200; las cuatro páginas mencionan Dusema POS y
+  `BORRADOR`, sin la marca Café Atrato. `/backoffice/privacidad` devolvió 200
+  con HTML inicial sin los marcadores probados de formularios/historial
+  privado. El HTTP 200 solo demuestra que carga la carcasa; no es smoke
+  autenticado positivo ni prueba de autorización del operador.
+- Alcance no demostrado: acceso positivo autenticado, aceptación por un
+  administrador tenant, tramitación completa de un reclamo, aislamiento
+  negativo con dos identidades tenant, y visualización autenticada del
+  vencimiento provisional tras subsanación.
+- No se desplegó producción, Rules, Storage ni codebases ajenos a `saas-legal`,
+  y no se ejecutaron comandos de cambio de IAM ni se alteraron manualmente
+  bindings. El CLI mostró operaciones de aseguramiento/generación de service
+  identities cuyo resultado de creación no se verificó. No se creó ni modificó
+  expediente, recibo de aceptación, exportación o supresión. Los textos
+  permanecen borradores.
