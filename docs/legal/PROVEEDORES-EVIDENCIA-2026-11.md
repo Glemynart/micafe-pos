@@ -343,3 +343,23 @@ El plan Hobby y la aptitud contractual siguen pendientes; la pausa requiere que
 el propietario confirme el nombre del proyecto en la terminal interactiva. Esta
 corrección sustituye solo las conclusiones previas de «sin alias» y no cambia la
 fecha de la consulta anterior.
+
+### Revalidación read-only — 2026-11-27 09:10 UTC
+
+Con Vercel CLI 62.1 autenticada, `vercel ls cafeatrato --scope
+glemynarts-projects --environment production` volvió a listar cuatro deployments
+`READY` de producción. `vercel api GET /v9/projects/{id}` devolvió
+`gitProviderOptions.createDeployments=disabled`; no se hicieron escrituras ni se
+crearon deployments. El proyecto continúa activo en Hobby y sus artefactos de
+producción no fueron pausados ni borrados.
+
+Se comprobó con HEAD anónimo, sin seguir redirecciones, cada una de las cuatro
+URLs de deployment listadas, los aliases de proyecto y rama observados en la
+metadata, y el alias estable `cafeatrato.vercel.app`. Las primeras seis
+respondieron `302` a `vercel.com/sso-api`; el alias estable respondió `404`.
+Esto acredita protección frente a esas solicitudes anónimas puntuales, no
+elimina los artefactos, no inspecciona el contenido tras autenticación y no
+prueba el estado de todo recurso no enumerado. `gitProviderOptions` deshabilita
+la creación automática Git observada, pero el equipo sigue en Hobby: su
+compatibilidad con uso comercial y la cobertura contractual/DPA permanecen
+pendientes.
