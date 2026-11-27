@@ -4,6 +4,11 @@ Estado: **COMPROBACIONES DE LECTURA REALIZADAS; NO LISTO PARA EXIGIBILIDAD**.
 No es dictamen jurídico integral. No se ejecutó exportación de datos, borrado,
 despliegue, aceptación de acuerdos o cambio de plan.
 
+La matriz de estado vigente al 2026-11-27 está en
+[`MATRIZ-AUDITORIA-2026-11-27.md`](MATRIZ-AUDITORIA-2026-11-27.md); reemplaza
+las instantáneas anteriores para el estado actual del PR, Functions, App Hosting,
+Rules y canales, sin borrar su historial.
+
 La consulta read-only posterior del 2026-11-26 registró el estado actual de
 App Hosting, Functions, IAM y Rules en
 [`evidence/PREFLIGHT-PRODUCCION-READONLY-2026-11-26.md`](evidence/PREFLIGHT-PRODUCCION-READONLY-2026-11-26.md).
