@@ -54,3 +54,14 @@ documental y gates reales de exportación, supresión y contacto.
 
 - [Firebase Auth REST API](https://firebase.google.com/docs/reference/rest/auth), intercambio temporal email/password por ID token.
 - [Cloud Firestore REST API](https://firebase.google.com/docs/firestore/use-rest-api), Firebase ID tokens se autorizan mediante Firestore Security Rules.
+
+## Actualización posterior — recorrido visual sintético — 2026-11-27T23:32Z
+
+El límite descrito arriba corresponde al smoke server-side/lectura observado en
+el corte inicial. Después se ejecutó el flujo completo de Backoffice en staging
+con Playwright y datos sintéticos: login, formulario, rechazo de tenant cruzado,
+registro, consulta, constancia, cierre, control de operador sin facultad y
+limpieza verificada (**2/2 PASS**). Evidencia reproducible y alcance en
+[smoke visual autenticado de staging](SMOKE-VISUAL-PRIVACIDAD-STAGING-2026-11-27.md).
+No se usó la cuenta de Diana ni se tocaron producción, documentos aceptados,
+exportaciones o supresiones reales.

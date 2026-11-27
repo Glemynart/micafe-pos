@@ -153,6 +153,24 @@ gcloud projects get-iam-policy micafe-pos --flatten="bindings[].members" --filte
 gcloud functions list --project=micafe-pos-staging --regions=us-central1 --v2 --format="json(name,state,serviceConfig.serviceAccountEmail)"
 ```
 
+## Reconsulta de bindings `roles/editor` — 2026-11-27T23:30Z
+
+Una reconsulta read-only de `gcloud projects get-iam-policy micafe-pos`,
+aplanando miembros y filtrando `roles/editor`, encontró tres bindings de nivel
+proyecto:
+
+| Miembro | Relación observada con Functions |
+| --- | --- |
+| `serviceAccount:882525811433-compute@developer.gserviceaccount.com` | Identidad runtime de las 117 Functions v2 activas |
+| `serviceAccount:882525811433@cloudservices.gserviceaccount.com` | Uso por workload no atribuido en esta consulta |
+| `serviceAccount:micafe-pos@appspot.gserviceaccount.com` | Uso por workload no atribuido en esta consulta |
+
+Los dos últimos miembros amplían el inventario de bindings de proyecto frente a
+la síntesis inicial. No se verificó su uso efectivo ni se les retiró permiso; no
+se deben tratar como cuentas sin uso. Sigue pendiente atribuirlos a workloads y
+terminar el inventario de permisos por codebase, recursos heredados, Policy
+Simulator y rollback. No hubo cambios IAM ni despliegues productivos.
+
 ## Fuentes oficiales
 
 - [gcloud functions list](https://docs.cloud.google.com/sdk/gcloud/reference/functions/list)

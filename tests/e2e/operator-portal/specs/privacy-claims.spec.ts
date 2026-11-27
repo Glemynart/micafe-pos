@@ -28,6 +28,16 @@ function idCaso(empresaId: string, consecutivo: string): string {
   return createHash("sha256").update(JSON.stringify([empresaId, consecutivo])).digest("hex");
 }
 
+async function existeUsuarioAuth(uid: string): Promise<boolean> {
+  try {
+    await auth.getUser(uid);
+    return true;
+  } catch (error) {
+    if ((error as { code?: string }).code === "auth/user-not-found") return false;
+    throw error;
+  }
+}
+
 async function iniciarSesion(page: Page, email = operatorEmail, password = operatorPassword) {
   await page.goto("/backoffice/login");
   await page.getByLabel("Correo").fill(email);
@@ -66,13 +76,22 @@ async function crearFixture() {
 test("Backoffice tramita un reclamo sintético de principio a fin y preserva el aislamiento entre tenants", async ({ page }, testInfo) => {
   const fixture = await crearFixture();
   const suffix = `${Date.now()}`;
+  const operatorUid = `operator_priv_writer_${suffix}`;
+  const operatorEmail = `operator-privacy-writer-${suffix}@e2e.local`;
+  const operatorPassword = `E2e-${suffix}-Writer`;
   const consecutivo = `e2e-privacy-${suffix}`;
   const casoEmpresaA = idCaso(fixture.empresaA, consecutivo);
   const casoEmpresaB = idCaso(fixture.empresaB, consecutivo);
   const fecha = fechaBogota();
+  let createdUser = false;
 
   try {
-    await iniciarSesion(page);
+    await auth.createUser({ uid: operatorUid, email: operatorEmail, password: operatorPassword, displayName: "Operador E2E de privacidad" });
+    createdUser = true;
+    await auth.setCustomUserClaims(operatorUid, { saas: { operador: true, versionAutorizacion: 1, facultades: [privacyPermission] } });
+    await db.collection("saas_operadores").doc(operatorUid).set({ uid: operatorUid, estado: "ACTIVO", facultades: [privacyPermission], versionAutorizacion: 1 });
+
+    await iniciarSesion(page, operatorEmail, operatorPassword);
     await page.goto("/backoffice/privacidad");
     await expect(page.getByRole("heading", { name: "Reclamos de privacidad" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Registrar reclamo verificado" })).toBeVisible();
@@ -135,7 +154,20 @@ test("Backoffice tramita un reclamo sintético de principio a fin y preserva el 
       db.collection("privacidad_reclamos").doc(casoEmpresaA).delete(),
       db.collection("privacidad_reclamos").doc(casoEmpresaB).delete(),
       fixture.cleanup(),
+      db.collection("saas_operadores").doc(operatorUid).delete(),
+      ...(createdUser ? [auth.deleteUser(operatorUid)] : []),
     ]);
+    const remaining = await Promise.all([
+      db.collection("privacidad_reclamos").doc(casoEmpresaA).get(),
+      db.collection("privacidad_reclamos").doc(casoEmpresaB).get(),
+      db.collection("empresas").doc(fixture.empresaA).get(),
+      db.collection("empresas").doc(fixture.empresaB).get(),
+      db.collection("clientes").doc(fixture.clienteA).get(),
+      db.collection("clientes").doc(fixture.clienteB).get(),
+      db.collection("saas_operadores").doc(operatorUid).get(),
+    ]);
+    expect(remaining.every((snapshot) => !snapshot.exists)).toBe(true);
+    if (createdUser) expect(await existeUsuarioAuth(operatorUid)).toBe(false);
   }
 });
 
@@ -184,5 +216,15 @@ test("operador sin facultad no ve el trámite ni puede invocar la callable", asy
       fixture.cleanup(),
       ...(createdUser ? [auth.deleteUser(uid)] : []),
     ]);
+    const remaining = await Promise.all([
+      db.collection("privacidad_reclamos").doc(casoId).get(),
+      db.collection("saas_operadores").doc(uid).get(),
+      db.collection("empresas").doc(fixture.empresaA).get(),
+      db.collection("empresas").doc(fixture.empresaB).get(),
+      db.collection("clientes").doc(fixture.clienteA).get(),
+      db.collection("clientes").doc(fixture.clienteB).get(),
+    ]);
+    expect(remaining.every((snapshot) => !snapshot.exists)).toBe(true);
+    if (createdUser) expect(await existeUsuarioAuth(uid)).toBe(false);
   }
 });

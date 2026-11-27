@@ -81,6 +81,7 @@
     "e2e:ventas:seed": "tsx scripts/e2e/ventas-local-fixture.ts",
     "e2e:r1a:preflight": "tsx scripts/e2e/preflight-r1a.ts",
     "e2e:operator-portal": "node scripts/e2e/operator-portal-runner.mjs",
+    "e2e:privacy:staging": "cross-env OPERATOR_PORTAL_E2E_TARGET=staging OPERATOR_PORTAL_PROJECT_ID=micafe-pos-staging OPERATOR_PORTAL_FUNCTIONS_BASE_URL=https://us-central1-micafe-pos-staging.cloudfunctions.net playwright test -c playwright.privacy-staging.config.ts",
     "test:g-saas-02:preflight": "tsx --test scripts/g-saas-02/trial-transition-preflight.test.ts",
     "test:g-saas-02:catalog-preflight": "tsx --test scripts/g-saas-02/catalog-preflight.test.ts scripts/g-saas-02/catalog-xlsx-reader.test.ts",
     "test:g-saas-02:catalog-review-validation": "tsx --test scripts/g-saas-02/catalog-review-validation.test.ts",
