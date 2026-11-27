@@ -28,7 +28,7 @@ export const BUNDLE_LEGAL_ACTUAL: BundleLegal = {
   documentosContractualesRequeridos: ["terminos", "anexo-tratamiento"],
   documentos: [
     { id: "terminos", titulo: "Términos del servicio", version: "0.6", sha256: "0f6509480588051f312b37e1bf352ff7c70721857f19ccd56b02640d53ffe059", rutaPublica: "/legal/v0.6/terminos-servicio.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
-    { id: "politica-tratamiento", titulo: "Política de tratamiento de datos personales", version: "0.6", sha256: "3b81fed45a99637cd9b6dc5ecd09766544e1161239d8ddcdb183f9b621d4e244", rutaPublica: "/legal/v0.6/politica-tratamiento.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
+    { id: "politica-tratamiento", titulo: "Política de tratamiento de datos personales", version: "0.6", sha256: "d48202440860a96cd6ae3428aee0272209fbfbd485cba92f8cc35e0a25f1e0ee", rutaPublica: "/legal/v0.6/politica-tratamiento.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
     { id: "aviso-autorizacion", titulo: "Aviso de privacidad de Dusema POS", version: "0.6", sha256: "42e9338cae72059cad52aeb8c96e0e4946c0fadfd56dedfffa443bd50a7ea8dd", rutaPublica: "/legal/v0.6/aviso-autorizacion.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
     { id: "anexo-tratamiento", titulo: "Anexo de tratamiento por cuenta del negocio", version: "0.6", sha256: "e8a9f52ade5ea2785bac7f2c79976b1d7d57ad73710d1b752ae5ed9a8cf87b6e", rutaPublica: "/legal/v0.6/anexo-tratamiento.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
   ],

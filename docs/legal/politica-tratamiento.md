@@ -163,7 +163,7 @@ La revisión técnica identificó Google/Firebase/GCP para infraestructura,
 autenticación, archivos y notificaciones; Vercel para builds/previews históricos;
 y el correo Gmail de contacto declarado. PR #704 retiró Analytics y deshabilitó
 nuevos despliegues Git automáticos de Vercel. En la revisión del 2026-11-26 se
-retiraron 106 previews y su alias público de Café Atrato; cuatro deployments
+retiraron 106 previews y su alias público histórico; cuatro deployments
 marcados `Production` permanecen en Vercel y redirigen a SSO. Producción sirve
 desde Firebase App Hosting. No se cambió el plan Hobby ni se eliminaron esos
 deployments; la aptitud contractual del uso residual sigue sin resolverse. Sus
