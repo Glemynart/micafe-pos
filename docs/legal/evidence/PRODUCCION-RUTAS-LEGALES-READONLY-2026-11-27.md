@@ -50,3 +50,24 @@ aceptaciones ni cambios de despliegue.
 El resultado confirma que la ruta productiva no sirve el paquete legal del
 candidato. No se debe interpretar el HTTP 200 de `/terminos` como publicación
 válida: su título sigue perteneciendo a Café Atrato y faltan las demás rutas.
+
+## Revalidación de solo lectura — 2026-11-27T21:45:50Z
+
+Se consultaron las cuatro rutas legales de producción y staging con GET, sin
+autenticación ni escrituras. Se inspeccionó el título HTML y la presencia del
+marcador de borrador.
+
+| Entorno | Ruta | HTTP | Resultado observado |
+| --- | --- | ---: | --- |
+| Producción | `/terminos` | 200 | `<title>`: `Términos y Privacidad - Café Atrato`; sin `BORRADOR` |
+| Producción | `/privacidad` | 404 | No publicada |
+| Producción | `/aviso-autorizacion` | 404 | No publicada |
+| Producción | `/anexo-tratamiento` | 404 | No publicada |
+| Staging | `/terminos` | 200 | Dusema POS; HTML contiene `BORRADOR` |
+| Staging | `/privacidad` | 200 | Dusema POS; HTML contiene `BORRADOR` |
+| Staging | `/aviso-autorizacion` | 200 | Dusema POS; HTML contiene `BORRADOR` |
+| Staging | `/anexo-tratamiento` | 200 | Dusema POS; HTML contiene `BORRADOR` |
+
+La lectura fue únicamente HTTP pública; no acredita el recorrido de aceptación
+autenticado ni la versión de código desplegada en staging. Producción permanece
+sin cambios.

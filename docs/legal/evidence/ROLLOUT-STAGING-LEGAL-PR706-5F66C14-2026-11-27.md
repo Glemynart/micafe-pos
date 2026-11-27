@@ -34,3 +34,21 @@
 ## Estado de release
 
 Este rollout demuestra publicación técnica del candidato en **staging**, no aprobación legal, activación contractual, smoke autenticado ni certificación de exportación/supresión. Siguen pendientes la revisión jurídica y factual de los cuatro documentos, el canal y contacto verificados, smoke autenticado/aislamiento con tenant sintético, exportación integral real bajo instrucción comprobable y certificación real de conservación/supresión. Auditoría del PR: `NO APROBADO PARA MERGE`.
+
+## Revalidación del backend y equivalencia de fuentes — 2026-11-27T21:53Z
+
+La lectura de solo consulta de Firebase App Hosting confirma que el backend de
+staging `micafe-pos` está estable y sirve `build-2026-11-27-003`. El recurso
+Build confirma SHA `5f66c146fa0339a16414fa59d6906b348699d97a` y estado `READY`;
+la lista de rollouts registra `SUCCEEDED`. El backend apunta al proyecto
+`micafe-pos-staging`, región `us-central1`, y sirve el host de staging.
+
+El HEAD de #706 en esta comprobación es `fa1406c2867368d13d5658a2fe244354e3a329eb`.
+La comparación `git diff --name-status 5f66c14..fa1406c` contiene solo ADR,
+documentación, el spec de E2E y su configuración Playwright; no contiene cambios
+de `app/`, `components/`, `functions/`, Rules, configuración Firebase ni
+dependencias del build. Por lo tanto, la evidencia de staging valida el mismo
+código de aplicación que el HEAD, pero **no** un rollout del SHA exacto
+`fa1406c`, ni la reproducibilidad del artefacto actual. No se inició otro
+rollout durante el CI pendiente, porque sería redundante para el runtime y
+reiniciaría trabajo de validación sin cambiar el código servido.
