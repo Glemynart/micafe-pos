@@ -58,3 +58,60 @@ los gates de ADR-SAAS-107, canal de entrega, validación factual/jurídica, Verc
 recorrido de aceptación y atribución IAM. La descripción del PR ya refleja el
 HEAD y el CI actual. No se desplegó ni
 modificó producción; no se exportaron ni borraron datos reales.
+
+## Revalidación de normas oficiales — 2026-11-27
+
+Se contrastaron, en las fuentes oficiales de Función Pública, únicamente las
+reglas que sustentan los plazos de privacidad y la cláusula condicional de PQR
+electrónicas del borrador 0.6:
+
+- La Ley 1581 de 2012, artículos 14 y 15, establece hasta diez días hábiles
+  para consultas, con hasta cinco días hábiles adicionales si se informa la
+  demora; para reclamos incompletos dispone requerir subsanación dentro de los
+  cinco días siguientes y desistimiento después de dos meses sin respuesta al
+  requerimiento; al recibirse completo exige la anotación dentro de dos días
+  hábiles, y el término de respuesta es de quince días hábiles, prorrogable
+  hasta ocho días hábiles con aviso motivado.
+- Hallazgo de cómputo que sigue abierto: la ley dice que los quince días corren
+  desde el día siguiente a la fecha de recibo, pero regula por separado el
+  reclamo incompleto y el momento en que se recibe completo. El código actual
+  calcula el vencimiento de respuesta desde `recibidoEn` (recepción inicial),
+  incluso cuando hubo subsanación tardía, no desde `completoEn`. Esto puede
+  dejar el vencimiento interno anterior a la fecha en que el caso quedó
+  completo. Las fuentes oficiales consultadas no aclaran de forma específica
+  esta interacción. Hasta obtener revisión jurídica, ese vencimiento no debe
+  presentarse como cómputo legal resuelto ni usarse como certificación del
+  flujo; revisar ADR-SAAS-104 y los casos sintéticos/históricos antes de activar.
+  La ley y el borrador coinciden en las duraciones, pero no queda cerrada la
+  fecha de inicio aplicable a un reclamo subsanado.
+- La Ley 2439 de 2024 modificó el artículo 50(g) de la Ley 1480: cuando exista
+  una relación de consumo en comercio electrónico, debe haber canales de fácil
+  acceso en el mismo medio, orientación y asistencia, trazabilidad, número de
+  registro o radicado con fecha y hora, y mecanismo de seguimiento. La sección 9
+  de los términos condiciona correctamente esta obligación a esa relación; el
+  Backoffice de privacidad no acredita por sí mismo un mecanismo de PQR de
+  consumo.
+
+Fuentes oficiales: [Ley 1581 de 2012, artículos 14–15](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981),
+[Ley 2439 de 2024, artículo 4](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=257116)
+y [Ley 1480 de 2011, artículo 50](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=44306).
+Las páginas oficiales se consultaron el 2026-11-27; no se obtuvo dictamen
+jurídico ni revisión integral de vigencia o aplicabilidad. Se mantienen
+pendientes la revisión jurídica profesional y la verificación operativa de los
+canales y flujos descritos.
+
+## Actualización del candidato y estado operativo — 2026-11-27 12:05 UTC
+
+- PR #706 está abierto y en borrador, base `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`,
+  HEAD `f1574700f163764459e82765a245e1dbd9525aaf`; el check `Tipos y pruebas`
+  terminó `SUCCESS` en el run `45991808012`, sin checks pendientes en la lectura
+  de GitHub.
+- ADR-SAAS-106 alternativa A está aceptado por decisión delegada y el flujo
+  interno de enlace está probado con datos sintéticos/Emulator. No existe aún
+  API, interfaz, fuente de contacto aprobada ni proveedor real conectado.
+- ADR-SAAS-107 continúa `Propuesto`; no se implementó su autoridad persistente.
+  No se hizo despliegue, envío externo, exportación real ni supresión productiva.
+- Auditoría vigente: **NO APROBADO PARA MERGE**. Además de los gates previamente
+  descritos, queda señalado el cómputo de respuesta para reclamos que llegan
+  incompletos, el canal de PQR de consumo si aplica, la revisión factual/jurídica,
+  Vercel y el smoke de los recorridos de aceptación y privacidad en staging.
