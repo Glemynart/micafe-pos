@@ -132,3 +132,27 @@ exactamente:
   anotación, aislamiento negativo y cierre siguen pendientes; la pantalla de
   Edge no se manipuló porque no había una URL verificable en el contexto actual.
   No se realizaron cambios en producción.
+
+## Revisión de identidades de servicio tras el piloto — 2026-11-27 01:17 UTC
+
+- La consulta de Admin Activity a `serviceusage.googleapis.com` desde
+  `2026-11-26T19:00:00Z` no devolvió eventos `GenerateServiceIdentity`. No se
+  toma la ausencia del log como prueba de que Firebase CLI no haya llamado el
+  método ni de que la llamada no tuviera efecto.
+- La auditoría IAM sí registra `google.iam.admin.v1.CreateServiceAccount` a las
+  `20:15:14Z`, ejecutado por el operador, con respuesta para
+  `saas-legal-runtime@micafe-pos-staging.iam.gserviceaccount.com`. Corresponde
+  a la identidad runtime dedicada del piloto autorizado.
+- La política IAM actual de staging mantiene a
+  `service-192423427245@gcp-sa-pubsub.iam.gserviceaccount.com` con
+  `roles/pubsub.serviceAgent` y `roles/iam.serviceAccountTokenCreator`, y a
+  `service-192423427245@gcp-sa-eventarc.iam.gserviceaccount.com` con
+  `roles/eventarc.serviceAgent`. La evidencia de staging del 2026-10-09 ya
+  registraba estas identidades y concesiones, antes del piloto del 2026-11-26
+  ([preflight ADR-SAAS-067](../../goals/evidence/G-SAAS-02-E2-2-GATE-C-PREFLIGHT-ADR067-2026-10-09.md)).
+  Por ello, no se atribuye a este piloto su creación inicial. El registro no
+  determina si la llamada posterior fue una verificación idempotente ni si
+  actualizó metadatos; no se cambiaron sus grants en esta revalidación.
+- No se habilitaron APIs, no se modificó IAM ni se cambió producción. El CI de
+  #706 para HEAD `72dc18171c40621cae7e2c220213ad43c14a02d0` terminó `SUCCESS`
+  en el run `45918510240`.
