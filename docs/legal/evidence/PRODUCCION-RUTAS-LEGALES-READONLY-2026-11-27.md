@@ -32,3 +32,21 @@ La comprobación de texto inspeccionó el `<title>` y el cuerpo de la respuesta
 HTML. Una prueba anterior con una expresión regular mal escapada produjo un
 falso negativo y queda reemplazada por esta lectura directa. No hubo cambios de
 producción.
+
+## Revalidación de producción y staging — 2026-11-27T21:21:30Z
+
+Se repitieron consultas GET públicas y se inspeccionaron títulos y texto visible
+después de retirar scripts/estilos del HTML. No hubo autenticación, escrituras,
+aceptaciones ni cambios de despliegue.
+
+| URL | HTTP | Observación del contenido |
+| --- | ---: | --- |
+| `https://pos.dusema.com/terminos` | 200 | `<title>`: `Términos y Privacidad - Café Atrato`; sin marca `BORRADOR` |
+| `https://pos.dusema.com/privacidad` | 404 | Ruta no publicada |
+| `https://pos.dusema.com/aviso-autorizacion` | 404 | Ruta no publicada |
+| `https://pos.dusema.com/anexo-tratamiento` | 404 | Ruta no publicada |
+| Cuatro rutas correspondientes en `micafe-pos--micafe-pos-staging` | 200 | `<title>` identifica Dusema POS y cada documento muestra `BORRADOR` |
+
+El resultado confirma que la ruta productiva no sirve el paquete legal del
+candidato. No se debe interpretar el HTTP 200 de `/terminos` como publicación
+válida: su título sigue perteneciendo a Café Atrato y faltan las demás rutas.
