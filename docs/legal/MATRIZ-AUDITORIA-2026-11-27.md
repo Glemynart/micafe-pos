@@ -142,3 +142,9 @@ canales y flujos descritos.
 - La CI verde valida ese candidato; no cierra los gates de revisión jurídica y factual, aceptación autenticada, proveedor/canal, exportación integral y supresión real, Vercel, ni atribución IAM productiva. PR #706 permanece abierto/en borrador y la auditoría sigue `NO APROBADO PARA MERGE`.
 - ADR-SAAS-106 permanece `Aceptado para implementación controlada` por decisión técnica delegada. Su autorización cubre pruebas sintéticas/Emulator/staging; no datos reales, despliegues ni IAM.
 - ADR-SAAS-108 se incorpora como `Propuesto` para el snapshot versionado del anexo por tenant. No habilita implementación ni publicación hasta aprobación explícita, ni modifica los límites de producción.
+
+## Transparencia del plazo de respuesta tras subsanación — 2026-11-27
+
+- El commit local `70e5088` expone en la respuesta autenticada de consulta el indicador server-side `subsanacionRecibida`. En Backoffice, los casos subsanados rotulan el vencimiento como referencia interna provisional y explican que su cómputo desde la recepción inicial no constituye una conclusión jurídica validada. El algoritmo de vencimiento no cambió.
+- Validación local del candidato: Emulator Firestore legal `3/3`; `npm --prefix functions-legal test` `27 passed / 3 skipped` (las tres pruebas que requieren Emulator pasaron en la ejecución separada); `npx tsc --noEmit`, `npm run build:functions`, `npm --prefix functions-legal run build`, `npm run build` y ESLint focalizado pasaron. La primera ejecución del test Emulator detectó una referencia local no asignada; se corrigió y el rerun pasó completo.
+- El CI remoto `46011711664` terminó `success` sobre el HEAD previo `6e55b1d`; el código `70e5088` aún requiere push y su propio CI. Esta corrección no se ha desplegado a staging o producción y no altera ni cierra el pendiente de revisión jurídica.
