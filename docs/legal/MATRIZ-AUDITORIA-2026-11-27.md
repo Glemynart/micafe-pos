@@ -205,3 +205,14 @@ producción. Evidencia: [smoke autenticado de staging](evidence/SMOKE-AUTENTICAD
 
 La auditoría continúa `NO APROBADO PARA MERGE` mientras sigan abiertos los gates
 jurídicos, factuales, del canal/contacto y de exportación/supresión.
+
+La revalidación GET de las 18:26 UTC confirmó que `/terminos` en producción
+todavía incluye Café Atrato sin el marcador `BORRADOR`, y que `/privacidad`,
+`/aviso-autorizacion` y `/anexo-tratamiento` responden 404. No hubo rollout.
+Evidencia: [rutas legales de producción](evidence/PRODUCCION-RUTAS-LEGALES-READONLY-2026-11-27.md).
+
+La revisión Vercel de las 18:34 UTC encontró cero previews activos; tres URLs
+históricas devolvieron 404. Los cuatro deployments Production y dos aliases
+requieren la pantalla de login de Vercel ante solicitudes anónimas. El dominio
+no está configurado para enrutar a Vercel; no hubo cambios ni borrados. Evidencia:
+[Vercel](evidence/VERCEL-ACCESO-READONLY-2026-11-27.md).

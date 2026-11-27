@@ -67,11 +67,18 @@ el estado en la fecha de cada prueba; no describen la situación de este corte.
   [smoke autenticado de staging](SMOKE-AUTENTICADO-STAGING-2026-11-27.md).
 - Producción: sin cambios en este corte. Conserva rutas legales incompletas y
   contenido heredado de Café Atrato; no se debe publicar el bundle v0.6 aún en
-  borrador.
-- Vercel: el enlace de preview que conserva el comentario automático del PR
-  devolvió 404 y `vercel inspect` no encontró el deployment; los cuatro
-  deployments `Production` del proyecto `cafeatrato` siguen `Ready`. El 404 del
-  preview no elimina ni resuelve esos cuatro artefactos ni el uso/plan Hobby.
+  borrador. GET de solo lectura a las 18:26 UTC: `/terminos` devolvió 200 y
+  contiene Café Atrato sin el marcador `BORRADOR`; las otras tres rutas legales
+  de `pos.dusema.com` devolvieron 404. Detalle en
+  [revalidación de producción](PRODUCCION-RUTAS-LEGALES-READONLY-2026-11-27.md).
+- Vercel: no hay previews activos en el listado actual; tres URLs históricas
+  devuelven 404. Los cuatro deployments `Production/READY` y sus dos aliases
+  presentan `Login – Vercel` a solicitudes anónimas. Vercel informa que
+  `pos.dusema.com` no está configurado para su edge y conserva nameservers de
+  Cloudflare. No se borraron Production ni se cambió el plan. El acceso anónimo
+  de previews está cerrado para el estado observado; plan y expiración interna
+  siguen sin certificación. Detalle en
+  [revisión Vercel](VERCEL-ACCESO-READONLY-2026-11-27.md).
 
 ## Revisión normativa puntual
 
