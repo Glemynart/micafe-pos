@@ -97,3 +97,38 @@ exactamente:
 | `politica-tratamiento.md` | `3b81fed45a99637cd9b6dc5ecd09766544e1161239d8ddcdb183f9b621d4e244` | Coincide |
 | `aviso-autorizacion.md` | `42e9338cae72059cad52aeb8c96e0e4946c0fadfd56dedfffa443bd50a7ea8dd` | Coincide |
 | `anexo-tratamiento.md` | `e8a9f52ade5ea2785bac7f2c79976b1d7d57ad73710d1b752ae5ed9a8cf87b6e` | Coincide |
+
+## Revalidación puntual del runtime staging — 2026-11-26 23:41 UTC
+
+- Consultas read-only a Cloud Functions v2 confirmaron las cuatro funciones
+  legales `ACTIVE`, con runtime Node.js 22, las revisiones `00005` existentes y
+  `allTrafficOnLatestRevision=true`. Las cuatro siguen usando
+  `saas-legal-runtime@micafe-pos-staging.iam.gserviceaccount.com`.
+- La política IAM de `micafe-pos-staging` conserva para esa cuenta un único
+  binding de proyecto: `projects/micafe-pos-staging/roles/saasLegalRuntime`.
+  El rol contiene exactamente `datastore.databases.get`,
+  `datastore.entities.create`, `datastore.entities.delete`,
+  `datastore.entities.get`, `datastore.entities.list`,
+  `datastore.entities.update` y `firebaseauth.users.get`.
+- Una consulta read-only de Cloud Logging no encontró entradas `ERROR` de
+  Cloud Run desde la hora de despliegue. Una búsqueda de Admin Activity para
+  `GenerateServiceIdentity` tampoco devolvió eventos. La ausencia de eventos no
+  demuestra por sí sola que no se hayan generado identidades ni acredita las
+  operaciones efectivas de la cuenta; Data Access audit logs siguen sin estar
+  habilitados y no se cambiaron sus ajustes.
+- Las cuatro rutas públicas del bundle v0.6 respondieron `200`. Sus hashes
+  SHA-256 descargados coinciden con los declarados por
+  `lib/legal/legal-bundle.ts`: términos
+  `0f6509480588051f312b37e1bf352ff7c70721857f19ccd56b02640d53ffe059`, política
+  `3b81fed45a99637cd9b6dc5ecd09766544e1161239d8ddcdb183f9b621d4e244`, aviso
+  `42e9338cae72059cad52aeb8c96e0e4946c0fadfd56dedfffa443bd50a7ea8dd` y anexo
+  `e8a9f52ade5ea2785bac7f2c79976b1d7d57ad73710d1b752ae5ed9a8cf87b6e`.
+- El CI del HEAD `02ad1f44a4fe8df91826f43dc278bf213916c1ee` terminó `SUCCESS`
+  en el run `45909939018`; `gh pr checks 706` mostró el check `Tipos y pruebas`
+  en `pass`. #706 continúa `OPEN`/`DRAFT`, con base
+  `aa1c4fece1386edc6ba31b439a2be98ed9216d0b`.
+- Esta revalidación no envió formularios, no escribió ni modificó expedientes,
+  no cambió Rules/IAM ni desplegó servicios. El smoke autenticado positivo,
+  anotación, aislamiento negativo y cierre siguen pendientes; la pantalla de
+  Edge no se manipuló porque no había una URL verificable en el contexto actual.
+  No se realizaron cambios en producción.
