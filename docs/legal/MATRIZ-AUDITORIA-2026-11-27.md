@@ -164,3 +164,13 @@ canales y flujos descritos.
 - Se descargaron en memoria 15 bundles JavaScript referenciados por `/backoffice/privacidad`; uno contiene el rótulo `Referencia interna provisional de respuesta`. Es evidencia de que la actualización de interfaz está en el artefacto servido, no de que un expediente se renderice correctamente bajo una sesión autenticada.
 - Alcance no demostrado: acceso positivo autenticado, aceptación de documentos por un administrador tenant, tramitación completa de un reclamo, aislamiento negativo con dos identidades tenant, y visualización autenticada del vencimiento provisional tras subsanación.
 - No se desplegó producción, Rules, Storage ni codebases ajenos a `saas-legal`, y no se ejecutaron comandos de cambio de IAM ni se alteraron manualmente bindings. El CLI mostró operaciones de aseguramiento/generación de service identities cuyo resultado de creación no se verificó. No se creó ni modificó expediente, recibo de aceptación, exportación o supresión. Los textos permanecen borradores.
+
+## Revalidación pública y smoke de Backoffice — 2026-11-27 15:35 UTC
+
+- GET anónimo a `https://pos.dusema.com/terminos` y al host productivo de App Hosting devolvió `200`, pero el contenido todavía incluye Café Atrato y no muestra el marcador `BORRADOR`. `/privacidad`, `/aviso-autorizacion` y `/anexo-tratamiento` devolvieron `404` en ambos hosts. No se debe publicar el bundle actual como definitivo ni hacer rollout productivo con este estado.
+- En el host correcto de staging, las cuatro rutas legales devolvieron `200`, mostraron Dusema POS y `BORRADOR`, y no incluyeron Café Atrato. `/backoffice/privacidad` devolvió `200` con el HTML inicial sin los marcadores privados comprobados; esto no prueba acceso autenticado.
+- El intento de observar Edge para un smoke autenticado se detuvo antes de interactuar: Computer Use no pudo determinar con suficiente confianza la URL activa. No se hicieron clics, no se ingresaron credenciales y no se leyeron expedientes. El smoke positivo autenticado permanece pendiente.
+- El alias de preview histórico de #706 volvió a devolver `404 DEPLOYMENT_NOT_FOUND` y `vercel inspect` no encontró ese deployment. `vercel ls cafeatrato` enumeró cuatro deployments `production` antiguos; no se modificaron. Esta revalidación no certifica expiración de sus artefactos.
+- Producción, Rules, IAM, datos, recibos, exportaciones y supresiones permanecieron sin cambios.
+
+**Auditoría vigente: NO APROBADO PARA MERGE.** Persisten la publicación legal/factual, ADR-SAAS-107/108, el canal operativo de contacto/entrega, el smoke autenticado, la exportación y supresión reales y la revisión de los deployments de producción Vercel.

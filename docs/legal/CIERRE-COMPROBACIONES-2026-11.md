@@ -1576,3 +1576,13 @@ completa está en [`PROVEEDORES-EVIDENCIA-2026-11.md`](PROVEEDORES-EVIDENCIA-202
   identities cuyo resultado de creación no se verificó. No se creó ni modificó
   expediente, recibo de aceptación, exportación o supresión. Los textos
   permanecen borradores.
+
+## Revalidación pública y smoke de Backoffice — 2026-11-27 15:35 UTC
+
+- GET anónimo a `https://pos.dusema.com/terminos` y al host productivo de App Hosting devolvió `200`, pero el contenido todavía incluye Café Atrato y no muestra el marcador `BORRADOR`. `/privacidad`, `/aviso-autorizacion` y `/anexo-tratamiento` devolvieron `404` en ambos hosts. No se debe publicar el bundle actual como definitivo ni hacer rollout productivo con este estado.
+- En el host correcto de staging, las cuatro rutas legales devolvieron `200`, mostraron Dusema POS y `BORRADOR`, y no incluyeron Café Atrato. `/backoffice/privacidad` devolvió `200` con el HTML inicial sin los marcadores privados comprobados; esto no prueba acceso autenticado.
+- El intento de observar Edge para un smoke autenticado se detuvo antes de interactuar: Computer Use no pudo determinar con suficiente confianza la URL activa. No se hicieron clics, no se ingresaron credenciales y no se leyeron expedientes. El smoke positivo autenticado permanece pendiente.
+- El alias de preview histórico de #706 volvió a devolver `404 DEPLOYMENT_NOT_FOUND` y `vercel inspect` no encontró ese deployment. `vercel ls cafeatrato` enumeró cuatro deployments `production` antiguos; no se modificaron. Esta revalidación no certifica expiración de sus artefactos.
+- Producción, Rules, IAM, datos, recibos, exportaciones y supresiones permanecieron sin cambios.
+
+**Auditoría vigente: NO APROBADO PARA MERGE.** Persisten la publicación legal/factual, ADR-SAAS-107/108, el canal operativo de contacto/entrega, el smoke autenticado, la exportación y supresión reales y la revisión de los deployments de producción Vercel.
