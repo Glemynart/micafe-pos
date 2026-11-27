@@ -42,18 +42,20 @@ el estado en la fecha de cada prueba; no describen la situación de este corte.
 ## Corte de CI y despliegue
 
 - PR #706: abierto y en borrador; base `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`.
-- HEAD remoto que revisa el CI actual: `79460c63442766e5b0117138b2fe4c835e67cc3b`.
-- CI de ese SHA: run `46042405856`, `success`, completado a las 17:58:20 UTC.
-  `gh pr checks 706` muestra todos los checks en verde y ninguno pendiente para
-  ese SHA.
-- La reconciliación local posterior y el resultado del smoke autenticado aún no
-  están en GitHub. Después del push se requiere CI del nuevo SHA antes de
-  considerar el PR actualizado.
+- HEAD remoto del corte previo a esta reconciliación documental:
+  `f736113d28eddcb774856845b4c258e526323093`, sobre
+  `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`; se confirmó que contenía el
+  `main` remoto en ese corte.
+- CI de ese corte `f736113`: run
+  [46050700139](https://github.com/Glemynart/micafe-pos/actions/runs/46050700139),
+  `success`, duración `28m29s`, completado a las 19:05:02 UTC. `gh pr checks 706`
+  confirmó el check verde y sin pendientes. El PR continúa en borrador y no hay
+  revisión aprobatoria.
 - Staging: Rules y las cuatro callables del codebase `saas-legal` se
   desplegaron; las revisiones están listas con 100 % de tráfico y usan la
   identidad runtime dedicada. App Hosting sirve el build
   `build-2026-11-27-003`, creado desde `5f66c146fa0339a16414fa59d6906b348699d97a`.
-  Los cambios del commit `79460c6` son documentales; no se han desplegado como
+  Los commits documentales posteriores a `5f66c14` no se han desplegado como
   código.
 - Smoke anónimo: las rutas públicas cargan y las cuatro callables rechazan
   solicitudes sin autenticación. Smoke autenticado con identidad sintética:
@@ -63,14 +65,28 @@ el estado en la fecha de cada prueba; no describen la situación de este corte.
   `INVALID_ARGUMENT`). Una llamada de aceptación con datos sintéticos válidos
   fue rechazada `FAILED_PRECONDITION` porque el bundle sigue en borrador; no creó
   recibo. Se verificó la eliminación del usuario, membresía y dos documentos
-  sintéticos. El resultado no cubre UI ni exportación; el detalle está en
+  sintéticos. La observación visual adicional en Edge confirmó que una sesión
+  autorizada carga `/backoffice/privacidad`; fue solo lectura, sin enviar el
+  formulario ni consultar un caso. No prueba el flujo UI completo ni exportación;
+  el detalle está en
   [smoke autenticado de staging](SMOKE-AUTENTICADO-STAGING-2026-11-27.md).
-- Producción: sin cambios en este corte. Conserva rutas legales incompletas y
+- Producción: sin cambios. Revalidación GET de las 19:16:58 UTC: `/terminos`
+  sigue identificando Café Atrato, sin `BORRADOR`, y las otras tres rutas
+  legales responden 404. Una expresión regular mal escapada en la consulta
+  anterior generó un falso negativo; se reemplazó por lectura del título y
+  cuerpo HTML. Conserva rutas legales incompletas y
   contenido heredado de Café Atrato; no se debe publicar el bundle v0.6 aún en
-  borrador. GET de solo lectura a las 18:26 UTC: `/terminos` devolvió 200 y
-  contiene Café Atrato sin el marcador `BORRADOR`; las otras tres rutas legales
-  de `pos.dusema.com` devolvieron 404. Detalle en
+  borrador. Detalle en
   [revalidación de producción](PRODUCCION-RUTAS-LEGALES-READONLY-2026-11-27.md).
+- IAM: consulta de solo lectura confirmó que las 117 Functions v2 de producción
+  están activas y usan la cuenta Compute default, que conserva `roles/editor`.
+  Las cuatro Functions legales de staging usan `saas-legal-runtime`; no se
+  modificó IAM en producción. El agente de Firebase App Hosting aparece con
+  `roles/firebaseapphosting.serviceAgent`; la búsqueda de auditoría acotada no
+  encontró eventos `GenerateServiceIdentity`. La existencia del agente hoy no
+  demuestra que la llamada de la incidencia concluyera ni resuelve el error de
+  Cloud Run. Evidencia en
+  [revisión IAM runtime](IAM-RUNTIME-PRODUCCION-READONLY-2026-11-27.md).
 - Vercel: no hay previews activos en el listado actual; tres URLs históricas
   devuelven 404. Los cuatro deployments `Production/READY` y sus dos aliases
   presentan `Login – Vercel` a solicitudes anónimas. Vercel informa que
@@ -114,20 +130,40 @@ sustituye la revisión jurídica del calendario aplicado a cada caso.
 2. Callable/UI autorizadas para mantener la autoridad del representante y
    completar el flujo de aprobación de ADR 106, con proveedor real solo después
    de verificar sus condiciones.
-3. Smoke autenticado y aislamiento server-side de lectura de estado en staging
-   cerrados con fixture sintético. Continúa pendiente validar UI autenticada de
-   Backoffice y el flujo de reclamos/consultas.
+3. Smoke server-side sintético de autenticación, rechazo de aceptación en
+   borrador e aislamiento tenant, además de render autenticado read-only de la
+   pantalla de reclamos, verificados en staging. Sigue sin ejecutarse el flujo
+   completo de UI para reclamos/consultas ni aceptación exitosa.
 4. Certificación controlada de exportación integral con instrucción verificable,
    incluidos archivos e históricos, y de supresión por categorías/respaldos. No
    se accedió a payloads reales ni se borró información.
-5. Resolver el uso residual de Vercel Hobby y los cuatro deployments protegidos
-   de producción, sin inferir que SSO o detener futuros despliegues los elimina.
-6. CI verde para el HEAD `79460c6`; el commit local posterior aún requiere push
-   y su propio CI. Sigue pendiente una nueva auditoría del PR; no se declara
-   `APROBADO PARA MERGE` hasta cerrar los gates requeridos.
+5. Vercel: el listado actual no muestra previews activos y las muestras
+   históricas revisadas devuelven 404; siguen sin verificarse el plan/retención
+   interna y el ciclo de expiración de artefactos.
+6. PR #706 tiene CI verde en `f736113`, pero sigue en borrador. La auditoría
+   final continúa `NO APROBADO PARA MERGE` por documentos en borrador, flujo de
+   contacto/canal no operativo, falta de certificación real de exportación y
+   supresión, y riesgo IAM de producción.
 
 **Auditoría de este corte: NO APROBADO PARA MERGE.** No hubo exportación,
 aceptación o supresión real, ni despliegue productivo.
+
+## Revalidación autenticada/IAM/producción — 2026-11-27 19:16 UTC
+
+- La pantalla `/backoffice/privacidad` cargó en Edge contra staging con el badge
+  `Operador autorizado`. Observación de solo lectura; no se accionó el formulario
+  sintético visible ni se consultaron expedientes. No demuestra que el ciclo de
+  tramitación funcione por UI.
+- `gcloud functions list` confirmó las cuatro Functions legales en staging con
+  runtime dedicado. La consulta de producción confirmó 117/117 Functions con la
+  cuenta Compute default, vinculada a `roles/editor`. No se alteraron permisos.
+- Las rutas legales productivas se revisaron de nuevo: `/terminos` sigue
+  mostrando Café Atrato y las otras tres rutas legales continúan en 404.
+- El CI del corte previo `f736113` terminó success en `46050700139` (28m29s); en
+  ese corte, branch y base estaban sincronizados. El PR continúa en draft; este
+  párrafo documenta evidencia actualizada y no cambia la auditoría
+  `NO APROBADO PARA MERGE`.
+- Evidencia IAM: [inventario runtime de Functions](IAM-RUNTIME-PRODUCCION-READONLY-2026-11-27.md).
 
 ## Fuentes oficiales revisadas
 

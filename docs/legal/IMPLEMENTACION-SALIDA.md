@@ -242,3 +242,25 @@ HTTP 400. La aceptación fue rechazada como `FAILED_PRECONDITION` por bundle en
 borrador y no dejó recibos. El cleanup de Auth y Firestore se verificó. La UI
 autenticada, el flujo de reclamos y la aceptación exitosa no quedan certificados. Ver
 [`SMOKE-AUTENTICADO-STAGING-2026-11-27.md`](evidence/SMOKE-AUTENTICADO-STAGING-2026-11-27.md).
+
+## Revalidación de release — 2026-11-27 19:16 UTC
+
+- La pantalla `/backoffice/privacidad` cargó en Edge contra staging y mostró el
+  badge `Operador autorizado`. Inspección visual de solo lectura: no se envió
+  el formulario sintético ni se consultó un expediente; el ciclo UI de reclamos
+  sigue sin certificar.
+- CI de PR #706 HEAD `f736113d28eddcb774856845b4c258e526323093` terminó success en
+  `46050700139` (28m29s), sin checks pendientes. El PR permanece abierto/en
+  draft y no se aprobó para merge.
+- Lectura IAM read-only: 117/117 Functions v2 de producción activas con la
+  cuenta Compute default y `roles/editor`. Las cuatro Functions legales de
+  staging usan `saas-legal-runtime`. El agente de Firebase App Hosting aparece
+  vinculado a `roles/firebaseapphosting.serviceAgent`; no hubo eventos
+  `GenerateServiceIdentity` en la consulta acotada. Esto no prueba que la
+  llamada original terminara correctamente ni que el error interno de Cloud Run
+  se haya resuelto. No se tocaron permisos productivos. Ver
+  [`IAM-RUNTIME-PRODUCCION-READONLY-2026-11-27.md`](evidence/IAM-RUNTIME-PRODUCCION-READONLY-2026-11-27.md).
+- Producción continúa sin rollout: `/terminos` sirve Café Atrato, y
+  `/privacidad`, `/aviso-autorizacion` y `/anexo-tratamiento` responden 404.
+  Se corrigió en la evidencia un falso negativo de una expresión regular mal
+  escapada; la lectura directa del título/cuerpo confirma el estado anterior.

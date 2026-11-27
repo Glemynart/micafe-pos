@@ -16,6 +16,7 @@ correos, no se aceptaron documentos y no se consultó información de clientes.
 | Intento de pasar `empresaId` B a la callable | HTTP 400, `INVALID_ARGUMENT` |
 | Intento de aceptación sintética del bundle actual | HTTP 400, `FAILED_PRECONDITION`; cero recibos creados |
 | Limpieza de usuario, membresía y ambos tenants | Verificada: no quedaron documentos ni usuario |
+| Render autenticado de `/backoffice/privacidad` en staging, observado en Edge | PASS de solo lectura; badge `Operador autorizado` y formulario visibles; sin enviar el formulario ni consultar detalle de casos |
 
 El estado `PREPARACION` es el esperado: los documentos legales siguen como
 borradores y el flujo no habilitó aceptación real. La llamada de aceptación
@@ -40,11 +41,14 @@ respondió `INVALID_ARGUMENT`, sin crear recibo, y la limpieza pasó. Se corrigi
 el arnés y la repetición alcanzó `FAILED_PRECONDITION`, cero recibos y cleanup
 verificado.
 
-Este resultado prueba autenticación y aislamiento server-side para la lectura
-de estado legal en staging. No prueba render autenticado de Backoffice, aceptación,
-reclamos, exportación/supresión, entrega externa, cuentas reales ni producción.
-No se modifica la conclusión del PR: la auditoría sigue `NO APROBADO PARA MERGE`
-mientras estén abiertos los gates jurídicos, factuales y de salida de datos.
+El smoke server-side prueba autenticación y aislamiento de lectura de estado
+legal en staging. La observación adicional confirma que una sesión autorizada
+puede cargar la pantalla de reclamos; no valida acciones desde UI ni el ciclo
+completo del reclamo. No hubo clics de envío, lectura de detalle ni exposición
+de expediente. Ninguno de los dos resultados prueba aceptación contractual
+exitosa, exportación/supresión, entrega externa, cuentas reales ni producción.
+La auditoría sigue `NO APROBADO PARA MERGE` mientras falten aprobación/factualidad
+documental y gates reales de exportación, supresión y contacto.
 
 ## Fuentes técnicas oficiales
 

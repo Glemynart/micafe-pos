@@ -15,3 +15,20 @@ La presencia simultánea de Dusema POS en `/terminos` no elimina el contenido
 heredado de Café Atrato. Producción no está lista para publicar el bundle legal
 del PR #706 mientras los textos sigan en borrador y las rutas no estén
 reconciliadas.
+
+## Revalidación
+
+Segunda consulta GET de solo lectura: `2026-11-27T19:16:58.869Z`.
+
+| URL | HTTP | Observación del contenido |
+| --- | ---: | --- |
+| `https://pos.dusema.com/terminos` | 200 | `<title>` y cuerpo identifican Café Atrato; no contiene `BORRADOR` |
+| `https://pos.dusema.com/privacidad` | 404 | Ruta no publicada |
+| `https://pos.dusema.com/aviso-autorizacion` | 404 | Ruta no publicada |
+| `https://pos.dusema.com/anexo-tratamiento` | 404 | Ruta no publicada |
+| `https://micafe-pos--micafe-pos.us-central1.hosted.app/terminos` | 200 | `<title>` y cuerpo identifican Café Atrato; no contiene `BORRADOR` |
+
+La comprobación de texto inspeccionó el `<title>` y el cuerpo de la respuesta
+HTML. Una prueba anterior con una expresión regular mal escapada produjo un
+falso negativo y queda reemplazada por esta lectura directa. No hubo cambios de
+producción.

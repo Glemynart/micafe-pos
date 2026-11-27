@@ -216,3 +216,28 @@ históricas devolvieron 404. Los cuatro deployments Production y dos aliases
 requieren la pantalla de login de Vercel ante solicitudes anónimas. El dominio
 no está configurado para enrutar a Vercel; no hubo cambios ni borrados. Evidencia:
 [Vercel](evidence/VERCEL-ACCESO-READONLY-2026-11-27.md).
+
+## Revalidación de cierre de turno — 2026-11-27 19:16 UTC
+
+- PR #706 HEAD `f736113d28eddcb774856845b4c258e526323093` mantiene el `main`
+  remoto actual. CI run `46050700139` terminó `success` (28m29s), sin checks
+  pendientes; el PR sigue abierto/en draft.
+- La vista autenticada `/backoffice/privacidad` cargó en staging y mostró
+  `Operador autorizado`; fue inspección de solo lectura, sin enviar el formulario
+  ni consultar casos. Esto verifica render, no la interacción del flujo.
+- Las rutas legales de producción se revalidaron: `/terminos` aún muestra Café
+  Atrato y las otras tres rutas siguen en 404.
+- IAM de producción: 117 Functions activas, todas con cuenta Compute default y
+  `roles/editor`. En staging las cuatro Functions legales sí usan runtime
+  dedicado. El agente Firebase App Hosting tiene el binding esperado
+  `roles/firebaseapphosting.serviceAgent`; la consulta acotada no encontró
+  `GenerateServiceIdentity`. Esto no demuestra que el intento original haya
+  concluido ni que el error interno de Cloud Run esté resuelto. No hubo cambios
+  de IAM.
+- El PR no queda aprobado para merge: documentos en borrador, contacto/canal de
+  exportación sin verificación, exportación/supresión real no certificadas,
+  interacción UI de privacidad incompleta y riesgo IAM productivo pendiente.
+
+Evidencias: [smoke autenticado](evidence/SMOKE-AUTENTICADO-STAGING-2026-11-27.md),
+[rutas productivas](evidence/PRODUCCION-RUTAS-LEGALES-READONLY-2026-11-27.md) y
+[IAM runtime](evidence/IAM-RUNTIME-PRODUCCION-READONLY-2026-11-27.md).
