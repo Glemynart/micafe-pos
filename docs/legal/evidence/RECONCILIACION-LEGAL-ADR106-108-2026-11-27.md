@@ -43,11 +43,12 @@ el estado en la fecha de cada prueba; no describen la situación de este corte.
 
 - PR #706: abierto y en borrador; base `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`.
 - HEAD remoto que revisa el CI actual: `79460c63442766e5b0117138b2fe4c835e67cc3b`.
-- CI de ese SHA: run `46042405856`, en ejecución a las 17:39 UTC del
-  2026-11-27. No se reutiliza como resultado un CI de un SHA anterior.
-- Esta reconciliación y su enlace en la matriz se añadieron en un commit local
-  posterior; aún no están en GitHub. Después del push se requiere CI del nuevo
-  SHA antes de considerar el PR actualizado.
+- CI de ese SHA: run `46042405856`, `success`, completado a las 17:58:20 UTC.
+  `gh pr checks 706` muestra todos los checks en verde y ninguno pendiente para
+  ese SHA.
+- La reconciliación local posterior y el resultado del smoke autenticado aún no
+  están en GitHub. Después del push se requiere CI del nuevo SHA antes de
+  considerar el PR actualizado.
 - Staging: Rules y las cuatro callables del codebase `saas-legal` se
   desplegaron; las revisiones están listas con 100 % de tráfico y usan la
   identidad runtime dedicada. App Hosting sirve el build
@@ -55,7 +56,15 @@ el estado en la fecha de cada prueba; no describen la situación de este corte.
   Los cambios del commit `79460c6` son documentales; no se han desplegado como
   código.
 - Smoke anónimo: las rutas públicas cargan y las cuatro callables rechazan
-  solicitudes sin autenticación. Esto no prueba un flujo positivo autenticado.
+  solicitudes sin autenticación. Smoke autenticado con identidad sintética:
+  `consultarEstadoLegalTenant` devolvió HTTP 200 para el tenant del token,
+  Rules permitió la lectura del tenant propio (200) y denegó el tenant ajeno
+  (403); un `empresaId` suministrado por cliente se rechazó (400
+  `INVALID_ARGUMENT`). Una llamada de aceptación con datos sintéticos válidos
+  fue rechazada `FAILED_PRECONDITION` porque el bundle sigue en borrador; no creó
+  recibo. Se verificó la eliminación del usuario, membresía y dos documentos
+  sintéticos. El resultado no cubre UI ni exportación; el detalle está en
+  [smoke autenticado de staging](SMOKE-AUTENTICADO-STAGING-2026-11-27.md).
 - Producción: sin cambios en este corte. Conserva rutas legales incompletas y
   contenido heredado de Café Atrato; no se debe publicar el bundle v0.6 aún en
   borrador.
@@ -98,15 +107,17 @@ sustituye la revisión jurídica del calendario aplicado a cada caso.
 2. Callable/UI autorizadas para mantener la autoridad del representante y
    completar el flujo de aprobación de ADR 106, con proveedor real solo después
    de verificar sus condiciones.
-3. Smoke positivo autenticado y aislamiento en staging. No se pudo usar el
-   control de Edge; ningún dato o credencial fue leído o introducido.
+3. Smoke autenticado y aislamiento server-side de lectura de estado en staging
+   cerrados con fixture sintético. Continúa pendiente validar UI autenticada de
+   Backoffice y el flujo de reclamos/consultas.
 4. Certificación controlada de exportación integral con instrucción verificable,
    incluidos archivos e históricos, y de supresión por categorías/respaldos. No
    se accedió a payloads reales ni se borró información.
 5. Resolver el uso residual de Vercel Hobby y los cuatro deployments protegidos
    de producción, sin inferir que SSO o detener futuros despliegues los elimina.
-6. CI verde para el HEAD `79460c6`; después, una nueva auditoría del PR. No se
-   declara `APROBADO PARA MERGE` hasta cerrar los gates requeridos.
+6. CI verde para el HEAD `79460c6`; el commit local posterior aún requiere push
+   y su propio CI. Sigue pendiente una nueva auditoría del PR; no se declara
+   `APROBADO PARA MERGE` hasta cerrar los gates requeridos.
 
 **Auditoría de este corte: NO APROBADO PARA MERGE.** No hubo exportación,
 aceptación o supresión real, ni despliegue productivo.

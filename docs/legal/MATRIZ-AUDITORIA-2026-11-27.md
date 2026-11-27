@@ -191,3 +191,17 @@ canales y flujos descritos.
 La reconciliación posterior de los estados de ADR-SAAS-106/107/108, el CI
 actual, el rollout `5f66c14` y los gates restantes está en
 [reconciliación legal 2026-11-27](evidence/RECONCILIACION-LEGAL-ADR106-108-2026-11-27.md).
+
+## Smoke autenticado adicional — 2026-11-27
+
+El recorrido server-side de lectura legal y aislamiento de tenant en staging
+pasó con un usuario sintético. Callable del tenant propio: `200`; Firestore
+Rules permitió lectura propia (`200`) y denegó otro tenant (`403`); la callable
+rechazó el tenant indicado por el cliente (`400 INVALID_ARGUMENT`). Se verificó
+la limpieza de Auth y Firestore. Una aceptación sintética completa fue rechazada
+con `FAILED_PRECONDITION` mientras el bundle permanece en borrador, sin crear
+recibo. No cubre Backoffice/UI, aceptación exitosa, exportación, supresión ni
+producción. Evidencia: [smoke autenticado de staging](evidence/SMOKE-AUTENTICADO-STAGING-2026-11-27.md).
+
+La auditoría continúa `NO APROBADO PARA MERGE` mientras sigan abiertos los gates
+jurídicos, factuales, del canal/contacto y de exportación/supresión.

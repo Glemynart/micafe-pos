@@ -232,3 +232,13 @@ productivo que todavía muestra Café Atrato en `/terminos`. Detalle en
 La reconciliación del estado vigente de ADR-SAAS-106/107/108, CI, staging y
 los gates legales/operativos posteriores está en
 [`RECONCILIACION-LEGAL-ADR106-108-2026-11-27.md`](evidence/RECONCILIACION-LEGAL-ADR106-108-2026-11-27.md).
+
+## Smoke autenticado de lectura — 2026-11-27
+
+Después de ese corte se completó una prueba server-side autenticada en staging
+con usuario, tenant y membresía sintéticos: lectura del tenant propio HTTP 200,
+lectura del tenant ajeno HTTP 403 y rechazo de selección de tenant en la callable
+HTTP 400. La aceptación fue rechazada como `FAILED_PRECONDITION` por bundle en
+borrador y no dejó recibos. El cleanup de Auth y Firestore se verificó. La UI
+autenticada, el flujo de reclamos y la aceptación exitosa no quedan certificados. Ver
+[`SMOKE-AUTENTICADO-STAGING-2026-11-27.md`](evidence/SMOKE-AUTENTICADO-STAGING-2026-11-27.md).

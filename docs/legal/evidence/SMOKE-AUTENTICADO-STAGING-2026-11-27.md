@@ -1,0 +1,52 @@
+# Smoke autenticado de aceptación legal — staging — 2026-11-27
+
+## Resultado
+
+**PASS técnico acotado** en `micafe-pos-staging`. Se usó un usuario Auth
+sintético temporal, dos documentos `empresas` sintéticos y una membresía
+sintética `admin`. No se usó la cuenta ni la sesión de Diana; no se enviaron
+correos, no se aceptaron documentos y no se consultó información de clientes.
+
+| Comprobación | Resultado |
+| --- | --- |
+| ID token temporal con claims del tenant A | Verificado por Firebase Admin |
+| `consultarEstadoLegalTenant` autenticada para A | HTTP 200; devolvió A y estado `PREPARACION` |
+| Lectura Firestore del tenant propio A con Firebase ID token | HTTP 200 |
+| Lectura del tenant sintético B con el token de A | HTTP 403 denegado por Rules |
+| Intento de pasar `empresaId` B a la callable | HTTP 400, `INVALID_ARGUMENT` |
+| Intento de aceptación sintética del bundle actual | HTTP 400, `FAILED_PRECONDITION`; cero recibos creados |
+| Limpieza de usuario, membresía y ambos tenants | Verificada: no quedaron documentos ni usuario |
+
+El estado `PREPARACION` es el esperado: los documentos legales siguen como
+borradores y el flujo no habilitó aceptación real. La llamada de aceptación
+incluyó flags y referencias con formato válido; el servidor la rechazó por
+bundle no publicable antes de crear el recibo.
+
+## Procedimiento y límites
+
+El fixture se creó en el proyecto de staging, autenticó una identidad temporal,
+ejercitó la callable y Firestore Rules con un Firebase ID token, y limpió los
+recursos en un bloque `finally`. La limpieza volvió a consultar Auth y Firestore
+para verificar que la identidad, membresía y documentos ya no existían. El
+correo usó un dominio reservado para ejemplos; no se configuró ni ejecutó envío.
+
+Dos intentos iniciales con la variante de custom token terminaron localmente en
+`auth/invalid-credential` antes de invocar la callable; su limpieza también se
+verificó. Se cambió a una identidad temporal con contraseña aleatoria en memoria
+y el mismo smoke terminó en PASS. La contraseña y el ID token no se guardaron ni
+se imprimieron. En la prueba de barrera de aceptación, el primer intento del
+arnés llamó por error al endpoint de aceptación durante el preflight de estado;
+respondió `INVALID_ARGUMENT`, sin crear recibo, y la limpieza pasó. Se corrigió
+el arnés y la repetición alcanzó `FAILED_PRECONDITION`, cero recibos y cleanup
+verificado.
+
+Este resultado prueba autenticación y aislamiento server-side para la lectura
+de estado legal en staging. No prueba render autenticado de Backoffice, aceptación,
+reclamos, exportación/supresión, entrega externa, cuentas reales ni producción.
+No se modifica la conclusión del PR: la auditoría sigue `NO APROBADO PARA MERGE`
+mientras estén abiertos los gates jurídicos, factuales y de salida de datos.
+
+## Fuentes técnicas oficiales
+
+- [Firebase Auth REST API](https://firebase.google.com/docs/reference/rest/auth), intercambio temporal email/password por ID token.
+- [Cloud Firestore REST API](https://firebase.google.com/docs/firestore/use-rest-api), Firebase ID tokens se autorizan mediante Firestore Security Rules.
