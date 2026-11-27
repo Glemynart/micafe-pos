@@ -228,3 +228,7 @@ canal y contacto reales, smoke autenticado/aislamiento, certificación de
 exportación integral/supresión, artefactos Vercel y la resolución del servicio
 productivo que todavía muestra Café Atrato en `/terminos`. Detalle en
 [`ROLLOUT-STAGING-LEGAL-PR706-5F66C14-2026-11-27.md`](evidence/ROLLOUT-STAGING-LEGAL-PR706-5F66C14-2026-11-27.md).
+
+La reconciliación del estado vigente de ADR-SAAS-106/107/108, CI, staging y
+los gates legales/operativos posteriores está en
+[`RECONCILIACION-LEGAL-ADR106-108-2026-11-27.md`](evidence/RECONCILIACION-LEGAL-ADR106-108-2026-11-27.md).

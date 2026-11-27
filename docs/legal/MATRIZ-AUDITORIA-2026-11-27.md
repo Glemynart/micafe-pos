@@ -187,3 +187,7 @@ canales y flujos descritos.
 - Evidencia completa: [rollout controlado de staging](evidence/ROLLOUT-STAGING-LEGAL-PR706-5F66C14-2026-11-27.md).
 
 **Auditoría vigente: NO APROBADO PARA MERGE.** Continúan sin cerrar la aprobación jurídica/factual, el canal y contacto verificables, el smoke autenticado, la certificación de exportación/supresión reales y los artefactos Vercel históricos.
+
+La reconciliación posterior de los estados de ADR-SAAS-106/107/108, el CI
+actual, el rollout `5f66c14` y los gates restantes está en
+[reconciliación legal 2026-11-27](evidence/RECONCILIACION-LEGAL-ADR106-108-2026-11-27.md).
