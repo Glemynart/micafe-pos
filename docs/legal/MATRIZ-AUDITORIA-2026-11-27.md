@@ -1,6 +1,6 @@
 # Matriz de auditoría — cumplimiento y liberación
 
-**Corte:** 2026-11-27 (America/Bogota)
+**Corte:** 2026-11-27 09:05 UTC (America/Bogota)
 **Goal / Milestone / Epic:** G-SAAS-02 / M2 / E2.2
 **Rama y PR:** `codex/e2-2-legal-acceptance`, #706
 **Alcance:** comprobación de evidencias disponibles. No es concepto jurídico,
@@ -11,7 +11,7 @@ reales o desplegar a producción.
 
 | Requisito | Estado y evidencia | Riesgo o límite | Criterio de cierre |
 |---|---|---|---|
-| PR #706 y CI | PR abierto y en borrador, base `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`, HEAD `b535bf0f8c4686495dc9b5f1c517a58dcd00ef1a`. El run [45965710674](https://github.com/Glemynart/micafe-pos/actions/runs/45965710674) terminó `success`; `gh pr checks 706` no mostró checks pendientes al 2026-11-27. | La descripción del PR todavía cita HEAD/run anteriores. La actualización automatizada se bloqueó por revisión de aprobación; no se intentó otra vía. `CLEAN` en GitHub y CI verde no sustituyen los gates funcionales, documentales y de auditoría. | Actualizar descripción/evidencia mediante un mecanismo autorizado; cerrar gates de esta matriz; repetir auditoría y confirmar checks del HEAD final antes de integrar. |
+| PR #706 y CI | PR abierto y en borrador, base `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`, HEAD observado `f918db33afc233835126c5b2056335a8df2a0c1e`. El run [45969976228](https://github.com/Glemynart/micafe-pos/actions/runs/45969976228) seguía `in_progress` al corte. El HEAD anterior `b535bf0` sí tuvo CI `success` en el run `45965710674`. | La descripción del PR todavía cita HEAD/run anteriores. La actualización automatizada se bloqueó por revisión de aprobación; no se intentó otra vía. El estado GitHub era `BLOCKED`; la CI pendiente tampoco permite evaluar el commit actual. | Actualizar descripción/evidencia mediante un mecanismo autorizado; cerrar gates de esta matriz; repetir auditoría y confirmar checks del HEAD final antes de integrar. |
 | Textos legales | Bundle `dusema-pos-2026-11-v0.6` permanece `PREPARACION`; los cuatro documentos están en estado `BORRADOR` en `lib/legal/legal-bundle.ts`. En staging, las rutas públicas consultadas para términos y política devolvieron 200 y conservan marcador de borrador. La evidencia del 26-nov documenta hashes coincidentes para los cuatro archivos servidos. | Los documentos no son vigentes ni exigibles. Persisten afirmaciones de operación/proveedores y puntos de interpretación legal que requieren revisión apropiada. No se declara aprobación jurídica. | Contrastar cada afirmación con operación y contratos vigentes, cerrar hechos/canales, revisión jurídica y aprobación empresarial; versionar y publicar solo después. |
 | Documentos en producción | `https://pos.dusema.com/terminos` respondió 200, pero su contenido todavía contiene la marca Café Atrato. La ruta `/legal/v0.6/terminos-servicio.md` devolvió 404. | El texto productivo visible no representa el borrador Dusema actual y podría confundir a clientes. No se cambió ni se publicó nada en esta auditoría. | Preparar un corte de publicación coherente con documentos aprobados; validar rutas y contenido en staging antes de un despliegue autorizado. |
 | Aceptación electrónica | El código de aceptación versionada está en #706. En producción aparecen `aceptarDocumentosLegalesTenant` y `consultarEstadoLegalTenant` como `ACTIVE`; esto no prueba recorrido autenticado ni aceptación de documentos definitivos. | No se activó ni verificó aceptación real en producción; los documentos continúan en borrador. | Probar en staging la lectura, aceptación sintética, historial, reaceptación y bloqueo aplicable con bundle aprobado; comprobar producción solo tras aprobar/publicar documentos. |
@@ -40,8 +40,9 @@ completar los gates operativos independientes.
 
 ## Resultado de auditoría
 
-**NO APROBADO PARA MERGE.** Aunque el CI exacto del HEAD está en verde y el PR
-aparece `CLEAN`, siguen abiertos los gates de Rules, smoke autenticado actual,
-atribución IAM, autorización verificable de exportación, revisión factual/legal,
-Vercel y descripción/evidencia del PR. No se desplegó ni modificó producción;
-no se exportaron ni borraron datos reales.
+**NO APROBADO PARA MERGE.** Al corte, el CI del HEAD observado `f918db3` seguía
+pendiente y el PR aparecía `BLOCKED` y en borrador. También siguen abiertos los
+gates de Rules, smoke autenticado actual, atribución IAM, autorización
+verificable de exportación, revisión factual/legal, Vercel y descripción/evidencia
+del PR. No se desplegó ni modificó producción; no se exportaron ni borraron
+datos reales.
