@@ -174,3 +174,16 @@ canales y flujos descritos.
 - Producción, Rules, IAM, datos, recibos, exportaciones y supresiones permanecieron sin cambios.
 
 **Auditoría vigente: NO APROBADO PARA MERGE.** Persisten la publicación legal/factual, ADR-SAAS-107/108, el canal operativo de contacto/entrega, el smoke autenticado, la exportación y supresión reales y la revisión de los deployments de producción Vercel.
+
+## Revalidación posterior — rollout `5f66c14` en staging, 2026-11-27 17:24 UTC
+
+- El CI del SHA `5f66c146fa0339a16414fa59d6906b348699d97a` terminó `success` en el run `46036507027` (27m45s). La rama contiene `main@aa1c4fe`; PR #706 sigue abierto/en borrador.
+- Firestore Rules se desplegaron con éxito a staging. La lectura independiente de release devolvió 403; se conserva la salida del CLI y la validación local 52/52, sin afirmar que se haya cotejado el hash remoto.
+- Las cuatro Functions `saas-legal` están `ACTIVE/READY`, revisiones `00007`, 100 % de tráfico, identidad runtime `saas-legal-runtime`. POST anónimo a cada callable devolvió HTTP 401.
+- App Hosting build `build-2026-11-27-003` está `READY`, rollout `SUCCEEDED`; la revisión exacta del SHA `5f66c14` recibe 100 % del tráfico de staging. Automáticos siguen desactivados.
+- Cuatro páginas legales respondieron HTTP 200 y los bytes de los cuatro markdown v0.6 coincidieron con los hashes de bundle. Siguen marcados `BORRADOR`; ninguna aceptación real fue activada.
+- El smoke autenticado positivo no se ejecutó por fallo de Computer Use al determinar la URL de Edge. Producción permaneció en `build-2026-11-24-002`; `/terminos` aún muestra Café Atrato y tres rutas legales siguen 404. No se desplegó producción ni se leyeron/exportaron/suprimieron datos reales.
+- El CLI informó que solicitó asegurar APIs y generar/verificar identidades Pub/Sub/Eventarc. La consulta de auditoría no encontró eventos `GenerateServiceIdentity`; esa ausencia no demuestra que no hubiera efecto. No se modificaron bindings manualmente; el runtime legal conserva solo su rol custom acotado.
+- Evidencia completa: [rollout controlado de staging](evidence/ROLLOUT-STAGING-LEGAL-PR706-5F66C14-2026-11-27.md).
+
+**Auditoría vigente: NO APROBADO PARA MERGE.** Continúan sin cerrar la aprobación jurídica/factual, el canal y contacto verificables, el smoke autenticado, la certificación de exportación/supresión reales y los artefactos Vercel históricos.

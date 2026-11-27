@@ -202,3 +202,29 @@ exportación, argumentos CLI, reconciliación y autorización aprobaron; una pru
 adicional con Firestore Emulator usó dos tenants sintéticos y aprobó. El primer
 intento del Emulator tomó JDK 17 del PATH y falló; se repitió con el JDK 21
 instalado y pasó. No hubo smoke autenticado en staging ni lectura de datos reales.
+
+## Revalidación y rollout en staging — 2026-11-27 17:24 UTC
+
+El CI `46036507027` pasó para `5f66c146fa0339a16414fa59d6906b348699d97a`.
+Luego se desplegaron, solo en `micafe-pos-staging`, Firestore Rules y el codebase
+`saas-legal`; sus cuatro callables quedaron `ACTIVE/READY` con la identidad
+runtime dedicada y 100 % de tráfico. Los POST anónimos devolvieron 401. App
+Hosting construyó `build-2026-11-27-003` desde el SHA exacto; el rollout quedó
+`SUCCEEDED` y su revisión recibe 100 % del tráfico. Las cuatro rutas legales y
+los cuatro archivos v0.6 responden 200; los hashes del contenido servido
+coinciden con el bundle y los textos continúan explícitamente como borradores.
+
+La lectura REST del release de Rules fue denegada (403), por lo que no se afirma
+cotejo remoto byte por byte; sí se conserva el resultado `Deploy complete` de
+Firebase CLI y las pruebas Rules 52/52. El CLI anunció generación/verificación
+de identidades Pub/Sub/Eventarc; no se encontraron eventos de auditoría
+`GenerateServiceIdentity`, lo cual no demuestra que no hubiera efecto. No se
+modificaron bindings IAM manualmente.
+
+El smoke autenticado positivo no se completó: Computer Use terminó antes de
+interactuar porque no pudo determinar con suficiente confianza la URL de Edge.
+Producción no se modificó. Permanecen pendientes aprobación jurídica/factual,
+canal y contacto reales, smoke autenticado/aislamiento, certificación de
+exportación integral/supresión, artefactos Vercel y la resolución del servicio
+productivo que todavía muestra Café Atrato en `/terminos`. Detalle en
+[`ROLLOUT-STAGING-LEGAL-PR706-5F66C14-2026-11-27.md`](evidence/ROLLOUT-STAGING-LEGAL-PR706-5F66C14-2026-11-27.md).
