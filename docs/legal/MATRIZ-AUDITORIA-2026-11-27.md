@@ -1,13 +1,13 @@
 # Matriz de auditoría — cumplimiento y liberación
 
-**Corte:** 2026-11-27 10:33 UTC (America/Bogota)
+**Corte inicial:** 2026-11-27 10:33 UTC. La revalidación operativa más reciente está al final de este archivo.
 **Goal / Milestone / Epic:** G-SAAS-02 / M2 / E2.2
 **Rama y PR:** `codex/e2-2-legal-acceptance`, #706
 **Alcance:** comprobación de evidencias disponibles. No es concepto jurídico,
 certificación integral de seguridad ni autorización para exportar/borrar datos
 reales o desplegar a producción.
 
-## Estado comprobado
+## Estado comprobado al corte inicial
 
 | Requisito | Estado y evidencia | Riesgo o límite | Criterio de cierre |
 |---|---|---|---|
@@ -115,3 +115,16 @@ canales y flujos descritos.
   descritos, queda señalado el cómputo de respuesta para reclamos que llegan
   incompletos, el canal de PQR de consumo si aplica, la revisión factual/jurídica,
   Vercel y el smoke de los recorridos de aceptación y privacidad en staging.
+
+## Revalidación operativa posterior al rollout — 2026-11-27
+
+- PR #706 permanece abierto y en borrador, base `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`, HEAD `63ac1a0cf51f0a5ee9476af60eff49c3ff8bfc45`. CI `45998132167` pasó; GitHub reporta `CLEAN`, sin revisión humana registrada. El check `App Hosting - Rollout (micafe-pos-staging/us-central1/micafe-pos)` también pasó.
+- Se creó manualmente en App Hosting staging el build `build-2026-11-27-001` desde ese SHA exacto. Está `READY`, su rollout está `SUCCEEDED` y Cloud Run asigna 100 % del tráfico a `micafe-pos-build-2026-11-27-001`. El build anterior `build-2026-11-26-003` estaba `READY` antes del cambio y sigue disponible para rollback.
+- Prueba anónima de solo lectura: `/terminos`, `/privacidad`, `/aviso-autorizacion` y `/anexo-tratamiento` responden 200, presentan marca Dusema, muestran `BORRADOR` y no contienen la marca Café Atrato. No se enviaron formularios ni se escribieron recibos de aceptación o casos.
+- La lectura de producción posterior al rollout confirma que no cambió: Cloud Run sirve `micafe-pos-build-2026-11-24-002` al 100 %. `/terminos` aún muestra Café Atrato y las otras tres rutas responden 404. No se hizo rollout a producción porque el bundle continúa en preparación y sus documentos no están aprobados/publicados.
+- En el anexo estático v0.6 se exige completar por tenant una ficha con representante/facultad, alcance e instrucciones, subencargados/regiones, controles y condiciones de salida. La UI actual registra el bundle estático y el snapshot comercial, pero no esa ficha versionada. La aceptación debe seguir bloqueada hasta resolver el modelo y su evidencia. La UI además advierte que el precio del snapshot no determina si incluye IVA u otros cargos; no se infiere ese dato.
+- La sesión disponible de Backoffice en staging es de operador de plataforma, no de administrador tenant. El acceso anterior a `/admin/documentos-legales` fue denegado por falta de sesión tenant; por tanto, este rollout no certifica la aceptación autenticada. No se elevó el rol ni se crearon credenciales.
+- Estas acciones solo tocaron App Hosting staging y la descripción del PR. No se desplegaron Functions, Rules, IAM ni recursos productivos, y no se exportaron, entregaron o suprimieron datos reales.
+- ADR-SAAS-106 alternativa A sigue aceptado para implementación controlada. ADR-SAAS-107 continúa `Propuesto`; su aprobación para crear la autoridad versionada del representante sigue pendiente. El canal externo, la autorización real de exportación, la exportación integral con archivos/históricos, la supresión productiva y la revisión jurídica/empresarial también permanecen sin certificar.
+
+**Auditoría actual: NO APROBADO PARA MERGE.** El verde de CI y de App Hosting no cierra los gates legales, de modelo tenant-específico, de aceptación autenticada, contacto/canal, exportación/supresión real, Vercel ni atribución IAM productiva.
