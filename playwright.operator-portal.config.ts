@@ -28,7 +28,8 @@ export default defineConfig({
   ],
   globalSetup: "./tests/e2e/operator-portal/global-setup.ts",
   webServer: {
-    command: "cross-env NEXT_PUBLIC_USE_EMULATORS=1 next dev -H 127.0.0.1 -p 3001",
+    command: "node node_modules/next/dist/bin/next dev -H 127.0.0.1 -p 3001",
+    env: { NEXT_PUBLIC_USE_EMULATORS: "1" },
     url: `${baseURL}/backoffice/login`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
