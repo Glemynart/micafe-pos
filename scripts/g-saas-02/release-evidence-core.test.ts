@@ -198,7 +198,10 @@ test("Rules y Storage desplegadas con drift no se consideran evidencia independi
   assert.equal(result.status, "INCOMPLETE");
   assert.equal(result.external.rules, "MISMATCH");
   assert.equal(result.external.storage, "MISMATCH");
-  assert.match(result.checks.find((check) => check.id === "STORAGE_INDEPENDENT_ATTESTATION")?.message ?? "", /no coinciden/);
+  assert.match(
+    result.checks.find((check) => check.id === "STORAGE_INDEPENDENT_ATTESTATION")?.message ?? "",
+    /fuente local comparada para este corte/,
+  );
 });
 
 test("un punto de recovery observado no sustituye el ensayo de recuperación", () => {

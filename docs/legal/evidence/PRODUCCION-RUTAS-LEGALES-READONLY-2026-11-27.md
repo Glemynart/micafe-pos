@@ -71,3 +71,20 @@ marcador de borrador.
 La lectura fue únicamente HTTP pública; no acredita el recorrido de aceptación
 autenticado ni la versión de código desplegada en staging. Producción permanece
 sin cambios.
+
+## Causa técnica de las rutas — 2026-11-27T22:19Z
+
+La versión productiva observada por el colector de release es
+`build-2026-11-24-002`, construida desde `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`.
+La inspección de ese árbol confirmó que `app/terminos/page.tsx` todavía contiene
+el documento anterior de Café Atrato y que las páginas de `/privacidad`,
+`/aviso-autorizacion` y `/anexo-tratamiento` no existen en ese `main`. En el
+candidato #706, `/terminos` ya usa el componente de documentos Dusema y se
+añaden las otras tres páginas. El backend de staging desplegado desde
+`5f66c146` sirve las cuatro rutas como Dusema POS, marcadas `BORRADOR`.
+
+Esto atribuye el resultado productivo a que el corte de #706 no está desplegado,
+no a una ruta faltante en el candidato. La restricción de release sigue vigente:
+no se publica en producción mientras los documentos no tengan aprobación
+jurídica y factual. La prueba de staging no habilita aceptación real ni cambia
+producción.

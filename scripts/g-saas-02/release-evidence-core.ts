@@ -169,7 +169,7 @@ function rulesMessage(
   status: ReleaseEvidenceStatus,
 ): string {
   if (status === "PASS") return `${name} desplegadas coinciden con la fuente versionada observada.`;
-  if (status === "MISMATCH") return `${name} desplegadas no coinciden con la fuente versionada de origin/main.`;
+  if (status === "MISMATCH") return `${name} desplegadas no coinciden con la fuente local comparada para este corte.`;
   if (status === "DECLARED_NOT_VERIFIED") return `Existe una referencia declarada de ${name}, pero no fue verificada independientemente.`;
   return `Falta evidencia independiente de ${name}.`;
 }
