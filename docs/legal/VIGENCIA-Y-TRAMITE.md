@@ -187,6 +187,31 @@ verificar el canal externo. Los reintentos idénticos son idempotentes. Se
 guardan referencias opacas y timestamps del servidor, no copias de mensajes ni
 identificaciones. La aplicación no envía ni verifica el correo externo.
 
+## Alcance provisional de PQR de consumo por comercio electrónico
+
+La Ley 1480 define comercio electrónico para operaciones telemáticas entre
+proveedores y consumidores (art. 49). Cuando se ofrecen productos o servicios
+electrónicamente a consumidores, su art. 50(g), modificado por la Ley 2439 de
+2024, exige en ese mismo medio canales accesibles para orientar y asistir,
+radicar PQR con trazabilidad, entregar número/fecha/hora de radicación y permitir
+seguimiento. La SIC describe como consumidor a quien usa el servicio como
+destinatario final para una necesidad propia; una necesidad empresarial ligada
+intrínsecamente a la actividad económica no configura esa calidad según su
+criterio publicado.
+
+**Inferencia de alcance, no dictamen:** el segmento objetivo de Dusema POS son
+negocios que adquieren el sistema para administrar ventas e inventario de su
+actividad. Para ese contrato B2B, el uso aparece intrínsecamente ligado a la
+actividad económica del cliente, por lo que la obligación específica del art.
+50(g) no se puede dar por aplicable automáticamente. La clasificación puede
+cambiar para una oferta, comprador o finalidad distinta y requiere revisión
+jurídica del modelo contractual real. La ruta de reclamos de privacidad tampoco
+sustituye PQR de consumo si el régimen llegara a aplicar. Por prudencia, cualquier
+oferta directa a consumidores por medios electrónicos debe resolver primero un
+canal con radicado y seguimiento en el mismo medio. No hay evidencia de que el
+correo actual entregue constancia o seguimiento, así que no se presenta como
+PQR operativo.
+
 Validación local del 2026-11-25: Emulator de Firestore pasó las pruebas de
 reclamos, consultas y recibo; las pruebas unitarias legales, las pruebas de
 Backoffice, TypeScript, build de Functions, build de Next.js y ESLint focalizado
@@ -205,6 +230,7 @@ jurídico ni certifica su aplicación concreta a Dusema.
 - [Ley 51 de 1983, art. 1](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=4954).
 - [SIC, Concepto sobre Firebase](https://sedeelectronica.sic.gov.co/publicaciones/boletin-juridico/concepto/uso-de-firebase-en-almacenamiento-de-datos-y-cumplimiento-normativo-en-colombia).
 - [SIC, alcance de Circular Externa 002 de 2025](https://sedeelectronica.sic.gov.co/publicaciones/boletin-juridico/concepto/alcance-de-la-circular-002-de-2025-sobre-transferencias-internacionales-de-datos).
+- [Ley 1480 de 2011, arts. 5, 49 y 50(g)](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=44306), [Ley 2439 de 2024](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=257116), and [SIC, concepto sobre relación de consumo](https://sedeelectronica.sic.gov.co/publicaciones/boletin-juridico/concepto/relacion-de-consumo).
 - [Ley 2573 de 2026](https://www.cancilleria.gov.co/normograma/compilacion/docs/ley_2573_2026.htm) y [Ley 1266 de 2008](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=34488), para evaluar separadamente datos de cartera y alegaciones de suplantación.
 
 ## Actualización de despliegue — 25 de noviembre de 2026, 13:31 UTC
