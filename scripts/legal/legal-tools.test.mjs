@@ -179,6 +179,12 @@ test('hash mismatch invalidates delivery', async () => {
 test('reconciliación detecta colecciones ausentes, relaciones rotas y assets agregados', async () => {
   const original = await exportTenant({ ...input, source: fixture() });
 
+  const excludedBusinessRoot = structuredClone(original);
+  const productsSource = excludedBusinessRoot.manifest.sources.find(source => source.path === 'productos');
+  delete productsSource.count;
+  productsSource.excluded = 'TEMPORARY_EXCLUSION';
+  assert.throws(() => verifyBundle(excludedBusinessRoot), /EXPORT_RECONCILIATION_UNAUTHORIZED_EXCLUSION/);
+
   const missingRoot = structuredClone(original);
   missingRoot.manifest.sources = missingRoot.manifest.sources.filter(source => source.path !== 'ventas');
   missingRoot.files = missingRoot.files.filter(file => file.name !== 'ventas.jsonl');

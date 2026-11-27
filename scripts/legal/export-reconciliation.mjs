@@ -144,15 +144,21 @@ function buildReconciliation(bundle) {
       if (INTERNAL_ROOTS.has(root) && source.excluded !== 'PLATFORM_OR_CREDENTIAL_DATA') {
         fail('EXPORT_RECONCILIATION_INTERNAL_EXCLUSION_INVALID');
       }
+      if (!INTERNAL_ROOTS.has(root) && source.excluded !== undefined) {
+        fail('EXPORT_RECONCILIATION_UNAUTHORIZED_EXCLUSION');
+      }
       continue;
     }
-    if (parts.length === 2 && parts[0] === 'clientes'
-      && parts[1] === 'anotaciones_privacidad') continue;
+    if (parts.length === 2 && parts[0] === 'clientes' && parts[1] === 'anotaciones_privacidad') {
+      if (source.excluded !== 'PRIVATE_PRIVACY_CASE_DATA') fail('EXPORT_RECONCILIATION_EXCLUSION_MISSING');
+      continue;
+    }
     if (parts.length !== 3 || !DECLARED_ROOT_COLLECTIONS.has(parts[0])
       || !SCHEMAS[parts[2]] || !idPattern.test(parts[1])
       || !(CHILD_COLLECTIONS[parts[0]] ?? []).includes(parts[2])) {
       fail('EXPORT_RECONCILIATION_UNCLASSIFIED_SOURCE');
     }
+    if (source.excluded !== undefined) fail('EXPORT_RECONCILIATION_UNAUTHORIZED_EXCLUSION');
   }
   for (const root of declared) if (!sourcesByPath.has(root)) fail('EXPORT_RECONCILIATION_DECLARED_ROOT_MISSING');
   for (const root of observed) if (!sourcesByPath.has(root)) fail('EXPORT_RECONCILIATION_OBSERVED_ROOT_MISSING');
