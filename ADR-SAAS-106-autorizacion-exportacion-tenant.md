@@ -102,11 +102,22 @@ producción requieren sus gates operativos separados.
   `FALLIDA` es terminal; otra ejecución requiere nueva aprobación.
 - La colección se excluye del bundle de cliente. El CLI falla cerrado si no hay
   un registro aprobado y consumido; nunca convierte un folio en evidencia.
-- Este corte entrega el validador, la reclamación transaccional, el cierre
-  terminal y sus pruebas unitarias. Aún no entrega el emisor de enlace, el
-  handler de aprobación ni el proveedor/canal real. No se puede poblar un
-  expediente operativo válido ni completar el smoke positivo en staging hasta
-  que esas piezas y el contacto representante verificado estén disponibles.
+- El corte de implementación controlada añade el orquestador de enlace, la
+  previsualización de propósito/alcance y el adaptador transaccional Firestore.
+  La versión del contacto se revalida dentro de las transacciones de lectura y
+  consumo. El token solo se conserva como hash y el enlace lleva el token en el
+  fragmento; fallos de entrega, expiración, repetición y cambio de contacto
+  bloquean la aprobación. Un operador autorizado puede revocarla antes o
+  durante la exportación; se conserva UID del operador y hora del servidor.
+- Los puertos de autorización del operador, resolución de contacto y entrega
+  usan stubs en pruebas. No existe una callable/API de producto, pantalla de
+  aprobación, registro persistente del representante ni proveedor real. El
+  emisor no está conectado y no se puede poblar un expediente operativo válido
+  ni completar el smoke positivo en staging hasta que ADR-SAAS-107 sea aprobado
+  e implementado, se integre un proveedor validado y se conecte la experiencia
+  de aprobación con autorización y controles de abuso.
+- Las pruebas sintéticas de unidad y Firestore Emulator están registradas en
+  [resultado controlado](docs/legal/evidence/RESULTADO-ADR106-IMPLEMENTACION-CONTROLADA-2026-11-27.md).
 
 La reconciliación V3 del bundle revisa el inventario declarado/observado,
 conteos y hashes, relaciones tenant y padre/hijo cubiertas por esquema, assets,

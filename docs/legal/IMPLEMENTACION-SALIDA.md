@@ -55,6 +55,12 @@ automática al importarlos:
   vigencia, revocación y cierre. Una transacción reclama el expediente para un
   solo run; éxito y fallo son estados terminales. El registro guarda hash,
   conteo y resultado, no el contacto ni el payload.
+- `export-approval-link.mjs`: orquestador interno con autorización de operador,
+  puertos de contacto y entrega, preview del alcance, token de un solo uso en
+  fragmento de URL, hash en Firestore, validación transaccional de versión del
+  contacto, revocación por operador autorizado y fallo cerrado ante entrega
+  fallida, expiración o repetición. No tiene callable, página web, fuente de
+  contacto ni proveedor conectado.
 - `firestore-source.mjs`: transporte REST de lectura; obtiene el `readTime` del
   servidor con una consulta exacta aleatoria sin resultados y reutiliza ese
   snapshot en las páginas. El preflight de producción de 2026-11-26 recibió el
@@ -86,15 +92,16 @@ automática al importarlos:
   Sin un expediente aprobado por enlace verificado el CLI falla antes de leer
   payloads. No requiere cuenta ni sesión del tenant.
 
-El ejecutable `coverage-cli.mjs` enumera metadatos; no exporta payloads. El nuevo
-runner/CLI y el verificador de expedientes están implementados en la rama de
-trabajo, pero no se ejecutaron con datos reales. No existe todavía el emisor del
-enlace, el handler de aprobación ni un proveedor/canal configurado que demuestre
-entrega al contacto oficial. Por eso no puede crearse un expediente válido en
-staging ni completarse un smoke positivo autenticado; las exportaciones reales
-siguen bloqueadas. La declaración reportada de autorización de Diana por sí sola
-no se convierte en una referencia verificable. No usar `coverage-cli.mjs` como si
-certificara una entrega integral.
+El ejecutable `coverage-cli.mjs` enumera metadatos; no exporta payloads. El
+orquestador de enlace y el adaptador Firestore están probados solo con fixtures
+sintéticos/Emulator; no existe todavía una callable/API ni página web que los
+conecte. Tampoco hay una fuente de contacto representante aprobada o proveedor
+real que demuestre entrega. No se puede crear un expediente operativo válido ni
+completar un smoke positivo autenticado; las exportaciones reales siguen
+bloqueadas. La declaración reportada de autorización de Diana por sí sola no se
+convierte en una referencia verificable. No usar `coverage-cli.mjs` como si
+certificara una entrega integral. La evidencia del ciclo sintético está en
+`evidence/RESULTADO-ADR106-IMPLEMENTACION-CONTROLADA-2026-11-27.md`.
 
 ## Límite material antes de usar datos reales
 

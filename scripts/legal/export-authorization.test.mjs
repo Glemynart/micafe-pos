@@ -19,6 +19,7 @@ function approvedRecord(overrides = {}) {
     proyectoId: scope.project,
     empresaId: scope.tenant,
     operadorUid: scope.operatorUid,
+    proposito: 'EXPORTACION_INTEGRAL_CIERRE_SERVICIO',
     referenciaSolicitud: 'case-a',
     alcanceSha256: EXPORT_AUTHORIZATION_SCOPE_SHA256,
     estado: 'APROBADA',

@@ -43,7 +43,8 @@ export function validateExportAuthorizationRecord(record, scope, operatorUid, no
   const deliveryId = record.entrega?.referenciaProveedor;
   const tokenDigest = record.aprobacion?.tokenSha256;
 
-  if (record.schemaVersion !== 1 || record.solicitudId !== scope.requestId
+  if (record.schemaVersion !== 1 || record.proposito !== 'EXPORTACION_INTEGRAL_CIERRE_SERVICIO'
+    || record.solicitudId !== scope.requestId
     || record.proyectoId !== scope.project || record.empresaId !== scope.tenant
     || record.operadorUid !== operatorUid || record.alcanceSha256 !== EXPORT_AUTHORIZATION_SCOPE_SHA256
     || record.estado !== 'APROBADA'
