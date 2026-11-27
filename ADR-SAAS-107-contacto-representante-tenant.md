@@ -13,10 +13,18 @@ mensajería.
 ADR-SAAS-106 acepta, para implementación controlada, una aprobación de exportación
 de un solo uso enviada a un contacto representante del tenant previamente
 verificado. El validador de exportación consume un registro server-side, pero el
-repositorio no contiene una fuente versionada de representantes ni un flujo que
-verifique su relación con el negocio y el control del canal. La administración
-de un tenant, la aceptación de términos y un campo de correo no prueban por sí
-solos esas dos condiciones.
+repositorio no contiene un contacto versionado ni un flujo que verifique el
+control del canal.
+
+El recibo existente en `empresas/{empresaId}/aceptacionesLegales` registra el
+`uid` que aceptó el contrato, `relacion=ADMIN_TENANT_REPRESENTANTE_DECLARADO` y
+`facultadRepresentacionDeclarada=true`. Sirve como declaración del administrador
+de su representación para esa relación contractual; no identifica por sí solo
+un medio de entrega del enlace, no prueba que siga activo ni acredita control de
+correo/teléfono. No se debe confundir con el consentimiento para una exportación
+específica.
+No se presume que exista un recibo aplicable en producción: los documentos
+continúan en borrador y su aceptación no está activada para clientes.
 
 Sin esa autoridad, no debe crearse un registro aprobable usando datos elegidos
 por el operador o una atestación libre. La exportación real permanece fail-closed.
@@ -31,7 +39,10 @@ que puede recibir y aprobar una solicitud de exportación conforme a ADR-SAAS-10
 ### A. Registro server-side versionado con dos verificaciones — recomendada
 
 Mantener un registro por tenant, inaccesible al cliente y append-only, con una
-versión activa de contacto. Para activarla se exigirían:
+versión activa de contacto. Para la designación se referenciaría el recibo
+vigente de aceptación legal cuando el administrador declarado sea el contacto;
+si el negocio designa a otra persona, se conservaría solo una referencia opaca a
+su instrucción verificable. Para activar el contacto se exigirían:
 
 1. evidencia de que la persona fue designada por el negocio como contacto
    representante para instrucciones de salida de datos; y
