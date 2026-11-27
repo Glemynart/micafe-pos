@@ -9,6 +9,7 @@ import { currentSourceSha, parseArgs } from './tenant-export-cli.mjs';
 const valid = [
   '--project', 'micafe-pos',
   '--tenant', 'distribuidora-las-jimenez',
+  '--request-id', 'server-approved-request',
   '--output-parent', 'C:\\secure\\exports',
   '--execute',
 ];
@@ -17,13 +18,14 @@ test('production CLI pins Diana tenant and derives its Firebase bucket', () => {
   const options = parseArgs(valid);
   assert.equal(options.project, 'micafe-pos');
   assert.equal(options.tenant, 'distribuidora-las-jimenez');
+  assert.equal(options.requestId, 'server-approved-request');
   assert.equal(options.bucket, 'micafe-pos.firebasestorage.app');
   assert.equal(options.execute, true);
 });
 
 test('staging CLI derives staging bucket and permits synthetic scoped tenant', () => {
   const options = parseArgs([
-    '--project', 'micafe-pos-staging', '--tenant', 'demo-tenant-a',
+    '--project', 'micafe-pos-staging', '--tenant', 'demo-tenant-a', '--request-id', 'server-approved-request',
     '--output-parent', 'C:\\secure\\exports', '--execute',
   ]);
   assert.equal(options.bucket, 'micafe-pos-staging.firebasestorage.app');
@@ -36,6 +38,7 @@ test('rejects production scope widening, caller-selected buckets, and implicit e
   ]), /USAGE/);
   assert.throws(() => parseArgs([...valid, '--bucket', 'other-project.firebasestorage.app']), /USAGE/);
   assert.throws(() => parseArgs(valid.filter(value => value !== '--execute')), /USAGE/);
+  assert.throws(() => parseArgs(valid.filter(value => value !== '--request-id' && value !== 'server-approved-request')), /USAGE/);
 });
 
 test('source revision rejects staged, unstaged, and untracked repository content', async () => {

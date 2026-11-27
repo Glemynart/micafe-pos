@@ -1,6 +1,8 @@
 /** Application authority on top of cloud IAM; denies without verified request evidence. */
 export function createOperatorAuthorizer({ auth, db, readIdToken, verifyRequest, request, now = () => Date.now() }) {
-  if (!auth || !db || typeof readIdToken !== 'function' || typeof verifyRequest !== 'function' || !request || !Number.isFinite(Date.parse(request.validUntil))) throw new Error('EXPORT_AUTHORITY_NOT_CONFIGURED');
+  if (!auth || !db || typeof readIdToken !== 'function' || typeof verifyRequest !== 'function' || !request
+    || !Number.isFinite(Date.parse(request.validUntil)) || typeof request.runId !== 'string'
+    || !/^[A-Za-z0-9_-]{1,120}$/.test(request.runId)) throw new Error('EXPORT_AUTHORITY_NOT_CONFIGURED');
   const scope = Object.freeze({ ...request });
   return async function authorize(context) {
     try {

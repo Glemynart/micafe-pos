@@ -1,9 +1,15 @@
 # Implementación controlada de salida — estado real
 
-Fecha de actualización: 2026-11-26. `G-SAAS-02 / M2 / E2.2`.
+Fecha de actualización: 2026-11-27. `G-SAAS-02 / M2 / E2.2`.
 ADR-SAAS-100 aceptado para implementar por la orden posterior «ok resuelve eso».
 ADR-SAAS-101 aceptado expresamente para implementación y pruebas locales.
 ADR-SAAS-099 aceptado por separado para implementar aceptación legal versionada.
+ADR-SAAS-106 aceptado el 2026-11-27 para implementar una autorización de
+exportación de un solo uso por enlace verificado. El candidato implementa la
+validación del expediente server-side y el bloqueo de una ejecución a un solo
+operador/run. Todavía no existe un flujo que emita y entregue el enlace ni un
+handler web que lo consuma; el proveedor y el registro confiable de contacto
+siguen pendientes. No habilita exportaciones con datos reales.
 El 2026-11-24 se desplegaron las dos callables `saas-legal` y Firestore Rules en
 staging y producción desde `81ba393f2f85956934b484f0ae9b32923b10e0aa`; las Rules
 activas coinciden con el candidato. Ambas callables rechazan peticiones anónimas
@@ -41,9 +47,14 @@ automática al importarlos:
   presupuestos, autorización por lote, subcolecciones, hashes y archivos versionados.
 - `export-schema.mjs`: allowlists versionadas; campos/tipos no reconocidos detienen
   el proceso. No hay dump genérico, tolerancia silenciosa o eliminación por denylist.
-- `operator-authority.mjs`: verificación de ID token con revocación, audiencia,
-  operador actual y facultad de conservación, además de petición verificada.
-  La verificación de la petición es una dependencia obligatoria, sin default permisivo.
+- `operator-authority.mjs` y `export-authorization.mjs`: verificación de ID token
+  con revocación, audiencia, operador actual y facultad de conservación. La
+  autorización se lee de `saas_export_authorizations`; comprueba proyecto,
+  tenant, operador solicitado, contacto representante y versión verificados,
+  entrega registrada, aprobación con enlace consumido, huella de alcance,
+  vigencia, revocación y cierre. Una transacción reclama el expediente para un
+  solo run; éxito y fallo son estados terminales. El registro guarda hash,
+  conteo y resultado, no el contacto ni el payload.
 - `firestore-source.mjs`: transporte REST de lectura; obtiene el `readTime` del
   servidor con una consulta exacta aleatoria sin resultados y reutiliza ese
   snapshot en las páginas. El preflight de producción de 2026-11-26 recibió el
@@ -69,17 +80,21 @@ automática al importarlos:
   cifrado; solo devuelve metadatos.
 - `tenant-export-cli.mjs`: candidato local de solo lectura, limitado en producción
   al tenant `distribuidora-las-jimenez`; deriva el bucket del proyecto y requiere
-  una referencia externa de autorización verificada, operador con
+  el ID de una solicitud creada por el servidor, el operador con
   `CONSERVACION_GOBERNAR`, credenciales de lectura existentes y confirmación
-  interactiva. No requiere cuenta ni sesión del tenant.
+  interactiva. Una referencia escrita por el operador ya no constituye evidencia.
+  Sin un expediente aprobado por enlace verificado el CLI falla antes de leer
+  payloads. No requiere cuenta ni sesión del tenant.
 
 El ejecutable `coverage-cli.mjs` enumera metadatos; no exporta payloads. El nuevo
-runner/CLI está implementado en la rama de trabajo, pero todavía no se ha
-ejecutado con datos reales. La referencia se verifica por atestación interactiva
-del operador frente al soporte externo; el CLI no consulta un expediente de
-autorización en Firestore. La declaración reportada de autorización de Diana no
-se convierte por sí sola en una referencia verificable. No usar
-`coverage-cli.mjs` como si certificara una entrega integral.
+runner/CLI y el verificador de expedientes están implementados en la rama de
+trabajo, pero no se ejecutaron con datos reales. No existe todavía el emisor del
+enlace, el handler de aprobación ni un proveedor/canal configurado que demuestre
+entrega al contacto oficial. Por eso no puede crearse un expediente válido en
+staging ni completarse un smoke positivo autenticado; las exportaciones reales
+siguen bloqueadas. La declaración reportada de autorización de Diana por sí sola
+no se convierte en una referencia verificable. No usar `coverage-cli.mjs` como si
+certificara una entrega integral.
 
 ## Límite material antes de usar datos reales
 
@@ -95,16 +110,20 @@ no todos los payloads reales, campos históricos, subcolecciones o referencias.
 No consultar por empresaId un singleton que puede no tener ese campo para fingir
 que está vacío.
 
-Los adaptadores definidos tampoco autorizan versiones futuras desconocidas. Antes
-de ejecutar con datos reales, comparar cada forma de documento y subcolección con
-las allowlists mediante fixtures representativos, vincular una petición verificada
-y probar consistencia del API real en un entorno aislado. Las pruebas unitarias
-con respuestas sintéticas no acreditan readTime/restore en Cloud.
+Los adaptadores definidos tampoco autorizan versiones futuras desconocidas. La
+reconciliación V3 verifica las 44 raíces declaradas, raíces observadas, archivos
+JSONL, conteos, bytes, hash, aislamiento por tenant, membresías/usuarios,
+relaciones padre/hijo conocidas y el inventario de Storage. Enumera las exclusiones
+y las razones. El manifiesto se llama
+`RECONCILED_DECLARED_SCOPE_NOT_CERTIFIED`; el informe marca integridad `PASS`,
+alcance `DECLARED_SCHEMA_SCOPE_ONLY` y certificación `NOT_CERTIFIED`. No compara
+independientemente payloads históricos reales ni referencias semánticas no
+modeladas. Antes de datos reales deben revisarse fixtures históricos
+representativos y comprobarse la lectura de snapshot en Cloud.
 
 Una fuente nueva debe clasificarse: nunca convertir un rechazo en bypass o ampliar
-campos automáticamente usando payloads reales. No cambiar `PENDING_ROOTS` por
-vacío para conseguir un estado COMPLETE. El estado del manifiesto es
-`COMPLETE_DECLARED_SCOPE`, no certificación legal o fiscal.
+campos automáticamente usando payloads reales. El estado reconciliado del
+esquema declarado no es certificación legal o fiscal.
 
 Existe un ejecutor exclusivamente sintético en `emulator-erasure.mjs`, limitado
 a `demo-dusema-erasure`, `127.0.0.1` y fixtures marcados. No admite colecciones
@@ -170,3 +189,9 @@ El preflight de metadatos clasificó 48/48 raíces actuales.
 No se desplegaron herramientas ni se borraron datos reales. El ensayo usa una
 colección sintética específica: no acredita aún adaptadores de destrucción de
 documentos operativos, Auth, Storage o restauración de backups.
+
+Validación local del candidato de ADR-SAAS-106, 2026-11-27: 44 pruebas de
+exportación, argumentos CLI, reconciliación y autorización aprobaron; una prueba
+adicional con Firestore Emulator usó dos tenants sintéticos y aprobó. El primer
+intento del Emulator tomó JDK 17 del PATH y falló; se repitió con el JDK 21
+instalado y pasó. No hubo smoke autenticado en staging ni lectura de datos reales.

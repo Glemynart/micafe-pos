@@ -13,6 +13,7 @@ import { mkdtemp, readFile, unlink, rmdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
 const time = Date.parse('2026-11-23T12:00:00.000Z');
 const input = { project: 'demo-dusema-exit', tenant: 'tenant-a', readTime: new Date(time).toISOString(), requestId: 'request-a', sourceSha: 'a'.repeat(40), now: () => time };
@@ -37,16 +38,16 @@ test('two-tenant boundary, credit children, exact COP and credential exclusion',
   assert.match(JSON.stringify(bundle), /23900/);
   assert.doesNotMatch(JSON.stringify(bundle), /SECRET_NOT_TO_EXPORT|pinHash/);
   assert.equal(verifyBundle(bundle), true);
-  const source = fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'foreign', data: { ...product, empresaId: 'tenant-b' } }], hasMore: false }) });
+  const source = fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: ctx.path === 'productos' ? [{ id: 'foreign', data: { ...product, empresaId: 'tenant-b' } }] : [], hasMore: false }) });
   await assert.rejects(exportTenant({ ...input, source }), /EXPORT_CROSS_TENANT/);
 });
 test('unknown field, source and child stop completion without disclosing their values', async () => {
-  await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, internalNote: 'SECRET_VALUE' } }], hasMore: false }) }) }), /^Error: EXPORT_UNSUPPORTED_FIELD$/);
+  await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: ctx.path === 'productos' ? [{ id: 'a', data: { ...product, internalNote: 'SECRET_VALUE' } }] : [], hasMore: false }) }) }), /^Error: EXPORT_UNSUPPORTED_FIELD$/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['unknown_source'] }) }), /EXPORT_UNKNOWN_COLLECTION/);
   await assert.rejects(exportTenant({ ...input, source: fixture({ listChildren: async () => ['secret_children'] }) }), /EXPORT_UNCLASSIFIED_SUBCOLLECTION/);
   const emptyEvents = await exportTenant({ ...input, source: fixture({ listRoots: async () => ['eventos'] }) });
   assert.ok(emptyEvents.manifest.sources.some(source => source.path === 'eventos' && source.count === 0));
-  await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, schemaVersion: 'FUTURE' } }], hasMore: false }) }) }), /EXPORT_UNSUPPORTED_SCHEMA_VERSION/);
+  await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: ctx.path === 'productos' ? [{ id: 'a', data: { ...product, schemaVersion: 'FUTURE' } }] : [], hasMore: false }) }) }), /EXPORT_UNSUPPORTED_SCHEMA_VERSION/);
 });
 test('eventos operativos exportan referencias comerciales y excluyen datos internos', () => {
   const data = projectDocument({ empresaId: 'tenant-a', schemaVersion: 1, eventoId: 'e1', tipo: 'RECORDATORIO_AGENDA_PEDIDO', agregado: { tipo: 'PROGRAMACION_PEDIDO_BODEGA', id: 'p1' }, actor: { uid: 'u1', rolEfectivo: 'admin' }, payloadOperativo: { programacionId: 'p1', fechaLocal: '2026-11-24', zonaHoraria: 'America/Bogota', etapa: 'HOY' }, estadoDespacho: 'ENVIADO', intentos: 1, claimId: 'INTERNAL', ultimoErrorCodigo: 'INTERNAL' }, SCHEMAS.eventos_operativos);
@@ -57,7 +58,9 @@ test('eventos operativos exportan referencias comerciales y excluyen datos inter
 test('exporta recibo legal del tenant con versiones y condiciones, sin correlación interna', async () => {
   const source = fixture({ listRoots: async () => ['empresas'], listAssets: async () => [],
     listChildren: async ({ path }) => path === 'empresas/tenant-a' ? ['aceptacionesLegales'] : [],
-    readPage: async ctx => ({ readTime: ctx.readTime, hasMore: false, documents: ctx.path === 'empresas' ? [{ id: 'tenant-a', data: { empresaId: 'tenant-a', nombre: 'Empresa' } }] : [{ id: 'receipt', data: { empresaId: 'tenant-a', schemaVersion: 1, aceptacionId: 'receipt', uid: 'admin-a', relacion: 'ADMIN_TENANT_REPRESENTANTE_DECLARADO', referenciaContrato: 'relacion:r1', facultadRepresentacionDeclarada: true, bundleId: 'v1', aceptadoEn: '2026-11-24T12:00:00.000Z', documentos: [{ id: 'terminos', version: '1', sha256: 'a'.repeat(64) }], condicionesComerciales: { referenciaContrato: 'relacion:r1', precio: { importe: 1600000, moneda: 'COP' }, capacidades: ['sell'], limites: { usuarios: { unidad: 'cantidad', valor: 2 } }, fiscalidad: null }, correlationId: 'INTERNO' } }] }),
+    readPage: async ctx => ({ readTime: ctx.readTime, hasMore: false, documents: ctx.path === 'empresas' ? [{ id: 'tenant-a', data: { empresaId: 'tenant-a', nombre: 'Empresa' } }]
+      : ctx.path === 'empresas/tenant-a/aceptacionesLegales' ? [{ id: 'receipt', data: { empresaId: 'tenant-a', schemaVersion: 1, aceptacionId: 'receipt', uid: 'admin-a', relacion: 'ADMIN_TENANT_REPRESENTANTE_DECLARADO', referenciaContrato: 'relacion:r1', facultadRepresentacionDeclarada: true, bundleId: 'v1', aceptadoEn: '2026-11-24T12:00:00.000Z', documentos: [{ id: 'terminos', version: '1', sha256: 'a'.repeat(64) }], condicionesComerciales: { referenciaContrato: 'relacion:r1', precio: { importe: 1600000, moneda: 'COP' }, capacidades: ['sell'], limites: { usuarios: { unidad: 'cantidad', valor: 2 } }, fiscalidad: null }, correlationId: 'INTERNO' } }]
+      : [] }),
   });
   const bundle = await exportTenant({ ...input, source });
   assert.equal(bundle.manifest.totalDocuments, 2);
@@ -73,7 +76,10 @@ test('un adaptador definido no se bloquea por la lista histórica de pendientes'
 test('la configuración histórica global se excluye sin consultarse ni entregarse', async () => {
   const bundle = await exportTenant({ ...input, source: fixture({
     listRoots: async () => ['configuracion'],
-    readPage: async () => { throw new Error('GLOBAL_NO_DEBE_LEERSE'); },
+    readPage: async ctx => {
+      if (ctx.path === 'configuracion') throw new Error('GLOBAL_NO_DEBE_LEERSE');
+      return { readTime: ctx.readTime, documents: [], hasMore: false };
+    },
     listAssets: async () => [],
   }) });
   assert.equal(bundle.manifest.totalDocuments, 0);
@@ -84,7 +90,7 @@ test('la salida comercial excluye expedientes de reclamo y el indicador interno'
   const bundle = await exportTenant({ ...input, source: fixture({
     listRoots: async () => ['clientes', 'privacidad_reclamos'],
     readPage: async ctx => {
-      assert.equal(ctx.path, 'clientes');
+      if (ctx.path !== 'clientes') return { readTime: ctx.readTime, documents: [], hasMore: false };
       return { readTime: ctx.readTime, documents: [{
         id: 'a', data: { empresaId: 'tenant-a', nombre: 'Cliente sintético', reclamosPrivacidadAbiertos: 1 },
       }], hasMore: false };
@@ -100,7 +106,8 @@ test('la exportación clasifica las anotaciones privadas de la ficha y nunca lee
     listRoots: async () => ['clientes'],
     listChildren: async ({ path }) => path === 'clientes/a' ? ['anotaciones_privacidad'] : [],
     readPage: async ctx => {
-      if (ctx.path !== 'clientes') { readPrivatePath = true; throw new Error('PRIVATE_REASON_READ'); }
+      if (ctx.path === 'clientes/a/anotaciones_privacidad') { readPrivatePath = true; throw new Error('PRIVATE_REASON_READ'); }
+      if (ctx.path !== 'clientes') return { readTime: ctx.readTime, documents: [], hasMore: false };
       return { readTime: ctx.readTime, documents: [{ id: 'a', data: { empresaId: 'tenant-a', nombre: 'Cliente sintético', reclamosPrivacidadAbiertos: 1 } }], hasMore: false };
     },
     listAssets: async () => [],
@@ -121,11 +128,11 @@ test('revoked operator, unverified request and changed authority fail closed', a
 });
 test('fixed readTime and unstable pagination are checked on every page', async () => {
   await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async () => ({ readTime: '2026-11-23T12:01:00Z', documents: [], hasMore: false }) }) }), /EXPORT_INCONSISTENT_PAGE/);
-  await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['productos'], readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'a', data: product }], hasMore: true }) }) }), /EXPORT_UNSTABLE_PAGINATION/);
+  await assert.rejects(exportTenant({ ...input, source: fixture({ listRoots: async () => ['productos'], readPage: async ctx => ({ readTime: ctx.readTime, documents: ctx.path === 'productos' ? [{ id: 'a', data: product }] : [], hasMore: ctx.path === 'productos' }) }) }), /EXPORT_UNSTABLE_PAGINATION/);
 });
 test('pagination, empty source, metadata and document budgets', async () => {
   const source = fixture({ listRoots: async () => ['productos', 'proveedores'], listChildren: async () => [], listAssets: async () => [],
-    readPage: async ctx => ({ readTime: ctx.readTime, documents: ctx.path === 'proveedores' ? [] : [{ id: ctx.after ? 'b' : 'a', data: product }], hasMore: ctx.path === 'productos' && !ctx.after }) });
+    readPage: async ctx => ({ readTime: ctx.readTime, documents: ctx.path === 'productos' ? [{ id: ctx.after ? 'b' : 'a', data: product }] : [], hasMore: ctx.path === 'productos' && !ctx.after }) });
   const result = await exportTenant({ ...input, source });
   assert.equal(result.manifest.totalDocuments, 2);
   assert.ok(result.manifest.sources.some(s => s.path === 'proveedores' && s.count === 0));
@@ -137,7 +144,7 @@ test('the byte budget caps the exact encrypted artifact, including base64 and JS
   const options = { ...input, source, maxBytes: 1_000_000 };
   const bundle = await exportTenant(options);
   const artifactBytes = encryptBundle(bundle, Buffer.alloc(32, 7)).byteLength;
-  assert.equal((await exportTenant({ ...options, maxBytes: artifactBytes })).manifest.status, 'COMPLETE_DECLARED_SCOPE');
+  assert.equal((await exportTenant({ ...options, maxBytes: artifactBytes })).manifest.status, 'RECONCILED_DECLARED_SCOPE_NOT_CERTIFIED');
   await assert.rejects(exportTenant({ ...options, maxBytes: artifactBytes - 1 }), /EXPORT_BUDGET_EXCEEDED/);
 
   const assetSource = fixture({ listRoots: async () => [], listAssets: async () => [{ name: 'tenants/tenant-a/archive.bin', generation: '8', bytes: 100 }], readAsset: async () => Buffer.alloc(100) });
@@ -167,6 +174,40 @@ test('hash mismatch invalidates delivery', async () => {
   const bundle = await exportTenant({ ...input, source: fixture() });
   bundle.files[0].content += 'changed';
   assert.throws(() => verifyBundle(bundle), /EXPORT_HASH_MISMATCH/);
+});
+
+test('reconciliación detecta colecciones ausentes, relaciones rotas y assets agregados', async () => {
+  const original = await exportTenant({ ...input, source: fixture() });
+
+  const missingRoot = structuredClone(original);
+  missingRoot.manifest.sources = missingRoot.manifest.sources.filter(source => source.path !== 'ventas');
+  missingRoot.files = missingRoot.files.filter(file => file.name !== 'ventas.jsonl');
+  missingRoot.manifest.files = missingRoot.manifest.files.filter(file => file.name !== 'ventas.jsonl');
+  assert.throws(() => verifyBundle(missingRoot), /EXPORT_RECONCILIATION_DECLARED_ROOT_MISSING/);
+
+  const brokenRelation = structuredClone(original);
+  const childName = 'ventas/sale/abonos_bodega.jsonl';
+  const child = brokenRelation.files.find(file => file.name === childName);
+  const row = JSON.parse(child.content);
+  row.data.ventaId = 'fake';
+  child.content = `${JSON.stringify(row)}\n`;
+  child.bytes = Buffer.byteLength(child.content);
+  child.sha256 = createHash('sha256').update(child.content).digest('hex');
+  Object.assign(brokenRelation.manifest.files.find(file => file.name === childName), {
+    bytes: child.bytes, sha256: child.sha256,
+  });
+  assert.throws(() => verifyBundle(brokenRelation), /EXPORT_RECONCILIATION_SALE_CHILD_MISMATCH/);
+
+  const undeclaredAsset = structuredClone(original);
+  const originalPath = 'tenants/tenant-a/unreferenced.bin';
+  const asset = {
+    name: `assets/${createHash('sha256').update(originalPath).digest('hex')}.bin`,
+    originalPath, generation: '9', content: '', encoding: 'base64', bytes: 0,
+    sha256: createHash('sha256').update('').digest('hex'),
+  };
+  undeclaredAsset.files.push(asset);
+  undeclaredAsset.manifest.files.push({ name: asset.name, originalPath, generation: '9', encoding: asset.encoding, bytes: 0, sha256: asset.sha256 });
+  assert.throws(() => verifyBundle(undeclaredAsset), /EXPORT_ASSET_INVENTORY_MISMATCH/);
 });
 test('el verificador rechaza metadatos de archivo alterados aunque el contenido coincida', async () => {
   const bundle = await exportTenant({ ...input, source: fixture() });
@@ -229,7 +270,7 @@ test('real authority adapter verifies revoked tokens, project, current operator 
   const operator = { uid: 'operator-a', estado: 'ACTIVO', facultades: ['CONSERVACION_GOBERNAR'], versionAutorizacion: 4 };
   let verifies = 0;
   const config = {
-    now: () => time, request: { ...input, operatorUid: 'operator-a', validUntil: '2026-11-24T00:00:00Z' },
+    now: () => time, request: { ...input, operatorUid: 'operator-a', runId: 'run-a', validUntil: '2026-11-24T00:00:00Z' },
     readIdToken: async () => 'SYNTHETIC_ID_TOKEN',
     auth: { verifyIdToken: async (_, checkRevoked) => { assert.equal(checkRevoked, true); verifies++; return claims; } },
     db: { collection: collection => ({ doc: () => ({ get: async () => ({ exists: true, data: () => collection === 'saas_operadores' ? operator : { estado: 'cancelada' } }) }) }) },
@@ -279,18 +320,40 @@ test('private export runner verifies authority, server snapshot and encrypted ou
   const parent = await mkdtemp(join(tmpdir(), 'dusema-runner-test-'));
   const repository = fileURLToPath(new URL('../../', import.meta.url));
   const source = fixture();
-  let result;
+  let result, completed;
+  source.completeExport = async record => { completed = record; return true; };
   try {
     result = await runPrivateTenantExport({
       ...input, source, key: Buffer.alloc(32, 4), outputParent: parent, repository,
     });
-    assert.equal(result.manifest.status, 'COMPLETE_DECLARED_SCOPE');
+    assert.equal(result.manifest.status, 'RECONCILED_DECLARED_SCOPE_NOT_CERTIFIED');
     assert.equal(result.manifest.requestReference, 'request-reference');
     assert.equal(result.manifest.totalDocuments, 3);
+    assert.equal(completed.uid, 'operator-a');
+    assert.equal(completed.artifact.bytes, result.output.bytes);
+    assert.match(completed.artifact.sha256, /^[a-f0-9]{64}$/);
     assert.equal(decryptBundle(await readFile(result.output.output), Buffer.alloc(32, 4)).manifest.actorUid, 'operator-a');
     assert.equal(Object.hasOwn(result, 'files'), false);
   } finally {
     if (result) { await unlink(result.output.output); await rmdir(dirname(result.output.output)); }
+    await rmdir(parent);
+  }
+});
+
+test('private export runner terminally records an aborted run without returning payloads', async () => {
+  const parent = await mkdtemp(join(tmpdir(), 'dusema-runner-abort-test-'));
+  const repository = fileURLToPath(new URL('../../', import.meta.url));
+  const source = fixture({ listAssets: async () => { throw new Error('EXPORT_STORAGE_HTTP_403'); } });
+  let failure;
+  source.failExport = async record => { failure = record; return true; };
+  try {
+    await assert.rejects(runPrivateTenantExport({
+      ...input, source, key: Buffer.alloc(32, 4), outputParent: parent, repository,
+    }), /EXPORT_STORAGE_HTTP_403/);
+    assert.equal(failure.uid, 'operator-a');
+    assert.equal(failure.errorCode, 'EXPORT_STORAGE_HTTP_403');
+    assert.equal(failure.payload, undefined);
+  } finally {
     await rmdir(parent);
   }
 });
@@ -314,7 +377,7 @@ test('canonical subscription path includes legacy control and rejects a conflict
     listChildren: async ctx => ctx.path === 'suscripciones/tenant-a' ? ['relaciones'] : [],
     readPage: async ctx => ({ readTime: ctx.readTime, hasMore: false, documents: ctx.path === 'suscripciones'
       ? [{ id: 'tenant-a', data: { estado: 'active', revision: 1 } }]
-      : [{ id: '_vigente', data: { relacionVigenteId: 'relation-a' } }] }),
+      : ctx.path === 'suscripciones/tenant-a/relaciones' ? [{ id: '_vigente', data: { relacionVigenteId: 'relation-a' } }] : [] }),
   });
   assert.equal((await exportTenant({ ...input, source })).manifest.totalDocuments, 2);
   await assert.rejects(exportTenant({ ...input, source: { ...source, readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'tenant-a', data: { empresaId: 'tenant-b', estado: 'active' } }], hasMore: false }) } }), /EXPORT_CROSS_TENANT/);
@@ -441,7 +504,7 @@ test('canonical root is queried by document name and signed asset URLs do not le
   await source.readPage({ ...input, path: 'configuraciones', limit: 200 });
   assert.equal(body.structuredQuery.where.fieldFilter.field.fieldPath, '__name__');
   assert.match(body.structuredQuery.where.fieldFilter.value.referenceValue, /configuraciones\/tenant-a$/);
-  await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: [{ id: 'a', data: { ...product, imagenUrl: 'https://example.test/image?token=SYNTHETIC_SECRET' } }], hasMore: false }) }) }), /^Error: EXPORT_PRIVATE_URL_REQUIRES_ASSET_REFERENCE$/);
+  await assert.rejects(exportTenant({ ...input, source: fixture({ readPage: async ctx => ({ readTime: ctx.readTime, documents: ctx.path === 'productos' ? [{ id: 'a', data: { ...product, imagenUrl: 'https://example.test/image?token=SYNTHETIC_SECRET' } }] : [], hasMore: false }) }) }), /^Error: EXPORT_PRIVATE_URL_REQUIRES_ASSET_REFERENCE$/);
 });
 
 test('tenant Storage URLs are replaced with verified encrypted-bundle asset references', async () => {

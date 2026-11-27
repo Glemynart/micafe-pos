@@ -1,14 +1,17 @@
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { SCHEMAS, SCHEMA_VERSION, INTERNAL_ROOTS, PENDING_ROOTS, SINGLETON_ROOTS, projectDocument } from './export-schema.mjs';
+import {
+  CHILD_COLLECTIONS, DECLARED_ROOT_COLLECTIONS, EXCLUDED_CHILD_COLLECTIONS,
+  SCHEMAS, SCHEMA_VERSION, INTERNAL_ROOTS, PENDING_ROOTS, SINGLETON_ROOTS,
+  projectDocument, validateCollectionClassification,
+} from './export-schema.mjs';
+import { createExportReconciliation, reconcileExportBundle } from './export-reconciliation.mjs';
 
 const idPattern = /^[a-zA-Z0-9_-]{1,120}$/;
 const hash = value => createHash('sha256').update(value).digest('hex');
 const fail = code => { throw new Error(code); };
 const urlTokenParameters = /^(token|access_token|x-goog-signature|googleaccessid|x-amz-signature)$/i;
-const childSchemas = { ventas: ['abonos_bodega', 'compromisos_pago_bodega'], empresas: ['aceptacionesLegales', 'secuencias_documentales', 'solicitudes_venta_bodega', 'agenda_pedidos_bodega', 'reservas_stock_bodega'], suscripciones: ['relaciones'], ofertas_comerciales_tenant: ['ofertas'], clientes: [] };
-const excludedChildSchemas = { clientes: { anotaciones_privacidad: 'PRIVATE_PRIVACY_CASE_DATA' } };
-const encryptedEnvelopeOverheadBytes = Buffer.byteLength('DUSEMA-EXIT-V2\n') + 12 + 16;
+const encryptedEnvelopeOverheadBytes = Buffer.byteLength('DUSEMA-EXIT-V3\n') + 12 + 16;
 
 function resolveTenantAssetUrl(value, { project, tenant, assetsByName }) {
   let url;
@@ -83,6 +86,7 @@ function verifyAssetReferences(bundle) {
 
 /** Read-only source port. The engine has no database mutation or filesystem API. */
 export async function exportTenant({ project, tenant, readTime, sourceSha, requestId, source, now = () => Date.now(), maxDocuments = 10000, maxBytes = 50_000_000 }) {
+  validateCollectionClassification();
   if (!idPattern.test(project) || !idPattern.test(tenant) || !/^[a-f0-9]{40}$/.test(sourceSha) || !idPattern.test(requestId)) fail('EXPORT_INVALID_CONTEXT');
   if (!Number.isFinite(Date.parse(readTime)) || !Number.isSafeInteger(maxDocuments) || maxDocuments < 1 || !Number.isSafeInteger(maxBytes) || maxBytes < 1) fail('EXPORT_INVALID_LIMIT');
   const started = now();
@@ -105,13 +109,15 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
   await authorize();
   const assets = await source.listAssets(context);
   const assetsByName = validateAssetInventory(assets, tenant);
-  const roots = await source.listRoots(context);
-  if (!Array.isArray(roots) || new Set(roots).size !== roots.length) fail('EXPORT_INVALID_ROOT_INVENTORY');
-  for (const name of roots) {
+  const observedRoots = await source.listRoots(context);
+  if (!Array.isArray(observedRoots) || observedRoots.some(name => typeof name !== 'string')
+    || new Set(observedRoots).size !== observedRoots.length) fail('EXPORT_INVALID_ROOT_INVENTORY');
+  for (const name of observedRoots) {
     if (!SCHEMAS[name] && !INTERNAL_ROOTS.has(name) && !PENDING_ROOTS.has(name)) fail('EXPORT_UNKNOWN_COLLECTION');
     // Missing adapters must not masquerade as empty tenant results.
     if (PENDING_ROOTS.has(name) && !SCHEMAS[name]) fail('EXPORT_ADAPTER_REQUIRED');
   }
+  const roots = [...new Set([...observedRoots, ...DECLARED_ROOT_COLLECTIONS])].sort();
 
   async function collect(path, name) {
     let after = null;
@@ -151,15 +157,21 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
         if (totalDocuments > maxDocuments || totalBytes > maxBytes) fail('EXPORT_BUDGET_EXCEEDED');
         rows.push(line);
         // The source must enumerate children, including paths with no child docs.
-        const children = await source.listChildren({ ...context, path: fullPath });
-        if (!Array.isArray(children) || new Set(children).size !== children.length) fail('EXPORT_INVALID_CHILD_INVENTORY');
-        for (const child of children.sort()) {
-          const exclusion = excludedChildSchemas[name]?.[child];
+        const observedChildren = await source.listChildren({ ...context, path: fullPath });
+        if (!Array.isArray(observedChildren) || observedChildren.some(child => typeof child !== 'string')
+          || new Set(observedChildren).size !== observedChildren.length) fail('EXPORT_INVALID_CHILD_INVENTORY');
+        const children = [...new Set([
+          ...observedChildren,
+          ...(CHILD_COLLECTIONS[name] ?? []),
+          ...Object.keys(EXCLUDED_CHILD_COLLECTIONS[name] ?? {}),
+        ])].sort();
+        for (const child of children) {
+          const exclusion = EXCLUDED_CHILD_COLLECTIONS[name]?.[child];
           if (exclusion) {
             excludedChildren.add(`${name}/${child}`);
             continue;
           }
-          if (!(childSchemas[name] ?? []).includes(child)) fail('EXPORT_UNCLASSIFIED_SUBCOLLECTION');
+          if (!(CHILD_COLLECTIONS[name] ?? []).includes(child)) fail('EXPORT_UNCLASSIFIED_SUBCOLLECTION');
           await collect(`${fullPath}/${child}`, child);
         }
         after = document.id;
@@ -174,12 +186,15 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
     }
   }
 
-  for (const name of roots.sort()) {
+  for (const name of roots) {
     if (INTERNAL_ROOTS.has(name)) { counts.push({ path: name, excluded: 'PLATFORM_OR_CREDENTIAL_DATA' }); continue; }
     await collect(name, name);
   }
+  for (const [collection, children] of Object.entries(EXCLUDED_CHILD_COLLECTIONS)) {
+    for (const [child, reason] of Object.entries(children)) excludedChildren.add(`${collection}/${child}`);
+  }
   for (const path of [...excludedChildren].sort()) {
-    counts.push({ path, excluded: excludedChildSchemas[path.split('/')[0]][path.split('/')[1]] });
+    counts.push({ path, excluded: EXCLUDED_CHILD_COLLECTIONS[path.split('/')[0]][path.split('/')[1]] });
   }
   // Assets are listed before Firestore payloads so URLs can be normalized and
   // missing Storage permissions fail before any tenant documents are read.
@@ -195,16 +210,20 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
   const finalProof = await authorize();
   if (finalProof.uid !== firstProof.uid || finalProof.authorizationVersion !== firstProof.authorizationVersion) fail('EXPORT_AUTHORITY_CHANGED');
   const manifest = {
-    schemaVersion: SCHEMA_VERSION, status: 'COMPLETE_DECLARED_SCOPE', project, tenant, sourceSha, requestId,
+    schemaVersion: SCHEMA_VERSION, status: 'RECONCILED_DECLARED_SCOPE_NOT_CERTIFIED', project, tenant, sourceSha, requestId,
     requestReference: firstProof.requestReference,
     actorUid: firstProof.uid, readTime, consistency: 'FIRESTORE_SNAPSHOT_STORAGE_GENERATIONS',
     startedAt: new Date(started).toISOString(), finishedAt: new Date(now()).toISOString(),
+    declaredRootCollections: [...DECLARED_ROOT_COLLECTIONS].sort(),
+    observedRootCollections: [...observedRoots].sort(),
     totalDocuments, totalBytes, sources: counts.sort((a, b) => a.path.localeCompare(b.path)),
     files: files.map(({ content, ...metadata }) => metadata).sort((a, b) => a.name.localeCompare(b.name)),
   };
   // maxBytes limits the exact encrypted file size, including JSON escaping,
   // base64 expansion, metadata, and the AES-GCM envelope.
   const bundle = { manifest, files };
+  manifest.reconciliation = createExportReconciliation(bundle);
+  verifyBundle(bundle);
   const encryptedBytes = Buffer.byteLength(JSON.stringify(bundle), 'utf8') + encryptedEnvelopeOverheadBytes;
   if (encryptedBytes > maxBytes) fail('EXPORT_BUDGET_EXCEEDED');
   // Only returned after every source, asset, budget and authority check passed.
@@ -213,7 +232,7 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
 
 export function verifyBundle(bundle) {
   const manifest = bundle?.manifest;
-  if (manifest?.schemaVersion !== SCHEMA_VERSION || manifest.status !== 'COMPLETE_DECLARED_SCOPE'
+  if (manifest?.schemaVersion !== SCHEMA_VERSION || manifest.status !== 'RECONCILED_DECLARED_SCOPE_NOT_CERTIFIED'
     || !idPattern.test(manifest.project) || !idPattern.test(manifest.tenant) || !idPattern.test(manifest.requestId)
     || !idPattern.test(manifest.requestReference) || !idPattern.test(manifest.actorUid)
     || !/^[a-f0-9]{40}$/.test(manifest.sourceSha) || !Array.isArray(bundle.files)
@@ -231,5 +250,6 @@ export function verifyBundle(bundle) {
     if (!expected || bytes.byteLength !== expected.bytes || hash(bytes) !== expected.sha256) fail('EXPORT_HASH_MISMATCH');
   }
   verifyAssetReferences(bundle);
+  reconcileExportBundle(bundle);
   return true;
 }

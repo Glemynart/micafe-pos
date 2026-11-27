@@ -75,6 +75,15 @@
   está en preparación. Los textos legales continúan como borradores, no son exigibles
   ni se han aceptado en producción.
 
+- **ADR-SAAS-106 / autorización de exportación, 2026-11-27:** el Lead Engineer
+  aceptó por delegación expresa del responsable un enlace de aprobación de un
+  solo uso enviado al contacto representante previamente verificado del tenant.
+  La aceptación permite implementar y probar con datos sintéticos/Emulator/staging;
+  no autoriza exportaciones reales, despliegues ni cambios IAM. El proveedor de
+  entrega y la verificación del contacto aún no están resueltos. Hasta comprobarlos,
+  la exportación real permanece bloqueada. Detalle en
+  [ADR-SAAS-106](../../ADR-SAAS-106-autorizacion-exportacion-tenant.md).
+
 - Provisionamiento reproducible de un tenant de referencia.
 - Onboarding DEMO como ruta inicial recomendada cuando el cliente no requiera fiscalidad real.
 - Materialización de capacidades del Plan en la configuración efectiva del tenant.

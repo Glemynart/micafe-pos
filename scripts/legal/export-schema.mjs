@@ -1,5 +1,5 @@
 // Versioned allowlists. Unknown fields stop certification; no arbitrary raw dump.
-export const SCHEMA_VERSION = 'DUSEMA_EXIT_V2';
+export const SCHEMA_VERSION = 'DUSEMA_EXIT_V3';
 export const scalar = 'scalar';
 export const tenantAssetReference = 'tenantAssetReference';
 export const fields = (names) => Object.fromEntries(names.split(/\s+/).filter(Boolean).map(name => [name, scalar]));
@@ -177,11 +177,35 @@ export const SCHEMAS = Object.freeze({
   }),
 });
 
+// Every collection schema must be classified at the root or beneath a known
+// parent. This explicit inventory makes an empty known root queryable at the
+// same Firestore readTime; ListCollectionIds alone cannot define the schema
+// universe of a tenant export.
+export const DECLARED_ROOT_COLLECTIONS = new Set(`agendas asignaciones_numeracion auditoria_logs capas_fifo_nevera
+  categorias clientes comandas_cocina compras configuraciones consignadores cuentas_bancarias
+  cuentas_control_nevera cuentas_control_nevera_movimientos egresos empresas espacios eventos
+  eventos_dominio eventos_operativos insumos liquidaciones membresias mermas mesas modificador_grupos
+  movimientos_inventario numeraciones ofertas_bodega ofertas_comerciales_tenant operaciones_auditoria
+  pagos_saas pedidos_activos presentaciones_producto producto_modificador_grupos productos proveedores
+  recetas reservas suscripciones transacciones_financieras turnos turnos_activos usuarios ventas`.split(/\s+/));
+
+export const CHILD_COLLECTIONS = Object.freeze({
+  ventas: Object.freeze(['abonos_bodega', 'compromisos_pago_bodega']),
+  empresas: Object.freeze(['aceptacionesLegales', 'secuencias_documentales', 'solicitudes_venta_bodega', 'agenda_pedidos_bodega', 'reservas_stock_bodega']),
+  suscripciones: Object.freeze(['relaciones']),
+  ofertas_comerciales_tenant: Object.freeze(['ofertas']),
+});
+
+export const EXCLUDED_CHILD_COLLECTIONS = Object.freeze({
+  clientes: Object.freeze({ anotaciones_privacidad: 'PRIVATE_PRIVACY_CASE_DATA' }),
+});
+
 export const INTERNAL_ROOTS = new Set(`bootstrap_identidades_owner comandos_comerciales configuracion configuracion_comandos
   configuracion_command_ids credenciales_operativas incorporaciones operaciones_comandos operaciones_command_idempotency
   permisos_roles planes provisionamientos_empresariales reservas_codigos_operativos restablecimientos_credencial
   saas_auditoria saas_auditoria_obligaciones saas_comandos saas_operadores saas_soporte_autorizaciones
-  saas_platform_bindings saas_platform_binding_external_tenants invitaciones consumo controles_release_compras privacidad_reclamos privacidad_consultas`.split(/\s+/));
+  saas_platform_bindings saas_platform_binding_external_tenants saas_export_authorizations
+  invitaciones consumo controles_release_compras privacidad_reclamos privacidad_consultas`.split(/\s+/));
 
 // These sources need explicit adapters before a populated source can be delivered.
 // They are NEVER silently omitted or exported using an unconstrained object schema.
@@ -190,6 +214,16 @@ export const PENDING_ROOTS = new Set(`agendas auditoria_logs comandas_cocina
 
 export const TECHNICAL_FIELDS = new Set(`commandId idempotencyKey correlationId causationId creadoPor actualizadoPor claimId reclamadoEn ultimoErrorCodigo
   confirmadoPor pinHash token tokenDigest tokenVersion fcmTokens password refreshToken accessToken firebaseStorageDownloadTokens reclamosPrivacidadAbiertos`.split(/\s+/));
+
+export function validateCollectionClassification() {
+  const classified = new Set([...DECLARED_ROOT_COLLECTIONS]);
+  for (const children of Object.values(CHILD_COLLECTIONS)) for (const child of children) classified.add(child);
+  const schemaNames = new Set(Object.keys(SCHEMAS));
+  if ([...schemaNames].some(name => !classified.has(name)) || [...classified].some(name => !schemaNames.has(name))) {
+    throw new Error('EXPORT_COLLECTION_CLASSIFICATION_INCOMPLETE');
+  }
+  return true;
+}
 
 export function inspectCoverage(roots) {
   if (!Array.isArray(roots) || roots.some(name => typeof name !== 'string') || new Set(roots).size !== roots.length) throw new Error('EXPORT_INVALID_ROOT_INVENTORY');
