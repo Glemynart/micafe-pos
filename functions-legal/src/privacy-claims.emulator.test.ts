@@ -48,6 +48,7 @@ test("Reclamos: autoridad, concurrencia, cierre parcial y aislamiento", { skip: 
     await Promise.all([run(a.id, "ABRIR"), run(a.id, "ABRIR"), run(b.id, "ABRIR")]);
     assert.equal((await ficha.get()).get("reclamosPrivacidadAbiertos"), 2);
     const consultaInicial = await run(a.id, "CONSULTAR");
+    assert.equal(consultaInicial.subsanacionRecibida, false);
     assert.equal(consultaInicial.motivosActivos.length, 2);
     assert.deepEqual(new Set(consultaInicial.motivosActivos), new Set([base.motivo, "Acceso sintético"]));
     assert.equal((await ficha.get()).get("motivo"), undefined);
@@ -105,6 +106,7 @@ test("Reclamos: autoridad, concurrencia, cierre parcial y aislamiento", { skip: 
     let consulta = await run(registro.casoId, "CONSULTAR");
     assert.equal(consulta.vencimientoAnotacion, sumarHabiles(hoy, 2));
     assert.equal(consulta.vencimientoRespuesta, sumarHabiles(hoy, 15));
+    assert.equal(consulta.subsanacionRecibida, true);
     await send({ casoId: registro.casoId, accion: "PRORROGAR", respuestaRef: "aviso-prorroga", resultado: "Falta comprobar un soporte" });
     consulta = await run(registro.casoId, "CONSULTAR");
     assert.equal(consulta.vencimientoRespuesta, sumarHabiles(sumarHabiles(hoy, 15), 8));

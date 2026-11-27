@@ -436,7 +436,7 @@ export async function tramitarReclamoPrivacidad(
       || caso.completoEn.toMillis() > Date.now()) denegar();
     const calendarioVersion = versionCalendario(caso);
     const requerimiento = requerimientoSubsanacion(caso);
-    validarSubsanacionRecibida(caso, requerimiento);
+    const subsanacionRecibida = validarSubsanacionRecibida(caso, requerimiento);
     const vencimientos = vencimientosReclamo(caso, calendarioVersion);
 
     if (accion === "CERRAR" && caso.estado === "RESUELTO") {
@@ -466,6 +466,7 @@ export async function tramitarReclamoPrivacidad(
         motivosActivos: anotacionesAbiertas.map(anotacion => anotacion.motivo),
         recibidoEnMillis: caso.recibidoEn.toMillis(),
         completoEnMillis: caso.completoEn.toMillis(),
+        subsanacionRecibida,
         vencimientoAnotacion: vencimientos.vencimientoAnotacion,
         vencimientoRespuesta: vencimientos.vencimientoRespuesta,
         respuestaDocumentada: typeof caso.respuestaVerificadaRef === "string",

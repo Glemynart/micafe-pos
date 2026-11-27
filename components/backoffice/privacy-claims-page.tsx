@@ -227,8 +227,11 @@ export function PrivacyClaimsPage() {
         </div>}
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <div><dt className="text-muted-foreground">Plazo de anotación</dt><dd>{reclamo.vencimientoAnotacion}</dd></div>
-          <div><dt className="text-muted-foreground">Plazo de respuesta</dt><dd>{reclamo.vencimientoRespuesta}</dd></div>
+          <div><dt className="text-muted-foreground">{reclamo.subsanacionRecibida ? "Referencia interna provisional de respuesta" : "Plazo de respuesta"}</dt><dd>{reclamo.vencimientoRespuesta}</dd></div>
         </dl>
+        {reclamo.subsanacionRecibida && <p role="note" className="rounded-lg border border-amber-500/40 bg-amber-50 p-3 text-sm text-amber-950">
+          Esta fecha se calcula desde la recepción inicial. En reclamos completados tras una subsanación, el inicio exacto del término requiere revisión jurídica; úsala como referencia interna provisional, no como conclusión legal validada.
+        </p>}
         {reclamo.estado === "ABIERTO" && (reclamo.respuestaDocumentada
           ? <Button type="button" disabled={ocupado || !reclamo.respuestaRef} onClick={() => void cerrar()}>Cerrar reclamo</Button>
           : <form onSubmit={documentar}><fieldset disabled={ocupado} className="space-y-4">

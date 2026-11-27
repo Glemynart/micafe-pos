@@ -76,6 +76,9 @@ export interface ReclamoPrivacidad {
   casoId: string;
   clienteId: string;
   estado: "VERIFICADO" | "ABIERTO" | "RESUELTO";
+  recibidoEnMillis: number;
+  completoEnMillis: number;
+  subsanacionRecibida: boolean;
   leyenda: string | null;
   motivo: string | null;
   motivosActivos: string[];
