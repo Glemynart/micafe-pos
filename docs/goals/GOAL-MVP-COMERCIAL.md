@@ -84,6 +84,16 @@
   la exportación real permanece bloqueada. Detalle en
   [ADR-SAAS-106](../../ADR-SAAS-106-autorizacion-exportacion-tenant.md).
 
+- **ADR-SAAS-107 / contacto representante, 2026-11-27:** aceptado por decisión
+  técnica delegada, alternativa A, para implementar y probar con fixture
+  sintético y stub en Emulator/staging la autoridad versionada y verificaciones
+  de designación/canal. No habilita contactos reales, envío externo ni
+  exportación de datos reales.
+- **ADR-SAAS-108 / anexo por tenant, 2026-11-27:** aceptado por decisión técnica
+  delegada, alternativa A, para implementar y probar el snapshot versionado y
+  fail-closed del anexo por negocio con fixtures sintéticos. No habilita
+  publicación, aceptación real ni inferencia de hechos legales/comerciales.
+
 - Provisionamiento reproducible de un tenant de referencia.
 - Onboarding DEMO como ruta inicial recomendada cuando el cliente no requiera fiscalidad real.
 - Materialización de capacidades del Plan en la configuración efectiva del tenant.

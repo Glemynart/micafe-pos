@@ -2,7 +2,9 @@
 
 ## Estado
 
-**Propuesto** — pendiente de aprobación. `G-SAAS-02 → M2 → E2.2`.
+**Aceptado para implementación controlada**, 2026-11-27, por decisión técnica
+delegada expresamente por el responsable. Se selecciona la alternativa A.
+`G-SAAS-02 → M2 → E2.2`.
 
 Esta propuesta habilitaría implementar y probar con datos sintéticos en Emulator/staging. No autoriza publicación de documentos, aceptación real, tratamiento de datos reales, exportación ni despliegue productivo.
 
@@ -50,4 +52,11 @@ Fixtures sintéticos para: perfil/fuente incompleta, contacto no verificado, ins
 
 ## Límites de la propuesta
 
-La aprobación no publica el bundle, no registra una aceptación de cliente real, no habilita proveedores, no autoriza lectura/exportación/supresión de datos reales y no permite cambios de producción. Esos pasos conservan sus gates independientes.
+La aprobación de este ADR habilita implementar y probar la ficha versionada y
+su snapshot con datos sintéticos en Emulator/staging. No publica el bundle, no
+registra una aceptación de cliente real, no habilita proveedores, no autoriza
+lectura/exportación/supresión de datos reales y no permite cambios de
+producción. Los hechos no verificados deben bloquear la aceptación y esos pasos
+conservan sus gates independientes. La evidencia de implementación controlada
+está en
+[RESULTADO ADR-107/108](docs/legal/evidence/RESULTADO-ADR107-108-IMPLEMENTACION-CONTROLADA-2026-11-27.md).

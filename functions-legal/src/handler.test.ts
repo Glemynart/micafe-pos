@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { HttpsError } from "firebase-functions/v2/https";
 import { aceptarDocumentosLegalesTenant, consultarEstadoLegalTenant } from "../../functions/src/legal/handler";
 import { BUNDLE_LEGAL_ACTUAL, type BundleLegal } from "../../functions/src/legal/catalog";
+import { crearSnapshotAnexoTenant, sha256SubencargadosRegistry } from "../../functions/src/legal/tenant-annex";
 
 type Stored = Record<string, any>;
 const READY_BUNDLE: BundleLegal = {
@@ -26,6 +27,29 @@ const SNAPSHOT_CONTRATO = {
   vigencia: { inicio: "2026-11-23", fin: "2027-11-23" },
 };
 const REFERENCIA_CONTRATO = "suscripcion:r1";
+const ANNEX_AUTHORITY = {
+  schemaVersion: 1, projectId: "demo-legal-unit", empresaId: "tenant-a", revision: 1, estado: "ACTIVO",
+  contacto: { id: "contact-a", version: 1, canal: "EMAIL_VERIFICADO", designacionRef: "designation:a", pruebaCanalRef: "channel:a", designadoEn: SERVER_DATE.toISOString(), verificadoEn: SERVER_DATE.toISOString() },
+};
+const ANNEX_RECORD = {
+  schemaVersion: 1, empresaId: "tenant-a", revision: 1, estado: "VERIFICADO",
+  perfil: { referenciaVerificacion: "profile:a", nombreComercial: "Negocio sintético A", tipoPersona: "NATURAL", estado: "VERIFICADO", verificadoEn: SERVER_DATE.toISOString() },
+  representante: { referenciaDesignacion: "representative:a", estado: "VERIFICADO", designadoEn: SERVER_DATE.toISOString() },
+  capacidades: ["sell", "inventory"],
+  instrucciones: {
+    referencia: "instruction:a", estado: "CONFIRMADAS", confirmadasPorAdmin: "admin-a", confirmadasEn: SERVER_DATE.toISOString(), titulares: ["CLIENTES"],
+    categoriasDatos: ["TRANSACCIONES_COMERCIALES"], finalidades: ["OPERAR_EL_POS"],
+    instruccionSalida: "DEVOLVER_Y_SUPRIMIR_SEGUN_RETENCIONES",
+  },
+  subencargados: { estadoRegistro: "VERIFICADO", versionRegistro: 1, sha256Registro: sha256SubencargadosRegistry([{ id: "provider-a", producto: "Proveedor sintético", finalidad: "Procesamiento de prueba", paisIso2: "CO", instrumentoRef: "instrument:a" }]), verificadoEn: SERVER_DATE.toISOString(), entradas: [{ id: "provider-a", producto: "Proveedor sintético", finalidad: "Procesamiento de prueba", paisIso2: "CO", instrumentoRef: "instrument:a", estado: "VERIFICADO" }] },
+  conservacion: { estado: "VERIFICADO", version: 1, sha256: "b".repeat(64), respaldoRef: "backup:a", verificadoEn: SERVER_DATE.toISOString() },
+  seguridad: { estado: "VERIFICADO", version: 1, sha256: "c".repeat(64), controlesRef: "security:a", verificadoEn: SERVER_DATE.toISOString() },
+};
+const ANNEX_HASH = (() => {
+  const result = crearSnapshotAnexoTenant({ empresaId: "tenant-a", projectId: "demo-legal-unit", authority: ANNEX_AUTHORITY, annexRecord: ANNEX_RECORD, capacidadesContrato: SNAPSHOT_CONTRATO.capacidades });
+  if (!result.disponible) throw new Error("La fixture sintética del anexo está incompleta.");
+  return result.sha256;
+})();
 
 function harness(options: { rol?: string; active?: boolean; bundle?: BundleLegal; revoked?: boolean } = {}) {
   const records = new Map<string, Stored>();
@@ -74,6 +98,11 @@ function harness(options: { rol?: string; active?: boolean; bundle?: BundleLegal
   const dependencies = {
     db,
     bundle: options.bundle ?? BUNDLE_LEGAL_ACTUAL,
+    projectId: "demo-legal-unit",
+    loadTenantAnnex: async ({ empresaId, capacidadesContrato }: { empresaId: string; capacidadesContrato: string[] }) => crearSnapshotAnexoTenant({
+      empresaId, projectId: "demo-legal-unit", authority: { ...ANNEX_AUTHORITY, empresaId },
+      annexRecord: { ...ANNEX_RECORD, empresaId }, capacidadesContrato,
+    }),
     exigirTenant: async () => ({ id: "tenant-a", estado: "trial", rol: options.rol ?? "admin", permisos: [], paisFiscal: "CO" }) as any,
     getUser: async () => ({ disabled: false, ...(options.revoked ? { tokensValidAfterTime: "2026-11-23T18:00:00.000Z" } : {}) }),
     serverTimestamp: () => ({ toDate: () => SERVER_DATE }),
@@ -88,7 +117,9 @@ function snapshot(data: Stored | undefined) {
 function request(data: Stored = {}, overrides: Stored = {}) {
   return {
     auth: { uid: "admin-a", token: { empresaId: "tenant-a", rol: "admin", auth_time: 1_700_000_000 } },
-    data: { bundleId: READY_BUNDLE.id, aceptoTerminos: true, aceptoAnexo: true, declaroFacultad: true, correlationId: "legal-correlation-01", referenciaContrato: REFERENCIA_CONTRATO, ...data },
+    data: { bundleId: READY_BUNDLE.id, aceptoTerminos: true, aceptoAnexo: true, declaroFacultad: true,
+      confirmoInstruccionesAnexo: true, sha256AnexoTenant: ANNEX_HASH,
+      correlationId: "legal-correlation-01", referenciaContrato: REFERENCIA_CONTRATO, ...data },
     ...overrides,
   };
 }
@@ -128,6 +159,9 @@ test("aceptación contractual se registra una vez, con actor, tenant, bundle, ha
   assert.equal(saved.empresaId, "tenant-a");
   assert.equal(saved.uid, "admin-a");
   assert.equal(saved.facultadRepresentacionDeclarada, true);
+  assert.equal(saved.schemaVersion, 2);
+  assert.equal(saved.sha256AnexoTenant, ANNEX_HASH);
+  assert.equal(saved.anexoTenant.empresaId, "tenant-a");
   assert.equal(saved.referenciaContrato, REFERENCIA_CONTRATO);
   assert.equal(saved.condicionesComerciales.precio.importe, 1800000);
   assert.match(saved.sha256CondicionesComerciales, /^[a-f0-9]{64}$/);
@@ -140,6 +174,7 @@ test("aceptación contractual se registra una vez, con actor, tenant, bundle, ha
   assert.equal(state.aceptacionId, result.aceptacionId);
   assert.equal(state.documentosAceptados?.length, 2);
   assert.equal(state.sha256CondicionesComerciales, saved.sha256CondicionesComerciales);
+  assert.equal(state.sha256AnexoTenant, saved.sha256AnexoTenant);
   assert.equal(state.historial.length, 1);
   assert.equal(state.historial[0].uid, "admin-a");
   assert.equal(state.historial[0].aceptacionId, result.aceptacionId);
@@ -178,6 +213,7 @@ test("rechaza el payload con autoridad o versiones enviadas por el cliente", asy
   const h = harness({ bundle: READY_BUNDLE });
   await assert.rejects(aceptarDocumentosLegalesTenant(request({ empresaId: "tenant-b" }), h.dependencies), (error: unknown) => error instanceof HttpsError && error.code === "invalid-argument");
   await assert.rejects(aceptarDocumentosLegalesTenant(request({ sha256: "0".repeat(64) }), h.dependencies), (error: unknown) => error instanceof HttpsError && error.code === "invalid-argument");
+  await assert.rejects(aceptarDocumentosLegalesTenant(request({ sha256AnexoTenant: "invalid" }), h.dependencies), (error: unknown) => error instanceof HttpsError && error.code === "invalid-argument");
   await assert.rejects(aceptarDocumentosLegalesTenant(request({ declaroFacultad: false }), h.dependencies), (error: unknown) => error instanceof HttpsError && error.code === "invalid-argument");
   assert.equal(h.writes.length, 0);
 });
@@ -198,6 +234,27 @@ test("no permite aceptar sin snapshot contractual ni con una referencia desactua
   stale.records.set("suscripciones/tenant-a", { empresaId: "tenant-a", revision: 2, snapshotContrato: SNAPSHOT_CONTRATO });
   await assert.rejects(aceptarDocumentosLegalesTenant(request(), stale.dependencies), (error: unknown) => error instanceof HttpsError && error.code === "failed-precondition");
   assert.equal(stale.writes.length, 0);
+});
+
+test("bloquea aceptación si falta una ficha verificada o cambió después de que el admin la revisó", async () => {
+  const missing = harness({ bundle: READY_BUNDLE });
+  missing.dependencies.loadTenantAnnex = async () => ({ disponible: false, faltantes: ["proveedor o instrucciones pendientes"] });
+  const state = await consultarEstadoLegalTenant(request(undefined as never, { data: undefined }), missing.dependencies);
+  assert.equal(state.aceptacionDisponible, false);
+  assert.deepEqual(state.faltantesAnexoTenant, ["proveedor o instrucciones pendientes"]);
+  await assert.rejects(aceptarDocumentosLegalesTenant(request(), missing.dependencies), (error: unknown) => error instanceof HttpsError && error.code === "failed-precondition");
+  assert.equal(missing.writes.length, 0);
+
+  const changed = harness({ bundle: READY_BUNDLE });
+  changed.dependencies.loadTenantAnnex = async ({ empresaId, capacidadesContrato }: { empresaId: string; capacidadesContrato: string[] }) => crearSnapshotAnexoTenant({
+    empresaId,
+    projectId: "demo-legal-unit",
+    authority: ANNEX_AUTHORITY,
+    annexRecord: { ...ANNEX_RECORD, revision: 2 },
+    capacidadesContrato,
+  });
+  await assert.rejects(aceptarDocumentosLegalesTenant(request(), changed.dependencies), (error: unknown) => error instanceof HttpsError && error.code === "failed-precondition");
+  assert.equal(changed.writes.length, 0);
 });
 
 test("usa la relación contractual vigente por encima del snapshot raíz histórico", async () => {
@@ -295,7 +352,7 @@ test("pagina todo el historial del tenant sin repetir y rechaza cursores inváli
   const receipt = h.records.get(h.writes[0].path)!;
   for (let i = 0; i < 54; i++) {
     const actor = `admin-history-${i}`;
-    const id = createHash("sha256").update(["tenant-a", REFERENCIA_CONTRATO, actor, READY_BUNDLE.id].join("\n")).digest("hex");
+    const id = createHash("sha256").update(["tenant-a", REFERENCIA_CONTRATO, actor, READY_BUNDLE.id, ANNEX_HASH].join("\n")).digest("hex");
     h.records.set(`empresas/tenant-a/aceptacionesLegales/${id}`, { ...receipt, aceptacionId: id, uid: actor });
   }
   const first = await consultarEstadoLegalTenant(request(undefined as never, { data: undefined }), h.dependencies);
@@ -306,4 +363,24 @@ test("pagina todo el historial del tenant sin repetir y rechaza cursores inváli
   assert.equal(second.siguienteCursor, null);
   assert.equal(new Set([...first.historial, ...second.historial].map(item => item.aceptacionId)).size, 55);
   await assert.rejects(consultarEstadoLegalTenant(request(undefined as never, { data: { cursor: "../otro" } }), h.dependencies), (error: unknown) => error instanceof HttpsError && error.code === "invalid-argument");
+});
+
+test("el historial conserva recibos V1 anteriores y valida sus IDs legados", async () => {
+  const h = harness({ bundle: READY_BUNDLE });
+  const legacyUid = "admin-legacy";
+  const legacyId = createHash("sha256").update(["tenant-a", REFERENCIA_CONTRATO, legacyUid, READY_BUNDLE.id].join("\n")).digest("hex");
+  const current = await aceptarDocumentosLegalesTenant(request(), h.dependencies);
+  const receipt = h.records.get(h.writes[0].path)!;
+  h.records.set(`empresas/tenant-a/aceptacionesLegales/${legacyId}`, {
+    ...receipt,
+    schemaVersion: 1,
+    aceptacionId: legacyId,
+    uid: legacyUid,
+    sha256AnexoTenant: undefined,
+    anexoTenant: undefined,
+  });
+  const state = await consultarEstadoLegalTenant(request(undefined as never, { data: undefined }), h.dependencies);
+  assert.equal(state.aceptacionId, current.aceptacionId);
+  assert.equal(state.historial.length, 2);
+  assert.ok(state.historial.some((item: { uid: string }) => item.uid === legacyUid));
 });

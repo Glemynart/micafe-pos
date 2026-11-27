@@ -131,3 +131,20 @@ Se añade una persistencia de autorización específica para salida de datos y u
 flujo de verificación de contacto. No se reutilizan credenciales, roles, grants
 de soporte ni solicitudes de derechos de titulares. Si no se puede verificar el
 contacto o sostener el canal, la exportación real continúa bloqueada.
+
+## Decisión de ingeniería sobre el canal — 2026-11-27
+
+Por delegación técnica del responsable, se decide **no seleccionar ni configurar
+un proveedor externo todavía**. Se mantiene un puerto de entrega desacoplado y
+fail-closed; en Emulator/staging se usa exclusivamente un stub sintético. Elegir
+Gmail personal, correo transaccional o mensajería ahora comprometería una cuenta,
+condiciones de tratamiento, región, retención de mensajes/metadatos, costos y
+controles de abuso que aún no están verificados para Dusema. No se enviará un
+enlace real ni se devolverá el secreto al operador para simular verificación.
+
+Antes de decidir el proveedor se verificará: titularidad de la cuenta de Dusema,
+condiciones contractuales y de tratamiento, región y subencargados, retención y
+eliminación, protección del secreto, límites/rate limiting, evidencia opaca de
+entrega, manejo de rebotes/errores y costo. Esta decisión no impide completar
+adaptadores, pruebas y trabajo independiente; sí mantiene bloqueada cualquier
+exportación real hasta verificar el canal y el contacto.

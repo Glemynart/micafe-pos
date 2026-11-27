@@ -434,6 +434,21 @@ service cloud.firestore {
     match /saas_soporte_autorizaciones/{id} {
       allow read, write: if false;
     }
+    // La fuente y las pruebas del contacto autorizado de exportación son
+    // privadas; nunca se leen o escriben desde SDKs de clientes.
+    match /saas_export_contact_authorities/{empresaId} {
+      allow read, write: if false;
+    }
+    match /saas_export_contact_authorities/{empresaId}/{document=**} {
+      allow read, write: if false;
+    }
+    // La ficha específica y sus versiones solo existen en el plano servidor.
+    match /saas_legal_tenant_annexes/{empresaId} {
+      allow read, write: if false;
+    }
+    match /saas_legal_tenant_annexes/{empresaId}/{document=**} {
+      allow read, write: if false;
+    }
     match /saas_comandos/{id} {
       allow read, write: if false;
     }

@@ -2,7 +2,9 @@
 
 ## Estado
 
-**Propuesto** — pendiente de aprobación. `G-SAAS-02 → M2 → E2.2`.
+**Aceptado para implementación controlada**, 2026-11-27, por decisión técnica
+delegada expresamente por el responsable. Se selecciona la alternativa A.
+`G-SAAS-02 → M2 → E2.2`.
 
 Este ADR no cambia ni habilita exportaciones reales, despliegues productivos,
 recolección de documentos de identidad ni selección de un proveedor de correo o
@@ -92,7 +94,13 @@ expiración, cambio de alcance y aislamiento entre tenants. Probar envío solo c
 un adapter stub en Emulator/staging. El smoke con proveedor real, persona real y
 exportación requiere gates operativos separados.
 
-## Aprobación
+## Decisión aceptada
 
-Pendiente del responsable del producto. Hasta entonces no se implementa la nueva
-fuente de autoridad ni el flujo que emite autorizaciones reales.
+Se implementará la autoridad versionada descrita en la alternativa A con
+fixtures sintéticos, adapter de entrega stub y validación en Emulator/staging.
+La aprobación cubre el modelo y la implementación controlada; no autoriza
+registrar contactos reales, emitir enlaces reales, contratar o configurar un
+proveedor, exportar datos reales ni desplegar en producción. La exportación
+real permanece fail-closed hasta validar separadamente el contacto, el canal y
+la instrucción aplicable. La evidencia de implementación controlada está en
+[RESULTADO ADR-107/108](docs/legal/evidence/RESULTADO-ADR107-108-IMPLEMENTACION-CONTROLADA-2026-11-27.md).

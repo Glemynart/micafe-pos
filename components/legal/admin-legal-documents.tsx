@@ -24,6 +24,8 @@ function descargarRecibo(estado: EstadoLegalTenant, recibo: ReciboAceptacionLega
     referenciaContrato: recibo.referenciaContrato,
     sha256CondicionesComerciales: recibo.sha256CondicionesComerciales,
     condicionesComerciales: recibo.condicionesComerciales,
+    sha256AnexoTenant: recibo.sha256AnexoTenant,
+    anexoTenant: recibo.anexoTenant,
     documentos: recibo.documentos,
   };
   const blob = new Blob([JSON.stringify(contenido, null, 2)], { type: "application/json;charset=utf-8" });
@@ -45,6 +47,7 @@ export function AdminLegalDocuments() {
   const [terminos, setTerminos] = useState(false);
   const [anexo, setAnexo] = useState(false);
   const [facultad, setFacultad] = useState(false);
+  const [instrucciones, setInstrucciones] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
@@ -56,6 +59,7 @@ export function AdminLegalDocuments() {
       setEstado(current);
       setRecibo(current.aceptado && current.aceptacionId && current.condicionesComerciales
         && current.sha256CondicionesComerciales && current.documentosAceptados
+        && current.sha256AnexoTenant && current.anexoTenant
         ? {
             aceptacionId: current.aceptacionId,
             bundleId: current.bundleId,
@@ -65,6 +69,8 @@ export function AdminLegalDocuments() {
             sha256CondicionesComerciales: current.sha256CondicionesComerciales,
             condicionesComerciales: current.condicionesComerciales,
             documentos: current.documentosAceptados,
+            sha256AnexoTenant: current.sha256AnexoTenant,
+            anexoTenant: current.anexoTenant,
           }
         : null);
     } catch {
@@ -93,7 +99,8 @@ export function AdminLegalDocuments() {
 
   const enviar = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!estado?.condicionesComerciales || !terminos || !anexo || !facultad) return;
+    if (!estado?.condicionesComerciales || !estado.anexoTenant || !estado.sha256AnexoTenant || !estado.aceptacionDisponible
+      || !terminos || !anexo || !facultad || !instrucciones) return;
     setSaving(true);
     setError(null);
     try {
@@ -102,6 +109,8 @@ export function AdminLegalDocuments() {
         aceptoTerminos: true,
         aceptoAnexo: true,
         declaroFacultad: true,
+        confirmoInstruccionesAnexo: true,
+        sha256AnexoTenant: estado.sha256AnexoTenant,
         correlationId: crypto.randomUUID(),
         referenciaContrato: estado.condicionesComerciales.referenciaContrato,
       });
@@ -114,6 +123,8 @@ export function AdminLegalDocuments() {
         aceptadoEn: result.aceptadoEn,
         documentosAceptados: result.documentos,
         sha256CondicionesComerciales: result.sha256CondicionesComerciales,
+        sha256AnexoTenant: result.sha256AnexoTenant,
+        anexoTenant: result.anexoTenant,
       } : previous);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible registrar la aceptación.");
@@ -133,6 +144,7 @@ export function AdminLegalDocuments() {
           <h1 className="mt-1 text-2xl font-bold">Términos y privacidad</h1>
           <p className="mt-2 text-sm text-muted-foreground">Revisa las versiones, su estado y la evidencia de aceptación contractual de {estado?.nombreEmpresa ?? "tu empresa"}.</p>
         </div>
+
         <button type="button" onClick={() => void cargar()} className="inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-sm font-semibold"><RefreshCw className="size-4" />Actualizar</button>
       </header>
 
@@ -149,6 +161,26 @@ export function AdminLegalDocuments() {
                 ? `Recibo ${estado.aceptacionId}${estado.aceptadoEn ? ` · ${new Date(estado.aceptadoEn).toLocaleString("es-CO")}` : ""}.`
                 : "La persona administradora debe revisar los documentos contractuales y declarar que puede representar a la empresa."}</p>
           </div>
+        </div>
+
+        <div className="rounded-xl border bg-card p-5">
+          <h2 className="font-semibold">Ficha de tratamiento de este negocio</h2>
+          {estado.anexoTenant ? <>
+            <p className="mt-2 text-sm text-muted-foreground">Revisión {estado.anexoTenant.revision} · {estado.anexoTenant.perfil.nombreComercial} · {estado.anexoTenant.perfil.tipoPersona === "NATURAL" ? "Persona natural" : "Persona jurídica"}</p>
+            <dl className="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
+              <div><dt className="text-muted-foreground">Módulos contratados incluidos</dt><dd className="font-medium">{estado.anexoTenant.capacidades.join(", ")}</dd></div>
+              <div><dt className="text-muted-foreground">Finalidades declaradas</dt><dd className="font-medium">{estado.anexoTenant.instrucciones.finalidades.join(", ")}</dd></div>
+              <div><dt className="text-muted-foreground">Titulares</dt><dd className="font-medium">{estado.anexoTenant.instrucciones.titulares.join(", ")}</dd></div>
+              <div><dt className="text-muted-foreground">Categorías de datos</dt><dd className="font-medium">{estado.anexoTenant.instrucciones.categoriasDatos.join(", ")}</dd></div>
+              <div><dt className="text-muted-foreground">Contacto de privacidad</dt><dd className="font-medium">Canal verificado: {estado.anexoTenant.contactoPrivacidad.canal.replace("_VERIFICADO", "").toLowerCase()} · versión {estado.anexoTenant.contactoPrivacidad.version}</dd></div>
+              <div><dt className="text-muted-foreground">Salida del servicio</dt><dd className="font-medium">{estado.anexoTenant.instrucciones.instruccionSalida === "DEVOLVER_Y_SUPRIMIR_SEGUN_RETENCIONES" ? "Devolución y supresión conforme a retenciones legales" : "Devolución y solicitud de supresión"}</dd></div>
+            </dl>
+            <div className="mt-4"><p className="text-sm font-medium">Subencargados y regiones</p><ul className="mt-1 list-disc pl-5 text-sm text-muted-foreground">{estado.anexoTenant.subencargados.entradas.map((item) => <li key={item.id}>{item.producto} · {item.paisIso2} · {item.finalidad}</li>)}</ul></div>
+            <p className="mt-3 text-xs text-muted-foreground">Huella SHA-256 de la ficha: <code className="break-all">{estado.sha256AnexoTenant}</code></p>
+          </> : <>
+            <p className="mt-2 text-sm text-amber-900">La ficha específica no está completa o verificada. No se permite aceptar el anexo hasta resolver estos puntos:</p>
+            <ul className="mt-2 list-disc pl-5 text-sm text-amber-900">{estado.faltantesAnexoTenant.map((item) => <li key={item}>{item}</li>)}</ul>
+          </>}
         </div>
 
         <div className="rounded-xl border bg-card p-5">
@@ -178,13 +210,14 @@ export function AdminLegalDocuments() {
           </ul>
         </div>
 
-        {estado.requiereAceptacion && !estado.aceptado && estado.condicionesComerciales && <form onSubmit={enviar} className="space-y-4 rounded-xl border bg-card p-5">
+        {estado.requiereAceptacion && !estado.aceptado && estado.condicionesComerciales && estado.aceptacionDisponible && estado.anexoTenant && <form onSubmit={enviar} className="space-y-4 rounded-xl border bg-card p-5">
           <h2 className="font-semibold">Aceptar condiciones del negocio</h2>
           <label className="flex gap-3 text-sm"><input type="checkbox" checked={terminos} onChange={(e) => setTerminos(e.target.checked)} /><span>He leído y acepto los <Link className="underline" href="/terminos">Términos del servicio</Link>.</span></label>
           <label className="flex gap-3 text-sm"><input type="checkbox" checked={anexo} onChange={(e) => setAnexo(e.target.checked)} /><span>He leído y acepto el <Link className="underline" href="/anexo-tratamiento">Anexo de tratamiento de datos por cuenta del negocio</Link>.</span></label>
+          <label className="flex gap-3 text-sm"><input type="checkbox" checked={instrucciones} onChange={(e) => setInstrucciones(e.target.checked)} /><span>Confirmo que las instrucciones, finalidades, categorías, módulos y subencargados mostrados en la ficha corresponden a este negocio.</span></label>
           <label className="flex gap-3 text-sm"><input type="checkbox" checked={facultad} onChange={(e) => setFacultad(e.target.checked)} /><span>Declaro que tengo facultad para aceptar estos documentos en representación de esta empresa.</span></label>
           <p className="text-xs leading-5 text-muted-foreground">La política de privacidad y el aviso de autorización se consultan por separado. Esta aceptación contractual no sustituye la autorización de cada titular ni consiente publicidad.</p>
-          <button disabled={!terminos || !anexo || !facultad || saving} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-slate-900 px-5 font-semibold text-white disabled:opacity-50">{saving && <Loader2 className="size-4 animate-spin" />}Aceptar y guardar recibo</button>
+          <button disabled={!terminos || !anexo || !facultad || !instrucciones || saving} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-slate-900 px-5 font-semibold text-white disabled:opacity-50">{saving && <Loader2 className="size-4 animate-spin" />}Aceptar y guardar recibo</button>
         </form>}
 
         {recibo && estado.aceptado && <button type="button" onClick={() => descargarRecibo(estado, recibo)} className="inline-flex min-h-10 items-center gap-2 rounded-lg border px-4 text-sm font-semibold"><Download className="size-4" />Descargar recibo de aceptación</button>}

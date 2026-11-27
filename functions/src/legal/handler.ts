@@ -6,6 +6,14 @@ import { esSnapshotContratoCompatible, type SnapshotContrato } from "../../../li
 import { exigirTenantActivo } from "../tenant-configuration/authority";
 import { leerRelacionContractualVigente } from "../suscripciones/relacion-vigente";
 import { BUNDLE_LEGAL_ACTUAL, type BundleLegal } from "./catalog";
+import {
+  EXPORT_CONTACT_AUTHORITY_COLLECTION,
+  TENANT_ANNEX_COLLECTION,
+  crearSnapshotAnexoTenant,
+  validarSnapshotAnexoPersistido,
+  type TenantAnnexResult,
+  type TenantAnnexSnapshot,
+} from "./tenant-annex";
 
 type Request = { auth?: { uid: string; token: Record<string, unknown> }; data?: unknown };
 type Tenant = Awaited<ReturnType<typeof exigirTenantActivo>>;
@@ -15,6 +23,8 @@ type Dependencies = {
   exigirTenant?: typeof exigirTenantActivo;
   getUser?: (uid: string) => Promise<UserRecordLike>;
   bundle?: BundleLegal;
+  projectId?: string;
+  loadTenantAnnex?: (input: { db: any; tx?: any; empresaId: string; capacidadesContrato: string[] }) => Promise<TenantAnnexResult>;
   serverTimestamp?: () => unknown;
 };
 
@@ -49,11 +59,14 @@ function leerObjeto(value: unknown): Record<string, unknown> {
 
 function leerEntradaAceptacion(value: unknown) {
   const data = leerObjeto(value);
-  const keys = new Set(["bundleId", "aceptoTerminos", "aceptoAnexo", "declaroFacultad", "correlationId", "referenciaContrato"]);
+  const keys = new Set(["bundleId", "aceptoTerminos", "aceptoAnexo", "declaroFacultad", "confirmoInstruccionesAnexo", "sha256AnexoTenant", "correlationId", "referenciaContrato"]);
   if (Object.keys(data).some((key) => !keys.has(key))
     || data.aceptoTerminos !== true
     || data.aceptoAnexo !== true
     || data.declaroFacultad !== true
+    || data.confirmoInstruccionesAnexo !== true
+    || typeof data.sha256AnexoTenant !== "string"
+    || !/^[a-f0-9]{64}$/.test(data.sha256AnexoTenant)
     || typeof data.bundleId !== "string"
     || typeof data.correlationId !== "string"
     || !CORRELATION.test(data.correlationId)
@@ -61,7 +74,7 @@ function leerEntradaAceptacion(value: unknown) {
     || !CONTRACT_REFERENCE.test(data.referenciaContrato)) {
     fail("invalid-argument", "Debes aceptar los documentos contractuales y declarar tu facultad de representación.");
   }
-  return { bundleId: data.bundleId, correlationId: data.correlationId, referenciaContrato: data.referenciaContrato };
+  return { bundleId: data.bundleId, correlationId: data.correlationId, referenciaContrato: data.referenciaContrato, sha256AnexoTenant: data.sha256AnexoTenant };
 }
 
 function validarContrato(snapshot: unknown, revision: unknown, relacionId?: unknown): ContratoVigente | null {
@@ -134,8 +147,10 @@ async function leerContratoVigenteEnTransaccion(db: any, tx: any, empresaId: str
   return validarContrato(subscription?.snapshotContrato, subscription?.revision);
 }
 
-function idAceptacion(empresaId: string, referenciaContrato: string, uid: string, bundleId: string): string {
-  return createHash("sha256").update([empresaId, referenciaContrato, uid, bundleId].join("\n"), "utf8").digest("hex");
+function idAceptacion(empresaId: string, referenciaContrato: string, uid: string, bundleId: string, sha256AnexoTenant?: string): string {
+  const parts = [empresaId, referenciaContrato, uid, bundleId];
+  if (sha256AnexoTenant) parts.push(sha256AnexoTenant);
+  return createHash("sha256").update(parts.join("\n"), "utf8").digest("hex");
 }
 
 async function validarSesionVigente(request: Request, dependencies: Dependencies): Promise<string> {
@@ -163,9 +178,25 @@ async function exigirAdminTenant(request: Request, dependencies: Dependencies) {
   return { db, empresaId: tenant.id, uid };
 }
 
-function refAceptacion(db: any, empresaId: string, referenciaContrato: string, uid: string, bundleId: string) {
-  const id = idAceptacion(empresaId, referenciaContrato, uid, bundleId);
+function refAceptacion(db: any, empresaId: string, referenciaContrato: string, uid: string, bundleId: string, sha256AnexoTenant?: string) {
+  const id = idAceptacion(empresaId, referenciaContrato, uid, bundleId, sha256AnexoTenant);
   return { id, ref: db.collection("empresas").doc(empresaId).collection("aceptacionesLegales").doc(id) };
+}
+
+async function leerSnapshotAnexoTenant(input: { db: any; tx?: any; empresaId: string; capacidadesContrato: string[]; projectId?: string }): Promise<TenantAnnexResult> {
+  const projectId = input.projectId ?? process.env.GCLOUD_PROJECT ?? process.env.GCLOUD_PROJECT_ID;
+  if (!projectId || !/^[A-Za-z0-9_-]{1,120}$/.test(projectId)) return { disponible: false, faltantes: ["proyecto de ejecución verificable"] };
+  const annexRef = input.db.collection(TENANT_ANNEX_COLLECTION).doc(input.empresaId);
+  const authorityRef = input.db.collection(EXPORT_CONTACT_AUTHORITY_COLLECTION).doc(input.empresaId);
+  const get = (ref: any) => input.tx ? input.tx.get(ref) : ref.get();
+  const [annexSnap, authoritySnap] = await Promise.all([get(annexRef), get(authorityRef)]);
+  return crearSnapshotAnexoTenant({
+    empresaId: input.empresaId,
+    projectId,
+    annexRecord: annexSnap.exists ? annexSnap.data() : null,
+    authority: authoritySnap.exists ? authoritySnap.data() : null,
+    capacidadesContrato: input.capacidadesContrato,
+  });
 }
 
 function aceptaBundle(bundle: BundleLegal): boolean {
@@ -224,10 +255,16 @@ async function consultarHistorialLegal(db: any, empresaId: string, cursor: strin
   const historial = documentos.map((snap: any) => {
     const r = snap.data();
     const fecha = fechaReciboValida(r?.aceptadoEn);
-    if (r?.schemaVersion !== 1 || r.empresaId !== empresaId || typeof r.uid !== "string" || !r.uid
+    const schemaValido = r?.schemaVersion === 1 || r?.schemaVersion === 2
+      && typeof r.sha256AnexoTenant === "string"
+      && validarSnapshotAnexoPersistido(r.anexoTenant, empresaId, r.sha256AnexoTenant);
+    const expectedId = r?.schemaVersion === 2
+      ? idAceptacion(empresaId, r.referenciaContrato, r.uid, r.bundleId, r.sha256AnexoTenant)
+      : idAceptacion(empresaId, r.referenciaContrato, r.uid, r.bundleId);
+    if (!schemaValido || r.empresaId !== empresaId || typeof r.uid !== "string" || !r.uid
       || typeof r.bundleId !== "string" || !r.bundleId || typeof r.referenciaContrato !== "string"
       || r.relacion !== "ADMIN_TENANT_REPRESENTANTE_DECLARADO" || r.facultadRepresentacionDeclarada !== true
-      || r.aceptacionId !== snap.id || snap.id !== idAceptacion(empresaId, r.referenciaContrato, r.uid, r.bundleId)
+      || r.aceptacionId !== snap.id || snap.id !== expectedId
       || typeof r.sha256CondicionesComerciales !== "string" || !/^[a-f0-9]{64}$/.test(r.sha256CondicionesComerciales)
       || !snapshotCondicionesCoincide(r.condicionesComerciales, r.sha256CondicionesComerciales)
       || r.condicionesComerciales?.referenciaContrato !== r.referenciaContrato
@@ -235,7 +272,8 @@ async function consultarHistorialLegal(db: any, empresaId: string, cursor: strin
       || r.documentos.some((doc: any) => !doc || typeof doc.id !== "string" || typeof doc.version !== "string" || !/^[a-f0-9]{64}$/.test(doc.sha256))
       || !fecha) fail("data-loss", "No fue posible verificar el historial de aceptaciones.");
     return { aceptacionId: snap.id, uid: r.uid, bundleId: r.bundleId, referenciaContrato: r.referenciaContrato,
-      aceptadoEn: fecha.toISOString(), documentos: r.documentos.map((doc: any) => ({ id: doc.id, version: doc.version, sha256: doc.sha256 })) };
+      aceptadoEn: fecha.toISOString(), documentos: r.documentos.map((doc: any) => ({ id: doc.id, version: doc.version, sha256: doc.sha256 })),
+      ...(r.schemaVersion === 2 ? { sha256AnexoTenant: r.sha256AnexoTenant } : {}) };
   });
   historial.sort((a: { aceptadoEn: string }, b: { aceptadoEn: string }) => b.aceptadoEn.localeCompare(a.aceptadoEn));
   return { historial, historialLimitado: resultado.docs.length > 50,
@@ -258,12 +296,17 @@ export async function consultarEstadoLegalTenant(request: Request, dependencies:
   const habilitado = aceptaBundle(bundle);
   const condicionesComerciales = contract ? proyectarCondiciones(contract) : null;
   const hashCondiciones = condicionesComerciales ? hashCondicionesComerciales(condicionesComerciales) : null;
-  const acceptanceRef = habilitado && contract
-    ? refAceptacion(db, empresaId, contract.referencia, uid, bundle.id)
+  const anexoTenant: TenantAnnexResult = contract
+    ? await (dependencies.loadTenantAnnex ?? ((input) => leerSnapshotAnexoTenant({ ...input, projectId: dependencies.projectId })))(
+      { db, empresaId, capacidadesContrato: contract.snapshot.capacidades },
+    )
+    : { disponible: false, faltantes: ["snapshot contractual vigente"] };
+  const acceptanceRef = habilitado && contract && anexoTenant.disponible
+    ? refAceptacion(db, empresaId, contract.referencia, uid, bundle.id, anexoTenant.sha256)
     : null;
   const acceptance = acceptanceRef ? await acceptanceRef.ref.get() : null;
   const receipt = acceptance?.exists ? acceptance.data() : undefined;
-  if (receipt && (receipt.schemaVersion !== 1
+  if (receipt && (receipt.schemaVersion !== 2
     || receipt.aceptacionId !== acceptanceRef?.id
     || !fechaReciboValida(receipt.aceptadoEn)
     || receipt.empresaId !== empresaId
@@ -274,6 +317,9 @@ export async function consultarEstadoLegalTenant(request: Request, dependencies:
     || receipt.referenciaContrato !== contract?.referencia
     || receipt.sha256CondicionesComerciales !== hashCondiciones
     || !snapshotCondicionesCoincide(receipt.condicionesComerciales, receipt.sha256CondicionesComerciales)
+    || !anexoTenant.disponible
+    || receipt.sha256AnexoTenant !== anexoTenant.sha256
+    || !validarSnapshotAnexoPersistido(receipt.anexoTenant, empresaId, receipt.sha256AnexoTenant)
     || JSON.stringify(receipt.documentos) !== JSON.stringify(documentosContratados(bundle)))) {
     fail("data-loss", "La aceptación guardada no coincide con el contrato o documentos vigentes.");
   }
@@ -286,13 +332,17 @@ export async function consultarEstadoLegalTenant(request: Request, dependencies:
       : typeof company.data()?.nombre === "string" ? company.data().nombre : empresaId,
     bundleId: bundle.id,
     estado: habilitado ? "EXIGIBLE" : "PREPARACION",
-    requiereAceptacion: habilitado && (!acceptance?.exists || !contract),
-    aceptado: habilitado && !!acceptance?.exists && !!contract,
+    requiereAceptacion: habilitado && (!acceptance?.exists || !contract || !anexoTenant.disponible),
+    aceptacionDisponible: habilitado && !!contract && anexoTenant.disponible,
+    aceptado: habilitado && !!acceptance?.exists && !!contract && anexoTenant.disponible,
     aceptacionId: acceptance?.exists ? acceptanceRef?.id ?? null : null,
     aceptadoEn: acceptedAt instanceof Date ? acceptedAt.toISOString() : null,
     sha256CondicionesComerciales: receipt?.sha256CondicionesComerciales ?? null,
     documentosAceptados: receipt?.documentos ?? null,
     condicionesComerciales,
+    anexoTenant: anexoTenant.disponible ? anexoTenant.snapshot : null,
+    sha256AnexoTenant: anexoTenant.disponible ? anexoTenant.sha256 : null,
+    faltantesAnexoTenant: anexoTenant.disponible ? [] : anexoTenant.faltantes,
     documentos: bundle.documentos,
     ...historialLegal,
   };
@@ -306,7 +356,7 @@ export async function aceptarDocumentosLegalesTenant(request: Request, dependenc
   const bundle = dependencies.bundle ?? BUNDLE_LEGAL_ACTUAL;
   if (input.bundleId !== bundle.id || !aceptaBundle(bundle)) fail("failed-precondition", "Los documentos legales todavía no están aprobados para aceptación.");
 
-  const { id, ref } = refAceptacion(db, empresaId, input.referenciaContrato, uid, bundle.id);
+  const { id, ref } = refAceptacion(db, empresaId, input.referenciaContrato, uid, bundle.id, input.sha256AnexoTenant);
   const empresaRef = db.collection("empresas").doc(empresaId);
   const membershipRef = db.collection("membresias").doc(`${empresaId}_${uid}`);
   const outcome = await db.runTransaction(async (tx: any) => {
@@ -327,11 +377,18 @@ export async function aceptarDocumentosLegalesTenant(request: Request, dependenc
       || membership?.estado !== "activa"
       || membership?.activo !== true) fail("permission-denied", ERROR_ACCESS);
 
+    const anexoTenant = await (dependencies.loadTenantAnnex ?? ((parameters) => leerSnapshotAnexoTenant({ ...parameters, projectId: dependencies.projectId })))(
+      { db, tx, empresaId, capacidadesContrato: contract.snapshot.capacidades },
+    );
+    if (!anexoTenant.disponible || anexoTenant.sha256 !== input.sha256AnexoTenant) {
+      fail("failed-precondition", "La ficha del anexo cambió o aún tiene datos sin verificar. Actualiza la pantalla antes de aceptar.");
+    }
+
     const condicionesComerciales = proyectarCondiciones(contract);
     const hashCondiciones = hashCondicionesComerciales(condicionesComerciales);
     const documentos = documentosContratados(bundle);
     const documento = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       aceptacionId: id,
       empresaId,
       uid,
@@ -339,6 +396,8 @@ export async function aceptarDocumentosLegalesTenant(request: Request, dependenc
       referenciaContrato: contract.referencia,
       sha256CondicionesComerciales: hashCondiciones,
       condicionesComerciales,
+      sha256AnexoTenant: anexoTenant.sha256,
+      anexoTenant: anexoTenant.snapshot,
       facultadRepresentacionDeclarada: true,
       bundleId: bundle.id,
       documentos,
@@ -352,12 +411,14 @@ export async function aceptarDocumentosLegalesTenant(request: Request, dependenc
         && previous?.aceptacionId === id
         && !!fechaReciboValida(previous?.aceptadoEn)
         && previous?.uid === uid
-        && previous?.schemaVersion === 1
+        && previous?.schemaVersion === 2
         && previous?.relacion === "ADMIN_TENANT_REPRESENTANTE_DECLARADO"
         && previous?.bundleId === bundle.id
         && previous?.referenciaContrato === contract.referencia
         && previous?.sha256CondicionesComerciales === hashCondiciones
         && snapshotCondicionesCoincide(previous?.condicionesComerciales, hashCondiciones)
+        && previous?.sha256AnexoTenant === anexoTenant.sha256
+        && validarSnapshotAnexoPersistido(previous?.anexoTenant, empresaId, anexoTenant.sha256)
         && previous?.facultadRepresentacionDeclarada === true
         && JSON.stringify(previous?.documentos) === JSON.stringify(documento.documentos);
       if (!same) fail("data-loss", "El registro de aceptación no coincide con la versión vigente.");
@@ -379,6 +440,8 @@ export async function aceptarDocumentosLegalesTenant(request: Request, dependenc
     referenciaContrato: receipt?.referenciaContrato,
     sha256CondicionesComerciales: receipt?.sha256CondicionesComerciales,
     condicionesComerciales: receipt?.condicionesComerciales,
+    sha256AnexoTenant: receipt?.sha256AnexoTenant,
+    anexoTenant: receipt?.anexoTenant,
     documentos: receipt?.documentos,
   };
 }
