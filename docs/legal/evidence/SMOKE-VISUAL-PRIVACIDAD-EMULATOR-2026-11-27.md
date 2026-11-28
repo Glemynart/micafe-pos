@@ -15,4 +15,3 @@
 - No acepta documentos, consulta tenants reales, genera exportaciones reales ni ejecuta supresión.
 - La ejecución local inicial del runner general se detuvo porque intenta descubrir los 21 codebases de Functions, incluidos codebases no requeridos para este flujo. El smoke focalizado evitó esa dependencia y ejecutó las dos Functions necesarias; el runner general no se modificó.
 - El PR remoto verificado antes de añadir este spec era `fff33b9a51d3d28ab16361a9ec692061311e85bc`, con CI `46057771415` exitoso. Esta prueba local aún debe viajar en un commit del PR para obtener CI sobre el nuevo HEAD.
-

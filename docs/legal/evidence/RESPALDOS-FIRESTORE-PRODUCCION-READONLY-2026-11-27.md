@@ -1,7 +1,7 @@
 # Respaldos Firestore de producción — lectura de solo consulta
 
-**Observado:** 2026-11-27 22:18 UTC  
-**Proyecto:** `micafe-pos`  
+**Observado:** 2026-11-27 22:18 UTC
+**Proyecto:** `micafe-pos`
 **Alcance:** metadatos de la base predeterminada, programación y snapshots visibles. No se leyeron documentos de clientes ni se inició una restauración, exportación, eliminación o cambio de configuración.
 
 ## Resultado
