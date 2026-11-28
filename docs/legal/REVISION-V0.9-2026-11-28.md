@@ -1,7 +1,8 @@
 # Revisión documental v0.9 — 2026-11-28
 
-**Goal:** `G-SAAS-02 → M2 → E2.2`  
-**Bundle:** `dusema-pos-2026-11-v0.9` — `PREPARACION`  
+**Goal:** `G-SAAS-02 → M2 → E2.2`
+
+**Bundle:** `dusema-pos-2026-11-v0.9` — `PREPARACION`
 **Estado:** cuatro documentos `BORRADOR`; no vigentes ni exigibles.
 
 ## Cambio
