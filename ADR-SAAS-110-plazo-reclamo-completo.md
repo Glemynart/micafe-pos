@@ -1,11 +1,12 @@
 # ADR-SAAS-110 — Inicio del término de respuesta a reclamos incompletos
 
-Estado: **Propuesto**, 2026-11-28.
+Estado: **Aceptado para implementación y validación sintética/staging**, 2026-11-28.
 Goal: `G-SAAS-02 → M2 → E2.2`.
 
-Esta propuesta no constituye concepto jurídico profesional ni autoriza
-implementación, despliegue o modificación de vencimientos reales. Requiere
-aprobación explícita del responsable y validación jurídica antes de publicar
+El responsable aprobó la alternativa A el 2026-11-28. La aceptación habilita
+implementar y validar el origen de plazo con datos sintéticos/Emulator/staging;
+no constituye concepto jurídico profesional, no autoriza escrituras o
+despliegues productivos y no sustituye validación jurídica antes de publicar
 documentos o activar el flujo en producción.
 
 ## Contexto
@@ -66,7 +67,7 @@ las alternativas anteriores.
 
 ## Recomendación
 
-Elegir **A**, sujeta a revisión jurídica colombiana. El sistema debe considerar
+Se acepta **A**, sujeta a revisión jurídica colombiana. El sistema debe considerar
 la fecha efectiva y verificable de recepción completa como el origen del
 término de respuesta, mientras conserva `recibidoEn` para el requerimiento
 inicial de subsanación y el historial.
