@@ -93,6 +93,12 @@
   delegada, alternativa A, para implementar y probar el snapshot versionado y
   fail-closed del anexo por negocio con fixtures sintéticos. No habilita
   publicación, aceptación real ni inferencia de hechos legales/comerciales.
+- **ADR-SAAS-109 / facultad para administrar el contacto de exportación,
+  2026-11-28:** aceptado por decisión técnica delegada, alternativa A. Se
+  permite implementar una facultad dedicada no incluida por defecto, callables
+  y UI con fixtures sintéticos/stub. No habilita contactos reales, proveedor,
+  exportación, supresión, IAM ni despliegues; el smoke en staging requiere su
+  preflight operativo.
 - **ADR-SAAS-110 / plazo de respuesta a reclamos, 2026-11-28:** el responsable
   aprobó contar los quince días hábiles desde el día siguiente a la recepción
   verificable del reclamo completo. El requerimiento de subsanación conserva su

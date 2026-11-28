@@ -188,8 +188,9 @@ Este borrador no queda adoptado hasta cerrar y dejar evidencia de:
 - revisión jurídica colombiana de documentos, calendario y procesos;
 - contacto y canal de recepción/respuesta externos verificados, con medio
   restringido para expedientes y cobertura de continuidad;
-- facultad aprobada y flujo implementado para designar/verificar el contacto de
-  exportación del tenant (ADR-SAAS-109 sigue propuesto);
+- implementación y pruebas sintéticas de la facultad/callables/UI dedicada
+  aceptada en ADR-SAAS-109; el contacto real y el proveedor siguen sin estar
+  autorizados ni verificados;
 - contratos/instrumentos y subencargados confirmados para cada producto usado;
 - conciliación de retenciones, regiones, respaldos, logs y Storage; resolución
   del riesgo de ACL/identidad reportado en ADR-SAAS-111 sin cambios hasta contar

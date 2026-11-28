@@ -548,5 +548,19 @@ plan de pago.
 - Fuentes: [Ley 1581, artículos 14, 15, 17 y 18](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981) y [concepto SIC sobre política y manuales internos](https://sedeelectronica.sic.gov.co/publicaciones/boletin-juridico/concepto/diferencia-entre-politica-de-tratamiento-de-datos-y-manuales-internos-de-tratamiento-de-datos).
 - Este avance no adopta el manual, no activa canales ni flujos de producción y
   no certifica cumplimiento. Continúan pendientes la revisión jurídica y
-  aprobación del prestador, los canales seguros, ADR-SAAS-109 y 111, la
+  aprobación del prestador, los canales seguros, implementación sintética de
+  ADR-SAAS-109, ADR-SAAS-111, la
   exportación/supresión real y los demás gates de la matriz.
+
+## ADR-SAAS-109 aceptado — 2026-11-28
+
+- Bajo la autorización expresa de autonomía técnica del responsable para esta
+  misión, se acepta la alternativa A: facultad dedicada
+  `EXPORTACION_CONTACTO_GOBERNAR`, asignación explícita y fail-closed, separada
+  de conservación y de los permisos para tramitar consultas/reclamos.
+- El alcance habilitado es solo implementación con fixtures sintéticos, stub y
+  pruebas Emulator. No habilita designación de contactos reales, entrega de
+  enlaces, selección de proveedor, exportación/supresión, IAM o producción.
+  Staging requiere su propio preflight operativo.
+- `ADR-SAAS-111` permanece propuesto; el riesgo de ACL de Storage no se modifica
+  mediante esta decisión.

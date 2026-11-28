@@ -2,7 +2,9 @@
 
 ## Estado
 
-**Propuesto**, 2026-11-27. No implementar hasta aprobación expresa.
+**Aceptado para implementación controlada y validación sintética**, 2026-11-28,
+por decisión técnica delegada expresamente por el responsable en la misión de
+cierre legal. Se selecciona la alternativa A.
 `G-SAAS-02 → M2 → E2.2`.
 
 Este ADR desarrolla el gate de facultades de ADR-SAAS-107. No autoriza registrar
@@ -28,7 +30,7 @@ Sin una facultad definida, no se debe añadir una callable que acepte evidencia
 libre o una dirección seleccionada por el operador. El flujo real debe continuar
 fail-closed.
 
-## Decisión requerida
+## Decisión
 
 Definir el permiso mínimo, su auditoría y las condiciones de acceso para que
 operadores de plataforma administren la autoridad de contacto exigida por
@@ -67,7 +69,7 @@ puede recibir una exportación integral del tenant.
 
 ## Recomendación
 
-Elegir **A**. La separación reduce el alcance de cada facultad y mantiene
+Se adopta **A**. La separación reduce el alcance de cada facultad y mantiene
 independientes la designación del representante, el tratamiento de casos de
 titulares y la ejecución de exportaciones.
 
@@ -97,13 +99,13 @@ titulares y la ejecución de exportaciones.
   referencia no verificable, expiración, replay, doble consumo, reemplazo de
   versión, revocación, aislamiento y ausencia de PII/token en logs.
 
-## Alcance de una eventual aprobación
+## Alcance aceptado
 
-Una aprobación permitiría implementar la facultad, la callable y la pantalla de
-Backoffice con fixtures sintéticos, stub de entrega y pruebas Emulator. Cualquier
-despliegue en staging requiere su preflight y autorización operativa específica.
-No habilitaría contacto real, envío real, exportación, supresión, cambio IAM ni
-producción.
+La aceptación permite implementar la facultad, las callables y la pantalla de
+Backoffice con fixtures sintéticos, stub de entrega y pruebas Emulator. No
+habilita contacto real, envío real, exportación, supresión, cambio IAM ni
+producción. Cualquier despliegue en staging requiere preflight y autorización
+operativa específica.
 
 ## Referencias
 

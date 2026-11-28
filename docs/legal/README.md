@@ -242,3 +242,11 @@ Producción no recibió cambios en esta validación. La revisión jurídica,
 exportación y supresión con datos reales, validación de proveedores y los gates
 de IAM/Storage siguen abiertos; consulta la [matriz de auditoría](MATRIZ-AUDITORIA-2026-11-27.md)
 y la [revalidación de cierre](evidence/REVALIDACION-CIERRE-2026-11-28-0732Z.md).
+
+## Decisión técnica posterior — 2026-11-28
+
+ADR-SAAS-109 fue aceptado para implementación sintética de la facultad dedicada
+de gobierno del contacto. Esa aceptación no habilita contactos reales, correo
+externo, exportación/supresión ni producción. ADR-SAAS-111 sobre ACL de Storage
+continúa propuesto. La revisión jurídica y los gates operativos de salida siguen
+abiertos.
