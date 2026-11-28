@@ -450,3 +450,18 @@ La aprobación jurídica/factual de los documentos sigue pendiente.
   `micafe-pos-build-2026-11-28-002` (`485970a`); sigue pendiente el CI del nuevo
   SHA para crear un rollout staging exacto. Producción y aceptación siguen sin
   cambios.
+
+## Rollout de rótulos v0.8 — 2026-11-28 10:41 UTC
+
+- CI `46133603091` terminó `success`, 129/129 pasos. Se creó el rollout manual
+  exacto para `3de251d6b3c704033b4de97d435ce4e33a4c1272` solo en
+  `micafe-pos-staging/us-central1/micafe-pos`.
+- `build-2026-11-28-003` quedó `SUCCEEDED`/`READY`; Cloud Run dirige 100 % del
+  tráfico de staging a esa revisión. El build informa el SHA esperado.
+- Las cuatro páginas públicas y los cuatro assets v0.8 responden 200. El texto
+  conserva `BORRADOR`, las páginas muestran Dusema, los assets muestran el
+  rótulo 0.8 y las huellas remotas coinciden con las locales.
+- `npm run e2e:privacy:staging` terminó 2/2 PASS en 32.8 s con datos
+  sintéticos. Producción no cambió y no hubo despliegues de Functions, Rules o
+  IAM ni operaciones con datos reales.
+- [Detalle y hashes del rollout](evidence/ROLLOUT-STAGING-LEGAL-PR706-3DE251D-2026-11-28.md).

@@ -67,3 +67,19 @@ v0.7 se preservan sin cambios; v0.8 contiene copias exactas de las fuentes
 - Producción no cambió: `/terminos` sigue con contenido heredado de Café Atrato; las otras tres rutas legales continúan en 404.
 - No se generó ni entregó una exportación real, no se suprimieron datos y no se cambió IAM productivo.
 - Continúan pendientes la aprobación factual/jurídica, la verificación de canales y proveedores, la autorización verificable de exportación, la certificación de supresión/conservación y la auditoría final del PR #706.
+
+## Rollout exacto posterior a CI — 2026-11-28 10:41 UTC
+
+- Después de quedar verde la CI del HEAD `3de251d6b3c704033b4de97d435ce4e33a4c1272`,
+  se desplegó manualmente ese commit a App Hosting de staging.
+- `build-2026-11-28-003` quedó `SUCCEEDED` y `READY`; la revisión Cloud Run
+  `micafe-pos-build-2026-11-28-003` tiene 100 % del tráfico. El build registra
+  el SHA solicitado.
+- Las cuatro páginas devuelven 200, Dusema y `BORRADOR`. Los cuatro assets v0.8
+  devuelven 200, muestran el rótulo 0.8 y sus hashes remotos coinciden con los
+  locales. `npm run e2e:privacy:staging` pasó 2/2 tras el rollout con datos
+  sintéticos.
+- Evidencia completa: [rollout y smoke de staging](evidence/ROLLOUT-STAGING-LEGAL-PR706-3DE251D-2026-11-28.md).
+- Producción permanece sin cambios; los documentos siguen como
+  `PREPARACION/BORRADOR`. No se ejecutó exportación/supresión real ni se
+  desplegaron Functions, Rules o IAM en este corte.
