@@ -98,6 +98,16 @@ usar el término de consultas para responder un reclamo ni cerrar ambos por una
 sola anotación. La fecha original y los avisos realizados deben quedar
 acreditados.
 
+Como regla operativa versionada para los casos nuevos, contar los quince días
+hábiles de respuesta desde el día siguiente a la recepción verificable del
+reclamo completo. Si hubo subsanación, usar la fecha efectiva documentada en que
+se recibió la información faltante, no la fecha posterior en que el operador
+registró o verificó el caso. El plazo de cinco días para requerir subsanación
+conserva como origen la recepción inicial; la anotación del reclamo completo
+conserva su término propio de dos días. No recalcular vencimientos persistidos
+de expedientes históricos. Esta convención refleja ADR-SAAS-110 y sigue sujeta a
+revisión jurídica colombiana antes de activar el flujo con casos reales.
+
 ADR-SAAS-104 adoptó un calendario operativo versionado para los casos nuevos,
 incluyendo sábado no festivo como día hábil en ciertos términos. Es una regla
 interna para calcular y persistir vencimientos, no una interpretación judicial
