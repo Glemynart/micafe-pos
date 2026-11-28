@@ -245,7 +245,7 @@ Evidencias: [smoke autenticado](evidence/SMOKE-AUTENTICADO-STAGING-2026-11-27.md
 ## Estado actual y smoke visual sintético — 2026-11-27
 
 - Revalidación de GitHub: PR #706 abierto y en draft; base `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`; HEAD remoto `e38ea1334c776619866a81fff4902f06fbdf49b1`; CI [run `46066931745`](https://github.com/Glemynart/micafe-pos/actions/runs/46066931745) terminó `SUCCESS` a las 21:26:26Z (30m26s), sin pasos pendientes ni fallidos. No hay aprobación/revisión registrada. El candidato abarca 147 archivos (+20.852/−686 líneas) frente a `main`, por lo que sigue requiriendo revisión integral de alcance y dependencias; el verde de CI no es dictamen de merge.
-- Smoke visual local/Emulator completado: autenticación sintética, acceso autorizado, registro/consulta/gestión/cierre de reclamo, separación entre tenants y rechazo de operador sin facultad; **2/2 pruebas**. Evidencia y límites: [smoke visual de privacidad en Emulator](SMOKE-VISUAL-PRIVACIDAD-EMULATOR-2026-11-27.md). No se presenta como smoke visual de staging.
+- Smoke visual local/Emulator completado: autenticación sintética, acceso autorizado, registro/consulta/gestión/cierre de reclamo, separación entre tenants y rechazo de operador sin facultad; **2/2 pruebas**. Evidencia y límites: [smoke visual de privacidad en Emulator](evidence/SMOKE-VISUAL-PRIVACIDAD-EMULATOR-2026-11-27.md). No se presenta como smoke visual de staging.
 - El artefacto E4.2 de la CI (`e4-02-46066931745`) terminó `PASS_WITH_CONDITIONAL_CAPABILITIES`, pero su contrato declara `G-MVP-01 / M4 / E4.2`, entorno local/CI sin Firebase ni producción y `productionWrites=false`; no certifica el release legal de `G-SAAS-02 / M2 / E2.2`. Sus auditorías de dependencias de producción registran 4 vulnerabilidades moderadas en la raíz y 6 moderadas + 1 baja en Functions, todas con fix disponible y sin altas/críticas; el runner las deja como seguimiento para un PR separado.
 - ADR-SAAS-106, 107 y 108 están aceptados para implementación controlada. Para 107 ya existen lógica de dominio, persistencia versionada y pruebas Emulator, pero falta callable/UI operativa para mantener y verificar el contacto. Para 108 existen snapshot tenant-específico, validación fail-closed y visualización/confirmación de la ficha en la UI de aceptación; sus fuentes reales faltan y el bundle sigue en borrador. ADR-106 tiene helpers probados sintéticamente, pero no callable/UI operativa conectada ni canal real. Evidencia: [reconciliación ADR 106–108](evidence/RECONCILIACION-LEGAL-ADR106-108-2026-11-27.md) y [resultado de implementación controlada](evidence/RESULTADO-ADR107-108-IMPLEMENTACION-CONTROLADA-2026-11-27.md).
 - ADR-SAAS-109 quedó redactado como **Propuesto** para definir una facultad dedicada `EXPORTACION_CONTACTO_GOBERNAR`. AGENTS.md y el gate de ADR-107 impiden implementar la callable/UI hasta la aprobación de esa autoridad. La propuesta no autoriza despliegues ni operaciones reales.
@@ -528,3 +528,25 @@ plan de pago.
 - La reproducción local con JDK 21 de `npm run e2e:bodega-u4-u5` terminó 12/12 PASS. Esto, junto con el rerun verde, verifica el HEAD actual. El primer fallo de autenticación no se reprodujo; su causa raíz no quedó confirmada, y el fallo de la prueba siguiente fue consecuencia de que la anterior no creó el cliente esperado.
 - En la revalidación, PR #706 estaba `OPEN/DRAFT`, sin review, `mergeStateStatus=CLEAN`, sobre `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`; el ref remoto de `main` coincidía con esa base. El PR permanece no aprobado para merge por los gates de release descritos arriba, aunque los checks técnicos estén verdes.
 - Esta revalidación no desplegó ni escribió en producción. El estado de producción y la evidencia de staging siguen siendo los consignados en la sección de las 14:08 UTC; este cambio es solo la corrección del registro de CI/SHA.
+
+## Manual interno de privacidad — avance documental, 2026-11-28
+
+- Se añadió [`MANUAL-INTERNO-PRIVACIDAD.md`](MANUAL-INTERNO-PRIVACIDAD.md) como
+  borrador 0.1 no adoptado. Une gobernanza, roles, minimización, atención de
+  derechos, incidentes, proveedores, conservación, salida y las limitaciones
+  operativas ya observadas; remite a los procedimientos especializados en vez
+  de declarar habilitados flujos que solo se probaron en staging.
+- La revisión de fuentes oficiales confirmó que la Ley 1581, artículos 17(k) y
+  18(f), incluye el manual interno entre los deberes de responsables y
+  encargados, y la SIC distingue ese instrumento de la política externa para
+  titulares. Se actualizaron el manual y el procedimiento para consignar el
+  traslado por incompetencia en máximo dos días hábiles, la subsanación dentro
+  de cinco días, el desistimiento después de dos meses sin completar, la leyenda
+  «reclamo en trámite» dentro de dos días hábiles y la respuesta dentro de
+  quince días hábiles desde el día siguiente al reclamo completo, con extensión
+  motivada máxima de ocho días hábiles.
+- Fuentes: [Ley 1581, artículos 14, 15, 17 y 18](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981) y [concepto SIC sobre política y manuales internos](https://sedeelectronica.sic.gov.co/publicaciones/boletin-juridico/concepto/diferencia-entre-politica-de-tratamiento-de-datos-y-manuales-internos-de-tratamiento-de-datos).
+- Este avance no adopta el manual, no activa canales ni flujos de producción y
+  no certifica cumplimiento. Continúan pendientes la revisión jurídica y
+  aprobación del prestador, los canales seguros, ADR-SAAS-109 y 111, la
+  exportación/supresión real y los demás gates de la matriz.

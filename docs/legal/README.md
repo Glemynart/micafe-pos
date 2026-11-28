@@ -41,6 +41,8 @@ comercial autorizada por el responsable en este chat. Base técnica:
 - [Política de tratamiento](politica-tratamiento.md).
 - [Aviso de privacidad](aviso-autorizacion.md).
 - [Anexo de tratamiento por cuenta del negocio](anexo-tratamiento.md).
+- [Manual interno de privacidad](MANUAL-INTERNO-PRIVACIDAD.md) — borrador no
+  adoptado; de uso interno y pendiente de revisión y habilitación operativa.
 
 Estos borradores usan los datos suministrados por el prestador. El extracto del
 RUT que el prestador compartió el 2026-11-26 se cotejó con los datos de

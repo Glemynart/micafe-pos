@@ -98,6 +98,14 @@ usar el término de consultas para responder un reclamo ni cerrar ambos por una
 sola anotación. La fecha original y los avisos realizados deben quedar
 acreditados.
 
+Si quien recibe un reclamo no es competente, trasladarlo a quien corresponda en
+un máximo de dos días hábiles e informar al solicitante. Si está incompleto,
+requerir la subsanación dentro de los cinco días siguientes a la recepción; si
+transcurren dos meses desde ese requerimiento sin recibir la información, dejar
+constancia del desistimiento. Al recibirse completo, agregar al registro
+afectado la leyenda «reclamo en trámite» y el motivo en un máximo de dos días
+hábiles, y mantenerla hasta la decisión.
+
 Como regla operativa versionada para los casos nuevos, contar los quince días
 hábiles de respuesta desde el día siguiente a la recepción verificable del
 reclamo completo. Si hubo subsanación, usar la fecha efectiva documentada en que
@@ -107,6 +115,9 @@ conserva como origen la recepción inicial; la anotación del reclamo completo
 conserva su término propio de dos días. No recalcular vencimientos persistidos
 de expedientes históricos. Esta convención refleja ADR-SAAS-110 y sigue sujeta a
 revisión jurídica colombiana antes de activar el flujo con casos reales.
+Si no es posible responder dentro del término, comunicar antes de su vencimiento
+las razones y la nueva fecha de respuesta, que no puede superar ocho días
+hábiles adicionales.
 
 ADR-SAAS-104 adoptó un calendario operativo versionado para los casos nuevos,
 incluyendo sábado no festivo como día hábil en ciertos términos. Es una regla
