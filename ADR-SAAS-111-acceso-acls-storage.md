@@ -12,13 +12,15 @@ La lectura de metadatos del bucket productivo `micafe-pos.firebasestorage.app` e
 
 - `uniformBucketLevelAccess=false` y `publicAccessPrevention=inherited`.
 - La ACL predeterminada de objetos concede `READER` al grupo `projectViewer`; `projectEditor` y `projectOwner` reciben `OWNER`.
-- IAM del bucket concede `roles/storage.legacyBucketReader` a `projectViewer`, además de roles heredados de propietario/editor. IAM directo del proyecto no mostró miembros directos con `roles/viewer`, `roles/storage.objectViewer` o `roles/storage.legacyObjectReader`; no se consultaron políticas heredadas de organización/carpeta ni identidades derivadas de grupos.
-- No se observó `allUsers` ni `allAuthenticatedUsers` en la metadata consultada.
+- IAM del bucket concede `roles/storage.legacyBucketReader` a `projectViewer`. La jerarquía Resource Manager devuelve solo el proyecto, sin carpeta u organización padre. La política directa del proyecto muestra tres cuentas de servicio con `roles/editor`, un usuario con `roles/owner`, y ningún miembro/grupo con `roles/viewer`, `roles/storage.objectViewer` o `roles/storage.legacyObjectReader`.
+- Cloud Monitoring, para los 24 meses terminados en `2026-11-28T07:57:51Z`, registra 20 operaciones `OBJECT_ACCESS_REQUIRED_OBJECT_ACL` y 20 solicitudes concedidas exclusivamente por ACL de objeto. Las métricas agregadas no identifican objetos ni solicitantes.
+- Se consultó metadata ACL, sin descargar contenidos, para los 7 objetos activos del bucket. Todos tienen `projectViewers:READER`, `projectEditors:OWNER`, `projectOwners:OWNER` y un propietario `user` directo. No apareció `allUsers` ni `allAuthenticatedUsers` en esos 7 objetos; no se guardaron nombres ni identidades. No se consultaron generaciones históricas ni objetos en soft delete.
+- La política efectiva `constraints/storage.publicAccessPrevention` no está marcada `enforced`.
 - La regla de Storage desplegada, creada el 2026-08-14, tiene el mismo SHA-256 que `storage.rules` en esta rama. Las reglas permiten lectura pública en `landing`, `marketing`, `eventos` y `reservas`, y niegan otras rutas. El código encontrado carga archivos en `eventos` y `productos`; no se halló una carga que use `reservas`.
 
-Cloud Storage autoriza si IAM **o** ACL concede el acceso. Firebase Storage Rules controlan las solicitudes cursadas por APIs de Firebase; el acceso directo a Cloud Storage también debe evaluarse contra IAM y ACL. Por ello, un principal `projectViewer` efectivo podría leer objetos con la ACL predeterminada aunque una Firebase Rule limite la lectura por tenant. La revisión no demuestra que exista hoy un principal heredado que explote este camino ni que haya acceso anónimo. Sí deja una vía alternativa de autorización que impide certificar aislamiento únicamente con Firebase Rules.
+Cloud Storage autoriza si IAM **o** ACL concede el acceso. Firebase Storage Rules controlan solicitudes cursadas por APIs de Firebase; el acceso directo a Cloud Storage también depende de IAM y ACL. La telemetría confirma uso de ACL para conceder acceso, pero no determina si esas solicitudes fueron públicas, de identidades autorizadas o de objetos que ya no están activos. El censo de objetos activos no halló grants públicos, pero las 20 solicitudes históricas quedan sin atribución. No se confirma una exposición anónima; tampoco puede descartarse para objetos históricos. No se puede certificar aislamiento solo con Firebase Rules mientras no se expliquen esas solicitudes.
 
-La guía de Google recomienda Uniform bucket-level access (UBLA) para reducir exposiciones por ACL, pero exige comprobar uso de ACL y mapear permisos antes de habilitarlo. UBLA desactiva ACL y no puede revertirse después de 90 días consecutivos. No se consultó telemetría de uso ACL en este corte.
+La guía de Google recomienda Uniform bucket-level access (UBLA) para reducir exposiciones por ACL, pero exige comprobar uso de ACL y mapear permisos antes de habilitarlo. UBLA desactiva ACL y no puede revertirse después de 90 días consecutivos. La telemetría confirma 20 solicitudes concedidas exclusivamente por ACL en el periodo consultable; la identidad y los objetos afectados siguen pendientes de atribución.
 
 ## Decisión requerida
 
@@ -42,10 +44,10 @@ No cambia infraestructura, pero conserva permisos ACL que podrían autorizar acc
 
 ## Recomendación e invariantes
 
-Recomiendo **A**, condicionada a medir el uso de ACL y validar un bucket de staging antes de cualquier cambio productivo.
+Recomiendo **A**, condicionada a explicar el uso ACL observado y validar un bucket de staging antes de cualquier cambio productivo.
 
-- No enumerar, descargar ni modificar contenido de clientes para esta auditoría.
-- No inferir ausencia de acceso heredado a partir de la política directa del proyecto; comprobar ancestros y grupos autorizados.
+- No enumerar ni descargar contenido de clientes; el preflight ejecutado solo leyó metadata ACL y emitió conteos anonimizados.
+- La jerarquía de proyecto se comprobó y no tiene ancestros; atribuir las solicitudes ACL históricas sin exponer nombres o correos en evidencia.
 - Mantener sin cambios Firebase Rules y cargas hasta validar identidades y flujos por ruta.
 - Confirmar compatibilidad con las descargas firmadas de la aplicación y procesos administrativos.
 - Registrar la ventana de reversión de 90 días y verificar que no haya dependencia de ACL tras habilitar UBLA.
@@ -53,7 +55,7 @@ Recomiendo **A**, condicionada a medir el uso de ACL y validar un bucket de stag
 
 ## Alcance de una eventual aprobación
 
-La aprobación permitiría medir telemetría ACL, completar el inventario IAM heredado y preparar una prueba sintética en un bucket de staging. No autoriza cambiar el bucket productivo, leer datos reales, crear accesos públicos, desplegar producción ni borrar objetos. El cambio productivo requiere un preflight actualizado y autorización operativa separada.
+La aprobación permitiría completar la atribución metadata mínima del uso ACL, preparar una prueba sintética en un bucket de staging y recomendar un plan reversible. No autoriza cambiar el bucket productivo, descargar contenido, crear accesos públicos, desplegar producción ni borrar objetos. El cambio productivo requiere un preflight actualizado y autorización operativa separada.
 
 ## Referencias
 

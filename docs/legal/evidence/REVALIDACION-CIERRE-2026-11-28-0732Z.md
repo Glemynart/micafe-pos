@@ -2,7 +2,7 @@
 
 **Goal / Milestone / Epic:** `G-SAAS-02 → M2 → E2.2`  
 **Rama:** `codex/e2-2-legal-acceptance`  
-**Alcance:** lectura de PR, infraestructura y rutas públicas; E2E sintético en staging. Sin acceso a expedientes u objetos de clientes, sin escritura en producción y sin cambios IAM.
+**Alcance del snapshot de 07:32 UTC:** lectura de PR, infraestructura y rutas públicas; E2E sintético en staging. No se accedió a expedientes ni contenido de objetos; la revalidación ACL posterior leyó solo metadata de siete objetos activos, sin escritura en producción ni cambios IAM.
 
 ## PR #706 y CI
 
@@ -48,4 +48,4 @@
 - **Merge de #706: NO APROBADO.** Aunque CI y los E2E específicos están verdes, el PR sigue en draft y quedan gates jurídicos/factuales, seguridad Storage, contacto/canal de exportación y certificación real. El ruleset no requiere una review de GitHub; la aprobación jurídica/factual de los documentos sí continúa pendiente. Una integración a `main` podría activar el rollout automático productivo.
 - **Release legal a producción: NO LISTO / NO AUTORIZADO.** Las rutas actuales de producción son incorrectas y los documentos aún no están aprobados ni vigentes. No desplegar, aceptar ni exportar datos reales con este estado.
 
-No se accedió a expedientes, identidades ni objetos reales de clientes. No se alteró producción, Rules, IAM, App Hosting o Vercel.
+No se accedió a expedientes ni se descargó contenido de objetos reales de clientes. La revalidación posterior consultó metadata ACL de siete objetos activos y emitió conteos agregados sin nombres ni identidades. No se alteró producción, Rules, IAM, App Hosting o Vercel.

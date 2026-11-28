@@ -402,6 +402,10 @@ y [ADR-SAAS-111 propuesto](../../ADR-SAAS-111-acceso-acls-storage.md).
 **Dictamen vigente: NO APROBADO PARA MERGE NI PARA RELEASE LEGAL PRODUCTIVO.**
 Los documentos siguen en borrador; continúan pendientes aprobación jurídica y
 factual, verificación del contacto/canal, exportación y supresión reales,
-revisión de ACL Storage e IAM productivo. El ruleset activo de `main` exige cero
+revisión de ACL Storage e IAM productivo. La métrica confirma 20 accesos
+históricos concedidos exclusivamente por ACL; el censo de 7 objetos activos no
+halló grants públicos, pero no atribuye los accesos. Ver
+[revalidación ACL](evidence/REVALIDACION-ACL-STORAGE-2026-11-28-0758Z.md). El
+ruleset activo de `main` exige cero
 aprobaciones de GitHub; no hay review registrada, pero eso no es un gate formal.
 La aprobación jurídica/factual de los documentos sigue pendiente.

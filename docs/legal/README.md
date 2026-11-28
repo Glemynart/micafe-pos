@@ -216,7 +216,9 @@ los documentos sigue pendiente.
 
 Staging sirve v0.8 desde `485970a`; rutas y hashes canónicos coinciden, y el
 E2E sintético de reclamos pasó 2/2. Producción continúa con rutas heredadas; no
-se publicó ni se habilitó aceptación. La matriz identifica además un riesgo
-pendiente de ACL/UBLA en Storage, sin afirmar una exposición pública confirmada.
+se publicó ni se habilitó aceptación. La telemetría de Storage registra 20
+accesos históricos concedidos exclusivamente por ACL; una revisión agregada no
+halló grants públicos entre 7 objetos activos, pero no atribuyó las solicitudes
+históricas. Detalle en la [revalidación ACL Storage](evidence/REVALIDACION-ACL-STORAGE-2026-11-28-0758Z.md).
 Consulta la [revalidación operativa y de seguridad](evidence/REVALIDACION-CIERRE-2026-11-28-0732Z.md)
 y el [ADR-SAAS-111 propuesto](../../ADR-SAAS-111-acceso-acls-storage.md).
