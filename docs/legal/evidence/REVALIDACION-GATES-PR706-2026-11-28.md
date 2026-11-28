@@ -237,3 +237,43 @@ sin cambios.
   crear ni verificar un contacto de staging.
 - Evidencia obtenida con GET HTTP y consultas de metadata; no se leyó contenido
   de tenants ni se crearon, modificaron o eliminaron datos.
+
+## Validación posterior del HEAD `3fedf75` — 2026-11-28 18:41 UTC
+
+- PR #706 continúa `OPEN/DRAFT`, base y `main` en
+  `aa1c4fece1386edc6ba31b439a2be98ed9216d0b`, HEAD
+  `3fedf75f0114930b43bc616900549ce529a548b6`, `mergeState=CLEAN` y sin decisión
+  de revisión. Los checks del HEAD exacto están verdes: CI run `46173369229`
+  (129/129) y `App Hosting - Rollout`.
+- La API de App Hosting confirma build `build-2026-11-28-006` `READY`, rollout
+  `SUCCEEDED`, SHA fuente exacto `3fedf75f0114930b43bc616900549ce529a548b6`,
+  backend/tráfico reconciliados y 100 % de staging dirigido a ese build. Cloud
+  Run informa la misma revisión como `latestReadyRevisionName`.
+- Tras publicar las Firestore Rules del HEAD a `micafe-pos-staging` —compilación
+  exitosa; el CLI mostró solo el aviso no bloqueante `Unused function:
+  esMarketing`— `npm run e2e:privacy:staging` terminó 2/2 PASS en 21.4 s. El
+  recorrido autenticado sintético verificó registro, respuesta/cierre,
+  aislamiento A/B, rechazo 403 sin facultad y limpieza confirmada de documentos,
+  usuarios y fixtures. No usó cuentas ni datos de titulares reales.
+- Las cinco Functions del codebase `saas-legal` están `ACTIVE` con
+  `saas-legal-runtime@micafe-pos-staging.iam.gserviceaccount.com`. La binding
+  actual del rol personalizado `saasLegalRuntime` tiene como único miembro esa
+  identidad; sus permisos son Firestore get/create/delete/list/update y lectura
+  de usuarios Firebase Auth. La callable nueva `administrarContactoExportacionSaas`
+  está desplegada, pero la operación externa/datos reales sigue cerrada.
+- Las cuatro páginas legales de staging responden HTTP 200, declaran
+  `BORRADOR` y no contienen “Café Atrato”. Los cuatro assets v0.9 responden 200;
+  sus SHA-256 coinciden con los archivos fuente después de normalizar CRLF a LF:
+  `7af90c5f…25a2b7a`, `440fdaa0…ae8e554`, `eb3fa4a8…fe32a3` y
+  `aaeff070…b76bcbc`.
+- Producción permanece sin cambios. `/terminos` sigue respondiendo 200 con el
+  título heredado “Términos y Privacidad - Café Atrato”; `/privacidad`,
+  `/aviso-autorizacion` y `/anexo-tratamiento` dan 404.
+- El despliegue de Functions mediante Firebase CLI habilitó APIs requeridas y
+  creó identidades administradas por Google. La consulta posterior confirma que
+  el rol runtime personalizado permanece ligado solo a la cuenta dedicada; no
+  se cambió IAM productivo.
+- Este checkpoint solo certifica el flujo sintético de staging y el rollout
+  técnico exacto. No aprueba jurídicamente los documentos, no habilita aceptación
+  real y no certifica exportación, supresión, retención o restauración con datos
+  reales.
