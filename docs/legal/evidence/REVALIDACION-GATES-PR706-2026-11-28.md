@@ -204,3 +204,36 @@ sin cambios.
   exportación ni supresión real. IAM de producción no cambió. Las rutas de
   producción mantienen el estado read-only ya registrado en la sección
   correspondiente.
+
+## Revalidación de estado público y PR — 2026-11-28 17:46 UTC
+
+- PR #706 continúa `OPEN/DRAFT`, `mergeState=CLEAN`, sin decisión de revisión;
+  base `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b` y HEAD
+  `c8c7ff211d826d63d07848c7e763f0ab4a76e549`. El CI del HEAD exacto terminó
+  `SUCCESS` (run
+  [46169530568](https://github.com/Glemynart/micafe-pos/actions/runs/46169530568)),
+  129/129 pasos exitosos.
+- En producción, los GET sin autenticación a `/terminos` dieron HTTP 200 y el
+  HTML contiene el texto heredado “Café Atrato”; `/privacidad`,
+  `/aviso-autorizacion` y `/anexo-tratamiento` dieron HTTP 404. No se efectuó
+  ningún despliegue ni escritura productiva.
+- En staging, las cuatro páginas legales dieron HTTP 200 con estado `BORRADOR`.
+  Los cuatro assets `/legal/v0.9/{terminos-servicio,politica-tratamiento,
+  aviso-autorizacion,anexo-tratamiento}.md` dieron HTTP 200 y sus hashes
+  SHA-256 UTF-8 coincidieron con el bundle fuente v0.9:
+  `7af90c5f…25a2b7a`, `440fdaa0…ae8e554`, `eb3fa4a8…fe32a3` y
+  `aaeff070…b76bcbc`, respectivamente. Cloud Run confirma el build
+  `micafe-pos-build-2026-11-28-005` con 100 % del tráfico de staging.
+- El inventario read-only de Cloud Functions de staging encontró cuatro
+  Functions en el codebase `saas-legal`, todas `ACTIVE` y usando
+  `saas-legal-runtime@micafe-pos-staging.iam.gserviceaccount.com`. La nueva
+  callable `administrarContactoExportacionSaas` del HEAD c8c7ff2 todavía no
+  está desplegada. No se desplegó Functions, App Hosting, Rules ni IAM durante
+  esta revalidación.
+- ADR-SAAS-109/112 limitan el flujo nuevo a pruebas sintéticas/Emulator y
+  condicionan cualquier despliegue de staging a un preflight y autorización
+  operativa específica; la callable desplegada también mantiene las escrituras
+  cerradas fuera del Emulator `demo-*`. Por tanto, esta revalidación no intentó
+  crear ni verificar un contacto de staging.
+- Evidencia obtenida con GET HTTP y consultas de metadata; no se leyó contenido
+  de tenants ni se crearon, modificaron o eliminaron datos.
