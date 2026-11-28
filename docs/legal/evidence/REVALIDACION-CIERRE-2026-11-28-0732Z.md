@@ -1,7 +1,7 @@
 # Revalidación operativa y de seguridad — 2026-11-28 07:32 UTC
 
-**Goal / Milestone / Epic:** `G-SAAS-02 → M2 → E2.2`  
-**Rama:** `codex/e2-2-legal-acceptance`  
+**Goal / Milestone / Epic:** `G-SAAS-02 → M2 → E2.2`\
+**Rama:** `codex/e2-2-legal-acceptance`\
 **Alcance del snapshot de 07:32 UTC:** lectura de PR, infraestructura y rutas públicas; E2E sintético en staging. No se accedió a expedientes ni contenido de objetos; la revalidación ACL posterior leyó solo metadata de siete objetos activos, sin escritura en producción ni cambios IAM.
 
 ## PR #706 y CI

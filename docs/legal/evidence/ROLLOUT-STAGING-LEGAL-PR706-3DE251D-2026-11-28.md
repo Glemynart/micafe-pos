@@ -1,8 +1,8 @@
 # Rollout manual de borradores legales v0.8 en staging — 2026-11-28
 
-**Goal / Milestone / Epic:** `G-SAAS-02 → M2 → E2.2`  
-**PR:** [#706](https://github.com/Glemynart/micafe-pos/pull/706)  
-**Entorno:** Firebase App Hosting `micafe-pos-staging`, `us-central1`  
+**Goal / Milestone / Epic:** `G-SAAS-02 → M2 → E2.2`\
+**PR:** [#706](https://github.com/Glemynart/micafe-pos/pull/706)\
+**Entorno:** Firebase App Hosting `micafe-pos-staging`, `us-central1`\
 **Resultado:** validación técnica de staging; no constituye aprobación legal,
 publicación contractual ni autorización para producción.
 

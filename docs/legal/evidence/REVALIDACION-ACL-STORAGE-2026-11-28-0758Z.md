@@ -1,6 +1,6 @@
 # Revalidación ACL de Firebase Storage — 2026-11-28 07:58 UTC
 
-**Entorno:** producción `micafe-pos`, bucket `micafe-pos.firebasestorage.app`.  
+**Entorno:** producción `micafe-pos`, bucket `micafe-pos.firebasestorage.app`.\
 **Método:** lecturas de métricas agregadas y metadata ACL. No se descargó contenido; el informe no conserva nombres de objetos, direcciones ni identificadores de titulares.
 
 ## Métricas de Cloud Monitoring
