@@ -100,6 +100,7 @@ test("Reclamos: autoridad, concurrencia, cierre parcial y aislamiento", { skip: 
     await assert.rejects(send({ ...completa, motivo: "otro motivo" }), /RECLAMO_REGISTRO_DISTINTO/);
     const expedienteCompleto = (await db.collection("privacidad_reclamos").doc(radicado.casoId).get()).data();
     assert.equal(expedienteCompleto!.calendarioVersion, PRIVACY_CALENDAR_V2);
+    assert.equal(expedienteCompleto!.plazoRespuestaVersion, "RECIBO_COMPLETO_V1");
     assert.equal(expedienteCompleto!.subsanacionRecibidaRef, "subsanacion-1");
     assert.ok(expedienteCompleto!.subsanacionRegistradaEn instanceof Timestamp);
     assert.equal((await ficha.get()).get("reclamosPrivacidadAbiertos"), 2);
@@ -117,6 +118,29 @@ test("Reclamos: autoridad, concurrencia, cierre parcial y aislamiento", { skip: 
     assert.equal((await ficha.get()).get("reclamosPrivacidadAbiertos"), 1);
 
     const fechaAtras = (days: number) => fechaBogota(Date.now() - days * 86_400_000);
+    const recibidoIncompleto = fechaAtras(35), requerimientoTardio = fechaAtras(34), subsanacionTardia = fechaAtras(5);
+    const casoTardio = await send({ accion: "RECIBIR", consecutivo: `subsanado-tarde-${suffix}`,
+      empresaId: "empresa-a", recibido: recibidoIncompleto });
+    await db.collection("privacidad_reclamos").doc(casoTardio.casoId).update({
+      fechaRequerimiento: requerimientoTardio, requerimientoRef: "requerimiento-tardio",
+      requerimientoOperadorUid: uid,
+      requerimientoRegistradoEn: Timestamp.fromMillis(Date.parse(`${requerimientoTardio}T00:00:00-05:00`)),
+      vencimientoSubsanacion: vencimientoDosMeses(requerimientoTardio, PRIVACY_CALENDAR_V2),
+    });
+    await send({ ...entrada, consecutivo: `subsanado-tarde-${suffix}`, recibido: recibidoIncompleto,
+      completo: subsanacionTardia, subsanacionRecibida: subsanacionTardia,
+      subsanacionRef: "subsanacion-tardia" });
+    const casoSubsanadoTarde = db.collection("privacidad_reclamos").doc(casoTardio.casoId);
+    const expedienteTardio = (await casoSubsanadoTarde.get()).data();
+    const vencimientoTrasSubsanacion = sumarHabiles(subsanacionTardia, 15, PRIVACY_CALENDAR_V2);
+    assert.equal(expedienteTardio!.plazoRespuestaVersion, "RECIBO_COMPLETO_V1");
+    assert.equal(expedienteTardio!.vencimientoRespuesta, vencimientoTrasSubsanacion);
+    assert.ok(vencimientoTrasSubsanacion > fechaBogota(Date.now()));
+    assert.ok(vencimientoTrasSubsanacion > sumarHabiles(recibidoIncompleto, 15, PRIVACY_CALENDAR_V2));
+    await send({ casoId: casoTardio.casoId, accion: "DOCUMENTAR_RESPUESTA",
+      respuestaRef: "respuesta-subsanacion-tardia", resultado: "Atendida" });
+    await run(casoTardio.casoId, "CERRAR", "respuesta-subsanacion-tardia");
+
     const receivedOld = fechaAtras(130), requestOld = fechaAtras(129);
     const oldCase = await send({ accion: "RECIBIR", consecutivo: `legacy-${suffix}`, empresaId: "empresa-a", recibido: receivedOld });
     const oldRequestTs = Timestamp.fromMillis(Date.parse(`${requestOld}T00:00:00-05:00`));
@@ -149,6 +173,7 @@ test("Reclamos: autoridad, concurrencia, cierre parcial y aislamiento", { skip: 
     const v1ResponseDeadline = sumarHabiles(receivedV1, 15, PRIVACY_CALENDAR_V1);
     await legacyOpenRef.update({
       calendarioVersion: FieldValue.delete(),
+      plazoRespuestaVersion: FieldValue.delete(),
       vencimientoAnotacion: FieldValue.delete(),
       vencimientoRespuesta: v1ResponseDeadline,
     });

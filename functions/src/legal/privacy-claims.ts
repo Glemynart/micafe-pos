@@ -8,6 +8,7 @@ import {
 } from "./privacy-calendar";
 
 const FACULTAD = "PRIVACIDAD_RECLAMOS_TRAMITAR";
+const PLAZO_RESPUESTA_VERSION = "RECIBO_COMPLETO_V1" as const;
 const ID = /^[a-zA-Z0-9_-]{1,120}$/;
 const ACCIONES = ["ABRIR", "CONSULTAR", "CERRAR", "DOCUMENTAR_RESPUESTA", "PRORROGAR"] as const;
 type Accion = (typeof ACCIONES)[number];
@@ -119,7 +120,16 @@ function validarSubsanacionRecibida(
 function vencimientosReclamo(caso: FirebaseFirestore.DocumentData, version: PrivacyCalendarVersion) {
   if (!(caso.recibidoEn instanceof Timestamp) || !(caso.completoEn instanceof Timestamp)) denegar();
   const anotacionEsperada = sumarHabiles(fechaBogota(caso.completoEn.toMillis()), 2, version);
-  const respuestaEsperada = sumarHabiles(fechaBogota(caso.recibidoEn.toMillis()), 15, version);
+  const versionPlazo = caso.plazoRespuestaVersion;
+  if (versionPlazo !== undefined && versionPlazo !== PLAZO_RESPUESTA_VERSION) {
+    throw new HttpsError("failed-precondition", "RECLAMO_PLAZO_VERSION_INVALIDA");
+  }
+  // Historical records without this field preserve ADR-SAAS-102's original
+  // receipt anchor. New records use the documented date the claim became complete.
+  const origenRespuesta = versionPlazo === PLAZO_RESPUESTA_VERSION
+    ? fechaBogota(caso.completoEn.toMillis())
+    : fechaBogota(caso.recibidoEn.toMillis());
+  const respuestaEsperada = sumarHabiles(origenRespuesta, 15, version);
   if ((caso.vencimientoAnotacion !== undefined && caso.vencimientoAnotacion !== anotacionEsperada)
     || (caso.vencimientoRespuesta !== undefined && caso.vencimientoRespuesta !== respuestaEsperada)) {
     throw new HttpsError("failed-precondition", "RECLAMO_PLAZO_INCONSISTENTE");
@@ -345,11 +355,12 @@ async function registrar(db: Firestore, actor: Actor, data: Record<string, unkno
     const anotacionRef = fichaRef.collection("anotaciones_privacidad").doc(casoId);
     if ((await tx.get(anotacionRef)).exists) throw new HttpsError("failed-precondition", "RECLAMO_ANOTACION_INCONSISTENTE");
     const vencimientoAnotacion = sumarHabiles(fechaBogota(completoEn.toMillis()), 2, calendarioVersion);
-    const vencimientoRespuesta = sumarHabiles(fechaBogota(recibidoEn.toMillis()), 15, calendarioVersion);
+    const vencimientoRespuesta = sumarHabiles(fechaBogota(completoEn.toMillis()), 15, calendarioVersion);
     const expediente = {
       ...datos, huellaRegistro: huella, operadorUid: actor.uid, identidadVerificada: true,
       fichaCreadaEn: ficha.creadoEn, recibidoEn, completoEn,
       vencimientoAnotacion, vencimientoRespuesta, calendarioVersion,
+      plazoRespuestaVersion: PLAZO_RESPUESTA_VERSION,
       estado: "ABIERTO", anotadoEn: FieldValue.serverTimestamp(), verificadoEn: FieldValue.serverTimestamp(),
       ...(subsanacionEn && referenciaSubsanacion ? {
         subsanacionRecibidaEn: subsanacionEn, subsanacionRecibidaRef: referenciaSubsanacion,

@@ -1,13 +1,13 @@
 # Dusema POS — borradores legales
 
 Estado: **BORRADOR PARA REVISIÓN; NO VIGENTE NI EXIGIBLE COMO NUEVA VERSIÓN**.
-Preparación: 2026-11-23; revisiones documentales: 2026-11-25, 2026-11-26 y 2026-11-28. Versión de trabajo: `0.7`.
+Preparación: 2026-11-23; revisiones documentales: 2026-11-25, 2026-11-26 y 2026-11-28. Versión de trabajo: `0.8`.
 
 La revisión de términos, política, aviso y anexo del 2026-11-25 produjo la
 versión de trabajo `0.3`; las revisiones posteriores produjeron `0.4` y `0.5`.
 `0.2` a `0.5` permanecen como versiones históricas inmutables en sus rutas
-públicas. La `0.7` es el borrador vigente de trabajo, todavía no exigible; los
-assets `0.6` ya servidos en staging se conservan sin cambios.
+públicas. La `0.8` es el borrador vigente de trabajo, todavía no exigible; los
+assets históricos `0.6` y `0.7` ya servidos en staging se conservan sin cambios.
 Véanse [hallazgos y fuentes](REVISION-2026-11.md) y
 [ADR-SAAS-099 aceptado para implementación](../../ADR-SAAS-099-aceptacion-legal-versionada.md).
 La revisión no cierra los pendientes ni convierte el texto en exigible.
@@ -61,7 +61,7 @@ sintético. El mecanismo para tramitar reclamos reales está en el
    validación independiente ante DIAN.
 2. Definir tiempos reales de atención, disponibilidad y recuperación. No ofrecer
    un SLA, respaldo periódico o restauración garantizada sin evidencia operativa.
-3. Validar factual y técnicamente los plazos seleccionados para v0.7 (propuestos
+3. Validar factual y técnicamente los plazos seleccionados para v0.8 (propuestos
    inicialmente en v0.6), implementar
    o asignar las tareas de salida/supresión y documentar los ciclos de copias.
    La ausencia de borrado automático actual no justifica conservación indefinida.
@@ -188,10 +188,20 @@ y [Ley 1801 de 2016, art. 38](https://www.funcionpublica.gov.co/eva/gestornormat
 La política, el aviso y el anexo no cambian sustantivamente en este corte; su
 versión se incrementa para mantener el bundle homogéneo.
 
-El bundle `dusema-pos-2026-11-v0.7` está en `PREPARACION` y sus cuatro
-documentos en `BORRADOR`. No se publicaron estos assets v0.7 en staging o
-producción, ni se habilitó la aceptación. La verificación automatizada compara
-las fuentes `docs/legal`, los assets públicos v0.7 y sus hashes UTF-8/LF.
-Esta revisión no es aprobación jurídica. Siguen abiertos los gates de exactitud
+Al registrar el primer corte, estos assets v0.7 aún no se habían desplegado.
+Una revalidación posterior confirmó su despliegue solo en staging. No se
+habilitó aceptación ni se publicaron en producción.
+
+## Revisión documental 0.8 — 2026-11-28
+
+La v0.8 incorpora la precisión aprobada en ADR-SAAS-110: para los casos nuevos,
+el plazo de quince días hábiles de respuesta parte de la recepción verificable
+del reclamo completo; los expedientes históricos mantienen sus vencimientos.
+Los cuatro assets v0.7 permanecen intactos y el bundle v0.8 tiene fuentes,
+descargas y hashes UTF-8/LF verificados por prueba automatizada.
+
+El bundle `dusema-pos-2026-11-v0.8` sigue en `PREPARACION`, con los cuatro
+documentos en `BORRADOR`. v0.8 aún no se desplegó a staging ni producción. Esta
+revisión no es aprobación jurídica. Siguen abiertos los gates de exactitud
 factual, contratos/canales de proveedores, contacto/canal para exportación,
-supresión y conservación real, ADR-SAAS-109, IAM productivo y revisión humana.
+supresión y conservación reales, ADR-SAAS-109, IAM productivo y revisión humana.

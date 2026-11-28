@@ -46,7 +46,10 @@ escribir sobre los registros objeto de reclamo.
   mientras existan anotaciones abiertas, con escalamiento al responsable.
 - Registrar recepción, recepción completa, traslado, anotación, respuesta y
   cierre. La anotación vence en dos días hábiles desde el reclamo completo. El
-  plazo de respuesta es 15 días hábiles desde el día siguiente a la recepción.
+  plazo de respuesta para casos nuevos es 15 días hábiles desde el día siguiente
+  a la recepción del reclamo completo, conforme a ADR-SAAS-110. La recepción
+  inicial continúa gobernando el requerimiento de subsanación; los expedientes
+  históricos conservan sus vencimientos persistidos.
   Comunicar una extensión motivada antes de que venza ese plazo, hasta ocho días
   hábiles adicionales. Aplicar el calendario colombiano y conservar la evidencia
   del cómputo. Antes de almacenar datos reales, definir las proyecciones de
@@ -62,3 +65,5 @@ festivos. Verificar una solicitud sintética por el canal de recepción y su
 respuesta. El ensayo local previo demuestra únicamente la transacción con un
 registro ficticio. El despliegue y la habilitación para casos reales se revisan
 por separado. [Ley 1581 de 2012, arts. 15 y 18](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981).
+La precisión del origen del plazo de respuesta fue aprobada en
+[ADR-SAAS-110](ADR-SAAS-110-plazo-reclamo-completo.md), el 2026-11-28.

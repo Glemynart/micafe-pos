@@ -93,6 +93,12 @@
   delegada, alternativa A, para implementar y probar el snapshot versionado y
   fail-closed del anexo por negocio con fixtures sintéticos. No habilita
   publicación, aceptación real ni inferencia de hechos legales/comerciales.
+- **ADR-SAAS-110 / plazo de respuesta a reclamos, 2026-11-28:** el responsable
+  aprobó contar los quince días hábiles desde el día siguiente a la recepción
+  verificable del reclamo completo. El requerimiento de subsanación conserva su
+  origen en la recepción inicial; los vencimientos históricos no se recalculan.
+  Implementación y validación sintética se están incorporando a #706. Esto no
+  constituye validación jurídica profesional ni activa el flujo en producción.
 
 - Provisionamiento reproducible de un tenant de referencia.
 - Onboarding DEMO como ruta inicial recomendada cuando el cliente no requiera fiscalidad real.

@@ -103,8 +103,11 @@ norma; no se presume por conceder crédito en el POS.
 2. Con el reclamo completo, poner la leyenda «reclamo en trámite» y su motivo en
    el registro afectado dentro de dos días hábiles. Restringir el detalle. Un
    correo o el expediente por sí solos no sustituyen la anotación.
-3. Resolver en 15 días hábiles desde el día siguiente a la recepción. Comunicar
-   el motivo y la fecha de una eventual extensión de hasta ocho días hábiles.
+3. Resolver en 15 días hábiles desde el día siguiente a la recepción del
+   reclamo completo. Para reclamos incompletos, el plazo empieza con la recepción
+   verificable de la información que los completa, conforme a ADR-SAAS-110;
+   conservar el plazo persistido en expedientes históricos. Comunicar el motivo
+   y la fecha de una eventual extensión de hasta ocho días hábiles.
 4. Al resolver, retirar la leyenda del caso cerrado, conservar el resultado y
    constancia de respuesta. Si quedan otros reclamos abiertos, mantener su
    anotación. Si Dusema actúa como encargado, coordinar con el responsable.

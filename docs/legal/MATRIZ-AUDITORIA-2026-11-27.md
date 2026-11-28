@@ -362,3 +362,21 @@ Evidencia operativa detallada de esta relectura: [CI, rutas, smoke e IAM — 202
   canal verificables para exportar, certificación real de supresión/conservación,
   IAM productivo y review final. Detalle en la
   [revalidación operativa](evidence/REVALIDACION-PR706-IAM-RUTAS-2026-11-28.md).
+
+## Reconciliación de plazo de reclamos y bundle v0.8 — 2026-11-28
+
+- El responsable aprobó ADR-SAAS-110, alternativa A: para casos nuevos, el
+  vencimiento de respuesta se ancla a la recepción verificable del reclamo
+  completo. Los expedientes históricos conservan sus vencimientos; el origen de
+  cinco días para pedir subsanación no cambia.
+- La implementación en la rama de #706 escribe `plazoRespuestaVersion` y
+  mantiene una ruta legacy explícita. El Emulator cubrió un caso que se completa
+  30 días tras la recepción inicial y compatibilidad de expedientes antiguos.
+- Se creó el bundle `dusema-pos-2026-11-v0.8` en `PREPARACION`; los cuatro
+  documentos siguen `BORRADOR`. Los assets v0.7 no se modificaron. El hash de
+  las fuentes, los assets v0.8 y el catálogo se verifica con pruebas.
+- Las pruebas locales de aceptación legal, Emulator, bundle, TypeScript y builds
+  pasaron. La CI del nuevo HEAD debe confirmarse después del push.
+- v0.8 no se desplegó a staging ni producción. El release productivo legal
+  sigue bloqueado por aprobación factual/jurídica, operación de exportación y
+  supresión real, IAM, revisión integral y otros gates ya registrados.

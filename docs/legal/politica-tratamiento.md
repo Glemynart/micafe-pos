@@ -125,9 +125,12 @@ negocio cliente debe designar respecto de sus propios tratamientos.
 Las consultas se atienden en hasta diez días hábiles desde su recepción. Si no
 es posible responder dentro de ese término, se comunica el motivo y la fecha de
 respuesta; la extensión no supera cinco días hábiles siguientes al vencimiento
-del término inicial. Los reclamos se atienden en hasta quince días hábiles desde
-el día siguiente a su recepción; si no es posible responder, se informa el motivo
-y la fecha, con extensión máxima de ocho días hábiles. Se aplican las reglas
+del término inicial. Los reclamos completos se atienden en hasta quince días
+hábiles desde el día siguiente a su recepción; si llegan incompletos, el plazo
+de respuesta se cuenta desde la recepción verificable de la información que los
+completa, conforme a ADR-SAAS-110 y sujeto a revisión jurídica antes de publicar
+esta política. Si no es posible responder, se informa el motivo y la fecha, con
+extensión máxima de ocho días hábiles. Se aplican las reglas
 legales para completar reclamos, remitirlos al competente y dejar constancia de
 su trámite. Antes de acudir a la SIC se agota la consulta o el reclamo cuando la
 ley así lo exige.

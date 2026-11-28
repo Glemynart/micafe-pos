@@ -119,6 +119,10 @@ Elegir **A** y conservar `privacidad_reclamos/{casoId}` como autoridad del caso.
   subsanación ocurra dentro de los dos meses computados desde su envío. La
   recepción se registra con fecha y referencia externa; después sigue el flujo
   vigente de verificación, anotación y respuesta.
+- El origen del término de respuesta de quince días para casos nuevos queda
+  precisado por ADR-SAAS-110: se cuenta desde el día siguiente a la recepción
+  efectiva del reclamo completo. La fecha inicial conserva el plazo para pedir
+  subsanación; expedientes históricos conservan su vencimiento persistido.
 - Añadir `DESISTIR_POR_FALTA_DE_SUBSANACION`, permitido solo después de los dos
   meses y si no existe subsanación registrada. El operador confirma la
   verificación del canal externo; el servidor registra actor, instante y estado

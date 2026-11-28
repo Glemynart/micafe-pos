@@ -145,3 +145,32 @@ sin cambios.
 - La actualización es solo de lockfiles y no cambia código, infraestructura,
   Rules, IAM ni datos. El CI de GitHub para el nuevo HEAD aún debe ejecutarse;
   el job del commit anterior sigue pendiente y no valida estos lockfiles.
+
+## ADR-SAAS-110 y plazo de respuesta — implementación local, 2026-11-28
+
+- El responsable aprobó la alternativa A. El ADR se aceptó para implementación
+  sintética/staging, sin autorización de publicación, casos reales ni producción.
+- En `functions/src/legal/privacy-claims.ts`, los expedientes nuevos llevan
+  `plazoRespuestaVersion=RECIBO_COMPLETO_V1`; el vencimiento de quince días se
+  calcula desde la recepción verificable del reclamo completo. Los expedientes
+  sin versión explícita conservan el cálculo histórico desde la recepción
+  inicial; una versión desconocida falla cerrada. No se migran ni reescriben
+  registros existentes.
+- Se añadió un caso sintético que completa el reclamo treinta días después de
+  la recepción inicial, verifica que el plazo nuevo siga vigente y conserva la
+  compatibilidad legacy. Los v0.7 previamente servidos permanecen intactos; el
+  bundle fuente y sus cuatro archivos públicos pasan a v0.8, todavía en
+  `PREPARACION/BORRADOR` y sin despliegue.
+- Validación local de la rama: `npm --prefix functions-legal run build` PASS;
+  `npm --prefix functions-legal test` 35 PASS, 5 omitidas por Emulator, 0
+  fallidas; `npm --prefix functions-legal run test:emulator` 6/6 PASS con JDK
+  21; `npm run test:legal-bundle` 2/2 PASS; `npm run build:functions`,
+  `npx tsc --noEmit`, `npm run build`, ESLint focalizado y `git diff --check`
+  PASS. Los hashes v0.8 coinciden con `lib/legal/legal-bundle.ts`.
+- La CI verde visible antes de subir esta implementación corresponde al HEAD
+  remoto `487a779` (run `46111554435`), no valida estos cambios locales. La rama
+  parte de `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`; CI del nuevo HEAD
+  queda pendiente de push.
+- No se desplegó v0.8 a staging o producción. Los hallazgos productivos,
+  exportación/supresión reales, aprobación jurídica/factual e IAM descritos
+  arriba continúan abiertos.

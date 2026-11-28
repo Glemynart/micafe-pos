@@ -41,7 +41,7 @@ test("las páginas públicas resuelven la misma versión y ruta del bundle vigen
   for (const [pageKey, documentId] of publicDocuments) {
     const document = obtenerDocumentoLegalPublico(pageKey);
     assert.equal(document.id, documentId);
-    assert.equal(document.version, "0.7");
+    assert.equal(document.version, "0.8");
     assert.equal(document.estado, "BORRADOR");
     assert.ok(document.rutaPublica.startsWith(`/legal/v${document.version}/`));
     assert.ok(readFileSync(resolve(repository, "public", document.rutaPublica.slice(1)), "utf8"));
@@ -50,6 +50,19 @@ test("las páginas públicas resuelven la misma versión y ruta del bundle vigen
   assert.match(page, /obtenerDocumentoLegalPublico\(documentKey\)/);
   assert.match(page, /document\.rutaPublica/);
   assert.doesNotMatch(page, /v0\.5/);
+});
+
+test("la revisión 0.8 conserva intactos los borradores 0.7 servidos previamente", () => {
+  const archived = [
+    ["terminos-servicio.md", "efcd8eb2365386b8a4277fd7dd731895139fb0861fcc6dd2092fdcb2139d850b"],
+    ["politica-tratamiento.md", "64207fef36b1fab0ae468c26852863a82b7ac4d3d7e86c975dde9d1eb7a6392a"],
+    ["aviso-autorizacion.md", "5ab4a8e97dde0ee5d2b147d319c1a6d4de33a011615f8104f930d39d0144f47c"],
+    ["anexo-tratamiento.md", "7b5b7107e7d1a0e0e77b8da5057eaf56bce0c0b0e02ffba2425be0f12396138b"],
+  ] as const;
+  for (const [file, expectedHash] of archived) {
+    const bytes = bytesLf(resolve(repository, "public/legal/v0.7", file));
+    assert.equal(createHash("sha256").update(bytes).digest("hex"), expectedHash, `${file} v0.7 debe permanecer inmutable`);
+  }
 });
 
 test("el historial solo enlaza un archivo archivado con huella coincidente", () => {
