@@ -1,13 +1,13 @@
 # Dusema POS — borradores legales
 
 Estado: **BORRADOR PARA REVISIÓN; NO VIGENTE NI EXIGIBLE COMO NUEVA VERSIÓN**.
-Preparación: 2026-11-23; revisiones documentales: 2026-11-25, 2026-11-26 y 2026-11-28. Versión de trabajo: `0.8`.
+Preparación: 2026-11-23; revisiones documentales: 2026-11-25, 2026-11-26 y 2026-11-28. Versión de trabajo: `0.9`.
 
 La revisión de términos, política, aviso y anexo del 2026-11-25 produjo la
 versión de trabajo `0.3`; las revisiones posteriores produjeron `0.4` y `0.5`.
 `0.2` a `0.5` permanecen como versiones históricas inmutables en sus rutas
-públicas. La `0.8` es el borrador vigente de trabajo, todavía no exigible; los
-assets históricos `0.6` y `0.7` ya servidos en staging se conservan sin cambios.
+públicas. La `0.9` es el borrador vigente de trabajo, todavía no exigible; los
+assets históricos `0.6`, `0.7` y `0.8` ya servidos en staging se conservan sin cambios.
 Véanse [hallazgos y fuentes](REVISION-2026-11.md) y
 [ADR-SAAS-099 aceptado para implementación](../../ADR-SAAS-099-aceptacion-legal-versionada.md).
 La revisión no cierra los pendientes ni convierte el texto en exigible.
@@ -61,7 +61,7 @@ sintético. El mecanismo para tramitar reclamos reales está en el
    validación independiente ante DIAN.
 2. Definir tiempos reales de atención, disponibilidad y recuperación. No ofrecer
    un SLA, respaldo periódico o restauración garantizada sin evidencia operativa.
-3. Validar factual y técnicamente los plazos seleccionados para v0.8 (propuestos
+3. Validar factual y técnicamente los plazos seleccionados para v0.9 (propuestos
    inicialmente en v0.6), implementar
    o asignar las tareas de salida/supresión y documentar los ciclos de copias.
    La ausencia de borrado automático actual no justifica conservación indefinida.
@@ -225,3 +225,18 @@ halló configuración explícita de Data Access audit logs para Storage. Detalle
 en la [revalidación ACL Storage](evidence/REVALIDACION-ACL-STORAGE-2026-11-28-0758Z.md).
 Consulta la [revalidación operativa y de seguridad](evidence/REVALIDACION-CIERRE-2026-11-28-0732Z.md)
 y el [ADR-SAAS-111 propuesto](../../ADR-SAAS-111-acceso-acls-storage.md).
+
+## Estado vigente de staging — v0.9, 2026-11-28
+
+El rollout `build-2026-11-28-005` sirvió el commit `a9d0b5a` en staging con
+100 % del tráfico; CI `46148192083` terminó en verde. Las cuatro rutas legales
+responden 200 como `BORRADOR`, y los hashes remotos de `/legal/v0.9/` coinciden
+con los archivos del bundle. El smoke autenticado sintético pasó 2/2. La
+evidencia completa está en
+[`ROLLOUT-STAGING-LEGAL-PR706-A9D0B5A-2026-11-28.md`](evidence/ROLLOUT-STAGING-LEGAL-PR706-A9D0B5A-2026-11-28.md).
+
+La staging no publica los textos como vigentes ni habilita aceptación real.
+Producción no recibió cambios en esta validación. La revisión jurídica,
+exportación y supresión con datos reales, validación de proveedores y los gates
+de IAM/Storage siguen abiertos; consulta la [matriz de auditoría](MATRIZ-AUDITORIA-2026-11-27.md)
+y la [revalidación de cierre](evidence/REVALIDACION-CIERRE-2026-11-28-0732Z.md).
