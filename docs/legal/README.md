@@ -208,4 +208,15 @@ pasó y está documentado en
 [`REVALIDACION-GATES-PR706-2026-11-28.md`](evidence/REVALIDACION-GATES-PR706-2026-11-28.md).
 Esta revisión no es aprobación jurídica. Siguen abiertos los gates de exactitud
 factual, contratos/canales de proveedores, contacto/canal para exportación,
-supresión y conservación reales, ADR-SAAS-109, IAM productivo y revisión humana.
+supresión y conservación reales, ADR-SAAS-109 e IAM productivo. El ruleset activo
+de `main` exige cero aprobaciones de GitHub; la aprobación jurídica/factual de
+los documentos sigue pendiente.
+
+## Revalidación de cierre — 2026-11-28 07:32 UTC
+
+Staging sirve v0.8 desde `485970a`; rutas y hashes canónicos coinciden, y el
+E2E sintético de reclamos pasó 2/2. Producción continúa con rutas heredadas; no
+se publicó ni se habilitó aceptación. La matriz identifica además un riesgo
+pendiente de ACL/UBLA en Storage, sin afirmar una exposición pública confirmada.
+Consulta la [revalidación operativa y de seguridad](evidence/REVALIDACION-CIERRE-2026-11-28-0732Z.md)
+y el [ADR-SAAS-111 propuesto](../../ADR-SAAS-111-acceso-acls-storage.md).

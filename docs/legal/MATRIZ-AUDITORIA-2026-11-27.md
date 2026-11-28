@@ -383,3 +383,25 @@ Evidencia operativa detallada de esta relectura: [CI, rutas, smoke e IAM — 202
   supresión real, IAM, revisión integral y otros gates ya registrados. La
   evidencia del rollout posterior está en
   `evidence/REVALIDACION-GATES-PR706-2026-11-28.md`.
+
+## Revalidación autónoma — 2026-11-28 07:32 UTC
+
+La lectura actual confirma que el último rollout de staging es `SUCCEEDED` y
+sirve el commit `485970a` al 100 %; el E2E autenticado sintético pasó 2/2 y el
+bundle v0.8 coincide con sus hashes canónicos tras normalizar CRLF a LF. El PR
+#706 sigue abierto/en draft, sin review; el CI del HEAD está verde (129/129). En
+producción continúa el build `2026-11-24-002`, `/terminos` muestra Café Atrato y
+las otras tres rutas responden 404. Las Functions de consultas/reclamos no
+están en producción y 117 Functions usan la identidad Compute con
+`roles/editor`. La nueva revisión de Storage encontró un ACL de objetos
+`projectViewer` con UBLA desactivado; no demuestra acceso anónimo, pero requiere
+preflight antes de certificar aislamiento. Ver
+[revalidación operativa y de seguridad](evidence/REVALIDACION-CIERRE-2026-11-28-0732Z.md)
+y [ADR-SAAS-111 propuesto](../../ADR-SAAS-111-acceso-acls-storage.md).
+
+**Dictamen vigente: NO APROBADO PARA MERGE NI PARA RELEASE LEGAL PRODUCTIVO.**
+Los documentos siguen en borrador; continúan pendientes aprobación jurídica y
+factual, verificación del contacto/canal, exportación y supresión reales,
+revisión de ACL Storage e IAM productivo. El ruleset activo de `main` exige cero
+aprobaciones de GitHub; no hay review registrada, pero eso no es un gate formal.
+La aprobación jurídica/factual de los documentos sigue pendiente.
