@@ -82,3 +82,39 @@ No se leyeron expedientes u objetos de clientes. Los únicos cambios remotos de
 este checkpoint fueron el rollout manual de App Hosting en staging y los
 fixtures sintéticos del smoke, cuya limpieza se verificó. Producción permaneció
 sin cambios.
+
+## Revalidación autónoma del HEAD actual — 2026-11-28T04:52Z
+
+- El HEAD vigente de PR #706 es `259f48357f4618debd7f95b5284756cea95282e6`,
+  sobre `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`. El run
+  [46106030474](https://github.com/Glemynart/micafe-pos/actions/runs/46106030474)
+  terminó `SUCCESS` para ese SHA: 129/129 pasos exitosos. Incluyó E2E Bodega
+  U4-U5, agenda/reservas/aislamiento, Operator Portal, Web/PWA, P0-01, E4.1 y
+  E4.2. No hay fallo ni job pendiente en ese run.
+- Repeticiones focalizadas: `npm run e2e:privacy:staging` **2/2** en Chromium
+  (38.5 s); `npm run test:legal-bundle` **2/2**; suites de aprobación,
+  autorización y CLI de exportación **16/16**. Todo usó staging/Emulator y
+  fixtures sintéticos; no se leyó un expediente real.
+- Smoke HTTP actual: las cuatro rutas de staging responden 200, muestran
+  Dusema POS y `BORRADOR`, sin contenido de Café Atrato. Los cuatro assets v0.7
+  responden 200 y su SHA-256 remoto coincide byte a byte con el local tras
+  normalizar CRLF a LF.
+- GET productivo actual: `/terminos` responde 200 con el título/contenido
+  heredado de Café Atrato; `/privacidad`, `/aviso-autorizacion` y
+  `/anexo-tratamiento` responden 404. No se hizo rollout ni escritura en
+  producción.
+- Reconsulta IAM read-only: 117/117 Functions v2 productivas activas usan
+  `882525811433-compute@developer.gserviceaccount.com`; el binding `roles/editor`
+  permanece. La política también da `roles/editor` a la cuenta Cloud Services y
+  a `micafe-pos@appspot.gserviceaccount.com`. Seis Cloud Scheduler jobs usan la
+  cuenta Compute. Las cuatro Functions legales de staging siguen activas con
+  `saas-legal-runtime@micafe-pos-staging.iam.gserviceaccount.com`.
+- Contacto representante, canal de entrega e instrucción individual de Diana
+  siguen sin evidencia verificable. No se emitió enlace, no se generó/entregó
+  exportación real y no se borraron datos. La retención de backups/logs conserva
+  la última lectura de metadatos del 2026-11-27; no hay comprobación física de
+  expiración, purga o restauración.
+- El PR sigue `OPEN/DRAFT`, sin reviews. El éxito de CI y el smoke técnico no
+  cambian el estado `BORRADOR/PREPARACION` de los documentos ni autorizan su
+  publicación productiva. El rollout automático de `main` hace que integrar el
+  PR desplegaría ese borrador.

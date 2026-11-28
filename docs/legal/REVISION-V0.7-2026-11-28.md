@@ -2,6 +2,24 @@
 
 Estado: **BORRADOR / PREPARACIÓN. No está vigente ni es exigible. No es un concepto jurídico.**
 
+## Matriz de estado verificable
+
+La validación técnica de esta tabla se limita a versionado, integridad, renderizado,
+rutas y controles de aceptación. No certifica exactitud jurídica ni sustituye la
+aprobación de las partes.
+
+| Documento | Redactado | Validación técnica | Aprobación jurídica/empresarial | Publicación | Aceptación habilitada |
+| --- | --- | --- | --- | --- | --- |
+| Términos v0.7 | Sí | Sí, hash/bundle y ruta staging comprobados | No; borrador | Staging como borrador; producción no | No |
+| Política de tratamiento v0.7 | Sí | Sí, hash/bundle y ruta staging comprobados | No; borrador | Staging como borrador; producción no | No aplica como contrato; aceptación personal no se registra |
+| Aviso de autorización v0.7 | Sí | Sí, hash/bundle y ruta staging comprobados | No; borrador | Staging como borrador; producción no | No; no se registran autorizaciones personales |
+| Anexo de tratamiento v0.7 | Sí | Sí, hash/bundle y ruta staging comprobados | No; borrador, pendiente ficha real por tenant/proveedores | Staging como borrador; producción no | No |
+
+El bundle continúa `PREPARACION`; el código de aceptación exige estado `EXIGIBLE`
+y documentos contractuales `PUBLICADO`, así que falla cerrado. Los campos
+factuales que dependen de operación real —canales atendidos, proveedores,
+ubicaciones e instrumentos aplicables— siguen pendientes de evidencia.
+
 ## Cambios de este corte
 
 - Se conserva `public/legal/v0.6/` sin modificación: los cuatro assets v0.6 ya habían sido servidos en staging y sus hashes constan en la evidencia histórica.
