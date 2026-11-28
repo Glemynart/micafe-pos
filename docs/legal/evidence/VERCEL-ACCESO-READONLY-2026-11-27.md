@@ -37,3 +37,25 @@ interna de artefactos.
 - Dominio: Vercel indica nameservers de Cloudflare y configuración incompleta.
 - No se accedió con cuenta Vercel autenticada ni se leyeron variables de entorno,
   secretos, código fuente de deployments o datos de clientes.
+
+## Revalidación del PR #706 — 2026-11-28 03:38 UTC
+
+Consulta de solo lectura en `glemynarts-projects/cafeatrato`:
+
+- `vercel ls cafeatrato --environment preview --limit 100 --json` devuelve
+  `deployments: []` y `pagination.count = 0`.
+- `vercel ls cafeatrato --limit 30` enumera los mismos cuatro deployments
+  `Production/Ready`, de 53 días. No crea ni activa previews.
+- HEAD anónimo a los cuatro URLs de esos deployments devuelve HTTP 302 hacia
+  `vercel.com/sso-api`, consistente con protección SSO.
+- El URL Preview del comentario de Vercel en PR #706
+  (`cafeatrato-git-codex-e2-2-legal-acceptance-...vercel.app`) devuelve HTTP
+  404. Es una notificación histórica, no un Preview activo.
+- `gh pr checks 706` solo reporta el check CI del repositorio; no aparece un
+  check nuevo de Vercel para este corte.
+
+No se cambió la configuración de Vercel, DNS, plan, aliases ni deployments. La
+evidencia cierra el riesgo de un Preview accesible para este PR y confirma que
+los deployments `Production` muestreados exigen SSO; no acredita aptitud
+comercial del plan Hobby, política de retención interna ni ausencia de otros
+proyectos/deployments fuera de `cafeatrato`.
