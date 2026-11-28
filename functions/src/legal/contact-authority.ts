@@ -134,6 +134,7 @@ export function createContactAuthorityWorkflow({
       throw new Error("CONTACT_AUTHORITY_DELIVERY_FAILED");
     }
     if (!await repository.markDelivered(input.projectId, input.empresaId, challengeId, delivered.reference, authorize)) {
+      await repository.markFailed(input.projectId, input.empresaId, challengeId, authorize).catch(() => false);
       throw new Error("CONTACT_AUTHORITY_DELIVERY_NOT_RECORDED");
     }
     return Object.freeze({ challengeId, expiresAt: record.expiresAt, expectedVersion });
@@ -189,6 +190,7 @@ export function createContactAuthorityWorkflow({
 
 export function createFirestoreContactAuthorityRepository({ db, serverTimestamp }: { db: any; serverTimestamp: () => unknown }): ContactAuthorityRepository {
   if (!db || typeof db.runTransaction !== "function" || typeof serverTimestamp !== "function") throw new Error("CONTACT_AUTHORITY_STORE_NOT_CONFIGURED");
+  const empresaRef = (empresaId: string) => db.collection("empresas").doc(empresaId);
   const tenantRef = (empresaId: string) => db.collection(EXPORT_CONTACT_AUTHORITY_COLLECTION).doc(empresaId);
   const designationRef = (empresaId: string) => db.collection(EXPORT_CONTACT_DESIGNATION_COLLECTION).doc(empresaId);
   const eventRef = (empresaId: string, id: string) => tenantRef(empresaId).collection("events").doc(id);
@@ -203,10 +205,12 @@ export function createFirestoreContactAuthorityRepository({ db, serverTimestamp 
           const root = tenantRef(input.empresaId);
           const challenge = challengeRef(input.empresaId, input.challengeId);
           const designation = designationRef(input.empresaId);
-          const [rootSnap, challengeSnap, designationSnap] = await Promise.all([tx.get(root), tx.get(challenge), tx.get(designation)]);
+          const [empresaSnap, rootSnap, challengeSnap, designationSnap] = await Promise.all([
+            tx.get(empresaRef(input.empresaId)), tx.get(root), tx.get(challenge), tx.get(designation),
+          ]);
           const current = rootSnap.exists ? rootSnap.data() : null;
           const currentDesignation = designationSnap.exists ? designationSnap.data() : null;
-          if (challengeSnap.exists || current && (current.projectId !== input.projectId || current.empresaId !== input.empresaId
+          if (!empresaSnap.exists || challengeSnap.exists || current && (current.projectId !== input.projectId || current.empresaId !== input.empresaId
             || !Number.isSafeInteger(current.revision) || current.revision < 0)
             || !validarDesignacionContactoPendiente(currentDesignation, {
               projectId: input.projectId, empresaId: input.empresaId, contactId: input.contactId,
@@ -229,9 +233,15 @@ export function createFirestoreContactAuthorityRepository({ db, serverTimestamp 
         return await db.runTransaction(async (tx: any) => {
           await authorize?.(tx);
           const ref = challengeRef(empresaId, challengeId);
-          const snap = await tx.get(ref);
+          const [empresaSnap, snap, designationSnap] = await Promise.all([
+            tx.get(empresaRef(empresaId)), tx.get(ref), tx.get(designationRef(empresaId)),
+          ]);
           const value = snap.data();
-          if (!snap.exists || value.projectId !== projectId || value.empresaId !== empresaId || value.state !== "PENDING") return false;
+          if (!empresaSnap.exists || !snap.exists || value.projectId !== projectId || value.empresaId !== empresaId || value.state !== "PENDING"
+            || !validarDesignacionContactoPendiente(designationSnap.data(), {
+              projectId, empresaId, contactId: value.contactId, channel: value.channel,
+              designationRef: value.designationRef, designationVersion: value.designationVersion,
+            })) return false;
           const deliveredAt = serverTimestamp();
           tx.update(ref, { state: "DELIVERED", deliveryRef, deliveredAt });
           tx.create(eventRef(empresaId, `delivered-${challengeId}`), {
@@ -266,12 +276,14 @@ export function createFirestoreContactAuthorityRepository({ db, serverTimestamp 
           const root = tenantRef(input.empresaId);
           const challenge = challengeRef(input.empresaId, input.challengeId);
           const designation = designationRef(input.empresaId);
-          const [rootSnap, challengeSnap, designationSnap] = await Promise.all([tx.get(root), tx.get(challenge), tx.get(designation)]);
+          const [empresaSnap, rootSnap, challengeSnap, designationSnap] = await Promise.all([
+            tx.get(empresaRef(input.empresaId)), tx.get(root), tx.get(challenge), tx.get(designation),
+          ]);
           const current = rootSnap.exists ? rootSnap.data() : null;
           const pending = challengeSnap.exists ? challengeSnap.data() : null;
           const currentDesignation = designationSnap.exists ? designationSnap.data() : null;
           const nowMs = Date.parse(input.now);
-          if (!pending || pending.projectId !== input.projectId || pending.empresaId !== input.empresaId
+          if (!empresaSnap.exists || !pending || pending.projectId !== input.projectId || pending.empresaId !== input.empresaId
             || current && (current.projectId !== input.projectId || current.empresaId !== input.empresaId
               || !Number.isSafeInteger(current.revision) || current.revision < 0)
             || pending.state !== "DELIVERED" || !sameHash(pending.tokenSha256, input.tokenSha256)

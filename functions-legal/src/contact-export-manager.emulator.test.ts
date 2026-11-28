@@ -72,6 +72,23 @@ test("Emulator: contacto de exportación exige facultad, contacto sintético, ca
     assert.equal(failedDeliveries.docs[0].get("tokenSha256"), null);
     assert.equal((await designationRoot.get()).get("estado"), "PENDIENTE_CANAL");
 
+    const tenantRef = db.collection("empresas").doc(empresaId);
+    const racingManager = createContactExportManager({
+      db, projectId, allowSyntheticWrites: true,
+      deliverChallenge: async () => {
+        await tenantRef.delete();
+        return { reference: "delivery:tenant-removed" };
+      },
+      now: () => new Date("2026-11-28T16:00:00.000Z"),
+    });
+    await assert.rejects(racingManager.handle(actor, {
+      accion: "INICIAR_VERIFICACION", empresaId, instruccionRef: "instruccion:sintetica",
+    }), /CONTACTO_EXPORTACION_NO_DISPONIBLE/);
+    const allFailedDeliveries = await root.collection("challenges").where("state", "==", "FAILED").get();
+    assert.equal(allFailedDeliveries.size, 2);
+    assert.ok(allFailedDeliveries.docs.every(doc => doc.get("tokenSha256") === null));
+    await tenantRef.set({ estado: "activa", nombre: "Tenant sintético" });
+
     const challenge = await manager.handle(actor, { accion: "INICIAR_VERIFICACION", empresaId, instruccionRef: "instruccion:sintetica" }) as any;
     assert.equal(typeof challenge.challengeId, "string");
     assert.equal("token" in challenge, false);

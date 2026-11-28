@@ -64,6 +64,7 @@ export function createFirestoreContactDesignationRepository({ db, serverTimestam
   if (!db || typeof db.runTransaction !== "function" || typeof serverTimestamp !== "function") {
     throw new Error("CONTACT_DESIGNATION_STORE_NOT_CONFIGURED");
   }
+  const tenantRef = (empresaId: string) => db.collection("empresas").doc(empresaId);
   const rootRef = (empresaId: string) => db.collection(EXPORT_CONTACT_DESIGNATION_COLLECTION).doc(empresaId);
   const eventRef = (empresaId: string, version: number) => rootRef(empresaId).collection("events").doc(`designation-${String(version).padStart(6, "0")}`);
 
@@ -80,6 +81,8 @@ export function createFirestoreContactDesignationRepository({ db, serverTimestam
       try {
         return await db.runTransaction(async (tx: any) => {
           await authorize?.(tx);
+          const tenant = await tx.get(tenantRef(input.empresaId));
+          if (!tenant.exists) return null;
           const root = rootRef(input.empresaId);
           const snap = await tx.get(root);
           const current = snap.exists ? snap.data() : null;
@@ -111,7 +114,10 @@ export function createFirestoreContactDesignationRepository({ db, serverTimestam
       try {
         return await db.runTransaction(async (tx: any) => {
           await authorize?.(tx);
-          const snap = await tx.get(rootRef(input.empresaId));
+          const [tenant, snap] = await Promise.all([
+            tx.get(tenantRef(input.empresaId)), tx.get(rootRef(input.empresaId)),
+          ]);
+          if (!tenant.exists) return null;
           if (!snap.exists) return null;
           const value = snap.data() as DesignacionContactoActiva;
           if (value.schemaVersion !== 1 || value.projectId !== input.projectId || value.empresaId !== input.empresaId
@@ -133,7 +139,10 @@ export function createFirestoreContactDesignationRepository({ db, serverTimestam
       try {
         return await db.runTransaction(async (tx: any) => {
           await authorize?.(tx);
-          const snap = await tx.get(rootRef(empresaId));
+          const [tenant, snap] = await Promise.all([
+            tx.get(tenantRef(empresaId)), tx.get(rootRef(empresaId)),
+          ]);
+          if (!tenant.exists) return null;
           if (!snap.exists) return null;
           const value = snap.data() as DesignacionContactoActiva;
           if (value.schemaVersion !== 1 || value.projectId !== projectId || value.empresaId !== empresaId

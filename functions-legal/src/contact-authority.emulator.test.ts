@@ -26,6 +26,8 @@ test("Emulator: private designation source binds one-use channel proof without c
   const repository = createFirestoreContactAuthorityRepository({ db, serverTimestamp: () => new Date() });
   const designations = createFirestoreContactDesignationRepository({ db, serverTimestamp: () => new Date() });
   const designationRoot = db.collection(EXPORT_CONTACT_DESIGNATION_COLLECTION).doc(empresaId);
+  const empresa = db.collection("empresas").doc(empresaId);
+  await empresa.set({ estado: "activa", nombre: "Tenant sintético" });
   assert.equal(await designations.propose({
     projectId, empresaId, operatorUid: "operator-synthetic", contactId: "contact-synthetic",
     channel: "EMAIL_VERIFICADO", destination: "synthetic-contact@example.invalid",
@@ -94,6 +96,7 @@ test("Emulator: private designation source binds one-use channel proof without c
     for (const doc of [...challenges.docs, ...versions.docs, ...events.docs, ...designationEvents.docs]) batch.delete(doc.ref);
     batch.delete(root);
     batch.delete(designationRoot);
+    batch.delete(empresa);
     await batch.commit();
     await deleteApp(app);
   }

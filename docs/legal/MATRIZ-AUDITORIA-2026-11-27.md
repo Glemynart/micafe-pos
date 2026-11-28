@@ -581,9 +581,10 @@ plan de pago.
   cinco suites Emulator omitidas por no tener Emulator conectado; suite legal
   Emulator 6/6 PASS; Rules Emulator 52/52 PASS con JDK 21; bundle legal 3/3
   PASS; `git diff --check` PASS.
-- Este corte solo implementa la fuente y el enlace transaccional. Aún no hay
-  callable ni UI de Backoffice para operar el contacto ni proveedor real para
-  enviar el desafío; no existe una designación real ni autorización exportada.
+- Al registrar este corte inicial solo existían la fuente y el enlace
+  transaccional: todavía no había callable ni UI de Backoffice para operar el
+  contacto, ni proveedor real para enviar el desafío. La sección posterior
+  documenta la implementación sintética que completó esa brecha técnica.
   El cambio no se desplegó en staging o producción, no tocó IAM, no leyó ni
   exportó datos reales y no activó documentos.
 - La fuente del destino de exportación solo está autorizada como implementación
@@ -591,9 +592,9 @@ plan de pago.
   restringidas por Firestore Rules; por ello la separación IAM/identidad de
   runtime sigue siendo un control independiente y permanece abierto en ADR-105.
 
-**Estado del corte:** prueba técnica sintética aprobada; operación real,
-proveedor, contacto/documento de instrucción, UI/callables, revisión jurídica,
-IAM productivo, Storage y release permanecen pendientes.
+**Estado en el corte inicial:** prueba técnica sintética aprobada; operación
+real, proveedor, contacto/documento de instrucción, UI/callables, revisión
+jurídica, IAM productivo, Storage y release permanecían pendientes.
 
 ## Operación sintética del contacto de exportación — implementación candidata, 2026-11-28
 
@@ -611,6 +612,13 @@ IAM productivo, Storage y release permanecen pendientes.
 - Sin proveedor configurado, iniciar el desafío falla cerrado; la prueba
   sintética confirma que el desafío se marca fallido y se elimina su hash. En
   las pruebas, el adapter stub se inyecta directamente y nunca envía mensajes.
+- Las transacciones revalidan la existencia del tenant al crear la designación,
+  iniciar/verificar el canal y leer el resumen. Una prueba de carrera elimina el
+  tenant durante el adapter de entrega y confirma que no se marca un desafío
+  entregado ni se conserva su hash.
+- La primera repetición de Emulator encontró un fixture antiguo sin documento de
+  empresa; se agregó el tenant sintético a ese fixture y la repetición completa
+  quedó en 8/8.
 - Validación local del candidato: `npm --prefix functions-legal run build`,
   `npm --prefix functions run build`, `npx tsc --noEmit`, `npm run build`,
   `npm run test:backoffice-ui`, `npm --prefix functions-legal test` (35 pasan,
