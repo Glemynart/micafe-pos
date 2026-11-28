@@ -175,3 +175,31 @@ sin cambios.
 - No se desplegó v0.8 a staging o producción. Los hallazgos productivos,
   exportación/supresión reales, aprobación jurídica/factual e IAM descritos
   arriba continúan abiertos.
+
+## Validación controlada en staging del commit 485970a — 2026-11-28
+
+- CI [run 46114883920](https://github.com/Glemynart/micafe-pos/actions/runs/46114883920)
+  terminó `SUCCESS` para `485970af098ea15ad8532161b543043d85bd7b2d`: 129/129
+  pasos exitosos y cero fallidos. Incluyó E2E Bodega solicitud/aprobación/venta,
+  Operator Portal, Web/PWA, Smoke P0-01, Rules, E4.1 y auditoría E4.2.
+- En `micafe-pos-staging` se actualizaron Firestore Rules y las cuatro Functions
+  `saas-legal`. El CLI compiló las Rules y reportó que ya estaban actualizadas;
+  las cuatro Functions terminaron con actualización exitosa y están `ACTIVE`
+  usando `saas-legal-runtime@micafe-pos-staging.iam.gserviceaccount.com`.
+- Rollout manual de App Hosting `build-2026-11-28-002`: `SUCCEEDED`; Build:
+  `READY`; su fuente es el commit exacto `485970a`. El backend staging enruta
+  100 % del tráfico a ese build.
+- Tras el rollout, `/terminos`, `/privacidad`, `/aviso-autorizacion` y
+  `/anexo-tratamiento` respondieron HTTP 200 con Dusema POS y estado borrador,
+  sin texto heredado de Café Atrato. Los cuatro assets públicos v0.8 dieron
+  HTTP 200 y SHA-256 idéntico a las huellas del bundle.
+- `npm run e2e:privacy:staging`: 2/2 PASS en Chromium (40.8 s). Verificó el
+  trámite visual autenticado de un reclamo sintético, respuesta/cierre,
+  aislamiento entre tenants y rechazo a operador sin facultad. El test elimina
+  sus fixtures Auth/Firestore y comprueba su ausencia al terminar; no usó la
+  cuenta de Diana ni datos de titulares reales.
+- El rollout fue solo a `micafe-pos-staging`. v0.8 sigue `BORRADOR/PREPARACION`;
+  no se desplegó en producción, no se activó aceptación y no se generó una
+  exportación ni supresión real. IAM de producción no cambió. Las rutas de
+  producción mantienen el estado read-only ya registrado en la sección
+  correspondiente.
