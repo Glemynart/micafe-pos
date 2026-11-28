@@ -43,6 +43,7 @@ functions-platform-credential-recovery/lib/
 functions-operational-onboarding/lib/
 functions-bodega-operations/lib/
 functions-tenant-profile/lib/
+functions-legal/lib/
 functions-platform-financial-account-provisioning/lib/
 functions-tenant-credential-recovery/lib/
 functions-bodega-membership/lib/

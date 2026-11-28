@@ -1,4 +1,5 @@
 const ADMIN_USERNAME_STORAGE_KEY = "admin_user";
+const ADMIN_USERNAME_REMEMBERED_KEY = "admin_user_remembered";
 
 type StoragePort = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
@@ -14,6 +15,12 @@ function browserStorage(): StoragePort | undefined {
 export function readRememberedAdminUsername(storage = browserStorage()): string {
   if (!storage) return "";
   try {
+    if (storage.getItem(ADMIN_USERNAME_REMEMBERED_KEY) !== "1") {
+      // Remove codes saved by the previous default-on checkbox. Remembering is now opt-in.
+      storage.removeItem(ADMIN_USERNAME_STORAGE_KEY);
+      storage.removeItem(ADMIN_USERNAME_REMEMBERED_KEY);
+      return "";
+    }
     return storage.getItem(ADMIN_USERNAME_STORAGE_KEY) ?? "";
   } catch {
     return "";
@@ -30,11 +37,15 @@ export function persistAdminUsername(
   try {
     if (!remember) {
       storage.removeItem(ADMIN_USERNAME_STORAGE_KEY);
+      storage.removeItem(ADMIN_USERNAME_REMEMBERED_KEY);
       return;
     }
 
     const normalized = username.trim();
-    if (normalized) storage.setItem(ADMIN_USERNAME_STORAGE_KEY, normalized);
+    if (normalized) {
+      storage.setItem(ADMIN_USERNAME_STORAGE_KEY, normalized);
+      storage.setItem(ADMIN_USERNAME_REMEMBERED_KEY, "1");
+    }
   } catch {
     // Browser storage can be unavailable in private or restricted contexts.
   }

@@ -82,6 +82,13 @@
     {
       "source": "functions-tenant-profile",
       "codebase": "saas-tenant-profile"
+    },
+    {
+      "source": "functions-legal",
+      "codebase": "saas-legal",
+      "predeploy": [
+        "npm --prefix functions-legal run build"
+      ]
     }
   ],
   "firestore": {

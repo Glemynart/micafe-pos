@@ -124,6 +124,7 @@ export default function EventosPage() {
 
   const eventosFuturos = eventos.filter(e => e.fecha >= new Date().toISOString().split("T")[0])
   const eventosPasados = eventos.filter(e => e.fecha < new Date().toISOString().split("T")[0])
+  const deletingEventHasImage = eventos.some(e => e.id === eventToDelete && Boolean(e.imagenUrl))
 
   if (cargando) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground/50" /></div>
 
@@ -216,7 +217,10 @@ export default function EventosPage() {
                   </Button>
                 </div>
               )}
-              <p className="text-[10px] text-muted-foreground mt-1">Las imágenes nuevas se almacenan dentro del tenant activo.</p>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Las imágenes cargadas aquí se publicarán en la página del negocio y cualquier visitante podrá verlas y descargarlas.
+                No subas imágenes de personas identificables o datos personales sin la autorización o base válida que corresponda.
+              </p>
             </div>
           </div>
           <DialogFooter>
@@ -231,7 +235,9 @@ export default function EventosPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este evento?</AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
-              Esta acción no se puede deshacer. El evento desaparecerá de la página principal.
+              {deletingEventHasImage
+                ? "El evento desaparecerá de la página, pero su imagen no se elimina automáticamente y su enlace directo podría seguir funcionando."
+                : "El evento desaparecerá de la página."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

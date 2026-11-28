@@ -1,6 +1,8 @@
 /** Application authority on top of cloud IAM; denies without verified request evidence. */
 export function createOperatorAuthorizer({ auth, db, readIdToken, verifyRequest, request, now = () => Date.now() }) {
-  if (!auth || !db || typeof readIdToken !== 'function' || typeof verifyRequest !== 'function' || !request || !Number.isFinite(Date.parse(request.validUntil))) throw new Error('EXPORT_AUTHORITY_NOT_CONFIGURED');
+  if (!auth || !db || typeof readIdToken !== 'function' || typeof verifyRequest !== 'function' || !request
+    || !Number.isFinite(Date.parse(request.validUntil)) || typeof request.runId !== 'string'
+    || !/^[A-Za-z0-9_-]{1,120}$/.test(request.runId)) throw new Error('EXPORT_AUTHORITY_NOT_CONFIGURED');
   const scope = Object.freeze({ ...request });
   return async function authorize(context) {
     try {
@@ -15,11 +17,11 @@ export function createOperatorAuthorizer({ auth, db, readIdToken, verifyRequest,
         || identity.saas?.operador !== true || identity.saas.versionAutorizacion !== record.versionAutorizacion
         || !Number.isSafeInteger(record.versionAutorizacion) || record.versionAutorizacion < 1) throw new Error();
       const requestProof = await verifyRequest(scope, identity.uid);
-      if (!requestProof || requestProof.verified !== true || requestProof.project !== scope.project || requestProof.tenant !== scope.tenant || requestProof.requestId !== scope.requestId || typeof requestProof.reference !== 'string' || !requestProof.reference) throw new Error();
+      if (!requestProof || requestProof.verified !== true || requestProof.project !== scope.project || requestProof.tenant !== scope.tenant || requestProof.requestId !== scope.requestId || typeof requestProof.reference !== 'string' || !/^[a-zA-Z0-9_-]{1,120}$/.test(requestProof.reference)) throw new Error();
       const company = await db.collection('empresas').doc(scope.tenant).get();
       if (!company.exists) throw new Error();
       // A suspended/cancelled tenant may still exercise exit rights; don't demand sell.
-      return { project: scope.project, tenant: scope.tenant, requestId: scope.requestId, uid: identity.uid, active: true, canConserve: true, requestVerified: true, authorizationVersion: record.versionAutorizacion };
+      return { project: scope.project, tenant: scope.tenant, requestId: scope.requestId, requestReference: requestProof.reference, uid: identity.uid, active: true, canConserve: true, requestVerified: true, authorizationVersion: record.versionAutorizacion };
     } catch { throw new Error('EXPORT_AUTHORIZATION_DENIED'); }
   };
 }

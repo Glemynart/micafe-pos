@@ -1,9 +1,39 @@
 # Implementación controlada de salida — estado real
 
-Fecha: 2026-11-23. `G-SAAS-02 / M2 / E2.2`.
+Fecha de actualización: 2026-11-28. `G-SAAS-02 / M2 / E2.2`.
 ADR-SAAS-100 aceptado para implementar por la orden posterior «ok resuelve eso».
-ADR-SAAS-101 aceptado expresamente para pruebas locales; ADR-SAAS-099 sigue Propuesto. No hay aceptación legal real
-del cliente ni cambios en producción atribuibles a estos archivos.
+ADR-SAAS-101 aceptado expresamente para implementación y pruebas locales.
+ADR-SAAS-099 aceptado por separado para implementar aceptación legal versionada.
+ADR-SAAS-106/107/108/109/112 aceptados para implementación sintética; ninguno
+autoriza contacto real, proveedor, exportación real, aceptación legal productiva,
+supresión real o cambios IAM productivos.
+
+### Staging verificado — commit funcional `3fedf75`
+
+- App Hosting `build-2026-11-28-006`: `READY`, rollout `SUCCEEDED`, fuente exacta
+  `3fedf75f0114930b43bc616900549ce529a548b6` y 100 % del tráfico de staging.
+- Firestore Rules del PR publicadas a `micafe-pos-staging`; CI y el smoke
+  autenticado sintético pasan. Las cuatro páginas legales y assets v0.9 se
+  sirven con huellas coincidentes y estado `BORRADOR/PREPARACION`.
+- Cinco callables `saas-legal` activas con la identidad dedicada
+  `saas-legal-runtime@micafe-pos-staging.iam.gserviceaccount.com`. La nueva
+  `administrarContactoExportacionSaas` y la pantalla de Backoffice permiten
+  únicamente fixtures Emulator `demo-*`; no hay proveedor conectado ni se
+  registra un contacto real. El orquestador de aprobación de exportación sigue
+  como módulo interno: no tiene callable/página conectada ni proveedor real.
+- El E2E visual autenticado de reclamos pasa 2/2 con identidades y tenants
+  sintéticos; aislamiento, denegación y limpieza se verifican. Los screenshots
+  están en `evidence/screenshots/2026-11-28-pr706-staging/`.
+
+### Producción
+
+- No se desplegaron App Hosting, Functions, Rules ni IAM en producción durante
+  este corte. Se conserva el build anterior de App Hosting.
+- `/terminos` aún contiene “Café Atrato”; `/privacidad`, `/aviso-autorizacion`
+  y `/anexo-tratamiento` responden 404. Los nuevos textos siguen en
+  `BORRADOR/PREPARACION`; la aceptación real permanece fail-closed.
+- No se generó ni entregó una exportación real, no se suprimieron datos reales y
+  no se probó restauración ni expiración de respaldos reales.
 
 ## Corte de proveedores
 
@@ -35,38 +65,90 @@ automática al importarlos:
   presupuestos, autorización por lote, subcolecciones, hashes y archivos versionados.
 - `export-schema.mjs`: allowlists versionadas; campos/tipos no reconocidos detienen
   el proceso. No hay dump genérico, tolerancia silenciosa o eliminación por denylist.
-- `operator-authority.mjs`: verificación de ID token con revocación, audiencia,
-  operador actual y facultad de conservación, además de petición verificada.
-  La verificación de la petición es una dependencia obligatoria, sin default permisivo.
-- `firestore-source.mjs`: transporte REST de lectura; filtros tenant y `readTime`.
+- `operator-authority.mjs` y `export-authorization.mjs`: verificación de ID token
+  con revocación, audiencia, operador actual y facultad de conservación. La
+  autorización se lee de `saas_export_authorizations`; comprueba proyecto,
+  tenant, operador solicitado, contacto representante y versión verificados,
+  entrega registrada, aprobación con enlace consumido, huella de alcance,
+  vigencia, revocación y cierre. Una transacción reclama el expediente para un
+  solo run; éxito y fallo son estados terminales. El registro guarda hash,
+  conteo y resultado, no el contacto ni el payload.
+- `export-approval-link.mjs`: orquestador interno con autorización de operador,
+  puertos de contacto y entrega, preview del alcance, token de un solo uso en
+  fragmento de URL, hash en Firestore, validación transaccional de versión del
+  contacto, revocación por operador autorizado y fallo cerrado ante entrega
+  fallida, expiración o repetición. No tiene callable, página web, fuente de
+  contacto ni proveedor conectado.
+- `firestore-source.mjs`: transporte REST de lectura; obtiene el `readTime` del
+  servidor con una consulta exacta aleatoria sin resultados y reutiliza ese
+  snapshot en las páginas. El preflight de producción de 2026-11-26 recibió el
+  `readTime` y cero documentos.
   No ofrece `commit`, `delete` o mutaciones.
 - `storage-source.mjs`: lista solo prefijo tenant y pide generación exacta con
   precondición. No utiliza ni entrega tokens públicos de descarga.
+- Las URLs de Firebase Storage tokenizadas de imágenes del catálogo, eventos y
+  branding se resuelven contra ese inventario antes de leer documentos: el
+  paquete sustituye cada URL por una referencia al asset cifrado y generación
+  exacta. El manifiesto incluye el conteo de Storage; un archivo no encontrado
+  detiene la exportación. Las URLs HTTPS externas limpias se conservan como
+  referencia, no se descargan ni se declaran como archivos del bundle.
 - `encrypted-bundle.mjs` y `private-output.mjs`: AES-256-GCM autenticado; escritura
   de ciphertext en directorio nuevo y restringido, fuera de Git/Downloads/Codex.
   La clave de 32 bytes la aporta un canal seguro del llamador y no se escribe
-  junto al paquete. No hay CLI para imprimir documentos o secretos.
+  junto al paquete. El CLI no imprime documentos ni secretos.
 - `retention-plan.mjs`: planificador sin mutaciones; siempre `PREVIEW_ONLY` y
   `executable=false`, con bloqueos por conservación, hold, identidad compartida,
   referencias no verificadas y entrega pendiente.
+- `tenant-export-runner.mjs`: valida el directorio privado antes de leer payloads,
+  revalida la autoridad durante el recorrido y verifica el round-trip del bundle
+  cifrado; solo devuelve metadatos.
+- `tenant-export-cli.mjs`: candidato local de solo lectura, limitado en producción
+  al tenant `distribuidora-las-jimenez`; deriva el bucket del proyecto y requiere
+  el ID de una solicitud creada por el servidor, el operador con
+  `CONSERVACION_GOBERNAR`, credenciales de lectura existentes y confirmación
+  interactiva. Una referencia escrita por el operador ya no constituye evidencia.
+  Sin un expediente aprobado por enlace verificado el CLI falla antes de leer
+  payloads. No requiere cuenta ni sesión del tenant.
+
+El ejecutable `coverage-cli.mjs` enumera metadatos; no exporta payloads. El
+orquestador de enlace y el adaptador Firestore están probados solo con fixtures
+sintéticos/Emulator; no existe todavía una callable/API ni página web que los
+conecte. Tampoco hay una fuente de contacto representante aprobada o proveedor
+real que demuestre entrega. No se puede crear un expediente operativo válido ni
+completar un smoke positivo autenticado; las exportaciones reales siguen
+bloqueadas. La declaración reportada de autorización de Diana por sí sola no se
+convierte en una referencia verificable. No usar `coverage-cli.mjs` como si
+certificara una entrega integral. La evidencia del ciclo sintético está en
+`evidence/RESULTADO-ADR106-IMPLEMENTACION-CONTROLADA-2026-11-27.md`.
 
 ## Límite material antes de usar datos reales
 
-**El núcleo no es todavía un exportador integral de producción.** La lista
-`PENDING_ROOTS` identifica dominios sin adaptador completo. Si aparecen entre las
-colecciones raíz, se rechaza la exportación con `EXPORT_ADAPTER_REQUIRED` antes
-de generar un paquete. No consultar por empresaId un singleton que puede no tener
-ese campo para fingir que está vacío.
+**El núcleo no está certificado todavía como exportador integral de producción.**
+`PENDING_ROOTS` conserva una guardia histórica fail-closed: rechaza una raíz de esa
+lista únicamente si no existe un esquema explícito en `SCHEMAS`. En el candidato
+actual las seis raíces de esa lista (`agendas`, `auditoria_logs`,
+`comandas_cocina`, `eventos_operativos`, `reservas` y `numeraciones`) ya tienen
+allowlists; por eso no bloquean hoy la exportación por `EXPORT_ADAPTER_REQUIRED`.
+El preflight de metadatos de 2026-11-25 clasificó las 48 raíces observadas como
+`ADAPTER_DEFINED` o `EXCLUDED_INTERNAL`. Esto solo verifica nombres de raíces,
+no todos los payloads reales, campos históricos, subcolecciones o referencias.
+No consultar por empresaId un singleton que puede no tener ese campo para fingir
+que está vacío.
 
-Los adaptadores ya definidos tampoco autorizan versiones futuras desconocidas.
-Antes de ejecutar, completar los de dominio/campos canónicos, vincular una petición
-verificada y probar consistencia del API real en un entorno aislado. Las pruebas
-unitarias con respuestas sintéticas no acreditan readTime/restore en Cloud.
+Los adaptadores definidos tampoco autorizan versiones futuras desconocidas. La
+reconciliación V3 verifica las 44 raíces declaradas, raíces observadas, archivos
+JSONL, conteos, bytes, hash, aislamiento por tenant, membresías/usuarios,
+relaciones padre/hijo conocidas y el inventario de Storage. Enumera las exclusiones
+y las razones. El manifiesto se llama
+`RECONCILED_DECLARED_SCOPE_NOT_CERTIFIED`; el informe marca integridad `PASS`,
+alcance `DECLARED_SCHEMA_SCOPE_ONLY` y certificación `NOT_CERTIFIED`. No compara
+independientemente payloads históricos reales ni referencias semánticas no
+modeladas. Antes de datos reales deben revisarse fixtures históricos
+representativos y comprobarse la lectura de snapshot en Cloud.
 
 Una fuente nueva debe clasificarse: nunca convertir un rechazo en bypass o ampliar
-campos automáticamente usando payloads reales. No cambiar `PENDING_ROOTS` por
-vacío para conseguir un estado COMPLETE. El estado del manifiesto es
-`COMPLETE_DECLARED_SCOPE`, no certificación legal o fiscal.
+campos automáticamente usando payloads reales. El estado reconciliado del
+esquema declarado no es certificación legal o fiscal.
 
 Existe un ejecutor exclusivamente sintético en `emulator-erasure.mjs`, limitado
 a `demo-dusema-erasure`, `127.0.0.1` y fixtures marcados. No admite colecciones
@@ -75,8 +157,11 @@ identidades compartidas, ledger, evidencia contractual, referencias sin comproba
 y entrega pendiente. Usa precondiciones updateTime y un comprobante atómico sin
 payloads personales; la repetición verifica ausencia y detecta recreación.
 No constituye un ejecutor productivo ni prueba eliminación física de backups.
-Un preview sin bloqueos sigue sin autorizar borrado real. Tampoco está
-implementado el flujo de aceptación ADR-SAAS-099.
+Un preview sin bloqueos sigue sin autorizar borrado real. El flujo de aceptación
+ADR-SAAS-099 está implementado en PR #706; su bundle permanece en `PREPARACION`.
+Las Functions y Rules se desplegaron en staging y producción el 2026-11-24, pero
+el PR no se ha integrado ni App Hosting ha recibido el candidato. No se ejecutó
+smoke autenticado ni se registraron aceptaciones durante ese corte.
 
 El inventario de metadatos de `micafe-pos` a las 19:37 UTC del 2026-11-23
 identificó 48 raíces y las 48 tienen clasificación: adaptador cerrado o fuente
@@ -92,10 +177,23 @@ ni se comprobó cada documento legado, subcolección, campo/versionado o referen
 contra un paquete real. El primer uso requiere ensayos de esquema completos con
 fixtures representativos y corroborar el comportamiento de `readTime` de la API.
 
+La exportación limita `maxBytes` al tamaño exacto del artefacto cifrado (JSON,
+escapes, expansión Base64 y envoltura AES-GCM), además de detener entradas que ya
+superan ese presupuesto. `totalBytes` en el manifiesto sigue contando bytes de
+fuente antes de codificación. La CLI calcula `sourceSha` solo si el checkout está
+limpio, incluidas las rutas sin seguimiento; así el manifiesto no atribuye a un
+commit contenido local distinto.
+
+La subcolección privada `clientes/{id}/anotaciones_privacidad` se descubre y se
+clasifica en el manifiesto como `PRIVATE_PRIVACY_CASE_DATA`, pero no se recorren
+sus documentos ni se entregan sus motivos en la salida comercial ordinaria. El
+expediente restringido de reclamos queda separado de la exportación tenant-wide.
+
 ## Validación reproducible
 
 ```powershell
-node --test scripts/legal/legal-tools.test.mjs
+node --test scripts/legal/legal-tools.test.mjs scripts/legal/tenant-export-cli.test.mjs scripts/legal/export-authorization.test.mjs scripts/legal/export-approval-link.test.mjs
+npx firebase --project demo-dusema-export emulators:exec --only firestore,storage "node --test scripts/legal/emulator-export.test.mjs scripts/legal/export-approval-link.emulator.test.mjs"
 npx firebase --project demo-dusema-erasure emulators:exec --only firestore "node --test scripts/legal/emulator-erasure.test.mjs"
 npx tsc --noEmit
 npm run build
@@ -116,3 +214,79 @@ El preflight de metadatos clasificó 48/48 raíces actuales.
 No se desplegaron herramientas ni se borraron datos reales. El ensayo usa una
 colección sintética específica: no acredita aún adaptadores de destrucción de
 documentos operativos, Auth, Storage o restauración de backups.
+
+Validación local del candidato de ADR-SAAS-106, 2026-11-27: 44 pruebas de
+exportación, argumentos CLI, reconciliación y autorización aprobaron; una prueba
+adicional con Firestore Emulator usó dos tenants sintéticos y aprobó. El primer
+intento del Emulator tomó JDK 17 del PATH y falló; se repitió con el JDK 21
+instalado y pasó. No hubo smoke autenticado en staging ni lectura de datos reales.
+
+Revalidación sintética local del 2026-11-28 con JDK 21: las suites de
+exportación, autorización, enlace y CLI aprobaron 51/51; la exportación,
+Storage y aprobación por enlace en Emulator aprobaron 2/2; y la
+supresión/conservación con Firestore Emulator aprobó 2/2. La documentación
+anterior omitía Storage en el comando de exportación: el intento falló al subir
+el activo sintético, no tocó servicios remotos, y el comando reproducible quedó
+corregido arriba.
+
+## Revalidación y rollout en staging — 2026-11-27 17:24 UTC
+
+El CI `46036507027` pasó para `5f66c146fa0339a16414fa59d6906b348699d97a`.
+Luego se desplegaron, solo en `micafe-pos-staging`, Firestore Rules y el codebase
+`saas-legal`; sus cuatro callables quedaron `ACTIVE/READY` con la identidad
+runtime dedicada y 100 % de tráfico. Los POST anónimos devolvieron 401. App
+Hosting construyó `build-2026-11-27-003` desde el SHA exacto; el rollout quedó
+`SUCCEEDED` y su revisión recibe 100 % del tráfico. Las cuatro rutas legales y
+los cuatro archivos v0.6 responden 200; los hashes del contenido servido
+coinciden con el bundle y los textos continúan explícitamente como borradores.
+
+La lectura REST del release de Rules fue denegada (403), por lo que no se afirma
+cotejo remoto byte por byte; sí se conserva el resultado `Deploy complete` de
+Firebase CLI y las pruebas Rules 52/52. El CLI anunció generación/verificación
+de identidades Pub/Sub/Eventarc; no se encontraron eventos de auditoría
+`GenerateServiceIdentity`, lo cual no demuestra que no hubiera efecto. No se
+modificaron bindings IAM manualmente.
+
+El smoke autenticado positivo no se completó: Computer Use terminó antes de
+interactuar porque no pudo determinar con suficiente confianza la URL de Edge.
+Producción no se modificó. Permanecen pendientes aprobación jurídica/factual,
+canal y contacto reales, smoke autenticado/aislamiento, certificación de
+exportación integral/supresión, artefactos Vercel y la resolución del servicio
+productivo que todavía muestra Café Atrato en `/terminos`. Detalle en
+[`ROLLOUT-STAGING-LEGAL-PR706-5F66C14-2026-11-27.md`](evidence/ROLLOUT-STAGING-LEGAL-PR706-5F66C14-2026-11-27.md).
+
+La reconciliación del estado vigente de ADR-SAAS-106/107/108, CI, staging y
+los gates legales/operativos posteriores está en
+[`RECONCILIACION-LEGAL-ADR106-108-2026-11-27.md`](evidence/RECONCILIACION-LEGAL-ADR106-108-2026-11-27.md).
+
+## Smoke autenticado de lectura — 2026-11-27
+
+Después de ese corte se completó una prueba server-side autenticada en staging
+con usuario, tenant y membresía sintéticos: lectura del tenant propio HTTP 200,
+lectura del tenant ajeno HTTP 403 y rechazo de selección de tenant en la callable
+HTTP 400. La aceptación fue rechazada como `FAILED_PRECONDITION` por bundle en
+borrador y no dejó recibos. El cleanup de Auth y Firestore se verificó. La UI
+autenticada, el flujo de reclamos y la aceptación exitosa no quedan certificados. Ver
+[`SMOKE-AUTENTICADO-STAGING-2026-11-27.md`](evidence/SMOKE-AUTENTICADO-STAGING-2026-11-27.md).
+
+## Revalidación de release — 2026-11-27 19:16 UTC
+
+- La pantalla `/backoffice/privacidad` cargó en Edge contra staging y mostró el
+  badge `Operador autorizado`. Inspección visual de solo lectura: no se envió
+  el formulario sintético ni se consultó un expediente; el ciclo UI de reclamos
+  sigue sin certificar.
+- CI de PR #706 HEAD `f736113d28eddcb774856845b4c258e526323093` terminó success en
+  `46050700139` (28m29s), sin checks pendientes. El PR permanece abierto/en
+  draft y no se aprobó para merge.
+- Lectura IAM read-only: 117/117 Functions v2 de producción activas con la
+  cuenta Compute default y `roles/editor`. Las cuatro Functions legales de
+  staging usan `saas-legal-runtime`. El agente de Firebase App Hosting aparece
+  vinculado a `roles/firebaseapphosting.serviceAgent`; no hubo eventos
+  `GenerateServiceIdentity` en la consulta acotada. Esto no prueba que la
+  llamada original terminara correctamente ni que el error interno de Cloud Run
+  se haya resuelto. No se tocaron permisos productivos. Ver
+  [`IAM-RUNTIME-PRODUCCION-READONLY-2026-11-27.md`](evidence/IAM-RUNTIME-PRODUCCION-READONLY-2026-11-27.md).
+- Producción continúa sin rollout: `/terminos` sirve Café Atrato, y
+  `/privacidad`, `/aviso-autorizacion` y `/anexo-tratamiento` responden 404.
+  Se corrigió en la evidencia un falso negativo de una expresión regular mal
+  escapada; la lectura directa del título/cuerpo confirma el estado anterior.

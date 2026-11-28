@@ -3,8 +3,8 @@ import { resolve, join, relative, isAbsolute, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { encryptBundle, encryptedDigest } from './encrypted-bundle.mjs';
 
-/** Creates a new private directory and writes ciphertext only. Never deletes or overwrites. */
-export async function savePrivateBundle({ parent, bundle, key, repository }) {
+/** Preflight the private target before reading any tenant payload. */
+export async function validatePrivateOutputParent({ parent, repository }) {
   const resolved = await realpath(resolve(parent));
   const repo = await realpath(resolve(repository));
   const rel = relative(repo, resolved);
@@ -16,6 +16,12 @@ export async function savePrivateBundle({ parent, bundle, key, repository }) {
     catch (error) { if (error.code !== 'ENOENT') throw error; }
     if (dirname(cursor) === cursor) break;
   }
+  return resolved;
+}
+
+/** Creates a new private directory and writes ciphertext only. Never deletes or overwrites. */
+export async function savePrivateBundle({ parent, bundle, key, repository }) {
+  const resolved = await validatePrivateOutputParent({ parent, repository });
   const ciphertext = encryptBundle(bundle, key);
   const directory = await mkdtemp(join(resolved, 'dusema-exit-'));
   if (process.platform === 'win32') {

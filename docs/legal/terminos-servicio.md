@@ -1,13 +1,16 @@
 # Términos del servicio — Dusema POS
 
-**BORRADOR 0.2 — 2026-11-23. Pendiente de revisión y aprobación. Sin vigencia contractual.**
+**BORRADOR 0.9 — 2026-11-28. No está vigente ni es exigible. Fecha objetivo de release: 2026-12-15 00:00, hora de Colombia, condicionada a cerrar los gates; si no se cierran, se aplaza.**
 
 ## 1. Prestador y contacto
 
-El servicio Dusema POS es prestado por Sebastián Agudelo Muñoz, NIT
-1000292576-3, con domicilio en Apartadó, Antioquia, Colombia, y dirección de
-correspondencia Calle 92 #95A-119. Contacto: segucor0526@gmail.com y
-+57 310 333 7837. La dirección de correspondencia no implica atención presencial.
+El servicio Dusema POS es prestado por Sebastián Agudelo Muñoz, con NIT
+1000292576-3 y domicilio declarado en Apartadó, Antioquia, Colombia. El prestador
+indica como dirección para notificaciones judiciales y correspondencia Calle 92
+#95A-119. Contacto: segucor0526@gmail.com y +57 310 333 7837. La dirección no
+implica atención presencial. El correo, el teléfono y el canal postal se
+incorporan según lo declarado por el prestador; su recepción, monitoreo y
+seguimiento deben estar disponibles para anunciarlos como canales operativos.
 
 ## 2. Objeto y contratación
 
@@ -39,22 +42,50 @@ particular y sus reglas vigentes. No se introducen aquí nuevas penalidades ni
 plazos. Los derechos imperativos y las devoluciones que legalmente correspondan
 se respetan; no se pacta una exclusión general de reembolsos.
 
-## 4. Cuentas y uso permitido
+Las causales, el alcance, la notificación, la duración y el restablecimiento de
+una eventual suspensión deben quedar definidos en las condiciones particulares
+antes de ofrecerla como condición contractual. La suspensión no implica por sí
+sola la eliminación de la información del negocio.
+
+## 4. Contratación, cuentas y uso permitido
 
 Cuando la contratación configure una relación de consumo, se aplican la Ley
-1480 de 2011 y sus modificaciones, incluida la Ley 2439 de 2024. El retracto,
-cuando proceda, se ejerce dentro de cinco días hábiles de celebrar el contrato
-de servicios. Debe evaluarse la excepción por comienzo de ejecución acordado
-con el consumidor; no se presume por crear la cuenta o marcar una casilla.
-La devolución por retracto electrónico se tramita en el plazo legal de hasta
-quince días calendario, bajo sus presupuestos. La reversión de pagos es un
-mecanismo distinto y solo aplica cuando concurran sus requisitos legales.
+1480 de 2011 y sus modificaciones, incluida la Ley 2439 de 2024. La calidad de
+consumidor depende del destino final del servicio y de si la necesidad
+empresarial está intrínsecamente ligada a la actividad económica; no se presume
+ni se descarta únicamente por la forma jurídica del cliente. El retracto,
+cuando proceda, se ejerce dentro de cinco días hábiles contados desde la
+celebración del contrato de servicios. Debe evaluarse la excepción legal cuando
+la prestación haya comenzado con acuerdo del consumidor; no se presume por
+crear la cuenta ni por una aceptación general que no documente ese acuerdo.
+
+En comercio electrónico, la devolución por retracto se realiza dentro del plazo
+legal de hasta quince días calendario desde el ejercicio del derecho y una vez
+se cumplan las condiciones legales aplicables, incluida la entrega de los datos
+correctos y completos requeridos y la devolución del producto cuando corresponda.
+El prestador debe informar claramente las opciones de devolución disponibles;
+no se presume que el sistema procese automáticamente reembolsos. La reversión
+de pagos es un mecanismo distinto y solo aplica cuando concurran sus requisitos
+legales.
 
 Antes de contratar se informa precio total, impuestos y cargos aplicables,
-duración, prestaciones, restricciones y condiciones de activación. Se permite
-revisar y corregir la solicitud, descargar las condiciones y recibir constancia
-de contratación. Aceptar no autoriza cargos adicionales o cambios unilaterales.
-El flujo debe identificar y conservar la prueba del consentimiento expreso.
+duración, prestaciones, restricciones y condiciones de activación, así como el
+medio de pago y el tiempo de entrega o inicio de la prestación que corresponda.
+Aceptar no autoriza cargos adicionales o cambios unilaterales.
+
+Si la relación es de consumo y se celebra por comercio electrónico, el flujo de
+contratación debe, antes de finalizar, mostrar un resumen completo, imprimible y
+descargable de la operación; permitir revisar, corregir o cancelar; pedir
+aceptación expresa e inequívoca; conservar su prueba; y enviar confirmación por
+un medio electrónico a más tardar el día calendario siguiente, con el tiempo de
+entrega o prestación, precio exacto con impuestos y gastos, y la forma en que se
+realizó el pago, junto con la demás información que exija la ley. Debe informar
+también cómo ejercer retracto, cuando proceda,
+y la reversión del pago si concurren sus requisitos. La descripción de este
+deber en los términos no prueba que la interfaz actual lo cumpla: el flujo debe
+verificarse antes de ofrecer esa modalidad como contratación de consumo ([Ley
+1480 de 2011, arts. 47, 50 y 58](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=44306);
+[Ley 2439 de 2024](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=257116)).
 
 El negocio asigna usuarios y permisos según sus responsabilidades. Cada persona
 debe proteger su acceso, evitar compartir credenciales y comunicar usos no
@@ -64,6 +95,15 @@ Se prohíbe acceder a información de otros negocios, eludir controles, introduc
 contenido ilícito o usar la plataforma para actividades contrarias a la ley.
 El negocio responde por la licitud y exactitud de la información que registra,
 sin relevar al prestador de sus obligaciones propias de seguridad y tratamiento.
+
+El catálogo de Bodega puede incluir bebidas alcohólicas. Dusema POS no verifica
+la edad de quien compra ni bloquea una venta por edad. El negocio y quien
+materializa la venta deben impedir el expendio a personas menores de edad; si hay
+duda sobre la edad, deben exigir la cédula de ciudadanía. Registrar o imprimir
+una operación en el POS no acredita esa verificación ni sustituye las
+obligaciones aplicables a la venta ([Ley 124 de 1994, art. 1](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=291);
+[Decreto 120 de 2010](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=38680);
+[Ley 1801 de 2016, art. 38](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=80538)).
 
 ## 5. Datos del negocio y privacidad
 
@@ -101,15 +141,34 @@ dolo, culpa grave ni derechos que legalmente sean irrenunciables.
 
 ## 8. Salida y conservación
 
-Al finalizar, el negocio puede solicitar por el canal de soporte la entrega de su
-información, previa verificación de identidad y representación. Formato, alcance,
-plazo, costos si proceden y acceso durante la transición deben quedar definidos
-en el acuerdo de salida antes de publicar esta versión como definitiva.
+Al terminar el servicio, el negocio podrá solicitar una entrega estándar de su
+información dentro de los treinta (30) días calendario siguientes, previa
+verificación de identidad y facultad. El borrador propone responder con alcance
+y método dentro de dos (2) días hábiles y completar la entrega ordinaria dentro
+de diez (10) días hábiles desde la verificación. La entrega queda limitada a los
+datos y archivos cuya cobertura e integridad puedan comprobarse, en formato
+CSV/JSON cuando corresponda, por canal restringido y sin información de otros
+negocios, secretos o datos internos de plataforma. El alcance previsto incluye
+clientes y proveedores del negocio, catálogo y presentaciones, inventario y
+movimientos, compras, pedidos, ventas, abonos, recibos internos y configuración
+operativa; puede incluir archivos propios si su pertenencia y cobertura pueden
+verificarse. Se conservarán IDs y referencias para mantener relaciones cuando
+sea técnicamente posible. El alcance extraordinario requerirá cotización y
+autorización previa. Estos tiempos aún no son un compromiso vigente: la
+exportación integral no está certificada y esta versión no se ofrece para
+aceptación.
 
-La terminación no implica eliminación inmediata. La conservación y posterior
-supresión deben seguir finalidades, instrucciones válidas y deberes legales;
-no se autoriza retención indefinida. Deben definirse los plazos concretos y el
-tratamiento de respaldos en la matriz de conservación pendiente.
+La terminación retira el acceso ordinario. Como objetivo operativo, los datos
+operativos prescindibles se suprimirán o anonimizarán de sistemas activos dentro
+de sesenta (60) días calendario desde la terminación, después de atender la
+solicitud de salida y verificar instrucciones, dependencias y ausencia de un
+deber documentado de conservación. Los documentos y evidencias que deban
+conservarse por obligación legal se aislarán, limitarán a esa finalidad y
+revisarán según su fundamento; no se aplica un plazo único de diez años a todo
+el tenant. La supresión en sistemas activos no elimina de inmediato copias de
+respaldo, logs, cachés o copias de proveedores: sus ciclos y límites conocidos
+se explican en la política de tratamiento. No se promete purga integral hoy;
+el proceso aún no está certificado ni automatizado.
 
 ## 9. Cambios y controversias
 
@@ -117,12 +176,26 @@ Las versiones nuevas tendrán identificación y comunicación previa. Los cambio
 que requieran aceptación no se aplicarán retroactivamente por la sola publicación.
 La evidencia histórica y condiciones particulares aceptadas se conservan.
 
-Las partes pueden presentar solicitudes o reclamaciones al correo de contacto.
-Cuando aplique el régimen de consumo, las reclamaciones directas se responden
-en el término legal correspondiente y el canal electrónico debe permitir
-conservar fecha, seguimiento y respuesta. Debe ofrecerse acceso visible al sitio
-de la [Superintendencia de Industria y Comercio](https://www.sic.gov.co/).
+Los canales de atención se usarán una vez se haya comprobado que reciben,
+registran y permiten asignar seguimiento a las solicitudes. El correo y teléfono
+indicados en la sección 1 son datos declarados; este borrador no acredita que
+sean canales operativos ni que emitan constancia de radicación.
+
+Las consultas y reclamos sobre datos personales siguen los canales y plazos de
+la política de tratamiento; ese trámite no sustituye las PQR de consumo. Si una
+oferta configura una relación de consumo celebrada por comercio electrónico, el
+prestador debe disponer en ese mismo medio canales de fácil acceso y atención
+que orienten y asistan al consumidor, permitan radicar PQR y den trazabilidad.
+Debe quedar constancia mediante un número de registro o radicado, fecha y hora
+de radicación, y un mecanismo para el seguimiento posterior. Cuando aplique el
+artículo 58(5)(c) de la Ley 1480 de 2011, la reclamación directa de consumo se
+responde dentro de quince (15) días hábiles. Debe ofrecerse acceso visible al sitio de la
+[Superintendencia de Industria y Comercio — Protección al Consumidor](https://sedeelectronica.sic.gov.co/temas/proteccion-al-consumidor/que-hacemos).
+La obligación de PQR en el medio de comercio electrónico está prevista en el
+artículo 50(g) de la [Ley 1480 de 2011](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=44306),
+modificado por la [Ley 2439 de 2024](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=257116).
 Rige la legislación colombiana, sin excluir autoridades competentes, derechos de
 los titulares ni normas imperativas de protección al consumidor cuando apliquen.
 
-Referencias y pendientes de publicación: [índice de revisión](README.md).
+Referencias y pendientes de publicación constan en el índice interno de revisión
+del proyecto.

@@ -1,39 +1,123 @@
 import { createHash } from 'node:crypto';
-import { SCHEMAS, SCHEMA_VERSION, INTERNAL_ROOTS, PENDING_ROOTS, SINGLETON_ROOTS, projectDocument } from './export-schema.mjs';
+import { isDeepStrictEqual } from 'node:util';
+import {
+  CHILD_COLLECTIONS, DECLARED_ROOT_COLLECTIONS, EXCLUDED_CHILD_COLLECTIONS,
+  SCHEMAS, SCHEMA_VERSION, INTERNAL_ROOTS, PENDING_ROOTS, SINGLETON_ROOTS,
+  projectDocument, validateCollectionClassification,
+} from './export-schema.mjs';
+import { createExportReconciliation, reconcileExportBundle } from './export-reconciliation.mjs';
 
 const idPattern = /^[a-zA-Z0-9_-]{1,120}$/;
 const hash = value => createHash('sha256').update(value).digest('hex');
 const fail = code => { throw new Error(code); };
-const childSchemas = { ventas: ['abonos_bodega', 'compromisos_pago_bodega'], empresas: ['secuencias_documentales', 'solicitudes_venta_bodega', 'agenda_pedidos_bodega', 'reservas_stock_bodega'], suscripciones: ['relaciones'], ofertas_comerciales_tenant: ['ofertas'] };
+const urlTokenParameters = /^(token|access_token|x-goog-signature|googleaccessid|x-amz-signature)$/i;
+const encryptedEnvelopeOverheadBytes = Buffer.byteLength('DUSEMA-EXIT-V3\n') + 12 + 16;
+
+function resolveTenantAssetUrl(value, { project, tenant, assetsByName }) {
+  let url;
+  try { url = new URL(value); }
+  catch {
+    if (/^https?:\/\//i.test(value)) fail('EXPORT_INVALID_URL');
+    return value;
+  }
+  if (url.username || url.password) fail('EXPORT_PRIVATE_URL_REQUIRES_ASSET_REFERENCE');
+  if (url.protocol !== 'https:') fail('EXPORT_INSECURE_ASSET_URL');
+  if (url.hostname.toLowerCase() !== 'firebasestorage.googleapis.com') {
+    if ([...url.searchParams.keys()].some(key => urlTokenParameters.test(key))) fail('EXPORT_PRIVATE_URL_REQUIRES_ASSET_REFERENCE');
+    return value;
+  }
+  const match = /^\/v0\/b\/([^/]+)\/o\/(.+)$/.exec(url.pathname);
+  if (!match) fail('EXPORT_INVALID_ASSET_REFERENCE');
+  let bucket, objectName;
+  try { bucket = decodeURIComponent(match[1]); objectName = decodeURIComponent(match[2]); }
+  catch { fail('EXPORT_INVALID_ASSET_REFERENCE'); }
+  if (bucket !== `${project}.firebasestorage.app`) fail('EXPORT_ASSET_BUCKET_MISMATCH');
+  if (!objectName.startsWith(`tenants/${tenant}/`) || objectName.split('/').some(part => !part || part === '.' || part === '..' || part.includes('\\'))) fail('EXPORT_CROSS_TENANT');
+  const asset = assetsByName.get(objectName);
+  if (!asset) fail('EXPORT_ASSET_REFERENCE_NOT_FOUND');
+  return { type: 'TENANT_STORAGE_ASSET', bundleFile: `assets/${hash(objectName)}.bin`, generation: asset.generation };
+}
+
+function validateAssetInventory(assets, tenant) {
+  const prefix = `tenants/${tenant}/`, byName = new Map();
+  if (!Array.isArray(assets) || assets.length > 10000) fail('EXPORT_INVALID_ASSET_INVENTORY');
+  for (const asset of assets) {
+    if (!asset || typeof asset.name !== 'string' || !asset.name.startsWith(prefix)
+      || asset.name.includes('\\') || asset.name.split('/').some(part => !part || part === '.' || part === '..')
+      || !/^\d+$/.test(asset.generation) || !Number.isSafeInteger(asset.bytes) || asset.bytes < 0
+      || byName.has(asset.name)) fail('EXPORT_INVALID_ASSET');
+    byName.set(asset.name, asset);
+  }
+  return byName;
+}
+
+function verifyAssetReferences(bundle) {
+  const assets = new Map();
+  const paths = new Set();
+  for (const file of bundle.files) {
+    if (file.encoding !== 'base64') continue;
+    if (typeof file.originalPath !== 'string' || !file.originalPath.startsWith(`tenants/${bundle.manifest.tenant}/`)
+      || file.name !== `assets/${hash(file.originalPath)}.bin` || !/^\d+$/.test(file.generation)
+      || paths.has(file.originalPath)) fail('EXPORT_INVALID_ASSET');
+    paths.add(file.originalPath);
+    assets.set(file.name, file);
+  }
+  const storageInventory = bundle.manifest.sources.find(source => source.path === `storage/tenants/${bundle.manifest.tenant}`);
+  if (!storageInventory || !Number.isSafeInteger(storageInventory.count) || storageInventory.count !== assets.size) fail('EXPORT_ASSET_INVENTORY_MISMATCH');
+  function visit(value) {
+    if (!value || typeof value !== 'object') return;
+    if (value.type === 'TENANT_STORAGE_ASSET') {
+      if (Object.keys(value).sort().join(',') !== 'bundleFile,generation,type') fail('EXPORT_INVALID_ASSET_REFERENCE');
+      const asset = assets.get(value.bundleFile);
+      if (!asset || asset.generation !== value.generation) fail('EXPORT_UNRESOLVED_ASSET_REFERENCE');
+      return;
+    }
+    for (const child of Object.values(value)) visit(child);
+  }
+  for (const file of bundle.files) {
+    if (!file.name.endsWith('.jsonl')) continue;
+    for (const line of file.content.split('\n').filter(Boolean)) {
+      let row;
+      try { row = JSON.parse(line); } catch { fail('EXPORT_INVALID_JSONL'); }
+      visit(row);
+    }
+  }
+}
 
 /** Read-only source port. The engine has no database mutation or filesystem API. */
 export async function exportTenant({ project, tenant, readTime, sourceSha, requestId, source, now = () => Date.now(), maxDocuments = 10000, maxBytes = 50_000_000 }) {
+  validateCollectionClassification();
   if (!idPattern.test(project) || !idPattern.test(tenant) || !/^[a-f0-9]{40}$/.test(sourceSha) || !idPattern.test(requestId)) fail('EXPORT_INVALID_CONTEXT');
   if (!Number.isFinite(Date.parse(readTime)) || !Number.isSafeInteger(maxDocuments) || maxDocuments < 1 || !Number.isSafeInteger(maxBytes) || maxBytes < 1) fail('EXPORT_INVALID_LIMIT');
   const started = now();
   const age = started - Date.parse(readTime);
   if (age < 0 || age > 60_000) fail('EXPORT_INVALID_READ_TIME');
   const context = Object.freeze({ project, tenant, readTime, requestId });
-  const files = [], counts = [], seen = new Set();
+  const files = [], counts = [], seen = new Set(), excludedChildren = new Set();
   const memberUids = new Set();
   let totalDocuments = 0, totalBytes = 0;
   let initialProof;
   async function authorize() {
     if (now() - started >= 45 * 60_000 || now() - Date.parse(readTime) >= 60 * 60_000) fail('EXPORT_READ_WINDOW_EXPIRED');
     const proof = await source.authorize(context);
-    if (!proof || proof.project !== project || proof.tenant !== tenant || proof.requestId !== requestId || proof.active !== true || proof.canConserve !== true || proof.requestVerified !== true || !idPattern.test(proof.uid) || !Number.isSafeInteger(proof.authorizationVersion) || proof.authorizationVersion < 1) fail('EXPORT_AUTHORIZATION_DENIED');
-    if (initialProof && (proof.uid !== initialProof.uid || proof.authorizationVersion !== initialProof.authorizationVersion)) fail('EXPORT_AUTHORITY_CHANGED');
+    if (!proof || proof.project !== project || proof.tenant !== tenant || proof.requestId !== requestId || proof.active !== true || proof.canConserve !== true || proof.requestVerified !== true || !idPattern.test(proof.requestReference) || !idPattern.test(proof.uid) || !Number.isSafeInteger(proof.authorizationVersion) || proof.authorizationVersion < 1) fail('EXPORT_AUTHORIZATION_DENIED');
+    if (initialProof && (proof.uid !== initialProof.uid || proof.authorizationVersion !== initialProof.authorizationVersion || proof.requestReference !== initialProof.requestReference)) fail('EXPORT_AUTHORITY_CHANGED');
     return proof;
   }
   const firstProof = await authorize();
   initialProof = firstProof;
-  const roots = await source.listRoots(context);
-  if (!Array.isArray(roots) || new Set(roots).size !== roots.length) fail('EXPORT_INVALID_ROOT_INVENTORY');
-  for (const name of roots) {
+  await authorize();
+  const assets = await source.listAssets(context);
+  const assetsByName = validateAssetInventory(assets, tenant);
+  const observedRoots = await source.listRoots(context);
+  if (!Array.isArray(observedRoots) || observedRoots.some(name => typeof name !== 'string')
+    || new Set(observedRoots).size !== observedRoots.length) fail('EXPORT_INVALID_ROOT_INVENTORY');
+  for (const name of observedRoots) {
     if (!SCHEMAS[name] && !INTERNAL_ROOTS.has(name) && !PENDING_ROOTS.has(name)) fail('EXPORT_UNKNOWN_COLLECTION');
     // Missing adapters must not masquerade as empty tenant results.
-    if (PENDING_ROOTS.has(name)) fail('EXPORT_ADAPTER_REQUIRED');
+    if (PENDING_ROOTS.has(name) && !SCHEMAS[name]) fail('EXPORT_ADAPTER_REQUIRED');
   }
+  const roots = [...new Set([...observedRoots, ...DECLARED_ROOT_COLLECTIONS])].sort();
 
   async function collect(path, name) {
     let after = null;
@@ -59,7 +143,9 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
           const versions = name === 'ventas' ? ['BODEGA_MVP1_V1', 'BODEGA_MVP1_V2', 'BODEGA_MVP1_NEVERA_RETAIL_V1'] : [1, 2];
           if (!versions.includes(document.data.schemaVersion)) fail('EXPORT_UNSUPPORTED_SCHEMA_VERSION');
         }
-        const data = projectDocument(document.data, SCHEMAS[name]);
+        const data = projectDocument(document.data, SCHEMAS[name], 0, {
+          resolveTenantAsset: value => resolveTenantAssetUrl(value, { project, tenant, assetsByName }),
+        });
         if (path === 'membresias') {
           if (typeof data.uid !== 'string' || !idPattern.test(data.uid)) fail('EXPORT_INVALID_MEMBERSHIP');
           memberUids.add(data.uid);
@@ -71,10 +157,21 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
         if (totalDocuments > maxDocuments || totalBytes > maxBytes) fail('EXPORT_BUDGET_EXCEEDED');
         rows.push(line);
         // The source must enumerate children, including paths with no child docs.
-        const children = await source.listChildren({ ...context, path: fullPath });
-        if (!Array.isArray(children) || new Set(children).size !== children.length) fail('EXPORT_INVALID_CHILD_INVENTORY');
-        for (const child of children.sort()) {
-          if (!(childSchemas[name] ?? []).includes(child)) fail('EXPORT_UNCLASSIFIED_SUBCOLLECTION');
+        const observedChildren = await source.listChildren({ ...context, path: fullPath });
+        if (!Array.isArray(observedChildren) || observedChildren.some(child => typeof child !== 'string')
+          || new Set(observedChildren).size !== observedChildren.length) fail('EXPORT_INVALID_CHILD_INVENTORY');
+        const children = [...new Set([
+          ...observedChildren,
+          ...(CHILD_COLLECTIONS[name] ?? []),
+          ...Object.keys(EXCLUDED_CHILD_COLLECTIONS[name] ?? {}),
+        ])].sort();
+        for (const child of children) {
+          const exclusion = EXCLUDED_CHILD_COLLECTIONS[name]?.[child];
+          if (exclusion) {
+            excludedChildren.add(`${name}/${child}`);
+            continue;
+          }
+          if (!(CHILD_COLLECTIONS[name] ?? []).includes(child)) fail('EXPORT_UNCLASSIFIED_SUBCOLLECTION');
           await collect(`${fullPath}/${child}`, child);
         }
         after = document.id;
@@ -89,47 +186,70 @@ export async function exportTenant({ project, tenant, readTime, sourceSha, reque
     }
   }
 
-  for (const name of roots.sort()) {
+  for (const name of roots) {
     if (INTERNAL_ROOTS.has(name)) { counts.push({ path: name, excluded: 'PLATFORM_OR_CREDENTIAL_DATA' }); continue; }
     await collect(name, name);
   }
-  // Files must be versioned by the storage adapter; no signed/download URL is accepted.
-  const assets = await source.listAssets(context);
-  if (!Array.isArray(assets)) fail('EXPORT_INVALID_ASSET_INVENTORY');
-  const assetNames = new Set();
-  for (const asset of assets) {
+  for (const [collection, children] of Object.entries(EXCLUDED_CHILD_COLLECTIONS)) {
+    for (const [child, reason] of Object.entries(children)) excludedChildren.add(`${collection}/${child}`);
+  }
+  for (const path of [...excludedChildren].sort()) {
+    counts.push({ path, excluded: EXCLUDED_CHILD_COLLECTIONS[path.split('/')[0]][path.split('/')[1]] });
+  }
+  // Assets are listed before Firestore payloads so URLs can be normalized and
+  // missing Storage permissions fail before any tenant documents are read.
+  for (const asset of assetsByName.values()) {
     await authorize();
-    const prefix = `tenants/${tenant}/`;
-    if (typeof asset.name !== 'string' || !asset.name.startsWith(prefix) || asset.name.includes('\\') || asset.name.split('/').some(part => !part || part === '.' || part === '..') || !/^\d+$/.test(asset.generation) || assetNames.has(asset.name)) fail('EXPORT_INVALID_ASSET');
-    assetNames.add(asset.name);
     if (!Number.isSafeInteger(asset.bytes) || asset.bytes < 0 || totalBytes + asset.bytes > maxBytes) fail('EXPORT_BUDGET_EXCEEDED');
     const bytes = await source.readAsset({ ...context, name: asset.name, generation: asset.generation });
     if (!(bytes instanceof Uint8Array) || bytes.byteLength !== asset.bytes) fail('EXPORT_ASSET_CHANGED');
     totalBytes += bytes.byteLength;
     files.push({ name: `assets/${hash(asset.name)}.bin`, originalPath: asset.name, generation: asset.generation, content: Buffer.from(bytes).toString('base64'), encoding: 'base64', bytes: bytes.byteLength, sha256: hash(bytes) });
   }
+  counts.push({ path: `storage/tenants/${tenant}`, count: assetsByName.size });
   const finalProof = await authorize();
   if (finalProof.uid !== firstProof.uid || finalProof.authorizationVersion !== firstProof.authorizationVersion) fail('EXPORT_AUTHORITY_CHANGED');
   const manifest = {
-    schemaVersion: SCHEMA_VERSION, status: 'COMPLETE_DECLARED_SCOPE', project, tenant, sourceSha, requestId,
+    schemaVersion: SCHEMA_VERSION, status: 'RECONCILED_DECLARED_SCOPE_NOT_CERTIFIED', project, tenant, sourceSha, requestId,
+    requestReference: firstProof.requestReference,
     actorUid: firstProof.uid, readTime, consistency: 'FIRESTORE_SNAPSHOT_STORAGE_GENERATIONS',
     startedAt: new Date(started).toISOString(), finishedAt: new Date(now()).toISOString(),
+    declaredRootCollections: [...DECLARED_ROOT_COLLECTIONS].sort(),
+    observedRootCollections: [...observedRoots].sort(),
     totalDocuments, totalBytes, sources: counts.sort((a, b) => a.path.localeCompare(b.path)),
     files: files.map(({ content, ...metadata }) => metadata).sort((a, b) => a.name.localeCompare(b.name)),
   };
+  // maxBytes limits the exact encrypted file size, including JSON escaping,
+  // base64 expansion, metadata, and the AES-GCM envelope.
+  const bundle = { manifest, files };
+  manifest.reconciliation = createExportReconciliation(bundle);
+  verifyBundle(bundle);
+  const encryptedBytes = Buffer.byteLength(JSON.stringify(bundle), 'utf8') + encryptedEnvelopeOverheadBytes;
+  if (encryptedBytes > maxBytes) fail('EXPORT_BUDGET_EXCEEDED');
   // Only returned after every source, asset, budget and authority check passed.
-  return { manifest, files };
+  return bundle;
 }
 
 export function verifyBundle(bundle) {
-  if (bundle?.manifest?.schemaVersion !== SCHEMA_VERSION || bundle.manifest.status !== 'COMPLETE_DECLARED_SCOPE' || !Array.isArray(bundle.files) || !Array.isArray(bundle.manifest.files) || bundle.files.length !== bundle.manifest.files.length) fail('EXPORT_INVALID_BUNDLE');
+  const manifest = bundle?.manifest;
+  if (manifest?.schemaVersion !== SCHEMA_VERSION || manifest.status !== 'RECONCILED_DECLARED_SCOPE_NOT_CERTIFIED'
+    || !idPattern.test(manifest.project) || !idPattern.test(manifest.tenant) || !idPattern.test(manifest.requestId)
+    || !idPattern.test(manifest.requestReference) || !idPattern.test(manifest.actorUid)
+    || !/^[a-f0-9]{40}$/.test(manifest.sourceSha) || !Array.isArray(bundle.files)
+    || !Array.isArray(manifest.files) || !Array.isArray(manifest.sources)
+    || bundle.files.length !== manifest.files.length) fail('EXPORT_INVALID_BUNDLE');
   const names = new Set();
   for (const file of bundle.files) {
     if (typeof file.name !== 'string' || names.has(file.name)) fail('EXPORT_INVALID_BUNDLE');
+    if (file.encoding !== undefined && file.encoding !== 'base64') fail('EXPORT_INVALID_BUNDLE');
     names.add(file.name);
-    const expected = bundle.manifest.files.find(f => f.name === file.name);
+    const expected = manifest.files.find(f => f.name === file.name);
+    const { content, ...metadata } = file;
+    if (!expected || !isDeepStrictEqual(metadata, expected)) fail('EXPORT_METADATA_MISMATCH');
     const bytes = file.encoding === 'base64' ? Buffer.from(file.content, 'base64') : Buffer.from(file.content, 'utf8');
     if (!expected || bytes.byteLength !== expected.bytes || hash(bytes) !== expected.sha256) fail('EXPORT_HASH_MISMATCH');
   }
+  verifyAssetReferences(bundle);
+  reconcileExportBundle(bundle);
   return true;
 }

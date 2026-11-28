@@ -3,6 +3,7 @@
 import { WorkspaceWelcome } from "@/components/pwa/workspace-welcome"
 import { useEffect, useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { ArrowRight, LoaderCircle, LockKeyhole, ShieldCheck } from 'lucide-react'
 import { usePlatform } from '@/contexts/platform-context'
 import { Button } from '@/components/ui/button'
@@ -52,6 +53,10 @@ export default function BackofficeLoginPage() {
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Backoffice SaaS</p>
             <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-foreground">Acceso de operadores</h1>
             <p id="login-description" className="mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">Usa tu identidad global. Los permisos se revalidan contra la autoridad de plataforma.</p>
+            <nav aria-label="Información de privacidad" className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+              <Link className="underline underline-offset-4" href="/privacidad">Política de privacidad</Link>
+              <Link className="underline underline-offset-4" href="/aviso-autorizacion">Aviso de datos</Link>
+            </nav>
             <div className="mt-8 space-y-5">
               <div className="space-y-2">
                 <Label className="font-medium text-foreground" htmlFor="email">Correo</Label>

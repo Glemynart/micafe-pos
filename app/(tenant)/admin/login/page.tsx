@@ -3,6 +3,7 @@
 import { WorkspaceWelcome } from "@/components/pwa/workspace-welcome"
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { useAuthContext } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,10 +21,12 @@ function AdminLoginContent() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [logging, setLogging] = useState(false)
-  const [recordar, setRecordar] = useState(true)
+  const [recordar, setRecordar] = useState(false)
 
   useEffect(() => {
-    setUsername(readRememberedAdminUsername())
+    const remembered = readRememberedAdminUsername()
+    setUsername(remembered)
+    setRecordar(Boolean(remembered))
   }, [])
 
   const notAdmin = params.get('error') === 'not_admin'
@@ -80,6 +83,12 @@ function AdminLoginContent() {
               <h2 className="text-lg font-bold text-foreground">Bienvenido de nuevo</h2>
               <p className="text-sm text-muted-foreground">Accede con tu cuenta de administrador</p>
             </div>
+            <nav aria-label="Documentos legales" className="mb-5 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+              <Link className="underline underline-offset-4" href="/terminos">Términos</Link>
+              <Link className="underline underline-offset-4" href="/privacidad">Privacidad</Link>
+              <Link className="underline underline-offset-4" href="/anexo-tratamiento">Anexo de tratamiento</Link>
+              <Link className="underline underline-offset-4" href="/aviso-autorizacion">Aviso de datos</Link>
+            </nav>
             <div>
               {activacionPendiente ? (
                 <ActivacionCredencial />

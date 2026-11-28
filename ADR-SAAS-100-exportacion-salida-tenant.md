@@ -8,7 +8,8 @@ ordenó expresamente «ok resuelve eso», incluyendo proveedores, exportación y
 procedimiento de supresión. Se adopta la alternativa A de este diseño para
 implementar y validar localmente. Esa instrucción de ejecución sustituye la
 aprobación anterior condicionada a que todo estuviera ya listo; no declara que
-esa condición se haya satisfecho. No acepta ADR-SAAS-099 ni certifica legalidad.
+esa condición se haya satisfecho. La aceptación de ADR-SAAS-100 no modifica el
+estado ni el alcance de ADR-SAAS-099 y no certifica legalidad.
 Las ejecuciones con datos reales y cualquier eliminación remota requieren su
 corte operativo. No se autoriza extraer datos de Diana durante la preparación.
 
@@ -142,4 +143,5 @@ una entrega consistente. Revertir herramienta no implica borrar datos fuente.
 - [Operación propuesta](docs/legal/OPERACION-Y-CONSERVACION.md).
 - [Firestore RunQuery y readTime](https://docs.cloud.google.com/firestore/docs/reference/rpc/google.firestore.v1#runqueryrequest).
 - [Lecturas históricas](https://docs.cloud.google.com/firestore/native/docs/pitr).
-- ADR-SAAS-028/029/031 y ADR-SAAS-099 Propuesto.
+- ADR-SAAS-028/029/031 y ADR-SAAS-099, aceptado separadamente para implementar
+  la aceptación legal versionada.

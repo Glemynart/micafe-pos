@@ -26,3 +26,9 @@ test("DUSEMA_TENANT_CONSULTAR pertenece al contrato y no al bootstrap por defect
   assert.equal(facultadesValidas(["DUSEMA_TENANT_CONSULTAR"]), true);
   assert.equal(FACULTADES_BOOTSTRAP_POR_DEFECTO.includes("DUSEMA_TENANT_CONSULTAR"), false);
 });
+
+test("EXPORTACION_CONTACTO_GOBERNAR requiere concesión explícita y no entra al bootstrap", () => {
+  assert.equal(esFacultadPlataforma("EXPORTACION_CONTACTO_GOBERNAR"), true);
+  assert.equal(facultadesValidas(["EXPORTACION_CONTACTO_GOBERNAR"]), true);
+  assert.equal(FACULTADES_BOOTSTRAP_POR_DEFECTO.includes("EXPORTACION_CONTACTO_GOBERNAR"), false);
+});

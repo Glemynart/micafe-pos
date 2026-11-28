@@ -24,19 +24,95 @@
   resolver las deficiencias de proveedores, exportación y supresión.
 - **Decisión:** ADR-SAAS-100 alternativa A aceptada para implementación y pruebas
   controladas; no autoriza extracción, entrega o borrado de datos reales.
-- **Siguiente corte:** retirar Analytics y despliegues automáticos Vercel por
-  incompatibilidad del uso comercial observado con Hobby, preservando GitHub CI
-  y App Hosting. Corregir el bloqueo de seguridad demostrado de Next.js 16.4.1
-  mediante parche de la serie 16.4 antes de integrar.
-- **Estado al 2026-11-23:** el PR #704 está abierto como draft con su CI en curso;
-  el build local con Next.js 16.4.6 pasó. La salida de datos tiene una base segura
+- **Corte de privacidad integrado:** PR #704 quedó fusionado por squash en
+  `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`. Retiró Vercel Analytics,
+  actualizó Next.js a 16.4.6 y deshabilitó los despliegues Git automáticos de
+  Vercel para todas las ramas, preservando GitHub CI y Firebase App Hosting.
+  Esta configuración no elimina despliegues Vercel históricos ni verifica su
+  expiración o acceso.
+- **Siguiente corte:** completar la certificación de salida/supresión y los
+  pendientes operativos y jurídicos antes de marcar vigentes los textos legales.
+- **Reclamos de privacidad, 2026-11-24:** ADR-SAAS-102, alternativa A, aceptado
+  para implementar y verificar primero en el directorio de clientes. Su
+  activación con datos reales queda pendiente de la validación del flujo.
+- **Reclamos incompletos, 2026-11-25:** ADR-SAAS-104, alternativa A, aceptado
+  para implementación y validación sintética/staging. Nuevos casos usarán un
+  calendario versionado que cuenta sábados no festivos como hábiles; los casos
+  históricos conservan vencimientos/versiones y compatibilidad V1. Esto no es
+  certificación jurídica, publicación de documentos, autorización de escrituras
+  reales ni despliegue. Siguiente paso: implementar solicitud de subsanación,
+  recepción documentada y desistimiento manual verificable en el mismo
+  expediente, con pruebas de migración/versiones y actualizar el runbook.
+- **Identidades runtime, 2026-11-26:** la consulta read-only encontró 117
+  Functions productivas v2 usando la cuenta Compute predeterminada con
+  `roles/editor`. ADR-SAAS-105 fue aceptado para migración gradual por codebase,
+  comenzando con piloto en staging. El responsable autorizó el 2026-11-26 crear
+  una identidad para las cuatro callables `saas-legal` de staging, asignarle un
+  rol personalizado limitado a Firestore/Auth y desplegar únicamente ese
+  codebase; la autorización no incluye producción ni retirar `roles/editor`.
+  El PR de implementación deja la cuenta, el rol, el alcance de permisos y la
+  selección por proyecto revisables antes de ejecutar cambios. El preflight
+  read-only de staging encontró las funciones objetivo y un job de Cloud
+  Scheduler usando la cuenta Compute predeterminada; no se modificarán otros
+  workloads ni esa cuenta compartida.
+  La consulta productiva encontró seis jobs de Cloud Scheduler usando esa
+  identidad OIDC; en Cloud Run se observaron únicamente esas Functions y App
+  Hosting. La matriz estática de `saas-legal` ya está documentada. El inventario
+  global sigue incompleto porque Compute Engine y Cloud Asset Inventory no
+  pudieron verificarse con sus APIs deshabilitadas; no se habilitaron. Ese
+  límite bloquea producción y la retirada de Editor, no el piloto acotado en
+  staging. Evidencia y límites en
+  [preflight productivo](../legal/evidence/PREFLIGHT-PRODUCCION-READONLY-2026-11-26.md).
+- **Estado al 2026-11-23:** el build local con Next.js 16.4.6 pasó. La salida de
+  datos tiene una base segura
   con 19 pruebas y la cobertura de metadatos clasifica 48 de 48 raíces. Los
   esquemas históricos aún pueden detener la exportación si aparece un campo o
   subcolección desconocidos; la certificación de producción sigue falsa. La
   supresión se implementó y probó solo con fixtures sintéticos en Emulator.
   Ninguna capacidad de exportación/supresión se declara certificada para producción.
-  ADR-SAAS-101 habilita únicamente implementación y pruebas locales; ADR-SAAS-099
-  sigue Propuesto y los términos no se vuelven exigibles.
+  ADR-SAAS-101 habilita únicamente implementación y pruebas locales. El responsable
+  aceptó ADR-SAAS-099 para implementar aceptación legal versionada; el corte técnico
+  está en preparación. Los textos legales continúan como borradores, no son exigibles
+  ni se han aceptado en producción.
+
+- **ADR-SAAS-106 / autorización de exportación, 2026-11-27:** el Lead Engineer
+  aceptó por delegación expresa del responsable un enlace de aprobación de un
+  solo uso enviado al contacto representante previamente verificado del tenant.
+  La aceptación permite implementar y probar con datos sintéticos/Emulator/staging;
+  no autoriza exportaciones reales, despliegues ni cambios IAM. El proveedor de
+  entrega y la verificación del contacto aún no están resueltos. Hasta comprobarlos,
+  la exportación real permanece bloqueada. Detalle en
+  [ADR-SAAS-106](../../ADR-SAAS-106-autorizacion-exportacion-tenant.md).
+
+- **ADR-SAAS-107 / contacto representante, 2026-11-27:** aceptado por decisión
+  técnica delegada, alternativa A, para implementar y probar con fixture
+  sintético y stub en Emulator/staging la autoridad versionada y verificaciones
+  de designación/canal. No habilita contactos reales, envío externo ni
+  exportación de datos reales.
+- **ADR-SAAS-108 / anexo por tenant, 2026-11-27:** aceptado por decisión técnica
+  delegada, alternativa A, para implementar y probar el snapshot versionado y
+  fail-closed del anexo por negocio con fixtures sintéticos. No habilita
+  publicación, aceptación real ni inferencia de hechos legales/comerciales.
+- **ADR-SAAS-109 / facultad para administrar el contacto de exportación,
+  2026-11-28:** aceptado por decisión técnica delegada, alternativa A. Se
+  permite implementar una facultad dedicada no incluida por defecto, callables
+  y UI con fixtures sintéticos/stub. No habilita contactos reales, proveedor,
+  exportación, supresión, IAM ni despliegues; el smoke en staging requiere su
+  preflight operativo.
+- **ADR-SAAS-112 / fuente privada de la designación, 2026-11-28:** aceptado
+  bajo la delegación técnica de esta misión. Habilita una fuente server-only
+  mínima del contacto designado, referencia de instrucción verificada por
+  operador con facultad dedicada y borrado del destino activo al reemplazar o
+  revocar. Solo fixtures sintéticos/Emulator; no habilita contactos reales,
+  proveedor, exportación, supresión, IAM o despliegues. La prueba de canal sigue
+  siendo separada y la exportación real falla cerrada sin proveedor probado.
+- **ADR-SAAS-110 / plazo de respuesta a reclamos, 2026-11-28:** el responsable
+  aprobó contar los quince días hábiles desde el día siguiente a la recepción
+  verificable del reclamo completo. El requerimiento de subsanación conserva su
+  origen en la recepción inicial; los vencimientos históricos no se recalculan.
+  La implementación se incorporó a #706 y se validó con datos sintéticos,
+  Emulator y staging. El bundle v0.8 sigue como borrador; su staging no
+  constituye validación jurídica profesional ni activa el flujo en producción.
 
 - Provisionamiento reproducible de un tenant de referencia.
 - Onboarding DEMO como ruta inicial recomendada cuando el cliente no requiera fiscalidad real.

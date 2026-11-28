@@ -13,7 +13,7 @@ function memoryStorage(initial: Record<string, string> = {}) {
 }
 
 test("reads the remembered login code without storing a PIN", () => {
-  const storage = memoryStorage({ admin_user: "diana-admin" });
+  const storage = memoryStorage({ admin_user: "diana-admin", admin_user_remembered: "1" });
 
   assert.equal(readRememberedAdminUsername(storage), "diana-admin");
   assert.equal(storage.value("admin_pin"), null);
@@ -25,18 +25,27 @@ test("remembers the trimmed code when the user opts in", () => {
   persistAdminUsername("  diana-admin  ", true, storage);
 
   assert.equal(storage.value("admin_user"), "diana-admin");
+  assert.equal(storage.value("admin_user_remembered"), "1");
+});
+
+test("clears legacy codes that were stored before explicit opt-in", () => {
+  const storage = memoryStorage({ admin_user: "legacy-code" });
+
+  assert.equal(readRememberedAdminUsername(storage), "");
+  assert.equal(storage.value("admin_user"), null);
 });
 
 test("clears a previously remembered code when the user opts out", () => {
-  const storage = memoryStorage({ admin_user: "old-code" });
+  const storage = memoryStorage({ admin_user: "old-code", admin_user_remembered: "1" });
 
   persistAdminUsername("new-code", false, storage);
 
   assert.equal(storage.value("admin_user"), null);
+  assert.equal(storage.value("admin_user_remembered"), null);
 });
 
 test("does not replace a remembered code with blank input", () => {
-  const storage = memoryStorage({ admin_user: "existing-code" });
+  const storage = memoryStorage({ admin_user: "existing-code", admin_user_remembered: "1" });
 
   persistAdminUsername("   ", true, storage);
 

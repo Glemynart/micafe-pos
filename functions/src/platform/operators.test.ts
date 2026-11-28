@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { FieldValue } from "firebase-admin/firestore";
 import { ejecutarComandoOperador } from "./operators";
+import { FACULTADES_BOOTSTRAP_POR_DEFECTO } from "./contracts";
 
 class Ref {
   constructor(readonly path: string, private db: FakeDb) {}
@@ -94,6 +95,22 @@ test("incorporar operador conserva claims tenant, proyecta saas y emite evidenci
   assert.equal(db.docs.get("saas_operadores/operador_objetivo").creadoPor.uid, "operador_actor");
   assert.equal([...db.docs.keys()].filter((key) => key.startsWith("saas_auditoria/")).length, 1);
   assert.equal([...db.docs.keys()].filter((key) => key.startsWith("saas_auditoria_obligaciones/")).length, 1);
+});
+
+test("consultas de privacidad exige concesión explícita sin añadirse al bootstrap", async () => {
+  assert.equal((FACULTADES_BOOTSTRAP_POR_DEFECTO as readonly string[]).includes("PRIVACIDAD_CONSULTAS_TRAMITAR"), false);
+  const db = new FakeDb();
+  const auth = new FakeAuth();
+  await ejecutarComandoOperador(db as never, "operador_actor", "IncorporarOperador", entrada, auth as never);
+  await ejecutarComandoOperador(db as never, "operador_actor", "CambiarFacultadesOperador", {
+    ...entrada, commandId: "cmd_privacidad", idempotencyKey: "idem_privacidad", correlationId: "corr_privacidad",
+    expectedVersionAutorizacion: 1, facultades: ["PLATAFORMA_CONSULTAR", "PRIVACIDAD_CONSULTAS_TRAMITAR"],
+  }, auth as never);
+  const stored = db.docs.get("saas_operadores/operador_objetivo");
+  assert.deepEqual(stored.facultades, ["PLATAFORMA_CONSULTAR", "PRIVACIDAD_CONSULTAS_TRAMITAR"]);
+  assert.equal(stored.versionAutorizacion, 2);
+  assert.deepEqual(auth.proyectados?.saas.facultades, stored.facultades);
+  assert.equal(auth.revocados.length, 2);
 });
 
 test("reintento compatible recupera resultado sin duplicar operador ni evidencia", async () => {

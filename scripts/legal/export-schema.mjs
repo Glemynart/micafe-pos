@@ -1,6 +1,7 @@
 // Versioned allowlists. Unknown fields stop certification; no arbitrary raw dump.
-export const SCHEMA_VERSION = 'DUSEMA_EXIT_V1';
+export const SCHEMA_VERSION = 'DUSEMA_EXIT_V3';
 export const scalar = 'scalar';
+export const tenantAssetReference = 'tenantAssetReference';
 export const fields = (names) => Object.fromEntries(names.split(/\s+/).filter(Boolean).map(name => [name, scalar]));
 export const recordOf = schema => ({ $record: schema });
 const common = fields('id empresaId schemaVersion version revision catalogoId creadoEn creadaEn actualizadoEn actualizadaEn fecha estado activo espacioId');
@@ -56,14 +57,14 @@ const snapshot = {
   precio: price, capacidades: [scalar], limites: {}, sedeConceptual: fields('cantidad'),
   fiscalidad: fields('pais modalidad habilitada'), vigencia: fields('inicio fin'),
 };
-const brandingAsset = fields('ubicacion versionContenido tipo');
+const brandingAsset = { ...fields('versionContenido tipo'), ubicacion: tenantAssetReference };
 const palette = fields('primary onPrimary secondary onSecondary accent onAccent surface onSurface background onBackground success onSuccess warning onWarning danger onDanger info onInfo');
 const configuration = adapter('vertical', {
   identidadFiscal: { ...fields('nombreComercial razonSocial tipoPersona tipoDocumento numeroDocumento digitoVerificacion regimenTributario actividadEconomicaPrincipal'), responsabilidadesFiscales: [scalar], contacto: fields('email telefono') },
   localizacion: { ...fields('paisFiscal moneda idioma zonaHoraria'), direccion: fields('linea1 linea2 departamentoCodigo departamentoNombre municipioCodigo municipioNombre codigoPostal') },
   impuestos: fields('preciosIncluyenImpuestos impuestoTipoPredeterminado politicaRedondeo'),
   branding: { ...fields('modelVersion nombreVisible modoVisual'), assets: { logoPrincipal: brandingAsset, logoModoOscuro: brandingAsset, favicon: brandingAsset, iconoAplicacion: brandingAsset }, paletas: { light: palette, dark: palette } },
-  ticket: fields('logoDocumentoUrl mensajePie mostrarLogoDocumento mostrarRazonSocial mostrarDireccion mostrarTelefono mostrarDesgloseImpuestos'),
+  ticket: { ...fields('mensajePie mostrarLogoDocumento mostrarRazonSocial mostrarDireccion mostrarTelefono mostrarDesgloseImpuestos'), logoDocumentoUrl: tenantAssetReference },
   impresion: fields('formatoPapel copiasVenta copiasCierre autoImprimirVenta autoAbrirCajon'),
   pos: { ...fields('metodoPagoPredeterminado permitirPagoMixto permitirVentaSinExistencias requerirClienteEnCuentaCobro'), metodosPagoHabilitados: [scalar] },
   caja: { ...fields('baseAperturaSugerida umbralAlertaFaltante permitirRelevo'), rolesConTurnoObligatorio: [scalar] },
@@ -75,7 +76,27 @@ const configuration = adapter('vertical', {
 const subscription = adapter('relacionId relacionVigenteId planId planVersion periodicidad origen relacionAnteriorId trialInicio trialFin periodoInicio periodoFin graceFin cancelacionProgramadaPara canceladaEn ultimoPagoAnualId', { snapshotContrato: snapshot });
 export const SINGLETON_ROOTS = new Set(['empresas', 'configuraciones', 'suscripciones', 'ofertas_comerciales_tenant', 'cuentas_control_nevera']);
 export const SCHEMAS = Object.freeze({
-  productos: adapter('nombre descripcion categoria categoriaId unidad unidadMedida costo precio stock stockReservado stockMinimo imagen imagenUrl codigo codigoBarras sku permiteFraccionamiento'),
+  aceptacionesLegales: adapter('aceptacionId uid relacion referenciaContrato sha256CondicionesComerciales facultadRepresentacionDeclarada bundleId aceptadoEn', {
+    documentos: [fields('id version sha256')],
+    condicionesComerciales: {
+      ...fields('referenciaContrato codigoPlan planVersion periodicidad trialDias'),
+      precio: price, vigencia: fields('inicio fin'), capacidades: [scalar],
+      limites: recordOf(fields('unidad valor')), fiscalidad: fields('pais modalidad habilitada'),
+    },
+  }),
+  eventos_operativos: adapter('eventoId tipo fechaProgramada fechaDisponible estadoDespacho intentos ultimoIntentoEn despachadoEn', {
+    agregado: fields('tipo id'), actor: operationActor,
+    payloadOperativo: fields('programacionId fechaLocal zonaHoraria etapa solicitudId'),
+  }),
+  eventos: { ...adapter('titulo descripcion fecha hora categoria activo'), imagenUrl: tenantAssetReference },
+  modificador_grupos: adapter('nombre descripcion minSeleccion maxSeleccion orden', {
+    opciones: [fields('id nombre precioDelta activo orden default cocinaNombre')],
+  }),
+  producto_modificador_grupos: adapter('productoId grupoId orden minSeleccion maxSeleccion', {
+    opcionesPermitidas: [scalar],
+    opcionOverrides: recordOf(fields('precioDelta activo')),
+  }),
+  productos: { ...adapter('nombre descripcion categoria categoriaId unidad unidadMedida costo precio stock stockReservado stockMinimo codigo codigoBarras sku permiteFraccionamiento'), imagen: tenantAssetReference, imagenUrl: tenantAssetReference, image: tenantAssetReference },
   categorias: adapter('nombre icono orden color'),
   presentaciones_producto: adapter('productoId nombre factorUnidadBase precioCOP precioTiendaCOP precioConsumidorFinalCOP costoPresentacionCOP'),
   clientes: adapter('nombre cedula tipoDocumento nit telefono correo email contacto direccion barrioZona saldoPendienteBodegaCOP'),
@@ -116,6 +137,28 @@ export const SCHEMAS = Object.freeze({
   relaciones: subscription,
   ofertas_comerciales_tenant: adapter('ofertaActivaId'),
   ofertas: adapter('ofertaId empresaIdObjetivo planIdBase planVersionBase periodicidad iniciaEn expiraEn motivoCodigo referenciaAprobacion trialDias referenciaAceptacionCliente trialInicio trialFin', { precioAcordado: price, consumidaPor: fields('empresaId provisionamientoId') }),
+  pagos_saas: adapter('reciboId relacionId relacionRevision suscripcionRevision referenciaPago confirmadoEn importe moneda periodoInicio periodoFin', {
+    snapshotContrato: snapshot,
+  }),
+  asignaciones_numeracion: adapter('scope tipoDocumento numeracionId estado'),
+  agenda_pedidos_bodega: adapter('programacionId clienteId solicitanteUid fechaLocal zonaHoraria huellaIntencion estado stockReservadoUnidadBase solicitudId reservaExpiraEn convertidaEn', {
+    franja: fields('desde hasta'),
+    lineas: [{ ...fields('productoId productoNombre unidadBase presentacionId presentacionNombre cantidad factorUnidadBase cantidadUnidadBase') }],
+    reservaIds: [scalar],
+    aprobacion: fields('actorUid revision'),
+    rechazo: fields('actorUid creadoEn'),
+    cancelacion: fields('actorUid'),
+  }),
+  reservas_stock_bodega: adapter('reservaId programacionId productoId productoNombreSnapshot unidadBaseSnapshot cantidadUnidadBase estado expiraEn liberadaPor'),
+  solicitudes_venta_bodega: adapter('solicitudId solicitanteUid clienteId huellaComercial totalCOP estado revision motivoInvalidacion programacionId', {
+    intentoLineas: [fields('productoId presentacionId cantidad')],
+    lineas: [{ ...fields('productoId productoNombre unidadBase presentacionId presentacionNombre cantidad factorUnidadBase cantidadUnidadBase canal precioBasePresentacionCOP precioPresentacionCOP ofertaId subtotalCOP') }],
+    aprobacion: fields('actorUid revision totalCOP huellaComercial expiraEn'),
+    rechazo: fields('actorUid revision'),
+    cancelacion: fields('actorUid revision'),
+    ejecucion: fields('actorUid revision ventaId'),
+    reservaIds: [scalar],
+  }),
   pedidos_activos: adapter('mesaId nombreMesa cajeroId estado activo inicioAlquiler fechaPago ventaId unionDestinoId actualizadoEn', {
     items: [salonItem], comandaIds: [scalar], movimientos: [pedidoMovement],
   }),
@@ -134,21 +177,53 @@ export const SCHEMAS = Object.freeze({
   }),
 });
 
+// Every collection schema must be classified at the root or beneath a known
+// parent. This explicit inventory makes an empty known root queryable at the
+// same Firestore readTime; ListCollectionIds alone cannot define the schema
+// universe of a tenant export.
+export const DECLARED_ROOT_COLLECTIONS = new Set(`agendas asignaciones_numeracion auditoria_logs capas_fifo_nevera
+  categorias clientes comandas_cocina compras configuraciones consignadores cuentas_bancarias
+  cuentas_control_nevera cuentas_control_nevera_movimientos egresos empresas espacios eventos
+  eventos_dominio eventos_operativos insumos liquidaciones membresias mermas mesas modificador_grupos
+  movimientos_inventario numeraciones ofertas_bodega ofertas_comerciales_tenant operaciones_auditoria
+  pagos_saas pedidos_activos presentaciones_producto producto_modificador_grupos productos proveedores
+  recetas reservas suscripciones transacciones_financieras turnos turnos_activos usuarios ventas`.split(/\s+/));
+
+export const CHILD_COLLECTIONS = Object.freeze({
+  ventas: Object.freeze(['abonos_bodega', 'compromisos_pago_bodega']),
+  empresas: Object.freeze(['aceptacionesLegales', 'secuencias_documentales', 'solicitudes_venta_bodega', 'agenda_pedidos_bodega', 'reservas_stock_bodega']),
+  suscripciones: Object.freeze(['relaciones']),
+  ofertas_comerciales_tenant: Object.freeze(['ofertas']),
+});
+
+export const EXCLUDED_CHILD_COLLECTIONS = Object.freeze({
+  clientes: Object.freeze({ anotaciones_privacidad: 'PRIVATE_PRIVACY_CASE_DATA' }),
+});
+
 export const INTERNAL_ROOTS = new Set(`bootstrap_identidades_owner comandos_comerciales configuracion configuracion_comandos
   configuracion_command_ids credenciales_operativas incorporaciones operaciones_comandos operaciones_command_idempotency
   permisos_roles planes provisionamientos_empresariales reservas_codigos_operativos restablecimientos_credencial
   saas_auditoria saas_auditoria_obligaciones saas_comandos saas_operadores saas_soporte_autorizaciones
-  saas_platform_bindings saas_platform_binding_external_tenants invitaciones consumo controles_release_compras`.split(/\s+/));
+  saas_platform_bindings saas_platform_binding_external_tenants saas_export_authorizations
+  invitaciones consumo controles_release_compras privacidad_reclamos privacidad_consultas`.split(/\s+/));
 
 // These sources need explicit adapters before a populated source can be delivered.
 // They are NEVER silently omitted or exported using an unconstrained object schema.
-export const PENDING_ROOTS = new Set(`agendas auditoria_logs comandas_cocina configuracion
-  eventos eventos_operativos modificador_grupos producto_modificador_grupos
-  reservas numeraciones asignaciones_numeracion pagos_saas
-  agenda_pedidos_bodega reservas_stock_bodega solicitudes_venta_bodega`.split(/\s+/));
+export const PENDING_ROOTS = new Set(`agendas auditoria_logs comandas_cocina
+  eventos_operativos reservas numeraciones`.split(/\s+/));
 
-export const TECHNICAL_FIELDS = new Set(`commandId idempotencyKey correlationId causationId creadoPor actualizadoPor
-  pinHash token tokenDigest tokenVersion fcmTokens password refreshToken accessToken firebaseStorageDownloadTokens`.split(/\s+/));
+export const TECHNICAL_FIELDS = new Set(`commandId idempotencyKey correlationId causationId creadoPor actualizadoPor claimId reclamadoEn ultimoErrorCodigo
+  confirmadoPor pinHash token tokenDigest tokenVersion fcmTokens password refreshToken accessToken firebaseStorageDownloadTokens reclamosPrivacidadAbiertos`.split(/\s+/));
+
+export function validateCollectionClassification() {
+  const classified = new Set([...DECLARED_ROOT_COLLECTIONS]);
+  for (const children of Object.values(CHILD_COLLECTIONS)) for (const child of children) classified.add(child);
+  const schemaNames = new Set(Object.keys(SCHEMAS));
+  if ([...schemaNames].some(name => !classified.has(name)) || [...classified].some(name => !schemaNames.has(name))) {
+    throw new Error('EXPORT_COLLECTION_CLASSIFICATION_INCOMPLETE');
+  }
+  return true;
+}
 
 export function inspectCoverage(roots) {
   if (!Array.isArray(roots) || roots.some(name => typeof name !== 'string') || new Set(roots).size !== roots.length) throw new Error('EXPORT_INVALID_ROOT_INVENTORY');
@@ -162,7 +237,7 @@ export function inspectCoverage(roots) {
   };
 }
 
-export function projectDocument(data, schema, depth = 0) {
+export function projectDocument(data, schema, depth = 0, context = {}) {
   if (depth > 24) throw new Error('EXPORT_MAX_DEPTH');
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('EXPORT_INVALID_DOCUMENT');
   const result = Object.create(null);
@@ -172,11 +247,21 @@ export function projectDocument(data, schema, depth = 0) {
     if (!Object.hasOwn(schema, key)) throw new Error('EXPORT_UNSUPPORTED_FIELD');
     const value = data[key], rule = schema[key];
     if (value === null) { result[key] = null; continue; }
-    if (rule === scalar) {
+    if (rule === tenantAssetReference) {
+      if (typeof value !== 'string') throw new Error('EXPORT_INVALID_ASSET_REFERENCE');
+      if (typeof context.resolveTenantAsset !== 'function') {
+        if (/^https:\/\/firebasestorage\.googleapis\.com\//i.test(value)) throw new Error('EXPORT_ASSET_RESOLVER_REQUIRED');
+        let url;
+        try { url = new URL(value); } catch {}
+        if (url && (url.username || url.password || [...url.searchParams.keys()].some(name => /^(token|access_token|x-goog-signature|googleaccessid|x-amz-signature)$/i.test(name)))) throw new Error('EXPORT_PRIVATE_URL_REQUIRES_ASSET_REFERENCE');
+        result[key] = value;
+      } else result[key] = context.resolveTenantAsset(value);
+    } else if (rule === scalar) {
       if (!['string', 'number', 'boolean'].includes(typeof value) || (typeof value === 'number' && !Number.isFinite(value))) throw new Error('EXPORT_INVALID_SCALAR');
       if (typeof value === 'string' && /^https?:\/\//i.test(value)) {
         let url;
         try { url = new URL(value); } catch { throw new Error('EXPORT_INVALID_URL'); }
+        if (url.username || url.password) throw new Error('EXPORT_PRIVATE_URL_REQUIRES_ASSET_REFERENCE');
         if ([...url.searchParams.keys()].some(k => /^(token|access_token|x-goog-signature|googleaccessid|x-amz-signature)$/i.test(k))) throw new Error('EXPORT_PRIVATE_URL_REQUIRES_ASSET_REFERENCE');
       }
       result[key] = value;
@@ -185,13 +270,13 @@ export function projectDocument(data, schema, depth = 0) {
       const entries = Object.create(null);
       for (const [recordKey, recordValue] of Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) {
         if (!/^[A-Za-z0-9_-]{1,120}$/.test(recordKey)) throw new Error('EXPORT_INVALID_RECORD_KEY');
-        entries[recordKey] = projectDocument(recordValue, rule.$record, depth + 1);
+        entries[recordKey] = projectDocument(recordValue, rule.$record, depth + 1, context);
       }
       result[key] = entries;
     } else if (Array.isArray(rule)) {
       if (!Array.isArray(value)) throw new Error('EXPORT_INVALID_ARRAY');
-      result[key] = value.map(v => rule[0] === scalar ? projectDocument({ v }, { v: scalar }, depth + 1).v : projectDocument(v, rule[0], depth + 1));
-    } else result[key] = projectDocument(value, rule, depth + 1);
+      result[key] = value.map(v => rule[0] === scalar ? projectDocument({ v }, { v: scalar }, depth + 1, context).v : projectDocument(v, rule[0], depth + 1, context));
+    } else result[key] = projectDocument(value, rule, depth + 1, context);
   }
   return result;
 }

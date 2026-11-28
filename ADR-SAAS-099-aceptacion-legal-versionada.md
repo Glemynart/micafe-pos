@@ -2,10 +2,11 @@
 
 ## Estado
 
-**Propuesto**, 2026-11-23. Pendiente de aprobación expresa del diseño.
+**Aceptado para implementación**, 2026-11-23, por aprobación expresa del responsable en este hilo.
 Goal: `G-SAAS-02 → M2 → E2.2`.
-La solicitud de integrar documentos autoriza preparación; no acredita aceptación
-de esta nueva persistencia, publicación final de textos ni consentimientos reales.
+La aprobación comprende la arquitectura y su implementación/pruebas. No aprueba
+como definitivos los borradores legales, no activa exigibilidad, no acredita
+aceptaciones reales ni autoriza despliegue o escrituras productivas.
 
 ## Problema
 
@@ -28,7 +29,7 @@ C. Acuerdo externo firmado y registrado por soporte. Válido como proceso distin
 si se verifica y conserva, pero no fingir que es una aceptación interactiva del
 cliente. Dejar esta vía fuera del primer corte técnico.
 
-## Diseño recomendado
+## Diseño aceptado
 
 1. Rutas públicas `/terminos`, `/privacidad` y `/anexo-tratamiento`, sin sesión,
    con versión, vigencia y descarga del contenido exacto. Solo documentos finales
@@ -48,10 +49,10 @@ cliente. Dejar esta vía fuera del primer corte técnico.
    anexo se identifican como contrato; privacidad/autorización personal se separan.
    No incluir publicidad obligatoria ni inferir aceptación del uso del sistema.
 
-## Autoridad y modelo propuestos
+## Autoridad y modelo aceptados
 
 Nueva frontera dedicada `saas-legal`, sin ampliar exports de `saas-commercial`
-ni facultades de operadores. Dos callables propuestas: `consultarEstadoLegalTenant`
+ni facultades de operadores. Dos callables: `consultarEstadoLegalTenant`
 y `aceptarDocumentosLegalesTenant`. Ambas exigen sesión válida y contexto tenant
 revalidado; la aceptación exige membresía admin activa y representación declarada.
 Reutilizar el verificador canónico de sesión/credencial y su revocación vigente.
@@ -60,11 +61,17 @@ Persistencia separada del snapshot, bajo:
 `empresas/{empresaId}/aceptacionesLegales/{aceptacionId}`.
 Registro append-only con `schemaVersion`, tenant, UID, relación contractual,
 declaración de representación, bundle y versiones/hashes de documentos,
-`aceptadoEn` de servidor y correlación. ID determinista por tenant, relación,
-UID y bundle; un retry idéntico devuelve el mismo recibo. Una aceptación de otro
-admin genera evidencia propia. No sobrescribir el historial ni aceptar versiones
-desconocidas u obsoletas. Autorizaciones personales usan registros distintos
-vinculados al titular y finalidades, con revocaciones registradas por separado.
+`aceptadoEn` de servidor y correlación. Conserva además la referencia de la
+relación y la proyección exacta de las condiciones comerciales que se mostraron,
+con SHA-256 canónico de esa proyección. El ID determinista incluye tenant,
+relación contractual, UID y bundle; un retry idéntico devuelve el mismo recibo.
+Una relación renovada o una aceptación de otro admin genera evidencia propia.
+En consulta y reintento, el servidor vuelve a validar actor, relación, bundle,
+documentos y que el contenido de condiciones del recibo coincida con su huella;
+si hay alteración responde con error de integridad. No sobrescribir el historial
+ni aceptar versiones desconocidas u obsoletas. Autorizaciones personales usan
+registros distintos vinculados al titular y finalidades, con revocaciones
+registradas por separado.
 
 Catálogo legal aprobado empaquetado y versionado en el servidor; SHA-256 de bytes
 UTF-8 con LF, generados desde una única fuente y sin reconstruir textos desde HTML.
@@ -121,9 +128,9 @@ La evidencia contiene datos personales: aprobar retención y acceso antes de cre
 La [propuesta operativa](docs/legal/OPERACION-Y-CONSERVACION.md) documenta el backup
 real de 35 días, regiones y mecanismos comprobados. Identifica como dependencia
 no implementada la exportación completa de tenant y no la absorbe en este ADR.
-La aceptación condicional del responsable no se transforma en estado Aceptado
-por cerrar únicamente el texto; las condiciones materiales pendientes se conservan.
-No se promete que una huella o UID demuestre por sí solo validez jurídica plena.
+La aceptación de esta arquitectura no convierte los textos en versión final.
+Las condiciones materiales pendientes se conservan. No se promete que una huella
+o UID demuestre por sí solo validez jurídica plena.
 
 Rollback: desactivar únicamente exigibilidad mediante mecanismo autorizado,
 mantener documentos, recibos y lectores compatibles. No borrar aceptaciones ni

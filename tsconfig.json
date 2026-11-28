@@ -58,6 +58,7 @@
     "functions-platform-financial-account-provisioning/**",
     "functions-tenant-credential-recovery/**",
     "functions-bodega-membership/**",
-    "functions-tenant-profile/**"
+    "functions-tenant-profile/**",
+    "functions-legal/**"
   ]
 }
