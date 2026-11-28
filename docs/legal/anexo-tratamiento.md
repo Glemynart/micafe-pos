@@ -1,6 +1,6 @@
 # Anexo de tratamiento por cuenta del negocio — Dusema POS
 
-**BORRADOR 0.8 — revisión operativa 2026-11-28. No está vigente ni aceptado. Fecha objetivo de release: 2026-12-15, condicionada a cerrar los gates; si no se cierran, se aplaza.**
+**BORRADOR 0.9 — revisión operativa 2026-11-28. No está vigente ni aceptado. Fecha objetivo de release: 2026-12-15, condicionada a cerrar los gates; si no se cierran, se aplaza.**
 
 Este texto sirve para preparar un acuerdo de transmisión; no acredita que exista
 un contrato de transmisión vigente con un negocio ni con un proveedor. No debe
@@ -16,10 +16,11 @@ El negocio que figure en el contrato y en la configuración del tenant determina
 las finalidades y los medios esenciales de tratamiento de los datos personales
 que introduce o administra en Dusema POS para sus clientes, proveedores y
 personal; respecto de esas operaciones actúa como responsable. Sebastián Agudelo
-Muñoz, NIT 1000292576-3, prestador de Dusema POS y contacto operativo de
-privacidad designado por el prestador, actúa
-como encargado únicamente cuando trata esos datos siguiendo instrucciones
-documentadas del negocio.
+Muñoz, NIT 1000292576-3, persona natural prestadora de Dusema POS, con domicilio
+registrado para notificaciones en Calle 92 #95A-119, Apartadó, Antioquia,
+Colombia; correo segucor0526@gmail.com y teléfono 3103337837, contacto operativo
+de privacidad designado por el prestador, actúa como encargado únicamente cuando
+trata esos datos siguiendo instrucciones documentadas del negocio.
 
 Los roles dependen de cada tratamiento, no solo del nombre que se les dé en este
 anexo. Dusema puede actuar como responsable independiente para datos que trata
