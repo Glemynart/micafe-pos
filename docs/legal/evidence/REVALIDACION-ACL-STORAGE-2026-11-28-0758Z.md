@@ -37,16 +37,24 @@ El default ACL coincide con las clases de grants de los objetos activos. El inve
 
 ## Resultado
 
-No se halló grant público en los 7 objetos activos consultados. Sí existe un grant directo `OWNER` de una identidad no mapeada en IAM en todos ellos. **No se puede certificar aislamiento ni declarar ausencia histórica de exposición:** Cloud Monitoring registra 20 accesos concedidos exclusivamente por ACL y no identifica los objetos o solicitantes. La configuración de auditoría de Storage no permite afirmar que exista una fuente histórica para atribuirlos. No se modificó Storage, IAM, Rules ni contenido productivo.
+No se halló grant público en los 7 objetos activos consultados. La correlación de las 08:14 interpretó inicialmente el grant `OWNER` directo como una identidad no mapeada en IAM; esa conclusión se corrigió con la relectura posterior registrada al final de este documento. **No se puede certificar aislamiento ni declarar ausencia histórica de exposición:** Cloud Monitoring registra 20 accesos concedidos exclusivamente por ACL y no identifica los objetos o solicitantes. La configuración de auditoría de Storage no permite atribuirlos. No se modificó Storage, IAM, Rules ni contenido productivo.
 
 ADR-SAAS-111 continúa `Propuesto`: queda atribuir el uso ACL sin exponer PII y validar un bucket de staging antes de preparar cualquier cambio productivo.
 
 ## Correlación de grants OWNER — revalidación 2026-11-28 08:14 UTC
 
-Se compararon en memoria las ACL de los siete objetos activos con las políticas IAM del proyecto y del bucket y con la identidad autenticada del operador. Una única identidad de tipo usuario tiene grant directo `OWNER` en los siete objetos; no aparece en ninguna política IAM actual y no coincide con la identidad operadora. El valor de identidad no se emitió ni conservó.
+Se compararon en memoria las ACL de los siete objetos activos con las políticas IAM del proyecto y del bucket y con la identidad autenticada del operador. Una única identidad de tipo usuario tiene grant directo `OWNER` en los siete objetos; la primera normalización no la enlazó con el principal IAM correspondiente. El valor de identidad no se emitió ni conservó. Esta lectura inicial queda corregida por la reconciliación posterior.
 
-Esto confirma una ruta de acceso directa por ACL a los siete objetos para una cuenta no mapeada en las políticas IAM actuales. No se puede concluir que sea una cuenta obsoleta ni que su acceso carezca de autorización. No se confirmó grant público (`allUsers`/`allAuthenticatedUsers`). La corrección requiere verificar con el responsable si la cuenta conserva autorización y, de ser obsoleta, revocar esos grants con rollback documentado; no se hizo ninguna escritura.
+La lectura inicial trató esta ruta como un acceso de identidad no mapeada y sugirió comprobar su vigencia antes de revocar. La revalidación posterior identifica el principal como una cuenta de servicio enlazada a `roles/firebasestorage.serviceAgent`; por tanto, no se justifica revocar ese grant. No se confirmó grant público (`allUsers`/`allAuthenticatedUsers`). No se hizo ninguna escritura.
 
 ## Preflight de bucket Storage en staging — revalidación 2026-11-28
 
 La lista de Cloud Storage del proyecto `micafe-pos-staging` contiene únicamente los buckets de artefactos `gcf-v2-sources`, `gcf-v2-uploads` y los dos buckets `micafe-pos-staging-e2-2-*` de provisioning/source. No existe el bucket Firebase esperado `micafe-pos-staging.firebasestorage.app` (consulta `describe`: 404), ni se identificó otro bucket de aplicación en el proyecto. No se reutilizarán buckets de artefactos para probar las rutas de negocio. Por tanto, la prueba de ACL/UBLA con las mismas rutas e identidades de Storage no se ejecutó y no se afirma como validada en staging. Crear un bucket dedicado requiere un preflight y autorización operativa aparte; no se creó recurso alguno.
+
+## Reconciliación de la identidad OWNER — 2026-11-28, lectura posterior
+
+Se repitió la lectura con Cloud Storage JSON API y `projection=full`, sin descargar contenido ni emitir nombres de objetos o identidades. El bucket Firebase sigue teniendo 7 objetos activos; sus ACL suman 28 grants: 14 `OWNER` de grupos de proyecto, 7 `READER` de grupo de proyecto y 7 `OWNER` de una única identidad representada como usuario. No hay grants `allUsers` ni `allAuthenticatedUsers`.
+
+La identidad propietaria de los 7 objetos sí coincide, normalizada en memoria, con una cuenta de servicio enlazada en IAM al rol `roles/firebasestorage.serviceAgent`; no coincide con la cuenta activa de esta auditoría. Por tanto, la afirmación anterior de que ese propietario no estaba mapeado en IAM era incorrecta. La evidencia no justifica revocar ese grant. Las ACL de grupos de proyecto, `uniformBucketLevelAccess=false` y las 20 concesiones históricas exclusivamente por ACL siguen requiriendo revisión; esta identificación no prueba qué identidad realizó aquellas solicitudes.
+
+La configuración actual conserva `publicAccessPrevention=inherited` y soft delete de siete días. El proyecto no tiene `auditConfigs` para `storage.googleapis.com`; la consulta de logs no devolvió eventos de borrado de objetos, pero esa ausencia no demuestra que no ocurrieran porque Data Access no está habilitado. No se modificaron ACL, Storage, IAM ni datos. ADR-SAAS-111 sigue `Propuesto`; se debe retirar la alternativa de revocar una identidad supuestamente desconocida y reevaluar el alcance ACL/UBLA sin cambios productivos.

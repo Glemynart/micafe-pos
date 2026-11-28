@@ -399,14 +399,14 @@ preflight antes de certificar aislamiento. Ver
 [revalidación operativa y de seguridad](evidence/REVALIDACION-CIERRE-2026-11-28-0732Z.md)
 y [ADR-SAAS-111 propuesto](../../ADR-SAAS-111-acceso-acls-storage.md).
 
-**Dictamen vigente: NO APROBADO PARA MERGE NI PARA RELEASE LEGAL PRODUCTIVO.**
+**Dictamen al corte previo: NO APROBADO PARA MERGE NI PARA RELEASE LEGAL PRODUCTIVO.**
 Los documentos siguen en borrador; continúan pendientes aprobación jurídica y
 factual, verificación del contacto/canal, exportación y supresión reales,
 revisión de ACL Storage e IAM productivo. La métrica confirma 20 accesos
 históricos concedidos exclusivamente por ACL; el censo de 7 objetos activos no
-halló grants públicos, pero no atribuye los accesos. Además, una sola cuenta
-de usuario no presente en el IAM actual tiene grant directo `OWNER` en los 7
-objetos activos; su identidad fue omitida y no se revocó. Ver
+halló grants públicos, pero no atribuye los accesos. La correlación inicial
+interpretó que la cuenta `OWNER` directa no estaba en IAM; esa lectura se
+corrigió en la revalidación ACL añadida al final de esta matriz. Ver
 [revalidación ACL](evidence/REVALIDACION-ACL-STORAGE-2026-11-28-0758Z.md). El
 proyecto no tiene ancestros Resource Manager ni configuración explícita de
 Data Access audit logs para Storage. El ruleset activo de `main` exige cero
@@ -421,7 +421,7 @@ La aprobación jurídica/factual de los documentos sigue pendiente.
 - ADR-SAAS-111 continúa `Propuesto`. El bucket productivo conserva los hallazgos de ACL registrados en la evidencia enlazada; en staging la lista del proyecto solo mostró buckets auxiliares de Functions y provisioning y no existe `micafe-pos-staging.firebasestorage.app`. Por eso no se probó la mitigación ACL/UBLA en bucket Firebase de staging. No se creó bucket ni se modificaron ACL, Rules o IAM.
 - Los documentos v0.8 siguen en `PREPARACION/BORRADOR`, sin aprobación jurídica ni factual. Exportación/entrega con datos reales, supresión y conservación físicas, ciclo real de respaldos, canal de correo, Vercel comercial y mínimo privilegio IAM productivo siguen sin certificarse.
 
-**Dictamen actualizado: NO APROBADO PARA MERGE NI PARA RELEASE LEGAL PRODUCTIVO.** El check ahora está verde para el HEAD actual, pero CI no sustituye la resolución del grant `OWNER` no mapeado, la prueba de Storage que no puede ejecutarse sin bucket staging, ni las aprobaciones y verificaciones operativas pendientes. No se habilita la aceptación en producción ni se publican documentos definitivos.
+**Dictamen de ese corte: NO APROBADO PARA MERGE NI PARA RELEASE LEGAL PRODUCTIVO.** El check entonces vigente estaba verde, pero CI no sustituye la prueba de Storage que no puede ejecutarse sin bucket staging, ni las aprobaciones y verificaciones operativas pendientes. No se habilita la aceptación en producción ni se publican documentos definitivos. La atribución del grant `OWNER` fue corregida posteriormente.
 
 ## Corrección de versión del bundle v0.8 — 2026-11-28 09:39 UTC
 
@@ -630,3 +630,21 @@ jurídica, IAM productivo, Storage y release permanecían pendientes.
   La nueva pantalla no puede operar en staging/producción hasta un preflight
   operativo separado y un canal aprobado. ADR-SAAS-105/111, revisión legal y
   autorización exportadora real permanecen como gates independientes.
+
+## Corrección read-only de atribución ACL — 2026-11-28
+
+- La relectura del bucket Firebase productivo con JSON API `projection=full`
+  confirmó 7 objetos activos y 28 grants. No encontró grants públicos. La
+  identidad con grant `OWNER` directo en los 7 objetos coincide, normalizada en
+  memoria, con una cuenta de servicio enlazada a `roles/firebasestorage.serviceAgent`;
+  no coincide con el operador activo. La afirmación anterior de que no aparecía
+  en IAM queda corregida. No se revocó el grant.
+- Persisten las ACL de grupos de proyecto, `uniformBucketLevelAccess=false`,
+  `publicAccessPrevention=inherited` y soft delete de siete días. Las métricas
+  registradas por 24 meses reflejaron 20 concesiones solo por ACL, sin identidad
+  ni objeto atribuible. `storage.googleapis.com` no tiene `auditConfigs` de Data
+  Access; por ello no se puede usar una consulta vacía de logs para afirmar que
+  no hubo lecturas o borrados. No se cambió Storage ni IAM.
+- ADR-SAAS-111 sigue propuesto; la alternativa de revocar una identidad
+  presuntamente desconocida no aplica a esta cuenta de servicio. La corrección
+  no cierra los otros gates de producción ni modifica el dictamen de #706.
