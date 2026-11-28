@@ -436,3 +436,17 @@ La aprobación jurídica/factual de los documentos sigue pendiente.
 - `npm run test:legal-bundle`: 2/2 PASS; `git diff --check`: PASS. No hubo
   despliegue; la corrección queda pendiente del CI del commit y de validación
   factual/jurídica antes de cualquier publicación.
+
+## Alineación de rótulos v0.8 — 2026-11-28 10:05 UTC
+
+- Al cotejar el bundle con los cuatro assets v0.8, sus metadatos internos aún
+  mostraban `BORRADOR 0.7`, aunque el catálogo los identifica como v0.8. Se
+  alinearon los rótulos en las fuentes y los assets públicos v0.8. Los textos
+  sustantivos no cambiaron y los assets históricos v0.7 permanecen intactos.
+- Los hashes canónicos de los cuatro documentos fueron recalculados y quedan
+  registrados en `REVISION-V0.8-2026-11-28.md`; fuente y asset coinciden. La
+  prueba de bundle terminó 2/2 PASS y `git diff --check` pasó.
+- No se desplegó esta corrección. El build de staging actualmente sirviendo es
+  `micafe-pos-build-2026-11-28-002` (`485970a`); sigue pendiente el CI del nuevo
+  SHA para crear un rollout staging exacto. Producción y aceptación siguen sin
+  cambios.

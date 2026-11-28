@@ -27,10 +27,10 @@ export const BUNDLE_LEGAL_ACTUAL: BundleLegal = {
   estado: "PREPARACION",
   documentosContractualesRequeridos: ["terminos", "anexo-tratamiento"],
   documentos: [
-    { id: "terminos", titulo: "Términos del servicio", version: "0.8", sha256: "efcd8eb2365386b8a4277fd7dd731895139fb0861fcc6dd2092fdcb2139d850b", rutaPublica: "/legal/v0.8/terminos-servicio.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
-    { id: "politica-tratamiento", titulo: "Política de tratamiento de datos personales", version: "0.8", sha256: "22e17b3fff7d6c4c55300585f74492780399ad56e2e5e49e9a8977afffe0c1b4", rutaPublica: "/legal/v0.8/politica-tratamiento.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
-    { id: "aviso-autorizacion", titulo: "Aviso de privacidad de Dusema POS", version: "0.8", sha256: "5ab4a8e97dde0ee5d2b147d319c1a6d4de33a011615f8104f930d39d0144f47c", rutaPublica: "/legal/v0.8/aviso-autorizacion.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
-    { id: "anexo-tratamiento", titulo: "Anexo de tratamiento por cuenta del negocio", version: "0.8", sha256: "7b5b7107e7d1a0e0e77b8da5057eaf56bce0c0b0e02ffba2425be0f12396138b", rutaPublica: "/legal/v0.8/anexo-tratamiento.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
+    { id: "terminos", titulo: "Términos del servicio", version: "0.8", sha256: "922c841d7f62fbdc225e01b3d4735751aa761fccc945bd5a98996b52973dd17d", rutaPublica: "/legal/v0.8/terminos-servicio.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
+    { id: "politica-tratamiento", titulo: "Política de tratamiento de datos personales", version: "0.8", sha256: "278f03ccfb1b7a12a3954a8cb5caabceb24e1dfd49b67b764845fac2ac44faf2", rutaPublica: "/legal/v0.8/politica-tratamiento.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
+    { id: "aviso-autorizacion", titulo: "Aviso de privacidad de Dusema POS", version: "0.8", sha256: "2a5da1937dead674b459d2b8c85d9940c7e48a5233b863a63f06041c119d4491", rutaPublica: "/legal/v0.8/aviso-autorizacion.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
+    { id: "anexo-tratamiento", titulo: "Anexo de tratamiento por cuenta del negocio", version: "0.8", sha256: "fd9d857f510b0fe5feda31f980b87a2f101dd4028f464e289ae6d36bf35c40d7", rutaPublica: "/legal/v0.8/anexo-tratamiento.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
   ],
 };
 

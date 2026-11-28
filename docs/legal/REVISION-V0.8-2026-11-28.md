@@ -28,10 +28,10 @@ v0.7 se preservan sin cambios; v0.8 contiene copias exactas de las fuentes
 
 | Documento | SHA-256 UTF-8/LF |
 | --- | --- |
-| Términos | `efcd8eb2365386b8a4277fd7dd731895139fb0861fcc6dd2092fdcb2139d850b` |
-| Política de tratamiento | `22e17b3fff7d6c4c55300585f74492780399ad56e2e5e49e9a8977afffe0c1b4` |
-| Aviso de autorización | `5ab4a8e97dde0ee5d2b147d319c1a6d4de33a011615f8104f930d39d0144f47c` |
-| Anexo por tenant | `7b5b7107e7d1a0e0e77b8da5057eaf56bce0c0b0e02ffba2425be0f12396138b` |
+| Términos | `922c841d7f62fbdc225e01b3d4735751aa761fccc945bd5a98996b52973dd17d` |
+| Política de tratamiento | `278f03ccfb1b7a12a3954a8cb5caabceb24e1dfd49b67b764845fac2ac44faf2` |
+| Aviso de autorización | `2a5da1937dead674b459d2b8c85d9940c7e48a5233b863a63f06041c119d4491` |
+| Anexo por tenant | `fd9d857f510b0fe5feda31f980b87a2f101dd4028f464e289ae6d36bf35c40d7` |
 
 ## Validación local
 
@@ -41,6 +41,20 @@ v0.7 se preservan sin cambios; v0.8 contiene copias exactas de las fuentes
 - `npm run test:legal-bundle`: 2/2 aprobadas; verifica hashes y conserva v0.7.
 - `npm run build:functions`, `npx tsc --noEmit` y `npm run build`: aprobados.
 - CI del nuevo HEAD debe confirmarse por separado después del push.
+
+## Alineación de rótulos v0.8 — 2026-11-28 10:05 UTC
+
+- Al cotejar el bundle con los cuatro assets v0.8, sus metadatos internos aún
+  mostraban `BORRADOR 0.7`, aunque el catálogo los identifica como v0.8. Se
+  alinearon los rótulos en las fuentes y los assets públicos v0.8. Los textos
+  sustantivos no cambiaron y los assets históricos v0.7 permanecen intactos.
+- Los cuatro hashes canónicos de la tabla anterior fueron recalculados; las
+  fuentes y assets v0.8 vuelven a coincidir byte a byte tras normalizar CRLF a
+  LF. La prueba de bundle terminó 2/2 PASS y `git diff --check` pasó.
+- Staging todavía sirve el build `2026-11-28-002` desde `485970a`, que conserva
+  los rótulos anteriores. El nuevo candidato no se ha desplegado; CI de su SHA
+  debe terminar antes del rollout controlado. No se desplegó a producción ni se
+  habilitó aceptación.
 
 ## Límites operativos
 
