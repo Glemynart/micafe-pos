@@ -465,3 +465,34 @@ La aprobación jurídica/factual de los documentos sigue pendiente.
   sintéticos. Producción no cambió y no hubo despliegues de Functions, Rules o
   IAM ni operaciones con datos reales.
 - [Detalle y hashes del rollout](evidence/ROLLOUT-STAGING-LEGAL-PR706-3DE251D-2026-11-28.md).
+
+## Revalidación de proyectos Vercel — 2026-11-28
+
+- La consulta read-only del equipo encontró dos proyectos relevantes: `cafeatrato`
+  y `saa-s-web`. El plan sigue en `Hobby`. `cafeatrato` conserva cuatro
+  deployments `Production/READY`, sin creación Git, con SSO en las URLs
+  muestreadas; su alias público devuelve 404. Esto no acredita expiración ni
+  borrado de artefactos.
+- `saa-s-web` es un proyecto separado, ligado al repositorio público
+  `Glemynart/SaaS` (`apps/web`), con deployments Git habilitados y dominio
+  `staging.dusema.com`. Su protección SSO excluye dominios personalizados;
+  solicitudes anónimas de encabezados a `staging.dusema.com` y
+  `saa-s-web-two.vercel.app` devolvieron HTTP 200. No se leyó el cuerpo de las
+  respuestas ni se probó acceso a datos privados.
+- El inventario paginado de previews contó 591 deployments (531 `READY`, 60
+  `CANCELED`), con fechas observadas entre el 29-oct y el 17-nov. No se verificó
+  expiración efectiva de cada artefacto. La retención configurada de 30 días y
+  10 deployments se registró como configuración, no como purga observada.
+- Los términos de Hobby incluyen uso de contenido para entrenamiento de IA, y
+  el DPA publicado por Vercel aplica a clientes Pro/Enterprise, no a Hobby. No
+  se verificó si datos de clientes transitan por `saa-s-web` ni la preferencia
+  de entrenamiento de la cuenta; no se afirma que haya ocurrido uso o exposición.
+- Esto amplía y supersede el alcance de la entrada de la fila Vercel arriba,
+  que solo cubría `cafeatrato`: no se ha resuelto la aptitud del proyecto de
+  staging bajo el plan Hobby. No se cambió el plan, el proyecto, aliases ni
+  dominios. Detalle: [revisión read-only de proyectos Vercel](evidence/VERCEL-PROYECTOS-DUSEMA-READONLY-2026-11-28.md).
+
+**Estado Vercel: BLOQUEADO para declarar uso comercial regularizado.** La
+alternativa sin costo adicional requiere retirar/migrar el staging activo a una
+plataforma autorizada. No se interrumpió el proyecto separado ni se activó un
+plan de pago.

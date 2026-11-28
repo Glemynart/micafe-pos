@@ -1586,3 +1586,34 @@ completa está en [`PROVEEDORES-EVIDENCIA-2026-11.md`](PROVEEDORES-EVIDENCIA-202
 - Producción, Rules, IAM, datos, recibos, exportaciones y supresiones permanecieron sin cambios.
 
 **Auditoría vigente: NO APROBADO PARA MERGE.** Persisten la publicación legal/factual, ADR-SAAS-107/108, el canal operativo de contacto/entrega, el smoke autenticado, la exportación y supresión reales y la revisión de los deployments de producción Vercel.
+
+## Revisión ampliada de Vercel — 2026-11-28
+
+- La cuenta/equipo permanece en el plan Hobby según consulta read-only. Se
+  encontró un segundo proyecto activo relevante, `saa-s-web`, separado del
+  proyecto histórico `cafeatrato`: está conectado al repositorio público
+  `Glemynart/SaaS`, permite deployments Git y sirve `staging.dusema.com`.
+- La protección SSO del proyecto excluye sus dominios personalizados. Los
+  dominios `staging.dusema.com` y `saa-s-web-two.vercel.app` respondieron HTTP
+  200 a solicitudes anónimas de encabezados; no se inspeccionó contenido ni se
+  infiere exposición de datos privados. La lista paginada reportó 591 previews
+  históricos (531 `READY`, 60 `CANCELED`); no se certificó su expiración
+  efectiva. La retención configurada (30 días/10 deployments) no es prueba de
+  purga real.
+- `cafeatrato` conserva cuatro deployments `Production/READY`; las URLs
+  examinadas exigen SSO, y `cafeatrato.vercel.app` devuelve 404. Su creación de
+  deployments Git continúa deshabilitada. Esto no resuelve la retención de esos
+  artefactos.
+- **Bloqueo externo:** Hobby está limitado a uso personal/no comercial por los
+  [términos de Vercel](https://vercel.com/legal/terms) y la [página del plan](https://vercel.com/docs/plans/hobby).
+  No se actualizó el plan, conforme al límite de no incurrir costos, ni se
+  deshabilitó el staging de otro repositorio. Hace falta retirar/migrar ese
+  hosting comercial o adoptar un plan compatible antes de declarar regularizado
+  el uso de Vercel. Evidencia detallada:
+  [revisión read-only de proyectos Vercel](evidence/VERCEL-PROYECTOS-DUSEMA-READONLY-2026-11-28.md).
+- Los términos incluyen una cláusula de entrenamiento de modelos para contenido
+  de Hobby; el [DPA publicado](https://vercel.com/legal/dpa) aplica a clientes
+  Pro y Enterprise. No se inspeccionó el tráfico/contenido de `saa-s-web` ni la
+  preferencia de la cuenta, así que no se concluye que hayan pasado datos de
+  clientes. Sí queda sin demostrar un acuerdo de encargado aplicable si datos
+  personales del POS transitan por ese servicio.
