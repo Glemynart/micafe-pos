@@ -16,11 +16,13 @@ La lectura de metadatos del bucket productivo `micafe-pos.firebasestorage.app` e
 - Cloud Monitoring, para los 24 meses terminados en `2026-11-28T07:57:51Z`, registra 20 operaciones `OBJECT_ACCESS_REQUIRED_OBJECT_ACL` y 20 solicitudes concedidas exclusivamente por ACL de objeto. Las métricas agregadas no identifican objetos ni solicitantes.
 - Se consultó metadata ACL, sin descargar contenidos, para los 7 objetos activos del bucket. Todos tienen `projectViewers:READER`, `projectEditors:OWNER`, `projectOwners:OWNER` y un propietario `user` directo. No apareció `allUsers` ni `allAuthenticatedUsers` en esos 7 objetos; no se guardaron nombres ni identidades. No se consultaron generaciones históricas ni objetos en soft delete.
 - La política efectiva `constraints/storage.publicAccessPrevention` no está marcada `enforced`.
+- La política de auditoría del proyecto no contiene un bloque `auditConfigs` para `storage.googleapis.com`; no se inspeccionaron logs. La atribución histórica podría no estar disponible en auditoría de datos.
+- Correlación minimizada posterior: la ACL `OWNER` de usuario que aparece en los 7 objetos activos corresponde a un único principal que no figura en las políticas IAM actuales del proyecto ni del bucket, y no coincide con la identidad autenticada de la auditoría. El identificador no se emitió ni conservó. Esto confirma una ruta actual de acceso directo a esos objetos fuera de las políticas IAM revisadas; no permite afirmar si la cuenta es obsoleta o si su acceso fue autorizado.
 - La regla de Storage desplegada, creada el 2026-08-14, tiene el mismo SHA-256 que `storage.rules` en esta rama. Las reglas permiten lectura pública en `landing`, `marketing`, `eventos` y `reservas`, y niegan otras rutas. El código encontrado carga archivos en `eventos` y `productos`; no se halló una carga que use `reservas`.
 
-Cloud Storage autoriza si IAM **o** ACL concede el acceso. Firebase Storage Rules controlan solicitudes cursadas por APIs de Firebase; el acceso directo a Cloud Storage también depende de IAM y ACL. La telemetría confirma uso de ACL para conceder acceso, pero no determina si esas solicitudes fueron públicas, de identidades autorizadas o de objetos que ya no están activos. El censo de objetos activos no halló grants públicos, pero las 20 solicitudes históricas quedan sin atribución. No se confirma una exposición anónima; tampoco puede descartarse para objetos históricos. No se puede certificar aislamiento solo con Firebase Rules mientras no se expliquen esas solicitudes.
+Cloud Storage autoriza si IAM **o** ACL concede el acceso. Firebase Storage Rules controlan solicitudes cursadas por APIs de Firebase; el acceso directo a Cloud Storage también depende de IAM y ACL. La telemetría confirma uso de ACL para conceder acceso, pero no determina si esas solicitudes fueron públicas, de identidades autorizadas o de objetos que ya no están activos. El censo de objetos activos no halló grants públicos, pero sí encontró un grant `OWNER` directo a una cuenta no mapeada en IAM en cada uno de los 7 objetos. Las 20 solicitudes históricas siguen sin atribución. No se confirma una exposición anónima; sí existe una vía actual de acceso directo por identidad no verificada, y tampoco puede descartarse exposición histórica. No se puede certificar aislamiento solo con Firebase Rules mientras no se resuelva este acceso.
 
-La guía de Google recomienda Uniform bucket-level access (UBLA) para reducir exposiciones por ACL, pero exige comprobar uso de ACL y mapear permisos antes de habilitarlo. UBLA desactiva ACL y no puede revertirse después de 90 días consecutivos. La telemetría confirma 20 solicitudes concedidas exclusivamente por ACL en el periodo consultable; la identidad y los objetos afectados siguen pendientes de atribución.
+La guía de Google recomienda Uniform bucket-level access (UBLA) para reducir exposiciones por ACL, pero exige comprobar uso de ACL y mapear permisos antes de habilitarlo. UBLA desactiva ACL y no puede revertirse después de 90 días consecutivos. La telemetría confirma 20 solicitudes concedidas exclusivamente por ACL en el periodo consultable; la identidad y los objetos afectados siguen pendientes de atribución. Tampoco se encontró configuración explícita de Data Access audit logs para Storage en el proyecto.
 
 ## Decisión requerida
 
@@ -34,17 +36,23 @@ Primero comprobar métricas de uso ACL del periodo disponible, revisar IAM hered
 
 Ventaja: elimina el canal paralelo ACL y converge en IAM. Riesgo: al habilitarlo se revocan permisos concedidos solo por ACL y, tras 90 días, no se puede volver a ACL. Preflight y prueba de staging son obligatorios.
 
-### B. Cambiar solo la ACL predeterminada de objetos
+### B. Revocar el grant directo `OWNER` no mapeado — recomendada como primera mitigación si el dueño confirma que está obsoleto
+
+Una vez identificado por el responsable y confirmada su falta de autorización, quitar solo el grant directo de esa cuenta en los objetos donde aparece, conservando las ACL y los permisos IAM restantes. Requiere validar que la aplicación y el personal autorizado conservan acceso por Rules/IAM y registrar rollback antes de ejecutar.
+
+Ventaja: acota el cambio a la identidad y objetos confirmados. Riesgo: revocar a ciegas puede interrumpir un acceso operativo legítimo; por eso no se recomienda retirar el grant hasta que el responsable confirme su estatus.
+
+### C. Cambiar solo la ACL predeterminada de objetos
 
 Aplicar una ACL más restrictiva a cargas nuevas. No corrige ACLs ya asignadas a objetos existentes y mantiene habilitada la administración de ACL; es mitigación parcial y no basta para certificar aislamiento.
 
-### C. Mantener ACL y basarse en Firebase Rules
+### D. Mantener ACL y basarse en Firebase Rules
 
 No cambia infraestructura, pero conserva permisos ACL que podrían autorizar acceso por otras APIs. No resuelve la frontera observada.
 
 ## Recomendación e invariantes
 
-Recomiendo **A**, condicionada a explicar el uso ACL observado y validar un bucket de staging antes de cualquier cambio productivo.
+Recomiendo **B primero**, condicionado a que el responsable identifique la cuenta y confirme que perdió autorización; después validar el acceso de la aplicación. Si el grant corresponde a una cuenta autorizada, conservarlo temporalmente y seguir con **A** tras atribuir el uso de ACL y probar UBLA en staging. No revocar a ciegas. Cualquier revocación o migración productiva requiere preflight y autorización operativa separada.
 
 - No enumerar ni descargar contenido de clientes; el preflight ejecutado solo leyó metadata ACL y emitió conteos anonimizados.
 - La jerarquía de proyecto se comprobó y no tiene ancestros; atribuir las solicitudes ACL históricas sin exponer nombres o correos en evidencia.

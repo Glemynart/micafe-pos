@@ -219,6 +219,9 @@ E2E sintético de reclamos pasó 2/2. Producción continúa con rutas heredadas;
 se publicó ni se habilitó aceptación. La telemetría de Storage registra 20
 accesos históricos concedidos exclusivamente por ACL; una revisión agregada no
 halló grants públicos entre 7 objetos activos, pero no atribuyó las solicitudes
-históricas. Detalle en la [revalidación ACL Storage](evidence/REVALIDACION-ACL-STORAGE-2026-11-28-0758Z.md).
+históricas. Además, un principal de usuario fuera de IAM tiene `OWNER` en los 7
+objetos activos; su identidad se omitió y el acceso no se revocó. Tampoco se
+halló configuración explícita de Data Access audit logs para Storage. Detalle
+en la [revalidación ACL Storage](evidence/REVALIDACION-ACL-STORAGE-2026-11-28-0758Z.md).
 Consulta la [revalidación operativa y de seguridad](evidence/REVALIDACION-CIERRE-2026-11-28-0732Z.md)
 y el [ADR-SAAS-111 propuesto](../../ADR-SAAS-111-acceso-acls-storage.md).

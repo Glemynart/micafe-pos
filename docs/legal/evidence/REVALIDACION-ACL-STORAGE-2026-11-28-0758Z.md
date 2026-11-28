@@ -33,9 +33,16 @@ El default ACL coincide con las clases de grants de los objetos activos. El inve
 - La política directa del proyecto tiene tres principales de tipo service account con `roles/editor`, un principal de tipo usuario con `roles/owner`, cero grupos y ningún binding directo a `roles/viewer`, `roles/storage.objectViewer` o `roles/storage.legacyObjectReader`.
 - El bucket concede `roles/storage.legacyBucketReader` a `projectViewer`; la ACL predeterminada también concede `READER` a `projectViewer`.
 - La política efectiva `constraints/storage.publicAccessPrevention` no está marcada `enforced`. Las 7 ACL actuales no tienen grants públicos, pero esta configuración no bloquea por sí sola futuros grants públicos.
+- La política IAM del proyecto no contiene configuración `auditConfigs` para `storage.googleapis.com`. No se inspeccionaron logs; no se confirmó si existe evidencia histórica atribuible a estas solicitudes.
 
 ## Resultado
 
-No se halló grant público en los 7 objetos activos consultados. **No se puede certificar aislamiento ni declarar ausencia histórica de exposición:** Cloud Monitoring registra 20 accesos concedidos exclusivamente por ACL y no identifica los objetos o solicitantes. No se modificó Storage, IAM, Rules ni contenido productivo.
+No se halló grant público en los 7 objetos activos consultados. Sí existe un grant directo `OWNER` de una identidad no mapeada en IAM en todos ellos. **No se puede certificar aislamiento ni declarar ausencia histórica de exposición:** Cloud Monitoring registra 20 accesos concedidos exclusivamente por ACL y no identifica los objetos o solicitantes. La configuración de auditoría de Storage no permite afirmar que exista una fuente histórica para atribuirlos. No se modificó Storage, IAM, Rules ni contenido productivo.
 
 ADR-SAAS-111 continúa `Propuesto`: queda atribuir el uso ACL sin exponer PII y validar un bucket de staging antes de preparar cualquier cambio productivo.
+
+## Correlación de grants OWNER — revalidación 2026-11-28 08:14 UTC
+
+Se compararon en memoria las ACL de los siete objetos activos con las políticas IAM del proyecto y del bucket y con la identidad autenticada del operador. Una única identidad de tipo usuario tiene grant directo `OWNER` en los siete objetos; no aparece en ninguna política IAM actual y no coincide con la identidad operadora. El valor de identidad no se emitió ni conservó.
+
+Esto confirma una ruta de acceso directa por ACL a los siete objetos para una cuenta no mapeada en las políticas IAM actuales. No se puede concluir que sea una cuenta obsoleta ni que su acceso carezca de autorización. No se confirmó grant público (`allUsers`/`allAuthenticatedUsers`). La corrección requiere verificar con el responsable si la cuenta conserva autorización y, de ser obsoleta, revocar esos grants con rollback documentado; no se hizo ninguna escritura.

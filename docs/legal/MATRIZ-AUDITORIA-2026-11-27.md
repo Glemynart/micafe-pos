@@ -404,8 +404,11 @@ Los documentos siguen en borrador; continúan pendientes aprobación jurídica y
 factual, verificación del contacto/canal, exportación y supresión reales,
 revisión de ACL Storage e IAM productivo. La métrica confirma 20 accesos
 históricos concedidos exclusivamente por ACL; el censo de 7 objetos activos no
-halló grants públicos, pero no atribuye los accesos. Ver
+halló grants públicos, pero no atribuye los accesos. Además, una sola cuenta
+de usuario no presente en el IAM actual tiene grant directo `OWNER` en los 7
+objetos activos; su identidad fue omitida y no se revocó. Ver
 [revalidación ACL](evidence/REVALIDACION-ACL-STORAGE-2026-11-28-0758Z.md). El
-ruleset activo de `main` exige cero
+proyecto no tiene ancestros Resource Manager ni configuración explícita de
+Data Access audit logs para Storage. El ruleset activo de `main` exige cero
 aprobaciones de GitHub; no hay review registrada, pero eso no es un gate formal.
 La aprobación jurídica/factual de los documentos sigue pendiente.
