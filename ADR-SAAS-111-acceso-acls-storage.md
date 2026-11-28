@@ -30,13 +30,13 @@ Definir cómo eliminar o limitar la autorización paralela por ACL sin romper lo
 
 ## Alternativas
 
-### A. Migrar gradualmente a UBLA — recomendada
+### A. Migrar gradualmente a UBLA — estrategia objetivo, sujeta a preflight
 
 Primero comprobar métricas de uso ACL del periodo disponible, revisar IAM heredado y validar en un bucket de staging dedicado con las mismas rutas, identidades y reglas. Identificar permisos que hoy solo procedan de ACL y asignar equivalentes mínimos cuando sean necesarios. Después, en una operación productiva separada y aprobada, habilitar UBLA y verificar acceso privado, contenido público, rollback y logs. La reversión solo está disponible antes de 90 días con UBLA activo; se debe fijar una revisión antes de ese límite.
 
 Ventaja: elimina el canal paralelo ACL y converge en IAM. Riesgo: al habilitarlo se revocan permisos concedidos solo por ACL y, tras 90 días, no se puede volver a ACL. Preflight y prueba de staging son obligatorios.
 
-### B. Revocar el grant directo `OWNER` no mapeado — recomendada como primera mitigación si el dueño confirma que está obsoleto
+### B. Revocar el grant directo `OWNER` no mapeado — mitigación inicial recomendada, solo tras confirmar que está obsoleto
 
 Una vez identificado por el responsable y confirmada su falta de autorización, quitar solo el grant directo de esa cuenta en los objetos donde aparece, conservando las ACL y los permisos IAM restantes. Requiere validar que la aplicación y el personal autorizado conservan acceso por Rules/IAM y registrar rollback antes de ejecutar.
 
@@ -52,7 +52,7 @@ No cambia infraestructura, pero conserva permisos ACL que podrían autorizar acc
 
 ## Recomendación e invariantes
 
-Recomiendo **B primero**, condicionado a que el responsable identifique la cuenta y confirme que perdió autorización; después validar el acceso de la aplicación. Si el grant corresponde a una cuenta autorizada, conservarlo temporalmente y seguir con **A** tras atribuir el uso de ACL y probar UBLA en staging. No revocar a ciegas. Cualquier revocación o migración productiva requiere preflight y autorización operativa separada.
+Recomiendo **B primero**, condicionado a que el responsable verifique la identidad por un canal seguro y confirme que perdió autorización; después se debe validar el acceso de la aplicación. Si el grant corresponde a una cuenta autorizada, conservarlo temporalmente y seguir con **A** tras atribuir el uso de ACL y probar UBLA en un bucket de staging dedicado. No revocar a ciegas. La estrategia objetivo es eliminar la autorización paralela por ACL mediante UBLA, pero la evidencia de 20 accesos ACL y la ausencia actual de un bucket Firebase de staging impiden avanzar a esa prueba todavía. Cualquier revocación, creación de recursos o migración productiva requiere preflight y autorización operativa separada.
 
 - No enumerar ni descargar contenido de clientes; el preflight ejecutado solo leyó metadata ACL y emitió conteos anonimizados.
 - La jerarquía de proyecto se comprobó y no tiene ancestros; atribuir las solicitudes ACL históricas sin exponer nombres o correos en evidencia.
