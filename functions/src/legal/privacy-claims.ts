@@ -302,7 +302,7 @@ async function registrar(db: Firestore, actor: Actor, data: Record<string, unkno
   if (completoEn.toMillis() < recibidoEn.toMillis()) entradaInvalida();
   const subsanacionEn = tieneSubsanacion ? fechaVerificada(subsanacionRecibida) : undefined;
   const referenciaSubsanacion = tieneSubsanacion ? identificador(subsanacionRef) : undefined;
-  if (subsanacionEn && subsanacionEn.toMillis() > completoEn.toMillis()) entradaInvalida();
+  if (subsanacionEn && subsanacionEn.toMillis() !== completoEn.toMillis()) entradaInvalida();
   const casoId = claveCaso(datos.empresaId, datos.consecutivo);
   const huella = createHash("sha256").update(JSON.stringify(tieneSubsanacion
     ? [datos, recibido, completo, subsanacionRecibida, referenciaSubsanacion]

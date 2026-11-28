@@ -127,6 +127,9 @@ test("Reclamos: autoridad, concurrencia, cierre parcial y aislamiento", { skip: 
       requerimientoRegistradoEn: Timestamp.fromMillis(Date.parse(`${requerimientoTardio}T00:00:00-05:00`)),
       vencimientoSubsanacion: vencimientoDosMeses(requerimientoTardio, PRIVACY_CALENDAR_V2),
     });
+    await assert.rejects(send({ ...entrada, consecutivo: `subsanado-tarde-${suffix}`, recibido: recibidoIncompleto,
+      completo: fechaAtras(4), subsanacionRecibida: subsanacionTardia,
+      subsanacionRef: "subsanacion-tardia" }), /RECLAMO_ENTRADA_INVALIDA/);
     await send({ ...entrada, consecutivo: `subsanado-tarde-${suffix}`, recibido: recibidoIncompleto,
       completo: subsanacionTardia, subsanacionRecibida: subsanacionTardia,
       subsanacionRef: "subsanacion-tardia" });

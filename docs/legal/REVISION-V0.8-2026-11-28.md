@@ -12,7 +12,9 @@ Para reclamos nuevos, el cómputo de quince días hábiles se inicia desde el d�
 siguiente a la recepción verificable del reclamo completo. El requerimiento de
 subsanación conserva los cinco días desde la recepción inicial. Los expedientes
 históricos sin `plazoRespuestaVersion` mantienen la regla anterior y sus
-vencimientos persistidos.
+vencimientos persistidos. Cuando existe subsanación, el servidor exige que la
+fecha efectiva de completitud coincida con la recepción documentada de la
+información faltante.
 
 La lectura parte del artículo 15 de la Ley 1581 de 2012. Requiere validación
 jurídica colombiana antes de publicar una política vigente o activar el flujo

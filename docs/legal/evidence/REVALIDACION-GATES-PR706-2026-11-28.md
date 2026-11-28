@@ -157,9 +157,10 @@ sin cambios.
   inicial; una versión desconocida falla cerrada. No se migran ni reescriben
   registros existentes.
 - Se añadió un caso sintético que completa el reclamo treinta días después de
-  la recepción inicial, verifica que el plazo nuevo siga vigente y conserva la
-  compatibilidad legacy. Los v0.7 previamente servidos permanecen intactos; el
-  bundle fuente y sus cuatro archivos públicos pasan a v0.8, todavía en
+  la recepción inicial, verifica que el plazo nuevo siga vigente, rechaza una
+  fecha de completitud distinta a la recepción documentada de la subsanación y
+  conserva la compatibilidad legacy. Los v0.7 previamente servidos permanecen
+  intactos; el bundle fuente y sus cuatro archivos públicos pasan a v0.8, todavía en
   `PREPARACION/BORRADOR` y sin despliegue.
 - Validación local de la rama: `npm --prefix functions-legal run build` PASS;
   `npm --prefix functions-legal test` 35 PASS, 5 omitidas por Emulator, 0
