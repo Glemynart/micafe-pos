@@ -80,9 +80,22 @@ v0.6/v0.7; las páginas mostraron Dusema, `BORRADOR` y el marcador 0.7, sin Caf�
 Atrato. Esta comprobación no desplegó nada ni altera el resultado del smoke
 autenticado de staging indicado arriba.
 
+## Reconciliación del CI del PR #706 — 2026-11-28T02:00Z
+
+- El HEAD `7455ff75595edd6c88502626ec9b5477434f23d8` coincide con el run
+  [46093033978](https://github.com/Glemynart/micafe-pos/actions/runs/46093033978),
+  conclusión `success`, 129/129 pasos exitosos, cero fallidos, pendientes u
+  omitidos. La rama está actualizada con `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`.
+- El run previo 46092476478 detectó una expectativa de versión obsoleta (`0.6`
+  frente al bundle vigente `0.7`). La prueba se corrigió en `7455ff7`; en el run
+  exitoso también pasaron el E2E Bodega U4-U5 y la publicación de su evidencia.
+- La conclusión es estrictamente técnica. El PR permanece draft y sin revisión
+  humana; el bundle sigue `PREPARACION`, los documentos siguen `BORRADOR` y no
+  se desplegó v0.7 ni se habilitó aceptación legal en producción.
+
 ## Gates que siguen abiertos
 
-1. Revisión/aprobación humana del PR; revisar el diff completo de sus 147 archivos antes de quitar draft o integrar.
+1. Revisión/aprobación humana del PR; revisar el diff completo de sus 160 archivos antes de quitar draft o integrar.
 2. Aprobación legal y factual de los cuatro documentos; confirmar datos del prestador, canales realmente monitorizados, proveedores, lugares/retenciones e instrumento contractual.
 3. ADR-SAAS-109 sigue `Propuesto`; por la regla de arquitectura del repositorio, no implementar la nueva facultad `EXPORTACION_CONTACTO_GOBERNAR` hasta aprobación explícita.
 4. No se verificó por fuente autorizada el contacto representante de Diana, el control del canal o proveedor de entrega; no hay instrucción de exportación verificable ni exportación integral real (Firestore y archivos) generada, entregada y recibida.

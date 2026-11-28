@@ -30,3 +30,18 @@ aprobación jurídica profesional. Faltan cierre factual y aprobación jurídica
 proveedores/canales verificados, decisión de ADR-SAAS-109, autorización y canal
 de exportación, certificación de supresión/conservación real, IAM productivo y
 revisión humana del PR #706.
+
+## Reconciliación CI y release — 2026-11-28T02:00Z
+
+- HEAD del PR: `7455ff75595edd6c88502626ec9b5477434f23d8`; base `main`:
+  `aa1c4fece1386edc6ba31b439a2be98ed9216d0b`.
+- CI exacta [46093033978](https://github.com/Glemynart/micafe-pos/actions/runs/46093033978)
+  terminó `success`: 129/129 pasos exitosos, cero fallidos, pendientes u omitidos.
+  Incluyó E2E de Backoffice, R1-A, P0-01, Bodega U4-U5 y E4.1.
+- El run anterior falló porque una prueba esperaba la versión `0.6` después de
+  cambiar el bundle vigente a `0.7`. Se corrigió en `7455ff7`; el E2E de Bodega
+  volvió a ejecutarse y su artefacto se publicó correctamente.
+- El PR #706 sigue abierto, en draft y sin revisión humana. La CI verde no cambia
+  el estado `BORRADOR/PREPARACION` ni habilita merge o publicación en producción.
+- No se desplegó v0.7 a staging ni producción, no se habilitó aceptación real,
+  no hubo cambio IAM productivo, exportación ni supresión de datos reales.
