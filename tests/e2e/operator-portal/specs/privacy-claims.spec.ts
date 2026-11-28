@@ -95,6 +95,7 @@ test("Backoffice tramita un reclamo sintético de principio a fin y preserva el 
     await page.goto("/backoffice/privacidad");
     await expect(page.getByRole("heading", { name: "Reclamos de privacidad" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Registrar reclamo verificado" })).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: testInfo.outputPath("privacy-claims-empty-state.png"), fullPage: true });
 
     const registro = page.locator("form").nth(1);
@@ -118,6 +119,7 @@ test("Backoffice tramita un reclamo sintético de principio a fin y preserva el 
     await expect(page.locator('p[role="status"]')).toContainText("Reclamo registrado");
     await expect(page.getByText("Caso consultado: reclamo en trámite")).toBeVisible();
     await expect(page.getByText("Solicitud sintética de prueba; no contiene datos personales.")).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: testInfo.outputPath("privacy-claims-open-synthetic.png"), fullPage: true });
 
     const codigo = page.getByLabel("Código del reclamo");
@@ -148,6 +150,7 @@ test("Backoffice tramita un reclamo sintético de principio a fin y preserva el 
     expect(clienteA.get("reclamosPrivacidadAbiertos")).toBe(0);
     expect(clienteB.get("reclamosPrivacidadAbiertos")).toBe(0);
     expect(anotacionesB.size).toBe(0);
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: testInfo.outputPath("privacy-claims-resolved-synthetic.png"), fullPage: true });
   } finally {
     await Promise.all([

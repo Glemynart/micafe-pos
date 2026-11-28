@@ -1,21 +1,39 @@
 # Implementación controlada de salida — estado real
 
-Fecha de actualización: 2026-11-27. `G-SAAS-02 / M2 / E2.2`.
+Fecha de actualización: 2026-11-28. `G-SAAS-02 / M2 / E2.2`.
 ADR-SAAS-100 aceptado para implementar por la orden posterior «ok resuelve eso».
 ADR-SAAS-101 aceptado expresamente para implementación y pruebas locales.
 ADR-SAAS-099 aceptado por separado para implementar aceptación legal versionada.
-ADR-SAAS-106 aceptado el 2026-11-27 para implementar una autorización de
-exportación de un solo uso por enlace verificado. El candidato implementa la
-validación del expediente server-side y el bloqueo de una ejecución a un solo
-operador/run. Todavía no existe un flujo que emita y entregue el enlace ni un
-handler web que lo consuma; el proveedor y el registro confiable de contacto
-siguen pendientes. No habilita exportaciones con datos reales.
-El 2026-11-24 se desplegaron las dos callables `saas-legal` y Firestore Rules en
-staging y producción desde `81ba393f2f85956934b484f0ae9b32923b10e0aa`; las Rules
-activas coinciden con el candidato. Ambas callables rechazan peticiones anónimas
-con `UNAUTHENTICATED` (HTTP 401). PR #706 continúa abierto en draft y App Hosting
-no recibió el candidato. No se ejecutó smoke autenticado ni se registraron
-aceptaciones durante el corte.
+ADR-SAAS-106/107/108/109/112 aceptados para implementación sintética; ninguno
+autoriza contacto real, proveedor, exportación real, aceptación legal productiva,
+supresión real o cambios IAM productivos.
+
+### Staging verificado — commit funcional `3fedf75`
+
+- App Hosting `build-2026-11-28-006`: `READY`, rollout `SUCCEEDED`, fuente exacta
+  `3fedf75f0114930b43bc616900549ce529a548b6` y 100 % del tráfico de staging.
+- Firestore Rules del PR publicadas a `micafe-pos-staging`; CI y el smoke
+  autenticado sintético pasan. Las cuatro páginas legales y assets v0.9 se
+  sirven con huellas coincidentes y estado `BORRADOR/PREPARACION`.
+- Cinco callables `saas-legal` activas con la identidad dedicada
+  `saas-legal-runtime@micafe-pos-staging.iam.gserviceaccount.com`. La nueva
+  `administrarContactoExportacionSaas` y la pantalla de Backoffice permiten
+  únicamente fixtures Emulator `demo-*`; no hay proveedor conectado ni se
+  registra un contacto real. El orquestador de aprobación de exportación sigue
+  como módulo interno: no tiene callable/página conectada ni proveedor real.
+- El E2E visual autenticado de reclamos pasa 2/2 con identidades y tenants
+  sintéticos; aislamiento, denegación y limpieza se verifican. Los screenshots
+  están en `evidence/screenshots/2026-11-28-pr706-staging/`.
+
+### Producción
+
+- No se desplegaron App Hosting, Functions, Rules ni IAM en producción durante
+  este corte. Se conserva el build anterior de App Hosting.
+- `/terminos` aún contiene “Café Atrato”; `/privacidad`, `/aviso-autorizacion`
+  y `/anexo-tratamiento` responden 404. Los nuevos textos siguen en
+  `BORRADOR/PREPARACION`; la aceptación real permanece fail-closed.
+- No se generó ni entregó una exportación real, no se suprimieron datos reales y
+  no se probó restauración ni expiración de respaldos reales.
 
 ## Corte de proveedores
 
@@ -174,8 +192,8 @@ expediente restringido de reclamos queda separado de la exportación tenant-wide
 ## Validación reproducible
 
 ```powershell
-node --test scripts/legal/legal-tools.test.mjs scripts/legal/tenant-export-cli.test.mjs
-npx firebase --project demo-dusema-export emulators:exec --only firestore "node --test scripts/legal/emulator-export.test.mjs"
+node --test scripts/legal/legal-tools.test.mjs scripts/legal/tenant-export-cli.test.mjs scripts/legal/export-authorization.test.mjs scripts/legal/export-approval-link.test.mjs
+npx firebase --project demo-dusema-export emulators:exec --only firestore,storage "node --test scripts/legal/emulator-export.test.mjs scripts/legal/export-approval-link.emulator.test.mjs"
 npx firebase --project demo-dusema-erasure emulators:exec --only firestore "node --test scripts/legal/emulator-erasure.test.mjs"
 npx tsc --noEmit
 npm run build
@@ -202,6 +220,14 @@ exportación, argumentos CLI, reconciliación y autorización aprobaron; una pru
 adicional con Firestore Emulator usó dos tenants sintéticos y aprobó. El primer
 intento del Emulator tomó JDK 17 del PATH y falló; se repitió con el JDK 21
 instalado y pasó. No hubo smoke autenticado en staging ni lectura de datos reales.
+
+Revalidación sintética local del 2026-11-28 con JDK 21: las suites de
+exportación, autorización, enlace y CLI aprobaron 51/51; la exportación,
+Storage y aprobación por enlace en Emulator aprobaron 2/2; y la
+supresión/conservación con Firestore Emulator aprobó 2/2. La documentación
+anterior omitía Storage en el comando de exportación: el intento falló al subir
+el activo sintético, no tocó servicios remotos, y el comando reproducible quedó
+corregido arriba.
 
 ## Revalidación y rollout en staging — 2026-11-27 17:24 UTC
 

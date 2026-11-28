@@ -277,3 +277,27 @@ sin cambios.
   técnico exacto. No aprueba jurídicamente los documentos, no habilita aceptación
   real y no certifica exportación, supresión, retención o restauración con datos
   reales.
+
+## Revalidación de salida y smoke visual — 2026-11-28 19:00 UTC
+
+- Suites locales sintéticas de autorización, aprobación de enlace, reconciliación,
+  exportación y CLI: **51/51 PASS**. Emulator de Firestore+Storage para paquete
+  y aprobación de enlace: **2/2 PASS**. Emulator de supresión/conservación:
+  **2/2 PASS**. Las ejecuciones usaron proyectos `demo-*` y JDK 21; no se
+  conectaron a proyectos productivos.
+- El primer comando local de exportación intentó arrancar solo Firestore y falló
+  al subir el activo sintético porque también requiere Storage. Se corrigió el
+  comando reproducible en `IMPLEMENTACION-SALIDA.md`; la CI ya arrancaba ambos
+  emuladores. La repetición correcta pasó 2/2.
+- Tras ajustar la captura para volver al inicio antes de screenshots, el smoke
+  autenticado de staging pasó **2/2** (25.1 s): login, trámite sintético,
+  constancia/respuesta/cierre, aislamiento y denegación al operador sin facultad.
+  El E2E elimina y verifica la ausencia de casos, empresas, clientes, operadores
+  y usuario Auth sintéticos. La inspección visual confirmó la captura completa
+  sin el encabezado fijo desplazado al centro.
+- Capturas sin datos reales, generadas durante el mismo smoke:
+  `evidence/screenshots/2026-11-28-pr706-staging/privacy-claims-empty-state.png`,
+  `privacy-claims-open-synthetic.png` y `privacy-claims-resolved-synthetic.png`.
+- Esta evidencia local y sintética no certifica exportación/entrega real,
+  supresión de cuentas u objetos productivos, expiración de respaldos ni revisión
+  jurídica de los documentos.
