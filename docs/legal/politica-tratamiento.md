@@ -163,16 +163,29 @@ se evaluarán conforme al rol del receptor y los requisitos legales; no se presu
 que un contrato con un proveedor extranjero cubre cualquier transferencia.
 
 La revisión técnica identificó Google/Firebase/GCP para infraestructura,
-autenticación, archivos y notificaciones; Vercel para builds/previews históricos;
-y el correo Gmail de contacto declarado. PR #704 retiró Analytics y deshabilitó
-nuevos despliegues Git automáticos de Vercel. En la revisión del 2026-11-26 se
-retiraron 106 previews y su alias público histórico; cuatro deployments
-marcados `Production` permanecen en Vercel y redirigen a SSO. Producción sirve
-desde Firebase App Hosting. No se cambió el plan Hobby ni se eliminaron esos
-deployments; la aptitud contractual del uso residual sigue sin resolverse. Sus
-funciones, regiones verificadas y contratos pendientes constan en el inventario
-operativo interno. No afirmar que todos los datos permanecen en Colombia ni
-atribuir a toda la plataforma una sola región.
+autenticación, archivos y notificaciones; Vercel para builds/previews históricos
+y para un proyecto separado de staging asociado a Dusema; y el correo Gmail de
+contacto declarado. PR #704 retiró Analytics y deshabilitó nuevos despliegues
+Git automáticos del proyecto histórico `cafeatrato`. En la revisión del
+2026-11-26 se retiraron 106 previews y su alias público histórico; cuatro
+deployments marcados `Production` permanecen en Vercel y redirigen a SSO.
+Producción POS sirve desde Firebase App Hosting.
+
+La revalidación del 2026-11-28 encontró además un proyecto Vercel de staging
+separado, con despliegues Git habilitados y un dominio personalizado que no está
+cubierto por la protección SSO de deployments. No se inspeccionó su contenido
+ni se verificó si recibe datos personales del POS; no se afirma que los haya
+recibido. La cuenta observada está en Hobby: sus [términos](https://vercel.com/legal/terms)
+limitan el plan a uso personal/no comercial e incluyen una cláusula de
+entrenamiento sobre contenido. El [DPA publicado](https://vercel.com/legal/dpa)
+aplica al tratamiento por cuenta de clientes Pro y Enterprise, no Hobby. Por
+tanto, no se declara ese staging como subencargado autorizado para datos del POS
+hasta verificar el flujo y la cobertura aplicable. El plan Hobby, la retención
+de los artefactos históricos y los contratos siguen sin resolverse; no se cambió
+el plan ni se eliminaron deployments. Sus funciones, regiones verificadas y
+contratos pendientes constan en el inventario operativo interno. No afirmar que
+todos los datos permanecen en Colombia ni atribuir a toda la plataforma una sola
+región.
 
 El código también contiene integraciones condicionales en superficies heredadas:
 Wompi para el checkout de reservas públicas, Make.com para un webhook opcional de

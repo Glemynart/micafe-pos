@@ -487,6 +487,11 @@ La aprobación jurídica/factual de los documentos sigue pendiente.
   el DPA publicado por Vercel aplica a clientes Pro/Enterprise, no a Hobby. No
   se verificó si datos de clientes transitan por `saa-s-web` ni la preferencia
   de entrenamiento de la cuenta; no se afirma que haya ocurrido uso o exposición.
+- La política v0.8 en revisión distingue ahora el staging separado, el estado
+  contractual de Hobby/DPA y el límite de que el flujo de datos al POS no fue
+  verificado. Su hash canónico UTF-8/LF es
+  `8138ca93e36b36293b1366913b2ff72795701ff2fe9d544955526f1ea0fce31d`; el test
+  `npm run test:legal-bundle` pasó 2/2. Este contenido aún no está desplegado.
 - Esto amplía y supersede el alcance de la entrada de la fila Vercel arriba,
   que solo cubría `cafeatrato`: no se ha resuelto la aptitud del proyecto de
   staging bajo el plan Hobby. No se cambió el plan, el proyecto, aliases ni

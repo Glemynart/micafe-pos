@@ -1617,3 +1617,16 @@ completa está en [`PROVEEDORES-EVIDENCIA-2026-11.md`](PROVEEDORES-EVIDENCIA-202
   preferencia de la cuenta, así que no se concluye que hayan pasado datos de
   clientes. Sí queda sin demostrar un acuerdo de encargado aplicable si datos
   personales del POS transitan por ese servicio.
+
+## Alineación del borrador de política con el inventario Vercel — 2026-11-28
+
+- Se actualizó el documento fuente y el asset `public/legal/v0.8/politica-tratamiento.md`
+  para distinguir producción POS en Firebase del proyecto de staging separado
+  observado en Vercel, sin afirmar que el staging recibió datos del POS.
+- El SHA-256 canónico UTF-8/LF de política v0.8 es
+  `8138ca93e36b36293b1366913b2ff72795701ff2fe9d544955526f1ea0fce31d`; fuente,
+  asset y catálogo coinciden. `npm run test:legal-bundle` pasó 2/2 y
+  `git diff --check` pasó.
+- Staging todavía sirve build `build-2026-11-28-003` desde `3de251d`, que no
+  incluye esta actualización. Se desplegará el candidato solo después de CI
+  verde para el SHA exacto; producción y aceptación permanecen sin cambios.

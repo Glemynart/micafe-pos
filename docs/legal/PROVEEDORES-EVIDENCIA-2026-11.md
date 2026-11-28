@@ -316,6 +316,34 @@ borraron deployments y no se incurrió en cargos. El siguiente paso externo
 concreto es que el propietario confirme la pausa escribiendo el nombre del
 proyecto en la CLI interactiva; el dominio de POS permanece en App Hosting.
 
+### Proyecto Vercel de staging separado — 2026-11-28
+
+La revalidación ampliada enumeró `saa-s-web`, un proyecto separado del proyecto
+histórico `cafeatrato`, ligado al repositorio público `Glemynart/SaaS` (`apps/web`)
+y al dominio `staging.dusema.com`. El proyecto tiene despliegues Git activos y
+la protección SSO excluye dominios personalizados. Solicitudes HTTP anónimas de
+solo encabezados a `staging.dusema.com` y `saa-s-web-two.vercel.app` devolvieron
+200. No se leyó el contenido ni se verificó si la app pertenece al alcance del
+POS o procesa datos personales de sus clientes.
+
+La consulta reportó 591 previews paginados (531 `READY`, 60 `CANCELED`) con
+fechas del 2026-10-29 al 2026-11-17. La retención configurada en la API es de
+30 días/conservar 10, lo que no demuestra purga efectiva. El equipo continúa en
+Hobby; los [términos vigentes](https://vercel.com/legal/terms) limitan Hobby a
+uso personal/no comercial y contemplan uso de contenido para entrenamiento de
+modelos. El [DPA vigente](https://vercel.com/legal/dpa) aplica a clientes Pro y
+Enterprise, no a Hobby. No se examinó tráfico, datos, configuración de IA o
+variables/secretos. No se puede certificar ni que datos del POS se enviaron ni
+que exista cobertura DPA aplicable para ese proyecto.
+
+No se pausó, restringió, borró o migró este staging: pertenece a un proyecto y
+repositorio separados, su dominio personalizado está activo y cambiar su acceso
+podría interrumpir el trabajo de ese equipo. Tampoco se cambió de plan ni se
+generaron costos. Resolver si se retira/migra o si se adopta un plan/contrato
+comercial compatible queda como bloqueo externo; consultar
+[`VERCEL-PROYECTOS-DUSEMA-READONLY-2026-11-28.md`](evidence/VERCEL-PROYECTOS-DUSEMA-READONLY-2026-11-28.md)
+para la evidencia detallada.
+
 ### Corrección de inventario y protección de Vercel — 2026-11-26 16:08 UTC
 
 La observación de las 15:12 que decía que las cuatro URLs no tenían alias se

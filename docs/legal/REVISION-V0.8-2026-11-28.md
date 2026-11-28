@@ -29,7 +29,7 @@ v0.7 se preservan sin cambios; v0.8 contiene copias exactas de las fuentes
 | Documento | SHA-256 UTF-8/LF |
 | --- | --- |
 | Términos | `922c841d7f62fbdc225e01b3d4735751aa761fccc945bd5a98996b52973dd17d` |
-| Política de tratamiento | `278f03ccfb1b7a12a3954a8cb5caabceb24e1dfd49b67b764845fac2ac44faf2` |
+| Política de tratamiento | `8138ca93e36b36293b1366913b2ff72795701ff2fe9d544955526f1ea0fce31d` |
 | Aviso de autorización | `2a5da1937dead674b459d2b8c85d9940c7e48a5233b863a63f06041c119d4491` |
 | Anexo por tenant | `fd9d857f510b0fe5feda31f980b87a2f101dd4028f464e289ae6d36bf35c40d7` |
 
@@ -67,6 +67,21 @@ v0.7 se preservan sin cambios; v0.8 contiene copias exactas de las fuentes
 - Producción no cambió: `/terminos` sigue con contenido heredado de Café Atrato; las otras tres rutas legales continúan en 404.
 - No se generó ni entregó una exportación real, no se suprimieron datos y no se cambió IAM productivo.
 - Continúan pendientes la aprobación factual/jurídica, la verificación de canales y proveedores, la autorización verificable de exportación, la certificación de supresión/conservación y la auditoría final del PR #706.
+
+## Reconciliación del inventario Vercel — 2026-11-28
+
+- La política v0.8 ahora distingue el hosting productivo POS en Firebase del
+  proyecto Vercel separado de staging asociado a Dusema. No afirma que ese
+  proyecto haya tratado datos personales del POS; el flujo no fue verificado.
+- El borrador identifica que el plan Hobby no es para uso comercial, que los
+  términos incluyen una cláusula de entrenamiento de contenido y que el DPA
+  publicado se limita a clientes Pro/Enterprise. Hasta validar flujo y contrato,
+  ese staging no se declara autorizado para tratar datos del POS.
+- Las fuentes y assets v0.8 se mantienen idénticos; se actualizó el hash
+  canónico UTF-8/LF a `8138ca93e36b36293b1366913b2ff72795701ff2fe9d544955526f1ea0fce31d`
+  en la tabla y catálogo. `npm run test:legal-bundle` pasó 2/2 y
+  `git diff --check` pasó. El nuevo texto no se ha desplegado; requiere CI del
+  commit y un rollout/smoke separado en staging.
 
 ## Rollout exacto posterior a CI — 2026-11-28 10:41 UTC
 
