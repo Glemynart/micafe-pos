@@ -323,8 +323,14 @@ histórico `cafeatrato`, ligado al repositorio público `Glemynart/SaaS` (`apps/
 y al dominio `staging.dusema.com`. El proyecto tiene despliegues Git activos y
 la protección SSO excluye dominios personalizados. Solicitudes HTTP anónimas de
 solo encabezados a `staging.dusema.com` y `saa-s-web-two.vercel.app` devolvieron
-200. No se leyó el contenido ni se verificó si la app pertenece al alcance del
-POS o procesa datos personales de sus clientes.
+200. Un GET acotado a `/` mostró en el título una aplicación de gestión laboral,
+distinta de la UI del POS. El escaneo automatizado del HTML inicial detectó
+cuatro patrones de correo en atributos `href` y ocho secuencias numéricas de
+9–12 dígitos; no se guardaron los valores ni se hizo revisión manual del estado
+serializado. No se verificó si la app pertenece al alcance del POS o procesa
+datos personales de sus clientes. Los patrones pueden ser texto de contacto o
+artefactos de código; no se clasifican como datos personales sin una revisión
+controlada adicional.
 
 La consulta reportó 591 previews paginados (531 `READY`, 60 `CANCELED`) con
 fechas del 2026-10-29 al 2026-11-17. La retención configurada en la API es de
@@ -339,8 +345,10 @@ que exista cobertura DPA aplicable para ese proyecto.
 No se pausó, restringió, borró o migró este staging: pertenece a un proyecto y
 repositorio separados, su dominio personalizado está activo y cambiar su acceso
 podría interrumpir el trabajo de ese equipo. Tampoco se cambió de plan ni se
-generaron costos. Resolver si se retira/migra o si se adopta un plan/contrato
-comercial compatible queda como bloqueo externo; consultar
+generaron costos. Esto es un hallazgo adyacente a #706, no evidencia de que el
+POS use ese proyecto. Antes de declarar regularizado el uso comercial de Vercel
+para Dusema, hay que clasificar el flujo/alcance y retirar/migrar el hosting o
+adoptar un plan/contrato comercial compatible; consultar
 [`VERCEL-PROYECTOS-DUSEMA-READONLY-2026-11-28.md`](evidence/VERCEL-PROYECTOS-DUSEMA-READONLY-2026-11-28.md)
 para la evidencia detallada.
 

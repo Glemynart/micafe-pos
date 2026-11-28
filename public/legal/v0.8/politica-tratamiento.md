@@ -172,10 +172,11 @@ deployments marcados `Production` permanecen en Vercel y redirigen a SSO.
 Producción POS sirve desde Firebase App Hosting.
 
 La revalidación del 2026-11-28 encontró además un proyecto Vercel de staging
-separado, con despliegues Git habilitados y un dominio personalizado que no está
-cubierto por la protección SSO de deployments. No se inspeccionó su contenido
-ni se verificó si recibe datos personales del POS; no se afirma que los haya
-recibido. La cuenta observada está en Hobby: sus [términos](https://vercel.com/legal/terms)
+separado, cuya portada identifica una aplicación de gestión laboral distinta
+de la interfaz del POS. Tiene despliegues Git habilitados y un dominio
+personalizado que no está cubierto por la protección SSO de deployments. No se
+verificó si recibe datos personales del POS; no se afirma que los haya recibido.
+La cuenta observada está en Hobby: sus [términos](https://vercel.com/legal/terms)
 limitan el plan a uso personal/no comercial e incluyen una cláusula de
 entrenamiento sobre contenido. El [DPA publicado](https://vercel.com/legal/dpa)
 aplica al tratamiento por cuenta de clientes Pro y Enterprise, no Hobby. Por

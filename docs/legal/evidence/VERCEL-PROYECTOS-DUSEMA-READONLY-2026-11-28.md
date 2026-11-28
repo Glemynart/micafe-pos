@@ -35,6 +35,15 @@ deployment, dominio o proyecto.
   esos dos dominios devolvieron HTTP 200. No se leyó el contenido entregado y
   este resultado no demuestra por sí solo que se expongan datos o funciones
   privadas.
+- Una lectura GET anónima y acotada de `/` en `staging.dusema.com` devolvió
+  HTTP 200. El título HTML identifica una aplicación de gestión laboral para
+  operadores educativos, distinta de la interfaz del POS. No se verificó si
+  forma parte del servicio POS o si procesa datos de sus clientes. En el HTML
+  inicial, un conteo automatizado detectó cuatro patrones de correo solo dentro
+  de atributos `href` (ninguno en texto visible) y ocho secuencias numéricas de
+  9–12 dígitos. No se conservaron ni registraron los valores; no se hizo una
+  revisión manual del HTML, del estado serializado ni de respuestas API, así
+  que esos patrones no están clasificados como datos personales o registros.
 - Se recorrió la paginación de previews del proyecto `saa-s-web`: 591 entradas,
   531 `READY` y 60 `CANCELED`, con fechas observadas entre el 29 de octubre y
   el 17 de noviembre de 2026. La muestra no establece por sí sola la política
@@ -44,19 +53,22 @@ deployment, dominio o proyecto.
 
 ## Evaluación y límite operativo
 
-Queda un bloqueo de aptitud comercial: el hosting de staging `saa-s-web` está
-activo en Hobby y publica un dominio personalizado con HTTP 200. La protección
-SSO de previews no sustituye el requisito contractual del plan. No se cambió el
-plan porque esta revisión no autoriza un costo, y no se deshabilitó el proyecto,
-la creación de previews ni los dominios porque son la superficie de staging de
-otro repositorio y la operación podría interrumpir su trabajo activo.
+Queda un bloqueo de aptitud comercial para el uso observado de Vercel: el
+proyecto de staging `saa-s-web` está activo en Hobby y sirve una aplicación
+separada de gestión laboral por un dominio personalizado con HTTP 200. La
+protección SSO de previews no sustituye el requisito contractual del plan. La
+relación de esa aplicación con el POS y su flujo de datos no están demostrados;
+este hallazgo es adyacente al corte #706 y no prueba que Vercel procese datos
+personales del POS. No se cambió el plan porque la misión excluye costos, y no
+se deshabilitó el proyecto, previews ni dominios porque son la superficie de
+staging de otro repositorio y la operación podría interrumpir su trabajo activo.
 
-Antes de considerar resuelto el bloqueo, el responsable del proyecto debe
-retirar/migrar ese hosting de uso comercial a una plataforma autorizada o
-aprobar una alternativa comercial compatible. Mientras se mantenga el plan
-Hobby, no se debe afirmar que el uso comercial de Vercel está regularizado. La
-revisión de `cafeatrato` tampoco cierra expiración/retención de artefactos ni
-contenido de previews de `saa-s-web`.
+Antes de declarar que el uso de Vercel por Dusema está regularizado, se debe
+determinar si `saa-s-web` pertenece a la operación comercial, clasificar sus
+flujos y resolver hosting/contrato mediante migración o alternativa autorizada.
+Mientras se mantenga el plan Hobby, no se debe afirmar que el uso comercial de
+Vercel está regularizado. La revisión de `cafeatrato` tampoco cierra
+expiración/retención de artefactos ni contenido de previews de `saa-s-web`.
 
 ## Fuentes técnicas
 

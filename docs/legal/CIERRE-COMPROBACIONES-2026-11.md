@@ -1595,8 +1595,13 @@ completa está en [`PROVEEDORES-EVIDENCIA-2026-11.md`](PROVEEDORES-EVIDENCIA-202
   `Glemynart/SaaS`, permite deployments Git y sirve `staging.dusema.com`.
 - La protección SSO del proyecto excluye sus dominios personalizados. Los
   dominios `staging.dusema.com` y `saa-s-web-two.vercel.app` respondieron HTTP
-  200 a solicitudes anónimas de encabezados; no se inspeccionó contenido ni se
-  infiere exposición de datos privados. La lista paginada reportó 591 previews
+  200 a solicitudes anónimas de encabezados; no se hizo revisión manual de la
+  aplicación ni se infiere exposición de datos privados. Un GET acotado a `/` identificó en el
+  título una aplicación de gestión laboral, distinta de la UI del POS. El
+  escaneo automatizado del HTML inicial detectó cuatro patrones de correo en
+  atributos `href` y ocho secuencias numéricas de 9–12 dígitos, sin conservar
+  valores; no se determinó si son datos personales o registros ni si la app
+  procesa datos del POS. La lista paginada reportó 591 previews
   históricos (531 `READY`, 60 `CANCELED`); no se certificó su expiración
   efectiva. La retención configurada (30 días/10 deployments) no es prueba de
   purga real.
@@ -1630,3 +1635,19 @@ completa está en [`PROVEEDORES-EVIDENCIA-2026-11.md`](PROVEEDORES-EVIDENCIA-202
 - Staging todavía sirve build `build-2026-11-28-003` desde `3de251d`, que no
   incluye esta actualización. Se desplegará el candidato solo después de CI
   verde para el SHA exacto; producción y aceptación permanecen sin cambios.
+
+## Aclaración de alcance de Vercel y política v0.8 — 2026-11-28
+
+- Un GET anónimo acotado a `staging.dusema.com/` devolvió HTTP 200 y un título
+  de gestión laboral, distinto del POS. El escaneo automatizado del HTML inicial
+  encontró cuatro patrones de correo dentro de atributos `href` y ocho
+  secuencias numéricas; no se registraron valores, no se hizo revisión manual
+  del estado serializado y no se clasificaron como datos personales. No se ha
+  demostrado que esa aplicación procese datos del POS.
+- Se ajustó el texto de política v0.8 para nombrar el tipo distinto de aplicación
+  y mantener el flujo de datos como no verificado. El hash canónico UTF-8/LF
+  actual es `405c40f992b6c73bac87c8e03131bb244bfdb64f704094423cc2833ff96090f4`;
+  fuente y asset coinciden. `npm run test:legal-bundle` pasó 2/2 tras actualizar
+  el catálogo.
+- Este hallazgo Vercel es adyacente al corte #706, no evidencia directa de que
+  el POS use ese proyecto. No se cambió configuración ni se desplegó nada.

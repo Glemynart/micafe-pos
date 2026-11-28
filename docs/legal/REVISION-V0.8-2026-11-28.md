@@ -29,7 +29,7 @@ v0.7 se preservan sin cambios; v0.8 contiene copias exactas de las fuentes
 | Documento | SHA-256 UTF-8/LF |
 | --- | --- |
 | Términos | `922c841d7f62fbdc225e01b3d4735751aa761fccc945bd5a98996b52973dd17d` |
-| Política de tratamiento | `8138ca93e36b36293b1366913b2ff72795701ff2fe9d544955526f1ea0fce31d` |
+| Política de tratamiento | `405c40f992b6c73bac87c8e03131bb244bfdb64f704094423cc2833ff96090f4` |
 | Aviso de autorización | `2a5da1937dead674b459d2b8c85d9940c7e48a5233b863a63f06041c119d4491` |
 | Anexo por tenant | `fd9d857f510b0fe5feda31f980b87a2f101dd4028f464e289ae6d36bf35c40d7` |
 
@@ -78,10 +78,24 @@ v0.7 se preservan sin cambios; v0.8 contiene copias exactas de las fuentes
   publicado se limita a clientes Pro/Enterprise. Hasta validar flujo y contrato,
   ese staging no se declara autorizado para tratar datos del POS.
 - Las fuentes y assets v0.8 se mantienen idénticos; se actualizó el hash
-  canónico UTF-8/LF a `8138ca93e36b36293b1366913b2ff72795701ff2fe9d544955526f1ea0fce31d`
+  canónico UTF-8/LF a `405c40f992b6c73bac87c8e03131bb244bfdb64f704094423cc2833ff96090f4`
   en la tabla y catálogo. `npm run test:legal-bundle` pasó 2/2 y
   `git diff --check` pasó. El nuevo texto no se ha desplegado; requiere CI del
   commit y un rollout/smoke separado en staging.
+
+### Aclaración de alcance Vercel — 2026-11-28
+
+- La lectura pública acotada de `staging.dusema.com/` mostró un título de una
+  aplicación de gestión laboral, distinta de la interfaz del POS. No se acreditó
+  que trate datos personales del POS.
+- Se ajustó el borrador para identificar esa superficie separada y mantener
+  explícito que su flujo de datos no está verificado. No se incluyeron valores
+  de correo ni secuencias numéricas detectados por el escaneo automatizado del
+  HTML inicial.
+- Hash canónico UTF-8/LF actual de la política v0.8:
+  `405c40f992b6c73bac87c8e03131bb244bfdb64f704094423cc2833ff96090f4`.
+  La fuente y el asset coinciden; `npm run test:legal-bundle` terminó 2/2
+  después de actualizar el catálogo.
 
 ## Rollout exacto posterior a CI — 2026-11-28 10:41 UTC
 

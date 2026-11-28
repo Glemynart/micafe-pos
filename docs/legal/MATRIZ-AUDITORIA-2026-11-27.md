@@ -477,8 +477,13 @@ La aprobación jurídica/factual de los documentos sigue pendiente.
   `Glemynart/SaaS` (`apps/web`), con deployments Git habilitados y dominio
   `staging.dusema.com`. Su protección SSO excluye dominios personalizados;
   solicitudes anónimas de encabezados a `staging.dusema.com` y
-  `saa-s-web-two.vercel.app` devolvieron HTTP 200. No se leyó el cuerpo de las
-  respuestas ni se probó acceso a datos privados.
+  `saa-s-web-two.vercel.app` devolvieron HTTP 200 en solicitudes de encabezados;
+  no se hizo revisión manual de la aplicación ni se probó acceso a datos privados.
+- Un GET acotado al `/` del staging devolvió título de una app de gestión laboral,
+  distinta de la UI POS. El escaneo automatizado del HTML inicial encontró cuatro
+  patrones de correo en atributos href y ocho secuencias numéricas; los valores
+  no se conservaron y no se clasificaron. No se determinó si esa app pertenece al
+  servicio POS o procesa datos de sus clientes.
 - El inventario paginado de previews contó 591 deployments (531 `READY`, 60
   `CANCELED`), con fechas observadas entre el 29-oct y el 17-nov. No se verificó
   expiración efectiva de cada artefacto. La retención configurada de 30 días y
@@ -490,11 +495,13 @@ La aprobación jurídica/factual de los documentos sigue pendiente.
 - La política v0.8 en revisión distingue ahora el staging separado, el estado
   contractual de Hobby/DPA y el límite de que el flujo de datos al POS no fue
   verificado. Su hash canónico UTF-8/LF es
-  `8138ca93e36b36293b1366913b2ff72795701ff2fe9d544955526f1ea0fce31d`; el test
-  `npm run test:legal-bundle` pasó 2/2. Este contenido aún no está desplegado.
+  `405c40f992b6c73bac87c8e03131bb244bfdb64f704094423cc2833ff96090f4`; el test
+  `npm run test:legal-bundle` pasó 2/2 después de sincronizar el catálogo.
+  Este contenido aún no está desplegado.
 - Esto amplía y supersede el alcance de la entrada de la fila Vercel arriba,
-  que solo cubría `cafeatrato`: no se ha resuelto la aptitud del proyecto de
-  staging bajo el plan Hobby. No se cambió el plan, el proyecto, aliases ni
+  que solo cubría `cafeatrato`: no se ha resuelto la aptitud comercial del
+  hosting Vercel de Dusema. La app de staging pertenece a otro repo/proyecto y
+  no se ha demostrado un flujo de datos con el POS. No se cambió el plan, el proyecto, aliases ni
   dominios. Detalle: [revisión read-only de proyectos Vercel](evidence/VERCEL-PROYECTOS-DUSEMA-READONLY-2026-11-28.md).
 
 **Estado Vercel: BLOQUEADO para declarar uso comercial regularizado.** La
