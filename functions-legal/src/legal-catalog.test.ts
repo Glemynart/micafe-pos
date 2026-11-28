@@ -41,7 +41,7 @@ test("las páginas públicas resuelven la misma versión y ruta del bundle vigen
   for (const [pageKey, documentId] of publicDocuments) {
     const document = obtenerDocumentoLegalPublico(pageKey);
     assert.equal(document.id, documentId);
-    assert.equal(document.version, "0.8");
+    assert.equal(document.version, "0.9");
     assert.equal(document.estado, "BORRADOR");
     assert.ok(document.rutaPublica.startsWith(`/legal/v${document.version}/`));
     assert.ok(readFileSync(resolve(repository, "public", document.rutaPublica.slice(1)), "utf8"));
@@ -52,16 +52,27 @@ test("las páginas públicas resuelven la misma versión y ruta del bundle vigen
   assert.doesNotMatch(page, /v0\.5/);
 });
 
-test("la revisión 0.8 conserva intactos los borradores 0.7 servidos previamente", () => {
-  const archived = [
-    ["terminos-servicio.md", "efcd8eb2365386b8a4277fd7dd731895139fb0861fcc6dd2092fdcb2139d850b"],
-    ["politica-tratamiento.md", "64207fef36b1fab0ae468c26852863a82b7ac4d3d7e86c975dde9d1eb7a6392a"],
-    ["aviso-autorizacion.md", "5ab4a8e97dde0ee5d2b147d319c1a6d4de33a011615f8104f930d39d0144f47c"],
-    ["anexo-tratamiento.md", "7b5b7107e7d1a0e0e77b8da5057eaf56bce0c0b0e02ffba2425be0f12396138b"],
-  ] as const;
-  for (const [file, expectedHash] of archived) {
-    const bytes = bytesLf(resolve(repository, "public/legal/v0.7", file));
-    assert.equal(createHash("sha256").update(bytes).digest("hex"), expectedHash, `${file} v0.7 debe permanecer inmutable`);
+test("la revisión 0.9 conserva intactos los borradores 0.8 y 0.7 servidos previamente", () => {
+  const archived: Readonly<Record<string, readonly (readonly [string, string])[]>> = {
+    "0.7": [
+      ["terminos-servicio.md", "efcd8eb2365386b8a4277fd7dd731895139fb0861fcc6dd2092fdcb2139d850b"],
+      ["politica-tratamiento.md", "64207fef36b1fab0ae468c26852863a82b7ac4d3d7e86c975dde9d1eb7a6392a"],
+      ["aviso-autorizacion.md", "5ab4a8e97dde0ee5d2b147d319c1a6d4de33a011615f8104f930d39d0144f47c"],
+      ["anexo-tratamiento.md", "7b5b7107e7d1a0e0e77b8da5057eaf56bce0c0b0e02ffba2425be0f12396138b"],
+    ],
+    "0.8": [
+      ["terminos-servicio.md", "922c841d7f62fbdc225e01b3d4735751aa761fccc945bd5a98996b52973dd17d"],
+      ["politica-tratamiento.md", "405c40f992b6c73bac87c8e03131bb244bfdb64f704094423cc2833ff96090f4"],
+      ["aviso-autorizacion.md", "2a5da1937dead674b459d2b8c85d9940c7e48a5233b863a63f06041c119d4491"],
+      ["anexo-tratamiento.md", "fd9d857f510b0fe5feda31f980b87a2f101dd4028f464e289ae6d36bf35c40d7"],
+    ],
+  };
+
+  for (const [version, documents] of Object.entries(archived)) {
+    for (const [file, expectedHash] of documents) {
+      const bytes = bytesLf(resolve(repository, `public/legal/v${version}`, file));
+      assert.equal(createHash("sha256").update(bytes).digest("hex"), expectedHash, `${file} v${version} debe permanecer inmutable`);
+    }
   }
 });
 
