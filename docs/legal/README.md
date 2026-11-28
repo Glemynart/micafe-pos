@@ -201,7 +201,11 @@ Los cuatro assets v0.7 permanecen intactos y el bundle v0.8 tiene fuentes,
 descargas y hashes UTF-8/LF verificados por prueba automatizada.
 
 El bundle `dusema-pos-2026-11-v0.8` sigue en `PREPARACION`, con los cuatro
-documentos en `BORRADOR`. v0.8 aún no se desplegó a staging ni producción. Esta
-revisión no es aprobación jurídica. Siguen abiertos los gates de exactitud
+documentos en `BORRADOR`. Después de esta revisión documental se desplegó solo
+a staging mediante `build-2026-11-28-002` (fuente `485970a`); no se desplegó a
+producción ni se habilitó aceptación. El smoke autenticado sintético en staging
+pasó y está documentado en
+[`REVALIDACION-GATES-PR706-2026-11-28.md`](evidence/REVALIDACION-GATES-PR706-2026-11-28.md).
+Esta revisión no es aprobación jurídica. Siguen abiertos los gates de exactitud
 factual, contratos/canales de proveedores, contacto/canal para exportación,
 supresión y conservación reales, ADR-SAAS-109, IAM productivo y revisión humana.

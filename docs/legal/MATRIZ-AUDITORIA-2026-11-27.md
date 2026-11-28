@@ -377,6 +377,9 @@ Evidencia operativa detallada de esta relectura: [CI, rutas, smoke e IAM — 202
   las fuentes, los assets v0.8 y el catálogo se verifica con pruebas.
 - Las pruebas locales de aceptación legal, Emulator, bundle, TypeScript y builds
   pasaron. La CI del nuevo HEAD debe confirmarse después del push.
-- v0.8 no se desplegó a staging ni producción. El release productivo legal
-  sigue bloqueado por aprobación factual/jurídica, operación de exportación y
-  supresión real, IAM, revisión integral y otros gates ya registrados.
+- En el momento de esta comprobación local, v0.8 aún no se había desplegado.
+  Después se publicó solo en staging; el release productivo legal sigue
+  bloqueado por aprobación factual/jurídica, operación de exportación y
+  supresión real, IAM, revisión integral y otros gates ya registrados. La
+  evidencia del rollout posterior está en
+  `evidence/REVALIDACION-GATES-PR706-2026-11-28.md`.

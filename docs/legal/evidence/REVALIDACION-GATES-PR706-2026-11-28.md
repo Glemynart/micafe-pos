@@ -172,9 +172,10 @@ sin cambios.
   remoto `487a779` (run `46111554435`), no valida estos cambios locales. La rama
   parte de `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`; CI del nuevo HEAD
   queda pendiente de push.
-- No se desplegó v0.8 a staging o producción. Los hallazgos productivos,
-  exportación/supresión reales, aprobación jurídica/factual e IAM descritos
-  arriba continúan abiertos.
+- Al registrar esta sección de implementación local, v0.8 aún no se había
+  desplegado. El rollout posterior, limitado a staging, está registrado en la
+  sección siguiente. Los hallazgos productivos, exportación/supresión reales,
+  aprobación jurídica/factual e IAM descritos arriba continúan abiertos.
 
 ## Validación controlada en staging del commit 485970a — 2026-11-28
 

@@ -97,7 +97,8 @@
   aprobó contar los quince días hábiles desde el día siguiente a la recepción
   verificable del reclamo completo. El requerimiento de subsanación conserva su
   origen en la recepción inicial; los vencimientos históricos no se recalculan.
-  Implementación y validación sintética se están incorporando a #706. Esto no
+  La implementación se incorporó a #706 y se validó con datos sintéticos,
+  Emulator y staging. El bundle v0.8 sigue como borrador; su staging no
   constituye validación jurídica profesional ni activa el flujo en producción.
 
 - Provisionamiento reproducible de un tenant de referencia.

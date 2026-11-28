@@ -44,8 +44,12 @@ v0.7 se preservan sin cambios; v0.8 contiene copias exactas de las fuentes
 
 ## Límites operativos
 
-- No se desplegó v0.8 a staging ni producción ni se habilitó aceptación.
-- Staging conserva el bundle v0.7 anterior.
+- Después de esta revisión local, v0.8 se desplegó únicamente a staging con
+  `build-2026-11-28-002`, desde el commit `485970a`; el build quedó `READY` y
+  recibió el 100 % del tráfico de staging.
+- El smoke autenticado sintético de privacidad pasó 2/2. Las cuatro rutas y
+  assets versionados respondieron 200; sus hashes coincidieron con el bundle.
+- No se desplegó a producción ni se habilitó aceptación.
 - Producción no cambió: `/terminos` sigue con contenido heredado de Café Atrato; las otras tres rutas legales continúan en 404.
 - No se generó ni entregó una exportación real, no se suprimieron datos y no se cambió IAM productivo.
 - Continúan pendientes la aprobación factual/jurídica, la verificación de canales y proveedores, la autorización verificable de exportación, la certificación de supresión/conservación y la auditoría final del PR #706.
