@@ -22,19 +22,23 @@ test("ADR-SAAS-099: el recibo legal es inaccesible directamente desde clientes",
   }
 });
 
-test("ADR-SAAS-107/108: autoridad de contacto y ficha específica son inaccesibles desde clientes", async () => {
+test("ADR-SAAS-107/108/112: autoridad, destino de contacto y ficha específica son inaccesibles desde clientes", async () => {
   await clearRulesData();
   const suffix = randomUUID();
   const contactPath = `saas_export_contact_authorities/${suffix}`;
   const challengePath = `${contactPath}/challenges/ch-${suffix}`;
   const eventPath = `${contactPath}/events/e-${suffix}`;
   const versionPath = `${contactPath}/versions/v000001`;
+  const designationPath = `saas_export_contact_designations/${suffix}`;
+  const designationEventPath = `${designationPath}/events/e-${suffix}`;
   const annexPath = `saas_legal_tenant_annexes/${suffix}`;
   const annexVersionPath = `${annexPath}/versions/v000001`;
   await seedDocument(contactPath, { empresaId: suffix, estado: "ACTIVO" });
   await seedDocument(challengePath, { empresaId: suffix, tokenSha256: "synthetic" });
   await seedDocument(eventPath, { empresaId: suffix, tipo: "CONTACTO_VERIFICADO" });
   await seedDocument(versionPath, { empresaId: suffix, version: 1 });
+  await seedDocument(designationPath, { empresaId: suffix, estado: "ACTIVO", contacto: { destino: "synthetic@example.invalid" } });
+  await seedDocument(designationEventPath, { empresaId: suffix, tipo: "DESIGNACION_PROPUESTA" });
   await seedDocument(annexPath, { empresaId: suffix, schemaVersion: 1 });
   await seedDocument(annexVersionPath, { empresaId: suffix, revision: 1 });
   const clients = [
@@ -44,12 +48,13 @@ test("ADR-SAAS-107/108: autoridad de contacto y ficha específica son inaccesibl
     (await contextFor(fixtures.anonimo)).firestore(),
   ];
   for (const db of clients) {
-    for (const path of [contactPath, challengePath, eventPath, versionPath, annexPath, annexVersionPath]) {
+    for (const path of [contactPath, challengePath, eventPath, versionPath, designationPath, designationEventPath, annexPath, annexVersionPath]) {
       await expectDenied(db.doc(path).get());
       await expectDenied(db.doc(path).set({ empresaId: suffix, altered: true }));
       await expectDenied(db.doc(path).delete());
     }
     await expectDenied(db.collection("saas_export_contact_authorities").get());
+    await expectDenied(db.collection("saas_export_contact_designations").get());
   }
 });
 

@@ -564,3 +564,33 @@ plan de pago.
   Staging requiere su propio preflight operativo.
 - `ADR-SAAS-111` permanece propuesto; el riesgo de ACL de Storage no se modifica
   mediante esta decisión.
+
+## Fuente privada de designación — avance sintético, 2026-11-28
+
+- ADR-SAAS-112 fue aceptado por delegación técnica para cerrar el diseño de la
+  fuente server-only. La raíz `saas_export_contact_designations/{empresaId}`
+  conserva solo la designación vigente y el destino activo; sus eventos guardan
+  referencias/actores/versiones/fechas sin destino ni token. Reemplazo y
+  revocación invalidan desafíos previos; la revocación limpia el destino.
+- El alta del contacto, la verificación del desafío de un solo uso y el snapshot
+  contractual quedan enlazados por versión en transacción. El snapshot del anexo
+  vuelve a comprobar que la designación fuente siga activa. Rules deniegan
+  lectura y escritura desde SDKs de clientes.
+- Validaciones locales: `npx tsc --noEmit` y builds de `functions` y
+  `functions-legal` pasaron; pruebas unitarias `functions-legal` 35/35 PASS con
+  cinco suites Emulator omitidas por no tener Emulator conectado; suite legal
+  Emulator 6/6 PASS; Rules Emulator 52/52 PASS con JDK 21; bundle legal 3/3
+  PASS; `git diff --check` PASS.
+- Este corte solo implementa la fuente y el enlace transaccional. Aún no hay
+  callable ni UI de Backoffice para operar el contacto ni proveedor real para
+  enviar el desafío; no existe una designación real ni autorización exportada.
+  El cambio no se desplegó en staging o producción, no tocó IAM, no leyó ni
+  exportó datos reales y no activó documentos.
+- La fuente del destino de exportación solo está autorizada como implementación
+  sintética. El servidor usa Firebase Admin, cuyas operaciones no están
+  restringidas por Firestore Rules; por ello la separación IAM/identidad de
+  runtime sigue siendo un control independiente y permanece abierto en ADR-105.
+
+**Estado del corte:** prueba técnica sintética aprobada; operación real,
+proveedor, contacto/documento de instrucción, UI/callables, revisión jurídica,
+IAM productivo, Storage y release permanecen pendientes.

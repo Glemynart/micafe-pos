@@ -29,7 +29,7 @@ const SNAPSHOT_CONTRATO = {
 const REFERENCIA_CONTRATO = "suscripcion:r1";
 const ANNEX_AUTHORITY = {
   schemaVersion: 1, projectId: "demo-legal-unit", empresaId: "tenant-a", revision: 1, estado: "ACTIVO",
-  contacto: { id: "contact-a", version: 1, canal: "EMAIL_VERIFICADO", designacionRef: "designation:a", pruebaCanalRef: "channel:a", designadoEn: SERVER_DATE.toISOString(), verificadoEn: SERVER_DATE.toISOString() },
+  contacto: { id: "contact-a", version: 1, designacionVersion: 1, canal: "EMAIL_VERIFICADO", designacionRef: "designation:a", pruebaCanalRef: "channel:a", designadoEn: SERVER_DATE.toISOString(), verificadoEn: SERVER_DATE.toISOString() },
 };
 const ANNEX_RECORD = {
   schemaVersion: 1, empresaId: "tenant-a", revision: 1, estado: "VERIFICADO",

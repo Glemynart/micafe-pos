@@ -27,6 +27,7 @@ export type ContactAuthoritySnapshot = {
   contacto: {
     id: string;
     version: number;
+    designacionVersion: number;
     canal: "EMAIL_VERIFICADO" | "WHATSAPP_VERIFICADO";
     designacionRef: string;
     pruebaCanalRef: string;
@@ -137,7 +138,7 @@ export function validarAutoridadContacto(value: unknown, projectId: string, empr
   if (!record(value) || value.schemaVersion !== 1 || value.projectId !== projectId || value.empresaId !== empresaId
     || !validVersion(value.revision) || value.estado !== "ACTIVO" || !record(value.contacto)) return false;
   const contact = value.contacto;
-  return validId(contact.id) && validVersion(contact.version) && value.revision === contact.version
+  return validId(contact.id) && validVersion(contact.version) && validVersion(contact.designacionVersion) && value.revision === contact.version
     && typeof contact.canal === "string" && channels.has(contact.canal)
     && validRef(contact.designacionRef) && validRef(contact.pruebaCanalRef)
     && validDate(contact.designadoEn) && validDate(contact.verificadoEn);

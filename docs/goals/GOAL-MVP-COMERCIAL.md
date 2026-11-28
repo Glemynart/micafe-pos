@@ -99,6 +99,13 @@
   y UI con fixtures sintéticos/stub. No habilita contactos reales, proveedor,
   exportación, supresión, IAM ni despliegues; el smoke en staging requiere su
   preflight operativo.
+- **ADR-SAAS-112 / fuente privada de la designación, 2026-11-28:** aceptado
+  bajo la delegación técnica de esta misión. Habilita una fuente server-only
+  mínima del contacto designado, referencia de instrucción verificada por
+  operador con facultad dedicada y borrado del destino activo al reemplazar o
+  revocar. Solo fixtures sintéticos/Emulator; no habilita contactos reales,
+  proveedor, exportación, supresión, IAM o despliegues. La prueba de canal sigue
+  siendo separada y la exportación real falla cerrada sin proveedor probado.
 - **ADR-SAAS-110 / plazo de respuesta a reclamos, 2026-11-28:** el responsable
   aprobó contar los quince días hábiles desde el día siguiente a la recepción
   verificable del reclamo completo. El requerimiento de subsanación conserva su

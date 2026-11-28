@@ -1,5 +1,10 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { EXPORT_CONTACT_AUTHORITY_COLLECTION, validarAutoridadContacto, type ContactAuthoritySnapshot } from "./tenant-annex";
+import {
+  EXPORT_CONTACT_DESIGNATION_COLLECTION,
+  validarDesignacionContactoActiva,
+  validarDesignacionContactoPendiente,
+} from "./contact-designation";
 
 const idPattern = /^[A-Za-z0-9_-]{1,120}$/;
 const refPattern = /^[A-Za-z0-9._:-]{1,160}$/;
@@ -18,6 +23,7 @@ export type ContactDesignation = {
   destination: string;
   designationRef: string;
   designationAt: string;
+  designationVersion: number;
   designationVerified: true;
 };
 
@@ -30,6 +36,7 @@ type PendingContactChallenge = {
   designationRef: string;
   channelProofRef: string;
   designationAt: string;
+  designationVersion: number;
   tokenSha256: string;
   expectedVersion: number;
   createdAt: string;
@@ -78,6 +85,7 @@ export function createContactAuthorityWorkflow({
       || designation.designationVerified !== true || !idPattern.test(designation.contactId ?? "")
       || !["EMAIL_VERIFICADO", "WHATSAPP_VERIFICADO"].includes(designation.channel)
       || !refPattern.test(designation.designationRef ?? "") || !validDate(designation.designationAt)
+      || !Number.isSafeInteger(designation.designationVersion) || designation.designationVersion < 1
       || typeof designation.destination !== "string" || designation.destination.trim().length < 3
       || designation.destination.length > 320 || /[\r\n\u0000-\u001f]/.test(designation.destination)) {
       throw new Error("CONTACT_AUTHORITY_DESIGNATION_UNVERIFIED");
@@ -99,6 +107,7 @@ export function createContactAuthorityWorkflow({
       designationRef: designation.designationRef,
       channelProofRef: `channel:${challengeId}`,
       designationAt: designation.designationAt,
+      designationVersion: designation.designationVersion,
       tokenSha256: hashToken(token),
       createdAt: new Date(issuedAt).toISOString(),
       expiresAt: new Date(expiresAt).toISOString(),
@@ -162,6 +171,7 @@ export function createContactAuthorityWorkflow({
 export function createFirestoreContactAuthorityRepository({ db, serverTimestamp }: { db: any; serverTimestamp: () => unknown }): ContactAuthorityRepository {
   if (!db || typeof db.runTransaction !== "function" || typeof serverTimestamp !== "function") throw new Error("CONTACT_AUTHORITY_STORE_NOT_CONFIGURED");
   const tenantRef = (empresaId: string) => db.collection(EXPORT_CONTACT_AUTHORITY_COLLECTION).doc(empresaId);
+  const designationRef = (empresaId: string) => db.collection(EXPORT_CONTACT_DESIGNATION_COLLECTION).doc(empresaId);
   const eventRef = (empresaId: string, id: string) => tenantRef(empresaId).collection("events").doc(id);
   const challengeRef = (empresaId: string, id: string) => tenantRef(empresaId).collection("challenges").doc(id);
   const versionId = (version: number) => `v${String(version).padStart(6, "0")}`;
@@ -172,10 +182,16 @@ export function createFirestoreContactAuthorityRepository({ db, serverTimestamp 
         return await db.runTransaction(async (tx: any) => {
           const root = tenantRef(input.empresaId);
           const challenge = challengeRef(input.empresaId, input.challengeId);
-          const [rootSnap, challengeSnap] = await Promise.all([tx.get(root), tx.get(challenge)]);
+          const designation = designationRef(input.empresaId);
+          const [rootSnap, challengeSnap, designationSnap] = await Promise.all([tx.get(root), tx.get(challenge), tx.get(designation)]);
           const current = rootSnap.exists ? rootSnap.data() : null;
+          const currentDesignation = designationSnap.exists ? designationSnap.data() : null;
           if (challengeSnap.exists || current && (current.projectId !== input.projectId || current.empresaId !== input.empresaId
-            || !Number.isSafeInteger(current.revision) || current.revision < 0)) return null;
+            || !Number.isSafeInteger(current.revision) || current.revision < 0)
+            || !validarDesignacionContactoPendiente(currentDesignation, {
+              projectId: input.projectId, empresaId: input.empresaId, contactId: input.contactId,
+              channel: input.channel, designationRef: input.designationRef, designationVersion: input.designationVersion,
+            })) return null;
           const expectedVersion = (current?.revision ?? 0) + 1;
           tx.create(challenge, { ...input, expectedVersion });
           tx.create(eventRef(input.empresaId, `challenge-${input.challengeId}`), {
@@ -226,14 +242,20 @@ export function createFirestoreContactAuthorityRepository({ db, serverTimestamp 
         return await db.runTransaction(async (tx: any) => {
           const root = tenantRef(input.empresaId);
           const challenge = challengeRef(input.empresaId, input.challengeId);
-          const [rootSnap, challengeSnap] = await Promise.all([tx.get(root), tx.get(challenge)]);
+          const designation = designationRef(input.empresaId);
+          const [rootSnap, challengeSnap, designationSnap] = await Promise.all([tx.get(root), tx.get(challenge), tx.get(designation)]);
           const current = rootSnap.exists ? rootSnap.data() : null;
           const pending = challengeSnap.exists ? challengeSnap.data() : null;
+          const currentDesignation = designationSnap.exists ? designationSnap.data() : null;
           const nowMs = Date.parse(input.now);
           if (!pending || pending.projectId !== input.projectId || pending.empresaId !== input.empresaId
             || current && (current.projectId !== input.projectId || current.empresaId !== input.empresaId
               || !Number.isSafeInteger(current.revision) || current.revision < 0)
             || pending.state !== "DELIVERED" || !sameHash(pending.tokenSha256, input.tokenSha256)
+            || !validarDesignacionContactoPendiente(currentDesignation, {
+              projectId: input.projectId, empresaId: input.empresaId, contactId: pending.contactId,
+              channel: pending.channel, designationRef: pending.designationRef, designationVersion: pending.designationVersion,
+            })
             || Date.parse(pending.expiresAt) <= nowMs || !Number.isFinite(nowMs)
             || pending.expectedVersion !== (current?.revision ?? 0) + 1
             || !validDate(pending.createdAt) || !validDate(pending.expiresAt) || !validDate(pending.designationAt)
@@ -241,12 +263,14 @@ export function createFirestoreContactAuthorityRepository({ db, serverTimestamp 
             || Date.parse(pending.expiresAt) - Date.parse(pending.createdAt) > 10 * 60_000
             || !["EMAIL_VERIFICADO", "WHATSAPP_VERIFICADO"].includes(pending.channel)
             || !idPattern.test(pending.contactId) || !refPattern.test(pending.designationRef)
+            || !Number.isSafeInteger(pending.designationVersion) || pending.designationVersion < 1
             || !refPattern.test(pending.channelProofRef)) return null;
           const version = pending.expectedVersion as number;
           const activatedAt = serverTimestamp();
           const contact = {
             id: pending.contactId,
             version,
+            designacionVersion: pending.designationVersion,
             canal: pending.channel,
             designacionRef: pending.designationRef,
             pruebaCanalRef: pending.channelProofRef,
@@ -261,6 +285,7 @@ export function createFirestoreContactAuthorityRepository({ db, serverTimestamp 
           const event = eventRef(input.empresaId, `verified-${input.challengeId}`);
           tx.create(versionRef, { ...authority, creadoEn: activatedAt });
           tx.set(root, { ...authority, actualizadoEn: activatedAt, revocadaEn: null, revocadoPorUid: null });
+          tx.update(designation, { estado: "ACTIVO", actualizadoEn: activatedAt, canalVerificadoEn: input.now });
           tx.update(challenge, { state: "CONSUMED", consumedAt: activatedAt, tokenSha256: null });
           tx.create(event, {
             schemaVersion: 1, tipo: "CONTACTO_VERIFICADO", empresaId: input.empresaId, projectId: input.projectId,
@@ -274,15 +299,31 @@ export function createFirestoreContactAuthorityRepository({ db, serverTimestamp 
       try {
         return await db.runTransaction(async (tx: any) => {
           const root = tenantRef(input.empresaId);
+          const designation = designationRef(input.empresaId);
           const snap = await tx.get(root);
+          const designationSnap = await tx.get(designation);
           const current = snap.data();
-          if (!snap.exists || current.projectId !== input.projectId || current.empresaId !== input.empresaId
-            || current.estado !== "ACTIVO" || !validarAutoridadContacto(current, input.projectId, input.empresaId)) return false;
+          const currentDesignation = designationSnap.data();
+          if (!designationSnap.exists || currentDesignation.projectId !== input.projectId || currentDesignation.empresaId !== input.empresaId
+            || !["PENDIENTE_CANAL", "ACTIVO"].includes(currentDesignation.estado)
+            || !Number.isSafeInteger(currentDesignation.revision) || !currentDesignation.contacto?.id) return false;
           const event = eventRef(input.empresaId, `revoked-${input.eventId}`);
-          tx.update(root, { estado: "REVOCADO", revocadaEn: serverTimestamp(), revocadoPorUid: input.actorUid });
-          tx.create(event, {
-            schemaVersion: 1, tipo: "CONTACTO_REVOCADO", empresaId: input.empresaId, projectId: input.projectId,
-            actorUid: input.actorUid, version: current.revision, creadoEn: serverTimestamp(),
+          const revokedAt = serverTimestamp();
+          if (snap.exists && current.projectId === input.projectId && current.empresaId === input.empresaId && current.estado === "ACTIVO") {
+            tx.update(root, { estado: "REVOCADO", revocadaEn: revokedAt, revocadoPorUid: input.actorUid });
+            tx.create(event, {
+              schemaVersion: 1, tipo: "CONTACTO_REVOCADO", empresaId: input.empresaId, projectId: input.projectId,
+              actorUid: input.actorUid, version: current.revision, creadoEn: revokedAt,
+            });
+          }
+          tx.update(designation, {
+            estado: "REVOCADO", actualizadoEn: revokedAt,
+            contacto: { ...currentDesignation.contacto, destino: null },
+          });
+          tx.create(designation.collection("events").doc(`revoked-${String(currentDesignation.revision).padStart(6, "0")}`), {
+            schemaVersion: 1, tipo: "DESIGNACION_REVOCADA", empresaId: input.empresaId, projectId: input.projectId,
+            actorUid: input.actorUid, contactId: currentDesignation.contacto.id,
+            version: currentDesignation.revision, creadoEn: revokedAt,
           });
           return true;
         });
@@ -290,9 +331,18 @@ export function createFirestoreContactAuthorityRepository({ db, serverTimestamp 
     },
     async readActive(projectId, empresaId) {
       try {
-        const snap = await tenantRef(empresaId).get();
-        const value = snap.data();
-        return snap.exists && validarAutoridadContacto(value, projectId, empresaId) ? value : null;
+        return await db.runTransaction(async (tx: any) => {
+          const [snap, designationSnap] = await Promise.all([tx.get(tenantRef(empresaId)), tx.get(designationRef(empresaId))]);
+          const value = snap.data();
+          const designation = designationSnap.data();
+          return snap.exists && designationSnap.exists && validarAutoridadContacto(value, projectId, empresaId)
+            && validarDesignacionContactoActiva(designation, {
+              projectId, empresaId, contactId: value.contacto.id, channel: value.contacto.canal,
+              designationRef: value.contacto.designacionRef, designationAt: value.contacto.designadoEn,
+              designationVersion: value.contacto.designacionVersion,
+            })
+            ? value : null;
+        });
       } catch { return null; }
     },
   });

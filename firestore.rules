@@ -442,6 +442,14 @@ service cloud.firestore {
     match /saas_export_contact_authorities/{empresaId}/{document=**} {
       allow read, write: if false;
     }
+    // Los destinos de contacto de exportación contienen datos personales y son
+    // resolubles exclusivamente por Functions con autorización e IAM de servidor.
+    match /saas_export_contact_designations/{empresaId} {
+      allow read, write: if false;
+    }
+    match /saas_export_contact_designations/{empresaId}/{document=**} {
+      allow read, write: if false;
+    }
     // La ficha específica y sus versiones solo existen en el plano servidor.
     match /saas_legal_tenant_annexes/{empresaId} {
       allow read, write: if false;

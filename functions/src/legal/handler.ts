@@ -10,10 +10,12 @@ import {
   EXPORT_CONTACT_AUTHORITY_COLLECTION,
   TENANT_ANNEX_COLLECTION,
   crearSnapshotAnexoTenant,
+  validarAutoridadContacto,
   validarSnapshotAnexoPersistido,
   type TenantAnnexResult,
   type TenantAnnexSnapshot,
 } from "./tenant-annex";
+import { EXPORT_CONTACT_DESIGNATION_COLLECTION, validarDesignacionContactoActiva } from "./contact-designation";
 
 type Request = { auth?: { uid: string; token: Record<string, unknown> }; data?: unknown };
 type Tenant = Awaited<ReturnType<typeof exigirTenantActivo>>;
@@ -188,13 +190,22 @@ async function leerSnapshotAnexoTenant(input: { db: any; tx?: any; empresaId: st
   if (!projectId || !/^[A-Za-z0-9_-]{1,120}$/.test(projectId)) return { disponible: false, faltantes: ["proyecto de ejecución verificable"] };
   const annexRef = input.db.collection(TENANT_ANNEX_COLLECTION).doc(input.empresaId);
   const authorityRef = input.db.collection(EXPORT_CONTACT_AUTHORITY_COLLECTION).doc(input.empresaId);
+  const designationRef = input.db.collection(EXPORT_CONTACT_DESIGNATION_COLLECTION).doc(input.empresaId);
   const get = (ref: any) => input.tx ? input.tx.get(ref) : ref.get();
-  const [annexSnap, authoritySnap] = await Promise.all([get(annexRef), get(authorityRef)]);
+  const [annexSnap, authoritySnap, designationSnap] = await Promise.all([get(annexRef), get(authorityRef), get(designationRef)]);
+  const authority = authoritySnap.exists ? authoritySnap.data() : null;
+  const designation = designationSnap.exists ? designationSnap.data() : null;
+  const authorityWithCurrentDesignation = authority && designation && validarAutoridadContacto(authority, projectId, input.empresaId)
+    && validarDesignacionContactoActiva(designation, {
+      projectId, empresaId: input.empresaId, contactId: authority.contacto.id, channel: authority.contacto.canal,
+      designationRef: authority.contacto.designacionRef, designationAt: authority.contacto.designadoEn,
+      designationVersion: authority.contacto.designacionVersion,
+    }) ? authority : null;
   return crearSnapshotAnexoTenant({
     empresaId: input.empresaId,
     projectId,
     annexRecord: annexSnap.exists ? annexSnap.data() : null,
-    authority: authoritySnap.exists ? authoritySnap.data() : null,
+    authority: authorityWithCurrentDesignation,
     capacidadesContrato: input.capacidadesContrato,
   });
 }

@@ -19,6 +19,7 @@ const authority = {
   contacto: {
     id: "contact-synthetic-a",
     version: 2,
+    designacionVersion: 2,
     canal: "EMAIL_VERIFICADO",
     designacionRef: "evidence:designation-synthetic-a",
     pruebaCanalRef: "evidence:channel-synthetic-a",

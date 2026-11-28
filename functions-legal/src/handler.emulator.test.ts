@@ -40,7 +40,7 @@ test("Emulator: recibo contractual es atómico, append-only e idempotente ante c
   const relacionesRef = suscripcionRef.collection("relaciones");
 const annexAuthority = {
   schemaVersion: 1, projectId: "demo-legal-acceptance", empresaId, revision: 1, estado: "ACTIVO",
-  contacto: { id: `contact-${runId}`, version: 1, canal: "EMAIL_VERIFICADO", designacionRef: `designation:${runId}`, pruebaCanalRef: `channel:${runId}`, designadoEn: "2026-11-27T15:00:00.000Z", verificadoEn: "2026-11-27T15:05:00.000Z" },
+  contacto: { id: `contact-${runId}`, version: 1, designacionVersion: 1, canal: "EMAIL_VERIFICADO", designacionRef: `designation:${runId}`, pruebaCanalRef: `channel:${runId}`, designadoEn: "2026-11-27T15:00:00.000Z", verificadoEn: "2026-11-27T15:05:00.000Z" },
 };
 const annexRecord = {
   schemaVersion: 1, empresaId, revision: 1, estado: "VERIFICADO",
@@ -60,6 +60,15 @@ const dependencies = { db, bundle, projectId: "demo-legal-acceptance", getUser: 
     await membresiaRef.set({ empresaId, uid, rol: "admin", estado: "activa", activo: true });
     await suscripcionRef.set({ empresaId, revision: 1 });
     await db.collection("saas_export_contact_authorities").doc(empresaId).set(annexAuthority);
+    await db.collection("saas_export_contact_designations").doc(empresaId).set({
+      schemaVersion: 1, projectId: "demo-legal-acceptance", empresaId, revision: 1, estado: "ACTIVO",
+      canalVerificadoEn: "2026-11-27T15:05:00.000Z",
+      contacto: {
+        id: `contact-${runId}`, canal: "EMAIL_VERIFICADO", destino: "synthetic-contact@example.invalid",
+        referenciaDesignacion: `designation:${runId}`, designadoEn: "2026-11-27T15:00:00.000Z",
+        verificadoPorUid: "operator-synthetic",
+      },
+    });
     await db.collection("saas_legal_tenant_annexes").doc(empresaId).set(annexRecord);
     await relacionesRef.doc("_vigente").set({ relacionVigenteId: relacionId });
     await relacionesRef.doc(relacionId).set({ relacionId, empresaId, schemaVersion: 1, revision: 1, snapshotContrato });
@@ -98,7 +107,7 @@ const dependencies = { db, bundle, projectId: "demo-legal-acceptance", getUser: 
   } finally {
     const receipts = await empresaRef.collection("aceptacionesLegales").get();
     await Promise.all(receipts.docs.map((doc) => doc.ref.delete()));
-    await Promise.all([empresaAjenaRef.collection("aceptacionesLegales").doc("foreign").delete(), empresaRef.delete(), membresiaRef.delete(), relacionesRef.doc("_vigente").delete(), relacionesRef.doc(relacionId).delete(), suscripcionRef.delete(), db.collection("saas_export_contact_authorities").doc(empresaId).delete(), db.collection("saas_legal_tenant_annexes").doc(empresaId).delete()]);
+    await Promise.all([empresaAjenaRef.collection("aceptacionesLegales").doc("foreign").delete(), empresaRef.delete(), membresiaRef.delete(), relacionesRef.doc("_vigente").delete(), relacionesRef.doc(relacionId).delete(), suscripcionRef.delete(), db.collection("saas_export_contact_authorities").doc(empresaId).delete(), db.collection("saas_export_contact_designations").doc(empresaId).delete(), db.collection("saas_legal_tenant_annexes").doc(empresaId).delete()]);
     await deleteApp(app);
   }
 });
