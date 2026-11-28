@@ -41,7 +41,7 @@ test("las páginas públicas resuelven la misma versión y ruta del bundle vigen
   for (const [pageKey, documentId] of publicDocuments) {
     const document = obtenerDocumentoLegalPublico(pageKey);
     assert.equal(document.id, documentId);
-    assert.equal(document.version, "0.6");
+    assert.equal(document.version, "0.7");
     assert.equal(document.estado, "BORRADOR");
     assert.ok(document.rutaPublica.startsWith(`/legal/v${document.version}/`));
     assert.ok(readFileSync(resolve(repository, "public", document.rutaPublica.slice(1)), "utf8"));
