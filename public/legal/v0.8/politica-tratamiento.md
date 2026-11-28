@@ -209,7 +209,7 @@ sistemas. No se instala un banner que afirme cookies inexistentes.
 
 ## 6. Conservación y cambios
 
-Las categorías y plazos de esta versión 0.7 retoman decisiones operativas
+Las categorías y plazos de esta versión 0.8 retoman decisiones operativas
 propuestas inicialmente en el borrador 0.6, sujetas a revisión jurídica y a
 comprobar que el proceso pueda ejecutarlas. La fecha objetivo de release es el 15 de diciembre de 2026 a
 las 00:00, hora de Colombia. La fecha efectiva será la del release definitivo

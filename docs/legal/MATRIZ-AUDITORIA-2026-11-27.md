@@ -422,3 +422,17 @@ La aprobación jurídica/factual de los documentos sigue pendiente.
 - Los documentos v0.8 siguen en `PREPARACION/BORRADOR`, sin aprobación jurídica ni factual. Exportación/entrega con datos reales, supresión y conservación físicas, ciclo real de respaldos, canal de correo, Vercel comercial y mínimo privilegio IAM productivo siguen sin certificarse.
 
 **Dictamen actualizado: NO APROBADO PARA MERGE NI PARA RELEASE LEGAL PRODUCTIVO.** El check ahora está verde para el HEAD actual, pero CI no sustituye la resolución del grant `OWNER` no mapeado, la prueba de Storage que no puede ejecutarse sin bucket staging, ni las aprobaciones y verificaciones operativas pendientes. No se habilita la aceptación en producción ni se publican documentos definitivos.
+
+## Corrección de versión del bundle v0.8 — 2026-11-28 09:39 UTC
+
+- La fuente y el asset público de política v0.8 decían “esta versión 0.7” en
+  conservación, pese a que el catálogo identifica ambos como v0.8. Se corrigió
+  solo esa referencia; el contenido sustantivo, estado `BORRADOR`, fecha
+  objetivo y assets v0.7 permanecen sin cambio.
+- SHA-256 canónico UTF-8/LF de la política v0.8 y del asset correspondiente:
+  `22e17b3fff7d6c4c55300585f74492780399ad56e2e5e49e9a8977afffe0c1b4`. La
+  fuente, asset, catálogo y tabla de hashes de `REVISION-V0.8-2026-11-28.md`
+  coinciden.
+- `npm run test:legal-bundle`: 2/2 PASS; `git diff --check`: PASS. No hubo
+  despliegue; la corrección queda pendiente del CI del commit y de validación
+  factual/jurídica antes de cualquier publicación.

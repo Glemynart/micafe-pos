@@ -29,7 +29,7 @@ v0.7 se preservan sin cambios; v0.8 contiene copias exactas de las fuentes
 | Documento | SHA-256 UTF-8/LF |
 | --- | --- |
 | Términos | `efcd8eb2365386b8a4277fd7dd731895139fb0861fcc6dd2092fdcb2139d850b` |
-| Política de tratamiento | `31392c1b77adf5431e9c80a4b1c6619b893caaac8ebe96f6b85fab9965a1c802` |
+| Política de tratamiento | `22e17b3fff7d6c4c55300585f74492780399ad56e2e5e49e9a8977afffe0c1b4` |
 | Aviso de autorización | `5ab4a8e97dde0ee5d2b147d319c1a6d4de33a011615f8104f930d39d0144f47c` |
 | Anexo por tenant | `7b5b7107e7d1a0e0e77b8da5057eaf56bce0c0b0e02ffba2425be0f12396138b` |
 
