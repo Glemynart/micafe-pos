@@ -20,8 +20,9 @@ Estado: **BORRADOR / PREPARACIÓN. No está vigente ni es exigible. No es un con
 ## Estado de aprobación y publicación
 
 El bundle continúa `PREPARACION`; términos, política, aviso y anexo siguen en
-`BORRADOR`. La vista de staging observada aún sirve el build con rutas públicas
-v0.6; v0.7 no está publicado. Producción sigue con el contenido heredado en
+`BORRADOR`. En el corte original de esta revisión, staging servía un build con
+rutas públicas v0.6; la revalidación posterior está registrada al final de este
+documento. Producción sigue con el contenido heredado en
 `/terminos` y devuelve 404 para las otras tres rutas. No se desplegó ni se
 habilitó la aceptación legal real.
 
@@ -45,3 +46,33 @@ revisión humana del PR #706.
   el estado `BORRADOR/PREPARACION` ni habilita merge o publicación en producción.
 - No se desplegó v0.7 a staging ni producción, no se habilitó aceptación real,
   no hubo cambio IAM productivo, exportación ni supresión de datos reales.
+
+## Revalidación posterior de staging y CI — 2026-11-28
+
+- El backend `micafe-pos` de staging sirve `micafe-pos-build-2026-11-28-001`
+  con 100 % del tráfico. Las cuatro páginas legales responden HTTP 200, muestran
+  Dusema POS y `BORRADOR`, sin referencias a Café Atrato.
+- Los cuatro assets v0.7 responden HTTP 200. Tras normalizar finales de línea a
+  UTF-8/LF, sus bytes coinciden con los documentos del candidato: términos
+  `efcd8eb2365386b8a4277fd7dd731895139fb0861fcc6dd2092fdcb2139d850b`, política
+  `64207fef36b1fab0ae468c26852863a82b7ac4d3d7e86c975dde9d1eb7a6392a`, aviso
+  `5ab4a8e97dde0ee5d2b147d319c1a6d4de33a011615f8104f930d39d0144f47c` y anexo
+  `7b5b7107e7d1a0e0e77b8da5057eaf56bce0c0b0e02ffba2425be0f12396138b`.
+- El smoke actual `npm run e2e:privacy:staging` terminó **2/2 PASS** con
+  operador, negocio, cliente y caso sintéticos. Verificó tramitación/cierre,
+  aislamiento A/B, denegación sin facultad y limpieza. No prueba aceptación
+  contractual real ni aprobación jurídica.
+- PR #706 está en `f853104faee0fc4541c300890c2d9d918da58f5e`, sobre
+  `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`. CI run
+  [46105507227](https://github.com/Glemynart/micafe-pos/actions/runs/46105507227)
+  está en ejecución para ese SHA; el run anterior corresponde a otro commit.
+- Producción no cambió: `/terminos` responde 200 con contenido de Dusema y
+  referencias heredadas de Café Atrato; `/privacidad`, `/aviso-autorizacion` y
+  `/anexo-tratamiento` responden 404.
+- Los documentos siguen `BORRADOR` y el bundle `PREPARACION`. No se habilitó
+  aceptación, no se desplegó a producción, y no hubo exportación, supresión ni
+  cambio IAM productivo.
+
+El despliegue de v0.7 en staging corrige la afirmación del corte inicial que
+decía que solo se servía v0.6; no altera el gate de aprobación jurídica ni el
+estado del release productivo.

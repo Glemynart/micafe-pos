@@ -102,3 +102,31 @@ autenticado de staging indicado arriba.
 5. Supresión solo sintética/Emulator. No se verificaron lotes de datos reales, todos los sistemas de identidad/archivos/logs, retenciones legales ni el vencimiento real de copias.
 6. IAM productivo continúa con identidad runtime compartida y `roles/editor`. Falta inventario, simulación, permisos por codebase, dependencias de Scheduler y autorización para cualquier cambio productivo.
 7. La discrepancia productiva de rutas requiere un futuro release aprobado; no hacer despliegue del borrador actual.
+
+## Revalidación de staging y archivos — 2026-11-28
+
+- El SHA de la rama es `f853104faee0fc4541c300890c2d9d918da58f5e`; la base
+  `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b` no cambió. CI run
+  [46105507227](https://github.com/Glemynart/micafe-pos/actions/runs/46105507227)
+  está `in_progress` para ese SHA; no hay fallo confirmado. El run
+  `46103932241` corresponde al SHA anterior.
+- `npm run e2e:privacy:staging` terminó 2/2 PASS con datos sintéticos: login,
+  formulario, aislamiento A/B, registro, respuesta y cierre, denegación al
+  operador sin facultad y limpieza verificada.
+- App Hosting staging sirve `micafe-pos-build-2026-11-28-001` al 100 %. Las
+  rutas `/terminos`, `/privacidad`, `/aviso-autorizacion` y `/anexo-tratamiento`
+  devuelven 200, muestran Dusema POS y `BORRADOR`, sin Café Atrato.
+- Los cuatro assets `public/legal/v0.7/*.md` responden 200 en staging. Cada
+  contenido remoto coincide con el archivo local al normalizar los finales de
+  línea UTF-8/LF; los hashes canónicos corresponden al bundle `v0.7` de esta
+  rama. Se preservaron assets históricos v0.6.
+- El E2E de exportación ahora usa el Storage Emulator real junto con Firestore
+  Emulator: sube/lista/descarga por generación exacta un asset sintético,
+  verifica bytes y referencia, excluye el token y elimina el fixture. Las
+  pruebas locales relacionadas pasaron: 51/51 unitarias y 2/2 Emulator. CI
+  incorpora `--only firestore,storage`.
+- Producción continúa sin cambios: `/terminos` incluye contenido heredado de
+  Café Atrato y las otras tres rutas devuelven 404. No se hizo rollout legal.
+- PR #706 continúa abierto y en draft, sin reviews; el CI del SHA actual sigue
+  en curso. El smoke sintético pasó, pero los documentos siguen en borrador,
+  así que no se habilita aceptación ni release legal productivo.

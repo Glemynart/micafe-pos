@@ -339,3 +339,26 @@ Evidencias: [smoke autenticado](evidence/SMOKE-AUTENTICADO-STAGING-2026-11-27.md
 **Dictamen vigente: NO APROBADO PARA MERGE NI PARA RELEASE LEGAL PRODUCTIVO.** El CI verde registrado cubre `5b544e7`, anterior a este checkpoint; el nuevo commit y su CI exacta aún no existen. Además siguen sin revisión humana, aprobación jurídica/factual, ADR-SAAS-109 aprobado, canal/contacto exportador real, certificación de salida/supresión y cierre de IAM productivo.
 
 Evidencia operativa detallada de esta relectura: [CI, rutas, smoke e IAM — 2026-11-28](evidence/REVALIDACION-PR706-IAM-RUTAS-2026-11-28.md).
+
+## Revalidación posterior — 2026-11-28
+
+- PR #706 está en `f853104faee0fc4541c300890c2d9d918da58f5e`, basado en
+  `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`; el run CI
+  `46105507227` de ese SHA está en curso y no tiene fallo confirmado. El PR
+  sigue abierto/en draft y sin review registrada.
+- El smoke autenticado sintético de Backoffice en staging pasó 2/2. La nueva
+  cobertura de exportación sintética también pasó 51/51 unitarias y 2/2 con
+  Firestore+Storage Emulator; CI ahora inicia ambos emuladores para esa suite.
+- La revalidación posterior confirma que staging sirve `build-2026-11-28-001`
+  al 100 % y que las cuatro rutas públicas y cuatro assets v0.7 están
+  disponibles, con contenido/hash canónico coincidente, Dusema y `BORRADOR`.
+  Esto supersede la observación histórica anterior de que staging aún servía
+  v0.6.
+- Producción sigue sin cambios: `/terminos` contiene referencias heredadas a
+  Café Atrato; las otras tres rutas legales dan 404. Los documentos siguen en
+  `BORRADOR`/`PREPARACION`; exportación y supresión reales no están certificadas.
+- **Dictamen vigente: NO APROBADO PARA MERGE NI PARA RELEASE LEGAL PRODUCTIVO.**
+  Persisten aprobación factual/jurídica, el gate de ADR-SAAS-109, contacto y
+  canal verificables para exportar, certificación real de supresión/conservación,
+  IAM productivo y review final. Detalle en la
+  [revalidación operativa](evidence/REVALIDACION-PR706-IAM-RUTAS-2026-11-28.md).
