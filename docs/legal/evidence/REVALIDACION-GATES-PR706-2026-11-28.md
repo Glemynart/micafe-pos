@@ -118,3 +118,30 @@ sin cambios.
   cambian el estado `BORRADOR/PREPARACION` de los documentos ni autorizan su
   publicación productiva. El rollout automático de `main` hace que integrar el
   PR desplegaría ese borrador.
+
+## Remediación de dependencias y validación local — 2026-11-28T05:17Z
+
+- El audit previo al cambio detectó 4 vulnerabilidades moderadas en las
+  dependencias de runtime del lockfile raíz y 7 hallazgos en `functions`.
+  Actualizar Firestore dentro del rango ya declarado por `firebase-admin`
+  resolvió la cadena vulnerable de `google-gax`/`rimraf`/`glob`; no se usaron
+  overrides ni cambios de versión mayor en `package.json`.
+- Resoluciones de ambos lockfiles de runtime: `@google-cloud/firestore`
+  `9.3.1 → 9.4.1`, `@google-cloud/firestore-api` `0.2.0 → 0.7.1` y
+  `google-gax` actualizado a la rama `6.x`. En `functions`, también se actualizó
+  el `fast-xml-parser` vulnerable `5.11.2 → 5.12.1` dentro del rango resuelto.
+- `npm ci`, `npm run build`, `npx tsc --noEmit` y `npm run build:functions`
+  terminaron correctamente con Node.js 22. `npm --prefix functions ci`,
+  `npm --prefix functions run build` y `npm --prefix functions test` también
+  pasaron: 569 pruebas aprobadas, 27 marcadas como omitidas por sus requisitos
+  de Emulator. Las suites de bundle legal aprobaron 2/2; las suites de
+  herramientas/autorización/CLI de exportación aprobaron 51/51.
+- `npm audit --omit=dev` encontró cero vulnerabilidades en los lockfiles raíz,
+  `functions` y `functions-legal`. La auditoría completa del lockfile raíz aún
+  registra 23 moderadas en dependencias de desarrollo; el fix agregado de la
+  cadena Firebase CLI propone degradar `firebase-tools` desde 15.34.2 a
+  13.11.2, un cambio mayor que no se aplicó. Esto requiere triage separado y no
+  forma parte de los paquetes enviados al runtime.
+- La actualización es solo de lockfiles y no cambia código, infraestructura,
+  Rules, IAM ni datos. El CI de GitHub para el nuevo HEAD aún debe ejecutarse;
+  el job del commit anterior sigue pendiente y no valida estos lockfiles.
