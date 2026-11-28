@@ -306,3 +306,11 @@ Evidencias: [smoke autenticado](evidence/SMOKE-AUTENTICADO-STAGING-2026-11-27.md
 - Documentos: técnicamente disponibles en staging como borradores; aprobación jurídica/empresarial y verificación factual siguen pendientes. No se habilita aceptación real ni release legal en producción. Vercel comercial/retención y el ensayo de restauración también siguen abiertos.
 
 **Dictamen actualizado: NO APROBADO PARA MERGE.** El smoke visual ya no es un bloqueo técnico; permanecen la revisión humana, la reconciliación de alcance, documentos en borrador y gates de exportación, supresión/conservación, recuperación, contacto/canal, Vercel e IAM. No se desplegó ni modificó producción.
+
+## Revalidación de assets estáticos legales — 2026-11-28T00:10Z
+
+- Relectura GET de los cuatro archivos `/legal/v0.6/*.md` en staging: los cuatro devolvieron `200` con marcadores de borrador. En producción, `/legal/v0.6/terminos-servicio.md` devolvió `404`, y `/terminos` aún es la página de Café Atrato. Los assets de staging viven bajo `public/`; ocultar únicamente el componente de página no evitaría servir esas descargas si se publicara el candidato. Evidencia: [smoke visual staging, actualización de assets](evidence/SMOKE-VISUAL-PRIVACIDAD-STAGING-2026-11-27.md).
+- Gate de publicación: mantener #706 en draft y sin despliegue mientras los documentos sigan en `BORRADOR/PREPARACION` y no exista aprobación factual/jurídica. No se modificó producción ni se habilitó aceptación contractual.
+- PR #706 sigue OPEN/DRAFT en `3aff13e`, con CI `46083579381` exitoso para ese SHA; esta actualización documental aún requiere su CI exacta después del push.
+
+**Dictamen: NO APROBADO PARA MERGE NI PARA RELEASE LEGAL PRODUCTIVO.** La disponibilidad en staging es de revisión; no es autorización para publicar el bundle.

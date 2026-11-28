@@ -50,3 +50,23 @@ productiva.
 
 Producción no se modificó. Los cuatro documentos permanecen en preparación y
 no se habilita su aceptación contractual real.
+
+## Assets de descarga y gate de publicación — 2026-11-28T00:10Z
+
+GET read-only en staging a las cuatro fuentes estáticas del bundle devolvió
+HTTP 200; cada respuesta conserva el marcador `BORRADOR`/`PREPARACION`:
+
+| Asset | Staging |
+| --- | ---: |
+| `/legal/v0.6/terminos-servicio.md` | 200, borrador |
+| `/legal/v0.6/politica-tratamiento.md` | 200, borrador |
+| `/legal/v0.6/aviso-autorizacion.md` | 200, borrador |
+| `/legal/v0.6/anexo-tratamiento.md` | 200, borrador |
+
+La ruta productiva `/legal/v0.6/terminos-servicio.md` respondió 404 al mismo
+corte; `/terminos` continúa siendo la página heredada de Café Atrato. Los
+archivos están en `public/`, por lo que son descargas estáticas además de las
+páginas que muestran el aviso de borrador. Si se publica el candidato antes de
+la aprobación factual/jurídica, los cuatro textos quedan públicamente
+descargables. No se desplegó producción. Mantener el corte sin publicar hasta
+que los documentos sean aprobados.
