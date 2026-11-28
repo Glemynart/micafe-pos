@@ -21,6 +21,7 @@ export const navegacionPlataforma: ItemNavegacion[] = [
   { href: "/backoffice/soporte", label: "Soporte", icon: Headphones },
   { href: "/backoffice/privacidad", label: "Reclamos de privacidad", icon: ShieldCheck, facultad: "PRIVACIDAD_RECLAMOS_TRAMITAR" },
   { href: "/backoffice/consultas-privacidad", label: "Consultas de privacidad", icon: ShieldCheck, facultad: "PRIVACIDAD_CONSULTAS_TRAMITAR" },
+  { href: "/backoffice/contactos-exportacion", label: "Contacto de exportación", icon: ShieldCheck, facultad: "EXPORTACION_CONTACTO_GOBERNAR" },
   { href: "/backoffice/configuracion", label: "Configuración", icon: Settings },
 ];
 

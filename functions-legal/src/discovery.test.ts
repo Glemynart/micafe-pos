@@ -29,11 +29,12 @@ test("saas-legal descubre únicamente sus callables declaradas", async () => {
     await new Promise((done) => setTimeout(done, 100));
   }
   assert.ok(payload);
-  assert.deepEqual(Object.keys(payload.endpoints).sort(), ["aceptarDocumentosLegalesTenant", "consultarEstadoLegalTenant", "tramitarConsultaPrivacidadSaas", "tramitarReclamoPrivacidadSaas"]);
+  assert.deepEqual(Object.keys(payload.endpoints).sort(), ["aceptarDocumentosLegalesTenant", "administrarContactoExportacionSaas", "consultarEstadoLegalTenant", "tramitarConsultaPrivacidadSaas", "tramitarReclamoPrivacidadSaas"]);
   for (const endpoint of Object.values(payload.endpoints) as Array<{ serviceAccountEmail?: string }>) {
     assert.equal(endpoint.serviceAccountEmail, "saas-legal-runtime@micafe-pos-staging.iam.gserviceaccount.com");
   }
   assert.deepEqual(payload.endpoints.consultarEstadoLegalTenant.region, ["us-central1"]);
   assert.deepEqual(payload.endpoints.aceptarDocumentosLegalesTenant.region, ["us-central1"]);
+  assert.deepEqual(payload.endpoints.administrarContactoExportacionSaas.region, ["us-central1"]);
   assert.deepEqual(payload.params ?? [], []);
 });

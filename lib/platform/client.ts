@@ -14,6 +14,7 @@ export const FACULTADES_PLATAFORMA = [
   "PLATAFORMA_CONSULTAR",
   "ACCESO_RESTABLECER",
   "RELEASE_COMPRAS_GOBERNAR",
+  "EXPORTACION_CONTACTO_GOBERNAR",
   "PRIVACIDAD_RECLAMOS_TRAMITAR",
   "PRIVACIDAD_CONSULTAS_TRAMITAR",
   "DUSEMA_TENANT_CONSULTAR",
@@ -119,6 +120,27 @@ export const tramitarConsultaPrivacidad = (data: Record<string, string | boolean
   invocar<{ casoId: string; estado: ConsultaPrivacidad["estado"] | "REASIGNADA" }>("tramitarConsultaPrivacidadSaas", data);
 export const consultarConsultaPrivacidad = (casoId: string) =>
   invocar<ConsultaPrivacidad>("tramitarConsultaPrivacidadSaas", { accion: "CONSULTAR", casoId });
+
+export type EstadoContactoExportacion = "SIN_DESIGNACION" | "PENDIENTE_CANAL" | "ACTIVO" | "REVOCADO";
+export type ResumenContactoExportacion = {
+  revision: number;
+  estado: Exclude<EstadoContactoExportacion, "SIN_DESIGNACION">;
+  contactId: string;
+  channel: "EMAIL_VERIFICADO" | "WHATSAPP_VERIFICADO";
+  maskedDestination: string;
+  designationRef: string;
+  designatedAt: string;
+};
+export const administrarContactoExportacion = (data: Record<string, string | boolean>) =>
+  invocar<{
+    estado: EstadoContactoExportacion | "PENDIENTE_CANAL";
+    designacion?: ResumenContactoExportacion | null;
+    revision?: number;
+    challengeId?: string;
+    expiresAt?: string;
+    verified?: boolean;
+    revoked?: boolean;
+  }>("administrarContactoExportacionSaas", data);
 
 export const listarRecursos = (
   recurso: RecursoPlataforma,

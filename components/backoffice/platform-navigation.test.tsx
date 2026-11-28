@@ -21,3 +21,10 @@ test("la navegación no condiciona ofertas al proyecto de Firebase", () => {
   assert.equal(ofertas?.facultad, "COMERCIAL_GOBERNAR");
   assert.equal("stagingOnly" in (ofertas ?? {}), false);
 });
+
+test("solo muestra contactos de exportación al operador con facultad dedicada", () => {
+  const authorized = obtenerNavegacionVisible(facultad => facultad === "EXPORTACION_CONTACTO_GOBERNAR");
+  const denied = obtenerNavegacionVisible(() => false);
+  assert.equal(authorized.some(item => item.href === "/backoffice/contactos-exportacion"), true);
+  assert.equal(denied.some(item => item.href === "/backoffice/contactos-exportacion"), false);
+});

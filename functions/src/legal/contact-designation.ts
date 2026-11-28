@@ -72,13 +72,14 @@ export function createFirestoreContactDesignationRepository({ db, serverTimestam
       projectId: string; empresaId: string; operatorUid: string; contactId: string;
       channel: "EMAIL_VERIFICADO" | "WHATSAPP_VERIFICADO"; destination: string;
       designationRef: string; designationAt: string; confirmedInstruction: true;
-    }): Promise<number | null> {
+    }, authorize?: (tx: any) => Promise<void>): Promise<number | null> {
       if (!idPattern.test(input.projectId) || !idPattern.test(input.empresaId) || !idPattern.test(input.operatorUid)
         || !idPattern.test(input.contactId) || !["EMAIL_VERIFICADO", "WHATSAPP_VERIFICADO"].includes(input.channel)
         || !validDestination(input.channel, input.destination) || !refPattern.test(input.designationRef)
         || !validDate(input.designationAt) || input.confirmedInstruction !== true) return null;
       try {
         return await db.runTransaction(async (tx: any) => {
+          await authorize?.(tx);
           const root = rootRef(input.empresaId);
           const snap = await tx.get(root);
           const current = snap.exists ? snap.data() : null;
@@ -106,42 +107,48 @@ export function createFirestoreContactDesignationRepository({ db, serverTimestam
       } catch { return null; }
     },
 
-    async resolve(input: { projectId: string; empresaId: string; designationRef: string }) {
+    async resolve(input: { projectId: string; empresaId: string; designationRef: string }, authorize?: (tx: any) => Promise<void>) {
       try {
-        const snap = await rootRef(input.empresaId).get();
-        if (!snap.exists) return null;
-        const value = snap.data() as DesignacionContactoActiva;
-        if (value.schemaVersion !== 1 || value.projectId !== input.projectId || value.empresaId !== input.empresaId
-          || value.estado !== "PENDIENTE_CANAL" || !Number.isSafeInteger(value.revision) || value.revision < 1
-          || !value.contacto || !idPattern.test(value.contacto.id) || value.contacto.referenciaDesignacion !== input.designationRef
-          || !refPattern.test(value.contacto.referenciaDesignacion) || !validDate(value.contacto.designadoEn)
-          || !idPattern.test(value.contacto.verificadoPorUid) || !validDestination(value.contacto.canal, value.contacto.destino)) return null;
-        return {
-          projectId: value.projectId, empresaId: value.empresaId, contactId: value.contacto.id,
-          channel: value.contacto.canal, destination: value.contacto.destino,
-          designationRef: value.contacto.referenciaDesignacion, designationAt: value.contacto.designadoEn,
-          designationVersion: value.revision, designationVerified: true as const,
-        };
+        return await db.runTransaction(async (tx: any) => {
+          await authorize?.(tx);
+          const snap = await tx.get(rootRef(input.empresaId));
+          if (!snap.exists) return null;
+          const value = snap.data() as DesignacionContactoActiva;
+          if (value.schemaVersion !== 1 || value.projectId !== input.projectId || value.empresaId !== input.empresaId
+            || value.estado !== "PENDIENTE_CANAL" || !Number.isSafeInteger(value.revision) || value.revision < 1
+            || !value.contacto || !idPattern.test(value.contacto.id) || value.contacto.referenciaDesignacion !== input.designationRef
+            || !refPattern.test(value.contacto.referenciaDesignacion) || !validDate(value.contacto.designadoEn)
+            || !idPattern.test(value.contacto.verificadoPorUid) || !validDestination(value.contacto.canal, value.contacto.destino)) return null;
+          return {
+            projectId: value.projectId, empresaId: value.empresaId, contactId: value.contacto.id,
+            channel: value.contacto.canal, destination: value.contacto.destino,
+            designationRef: value.contacto.referenciaDesignacion, designationAt: value.contacto.designadoEn,
+            designationVersion: value.revision, designationVerified: true as const,
+          };
+        });
       } catch { return null; }
     },
 
-    async readSummary(projectId: string, empresaId: string) {
+    async readSummary(projectId: string, empresaId: string, authorize?: (tx: any) => Promise<void>) {
       try {
-        const snap = await rootRef(empresaId).get();
-        if (!snap.exists) return null;
-        const value = snap.data() as DesignacionContactoActiva;
-        if (value.schemaVersion !== 1 || value.projectId !== projectId || value.empresaId !== empresaId
-          || !Number.isSafeInteger(value.revision) || value.revision < 1 || !value.contacto
-          || !idPattern.test(value.contacto.id) || !["PENDIENTE_CANAL", "ACTIVO", "REVOCADO"].includes(value.estado)) return null;
-        const destination = typeof value.contacto.destino === "string" ? value.contacto.destino : "";
-        const maskedDestination = value.contacto.canal === "EMAIL_VERIFICADO"
-          ? destination.replace(/^(.).*(@.*)$/, "$1•••$2")
-          : destination.replace(/\d(?=\d{4})/g, "•");
-        return {
-          revision: value.revision, estado: value.estado, contactId: value.contacto.id,
-          channel: value.contacto.canal, maskedDestination, designationRef: value.contacto.referenciaDesignacion,
-          designatedAt: value.contacto.designadoEn,
-        };
+        return await db.runTransaction(async (tx: any) => {
+          await authorize?.(tx);
+          const snap = await tx.get(rootRef(empresaId));
+          if (!snap.exists) return null;
+          const value = snap.data() as DesignacionContactoActiva;
+          if (value.schemaVersion !== 1 || value.projectId !== projectId || value.empresaId !== empresaId
+            || !Number.isSafeInteger(value.revision) || value.revision < 1 || !value.contacto
+            || !idPattern.test(value.contacto.id) || !["PENDIENTE_CANAL", "ACTIVO", "REVOCADO"].includes(value.estado)) return null;
+          const destination = typeof value.contacto.destino === "string" ? value.contacto.destino : "";
+          const maskedDestination = value.contacto.canal === "EMAIL_VERIFICADO"
+            ? destination.replace(/^(.).*(@.*)$/, "$1•••$2")
+            : destination.replace(/\d(?=\d{4})/g, "•");
+          return {
+            revision: value.revision, estado: value.estado, contactId: value.contacto.id,
+            channel: value.contacto.canal, maskedDestination, designationRef: value.contacto.referenciaDesignacion,
+            designatedAt: value.contacto.designadoEn,
+          };
+        });
       } catch { return null; }
     },
 

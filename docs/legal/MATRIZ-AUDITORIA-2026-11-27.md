@@ -594,3 +594,31 @@ plan de pago.
 **Estado del corte:** prueba técnica sintética aprobada; operación real,
 proveedor, contacto/documento de instrucción, UI/callables, revisión jurídica,
 IAM productivo, Storage y release permanecen pendientes.
+
+## Operación sintética del contacto de exportación — implementación candidata, 2026-11-28
+
+- Se añadió la facultad explícita `EXPORTACION_CONTACTO_GOBERNAR`, fuera del
+  bootstrap por defecto, y la callable `administrarContactoExportacionSaas`.
+  Designación, consulta enmascarada, desafío de canal, verificación y revocación
+  revalidan la facultad y su versión; las escrituras decisivas vuelven a
+  autorizar dentro de la transacción de Firestore.
+- Backoffice añade `/backoffice/contactos-exportacion`, visible solo con esa
+  facultad. La pantalla avisa que acepta fixtures sintéticos; el formulario de
+  escritura se deshabilita fuera de Emulator. La callable también rechaza
+  escrituras salvo `FIRESTORE_EMULATOR_HOST` con proyecto `demo-*`, y los
+  fixtures solo admiten email `.invalid`. Ninguna respuesta muestra el destino
+  completo ni devuelve el código de verificación.
+- Sin proveedor configurado, iniciar el desafío falla cerrado; la prueba
+  sintética confirma que el desafío se marca fallido y se elimina su hash. En
+  las pruebas, el adapter stub se inyecta directamente y nunca envía mensajes.
+- Validación local del candidato: `npm --prefix functions-legal run build`,
+  `npm --prefix functions run build`, `npx tsc --noEmit`, `npm run build`,
+  `npm run test:backoffice-ui`, `npm --prefix functions-legal test` (35 pasan,
+  7 suites Emulator omitidas en esa ejecución sin Emulator) y ESLint focalizado
+  pasaron. `npm --prefix functions-legal run test:emulator` pasó 8/8. La
+  revisión final del diff, incluida esta entrada, pasó `git diff --check`.
+- No se desplegó el código, no se creó un contacto real, no se eligió proveedor,
+  no se enviaron mensajes y no se leyeron/exportaron/suprimieron datos reales.
+  La nueva pantalla no puede operar en staging/producción hasta un preflight
+  operativo separado y un canal aprobado. ADR-SAAS-105/111, revisión legal y
+  autorización exportadora real permanecen como gates independientes.

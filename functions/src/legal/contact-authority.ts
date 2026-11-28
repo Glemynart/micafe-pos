@@ -46,11 +46,11 @@ type PendingContactChallenge = {
 };
 
 export type ContactAuthorityRepository = {
-  createPending(input: Omit<PendingContactChallenge, "expectedVersion">): Promise<number | null>;
-  markDelivered(projectId: string, empresaId: string, challengeId: string, deliveryRef: string): Promise<boolean>;
-  markFailed(projectId: string, empresaId: string, challengeId: string): Promise<boolean>;
-  consume(input: { projectId: string; empresaId: string; challengeId: string; tokenSha256: string; now: string }): Promise<ContactAuthoritySnapshot | null>;
-  revoke(input: { projectId: string; empresaId: string; actorUid: string; eventId: string; now: string }): Promise<boolean>;
+  createPending(input: Omit<PendingContactChallenge, "expectedVersion">, authorize?: (tx: any) => Promise<void>): Promise<number | null>;
+  markDelivered(projectId: string, empresaId: string, challengeId: string, deliveryRef: string, authorize?: (tx: any) => Promise<void>): Promise<boolean>;
+  markFailed(projectId: string, empresaId: string, challengeId: string, authorize?: (tx: any) => Promise<void>): Promise<boolean>;
+  consume(input: { projectId: string; empresaId: string; challengeId: string; tokenSha256: string; now: string }, authorize?: (tx: any) => Promise<void>): Promise<ContactAuthoritySnapshot | null>;
+  revoke(input: { projectId: string; empresaId: string; actorUid: string; eventId: string; now: string }, authorize?: (tx: any) => Promise<void>): Promise<boolean>;
   readActive(projectId: string, empresaId: string): Promise<ContactAuthoritySnapshot | null>;
 };
 
@@ -64,8 +64,8 @@ export function createContactAuthorityWorkflow({
   createToken = () => randomBytes(32).toString("base64url"),
 }: {
   repository: ContactAuthorityRepository;
-  authorizeOperator: (input: { projectId: string; empresaId: string; operatorUid: string; action: "DESIGNATE" | "REVOKE" }) => Promise<boolean>;
-  resolveDesignation: (input: { projectId: string; empresaId: string; evidenceRef: string }) => Promise<ContactDesignation | null>;
+  authorizeOperator: (input: { projectId: string; empresaId: string; operatorUid: string; action: "DESIGNATE" | "VERIFY" | "REVOKE" }, tx?: any) => Promise<boolean>;
+  resolveDesignation: (input: { projectId: string; empresaId: string; evidenceRef: string }, authorize?: (tx: any) => Promise<void>) => Promise<ContactDesignation | null>;
   deliverChallenge: (input: { destination: string; channel: ContactDesignation["channel"]; challenge: string; idempotencyKey: string }) => Promise<{ reference: string }>;
   now?: () => number;
   createChallengeId?: () => string;
@@ -77,10 +77,15 @@ export function createContactAuthorityWorkflow({
   async function begin(input: { projectId: string; empresaId: string; operatorUid: string; evidenceRef: string }) {
     if (!idPattern.test(input.projectId) || !idPattern.test(input.empresaId) || !idPattern.test(input.operatorUid)
       || !refPattern.test(input.evidenceRef)) throw new Error("CONTACT_AUTHORITY_REQUEST_INVALID");
+    const authorize = async (tx?: any) => {
+      if (await authorizeOperator({ projectId: input.projectId, empresaId: input.empresaId, operatorUid: input.operatorUid, action: "DESIGNATE" }, tx) !== true) {
+        throw new Error("CONTACT_AUTHORITY_OPERATOR_UNAUTHORIZED");
+      }
+    };
     if (await authorizeOperator({ projectId: input.projectId, empresaId: input.empresaId, operatorUid: input.operatorUid, action: "DESIGNATE" }) !== true) {
       throw new Error("CONTACT_AUTHORITY_OPERATOR_UNAUTHORIZED");
     }
-    const designation = await resolveDesignation({ projectId: input.projectId, empresaId: input.empresaId, evidenceRef: input.evidenceRef });
+    const designation = await resolveDesignation({ projectId: input.projectId, empresaId: input.empresaId, evidenceRef: input.evidenceRef }, authorize);
     if (!designation || designation.projectId !== input.projectId || designation.empresaId !== input.empresaId
       || designation.designationVerified !== true || !idPattern.test(designation.contactId ?? "")
       || !["EMAIL_VERIFICADO", "WHATSAPP_VERIFICADO"].includes(designation.channel)
@@ -113,7 +118,7 @@ export function createContactAuthorityWorkflow({
       expiresAt: new Date(expiresAt).toISOString(),
       state: "PENDING",
     };
-    const expectedVersion = await repository.createPending(record);
+    const expectedVersion = await repository.createPending(record, authorize);
     if (!Number.isSafeInteger(expectedVersion) || expectedVersion! < 1) throw new Error("CONTACT_AUTHORITY_CHALLENGE_NOT_CREATED");
     let delivered: { reference: string };
     try {
@@ -125,18 +130,27 @@ export function createContactAuthorityWorkflow({
       });
       if (!delivered || !refPattern.test(delivered.reference ?? "")) throw new Error("DELIVERY_REFERENCE_INVALID");
     } catch {
-      await repository.markFailed(input.projectId, input.empresaId, challengeId).catch(() => false);
+      await repository.markFailed(input.projectId, input.empresaId, challengeId, authorize).catch(() => false);
       throw new Error("CONTACT_AUTHORITY_DELIVERY_FAILED");
     }
-    if (!await repository.markDelivered(input.projectId, input.empresaId, challengeId, delivered.reference)) {
+    if (!await repository.markDelivered(input.projectId, input.empresaId, challengeId, delivered.reference, authorize)) {
       throw new Error("CONTACT_AUTHORITY_DELIVERY_NOT_RECORDED");
     }
     return Object.freeze({ challengeId, expiresAt: record.expiresAt, expectedVersion });
   }
 
-  async function verify(input: { projectId: string; empresaId: string; challengeId: string; token: string }) {
-    if (!idPattern.test(input.projectId) || !idPattern.test(input.empresaId) || !idPattern.test(input.challengeId) || !tokenPattern.test(input.token)) {
+  async function verify(input: { projectId: string; empresaId: string; operatorUid: string; challengeId: string; token: string }) {
+    if (!idPattern.test(input.projectId) || !idPattern.test(input.empresaId) || !idPattern.test(input.operatorUid)
+      || !idPattern.test(input.challengeId) || !tokenPattern.test(input.token)) {
       throw new Error("CONTACT_AUTHORITY_CHALLENGE_INVALID");
+    }
+    const authorize = async (tx?: any) => {
+      if (await authorizeOperator({ projectId: input.projectId, empresaId: input.empresaId, operatorUid: input.operatorUid, action: "VERIFY" }, tx) !== true) {
+        throw new Error("CONTACT_AUTHORITY_OPERATOR_UNAUTHORIZED");
+      }
+    };
+    if (await authorizeOperator({ projectId: input.projectId, empresaId: input.empresaId, operatorUid: input.operatorUid, action: "VERIFY" }) !== true) {
+      throw new Error("CONTACT_AUTHORITY_OPERATOR_UNAUTHORIZED");
     }
     const current = now();
     if (!Number.isFinite(current)) throw new Error("CONTACT_AUTHORITY_CLOCK_INVALID");
@@ -146,13 +160,18 @@ export function createContactAuthorityWorkflow({
       challengeId: input.challengeId,
       tokenSha256: hashToken(input.token),
       now: new Date(current).toISOString(),
-    }).catch(() => null);
+    }, authorize).catch(() => null);
     if (!authority || !validarAutoridadContacto(authority, input.projectId, input.empresaId)) throw new Error("CONTACT_AUTHORITY_CHALLENGE_INVALID");
     return Object.freeze({ verified: true, contactId: authority.contacto.id, version: authority.contacto.version });
   }
 
   async function revoke(input: { projectId: string; empresaId: string; operatorUid: string }) {
     if (!idPattern.test(input.projectId) || !idPattern.test(input.empresaId) || !idPattern.test(input.operatorUid)) throw new Error("CONTACT_AUTHORITY_REQUEST_INVALID");
+    const authorize = async (tx?: any) => {
+      if (await authorizeOperator({ projectId: input.projectId, empresaId: input.empresaId, operatorUid: input.operatorUid, action: "REVOKE" }, tx) !== true) {
+        throw new Error("CONTACT_AUTHORITY_OPERATOR_UNAUTHORIZED");
+      }
+    };
     if (await authorizeOperator({ projectId: input.projectId, empresaId: input.empresaId, operatorUid: input.operatorUid, action: "REVOKE" }) !== true) {
       throw new Error("CONTACT_AUTHORITY_OPERATOR_UNAUTHORIZED");
     }
@@ -161,7 +180,7 @@ export function createContactAuthorityWorkflow({
     const timestamp = new Date(current).toISOString();
     if (!validDate(timestamp) || !await repository.revoke({
       projectId: input.projectId, empresaId: input.empresaId, actorUid: input.operatorUid, eventId: randomUUID(), now: timestamp,
-    })) throw new Error("CONTACT_AUTHORITY_NOT_ACTIVE");
+    }, authorize)) throw new Error("CONTACT_AUTHORITY_NOT_ACTIVE");
     return Object.freeze({ revoked: true });
   }
 
@@ -177,9 +196,10 @@ export function createFirestoreContactAuthorityRepository({ db, serverTimestamp 
   const versionId = (version: number) => `v${String(version).padStart(6, "0")}`;
 
   return Object.freeze({
-    async createPending(input) {
+    async createPending(input, authorize) {
       try {
         return await db.runTransaction(async (tx: any) => {
+          await authorize?.(tx);
           const root = tenantRef(input.empresaId);
           const challenge = challengeRef(input.empresaId, input.challengeId);
           const designation = designationRef(input.empresaId);
@@ -203,10 +223,11 @@ export function createFirestoreContactAuthorityRepository({ db, serverTimestamp 
         });
       } catch { return null; }
     },
-    async markDelivered(projectId, empresaId, challengeId, deliveryRef) {
+    async markDelivered(projectId, empresaId, challengeId, deliveryRef, authorize) {
       if (!refPattern.test(deliveryRef)) return false;
       try {
         return await db.runTransaction(async (tx: any) => {
+          await authorize?.(tx);
           const ref = challengeRef(empresaId, challengeId);
           const snap = await tx.get(ref);
           const value = snap.data();
@@ -222,9 +243,10 @@ export function createFirestoreContactAuthorityRepository({ db, serverTimestamp 
         });
       } catch { return false; }
     },
-    async markFailed(projectId, empresaId, challengeId) {
+    async markFailed(projectId, empresaId, challengeId, authorize) {
       try {
         return await db.runTransaction(async (tx: any) => {
+          await authorize?.(tx);
           const ref = challengeRef(empresaId, challengeId);
           const snap = await tx.get(ref);
           const value = snap.data();
@@ -237,9 +259,10 @@ export function createFirestoreContactAuthorityRepository({ db, serverTimestamp 
         });
       } catch { return false; }
     },
-    async consume(input) {
+    async consume(input, authorize) {
       try {
         return await db.runTransaction(async (tx: any) => {
+          await authorize?.(tx);
           const root = tenantRef(input.empresaId);
           const challenge = challengeRef(input.empresaId, input.challengeId);
           const designation = designationRef(input.empresaId);
@@ -295,9 +318,10 @@ export function createFirestoreContactAuthorityRepository({ db, serverTimestamp 
         });
       } catch { return null; }
     },
-    async revoke(input) {
+    async revoke(input, authorize) {
       try {
         return await db.runTransaction(async (tx: any) => {
+          await authorize?.(tx);
           const root = tenantRef(input.empresaId);
           const designation = designationRef(input.empresaId);
           const snap = await tx.get(root);

@@ -37,9 +37,9 @@ test("Emulator: private designation source binds one-use channel proof without c
   const workflow = createContactAuthorityWorkflow({
     repository,
     authorizeOperator: async ({ operatorUid }) => operatorUid === "operator-synthetic" ,
-    resolveDesignation: ({ projectId: requestedProject, empresaId: requestedTenant, evidenceRef }) => designations.resolve({
+    resolveDesignation: ({ projectId: requestedProject, empresaId: requestedTenant, evidenceRef }, authorize) => designations.resolve({
       projectId: requestedProject, empresaId: requestedTenant, designationRef: evidenceRef,
-    }),
+    }, authorize),
     deliverChallenge: async ({ destination, channel, challenge }) => {
       assert.equal(destination, "synthetic-contact@example.invalid");
       assert.equal(channel, "EMAIL_VERIFICADO");
@@ -63,7 +63,7 @@ test("Emulator: private designation source binds one-use channel proof without c
     assert.doesNotMatch(JSON.stringify(deliveryEvent.data()), /synthetic-contact@example\.invalid|A{20}/);
     assert.equal((await designationRoot.get()).data()?.contacto.destino, "synthetic-contact@example.invalid");
 
-    const verified = await workflow.verify({ projectId, empresaId, challengeId: challenge.challengeId, token: deliveredToken });
+    const verified = await workflow.verify({ projectId, empresaId, operatorUid: "operator-synthetic", challengeId: challenge.challengeId, token: deliveredToken });
     assert.deepEqual(verified, { verified: true, contactId: "contact-synthetic", version: 1 });
     const authority = await repository.readActive(projectId, empresaId);
     assert.equal(authority?.contacto.version, 1);
@@ -80,7 +80,7 @@ test("Emulator: private designation source binds one-use channel proof without c
     assert.equal(await ports.contactVersionIsActive({ project: projectId, tenant: empresaId, contactId: "contact-synthetic", version: 1 }), true);
     assert.equal(await ports.contactVersionIsActive({ project: projectId, tenant: empresaId, contactId: "contact-synthetic", version: 2 }), false);
 
-    await assert.rejects(workflow.verify({ projectId, empresaId, challengeId: challenge.challengeId, token: deliveredToken }), /CONTACT_AUTHORITY_CHALLENGE_INVALID/);
+    await assert.rejects(workflow.verify({ projectId, empresaId, operatorUid: "operator-synthetic", challengeId: challenge.challengeId, token: deliveredToken }), /CONTACT_AUTHORITY_CHALLENGE_INVALID/);
     await workflow.revoke({ projectId, empresaId, operatorUid: "operator-synthetic" });
     assert.equal(await repository.readActive(projectId, empresaId), null);
     assert.equal((await designationRoot.get()).data()?.contacto.destino, null);
