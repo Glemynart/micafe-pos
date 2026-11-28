@@ -412,3 +412,13 @@ proyecto no tiene ancestros Resource Manager ni configuración explícita de
 Data Access audit logs para Storage. El ruleset activo de `main` exige cero
 aprobaciones de GitHub; no hay review registrada, pero eso no es un gate formal.
 La aprobación jurídica/factual de los documentos sigue pendiente.
+
+## Revalidación final del candidato y rutas — 2026-11-28 08:54 UTC
+
+- PR #706 continúa `OPEN/DRAFT`, base `main@aa1c4fece1386edc6ba31b439a2be98ed9216d0b`, HEAD `565c4dc57ca9c7bc61ede1cdbb44c53a8d6c13d7`. El CI del SHA exacto, run `46126149854`, terminó `SUCCESS`; `Tipos y pruebas` reportó 129/129 pasos y `gh pr checks 706` confirmó `pass`. El estado de merge de GitHub es `CLEAN`, pero esto no cierra los gates jurídicos, factuales y operativos que siguen abajo.
+- El smoke `npm run e2e:privacy:staging` pasó 2/2 en Chromium contra staging build `485970a`: tramitó un reclamo sintético completo, comprobó aislamiento entre tenants y recibió `403` para un operador sin facultad. Los fixtures, el usuario Auth y los registros sintéticos fueron retirados y la propia prueba comprobó su ausencia.
+- GET anónimo revalidado en las cuatro rutas: staging devuelve `200` en `/terminos`, `/privacidad`, `/aviso-autorizacion` y `/anexo-tratamiento`; todas muestran Dusema y `BORRADOR`. Producción devuelve `/terminos` `200` con contenido heredado de Café Atrato y `404` para las otras tres rutas. No se desplegó ni escribió en producción.
+- ADR-SAAS-111 continúa `Propuesto`. El bucket productivo conserva los hallazgos de ACL registrados en la evidencia enlazada; en staging la lista del proyecto solo mostró buckets auxiliares de Functions y provisioning y no existe `micafe-pos-staging.firebasestorage.app`. Por eso no se probó la mitigación ACL/UBLA en bucket Firebase de staging. No se creó bucket ni se modificaron ACL, Rules o IAM.
+- Los documentos v0.8 siguen en `PREPARACION/BORRADOR`, sin aprobación jurídica ni factual. Exportación/entrega con datos reales, supresión y conservación físicas, ciclo real de respaldos, canal de correo, Vercel comercial y mínimo privilegio IAM productivo siguen sin certificarse.
+
+**Dictamen actualizado: NO APROBADO PARA MERGE NI PARA RELEASE LEGAL PRODUCTIVO.** El check ahora está verde para el HEAD actual, pero CI no sustituye la resolución del grant `OWNER` no mapeado, la prueba de Storage que no puede ejecutarse sin bucket staging, ni las aprobaciones y verificaciones operativas pendientes. No se habilita la aceptación en producción ni se publican documentos definitivos.
