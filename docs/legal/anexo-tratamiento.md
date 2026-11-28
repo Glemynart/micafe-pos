@@ -1,6 +1,6 @@
 # Anexo de tratamiento por cuenta del negocio — Dusema POS
 
-**BORRADOR 0.6 — revisión operativa 2026-11-26. No está vigente ni aceptado. Fecha objetivo de release: 2026-12-15, condicionada a cerrar los gates; si no se cierran, se aplaza.**
+**BORRADOR 0.7 — revisión operativa 2026-11-28. No está vigente ni aceptado. Fecha objetivo de release: 2026-12-15, condicionada a cerrar los gates; si no se cierran, se aplaza.**
 
 Este texto sirve para preparar un acuerdo de transmisión; no acredita que exista
 un contrato de transmisión vigente con un negocio ni con un proveedor. No debe

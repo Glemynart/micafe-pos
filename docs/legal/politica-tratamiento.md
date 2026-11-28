@@ -1,6 +1,6 @@
 # Política de tratamiento de datos personales — Dusema POS
 
-**BORRADOR / PREPARACIÓN 0.6 — revisión 2026-11-26. No está vigente ni es exigible. Fecha objetivo de release: 2026-12-15 00:00, hora de Colombia, condicionada a cerrar los gates; si no se cierran, se aplaza.**
+**BORRADOR / PREPARACIÓN 0.7 — revisión 2026-11-28. No está vigente ni es exigible. Fecha objetivo de release: 2026-12-15 00:00, hora de Colombia, condicionada a cerrar los gates; si no se cierran, se aplaza.**
 
 ## 1. Identidad y roles
 
@@ -206,9 +206,9 @@ sistemas. No se instala un banner que afirme cookies inexistentes.
 
 ## 6. Conservación y cambios
 
-Las categorías y plazos de esta versión son decisiones operativas seleccionadas
-para el borrador 0.6, sujetas a revisión jurídica y a comprobar que el proceso
-pueda ejecutarlas. La fecha objetivo de release es el 15 de diciembre de 2026 a
+Las categorías y plazos de esta versión 0.7 retoman decisiones operativas
+propuestas inicialmente en el borrador 0.6, sujetas a revisión jurídica y a
+comprobar que el proceso pueda ejecutarlas. La fecha objetivo de release es el 15 de diciembre de 2026 a
 las 00:00, hora de Colombia. La fecha efectiva será la del release definitivo
 posterior al cierre de los gates; si el release se aplaza, también se aplaza la
 vigencia. Publicar la política informativa no equivale a autorización personal ni

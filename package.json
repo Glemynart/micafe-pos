@@ -39,6 +39,7 @@
     "test:bodega-ui": "tsx --test lib/bodega/*.test.ts",
     "test:firebase-push-service-worker": "tsx --test lib/__tests__/firebase-push-service-worker.test.ts",
     "test:notifications-send": "tsx --test lib/notificaciones-push-endpoint.test.ts",
+    "test:legal-bundle": "tsx --test scripts/legal/legal-bundle.test.ts",
     "test:admin-service-worker": "tsx --test lib/__tests__/admin-service-worker.test.ts",
     "test:pwa-manifest": "tsx --test app/api/pwa/manifest/route.test.ts",
     "test:onboarding": "tsx --test lib/__tests__/onboarding.test.ts",

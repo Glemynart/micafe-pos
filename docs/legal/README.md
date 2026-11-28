@@ -1,17 +1,18 @@
 # Dusema POS — borradores legales
 
 Estado: **BORRADOR PARA REVISIÓN; NO VIGENTE NI EXIGIBLE COMO NUEVA VERSIÓN**.
-Preparación: 2026-11-23; revisiones documentales: 2026-11-25 y 2026-11-26. Versión de trabajo: `0.6`.
+Preparación: 2026-11-23; revisiones documentales: 2026-11-25, 2026-11-26 y 2026-11-28. Versión de trabajo: `0.7`.
 
 La revisión de términos, política, aviso y anexo del 2026-11-25 produjo la
 versión de trabajo `0.3`; las revisiones posteriores produjeron `0.4` y `0.5`.
 `0.2` a `0.5` permanecen como versiones históricas inmutables en sus rutas
-públicas. La `0.6` es el borrador vigente de trabajo, todavía no exigible.
+públicas. La `0.7` es el borrador vigente de trabajo, todavía no exigible; los
+assets `0.6` ya servidos en staging se conservan sin cambios.
 Véanse [hallazgos y fuentes](REVISION-2026-11.md) y
 [ADR-SAAS-099 aceptado para implementación](../../ADR-SAAS-099-aceptacion-legal-versionada.md).
 La revisión no cierra los pendientes ni convierte el texto en exigible.
 
-La [decisión operativa para el borrador 0.6](OPERACION-Y-CONSERVACION.md)
+La [decisión operativa inicialmente preparada para el borrador 0.6](OPERACION-Y-CONSERVACION.md)
 incorpora metadatos remotos de backups/regiones y fija objetivos por categoría
 para conservación y salida. Distingue esos objetivos de los ciclos observados
 de proveedores y de mecanismos todavía no implementados.
@@ -60,7 +61,8 @@ sintético. El mecanismo para tramitar reclamos reales está en el
    validación independiente ante DIAN.
 2. Definir tiempos reales de atención, disponibilidad y recuperación. No ofrecer
    un SLA, respaldo periódico o restauración garantizada sin evidencia operativa.
-3. Validar factual y técnicamente los plazos seleccionados en v0.6, implementar
+3. Validar factual y técnicamente los plazos seleccionados para v0.7 (propuestos
+   inicialmente en v0.6), implementar
    o asignar las tareas de salida/supresión y documentar los ciclos de copias.
    La ausencia de borrado automático actual no justifica conservación indefinida.
 4. Inventariar proveedores, destinatarios, países/regiones efectivos y contratos
@@ -174,3 +176,22 @@ jurídico integral ni capacidad de atención. Continúan pendientes los canales 
 archivo restringido, smoke autenticado positivo, acuerdos/alcance de proveedores,
 exportación real autorizada, supresión real, control de copias y revisión jurídica
 externa. Detalle y fuentes oficiales: [revisión v0.6](REVISION-V0.6-2026-11-26.md).
+
+## Revisión documental 0.7 — 2026-11-28
+
+La revisión v0.7 conserva los assets v0.6 que ya respondían en staging y genera
+una nueva ruta versionada para los cuatro borradores. Los términos explicitan
+que el POS no verifica edad ni bloquea una venta de bebidas alcohólicas; se
+contrastó con [Ley 124 de 1994, art. 1](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=291),
+[Decreto 120 de 2010](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=38680)
+y [Ley 1801 de 2016, art. 38](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=80538).
+La política, el aviso y el anexo no cambian sustantivamente en este corte; su
+versión se incrementa para mantener el bundle homogéneo.
+
+El bundle `dusema-pos-2026-11-v0.7` está en `PREPARACION` y sus cuatro
+documentos en `BORRADOR`. No se publicaron estos assets v0.7 en staging o
+producción, ni se habilitó la aceptación. La verificación automatizada compara
+las fuentes `docs/legal`, los assets públicos v0.7 y sus hashes UTF-8/LF.
+Esta revisión no es aprobación jurídica. Siguen abiertos los gates de exactitud
+factual, contratos/canales de proveedores, contacto/canal para exportación,
+supresión y conservación real, ADR-SAAS-109, IAM productivo y revisión humana.

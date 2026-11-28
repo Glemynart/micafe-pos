@@ -70,3 +70,15 @@ páginas que muestran el aviso de borrador. Si se publica el candidato antes de
 la aprobación factual/jurídica, los cuatro textos quedan públicamente
 descargables. No se desplegó producción. Mantener el corte sin publicar hasta
 que los documentos sean aprobados.
+
+## Repetición autenticada — 2026-11-28T00:56Z
+
+Se repitió `npm run e2e:privacy:staging` contra las Functions de staging y el
+Backoffice publicado. Resultado: **2/2 PASS (34.6 s)**. El primer escenario
+registró, consultó, respondió y cerró un reclamo sintético; comprobó separación
+entre tenants y limpió/verificó la eliminación de sus fixtures. El segundo
+confirmó denegación a un operador sin `PRIVACIDAD_RECLAMOS_TRAMITAR`.
+
+`gcloud run services describe` en staging mostró que App Hosting sirve
+`micafe-pos-build-2026-11-27-003` al 100 %. No se usó la sesión de Diana, no se
+tocó producción y no se publicaron los cambios locales nuevos de términos.

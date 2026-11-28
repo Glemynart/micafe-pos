@@ -96,6 +96,43 @@ El conjunto de metadatos es parcial: se observó Firestore en `southamerica-east
 No acredita por sí solo la ubicación de Auth, FCM, soporte, telemetría, réplicas,
 subencargados ni transferencias de cada dato personal.
 
+### 1.2 Revalidación read-only de expiraciones — 2026-11-28 01:05 UTC
+
+Consulta de metadatos en `micafe-pos` y `micafe-pos-staging`; no se leyó
+contenido de Firestore, Storage ni logs y no se creó/restauró/eliminó ningún
+recurso:
+
+- Firestore `(default)` de producción: `southamerica-east1`, PITR desactivado,
+  sin protección de borrado. El schedule diario de backup declara retención de
+  `3024000s` (35 días). La consulta listó 35/35 backups `READY` asociados a la
+  base `(default)`; sus `expireTime` declarados abarcan
+  `2026-11-28T09:42:31Z` a `2027-01-01T14:08:10Z`. El metadato `READY` y la fecha
+  programada no demuestran que los bytes hayan desaparecido tras expirar. No se
+  hizo una restauración real.
+- La base `(default)` de staging está en `us-central1`, PITR desactivado y sin
+  schedule de backups observado. Hay cuatro buckets de staging, pero no está
+  presente el bucket predeterminado `micafe-pos-staging.firebasestorage.app`.
+  Dos buckets auxiliares de Functions reportan soft delete de siete días; el
+  bucket `e2-2-prov` declara retención de 30 días más soft delete de siete días;
+  `e2-2-src` declara soft delete de siete días. Son políticas de metadatos, no
+  una prueba de ciclo de purga.
+- Los tres buckets productivos consultados están en `US-CENTRAL1` y declaran
+  soft delete de `604800s` (siete días), sin `retentionPolicy` bucket-level en
+  la respuesta consultada. El bucket Firebase `micafe-pos.firebasestorage.app`
+  reporta `publicAccessPrevention=inherited` y
+  `uniformBucketLevelAccess=false`; esta consulta no inspeccionó objetos,
+  ACLs, Rules ni elementos en soft delete.
+- Se observaron dos sinks/buckets globales de Logging: `_Default` con 30 días y
+  `_Required` con 400 días (locked). No se leyó contenido ni se clasificaron
+  campos personales; no se comprobó la existencia de copias externas fuera de
+  esos sinks.
+
+Los plazos anteriores describen el estado observado, no un plazo legal general
+ni una promesa de eliminación. La salida real sigue bloqueada hasta cerrar la
+clasificación por categoría, el inventario de copias/identidades/archivos/logs,
+la instrucción verificable del negocio y las pruebas autorizadas de restauración
+y supresión. La fecha de expiración del backup no equivale a borrado verificado.
+
 ## 2. Roles y solicitudes sobre datos
 
 El negocio tenant decide finalidades y medios esenciales de los datos que usa

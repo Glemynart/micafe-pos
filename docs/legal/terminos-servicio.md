@@ -1,6 +1,6 @@
 # Términos del servicio — Dusema POS
 
-**BORRADOR 0.6 — 2026-11-26. No está vigente ni es exigible. Fecha objetivo de release: 2026-12-15 00:00, hora de Colombia, condicionada a cerrar los gates; si no se cierran, se aplaza.**
+**BORRADOR 0.7 — 2026-11-28. No está vigente ni es exigible. Fecha objetivo de release: 2026-12-15 00:00, hora de Colombia, condicionada a cerrar los gates; si no se cierran, se aplaza.**
 
 ## 1. Prestador y contacto
 
@@ -95,6 +95,15 @@ Se prohíbe acceder a información de otros negocios, eludir controles, introduc
 contenido ilícito o usar la plataforma para actividades contrarias a la ley.
 El negocio responde por la licitud y exactitud de la información que registra,
 sin relevar al prestador de sus obligaciones propias de seguridad y tratamiento.
+
+El catálogo de Bodega puede incluir bebidas alcohólicas. Dusema POS no verifica
+la edad de quien compra ni bloquea una venta por edad. El negocio y quien
+materializa la venta deben impedir el expendio a personas menores de edad; si hay
+duda sobre la edad, deben exigir la cédula de ciudadanía. Registrar o imprimir
+una operación en el POS no acredita esa verificación ni sustituye las
+obligaciones aplicables a la venta ([Ley 124 de 1994, art. 1](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=291);
+[Decreto 120 de 2010](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=38680);
+[Ley 1801 de 2016, art. 38](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=80538)).
 
 ## 5. Datos del negocio y privacidad
 

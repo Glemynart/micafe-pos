@@ -326,6 +326,9 @@ jobs:
       - name: Autorización y validación del endpoint de notificaciones
         run: npm run test:notifications-send
 
+      - name: Integridad de documentos legales versionados
+        run: npm run test:legal-bundle
+
       - name: Aislamiento y protección de herramientas de salida de datos
         run: node --test scripts/legal/legal-tools.test.mjs scripts/legal/tenant-export-cli.test.mjs scripts/legal/export-authorization.test.mjs scripts/legal/export-approval-link.test.mjs
 

@@ -4,7 +4,7 @@ export type TipoDocumentoLegal = "CONTRACTUAL" | "INFORMATIVO";
 export interface DocumentoLegalVersionado {
   id: "terminos" | "politica-tratamiento" | "aviso-autorizacion" | "anexo-tratamiento";
   titulo: string;
-  version: "0.2" | "0.3" | "0.4" | "0.5" | "0.6";
+  version: "0.2" | "0.3" | "0.4" | "0.5" | "0.6" | "0.7";
   sha256: string;
   rutaPublica: string;
   tipo: TipoDocumentoLegal;
@@ -19,18 +19,18 @@ export interface BundleLegal {
 }
 
 /**
- * Huellas exactas de los borradores en public/legal/v0.6. El estado del bundle
+ * Huellas exactas de los borradores en public/legal/v0.7. El estado del bundle
  * evita presentarlos como documentos vigentes o exigibles.
  */
 export const BUNDLE_LEGAL_ACTUAL: BundleLegal = {
-  id: "dusema-pos-2026-11-v0.6",
+  id: "dusema-pos-2026-11-v0.7",
   estado: "PREPARACION",
   documentosContractualesRequeridos: ["terminos", "anexo-tratamiento"],
   documentos: [
-    { id: "terminos", titulo: "Términos del servicio", version: "0.6", sha256: "0f6509480588051f312b37e1bf352ff7c70721857f19ccd56b02640d53ffe059", rutaPublica: "/legal/v0.6/terminos-servicio.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
-    { id: "politica-tratamiento", titulo: "Política de tratamiento de datos personales", version: "0.6", sha256: "d48202440860a96cd6ae3428aee0272209fbfbd485cba92f8cc35e0a25f1e0ee", rutaPublica: "/legal/v0.6/politica-tratamiento.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
-    { id: "aviso-autorizacion", titulo: "Aviso de privacidad de Dusema POS", version: "0.6", sha256: "42e9338cae72059cad52aeb8c96e0e4946c0fadfd56dedfffa443bd50a7ea8dd", rutaPublica: "/legal/v0.6/aviso-autorizacion.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
-    { id: "anexo-tratamiento", titulo: "Anexo de tratamiento por cuenta del negocio", version: "0.6", sha256: "e8a9f52ade5ea2785bac7f2c79976b1d7d57ad73710d1b752ae5ed9a8cf87b6e", rutaPublica: "/legal/v0.6/anexo-tratamiento.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
+    { id: "terminos", titulo: "Términos del servicio", version: "0.7", sha256: "efcd8eb2365386b8a4277fd7dd731895139fb0861fcc6dd2092fdcb2139d850b", rutaPublica: "/legal/v0.7/terminos-servicio.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
+    { id: "politica-tratamiento", titulo: "Política de tratamiento de datos personales", version: "0.7", sha256: "64207fef36b1fab0ae468c26852863a82b7ac4d3d7e86c975dde9d1eb7a6392a", rutaPublica: "/legal/v0.7/politica-tratamiento.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
+    { id: "aviso-autorizacion", titulo: "Aviso de privacidad de Dusema POS", version: "0.7", sha256: "5ab4a8e97dde0ee5d2b147d319c1a6d4de33a011615f8104f930d39d0144f47c", rutaPublica: "/legal/v0.7/aviso-autorizacion.md", tipo: "INFORMATIVO", estado: "BORRADOR" },
+    { id: "anexo-tratamiento", titulo: "Anexo de tratamiento por cuenta del negocio", version: "0.7", sha256: "7b5b7107e7d1a0e0e77b8da5057eaf56bce0c0b0e02ffba2425be0f12396138b", rutaPublica: "/legal/v0.7/anexo-tratamiento.md", tipo: "CONTRACTUAL", estado: "BORRADOR" },
   ],
 };
 
